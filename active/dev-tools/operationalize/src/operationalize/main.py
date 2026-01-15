@@ -78,6 +78,39 @@ def load_taskdag(project_id):
     return "Project not found", 404
 
 
+@app.route("/rate_task/<task_id>", methods=["POST"])
+def rate_task(task_id):
+    """Rate the quality of work for a completed task.
+    
+    Expected JSON body:
+        rating: int (1-5)
+        feedback: str (optional)
+    """
+    task = None
+    for project in projects:
+        task = project.get_task_by_id(task_id)
+        if task is not None:
+            break
+    if task is None:
+        return "Task not found", 404
+    
+    request_data = request.get_json()
+    rating = request_data.get("rating")
+    feedback = request_data.get("feedback")
+    
+    if rating is None:
+        return "Rating is required", 400
+    
+    try:
+        rating = int(rating)
+    except (ValueError, TypeError):
+        return "Rating must be an integer", 400
+    
+    if task.rate(rating, feedback):
+        return f"Task rated {rating}/5", 200
+    return "Failed to rate task (task may not be completed)", 400
+
+
 @logger.catch
 def main():
     """Run the Flask web application."""

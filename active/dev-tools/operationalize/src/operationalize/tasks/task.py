@@ -28,6 +28,8 @@ class TaskDAG:  # pylint: disable=too-many-instance-attributes
         self.assigned_to = None
         self.printed = False
         self.output = None
+        self.rating = None  # Rating for the quality of work (1-5 scale)
+        self.rating_feedback = None  # Optional feedback for the rating
 
     def __deepcopy__(self, memo):
         cls = self.__class__
@@ -158,6 +160,27 @@ class TaskDAG:  # pylint: disable=too-many-instance-attributes
                 )
         else:
             logger.warning(f"No completion text for {self.name}")
+
+    def rate(self, rating, feedback=None):
+        """Rate the quality of work for a completed task.
+        
+        Args:
+            rating: Integer from 1-5 indicating quality (1=poor, 5=excellent)
+            feedback: Optional string with additional feedback
+            
+        Returns:
+            bool: True if rating was applied, False if task not completed
+        """
+        if not self.completed:
+            logger.warning(f"Cannot rate uncompleted task {self.name}")
+            return False
+        if not 1 <= rating <= 5:
+            logger.warning(f"Rating must be between 1 and 5, got {rating}")
+            return False
+        self.rating = rating
+        self.rating_feedback = feedback
+        logger.info(f"Task {self.name} rated {rating}/5")
+        return True
 
     def get_task_by_id(self, task_id):
         """Finds a task by its ID within the DAG."""
