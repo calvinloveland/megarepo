@@ -11,6 +11,7 @@ Development should be easy
 
 Reading code is harder than writing code
 - Make variable and function names descriptive
+- Avoid especially hard to read languages or systems like regex or shell scripting
 
 Out of date documentation is worse than no documentation
 
