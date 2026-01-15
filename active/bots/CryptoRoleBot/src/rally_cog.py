@@ -1,6 +1,4 @@
 import json
-import sys
-import traceback
 
 import discord
 from discord.ext import commands, tasks
@@ -8,53 +6,11 @@ from discord.utils import get
 
 import data
 import rally_api
+from base_cog import BaseCog
 
 
-class RallyCommands(commands.Cog):
-    def __init__(self, bot):
-        self.bot = bot
-
-    async def cog_command_error(self, ctx, error):
-        # This prevents any commands with local handlers being handled here in on_command_error.
-        if hasattr(ctx.command, "on_error"):
-            return
-
-        ignored = (commands.CommandNotFound,)
-
-        # Allows us to check for original exceptions raised and sent to CommandInvokeError.
-        # If nothing is found. We keep the exception passed to on_command_error.
-        error = getattr(error, "original", error)
-
-        # Anything in ignored will return and prevent anything happening.
-        if isinstance(error, ignored):
-            return
-
-        if isinstance(error, commands.DisabledCommand):
-            await ctx.send(f"{ctx.command} has been disabled.")
-
-        elif isinstance(error, commands.NoPrivateMessage):
-            try:
-                await ctx.author.send(
-                    f"{ctx.command} can not be used in Private Messages."
-                )
-            except discord.HTTPException:
-                pass
-
-        # For this error example we check to see where it came from...
-        elif isinstance(error, commands.BadArgument):
-            await ctx.send("Bad argument")
-
-        elif isinstance(error, commands.MissingRequiredArgument):
-            await ctx.send("Command missing arguments")
-
-        else:
-            # All other Errors not returned come here. And we can just print the default TraceBack.
-            print(
-                "Ignoring exception in command {}:".format(ctx.command), file=sys.stderr
-            )
-            traceback.print_exception(
-                type(error), error, error.__traceback__, file=sys.stderr
-            )
+class RallyCommands(BaseCog):
+    """Commands for managing Rally ID mappings."""
 
     @commands.command(name="set_rally_id", help="Set your rally id")
     async def set_rally_id(self, ctx, rally_id=None):

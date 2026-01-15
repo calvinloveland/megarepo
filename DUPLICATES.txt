@@ -1,0 +1,40 @@
+# Duplicate Code Analysis
+# Generated: 2026-01-15
+# Tool: jscpd via full-auto-ci
+# Overall: 3.36% duplication (920 lines / 27,360 total)
+
+## Action Required
+
+### CryptoRoleBot - cog_command_error duplication
+Location: active/bots/CryptoRoleBot/src/
+Files: rally_cog.py, role_cog.py, channel_cog.py, update_cog.py
+Lines: ~40 lines duplicated 4 times
+Action: Extract to BaseCog class with shared error handler
+Status: DONE - Created base_cog.py with BaseCog class
+
+### lets-holdem-together - bot form templates
+Location: active/games/lets-holdem-together/holdem_together/templates/
+Files: bot_detail.html, bot_new.html
+Lines: 122 + 101 = 223 lines duplicated
+Action: Extract shared form elements to partial template
+Status: TODO
+
+## Acceptable Duplication
+
+### Test file setup patterns
+- Various test files share similar setup/assertion patterns
+- This is acceptable for test isolation and readability
+- Consider pytest fixtures if patterns grow
+
+### devcontainer.json settings
+- Each project has similar VS Code configuration
+- Acceptable as projects may need different settings
+- Could template if more projects added
+
+### calnix rebuild.sh
+- Repeated command patterns within shell script
+- Acceptable for shell script clarity
+
+### full-auto-ci provider initialization
+- Similar init patterns in bamboo.py/jenkins.py (9 lines)
+- Acceptable as providers may diverge in future

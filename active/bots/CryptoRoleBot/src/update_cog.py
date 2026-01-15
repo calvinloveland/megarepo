@@ -1,6 +1,4 @@
 import json
-import sys
-import traceback
 import threading
 
 import discord
@@ -10,6 +8,7 @@ from discord.utils import get
 import data
 import rally_api
 import validation
+from base_cog import BaseCog
 
 
 async def grant_deny_channel_to_member(channel_mapping, member, balances):
@@ -72,57 +71,17 @@ async def grant_deny_role_to_member(role_mapping, member, balances):
             print("Removed role to member")
 
 
-class UpdateTask(commands.Cog):
+class UpdateTask(BaseCog):
+    """Background task for updating role/channel assignments."""
+
     def __init__(self, bot):
-        self.bot = bot
+        super().__init__(bot)
         self.update_lock = threading.Lock()
         self.update.start()
 
     @commands.Cog.listener()
     async def on_ready(self):
         print("We have logged in as {0.user}".format(self.bot))
-
-    async def cog_command_error(self, ctx, error):
-        # This prevents any commands with local handlers being handled here in on_command_error.
-        if hasattr(ctx.command, "on_error"):
-            return
-
-        ignored = (commands.CommandNotFound,)
-
-        # Allows us to check for original exceptions raised and sent to CommandInvokeError.
-        # If nothing is found. We keep the exception passed to on_command_error.
-        error = getattr(error, "original", error)
-
-        # Anything in ignored will return and prevent anything happening.
-        if isinstance(error, ignored):
-            return
-
-        if isinstance(error, commands.DisabledCommand):
-            await ctx.send(f"{ctx.command} has been disabled.")
-
-        elif isinstance(error, commands.NoPrivateMessage):
-            try:
-                await ctx.author.send(
-                    f"{ctx.command} can not be used in Private Messages."
-                )
-            except discord.HTTPException:
-                pass
-
-        # For this error example we check to see where it came from...
-        elif isinstance(error, commands.BadArgument):
-            await ctx.send("Bad argument")
-
-        elif isinstance(error, commands.MissingRequiredArgument):
-            await ctx.send("Command missing arguments")
-
-        else:
-            # All other Errors not returned come here. And we can just print the default TraceBack.
-            print(
-                "Ignoring exception in command {}:".format(ctx.command), file=sys.stderr
-            )
-            traceback.print_exception(
-                type(error), error, error.__traceback__, file=sys.stderr
-            )
 
     @commands.command(name="update", help="Force an immediate update")
     @validation.owner_or_permissions(administrator=True)

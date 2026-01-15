@@ -1,6 +1,4 @@
 import json
-import sys
-import traceback
 
 import discord
 from discord.ext import commands, tasks
@@ -10,53 +8,19 @@ import data
 import rally_api
 import update_cog
 import validation
+from base_cog import BaseCog
 
 
-class ChannelCommands(commands.Cog):
-    def __init__(self, bot):
-        self.bot = bot
+class ChannelCommands(BaseCog):
+    """Commands for managing channel-to-coin mappings."""
 
-    async def cog_command_error(self, ctx, error):
-        # This prevents any commands with local handlers being handled here in on_command_error.
-        if hasattr(ctx.command, "on_error"):
-            return
+    def get_missing_args_message(self) -> str:
+        return (
+            "Command missing arguments. Channel commands require coin name, "
+            "coin amount, and channel name. Example: set_channel_mapping STANZ 10 private-channel"
+        )
 
-        ignored = (commands.CommandNotFound,)
-
-        # Allows us to check for original exceptions raised and sent to CommandInvokeError.
-        # If nothing is found. We keep the exception passed to on_command_error.
-        error = getattr(error, "original", error)
-
-        # Anything in ignored will return and prevent anything happening.
-        if isinstance(error, ignored):
-            return
-
-        if isinstance(error, commands.DisabledCommand):
-            await ctx.send(f"{ctx.command} has been disabled.")
-
-        elif isinstance(error, commands.NoPrivateMessage):
-            try:
-                await ctx.author.send(
-                    f"{ctx.command} can not be used in Private Messages."
-                )
-            except discord.HTTPException:
-                pass
-
-        # For this error example we check to see where it came from...
-        elif isinstance(error, commands.BadArgument):
-            await ctx.send("Bad argument")
-
-        elif isinstance(error, commands.MissingRequiredArgument):
-            await ctx.send(
-                "Command missing arguments. Channel commands require coin name, coin amount, and channel name. Example: set_role_mapping STANZ 10 private-channel"
-            )
-
-        else:
-            # All other Errors not returned come here. And we can just print the default TraceBack.
-            print(
-                "Ignoring exception in command {}:".format(ctx.command), file=sys.stderr
-            )
-            traceback.print_exception(
+    @commands.command(
                 type(error), error, error.__traceback__, file=sys.stderr
             )
 

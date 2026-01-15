@@ -1,6 +1,4 @@
 import json
-import sys
-import traceback
 
 import discord
 from discord.ext import commands, tasks
@@ -10,55 +8,17 @@ import data
 import rally_api
 import update_cog
 import validation
+from base_cog import BaseCog
 
 
-class RoleCommands(commands.Cog):
-    def __init__(self, bot):
-        self.bot = bot
+class RoleCommands(BaseCog):
+    """Commands for managing role-to-coin mappings."""
 
-    async def cog_command_error(self, ctx, error):
-        # This prevents any commands with local handlers being handled here in on_command_error.
-        if hasattr(ctx.command, "on_error"):
-            return
-
-        ignored = (commands.CommandNotFound,)
-
-        # Allows us to check for original exceptions raised and sent to CommandInvokeError.
-        # If nothing is found. We keep the exception passed to on_command_error.
-        error = getattr(error, "original", error)
-
-        # Anything in ignored will return and prevent anything happening.
-        if isinstance(error, ignored):
-            return
-
-        if isinstance(error, commands.DisabledCommand):
-            await ctx.send(f"{ctx.command} has been disabled.")
-
-        elif isinstance(error, commands.NoPrivateMessage):
-            try:
-                await ctx.author.send(
-                    f"{ctx.command} can not be used in Private Messages."
-                )
-            except discord.HTTPException:
-                pass
-
-        # For this error example we check to see where it came from...
-        elif isinstance(error, commands.BadArgument):
-            await ctx.send("Bad argument")
-
-        elif isinstance(error, commands.MissingRequiredArgument):
-            await ctx.send(
-                "Command missing arguments. Role commands require coin name, coin amount, and role name. Example: set_role_mapping STANZ 10 Role1"
-            )
-
-        else:
-            # All other Errors not returned come here. And we can just print the default TraceBack.
-            print(
-                "Ignoring exception in command {}:".format(ctx.command), file=sys.stderr
-            )
-            traceback.print_exception(
-                type(error), error, error.__traceback__, file=sys.stderr
-            )
+    def get_missing_args_message(self) -> str:
+        return (
+            "Command missing arguments. Role commands require coin name, "
+            "coin amount, and role name. Example: set_role_mapping STANZ 10 Role1"
+        )
 
     @commands.command(
         name="set_role_mapping",
