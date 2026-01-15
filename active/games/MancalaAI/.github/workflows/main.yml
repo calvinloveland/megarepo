@@ -9,5 +9,5 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - run: python3 -m pip install -e .
-      - run: python3 -m pip install git+https://github.com/calvinloveland/lazy_ci.git
-      - run: lazy_ci
+      - run: python3 -m pip install git+https://github.com/calvinloveland/full-auto-ci.git
+      - run: full-auto-ci

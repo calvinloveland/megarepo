@@ -12,7 +12,6 @@ Generated: January 15, 2026
 | Project | Description | Language |
 |---------|-------------|----------|
 | **full-auto-ci** | CI automation tool | Python |
-| **lazy_ci** | CI tool (2 forks) | Python |
 | **cli-to-web** | Convert CLI tools to web interfaces | Python |
 | **operationalize** | Party game / development framework | Python |
 | **operationalize_vscode_ext** | VS Code extension for operationalize | JavaScript |
