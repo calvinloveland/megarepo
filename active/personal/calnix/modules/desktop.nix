@@ -39,11 +39,61 @@
     # Wayland/Sway specific
     grim # screenshot functionality
     slurp # screenshot functionality
+    swappy # screenshot annotation tool
+    wl-clipboard # clipboard support for screenshots
     rofi # launcher
     mako # notification system developed by swaywm maintainer
     swaybg # set background
     wluma # backlight control
     waybar # status bar with CPU and power monitoring
+
+    # Screenshot helper script
+    (writeShellScriptBin "screenshot" ''
+      # Usage: screenshot [region|window|full] [copy|save|edit]
+      # Defaults: region + edit
+      
+      MODE="''${1:-region}"
+      ACTION="''${2:-edit}"
+      SCREENSHOTS_DIR="$HOME/Pictures/Screenshots"
+      mkdir -p "$SCREENSHOTS_DIR"
+      FILENAME="$SCREENSHOTS_DIR/screenshot-$(date +%Y%m%d-%H%M%S).png"
+      
+      case "$MODE" in
+        region)
+          ${pkgs.grim}/bin/grim -g "$(${pkgs.slurp}/bin/slurp)" "$FILENAME"
+          ;;
+        window)
+          ${pkgs.grim}/bin/grim -g "$(${pkgs.slurp}/bin/slurp -d)" "$FILENAME"
+          ;;
+        full)
+          ${pkgs.grim}/bin/grim "$FILENAME"
+          ;;
+        *)
+          echo "Usage: screenshot [region|window|full] [copy|save|edit]"
+          exit 1
+          ;;
+      esac
+      
+      if [ ! -f "$FILENAME" ]; then
+        exit 1
+      fi
+      
+      case "$ACTION" in
+        copy)
+          ${pkgs.wl-clipboard}/bin/wl-copy < "$FILENAME"
+          rm "$FILENAME"
+          ${pkgs.libnotify}/bin/notify-send "Screenshot" "Copied to clipboard"
+          ;;
+        save)
+          ${pkgs.libnotify}/bin/notify-send "Screenshot" "Saved to $FILENAME"
+          ;;
+        edit)
+          ${pkgs.swappy}/bin/swappy -f "$FILENAME" -o "$FILENAME"
+          ${pkgs.wl-clipboard}/bin/wl-copy < "$FILENAME"
+          ${pkgs.libnotify}/bin/notify-send "Screenshot" "Saved and copied to clipboard"
+          ;;
+      esac
+    '')
 
     # Power monitoring tools for waybar
     powertop # Advanced power usage statistics
@@ -55,6 +105,7 @@
     firefox # browser
     google-chrome # Google has their hooks in me
     fortune-kind # good fortunes
+    libnotify # desktop notifications (used by screenshot script)
     libreoffice # Office suite for documents, spreadsheets, presentations
     naps2 # Document scanning workflow
     chirp # Radio programming tool
