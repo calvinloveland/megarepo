@@ -132,17 +132,29 @@ in
   # Common programs
   programs.fish.enable = true;
   programs.fish.shellInit = ''
-    if test -n "$LD_LIBRARY_PATH"
-      set -gx LD_LIBRARY_PATH ${usrLocalLibPathString}:$LD_LIBRARY_PATH
-    else
-      set -gx LD_LIBRARY_PATH ${usrLocalLibPathString}
+    # Add /usr/local/lib paths if not already present (prevents env bloat)
+    for libpath in ${usrLocalLibPathString}
+      if not string match -q "*:$libpath:*" ":$LD_LIBRARY_PATH:"
+        if test -n "$LD_LIBRARY_PATH"
+          set -gx LD_LIBRARY_PATH $libpath:$LD_LIBRARY_PATH
+        else
+          set -gx LD_LIBRARY_PATH $libpath
+        end
+      end
     end
   '';
   programs.ssh.startAgent = true;
   programs.neovim.enable = true;
 
   environment.extraInit = ''
-    export LD_LIBRARY_PATH=${usrLocalLibPathString}:''${LD_LIBRARY_PATH-}
+    # Add /usr/local/lib paths if not already present (prevents env bloat)
+    for _libpath in ${usrLocalLibPathString}; do
+      case ":''${LD_LIBRARY_PATH:-}:" in
+        *":$_libpath:"*) ;;
+        *) export LD_LIBRARY_PATH="$_libpath:''${LD_LIBRARY_PATH:-}" ;;
+      esac
+    done
+    unset _libpath
   '';
 
   # User configuration
