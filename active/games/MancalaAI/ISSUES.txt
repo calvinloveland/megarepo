@@ -1,0 +1,7 @@
+# Issues imported from github.com/calvinloveland/MancalaAI
+
+## Open Issues
+
+### #3 replace kerasrl with tinygrad
+
+### #1 add unit tests to prepare for switch away from keras

@@ -1,0 +1,36 @@
+# Issues imported from github.com/calvinloveland/calnix
+
+## Open Issues
+
+### #3 [bug] Epson ET-2850 scanner not detected
+Summary:
+- Epson ET-2850 remains invisible to SANE/NAPS2 even after enabling epkowa, epsonscan2, airscan, and custom dll.conf overrides.
+
+Steps to Reproduce:
+1. Plug the Epson ET-2850 (USB id 04b8:118b) into 1337book.
+2. Run `scanimage -L`.
+3. Optionally run `SANE_DEBUG_DLL=1 scanimage -L` and `sane-find-scanner`.
+
+Expected Result:
+- `scanimage -L` lists the ET-2850 via epkowa or epsonscan2 and NAPS2 can start a scan.
+
+Actual Result:
+- Only the laptop cameras show up (`v4l:/dev/video*`).
+- `SANE_DEBUG_DLL=1` never logs epkowa/epsonscan2 being loaded.
+- `sane-find-scanner` reports "Access denied (insufficient permissions)" for the Epson device even after adding the user to the scanner group and re-logging.
+
+Additional Context:
+- `lsusb` confirms the printer/scanner is attached: `04b8:118b Seiko Epson Corp. ET-2850`.
+- Config changes already made: enable SANE, add epkowa/epsonscan2 + udev rules, override `sane.d/dll.conf`, force `SANE_CONFIG_DIR=/etc/sane.d:/run/current-system/sw/etc/sane.d`.
+- Latest quick tests + `./rebuild.sh` completed successfully, so this seems isolated to runtime detection rather than build failures.
+
+### #2 Fix this
+`Press Enter to open https://github.com/login/device in your browser... 
+! Failed opening a web browser at https://github.com/login/device
+  exec: "xdg-open,x-www-browser,www-browser,wslview": executable file not found in $PATH
+  Please try entering the URL in your browser manually`
+
+## Closed Issues
+
+### #1 Remove gap and rounded corners for windows
+(completed)

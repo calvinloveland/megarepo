@@ -1,0 +1,8 @@
+# Issues imported from github.com/calvinloveland/lazy_ci
+# NOTE: lazy_ci has been superseded by full-auto-ci
+
+## Closed Issues
+
+### #4 Accept tool timeout as a config variable
+### #2 Handle configuration and CLI using ConfigArgParse
+### #1 (title truncated in API response)

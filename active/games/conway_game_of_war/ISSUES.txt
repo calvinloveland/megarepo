@@ -1,0 +1,23 @@
+# Issues imported from github.com/calvinloveland/conway_game_of_war
+
+## Open Issues
+
+### #24 Fix issue with board not correctly replacing itself on update
+
+### #20 fix this
+Uncaught TypeError: Cannot read properties of null (reading 'style')
+    at resizeGameBoard ((index):49:19)
+    at HTMLInputElement.oninput ((index):38:110)
+
+## Closed Issues
+
+### #21 Color player name to match board color
+### #18 Display player energy level
+### #16 Add an AI to play against
+### #14 add player select screen and only allow players to select their own tiles
+### #12 fix linting issues again
+### #10 fix linting issues
+### #8 Allow zooming into board game
+### #6 make the game board fill the window dynamically
+### #3 fix this
+### #1 Replace print statements with Loguru logging statements

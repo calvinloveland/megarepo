@@ -1,0 +1,26 @@
+# Issues imported from github.com/calvinloveland/operationalize
+
+## Open Issues
+
+### #19 (A) Add ability to rate previous work
+add the ability to rate the work of a previous task
+
+### #14 ISSUES ARE TRACKED IN TODO.txt
+
+## Closed Issues
+
+### #17 Fix pylint issues
+### #15 (AA) Add ability to save and restart TASKDAGs
+### #13 [META] Add issue tags to github repo
+### #12 [FEATURE] Failing a Test
+### #11 [FEATURE] Spectator View
+### #10 [FEATURE] Task Summary
+### #9 [FEATURE] WebSockets
+### #8 Run or evaluate code
+### #7 Code integration
+### #6 Allow arbitrary splitting / integrating
+### #5 Submit button not visible due to footer
+### #4 Task counting may be off
+### #3 Backslashes are added to code containing strings
+### #2 availabe should be available
+### #1 Monaco Editor
