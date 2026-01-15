@@ -21,7 +21,7 @@ from .git import GitTracker
 from .providers import BaseProvider, ProviderConfigError
 from .providers import registry as provider_registry
 from .ratchet import RatchetManager
-from .tools import Coverage, Lizard, Pylint, Tool, ToolRunner
+from .tools import Coverage, Jscpd, Lizard, Pylint, Tool, ToolRunner
 
 # Configure logging
 logging.basicConfig(
@@ -175,6 +175,17 @@ class CIService:
                 tools.append(Lizard(max_ccn=int(max_ccn)))
             else:
                 tools.append(Lizard())
+
+        jscpd_config = tools_config.get("jscpd", {})
+        if self._tool_enabled(jscpd_config, default=False):
+            tools.append(
+                Jscpd(
+                    min_lines=int(jscpd_config.get("min_lines", 5)),
+                    min_tokens=int(jscpd_config.get("min_tokens", 50)),
+                    threshold=float(jscpd_config.get("threshold", 0.0)),
+                    ignore=jscpd_config.get("ignore"),
+                )
+            )
 
         return ToolRunner(tools)
 

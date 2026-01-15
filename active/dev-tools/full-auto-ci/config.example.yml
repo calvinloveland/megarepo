@@ -52,6 +52,23 @@ tools:
       direction: "lower"
       tolerance: 0.0
 
+  jscpd:
+    enabled: false  # Requires: npm install -g jscpd
+    min_lines: 5
+    min_tokens: 50
+    threshold: 0.0  # 0 = report only, >0 = warn if exceeded
+    ignore:
+      - "**/node_modules/**"
+      - "**/.git/**"
+      - "**/venv/**"
+      - "**/__pycache__/**"
+    ratchet:
+      enabled: false
+      target: 0.0
+      metric: "summary.percentage"
+      direction: "lower"
+      tolerance: 0.0
+
 # Repository-specific configuration
 repositories:
   # Example repository configuration

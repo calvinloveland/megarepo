@@ -958,6 +958,188 @@ class Lizard(Tool):  # pylint: disable=too-few-public-methods
         return relative
 
 
+class Jscpd(Tool):  # pylint: disable=too-few-public-methods
+    """Duplicate code detection using jscpd (copy-paste detector)."""
+
+    def __init__(
+        self,
+        min_lines: int = 5,
+        min_tokens: int = 50,
+        threshold: float = 0.0,
+        ignore: Optional[List[str]] = None,
+    ):
+        """Initialize jscpd.
+
+        Args:
+            min_lines: Minimum lines in a clone block (default 5)
+            min_tokens: Minimum tokens in a clone block (default 50)
+            threshold: Maximum allowed duplication percentage (default 0.0 = report only)
+            ignore: List of glob patterns to ignore
+        """
+        super().__init__("jscpd")
+        self.min_lines = min_lines
+        self.min_tokens = min_tokens
+        self.threshold = threshold
+        self.ignore = ignore or ["**/node_modules/**", "**/.git/**", "**/venv/**", "**/__pycache__/**"]
+
+    def run(self, repo_path: str) -> Dict[str, Any]:
+        """Run jscpd duplicate detection.
+
+        Args:
+            repo_path: Path to the repository
+
+        Returns:
+            Duplicate detection results
+        """
+        start_time = time.perf_counter()
+
+        # Build command
+        cmd = [
+            "jscpd",
+            "--reporters", "json",
+            "--min-lines", str(self.min_lines),
+            "--min-tokens", str(self.min_tokens),
+            "--output", ".",
+        ]
+
+        for pattern in self.ignore:
+            cmd.extend(["--ignore", pattern])
+
+        cmd.append(".")
+
+        try:
+            process = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                check=False,
+                cwd=repo_path,
+            )
+        except FileNotFoundError:
+            message = (
+                "jscpd not found. Install via 'npm install -g jscpd' to enable "
+                "duplicate code detection."
+            )
+            logger.error(message)
+            return {"status": "error", "error": message}
+        except Exception as exc:  # pylint: disable=broad-except
+            logger.exception("Error running jscpd")
+            return {"status": "error", "error": str(exc)}
+
+        duration = time.perf_counter() - start_time
+
+        # Parse JSON output
+        json_path = os.path.join(repo_path, "jscpd-report.json")
+        if not os.path.exists(json_path):
+            # Try alternate location
+            json_path = os.path.join(repo_path, "report", "jscpd-report.json")
+
+        if not os.path.exists(json_path):
+            logger.warning("jscpd JSON report not found, parsing stdout")
+            return self._parse_stdout(process, duration)
+
+        try:
+            with open(json_path, "r", encoding="utf-8") as handle:
+                report = json.load(handle)
+        except (OSError, json.JSONDecodeError) as exc:
+            logger.error("Failed to parse jscpd JSON report: %s", exc)
+            return {
+                "status": "error",
+                "error": f"Failed to parse jscpd report: {exc}",
+                "duration": duration,
+            }
+        finally:
+            # Clean up report file
+            try:
+                os.remove(json_path)
+            except OSError:
+                pass
+
+        return self._build_result(report, duration)
+
+    def _parse_stdout(
+        self, process: subprocess.CompletedProcess, duration: float
+    ) -> Dict[str, Any]:
+        """Fallback parser for stdout when JSON report is unavailable."""
+        if process.returncode != 0 and not process.stdout:
+            return {
+                "status": "error",
+                "error": f"jscpd failed with return code {process.returncode}",
+                "stderr": process.stderr,
+                "duration": duration,
+            }
+
+        # Return basic success with no duplicates found
+        return {
+            "status": "success",
+            "summary": {
+                "total_lines": 0,
+                "total_tokens": 0,
+                "duplicated_lines": 0,
+                "duplicated_tokens": 0,
+                "percentage": 0.0,
+                "files_analyzed": 0,
+                "clones_found": 0,
+            },
+            "duplicates": [],
+            "duration": duration,
+        }
+
+    def _build_result(
+        self, report: Dict[str, Any], duration: float
+    ) -> Dict[str, Any]:
+        """Build result from jscpd JSON report."""
+        statistics = report.get("statistics", {})
+        total = statistics.get("total", {})
+        duplications = report.get("duplicates", [])
+
+        percentage = total.get("percentage", 0.0)
+        if isinstance(percentage, str):
+            percentage = float(percentage.rstrip("%"))
+
+        summary = {
+            "total_lines": total.get("lines", 0),
+            "total_tokens": total.get("tokens", 0),
+            "duplicated_lines": total.get("duplicatedLines", 0),
+            "duplicated_tokens": total.get("duplicatedTokens", 0),
+            "percentage": percentage,
+            "files_analyzed": total.get("sources", 0),
+            "clones_found": len(duplications),
+        }
+
+        # Format duplicates for output
+        formatted_duplicates = []
+        for dup in duplications[:20]:  # Limit to top 20
+            first_file = dup.get("firstFile", {})
+            second_file = dup.get("secondFile", {})
+            formatted_duplicates.append({
+                "lines": dup.get("lines", 0),
+                "tokens": dup.get("tokens", 0),
+                "first": {
+                    "file": first_file.get("name", "unknown"),
+                    "start": first_file.get("start", 0),
+                    "end": first_file.get("end", 0),
+                },
+                "second": {
+                    "file": second_file.get("name", "unknown"),
+                    "start": second_file.get("start", 0),
+                    "end": second_file.get("end", 0),
+                },
+                "fragment": dup.get("fragment", "")[:500],  # Truncate large fragments
+            })
+
+        status = "success"
+        if self.threshold > 0 and percentage > self.threshold:
+            status = "warning"
+
+        return {
+            "status": status,
+            "summary": summary,
+            "duplicates": formatted_duplicates,
+            "duration": duration,
+        }
+
+
 class ToolRunner:
     """Runner for multiple tools."""
 

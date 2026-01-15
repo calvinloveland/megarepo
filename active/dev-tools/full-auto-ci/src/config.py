@@ -75,6 +75,20 @@ class Config:
                     "tolerance": 0.0,
                 },
             },
+            "jscpd": {
+                "enabled": False,  # Disabled by default, requires npm install -g jscpd
+                "min_lines": 5,
+                "min_tokens": 50,
+                "threshold": 0.0,  # 0 = report only, >0 = fail if exceeded
+                "ignore": ["**/node_modules/**", "**/.git/**", "**/venv/**", "**/__pycache__/**"],
+                "ratchet": {
+                    "enabled": False,
+                    "metric": "summary.percentage",
+                    "direction": "lower",
+                    "target": 0.0,
+                    "tolerance": 0.0,
+                },
+            },
         },
         "dogfood": {
             "enabled": False,
