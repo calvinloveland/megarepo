@@ -1,9 +1,16 @@
+"""Module for finding and extracting TODO comments from project files."""
+
 import os
 
-from git import Repo
+from git import Repo  # pylint: disable=no-name-in-module
 
 
 def find_git_path_or_none():
+    """Find the .git directory path if it exists.
+    
+    Returns:
+        Path to .git directory or None if not found.
+    """
     project_root = os.path.dirname(os.getcwd())
     git_path = os.path.join(project_root, ".git")
     if os.path.exists(git_path):
@@ -12,6 +19,14 @@ def find_git_path_or_none():
 
 
 def find_relavent_files(search_path):
+    """Find all relevant source files to search for TODOs.
+    
+    Args:
+        search_path: Root directory to search.
+        
+    Returns:
+        List of file paths to search.
+    """
     file_types = [".py", ".html", ".js", ".css", ".md", ".txt"]
     git_path = find_git_path_or_none()
     print(f"Searching {search_path} for TODOs")
@@ -24,12 +39,18 @@ def find_relavent_files(search_path):
                     files_to_search.append(os.path.join(root, file))
 
     if git_path:
-        ignored_files = Repo(git_path).ignored(files_to_search)
+        repo = Repo(git_path)
+        ignored_files = repo.ignored(files_to_search)
         files_to_search = filter(lambda x: x not in ignored_files, files_to_search)
     return files_to_search
 
 
 def get_todos():
+    """Extract all TODO comments from relevant project files.
+    
+    Returns:
+        Sorted list of TODO strings with location information.
+    """
     todos = []
     search_path = os.path.dirname(os.getcwd())
     files_to_search = find_relavent_files(search_path)
@@ -46,20 +67,22 @@ def get_todos():
             if "TODO" in file:
                 todos.append(line.strip())
 
-    def custom_sorted(todos):
-        return sorted(todos, key=lambda todo: todo.replace(")", "~"))
+    def custom_sorted(todo_list):
+        return sorted(todo_list, key=lambda todo: todo.replace(")", "~"))
 
     todos = custom_sorted(todos)
     return todos
 
 
 def print_todos():
+    """Print all TODOs to stdout."""
     todos = get_todos()
     for todo in todos:
         print(todo)
 
 
 def coallate_todos():
+    """Collect all TODOs and write them to a TODO.txt file."""
     todos = get_todos()
     project_root = os.path.dirname(os.getcwd())
     todo_file = None
