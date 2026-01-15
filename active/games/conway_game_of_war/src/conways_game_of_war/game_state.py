@@ -265,10 +265,10 @@ class GameState:
 
         # Combat - if has unfriendly neighbor, cell dies
         in_combat = self._has_unfriendly_neighbor(x, y, cell.owner)
-        
+
         friendly_neighbors = cell.friendly_neighbors
         new_alive = cell.alive
-        
+
         if cell.immortal:
             pass  # immortal cells don't change
         elif in_combat and cell.alive:
@@ -282,7 +282,7 @@ class GameState:
                 new_alive = False
             elif friendly_neighbors > 3:
                 logger.debug(
-                    f"Cell at {x}, {y} is overpopulated with {friendly_neighbors} friendly neighbors"
+                    f"Cell at {x}, {y} overpopulated: {friendly_neighbors} neighbors"
                 )
                 new_alive = False
         else:
@@ -356,7 +356,7 @@ class GameState:
             # The cell dies if it has more than 3 friendly neighbors
             elif friendly_neighbors > 3:
                 logger.debug(
-                    f"Cell at {x}, {y} is overpopulated with {friendly_neighbors} friendly neighbors"
+                    f"Cell at {x}, {y} overpopulated: {friendly_neighbors} neighbors"
                 )
                 cell.alive = False
         else:
@@ -452,7 +452,8 @@ class GameState:
             xmin, ymin, xmax, ymax = 0, 0, self.board_size_x - 1, self.board_size_y - 1
 
         html = (
-            "<style>table {border-collapse: collapse;} td {padding: 0;} #game{transform-origin:0 0;}</style>"
+            "<style>table {border-collapse: collapse;} "
+            "td {padding: 0;} #game{transform-origin:0 0;}</style>"
             f"<table id='game' data-bbox-xmin='{xmin}' data-bbox-ymin='{ymin}' "
             f"data-bbox-xmax='{xmax}' data-bbox-ymax='{ymax}' data-cell-px='{CELL_PX}' "
             f"data-board-w='{self.board_size_x}' data-board-h='{self.board_size_y}'>"
