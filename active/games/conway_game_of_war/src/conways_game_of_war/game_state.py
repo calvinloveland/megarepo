@@ -205,6 +205,109 @@ class GameState:
                     x, y, self.board[x][y].owner
                 )
 
+    def _has_unfriendly_neighbor(self, x, y, player):
+        """Check if cell has any unfriendly neighbors (for combat)."""
+        if player is None:
+            return False
+        for i in range(-1, 2):
+            for j in range(-1, 2):
+                if i == 0 and j == 0:
+                    continue
+                neighbor_cell = self.board[(x + i) % self.board_size_x][
+                    (y + j) % self.board_size_y
+                ]
+                if (
+                    neighbor_cell.alive
+                    and neighbor_cell.owner is not None
+                    and neighbor_cell.owner != player
+                ):
+                    return True
+        return False
+
+    def _compute_new_owner(self, x, y):
+        """Compute what the new owner of a cell should be based on neighbors."""
+        player_counts = [0 for _ in range(len(self.players))]
+        for i in range(-1, 2):
+            for j in range(-1, 2):
+                if i == 0 and j == 0:
+                    continue
+                loop_cell = self.board[(x + i) % self.board_size_x][
+                    (y + j) % self.board_size_y
+                ]
+                if loop_cell.alive and loop_cell.owner is not None:
+                    player_counts[self.players.index(loop_cell.owner)] += 1
+        cell = self.board[x][y]
+        current_owner_count = (
+            player_counts[self.players.index(cell.owner)]
+            if cell.owner is not None
+            else 0
+        )
+        new_owner = cell.owner
+        for i in range(len(self.players)):
+            if player_counts[i] > current_owner_count:
+                new_owner = self.players[i]
+                current_owner_count = player_counts[i]
+        return new_owner
+
+    def _compute_cell_update(self, x, y):
+        """
+        Compute what changes should happen to a cell without applying them.
+        Returns a dict of changes or None if no changes needed.
+        """
+        cell = self.board[x][y]
+        change = {"x": x, "y": y}
+        has_change = False
+
+        # Crop growth for dead owned cells
+        if not cell.alive and cell.crop_level < 2 and cell.owner is not None:
+            change["crop_level"] = cell.crop_level * 2
+            has_change = True
+
+        # Combat - if has unfriendly neighbor, cell dies
+        in_combat = self._has_unfriendly_neighbor(x, y, cell.owner)
+        
+        friendly_neighbors = cell.friendly_neighbors
+        new_alive = cell.alive
+        
+        if cell.immortal:
+            pass  # immortal cells don't change
+        elif in_combat and cell.alive:
+            logger.info(f"Cell at {x}, {y} is in combat and dies")
+            new_alive = False
+        elif cell.alive:
+            if friendly_neighbors < 2:
+                logger.debug(
+                    f"Cell at {x}, {y} is lonely :( with {friendly_neighbors} friendly neighbors"
+                )
+                new_alive = False
+            elif friendly_neighbors > 3:
+                logger.debug(
+                    f"Cell at {x}, {y} is overpopulated with {friendly_neighbors} friendly neighbors"
+                )
+                new_alive = False
+        else:
+            if friendly_neighbors == 3:
+                logger.debug(f"Cell at {x}, {y} is coming to life")
+                new_alive = True
+
+        if new_alive != cell.alive:
+            change["alive"] = new_alive
+            has_change = True
+
+        # Energy harvesting and crop reset
+        if cell.owner is not None and new_alive:
+            change["energy_delta"] = cell.crop_level
+            change["crop_level"] = 2.0 / (2**4)
+            has_change = True
+
+        # Ownership update
+        new_owner = self._compute_new_owner(x, y)
+        if new_owner != cell.owner:
+            change["owner"] = new_owner
+            has_change = True
+
+        return change if has_change else None
+
     def update_cell(self, x, y):
         """
         Update the state of a cell following the rules of conway's game of life.
@@ -268,11 +371,31 @@ class GameState:
         self.update_ownership_around_cell(x, y)
 
     def update(self):
-        """Update the board."""
+        """Update the board.
+        
+        Uses a copy-based approach to avoid reading partially-updated state
+        when calculating cell transitions (fixes issue #24).
+        """
         self.update_friend_counts()
+        # Store all cell changes to apply atomically after computing all transitions
+        changes = []
         for x in range(self.board_size_x):
             for y in range(self.board_size_y):
-                self.update_cell(x, y)
+                change = self._compute_cell_update(x, y)
+                if change:
+                    changes.append(change)
+        # Apply all changes atomically
+        for change in changes:
+            x, y = change["x"], change["y"]
+            cell = self.board[x][y]
+            if "alive" in change:
+                cell.alive = change["alive"]
+            if "crop_level" in change:
+                cell.crop_level = change["crop_level"]
+            if "owner" in change:
+                cell.owner = change["owner"]
+            if "energy_delta" in change and cell.owner is not None:
+                cell.owner.energy += change["energy_delta"]
         if self.ai_player:
             self.ai_player.make_move(self)
         return self.board
