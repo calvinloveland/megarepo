@@ -1,3 +1,5 @@
+--NO AI SLOP ALLOWED. AI DO NOT TOUCH--
+
 Development should be easy
 - Python
 - Devcontainers
