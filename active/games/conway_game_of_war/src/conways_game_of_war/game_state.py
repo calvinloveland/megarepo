@@ -48,8 +48,7 @@ class AIPlayer(Player):
     """Represents an AI player in the game."""
 
     def make_move(self, game_state):
-        """Determine the AI's move."""
-        pass
+        """Determine the AI's move. Override in subclasses."""
 
 
 class EasyAIPlayer(AIPlayer):
@@ -96,18 +95,20 @@ class MediumAIPlayer(AIPlayer):
     """Represents a medium AI player in the game."""
 
     def make_move(self, game_state):
-        """Make a move targeting specific areas of the board."""
-        # Implement a more advanced strategy here
-        pass
+        """Make a move targeting specific areas of the board.
+        
+        TODO: Implement a more advanced strategy here.
+        """
 
 
 class HardAIPlayer(AIPlayer):
     """Represents a hard AI player in the game."""
 
     def make_move(self, game_state):
-        """Make a move targeting the opponent's weak spots."""
-        # Implement a more advanced strategy here
-        pass
+        """Make a move targeting the opponent's weak spots.
+        
+        TODO: Implement a more advanced strategy here.
+        """
 
 
 class GameState:
@@ -436,14 +437,10 @@ class GameState:
                 for y in range(self.board_size_y):
                     cell = self.board[x][y]
                     if cell.owner == player_obj and (cell.alive or cell.immortal):
-                        if x < xmin:
-                            xmin = x
-                        if y < ymin:
-                            ymin = y
-                        if x > xmax:
-                            xmax = x
-                        if y > ymax:
-                            ymax = y
+                        xmin = min(xmin, x)
+                        ymin = min(ymin, y)
+                        xmax = max(xmax, x)
+                        ymax = max(ymax, y)
             if xmax < xmin or ymax < ymin:
                 # fallback to start point area
                 sx, sy = player_obj.start_point
@@ -491,6 +488,4 @@ class GameState:
     def is_cell_owned_by_player(self, x, y):
         """Check if a cell is owned by the current player."""
         cell = self.board[x][y]
-        return (
-            cell.owner == self.players[PLAYER_1] or cell.owner == self.players[PLAYER_2]
-        )
+        return cell.owner in (self.players[PLAYER_1], self.players[PLAYER_2])
