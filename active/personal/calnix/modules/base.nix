@@ -86,6 +86,7 @@ in
     git # version control
     gh # github cli w/ copilot
     wl-clipboard # wl-copy and wl-paste for copy/paste from stdin / stdout
+    xdg-utils # xdg-open for opening URLs/files with default applications
 
     # Archive tools
     zip
