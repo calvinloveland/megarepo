@@ -1,0 +1,83 @@
+body {
+    background-image: url("background.jpg");
+    margin: 0px;
+    font-family: sans-serif;
+}
+
+.quarter {
+    width: 24%;
+}
+
+.three-quarters {
+    width: 75%;
+}
+
+#main {
+    width: 90%;
+    margin: 15px 5%;
+    background-color: #fff;
+}
+
+#header {
+    color: #fff;
+    background-color: #2f2f2f;
+    padding: 0px 5px;
+    text-align: center;
+    height: 50px;
+}
+
+#header span {
+    display: inline-block;
+    padding: 15px 1%;
+}
+
+#header span:hover {
+    background-color: #0e1717;
+}
+#header a{
+    color:#fff;
+}
+
+#body {
+    color: #1c2f2f;
+    margin: auto;
+    margin-top: 3%;
+    text-align: center;
+    padding-bottom: 3%;
+}
+
+#body > span {
+    text-shadow: 2px 2px 2px #000;
+    font-size: 3em;
+    position: relative;
+    top: -42px;
+}
+
+#body > img {
+    box-shadow: 5px 5px 15px #0e1717;
+}
+
+.title-line {
+    margin-left: 2%;
+}
+
+#disclaimer {
+    text-align: center;
+    color: red;
+}
+
+#profile {
+    border: 2px solid #fff;
+    width: 12%;
+    border-radius: 50%;
+}
+#resume{
+    text-align: left;
+    margin: 5%;
+}
+#contact{
+    text-align: left;
+    margin-left: auto;
+    margin-right: auto;
+    width: 25%;
+}

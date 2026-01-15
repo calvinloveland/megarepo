@@ -1,0 +1,50 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "operationalize"
+authors = [{ name = "Calvin Loveland", email = "calvin@loveland.dev" }]
+description = "Setup an environment just how I like"
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+  "Programming Language :: Python :: 3.8",
+  "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+  "Operating System :: OS Independent",
+]
+dependencies = ["distro",
+"pyfiglet",
+"tqdm",
+"loguru",
+"flask",
+"GitPython",
+"prospector",
+"black",
+"lazy_ci @ git+https://github.com/calvinloveland/lazy_ci.git"]
+dynamic = ["version"]
+
+[project.scripts]
+"operationalize" = "operationalize.main:main"
+
+[project.urls]
+"Issue Tracker" = "https://github.com/calvinloveland/operationalize/issues"
+"Repository" = "https://github.com/calvinloveland/operationalize"
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.hatch.version]
+path = "src/operationalize/__about__.py"
+
+[tool.hatch.build]
+include = [
+  "/src",
+]
+exclude = [
+  "/.github",
+  "/docs",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/operationalize"]

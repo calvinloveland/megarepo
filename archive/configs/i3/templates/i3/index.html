@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+
+{%block content%}
+    <h1 style="color: white; text-align: center; ">Welcome to Isolated Intergalactic Incident!</h1>
+    <p style="color: white; text-align: center; ">Your crew has abandoned you and taken the only escape pod
+    to space vegas. You are alone with only your wits to get you home.
+    Single-handedly get yourself back to Earth</p>
+    <div style="text-align: center" class = "button">
+       <a href="{% url 'i3:wc' %}"><button type="button">Begin</button> </a>
+    </div>
+{%endblock%}

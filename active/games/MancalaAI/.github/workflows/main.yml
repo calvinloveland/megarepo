@@ -1,0 +1,13 @@
+name: CI
+
+on: [push]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+      - run: python3 -m pip install -e .
+      - run: python3 -m pip install git+https://github.com/calvinloveland/lazy_ci.git
+      - run: lazy_ci

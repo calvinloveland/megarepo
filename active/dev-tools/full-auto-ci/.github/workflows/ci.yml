@@ -1,0 +1,19 @@
+name: Full Auto CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  dogfood:
+    name: Dogfood Full Auto CI
+    runs-on: ubuntu-latest
+    container: python:3.10
+    steps:
+    - uses: actions/checkout@v4
+    - run: pip install .
+    - run: full-auto-ci dogfood
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

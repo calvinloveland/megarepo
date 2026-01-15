@@ -1,0 +1,5 @@
+Make project management incredibly independent from the people doing the managing.
+It should be possible to pass on the project to someone else without having to explain ANYTHING.
+It should be possible to take over a project without having to ask ANYTHING.
+Tacit Knowledge should be avoided at all costs.
+

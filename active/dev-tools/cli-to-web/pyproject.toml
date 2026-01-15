@@ -1,0 +1,49 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "cli-to-web"
+authors = [{ name = "Calvin Loveland", email = "calvin@loveland.dev" }]
+description = "Automatically give CLI tools a web interface"
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+  "Programming Language :: Python :: 3.8",
+  "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+  "Operating System :: OS Independent",
+]
+dependencies = [
+"flask",
+"pytest",
+"tqdm",
+"loguru",
+"GitPython",
+"pylint",
+"lizard",
+"black",
+"bump-my-version",
+"ConfigArgParse"]
+dynamic = ["version"]
+
+[project.scripts]
+"c2w" = "cli-to-web.main:main"
+
+[project.urls]
+"Issue Tracker" = "https://github.com/calvinloveland/cli-to-web/issues"
+"Repository" = "https://github.com/calvinloveland/cli-to-web"
+
+[tool.hatch.version]
+path = "src/cli-to-web/__about__.py"
+
+[tool.hatch.build]
+include = [
+  "/src",
+]
+exclude = [
+  "/.github",
+  "/docs",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/cli-to-web"]

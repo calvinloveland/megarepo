@@ -1,0 +1,62 @@
+During high disk writes (maybe reads) to my slow HDD (specifically downloading steam games) the system becomes unresponsive for minutes at a time.
+
+(These are likely not relevent at all. I've notices no difference so far)
+systemctl enable preload
+systemctl enable irqbalance
+
+setting 
+vm.vm.dirty_background_ratio=1
+vm.dirty_ratio=10
+commands:
+sysctl vm.vm.dirty_background_ratio=1
+sysctl vm.dirty_ratio=10
+seemed to help a good amount
+(Very annoying that systemctl and sysctl have nothing to do with each other)
+
+set bfq scheduler for slow hard drive (Did this wrong initially)
+command:
+echo bfq > /sys/block/sda/queue/scheduler
+^^^^
+WRONG
+correct:
+echo bfq > /sys/block/sdc/queue/scheduler
+This also helped a little. Still some hangs
+
+decrease the time before write-back-throttling
+command:
+echo 1000 > /sys/block/sda/queue/wbt_lat_usec
+^^^^
+WRONG
+correct:
+echo 1000 > /sys/block/sdc/queue/wbt_lat_usec
+
+system fixed??
+Not completely fixed. Will restart (are these permanent?) and see if tighting up any of these fixes it forever. It is a lot better now though.
+GODDAMMIT SDC NOT SDA SDC NOT SDA
+add udev rules to set wbt times for sdc. Maybe should set these for sda, my fast drive, since my copy paste errors seemed to help?
+udev rules in 
+
+cat /etc/udev/rules.d/60-ioscheduler.rules                                                                                                                       
+ACTION=="add|change", KERNEL=="sd[a-z]", ATTR{queue/rotational}=="1", ATTR{queue/scheduler}="bfq"
+ACTION=="add|change", KERNEL=="sd[a-z]", ATTR{queue/rotational}=="1", ATTR{queue/wbt_lat_usec}="10000"
+
+also maybe steam is dumping these on my main drive anyway? Why is my drive full? Why don't symlinks ever work like I expect? Why doesn't steam let me point to a full library folder? A mystery...
+
+also added this line to fstab so I don't have to mount my big hard drive every time. Will it work? Let's find out
+
+/dev/sdc2                                 /mnt/SDRRRB ntfs rw,nosuid,nodev,relatime,user_id=0,group_id=0,default_permissions,allow_other,blksize=4096,uhelper=udisks2 0 0
+It works!
+Steam doesn't like that. Trying:
+/dev/sdc2                                 /home/calvin/SDRRRB ntfs rw,nosuid,nodev,relatime,user_id=0,group_id=0,default_permissions,allow_other,blksize=4096,uhelper=udisks2 0 0
+I like this mount better. Steam doesn't but I do.
+Installed lutris
+Launching steam through lutris with LSI https://github.com/solus-project/linux-steam-integration fixes all my problems. Except maybe system unresponsiveness. We'll see... tomorrow. after i sleep
+
+Everything gets bfq. I think bfq feels better
+ACTION=="add|change", KERNEL=="sd[a-z]", ATTR{queue/scheduler}="bfq"
+
+Days later:
+Everything gets a trip to the garbage can. Don't like KDE. It freezes and stutter and just straight up lost my taskbar at one point.
+Going with GNOME Manjaro, maybe Wayland? Is that the default for GNOME now? Dunno, documentation is old.
+Also probs not encrypting my drive. putting in your password on boot is annoying.
+ROUND 2

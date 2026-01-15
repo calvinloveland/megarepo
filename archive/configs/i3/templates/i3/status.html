@@ -1,0 +1,73 @@
+{% load staticfiles %}
+
+    <!--Distance to Planet-->
+    <p>At planet: {{ Ship.planet }}</p>
+    <p>Distance to next planet: {{ Ship.distance_to_planet }}</p>
+
+    <!--HEALTH-->
+    <p>{% if Ship.health >= 800 %}
+    <img src="{%  static 'green-light.png' %}">
+        {% endif %}
+        {% if Ship.health <= 800 and Ship.health >= 400%}
+        <img src="{% static 'yellow-light.png' %}">
+        {% endif %}
+        {% if Ship.health <= 400 %}
+        <img src="{% static 'red-light.png' %}">
+        {% endif %}
+
+        {% if Ship.health <= 0 %}
+            <script type="text/javascript"> window.location = ({% url 'i3:game_over' %}</script>
+        {% endif %}
+        Health {{  Ship.health }}</p>
+
+
+    <!--OXYGEN-->
+    <p>{% if Ship.oxygen >= 80 %}
+    <img src="{%  static 'green-light.png' %}">
+        {% endif %}
+        {% if Ship.oxygen <= 80 and Ship.oxygen >= 40%}
+        <img src="{% static 'yellow-light.png' %}">
+        {% endif %}
+        {% if Ship.oxygen <= 40 %}
+        <img src="{% static 'red-light.png' %}">
+        {% endif %}Oxygen {{  Ship.oxygen }}</p>
+
+
+    <!--HEAT-->
+    <p>{% if Ship.heat >= -25 and Ship.heat <= 25 %}
+    <img src="{%  static 'green-light.png' %}">
+        {% endif %}
+        {% if Ship.heat <= -25 or Ship.heat >= 25%}
+        <img src="{% static 'yellow-light.png' %}">
+        {% endif %}
+        {% if Ship.oxygen <= -75 or Ship.heat >= 75  %}
+        <img src="{% static 'red-light.png' %}">
+        {% endif %}Heat {{ Ship.heat }}</p>
+
+
+    <!-- Fuel-->
+    <p>{% if Ship.fuel >= 80 %}
+    <img src="{%  static 'green-light.png' %}">
+        {% endif %}
+        {% if Ship.fuel <= 80 and Ship.fuel >= 40%}
+        <img src="{% static 'yellow-light.png' %}">
+        {% endif %}
+        {% if Ship.fuel <= 40 %}
+        <img src="{% static 'red-light.png' %}">
+        {% endif %}Fuel {{ Ship.fuel }}</p>
+
+    <!--FTL-->
+    <p>{% if Ship.ftl_on == True %}
+    <img src="{%  static 'green-light.png' %}">
+        {% endif %}
+        {% if Ship.ftl_on == False %}
+        <img src="{% static 'red-light.png' %}">
+        {% endif %}FTL </p>
+
+    <!--SHIELD-->
+    <p>{% if Shield == True %}
+    <img src="{%  static 'green-light.png' %}">
+        {% endif %}
+        {% if Shield == False %}
+        <img src="{% static 'red-light.png' %}">
+        {% endif %}Shield - Ideal Frequency: {{ Ship.ideal_shield }} </p>

@@ -1,0 +1,48 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "vroomon"
+authors = [{ name = "Calvin Loveland", email = "calvin@loveland.dev" }]
+description = "Vroomon! Vrooooooom"
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+  "Programming Language :: Python :: 3.8",
+  "Operating System :: OS Independent",
+]
+dependencies = [
+"pytest",
+"tqdm",
+"loguru",
+"pymunk",
+"pygame",
+"lazy_ci @ git+https://github.com/calvinloveland/lazy_ci.git"
+]
+dynamic = ["version"]
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[project.scripts]
+"vroomon" = "vroomon.main:main"
+
+[project.urls]
+"Issue Tracker" = "https://github.com/calvinloveland/vroomon/issues"
+"Repository" = "https://github.com/calvinloveland/vroomon"
+
+[tool.hatch.version]
+path = "src/vroomon/__about__.py"
+
+[tool.hatch.build]
+include = [
+  "/src",
+]
+exclude = [
+  "/.github",
+  "/docs",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/vroomon"]

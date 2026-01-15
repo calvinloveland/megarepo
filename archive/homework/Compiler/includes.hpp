@@ -1,0 +1,15 @@
+#pragma once
+
+#include "ast/expressions/Expression.hpp"
+#include "ast/expressions/Factory.hpp"
+#include "ast/Node.hpp"
+#include "globals/symbol_table.hpp"
+#include "ast/Program.hpp"
+#include "ast/Block.hpp"
+#include "ast/statements/Statement.hpp"
+#include "ast/StatementSequence.hpp"
+#include "ast/statements/Stop.hpp"
+#include "ast/expressions/UnaryMinus.hpp"
+#include "ast/expressions/Equal.hpp"
+#include "ast/expressions/NotEqual.hpp"
+#include "globals/globals.hpp"

@@ -1,0 +1,9 @@
+<form action="/api/submit_assignment" target="_blank" method="post">
+        Assignment Name: <input type="text" class="form-control" name="name"><br> Assignment Description: <input type="text" class="form-control" name="description"><br> Subject: <select name="subject" class="form-control"> 
+        <option value="math"> Math </option>
+        <option value="science"> Science </option>
+        <option value="english"> English </option>
+        <option value="cs"> Computer Science </option>
+        </select><br> Due date: <input type="date" class="form-control" min="2019-10-15" max="2021-1-1"><br> Attachment: <input type="file" class="form-control-file" name="file"><br>
+        <button type="submit" class="btn btn-primary">Submit</button>
+      </form>

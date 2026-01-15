@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+
+{%block content%}
+    <h1 style="color: white; text-align: center; ">Game OVER!</h1>
+    <p style="color: white; text-align: center; ">You have perished in the vaccum of space, as you slowly fade of your thoughts drift
+    to space vegas and how you wish you were in that escape pod!</p>
+    <div style="text-align: center" class = "button">
+       <a href="{% url 'i3:index' %}"><button type="button">Restart</button> </a>
+    </div>
+{%endblock%}

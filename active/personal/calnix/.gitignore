@@ -1,0 +1,5 @@
+.direnv
+*.qcow2
+result*
+.git-hooks.nas-credentials
+/hardware-configuration.nix

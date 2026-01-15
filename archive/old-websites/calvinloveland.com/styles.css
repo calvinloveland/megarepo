@@ -1,0 +1,11 @@
+html, body {
+    margin: 0;
+    height: 100%;
+    font-family: sans-serif;
+}
+#footer {
+    text-align: center;
+    width:100%;
+    position:fixed;
+    bottom:0px;
+}

@@ -1,0 +1,15 @@
+install stuff
+I had more written but then I restarted without saving :(
+basically
+layout-switcher -> traditional cuz I love taskbars
+search mouse -> disable mouse acceleration because bleck
+sudo pacman -S steam yay discord fakeroot base-devel
+yay -S google-chrome
+yay -S visual-studio-code-bin
+
+my big drive was read only for some reason (maybe opened in windows?)
+sudo ntfsfix /dev/sdc2 to fix my big ntfs drive then let GNOME disks mount the disk to /home/calvin/SDRRRB
+
+Oooh this seems neat: https://github.com/FeralInteractive/gamemode
+enabled it on dota
+we will see if it works good

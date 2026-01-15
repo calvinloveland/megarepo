@@ -1,0 +1,51 @@
+body{
+text-align:center;
+}
+h1{
+    width:50%;
+    font-family:Tahoma,Geneva,sans-serif;
+    margin-left:auto;
+    margin-right:auto;
+    margin-top:5%;
+    font-size:400%;
+}
+input#submit-image{
+    width:25%;
+    margin-left: auto;
+    margin-right: auto;
+    vertical-align: middle;
+    top: 25%;
+    right: 0;
+    bottom: 0;
+    left: 0;    
+}
+input#word-input{
+    box-shadow: 5px 5px 12px 1px #9E9E9E;
+    margin: 5%;
+    width: 50%;
+    font-size: 2em;
+    padding: 1%;
+}
+.spinning{
+    animation: spin 1s linear infinite;
+}
+@-moz-keyframes spin {
+	from{-moz-transform: rotate(0deg);}
+	to{-moz-transform: rotate(360deg);}
+}
+@-webkit-keyframes spin{
+	from{-webkit-transform: rotate(0deg);}
+	to{-webkit-transform: rotate(360deg);}
+}
+@keyframes spin {
+	from {transform: rotate(0deg);}
+	to {transform: rotate(360deg);}
+}
+#footer {
+    width:100%;
+    position:fixed;
+    bottom:0px;
+}
+a{
+    color:black;
+}

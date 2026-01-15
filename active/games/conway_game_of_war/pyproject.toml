@@ -1,0 +1,39 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "conways_game_of_war"
+authors = [{ name = "Calvin Loveland", email = "calvin@loveland.dev" }]
+description = "CI for lazy people (like me)"
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+  "Programming Language :: Python :: 3.8",
+  "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+  "Operating System :: OS Independent",
+]
+dependencies = ["lazy_ci","flask","loguru"]
+dynamic = ["version"]
+
+[project.scripts]
+"conways_game_of_war" = "conways_game_of_war.main:main"
+
+[project.urls]
+"Issue Tracker" = "https://github.com/calvinloveland/conways_game_of_war/issues"
+"Repository" = "https://github.com/calvinloveland/conways_game_of_war"
+
+[tool.hatch.version]
+path = "src/conways_game_of_war/__about__.py"
+
+[tool.hatch.build]
+include = [
+  "/src",
+]
+exclude = [
+  "/.github",
+  "/docs",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/conways_game_of_war"]

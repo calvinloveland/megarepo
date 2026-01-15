@@ -1,0 +1,9 @@
+{'title': 'Legally Blonde', 'year': '2005', 'genre': 'Comedy', 'rating': '5', 'summary': 'A blonde lawyer', 'chick_flick': 'y'}
+{'title': 'Little Mermaid', 'year': '1987', 'genre': 'Cartoon', 'rating': '8', 'summary': 'A mermaid gets legs', 'chick_flick': 'n'}
+{'title': 'Notebook', 'year': '2008', 'genre': 'Romance', 'rating': '9', 'summary': 'A guy and a girl fall in love', 'chick_flick': 'y'}
+{'title': 'Pride and Prejudice', 'year': '1995', 'genre': 'Romance', 'rating': '10', 'summary': 'Mr Darcy', 'chick_flick': 'y'}
+{'title': 'Venom', 'year': '2018', 'genre': 'Action', 'rating': '11', 'summary': 'Alien and man become friends', 'chick_flick': 'n'}
+{'title': 'Walk to Remember', 'year': '2002', 'genre': 'Drama', 'rating': '6', 'summary': 'She gets cancer', 'chick_flick': 'y'}
+{'title': 'Jurassic World', 'year': '2020', 'genre': 'Dinosuar', 'rating': '2', 'summary': 'How to train your velociraptor', 'chick_flick':'n'}
+{'title': 'How to lose a guy in 10 days', 'year': '2001', 'genre': 'RomCom', 'rating': '8', 'summary': 'Girl wants to get rid of guy in 10 days', 'chick_flick': 'y'}
+{'title': 'The Wedding Planner', 'year': '2003', 'genre': 'RomCom', 'rating': '6', 'summary': 'Wedding planner falls in love with groom', 'chick_flick':'y'}

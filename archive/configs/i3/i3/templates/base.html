@@ -1,0 +1,50 @@
+{% load staticfiles %}
+<!DOCTYPE html>
+<html lang="en">
+<meta charset="UTF-8">
+
+<head>
+    <link rel="stylesheet" href="{% static 'styles.css' %}" />
+    <title>{% block title %}Isolated Intergalactic Incident  {% endblock %}</title>
+</head>
+
+<body style="background-image:url( {% static 'space1.jpeg' %});  background-size: 1920px 1080px;
+    background-repeat: no-repeat;">
+
+ <script type="text/javascript" src="http://code.jquery.com/jquery-1.11.0.min.js"></script>
+
+<script type="text/javascript">
+    setInterval(function()
+{
+    $.ajax({
+      type:"get",
+      url:"{% url 'i3:status'%}",
+      datatype:"html",
+      success:function(data)
+      {
+          document.getElementById("status").innerHTML = data;
+      }
+    });
+}, 1000);
+
+    function asy(place){
+        $.ajax({
+      type:"get",
+      url:"/"+place+"/",
+      datatype:"html",
+    });
+    }
+</script>
+
+
+    <div id="header" class="center">
+        {% block sidebar %}
+        <h1>I3</h1>
+        {% endblock %}
+    </div>
+
+    <div id="content" class="center">
+        {% block content %}{% endblock %}
+    </div>
+</body>
+</html>

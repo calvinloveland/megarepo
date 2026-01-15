@@ -1,0 +1,11 @@
+{% extends "base_template.html" %}
+{% block content %}
+
+<p>Waiting for an available tasks...</p>
+<!-- Reload the page every 5 seconds -->
+<script>
+    setTimeout(function () {
+        window.location.reload(1);
+    }, 5000);
+</script>
+{% endblock %}

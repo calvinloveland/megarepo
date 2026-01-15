@@ -1,0 +1,88 @@
+{
+  "name": "Megarepo Development Environment",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu-22.04",
+  "features": {
+    "ghcr.io/devcontainers/features/python:1": {
+      "version": "3.11",
+      "installTools": true,
+      "installJupyterlab": false
+    },
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "20",
+      "nodeGypDependencies": true
+    },
+    "ghcr.io/devcontainers/features/git:1": {
+      "version": "latest",
+      "ppa": true
+    },
+    "ghcr.io/devcontainers/features/github-cli:1": {
+      "version": "latest"
+    },
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {
+      "version": "latest",
+      "dockerDashComposeVersion": "v2"
+    },
+    "ghcr.io/devcontainers/features/nix:1": {
+      "version": "latest",
+      "flakes": true
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "ms-python.black-formatter",
+        "charliermarsh.ruff",
+        "tamasfe.even-better-toml",
+        "redhat.vscode-yaml",
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "jnoortheen.nix-ide",
+        "GitHub.copilot",
+        "GitHub.copilot-chat",
+        "eamodio.gitlens",
+        "streetsidesoftware.code-spell-checker"
+      ],
+      "settings": {
+        "python.defaultInterpreterPath": "/usr/local/python/current/bin/python",
+        "python.testing.pytestEnabled": true,
+        "python.testing.unittestEnabled": false,
+        "python.analysis.typeCheckingMode": "basic",
+        "editor.formatOnSave": true,
+        "editor.defaultFormatter": null,
+        "[python]": {
+          "editor.defaultFormatter": "ms-python.black-formatter"
+        },
+        "[javascript]": {
+          "editor.defaultFormatter": "esbenp.prettier-vscode"
+        },
+        "[typescript]": {
+          "editor.defaultFormatter": "esbenp.prettier-vscode"
+        },
+        "[json]": {
+          "editor.defaultFormatter": "esbenp.prettier-vscode"
+        },
+        "[nix]": {
+          "editor.defaultFormatter": "jnoortheen.nix-ide"
+        },
+        "files.exclude": {
+          "**/__pycache__": true,
+          "**/*.pyc": true,
+          "**/.pytest_cache": true,
+          "**/*.egg-info": true,
+          "**/node_modules": true
+        },
+        "git.autofetch": true,
+        "git.enableSmartCommit": true
+      }
+    }
+  },
+  "postCreateCommand": "bash .devcontainer/post-create.sh",
+  "remoteUser": "vscode",
+  "mounts": [
+    "source=${localWorkspaceFolder}/.devcontainer/cache/pip,target=/home/vscode/.cache/pip,type=bind,consistency=cached",
+    "source=${localWorkspaceFolder}/.devcontainer/cache/npm,target=/home/vscode/.npm,type=bind,consistency=cached"
+  ],
+  "initializeCommand": "mkdir -p .devcontainer/cache/pip .devcontainer/cache/npm"
+}

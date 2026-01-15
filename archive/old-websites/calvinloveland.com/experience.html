@@ -1,0 +1,44 @@
+<div>
+    <div>
+        <form>
+            <select id="skills-selector" onchange="updateSkills()">
+                <option value="all">All</option>
+                <option value="code">Computer Science</option>
+                <option value="life">Life Skills</option>
+                <option value="tech">Technical</option>
+            </select>
+        </form>
+    </div>
+    <div id="skills">
+
+    </div>
+</div>
+<script type="text/javascript">
+    function updateSkills() {
+        selector = document.body.querySelector("#skills-selector");
+        value = selector.options[selector.selectedIndex].value;
+        updateSkillsByCat(value);
+    }
+    function updateSkillsByCat(category) {
+        var skillsContainer = document.body.querySelector("#skills");
+        var xhttp = new XMLHttpRequest();
+        var i = 0;
+        xhttp.onreadystatechange = function () {
+            if (this.readyState == 4 && this.status == 200) {
+                skillsContainer.innerHTML = "";
+                var skillsArray = this.responseText.split("\n");
+                skillsArray.forEach(function (element) {
+                    if (element.trim() != "") {
+                        newDiv = document.createElement("div");
+                        newDiv.innerHTML += element;
+                        newDiv.className = "skill-span";
+                        skillsContainer.appendChild(newDiv);
+                    }
+                });
+            }
+        };
+        xhttp.open("GET", "skills.php?type=" + category, true);
+        xhttp.send();
+    }
+    updateSkillsByCat("code");
+</script>

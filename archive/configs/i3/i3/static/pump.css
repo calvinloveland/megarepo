@@ -1,0 +1,48 @@
+.bar {
+  background-image: url(https://image.ibb.co/kRCN3F/handle3.png);
+  position: absolute;
+  bottom: 167px;
+  left: 225px;
+  width: 80px;
+  height: 107px;
+  z-index: -100;
+}
+
+#volumebar {
+  border: 7px solid darkgrey;
+  border-top: 20px solid darkgrey;
+  position: absolute;
+  bottom: 80px;
+  left: 250px;
+  width: 15px;
+  height: 100px;
+  background-color: lightgrey;
+}
+
+#volume {
+  width: 100%;
+  height: 1%;
+  background-color: #22dd22;
+  position: absolute;
+  bottom: 0;
+  left: 0;
+}
+
+#icon {
+  height: 50px;
+  width: 50px;
+  position: absolute;
+  top: 225px;
+  left: 240px;
+}
+
+#indicator {
+  font-family: 'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif;
+  color: #ddd;
+  position: absolute;
+  bottom: 108px;
+  left: 245px;
+  text-align: center;
+  width: 40px;
+  height: 20px;
+}

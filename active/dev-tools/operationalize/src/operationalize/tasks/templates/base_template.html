@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    {% block head %}
+    <title>OPERATIONALIZE</title>
+    <style>
+        html,
+        body {
+            height: 100%;
+        }
+
+        #wrapper {
+            min-height: 100%;
+            position: relative;
+        }
+
+        body {
+            background-color: #1c1c1c;
+            color: #f2f2f2;
+            font-family: Arial, sans-serif;
+        }
+
+        #header {
+            background-color: #2b2b2b;
+            padding: 10px;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 36px;
+        }
+
+        hr {
+            border: none;
+            height: 2px;
+            background-color: #f2f2f2;
+            margin: 10px 0;
+        }
+
+        #content {
+            padding: 10px;
+        }
+
+        #footer {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 1em;
+            /* height of footer */
+            clear: both;
+            background-color: #2b2b2b;
+            padding: 10px;
+            font-size: 12px;
+            text-align: center;
+        }
+    </style>
+    <link
+    rel="stylesheet"
+    data-name="vs/editor/editor.main"
+    href="{{ url_for('static',filename='node_modules/monaco-editor/min/vs/editor/editor.main.css')}}"
+    />
+    {% endblock %}
+</head>
+
+<body>
+    <div id="wrapper">
+        <div id="header">
+            {% block header %}
+            <h1>OPERATIONALIZE</h1>
+            <hr>
+            <div style="display: flex; justify-content: space-between;">
+                {% if task%}
+                <span style="width:33%;">Current task: {{task.name}}-<span
+                        style="font-size: smaller;">{{task.description}}</span></span>
+                <span id="task-timer" style="text-align: center;">Task timer: {{task.time_limit}}</span>
+                <script>
+                    // Note: timer is in seconds
+                    var timer = setInterval(function () {
+                        var time_limit = document.getElementById("task-timer");
+                        var time = time_limit.innerHTML.split(":");
+                        var seconds = parseInt(time[1]);
+                        seconds -= 1;
+                        if (seconds <= 0){
+                            clearInterval(timer);
+                            time_limit.innerHTML = "Task timer: OVERDUE!!";
+                        }
+                        else {
+                            time_limit.innerHTML = "Task timer: " + seconds;
+                        }
+                    }, 1000);
+                </script>
+                <span style="margin-left: auto;">Project timeline:
+                    {{task.get_final().get_expected_completion_time()}}</span>
+                {% endif %}
+            </div>
+            {% endblock %}
+        </div>
+        <div id="content">{% block content %}{% endblock %}</div>
+        {% if task %}
+        <script>
+            function submitWorkspace() {
+                // Get the value of all the elements with class "workspace_output"
+                // var outputs = document.getElementsByClassName("workspace_output");
+                // for (var i = 0; i < outputs.length; i++) {
+                //     outputs[i] = outputs[i].value;
+                //     console.log(outputs[i])
+                // }
+                // the above code doesn't work for some reason
+                var outputs = [];
+                var output_elements = document.getElementsByClassName("workspace_output");
+                if (output_elements.length == 0) {
+                    outputs.push(editor.getValue());
+                }
+                for (var i = 0; i < output_elements.length; i++) {
+                    outputs.push(output_elements[i].value);
+                }
+
+                var data = {
+                    "output": outputs
+                };
+                console.log(data)
+                var xhr = new XMLHttpRequest();
+                xhr.open("POST", "/task/{{ task.id }}", true);
+                xhr.setRequestHeader('Content-Type', 'application/json');
+                xhr.send(JSON.stringify(data));
+                xhr.onreadystatechange = function () {
+                    if (xhr.readyState === 4 && xhr.status === 200) {
+                        window.location.href = "/" + "?worker_id={{worker_id}}"
+                    }
+                };
+            }
+        </script>
+        {% endif %}
+    </div>
+    <script type="module">
+    
+      import mermaid from '{{ url_for("static", filename="node_modules/mermaid/dist/mermaid.esm.min.mjs")}}';
+      mermaid.initialize({ startOnLoad: true });
+    </script>
+</body>
+
+</html>

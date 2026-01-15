@@ -1,0 +1,28 @@
+{
+  "name": "silk",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/calvinloveland/silk.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/calvinloveland/silk/issues"
+  },
+  "homepage": "https://github.com/calvinloveland/silk#readme",
+  "dependencies": {
+    "dotenv": "^8.2.0",
+    "ejs": "^2.7.4",
+    "express": "^4.17.1",
+    "express-ejs-layouts": "^2.5.0",
+    "htm": "^2.2.1",
+    "mssql": "^6.0.1",
+    "react-dom": "^16.11.0"
+  }
+}

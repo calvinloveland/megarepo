@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+
+{%block content%}
+    <div class = "button" style="color: white;"> <form>
+  <input type="radio"  onclick="myFunction(this.value)" name="room" value="cockpit" id="myRoom"> Cockpit<br>
+  <input type="radio" onclick="myFunction(this.value)" name="room" value="engine_bay" id="myRoom"> Engine Bay<br>
+
+  <script>
+function myFunction(val) {
+
+    if(val == "cockpit"){
+        window.location = ({% url 'i3:cockpit' %})
+        console.log("Cockpit Selected")
+    }
+    else if(val == "engine_bay"){
+
+        console.log("Engine Bay Selected")
+        window.location = ({% url 'i3:engine' %})
+    }
+
+}
+</script>
+
+
+</form>
+
+{%endblock%}

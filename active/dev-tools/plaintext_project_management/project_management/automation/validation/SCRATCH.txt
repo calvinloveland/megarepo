@@ -1,0 +1,2 @@
+perhaps check for only markdown and text files, warn otherwise
+ensure that folders are not marked complete until all sub-folders are marked complete

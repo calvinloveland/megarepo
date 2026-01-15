@@ -1,0 +1,10 @@
+2882,5.4 -BROKEN
+4181,2.5 -BROKEN
+-Updated to punish losing
+
+1958, 0.5
+
+-Updated with window size 1
+3058, -1
+
+-Modified step so the agent doesn't make moves blind

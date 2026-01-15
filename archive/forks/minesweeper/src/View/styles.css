@@ -1,0 +1,26 @@
+.button{
+    -fx-cell-size: 15000;
+}
+.empty-button{
+    -fx-background-color: #bbbbbb;
+}
+.numbered-button{
+    -fx-background-color: #cccccc;
+}
+.flag-button{
+    -fx-background-image: url("../../../../img/flag.png");
+}
+.bomb-button{
+    -fx-background-image: url("../../../../img/bomb.png");
+    -fx-background-color: #FF0000;
+}
+.question-button{
+    -fx-background-image: url("../../../../img/question-mark.png");
+}
+.marked-bomb{
+    -fx-background-image: url("../../../../img/bomb.png");
+    -fx-background-color: #00FF00;
+}
+.marked-nothing{
+    -fx-background-color: #FFFF00;
+}

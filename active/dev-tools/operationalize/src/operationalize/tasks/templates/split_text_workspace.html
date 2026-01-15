@@ -1,0 +1,72 @@
+{% extends "base_template.html" %}
+{% block head %}
+{{ super() }}
+<style>
+  .text-input-container {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .text-input-container textarea {
+    height: 10em;
+  }
+
+  .text-input-container textarea:focus {
+    outline: none;
+  }
+
+  .text-input-column {
+    display: flex;
+    flex-direction: column;
+    width: 50%;
+  }
+
+  .text-input-container {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .text-input-container textarea {
+    height: 10em;
+  }
+
+  .text-input-container textarea:focus {
+    outline: none;
+  }
+
+  .text-input-column {
+    display: flex;
+    flex-direction: column;
+    width: 50%;
+  }
+
+  .task-requirements {
+    margin-top: 2em;
+    border: 1px solid #ccc;
+    padding: 1em;
+  }
+</style>
+{% endblock %}
+{% block content %}
+<div class="text-input-container">
+  <div class="text-input-column">
+    <textarea class="workspace_output" name="workspace_output_1" placeholder="Text Input 1"></textarea>
+  </div>
+  <div class="text-input-column">
+    <textarea class="workspace_output" name="workspace_output_2" placeholder="Text Input 2"></textarea>
+  </div>
+  <input type="button" class="btn btn-primary" onclick="submitWorkspace()" value="Submit">
+</div>
+<div class="task-requirements">
+  <h2>Task Requirements:</h2>
+  <ul>
+    {% for requirement in task.requirements %}
+    <li>{{ requirement }}</li>
+    {% endfor %}
+  </ul>
+</div>
+{% endblock %}

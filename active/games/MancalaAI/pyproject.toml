@@ -1,0 +1,42 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "mancala"
+authors = [{ name = "Calvin Loveland", email = "calvin@loveland.dev" }]
+description = "Setup an environment just how I like"
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+  "Programming Language :: Python :: 3.8",
+  "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+  "Operating System :: OS Independent",
+]
+dependencies = ["gymnasium","keras","tensorflow","keras-rl",
+"pyfiglet",
+"tqdm",
+"loguru",]
+dynamic = ["version"]
+
+[project.scripts]
+"mancala" = "mancala.main:main"
+
+[project.urls]
+"Issue Tracker" = "https://github.com/calvinloveland/homemaker/issues"
+"Repository" = "https://github.com/calvinloveland/homemaker"
+
+[tool.hatch.version]
+path = "__about__.py"
+
+[tool.hatch.build]
+include = [
+  "/src",
+]
+exclude = [
+  "/.github",
+  "/docs",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/mancala"]

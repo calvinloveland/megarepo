@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% load staticfiles %}
+
+{%block content%}
+    <link rel="stylesheet" href="{% static 'ftl_crank2.css' %}" />
+    <div style="float: right;" id="status"></div>
+    ENGINE
+    <div style ="margin: 5%  ">Cooling:
+        <!-- Rectangular switch -->
+        <label class="switch" onclick="asy('cooling_switch')">
+          <input type="checkbox">
+          <span class="slider"></span>
+        </label>
+    </div>
+
+
+
+    <div style ="margin: 5%; margin-left: 15%;  ">
+ FTL
+    <div id="volumeBarHolder">
+        <div id="volumeBar"></div>
+            </div><div>
+  <img id="wheel" src="https://image.ibb.co/ivFeFv/handle2.png" />
+    </div>
+        <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+        <script type="text/javascript" src="http://cdnjs.cloudflare.com/ajax/libs/gsap/1.19.0/utils/Draggable.min.js"></script>
+        <script type="text/javascript" src="http://cdnjs.cloudflare.com/ajax/libs/gsap/1.19.0/TweenMax.min.js"></script>
+
+
+        <script type="text/javascript" src="{% static 'ftl_crank2.js' %}"></script>
+    </div>
+    <button onclick="asy('enter_fuel')">MOVE FUEL TO FTL_DRIVE</button>
+
+{%endblock%}

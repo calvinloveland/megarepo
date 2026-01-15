@@ -1,0 +1,2 @@
+(A) Use loguru for logging everywhere
+x (A) Add lazyci and lazy-ci to scripts

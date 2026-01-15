@@ -1,0 +1,21 @@
+ body {
+   font-family: 'Comic Sans MS';
+ }
+
+ #wheel {
+   height: 300px;
+   margin-top: 20px;
+ }
+
+ #volumeBarHolder {
+   border: solid black 1px;
+   display: inline-block;
+   line-height: 0;
+   padding: 3px;
+ }
+
+ #volumeBar {
+   height: 15px;
+   background-color: #00FF00;
+   display: inline-block;
+ }

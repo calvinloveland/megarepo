@@ -1,0 +1,44 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ptpm"
+authors = [{ name = "Calvin Loveland", email = "calvin@loveland.dev" }]
+description = "A simple project management tool that doesn't suck."
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+  "Programming Language :: Python :: 3.8",
+  "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+  "Operating System :: OS Independent",
+]
+dependencies = [
+"pytest",
+"tqdm",
+"loguru",
+"GitPython",
+"lazy_ci"]
+dynamic = ["version"]
+
+[project.scripts]
+"ptpm" = "ptpm.main:main"
+
+[project.urls]
+"Issue Tracker" = "https://github.com/calvinloveland/plaintext_project_management"
+"Repository" = "https://github.com/calvinloveland/plaintext_project_management"
+
+[tool.hatch.version]
+path = "src/ptpm/__about__.py"
+
+[tool.hatch.build]
+include = [
+  "/src",
+]
+exclude = [
+  "/.github",
+  "/docs",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ptpm"]

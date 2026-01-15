@@ -1,0 +1,62 @@
+.ui-rotatable-handle {
+  height: 45px;
+  width: 45px;
+  cursor: pointer;
+  background-size: 100%;
+  bottom: 2px;
+  top: 2px;
+}
+
+.bar {
+  background-image: url(https://image.ibb.co/ivFeFv/handle2.png);
+  position: absolute;
+  bottom: 40px;
+  left: 150px;
+}
+
+#volumebar {
+  border: 7px solid darkgrey;
+  border-top: 20px solid darkgrey;
+  position: absolute;
+  bottom: 50px;
+  left: 250px;
+  width: 15px;
+  height: 100px;
+  background-color: lightgrey;
+}
+
+#volume {
+  width: 100%;
+  height: 1%;
+  background-color: #22dd22;
+  position: absolute;
+  bottom: 0px;
+  left: 0;
+}
+
+#icon {
+  height: 50px;
+  width: 50px;
+  position: absolute;
+  bottom: 15px;
+  left: 240px;
+}
+
+#indicator {
+  font-family: 'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif;
+  color: #ddd;
+  position: absolute;
+  bottom: 155px;
+  left: 245px;
+  text-align: center;
+  width: 40px;
+  height: 20px;
+}
+
+#controlbar {
+  width: 100%;
+  height: 50px;
+  background-color: grey;
+  position: absolute;
+  bottom: 10px;
+}

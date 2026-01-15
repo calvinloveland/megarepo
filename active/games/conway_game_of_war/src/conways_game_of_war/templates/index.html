@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Conway's Game of War</title>
+    <style>
+      body, html {
+        height: 100%;
+        margin: 0;
+        overflow: hidden;
+      }
+      .container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: flex-start;
+        height: 100%;
+      }
+      #game {
+        width: max-content;
+        height: max-content;
+        display: block;
+        transform-origin: 0 0;
+      }
+      #status-bar {
+        width: 100%;
+        text-align: center;
+        margin: 6px 0;
+      }
+      .controls {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        margin: 8px 0;
+      }
+    </style>
+  </head>
+  <body> 
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <div class="container">
+      <h1>Conway's Game of War</h1>
+      <h2 class="player-name" style="color: {{ session['player1_color'] if session['player'] == 'player1' else session['player2_color'] }}">Player: {{ session['player'] }}</h2>
+      <div class="controls">
+        <button hx-post="/reset" hx-target="#game" hx-swap="outerHTML">Reset</button>
+      </div>
+      <div id="viewport" style="width: 100vw; height: calc(100vh - 140px); overflow: hidden;">
+        <div id="game" hx-get="/game_state" hx-trigger="load, every 1s" hx-swap="outerHTML"></div>
+      </div>
+      <div id="status-bar" hx-get="/player_energy" hx-trigger="load, every 5s"></div>
+    </div>
+    <script>
+      function fitToControlledArea() {
+        const game = document.getElementById('game');
+        const viewport = document.getElementById('viewport');
+        if (!game || !viewport) return;
+        const xmin = parseInt(game.getAttribute('data-bbox-xmin'));
+        const ymin = parseInt(game.getAttribute('data-bbox-ymin'));
+        const xmax = parseInt(game.getAttribute('data-bbox-xmax'));
+        const ymax = parseInt(game.getAttribute('data-bbox-ymax'));
+        const cellPx = parseInt(game.getAttribute('data-cell-px')) || 12;
+        const padCells = 3;
+        const widthCells = (xmax - xmin + 1) + padCells * 2;
+        const heightCells = (ymax - ymin + 1) + padCells * 2;
+        const targetWidth = widthCells * cellPx;
+        const targetHeight = heightCells * cellPx;
+        const vw = viewport.clientWidth;
+        const vh = viewport.clientHeight;
+        const scale = Math.max(0.1, Math.min(vw / targetWidth, vh / targetHeight));
+        game.style.transform = `scale(${scale}) translate(${(-xmin + padCells) * cellPx}px, ${(-ymin + padCells) * cellPx}px)`;
+      }
+
+      document.addEventListener('htmx:afterSwap', (evt) => {
+        if (evt.target && evt.target.id === 'game') {
+          fitToControlledArea();
+        }
+      });
+
+      window.addEventListener('resize', fitToControlledArea);
+    </script>
+  </body>
+</html>

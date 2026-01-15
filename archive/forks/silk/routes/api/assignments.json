@@ -1,0 +1,48 @@
+{
+  "products": [
+    {
+      "subject": "Math",
+      "name": "Assignment 1",
+      "description": "something",
+      "dueDate": "today",
+      "id": 1
+    },
+    {
+      "subject": "Math",
+      "name": "Assignment 2",
+      "description": "something else",
+      "dueDate": "",
+      "id": 2
+    },
+    {
+      "subject": "Math",
+      "name": "Assignment 3",
+      "description": "",
+      "dueDate": "",
+      "id": 3
+    },
+    {
+      "subject": "English",
+      "name": "Assignment 1",
+      "description": "",
+      "dueDate": "",
+      "id": 4
+    },
+    {
+      "subject": "English",
+      "name": "Assignment 2",
+      "description": "",
+      "dueDate": "",
+      "id": 5
+    },
+    {
+      "subject": "Science",
+      "name": "Assignment 6",
+      "description": "",
+      "dueDate": "",
+      "id": 6
+    }
+  ],
+  "count": 8,
+  "pageNum": 2
+}

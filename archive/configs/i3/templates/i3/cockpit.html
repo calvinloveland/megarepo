@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% load staticfiles %}
+
+{%block content%}
+    <h1>COCKPIT</h1>
+<link rel="stylesheet" href="{% static 'pump.css' %}" />
+    <div style="float: right;" id="status"></div>
+ <div style="margin:5%">
+    <input id="gps" name="gps" type="text" value="000000">
+    <button onclick="asy('set_gps/' + document.getElementById('gps').value)">ENTER GPS COORDS</button><a href="{% url 'i3:itinerary' %}"><button>Itinerary</button></a>
+</div>
+    <div>
+
+
+
+<div id="volumebar">
+  <div id="volume"></div>
+</div>
+<div id="display"></div>
+<div id="indicator">0</div>
+<div id="target" class="bar"></div>
+
+    <script type="text/javascript" src="https://code.jquery.com/jquery-1.11.3.js"></script>
+    <script type="text/javascript" src="https://code.jquery.com/ui/1.11.4/jquery-ui.js"></script>
+    <script src = "{% static 'pump.js' %}"></script>
+
+        <span style=" position: absolute; bottom: 20px; left: 200px;"> OXYGEN PUMP </span>
+    </div>
+    <button style ="margin: 5%  " onclick="asy('move_fuel')">MOVE FUEL TO ENGINE ROOM</button>
+    <div style ="margin: 5%  " id="slidecontainer">
+        <span>Shield frequency: <span id = "output"></span></span>
+        <input type="range" min="0" max="100" value="50" id="myRange">
+    </div>
+    <script type="text/javascript">
+        var slider = document.getElementById("myRange");
+        var output = document.getElementById("output");
+        slider.oninput = function() {
+            asy("set_shield/"+this.value)
+            output.innerHTML = this.value;
+            }
+    </script>
+{%endblock%}

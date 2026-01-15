@@ -1,0 +1,49 @@
+{% extends "base_template.html %"}
+{% block head %}
+  {{ super()}}
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Require cheerpj dependency -->
+    <script src="https://cjrtnc.leaningtech.com/2.3/loader.js"></script>
+    <!-- Require PlantUML.js -->
+    <script src="{{ url_for('static', filename='node_modules/@sakirtemel/plantuml.js/plantuml.js')}}"></script>
+    <style>
+      .container {
+        display: flex;
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .input-container {
+        flex: 1;
+        margin-right: 20px;
+      }
+      .diagram-container {
+        flex: 1;
+      }
+    </style>
+{% endblock %}
+{% block content %}
+    <div class="container">
+      <div class="input-container">
+        <form>
+          <textarea id="pumlContent" rows="10" cols="50" oninput="renderDiagram()"></textarea>
+          <br>
+        </form>
+      </div>
+      <div class="diagram-container">
+        <img src="loading.png" id="plantuml-diagram" />
+      </div>
+    </div>
+    <script type="text/javascript">
+        function renderDiagram() {
+            const element = document.getElementById('plantuml-diagram')
+            const pumlContent = document.getElementById('pumlContent').value
+            const url = plantuml.renderPng(pumlContent).then((blob) => {
+                element.src = window.URL.createObjectURL(blob)
+            })
+        }
+        plantuml.initialize('/app/node_modules/@sakirtemel/plantuml.js')
+        renderDiagram();
+    </script>
+{% endblock %}

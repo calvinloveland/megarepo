@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Select Player</title>
+  </head>
+  <body>
+    <h1>Select Player</h1>
+    <form action="/set_player" method="post">
+      <label for="player1_color">Player 1 Color:</label>
+      <input type="color" id="player1_color" name="player1_color" value="#ff0000">
+      <label for="player2_color">Player 2 Color:</label>
+      <input type="color" id="player2_color" name="player2_color" value="#0000ff">
+      <button type="submit" name="player" value="player1">Player 1</button>
+      <button type="submit" name="player" value="player2">Player 2</button>
+      <h2>Select AI Difficulty</h2>
+      <button type="submit" name="ai_difficulty" value="easy">Easy</button>
+      <button type="submit" name="ai_difficulty" value="medium">Medium</button>
+      <button type="submit" name="ai_difficulty" value="hard">Hard</button>
+    </form>
+  </body>
+</html>

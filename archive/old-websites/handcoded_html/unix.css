@@ -1,0 +1,33 @@
+body{
+text-align:center;
+background-image:url("background.jpg");
+}
+table,tr,td,div{
+	margin-left:auto;
+	margin-right:auto;
+	border:1px solid black;
+	font-size:1.2em;
+}
+td:nth-child(2){
+	background-color:black;
+	color:#00ff00;
+	font-family:monospace;
+
+}
+tr:first-of-type{
+	font-weight:bold;
+	vertical-align: top;
+}
+tr:hover{
+	background-color: gray;
+}
+pre{
+	text-align:left;
+}
+img{
+width:25%;
+}
+a:visited{
+	color:#00ff00;
+}
+

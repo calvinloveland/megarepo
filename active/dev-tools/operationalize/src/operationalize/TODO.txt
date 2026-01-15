@@ -1,0 +1,23 @@
+(AA) Add ability to save and restart TASKDAGs
+(AA) Host this somewhere
+x (AB) Create VSCODE extension
+(AA) Git integration
+(A) Add a cool robot voice
+(A) Add ability to rate previous work
+(A) Add ability to select the next item in the TASKDAG
+(A) Add operationlize^2 where you can work from a todo list (like this one)
+(B) Add ability to select roles (PM Tester QA...)
+(B) Code should be injected in to editor automatically
+(B) Add ability to execute code in the editor
+(B) Task counting is off state:ready_for_test
+(B) Add AI(LLM) worker for when fleshy humans don't want to work
+(B) Allow arbitray splitting/integrating. Instead of having a fixed number of divisions of a specific task, it would be cool if the user could keep dividing tasks until they feel they are at a good granular level and have a checkbox or something that says "don't split this task further" or something.
+(B) Server based task timing
+(B) Update available tasks in real time
+(B) Better tools for visually entire task DAG, current progress, etc.
+(B) Allow failure and rework of tasks?
+(C) Spectator view
+
+x (A) Backlashes are added to code containing strings
+x (A) Availabe should be available
+x (A) Submit is hidden by footer

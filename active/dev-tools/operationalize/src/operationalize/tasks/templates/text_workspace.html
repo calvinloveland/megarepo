@@ -1,0 +1,56 @@
+{% extends "base_template.html" %}
+{% block content %}
+<div class="row">
+    <div class="col-md-6">
+        <h3>Requirements:</h3>
+        <ul>
+            {% for requirement in task.requirements %}
+            <li><pre>{{ requirement.replace("\\n","\n") }}</pre></li>
+            {% endfor %}
+        </ul>
+    </div>
+    <div class="col-md-6">
+        <div id="text-container" style="width: 800px; height: 600px; border: 1px solid grey"></div>
+        <script src="/node_modules/monaco-editor/min/vs/loader.js"></script>
+        <script>
+            require.config({ paths: { vs: '/node_modules/monaco-editor/min/vs' } });
+
+
+            require(['vs/editor/editor.main'], function () {
+                window.editor = monaco.editor.create(document.getElementById('text-container'), {
+                    value: ['def hello():', '    print("hello world")'].join('\n'),
+                    language: 'python'
+                });
+            });
+
+            function update_language() {
+                var language = document.getElementById("language").value;
+                monaco.editor.setModelLanguage(window.editor.getModel(), language);
+            }
+        </script>
+        <select id="language" onchange="update_language()">
+            <option value="python">Python</option>
+            <option value="javascript">JavaScript</option>
+            <option value="typescript">TypeScript</option>
+            <option value="csharp">C#</option>
+            <option value="fsharp">F#</option>
+            <option value="html">HTML</option>
+            <option value="css">CSS</option>
+            <option value="json">JSON</option>
+            <option value="markdown">Markdown</option>
+            <option value="mysql">MySQL</option>
+            <option value="objective-c">Objective-C</option>
+            <option value="php">PHP</option>
+            <option value="plaintext">Plaintext</option>
+            <option value="powershell">Powershell</option>
+            <option value="ruby">Ruby</option>
+            <option value="scss">SCSS</option>
+            <option value="shell">Shell</option>
+            <option value="swift">Swift</option>
+            <option value="xml">XML</option>
+        </select>
+
+        <button type="button" class="btn btn-primary" onclick="submitWorkspace()">Submit</button>
+    </div>
+</div>
+{% endblock %}

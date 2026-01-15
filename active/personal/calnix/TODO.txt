@@ -1,0 +1,5 @@
+[ ] Display power usage in waybar
+[ ] Set default workspace to 1 instead of 0
+[ ] Fix xdg launch browser
+[X] Add tap to click support to touchpad
+[X] Fix emojis (no more missing font boxes thingys)

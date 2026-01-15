@@ -1,0 +1,1 @@
+(A) create tool for validation of a project management directory

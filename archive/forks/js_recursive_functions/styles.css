@@ -1,0 +1,29 @@
+.fibDiv { 
+    display: inline-block;
+    width: 50%; 
+    vertical-align: top; 
+    text-align:center; 
+    font-size:50%; 
+    background-color:rgba(255, 0, 0, 0.1);
+}
+.pellDiv { 
+    display: inline-block; 
+    width: 50%; 
+    vertical-align: top; 
+    text-align:center; 
+    font-size:50%; 
+    background-color:rgba(0,255, 0, 0.1);
+    
+}
+.tribDiv { 
+    display: inline-block;
+    width: 33%;
+    vertical-align: top;
+    text-align:center; 
+    font-size:33%;
+    background-color:rgba(0, 0, 255, 0.1);
+    
+}
+.mainDiv{
+    text-align: center;
+}

@@ -1,0 +1,11 @@
+title : "PNG to JPEG"
+command: "convert $$input0 $$output0"
+inputs:
+  - 
+    type: file
+outputs:
+  -
+    type: file
+    name: $$input0
+    name-change: "re-type:.jpg"
+
