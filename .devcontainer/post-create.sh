@@ -17,29 +17,34 @@ pip install \
     build \
     twine
 
-# Install project-specific dependencies for active projects
-echo "📦 Installing active project dependencies..."
+# Install all active projects with pyproject.toml in editable mode
+echo "📦 Installing active projects in editable mode..."
 
-# Dev tools
-for project in active/dev-tools/*/; do
-    if [ -f "${project}pyproject.toml" ]; then
-        echo "  Installing $(basename $project)..."
-        pip install -e "$project" 2>/dev/null || pip install -e "${project}[dev]" 2>/dev/null || true
+PROJECTS=(
+    "active/dev-tools/cli-to-web"
+    "active/dev-tools/full-auto-ci"
+    "active/dev-tools/operationalize"
+    "active/dev-tools/plaintext_project_management"
+    "active/dev-tools/time_function_with_timeout"
+    "active/games/conway_game_of_war"
+    "active/games/lets-holdem-together"
+    "active/games/MancalaAI"
+    "active/games/vroomon"
+)
+
+for project in "${PROJECTS[@]}"; do
+    if [ -f "${project}/pyproject.toml" ]; then
+        name=$(basename "$project")
+        echo "  Installing $name..."
+        # Try with [dev] extras first, then without
+        pip install -e "${project}[dev]" 2>/dev/null || pip install -e "$project" 2>/dev/null || echo "    ⚠️  Failed to install $name (may have missing dependencies)"
     fi
 done
 
-# Games
-for project in active/games/*/; do
-    if [ -f "${project}pyproject.toml" ]; then
-        echo "  Installing $(basename $project)..."
-        pip install -e "$project" 2>/dev/null || pip install -e "${project}[dev]" 2>/dev/null || true
-    fi
-done
-
-# Bots
+# Bots with requirements.txt
 if [ -f "active/bots/CryptoRoleBot/requirements.txt" ]; then
     echo "  Installing CryptoRoleBot dependencies..."
-    pip install -r active/bots/CryptoRoleBot/requirements.txt 2>/dev/null || true
+    pip install -r active/bots/CryptoRoleBot/requirements.txt 2>/dev/null || echo "    ⚠️  Failed to install CryptoRoleBot dependencies"
 fi
 
 # VS Code extension dependencies

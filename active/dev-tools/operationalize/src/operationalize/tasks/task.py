@@ -163,11 +163,11 @@ class TaskDAG:  # pylint: disable=too-many-instance-attributes
 
     def rate(self, rating, feedback=None):
         """Rate the quality of work for a completed task.
-
+        
         Args:
             rating: Integer from 1-5 indicating quality (1=poor, 5=excellent)
             feedback: Optional string with additional feedback
-
+            
         Returns:
             bool: True if rating was applied, False if task not completed
         """

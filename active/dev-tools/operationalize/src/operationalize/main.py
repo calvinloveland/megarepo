@@ -81,7 +81,7 @@ def load_taskdag(project_id):
 @app.route("/rate_task/<task_id>", methods=["POST"])
 def rate_task(task_id):
     """Rate the quality of work for a completed task.
-
+    
     Expected JSON body:
         rating: int (1-5)
         feedback: str (optional)
