@@ -13,7 +13,19 @@ import { coordinator } from './network/coordinator';
 import { peerMesh } from './network/peers';
 import { inferenceEngine } from './inference/engine';
 import { detectWebGPU, meetsMinimumRequirements } from './inference/webgpu';
+import { initializeErrorLogger } from './utils/errorLogger';
 import type { ChatMessage } from './types';
+
+// Initialize error logging ASAP to catch any initialization errors
+const errorLogger = initializeErrorLogger({
+  endpoint: `${import.meta.env.VITE_COORDINATOR_URL || 'http://localhost:5001'}/api/errors`,
+  debug: true, // Log errors to console during development
+  batchSize: 5,
+  flushInterval: 3000,
+});
+
+// Log that the app is starting
+errorLogger.logMessage('HiveMind app initializing');
 
 function App() {
   const {

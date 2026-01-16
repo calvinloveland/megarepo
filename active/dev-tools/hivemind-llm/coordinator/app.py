@@ -153,6 +153,28 @@ def list_peers():
     })
 
 
+@app.route("/api/errors", methods=["POST"])
+def receive_errors():
+    """Receive error reports from browser clients."""
+    try:
+        data = request.get_json()
+        errors = data.get("errors", [])
+        
+        for error in errors:
+            logger.error(
+                f"[BROWSER ERROR] {error.get('type', 'Error')}: {error.get('message', 'Unknown')}\n"
+                f"  URL: {error.get('url', 'N/A')}\n"
+                f"  File: {error.get('filename', 'N/A')}:{error.get('lineno', '?')}:{error.get('colno', '?')}\n"
+                f"  Source: {error.get('source', 'unknown')}\n"
+                f"  Stack: {error.get('stack', 'N/A')}"
+            )
+        
+        return jsonify({"received": len(errors)}), 200
+    except Exception as e:
+        logger.exception("Failed to process error report")
+        return jsonify({"error": str(e)}), 500
+
+
 # ==================== WebSocket Events ====================
 
 @socketio.on("connect")
