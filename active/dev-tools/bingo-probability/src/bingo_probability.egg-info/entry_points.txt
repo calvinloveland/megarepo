@@ -1,0 +1,2 @@
+[console_scripts]
+bingo-probability = bingo_probability.cli:main

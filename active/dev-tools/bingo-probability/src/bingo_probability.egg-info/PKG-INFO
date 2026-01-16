@@ -1,0 +1,87 @@
+Metadata-Version: 2.4
+Name: bingo-probability
+Version: 0.1.0
+Summary: Calculate bingo win probability using Monte Carlo and inclusion-exclusion
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+Requires-Dist: numpy>=1.20.0
+Provides-Extra: dev
+Requires-Dist: pytest>=7.0.0; extra == "dev"
+
+# Bingo Probability Solver
+
+Calculate the probability of achieving at least one bingo (complete row, column, or diagonal) on an n×n board where each square has an independent probability of being marked.
+
+## The Problem
+
+Each square on the board is an independent Bernoulli variable, but winning lines (rows, columns, diagonals) are **not independent** because they share squares. While the probability of a single line is the product of its square probabilities, multiple lines covary: if two lines intersect, success of one partially implies success of the other.
+
+### Why Two Approaches?
+
+**Inclusion-Exclusion (Exact):**
+- Uses the principle P(A∪B∪...) = Σ P(Aᵢ) - Σ P(Aᵢ∩Aⱼ) + ...
+- Computes exact probability by considering all 2^L - 1 subsets of lines
+- For n×n board: L = 2n + 2 lines (n rows + n columns + 2 diagonals)
+- Exponential complexity: O(2^(2n+2) × n²)
+
+**Monte Carlo (Approximate):**
+- Samples square outcomes once per trial
+- Checks which lines complete
+- Preserves correlations naturally
+- Scales polynomially: O(samples × n²)
+
+## Installation
+
+```bash
+pip install -e .
+```
+
+## Usage
+
+### As a Library
+
+```python
+from bingo_probability import BingoBoard, monte_carlo_solver, inclusion_exclusion_solver
+
+# Create a 3x3 board with uniform 50% probability
+board = BingoBoard.uniform(3, 0.5)
+
+# Or create with custom probabilities
+import numpy as np
+probs = np.random.uniform(0.3, 0.7, (3, 3))
+board = BingoBoard(probs)
+
+# Monte Carlo (fast, approximate)
+mc_prob, mc_std = monte_carlo_solver(board, samples=100000)
+print(f"Monte Carlo: {mc_prob:.6f} ± {mc_std:.6f}")
+
+# Inclusion-Exclusion (exact, exponential complexity)
+ie_prob = inclusion_exclusion_solver(board)
+print(f"Inclusion-Exclusion: {ie_prob:.6f}")
+```
+
+### Command Line
+
+```bash
+# Uniform probability board
+bingo-probability --size 3 --prob 0.5 --samples 100000
+
+# Compare both methods
+bingo-probability --size 3 --prob 0.5 --compare
+
+# Random probabilities per square
+bingo-probability --size 4 --random --samples 50000
+```
+
+## Complexity Analysis
+
+| Board Size | Lines | I-E Subsets | I-E Feasible? |
+|------------|-------|-------------|---------------|
+| 3×3        | 8     | 255         | ✓ Yes         |
+| 4×4        | 10    | 1,023       | ✓ Yes         |
+| 5×5        | 12    | 4,095       | ✓ Yes         |
+| 6×6        | 14    | 16,383      | ✓ Slow        |
+| 7×7        | 16    | 65,535      | ⚠ Very slow   |
+| 8×8        | 18    | 262,143     | ✗ Impractical |
+
+Monte Carlo remains O(samples × n²) regardless of board size.
