@@ -49,6 +49,12 @@ export interface ModelInfo {
   quantization?: string;
 }
 
+export interface ModelConfig extends ModelInfo {
+  vram_required_gb: number;
+  min_peers: number;
+  tier: string;
+}
+
 export interface LayerAssignment {
   model: ModelInfo;
   start_layer: number;

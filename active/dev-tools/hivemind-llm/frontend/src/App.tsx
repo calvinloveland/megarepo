@@ -18,7 +18,7 @@ import type { ChatMessage } from './types';
 
 // Initialize error logging ASAP to catch any initialization errors
 const errorLogger = initializeErrorLogger({
-  endpoint: `${import.meta.env.VITE_COORDINATOR_URL || 'http://localhost:5001'}/api/errors`,
+  endpoint: `${import.meta.env.VITE_COORDINATOR_URL || 'http://localhost:5000'}/api/errors`,
   debug: true, // Log errors to console during development
   batchSize: 5,
   flushInterval: 3000,

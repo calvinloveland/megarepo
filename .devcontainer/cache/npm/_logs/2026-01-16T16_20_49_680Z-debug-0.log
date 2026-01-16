@@ -7,13 +7,13 @@
 6 silly config load:file:/usr/local/share/nvm/versions/node/v20.20.0/etc/npmrc
 7 verbose title npm exec tsc --noEmit
 8 verbose argv "exec" "--" "tsc" "--noEmit"
-9 verbose logfile logs-max:10 dir:/home/vscode/.npm/_logs/2026-01-16T16_05_05_075Z-
-10 verbose logfile /home/vscode/.npm/_logs/2026-01-16T16_05_05_075Z-debug-0.log
+9 verbose logfile logs-max:10 dir:/home/vscode/.npm/_logs/2026-01-16T16_20_49_680Z-
+10 verbose logfile /home/vscode/.npm/_logs/2026-01-16T16_20_49_680Z-debug-0.log
 11 silly logfile start cleaning logs, removing 1 files
 12 silly logfile done cleaning log files
 13 verbose cwd /workspaces/megarepo/active/dev-tools/hivemind-llm/frontend
 14 verbose os Linux 6.18.1
 15 verbose node v20.20.0
 16 verbose npm  v10.8.2
-17 verbose exit 2
-18 verbose code 2
+17 verbose exit 0
+18 info ok
