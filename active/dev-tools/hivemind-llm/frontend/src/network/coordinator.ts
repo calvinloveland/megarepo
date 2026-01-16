@@ -34,9 +34,10 @@ export class CoordinatorConnection {
    */
   connect(url: string = ''): Promise<string> {
     return new Promise((resolve, reject) => {
-      // Default to localhost:5000 for development
-      const socketUrl = url || import.meta.env.VITE_COORDINATOR_URL || 'http://localhost:5000';
-      console.log('Connecting to coordinator at:', socketUrl);
+      // Use same origin - Vite proxies /socket.io to the coordinator
+      // In production, the coordinator serves the frontend
+      const socketUrl = url || import.meta.env.VITE_COORDINATOR_URL || '';
+      console.log('Connecting to coordinator at:', socketUrl || window.location.origin);
       
       // Set a connection timeout
       const timeout = setTimeout(() => {
