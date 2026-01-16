@@ -60,50 +60,72 @@ function App() {
     let mounted = true;
 
     async function initialize() {
-      // 1. Detect WebGPU capabilities
-      console.log('Detecting WebGPU...');
-      const gpuInfo = await detectWebGPU();
-      if (!mounted) return;
-      setWebGPU(gpuInfo);
-
-      const requirements = meetsMinimumRequirements(gpuInfo);
-      if (!requirements.meets) {
-        console.error('Requirements not met:', requirements.reason);
-        addMessage({
-          id: crypto.randomUUID(),
-          role: 'system',
-          content: `⚠️ ${requirements.reason}`,
-          timestamp: new Date(),
-        });
-        return;
-      }
-
-      // 2. Connect to coordinator
-      console.log('Connecting to coordinator...');
       try {
-        const peerId = await coordinator.connect();
+        // 1. Detect WebGPU capabilities (with timeout)
+        console.log('Detecting WebGPU...');
+        const gpuInfo = await Promise.race([
+          detectWebGPU(),
+          new Promise<null>((resolve) => setTimeout(() => resolve(null), 5000))
+        ]) as Awaited<ReturnType<typeof detectWebGPU>> | null;
+        
         if (!mounted) return;
         
-        setPeerId(peerId);
-        setConnected(true);
-        peerMesh.initialize(peerId);
+        if (!gpuInfo) {
+          console.warn('WebGPU detection timed out');
+          setWebGPU({ supported: false, adapter: null, limits: null, estimatedVRAM: 0 });
+          addMessage({
+            id: crypto.randomUUID(),
+            role: 'system',
+            content: '⚠️ WebGPU detection timed out. Some features may be limited.',
+            timestamp: new Date(),
+          });
+        } else {
+          setWebGPU(gpuInfo);
+          
+          const requirements = meetsMinimumRequirements(gpuInfo);
+          if (!requirements.meets) {
+            console.warn('Requirements not met:', requirements.reason);
+            addMessage({
+              id: crypto.randomUUID(),
+              role: 'system',
+              content: `⚠️ ${requirements.reason}`,
+              timestamp: new Date(),
+            });
+          }
+        }
 
-        // 3. Report capabilities
-        coordinator.reportCapabilities({
-          vram_gb: gpuInfo.estimatedVRAM,
-          webgpu_supported: true,
-          compute_capability: gpuInfo.adapter?.architecture || 'unknown',
-          browser: navigator.userAgent,
-          estimated_tflops: 0,
+        // 2. Connect to coordinator (async, don't block UI)
+        console.log('Connecting to coordinator...');
+        coordinator.connect().then((peerId) => {
+          if (!mounted) return;
+          
+          setPeerId(peerId);
+          setConnected(true);
+          peerMesh.initialize(peerId);
+
+          // 3. Report capabilities
+          if (gpuInfo) {
+            coordinator.reportCapabilities({
+              vram_gb: gpuInfo.estimatedVRAM,
+              webgpu_supported: gpuInfo.supported,
+              compute_capability: gpuInfo.adapter?.architecture || 'unknown',
+              browser: navigator.userAgent,
+              estimated_tflops: 0,
+            });
+          }
+        }).catch((error) => {
+          console.error('Failed to connect:', error);
+          if (!mounted) return;
+          addMessage({
+            id: crypto.randomUUID(),
+            role: 'system',
+            content: '⚠️ Failed to connect to the HiveMind network. Running in local-only mode.',
+            timestamp: new Date(),
+          });
         });
       } catch (error) {
-        console.error('Failed to connect:', error);
-        addMessage({
-          id: crypto.randomUUID(),
-          role: 'system',
-          content: '⚠️ Failed to connect to the HiveMind network. Running in local-only mode.',
-          timestamp: new Date(),
-        });
+        console.error('Initialization error:', error);
+        errorLogger.log(error as Error, { phase: 'initialization' });
       }
     }
 

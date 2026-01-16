@@ -14,7 +14,7 @@ interface ChatState {
   
   // Generation state
   generation: {
-    isGenerating: boolean;
+    status: 'idle' | 'loading' | 'generating' | 'complete' | 'error';
     currentPrompt: string | null;
     tokensGenerated: number;
     startTime: number | null;
@@ -33,7 +33,7 @@ export const useChatStore = create<ChatState>((set) => ({
   messages: [],
   activeModel: null,
   generation: {
-    isGenerating: false,
+    status: 'idle',
     currentPrompt: null,
     tokensGenerated: 0,
     startTime: null,

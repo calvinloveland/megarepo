@@ -34,14 +34,23 @@ export class CoordinatorConnection {
    */
   connect(url: string = ''): Promise<string> {
     return new Promise((resolve, reject) => {
-      // Use relative URL if not specified (for same-origin deployment)
-      const socketUrl = url || window.location.origin;
+      // Default to localhost:5000 for development
+      const socketUrl = url || import.meta.env.VITE_COORDINATOR_URL || 'http://localhost:5000';
+      console.log('Connecting to coordinator at:', socketUrl);
+      
+      // Set a connection timeout
+      const timeout = setTimeout(() => {
+        console.error('Connection timeout');
+        this.socket?.disconnect();
+        reject(new Error('Connection timeout after 10s'));
+      }, 10000);
       
       this.socket = io(socketUrl, {
         transports: ['websocket', 'polling'],
         reconnection: true,
-        reconnectionAttempts: 5,
+        reconnectionAttempts: 3,
         reconnectionDelay: 1000,
+        timeout: 10000,
       });
 
       // Connection established
@@ -52,6 +61,7 @@ export class CoordinatorConnection {
 
       // Welcome message with peer ID
       this.socket.on('welcome', (data: WelcomeEvent) => {
+        clearTimeout(timeout);
         this.peerId = data.peer_id;
         console.log('Assigned peer ID:', this.peerId);
         this.onWelcomeHandlers.forEach((h) => h(data));
