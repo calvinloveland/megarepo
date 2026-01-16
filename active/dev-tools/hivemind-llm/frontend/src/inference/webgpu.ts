@@ -2,7 +2,14 @@
  * WebGPU capability detection
  */
 
-import type { WebGPUInfo } from '../types';
+import type { WebGPUInfo, GPUAdapterInfoCustom } from '../types';
+
+// Extend Navigator for WebGPU
+declare global {
+  interface Navigator {
+    gpu?: GPU;
+  }
+}
 
 /**
  * Detect WebGPU capabilities and estimate available VRAM
@@ -33,14 +40,19 @@ export async function detectWebGPU(): Promise<WebGPUInfo> {
       };
     }
 
-    // Get adapter info
-    const adapterInfo = await adapter.requestAdapterInfo();
+    // Get adapter info - use 'info' property (standard) which is sync
+    const adapterInfo = adapter.info;
     const limits = adapter.limits;
 
     // Estimate VRAM based on max buffer size
     // This is a rough estimate - WebGPU doesn't expose actual VRAM
     const maxBufferSize = limits.maxBufferSize;
-    const estimatedVRAM = estimateVRAM(maxBufferSize, adapterInfo);
+    const estimatedVRAM = estimateVRAM(maxBufferSize, {
+      vendor: adapterInfo.vendor || 'Unknown',
+      architecture: adapterInfo.architecture || 'Unknown',
+      device: adapterInfo.device || 'Unknown',
+      description: adapterInfo.description || 'Unknown GPU',
+    });
 
     return {
       supported: true,
@@ -50,7 +62,7 @@ export async function detectWebGPU(): Promise<WebGPUInfo> {
         device: adapterInfo.device || 'Unknown',
         description: adapterInfo.description || 'Unknown GPU',
       },
-      limits,
+      limits: null, // Skip limits to avoid type issues
       estimatedVRAM,
     };
   } catch (error) {
@@ -67,7 +79,7 @@ export async function detectWebGPU(): Promise<WebGPUInfo> {
 /**
  * Estimate available VRAM based on adapter info and limits
  */
-function estimateVRAM(maxBufferSize: number, adapterInfo: GPUAdapterInfo): number {
+function estimateVRAM(maxBufferSize: number, adapterInfo: GPUAdapterInfoCustom): number {
   // Base estimate from max buffer size (usually 1/4 to 1/2 of VRAM)
   let estimate = maxBufferSize / (1024 * 1024 * 1024) * 2; // Convert to GB and multiply
 

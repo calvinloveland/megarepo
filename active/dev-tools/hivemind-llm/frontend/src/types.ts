@@ -131,12 +131,12 @@ export interface GenerationProgress {
 
 export interface WebGPUInfo {
   supported: boolean;
-  adapter: GPUAdapterInfo | null;
-  limits: GPUSupportedLimits | null;
+  adapter: GPUAdapterInfoCustom | null;
+  limits: Record<string, number> | null;
   estimatedVRAM: number;
 }
 
-export interface GPUAdapterInfo {
+export interface GPUAdapterInfoCustom {
   vendor: string;
   architecture: string;
   device: string;

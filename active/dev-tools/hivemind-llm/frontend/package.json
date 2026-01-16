@@ -13,8 +13,8 @@
     "@mlc-ai/web-llm": "^0.2.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "socket.io-client": "^4.7.0",
     "simple-peer": "^9.11.1",
+    "socket.io-client": "^4.7.0",
     "zustand": "^4.5.0"
   },
   "devDependencies": {
@@ -23,6 +23,7 @@
     "@types/react-dom": "^18.2.0",
     "@types/simple-peer": "^9.11.0",
     "@vitejs/plugin-react": "^4.2.0",
+    "@webgpu/types": "^0.1.69",
     "autoprefixer": "^10.4.0",
     "eslint": "^8.55.0",
     "eslint-plugin-react-hooks": "^4.6.0",

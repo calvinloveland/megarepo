@@ -2,7 +2,7 @@
  * WebRTC peer mesh for direct peer-to-peer communication
  */
 
-import SimplePeer from 'simple-peer';
+import SimplePeer, { SignalData } from 'simple-peer';
 import { coordinator } from './coordinator';
 import type { WebRTCSignalEvent } from '../types';
 
@@ -69,8 +69,8 @@ export class PeerMesh {
     };
 
     // Handle signaling data
-    peer.on('signal', (signal) => {
-      coordinator.sendWebRTCSignal(peerId, signal);
+    peer.on('signal', (signal: SignalData) => {
+      coordinator.sendWebRTCSignal(peerId, signal as unknown as RTCSessionDescriptionInit);
     });
 
     // Connection established
@@ -114,7 +114,7 @@ export class PeerMesh {
     }
 
     // Pass signal to peer
-    connection.peer.signal(signal);
+    connection.peer.signal(signal as unknown as SignalData);
   }
 
   /**

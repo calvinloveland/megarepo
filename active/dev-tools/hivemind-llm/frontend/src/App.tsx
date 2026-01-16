@@ -37,7 +37,6 @@ function App() {
   } = useChatStore();
 
   const {
-    webgpu,
     modelLoaded,
     setWebGPU,
     setModelLoaded,
