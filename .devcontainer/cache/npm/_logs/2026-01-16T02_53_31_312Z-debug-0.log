@@ -1,0 +1,30 @@
+0 verbose cli /usr/local/share/nvm/versions/node/v20.20.0/bin/node /usr/local/share/nvm/versions/node/v20.20.0/bin/npm
+1 info using npm@10.8.2
+2 info using node@v20.20.0
+3 silly config load:file:/usr/local/share/nvm/versions/node/v20.20.0/lib/node_modules/npm/npmrc
+4 silly config load:file:/workspaces/megarepo/active/dev-tools/hivemind-llm/frontend/.npmrc
+5 silly config load:file:/home/vscode/.npmrc
+6 silly config load:file:/usr/local/share/nvm/versions/node/v20.20.0/etc/npmrc
+7 verbose title npm whoami
+8 verbose argv "whoami"
+9 verbose logfile logs-max:10 dir:/home/vscode/.npm/_logs/2026-01-16T02_53_31_312Z-
+10 verbose logfile /home/vscode/.npm/_logs/2026-01-16T02_53_31_312Z-debug-0.log
+11 silly logfile done cleaning log files
+12 verbose stack Error: This command requires you to be logged in.
+12 verbose stack     at module.exports (/usr/local/share/nvm/versions/node/v20.20.0/lib/node_modules/npm/lib/utils/get-identity.js:23:5)
+12 verbose stack     at Whoami.exec (/usr/local/share/nvm/versions/node/v20.20.0/lib/node_modules/npm/lib/commands/whoami.js:11:28)
+12 verbose stack     at /usr/local/share/nvm/versions/node/v20.20.0/lib/node_modules/npm/lib/npm.js:251:63
+12 verbose stack     at Object.start (/usr/local/share/nvm/versions/node/v20.20.0/lib/node_modules/npm/node_modules/proc-log/lib/index.js:101:21)
+12 verbose stack     at #exec (/usr/local/share/nvm/versions/node/v20.20.0/lib/node_modules/npm/lib/npm.js:250:17)
+12 verbose stack     at Npm.exec (/usr/local/share/nvm/versions/node/v20.20.0/lib/node_modules/npm/lib/npm.js:207:25)
+12 verbose stack     at module.exports (/usr/local/share/nvm/versions/node/v20.20.0/lib/node_modules/npm/lib/cli/entry.js:65:29)
+13 error code ENEEDAUTH
+14 error need auth This command requires you to be logged in.
+15 error need auth You need to authorize this machine using `npm adduser`
+16 verbose cwd /workspaces/megarepo/active/dev-tools/hivemind-llm/frontend
+17 verbose os Linux 6.18.1
+18 verbose node v20.20.0
+19 verbose npm  v10.8.2
+20 verbose exit 1
+21 verbose code 1
+22 error A complete log of this run can be found in: /home/vscode/.npm/_logs/2026-01-16T02_53_31_312Z-debug-0.log

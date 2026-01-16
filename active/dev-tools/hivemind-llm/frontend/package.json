@@ -10,7 +10,6 @@
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0"
   },
   "dependencies": {
-    "@anthropic-ai/claude": "^0.10.0",
     "@mlc-ai/web-llm": "^0.2.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",

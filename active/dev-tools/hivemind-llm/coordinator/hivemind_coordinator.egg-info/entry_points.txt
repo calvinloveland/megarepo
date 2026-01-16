@@ -1,0 +1,2 @@
+[console_scripts]
+hivemind-coordinator = coordinator.app:main

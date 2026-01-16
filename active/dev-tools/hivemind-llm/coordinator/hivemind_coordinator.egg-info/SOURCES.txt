@@ -1,0 +1,7 @@
+pyproject.toml
+hivemind_coordinator.egg-info/PKG-INFO
+hivemind_coordinator.egg-info/SOURCES.txt
+hivemind_coordinator.egg-info/dependency_links.txt
+hivemind_coordinator.egg-info/entry_points.txt
+hivemind_coordinator.egg-info/requires.txt
+hivemind_coordinator.egg-info/top_level.txt
