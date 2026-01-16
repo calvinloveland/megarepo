@@ -1,5 +1,7 @@
 # Copilot Instructions for Megarepo
 
+Read PHILOSOPHY.md
+
 ## Commit After Every Change
 
 **CRITICAL**: After completing ANY code change, file creation, or modification, you MUST create a git commit with a descriptive message. Do not batch changes—commit immediately after each logical unit of work.
@@ -9,6 +11,7 @@ git add -A && git commit -m "Descriptive message here"
 ```
 
 Commit messages should be:
+
 - Present tense, imperative mood ("Add feature" not "Added feature")
 - Concise but descriptive
 - Reference the project/area if relevant (e.g., "full-auto-ci: Add timeout configuration")
@@ -16,6 +19,7 @@ Commit messages should be:
 ## Project Context
 
 This is a monorepo containing multiple projects organized as:
+
 - `active/dev-tools/` - Development tools and CI utilities
 - `active/games/` - Game projects and AI experiments
 - `active/bots/` - Discord and automation bots
@@ -25,6 +29,7 @@ This is a monorepo containing multiple projects organized as:
 ## Language & Framework Preferences
 
 ### Python (Most Projects)
+
 - Python 3.8+ for compatibility
 - Use `pyproject.toml` for project configuration
 - pytest for testing
@@ -32,10 +37,12 @@ This is a monorepo containing multiple projects organized as:
 - Prefer pathlib over os.path
 
 ### JavaScript/TypeScript (VS Code Extensions)
+
 - Follow existing project conventions
 - Use the project's existing package manager
 
 ### Nix (calnix)
+
 - Follow NixOS module conventions
 - Test changes with `nix flake check`
 
@@ -44,7 +51,7 @@ This is a monorepo containing multiple projects organized as:
 - Keep functions small and focused
 - Prefer composition over inheritance
 - Configuration over hardcoded values
-- Write self-documenting code; comments explain *why*
+- Write self-documenting code; comments explain _why_
 
 ## Testing
 
@@ -55,6 +62,7 @@ This is a monorepo containing multiple projects organized as:
 ## Development Philosophy
 
 See [PHILOSOPHY.md](./PHILOSOPHY.md) for detailed principles, but key points:
+
 1. Automate repetitive tasks
 2. Use ratchets for incremental improvement
 3. Plain text and simple formats
@@ -64,6 +72,7 @@ See [PHILOSOPHY.md](./PHILOSOPHY.md) for detailed principles, but key points:
 ## When Working on Specific Projects
 
 Before making changes to a project, check for:
+
 - `README.md` for project-specific instructions
 - `pyproject.toml` or `package.json` for dependencies
 - Existing code style and patterns
