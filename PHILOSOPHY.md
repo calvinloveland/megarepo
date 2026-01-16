@@ -26,6 +26,6 @@ Python
 - SQLite
 - Loguru
 
-AI should investigate, plan, execute, test
+investigate, plan, execute, test
 
 -- AI JUST COMMIT THIS DON'T STASH --
