@@ -59,6 +59,15 @@ This is a monorepo containing multiple projects organized as:
 - Run existing tests before committing: `pytest` or project-specific test command
 - Don't break existing tests
 
+## Process Management
+
+**NEVER use broad pkill/killall commands** that could kill unrelated processes:
+- ❌ `pkill python` - kills LSP servers, debuggers, other tools
+- ❌ `pkill node` - kills VS Code extensions, other services
+- ✅ Use specific patterns: `pkill -f "python app.py"` or `pkill -f "specific-script"`
+- ✅ Use PIDs when available: `kill $PID`
+- ✅ Use process groups or save PIDs to files for cleanup
+
 ## Development Philosophy
 
 See [PHILOSOPHY.md](./PHILOSOPHY.md) for detailed principles, but key points:

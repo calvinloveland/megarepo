@@ -1,0 +1,17 @@
+0 verbose cli /usr/local/share/nvm/versions/node/v20.20.0/bin/node /usr/local/share/nvm/versions/node/v20.20.0/bin/npm
+1 info using npm@10.8.2
+2 info using node@v20.20.0
+3 silly config load:file:/usr/local/share/nvm/versions/node/v20.20.0/lib/node_modules/npm/npmrc
+4 silly config load:file:/vscode/vscode-server/bin/linux-x64/618725e67565b290ba4da6fe2d29f8fa1d4e3622/.npmrc
+5 silly config load:file:/home/vscode/.npmrc
+6 silly config load:file:/usr/local/share/nvm/versions/node/v20.20.0/etc/npmrc
+7 verbose title npm config get prefix
+8 verbose argv "config" "get" "prefix"
+9 verbose logfile logs-max:10 dir:/home/vscode/.npm/_logs/2026-01-17T23_01_10_721Z-
+10 verbose logfile /home/vscode/.npm/_logs/2026-01-17T23_01_10_721Z-debug-0.log
+11 verbose cwd /vscode/vscode-server/bin/linux-x64/618725e67565b290ba4da6fe2d29f8fa1d4e3622
+12 verbose os Linux 6.18.1
+13 verbose node v20.20.0
+14 verbose npm  v10.8.2
+15 verbose exit 0
+16 info ok
