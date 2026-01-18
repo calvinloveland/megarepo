@@ -43,6 +43,8 @@ class Config:
             "pylint": {
                 "enabled": True,
                 "config_file": None,  # Use default pylintrc
+                "timeout_seconds": 300,
+                "ignore_patterns": None,
                 "ratchet": {
                     "enabled": False,
                     "metric": "score",
@@ -54,8 +56,27 @@ class Config:
             "coverage": {
                 "enabled": True,
                 "run_tests_cmd": ["pytest"],
-                "timeout_seconds": 300,
+                "timeout_seconds": 600,
                 "xml_timeout_seconds": 120,
+                "ignore_patterns": [
+                    ".venv",
+                    "venv",
+                    ".env",
+                    "env",
+                    "node_modules",
+                    ".git",
+                    "__pycache__",
+                    ".tox",
+                    ".nox",
+                    ".eggs",
+                    "*.egg-info",
+                    "archive",
+                    "ui_tests",
+                    "build",
+                    "dist",
+                    ".mypy_cache",
+                    ".pytest_cache",
+                ],
                 "ratchet": {
                     "enabled": False,
                     "metric": "percentage",

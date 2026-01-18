@@ -144,15 +144,20 @@ class CIService:
         if self._tool_enabled(pylint_config):
             config_file = None
             timeout = None
+            ignore_patterns = None
             if isinstance(pylint_config, dict):
                 config_file = pylint_config.get("config_file")
                 timeout = self._coerce_positive_float(
                     pylint_config.get("timeout_seconds")
                 )
+                ignore_patterns = self._normalize_ignore_patterns(
+                    pylint_config.get("ignore_patterns")
+                )
             tools.append(
                 Pylint(
                     config_file=config_file if isinstance(config_file, str) else None,
                     timeout=timeout,
+                    ignore_patterns=ignore_patterns,
                 )
             )
 

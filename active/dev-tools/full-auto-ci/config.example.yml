@@ -24,6 +24,23 @@ tools:
     enabled: true
     config_file: "~/.fullautoci/pylintrc"  # Custom pylint configuration
     timeout_seconds: 300  # 5 minutes
+    # Directories to ignore when running pylint (defaults shown below)
+    # ignore_patterns:
+    #   - ".git"
+    #   - ".venv"
+    #   - "venv"
+    #   - ".env"
+    #   - "env"
+    #   - "node_modules"
+    #   - "__pycache__"
+    #   - ".tox"
+    #   - ".nox"
+    #   - ".eggs"
+    #   - "archive"
+    #   - "dist"
+    #   - "build"
+    #   - ".mypy_cache"
+    #   - ".pytest_cache"
     ratchet:
       enabled: false
       target: 10.0
@@ -49,6 +66,8 @@ tools:
     #   - ".nox"
     #   - ".eggs"
     #   - "*.egg-info"
+    #   - "archive"
+    #   - "ui_tests"
     #   - "build"
     #   - "dist"
     #   - ".mypy_cache"

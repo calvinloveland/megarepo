@@ -25,6 +25,25 @@ DEFAULT_COVERAGE_XML_TIMEOUT = 120  # 2 minutes
 DEFAULT_LIZARD_TIMEOUT = 300  # 5 minutes
 DEFAULT_JSCPD_TIMEOUT = 300  # 5 minutes
 
+# Default directories to ignore when running pylint or scanning for Python projects
+DEFAULT_PYLINT_IGNORE_DIRS = [
+    ".git",
+    ".venv",
+    "venv",
+    ".env",
+    "env",
+    "node_modules",
+    "__pycache__",
+    ".tox",
+    ".nox",
+    ".eggs",
+    "archive",
+    "dist",
+    "build",
+    ".mypy_cache",
+    ".pytest_cache",
+]
+
 
 class Tool:  # pylint: disable=too-few-public-methods
     """Base class for all tools."""
@@ -57,16 +76,23 @@ class Pylint(Tool):  # pylint: disable=too-few-public-methods
         config_file: Optional[str] = None,
         *,
         timeout: Optional[float] = None,
+        ignore_patterns: Optional[List[str]] = None,
     ):
         """Initialize Pylint.
 
         Args:
             config_file: Path to pylint configuration file
             timeout: Timeout in seconds for pylint execution
+            ignore_patterns: Directories or patterns to ignore
         """
         super().__init__("pylint")
         self.config_file = config_file
         self.timeout = timeout if timeout is not None else DEFAULT_PYLINT_TIMEOUT
+        self.ignore_patterns = (
+            ignore_patterns
+            if ignore_patterns is not None
+            else DEFAULT_PYLINT_IGNORE_DIRS
+        )
 
     def _resolve_config_file(self, repo_path: str) -> Optional[str]:
         config_file = self.config_file
@@ -126,8 +152,25 @@ class Pylint(Tool):  # pylint: disable=too-few-public-methods
         rcfile = self._resolve_config_file(repo_path)
         if rcfile:
             cmd.extend(["--rcfile", rcfile])
+        ignore_dirs, ignore_patterns = self._split_ignore_patterns()
+        if ignore_dirs:
+            cmd.extend(["--ignore", ",".join(ignore_dirs)])
+        if ignore_patterns:
+            cmd.extend(["--ignore-patterns", ",".join(ignore_patterns)])
         cmd.extend(targets)
         return cmd
+
+    def _split_ignore_patterns(self) -> Tuple[List[str], List[str]]:
+        ignore_dirs: List[str] = []
+        ignore_patterns: List[str] = []
+        for pattern in self.ignore_patterns:
+            if not pattern:
+                continue
+            if "*" in pattern or "." in pattern:
+                ignore_patterns.append(pattern)
+                continue
+            ignore_dirs.append(pattern)
+        return ignore_dirs, ignore_patterns
 
     @staticmethod
     def _count_issues(results: Any) -> Dict[str, int]:
@@ -193,9 +236,62 @@ class Pylint(Tool):  # pylint: disable=too-few-public-methods
             targets.extend(self._package_directories(repo_path))
 
         if not targets:
+            targets.extend(self._discover_python_project_targets(repo_path))
+
+        if not targets:
             return ["."]
 
         return self._unique_targets(targets)
+
+    def _discover_python_project_targets(self, repo_path: str) -> List[str]:
+        project_roots = self._find_python_project_roots(repo_path)
+        targets: List[str] = []
+        for root in project_roots:
+            targets.extend(self._project_targets(repo_path, root))
+        return targets
+
+    def _project_targets(self, repo_path: str, project_root: str) -> List[str]:
+        rel_root = os.path.relpath(project_root, repo_path)
+        if rel_root == ".":
+            rel_root = ""
+
+        targets: List[str] = []
+        for candidate in ["src", "tests", "ui_tests"]:
+            candidate_path = os.path.join(project_root, candidate)
+            if os.path.isdir(candidate_path):
+                rel_candidate = os.path.join(rel_root, candidate) if rel_root else candidate
+                targets.append(rel_candidate)
+
+        if not targets:
+            targets.append(rel_root or ".")
+        return targets
+
+    def _find_python_project_roots(self, repo_path: str) -> List[str]:
+        project_markers = {"pyproject.toml", "setup.cfg", "setup.py", "requirements.txt"}
+        ignore_dirs = set(self._sanitize_ignore_dirs())
+        roots: List[str] = []
+
+        for current_root, dirs, files in os.walk(repo_path):
+            dirs[:] = [
+                name
+                for name in dirs
+                if name not in ignore_dirs
+            ]
+            if project_markers.intersection(files):
+                roots.append(current_root)
+                dirs[:] = []
+
+        return roots
+
+    def _sanitize_ignore_dirs(self) -> List[str]:
+        ignore_dirs: List[str] = []
+        for pattern in self.ignore_patterns:
+            if not pattern:
+                continue
+            if "*" in pattern:
+                continue
+            ignore_dirs.append(pattern.strip("/"))
+        return ignore_dirs
 
     @staticmethod
     def _unique_targets(targets: List[str]) -> List[str]:
@@ -298,6 +394,8 @@ DEFAULT_PYTEST_IGNORE_PATTERNS = [
     ".nox",
     ".eggs",
     "*.egg-info",
+    "archive",
+    "ui_tests",
     "build",
     "dist",
     ".mypy_cache",

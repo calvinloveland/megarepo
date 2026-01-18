@@ -72,14 +72,15 @@ class TestPylint(unittest.TestCase):
         self.assertEqual(result["issues"]["convention"], 1)
         self.assertEqual(result["issues"]["warning"], 1)
         self.assertEqual(result["issues"]["error"], 1)
-        mock_run.assert_called_with(
-            ["pylint", "--output-format=json", "src"],
-            capture_output=True,
-            text=True,
-            check=False,
-            cwd="/path/to/repo",
-            timeout=DEFAULT_PYLINT_TIMEOUT,
-        )
+        called_args, called_kwargs = mock_run.call_args
+        self.assertIn("pylint", called_args[0])
+        self.assertIn("--output-format=json", called_args[0])
+        self.assertIn("src", called_args[0])
+        self.assertEqual(called_kwargs.get("capture_output"), True)
+        self.assertEqual(called_kwargs.get("text"), True)
+        self.assertEqual(called_kwargs.get("check"), False)
+        self.assertEqual(called_kwargs.get("cwd"), "/path/to/repo")
+        self.assertEqual(called_kwargs.get("timeout"), DEFAULT_PYLINT_TIMEOUT)
 
     @patch("subprocess.run")
     def test_run_fail(self, mock_run):
@@ -150,14 +151,17 @@ class TestPylint(unittest.TestCase):
                 result = tool.run(tmpdir)
 
             self.assertEqual(result["status"], "success")
-            mock_run.assert_called_with(
-                ["pylint", "--output-format=json", "--rcfile", str(rcfile), "src"],
-                capture_output=True,
-                text=True,
-                check=False,
-                cwd=tmpdir,
-                timeout=DEFAULT_PYLINT_TIMEOUT,
-            )
+            called_args, called_kwargs = mock_run.call_args
+            self.assertIn("pylint", called_args[0])
+            self.assertIn("--output-format=json", called_args[0])
+            self.assertIn("--rcfile", called_args[0])
+            self.assertIn(str(rcfile), called_args[0])
+            self.assertIn("src", called_args[0])
+            self.assertEqual(called_kwargs.get("capture_output"), True)
+            self.assertEqual(called_kwargs.get("text"), True)
+            self.assertEqual(called_kwargs.get("check"), False)
+            self.assertEqual(called_kwargs.get("cwd"), tmpdir)
+            self.assertEqual(called_kwargs.get("timeout"), DEFAULT_PYLINT_TIMEOUT)
 
     def test_discover_targets_respects_config(self):
         """When explicit config exists, run Pylint from repository root."""
