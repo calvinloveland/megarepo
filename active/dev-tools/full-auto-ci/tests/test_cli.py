@@ -237,6 +237,58 @@ class TestCLI(unittest.TestCase):
         # Verify that the exit code is 1
         self.assertEqual(exit_code, 1)
 
+    @patch("builtins.print")
+    def test_run_default_tools_prints_issues(self, mock_print):
+        """Default tool run should print issue details."""
+        self.cli.service.tool_runner.run_all = lambda _repo: {
+            "pylint": {
+                "status": "error",
+                "issues": {"error": 1},
+                "details": [
+                    {
+                        "type": "error",
+                        "path": "src/app.py",
+                        "line": 12,
+                        "symbol": "undefined-variable",
+                        "message": "Name 'x' is not defined",
+                    }
+                ],
+            },
+            "lizard": {
+                "status": "success",
+                "summary": {"above_threshold": 1},
+                "top_offenders": [
+                    {
+                        "ccn": 15,
+                        "name": "do_work",
+                        "filename": "src/utils.py",
+                        "line": 44,
+                    }
+                ],
+            },
+            "coverage": {
+                "status": "error",
+                "pytest_summary": {
+                    "status": "error",
+                    "summary": "1 failed",
+                },
+                "error": "Test run failed",
+                "stderr": "boom",
+            },
+        }
+
+        exit_code = self.cli._run_default_tools()
+
+        self.assertEqual(exit_code, 1)
+        joined = "\n".join(
+            " ".join(str(arg) for arg in call.args)
+            for call in mock_print.call_args_list
+        )
+        self.assertIn("Issues", joined)
+        self.assertIn("Pylint issues", joined)
+        self.assertIn("Lizard offenders", joined)
+        self.assertIn("Pytest", joined)
+
     @patch("src.cli.CLI._handle_config_command")
     def test_run_config_command(self, mock_handle):
         """Test routing to config command handler."""

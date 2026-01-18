@@ -314,9 +314,132 @@ class CLI:
             alignments=("left", "left", "left"),
         )
 
+        if issues_found:
+            self._print_heading("Issues")
+            self._print_tool_issues(results)
+
         overall_status = "No issues found" if not issues_found else "Issues found"
         print(f"Overall: {overall_status}")
         return 0 if not issues_found else 1
+
+    def _print_tool_issues(self, results: Dict[str, Dict[str, Any]]) -> None:
+        for tool_name, result in results.items():
+            if not self._tool_has_issues(tool_name, result):
+                continue
+            printer = self._tool_issue_printer(tool_name)
+            if printer is None:
+                continue
+            printer(result)
+
+    def _tool_issue_printer(self, tool_name: str):
+        if tool_name == "pylint":
+            return self._print_pylint_issues
+        if tool_name == "lizard":
+            return self._print_lizard_issues
+        if tool_name == "coverage":
+            return self._print_coverage_issues
+        if tool_name == "jscpd":
+            return self._print_jscpd_issues
+        return None
+
+    def _print_pylint_issues(self, result: Dict[str, Any]) -> None:
+        details = result.get("details")
+        if not isinstance(details, list) or not details:
+            return
+        self._print_heading("Pylint")
+        rows: List[Sequence[str]] = []
+        for item in details[:20]:
+            if not isinstance(item, dict):
+                continue
+            path = str(item.get("path", ""))
+            line = item.get("line")
+            msg = str(item.get("message", ""))
+            symbol = str(item.get("symbol", ""))
+            location = f"{path}:{line}" if line else path
+            rows.append((
+                item.get("type", ""),
+                location,
+                f"{symbol} {msg}".strip(),
+            ))
+        if rows:
+            self._print_table(
+                ("Type", "Location", "Message"),
+                rows,
+                title="Pylint issues (first 20)",
+                alignments=("left", "left", "left"),
+            )
+
+    def _print_lizard_issues(self, result: Dict[str, Any]) -> None:
+        offenders = result.get("top_offenders")
+        if not isinstance(offenders, list) or not offenders:
+            return
+        self._print_heading("Lizard")
+        rows: List[Sequence[str]] = []
+        for offender in offenders[:20]:
+            if not isinstance(offender, dict):
+                continue
+            rows.append((
+                offender.get("ccn", ""),
+                offender.get("name", ""),
+                f"{offender.get('filename', '')}:{offender.get('line', '')}",
+            ))
+        if rows:
+            self._print_table(
+                ("CCN", "Function", "Location"),
+                rows,
+                title="Lizard offenders (first 20)",
+                alignments=("left", "left", "left"),
+            )
+
+    def _print_coverage_issues(self, result: Dict[str, Any]) -> None:
+        pytest_summary = result.get("pytest_summary")
+        if isinstance(pytest_summary, dict):
+            status = str(pytest_summary.get("status", ""))
+            summary = str(pytest_summary.get("summary", ""))
+            if status:
+                self._print_heading("Pytest")
+                print(f"Status: {status}")
+                if summary:
+                    print(f"Summary: {summary}")
+
+        error = result.get("error")
+        stderr = result.get("stderr")
+        if error or stderr:
+            self._print_heading("Coverage")
+            if error:
+                print(f"Error: {error}")
+            if stderr:
+                print(self._truncate_text(str(stderr), 2000))
+
+    def _print_jscpd_issues(self, result: Dict[str, Any]) -> None:
+        duplicates = result.get("duplicates")
+        if not isinstance(duplicates, list) or not duplicates:
+            return
+        self._print_heading("jscpd")
+        rows: List[Sequence[str]] = []
+        for dup in duplicates[:20]:
+            if not isinstance(dup, dict):
+                continue
+            first = dup.get("first", {})
+            second = dup.get("second", {})
+            rows.append((
+                dup.get("lines", ""),
+                f"{first.get('file', '')}:{first.get('start', '')}-{first.get('end', '')}",
+                f"{second.get('file', '')}:{second.get('start', '')}-{second.get('end', '')}",
+            ))
+        if rows:
+            self._print_table(
+                ("Lines", "First", "Second"),
+                rows,
+                title="jscpd duplicates (first 20)",
+                alignments=("left", "left", "left"),
+            )
+
+    @staticmethod
+    def _truncate_text(text: str, limit: int) -> str:
+        if len(text) <= limit:
+            return text
+        return text[-limit:]
 
     def _handle_mcp_command(self, args: argparse.Namespace) -> int:
         if args.mcp_command == "serve":
