@@ -9,6 +9,25 @@ const runButton = document.getElementById('run-test') as HTMLButtonElement | nul
 let device: GPUDevice | null = null
 let adapter: GPUAdapter | null = null
 
+const getBrowserName = (userAgent: string) => {
+  const ua = userAgent.toLowerCase()
+  if (ua.includes('edg/')) return 'Edge'
+  if (ua.includes('chrome/') && !ua.includes('edg/')) return 'Chrome'
+  if (ua.includes('firefox/')) return 'Firefox'
+  if (ua.includes('safari/') && !ua.includes('chrome/')) return 'Safari'
+  return 'Unknown'
+}
+
+const logTroubleshootingTips = () => {
+  const browser = getBrowserName(navigator.userAgent)
+  logLine(`Detected browser: ${browser} (${navigator.userAgent})`)
+  logLine('Troubleshooting tips:')
+  logLine('1) Ensure hardware acceleration is enabled in browser settings.')
+  logLine('2) Check chrome://gpu (or edge://gpu) and verify WebGPU is hardware accelerated.')
+  logLine('3) Enable chrome://flags/#enable-unsafe-webgpu and restart the browser.')
+  logLine('4) Update GPU drivers and ensure Vulkan is installed (Linux).')
+}
+
 const setStatus = (state: 'ok' | 'warn' | 'error', message: string) => {
   if (statusText) {
     statusText.textContent = message
@@ -49,6 +68,7 @@ const initWebGPU = async () => {
   if (!('gpu' in navigator)) {
     setStatus('error', 'WebGPU is not available in this browser.')
     logLine('WebGPU API missing. Try Chrome/Edge 113+ or enable chrome://flags/#enable-unsafe-webgpu')
+    logTroubleshootingTips()
     return
   }
 
@@ -59,6 +79,7 @@ const initWebGPU = async () => {
     if (!adapter) {
       setStatus('error', 'No WebGPU adapter found.')
       logLine('navigator.gpu.requestAdapter returned null.')
+      logTroubleshootingTips()
       return
     }
 
@@ -86,6 +107,7 @@ const initWebGPU = async () => {
     console.error(error)
     setStatus('error', 'Failed to initialize WebGPU. See log for details.')
     logLine(`Initialization error: ${(error as Error).message}`)
+    logTroubleshootingTips()
   }
 }
 
@@ -186,4 +208,5 @@ initWebGPU().catch((error) => {
   console.error(error)
   setStatus('error', 'Unexpected initialization error.')
   logLine(`Unexpected error: ${(error as Error).message}`)
+  logTroubleshootingTips()
 })
