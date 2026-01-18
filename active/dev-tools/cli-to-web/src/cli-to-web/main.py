@@ -2,7 +2,7 @@
 
 import flask
 
-from config_to_ui import config_to_ui
+from .config_to_ui import config_to_ui
 
 app = flask.Flask(__name__)
 

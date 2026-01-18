@@ -1,6 +1,8 @@
 # pylint: disable=no-member
 """Simulation module: run physics-based simulation for cars on ground."""
 
+import math
+
 import pygame
 import pymunk
 import pymunk.pygame_util
@@ -23,7 +25,8 @@ class Simulation:
 
         # Reset car physics state before adding to new space
         car.reset_physics()
-        logger.debug('Resetting car physics state before simulation')
+        if visualize:
+            logger.debug("Resetting car physics state before simulation")
 
         if visualize:
             DISPLAY_WIDTH_HEIGHT = (600, 600)
@@ -60,7 +63,6 @@ class Simulation:
                 for body in self.space.bodies:
                     pos = body.position
                     if hasattr(pos, 'x') and hasattr(pos, 'y'):
-                        import math
                         if math.isnan(pos.x) or math.isnan(pos.y):
                             logger.warning(f"NaN coordinates detected at step {step}, skipping visualization")
                             nan_detected = True

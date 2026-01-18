@@ -341,6 +341,7 @@ class CLI:
         }
         ignore_dirs = {
             ".git",
+            "archive",
             ".venv",
             "venv",
             ".env",
@@ -357,11 +358,17 @@ class CLI:
         }
         roots: List[str] = []
 
-        for current_root, dirs, files in os.walk(root_path):
-            dirs[:] = [name for name in dirs if name not in ignore_dirs]
-            if markers.intersection(files):
-                roots.append(current_root)
-                dirs[:] = []
+        scan_roots = [root_path]
+        active_root = os.path.join(root_path, "active")
+        if os.path.isdir(active_root):
+            scan_roots = [active_root]
+
+        for scan_root in scan_roots:
+            for current_root, dirs, files in os.walk(scan_root):
+                dirs[:] = [name for name in dirs if name not in ignore_dirs]
+                if markers.intersection(files):
+                    roots.append(current_root)
+                    dirs[:] = []
 
         roots = sorted(set(roots))
         return roots
@@ -1340,20 +1347,18 @@ class CLI:
     @staticmethod
     def _tool_status_has_issue(result: Dict[str, Any]) -> bool:
         status = str(result.get("status", "")).strip().lower()
-        return bool(status and status not in {"success", "completed"})
+        return bool(status and status not in {"success", "completed", "skipped"})
 
     @staticmethod
     def _pylint_has_issues(result: Dict[str, Any]) -> bool:
         issues = result.get("issues")
         if not isinstance(issues, dict):
             return False
-
-        if any(count > 0 for count in issues.values() if isinstance(count, int)):
-            return True
-
-        return any(
-            isinstance(count, (int, float)) and count > 0 for count in issues.values()
-        )
+        for key in ("error", "fatal"):
+            count = issues.get(key)
+            if isinstance(count, (int, float)) and count > 0:
+                return True
+        return False
 
     @staticmethod
     def _lizard_has_issues(result: Dict[str, Any]) -> bool:

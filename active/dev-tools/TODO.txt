@@ -1,27 +1,210 @@
 
+
+
+
+(" in line: location:/workspaces/megarepo/active/dev-tools/plaintext_project_management/src/ptpm/get_todos.py line_number:64
+(" in line: location:/workspaces/megarepo/active/dev-tools/plaintext_project_management/src/ptpm/get_todos.py line_number:64
+(" in line: location:/workspaces/megarepo/active/dev-tools/plaintext_project_management/src/ptpm/get_todos.py line_number:64
 (" in line: location:/workspaces/megarepo/active/dev-tools/plaintext_project_management/src/ptpm/get_todos.py line_number:64
 (AA) Add ability to save and restart TASKDAGs
+(AA) Add ability to save and restart TASKDAGs
+(AA) Add ability to save and restart TASKDAGs
+(AA) Add ability to save and restart TASKDAGs
+(AA) Git integration
+(AA) Git integration
+(AA) Git integration
 (AA) Git integration
 (AA) Host this somewhere
+(AA) Host this somewhere
+(AA) Host this somewhere
+(AA) Host this somewhere
+(A) Add a cool robot voice
+(A) Add a cool robot voice
+(A) Add a cool robot voice
 (A) Add a cool robot voice
 (A) Add ability to rate previous work
+(A) Add ability to rate previous work
+(A) Add ability to rate previous work
+(A) Add ability to rate previous work
+(A) Add ability to select the next item in the TASKDAG
+(A) Add ability to select the next item in the TASKDAG
+(A) Add ability to select the next item in the TASKDAG
 (A) Add ability to select the next item in the TASKDAG
 (A) Add operationlize^2 where you can work from a todo list (like this one)
+(A) Add operationlize^2 where you can work from a todo list (like this one)
+(A) Add operationlize^2 where you can work from a todo list (like this one)
+(A) Add operationlize^2 where you can work from a todo list (like this one)
+(A) create tool for validation of a project management directory
+(A) create tool for validation of a project management directory
+(A) create tool for validation of a project management directory
 (A) create tool for validation of a project management directory
 (B) Add AI(LLM) worker for when fleshy humans don't want to work
+(B) Add AI(LLM) worker for when fleshy humans don't want to work
+(B) Add AI(LLM) worker for when fleshy humans don't want to work
+(B) Add AI(LLM) worker for when fleshy humans don't want to work
+(B) Add ability to execute code in the editor
+(B) Add ability to execute code in the editor
+(B) Add ability to execute code in the editor
 (B) Add ability to execute code in the editor
 (B) Add ability to select roles (PM Tester QA...)
+(B) Add ability to select roles (PM Tester QA...)
+(B) Add ability to select roles (PM Tester QA...)
+(B) Add ability to select roles (PM Tester QA...)
+(B) Allow arbitray splitting/integrating. Instead of having a fixed number of divisions of a specific task, it would be cool if the user could keep dividing tasks until they feel they are at a good granular level and have a checkbox or something that says "don't split this task further" or something.
+(B) Allow arbitray splitting/integrating. Instead of having a fixed number of divisions of a specific task, it would be cool if the user could keep dividing tasks until they feel they are at a good granular level and have a checkbox or something that says "don't split this task further" or something.
+(B) Allow arbitray splitting/integrating. Instead of having a fixed number of divisions of a specific task, it would be cool if the user could keep dividing tasks until they feel they are at a good granular level and have a checkbox or something that says "don't split this task further" or something.
 (B) Allow arbitray splitting/integrating. Instead of having a fixed number of divisions of a specific task, it would be cool if the user could keep dividing tasks until they feel they are at a good granular level and have a checkbox or something that says "don't split this task further" or something.
 (B) Allow failure and rework of tasks?
+(B) Allow failure and rework of tasks?
+(B) Allow failure and rework of tasks?
+(B) Allow failure and rework of tasks?
+(B) Better tools for visually entire task DAG, current progress, etc.
+(B) Better tools for visually entire task DAG, current progress, etc.
+(B) Better tools for visually entire task DAG, current progress, etc.
 (B) Better tools for visually entire task DAG, current progress, etc.
 (B) Code should be injected in to editor automatically
+(B) Code should be injected in to editor automatically
+(B) Code should be injected in to editor automatically
+(B) Code should be injected in to editor automatically
+(B) Server based task timing
+(B) Server based task timing
+(B) Server based task timing
 (B) Server based task timing
 (B) Task counting is off state:ready_for_test
+(B) Task counting is off state:ready_for_test
+(B) Task counting is off state:ready_for_test
+(B) Task counting is off state:ready_for_test
+(B) Update available tasks in real time
+(B) Update available tasks in real time
+(B) Update available tasks in real time
 (B) Update available tasks in real time
 (C) Spectator view
+(C) Spectator view
+(C) Spectator view
+(C) Spectator view
+(Offscreen) Also check: subtreeFlags & LayoutMask location:/workspaces/megarepo/active/dev-tools/hivemind-llm/frontend/node_modules/react-dom/cjs/react-dom.development.js line_number:24674
+(Offscreen) Also check: subtreeFlags & LayoutMask location:/workspaces/megarepo/active/dev-tools/hivemind-llm/frontend/node_modules/react-dom/cjs/react-dom.development.js line_number:24674
+(Offscreen) Also check: subtreeFlags & LayoutMask location:/workspaces/megarepo/active/dev-tools/hivemind-llm/frontend/node_modules/react-dom/cjs/react-dom.development.js line_number:24674
+(Offscreen) Also check: subtreeFlags & LayoutMask location:/workspaces/megarepo/active/dev-tools/hivemind-llm/frontend/node_modules/react-dom/umd/react-dom.development.js line_number:24684
+(Offscreen) Also check: subtreeFlags & LayoutMask location:/workspaces/megarepo/active/dev-tools/hivemind-llm/frontend/node_modules/react-dom/umd/react-dom.development.js line_number:24684
+(Offscreen) Also check: subtreeFlags & LayoutMask location:/workspaces/megarepo/active/dev-tools/hivemind-llm/frontend/node_modules/react-dom/umd/react-dom.development.js line_number:24684
+(Offscreen) Check: flags & (RefStatic | LayoutStatic) location:/workspaces/megarepo/active/dev-tools/hivemind-llm/frontend/node_modules/react-dom/cjs/react-dom.development.js line_number:24755
+(Offscreen) Check: flags & (RefStatic | LayoutStatic) location:/workspaces/megarepo/active/dev-tools/hivemind-llm/frontend/node_modules/react-dom/cjs/react-dom.development.js line_number:24755
+(Offscreen) Check: flags & (RefStatic | LayoutStatic) location:/workspaces/megarepo/active/dev-tools/hivemind-llm/frontend/node_modules/react-dom/cjs/react-dom.development.js line_number:24755
+(Offscreen) Check: flags & (RefStatic | LayoutStatic) location:/workspaces/megarepo/active/dev-tools/hivemind-llm/frontend/node_modules/react-dom/umd/react-dom.development.js line_number:24765
+(Offscreen) Check: flags & (RefStatic | LayoutStatic) location:/workspaces/megarepo/active/dev-tools/hivemind-llm/frontend/node_modules/react-dom/umd/react-dom.development.js line_number:24765
+(Offscreen) Check: flags & (RefStatic | LayoutStatic) location:/workspaces/megarepo/active/dev-tools/hivemind-llm/frontend/node_modules/react-dom/umd/react-dom.development.js line_number:24765
+(Offscreen) Check: flags & LayoutStatic location:/workspaces/megarepo/active/dev-tools/hivemind-llm/frontend/node_modules/react-dom/cjs/react-dom.development.js line_number:23550
+(Offscreen) Check: flags & LayoutStatic location:/workspaces/megarepo/active/dev-tools/hivemind-llm/frontend/node_modules/react-dom/cjs/react-dom.development.js line_number:23550
+(Offscreen) Check: flags & LayoutStatic location:/workspaces/megarepo/active/dev-tools/hivemind-llm/frontend/node_modules/react-dom/cjs/react-dom.development.js line_number:23550
+(Offscreen) Check: flags & LayoutStatic location:/workspaces/megarepo/active/dev-tools/hivemind-llm/frontend/node_modules/react-dom/cjs/react-dom.development.js line_number:24872
+(Offscreen) Check: flags & LayoutStatic location:/workspaces/megarepo/active/dev-tools/hivemind-llm/frontend/node_modules/react-dom/cjs/react-dom.development.js line_number:24872
+(Offscreen) Check: flags & LayoutStatic location:/workspaces/megarepo/active/dev-tools/hivemind-llm/frontend/node_modules/react-dom/cjs/react-dom.development.js line_number:24872
+(Offscreen) Check: flags & LayoutStatic location:/workspaces/megarepo/active/dev-tools/hivemind-llm/frontend/node_modules/react-dom/umd/react-dom.development.js line_number:23560
+(Offscreen) Check: flags & LayoutStatic location:/workspaces/megarepo/active/dev-tools/hivemind-llm/frontend/node_modules/react-dom/umd/react-dom.development.js line_number:23560
+(Offscreen) Check: flags & LayoutStatic location:/workspaces/megarepo/active/dev-tools/hivemind-llm/frontend/node_modules/react-dom/umd/react-dom.development.js line_number:23560
+(Offscreen) Check: flags & LayoutStatic location:/workspaces/megarepo/active/dev-tools/hivemind-llm/frontend/node_modules/react-dom/umd/react-dom.development.js line_number:24882
+(Offscreen) Check: flags & LayoutStatic location:/workspaces/megarepo/active/dev-tools/hivemind-llm/frontend/node_modules/react-dom/umd/react-dom.development.js line_number:24882
+(Offscreen) Check: flags & LayoutStatic location:/workspaces/megarepo/active/dev-tools/hivemind-llm/frontend/node_modules/react-dom/umd/react-dom.development.js line_number:24882
+(Offscreen) Check: flags & RefStatic location:/workspaces/megarepo/active/dev-tools/hivemind-llm/frontend/node_modules/react-dom/cjs/react-dom.development.js line_number:24779
+(Offscreen) Check: flags & RefStatic location:/workspaces/megarepo/active/dev-tools/hivemind-llm/frontend/node_modules/react-dom/cjs/react-dom.development.js line_number:24779
+(Offscreen) Check: flags & RefStatic location:/workspaces/megarepo/active/dev-tools/hivemind-llm/frontend/node_modules/react-dom/cjs/react-dom.development.js line_number:24779
+(Offscreen) Check: flags & RefStatic location:/workspaces/megarepo/active/dev-tools/hivemind-llm/frontend/node_modules/react-dom/umd/react-dom.development.js line_number:24789
+(Offscreen) Check: flags & RefStatic location:/workspaces/megarepo/active/dev-tools/hivemind-llm/frontend/node_modules/react-dom/umd/react-dom.development.js line_number:24789
+(Offscreen) Check: flags & RefStatic location:/workspaces/megarepo/active/dev-tools/hivemind-llm/frontend/node_modules/react-dom/umd/react-dom.development.js line_number:24789
+(Offscreen) Check: subtreeFlags & LayoutStatic location:/workspaces/megarepo/active/dev-tools/hivemind-llm/frontend/node_modules/react-dom/cjs/react-dom.development.js line_number:24810
+(Offscreen) Check: subtreeFlags & LayoutStatic location:/workspaces/megarepo/active/dev-tools/hivemind-llm/frontend/node_modules/react-dom/cjs/react-dom.development.js line_number:24810
+(Offscreen) Check: subtreeFlags & LayoutStatic location:/workspaces/megarepo/active/dev-tools/hivemind-llm/frontend/node_modules/react-dom/cjs/react-dom.development.js line_number:24810
+(Offscreen) Check: subtreeFlags & LayoutStatic location:/workspaces/megarepo/active/dev-tools/hivemind-llm/frontend/node_modules/react-dom/cjs/react-dom.development.js line_number:24856
+(Offscreen) Check: subtreeFlags & LayoutStatic location:/workspaces/megarepo/active/dev-tools/hivemind-llm/frontend/node_modules/react-dom/cjs/react-dom.development.js line_number:24856
+(Offscreen) Check: subtreeFlags & LayoutStatic location:/workspaces/megarepo/active/dev-tools/hivemind-llm/frontend/node_modules/react-dom/cjs/react-dom.development.js line_number:24856
+(Offscreen) Check: subtreeFlags & LayoutStatic location:/workspaces/megarepo/active/dev-tools/hivemind-llm/frontend/node_modules/react-dom/umd/react-dom.development.js line_number:24820
+(Offscreen) Check: subtreeFlags & LayoutStatic location:/workspaces/megarepo/active/dev-tools/hivemind-llm/frontend/node_modules/react-dom/umd/react-dom.development.js line_number:24820
+(Offscreen) Check: subtreeFlags & LayoutStatic location:/workspaces/megarepo/active/dev-tools/hivemind-llm/frontend/node_modules/react-dom/umd/react-dom.development.js line_number:24820
+(Offscreen) Check: subtreeFlags & LayoutStatic location:/workspaces/megarepo/active/dev-tools/hivemind-llm/frontend/node_modules/react-dom/umd/react-dom.development.js line_number:24866
+(Offscreen) Check: subtreeFlags & LayoutStatic location:/workspaces/megarepo/active/dev-tools/hivemind-llm/frontend/node_modules/react-dom/umd/react-dom.development.js line_number:24866
+(Offscreen) Check: subtreeFlags & LayoutStatic location:/workspaces/megarepo/active/dev-tools/hivemind-llm/frontend/node_modules/react-dom/umd/react-dom.development.js line_number:24866
+(StrictEffects) Should we set a marker on the root if it contains strict effects location:/workspaces/megarepo/active/dev-tools/hivemind-llm/frontend/node_modules/react-dom/cjs/react-dom.development.js line_number:27356
+(StrictEffects) Should we set a marker on the root if it contains strict effects location:/workspaces/megarepo/active/dev-tools/hivemind-llm/frontend/node_modules/react-dom/cjs/react-dom.development.js line_number:27356
+(StrictEffects) Should we set a marker on the root if it contains strict effects location:/workspaces/megarepo/active/dev-tools/hivemind-llm/frontend/node_modules/react-dom/cjs/react-dom.development.js line_number:27356
+(StrictEffects) Should we set a marker on the root if it contains strict effects location:/workspaces/megarepo/active/dev-tools/hivemind-llm/frontend/node_modules/react-dom/umd/react-dom.development.js line_number:27366
+(StrictEffects) Should we set a marker on the root if it contains strict effects location:/workspaces/megarepo/active/dev-tools/hivemind-llm/frontend/node_modules/react-dom/umd/react-dom.development.js line_number:27366
+(StrictEffects) Should we set a marker on the root if it contains strict effects location:/workspaces/megarepo/active/dev-tools/hivemind-llm/frontend/node_modules/react-dom/umd/react-dom.development.js line_number:27366
+(bvaughn) Replace this behavior with an invariant() in the future. location:/workspaces/megarepo/active/dev-tools/hivemind-llm/frontend/node_modules/react-dom/cjs/react-dom-server-legacy.browser.development.js line_number:3985
+(bvaughn) Replace this behavior with an invariant() in the future. location:/workspaces/megarepo/active/dev-tools/hivemind-llm/frontend/node_modules/react-dom/cjs/react-dom-server-legacy.browser.development.js line_number:3985
+(bvaughn) Replace this behavior with an invariant() in the future. location:/workspaces/megarepo/active/dev-tools/hivemind-llm/frontend/node_modules/react-dom/cjs/react-dom-server-legacy.browser.development.js line_number:3985
+(bvaughn) Replace this behavior with an invariant() in the future. location:/workspaces/megarepo/active/dev-tools/hivemind-llm/frontend/node_modules/react-dom/cjs/react-dom-server-legacy.node.development.js line_number:3986
+(bvaughn) Replace this behavior with an invariant() in the future. location:/workspaces/megarepo/active/dev-tools/hivemind-llm/frontend/node_modules/react-dom/cjs/react-dom-server-legacy.node.development.js line_number:3986
+(bvaughn) Replace this behavior with an invariant() in the future. location:/workspaces/megarepo/active/dev-tools/hivemind-llm/frontend/node_modules/react-dom/cjs/react-dom-server-legacy.node.development.js line_number:3986
+(bvaughn) Replace this behavior with an invariant() in the future. location:/workspaces/megarepo/active/dev-tools/hivemind-llm/frontend/node_modules/react-dom/cjs/react-dom-server.browser.development.js line_number:3982
+(bvaughn) Replace this behavior with an invariant() in the future. location:/workspaces/megarepo/active/dev-tools/hivemind-llm/frontend/node_modules/react-dom/cjs/react-dom-server.browser.development.js line_number:3982
+(bvaughn) Replace this behavior with an invariant() in the future. location:/workspaces/megarepo/active/dev-tools/hivemind-llm/frontend/node_modules/react-dom/cjs/react-dom-server.browser.development.js line_number:3982
+(bvaughn) Replace this behavior with an invariant() in the future. location:/workspaces/megarepo/active/dev-tools/hivemind-llm/frontend/node_modules/react-dom/cjs/react-dom-server.node.development.js line_number:4048
+(bvaughn) Replace this behavior with an invariant() in the future. location:/workspaces/megarepo/active/dev-tools/hivemind-llm/frontend/node_modules/react-dom/cjs/react-dom-server.node.development.js line_number:4048
+(bvaughn) Replace this behavior with an invariant() in the future. location:/workspaces/megarepo/active/dev-tools/hivemind-llm/frontend/node_modules/react-dom/cjs/react-dom-server.node.development.js line_number:4048
+(bvaughn) Replace this behavior with an invariant() in the future. location:/workspaces/megarepo/active/dev-tools/hivemind-llm/frontend/node_modules/react-dom/cjs/react-dom.development.js line_number:11881
+(bvaughn) Replace this behavior with an invariant() in the future. location:/workspaces/megarepo/active/dev-tools/hivemind-llm/frontend/node_modules/react-dom/cjs/react-dom.development.js line_number:11881
+(bvaughn) Replace this behavior with an invariant() in the future. location:/workspaces/megarepo/active/dev-tools/hivemind-llm/frontend/node_modules/react-dom/cjs/react-dom.development.js line_number:11881
+(bvaughn) Replace this behavior with an invariant() in the future. location:/workspaces/megarepo/active/dev-tools/hivemind-llm/frontend/node_modules/react-dom/umd/react-dom-server-legacy.browser.development.js line_number:3982
+(bvaughn) Replace this behavior with an invariant() in the future. location:/workspaces/megarepo/active/dev-tools/hivemind-llm/frontend/node_modules/react-dom/umd/react-dom-server-legacy.browser.development.js line_number:3982
+(bvaughn) Replace this behavior with an invariant() in the future. location:/workspaces/megarepo/active/dev-tools/hivemind-llm/frontend/node_modules/react-dom/umd/react-dom-server-legacy.browser.development.js line_number:3982
+(bvaughn) Replace this behavior with an invariant() in the future. location:/workspaces/megarepo/active/dev-tools/hivemind-llm/frontend/node_modules/react-dom/umd/react-dom-server.browser.development.js line_number:3979
+(bvaughn) Replace this behavior with an invariant() in the future. location:/workspaces/megarepo/active/dev-tools/hivemind-llm/frontend/node_modules/react-dom/umd/react-dom-server.browser.development.js line_number:3979
+(bvaughn) Replace this behavior with an invariant() in the future. location:/workspaces/megarepo/active/dev-tools/hivemind-llm/frontend/node_modules/react-dom/umd/react-dom-server.browser.development.js line_number:3979
+(bvaughn) Replace this behavior with an invariant() in the future. location:/workspaces/megarepo/active/dev-tools/hivemind-llm/frontend/node_modules/react-dom/umd/react-dom.development.js line_number:11891
+(bvaughn) Replace this behavior with an invariant() in the future. location:/workspaces/megarepo/active/dev-tools/hivemind-llm/frontend/node_modules/react-dom/umd/react-dom.development.js line_number:11891
+(bvaughn) Replace this behavior with an invariant() in the future. location:/workspaces/megarepo/active/dev-tools/hivemind-llm/frontend/node_modules/react-dom/umd/react-dom.development.js line_number:11891
 (performance), merging both checks would streamline this location:/workspaces/megarepo/active/dev-tools/full-auto-ci/.venv/lib/python3.12/site-packages/pylint/checkers/variables.py line_number:1378
+(performance), merging both checks would streamline this location:/workspaces/megarepo/active/dev-tools/full-auto-ci/.venv/lib/python3.12/site-packages/pylint/checkers/variables.py line_number:1378
+(performance), merging both checks would streamline this location:/workspaces/megarepo/active/dev-tools/full-auto-ci/.venv/lib/python3.12/site-packages/pylint/checkers/variables.py line_number:1378
+(performance), merging both checks would streamline this location:/workspaces/megarepo/active/dev-tools/full-auto-ci/.venv/lib/python3.12/site-packages/pylint/checkers/variables.py line_number:1378
+(special) location:/workspaces/megarepo/active/dev-tools/browser-error-logger/node_modules/vitest/dist/vendor/cli-api.OdDWuB7Y.js line_number:13334
+(special) location:/workspaces/megarepo/active/dev-tools/browser-error-logger/node_modules/vitest/dist/vendor/cli-api.OdDWuB7Y.js line_number:13334
+(special) location:/workspaces/megarepo/active/dev-tools/browser-error-logger/node_modules/vitest/dist/vendor/cli-api.OdDWuB7Y.js line_number:13334
+(special) location:/workspaces/megarepo/active/dev-tools/browser-error-logger/node_modules/vitest/dist/vendor/cli-api.OdDWuB7Y.js line_number:16400
+(special) location:/workspaces/megarepo/active/dev-tools/browser-error-logger/node_modules/vitest/dist/vendor/cli-api.OdDWuB7Y.js line_number:16400
+(special) location:/workspaces/megarepo/active/dev-tools/browser-error-logger/node_modules/vitest/dist/vendor/cli-api.OdDWuB7Y.js line_number:16400
+(special) location:/workspaces/megarepo/active/dev-tools/hivemind-llm/frontend/node_modules/vitest/dist/vendor/cli-api.OdDWuB7Y.js line_number:13334
+(special) location:/workspaces/megarepo/active/dev-tools/hivemind-llm/frontend/node_modules/vitest/dist/vendor/cli-api.OdDWuB7Y.js line_number:13334
+(special) location:/workspaces/megarepo/active/dev-tools/hivemind-llm/frontend/node_modules/vitest/dist/vendor/cli-api.OdDWuB7Y.js line_number:13334
+(special) location:/workspaces/megarepo/active/dev-tools/hivemind-llm/frontend/node_modules/vitest/dist/vendor/cli-api.OdDWuB7Y.js line_number:16400
+(special) location:/workspaces/megarepo/active/dev-tools/hivemind-llm/frontend/node_modules/vitest/dist/vendor/cli-api.OdDWuB7Y.js line_number:16400
+(special) location:/workspaces/megarepo/active/dev-tools/hivemind-llm/frontend/node_modules/vitest/dist/vendor/cli-api.OdDWuB7Y.js line_number:16400
+(yungsters): Remove support for children content in <textarea>. location:/workspaces/megarepo/active/dev-tools/hivemind-llm/frontend/node_modules/react-dom/cjs/react-dom-server-legacy.browser.development.js line_number:2397
+(yungsters): Remove support for children content in <textarea>. location:/workspaces/megarepo/active/dev-tools/hivemind-llm/frontend/node_modules/react-dom/cjs/react-dom-server-legacy.browser.development.js line_number:2397
+(yungsters): Remove support for children content in <textarea>. location:/workspaces/megarepo/active/dev-tools/hivemind-llm/frontend/node_modules/react-dom/cjs/react-dom-server-legacy.browser.development.js line_number:2397
+(yungsters): Remove support for children content in <textarea>. location:/workspaces/megarepo/active/dev-tools/hivemind-llm/frontend/node_modules/react-dom/cjs/react-dom-server-legacy.node.development.js line_number:2398
+(yungsters): Remove support for children content in <textarea>. location:/workspaces/megarepo/active/dev-tools/hivemind-llm/frontend/node_modules/react-dom/cjs/react-dom-server-legacy.node.development.js line_number:2398
+(yungsters): Remove support for children content in <textarea>. location:/workspaces/megarepo/active/dev-tools/hivemind-llm/frontend/node_modules/react-dom/cjs/react-dom-server-legacy.node.development.js line_number:2398
+(yungsters): Remove support for children content in <textarea>. location:/workspaces/megarepo/active/dev-tools/hivemind-llm/frontend/node_modules/react-dom/cjs/react-dom-server.browser.development.js line_number:2468
+(yungsters): Remove support for children content in <textarea>. location:/workspaces/megarepo/active/dev-tools/hivemind-llm/frontend/node_modules/react-dom/cjs/react-dom-server.browser.development.js line_number:2468
+(yungsters): Remove support for children content in <textarea>. location:/workspaces/megarepo/active/dev-tools/hivemind-llm/frontend/node_modules/react-dom/cjs/react-dom-server.browser.development.js line_number:2468
+(yungsters): Remove support for children content in <textarea>. location:/workspaces/megarepo/active/dev-tools/hivemind-llm/frontend/node_modules/react-dom/cjs/react-dom-server.node.development.js line_number:2534
+(yungsters): Remove support for children content in <textarea>. location:/workspaces/megarepo/active/dev-tools/hivemind-llm/frontend/node_modules/react-dom/cjs/react-dom-server.node.development.js line_number:2534
+(yungsters): Remove support for children content in <textarea>. location:/workspaces/megarepo/active/dev-tools/hivemind-llm/frontend/node_modules/react-dom/cjs/react-dom-server.node.development.js line_number:2534
+(yungsters): Remove support for children content in <textarea>. location:/workspaces/megarepo/active/dev-tools/hivemind-llm/frontend/node_modules/react-dom/umd/react-dom-server-legacy.browser.development.js line_number:2394
+(yungsters): Remove support for children content in <textarea>. location:/workspaces/megarepo/active/dev-tools/hivemind-llm/frontend/node_modules/react-dom/umd/react-dom-server-legacy.browser.development.js line_number:2394
+(yungsters): Remove support for children content in <textarea>. location:/workspaces/megarepo/active/dev-tools/hivemind-llm/frontend/node_modules/react-dom/umd/react-dom-server-legacy.browser.development.js line_number:2394
+(yungsters): Remove support for children content in <textarea>. location:/workspaces/megarepo/active/dev-tools/hivemind-llm/frontend/node_modules/react-dom/umd/react-dom-server.browser.development.js line_number:2465
+(yungsters): Remove support for children content in <textarea>. location:/workspaces/megarepo/active/dev-tools/hivemind-llm/frontend/node_modules/react-dom/umd/react-dom-server.browser.development.js line_number:2465
+(yungsters): Remove support for children content in <textarea>. location:/workspaces/megarepo/active/dev-tools/hivemind-llm/frontend/node_modules/react-dom/umd/react-dom-server.browser.development.js line_number:2465
+x (AB) Create VSCODE extension
+x (AB) Create VSCODE extension
+x (AB) Create VSCODE extension
 x (AB) Create VSCODE extension
 x (A) Availabe should be available
+x (A) Availabe should be available
+x (A) Availabe should be available
+x (A) Availabe should be available
+x (A) Backlashes are added to code containing strings
+x (A) Backlashes are added to code containing strings
+x (A) Backlashes are added to code containing strings
 x (A) Backlashes are added to code containing strings
 x (A) Submit is hidden by footer
+x (A) Submit is hidden by footer
+x (A) Submit is hidden by footer
+x (A) Submit is hidden by footer
+x (A) publish to PYPI
+x (A) publish to PYPI
+x (A) publish to PYPI
 x (A) publish to PYPI

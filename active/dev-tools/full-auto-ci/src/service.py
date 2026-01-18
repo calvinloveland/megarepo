@@ -261,8 +261,6 @@ class CIService:
             return value
         return None
 
-        return candidate
-
     def _instantiate_provider(self, record: Dict[str, Any]) -> Optional[BaseProvider]:
         provider_type = record.get("type") or ""
         try:

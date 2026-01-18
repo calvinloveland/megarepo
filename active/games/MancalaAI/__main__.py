@@ -8,11 +8,11 @@ from keras.models import load_model
 from keras.optimizers import SGD, Adam
 
 from .agent import build_agent
-from gym_mancala.envs import MancalaUserEnv
-from gym_mancala.envs.board import Board
-from gym_mancala.envs.mancala_random_env import MancalaRandomEnv
-from model import build_model
-from shared.priority import set_background_priority
+from .gym_mancala.envs import MancalaUserEnv
+from .gym_mancala.envs.board import Board
+from .gym_mancala.envs.mancala_random_env import MancalaRandomEnv
+from .model import build_model
+from .shared.priority import set_background_priority
 
 MODEL_NUMBER = 10
 NETWORKS_PATH = "networks/"

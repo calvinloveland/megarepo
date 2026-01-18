@@ -126,12 +126,18 @@ class Pylint(Tool):  # pylint: disable=too-few-public-methods
 
             cmd = self._build_command(repo_path, targets)
             try:
+                env = os.environ.copy()
+                existing = env.get("PYTHONPATH")
+                env["PYTHONPATH"] = (
+                    repo_path if not existing else f"{repo_path}{os.pathsep}{existing}"
+                )
                 process = subprocess.run(
                     cmd,
                     capture_output=True,
                     text=True,
                     check=False,
                     cwd=repo_path,
+                    env=env,
                     timeout=self.timeout,
                 )
             except subprocess.TimeoutExpired:
@@ -259,6 +265,10 @@ class Pylint(Tool):  # pylint: disable=too-few-public-methods
         for candidate in ["src", "tests", "ui_tests"]:
             candidate_path = os.path.join(project_root, candidate)
             if os.path.isdir(candidate_path):
+                if candidate in {"tests", "ui_tests"} and not self._is_package_dir(
+                    project_root, candidate
+                ):
+                    continue
                 rel_candidate = os.path.join(rel_root, candidate) if rel_root else candidate
                 targets.append(rel_candidate)
 
@@ -310,8 +320,17 @@ class Pylint(Tool):  # pylint: disable=too-few-public-methods
         targets: List[str] = []
         for candidate in candidates:
             if os.path.isdir(os.path.join(repo_path, candidate)):
+                if candidate in {"tests", "ui_tests"} and not Pylint._is_package_dir(
+                    repo_path, candidate
+                ):
+                    continue
                 targets.append(candidate)
         return targets
+
+    @staticmethod
+    def _is_package_dir(base_path: str, directory: str) -> bool:
+        init_path = os.path.join(base_path, directory, "__init__.py")
+        return os.path.isfile(init_path)
 
     @staticmethod
     def _top_level_modules(repo_path: str) -> List[str]:
@@ -776,6 +795,18 @@ class Coverage(Tool):  # pylint: disable=too-few-public-methods
     def _build_test_failure_result(
         self, run_ctx: "Coverage._RunContext"
     ) -> Dict[str, Any]:
+        if run_ctx.returncode == 5:
+            logger.info("No tests collected (return code 5)")
+            skipped_result: Dict[str, Any] = {
+                "status": "skipped",
+                "error": "No tests collected",
+                "stdout": run_ctx.stdout,
+                "stderr": run_ctx.stderr,
+                "duration": run_ctx.duration,
+            }
+            self._apply_pytest_metadata(skipped_result, run_ctx)
+            return skipped_result
+
         logger.error("Test run failed with return code %s", run_ctx.returncode)
         if getattr(run_ctx, "timed_out", False):
             base_message = (

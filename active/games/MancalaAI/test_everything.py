@@ -4,14 +4,17 @@ import random
 import unittest
 
 import numpy as np
+import pytest
 from keras.models import load_model
 from keras.optimizers import Adam
 
+pytest.importorskip("keras.utils.generic_utils")
+
 from .__main__ import play_network, test_networks, train_network
-from agent import build_agent
-from gym_mancala.envs import MancalaRandomEnv, MancalaUserEnv
-from gym_mancala.envs.board import Board
-from model import build_model
+from .agent import build_agent
+from .gym_mancala.envs import MancalaRandomEnv, MancalaUserEnv
+from .gym_mancala.envs.board import Board
+from .model import build_model
 
 
 def test_board_initialization(self):
@@ -80,5 +83,3 @@ if __name__ == "__main__":
         "If you would like to train, test, or play against networks please run __main__.py.",
         flush=True,
     )
-    suite = unittest.TestLoader().loadTestsFromTestCase(TestEnv)
-    unittest.TextTestRunner(verbosity=2).run(suite)

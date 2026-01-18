@@ -21,10 +21,6 @@ class ChannelCommands(BaseCog):
         )
 
     @commands.command(
-                type(error), error, error.__traceback__, file=sys.stderr
-            )
-
-    @commands.command(
         name="set_channel_mapping",
         help=" <coin name> <coin amount> <channel name> "
         + "Set a mapping between coin and channel. Channel membership will be constantly updated.",

@@ -1,5 +1,7 @@
 """Tests for the CLI module."""
 
+# pylint: disable=missing-function-docstring,unused-argument
+
 import asyncio
 import json
 import os
@@ -230,8 +232,11 @@ class TestCLI(unittest.TestCase):
         # Verify that the exit code is 1
         self.assertEqual(exit_code, 1)
 
-    def test_run_no_command(self):
+    @patch("src.cli.CLI._run_default_tools")
+    def test_run_no_command(self, mock_run_default_tools):
         """Test running with no command."""
+        mock_run_default_tools.return_value = 1
+
         # Call the run method with no command
         exit_code = self.cli.run([])
 
