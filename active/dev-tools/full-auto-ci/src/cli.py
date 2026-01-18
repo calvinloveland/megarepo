@@ -287,40 +287,84 @@ class CLI:
 
     def _run_default_tools(self) -> int:
         repo_path = os.getcwd()
-        results = self.service.tool_runner.run_all(repo_path)
+        project_roots = self._discover_project_roots(repo_path)
 
         self._print_heading("Tool results")
         print(f"Repository: {repo_path}")
 
-        if not results:
-            print("No tools enabled")
-            return 0
+        if not project_roots:
+            project_roots = [repo_path]
 
-        tool_rows: List[Sequence[str]] = []
-        issues_found = False
-        for tool_name, result in results.items():
-            status = self._format_status(result.get("status"))
-            summary = self._summarize_tool_output(
-                json.dumps(result), result.get("status")
+        overall_issues = False
+        for project_root in project_roots:
+            results = self.service.tool_runner.run_all(project_root)
+
+            if not results:
+                print(f"No tools enabled for {project_root}")
+                continue
+
+            self._print_subheading(f"Project: {project_root}")
+            tool_rows: List[Sequence[str]] = []
+            issues_found = False
+            for tool_name, result in results.items():
+                status = self._format_status(result.get("status"))
+                summary = self._summarize_tool_output(
+                    json.dumps(result), result.get("status")
+                )
+                tool_rows.append((tool_name, status, summary or "—"))
+                if self._tool_has_issues(tool_name, result):
+                    issues_found = True
+
+            self._print_table(
+                ("Tool", "Status", "Details"),
+                tool_rows,
+                title="Tool results",
+                alignments=("left", "left", "left"),
             )
-            tool_rows.append((tool_name, status, summary or "—"))
-            if self._tool_has_issues(tool_name, result):
-                issues_found = True
 
-        self._print_table(
-            ("Tool", "Status", "Details"),
-            tool_rows,
-            title="Tool results",
-            alignments=("left", "left", "left"),
-        )
+            if issues_found:
+                self._print_heading("Issues")
+                self._print_tool_issues(results)
+                overall_issues = True
 
-        if issues_found:
-            self._print_heading("Issues")
-            self._print_tool_issues(results)
-
-        overall_status = "No issues found" if not issues_found else "Issues found"
+        overall_status = "No issues found" if not overall_issues else "Issues found"
         print(f"Overall: {overall_status}")
-        return 0 if not issues_found else 1
+        return 0 if not overall_issues else 1
+
+    def _discover_project_roots(self, root_path: str) -> List[str]:
+        markers = {
+            "pyproject.toml",
+            "package.json",
+            "requirements.txt",
+            "setup.cfg",
+            "setup.py",
+        }
+        ignore_dirs = {
+            ".git",
+            ".venv",
+            "venv",
+            ".env",
+            "env",
+            "node_modules",
+            "__pycache__",
+            ".tox",
+            ".nox",
+            ".eggs",
+            "dist",
+            "build",
+            ".pytest_cache",
+            ".mypy_cache",
+        }
+        roots: List[str] = []
+
+        for current_root, dirs, files in os.walk(root_path):
+            dirs[:] = [name for name in dirs if name not in ignore_dirs]
+            if markers.intersection(files):
+                roots.append(current_root)
+                dirs[:] = []
+
+        roots = sorted(set(roots))
+        return roots
 
     def _print_tool_issues(self, results: Dict[str, Dict[str, Any]]) -> None:
         for tool_name, result in results.items():

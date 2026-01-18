@@ -5,6 +5,7 @@ import json
 import os
 import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from src.cli import CLI
@@ -288,6 +289,31 @@ class TestCLI(unittest.TestCase):
         self.assertIn("Pylint issues", joined)
         self.assertIn("Lizard offenders", joined)
         self.assertIn("Pytest", joined)
+
+    @patch("builtins.print")
+    def test_run_default_tools_runs_each_project(self, mock_print):
+        """Default run should execute tools for each project root."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_a = Path(tmpdir) / "proj_a"
+            project_b = Path(tmpdir) / "proj_b"
+            project_a.mkdir()
+            project_b.mkdir()
+            (project_a / "pyproject.toml").write_text("[project]\nname='a'\n")
+            (project_b / "package.json").write_text("{}")
+
+            self.cli.service.tool_runner.run_all = MagicMock(return_value={
+                "pylint": {"status": "success"}
+            })
+
+            with patch("os.getcwd", return_value=tmpdir):
+                exit_code = self.cli._run_default_tools()
+
+            self.assertEqual(exit_code, 0)
+            called_paths = [call.args[0] for call in self.cli.service.tool_runner.run_all.call_args_list]
+            self.assertEqual(
+                called_paths,
+                sorted([str(project_a), str(project_b)]),
+            )
 
     @patch("src.cli.CLI._handle_config_command")
     def test_run_config_command(self, mock_handle):
