@@ -23,6 +23,7 @@ tools:
   pylint:
     enabled: true
     config_file: "~/.fullautoci/pylintrc"  # Custom pylint configuration
+    timeout_seconds: 300  # 5 minutes
     ratchet:
       enabled: false
       target: 10.0
@@ -33,8 +34,25 @@ tools:
   coverage:
     enabled: true
     run_tests_cmd: ["pytest", "-xvs"]  # Custom test command
-    timeout_seconds: 300
+    timeout_seconds: 600  # 10 minutes
     xml_timeout_seconds: 120
+    # Directories to ignore when running pytest (defaults shown below)
+    # ignore_patterns:
+    #   - ".venv"
+    #   - "venv"
+    #   - ".env"
+    #   - "env"
+    #   - "node_modules"
+    #   - ".git"
+    #   - "__pycache__"
+    #   - ".tox"
+    #   - ".nox"
+    #   - ".eggs"
+    #   - "*.egg-info"
+    #   - "build"
+    #   - "dist"
+    #   - ".mypy_cache"
+    #   - ".pytest_cache"
     ratchet:
       enabled: false
       target: 90.0
@@ -45,6 +63,7 @@ tools:
   lizard:
     enabled: true
     max_ccn: 10
+    timeout_seconds: 300  # 5 minutes
     ratchet:
       enabled: false
       target: 0.0
@@ -57,6 +76,7 @@ tools:
     min_lines: 5
     min_tokens: 50
     threshold: 0.0  # 0 = report only, >0 = warn if exceeded
+    timeout_seconds: 300  # 5 minutes
     ignore:
       - "**/node_modules/**"
       - "**/.git/**"

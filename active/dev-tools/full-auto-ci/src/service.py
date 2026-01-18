@@ -143,11 +143,16 @@ class CIService:
         pylint_config = tools_config.get("pylint", {})
         if self._tool_enabled(pylint_config):
             config_file = None
+            timeout = None
             if isinstance(pylint_config, dict):
                 config_file = pylint_config.get("config_file")
+                timeout = self._coerce_positive_float(
+                    pylint_config.get("timeout_seconds")
+                )
             tools.append(
                 Pylint(
-                    config_file=config_file if isinstance(config_file, str) else None
+                    config_file=config_file if isinstance(config_file, str) else None,
+                    timeout=timeout,
                 )
             )
 
@@ -160,30 +165,41 @@ class CIService:
             xml_timeout = self._coerce_positive_float(
                 coverage_config.get("xml_timeout_seconds")
             )
+            ignore_patterns = self._normalize_ignore_patterns(
+                coverage_config.get("ignore_patterns")
+            )
             tools.append(
                 Coverage(
                     run_tests_cmd=run_cmd,
                     timeout=timeout,
                     xml_timeout=xml_timeout,
+                    ignore_patterns=ignore_patterns,
                 )
             )
 
         lizard_config = tools_config.get("lizard", {})
         if self._tool_enabled(lizard_config):
             max_ccn = lizard_config.get("max_ccn")
+            timeout = self._coerce_positive_float(
+                lizard_config.get("timeout_seconds")
+            )
             if isinstance(max_ccn, (int, float)):
-                tools.append(Lizard(max_ccn=int(max_ccn)))
+                tools.append(Lizard(max_ccn=int(max_ccn), timeout=timeout))
             else:
-                tools.append(Lizard())
+                tools.append(Lizard(timeout=timeout))
 
         jscpd_config = tools_config.get("jscpd", {})
         if self._tool_enabled(jscpd_config, default=False):
+            timeout = self._coerce_positive_float(
+                jscpd_config.get("timeout_seconds")
+            )
             tools.append(
                 Jscpd(
                     min_lines=int(jscpd_config.get("min_lines", 5)),
                     min_tokens=int(jscpd_config.get("min_tokens", 50)),
                     threshold=float(jscpd_config.get("threshold", 0.0)),
                     ignore=jscpd_config.get("ignore"),
+                    timeout=timeout,
                 )
             )
 
@@ -221,6 +237,24 @@ class CIService:
 
         if candidate <= 0:
             return None
+
+        return candidate
+
+    @staticmethod
+    def _normalize_ignore_patterns(value: Any) -> Optional[List[str]]:
+        """Normalize ignore_patterns configuration value.
+
+        Args:
+            value: Configuration value for ignore_patterns
+
+        Returns:
+            List of patterns or None to use defaults
+        """
+        if value is None:
+            return None  # Use defaults
+        if isinstance(value, list) and all(isinstance(item, str) for item in value):
+            return value
+        return None
 
         return candidate
 

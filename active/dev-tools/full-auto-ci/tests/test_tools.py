@@ -8,7 +8,17 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
-from src.tools import Coverage, Lizard, Pylint, Tool, ToolRunner
+from src.tools import (
+    Coverage,
+    Lizard,
+    Pylint,
+    Tool,
+    ToolRunner,
+    DEFAULT_COVERAGE_TIMEOUT,
+    DEFAULT_COVERAGE_XML_TIMEOUT,
+    DEFAULT_PYLINT_TIMEOUT,
+    DEFAULT_LIZARD_TIMEOUT,
+)
 
 
 class TestTool(unittest.TestCase):
@@ -68,6 +78,7 @@ class TestPylint(unittest.TestCase):
             text=True,
             check=False,
             cwd="/path/to/repo",
+            timeout=DEFAULT_PYLINT_TIMEOUT,
         )
 
     @patch("subprocess.run")
@@ -145,6 +156,7 @@ class TestPylint(unittest.TestCase):
                 text=True,
                 check=False,
                 cwd=tmpdir,
+                timeout=DEFAULT_PYLINT_TIMEOUT,
             )
 
     def test_discover_targets_respects_config(self):
@@ -189,8 +201,8 @@ class TestCoverage(unittest.TestCase):
         """Test initialization."""
         self.assertEqual(self.coverage.name, "coverage")
         self.assertEqual(self.coverage.run_tests_cmd, ["pytest"])
-        self.assertIsNone(self.coverage.timeout)
-        self.assertIsNone(self.coverage.xml_timeout)
+        self.assertEqual(self.coverage.timeout, DEFAULT_COVERAGE_TIMEOUT)
+        self.assertEqual(self.coverage.xml_timeout, DEFAULT_COVERAGE_XML_TIMEOUT)
 
         # Test with custom command
         custom_coverage = Coverage(
@@ -429,6 +441,7 @@ class TestLizard(unittest.TestCase):
             text=True,
             check=False,
             cwd="/repo",
+            timeout=DEFAULT_LIZARD_TIMEOUT,
         )
 
     @patch("importlib.import_module", side_effect=ModuleNotFoundError)

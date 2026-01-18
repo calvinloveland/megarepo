@@ -18,6 +18,13 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Default timeout values (in seconds)
+DEFAULT_PYLINT_TIMEOUT = 300  # 5 minutes
+DEFAULT_COVERAGE_TIMEOUT = 600  # 10 minutes
+DEFAULT_COVERAGE_XML_TIMEOUT = 120  # 2 minutes
+DEFAULT_LIZARD_TIMEOUT = 300  # 5 minutes
+DEFAULT_JSCPD_TIMEOUT = 300  # 5 minutes
+
 
 class Tool:  # pylint: disable=too-few-public-methods
     """Base class for all tools."""
@@ -45,10 +52,21 @@ class Tool:  # pylint: disable=too-few-public-methods
 class Pylint(Tool):  # pylint: disable=too-few-public-methods
     """Pylint code analysis tool."""
 
-    def __init__(self, config_file: Optional[str] = None):
-        """Initialize Pylint."""
+    def __init__(
+        self,
+        config_file: Optional[str] = None,
+        *,
+        timeout: Optional[float] = None,
+    ):
+        """Initialize Pylint.
+
+        Args:
+            config_file: Path to pylint configuration file
+            timeout: Timeout in seconds for pylint execution
+        """
         super().__init__("pylint")
         self.config_file = config_file
+        self.timeout = timeout if timeout is not None else DEFAULT_PYLINT_TIMEOUT
 
     def _resolve_config_file(self, repo_path: str) -> Optional[str]:
         config_file = self.config_file
@@ -81,13 +99,22 @@ class Pylint(Tool):  # pylint: disable=too-few-public-methods
             )
 
             cmd = self._build_command(repo_path, targets)
-            process = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                check=False,
-                cwd=repo_path,
-            )
+            try:
+                process = subprocess.run(
+                    cmd,
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                    cwd=repo_path,
+                    timeout=self.timeout,
+                )
+            except subprocess.TimeoutExpired:
+                logger.error("Pylint timed out after %s seconds", self.timeout)
+                return {
+                    "status": "error",
+                    "error": f"Pylint timed out after {self.timeout} seconds",
+                    "timed_out": True,
+                }
 
             return self._parse_process(process)
         except Exception as error:  # pylint: disable=broad-except
@@ -257,6 +284,27 @@ class Pylint(Tool):  # pylint: disable=too-few-public-methods
             return False
 
 
+# Default directories to ignore when running pytest
+# These commonly contain test files from installed packages that shouldn't be run
+DEFAULT_PYTEST_IGNORE_PATTERNS = [
+    ".venv",
+    "venv",
+    ".env",
+    "env",
+    "node_modules",
+    ".git",
+    "__pycache__",
+    ".tox",
+    ".nox",
+    ".eggs",
+    "*.egg-info",
+    "build",
+    "dist",
+    ".mypy_cache",
+    ".pytest_cache",
+]
+
+
 class Coverage(Tool):  # pylint: disable=too-few-public-methods
     """Coverage measurement tool."""
 
@@ -266,16 +314,27 @@ class Coverage(Tool):  # pylint: disable=too-few-public-methods
         *,
         timeout: Optional[float] = None,
         xml_timeout: Optional[float] = None,
+        ignore_patterns: Optional[List[str]] = None,
     ):
         """Initialize Coverage.
 
         Args:
             run_tests_cmd: Command to run tests (defaults to pytest)
+            timeout: Timeout in seconds for test execution
+            xml_timeout: Timeout in seconds for XML report generation
+            ignore_patterns: List of directory patterns to ignore when running pytest
         """
         super().__init__("coverage")
         self.run_tests_cmd = run_tests_cmd or ["pytest"]
-        self.timeout = timeout
-        self.xml_timeout = xml_timeout
+        self.timeout = timeout if timeout is not None else DEFAULT_COVERAGE_TIMEOUT
+        self.xml_timeout = (
+            xml_timeout if xml_timeout is not None else DEFAULT_COVERAGE_XML_TIMEOUT
+        )
+        self.ignore_patterns = (
+            ignore_patterns
+            if ignore_patterns is not None
+            else DEFAULT_PYTEST_IGNORE_PATTERNS
+        )
 
     ANSI_ESCAPE_RE = re.compile(r"\x1B\[[0-?]*[ -/]*[@-~]")
 
@@ -457,9 +516,31 @@ class Coverage(Tool):  # pylint: disable=too-few-public-methods
             return trimmed
         return trimmed[-20000:]
 
+    def _build_test_command(self, repo_path: str) -> List[str]:
+        """Build the test command with appropriate ignore patterns.
+
+        Args:
+            repo_path: Path to the repository
+
+        Returns:
+            List of command arguments
+        """
+        cmd = list(self.run_tests_cmd)
+
+        # Only add ignore patterns if using pytest
+        if not cmd or cmd[0] != "pytest":
+            return cmd
+
+        # Add ignore patterns using --ignore-glob (pytest 6.0+)
+        # This matches directories anywhere in the tree
+        for pattern in self.ignore_patterns:
+            cmd.extend(["--ignore-glob", f"**/{pattern}"])
+
+        return cmd
+
     def _execute_coverage_run(self, repo_path: str) -> "Coverage._RunContext":
         logger.info("Running coverage on %s", repo_path)
-        cmd = ["coverage", "run", "-m", *self.run_tests_cmd]
+        cmd = ["coverage", "run", "-m", *self._build_test_command(repo_path)]
         start_time = time.perf_counter()
         timeout_kwargs: Dict[str, Any] = {}
         if self.timeout is not None:
@@ -685,9 +766,16 @@ class Coverage(Tool):  # pylint: disable=too-few-public-methods
 class Lizard(Tool):  # pylint: disable=too-few-public-methods
     """Cyclomatic complexity analysis via the Lizard tool."""
 
-    def __init__(self, max_ccn: int = 10):
+    def __init__(self, max_ccn: int = 10, *, timeout: Optional[float] = None):
+        """Initialize Lizard.
+
+        Args:
+            max_ccn: Maximum cyclomatic complexity threshold
+            timeout: Timeout in seconds for lizard execution
+        """
         super().__init__("lizard")
         self.max_ccn = max_ccn
+        self.timeout = timeout if timeout is not None else DEFAULT_LIZARD_TIMEOUT
 
     def run(self, repo_path: str) -> Dict[str, Any]:
         try:
@@ -718,7 +806,15 @@ class Lizard(Tool):  # pylint: disable=too-few-public-methods
                 text=True,
                 check=False,
                 cwd=repo_path,
+                timeout=self.timeout,
             )
+        except subprocess.TimeoutExpired:
+            logger.error("Lizard timed out after %s seconds", self.timeout)
+            return {
+                "status": "error",
+                "error": f"Lizard timed out after {self.timeout} seconds",
+                "timed_out": True,
+            }
         except FileNotFoundError:
             message = (
                 "Lizard executable not found. Install 'lizard' to enable CCN scanning."
@@ -967,6 +1063,8 @@ class Jscpd(Tool):  # pylint: disable=too-few-public-methods
         min_tokens: int = 50,
         threshold: float = 0.0,
         ignore: Optional[List[str]] = None,
+        *,
+        timeout: Optional[float] = None,
     ):
         """Initialize jscpd.
 
@@ -975,12 +1073,14 @@ class Jscpd(Tool):  # pylint: disable=too-few-public-methods
             min_tokens: Minimum tokens in a clone block (default 50)
             threshold: Maximum allowed duplication percentage (default 0.0 = report only)
             ignore: List of glob patterns to ignore
+            timeout: Timeout in seconds for jscpd execution
         """
         super().__init__("jscpd")
         self.min_lines = min_lines
         self.min_tokens = min_tokens
         self.threshold = threshold
         self.ignore = ignore or ["**/node_modules/**", "**/.git/**", "**/venv/**", "**/__pycache__/**"]
+        self.timeout = timeout if timeout is not None else DEFAULT_JSCPD_TIMEOUT
 
     def run(self, repo_path: str) -> Dict[str, Any]:
         """Run jscpd duplicate detection.
@@ -1014,7 +1114,15 @@ class Jscpd(Tool):  # pylint: disable=too-few-public-methods
                 text=True,
                 check=False,
                 cwd=repo_path,
+                timeout=self.timeout,
             )
+        except subprocess.TimeoutExpired:
+            logger.error("jscpd timed out after %s seconds", self.timeout)
+            return {
+                "status": "error",
+                "error": f"jscpd timed out after {self.timeout} seconds",
+                "timed_out": True,
+            }
         except FileNotFoundError:
             message = (
                 "jscpd not found. Install via 'npm install -g jscpd' to enable "
