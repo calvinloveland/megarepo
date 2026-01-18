@@ -11,7 +11,25 @@ Usage:
   hivemindllm docker      # run docker-compose up from the hivemind-llm folder
   hivemindllm frontend    # run the frontend dev server (Vite)
   hivemindllm coordinator # run the coordinator Flask app
+  hivemindllm local        # run coordinator + frontend without Docker
 EOF
+}
+
+run_local() {
+  cd "$ROOT/coordinator"
+  if [[ -f requirements.txt ]]; then
+    pip install -r requirements.txt
+  fi
+  nohup python app.py > /tmp/hivemindllm-coordinator.log 2>&1 &
+  coord_pid=$!
+
+  cd "$ROOT/frontend"
+  npm install
+  nohup npm run dev > /tmp/hivemindllm-frontend.log 2>&1 &
+  front_pid=$!
+
+  echo "Coordinator running (PID $coord_pid). Log: /tmp/hivemindllm-coordinator.log"
+  echo "Frontend running (PID $front_pid). Log: /tmp/hivemindllm-frontend.log"
 }
 
 command=${1:-help}
@@ -19,7 +37,16 @@ command=${1:-help}
 case "$command" in
   docker)
     cd "$ROOT"
-    exec docker compose up
+    export DOCKER_BUILDKIT=0
+    export COMPOSE_DOCKER_CLI_BUILD=0
+    if docker compose build; then
+      exec docker compose up
+    fi
+    echo "Docker build failed. Falling back to local dev processes." >&2
+    run_local
+    ;;
+  local)
+    run_local
     ;;
   frontend)
     cd "$ROOT/frontend"

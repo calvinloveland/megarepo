@@ -3,22 +3,22 @@ services:
     build:
       context: ./coordinator
       dockerfile: Dockerfile
-    ports:
-      - "5000:5000"
+      network: host
     environment:
       - HOST=0.0.0.0
       - PORT=5000
       - DEBUG=false
     volumes:
       - ./coordinator/logs:/app/logs
+    network_mode: host
     restart: unless-stopped
 
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    ports:
-      - "5173:80"
+      network: host
     depends_on:
       - coordinator
+    network_mode: host
     restart: unless-stopped
