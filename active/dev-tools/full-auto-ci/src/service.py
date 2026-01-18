@@ -63,10 +63,10 @@ class CIService:
             db_path: Path to the SQLite database
         """
         self.config = Config(config_path)
-        self.db_path = (
+        self.db_path = os.path.expanduser(
             db_path
             or self.config.get("database", "path")
-            or os.path.expanduser("~/.fullautoci/database.sqlite")
+            or "~/.fullautoci/database.sqlite"
         )
         self._runtime = ServiceRuntime()
         self._component_overrides: Dict[str, Any] = {}
