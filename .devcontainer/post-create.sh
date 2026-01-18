@@ -71,3 +71,10 @@ echo "  Personal:  active/personal/"
 echo "  Archive:   archive/"
 echo ""
 echo "Run 'pytest' in any project directory to run tests."
+
+# Install helper scripts on PATH
+if [ -f "/workspaces/megarepo/.devcontainer/bin/hivemindllm" ]; then
+    echo "🔧 Installing hivemindllm helper..."
+    sudo ln -sf /workspaces/megarepo/.devcontainer/bin/hivemindllm /usr/local/bin/hivemindllm
+    sudo chmod +x /workspaces/megarepo/.devcontainer/bin/hivemindllm
+fi
