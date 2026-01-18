@@ -1,0 +1,10 @@
+# Devcontainer caches
+/.devcontainer/cache/
+
+# npm logs
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# hivemind-llm coordinator logs
+/active/dev-tools/hivemind-llm/coordinator/logs/*.log
