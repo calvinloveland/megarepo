@@ -184,6 +184,28 @@ export function initializeErrorLogger(config: ErrorLoggerConfig): ErrorLogger {
   return instance;
 }
 
+let webgpuListenerRegistered = false;
+
+export function registerWebGPUErrorListener(): void {
+  if (webgpuListenerRegistered) return;
+  if (typeof GPUAdapter === 'undefined') return;
+
+  const originalRequestDevice = GPUAdapter.prototype.requestDevice;
+
+  GPUAdapter.prototype.requestDevice = async function (...args) {
+    const device = await originalRequestDevice.apply(this, args as [GPUDeviceDescriptor]);
+    device.addEventListener('uncapturederror', (event: GPUUncapturedErrorEvent) => {
+      const message = event.error?.message || 'Unknown WebGPU error';
+      const name = event.error?.name || 'GPUError';
+      instance?.logMessage(`WebGPU: ${message}`, { type: name });
+      console.error('[WebGPU] Uncaptured error:', event.error);
+    });
+    return device;
+  };
+
+  webgpuListenerRegistered = true;
+}
+
 export function getErrorLogger(): ErrorLogger | null {
   return instance;
 }

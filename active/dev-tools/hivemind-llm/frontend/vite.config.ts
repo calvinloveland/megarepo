@@ -11,7 +11,16 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
+      events: 'events',
+      util: 'util',
+      stream: 'stream-browserify',
+      buffer: 'buffer',
+      process: 'process/browser',
     },
+  },
+  optimizeDeps: {
+    include: ['events', 'util', 'stream-browserify', 'buffer', 'process'],
+    exclude: ['@mlc-ai/web-llm'],
   },
   server: {
     port: 5173,
@@ -28,8 +37,5 @@ export default defineConfig({
         ws: true,
       },
     },
-  },
-  optimizeDeps: {
-    exclude: ['@mlc-ai/web-llm'],
   },
 })

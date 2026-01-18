@@ -13,7 +13,7 @@ import { coordinator } from './network/coordinator';
 import { peerMesh } from './network/peers';
 import { inferenceEngine } from './inference/engine';
 import { detectWebGPU, meetsMinimumRequirements } from './inference/webgpu';
-import { initializeErrorLogger } from './utils/errorLogger';
+import { initializeErrorLogger, registerWebGPUErrorListener } from './utils/errorLogger';
 import type { ChatMessage } from './types';
 
 // Initialize error logging ASAP to catch any initialization errors
@@ -23,6 +23,8 @@ const errorLogger = initializeErrorLogger({
   batchSize: 5,
   flushInterval: 3000,
 });
+
+registerWebGPUErrorListener();
 
 // Log that the app is starting
 errorLogger.logMessage('HiveMind app initializing');
