@@ -12,6 +12,71 @@ import type { ModelInfo, GenerationProgress } from '../types';
 type ProgressCallback = (progress: GenerationProgress) => void;
 type TokenCallback = (token: string) => void;
 
+type ModelResolution = {
+  modelId: string;
+  fallbackReason?: string;
+};
+
+const MODEL_ID_ALIASES: Record<string, string> = {
+  'SmolLM-135M-Instruct-q4f16_1-MLC': 'SmolLM2-135M-Instruct-q0f32-MLC',
+  'SmolLM-135M-Instruct-q4f32_1-MLC': 'SmolLM2-135M-Instruct-q0f32-MLC',
+};
+
+const getPrebuiltModelRecord = (modelId: string) => {
+  const normalized = modelId.toLowerCase();
+  return webllm.prebuiltAppConfig.model_list.find(
+    (record) => record.model_id.toLowerCase() === normalized
+  );
+};
+
+const normalizeModelId = (modelId: string) => {
+  const alias = MODEL_ID_ALIASES[modelId];
+  if (alias) {
+    return alias;
+  }
+
+  const record = getPrebuiltModelRecord(modelId);
+  return record?.model_id ?? modelId;
+};
+
+const supportsShaderF16 = async (): Promise<boolean> => {
+  if (!navigator.gpu?.requestAdapter) return false;
+  try {
+    const adapter = await navigator.gpu.requestAdapter({ powerPreference: 'high-performance' });
+    return adapter?.features?.has('shader-f16') ?? false;
+  } catch {
+    return false;
+  }
+};
+
+const resolveModelId = async (modelId: string): Promise<ModelResolution> => {
+  const normalized = normalizeModelId(modelId);
+  const hasF16 = await supportsShaderF16();
+  if (hasF16) {
+    return { modelId: normalized };
+  }
+
+  const candidates = [
+    normalized.replace('q4f16_1', 'q4f32_1'),
+    normalized.replace('q4f16', 'q4f32'),
+    normalized.replace('q0f16', 'q0f32'),
+  ].filter((candidate, index, arr) => candidate !== normalized && arr.indexOf(candidate) === index);
+
+  for (const candidate of candidates) {
+    const record = getPrebuiltModelRecord(candidate);
+    if (record && !(record.required_features || []).includes('shader-f16')) {
+      return {
+        modelId: record.model_id,
+        fallbackReason: `GPU does not support shader-f16. Switching to ${record.model_id}.`,
+      };
+    }
+  }
+
+  throw new Error(
+    `Model ${normalized} requires shader-f16, which is not supported on this device. No compatible f32 fallback was found.`
+  );
+};
+
 export class InferenceEngine {
   private engine: webllm.MLCEngine | null = null;
   private currentModelId: string | null = null;
@@ -23,14 +88,16 @@ export class InferenceEngine {
   async loadModel(
     model: ModelInfo,
     onProgress?: (progress: number) => void
-  ): Promise<void> {
+  ): Promise<ModelResolution> {
     if (this.isLoading) {
       throw new Error('Model loading already in progress');
     }
 
-    if (this.currentModelId === model.mlc_model_id) {
+    const resolved = await resolveModelId(model.mlc_model_id);
+
+    if (this.currentModelId === resolved.modelId) {
       console.log('Model already loaded');
-      return;
+      return resolved;
     }
 
     this.isLoading = true;
@@ -49,12 +116,17 @@ export class InferenceEngine {
       };
 
       // Initialize engine with the model
-      this.engine = await webllm.CreateMLCEngine(model.mlc_model_id, {
+      if (resolved.fallbackReason) {
+        console.warn(resolved.fallbackReason);
+      }
+
+      this.engine = await webllm.CreateMLCEngine(resolved.modelId, {
         initProgressCallback,
       });
 
-      this.currentModelId = model.mlc_model_id;
-      console.log(`Model ${model.name} loaded successfully`);
+      this.currentModelId = resolved.modelId;
+      console.log(`Model ${model.name} loaded successfully (${resolved.modelId})`);
+      return resolved;
     } finally {
       this.isLoading = false;
     }

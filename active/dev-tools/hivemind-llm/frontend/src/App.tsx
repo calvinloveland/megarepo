@@ -143,9 +143,18 @@ function App() {
 
       // Load the model
       try {
-        await inferenceEngine.loadModel(assignment.model, (progress) => {
+        const { fallbackReason } = await inferenceEngine.loadModel(assignment.model, (progress) => {
           setModelLoadProgress(progress);
         });
+
+        if (fallbackReason) {
+          addMessage({
+            id: crypto.randomUUID(),
+            role: 'system',
+            content: `ℹ️ ${fallbackReason}`,
+            timestamp: new Date(),
+          });
+        }
         
         setModelLoaded(true);
         setPeerState('ready');

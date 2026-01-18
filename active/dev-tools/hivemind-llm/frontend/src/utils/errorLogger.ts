@@ -31,6 +31,8 @@ class ErrorLogger {
   private config: ErrorLoggerConfig;
   private flushTimer: ReturnType<typeof setInterval> | null = null;
   private destroyed = false;
+  private originalConsoleError: typeof console.error;
+  private originalConsoleWarn: typeof console.warn;
 
   constructor(config: ErrorLoggerConfig) {
     this.config = {
@@ -39,9 +41,22 @@ class ErrorLogger {
       ...config,
     };
 
+    this.originalConsoleError = console.error.bind(console);
+    this.originalConsoleWarn = console.warn.bind(console);
+
     // Setup global error handlers
     window.addEventListener('error', this.handleError);
     window.addEventListener('unhandledrejection', this.handleRejection);
+
+    console.error = (...args: unknown[]) => {
+      this.captureConsole('error', args);
+      this.originalConsoleError(...args);
+    };
+
+    console.warn = (...args: unknown[]) => {
+      this.captureConsole('warn', args);
+      this.originalConsoleWarn(...args);
+    };
 
     // Setup periodic flush
     if (this.config.flushInterval && this.config.flushInterval > 0) {
@@ -113,6 +128,28 @@ class ErrorLogger {
     }
   }
 
+  private captureConsole(level: 'error' | 'warn', args: unknown[]) {
+    if (this.destroyed) return;
+    const safeStringify = (value: unknown) => {
+      try {
+        return JSON.stringify(value);
+      } catch {
+        return String(value);
+      }
+    };
+
+    const message = args
+      .map((arg) => (typeof arg === 'string' ? arg : safeStringify(arg)))
+      .join(' ');
+
+    const report = this.createReport({
+      message: `[console.${level}] ${message}`,
+      source: 'console',
+    });
+
+    this.addToBuffer(report);
+  }
+
   log(error: Error, context?: Record<string, unknown>) {
     const report = this.createReport({
       message: error.message,
@@ -166,6 +203,8 @@ class ErrorLogger {
     this.destroyed = true;
     window.removeEventListener('error', this.handleError);
     window.removeEventListener('unhandledrejection', this.handleRejection);
+    console.error = this.originalConsoleError;
+    console.warn = this.originalConsoleWarn;
     if (this.flushTimer) {
       clearInterval(this.flushTimer);
     }
