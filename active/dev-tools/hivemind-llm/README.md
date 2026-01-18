@@ -19,7 +19,7 @@ Unlike traditional LLM services where the server does all the work, HiveMind dis
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                        Chat Interface                            │
-│                    (React + TypeScript)                          │
+│                (Static HTML + TypeScript)                        │
 └─────────────────────────────────────────────────────────────────┘
                               │
                               ▼
@@ -71,7 +71,7 @@ Unlike traditional LLM services where the server does all the work, HiveMind dis
 ## 🔧 Technology Stack
 
 ### Frontend
-- **React** + **TypeScript** for the chat UI
+- **Static HTML** + **TypeScript** for the UI
 - **WebGPU** via [@aspect-build/aspect-webassets](https://github.com/aspect-build/aspect-webassets) for GPU compute
 - **WebLLM** (MLC-AI) for browser-based model inference
 - **WebRTC** for peer-to-peer hidden state transfer
