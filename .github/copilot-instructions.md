@@ -70,6 +70,10 @@ This is a monorepo containing multiple projects organized as:
 - ✅ Use PIDs when available: `kill $PID`
 - ✅ Use process groups or save PIDs to files for cleanup
 
+**Be more careful when stopping processes** and avoid disrupting the editor or tooling.
+
+**Never ask the user to do something you can do yourself.**
+
 ## Development Philosophy
 
 See [PHILOSOPHY.md](./PHILOSOPHY.md) for detailed principles, but key points:
