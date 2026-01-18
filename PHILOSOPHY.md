@@ -25,6 +25,7 @@ Python
 - Dataset
 - SQLite
 - Loguru
+- Pyproject.toml
 
 investigate, plan, execute, test
 
