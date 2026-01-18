@@ -1,5 +1,7 @@
 # Copilot Instructions for Megarepo
 
+This is a living document and must be kept continuously updated to stay correct.
+
 Read PHILOSOPHY.md
 
 ## Commit After Every Change
