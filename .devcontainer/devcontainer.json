@@ -71,6 +71,9 @@
     }
   },
   "postCreateCommand": "bash .devcontainer/post-create.sh",
+  "containerEnv": {
+    "PATH": "/workspaces/megarepo/.devcontainer/bin:${PATH}"
+  },
   "remoteUser": "vscode",
   "mounts": [
     "source=${localWorkspaceFolder}/.devcontainer/cache/pip,target=/home/vscode/.cache/pip,type=bind,consistency=cached",

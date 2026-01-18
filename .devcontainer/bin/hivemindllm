@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="/workspaces/megarepo/active/dev-tools/hivemind-llm"
+
+usage() {
+  cat <<'EOF'
+HiveMind LLM helper
+
+Usage:
+  hivemindllm docker      # run docker-compose up from the hivemind-llm folder
+  hivemindllm frontend    # run the frontend dev server (Vite)
+  hivemindllm coordinator # run the coordinator Flask app
+EOF
+}
+
+command=${1:-help}
+
+case "$command" in
+  docker)
+    cd "$ROOT"
+    exec docker compose up
+    ;;
+  frontend)
+    cd "$ROOT/frontend"
+    npm install
+    exec npm run dev
+    ;;
+  coordinator)
+    cd "$ROOT/coordinator"
+    if [[ -f requirements.txt ]]; then
+      pip install -r requirements.txt
+    fi
+    exec python app.py
+    ;;
+  help|-h|--help)
+    usage
+    ;;
+  *)
+    echo "Unknown command: $command" >&2
+    usage
+    exit 1
+    ;;
+esac
