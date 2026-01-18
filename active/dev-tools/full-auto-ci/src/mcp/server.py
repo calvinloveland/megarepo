@@ -215,11 +215,20 @@ class MCPServer:
 
         if candidates:
             logger.warning(
-                "Unsupported protocol requested: %s; falling back to %s",
+                "Unsupported protocol requested: %s",
                 candidates,
-                self._DEFAULT_PROTOCOL_VERSION,
             )
-            return self._DEFAULT_PROTOCOL_VERSION
+            raise MCPError(
+                code=-32602,
+                message=(
+                    "Unsupported protocol version. Supported versions: "
+                    f"{sorted(self._SUPPORTED_PROTOCOL_VERSIONS)}"
+                ),
+                data={
+                    "requested": candidates,
+                    "supportedVersions": sorted(self._SUPPORTED_PROTOCOL_VERSIONS),
+                },
+            )
 
         return self._DEFAULT_PROTOCOL_VERSION
 
