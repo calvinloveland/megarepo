@@ -77,6 +77,8 @@ Create a web-based 1v1 wizard duel where players research new spells using LLMs.
 - Deterministic RNG with seed.
 - Unit tests for combat outcomes.
 
+**Status**: Complete (deterministic engine prototype + tests).
+
 **Exit Criteria**:
 - Headless simulation runs with sample spells.
 - Replayable outcomes with same seed.
@@ -87,6 +89,8 @@ Create a web-based 1v1 wizard duel where players research new spells using LLMs.
 - Match state broadcast and input handling.
 - Basic lobby creation and join.
 - Serialize game state frames.
+
+**Status**: Complete (Socket.IO lobby + state stepping + serialization).
 
 **Exit Criteria**:
 - Two players can join and cast baseline spell.
@@ -158,8 +162,8 @@ Create a web-based 1v1 wizard duel where players research new spells using LLMs.
 
 ## Milestones Checklist
 - [x] DSL v1 approved
-- [ ] Engine prototype
-- [ ] Multiplayer skeleton
+- [x] Engine prototype
+- [x] Multiplayer skeleton
 - [ ] LLM research MVP
 - [ ] Web UI MVP
 - [ ] Balance pass
