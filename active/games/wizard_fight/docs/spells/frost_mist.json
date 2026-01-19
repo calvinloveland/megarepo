@@ -1,0 +1,15 @@
+{
+  "name": "Frost Mist",
+  "school": "Cryomancy",
+  "mana_cost": 28,
+  "cooldown": 10,
+  "duration": 6,
+  "effects": [
+    {
+      "type": "slow",
+      "magnitude": 2.5,
+      "duration": 5,
+      "target": "area"
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "name": "Arcane Bolt",
+  "school": "Evocation",
+  "mana_cost": 20,
+  "cooldown": 6,
+  "duration": 0,
+  "projectiles": [
+    {
+      "speed": 10.5,
+      "damage": 14.0,
+      "pierce": 1,
+      "target": "wizard"
+    }
+  ]
+}

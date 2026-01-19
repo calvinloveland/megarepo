@@ -1,0 +1,15 @@
+{
+  "name": "Stone Skin",
+  "school": "Geomancy",
+  "mana_cost": 22,
+  "cooldown": 12,
+  "duration": 8,
+  "effects": [
+    {
+      "type": "shield",
+      "magnitude": 3.0,
+      "duration": 6,
+      "target": "self"
+    }
+  ]
+}

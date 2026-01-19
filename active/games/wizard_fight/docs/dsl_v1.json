@@ -1,0 +1,127 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Wizard Fight Spell DSL v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["name", "school", "mana_cost", "cooldown", "duration"],
+  "properties": {
+    "name": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 40
+    },
+    "school": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 30
+    },
+    "mana_cost": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 100
+    },
+    "cooldown": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 30
+    },
+    "duration": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 20
+    },
+    "spawn_units": {
+      "type": "array",
+      "maxItems": 5,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["type", "hp", "speed", "damage", "target"],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["flying_monkey", "arcane_sprite", "stone_golem"]
+          },
+          "hp": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 120
+          },
+          "speed": {
+            "type": "number",
+            "minimum": 0.5,
+            "maximum": 6.0
+          },
+          "damage": {
+            "type": "number",
+            "minimum": 0.5,
+            "maximum": 25.0
+          },
+          "target": {
+            "type": "string",
+            "enum": ["wizard", "units", "area"]
+          }
+        }
+      }
+    },
+    "projectiles": {
+      "type": "array",
+      "maxItems": 5,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["speed", "damage", "pierce", "target"],
+        "properties": {
+          "speed": {
+            "type": "number",
+            "minimum": 1.0,
+            "maximum": 15.0
+          },
+          "damage": {
+            "type": "number",
+            "minimum": 1.0,
+            "maximum": 30.0
+          },
+          "pierce": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 3
+          },
+          "target": {
+            "type": "string",
+            "enum": ["wizard", "units", "area"]
+          }
+        }
+      }
+    },
+    "effects": {
+      "type": "array",
+      "maxItems": 5,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["type", "magnitude", "duration", "target"],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["slow", "haste", "shield", "burn", "knockback"]
+          },
+          "magnitude": {
+            "type": "number",
+            "minimum": 0.1,
+            "maximum": 5.0
+          },
+          "duration": {
+            "type": "number",
+            "minimum": 0.5,
+            "maximum": 10.0
+          },
+          "target": {
+            "type": "string",
+            "enum": ["self", "enemy", "allies", "area"]
+          }
+        }
+      }
+    }
+  }
+}

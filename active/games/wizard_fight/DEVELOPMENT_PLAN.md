@@ -52,6 +52,8 @@ Create a web-based 1v1 wizard duel where players research new spells using LLMs.
 - Threat model LLM misuse.
 - Define key UX flows.
 
+**Status**: Complete (DSL schema documented and validated).
+
 **Exit Criteria**:
 - Signed-off v1 spec.
 - DSL schema v1 documented.
@@ -153,7 +155,7 @@ Create a web-based 1v1 wizard duel where players research new spells using LLMs.
 - `tests/`
 
 ## Milestones Checklist
-- [ ] DSL v1 approved
+- [x] DSL v1 approved
 - [ ] Engine prototype
 - [ ] Multiplayer skeleton
 - [ ] LLM research MVP

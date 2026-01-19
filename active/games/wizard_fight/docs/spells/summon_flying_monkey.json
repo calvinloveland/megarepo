@@ -1,0 +1,16 @@
+{
+  "name": "Summon Flying Monkey",
+  "school": "Conjuration",
+  "mana_cost": 15,
+  "cooldown": 4,
+  "duration": 8,
+  "spawn_units": [
+    {
+      "type": "flying_monkey",
+      "hp": 40,
+      "speed": 4.2,
+      "damage": 6.5,
+      "target": "wizard"
+    }
+  ]
+}
