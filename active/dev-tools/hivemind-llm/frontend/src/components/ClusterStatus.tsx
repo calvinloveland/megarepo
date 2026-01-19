@@ -11,6 +11,7 @@ export function ClusterStatus() {
   const { webgpu, modelLoaded, modelLoadProgress } = useHardwareStore();
 
   const gpuDescription = webgpu ? getGPUDescription(webgpu) : 'Detecting...';
+  const isFinalizingShaders = !modelLoaded && modelLoadProgress >= 0.8;
 
   return (
     <div className="bg-zinc-900 border-b border-zinc-800 px-4 py-3">
@@ -119,15 +120,26 @@ export function ClusterStatus() {
         {!modelLoaded && modelLoadProgress > 0 && (
           <div className="mt-2">
             <div className="flex items-center justify-between text-xs text-zinc-500 mb-1">
-              <span>Loading model...</span>
+              <span>
+                {isFinalizingShaders
+                  ? 'Finalizing GPU shaders...'
+                  : 'Loading model...'}
+              </span>
               <span>{Math.round(modelLoadProgress * 100)}%</span>
             </div>
             <div className="h-1 bg-zinc-800 rounded-full overflow-hidden">
               <div
-                className="h-full bg-hivemind-500 transition-all duration-300"
+                className={`h-full bg-hivemind-500 transition-all duration-300 ${
+                  isFinalizingShaders ? 'animate-pulse' : ''
+                }`}
                 style={{ width: `${modelLoadProgress * 100}%` }}
               />
             </div>
+            {isFinalizingShaders && (
+              <p className="mt-1 text-[0.7rem] text-zinc-500">
+                The last step can take a few minutes on some GPUs.
+              </p>
+            )}
           </div>
         )}
 
