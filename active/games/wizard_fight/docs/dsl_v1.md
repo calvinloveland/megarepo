@@ -26,7 +26,7 @@ This document defines the Wizard Fight spell specification for LLM-generated spe
 
 ## Effects
 `effects[]` applies temporary status effects.
-- `type`: `slow` | `haste` | `shield` | `burn` | `knockback`
+- `type`: `slow` | `haste` | `shield` | `burn` | `knockback` | `fog` | `wind` | `gravity`
 - `magnitude`: $0.1$–$5.0$
 - `duration`: $0.5$–$10.0$ seconds
 - `target`: `self` | `enemy` | `allies` | `area`

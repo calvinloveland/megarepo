@@ -51,6 +51,14 @@ class GameState:
     time_seconds: float = 0.0
     rng: random.Random = field(default_factory=random.Random)
     next_unit_id: int = 1
+    environment: List["EnvironmentEffect"] = field(default_factory=list)
+
+
+@dataclass
+class EnvironmentEffect:
+    effect_type: str
+    magnitude: float
+    remaining_duration: float
 
 
 def load_config(path: Path | None = None) -> GameConfig:
@@ -98,6 +106,7 @@ def step(state: GameState, steps: int = 1) -> None:
         _regen_mana(state)
         _move_units(state)
         _resolve_collisions(state)
+        _tick_environment(state)
         state.time_seconds += state.config.dt
 
 
@@ -110,10 +119,11 @@ def _regen_mana(state: GameState) -> None:
 def _move_units(state: GameState) -> None:
     dt = state.config.dt
     arena_length = state.config.arena_length
+    speed_multiplier = _environment_speed_multiplier(state)
     survivors: List[Unit] = []
     for unit in state.units:
         direction = 1.0 if unit.owner_id == 0 else -1.0
-        unit.position += unit.speed * dt * direction
+        unit.position += unit.speed * speed_multiplier * dt * direction
         if unit.owner_id == 0 and unit.position >= arena_length:
             state.wizards[1].health -= unit.damage
             continue
@@ -154,7 +164,8 @@ def _apply_projectiles(state: GameState, caster_id: int, projectiles: List[Dict[
     enemy_id = 1 if caster_id == 0 else 0
     for projectile in projectiles:
         if projectile.get("target") == "wizard":
-            state.wizards[enemy_id].health -= float(projectile["damage"])
+            damage = float(projectile["damage"]) * _environment_projectile_multiplier(state)
+            state.wizards[enemy_id].health -= damage
 
 
 def _apply_effects(state: GameState, caster_id: int, effects: List[Dict[str, Any]]) -> None:
@@ -162,10 +173,44 @@ def _apply_effects(state: GameState, caster_id: int, effects: List[Dict[str, Any
     for effect in effects:
         target = effect.get("target")
         magnitude = float(effect["magnitude"])
-        if effect.get("type") == "shield" and target == "self":
+        effect_type = effect.get("type")
+        if effect_type == "shield" and target == "self":
             state.wizards[caster_id].health += magnitude
-        if effect.get("type") == "burn" and target in {"enemy", "area"}:
+        if effect_type == "burn" and target in {"enemy", "area"}:
             state.wizards[enemy_id].health -= magnitude
+        if effect_type in {"fog", "wind", "gravity"} and target == "area":
+            duration = float(effect["duration"])
+            state.environment.append(
+                EnvironmentEffect(effect_type=effect_type, magnitude=magnitude, remaining_duration=duration)
+            )
+
+
+def _tick_environment(state: GameState) -> None:
+    dt = state.config.dt
+    remaining: List[EnvironmentEffect] = []
+    for effect in state.environment:
+        effect.remaining_duration -= dt
+        if effect.remaining_duration > 0:
+            remaining.append(effect)
+    state.environment = remaining
+
+
+def _environment_speed_multiplier(state: GameState) -> float:
+    multiplier = 1.0
+    for effect in state.environment:
+        if effect.effect_type == "wind":
+            multiplier *= 1.0 + 0.03 * effect.magnitude
+        if effect.effect_type == "gravity":
+            multiplier *= max(0.6, 1.0 - 0.03 * effect.magnitude)
+    return multiplier
+
+
+def _environment_projectile_multiplier(state: GameState) -> float:
+    multiplier = 1.0
+    for effect in state.environment:
+        if effect.effect_type == "fog":
+            multiplier *= max(0.7, 1.0 - 0.05 * effect.magnitude)
+    return multiplier
 
 
 def simulate(state: GameState, total_seconds: float) -> GameState:

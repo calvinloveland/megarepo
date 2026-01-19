@@ -25,7 +25,14 @@ def test_lobby_flow_and_state_updates() -> None:
         {"lobby_id": lobby_id, "prompt": "wind shield"},
         callback=True,
     )
-    assert research_response["spec"]["name"]
+    assert research_response["status"] == "research_started"
+
+    completion = client_one.emit(
+        "step",
+        {"lobby_id": lobby_id, "steps": 300},
+        callback=True,
+    )
+    assert completion["new_spells"], "expected research completion"
 
     cast_spell_response = client_one.emit(
         "cast_spell",

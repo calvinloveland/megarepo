@@ -128,6 +128,8 @@ Create a web-based 1v1 wizard duel where players research new spells using LLMs.
 - Add research vulnerability tuning.
 - Telemetry dashboard for win rates & spell usage.
 
+**Status**: Complete (environment effects + upgrades + telemetry endpoints).
+
 **Exit Criteria**:
 - Playtests indicate healthy variety and counterplay.
 
@@ -170,7 +172,7 @@ Create a web-based 1v1 wizard duel where players research new spells using LLMs.
 - [x] Multiplayer skeleton
 - [x] LLM research MVP
 - [x] Web UI MVP
-- [ ] Balance pass
+- [x] Balance pass
 - [ ] Public demo
 
 ## Risks & Mitigations

@@ -20,6 +20,7 @@ interface GameState {
   time_seconds: number;
   wizards: Record<number, WizardState>;
   units: UnitState[];
+  environment?: Array<{ type: string; magnitude: number; remaining_duration: number }>;
 }
 
 interface SpellEntry {
@@ -42,6 +43,7 @@ export default function App() {
   const [state, setState] = useState<GameState | null>(null);
   const [prompt, setPrompt] = useState("");
   const [spells, setSpells] = useState<SpellEntry[]>([]);
+  const [researchRemaining, setResearchRemaining] = useState<number | null>(null);
   const socketRef = useRef<Socket | null>(null);
   const disableSocket = import.meta.env.MODE === "test";
 
@@ -63,10 +65,17 @@ export default function App() {
         lobby_id: lobbyResponse.lobby_id,
       });
       setPlayerId(joinResponse.player_id);
-      const initial = await emitWithAck<{ state: GameState }>(socket, "get_state", {
+      const initial = await emitWithAck<{ state: GameState; researching?: Record<number, number> }>(
+        socket,
+        "get_state",
+        {
         lobby_id: lobbyResponse.lobby_id,
-      });
+        }
+      );
       setState(initial.state);
+      if (typeof initial.researching?.[joinResponse.player_id] === "number") {
+        setResearchRemaining(initial.researching[joinResponse.player_id]);
+      }
     };
 
     bootstrap();
@@ -79,11 +88,21 @@ export default function App() {
   useEffect(() => {
     if (!lobbyId || disableSocket) return undefined;
     const interval = window.setInterval(async () => {
-      const response = await emitWithAck<{ state: GameState }>(socket, "step", {
+      const response = await emitWithAck<{
+        state: GameState;
+        new_spells?: SpellEntry[];
+        researching?: Record<number, number>;
+      }>(socket, "step", {
         lobby_id: lobbyId,
         steps: 1,
       });
       setState(response.state);
+      if (response.new_spells && response.new_spells.length > 0) {
+        setSpells((current) => [...current, ...response.new_spells]);
+      }
+      if (playerId !== null && response.researching) {
+        setResearchRemaining(response.researching[playerId] ?? null);
+      }
     }, 200);
     return () => window.clearInterval(interval);
   }, [disableSocket, lobbyId, socket]);
@@ -98,15 +117,10 @@ export default function App() {
 
   const researchSpell = useCallback(async () => {
     if (!lobbyId || !prompt.trim()) return;
-    const response = await emitWithAck<{ spell_id: number; spec: SpellEntry["spec"] }>(
-      socket,
-      "research_spell",
-      {
-        lobby_id: lobbyId,
-        prompt,
-      }
-    );
-    setSpells((current) => [...current, { spell_id: response.spell_id, spec: response.spec }]);
+    await emitWithAck<{ status: string }>(socket, "research_spell", {
+      lobby_id: lobbyId,
+      prompt,
+    });
     setPrompt("");
   }, [lobbyId, prompt, socket]);
 
@@ -188,8 +202,13 @@ export default function App() {
             onChange={(event) => setPrompt(event.target.value)}
             placeholder="wind, frost, or shield magic"
           />
-          <button onClick={researchSpell}>Research Spell</button>
+          <button onClick={researchSpell} disabled={!!researchRemaining}>
+            {researchRemaining ? "Researching..." : "Research Spell"}
+          </button>
         </div>
+        {researchRemaining ? (
+          <p>Research completes in {researchRemaining.toFixed(1)}s</p>
+        ) : null}
       </section>
       <section className="spellbook">
         <h2>Spellbook</h2>

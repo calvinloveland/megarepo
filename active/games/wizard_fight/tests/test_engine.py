@@ -64,3 +64,23 @@ def test_units_collide_and_take_damage() -> None:
             break
     if state.units:
         assert any(unit.hp < initial_hp[unit.unit_id] for unit in state.units)
+
+
+def test_environment_effects_expire() -> None:
+    config = _config()
+    state = build_initial_state(seed=0, config=config)
+    fog_spell = {
+        "mana_cost": 5,
+        "effects": [
+            {
+                "type": "fog",
+                "magnitude": 2.0,
+                "duration": 0.5,
+                "target": "area",
+            }
+        ],
+    }
+    apply_spell(state, 0, fog_spell)
+    assert state.environment
+    step(state, steps=60)
+    assert state.environment == []
