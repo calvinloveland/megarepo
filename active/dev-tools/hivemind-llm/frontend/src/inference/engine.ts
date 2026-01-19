@@ -17,6 +17,10 @@ type ModelResolution = {
   fallbackReason?: string;
 };
 
+type LoadOptions = {
+  maxVramGB?: number;
+};
+
 const MODEL_ID_ALIASES: Record<string, string> = {
   'SmolLM-135M-Instruct-q4f16_1-MLC': 'SmolLM2-135M-Instruct-q0f32-MLC',
   'SmolLM-135M-Instruct-q4f32_1-MLC': 'SmolLM2-135M-Instruct-q0f32-MLC',
@@ -49,10 +53,43 @@ const supportsShaderF16 = async (): Promise<boolean> => {
   }
 };
 
-const resolveModelId = async (modelId: string): Promise<ModelResolution> => {
+const pickFallbackModel = (maxVramGB?: number, hasF16?: boolean) => {
+  const maxVramMB = maxVramGB ? maxVramGB * 1024 : undefined;
+  const candidates = webllm.prebuiltAppConfig.model_list
+    .filter((record) => {
+      const isLLM = !record.model_type || record.model_type === webllm.ModelType.LLM;
+      if (!isLLM) return false;
+      if (!record.vram_required_MB) return false;
+      if (maxVramMB && record.vram_required_MB > maxVramMB) return false;
+      if (!hasF16 && (record.required_features || []).includes('shader-f16')) return false;
+      return true;
+    })
+    .sort((a, b) => (a.vram_required_MB ?? Infinity) - (b.vram_required_MB ?? Infinity));
+
+  return candidates[0];
+};
+
+const resolveModelId = async (modelId: string, options?: LoadOptions): Promise<ModelResolution> => {
   const normalized = normalizeModelId(modelId);
   const hasF16 = await supportsShaderF16();
-  if (hasF16) {
+  const record = getPrebuiltModelRecord(normalized);
+  const maxVramMB = options?.maxVramGB ? options.maxVramGB * 1024 : undefined;
+
+  if (record && maxVramMB && record.vram_required_MB && record.vram_required_MB > maxVramMB) {
+    const fallback = pickFallbackModel(options?.maxVramGB, hasF16);
+    if (fallback) {
+      return {
+        modelId: fallback.model_id,
+        fallbackReason: `Assigned model exceeds estimated VRAM. Using ${fallback.model_id} instead.`,
+      };
+    }
+  }
+
+  if (record && !(record.required_features || []).includes('shader-f16') && hasF16) {
+    return { modelId: normalized };
+  }
+
+  if (record && hasF16) {
     return { modelId: normalized };
   }
 
@@ -72,8 +109,18 @@ const resolveModelId = async (modelId: string): Promise<ModelResolution> => {
     }
   }
 
+  const fallback = pickFallbackModel(options?.maxVramGB, hasF16);
+  if (fallback) {
+    return {
+      modelId: fallback.model_id,
+      fallbackReason: hasF16
+        ? `Model ${normalized} is not available in the bundled model list. Using ${fallback.model_id} instead.`
+        : `Model ${normalized} requires shader-f16, which is not supported. Using ${fallback.model_id} instead.`,
+    };
+  }
+
   throw new Error(
-    `Model ${normalized} requires shader-f16, which is not supported on this device. No compatible f32 fallback was found.`
+    `Model ${normalized} requires shader-f16 or exceeds available VRAM, and no compatible fallback was found.`
   );
 };
 
@@ -87,13 +134,14 @@ export class InferenceEngine {
    */
   async loadModel(
     model: ModelInfo,
-    onProgress?: (progress: number) => void
+    onProgress?: (progress: number) => void,
+    options?: LoadOptions
   ): Promise<ModelResolution> {
     if (this.isLoading) {
       throw new Error('Model loading already in progress');
     }
 
-    const resolved = await resolveModelId(model.mlc_model_id);
+    const resolved = await resolveModelId(model.mlc_model_id, options);
 
     if (this.currentModelId === resolved.modelId) {
       console.log('Model already loaded');

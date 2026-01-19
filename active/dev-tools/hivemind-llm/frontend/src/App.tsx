@@ -51,6 +51,7 @@ function App() {
   } = useChatStore();
 
   const {
+    webgpu,
     modelLoaded,
     setWebGPU,
     setModelLoaded,
@@ -143,9 +144,13 @@ function App() {
 
       // Load the model
       try {
-        const { fallbackReason } = await inferenceEngine.loadModel(assignment.model, (progress) => {
-          setModelLoadProgress(progress);
-        });
+        const { fallbackReason } = await inferenceEngine.loadModel(
+          assignment.model,
+          (progress) => {
+            setModelLoadProgress(progress);
+          },
+          { maxVramGB: webgpu?.estimatedVRAM }
+        );
 
         if (fallbackReason) {
           addMessage({
