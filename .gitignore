@@ -13,3 +13,6 @@ pnpm-debug.log*
 __pycache__/
 *.pyc
 .pytest_cache/
+
+# Wizard Fight local data
+/active/games/wizard_fight/data/*.db

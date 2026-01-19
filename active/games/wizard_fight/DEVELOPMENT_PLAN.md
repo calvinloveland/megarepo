@@ -103,6 +103,8 @@ Create a web-based 1v1 wizard duel where players research new spells using LLMs.
 - Validator clamps all values; reject invalid specs.
 - Store spells in DB.
 
+**Status**: Complete (mocked research pipeline + SQLite storage + tests).
+
 **Exit Criteria**:
 - Players can research a spell and cast it in match.
 - Invalid outputs are rejected gracefully.
@@ -164,7 +166,7 @@ Create a web-based 1v1 wizard duel where players research new spells using LLMs.
 - [x] DSL v1 approved
 - [x] Engine prototype
 - [x] Multiplayer skeleton
-- [ ] LLM research MVP
+- [x] LLM research MVP
 - [ ] Web UI MVP
 - [ ] Balance pass
 - [ ] Public demo
