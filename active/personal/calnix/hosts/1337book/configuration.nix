@@ -31,6 +31,9 @@
       CPU_ENERGY_PERF_POLICY_ON_AC = "performance";
       CPU_ENERGY_PERF_POLICY_ON_BAT = "balance_performance";
 
+      # Prevent USB autosuspend from interrupting phone charging
+      USB_AUTOSUSPEND = 0;
+
       # Battery health optimization (HP Elitebook specific)
       START_CHARGE_THRESH_BAT0 = 75;
       STOP_CHARGE_THRESH_BAT0 = 85;
