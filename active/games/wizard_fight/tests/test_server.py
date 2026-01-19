@@ -20,6 +20,20 @@ def test_lobby_flow_and_state_updates() -> None:
     cast_response = client_one.emit("cast_baseline", {"lobby_id": lobby_id}, callback=True)
     assert cast_response["state"]["units"], "expected baseline unit spawn"
 
+    research_response = client_one.emit(
+        "research_spell",
+        {"lobby_id": lobby_id, "prompt": "wind shield"},
+        callback=True,
+    )
+    assert research_response["spec"]["name"]
+
+    cast_spell_response = client_one.emit(
+        "cast_spell",
+        {"lobby_id": lobby_id, "spell_index": 0},
+        callback=True,
+    )
+    assert "state" in cast_spell_response
+
     step_response = client_one.emit("step", {"lobby_id": lobby_id, "steps": 10}, callback=True)
     assert step_response["state"]["time_seconds"] > 0
 

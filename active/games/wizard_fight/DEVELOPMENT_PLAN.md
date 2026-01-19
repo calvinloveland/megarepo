@@ -116,6 +116,8 @@ Create a web-based 1v1 wizard duel where players research new spells using LLMs.
 - Research panel with progress indicator.
 - Spell list UI.
 
+**Status**: Complete (React UI + canvas + baseline casting).
+
 **Exit Criteria**:
 - End-to-end playable match in browser.
 
@@ -167,7 +169,7 @@ Create a web-based 1v1 wizard duel where players research new spells using LLMs.
 - [x] Engine prototype
 - [x] Multiplayer skeleton
 - [x] LLM research MVP
-- [ ] Web UI MVP
+- [x] Web UI MVP
 - [ ] Balance pass
 - [ ] Public demo
 

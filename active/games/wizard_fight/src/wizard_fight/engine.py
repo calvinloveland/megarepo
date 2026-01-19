@@ -88,6 +88,8 @@ def apply_spell(state: GameState, caster_id: int, spell: Dict[str, Any]) -> bool
         )
         state.units.append(unit)
         state.next_unit_id += 1
+    _apply_projectiles(state, caster_id, spell.get("projectiles", []))
+    _apply_effects(state, caster_id, spell.get("effects", []))
     return True
 
 
@@ -146,6 +148,24 @@ def _resolve_collisions(state: GameState) -> None:
 
 def _spawn_position(state: GameState, caster_id: int) -> float:
     return 0.0 if caster_id == 0 else state.config.arena_length
+
+
+def _apply_projectiles(state: GameState, caster_id: int, projectiles: List[Dict[str, Any]]) -> None:
+    enemy_id = 1 if caster_id == 0 else 0
+    for projectile in projectiles:
+        if projectile.get("target") == "wizard":
+            state.wizards[enemy_id].health -= float(projectile["damage"])
+
+
+def _apply_effects(state: GameState, caster_id: int, effects: List[Dict[str, Any]]) -> None:
+    enemy_id = 1 if caster_id == 0 else 0
+    for effect in effects:
+        target = effect.get("target")
+        magnitude = float(effect["magnitude"])
+        if effect.get("type") == "shield" and target == "self":
+            state.wizards[caster_id].health += magnitude
+        if effect.get("type") == "burn" and target in {"enemy", "area"}:
+            state.wizards[enemy_id].health -= magnitude
 
 
 def simulate(state: GameState, total_seconds: float) -> GameState:

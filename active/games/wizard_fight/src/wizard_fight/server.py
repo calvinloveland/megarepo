@@ -10,6 +10,8 @@ from flask import Flask, request
 from flask_socketio import SocketIO
 
 from wizard_fight.engine import GameState, apply_spell, build_initial_state, step
+from wizard_fight.research import SpellDesign, build_spell_spec, design_spell
+from wizard_fight.storage import save_spell
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _BASELINE_SPELL_PATH = _REPO_ROOT / "docs" / "spells" / "summon_flying_monkey.json"
@@ -20,6 +22,9 @@ class Lobby:
     lobby_id: str
     state: GameState
     players: Dict[str, int] = field(default_factory=dict)
+    spellbook: Dict[int, list[Dict[str, Any]]] = field(
+        default_factory=lambda: {0: [], 1: []}
+    )
 
     def add_player(self, sid: str) -> Optional[int]:
         if sid in self.players:
@@ -35,6 +40,15 @@ class Lobby:
 
     def get_player_id(self, sid: str) -> Optional[int]:
         return self.players.get(sid)
+
+    def add_spell(self, player_id: int, entry: Dict[str, Any]) -> None:
+        self.spellbook.setdefault(player_id, []).append(entry)
+
+    def get_spell(self, player_id: int, spell_index: int) -> Optional[Dict[str, Any]]:
+        spells = self.spellbook.get(player_id, [])
+        if 0 <= spell_index < len(spells):
+            return spells[spell_index]
+        return None
 
 
 class LobbyStore:
@@ -127,6 +141,46 @@ def create_socketio(app: Flask) -> SocketIO:
         if player_id is None:
             return {"error": "not_in_lobby"}
         apply_spell(lobby.state, player_id, spells.baseline())
+        return {"state": serialize_state(lobby.state)}
+
+    @socketio.on("research_spell")
+    def research_spell(data: Dict[str, Any]) -> Dict[str, Any]:
+        lobby = store.get(data.get("lobby_id"))
+        if lobby is None:
+            return {"error": "lobby_not_found"}
+        player_id = lobby.get_player_id(request.sid)
+        if player_id is None:
+            return {"error": "not_in_lobby"}
+        prompt = str(data.get("prompt", ""))
+        design: SpellDesign = design_spell(prompt)
+        spec = build_spell_spec(design)
+        spell_id = save_spell(spec["name"], prompt, design.to_dict(), spec)
+        lobby.add_spell(player_id, {"spell_id": spell_id, "spec": spec, "design": design.to_dict()})
+        return {"spell_id": spell_id, "spec": spec}
+
+    @socketio.on("list_spells")
+    def list_spells(data: Dict[str, Any]) -> Dict[str, Any]:
+        lobby = store.get(data.get("lobby_id"))
+        if lobby is None:
+            return {"error": "lobby_not_found"}
+        player_id = lobby.get_player_id(request.sid)
+        if player_id is None:
+            return {"error": "not_in_lobby"}
+        return {"spells": lobby.spellbook.get(player_id, [])}
+
+    @socketio.on("cast_spell")
+    def cast_spell(data: Dict[str, Any]) -> Dict[str, Any]:
+        lobby = store.get(data.get("lobby_id"))
+        if lobby is None:
+            return {"error": "lobby_not_found"}
+        player_id = lobby.get_player_id(request.sid)
+        if player_id is None:
+            return {"error": "not_in_lobby"}
+        spell_index = int(data.get("spell_index", -1))
+        entry = lobby.get_spell(player_id, spell_index)
+        if entry is None:
+            return {"error": "spell_not_found"}
+        apply_spell(lobby.state, player_id, entry["spec"])
         return {"state": serialize_state(lobby.state)}
 
     @socketio.on("step")
