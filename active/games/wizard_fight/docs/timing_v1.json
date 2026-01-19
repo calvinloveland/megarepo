@@ -1,0 +1,8 @@
+{
+  "tick_rate_hz": 30,
+  "cast_time_seconds": 0.6,
+  "research_delay_seconds": 8.0,
+  "mana_regen_per_second": 5.0,
+  "starting_mana": 50,
+  "starting_health": 120
+}

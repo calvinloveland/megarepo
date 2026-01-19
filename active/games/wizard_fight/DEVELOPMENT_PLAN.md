@@ -64,6 +64,8 @@ Create a web-based 1v1 wizard duel where players research new spells using LLMs.
 - Simulate combat outcomes and adjust caps.
 - Decide on timing: tick rate, cast times, research delay.
 
+**Status**: Complete (paper prototype notes and timing defaults documented).
+
 **Exit Criteria**:
 - Balanced-ish caps and example spells.
 - Confirmed combat pacing.
