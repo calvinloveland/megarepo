@@ -7,6 +7,7 @@ from typing import Any, Dict, Optional
 from uuid import uuid4
 
 from flask import Flask, jsonify, request
+from loguru import logger
 from flask_socketio import SocketIO
 
 from wizard_fight.engine import GameState, apply_spell, build_initial_state, step
@@ -138,6 +139,17 @@ def create_socketio(app: Flask) -> SocketIO:
     spells = SpellLibrary()
     telemetry = Telemetry()
 
+    @app.get("/")
+    def landing() -> str:
+        return (
+            "<html><head><title>Wizard Fight</title></head>"
+            "<body style='font-family: sans-serif; padding: 24px;'>"
+            "<h1>Wizard Fight</h1>"
+            "<p>Real-time wizard duels with LLM-crafted spells.</p>"
+            "<p>Launch the frontend to play or spectate.</p>"
+            "</body></html>"
+        )
+
     @app.get("/metrics")
     def metrics() -> Any:
         return jsonify(
@@ -148,14 +160,27 @@ def create_socketio(app: Flask) -> SocketIO:
             }
         )
 
+    def safe_handler(func):
+        def wrapper(*args, **kwargs):
+            try:
+                return func(*args, **kwargs)
+            except Exception as exc:  # noqa: BLE001
+                logger.exception("handler_failed", error=str(exc))
+                return {"error": "server_error"}
+
+        return wrapper
+
     @socketio.on("create_lobby")
+    @safe_handler
     def create_lobby(data: Dict[str, Any] | None = None) -> Dict[str, Any]:
         seed = int((data or {}).get("seed", 0))
         lobby = store.create(seed=seed)
         telemetry.lobbies_created += 1
+        logger.info("lobby_created", lobby_id=lobby.lobby_id)
         return {"lobby_id": lobby.lobby_id}
 
     @socketio.on("join_lobby")
+    @safe_handler
     def join_lobby(data: Dict[str, Any]) -> Dict[str, Any]:
         lobby_id = data.get("lobby_id")
         lobby = store.get(lobby_id)
@@ -164,9 +189,11 @@ def create_socketio(app: Flask) -> SocketIO:
         player_id = lobby.add_player(request.sid)
         if player_id is None:
             return {"error": "lobby_full"}
+        logger.info("lobby_joined", lobby_id=lobby_id, player_id=player_id)
         return {"lobby_id": lobby_id, "player_id": player_id}
 
     @socketio.on("leave_lobby")
+    @safe_handler
     def leave_lobby(data: Dict[str, Any]) -> Dict[str, Any]:
         lobby = store.get(data.get("lobby_id"))
         if lobby:
@@ -174,6 +201,7 @@ def create_socketio(app: Flask) -> SocketIO:
         return {"status": "ok"}
 
     @socketio.on("cast_baseline")
+    @safe_handler
     def cast_baseline(data: Dict[str, Any]) -> Dict[str, Any]:
         lobby = store.get(data.get("lobby_id"))
         if lobby is None:
@@ -185,9 +213,11 @@ def create_socketio(app: Flask) -> SocketIO:
             return {"error": "research_in_progress"}
         apply_spell(lobby.state, player_id, spells.baseline())
         telemetry.spells_cast += 1
+        logger.info("spell_cast", lobby_id=lobby.lobby_id, player_id=player_id)
         return {"state": serialize_state(lobby.state)}
 
     @socketio.on("research_spell")
+    @safe_handler
     def research_spell(data: Dict[str, Any]) -> Dict[str, Any]:
         lobby = store.get(data.get("lobby_id"))
         if lobby is None:
@@ -199,9 +229,11 @@ def create_socketio(app: Flask) -> SocketIO:
         if lobby.is_researching(player_id):
             return {"error": "research_in_progress"}
         complete_at = lobby.start_research(player_id, prompt)
+        logger.info("research_started", lobby_id=lobby.lobby_id, player_id=player_id)
         return {"status": "research_started", "complete_at": complete_at}
 
     @socketio.on("upgrade_spell")
+    @safe_handler
     def upgrade_spell_event(data: Dict[str, Any]) -> Dict[str, Any]:
         lobby = store.get(data.get("lobby_id"))
         if lobby is None:
@@ -216,9 +248,11 @@ def create_socketio(app: Flask) -> SocketIO:
         spec = upgrade_spell(entry["spec"], str(data.get("prompt", "upgrade")))
         spell_id = save_spell(spec["name"], str(data.get("prompt", "upgrade")), entry["design"], spec)
         lobby.add_spell(player_id, {"spell_id": spell_id, "spec": spec, "design": entry["design"]})
+        logger.info("spell_upgraded", lobby_id=lobby.lobby_id, player_id=player_id)
         return {"spell_id": spell_id, "spec": spec}
 
     @socketio.on("list_spells")
+    @safe_handler
     def list_spells(data: Dict[str, Any]) -> Dict[str, Any]:
         lobby = store.get(data.get("lobby_id"))
         if lobby is None:
@@ -229,6 +263,7 @@ def create_socketio(app: Flask) -> SocketIO:
         return {"spells": lobby.spellbook.get(player_id, [])}
 
     @socketio.on("cast_spell")
+    @safe_handler
     def cast_spell(data: Dict[str, Any]) -> Dict[str, Any]:
         lobby = store.get(data.get("lobby_id"))
         if lobby is None:
@@ -244,9 +279,11 @@ def create_socketio(app: Flask) -> SocketIO:
             return {"error": "spell_not_found"}
         apply_spell(lobby.state, player_id, entry["spec"])
         telemetry.spells_cast += 1
+        logger.info("spell_cast", lobby_id=lobby.lobby_id, player_id=player_id)
         return {"state": serialize_state(lobby.state)}
 
     @socketio.on("step")
+    @safe_handler
     def step_lobby(data: Dict[str, Any]) -> Dict[str, Any]:
         lobby = store.get(data.get("lobby_id"))
         if lobby is None:
@@ -262,6 +299,7 @@ def create_socketio(app: Flask) -> SocketIO:
         }
 
     @socketio.on("get_state")
+    @safe_handler
     def get_state(data: Dict[str, Any]) -> Dict[str, Any]:
         lobby = store.get(data.get("lobby_id"))
         if lobby is None:
@@ -291,6 +329,7 @@ def _resolve_research(lobby: Lobby, telemetry: Telemetry) -> list[Dict[str, Any]
         lobby.add_spell(player_id, entry)
         completed.append(entry)
         telemetry.spells_researched += 1
+        logger.info("research_completed", lobby_id=lobby.lobby_id, player_id=player_id)
     return completed
 
 

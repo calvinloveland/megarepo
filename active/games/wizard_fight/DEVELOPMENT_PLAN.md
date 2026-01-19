@@ -140,6 +140,8 @@ Create a web-based 1v1 wizard duel where players research new spells using LLMs.
 - Basic deployment to a single VPS.
 - Minimal landing page.
 
+**Status**: Complete (logging, landing page, spectator UI, deploy notes).
+
 **Exit Criteria**:
 - Public demo link with stable uptime.
 
@@ -173,7 +175,7 @@ Create a web-based 1v1 wizard duel where players research new spells using LLMs.
 - [x] LLM research MVP
 - [x] Web UI MVP
 - [x] Balance pass
-- [ ] Public demo
+- [x] Public demo
 
 ## Risks & Mitigations
 - **LLM latency**: make research a strategic delay.

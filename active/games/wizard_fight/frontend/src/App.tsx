@@ -44,6 +44,8 @@ export default function App() {
   const [prompt, setPrompt] = useState("");
   const [spells, setSpells] = useState<SpellEntry[]>([]);
   const [researchRemaining, setResearchRemaining] = useState<number | null>(null);
+  const [spectatorLobby, setSpectatorLobby] = useState("");
+  const [mode, setMode] = useState<"player" | "spectator">("player");
   const socketRef = useRef<Socket | null>(null);
   const disableSocket = import.meta.env.MODE === "test";
 
@@ -57,6 +59,9 @@ export default function App() {
     socket.connect();
 
     const bootstrap = async () => {
+      if (mode !== "player") {
+        return;
+      }
       const lobbyResponse = await emitWithAck<{ lobby_id: string }>(socket, "create_lobby", {
         seed: 7,
       });
@@ -83,10 +88,10 @@ export default function App() {
     return () => {
       socket.disconnect();
     };
-  }, [socket]);
+  }, [mode, socket]);
 
   useEffect(() => {
-    if (!lobbyId || disableSocket) return undefined;
+    if (!lobbyId || disableSocket || mode !== "player") return undefined;
     const interval = window.setInterval(async () => {
       const response = await emitWithAck<{
         state: GameState;
@@ -105,7 +110,7 @@ export default function App() {
       }
     }, 200);
     return () => window.clearInterval(interval);
-  }, [disableSocket, lobbyId, socket]);
+  }, [disableSocket, lobbyId, mode, socket]);
 
   const castBaseline = useCallback(async () => {
     if (!lobbyId) return;
@@ -135,6 +140,27 @@ export default function App() {
     },
     [lobbyId, socket]
   );
+
+  const startSpectating = useCallback(async () => {
+    if (!spectatorLobby.trim()) return;
+    setMode("spectator");
+    setLobbyId(spectatorLobby.trim());
+    const response = await emitWithAck<{ state: GameState }>(socket, "get_state", {
+      lobby_id: spectatorLobby.trim(),
+    });
+    setState(response.state);
+  }, [socket, spectatorLobby]);
+
+  useEffect(() => {
+    if (!lobbyId || disableSocket || mode !== "spectator") return undefined;
+    const interval = window.setInterval(async () => {
+      const response = await emitWithAck<{ state: GameState }>(socket, "get_state", {
+        lobby_id: lobbyId,
+      });
+      setState(response.state);
+    }, 500);
+    return () => window.clearInterval(interval);
+  }, [disableSocket, lobbyId, mode, socket]);
 
   useEffect(() => {
     if (!state) return;
@@ -191,7 +217,20 @@ export default function App() {
         </div>
         <div>
           <h2>Actions</h2>
-          <button onClick={castBaseline}>Cast Flying Monkey</button>
+          <button onClick={castBaseline} disabled={mode !== "player"}>
+            Cast Flying Monkey
+          </button>
+        </div>
+      </section>
+      <section className="spectator">
+        <h2>Spectate Lobby</h2>
+        <div className="research-row">
+          <input
+            value={spectatorLobby}
+            onChange={(event) => setSpectatorLobby(event.target.value)}
+            placeholder="paste lobby id"
+          />
+          <button onClick={startSpectating}>Spectate</button>
         </div>
       </section>
       <section className="research">
@@ -202,7 +241,7 @@ export default function App() {
             onChange={(event) => setPrompt(event.target.value)}
             placeholder="wind, frost, or shield magic"
           />
-          <button onClick={researchSpell} disabled={!!researchRemaining}>
+          <button onClick={researchSpell} disabled={!!researchRemaining || mode !== "player"}>
             {researchRemaining ? "Researching..." : "Research Spell"}
           </button>
         </div>
@@ -219,7 +258,9 @@ export default function App() {
             {spells.map((spell, index) => (
               <li key={spell.spell_id}>
                 <span>{spell.spec.name}</span>
-                <button onClick={() => castSpell(index)}>Cast</button>
+                <button onClick={() => castSpell(index)} disabled={mode !== "player"}>
+                  Cast
+                </button>
               </li>
             ))}
           </ul>

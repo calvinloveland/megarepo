@@ -54,7 +54,8 @@ input {
 }
 
 .research,
-.spellbook {
+.spellbook,
+.spectator {
   background: #1c2033;
   padding: 16px;
   border-radius: 12px;

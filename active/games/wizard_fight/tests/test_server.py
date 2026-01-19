@@ -5,6 +5,9 @@ from wizard_fight.server import create_server
 
 def test_lobby_flow_and_state_updates() -> None:
     app, socketio = create_server()
+    metrics_response = app.test_client().get("/metrics")
+    metrics_payload = metrics_response.get_json()
+    assert "lobbies_created" in metrics_payload
     client_one = socketio.test_client(app)
     client_two = socketio.test_client(app)
 

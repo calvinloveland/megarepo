@@ -17,3 +17,4 @@ __pycache__/
 # Wizard Fight local data
 /active/games/wizard_fight/data/*.db
 /active/games/wizard_fight/frontend/node_modules/
+/active/games/wizard_fight/frontend/dist/
