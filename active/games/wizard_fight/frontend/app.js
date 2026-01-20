@@ -10,7 +10,7 @@ const state = {
   started: false,
 };
 
-const socket = window.io(SOCKET_URL, { autoConnect: true });
+const socket = window.io(SOCKET_URL, { autoConnect: false });
 
 const lobbyIdEl = document.getElementById("lobby-id");
 const playerIdEl = document.getElementById("player-id");
@@ -44,7 +44,7 @@ function renderHud() {
   lobbyIdEl.textContent = state.lobbyId ?? "-";
   playerIdEl.textContent = state.playerId ?? "-";
   if (modeStatus) {
-    modeStatus.textContent = state.mode === "player" ? "Mode: player" : "Mode: spectator";
+    modeStatus.textContent = `Mode: ${state.mode}`;
   }
 
   if (!state.gameState) return;
@@ -85,8 +85,9 @@ function renderResearch() {
   } else {
     researchStatus.textContent = "";
   }
-  researchButton.disabled = state.mode !== "player" || !!state.researchRemaining;
-  castBaselineBtn.disabled = state.mode !== "player";
+  const playerMode = state.mode === "pvp" || state.mode === "pvc";
+  researchButton.disabled = !playerMode || !!state.researchRemaining;
+  castBaselineBtn.disabled = !playerMode;
 }
 
 function renderArena() {
@@ -117,10 +118,12 @@ function renderAll() {
 async function bootstrap() {
   if (state.started) return;
   state.started = true;
-  const lobbyResponse = await emitWithAck("create_lobby", { seed: 7 });
+  const lobbyResponse = await emitWithAck("create_lobby", { seed: 7, mode: state.mode });
   state.lobbyId = lobbyResponse.lobby_id;
-  const joinResponse = await emitWithAck("join_lobby", { lobby_id: state.lobbyId });
-  state.playerId = joinResponse.player_id;
+  if (state.mode !== "cvc") {
+    const joinResponse = await emitWithAck("join_lobby", { lobby_id: state.lobbyId });
+    state.playerId = joinResponse.player_id;
+  }
   const initial = await emitWithAck("get_state", { lobby_id: state.lobbyId });
   state.gameState = initial.state;
   renderAll();
@@ -195,13 +198,11 @@ titleButtons.forEach((button) => {
   button.addEventListener("click", () => {
     const action = button.dataset.action;
     if (action === "pvp") {
-      startMode("player");
+      startMode("pvp");
     } else if (action === "pvc") {
-      startMode("player");
-      modeStatus.textContent = "CPU opponent not implemented yet.";
+      startMode("pvc");
     } else if (action === "cvc") {
-      startMode("spectator");
-      modeStatus.textContent = "CPU vs CPU not implemented yet.";
+      startMode("cvc");
     } else if (action === "spellbook") {
       alert("Spellbook screen coming soon.");
     } else if (action === "leaderboard") {

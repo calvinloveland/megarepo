@@ -30,6 +30,7 @@ class Lobby:
     )
     researching_until: Dict[int, float] = field(default_factory=dict)
     pending_prompts: Dict[int, str] = field(default_factory=dict)
+    cpu_players: set[int] = field(default_factory=set)
 
     def add_player(self, sid: str) -> Optional[int]:
         if sid in self.players:
@@ -55,6 +56,9 @@ class Lobby:
             return spells[spell_index]
         return None
 
+    def is_cpu(self, player_id: int) -> bool:
+        return player_id in self.cpu_players
+
     def start_research(self, player_id: int, prompt: str) -> float:
         complete_at = self.state.time_seconds + self.state.config.research_delay_seconds
         self.researching_until[player_id] = complete_at
@@ -72,10 +76,10 @@ class LobbyStore:
     def __init__(self) -> None:
         self._lobbies: Dict[str, Lobby] = {}
 
-    def create(self, seed: int) -> Lobby:
+    def create(self, seed: int, cpu_players: set[int] | None = None) -> Lobby:
         lobby_id = uuid4().hex
         state = build_initial_state(seed=seed)
-        lobby = Lobby(lobby_id=lobby_id, state=state)
+        lobby = Lobby(lobby_id=lobby_id, state=state, cpu_players=cpu_players or set())
         self._lobbies[lobby_id] = lobby
         return lobby
 
@@ -175,11 +179,14 @@ def create_socketio(app: Flask) -> SocketIO:
     @socketio.on("create_lobby")
     @safe_handler
     def create_lobby(data: Dict[str, Any] | None = None) -> Dict[str, Any]:
-        seed = int((data or {}).get("seed", 0))
-        lobby = store.create(seed=seed)
+        payload = data or {}
+        seed = int(payload.get("seed", 0))
+        mode = str(payload.get("mode", "pvp"))
+        cpu_players = _cpu_players_for_mode(mode)
+        lobby = store.create(seed=seed, cpu_players=cpu_players)
         telemetry.lobbies_created += 1
         logger.info("lobby_created", lobby_id=lobby.lobby_id)
-        return {"lobby_id": lobby.lobby_id}
+        return {"lobby_id": lobby.lobby_id, "mode": mode}
 
     @socketio.on("join_lobby")
     @safe_handler
@@ -291,8 +298,10 @@ def create_socketio(app: Flask) -> SocketIO:
         if lobby is None:
             return {"error": "lobby_not_found"}
         steps = int(data.get("steps", 1))
+        _cpu_take_turn(lobby, spells)
         new_spells = _resolve_research(lobby, telemetry)
         step(lobby.state, steps=steps)
+        _cpu_take_turn(lobby, spells)
         new_spells.extend(_resolve_research(lobby, telemetry))
         return {
             "state": serialize_state(lobby.state),
@@ -341,6 +350,32 @@ def _research_status(lobby: Lobby) -> Dict[int, float]:
         remaining = max(0.0, complete_at - lobby.state.time_seconds)
         status[player_id] = remaining
     return status
+
+
+def _cpu_players_for_mode(mode: str) -> set[int]:
+    if mode == "pvc":
+        return {1}
+    if mode == "cvc":
+        return {0, 1}
+    return set()
+
+
+def _cpu_take_turn(lobby: Lobby, spells: SpellLibrary) -> None:
+    for cpu_id in lobby.cpu_players:
+        if lobby.is_researching(cpu_id):
+            continue
+        wizard = lobby.state.wizards[cpu_id]
+        spellbook = lobby.spellbook.get(cpu_id, [])
+        if not spellbook and wizard.mana >= spells.baseline().get("mana_cost", 0):
+            lobby.start_research(cpu_id, "wind shield")
+            continue
+        if spellbook:
+            spec = spellbook[0]["spec"]
+            if wizard.mana >= float(spec.get("mana_cost", 0)):
+                apply_spell(lobby.state, cpu_id, spec)
+                continue
+        if wizard.mana >= float(spells.baseline().get("mana_cost", 0)):
+            apply_spell(lobby.state, cpu_id, spells.baseline())
 
 
 def create_server() -> tuple[Flask, SocketIO]:
