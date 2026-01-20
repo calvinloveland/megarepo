@@ -2,8 +2,9 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass
 import hashlib
+import os
 import random
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from wizard_fight.validators import validate_spell
 
@@ -51,7 +52,8 @@ def build_spell_spec(design: SpellDesign) -> Dict[str, Any]:
         "duration": 0,
     }
 
-    effect_type = _choose_effect_type(design.prompt, rng)
+    effect_hint = _local_model_hint(design.prompt)
+    effect_type = _choose_effect_type(effect_hint or design.prompt, rng)
     if effect_type == "spawn_units":
         spec["duration"] = round(rng.uniform(4.0, 12.0), 1)
         spec["spawn_units"] = [
@@ -163,6 +165,35 @@ def _choose_effect_type(prompt: str, rng: random.Random) -> str:
     if any(word in lowered for word in ["shield", "slow", "haste", "curse"]):
         return "effects"
     return rng.choice(["spawn_units", "projectiles", "effects"])
+
+
+def _local_model_hint(prompt: str) -> Optional[str]:
+    mode = os.getenv("WIZARD_FIGHT_LLM_MODE", "local").lower()
+    if mode != "local":
+        return None
+    try:
+        from transformers import pipeline  # type: ignore
+    except Exception:
+        return None
+
+    model_name = os.getenv("WIZARD_FIGHT_LOCAL_MODEL", "sshleifer/tiny-gpt2")
+    try:
+        generator = pipeline(
+            "text-generation",
+            model=model_name,
+            device=-1,
+        )
+        output = generator(
+            f"Spell idea: {prompt}. Effect:",
+            max_new_tokens=20,
+            do_sample=True,
+            temperature=0.9,
+        )
+        if not output:
+            return None
+        return str(output[0].get("generated_text", ""))
+    except Exception:
+        return None
 
 
 def _clamp(value: float, minimum: float, maximum: float) -> float:

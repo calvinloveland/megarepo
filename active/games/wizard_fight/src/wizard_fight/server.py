@@ -418,16 +418,25 @@ def _cpu_take_turn(lobby: Lobby, spells: SpellLibrary) -> None:
         if not spellbook:
             if wizard.mana >= baseline_cost:
                 apply_spell(lobby.state, cpu_id, spells.baseline())
+                logger.info("cpu_cast_baseline", lobby_id=lobby.lobby_id, player_id=cpu_id)
             if not lobby.is_researching(cpu_id):
                 lobby.start_research(cpu_id, "summon monkey")
+                logger.info(
+                    "cpu_research_started",
+                    lobby_id=lobby.lobby_id,
+                    player_id=cpu_id,
+                    prompt="summon monkey",
+                )
             continue
 
         spec = spellbook[0]["spec"]
         if wizard.mana >= float(spec.get("mana_cost", 0)):
             apply_spell(lobby.state, cpu_id, spec)
+            logger.info("cpu_cast_spell", lobby_id=lobby.lobby_id, player_id=cpu_id)
             continue
         if wizard.mana >= baseline_cost:
             apply_spell(lobby.state, cpu_id, spells.baseline())
+            logger.info("cpu_cast_baseline", lobby_id=lobby.lobby_id, player_id=cpu_id)
 
 
 def create_server() -> tuple[Flask, SocketIO]:
