@@ -5,8 +5,8 @@ A web-based wizard duel game where players research spells via LLMs and battle i
 ## What’s Included
 - Deterministic simulation engine (server authoritative).
 - Spell research pipeline with safe JSON schema validation.
-- Real-time multiplayer skeleton (Flask + Socket.IO).
-- Frontend MVP (React + Vite) with casting, research, and spectator view.
+- Real-time multiplayer server (Flask + Socket.IO).
+- Vanilla HTML/CSS/JS frontend with casting, research, spellbook, and leaderboard.
 
 ## Quick Start
 

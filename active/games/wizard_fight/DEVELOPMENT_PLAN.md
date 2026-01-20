@@ -24,7 +24,7 @@ Create a web-based 1v1 wizard duel where players research new spells using LLMs.
 
 ## Technical Approach
 ### Architecture
-- **Frontend**: TypeScript + React (game view + HUD + research UI).
+- **Frontend**: Vanilla HTML/CSS/JS (game view + HUD + research UI).
 - **Backend**: Python 3.8+, Flask + Socket.IO for real-time updates.
 - **Game Engine**: Deterministic simulation loop (server authoritative).
 - **Persistence**: SQLite (matches, spell catalog, telemetry).
@@ -116,7 +116,7 @@ Create a web-based 1v1 wizard duel where players research new spells using LLMs.
 - Research panel with progress indicator.
 - Spell list UI.
 
-**Status**: Complete (React UI + canvas + baseline casting).
+**Status**: Complete (vanilla UI + battlefield lane + casting).
 
 **Exit Criteria**:
 - End-to-end playable match in browser.
@@ -164,7 +164,7 @@ Create a web-based 1v1 wizard duel where players research new spells using LLMs.
 
 ## Repository Structure (initial)
 - `src/` server + engine
-- `frontend/` React app
+- `frontend/` static HTML/CSS/JS
 - `docs/` DSL schema and API
 - `tests/`
 
