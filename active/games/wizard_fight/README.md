@@ -10,6 +10,18 @@ A web-based wizard duel game where players research spells via LLMs and battle i
 
 ## Quick Start
 
+### One Command (Backend + Frontend)
+From [active/games/wizard_fight](active/games/wizard_fight):
+
+- `./scripts/dev.sh`
+
+Defaults:
+- Backend: `5055`
+- Frontend: `5175`
+
+Override with env vars:
+- `WIZARD_FIGHT_PORT=6060 WIZARD_FIGHT_FRONTEND_PORT=6061 ./scripts/dev.sh`
+
 ### Backend
 From [active/games/wizard_fight](active/games/wizard_fight):
 
@@ -19,9 +31,9 @@ From [active/games/wizard_fight](active/games/wizard_fight):
 	- `pip install .`
 
 2. Run the server:
-	- `python -m wizard_fight.server`
+	- `WIZARD_FIGHT_PORT=5055 python -m wizard_fight.server`
 
-The backend listens on port `5000`.
+The backend listens on port `5055` by default.
 
 ### Frontend
 From [active/games/wizard_fight/frontend](active/games/wizard_fight/frontend):
@@ -30,9 +42,9 @@ From [active/games/wizard_fight/frontend](active/games/wizard_fight/frontend):
 	- `npm install`
 
 2. Start the dev server:
-	- `npm run dev`
+	- `npm run dev -- --port 5175`
 
-The frontend dev server defaults to port `5173` and connects to the backend on the same host.
+The frontend dev server defaults to port `5175` and connects to the backend at `http://localhost:5055` via `VITE_SOCKET_URL`.
 
 ## Tests
 

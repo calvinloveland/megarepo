@@ -49,7 +49,11 @@ export default function App() {
   const socketRef = useRef<Socket | null>(null);
   const disableSocket = import.meta.env.MODE === "test";
 
-  const socket = useMemo(() => io({ autoConnect: false }), []);
+  const socketUrl = import.meta.env.VITE_SOCKET_URL as string | undefined;
+  const socket = useMemo(
+    () => io(socketUrl ?? undefined, { autoConnect: false }),
+    [socketUrl]
+  );
 
   useEffect(() => {
     if (disableSocket) {

@@ -6,6 +6,8 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 from uuid import uuid4
 
+import os
+
 from flask import Flask, jsonify, request
 from loguru import logger
 from flask_socketio import SocketIO
@@ -349,4 +351,6 @@ def create_server() -> tuple[Flask, SocketIO]:
 
 if __name__ == "__main__":
     app, socketio = create_server()
-    socketio.run(app, host="0.0.0.0", port=5000)
+    host = os.getenv("WIZARD_FIGHT_HOST", "0.0.0.0")
+    port = int(os.getenv("WIZARD_FIGHT_PORT", "5055"))
+    socketio.run(app, host=host, port=port)
