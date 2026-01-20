@@ -4,9 +4,64 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Wizard Fight</title>
+    <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
+    <div class="app">
+      <header>
+        <h1>Wizard Fight</h1>
+        <p>Lobby: <span id="lobby-id">creating...</span></p>
+        <p>Player: <span id="player-id">joining...</span></p>
+      </header>
+
+      <section class="hud">
+        <div>
+          <h2>Wizard 0</h2>
+          <p>HP: <span id="wiz0-hp">-</span></p>
+          <p>Mana: <span id="wiz0-mana">-</span></p>
+        </div>
+        <div>
+          <h2>Wizard 1</h2>
+          <p>HP: <span id="wiz1-hp">-</span></p>
+          <p>Mana: <span id="wiz1-mana">-</span></p>
+        </div>
+        <div>
+          <h2>Actions</h2>
+          <button id="cast-baseline">Cast Flying Monkey</button>
+        </div>
+      </section>
+
+      <section class="research">
+        <h2>Study Spells About</h2>
+        <div class="research-row">
+          <input id="research-input" placeholder="wind, frost, or shield magic" />
+          <button id="research-button">Research Spell</button>
+        </div>
+        <p id="research-status"></p>
+      </section>
+
+      <section class="spectator">
+        <h2>Spectate Lobby</h2>
+        <div class="research-row">
+          <input id="spectate-input" placeholder="paste lobby id" />
+          <button id="spectate-button">Spectate</button>
+        </div>
+      </section>
+
+      <canvas id="arena" width="720" height="220"></canvas>
+
+      <section class="spellbook">
+        <h2>Spellbook</h2>
+        <ul id="spell-list"></ul>
+      </section>
+
+      <section class="log">
+        <p>Time: <span id="time">-</span>s</p>
+        <p>Units: <span id="unit-count">0</span></p>
+      </section>
+    </div>
+
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <script src="app.js"></script>
   </body>
 </html>

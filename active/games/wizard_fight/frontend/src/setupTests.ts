@@ -1,1 +1,1 @@
-import "@testing-library/jest-dom";
+// Deprecated: React test setup removed in favor of vanilla HTML/CSS/JS.

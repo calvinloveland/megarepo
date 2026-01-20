@@ -26,8 +26,7 @@ BACKEND_PID=$!
 
 (
   cd "$ROOT_DIR/frontend"
-  VITE_SOCKET_URL="http://localhost:$BACKEND_PORT" \
-    npm run dev -- --port "$FRONTEND_PORT"
+  /workspaces/megarepo/.venv/bin/python -m http.server "$FRONTEND_PORT"
 ) &
 FRONTEND_PID=$!
 

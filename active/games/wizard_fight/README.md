@@ -38,13 +38,10 @@ The backend listens on port `5055` by default.
 ### Frontend
 From [active/games/wizard_fight/frontend](active/games/wizard_fight/frontend):
 
-1. Install dependencies:
-	- `npm install`
+Serve the static files:
+- `python -m http.server 5175`
 
-2. Start the dev server:
-	- `npm run dev -- --port 5175`
-
-The frontend dev server defaults to port `5175` and connects to the backend at `http://localhost:5055` via `VITE_SOCKET_URL`.
+Open http://localhost:5175 in a browser.
 
 ## Tests
 
@@ -53,8 +50,7 @@ From [active/games/wizard_fight](active/games/wizard_fight):
 - `python -m pytest`
 
 ### Frontend
-From [active/games/wizard_fight/frontend](active/games/wizard_fight/frontend):
-- `npm test`
+No frontend test runner is required for the vanilla setup.
 
 ## Useful Docs
 - Development plan: [active/games/wizard_fight/DEVELOPMENT_PLAN.md](active/games/wizard_fight/DEVELOPMENT_PLAN.md)
@@ -64,3 +60,5 @@ From [active/games/wizard_fight/frontend](active/games/wizard_fight/frontend):
 ## Notes
 - The spell system never executes arbitrary code. All spells are validated against the JSON schema before use.
 - Research has a built-in delay (see [active/games/wizard_fight/docs/timing_v1.json](active/games/wizard_fight/docs/timing_v1.json)).
+- To point the frontend at a different backend URL, edit `frontend/app.js` (defaults to `http://localhost:5055`).
+- The frontend is plain HTML/CSS/JS and can be served by any static file server.

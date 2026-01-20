@@ -17,61 +17,7 @@ body {
 header {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-}
-
-.hud {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 16px;
-  background: #1c2033;
-  padding: 16px;
-  border-radius: 12px;
-}
-
-canvas {
-  border-radius: 12px;
-  border: 1px solid #2c3150;
-}
-
-button {
-  background: #7f8cff;
-  border: none;
-  color: #0f111a;
-  padding: 10px 14px;
-  border-radius: 8px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-input {
-  flex: 1;
-  padding: 10px 12px;
-  border-radius: 8px;
-  border: 1px solid #2c3150;
-  background: #111527;
-  color: #f8f8ff;
-}
-
-.research,
-.spellbook,
-.spectator {
-  background: #1c2033;
-  padding: 16px;
-  border-radius: 12px;
-}
-
-.research-row {
-  display: flex;
-  gap: 12px;
-}
-
-.spellbook ul {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: flex;
-  flex-direction: column;
+  /* Deprecated: React styles removed in favor of frontend/styles.css. */
   gap: 10px;
 }
 
