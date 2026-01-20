@@ -72,6 +72,9 @@
   },
   "postCreateCommand": "bash .devcontainer/post-create.sh",
   "remoteUser": "vscode",
+  "containerEnv": {
+    "PATH": "/workspaces/megarepo/.devcontainer/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+  },
   "runArgs": [
     "-v",
     "${localEnv:XDG_RUNTIME_DIR}/docker.sock:/var/run/docker.sock"
