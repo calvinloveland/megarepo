@@ -347,11 +347,25 @@ def create_socketio(app: Flask) -> SocketIO:
         if lobby is None:
             return {"error": "lobby_not_found"}
         steps = int(data.get("steps", 1))
+        logger.debug(
+            "step_start",
+            lobby_id=lobby.lobby_id,
+            steps=steps,
+            time_seconds=lobby.state.time_seconds,
+            researching=list(lobby.researching_until.keys()),
+        )
         _cpu_take_turn(lobby, spells)
         new_spells = _resolve_research(lobby, telemetry)
         step(lobby.state, steps=steps)
         _cpu_take_turn(lobby, spells)
         new_spells.extend(_resolve_research(lobby, telemetry))
+        logger.debug(
+            "step_end",
+            lobby_id=lobby.lobby_id,
+            time_seconds=lobby.state.time_seconds,
+            new_spells=len(new_spells),
+            researching=list(lobby.researching_until.keys()),
+        )
         return {
             "state": serialize_state(lobby.state),
             "new_spells": new_spells,
@@ -382,14 +396,28 @@ def _resolve_research(lobby: Lobby, telemetry: Telemetry) -> list[Dict[str, Any]
     for player_id in ready_players:
         prompt = lobby.pending_prompts.pop(player_id, "")
         lobby.researching_until.pop(player_id, None)
-        design = design_spell(prompt)
-        spec = build_spell_spec(design)
-        spell_id = save_spell(spec["name"], prompt, design.to_dict(), spec)
-        entry = {"spell_id": spell_id, "spec": spec, "design": design.to_dict()}
-        lobby.add_spell(player_id, entry)
-        completed.append(entry)
-        telemetry.spells_researched += 1
-        logger.info("research_completed", lobby_id=lobby.lobby_id, player_id=player_id)
+        try:
+            design = design_spell(prompt)
+            spec = build_spell_spec(design)
+            spell_id = save_spell(spec["name"], prompt, design.to_dict(), spec)
+            entry = {"spell_id": spell_id, "spec": spec, "design": design.to_dict()}
+            lobby.add_spell(player_id, entry)
+            completed.append(entry)
+            telemetry.spells_researched += 1
+            logger.info(
+                "research_completed",
+                lobby_id=lobby.lobby_id,
+                player_id=player_id,
+                prompt=prompt,
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.exception(
+                "research_failed",
+                lobby_id=lobby.lobby_id,
+                player_id=player_id,
+                prompt=prompt,
+                error=str(exc),
+            )
     return completed
 
 
