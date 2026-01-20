@@ -319,11 +319,14 @@ window.wizardFight = {
   renderAll,
 };
 
+const allowAutoBootstrap =
+  document.body && document.body.dataset.autoBootstrap === "true";
+
 socket.on("connect", () => {
-  if (!state.started && gameScreen && !gameScreen.classList.contains("hidden")) {
+  if (allowAutoBootstrap && !state.started && gameScreen && !gameScreen.classList.contains("hidden")) {
     bootstrap();
   }
-  if (typeof tick === "function" && gameScreen) {
+  if (allowAutoBootstrap && typeof tick === "function" && gameScreen) {
     setInterval(tick, 200);
   }
 });
