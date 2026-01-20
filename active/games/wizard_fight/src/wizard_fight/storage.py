@@ -4,7 +4,7 @@ import json
 import sqlite3
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 
 @dataclass
@@ -89,3 +89,15 @@ def list_spells(limit: int = 50, path: Path | None = None) -> List[StoredSpell]:
             StoredSpell(spell_id=row[0], name=row[1], prompt=row[2], design=design, spec=spec)
         )
     return spells
+
+
+def list_spell_leaderboard(limit: int = 10, path: Path | None = None) -> List[Tuple[str, int]]:
+    db_path = path or default_db_path()
+    if not db_path.exists():
+        return []
+    with sqlite3.connect(db_path) as conn:
+        rows = conn.execute(
+            "SELECT name, COUNT(*) as count FROM spells GROUP BY name ORDER BY count DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+    return [(row[0], int(row[1])) for row in rows]

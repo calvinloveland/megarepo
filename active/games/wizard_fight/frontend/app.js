@@ -32,10 +32,16 @@ const unitsEl = document.getElementById("units");
 const titleScreen = document.getElementById("title-screen");
 const gameScreen = document.getElementById("game-screen");
 const spellbookScreen = document.getElementById("spellbook-screen");
+const leaderboardScreen = document.getElementById("leaderboard-screen");
 const titleButtons = document.querySelectorAll("[data-action]");
 const modeStatus = document.getElementById("mode-status");
 const spellbookBack = document.getElementById("spellbook-back");
 const spellbookList = document.getElementById("spellbook-list");
+const leaderboardBack = document.getElementById("leaderboard-back");
+const leaderboardList = document.getElementById("leaderboard-list");
+const metricLobbies = document.getElementById("metric-lobbies");
+const metricResearched = document.getElementById("metric-researched");
+const metricCast = document.getElementById("metric-cast");
 
 function emitWithAck(event, payload) {
   return new Promise((resolve) => {
@@ -186,6 +192,7 @@ function startMode(mode) {
   titleScreen.classList.add("hidden");
   gameScreen.classList.remove("hidden");
   spellbookScreen.classList.add("hidden");
+  leaderboardScreen.classList.add("hidden");
   renderAll();
   if (socket.connected) {
     bootstrap();
@@ -198,13 +205,23 @@ function showSpellbook() {
   titleScreen.classList.add("hidden");
   gameScreen.classList.add("hidden");
   spellbookScreen.classList.remove("hidden");
+  leaderboardScreen.classList.add("hidden");
   loadSpellbook();
+}
+
+function showLeaderboard() {
+  titleScreen.classList.add("hidden");
+  gameScreen.classList.add("hidden");
+  spellbookScreen.classList.add("hidden");
+  leaderboardScreen.classList.remove("hidden");
+  loadLeaderboard();
 }
 
 function showTitle() {
   titleScreen.classList.remove("hidden");
   gameScreen.classList.add("hidden");
   spellbookScreen.classList.add("hidden");
+  leaderboardScreen.classList.add("hidden");
 }
 
 async function loadSpellbook() {
@@ -236,6 +253,40 @@ async function loadSpellbook() {
   }
 }
 
+async function loadLeaderboard() {
+  leaderboardList.innerHTML = "";
+  try {
+    const response = await fetch(`${SOCKET_URL}/leaderboard`);
+    const payload = await response.json();
+    const entries = payload.top_spells || [];
+    if (entries.length === 0) {
+      const li = document.createElement("li");
+      li.textContent = "No leaderboard data yet.";
+      leaderboardList.appendChild(li);
+    } else {
+      entries.forEach((entry) => {
+        const li = document.createElement("li");
+        li.innerHTML = `
+          <div>
+            <strong>${entry.name}</strong>
+            <div class="spell-meta">Research count: ${entry.count}</div>
+          </div>
+        `;
+        leaderboardList.appendChild(li);
+      });
+    }
+    if (payload.metrics) {
+      metricLobbies.textContent = payload.metrics.lobbies_created ?? 0;
+      metricResearched.textContent = payload.metrics.spells_researched ?? 0;
+      metricCast.textContent = payload.metrics.spells_cast ?? 0;
+    }
+  } catch (error) {
+    const li = document.createElement("li");
+    li.textContent = "Failed to load leaderboard.";
+    leaderboardList.appendChild(li);
+  }
+}
+
 castBaselineBtn.addEventListener("click", castBaseline);
 researchButton.addEventListener("click", researchSpell);
 spectateButton.addEventListener("click", spectateLobby);
@@ -252,12 +303,13 @@ titleButtons.forEach((button) => {
     } else if (action === "spellbook") {
       showSpellbook();
     } else if (action === "leaderboard") {
-      alert("Leaderboard coming soon.");
+      showLeaderboard();
     }
   });
 });
 
 spellbookBack.addEventListener("click", showTitle);
+leaderboardBack.addEventListener("click", showTitle);
 
 socket.on("connect", () => {
   if (!state.started && !gameScreen.classList.contains("hidden")) {

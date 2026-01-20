@@ -93,6 +93,24 @@
       </section>
     </div>
 
+    <div class="app hidden" id="leaderboard-screen">
+      <header class="top-bar">
+        <div class="title">
+          <h1>Leaderboard</h1>
+          <p>Most researched spells</p>
+          <button id="leaderboard-back">← Back</button>
+        </div>
+      </header>
+      <section class="spellbook">
+        <ul id="leaderboard-list"></ul>
+      </section>
+      <section class="log">
+        <p>Lobbies: <span id="metric-lobbies">0</span></p>
+        <p>Researched: <span id="metric-researched">0</span></p>
+        <p>Cast: <span id="metric-cast">0</span></p>
+      </section>
+    </div>
+
     <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
     <script src="app.js"></script>
   </body>

@@ -14,7 +14,7 @@ from flask_socketio import SocketIO
 
 from wizard_fight.engine import GameState, apply_spell, build_initial_state, step
 from wizard_fight.research import SpellDesign, build_spell_spec, design_spell, upgrade_spell
-from wizard_fight.storage import list_spells, save_spell
+from wizard_fight.storage import list_spell_leaderboard, list_spells, save_spell
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _BASELINE_SPELL_PATH = _REPO_ROOT / "docs" / "spells" / "summon_flying_monkey.json"
@@ -181,6 +181,22 @@ def create_socketio(app: Flask) -> SocketIO:
                     }
                     for spell in spells
                 ]
+            }
+        )
+
+    @app.get("/leaderboard")
+    def leaderboard() -> Any:
+        top_spells = list_spell_leaderboard(limit=10)
+        return jsonify(
+            {
+                "top_spells": [
+                    {"name": name, "count": count} for name, count in top_spells
+                ],
+                "metrics": {
+                    "lobbies_created": telemetry.lobbies_created,
+                    "spells_researched": telemetry.spells_researched,
+                    "spells_cast": telemetry.spells_cast,
+                },
             }
         )
 
