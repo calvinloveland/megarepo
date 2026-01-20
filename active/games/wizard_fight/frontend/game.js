@@ -13,12 +13,16 @@ const debugPanel = {
   player: document.getElementById("dbg-player"),
   ticks: document.getElementById("dbg-ticks"),
   lastTick: document.getElementById("dbg-last-tick"),
+  researching: document.getElementById("dbg-researching"),
+  newSpells: document.getElementById("dbg-new-spells"),
   units: document.getElementById("dbg-units"),
   w0: document.getElementById("dbg-w0"),
   w1: document.getElementById("dbg-w1"),
 };
 
 let tickCount = 0;
+let lastResearching = {};
+let lastNewSpells = 0;
 
 function logDebug(event, payload = {}) {
   const stamp = new Date().toISOString();
@@ -33,6 +37,12 @@ function renderDebugPanel() {
   debugPanel.player.textContent = wfState?.playerId ?? "-";
   debugPanel.ticks.textContent = String(tickCount);
   debugPanel.lastTick.textContent = new Date().toLocaleTimeString();
+  if (debugPanel.researching) {
+    debugPanel.researching.textContent = JSON.stringify(lastResearching);
+  }
+  if (debugPanel.newSpells) {
+    debugPanel.newSpells.textContent = String(lastNewSpells);
+  }
   const units = wfState?.gameState?.units ?? [];
   debugPanel.units.textContent = String(units.length);
   const w0 = wfState?.gameState?.wizards?.[0];
@@ -87,6 +97,8 @@ function startTickLoop() {
     });
     tickCount += 1;
     logDebug("tick", { tickCount, steps: STEPS_PER_TICK, response });
+    lastResearching = response.researching || {};
+    lastNewSpells = response.new_spells ? response.new_spells.length : 0;
     wfState.gameState = response.state;
     if (response.new_spells && response.new_spells.length > 0) {
       wfState.spells.push(...response.new_spells);
