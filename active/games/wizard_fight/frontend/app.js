@@ -7,6 +7,7 @@ const state = {
   spells: [],
   researchRemaining: null,
   gameState: null,
+  started: false,
 };
 
 const socket = window.io(SOCKET_URL, { autoConnect: true });
@@ -28,6 +29,10 @@ const timeEl = document.getElementById("time");
 const unitCountEl = document.getElementById("unit-count");
 const laneEl = document.getElementById("lane");
 const unitsEl = document.getElementById("units");
+const titleScreen = document.getElementById("title-screen");
+const gameScreen = document.getElementById("game-screen");
+const titleButtons = document.querySelectorAll("[data-action]");
+const modeStatus = document.getElementById("mode-status");
 
 function emitWithAck(event, payload) {
   return new Promise((resolve) => {
@@ -38,6 +43,9 @@ function emitWithAck(event, payload) {
 function renderHud() {
   lobbyIdEl.textContent = state.lobbyId ?? "-";
   playerIdEl.textContent = state.playerId ?? "-";
+  if (modeStatus) {
+    modeStatus.textContent = state.mode === "player" ? "Mode: player" : "Mode: spectator";
+  }
 
   if (!state.gameState) return;
   wiz0HpEl.textContent = state.gameState.wizards?.[0]?.health?.toFixed(1) ?? "-";
@@ -107,6 +115,8 @@ function renderAll() {
 }
 
 async function bootstrap() {
+  if (state.started) return;
+  state.started = true;
   const lobbyResponse = await emitWithAck("create_lobby", { seed: 7 });
   state.lobbyId = lobbyResponse.lobby_id;
   const joinResponse = await emitWithAck("join_lobby", { lobby_id: state.lobbyId });
@@ -118,7 +128,6 @@ async function bootstrap() {
 
 async function tick() {
   if (!state.lobbyId) return;
-  if (state.mode !== "player") return;
   const response = await emitWithAck("step", { lobby_id: state.lobbyId, steps: 1 });
   state.gameState = response.state;
   if (response.new_spells && response.new_spells.length > 0) {
@@ -166,11 +175,44 @@ async function spectateLobby() {
   renderAll();
 }
 
+function startMode(mode) {
+  state.mode = mode;
+  titleScreen.classList.add("hidden");
+  gameScreen.classList.remove("hidden");
+  renderAll();
+  if (socket.connected) {
+    bootstrap();
+  } else {
+    socket.connect();
+  }
+}
+
 castBaselineBtn.addEventListener("click", castBaseline);
 researchButton.addEventListener("click", researchSpell);
 spectateButton.addEventListener("click", spectateLobby);
 
+titleButtons.forEach((button) => {
+  button.addEventListener("click", () => {
+    const action = button.dataset.action;
+    if (action === "pvp") {
+      startMode("player");
+    } else if (action === "pvc") {
+      startMode("player");
+      modeStatus.textContent = "CPU opponent not implemented yet.";
+    } else if (action === "cvc") {
+      startMode("spectator");
+      modeStatus.textContent = "CPU vs CPU not implemented yet.";
+    } else if (action === "spellbook") {
+      alert("Spellbook screen coming soon.");
+    } else if (action === "leaderboard") {
+      alert("Leaderboard coming soon.");
+    }
+  });
+});
+
 socket.on("connect", () => {
-  bootstrap();
+  if (!state.started && !gameScreen.classList.contains("hidden")) {
+    bootstrap();
+  }
   setInterval(tick, 200);
 });
