@@ -18,9 +18,9 @@
     "ghcr.io/devcontainers/features/github-cli:1": {
       "version": "latest"
     },
-    "ghcr.io/devcontainers/features/docker-in-docker:2": {
+    "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {
       "version": "latest",
-      "dockerDashComposeVersion": "v2"
+      "dockerSocket": "${localEnv:XDG_RUNTIME_DIR}/docker.sock"
     }
   },
   "customizations": {
@@ -71,10 +71,11 @@
     }
   },
   "postCreateCommand": "bash .devcontainer/post-create.sh",
-  "containerEnv": {
-    "PATH": "/workspaces/megarepo/.devcontainer/bin:${PATH}"
-  },
   "remoteUser": "vscode",
+  "runArgs": [
+    "-v",
+    "${localEnv:XDG_RUNTIME_DIR}/docker.sock:/var/run/docker.sock"
+  ],
   "mounts": [
     "source=${localWorkspaceFolder}/.devcontainer/cache/pip,target=/home/vscode/.cache/pip,type=bind,consistency=cached",
     "source=${localWorkspaceFolder}/.devcontainer/cache/npm,target=/home/vscode/.npm,type=bind,consistency=cached"
