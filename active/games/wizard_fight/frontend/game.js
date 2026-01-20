@@ -72,13 +72,21 @@ async function bootstrapGame() {
 }
 
 let _tickInterval = null;
+const TICK_MS = 200;
+const STEPS_PER_TICK = Math.max(
+  1,
+  Number(window.WIZARD_FIGHT_STEPS_PER_TICK || 6)
+);
 function startTickLoop() {
   if (_tickInterval) return;
   _tickInterval = setInterval(async () => {
     if (!wfState?.lobbyId) return;
-    const response = await wfEmitWithAck("step", { lobby_id: wfState.lobbyId, steps: 1 });
+    const response = await wfEmitWithAck("step", {
+      lobby_id: wfState.lobbyId,
+      steps: STEPS_PER_TICK,
+    });
     tickCount += 1;
-    logDebug("tick", { tickCount, response });
+    logDebug("tick", { tickCount, steps: STEPS_PER_TICK, response });
     wfState.gameState = response.state;
     if (response.new_spells && response.new_spells.length > 0) {
       wfState.spells.push(...response.new_spells);
@@ -88,7 +96,7 @@ function startTickLoop() {
     }
     wfRenderAll?.();
     renderDebugPanel();
-  }, 200);
+  }, TICK_MS);
   logDebug("tick_loop_started");
 }
 
