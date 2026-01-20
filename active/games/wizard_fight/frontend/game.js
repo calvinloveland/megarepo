@@ -1,9 +1,10 @@
-const {
-  socket: wfSocket,
-  emitWithAck: wfEmitWithAck,
-  state: wfState,
-  renderAll: wfRenderAll,
-} = window.wizardFight || {};
+(function () {
+  const {
+    socket: wfSocket,
+    emitWithAck: wfEmitWithAck,
+    state: wfState,
+    renderAll: wfRenderAll,
+  } = window.wizardFight || {};
 
 const debugPanel = {
   socket: document.getElementById("dbg-socket"),
@@ -169,11 +170,12 @@ if (wfSocket && !wfSocket.connected) {
 
 renderDebugPanel();
 
-// Export for debug/testing
-window.gameModule = {
-  bootstrapGame,
-  startTickLoop,
-  castBaselineLocal,
-  researchSpellLocal,
-  castSpellLocal,
-};
+  // Export for debug/testing
+  window.gameModule = {
+    bootstrapGame,
+    startTickLoop,
+    castBaselineLocal,
+    researchSpellLocal,
+    castSpellLocal,
+  };
+})();
