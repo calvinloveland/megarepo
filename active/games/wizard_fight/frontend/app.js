@@ -287,9 +287,9 @@ async function loadLeaderboard() {
   }
 }
 
-castBaselineBtn.addEventListener("click", castBaseline);
-researchButton.addEventListener("click", researchSpell);
-spectateButton.addEventListener("click", spectateLobby);
+if (castBaselineBtn) castBaselineBtn.addEventListener("click", castBaseline);
+if (researchButton) researchButton.addEventListener("click", researchSpell);
+if (spectateButton) spectateButton.addEventListener("click", spectateLobby);
 
 titleButtons.forEach((button) => {
   button.addEventListener("click", () => {
@@ -308,12 +308,21 @@ titleButtons.forEach((button) => {
   });
 });
 
-spellbookBack.addEventListener("click", showTitle);
-leaderboardBack.addEventListener("click", showTitle);
+if (spellbookBack) spellbookBack.addEventListener("click", showTitle);
+if (leaderboardBack) leaderboardBack.addEventListener("click", showTitle);
+
+// Expose helpers for page-specific scripts
+window.wizardFight = {
+  socket,
+  emitWithAck,
+  state,
+};
 
 socket.on("connect", () => {
-  if (!state.started && !gameScreen.classList.contains("hidden")) {
+  if (!state.started && gameScreen && !gameScreen.classList.contains("hidden")) {
     bootstrap();
   }
-  setInterval(tick, 200);
+  if (typeof tick === "function" && gameScreen) {
+    setInterval(tick, 200);
+  }
 });
