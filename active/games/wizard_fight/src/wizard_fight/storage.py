@@ -4,7 +4,7 @@ import json
 import sqlite3
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 
 @dataclass
@@ -70,3 +70,22 @@ def load_spell(spell_id: int, path: Path | None = None) -> Optional[StoredSpell]
     design = json.loads(row[3])
     spec = json.loads(row[4])
     return StoredSpell(spell_id=row[0], name=row[1], prompt=row[2], design=design, spec=spec)
+
+
+def list_spells(limit: int = 50, path: Path | None = None) -> List[StoredSpell]:
+    db_path = path or default_db_path()
+    if not db_path.exists():
+        return []
+    with sqlite3.connect(db_path) as conn:
+        rows = conn.execute(
+            "SELECT id, name, prompt, design_json, spec_json FROM spells ORDER BY id DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+    spells: List[StoredSpell] = []
+    for row in rows:
+        design = json.loads(row[3])
+        spec = json.loads(row[4])
+        spells.append(
+            StoredSpell(spell_id=row[0], name=row[1], prompt=row[2], design=design, spec=spec)
+        )
+    return spells

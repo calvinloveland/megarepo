@@ -189,6 +189,11 @@ input {
   border-radius: 8px;
 }
 
+.spell-meta {
+  color: #c8ccf0;
+  font-size: 0.85rem;
+}
+
 .log {
   display: flex;
   gap: 24px;

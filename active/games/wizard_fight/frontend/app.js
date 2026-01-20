@@ -31,8 +31,11 @@ const laneEl = document.getElementById("lane");
 const unitsEl = document.getElementById("units");
 const titleScreen = document.getElementById("title-screen");
 const gameScreen = document.getElementById("game-screen");
+const spellbookScreen = document.getElementById("spellbook-screen");
 const titleButtons = document.querySelectorAll("[data-action]");
 const modeStatus = document.getElementById("mode-status");
+const spellbookBack = document.getElementById("spellbook-back");
+const spellbookList = document.getElementById("spellbook-list");
 
 function emitWithAck(event, payload) {
   return new Promise((resolve) => {
@@ -182,11 +185,54 @@ function startMode(mode) {
   state.mode = mode;
   titleScreen.classList.add("hidden");
   gameScreen.classList.remove("hidden");
+  spellbookScreen.classList.add("hidden");
   renderAll();
   if (socket.connected) {
     bootstrap();
   } else {
     socket.connect();
+  }
+}
+
+function showSpellbook() {
+  titleScreen.classList.add("hidden");
+  gameScreen.classList.add("hidden");
+  spellbookScreen.classList.remove("hidden");
+  loadSpellbook();
+}
+
+function showTitle() {
+  titleScreen.classList.remove("hidden");
+  gameScreen.classList.add("hidden");
+  spellbookScreen.classList.add("hidden");
+}
+
+async function loadSpellbook() {
+  spellbookList.innerHTML = "";
+  try {
+    const response = await fetch(`${SOCKET_URL}/spellbook`);
+    const payload = await response.json();
+    const spells = payload.spells || [];
+    if (spells.length === 0) {
+      const li = document.createElement("li");
+      li.textContent = "No spells researched yet.";
+      spellbookList.appendChild(li);
+      return;
+    }
+    spells.forEach((spell) => {
+      const li = document.createElement("li");
+      li.innerHTML = `
+        <div>
+          <strong>${spell.name}</strong>
+          <div class="spell-meta">Prompt: ${spell.prompt}</div>
+        </div>
+      `;
+      spellbookList.appendChild(li);
+    });
+  } catch (error) {
+    const li = document.createElement("li");
+    li.textContent = "Failed to load spellbook.";
+    spellbookList.appendChild(li);
   }
 }
 
@@ -204,12 +250,14 @@ titleButtons.forEach((button) => {
     } else if (action === "cvc") {
       startMode("cvc");
     } else if (action === "spellbook") {
-      alert("Spellbook screen coming soon.");
+      showSpellbook();
     } else if (action === "leaderboard") {
       alert("Leaderboard coming soon.");
     }
   });
 });
+
+spellbookBack.addEventListener("click", showTitle);
 
 socket.on("connect", () => {
   if (!state.started && !gameScreen.classList.contains("hidden")) {
