@@ -46,7 +46,7 @@ restart_if_running
 
 (
   cd "$ROOT_DIR"
-  WIZARD_FIGHT_PORT="$BACKEND_PORT" WIZARD_FIGHT_HOST=0.0.0.0 \
+  PYTHONPATH="$ROOT_DIR/src" WIZARD_FIGHT_PORT="$BACKEND_PORT" WIZARD_FIGHT_HOST=0.0.0.0 \
     /workspaces/megarepo/.venv/bin/python -m wizard_fight.server
 ) &
 BACKEND_PID=$!
