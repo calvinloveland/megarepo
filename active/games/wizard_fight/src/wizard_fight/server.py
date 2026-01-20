@@ -200,6 +200,21 @@ def create_socketio(app: Flask) -> SocketIO:
             }
         )
 
+    @app.route("/client-errors", methods=["POST", "OPTIONS"])
+    def client_errors() -> Any:
+        if request.method == "OPTIONS":
+            response = jsonify({"status": "ok"})
+        else:
+            payload = request.get_json(silent=True) or {}
+            errors = payload.get("errors", [])
+            for entry in errors:
+                logger.warning("client_error", **entry)
+            response = jsonify({"status": "received", "count": len(errors)})
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+        return response
+
     def safe_handler(func):
         def wrapper(*args, **kwargs):
             try:

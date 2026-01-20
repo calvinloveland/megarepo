@@ -56,3 +56,6 @@ venv/
 
 # Log files
 *.log
+
+# Wizard Fight dev artifacts
+/active/games/wizard_fight/.wizard_fight_dev.pids

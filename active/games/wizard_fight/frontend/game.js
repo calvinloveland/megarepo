@@ -1,4 +1,4 @@
-const { socket: wfSocket, emitWithAck, state, renderAll } = window.wizardFight || {};
+const { socket: wfSocket, emitWithAck: wfEmitWithAck, state, renderAll } = window.wizardFight || {};
 
 const debugPanel = {
   socket: document.getElementById("dbg-socket"),
@@ -45,20 +45,20 @@ function getModeFromQuery() {
 }
 
 async function bootstrapGame() {
-  if (!emitWithAck) return;
+  if (!wfEmitWithAck) return;
   if (state.started) return;
   state.started = true;
   state.mode = getModeFromQuery();
   logDebug("bootstrap_start", { mode: state.mode });
-  const lobbyResponse = await emitWithAck("create_lobby", { seed: 7, mode: state.mode });
+  const lobbyResponse = await wfEmitWithAck("create_lobby", { seed: 7, mode: state.mode });
   logDebug("create_lobby_response", lobbyResponse);
   state.lobbyId = lobbyResponse.lobby_id;
   if (state.mode !== "cvc") {
-    const joinResponse = await emitWithAck("join_lobby", { lobby_id: state.lobbyId });
+    const joinResponse = await wfEmitWithAck("join_lobby", { lobby_id: state.lobbyId });
     logDebug("join_lobby_response", joinResponse);
     state.playerId = joinResponse.player_id;
   }
-  const initial = await emitWithAck("get_state", { lobby_id: state.lobbyId });
+  const initial = await wfEmitWithAck("get_state", { lobby_id: state.lobbyId });
   logDebug("initial_state", initial);
   state.gameState = initial.state;
   renderAll();
@@ -70,7 +70,7 @@ function startTickLoop() {
   if (_tickInterval) return;
   _tickInterval = setInterval(async () => {
     if (!state.lobbyId) return;
-    const response = await emitWithAck("step", { lobby_id: state.lobbyId, steps: 1 });
+    const response = await wfEmitWithAck("step", { lobby_id: state.lobbyId, steps: 1 });
     tickCount += 1;
     logDebug("tick", { tickCount, response });
     state.gameState = response.state;
@@ -87,9 +87,9 @@ function startTickLoop() {
 }
 
 async function castBaselineLocal() {
-  if (!emitWithAck || !state.lobbyId) return;
+  if (!wfEmitWithAck || !state.lobbyId) return;
   logDebug("cast_baseline", { lobby_id: state.lobbyId });
-  const response = await emitWithAck("cast_baseline", { lobby_id: state.lobbyId });
+  const response = await wfEmitWithAck("cast_baseline", { lobby_id: state.lobbyId });
   logDebug("cast_baseline_response", response);
   state.gameState = response.state ?? state.gameState;
   renderAll();
@@ -97,9 +97,9 @@ async function castBaselineLocal() {
 }
 
 async function researchSpellLocal(prompt) {
-  if (!emitWithAck || !state.lobbyId || !prompt) return;
+  if (!wfEmitWithAck || !state.lobbyId || !prompt) return;
   logDebug("research_spell", { lobby_id: state.lobbyId, prompt });
-  await emitWithAck("research_spell", {
+  await wfEmitWithAck("research_spell", {
     lobby_id: state.lobbyId,
     prompt,
   });
@@ -108,9 +108,9 @@ async function researchSpellLocal(prompt) {
 }
 
 async function castSpellLocal(index) {
-  if (!emitWithAck || !state.lobbyId) return;
+  if (!wfEmitWithAck || !state.lobbyId) return;
   logDebug("cast_spell", { lobby_id: state.lobbyId, spell_index: index });
-  const response = await emitWithAck("cast_spell", {
+  const response = await wfEmitWithAck("cast_spell", {
     lobby_id: state.lobbyId,
     spell_index: index,
   });
@@ -135,7 +135,7 @@ if (spectateButton && spectateInput) spectateButton.addEventListener("click", as
   state.mode = "spectator";
   state.lobbyId = spectateInput.value.trim();
   logDebug("spectate", { lobby_id: state.lobbyId });
-  const response = await emitWithAck("get_state", { lobby_id: state.lobbyId });
+  const response = await wfEmitWithAck("get_state", { lobby_id: state.lobbyId });
   logDebug("spectate_state", response);
   state.gameState = response.state;
   renderAll();
