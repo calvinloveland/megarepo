@@ -422,4 +422,4 @@ if __name__ == "__main__":
     app, socketio = create_server()
     host = os.getenv("WIZARD_FIGHT_HOST", "0.0.0.0")
     port = int(os.getenv("WIZARD_FIGHT_PORT", "5055"))
-    socketio.run(app, host=host, port=port)
+    socketio.run(app, host=host, port=port, allow_unsafe_werkzeug=True)
