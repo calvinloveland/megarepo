@@ -316,6 +316,7 @@ window.wizardFight = {
   socket,
   emitWithAck,
   state,
+  renderAll,
 };
 
 socket.on("connect", () => {

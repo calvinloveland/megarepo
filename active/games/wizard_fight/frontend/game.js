@@ -1,9 +1,19 @@
-const { socket, emitWithAck, state } = window.wizardFight || {};
+const { socket, emitWithAck, state, renderAll } = window.wizardFight || {};
+
+function getModeFromQuery() {
+  const params = new URLSearchParams(window.location.search);
+  const mode = params.get("mode");
+  if (mode === "pvp" || mode === "pvc" || mode === "cvc") {
+    return mode;
+  }
+  return "pvp";
+}
 
 async function bootstrapGame() {
   if (!emitWithAck) return;
   if (state.started) return;
   state.started = true;
+  state.mode = getModeFromQuery();
   const lobbyResponse = await emitWithAck("create_lobby", { seed: 7, mode: state.mode });
   state.lobbyId = lobbyResponse.lobby_id;
   if (state.mode !== "cvc") {
@@ -66,7 +76,9 @@ const spectateInput = document.getElementById("spectate-input");
 const spectateButton = document.getElementById("spectate-button");
 
 if (castBaselineBtn) castBaselineBtn.addEventListener("click", castBaselineLocal);
-if (researchButton && researchInput) researchButton.addEventListener("click", () => researchSpellLocal(researchInput.value.trim()));
+if (researchButton && researchInput) {
+  researchButton.addEventListener("click", () => researchSpellLocal(researchInput.value.trim()));
+}
 if (spectateButton && spectateInput) spectateButton.addEventListener("click", async () => {
   state.mode = "spectator";
   state.lobbyId = spectateInput.value.trim();
@@ -76,11 +88,16 @@ if (spectateButton && spectateInput) spectateButton.addEventListener("click", as
 });
 
 socket?.on("connect", () => {
-  if (!state.started && document.getElementById("game-screen") && !document.getElementById("game-screen").classList.contains("hidden")) {
+  if (!state.started && document.getElementById("game-screen")) {
     bootstrapGame();
   }
   startTickLoop();
 });
+
+// Kick off connection when landing on the game page.
+if (socket && !socket.connected) {
+  socket.connect();
+}
 
 // Export for debug/testing
 window.gameModule = {
