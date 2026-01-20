@@ -34,6 +34,32 @@ body {
   margin: 24px 0;
 }
 
+.title-link,
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  text-decoration: none;
+  background: #7f8cff;
+  color: #0f111a;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-weight: 600;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.title-link:hover,
+.back-link:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 16px rgba(127, 140, 255, 0.35);
+}
+
+.back-link {
+  align-self: flex-start;
+  margin-top: 4px;
+}
+
 .title-note {
   color: #c8ccf0;
   font-size: 0.9rem;
