@@ -6,32 +6,106 @@ body {
 }
 
 .app {
-  max-width: 960px;
+  max-width: 1200px;
   margin: 0 auto;
-  padding: 24px;
+  padding: 20px;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 18px;
 }
 
-header {
+.top-bar {
+  display: grid;
+  grid-template-columns: 1.1fr 1fr 1.2fr 0.8fr;
+  gap: 16px;
+  align-items: start;
+}
+
+.title {
   display: flex;
   flex-direction: column;
   gap: 6px;
-}
-
-.hud {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 16px;
   background: #1c2033;
   padding: 16px;
   border-radius: 12px;
 }
 
-canvas {
+.hud {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+  background: #1c2033;
+  padding: 16px;
   border-radius: 12px;
+}
+
+.actions,
+.spectator,
+.spellbook {
+  background: #1c2033;
+  padding: 16px;
+  border-radius: 12px;
+}
+
+.action-row {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.battlefield {
+  background: #15182a;
+  border-radius: 12px;
+  padding: 12px;
   border: 1px solid #2c3150;
+}
+
+.lane {
+  position: relative;
+  height: 220px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  background: linear-gradient(180deg, #171b2d 0%, #101322 100%);
+  border-radius: 10px;
+}
+
+.lane::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: #2c3150;
+}
+
+.tower {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 32px;
+}
+
+.tower-left {
+  left: 16px;
+}
+
+.tower-right {
+  right: 16px;
+}
+
+.units {
+  position: relative;
+  height: 100%;
+  min-width: 1200px;
+}
+
+.unit {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 22px;
+  transition: left 0.15s linear;
 }
 
 button {
@@ -56,19 +130,6 @@ input {
   border: 1px solid #2c3150;
   background: #111527;
   color: #f8f8ff;
-}
-
-.research,
-.spellbook,
-.spectator {
-  background: #1c2033;
-  padding: 16px;
-  border-radius: 12px;
-}
-
-.research-row {
-  display: flex;
-  gap: 12px;
 }
 
 .spellbook ul {

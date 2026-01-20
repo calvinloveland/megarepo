@@ -26,8 +26,8 @@ const spectateButton = document.getElementById("spectate-button");
 const spellList = document.getElementById("spell-list");
 const timeEl = document.getElementById("time");
 const unitCountEl = document.getElementById("unit-count");
-const canvas = document.getElementById("arena");
-const ctx = canvas.getContext("2d");
+const laneEl = document.getElementById("lane");
+const unitsEl = document.getElementById("units");
 
 function emitWithAck(event, payload) {
   return new Promise((resolve) => {
@@ -83,31 +83,19 @@ function renderResearch() {
 
 function renderArena() {
   if (!state.gameState) return;
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.fillStyle = "#1b1d2a";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-  ctx.strokeStyle = "#3d4160";
-  ctx.beginPath();
-  ctx.moveTo(0, canvas.height / 2);
-  ctx.lineTo(canvas.width, canvas.height / 2);
-  ctx.stroke();
-
-  const wizardPositions = [20, canvas.width - 20];
-  [0, 1].forEach((wizardId) => {
-    ctx.fillStyle = wizardId === 0 ? "#7f8cff" : "#ff7f8c";
-    ctx.beginPath();
-    ctx.arc(wizardPositions[wizardId], canvas.height / 2, 10, 0, Math.PI * 2);
-    ctx.fill();
-  });
+  unitsEl.innerHTML = "";
+  const laneWidth = Math.max(laneEl.clientWidth, 1200);
+  const leftMargin = 60;
+  const rightMargin = 60;
 
   state.gameState.units.forEach((unit) => {
     const ratio = unit.position / 100;
-    const x = 30 + ratio * (canvas.width - 60);
-    ctx.fillStyle = unit.owner_id === 0 ? "#ffd66e" : "#6effd6";
-    ctx.beginPath();
-    ctx.arc(x, canvas.height / 2, 6, 0, Math.PI * 2);
-    ctx.fill();
+    const x = leftMargin + ratio * (laneWidth - leftMargin - rightMargin);
+    const div = document.createElement("div");
+    div.className = "unit";
+    div.textContent = unit.owner_id === 0 ? "🐒" : "🐵";
+    div.style.left = `${x}px`;
+    unitsEl.appendChild(div);
   });
 }
 
