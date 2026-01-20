@@ -3,32 +3,18 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Wizard Fight</title>
+    <title>Wizard Fight — Game</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <div id="title-screen" class="title-screen">
-      <div class="title-card">
-        <h1>Wizard Fight</h1>
-        <p>Choose a mode</p>
-        <div class="title-actions">
-          <a class="title-link" href="game.html?mode=pvp">⚔️ 1v1 against players</a>
-          <a class="title-link" href="game.html?mode=pvc">🤖 1v1 cpu vs player</a>
-          <a class="title-link" href="game.html?mode=cvc">🤖 1v1 cpu vs cpu</a>
-          <a class="title-link" href="spellbook.html">📖 Spellbook</a>
-          <a class="title-link" href="leaderboard.html">🏆 Leaderboard</a>
-        </div>
-        <p class="title-note">CPU modes, spellbook, and leaderboard are now available.</p>
-      </div>
-    </div>
-
-    <div class="app hidden" id="game-screen">
+    <div class="app" id="game-screen">
       <header class="top-bar">
         <div class="title">
           <h1>Wizard Fight</h1>
-          <p>Lobby: <span id="lobby-id">creating...</span></p>
-          <p>Player: <span id="player-id">joining...</span></p>
+          <p>Lobby: <span id="lobby-id">-</span></p>
+          <p>Player: <span id="player-id">-</span></p>
           <p class="mode-status" id="mode-status"></p>
+          <a class="back-link" href="/">← Back</a>
         </div>
         <div class="hud">
           <div>
@@ -80,42 +66,8 @@
       </section>
     </div>
 
-    <div class="app hidden" id="spellbook-screen">
-      <header class="top-bar">
-        <div class="title">
-          <h1>Spellbook</h1>
-          <p>Latest researched spells</p>
-          <button id="spellbook-back">← Back</button>
-        </div>
-      </header>
-      <section class="spellbook">
-        <ul id="spellbook-list"></ul>
-      </section>
-    </div>
-
-    <div class="app hidden" id="leaderboard-screen">
-      <header class="top-bar">
-        <div class="title">
-          <h1>Leaderboard</h1>
-          <p>Most researched spells</p>
-          <button id="leaderboard-back">← Back</button>
-        </div>
-      </header>
-      <section class="spellbook">
-        <ul id="leaderboard-list"></ul>
-      </section>
-      <section class="log">
-        <p>Lobbies: <span id="metric-lobbies">0</span></p>
-        <p>Researched: <span id="metric-researched">0</span></p>
-        <p>Cast: <span id="metric-cast">0</span></p>
-      </section>
-    </div>
-
     <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
     <script src="app.js"></script>
     <script src="game.js"></script>
-    <script src="spellbook.js"></script>
-    <script src="leaderboard.js"></script>
-    <script src="spectate.js"></script>
   </body>
 </html>

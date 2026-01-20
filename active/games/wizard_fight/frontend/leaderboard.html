@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Wizard Fight — Leaderboard</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div id="leaderboard-screen">
+      <header class="top-bar">
+        <div class="title">
+          <h1>Leaderboard</h1>
+          <p>Most researched spells</p>
+          <a class="back-link" href="/">← Back</a>
+        </div>
+      </header>
+      <section class="spellbook">
+        <ul id="leaderboard-list"></ul>
+      </section>
+      <section class="log">
+        <p>Lobbies: <span id="metric-lobbies">0</span></p>
+        <p>Researched: <span id="metric-researched">0</span></p>
+        <p>Cast: <span id="metric-cast">0</span></p>
+      </section>
+    </div>
+
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <script src="app.js"></script>
+    <script src="leaderboard.js"></script>
+  </body>
+</html>

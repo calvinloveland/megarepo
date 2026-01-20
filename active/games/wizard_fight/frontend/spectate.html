@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Wizard Fight — Spectate</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div id="spectate-screen">
+      <header class="top-bar">
+        <div class="title">
+          <h1>Spectate</h1>
+          <p>Watch a lobby</p>
+          <a class="back-link" href="/">← Back</a>
+        </div>
+      </header>
+      <section class="spectator">
+        <div class="action-row">
+          <input id="spectate-input" placeholder="paste lobby id" />
+          <button id="spectate-button">👁️ Watch</button>
+        </div>
+      </section>
+    </div>
+
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <script src="app.js"></script>
+    <script src="spectate.js"></script>
+  </body>
+</html>
