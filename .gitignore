@@ -18,3 +18,10 @@ __pycache__/
 /active/games/wizard_fight/data/*.db
 /active/games/wizard_fight/frontend/node_modules/
 /active/games/wizard_fight/frontend/dist/
+
+# Coverage files
+.coverage
+coverage.xml
+*.coverage
+**/.coverage
+**/coverage.xml
