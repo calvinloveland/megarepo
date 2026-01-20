@@ -25,3 +25,34 @@ coverage.xml
 *.coverage
 **/.coverage
 **/coverage.xml
+
+# Common Node / build / env ignores
+node_modules/
+**/node_modules/
+dist/
+build/
+out/
+.cache/
+
+# Lockfiles (track at package level if desired)
+# npm: package-lock.json
+# yarn: yarn.lock
+# pnpm: pnpm-lock.yaml
+
+# Python virtualenvs
+.venv/
+venv/
+
+# Environment files
+.env
+.env.*
+
+# IDE/editor folders
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+
+# Log files
+*.log
