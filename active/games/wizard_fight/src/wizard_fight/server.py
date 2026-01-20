@@ -439,6 +439,7 @@ def _cpu_players_for_mode(mode: str) -> set[int]:
 
 def _cpu_take_turn(lobby: Lobby, spells: SpellLibrary) -> None:
     for cpu_id in lobby.cpu_players:
+        research_pending = cpu_id in lobby.researching_until
         wizard = lobby.state.wizards[cpu_id]
         spellbook = lobby.spellbook.get(cpu_id, [])
         baseline_cost = float(spells.baseline().get("mana_cost", 0))
@@ -447,7 +448,7 @@ def _cpu_take_turn(lobby: Lobby, spells: SpellLibrary) -> None:
             if wizard.mana >= baseline_cost:
                 apply_spell(lobby.state, cpu_id, spells.baseline())
                 logger.info("cpu_cast_baseline", lobby_id=lobby.lobby_id, player_id=cpu_id)
-            if not lobby.is_researching(cpu_id):
+            if not research_pending:
                 lobby.start_research(cpu_id, "summon monkey")
                 logger.info(
                     "cpu_research_started",
