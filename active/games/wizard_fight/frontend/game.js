@@ -1,4 +1,4 @@
-const { socket, emitWithAck, state, renderAll } = window.wizardFight || {};
+const { socket: wfSocket, emitWithAck, state, renderAll } = window.wizardFight || {};
 
 const debugPanel = {
   socket: document.getElementById("dbg-socket"),
@@ -21,7 +21,7 @@ function logDebug(event, payload = {}) {
 
 function renderDebugPanel() {
   if (!debugPanel.socket) return;
-  debugPanel.socket.textContent = socket?.connected ? "connected" : "disconnected";
+  debugPanel.socket.textContent = wfSocket?.connected ? "connected" : "disconnected";
   debugPanel.mode.textContent = state.mode ?? "-";
   debugPanel.lobby.textContent = state.lobbyId ?? "-";
   debugPanel.player.textContent = state.playerId ?? "-";
@@ -142,23 +142,23 @@ if (spectateButton && spectateInput) spectateButton.addEventListener("click", as
   renderDebugPanel();
 });
 
-socket?.on("connect", () => {
-  logDebug("socket_connected", { socketId: socket.id });
+wfSocket?.on("connect", () => {
+  logDebug("socket_connected", { socketId: wfSocket.id });
   if (!state.started && document.getElementById("game-screen")) {
     bootstrapGame();
   }
   startTickLoop();
 });
 
-socket?.on("disconnect", (reason) => {
+wfSocket?.on("disconnect", (reason) => {
   logDebug("socket_disconnected", { reason });
   renderDebugPanel();
 });
 
 // Kick off connection when landing on the game page.
-if (socket && !socket.connected) {
+if (wfSocket && !wfSocket.connected) {
   logDebug("socket_connecting");
-  socket.connect();
+  wfSocket.connect();
 }
 
 renderDebugPanel();
