@@ -106,7 +106,8 @@ body {
 
 .actions,
 .spectator,
-.spellbook {
+.spellbook,
+.spell-lab {
   background: #1c2033;
   padding: 16px;
   border-radius: 12px;
@@ -242,6 +243,42 @@ input {
 
 .spell-meta {
   color: #c8ccf0;
+  font-size: 0.85rem;
+}
+
+.spell-lab-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.spell-lab-backend {
+  font-size: 0.8rem;
+  color: #c8ccf0;
+  background: #2a304a;
+  padding: 4px 10px;
+  border-radius: 999px;
+}
+
+.spell-lab-output {
+  display: grid;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.spell-lab-output h3 {
+  margin: 0 0 6px;
+}
+
+.spell-lab-output pre {
+  margin: 0;
+  white-space: pre-wrap;
+  background: #111527;
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid #2c3150;
+  color: #dce0ff;
   font-size: 0.85rem;
 }
 

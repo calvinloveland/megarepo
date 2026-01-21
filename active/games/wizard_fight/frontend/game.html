@@ -60,6 +60,33 @@
         <ul id="spell-list"></ul>
       </section>
 
+      <section class="spell-lab">
+        <div class="spell-lab-header">
+          <h2>Spell Lab</h2>
+          <span class="spell-lab-backend" id="spell-lab-backend">LLM: -</span>
+        </div>
+        <p class="spell-meta">Generate a spell without joining a match. Saved to the spellbook.</p>
+        <div class="action-row">
+          <input id="spell-lab-input" placeholder="try a creative prompt..." />
+          <button id="spell-lab-button">✨ Generate</button>
+        </div>
+        <p class="spell-meta" id="spell-lab-status"></p>
+        <div class="spell-lab-output">
+          <div>
+            <h3>Name</h3>
+            <p id="spell-lab-name">-</p>
+          </div>
+          <div>
+            <h3>Description</h3>
+            <p id="spell-lab-description">-</p>
+          </div>
+          <div>
+            <h3>DSL</h3>
+            <pre id="spell-lab-dsl"></pre>
+          </div>
+        </div>
+      </section>
+
       <section class="log">
         <p>Time: <span id="time">-</span>s</p>
         <p>Units: <span id="unit-count">0</span></p>

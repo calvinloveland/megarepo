@@ -14,7 +14,7 @@ from loguru import logger
 from flask_socketio import SocketIO
 
 from wizard_fight.engine import GameState, apply_spell, build_initial_state, step
-from wizard_fight.research import SpellDesign, build_spell_spec, design_spell, upgrade_spell
+from wizard_fight.research import SpellDesign, build_spell_spec, design_spell, llm_backend_label, upgrade_spell
 from wizard_fight.storage import list_spell_leaderboard, list_spells as storage_list_spells, save_spell
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -184,6 +184,34 @@ def create_socketio(app: Flask) -> SocketIO:
                 ]
             }
         )
+
+    @app.route("/generate_spell", methods=["POST", "OPTIONS"])
+    def generate_spell() -> Any:
+        if request.method == "OPTIONS":
+            response = jsonify({"status": "ok"})
+        else:
+            payload = request.get_json(silent=True) or {}
+            prompt = str(payload.get("prompt", "")).strip()
+            if not prompt:
+                response = jsonify({"error": "missing_prompt"})
+                response.status_code = 400
+            else:
+                design = design_spell(prompt)
+                spec = build_spell_spec(prompt, design)
+                spell_id = save_spell(spec["name"], prompt, design.to_dict(), spec)
+                response = jsonify(
+                    {
+                        "spell_id": spell_id,
+                        "prompt": prompt,
+                        "design": design.to_dict(),
+                        "spec": spec,
+                        "llm_backend": llm_backend_label(),
+                    }
+                )
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+        return response
 
     @app.get("/leaderboard")
     def leaderboard() -> Any:

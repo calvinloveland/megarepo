@@ -70,3 +70,22 @@ def test_spellbook_route_returns_spells(tmp_path, monkeypatch) -> None:
     payload = response.get_json()
     assert payload["spells"][0]["name"] == "Storm Bolt"
     assert "spec" in payload["spells"][0]
+
+
+def test_generate_spell_saves_and_reports_backend(tmp_path, monkeypatch) -> None:
+    db_path = tmp_path / "wizard_fight.db"
+    from wizard_fight import storage
+
+    monkeypatch.setattr(storage, "default_db_path", lambda: db_path)
+    monkeypatch.setenv("WIZARD_FIGHT_LLM_MODE", "disabled")
+
+    app, _ = create_server()
+    client = app.test_client()
+
+    response = client.post("/generate_spell", json={"prompt": "shadow bolt"})
+    assert response.status_code == 200
+    payload = response.get_json()
+    assert payload["spec"]["emoji"]
+    assert payload["design"]["description"]
+    spells = storage.list_spells(limit=5)
+    assert spells, "expected spell saved to storage"

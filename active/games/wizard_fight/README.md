@@ -15,6 +15,11 @@ From [active/games/wizard_fight](active/games/wizard_fight):
 
 - `./scripts/dev.sh`
 
+### One Command (Backend + Frontend + Ollama)
+From [active/games/wizard_fight](active/games/wizard_fight):
+
+- `./scripts/start_all.sh`
+
 Defaults:
 - Backend: `5055`
 - Frontend: `5175`
@@ -62,6 +67,7 @@ No frontend test runner is required for the vanilla setup.
 - Research has a built-in delay (see [active/games/wizard_fight/docs/timing_v1.json](active/games/wizard_fight/docs/timing_v1.json)).
 - To point the frontend at a different backend URL, edit `frontend/app.js` (defaults to `http://localhost:5055`).
 - The frontend is plain HTML/CSS/JS and can be served by any static file server.
+- The Spell Lab on the game page lets you generate and save spells without starting a match.
 
 ## Local LLM (Ollama)
 Set `WIZARD_FIGHT_LLM_MODE=local` and run a local model with Ollama:

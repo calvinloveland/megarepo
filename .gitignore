@@ -59,3 +59,5 @@ venv/
 
 # Wizard Fight dev artifacts
 /active/games/wizard_fight/.wizard_fight_dev.pids
+/active/games/wizard_fight/.wizard_fight_ollama.pid
+/active/games/wizard_fight/ollama.log

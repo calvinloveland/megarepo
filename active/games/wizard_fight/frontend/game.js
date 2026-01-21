@@ -146,12 +146,50 @@ async function castSpellLocal(index) {
   renderDebugPanel();
 }
 
+async function generateSpellLab(prompt) {
+  if (!prompt) return;
+  const statusEl = document.getElementById("spell-lab-status");
+  const nameEl = document.getElementById("spell-lab-name");
+  const descEl = document.getElementById("spell-lab-description");
+  const dslEl = document.getElementById("spell-lab-dsl");
+  const backendEl = document.getElementById("spell-lab-backend");
+  const buttonEl = document.getElementById("spell-lab-button");
+  const baseUrl = window.WIZARD_FIGHT_SOCKET_URL || "http://localhost:5055";
+
+  if (statusEl) statusEl.textContent = "Generating spell...";
+  if (buttonEl) buttonEl.disabled = true;
+
+  try {
+    const response = await fetch(`${baseUrl}/generate_spell`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt }),
+    });
+    const payload = await response.json();
+    if (!response.ok) {
+      throw new Error(payload?.error || "generation_failed");
+    }
+    if (backendEl) backendEl.textContent = `LLM: ${payload.llm_backend || "-"}`;
+    if (nameEl) nameEl.textContent = payload.design?.name || payload.spec?.name || "-";
+    if (descEl) descEl.textContent = payload.design?.description || "-";
+    if (dslEl) dslEl.textContent = JSON.stringify(payload.spec || {}, null, 2);
+    if (statusEl) statusEl.textContent = "Saved to spellbook.";
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    if (statusEl) statusEl.textContent = `Generation failed: ${message}`;
+  } finally {
+    if (buttonEl) buttonEl.disabled = false;
+  }
+}
+
 // Attach UI hooks if present on this page
 const castBaselineBtn = document.getElementById("cast-baseline");
 const researchInput = document.getElementById("research-input");
 const researchButton = document.getElementById("research-button");
 const spectateInput = document.getElementById("spectate-input");
 const spectateButton = document.getElementById("spectate-button");
+const spellLabInput = document.getElementById("spell-lab-input");
+const spellLabButton = document.getElementById("spell-lab-button");
 
 if (castBaselineBtn) castBaselineBtn.addEventListener("click", castBaselineLocal);
 if (researchButton && researchInput) {
@@ -168,6 +206,11 @@ if (spectateButton && spectateInput) spectateButton.addEventListener("click", as
   wfRenderAll?.();
   renderDebugPanel();
 });
+if (spellLabButton && spellLabInput) {
+  spellLabButton.addEventListener("click", () => {
+    generateSpellLab(spellLabInput.value.trim());
+  });
+}
 
 wfSocket?.on("connect", () => {
   logDebug("socket_connected", { socketId: wfSocket.id });
