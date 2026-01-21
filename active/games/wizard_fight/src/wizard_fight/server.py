@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import random
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -439,6 +440,40 @@ def _cpu_players_for_mode(mode: str) -> set[int]:
     return set()
 
 
+def _cpu_research_prompt(lobby: Lobby) -> str:
+    adjectives = [
+        "storm",
+        "ember",
+        "crystal",
+        "shadow",
+        "echo",
+        "thorn",
+        "frost",
+        "iron",
+        "lunar",
+        "solar",
+        "gravity",
+        "wind",
+        "arcane",
+    ]
+    nouns = [
+        "monkey",
+        "golem",
+        "bolt",
+        "shield",
+        "mist",
+        "wave",
+        "sprite",
+        "barrier",
+        "flare",
+        "glyph",
+        "torrent",
+        "nova",
+    ]
+    rng = lobby.state.rng
+    return f"{rng.choice(adjectives)} {rng.choice(nouns)}"
+
+
 def _cpu_take_turn(lobby: Lobby, spells: SpellLibrary) -> None:
     for cpu_id in lobby.cpu_players:
         research_pending = cpu_id in lobby.researching_until
@@ -451,12 +486,13 @@ def _cpu_take_turn(lobby: Lobby, spells: SpellLibrary) -> None:
                 apply_spell(lobby.state, cpu_id, spells.baseline())
                 logger.info("cpu_cast_baseline", lobby_id=lobby.lobby_id, player_id=cpu_id)
             if not research_pending:
-                lobby.start_research(cpu_id, "summon monkey")
+                prompt = _cpu_research_prompt(lobby)
+                lobby.start_research(cpu_id, prompt)
                 logger.info(
                     "cpu_research_started",
                     lobby_id=lobby.lobby_id,
                     player_id=cpu_id,
-                    prompt="summon monkey",
+                    prompt=prompt,
                 )
             continue
 
