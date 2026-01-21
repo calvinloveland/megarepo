@@ -496,10 +496,16 @@ def _cpu_take_turn(lobby: Lobby, spells: SpellLibrary) -> None:
                 )
             continue
 
-        spec = spellbook[0]["spec"]
-        if wizard.mana >= float(spec.get("mana_cost", 0)):
-            apply_spell(lobby.state, cpu_id, spec)
-            logger.info("cpu_cast_spell", lobby_id=lobby.lobby_id, player_id=cpu_id)
+        affordable = [entry for entry in spellbook if wizard.mana >= float(entry["spec"].get("mana_cost", 0))]
+        if affordable:
+            entry = lobby.state.rng.choice(affordable)
+            apply_spell(lobby.state, cpu_id, entry["spec"])
+            logger.info(
+                "cpu_cast_spell",
+                lobby_id=lobby.lobby_id,
+                player_id=cpu_id,
+                spell_name=entry["spec"].get("name"),
+            )
             continue
         if wizard.mana >= baseline_cost:
             apply_spell(lobby.state, cpu_id, spells.baseline())
