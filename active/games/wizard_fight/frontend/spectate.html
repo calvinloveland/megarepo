@@ -7,23 +7,27 @@
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <div id="spectate-screen">
-      <header class="top-bar">
-        <div class="title">
+    <div id="spectate-screen" class="app spectate-app">
+      <header class="top-bar spectate-top">
+        <div class="title spectate-title">
           <h1>Spectate</h1>
           <p>Watch a lobby</p>
           <a class="back-link" href="/">← Back</a>
           <p>Mode: <span id="spectate-mode">-</span></p>
           <p>Lobby: <span id="spectate-lobby">-</span></p>
           <p>Ticks: <span id="spectate-ticks">0</span></p>
-          <p>Research:</p>
-          <ul id="spectate-research"></ul>
         </div>
       </header>
-      <section class="spectator">
-        <div class="action-row">
-          <input id="spectate-input" placeholder="paste lobby id" />
-          <button id="spectate-button">👁️ Watch</button>
+      <section class="spectate-panels">
+        <div class="spectator">
+          <div class="action-row">
+            <input id="spectate-input" placeholder="paste lobby id" />
+            <button id="spectate-button">👁️ Watch</button>
+          </div>
+        </div>
+        <div class="spectate-status">
+          <h2>Research</h2>
+          <ul id="spectate-research"></ul>
         </div>
       </section>
 
