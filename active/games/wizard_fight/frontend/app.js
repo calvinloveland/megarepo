@@ -1,3 +1,5 @@
+import { io } from "https://cdn.socket.io/4.7.5/socket.io.esm.min.js";
+
 const SOCKET_URL = window.WIZARD_FIGHT_SOCKET_URL || "http://localhost:5055";
 
 const state = {
@@ -10,7 +12,7 @@ const state = {
   started: false,
 };
 
-const socket = window.io(SOCKET_URL, { autoConnect: false });
+const socket = io(SOCKET_URL, { autoConnect: false });
 
 const lobbyIdEl = document.getElementById("lobby-id");
 const playerIdEl = document.getElementById("player-id");
