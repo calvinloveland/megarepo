@@ -8,6 +8,7 @@
   const modeEl = document.getElementById("spectate-mode");
   const lobbyEl = document.getElementById("spectate-lobby");
   const ticksEl = document.getElementById("spectate-ticks");
+  const researchEl = document.getElementById("spectate-research");
 
   const TICK_MS = 200;
   const STEPS_PER_TICK = Math.max(
@@ -17,11 +18,30 @@
 
   let tickCount = 0;
   let tickInterval = null;
+  let lastResearching = {};
+  let lastPrompts = {};
 
   function updateStatus() {
     if (modeEl) modeEl.textContent = wfState?.mode ?? "-";
     if (lobbyEl) lobbyEl.textContent = wfState?.lobbyId ?? "-";
     if (ticksEl) ticksEl.textContent = String(tickCount);
+    if (researchEl) {
+      researchEl.innerHTML = "";
+      const entries = [0, 1].map((id) => ({
+        id,
+        remaining: lastResearching[id],
+        prompt: lastPrompts[id],
+      }));
+      entries.forEach((entry) => {
+        const li = document.createElement("li");
+        if (entry.remaining === undefined) {
+          li.textContent = `CPU ${entry.id}: idle`;
+        } else {
+          li.textContent = `CPU ${entry.id}: ${entry.prompt || "researching"} (${entry.remaining.toFixed(1)}s)`;
+        }
+        researchEl.appendChild(li);
+      });
+    }
   }
 
   function getModeFromQuery() {
@@ -51,6 +71,8 @@
       });
       tickCount += 1;
       wfState.gameState = response.state;
+      lastResearching = response.researching || {};
+      lastPrompts = response.researching_prompts || {};
       updateStatus();
     }, TICK_MS);
   }
@@ -64,6 +86,8 @@
     wfState.lobbyId = lobbyId;
     const response = await wfEmitWithAck("get_state", { lobby_id: lobbyId });
     wfState.gameState = response.state;
+    lastResearching = response.researching || {};
+    lastPrompts = response.researching_prompts || {};
     updateStatus();
   }
 

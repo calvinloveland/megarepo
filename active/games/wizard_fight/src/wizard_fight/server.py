@@ -370,6 +370,7 @@ def create_socketio(app: Flask) -> SocketIO:
             "state": serialize_state(lobby.state),
             "new_spells": new_spells,
             "researching": _research_status(lobby),
+            "researching_prompts": dict(lobby.pending_prompts),
         }
 
     @socketio.on("get_state")
@@ -381,6 +382,7 @@ def create_socketio(app: Flask) -> SocketIO:
         return {
             "state": serialize_state(lobby.state),
             "researching": _research_status(lobby),
+            "researching_prompts": dict(lobby.pending_prompts),
         }
 
     return socketio
