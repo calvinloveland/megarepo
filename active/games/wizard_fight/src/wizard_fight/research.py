@@ -227,6 +227,16 @@ def _call_openai(system: str, user: str) -> str:
 
 
 def _call_local_model(system: str, user: str) -> str:
+    backend = os.getenv("WIZARD_FIGHT_LOCAL_BACKEND", "ollama").lower()
+    if backend == "ollama":
+        response = _call_ollama(system, user)
+        if response:
+            return response
+    if backend != "transformers":
+        response = _call_ollama(system, user)
+        if response:
+            return response
+
     try:
         from transformers import pipeline  # type: ignore
     except Exception:
@@ -241,13 +251,36 @@ def _call_local_model(system: str, user: str) -> str:
         )
         output = generator(
             f"{system}\n{user}\nJSON:",
-            max_new_tokens=120,
+            max_new_tokens=160,
             do_sample=True,
             temperature=0.8,
         )
         if not output:
             return ""
         return str(output[0].get("generated_text", ""))
+    except Exception:
+        return ""
+
+
+def _call_ollama(system: str, user: str) -> str:
+    url = os.getenv("WIZARD_FIGHT_OLLAMA_URL", "http://localhost:11434/api/generate")
+    model = os.getenv("WIZARD_FIGHT_OLLAMA_MODEL", "llama3.2")
+    payload = {
+        "model": model,
+        "prompt": f"{system}\n{user}\nJSON:",
+        "stream": False,
+        "options": {
+            "temperature": float(os.getenv("WIZARD_FIGHT_LLM_TEMPERATURE", "0.7")),
+        },
+    }
+    data = json.dumps(payload).encode("utf-8")
+    req = request.Request(url, data=data, method="POST")
+    req.add_header("Content-Type", "application/json")
+    try:
+        with request.urlopen(req, timeout=20) as resp:
+            raw = resp.read().decode("utf-8")
+            body = json.loads(raw)
+            return str(body.get("response", ""))
     except Exception:
         return ""
 

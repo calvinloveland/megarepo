@@ -62,3 +62,11 @@ No frontend test runner is required for the vanilla setup.
 - Research has a built-in delay (see [active/games/wizard_fight/docs/timing_v1.json](active/games/wizard_fight/docs/timing_v1.json)).
 - To point the frontend at a different backend URL, edit `frontend/app.js` (defaults to `http://localhost:5055`).
 - The frontend is plain HTML/CSS/JS and can be served by any static file server.
+
+## Local LLM (Ollama)
+Set `WIZARD_FIGHT_LLM_MODE=local` and run a local model with Ollama:
+- `WIZARD_FIGHT_LOCAL_BACKEND=ollama`
+- `WIZARD_FIGHT_OLLAMA_URL=http://localhost:11434/api/generate`
+- `WIZARD_FIGHT_OLLAMA_MODEL=llama3.2`
+
+If Ollama is unavailable, the pipeline falls back to a lightweight transformers model (if installed) or a deterministic generator.
