@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from wizard_fight.server import create_server
+from wizard_fight.storage import save_spell
 
 
 def test_lobby_flow_and_state_updates() -> None:
@@ -49,3 +50,23 @@ def test_lobby_flow_and_state_updates() -> None:
 
     client_one.disconnect()
     client_two.disconnect()
+
+
+def test_spellbook_route_returns_spells(tmp_path, monkeypatch) -> None:
+    db_path = tmp_path / "wizard_fight.db"
+    from wizard_fight import storage
+
+    monkeypatch.setattr(storage, "default_db_path", lambda: db_path)
+    save_spell(
+        name="Storm Bolt",
+        prompt="storm bolt",
+        design={"theme": "Storm"},
+        spec={"name": "Storm Bolt", "mana_cost": 12},
+    )
+
+    app, _ = create_server()
+    response = app.test_client().get("/spellbook")
+    assert response.status_code == 200
+    payload = response.get_json()
+    assert payload["spells"][0]["name"] == "Storm Bolt"
+    assert "spec" in payload["spells"][0]

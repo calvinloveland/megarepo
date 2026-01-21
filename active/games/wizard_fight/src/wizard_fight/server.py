@@ -15,7 +15,7 @@ from flask_socketio import SocketIO
 
 from wizard_fight.engine import GameState, apply_spell, build_initial_state, step
 from wizard_fight.research import SpellDesign, build_spell_spec, design_spell, upgrade_spell
-from wizard_fight.storage import list_spell_leaderboard, list_spells, save_spell
+from wizard_fight.storage import list_spell_leaderboard, list_spells as storage_list_spells, save_spell
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _BASELINE_SPELL_PATH = _REPO_ROOT / "docs" / "spells" / "summon_flying_monkey.json"
@@ -169,7 +169,7 @@ def create_socketio(app: Flask) -> SocketIO:
 
     @app.get("/spellbook")
     def spellbook() -> Any:
-        spells = list_spells(limit=50)
+        spells = storage_list_spells(limit=50)
         return jsonify(
             {
                 "spells": [
@@ -312,7 +312,7 @@ def create_socketio(app: Flask) -> SocketIO:
 
     @socketio.on("list_spells")
     @safe_handler
-    def list_spells(data: Dict[str, Any]) -> Dict[str, Any]:
+    def list_spells_event(data: Dict[str, Any]) -> Dict[str, Any]:
         lobby = store.get(data.get("lobby_id"))
         if lobby is None:
             return {"error": "lobby_not_found"}
