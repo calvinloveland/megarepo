@@ -401,7 +401,7 @@ def _resolve_research(lobby: Lobby, telemetry: Telemetry) -> list[Dict[str, Any]
         lobby.researching_until.pop(player_id, None)
         try:
             design = design_spell(prompt)
-            spec = build_spell_spec(design)
+            spec = build_spell_spec(prompt, design)
             spell_id = save_spell(spec["name"], prompt, design.to_dict(), spec)
             entry = {"spell_id": spell_id, "spec": spec, "design": design.to_dict()}
             lobby.add_spell(player_id, entry)

@@ -1,5 +1,6 @@
 {
   "name": "Summon Flying Monkey",
+  "emoji": "🐒",
   "school": "Conjuration",
   "mana_cost": 15,
   "cooldown": 4,

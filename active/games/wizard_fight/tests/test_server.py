@@ -60,8 +60,8 @@ def test_spellbook_route_returns_spells(tmp_path, monkeypatch) -> None:
     save_spell(
         name="Storm Bolt",
         prompt="storm bolt",
-        design={"theme": "Storm"},
-        spec={"name": "Storm Bolt", "mana_cost": 12},
+        design={"name": "Storm Bolt", "description": "Stormy bolt with a drawback."},
+        spec={"name": "Storm Bolt", "mana_cost": 12, "emoji": "⚡"},
     )
 
     app, _ = create_server()

@@ -1,5 +1,6 @@
 {
   "name": "Wind Push",
+  "emoji": "🌪️",
   "school": "Aeromancy",
   "mana_cost": 18,
   "cooldown": 7,

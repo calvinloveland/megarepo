@@ -8,6 +8,7 @@ This document defines the Wizard Fight spell specification for LLM-generated spe
 - `mana_cost`: $0$–$100$
 - `cooldown`: $0$–$30$ seconds
 - `duration`: $0$–$20$ seconds
+- `emoji`: Short visual marker (1–10 chars)
 
 ## Unit Spawns
 `spawn_units[]` spawns simple AI units with capped stats.

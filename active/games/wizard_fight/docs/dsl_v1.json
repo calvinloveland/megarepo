@@ -3,7 +3,7 @@
   "title": "Wizard Fight Spell DSL v1",
   "type": "object",
   "additionalProperties": false,
-  "required": ["name", "school", "mana_cost", "cooldown", "duration"],
+  "required": ["name", "school", "mana_cost", "cooldown", "duration", "emoji"],
   "properties": {
     "name": {
       "type": "string",
@@ -29,6 +29,11 @@
       "type": "number",
       "minimum": 0,
       "maximum": 20
+    },
+    "emoji": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 10
     },
     "spawn_units": {
       "type": "array",

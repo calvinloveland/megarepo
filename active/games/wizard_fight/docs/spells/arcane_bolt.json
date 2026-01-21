@@ -1,5 +1,6 @@
 {
   "name": "Arcane Bolt",
+  "emoji": "✨",
   "school": "Evocation",
   "mana_cost": 20,
   "cooldown": 6,

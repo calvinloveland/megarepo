@@ -4,6 +4,7 @@
   "mana_cost": 28,
   "cooldown": 10,
   "duration": 6,
+  "emoji": "❄️",
   "effects": [
     {
       "type": "slow",

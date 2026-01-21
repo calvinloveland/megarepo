@@ -69,6 +69,9 @@ function renderHud() {
 
 function describeSpell(spell) {
   const design = spell?.design || {};
+  if (design.description) {
+    return design.description;
+  }
   if (design.intended_use) {
     return design.intended_use;
   }

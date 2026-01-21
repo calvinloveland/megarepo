@@ -31,8 +31,8 @@ Create a web-based 1v1 wizard duel where players research new spells using LLMs.
 - **LLM Layer**: Two-step generation pipeline with strict validation.
 
 ### LLM Pipeline (Safe by Design)
-1. **Spell Design Doc** (LLM #1): theme, intended use, strengths/weaknesses.
-2. **Spell DSL Spec** (LLM #2): JSON-only, constrained fields.
+1. **Spell Design Output** (LLM #1): name + short description with balance guidance.
+2. **Spell DSL Spec** (LLM #2): JSON-only, constrained fields (includes `emoji`).
 3. **Validator/Clamper**: enforces hard limits (mana cost, duration, DPS, entity cap).
 4. **Engine Executor**: interprets spec, no arbitrary code.
 
