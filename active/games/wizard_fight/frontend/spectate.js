@@ -10,6 +10,8 @@
   const ticksEl = document.getElementById("spectate-ticks");
   const researchEl = document.getElementById("spectate-research");
   const logEl = document.getElementById("spectate-log");
+  const laneEl = document.getElementById("lane");
+  const unitsEl = document.getElementById("units");
 
   const TICK_MS = 200;
   const STEPS_PER_TICK = Math.max(
@@ -84,6 +86,24 @@
     lastSpellCount = spellCount;
   }
 
+  function renderArena() {
+    if (!laneEl || !unitsEl || !wfState?.gameState) return;
+    unitsEl.innerHTML = "";
+    const laneWidth = Math.max(laneEl.clientWidth, 1200);
+    const leftMargin = 60;
+    const rightMargin = 60;
+
+    wfState.gameState.units.forEach((unit) => {
+      const ratio = unit.position / 100;
+      const x = leftMargin + ratio * (laneWidth - leftMargin - rightMargin);
+      const div = document.createElement("div");
+      div.className = "unit";
+      div.textContent = unit.owner_id === 0 ? "🐒" : "🐵";
+      div.style.left = `${x}px`;
+      unitsEl.appendChild(div);
+    });
+  }
+
   function getModeFromQuery() {
     const params = new URLSearchParams(window.location.search);
     const mode = params.get("mode");
@@ -119,6 +139,7 @@
       syncLogFromResearch();
       syncLogFromSpells();
       updateStatus();
+      renderArena();
     }, TICK_MS);
   }
 
@@ -136,6 +157,7 @@
     syncLogFromResearch();
     syncLogFromSpells();
     updateStatus();
+    renderArena();
   }
 
   function bindSpectateControls() {
