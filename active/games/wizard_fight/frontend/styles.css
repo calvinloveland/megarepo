@@ -208,11 +208,36 @@ input {
 
 .spellbook li {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
+  gap: 12px;
   background: #252a44;
   padding: 10px 12px;
   border-radius: 8px;
+}
+
+.spell-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+
+.spell-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.spell-cost {
+  background: #3a3f64;
+  color: #e7e9ff;
+  font-size: 0.75rem;
+  padding: 2px 8px;
+  border-radius: 999px;
+  white-space: nowrap;
 }
 
 .spell-meta {

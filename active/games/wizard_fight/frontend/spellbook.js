@@ -1,5 +1,25 @@
 const { emitWithAck, state } = window.wizardFight || {};
 
+function describeSpell(spell) {
+  const design = spell?.design || {};
+  if (design.intended_use) {
+    return design.intended_use;
+  }
+  if (design.theme) {
+    return design.theme;
+  }
+  const prompt = design.prompt || spell?.prompt;
+  return prompt ? `Prompt: ${prompt}` : "No description available.";
+}
+
+function formatManaCost(spell) {
+  const cost = spell?.spec?.mana_cost;
+  if (Number.isFinite(cost)) {
+    return `Mana ${cost}`;
+  }
+  return "Mana -";
+}
+
 async function loadSpellbookPage() {
   const listEl = document.getElementById("spellbook-list");
   if (!listEl || !emitWithAck) return;
@@ -16,12 +36,29 @@ async function loadSpellbookPage() {
     }
     spells.forEach((spell) => {
       const li = document.createElement("li");
-      li.innerHTML = `
-        <div>
-          <strong>${spell.name}</strong>
-          <div class="spell-meta">Prompt: ${spell.prompt}</div>
-        </div>
-      `;
+      const info = document.createElement("div");
+      info.className = "spell-info";
+
+      const titleRow = document.createElement("div");
+      titleRow.className = "spell-title-row";
+
+      const name = document.createElement("strong");
+      name.textContent = spell.name || "Unknown Spell";
+
+      const mana = document.createElement("span");
+      mana.className = "spell-cost";
+      mana.textContent = formatManaCost(spell);
+
+      titleRow.appendChild(name);
+      titleRow.appendChild(mana);
+
+      const description = document.createElement("div");
+      description.className = "spell-meta";
+      description.textContent = describeSpell(spell);
+
+      info.appendChild(titleRow);
+      info.appendChild(description);
+      li.appendChild(info);
       listEl.appendChild(li);
     });
   } catch (err) {

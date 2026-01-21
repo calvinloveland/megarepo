@@ -65,6 +65,26 @@ function renderHud() {
   unitCountEl.textContent = state.gameState.units?.length ?? 0;
 }
 
+function describeSpell(spell) {
+  const design = spell?.design || {};
+  if (design.intended_use) {
+    return design.intended_use;
+  }
+  if (design.theme) {
+    return design.theme;
+  }
+  const prompt = design.prompt || spell?.prompt;
+  return prompt ? `Prompt: ${prompt}` : "No description available.";
+}
+
+function formatManaCost(spell) {
+  const cost = spell?.spec?.mana_cost;
+  if (Number.isFinite(cost)) {
+    return `Mana ${cost}`;
+  }
+  return "Mana -";
+}
+
 function renderSpellbook() {
   spellList.innerHTML = "";
   if (state.spells.length === 0) {
@@ -76,13 +96,34 @@ function renderSpellbook() {
 
   state.spells.forEach((spell, index) => {
     const li = document.createElement("li");
-    const name = document.createElement("span");
+    const info = document.createElement("div");
+    info.className = "spell-info";
+
+    const titleRow = document.createElement("div");
+    titleRow.className = "spell-title-row";
+
+    const name = document.createElement("strong");
     name.textContent = spell.spec?.name ?? `Spell ${index + 1}`;
+
+    const mana = document.createElement("span");
+    mana.className = "spell-cost";
+    mana.textContent = formatManaCost(spell);
+
+    titleRow.appendChild(name);
+    titleRow.appendChild(mana);
+
+    const description = document.createElement("div");
+    description.className = "spell-meta";
+    description.textContent = describeSpell(spell);
+
+    info.appendChild(titleRow);
+    info.appendChild(description);
+
     const button = document.createElement("button");
     button.textContent = "Cast";
     button.disabled = state.mode !== "player";
     button.addEventListener("click", () => castSpell(index));
-    li.appendChild(name);
+    li.appendChild(info);
     li.appendChild(button);
     spellList.appendChild(li);
   });
