@@ -69,4 +69,8 @@ Set `WIZARD_FIGHT_LLM_MODE=local` and run a local model with Ollama:
 - `WIZARD_FIGHT_OLLAMA_URL=http://localhost:11434/api/generate`
 - `WIZARD_FIGHT_OLLAMA_MODEL=llama3.2`
 
+Start the Ollama server and pull the model:
+- `ollama serve`
+- `ollama pull llama3.2`
+
 If Ollama is unavailable, the pipeline falls back to a lightweight transformers model (if installed) or a deterministic generator.
