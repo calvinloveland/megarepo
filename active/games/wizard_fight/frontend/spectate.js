@@ -9,6 +9,7 @@
   const lobbyEl = document.getElementById("spectate-lobby");
   const ticksEl = document.getElementById("spectate-ticks");
   const researchEl = document.getElementById("spectate-research");
+  const logEl = document.getElementById("spectate-log");
 
   const TICK_MS = 200;
   const STEPS_PER_TICK = Math.max(
@@ -20,6 +21,20 @@
   let tickInterval = null;
   let lastResearching = {};
   let lastPrompts = {};
+  let lastResearchingKeys = new Set();
+  let lastSpellCount = 0;
+
+  function pushLog(message) {
+    if (!logEl) return;
+    const li = document.createElement("li");
+    const stamp = new Date().toLocaleTimeString();
+    li.textContent = `[${stamp}] ${message}`;
+    logEl.prepend(li);
+    const items = logEl.querySelectorAll("li");
+    if (items.length > 50) {
+      items[items.length - 1].remove();
+    }
+  }
 
   function updateStatus() {
     if (modeEl) modeEl.textContent = wfState?.mode ?? "-";
@@ -42,6 +57,31 @@
         researchEl.appendChild(li);
       });
     }
+  }
+
+  function syncLogFromResearch() {
+    const currentKeys = new Set(Object.keys(lastResearching));
+    for (const key of currentKeys) {
+      if (!lastResearchingKeys.has(key)) {
+        const prompt = lastPrompts[key] || "researching";
+        pushLog(`CPU ${key} started research: ${prompt}`);
+      }
+    }
+    for (const key of lastResearchingKeys) {
+      if (!currentKeys.has(key)) {
+        pushLog(`CPU ${key} completed research`);
+      }
+    }
+    lastResearchingKeys = currentKeys;
+  }
+
+  function syncLogFromSpells() {
+    const spellCount = Array.isArray(wfState?.spells) ? wfState.spells.length : 0;
+    if (spellCount > lastSpellCount) {
+      const newCount = spellCount - lastSpellCount;
+      pushLog(`New spells discovered: ${newCount}`);
+    }
+    lastSpellCount = spellCount;
   }
 
   function getModeFromQuery() {
@@ -73,6 +113,11 @@
       wfState.gameState = response.state;
       lastResearching = response.researching || {};
       lastPrompts = response.researching_prompts || {};
+      if (response.new_spells && response.new_spells.length > 0) {
+        pushLog(`New spells discovered: ${response.new_spells.length}`);
+      }
+      syncLogFromResearch();
+      syncLogFromSpells();
       updateStatus();
     }, TICK_MS);
   }
@@ -88,6 +133,8 @@
     wfState.gameState = response.state;
     lastResearching = response.researching || {};
     lastPrompts = response.researching_prompts || {};
+    syncLogFromResearch();
+    syncLogFromSpells();
     updateStatus();
   }
 
