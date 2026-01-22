@@ -32,6 +32,7 @@ export function createPlayfield(container, options = {}) {
 
   const unitSprites = new Map();
   const unitTargets = new Map();
+  const castSprites = [];
   const impactSprites = [];
   const lastWizardHealth = { 0: null, 1: null };
   let lastConfig = { arena_length: 100, lane_count: 3 };
@@ -117,12 +118,52 @@ export function createPlayfield(container, options = {}) {
     layerDecor.addChild(wizardRight);
   }
 
+  function colorFromString(value) {
+    let hash = 0;
+    for (let i = 0; i < value.length; i += 1) {
+      hash = (hash << 5) - hash + value.charCodeAt(i);
+      hash |= 0;
+    }
+    const hue = Math.abs(hash) % 360;
+    const saturation = 0.55;
+    const lightness = 0.55;
+    const c = (1 - Math.abs(2 * lightness - 1)) * saturation;
+    const x = c * (1 - Math.abs(((hue / 60) % 2) - 1));
+    const m = lightness - c / 2;
+    let r = 0;
+    let g = 0;
+    let b = 0;
+    if (hue < 60) {
+      r = c; g = x; b = 0;
+    } else if (hue < 120) {
+      r = x; g = c; b = 0;
+    } else if (hue < 180) {
+      r = 0; g = c; b = x;
+    } else if (hue < 240) {
+      r = 0; g = x; b = c;
+    } else if (hue < 300) {
+      r = x; g = 0; b = c;
+    } else {
+      r = c; g = 0; b = x;
+    }
+    const toByte = (channel) => Math.round((channel + m) * 255);
+    return (toByte(r) << 16) | (toByte(g) << 8) | toByte(b);
+  }
+
   function unitSprite(unit) {
     const icon = unit.emoji || (unit.owner_id === 0 ? "🐒" : "🐵");
+    const container = new PIXI.Container();
+    const ring = new PIXI.Graphics();
+    const spellName = unit.spell_name || icon;
+    const spellColor = colorFromString(spellName);
+    ring.lineStyle(2, spellColor, 0.9);
+    ring.drawCircle(0, 0, 12);
     const text = new PIXI.Text(icon, { fontSize: 18 });
     text.anchor.set(0.5, 0.5);
     text.tint = unit.owner_id === 0 ? colors.wizardLeft : colors.wizardRight;
-    return text;
+    container.addChild(ring, text);
+    container.spellColor = spellColor;
+    return container;
   }
 
   function effectIcon(effectType) {
@@ -187,6 +228,26 @@ export function createPlayfield(container, options = {}) {
     if (w0) lastWizardHealth[0] = w0.health;
     if (w1) lastWizardHealth[1] = w1.health;
 
+    (state.spell_casts || []).forEach((cast) => {
+      const lane = Number.isFinite(cast.lane_id)
+        ? cast.lane_id
+        : Math.floor(laneCount / 2);
+      const laneTop = lane * laneHeight;
+      const icon = cast.emoji || "✨";
+      const spellColor = colorFromString(cast.name || icon);
+      const sprite = new PIXI.Text(icon, { fontSize: 22 });
+      sprite.anchor.set(0.5, 0.5);
+      sprite.x = width * (cast.caster_id === 0 ? 0.22 : 0.78);
+      sprite.y = laneTop + laneHeight * 0.5;
+      sprite.tint = spellColor;
+      layerImpacts.addChild(sprite);
+      castSprites.push({
+        sprite,
+        life: Math.min(1.2, Number(cast.remaining_duration || 0.9)),
+        drift: (Math.random() - 0.5) * 12,
+      });
+    });
+
     const nextIds = new Set();
     (state.units || []).forEach((unit) => {
       nextIds.add(unit.unit_id);
@@ -234,6 +295,17 @@ export function createPlayfield(container, options = {}) {
       if (impact.life <= 0) {
         layerImpacts.removeChild(impact.sprite);
         impactSprites.splice(i, 1);
+      }
+    }
+    for (let i = castSprites.length - 1; i >= 0; i -= 1) {
+      const cast = castSprites[i];
+      cast.life -= app.ticker.deltaMS / 1000;
+      cast.sprite.y -= 0.4;
+      cast.sprite.x += cast.drift * 0.02;
+      cast.sprite.alpha = Math.max(0, cast.life / 1.2);
+      if (cast.life <= 0) {
+        layerImpacts.removeChild(cast.sprite);
+        castSprites.splice(i, 1);
       }
     }
   });

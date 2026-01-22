@@ -45,6 +45,7 @@ class Unit:
     target: str
     element: str | None = None
     emoji: str | None = None
+    spell_name: str | None = None
     weaknesses: tuple[str, ...] = ()
     immunities: tuple[str, ...] = ()
 
@@ -58,6 +59,7 @@ class GameState:
     rng: random.Random = field(default_factory=random.Random)
     next_unit_id: int = 1
     environment: List["EnvironmentEffect"] = field(default_factory=list)
+    spell_casts: List["SpellCastEvent"] = field(default_factory=list)
 
 
 @dataclass
@@ -68,6 +70,15 @@ class EnvironmentEffect:
     lane_id: int | None = None
     speed_mult: float = 1.0
     damage_mult: float = 1.0
+
+
+@dataclass
+class SpellCastEvent:
+    name: str
+    emoji: str
+    caster_id: int
+    lane_id: int
+    remaining_duration: float
 
 
 def load_config(path: Path | None = None) -> GameConfig:
@@ -93,6 +104,9 @@ def apply_spell(state: GameState, caster_id: int, spell: Dict[str, Any]) -> bool
         return False
     caster.mana -= mana_cost
     spawn_units = spell.get("spawn_units", [])
+    spell_name = str(spell.get("name", "Spell"))
+    spell_emoji = str(spell.get("emoji", "✨"))
+    cast_lane = _spell_cast_lane(state, spawn_units)
     for unit_spec in spawn_units:
         lane = _resolve_lane(state, unit_spec.get("lane"))
         emoji = unit_spec.get("emoji") or spell.get("emoji")
@@ -107,6 +121,7 @@ def apply_spell(state: GameState, caster_id: int, spell: Dict[str, Any]) -> bool
             target=str(unit_spec["target"]),
             element=_normalize_element(unit_spec.get("element")),
             emoji=str(emoji) if emoji else None,
+            spell_name=spell_name,
             weaknesses=tuple(unit_spec.get("weaknesses", [])),
             immunities=tuple(unit_spec.get("immunities", [])),
         )
@@ -114,6 +129,15 @@ def apply_spell(state: GameState, caster_id: int, spell: Dict[str, Any]) -> bool
         state.next_unit_id += 1
     _apply_projectiles(state, caster_id, spell.get("projectiles", []))
     _apply_effects(state, caster_id, spell.get("effects", []))
+    state.spell_casts.append(
+        SpellCastEvent(
+            name=spell_name,
+            emoji=spell_emoji,
+            caster_id=caster_id,
+            lane_id=cast_lane,
+            remaining_duration=0.9,
+        )
+    )
     return True
 
 
@@ -123,6 +147,7 @@ def step(state: GameState, steps: int = 1) -> None:
         _move_units(state)
         _resolve_collisions(state)
         _tick_environment(state)
+        _tick_spell_casts(state)
         state.time_seconds += state.config.dt
 
 
@@ -224,6 +249,16 @@ def _apply_effects(state: GameState, caster_id: int, effects: List[Dict[str, Any
             )
 
 
+def _spell_cast_lane(state: GameState, spawn_units: List[Dict[str, Any]]) -> int:
+    if spawn_units:
+        lane_value = spawn_units[0].get("lane")
+        try:
+            return _resolve_lane(state, lane_value)
+        except Exception:
+            return _middle_lane(state)
+    return _middle_lane(state)
+
+
 def _tick_environment(state: GameState) -> None:
     dt = state.config.dt
     remaining: List[EnvironmentEffect] = []
@@ -232,6 +267,16 @@ def _tick_environment(state: GameState) -> None:
         if effect.remaining_duration > 0:
             remaining.append(effect)
     state.environment = remaining
+
+
+def _tick_spell_casts(state: GameState) -> None:
+    dt = state.config.dt
+    remaining: List[SpellCastEvent] = []
+    for cast in state.spell_casts:
+        cast.remaining_duration -= dt
+        if cast.remaining_duration > 0:
+            remaining.append(cast)
+    state.spell_casts = remaining
 
 
 def _environment_speed_multiplier(state: GameState, lane_id: int) -> float:

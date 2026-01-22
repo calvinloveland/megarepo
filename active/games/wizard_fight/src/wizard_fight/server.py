@@ -131,8 +131,19 @@ def serialize_state(state: GameState) -> Dict[str, Any]:
                 "damage": unit.damage,
                 "target": unit.target,
                 "emoji": unit.emoji,
+                "spell_name": unit.spell_name,
             }
             for unit in state.units
+        ],
+        "spell_casts": [
+            {
+                "name": cast.name,
+                "emoji": cast.emoji,
+                "caster_id": cast.caster_id,
+                "lane_id": cast.lane_id,
+                "remaining_duration": cast.remaining_duration,
+            }
+            for cast in state.spell_casts
         ],
         "environment": [
             {
