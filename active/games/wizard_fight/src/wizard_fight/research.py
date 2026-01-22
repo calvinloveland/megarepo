@@ -7,8 +7,11 @@ import os
 import random
 from typing import Any, Dict, Optional
 
+import re
+
 from urllib import request
 
+from wizard_fight.storage import list_spells
 from wizard_fight.validators import validate_spell
 
 
@@ -28,6 +31,7 @@ def design_spell(prompt: str) -> SpellDesign:
         design_payload.get("description")
         or f"A balanced spell inspired by {prompt.lower()} with a clear downside."
     )
+    description = _ensure_unique_description(prompt, description)
     return SpellDesign(name=name, description=description)
 
 
@@ -39,6 +43,7 @@ def build_spell_spec(prompt: str, design: SpellDesign) -> Dict[str, Any]:
     errors = validate_spell(spec)
     if errors:
         spec = _fallback_spell_spec(prompt, design)
+    spec = _ensure_unique_spec(prompt, spec)
     return spec
 
 
@@ -109,13 +114,17 @@ def _seed_from_prompt(prompt: str) -> int:
 
 def _choose_effect_type(prompt: str, rng: random.Random) -> str:
     lowered = prompt.lower()
-    if any(word in lowered for word in ["summon", "spawn", "monkey", "golem"]):
+    if any(word in lowered for word in ["summon", "spawn", "monkey", "golem", "drone", "robot", "mech"]):
         return "spawn_units"
-    if any(word in lowered for word in ["bolt", "blast", "fire", "arrow"]):
+    if any(word in lowered for word in ["bolt", "blast", "fire", "arrow", "laser", "plasma", "rail"]):
         return "projectiles"
-    if any(word in lowered for word in ["shield", "slow", "haste", "curse"]):
+    if any(word in lowered for word in ["shield", "slow", "haste", "curse", "stun", "jam", "freeze"]):
         return "effects"
-    return rng.choice(["spawn_units", "projectiles", "effects"])
+    return rng.choices(
+        ["spawn_units", "projectiles", "effects"],
+        weights=[0.4, 0.3, 0.3],
+        k=1,
+    )[0]
 
 
 def _local_model_hint(prompt: str) -> Optional[str]:
@@ -155,8 +164,10 @@ def _design_with_llm(prompt: str) -> Dict[str, Any]:
     system = (
         "You are a game balance assistant for Wizard Fight. "
         "Create a spell name and short description (1-2 sentences). "
+        "Themes can be fantasy, sci-fi, or realistic; avoid defaulting to fantasy. "
         "Reward creativity with a small power boost, but add drawbacks if the prompt "
         "attempts instant-win or overwhelming effects. Keep it fair and readable. "
+        "Avoid repeating descriptions from earlier prompts. "
         "Return only JSON with keys: name, description."
     )
     user = f"Player prompt: {prompt}"
@@ -175,6 +186,8 @@ def _dsl_with_llm(prompt: str, design: SpellDesign) -> Dict[str, Any]:
     system = (
         "You convert Wizard Fight spell concepts into DSL JSON. "
         "Return only JSON that matches the schema. Include a single emoji in the 'emoji' field. "
+        "Ensure variety across spawn_units, projectiles, and effects. "
+        "Non-fantasy themes like sci-fi or realistic tech are allowed. "
         "Keep values within limits and avoid instant-win power."
     )
     user = (
@@ -378,11 +391,112 @@ def _choose_emoji(prompt: str, spec: Dict[str, Any]) -> str:
         return "🌪️"
     if "bolt" in lowered or "arcane" in lowered:
         return "✨"
+    if any(word in lowered for word in ["laser", "plasma", "drone", "robot", "mech"]):
+        return "🤖"
+    if any(word in lowered for word in ["nanite", "virus", "hack", "jam"]):
+        return "🧪"
     if spec.get("projectiles"):
         return "⚡"
     if spec.get("effects"):
         return "🌀"
     return "🔮"
+
+
+def _normalize_text(text: str) -> str:
+    lowered = text.lower()
+    lowered = re.sub(r"[^a-z0-9\s]", " ", lowered)
+    lowered = re.sub(r"\s+", " ", lowered).strip()
+    return lowered
+
+
+def _description_similarity(a: str, b: str) -> float:
+    tokens_a = set(_normalize_text(a).split())
+    tokens_b = set(_normalize_text(b).split())
+    if not tokens_a or not tokens_b:
+        return 0.0
+    intersection = tokens_a.intersection(tokens_b)
+    union = tokens_a.union(tokens_b)
+    return len(intersection) / max(1, len(union))
+
+
+def _ensure_unique_description(prompt: str, description: str) -> str:
+    normalized = _normalize_text(description)
+    if not normalized:
+        return description
+    existing = list_spells(limit=50)
+    for spell in existing:
+        existing_desc = spell.design.get("description") if isinstance(spell.design, dict) else None
+        if not existing_desc:
+            continue
+        if _description_similarity(description, existing_desc) >= 0.9:
+            rng = random.Random(_seed_from_prompt(prompt + description))
+            tag = rng.choice(
+                [
+                    "with a technical twist",
+                    "with an experimental feel",
+                    "with a modern edge",
+                    "with a non-magical spin",
+                    "with a gritty realism",
+                ]
+            )
+            return f"{description.rstrip('.')} {tag}."
+    return description
+
+
+def _normalize_spec_for_compare(spec: Dict[str, Any]) -> str:
+    copy = json.loads(json.dumps(spec))
+    copy.pop("name", None)
+    copy.pop("emoji", None)
+    return json.dumps(copy, sort_keys=True)
+
+
+def _ensure_unique_spec(prompt: str, spec: Dict[str, Any]) -> Dict[str, Any]:
+    existing = list_spells(limit=80)
+    current = _normalize_spec_for_compare(spec)
+    if not existing:
+        return spec
+    duplicate = any(_normalize_spec_for_compare(spell.spec) == current for spell in existing)
+    if not duplicate:
+        return spec
+    adjusted = json.loads(json.dumps(spec))
+    rng = random.Random(_seed_from_prompt(prompt + spec.get("name", "")))
+    adjusted["mana_cost"] = int(_clamp(float(adjusted.get("mana_cost", 0)) + rng.randint(-2, 2), 0, 100))
+
+    if "spawn_units" in adjusted:
+        for unit in adjusted["spawn_units"]:
+            unit["speed"] = round(
+                _clamp(float(unit["speed"]) + rng.uniform(-0.6, 0.6), 0.5, 6.0),
+                1,
+            )
+            unit["damage"] = round(
+                _clamp(float(unit["damage"]) + rng.uniform(-1.0, 1.2), 0.5, 25.0),
+                1,
+            )
+    if "projectiles" in adjusted:
+        for projectile in adjusted["projectiles"]:
+            projectile["speed"] = round(
+                _clamp(float(projectile["speed"]) + rng.uniform(-1.0, 1.0), 1.0, 15.0),
+                1,
+            )
+            projectile["damage"] = round(
+                _clamp(float(projectile["damage"]) + rng.uniform(-2.0, 2.0), 1.0, 30.0),
+                1,
+            )
+    if "effects" in adjusted:
+        for effect in adjusted["effects"]:
+            effect["magnitude"] = round(
+                _clamp(float(effect["magnitude"]) + rng.uniform(-0.4, 0.6), 0.1, 5.0),
+                1,
+            )
+            effect["duration"] = round(
+                _clamp(float(effect["duration"]) + rng.uniform(-1.2, 1.2), 0.5, 10.0),
+                1,
+            )
+
+    errors = validate_spell(adjusted)
+    if errors:
+        return spec
+    return adjusted
 
 
 def llm_backend_label() -> str:
