@@ -531,7 +531,11 @@ def _cpu_take_turn(lobby: Lobby, spells: SpellLibrary) -> None:
                 )
             continue
 
-        affordable = [entry for entry in spellbook if wizard.mana >= float(entry["spec"].get("mana_cost", 0))]
+        affordable = [
+            entry
+            for entry in spellbook
+            if wizard.mana >= float(entry["spec"].get("mana_cost", 0))
+        ]
         if affordable:
             entry = lobby.state.rng.choice(affordable)
             apply_spell(lobby.state, cpu_id, _assign_lane_to_spawn_units(lobby, entry["spec"], None))
@@ -542,9 +546,15 @@ def _cpu_take_turn(lobby: Lobby, spells: SpellLibrary) -> None:
                 spell_name=entry["spec"].get("name"),
             )
             continue
-        if wizard.mana >= baseline_cost:
-            apply_spell(lobby.state, cpu_id, _assign_lane_to_spawn_units(lobby, spells.baseline(), None))
-            logger.info("cpu_cast_baseline", lobby_id=lobby.lobby_id, player_id=cpu_id)
+        spell_costs = [float(entry["spec"].get("mana_cost", 0)) for entry in spellbook]
+        cheapest_cost = min(spell_costs) if spell_costs else None
+        if cheapest_cost is None or cheapest_cost <= baseline_cost:
+            if wizard.mana >= baseline_cost:
+                apply_spell(lobby.state, cpu_id, _assign_lane_to_spawn_units(lobby, spells.baseline(), None))
+                logger.info("cpu_cast_baseline", lobby_id=lobby.lobby_id, player_id=cpu_id)
+            continue
+        if wizard.mana < cheapest_cost:
+            continue
 
 
 def _assign_lane_to_spawn_units(lobby: Lobby, spec: Dict[str, Any], lane: Any) -> Dict[str, Any]:
