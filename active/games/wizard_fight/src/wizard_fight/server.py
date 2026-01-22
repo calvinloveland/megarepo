@@ -32,6 +32,8 @@ class Lobby:
     researching_until: Dict[int, float] = field(default_factory=dict)
     pending_prompts: Dict[int, str] = field(default_factory=dict)
     cpu_players: set[int] = field(default_factory=set)
+    cpu_next_research: Dict[int, float] = field(default_factory=dict)
+    cpu_last_cast_time: Dict[int, float] = field(default_factory=dict)
 
     def add_player(self, sid: str) -> Optional[int]:
         if sid in self.players:
@@ -131,6 +133,7 @@ def serialize_state(state: GameState) -> Dict[str, Any]:
                 "type": effect.effect_type,
                 "magnitude": effect.magnitude,
                 "remaining_duration": effect.remaining_duration,
+                "lane_id": effect.lane_id,
             }
             for effect in state.environment
         ],
@@ -515,14 +518,20 @@ def _cpu_take_turn(lobby: Lobby, spells: SpellLibrary) -> None:
         wizard = lobby.state.wizards[cpu_id]
         spellbook = lobby.spellbook.get(cpu_id, [])
         baseline_cost = float(spells.baseline().get("mana_cost", 0))
+        now = lobby.state.time_seconds
+        last_cast = lobby.cpu_last_cast_time.get(cpu_id, now)
 
         if not spellbook:
             if wizard.mana >= baseline_cost:
                 apply_spell(lobby.state, cpu_id, _assign_lane_to_spawn_units(lobby, spells.baseline(), None))
                 logger.info("cpu_cast_baseline", lobby_id=lobby.lobby_id, player_id=cpu_id)
+                lobby.cpu_last_cast_time[cpu_id] = now
             if not research_pending:
                 prompt = _cpu_research_prompt(lobby)
                 lobby.start_research(cpu_id, prompt)
+                lobby.cpu_next_research[cpu_id] = (
+                    now + lobby.state.config.research_delay_seconds + 6.0
+                )
                 logger.info(
                     "cpu_research_started",
                     lobby_id=lobby.lobby_id,
@@ -530,6 +539,20 @@ def _cpu_take_turn(lobby: Lobby, spells: SpellLibrary) -> None:
                     prompt=prompt,
                 )
             continue
+
+        next_research = lobby.cpu_next_research.get(cpu_id, 0.0)
+        if not research_pending and now >= next_research and len(spellbook) < 4:
+            prompt = _cpu_research_prompt(lobby)
+            lobby.start_research(cpu_id, prompt)
+            lobby.cpu_next_research[cpu_id] = (
+                now + lobby.state.config.research_delay_seconds + 6.0
+            )
+            logger.info(
+                "cpu_research_started",
+                lobby_id=lobby.lobby_id,
+                player_id=cpu_id,
+                prompt=prompt,
+            )
 
         affordable = [
             entry
@@ -545,6 +568,7 @@ def _cpu_take_turn(lobby: Lobby, spells: SpellLibrary) -> None:
                 player_id=cpu_id,
                 spell_name=entry["spec"].get("name"),
             )
+            lobby.cpu_last_cast_time[cpu_id] = now
             continue
         spell_costs = [float(entry["spec"].get("mana_cost", 0)) for entry in spellbook]
         cheapest_cost = min(spell_costs) if spell_costs else None
@@ -552,9 +576,15 @@ def _cpu_take_turn(lobby: Lobby, spells: SpellLibrary) -> None:
             if wizard.mana >= baseline_cost:
                 apply_spell(lobby.state, cpu_id, _assign_lane_to_spawn_units(lobby, spells.baseline(), None))
                 logger.info("cpu_cast_baseline", lobby_id=lobby.lobby_id, player_id=cpu_id)
+                lobby.cpu_last_cast_time[cpu_id] = now
             continue
         if wizard.mana < cheapest_cost:
+            if (now - last_cast) >= 6.0 and wizard.mana >= baseline_cost:
+                apply_spell(lobby.state, cpu_id, _assign_lane_to_spawn_units(lobby, spells.baseline(), None))
+                logger.info("cpu_cast_baseline", lobby_id=lobby.lobby_id, player_id=cpu_id)
+                lobby.cpu_last_cast_time[cpu_id] = now
             continue
+
 
 
 def _assign_lane_to_spawn_units(lobby: Lobby, spec: Dict[str, Any], lane: Any) -> Dict[str, Any]:

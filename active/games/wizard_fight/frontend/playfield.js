@@ -26,10 +26,14 @@ export function createPlayfield(container, options = {}) {
   const layerBackground = new PIXI.Container();
   const layerUnits = new PIXI.Container();
   const layerDecor = new PIXI.Container();
-  app.stage.addChild(layerBackground, layerDecor, layerUnits);
+  const layerEffects = new PIXI.Container();
+  const layerImpacts = new PIXI.Container();
+  app.stage.addChild(layerBackground, layerDecor, layerEffects, layerImpacts, layerUnits);
 
   const unitSprites = new Map();
   const unitTargets = new Map();
+  const impactSprites = [];
+  const lastWizardHealth = { 0: null, 1: null };
   let lastConfig = { arena_length: 100, lane_count: 3 };
 
   function resize() {
@@ -120,6 +124,28 @@ export function createPlayfield(container, options = {}) {
     return text;
   }
 
+  function effectIcon(effectType) {
+    const table = {
+      fog: "🌫️",
+      wind: "💨",
+      gravity: "🌀",
+      buff: "✨",
+      debuff: "☠️",
+      burn: "🔥",
+      shield: "🛡️",
+    };
+    return table[effectType] || "🔮";
+  }
+
+  function addImpact(icon, x, y) {
+    const sprite = new PIXI.Text(icon, { fontSize: 20 });
+    sprite.anchor.set(0.5, 0.5);
+    sprite.x = x;
+    sprite.y = y;
+    layerImpacts.addChild(sprite);
+    impactSprites.push({ sprite, life: 0.8, drift: (Math.random() - 0.5) * 8 });
+  }
+
   function render(state) {
     if (!state) return;
     const config = state.config || lastConfig;
@@ -130,6 +156,35 @@ export function createPlayfield(container, options = {}) {
     const laneCount = config.lane_count || 3;
     const laneHeight = Math.max(90, Math.floor(height / laneCount));
     const arenaLength = config.arena_length || 100;
+
+    layerEffects.removeChildren();
+    (state.environment || []).forEach((effect, idx) => {
+      const lane = Number.isFinite(effect.lane_id)
+        ? effect.lane_id
+        : Math.floor(laneCount / 2);
+      const laneTop = lane * laneHeight;
+      const icon = effectIcon(effect.type);
+      const sprite = new PIXI.Text(icon, { fontSize: 20 });
+      sprite.anchor.set(0.5, 0.5);
+      sprite.x = width * 0.5 + (idx % 3) * 26 - 26;
+      sprite.y = laneTop + laneHeight * 0.35 + (idx % 2) * 10;
+      const duration = Number(effect.remaining_duration || 0);
+      sprite.alpha = Math.min(1, Math.max(0.3, duration / 6));
+      layerEffects.addChild(sprite);
+    });
+
+    const middleLane = Math.floor(laneCount / 2);
+    const wizardY = middleLane * laneHeight + laneHeight * 0.5 - 12;
+    const w0 = state.wizards?.[0];
+    const w1 = state.wizards?.[1];
+    if (w0 && lastWizardHealth[0] !== null && w0.health < lastWizardHealth[0] - 0.1) {
+      addImpact("💥", 28, wizardY);
+    }
+    if (w1 && lastWizardHealth[1] !== null && w1.health < lastWizardHealth[1] - 0.1) {
+      addImpact("💥", width - 28, wizardY);
+    }
+    if (w0) lastWizardHealth[0] = w0.health;
+    if (w1) lastWizardHealth[1] = w1.health;
 
     const nextIds = new Set();
     (state.units || []).forEach((unit) => {
@@ -168,6 +223,17 @@ export function createPlayfield(container, options = {}) {
       if (!target) continue;
       sprite.x += (target.x - sprite.x) * 0.2;
       sprite.y += (target.y - sprite.y) * 0.2;
+    }
+    for (let i = impactSprites.length - 1; i >= 0; i -= 1) {
+      const impact = impactSprites[i];
+      impact.life -= app.ticker.deltaMS / 1000;
+      impact.sprite.y -= 0.6;
+      impact.sprite.x += impact.drift * 0.02;
+      impact.sprite.alpha = Math.max(0, impact.life / 0.8);
+      if (impact.life <= 0) {
+        layerImpacts.removeChild(impact.sprite);
+        impactSprites.splice(i, 1);
+      }
     }
   });
   window.addEventListener("resize", resize);
