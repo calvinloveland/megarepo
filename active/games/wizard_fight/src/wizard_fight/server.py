@@ -171,7 +171,7 @@ def create_socketio(app: Flask) -> SocketIO:
     @app.get("/spellbook")
     def spellbook() -> Any:
         spells = storage_list_spells(limit=50)
-        return jsonify(
+        response = jsonify(
             {
                 "spells": [
                     {
@@ -185,6 +185,8 @@ def create_socketio(app: Flask) -> SocketIO:
                 ]
             }
         )
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        return response
 
     @app.route("/generate_spell", methods=["POST", "OPTIONS"])
     def generate_spell() -> Any:
@@ -217,7 +219,7 @@ def create_socketio(app: Flask) -> SocketIO:
     @app.get("/leaderboard")
     def leaderboard() -> Any:
         top_spells = list_spell_leaderboard(limit=10)
-        return jsonify(
+        response = jsonify(
             {
                 "top_spells": [
                     {"name": name, "count": count} for name, count in top_spells
@@ -229,6 +231,8 @@ def create_socketio(app: Flask) -> SocketIO:
                 },
             }
         )
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        return response
 
     @app.route("/client-errors", methods=["POST", "OPTIONS"])
     def client_errors() -> Any:

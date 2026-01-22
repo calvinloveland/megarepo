@@ -29,6 +29,7 @@ export function createPlayfield(container, options = {}) {
   app.stage.addChild(layerBackground, layerDecor, layerUnits);
 
   const unitSprites = new Map();
+  const unitTargets = new Map();
   let lastConfig = { arena_length: 100, lane_count: 3 };
 
   function resize() {
@@ -142,19 +143,33 @@ export function createPlayfield(container, options = {}) {
       const lane = Number.isFinite(unit.lane) ? unit.lane : Math.floor(laneCount / 2);
       const laneTop = lane * laneHeight;
       const ratio = unit.position / arenaLength;
-      sprite.x = 60 + ratio * (width - 120);
-      sprite.y = laneTop + laneHeight * 0.5;
+      const targetX = 60 + ratio * (width - 120);
+      const targetY = laneTop + laneHeight * 0.5;
+      if (!unitTargets.has(unit.unit_id)) {
+        sprite.x = targetX;
+        sprite.y = targetY;
+      }
+      unitTargets.set(unit.unit_id, { x: targetX, y: targetY });
     });
 
     for (const [unitId, sprite] of unitSprites.entries()) {
       if (!nextIds.has(unitId)) {
         layerUnits.removeChild(sprite);
         unitSprites.delete(unitId);
+        unitTargets.delete(unitId);
       }
     }
   }
 
   renderBackground(lastConfig);
+  app.ticker.add(() => {
+    for (const [unitId, sprite] of unitSprites.entries()) {
+      const target = unitTargets.get(unitId);
+      if (!target) continue;
+      sprite.x += (target.x - sprite.x) * 0.2;
+      sprite.y += (target.y - sprite.y) * 0.2;
+    }
+  });
   window.addEventListener("resize", resize);
 
   return {

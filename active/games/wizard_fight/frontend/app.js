@@ -58,9 +58,11 @@ function renderHud() {
   }
 
   if (!state.gameState) return;
-  wiz0HpEl.textContent = state.gameState.wizards?.[0]?.health?.toFixed(1) ?? "-";
+  const w0Health = state.gameState.wizards?.[0]?.health;
+  const w1Health = state.gameState.wizards?.[1]?.health;
+  wiz0HpEl.textContent = Number.isFinite(w0Health) ? Math.max(0, w0Health).toFixed(1) : "-";
   wiz0ManaEl.textContent = state.gameState.wizards?.[0]?.mana?.toFixed(1) ?? "-";
-  wiz1HpEl.textContent = state.gameState.wizards?.[1]?.health?.toFixed(1) ?? "-";
+  wiz1HpEl.textContent = Number.isFinite(w1Health) ? Math.max(0, w1Health).toFixed(1) : "-";
   wiz1ManaEl.textContent = state.gameState.wizards?.[1]?.mana?.toFixed(1) ?? "-";
   timeEl.textContent = state.gameState.time_seconds?.toFixed(2) ?? "-";
   unitCountEl.textContent = state.gameState.units?.length ?? 0;

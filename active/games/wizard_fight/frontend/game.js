@@ -59,6 +59,28 @@ function renderPlayfield() {
   playfield.render(wfState.gameState);
 }
 
+function updateGameOver() {
+  const banner = document.getElementById("game-over");
+  if (!banner || !wfState?.gameState) return;
+  const w0 = wfState.gameState.wizards?.[0]?.health;
+  const w1 = wfState.gameState.wizards?.[1]?.health;
+  if (!Number.isFinite(w0) || !Number.isFinite(w1)) return;
+  if (w0 > 0 && w1 > 0) {
+    banner.textContent = "";
+    banner.classList.add("hidden");
+    return;
+  }
+  let message = "Draw!";
+  if (w0 <= 0 && w1 > 0) message = "Wizard 1 wins!";
+  if (w1 <= 0 && w0 > 0) message = "Wizard 0 wins!";
+  banner.textContent = message;
+  banner.classList.remove("hidden");
+  if (_tickInterval) {
+    clearInterval(_tickInterval);
+    _tickInterval = null;
+  }
+}
+
 function getModeFromQuery() {
   const params = new URLSearchParams(window.location.search);
   const mode = params.get("mode");
@@ -88,6 +110,7 @@ async function bootstrapGame() {
   wfRenderAll?.();
   renderDebugPanel();
   renderPlayfield();
+  updateGameOver();
 }
 
 let _tickInterval = null;
@@ -118,6 +141,7 @@ function startTickLoop() {
     wfRenderAll?.();
     renderDebugPanel();
     renderPlayfield();
+    updateGameOver();
   }, TICK_MS);
   logDebug("tick_loop_started");
 }
@@ -132,6 +156,7 @@ async function castBaselineLocal() {
   wfRenderAll?.();
   renderDebugPanel();
   renderPlayfield();
+  updateGameOver();
 }
 
 async function researchSpellLocal(prompt) {
@@ -159,6 +184,7 @@ async function castSpellLocal(index) {
   wfRenderAll?.();
   renderDebugPanel();
   renderPlayfield();
+  updateGameOver();
 }
 
 async function generateSpellLab(prompt) {
@@ -228,6 +254,7 @@ if (spectateButton && spectateInput) spectateButton.addEventListener("click", as
   wfRenderAll?.();
   renderDebugPanel();
   renderPlayfield();
+  updateGameOver();
 });
 if (spellLabButton && spellLabInput) {
   spellLabButton.addEventListener("click", () => {
@@ -261,6 +288,7 @@ if (playfieldContainer) {
 
 renderDebugPanel();
 renderPlayfield();
+updateGameOver();
 
   // Export for debug/testing
   window.gameModule = {
