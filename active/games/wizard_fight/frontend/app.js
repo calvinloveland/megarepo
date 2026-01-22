@@ -10,16 +10,20 @@ const state = {
   researchRemaining: null,
   gameState: null,
   started: false,
+  wizardName: null,
 };
 
 const socket = io(SOCKET_URL, { autoConnect: false });
 
 const lobbyIdEl = document.getElementById("lobby-id");
 const playerIdEl = document.getElementById("player-id");
+const wizardNameEl = document.getElementById("wizard-name");
 const wiz0HpEl = document.getElementById("wiz0-hp");
 const wiz0ManaEl = document.getElementById("wiz0-mana");
 const wiz1HpEl = document.getElementById("wiz1-hp");
 const wiz1ManaEl = document.getElementById("wiz1-mana");
+const wizard0NameEl = document.getElementById("wizard-0-name");
+const wizard1NameEl = document.getElementById("wizard-1-name");
 const castBaselineBtn = document.getElementById("cast-baseline");
 const researchInput = document.getElementById("research-input");
 const researchButton = document.getElementById("research-button");
@@ -54,6 +58,46 @@ const BASELINE_SPELL = {
   },
 };
 
+const WIZARD_NAME_COOKIE = "wizard_name";
+const WIZARD_NAME_MAX = 24;
+
+function getCookie(name) {
+  const cookies = document.cookie.split(";");
+  for (const cookie of cookies) {
+    const [key, ...rest] = cookie.trim().split("=");
+    if (key === name) {
+      return decodeURIComponent(rest.join("="));
+    }
+  }
+  return "";
+}
+
+function setCookie(name, value, days = 365) {
+  const maxAge = days * 24 * 60 * 60;
+  document.cookie = `${name}=${encodeURIComponent(value)}; Max-Age=${maxAge}; Path=/; SameSite=Lax`;
+}
+
+function normalizeWizardName(name) {
+  if (!name) return "";
+  return name.trim().slice(0, WIZARD_NAME_MAX);
+}
+
+function ensureWizardName() {
+  if (state.mode === "cvc" || state.mode === "spectator") {
+    return;
+  }
+  let name = normalizeWizardName(getCookie(WIZARD_NAME_COOKIE));
+  if (!name) {
+    const response = window.prompt("Choose your wizard name", "Arcane Adept");
+    name = normalizeWizardName(response || "");
+  }
+  if (!name) {
+    name = "Wandering Wizard";
+  }
+  state.wizardName = name;
+  setCookie(WIZARD_NAME_COOKIE, name);
+}
+
 function emitWithAck(event, payload) {
   return new Promise((resolve) => {
     socket.emit(event, payload, (response) => resolve(response));
@@ -63,6 +107,9 @@ function emitWithAck(event, payload) {
 function renderHud() {
   lobbyIdEl.textContent = state.lobbyId ?? "-";
   playerIdEl.textContent = state.playerId ?? "-";
+  if (wizardNameEl) {
+    wizardNameEl.textContent = state.wizardName ?? "-";
+  }
   if (modeStatus) {
     modeStatus.textContent = `Mode: ${state.mode}`;
   }
@@ -76,6 +123,27 @@ function renderHud() {
   wiz1ManaEl.textContent = state.gameState.wizards?.[1]?.mana?.toFixed(1) ?? "-";
   timeEl.textContent = state.gameState.time_seconds?.toFixed(2) ?? "-";
   unitCountEl.textContent = state.gameState.units?.length ?? 0;
+  if (wizard0NameEl || wizard1NameEl) {
+    const fallback0 = "Wizard 0";
+    const fallback1 = "Wizard 1";
+    let name0 = fallback0;
+    let name1 = fallback1;
+    if (state.mode === "pvc" && state.playerId === 0) {
+      name0 = state.wizardName ?? fallback0;
+      name1 = "CPU";
+    } else if (state.mode === "pvc" && state.playerId === 1) {
+      name0 = "CPU";
+      name1 = state.wizardName ?? fallback1;
+    } else if (state.mode === "pvp") {
+      if (state.playerId === 0) {
+        name0 = state.wizardName ?? fallback0;
+      } else if (state.playerId === 1) {
+        name1 = state.wizardName ?? fallback1;
+      }
+    }
+    if (wizard0NameEl) wizard0NameEl.textContent = name0;
+    if (wizard1NameEl) wizard1NameEl.textContent = name1;
+  }
 }
 
 function describeSpell(spell) {
@@ -235,6 +303,7 @@ async function spectateLobby() {
 
 function startMode(mode) {
   state.mode = mode;
+  ensureWizardName();
   titleScreen.classList.add("hidden");
   gameScreen.classList.remove("hidden");
   spellbookScreen.classList.add("hidden");
@@ -363,6 +432,7 @@ window.wizardFight = {
   emitWithAck,
   state,
   renderAll,
+  ensureWizardName,
 };
 
 const allowAutoBootstrap =
@@ -370,6 +440,7 @@ const allowAutoBootstrap =
 
 socket.on("connect", () => {
   if (allowAutoBootstrap && !state.started && gameScreen && !gameScreen.classList.contains("hidden")) {
+    ensureWizardName();
     bootstrap();
   }
   if (allowAutoBootstrap && typeof tick === "function" && gameScreen) {

@@ -95,6 +95,9 @@ async function bootstrapGame() {
   if (wfState.started) return;
   wfState.started = true;
   wfState.mode = getModeFromQuery();
+  if (window.wizardFight?.ensureWizardName) {
+    window.wizardFight.ensureWizardName();
+  }
   logDebug("bootstrap_start", { mode: wfState.mode });
   const lobbyResponse = await wfEmitWithAck("create_lobby", { seed: 7, mode: wfState.mode });
   logDebug("create_lobby_response", lobbyResponse);
