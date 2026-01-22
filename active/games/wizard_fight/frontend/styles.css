@@ -126,57 +126,9 @@ body {
   border: 1px solid #2c3150;
 }
 
-.lanes {
-  display: grid;
-  gap: 10px;
-}
-
-.lane {
-  position: relative;
-  height: 140px;
-  overflow-x: auto;
-  overflow-y: hidden;
-  background: linear-gradient(180deg, #171b2d 0%, #101322 100%);
-  border-radius: 10px;
-}
-
-.lane::before {
-  content: "";
-  position: absolute;
-  top: 50%;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: #2c3150;
-}
-
-.tower {
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: 32px;
-}
-
-.tower-left {
-  left: 16px;
-}
-
-.tower-right {
-  right: 16px;
-}
-
-.units {
-  position: relative;
-  height: 100%;
-  min-width: 1200px;
-}
-
-.unit {
-  position: absolute;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  font-size: 22px;
-  transition: left 0.15s linear;
+.playfield {
+  width: 100%;
+  min-height: 360px;
 }
 
 button {

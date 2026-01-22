@@ -1,3 +1,5 @@
+import { createPlayfield } from "./playfield.js";
+
 (function () {
   const {
     socket: wfSocket,
@@ -10,7 +12,6 @@
   const ticksEl = document.getElementById("spectate-ticks");
   const researchEl = document.getElementById("spectate-research");
   const logEl = document.getElementById("spectate-log");
-  const lanesEl = document.getElementById("lanes");
 
   const TICK_MS = 200;
   const STEPS_PER_TICK = Math.max(
@@ -24,6 +25,7 @@
   let lastPrompts = {};
   let lastResearchingKeys = new Set();
   let lastSpellCount = 0;
+  let playfield = null;
 
   function pushLog(message) {
     if (!logEl) return;
@@ -86,32 +88,8 @@
   }
 
   function renderArena() {
-    if (!lanesEl || !wfState?.gameState) return;
-    const laneEls = Array.from(lanesEl.querySelectorAll(".lane"));
-    const laneWidths = laneEls.map((lane) => Math.max(lane.clientWidth, 1200));
-    const leftMargin = 60;
-    const rightMargin = 60;
-
-    laneEls.forEach((lane) => {
-      const units = lane.querySelector(".units");
-      if (units) units.innerHTML = "";
-    });
-
-    wfState.gameState.units.forEach((unit) => {
-      const laneIndex = Number.isFinite(unit.lane) ? unit.lane : 1;
-      const lane = laneEls[laneIndex] || laneEls[1] || laneEls[0];
-      if (!lane) return;
-      const unitsEl = lane.querySelector(".units");
-      if (!unitsEl) return;
-      const laneWidth = laneWidths[laneIndex] || laneWidths[0] || 1200;
-      const ratio = unit.position / 100;
-      const x = leftMargin + ratio * (laneWidth - leftMargin - rightMargin);
-      const div = document.createElement("div");
-      div.className = "unit";
-      div.textContent = unit.owner_id === 0 ? "🐒" : "🐵";
-      div.style.left = `${x}px`;
-      unitsEl.appendChild(div);
-    });
+    if (!playfield || !wfState?.gameState) return;
+    playfield.render(wfState.gameState);
   }
 
   function getModeFromQuery() {
@@ -179,6 +157,10 @@
 
   function init() {
     if (!document.getElementById("spectate-screen")) return;
+    const playfieldContainer = document.getElementById("playfield");
+    if (playfieldContainer) {
+      playfield = createPlayfield(playfieldContainer, { height: 380 });
+    }
     bindSpectateControls();
     updateStatus();
     wfSocket?.on("connect", async () => {

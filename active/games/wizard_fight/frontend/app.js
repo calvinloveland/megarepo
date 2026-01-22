@@ -147,30 +147,6 @@ function renderResearch() {
 function renderArena() {
   if (!state.gameState) return;
   if (!lanesEl) return;
-  const laneEls = Array.from(lanesEl.querySelectorAll(".lane"));
-  const laneWidths = laneEls.map((lane) => Math.max(lane.clientWidth, 1200));
-  const leftMargin = 60;
-  const rightMargin = 60;
-  laneEls.forEach((lane) => {
-    const units = lane.querySelector(".units");
-    if (units) units.innerHTML = "";
-  });
-
-  state.gameState.units.forEach((unit) => {
-    const laneIndex = Number.isFinite(unit.lane) ? unit.lane : 1;
-    const lane = laneEls[laneIndex] || laneEls[1] || laneEls[0];
-    if (!lane) return;
-    const unitsEl = lane.querySelector(".units");
-    if (!unitsEl) return;
-    const laneWidth = laneWidths[laneIndex] || laneWidths[0] || 1200;
-    const ratio = unit.position / 100;
-    const x = leftMargin + ratio * (laneWidth - leftMargin - rightMargin);
-    const div = document.createElement("div");
-    div.className = "unit";
-    div.textContent = unit.owner_id === 0 ? "🐒" : "🐵";
-    div.style.left = `${x}px`;
-    unitsEl.appendChild(div);
-  });
 }
 
 function renderAll() {

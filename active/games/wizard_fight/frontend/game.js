@@ -1,3 +1,5 @@
+import { createPlayfield } from "./playfield.js";
+
 (function () {
   const {
     socket: wfSocket,
@@ -23,6 +25,7 @@ const debugPanel = {
 let tickCount = 0;
 let lastResearching = {};
 let lastNewSpells = 0;
+let playfield = null;
 
 function logDebug(event, payload = {}) {
   const stamp = new Date().toISOString();
@@ -49,6 +52,11 @@ function renderDebugPanel() {
   const w1 = wfState?.gameState?.wizards?.[1];
   debugPanel.w0.textContent = w0 ? `${w0.health.toFixed(1)} / ${w0.mana.toFixed(1)}` : "-";
   debugPanel.w1.textContent = w1 ? `${w1.health.toFixed(1)} / ${w1.mana.toFixed(1)}` : "-";
+}
+
+function renderPlayfield() {
+  if (!playfield || !wfState?.gameState) return;
+  playfield.render(wfState.gameState);
 }
 
 function getModeFromQuery() {
@@ -79,6 +87,7 @@ async function bootstrapGame() {
   wfState.gameState = initial.state;
   wfRenderAll?.();
   renderDebugPanel();
+  renderPlayfield();
 }
 
 let _tickInterval = null;
@@ -108,6 +117,7 @@ function startTickLoop() {
     }
     wfRenderAll?.();
     renderDebugPanel();
+    renderPlayfield();
   }, TICK_MS);
   logDebug("tick_loop_started");
 }
@@ -120,6 +130,7 @@ async function castBaselineLocal() {
   wfState.gameState = response.state ?? wfState.gameState;
   wfRenderAll?.();
   renderDebugPanel();
+  renderPlayfield();
 }
 
 async function researchSpellLocal(prompt) {
@@ -144,6 +155,7 @@ async function castSpellLocal(index) {
   wfState.gameState = response.state ?? wfState.gameState;
   wfRenderAll?.();
   renderDebugPanel();
+  renderPlayfield();
 }
 
 async function generateSpellLab(prompt) {
@@ -205,6 +217,7 @@ if (spectateButton && spectateInput) spectateButton.addEventListener("click", as
   wfState.gameState = response.state;
   wfRenderAll?.();
   renderDebugPanel();
+  renderPlayfield();
 });
 if (spellLabButton && spellLabInput) {
   spellLabButton.addEventListener("click", () => {
@@ -231,7 +244,13 @@ if (wfSocket && !wfSocket.connected) {
   wfSocket.connect();
 }
 
+const playfieldContainer = document.getElementById("playfield");
+if (playfieldContainer) {
+  playfield = createPlayfield(playfieldContainer, { height: 420 });
+}
+
 renderDebugPanel();
+renderPlayfield();
 
   // Export for debug/testing
   window.gameModule = {
