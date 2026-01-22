@@ -52,6 +52,25 @@ def test_lobby_flow_and_state_updates() -> None:
     client_two.disconnect()
 
 
+def test_cast_baseline_respects_lane() -> None:
+    app, socketio = create_server()
+    client = socketio.test_client(app)
+    lobby_response = client.emit("create_lobby", {"seed": 7}, callback=True)
+    lobby_id = lobby_response["lobby_id"]
+    join = client.emit("join_lobby", {"lobby_id": lobby_id}, callback=True)
+    assert join["player_id"] == 0
+
+    cast_response = client.emit(
+        "cast_baseline",
+        {"lobby_id": lobby_id, "lane": 2},
+        callback=True,
+    )
+    units = cast_response["state"]["units"]
+    assert units, "expected baseline unit spawn"
+    assert units[0]["lane"] == 2
+    client.disconnect()
+
+
 def test_spellbook_route_returns_spells(tmp_path, monkeypatch) -> None:
     db_path = tmp_path / "wizard_fight.db"
     from wizard_fight import storage

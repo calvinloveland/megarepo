@@ -155,6 +155,20 @@ input {
   color: #f8f8ff;
 }
 
+select {
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid #2c3150;
+  background: #111527;
+  color: #f8f8ff;
+}
+
+.lane-label {
+  align-self: center;
+  color: #c8ccf0;
+  font-size: 0.9rem;
+}
+
 .spellbook ul {
   list-style: none;
   padding: 0;

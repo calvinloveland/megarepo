@@ -299,7 +299,8 @@ def create_socketio(app: Flask) -> SocketIO:
             return {"error": "not_in_lobby"}
         if lobby.is_researching(player_id):
             return {"error": "research_in_progress"}
-        apply_spell(lobby.state, player_id, spells.baseline())
+        lane = data.get("lane")
+        apply_spell(lobby.state, player_id, _assign_lane_to_spawn_units(lobby, spells.baseline(), lane))
         telemetry.spells_cast += 1
         logger.info("spell_cast", lobby_id=lobby.lobby_id, player_id=player_id)
         return {"state": serialize_state(lobby.state)}
@@ -365,7 +366,8 @@ def create_socketio(app: Flask) -> SocketIO:
         entry = lobby.get_spell(player_id, spell_index)
         if entry is None:
             return {"error": "spell_not_found"}
-        apply_spell(lobby.state, player_id, entry["spec"])
+        lane = data.get("lane")
+        apply_spell(lobby.state, player_id, _assign_lane_to_spawn_units(lobby, entry["spec"], lane))
         telemetry.spells_cast += 1
         logger.info("spell_cast", lobby_id=lobby.lobby_id, player_id=player_id)
         return {"state": serialize_state(lobby.state)}
@@ -512,7 +514,7 @@ def _cpu_take_turn(lobby: Lobby, spells: SpellLibrary) -> None:
 
         if not spellbook:
             if wizard.mana >= baseline_cost:
-                apply_spell(lobby.state, cpu_id, _assign_lane_to_spawn_units(lobby, spells.baseline()))
+                apply_spell(lobby.state, cpu_id, _assign_lane_to_spawn_units(lobby, spells.baseline(), None))
                 logger.info("cpu_cast_baseline", lobby_id=lobby.lobby_id, player_id=cpu_id)
             if not research_pending:
                 prompt = _cpu_research_prompt(lobby)
@@ -528,7 +530,7 @@ def _cpu_take_turn(lobby: Lobby, spells: SpellLibrary) -> None:
         affordable = [entry for entry in spellbook if wizard.mana >= float(entry["spec"].get("mana_cost", 0))]
         if affordable:
             entry = lobby.state.rng.choice(affordable)
-            apply_spell(lobby.state, cpu_id, _assign_lane_to_spawn_units(lobby, entry["spec"]))
+            apply_spell(lobby.state, cpu_id, _assign_lane_to_spawn_units(lobby, entry["spec"], None))
             logger.info(
                 "cpu_cast_spell",
                 lobby_id=lobby.lobby_id,
@@ -537,16 +539,23 @@ def _cpu_take_turn(lobby: Lobby, spells: SpellLibrary) -> None:
             )
             continue
         if wizard.mana >= baseline_cost:
-            apply_spell(lobby.state, cpu_id, _assign_lane_to_spawn_units(lobby, spells.baseline()))
+            apply_spell(lobby.state, cpu_id, _assign_lane_to_spawn_units(lobby, spells.baseline(), None))
             logger.info("cpu_cast_baseline", lobby_id=lobby.lobby_id, player_id=cpu_id)
 
 
-def _assign_lane_to_spawn_units(lobby: Lobby, spec: Dict[str, Any]) -> Dict[str, Any]:
+def _assign_lane_to_spawn_units(lobby: Lobby, spec: Dict[str, Any], lane: Any) -> Dict[str, Any]:
     spawn_units = spec.get("spawn_units")
     if not spawn_units:
         return spec
     lane_count = lobby.state.config.lane_count
-    lane = lobby.state.rng.randrange(lane_count)
+    if lane is None:
+        lane = lobby.state.rng.randrange(lane_count)
+    try:
+        lane = int(lane)
+    except Exception:
+        lane = lobby.state.rng.randrange(lane_count)
+    if lane < 0 or lane >= lane_count:
+        lane = lobby.state.rng.randrange(lane_count)
     updated_units = []
     for unit in spawn_units:
         if "lane" in unit:

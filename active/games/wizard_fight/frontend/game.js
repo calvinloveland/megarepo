@@ -124,8 +124,9 @@ function startTickLoop() {
 
 async function castBaselineLocal() {
   if (!wfEmitWithAck || !wfState?.lobbyId) return;
+  const lane = readSelectedLane();
   logDebug("cast_baseline", { lobby_id: wfState.lobbyId });
-  const response = await wfEmitWithAck("cast_baseline", { lobby_id: wfState.lobbyId });
+  const response = await wfEmitWithAck("cast_baseline", { lobby_id: wfState.lobbyId, lane });
   logDebug("cast_baseline_response", response);
   wfState.gameState = response.state ?? wfState.gameState;
   wfRenderAll?.();
@@ -146,10 +147,12 @@ async function researchSpellLocal(prompt) {
 
 async function castSpellLocal(index) {
   if (!wfEmitWithAck || !wfState?.lobbyId) return;
+  const lane = readSelectedLane();
   logDebug("cast_spell", { lobby_id: wfState.lobbyId, spell_index: index });
   const response = await wfEmitWithAck("cast_spell", {
     lobby_id: wfState.lobbyId,
     spell_index: index,
+    lane,
   });
   logDebug("cast_spell_response", response);
   wfState.gameState = response.state ?? wfState.gameState;
@@ -200,6 +203,13 @@ const researchInput = document.getElementById("research-input");
 const researchButton = document.getElementById("research-button");
 const spectateInput = document.getElementById("spectate-input");
 const spectateButton = document.getElementById("spectate-button");
+const laneSelect = document.getElementById("lane-select");
+
+function readSelectedLane() {
+  if (!laneSelect) return null;
+  const value = Number(laneSelect.value);
+  return Number.isFinite(value) ? value : null;
+}
 const spellLabInput = document.getElementById("spell-lab-input");
 const spellLabButton = document.getElementById("spell-lab-button");
 
