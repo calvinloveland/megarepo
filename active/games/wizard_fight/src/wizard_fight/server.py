@@ -512,7 +512,7 @@ def _cpu_take_turn(lobby: Lobby, spells: SpellLibrary) -> None:
 
         if not spellbook:
             if wizard.mana >= baseline_cost:
-                apply_spell(lobby.state, cpu_id, spells.baseline())
+                apply_spell(lobby.state, cpu_id, _assign_lane_to_spawn_units(lobby, spells.baseline()))
                 logger.info("cpu_cast_baseline", lobby_id=lobby.lobby_id, player_id=cpu_id)
             if not research_pending:
                 prompt = _cpu_research_prompt(lobby)
@@ -528,7 +528,7 @@ def _cpu_take_turn(lobby: Lobby, spells: SpellLibrary) -> None:
         affordable = [entry for entry in spellbook if wizard.mana >= float(entry["spec"].get("mana_cost", 0))]
         if affordable:
             entry = lobby.state.rng.choice(affordable)
-            apply_spell(lobby.state, cpu_id, entry["spec"])
+            apply_spell(lobby.state, cpu_id, _assign_lane_to_spawn_units(lobby, entry["spec"]))
             logger.info(
                 "cpu_cast_spell",
                 lobby_id=lobby.lobby_id,
@@ -537,8 +537,27 @@ def _cpu_take_turn(lobby: Lobby, spells: SpellLibrary) -> None:
             )
             continue
         if wizard.mana >= baseline_cost:
-            apply_spell(lobby.state, cpu_id, spells.baseline())
+            apply_spell(lobby.state, cpu_id, _assign_lane_to_spawn_units(lobby, spells.baseline()))
             logger.info("cpu_cast_baseline", lobby_id=lobby.lobby_id, player_id=cpu_id)
+
+
+def _assign_lane_to_spawn_units(lobby: Lobby, spec: Dict[str, Any]) -> Dict[str, Any]:
+    spawn_units = spec.get("spawn_units")
+    if not spawn_units:
+        return spec
+    lane_count = lobby.state.config.lane_count
+    lane = lobby.state.rng.randrange(lane_count)
+    updated_units = []
+    for unit in spawn_units:
+        if "lane" in unit:
+            updated_units.append(unit)
+        else:
+            updated = dict(unit)
+            updated["lane"] = lane
+            updated_units.append(updated)
+    updated_spec = dict(spec)
+    updated_spec["spawn_units"] = updated_units
+    return updated_spec
 
 
 def create_server() -> tuple[Flask, SocketIO]:

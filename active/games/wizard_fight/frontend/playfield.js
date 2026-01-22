@@ -95,18 +95,21 @@ export function createPlayfield(container, options = {}) {
         layerDecor.addChild(path);
       }
 
-      const wizardLeft = new PIXI.Text("🧙‍♂️", { fontSize: 20 });
-      wizardLeft.x = 12;
-      wizardLeft.y = laneTop + laneHeight * 0.5 - 12;
-      wizardLeft.tint = colors.wizardLeft;
-      layerDecor.addChild(wizardLeft);
-
-      const wizardRight = new PIXI.Text("🧙‍♀️", { fontSize: 20 });
-      wizardRight.x = width - 28;
-      wizardRight.y = laneTop + laneHeight * 0.5 - 12;
-      wizardRight.tint = colors.wizardRight;
-      layerDecor.addChild(wizardRight);
     }
+
+    const middleLane = Math.floor(laneCount / 2);
+    const wizardY = middleLane * laneHeight + laneHeight * 0.5 - 12;
+    const wizardLeft = new PIXI.Text("🧙‍♂️", { fontSize: 24 });
+    wizardLeft.x = 18;
+    wizardLeft.y = wizardY;
+    wizardLeft.tint = colors.wizardLeft;
+    layerDecor.addChild(wizardLeft);
+
+    const wizardRight = new PIXI.Text("🧙‍♀️", { fontSize: 24 });
+    wizardRight.x = width - 34;
+    wizardRight.y = wizardY;
+    wizardRight.tint = colors.wizardRight;
+    layerDecor.addChild(wizardRight);
   }
 
   function unitSprite(unit) {
