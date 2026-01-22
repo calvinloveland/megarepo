@@ -44,6 +44,16 @@ const metricLobbies = document.getElementById("metric-lobbies");
 const metricResearched = document.getElementById("metric-researched");
 const metricCast = document.getElementById("metric-cast");
 
+const BASELINE_SPELL = {
+  spec: {
+    name: "Summon Flying Monkey",
+    mana_cost: 15,
+  },
+  design: {
+    description: "Summons a fast flying monkey to pressure the enemy wizard.",
+  },
+};
+
 function emitWithAck(event, payload) {
   return new Promise((resolve) => {
     socket.emit(event, payload, (response) => resolve(response));
@@ -93,14 +103,9 @@ function formatManaCost(spell) {
 
 function renderSpellbook() {
   spellList.innerHTML = "";
-  if (state.spells.length === 0) {
-    const li = document.createElement("li");
-    li.textContent = "No researched spells yet.";
-    spellList.appendChild(li);
-    return;
-  }
-
-  state.spells.forEach((spell, index) => {
+  const playerMode = state.mode === "pvp" || state.mode === "pvc";
+  const entries = [BASELINE_SPELL, ...state.spells];
+  entries.forEach((spell, index) => {
     const li = document.createElement("li");
     const info = document.createElement("div");
     info.className = "spell-info";
@@ -122,13 +127,20 @@ function renderSpellbook() {
     description.className = "spell-meta";
     description.textContent = describeSpell(spell);
 
+    li.title = description.textContent;
+
     info.appendChild(titleRow);
     info.appendChild(description);
 
     const button = document.createElement("button");
-    button.textContent = "Cast";
-    button.disabled = state.mode !== "player";
-    button.addEventListener("click", () => castSpell(index));
+    if (index === 0) {
+      button.textContent = "Baseline";
+      button.disabled = true;
+    } else {
+      button.textContent = "Cast";
+      button.disabled = !playerMode;
+      button.addEventListener("click", () => castSpell(index - 1));
+    }
     li.appendChild(info);
     li.appendChild(button);
     spellList.appendChild(li);

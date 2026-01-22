@@ -188,6 +188,35 @@ select {
   border-radius: 8px;
 }
 
+.spellbook-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 12px;
+  color: #c8ccf0;
+  font-size: 0.9rem;
+}
+
+.spellbook-controls label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.spellbook-toggle {
+  gap: 6px;
+}
+
+.spell-count {
+  margin-left: 6px;
+  background: #3a3f64;
+  color: #e7e9ff;
+  font-size: 0.7rem;
+  padding: 2px 6px;
+  border-radius: 999px;
+}
+
 .spell-info {
   display: flex;
   flex-direction: column;

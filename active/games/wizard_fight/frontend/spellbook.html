@@ -16,6 +16,23 @@
         </div>
       </header>
       <section class="spellbook">
+        <div class="spellbook-controls">
+          <label>
+            Sort by
+            <select id="spellbook-sort">
+              <option value="latest" selected>Newest</option>
+              <option value="mana-asc">Mana (low to high)</option>
+              <option value="mana-desc">Mana (high to low)</option>
+              <option value="damage-desc">Damage (high to low)</option>
+              <option value="damage-asc">Damage (low to high)</option>
+              <option value="name">Name (A-Z)</option>
+            </select>
+          </label>
+          <label class="spellbook-toggle">
+            <input type="checkbox" id="spellbook-group" />
+            Group duplicates
+          </label>
+        </div>
         <ul id="spellbook-list"></ul>
       </section>
     </div>
