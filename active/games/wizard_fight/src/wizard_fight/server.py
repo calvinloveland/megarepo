@@ -125,6 +125,7 @@ def serialize_state(state: GameState) -> Dict[str, Any]:
                 "speed": unit.speed,
                 "damage": unit.damage,
                 "target": unit.target,
+                "emoji": unit.emoji,
             }
             for unit in state.units
         ],

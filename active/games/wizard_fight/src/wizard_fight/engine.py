@@ -44,6 +44,7 @@ class Unit:
     damage: float
     target: str
     element: str | None = None
+    emoji: str | None = None
     weaknesses: tuple[str, ...] = ()
     immunities: tuple[str, ...] = ()
 
@@ -94,6 +95,7 @@ def apply_spell(state: GameState, caster_id: int, spell: Dict[str, Any]) -> bool
     spawn_units = spell.get("spawn_units", [])
     for unit_spec in spawn_units:
         lane = _resolve_lane(state, unit_spec.get("lane"))
+        emoji = unit_spec.get("emoji") or spell.get("emoji")
         unit = Unit(
             unit_id=state.next_unit_id,
             owner_id=caster_id,
@@ -104,6 +106,7 @@ def apply_spell(state: GameState, caster_id: int, spell: Dict[str, Any]) -> bool
             damage=float(unit_spec["damage"]),
             target=str(unit_spec["target"]),
             element=_normalize_element(unit_spec.get("element")),
+            emoji=str(emoji) if emoji else None,
             weaknesses=tuple(unit_spec.get("weaknesses", [])),
             immunities=tuple(unit_spec.get("immunities", [])),
         )

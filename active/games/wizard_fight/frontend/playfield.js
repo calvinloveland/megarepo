@@ -118,7 +118,7 @@ export function createPlayfield(container, options = {}) {
   }
 
   function unitSprite(unit) {
-    const icon = unit.owner_id === 0 ? "🐒" : "🐵";
+    const icon = unit.emoji || (unit.owner_id === 0 ? "🐒" : "🐵");
     const text = new PIXI.Text(icon, { fontSize: 18 });
     text.anchor.set(0.5, 0.5);
     return text;
