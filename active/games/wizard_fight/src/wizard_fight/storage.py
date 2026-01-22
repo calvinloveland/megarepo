@@ -72,6 +72,25 @@ def load_spell(spell_id: int, path: Path | None = None) -> Optional[StoredSpell]
     return StoredSpell(spell_id=row[0], name=row[1], prompt=row[2], design=design, spec=spec)
 
 
+def load_spell_by_prompt(prompt: str, path: Path | None = None) -> Optional[StoredSpell]:
+    db_path = path or default_db_path()
+    if not db_path.exists():
+        return None
+    normalized = prompt.strip().lower()
+    if not normalized:
+        return None
+    with sqlite3.connect(db_path) as conn:
+        row = conn.execute(
+            "SELECT id, name, prompt, design_json, spec_json FROM spells WHERE LOWER(prompt) = ? ORDER BY id DESC LIMIT 1",
+            (normalized,),
+        ).fetchone()
+    if row is None:
+        return None
+    design = json.loads(row[3])
+    spec = json.loads(row[4])
+    return StoredSpell(spell_id=row[0], name=row[1], prompt=row[2], design=design, spec=spec)
+
+
 def list_spells(limit: int = 50, path: Path | None = None) -> List[StoredSpell]:
     db_path = path or default_db_path()
     if not db_path.exists():

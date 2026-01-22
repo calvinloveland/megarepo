@@ -323,12 +323,16 @@ def _fallback_spell_spec(prompt: str, design: SpellDesign) -> Dict[str, Any]:
     effect_type = _choose_effect_type(effect_hint or prompt, rng)
     if effect_type == "spawn_units":
         spec["duration"] = round(rng.uniform(4.0, 12.0), 1)
+        hp_value = rng.randint(20, 80)
+        damage_value = round(rng.uniform(3.0, 12.0), 1)
+        base_speed = 6.2 - (hp_value / 22.0) - (damage_value / 8.0)
+        speed_value = round(_clamp(base_speed, 0.8, 5.8), 1)
         spec["spawn_units"] = [
             {
                 "type": rng.choice(["flying_monkey", "arcane_sprite", "stone_golem"]),
-                "hp": rng.randint(20, 80),
-                "speed": round(rng.uniform(1.5, 5.5), 1),
-                "damage": round(rng.uniform(3.0, 12.0), 1),
+                "hp": hp_value,
+                "speed": speed_value,
+                "damage": damage_value,
                 "target": "wizard",
             }
         ]

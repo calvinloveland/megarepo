@@ -15,7 +15,12 @@ from flask_socketio import SocketIO
 
 from wizard_fight.engine import GameState, apply_spell, build_initial_state, step
 from wizard_fight.research import SpellDesign, build_spell_spec, design_spell, llm_backend_label, upgrade_spell
-from wizard_fight.storage import list_spell_leaderboard, list_spells as storage_list_spells, save_spell
+from wizard_fight.storage import (
+    list_spell_leaderboard,
+    list_spells as storage_list_spells,
+    load_spell_by_prompt,
+    save_spell,
+)
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _BASELINE_SPELL_PATH = _REPO_ROOT / "docs" / "spells" / "summon_flying_monkey.json"
@@ -203,18 +208,30 @@ def create_socketio(app: Flask) -> SocketIO:
                 response = jsonify({"error": "missing_prompt"})
                 response.status_code = 400
             else:
-                design = design_spell(prompt)
-                spec = build_spell_spec(prompt, design)
-                spell_id = save_spell(spec["name"], prompt, design.to_dict(), spec)
-                response = jsonify(
-                    {
-                        "spell_id": spell_id,
-                        "prompt": prompt,
-                        "design": design.to_dict(),
-                        "spec": spec,
-                        "llm_backend": llm_backend_label(),
-                    }
-                )
+                cached = load_spell_by_prompt(prompt)
+                if cached:
+                    response = jsonify(
+                        {
+                            "spell_id": cached.spell_id,
+                            "prompt": cached.prompt,
+                            "design": cached.design,
+                            "spec": cached.spec,
+                            "llm_backend": "cache",
+                        }
+                    )
+                else:
+                    design = design_spell(prompt)
+                    spec = build_spell_spec(prompt, design)
+                    spell_id = save_spell(spec["name"], prompt, design.to_dict(), spec)
+                    response = jsonify(
+                        {
+                            "spell_id": spell_id,
+                            "prompt": prompt,
+                            "design": design.to_dict(),
+                            "spec": spec,
+                            "llm_backend": llm_backend_label(),
+                        }
+                    )
         response.headers["Access-Control-Allow-Origin"] = "*"
         response.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
         response.headers["Access-Control-Allow-Headers"] = "Content-Type"
@@ -439,10 +456,18 @@ def _resolve_research(lobby: Lobby, telemetry: Telemetry) -> list[Dict[str, Any]
         prompt = lobby.pending_prompts.pop(player_id, "")
         lobby.researching_until.pop(player_id, None)
         try:
-            design = design_spell(prompt)
-            spec = build_spell_spec(prompt, design)
-            spell_id = save_spell(spec["name"], prompt, design.to_dict(), spec)
-            entry = {"spell_id": spell_id, "spec": spec, "design": design.to_dict()}
+            cached = load_spell_by_prompt(prompt)
+            if cached:
+                entry = {
+                    "spell_id": cached.spell_id,
+                    "spec": cached.spec,
+                    "design": cached.design,
+                }
+            else:
+                design = design_spell(prompt)
+                spec = build_spell_spec(prompt, design)
+                spell_id = save_spell(spec["name"], prompt, design.to_dict(), spec)
+                entry = {"spell_id": spell_id, "spec": spec, "design": design.to_dict()}
             lobby.add_spell(player_id, entry)
             completed.append(entry)
             telemetry.spells_researched += 1
