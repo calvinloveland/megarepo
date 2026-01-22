@@ -47,6 +47,34 @@
             "type": "string",
             "enum": ["flying_monkey", "arcane_sprite", "stone_golem"]
           },
+          "lane": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2
+          },
+          "element": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 20
+          },
+          "weaknesses": {
+            "type": "array",
+            "maxItems": 5,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 20
+            }
+          },
+          "immunities": {
+            "type": "array",
+            "maxItems": 5,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 20
+            }
+          },
           "hp": {
             "type": "integer",
             "minimum": 1,
@@ -87,6 +115,11 @@
             "minimum": 1.0,
             "maximum": 30.0
           },
+          "element": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 20
+          },
           "pierce": {
             "type": "integer",
             "minimum": 0,
@@ -109,7 +142,18 @@
         "properties": {
           "type": {
             "type": "string",
-            "enum": ["slow", "haste", "shield", "burn", "knockback", "fog", "wind", "gravity"]
+            "enum": [
+              "slow",
+              "haste",
+              "shield",
+              "burn",
+              "knockback",
+              "fog",
+              "wind",
+              "gravity",
+              "buff",
+              "debuff"
+            ]
           },
           "magnitude": {
             "type": "number",

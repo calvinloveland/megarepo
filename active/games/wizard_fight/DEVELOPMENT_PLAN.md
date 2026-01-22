@@ -16,11 +16,12 @@ Create a web-based 1v1 wizard duel where players research new spells using LLMs.
 
 ## Core Gameplay Loop
 1. Start match with 2 wizards, health, mana regen.
-2. Players cast baseline spell (summon flying monkey).
-3. Players research a new spell (enter prompt, wait, get spell).
-4. LLM generates spell design + constrained DSL spec.
-5. Engine executes spell deterministically.
-6. Win by reducing enemy health to 0 (v1).
+2. Three-lane battlefield: units can spawn in any lane; spells target the middle lane.
+3. Players cast baseline spell (summon flying monkey).
+4. Players research a new spell (enter prompt, wait, get spell).
+5. LLM generates spell design + constrained DSL spec.
+6. Engine executes spell deterministically.
+7. Win by reducing enemy health to 0 (v1).
 
 ## Technical Approach
 ### Architecture

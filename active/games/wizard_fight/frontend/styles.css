@@ -126,9 +126,14 @@ body {
   border: 1px solid #2c3150;
 }
 
+.lanes {
+  display: grid;
+  gap: 10px;
+}
+
 .lane {
   position: relative;
-  height: 220px;
+  height: 140px;
   overflow-x: auto;
   overflow-y: hidden;
   background: linear-gradient(180deg, #171b2d 0%, #101322 100%);

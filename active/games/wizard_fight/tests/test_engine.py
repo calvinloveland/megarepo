@@ -22,6 +22,7 @@ def _monkey_spell() -> dict:
         "spawn_units": [
             {
                 "type": "flying_monkey",
+                "lane": 1,
                 "hp": 20,
                 "speed": 6.0,
                 "damage": 5.0,

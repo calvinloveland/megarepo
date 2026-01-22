@@ -117,6 +117,7 @@ def serialize_state(state: GameState) -> Dict[str, Any]:
             {
                 "unit_id": unit.unit_id,
                 "owner_id": unit.owner_id,
+                "lane": unit.lane,
                 "position": unit.position,
                 "hp": unit.hp,
                 "speed": unit.speed,
