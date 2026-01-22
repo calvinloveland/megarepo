@@ -39,10 +39,11 @@ def _run_match(
     casts_by_cpu: Dict[str, Counter] = defaultdict(Counter)
     baseline_name = spells.baseline().get("name", "Baseline")
 
-    def sink(record: Dict[str, Any]) -> None:
-        message = record.get("message")
+    def sink(message: Any) -> None:
+        record = message.record
+        event = record.get("message")
         extra = record.get("extra", {})
-        if message not in {
+        if event not in {
             "cpu_cast_spell",
             "cpu_cast_baseline",
             "cpu_research_started",
@@ -51,19 +52,19 @@ def _run_match(
         }:
             return
         spell_name = extra.get("spell_name")
-        if message == "cpu_cast_baseline":
+        if event == "cpu_cast_baseline":
             spell_name = baseline_name
         entry = {
             "match_id": match_id,
             "time_seconds": round(lobby.state.time_seconds, 2),
-            "event": message,
+            "event": event,
             "player_id": extra.get("player_id"),
             "spell_name": spell_name,
             "prompt": extra.get("prompt"),
             "wizards": _wizard_snapshot(lobby),
         }
         events.append(entry)
-        if message in {"cpu_cast_spell", "cpu_cast_baseline"}:
+        if event in {"cpu_cast_spell", "cpu_cast_baseline"}:
             cpu_id = str(extra.get("player_id"))
             if cpu_id is not None:
                 casts_by_cpu[cpu_id][spell_name or "unknown"] += 1
