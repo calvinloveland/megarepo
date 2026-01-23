@@ -63,7 +63,9 @@ class TestPylint(unittest.TestCase):
         mock_run.return_value = mock_process
 
         # Run Pylint
-        with patch.object(self.pylint, "_discover_targets", return_value=["src"]):
+        with patch.object(self.pylint, "_discover_targets", return_value=["src"]), patch.object(
+            self.pylint, "_expand_targets", return_value=["src/app.py"]
+        ):
             result = self.pylint.run("/path/to/repo")
 
         # Verify the result
@@ -75,7 +77,7 @@ class TestPylint(unittest.TestCase):
         called_args, called_kwargs = mock_run.call_args
         self.assertIn("pylint", called_args[0])
         self.assertIn("--output-format=json", called_args[0])
-        self.assertIn("src", called_args[0])
+        self.assertIn("src/app.py", called_args[0])
         self.assertEqual(called_kwargs.get("capture_output"), True)
         self.assertEqual(called_kwargs.get("text"), True)
         self.assertEqual(called_kwargs.get("check"), False)
@@ -93,12 +95,14 @@ class TestPylint(unittest.TestCase):
         mock_run.return_value = mock_process
 
         # Run Pylint
-        with patch.object(self.pylint, "_discover_targets", return_value=["src"]):
+        with patch.object(self.pylint, "_discover_targets", return_value=["src"]), patch.object(
+            self.pylint, "_expand_targets", return_value=["src/app.py"]
+        ):
             result = self.pylint.run("/path/to/repo")
 
         # Verify the result
         self.assertEqual(result["status"], "error")
-        self.assertIn("error", result)
+        self.assertEqual(result.get("failed_files"), ["src/app.py"])
 
     @patch("subprocess.run")
     def test_run_invalid_json(self, mock_run):
@@ -110,12 +114,14 @@ class TestPylint(unittest.TestCase):
         mock_run.return_value = mock_process
 
         # Run Pylint
-        with patch.object(self.pylint, "_discover_targets", return_value=["src"]):
+        with patch.object(self.pylint, "_discover_targets", return_value=["src"]), patch.object(
+            self.pylint, "_expand_targets", return_value=["src/app.py"]
+        ):
             result = self.pylint.run("/path/to/repo")
 
         # Verify the result
         self.assertEqual(result["status"], "error")
-        self.assertIn("error", result)
+        self.assertEqual(result.get("failed_files"), ["src/app.py"])
 
     def test_discover_targets_prefers_src_root(self):
         """If a src directory exists, lint the src root (packages + modules)."""
@@ -147,7 +153,9 @@ class TestPylint(unittest.TestCase):
             mock_process.stdout = "[]"
             mock_run.return_value = mock_process
 
-            with patch.object(tool, "_discover_targets", return_value=["src"]):
+            with patch.object(tool, "_discover_targets", return_value=["src"]), patch.object(
+                tool, "_expand_targets", return_value=["src/app.py"]
+            ):
                 result = tool.run(tmpdir)
 
             self.assertEqual(result["status"], "success")
@@ -156,7 +164,7 @@ class TestPylint(unittest.TestCase):
             self.assertIn("--output-format=json", called_args[0])
             self.assertIn("--rcfile", called_args[0])
             self.assertIn(str(rcfile), called_args[0])
-            self.assertIn("src", called_args[0])
+            self.assertIn("src/app.py", called_args[0])
             self.assertEqual(called_kwargs.get("capture_output"), True)
             self.assertEqual(called_kwargs.get("text"), True)
             self.assertEqual(called_kwargs.get("check"), False)
@@ -352,37 +360,53 @@ class TestLizard(unittest.TestCase):
     def setUp(self):
         self.lizard = Lizard(max_ccn=8)
 
-    @patch("importlib.import_module")
     @patch("subprocess.run")
-    def test_run_success_module(self, mock_run, mock_import_module):
-        function_a = SimpleNamespace(
-            long_name="foo",
-            name="foo",
-            cyclomatic_complexity=12,
-            start_line=12,
-            nloc=30,
-        )
-        function_b = SimpleNamespace(
-            long_name="bar",
-            name="bar",
-            cyclomatic_complexity=6,
-            start_line=4,
-            nloc=15,
-        )
-        file_a = SimpleNamespace(
-            filename="/repo/pkg/module.py",
-            function_list=[function_a],
-        )
-        file_b = SimpleNamespace(
-            filename="/repo/pkg/other.py",
-            function_list=[function_b],
-        )
+    def test_run_success_module(self, mock_run):
+        xml_payload = """
+<?xml version="1.0" ?>
+<cppncss>
+    <measure type="Function">
+        <labels>
+            <label>Nr.</label>
+            <label>NCSS</label>
+            <label>CCN</label>
+        </labels>
+        <item name="foo(...) at pkg/module.py:12">
+            <value>1</value>
+            <value>30</value>
+            <value>12</value>
+        </item>
+    </measure>
+</cppncss>
+""".strip()
+        xml_payload_b = """
+<?xml version="1.0" ?>
+<cppncss>
+    <measure type="Function">
+        <labels>
+            <label>Nr.</label>
+            <label>NCSS</label>
+            <label>CCN</label>
+        </labels>
+        <item name="bar(...) at pkg/other.py:4">
+            <value>1</value>
+            <value>15</value>
+            <value>6</value>
+        </item>
+    </measure>
+</cppncss>
+""".strip()
 
-        mock_import_module.return_value = SimpleNamespace(
-            analyze=lambda paths: [file_a, file_b]
-        )
+        process_a = MagicMock(returncode=0, stdout=xml_payload, stderr="")
+        process_b = MagicMock(returncode=0, stdout=xml_payload_b, stderr="")
+        mock_run.side_effect = [process_a, process_b]
 
-        result = self.lizard.run("/repo")
+        with patch.object(
+            self.lizard,
+            "_discover_python_files",
+            return_value=["/repo/pkg/module.py", "/repo/pkg/other.py"],
+        ):
+            result = self.lizard.run("/repo")
 
         self.assertEqual(result["status"], "success")
         summary = result.get("summary")
@@ -391,14 +415,12 @@ class TestLizard(unittest.TestCase):
         self.assertAlmostEqual(summary["average_ccn"], 9.0)
         self.assertEqual(summary["above_threshold"], 1)
         self.assertIn("top_offenders", result)
-        self.assertEqual(result["top_offenders"][0]["name"], "foo")
+        self.assertEqual(result["top_offenders"][0]["name"], "foo(...)")
 
-        mock_import_module.assert_called_once_with("lizard")
-        mock_run.assert_not_called()
+        self.assertEqual(mock_run.call_count, 2)
 
-    @patch("importlib.import_module", side_effect=ModuleNotFoundError)
     @patch("subprocess.run")
-    def test_run_cli_success(self, mock_run, _mock_import_module):
+    def test_run_cli_success(self, mock_run):
         xml_payload = """
 <?xml version="1.0" ?>
 <cppncss>
@@ -428,7 +450,10 @@ class TestLizard(unittest.TestCase):
         mock_process.stderr = ""
         mock_run.return_value = mock_process
 
-        result = self.lizard.run("/repo")
+        with patch.object(
+            self.lizard, "_discover_python_files", return_value=["/repo/pkg/module.py"]
+        ):
+            result = self.lizard.run("/repo")
 
         self.assertEqual(result["status"], "success")
         summary = result.get("summary")
@@ -440,7 +465,7 @@ class TestLizard(unittest.TestCase):
         self.assertEqual(result["top_offenders"][0]["name"], "foo(...)")
 
         mock_run.assert_called_with(
-            ["lizard", "--xml", "."],
+            ["lizard", "--xml", "/repo/pkg/module.py"],
             capture_output=True,
             text=True,
             check=False,
@@ -448,38 +473,44 @@ class TestLizard(unittest.TestCase):
             timeout=DEFAULT_LIZARD_TIMEOUT,
         )
 
-    @patch("importlib.import_module", side_effect=ModuleNotFoundError)
     @patch("subprocess.run")
-    def test_run_cli_failure(self, mock_run, _mock_import_module):
+    def test_run_cli_failure(self, mock_run):
         mock_process = MagicMock()
         mock_process.returncode = 1
         mock_process.stdout = ""
         mock_process.stderr = "boom"
         mock_run.return_value = mock_process
 
-        result = self.lizard.run("/repo")
+        with patch.object(
+            self.lizard, "_discover_python_files", return_value=["/repo/pkg/module.py"]
+        ):
+            result = self.lizard.run("/repo")
 
         self.assertEqual(result["status"], "error")
-        self.assertIn("Lizard CLI returned", result["error"])
+        self.assertIn("Lizard CLI failed", result["error"])
 
-    @patch("importlib.import_module", side_effect=ModuleNotFoundError)
     @patch("subprocess.run")
-    def test_run_cli_invalid_xml(self, mock_run, _mock_import_module):
+    def test_run_cli_invalid_xml(self, mock_run):
         mock_process = MagicMock()
         mock_process.returncode = 0
         mock_process.stdout = "not xml"
         mock_process.stderr = ""
         mock_run.return_value = mock_process
 
-        result = self.lizard.run("/repo")
+        with patch.object(
+            self.lizard, "_discover_python_files", return_value=["/repo/pkg/module.py"]
+        ):
+            result = self.lizard.run("/repo")
 
         self.assertEqual(result["status"], "error")
         self.assertIn("Failed to parse", result["error"])
 
-    @patch("importlib.import_module", side_effect=ModuleNotFoundError)
     @patch("subprocess.run", side_effect=FileNotFoundError)
-    def test_run_missing_binary(self, _mock_run, _mock_import_module):
-        result = self.lizard.run("/repo")
+    def test_run_missing_binary(self, _mock_run):
+        with patch.object(
+            self.lizard, "_discover_python_files", return_value=["/repo/pkg/module.py"]
+        ):
+            result = self.lizard.run("/repo")
         self.assertEqual(result["status"], "error")
         self.assertIn("Lizard executable not found", result["error"])
 

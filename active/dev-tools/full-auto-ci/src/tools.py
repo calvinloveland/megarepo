@@ -978,6 +978,7 @@ class Lizard(Tool):  # pylint: disable=too-few-public-methods
         functions: List[Dict[str, Any]] = []
         timed_out: List[str] = []
         failed: List[str] = []
+        errors: List[str] = []
 
         for file_path in _progress(files, desc="lizard", unit="file"):
             try:
@@ -992,6 +993,7 @@ class Lizard(Tool):  # pylint: disable=too-few-public-methods
             except subprocess.TimeoutExpired:
                 logger.error("Lizard timed out on %s", file_path)
                 timed_out.append(file_path)
+                errors.append(f"Lizard timed out on {file_path}")
                 continue
             except FileNotFoundError:
                 message = (
@@ -1002,11 +1004,13 @@ class Lizard(Tool):  # pylint: disable=too-few-public-methods
             except Exception as exc:  # pylint: disable=broad-except
                 logger.exception("Error launching lizard CLI for %s", file_path)
                 failed.append(file_path)
+                errors.append(f"Error launching lizard CLI for {file_path}: {exc}")
                 continue
 
             if process.returncode != 0:
                 logger.error("Lizard CLI failed on %s", file_path)
                 failed.append(file_path)
+                errors.append(f"Lizard CLI failed on {file_path}")
                 continue
 
             try:
@@ -1014,6 +1018,9 @@ class Lizard(Tool):  # pylint: disable=too-few-public-methods
             except Exception as exc:  # pylint: disable=broad-except
                 logger.exception("Failed to parse Lizard XML output for %s", file_path)
                 failed.append(file_path)
+                errors.append(
+                    f"Failed to parse Lizard XML output for {file_path}: {exc}"
+                )
 
         duration = time.perf_counter() - start_time
         result = self._build_result(functions, duration)
@@ -1021,6 +1028,9 @@ class Lizard(Tool):  # pylint: disable=too-few-public-methods
             result["timed_out_files"] = timed_out
         if failed:
             result["failed_files"] = failed
+        if errors:
+            result["status"] = "error"
+            result["error"] = "; ".join(errors[:5])
         return result
 
     def _discover_python_files(self, repo_path: str) -> List[str]:
