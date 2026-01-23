@@ -6,6 +6,7 @@ import os
 import re
 import subprocess
 import time
+from typing import Iterable, TypeVar
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from types import SimpleNamespace
@@ -16,6 +17,16 @@ logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
+
+T = TypeVar("T")
+
+
+def _progress(iterable: Iterable[T], **kwargs: Any) -> Iterable[T]:
+    try:
+        from tqdm import tqdm
+    except ImportError:
+        return iterable
+    return tqdm(iterable, **kwargs)
 
 # Default timeout values (in seconds)
 DEFAULT_PYLINT_TIMEOUT = 300  # 5 minutes
@@ -141,7 +152,7 @@ class Pylint(Tool):  # pylint: disable=too-few-public-methods
                 repo_path if not existing else f"{repo_path}{os.pathsep}{existing}"
             )
 
-            for file_path in files:
+            for file_path in _progress(files, desc="pylint", unit="file"):
                 cmd = self._build_command(repo_path, [file_path])
                 try:
                     process = subprocess.run(
@@ -968,7 +979,7 @@ class Lizard(Tool):  # pylint: disable=too-few-public-methods
         timed_out: List[str] = []
         failed: List[str] = []
 
-        for file_path in files:
+        for file_path in _progress(files, desc="lizard", unit="file"):
             try:
                 process = subprocess.run(
                     ["lizard", "--xml", file_path],
