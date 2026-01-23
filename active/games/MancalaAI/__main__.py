@@ -2,7 +2,7 @@ import math
 import os
 import random
 
-import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt  # pylint: disable=import-error
 import numpy as np
 from keras.models import load_model
 from keras.optimizers import SGD, Adam
