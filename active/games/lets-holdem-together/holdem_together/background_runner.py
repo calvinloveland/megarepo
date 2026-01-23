@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+# pylint: disable=no-member
+
 import json
 import random
 import time
