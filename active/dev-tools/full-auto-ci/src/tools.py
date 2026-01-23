@@ -1,6 +1,5 @@
 """Tools for code analysis and testing."""
 
-import importlib
 import json
 import logging
 import os
@@ -110,7 +109,7 @@ class Pylint(Tool):  # pylint: disable=too-few-public-methods
         return repo_candidate if os.path.isfile(repo_candidate) else None
 
     def run(self, repo_path: str) -> Dict[str, Any]:
-        """Run Pylint.
+        """Run Pylint one file at a time.
 
         Args:
             repo_path: Path to the repository
@@ -120,35 +119,67 @@ class Pylint(Tool):  # pylint: disable=too-few-public-methods
         """
         try:
             targets = self._discover_targets(repo_path)
+            files = self._expand_targets(repo_path, targets)
             logger.info(
-                "Running Pylint on %s (targets: %s)", repo_path, ", ".join(targets)
+                "Running Pylint on %s (%d files)", repo_path, len(files)
             )
 
-            cmd = self._build_command(repo_path, targets)
-            try:
-                env = os.environ.copy()
-                existing = env.get("PYTHONPATH")
-                env["PYTHONPATH"] = (
-                    repo_path if not existing else f"{repo_path}{os.pathsep}{existing}"
-                )
-                process = subprocess.run(
-                    cmd,
-                    capture_output=True,
-                    text=True,
-                    check=False,
-                    cwd=repo_path,
-                    env=env,
-                    timeout=self.timeout,
-                )
-            except subprocess.TimeoutExpired:
-                logger.error("Pylint timed out after %s seconds", self.timeout)
+            if not files:
                 return {
-                    "status": "error",
-                    "error": f"Pylint timed out after {self.timeout} seconds",
-                    "timed_out": True,
+                    "status": "success",
+                    "score": 10.0,
+                    "issues": {},
+                    "details": [],
                 }
 
-            return self._parse_process(process)
+            details: List[Dict[str, Any]] = []
+            issues_by_type: Dict[str, int] = {}
+            failed_files: List[str] = []
+            env = os.environ.copy()
+            existing = env.get("PYTHONPATH")
+            env["PYTHONPATH"] = (
+                repo_path if not existing else f"{repo_path}{os.pathsep}{existing}"
+            )
+
+            for file_path in files:
+                cmd = self._build_command(repo_path, [file_path])
+                try:
+                    process = subprocess.run(
+                        cmd,
+                        capture_output=True,
+                        text=True,
+                        check=False,
+                        cwd=repo_path,
+                        env=env,
+                        timeout=self.timeout,
+                    )
+                except subprocess.TimeoutExpired:
+                    logger.error("Pylint timed out on %s", file_path)
+                    failed_files.append(file_path)
+                    continue
+
+                parsed = self._parse_process(process)
+                if parsed.get("status") == "success":
+                    file_details = parsed.get("details") or []
+                    if isinstance(file_details, list):
+                        details.extend(file_details)
+                    file_issues = parsed.get("issues") or {}
+                    for issue_type, count in file_issues.items():
+                        issues_by_type[issue_type] = issues_by_type.get(issue_type, 0) + count
+                else:
+                    failed_files.append(file_path)
+
+            score = self._estimate_score(issues_by_type)
+            status = "success" if not failed_files else "error"
+            result: Dict[str, Any] = {
+                "status": status,
+                "score": score,
+                "issues": issues_by_type,
+                "details": details,
+            }
+            if failed_files:
+                result["failed_files"] = failed_files
+            return result
         except Exception as error:  # pylint: disable=broad-except
             logger.exception("Error running Pylint")
             return {"status": "error", "error": str(error)}
@@ -165,6 +196,27 @@ class Pylint(Tool):  # pylint: disable=too-few-public-methods
             cmd.extend(["--ignore-patterns", ",".join(ignore_patterns)])
         cmd.extend(targets)
         return cmd
+
+    def _expand_targets(self, repo_path: str, targets: List[str]) -> List[str]:
+        files: List[str] = []
+        ignore_dirs = set(self._sanitize_ignore_dirs())
+        for target in targets:
+            target_path = os.path.join(repo_path, target)
+            if os.path.isfile(target_path):
+                if target_path.endswith(".py"):
+                    files.append(target)
+                continue
+            if not os.path.isdir(target_path):
+                continue
+            for root, dirs, filenames in os.walk(target_path):
+                dirs[:] = [name for name in dirs if name not in ignore_dirs]
+                for filename in filenames:
+                    if not filename.endswith(".py"):
+                        continue
+                    full_path = os.path.join(root, filename)
+                    rel_path = os.path.relpath(full_path, repo_path)
+                    files.append(rel_path)
+        return sorted(set(files))
 
     def _split_ignore_patterns(self) -> Tuple[List[str], List[str]]:
         ignore_dirs: List[str] = []
@@ -907,24 +959,79 @@ class Lizard(Tool):  # pylint: disable=too-few-public-methods
         self.timeout = timeout if timeout is not None else DEFAULT_LIZARD_TIMEOUT
 
     def run(self, repo_path: str) -> Dict[str, Any]:
-        try:
-            lizard_module = importlib.import_module("lizard")
-        except ImportError:
-            return self._run_via_cli(repo_path)
+        return self._run_via_cli_per_file(repo_path)
 
-        return self._run_with_module(repo_path, lizard_module)
-
-    def _run_with_module(self, repo_path: str, lizard_module: Any) -> Dict[str, Any]:
+    def _run_via_cli_per_file(self, repo_path: str) -> Dict[str, Any]:
         start_time = time.perf_counter()
-        try:
-            file_infos = list(lizard_module.analyze([repo_path]))
-        except Exception as exc:  # pylint: disable=broad-except
-            logger.exception("Error running Lizard analysis")
-            return {"status": "error", "error": str(exc)}
+        files = self._discover_python_files(repo_path)
+        functions: List[Dict[str, Any]] = []
+        timed_out: List[str] = []
+        failed: List[str] = []
+
+        for file_path in files:
+            try:
+                process = subprocess.run(
+                    ["lizard", "--xml", file_path],
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                    cwd=repo_path,
+                    timeout=self.timeout,
+                )
+            except subprocess.TimeoutExpired:
+                logger.error("Lizard timed out on %s", file_path)
+                timed_out.append(file_path)
+                continue
+            except FileNotFoundError:
+                message = (
+                    "Lizard executable not found. Install 'lizard' to enable CCN scanning."
+                )
+                logger.error(message)
+                return {"status": "error", "error": message}
+            except Exception as exc:  # pylint: disable=broad-except
+                logger.exception("Error launching lizard CLI for %s", file_path)
+                failed.append(file_path)
+                continue
+
+            if process.returncode != 0:
+                logger.error("Lizard CLI failed on %s", file_path)
+                failed.append(file_path)
+                continue
+
+            try:
+                functions.extend(self._parse_xml_output(repo_path, process.stdout))
+            except Exception as exc:  # pylint: disable=broad-except
+                logger.exception("Failed to parse Lizard XML output for %s", file_path)
+                failed.append(file_path)
 
         duration = time.perf_counter() - start_time
-        functions = self._collect_module_functions(repo_path, file_infos)
-        return self._build_result(functions, duration)
+        result = self._build_result(functions, duration)
+        if timed_out:
+            result["timed_out_files"] = timed_out
+        if failed:
+            result["failed_files"] = failed
+        return result
+
+    def _discover_python_files(self, repo_path: str) -> List[str]:
+        ignore_dirs = set(self._sanitize_ignore_dirs())
+        files: List[str] = []
+        for root, dirs, filenames in os.walk(repo_path):
+            dirs[:] = [name for name in dirs if name not in ignore_dirs]
+            for filename in filenames:
+                if filename.endswith(".py"):
+                    files.append(os.path.join(root, filename))
+        return sorted(set(files))
+
+    @staticmethod
+    def _sanitize_ignore_dirs() -> List[str]:
+        ignore_dirs: List[str] = []
+        for pattern in DEFAULT_PYLINT_IGNORE_DIRS:
+            if not pattern:
+                continue
+            if "*" in pattern:
+                continue
+            ignore_dirs.append(pattern.strip("/"))
+        return ignore_dirs
 
     def _run_via_cli(self, repo_path: str) -> Dict[str, Any]:
         start_time = time.perf_counter()
