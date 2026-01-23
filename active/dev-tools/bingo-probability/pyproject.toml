@@ -19,3 +19,7 @@ dev = [
 
 [project.scripts]
 bingo-probability = "bingo_probability.cli:main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
