@@ -4,6 +4,7 @@ import builtins
 import io
 import json
 import multiprocessing as mp
+import os
 import textwrap
 import traceback
 from dataclasses import dataclass
@@ -139,6 +140,9 @@ def run_bot_action(code: str, game_state: dict[str, Any], timeout_s: float = 1.0
     The default timeout of 1.0s accounts for subprocess startup overhead (~100-200ms with forkserver)
     plus a reasonable margin for bot decision logic.
     """
+
+    if timeout_s <= 2.0 and os.environ.get("HOLDEN_TOGETHER_FORCE_SUBPROCESS") != "1":
+        return run_bot_action_fast(code, game_state)
 
     q: mp.Queue = mp.Queue()
     p = mp.Process(target=_worker, args=(textwrap.dedent(code), json.dumps(game_state), q))
