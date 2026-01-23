@@ -27,14 +27,14 @@ dependencies = [
 dynamic = ["version"]
 
 [project.scripts]
-"c2w" = "cli-to-web.main:main"
+"c2w" = "cli_to_web.main:main"
 
 [project.urls]
 "Issue Tracker" = "https://github.com/calvinloveland/cli-to-web/issues"
 "Repository" = "https://github.com/calvinloveland/cli-to-web"
 
 [tool.hatch.version]
-path = "src/cli-to-web/__about__.py"
+path = "src/cli_to_web/__about__.py"
 
 [tool.hatch.build]
 include = [
@@ -46,4 +46,4 @@ exclude = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/cli-to-web"]
+packages = ["src/cli_to_web"]
