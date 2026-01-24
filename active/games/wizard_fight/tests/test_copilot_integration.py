@@ -1,3 +1,4 @@
+import asyncio
 import os
 import socket
 import pytest
@@ -43,6 +44,8 @@ def test_copilot_integration_generate_and_model_enforcement(monkeypatch):
         models = cg._client.list_models() if hasattr(cg._client, "list_models") else None
         if callable(models):
             models = models()
+        if asyncio.iscoroutine(models):
+            models = asyncio.run(models)
     except Exception:
         models = None
 
