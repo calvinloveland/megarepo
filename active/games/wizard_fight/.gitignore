@@ -1,0 +1,8 @@
+# Ignore Playwright demo artifacts and browser cache
+*.gif
+*.webm
+tmp_playwright_videos/
+tmp_playwright_gif/
+.playwright_browsers/
+__pycache__/
+*.egg-info/
