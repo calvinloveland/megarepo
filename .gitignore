@@ -42,6 +42,7 @@ out/
 # Python virtualenvs
 .venv/
 venv/
+.venv-copilot/
 
 # Environment files
 .env
