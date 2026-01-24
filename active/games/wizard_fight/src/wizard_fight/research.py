@@ -204,12 +204,24 @@ def _dsl_with_llm(prompt: str, design: SpellDesign) -> Dict[str, Any]:
 
 
 def _call_llm(system: str, user: str) -> str:
-    mode = os.getenv("WIZARD_FIGHT_LLM_MODE", "local").lower()
-    if mode == "openai":
-        return _call_openai(system, user)
-    if mode == "local":
-        return _call_local_model(system, user)
-    return ""
+    """Call the configured SpellGenerator if present, else fall back to legacy modes.
+
+    This function preserves backward compatibility while enabling a pluggable
+    backend via `WIZARD_FIGHT_SPELL_BACKEND` and `wizard_fight.generation`.
+    """
+    try:
+        from wizard_fight.generation import get_generator_from_env
+
+        gen = get_generator_from_env()
+        return gen.generate(system, user, timeout=20)
+    except Exception:
+        # If no generator or it fails, fall back to legacy env var based behavior
+        mode = os.getenv("WIZARD_FIGHT_LLM_MODE", "local").lower()
+        if mode == "openai":
+            return _call_openai(system, user)
+        if mode == "local":
+            return _call_local_model(system, user)
+        return ""
 
 
 def _call_openai(system: str, user: str) -> str:

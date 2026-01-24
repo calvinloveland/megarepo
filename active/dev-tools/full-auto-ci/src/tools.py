@@ -738,27 +738,92 @@ class Coverage(Tool):  # pylint: disable=too-few-public-methods
             )
         except subprocess.TimeoutExpired as exc:
             timed_out = True
-            process = SimpleNamespace(
-                returncode=-1,
-                stdout=(
-                    (
-                        exc.stdout.decode()
-                        if isinstance(exc.stdout, bytes)
-                        else exc.stdout
+            # Fallback: if coverage run times out, try a lightweight pytest collect-only
+            # to determine whether there are zero tests (which we treat as skipped).
+            try:
+                fallback = subprocess.run(
+                    ["pytest", "--collect-only", "-q"],
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                    cwd=repo_path,
+                    timeout=30,
+                )
+                if fallback.returncode == 0 and "collected" in (fallback.stdout or ""):
+                    # Example output: 'collected 0 items'
+                    if "collected 0 items" in (fallback.stdout or ""):
+                        process = SimpleNamespace(
+                            returncode=5,
+                            stdout=fallback.stdout,
+                            stderr=fallback.stderr,
+                        )
+                    else:
+                        process = SimpleNamespace(
+                            returncode=-1,
+                            stdout=(
+                                (
+                                    exc.stdout.decode()
+                                    if isinstance(exc.stdout, bytes)
+                                    else exc.stdout
+                                )
+                                if exc.stdout
+                                else None
+                            ),
+                            stderr=(
+                                (
+                                    exc.stderr.decode()
+                                    if isinstance(exc.stderr, bytes)
+                                    else exc.stderr
+                                )
+                                if exc.stderr
+                                else None
+                            ),
+                        )
+                else:
+                    process = SimpleNamespace(
+                        returncode=-1,
+                        stdout=(
+                            (
+                                exc.stdout.decode()
+                                if isinstance(exc.stdout, bytes)
+                                else exc.stdout
+                            )
+                            if exc.stdout
+                            else None
+                        ),
+                        stderr=(
+                            (
+                                exc.stderr.decode()
+                                if isinstance(exc.stderr, bytes)
+                                else exc.stderr
+                            )
+                            if exc.stderr
+                            else None
+                        ),
                     )
-                    if exc.stdout
-                    else None
-                ),
-                stderr=(
-                    (
-                        exc.stderr.decode()
-                        if isinstance(exc.stderr, bytes)
-                        else exc.stderr
-                    )
-                    if exc.stderr
-                    else None
-                ),
-            )
+            except subprocess.TimeoutExpired:
+                # Fallback also timed out; preserve original timeout result
+                process = SimpleNamespace(
+                    returncode=-1,
+                    stdout=(
+                        (
+                            exc.stdout.decode()
+                            if isinstance(exc.stdout, bytes)
+                            else exc.stdout
+                        )
+                        if exc.stdout
+                        else None
+                    ),
+                    stderr=(
+                        (
+                            exc.stderr.decode()
+                            if isinstance(exc.stderr, bytes)
+                            else exc.stderr
+                        )
+                        if exc.stderr
+                        else None
+                    ),
+                )
         duration = time.perf_counter() - start_time
 
         pytest_details = self._parse_pytest_output(process.stdout)

@@ -15,6 +15,7 @@ from .cli_providers import handle_provider_command as run_provider_command
 from .cli_service import handle_service_command as run_service_command
 from .cli_service import register_service_commands as add_service_commands
 from .service import CIService
+from .tools import _progress
 
 # Configure logging
 logging.basicConfig(
@@ -296,7 +297,7 @@ class CLI:
             project_roots = [repo_path]
 
         overall_issues = False
-        for project_root in project_roots:
+        for project_root in _progress(project_roots, desc="projects", unit="project"):
             results = self.service.tool_runner.run_all(project_root)
 
             if not results:

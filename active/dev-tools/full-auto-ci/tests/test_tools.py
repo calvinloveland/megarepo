@@ -320,7 +320,8 @@ class TestCoverage(unittest.TestCase):
         self.assertIn("timed out", result["error"].lower())
         self.assertIn("timeout error", (result.get("stderr") or "").lower())
         mock_chdir.assert_called()
-        self.assertEqual(mock_run.call_count, 1)
+        # A fallback pytest collect-only may be attempted when the coverage run times out
+        self.assertGreaterEqual(mock_run.call_count, 1)
 
     @patch("os.chdir")
     @patch("subprocess.run")

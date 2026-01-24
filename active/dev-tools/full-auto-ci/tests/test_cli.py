@@ -311,7 +311,9 @@ class TestCLI(unittest.TestCase):
             })
 
             with patch("os.getcwd", return_value=tmpdir):
-                exit_code = self.cli._run_default_tools()
+                # Patch _progress to avoid producing tqdm output during test runs
+                with patch("src.cli._progress", side_effect=lambda it, **k: it):
+                    exit_code = self.cli._run_default_tools()
 
             self.assertEqual(exit_code, 0)
             called_paths = [call.args[0] for call in self.cli.service.tool_runner.run_all.call_args_list]
