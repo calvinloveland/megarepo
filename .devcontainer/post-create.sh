@@ -61,6 +61,18 @@ git config --global init.defaultBranch main
 git config --global pull.rebase false
 
 echo ""
+# Setup Copilot SDK virtualenv (Python 3.12 required)
+if command -v python3 >/dev/null 2>&1; then
+  PYV=$(python3 -c 'import sys; print(".".join(map(str, sys.version_info[:2])))')
+  echo "🔁 Creating Copilot SDK virtualenv at /home/vscode/.venv-copilot using python $PYV"
+  # Create venv if missing (best-effort)
+  python3 -m venv /home/vscode/.venv-copilot 2>/dev/null || python -m venv /home/vscode/.venv-copilot 2>/dev/null || true
+  /bin/bash -lc "source /home/vscode/.venv-copilot/bin/activate && python -m pip install --upgrade pip setuptools wheel && pip install github-copilot-sdk" || echo "    ⚠️ Could not install github-copilot-sdk automatically; run 'source /home/vscode/.venv-copilot/bin/activate && pip install github-copilot-sdk' after rebuilding the container"
+else
+  echo "⚠️ python3 not found; Copilot SDK venv not created. Rebuild the devcontainer to install Python 3.12."
+fi
+
+echo ""
 echo "✅ Development environment ready!"
 echo ""
 echo "Project locations:"
