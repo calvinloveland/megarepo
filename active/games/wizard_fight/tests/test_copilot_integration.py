@@ -1,3 +1,4 @@
+import os
 import socket
 import pytest
 
@@ -12,8 +13,12 @@ def _can_connect(host: str, port: int, timeout: float = 1.0) -> bool:
         return False
 
 
+FORCE_COPILOT_TEST = os.getenv("WIZARD_FIGHT_FORCE_COPILOT_TEST", "").lower() in ("1", "true", "yes")
+SHOULD_SKIP = (not FORCE_COPILOT_TEST) and (not _can_connect("localhost", 4321))
+
+
 @pytest.mark.integration
-@pytest.mark.skipif(not _can_connect("localhost", 4321), reason="Copilot CLI server not reachable on localhost:4321")
+@pytest.mark.skipif(SHOULD_SKIP, reason="Copilot CLI server not reachable on localhost:4321")
 def test_copilot_integration_generate_and_model_enforcement(monkeypatch):
     # Ensure tests use the local CLI server
     monkeypatch.setenv("WIZARD_FIGHT_COPILOT_CLI_URL", "http://localhost:4321")
