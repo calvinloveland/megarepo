@@ -89,12 +89,18 @@ class CopilotGenerator(SpellGenerator):
         try:
             self._ensure_client()
             if self._client is not None and hasattr(self._client, "models"):
-                models = list(self._client.models.list())  # type: ignore
+                raw_models = None
+                # Support multiple model-listing shapes: attribute list, method list(), or iterable
+                if hasattr(self._client.models, "list") and callable(getattr(self._client.models, "list")):
+                    raw_models = list(self._client.models.list())  # type: ignore
+                else:
+                    raw_models = list(self._client.models)
+
                 # Filter algorithm: prefer requested model if available and allowed
-                names = [m.name for m in models if getattr(m, "name", None)]
+                names = [getattr(m, "name", None) for m in raw_models]
                 if self.model in names:
                     # Check for premium flag if exposed
-                    meta = next((m for m in models if getattr(m, "name", None) == self.model), None)
+                    meta = next((m for m in raw_models if getattr(m, "name", None) == self.model), None)
                     if getattr(meta, "premium", False) and not self.allow_premium:
                         logger.warning("Requested model %s is premium; falling back to default non-premium model", self.model)
                         self.model = DEFAULT_MODEL
@@ -105,7 +111,7 @@ class CopilotGenerator(SpellGenerator):
                     if candidate in names:
                         return candidate
                 # Otherwise pick first non-premium model
-                for m in models:
+                for m in raw_models:
                     if not getattr(m, "premium", False):
                         return getattr(m, "name")
         except Exception:  # pragma: no cover - defensive

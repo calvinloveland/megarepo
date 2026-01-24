@@ -4,9 +4,6 @@ from wizard_fight.backends import copilot_backend
 
 
 class DummyClient:
-    def __init__(self, models=None):
-        self.models = models or []
-
     class models:
         @staticmethod
         def list():
