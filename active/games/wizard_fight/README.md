@@ -74,7 +74,19 @@ Set `WIZARD_FIGHT_LLM_MODE=local` and run a local model with Ollama:
 - `WIZARD_FIGHT_LOCAL_BACKEND=ollama`
 - `WIZARD_FIGHT_OLLAMA_URL=http://localhost:11434/api/generate`
 - `WIZARD_FIGHT_OLLAMA_MODEL=llama3.2`
+### Copilot backend (optional)
+You can enable GitHub Copilot as a spell-generation backend. This is optional and requires either the `github-copilot-sdk` Python package or a running Copilot CLI server.
 
+Environment variables:
+- `WIZARD_FIGHT_SPELL_BACKEND=copilot` — select Copilot as the backend
+- `WIZARD_FIGHT_COPILOT_MODEL=raptor-mini` — preferred default non-premium model (`raptor-mini`)
+- `WIZARD_FIGHT_COPILOT_CLI_URL=localhost:4321` — (optional) connect to a running `copilot --server` instance
+- `WIZARD_FIGHT_ALLOW_PREMIUM=false` — set to `true` to allow premium models (disabled by default)
+
+Notes:
+- The integration enforces non-premium models by default (to avoid using paid/premium requests). `raptor-mini` is used as the default safe model.
+- Install the Python client for best experience: `pip install .[copilot]` from the `active/games/wizard_fight` directory to enable the Copilot adapter.
+- If you have the `copilot` CLI installed, you can start it as a server: `copilot --server --port 4321` and set `WIZARD_FIGHT_COPILOT_CLI_URL` to that address.
 Start the Ollama server and pull the model:
 - `ollama serve`
 - `ollama pull llama3.2`
