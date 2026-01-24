@@ -14,9 +14,11 @@ back to existing generators.
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 import time
+from concurrent.futures import ThreadPoolExecutor
 from typing import Optional
 
 from wizard_fight.generation import SpellGenerator
@@ -47,12 +49,19 @@ class CopilotGenerator(SpellGenerator):
         try:
             import importlib
 
-            copilot_mod = importlib.import_module("github_copilot_sdk")
-            ClientClass = getattr(copilot_mod, "CopilotClient", None) or getattr(
-                copilot_mod, "Copilot", None
-            ) or getattr(copilot_mod, "Client", None)
+            copilot_mod = None
+            ClientClass = None
+            try:
+                copilot_mod = importlib.import_module("copilot")
+                ClientClass = getattr(copilot_mod, "CopilotClient", None)
+            except Exception:
+                copilot_mod = importlib.import_module("github_copilot_sdk")
+                ClientClass = getattr(copilot_mod, "CopilotClient", None) or getattr(
+                    copilot_mod, "Copilot", None
+                ) or getattr(copilot_mod, "Client", None)
+
             if ClientClass is None:
-                raise ImportError("No client class found in github_copilot_sdk")
+                raise ImportError("No client class found in copilot SDK module")
 
             kwargs = {}
             cli_url = os.getenv("WIZARD_FIGHT_COPILOT_CLI_URL")
@@ -84,10 +93,69 @@ class CopilotGenerator(SpellGenerator):
                     "'copilot' CLI found on PATH. To use with this backend, either install 'github-copilot-sdk' or run 'copilot --server --port 4321' and set WIZARD_FIGHT_COPILOT_CLI_URL=localhost:4321"
                 )
 
+    def _run_async(self, coro):
+        """Run async coroutine from sync context safely."""
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            return asyncio.run(coro)
+
+        def runner():
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                return loop.run_until_complete(coro)
+            finally:
+                loop.close()
+
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(runner)
+            return future.result()
+
     def _select_model(self) -> str:
         # If client provides model listing, use it to ensure non-premium selection.
         try:
             self._ensure_client()
+            if self._client is not None and hasattr(self._client, "list_models"):
+                models = self._run_async(self._client.list_models())
+                if models:
+                    requested = self.model
+                    for model in models:
+                        model_id = model.get("id") if isinstance(model, dict) else None
+                        billing = model.get("billing") if isinstance(model, dict) else None
+                        is_premium = False
+                        if isinstance(billing, dict):
+                            is_premium = bool(billing.get("is_premium"))
+                        if model_id == requested and is_premium and not self.allow_premium:
+                            logger.warning(
+                                "Requested model %s is premium; falling back to default non-premium model",
+                                self.model,
+                            )
+                            self.model = DEFAULT_MODEL
+                            requested = self.model
+                        if model_id == requested:
+                            return requested
+
+                    # Prefer default model if present and non-premium
+                    for model in models:
+                        model_id = model.get("id") if isinstance(model, dict) else None
+                        billing = model.get("billing") if isinstance(model, dict) else None
+                        is_premium = False
+                        if isinstance(billing, dict):
+                            is_premium = bool(billing.get("is_premium"))
+                        if model_id == DEFAULT_MODEL and (self.allow_premium or not is_premium):
+                            return DEFAULT_MODEL
+
+                    # Otherwise pick first non-premium model
+                    for model in models:
+                        model_id = model.get("id") if isinstance(model, dict) else None
+                        billing = model.get("billing") if isinstance(model, dict) else None
+                        is_premium = False
+                        if isinstance(billing, dict):
+                            is_premium = bool(billing.get("is_premium"))
+                        if model_id and not is_premium:
+                            return model_id
+
             if self._client is not None and hasattr(self._client, "models"):
                 raw_models = None
                 # Support multiple model-listing shapes: attribute list, method list(), or iterable
@@ -127,6 +195,39 @@ class CopilotGenerator(SpellGenerator):
         # Minimal implementation: use client if available; otherwise, fall back to CLI via subprocess
         if self._client is not None:
             try:
+                if hasattr(self._client, "start") and hasattr(self._client, "create_session"):
+                    # Async CopilotClient path (Python SDK)
+                    async def run_session():
+                        await self._client.start()
+                        session = await self._client.create_session({"model": model})
+                        done = asyncio.Event()
+                        content_holder = {"text": ""}
+
+                        def on_event(event):
+                            try:
+                                if event.type.value == "assistant.message":
+                                    content_holder["text"] = event.data.content
+                                elif event.type.value == "session.idle":
+                                    done.set()
+                            except Exception:
+                                pass
+
+                        session.on(on_event)
+                        await session.send({"prompt": f"{system}\n{user}\nJSON:"})
+                        try:
+                            await asyncio.wait_for(done.wait(), timeout=timeout)
+                        except asyncio.TimeoutError:
+                            pass
+                        await session.destroy()
+                        await self._client.stop()
+                        return content_holder["text"]
+
+                    start = time.perf_counter()
+                    response = self._run_async(run_session())
+                    duration = time.perf_counter() - start
+                    logger.info("Copilot generate (async client) completed in %.2fs", duration)
+                    return str(response or "")
+
                 # Try session-based API first (common pattern in SDKs)
                 start = time.perf_counter()
                 session = None
