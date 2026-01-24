@@ -83,6 +83,10 @@ Environment variables:
 - `WIZARD_FIGHT_COPILOT_CLI_URL=localhost:4321` — (optional) connect to a running `copilot --server` instance
 - `WIZARD_FIGHT_ALLOW_PREMIUM=false` — set to `true` to allow premium models (disabled by default)
 
+Demo recording:
+- `python ui_tests/demo_record.py --output demo.gif` will start a local backend and frontend (dev environment), run a short Playwright-driven scenario that generates a spell via the Spell Lab (with the Copilot backend highlighted), and produce `demo.gif`.
+- Requirements: `playwright` and `ffmpeg` installed. Install browsers with `playwright install chromium`.
+
 Notes:
 - The integration enforces non-premium models by default (to avoid using paid/premium requests). `raptor-mini` is used as the default safe model.
 - Install the Python client for best experience: `pip install .[copilot]` from the `active/games/wizard_fight` directory to enable the Copilot adapter.

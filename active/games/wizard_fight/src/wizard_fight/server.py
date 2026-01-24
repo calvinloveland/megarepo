@@ -14,7 +14,8 @@ from loguru import logger
 from flask_socketio import SocketIO
 
 from wizard_fight.engine import GameState, apply_spell, build_initial_state, step
-from wizard_fight.research import SpellDesign, build_spell_spec, design_spell, llm_backend_label, upgrade_spell
+from wizard_fight.research import SpellDesign, build_spell_spec, design_spell, upgrade_spell
+from wizard_fight.llm import llm_backend_label
 from wizard_fight.storage import (
     list_spell_leaderboard,
     list_spells as storage_list_spells,
