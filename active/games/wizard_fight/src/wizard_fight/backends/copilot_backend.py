@@ -63,19 +63,25 @@ class CopilotGenerator(SpellGenerator):
             if ClientClass is None:
                 raise ImportError("No client class found in copilot SDK module")
 
-            kwargs = {}
             cli_url = os.getenv("WIZARD_FIGHT_COPILOT_CLI_URL")
-            if cli_url:
-                # SDKs accept either cliUrl/cli_url naming conventions; try both via kwargs
-                # If the constructor doesn't accept it, it will raise and we fall back.
-                kwargs["cli_url"] = cli_url
-                kwargs["cliUrl"] = cli_url
 
-            try:
-                self._client = ClientClass(**kwargs)
-            except TypeError:
-                # Try without kwargs
-                self._client = ClientClass()
+            # Prefer options-dict initialization (CopilotClient signature expects options: Optional[dict])
+            if cli_url:
+                try:
+                    self._client = ClientClass({"cli_url": cli_url})
+                except TypeError:
+                    try:
+                        self._client = ClientClass({"cliUrl": cli_url})
+                    except TypeError:
+                        try:
+                            self._client = ClientClass(cli_url=cli_url)
+                        except TypeError:
+                            self._client = ClientClass()
+            else:
+                try:
+                    self._client = ClientClass()
+                except TypeError:
+                    self._client = ClientClass({})
 
             # If client exposes a models attribute, good; otherwise we'll handle defensively later
         except Exception:  # pragma: no cover - fallback
@@ -117,7 +123,16 @@ class CopilotGenerator(SpellGenerator):
         try:
             self._ensure_client()
             if self._client is not None and hasattr(self._client, "list_models"):
-                models = self._run_async(self._client.list_models())
+                async def list_models_with_start():
+                    if hasattr(self._client, "start") and hasattr(self._client, "stop"):
+                        await self._client.start()
+                        try:
+                            return await self._client.list_models()
+                        finally:
+                            await self._client.stop()
+                    return await self._client.list_models()
+
+                models = self._run_async(list_models_with_start())
                 if models:
                     requested = self.model
                     for model in models:
