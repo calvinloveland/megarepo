@@ -6,7 +6,7 @@ Usage (dev machine):
 - Run: python ui_tests/demo_record.py --output demo.gif
 
 The script starts the backend and frontend locally with the Copilot backend
-selected (default model raptor-mini). It records a short video of generating a
+selected (default model gpt5-mini). It records a short video of generating a
 spell via the Spell Lab and converts the video to a GIF for sharing.
 """
 from __future__ import annotations
@@ -32,7 +32,7 @@ GIF_TMP = ROOT / "tmp_playwright_gif"
 BACKEND_PORT = int(os.getenv("WIZARD_FIGHT_PORT", "5055"))
 FRONTEND_PORT = int(os.getenv("WIZARD_FIGHT_FRONTEND_PORT", "5175"))
 
-COPILOT_MODEL = os.getenv("WIZARD_FIGHT_COPILOT_MODEL", "raptor-mini")
+COPILOT_MODEL = os.getenv("WIZARD_FIGHT_COPILOT_MODEL", "gpt5-mini")
 
 PYTHON = sys.executable
 
