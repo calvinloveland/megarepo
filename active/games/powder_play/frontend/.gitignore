@@ -3,3 +3,9 @@ dist/
 .vscode/
 .env
 playwright-report/
+
+# Workspace-local playwright cache (do not commit binaries)
+.playwright_browsers/
+
+devserver.log
+devserver.pid

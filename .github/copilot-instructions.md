@@ -110,6 +110,19 @@ Before making changes to a project, check for:
   ```
   This avoids permission issues with system caches and keeps browser binaries contained in the repo workspace.
 
+- **Be careful to avoid committing large downloaded artifacts** (browser binaries, model files, datasets). Before downloading large files into your workspace:
+  - Add or update a repository `.gitignore` entry for the target cache directory (for example, add `.playwright_browsers/`).
+  - Commit the `.gitignore` change before downloading to prevent accidental commits.
+  - Prefer workspace-local caches (not committed) and document the install path in project docs.
+
+- If large binaries are accidentally committed, **do not panic**: remove them from the index and rewrite history if appropriate, e.g.: (review before running)
+  ```bash
+  git rm -r --cached .playwright_browsers
+  git commit -m "chore: remove downloaded playwright binaries from repo"
+  git push origin --force-with-lease # only after team approval
+  ```
+  Note: Rewriting history is disruptive; discuss with collaborators before force-pushing.
+
 - Always capture logs to files when running background tasks. This prevents interactive TTY prompts and preserves diagnostics.
 
 - Use non-interactive test runners in CI (Playwright headless, `npx playwright test --config=playwright.config.ts --reporter=list`) and ensure the dev server is reachable before running e2e tests (poll `http://127.0.0.1:5173` or check `devserver.log` for a ready message).
