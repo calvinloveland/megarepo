@@ -18,7 +18,7 @@ export function createPromptEditor(root: HTMLElement, onMaterialReady:(m:any)=>v
     status.textContent = 'Generating…';
     const intent = (container.querySelector('#intent') as HTMLTextAreaElement).value;
     const ast = await generateMaterialFromIntent(intent);
-    const ok = validateMaterial(ast);
+    const ok = await validateMaterial(ast);
     if (!ok.ok) {
       status.textContent = 'Validation failed: ' + JSON.stringify(ok.errors);
       return;

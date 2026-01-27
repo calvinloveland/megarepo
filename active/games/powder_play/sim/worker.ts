@@ -21,9 +21,19 @@ onmessage = (ev: MessageEvent) => {
   } else if (msg.type === 'set_material') {
     interpreter = new Interpreter(msg.material);
     postMessage({type:'material_set'});
+  } else if (msg.type === 'set_grid') {
+    // accept transferred buffer as the new grid if size matches
+    const buf = new Uint16Array(msg.buffer);
+    if (buf.length === width*height) {
+      grid = buf;
+      nextGrid = new Uint16Array(width*height);
+      postMessage({type:'grid_set'});
+    } else {
+      postMessage({type:'error', message:'grid size mismatch'});
+    }
   } else if (msg.type === 'step') {
     stepSimulation();
-    postMessage({type:'stepped', grid: grid.buffer}, [grid.buffer]);
+    postMessage({type:'stepped', grid: grid.buffer, width, height}, [grid.buffer]);
     // swap buffers
     const t = grid; grid = nextGrid; nextGrid = t;
   }

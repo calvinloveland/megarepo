@@ -36,13 +36,21 @@ function initWorkerWithMaterial(mat:any) {
     worker = new Worker(new URL('../../sim/worker.ts', import.meta.url), { type: 'module' });
     worker.onmessage = (ev) => {
       const m = ev.data;
-      if (m.type === 'ready') console.log('worker ready');
-      if (m.type === 'material_set') console.log('material set');
-      if (m.type === 'stepped') {
-        // TODO: draw grid
-        const buf = new Uint16Array(m.grid);
-        drawGrid(buf, 600, 400);
+      if (m.type === 'ready') {
+        console.log('worker ready');
+        // attach canvas tools once worker exists
+        import('./canvas_tools').then(mod => {
+          mod.attachCanvasTools(document.getElementById('sim-canvas') as HTMLCanvasElement, worker!, 150, 100);
+        });
       }
+      if (m.type === 'material_set') console.log('material set');
+      if (m.type === 'grid_set') console.log('grid set on worker');
+      if (m.type === 'stepped') {
+        // draw scaled grid
+        const buf = new Uint16Array(m.grid);
+        drawGrid(buf, m.width, m.height, 600, 400);
+      }
+      if (m.type === 'error') console.warn('worker error', m.message);
     }
     worker.postMessage({type:'init', width:150, height:100});
   }
@@ -51,10 +59,14 @@ function initWorkerWithMaterial(mat:any) {
   worker.postMessage({type:'step'});
 }
 
-function drawGrid(buf:Uint16Array, w:number, h:number) {
+function drawGrid(buf:Uint16Array, w:number, h:number, canvasW:number, canvasH:number) {
   const canvas = document.getElementById('sim-canvas') as HTMLCanvasElement;
   const ctx = canvas.getContext('2d')!;
-  const img = ctx.createImageData(w, h);
+  // create an offscreen canvas for the small grid
+  const off = document.createElement('canvas');
+  off.width = w; off.height = h;
+  const offCtx = off.getContext('2d')!;
+  const img = offCtx.createImageData(w, h);
   for (let i=0;i<w*h;i++) {
     const v = buf[i] & 0xff;
     img.data[i*4+0] = v;
@@ -62,5 +74,8 @@ function drawGrid(buf:Uint16Array, w:number, h:number) {
     img.data[i*4+2] = v;
     img.data[i*4+3] = 255;
   }
-  ctx.putImageData(img,0,0);
+  offCtx.putImageData(img,0,0);
+  // draw scaled to main canvas
+  ctx.clearRect(0,0,canvasW,canvasH);
+  ctx.drawImage(off, 0,0, canvasW, canvasH);
 }
