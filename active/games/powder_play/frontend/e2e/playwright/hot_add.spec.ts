@@ -40,8 +40,8 @@ test('hot-add material is discovered and auto-loaded', async ({ page }) => {
   }, { timeout: 10000 });
 
   // Click the Load button for our material to force a deterministic load
-  const materialRow = page.locator('text=HotAdded').first();
-  await materialRow.locator('button', { hasText: 'Load' }).click();
+  const materialRow = page.locator('#materials-list > div', { hasText: 'HotAdded' }).first();
+  await materialRow.locator('button.load').click();
 
   // Wait for the page to call our onMaterialLoaded callback when the UI loads the material
   const loadedName = await Promise.race([
