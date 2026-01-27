@@ -69,6 +69,7 @@ export function mountMaterialBrowser(root: HTMLElement) {
       }
       // use the exposed helper to init worker
       if ((window as any).__initWorkerWithMaterial) {
+        console.log('[material_browser] initWorkerWithMaterial ->', mat.name, file);
         (window as any).__initWorkerWithMaterial(mat);
         const status = document.getElementById('status');
         if (status) status.textContent = `Material ready: ${mat.name}`;
