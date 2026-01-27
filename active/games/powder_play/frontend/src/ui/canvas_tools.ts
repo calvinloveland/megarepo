@@ -20,8 +20,11 @@ export function attachCanvasTools(canvas: HTMLCanvasElement, worker: Worker | nu
   const parent = canvas.parentElement as HTMLElement;
   if (parent) parent.style.position = parent.style.position || 'relative';
   const overlay = document.createElement('canvas');
+  // match overlay to canvas physical pixels
   overlay.width = canvas.width;
   overlay.height = canvas.height;
+  overlay.style.width = canvas.style.width;
+  overlay.style.height = canvas.style.height;
   overlay.style.position = 'absolute';
   overlay.style.left = canvas.offsetLeft + 'px';
   overlay.style.top = canvas.offsetTop + 'px';
@@ -29,6 +32,13 @@ export function attachCanvasTools(canvas: HTMLCanvasElement, worker: Worker | nu
   overlay.style.zIndex = '10';
   parent.appendChild(overlay);
   const octx = overlay.getContext('2d')!;
+  // account for DPR by scaling drawing into overlay if needed
+  try {
+    const dpr = window.devicePixelRatio || 1;
+    if (dpr !== 1) {
+      octx.setTransform(dpr,0,0,dpr,0,0);
+    }
+  } catch (e) {};
 
   function toGridPosFromClient(clientX:number, clientY:number) {
     const rect = canvas.getBoundingClientRect();

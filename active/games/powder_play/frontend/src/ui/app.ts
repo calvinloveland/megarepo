@@ -41,6 +41,18 @@ export function initApp(root: HTMLElement) {
 
   // attach canvas tools immediately (it will queue paints until worker exists)
   const canvas = document.getElementById('sim-canvas') as HTMLCanvasElement;
+
+  // Setup canvas for devicePixelRatio to reduce blurriness
+  function setupCanvasDPR(c: HTMLCanvasElement, cssW = 600, cssH = 400) {
+    const dpr = Math.max(1, window.devicePixelRatio || 1);
+    c.width = Math.floor(cssW * dpr);
+    c.height = Math.floor(cssH * dpr);
+    c.style.width = cssW + 'px';
+    c.style.height = cssH + 'px';
+    return {dpr, cssW, cssH};
+  }
+  const _dpr = setupCanvasDPR(canvas, 600, 400);
+
   import('./canvas_tools').then(mod => {
     mod.attachCanvasTools(canvas, (window as any).__powderWorker || null, 150, 100);
   });
@@ -77,11 +89,12 @@ function initWorkerWithMaterial(mat:any) {
         // expose last stepped grid for debugging
         try {
           (window as any).__lastGrid = buf.slice();
+          (window as any).__lastGridWidth = m.width;
           const sampleIdx = 10* m.width + 10;
           (window as any).__lastGridSample = buf[sampleIdx];
           console.log('drawGrid sample [10,10] =', buf[sampleIdx], 'colorMap=', (window as any).__materialColors);
         } catch(e) {}
-        drawGrid(buf, m.width, m.height, 600, 400);
+        drawGrid(buf, m.width, m.height);
       }
       if (m.type === 'error') console.warn('worker error', m.message);
     }
@@ -128,9 +141,9 @@ function initWorkerWithMaterial(mat:any) {
 // (like the materials browser) can use it even before a material is set
 (window as any).__initWorkerWithMaterial = initWorkerWithMaterial;
 
-function drawGrid(buf:Uint16Array, w:number, h:number, canvasW:number, canvasH:number) {
+function drawGrid(buf:Uint16Array, w:number, h:number) {
   const canvas = document.getElementById('sim-canvas') as HTMLCanvasElement;
-  const ctx = canvas.getContext('2d')!;
+  const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
   // create an offscreen canvas for the small grid
   const off = document.createElement('canvas');
   off.width = w; off.height = h;
@@ -154,7 +167,7 @@ function drawGrid(buf:Uint16Array, w:number, h:number, canvasW:number, canvasH:n
     }
   }
   offCtx.putImageData(img,0,0);
-  // draw scaled to main canvas
-  ctx.clearRect(0,0,canvasW,canvasH);
-  ctx.drawImage(off, 0,0, canvasW, canvasH);
+  // draw scaled to main canvas using physical pixel size
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.drawImage(off, 0,0, canvas.width, canvas.height);
 }
