@@ -48,7 +48,8 @@ export function initApp(root: HTMLElement) {
 let worker: Worker | null = null;
 function initWorkerWithMaterial(mat:any) {
   if (!worker) {
-    worker = new Worker(new URL('../../sim/worker.ts', import.meta.url), { type: 'module' });
+    // worker script lives at the project-level `sim/worker.ts`, so go up one more dir
+    worker = new Worker(new URL('../../../sim/worker.ts', import.meta.url), { type: 'module' });
     worker.onmessage = (ev) => {
       const m = ev.data;
       if (m.type === 'ready') {
