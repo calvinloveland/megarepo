@@ -44,6 +44,8 @@ test('demo scene: paint sand and it falls down', async ({ page }) => {
       {op:'read', dx:1, dy:1},
       {op:'if', cond:{eq:{value:0}}, then:[{op:'move', dx:1, dy:1}]}]
   };
+  const hasInit = await page.evaluate(() => ({has: !!(window as any).__initWorkerWithMaterial, type: typeof (window as any).__initWorkerWithMaterial}));
+  console.log('hasInit', hasInit);
   await page.evaluate((ast) => {
     (window as any).__initWorkerWithMaterial(ast);
   }, sandAst);
