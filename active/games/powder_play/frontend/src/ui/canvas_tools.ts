@@ -35,6 +35,8 @@ export function attachCanvasTools(canvas: HTMLCanvasElement, worker: Worker, gri
     drawing = false;
     // send grid to worker
     worker.postMessage({type:'set_grid', buffer: grid.buffer}, [grid.buffer]);
+    // immediately step one tick so paint is visible without pressing Step
+    worker.postMessage({type:'step'});
     // recreate grid since buffer was transferred
     for (let i=0;i<grid.length;i++) grid[i]=0;
   });
