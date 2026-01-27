@@ -64,6 +64,10 @@ venv/
 devserver.log
 devserver.pid
 
+# Generated frontend materials (synced from active/games/powder_play/materials)
+/active/games/powder_play/frontend/public/materials/
+
+
 # Wizard Fight dev artifacts
 /active/games/wizard_fight/.wizard_fight_dev.pids
 /active/games/wizard_fight/.wizard_fight_ollama.pid

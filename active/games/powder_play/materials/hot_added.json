@@ -1,0 +1,10 @@
+{
+  "type": "material",
+  "name": "HotAdded",
+  "description": "hot added",
+  "primitives": [],
+  "budgets": {
+    "max_ops": 1,
+    "max_spawns": 0
+  }
+}

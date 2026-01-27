@@ -72,6 +72,13 @@ export function mountMaterialBrowser(root: HTMLElement) {
         (window as any).__initWorkerWithMaterial(mat);
         const status = document.getElementById('status');
         if (status) status.textContent = `Material ready: ${mat.name}`;
+        // notify test harnesss or external listeners that a material was loaded
+        try {
+          const cb = (window as any).onMaterialLoaded;
+          if (typeof cb === 'function') cb(mat.name, file);
+        } catch (err) {
+          // ignore
+        }
       } else {
         console.warn('initWorkerWithMaterial not available');
       }

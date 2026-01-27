@@ -1,0 +1,88 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e4]:
+  - heading "Powder Playground" [level=1] [ref=e5]
+  - generic [ref=e6]:
+    - generic [ref=e7]:
+      - button "Play" [ref=e8]
+      - button "Step" [ref=e9]
+      - combobox [ref=e10]:
+        - option "CPU" [selected]
+        - option "WebGPU"
+    - generic [ref=e12]:
+      - heading "Materials" [level=3] [ref=e13]
+      - generic [ref=e14]:
+        - checkbox "Auto-load new materials" [checked] [ref=e15]
+        - text: Auto-load new materials
+      - generic [ref=e16]:
+        - generic [ref=e17]:
+          - generic [ref=e18]:
+            - strong [ref=e19]: BouncyGel
+            - text: bouncygel.json
+          - button "Load" [ref=e21]
+        - generic [ref=e22]:
+          - generic [ref=e23]:
+            - strong [ref=e24]: Fire
+            - text: fire.json
+          - button "Load" [ref=e26]
+        - generic [ref=e27]:
+          - generic [ref=e28]:
+            - strong [ref=e29]: Glitter
+            - text: glitter.json
+          - button "Load" [ref=e31]
+        - generic [ref=e32]:
+          - generic [ref=e33]:
+            - strong [ref=e34]: Glue
+            - text: glue.json
+          - button "Load" [ref=e36]
+        - generic [ref=e37]:
+          - generic [ref=e38]:
+            - strong [ref=e39]: HotAdded
+            - text: hot_added.json
+          - button "Load" [ref=e41]
+        - generic [ref=e42]:
+          - generic [ref=e43]:
+            - strong [ref=e44]: Metal
+            - text: metal.json
+          - button "Load" [ref=e46]
+        - generic [ref=e47]:
+          - generic [ref=e48]:
+            - strong [ref=e49]: Oil
+            - text: oil.json
+          - button "Load" [ref=e51]
+        - generic [ref=e52]:
+          - generic [ref=e53]:
+            - strong [ref=e54]: Salt
+            - text: salt.json
+          - button "Load" [ref=e56]
+        - generic [ref=e57]:
+          - generic [ref=e58]:
+            - strong [ref=e59]: Sand
+            - text: sand.json
+          - button "Load" [ref=e61]
+        - generic [ref=e62]:
+          - generic [ref=e63]:
+            - strong [ref=e64]: Smoke
+            - text: smoke.json
+          - button "Load" [ref=e66]
+        - generic [ref=e67]:
+          - generic [ref=e68]:
+            - strong [ref=e69]: AutoTest
+            - text: test_auto.json
+          - button "Load" [ref=e71]
+        - generic [ref=e72]:
+          - generic [ref=e73]:
+            - strong [ref=e74]: Water
+            - text: water.json
+          - button "Load" [ref=e76]
+    - generic [ref=e78]:
+      - heading "Create Material" [level=3] [ref=e79]
+      - textbox "Describe the material..." [ref=e80]
+      - generic [ref=e81]:
+        - checkbox "Use local model (WASM)" [ref=e82]
+        - text: Use local model (WASM)
+      - button "Install model" [ref=e83]
+      - button "Generate" [ref=e84]
+  - generic [ref=e85]: Ready
+```

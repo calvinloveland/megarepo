@@ -1,0 +1,7 @@
+{
+  "type": "material",
+  "name": "AutoTest",
+  "description": "Automatically added material for sync test",
+  "primitives": [],
+  "budgets": {"max_ops":1, "max_spawns":0}
+}
