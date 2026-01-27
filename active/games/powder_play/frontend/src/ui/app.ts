@@ -82,7 +82,18 @@ function initWorkerWithMaterial(mat:any) {
         });
       }
       if (m.type === 'material_set') console.log('material set');
-      if (m.type === 'grid_set') console.log('grid set on worker');
+      if (m.type === 'grid_set') {
+        console.log('grid set on worker');
+        try {
+          const buf = new Uint16Array(m.grid);
+          (window as any).__lastGrid = buf.slice();
+          (window as any).__lastGridWidth = m.width;
+          const sampleIdx = 10* m.width + 10;
+          (window as any).__lastGridSample = buf[sampleIdx];
+          console.log('drawGrid sample [10,10] =', buf[sampleIdx], 'colorMap=', (window as any).__materialColors);
+          drawGrid(buf, m.width, m.height);
+        } catch(e) {}
+      }
       if (m.type === 'stepped') {
         // draw scaled grid
         const buf = new Uint16Array(m.grid);

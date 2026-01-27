@@ -38,7 +38,8 @@ onmessage = (ev: MessageEvent) => {
       const idx = p.y*width + p.x;
       if (idx>=0 && idx<grid.length) grid[idx] = msg.materialId;
     }
-    postMessage({type:'grid_set'});
+    // return the current grid so the UI can render the paint immediately
+    postMessage({type:'grid_set', grid: grid.buffer, width, height});
   } else if (msg.type === 'step') {
     stepSimulation();
     postMessage({type:'stepped', grid: grid.buffer, width, height});
