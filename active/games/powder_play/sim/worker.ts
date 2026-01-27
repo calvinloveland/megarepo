@@ -50,6 +50,8 @@ onmessage = (ev: MessageEvent) => {
 
 function stepSimulation() {
   if (!interpreters.size) return;
+  // clear next grid each tick to avoid accumulating cells
+  nextGrid.fill(0);
   // naive per-cell loop for MVP
   for (let y=height-1;y>=0;y--) {
     for (let x=0;x<width;x++) {
