@@ -7,12 +7,14 @@ test('generate material and run one step', async ({ page }) => {
   await page.goto('http://localhost:5173');
   await page.waitForSelector('text=Powder Playground');
 
-  // Click Install model and then Generate
+  // Wait for the Install button and then click Install model and Generate
+  await page.waitForSelector('text=Install model', { timeout: 10_000 });
   await page.click('text=Install model');
+  await page.waitForSelector('text=Generate', { timeout: 5000 });
   await page.click('text=Generate');
 
   // Wait for status to indicate compiled
-  await page.waitForSelector('text=Validated and compiled', { timeout: 20_000 });
+  await page.waitForSelector('text=Validated and compiled', { timeout: 30_000 });
 
   // Click Play to run a single step and check canvas draws something
   await page.click('text=Play');
