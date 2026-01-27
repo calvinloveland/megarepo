@@ -7,6 +7,9 @@ export function createPromptEditor(root: HTMLElement, onMaterialReady:(m:any)=>v
     <div>
       <h3>Create Material</h3>
       <textarea id="intent" rows="4" cols="40" placeholder="Describe the material..."></textarea><br/>
+      <label><input type="checkbox" id="use-local-model"> Use local model (WASM)</label>
+      <button id="install-model">Install model</button>
+      <br/>
       <button id="gen">Generate</button>
       <div id="gen-status"></div>
     </div>
@@ -14,6 +17,21 @@ export function createPromptEditor(root: HTMLElement, onMaterialReady:(m:any)=>v
   root.appendChild(container);
   const btn = container.querySelector('#gen') as HTMLButtonElement;
   const status = container.querySelector('#gen-status') as HTMLElement;
+  const installBtn = container.querySelector('#install-model') as HTMLButtonElement;
+  const useLocal = container.querySelector('#use-local-model') as HTMLInputElement;
+
+  installBtn.onclick = async () => {
+    status.textContent = 'Installing model…';
+    try {
+      const { installModelFromUrl } = await import('../../material_gen/local_model_manager');
+      await installModelFromUrl('https://example.com/model');
+      status.textContent = 'Model installed (stub)';
+      useLocal.checked = true;
+    } catch (err:any) {
+      status.textContent = 'Install error: ' + err.message;
+    }
+  }
+
   btn.onclick = async () => {
     status.textContent = 'Generating…';
     const intent = (container.querySelector('#intent') as HTMLTextAreaElement).value;
