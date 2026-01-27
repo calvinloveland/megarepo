@@ -1,4 +1,3 @@
-import { generateMaterialFromIntent } from '../../material_gen/llm_adapter';
 import { runLocalLLM, installModelFromUrl } from '../material_api';
 
 export function createPromptEditor(root: HTMLElement, onMaterialReady:(m:any)=>void) {
@@ -23,8 +22,9 @@ export function createPromptEditor(root: HTMLElement, onMaterialReady:(m:any)=>v
   installBtn.onclick = async () => {
     status.textContent = 'Installing model…';
     try {
-      const { installModelFromUrl } = await import('../../material_gen/local_model_manager');
-      await installModelFromUrl('https://example.com/model');
+      await installModelFromUrl('https://example.com/model', (pct:number)=>{
+        status.textContent = `Installing: ${pct}%`;
+      });
       status.textContent = 'Model installed (stub)';
       useLocal.checked = true;
     } catch (err:any) {
