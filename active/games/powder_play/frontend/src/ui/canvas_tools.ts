@@ -1,4 +1,4 @@
-export function attachCanvasTools(canvas: HTMLCanvasElement, worker: Worker, gridW: number, gridH: number) {
+export function attachCanvasTools(canvas: HTMLCanvasElement, worker: Worker | null, gridW: number, gridH: number) {
   const btns = document.getElementById('controls')!;
   const info = document.createElement('div');
   // add clear and brush-size controls
@@ -79,14 +79,35 @@ export function attachCanvasTools(canvas: HTMLCanvasElement, worker: Worker, gri
   });
   canvas.addEventListener('mouseleave', ()=>{ octx.clearRect(0,0,overlay.width, overlay.height); });
 
+  const pendingBuffers: ArrayBuffer[] = [];
+  let currentWorker = worker;
+  const flushPending = () => {
+    const w = (window as any).__powderWorker as Worker | undefined;
+    if (w && !currentWorker) {
+      currentWorker = w;
+    }
+    if (currentWorker && pendingBuffers.length) {
+      for (const b of pendingBuffers) {
+        currentWorker.postMessage({type:'set_grid', buffer: b}, [b]);
+        currentWorker.postMessage({type:'step'});
+      }
+      pendingBuffers.length = 0;
+    }
+  };
+  const flushIv = setInterval(flushPending, 500);
+
   window.addEventListener('mouseup', ()=>{
     if (!drawing) return;
     drawing = false;
-    // send grid to worker
-    worker.postMessage({type:'set_grid', buffer: grid.buffer}, [grid.buffer]);
-    // immediately step one tick so paint is visible without pressing Step
-    worker.postMessage({type:'step'});
-    // recreate grid since buffer was transferred
+    // send grid to worker (or queue if worker not available yet)
+    if (currentWorker) {
+      currentWorker.postMessage({type:'set_grid', buffer: grid.buffer}, [grid.buffer]);
+      // immediately step one tick so paint is visible without pressing Step
+      currentWorker.postMessage({type:'step'});
+    } else {
+      pendingBuffers.push(grid.buffer);
+    }
+    // recreate grid since buffer was transferred or queued
     for (let i=0;i<grid.length;i++) grid[i]=0;
   });
 }
