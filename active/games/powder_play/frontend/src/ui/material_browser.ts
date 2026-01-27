@@ -34,11 +34,24 @@ export function mountMaterialBrowser(root: HTMLElement) {
       row.style.display = 'flex';
       row.style.justifyContent = 'space-between';
       row.style.padding = '2px 0';
-      row.innerHTML = `<div><strong>${m.name}</strong> <small style=\"opacity:.7\">${m.file}</small></div><div><button class=\"load\">Load</button></div>`;
+      row.innerHTML = `<div style="display:flex; gap:6px; align-items:center"><span class="swatch" style="width:14px;height:14px;border:1px solid #222;background:transparent"></span><strong>${m.name}</strong> <small style="opacity:.7">${m.file}</small></div><div><button class="load">Load</button></div>`;
       const btn = row.querySelector('.load') as HTMLButtonElement;
       btn.onclick = async () => {
         await loadMaterial(m.file);
       };
+      // fetch material to show color swatch
+      (async () => {
+        try {
+          const r = await fetch(`/materials/${m.file}`);
+          if (!r.ok) return;
+          const mt = await r.json();
+          if (mt && mt.color) {
+            const sw = row.querySelector('.swatch') as HTMLElement;
+            const c = Array.isArray(mt.color) ? mt.color : null;
+            if (c) sw.style.background = `rgb(${c[0]},${c[1]},${c[2]})`;
+          }
+        } catch (e) {}
+      })();
       listEl.appendChild(row);
       newest = m;
     }
