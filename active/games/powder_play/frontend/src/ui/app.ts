@@ -47,8 +47,6 @@ export function initApp(root: HTMLElement) {
 
 let worker: Worker | null = null;
 function initWorkerWithMaterial(mat:any) {
-  // expose function for tests
-  (window as any).__initWorkerWithMaterial = initWorkerWithMaterial;
   if (!worker) {
     worker = new Worker(new URL('../../sim/worker.ts', import.meta.url), { type: 'module' });
     worker.onmessage = (ev) => {
@@ -86,6 +84,9 @@ function initWorkerWithMaterial(mat:any) {
   // kick a step to test
   worker.postMessage({type:'step'});
 }
+// make init helper available to the page before it's called so other UI components
+// (like the materials browser) can use it even before a material is set
+(window as any).__initWorkerWithMaterial = initWorkerWithMaterial;
 
 function drawGrid(buf:Uint16Array, w:number, h:number, canvasW:number, canvasH:number) {
   const canvas = document.getElementById('sim-canvas') as HTMLCanvasElement;
