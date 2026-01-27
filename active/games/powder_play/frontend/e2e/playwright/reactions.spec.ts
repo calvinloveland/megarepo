@@ -18,16 +18,14 @@ test('salt reacts with water to form saltwater', async ({ page }) => {
   await loadByName('Water');
   await loadByName('SaltWater');
 
-  // Paint salt at (70,70), water at (71,70)
+  // Paint salt at (70,70), water at (71,70) without stepping in between
   await page.evaluate(() => {
-    (window as any).__materialIdByName && ((window as any).__currentMaterialId = (window as any).__materialIdByName['Salt']);
+    const map = (window as any).__materialIdByName || {};
+    const worker = (window as any).__powderWorker;
+    if (!worker) return;
+    worker.postMessage({type:'paint_points', materialId: map['Salt'], points: [{x:70,y:70}]});
+    worker.postMessage({type:'paint_points', materialId: map['Water'], points: [{x:71,y:70}]});
   });
-  await page.evaluate(() => (window as any).__paintGridPoints?.([{x:70,y:70}]));
-
-  await page.evaluate(() => {
-    (window as any).__materialIdByName && ((window as any).__currentMaterialId = (window as any).__materialIdByName['Water']);
-  });
-  await page.evaluate(() => (window as any).__paintGridPoints?.([{x:71,y:70}]));
 
   // Step to allow reaction
   await page.evaluate(() => (window as any).__powderWorker?.postMessage({type:'step'}));
