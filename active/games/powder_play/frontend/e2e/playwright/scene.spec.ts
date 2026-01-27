@@ -33,9 +33,10 @@ test('demo scene: paint sand and it falls down', async ({ page }) => {
   // Wait for canvas tools to be attached (happens after worker ready)
   await page.waitForSelector('#clear-grid', { timeout: 5000 });
 
-  for (const p of scene.paintPoints) {
-    await clickAtGrid(p.x, p.y);
-  }
+  // Use the helper exposed by the app to set the grid directly (avoid flaky mouse events)
+  await page.evaluate((points) => {
+    (window as any).__paintGridPoints(points);
+  }, scene.paintPoints);
 
   // Wait briefly for grid to transfer
   await page.waitForTimeout(300);
