@@ -1,0 +1,12 @@
+{
+  "name": "simple_sand_drop",
+  "description": "Drops a small pile of sand near the top-center",
+  "paintPoints": [
+    {"x":75, "y":5},
+    {"x":74, "y":5},
+    {"x":76, "y":5},
+    {"x":75, "y":6},
+    {"x":74, "y":6},
+    {"x":76, "y":6}
+  ]
+}
