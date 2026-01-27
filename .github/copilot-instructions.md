@@ -91,3 +91,29 @@ Before making changes to a project, check for:
 - `README.md` for project-specific instructions
 - `pyproject.toml` or `package.json` for dependencies
 - Existing code style and patterns
+
+## Running dev servers and background tests (Playwright / Vite) ✅
+
+- Prefer non-interactive background runs for dev servers and browser test installs when possible. Use `nohup` or an equivalent background start and capture logs and PID for management.
+  - Example (background start):
+    ```bash
+    cd active/games/powder_play/frontend
+    nohup npm run dev -- --host 127.0.0.1 > devserver.log 2>&1 & echo $! > devserver.pid
+    tail -n +1 -f devserver.log
+    ```
+  - Stop the server cleanly using the PID: `kill $(cat devserver.pid)`
+
+- When installing Playwright browsers in CI or in a workspace without a persistent user cache, set a workspace-local browser path and run install non-interactively:
+  ```bash
+  export PLAYWRIGHT_BROWSERS_PATH=$PWD/../../.playwright_browsers
+  PLAYWRIGHT_BROWSERS_PATH=$PLAYWRIGHT_BROWSERS_PATH npx playwright install --with-deps
+  ```
+  This avoids permission issues with system caches and keeps browser binaries contained in the repo workspace.
+
+- Always capture logs to files when running background tasks. This prevents interactive TTY prompts and preserves diagnostics.
+
+- Use non-interactive test runners in CI (Playwright headless, `npx playwright test --config=playwright.config.ts --reporter=list`) and ensure the dev server is reachable before running e2e tests (poll `http://127.0.0.1:5173` or check `devserver.log` for a ready message).
+
+- When automating from Copilot, start processes with background mode and avoid interactive shells: use the `run_in_terminal` tool with `isBackground=true` and redirect stdout/stderr to logs. Report progress and provide logs/paths in PRs.
+
+- When permission errors occur during browser install, create a workspace-owned cache directory (example: `/workspaces/megarepo/.playwright_browsers`) and set `PLAYWRIGHT_BROWSERS_PATH` accordingly before running `npx playwright install`.
