@@ -1,0 +1,177 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>active/dev-tools/hivemind-llm</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+  <style>body{padding:2rem} pre code {white-space: pre-wrap;}</style>
+</head>
+<body>
+<div class="container">
+  <nav class="mb-4"><a href="/">Megarepo pages</a> / active/dev-tools/hivemind-llm</nav>
+  <article>
+    <h1 id="hivemind-llm">HiveMind LLM</h1>
+<p><strong>Distributed Browser-Based LLM Inference — The More Users, The Smarter It Gets</strong></p>
+<p>HiveMind LLM is a chat application that runs large language models directly in users' browsers using WebGPU. What makes it unique: as more users join the chat, their combined computing power automatically unlocks access to larger, more capable models.</p>
+<h2 id="core-concept">🎯 Core Concept</h2>
+<div class="codehilite"><pre><span></span><code><span class="mf">1</span><span class="w"> </span><span class="n">user</span><span class="w">  </span><span class="err">→</span><span class="w"> </span><span class="n">TinyLlama</span><span class="w"> </span><span class="mf">1.1</span><span class="n">B</span><span class="w"> </span><span class="p">(</span><span class="kr">run</span><span class="n">s</span><span class="w"> </span><span class="n">locally</span><span class="p">)</span>
+<span class="mf">5</span><span class="w"> </span><span class="n">users</span><span class="w"> </span><span class="err">→</span><span class="w"> </span><span class="n">Phi</span><span class="o">-</span><span class="mf">2</span><span class="w"> </span><span class="mf">2.7</span><span class="n">B</span><span class="w"> </span><span class="p">(</span><span class="n">distributed</span><span class="w"> </span><span class="n">across</span><span class="w"> </span><span class="n">browsers</span><span class="p">)</span>
+<span class="mf">10</span><span class="o">+</span><span class="w"> </span><span class="n">users</span><span class="w"> </span><span class="err">→</span><span class="w"> </span><span class="n">Llama</span><span class="w"> </span><span class="mf">3.2</span><span class="w"> </span><span class="mf">3</span><span class="n">B</span><span class="w"> </span><span class="ow">or</span><span class="w"> </span><span class="n">larger</span><span class="w"> </span><span class="p">(</span><span class="n">fully</span><span class="w"> </span><span class="n">distributed</span><span class="p">)</span>
+</code></pre></div>
+
+<p>Unlike traditional LLM services where the server does all the work, HiveMind distributes model inference across all connected users. Each browser handles a portion of the model's layers, coordinating via WebRTC for peer-to-peer communication.</p>
+<h2 id="architecture">🏗️ Architecture</h2>
+<div class="codehilite"><pre><span></span><code><span class="err">┌─────────────────────────────────────────────────────────────────┐</span>
+<span class="err">│</span><span class="w">                        </span><span class="n">Chat</span><span class="w"> </span><span class="n">Interface</span><span class="w">                            </span><span class="err">│</span>
+<span class="err">│</span><span class="w">                </span><span class="p">(</span><span class="n">Static</span><span class="w"> </span><span class="n">HTML</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">TypeScript</span><span class="p">)</span><span class="w">                        </span><span class="err">│</span>
+<span class="err">└─────────────────────────────────────────────────────────────────┘</span>
+<span class="w">                              </span><span class="err">│</span>
+<span class="w">                              </span><span class="err">▼</span>
+<span class="err">┌─────────────────────────────────────────────────────────────────┐</span>
+<span class="err">│</span><span class="w">                    </span><span class="n">Coordinator</span><span class="w"> </span><span class="n">Service</span><span class="w">                           </span><span class="err">│</span>
+<span class="err">│</span><span class="w">  </span><span class="err">•</span><span class="w"> </span><span class="n">Peer</span><span class="w"> </span><span class="n">discovery</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="n">WebRTC</span><span class="w"> </span><span class="n">signaling</span><span class="w">                            </span><span class="err">│</span>
+<span class="err">│</span><span class="w">  </span><span class="err">•</span><span class="w"> </span><span class="n">Cluster</span><span class="w"> </span><span class="n">capacity</span><span class="w"> </span><span class="n">tracking</span><span class="w">                                     </span><span class="err">│</span>
+<span class="err">│</span><span class="w">  </span><span class="err">•</span><span class="w"> </span><span class="n">Model</span><span class="w"> </span><span class="n">selection</span><span class="w"> </span><span class="n">based</span><span class="w"> </span><span class="n">on</span><span class="w"> </span><span class="n">available</span><span class="w"> </span><span class="n">compute</span><span class="w">                   </span><span class="err">│</span>
+<span class="err">│</span><span class="w">  </span><span class="err">•</span><span class="w"> </span><span class="n">Token</span><span class="w"> </span><span class="n">routing</span><span class="w"> </span><span class="n">between</span><span class="w"> </span><span class="n">peers</span><span class="w">                                   </span><span class="err">│</span>
+<span class="err">└─────────────────────────────────────────────────────────────────┘</span>
+<span class="w">                              </span><span class="err">│</span>
+<span class="w">         </span><span class="err">┌────────────────────┼────────────────────┐</span>
+<span class="w">         </span><span class="err">▼</span><span class="w">                    </span><span class="err">▼</span><span class="w">                    </span><span class="err">▼</span>
+<span class="err">┌─────────────────┐</span><span class="w">  </span><span class="err">┌─────────────────┐</span><span class="w">  </span><span class="err">┌─────────────────┐</span>
+<span class="err">│</span><span class="w">    </span><span class="n">Browser</span><span class="w"> </span><span class="mi">1</span><span class="w">    </span><span class="err">│</span><span class="w">  </span><span class="err">│</span><span class="w">    </span><span class="n">Browser</span><span class="w"> </span><span class="mi">2</span><span class="w">    </span><span class="err">│</span><span class="w">  </span><span class="err">│</span><span class="w">    </span><span class="n">Browser</span><span class="w"> </span><span class="mi">3</span><span class="w">    </span><span class="err">│</span>
+<span class="err">│</span><span class="w">  </span><span class="err">┌───────────┐</span><span class="w">  </span><span class="err">│</span><span class="w">  </span><span class="err">│</span><span class="w">  </span><span class="err">┌───────────┐</span><span class="w">  </span><span class="err">│</span><span class="w">  </span><span class="err">│</span><span class="w">  </span><span class="err">┌───────────┐</span><span class="w">  </span><span class="err">│</span>
+<span class="err">│</span><span class="w">  </span><span class="err">│</span><span class="w">  </span><span class="n">Layers</span><span class="w">   </span><span class="err">│</span><span class="w">  </span><span class="err">│</span><span class="w">  </span><span class="err">│</span><span class="w">  </span><span class="err">│</span><span class="w">  </span><span class="n">Layers</span><span class="w">   </span><span class="err">│</span><span class="w">  </span><span class="err">│</span><span class="w">  </span><span class="err">│</span><span class="w">  </span><span class="err">│</span><span class="w">  </span><span class="n">Layers</span><span class="w">   </span><span class="err">│</span><span class="w">  </span><span class="err">│</span>
+<span class="err">│</span><span class="w">  </span><span class="err">│</span><span class="w">   </span><span class="mi">0</span><span class="o">-</span><span class="mi">10</span><span class="w">    </span><span class="err">│</span><span class="w">  </span><span class="err">│</span><span class="w">  </span><span class="err">│</span><span class="w">  </span><span class="err">│</span><span class="w">  </span><span class="mi">11</span><span class="o">-</span><span class="mi">20</span><span class="w">    </span><span class="err">│</span><span class="w">  </span><span class="err">│</span><span class="w">  </span><span class="err">│</span><span class="w">  </span><span class="err">│</span><span class="w">  </span><span class="mi">21</span><span class="o">-</span><span class="mi">31</span><span class="w">    </span><span class="err">│</span><span class="w">  </span><span class="err">│</span>
+<span class="err">│</span><span class="w">  </span><span class="err">└───────────┘</span><span class="w">  </span><span class="err">│</span><span class="w">  </span><span class="err">│</span><span class="w">  </span><span class="err">└───────────┘</span><span class="w">  </span><span class="err">│</span><span class="w">  </span><span class="err">│</span><span class="w">  </span><span class="err">└───────────┘</span><span class="w">  </span><span class="err">│</span>
+<span class="err">│</span><span class="w">    </span><span class="n">WebGPU</span><span class="w">       </span><span class="err">│</span><span class="w">  </span><span class="err">│</span><span class="w">    </span><span class="n">WebGPU</span><span class="w">       </span><span class="err">│</span><span class="w">  </span><span class="err">│</span><span class="w">    </span><span class="n">WebGPU</span><span class="w">       </span><span class="err">│</span>
+<span class="err">└─────────────────┘</span><span class="w">  </span><span class="err">└─────────────────┘</span><span class="w">  </span><span class="err">└─────────────────┘</span>
+<span class="w">         </span><span class="err">│</span><span class="w">                    </span><span class="err">│</span><span class="w">                    </span><span class="err">│</span>
+<span class="w">         </span><span class="err">└──────────</span><span class="w"> </span><span class="n">WebRTC</span><span class="w"> </span><span class="n">P2P</span><span class="w"> </span><span class="n">Mesh</span><span class="w"> </span><span class="err">─────────────┘</span>
+</code></pre></div>
+
+<h2 id="how-it-works">🚀 How It Works</h2>
+<ol>
+<li>
+<p><strong>User Joins</strong>: When you open HiveMind, your browser checks WebGPU capability and reports available VRAM to the coordinator.</p>
+</li>
+<li>
+<p><strong>Cluster Formation</strong>: The coordinator tracks all connected peers and their compute capacity.</p>
+</li>
+<li>
+<p><strong>Model Selection</strong>: Based on total cluster capacity, the coordinator selects the largest model that can run efficiently:</p>
+</li>
+<li>&lt; 4GB total VRAM → TinyLlama 1.1B (single peer)</li>
+<li>4-8GB → Phi-2 2.7B (2-3 peers)</li>
+<li>8-16GB → Llama 3.2 3B (4-6 peers)</li>
+<li>
+<p>16GB+ → Larger models as capacity allows</p>
+</li>
+<li>
+<p><strong>Layer Distribution</strong>: Model layers are assigned to peers based on their available VRAM. Peers download only their assigned layers.</p>
+</li>
+<li>
+<p><strong>Inference Pipeline</strong>:</p>
+</li>
+<li>User sends a message</li>
+<li>Tokens are embedded on the first peer</li>
+<li>Hidden states flow through peers in sequence (pipeline parallelism)</li>
+<li>Final peer generates output tokens</li>
+<li>
+<p>Response streams back to the user</p>
+</li>
+<li>
+<p><strong>Dynamic Scaling</strong>: As peers join/leave, the system automatically rebalances layers and may upgrade/downgrade the active model.</p>
+</li>
+</ol>
+<h2 id="technology-stack">🔧 Technology Stack</h2>
+<h3 id="frontend">Frontend</h3>
+<ul>
+<li><strong>Static HTML</strong> + <strong>TypeScript</strong> for the UI</li>
+<li><strong>WebGPU</strong> via <a href="https://github.com/aspect-build/aspect-webassets">@aspect-build/aspect-webassets</a> for GPU compute</li>
+<li><strong>WebLLM</strong> (MLC-AI) for browser-based model inference</li>
+<li><strong>WebRTC</strong> for peer-to-peer hidden state transfer</li>
+</ul>
+<h3 id="backend-coordinator">Backend (Coordinator)</h3>
+<ul>
+<li><strong>Python</strong> + <strong>Flask</strong> for signaling server</li>
+<li><strong>WebSocket</strong> for real-time peer coordination</li>
+<li><strong>Redis</strong> (optional) for multi-instance coordinator scaling</li>
+</ul>
+<h3 id="mlinference">ML/Inference</h3>
+<ul>
+<li><strong>MLC-compiled models</strong> in WebGPU format</li>
+<li>Custom layer partitioning for distributed inference</li>
+<li>Quantized models (4-bit) to minimize VRAM requirements</li>
+</ul>
+<h2 id="project-structure">📦 Project Structure</h2>
+<div class="codehilite"><pre><span></span><code><span class="nx">hivemind</span><span class="o">-</span><span class="nx">llm</span><span class="o">/</span>
+<span class="err">├──</span><span class="w"> </span><span class="nx">coordinator</span><span class="o">/</span><span class="w">           </span><span class="err">#</span><span class="w"> </span><span class="nx">Python</span><span class="w"> </span><span class="nx">signaling</span><span class="w"> </span><span class="nx">server</span>
+<span class="err">│</span><span class="w">   </span><span class="err">├──</span><span class="w"> </span><span class="nx">app</span><span class="p">.</span><span class="nx">py</span><span class="w">            </span><span class="err">#</span><span class="w"> </span><span class="nx">Flask</span><span class="w"> </span><span class="nx">application</span>
+<span class="err">│</span><span class="w">   </span><span class="err">├──</span><span class="w"> </span><span class="nx">cluster</span><span class="p">.</span><span class="nx">py</span><span class="w">        </span><span class="err">#</span><span class="w"> </span><span class="nx">Cluster</span><span class="w"> </span><span class="nx">state</span><span class="w"> </span><span class="nx">management</span>
+<span class="err">│</span><span class="w">   </span><span class="err">├──</span><span class="w"> </span><span class="nx">models</span><span class="p">.</span><span class="nx">py</span><span class="w">         </span><span class="err">#</span><span class="w"> </span><span class="nx">Model</span><span class="w"> </span><span class="nx">registry</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="nx">selection</span><span class="w"> </span><span class="nx">logic</span>
+<span class="err">│</span><span class="w">   </span><span class="err">└──</span><span class="w"> </span><span class="nx">requirements</span><span class="p">.</span><span class="nx">txt</span>
+<span class="err">├──</span><span class="w"> </span><span class="nx">frontend</span><span class="o">/</span><span class="w">             </span><span class="err">#</span><span class="w"> </span><span class="nx">React</span><span class="w"> </span><span class="nx">chat</span><span class="w"> </span><span class="nx">application</span>
+<span class="err">│</span><span class="w">   </span><span class="err">├──</span><span class="w"> </span><span class="nx">src</span><span class="o">/</span>
+<span class="err">│</span><span class="w">   </span><span class="err">│</span><span class="w">   </span><span class="err">├──</span><span class="w"> </span><span class="nx">components</span><span class="o">/</span><span class="w">   </span><span class="err">#</span><span class="w"> </span><span class="nx">UI</span><span class="w"> </span><span class="nx">components</span>
+<span class="err">│</span><span class="w">   </span><span class="err">│</span><span class="w">   </span><span class="err">├──</span><span class="w"> </span><span class="nx">inference</span><span class="o">/</span><span class="w">    </span><span class="err">#</span><span class="w"> </span><span class="nx">WebGPU</span><span class="w"> </span><span class="nx">inference</span><span class="w"> </span><span class="nx">engine</span>
+<span class="err">│</span><span class="w">   </span><span class="err">│</span><span class="w">   </span><span class="err">├──</span><span class="w"> </span><span class="nx">network</span><span class="o">/</span><span class="w">      </span><span class="err">#</span><span class="w"> </span><span class="nx">WebRTC</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="nx">signaling</span>
+<span class="err">│</span><span class="w">   </span><span class="err">│</span><span class="w">   </span><span class="err">└──</span><span class="w"> </span><span class="nx">App</span><span class="p">.</span><span class="nx">tsx</span>
+<span class="err">│</span><span class="w">   </span><span class="err">├──</span><span class="w"> </span><span class="kn">package</span><span class="p">.</span><span class="nx">json</span>
+<span class="err">│</span><span class="w">   </span><span class="err">└──</span><span class="w"> </span><span class="nx">vite</span><span class="p">.</span><span class="nx">config</span><span class="p">.</span><span class="nx">ts</span>
+<span class="err">├──</span><span class="w"> </span><span class="nx">shared</span><span class="o">/</span><span class="w">               </span><span class="err">#</span><span class="w"> </span><span class="nx">Shared</span><span class="w"> </span><span class="nx">types</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="nx">protocols</span>
+<span class="err">│</span><span class="w">   </span><span class="err">└──</span><span class="w"> </span><span class="nx">protocol</span><span class="p">.</span><span class="nx">ts</span><span class="w">       </span><span class="err">#</span><span class="w"> </span><span class="nx">Message</span><span class="w"> </span><span class="nx">types</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="nx">peer</span><span class="w"> </span><span class="nx">communication</span>
+<span class="err">└──</span><span class="w"> </span><span class="nx">docs</span><span class="o">/</span>
+<span class="w">    </span><span class="err">└──</span><span class="w"> </span><span class="nx">architecture</span><span class="p">.</span><span class="nx">md</span><span class="w">   </span><span class="err">#</span><span class="w"> </span><span class="nx">Detailed</span><span class="w"> </span><span class="nx">architecture</span><span class="w"> </span><span class="nx">documentation</span>
+</code></pre></div>
+
+<h2 id="usage">🎮 Usage</h2>
+<h3 id="running-locally">Running Locally</h3>
+<div class="codehilite"><pre><span></span><code><span class="c1"># Start the coordinator</span>
+<span class="nb">cd</span><span class="w"> </span>coordinator
+pip<span class="w"> </span>install<span class="w"> </span>-r<span class="w"> </span>requirements.txt
+python<span class="w"> </span>app.py
+
+<span class="c1"># In another terminal, start the frontend</span>
+<span class="nb">cd</span><span class="w"> </span>frontend
+npm<span class="w"> </span>install
+npm<span class="w"> </span>run<span class="w"> </span>dev
+</code></pre></div>
+
+<h3 id="docker">Docker</h3>
+<div class="codehilite"><pre><span></span><code>docker-compose<span class="w"> </span>up
+</code></pre></div>
+
+<p>Then open <code>http://localhost:5173</code> in multiple browser windows to see the distributed inference in action!</p>
+<h2 id="development-status">🧪 Development Status</h2>
+<p>This is an experimental project exploring browser-based distributed LLM inference. Current status:</p>
+<ul>
+<li>[ ] Coordinator service (signaling + cluster management)</li>
+<li>[ ] WebGPU capability detection</li>
+<li>[ ] Single-peer inference with WebLLM</li>
+<li>[ ] WebRTC peer mesh</li>
+<li>[ ] Distributed layer execution</li>
+<li>[ ] Dynamic model switching</li>
+<li>[ ] Chat UI</li>
+</ul>
+<h2 id="future-ideas">🔮 Future Ideas</h2>
+<ul>
+<li><strong>Incentive Layer</strong>: Reward contributors with tokens or priority access</li>
+<li><strong>Persistence</strong>: Cache model layers in IndexedDB for faster rejoins</li>
+<li><strong>Privacy Mode</strong>: Encrypted hidden states for sensitive conversations</li>
+<li><strong>Mobile Support</strong>: Extend to WebGPU-capable mobile browsers</li>
+<li><strong>Federated Training</strong>: Allow the swarm to fine-tune models collaboratively</li>
+</ul>
+<h2 id="inspiration">📚 Inspiration</h2>
+<ul>
+<li><a href="https://petals.dev/">Petals</a> - BitTorrent-style distributed LLM inference</li>
+<li><a href="https://webllm.mlc.ai/">WebLLM</a> - High-performance in-browser LLM inference</li>
+<li><a href="https://boinc.berkeley.edu/">BOINC</a> - Volunteer distributed computing</li>
+</ul>
+<h2 id="license">📄 License</h2>
+<p>MIT License - See <a href="LICENSE">LICENSE</a> for details.</p>
+  </article>
+  <footer class="mt-5"><hr/><p class="small">Generated by scripts/build_pages.py</p></footer>
+</div>
+</body>
+</html>

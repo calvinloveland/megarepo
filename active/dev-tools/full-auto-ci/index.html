@@ -1,0 +1,199 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>active/dev-tools/full-auto-ci</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+  <style>body{padding:2rem} pre code {white-space: pre-wrap;}</style>
+</head>
+<body>
+<div class="container">
+  <nav class="mb-4"><a href="/">Megarepo pages</a> / active/dev-tools/full-auto-ci</nav>
+  <article>
+    <h1 id="full-auto-ci">Full Auto CI</h1>
+<p>Fully automatic Continuous Integration.
+Pulls down the latest code, runs tests, and reports results.
+Works in the background on every commit to provide a history of results.</p>
+<h2 id="installation">Installation</h2>
+<h3 id="prerequisites">Prerequisites</h3>
+<ul>
+<li>Python 3.8 or higher</li>
+<li>Git</li>
+</ul>
+<h3 id="install-from-source">Install from source</h3>
+<div class="codehilite"><pre><span></span><code>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/yourusername/full_auto_ci.git
+<span class="nb">cd</span><span class="w"> </span>full_auto_ci
+pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span>.
+</code></pre></div>
+
+<p>For API and dashboard features:</p>
+<div class="codehilite"><pre><span></span><code>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s2">&quot;.[api,dashboard]&quot;</span>
+</code></pre></div>
+
+<p>For development:</p>
+<div class="codehilite"><pre><span></span><code>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s2">&quot;.[dev]&quot;</span>
+</code></pre></div>
+
+<h2 id="configuration">Configuration</h2>
+<p>The system uses a YAML configuration file. By default, it looks for a config file at <code>~/.fullautoci/config.yml</code>.</p>
+<p>You can copy and modify the example configuration:</p>
+<div class="codehilite"><pre><span></span><code>mkdir<span class="w"> </span>-p<span class="w"> </span>~/.fullautoci
+cp<span class="w"> </span>config.example.yml<span class="w"> </span>~/.fullautoci/config.yml
+</code></pre></div>
+
+<h3 id="tool-settings">Tool settings</h3>
+<p>Test tooling is driven by the <code>tools</code> section. Each tool can be disabled or tuned without code changes:</p>
+<div class="codehilite"><pre><span></span><code><span class="nt">tools</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">coverage</span><span class="p">:</span>
+<span class="w">        </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">        </span><span class="nt">run_tests_cmd</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;pytest&quot;</span><span class="p p-Indicator">]</span><span class="w">  </span><span class="c1"># override to customize the test runner</span>
+<span class="w">        </span><span class="nt">timeout_seconds</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">300</span><span class="w">        </span><span class="c1"># abort the coverage run command after 5 minutes</span>
+<span class="w">        </span><span class="nt">xml_timeout_seconds</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">120</span><span class="w">    </span><span class="c1"># abort `coverage xml` if report generation stalls</span>
+<span class="w">        </span><span class="nt">ratchet</span><span class="p">:</span>
+<span class="w">            </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">            </span><span class="nt">target</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">90.0</span><span class="w">              </span><span class="c1"># require at least 90% line coverage eventually</span>
+<span class="w">            </span><span class="nt">tolerance</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.1</span><span class="w">            </span><span class="c1"># (optional) allow small float variance</span>
+<span class="w">    </span><span class="nt">lizard</span><span class="p">:</span>
+<span class="w">        </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">        </span><span class="nt">max_ccn</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10</span><span class="w">                 </span><span class="c1"># threshold for highlighting complex functions</span>
+<span class="w">        </span><span class="nt">ratchet</span><span class="p">:</span>
+<span class="w">            </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">            </span><span class="nt">target</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.0</span><span class="w">               </span><span class="c1"># drive towards zero over-threshold functions</span>
+<span class="w">    </span><span class="nt">pylint</span><span class="p">:</span>
+<span class="w">        </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">        </span><span class="nt">ratchet</span><span class="p">:</span>
+<span class="w">            </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">            </span><span class="nt">target</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">9.5</span><span class="w">               </span><span class="c1"># enforce a minimum pylint score</span>
+</code></pre></div>
+
+<p><code>timeout_seconds</code> and <code>xml_timeout_seconds</code> are especially helpful when running against large or flaky suites—timeouts surface as explicit tool errors instead of hanging the overall pipeline. Set <code>enabled: false</code> on any entry to skip that tool entirely.</p>
+<p>Ratchets let teams make incremental progress toward ambitious targets without blocking every run: when enabled, a tool run succeeds if it reaches the configured target or improves upon the repository's best historical result. Once the target is achieved, CI enforces it strictly—new commits must stay at or beyond the goal (for example, no reduction in coverage or increase in cyclomatic complexity).</p>
+<p>Each tool ships with sensible defaults for the tracked metric (<code>percentage</code> for coverage, <code>score</code> for Pylint, <code>summary.above_threshold</code> for Lizard) and the comparison direction (<code>higher</code> or <code>lower</code>). Override <code>metric</code>, <code>direction</code>, or <code>tolerance</code> inside the <code>ratchet</code> block if you need custom behavior.</p>
+<h2 id="usage">Usage</h2>
+<h3 id="cli">CLI</h3>
+<p>Start the service:</p>
+<div class="codehilite"><pre><span></span><code>full-auto-ci<span class="w"> </span>service<span class="w"> </span>start
+</code></pre></div>
+
+<p>The command launches the service in a background process, prints the dashboard URL (defaults to <code>http://127.0.0.1:8000</code> unless overridden via <code>dashboard.host</code>/<code>dashboard.port</code> in <code>~/.fullautoci/config.yml</code>), and—when possible—opens it in your default browser. A PID file is stored under the Full Auto CI data directory (<code>service.pid</code>) so you can inspect or stop the process later. Disable the auto-open behavior by setting <code>dashboard.auto_open: false</code> in your config or by exporting <code>FULL_AUTO_CI_OPEN_BROWSER=0</code>.</p>
+<p>Check the status:</p>
+<div class="codehilite"><pre><span></span><code>full-auto-ci<span class="w"> </span>service<span class="w"> </span>status
+</code></pre></div>
+
+<p>Stop the service:</p>
+<div class="codehilite"><pre><span></span><code>full-auto-ci<span class="w"> </span>service<span class="w"> </span>stop
+</code></pre></div>
+
+<p>Add a repository:</p>
+<div class="codehilite"><pre><span></span><code>full-auto-ci<span class="w"> </span>repo<span class="w"> </span>add<span class="w"> </span><span class="s2">&quot;My Project&quot;</span><span class="w"> </span>https://github.com/username/project.git
+</code></pre></div>
+
+<p>List repositories:</p>
+<div class="codehilite"><pre><span></span><code>full-auto-ci<span class="w"> </span>repo<span class="w"> </span>list
+</code></pre></div>
+
+<p>Run tests manually:</p>
+<div class="codehilite"><pre><span></span><code>full-auto-ci<span class="w"> </span><span class="nb">test</span><span class="w"> </span>run<span class="w"> </span>&lt;repo_id&gt;<span class="w"> </span>&lt;commit_hash&gt;
+</code></pre></div>
+
+<p>Show stored test results (optionally filtered by commit):</p>
+<div class="codehilite"><pre><span></span><code>full-auto-ci<span class="w"> </span><span class="nb">test</span><span class="w"> </span>results<span class="w"> </span>&lt;repo_id&gt;<span class="w"> </span><span class="o">[</span>--commit<span class="w"> </span>&lt;commit_hash&gt;<span class="o">]</span>
+</code></pre></div>
+
+<p>Each run captures the outputs from the enabled tools (Pylint, Coverage, Lizard by default). The CLI surfaces summarized findings—coverage percentage and per-file stats, pylint issue counts, and the top complexity offenders reported by Lizard.</p>
+<h3 id="rest-api">REST API</h3>
+<p>Start the API server (after installing API dependencies):</p>
+<div class="codehilite"><pre><span></span><code>python<span class="w"> </span>-m<span class="w"> </span>src.api
+</code></pre></div>
+
+<p>The API will be available at <code>http://localhost:5000</code>.</p>
+<p>See the <a href="design.md">design document</a> for API endpoints.</p>
+<h2 id="development">Development</h2>
+<h3 id="using-vs-code-dev-container-recommended">Using VS Code Dev Container (Recommended)</h3>
+<p>This project includes a VS Code Dev Container configuration for easy setup:</p>
+<ol>
+<li>Install <a href="https://www.docker.com/products/docker-desktop">Docker</a> and <a href="https://code.visualstudio.com/">VS Code</a></li>
+<li>Install the <a href="https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers">Remote - Containers</a> VS Code extension</li>
+<li>Open the project folder in VS Code</li>
+<li>When prompted, click "Reopen in Container" (or use the command palette: "Remote-Containers: Reopen in Container")</li>
+<li>The container will build and your development environment will be ready to use</li>
+</ol>
+<h3 id="manual-setup">Manual Setup</h3>
+<p>If you prefer not to use containers:</p>
+<div class="codehilite"><pre><span></span><code>python<span class="w"> </span>-m<span class="w"> </span>venv<span class="w"> </span>venv
+<span class="nb">source</span><span class="w"> </span>venv/bin/activate<span class="w">  </span><span class="c1"># On Windows: venv\Scripts\activate</span>
+pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s2">&quot;.[api,dashboard,dev]&quot;</span>
+</code></pre></div>
+
+<h3 id="running-the-dashboard">Running the dashboard</h3>
+<p>The Flask-powered dashboard provides a quick status view of repositories and recent test runs:</p>
+<div class="codehilite"><pre><span></span><code>python<span class="w"> </span>-m<span class="w"> </span>src.dashboard
+</code></pre></div>
+
+<p>By default the dashboard listens on <code>http://127.0.0.1:8000</code>. Configure host/port in <code>~/.fullautoci/config.yml</code> under the <code>dashboard</code> section.</p>
+<h3 id="dogfooding-the-project">Dogfooding the project</h3>
+<p>The dev container initialization script automatically registers this repository so the service can test itself. To customise:</p>
+<ul>
+<li><code>FULL_AUTO_CI_DOGFOOD=0</code> — skip registration</li>
+<li><code>FULL_AUTO_CI_REPO_URL</code> — override repository URL</li>
+<li><code>FULL_AUTO_CI_REPO_BRANCH</code> — override branch (default <code>main</code>)</li>
+<li><code>FULL_AUTO_CI_REPO_NAME</code> — change display name</li>
+</ul>
+<p>You can also enable always-on dogfooding directly from configuration by setting the <code>dogfood</code> section either in <code>~/.fullautoci/config.yml</code> or via the dev container config:</p>
+<div class="codehilite"><pre><span></span><code><span class="nt">dogfood</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Full</span><span class="nv"> </span><span class="s">Auto</span><span class="nv"> </span><span class="s">CI&quot;</span>
+<span class="w">    </span><span class="nt">url</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;https://github.com/calvinloveland/full-auto-ci.git&quot;</span>
+<span class="w">    </span><span class="nt">branch</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;main&quot;</span>
+<span class="w">    </span><span class="nt">queue_on_start</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w">  </span><span class="c1"># queue the latest commit immediately</span>
+</code></pre></div>
+
+<p>When enabled, the service will ensure the repository is registered on startup and automatically queue the latest commit for testing unless <code>queue_on_start</code> is set to <code>false</code> (or <code>FULL_AUTO_CI_DOGFOOD_QUEUE=0</code>).</p>
+<p>Set these variables before starting the container or rerun <code>.devcontainer/init_dev_env.sh</code> after adjusting them.</p>
+<h3 id="run-tests">Run tests</h3>
+<div class="codehilite"><pre><span></span><code>pytest
+</code></pre></div>
+
+<p>With coverage:</p>
+<div class="codehilite"><pre><span></span><code>pytest<span class="w"> </span>--cov<span class="o">=</span>src<span class="w"> </span>tests/
+</code></pre></div>
+
+<h3 id="ui-tests-playwright">UI tests (Playwright)</h3>
+<p>Install the development extras (includes Playwright and fixtures) and the Chromium engine:</p>
+<div class="codehilite"><pre><span></span><code>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s2">&quot;.[dashboard,dev]&quot;</span>
+playwright<span class="w"> </span>install<span class="w"> </span>--with-deps<span class="w"> </span>chromium
+</code></pre></div>
+
+<p>Run the UI smoke tests:</p>
+<div class="codehilite"><pre><span></span><code><span class="nv">PYTEST_DISABLE_PLUGIN_AUTOLOAD</span><span class="o">=</span><span class="m">1</span><span class="w"> </span>pytest<span class="w"> </span>ui_tests
+</code></pre></div>
+
+<p>The fixture starts the dashboard in headless mode with <code>FULL_AUTO_CI_OPEN_BROWSER=0</code> and <code>FULL_AUTO_CI_START_DASHBOARD=1</code>. Override the default host/port via <code>ui_tests/conftest.py</code> if you need to avoid local conflicts.</p>
+<h3 id="mcp-server-endpoint">MCP server endpoint</h3>
+<p>Expose the CI service over the Model Context Protocol using the built-in JSON-RPC server:</p>
+<div class="codehilite"><pre><span></span><code>full-auto-ci<span class="w"> </span>mcp<span class="w"> </span>serve<span class="w"> </span>--host<span class="w"> </span><span class="m">127</span>.0.0.1<span class="w"> </span>--port<span class="w"> </span><span class="m">8765</span>
+</code></pre></div>
+
+<p>Provide an auth token either via <code>--token</code> or the <code>FULL_AUTO_CI_MCP_TOKEN</code> environment variable. Disable authentication explicitly with <code>--no-token</code> for local experiments.</p>
+<p>Available operations:</p>
+<ul>
+<li><code>handshake</code> — discover server name, version, and capabilities.</li>
+<li><code>listRepositories</code> — enumerate tracked repositories (<code>id</code>, <code>name</code>, <code>url</code>, <code>branch</code>).</li>
+<li><code>queueTestRun</code> — enqueue a repository/commit pair for testing.</li>
+<li><code>getLatestResults</code> — retrieve recent test runs (with tool outputs) for a repository.</li>
+</ul>
+<p>The server speaks JSON-RPC 2.0 over newline-delimited TCP frames. Each request/response is a single JSON object encoded with UTF-8 and terminated by <code>\n</code>.</p>
+<p>See <code>examples/mcp_client.py</code> for a minimal asyncio client that performs a handshake and lists repositories.</p>
+<h3 id="code-style">Code style</h3>
+<p>This project follows PEP 8 style guide. You can check your code with:</p>
+<div class="codehilite"><pre><span></span><code>pylint<span class="w"> </span>src/<span class="w"> </span>tests/
+</code></pre></div>
+
+<h2 id="license">License</h2>
+<p>MIT License</p>
+  </article>
+  <footer class="mt-5"><hr/><p class="small">Generated by scripts/build_pages.py</p></footer>
+</div>
+</body>
+</html>

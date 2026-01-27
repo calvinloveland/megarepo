@@ -1,0 +1,119 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>active/dev-tools/bingo-probability</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+  <style>body{padding:2rem} pre code {white-space: pre-wrap;}</style>
+</head>
+<body>
+<div class="container">
+  <nav class="mb-4"><a href="/">Megarepo pages</a> / active/dev-tools/bingo-probability</nav>
+  <article>
+    <h1 id="bingo-probability-solver">Bingo Probability Solver</h1>
+<p>Calculate the probability of achieving at least one bingo (complete row, column, or diagonal) on an n×n board where each square has an independent probability of being marked.</p>
+<h2 id="the-problem">The Problem</h2>
+<p>Each square on the board is an independent Bernoulli variable, but winning lines (rows, columns, diagonals) are <strong>not independent</strong> because they share squares. While the probability of a single line is the product of its square probabilities, multiple lines covary: if two lines intersect, success of one partially implies success of the other.</p>
+<h3 id="why-two-approaches">Why Two Approaches?</h3>
+<p><strong>Inclusion-Exclusion (Exact):</strong>
+- Uses the principle P(A∪B∪...) = Σ P(Aᵢ) - Σ P(Aᵢ∩Aⱼ) + ...
+- Computes exact probability by considering all 2^L - 1 subsets of lines
+- For n×n board: L = 2n + 2 lines (n rows + n columns + 2 diagonals)
+- Exponential complexity: O(2^(2n+2) × n²)</p>
+<p><strong>Monte Carlo (Approximate):</strong>
+- Samples square outcomes once per trial
+- Checks which lines complete
+- Preserves correlations naturally
+- Scales polynomially: O(samples × n²)</p>
+<h2 id="installation">Installation</h2>
+<div class="codehilite"><pre><span></span><code>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span>.
+</code></pre></div>
+
+<h2 id="usage">Usage</h2>
+<h3 id="as-a-library">As a Library</h3>
+<div class="codehilite"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">bingo_probability</span><span class="w"> </span><span class="kn">import</span> <span class="n">BingoBoard</span><span class="p">,</span> <span class="n">monte_carlo_solver</span><span class="p">,</span> <span class="n">inclusion_exclusion_solver</span>
+
+<span class="c1"># Create a 3x3 board with uniform 50% probability</span>
+<span class="n">board</span> <span class="o">=</span> <span class="n">BingoBoard</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">)</span>
+
+<span class="c1"># Or create with custom probabilities</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="n">probs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="mf">0.3</span><span class="p">,</span> <span class="mf">0.7</span><span class="p">,</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">))</span>
+<span class="n">board</span> <span class="o">=</span> <span class="n">BingoBoard</span><span class="p">(</span><span class="n">probs</span><span class="p">)</span>
+
+<span class="c1"># Monte Carlo (fast, approximate)</span>
+<span class="n">mc_prob</span><span class="p">,</span> <span class="n">mc_std</span> <span class="o">=</span> <span class="n">monte_carlo_solver</span><span class="p">(</span><span class="n">board</span><span class="p">,</span> <span class="n">samples</span><span class="o">=</span><span class="mi">100000</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Monte Carlo: </span><span class="si">{</span><span class="n">mc_prob</span><span class="si">:</span><span class="s2">.6f</span><span class="si">}</span><span class="s2"> ± </span><span class="si">{</span><span class="n">mc_std</span><span class="si">:</span><span class="s2">.6f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<span class="c1"># Inclusion-Exclusion (exact, exponential complexity)</span>
+<span class="n">ie_prob</span> <span class="o">=</span> <span class="n">inclusion_exclusion_solver</span><span class="p">(</span><span class="n">board</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Inclusion-Exclusion: </span><span class="si">{</span><span class="n">ie_prob</span><span class="si">:</span><span class="s2">.6f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</code></pre></div>
+
+<h3 id="command-line">Command Line</h3>
+<div class="codehilite"><pre><span></span><code><span class="c1"># Uniform probability board</span>
+bingo-probability<span class="w"> </span>--size<span class="w"> </span><span class="m">3</span><span class="w"> </span>--prob<span class="w"> </span><span class="m">0</span>.5<span class="w"> </span>--samples<span class="w"> </span><span class="m">100000</span>
+
+<span class="c1"># Compare both methods</span>
+bingo-probability<span class="w"> </span>--size<span class="w"> </span><span class="m">3</span><span class="w"> </span>--prob<span class="w"> </span><span class="m">0</span>.5<span class="w"> </span>--compare
+
+<span class="c1"># Random probabilities per square</span>
+bingo-probability<span class="w"> </span>--size<span class="w"> </span><span class="m">4</span><span class="w"> </span>--random<span class="w"> </span>--samples<span class="w"> </span><span class="m">50000</span>
+</code></pre></div>
+
+<h2 id="complexity-analysis">Complexity Analysis</h2>
+<table>
+<thead>
+<tr>
+<th>Board Size</th>
+<th>Lines</th>
+<th>I-E Subsets</th>
+<th>I-E Feasible?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>3×3</td>
+<td>8</td>
+<td>255</td>
+<td>✓ Yes</td>
+</tr>
+<tr>
+<td>4×4</td>
+<td>10</td>
+<td>1,023</td>
+<td>✓ Yes</td>
+</tr>
+<tr>
+<td>5×5</td>
+<td>12</td>
+<td>4,095</td>
+<td>✓ Yes</td>
+</tr>
+<tr>
+<td>6×6</td>
+<td>14</td>
+<td>16,383</td>
+<td>✓ Slow</td>
+</tr>
+<tr>
+<td>7×7</td>
+<td>16</td>
+<td>65,535</td>
+<td>⚠ Very slow</td>
+</tr>
+<tr>
+<td>8×8</td>
+<td>18</td>
+<td>262,143</td>
+<td>✗ Impractical</td>
+</tr>
+</tbody>
+</table>
+<p>Monte Carlo remains O(samples × n²) regardless of board size.</p>
+  </article>
+  <footer class="mt-5"><hr/><p class="small">Generated by scripts/build_pages.py</p></footer>
+</div>
+</body>
+</html>

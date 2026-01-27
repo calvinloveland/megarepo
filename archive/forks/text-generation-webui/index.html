@@ -1,0 +1,764 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>archive/forks/text-generation-webui</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+  <style>body{padding:2rem} pre code {white-space: pre-wrap;}</style>
+</head>
+<body>
+<div class="container">
+  <nav class="mb-4"><a href="/">Megarepo pages</a> / archive/forks/text-generation-webui</nav>
+  <article>
+    <h1 id="text-generation-web-ui">Text generation web UI</h1>
+<p>A Gradio web UI for Large Language Models.</p>
+<p>Its goal is to become the <a href="https://github.com/AUTOMATIC1111/stable-diffusion-webui">AUTOMATIC1111/stable-diffusion-webui</a> of text generation.</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: center;"><img alt="Image1" src="https://github.com/oobabooga/screenshots/raw/main/print_instruct.png" /></th>
+<th style="text-align: center;"><img alt="Image2" src="https://github.com/oobabooga/screenshots/raw/main/print_chat.png" /></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;"><img alt="Image1" src="https://github.com/oobabooga/screenshots/raw/main/print_default.png" /></td>
+<td style="text-align: center;"><img alt="Image2" src="https://github.com/oobabooga/screenshots/raw/main/print_parameters.png" /></td>
+</tr>
+</tbody>
+</table>
+<h2 id="features">Features</h2>
+<ul>
+<li>3 interface modes: default (two columns), notebook, and chat</li>
+<li>Multiple model backends: <a href="https://github.com/huggingface/transformers">transformers</a>, <a href="https://github.com/ggerganov/llama.cpp">llama.cpp</a>, <a href="https://github.com/turboderp/exllama">ExLlama</a>, <a href="https://github.com/PanQiWei/AutoGPTQ">AutoGPTQ</a>, <a href="https://github.com/qwopqwop200/GPTQ-for-LLaMa">GPTQ-for-LLaMa</a>, <a href="https://github.com/marella/ctransformers">ctransformers</a></li>
+<li>Dropdown menu for quickly switching between different models</li>
+<li>LoRA: load and unload LoRAs on the fly, train a new LoRA using QLoRA</li>
+<li>Precise instruction templates for chat mode, including Llama-2-chat, Alpaca, Vicuna, WizardLM, StableLM, and many others</li>
+<li>4-bit, 8-bit, and CPU inference through the transformers library</li>
+<li>Use llama.cpp models with transformers samplers (<code>llamacpp_HF</code> loader)</li>
+<li><a href="https://github.com/oobabooga/text-generation-webui/tree/main/extensions/multimodal">Multimodal pipelines, including LLaVA and MiniGPT-4</a></li>
+<li><a href="docs/Extensions.md">Extensions framework</a></li>
+<li><a href="docs/Chat-mode.md">Custom chat characters</a></li>
+<li>Very efficient text streaming</li>
+<li>Markdown output with LaTeX rendering, to use for instance with <a href="https://github.com/paperswithcode/galai">GALACTICA</a></li>
+<li>API, including endpoints for websocket streaming (<a href="https://github.com/oobabooga/text-generation-webui/blob/main/api-examples">see the examples</a>)</li>
+</ul>
+<p>To learn how to use the various features, check out the Documentation: https://github.com/oobabooga/text-generation-webui/tree/main/docs</p>
+<h2 id="installation">Installation</h2>
+<h3 id="one-click-installers">One-click installers</h3>
+<table>
+<thead>
+<tr>
+<th>Windows</th>
+<th>Linux</th>
+<th>macOS</th>
+<th>WSL</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://github.com/oobabooga/text-generation-webui/releases/download/installers/oobabooga_windows.zip">oobabooga-windows.zip</a></td>
+<td><a href="https://github.com/oobabooga/text-generation-webui/releases/download/installers/oobabooga_linux.zip">oobabooga-linux.zip</a></td>
+<td><a href="https://github.com/oobabooga/text-generation-webui/releases/download/installers/oobabooga_macos.zip">oobabooga-macos.zip</a></td>
+<td><a href="https://github.com/oobabooga/text-generation-webui/releases/download/installers/oobabooga_wsl.zip">oobabooga-wsl.zip</a></td>
+</tr>
+</tbody>
+</table>
+<p>Just download the zip above, extract it, and double-click on "start". The web UI and all its dependencies will be installed in the same folder.</p>
+<ul>
+<li>The source codes and more information can be found here: https://github.com/oobabooga/one-click-installers</li>
+<li>There is no need to run the installers as admin.</li>
+<li>Huge thanks to <a href="https://github.com/jllllll">@jllllll</a>, <a href="https://github.com/ClayShoaf">@ClayShoaf</a>, and <a href="https://github.com/xNul">@xNul</a> for their contributions to these installers.</li>
+</ul>
+<h3 id="manual-installation-using-conda">Manual installation using Conda</h3>
+<p>Recommended if you have some experience with the command-line.</p>
+<h4 id="0-install-conda">0. Install Conda</h4>
+<p>https://docs.conda.io/en/latest/miniconda.html</p>
+<p>On Linux or WSL, it can be automatically installed with these two commands (<a href="https://educe-ubc.github.io/conda.html">source</a>):</p>
+<div class="codehilite"><pre><span></span><code>curl -sL &quot;https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh&quot; &gt; &quot;Miniconda3.sh&quot;
+bash Miniconda3.sh
+</code></pre></div>
+
+<h4 id="1-create-a-new-conda-environment">1. Create a new conda environment</h4>
+<div class="codehilite"><pre><span></span><code>conda create -n textgen python=3.10.9
+conda activate textgen
+</code></pre></div>
+
+<h4 id="2-install-pytorch">2. Install Pytorch</h4>
+<table>
+<thead>
+<tr>
+<th>System</th>
+<th>GPU</th>
+<th>Command</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Linux/WSL</td>
+<td>NVIDIA</td>
+<td><code>pip3 install torch torchvision torchaudio</code></td>
+</tr>
+<tr>
+<td>Linux/WSL</td>
+<td>CPU only</td>
+<td><code>pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu</code></td>
+</tr>
+<tr>
+<td>Linux</td>
+<td>AMD</td>
+<td><code>pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm5.4.2</code></td>
+</tr>
+<tr>
+<td>MacOS + MPS</td>
+<td>Any</td>
+<td><code>pip3 install torch torchvision torchaudio</code></td>
+</tr>
+<tr>
+<td>Windows</td>
+<td>NVIDIA</td>
+<td><code>pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu117</code></td>
+</tr>
+<tr>
+<td>Windows</td>
+<td>CPU only</td>
+<td><code>pip3 install torch torchvision torchaudio</code></td>
+</tr>
+</tbody>
+</table>
+<p>The up-to-date commands can be found here: https://pytorch.org/get-started/locally/. </p>
+<h4 id="3-install-the-web-ui">3. Install the web UI</h4>
+<div class="codehilite"><pre><span></span><code>git clone https://github.com/oobabooga/text-generation-webui
+cd text-generation-webui
+pip install -r requirements.txt
+</code></pre></div>
+
+<h4 id="amd-metal-intel-arc-and-cpus-without-avcx2">AMD, Metal, Intel Arc, and CPUs without AVCX2</h4>
+<p>1) Replace the last command above with</p>
+<div class="codehilite"><pre><span></span><code>pip install -r requirements_nocuda.txt
+</code></pre></div>
+
+<p>2) Manually install llama-cpp-python using the appropriate command for your hardware: <a href="https://github.com/abetlen/llama-cpp-python#installation-from-pypi">Installation from PyPI</a>.</p>
+<p>3) AMD: Manually install AutoGPTQ: <a href="https://github.com/PanQiWei/AutoGPTQ#installation">Installation</a>.</p>
+<p>4) AMD: Manually install <a href="https://github.com/turboderp/exllama">ExLlama</a> by simply cloning it into the <code>repositories</code> folder (it will be automatically compiled at runtime after that):</p>
+<div class="codehilite"><pre><span></span><code>cd text-generation-webui
+mkdir repositories
+cd repositories
+git clone https://github.com/turboderp/exllama
+</code></pre></div>
+
+<h4 id="bitsandbytes-on-older-nvidia-gpus">bitsandbytes on older NVIDIA GPUs</h4>
+<p>bitsandbytes &gt;= 0.39 may not work. In that case, to use <code>--load-in-8bit</code>, you may have to downgrade like this:</p>
+<ul>
+<li>Linux: <code>pip install bitsandbytes==0.38.1</code></li>
+<li>Windows: <code>pip install https://github.com/jllllll/bitsandbytes-windows-webui/raw/main/bitsandbytes-0.38.1-py3-none-any.whl</code></li>
+</ul>
+<h3 id="alternative-docker">Alternative: Docker</h3>
+<div class="codehilite"><pre><span></span><code>ln -s docker/{Dockerfile,docker-compose.yml,.dockerignore} .
+cp docker/.env.example .env
+<span class="gh">#</span> Edit .env and set TORCH_CUDA_ARCH_LIST based on your GPU model
+docker compose up --build
+</code></pre></div>
+
+<ul>
+<li>You need to have docker compose v2.17 or higher installed. See <a href="https://github.com/oobabooga/text-generation-webui/blob/main/docs/Docker.md">this guide</a> for instructions.</li>
+<li>For additional docker files, check out <a href="https://github.com/Atinoda/text-generation-webui-docker">this repository</a>.</li>
+</ul>
+<h3 id="updating-the-requirements">Updating the requirements</h3>
+<p>From time to time, the <code>requirements.txt</code> changes. To update, use these commands:</p>
+<div class="codehilite"><pre><span></span><code>conda activate textgen
+cd text-generation-webui
+pip install -r requirements.txt --upgrade
+</code></pre></div>
+
+<h2 id="downloading-models">Downloading models</h2>
+<p>Models should be placed in the <code>text-generation-webui/models</code> folder. They are usually downloaded from <a href="https://huggingface.co/models?pipeline_tag=text-generation&amp;sort=downloads">Hugging Face</a>.</p>
+<ul>
+<li>Transformers or GPTQ models are made of several files and must be placed in a subfolder. Example:</li>
+</ul>
+<div class="codehilite"><pre><span></span><code>text-generation-webui
+├── models
+│   ├── lmsys_vicuna-33b-v1.3
+│   │   ├── config.json
+│   │   ├── generation_config.json
+│   │   ├── pytorch_model-00001-of-00007.bin
+│   │   ├── pytorch_model-00002-of-00007.bin
+│   │   ├── pytorch_model-00003-of-00007.bin
+│   │   ├── pytorch_model-00004-of-00007.bin
+│   │   ├── pytorch_model-00005-of-00007.bin
+│   │   ├── pytorch_model-00006-of-00007.bin
+│   │   ├── pytorch_model-00007-of-00007.bin
+│   │   ├── pytorch_model.bin.index.json
+│   │   ├── special_tokens_map.json
+│   │   ├── tokenizer_config.json
+│   │   └── tokenizer.model
+</code></pre></div>
+
+<ul>
+<li>GGML/GGUF models are a single file and should be placed directly into <code>models</code>. Example:</li>
+</ul>
+<div class="codehilite"><pre><span></span><code>text-generation-webui
+├── models
+│   ├── llama-13b.ggmlv3.q4_K_M.bin
+</code></pre></div>
+
+<p>In both cases, you can use the "Model" tab of the UI to download the model from Hugging Face automatically. It is also possible to download via the command-line with <code>python download-model.py organization/model</code> (use <code>--help</code> to see all the options).</p>
+<h4 id="gpt-4chan">GPT-4chan</h4>
+<details>
+<summary>
+Instructions
+</summary>
+
+[GPT-4chan](https://huggingface.co/ykilcher/gpt-4chan) has been shut down from Hugging Face, so you need to download it elsewhere. You have two options:
+
+* Torrent: [16-bit](https://archive.org/details/gpt4chan_model_float16) / [32-bit](https://archive.org/details/gpt4chan_model)
+* Direct download: [16-bit](https://theswissbay.ch/pdf/_notpdf_/gpt4chan_model_float16/) / [32-bit](https://theswissbay.ch/pdf/_notpdf_/gpt4chan_model/)
+
+The 32-bit version is only relevant if you intend to run the model in CPU mode. Otherwise, you should use the 16-bit version.
+
+After downloading the model, follow these steps:
+
+1. Place the files under `models/gpt4chan_model_float16` or `models/gpt4chan_model`.
+2. Place GPT-J 6B's config.json file in that same folder: [config.json](https://huggingface.co/EleutherAI/gpt-j-6B/raw/main/config.json).
+3. Download GPT-J 6B's tokenizer files (they will be automatically detected when you attempt to load GPT-4chan):
+
+
+<div class="codehilite"><pre><span></span><code><span class="n">python</span><span class="w"> </span><span class="n">download</span><span class="o">-</span><span class="n">model</span><span class="o">.</span><span class="n">py</span><span class="w"> </span><span class="n">EleutherAI</span><span class="o">/</span><span class="n">gpt</span><span class="o">-</span><span class="n">j</span><span class="o">-</span><span class="mi">6</span><span class="n">B</span><span class="w"> </span><span class="o">--</span><span class="n">text</span><span class="o">-</span><span class="n">only</span>
+</code></pre></div>
+
+
+
+When you load this model in default or notebook modes, the "HTML" tab will show the generated text in 4chan format:
+
+![Image3](https://github.com/oobabooga/screenshots/raw/main/gpt4chan.png)
+
+</details>
+
+<h2 id="starting-the-web-ui">Starting the web UI</h2>
+<div class="codehilite"><pre><span></span><code>conda activate textgen
+cd text-generation-webui
+python server.py
+</code></pre></div>
+
+<p>Then browse to </p>
+<p><code>http://localhost:7860/?__theme=dark</code></p>
+<p>Optionally, you can use the following command-line flags:</p>
+<h4 id="basic-settings">Basic settings</h4>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>-h</code>, <code>--help</code></td>
+<td>Show this help message and exit.</td>
+</tr>
+<tr>
+<td><code>--multi-user</code></td>
+<td>Multi-user mode. Chat histories are not saved or automatically loaded. WARNING: this is highly experimental.</td>
+</tr>
+<tr>
+<td><code>--character CHARACTER</code></td>
+<td>The name of the character to load in chat mode by default.</td>
+</tr>
+<tr>
+<td><code>--model MODEL</code></td>
+<td>Name of the model to load by default.</td>
+</tr>
+<tr>
+<td><code>--lora LORA [LORA ...]</code></td>
+<td>The list of LoRAs to load. If you want to load more than one LoRA, write the names separated by spaces.</td>
+</tr>
+<tr>
+<td><code>--model-dir MODEL_DIR</code></td>
+<td>Path to directory with all the models.</td>
+</tr>
+<tr>
+<td><code>--lora-dir LORA_DIR</code></td>
+<td>Path to directory with all the loras.</td>
+</tr>
+<tr>
+<td><code>--model-menu</code></td>
+<td>Show a model menu in the terminal when the web UI is first launched.</td>
+</tr>
+<tr>
+<td><code>--settings SETTINGS_FILE</code></td>
+<td>Load the default interface settings from this yaml file. See <code>settings-template.yaml</code> for an example. If you create a file called <code>settings.yaml</code>, this file will be loaded by default without the need to use the <code>--settings</code> flag.</td>
+</tr>
+<tr>
+<td><code>--extensions EXTENSIONS [EXTENSIONS ...]</code></td>
+<td>The list of extensions to load. If you want to load more than one extension, write the names separated by spaces.</td>
+</tr>
+<tr>
+<td><code>--verbose</code></td>
+<td>Print the prompts to the terminal.</td>
+</tr>
+</tbody>
+</table>
+<h4 id="model-loader">Model loader</h4>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--loader LOADER</code></td>
+<td>Choose the model loader manually, otherwise, it will get autodetected. Valid options: transformers, autogptq, gptq-for-llama, exllama, exllama_hf, llamacpp, rwkv, ctransformers</td>
+</tr>
+</tbody>
+</table>
+<h4 id="acceleratetransformers">Accelerate/transformers</h4>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--cpu</code></td>
+<td>Use the CPU to generate text. Warning: Training on CPU is extremely slow.</td>
+</tr>
+<tr>
+<td><code>--auto-devices</code></td>
+<td>Automatically split the model across the available GPU(s) and CPU.</td>
+</tr>
+<tr>
+<td><code>--gpu-memory GPU_MEMORY [GPU_MEMORY ...]</code></td>
+<td>Maximum GPU memory in GiB to be allocated per GPU. Example: <code>--gpu-memory 10</code> for a single GPU, <code>--gpu-memory 10 5</code> for two GPUs. You can also set values in MiB like <code>--gpu-memory 3500MiB</code>.</td>
+</tr>
+<tr>
+<td><code>--cpu-memory CPU_MEMORY</code></td>
+<td>Maximum CPU memory in GiB to allocate for offloaded weights. Same as above.</td>
+</tr>
+<tr>
+<td><code>--disk</code></td>
+<td>If the model is too large for your GPU(s) and CPU combined, send the remaining layers to the disk.</td>
+</tr>
+<tr>
+<td><code>--disk-cache-dir DISK_CACHE_DIR</code></td>
+<td>Directory to save the disk cache to. Defaults to <code>cache/</code>.</td>
+</tr>
+<tr>
+<td><code>--load-in-8bit</code></td>
+<td>Load the model with 8-bit precision (using bitsandbytes).</td>
+</tr>
+<tr>
+<td><code>--bf16</code></td>
+<td>Load the model with bfloat16 precision. Requires NVIDIA Ampere GPU.</td>
+</tr>
+<tr>
+<td><code>--no-cache</code></td>
+<td>Set <code>use_cache</code> to False while generating text. This reduces the VRAM usage a bit with a performance cost.</td>
+</tr>
+<tr>
+<td><code>--xformers</code></td>
+<td>Use xformer's memory efficient attention. This should increase your tokens/s.</td>
+</tr>
+<tr>
+<td><code>--sdp-attention</code></td>
+<td>Use torch 2.0's sdp attention.</td>
+</tr>
+<tr>
+<td><code>--trust-remote-code</code></td>
+<td>Set trust_remote_code=True while loading a model. Necessary for ChatGLM and Falcon.</td>
+</tr>
+</tbody>
+</table>
+<h4 id="accelerate-4-bit">Accelerate 4-bit</h4>
+<p>⚠️ Requires minimum compute of 7.0 on Windows at the moment.</p>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--load-in-4bit</code></td>
+<td>Load the model with 4-bit precision (using bitsandbytes).</td>
+</tr>
+<tr>
+<td><code>--compute_dtype COMPUTE_DTYPE</code></td>
+<td>compute dtype for 4-bit. Valid options: bfloat16, float16, float32.</td>
+</tr>
+<tr>
+<td><code>--quant_type QUANT_TYPE</code></td>
+<td>quant_type for 4-bit. Valid options: nf4, fp4.</td>
+</tr>
+<tr>
+<td><code>--use_double_quant</code></td>
+<td>use_double_quant for 4-bit.</td>
+</tr>
+</tbody>
+</table>
+<h4 id="ggmlgguf-for-llamacpp-and-ctransformers">GGML/GGUF (for llama.cpp and ctransformers)</h4>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--threads</code></td>
+<td>Number of threads to use.</td>
+</tr>
+<tr>
+<td><code>--n_batch</code></td>
+<td>Maximum number of prompt tokens to batch together when calling llama_eval.</td>
+</tr>
+<tr>
+<td><code>--n-gpu-layers N_GPU_LAYERS</code></td>
+<td>Number of layers to offload to the GPU. Only works if llama-cpp-python was compiled with BLAS. Set this to 1000000000 to offload all layers to the GPU.</td>
+</tr>
+<tr>
+<td><code>--n_ctx N_CTX</code></td>
+<td>Size of the prompt context.</td>
+</tr>
+</tbody>
+</table>
+<h4 id="llamacpp">llama.cpp</h4>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--no-mmap</code></td>
+<td>Prevent mmap from being used.</td>
+</tr>
+<tr>
+<td><code>--mlock</code></td>
+<td>Force the system to keep the model in RAM.</td>
+</tr>
+<tr>
+<td><code>--mul_mat_q</code></td>
+<td>Activate new mulmat kernels.</td>
+</tr>
+<tr>
+<td><code>--cache-capacity CACHE_CAPACITY</code></td>
+<td>Maximum cache capacity. Examples: 2000MiB, 2GiB. When provided without units, bytes will be assumed.</td>
+</tr>
+<tr>
+<td><code>--tensor_split TENSOR_SPLIT</code></td>
+<td>Split the model across multiple GPUs, comma-separated list of proportions, e.g. 18,17</td>
+</tr>
+<tr>
+<td><code>--llama_cpp_seed SEED</code></td>
+<td>Seed for llama-cpp models. Default 0 (random).</td>
+</tr>
+<tr>
+<td><code>--n_gqa N_GQA</code></td>
+<td>GGML only (not used by GGUF): Grouped-Query Attention. Must be 8 for llama-2 70b.</td>
+</tr>
+<tr>
+<td><code>--rms_norm_eps RMS_NORM_EPS</code></td>
+<td>GGML only (not used by GGUF): 5e-6 is a good value for llama-2 models.</td>
+</tr>
+<tr>
+<td><code>--cpu</code></td>
+<td>Use the CPU version of llama-cpp-python instead of the GPU-accelerated version.</td>
+</tr>
+<tr>
+<td><code>--cfg-cache</code></td>
+<td>llamacpp_HF: Create an additional cache for CFG negative prompts.</td>
+</tr>
+</tbody>
+</table>
+<h4 id="ctransformers">ctransformers</h4>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--model_type MODEL_TYPE</code></td>
+<td>Model type of pre-quantized model. Currently gpt2, gptj, gptneox, falcon, llama, mpt, starcoder (gptbigcode), dollyv2, and replit are supported.</td>
+</tr>
+</tbody>
+</table>
+<h4 id="autogptq">AutoGPTQ</h4>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--triton</code></td>
+<td>Use triton.</td>
+</tr>
+<tr>
+<td><code>--no_inject_fused_attention</code></td>
+<td>Disable the use of fused attention, which will use less VRAM at the cost of slower inference.</td>
+</tr>
+<tr>
+<td><code>--no_inject_fused_mlp</code></td>
+<td>Triton mode only: disable the use of fused MLP, which will use less VRAM at the cost of slower inference.</td>
+</tr>
+<tr>
+<td><code>--no_use_cuda_fp16</code></td>
+<td>This can make models faster on some systems.</td>
+</tr>
+<tr>
+<td><code>--desc_act</code></td>
+<td>For models that don't have a quantize_config.json, this parameter is used to define whether to set desc_act or not in BaseQuantizeConfig.</td>
+</tr>
+<tr>
+<td><code>--disable_exllama</code></td>
+<td>Disable ExLlama kernel, which can improve inference speed on some systems.</td>
+</tr>
+</tbody>
+</table>
+<h4 id="exllama">ExLlama</h4>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--gpu-split</code></td>
+<td>Comma-separated list of VRAM (in GB) to use per GPU device for model layers, e.g. <code>20,7,7</code></td>
+</tr>
+<tr>
+<td><code>--max_seq_len MAX_SEQ_LEN</code></td>
+<td>Maximum sequence length.</td>
+</tr>
+<tr>
+<td><code>--cfg-cache</code></td>
+<td>ExLlama_HF: Create an additional cache for CFG negative prompts. Necessary to use CFG with that loader, but not necessary for CFG with base ExLlama.</td>
+</tr>
+</tbody>
+</table>
+<h4 id="gptq-for-llama">GPTQ-for-LLaMa</h4>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--wbits WBITS</code></td>
+<td>Load a pre-quantized model with specified precision in bits. 2, 3, 4 and 8 are supported.</td>
+</tr>
+<tr>
+<td><code>--model_type MODEL_TYPE</code></td>
+<td>Model type of pre-quantized model. Currently LLaMA, OPT, and GPT-J are supported.</td>
+</tr>
+<tr>
+<td><code>--groupsize GROUPSIZE</code></td>
+<td>Group size.</td>
+</tr>
+<tr>
+<td><code>--pre_layer PRE_LAYER [PRE_LAYER ...]</code></td>
+<td>The number of layers to allocate to the GPU. Setting this parameter enables CPU offloading for 4-bit models. For multi-gpu, write the numbers separated by spaces, eg <code>--pre_layer 30 60</code>.</td>
+</tr>
+<tr>
+<td><code>--checkpoint CHECKPOINT</code></td>
+<td>The path to the quantized checkpoint file. If not specified, it will be automatically detected.</td>
+</tr>
+<tr>
+<td><code>--monkey-patch</code></td>
+<td>Apply the monkey patch for using LoRAs with quantized models.</td>
+</tr>
+</tbody>
+</table>
+<h4 id="deepspeed">DeepSpeed</h4>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--deepspeed</code></td>
+<td>Enable the use of DeepSpeed ZeRO-3 for inference via the Transformers integration.</td>
+</tr>
+<tr>
+<td><code>--nvme-offload-dir NVME_OFFLOAD_DIR</code></td>
+<td>DeepSpeed: Directory to use for ZeRO-3 NVME offloading.</td>
+</tr>
+<tr>
+<td><code>--local_rank LOCAL_RANK</code></td>
+<td>DeepSpeed: Optional argument for distributed setups.</td>
+</tr>
+</tbody>
+</table>
+<h4 id="rwkv">RWKV</h4>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--rwkv-strategy RWKV_STRATEGY</code></td>
+<td>RWKV: The strategy to use while loading the model. Examples: "cpu fp32", "cuda fp16", "cuda fp16i8".</td>
+</tr>
+<tr>
+<td><code>--rwkv-cuda-on</code></td>
+<td>RWKV: Compile the CUDA kernel for better performance.</td>
+</tr>
+</tbody>
+</table>
+<h4 id="rope-for-llamacpp-exllama-and-transformers">RoPE (for llama.cpp, ExLlama, and transformers)</h4>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--alpha_value ALPHA_VALUE</code></td>
+<td>Positional embeddings alpha factor for NTK RoPE scaling. Use either this or compress_pos_emb, not both.</td>
+</tr>
+<tr>
+<td><code>--rope_freq_base ROPE_FREQ_BASE</code></td>
+<td>If greater than 0, will be used instead of alpha_value. Those two are related by rope_freq_base = 10000 * alpha_value ^ (64 / 63).</td>
+</tr>
+<tr>
+<td><code>--compress_pos_emb COMPRESS_POS_EMB</code></td>
+<td>Positional embeddings compression factor. Should be set to (context length) / (model's original context length). Equal to 1/rope_freq_scale.</td>
+</tr>
+</tbody>
+</table>
+<h4 id="gradio">Gradio</h4>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--listen</code></td>
+<td>Make the web UI reachable from your local network.</td>
+</tr>
+<tr>
+<td><code>--listen-host LISTEN_HOST</code></td>
+<td>The hostname that the server will use.</td>
+</tr>
+<tr>
+<td><code>--listen-port LISTEN_PORT</code></td>
+<td>The listening port that the server will use.</td>
+</tr>
+<tr>
+<td><code>--share</code></td>
+<td>Create a public URL. This is useful for running the web UI on Google Colab or similar.</td>
+</tr>
+<tr>
+<td><code>--auto-launch</code></td>
+<td>Open the web UI in the default browser upon launch.</td>
+</tr>
+<tr>
+<td><code>--gradio-auth USER:PWD</code></td>
+<td>set gradio authentication like "username:password"; or comma-delimit multiple like "u1:p1,u2:p2,u3:p3"</td>
+</tr>
+<tr>
+<td><code>--gradio-auth-path GRADIO_AUTH_PATH</code></td>
+<td>Set the gradio authentication file path. The file should contain one or more user:password pairs in this format: "u1:p1,u2:p2,u3:p3"</td>
+</tr>
+<tr>
+<td><code>--ssl-keyfile SSL_KEYFILE</code></td>
+<td>The path to the SSL certificate key file.</td>
+</tr>
+<tr>
+<td><code>--ssl-certfile SSL_CERTFILE</code></td>
+<td>The path to the SSL certificate cert file.</td>
+</tr>
+</tbody>
+</table>
+<h4 id="api">API</h4>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--api</code></td>
+<td>Enable the API extension.</td>
+</tr>
+<tr>
+<td><code>--public-api</code></td>
+<td>Create a public URL for the API using Cloudfare.</td>
+</tr>
+<tr>
+<td><code>--public-api-id PUBLIC_API_ID</code></td>
+<td>Tunnel ID for named Cloudflare Tunnel. Use together with public-api option.</td>
+</tr>
+<tr>
+<td><code>--api-blocking-port BLOCKING_PORT</code></td>
+<td>The listening port for the blocking API.</td>
+</tr>
+<tr>
+<td><code>--api-streaming-port STREAMING_PORT</code></td>
+<td>The listening port for the streaming API.</td>
+</tr>
+</tbody>
+</table>
+<h4 id="multimodal">Multimodal</h4>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--multimodal-pipeline PIPELINE</code></td>
+<td>The multimodal pipeline to use. Examples: <code>llava-7b</code>, <code>llava-13b</code>.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="presets">Presets</h2>
+<p>Inference settings presets can be created under <code>presets/</code> as yaml files. These files are detected automatically at startup.</p>
+<p>The presets that are included by default are the result of a contest that received 7215 votes. More details can be found <a href="https://github.com/oobabooga/oobabooga.github.io/blob/main/arena/results.md">here</a>.</p>
+<h2 id="contributing">Contributing</h2>
+<p>If you would like to contribute to the project, check out the <a href="https://github.com/oobabooga/text-generation-webui/wiki/Contributing-guidelines">Contributing guidelines</a>.</p>
+<h2 id="community">Community</h2>
+<ul>
+<li>Subreddit: https://www.reddit.com/r/oobabooga/</li>
+<li>Discord: https://discord.gg/jwZCF2dPQN</li>
+</ul>
+<h2 id="acknowledgment">Acknowledgment</h2>
+<p>In August 2023, <a href="https://a16z.com/">Andreessen Horowitz</a> (a16z) provided a generous grant to encourage and support my independent work on this project. I am <strong>extremely</strong> grateful for their trust and recognition, which will allow me to dedicate more time towards realizing the full potential of text-generation-webui.</p>
+  </article>
+  <footer class="mt-5"><hr/><p class="small">Generated by scripts/build_pages.py</p></footer>
+</div>
+</body>
+</html>

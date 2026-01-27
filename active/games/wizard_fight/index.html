@@ -1,0 +1,110 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>active/games/wizard_fight</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+  <style>body{padding:2rem} pre code {white-space: pre-wrap;}</style>
+</head>
+<body>
+<div class="container">
+  <nav class="mb-4"><a href="/">Megarepo pages</a> / active/games/wizard_fight</nav>
+  <article>
+    <h1 id="wizard-fight">Wizard Fight</h1>
+<p>A web-based wizard duel game where players research spells via LLMs and battle in real time. Spells are generated as constrained JSON specs, validated, and executed by a deterministic server-side engine.</p>
+<h2 id="whats-included">What’s Included</h2>
+<ul>
+<li>Deterministic simulation engine (server authoritative).</li>
+<li>Spell research pipeline with safe JSON schema validation.</li>
+<li>Real-time multiplayer server (Flask + Socket.IO).</li>
+<li>Vanilla HTML/CSS/JS frontend with casting, research, spellbook, and leaderboard.</li>
+</ul>
+<h2 id="quick-start">Quick Start</h2>
+<h3 id="one-command-backend-frontend">One Command (Backend + Frontend)</h3>
+<p>From <a href="active/games/wizard_fight">active/games/wizard_fight</a>:</p>
+<ul>
+<li><code>./scripts/dev.sh</code></li>
+</ul>
+<h3 id="one-command-backend-frontend-ollama">One Command (Backend + Frontend + Ollama)</h3>
+<p>From <a href="active/games/wizard_fight">active/games/wizard_fight</a>:</p>
+<ul>
+<li><code>./scripts/start_all.sh</code></li>
+</ul>
+<p>Defaults:
+- Backend: <code>5055</code>
+- Frontend: <code>5175</code></p>
+<p>Override with env vars:
+- <code>WIZARD_FIGHT_PORT=6060 WIZARD_FIGHT_FRONTEND_PORT=6061 ./scripts/dev.sh</code></p>
+<h3 id="backend">Backend</h3>
+<p>From <a href="active/games/wizard_fight">active/games/wizard_fight</a>:</p>
+<ol>
+<li>
+<p>Create a virtual environment and install dependencies:</p>
+<ul>
+<li><code>python -m venv .venv</code></li>
+<li><code>. .venv/bin/activate</code></li>
+<li><code>pip install .</code></li>
+</ul>
+</li>
+<li>
+<p>Run the server:</p>
+<ul>
+<li><code>WIZARD_FIGHT_PORT=5055 python -m wizard_fight.server</code></li>
+</ul>
+</li>
+</ol>
+<p>The backend listens on port <code>5055</code> by default.</p>
+<h3 id="frontend">Frontend</h3>
+<p>From <a href="active/games/wizard_fight/frontend">active/games/wizard_fight/frontend</a>:</p>
+<p>Serve the static files:
+- <code>python -m http.server 5175</code></p>
+<p>Open http://localhost:5175 in a browser.</p>
+<h2 id="tests">Tests</h2>
+<h3 id="backend_1">Backend</h3>
+<p>From <a href="active/games/wizard_fight">active/games/wizard_fight</a>:
+- <code>python -m pytest</code></p>
+<h3 id="frontend_1">Frontend</h3>
+<p>No frontend test runner is required for the vanilla setup.</p>
+<h2 id="useful-docs">Useful Docs</h2>
+<ul>
+<li>Development plan: <a href="active/games/wizard_fight/DEVELOPMENT_PLAN.md">active/games/wizard_fight/DEVELOPMENT_PLAN.md</a></li>
+<li>Spell DSL schema: <a href="active/games/wizard_fight/docs/dsl_v1.md">active/games/wizard_fight/docs/dsl_v1.md</a></li>
+<li>VPS deployment: <a href="active/games/wizard_fight/docs/deploy_vps.md">active/games/wizard_fight/docs/deploy_vps.md</a></li>
+</ul>
+<h2 id="notes">Notes</h2>
+<ul>
+<li>The spell system never executes arbitrary code. All spells are validated against the JSON schema before use.</li>
+<li>Research has a built-in delay (see <a href="active/games/wizard_fight/docs/timing_v1.json">active/games/wizard_fight/docs/timing_v1.json</a>).</li>
+<li>To point the frontend at a different backend URL, edit <code>frontend/app.js</code> (defaults to <code>http://localhost:5055</code>).</li>
+<li>The frontend is plain HTML/CSS/JS and can be served by any static file server.</li>
+<li>The Spell Lab on the game page lets you generate and save spells without starting a match.</li>
+</ul>
+<h2 id="local-llm-ollama">Local LLM (Ollama)</h2>
+<p>Set <code>WIZARD_FIGHT_LLM_MODE=local</code> and run a local model with Ollama:
+- <code>WIZARD_FIGHT_LOCAL_BACKEND=ollama</code>
+- <code>WIZARD_FIGHT_OLLAMA_URL=http://localhost:11434/api/generate</code>
+- <code>WIZARD_FIGHT_OLLAMA_MODEL=llama3.2</code></p>
+<h3 id="copilot-backend-optional">Copilot backend (optional)</h3>
+<p>You can enable GitHub Copilot as a spell-generation backend. This is optional and requires the Copilot CLI plus the Python SDK (module name <code>copilot</code>) or a running Copilot CLI server.</p>
+<p>Environment variables:
+- <code>WIZARD_FIGHT_SPELL_BACKEND=copilot</code> — select Copilot as the backend
+- <code>WIZARD_FIGHT_COPILOT_MODEL=raptor-mini</code> — preferred default non-premium model (<code>raptor-mini</code>)
+- <code>WIZARD_FIGHT_COPILOT_CLI_URL=localhost:4321</code> — (optional) connect to a running <code>copilot --server</code> instance
+- <code>WIZARD_FIGHT_ALLOW_PREMIUM=false</code> — set to <code>true</code> to allow premium models (disabled by default)</p>
+<p>Demo recording:
+- <code>python ui_tests/demo_record.py --output demo.gif</code> will start a local backend and frontend (dev environment), run a short Playwright-driven scenario that generates a spell via the Spell Lab (with the Copilot backend highlighted), and produce <code>demo.gif</code>.
+- Requirements: <code>playwright</code> and <code>ffmpeg</code> installed. Install browsers with <code>playwright install chromium</code>.</p>
+<p>Notes:
+- The integration enforces non-premium models by default (to avoid using paid/premium requests). <code>raptor-mini</code> is used as the default safe model.
+- Install the Python client for best experience: <code>pip install .[copilot]</code> from the <code>active/games/wizard_fight</code> directory to enable the Copilot adapter.
+- If you have the <code>copilot</code> CLI installed, you can start it as a server: <code>copilot --server --port 4321</code> and set <code>WIZARD_FIGHT_COPILOT_CLI_URL</code> to that address.
+Start the Ollama server and pull the model:
+- <code>ollama serve</code>
+- <code>ollama pull llama3.2</code></p>
+<p>If Ollama is unavailable, the pipeline falls back to a lightweight transformers model (if installed) or a deterministic generator.</p>
+  </article>
+  <footer class="mt-5"><hr/><p class="small">Generated by scripts/build_pages.py</p></footer>
+</div>
+</body>
+</html>
