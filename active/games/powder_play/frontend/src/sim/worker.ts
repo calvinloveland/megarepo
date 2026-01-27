@@ -14,6 +14,9 @@ type ReactionRule = {
   byproduct?: string;
   probability?: number;
   priority?: number;
+  withId?: number;
+  resultId?: number;
+  byproductId?: number;
 };
 
 let width=0, height=0;
@@ -23,6 +26,16 @@ const interpreters = new Map<number, Interpreter>();
 const reactionsById = new Map<number, ReactionRule[]>();
 const nameToId = new Map<string, number>();
 let reacted: Uint8Array;
+
+function resolveReactions() {
+  for (const rules of reactionsById.values()) {
+    for (const r of rules) {
+      r.withId = nameToId.get(r.with);
+      r.resultId = nameToId.get(r.result);
+      r.byproductId = r.byproduct ? nameToId.get(r.byproduct) : undefined;
+    }
+  }
+}
 
 onmessage = (ev: MessageEvent) => {
   const msg: WorkerMessage = ev.data;
@@ -39,6 +52,7 @@ onmessage = (ev: MessageEvent) => {
       const rules = msg.material.reactions.slice().sort((a:ReactionRule,b:ReactionRule)=> (b.priority||0) - (a.priority||0));
       reactionsById.set(msg.materialId, rules);
     }
+    resolveReactions();
     postMessage({type:'material_set', materialId: msg.materialId});
   } else if (msg.type === 'set_grid') {
     // accept transferred buffer as the new grid if size matches
@@ -91,8 +105,8 @@ function stepSimulation() {
       let reactedHere = false;
       if (rules && rules.length) {
         for (const r of rules) {
-          const withId = nameToId.get(r.with);
-          const resultId = nameToId.get(r.result);
+          const withId = r.withId;
+          const resultId = r.resultId;
           if (!withId || !resultId) continue;
           const prob = r.probability ?? 1;
           for (const d of dirs) {
@@ -103,7 +117,7 @@ function stepSimulation() {
             if (reacted[nidx]) continue;
             if (grid[nidx] !== withId) continue;
             if (Math.random() > prob) continue;
-            const byId = r.byproduct ? nameToId.get(r.byproduct) : undefined;
+            const byId = r.byproductId;
             if (nextGrid[idx] !== 0 || nextGrid[nidx] !== 0) continue;
             nextGrid[idx] = resultId;
             if (r.byproduct !== undefined) nextGrid[nidx] = byId ?? 0;
