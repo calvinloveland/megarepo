@@ -48,6 +48,8 @@ function initWorkerWithMaterial(mat:any) {
       const m = ev.data;
       if (m.type === 'ready') {
         console.log('worker ready');
+        // expose the worker to the page for e2e tests/debugging
+        (window as any).__powderWorker = worker;
         // attach canvas tools once worker exists
         import('./canvas_tools').then(mod => {
           mod.attachCanvasTools(document.getElementById('sim-canvas') as HTMLCanvasElement, worker!, 150, 100);
@@ -65,6 +67,15 @@ function initWorkerWithMaterial(mat:any) {
     worker.postMessage({type:'init', width:150, height:100});
   }
   worker.postMessage({type:'set_material', material:mat});
+  // expose a simple helper to paint points for e2e tests
+  (window as any).__paintGridPoints = (points:{x:number,y:number}[]) => {
+    const buf = new Uint16Array(150*100);
+    for (const p of points) {
+      const idx = p.y*150 + p.x;
+      if (idx>=0 && idx < buf.length) buf[idx] = 255;
+    }
+    worker!.postMessage({type:'set_grid', buffer: buf.buffer}, [buf.buffer]);
+  }
   // kick a step to test
   worker.postMessage({type:'step'});
 }
