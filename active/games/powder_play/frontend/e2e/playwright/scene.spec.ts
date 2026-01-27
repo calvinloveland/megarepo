@@ -30,8 +30,8 @@ test('demo scene: paint sand and it falls down', async ({ page }) => {
     await page.mouse.up();
   }
 
-  // Wait for canvas tools to be attached (happens after worker ready)
-  await page.waitForSelector('#clear-grid', { timeout: 5000 });
+  // Wait for worker to be created and exposed by the app
+  await page.waitForFunction(() => (window as any).__powderWorker !== undefined, { timeout: 5000 });
 
   // Use the helper exposed by the app to set the grid directly (avoid flaky mouse events)
   await page.evaluate((points) => {
