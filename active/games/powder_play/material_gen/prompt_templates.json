@@ -1,0 +1,3 @@
+{
+  "create_material": "Create a material described by the following intent:\n\n{{intent}}\n\nOutput a JSON AST using only the `MBL` schema: { 'type': 'material', 'name': string, 'primitives': [ ... ] }. Use only the allowed primitives: move, swap, set, spawn, change_state, read, if, rand, timer. The JSON must be valid and contain conservative budget parameters (max_spawns: <= 4, max_ops: <= 200). Do not include any executable JS or code blocks."
+}

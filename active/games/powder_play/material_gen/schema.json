@@ -1,0 +1,23 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "MBL Material",
+  "type": "object",
+  "required": ["type","name","primitives","budgets"],
+  "properties": {
+    "type": {"const": "material"},
+    "name": {"type": "string"},
+    "description": {"type": "string"},
+    "primitives": {
+      "type": "array",
+      "items": {"type":"object"}
+    },
+    "budgets": {
+      "type": "object",
+      "properties": {
+        "max_ops": {"type":"integer","minimum":1,"maximum":200},
+        "max_spawns": {"type":"integer","minimum":0,"maximum":4}
+      },
+      "required": ["max_ops","max_spawns"]
+    }
+  }
+}
