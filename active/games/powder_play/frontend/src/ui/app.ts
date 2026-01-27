@@ -106,7 +106,11 @@ function initWorkerWithMaterial(mat:any) {
         } catch(e) {}
       }
       if (m.type === 'reaction') {
-        console.log('reaction applied', m);
+        try {
+          console.log('reaction applied', JSON.stringify(m));
+        } catch (e) {
+          console.log('reaction applied', m);
+        }
       }
       if (m.type === 'stepped') {
         // draw scaled grid
