@@ -2,6 +2,7 @@
   "type":"material",
   "name":"Fire",
   "description":"Energetic particle that rises and spreads; simple visual energetic material.",
+  "color": [255, 120, 40],
   "primitives":[
     {"op":"read","dx":0,"dy":-1},
     {"op":"if","cond":{"eq":{"value":0}},"then":[{"op":"move","dx":0,"dy":-1}]},

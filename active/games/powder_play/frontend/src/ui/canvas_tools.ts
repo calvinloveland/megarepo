@@ -9,8 +9,7 @@ export function attachCanvasTools(canvas: HTMLCanvasElement, worker: Worker | nu
   const brushSel = info.querySelector('#brush-size') as HTMLSelectElement;
 
   let drawing = false;
-  // maintain a local grid buffer for the full scene (do not reset between strokes)
-  const grid = new Uint16Array(gridW*gridH);
+  const strokePoints = new Set<string>();
   let brushRadius = parseInt(brushSel.value, 10); // in grid cells radius
 
   brushSel.onchange = () => {
@@ -39,14 +38,13 @@ export function attachCanvasTools(canvas: HTMLCanvasElement, worker: Worker | nu
   }
 
   function paintAt(gridX:number, gridY:number) {
-    const id = (window as any).__currentMaterialId || 1;
     const r = brushRadius;
     const r2 = r*r;
     for (let dy=-r; dy<=r; dy++) {
       for (let dx=-r; dx<=r; dx++) {
         if (dx*dx + dy*dy > r2) continue;
         const nx = gridX + dx, ny = gridY + dy;
-        if (nx>=0 && nx<gridW && ny>=0 && ny<gridH) grid[ny*gridW + nx] = id;
+        if (nx>=0 && nx<gridW && ny>=0 && ny<gridH) strokePoints.add(`${nx},${ny}`);
       }
     }
   }
@@ -76,32 +74,31 @@ export function attachCanvasTools(canvas: HTMLCanvasElement, worker: Worker | nu
   });
   canvas.addEventListener('mouseleave', ()=>{ octx.clearRect(0,0,overlay.width, overlay.height); });
 
-  const pendingBuffers: Uint16Array[] = [];
+  const pendingPaints: { materialId:number, points:{x:number,y:number}[] }[] = [];
   let currentWorker = worker;
   const flushPending = () => {
     const w = (window as any).__powderWorker as Worker | undefined;
     if (w && !currentWorker) {
       currentWorker = w;
     }
-    if (currentWorker && pendingBuffers.length) {
-      for (const b of pendingBuffers) {
-        currentWorker.postMessage({type:'set_grid', buffer: b.buffer});
+    if (currentWorker && pendingPaints.length) {
+      for (const p of pendingPaints) {
+        currentWorker.postMessage({type:'paint_points', materialId: p.materialId, points: p.points});
         currentWorker.postMessage({type:'step'});
       }
-      pendingBuffers.length = 0;
+      pendingPaints.length = 0;
     }
   };
   const flushIv = setInterval(flushPending, 500);
 
   // wire clear button now that queueing is available
   clearBtn.onclick = () => {
-    grid.fill(0);
-    const buf = grid.slice();
+    const buf = new Uint16Array(gridW*gridH);
     if (currentWorker) {
       currentWorker.postMessage({type:'set_grid', buffer: buf.buffer});
       currentWorker.postMessage({type:'step'});
     } else {
-      pendingBuffers.push(buf);
+      pendingPaints.push({ materialId: 0, points: [] });
     }
     // also clear overlay
     try { octx.clearRect(0,0,overlay.width, overlay.height); } catch (e) {}
@@ -111,15 +108,18 @@ export function attachCanvasTools(canvas: HTMLCanvasElement, worker: Worker | nu
     if (!drawing) return;
     drawing = false;
     // send grid to worker (or queue if worker not available yet)
-    const snapshot = grid.slice();
+    const id = (window as any).__currentMaterialId || 1;
+    const points = Array.from(strokePoints).map((s) => {
+      const [x,y] = s.split(',').map(Number);
+      return {x,y};
+    });
+    strokePoints.clear();
     if (currentWorker) {
-      currentWorker.postMessage({type:'set_grid', buffer: snapshot.buffer});
+      currentWorker.postMessage({type:'paint_points', materialId: id, points});
       // immediately step one tick so paint is visible without pressing Step
       currentWorker.postMessage({type:'step'});
     } else {
-      // clone grid so we don't mutate queued buffer when we clear
-      pendingBuffers.push(snapshot);
+      pendingPaints.push({ materialId: id, points });
     }
-    // keep grid state for subsequent strokes
   });
 }

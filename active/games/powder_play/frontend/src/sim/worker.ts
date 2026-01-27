@@ -5,6 +5,7 @@ export type WorkerMessage =
   | {type:'step'}
   | {type:'set_material', material:any, materialId:number}
   | {type:'set_grid', buffer:ArrayBuffer}
+  | {type:'paint_points', materialId:number, points:{x:number,y:number}[]}
   ;
 
 let width=0, height=0;
@@ -32,6 +33,12 @@ onmessage = (ev: MessageEvent) => {
     } else {
       postMessage({type:'error', message:'grid size mismatch'});
     }
+  } else if (msg.type === 'paint_points') {
+    for (const p of msg.points) {
+      const idx = p.y*width + p.x;
+      if (idx>=0 && idx<grid.length) grid[idx] = msg.materialId;
+    }
+    postMessage({type:'grid_set'});
   } else if (msg.type === 'step') {
     stepSimulation();
     postMessage({type:'stepped', grid: grid.buffer, width, height});

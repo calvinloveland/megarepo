@@ -109,13 +109,8 @@ function initWorkerWithMaterial(mat:any) {
 
   // expose a simple helper to paint points for e2e tests
   (window as any).__paintGridPoints = (points:{x:number,y:number}[]) => {
-    const buf = new Uint16Array(150*100);
     const id = (window as any).__currentMaterialId || 1;
-    for (const p of points) {
-      const idx = p.y*150 + p.x;
-      if (idx>=0 && idx < buf.length) buf[idx] = id;
-    }
-    worker!.postMessage({type:'set_grid', buffer: buf.buffer});
+    worker!.postMessage({type:'paint_points', materialId: id, points});
     // step so the new grid renders immediately
     worker!.postMessage({type:'step'});
   }

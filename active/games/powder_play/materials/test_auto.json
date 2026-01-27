@@ -2,6 +2,7 @@
   "type": "material",
   "name": "AutoTest",
   "description": "Automatically added material for sync test",
+  "color": [255, 0, 255],
   "primitives": [],
   "budgets": {"max_ops":1, "max_spawns":0}
 }
