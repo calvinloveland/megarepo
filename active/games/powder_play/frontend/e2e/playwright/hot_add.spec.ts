@@ -17,6 +17,14 @@ test('hot-add material is discovered and auto-loaded', async ({ page }) => {
   const mat = { type: 'material', name: 'HotAdded', description: 'hot added', primitives: [], budgets: { max_ops:1, max_spawns:0 } };
   fs.writeFileSync(matPath, JSON.stringify(mat, null, 2));
 
+  // Expose a callback so the page can notify us when it has loaded a material
+  const materialLoaded = new Promise<string>((resolve) => {
+    page.exposeFunction('onMaterialLoaded', (name: string) => {
+      console.log('onMaterialLoaded called with', name);
+      resolve(name);
+    });
+  });
+
   // Run one-time sync to copy to public materials
   // Run one-time sync in the frontend directory
   execSync('npm run materials:sync', { cwd: path.resolve(__dirname, '..', '..') });
@@ -27,15 +35,18 @@ test('hot-add material is discovered and auto-loaded', async ({ page }) => {
       const r = await fetch('/materials/index.json', {cache: 'no-store'});
       if (!r.ok) return false;
       const j = await r.json();
-      return j.materials && j.materials.some((m:any) => m.file === 'hot_added.json' || m.file === 'hot_added.json');
+      return j.materials && j.materials.some((m:any) => m.file === 'hot_added.json');
     } catch (e) { return false; }
   }, { timeout: 10000 });
 
-  // Wait for the UI to auto-load the new material (status element)
-  await page.waitForFunction(() => {
-    const el = document.getElementById('status');
-    return el && el.textContent && el.textContent.includes('HotAdded');
-  }, { timeout: 10000 });
+  // Wait for the page to call our onMaterialLoaded callback when the UI loads the material
+  const loadedName = await Promise.race([
+    materialLoaded,
+    new Promise((_, reject) => setTimeout(() => reject(new Error('timed out waiting for material load')), 10000))
+  ]) as string;
+
+  // verify it was the material we added
+  expect(loadedName).toContain('HotAdded');
 
   // cleanup
   fs.unlinkSync(matPath);
