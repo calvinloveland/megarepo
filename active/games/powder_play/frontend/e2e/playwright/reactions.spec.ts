@@ -8,7 +8,8 @@ test('salt reacts with water to form saltwater', async ({ page }) => {
   await page.waitForSelector('text=Powder Playground');
 
   const loadByName = async (name: string) => {
-    const row = page.locator('#materials-list > div', { hasText: name }).first();
+    const nameMatcher = new RegExp(`^${name}$`);
+    const row = page.locator('#materials-list > div').filter({ has: page.locator('strong', { hasText: nameMatcher }) }).first();
     await row.locator('button.load').click();
     await page.waitForFunction((n) => document.getElementById('status')?.textContent?.includes(n), name, { timeout: 2000 });
   };
