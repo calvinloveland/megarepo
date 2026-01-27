@@ -110,7 +110,6 @@ function stepSimulation() {
       const idx = y*width + x;
       const cell = grid[idx];
       if (cell === 0) {
-        nextGrid[idx] = 0;
         continue;
       }
       // condense at top if configured
@@ -169,7 +168,7 @@ function stepSimulation() {
         const ny = y + ctx.intent.dy;
         if (nx>=0 && nx<width && ny>=0 && ny<height) {
           const nidx = ny*width + nx;
-          if (nextGrid[nidx] === 0) nextGrid[nidx] = cell;
+          if (grid[nidx] === 0 && nextGrid[nidx] === 0) nextGrid[nidx] = cell;
           else nextGrid[idx] = cell;
         } else {
           nextGrid[idx] = cell;
