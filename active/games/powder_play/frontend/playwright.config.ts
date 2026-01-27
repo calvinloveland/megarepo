@@ -1,7 +1,7 @@
 import { defineConfig } from '@playwright/test';
 
 export default defineConfig({
-  testDir: './tests/playwright',
+  testDir: './e2e/playwright',
   use: {
     headless: true,
     viewport: { width: 1280, height: 800 },
