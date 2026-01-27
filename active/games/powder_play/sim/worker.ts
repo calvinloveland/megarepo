@@ -3,13 +3,14 @@ import {Interpreter} from '../material_runtime/interpreter';
 export type WorkerMessage =
   | {type:'init', width:number, height:number}
   | {type:'step'}
-  | {type:'set_material', material:any}
+  | {type:'set_material', material:any, materialId:number}
+  | {type:'set_grid', buffer:ArrayBuffer}
   ;
 
 let width=0, height=0;
 let grid: Uint16Array;
 let nextGrid: Uint16Array;
-let interpreter: Interpreter | null = null;
+const interpreters = new Map<number, Interpreter>();
 
 onmessage = (ev: MessageEvent) => {
   const msg: WorkerMessage = ev.data;
@@ -19,8 +20,8 @@ onmessage = (ev: MessageEvent) => {
     nextGrid = new Uint16Array(width*height);
     postMessage({type:'ready'});
   } else if (msg.type === 'set_material') {
-    interpreter = new Interpreter(msg.material);
-    postMessage({type:'material_set'});
+    interpreters.set(msg.materialId, new Interpreter(msg.material));
+    postMessage({type:'material_set', materialId: msg.materialId});
   } else if (msg.type === 'set_grid') {
     // accept transferred buffer as the new grid if size matches
     const buf = new Uint16Array(msg.buffer);
@@ -40,12 +41,21 @@ onmessage = (ev: MessageEvent) => {
 }
 
 function stepSimulation() {
-  if (!interpreter) return;
+  if (!interpreters.size) return;
   // naive per-cell loop for MVP
   for (let y=height-1;y>=0;y--) {
     for (let x=0;x<width;x++) {
       const idx = y*width + x;
       const cell = grid[idx];
+      if (cell === 0) {
+        nextGrid[idx] = 0;
+        continue;
+      }
+      const interpreter = interpreters.get(cell);
+      if (!interpreter) {
+        nextGrid[idx] = cell;
+        continue;
+      }
       const ctx = makeCellCtx(x,y);
       interpreter.step(ctx);
       if (ctx.intent && ctx.intent.type === 'move') {

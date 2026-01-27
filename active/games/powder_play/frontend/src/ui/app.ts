@@ -51,6 +51,8 @@ export function initApp(root: HTMLElement) {
 }
 
 let worker: Worker | null = null;
+let nextMaterialId = 0;
+let currentMaterialId = 0;
 function initWorkerWithMaterial(mat:any) {
   if (!worker) {
     // worker script lives at the project-level `sim/worker.ts`, so go up one more dir
@@ -78,8 +80,12 @@ function initWorkerWithMaterial(mat:any) {
     }
     worker.postMessage({type:'init', width:150, height:100});
   }
-  worker.postMessage({type:'set_material', material:mat});
-  // set current material color for rendering (accept hex string or [r,g,b] array)
+  const materialId = ++nextMaterialId;
+  currentMaterialId = materialId;
+  (window as any).__currentMaterialId = currentMaterialId;
+
+  worker.postMessage({type:'set_material', material:mat, materialId});
+  // set material color for rendering (accept hex string or [r,g,b] array)
   try {
     let color = [255,255,255];
     if (mat && mat.color) {
@@ -90,15 +96,24 @@ function initWorkerWithMaterial(mat:any) {
         color = [mat.color[0], mat.color[1], mat.color[2]];
       }
     }
+    const colorMap = (window as any).__materialColors || {};
+    colorMap[materialId] = color;
+    (window as any).__materialColors = colorMap;
     (window as any).__currentMaterialColor = color;
-  } catch (e) { (window as any).__currentMaterialColor = [255,255,255]; }
+  } catch (e) {
+    const colorMap = (window as any).__materialColors || {};
+    colorMap[materialId] = [255,255,255];
+    (window as any).__materialColors = colorMap;
+    (window as any).__currentMaterialColor = [255,255,255];
+  }
 
   // expose a simple helper to paint points for e2e tests
   (window as any).__paintGridPoints = (points:{x:number,y:number}[]) => {
     const buf = new Uint16Array(150*100);
+    const id = (window as any).__currentMaterialId || 1;
     for (const p of points) {
       const idx = p.y*150 + p.x;
-      if (idx>=0 && idx < buf.length) buf[idx] = 255;
+      if (idx>=0 && idx < buf.length) buf[idx] = id;
     }
     worker!.postMessage({type:'set_grid', buffer: buf.buffer});
     // step so the new grid renders immediately
@@ -120,13 +135,14 @@ function drawGrid(buf:Uint16Array, w:number, h:number, canvasW:number, canvasH:n
   const offCtx = off.getContext('2d')!;
   const img = offCtx.createImageData(w, h);
   // colorize using current material color if available, otherwise grayscale
-  const materialColor = (window as any).__currentMaterialColor as number[] | undefined;
+  const colorMap = (window as any).__materialColors as Record<number, number[]> | undefined;
   for (let i=0;i<w*h;i++) {
-    const v = buf[i] & 0xff;
-    if (v > 0 && materialColor) {
-      img.data[i*4+0] = materialColor[0];
-      img.data[i*4+1] = materialColor[1];
-      img.data[i*4+2] = materialColor[2];
+    const v = buf[i] & 0xffff;
+    const c = (v > 0 && colorMap) ? colorMap[v] : undefined;
+    if (v > 0 && c) {
+      img.data[i*4+0] = c[0];
+      img.data[i*4+1] = c[1];
+      img.data[i*4+2] = c[2];
       img.data[i*4+3] = 255;
     } else {
       img.data[i*4+0] = v;

@@ -9,7 +9,7 @@ export function attachCanvasTools(canvas: HTMLCanvasElement, worker: Worker | nu
   const brushSel = info.querySelector('#brush-size') as HTMLSelectElement;
 
   let drawing = false;
-  // we maintain a local grid buffer to accumulate strokes until mouseup
+  // maintain a local grid buffer for the full scene (do not reset between strokes)
   const grid = new Uint16Array(gridW*gridH);
   let brushRadius = parseInt(brushSel.value, 10); // in grid cells radius
 
@@ -39,13 +39,14 @@ export function attachCanvasTools(canvas: HTMLCanvasElement, worker: Worker | nu
   }
 
   function paintAt(gridX:number, gridY:number) {
+    const id = (window as any).__currentMaterialId || 1;
     const r = brushRadius;
     const r2 = r*r;
     for (let dy=-r; dy<=r; dy++) {
       for (let dx=-r; dx<=r; dx++) {
         if (dx*dx + dy*dy > r2) continue;
         const nx = gridX + dx, ny = gridY + dy;
-        if (nx>=0 && nx<gridW && ny>=0 && ny<gridH) grid[ny*gridW + nx] = 255;
+        if (nx>=0 && nx<gridW && ny>=0 && ny<gridH) grid[ny*gridW + nx] = id;
       }
     }
   }
@@ -94,7 +95,8 @@ export function attachCanvasTools(canvas: HTMLCanvasElement, worker: Worker | nu
 
   // wire clear button now that queueing is available
   clearBtn.onclick = () => {
-    const buf = new Uint16Array(gridW*gridH);
+    grid.fill(0);
+    const buf = grid.slice();
     if (currentWorker) {
       currentWorker.postMessage({type:'set_grid', buffer: buf.buffer});
       currentWorker.postMessage({type:'step'});
@@ -109,15 +111,15 @@ export function attachCanvasTools(canvas: HTMLCanvasElement, worker: Worker | nu
     if (!drawing) return;
     drawing = false;
     // send grid to worker (or queue if worker not available yet)
+    const snapshot = grid.slice();
     if (currentWorker) {
-      currentWorker.postMessage({type:'set_grid', buffer: grid.buffer});
+      currentWorker.postMessage({type:'set_grid', buffer: snapshot.buffer});
       // immediately step one tick so paint is visible without pressing Step
       currentWorker.postMessage({type:'step'});
     } else {
       // clone grid so we don't mutate queued buffer when we clear
-      pendingBuffers.push(grid.slice());
+      pendingBuffers.push(snapshot);
     }
-    // recreate grid since buffer was transferred or queued
-    for (let i=0;i<grid.length;i++) grid[i]=0;
+    // keep grid state for subsequent strokes
   });
 }
