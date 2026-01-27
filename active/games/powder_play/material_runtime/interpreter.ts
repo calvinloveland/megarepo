@@ -23,8 +23,9 @@ export class Interpreter {
   }
 
   execPrimitive(p: any, ctx: any) {
+    // enforce exact budget: do not increment ops beyond maxOps
+    if (this.ops >= this.maxOps) return;
     this.ops++;
-    if (this.ops > this.maxOps) return;
     switch (p.op) {
       case 'move':
         // move is handled by sim layer; write intent to ctx
