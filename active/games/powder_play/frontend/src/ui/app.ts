@@ -74,6 +74,13 @@ function initWorkerWithMaterial(mat:any) {
       if (m.type === 'stepped') {
         // draw scaled grid
         const buf = new Uint16Array(m.grid);
+        // expose last stepped grid for debugging
+        try {
+          (window as any).__lastGrid = buf.slice();
+          const sampleIdx = 10* m.width + 10;
+          (window as any).__lastGridSample = buf[sampleIdx];
+          console.log('drawGrid sample [10,10] =', buf[sampleIdx], 'colorMap=', (window as any).__materialColors);
+        } catch(e) {}
         drawGrid(buf, m.width, m.height, 600, 400);
       }
       if (m.type === 'error') console.warn('worker error', m.message);
