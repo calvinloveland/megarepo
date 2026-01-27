@@ -24,6 +24,11 @@ export function initApp(root: HTMLElement) {
     });
   });
 
+  // mount materials browser
+  import('./material_browser').then(m => {
+    m.mountMaterialBrowser(controls);
+  });
+
   // attach play/step controls
   import('./controls').then(mod => {
     mod.attachControls(controls, (playingOrStep:boolean)=>{

@@ -8,7 +8,9 @@
     "preview": "vite preview",
     "test": "vitest",
     "test:unit": "vitest run",
-    "test:e2e": "playwright test --config=playwright.config.ts"
+    "test:e2e": "playwright test --config=playwright.config.ts",
+    "materials:sync": "node ../scripts/sync_materials.js",
+    "materials:sync:watch": "node ../scripts/sync_materials.js --watch"
   },
   "vitest": {
     "include": [
