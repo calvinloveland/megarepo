@@ -40,7 +40,15 @@ test('salt reacts with water to form saltwater', async ({ page }) => {
 
   // Step to allow reaction
   await page.evaluate(() => (window as any).__powderWorker?.postMessage({type:'step'}));
-  await page.waitForTimeout(200);
+  await page.waitForFunction(() => {
+    const lg = (window as any).__lastGrid as Uint16Array | undefined;
+    const w = (window as any).__lastGridWidth || 150;
+    const map = (window as any).__materialIdByName || {};
+    if (!lg) return false;
+    const a = lg[70 * w + 70];
+    const b = lg[70 * w + 71];
+    return a === map['SaltWater'] && b === map['SaltWater'];
+  }, { timeout: 2000 });
 
   const ids = await page.evaluate(() => {
     const lg = (window as any).__lastGrid as Uint16Array | undefined;
