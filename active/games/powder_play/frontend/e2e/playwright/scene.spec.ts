@@ -47,22 +47,26 @@ test('demo scene: paint sand and it falls down', async ({ page }) => {
     }, {px,py});
   };
 
-  // sample positions in canvas pixels (center)
-  const sampleX = Math.floor(box.x + box.width/2);
-  const sampleTopY = Math.floor(box.y + (6 / 100) * box.height);
-  const sampleLowY = Math.floor(box.y + (20 / 100) * box.height);
+  // sample positions in canvas pixels for grid coords we painted (75,5) and a lower row (75,20)
+  const toCanvas = (gx:number, gy:number) => {
+    const cx = Math.floor((gx + 0.5) * (box.width / 150));
+    const cy = Math.floor((gy + 0.5) * (box.height / 100));
+    return {cx, cy};
+  }
+  const topSample = toCanvas(75, 5);
+  const lowSample = toCanvas(75, 20);
 
-  const beforeTop = await getPixel(sampleX - Math.floor(box.x), sampleTopY - Math.floor(box.y));
-  const beforeLow = await getPixel(sampleX - Math.floor(box.x), sampleLowY - Math.floor(box.y));
+  const beforeTop = await getPixel(topSample.cx, topSample.cy);
+  const beforeLow = await getPixel(lowSample.cx, lowSample.cy);
 
-  // Step simulation several times
-  for (let i=0;i<6;i++) {
+  // Step simulation many times to let gravity act
+  for (let i=0;i<30;i++) {
     await page.click('text=Step');
-    await page.waitForTimeout(50);
+    await page.waitForTimeout(100);
   }
 
-  const afterTop = await getPixel(sampleX - Math.floor(box.x), sampleTopY - Math.floor(box.y));
-  const afterLow = await getPixel(sampleX - Math.floor(box.x), sampleLowY - Math.floor(box.y));
+  const afterTop = await getPixel(topSample.cx, topSample.cy);
+  const afterLow = await getPixel(lowSample.cx, lowSample.cy);
 
   // Expect that a bright (white-ish) pixel moved downward: the low pixel should be brighter after stepping
   const brightness = (c:any) => (c[0]+c[1]+c[2])/3;
