@@ -14,7 +14,7 @@ test('demo scene: paint sand and it falls down', async ({ page }) => {
   }, { timeout: 30_000 });
 
   // Load demo scene file from repo and paint points programmatically
-  const scene = await (await fetch('http://localhost:5173/../active/games/powder_play/demo/simple_scene.json')).json();
+  const scene = await (await fetch('/demo/simple_scene.json')).json();
   // Map grid coords -> canvas pixel coords (canvas is 600x400 and grid is 150x100)
   const canvas = await page.$('canvas#sim-canvas');
   const box = await canvas!.boundingBox();
