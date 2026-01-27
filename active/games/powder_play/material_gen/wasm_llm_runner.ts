@@ -3,6 +3,7 @@
 
 import { isModelAvailable } from './local_model_manager';
 import { generateMaterialFromIntent } from './llm_adapter';
+import { generateDemoModel } from './demo_model';
 
 export async function hasWasmRuntime(): Promise<boolean> {
   // In real integration check for the availability of the WASM module and necessary GPU
@@ -12,8 +13,8 @@ export async function hasWasmRuntime(): Promise<boolean> {
 export async function runWasmModel(intent: string, onProgress?: (m:string)=>void) {
   onProgress && onProgress('invoking-wasm-model');
   // TODO: integrate with actual WASM runtime (ggml-web, llama.cpp wasm builds, etc.)
-  // For now fall back to existing adapter which returns JSON AST
-  const ast = await generateMaterialFromIntent(intent);
+  // For now return a deterministic demo model so we can validate end-to-end locally.
+  const ast = generateDemoModel(intent);
   onProgress && onProgress('wasm-complete');
   return ast;
 }
