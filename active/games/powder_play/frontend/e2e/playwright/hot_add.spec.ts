@@ -7,6 +7,8 @@ import * as path from 'path';
 test('hot-add material is discovered and auto-loaded', async ({ page }) => {
   const baseUrl = 'http://127.0.0.1:5174/';
   await page.goto(baseUrl);
+  // surface browser console messages in test logs to help debugging
+  page.on('console', (msg) => console.log('PAGE LOG:', msg.text()));
   await page.waitForSelector('text=Powder Playground');
 
   // Ensure materials UI mounted

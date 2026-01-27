@@ -4,78 +4,78 @@
 - generic [ref=e4]:
   - heading "Powder Playground" [level=1] [ref=e5]
   - generic [ref=e6]:
-    - generic [ref=e8]:
-      - heading "Materials" [level=3] [ref=e9]
-      - generic [ref=e10]:
-        - checkbox "Auto-load new materials" [checked] [ref=e11]
-        - text: Auto-load new materials
-      - generic [ref=e12]:
-        - generic [ref=e13]:
-          - generic [ref=e14]:
-            - strong [ref=e15]: BouncyGel
-            - text: bouncygel.json
-          - button "Load" [ref=e17]
-        - generic [ref=e18]:
-          - generic [ref=e19]:
-            - strong [ref=e20]: Fire
-            - text: fire.json
-          - button "Load" [ref=e22]
-        - generic [ref=e23]:
-          - generic [ref=e24]:
-            - strong [ref=e25]: Glitter
-            - text: glitter.json
-          - button "Load" [ref=e27]
-        - generic [ref=e28]:
-          - generic [ref=e29]:
-            - strong [ref=e30]: Glue
-            - text: glue.json
-          - button "Load" [ref=e32]
-        - generic [ref=e33]:
-          - generic [ref=e34]:
-            - strong [ref=e35]: HotAdded
-            - text: hot_added.json
-          - button "Load" [ref=e37]
-        - generic [ref=e38]:
-          - generic [ref=e39]:
-            - strong [ref=e40]: Metal
-            - text: metal.json
-          - button "Load" [ref=e42]
-        - generic [ref=e43]:
-          - generic [ref=e44]:
-            - strong [ref=e45]: Oil
-            - text: oil.json
-          - button "Load" [ref=e47]
-        - generic [ref=e48]:
-          - generic [ref=e49]:
-            - strong [ref=e50]: Salt
-            - text: salt.json
-          - button "Load" [ref=e52]
-        - generic [ref=e53]:
-          - generic [ref=e54]:
-            - strong [ref=e55]: Sand
-            - text: sand.json
-          - button "Load" [ref=e57]
-        - generic [ref=e58]:
-          - generic [ref=e59]:
-            - strong [ref=e60]: Smoke
-            - text: smoke.json
-          - button "Load" [ref=e62]
-        - generic [ref=e63]:
-          - generic [ref=e64]:
-            - strong [ref=e65]: AutoTest
-            - text: test_auto.json
-          - button "Load" [ref=e67]
-        - generic [ref=e68]:
-          - generic [ref=e69]:
-            - strong [ref=e70]: Water
-            - text: water.json
-          - button "Load" [ref=e72]
-    - generic [ref=e73]:
-      - button "Play" [ref=e74]
-      - button "Step" [ref=e75]
-      - combobox [ref=e76]:
+    - generic [ref=e7]:
+      - button "Play" [ref=e8]
+      - button "Step" [ref=e9]
+      - combobox [ref=e10]:
         - option "CPU" [selected]
         - option "WebGPU"
+    - generic [ref=e12]:
+      - heading "Materials" [level=3] [ref=e13]
+      - generic [ref=e14]:
+        - checkbox "Auto-load new materials" [checked] [ref=e15]
+        - text: Auto-load new materials
+      - generic [ref=e16]:
+        - generic [ref=e17]:
+          - generic [ref=e18]:
+            - strong [ref=e19]: BouncyGel
+            - text: bouncygel.json
+          - button "Load" [ref=e21]
+        - generic [ref=e22]:
+          - generic [ref=e23]:
+            - strong [ref=e24]: Fire
+            - text: fire.json
+          - button "Load" [ref=e26]
+        - generic [ref=e27]:
+          - generic [ref=e28]:
+            - strong [ref=e29]: Glitter
+            - text: glitter.json
+          - button "Load" [ref=e31]
+        - generic [ref=e32]:
+          - generic [ref=e33]:
+            - strong [ref=e34]: Glue
+            - text: glue.json
+          - button "Load" [ref=e36]
+        - generic [ref=e37]:
+          - generic [ref=e38]:
+            - strong [ref=e39]: HotAdded
+            - text: hot_added.json
+          - button "Load" [ref=e41]
+        - generic [ref=e42]:
+          - generic [ref=e43]:
+            - strong [ref=e44]: Metal
+            - text: metal.json
+          - button "Load" [ref=e46]
+        - generic [ref=e47]:
+          - generic [ref=e48]:
+            - strong [ref=e49]: Oil
+            - text: oil.json
+          - button "Load" [ref=e51]
+        - generic [ref=e52]:
+          - generic [ref=e53]:
+            - strong [ref=e54]: Salt
+            - text: salt.json
+          - button "Load" [ref=e56]
+        - generic [ref=e57]:
+          - generic [ref=e58]:
+            - strong [ref=e59]: Sand
+            - text: sand.json
+          - button "Load" [ref=e61]
+        - generic [ref=e62]:
+          - generic [ref=e63]:
+            - strong [ref=e64]: Smoke
+            - text: smoke.json
+          - button "Load" [ref=e66]
+        - generic [ref=e67]:
+          - generic [ref=e68]:
+            - strong [ref=e69]: AutoTest
+            - text: test_auto.json
+          - button "Load" [ref=e71]
+        - generic [ref=e72]:
+          - generic [ref=e73]:
+            - strong [ref=e74]: Water
+            - text: water.json
+          - button "Load" [ref=e76]
     - generic [ref=e78]:
       - heading "Create Material" [level=3] [ref=e79]
       - textbox "Describe the material..." [ref=e80]
