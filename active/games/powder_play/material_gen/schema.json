@@ -7,9 +7,29 @@
     "type": {"const": "material"},
     "name": {"type": "string"},
     "description": {"type": "string"},
+    "color": {
+      "oneOf": [
+        {"type": "string"},
+        {"type": "array", "minItems": 3, "maxItems": 4, "items": {"type": "integer", "minimum": 0, "maximum": 255}}
+      ]
+    },
     "primitives": {
       "type": "array",
       "items": {"type":"object"}
+    },
+    "reactions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["with","result"],
+        "properties": {
+          "with": {"type":"string"},
+          "result": {"type":"string"},
+          "byproduct": {"type":"string"},
+          "probability": {"type":"number","minimum":0,"maximum":1},
+          "priority": {"type":"number"}
+        }
+      }
     },
     "budgets": {
       "type": "object",

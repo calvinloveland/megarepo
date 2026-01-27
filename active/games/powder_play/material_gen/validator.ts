@@ -18,5 +18,24 @@ export async function validateMaterial(ast: any): Promise<{ok:boolean, errors?: 
       if (!p || typeof p !== 'object' || !allowedOps.has(p.op)) errors.push({message:'Invalid primitive op'});
     }
   }
+  if (ast.color !== undefined) {
+    const c = ast.color;
+    const isHex = typeof c === 'string';
+    const isArray = Array.isArray(c) && c.length >= 3 && c.length <= 4 && c.every((v:any)=>typeof v === 'number' && v>=0 && v<=255);
+    if (!isHex && !isArray) errors.push({message:'color must be hex string or [r,g,b] array'});
+  }
+  if (ast.reactions !== undefined) {
+    if (!Array.isArray(ast.reactions)) errors.push({message:'reactions must be array'});
+    else {
+      for (const r of ast.reactions) {
+        if (!r || typeof r !== 'object') { errors.push({message:'reaction must be object'}); continue; }
+        if (typeof r.with !== 'string' || !r.with) errors.push({message:'reaction.with required'});
+        if (typeof r.result !== 'string' || !r.result) errors.push({message:'reaction.result required'});
+        if (r.byproduct !== undefined && typeof r.byproduct !== 'string') errors.push({message:'reaction.byproduct must be string'});
+        if (r.probability !== undefined && (typeof r.probability !== 'number' || r.probability < 0 || r.probability > 1)) errors.push({message:'reaction.probability must be 0..1'});
+        if (r.priority !== undefined && typeof r.priority !== 'number') errors.push({message:'reaction.priority must be number'});
+      }
+    }
+  }
   return {ok: errors.length === 0, errors: errors.length ? errors : undefined};
 }
