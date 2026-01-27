@@ -11,6 +11,7 @@
     "test:e2e": "playwright test --config=playwright.config.ts"
   },
   "vitest": {
+    "include": ["tests/**/*.test.ts","**/*.test.ts"],
     "exclude": ["**/tests/playwright/**","**/e2e/**"]
   },
   "dependencies": {
