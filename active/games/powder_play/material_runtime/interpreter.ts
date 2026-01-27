@@ -19,6 +19,7 @@ export class Interpreter {
     for (const p of this.ast.primitives) {
       if (this.ops > this.maxOps) break;
       this.execPrimitive(p, cellCtx);
+      if (cellCtx.intent) break;
     }
   }
 
