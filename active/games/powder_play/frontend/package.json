@@ -10,7 +10,8 @@
     "test:unit": "vitest run",
     "test:e2e": "playwright test --config=playwright.config.ts",
     "materials:sync": "node ../scripts/sync_materials.js",
-    "materials:sync:watch": "node ../scripts/sync_materials.js --watch"
+    "materials:sync:watch": "node ../scripts/sync_materials.js --watch",
+    "dev:all": "concurrently \"npm run materials:sync:watch\" \"vite\""
   },
   "vitest": {
     "include": [
@@ -30,6 +31,7 @@
     "esbuild": "^0.18.0",
     "typescript": "^5.0.0",
     "vite": "^5.0.0",
-    "vitest": "^1.0.0"
+    "vitest": "^1.0.0",
+    "concurrently": "^8.0.0"
   }
 }
