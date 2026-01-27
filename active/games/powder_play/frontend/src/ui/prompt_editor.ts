@@ -1,5 +1,5 @@
 import { generateMaterialFromIntent } from '../../material_gen/llm_adapter';
-import { validateMaterial } from '../../material_gen/validator';
+import { runLocalLLM } from '../../material_gen/local_llm_runner';
 
 export function createPromptEditor(root: HTMLElement, onMaterialReady:(m:any)=>void) {
   const container = document.createElement('div');
@@ -17,13 +17,14 @@ export function createPromptEditor(root: HTMLElement, onMaterialReady:(m:any)=>v
   btn.onclick = async () => {
     status.textContent = 'Generating…';
     const intent = (container.querySelector('#intent') as HTMLTextAreaElement).value;
-    const ast = await generateMaterialFromIntent(intent);
-    const ok = await validateMaterial(ast);
-    if (!ok.ok) {
-      status.textContent = 'Validation failed: ' + JSON.stringify(ok.errors);
-      return;
+    try {
+      const ast = await runLocalLLM(intent, (p:any)=>{
+        status.textContent = `${p.stage}: ${p.message || ''}`;
+      });
+      status.textContent = 'Validated and compiled';
+      onMaterialReady(ast);
+    } catch (err:any) {
+      status.textContent = 'Error: ' + err.message;
     }
-    status.textContent = 'Validated';
-    onMaterialReady(ast);
   }
 }

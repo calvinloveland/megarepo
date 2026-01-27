@@ -24,6 +24,16 @@ export function initApp(root: HTMLElement) {
     });
   });
 
+  // attach play/step controls
+  import('./controls').then(mod => {
+    mod.attachControls(controls, (playingOrStep:boolean)=>{
+      // playingOrStep true for a tick, false for pause action
+      if (!worker) return;
+      if (playingOrStep) worker.postMessage({type:'step'});
+      else worker.postMessage({type:'step'});
+    });
+  });
+
   const canvas = document.getElementById('sim-canvas') as HTMLCanvasElement;
   const ctx = canvas.getContext('2d')!;
   ctx.fillStyle = '#000';
