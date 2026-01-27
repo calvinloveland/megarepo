@@ -14,7 +14,8 @@ test('demo scene: paint sand and it falls down', async ({ page }) => {
   }, { timeout: 30_000 });
 
   // Load demo scene file from repo and paint points programmatically
-  const scene = await (await fetch('/demo/simple_scene.json')).json();
+  const sceneResp = await page.request.get(new URL('/demo/simple_scene.json', page.url()).toString());
+  const scene = await sceneResp.json();
   // Map grid coords -> canvas pixel coords (canvas is 600x400 and grid is 150x100)
   const canvas = await page.$('canvas#sim-canvas');
   const box = await canvas!.boundingBox();
