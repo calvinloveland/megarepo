@@ -101,6 +101,8 @@ function initWorkerWithMaterial(mat:any) {
       if (idx>=0 && idx < buf.length) buf[idx] = 255;
     }
     worker!.postMessage({type:'set_grid', buffer: buf.buffer}, [buf.buffer]);
+    // step so the new grid renders immediately
+    worker!.postMessage({type:'step'});
   }
   // kick a step to test
   worker.postMessage({type:'step'});
