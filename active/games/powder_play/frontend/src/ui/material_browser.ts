@@ -48,9 +48,13 @@ export function mountMaterialBrowser(root: HTMLElement) {
     for (const f of currentSet) if (!known.has(f)) { added = f; break; }
     known = currentSet;
     if (added && autoLoad.checked) {
+      console.log('[material_browser] detected added:', added);
       // find the material entry that was added and load it specifically
       const addedMat = mats.find((mm:any)=>mm.file === added);
-      if (addedMat) await loadMaterial(addedMat.file);
+      if (addedMat) {
+        console.log('[material_browser] loading added:', addedMat.file);
+        await loadMaterial(addedMat.file);
+      }
     }
   }
 
