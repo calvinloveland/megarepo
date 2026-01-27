@@ -56,6 +56,8 @@ test('demo scene: paint sand and it falls down', async ({ page }) => {
   };
 
   // sample positions in canvas pixels for grid coords we painted (75,5) and a lower row (75,20)
+  const canvasEl = await page.$('canvas#sim-canvas');
+  const box = (await canvasEl!.boundingBox())!;
   const toCanvas = (gx:number, gy:number) => {
     const cx = Math.floor((gx + 0.5) * (box.width / 150));
     const cy = Math.floor((gy + 0.5) * (box.height / 100));
