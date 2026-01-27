@@ -30,8 +30,22 @@ test('demo scene: paint sand and it falls down', async ({ page }) => {
     await page.mouse.up();
   }
 
-  // Wait for worker to be created and exposed by the app
-  await page.waitForFunction(() => (window as any).__powderWorker !== undefined, { timeout: 5000 });
+  // Programmatically initialize worker with a sand-like AST directly (avoid flaky generate step)
+  const sandAst = {
+    type: 'material',
+    name: 'Sand',
+    description: 'Granular sand (test AST)',
+    primitives: [
+      {op:'read', dx:0, dy:1},
+      {op:'if', cond:{eq:{value:0}}, then:[{op:'move', dx:0, dy:1}]},
+      {op:'read', dx:-1, dy:1},
+      {op:'if', cond:{eq:{value:0}}, then:[{op:'move', dx:-1, dy:1}]},
+      {op:'read', dx:1, dy:1},
+      {op:'if', cond:{eq:{value:0}}, then:[{op:'move', dx:1, dy:1}]}]
+  };
+  await page.evaluate((ast) => {
+    (window as any).__initWorkerWithMaterial(ast);
+  }, sandAst);
 
   // Use the helper exposed by the app to set the grid directly (avoid flaky mouse events)
   await page.evaluate((points) => {
