@@ -3,7 +3,7 @@ import { validateMaterial } from '../../material_gen/validator';
 import { Interpreter } from '../../material_runtime/interpreter';
 
 describe('material validator', () => {
-  it('rejects budgets that exceed limits', () => {
+  it('rejects budgets that exceed limits', async () => {
     const ast = { type:'material', name:'bad', primitives:[], budgets:{max_ops:1000, max_spawns:10} } as any;
     const res = await validateMaterial(ast);
     expect(res.ok).toBe(false);
