@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { runLocalLLM } from '../../material_gen/local_llm_runner';
+import { runLocalLLM } from '../src/material_api';
 
 describe('e2e generation', () => {
   it('generates, validates and compiles a demo material', async () => {

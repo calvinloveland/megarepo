@@ -1,5 +1,5 @@
 import { generateMaterialFromIntent } from '../../material_gen/llm_adapter';
-import { runLocalLLM } from '../../material_gen/local_llm_runner';
+import { runLocalLLM, installModelFromUrl } from '../material_api';
 
 export function createPromptEditor(root: HTMLElement, onMaterialReady:(m:any)=>void) {
   const container = document.createElement('div');
