@@ -18,7 +18,8 @@ test('hot-add material is discovered and auto-loaded', async ({ page }) => {
   fs.writeFileSync(matPath, JSON.stringify(mat, null, 2));
 
   // Run one-time sync to copy to public materials
-  execSync('npm run --prefix active/games/powder_play/frontend materials:sync');
+  // Run one-time sync in the frontend directory
+  execSync('npm run materials:sync', { cwd: path.resolve(__dirname, '..', '..') });
 
   // Wait until the index.json includes our file
   await page.waitForFunction(async () => {
