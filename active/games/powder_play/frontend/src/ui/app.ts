@@ -125,6 +125,11 @@ function initWorkerWithMaterial(mat:any) {
   const materialId = ++nextMaterialId;
   currentMaterialId = materialId;
   (window as any).__currentMaterialId = currentMaterialId;
+  try {
+    const map = (window as any).__materialIdByName || {};
+    if (mat?.name) map[mat.name] = materialId;
+    (window as any).__materialIdByName = map;
+  } catch (e) {}
 
   worker.postMessage({type:'set_material', material:mat, materialId});
   // set material color for rendering (accept hex string or [r,g,b] array)

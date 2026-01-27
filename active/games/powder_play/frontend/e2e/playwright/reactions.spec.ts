@@ -1,0 +1,48 @@
+import { test, expect } from '@playwright/test';
+
+// Salt + Water => SaltWater
+// (ensure SaltWater is loaded so the worker can resolve the result id)
+test('salt reacts with water to form saltwater', async ({ page }) => {
+  await page.goto('http://127.0.0.1:5173/');
+  page.on('console', m => console.log('PAGE LOG:', m.text()));
+  await page.waitForSelector('text=Powder Playground');
+
+  const loadByName = async (name: string) => {
+    const row = page.locator('#materials-list > div', { hasText: name }).first();
+    await row.locator('button.load').click();
+    await page.waitForFunction((n) => document.getElementById('status')?.textContent?.includes(n), name, { timeout: 2000 });
+  };
+
+  await loadByName('Salt');
+  await loadByName('Water');
+  await loadByName('SaltWater');
+
+  // Paint salt at (70,70), water at (71,70)
+  await page.evaluate(() => {
+    (window as any).__materialIdByName && ((window as any).__currentMaterialId = (window as any).__materialIdByName['Salt']);
+  });
+  await page.evaluate(() => (window as any).__paintGridPoints?.([{x:70,y:70}]));
+
+  await page.evaluate(() => {
+    (window as any).__materialIdByName && ((window as any).__currentMaterialId = (window as any).__materialIdByName['Water']);
+  });
+  await page.evaluate(() => (window as any).__paintGridPoints?.([{x:71,y:70}]));
+
+  // Step to allow reaction
+  await page.evaluate(() => (window as any).__powderWorker?.postMessage({type:'step'}));
+  await page.waitForTimeout(200);
+
+  const ids = await page.evaluate(() => {
+    const lg = (window as any).__lastGrid as Uint16Array | undefined;
+    const w = (window as any).__lastGridWidth || 150;
+    const map = (window as any).__materialIdByName || {};
+    if (!lg) return null;
+    const idxA = 70 * w + 70;
+    const idxB = 70 * w + 71;
+    return {a: lg[idxA], b: lg[idxB], saltwaterId: map['SaltWater']};
+  });
+
+  expect(ids).not.toBeNull();
+  expect(ids!.a).toBe(ids!.saltwaterId);
+  expect(ids!.b).toBe(ids!.saltwaterId);
+});

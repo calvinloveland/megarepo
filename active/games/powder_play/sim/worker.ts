@@ -8,10 +8,21 @@ export type WorkerMessage =
   | {type:'paint_points', materialId:number, points:{x:number,y:number}[]}
   ;
 
+type ReactionRule = {
+  with: string;
+  result: string;
+  byproduct?: string;
+  probability?: number;
+  priority?: number;
+};
+
 let width=0, height=0;
 let grid: Uint16Array;
 let nextGrid: Uint16Array;
 const interpreters = new Map<number, Interpreter>();
+const reactionsById = new Map<number, ReactionRule[]>();
+const nameToId = new Map<string, number>();
+let reacted: Uint8Array;
 
 onmessage = (ev: MessageEvent) => {
   const msg: WorkerMessage = ev.data;
@@ -19,9 +30,15 @@ onmessage = (ev: MessageEvent) => {
     width = msg.width; height = msg.height;
     grid = new Uint16Array(width*height);
     nextGrid = new Uint16Array(width*height);
+    reacted = new Uint8Array(width*height);
     postMessage({type:'ready'});
   } else if (msg.type === 'set_material') {
     interpreters.set(msg.materialId, new Interpreter(msg.material));
+    if (msg.material?.name) nameToId.set(msg.material.name, msg.materialId);
+    if (Array.isArray(msg.material?.reactions)) {
+      const rules = msg.material.reactions.slice().sort((a:ReactionRule,b:ReactionRule)=> (b.priority||0) - (a.priority||0));
+      reactionsById.set(msg.materialId, rules);
+    }
     postMessage({type:'material_set', materialId: msg.materialId});
   } else if (msg.type === 'set_grid') {
     // accept transferred buffer as the new grid if size matches
@@ -52,6 +69,13 @@ function stepSimulation() {
   if (!interpreters.size) return;
   // clear next grid each tick to avoid accumulating cells
   nextGrid.fill(0);
+  reacted.fill(0);
+  const dirs = [
+    {dx:0, dy:-1},
+    {dx:0, dy:1},
+    {dx:-1, dy:0},
+    {dx:1, dy:0}
+  ];
   // naive per-cell loop for MVP
   for (let y=height-1;y>=0;y--) {
     for (let x=0;x<width;x++) {
@@ -61,6 +85,37 @@ function stepSimulation() {
         nextGrid[idx] = 0;
         continue;
       }
+      if (reacted[idx]) continue;
+      const rules = reactionsById.get(cell);
+      let reactedHere = false;
+      if (rules && rules.length) {
+        for (const r of rules) {
+          const withId = nameToId.get(r.with);
+          const resultId = nameToId.get(r.result);
+          if (!withId || !resultId) continue;
+          const prob = r.probability ?? 1;
+          for (const d of dirs) {
+            const nx = x + d.dx;
+            const ny = y + d.dy;
+            if (nx<0||nx>=width||ny<0||ny>=height) continue;
+            const nidx = ny*width + nx;
+            if (reacted[nidx]) continue;
+            if (grid[nidx] !== withId) continue;
+            if (Math.random() > prob) continue;
+            const byId = r.byproduct ? nameToId.get(r.byproduct) : undefined;
+            if (nextGrid[idx] !== 0 || nextGrid[nidx] !== 0) continue;
+            nextGrid[idx] = resultId;
+            if (r.byproduct !== undefined) nextGrid[nidx] = byId ?? 0;
+            else nextGrid[nidx] = withId;
+            reacted[idx] = 1;
+            reacted[nidx] = 1;
+            reactedHere = true;
+            break;
+          }
+          if (reactedHere) break;
+        }
+      }
+      if (reactedHere) continue;
       const interpreter = interpreters.get(cell);
       if (!interpreter) {
         nextGrid[idx] = cell;

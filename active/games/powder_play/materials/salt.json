@@ -3,6 +3,9 @@
   "name":"Salt",
   "description":"Granular particle similar to sand (different color/feel).",
   "color": [230, 230, 230],
+  "reactions": [
+    {"with": "Water", "result": "SaltWater", "byproduct": "SaltWater", "priority": 5}
+  ],
   "primitives":[
     {"op":"read","dx":0,"dy":1},
     {"op":"if","cond":{"eq":{"value":0}},"then":[{"op":"move","dx":0,"dy":1}]},
