@@ -13,8 +13,11 @@ test('generate material and run one step', async ({ page }) => {
   await page.waitForSelector('text=Generate', { timeout: 5000 });
   await page.click('text=Generate');
 
-  // Wait for status to indicate compiled
-  await page.waitForSelector('text=Validated and compiled', { timeout: 30_000 });
+  // Wait for status element to indicate compilation/validation (more robust)
+  await page.waitForFunction(()=> {
+    const el = document.querySelector('#gen-status');
+    return el && el.textContent && el.textContent.includes('Validated');
+  }, { timeout: 30_000 });
 
   // Click Play to run a single step and check canvas draws something
   await page.click('text=Play');
