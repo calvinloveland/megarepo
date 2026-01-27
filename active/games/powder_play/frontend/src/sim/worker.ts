@@ -73,9 +73,9 @@ onmessage = (ev: MessageEvent) => {
     postMessage({type:'grid_set', grid: grid.buffer, width, height});
   } else if (msg.type === 'step') {
     stepSimulation();
-    postMessage({type:'stepped', grid: grid.buffer, width, height});
     // swap buffers
     const t = grid; grid = nextGrid; nextGrid = t;
+    postMessage({type:'stepped', grid: grid.buffer, width, height});
   }
 }
 
