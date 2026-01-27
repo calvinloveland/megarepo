@@ -72,12 +72,14 @@ function stepSimulation() {
         const nx = x + ctx.intent.dx;
         const ny = y + ctx.intent.dy;
         if (nx>=0 && nx<width && ny>=0 && ny<height) {
-          nextGrid[ny*width + nx] = cell;
+          const nidx = ny*width + nx;
+          if (nextGrid[nidx] === 0) nextGrid[nidx] = cell;
+          else nextGrid[idx] = cell;
         } else {
           nextGrid[idx] = cell;
         }
       } else {
-        nextGrid[idx] = cell;
+        if (nextGrid[idx] === 0) nextGrid[idx] = cell;
       }
     }
   }
