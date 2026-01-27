@@ -148,6 +148,8 @@ function drawGrid(buf:Uint16Array, w:number, h:number) {
   const off = document.createElement('canvas');
   off.width = w; off.height = h;
   const offCtx = off.getContext('2d')!;
+  // avoid smoothing when scaling so colors stay crisp
+  try { offCtx.imageSmoothingEnabled = false; } catch(e) {}
   const img = offCtx.createImageData(w, h);
   // colorize using current material color if available, otherwise grayscale
   const colorMap = (window as any).__materialColors as Record<number, number[]> | undefined;

@@ -32,6 +32,8 @@ export function attachCanvasTools(canvas: HTMLCanvasElement, worker: Worker | nu
   overlay.style.zIndex = '10';
   parent.appendChild(overlay);
   const octx = overlay.getContext('2d')!;
+  // avoid smoothing on overlay
+  try { octx.imageSmoothingEnabled = false; } catch (e) {}
   // account for DPR by scaling drawing into overlay if needed
   try {
     const dpr = window.devicePixelRatio || 1;
