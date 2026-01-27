@@ -75,7 +75,7 @@ export function attachCanvasTools(canvas: HTMLCanvasElement, worker: Worker | nu
   });
   canvas.addEventListener('mouseleave', ()=>{ octx.clearRect(0,0,overlay.width, overlay.height); });
 
-  const pendingBuffers: ArrayBuffer[] = [];
+  const pendingBuffers: Uint16Array[] = [];
   let currentWorker = worker;
   const flushPending = () => {
     const w = (window as any).__powderWorker as Worker | undefined;
@@ -84,7 +84,7 @@ export function attachCanvasTools(canvas: HTMLCanvasElement, worker: Worker | nu
     }
     if (currentWorker && pendingBuffers.length) {
       for (const b of pendingBuffers) {
-        currentWorker.postMessage({type:'set_grid', buffer: b}, [b]);
+        currentWorker.postMessage({type:'set_grid', buffer: b.buffer});
         currentWorker.postMessage({type:'step'});
       }
       pendingBuffers.length = 0;
@@ -96,10 +96,10 @@ export function attachCanvasTools(canvas: HTMLCanvasElement, worker: Worker | nu
   clearBtn.onclick = () => {
     const buf = new Uint16Array(gridW*gridH);
     if (currentWorker) {
-      currentWorker.postMessage({type:'set_grid', buffer: buf.buffer}, [buf.buffer]);
+      currentWorker.postMessage({type:'set_grid', buffer: buf.buffer});
       currentWorker.postMessage({type:'step'});
     } else {
-      pendingBuffers.push(buf.buffer);
+      pendingBuffers.push(buf);
     }
     // also clear overlay
     try { octx.clearRect(0,0,overlay.width, overlay.height); } catch (e) {}
@@ -110,11 +110,12 @@ export function attachCanvasTools(canvas: HTMLCanvasElement, worker: Worker | nu
     drawing = false;
     // send grid to worker (or queue if worker not available yet)
     if (currentWorker) {
-      currentWorker.postMessage({type:'set_grid', buffer: grid.buffer}, [grid.buffer]);
+      currentWorker.postMessage({type:'set_grid', buffer: grid.buffer});
       // immediately step one tick so paint is visible without pressing Step
       currentWorker.postMessage({type:'step'});
     } else {
-      pendingBuffers.push(grid.buffer);
+      // clone grid so we don't mutate queued buffer when we clear
+      pendingBuffers.push(grid.slice());
     }
     // recreate grid since buffer was transferred or queued
     for (let i=0;i<grid.length;i++) grid[i]=0;
