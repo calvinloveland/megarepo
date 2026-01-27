@@ -30,12 +30,15 @@ test('demo scene: paint sand and it falls down', async ({ page }) => {
     await page.mouse.up();
   }
 
+  // Wait for canvas tools to be attached (happens after worker ready)
+  await page.waitForSelector('#clear-grid', { timeout: 5000 });
+
   for (const p of scene.paintPoints) {
     await clickAtGrid(p.x, p.y);
   }
 
   // Wait briefly for grid to transfer
-  await page.waitForTimeout(100);
+  await page.waitForTimeout(300);
 
   // Sample pixel color at top point and one below before stepping
   const getPixel = async (px:number, py:number) => {
