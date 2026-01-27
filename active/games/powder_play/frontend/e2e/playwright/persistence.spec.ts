@@ -13,7 +13,16 @@ test('paint persists after simulation runs and additional painting', async ({ pa
 
   // paint point A near bottom so it won't drift away
   await page.evaluate(() => (window as any).__paintGridPoints?.([{x:75,y:80}]));
-  await page.waitForTimeout(100);
+  // wait for grid_set to be processed and UI to render
+  await page.waitForFunction(() => (window as any).__lastGridSample !== undefined, { timeout: 2000 });
+  // check immediate presence
+  const immediate = await page.evaluate(() => {
+    const lg = (window as any).__lastGrid as Uint16Array | undefined;
+    const w = (window as any).__lastGridWidth || 150;
+    const idx = 80 * w + 75;
+    return lg ? lg[idx] : null;
+  });
+  console.log('immediatePaint', immediate);
 
   // step sim for 20 ticks
   for (let i=0;i<20;i++) await page.evaluate(() => (window as any).__powderWorker?.postMessage({type:'step'}));
@@ -21,6 +30,8 @@ test('paint persists after simulation runs and additional painting', async ({ pa
 
   // paint point B nearby
   await page.evaluate(() => (window as any).__paintGridPoints?.([{x:80,y:80}]));
+  // wait for B to be visible
+  await page.waitForFunction(() => (window as any).__lastGridSample !== undefined, { timeout: 2000 });
   await page.waitForTimeout(200);
 
   // step a few more
@@ -32,8 +43,8 @@ test('paint persists after simulation runs and additional painting', async ({ pa
     const lg = (window as any).__lastGrid as Uint16Array | undefined;
     const w = (window as any).__lastGridWidth || 150;
     if (!lg) return null;
-    const idxA = 5 * w + 75; // y=5,x=75
-    const idxB = 5 * w + 80;
+    const idxA = 80 * w + 75; // y=80,x=75
+    const idxB = 80 * w + 80;
     return {a: lg[idxA], b: lg[idxB]};
   });
 

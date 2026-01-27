@@ -65,6 +65,17 @@ export function initApp(root: HTMLElement) {
 let worker: Worker | null = null;
 let nextMaterialId = 0;
 let currentMaterialId = 0;
+function deriveColorFromName(name: string) {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) {
+    h = ((h << 5) - h + name.charCodeAt(i)) | 0;
+  }
+  const seed = Math.abs(h);
+  const r = 60 + (seed % 180);
+  const g = 60 + ((seed >> 8) % 180);
+  const b = 60 + ((seed >> 16) % 180);
+  return [r, g, b];
+}
 function initWorkerWithMaterial(mat:any) {
   if (!worker) {
     // worker script lives at the project-level `sim/worker.ts`, so go up one more dir
@@ -126,6 +137,8 @@ function initWorkerWithMaterial(mat:any) {
       } else if (Array.isArray(mat.color) && mat.color.length >= 3) {
         color = [mat.color[0], mat.color[1], mat.color[2]];
       }
+    } else if (mat && mat.name) {
+      color = deriveColorFromName(mat.name);
     }
     const colorMap = (window as any).__materialColors || {};
     colorMap[materialId] = color;
@@ -133,7 +146,7 @@ function initWorkerWithMaterial(mat:any) {
     (window as any).__currentMaterialColor = color;
   } catch (e) {
     const colorMap = (window as any).__materialColors || {};
-    colorMap[materialId] = [255,255,255];
+    colorMap[materialId] = mat?.name ? deriveColorFromName(mat.name) : [255,255,255];
     (window as any).__materialColors = colorMap;
     (window as any).__currentMaterialColor = [255,255,255];
   }
@@ -155,6 +168,7 @@ function initWorkerWithMaterial(mat:any) {
 function drawGrid(buf:Uint16Array, w:number, h:number) {
   const canvas = document.getElementById('sim-canvas') as HTMLCanvasElement;
   const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
+  try { ctx.imageSmoothingEnabled = false; } catch(e) {}
   // create an offscreen canvas for the small grid
   const off = document.createElement('canvas');
   off.width = w; off.height = h;

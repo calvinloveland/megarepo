@@ -29,6 +29,15 @@ export function mountMaterialBrowser(root: HTMLElement) {
     // render list
     listEl.innerHTML = '';
     let newest = null;
+    function colorFromName(name:string) {
+      let h = 0;
+      for (let i=0;i<name.length;i++) h = ((h<<5)-h + name.charCodeAt(i)) | 0;
+      const seed = Math.abs(h);
+      const r = 60 + (seed % 180);
+      const g = 60 + ((seed >> 8) % 180);
+      const b = 60 + ((seed >> 16) % 180);
+      return [r,g,b];
+    }
     for (const m of mats) {
       const row = document.createElement('div');
       row.style.display = 'flex';
@@ -45,11 +54,10 @@ export function mountMaterialBrowser(root: HTMLElement) {
           const r = await fetch(`/materials/${m.file}`);
           if (!r.ok) return;
           const mt = await r.json();
-          if (mt && mt.color) {
-            const sw = row.querySelector('.swatch') as HTMLElement;
-            const c = Array.isArray(mt.color) ? mt.color : null;
-            if (c) sw.style.background = `rgb(${c[0]},${c[1]},${c[2]})`;
-          }
+          const sw = row.querySelector('.swatch') as HTMLElement;
+          const c = Array.isArray(mt?.color) ? mt.color : null;
+          const color = c || colorFromName(mt?.name || m.name || 'material');
+          sw.style.background = `rgb(${color[0]},${color[1]},${color[2]})`;
         } catch (e) {}
       })();
       listEl.appendChild(row);
