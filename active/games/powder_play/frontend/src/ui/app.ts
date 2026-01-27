@@ -39,7 +39,12 @@ export function initApp(root: HTMLElement) {
     });
   });
 
+  // attach canvas tools immediately (it will queue paints until worker exists)
   const canvas = document.getElementById('sim-canvas') as HTMLCanvasElement;
+  import('./canvas_tools').then(mod => {
+    mod.attachCanvasTools(canvas, (window as any).__powderWorker || null, 150, 100);
+  });
+
   const ctx = canvas.getContext('2d')!;
   ctx.fillStyle = '#000';
   ctx.fillRect(0,0,canvas.width,canvas.height);
