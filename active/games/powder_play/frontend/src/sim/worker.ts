@@ -1,4 +1,4 @@
-import {Interpreter} from '../../material_runtime/interpreter';
+import {Interpreter} from '../../../material_runtime/interpreter';
 
 export type WorkerMessage =
   | {type:'init', width:number, height:number}
