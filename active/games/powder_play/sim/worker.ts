@@ -19,11 +19,19 @@ type ReactionRule = {
   byproductId?: number;
 };
 
+type CondenseRule = {
+  at: 'top';
+  result: string;
+  probability?: number;
+  resultId?: number;
+};
+
 let width=0, height=0;
 let grid: Uint16Array;
 let nextGrid: Uint16Array;
 const interpreters = new Map<number, Interpreter>();
 const reactionsById = new Map<number, ReactionRule[]>();
+const condenseById = new Map<number, CondenseRule>();
 const nameToId = new Map<string, number>();
 let reacted: Uint8Array;
 
@@ -34,6 +42,9 @@ function resolveReactions() {
       r.resultId = nameToId.get(r.result);
       r.byproductId = r.byproduct ? nameToId.get(r.byproduct) : undefined;
     }
+  }
+  for (const r of condenseById.values()) {
+    r.resultId = nameToId.get(r.result);
   }
 }
 
@@ -51,6 +62,9 @@ onmessage = (ev: MessageEvent) => {
     if (Array.isArray(msg.material?.reactions)) {
       const rules = msg.material.reactions.slice().sort((a:ReactionRule,b:ReactionRule)=> (b.priority||0) - (a.priority||0));
       reactionsById.set(msg.materialId, rules);
+    }
+    if (msg.material?.condense?.at === 'top' && msg.material?.condense?.result) {
+      condenseById.set(msg.materialId, { at: 'top', result: msg.material.condense.result, probability: msg.material.condense.probability });
     }
     resolveReactions();
     postMessage({type:'material_set', materialId: msg.materialId});
@@ -98,6 +112,19 @@ function stepSimulation() {
       if (cell === 0) {
         nextGrid[idx] = 0;
         continue;
+      }
+      // condense at top if configured
+      const condense = condenseById.get(cell);
+      if (condense && y === 0) {
+        const prob = condense.probability ?? 1;
+        if (Math.random() <= prob) {
+          const rid = condense.resultId;
+          if (rid) {
+            nextGrid[idx] = rid;
+            reacted[idx] = 1;
+            continue;
+          }
+        }
       }
       if (reacted[idx]) continue;
       const rules = reactionsById.get(cell);

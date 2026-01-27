@@ -31,6 +31,15 @@
         }
       }
     },
+    "condense": {
+      "type": "object",
+      "required": ["at","result"],
+      "properties": {
+        "at": {"type":"string", "enum": ["top"]},
+        "result": {"type":"string"},
+        "probability": {"type":"number","minimum":0,"maximum":1}
+      }
+    },
     "budgets": {
       "type": "object",
       "properties": {

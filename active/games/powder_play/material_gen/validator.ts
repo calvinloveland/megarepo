@@ -37,5 +37,14 @@ export async function validateMaterial(ast: any): Promise<{ok:boolean, errors?: 
       }
     }
   }
+  if (ast.condense !== undefined) {
+    const c = ast.condense;
+    if (!c || typeof c !== 'object') errors.push({message:'condense must be object'});
+    else {
+      if (c.at !== 'top') errors.push({message:'condense.at must be "top"'});
+      if (typeof c.result !== 'string' || !c.result) errors.push({message:'condense.result required'});
+      if (c.probability !== undefined && (typeof c.probability !== 'number' || c.probability < 0 || c.probability > 1)) errors.push({message:'condense.probability must be 0..1'});
+    }
+  }
   return {ok: errors.length === 0, errors: errors.length ? errors : undefined};
 }
