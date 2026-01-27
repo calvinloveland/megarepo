@@ -15,14 +15,16 @@ test('paint persists after simulation runs and additional painting', async ({ pa
   await page.evaluate(() => (window as any).__paintGridPoints?.([{x:75,y:80}]));
   // wait for grid_set to be processed and UI to render
   await page.waitForFunction(() => (window as any).__lastGridSample !== undefined, { timeout: 2000 });
-  // check immediate presence
-  const immediate = await page.evaluate(() => {
+  // capture initial sand count after first paint
+  const initialCount = await page.evaluate(() => {
     const lg = (window as any).__lastGrid as Uint16Array | undefined;
-    const w = (window as any).__lastGridWidth || 150;
-    const idx = 80 * w + 75;
-    return lg ? lg[idx] : null;
+    const map = (window as any).__materialIdByName || {};
+    const sandId = map['Sand'];
+    if (!lg || !sandId) return 0;
+    let c = 0;
+    for (let i=0;i<lg.length;i++) if (lg[i] === sandId) c++;
+    return c;
   });
-  console.log('immediatePaint', immediate);
 
   // step sim for 20 ticks
   for (let i=0;i<20;i++) await page.evaluate(() => (window as any).__powderWorker?.postMessage({type:'step'}));
@@ -38,18 +40,17 @@ test('paint persists after simulation runs and additional painting', async ({ pa
   for (let i=0;i<5;i++) await page.evaluate(() => (window as any).__powderWorker?.postMessage({type:'step'}));
   await page.waitForTimeout(200);
 
-  // inspect last grid for presence of non-zero at both approximate positions
-  const gridCheck = await page.evaluate(() => {
+  // ensure the second paint increases sand count (i.e., not overwritten by stale grid)
+  const afterCount = await page.evaluate(() => {
     const lg = (window as any).__lastGrid as Uint16Array | undefined;
-    const w = (window as any).__lastGridWidth || 150;
-    if (!lg) return null;
-    const idxA = 80 * w + 75; // y=80,x=75
-    const idxB = 80 * w + 80;
-    return {a: lg[idxA], b: lg[idxB]};
+    const map = (window as any).__materialIdByName || {};
+    const sandId = map['Sand'];
+    if (!lg || !sandId) return 0;
+    let c = 0;
+    for (let i=0;i<lg.length;i++) if (lg[i] === sandId) c++;
+    return c;
   });
 
-  console.log('gridCheck', gridCheck);
-  expect(gridCheck).not.toBeNull();
-  expect(gridCheck.a).toBeGreaterThan(0);
-  expect(gridCheck.b).toBeGreaterThan(0);
+  console.log('sand count before/after', initialCount, afterCount);
+  expect(afterCount).toBeGreaterThan(initialCount);
 });
