@@ -3,6 +3,7 @@ import { test, expect } from '@playwright/test';
 // Demo scene: paint a small pile at the top and assert it falls down after steps
 test('demo scene: paint sand and it falls down', async ({ page }) => {
   await page.goto('http://localhost:5173');
+  page.on('console', msg => console.log('PAGE LOG:', msg.text()));
   await page.waitForSelector('text=Powder Playground');
 
   // Use the install & generate flow to load a material (demo model)
