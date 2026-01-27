@@ -1,0 +1,7 @@
+{
+  "type":"material",
+  "name":"Metal",
+  "description":"Heavy static solid (no per-cell movement).",
+  "primitives":[],
+  "budgets":{"max_ops":1,"max_spawns":0}
+}
