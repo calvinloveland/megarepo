@@ -54,7 +54,8 @@ let worker: Worker | null = null;
 function initWorkerWithMaterial(mat:any) {
   if (!worker) {
     // worker script lives at the project-level `sim/worker.ts`, so go up one more dir
-    worker = new Worker(new URL('../../../sim/worker.ts', import.meta.url), { type: 'module' });
+    // prefer worker script inside frontend/src to avoid @fs 403 issues
+    worker = new Worker(new URL('../sim/worker.ts', import.meta.url), { type: 'module' });
     worker.onmessage = (ev) => {
       const m = ev.data;
       if (m.type === 'ready') {
