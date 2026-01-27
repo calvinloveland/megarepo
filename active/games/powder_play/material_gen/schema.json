@@ -13,6 +13,7 @@
         {"type": "array", "minItems": 3, "maxItems": 4, "items": {"type": "integer", "minimum": 0, "maximum": 255}}
       ]
     },
+    "density": {"type": "number", "minimum": 0},
     "primitives": {
       "type": "array",
       "items": {"type":"object"}

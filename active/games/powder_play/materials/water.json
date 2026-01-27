@@ -3,6 +3,7 @@
   "name":"Water",
   "description":"Flows downward; if blocked flows left or right.",
   "color": [40, 120, 220],
+  "density": 1.0,
   "primitives":[
     {"op":"read","dx":0,"dy":1},
     {"op":"if","cond":{"eq":{"value":0}},"then":[{"op":"move","dx":0,"dy":1}]},

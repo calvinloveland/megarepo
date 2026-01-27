@@ -3,6 +3,7 @@
   "name":"BouncyGel",
   "description":"Simple bounce: if space above is empty, move up.",
   "color": [200, 100, 220],
+  "density": 1.3,
   "primitives":[
     {"op":"read","dx":0,"dy":-1},
     {"op":"if","cond":{"eq":{"value":0}},"then":[{"op":"move","dx":0,"dy":-1}]},

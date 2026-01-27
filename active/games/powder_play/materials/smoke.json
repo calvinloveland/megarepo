@@ -3,6 +3,7 @@
   "name":"Smoke",
   "description":"Rises upward into empty space (light gas behavior).",
   "color": [120, 120, 120],
+  "density": 0.15,
   "primitives":[
     {"op":"read","dx":0,"dy":-1},
     {"op":"if","cond":{"eq":{"value":0}},"then":[{"op":"move","dx":0,"dy":-1}]},

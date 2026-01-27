@@ -3,6 +3,7 @@
   "name":"Salt",
   "description":"Granular particle similar to sand (different color/feel).",
   "color": [230, 230, 230],
+  "density": 2.2,
   "reactions": [
     {"with": "Water", "result": "SaltWater", "byproduct": "SaltWater", "priority": 5}
   ],

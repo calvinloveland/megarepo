@@ -3,6 +3,7 @@
   "name": "Steam",
   "description": "Light vapor that rises and disperses.",
   "color": [180, 180, 200],
+  "density": 0.1,
   "condense": {"at": "top", "result": "Water", "probability": 1},
   "primitives": [
     {"op":"read","dx":0,"dy":-1},

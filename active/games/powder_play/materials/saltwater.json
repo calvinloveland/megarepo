@@ -3,6 +3,7 @@
   "name": "SaltWater",
   "description": "Salty water; flows like water.",
   "color": [80, 140, 220],
+  "density": 1.1,
   "reactions": [
     {"with": "Fire", "result": "Steam", "byproduct": "Salt", "priority": 5}
   ],

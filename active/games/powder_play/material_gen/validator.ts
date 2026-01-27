@@ -24,6 +24,9 @@ export async function validateMaterial(ast: any): Promise<{ok:boolean, errors?: 
     const isArray = Array.isArray(c) && c.length >= 3 && c.length <= 4 && c.every((v:any)=>typeof v === 'number' && v>=0 && v<=255);
     if (!isHex && !isArray) errors.push({message:'color must be hex string or [r,g,b] array'});
   }
+  if (ast.density !== undefined) {
+    if (typeof ast.density !== 'number' || ast.density < 0) errors.push({message:'density must be non-negative number'});
+  }
   if (ast.reactions !== undefined) {
     if (!Array.isArray(ast.reactions)) errors.push({message:'reactions must be array'});
     else {

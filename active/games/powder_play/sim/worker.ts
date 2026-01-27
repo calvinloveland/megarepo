@@ -33,6 +33,7 @@ const interpreters = new Map<number, Interpreter>();
 const reactionsById = new Map<number, ReactionRule[]>();
 const condenseById = new Map<number, CondenseRule>();
 const nameToId = new Map<string, number>();
+const densityById = new Map<number, number>();
 let reacted: Uint8Array;
 
 function resolveReactions() {
@@ -59,6 +60,8 @@ onmessage = (ev: MessageEvent) => {
   } else if (msg.type === 'set_material') {
     interpreters.set(msg.materialId, new Interpreter(msg.material));
     if (msg.material?.name) nameToId.set(msg.material.name, msg.materialId);
+    const density = typeof msg.material?.density === 'number' ? msg.material.density : 1;
+    densityById.set(msg.materialId, density);
     if (Array.isArray(msg.material?.reactions)) {
       const rules = msg.material.reactions.slice().sort((a:ReactionRule,b:ReactionRule)=> (b.priority||0) - (a.priority||0));
       reactionsById.set(msg.materialId, rules);
@@ -161,15 +164,28 @@ function stepSimulation() {
         nextGrid[idx] = cell;
         continue;
       }
-      const ctx = makeCellCtx(x,y);
+      const ctx = makeCellCtx(x,y,cell);
       interpreter.step(ctx);
       if (ctx.intent && ctx.intent.type === 'move') {
         const nx = x + ctx.intent.dx;
         const ny = y + ctx.intent.dy;
         if (nx>=0 && nx<width && ny>=0 && ny<height) {
           const nidx = ny*width + nx;
-          if (grid[nidx] === 0 && nextGrid[nidx] === 0) nextGrid[nidx] = cell;
-          else nextGrid[idx] = cell;
+          const target = grid[nidx];
+          if (target === 0 && nextGrid[nidx] === 0) {
+            nextGrid[nidx] = cell;
+          } else if (target !== 0) {
+            const dSelf = densityById.get(cell) ?? 1;
+            const dTarget = densityById.get(target) ?? 1;
+            if (dSelf > dTarget && nextGrid[nidx] === 0 && nextGrid[idx] === 0) {
+              nextGrid[nidx] = cell;
+              nextGrid[idx] = target;
+            } else if (nextGrid[idx] === 0) {
+              nextGrid[idx] = cell;
+            }
+          } else if (nextGrid[idx] === 0) {
+            nextGrid[idx] = cell;
+          }
         } else {
           nextGrid[idx] = cell;
         }
@@ -180,12 +196,16 @@ function stepSimulation() {
   }
 }
 
-function makeCellCtx(x:number,y:number) {
+function makeCellCtx(x:number,y:number, cellId:number) {
   return {
     readNeighbor: (dx:number, dy:number) => {
       const nx = x+dx, ny=y+dy;
       if (nx<0||nx>=width||ny<0||ny>=height) return 0;
-      return grid[ny*width + nx];
+      const neighbor = grid[ny*width + nx];
+      if (neighbor === 0) return 0;
+      const selfDensity = densityById.get(cellId) ?? 1;
+      const neighborDensity = densityById.get(neighbor) ?? 1;
+      return neighborDensity < selfDensity ? 0 : neighbor;
     },
     lastRead: 0,
     intent: null
