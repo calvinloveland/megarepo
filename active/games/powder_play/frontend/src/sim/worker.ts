@@ -124,6 +124,7 @@ function stepSimulation() {
             else nextGrid[nidx] = withId;
             reacted[idx] = 1;
             reacted[nidx] = 1;
+            postMessage({type:'reaction', x, y, nx, ny, from: cell, withId, resultId, byId});
             reactedHere = true;
             break;
           }

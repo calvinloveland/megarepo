@@ -105,6 +105,9 @@ function initWorkerWithMaterial(mat:any) {
           drawGrid(buf, m.width, m.height);
         } catch(e) {}
       }
+      if (m.type === 'reaction') {
+        console.log('reaction applied', m);
+      }
       if (m.type === 'stepped') {
         // draw scaled grid
         const buf = new Uint16Array(m.grid);
