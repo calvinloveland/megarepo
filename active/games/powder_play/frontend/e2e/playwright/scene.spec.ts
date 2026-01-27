@@ -17,19 +17,6 @@ test('demo scene: paint sand and it falls down', async ({ page }) => {
   // Load demo scene file from repo and paint points programmatically
   const sceneResp = await page.request.get(new URL('/demo/simple_scene.json', page.url()).toString());
   const scene = await sceneResp.json();
-  // Map grid coords -> canvas pixel coords (canvas is 600x400 and grid is 150x100)
-  const canvas = await page.$('canvas#sim-canvas');
-  const box = await canvas!.boundingBox();
-  if (!box) throw new Error('canvas not found');
-
-  // helper to click at grid point
-  const clickAtGrid = async (gx:number, gy:number) => {
-    const cx = box.x + (gx + 0.5) * (box.width / 150);
-    const cy = box.y + (gy + 0.5) * (box.height / 100);
-    await page.mouse.move(cx, cy);
-    await page.mouse.down();
-    await page.mouse.up();
-  }
 
   // Programmatically initialize worker with a sand-like AST directly (avoid flaky generate step)
   const sandAst = {
