@@ -7,10 +7,6 @@ export function attachCanvasTools(canvas: HTMLCanvasElement, worker: Worker | nu
 
   const clearBtn = info.querySelector('#clear-grid') as HTMLButtonElement;
   const brushSel = info.querySelector('#brush-size') as HTMLSelectElement;
-  clearBtn.onclick = () => {
-    const buf = new Uint16Array(gridW*gridH);
-    worker.postMessage({type:'set_grid', buffer: buf.buffer}, [buf.buffer]);
-  }
 
   let drawing = false;
   // we maintain a local grid buffer to accumulate strokes until mouseup
@@ -95,6 +91,19 @@ export function attachCanvasTools(canvas: HTMLCanvasElement, worker: Worker | nu
     }
   };
   const flushIv = setInterval(flushPending, 500);
+
+  // wire clear button now that queueing is available
+  clearBtn.onclick = () => {
+    const buf = new Uint16Array(gridW*gridH);
+    if (currentWorker) {
+      currentWorker.postMessage({type:'set_grid', buffer: buf.buffer}, [buf.buffer]);
+      currentWorker.postMessage({type:'step'});
+    } else {
+      pendingBuffers.push(buf.buffer);
+    }
+    // also clear overlay
+    try { octx.clearRect(0,0,overlay.width, overlay.height); } catch (e) {}
+  }
 
   window.addEventListener('mouseup', ()=>{
     if (!drawing) return;

@@ -78,6 +78,20 @@ function initWorkerWithMaterial(mat:any) {
     worker.postMessage({type:'init', width:150, height:100});
   }
   worker.postMessage({type:'set_material', material:mat});
+  // set current material color for rendering (accept hex string or [r,g,b] array)
+  try {
+    let color = [255,255,255];
+    if (mat && mat.color) {
+      if (typeof mat.color === 'string' && mat.color.startsWith('#')) {
+        const hex = mat.color.replace('#','');
+        color = [parseInt(hex.slice(0,2),16), parseInt(hex.slice(2,4),16), parseInt(hex.slice(4,6),16)];
+      } else if (Array.isArray(mat.color) && mat.color.length >= 3) {
+        color = [mat.color[0], mat.color[1], mat.color[2]];
+      }
+    }
+    (window as any).__currentMaterialColor = color;
+  } catch (e) { (window as any).__currentMaterialColor = [255,255,255]; }
+
   // expose a simple helper to paint points for e2e tests
   (window as any).__paintGridPoints = (points:{x:number,y:number}[]) => {
     const buf = new Uint16Array(150*100);
@@ -102,12 +116,21 @@ function drawGrid(buf:Uint16Array, w:number, h:number, canvasW:number, canvasH:n
   off.width = w; off.height = h;
   const offCtx = off.getContext('2d')!;
   const img = offCtx.createImageData(w, h);
+  // colorize using current material color if available, otherwise grayscale
+  const materialColor = (window as any).__currentMaterialColor as number[] | undefined;
   for (let i=0;i<w*h;i++) {
     const v = buf[i] & 0xff;
-    img.data[i*4+0] = v;
-    img.data[i*4+1] = v;
-    img.data[i*4+2] = v;
-    img.data[i*4+3] = 255;
+    if (v > 0 && materialColor) {
+      img.data[i*4+0] = materialColor[0];
+      img.data[i*4+1] = materialColor[1];
+      img.data[i*4+2] = materialColor[2];
+      img.data[i*4+3] = 255;
+    } else {
+      img.data[i*4+0] = v;
+      img.data[i*4+1] = v;
+      img.data[i*4+2] = v;
+      img.data[i*4+3] = 255;
+    }
   }
   offCtx.putImageData(img,0,0);
   // draw scaled to main canvas

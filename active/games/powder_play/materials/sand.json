@@ -2,6 +2,7 @@
   "type": "material",
   "name": "Sand",
   "description": "Granular particle: falls down, then diagonally if blocked.",
+  "color": [194,178,128],
   "primitives": [
     {"op":"read","dx":0,"dy":1},
     {"op":"if","cond":{"eq":{"value":0}},"then":[{"op":"move","dx":0,"dy":1}]},
