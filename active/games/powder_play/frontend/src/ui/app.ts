@@ -308,6 +308,18 @@ function isNoReactionName(name: string) {
   return cleaned === 'no reaction' || cleaned === 'no_reaction' || cleaned === 'noreaction';
 }
 
+function fallbackMixName(aName: string, bName: string) {
+  const base = `${aName}-${bName}`;
+  let hash = 0;
+  for (let i = 0; i < base.length; i++) {
+    hash = ((hash << 5) - hash + base.charCodeAt(i)) | 0;
+  }
+  const tag = Math.abs(hash).toString(36).slice(0, 4) || 'mix';
+  const safeA = aName.replace(/\s+/g, '').slice(0, 6) || 'A';
+  const safeB = bName.replace(/\s+/g, '').slice(0, 6) || 'B';
+  return `${safeA}${safeB}_${tag}`;
+}
+
 try {
   const storedVersion = localStorage.getItem(mixCacheVersionKey);
   if (storedVersion !== mixCacheVersion) {
@@ -544,8 +556,12 @@ async function generateMixMaterial(aMat:any, bMat:any) {
   const aName = aMat?.name || 'A';
   const bName = bMat?.name || 'B';
   setMixProgress(20);
-  const namePrompt = `Return ONLY JSON with {"name":"<new material name>"} for mixing ${aName} and ${bName}. If no reaction, return {"no_reaction": true}. Example valid outputs: {"name":"Glass"} or {"no_reaction": true}.`;
-  const retryNamePrompt = `Respond with JSON only. Output either {"name":"<string>"} or {"no_reaction":true}. Do not include other keys or any extra text. Mixing ${aName} and ${bName}.`;
+  const namePrompt = `JSON only. Schema: {"name":"<string>"} | {"no_reaction":true}.
+Examples:
+Input: mix Fire+Sand -> {"name":"Glass"}
+Input: mix Oil+Water -> {"no_reaction":true}
+Now mix ${aName}+${bName}.`;
+  const retryNamePrompt = `JSON only. One object, no extra keys. {"name":"<string>"} or {"no_reaction":true}. mix ${aName}+${bName}.`;
   async function getValidName(prompt: string) {
     const nameResp = await runLocalLLM(prompt);
     if (isNoReactionPayload(nameResp)) return null;
@@ -560,16 +576,25 @@ async function generateMixMaterial(aMat:any, bMat:any) {
   if (candidateName === '') {
     candidateName = await getValidName(retryNamePrompt);
   }
-  if (!candidateName) return null;
+  if (candidateName === null) return null;
+  if (!candidateName) {
+    candidateName = fallbackMixName(aName, bName);
+  }
+  if (materialNameExists(candidateName) || isGenericMixName(candidateName, aName, bName)) {
+    candidateName = `${fallbackMixName(aName, bName)}_${Date.now().toString(36).slice(-3)}`;
+  }
   setMixName(candidateName);
   setMixProgress(55);
-  const prompt = `Return ONLY JSON for a material named "${candidateName}" that represents mixing ${aName} and ${bName}. Required fields: type:"material", name, description, primitives (non-empty array of ops), budgets. No extra text. Example valid output: {"type":"material","name":"${candidateName}","description":"...","primitives":[{"op":"read","dx":0,"dy":1},{"op":"if","cond":{"eq":{"value":0}},"then":[{"op":"move","dx":0,"dy":1}]}],"budgets":{"max_ops":8,"max_spawns":0}}.`;
+  const prompt = `JSON only. Schema: {"type":"material","name":"${candidateName}","description":"<string>","primitives":[...],"budgets":{"max_ops":<int>,"max_spawns":<int>}}.
+Example:
+{"type":"material","name":"${candidateName}","description":"...","primitives":[{"op":"read","dx":0,"dy":1},{"op":"if","cond":{"eq":{"value":0}},"then":[{"op":"move","dx":0,"dy":1}]}],"budgets":{"max_ops":8,"max_spawns":0}}
+Now mix ${aName}+${bName}.`;
   const ast = await runLocalLLM(prompt);
   setMixProgress(85);
   const normalized = tryNormalizeMixMaterial(ast, aMat, bMat);
   if (normalized) return normalized;
   await reportMixError('mix normalize failed', { a: aName, b: bName, name: candidateName, stage: 'first' });
-  const retryPrompt = `Return ONLY JSON for material "${candidateName}". Example valid output: {"type":"material","name":"${candidateName}","description":"...","primitives":[{"op":"read","dx":0,"dy":1},{"op":"if","cond":{"eq":{"read":1,"value":0}},"then":[{"op":"move","dx":0,"dy":1}]}],"budgets":{"max_ops":8,"max_spawns":0}}. No extra text.`;
+  const retryPrompt = `JSON only. Required keys: type,name,description,primitives,budgets. Name must be "${candidateName}". No extra keys.`;
   const retryAst = await runLocalLLM(retryPrompt);
   setMixProgress(90);
   const retryNormalized = tryNormalizeMixMaterial(retryAst, aMat, bMat);
