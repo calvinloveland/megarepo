@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 
 test('discovered mix appears in UI list', async ({ page }) => {
   await page.addInitScript(() => {
+    (window as any).__mixApiBase = 'http://127.0.0.1:1';
     const suffix = Date.now().toString();
     const aName = `MixSeedA_${suffix}`;
     const bName = `MixSeedB_${suffix}`;
