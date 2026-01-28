@@ -3,3 +3,11 @@ dist/
 .vscode/
 .env
 mix_server/mix_cache.json
+mix_server/server.pid
+mix_server/server.log
+.powder_play_ollama.pid
+ollama.log
+mix_server/server.pid
+mix_server/server.log
+.powder_play_ollama.pid
+ollama.log
