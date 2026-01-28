@@ -1,4 +1,6 @@
 export function attachCanvasTools(canvas: HTMLCanvasElement, worker: Worker | null, gridW: number, gridH: number, toolsRoot: HTMLElement) {
+  if ((toolsRoot as any).dataset?.toolsMounted === 'true') return;
+  (toolsRoot as any).dataset.toolsMounted = 'true';
   const info = document.createElement('div');
   // add clear and brush-size controls
   info.innerHTML = `<button id="clear-grid">Clear</button> <label>Brush <select id="brush-size"><option value="1">Small</option><option value="3">Medium</option><option value="5">Large</option></select></label> <label><input type="checkbox" id="eraser-toggle"> Eraser</label> <span id="paint-mode">Paint</span>`;

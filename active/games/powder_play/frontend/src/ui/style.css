@@ -1,3 +1,6 @@
 body { font-family: system-ui, sans-serif; }
-#controls { display:flex; gap:1rem; align-items:flex-start }
+#left-panel, #right-panel { display:flex; flex-direction:column; gap:.5rem; }
+#playback-controls { display:flex; gap:.5rem; justify-content:center; }
+#tools-panel { display:flex; flex-direction:column; gap:.5rem; }
+#materials-list { max-height: 420px; overflow:auto; }
 #status { margin-top: 1rem }

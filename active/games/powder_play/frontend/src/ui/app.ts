@@ -3,7 +3,6 @@ export function initApp(root: HTMLElement) {
     <div style="display:flex; gap:1rem; align-items:flex-start;">
       <div id="left-panel" style="min-width:220px;">
         <h1>Powder Playground</h1>
-        <div id="prompt-panel"></div>
         <div id="materials-panel"></div>
         <div id="status"></div>
       </div>
@@ -21,19 +20,9 @@ export function initApp(root: HTMLElement) {
   const status = document.getElementById('status')!;
   status.textContent = 'Ready';
 
-  // mount prompt editor
-  const promptPanel = document.getElementById('prompt-panel')!;
   const materialsPanel = document.getElementById('materials-panel')!;
   const playbackControls = document.getElementById('playback-controls')!;
   const toolsPanel = document.getElementById('tools-panel')!;
-  // lazy import to keep initial bundle small
-  import('./prompt_editor').then(m => {
-    m.createPromptEditor(promptPanel, (mat:any)=>{
-      status.textContent = `Material ready: ${mat.name}`;
-      // set material in worker
-      initWorkerWithMaterial(mat);
-    });
-  });
 
   // mount materials browser
   import('./material_browser').then(m => {
@@ -76,6 +65,9 @@ export function initApp(root: HTMLElement) {
 let worker: Worker | null = null;
 let nextMaterialId = 0;
 let currentMaterialId = 0;
+const materialById = new Map<number, any>();
+const materialIdByName = new Map<string, number>();
+const autoMixPairs = new Set<string>();
 function deriveColorFromName(name: string) {
   let h = 0;
   for (let i = 0; i < name.length; i++) {
@@ -87,120 +79,267 @@ function deriveColorFromName(name: string) {
   const b = 60 + ((seed >> 16) % 180);
   return [r, g, b];
 }
-function initWorkerWithMaterial(mat:any) {
-  if (!worker) {
-    // worker script lives at the project-level `sim/worker.ts`, so go up one more dir
-    // prefer worker script inside frontend/src to avoid @fs 403 issues
-    worker = new Worker(new URL('../sim/worker.ts', import.meta.url), { type: 'module' });
-    worker.onmessage = (ev) => {
-      const m = ev.data;
-      if (m.type === 'ready') {
-        console.log('worker ready');
-        // expose the worker to the page for e2e tests/debugging
-        (window as any).__powderWorker = worker;
-        // attach canvas tools once worker exists
-        import('./canvas_tools').then(mod => {
-          const toolsRoot = document.getElementById('tools-panel') as HTMLElement;
-          mod.attachCanvasTools(document.getElementById('sim-canvas') as HTMLCanvasElement, worker!, 150, 100, toolsRoot);
-        });
-      }
-      if (m.type === 'material_set') console.log('material set');
-      if (m.type === 'grid_set') {
-        console.log('grid set on worker');
-        try {
-          const buf = new Uint16Array(m.grid);
-          (window as any).__lastGrid = buf.slice();
-          (window as any).__lastGridWidth = m.width;
-          const sampleIdx = 10* m.width + 10;
-          (window as any).__lastGridSample = buf[sampleIdx];
-          console.log('drawGrid sample [10,10] =', buf[sampleIdx], 'colorMap=', (window as any).__materialColors);
-          drawGrid(buf, m.width, m.height);
-        } catch(e) {}
-      }
-      if (m.type === 'reaction') {
-        try {
-          console.log('reaction applied', JSON.stringify(m));
-        } catch (e) {
-          console.log('reaction applied', m);
-        }
-      }
-      if (m.type === 'stepped') {
-        // draw scaled grid
-        const buf = new Uint16Array(m.grid);
-        // expose last stepped grid for debugging
-        try {
-          (window as any).__lastGrid = buf.slice();
-          (window as any).__lastGridWidth = m.width;
-          const sampleIdx = 10* m.width + 10;
-          (window as any).__lastGridSample = buf[sampleIdx];
-          console.log('drawGrid sample [10,10] =', buf[sampleIdx], 'colorMap=', (window as any).__materialColors);
-        } catch(e) {}
-        drawGrid(buf, m.width, m.height);
-      }
-      if (m.type === 'error') console.warn('worker error', m.message);
+
+function ensureWorker() {
+  if (worker) return;
+  worker = new Worker(new URL('../sim/worker.ts', import.meta.url), { type: 'module' });
+  worker.onmessage = (ev) => {
+    const m = ev.data;
+    if (m.type === 'ready') {
+      console.log('worker ready');
+      (window as any).__powderWorker = worker;
     }
-    worker.postMessage({type:'init', width:150, height:100});
+    if (m.type === 'material_set') console.log('material set');
+    if (m.type === 'grid_set') {
+      console.log('grid set on worker');
+      try {
+        const buf = new Uint16Array(m.grid);
+        (window as any).__lastGrid = buf.slice();
+        (window as any).__lastGridWidth = m.width;
+        const sampleIdx = 10 * m.width + 10;
+        (window as any).__lastGridSample = buf[sampleIdx];
+        console.log('drawGrid sample [10,10] =', buf[sampleIdx], 'colorMap=', (window as any).__materialColors);
+        drawGrid(buf, m.width, m.height);
+      } catch(e) {}
+    }
+    if (m.type === 'reaction') {
+      try {
+        console.log('reaction applied', JSON.stringify(m));
+      } catch (e) {
+        console.log('reaction applied', m);
+      }
+    }
+    if (m.type === 'stepped') {
+      const buf = new Uint16Array(m.grid);
+      try {
+        (window as any).__lastGrid = buf.slice();
+        (window as any).__lastGridWidth = m.width;
+        const sampleIdx = 10 * m.width + 10;
+        (window as any).__lastGridSample = buf[sampleIdx];
+        console.log('drawGrid sample [10,10] =', buf[sampleIdx], 'colorMap=', (window as any).__materialColors);
+      } catch(e) {}
+      drawGrid(buf, m.width, m.height);
+      maybeAutoGenerateMixes(buf, m.width, m.height);
+    }
+    if (m.type === 'error') console.warn('worker error', m.message);
   }
+  worker.postMessage({type:'init', width:150, height:100});
+}
+
+function getMaterialColor(mat:any) {
+  let color = [255,255,255];
+  if (mat && mat.color) {
+    if (typeof mat.color === 'string' && mat.color.startsWith('#')) {
+      const hex = mat.color.replace('#','');
+      color = [parseInt(hex.slice(0,2),16), parseInt(hex.slice(2,4),16), parseInt(hex.slice(4,6),16)];
+    } else if (Array.isArray(mat.color) && mat.color.length >= 3) {
+      color = [mat.color[0], mat.color[1], mat.color[2]];
+    }
+  } else if (mat && mat.name) {
+    color = deriveColorFromName(mat.name);
+  }
+  return color;
+}
+
+function setMaterialColor(materialId:number, mat:any) {
+  try {
+    const color = getMaterialColor(mat);
+    const colorMap = (window as any).__materialColors || {};
+    colorMap[materialId] = color;
+    (window as any).__materialColors = colorMap;
+    if (currentMaterialId === materialId) {
+      (window as any).__currentMaterialColor = color;
+    }
+  } catch (e) {
+    const colorMap = (window as any).__materialColors || {};
+    colorMap[materialId] = mat?.name ? deriveColorFromName(mat.name) : [255,255,255];
+    (window as any).__materialColors = colorMap;
+    if (currentMaterialId === materialId) {
+      (window as any).__currentMaterialColor = [255,255,255];
+    }
+  }
+}
+
+function registerMaterial(mat:any, opts?: { select?: boolean }) {
+  ensureWorker();
   const materialId = ++nextMaterialId;
-  currentMaterialId = materialId;
-  (window as any).__currentMaterialId = currentMaterialId;
+  if (opts?.select !== false) {
+    currentMaterialId = materialId;
+    (window as any).__currentMaterialId = currentMaterialId;
+  }
+  if (mat?.name) {
+    materialIdByName.set(mat.name, materialId);
+  }
+  materialById.set(materialId, mat);
   try {
     const map = (window as any).__materialIdByName || {};
     if (mat?.name) map[mat.name] = materialId;
     (window as any).__materialIdByName = map;
   } catch (e) {}
 
-  worker.postMessage({type:'set_material', material:mat, materialId});
-  // set material color for rendering (accept hex string or [r,g,b] array)
-  try {
-    let color = [255,255,255];
-    if (mat && mat.color) {
-      if (typeof mat.color === 'string' && mat.color.startsWith('#')) {
-        const hex = mat.color.replace('#','');
-        color = [parseInt(hex.slice(0,2),16), parseInt(hex.slice(2,4),16), parseInt(hex.slice(4,6),16)];
-      } else if (Array.isArray(mat.color) && mat.color.length >= 3) {
-        color = [mat.color[0], mat.color[1], mat.color[2]];
-      }
-    } else if (mat && mat.name) {
-      color = deriveColorFromName(mat.name);
-    }
-    const colorMap = (window as any).__materialColors || {};
-    colorMap[materialId] = color;
-    (window as any).__materialColors = colorMap;
-    (window as any).__currentMaterialColor = color;
-  } catch (e) {
-    const colorMap = (window as any).__materialColors || {};
-    colorMap[materialId] = mat?.name ? deriveColorFromName(mat.name) : [255,255,255];
-    (window as any).__materialColors = colorMap;
-    (window as any).__currentMaterialColor = [255,255,255];
-  }
+  worker!.postMessage({type:'set_material', material:mat, materialId});
+  setMaterialColor(materialId, mat);
+  return materialId;
+}
 
-  // expose a simple helper to paint points for e2e tests
+function updateMaterial(materialId:number, mat:any) {
+  ensureWorker();
+  if (mat?.name) {
+    materialIdByName.set(mat.name, materialId);
+  }
+  materialById.set(materialId, mat);
+  try {
+    const map = (window as any).__materialIdByName || {};
+    if (mat?.name) map[mat.name] = materialId;
+    (window as any).__materialIdByName = map;
+  } catch (e) {}
+  worker!.postMessage({type:'set_material', material:mat, materialId});
+  setMaterialColor(materialId, mat);
+}
+
+function initWorkerWithMaterial(mat:any) {
+  registerMaterial(mat, { select: true });
+
   (window as any).__paintGridPoints = (points:{x:number,y:number}[]) => {
     const id = (window as any).__currentMaterialId || 1;
     worker!.postMessage({type:'paint_points', materialId: id, points});
-    // step so the new grid renders immediately
     worker!.postMessage({type:'step'});
   }
-  // kick a step to test
-  worker.postMessage({type:'step'});
+  worker!.postMessage({type:'step'});
 }
-// make init helper available to the page before it's called so other UI components
-// (like the materials browser) can use it even before a material is set
+
 (window as any).__initWorkerWithMaterial = initWorkerWithMaterial;
+
+function pairKey(a:number, b:number) {
+  return a < b ? `${a}:${b}` : `${b}:${a}`;
+}
+
+function hasExplicitReaction(aId:number, bId:number) {
+  const aMat = materialById.get(aId);
+  const bMat = materialById.get(bId);
+  if (!aMat || !bMat || !aMat.name || !bMat.name) return false;
+  const aReacts = Array.isArray(aMat.reactions) && aMat.reactions.some((r:any) => r.with === bMat.name);
+  const bReacts = Array.isArray(bMat.reactions) && bMat.reactions.some((r:any) => r.with === aMat.name);
+  return aReacts || bReacts;
+}
+
+function createAutoMixMaterial(aMat:any, bMat:any) {
+  const aName = aMat?.name || 'A';
+  const bName = bMat?.name || 'B';
+  const name = `Mix ${aName}+${bName}`;
+  const desc = `Auto-generated mix of ${aName} and ${bName}.`;
+  const aColor = getMaterialColor(aMat);
+  const bColor = getMaterialColor(bMat);
+  const color = [
+    Math.round((aColor[0] + bColor[0]) / 2),
+    Math.round((aColor[1] + bColor[1]) / 2),
+    Math.round((aColor[2] + bColor[2]) / 2)
+  ];
+  const aDensity = typeof aMat?.density === 'number' ? aMat.density : 1;
+  const bDensity = typeof bMat?.density === 'number' ? bMat.density : 1;
+  const density = (aDensity + bDensity) / 2;
+  return {
+    type: 'material',
+    name,
+    description: desc,
+    color,
+    density,
+    primitives: [
+      {op:'read', dx:0, dy:1},
+      {op:'if', cond:{eq:{value:0}}, then:[{op:'move', dx:0, dy:1}]},
+      {op:'rand', probability:0.5},
+      {op:'if', cond:{eq:{value:1}}, then:[
+        {op:'read', dx:-1, dy:0},
+        {op:'if', cond:{eq:{value:0}}, then:[{op:'move', dx:-1, dy:0}]},
+        {op:'read', dx:1, dy:0},
+        {op:'if', cond:{eq:{value:0}}, then:[{op:'move', dx:1, dy:0}]}
+      ]},
+      {op:'if', cond:{eq:{value:0}}, then:[
+        {op:'read', dx:1, dy:0},
+        {op:'if', cond:{eq:{value:0}}, then:[{op:'move', dx:1, dy:0}]},
+        {op:'read', dx:-1, dy:0},
+        {op:'if', cond:{eq:{value:0}}, then:[{op:'move', dx:-1, dy:0}]}
+      ]}
+    ],
+    budgets: {max_ops: 14, max_spawns: 0}
+  };
+}
+
+function addAutoMixReaction(aId:number, bId:number) {
+  const aMat = materialById.get(aId);
+  const bMat = materialById.get(bId);
+  if (!aMat || !bMat || !aMat.name || !bMat.name) return;
+  const key = pairKey(aId, bId);
+  if (autoMixPairs.has(key)) return;
+  autoMixPairs.add(key);
+
+  const mixMat = createAutoMixMaterial(aMat, bMat);
+  const mixId = registerMaterial(mixMat, { select: false });
+
+  const reactionForA = { with: bMat.name, result: mixMat.name, byproduct: mixMat.name, priority: 3 };
+  const reactionForB = { with: aMat.name, result: mixMat.name, byproduct: mixMat.name, priority: 3 };
+  const updatedA = { ...aMat, reactions: [...(aMat.reactions || []), reactionForA] };
+  const updatedB = { ...bMat, reactions: [...(bMat.reactions || []), reactionForB] };
+  updateMaterial(aId, updatedA);
+  updateMaterial(bId, updatedB);
+
+  const status = document.getElementById('status');
+  if (status) status.textContent = `Discovered ${mixMat.name}`;
+  try {
+    const map = (window as any).__materialIdByName || {};
+    map[mixMat.name] = mixId;
+    (window as any).__materialIdByName = map;
+  } catch (e) {}
+}
+
+function maybeAutoGenerateMixes(buf:Uint16Array, w:number, h:number) {
+  if (!buf || !w || !h) return;
+  const pairs: Array<[number, number]> = [];
+  for (let y=0; y<h; y++) {
+    for (let x=0; x<w; x++) {
+      const idx = y*w + x;
+      const a = buf[idx];
+      if (!a) continue;
+      if (x + 1 < w) {
+        const b = buf[idx + 1];
+        if (b && b !== a) {
+          const key = pairKey(a, b);
+          if (!autoMixPairs.has(key) && !hasExplicitReaction(a, b)) {
+            pairs.push([a, b]);
+          }
+        }
+      }
+      if (y + 1 < h) {
+        const b = buf[idx + w];
+        if (b && b !== a) {
+          const key = pairKey(a, b);
+          if (!autoMixPairs.has(key) && !hasExplicitReaction(a, b)) {
+            pairs.push([a, b]);
+          }
+        }
+      }
+    }
+  }
+  if (!pairs.length) return;
+  const uniquePairs = new Map<string, [number, number]>();
+  for (const [a, b] of pairs) {
+    const key = pairKey(a, b);
+    if (!uniquePairs.has(key)) uniquePairs.set(key, [a, b]);
+  }
+  for (const [a, b] of uniquePairs.values()) {
+    addAutoMixReaction(a, b);
+  }
+}
 
 function drawGrid(buf:Uint16Array, w:number, h:number) {
   const canvas = document.getElementById('sim-canvas') as HTMLCanvasElement;
   const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
   try { ctx.imageSmoothingEnabled = false; } catch(e) {}
-  // create an offscreen canvas for the small grid
   const off = document.createElement('canvas');
   off.width = w; off.height = h;
   const offCtx = off.getContext('2d')!;
-  // avoid smoothing when scaling so colors stay crisp
   try { offCtx.imageSmoothingEnabled = false; } catch(e) {}
   const img = offCtx.createImageData(w, h);
-  // colorize using current material color if available, otherwise grayscale
   const colorMap = (window as any).__materialColors as Record<number, number[]> | undefined;
   for (let i=0;i<w*h;i++) {
     const v = buf[i] & 0xffff;
@@ -218,7 +357,6 @@ function drawGrid(buf:Uint16Array, w:number, h:number) {
     }
   }
   offCtx.putImageData(img,0,0);
-  // draw scaled to main canvas using physical pixel size
   ctx.clearRect(0,0,canvas.width,canvas.height);
   ctx.drawImage(off, 0,0, canvas.width, canvas.height);
 }
