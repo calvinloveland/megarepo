@@ -26,6 +26,13 @@ export function mountMaterialBrowser(root: HTMLElement) {
   async function refresh() {
     const mats = await fetchIndex();
     if (!mats.length) { listEl.textContent = '(no materials)'; return; }
+    const sorted = mats.slice().sort((a:any, b:any) => {
+      const aKey = String(a?.name || a?.file || '').toLowerCase();
+      const bKey = String(b?.name || b?.file || '').toLowerCase();
+      if (aKey < bKey) return -1;
+      if (aKey > bKey) return 1;
+      return 0;
+    });
     // render list
     listEl.innerHTML = '';
     let newest = null;
@@ -38,7 +45,7 @@ export function mountMaterialBrowser(root: HTMLElement) {
       const b = 60 + ((seed >> 16) % 180);
       return [r,g,b];
     }
-    for (const m of mats) {
+    for (const m of sorted) {
       const row = document.createElement('div');
       row.style.display = 'flex';
       row.style.justifyContent = 'space-between';
@@ -64,7 +71,7 @@ export function mountMaterialBrowser(root: HTMLElement) {
       newest = m;
     }
     // detect newly added
-    const currentSet = new Set(mats.map(x=>x.file));
+    const currentSet = new Set(mats.map((x:any)=>x.file));
     let added = null;
     for (const f of currentSet) if (!known.has(f)) { added = f; break; }
     known = currentSet;

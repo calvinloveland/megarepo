@@ -1,12 +1,13 @@
-export function attachCanvasTools(canvas: HTMLCanvasElement, worker: Worker | null, gridW: number, gridH: number) {
-  const btns = document.getElementById('controls')!;
+export function attachCanvasTools(canvas: HTMLCanvasElement, worker: Worker | null, gridW: number, gridH: number, toolsRoot: HTMLElement) {
   const info = document.createElement('div');
   // add clear and brush-size controls
-  info.innerHTML = `<button id="clear-grid">Clear</button> <label>Brush <select id="brush-size"><option value="1">Small</option><option value="3">Medium</option><option value="5">Large</option></select></label> <span id="paint-mode">Paint</span>`;
-  btns.appendChild(info);
+  info.innerHTML = `<button id="clear-grid">Clear</button> <label>Brush <select id="brush-size"><option value="1">Small</option><option value="3">Medium</option><option value="5">Large</option></select></label> <label><input type="checkbox" id="eraser-toggle"> Eraser</label> <span id="paint-mode">Paint</span>`;
+  toolsRoot.appendChild(info);
 
   const clearBtn = info.querySelector('#clear-grid') as HTMLButtonElement;
   const brushSel = info.querySelector('#brush-size') as HTMLSelectElement;
+  const eraserToggle = info.querySelector('#eraser-toggle') as HTMLInputElement;
+  const paintMode = info.querySelector('#paint-mode') as HTMLSpanElement;
 
   let drawing = false;
   const strokePoints = new Set<string>();
@@ -14,6 +15,9 @@ export function attachCanvasTools(canvas: HTMLCanvasElement, worker: Worker | nu
 
   brushSel.onchange = () => {
     brushRadius = parseInt(brushSel.value, 10);
+  }
+  eraserToggle.onchange = () => {
+    paintMode.textContent = eraserToggle.checked ? 'Erase' : 'Paint';
   }
 
   // overlay canvas for cursor preview
@@ -120,7 +124,7 @@ export function attachCanvasTools(canvas: HTMLCanvasElement, worker: Worker | nu
     if (!drawing) return;
     drawing = false;
     // send grid to worker (or queue if worker not available yet)
-    const id = (window as any).__currentMaterialId || 1;
+    const id = eraserToggle.checked ? 0 : ((window as any).__currentMaterialId || 1);
     const points = Array.from(strokePoints).map((s) => {
       const [x,y] = s.split(',').map(Number);
       return {x,y};

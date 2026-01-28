@@ -1,12 +1,20 @@
 export function initApp(root: HTMLElement) {
   root.innerHTML = `
-    <div style="display:flex; gap:1rem;">
-      <div>
+    <div style="display:flex; gap:1rem; align-items:flex-start;">
+      <div id="left-panel" style="min-width:220px;">
         <h1>Powder Playground</h1>
-        <div id="controls"></div>
+        <div id="prompt-panel"></div>
+        <div id="materials-panel"></div>
         <div id="status"></div>
       </div>
-      <canvas id="sim-canvas" width="600" height="400" style="border:1px solid #ccc"></canvas>
+      <div id="center-panel" style="display:flex; flex-direction:column; align-items:center; gap:.5rem;">
+        <canvas id="sim-canvas" width="600" height="400" style="border:1px solid #ccc"></canvas>
+        <div id="playback-controls"></div>
+      </div>
+      <div id="right-panel" style="min-width:220px;">
+        <h3>Tools</h3>
+        <div id="tools-panel"></div>
+      </div>
     </div>
   `;
 
@@ -14,10 +22,13 @@ export function initApp(root: HTMLElement) {
   status.textContent = 'Ready';
 
   // mount prompt editor
-  const controls = document.getElementById('controls')!;
+  const promptPanel = document.getElementById('prompt-panel')!;
+  const materialsPanel = document.getElementById('materials-panel')!;
+  const playbackControls = document.getElementById('playback-controls')!;
+  const toolsPanel = document.getElementById('tools-panel')!;
   // lazy import to keep initial bundle small
   import('./prompt_editor').then(m => {
-    m.createPromptEditor(controls, (mat:any)=>{
+    m.createPromptEditor(promptPanel, (mat:any)=>{
       status.textContent = `Material ready: ${mat.name}`;
       // set material in worker
       initWorkerWithMaterial(mat);
@@ -26,12 +37,12 @@ export function initApp(root: HTMLElement) {
 
   // mount materials browser
   import('./material_browser').then(m => {
-    m.mountMaterialBrowser(controls);
+    m.mountMaterialBrowser(materialsPanel);
   });
 
   // attach play/step controls
   import('./controls').then(mod => {
-    mod.attachControls(controls, (playingOrStep:boolean)=>{
+    mod.attachControls(playbackControls, (playingOrStep:boolean)=>{
       // playingOrStep true for a tick, false for pause action
       if (!worker) return;
       if (playingOrStep) worker.postMessage({type:'step'});
@@ -54,7 +65,7 @@ export function initApp(root: HTMLElement) {
   const _dpr = setupCanvasDPR(canvas, 600, 400);
 
   import('./canvas_tools').then(mod => {
-    mod.attachCanvasTools(canvas, (window as any).__powderWorker || null, 150, 100);
+    mod.attachCanvasTools(canvas, (window as any).__powderWorker || null, 150, 100, toolsPanel);
   });
 
   const ctx = canvas.getContext('2d')!;
@@ -89,7 +100,8 @@ function initWorkerWithMaterial(mat:any) {
         (window as any).__powderWorker = worker;
         // attach canvas tools once worker exists
         import('./canvas_tools').then(mod => {
-          mod.attachCanvasTools(document.getElementById('sim-canvas') as HTMLCanvasElement, worker!, 150, 100);
+          const toolsRoot = document.getElementById('tools-panel') as HTMLElement;
+          mod.attachCanvasTools(document.getElementById('sim-canvas') as HTMLCanvasElement, worker!, 150, 100, toolsRoot);
         });
       }
       if (m.type === 'material_set') console.log('material set');
