@@ -84,15 +84,21 @@ export function mountMaterialBrowser(root: HTMLElement) {
       }
     }
   }
-+  function selectRowByName(name:string) {
-+    const rows = Array.from(listEl.querySelectorAll('.materials-row')) as HTMLElement[];
-+    for (const r of rows) {
-+      const strong = r.querySelector('strong');
-+      if (strong && strong.textContent === name) r.classList.add('selected');
-+      else r.classList.remove('selected');
-+    }
-+  }
-*** End Patch
+  function selectRowByName(name:string) {
+    const rows = Array.from(listEl.querySelectorAll('.materials-row')) as HTMLElement[];
+    for (const r of rows) {
+      const strong = r.querySelector('strong');
+      if (strong && strong.textContent === name) r.classList.add('selected');
+      else r.classList.remove('selected');
+    }
+  }
+  async function loadMaterial(file:string) {
+    try {
+      const r = await fetch(`/materials/${file}`);
+      if (!r.ok) return;
+      const mat = await r.json();
+      // sanity check
+      if (mat.type !== 'material' || !mat.name || !mat.primitives) {
         console.warn('Invalid material', file);
         return;
       }

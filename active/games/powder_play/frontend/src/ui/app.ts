@@ -247,6 +247,7 @@ function createAutoMixMaterial(aMat:any, bMat:any) {
     description: desc,
     color,
     density,
+    __mixParents: [aName, bName],
     primitives: [
       {op:'read', dx:0, dy:1},
       {op:'if', cond:{eq:{value:0}}, then:[{op:'move', dx:0, dy:1}]},
@@ -272,6 +273,9 @@ function addAutoMixReaction(aId:number, bId:number) {
   const aMat = materialById.get(aId);
   const bMat = materialById.get(bId);
   if (!aMat || !bMat || !aMat.name || !bMat.name) return;
+  const aParents = Array.isArray(aMat.__mixParents) ? aMat.__mixParents : [];
+  const bParents = Array.isArray(bMat.__mixParents) ? bMat.__mixParents : [];
+  if (aParents.includes(bMat.name) || bParents.includes(aMat.name)) return;
   const key = pairKey(aId, bId);
   if (autoMixPairs.has(key)) return;
   autoMixPairs.add(key);
@@ -306,6 +310,13 @@ function maybeAutoGenerateMixes(buf:Uint16Array, w:number, h:number) {
       if (x + 1 < w) {
         const b = buf[idx + 1];
         if (b && b !== a) {
+          const aMat = materialById.get(a);
+          const bMat = materialById.get(b);
+          const aParents = Array.isArray(aMat?.__mixParents) ? aMat.__mixParents : [];
+          const bParents = Array.isArray(bMat?.__mixParents) ? bMat.__mixParents : [];
+          if (aParents.includes(bMat?.name) || bParents.includes(aMat?.name)) {
+            continue;
+          }
           const key = pairKey(a, b);
           if (!autoMixPairs.has(key) && !hasExplicitReaction(a, b)) {
             pairs.push([a, b]);
@@ -315,6 +326,13 @@ function maybeAutoGenerateMixes(buf:Uint16Array, w:number, h:number) {
       if (y + 1 < h) {
         const b = buf[idx + w];
         if (b && b !== a) {
+          const aMat = materialById.get(a);
+          const bMat = materialById.get(b);
+          const aParents = Array.isArray(aMat?.__mixParents) ? aMat.__mixParents : [];
+          const bParents = Array.isArray(bMat?.__mixParents) ? bMat.__mixParents : [];
+          if (aParents.includes(bMat?.name) || bParents.includes(aMat?.name)) {
+            continue;
+          }
           const key = pairKey(a, b);
           if (!autoMixPairs.has(key) && !hasExplicitReaction(a, b)) {
             pairs.push([a, b]);
