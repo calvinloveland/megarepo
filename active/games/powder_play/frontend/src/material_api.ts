@@ -18,7 +18,9 @@ function parseJsonFromText(text: string) {
 
 // Frontend-local LLM API (Ollama via mix server proxy)
 export async function runLocalLLM(intent: string, onProgress?: (p:any)=>void) {
-  const base = (window as any).__mixApiBase || 'http://127.0.0.1:8787';
+  const globalAny = globalThis as any;
+  const envBase = typeof process !== 'undefined' ? process.env.POWDER_PLAY_MIX_API_BASE : undefined;
+  const base = globalAny.__mixApiBase || envBase || 'http://127.0.0.1:8787';
   onProgress && onProgress({stage:'generating', message:'ollama'});
   const res = await fetch(`${base}/llm`, {
     method: 'POST',
