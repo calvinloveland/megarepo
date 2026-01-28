@@ -312,6 +312,15 @@ function initWorkerWithMaterial(mat:any) {
 
 (window as any).__initWorkerWithMaterial = initWorkerWithMaterial;
 
+(window as any).__selectMaterialByName = (name: string) => {
+  const id = materialIdByName.get(name);
+  if (!id) return;
+  currentMaterialId = id;
+  (window as any).__currentMaterialId = currentMaterialId;
+  const status = document.getElementById('status');
+  if (status) status.textContent = `Material ready: ${name}`;
+};
+
 function pairKey(a:number, b:number) {
   return a < b ? `${a}:${b}` : `${b}:${a}`;
 }
@@ -437,6 +446,10 @@ function applyMixMaterial(mixSource:any, aMat:any, bMat:any) {
     const map = (window as any).__materialIdByName || {};
     map[mixMat.name] = mixId;
     (window as any).__materialIdByName = map;
+  } catch (e) {}
+  try {
+    const cb = (window as any).__addDiscoveredMaterial;
+    if (typeof cb === 'function') cb(mixMat);
   } catch (e) {}
 }
 

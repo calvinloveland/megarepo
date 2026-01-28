@@ -6,13 +6,21 @@ export function mountMaterialBrowser(root: HTMLElement) {
       <label class="alchemy-label flex items-center gap-2"><input type="checkbox" id="auto-load-materials" checked class="accent-amber-500"> Auto-load new materials</label>
       <label class="alchemy-label flex items-center gap-2"><input type="checkbox" id="show-all-materials" class="accent-amber-500"> Show all materials</label>
       <div id="materials-list" class="space-y-1 max-h-[420px] overflow-auto">(loading...)</div>
+      <div id="discovered-section" class="space-y-1 hidden">
+        <h4 class="text-sm text-amber-200/90">Discovered</h4>
+        <div id="discovered-list" class="space-y-1"></div>
+      </div>
     </div>
   `;
   root.appendChild(container);
 
   const listEl = container.querySelector('#materials-list') as HTMLElement;
+  const discoveredSection = container.querySelector('#discovered-section') as HTMLElement;
+  const discoveredList = container.querySelector('#discovered-list') as HTMLElement;
   const autoLoad = container.querySelector('#auto-load-materials') as HTMLInputElement;
   const showAll = container.querySelector('#show-all-materials') as HTMLInputElement;
+
+  const discovered = new Set<string>();
 
   const starterNames = new Set(['Fire', 'Sand', 'Salt', 'Water']);
 
@@ -99,6 +107,37 @@ export function mountMaterialBrowser(root: HTMLElement) {
       if (strong && strong.textContent === name) r.classList.add('selected');
       else r.classList.remove('selected');
     }
+    const drows = Array.from(discoveredList.querySelectorAll('.materials-row')) as HTMLElement[];
+    for (const r of drows) {
+      const strong = r.querySelector('strong');
+      if (strong && strong.textContent === name) r.classList.add('selected');
+      else r.classList.remove('selected');
+    }
+  }
+
+  function addDiscoveredMaterial(mat:any) {
+    if (!mat?.name || discovered.has(mat.name)) return;
+    discovered.add(mat.name);
+    discoveredSection.classList.remove('hidden');
+    const row = document.createElement('div');
+    row.className = 'materials-row flex items-center justify-between gap-2 rounded-md border border-amber-900/30 bg-midnight/60 px-2 py-1';
+    row.setAttribute('role', 'button');
+    row.tabIndex = 0;
+    row.innerHTML = `<div class="flex items-center gap-2"><span class="swatch" style="width:14px;height:14px;border:1px solid #222;background:transparent"></span><strong class="text-amber-100">${mat.name}</strong> <small class="alchemy-muted">runtime</small></div>`;
+    const sw = row.querySelector('.swatch') as HTMLElement;
+    if (Array.isArray(mat.color)) sw.style.background = `rgb(${mat.color[0]},${mat.color[1]},${mat.color[2]})`;
+    row.onclick = () => {
+      try { (window as any).__selectMaterialByName?.(mat.name); } catch (e) {}
+      selectRowByName(mat.name);
+    };
+    row.onkeydown = (ev) => {
+      if (ev.key === 'Enter' || ev.key === ' ') {
+        ev.preventDefault();
+        try { (window as any).__selectMaterialByName?.(mat.name); } catch (e) {}
+        selectRowByName(mat.name);
+      }
+    };
+    discoveredList.appendChild(row);
   }
   async function loadMaterial(file:string) {
     try {
@@ -138,6 +177,10 @@ export function mountMaterialBrowser(root: HTMLElement) {
   refresh();
   // poll
   const iv = setInterval(refresh, 2000);
+
+  try {
+    (window as any).__addDiscoveredMaterial = addDiscoveredMaterial;
+  } catch (e) {}
 
   // expose cleanup (not used yet)
   return () => clearInterval(iv);
