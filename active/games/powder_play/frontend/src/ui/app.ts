@@ -110,6 +110,7 @@ function setMixName(name:string) {
 function setMixBlocked(blocked:boolean, message?:string, name?:string) {
   mixBlocked = blocked;
   try { (window as any).__mixBlocked = blocked; } catch (e) {}
+  console.log('[mix] setMixBlocked', { blocked, message, name });
   const banner = document.getElementById('mix-banner');
   if (banner) {
     banner.classList.toggle('hidden', !blocked);
@@ -534,13 +535,20 @@ function addAutoMixReaction(aId:number, bId:number) {
   const aMat = materialById.get(aId);
   const bMat = materialById.get(bId);
   if (!aMat || !bMat || !aMat.name || !bMat.name) return;
+  console.log('[mix] consider', { a: aMat.name, b: bMat.name });
   const aAncestors = getAncestors(aMat);
   const bAncestors = getAncestors(bMat);
   for (const anc of aAncestors) {
-    if (bAncestors.includes(anc)) return;
+    if (bAncestors.includes(anc)) {
+      console.log('[mix] skip shared ancestor', { a: aMat.name, b: bMat.name, anc });
+      return;
+    }
   }
   const key = pairKey(aId, bId);
-  if (autoMixPairs.has(key)) return;
+  if (autoMixPairs.has(key)) {
+    console.log('[mix] skip existing pair', key);
+    return;
+  }
   autoMixPairs.add(key);
 
   const cacheKey = mixCacheKey(aMat.name, bMat.name);
@@ -552,7 +560,10 @@ function addAutoMixReaction(aId:number, bId:number) {
     return;
   }
 
-  if (pendingMixes.has(cacheKey)) return;
+  if (pendingMixes.has(cacheKey)) {
+    console.log('[mix] skip pending', cacheKey);
+    return;
+  }
   pendingMixes.add(cacheKey);
   setMixBlocked(true, 'New material discovered', `${aMat.name} + ${bMat.name}`);
   setMixProgress(10);
@@ -608,6 +619,7 @@ function addAutoMixReaction(aId:number, bId:number) {
 function maybeAutoGenerateMixes(buf:Uint16Array, w:number, h:number) {
   if (!buf || !w || !h) return;
   if (mixBlocked) return;
+  console.log('[mix] scan grid for mixes');
   const pairs: Array<[number, number]> = [];
   for (let y=0; y<h; y++) {
     for (let x=0; x<w; x++) {
