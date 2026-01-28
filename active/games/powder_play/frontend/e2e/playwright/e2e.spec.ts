@@ -5,7 +5,7 @@ import { test, expect } from '@playwright/test';
 
 test('generate material and run one step', async ({ page }) => {
   await page.goto('http://localhost:5173');
-  await page.waitForSelector('text=Powder Playground');
+  await page.waitForSelector('text=Alchemist Powder');
 
   // Wait for the Install button and then click Install model and Generate
   await page.waitForSelector('text=Install model', { timeout: 10_000 });

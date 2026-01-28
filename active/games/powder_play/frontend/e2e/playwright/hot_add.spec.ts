@@ -41,7 +41,8 @@ test('hot-add material is discovered and auto-loaded', async ({ page }) => {
     } catch (e) { return false; }
   }, { timeout: 10000 });
 
-  // Click the material row for our material to force a deterministic load
+  // Enable full list and click the material row for our material to force a deterministic load
+  await page.locator('#show-all-materials').check();
   const materialRow = page.locator('#materials-list > div', { hasText: 'HotAdded' }).first();
   await materialRow.click();
 

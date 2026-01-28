@@ -3,11 +3,15 @@ import { test, expect } from '@playwright/test';
 test('steam condenses to water at top', async ({ page }) => {
   await page.goto('http://127.0.0.1:5173/');
   page.on('console', m => console.log('PAGE LOG:', m.text()));
-  await page.waitForSelector('text=Powder Playground');
+  await page.waitForSelector('text=Alchemist Powder');
 
   const loadByName = async (name: string) => {
     const nameMatcher = new RegExp(`^${name}$`);
     const row = page.locator('#materials-list > div').filter({ has: page.locator('strong', { hasText: nameMatcher }) }).first();
+    if (await row.count() === 0) {
+      await page.locator('#show-all-materials').check();
+      await row.first().waitFor({ state: 'visible' });
+    }
     await row.click();
     await page.waitForFunction((n) => document.getElementById('status')?.textContent?.includes(n), name, { timeout: 2000 });
   };

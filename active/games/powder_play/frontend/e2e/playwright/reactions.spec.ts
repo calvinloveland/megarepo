@@ -10,6 +10,10 @@ test('salt reacts with water to form saltwater', async ({ page }) => {
   const loadByName = async (name: string) => {
     const nameMatcher = new RegExp(`^${name}$`);
     const row = page.locator('#materials-list > div').filter({ has: page.locator('strong', { hasText: nameMatcher }) }).first();
+    if (await row.count() === 0) {
+      await page.locator('#show-all-materials').check();
+      await row.first().waitFor({ state: 'visible' });
+    }
     await row.click();
     await page.waitForFunction((n) => document.getElementById('status')?.textContent?.includes(n), name, { timeout: 2000 });
   };
@@ -74,6 +78,10 @@ test('saltwater reacts with fire to form steam and salt', async ({ page }) => {
   const loadByName = async (name: string) => {
     const nameMatcher = new RegExp(`^${name}$`);
     const row = page.locator('#materials-list > div').filter({ has: page.locator('strong', { hasText: nameMatcher }) }).first();
+    if (await row.count() === 0) {
+      await page.locator('#show-all-materials').check();
+      await row.first().waitFor({ state: 'visible' });
+    }
     await row.click();
     await page.waitForFunction((n) => document.getElementById('status')?.textContent?.includes(n), name, { timeout: 2000 });
   };

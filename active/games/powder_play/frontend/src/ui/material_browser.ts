@@ -4,6 +4,7 @@ export function mountMaterialBrowser(root: HTMLElement) {
     <div class="space-y-2">
       <h3 class="text-lg">Materials</h3>
       <label class="alchemy-label flex items-center gap-2"><input type="checkbox" id="auto-load-materials" checked class="accent-amber-500"> Auto-load new materials</label>
+      <label class="alchemy-label flex items-center gap-2"><input type="checkbox" id="show-all-materials" class="accent-amber-500"> Show all materials</label>
       <div id="materials-list" class="space-y-1 max-h-[420px] overflow-auto">(loading...)</div>
     </div>
   `;
@@ -11,8 +12,12 @@ export function mountMaterialBrowser(root: HTMLElement) {
 
   const listEl = container.querySelector('#materials-list') as HTMLElement;
   const autoLoad = container.querySelector('#auto-load-materials') as HTMLInputElement;
+  const showAll = container.querySelector('#show-all-materials') as HTMLInputElement;
+
+  const starterNames = new Set(['Fire', 'Sand', 'Salt', 'Water']);
 
   let known = new Set<string>();
+  let skipAutoLoadOnce = false;
 
   async function fetchIndex() {
     try {
@@ -26,7 +31,9 @@ export function mountMaterialBrowser(root: HTMLElement) {
   async function refresh() {
     const mats = await fetchIndex();
     if (!mats.length) { listEl.textContent = '(no materials)'; return; }
-    const sorted = mats.slice().sort((a:any, b:any) => {
+    const visible = showAll.checked ? mats : mats.filter((m:any) => starterNames.has(m?.name));
+    if (!visible.length) { listEl.textContent = '(no materials)'; return; }
+    const sorted = visible.slice().sort((a:any, b:any) => {
       const aKey = String(a?.name || a?.file || '').toLowerCase();
       const bKey = String(b?.name || b?.file || '').toLowerCase();
       if (aKey < bKey) return -1;
@@ -69,20 +76,21 @@ export function mountMaterialBrowser(root: HTMLElement) {
       newest = m;
     }
     // detect newly added
-    const currentSet = new Set(mats.map((x:any)=>x.file));
+    const currentSet = new Set(visible.map((x:any)=>x.file));
     let added = null;
     for (const f of currentSet) if (!known.has(f)) { added = f; break; }
     known = currentSet;
-    if (added && autoLoad.checked) {
+    if (added && autoLoad.checked && !skipAutoLoadOnce) {
       console.log('[material_browser] detected added:', added);
       // find the material entry that was added and load it specifically
-      const addedMat = mats.find((mm:any)=>mm.file === added);
+      const addedMat = visible.find((mm:any)=>mm.file === added);
       if (addedMat) {
         console.log('[material_browser] loading added:', addedMat.file);
         await loadMaterial(addedMat.file);
         selectRowByName(addedMat.name);
       }
     }
+    skipAutoLoadOnce = false;
   }
   function selectRowByName(name:string) {
     const rows = Array.from(listEl.querySelectorAll('.materials-row')) as HTMLElement[];
@@ -120,6 +128,11 @@ export function mountMaterialBrowser(root: HTMLElement) {
       }
     } catch (e) { console.warn('load material failed', e); }
   }
+
+  showAll.onchange = () => {
+    skipAutoLoadOnce = true;
+    refresh();
+  };
 
   // initial fetch
   refresh();

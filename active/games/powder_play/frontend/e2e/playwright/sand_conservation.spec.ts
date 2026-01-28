@@ -4,7 +4,7 @@ import { test, expect } from '@playwright/test';
 test('sand count is conserved after steps', async ({ page }) => {
   await page.goto('http://127.0.0.1:5173/');
   page.on('console', m => console.log('PAGE LOG:', m.text()));
-  await page.waitForSelector('text=Powder Playground');
+  await page.waitForSelector('text=Alchemist Powder');
 
   // Load Sand
   const sandRow = page.locator('#materials-list > div', { hasText: 'Sand' }).first();

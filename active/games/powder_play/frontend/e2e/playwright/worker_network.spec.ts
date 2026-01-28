@@ -5,7 +5,7 @@ test('worker file is requested when initializing worker', async ({ page }) => {
   page.on('request', r => requests.push(r.url()));
 
   await page.goto('http://127.0.0.1:5173/');
-  await page.waitForSelector('text=Powder Playground');
+  await page.waitForSelector('text=Alchemist Powder');
 
   // ensure init helper present
   await page.waitForFunction(() => !!(window as any).__initWorkerWithMaterial);
