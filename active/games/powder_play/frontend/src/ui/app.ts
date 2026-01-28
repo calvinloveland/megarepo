@@ -466,11 +466,19 @@ function normalizeMixMaterial(mat:any, aMat:any, bMat:any) {
   };
 }
 
+function tryNormalizeMixMaterial(mat:any, aMat:any, bMat:any) {
+  try {
+    return normalizeMixMaterial(mat, aMat, bMat);
+  } catch (e) {
+    return null;
+  }
+}
+
 async function generateMixMaterial(aMat:any, bMat:any) {
   const aName = aMat?.name || 'A';
   const bName = bMat?.name || 'B';
   setMixProgress(20);
-  const namePrompt = `Return only the name for a new material created by mixing ${aName} and ${bName}. Respond with {"no_reaction": true} if there is no reaction.`;
+  const namePrompt = `Return ONLY JSON with {"name":"<new material name>"} for mixing ${aName} and ${bName}. If no reaction, return {"no_reaction": true}.`;
   const nameResp = await runLocalLLM(namePrompt);
   if (isNoReactionPayload(nameResp)) return null;
   const candidateName = extractNameOnlyResponse(nameResp);
@@ -478,10 +486,15 @@ async function generateMixMaterial(aMat:any, bMat:any) {
   if (materialNameExists(candidateName)) return null;
   setMixName(candidateName);
   setMixProgress(55);
-  const prompt = `Create a material named "${candidateName}" that represents mixing ${aName} and ${bName}. Provide a material with primitives and budgets. Keep it stable and simple.`;
+  const prompt = `Return ONLY JSON for a material named "${candidateName}" that represents mixing ${aName} and ${bName}. Required fields: type:"material", name, description, primitives (non-empty array of ops), budgets. No extra text.`;
   const ast = await runLocalLLM(prompt);
   setMixProgress(85);
-  return normalizeMixMaterial(ast, aMat, bMat);
+  const normalized = tryNormalizeMixMaterial(ast, aMat, bMat);
+  if (normalized) return normalized;
+  const retryPrompt = `Return ONLY JSON for material "${candidateName}". Example format: {"type":"material","name":"${candidateName}","description":"...","primitives":[{"op":"read","dx":0,"dy":1},{"op":"if","cond":{"eq":{"read":1,"value":0}},"then":[{"op":"move","dx":0,"dy":1}]}],"budgets":{"max_ops":8,"max_spawns":0}}. No extra text.`;
+  const retryAst = await runLocalLLM(retryPrompt);
+  setMixProgress(90);
+  return normalizeMixMaterial(retryAst, aMat, bMat);
 }
 
 function applyMixMaterial(mixSource:any, aMat:any, bMat:any) {
