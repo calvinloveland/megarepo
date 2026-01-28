@@ -86,7 +86,14 @@ const pendingMixes = new Set<string>();
 const mixCacheStorageKey = 'alchemistPowder.mixCache.v2';
 const mixCacheVersionKey = 'alchemistPowder.mixCache.version';
 const mixCacheVersion = 'v2';
-const mixApiBase = (window as any).__mixApiBase || 'http://127.0.0.1:8787';
+const mixApiBase = (() => {
+  const override = (window as any).__mixApiBase;
+  if (override) return override;
+  if (typeof window !== 'undefined' && window.location?.hostname) {
+    return `${window.location.protocol}//${window.location.hostname}:8787`;
+  }
+  return 'http://127.0.0.1:8787';
+})();
 let mixBlocked = false;
 let mixCacheReady = false;
 let mixProgress = 0;
