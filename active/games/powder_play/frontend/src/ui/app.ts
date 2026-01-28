@@ -169,6 +169,24 @@ function stripTransientFields(mat:any) {
   return clone;
 }
 
+function isNoReactionPayload(mix:any) {
+  if (!mix || typeof mix !== 'object') return false;
+  if (mix.no_reaction === true) return true;
+  if (mix.reaction === 'none' || mix.reaction === 'no_reaction') return true;
+  if (mix.type === 'no_reaction') return true;
+  return false;
+}
+
+function isGenericMixName(name:string, aName:string, bName:string) {
+  const lower = name.toLowerCase();
+  const aLower = aName.toLowerCase();
+  const bLower = bName.toLowerCase();
+  if (lower.includes('+')) return true;
+  if (lower.startsWith('mix ') || lower.startsWith('mixed ') || lower.includes(' mix ')) return true;
+  if (lower.includes(aLower) && lower.includes(bLower)) return true;
+  return false;
+}
+
 try { loadMixCacheFromServer(); } catch (e) {}
 function deriveColorFromName(name: string) {
   let h = 0;
@@ -353,9 +371,11 @@ function normalizeMixMaterial(mat:any, aMat:any, bMat:any) {
   const bAncestors = getAncestors(bMat);
   const ancestors = Array.from(new Set([...aAncestors, ...bAncestors]));
   const base = mat && typeof mat === 'object' ? mat : {};
+  if (isNoReactionPayload(base)) return null;
   if (!base.name || !Array.isArray(base.primitives) || base.primitives.length === 0) {
     throw new Error('LLM material missing required fields');
   }
+  if (isGenericMixName(base.name, aName, bName)) return null;
   return {
     type: 'material',
     name: base.name,
@@ -372,13 +392,15 @@ function normalizeMixMaterial(mat:any, aMat:any, bMat:any) {
 async function generateMixMaterial(aMat:any, bMat:any) {
   const aName = aMat?.name || 'A';
   const bName = bMat?.name || 'B';
-  const prompt = `Create a material that represents mixing ${aName} and ${bName}. Provide a material with primitives and budgets. Keep it stable and simple.`;
+  const prompt = `Create a material that represents mixing ${aName} and ${bName}. Provide a material with primitives and budgets. Keep it stable and simple. If there would be no reaction, respond with {"no_reaction": true}.`;
   const ast = await runLocalLLM(prompt);
   return normalizeMixMaterial(ast, aMat, bMat);
 }
 
 function applyMixMaterial(mixSource:any, aMat:any, bMat:any) {
+  if (isNoReactionPayload(mixSource)) return;
   const mixMat = normalizeMixMaterial(mixSource, aMat, bMat);
+  if (!mixMat) return;
   const mixId = registerMaterial(mixMat, { select: false });
   const reactionForA = { with: bMat.name, result: mixMat.name, byproduct: mixMat.name, priority: 3 };
   const reactionForB = { with: aMat.name, result: mixMat.name, byproduct: mixMat.name, priority: 3 };
@@ -415,6 +437,7 @@ function addAutoMixReaction(aId:number, bId:number) {
   const cacheKey = mixCacheKey(aMat.name, bMat.name);
   const cached = mixCache.get(cacheKey);
   if (cached) {
+    if (isNoReactionPayload(cached)) return;
     applyMixMaterial(cached, aMat, bMat);
     return;
   }
@@ -427,6 +450,7 @@ function addAutoMixReaction(aId:number, bId:number) {
       if (remote) {
         mixCache.set(cacheKey, remote);
         saveMixCacheToLocal();
+        if (isNoReactionPayload(remote)) return null;
         applyMixMaterial(remote, aMat, bMat);
         return null;
       }
@@ -435,6 +459,15 @@ function addAutoMixReaction(aId:number, bId:number) {
     .then(async (mixMat) => {
       if (!mixMat) return;
       const normalized = normalizeMixMaterial(mixMat, aMat, bMat);
+      if (!normalized) {
+        const noReaction = { type: 'no_reaction', no_reaction: true };
+        mixCache.set(cacheKey, noReaction);
+        saveMixCacheToLocal();
+        await saveMixToServer(cacheKey, noReaction);
+        const status = document.getElementById('status');
+        if (status) status.textContent = `No reaction: ${aMat.name} + ${bMat.name}`;
+        return;
+      }
       mixCache.set(cacheKey, stripTransientFields(normalized));
       saveMixCacheToLocal();
       await saveMixToServer(cacheKey, stripTransientFields(normalized));
