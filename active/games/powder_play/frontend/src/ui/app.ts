@@ -535,7 +535,7 @@ async function generateMixMaterial(aMat:any, bMat:any) {
   const aName = aMat?.name || 'A';
   const bName = bMat?.name || 'B';
   setMixProgress(20);
-  const namePrompt = `Return ONLY JSON with {"name":"<new material name>"} for mixing ${aName} and ${bName}. If no reaction, return {"no_reaction": true}.`;
+  const namePrompt = `Return ONLY JSON with {"name":"<new material name>"} for mixing ${aName} and ${bName}. If no reaction, return {"no_reaction": true}. Example valid outputs: {"name":"Glass"} or {"no_reaction": true}.`;
   const nameResp = await runLocalLLM(namePrompt);
   if (isNoReactionPayload(nameResp)) return null;
   const candidateName = extractNameOnlyResponse(nameResp);
@@ -543,13 +543,13 @@ async function generateMixMaterial(aMat:any, bMat:any) {
   if (materialNameExists(candidateName)) return null;
   setMixName(candidateName);
   setMixProgress(55);
-  const prompt = `Return ONLY JSON for a material named "${candidateName}" that represents mixing ${aName} and ${bName}. Required fields: type:"material", name, description, primitives (non-empty array of ops), budgets. No extra text.`;
+  const prompt = `Return ONLY JSON for a material named "${candidateName}" that represents mixing ${aName} and ${bName}. Required fields: type:"material", name, description, primitives (non-empty array of ops), budgets. No extra text. Example valid output: {"type":"material","name":"${candidateName}","description":"...","primitives":[{"op":"read","dx":0,"dy":1},{"op":"if","cond":{"eq":{"value":0}},"then":[{"op":"move","dx":0,"dy":1}]}],"budgets":{"max_ops":8,"max_spawns":0}}.`;
   const ast = await runLocalLLM(prompt);
   setMixProgress(85);
   const normalized = tryNormalizeMixMaterial(ast, aMat, bMat);
   if (normalized) return normalized;
   await reportMixError('mix normalize failed', { a: aName, b: bName, name: candidateName, stage: 'first' });
-  const retryPrompt = `Return ONLY JSON for material "${candidateName}". Example format: {"type":"material","name":"${candidateName}","description":"...","primitives":[{"op":"read","dx":0,"dy":1},{"op":"if","cond":{"eq":{"read":1,"value":0}},"then":[{"op":"move","dx":0,"dy":1}]}],"budgets":{"max_ops":8,"max_spawns":0}}. No extra text.`;
+  const retryPrompt = `Return ONLY JSON for material "${candidateName}". Example valid output: {"type":"material","name":"${candidateName}","description":"...","primitives":[{"op":"read","dx":0,"dy":1},{"op":"if","cond":{"eq":{"read":1,"value":0}},"then":[{"op":"move","dx":0,"dy":1}]}],"budgets":{"max_ops":8,"max_spawns":0}}. No extra text.`;
   const retryAst = await runLocalLLM(retryPrompt);
   setMixProgress(90);
   const retryNormalized = tryNormalizeMixMaterial(retryAst, aMat, bMat);
