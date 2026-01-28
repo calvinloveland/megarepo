@@ -177,7 +177,7 @@ function stepSimulation() {
           } else if (target !== 0) {
             const dSelf = densityById.get(cell) ?? 1;
             const dTarget = densityById.get(target) ?? 1;
-            if (dSelf > dTarget && nextGrid[nidx] === 0 && nextGrid[idx] === 0) {
+            if (dSelf > dTarget && nextGrid[idx] === 0 && (nextGrid[nidx] === 0 || nextGrid[nidx] === target)) {
               nextGrid[nidx] = cell;
               nextGrid[idx] = target;
             } else if (nextGrid[idx] === 0) {
