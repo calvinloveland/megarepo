@@ -20,6 +20,11 @@ test('sand + water mix appears in discovered list', async ({ page }) => {
   await page.goto('http://127.0.0.1:5173/');
   await page.waitForSelector('text=Alchemist Powder');
 
+  await page.waitForFunction(() => {
+    const map = (window as any).__materialIdByName || {};
+    return !!(window as any).__powderWorker && !!map.Sand && !!map.Water;
+  });
+
   await page.evaluate(() => {
     const map = (window as any).__materialIdByName || {};
     const worker = (window as any).__powderWorker;
