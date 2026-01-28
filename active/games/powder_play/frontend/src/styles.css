@@ -4,29 +4,49 @@
 
 @layer base {
 	body {
-		@apply bg-obsidian text-slate-100 font-sans;
-	}
-	h1, h2, h3 {
-		@apply font-serif text-amber-200 tracking-wide;
-	}
+    background-color: #0b0b12; /* obsidian */
+    color: #f1f5f9; /* slate-100 */
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+  }
+  h1, h2, h3 {
+    font-family: Cinzel, Georgia, 'Times New Roman', serif;
+    color: #f6e6b6; /* amber-200-ish */
+    letter-spacing: .02em;
+  }
 }
 
 @layer components {
-	.alchemy-panel {
-		@apply bg-midnight/80 border border-amber-900/40 rounded-lg p-3 shadow-ember;
-	}
-	.alchemy-button {
-		@apply px-3 py-1.5 rounded-md bg-amber-900/30 border border-amber-700/40 text-amber-100 hover:bg-amber-800/40 transition;
-	}
-	.alchemy-select {
-		@apply bg-midnight border border-amber-700/40 text-amber-100 rounded-md px-2 py-1;
-	}
-	.alchemy-label {
-		@apply text-amber-200/90 text-sm;
-	}
-	.alchemy-muted {
-		@apply text-slate-300/80 text-xs;
-	}
+  .alchemy-panel {
+    background-color: rgba(18,18,26,0.8); /* midnight/80 */
+    border: 1px solid rgba(217,164,65,0.12);
+    border-radius: 0.5rem;
+    padding: 0.75rem;
+    box-shadow: 0 0 16px rgba(217,164,65,0.25);
+  }
+  .alchemy-button {
+    padding: 0.375rem 0.75rem;
+    border-radius: 0.375rem;
+    background-color: rgba(88,59,11,0.12);
+    border: 1px solid rgba(183,121,32,0.16);
+    color: #f7ede1;
+    transition: background-color .12s ease;
+  }
+  .alchemy-button:hover { background-color: rgba(88,59,11,0.18); }
+  .alchemy-select {
+    background-color: rgba(18,18,26,0.9);
+    border: 1px solid rgba(183,121,32,0.16);
+    color: #f7ede1;
+    border-radius: 0.375rem;
+    padding: 0.25rem 0.5rem;
+  }
+  .alchemy-label {
+    color: rgba(217,164,65,0.9);
+    font-size: .9rem;
+  }
+  .alchemy-muted {
+    color: rgba(226,232,240,0.8);
+    font-size: .8rem;
+  }
 }
 
 canvas { image-rendering: pixelated }
