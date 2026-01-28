@@ -54,6 +54,7 @@
 }
 
 canvas { image-rendering: pixelated }
+.hidden { display: none; }
 
 /* Fallback layout rules to ensure panels arrange correctly even if Tailwind utilities are missing */
 #root > div { display:flex; gap:1rem; align-items:flex-start; flex-wrap:wrap; }

@@ -150,7 +150,7 @@ export function attachCanvasTools(canvas: HTMLCanvasElement, worker: Worker | nu
     if (currentWorker) {
       currentWorker.postMessage({type:'paint_points', materialId: id, points});
       // immediately step one tick so paint is visible without pressing Step
-      currentWorker.postMessage({type:'step'});
+      if (!(window as any).__mixBlocked) currentWorker.postMessage({type:'step'});
     } else {
       pendingPaints.push({ materialId: id, points });
     }

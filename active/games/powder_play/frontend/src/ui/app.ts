@@ -10,6 +10,7 @@ export function initApp(root: HTMLElement) {
         <div id="status" class="alchemy-muted"></div>
       </div>
       <div id="center-panel" class="flex flex-col items-center gap-2 w-full">
+        <div id="mix-banner" class="alchemy-panel w-full text-amber-200 hidden">New material discovered! Generating...</div>
         <div class="alchemy-panel w-full flex justify-center">
           <canvas id="sim-canvas" width="600" height="400" class="border border-amber-700/40 rounded-md"></canvas>
         </div>
@@ -39,6 +40,7 @@ export function initApp(root: HTMLElement) {
     mod.attachControls(playbackControls, (playingOrStep:boolean)=>{
       // playingOrStep true for a tick, false for pause action
       if (!worker) return;
+      if (mixBlocked) return;
       if (playingOrStep) worker.postMessage({type:'step'});
       else worker.postMessage({type:'step'});
     });
@@ -77,9 +79,19 @@ const mixCache = new Map<string, any>();
 const pendingMixes = new Set<string>();
 const mixCacheStorageKey = 'alchemistPowder.mixCache.v1';
 const mixApiBase = (window as any).__mixApiBase || 'http://127.0.0.1:8787';
+let mixBlocked = false;
 
 function mixCacheKey(aName:string, bName:string) {
   return [aName, bName].sort().join('|');
+}
+
+function setMixBlocked(blocked:boolean) {
+  mixBlocked = blocked;
+  try { (window as any).__mixBlocked = blocked; } catch (e) {}
+  const banner = document.getElementById('mix-banner');
+  if (banner) {
+    banner.classList.toggle('hidden', !blocked);
+  }
 }
 
 async function loadMixCacheFromServer() {
@@ -291,7 +303,7 @@ function initWorkerWithMaterial(mat:any) {
   (window as any).__paintGridPoints = (points:{x:number,y:number}[]) => {
     const id = (window as any).__currentMaterialId || 1;
     worker!.postMessage({type:'paint_points', materialId: id, points});
-    worker!.postMessage({type:'step'});
+    if (!mixBlocked) worker!.postMessage({type:'step'});
   }
   worker!.postMessage({type:'step'});
 }
@@ -448,13 +460,13 @@ function addAutoMixReaction(aId:number, bId:number) {
 
   if (pendingMixes.has(cacheKey)) return;
   pendingMixes.add(cacheKey);
+  setMixBlocked(true);
   fetchMixFromServer(cacheKey)
     .then((remote) => {
       if (remote) {
         mixCache.set(cacheKey, remote);
         saveMixCacheToLocal();
         applyMixMaterial(remote, aMat, bMat);
-        pendingMixes.delete(cacheKey);
         return null;
       }
       return generateMixMaterial(aMat, bMat);
@@ -472,11 +484,13 @@ function addAutoMixReaction(aId:number, bId:number) {
     })
     .finally(() => {
       pendingMixes.delete(cacheKey);
+      setMixBlocked(pendingMixes.size > 0);
     });
 }
 
 function maybeAutoGenerateMixes(buf:Uint16Array, w:number, h:number) {
   if (!buf || !w || !h) return;
+  if (mixBlocked) return;
   const pairs: Array<[number, number]> = [];
   for (let y=0; y<h; y++) {
     for (let x=0; x<w; x++) {
