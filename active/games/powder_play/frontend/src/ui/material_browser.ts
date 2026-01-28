@@ -117,6 +117,7 @@ export function mountMaterialBrowser(root: HTMLElement) {
 
   function addDiscoveredMaterial(mat:any) {
     if (!mat?.name || discovered.has(mat.name)) return;
+    console.log('[material_browser] addDiscoveredMaterial', mat.name);
     discovered.add(mat.name);
     discoveredSection.classList.remove('hidden');
     const row = document.createElement('div');

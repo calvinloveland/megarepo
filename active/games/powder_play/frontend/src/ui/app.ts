@@ -501,6 +501,7 @@ function applyMixMaterial(mixSource:any, aMat:any, bMat:any) {
   if (isNoReactionPayload(mixSource)) return;
   const mixMat = normalizeMixMaterial(mixSource, aMat, bMat);
   if (!mixMat) return;
+  console.log('[mix] applyMixMaterial', { mix: mixMat.name, a: aMat?.name, b: bMat?.name });
   const mixId = registerMaterial(mixMat, { select: false });
   const reactionForA = { with: bMat.name, result: mixMat.name, byproduct: mixMat.name, priority: 3 };
   const reactionForB = { with: aMat.name, result: mixMat.name, byproduct: mixMat.name, priority: 3 };
@@ -524,6 +525,9 @@ function applyMixMaterial(mixSource:any, aMat:any, bMat:any) {
     list.push(mixMat);
     (window as any).__discoveredMaterials = list;
   } catch (e) {}
+  try {
+    console.log('[mix] discovered materials count', (window as any).__discoveredMaterials?.length || 0);
+  } catch (e) {}
 }
 
 function addAutoMixReaction(aId:number, bId:number) {
@@ -542,6 +546,7 @@ function addAutoMixReaction(aId:number, bId:number) {
   const cacheKey = mixCacheKey(aMat.name, bMat.name);
   const cached = mixCache.get(cacheKey);
   if (cached) {
+    console.log('[mix] cache hit', cacheKey, cached?.name || cached?.type || 'unknown');
     if (isNoReactionPayload(cached)) return;
     applyMixMaterial(cached, aMat, bMat);
     return;
@@ -554,6 +559,7 @@ function addAutoMixReaction(aId:number, bId:number) {
   fetchMixFromServer(cacheKey)
     .then((remote) => {
       if (remote) {
+        console.log('[mix] server cache hit', cacheKey, remote?.name || remote?.type || 'unknown');
         mixCache.set(cacheKey, remote);
         saveMixCacheToLocal();
         if (isNoReactionPayload(remote)) return null;
@@ -561,6 +567,7 @@ function addAutoMixReaction(aId:number, bId:number) {
         applyMixMaterial(remote, aMat, bMat);
         return null;
       }
+      console.log('[mix] cache miss, generating', cacheKey);
       setMixProgress(25);
       return generateMixMaterial(aMat, bMat);
     })
