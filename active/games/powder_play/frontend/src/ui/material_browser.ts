@@ -6,9 +6,11 @@ export function mountMaterialBrowser(root: HTMLElement) {
       <label class="alchemy-label flex items-center gap-2"><input type="checkbox" id="auto-load-materials" checked class="accent-amber-500"> Auto-load new materials</label>
       <label class="alchemy-label flex items-center gap-2"><input type="checkbox" id="show-all-materials" class="accent-amber-500"> Show all materials</label>
       <div id="materials-list" class="space-y-1 max-h-[420px] overflow-auto">(loading...)</div>
-      <div id="discovered-section" class="space-y-1 hidden">
+      <div id="discovered-section" class="space-y-1">
         <h4 class="text-sm text-amber-200/90">Discovered</h4>
-        <div id="discovered-list" class="space-y-1"></div>
+        <div id="discovered-list" class="space-y-1">
+          <div id="discovered-empty" class="alchemy-muted">No discoveries yet.</div>
+        </div>
       </div>
     </div>
   `;
@@ -119,7 +121,8 @@ export function mountMaterialBrowser(root: HTMLElement) {
     if (!mat?.name || discovered.has(mat.name)) return;
     console.log('[material_browser] addDiscoveredMaterial', mat.name);
     discovered.add(mat.name);
-    discoveredSection.classList.remove('hidden');
+    const empty = discoveredList.querySelector('#discovered-empty');
+    if (empty) empty.remove();
     const row = document.createElement('div');
     row.className = 'materials-row flex items-center justify-between gap-2 rounded-md border border-amber-900/30 bg-midnight/60 px-2 py-1';
     row.setAttribute('role', 'button');
