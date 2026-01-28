@@ -346,72 +346,23 @@ function hasExplicitReaction(aId:number, bId:number) {
   return aReacts || bReacts;
 }
 
-function createFallbackMixMaterial(aMat:any, bMat:any) {
-  const aName = aMat?.name || 'A';
-  const bName = bMat?.name || 'B';
-  const name = `Mix ${aName}+${bName}`;
-  const desc = `Auto-generated mix of ${aName} and ${bName}.`;
-  const aColor = getMaterialColor(aMat);
-  const bColor = getMaterialColor(bMat);
-  const color = [
-    Math.round((aColor[0] + bColor[0]) / 2),
-    Math.round((aColor[1] + bColor[1]) / 2),
-    Math.round((aColor[2] + bColor[2]) / 2)
-  ];
-  const aDensity = typeof aMat?.density === 'number' ? aMat.density : 1;
-  const bDensity = typeof bMat?.density === 'number' ? bMat.density : 1;
-  const density = (aDensity + bDensity) / 2;
-  const aAncestors = getAncestors(aMat);
-  const bAncestors = getAncestors(bMat);
-  const ancestors = Array.from(new Set([...aAncestors, ...bAncestors]));
-  return {
-    type: 'material',
-    name,
-    description: desc,
-    color,
-    density,
-    __mixParents: [aName, bName],
-    __mixAncestors: ancestors,
-    primitives: [
-      {op:'read', dx:0, dy:1},
-      {op:'if', cond:{eq:{value:0}}, then:[{op:'move', dx:0, dy:1}]},
-      {op:'rand', probability:0.5},
-      {op:'if', cond:{eq:{value:1}}, then:[
-        {op:'read', dx:-1, dy:0},
-        {op:'if', cond:{eq:{value:0}}, then:[{op:'move', dx:-1, dy:0}]},
-        {op:'read', dx:1, dy:0},
-        {op:'if', cond:{eq:{value:0}}, then:[{op:'move', dx:1, dy:0}]}
-      ]},
-      {op:'if', cond:{eq:{value:0}}, then:[
-        {op:'read', dx:1, dy:0},
-        {op:'if', cond:{eq:{value:0}}, then:[{op:'move', dx:1, dy:0}]},
-        {op:'read', dx:-1, dy:0},
-        {op:'if', cond:{eq:{value:0}}, then:[{op:'move', dx:-1, dy:0}]}
-      ]}
-    ],
-    budgets: {max_ops: 14, max_spawns: 0}
-  };
-}
-
 function normalizeMixMaterial(mat:any, aMat:any, bMat:any) {
   const aName = aMat?.name || 'A';
   const bName = bMat?.name || 'B';
-  const name = `Mix ${aName}+${bName}`;
-  const desc = `Auto-generated mix of ${aName} and ${bName}.`;
   const aAncestors = getAncestors(aMat);
   const bAncestors = getAncestors(bMat);
   const ancestors = Array.from(new Set([...aAncestors, ...bAncestors]));
-  const aDensity = typeof aMat?.density === 'number' ? aMat.density : 1;
-  const bDensity = typeof bMat?.density === 'number' ? bMat.density : 1;
-  const density = (aDensity + bDensity) / 2;
   const base = mat && typeof mat === 'object' ? mat : {};
+  if (!base.name || !Array.isArray(base.primitives) || base.primitives.length === 0) {
+    throw new Error('LLM material missing required fields');
+  }
   return {
     type: 'material',
-    name,
-    description: base.description || desc,
-    color: base.color || createFallbackMixMaterial(aMat, bMat).color,
-    density: typeof base.density === 'number' ? base.density : density,
-    primitives: Array.isArray(base.primitives) && base.primitives.length ? base.primitives : createFallbackMixMaterial(aMat, bMat).primitives,
+    name: base.name,
+    description: base.description || `Auto-generated mix of ${aName} and ${bName}.`,
+    color: base.color,
+    density: typeof base.density === 'number' ? base.density : 1,
+    primitives: base.primitives,
     budgets: base.budgets || {max_ops: 14, max_spawns: 0},
     __mixParents: [aName, bName],
     __mixAncestors: ancestors
@@ -422,13 +373,8 @@ async function generateMixMaterial(aMat:any, bMat:any) {
   const aName = aMat?.name || 'A';
   const bName = bMat?.name || 'B';
   const prompt = `Create a material that represents mixing ${aName} and ${bName}. Provide a material with primitives and budgets. Keep it stable and simple.`;
-  try {
-    const ast = await runLocalLLM(prompt);
-    return normalizeMixMaterial(ast, aMat, bMat);
-  } catch (e) {
-    console.warn('LLM mix generation failed, using fallback', e);
-    return createFallbackMixMaterial(aMat, bMat);
-  }
+  const ast = await runLocalLLM(prompt);
+  return normalizeMixMaterial(ast, aMat, bMat);
 }
 
 function applyMixMaterial(mixSource:any, aMat:any, bMat:any) {
@@ -496,6 +442,10 @@ function addAutoMixReaction(aId:number, bId:number) {
     })
     .catch((err) => {
       console.warn('mix generation failed', err);
+      const status = document.getElementById('status');
+      if (status) status.textContent = 'Mix generation failed';
+      const banner = document.getElementById('mix-banner');
+      if (banner) banner.textContent = 'Mix generation failed. Try again.';
     })
     .finally(() => {
       pendingMixes.delete(cacheKey);
