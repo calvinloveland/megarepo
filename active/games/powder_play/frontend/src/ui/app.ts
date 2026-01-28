@@ -85,12 +85,14 @@ function mixCacheKey(aName:string, bName:string) {
   return [aName, bName].sort().join('|');
 }
 
-function setMixBlocked(blocked:boolean) {
+function setMixBlocked(blocked:boolean, message?:string) {
   mixBlocked = blocked;
   try { (window as any).__mixBlocked = blocked; } catch (e) {}
   const banner = document.getElementById('mix-banner');
   if (banner) {
     banner.classList.toggle('hidden', !blocked);
+    if (blocked && message) banner.textContent = message;
+    if (!blocked) banner.textContent = 'New material discovered! Generating...';
   }
 }
 
@@ -460,7 +462,7 @@ function addAutoMixReaction(aId:number, bId:number) {
 
   if (pendingMixes.has(cacheKey)) return;
   pendingMixes.add(cacheKey);
-  setMixBlocked(true);
+  setMixBlocked(true, `New material discovered! Mixing ${aMat.name} + ${bMat.name}...`);
   fetchMixFromServer(cacheKey)
     .then((remote) => {
       if (remote) {
