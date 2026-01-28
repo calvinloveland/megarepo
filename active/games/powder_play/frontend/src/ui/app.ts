@@ -88,6 +88,7 @@ const mixCacheVersionKey = 'alchemistPowder.mixCache.version';
 const mixCacheVersion = 'v2';
 const mixApiBase = (window as any).__mixApiBase || 'http://127.0.0.1:8787';
 let mixBlocked = false;
+let mixCacheReady = false;
 let mixProgress = 0;
 let mixName = 'Mixing...';
 
@@ -136,6 +137,7 @@ async function loadMixCacheFromServer() {
     for (const [key, value] of Object.entries(parsed || {})) {
       mixCache.set(key, value);
     }
+    mixCacheReady = true;
   } catch (e) {
     console.warn('mix cache load failed', e);
     loadMixCacheFromLocal();
@@ -158,6 +160,7 @@ function loadMixCacheFromLocal() {
     for (const [key, value] of Object.entries(parsed)) {
       mixCache.set(key, value);
     }
+    mixCacheReady = true;
   } catch (e) {
     console.warn('mix cache local load failed', e);
   }
@@ -261,6 +264,7 @@ try {
     localStorage.setItem(mixCacheVersionKey, mixCacheVersion);
   }
 } catch (e) {}
+try { loadMixCacheFromLocal(); } catch (e) {}
 try { loadMixCacheFromServer(); } catch (e) {}
 
 function materialNameExists(name:string) {
@@ -545,6 +549,10 @@ function addAutoMixReaction(aId:number, bId:number) {
   const aMat = materialById.get(aId);
   const bMat = materialById.get(bId);
   if (!aMat || !bMat || !aMat.name || !bMat.name) return;
+  if (!mixCacheReady) {
+    console.log('[mix] cache not ready, skip', { a: aMat.name, b: bMat.name });
+    return;
+  }
   console.log('[mix] consider', { a: aMat.name, b: bMat.name });
   const aAncestors = getAncestors(aMat);
   const bAncestors = getAncestors(bMat);
