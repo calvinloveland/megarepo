@@ -34,6 +34,7 @@ const promptSets: PromptSet[] = [
     namePrompt: (a, b) =>
       `Respond ONLY with a JSON object and nothing else. Schema: {"name":"<string>"} OR {"no_reaction": true}. Mixing ${a} + ${b}.`,
     materialPrompt: (a, b, candidate) =>
+      `Respond ONLY with a JSON object and nothing else. Schema: {"type":"material","name":"${candidate}","description":"<string>","primitives":[...],"budgets":{"max_ops":<int>,"max_spawns":<int>}}. This material represents mixing ${a} + ${b}.`
   },
   {
     name: 'schema-quoted-v1',
@@ -55,8 +56,6 @@ const promptSets: PromptSet[] = [
       `Respond with a single-line JSON object only, no extra keys. Either {"name":"<string>"} or {"no_reaction":true}. Mixing ${a} and ${b}.`,
     materialPrompt: (a, b, candidate) =>
       `Respond with a single-line JSON object only. Required keys: type,name,description,primitives,budgets. Material name must be "${candidate}". Mixing ${a} and ${b}.`
-  }
-      `Respond ONLY with a JSON object and nothing else. Schema: {"type":"material","name":"${candidate}","description":"<string>","primitives":[...],"budgets":{"max_ops":<int>,"max_spawns":<int>}}. This material represents mixing ${a} + ${b}.`
   }
 ];
 
