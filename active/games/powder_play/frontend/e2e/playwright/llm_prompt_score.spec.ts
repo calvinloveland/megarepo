@@ -85,6 +85,7 @@ function isValidMaterialPayload(obj: any) {
 }
 
 test('llm prompt scoring harness', async ({ request }) => {
+  test.setTimeout(180_000);
   const rows: ScoreRow[] = [];
   for (const promptSet of promptSets) {
     for (const [a, b] of mixes) {
