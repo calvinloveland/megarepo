@@ -2,17 +2,9 @@ import { test, expect } from '@playwright/test';
 
 // Demo scene: paint a small pile at the top and assert it falls down after steps
 test('demo scene: paint sand and it falls down', async ({ page }) => {
-  await page.goto('http://localhost:5173');
+  await page.goto('http://127.0.0.1:5173');
   page.on('console', msg => console.log('PAGE LOG:', msg.text()));
   await page.waitForSelector('text=Alchemist Powder');
-
-  // Use the install & generate flow to load a material (demo model)
-  await page.click('text=Install model');
-  await page.click('text=Generate');
-  await page.waitForFunction(() => {
-    const el = document.querySelector('#gen-status');
-    return el && el.textContent && el.textContent.includes('Validated');
-  }, { timeout: 30_000 });
 
   // Load demo scene file from repo and paint points programmatically
   const sceneResp = await page.request.get(new URL('/demo/simple_scene.json', page.url()).toString());

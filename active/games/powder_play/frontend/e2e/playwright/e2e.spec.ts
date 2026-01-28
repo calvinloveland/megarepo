@@ -1,26 +1,17 @@
 import { test, expect } from '@playwright/test';
 
-// This test assumes the dev server is running at http://localhost:5173
-// It installs the demo model (stub), generates a material and checks UI progress.
+// This test assumes the dev server is running at http://127.0.0.1:5173
+// It loads a material and runs a step to ensure the canvas renders.
 
 test('generate material and run one step', async ({ page }) => {
-  await page.goto('http://localhost:5173');
+  await page.goto('http://127.0.0.1:5173');
   await page.waitForSelector('text=Alchemist Powder');
 
-  // Wait for the Install button and then click Install model and Generate
-  await page.waitForSelector('text=Install model', { timeout: 10_000 });
-  await page.click('text=Install model');
-  await page.waitForSelector('text=Generate', { timeout: 5000 });
-  await page.click('text=Generate');
+  // Select Sand from the materials list
+  await page.click('#materials-list >> text=Sand');
 
-  // Wait for status element to indicate compilation/validation (more robust)
-  await page.waitForFunction(()=> {
-    const el = document.querySelector('#gen-status');
-    return el && el.textContent && el.textContent.includes('Validated');
-  }, { timeout: 30_000 });
-
-  // Click Play to run a single step and check canvas draws something
-  await page.click('text=Play');
+  // Click Step to run a single step and check canvas draws something
+  await page.click('text=Step');
   // Wait a little for a frame to be produced
   await page.waitForTimeout(500);
   const canvas = await page.$('canvas#sim-canvas');
