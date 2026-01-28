@@ -51,6 +51,27 @@ const promptSets: PromptSet[] = [
       `Output JSON only. {"type":"material","name":"${candidate}","description":"<string>","primitives":[{"op":"read","dx":0,"dy":1}],"budgets":{"max_ops":6,"max_spawns":0}} for mixing ${a} with ${b}.`
   },
   {
+    name: 'json-minimal-v2',
+    namePrompt: (a, b) =>
+      `JSON only. One object. {"name":"<string>"} or {"no_reaction":true}. Mix ${a}+${b}.`,
+    materialPrompt: (a, b, candidate) =>
+      `JSON only. {"type":"material","name":"${candidate}","description":"<string>","primitives":[{"op":"read","dx":0,"dy":1},{"op":"if","cond":{"eq":{"value":0}},"then":[{"op":"move","dx":0,"dy":1}]}],"budgets":{"max_ops":8,"max_spawns":0}}. Mix ${a}+${b}.`
+  },
+  {
+    name: 'json-minimal-v3',
+    namePrompt: (a, b) =>
+      `JSON only. Return {"name":"<string>"} or {"no_reaction":true}. ${a}+${b}.`,
+    materialPrompt: (a, b, candidate) =>
+      `JSON only. Required keys: type,name,description,primitives,budgets. Name must be "${candidate}". Mix ${a}+${b}.`
+  },
+  {
+    name: 'json-minimal-v4',
+    namePrompt: (a, b) =>
+      `JSON only. Output exactly one object: {"name":"<string>"} or {"no_reaction":true}. Mix ${a} and ${b}.`,
+    materialPrompt: (a, b, candidate) =>
+      `JSON only. Example: {"type":"material","name":"${candidate}","description":"...","primitives":[{"op":"read","dx":0,"dy":1}],"budgets":{"max_ops":6,"max_spawns":0}}. Mix ${a} and ${b}.`
+  },
+  {
     name: 'strict-json-v1',
     namePrompt: (a, b) =>
       `Respond with a single-line JSON object only, no extra keys. Either {"name":"<string>"} or {"no_reaction":true}. Mixing ${a} and ${b}.`,
