@@ -77,7 +77,9 @@ const materialIdByName = new Map<string, number>();
 const autoMixPairs = new Set<string>();
 const mixCache = new Map<string, any>();
 const pendingMixes = new Set<string>();
-const mixCacheStorageKey = 'alchemistPowder.mixCache.v1';
+const mixCacheStorageKey = 'alchemistPowder.mixCache.v2';
+const mixCacheVersionKey = 'alchemistPowder.mixCache.version';
+const mixCacheVersion = 'v2';
 const mixApiBase = (window as any).__mixApiBase || 'http://127.0.0.1:8787';
 let mixBlocked = false;
 
@@ -110,6 +112,14 @@ async function loadMixCacheFromServer() {
   }
 }
 
+async function clearMixCacheOnServer() {
+  try {
+    await fetch(`${mixApiBase}/mixes`, { method: 'DELETE' });
+  } catch (e) {
+    console.warn('mix cache clear failed', e);
+  }
+}
+
 function loadMixCacheFromLocal() {
   try {
     const raw = localStorage.getItem(mixCacheStorageKey);
@@ -121,6 +131,15 @@ function loadMixCacheFromLocal() {
   } catch (e) {
     console.warn('mix cache local load failed', e);
   }
+}
+
+function clearMixCacheLocal() {
+  try {
+    localStorage.removeItem(mixCacheStorageKey);
+  } catch (e) {
+    console.warn('mix cache local clear failed', e);
+  }
+  mixCache.clear();
 }
 
 function saveMixCacheToLocal() {
@@ -187,7 +206,31 @@ function isGenericMixName(name:string, aName:string, bName:string) {
   return false;
 }
 
+function extractNameOnlyResponse(resp:any) {
+  if (!resp) return '';
+  if (typeof resp === 'string') return resp.trim();
+  if (typeof resp === 'object' && typeof resp.name === 'string') return resp.name.trim();
+  return '';
+}
+
+try {
+  const storedVersion = localStorage.getItem(mixCacheVersionKey);
+  if (storedVersion !== mixCacheVersion) {
+    clearMixCacheLocal();
+    clearMixCacheOnServer();
+    localStorage.setItem(mixCacheVersionKey, mixCacheVersion);
+  }
+} catch (e) {}
 try { loadMixCacheFromServer(); } catch (e) {}
+
+function materialNameExists(name:string) {
+  if (!name) return false;
+  if (materialIdByName.has(name)) return true;
+  for (const value of mixCache.values()) {
+    if (value && typeof value === 'object' && value.name === name) return true;
+  }
+  return false;
+}
 function deriveColorFromName(name: string) {
   let h = 0;
   for (let i = 0; i < name.length; i++) {
@@ -392,7 +435,13 @@ function normalizeMixMaterial(mat:any, aMat:any, bMat:any) {
 async function generateMixMaterial(aMat:any, bMat:any) {
   const aName = aMat?.name || 'A';
   const bName = bMat?.name || 'B';
-  const prompt = `Create a material that represents mixing ${aName} and ${bName}. Provide a material with primitives and budgets. Keep it stable and simple. If there would be no reaction, respond with {"no_reaction": true}.`;
+  const namePrompt = `Return only the name for a new material created by mixing ${aName} and ${bName}. Respond with {"no_reaction": true} if there is no reaction.`;
+  const nameResp = await runLocalLLM(namePrompt);
+  if (isNoReactionPayload(nameResp)) return null;
+  const candidateName = extractNameOnlyResponse(nameResp);
+  if (!candidateName || isGenericMixName(candidateName, aName, bName)) return null;
+  if (materialNameExists(candidateName)) return null;
+  const prompt = `Create a material named "${candidateName}" that represents mixing ${aName} and ${bName}. Provide a material with primitives and budgets. Keep it stable and simple.`;
   const ast = await runLocalLLM(prompt);
   return normalizeMixMaterial(ast, aMat, bMat);
 }

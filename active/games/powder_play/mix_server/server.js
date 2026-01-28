@@ -33,7 +33,7 @@ function send(res, status, body, headers = {}) {
   res.writeHead(status, {
     'Content-Type': 'application/json',
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET,POST,PUT,OPTIONS',
+    'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type',
     ...headers
   });
@@ -75,6 +75,11 @@ const server = http.createServer(async (req, res) => {
 
   if (url.pathname === '/mixes' && req.method === 'GET') {
     return send(res, 200, cache);
+  }
+
+  if (url.pathname === '/mixes' && req.method === 'DELETE') {
+    saveCache({});
+    return send(res, 200, { ok: true });
   }
 
   if (url.pathname.startsWith('/mixes/') && (req.method === 'GET' || req.method === 'POST' || req.method === 'PUT')) {
