@@ -1,0 +1,10 @@
+{
+  "name": "alchemist-powder-mix-server",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Basic shared cache for Alchemist Powder mix materials",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  }
+}

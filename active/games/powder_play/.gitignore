@@ -2,3 +2,4 @@ node_modules/
 dist/
 .vscode/
 .env
+mix_server/mix_cache.json
