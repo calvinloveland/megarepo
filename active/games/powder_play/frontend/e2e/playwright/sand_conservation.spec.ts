@@ -8,7 +8,7 @@ test('sand count is conserved after steps', async ({ page }) => {
 
   // Load Sand
   const sandRow = page.locator('#materials-list > div', { hasText: 'Sand' }).first();
-  await sandRow.locator('button.load').click();
+  await sandRow.click();
   await page.waitForFunction(() => document.getElementById('status')?.textContent?.includes('Sand'), { timeout: 2000 });
 
   // Paint a small cluster of sand points

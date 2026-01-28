@@ -4,11 +4,11 @@ import { test, expect } from '@playwright/test';
 test('paint persists after simulation runs and additional painting', async ({ page }) => {
   await page.goto('http://127.0.0.1:5173/');
   page.on('console', m => console.log('PAGE LOG:', m.text()));
-  await page.waitForSelector('text=Powder Playground');
+  await page.waitForSelector('text=Alchemist Powder');
 
-  // Load Sand
+  // Select Sand
   const sandRow = page.locator('#materials-list > div', { hasText: 'Sand' }).first();
-  await sandRow.locator('button.load').click();
+  await sandRow.click();
   await page.waitForFunction(() => document.getElementById('status')?.textContent?.includes('Sand'), { timeout: 2000 });
 
   // paint point A near bottom so it won't drift away

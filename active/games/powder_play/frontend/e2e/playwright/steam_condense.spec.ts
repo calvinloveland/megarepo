@@ -8,7 +8,7 @@ test('steam condenses to water at top', async ({ page }) => {
   const loadByName = async (name: string) => {
     const nameMatcher = new RegExp(`^${name}$`);
     const row = page.locator('#materials-list > div').filter({ has: page.locator('strong', { hasText: nameMatcher }) }).first();
-    await row.locator('button.load').click();
+    await row.click();
     await page.waitForFunction((n) => document.getElementById('status')?.textContent?.includes(n), name, { timeout: 2000 });
   };
 

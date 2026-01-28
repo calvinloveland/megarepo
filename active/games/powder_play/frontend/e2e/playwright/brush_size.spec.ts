@@ -4,7 +4,7 @@ import { test, expect } from '@playwright/test';
 test('brush size affects painted area', async ({ page }) => {
   await page.goto('http://127.0.0.1:5173/');
   page.on('console', msg => console.log('PAGE LOG:', msg.text()));
-  await page.waitForSelector('text=Powder Playground');
+  await page.waitForSelector('text=Alchemist Powder');
 
   // Programmatically initialize worker with a simple material AST
   const sandAst = {
@@ -22,7 +22,7 @@ test('brush size affects painted area', async ({ page }) => {
     await page.waitForFunction(() => !!(window as any).__powderWorker, { timeout: 2000 });
   } catch (e) {
     const sandRow = page.locator('#materials-list > div', { hasText: 'Sand' }).first();
-    await sandRow.locator('button.load').click();
+    await sandRow.click();
     await page.waitForFunction(() => !!(window as any).__powderWorker, { timeout: 5000 });
   }
 

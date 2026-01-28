@@ -9,7 +9,7 @@ test('hot-add material is discovered and auto-loaded', async ({ page }) => {
   await page.goto(baseUrl);
   // surface browser console messages in test logs to help debugging
   page.on('console', (msg) => console.log('PAGE LOG:', msg.text()));
-  await page.waitForSelector('text=Powder Playground');
+  await page.waitForSelector('text=Alchemist Powder');
 
   // Ensure materials UI mounted
   await page.waitForSelector('text=Materials');
@@ -41,9 +41,9 @@ test('hot-add material is discovered and auto-loaded', async ({ page }) => {
     } catch (e) { return false; }
   }, { timeout: 10000 });
 
-  // Click the Load button for our material to force a deterministic load
+  // Click the material row for our material to force a deterministic load
   const materialRow = page.locator('#materials-list > div', { hasText: 'HotAdded' }).first();
-  await materialRow.locator('button.load').click();
+  await materialRow.click();
 
   // Wait for the page to call our onMaterialLoaded callback when the UI loads the material
   const loadedName = await Promise.race([

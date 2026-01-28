@@ -47,6 +47,10 @@
     color: rgba(226,232,240,0.8);
     font-size: .8rem;
   }
+  .materials-row.selected {
+    background-color: rgba(217,164,65,0.08);
+    outline: 2px solid rgba(217,164,65,0.12);
+  }
 }
 
 canvas { image-rendering: pixelated }

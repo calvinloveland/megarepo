@@ -47,12 +47,12 @@ export function mountMaterialBrowser(root: HTMLElement) {
     }
     for (const m of sorted) {
       const row = document.createElement('div');
-      row.className = 'flex items-center justify-between gap-2 rounded-md border border-amber-900/30 bg-midnight/60 px-2 py-1';
-      row.innerHTML = `<div class="flex items-center gap-2"><span class="swatch" style="width:14px;height:14px;border:1px solid #222;background:transparent"></span><strong class="text-amber-100">${m.name}</strong> <small class="alchemy-muted">${m.file}</small></div><div><button class="load alchemy-button">Load</button></div>`;
-      const btn = row.querySelector('.load') as HTMLButtonElement;
-      btn.onclick = async () => {
-        await loadMaterial(m.file);
-      };
+      row.className = 'materials-row flex items-center justify-between gap-2 rounded-md border border-amber-900/30 bg-midnight/60 px-2 py-1';
+      row.setAttribute('role', 'button');
+      row.tabIndex = 0;
+      row.innerHTML = `<div class="flex items-center gap-2"><span class="swatch" style="width:14px;height:14px;border:1px solid #222;background:transparent"></span><strong class="text-amber-100">${m.name}</strong> <small class="alchemy-muted">${m.file}</small></div>`;
+      row.onclick = async () => { await loadMaterial(m.file); selectRowByName(m.name); };
+      row.onkeydown = async (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); await loadMaterial(m.file); selectRowByName(m.name); } };
       // fetch material to show color swatch
       (async () => {
         try {
@@ -80,16 +80,19 @@ export function mountMaterialBrowser(root: HTMLElement) {
       if (addedMat) {
         console.log('[material_browser] loading added:', addedMat.file);
         await loadMaterial(addedMat.file);
+        selectRowByName(addedMat.name);
       }
     }
   }
-
-  async function loadMaterial(file:string) {
-    try {
-      const r = await fetch(`/materials/${file}`);
-      const mat = await r.json();
-      // sanity check
-      if (mat.type !== 'material' || !mat.name || !mat.primitives) {
++  function selectRowByName(name:string) {
++    const rows = Array.from(listEl.querySelectorAll('.materials-row')) as HTMLElement[];
++    for (const r of rows) {
++      const strong = r.querySelector('strong');
++      if (strong && strong.textContent === name) r.classList.add('selected');
++      else r.classList.remove('selected');
++    }
++  }
+*** End Patch
         console.warn('Invalid material', file);
         return;
       }

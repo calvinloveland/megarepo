@@ -3,11 +3,11 @@ import { test, expect } from '@playwright/test';
 test('pixel colors reflect material ids', async ({ page }) => {
   await page.goto('http://127.0.0.1:5173/');
   page.on('console', m => console.log('PAGE LOG:', m.text()));
-  await page.waitForSelector('text=Powder Playground');
+  await page.waitForSelector('text=Alchemist Powder');
 
-  // Load Sand and BouncyGel explicitly via clicking their Load buttons
+  // Select Sand and BouncyGel explicitly
   const sandRow = page.locator('#materials-list > div', { hasText: 'Sand' }).first();
-  await sandRow.locator('button.load').click();
+  await sandRow.click();
   await page.waitForFunction(() => document.getElementById('status')?.textContent?.includes('Sand'), { timeout: 2000 });
 
   // Paint point at (10,10)
@@ -32,7 +32,7 @@ test('pixel colors reflect material ids', async ({ page }) => {
   const color1 = c1.pixel;
   // Load BouncyGel and paint a nearby point
   const bRow = page.locator('#materials-list > div', { hasText: 'BouncyGel' }).first();
-  await bRow.locator('button.load').click();
+  await bRow.click();
   await page.waitForFunction(() => document.getElementById('status')?.textContent?.includes('BouncyGel'), { timeout: 2000 });
   await page.evaluate(() => (window as any).__paintGridPoints?.([{x:11,y:10}]));
   await page.waitForTimeout(200);

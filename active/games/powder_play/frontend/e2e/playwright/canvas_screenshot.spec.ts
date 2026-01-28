@@ -9,11 +9,11 @@ test('canvas screenshot after loading material', async ({ page }) => {
 
   await page.goto('http://127.0.0.1:5173/');
   page.on('console', m => console.log('PAGE LOG:', m.text()));
-  await page.waitForSelector('text=Powder Playground');
+  await page.waitForSelector('text=Alchemist Powder');
 
-  // Click the Load button for Sand to ensure material is loaded
+  // Select Sand from the materials list
   const sandRow = page.locator('#materials-list > div', { hasText: 'Sand' }).first();
-  await sandRow.locator('button.load').click();
+  await sandRow.click();
 
   // Wait for status text to show Sand loaded
   await page.waitForFunction(() => {
