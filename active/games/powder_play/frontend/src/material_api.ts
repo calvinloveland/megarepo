@@ -25,7 +25,11 @@ export async function runLocalLLM(intent: string, onProgress?: (p:any)=>void) {
   const res = await fetch(`${base}/llm`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ prompt: intent })
+    body: JSON.stringify({
+      prompt: intent,
+      format: 'json',
+      system: 'Respond with a single JSON object only. Do not include markdown, explanations, or extra text.'
+    })
   });
   if (!res.ok) {
     throw new Error(`llm request failed: ${res.status}`);

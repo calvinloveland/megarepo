@@ -87,13 +87,17 @@ const server = http.createServer(async (req, res) => {
       const body = await readJson(req);
       const prompt = String(body?.prompt || '').trim();
       if (!prompt) return send(res, 400, { error: 'missing prompt' });
+      const format = String(body?.format || 'json');
+      const system = String(body?.system || '').trim();
       const ollamaUrl = process.env.POWDER_PLAY_OLLAMA_URL || 'http://localhost:11434/api/generate';
       const model = process.env.POWDER_PLAY_OLLAMA_MODEL || 'llama3.2';
       const temperature = parseFloat(process.env.POWDER_PLAY_OLLAMA_TEMPERATURE || '0.7');
+      console.log('[mix_server] llm request', { model, format, prompt: prompt.slice(0, 140) });
       const payload = {
         model,
-        prompt: `${prompt}`,
+        prompt: system ? `${system}\n${prompt}` : `${prompt}`,
         stream: false,
+        format,
         options: { temperature }
       };
       const ollamaRes = await fetch(ollamaUrl, {
