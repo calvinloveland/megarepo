@@ -295,8 +295,17 @@ function extractNameOnlyResponse(resp:any) {
     } catch (e) {}
     return raw;
   }
-  if (typeof resp === 'object' && typeof resp.name === 'string') return resp.name.trim();
+  if (typeof resp === 'object') {
+    if (resp.no_reaction === true) return '';
+    if (typeof resp.name === 'string') return resp.name.trim();
+  }
   return '';
+}
+
+function isNoReactionName(name: string) {
+  const cleaned = name.trim().toLowerCase();
+  if (!cleaned) return false;
+  return cleaned === 'no reaction' || cleaned === 'no_reaction' || cleaned === 'noreaction';
 }
 
 try {
@@ -536,11 +545,22 @@ async function generateMixMaterial(aMat:any, bMat:any) {
   const bName = bMat?.name || 'B';
   setMixProgress(20);
   const namePrompt = `Return ONLY JSON with {"name":"<new material name>"} for mixing ${aName} and ${bName}. If no reaction, return {"no_reaction": true}. Example valid outputs: {"name":"Glass"} or {"no_reaction": true}.`;
-  const nameResp = await runLocalLLM(namePrompt);
-  if (isNoReactionPayload(nameResp)) return null;
-  const candidateName = extractNameOnlyResponse(nameResp);
-  if (!candidateName || isGenericMixName(candidateName, aName, bName)) return null;
-  if (materialNameExists(candidateName)) return null;
+  const retryNamePrompt = `Respond with JSON only. Output either {"name":"<string>"} or {"no_reaction":true}. Do not include other keys or any extra text. Mixing ${aName} and ${bName}.`;
+  async function getValidName(prompt: string) {
+    const nameResp = await runLocalLLM(prompt);
+    if (isNoReactionPayload(nameResp)) return null;
+    const candidate = extractNameOnlyResponse(nameResp);
+    if (!candidate) return '';
+    if (isNoReactionName(candidate)) return null;
+    if (isGenericMixName(candidate, aName, bName)) return '';
+    if (materialNameExists(candidate)) return '';
+    return candidate;
+  }
+  let candidateName = await getValidName(namePrompt);
+  if (candidateName === '') {
+    candidateName = await getValidName(retryNamePrompt);
+  }
+  if (!candidateName) return null;
   setMixName(candidateName);
   setMixProgress(55);
   const prompt = `Return ONLY JSON for a material named "${candidateName}" that represents mixing ${aName} and ${bName}. Required fields: type:"material", name, description, primitives (non-empty array of ops), budgets. No extra text. Example valid output: {"type":"material","name":"${candidateName}","description":"...","primitives":[{"op":"read","dx":0,"dy":1},{"op":"if","cond":{"eq":{"value":0}},"then":[{"op":"move","dx":0,"dy":1}]}],"budgets":{"max_ops":8,"max_spawns":0}}.`;

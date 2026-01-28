@@ -108,7 +108,7 @@ const server = http.createServer(async (req, res) => {
       const system = String(body?.system || '').trim();
       const ollamaUrl = process.env.POWDER_PLAY_OLLAMA_URL || 'http://localhost:11434/api/generate';
       const model = process.env.POWDER_PLAY_OLLAMA_MODEL || 'phi4-reasoning';
-      const temperature = parseFloat(process.env.POWDER_PLAY_OLLAMA_TEMPERATURE || '0.7');
+      const temperature = parseFloat(process.env.POWDER_PLAY_OLLAMA_TEMPERATURE || '0.2');
       console.log('[mix_server] llm request', {
         model,
         format,
