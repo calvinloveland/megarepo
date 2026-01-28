@@ -490,8 +490,6 @@ function normalizeMixMaterial(mat:any, aMat:any, bMat:any) {
     __mixParents: [aName, bName],
     __mixAncestors: ancestors
   };
-  } finally {
-    mixCacheReady = true;
 }
 
 function tryNormalizeMixMaterial(mat:any, aMat:any, bMat:any) {
