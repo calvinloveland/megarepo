@@ -7,10 +7,19 @@
   "primitives": [
     {"op":"read","dx":0,"dy":1},
     {"op":"if","cond":{"eq":{"value":0}},"then":[{"op":"move","dx":0,"dy":1}]},
-    {"op":"read","dx":-1,"dy":1},
-    {"op":"if","cond":{"eq":{"value":0}},"then":[{"op":"move","dx":-1,"dy":1}]},
-    {"op":"read","dx":1,"dy":1},
-    {"op":"if","cond":{"eq":{"value":0}},"then":[{"op":"move","dx":1,"dy":1}]}
+    {"op":"rand","probability":0.5},
+    {"op":"if","cond":{"eq":{"value":1}},"then":[
+      {"op":"read","dx":-1,"dy":1},
+      {"op":"if","cond":{"eq":{"value":0}},"then":[{"op":"move","dx":-1,"dy":1}]},
+      {"op":"read","dx":1,"dy":1},
+      {"op":"if","cond":{"eq":{"value":0}},"then":[{"op":"move","dx":1,"dy":1}]}
+    ]},
+    {"op":"if","cond":{"eq":{"value":0}},"then":[
+      {"op":"read","dx":1,"dy":1},
+      {"op":"if","cond":{"eq":{"value":0}},"then":[{"op":"move","dx":1,"dy":1}]},
+      {"op":"read","dx":-1,"dy":1},
+      {"op":"if","cond":{"eq":{"value":0}},"then":[{"op":"move","dx":-1,"dy":1}]}
+    ]}
   ],
   "budgets": {"max_ops": 12, "max_spawns": 0}
 }

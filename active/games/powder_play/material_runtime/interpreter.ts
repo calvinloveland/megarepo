@@ -43,6 +43,11 @@ export class Interpreter {
           for (const sub of p.then || []) this.execPrimitive(sub, ctx);
         }
         break;
+      case 'rand':
+        // set lastRead randomly based on probability (defaults to 0.5)
+        const prob = typeof p.probability === 'number' ? p.probability : 0.5;
+        ctx.lastRead = Math.random() < prob ? 1 : 0;
+        break;
       default:
         // no-op
         break;
