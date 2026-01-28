@@ -68,16 +68,19 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (url.pathname === '/health') {
+    console.log('[mix_server] health check');
     return send(res, 200, { ok: true });
   }
 
   const cache = loadCache();
 
   if (url.pathname === '/mixes' && req.method === 'GET') {
+    console.log('[mix_server] list mixes', Object.keys(cache).length);
     return send(res, 200, cache);
   }
 
   if (url.pathname === '/mixes' && req.method === 'DELETE') {
+    console.log('[mix_server] clear mixes');
     saveCache({});
     return send(res, 200, { ok: true });
   }
@@ -92,7 +95,12 @@ const server = http.createServer(async (req, res) => {
       const ollamaUrl = process.env.POWDER_PLAY_OLLAMA_URL || 'http://localhost:11434/api/generate';
       const model = process.env.POWDER_PLAY_OLLAMA_MODEL || 'llama3.2';
       const temperature = parseFloat(process.env.POWDER_PLAY_OLLAMA_TEMPERATURE || '0.7');
-      console.log('[mix_server] llm request', { model, format, prompt: prompt.slice(0, 140) });
+      console.log('[mix_server] llm request', {
+        model,
+        format,
+        temp: temperature,
+        prompt: prompt.slice(0, 140)
+      });
       const payload = {
         model,
         prompt: system ? `${system}\n${prompt}` : `${prompt}`,
@@ -106,11 +114,15 @@ const server = http.createServer(async (req, res) => {
         body: JSON.stringify(payload)
       });
       if (!ollamaRes.ok) {
+        const raw = await ollamaRes.text();
+        console.log('[mix_server] llm error', ollamaRes.status, raw.slice(0, 200));
         return send(res, 502, { error: 'ollama request failed', status: ollamaRes.status });
       }
       const data = await ollamaRes.json();
+      console.log('[mix_server] llm response', String(data?.response || '').slice(0, 200));
       return send(res, 200, { response: data?.response || '' });
     } catch (err) {
+      console.log('[mix_server] llm exception', err?.message || err);
       return send(res, 500, { error: 'llm error' });
     }
   }
@@ -120,12 +132,14 @@ const server = http.createServer(async (req, res) => {
     if (!key) return send(res, 400, { error: 'missing key' });
 
     if (req.method === 'GET') {
+      console.log('[mix_server] get mix', key, cache[key] ? 'hit' : 'miss');
       if (!cache[key]) return send(res, 404, { error: 'not found' });
       return send(res, 200, cache[key]);
     }
 
     try {
       const body = await readJson(req);
+      console.log('[mix_server] set mix', key, Object.keys(body || {}).length);
       if (!body || typeof body !== 'object') return send(res, 400, { error: 'invalid body' });
       if (!cache[key]) {
         cache[key] = body;
@@ -133,6 +147,7 @@ const server = http.createServer(async (req, res) => {
       }
       return send(res, 200, cache[key]);
     } catch (err) {
+      console.log('[mix_server] invalid mix json', key, err?.message || err);
       return send(res, 400, { error: 'invalid json' });
     }
   }
