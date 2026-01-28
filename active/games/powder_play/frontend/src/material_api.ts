@@ -6,14 +6,25 @@ function parseJsonFromText(text: string) {
     // fall through
   }
   const start = text.indexOf('{');
-  const end = text.lastIndexOf('}');
-  if (start === -1 || end === -1 || end <= start) return null;
-  const snippet = text.slice(start, end + 1);
-  try {
-    return JSON.parse(snippet);
-  } catch (e) {
-    return null;
+  if (start === -1) return null;
+  for (let i = start; i < text.length; i++) {
+    if (text[i] !== '{') continue;
+    let depth = 0;
+    for (let j = i; j < text.length; j++) {
+      const ch = text[j];
+      if (ch === '{') depth++;
+      if (ch === '}') depth--;
+      if (depth === 0) {
+        const snippet = text.slice(i, j + 1);
+        try {
+          return JSON.parse(snippet);
+        } catch (e) {
+          break;
+        }
+      }
+    }
   }
+  return null;
 }
 
 // Frontend-local LLM API (Ollama via mix server proxy)
