@@ -238,7 +238,17 @@ function isGenericMixName(name:string, aName:string, bName:string) {
 
 function extractNameOnlyResponse(resp:any) {
   if (!resp) return '';
-  if (typeof resp === 'string') return resp.trim();
+  if (typeof resp === 'string') {
+    const raw = resp.trim();
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object') {
+        if (parsed.no_reaction === true) return '';
+        if (typeof parsed.name === 'string') return parsed.name.trim();
+      }
+    } catch (e) {}
+    return raw;
+  }
   if (typeof resp === 'object' && typeof resp.name === 'string') return resp.name.trim();
   return '';
 }
