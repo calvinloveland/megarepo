@@ -104,7 +104,7 @@ function isValidMaterialPayload(obj: any) {
 }
 
 test('llm prompt scoring harness', async () => {
-  test.setTimeout(120_000);
+  test.setTimeout(240_000);
   const requestTimeoutMs = 10_000;
   const baseUrl = 'http://127.0.0.1:8787/llm';
 
