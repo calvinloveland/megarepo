@@ -34,6 +34,28 @@ const promptSets: PromptSet[] = [
     namePrompt: (a, b) =>
       `Respond ONLY with a JSON object and nothing else. Schema: {"name":"<string>"} OR {"no_reaction": true}. Mixing ${a} + ${b}.`,
     materialPrompt: (a, b, candidate) =>
+  },
+  {
+    name: 'schema-quoted-v1',
+    namePrompt: (a, b) =>
+      `Return exactly one JSON object (no code blocks). Allowed outputs only: {"name":"<string>"} or {"no_reaction":true}. Mixing: ${a} + ${b}.`,
+    materialPrompt: (a, b, candidate) =>
+      `Return exactly one JSON object (no code blocks). Fields required: type, name, description, primitives (array, >=1), budgets. Example: {"type":"material","name":"${candidate}","description":"...","primitives":[{"op":"read","dx":0,"dy":1},{"op":"if","cond":{"eq":{"value":0}},"then":[{"op":"move","dx":0,"dy":1}]}],"budgets":{"max_ops":8,"max_spawns":0}}. Mixing ${a} + ${b}.`
+  },
+  {
+    name: 'json-minimal-v1',
+    namePrompt: (a, b) =>
+      `Output JSON only. Either {"name":"<string>"} or {"no_reaction":true}. Mix ${a} with ${b}.`,
+    materialPrompt: (a, b, candidate) =>
+      `Output JSON only. {"type":"material","name":"${candidate}","description":"<string>","primitives":[{"op":"read","dx":0,"dy":1}],"budgets":{"max_ops":6,"max_spawns":0}} for mixing ${a} with ${b}.`
+  },
+  {
+    name: 'strict-json-v1',
+    namePrompt: (a, b) =>
+      `Respond with a single-line JSON object only, no extra keys. Either {"name":"<string>"} or {"no_reaction":true}. Mixing ${a} and ${b}.`,
+    materialPrompt: (a, b, candidate) =>
+      `Respond with a single-line JSON object only. Required keys: type,name,description,primitives,budgets. Material name must be "${candidate}". Mixing ${a} and ${b}.`
+  }
       `Respond ONLY with a JSON object and nothing else. Schema: {"type":"material","name":"${candidate}","description":"<string>","primitives":[...],"budgets":{"max_ops":<int>,"max_spawns":<int>}}. This material represents mixing ${a} + ${b}.`
   }
 ];
