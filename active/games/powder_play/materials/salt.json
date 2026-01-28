@@ -5,7 +5,8 @@
   "color": [230, 230, 230],
   "density": 2.2,
   "reactions": [
-    {"with": "Water", "result": "SaltWater", "byproduct": "SaltWater", "priority": 5}
+    {"with": "Water", "result": "SaltWater", "byproduct": "SaltWater", "priority": 5},
+    {"with": "SaltWater", "result": "SaltWater", "byproduct": "SaltWater", "priority": 4}
   ],
   "primitives":[
     {"op":"read","dx":0,"dy":1},
