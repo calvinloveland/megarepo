@@ -1,12 +1,14 @@
 export function attachControls(root: HTMLElement, onPlayChange:(playing:boolean)=>void) {
   const div = document.createElement('div');
   div.innerHTML = `
-    <button id="play-btn">Play</button>
-    <button id="step-btn">Step</button>
-    <select id="backend-select">
+    <div class="flex flex-wrap items-center gap-2">
+      <button id="play-btn" class="alchemy-button">Play</button>
+      <button id="step-btn" class="alchemy-button">Step</button>
+      <select id="backend-select" class="alchemy-select">
       <option value="cpu">CPU</option>
       <option value="gpu">WebGPU</option>
-    </select>
+      </select>
+    </div>
   `;
   root.appendChild(div);
   const playBtn = div.querySelector('#play-btn') as HTMLButtonElement;

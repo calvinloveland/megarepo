@@ -1,18 +1,21 @@
 export function initApp(root: HTMLElement) {
+  root.className = 'min-h-screen w-full p-4';
   root.innerHTML = `
-    <div style="display:flex; gap:1rem; align-items:flex-start;">
-      <div id="left-panel" style="min-width:220px;">
-        <h1>Powder Playground</h1>
+    <div class="flex flex-col lg:flex-row gap-4 items-start">
+      <div id="left-panel" class="alchemy-panel min-w-[220px] w-full lg:w-64">
+        <h1 class="text-2xl">Alchemist Powder</h1>
         <div id="materials-panel"></div>
-        <div id="status"></div>
+        <div id="status" class="alchemy-muted"></div>
       </div>
-      <div id="center-panel" style="display:flex; flex-direction:column; align-items:center; gap:.5rem;">
-        <canvas id="sim-canvas" width="600" height="400" style="border:1px solid #ccc"></canvas>
-        <div id="playback-controls"></div>
+      <div id="center-panel" class="flex flex-col items-center gap-2 w-full">
+        <div class="alchemy-panel w-full flex justify-center">
+          <canvas id="sim-canvas" width="600" height="400" class="border border-amber-700/40 rounded-md"></canvas>
+        </div>
+        <div id="playback-controls" class="alchemy-panel"></div>
       </div>
-      <div id="right-panel" style="min-width:220px;">
-        <h3>Tools</h3>
-        <div id="tools-panel"></div>
+      <div id="right-panel" class="alchemy-panel min-w-[220px] w-full lg:w-64">
+        <h3 class="text-lg">Tools</h3>
+        <div id="tools-panel" class="space-y-2"></div>
       </div>
     </div>
   `;

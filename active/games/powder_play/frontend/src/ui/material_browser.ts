@@ -1,10 +1,10 @@
 export function mountMaterialBrowser(root: HTMLElement) {
   const container = document.createElement('div');
   container.innerHTML = `
-    <div>
-      <h3>Materials</h3>
-      <label><input type="checkbox" id="auto-load-materials" checked> Auto-load new materials</label>
-      <div id="materials-list">(loading...)</div>
+    <div class="space-y-2">
+      <h3 class="text-lg">Materials</h3>
+      <label class="alchemy-label flex items-center gap-2"><input type="checkbox" id="auto-load-materials" checked class="accent-amber-500"> Auto-load new materials</label>
+      <div id="materials-list" class="space-y-1 max-h-[420px] overflow-auto">(loading...)</div>
     </div>
   `;
   root.appendChild(container);
@@ -47,10 +47,8 @@ export function mountMaterialBrowser(root: HTMLElement) {
     }
     for (const m of sorted) {
       const row = document.createElement('div');
-      row.style.display = 'flex';
-      row.style.justifyContent = 'space-between';
-      row.style.padding = '2px 0';
-      row.innerHTML = `<div style="display:flex; gap:6px; align-items:center"><span class="swatch" style="width:14px;height:14px;border:1px solid #222;background:transparent"></span><strong>${m.name}</strong> <small style="opacity:.7">${m.file}</small></div><div><button class="load">Load</button></div>`;
+      row.className = 'flex items-center justify-between gap-2 rounded-md border border-amber-900/30 bg-midnight/60 px-2 py-1';
+      row.innerHTML = `<div class="flex items-center gap-2"><span class="swatch" style="width:14px;height:14px;border:1px solid #222;background:transparent"></span><strong class="text-amber-100">${m.name}</strong> <small class="alchemy-muted">${m.file}</small></div><div><button class="load alchemy-button">Load</button></div>`;
       const btn = row.querySelector('.load') as HTMLButtonElement;
       btn.onclick = async () => {
         await loadMaterial(m.file);

@@ -3,7 +3,22 @@ export function attachCanvasTools(canvas: HTMLCanvasElement, worker: Worker | nu
   (toolsRoot as any).dataset.toolsMounted = 'true';
   const info = document.createElement('div');
   // add clear and brush-size controls
-  info.innerHTML = `<button id="clear-grid">Clear</button> <label>Brush <select id="brush-size"><option value="1">Small</option><option value="3">Medium</option><option value="5">Large</option></select></label> <label><input type="checkbox" id="eraser-toggle"> Eraser</label> <span id="paint-mode">Paint</span>`;
+  info.innerHTML = `
+    <div class="flex flex-col gap-2">
+      <div class="flex flex-wrap items-center gap-2">
+        <button id="clear-grid" class="alchemy-button">Clear</button>
+        <label class="alchemy-label flex items-center gap-2">Brush
+          <select id="brush-size" class="alchemy-select">
+            <option value="1">Small</option>
+            <option value="3">Medium</option>
+            <option value="5">Large</option>
+          </select>
+        </label>
+        <label class="alchemy-label flex items-center gap-2"><input type="checkbox" id="eraser-toggle" class="accent-amber-500"> Eraser</label>
+        <span id="paint-mode" class="alchemy-muted">Paint</span>
+      </div>
+    </div>
+  `;
   toolsRoot.appendChild(info);
 
   const clearBtn = info.querySelector('#clear-grid') as HTMLButtonElement;
