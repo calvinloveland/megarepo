@@ -86,30 +86,43 @@ function isValidMaterialPayload(obj: any) {
 
 test('llm prompt scoring harness', async ({ request }) => {
   test.setTimeout(180_000);
+  const requestTimeoutMs = 20_000;
   const rows: ScoreRow[] = [];
   for (const promptSet of promptSets) {
     for (const [a, b] of mixes) {
-      const nameRes = await request.post('http://127.0.0.1:8787/llm', {
-        data: {
-          prompt: promptSet.namePrompt(a, b),
-          format: 'json',
-          system: 'Respond with a single JSON object only. Do not include markdown, explanations, or extra text.'
-        }
-      });
-      const namePayload = await nameRes.json();
-      const nameObj = parseJsonFromText(String(namePayload?.response || '').trim());
+      let nameObj: any = null;
+      try {
+        const nameRes = await request.post('http://127.0.0.1:8787/llm', {
+          data: {
+            prompt: promptSet.namePrompt(a, b),
+            format: 'json',
+            system: 'Respond with a single JSON object only. Do not include markdown, explanations, or extra text.'
+          },
+          timeout: requestTimeoutMs
+        });
+        const namePayload = await nameRes.json();
+        nameObj = parseJsonFromText(String(namePayload?.response || '').trim());
+      } catch (e) {
+        nameObj = null;
+      }
       const nameValid = isValidNamePayload(nameObj);
       const candidate = typeof nameObj?.name === 'string' && nameObj.name.trim() ? nameObj.name.trim() : 'TestMix';
 
-      const materialRes = await request.post('http://127.0.0.1:8787/llm', {
-        data: {
-          prompt: promptSet.materialPrompt(a, b, candidate),
-          format: 'json',
-          system: 'Respond with a single JSON object only. Do not include markdown, explanations, or extra text.'
-        }
-      });
-      const materialPayload = await materialRes.json();
-      const materialObj = parseJsonFromText(String(materialPayload?.response || '').trim());
+      let materialObj: any = null;
+      try {
+        const materialRes = await request.post('http://127.0.0.1:8787/llm', {
+          data: {
+            prompt: promptSet.materialPrompt(a, b, candidate),
+            format: 'json',
+            system: 'Respond with a single JSON object only. Do not include markdown, explanations, or extra text.'
+          },
+          timeout: requestTimeoutMs
+        });
+        const materialPayload = await materialRes.json();
+        materialObj = parseJsonFromText(String(materialPayload?.response || '').trim());
+      } catch (e) {
+        materialObj = null;
+      }
       const materialValid = isValidMaterialPayload(materialObj);
 
       const total = (nameValid ? 1 : 0) + (materialValid ? 2 : 0);
