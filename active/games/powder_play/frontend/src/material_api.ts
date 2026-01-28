@@ -1,19 +1,38 @@
-// Frontend-local material API shim for browser usage (demo-only, avoids importing files outside Vite root)
+function parseJsonFromText(text: string) {
+  if (!text) return null;
+  try {
+    return JSON.parse(text);
+  } catch (e) {
+    // fall through
+  }
+  const start = text.indexOf('{');
+  const end = text.lastIndexOf('}');
+  if (start === -1 || end === -1 || end <= start) return null;
+  const snippet = text.slice(start, end + 1);
+  try {
+    return JSON.parse(snippet);
+  } catch (e) {
+    return null;
+  }
+}
+
+// Frontend-local LLM API (Ollama via mix server proxy)
 export async function runLocalLLM(intent: string, onProgress?: (p:any)=>void) {
-  onProgress && onProgress({stage:'generating', message:'demo model'});
-  // simple demo model same as demo_model
-  const lower = (intent||'').toLowerCase();
-  const name = 'demo_' + (lower.split(/\s+/)[0] || 'x');
-  const ast = {
-    type: 'material', name, description: intent,
-    primitives: [ {op:'read', dx:0,dy:1}, {op:'if', cond:{eq:{read:1,value:0}}, then:[{op:'move',dx:0,dy:1}]} ],
-    budgets: {max_ops:50, max_spawns:1}
-  };
-  onProgress && onProgress({stage:'validating'});
-  await new Promise(r=>setTimeout(r,100));
-  onProgress && onProgress({stage:'compiled'});
-  (ast as any).__compiled = {wgsl: `// WGSL stub for ${ast.name}`};
-  return ast;
+  const base = (window as any).__mixApiBase || 'http://127.0.0.1:8787';
+  onProgress && onProgress({stage:'generating', message:'ollama'});
+  const res = await fetch(`${base}/llm`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prompt: intent })
+  });
+  if (!res.ok) {
+    throw new Error(`llm request failed: ${res.status}`);
+  }
+  const payload = await res.json();
+  const text = String(payload?.response || '').trim();
+  const parsed = parseJsonFromText(text);
+  if (parsed) return parsed;
+  return text;
 }
 
 export async function installModelFromUrl(_url:string, onProgress?: (pct:number)=>void) {

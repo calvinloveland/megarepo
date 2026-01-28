@@ -82,6 +82,35 @@ const server = http.createServer(async (req, res) => {
     return send(res, 200, { ok: true });
   }
 
+  if (url.pathname === '/llm' && req.method === 'POST') {
+    try {
+      const body = await readJson(req);
+      const prompt = String(body?.prompt || '').trim();
+      if (!prompt) return send(res, 400, { error: 'missing prompt' });
+      const ollamaUrl = process.env.POWDER_PLAY_OLLAMA_URL || 'http://localhost:11434/api/generate';
+      const model = process.env.POWDER_PLAY_OLLAMA_MODEL || 'llama3.2';
+      const temperature = parseFloat(process.env.POWDER_PLAY_OLLAMA_TEMPERATURE || '0.7');
+      const payload = {
+        model,
+        prompt: `${prompt}`,
+        stream: false,
+        options: { temperature }
+      };
+      const ollamaRes = await fetch(ollamaUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!ollamaRes.ok) {
+        return send(res, 502, { error: 'ollama request failed', status: ollamaRes.status });
+      }
+      const data = await ollamaRes.json();
+      return send(res, 200, { response: data?.response || '' });
+    } catch (err) {
+      return send(res, 500, { error: 'llm error' });
+    }
+  }
+
   if (url.pathname.startsWith('/mixes/') && (req.method === 'GET' || req.method === 'POST' || req.method === 'PUT')) {
     const key = decodeURIComponent(url.pathname.replace('/mixes/', ''));
     if (!key) return send(res, 400, { error: 'missing key' });
