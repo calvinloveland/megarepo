@@ -72,6 +72,20 @@ const server = http.createServer(async (req, res) => {
     return send(res, 200, { ok: true });
   }
 
+  if (url.pathname === '/client-log' && req.method === 'POST') {
+    try {
+      const body = await readJson(req);
+      const level = String(body?.level || 'error');
+      const message = String(body?.message || 'unknown client error');
+      const meta = body?.meta || {};
+      console.log(`[mix_server] client-${level}`, message, meta);
+      return send(res, 200, { ok: true });
+    } catch (err) {
+      console.log('[mix_server] client-log invalid json', err?.message || err);
+      return send(res, 400, { error: 'invalid json' });
+    }
+  }
+
   const cache = loadCache();
 
   if (url.pathname === '/mixes' && req.method === 'GET') {

@@ -129,6 +129,16 @@ function setMixBlocked(blocked:boolean, message?:string, name?:string) {
   }
 }
 
+async function reportMixError(message:string, meta?:any) {
+  try {
+    await fetch(`${mixApiBase}/client-log`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ level: 'error', message, meta })
+    });
+  } catch (e) {}
+}
+
 async function loadMixCacheFromServer() {
   try {
     const res = await fetch(`${mixApiBase}/mixes`, { cache: 'no-store' });
@@ -509,10 +519,16 @@ async function generateMixMaterial(aMat:any, bMat:any) {
   setMixProgress(85);
   const normalized = tryNormalizeMixMaterial(ast, aMat, bMat);
   if (normalized) return normalized;
+  await reportMixError('mix normalize failed', { a: aName, b: bName, name: candidateName, stage: 'first' });
   const retryPrompt = `Return ONLY JSON for material "${candidateName}". Example format: {"type":"material","name":"${candidateName}","description":"...","primitives":[{"op":"read","dx":0,"dy":1},{"op":"if","cond":{"eq":{"read":1,"value":0}},"then":[{"op":"move","dx":0,"dy":1}]}],"budgets":{"max_ops":8,"max_spawns":0}}. No extra text.`;
   const retryAst = await runLocalLLM(retryPrompt);
   setMixProgress(90);
-  return normalizeMixMaterial(retryAst, aMat, bMat);
+  const retryNormalized = tryNormalizeMixMaterial(retryAst, aMat, bMat);
+  if (!retryNormalized) {
+    await reportMixError('mix normalize failed', { a: aName, b: bName, name: candidateName, stage: 'retry' });
+    return null;
+  }
+  return retryNormalized;
 }
 
 function applyMixMaterial(mixSource:any, aMat:any, bMat:any) {
@@ -624,6 +640,7 @@ function addAutoMixReaction(aId:number, bId:number) {
     })
     .catch((err) => {
       console.warn('mix generation failed', err);
+      reportMixError('mix generation failed', { error: String(err), a: aMat.name, b: bMat.name });
       const status = document.getElementById('status');
       if (status) status.textContent = 'Mix generation failed';
       const title = document.querySelector('#mix-banner .mix-title');
