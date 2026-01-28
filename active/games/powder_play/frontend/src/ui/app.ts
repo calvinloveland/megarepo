@@ -1,3 +1,5 @@
+import { runLocalLLM } from '../material_api';
+
 export function initApp(root: HTMLElement) {
   root.className = 'min-h-screen w-full p-4';
   root.innerHTML = `
@@ -71,6 +73,47 @@ let currentMaterialId = 0;
 const materialById = new Map<number, any>();
 const materialIdByName = new Map<string, number>();
 const autoMixPairs = new Set<string>();
+const mixCache = new Map<string, any>();
+const pendingMixes = new Set<string>();
+const mixCacheStorageKey = 'alchemistPowder.mixCache.v1';
+
+function mixCacheKey(aName:string, bName:string) {
+  return [aName, bName].sort().join('|');
+}
+
+function loadMixCache() {
+  try {
+    const raw = localStorage.getItem(mixCacheStorageKey);
+    if (!raw) return;
+    const parsed = JSON.parse(raw) as Record<string, any>;
+    for (const [key, value] of Object.entries(parsed)) {
+      mixCache.set(key, value);
+    }
+  } catch (e) {
+    console.warn('mix cache load failed', e);
+  }
+}
+
+function saveMixCache() {
+  try {
+    const out: Record<string, any> = {};
+    for (const [key, value] of mixCache.entries()) {
+      out[key] = value;
+    }
+    localStorage.setItem(mixCacheStorageKey, JSON.stringify(out));
+  } catch (e) {
+    console.warn('mix cache save failed', e);
+  }
+}
+
+function stripTransientFields(mat:any) {
+  if (!mat || typeof mat !== 'object') return mat;
+  const clone = JSON.parse(JSON.stringify(mat));
+  delete clone.__compiled;
+  return clone;
+}
+
+try { loadMixCache(); } catch (e) {}
 function deriveColorFromName(name: string) {
   let h = 0;
   for (let i = 0; i < name.length; i++) {
@@ -238,7 +281,7 @@ function hasExplicitReaction(aId:number, bId:number) {
   return aReacts || bReacts;
 }
 
-function createAutoMixMaterial(aMat:any, bMat:any) {
+function createFallbackMixMaterial(aMat:any, bMat:any) {
   const aName = aMat?.name || 'A';
   const bName = bMat?.name || 'B';
   const name = `Mix ${aName}+${bName}`;
@@ -285,6 +328,44 @@ function createAutoMixMaterial(aMat:any, bMat:any) {
   };
 }
 
+function normalizeMixMaterial(mat:any, aMat:any, bMat:any) {
+  const aName = aMat?.name || 'A';
+  const bName = bMat?.name || 'B';
+  const name = `Mix ${aName}+${bName}`;
+  const desc = `Auto-generated mix of ${aName} and ${bName}.`;
+  const aAncestors = getAncestors(aMat);
+  const bAncestors = getAncestors(bMat);
+  const ancestors = Array.from(new Set([...aAncestors, ...bAncestors]));
+  const aDensity = typeof aMat?.density === 'number' ? aMat.density : 1;
+  const bDensity = typeof bMat?.density === 'number' ? bMat.density : 1;
+  const density = (aDensity + bDensity) / 2;
+  const base = mat && typeof mat === 'object' ? mat : {};
+  return {
+    type: 'material',
+    name,
+    description: base.description || desc,
+    color: base.color || createFallbackMixMaterial(aMat, bMat).color,
+    density: typeof base.density === 'number' ? base.density : density,
+    primitives: Array.isArray(base.primitives) && base.primitives.length ? base.primitives : createFallbackMixMaterial(aMat, bMat).primitives,
+    budgets: base.budgets || {max_ops: 14, max_spawns: 0},
+    __mixParents: [aName, bName],
+    __mixAncestors: ancestors
+  };
+}
+
+async function generateMixMaterial(aMat:any, bMat:any) {
+  const aName = aMat?.name || 'A';
+  const bName = bMat?.name || 'B';
+  const prompt = `Create a material that represents mixing ${aName} and ${bName}. Provide a material with primitives and budgets. Keep it stable and simple.`;
+  try {
+    const ast = await runLocalLLM(prompt);
+    return normalizeMixMaterial(ast, aMat, bMat);
+  } catch (e) {
+    console.warn('LLM mix generation failed, using fallback', e);
+    return createFallbackMixMaterial(aMat, bMat);
+  }
+}
+
 function addAutoMixReaction(aId:number, bId:number) {
   const aMat = materialById.get(aId);
   const bMat = materialById.get(bId);
@@ -298,23 +379,56 @@ function addAutoMixReaction(aId:number, bId:number) {
   if (autoMixPairs.has(key)) return;
   autoMixPairs.add(key);
 
-  const mixMat = createAutoMixMaterial(aMat, bMat);
-  const mixId = registerMaterial(mixMat, { select: false });
+  const cacheKey = mixCacheKey(aMat.name, bMat.name);
+  const cached = mixCache.get(cacheKey);
+  if (cached) {
+    const mixMat = normalizeMixMaterial(cached, aMat, bMat);
+    const mixId = registerMaterial(mixMat, { select: false });
+    const reactionForA = { with: bMat.name, result: mixMat.name, byproduct: mixMat.name, priority: 3 };
+    const reactionForB = { with: aMat.name, result: mixMat.name, byproduct: mixMat.name, priority: 3 };
+    const updatedA = { ...aMat, reactions: [...(aMat.reactions || []), reactionForA] };
+    const updatedB = { ...bMat, reactions: [...(bMat.reactions || []), reactionForB] };
+    updateMaterial(aId, updatedA);
+    updateMaterial(bId, updatedB);
+    const status = document.getElementById('status');
+    if (status) status.textContent = `Discovered ${mixMat.name}`;
+    try {
+      const map = (window as any).__materialIdByName || {};
+      map[mixMat.name] = mixId;
+      (window as any).__materialIdByName = map;
+    } catch (e) {}
+    return;
+  }
 
-  const reactionForA = { with: bMat.name, result: mixMat.name, byproduct: mixMat.name, priority: 3 };
-  const reactionForB = { with: aMat.name, result: mixMat.name, byproduct: mixMat.name, priority: 3 };
-  const updatedA = { ...aMat, reactions: [...(aMat.reactions || []), reactionForA] };
-  const updatedB = { ...bMat, reactions: [...(bMat.reactions || []), reactionForB] };
-  updateMaterial(aId, updatedA);
-  updateMaterial(bId, updatedB);
+  if (pendingMixes.has(cacheKey)) return;
+  pendingMixes.add(cacheKey);
+  generateMixMaterial(aMat, bMat)
+    .then((mixMat) => {
+      pendingMixes.delete(cacheKey);
+      const normalized = normalizeMixMaterial(mixMat, aMat, bMat);
+      mixCache.set(cacheKey, stripTransientFields(normalized));
+      saveMixCache();
 
-  const status = document.getElementById('status');
-  if (status) status.textContent = `Discovered ${mixMat.name}`;
-  try {
-    const map = (window as any).__materialIdByName || {};
-    map[mixMat.name] = mixId;
-    (window as any).__materialIdByName = map;
-  } catch (e) {}
+      const mixId = registerMaterial(normalized, { select: false });
+      const reactionForA = { with: bMat.name, result: normalized.name, byproduct: normalized.name, priority: 3 };
+      const reactionForB = { with: aMat.name, result: normalized.name, byproduct: normalized.name, priority: 3 };
+      const updatedA = { ...aMat, reactions: [...(aMat.reactions || []), reactionForA] };
+      const updatedB = { ...bMat, reactions: [...(bMat.reactions || []), reactionForB] };
+      updateMaterial(aId, updatedA);
+      updateMaterial(bId, updatedB);
+
+      const status = document.getElementById('status');
+      if (status) status.textContent = `Discovered ${normalized.name}`;
+      try {
+        const map = (window as any).__materialIdByName || {};
+        map[normalized.name] = mixId;
+        (window as any).__materialIdByName = map;
+      } catch (e) {}
+    })
+    .catch((err) => {
+      pendingMixes.delete(cacheKey);
+      console.warn('mix generation failed', err);
+    });
 }
 
 function maybeAutoGenerateMixes(buf:Uint16Array, w:number, h:number) {
