@@ -10,8 +10,14 @@ export function initApp(root: HTMLElement) {
         <div id="status" class="alchemy-muted"></div>
       </div>
       <div id="center-panel" class="flex flex-col items-center gap-2 w-full">
-        <div id="mix-banner" class="alchemy-panel w-full text-amber-200 hidden">New material discovered! Generating...</div>
-        <div class="alchemy-panel w-full flex justify-center">
+        <div class="alchemy-panel w-full flex justify-center relative">
+          <div id="mix-banner" class="mix-overlay alchemy-panel hidden">
+            <div class="mix-title">New material discovered</div>
+            <div id="mix-name" class="mix-name">Mixing...</div>
+            <div class="mix-progress-track">
+              <div id="mix-progress" class="mix-progress-fill"></div>
+            </div>
+          </div>
           <canvas id="sim-canvas" width="600" height="400" class="border border-amber-700/40 rounded-md"></canvas>
         </div>
         <div id="playback-controls" class="alchemy-panel"></div>
@@ -82,19 +88,42 @@ const mixCacheVersionKey = 'alchemistPowder.mixCache.version';
 const mixCacheVersion = 'v2';
 const mixApiBase = (window as any).__mixApiBase || 'http://127.0.0.1:8787';
 let mixBlocked = false;
+let mixProgress = 0;
+let mixName = 'Mixing...';
 
 function mixCacheKey(aName:string, bName:string) {
   return [aName, bName].sort().join('|');
 }
 
-function setMixBlocked(blocked:boolean, message?:string) {
+function setMixProgress(pct:number) {
+  mixProgress = Math.max(0, Math.min(100, pct));
+  const bar = document.getElementById('mix-progress') as HTMLElement | null;
+  if (bar) bar.style.width = `${mixProgress}%`;
+}
+
+function setMixName(name:string) {
+  mixName = name;
+  const el = document.getElementById('mix-name');
+  if (el) el.textContent = mixName;
+}
+
+function setMixBlocked(blocked:boolean, message?:string, name?:string) {
   mixBlocked = blocked;
   try { (window as any).__mixBlocked = blocked; } catch (e) {}
   const banner = document.getElementById('mix-banner');
   if (banner) {
     banner.classList.toggle('hidden', !blocked);
-    if (blocked && message) banner.textContent = message;
-    if (!blocked) banner.textContent = 'New material discovered! Generating...';
+    if (blocked && name) setMixName(name);
+    if (blocked && message) {
+      const title = banner.querySelector('.mix-title');
+      if (title) title.textContent = message;
+    }
+    if (!blocked) {
+      const title = banner.querySelector('.mix-title');
+      if (title) title.textContent = 'New material discovered';
+      setMixName('Mixing...');
+      setMixProgress(0);
+    }
   }
 }
 
@@ -440,14 +469,18 @@ function normalizeMixMaterial(mat:any, aMat:any, bMat:any) {
 async function generateMixMaterial(aMat:any, bMat:any) {
   const aName = aMat?.name || 'A';
   const bName = bMat?.name || 'B';
+  setMixProgress(20);
   const namePrompt = `Return only the name for a new material created by mixing ${aName} and ${bName}. Respond with {"no_reaction": true} if there is no reaction.`;
   const nameResp = await runLocalLLM(namePrompt);
   if (isNoReactionPayload(nameResp)) return null;
   const candidateName = extractNameOnlyResponse(nameResp);
   if (!candidateName || isGenericMixName(candidateName, aName, bName)) return null;
   if (materialNameExists(candidateName)) return null;
+  setMixName(candidateName);
+  setMixProgress(55);
   const prompt = `Create a material named "${candidateName}" that represents mixing ${aName} and ${bName}. Provide a material with primitives and budgets. Keep it stable and simple.`;
   const ast = await runLocalLLM(prompt);
+  setMixProgress(85);
   return normalizeMixMaterial(ast, aMat, bMat);
 }
 
@@ -498,16 +531,19 @@ function addAutoMixReaction(aId:number, bId:number) {
 
   if (pendingMixes.has(cacheKey)) return;
   pendingMixes.add(cacheKey);
-  setMixBlocked(true, `New material discovered! Mixing ${aMat.name} + ${bMat.name}...`);
+  setMixBlocked(true, 'New material discovered', `${aMat.name} + ${bMat.name}`);
+  setMixProgress(10);
   fetchMixFromServer(cacheKey)
     .then((remote) => {
       if (remote) {
         mixCache.set(cacheKey, remote);
         saveMixCacheToLocal();
         if (isNoReactionPayload(remote)) return null;
+        setMixProgress(100);
         applyMixMaterial(remote, aMat, bMat);
         return null;
       }
+      setMixProgress(25);
       return generateMixMaterial(aMat, bMat);
     })
     .then(async (mixMat) => {
@@ -522,17 +558,21 @@ function addAutoMixReaction(aId:number, bId:number) {
         if (status) status.textContent = `No reaction: ${aMat.name} + ${bMat.name}`;
         return;
       }
+      setMixProgress(95);
       mixCache.set(cacheKey, stripTransientFields(normalized));
       saveMixCacheToLocal();
       await saveMixToServer(cacheKey, stripTransientFields(normalized));
       applyMixMaterial(normalized, aMat, bMat);
+      setMixProgress(100);
     })
     .catch((err) => {
       console.warn('mix generation failed', err);
       const status = document.getElementById('status');
       if (status) status.textContent = 'Mix generation failed';
-      const banner = document.getElementById('mix-banner');
-      if (banner) banner.textContent = 'Mix generation failed. Try again.';
+      const title = document.querySelector('#mix-banner .mix-title');
+      if (title) title.textContent = 'Mix generation failed. Try again.';
+      setMixName('Generation failed');
+      setMixProgress(0);
     })
     .finally(() => {
       pendingMixes.delete(cacheKey);
