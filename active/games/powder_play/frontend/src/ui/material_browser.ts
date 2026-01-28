@@ -162,10 +162,47 @@ export function mountMaterialBrowser(root: HTMLElement) {
         } catch (err) {
           // ignore
         }
+        await ensureReactionMaterials(mat);
       } else {
         console.warn('initWorkerWithMaterial not available');
       }
     } catch (e) { console.warn('load material failed', e); }
+  }
+
+  async function ensureReactionMaterials(mat:any) {
+    try {
+      const needed = new Set<string>();
+      if (Array.isArray(mat?.reactions)) {
+        for (const r of mat.reactions) {
+          if (r?.result) needed.add(r.result);
+          if (r?.byproduct) needed.add(r.byproduct);
+        }
+      }
+      if (mat?.condense?.result) needed.add(mat.condense.result);
+      if (!needed.size) return;
+      const idxResp = await fetch('/materials/index.json', { cache: 'no-store' });
+      if (!idxResp.ok) return;
+      const idx = await idxResp.json();
+      const list = Array.isArray(idx?.materials) ? idx.materials : [];
+      const nameToFile = new Map<string, string>();
+      for (const entry of list) {
+        if (entry?.name && entry?.file) nameToFile.set(entry.name, entry.file);
+      }
+      const known = (window as any).__materialIdByName || {};
+      for (const name of needed) {
+        if (known[name]) continue;
+        const depFile = nameToFile.get(name);
+        if (!depFile) continue;
+        const depResp = await fetch(`/materials/${depFile}`);
+        if (!depResp.ok) continue;
+        const depMat = await depResp.json();
+        if ((window as any).__registerMaterial) {
+          (window as any).__registerMaterial(depMat);
+        }
+      }
+    } catch (e) {
+      console.warn('ensureReactionMaterials failed', e);
+    }
   }
 
   showAll.onchange = () => {

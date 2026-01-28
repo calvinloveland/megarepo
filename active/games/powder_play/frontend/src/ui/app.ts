@@ -373,6 +373,11 @@ function initWorkerWithMaterial(mat:any) {
 
 (window as any).__initWorkerWithMaterial = initWorkerWithMaterial;
 
+(window as any).__registerMaterial = (mat:any) => {
+  if (!mat) return;
+  return registerMaterial(mat, { select: false });
+};
+
 (window as any).__selectMaterialByName = (name: string) => {
   const id = materialIdByName.get(name);
   if (!id) return;
