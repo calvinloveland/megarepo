@@ -519,6 +519,11 @@ function applyMixMaterial(mixSource:any, aMat:any, bMat:any) {
     const cb = (window as any).__addDiscoveredMaterial;
     if (typeof cb === 'function') cb(mixMat);
   } catch (e) {}
+  try {
+    const list = (window as any).__discoveredMaterials || [];
+    list.push(mixMat);
+    (window as any).__discoveredMaterials = list;
+  } catch (e) {}
 }
 
 function addAutoMixReaction(aId:number, bId:number) {

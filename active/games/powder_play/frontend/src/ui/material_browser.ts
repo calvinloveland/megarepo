@@ -218,6 +218,12 @@ export function mountMaterialBrowser(root: HTMLElement) {
   try {
     (window as any).__addDiscoveredMaterial = addDiscoveredMaterial;
   } catch (e) {}
+  try {
+    const existing = (window as any).__discoveredMaterials || [];
+    if (Array.isArray(existing)) {
+      for (const mat of existing) addDiscoveredMaterial(mat);
+    }
+  } catch (e) {}
 
   // expose cleanup (not used yet)
   return () => clearInterval(iv);
