@@ -8,6 +8,7 @@ export function initApp(root: HTMLElement) {
         <h1 class="text-2xl">Alchemist Powder</h1>
         <div id="materials-panel"></div>
         <div id="status" class="alchemy-muted"></div>
+        <div id="mix-status" class="alchemy-muted text-xs"></div>
       </div>
       <div id="center-panel" class="flex flex-col items-center gap-2 w-full">
         <div class="alchemy-panel w-full flex justify-center relative">
@@ -31,6 +32,8 @@ export function initApp(root: HTMLElement) {
 
   const status = document.getElementById('status')!;
   status.textContent = 'Ready';
+  const mixStatus = document.getElementById('mix-status') as HTMLElement | null;
+  if (mixStatus) mixStatus.textContent = 'Mix server: checking...';
 
   const materialsPanel = document.getElementById('materials-panel')!;
   const playbackControls = document.getElementById('playback-controls')!;
@@ -73,6 +76,8 @@ export function initApp(root: HTMLElement) {
   const ctx = canvas.getContext('2d')!;
   ctx.fillStyle = '#000';
   ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  pingMixServer();
 }
 
 let worker: Worker | null = null;
@@ -98,6 +103,24 @@ let mixBlocked = false;
 let mixCacheReady = false;
 let mixProgress = 0;
 let mixName = 'Mixing...';
+
+function setMixStatus(message: string) {
+  const mixStatus = document.getElementById('mix-status');
+  if (mixStatus) mixStatus.textContent = message;
+}
+
+async function pingMixServer() {
+  try {
+    const res = await fetch(`${mixApiBase}/health`, { cache: 'no-store' });
+    if (res.ok) {
+      setMixStatus(`Mix server: ok (${mixApiBase})`);
+      return;
+    }
+    setMixStatus(`Mix server: error ${res.status} (${mixApiBase})`);
+  } catch (e) {
+    setMixStatus(`Mix server: unreachable (${mixApiBase})`);
+  }
+}
 
 function mixCacheKey(aName:string, bName:string) {
   return [aName, bName].sort().join('|');
@@ -144,6 +167,7 @@ async function reportMixError(message:string, meta?:any) {
       body: JSON.stringify({ level: 'error', message, meta })
     });
   } catch (e) {}
+  setMixStatus(`Mix server: error (${mixApiBase})`);
 }
 
 async function loadMixCacheFromServer() {

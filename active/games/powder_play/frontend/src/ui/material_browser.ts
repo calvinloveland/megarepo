@@ -203,6 +203,12 @@ export function mountMaterialBrowser(root: HTMLElement) {
         if ((window as any).__registerMaterial) {
           (window as any).__registerMaterial(depMat);
         }
+        addDiscoveredMaterial(depMat);
+        try {
+          const list = (window as any).__discoveredMaterials || [];
+          list.push(depMat);
+          (window as any).__discoveredMaterials = list;
+        } catch (e) {}
       }
     } catch (e) {
       console.warn('ensureReactionMaterials failed', e);
