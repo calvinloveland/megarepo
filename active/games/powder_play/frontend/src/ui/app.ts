@@ -217,6 +217,18 @@ function pairKey(a:number, b:number) {
   return a < b ? `${a}:${b}` : `${b}:${a}`;
 }
 
+function getAncestors(mat:any) {
+  if (!mat) return [] as string[];
+  const base = mat.name ? [mat.name] : [];
+  if (Array.isArray(mat.__mixAncestors)) {
+    return Array.from(new Set([...base, ...mat.__mixAncestors]));
+  }
+  if (Array.isArray(mat.__mixParents)) {
+    return Array.from(new Set([...base, ...mat.__mixParents]));
+  }
+  return base;
+}
+
 function hasExplicitReaction(aId:number, bId:number) {
   const aMat = materialById.get(aId);
   const bMat = materialById.get(bId);
@@ -241,6 +253,9 @@ function createAutoMixMaterial(aMat:any, bMat:any) {
   const aDensity = typeof aMat?.density === 'number' ? aMat.density : 1;
   const bDensity = typeof bMat?.density === 'number' ? bMat.density : 1;
   const density = (aDensity + bDensity) / 2;
+  const aAncestors = getAncestors(aMat);
+  const bAncestors = getAncestors(bMat);
+  const ancestors = Array.from(new Set([...aAncestors, ...bAncestors]));
   return {
     type: 'material',
     name,
@@ -248,6 +263,7 @@ function createAutoMixMaterial(aMat:any, bMat:any) {
     color,
     density,
     __mixParents: [aName, bName],
+    __mixAncestors: ancestors,
     primitives: [
       {op:'read', dx:0, dy:1},
       {op:'if', cond:{eq:{value:0}}, then:[{op:'move', dx:0, dy:1}]},
@@ -273,9 +289,11 @@ function addAutoMixReaction(aId:number, bId:number) {
   const aMat = materialById.get(aId);
   const bMat = materialById.get(bId);
   if (!aMat || !bMat || !aMat.name || !bMat.name) return;
-  const aParents = Array.isArray(aMat.__mixParents) ? aMat.__mixParents : [];
-  const bParents = Array.isArray(bMat.__mixParents) ? bMat.__mixParents : [];
-  if (aParents.includes(bMat.name) || bParents.includes(aMat.name)) return;
+  const aAncestors = getAncestors(aMat);
+  const bAncestors = getAncestors(bMat);
+  for (const anc of aAncestors) {
+    if (bAncestors.includes(anc)) return;
+  }
   const key = pairKey(aId, bId);
   if (autoMixPairs.has(key)) return;
   autoMixPairs.add(key);
@@ -312,11 +330,13 @@ function maybeAutoGenerateMixes(buf:Uint16Array, w:number, h:number) {
         if (b && b !== a) {
           const aMat = materialById.get(a);
           const bMat = materialById.get(b);
-          const aParents = Array.isArray(aMat?.__mixParents) ? aMat.__mixParents : [];
-          const bParents = Array.isArray(bMat?.__mixParents) ? bMat.__mixParents : [];
-          if (aParents.includes(bMat?.name) || bParents.includes(aMat?.name)) {
-            continue;
+          const aAncestors = getAncestors(aMat);
+          const bAncestors = getAncestors(bMat);
+          let sharesAncestor = false;
+          for (const anc of aAncestors) {
+            if (bAncestors.includes(anc)) { sharesAncestor = true; break; }
           }
+          if (sharesAncestor) continue;
           const key = pairKey(a, b);
           if (!autoMixPairs.has(key) && !hasExplicitReaction(a, b)) {
             pairs.push([a, b]);
@@ -328,11 +348,13 @@ function maybeAutoGenerateMixes(buf:Uint16Array, w:number, h:number) {
         if (b && b !== a) {
           const aMat = materialById.get(a);
           const bMat = materialById.get(b);
-          const aParents = Array.isArray(aMat?.__mixParents) ? aMat.__mixParents : [];
-          const bParents = Array.isArray(bMat?.__mixParents) ? bMat.__mixParents : [];
-          if (aParents.includes(bMat?.name) || bParents.includes(aMat?.name)) {
-            continue;
+          const aAncestors = getAncestors(aMat);
+          const bAncestors = getAncestors(bMat);
+          let sharesAncestor = false;
+          for (const anc of aAncestors) {
+            if (bAncestors.includes(anc)) { sharesAncestor = true; break; }
           }
+          if (sharesAncestor) continue;
           const key = pairKey(a, b);
           if (!autoMixPairs.has(key) && !hasExplicitReaction(a, b)) {
             pairs.push([a, b]);
