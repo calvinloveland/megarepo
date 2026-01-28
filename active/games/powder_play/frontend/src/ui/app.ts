@@ -155,14 +155,16 @@ async function clearMixCacheOnServer() {
 function loadMixCacheFromLocal() {
   try {
     const raw = localStorage.getItem(mixCacheStorageKey);
-    if (!raw) return;
-    const parsed = JSON.parse(raw) as Record<string, any>;
-    for (const [key, value] of Object.entries(parsed)) {
-      mixCache.set(key, value);
+    if (raw) {
+      const parsed = JSON.parse(raw) as Record<string, any>;
+      for (const [key, value] of Object.entries(parsed)) {
+        mixCache.set(key, value);
+      }
     }
     mixCacheReady = true;
   } catch (e) {
     console.warn('mix cache local load failed', e);
+    mixCacheReady = true;
   }
 }
 
@@ -475,10 +477,11 @@ function normalizeMixMaterial(mat:any, aMat:any, bMat:any) {
     color: base.color,
     density: typeof base.density === 'number' ? base.density : 1,
     primitives: base.primitives,
-    budgets: base.budgets || {max_ops: 14, max_spawns: 0},
     __mixParents: [aName, bName],
     __mixAncestors: ancestors
   };
+  } finally {
+    mixCacheReady = true;
 }
 
 function tryNormalizeMixMaterial(mat:any, aMat:any, bMat:any) {
