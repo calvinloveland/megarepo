@@ -117,13 +117,12 @@ const server = http.createServer(async (req, res) => {
         process.env.POWDER_PLAY_OLLAMA_URL ||
         "http://localhost:11434/api/generate";
       const model = process.env.POWDER_PLAY_OLLAMA_MODEL || "llama3.2";
-      const temperature = parseFloat(
-        process.env.POWDER_PLAY_OLLAMA_TEMPERATURE || "0.2",
-      );
-      const maxTokens = parseInt(
-        process.env.POWDER_PLAY_OLLAMA_MAX_TOKENS || "20",
-        10,
-      );
+      // allow per-request overrides from client body
+      const envTemperature = parseFloat(process.env.POWDER_PLAY_OLLAMA_TEMPERATURE || "0.2");
+      const envMaxTokens = parseInt(process.env.POWDER_PLAY_OLLAMA_MAX_TOKENS || "20", 10);
+      const requestedOptions = body?.options || {};
+      const temperature = typeof requestedOptions.temperature === 'number' ? requestedOptions.temperature : envTemperature;
+      const maxTokens = parseInt(requestedOptions.num_predict || requestedOptions.maxTokens || envMaxTokens, 10);
       console.log("[mix_server] llm request", {
         model,
         format,
