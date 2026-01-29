@@ -357,6 +357,58 @@ function extractNameOnlyResponse(resp:any) {
 
 const allowedTags = new Set(['sand', 'flow', 'float', 'static']);
 
+const mixTagExamples = [
+  'Sand+Water => sand',
+  'Fire+Sand => static',
+  'Water+Oil => flow',
+  'Steam+Air => float',
+  'Salt+Water => flow',
+  'Metal+Fire => flow',
+  'Stone+Air => sand',
+  'Wood+Fire => static',
+  'Smoke+Air => float',
+  'Sand+Sand => sand'
+];
+
+const mixDensityExamples = [
+  'Sand+Water => 1.3',
+  'Fire+Sand => 2.4',
+  'Water+Oil => 0.9',
+  'Steam+Air => 0.2',
+  'Salt+Water => 1.1',
+  'Metal+Fire => 3.5',
+  'Stone+Air => 0.6',
+  'Wood+Fire => 1.2',
+  'Smoke+Air => 0.1',
+  'Sand+Sand => 1.6'
+];
+
+const mixColorExamples = [
+  'Sand+Water => 150,140,120',
+  'Fire+Sand => 190,200,210',
+  'Water+Oil => 220,210,180',
+  'Steam+Air => 200,200,220',
+  'Salt+Water => 120,150,200',
+  'Metal+Fire => 220,120,60',
+  'Stone+Air => 180,170,160',
+  'Wood+Fire => 40,40,40',
+  'Smoke+Air => 180,180,190',
+  'Sand+Sand => 160,150,130'
+];
+
+const mixDescriptionExamples = [
+  'Sand+Water => Fine damp grit.',
+  'Fire+Sand => Clear brittle solid.',
+  'Water+Oil => Cloudy liquid blend.',
+  'Steam+Air => Light drifting vapor.',
+  'Salt+Water => Briny liquid.',
+  'Metal+Fire => Hot viscous metal.',
+  'Stone+Air => Fine granular powder.',
+  'Wood+Fire => Brittle black solid.',
+  'Smoke+Air => Thin sooty haze.',
+  'Sand+Sand => Heavy granular sand.'
+];
+
 function getRecentMixLines(limit = 12) {
   const lines: string[] = [];
   for (const [key, value] of mixCache.entries()) {
@@ -379,6 +431,38 @@ function buildMixNamePrompt(aName: string, bName: string) {
   return lines.join('\n');
 }
 
+function buildMixTagsPrompt(aName: string, bName: string) {
+  const lines = ['Tags:'];
+  lines.push(...mixTagExamples);
+  lines.push(`${aName}+${bName} =>`);
+  lines.push('Return only comma-separated tags from: sand, flow, float, static.');
+  return lines.join('\n');
+}
+
+function buildMixDensityPrompt(aName: string, bName: string) {
+  const lines = ['Densities:'];
+  lines.push(...mixDensityExamples);
+  lines.push(`${aName}+${bName} =>`);
+  lines.push('Return only the numeric density.');
+  return lines.join('\n');
+}
+
+function buildMixColorPrompt(aName: string, bName: string) {
+  const lines = ['Colors (RGB):'];
+  lines.push(...mixColorExamples);
+  lines.push(`${aName}+${bName} =>`);
+  lines.push('Return only three comma-separated integers (r,g,b).');
+  return lines.join('\n');
+}
+
+function buildMixDescriptionPrompt(aName: string, bName: string) {
+  const lines = ['Descriptions:'];
+  lines.push(...mixDescriptionExamples);
+  lines.push(`${aName}+${bName} =>`);
+  lines.push('Return a short sentence only.');
+  return lines.join('\n');
+}
+
 function parseMixNameResponse(resp: string, aName: string, bName: string) {
   if (!resp) return '';
   const rawLines = resp.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
@@ -395,6 +479,54 @@ function parseMixNameResponse(resp: string, aName: string, bName: string) {
   if (isNoReactionName(line)) return null;
   if (isGenericMixName(line, aName, bName)) return '';
   return line;
+}
+
+function parseTagsResponse(resp: string) {
+  if (!resp) return [] as string[];
+  const tokens = resp
+    .toLowerCase()
+    .split(/[^a-z]+/)
+    .map((t) => t.trim())
+    .filter(Boolean);
+  const tags = tokens.filter((t) => allowedTags.has(t));
+  return Array.from(new Set(tags));
+}
+
+function parseDensityResponse(resp: string) {
+  if (!resp) return null as number | null;
+  const match = resp.match(/-?\d+(?:\.\d+)?/);
+  if (!match) return null;
+  const value = Number.parseFloat(match[0]);
+  if (!Number.isFinite(value)) return null;
+  return Math.max(0.05, Math.min(10, value));
+}
+
+function parseColorResponse(resp: string) {
+  if (!resp) return null as number[] | null;
+  const matches = resp.match(/-?\d+(?:\.\d+)?/g) || [];
+  if (matches.length < 3) return null;
+  const nums = matches.slice(0, 3).map((m) => Math.round(Number.parseFloat(m)));
+  if (nums.some((n) => !Number.isFinite(n))) return null;
+  return nums.map((n) => Math.max(0, Math.min(255, n)));
+}
+
+function parseDescriptionResponse(resp: string) {
+  if (!resp) return '';
+  const line = resp.split(/\r?\n/).map((l) => l.trim()).filter(Boolean)[0] || '';
+  return line.replace(/^[-–—\s]+/, '').trim();
+}
+
+function fallbackTags(aMat: any, bMat: any) {
+  const aTags = Array.isArray(aMat?.tags) ? aMat.tags : [];
+  const bTags = Array.isArray(bMat?.tags) ? bMat.tags : [];
+  for (const tag of aTags) {
+    if (bTags.includes(tag) && allowedTags.has(tag)) return [tag];
+  }
+  const ordered = ['flow', 'sand', 'float', 'static'];
+  for (const tag of ordered) {
+    if (aTags.includes(tag) || bTags.includes(tag)) return [tag];
+  }
+  return ['static'];
 }
 
 function isNoReactionName(name: string) {
@@ -692,24 +824,57 @@ async function generateMixMaterial(aMat:any, bMat:any) {
   }
   setMixName(candidateName);
   setMixProgress(55);
-  const prompt = `JSON only. Schema: {"type":"material","name":"${candidateName}","tags":["sand"|"flow"|"float"],"density":<number>,"color":[r,g,b],"description":"<string>","reactions":[...]?}.
-Example:
-{"type":"material","name":"${candidateName}","tags":["flow"],"density":1.2,"color":[120,140,200],"description":"..."}
-Now mix ${aName}+${bName}.`;
-  const ast = await runLocalLLM(prompt);
+  const tagPrompt = buildMixTagsPrompt(aName, bName);
+  const densityPrompt = buildMixDensityPrompt(aName, bName);
+  const colorPrompt = buildMixColorPrompt(aName, bName);
+  const descPrompt = buildMixDescriptionPrompt(aName, bName);
+
+  const tagResp = await runLocalLLMText(tagPrompt);
+  setMixProgress(65);
+  const densityResp = await runLocalLLMText(densityPrompt);
+  setMixProgress(72);
+  const colorResp = await runLocalLLMText(colorPrompt);
+  setMixProgress(80);
+  const descResp = await runLocalLLMText(descPrompt);
   setMixProgress(85);
-  const normalized = tryNormalizeMixMaterial(ast, aMat, bMat);
-  if (normalized) return normalized;
-  await reportMixError('mix normalize failed', { a: aName, b: bName, name: candidateName, stage: 'first' });
-  const retryPrompt = `JSON only. Required keys: type,name,tags,density,color. Name must be "${candidateName}". No extra keys.`;
-  const retryAst = await runLocalLLM(retryPrompt);
-  setMixProgress(90);
-  const retryNormalized = tryNormalizeMixMaterial(retryAst, aMat, bMat);
-  if (!retryNormalized) {
-    await reportMixError('mix normalize failed', { a: aName, b: bName, name: candidateName, stage: 'retry' });
+
+  let tags = parseTagsResponse(tagResp);
+  if (!tags.length) {
+    await reportMixError('mix tags parse failed', { a: aName, b: bName, name: candidateName, response: tagResp });
+    tags = fallbackTags(aMat, bMat);
+  }
+  let density = parseDensityResponse(densityResp);
+  if (density === null) {
+    await reportMixError('mix density parse failed', { a: aName, b: bName, name: candidateName, response: densityResp });
+    const aDensity = typeof aMat?.density === 'number' ? aMat.density : 1;
+    const bDensity = typeof bMat?.density === 'number' ? bMat.density : 1;
+    density = Math.max(0.05, Math.min(10, (aDensity + bDensity) / 2));
+  }
+  let color = parseColorResponse(colorResp);
+  if (!color) {
+    await reportMixError('mix color parse failed', { a: aName, b: bName, name: candidateName, response: colorResp });
+    color = deriveColorFromName(candidateName);
+  }
+  let description = parseDescriptionResponse(descResp);
+  if (!description) {
+    await reportMixError('mix description parse failed', { a: aName, b: bName, name: candidateName, response: descResp });
+    description = `Auto-generated mix of ${aName} and ${bName}.`;
+  }
+
+  const draft = {
+    type: 'material',
+    name: candidateName,
+    tags,
+    density,
+    color,
+    description
+  };
+  const normalized = tryNormalizeMixMaterial(draft, aMat, bMat);
+  if (!normalized) {
+    await reportMixError('mix normalize failed', { a: aName, b: bName, name: candidateName, stage: 'properties', responses: { tagResp, densityResp, colorResp, descResp } });
     return null;
   }
-  return retryNormalized;
+  return normalized;
 }
 
 function applyMixMaterial(mixSource:any, aMat:any, bMat:any) {
