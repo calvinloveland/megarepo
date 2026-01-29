@@ -98,7 +98,7 @@ const pendingMixes = new Set<string>();
 const mix404Logged = new Set<string>();
 const mixCacheStorageKey = "alchemistPowder.mixCache.v2";
 const mixCacheVersionKey = "alchemistPowder.mixCache.version";
-const mixCacheVersion = "v4";
+const mixCacheVersion = "v5";
 const mixApiBase = (() => {
   const override = (window as any).__mixApiBase;
   if (override) return override;
