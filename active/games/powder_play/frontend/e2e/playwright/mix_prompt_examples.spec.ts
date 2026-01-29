@@ -3,7 +3,7 @@ import fs from 'fs';
 import path from 'path';
 
 function loadAppSource() {
-  const filePath = path.resolve(__dirname, '..', '..', '..', 'src', 'ui', 'app.ts');
+  const filePath = path.resolve(__dirname, '..', '..', 'src', 'ui', 'app.ts');
   return fs.readFileSync(filePath, 'utf-8');
 }
 
