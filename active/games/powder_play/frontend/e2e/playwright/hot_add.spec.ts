@@ -5,7 +5,7 @@ import * as path from 'path';
 
 // Verifies that adding a material to source triggers sync and auto-load in the UI
 test('hot-add material is discovered and auto-loaded', async ({ page }) => {
-  const baseUrl = 'http://127.0.0.1:5174/';
+  const baseUrl = 'http://127.0.0.1:5173/';
   await page.goto(baseUrl);
   // surface browser console messages in test logs to help debugging
   page.on('console', (msg) => console.log('PAGE LOG:', msg.text()));
@@ -16,7 +16,14 @@ test('hot-add material is discovered and auto-loaded', async ({ page }) => {
 
   // Write a temp material into the source materials folder
   const matPath = path.resolve(__dirname, '../../../materials/hot_added.json');
-  const mat = { type: 'material', name: 'HotAdded', description: 'hot added', primitives: [], budgets: { max_ops:1, max_spawns:0 } };
+  const mat = {
+    type: 'material',
+    name: 'HotAdded',
+    description: 'hot added',
+    tags: ['sand'],
+    density: 1.4,
+    color: [180, 140, 90]
+  };
   fs.writeFileSync(matPath, JSON.stringify(mat, null, 2));
 
   // Expose a callback so the page can notify us when it has loaded a material
