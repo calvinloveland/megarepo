@@ -107,6 +107,9 @@ const mixApiBase = (() => {
   }
   return "http://127.0.0.1:8787";
 })();
+// default LLM options for mix generation (tuned from experiments)
+const MIX_NAME_OPTIONS = { tokens: 16, temperature: 0.2 };
+const MIX_PROPERTY_OPTIONS = { tokens: 20, temperature: 0.2 };
 let mixBlocked = false;
 let mixCacheReady = false;
 let mixProgress = 0;
@@ -918,7 +921,7 @@ async function generateMixMaterial(aMat: any, bMat: any) {
   const namePrompt = buildMixNamePrompt(aName, bName);
   const retryNamePrompt = `Mixes:\n${aName}+${bName}=\nReturn only the new material name on the final line.`;
   async function getValidName(prompt: string) {
-    const nameResp = await runLocalLLMText(prompt);
+    const nameResp = await runLocalLLMText(prompt, MIX_NAME_OPTIONS);
     const candidate = parseMixNameResponse(nameResp, aName, bName);
     if (candidate === null) return null;
     if (!candidate) return "";
@@ -944,13 +947,13 @@ async function generateMixMaterial(aMat: any, bMat: any) {
   const colorPrompt = buildMixColorPrompt(candidateName);
   const descPrompt = buildMixDescriptionPrompt(candidateName);
 
-  const tagResp = await runLocalLLMText(tagPrompt);
+  const tagResp = await runLocalLLMText(tagPrompt, MIX_PROPERTY_OPTIONS);
   setMixProgress(65);
-  const densityResp = await runLocalLLMText(densityPrompt);
+  const densityResp = await runLocalLLMText(densityPrompt, MIX_PROPERTY_OPTIONS);
   setMixProgress(72);
-  const colorResp = await runLocalLLMText(colorPrompt);
+  const colorResp = await runLocalLLMText(colorPrompt, MIX_PROPERTY_OPTIONS);
   setMixProgress(80);
-  const descResp = await runLocalLLMText(descPrompt);
+  const descResp = await runLocalLLMText(descPrompt, MIX_PROPERTY_OPTIONS);
   setMixProgress(85);
 
   let tags = parseTagsResponse(tagResp);
