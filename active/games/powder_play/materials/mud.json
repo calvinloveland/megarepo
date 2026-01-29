@@ -1,0 +1,8 @@
+{
+  "type": "material",
+  "name": "Mud",
+  "description": "Wet soil that slowly flows.",
+  "color": [110, 90, 70],
+  "density": 1.8,
+  "tags": ["flow", "mud"]
+}

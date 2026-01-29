@@ -58,6 +58,9 @@ export function applyTagBehaviors(
   const isExplosive = tags.includes("explosive");
   const isFire = tags.includes("fire");
   const burnsOut = tags.includes("burns_out");
+  const isSeed = tags.includes("seed");
+  const isPlant = tags.includes("plant");
+  const canGrow = tags.includes("grow");
 
   if (isReactiveWater) {
     for (const d of dirs) {
@@ -88,6 +91,26 @@ export function applyTagBehaviors(
           }
         }
       }
+      return { consumed: true };
+    }
+  }
+
+  if (isSeed) {
+    for (const d of dirs) {
+      const nx = x + d.dx;
+      const ny = y + d.dy;
+      if (nx < 0 || nx >= width || ny < 0 || ny >= height) continue;
+      const nidx = ny * width + nx;
+      if (reacted[nidx]) continue;
+      const ncell = grid[nidx];
+      if (!ncell) continue;
+      if (!hasTag(tagsById, ncell, "mud")) continue;
+      const plantId = nameToId.get("Plant");
+      const dirtId = nameToId.get("Dirt");
+      placeCell(nextGrid, idx, plantId);
+      reacted[idx] = 1;
+      if (dirtId) placeCell(nextGrid, nidx, dirtId);
+      reacted[nidx] = 1;
       return { consumed: true };
     }
   }
@@ -123,6 +146,20 @@ export function applyTagBehaviors(
     placeCell(nextGrid, idx, smokeId);
     reacted[idx] = 1;
     consumed = true;
+  }
+
+  if (isPlant && canGrow && rng() < 0.06) {
+    const plantId = nameToId.get("Plant");
+    if (plantId) {
+      const ny = y - 1;
+      if (ny >= 0) {
+        const nidx = ny * width + x;
+        if (grid[nidx] === 0 && nextGrid[nidx] === 0 && !reacted[nidx]) {
+          nextGrid[nidx] = plantId;
+          reacted[nidx] = 1;
+        }
+      }
+    }
   }
 
   return { consumed };

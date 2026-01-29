@@ -107,4 +107,74 @@ describe("tag behaviors", () => {
     expect(result.consumed).toBe(false);
     expect(nextGrid[nidx]).toBe(fireId);
   });
+
+  it("seed grows into plant when touching mud", () => {
+    const width = 3;
+    const height = 3;
+    const grid = new Uint16Array(width * height);
+    const nextGrid = new Uint16Array(width * height);
+    const tagsById = new Map<number, string[]>();
+    const nameToId = new Map<string, number>();
+    const reacted = new Uint8Array(width * height);
+
+    const seedId = 9;
+    const mudId = 10;
+    const plantId = 11;
+    const dirtId = 12;
+    tagsById.set(seedId, ["sand", "seed"]);
+    tagsById.set(mudId, ["flow", "mud"]);
+    nameToId.set("Plant", plantId);
+    nameToId.set("Dirt", dirtId);
+
+    const idx = 1 + 1 * width;
+    const nidx = 1 + 2 * width;
+    grid[idx] = seedId;
+    grid[nidx] = mudId;
+
+    const result = applyTagBehaviors(seedId, 1, 1, idx, tagsById.get(seedId)!, {
+      width,
+      height,
+      grid,
+      nextGrid,
+      tagsById,
+      nameToId,
+      reacted,
+      rng: () => 0.0,
+    });
+
+    expect(result.consumed).toBe(true);
+    expect(nextGrid[idx]).toBe(plantId);
+    expect(nextGrid[nidx]).toBe(dirtId);
+  });
+
+  it("plant grows upward when space is empty", () => {
+    const width = 3;
+    const height = 3;
+    const grid = new Uint16Array(width * height);
+    const nextGrid = new Uint16Array(width * height);
+    const tagsById = new Map<number, string[]>();
+    const nameToId = new Map<string, number>();
+    const reacted = new Uint8Array(width * height);
+
+    const plantId = 13;
+    tagsById.set(plantId, ["static", "plant", "grow"]);
+    nameToId.set("Plant", plantId);
+
+    const idx = 1 + 1 * width;
+    grid[idx] = plantId;
+
+    const result = applyTagBehaviors(plantId, 1, 1, idx, tagsById.get(plantId)!, {
+      width,
+      height,
+      grid,
+      nextGrid,
+      tagsById,
+      nameToId,
+      reacted,
+      rng: () => 0.0,
+    });
+
+    expect(result.consumed).toBe(false);
+    expect(nextGrid[1 + 0 * width]).toBe(plantId);
+  });
 });

@@ -36,7 +36,12 @@
           "explosive",
           "burns_out",
           "smoke",
-          "steam"
+          "steam",
+          "mud",
+          "seed",
+          "plant",
+          "grow",
+          "dirt"
         ]
       }
     },

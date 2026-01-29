@@ -33,7 +33,16 @@ export function mountMaterialBrowser(root: HTMLElement) {
   const discovered = new Set<string>();
   let selectedName: string | null = null;
 
-  const starterNames = new Set(["Fire", "Sand", "Salt", "Water"]);
+  const starterNames = new Set([
+    "Fire",
+    "Sand",
+    "Salt",
+    "Water",
+    "Dirt",
+    "Mud",
+    "Seed",
+    "Plant",
+  ]);
 
   let known = new Set<string>();
   let skipAutoLoadOnce = false;

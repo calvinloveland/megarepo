@@ -14,6 +14,10 @@ const tagExamples = [
   "Glass => static",
   "Fire => float, fire, burns_out",
   "Sodium => sand, reactive_water, explosive",
+  "Mud => flow, mud",
+  "Seed => sand, seed",
+  "Plant => static, plant, grow",
+  "Dirt => sand, dirt",
 ];
 
 const densityExamples = [
@@ -68,6 +72,11 @@ const allowedTags = new Set([
   "burns_out",
   "smoke",
   "steam",
+  "mud",
+  "seed",
+  "plant",
+  "grow",
+  "dirt",
 ]);
 
 function buildPrompt(
@@ -123,7 +132,7 @@ test("llm responds to property prompts", async ({ request }, testInfo) => {
         "Tags:",
         tagExamples,
         name,
-        "Return only comma-separated tags from: sand, flow, float, static, water, fire, flammable, reactive_water, explosive, burns_out, smoke, steam.",
+        "Return only comma-separated tags from: sand, flow, float, static, water, fire, flammable, reactive_water, explosive, burns_out, smoke, steam, mud, seed, plant, grow, dirt.",
       ),
       density: buildPrompt(
         "Densities:",

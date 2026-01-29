@@ -1,0 +1,8 @@
+{
+  "type": "material",
+  "name": "Seed",
+  "description": "Seeds sprout into plants when embedded in mud.",
+  "color": [160, 140, 90],
+  "density": 1.2,
+  "tags": ["sand", "seed"]
+}

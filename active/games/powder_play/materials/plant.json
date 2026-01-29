@@ -1,0 +1,8 @@
+{
+  "type": "material",
+  "name": "Plant",
+  "description": "Growing plant that slowly extends upward.",
+  "color": [40, 140, 60],
+  "density": 0.9,
+  "tags": ["static", "plant", "grow"]
+}

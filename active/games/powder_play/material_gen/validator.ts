@@ -11,6 +11,11 @@ const allowedTags = new Set([
   "burns_out",
   "smoke",
   "steam",
+  "mud",
+  "seed",
+  "plant",
+  "grow",
+  "dirt",
 ]);
 
 // Lightweight validator to avoid heavy dependency during early prototyping.

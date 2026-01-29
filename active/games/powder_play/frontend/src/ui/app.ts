@@ -398,6 +398,11 @@ const allowedTags = new Set([
   "burns_out",
   "smoke",
   "steam",
+  "mud",
+  "seed",
+  "plant",
+  "grow",
+  "dirt",
 ]);
 
 const mixTagExamples = [
@@ -413,6 +418,10 @@ const mixTagExamples = [
   "Glass => static",
   "Fire => float, fire, burns_out",
   "Sodium => sand, reactive_water, explosive",
+  "Mud => flow, mud",
+  "Seed => sand, seed",
+  "Plant => static, plant, grow",
+  "Dirt => sand, dirt",
 ];
 
 const mixDensityExamples = [
@@ -486,7 +495,7 @@ function buildMixTagsPrompt(name: string) {
   lines.push(...mixTagExamples);
   lines.push(`${name} =>`);
   lines.push(
-    "Return only comma-separated tags from: sand, flow, float, static, water, fire, flammable, reactive_water, explosive, burns_out, smoke, steam.",
+    "Return only comma-separated tags from: sand, flow, float, static, water, fire, flammable, reactive_water, explosive, burns_out, smoke, steam, mud, seed, plant, grow, dirt.",
   );
   return lines.join("\n");
 }

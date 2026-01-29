@@ -1,0 +1,8 @@
+{
+  "type": "material",
+  "name": "Dirt",
+  "description": "Loose soil that behaves like sand.",
+  "color": [130, 110, 80],
+  "density": 1.6,
+  "tags": ["sand", "dirt"]
+}
