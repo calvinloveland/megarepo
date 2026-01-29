@@ -112,6 +112,9 @@ const defaultMixNameOptions = { tokens: 16, temperature: 0.2 };
 const defaultMixPropertyOptions = { tokens: 20, temperature: 0.2 };
 const MIX_NAME_OPTIONS = Object.assign({}, defaultMixNameOptions, (window as any).__mixNameOptions || {});
 const MIX_PROPERTY_OPTIONS = Object.assign({}, defaultMixPropertyOptions, (window as any).__mixPropertyOptions || {});
+// cache for per-name property responses to avoid re-requesting LLM for same candidate
+const mixPropertyCache = new Map<string, any>();
+
 let mixBlocked = false;
 let mixCacheReady = false;
 let mixProgress = 0;
@@ -975,16 +978,32 @@ async function generateMixMaterial(aMat: any, bMat: any) {
     return { resp: r, dur: Date.now() - s };
   })();
 
-  const [tagRes, densityRes, colorRes, descRes] = await Promise.all([tagPromise, densityPromise, colorPromise, descPromise]);
-  const tagResp = tagRes?.resp || "";
-  const densityResp = densityRes?.resp || "";
-  const colorResp = colorRes?.resp || "";
-  const descResp = descRes?.resp || "";
+  // check cache first
+  const cached = mixPropertyCache.get(candidateName);
+  let tagResp: string, densityResp: string, colorResp: string, descResp: string;
+  if (cached) {
+    tagResp = cached.tagResp;
+    densityResp = cached.densityResp;
+    colorResp = cached.colorResp;
+    descResp = cached.descResp;
+    timing.tag = cached.timing?.tag || 0;
+    timing.density = cached.timing?.density || 0;
+    timing.color = cached.timing?.color || 0;
+    timing.desc = cached.timing?.desc || 0;
+  } else {
+    const [tagRes, densityRes, colorRes, descRes] = await Promise.all([tagPromise, densityPromise, colorPromise, descPromise]);
+    tagResp = tagRes?.resp || "";
+    densityResp = densityRes?.resp || "";
+    colorResp = colorRes?.resp || "";
+    descResp = descRes?.resp || "";
 
-  timing.tag = tagRes?.dur || 0;
-  timing.density = densityRes?.dur || 0;
-  timing.color = colorRes?.dur || 0;
-  timing.desc = descRes?.dur || 0;
+    timing.tag = tagRes?.dur || 0;
+    timing.density = densityRes?.dur || 0;
+    timing.color = colorRes?.dur || 0;
+    timing.desc = descRes?.dur || 0;
+
+    mixPropertyCache.set(candidateName, { tagResp, densityResp, colorResp, descResp, timing: { tag: timing.tag, density: timing.density, color: timing.color, desc: timing.desc } });
+  }
 
   setMixProgress(85);
 
