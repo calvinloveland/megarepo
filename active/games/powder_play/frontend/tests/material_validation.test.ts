@@ -17,6 +17,18 @@ describe('material validator', () => {
     const res = await validateMaterial(ast);
     expect(res.ok).toBe(true);
   });
+
+  it('accepts a tag-based material without primitives', async () => {
+    const ast = {
+      type: 'material',
+      name: 'mist',
+      tags: ['float'],
+      density: 0.4,
+      color: [180, 200, 220]
+    } as any;
+    const res = await validateMaterial(ast);
+    expect(res.ok).toBe(true);
+  });
 });
 
 describe('interpreter', () => {
