@@ -473,6 +473,10 @@ function parseMixNameResponse(resp: string, aName: string, bName: string) {
   }
   line = line.replace(/^[-–—\s]+/, '').trim();
   line = line.replace(/^['"`]+|['"`]+$/g, '').trim();
+  const firstWordMatch = line.match(/[A-Za-z0-9_-]+/);
+  if (firstWordMatch) {
+    line = firstWordMatch[0].trim();
+  }
   const lower = line.toLowerCase();
   if (lower.includes('no reaction') || lower.includes('no_reaction')) return null;
   if (!line) return '';
