@@ -103,7 +103,7 @@ export function mountMaterialBrowser(root: HTMLElement) {
             <strong class="text-amber-100">${m.name}</strong>
             <small class="alchemy-muted">${m.file}</small>
           </div>
-          <div class="materials-tags text-xs text-amber-200/70"></div>
+          <div class="materials-tags text-xs text-amber-200/70 hidden"></div>
         </div>
       `;
       row.onclick = async () => {
@@ -130,9 +130,7 @@ export function mountMaterialBrowser(root: HTMLElement) {
           const tagsEl = row.querySelector(
             ".materials-tags",
           ) as HTMLElement | null;
-          if (tagsEl && Array.isArray(mt?.tags) && mt.tags.length) {
-            tagsEl.textContent = mt.tags.join(", ");
-          }
+          if (tagsEl) tagsEl.textContent = "";
         } catch (e) {}
       })();
       listEl.appendChild(row);
@@ -198,16 +196,14 @@ export function mountMaterialBrowser(root: HTMLElement) {
           <strong class="text-amber-100">${mat.name}</strong>
           <small class="alchemy-muted">runtime</small>
         </div>
-        <div class="materials-tags text-xs text-amber-200/70"></div>
+        <div class="materials-tags text-xs text-amber-200/70 hidden"></div>
       </div>
     `;
     const sw = row.querySelector(".swatch") as HTMLElement;
     if (Array.isArray(mat.color))
       sw.style.background = `rgb(${mat.color[0]},${mat.color[1]},${mat.color[2]})`;
     const tagsEl = row.querySelector(".materials-tags") as HTMLElement | null;
-    if (tagsEl && Array.isArray(mat?.tags) && mat.tags.length) {
-      tagsEl.textContent = mat.tags.join(", ");
-    }
+    if (tagsEl) tagsEl.textContent = "";
     row.onclick = () => {
       try {
         (window as any).__selectMaterialByName?.(mat.name);
