@@ -42,10 +42,6 @@ test('collect mix generation timings', async ({ page }) => {
     return arr.some((t:any)=> t.a === aName && t.b === bName);
   }, a, b, { timeout: 30000 }).catch(()=>null);
 
-  // capture console & page errors for debugging
-  const logs: any[] = [];
-  page.on('console', (m) => logs.push({ type: 'console', text: m.text() }));
-  page.on('pageerror', (err) => logs.push({ type: 'pageerror', error: String(err) }));
 
   // retrieve timings
   const timings = await page.evaluate(() => (window as any).__mixGenerationTimings || []);
