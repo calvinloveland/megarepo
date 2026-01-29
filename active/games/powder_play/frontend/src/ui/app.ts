@@ -1,4 +1,4 @@
-import { runLocalLLM } from '../material_api';
+import { runLocalLLM, runLocalLLMText } from '../material_api';
 
 export function initApp(root: HTMLElement) {
   root.className = 'min-h-screen w-full p-4';
@@ -302,6 +302,48 @@ function extractNameOnlyResponse(resp:any) {
   return '';
 }
 
+const allowedTags = new Set(['sand', 'flow', 'float']);
+
+function getRecentMixLines(limit = 12) {
+  const lines: string[] = [];
+  for (const [key, value] of mixCache.entries()) {
+    if (!value || typeof value !== 'object') continue;
+    if (isNoReactionPayload(value)) continue;
+    if (!value.name || typeof value.name !== 'string') continue;
+    const parts = key.split('|');
+    if (parts.length !== 2) continue;
+    lines.push(`${parts[0]}+${parts[1]}=${value.name}`);
+  }
+  if (lines.length <= limit) return lines;
+  return lines.slice(lines.length - limit);
+}
+
+function buildMixNamePrompt(aName: string, bName: string) {
+  const lines = ['Mixes:'];
+  const recent = getRecentMixLines();
+  if (recent.length) lines.push(...recent);
+  lines.push(`${aName}+${bName}=`);
+  return lines.join('\n');
+}
+
+function parseMixNameResponse(resp: string, aName: string, bName: string) {
+  if (!resp) return '';
+  const rawLines = resp.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+  if (!rawLines.length) return '';
+  let line = rawLines[rawLines.length - 1];
+  if (line.includes('=')) {
+    line = line.slice(line.lastIndexOf('=') + 1).trim();
+  }
+  line = line.replace(/^[-–—\s]+/, '').trim();
+  line = line.replace(/^['"`]+|['"`]+$/g, '').trim();
+  const lower = line.toLowerCase();
+  if (lower.includes('no reaction') || lower.includes('no_reaction')) return null;
+  if (!line) return '';
+  if (isNoReactionName(line)) return null;
+  if (isGenericMixName(line, aName, bName)) return '';
+  return line;
+}
+
 function isNoReactionName(name: string) {
   const cleaned = name.trim().toLowerCase();
   if (!cleaned) return false;
@@ -528,17 +570,32 @@ function normalizeMixMaterial(mat:any, aMat:any, bMat:any) {
   const ancestors = Array.from(new Set([...aAncestors, ...bAncestors]));
   const base = mat && typeof mat === 'object' ? mat : {};
   if (isNoReactionPayload(base)) return null;
-  if (!base.name || !Array.isArray(base.primitives) || base.primitives.length === 0) {
+  if (!base.name) {
     throw new Error('LLM material missing required fields');
   }
+  const hasPrimitives = Array.isArray(base.primitives) && base.primitives.length > 0;
+  const rawTags = Array.isArray(base.tags) ? base.tags : [];
+  const tags = rawTags
+    .filter((tag:any) => typeof tag === 'string')
+    .map((tag:string) => tag.trim().toLowerCase())
+    .filter((tag:string) => allowedTags.has(tag));
+  const hasTags = tags.length > 0;
+  if (!hasPrimitives && !hasTags) {
+    throw new Error('LLM material missing primitives or tags');
+  }
   if (isGenericMixName(base.name, aName, bName)) return null;
+  const color = base.color || deriveColorFromName(base.name);
+  const density = typeof base.density === 'number' ? base.density : 1;
   return {
     type: 'material',
     name: base.name,
     description: base.description || `Auto-generated mix of ${aName} and ${bName}.`,
-    color: base.color,
-    density: typeof base.density === 'number' ? base.density : 1,
-    primitives: base.primitives,
+    color,
+    density,
+    tags: hasTags ? tags : undefined,
+    primitives: hasPrimitives ? base.primitives : undefined,
+    budgets: base.budgets,
+    reactions: Array.isArray(base.reactions) ? base.reactions : undefined,
     __mixParents: [aName, bName],
     __mixAncestors: ancestors
   };
@@ -556,26 +613,18 @@ async function generateMixMaterial(aMat:any, bMat:any) {
   const aName = aMat?.name || 'A';
   const bName = bMat?.name || 'B';
   setMixProgress(20);
-  const namePrompt = `JSON only. Schema: {"name":"<string>"} | {"no_reaction":true}.
-Examples:
-Input: mix Fire+Sand -> {"name":"Glass"}
-Input: mix Oil+Water -> {"no_reaction":true}
-Now mix ${aName}+${bName}.`;
-  const retryNamePrompt = `JSON only. One object, no extra keys. {"name":"<string>"} or {"no_reaction":true}. mix ${aName}+${bName}.`;
+  const namePrompt = buildMixNamePrompt(aName, bName);
+  const retryNamePrompt = `Mixes:\n${aName}+${bName}=\nReturn only the new material name on the final line.`;
   async function getValidName(prompt: string) {
-    const nameResp = await runLocalLLM(prompt);
-    if (isNoReactionPayload(nameResp)) return null;
-    const candidate = extractNameOnlyResponse(nameResp);
+    const nameResp = await runLocalLLMText(prompt);
+    const candidate = parseMixNameResponse(nameResp, aName, bName);
+    if (candidate === null) return null;
     if (!candidate) return '';
-    if (isNoReactionName(candidate)) return null;
-    if (isGenericMixName(candidate, aName, bName)) return '';
     if (materialNameExists(candidate)) return '';
     return candidate;
   }
   let candidateName = await getValidName(namePrompt);
-  if (candidateName === '') {
-    candidateName = await getValidName(retryNamePrompt);
-  }
+  if (candidateName === '') candidateName = await getValidName(retryNamePrompt);
   if (candidateName === null) return null;
   if (!candidateName) {
     candidateName = fallbackMixName(aName, bName);
@@ -585,16 +634,16 @@ Now mix ${aName}+${bName}.`;
   }
   setMixName(candidateName);
   setMixProgress(55);
-  const prompt = `JSON only. Schema: {"type":"material","name":"${candidateName}","description":"<string>","primitives":[...],"budgets":{"max_ops":<int>,"max_spawns":<int>}}.
+  const prompt = `JSON only. Schema: {"type":"material","name":"${candidateName}","tags":["sand"|"flow"|"float"],"density":<number>,"color":[r,g,b],"description":"<string>","reactions":[...]?}.
 Example:
-{"type":"material","name":"${candidateName}","description":"...","primitives":[{"op":"read","dx":0,"dy":1},{"op":"if","cond":{"eq":{"value":0}},"then":[{"op":"move","dx":0,"dy":1}]}],"budgets":{"max_ops":8,"max_spawns":0}}
+{"type":"material","name":"${candidateName}","tags":["flow"],"density":1.2,"color":[120,140,200],"description":"..."}
 Now mix ${aName}+${bName}.`;
   const ast = await runLocalLLM(prompt);
   setMixProgress(85);
   const normalized = tryNormalizeMixMaterial(ast, aMat, bMat);
   if (normalized) return normalized;
   await reportMixError('mix normalize failed', { a: aName, b: bName, name: candidateName, stage: 'first' });
-  const retryPrompt = `JSON only. Required keys: type,name,description,primitives,budgets. Name must be "${candidateName}". No extra keys.`;
+  const retryPrompt = `JSON only. Required keys: type,name,tags,density,color. Name must be "${candidateName}". No extra keys.`;
   const retryAst = await runLocalLLM(retryPrompt);
   setMixProgress(90);
   const retryNormalized = tryNormalizeMixMaterial(retryAst, aMat, bMat);
