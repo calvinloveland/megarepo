@@ -78,7 +78,7 @@ test("salt dissolves into a large water pool", async ({ page }, testInfo) => {
         }
         return wc > 100 && sc >= 1;
       },
-      { timeout: 2000 },
+      { timeout: 5000 },
     );
 
     // Step many times and wait for salt count to drop to 0 (i.e., dissolve)

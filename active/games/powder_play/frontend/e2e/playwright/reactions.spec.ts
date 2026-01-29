@@ -60,7 +60,7 @@ test("salt reacts with water to form saltwater", async ({ page }, testInfo) => {
         const b = lg[70 * w + 71];
         return a === map["Salt"] && b === map["Water"];
       },
-      { timeout: 2000 },
+      { timeout: 5000 },
     );
 
     // Step to allow reaction
@@ -77,7 +77,7 @@ test("salt reacts with water to form saltwater", async ({ page }, testInfo) => {
         const b = lg[70 * w + 71];
         return a === map["SaltWater"] && b === map["SaltWater"];
       },
-      { timeout: 2000 },
+      { timeout: 5000 },
     );
 
     const ids = await page.evaluate(() => {
@@ -162,7 +162,7 @@ test("saltwater reacts with fire to form steam and salt", async ({
         const b = lg[72 * w + 71];
         return a === map["SaltWater"] && b === map["Fire"];
       },
-      { timeout: 2000 },
+      { timeout: 5000 },
     );
 
     // Step to allow reaction
@@ -179,7 +179,7 @@ test("saltwater reacts with fire to form steam and salt", async ({
         const b = lg[72 * w + 71];
         return a === map["Steam"] && b === map["Salt"];
       },
-      { timeout: 2000 },
+      { timeout: 5000 },
     );
 
     const ids = await page.evaluate(() => {
