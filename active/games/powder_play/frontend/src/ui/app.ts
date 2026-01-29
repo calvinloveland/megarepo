@@ -1065,7 +1065,8 @@ async function generateMixMaterial(aMat: any, bMat: any) {
     color,
     description,
   };
-  const normalized = tryNormalizeMixMaterial(draft, aMat, bMat);
+
+  let normalized = tryNormalizeMixMaterial(draft, aMat, bMat);
   if (!normalized) {
     await reportMixError("mix normalize failed", {
       a: aName,
@@ -1074,8 +1075,45 @@ async function generateMixMaterial(aMat: any, bMat: any) {
       stage: "properties",
       responses: { tagResp, densityResp, colorResp, descResp },
     });
-    return null;
+
+    // Retry once: re-run property prompts to mitigate transient LLM noise
+    try {
+      const retryTag = await runLocalLLMText(tagPrompt, { tokens: MIX_PROPERTY_OPTIONS.tokens, temperature: MIX_PROPERTY_OPTIONS.temperature });
+      const retryDensity = await runLocalLLMText(densityPrompt, { tokens: Math.max(8, Math.floor(MIX_PROPERTY_OPTIONS.tokens / 2)), temperature: MIX_PROPERTY_OPTIONS.temperature });
+      const retryColor = await runLocalLLMText(colorPrompt, { tokens: Math.max(10, Math.floor(MIX_PROPERTY_OPTIONS.tokens * 0.6)), temperature: MIX_PROPERTY_OPTIONS.temperature });
+      const retryDesc = await runLocalLLMText(descPrompt, { tokens: Math.max(12, Math.floor(MIX_PROPERTY_OPTIONS.tokens * 0.6)), temperature: MIX_PROPERTY_OPTIONS.temperature });
+
+      // parse retry responses
+      const retryTags = parseTagsResponse(retryTag);
+      const retryDensityVal = parseDensityResponse(retryDensity);
+      const retryColorVal = parseColorResponse(retryColor);
+      const retryDescVal = parseDescriptionResponse(retryDesc);
+
+      const retryDraft = {
+        type: "material",
+        name: candidateName,
+        tags: retryTags.length ? retryTags : tags,
+        density: retryDensityVal === null ? density : retryDensityVal,
+        color: retryColorVal || color,
+        description: retryDescVal || description,
+      };
+      normalized = tryNormalizeMixMaterial(retryDraft, aMat, bMat);
+      if (!normalized) {
+        await reportMixError("mix normalize failed (retry)", {
+          a: aName,
+          b: bName,
+          name: candidateName,
+          stage: "properties-retry",
+          responses: { retryTag, retryDensity, retryColor, retryDesc },
+        });
+        return null;
+      }
+    } catch (err) {
+      await reportMixError("mix normalize retry failed", { error: String(err) });
+      return null;
+    }
   }
+
   return normalized;
 }
 
