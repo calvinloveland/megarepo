@@ -1,19 +1,22 @@
 import { test } from '@playwright/test';
+import { createFailureLogger } from './helpers/failure_logger';
 
-test('worker debug logs', async ({ page }) => {
-  const logs: string[] = [];
-  page.on('console', msg => logs.push(`CONSOLE: ${msg.text()}`));
-  page.on('pageerror', err => logs.push(`PAGE ERROR: ${err.message}`));
-  page.on('requestfailed', req => logs.push(`REQUEST FAILED: ${req.url()} - ${req.failure()?.errorText}`));
+test('worker debug logs', async ({ page }, testInfo) => {
+  const logger = createFailureLogger(testInfo, page);
+  let failed = false;
+  try {
+    await page.goto('http://127.0.0.1:5173/');
+    await page.waitForSelector('text=Alchemist Powder');
+    await page.waitForFunction(() => !!(window as any).__initWorkerWithMaterial);
 
-  await page.goto('http://127.0.0.1:5173/');
-  await page.waitForSelector('text=Alchemist Powder');
-  await page.waitForFunction(() => !!(window as any).__initWorkerWithMaterial);
+    await page.evaluate(() => (window as any).__initWorkerWithMaterial({type:'material', name:'Dbg', primitives:[]}));
 
-  await page.evaluate(() => (window as any).__initWorkerWithMaterial({type:'material', name:'Dbg', primitives:[]}));
-
-  // wait a bit
-  await page.waitForTimeout(1000);
-  console.log('Captured logs:');
-  for (const l of logs) console.log(l);
+    // wait a bit
+    await page.waitForTimeout(1000);
+  } catch (err) {
+    failed = true;
+    throw err;
+  } finally {
+    logger.flush(failed);
+  }
 });

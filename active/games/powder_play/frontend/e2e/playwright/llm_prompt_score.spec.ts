@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { createFailureLogger } from './helpers/failure_logger';
 
 type PromptSet = {
   name: string;
@@ -96,10 +97,13 @@ function isValidMaterialPayload(obj: any) {
   return true;
 }
 
-test('llm prompt scoring harness', async () => {
-  test.setTimeout(360_000);
-  const requestTimeoutMs = 10_000;
-  const baseUrl = 'http://127.0.0.1:8787/llm';
+test('llm prompt scoring harness', async ({}, testInfo) => {
+  const logger = createFailureLogger(testInfo);
+  let failed = false;
+  try {
+    test.setTimeout(360_000);
+    const requestTimeoutMs = 10_000;
+    const baseUrl = 'http://127.0.0.1:8787/llm';
 
   async function postLLM(prompt: string) {
     const controller = new AbortController();
@@ -161,15 +165,21 @@ test('llm prompt scoring harness', async () => {
     summary[row.prompt].max += 3;
   }
 
-  console.log('LLM prompt scoring results:');
-  for (const row of rows) {
-    console.log(`${row.prompt} ${row.pair} name=${row.nameValid ? 'ok' : 'bad'} material=${row.materialValid ? 'ok' : 'bad'} score=${row.total}/3`);
-  }
-  for (const [prompt, score] of Object.entries(summary)) {
-    const pct = ((score.total / score.max) * 100).toFixed(1);
-    console.log(`${prompt}: ${score.total}/${score.max} (${pct}%)`);
-  }
+    logger.log('LLM prompt scoring results:');
+    for (const row of rows) {
+      logger.log(`${row.prompt} ${row.pair} name=${row.nameValid ? 'ok' : 'bad'} material=${row.materialValid ? 'ok' : 'bad'} score=${row.total}/3`);
+    }
+    for (const [prompt, score] of Object.entries(summary)) {
+      const pct = ((score.total / score.max) * 100).toFixed(1);
+      logger.log(`${prompt}: ${score.total}/${score.max} (${pct}%)`);
+    }
 
-  const best = Math.max(...Object.values(summary).map((s) => s.total));
-  expect(rows.length).toBeGreaterThan(0);
+    const best = Math.max(...Object.values(summary).map((s) => s.total));
+    expect(rows.length).toBeGreaterThan(0);
+  } catch (err) {
+    failed = true;
+    throw err;
+  } finally {
+    logger.flush(failed);
+  }
 });
