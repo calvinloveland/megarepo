@@ -540,6 +540,14 @@ function initWorkerWithMaterial(mat:any) {
   if (status) status.textContent = `Material ready: ${name}`;
 };
 
+(window as any).__triggerMixForNames = (aName: string, bName: string) => {
+  const aId = materialIdByName.get(aName);
+  const bId = materialIdByName.get(bName);
+  if (!aId || !bId) return false;
+  addAutoMixReaction(aId, bId);
+  return true;
+};
+
 function pairKey(a:number, b:number) {
   return a < b ? `${a}:${b}` : `${b}:${a}`;
 }

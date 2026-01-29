@@ -15,14 +15,9 @@ test('mix banner shows while generating new material', async ({ page }) => {
     return { nameA: a.name, nameB: b.name };
   });
 
-  // Paint adjacent points so they touch and trigger a mix
+  // Trigger mix generation explicitly
   await page.evaluate(({ nameA, nameB }) => {
-    const map = (window as any).__materialIdByName || {};
-    const worker = (window as any).__powderWorker;
-    if (!worker) return;
-    worker.postMessage({type:'paint_points', materialId: map[nameA], points: [{x:70,y:70}]});
-    worker.postMessage({type:'paint_points', materialId: map[nameB], points: [{x:71,y:70}]});
-    worker.postMessage({type:'step'});
+    (window as any).__triggerMixForNames?.(nameA, nameB);
   }, { nameA, nameB });
 
   // Banner should appear with mix message
