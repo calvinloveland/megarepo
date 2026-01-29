@@ -36,13 +36,23 @@ test('collect mix generation timings', async ({ page }) => {
     (window as any).__triggerMixForNames?.(a,b);
   }, { a, b });
 
-  // wait for timing entry for this pair
-  const waited = await page.waitForFunction((aName, bName) => {
-    const arr = (window as any).__mixGenerationTimings || [];
-    return arr.some((t:any)=> t.a === aName && t.b === bName);
-  }, a, b, { timeout: 30000 }).catch(()=>null);
-
-  if (!waited) {
+  // wait for timing entry for this pair using manual polling (more robust)
+  let found = false;
+  for (let i = 0; i < 30; i++) {
+    try {
+      const ok = await page.evaluate((aName, bName) => {
+        const arr = (window as any).__mixGenerationTimings || [];
+        return arr.some((t:any)=> t.a === aName && t.b === bName);
+      }, a, b);
+      if (ok) { found = true; break; }
+    } catch (err) {
+      console.log('page evaluate failed while polling for timings', String(err));
+      test.skip(true, 'page closed during timing collection');
+      return;
+    }
+    await new Promise((r)=>setTimeout(r, 1000));
+  }
+  if (!found) {
     console.log('timing entry not found within timeout, collected logs', logs);
     test.skip(true, 'timing entry not observed; skipping timing test');
     return;
