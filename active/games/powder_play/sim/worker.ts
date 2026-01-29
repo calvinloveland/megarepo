@@ -207,6 +207,7 @@ function stepSimulation() {
           grid,
           nextGrid,
           densityById,
+          tagsById,
         });
         if (!moved && nextGrid[idx] === 0) nextGrid[idx] = cell;
         continue;

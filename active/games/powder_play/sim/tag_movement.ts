@@ -6,6 +6,7 @@ export type MovementContext = {
   grid: Uint16Array;
   nextGrid: Uint16Array;
   densityById: Map<number, number>;
+  tagsById?: Map<number, string[]>;
   rng?: () => number;
 };
 
@@ -22,6 +23,7 @@ export function stepByTags(
   const hasFloat = tags.includes("float");
   const hasFlow = tags.includes("flow");
   const hasSand = tags.includes("sand");
+  const blockStatic = tags.includes("fire");
   if (hasFloat) {
     const [dx1, dx2] = rng() < 0.5 ? [-1, 1] : [1, -1];
     const candidates: MoveCandidate[] = [
@@ -31,7 +33,7 @@ export function stepByTags(
       { dx: dx1, dy: 0 },
       { dx: dx2, dy: 0 },
     ];
-    return attemptMoves(cell, x, y, idx, candidates, ctx);
+    return attemptMoves(cell, x, y, idx, candidates, ctx, { blockStatic });
   }
   if (hasFlow) {
     const [dx1, dx2] = rng() < 0.5 ? [-1, 1] : [1, -1];
@@ -42,7 +44,7 @@ export function stepByTags(
       { dx: dx1, dy: 0 },
       { dx: dx2, dy: 0 },
     ];
-    return attemptMoves(cell, x, y, idx, candidates, ctx);
+    return attemptMoves(cell, x, y, idx, candidates, ctx, { blockStatic });
   }
   if (hasSand) {
     const [dx1, dx2] = rng() < 0.5 ? [-1, 1] : [1, -1];
@@ -51,7 +53,7 @@ export function stepByTags(
       { dx: dx1, dy: 1 },
       { dx: dx2, dy: 1 },
     ];
-    return attemptMoves(cell, x, y, idx, candidates, ctx);
+    return attemptMoves(cell, x, y, idx, candidates, ctx, { blockStatic });
   }
   return false;
 }
@@ -63,9 +65,11 @@ export function attemptMoves(
   idx: number,
   candidates: MoveCandidate[],
   ctx: MovementContext,
+  options?: { blockStatic?: boolean },
 ) {
-  const { width, height, grid, nextGrid, densityById } = ctx;
+  const { width, height, grid, nextGrid, densityById, tagsById } = ctx;
   const dSelf = densityById.get(cell) ?? 1;
+  const blockStatic = options?.blockStatic ?? false;
   for (const c of candidates) {
     const nx = x + c.dx;
     const ny = y + c.dy;
@@ -77,6 +81,9 @@ export function attemptMoves(
       nextGrid[nidx] = cell;
       return true;
     }
+    if (blockStatic && tagsById?.get(target)?.includes("static")) {
+      continue;
+    }
     const dTarget = densityById.get(target) ?? 1;
     const shouldSwap =
       (c.dy > 0 && dSelf > dTarget) || (c.dy < 0 && dSelf < dTarget);
@@ -85,6 +92,9 @@ export function attemptMoves(
       nextGrid[idx] === 0 &&
       (nextGrid[nidx] === 0 || nextGrid[nidx] === target)
     ) {
+      if (blockStatic && tagsById?.get(target)?.includes("static")) {
+        continue;
+      }
       nextGrid[nidx] = cell;
       nextGrid[idx] = target;
       return true;

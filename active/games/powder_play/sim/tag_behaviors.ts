@@ -141,7 +141,7 @@ export function applyTagBehaviors(
     }
   }
 
-  if (burnsOut && rng() < 0.03) {
+  if (burnsOut && rng() < 0.08) {
     const smokeId = nameToId.get("Smoke");
     placeCell(nextGrid, idx, smokeId);
     reacted[idx] = 1;
