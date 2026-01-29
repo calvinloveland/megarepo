@@ -90,7 +90,7 @@ const mixCache = new Map<string, any>();
 const pendingMixes = new Set<string>();
 const mixCacheStorageKey = 'alchemistPowder.mixCache.v2';
 const mixCacheVersionKey = 'alchemistPowder.mixCache.version';
-const mixCacheVersion = 'v2';
+const mixCacheVersion = 'v3';
 const mixApiBase = (() => {
   const override = (window as any).__mixApiBase;
   if (override) return override;

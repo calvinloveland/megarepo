@@ -23,11 +23,13 @@ export function mountMaterialBrowser(root: HTMLElement) {
   const showAll = container.querySelector('#show-all-materials') as HTMLInputElement;
 
   const discovered = new Set<string>();
+  let selectedName: string | null = null;
 
   const starterNames = new Set(['Fire', 'Sand', 'Salt', 'Water']);
 
   let known = new Set<string>();
   let skipAutoLoadOnce = false;
+  let lastSignature = '';
 
   async function fetchIndex() {
     try {
@@ -42,6 +44,9 @@ export function mountMaterialBrowser(root: HTMLElement) {
     const mats = await fetchIndex();
     if (!mats.length) { listEl.textContent = '(no materials)'; return; }
     const visible = showAll.checked ? mats : mats.filter((m:any) => starterNames.has(m?.name));
+    const signature = `${showAll.checked ? 'all' : 'starter'}:${visible.map((m:any) => m?.file).join('|')}`;
+    if (signature === lastSignature) return;
+    lastSignature = signature;
     if (!visible.length) { listEl.textContent = '(no materials)'; return; }
     const sorted = visible.slice().sort((a:any, b:any) => {
       const aKey = String(a?.name || a?.file || '').toLowerCase();
@@ -113,6 +118,7 @@ export function mountMaterialBrowser(root: HTMLElement) {
         selectRowByName(addedMat.name);
       }
     }
+    if (selectedName) selectRowByName(selectedName);
     skipAutoLoadOnce = false;
   }
   function selectRowByName(name:string) {
@@ -128,6 +134,7 @@ export function mountMaterialBrowser(root: HTMLElement) {
       if (strong && strong.textContent === name) r.classList.add('selected');
       else r.classList.remove('selected');
     }
+    selectedName = name;
   }
 
   function addDiscoveredMaterial(mat:any) {
