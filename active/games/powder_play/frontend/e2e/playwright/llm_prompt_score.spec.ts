@@ -23,62 +23,35 @@ const mixes: MixPair[] = [
 
 const promptSets: PromptSet[] = [
   {
-    name: 'examples-v1',
+    name: 'mix-list-v1',
     namePrompt: (a, b) =>
-      `Return ONLY JSON with {"name":"<new material name>"} for mixing ${a} and ${b}. If no reaction, return {"no_reaction": true}. Example valid outputs: {"name":"Glass"} or {"no_reaction": true}.`,
+      `Mixes:\nSand+Water=Silt\nFire+Sand=Glass\n${a}+${b}=`,
     materialPrompt: (a, b, candidate) =>
-      `Return ONLY JSON for a material named "${candidate}" that represents mixing ${a} and ${b}. Required fields: type:"material", name, description, primitives (non-empty array of ops), budgets. No extra text. Example valid output: {"type":"material","name":"${candidate}","description":"...","primitives":[{"op":"read","dx":0,"dy":1},{"op":"if","cond":{"eq":{"value":0}},"then":[{"op":"move","dx":0,"dy":1}]}],"budgets":{"max_ops":8,"max_spawns":0}}.`
+      `Return ONLY JSON for a material named "${candidate}" that represents mixing ${a} and ${b}. Required fields: type:"material", name, tags, density, color. Example valid output: {"type":"material","name":"${candidate}","tags":["flow"],"density":1.2,"color":[120,140,200],"description":"..."}.`
   },
   {
-    name: 'tight-json-v1',
+    name: 'mix-list-v2',
     namePrompt: (a, b) =>
-      `Respond ONLY with a JSON object and nothing else. Schema: {"name":"<string>"} OR {"no_reaction": true}. Mixing ${a} + ${b}.`,
+      `Mixes:\nSand+Water=Silt\nFire+Sand=Glass\n${a}+${b}=\nReturn only the new material name on the final line.`,
     materialPrompt: (a, b, candidate) =>
-      `Respond ONLY with a JSON object and nothing else. Schema: {"type":"material","name":"${candidate}","description":"<string>","primitives":[...],"budgets":{"max_ops":<int>,"max_spawns":<int>}}. This material represents mixing ${a} + ${b}.`
-  },
-  {
-    name: 'schema-quoted-v1',
-    namePrompt: (a, b) =>
-      `Return exactly one JSON object (no code blocks). Allowed outputs only: {"name":"<string>"} or {"no_reaction":true}. Mixing: ${a} + ${b}.`,
-    materialPrompt: (a, b, candidate) =>
-      `Return exactly one JSON object (no code blocks). Fields required: type, name, description, primitives (array, >=1), budgets. Example: {"type":"material","name":"${candidate}","description":"...","primitives":[{"op":"read","dx":0,"dy":1},{"op":"if","cond":{"eq":{"value":0}},"then":[{"op":"move","dx":0,"dy":1}]}],"budgets":{"max_ops":8,"max_spawns":0}}. Mixing ${a} + ${b}.`
-  },
-  {
-    name: 'json-minimal-v1',
-    namePrompt: (a, b) =>
-      `Output JSON only. Either {"name":"<string>"} or {"no_reaction":true}. Mix ${a} with ${b}.`,
-    materialPrompt: (a, b, candidate) =>
-      `Output JSON only. {"type":"material","name":"${candidate}","description":"<string>","primitives":[{"op":"read","dx":0,"dy":1}],"budgets":{"max_ops":6,"max_spawns":0}} for mixing ${a} with ${b}.`
-  },
-  {
-    name: 'json-minimal-v2',
-    namePrompt: (a, b) =>
-      `JSON only. One object. {"name":"<string>"} or {"no_reaction":true}. Mix ${a}+${b}.`,
-    materialPrompt: (a, b, candidate) =>
-      `JSON only. {"type":"material","name":"${candidate}","description":"<string>","primitives":[{"op":"read","dx":0,"dy":1},{"op":"if","cond":{"eq":{"value":0}},"then":[{"op":"move","dx":0,"dy":1}]}],"budgets":{"max_ops":8,"max_spawns":0}}. Mix ${a}+${b}.`
-  },
-  {
-    name: 'json-minimal-v3',
-    namePrompt: (a, b) =>
-      `JSON only. Return {"name":"<string>"} or {"no_reaction":true}. ${a}+${b}.`,
-    materialPrompt: (a, b, candidate) =>
-      `JSON only. Required keys: type,name,description,primitives,budgets. Name must be "${candidate}". Mix ${a}+${b}.`
-  },
-  {
-    name: 'json-minimal-v4',
-    namePrompt: (a, b) =>
-      `JSON only. Output exactly one object: {"name":"<string>"} or {"no_reaction":true}. Mix ${a} and ${b}.`,
-    materialPrompt: (a, b, candidate) =>
-      `JSON only. Example: {"type":"material","name":"${candidate}","description":"...","primitives":[{"op":"read","dx":0,"dy":1}],"budgets":{"max_ops":6,"max_spawns":0}}. Mix ${a} and ${b}.`
-  },
-  {
-    name: 'strict-json-v1',
-    namePrompt: (a, b) =>
-      `Respond with a single-line JSON object only, no extra keys. Either {"name":"<string>"} or {"no_reaction":true}. Mixing ${a} and ${b}.`,
-    materialPrompt: (a, b, candidate) =>
-      `Respond with a single-line JSON object only. Required keys: type,name,description,primitives,budgets. Material name must be "${candidate}". Mixing ${a} and ${b}.`
+      `Respond ONLY with a JSON object. Required keys: type,name,tags,density,color. Name must be "${candidate}". Mixing ${a} and ${b}.`
   }
 ];
+
+function parseNameFromText(text: string) {
+  if (!text) return null as null | {name?: string; no_reaction?: boolean};
+  const lines = text.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  if (!lines.length) return null;
+  let last = lines[lines.length - 1];
+  if (last.includes('=')) {
+    last = last.slice(last.lastIndexOf('=') + 1).trim();
+  }
+  last = last.replace(/^['"`]+|['"`]+$/g, '').trim();
+  if (!last) return null;
+  const lower = last.toLowerCase();
+  if (lower.includes('no reaction') || lower.includes('no_reaction')) return { no_reaction: true };
+  return { name: last };
+}
 
 function parseJsonFromText(text: string) {
   if (!text) return null;
@@ -109,18 +82,17 @@ function parseJsonFromText(text: string) {
   return null;
 }
 
-function isValidNamePayload(obj: any) {
-  if (!obj || typeof obj !== 'object') return false;
-  if (obj.no_reaction === true) return true;
-  return typeof obj.name === 'string' && obj.name.trim().length > 0;
-}
-
 function isValidMaterialPayload(obj: any) {
   if (!obj || typeof obj !== 'object') return false;
   if (obj.no_reaction === true) return true;
   if (obj.type !== 'material') return false;
   if (!obj.name || typeof obj.name !== 'string') return false;
-  if (!Array.isArray(obj.primitives) || obj.primitives.length === 0) return false;
+  if (!Array.isArray(obj.tags) || obj.tags.length === 0) return false;
+  if (typeof obj.density !== 'number') return false;
+  const color = obj.color;
+  const colorOk = typeof color === 'string'
+    || (Array.isArray(color) && color.length >= 3 && color.length <= 4);
+  if (!colorOk) return false;
   return true;
 }
 
@@ -155,11 +127,11 @@ test('llm prompt scoring harness', async () => {
       let nameObj: any = null;
       try {
         const nameText = await postLLM(promptSet.namePrompt(a, b));
-        nameObj = parseJsonFromText(nameText);
+        nameObj = parseNameFromText(nameText);
       } catch (e) {
         nameObj = null;
       }
-      const nameValid = isValidNamePayload(nameObj);
+      const nameValid = nameObj !== null;
       const candidate = typeof nameObj?.name === 'string' && nameObj.name.trim() ? nameObj.name.trim() : 'TestMix';
 
       let materialObj: any = null;
