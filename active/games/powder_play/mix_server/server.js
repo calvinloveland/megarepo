@@ -104,7 +104,10 @@ const server = http.createServer(async (req, res) => {
       const body = await readJson(req);
       const prompt = String(body?.prompt || '').trim();
       if (!prompt) return send(res, 400, { error: 'missing prompt' });
-      const format = String(body?.format || 'json');
+      const requestedFormat = String(body?.format || '').trim();
+      const format = requestedFormat && requestedFormat !== 'text' && requestedFormat !== 'plain'
+        ? requestedFormat
+        : undefined;
       const system = String(body?.system || '').trim();
       const ollamaUrl = process.env.POWDER_PLAY_OLLAMA_URL || 'http://localhost:11434/api/generate';
       const model = process.env.POWDER_PLAY_OLLAMA_MODEL || 'phi4-reasoning';
@@ -119,9 +122,9 @@ const server = http.createServer(async (req, res) => {
         model,
         prompt: system ? `${system}\n${prompt}` : `${prompt}`,
         stream: false,
-        format,
         options: { temperature }
       };
+      if (format) payload.format = format;
       const ollamaRes = await fetch(ollamaUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
