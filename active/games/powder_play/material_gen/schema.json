@@ -41,7 +41,8 @@
           "seed",
           "plant",
           "grow",
-          "dirt"
+          "dirt",
+          "element"
         ]
       }
     },
