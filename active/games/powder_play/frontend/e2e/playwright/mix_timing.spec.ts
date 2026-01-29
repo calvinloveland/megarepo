@@ -43,10 +43,18 @@ test('collect mix generation timings', async ({ page }) => {
   }, a, b, { timeout: 30000 }).catch(()=>null);
 
 
-  // retrieve timings
-  const timings = await page.evaluate(() => (window as any).__mixGenerationTimings || []);
-  console.log('timings collected', timings);
-  console.log('collected logs', logs);
+  // retrieve timings (guard against page/context closure)
+  let timings: any[] = [];
+  try {
+    timings = await page.evaluate(() => (window as any).__mixGenerationTimings || []);
+    console.log('timings collected', timings);
+    console.log('collected logs', logs);
+  } catch (err) {
+    console.log('failed to retrieve timings; page may have closed', String(err));
+    console.log('collected logs', logs);
+    throw new Error('Failed to collect mix timing data; inspect logs for details');
+  }
+
   expect(Array.isArray(timings)).toBeTruthy();
   expect(timings.length).toBeGreaterThanOrEqual(1);
 });
