@@ -209,21 +209,22 @@ export function mountMaterialBrowser(root: HTMLElement) {
     console.log("[material_browser] addDiscoveredMaterial", mat.name);
     discovered.add(mat.name);
 
-    // award discovery points
+    // award discovery points only for elements
     try {
       const isElement = Array.isArray(mat.tags) && mat.tags.includes("element");
-      let points = 0;
       if (isElement) {
         // base points scale modestly with atomic number if provided
         const atomic = Number(mat.atomicNumber || 0);
-        points = 10 + Math.floor(Math.max(0, atomic) * 2);
+        let points = 10 + Math.floor(Math.max(0, atomic) * 2);
         if (mat.name === "Gold") points += 10000; // big bonus for gold
+        if (points > 0) addScore(points);
+        const status = document.getElementById("status");
+        if (status) status.textContent = `Discovered ${mat.name} (+${points})`;
       } else {
-        points = 10;
+        // don't award points for non-elements; still show discovered status
+        const status = document.getElementById("status");
+        if (status) status.textContent = `Discovered ${mat.name}`;
       }
-      if (points > 0) addScore(points);
-      const status = document.getElementById("status");
-      if (status) status.textContent = `Discovered ${mat.name} (+${points})`;
     } catch (e) {}
 
     const empty = discoveredList.querySelector("#discovered-empty");

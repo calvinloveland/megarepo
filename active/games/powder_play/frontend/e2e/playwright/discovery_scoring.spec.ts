@@ -12,16 +12,22 @@ test("discovering elements awards points and Gold gives big bonus", async ({ pag
   // ensure clean score
   await page.evaluate(() => localStorage.removeItem("alchemistPowder.discovery.score"));
 
-  // Discover a non-Gold element
+  // Discover a non-element material and ensure it does NOT award points
+  const scoreVal = page.locator("#discovery-score-value");
+  await expect(scoreVal).toHaveText(/\d+/);
+  const initial = Number((await scoreVal.textContent()) || "0");
+  await page.evaluate(() => {
+    (window as any).__addDiscoveredMaterial?.({ name: "Mysterium", color: [10,10,10], tags: ["mystery","flow"] });
+  });
+  const afterNonElement = Number((await scoreVal.textContent()) || "0");
+  expect(afterNonElement).toBe(initial); // no change for non-elements
+
+  // Discover a non-Gold element and ensure it awards points
   await page.evaluate(() => {
     (window as any).__addDiscoveredMaterial?.({ name: "Oxygen", color: [120,180,255], tags: ["element","float"], atomicNumber: 8 });
   });
-
-  // small score should be visible
-  const scoreVal = page.locator("#discovery-score-value");
-  await expect(scoreVal).toHaveText(/\d+/);
   const firstScore = Number((await scoreVal.textContent()) || "0");
-  expect(firstScore).toBeGreaterThan(0);
+  expect(firstScore).toBeGreaterThan(initial);
 
   // Discover Gold and expect a large jump
   await page.evaluate(() => {
