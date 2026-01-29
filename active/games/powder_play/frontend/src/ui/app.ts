@@ -358,55 +358,55 @@ function extractNameOnlyResponse(resp:any) {
 const allowedTags = new Set(['sand', 'flow', 'float', 'static']);
 
 const mixTagExamples = [
-  'Sand+Water => sand',
-  'Fire+Sand => static',
-  'Water+Oil => flow',
-  'Steam+Air => float',
-  'Salt+Water => flow',
-  'Metal+Fire => flow',
-  'Stone+Air => sand',
-  'Wood+Fire => static',
-  'Smoke+Air => float',
-  'Sand+Sand => sand'
+  'Sand => sand',
+  'Water => flow',
+  'Oil => flow',
+  'Steam => float',
+  'Smoke => float',
+  'Salt => sand',
+  'Metal => static',
+  'Stone => sand',
+  'Wood => static',
+  'Glass => static'
 ];
 
 const mixDensityExamples = [
-  'Sand+Water => 1.3',
-  'Fire+Sand => 2.4',
-  'Water+Oil => 0.9',
-  'Steam+Air => 0.2',
-  'Salt+Water => 1.1',
-  'Metal+Fire => 3.5',
-  'Stone+Air => 0.6',
-  'Wood+Fire => 1.2',
-  'Smoke+Air => 0.1',
-  'Sand+Sand => 1.6'
+  'Sand => 1.6',
+  'Water => 1.0',
+  'Oil => 0.9',
+  'Steam => 0.2',
+  'Smoke => 0.1',
+  'Salt => 2.0',
+  'Metal => 3.5',
+  'Stone => 2.4',
+  'Wood => 0.7',
+  'Glass => 2.5'
 ];
 
 const mixColorExamples = [
-  'Sand+Water => 150,140,120',
-  'Fire+Sand => 190,200,210',
-  'Water+Oil => 220,210,180',
-  'Steam+Air => 200,200,220',
-  'Salt+Water => 120,150,200',
-  'Metal+Fire => 220,120,60',
-  'Stone+Air => 180,170,160',
-  'Wood+Fire => 40,40,40',
-  'Smoke+Air => 180,180,190',
-  'Sand+Sand => 160,150,130'
+  'Sand => 160,150,130',
+  'Water => 80,120,200',
+  'Oil => 90,80,60',
+  'Steam => 200,200,220',
+  'Smoke => 180,180,190',
+  'Salt => 220,220,220',
+  'Metal => 120,120,130',
+  'Stone => 180,170,160',
+  'Wood => 120,90,60',
+  'Glass => 190,200,210'
 ];
 
 const mixDescriptionExamples = [
-  'Sand+Water => Fine damp grit.',
-  'Fire+Sand => Clear brittle solid.',
-  'Water+Oil => Cloudy liquid blend.',
-  'Steam+Air => Light drifting vapor.',
-  'Salt+Water => Briny liquid.',
-  'Metal+Fire => Hot viscous metal.',
-  'Stone+Air => Fine granular powder.',
-  'Wood+Fire => Brittle black solid.',
-  'Smoke+Air => Thin sooty haze.',
-  'Sand+Sand => Heavy granular sand.'
+  'Sand => Heavy granular sand.',
+  'Water => Clear flowing liquid.',
+  'Oil => Slick viscous liquid.',
+  'Steam => Light drifting vapor.',
+  'Smoke => Thin sooty haze.',
+  'Salt => Sharp crystalline grains.',
+  'Metal => Solid heavy metal.',
+  'Stone => Hard rough solid.',
+  'Wood => Dry fibrous solid.',
+  'Glass => Clear brittle solid.'
 ];
 
 function getRecentMixLines(limit = 12) {
@@ -431,34 +431,34 @@ function buildMixNamePrompt(aName: string, bName: string) {
   return lines.join('\n');
 }
 
-function buildMixTagsPrompt(aName: string, bName: string) {
+function buildMixTagsPrompt(name: string) {
   const lines = ['Tags:'];
   lines.push(...mixTagExamples);
-  lines.push(`${aName}+${bName} =>`);
+  lines.push(`${name} =>`);
   lines.push('Return only comma-separated tags from: sand, flow, float, static.');
   return lines.join('\n');
 }
 
-function buildMixDensityPrompt(aName: string, bName: string) {
+function buildMixDensityPrompt(name: string) {
   const lines = ['Densities:'];
   lines.push(...mixDensityExamples);
-  lines.push(`${aName}+${bName} =>`);
+  lines.push(`${name} =>`);
   lines.push('Return only the numeric density.');
   return lines.join('\n');
 }
 
-function buildMixColorPrompt(aName: string, bName: string) {
+function buildMixColorPrompt(name: string) {
   const lines = ['Colors (RGB):'];
   lines.push(...mixColorExamples);
-  lines.push(`${aName}+${bName} =>`);
+  lines.push(`${name} =>`);
   lines.push('Return only three comma-separated integers (r,g,b).');
   return lines.join('\n');
 }
 
-function buildMixDescriptionPrompt(aName: string, bName: string) {
+function buildMixDescriptionPrompt(name: string) {
   const lines = ['Descriptions:'];
   lines.push(...mixDescriptionExamples);
-  lines.push(`${aName}+${bName} =>`);
+  lines.push(`${name} =>`);
   lines.push('Return a short sentence only.');
   return lines.join('\n');
 }
@@ -824,10 +824,10 @@ async function generateMixMaterial(aMat:any, bMat:any) {
   }
   setMixName(candidateName);
   setMixProgress(55);
-  const tagPrompt = buildMixTagsPrompt(aName, bName);
-  const densityPrompt = buildMixDensityPrompt(aName, bName);
-  const colorPrompt = buildMixColorPrompt(aName, bName);
-  const descPrompt = buildMixDescriptionPrompt(aName, bName);
+  const tagPrompt = buildMixTagsPrompt(candidateName);
+  const densityPrompt = buildMixDensityPrompt(candidateName);
+  const colorPrompt = buildMixColorPrompt(candidateName);
+  const descPrompt = buildMixDescriptionPrompt(candidateName);
 
   const tagResp = await runLocalLLMText(tagPrompt);
   setMixProgress(65);
