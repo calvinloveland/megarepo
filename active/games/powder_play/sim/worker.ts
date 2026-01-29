@@ -34,6 +34,7 @@ const reactionsById = new Map<number, ReactionRule[]>();
 const condenseById = new Map<number, CondenseRule>();
 const nameToId = new Map<string, number>();
 const densityById = new Map<number, number>();
+const tagsById = new Map<number, string[]>();
 let reacted: Uint8Array;
 
 function resolveReactions() {
@@ -58,10 +59,23 @@ onmessage = (ev: MessageEvent) => {
     reacted = new Uint8Array(width*height);
     postMessage({type:'ready'});
   } else if (msg.type === 'set_material') {
-    interpreters.set(msg.materialId, new Interpreter(msg.material));
+    const hasPrimitives = Array.isArray(msg.material?.primitives) && msg.material.primitives.length > 0;
+    if (hasPrimitives) {
+      interpreters.set(msg.materialId, new Interpreter(msg.material));
+    } else {
+      interpreters.delete(msg.materialId);
+    }
     if (msg.material?.name) nameToId.set(msg.material.name, msg.materialId);
     const density = typeof msg.material?.density === 'number' ? msg.material.density : 1;
     densityById.set(msg.materialId, density);
+    if (Array.isArray(msg.material?.tags)) {
+      const tags = msg.material.tags
+        .filter((tag:any)=> typeof tag === 'string')
+        .map((tag:string)=> tag.trim().toLowerCase());
+      tagsById.set(msg.materialId, tags);
+    } else {
+      tagsById.delete(msg.materialId);
+    }
     if (Array.isArray(msg.material?.reactions)) {
       const rules = msg.material.reactions.slice().sort((a:ReactionRule,b:ReactionRule)=> (b.priority||0) - (a.priority||0));
       reactionsById.set(msg.materialId, rules);
@@ -97,7 +111,7 @@ onmessage = (ev: MessageEvent) => {
 }
 
 function stepSimulation() {
-  if (!interpreters.size) return;
+  if (!interpreters.size && !tagsById.size && !reactionsById.size && !condenseById.size) return;
   // clear next grid each tick to avoid accumulating cells
   nextGrid.fill(0);
   reacted.fill(0);
@@ -159,6 +173,12 @@ function stepSimulation() {
         }
       }
       if (reactedHere) continue;
+      const tags = tagsById.get(cell) || [];
+      if (tags.length) {
+        const moved = stepByTags(tags, cell, x, y, idx);
+        if (!moved && nextGrid[idx] === 0) nextGrid[idx] = cell;
+        continue;
+      }
       const interpreter = interpreters.get(cell);
       if (!interpreter) {
         nextGrid[idx] = cell;
@@ -194,6 +214,68 @@ function stepSimulation() {
       }
     }
   }
+}
+
+function stepByTags(tags: string[], cell: number, x: number, y: number, idx: number) {
+  const hasFloat = tags.includes('float');
+  const hasFlow = tags.includes('flow');
+  const hasSand = tags.includes('sand');
+  if (hasFloat) {
+    const [dx1, dx2] = Math.random() < 0.5 ? [-1, 1] : [1, -1];
+    const candidates = [
+      {dx:0, dy:-1},
+      {dx:dx1, dy:-1},
+      {dx:dx2, dy:-1},
+      {dx:dx1, dy:0},
+      {dx:dx2, dy:0}
+    ];
+    return attemptMoves(cell, x, y, idx, candidates);
+  }
+  if (hasFlow) {
+    const [dx1, dx2] = Math.random() < 0.5 ? [-1, 1] : [1, -1];
+    const candidates = [
+      {dx:0, dy:1},
+      {dx:dx1, dy:1},
+      {dx:dx2, dy:1},
+      {dx:dx1, dy:0},
+      {dx:dx2, dy:0}
+    ];
+    return attemptMoves(cell, x, y, idx, candidates);
+  }
+  if (hasSand) {
+    const [dx1, dx2] = Math.random() < 0.5 ? [-1, 1] : [1, -1];
+    const candidates = [
+      {dx:0, dy:1},
+      {dx:dx1, dy:1},
+      {dx:dx2, dy:1}
+    ];
+    return attemptMoves(cell, x, y, idx, candidates);
+  }
+  return false;
+}
+
+function attemptMoves(cell: number, x: number, y: number, idx: number, candidates: {dx:number, dy:number}[]) {
+  const dSelf = densityById.get(cell) ?? 1;
+  for (const c of candidates) {
+    const nx = x + c.dx;
+    const ny = y + c.dy;
+    if (nx<0 || nx>=width || ny<0 || ny>=height) continue;
+    const nidx = ny*width + nx;
+    if (nextGrid[nidx] !== 0) continue;
+    const target = grid[nidx];
+    if (target === 0) {
+      nextGrid[nidx] = cell;
+      return true;
+    }
+    const dTarget = densityById.get(target) ?? 1;
+    const shouldSwap = (c.dy > 0 && dSelf > dTarget) || (c.dy < 0 && dSelf < dTarget);
+    if (shouldSwap && nextGrid[idx] === 0 && (nextGrid[nidx] === 0 || nextGrid[nidx] === target)) {
+      nextGrid[nidx] = cell;
+      nextGrid[idx] = target;
+      return true;
+    }
+  }
+  return false;
 }
 
 function makeCellCtx(x:number,y:number, cellId:number) {
