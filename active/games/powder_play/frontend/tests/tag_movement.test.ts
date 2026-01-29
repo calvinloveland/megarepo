@@ -34,8 +34,8 @@ describe('tag movement', () => {
     const densityById = new Map<number, number>();
     const cell = 1;
     const blocker = 2;
-    densityById.set(cell, 2);
-    densityById.set(blocker, 1);
+    densityById.set(cell, 1);
+    densityById.set(blocker, 2);
     const idx = 1 + 1 * width;
     grid[idx] = cell;
     grid[1 + 2 * width] = blocker;
@@ -66,6 +66,8 @@ describe('tag movement', () => {
     const idx = 1 + 1 * width;
     grid[idx] = cell;
     grid[1 + 2 * width] = blocker;
+    grid[0 + 2 * width] = blocker;
+    grid[2 + 2 * width] = blocker;
 
     const moved = stepByTags(['flow'], cell, 1, 1, idx, {
       width,
