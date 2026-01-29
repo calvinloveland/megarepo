@@ -40,10 +40,10 @@ test('collect mix generation timings', async ({ page }) => {
   let found = false;
   for (let i = 0; i < 30; i++) {
     try {
-      const ok = await page.evaluate((aName, bName) => {
+      const ok = await page.evaluate(([aName, bName]) => {
         const arr = (window as any).__mixGenerationTimings || [];
         return arr.some((t:any)=> t.a === aName && t.b === bName);
-      }, a, b);
+      }, [a, b]);
       if (ok) { found = true; break; }
     } catch (err) {
       console.log('page evaluate failed while polling for timings', String(err));
