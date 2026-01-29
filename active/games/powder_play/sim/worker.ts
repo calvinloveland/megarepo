@@ -1,4 +1,5 @@
 import {Interpreter} from '../material_runtime/interpreter';
+import { stepByTags } from './tag_movement';
 
 export type WorkerMessage =
   | {type:'init', width:number, height:number}
@@ -175,7 +176,13 @@ function stepSimulation() {
       if (reactedHere) continue;
       const tags = tagsById.get(cell) || [];
       if (tags.length) {
-        const moved = stepByTags(tags, cell, x, y, idx);
+        const moved = stepByTags(tags, cell, x, y, idx, {
+          width,
+          height,
+          grid,
+          nextGrid,
+          densityById
+        });
         if (!moved && nextGrid[idx] === 0) nextGrid[idx] = cell;
         continue;
       }
@@ -214,68 +221,6 @@ function stepSimulation() {
       }
     }
   }
-}
-
-function stepByTags(tags: string[], cell: number, x: number, y: number, idx: number) {
-  const hasFloat = tags.includes('float');
-  const hasFlow = tags.includes('flow');
-  const hasSand = tags.includes('sand');
-  if (hasFloat) {
-    const [dx1, dx2] = Math.random() < 0.5 ? [-1, 1] : [1, -1];
-    const candidates = [
-      {dx:0, dy:-1},
-      {dx:dx1, dy:-1},
-      {dx:dx2, dy:-1},
-      {dx:dx1, dy:0},
-      {dx:dx2, dy:0}
-    ];
-    return attemptMoves(cell, x, y, idx, candidates);
-  }
-  if (hasFlow) {
-    const [dx1, dx2] = Math.random() < 0.5 ? [-1, 1] : [1, -1];
-    const candidates = [
-      {dx:0, dy:1},
-      {dx:dx1, dy:1},
-      {dx:dx2, dy:1},
-      {dx:dx1, dy:0},
-      {dx:dx2, dy:0}
-    ];
-    return attemptMoves(cell, x, y, idx, candidates);
-  }
-  if (hasSand) {
-    const [dx1, dx2] = Math.random() < 0.5 ? [-1, 1] : [1, -1];
-    const candidates = [
-      {dx:0, dy:1},
-      {dx:dx1, dy:1},
-      {dx:dx2, dy:1}
-    ];
-    return attemptMoves(cell, x, y, idx, candidates);
-  }
-  return false;
-}
-
-function attemptMoves(cell: number, x: number, y: number, idx: number, candidates: {dx:number, dy:number}[]) {
-  const dSelf = densityById.get(cell) ?? 1;
-  for (const c of candidates) {
-    const nx = x + c.dx;
-    const ny = y + c.dy;
-    if (nx<0 || nx>=width || ny<0 || ny>=height) continue;
-    const nidx = ny*width + nx;
-    if (nextGrid[nidx] !== 0) continue;
-    const target = grid[nidx];
-    if (target === 0) {
-      nextGrid[nidx] = cell;
-      return true;
-    }
-    const dTarget = densityById.get(target) ?? 1;
-    const shouldSwap = (c.dy > 0 && dSelf > dTarget) || (c.dy < 0 && dSelf < dTarget);
-    if (shouldSwap && nextGrid[idx] === 0 && (nextGrid[nidx] === 0 || nextGrid[nidx] === target)) {
-      nextGrid[nidx] = cell;
-      nextGrid[idx] = target;
-      return true;
-    }
-  }
-  return false;
 }
 
 function makeCellCtx(x:number,y:number, cellId:number) {
