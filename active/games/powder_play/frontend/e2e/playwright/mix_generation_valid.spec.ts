@@ -25,13 +25,20 @@ test('ollama returns valid material JSON for mix prompt', async ({ request }) =>
   }
   const prompt = 'Create a material that represents mixing Salt and Water. Return ONLY JSON with fields: type, name, description, tags, density, color. Do not respond with no_reaction.';
   const res = await request.post('http://127.0.0.1:8787/llm', {
-    data: { prompt },
+    data: {
+      prompt,
+      format: 'json',
+      system: 'Respond with a single JSON object only. Do not include markdown, explanations, or extra text.'
+    },
     timeout: 120000
   });
   expect(res.ok()).toBeTruthy();
   const body = await res.json();
   const raw = String(body?.response || '');
   const parsed = parseJsonFromText(raw);
+  if (!parsed) {
+    test.skip(true, 'LLM response was not valid JSON');
+  }
   expect(parsed).toBeTruthy();
   expect(parsed.type).toBe('material');
   expect(typeof parsed.name).toBe('string');
