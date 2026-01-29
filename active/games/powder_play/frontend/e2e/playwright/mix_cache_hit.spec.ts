@@ -14,8 +14,9 @@ test("mix uses cached material after reload", async ({ page }) => {
       density: 1.4,
       color: [180, 170, 140],
     };
-    localStorage.setItem("alchemistPowder.mixCache.version", "v2");
-    localStorage.setItem("alchemistPowder.mixCache.v2", JSON.stringify(cache));
+    // updated cache version to match frontend mixCacheVersion
+    localStorage.setItem("alchemistPowder.mixCache.version", "v5");
+    localStorage.setItem("alchemistPowder.mixCache.v5", JSON.stringify(cache));
 
     const originalFetch = window.fetch.bind(window);
     window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {

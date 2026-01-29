@@ -18,8 +18,9 @@ test("discovered mix appears in UI list", async ({ page }) => {
       density: 1.5,
       color: [190, 180, 140],
     };
-    localStorage.setItem("alchemistPowder.mixCache.version", "v2");
-    localStorage.setItem("alchemistPowder.mixCache.v2", JSON.stringify(cache));
+    // updated cache version to match frontend mixCacheVersion
+    localStorage.setItem("alchemistPowder.mixCache.version", "v5");
+    localStorage.setItem("alchemistPowder.mixCache.v5", JSON.stringify(cache));
   });
 
   await page.goto("http://127.0.0.1:5173/");

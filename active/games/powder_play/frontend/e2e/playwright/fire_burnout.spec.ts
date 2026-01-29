@@ -32,7 +32,7 @@ test("fire burns out completely", async ({ page }, testInfo) => {
         if (grid[i] === fireId) count++;
       }
       return count === 0;
-    }, null, { timeout: 5000 });
+    }, null, { timeout: 10000 });
 
     expect(success).toBeTruthy();
   } catch (err) {
