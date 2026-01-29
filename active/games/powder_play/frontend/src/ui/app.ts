@@ -949,14 +949,36 @@ async function generateMixMaterial(aMat: any, bMat: any) {
   const colorPrompt = buildMixColorPrompt(candidateName);
   const descPrompt = buildMixDescriptionPrompt(candidateName);
 
+  // timing instrumentation for performance analysis
+  const timing: any = { name: candidateName, a: aName, b: bName, start: Date.now() };
+
+  const t0 = Date.now();
+  const tagStart = Date.now();
   const tagResp = await runLocalLLMText(tagPrompt, MIX_PROPERTY_OPTIONS);
+  timing.tag = Date.now() - tagStart;
   setMixProgress(65);
+
+  const densityStart = Date.now();
   const densityResp = await runLocalLLMText(densityPrompt, MIX_PROPERTY_OPTIONS);
+  timing.density = Date.now() - densityStart;
   setMixProgress(72);
+
+  const colorStart = Date.now();
   const colorResp = await runLocalLLMText(colorPrompt, MIX_PROPERTY_OPTIONS);
+  timing.color = Date.now() - colorStart;
   setMixProgress(80);
+
+  const descStart = Date.now();
   const descResp = await runLocalLLMText(descPrompt, MIX_PROPERTY_OPTIONS);
+  timing.desc = Date.now() - descStart;
   setMixProgress(85);
+
+  timing.total = Date.now() - t0;
+  timing.elapsed = Date.now() - timing.start;
+  try {
+    (window as any).__mixGenerationTimings = (window as any).__mixGenerationTimings || [];
+    (window as any).__mixGenerationTimings.push(timing);
+  } catch (e) {}
 
   let tags = parseTagsResponse(tagResp);
   if (!tags.length) {
