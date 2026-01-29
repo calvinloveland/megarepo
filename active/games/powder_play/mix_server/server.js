@@ -120,17 +120,22 @@ const server = http.createServer(async (req, res) => {
       const temperature = parseFloat(
         process.env.POWDER_PLAY_OLLAMA_TEMPERATURE || "0.2",
       );
+      const maxTokens = parseInt(
+        process.env.POWDER_PLAY_OLLAMA_MAX_TOKENS || "20",
+        10,
+      );
       console.log("[mix_server] llm request", {
         model,
         format,
         temp: temperature,
+        maxTokens,
         prompt: prompt.slice(0, 140),
       });
       const payload = {
         model,
         prompt: system ? `${system}\n${prompt}` : `${prompt}`,
         stream: false,
-        options: { temperature },
+        options: { temperature, num_predict: maxTokens },
       };
       if (format) payload.format = format;
       const ollamaRes = await fetch(ollamaUrl, {
