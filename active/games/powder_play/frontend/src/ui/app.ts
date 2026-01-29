@@ -1,4 +1,5 @@
 import { runLocalLLM, runLocalLLMText } from '../material_api';
+import promptTemplates from '../../material_gen/prompt_templates.json';
 
 export function initApp(root: HTMLElement) {
   root.className = 'min-h-screen w-full p-4';
@@ -424,11 +425,13 @@ function getRecentMixLines(limit = 12) {
 }
 
 function buildMixNamePrompt(aName: string, bName: string) {
-  const lines = ['Mixes:'];
-  const recent = getRecentMixLines();
-  if (recent.length) lines.push(...recent);
-  lines.push(`${aName}+${bName}=`);
-  return lines.join('\n');
+  const template = String((promptTemplates as any).mix_name_prompt || 'Mixes:\n{{recent}}\n{{a}}+{{b}}=');
+  const recentLines = getRecentMixLines();
+  const recentBlock = recentLines.length ? recentLines.join('\n') : '';
+  return template
+    .replace('{{recent}}', recentBlock)
+    .replace('{{a}}', aName)
+    .replace('{{b}}', bName);
 }
 
 function buildMixTagsPrompt(name: string) {

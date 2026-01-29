@@ -1,4 +1,5 @@
 {
+  "mix_name_prompt": "Mixes:\n{{recent}}\n{{a}}+{{b}}=",
   "mix_tags_prompt": "Tags:\nSand => sand\nWater => flow\nOil => flow\nSteam => float\nSmoke => float\nSalt => sand\nMetal => static\nStone => sand\nWood => static\nGlass => static\n{{name}} =>\nReturn only comma-separated tags from: sand, flow, float, static.",
   "mix_density_prompt": "Densities:\nSand => 1.6\nWater => 1.0\nOil => 0.9\nSteam => 0.2\nSmoke => 0.1\nSalt => 2.0\nMetal => 3.5\nStone => 2.4\nWood => 0.7\nGlass => 2.5\n{{name}} =>\nReturn only the numeric density.",
   "mix_color_prompt": "Colors (RGB):\nSand => 160,150,130\nWater => 80,120,200\nOil => 90,80,60\nSteam => 200,200,220\nSmoke => 180,180,190\nSalt => 220,220,220\nMetal => 120,120,130\nStone => 180,170,160\nWood => 120,90,60\nGlass => 190,200,210\n{{name}} =>\nReturn only three comma-separated integers (r,g,b).",
