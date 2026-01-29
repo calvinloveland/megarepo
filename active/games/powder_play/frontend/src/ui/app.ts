@@ -88,6 +88,7 @@ const materialIdByName = new Map<string, number>();
 const autoMixPairs = new Set<string>();
 const mixCache = new Map<string, any>();
 const pendingMixes = new Set<string>();
+const mix404Logged = new Set<string>();
 const mixCacheStorageKey = 'alchemistPowder.mixCache.v2';
 const mixCacheVersionKey = 'alchemistPowder.mixCache.version';
 const mixCacheVersion = 'v3';
@@ -109,6 +110,34 @@ function setMixStatus(message: string) {
   if (mixStatus) mixStatus.textContent = message;
 }
 
+function summarizeResponseHeaders(res: Response) {
+  return {
+    'content-type': res.headers.get('content-type'),
+    'server': res.headers.get('server'),
+    'date': res.headers.get('date')
+  };
+}
+
+async function readResponseBody(res: Response) {
+  try {
+    return await res.text();
+  } catch (e) {
+    return '';
+  }
+}
+
+async function logMixHttpFailure(context: string, res: Response, extra?: Record<string, any>) {
+  const body = await readResponseBody(res);
+  console.warn(`[mix] ${context} failed`, {
+    url: res.url,
+    status: res.status,
+    headers: summarizeResponseHeaders(res),
+    body: body.slice(0, 500),
+    ...extra
+  });
+  return body;
+}
+
 async function pingMixServer() {
   try {
     const res = await fetch(`${mixApiBase}/health`, { cache: 'no-store' });
@@ -116,6 +145,7 @@ async function pingMixServer() {
       setMixStatus(`Mix server: ok (${mixApiBase})`);
       return;
     }
+    await logMixHttpFailure('health', res);
     setMixStatus(`Mix server: error ${res.status} (${mixApiBase})`);
   } catch (e) {
     setMixStatus(`Mix server: unreachable (${mixApiBase})`);
@@ -168,8 +198,7 @@ async function reportMixError(message:string, meta?:any) {
       body: JSON.stringify(payload)
     });
     if (!res.ok) {
-      const body = await res.text();
-      console.warn('mix client-log failed', { status: res.status, body: body.slice(0, 200), payload });
+      await logMixHttpFailure('client-log', res, { payload });
       setMixStatus(`Mix server: error ${res.status} (${mixApiBase})`);
       return;
     }
@@ -182,7 +211,10 @@ async function reportMixError(message:string, meta?:any) {
 async function loadMixCacheFromServer() {
   try {
     const res = await fetch(`${mixApiBase}/mixes`, { cache: 'no-store' });
-    if (!res.ok) throw new Error(`mix cache fetch failed: ${res.status}`);
+    if (!res.ok) {
+      await logMixHttpFailure('mix cache fetch', res);
+      throw new Error(`mix cache fetch failed: ${res.status}`);
+    }
     const parsed = await res.json() as Record<string, any>;
     for (const [key, value] of Object.entries(parsed || {})) {
       mixCache.set(key, value);
@@ -245,7 +277,13 @@ function saveMixCacheToLocal() {
 async function fetchMixFromServer(cacheKey:string) {
   try {
     const res = await fetch(`${mixApiBase}/mixes/${encodeURIComponent(cacheKey)}`, { cache: 'no-store' });
-    if (res.status === 404) return null;
+    if (res.status === 404) {
+      if (!mix404Logged.has(cacheKey)) {
+        mix404Logged.add(cacheKey);
+        await logMixHttpFailure('mix cache miss', res, { cacheKey });
+      }
+      return null;
+    }
     if (!res.ok) throw new Error(`mix fetch failed: ${res.status}`);
     return await res.json();
   } catch (e) {
@@ -261,7 +299,10 @@ async function saveMixToServer(cacheKey:string, mix:any) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(mix)
     });
-    if (!res.ok) throw new Error(`mix save failed: ${res.status}`);
+    if (!res.ok) {
+      await logMixHttpFailure('mix cache save', res, { cacheKey });
+      throw new Error(`mix save failed: ${res.status}`);
+    }
     return await res.json();
   } catch (e) {
     console.warn('mix save failed', e);
