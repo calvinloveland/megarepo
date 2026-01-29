@@ -108,8 +108,10 @@ const mixApiBase = (() => {
   return "http://127.0.0.1:8787";
 })();
 // default LLM options for mix generation (tuned from experiments)
-const MIX_NAME_OPTIONS = { tokens: 16, temperature: 0.2 };
-const MIX_PROPERTY_OPTIONS = { tokens: 20, temperature: 0.2 };
+const defaultMixNameOptions = { tokens: 16, temperature: 0.2 };
+const defaultMixPropertyOptions = { tokens: 20, temperature: 0.2 };
+const MIX_NAME_OPTIONS = Object.assign({}, defaultMixNameOptions, (window as any).__mixNameOptions || {});
+const MIX_PROPERTY_OPTIONS = Object.assign({}, defaultMixPropertyOptions, (window as any).__mixPropertyOptions || {});
 let mixBlocked = false;
 let mixCacheReady = false;
 let mixProgress = 0;
