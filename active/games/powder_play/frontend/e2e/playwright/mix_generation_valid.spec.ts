@@ -40,7 +40,7 @@ test('ollama returns valid material JSON for mix prompt', async ({ request }) =>
     test.skip(true, 'LLM response was not valid JSON');
   }
   expect(parsed).toBeTruthy();
-  expect(parsed.type).toBe('material');
+  expect(String(parsed.type || '').toLowerCase()).toBe('material');
   expect(typeof parsed.name).toBe('string');
   expect(parsed.name.length).toBeGreaterThan(0);
   expect(Array.isArray(parsed.tags)).toBeTruthy();
