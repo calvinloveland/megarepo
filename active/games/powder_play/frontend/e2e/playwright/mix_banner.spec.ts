@@ -3,6 +3,7 @@ import { test, expect } from '@playwright/test';
 test('mix banner shows while generating new material', async ({ page }) => {
   await page.goto('http://127.0.0.1:5173/');
   await page.waitForSelector('text=Alchemist Powder');
+  await page.waitForFunction(() => (window as any).__mixCacheReady === true, null, { timeout: 10000 });
 
   // Register two unique materials so the mix is guaranteed to be uncached
   const { nameA, nameB } = await page.evaluate(() => {

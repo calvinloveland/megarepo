@@ -19,7 +19,11 @@ function parseJsonFromText(text: string) {
 
 test('ollama returns valid material JSON for mix prompt', async ({ request }) => {
   test.setTimeout(120000);
-  const prompt = 'Create a material that represents mixing Salt and Water. Return ONLY JSON with fields: type, name, description, primitives (non-empty array of ops), budgets. Do not respond with no_reaction.';
+  const health = await request.get('http://127.0.0.1:8787/health').catch(() => null);
+  if (!health || !health.ok()) {
+    test.skip(true, 'mix server unavailable');
+  }
+  const prompt = 'Create a material that represents mixing Salt and Water. Return ONLY JSON with fields: type, name, description, tags, density, color. Do not respond with no_reaction.';
   const res = await request.post('http://127.0.0.1:8787/llm', {
     data: { prompt },
     timeout: 120000
@@ -32,9 +36,10 @@ test('ollama returns valid material JSON for mix prompt', async ({ request }) =>
   expect(parsed.type).toBe('material');
   expect(typeof parsed.name).toBe('string');
   expect(parsed.name.length).toBeGreaterThan(0);
-  expect(Array.isArray(parsed.primitives)).toBeTruthy();
-  expect(parsed.primitives.length).toBeGreaterThan(0);
-  const op = parsed.primitives[0];
-  expect(typeof op?.op).toBe('string');
-  expect(parsed.budgets).toBeTruthy();
+  expect(Array.isArray(parsed.tags)).toBeTruthy();
+  expect(parsed.tags.length).toBeGreaterThan(0);
+  expect(typeof parsed.density).toBe('number');
+  const color = parsed.color;
+  const colorOk = typeof color === 'string' || (Array.isArray(color) && color.length >= 3);
+  expect(colorOk).toBeTruthy();
 });

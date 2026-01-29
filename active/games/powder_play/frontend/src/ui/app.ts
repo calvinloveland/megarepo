@@ -179,6 +179,7 @@ async function loadMixCacheFromServer() {
       mixCache.set(key, value);
     }
     mixCacheReady = true;
+    try { (window as any).__mixCacheReady = true; } catch (e) {}
   } catch (e) {
     console.warn('mix cache load failed', e);
     loadMixCacheFromLocal();
@@ -203,9 +204,11 @@ function loadMixCacheFromLocal() {
       }
     }
     mixCacheReady = true;
+    try { (window as any).__mixCacheReady = true; } catch (e) {}
   } catch (e) {
     console.warn('mix cache local load failed', e);
     mixCacheReady = true;
+    try { (window as any).__mixCacheReady = true; } catch (e) {}
   }
 }
 
