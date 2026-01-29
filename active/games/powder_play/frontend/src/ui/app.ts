@@ -666,9 +666,18 @@ Now mix ${aName}+${bName}.`;
 }
 
 function applyMixMaterial(mixSource:any, aMat:any, bMat:any) {
-  if (isNoReactionPayload(mixSource)) return;
-  const mixMat = normalizeMixMaterial(mixSource, aMat, bMat);
-  if (!mixMat) return;
+  if (isNoReactionPayload(mixSource)) return false;
+  const mixMat = tryNormalizeMixMaterial(mixSource, aMat, bMat);
+  if (!mixMat) {
+    reportMixError('mix normalize failed', {
+      stage: 'apply',
+      a: aMat?.name,
+      b: bMat?.name,
+      name: mixSource?.name,
+      payload: mixSource
+    });
+    return false;
+  }
   console.log('[mix] applyMixMaterial', { mix: mixMat.name, a: aMat?.name, b: bMat?.name });
   const mixId = registerMaterial(mixMat, { select: false });
   const reactionForA = { with: bMat.name, result: mixMat.name, byproduct: mixMat.name, priority: 3 };
@@ -696,6 +705,7 @@ function applyMixMaterial(mixSource:any, aMat:any, bMat:any) {
   try {
     console.log('[mix] discovered materials count', (window as any).__discoveredMaterials?.length || 0);
   } catch (e) {}
+  return true;
 }
 
 function addAutoMixReaction(aId:number, bId:number) {
@@ -727,8 +737,10 @@ function addAutoMixReaction(aId:number, bId:number) {
   if (cached) {
     console.log('[mix] cache hit', cacheKey, cached?.name || cached?.type || 'unknown');
     if (isNoReactionPayload(cached)) return;
-    applyMixMaterial(cached, aMat, bMat);
-    return;
+    const applied = applyMixMaterial(cached, aMat, bMat);
+    if (applied) return;
+    mixCache.delete(cacheKey);
+    saveMixCacheToLocal();
   }
 
   if (pendingMixes.has(cacheKey)) {
@@ -746,7 +758,12 @@ function addAutoMixReaction(aId:number, bId:number) {
         saveMixCacheToLocal();
         if (isNoReactionPayload(remote)) return null;
         setMixProgress(100);
-        applyMixMaterial(remote, aMat, bMat);
+        const applied = applyMixMaterial(remote, aMat, bMat);
+        if (!applied) {
+          mixCache.delete(cacheKey);
+          saveMixCacheToLocal();
+          return generateMixMaterial(aMat, bMat);
+        }
         return null;
       }
       console.log('[mix] cache miss, generating', cacheKey);
