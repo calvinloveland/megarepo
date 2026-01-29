@@ -175,9 +175,13 @@ export function mountMaterialBrowser(root: HTMLElement) {
       if (!r.ok) return;
       const mat = await r.json();
       // sanity check
+      const rawTags = Array.isArray(mat?.tags) ? mat.tags : [];
+      if (!rawTags.length) {
+        mat.tags = ['static'];
+      }
       const hasTags = Array.isArray(mat?.tags) && mat.tags.length > 0;
       if (mat.type !== 'material' || !mat.name || !hasTags) {
-        console.warn('Invalid material', file);
+        console.warn('Invalid material', file, mat);
         return;
       }
       // use the exposed helper to init worker
