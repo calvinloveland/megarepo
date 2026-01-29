@@ -549,7 +549,15 @@ function parseTagsResponse(resp: string) {
     .map((t) => t.trim())
     .filter(Boolean);
   const tags = tokens.filter((t) => allowedTags.has(t));
-  return Array.from(new Set(tags));
+  return normalizeTags(Array.from(new Set(tags)));
+}
+
+function normalizeTags(tags: string[]) {
+  const mobility = ["static", "sand", "flow", "float"];
+  const present = mobility.filter((tag) => tags.includes(tag));
+  if (present.length <= 1) return tags;
+  const preferred = present[0];
+  return tags.filter((tag) => !mobility.includes(tag) || tag === preferred);
 }
 
 function parseDensityResponse(resp: string) {
