@@ -67,7 +67,16 @@ export function mountMaterialBrowser(root: HTMLElement) {
       row.className = 'materials-row flex items-center justify-between gap-2 rounded-md border border-amber-900/30 bg-midnight/60 px-2 py-1';
       row.setAttribute('role', 'button');
       row.tabIndex = 0;
-      row.innerHTML = `<div class="flex items-center gap-2"><span class="swatch" style="width:14px;height:14px;border:1px solid #222;background:transparent"></span><strong class="text-amber-100">${m.name}</strong> <small class="alchemy-muted">${m.file}</small></div>`;
+      row.innerHTML = `
+        <div class="flex flex-col">
+          <div class="flex items-center gap-2">
+            <span class="swatch" style="width:14px;height:14px;border:1px solid #222;background:transparent"></span>
+            <strong class="text-amber-100">${m.name}</strong>
+            <small class="alchemy-muted">${m.file}</small>
+          </div>
+          <div class="materials-tags text-xs text-amber-200/70"></div>
+        </div>
+      `;
       row.onclick = async () => { await loadMaterial(m.file); selectRowByName(m.name); };
       row.onkeydown = async (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); await loadMaterial(m.file); selectRowByName(m.name); } };
       // fetch material to show color swatch
@@ -80,6 +89,10 @@ export function mountMaterialBrowser(root: HTMLElement) {
           const c = Array.isArray(mt?.color) ? mt.color : null;
           const color = c || colorFromName(mt?.name || m.name || 'material');
           sw.style.background = `rgb(${color[0]},${color[1]},${color[2]})`;
+          const tagsEl = row.querySelector('.materials-tags') as HTMLElement | null;
+          if (tagsEl && Array.isArray(mt?.tags) && mt.tags.length) {
+            tagsEl.textContent = mt.tags.join(', ');
+          }
         } catch (e) {}
       })();
       listEl.appendChild(row);
@@ -127,9 +140,22 @@ export function mountMaterialBrowser(root: HTMLElement) {
     row.className = 'materials-row flex items-center justify-between gap-2 rounded-md border border-amber-900/30 bg-midnight/60 px-2 py-1';
     row.setAttribute('role', 'button');
     row.tabIndex = 0;
-    row.innerHTML = `<div class="flex items-center gap-2"><span class="swatch" style="width:14px;height:14px;border:1px solid #222;background:transparent"></span><strong class="text-amber-100">${mat.name}</strong> <small class="alchemy-muted">runtime</small></div>`;
+    row.innerHTML = `
+      <div class="flex flex-col">
+        <div class="flex items-center gap-2">
+          <span class="swatch" style="width:14px;height:14px;border:1px solid #222;background:transparent"></span>
+          <strong class="text-amber-100">${mat.name}</strong>
+          <small class="alchemy-muted">runtime</small>
+        </div>
+        <div class="materials-tags text-xs text-amber-200/70"></div>
+      </div>
+    `;
     const sw = row.querySelector('.swatch') as HTMLElement;
     if (Array.isArray(mat.color)) sw.style.background = `rgb(${mat.color[0]},${mat.color[1]},${mat.color[2]})`;
+    const tagsEl = row.querySelector('.materials-tags') as HTMLElement | null;
+    if (tagsEl && Array.isArray(mat?.tags) && mat.tags.length) {
+      tagsEl.textContent = mat.tags.join(', ');
+    }
     row.onclick = () => {
       try { (window as any).__selectMaterialByName?.(mat.name); } catch (e) {}
       selectRowByName(mat.name);
@@ -149,7 +175,9 @@ export function mountMaterialBrowser(root: HTMLElement) {
       if (!r.ok) return;
       const mat = await r.json();
       // sanity check
-      if (mat.type !== 'material' || !mat.name || !mat.primitives) {
+      const hasPrimitives = Array.isArray(mat?.primitives) && mat.primitives.length > 0;
+      const hasTags = Array.isArray(mat?.tags) && mat.tags.length > 0;
+      if (mat.type !== 'material' || !mat.name || (!hasPrimitives && !hasTags)) {
         console.warn('Invalid material', file);
         return;
       }
