@@ -3,15 +3,17 @@ import { createFailureLogger } from "./helpers/failure_logger";
 
 const tagExamples = [
   "Sand => sand",
-  "Water => flow",
-  "Oil => flow",
-  "Steam => float",
-  "Smoke => float",
+  "Water => flow, water",
+  "Oil => flow, flammable",
+  "Steam => float, steam",
+  "Smoke => float, smoke",
   "Salt => sand",
   "Metal => static",
   "Stone => sand",
-  "Wood => static",
+  "Wood => static, flammable",
   "Glass => static",
+  "Fire => float, fire, burns_out",
+  "Sodium => sand, reactive_water, explosive",
 ];
 
 const densityExamples = [
@@ -53,7 +55,20 @@ const descriptionExamples = [
   "Glass => Clear brittle solid.",
 ];
 
-const allowedTags = new Set(["sand", "flow", "float", "static"]);
+const allowedTags = new Set([
+  "sand",
+  "flow",
+  "float",
+  "static",
+  "water",
+  "fire",
+  "flammable",
+  "reactive_water",
+  "explosive",
+  "burns_out",
+  "smoke",
+  "steam",
+]);
 
 function buildPrompt(
   title: string,
@@ -108,7 +123,7 @@ test("llm responds to property prompts", async ({ request }, testInfo) => {
         "Tags:",
         tagExamples,
         name,
-        "Return only comma-separated tags from: sand, flow, float, static.",
+        "Return only comma-separated tags from: sand, flow, float, static, water, fire, flammable, reactive_water, explosive, burns_out, smoke, steam.",
       ),
       density: buildPrompt(
         "Densities:",

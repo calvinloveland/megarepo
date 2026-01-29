@@ -1,4 +1,17 @@
-const allowedTags = new Set(["sand", "flow", "float", "static"]);
+const allowedTags = new Set([
+  "sand",
+  "flow",
+  "float",
+  "static",
+  "water",
+  "fire",
+  "flammable",
+  "reactive_water",
+  "explosive",
+  "burns_out",
+  "smoke",
+  "steam",
+]);
 
 // Lightweight validator to avoid heavy dependency during early prototyping.
 export async function validateMaterial(

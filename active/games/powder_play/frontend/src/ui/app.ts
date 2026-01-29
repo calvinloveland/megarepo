@@ -385,19 +385,34 @@ function extractNameOnlyResponse(resp: any) {
   return "";
 }
 
-const allowedTags = new Set(["sand", "flow", "float", "static"]);
+const allowedTags = new Set([
+  "sand",
+  "flow",
+  "float",
+  "static",
+  "water",
+  "fire",
+  "flammable",
+  "reactive_water",
+  "explosive",
+  "burns_out",
+  "smoke",
+  "steam",
+]);
 
 const mixTagExamples = [
   "Sand => sand",
-  "Water => flow",
-  "Oil => flow",
-  "Steam => float",
-  "Smoke => float",
+  "Water => flow, water",
+  "Oil => flow, flammable",
+  "Steam => float, steam",
+  "Smoke => float, smoke",
   "Salt => sand",
   "Metal => static",
   "Stone => sand",
-  "Wood => static",
+  "Wood => static, flammable",
   "Glass => static",
+  "Fire => float, fire, burns_out",
+  "Sodium => sand, reactive_water, explosive",
 ];
 
 const mixDensityExamples = [
@@ -471,7 +486,7 @@ function buildMixTagsPrompt(name: string) {
   lines.push(...mixTagExamples);
   lines.push(`${name} =>`);
   lines.push(
-    "Return only comma-separated tags from: sand, flow, float, static.",
+    "Return only comma-separated tags from: sand, flow, float, static, water, fire, flammable, reactive_water, explosive, burns_out, smoke, steam.",
   );
   return lines.join("\n");
 }
@@ -571,7 +586,7 @@ function fallbackTags(aMat: any, bMat: any) {
   for (const tag of aTags) {
     if (bTags.includes(tag) && allowedTags.has(tag)) return [tag];
   }
-  const ordered = ["flow", "sand", "float", "static"];
+  const ordered = ["flow", "sand", "float", "static", "fire", "water"];
   for (const tag of ordered) {
     if (aTags.includes(tag) || bTags.includes(tag)) return [tag];
   }

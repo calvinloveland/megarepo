@@ -7,5 +7,5 @@
   "reactions": [
     { "with": "Fire", "result": "Steam", "byproduct": "Salt", "priority": 5 }
   ],
-  "tags": ["flow"]
+  "tags": ["flow", "water"]
 }

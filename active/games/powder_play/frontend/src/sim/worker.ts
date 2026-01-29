@@ -1,4 +1,5 @@
 import { stepByTags } from "../../../sim/tag_movement";
+import { applyTagBehaviors } from "../../../sim/tag_behaviors";
 
 export type WorkerMessage =
   | { type: "init"; width: number; height: number }
@@ -156,6 +157,19 @@ function stepSimulation() {
         }
       }
       if (reacted[idx]) continue;
+      const tags = tagsById.get(cell) || [];
+      if (tags.length) {
+        const behavior = applyTagBehaviors(cell, x, y, idx, tags, {
+          width,
+          height,
+          grid,
+          nextGrid,
+          tagsById,
+          nameToId,
+          reacted,
+        });
+        if (behavior.consumed) continue;
+      }
       // apply reactions (if any) before movement
       const rules = reactionsById.get(cell);
       let reactedHere = false;
@@ -198,7 +212,6 @@ function stepSimulation() {
         }
       }
       if (reactedHere) continue;
-      const tags = tagsById.get(cell) || [];
       if (tags.length) {
         const moved = stepByTags(tags, cell, x, y, idx, {
           width,

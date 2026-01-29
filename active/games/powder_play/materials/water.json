@@ -4,5 +4,5 @@
   "description": "Flows downward; if blocked flows left or right.",
   "color": [40, 120, 220],
   "density": 1.0,
-  "tags": ["flow"]
+  "tags": ["flow", "water"]
 }

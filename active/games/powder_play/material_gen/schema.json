@@ -22,7 +22,23 @@
     "tags": {
       "type": "array",
       "minItems": 1,
-      "items": { "type": "string", "enum": ["sand", "flow", "float", "static"] }
+      "items": {
+        "type": "string",
+        "enum": [
+          "sand",
+          "flow",
+          "float",
+          "static",
+          "water",
+          "fire",
+          "flammable",
+          "reactive_water",
+          "explosive",
+          "burns_out",
+          "smoke",
+          "steam"
+        ]
+      }
     },
     "reactions": {
       "type": "array",
