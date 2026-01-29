@@ -160,13 +160,22 @@ function setMixBlocked(blocked:boolean, message?:string, name?:string) {
 }
 
 async function reportMixError(message:string, meta?:any) {
+  const payload = { level: 'error', message, meta };
   try {
-    await fetch(`${mixApiBase}/client-log`, {
+    const res = await fetch(`${mixApiBase}/client-log`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ level: 'error', message, meta })
+      body: JSON.stringify(payload)
     });
-  } catch (e) {}
+    if (!res.ok) {
+      const body = await res.text();
+      console.warn('mix client-log failed', { status: res.status, body: body.slice(0, 200), payload });
+      setMixStatus(`Mix server: error ${res.status} (${mixApiBase})`);
+      return;
+    }
+  } catch (e) {
+    console.warn('mix client-log error', { error: String(e), payload });
+  }
   setMixStatus(`Mix server: error (${mixApiBase})`);
 }
 
