@@ -8,10 +8,8 @@ export async function generateMaterialFromIntent(intent: string): Promise<any> {
     type: 'material',
     name: 'dust_'+Math.floor(Math.random()*1000),
     description: intent,
-    primitives: [
-      {op: 'read', dx:0, dy:1},
-      {op: 'if', cond:{eq:{read:1, value:0}}, then:[{op:'move', dx:0, dy:1}]}
-    ],
-    budgets: {max_ops:50, max_spawns:1}
+    tags: ['sand'],
+    density: 1.5,
+    color: [190, 180, 140]
   };
 }

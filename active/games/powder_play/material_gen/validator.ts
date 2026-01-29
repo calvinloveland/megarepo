@@ -1,5 +1,4 @@
-const allowedOps = new Set(['move','swap','set','spawn','change_state','read','if','rand','timer']);
-const allowedTags = new Set(['sand','flow','float']);
+const allowedTags = new Set(['sand','flow','float','static']);
 
 // Lightweight validator to avoid heavy dependency during early prototyping.
 export async function validateMaterial(ast: any): Promise<{ok:boolean, errors?: any[]}> {
@@ -7,44 +6,25 @@ export async function validateMaterial(ast: any): Promise<{ok:boolean, errors?: 
   if (!ast || typeof ast !== 'object') return {ok:false, errors:[{message:'ast must be object'}]};
   if (ast.type !== 'material') errors.push({message:'type must be "material"'});
   if (typeof ast.name !== 'string' || !ast.name) errors.push({message:'name required'});
-  const hasPrimitives = Array.isArray(ast.primitives) && ast.primitives.length > 0;
-  const hasTags = Array.isArray(ast.tags) && ast.tags.length > 0;
-  if (!hasPrimitives && !hasTags) errors.push({message:'must include primitives or tags'});
-  if (ast.primitives !== undefined && !Array.isArray(ast.primitives)) errors.push({message:'primitives must be array'});
-  if (hasPrimitives) {
-    if (ast.budgets == null || typeof ast.budgets !== 'object') errors.push({message:'budgets required'});
-    else {
-      const b = ast.budgets;
-      if (typeof b.max_ops !== 'number' || b.max_ops < 1 || b.max_ops > 200) errors.push({message:'max_ops out of range'});
-      if (typeof b.max_spawns !== 'number' || b.max_spawns < 0 || b.max_spawns > 4) errors.push({message:'max_spawns out of range'});
-    }
-    for (const p of ast.primitives) {
-      if (!p || typeof p !== 'object' || !allowedOps.has(p.op)) errors.push({message:'Invalid primitive op'});
-    }
-  } else if (ast.budgets !== undefined) {
-    const b = ast.budgets;
-    if (!b || typeof b !== 'object') errors.push({message:'budgets must be object'});
-    else {
-      if (b.max_ops !== undefined && (typeof b.max_ops !== 'number' || b.max_ops < 1 || b.max_ops > 200)) errors.push({message:'max_ops out of range'});
-      if (b.max_spawns !== undefined && (typeof b.max_spawns !== 'number' || b.max_spawns < 0 || b.max_spawns > 4)) errors.push({message:'max_spawns out of range'});
+  if (ast.primitives !== undefined) errors.push({message:'primitives are no longer supported'});
+  if (ast.budgets !== undefined) errors.push({message:'budgets are no longer supported'});
+  if (!Array.isArray(ast.tags) || ast.tags.length === 0) {
+    errors.push({message:'tags must be non-empty array'});
+  } else {
+    for (const tag of ast.tags) {
+      if (typeof tag !== 'string' || !allowedTags.has(tag)) errors.push({message:'invalid tag'});
     }
   }
-  if (ast.tags !== undefined) {
-    if (!Array.isArray(ast.tags) || ast.tags.length === 0) errors.push({message:'tags must be non-empty array'});
-    else {
-      for (const tag of ast.tags) {
-        if (typeof tag !== 'string' || !allowedTags.has(tag)) errors.push({message:'invalid tag'});
-      }
-    }
-  }
-  if (ast.color !== undefined) {
+  if (ast.color === undefined) {
+    errors.push({message:'color required'});
+  } else {
     const c = ast.color;
     const isHex = typeof c === 'string';
     const isArray = Array.isArray(c) && c.length >= 3 && c.length <= 4 && c.every((v:any)=>typeof v === 'number' && v>=0 && v<=255);
     if (!isHex && !isArray) errors.push({message:'color must be hex string or [r,g,b] array'});
   }
-  if (ast.density !== undefined) {
-    if (typeof ast.density !== 'number' || ast.density < 0) errors.push({message:'density must be non-negative number'});
+  if (ast.density === undefined || typeof ast.density !== 'number' || ast.density < 0) {
+    errors.push({message:'density must be non-negative number'});
   }
   if (ast.reactions !== undefined) {
     if (!Array.isArray(ast.reactions)) errors.push({message:'reactions must be array'});

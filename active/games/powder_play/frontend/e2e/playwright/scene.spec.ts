@@ -18,13 +18,9 @@ test('demo scene: paint sand and it falls down', async ({ page }, testInfo) => {
       type: 'material',
       name: 'Sand',
       description: 'Granular sand (test AST)',
-      primitives: [
-        {op:'read', dx:0, dy:1},
-        {op:'if', cond:{eq:{value:0}}, then:[{op:'move', dx:0, dy:1}]},
-        {op:'read', dx:-1, dy:1},
-        {op:'if', cond:{eq:{value:0}}, then:[{op:'move', dx:-1, dy:1}]},
-        {op:'read', dx:1, dy:1},
-        {op:'if', cond:{eq:{value:0}}, then:[{op:'move', dx:1, dy:1}]}]
+      tags: ['sand'],
+      density: 2.0,
+      color: [194,178,128]
     };
     const hasInit = await page.evaluate(() => ({has: !!(window as any).__initWorkerWithMaterial, type: typeof (window as any).__initWorkerWithMaterial}));
     logger.log('hasInit', hasInit);

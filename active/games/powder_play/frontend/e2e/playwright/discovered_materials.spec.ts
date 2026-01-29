@@ -14,8 +14,9 @@ test('discovered mix appears in UI list', async ({ page }) => {
       type: 'material',
       name: mixName,
       description: 'Cached mix material',
-      primitives: [{ op: 'read', dx: 0, dy: 1 }],
-      budgets: { max_ops: 6, max_spawns: 0 }
+      tags: ['sand'],
+      density: 1.5,
+      color: [190, 180, 140]
     };
     localStorage.setItem('alchemistPowder.mixCache.version', 'v2');
     localStorage.setItem('alchemistPowder.mixCache.v2', JSON.stringify(cache));
@@ -26,8 +27,8 @@ test('discovered mix appears in UI list', async ({ page }) => {
 
   const names = await page.evaluate(() => (window as any).__mixTestNames);
   await page.evaluate(({ aName, bName }) => {
-    const a = { type: 'material', name: aName, description: 'A', primitives: [], budgets: { max_ops: 1, max_spawns: 0 } };
-    const b = { type: 'material', name: bName, description: 'B', primitives: [], budgets: { max_ops: 1, max_spawns: 0 } };
+    const a = { type: 'material', name: aName, description: 'A', tags: ['sand'], density: 1.4, color: [180, 170, 140] };
+    const b = { type: 'material', name: bName, description: 'B', tags: ['flow'], density: 1.0, color: [80, 140, 220] };
     (window as any).__initWorkerWithMaterial?.(a);
     (window as any).__initWorkerWithMaterial?.(b);
     const map = (window as any).__materialIdByName || {};

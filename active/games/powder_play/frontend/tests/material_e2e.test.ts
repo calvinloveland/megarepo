@@ -11,8 +11,9 @@ describe('e2e generation', () => {
           type: 'material',
           name: 'DemoDust',
           description: 'A demo material',
-          primitives: [{ op: 'read', dx: 0, dy: 1 }],
-          budgets: { max_ops: 6, max_spawns: 0 }
+          tags: ['sand'],
+          density: 1.5,
+          color: [190, 180, 140]
         })
       })
     }) as any;
@@ -21,6 +22,6 @@ describe('e2e generation', () => {
     expect(ast).toBeDefined();
     expect(ast.type).toBe('material');
     expect(ast.name).toBe('DemoDust');
-    expect(Array.isArray(ast.primitives)).toBeTruthy();
+    expect(Array.isArray(ast.tags)).toBeTruthy();
   });
 });

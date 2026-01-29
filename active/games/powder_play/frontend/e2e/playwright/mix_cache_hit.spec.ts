@@ -9,8 +9,9 @@ test('mix uses cached material after reload', async ({ page }) => {
       type: 'material',
       name: 'SiltMist',
       description: 'Cached sand+water mix',
-      primitives: [{ op: 'read', dx: 0, dy: 1 }],
-      budgets: { max_ops: 6, max_spawns: 0 }
+      tags: ['sand'],
+      density: 1.4,
+      color: [180, 170, 140]
     };
     localStorage.setItem('alchemistPowder.mixCache.version', 'v2');
     localStorage.setItem('alchemistPowder.mixCache.v2', JSON.stringify(cache));

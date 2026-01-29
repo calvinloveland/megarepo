@@ -175,9 +175,8 @@ export function mountMaterialBrowser(root: HTMLElement) {
       if (!r.ok) return;
       const mat = await r.json();
       // sanity check
-      const hasPrimitives = Array.isArray(mat?.primitives) && mat.primitives.length > 0;
       const hasTags = Array.isArray(mat?.tags) && mat.tags.length > 0;
-      if (mat.type !== 'material' || !mat.name || (!hasPrimitives && !hasTags)) {
+      if (mat.type !== 'material' || !mat.name || !hasTags) {
         console.warn('Invalid material', file);
         return;
       }

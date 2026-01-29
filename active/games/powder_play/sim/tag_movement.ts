@@ -18,6 +18,7 @@ export function stepByTags(
   ctx: MovementContext
 ) {
   const rng = ctx.rng ?? Math.random;
+  if (tags.includes('static')) return false;
   const hasFloat = tags.includes('float');
   const hasFlow = tags.includes('flow');
   const hasSand = tags.includes('sand');

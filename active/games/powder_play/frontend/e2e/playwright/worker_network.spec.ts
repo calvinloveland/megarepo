@@ -13,7 +13,7 @@ test('worker file is requested when initializing worker', async ({ page }, testI
 
     // ensure init helper present
     await page.waitForFunction(() => !!(window as any).__initWorkerWithMaterial);
-    await page.evaluate(() => (window as any).__initWorkerWithMaterial({type:'material', name:'Test', primitives:[]}));
+    await page.evaluate(() => (window as any).__initWorkerWithMaterial({type:'material', name:'Test', tags:['static'], density:1, color:[120,120,120]}));
 
     // wait briefly for requests to fire
     await page.waitForTimeout(500);

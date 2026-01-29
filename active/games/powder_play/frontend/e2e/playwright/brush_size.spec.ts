@@ -11,7 +11,7 @@ test('brush size affects painted area', async ({ page }, testInfo) => {
 
     // Programmatically initialize worker with a simple material AST
     const sandAst = {
-      type: 'material', name: 'Sand', description: 'Test sand', primitives: []
+      type: 'material', name: 'Sand', description: 'Test sand', tags: ['sand'], density: 2.0, color: [194,178,128]
     };
     // wait for the init helper to be available
     await page.waitForFunction(() => !!(window as any).__initWorkerWithMaterial, { timeout: 5000 });

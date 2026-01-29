@@ -4,6 +4,5 @@
   "description":"Sticky material that doesn't move once placed.",
   "color": [180, 90, 40],
   "density": 1.4,
-  "primitives":[],
-  "budgets":{"max_ops":1,"max_spawns":0}
+  "tags": ["static"]
 }

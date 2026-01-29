@@ -1,6 +1,6 @@
 // Simple deterministic demo model generator used for local testing.
 export function generateDemoModel(intent: string) {
-  // Map some keywords to behavior; keep conservative budgets
+  // Map some keywords to behavior with tag-based materials.
   const lower = (intent || '').toLowerCase();
   const name = 'demo_' + (lower.split(/\s+/)[0] || 'x');
   if (lower.includes('water')) {
@@ -8,11 +8,9 @@ export function generateDemoModel(intent: string) {
       type: 'material',
       name,
       description: intent,
-      primitives: [
-        {op:'read', dx:0, dy:1},
-        {op:'if', cond:{eq:{read:1, value:0}}, then:[{op:'move', dx:0, dy:1}]}
-      ],
-      budgets: {max_ops:50, max_spawns:1}
+      tags: ['flow'],
+      density: 1.0,
+      color: [60, 140, 220]
     };
   }
   // default: simple falling dust
@@ -20,10 +18,8 @@ export function generateDemoModel(intent: string) {
     type: 'material',
     name,
     description: intent,
-    primitives: [
-      {op:'read', dx:0, dy:1},
-      {op:'if', cond:{eq:{read:1, value:0}}, then:[{op:'move', dx:0, dy:1}]}
-    ],
-    budgets: {max_ops:50, max_spawns:0}
+    tags: ['sand'],
+    density: 1.5,
+    color: [190, 180, 140]
   };
 }

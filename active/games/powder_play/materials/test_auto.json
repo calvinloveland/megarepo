@@ -4,6 +4,5 @@
   "description": "Automatically added material for sync test",
   "color": [255, 0, 255],
   "density": 1.0,
-  "primitives": [],
-  "budgets": {"max_ops":1, "max_spawns":0}
+  "tags": ["static"]
 }

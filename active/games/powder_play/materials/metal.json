@@ -4,6 +4,5 @@
   "description":"Heavy static solid (no per-cell movement).",
   "color": [140, 140, 150],
   "density": 5.0,
-  "primitives":[],
-  "budgets":{"max_ops":1,"max_spawns":0}
+  "tags": ["static"]
 }

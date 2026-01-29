@@ -4,13 +4,5 @@
   "description":"Energetic particle that rises and spreads; simple visual energetic material.",
   "color": [255, 120, 40],
   "density": 0.2,
-  "primitives":[
-    {"op":"read","dx":0,"dy":-1},
-    {"op":"if","cond":{"eq":{"value":0}},"then":[{"op":"move","dx":0,"dy":-1}]},
-    {"op":"read","dx":-1,"dy":0},
-    {"op":"if","cond":{"eq":{"value":0}},"then":[{"op":"move","dx":-1,"dy":0}]},
-    {"op":"read","dx":1,"dy":0},
-    {"op":"if","cond":{"eq":{"value":0}},"then":[{"op":"move","dx":1,"dy":0}]}
-  ],
-  "budgets":{"max_ops":12,"max_spawns":0}
+  "tags": ["float"]
 }

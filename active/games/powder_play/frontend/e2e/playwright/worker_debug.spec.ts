@@ -9,7 +9,7 @@ test('worker debug logs', async ({ page }, testInfo) => {
     await page.waitForSelector('text=Alchemist Powder');
     await page.waitForFunction(() => !!(window as any).__initWorkerWithMaterial);
 
-    await page.evaluate(() => (window as any).__initWorkerWithMaterial({type:'material', name:'Dbg', primitives:[]}));
+    await page.evaluate(() => (window as any).__initWorkerWithMaterial({type:'material', name:'Dbg', tags:['static'], density:1, color:[120,120,120]}));
 
     // wait a bit
     await page.waitForTimeout(1000);

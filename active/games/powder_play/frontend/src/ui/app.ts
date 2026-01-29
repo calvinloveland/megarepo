@@ -305,7 +305,7 @@ function extractNameOnlyResponse(resp:any) {
   return '';
 }
 
-const allowedTags = new Set(['sand', 'flow', 'float']);
+const allowedTags = new Set(['sand', 'flow', 'float', 'static']);
 
 function getRecentMixLines(limit = 12) {
   const lines: string[] = [];
@@ -584,15 +584,14 @@ function normalizeMixMaterial(mat:any, aMat:any, bMat:any) {
   if (!base.name) {
     throw new Error('LLM material missing required fields');
   }
-  const hasPrimitives = Array.isArray(base.primitives) && base.primitives.length > 0;
   const rawTags = Array.isArray(base.tags) ? base.tags : [];
   const tags = rawTags
     .filter((tag:any) => typeof tag === 'string')
     .map((tag:string) => tag.trim().toLowerCase())
     .filter((tag:string) => allowedTags.has(tag));
   const hasTags = tags.length > 0;
-  if (!hasPrimitives && !hasTags) {
-    throw new Error('LLM material missing primitives or tags');
+  if (!hasTags) {
+    throw new Error('LLM material missing tags');
   }
   if (isGenericMixName(base.name, aName, bName)) return null;
   const color = base.color || deriveColorFromName(base.name);
@@ -603,9 +602,7 @@ function normalizeMixMaterial(mat:any, aMat:any, bMat:any) {
     description: base.description || `Auto-generated mix of ${aName} and ${bName}.`,
     color,
     density,
-    tags: hasTags ? tags : undefined,
-    primitives: hasPrimitives ? base.primitives : undefined,
-    budgets: base.budgets,
+    tags,
     reactions: Array.isArray(base.reactions) ? base.reactions : undefined,
     __mixParents: [aName, bName],
     __mixAncestors: ancestors
