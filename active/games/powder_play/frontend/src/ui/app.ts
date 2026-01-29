@@ -953,24 +953,39 @@ async function generateMixMaterial(aMat: any, bMat: any) {
   const timing: any = { name: candidateName, a: aName, b: bName, start: Date.now() };
 
   const t0 = Date.now();
-  const tagStart = Date.now();
-  const tagResp = await runLocalLLMText(tagPrompt, MIX_PROPERTY_OPTIONS);
-  timing.tag = Date.now() - tagStart;
-  setMixProgress(65);
+  // run property prompts in parallel with tuned tokens per prompt
+  const tagPromise = (async () => {
+    const s = Date.now();
+    const r = await runLocalLLMText(tagPrompt, { tokens: MIX_PROPERTY_OPTIONS.tokens, temperature: MIX_PROPERTY_OPTIONS.temperature });
+    return { resp: r, dur: Date.now() - s };
+  })();
+  const densityPromise = (async () => {
+    const s = Date.now();
+    const r = await runLocalLLMText(densityPrompt, { tokens: Math.max(8, Math.floor(MIX_PROPERTY_OPTIONS.tokens / 2)), temperature: MIX_PROPERTY_OPTIONS.temperature });
+    return { resp: r, dur: Date.now() - s };
+  })();
+  const colorPromise = (async () => {
+    const s = Date.now();
+    const r = await runLocalLLMText(colorPrompt, { tokens: Math.max(10, Math.floor(MIX_PROPERTY_OPTIONS.tokens * 0.6)), temperature: MIX_PROPERTY_OPTIONS.temperature });
+    return { resp: r, dur: Date.now() - s };
+  })();
+  const descPromise = (async () => {
+    const s = Date.now();
+    const r = await runLocalLLMText(descPrompt, { tokens: Math.max(12, Math.floor(MIX_PROPERTY_OPTIONS.tokens * 0.6)), temperature: MIX_PROPERTY_OPTIONS.temperature });
+    return { resp: r, dur: Date.now() - s };
+  })();
 
-  const densityStart = Date.now();
-  const densityResp = await runLocalLLMText(densityPrompt, MIX_PROPERTY_OPTIONS);
-  timing.density = Date.now() - densityStart;
-  setMixProgress(72);
+  const [tagRes, densityRes, colorRes, descRes] = await Promise.all([tagPromise, densityPromise, colorPromise, descPromise]);
+  const tagResp = tagRes?.resp || "";
+  const densityResp = densityRes?.resp || "";
+  const colorResp = colorRes?.resp || "";
+  const descResp = descRes?.resp || "";
 
-  const colorStart = Date.now();
-  const colorResp = await runLocalLLMText(colorPrompt, MIX_PROPERTY_OPTIONS);
-  timing.color = Date.now() - colorStart;
-  setMixProgress(80);
+  timing.tag = tagRes?.dur || 0;
+  timing.density = densityRes?.dur || 0;
+  timing.color = colorRes?.dur || 0;
+  timing.desc = descRes?.dur || 0;
 
-  const descStart = Date.now();
-  const descResp = await runLocalLLMText(descPrompt, MIX_PROPERTY_OPTIONS);
-  timing.desc = Date.now() - descStart;
   setMixProgress(85);
 
   timing.total = Date.now() - t0;
