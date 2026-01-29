@@ -1,8 +1,8 @@
-import { runLocalLLM, runLocalLLMText } from '../material_api';
-import promptTemplates from '../../material_gen/prompt_templates.json';
+import { runLocalLLM, runLocalLLMText } from "../material_api";
+import promptTemplates from "../../../material_gen/prompt_templates.json";
 
 export function initApp(root: HTMLElement) {
-  root.className = 'min-h-screen w-full p-4';
+  root.className = "min-h-screen w-full p-4";
   root.innerHTML = `
     <div class="flex flex-col lg:flex-row gap-4 items-start">
       <div id="left-panel" class="alchemy-panel min-w-[220px] w-full lg:w-64">
@@ -31,52 +31,58 @@ export function initApp(root: HTMLElement) {
     </div>
   `;
 
-  const status = document.getElementById('status')!;
-  status.textContent = 'Ready';
-  const mixStatus = document.getElementById('mix-status') as HTMLElement | null;
-  if (mixStatus) mixStatus.textContent = 'Mix server: checking...';
+  const status = document.getElementById("status")!;
+  status.textContent = "Ready";
+  const mixStatus = document.getElementById("mix-status") as HTMLElement | null;
+  if (mixStatus) mixStatus.textContent = "Mix server: checking...";
 
-  const materialsPanel = document.getElementById('materials-panel')!;
-  const playbackControls = document.getElementById('playback-controls')!;
-  const toolsPanel = document.getElementById('tools-panel')!;
+  const materialsPanel = document.getElementById("materials-panel")!;
+  const playbackControls = document.getElementById("playback-controls")!;
+  const toolsPanel = document.getElementById("tools-panel")!;
 
   // mount materials browser
-  import('./material_browser').then(m => {
+  import("./material_browser").then((m) => {
     m.mountMaterialBrowser(materialsPanel);
   });
 
   // attach play/step controls
-  import('./controls').then(mod => {
-    mod.attachControls(playbackControls, (playingOrStep:boolean)=>{
+  import("./controls").then((mod) => {
+    mod.attachControls(playbackControls, (playingOrStep: boolean) => {
       // playingOrStep true for a tick, false for pause action
       if (!worker) return;
       if (mixBlocked) return;
-      if (playingOrStep) worker.postMessage({type:'step'});
-      else worker.postMessage({type:'step'});
+      if (playingOrStep) worker.postMessage({ type: "step" });
+      else worker.postMessage({ type: "step" });
     });
   });
 
   // attach canvas tools immediately (it will queue paints until worker exists)
-  const canvas = document.getElementById('sim-canvas') as HTMLCanvasElement;
+  const canvas = document.getElementById("sim-canvas") as HTMLCanvasElement;
 
   // Setup canvas for devicePixelRatio to reduce blurriness
   function setupCanvasDPR(c: HTMLCanvasElement, cssW = 600, cssH = 400) {
     const dpr = Math.max(1, window.devicePixelRatio || 1);
     c.width = Math.floor(cssW * dpr);
     c.height = Math.floor(cssH * dpr);
-    c.style.width = cssW + 'px';
-    c.style.height = cssH + 'px';
-    return {dpr, cssW, cssH};
+    c.style.width = cssW + "px";
+    c.style.height = cssH + "px";
+    return { dpr, cssW, cssH };
   }
   const _dpr = setupCanvasDPR(canvas, 600, 400);
 
-  import('./canvas_tools').then(mod => {
-    mod.attachCanvasTools(canvas, (window as any).__powderWorker || null, 150, 100, toolsPanel);
+  import("./canvas_tools").then((mod) => {
+    mod.attachCanvasTools(
+      canvas,
+      (window as any).__powderWorker || null,
+      150,
+      100,
+      toolsPanel,
+    );
   });
 
-  const ctx = canvas.getContext('2d')!;
-  ctx.fillStyle = '#000';
-  ctx.fillRect(0,0,canvas.width,canvas.height);
+  const ctx = canvas.getContext("2d")!;
+  ctx.fillStyle = "#000";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   pingMixServer();
 }
@@ -90,32 +96,32 @@ const autoMixPairs = new Set<string>();
 const mixCache = new Map<string, any>();
 const pendingMixes = new Set<string>();
 const mix404Logged = new Set<string>();
-const mixCacheStorageKey = 'alchemistPowder.mixCache.v2';
-const mixCacheVersionKey = 'alchemistPowder.mixCache.version';
-const mixCacheVersion = 'v3';
+const mixCacheStorageKey = "alchemistPowder.mixCache.v2";
+const mixCacheVersionKey = "alchemistPowder.mixCache.version";
+const mixCacheVersion = "v3";
 const mixApiBase = (() => {
   const override = (window as any).__mixApiBase;
   if (override) return override;
-  if (typeof window !== 'undefined' && window.location?.hostname) {
+  if (typeof window !== "undefined" && window.location?.hostname) {
     return `${window.location.protocol}//${window.location.hostname}:8787`;
   }
-  return 'http://127.0.0.1:8787';
+  return "http://127.0.0.1:8787";
 })();
 let mixBlocked = false;
 let mixCacheReady = false;
 let mixProgress = 0;
-let mixName = 'Mixing...';
+let mixName = "Mixing...";
 
 function setMixStatus(message: string) {
-  const mixStatus = document.getElementById('mix-status');
+  const mixStatus = document.getElementById("mix-status");
   if (mixStatus) mixStatus.textContent = message;
 }
 
 function summarizeResponseHeaders(res: Response) {
   return {
-    'content-type': res.headers.get('content-type'),
-    'server': res.headers.get('server'),
-    'date': res.headers.get('date')
+    "content-type": res.headers.get("content-type"),
+    server: res.headers.get("server"),
+    date: res.headers.get("date"),
   };
 }
 
@@ -123,116 +129,124 @@ async function readResponseBody(res: Response) {
   try {
     return await res.text();
   } catch (e) {
-    return '';
+    return "";
   }
 }
 
-async function logMixHttpFailure(context: string, res: Response, extra?: Record<string, any>) {
+async function logMixHttpFailure(
+  context: string,
+  res: Response,
+  extra?: Record<string, any>,
+) {
   const body = await readResponseBody(res);
   console.warn(`[mix] ${context} failed`, {
     url: res.url,
     status: res.status,
     headers: summarizeResponseHeaders(res),
     body: body.slice(0, 500),
-    ...extra
+    ...extra,
   });
   return body;
 }
 
 async function pingMixServer() {
   try {
-    const res = await fetch(`${mixApiBase}/health`, { cache: 'no-store' });
+    const res = await fetch(`${mixApiBase}/health`, { cache: "no-store" });
     if (res.ok) {
       setMixStatus(`Mix server: ok (${mixApiBase})`);
       return;
     }
-    await logMixHttpFailure('health', res);
+    await logMixHttpFailure("health", res);
     setMixStatus(`Mix server: error ${res.status} (${mixApiBase})`);
   } catch (e) {
     setMixStatus(`Mix server: unreachable (${mixApiBase})`);
   }
 }
 
-function mixCacheKey(aName:string, bName:string) {
-  return [aName, bName].sort().join('|');
+function mixCacheKey(aName: string, bName: string) {
+  return [aName, bName].sort().join("|");
 }
 
-function setMixProgress(pct:number) {
+function setMixProgress(pct: number) {
   mixProgress = Math.max(0, Math.min(100, pct));
-  const bar = document.getElementById('mix-progress') as HTMLElement | null;
+  const bar = document.getElementById("mix-progress") as HTMLElement | null;
   if (bar) bar.style.width = `${mixProgress}%`;
 }
 
-function setMixName(name:string) {
+function setMixName(name: string) {
   mixName = name;
-  const el = document.getElementById('mix-name');
+  const el = document.getElementById("mix-name");
   if (el) el.textContent = mixName;
 }
 
-function setMixBlocked(blocked:boolean, message?:string, name?:string) {
+function setMixBlocked(blocked: boolean, message?: string, name?: string) {
   mixBlocked = blocked;
-  try { (window as any).__mixBlocked = blocked; } catch (e) {}
-  console.log('[mix] setMixBlocked', { blocked, message, name });
-  const banner = document.getElementById('mix-banner');
+  try {
+    (window as any).__mixBlocked = blocked;
+  } catch (e) {}
+  console.log("[mix] setMixBlocked", { blocked, message, name });
+  const banner = document.getElementById("mix-banner");
   if (banner) {
-    banner.classList.toggle('hidden', !blocked);
+    banner.classList.toggle("hidden", !blocked);
     if (blocked && name) setMixName(name);
     if (blocked && message) {
-      const title = banner.querySelector('.mix-title');
+      const title = banner.querySelector(".mix-title");
       if (title) title.textContent = message;
     }
     if (!blocked) {
-      const title = banner.querySelector('.mix-title');
-      if (title) title.textContent = 'New material discovered';
-      setMixName('Mixing...');
+      const title = banner.querySelector(".mix-title");
+      if (title) title.textContent = "New material discovered";
+      setMixName("Mixing...");
       setMixProgress(0);
     }
   }
 }
 
-async function reportMixError(message:string, meta?:any) {
-  const payload = { level: 'error', message, meta };
+async function reportMixError(message: string, meta?: any) {
+  const payload = { level: "error", message, meta };
   try {
     const res = await fetch(`${mixApiBase}/client-log`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
     });
     if (!res.ok) {
-      await logMixHttpFailure('client-log', res, { payload });
+      await logMixHttpFailure("client-log", res, { payload });
       setMixStatus(`Mix server: error ${res.status} (${mixApiBase})`);
       return;
     }
   } catch (e) {
-    console.warn('mix client-log error', { error: String(e), payload });
+    console.warn("mix client-log error", { error: String(e), payload });
   }
   setMixStatus(`Mix server: error (${mixApiBase})`);
 }
 
 async function loadMixCacheFromServer() {
   try {
-    const res = await fetch(`${mixApiBase}/mixes`, { cache: 'no-store' });
+    const res = await fetch(`${mixApiBase}/mixes`, { cache: "no-store" });
     if (!res.ok) {
-      await logMixHttpFailure('mix cache fetch', res);
+      await logMixHttpFailure("mix cache fetch", res);
       throw new Error(`mix cache fetch failed: ${res.status}`);
     }
-    const parsed = await res.json() as Record<string, any>;
+    const parsed = (await res.json()) as Record<string, any>;
     for (const [key, value] of Object.entries(parsed || {})) {
       mixCache.set(key, value);
     }
     mixCacheReady = true;
-    try { (window as any).__mixCacheReady = true; } catch (e) {}
+    try {
+      (window as any).__mixCacheReady = true;
+    } catch (e) {}
   } catch (e) {
-    console.warn('mix cache load failed', e);
+    console.warn("mix cache load failed", e);
     loadMixCacheFromLocal();
   }
 }
 
 async function clearMixCacheOnServer() {
   try {
-    await fetch(`${mixApiBase}/mixes`, { method: 'DELETE' });
+    await fetch(`${mixApiBase}/mixes`, { method: "DELETE" });
   } catch (e) {
-    console.warn('mix cache clear failed', e);
+    console.warn("mix cache clear failed", e);
   }
 }
 
@@ -246,11 +260,15 @@ function loadMixCacheFromLocal() {
       }
     }
     mixCacheReady = true;
-    try { (window as any).__mixCacheReady = true; } catch (e) {}
+    try {
+      (window as any).__mixCacheReady = true;
+    } catch (e) {}
   } catch (e) {
-    console.warn('mix cache local load failed', e);
+    console.warn("mix cache local load failed", e);
     mixCacheReady = true;
-    try { (window as any).__mixCacheReady = true; } catch (e) {}
+    try {
+      (window as any).__mixCacheReady = true;
+    } catch (e) {}
   }
 }
 
@@ -258,7 +276,7 @@ function clearMixCacheLocal() {
   try {
     localStorage.removeItem(mixCacheStorageKey);
   } catch (e) {
-    console.warn('mix cache local clear failed', e);
+    console.warn("mix cache local clear failed", e);
   }
   mixCache.clear();
 }
@@ -271,152 +289,163 @@ function saveMixCacheToLocal() {
     }
     localStorage.setItem(mixCacheStorageKey, JSON.stringify(out));
   } catch (e) {
-    console.warn('mix cache local save failed', e);
+    console.warn("mix cache local save failed", e);
   }
 }
 
-async function fetchMixFromServer(cacheKey:string) {
+async function fetchMixFromServer(cacheKey: string) {
   try {
-    const res = await fetch(`${mixApiBase}/mixes/${encodeURIComponent(cacheKey)}`, { cache: 'no-store' });
+    const res = await fetch(
+      `${mixApiBase}/mixes/${encodeURIComponent(cacheKey)}`,
+      { cache: "no-store" },
+    );
     if (res.status === 404) {
       if (!mix404Logged.has(cacheKey)) {
         mix404Logged.add(cacheKey);
-        await logMixHttpFailure('mix cache miss', res, { cacheKey });
+        await logMixHttpFailure("mix cache miss", res, { cacheKey });
       }
       return null;
     }
     if (!res.ok) throw new Error(`mix fetch failed: ${res.status}`);
     return await res.json();
   } catch (e) {
-    console.warn('mix fetch failed', e);
+    console.warn("mix fetch failed", e);
     return null;
   }
 }
 
-async function saveMixToServer(cacheKey:string, mix:any) {
+async function saveMixToServer(cacheKey: string, mix: any) {
   try {
-    const res = await fetch(`${mixApiBase}/mixes/${encodeURIComponent(cacheKey)}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(mix)
-    });
+    const res = await fetch(
+      `${mixApiBase}/mixes/${encodeURIComponent(cacheKey)}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(mix),
+      },
+    );
     if (!res.ok) {
-      await logMixHttpFailure('mix cache save', res, { cacheKey });
+      await logMixHttpFailure("mix cache save", res, { cacheKey });
       throw new Error(`mix save failed: ${res.status}`);
     }
     return await res.json();
   } catch (e) {
-    console.warn('mix save failed', e);
+    console.warn("mix save failed", e);
     return null;
   }
 }
 
-function stripTransientFields(mat:any) {
-  if (!mat || typeof mat !== 'object') return mat;
+function stripTransientFields(mat: any) {
+  if (!mat || typeof mat !== "object") return mat;
   const clone = JSON.parse(JSON.stringify(mat));
   delete clone.__compiled;
   return clone;
 }
 
-function isNoReactionPayload(mix:any) {
-  if (!mix || typeof mix !== 'object') return false;
+function isNoReactionPayload(mix: any) {
+  if (!mix || typeof mix !== "object") return false;
   if (mix.no_reaction === true) return true;
-  if (mix.reaction === 'none' || mix.reaction === 'no_reaction') return true;
-  if (mix.type === 'no_reaction') return true;
+  if (mix.reaction === "none" || mix.reaction === "no_reaction") return true;
+  if (mix.type === "no_reaction") return true;
   return false;
 }
 
-function isGenericMixName(name:string, aName:string, bName:string) {
+function isGenericMixName(name: string, aName: string, bName: string) {
   const lower = name.toLowerCase();
   const aLower = aName.toLowerCase();
   const bLower = bName.toLowerCase();
-  if (lower.includes('+')) return true;
-  if (lower.startsWith('mix ') || lower.startsWith('mixed ') || lower.includes(' mix ')) return true;
+  if (lower.includes("+")) return true;
+  if (
+    lower.startsWith("mix ") ||
+    lower.startsWith("mixed ") ||
+    lower.includes(" mix ")
+  )
+    return true;
   if (lower.includes(aLower) && lower.includes(bLower)) return true;
   return false;
 }
 
-function extractNameOnlyResponse(resp:any) {
-  if (!resp) return '';
-  if (typeof resp === 'string') {
+function extractNameOnlyResponse(resp: any) {
+  if (!resp) return "";
+  if (typeof resp === "string") {
     const raw = resp.trim();
     try {
       const parsed = JSON.parse(raw);
-      if (parsed && typeof parsed === 'object') {
-        if (parsed.no_reaction === true) return '';
-        if (typeof parsed.name === 'string') return parsed.name.trim();
+      if (parsed && typeof parsed === "object") {
+        if (parsed.no_reaction === true) return "";
+        if (typeof parsed.name === "string") return parsed.name.trim();
       }
     } catch (e) {}
     return raw;
   }
-  if (typeof resp === 'object') {
-    if (resp.no_reaction === true) return '';
-    if (typeof resp.name === 'string') return resp.name.trim();
+  if (typeof resp === "object") {
+    if (resp.no_reaction === true) return "";
+    if (typeof resp.name === "string") return resp.name.trim();
   }
-  return '';
+  return "";
 }
 
-const allowedTags = new Set(['sand', 'flow', 'float', 'static']);
+const allowedTags = new Set(["sand", "flow", "float", "static"]);
 
 const mixTagExamples = [
-  'Sand => sand',
-  'Water => flow',
-  'Oil => flow',
-  'Steam => float',
-  'Smoke => float',
-  'Salt => sand',
-  'Metal => static',
-  'Stone => sand',
-  'Wood => static',
-  'Glass => static'
+  "Sand => sand",
+  "Water => flow",
+  "Oil => flow",
+  "Steam => float",
+  "Smoke => float",
+  "Salt => sand",
+  "Metal => static",
+  "Stone => sand",
+  "Wood => static",
+  "Glass => static",
 ];
 
 const mixDensityExamples = [
-  'Sand => 1.6',
-  'Water => 1.0',
-  'Oil => 0.9',
-  'Steam => 0.2',
-  'Smoke => 0.1',
-  'Salt => 2.0',
-  'Metal => 3.5',
-  'Stone => 2.4',
-  'Wood => 0.7',
-  'Glass => 2.5'
+  "Sand => 1.6",
+  "Water => 1.0",
+  "Oil => 0.9",
+  "Steam => 0.2",
+  "Smoke => 0.1",
+  "Salt => 2.0",
+  "Metal => 3.5",
+  "Stone => 2.4",
+  "Wood => 0.7",
+  "Glass => 2.5",
 ];
 
 const mixColorExamples = [
-  'Sand => 160,150,130',
-  'Water => 80,120,200',
-  'Oil => 90,80,60',
-  'Steam => 200,200,220',
-  'Smoke => 180,180,190',
-  'Salt => 220,220,220',
-  'Metal => 120,120,130',
-  'Stone => 180,170,160',
-  'Wood => 120,90,60',
-  'Glass => 190,200,210'
+  "Sand => 160,150,130",
+  "Water => 80,120,200",
+  "Oil => 90,80,60",
+  "Steam => 200,200,220",
+  "Smoke => 180,180,190",
+  "Salt => 220,220,220",
+  "Metal => 120,120,130",
+  "Stone => 180,170,160",
+  "Wood => 120,90,60",
+  "Glass => 190,200,210",
 ];
 
 const mixDescriptionExamples = [
-  'Sand => Heavy granular sand.',
-  'Water => Clear flowing liquid.',
-  'Oil => Slick viscous liquid.',
-  'Steam => Light drifting vapor.',
-  'Smoke => Thin sooty haze.',
-  'Salt => Sharp crystalline grains.',
-  'Metal => Solid heavy metal.',
-  'Stone => Hard rough solid.',
-  'Wood => Dry fibrous solid.',
-  'Glass => Clear brittle solid.'
+  "Sand => Heavy granular sand.",
+  "Water => Clear flowing liquid.",
+  "Oil => Slick viscous liquid.",
+  "Steam => Light drifting vapor.",
+  "Smoke => Thin sooty haze.",
+  "Salt => Sharp crystalline grains.",
+  "Metal => Solid heavy metal.",
+  "Stone => Hard rough solid.",
+  "Wood => Dry fibrous solid.",
+  "Glass => Clear brittle solid.",
 ];
 
 function getRecentMixLines(limit = 12) {
   const lines: string[] = [];
   for (const [key, value] of mixCache.entries()) {
-    if (!value || typeof value !== 'object') continue;
+    if (!value || typeof value !== "object") continue;
     if (isNoReactionPayload(value)) continue;
-    if (!value.name || typeof value.name !== 'string') continue;
-    const parts = key.split('|');
+    if (!value.name || typeof value.name !== "string") continue;
+    const parts = key.split("|");
     if (parts.length !== 2) continue;
     lines.push(`${parts[0]}+${parts[1]}=${value.name}`);
   }
@@ -425,66 +454,75 @@ function getRecentMixLines(limit = 12) {
 }
 
 function buildMixNamePrompt(aName: string, bName: string) {
-  const template = String((promptTemplates as any).mix_name_prompt || 'Mixes:\n{{recent}}\n{{a}}+{{b}}=');
+  const template = String(
+    (promptTemplates as any).mix_name_prompt ||
+      "Mixes:\n{{recent}}\n{{a}}+{{b}}=",
+  );
   const recentLines = getRecentMixLines();
-  const recentBlock = recentLines.length ? recentLines.join('\n') : '';
+  const recentBlock = recentLines.length ? recentLines.join("\n") : "";
   return template
-    .replace('{{recent}}', recentBlock)
-    .replace('{{a}}', aName)
-    .replace('{{b}}', bName);
+    .replace("{{recent}}", recentBlock)
+    .replace("{{a}}", aName)
+    .replace("{{b}}", bName);
 }
 
 function buildMixTagsPrompt(name: string) {
-  const lines = ['Tags:'];
+  const lines = ["Tags:"];
   lines.push(...mixTagExamples);
   lines.push(`${name} =>`);
-  lines.push('Return only comma-separated tags from: sand, flow, float, static.');
-  return lines.join('\n');
+  lines.push(
+    "Return only comma-separated tags from: sand, flow, float, static.",
+  );
+  return lines.join("\n");
 }
 
 function buildMixDensityPrompt(name: string) {
-  const lines = ['Densities:'];
+  const lines = ["Densities:"];
   lines.push(...mixDensityExamples);
   lines.push(`${name} =>`);
-  lines.push('Return only the numeric density.');
-  return lines.join('\n');
+  lines.push("Return only the numeric density.");
+  return lines.join("\n");
 }
 
 function buildMixColorPrompt(name: string) {
-  const lines = ['Colors (RGB):'];
+  const lines = ["Colors (RGB):"];
   lines.push(...mixColorExamples);
   lines.push(`${name} =>`);
-  lines.push('Return only three comma-separated integers (r,g,b).');
-  return lines.join('\n');
+  lines.push("Return only three comma-separated integers (r,g,b).");
+  return lines.join("\n");
 }
 
 function buildMixDescriptionPrompt(name: string) {
-  const lines = ['Descriptions:'];
+  const lines = ["Descriptions:"];
   lines.push(...mixDescriptionExamples);
   lines.push(`${name} =>`);
-  lines.push('Return a short sentence only.');
-  return lines.join('\n');
+  lines.push("Return a short sentence only.");
+  return lines.join("\n");
 }
 
 function parseMixNameResponse(resp: string, aName: string, bName: string) {
-  if (!resp) return '';
-  const rawLines = resp.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
-  if (!rawLines.length) return '';
+  if (!resp) return "";
+  const rawLines = resp
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  if (!rawLines.length) return "";
   let line = rawLines[rawLines.length - 1];
-  if (line.includes('=')) {
-    line = line.slice(line.lastIndexOf('=') + 1).trim();
+  if (line.includes("=")) {
+    line = line.slice(line.lastIndexOf("=") + 1).trim();
   }
-  line = line.replace(/^[-–—\s]+/, '').trim();
-  line = line.replace(/^['"`]+|['"`]+$/g, '').trim();
+  line = line.replace(/^[-–—\s]+/, "").trim();
+  line = line.replace(/^['"`]+|['"`]+$/g, "").trim();
   const firstWordMatch = line.match(/[A-Za-z0-9_-]+/);
   if (firstWordMatch) {
     line = firstWordMatch[0].trim();
   }
   const lower = line.toLowerCase();
-  if (lower.includes('no reaction') || lower.includes('no_reaction')) return null;
-  if (!line) return '';
+  if (lower.includes("no reaction") || lower.includes("no_reaction"))
+    return null;
+  if (!line) return "";
   if (isNoReactionName(line)) return null;
-  if (isGenericMixName(line, aName, bName)) return '';
+  if (isGenericMixName(line, aName, bName)) return "";
   return line;
 }
 
@@ -518,9 +556,13 @@ function parseColorResponse(resp: string) {
 }
 
 function parseDescriptionResponse(resp: string) {
-  if (!resp) return '';
-  const line = resp.split(/\r?\n/).map((l) => l.trim()).filter(Boolean)[0] || '';
-  return line.replace(/^[-–—\s]+/, '').trim();
+  if (!resp) return "";
+  const line =
+    resp
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .filter(Boolean)[0] || "";
+  return line.replace(/^[-–—\s]+/, "").trim();
 }
 
 function fallbackTags(aMat: any, bMat: any) {
@@ -529,17 +571,21 @@ function fallbackTags(aMat: any, bMat: any) {
   for (const tag of aTags) {
     if (bTags.includes(tag) && allowedTags.has(tag)) return [tag];
   }
-  const ordered = ['flow', 'sand', 'float', 'static'];
+  const ordered = ["flow", "sand", "float", "static"];
   for (const tag of ordered) {
     if (aTags.includes(tag) || bTags.includes(tag)) return [tag];
   }
-  return ['static'];
+  return ["static"];
 }
 
 function isNoReactionName(name: string) {
   const cleaned = name.trim().toLowerCase();
   if (!cleaned) return false;
-  return cleaned === 'no reaction' || cleaned === 'no_reaction' || cleaned === 'noreaction';
+  return (
+    cleaned === "no reaction" ||
+    cleaned === "no_reaction" ||
+    cleaned === "noreaction"
+  );
 }
 
 function fallbackMixName(aName: string, bName: string) {
@@ -548,9 +594,9 @@ function fallbackMixName(aName: string, bName: string) {
   for (let i = 0; i < base.length; i++) {
     hash = ((hash << 5) - hash + base.charCodeAt(i)) | 0;
   }
-  const tag = Math.abs(hash).toString(36).slice(0, 4) || 'mix';
-  const safeA = aName.replace(/\s+/g, '').slice(0, 6) || 'A';
-  const safeB = bName.replace(/\s+/g, '').slice(0, 6) || 'B';
+  const tag = Math.abs(hash).toString(36).slice(0, 4) || "mix";
+  const safeA = aName.replace(/\s+/g, "").slice(0, 6) || "A";
+  const safeB = bName.replace(/\s+/g, "").slice(0, 6) || "B";
   return `${safeA}${safeB}_${tag}`;
 }
 
@@ -562,14 +608,18 @@ try {
     localStorage.setItem(mixCacheVersionKey, mixCacheVersion);
   }
 } catch (e) {}
-try { loadMixCacheFromLocal(); } catch (e) {}
-try { loadMixCacheFromServer(); } catch (e) {}
+try {
+  loadMixCacheFromLocal();
+} catch (e) {}
+try {
+  loadMixCacheFromServer();
+} catch (e) {}
 
-function materialNameExists(name:string) {
+function materialNameExists(name: string) {
   if (!name) return false;
   if (materialIdByName.has(name)) return true;
   for (const value of mixCache.values()) {
-    if (value && typeof value === 'object' && value.name === name) return true;
+    if (value && typeof value === "object" && value.name === name) return true;
   }
   return false;
 }
@@ -587,56 +637,72 @@ function deriveColorFromName(name: string) {
 
 function ensureWorker() {
   if (worker) return;
-  worker = new Worker(new URL('../sim/worker.ts', import.meta.url), { type: 'module' });
+  worker = new Worker(new URL("../sim/worker.ts", import.meta.url), {
+    type: "module",
+  });
   worker.onmessage = (ev) => {
     const m = ev.data;
-    if (m.type === 'ready') {
-      console.log('worker ready');
+    if (m.type === "ready") {
+      console.log("worker ready");
       (window as any).__powderWorker = worker;
     }
-    if (m.type === 'material_set') console.log('material set');
-    if (m.type === 'grid_set') {
-      console.log('grid set on worker');
+    if (m.type === "material_set") console.log("material set");
+    if (m.type === "grid_set") {
+      console.log("grid set on worker");
       try {
         const buf = new Uint16Array(m.grid);
         (window as any).__lastGrid = buf.slice();
         (window as any).__lastGridWidth = m.width;
         const sampleIdx = 10 * m.width + 10;
         (window as any).__lastGridSample = buf[sampleIdx];
-        console.log('drawGrid sample [10,10] =', buf[sampleIdx], 'colorMap=', (window as any).__materialColors);
+        console.log(
+          "drawGrid sample [10,10] =",
+          buf[sampleIdx],
+          "colorMap=",
+          (window as any).__materialColors,
+        );
         drawGrid(buf, m.width, m.height);
-      } catch(e) {}
+      } catch (e) {}
     }
-    if (m.type === 'reaction') {
+    if (m.type === "reaction") {
       try {
-        console.log('reaction applied', JSON.stringify(m));
+        console.log("reaction applied", JSON.stringify(m));
       } catch (e) {
-        console.log('reaction applied', m);
+        console.log("reaction applied", m);
       }
     }
-    if (m.type === 'stepped') {
+    if (m.type === "stepped") {
       const buf = new Uint16Array(m.grid);
       try {
         (window as any).__lastGrid = buf.slice();
         (window as any).__lastGridWidth = m.width;
         const sampleIdx = 10 * m.width + 10;
         (window as any).__lastGridSample = buf[sampleIdx];
-        console.log('drawGrid sample [10,10] =', buf[sampleIdx], 'colorMap=', (window as any).__materialColors);
-      } catch(e) {}
+        console.log(
+          "drawGrid sample [10,10] =",
+          buf[sampleIdx],
+          "colorMap=",
+          (window as any).__materialColors,
+        );
+      } catch (e) {}
       drawGrid(buf, m.width, m.height);
       maybeAutoGenerateMixes(buf, m.width, m.height);
     }
-    if (m.type === 'error') console.warn('worker error', m.message);
-  }
-  worker.postMessage({type:'init', width:150, height:100});
+    if (m.type === "error") console.warn("worker error", m.message);
+  };
+  worker.postMessage({ type: "init", width: 150, height: 100 });
 }
 
-function getMaterialColor(mat:any) {
-  let color = [255,255,255];
+function getMaterialColor(mat: any) {
+  let color = [255, 255, 255];
   if (mat && mat.color) {
-    if (typeof mat.color === 'string' && mat.color.startsWith('#')) {
-      const hex = mat.color.replace('#','');
-      color = [parseInt(hex.slice(0,2),16), parseInt(hex.slice(2,4),16), parseInt(hex.slice(4,6),16)];
+    if (typeof mat.color === "string" && mat.color.startsWith("#")) {
+      const hex = mat.color.replace("#", "");
+      color = [
+        parseInt(hex.slice(0, 2), 16),
+        parseInt(hex.slice(2, 4), 16),
+        parseInt(hex.slice(4, 6), 16),
+      ];
     } else if (Array.isArray(mat.color) && mat.color.length >= 3) {
       color = [mat.color[0], mat.color[1], mat.color[2]];
     }
@@ -646,7 +712,7 @@ function getMaterialColor(mat:any) {
   return color;
 }
 
-function setMaterialColor(materialId:number, mat:any) {
+function setMaterialColor(materialId: number, mat: any) {
   try {
     const color = getMaterialColor(mat);
     const colorMap = (window as any).__materialColors || {};
@@ -657,15 +723,17 @@ function setMaterialColor(materialId:number, mat:any) {
     }
   } catch (e) {
     const colorMap = (window as any).__materialColors || {};
-    colorMap[materialId] = mat?.name ? deriveColorFromName(mat.name) : [255,255,255];
+    colorMap[materialId] = mat?.name
+      ? deriveColorFromName(mat.name)
+      : [255, 255, 255];
     (window as any).__materialColors = colorMap;
     if (currentMaterialId === materialId) {
-      (window as any).__currentMaterialColor = [255,255,255];
+      (window as any).__currentMaterialColor = [255, 255, 255];
     }
   }
 }
 
-function registerMaterial(mat:any, opts?: { select?: boolean }) {
+function registerMaterial(mat: any, opts?: { select?: boolean }) {
   ensureWorker();
   const materialId = ++nextMaterialId;
   if (opts?.select !== false) {
@@ -682,12 +750,12 @@ function registerMaterial(mat:any, opts?: { select?: boolean }) {
     (window as any).__materialIdByName = map;
   } catch (e) {}
 
-  worker!.postMessage({type:'set_material', material:mat, materialId});
+  worker!.postMessage({ type: "set_material", material: mat, materialId });
   setMaterialColor(materialId, mat);
   return materialId;
 }
 
-function updateMaterial(materialId:number, mat:any) {
+function updateMaterial(materialId: number, mat: any) {
   ensureWorker();
   if (mat?.name) {
     materialIdByName.set(mat.name, materialId);
@@ -698,24 +766,24 @@ function updateMaterial(materialId:number, mat:any) {
     if (mat?.name) map[mat.name] = materialId;
     (window as any).__materialIdByName = map;
   } catch (e) {}
-  worker!.postMessage({type:'set_material', material:mat, materialId});
+  worker!.postMessage({ type: "set_material", material: mat, materialId });
   setMaterialColor(materialId, mat);
 }
 
-function initWorkerWithMaterial(mat:any) {
+function initWorkerWithMaterial(mat: any) {
   registerMaterial(mat, { select: true });
 
-  (window as any).__paintGridPoints = (points:{x:number,y:number}[]) => {
+  (window as any).__paintGridPoints = (points: { x: number; y: number }[]) => {
     const id = (window as any).__currentMaterialId || 1;
-    worker!.postMessage({type:'paint_points', materialId: id, points});
-    if (!mixBlocked) worker!.postMessage({type:'step'});
-  }
-  worker!.postMessage({type:'step'});
+    worker!.postMessage({ type: "paint_points", materialId: id, points });
+    if (!mixBlocked) worker!.postMessage({ type: "step" });
+  };
+  worker!.postMessage({ type: "step" });
 }
 
 (window as any).__initWorkerWithMaterial = initWorkerWithMaterial;
 
-(window as any).__registerMaterial = (mat:any) => {
+(window as any).__registerMaterial = (mat: any) => {
   if (!mat) return;
   return registerMaterial(mat, { select: false });
 };
@@ -725,7 +793,7 @@ function initWorkerWithMaterial(mat:any) {
   if (!id) return;
   currentMaterialId = id;
   (window as any).__currentMaterialId = currentMaterialId;
-  const status = document.getElementById('status');
+  const status = document.getElementById("status");
   if (status) status.textContent = `Material ready: ${name}`;
 };
 
@@ -737,11 +805,11 @@ function initWorkerWithMaterial(mat:any) {
   return true;
 };
 
-function pairKey(a:number, b:number) {
+function pairKey(a: number, b: number) {
   return a < b ? `${a}:${b}` : `${b}:${a}`;
 }
 
-function getAncestors(mat:any) {
+function getAncestors(mat: any) {
   if (!mat) return [] as string[];
   const base = mat.name ? [mat.name] : [];
   if (Array.isArray(mat.__mixAncestors)) {
@@ -753,52 +821,57 @@ function getAncestors(mat:any) {
   return base;
 }
 
-function hasExplicitReaction(aId:number, bId:number) {
+function hasExplicitReaction(aId: number, bId: number) {
   const aMat = materialById.get(aId);
   const bMat = materialById.get(bId);
   if (!aMat || !bMat || !aMat.name || !bMat.name) return false;
-  const aReacts = Array.isArray(aMat.reactions) && aMat.reactions.some((r:any) => r.with === bMat.name);
-  const bReacts = Array.isArray(bMat.reactions) && bMat.reactions.some((r:any) => r.with === aMat.name);
+  const aReacts =
+    Array.isArray(aMat.reactions) &&
+    aMat.reactions.some((r: any) => r.with === bMat.name);
+  const bReacts =
+    Array.isArray(bMat.reactions) &&
+    bMat.reactions.some((r: any) => r.with === aMat.name);
   return aReacts || bReacts;
 }
 
-function normalizeMixMaterial(mat:any, aMat:any, bMat:any) {
-  const aName = aMat?.name || 'A';
-  const bName = bMat?.name || 'B';
+function normalizeMixMaterial(mat: any, aMat: any, bMat: any) {
+  const aName = aMat?.name || "A";
+  const bName = bMat?.name || "B";
   const aAncestors = getAncestors(aMat);
   const bAncestors = getAncestors(bMat);
   const ancestors = Array.from(new Set([...aAncestors, ...bAncestors]));
-  const base = mat && typeof mat === 'object' ? mat : {};
+  const base = mat && typeof mat === "object" ? mat : {};
   if (isNoReactionPayload(base)) return null;
   if (!base.name) {
-    throw new Error('LLM material missing required fields');
+    throw new Error("LLM material missing required fields");
   }
   const rawTags = Array.isArray(base.tags) ? base.tags : [];
   const tags = rawTags
-    .filter((tag:any) => typeof tag === 'string')
-    .map((tag:string) => tag.trim().toLowerCase())
-    .filter((tag:string) => allowedTags.has(tag));
+    .filter((tag: any) => typeof tag === "string")
+    .map((tag: string) => tag.trim().toLowerCase())
+    .filter((tag: string) => allowedTags.has(tag));
   const hasTags = tags.length > 0;
   if (!hasTags) {
-    throw new Error('LLM material missing tags');
+    throw new Error("LLM material missing tags");
   }
   if (isGenericMixName(base.name, aName, bName)) return null;
   const color = base.color || deriveColorFromName(base.name);
-  const density = typeof base.density === 'number' ? base.density : 1;
+  const density = typeof base.density === "number" ? base.density : 1;
   return {
-    type: 'material',
+    type: "material",
     name: base.name,
-    description: base.description || `Auto-generated mix of ${aName} and ${bName}.`,
+    description:
+      base.description || `Auto-generated mix of ${aName} and ${bName}.`,
     color,
     density,
     tags,
     reactions: Array.isArray(base.reactions) ? base.reactions : undefined,
     __mixParents: [aName, bName],
-    __mixAncestors: ancestors
+    __mixAncestors: ancestors,
   };
 }
 
-function tryNormalizeMixMaterial(mat:any, aMat:any, bMat:any) {
+function tryNormalizeMixMaterial(mat: any, aMat: any, bMat: any) {
   try {
     return normalizeMixMaterial(mat, aMat, bMat);
   } catch (e) {
@@ -806,9 +879,9 @@ function tryNormalizeMixMaterial(mat:any, aMat:any, bMat:any) {
   }
 }
 
-async function generateMixMaterial(aMat:any, bMat:any) {
-  const aName = aMat?.name || 'A';
-  const bName = bMat?.name || 'B';
+async function generateMixMaterial(aMat: any, bMat: any) {
+  const aName = aMat?.name || "A";
+  const bName = bMat?.name || "B";
   setMixProgress(20);
   const namePrompt = buildMixNamePrompt(aName, bName);
   const retryNamePrompt = `Mixes:\n${aName}+${bName}=\nReturn only the new material name on the final line.`;
@@ -816,17 +889,20 @@ async function generateMixMaterial(aMat:any, bMat:any) {
     const nameResp = await runLocalLLMText(prompt);
     const candidate = parseMixNameResponse(nameResp, aName, bName);
     if (candidate === null) return null;
-    if (!candidate) return '';
-    if (materialNameExists(candidate)) return '';
+    if (!candidate) return "";
+    if (materialNameExists(candidate)) return "";
     return candidate;
   }
   let candidateName = await getValidName(namePrompt);
-  if (candidateName === '') candidateName = await getValidName(retryNamePrompt);
+  if (candidateName === "") candidateName = await getValidName(retryNamePrompt);
   if (candidateName === null) return null;
   if (!candidateName) {
     candidateName = fallbackMixName(aName, bName);
   }
-  if (materialNameExists(candidateName) || isGenericMixName(candidateName, aName, bName)) {
+  if (
+    materialNameExists(candidateName) ||
+    isGenericMixName(candidateName, aName, bName)
+  ) {
     candidateName = `${fallbackMixName(aName, bName)}_${Date.now().toString(36).slice(-3)}`;
   }
   setMixName(candidateName);
@@ -847,65 +923,111 @@ async function generateMixMaterial(aMat:any, bMat:any) {
 
   let tags = parseTagsResponse(tagResp);
   if (!tags.length) {
-    await reportMixError('mix tags parse failed', { a: aName, b: bName, name: candidateName, response: tagResp });
+    await reportMixError("mix tags parse failed", {
+      a: aName,
+      b: bName,
+      name: candidateName,
+      response: tagResp,
+    });
     tags = fallbackTags(aMat, bMat);
   }
   let density = parseDensityResponse(densityResp);
   if (density === null) {
-    await reportMixError('mix density parse failed', { a: aName, b: bName, name: candidateName, response: densityResp });
-    const aDensity = typeof aMat?.density === 'number' ? aMat.density : 1;
-    const bDensity = typeof bMat?.density === 'number' ? bMat.density : 1;
+    await reportMixError("mix density parse failed", {
+      a: aName,
+      b: bName,
+      name: candidateName,
+      response: densityResp,
+    });
+    const aDensity = typeof aMat?.density === "number" ? aMat.density : 1;
+    const bDensity = typeof bMat?.density === "number" ? bMat.density : 1;
     density = Math.max(0.05, Math.min(10, (aDensity + bDensity) / 2));
   }
   let color = parseColorResponse(colorResp);
   if (!color) {
-    await reportMixError('mix color parse failed', { a: aName, b: bName, name: candidateName, response: colorResp });
+    await reportMixError("mix color parse failed", {
+      a: aName,
+      b: bName,
+      name: candidateName,
+      response: colorResp,
+    });
     color = deriveColorFromName(candidateName);
   }
   let description = parseDescriptionResponse(descResp);
   if (!description) {
-    await reportMixError('mix description parse failed', { a: aName, b: bName, name: candidateName, response: descResp });
+    await reportMixError("mix description parse failed", {
+      a: aName,
+      b: bName,
+      name: candidateName,
+      response: descResp,
+    });
     description = `Auto-generated mix of ${aName} and ${bName}.`;
   }
 
   const draft = {
-    type: 'material',
+    type: "material",
     name: candidateName,
     tags,
     density,
     color,
-    description
+    description,
   };
   const normalized = tryNormalizeMixMaterial(draft, aMat, bMat);
   if (!normalized) {
-    await reportMixError('mix normalize failed', { a: aName, b: bName, name: candidateName, stage: 'properties', responses: { tagResp, densityResp, colorResp, descResp } });
+    await reportMixError("mix normalize failed", {
+      a: aName,
+      b: bName,
+      name: candidateName,
+      stage: "properties",
+      responses: { tagResp, densityResp, colorResp, descResp },
+    });
     return null;
   }
   return normalized;
 }
 
-function applyMixMaterial(mixSource:any, aMat:any, bMat:any) {
+function applyMixMaterial(mixSource: any, aMat: any, bMat: any) {
   if (isNoReactionPayload(mixSource)) return false;
   const mixMat = tryNormalizeMixMaterial(mixSource, aMat, bMat);
   if (!mixMat) {
-    reportMixError('mix normalize failed', {
-      stage: 'apply',
+    reportMixError("mix normalize failed", {
+      stage: "apply",
       a: aMat?.name,
       b: bMat?.name,
       name: mixSource?.name,
-      payload: mixSource
+      payload: mixSource,
     });
     return false;
   }
-  console.log('[mix] applyMixMaterial', { mix: mixMat.name, a: aMat?.name, b: bMat?.name });
+  console.log("[mix] applyMixMaterial", {
+    mix: mixMat.name,
+    a: aMat?.name,
+    b: bMat?.name,
+  });
   const mixId = registerMaterial(mixMat, { select: false });
-  const reactionForA = { with: bMat.name, result: mixMat.name, byproduct: mixMat.name, priority: 3 };
-  const reactionForB = { with: aMat.name, result: mixMat.name, byproduct: mixMat.name, priority: 3 };
-  const updatedA = { ...aMat, reactions: [...(aMat.reactions || []), reactionForA] };
-  const updatedB = { ...bMat, reactions: [...(bMat.reactions || []), reactionForB] };
+  const reactionForA = {
+    with: bMat.name,
+    result: mixMat.name,
+    byproduct: mixMat.name,
+    priority: 3,
+  };
+  const reactionForB = {
+    with: aMat.name,
+    result: mixMat.name,
+    byproduct: mixMat.name,
+    priority: 3,
+  };
+  const updatedA = {
+    ...aMat,
+    reactions: [...(aMat.reactions || []), reactionForA],
+  };
+  const updatedB = {
+    ...bMat,
+    reactions: [...(bMat.reactions || []), reactionForB],
+  };
   updateMaterial(materialIdByName.get(aMat.name)!, updatedA);
   updateMaterial(materialIdByName.get(bMat.name)!, updatedB);
-  const status = document.getElementById('status');
+  const status = document.getElementById("status");
   if (status) status.textContent = `Discovered ${mixMat.name}`;
   try {
     const map = (window as any).__materialIdByName || {};
@@ -914,7 +1036,7 @@ function applyMixMaterial(mixSource:any, aMat:any, bMat:any) {
   } catch (e) {}
   try {
     const cb = (window as any).__addDiscoveredMaterial;
-    if (typeof cb === 'function') cb(mixMat);
+    if (typeof cb === "function") cb(mixMat);
   } catch (e) {}
   try {
     const list = (window as any).__discoveredMaterials || [];
@@ -922,31 +1044,38 @@ function applyMixMaterial(mixSource:any, aMat:any, bMat:any) {
     (window as any).__discoveredMaterials = list;
   } catch (e) {}
   try {
-    console.log('[mix] discovered materials count', (window as any).__discoveredMaterials?.length || 0);
+    console.log(
+      "[mix] discovered materials count",
+      (window as any).__discoveredMaterials?.length || 0,
+    );
   } catch (e) {}
   return true;
 }
 
-function addAutoMixReaction(aId:number, bId:number) {
+function addAutoMixReaction(aId: number, bId: number) {
   const aMat = materialById.get(aId);
   const bMat = materialById.get(bId);
   if (!aMat || !bMat || !aMat.name || !bMat.name) return;
   if (!mixCacheReady) {
-    console.log('[mix] cache not ready, skip', { a: aMat.name, b: bMat.name });
+    console.log("[mix] cache not ready, skip", { a: aMat.name, b: bMat.name });
     return;
   }
-  console.log('[mix] consider', { a: aMat.name, b: bMat.name });
+  console.log("[mix] consider", { a: aMat.name, b: bMat.name });
   const aAncestors = getAncestors(aMat);
   const bAncestors = getAncestors(bMat);
   for (const anc of aAncestors) {
     if (bAncestors.includes(anc)) {
-      console.log('[mix] skip shared ancestor', { a: aMat.name, b: bMat.name, anc });
+      console.log("[mix] skip shared ancestor", {
+        a: aMat.name,
+        b: bMat.name,
+        anc,
+      });
       return;
     }
   }
   const key = pairKey(aId, bId);
   if (autoMixPairs.has(key)) {
-    console.log('[mix] skip existing pair', key);
+    console.log("[mix] skip existing pair", key);
     return;
   }
   autoMixPairs.add(key);
@@ -954,7 +1083,11 @@ function addAutoMixReaction(aId:number, bId:number) {
   const cacheKey = mixCacheKey(aMat.name, bMat.name);
   const cached = mixCache.get(cacheKey);
   if (cached) {
-    console.log('[mix] cache hit', cacheKey, cached?.name || cached?.type || 'unknown');
+    console.log(
+      "[mix] cache hit",
+      cacheKey,
+      cached?.name || cached?.type || "unknown",
+    );
     if (isNoReactionPayload(cached)) return;
     const applied = applyMixMaterial(cached, aMat, bMat);
     if (applied) return;
@@ -963,16 +1096,20 @@ function addAutoMixReaction(aId:number, bId:number) {
   }
 
   if (pendingMixes.has(cacheKey)) {
-    console.log('[mix] skip pending', cacheKey);
+    console.log("[mix] skip pending", cacheKey);
     return;
   }
   pendingMixes.add(cacheKey);
-  setMixBlocked(true, 'New material discovered', `${aMat.name} + ${bMat.name}`);
+  setMixBlocked(true, "New material discovered", `${aMat.name} + ${bMat.name}`);
   setMixProgress(10);
   fetchMixFromServer(cacheKey)
     .then((remote) => {
       if (remote) {
-        console.log('[mix] server cache hit', cacheKey, remote?.name || remote?.type || 'unknown');
+        console.log(
+          "[mix] server cache hit",
+          cacheKey,
+          remote?.name || remote?.type || "unknown",
+        );
         mixCache.set(cacheKey, remote);
         saveMixCacheToLocal();
         if (isNoReactionPayload(remote)) return null;
@@ -985,7 +1122,7 @@ function addAutoMixReaction(aId:number, bId:number) {
         }
         return null;
       }
-      console.log('[mix] cache miss, generating', cacheKey);
+      console.log("[mix] cache miss, generating", cacheKey);
       setMixProgress(25);
       return generateMixMaterial(aMat, bMat);
     })
@@ -993,12 +1130,13 @@ function addAutoMixReaction(aId:number, bId:number) {
       if (!mixMat) return;
       const normalized = normalizeMixMaterial(mixMat, aMat, bMat);
       if (!normalized) {
-        const noReaction = { type: 'no_reaction', no_reaction: true };
+        const noReaction = { type: "no_reaction", no_reaction: true };
         mixCache.set(cacheKey, noReaction);
         saveMixCacheToLocal();
         await saveMixToServer(cacheKey, noReaction);
-        const status = document.getElementById('status');
-        if (status) status.textContent = `No reaction: ${aMat.name} + ${bMat.name}`;
+        const status = document.getElementById("status");
+        if (status)
+          status.textContent = `No reaction: ${aMat.name} + ${bMat.name}`;
         return;
       }
       setMixProgress(95);
@@ -1009,13 +1147,17 @@ function addAutoMixReaction(aId:number, bId:number) {
       setMixProgress(100);
     })
     .catch((err) => {
-      console.warn('mix generation failed', err);
-      reportMixError('mix generation failed', { error: String(err), a: aMat.name, b: bMat.name });
-      const status = document.getElementById('status');
-      if (status) status.textContent = 'Mix generation failed';
-      const title = document.querySelector('#mix-banner .mix-title');
-      if (title) title.textContent = 'Mix generation failed. Try again.';
-      setMixName('Generation failed');
+      console.warn("mix generation failed", err);
+      reportMixError("mix generation failed", {
+        error: String(err),
+        a: aMat.name,
+        b: bMat.name,
+      });
+      const status = document.getElementById("status");
+      if (status) status.textContent = "Mix generation failed";
+      const title = document.querySelector("#mix-banner .mix-title");
+      if (title) title.textContent = "Mix generation failed. Try again.";
+      setMixName("Generation failed");
       setMixProgress(0);
     })
     .finally(() => {
@@ -1024,14 +1166,14 @@ function addAutoMixReaction(aId:number, bId:number) {
     });
 }
 
-function maybeAutoGenerateMixes(buf:Uint16Array, w:number, h:number) {
+function maybeAutoGenerateMixes(buf: Uint16Array, w: number, h: number) {
   if (!buf || !w || !h) return;
   if (mixBlocked) return;
-  console.log('[mix] scan grid for mixes');
+  console.log("[mix] scan grid for mixes");
   const pairs: Array<[number, number]> = [];
-  for (let y=0; y<h; y++) {
-    for (let x=0; x<w; x++) {
-      const idx = y*w + x;
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const idx = y * w + x;
       const a = buf[idx];
       if (!a) continue;
       if (x + 1 < w) {
@@ -1043,7 +1185,10 @@ function maybeAutoGenerateMixes(buf:Uint16Array, w:number, h:number) {
           const bAncestors = getAncestors(bMat);
           let sharesAncestor = false;
           for (const anc of aAncestors) {
-            if (bAncestors.includes(anc)) { sharesAncestor = true; break; }
+            if (bAncestors.includes(anc)) {
+              sharesAncestor = true;
+              break;
+            }
           }
           if (sharesAncestor) continue;
           const key = pairKey(a, b);
@@ -1061,7 +1206,10 @@ function maybeAutoGenerateMixes(buf:Uint16Array, w:number, h:number) {
           const bAncestors = getAncestors(bMat);
           let sharesAncestor = false;
           for (const anc of aAncestors) {
-            if (bAncestors.includes(anc)) { sharesAncestor = true; break; }
+            if (bAncestors.includes(anc)) {
+              sharesAncestor = true;
+              break;
+            }
           }
           if (sharesAncestor) continue;
           const key = pairKey(a, b);
@@ -1083,32 +1231,39 @@ function maybeAutoGenerateMixes(buf:Uint16Array, w:number, h:number) {
   }
 }
 
-function drawGrid(buf:Uint16Array, w:number, h:number) {
-  const canvas = document.getElementById('sim-canvas') as HTMLCanvasElement;
-  const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
-  try { ctx.imageSmoothingEnabled = false; } catch(e) {}
-  const off = document.createElement('canvas');
-  off.width = w; off.height = h;
-  const offCtx = off.getContext('2d')!;
-  try { offCtx.imageSmoothingEnabled = false; } catch(e) {}
+function drawGrid(buf: Uint16Array, w: number, h: number) {
+  const canvas = document.getElementById("sim-canvas") as HTMLCanvasElement;
+  const ctx = canvas.getContext("2d", { willReadFrequently: true })!;
+  try {
+    ctx.imageSmoothingEnabled = false;
+  } catch (e) {}
+  const off = document.createElement("canvas");
+  off.width = w;
+  off.height = h;
+  const offCtx = off.getContext("2d")!;
+  try {
+    offCtx.imageSmoothingEnabled = false;
+  } catch (e) {}
   const img = offCtx.createImageData(w, h);
-  const colorMap = (window as any).__materialColors as Record<number, number[]> | undefined;
-  for (let i=0;i<w*h;i++) {
+  const colorMap = (window as any).__materialColors as
+    | Record<number, number[]>
+    | undefined;
+  for (let i = 0; i < w * h; i++) {
     const v = buf[i] & 0xffff;
-    const c = (v > 0 && colorMap) ? colorMap[v] : undefined;
+    const c = v > 0 && colorMap ? colorMap[v] : undefined;
     if (v > 0 && c) {
-      img.data[i*4+0] = c[0];
-      img.data[i*4+1] = c[1];
-      img.data[i*4+2] = c[2];
-      img.data[i*4+3] = 255;
+      img.data[i * 4 + 0] = c[0];
+      img.data[i * 4 + 1] = c[1];
+      img.data[i * 4 + 2] = c[2];
+      img.data[i * 4 + 3] = 255;
     } else {
-      img.data[i*4+0] = v;
-      img.data[i*4+1] = v;
-      img.data[i*4+2] = v;
-      img.data[i*4+3] = 255;
+      img.data[i * 4 + 0] = v;
+      img.data[i * 4 + 1] = v;
+      img.data[i * 4 + 2] = v;
+      img.data[i * 4 + 3] = 255;
     }
   }
-  offCtx.putImageData(img,0,0);
-  ctx.clearRect(0,0,canvas.width,canvas.height);
-  ctx.drawImage(off, 0,0, canvas.width, canvas.height);
+  offCtx.putImageData(img, 0, 0);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(off, 0, 0, canvas.width, canvas.height);
 }

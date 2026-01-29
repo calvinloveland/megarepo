@@ -1,7 +1,7 @@
 {
-  "type":"material",
-  "name":"Metal",
-  "description":"Heavy static solid (no per-cell movement).",
+  "type": "material",
+  "name": "Metal",
+  "description": "Heavy static solid (no per-cell movement).",
   "color": [140, 140, 150],
   "density": 5.0,
   "tags": ["static"]

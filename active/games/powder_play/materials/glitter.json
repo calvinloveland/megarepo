@@ -1,7 +1,7 @@
 {
-  "type":"material",
-  "name":"Glitter",
-  "description":"Decorative, non-moving particle for visual variety.",
+  "type": "material",
+  "name": "Glitter",
+  "description": "Decorative, non-moving particle for visual variety.",
   "color": [200, 200, 255],
   "density": 1.6,
   "tags": ["static"]

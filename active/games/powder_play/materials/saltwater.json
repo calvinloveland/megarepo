@@ -5,7 +5,7 @@
   "color": [80, 140, 220],
   "density": 1.1,
   "reactions": [
-    {"with": "Fire", "result": "Steam", "byproduct": "Salt", "priority": 5}
+    { "with": "Fire", "result": "Steam", "byproduct": "Salt", "priority": 5 }
   ],
   "tags": ["flow"]
 }

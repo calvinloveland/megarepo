@@ -2,7 +2,7 @@
   "type": "material",
   "name": "Sand",
   "description": "Granular particle: falls down, then diagonally if blocked.",
-  "color": [194,178,128],
+  "color": [194, 178, 128],
   "density": 2.0,
   "tags": ["sand"]
 }

@@ -1,12 +1,15 @@
-import { stepByTags } from './tag_movement';
+import { stepByTags } from "./tag_movement";
 
 export type WorkerMessage =
-  | {type:'init', width:number, height:number}
-  | {type:'step'}
-  | {type:'set_material', material:any, materialId:number}
-  | {type:'set_grid', buffer:ArrayBuffer}
-  | {type:'paint_points', materialId:number, points:{x:number,y:number}[]}
-  ;
+  | { type: "init"; width: number; height: number }
+  | { type: "step" }
+  | { type: "set_material"; material: any; materialId: number }
+  | { type: "set_grid"; buffer: ArrayBuffer }
+  | {
+      type: "paint_points";
+      materialId: number;
+      points: { x: number; y: number }[];
+    };
 
 type ReactionRule = {
   with: string;
@@ -20,13 +23,14 @@ type ReactionRule = {
 };
 
 type CondenseRule = {
-  at: 'top';
+  at: "top";
   result: string;
   probability?: number;
   resultId?: number;
 };
 
-let width=0, height=0;
+let width = 0,
+  height = 0;
 let grid: Uint16Array;
 let nextGrid: Uint16Array;
 const reactionsById = new Map<number, ReactionRule[]>();
@@ -51,57 +55,73 @@ function resolveReactions() {
 
 onmessage = (ev: MessageEvent) => {
   const msg: WorkerMessage = ev.data;
-  if (msg.type === 'init') {
-    width = msg.width; height = msg.height;
-    grid = new Uint16Array(width*height);
-    nextGrid = new Uint16Array(width*height);
-    reacted = new Uint8Array(width*height);
-    postMessage({type:'ready'});
-  } else if (msg.type === 'set_material') {
+  if (msg.type === "init") {
+    width = msg.width;
+    height = msg.height;
+    grid = new Uint16Array(width * height);
+    nextGrid = new Uint16Array(width * height);
+    reacted = new Uint8Array(width * height);
+    postMessage({ type: "ready" });
+  } else if (msg.type === "set_material") {
     if (msg.material?.name) nameToId.set(msg.material.name, msg.materialId);
-    const density = typeof msg.material?.density === 'number' ? msg.material.density : 1;
+    const density =
+      typeof msg.material?.density === "number" ? msg.material.density : 1;
     densityById.set(msg.materialId, density);
     if (Array.isArray(msg.material?.tags)) {
       const tags = msg.material.tags
-        .filter((tag:any)=> typeof tag === 'string')
-        .map((tag:string)=> tag.trim().toLowerCase());
+        .filter((tag: any) => typeof tag === "string")
+        .map((tag: string) => tag.trim().toLowerCase());
       tagsById.set(msg.materialId, tags);
     } else {
       tagsById.delete(msg.materialId);
     }
     if (Array.isArray(msg.material?.reactions)) {
-      const rules = msg.material.reactions.slice().sort((a:ReactionRule,b:ReactionRule)=> (b.priority||0) - (a.priority||0));
+      const rules = msg.material.reactions
+        .slice()
+        .sort(
+          (a: ReactionRule, b: ReactionRule) =>
+            (b.priority || 0) - (a.priority || 0),
+        );
       reactionsById.set(msg.materialId, rules);
     }
-    if (msg.material?.condense?.at === 'top' && msg.material?.condense?.result) {
-      condenseById.set(msg.materialId, { at: 'top', result: msg.material.condense.result, probability: msg.material.condense.probability });
+    if (
+      msg.material?.condense?.at === "top" &&
+      msg.material?.condense?.result
+    ) {
+      condenseById.set(msg.materialId, {
+        at: "top",
+        result: msg.material.condense.result,
+        probability: msg.material.condense.probability,
+      });
     }
     resolveReactions();
-    postMessage({type:'material_set', materialId: msg.materialId});
-  } else if (msg.type === 'set_grid') {
+    postMessage({ type: "material_set", materialId: msg.materialId });
+  } else if (msg.type === "set_grid") {
     // accept transferred buffer as the new grid if size matches
     const buf = new Uint16Array(msg.buffer);
-    if (buf.length === width*height) {
+    if (buf.length === width * height) {
       grid = buf;
-      nextGrid = new Uint16Array(width*height);
-      postMessage({type:'grid_set'});
+      nextGrid = new Uint16Array(width * height);
+      postMessage({ type: "grid_set" });
     } else {
-      postMessage({type:'error', message:'grid size mismatch'});
+      postMessage({ type: "error", message: "grid size mismatch" });
     }
-  } else if (msg.type === 'paint_points') {
+  } else if (msg.type === "paint_points") {
     for (const p of msg.points) {
-      const idx = p.y*width + p.x;
-      if (idx>=0 && idx<grid.length) grid[idx] = msg.materialId;
+      const idx = p.y * width + p.x;
+      if (idx >= 0 && idx < grid.length) grid[idx] = msg.materialId;
     }
     // return the current grid so the UI can render the paint immediately
-    postMessage({type:'grid_set', grid: grid.buffer, width, height});
-  } else if (msg.type === 'step') {
+    postMessage({ type: "grid_set", grid: grid.buffer, width, height });
+  } else if (msg.type === "step") {
     stepSimulation();
     // swap buffers
-    const t = grid; grid = nextGrid; nextGrid = t;
-    postMessage({type:'stepped', grid: grid.buffer, width, height});
+    const t = grid;
+    grid = nextGrid;
+    nextGrid = t;
+    postMessage({ type: "stepped", grid: grid.buffer, width, height });
   }
-}
+};
 
 function stepSimulation() {
   if (!tagsById.size && !reactionsById.size && !condenseById.size) return;
@@ -109,15 +129,15 @@ function stepSimulation() {
   nextGrid.fill(0);
   reacted.fill(0);
   const dirs = [
-    {dx:0, dy:-1},
-    {dx:0, dy:1},
-    {dx:-1, dy:0},
-    {dx:1, dy:0}
+    { dx: 0, dy: -1 },
+    { dx: 0, dy: 1 },
+    { dx: -1, dy: 0 },
+    { dx: 1, dy: 0 },
   ];
   // naive per-cell loop for MVP
-  for (let y=height-1;y>=0;y--) {
-    for (let x=0;x<width;x++) {
-      const idx = y*width + x;
+  for (let y = height - 1; y >= 0; y--) {
+    for (let x = 0; x < width; x++) {
+      const idx = y * width + x;
       const cell = grid[idx];
       if (cell === 0) {
         continue;
@@ -147,8 +167,8 @@ function stepSimulation() {
           for (const d of dirs) {
             const nx = x + d.dx;
             const ny = y + d.dy;
-            if (nx<0||nx>=width||ny<0||ny>=height) continue;
-            const nidx = ny*width + nx;
+            if (nx < 0 || nx >= width || ny < 0 || ny >= height) continue;
+            const nidx = ny * width + nx;
             if (reacted[nidx]) continue;
             if (grid[nidx] !== withId) continue;
             if (Math.random() > prob) continue;
@@ -173,7 +193,7 @@ function stepSimulation() {
           height,
           grid,
           nextGrid,
-          densityById
+          densityById,
         });
         if (!moved && nextGrid[idx] === 0) nextGrid[idx] = cell;
         continue;

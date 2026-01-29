@@ -1,12 +1,22 @@
 {
-  "type":"material",
-  "name":"Salt",
-  "description":"Granular particle similar to sand (different color/feel).",
+  "type": "material",
+  "name": "Salt",
+  "description": "Granular particle similar to sand (different color/feel).",
   "color": [230, 230, 230],
   "density": 2.2,
   "reactions": [
-    {"with": "Water", "result": "SaltWater", "byproduct": "SaltWater", "priority": 5},
-    {"with": "SaltWater", "result": "SaltWater", "byproduct": "SaltWater", "priority": 4}
+    {
+      "with": "Water",
+      "result": "SaltWater",
+      "byproduct": "SaltWater",
+      "priority": 5
+    },
+    {
+      "with": "SaltWater",
+      "result": "SaltWater",
+      "byproduct": "SaltWater",
+      "priority": 4
+    }
   ],
   "tags": ["sand"]
 }

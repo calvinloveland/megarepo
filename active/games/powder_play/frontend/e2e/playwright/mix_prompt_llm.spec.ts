@@ -1,67 +1,76 @@
-import { test, expect } from '@playwright/test';
-import { createFailureLogger } from './helpers/failure_logger';
+import { test, expect } from "@playwright/test";
+import { createFailureLogger } from "./helpers/failure_logger";
 
 const tagExamples = [
-  'Sand => sand',
-  'Water => flow',
-  'Oil => flow',
-  'Steam => float',
-  'Smoke => float',
-  'Salt => sand',
-  'Metal => static',
-  'Stone => sand',
-  'Wood => static',
-  'Glass => static'
+  "Sand => sand",
+  "Water => flow",
+  "Oil => flow",
+  "Steam => float",
+  "Smoke => float",
+  "Salt => sand",
+  "Metal => static",
+  "Stone => sand",
+  "Wood => static",
+  "Glass => static",
 ];
 
 const densityExamples = [
-  'Sand => 1.6',
-  'Water => 1.0',
-  'Oil => 0.9',
-  'Steam => 0.2',
-  'Smoke => 0.1',
-  'Salt => 2.0',
-  'Metal => 3.5',
-  'Stone => 2.4',
-  'Wood => 0.7',
-  'Glass => 2.5'
+  "Sand => 1.6",
+  "Water => 1.0",
+  "Oil => 0.9",
+  "Steam => 0.2",
+  "Smoke => 0.1",
+  "Salt => 2.0",
+  "Metal => 3.5",
+  "Stone => 2.4",
+  "Wood => 0.7",
+  "Glass => 2.5",
 ];
 
 const colorExamples = [
-  'Sand => 160,150,130',
-  'Water => 80,120,200',
-  'Oil => 90,80,60',
-  'Steam => 200,200,220',
-  'Smoke => 180,180,190',
-  'Salt => 220,220,220',
-  'Metal => 120,120,130',
-  'Stone => 180,170,160',
-  'Wood => 120,90,60',
-  'Glass => 190,200,210'
+  "Sand => 160,150,130",
+  "Water => 80,120,200",
+  "Oil => 90,80,60",
+  "Steam => 200,200,220",
+  "Smoke => 180,180,190",
+  "Salt => 220,220,220",
+  "Metal => 120,120,130",
+  "Stone => 180,170,160",
+  "Wood => 120,90,60",
+  "Glass => 190,200,210",
 ];
 
 const descriptionExamples = [
-  'Sand => Heavy granular sand.',
-  'Water => Clear flowing liquid.',
-  'Oil => Slick viscous liquid.',
-  'Steam => Light drifting vapor.',
-  'Smoke => Thin sooty haze.',
-  'Salt => Sharp crystalline grains.',
-  'Metal => Solid heavy metal.',
-  'Stone => Hard rough solid.',
-  'Wood => Dry fibrous solid.',
-  'Glass => Clear brittle solid.'
+  "Sand => Heavy granular sand.",
+  "Water => Clear flowing liquid.",
+  "Oil => Slick viscous liquid.",
+  "Steam => Light drifting vapor.",
+  "Smoke => Thin sooty haze.",
+  "Salt => Sharp crystalline grains.",
+  "Metal => Solid heavy metal.",
+  "Stone => Hard rough solid.",
+  "Wood => Dry fibrous solid.",
+  "Glass => Clear brittle solid.",
 ];
 
-const allowedTags = new Set(['sand', 'flow', 'float', 'static']);
+const allowedTags = new Set(["sand", "flow", "float", "static"]);
 
-function buildPrompt(title: string, examples: string[], name: string, trailer: string) {
+function buildPrompt(
+  title: string,
+  examples: string[],
+  name: string,
+  trailer: string,
+) {
   const lines = [title, ...examples, `${name} =>`, trailer];
-  return lines.join('\n');
+  return lines.join("\n");
 }
 
 function parseTags(resp: string) {
-  const tokens = resp.toLowerCase().split(/[^a-z]+/).map((t) => t.trim()).filter(Boolean);
+  const tokens = resp
+    .toLowerCase()
+    .split(/[^a-z]+/)
+    .map((t) => t.trim())
+    .filter(Boolean);
   const tags = tokens.filter((t) => allowedTags.has(t));
   return Array.from(new Set(tags));
 }
@@ -81,62 +90,65 @@ function parseColor(resp: string) {
   return nums;
 }
 
-test('llm responds to property prompts', async ({ request }, testInfo) => {
+test("llm responds to property prompts", async ({ request }, testInfo) => {
   const logger = createFailureLogger(testInfo);
   let failed = false;
   try {
     test.setTimeout(120000);
-    const health = await request.get('http://127.0.0.1:8787/health').catch(() => null);
+    const health = await request
+      .get("http://127.0.0.1:8787/health")
+      .catch(() => null);
     if (!health || !health.ok()) {
-      test.skip(true, 'mix server unavailable');
+      test.skip(true, "mix server unavailable");
     }
 
-    const name = 'Mist';
+    const name = "Mist";
     const prompts = {
       tags: buildPrompt(
-        'Tags:',
+        "Tags:",
         tagExamples,
         name,
-        'Return only comma-separated tags from: sand, flow, float, static.'
+        "Return only comma-separated tags from: sand, flow, float, static.",
       ),
       density: buildPrompt(
-        'Densities:',
+        "Densities:",
         densityExamples,
         name,
-        'Return only the numeric density.'
+        "Return only the numeric density.",
       ),
       color: buildPrompt(
-        'Colors (RGB):',
+        "Colors (RGB):",
         colorExamples,
         name,
-        'Return only three comma-separated integers (r,g,b).'
+        "Return only three comma-separated integers (r,g,b).",
       ),
       description: buildPrompt(
-        'Descriptions:',
+        "Descriptions:",
         descriptionExamples,
         name,
-        'Return a short sentence only.'
-      )
+        "Return a short sentence only.",
+      ),
     };
 
     async function postText(prompt: string) {
-      const res = await request.post('http://127.0.0.1:8787/llm', {
+      const res = await request.post("http://127.0.0.1:8787/llm", {
         data: {
           prompt,
-          format: 'text',
-          system: 'Respond with a single line of plain text only. Do not include JSON, markdown, or extra commentary.'
+          format: "text",
+          system:
+            "Respond with a single line of plain text only. Do not include JSON, markdown, or extra commentary.",
         },
-        timeout: 120000
+        timeout: 120000,
       });
       expect(res.ok()).toBeTruthy();
       const payload = await res.json();
-      return String(payload?.response || '').trim();
+      return String(payload?.response || "").trim();
     }
 
-    let tagsText = '';
-    let densityText = '';
-    let colorText = '';
-    let descriptionText = '';
+    let tagsText = "";
+    let densityText = "";
+    let colorText = "";
+    let descriptionText = "";
 
     try {
       tagsText = await postText(prompts.tags);
@@ -144,38 +156,38 @@ test('llm responds to property prompts', async ({ request }, testInfo) => {
       colorText = await postText(prompts.color);
       descriptionText = await postText(prompts.description);
     } catch (err) {
-      test.skip(true, 'LLM request timed out');
+      test.skip(true, "LLM request timed out");
     }
 
-    logger.log('tags prompt', prompts.tags);
-    logger.log('tags response', tagsText);
+    logger.log("tags prompt", prompts.tags);
+    logger.log("tags response", tagsText);
     const tags = parseTags(tagsText);
     expect(tags.length).toBeGreaterThan(0);
 
-    logger.log('density prompt', prompts.density);
-    logger.log('density response', densityText);
+    logger.log("density prompt", prompts.density);
+    logger.log("density response", densityText);
     const density = parseDensity(densityText);
-    expect(typeof density).toBe('number');
+    expect(typeof density).toBe("number");
 
-    logger.log('color prompt', prompts.color);
-    logger.log('color response', colorText);
+    logger.log("color prompt", prompts.color);
+    logger.log("color response", colorText);
     let color = parseColor(colorText);
     if (!color) {
       const retryPrompt = `${prompts.color}\nExample: 120,130,140`;
-      logger.log('color retry prompt', retryPrompt);
+      logger.log("color retry prompt", retryPrompt);
       try {
         colorText = await postText(retryPrompt);
-        logger.log('color retry response', colorText);
+        logger.log("color retry response", colorText);
         color = parseColor(colorText);
       } catch (err) {
-        test.skip(true, 'LLM request timed out');
+        test.skip(true, "LLM request timed out");
       }
     }
     expect(Array.isArray(color)).toBeTruthy();
     expect((color || []).length).toBeGreaterThanOrEqual(3);
 
-    logger.log('description prompt', prompts.description);
-    logger.log('description response', descriptionText);
+    logger.log("description prompt", prompts.description);
+    logger.log("description response", descriptionText);
     expect(descriptionText.length).toBeGreaterThan(0);
   } catch (err) {
     failed = true;

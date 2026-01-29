@@ -1,7 +1,7 @@
 {
-  "type":"material",
-  "name":"Glue",
-  "description":"Sticky material that doesn't move once placed.",
+  "type": "material",
+  "name": "Glue",
+  "description": "Sticky material that doesn't move once placed.",
   "color": [180, 90, 40],
   "density": 1.4,
   "tags": ["static"]

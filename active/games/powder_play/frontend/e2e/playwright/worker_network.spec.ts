@@ -1,25 +1,40 @@
-import { test, expect } from '@playwright/test';
-import { createFailureLogger } from './helpers/failure_logger';
+import { test, expect } from "@playwright/test";
+import { createFailureLogger } from "./helpers/failure_logger";
 
-test('worker file is requested when initializing worker', async ({ page }, testInfo) => {
+test("worker file is requested when initializing worker", async ({
+  page,
+}, testInfo) => {
   const logger = createFailureLogger(testInfo, page);
   let failed = false;
   try {
     const requests: string[] = [];
-    page.on('request', r => requests.push(r.url()));
+    page.on("request", (r) => requests.push(r.url()));
 
-    await page.goto('http://127.0.0.1:5173/');
-    await page.waitForSelector('text=Alchemist Powder');
+    await page.goto("http://127.0.0.1:5173/");
+    await page.waitForSelector("text=Alchemist Powder");
 
     // ensure init helper present
-    await page.waitForFunction(() => !!(window as any).__initWorkerWithMaterial);
-    await page.evaluate(() => (window as any).__initWorkerWithMaterial({type:'material', name:'Test', tags:['static'], density:1, color:[120,120,120]}));
+    await page.waitForFunction(
+      () => !!(window as any).__initWorkerWithMaterial,
+    );
+    await page.evaluate(() =>
+      (window as any).__initWorkerWithMaterial({
+        type: "material",
+        name: "Test",
+        tags: ["static"],
+        density: 1,
+        color: [120, 120, 120],
+      }),
+    );
 
     // wait briefly for requests to fire
     await page.waitForTimeout(500);
 
-    const workerRequested = requests.some(u => u.includes('/sim/worker.ts'));
-    logger.log('requests captured:', requests.filter(u => u.includes('/sim/worker.ts')));
+    const workerRequested = requests.some((u) => u.includes("/sim/worker.ts"));
+    logger.log(
+      "requests captured:",
+      requests.filter((u) => u.includes("/sim/worker.ts")),
+    );
     expect(workerRequested).toBeTruthy();
   } catch (err) {
     failed = true;
