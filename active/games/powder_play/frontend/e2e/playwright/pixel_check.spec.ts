@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { loadMaterialByName } from './helpers/materials';
 import { createFailureLogger } from './helpers/failure_logger';
 
 test('pixel colors reflect material ids', async ({ page }, testInfo) => {
@@ -8,10 +9,7 @@ test('pixel colors reflect material ids', async ({ page }, testInfo) => {
     await page.goto('http://127.0.0.1:5173/');
     await page.waitForSelector('text=Alchemist Powder');
 
-    // Select Sand explicitly
-    const sandRow = page.locator('#materials-list > div', { hasText: 'Sand' }).first();
-    await sandRow.click();
-    await page.waitForFunction(() => document.getElementById('status')?.textContent?.includes('Sand'), { timeout: 2000 });
+    await loadMaterialByName(page, 'Sand');
 
     // Paint point at (10,10)
     await page.evaluate(() => (window as any).__paintGridPoints?.([{x:10,y:10}]));
@@ -34,11 +32,7 @@ test('pixel colors reflect material ids', async ({ page }, testInfo) => {
     logger.log('c1 sample', c1);
     const color1 = c1.pixel;
 
-    // Enable full list and select BouncyGel, then paint a nearby point
-    await page.locator('#show-all-materials').check();
-    const bRow = page.locator('#materials-list > div', { hasText: 'BouncyGel' }).first();
-    await bRow.click();
-    await page.waitForFunction(() => document.getElementById('status')?.textContent?.includes('BouncyGel'), { timeout: 2000 });
+    await loadMaterialByName(page, 'BouncyGel');
     await page.evaluate(() => (window as any).__paintGridPoints?.([{x:11,y:10}]));
     await page.waitForTimeout(200);
 

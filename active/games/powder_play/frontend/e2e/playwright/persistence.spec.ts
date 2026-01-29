@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { loadMaterialByName } from './helpers/materials';
 import { createFailureLogger } from './helpers/failure_logger';
 
 // Paint, let sim run, paint again, ensure new paint wasn't overwritten by an old snapshot
@@ -9,10 +10,7 @@ test('paint persists after simulation runs and additional painting', async ({ pa
     await page.goto('http://127.0.0.1:5173/');
     await page.waitForSelector('text=Alchemist Powder');
 
-    // Select Sand
-    const sandRow = page.locator('#materials-list > div', { hasText: 'Sand' }).first();
-    await sandRow.click();
-    await page.waitForFunction(() => document.getElementById('status')?.textContent?.includes('Sand'), { timeout: 2000 });
+    await loadMaterialByName(page, 'Sand');
 
     // paint point A near bottom so it won't drift away
     await page.evaluate(() => (window as any).__paintGridPoints?.([{x:75,y:80}]));

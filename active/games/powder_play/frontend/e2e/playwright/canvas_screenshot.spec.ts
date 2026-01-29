@@ -1,4 +1,5 @@
 import { test } from '@playwright/test';
+import { loadMaterialByName } from './helpers/materials';
 import { createFailureLogger } from './helpers/failure_logger';
 import * as fs from 'fs';
 
@@ -14,15 +15,7 @@ test('canvas screenshot after loading material', async ({ page }, testInfo) => {
     await page.goto('http://127.0.0.1:5173/');
     await page.waitForSelector('text=Alchemist Powder');
 
-    // Select Sand from the materials list
-    const sandRow = page.locator('#materials-list > div', { hasText: 'Sand' }).first();
-    await sandRow.click();
-
-    // Wait for status text to show Sand loaded
-    await page.waitForFunction(() => {
-      const el = document.getElementById('status');
-      return el && el.textContent && el.textContent.includes('Sand');
-    }, { timeout: 5000 });
+    await loadMaterialByName(page, 'Sand');
 
     // Paint a few points programmatically using helper
     await page.evaluate(() => {

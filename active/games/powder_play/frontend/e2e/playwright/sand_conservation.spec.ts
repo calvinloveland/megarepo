@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { loadMaterialByName } from './helpers/materials';
 import { createFailureLogger } from './helpers/failure_logger';
 
 // Paint sand, run simulation, and ensure number of sand cells stays the same.
@@ -9,10 +10,7 @@ test('sand count is conserved after steps', async ({ page }, testInfo) => {
     await page.goto('http://127.0.0.1:5173/');
     await page.waitForSelector('text=Alchemist Powder');
 
-    // Load Sand
-    const sandRow = page.locator('#materials-list > div', { hasText: 'Sand' }).first();
-    await sandRow.click();
-    await page.waitForFunction(() => document.getElementById('status')?.textContent?.includes('Sand'), { timeout: 2000 });
+    await loadMaterialByName(page, 'Sand');
 
     // Paint a small cluster of sand points
     const points = [] as {x:number,y:number}[];

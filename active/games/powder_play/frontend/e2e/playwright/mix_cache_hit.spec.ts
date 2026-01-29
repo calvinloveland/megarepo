@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { loadMaterialByName } from './helpers/materials';
 
 test('mix uses cached material after reload', async ({ page }) => {
   await page.addInitScript(() => {
@@ -28,8 +29,8 @@ test('mix uses cached material after reload', async ({ page }) => {
 
   await page.goto('http://127.0.0.1:5173/');
   await page.waitForSelector('text=Alchemist Powder');
-  await page.click('#materials-list >> text=Sand');
-  await page.click('#materials-list >> text=Water');
+  await loadMaterialByName(page, 'Sand');
+  await loadMaterialByName(page, 'Water');
 
   await page.waitForFunction(() => {
     const map = (window as any).__materialIdByName || {};
@@ -49,8 +50,8 @@ test('mix uses cached material after reload', async ({ page }) => {
 
   await page.reload();
   await page.waitForSelector('text=Alchemist Powder');
-  await page.click('#materials-list >> text=Sand');
-  await page.click('#materials-list >> text=Water');
+  await loadMaterialByName(page, 'Sand');
+  await loadMaterialByName(page, 'Water');
 
   await page.waitForFunction(() => {
     const map = (window as any).__materialIdByName || {};
