@@ -30,6 +30,7 @@ function parseJsonFromText(text: string) {
 // Frontend-local LLM API (Ollama via mix server proxy)
 export async function runLocalLLM(
   intent: string,
+  options?: { tokens?: number; temperature?: number },
   onProgress?: (p: any) => void,
 ) {
   const globalAny = globalThis as any;
@@ -44,15 +45,18 @@ export async function runLocalLLM(
       ? `${window.location.protocol}//${window.location.hostname}:8787`
       : "http://127.0.0.1:8787");
   onProgress && onProgress({ stage: "generating", message: "ollama" });
+  const body: any = {
+    prompt: intent,
+    format: "json",
+    system:
+      "Respond with a single JSON object only. Do not include markdown, explanations, or extra text.",
+  };
+  if (options?.tokens || options?.temperature)
+    body.options = { num_predict: options.tokens, temperature: options.temperature };
   const res = await fetch(`${base}/llm`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      prompt: intent,
-      format: "json",
-      system:
-        "Respond with a single JSON object only. Do not include markdown, explanations, or extra text.",
-    }),
+    body: JSON.stringify(body),
   });
   if (!res.ok) {
     throw new Error(`llm request failed: ${res.status}`);
@@ -66,6 +70,7 @@ export async function runLocalLLM(
 
 export async function runLocalLLMText(
   intent: string,
+  options?: { tokens?: number; temperature?: number },
   onProgress?: (p: any) => void,
 ) {
   const globalAny = globalThis as any;
@@ -80,15 +85,18 @@ export async function runLocalLLMText(
       ? `${window.location.protocol}//${window.location.hostname}:8787`
       : "http://127.0.0.1:8787");
   onProgress && onProgress({ stage: "generating", message: "ollama" });
+  const body: any = {
+    prompt: intent,
+    format: "text",
+    system:
+      "Respond with a single line of plain text only. Do not include JSON, markdown, or extra commentary.",
+  };
+  if (options?.tokens || options?.temperature)
+    body.options = { num_predict: options.tokens, temperature: options.temperature };
   const res = await fetch(`${base}/llm`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      prompt: intent,
-      format: "text",
-      system:
-        "Respond with a single line of plain text only. Do not include JSON, markdown, or extra commentary.",
-    }),
+    body: JSON.stringify(body),
   });
   if (!res.ok) {
     throw new Error(`llm request failed: ${res.status}`);
