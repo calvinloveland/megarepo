@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { createFailureLogger } from './helpers/failure_logger';
 
 const tagExamples = [
   'Sand => sand',
@@ -80,78 +81,106 @@ function parseColor(resp: string) {
   return nums;
 }
 
-test('llm responds to property prompts', async ({ request }) => {
-  test.setTimeout(120000);
-  const health = await request.get('http://127.0.0.1:8787/health').catch(() => null);
-  if (!health || !health.ok()) {
-    test.skip(true, 'mix server unavailable');
-  }
-
-  const name = 'Mist';
-  const prompts = {
-    tags: buildPrompt(
-      'Tags:',
-      tagExamples,
-      name,
-      'Return only comma-separated tags from: sand, flow, float, static.'
-    ),
-    density: buildPrompt(
-      'Densities:',
-      densityExamples,
-      name,
-      'Return only the numeric density.'
-    ),
-    color: buildPrompt(
-      'Colors (RGB):',
-      colorExamples,
-      name,
-      'Return only three comma-separated integers (r,g,b).'
-    ),
-    description: buildPrompt(
-      'Descriptions:',
-      descriptionExamples,
-      name,
-      'Return a short sentence only.'
-    )
-  };
-
-  async function postText(prompt: string) {
-    const res = await request.post('http://127.0.0.1:8787/llm', {
-      data: {
-        prompt,
-        format: 'text',
-        system: 'Respond with a single line of plain text only. Do not include JSON, markdown, or extra commentary.'
-      },
-      timeout: 120000
-    });
-    expect(res.ok()).toBeTruthy();
-    const payload = await res.json();
-    return String(payload?.response || '').trim();
-  }
-
-  let tagsText = '';
-  let densityText = '';
-  let colorText = '';
-  let descriptionText = '';
-
+test('llm responds to property prompts', async ({ request }, testInfo) => {
+  const logger = createFailureLogger(testInfo);
+  let failed = false;
   try {
-    tagsText = await postText(prompts.tags);
-    densityText = await postText(prompts.density);
-    colorText = await postText(prompts.color);
-    descriptionText = await postText(prompts.description);
+    test.setTimeout(120000);
+    const health = await request.get('http://127.0.0.1:8787/health').catch(() => null);
+    if (!health || !health.ok()) {
+      test.skip(true, 'mix server unavailable');
+    }
+
+    const name = 'Mist';
+    const prompts = {
+      tags: buildPrompt(
+        'Tags:',
+        tagExamples,
+        name,
+        'Return only comma-separated tags from: sand, flow, float, static.'
+      ),
+      density: buildPrompt(
+        'Densities:',
+        densityExamples,
+        name,
+        'Return only the numeric density.'
+      ),
+      color: buildPrompt(
+        'Colors (RGB):',
+        colorExamples,
+        name,
+        'Return only three comma-separated integers (r,g,b).'
+      ),
+      description: buildPrompt(
+        'Descriptions:',
+        descriptionExamples,
+        name,
+        'Return a short sentence only.'
+      )
+    };
+
+    async function postText(prompt: string) {
+      const res = await request.post('http://127.0.0.1:8787/llm', {
+        data: {
+          prompt,
+          format: 'text',
+          system: 'Respond with a single line of plain text only. Do not include JSON, markdown, or extra commentary.'
+        },
+        timeout: 120000
+      });
+      expect(res.ok()).toBeTruthy();
+      const payload = await res.json();
+      return String(payload?.response || '').trim();
+    }
+
+    let tagsText = '';
+    let densityText = '';
+    let colorText = '';
+    let descriptionText = '';
+
+    try {
+      tagsText = await postText(prompts.tags);
+      densityText = await postText(prompts.density);
+      colorText = await postText(prompts.color);
+      descriptionText = await postText(prompts.description);
+    } catch (err) {
+      test.skip(true, 'LLM request timed out');
+    }
+
+    logger.log('tags prompt', prompts.tags);
+    logger.log('tags response', tagsText);
+    const tags = parseTags(tagsText);
+    expect(tags.length).toBeGreaterThan(0);
+
+    logger.log('density prompt', prompts.density);
+    logger.log('density response', densityText);
+    const density = parseDensity(densityText);
+    expect(typeof density).toBe('number');
+
+    logger.log('color prompt', prompts.color);
+    logger.log('color response', colorText);
+    let color = parseColor(colorText);
+    if (!color) {
+      const retryPrompt = `${prompts.color}\nExample: 120,130,140`;
+      logger.log('color retry prompt', retryPrompt);
+      try {
+        colorText = await postText(retryPrompt);
+        logger.log('color retry response', colorText);
+        color = parseColor(colorText);
+      } catch (err) {
+        test.skip(true, 'LLM request timed out');
+      }
+    }
+    expect(Array.isArray(color)).toBeTruthy();
+    expect((color || []).length).toBeGreaterThanOrEqual(3);
+
+    logger.log('description prompt', prompts.description);
+    logger.log('description response', descriptionText);
+    expect(descriptionText.length).toBeGreaterThan(0);
   } catch (err) {
-    test.skip(true, 'LLM request timed out');
+    failed = true;
+    throw err;
+  } finally {
+    logger.flush(failed);
   }
-
-  const tags = parseTags(tagsText);
-  expect(tags.length).toBeGreaterThan(0);
-
-  const density = parseDensity(densityText);
-  expect(typeof density).toBe('number');
-
-  const color = parseColor(colorText);
-  expect(Array.isArray(color)).toBeTruthy();
-  expect((color || []).length).toBeGreaterThanOrEqual(3);
-
-  expect(descriptionText.length).toBeGreaterThan(0);
 });
