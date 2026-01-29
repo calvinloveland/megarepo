@@ -116,7 +116,7 @@ const server = http.createServer(async (req, res) => {
       const ollamaUrl =
         process.env.POWDER_PLAY_OLLAMA_URL ||
         "http://localhost:11434/api/generate";
-      const model = process.env.POWDER_PLAY_OLLAMA_MODEL || "llama3.2";
+      const model = process.env.POWDER_PLAY_OLLAMA_MODEL || "granite4:350m";
       // allow per-request overrides from client body
       const envTemperature = parseFloat(process.env.POWDER_PLAY_OLLAMA_TEMPERATURE || "0.2");
       const envMaxTokens = parseInt(process.env.POWDER_PLAY_OLLAMA_MAX_TOKENS || "20", 10);
