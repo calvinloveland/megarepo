@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Hafnium",
+  "description": "Hafnium (element 72)",
+  "color": [
+    144,
+    166,
+    212
+  ],
+  "density": 59.6,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 72
+}

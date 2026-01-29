@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Tin",
+  "description": "Tin (element 50)",
+  "color": [
+    89,
+    208,
+    61
+  ],
+  "density": 40,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 50
+}

@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Helium",
+  "description": "Helium (element 2)",
+  "color": [
+    94,
+    132,
+    89
+  ],
+  "density": 3.6,
+  "tags": [
+    "element",
+    "float"
+  ],
+  "atomicNumber": 2
+}

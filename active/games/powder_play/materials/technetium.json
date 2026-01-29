@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Technetium",
+  "description": "Technetium (element 43)",
+  "color": [
+    218,
+    220,
+    216
+  ],
+  "density": 37.4,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 43
+}

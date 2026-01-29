@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Nitrogen",
+  "description": "Nitrogen (element 7)",
+  "color": [
+    166,
+    237,
+    110
+  ],
+  "density": 7.6,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 7
+}

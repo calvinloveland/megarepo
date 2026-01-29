@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Terbium",
+  "description": "Terbium (element 65)",
+  "color": [
+    80,
+    160,
+    133
+  ],
+  "density": 52,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 65
+}

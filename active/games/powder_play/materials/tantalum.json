@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Tantalum",
+  "description": "Tantalum (element 73)",
+  "color": [
+    126,
+    140,
+    183
+  ],
+  "density": 61.4,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 73
+}

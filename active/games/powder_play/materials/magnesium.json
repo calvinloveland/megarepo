@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Magnesium",
+  "description": "Magnesium (element 12)",
+  "color": [
+    180,
+    91,
+    132
+  ],
+  "density": 11.6,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 12
+}

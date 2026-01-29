@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Antimony",
+  "description": "Antimony (element 51)",
+  "color": [
+    193,
+    138,
+    153
+  ],
+  "density": 41.8,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 51
+}

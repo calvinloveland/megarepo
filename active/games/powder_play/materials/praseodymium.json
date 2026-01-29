@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Praseodymium",
+  "description": "Praseodymium (element 59)",
+  "color": [
+    155,
+    174,
+    224
+  ],
+  "density": 51.2,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 59
+}

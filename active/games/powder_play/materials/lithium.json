@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Lithium",
+  "description": "Lithium (element 3)",
+  "color": [
+    176,
+    186,
+    165
+  ],
+  "density": 5.4,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 3
+}

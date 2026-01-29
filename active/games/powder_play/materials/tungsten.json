@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Tungsten",
+  "description": "Tungsten (element 74)",
+  "color": [
+    128,
+    65,
+    182
+  ],
+  "density": 63.2,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 74
+}

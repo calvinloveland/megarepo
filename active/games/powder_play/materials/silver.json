@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Silver",
+  "description": "Silver (element 47)",
+  "color": [
+    167,
+    196,
+    87
+  ],
+  "density": 39.6,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 47
+}

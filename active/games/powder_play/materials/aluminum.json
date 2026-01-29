@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Aluminum",
+  "description": "Aluminum (element 13)",
+  "color": [
+    236,
+    69,
+    209
+  ],
+  "density": 13.4,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 13
+}

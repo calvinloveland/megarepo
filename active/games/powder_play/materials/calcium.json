@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Calcium",
+  "description": "Calcium (element 20)",
+  "color": [
+    168,
+    61,
+    147
+  ],
+  "density": 16,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 20
+}

@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Cadmium",
+  "description": "Cadmium (element 48)",
+  "color": [
+    226,
+    218,
+    76
+  ],
+  "density": 41.4,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 48
+}

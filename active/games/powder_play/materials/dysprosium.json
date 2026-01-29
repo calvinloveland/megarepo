@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Dysprosium",
+  "description": "Dysprosium (element 66)",
+  "color": [
+    107,
+    156,
+    217
+  ],
+  "density": 53.8,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 66
+}

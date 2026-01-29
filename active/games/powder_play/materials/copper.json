@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Copper",
+  "description": "Copper (element 29)",
+  "color": [
+    137,
+    65,
+    165
+  ],
+  "density": 27.2,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 29
+}

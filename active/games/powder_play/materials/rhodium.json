@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Rhodium",
+  "description": "Rhodium (element 45)",
+  "color": [
+    130,
+    153,
+    61
+  ],
+  "density": 36,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 45
+}

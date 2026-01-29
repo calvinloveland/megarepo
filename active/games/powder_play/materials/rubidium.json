@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Rubidium",
+  "description": "Rubidium (element 37)",
+  "color": [
+    103,
+    174,
+    111
+  ],
+  "density": 31.6,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 37
+}

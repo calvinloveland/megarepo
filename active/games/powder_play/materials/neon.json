@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Neon",
+  "description": "Neon (element 10)",
+  "color": [
+    130,
+    169,
+    96
+  ],
+  "density": 8,
+  "tags": [
+    "element",
+    "float"
+  ],
+  "atomicNumber": 10
+}

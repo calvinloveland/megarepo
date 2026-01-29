@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Zirconium",
+  "description": "Zirconium (element 40)",
+  "color": [
+    134,
+    207,
+    183
+  ],
+  "density": 32,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 40
+}

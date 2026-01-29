@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Cerium",
+  "description": "Cerium (element 58)",
+  "color": [
+    73,
+    198,
+    205
+  ],
+  "density": 49.4,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 58
+}

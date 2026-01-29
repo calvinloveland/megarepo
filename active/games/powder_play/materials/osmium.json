@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Osmium",
+  "description": "Osmium (element 76)",
+  "color": [
+    132,
+    82,
+    73
+  ],
+  "density": 61.8,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 76
+}

@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Vanadium",
+  "description": "Vanadium (element 23)",
+  "color": [
+    201,
+    115,
+    199
+  ],
+  "density": 21.4,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 23
+}

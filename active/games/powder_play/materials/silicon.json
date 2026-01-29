@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Silicon",
+  "description": "Silicon (element 14)",
+  "color": [
+    77,
+    93,
+    162
+  ],
+  "density": 15.2,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 14
+}

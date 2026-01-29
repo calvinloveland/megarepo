@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Carbon",
+  "description": "Carbon (element 6)",
+  "color": [
+    237,
+    141,
+    148
+  ],
+  "density": 5.8,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 6
+}

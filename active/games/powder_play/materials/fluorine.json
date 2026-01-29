@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Fluorine",
+  "description": "Fluorine (element 9)",
+  "color": [
+    86,
+    131,
+    160
+  ],
+  "density": 11.2,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 9
+}

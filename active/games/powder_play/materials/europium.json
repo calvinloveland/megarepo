@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Europium",
+  "description": "Europium (element 63)",
+  "color": [
+    138,
+    89,
+    160
+  ],
+  "density": 53.4,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 63
+}

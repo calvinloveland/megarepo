@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Holmium",
+  "description": "Holmium (element 67)",
+  "color": [
+    95,
+    221,
+    132
+  ],
+  "density": 55.6,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 67
+}

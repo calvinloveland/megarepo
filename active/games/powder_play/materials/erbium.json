@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Erbium",
+  "description": "Erbium (element 68)",
+  "color": [
+    132,
+    159,
+    174
+  ],
+  "density": 57.4,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 68
+}

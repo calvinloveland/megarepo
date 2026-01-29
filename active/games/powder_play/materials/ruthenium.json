@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Ruthenium",
+  "description": "Ruthenium (element 44)",
+  "color": [
+    167,
+    134,
+    65
+  ],
+  "density": 39.2,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 44
+}

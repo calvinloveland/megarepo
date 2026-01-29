@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Cesium",
+  "description": "Cesium (element 55)",
+  "color": [
+    164,
+    134,
+    205
+  ],
+  "density": 44,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 55
+}

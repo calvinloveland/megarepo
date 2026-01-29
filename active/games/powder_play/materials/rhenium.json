@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Rhenium",
+  "description": "Rhenium (element 75)",
+  "color": [
+    70,
+    145,
+    198
+  ],
+  "density": 60,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 75
+}

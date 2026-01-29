@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Platinum",
+  "description": "Platinum (element 78)",
+  "color": [
+    232,
+    66,
+    133
+  ],
+  "density": 65.4,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 78
+}

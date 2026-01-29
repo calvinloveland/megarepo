@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Bromine",
+  "description": "Bromine (element 35)",
+  "color": [
+    222,
+    102,
+    219
+  ],
+  "density": 28,
+  "tags": [
+    "element",
+    "flow"
+  ],
+  "atomicNumber": 35
+}

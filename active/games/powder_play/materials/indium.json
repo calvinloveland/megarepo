@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Indium",
+  "description": "Indium (element 49)",
+  "color": [
+    122,
+    223,
+    69
+  ],
+  "density": 43.2,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 49
+}

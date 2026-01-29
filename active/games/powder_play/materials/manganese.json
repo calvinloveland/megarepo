@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Manganese",
+  "description": "Manganese (element 25)",
+  "color": [
+    81,
+    235,
+    210
+  ],
+  "density": 20,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 25
+}

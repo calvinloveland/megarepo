@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Nickel",
+  "description": "Nickel (element 28)",
+  "color": [
+    78,
+    108,
+    115
+  ],
+  "density": 25.4,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 28
+}

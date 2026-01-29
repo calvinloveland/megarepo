@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Chromium",
+  "description": "Chromium (element 24)",
+  "color": [
+    130,
+    113,
+    106
+  ],
+  "density": 23.2,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 24
+}

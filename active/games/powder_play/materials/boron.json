@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Boron",
+  "description": "Boron (element 5)",
+  "color": [
+    212,
+    234,
+    142
+  ],
+  "density": 4,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 5
+}

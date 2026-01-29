@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Iodine",
+  "description": "Iodine (element 53)",
+  "color": [
+    226,
+    216,
+    234
+  ],
+  "density": 45.4,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 53
+}

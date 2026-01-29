@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Titanium",
+  "description": "Titanium (element 22)",
+  "color": [
+    123,
+    87,
+    218
+  ],
+  "density": 19.6,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 22
+}

@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Krypton",
+  "description": "Krypton (element 36)",
+  "color": [
+    113,
+    217,
+    169
+  ],
+  "density": 29.8,
+  "tags": [
+    "element",
+    "float"
+  ],
+  "atomicNumber": 36
+}

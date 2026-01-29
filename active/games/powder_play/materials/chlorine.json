@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Chlorine",
+  "description": "Chlorine (element 17)",
+  "color": [
+    174,
+    198,
+    187
+  ],
+  "density": 15.6,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 17
+}

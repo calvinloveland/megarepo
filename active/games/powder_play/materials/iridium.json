@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Iridium",
+  "description": "Iridium (element 77)",
+  "color": [
+    103,
+    221,
+    85
+  ],
+  "density": 63.6,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 77
+}

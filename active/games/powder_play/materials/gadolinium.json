@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Gadolinium",
+  "description": "Gadolinium (element 64)",
+  "color": [
+    169,
+    151,
+    200
+  ],
+  "density": 55.2,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 64
+}

@@ -7,7 +7,10 @@ export function mountMaterialBrowser(root: HTMLElement) {
       <label class="alchemy-label flex items-center gap-2"><input type="checkbox" id="show-all-materials" class="accent-amber-500"> Show all materials</label>
       <div id="materials-list" class="space-y-1 max-h-[420px] overflow-auto">(loading...)</div>
       <div id="discovered-section" class="space-y-1">
-        <h4 class="text-sm text-amber-200/90">Discovered</h4>
+        <div class="flex items-center justify-between">
+          <h4 class="text-sm text-amber-200/90">Discovered</h4>
+          <div id="discovery-score" class="text-sm text-amber-200/90">Score: <strong id="discovery-score-value">0</strong></div>
+        </div>
         <div id="discovered-list" class="space-y-1">
           <div id="discovered-empty" class="alchemy-muted">No discoveries yet.</div>
         </div>
@@ -32,6 +35,20 @@ export function mountMaterialBrowser(root: HTMLElement) {
 
   const discovered = new Set<string>();
   let selectedName: string | null = null;
+
+  // discovery scoring
+  const discoveryScoreKey = "alchemistPowder.discovery.score";
+  let discoveryScore = Number(localStorage.getItem(discoveryScoreKey) || 0);
+  function updateScoreDisplay() {
+    const el = container.querySelector("#discovery-score-value") as HTMLElement | null;
+    if (el) el.textContent = String(discoveryScore);
+  }
+  function addScore(points: number) {
+    discoveryScore += points;
+    localStorage.setItem(discoveryScoreKey, String(discoveryScore));
+    updateScoreDisplay();
+  }
+  updateScoreDisplay();
 
   const starterNames = new Set([
     "Fire",
@@ -191,6 +208,24 @@ export function mountMaterialBrowser(root: HTMLElement) {
     if (!mat?.name || discovered.has(mat.name)) return;
     console.log("[material_browser] addDiscoveredMaterial", mat.name);
     discovered.add(mat.name);
+
+    // award discovery points
+    try {
+      const isElement = Array.isArray(mat.tags) && mat.tags.includes("element");
+      let points = 0;
+      if (isElement) {
+        // base points scale modestly with atomic number if provided
+        const atomic = Number(mat.atomicNumber || 0);
+        points = 10 + Math.floor(Math.max(0, atomic) * 2);
+        if (mat.name === "Gold") points += 10000; // big bonus for gold
+      } else {
+        points = 10;
+      }
+      if (points > 0) addScore(points);
+      const status = document.getElementById("status");
+      if (status) status.textContent = `Discovered ${mat.name} (+${points})`;
+    } catch (e) {}
+
     const empty = discoveredList.querySelector("#discovered-empty");
     if (empty) empty.remove();
     const row = document.createElement("div");

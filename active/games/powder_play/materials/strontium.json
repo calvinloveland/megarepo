@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Strontium",
+  "description": "Strontium (element 38)",
+  "color": [
+    217,
+    167,
+    137
+  ],
+  "density": 33.4,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 38
+}

@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Samarium",
+  "description": "Samarium (element 62)",
+  "color": [
+    129,
+    194,
+    202
+  ],
+  "density": 51.6,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 62
+}

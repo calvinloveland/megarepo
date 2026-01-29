@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Potassium",
+  "description": "Potassium (element 19)",
+  "color": [
+    213,
+    237,
+    108
+  ],
+  "density": 19.2,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 19
+}

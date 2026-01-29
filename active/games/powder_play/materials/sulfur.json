@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Sulfur",
+  "description": "Sulfur (element 16)",
+  "color": [
+    95,
+    164,
+    98
+  ],
+  "density": 13.8,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 16
+}

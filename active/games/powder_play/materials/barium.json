@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Barium",
+  "description": "Barium (element 56)",
+  "color": [
+    158,
+    115,
+    72
+  ],
+  "density": 45.8,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 56
+}

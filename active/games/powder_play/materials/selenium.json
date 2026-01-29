@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Selenium",
+  "description": "Selenium (element 34)",
+  "color": [
+    206,
+    155,
+    153
+  ],
+  "density": 31.2,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 34
+}

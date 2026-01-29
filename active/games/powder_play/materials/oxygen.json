@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Oxygen",
+  "description": "Oxygen (element 8)",
+  "color": [
+    132,
+    98,
+    177
+  ],
+  "density": 9.4,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 8
+}

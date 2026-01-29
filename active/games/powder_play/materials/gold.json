@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Gold",
+  "description": "Gold (element 79)",
+  "color": [
+    180,
+    112,
+    93
+  ],
+  "density": 67.2,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 79
+}

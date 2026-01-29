@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Neodymium",
+  "description": "Neodymium (element 60)",
+  "color": [
+    239,
+    161,
+    198
+  ],
+  "density": 48,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 60
+}

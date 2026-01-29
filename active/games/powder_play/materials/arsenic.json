@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Arsenic",
+  "description": "Arsenic (element 33)",
+  "color": [
+    125,
+    108,
+    229
+  ],
+  "density": 29.4,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 33
+}

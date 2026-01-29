@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Iron",
+  "description": "Iron (element 26)",
+  "color": [
+    108,
+    176,
+    94
+  ],
+  "density": 21.8,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 26
+}

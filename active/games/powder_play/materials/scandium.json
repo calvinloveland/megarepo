@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Scandium",
+  "description": "Scandium (element 21)",
+  "color": [
+    138,
+    222,
+    234
+  ],
+  "density": 17.8,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 21
+}

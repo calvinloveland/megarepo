@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Argon",
+  "description": "Argon (element 18)",
+  "color": [
+    233,
+    174,
+    129
+  ],
+  "density": 17.4,
+  "tags": [
+    "element",
+    "float"
+  ],
+  "atomicNumber": 18
+}

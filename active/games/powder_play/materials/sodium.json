@@ -1,8 +1,16 @@
 {
   "type": "material",
   "name": "Sodium",
-  "description": "Reactive metal that explodes on contact with water.",
-  "color": [210, 210, 200],
-  "density": 0.95,
-  "tags": ["sand", "reactive_water", "explosive"]
+  "description": "Sodium (element 11)",
+  "color": [
+    111,
+    229,
+    186
+  ],
+  "density": 9.8,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 11
 }

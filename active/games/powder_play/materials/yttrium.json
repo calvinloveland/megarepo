@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Yttrium",
+  "description": "Yttrium (element 39)",
+  "color": [
+    192,
+    227,
+    76
+  ],
+  "density": 35.2,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 39
+}

@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Gallium",
+  "description": "Gallium (element 31)",
+  "color": [
+    235,
+    70,
+    145
+  ],
+  "density": 25.8,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 31
+}

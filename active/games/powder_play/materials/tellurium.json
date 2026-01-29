@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Tellurium",
+  "description": "Tellurium (element 52)",
+  "color": [
+    113,
+    188,
+    134
+  ],
+  "density": 43.6,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 52
+}

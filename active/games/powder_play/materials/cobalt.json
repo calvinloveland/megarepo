@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Cobalt",
+  "description": "Cobalt (element 27)",
+  "color": [
+    147,
+    180,
+    158
+  ],
+  "density": 23.6,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 27
+}

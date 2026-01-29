@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Phosphorus",
+  "description": "Phosphorus (element 15)",
+  "color": [
+    69,
+    98,
+    212
+  ],
+  "density": 12,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 15
+}

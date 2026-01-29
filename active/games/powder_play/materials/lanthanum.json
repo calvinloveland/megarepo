@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Lanthanum",
+  "description": "Lanthanum (element 57)",
+  "color": [
+    86,
+    173,
+    234
+  ],
+  "density": 47.6,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 57
+}

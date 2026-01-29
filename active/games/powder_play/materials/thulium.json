@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Thulium",
+  "description": "Thulium (element 69)",
+  "color": [
+    186,
+    64,
+    230
+  ],
+  "density": 59.2,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 69
+}

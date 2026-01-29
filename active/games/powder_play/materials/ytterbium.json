@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Ytterbium",
+  "description": "Ytterbium (element 70)",
+  "color": [
+    209,
+    97,
+    195
+  ],
+  "density": 56,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 70
+}

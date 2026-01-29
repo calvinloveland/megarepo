@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Palladium",
+  "description": "Palladium (element 46)",
+  "color": [
+    175,
+    82,
+    76
+  ],
+  "density": 37.8,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 46
+}

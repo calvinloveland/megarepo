@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Niobium",
+  "description": "Niobium (element 41)",
+  "color": [
+    89,
+    62,
+    138
+  ],
+  "density": 33.8,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 41
+}

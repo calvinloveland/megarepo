@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Germanium",
+  "description": "Germanium (element 32)",
+  "color": [
+    143,
+    157,
+    90
+  ],
+  "density": 27.6,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 32
+}

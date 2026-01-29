@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Beryllium",
+  "description": "Beryllium (element 4)",
+  "color": [
+    229,
+    184,
+    63
+  ],
+  "density": 7.2,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 4
+}

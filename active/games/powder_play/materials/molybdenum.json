@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Molybdenum",
+  "description": "Molybdenum (element 42)",
+  "color": [
+    214,
+    199,
+    135
+  ],
+  "density": 35.6,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 42
+}

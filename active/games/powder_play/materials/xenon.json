@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Xenon",
+  "description": "Xenon (element 54)",
+  "color": [
+    100,
+    120,
+    87
+  ],
+  "density": 47.2,
+  "tags": [
+    "element",
+    "float"
+  ],
+  "atomicNumber": 54
+}

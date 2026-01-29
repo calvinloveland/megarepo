@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Zinc",
+  "description": "Zinc (element 30)",
+  "color": [
+    164,
+    141,
+    102
+  ],
+  "density": 24,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 30
+}
