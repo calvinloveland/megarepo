@@ -355,12 +355,17 @@ async function fetchMixFromServer(cacheKey: string) {
 
 async function saveMixToServer(cacheKey: string, mix: any) {
   try {
+    const san = sanitizeCachedMix(cacheKey, mix);
+    if (!san) {
+      console.warn('[mix] refusing to save invalid mix to server', cacheKey, mix);
+      return null;
+    }
     const res = await fetch(
       `${mixApiBase}/mixes/${encodeURIComponent(cacheKey)}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(mix),
+        body: JSON.stringify(san),
       },
     );
     if (!res.ok) {
