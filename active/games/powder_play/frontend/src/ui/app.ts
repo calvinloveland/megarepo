@@ -280,6 +280,18 @@ function sanitizeCachedMix(key: string, value: any) {
     const parents = Array.isArray(value.__mixParents) && value.__mixParents.length === 2 ? value.__mixParents : ["A","B"];
     value.description = `Auto-generated mix of ${parents[0]} and ${parents[1]}.`;
   }
+  // sanitize name: avoid short or machine-like names saved from noisy LLMs
+  const nameStr = String(value.name || "");
+  const looksMachine = /_[a-z0-9]{3,}$/.test(nameStr) || /\d{2,}/.test(nameStr) || nameStr.length < 3;
+  if (looksMachine) {
+    const parents = Array.isArray(value.__mixParents) && value.__mixParents.length === 2 ? value.__mixParents : ["A","B"];
+    try {
+      value.name = fallbackMixName(String(parents[0]), String(parents[1]));
+    } catch (e) {
+      // fallback to generic
+      value.name = `${parents[0]}_${parents[1]}_mix`;
+    }
+  }
   return value;
 }
 
