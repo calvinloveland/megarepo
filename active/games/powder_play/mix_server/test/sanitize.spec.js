@@ -15,7 +15,7 @@ const bad = {
 
 const san = sanitizeMixEntry(bad, 'Fire|SaltWater');
 assert.ok(san, 'should sanitize into an object');
-assert.strictEqual(san.name, 'FireSaltWa_gz50');
+assert.strictEqual(san.name, 'Fire_SaltWater_mix');
 assert.strictEqual(typeof san.density, 'number');
 assert.strictEqual(san.density, 1.0);
 assert.ok(Array.isArray(san.tags) && san.tags.length > 0);
