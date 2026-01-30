@@ -258,13 +258,42 @@ async function clearMixCacheOnServer() {
   }
 }
 
+function sanitizeCachedMix(key: string, value: any) {
+  if (!value || typeof value !== "object") return null;
+  // require minimal fields
+  if (!value.name || String(value.type || "").toLowerCase() !== "material") return null;
+  // ensure tags are normalized
+  value.tags = normalizeTags(Array.isArray(value.tags) ? value.tags.map((t:any)=>String(t).toLowerCase()) : []);
+  if (!Array.isArray(value.tags) || value.tags.length === 0) value.tags = ["static"];
+  // density fallback/limit
+  if (typeof value.density !== "number" || !Number.isFinite(value.density)) value.density = 1.0;
+  value.density = Math.max(0.05, Math.min(10, value.density));
+  // sanitize color
+  if (!value.color || !Array.isArray(value.color) || value.color.length < 3) {
+    value.color = deriveColorFromName(value.name);
+  }
+  // sanitize description (avoid lists or echoing prompt text)
+  const desc = String(value.description || "").trim();
+  const isListy = desc.split(/,|;/).length >= 3 && desc.split(/\s+/).length < 20;
+  const badEcho = /do not include|only json|return only/i.test(desc);
+  if (!desc || isListy || badEcho) {
+    const parents = Array.isArray(value.__mixParents) && value.__mixParents.length === 2 ? value.__mixParents : ["A","B"];
+    value.description = `Auto-generated mix of ${parents[0]} and ${parents[1]}.`;
+  }
+  return value;
+}
+
 function loadMixCacheFromLocal() {
   try {
     const raw = localStorage.getItem(mixCacheStorageKey);
     if (raw) {
       const parsed = JSON.parse(raw) as Record<string, any>;
       for (const [key, value] of Object.entries(parsed)) {
-        mixCache.set(key, value);
+        const san = sanitizeCachedMix(key, value);
+        if (san) mixCache.set(key, san);
+        else {
+          console.warn('[mix] dropping invalid cached mix', key, value);
+        }
       }
     }
     mixCacheReady = true;
@@ -293,7 +322,9 @@ function saveMixCacheToLocal() {
   try {
     const out: Record<string, any> = {};
     for (const [key, value] of mixCache.entries()) {
-      out[key] = value;
+      const san = sanitizeCachedMix(key, value);
+      if (san) out[key] = san;
+      else console.warn('[mix] skipping invalid cached mix on save', key, value);
     }
     localStorage.setItem(mixCacheStorageKey, JSON.stringify(out));
   } catch (e) {
@@ -629,15 +660,16 @@ function isNoReactionName(name: string) {
 }
 
 function fallbackMixName(aName: string, bName: string) {
+  // create a readable fallback like Fire_SaltWater_gz50 to avoid confusing concatenations
   const base = `${aName}-${bName}`;
   let hash = 0;
   for (let i = 0; i < base.length; i++) {
     hash = ((hash << 5) - hash + base.charCodeAt(i)) | 0;
   }
   const tag = Math.abs(hash).toString(36).slice(0, 4) || "mix";
-  const safeA = aName.replace(/\s+/g, "").slice(0, 6) || "A";
-  const safeB = bName.replace(/\s+/g, "").slice(0, 6) || "B";
-  return `${safeA}${safeB}_${tag}`;
+  const safeA = aName.replace(/\s+/g, "").slice(0, 8) || "A";
+  const safeB = bName.replace(/\s+/g, "").slice(0, 8) || "B";
+  return `${safeA}_${safeB}_${tag}`;
 }
 
 try {

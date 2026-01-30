@@ -6,13 +6,59 @@ const PORT = parseInt(process.env.PORT || "8787", 10);
 const DATA_PATH =
   process.env.MIX_CACHE_PATH || path.join(__dirname, "mix_cache.json");
 
+function sanitizeMixEntry(value, key) {
+  if (!value || typeof value !== "object") return null;
+  if (!value.name || String(value.type || "").toLowerCase() !== "material") return null;
+  // normalize tags
+  if (!Array.isArray(value.tags)) value.tags = [];
+  value.tags = value.tags.map((t) => String(t || "").toLowerCase()).filter(Boolean);
+  if (value.tags.length === 0) value.tags = ["static"];
+  // density fallback/limit
+  if (typeof value.density !== "number" || !Number.isFinite(value.density)) value.density = 1.0;
+  value.density = Math.max(0.05, Math.min(10, value.density));
+  // sanitize color
+  if (!Array.isArray(value.color) || value.color.length < 3) {
+    value.color = [200, 200, 200];
+  } else {
+    value.color = value.color.slice(0, 3).map((n) => {
+      const num = Number(n);
+      if (!Number.isFinite(num)) return 200;
+      return Math.max(0, Math.min(255, Math.floor(num)));
+    });
+  }
+  // sanitize description
+  const desc = String(value.description || "").trim();
+  const isListy = desc.split(/,|;/).length >= 3 && desc.split(/\s+/).length < 20;
+  const badEcho = /do not include|only json|return only/i.test(desc);
+  if (!desc || isListy || badEcho) {
+    const parents = Array.isArray(value.__mixParents) && value.__mixParents.length === 2 ? value.__mixParents : ["A","B"];
+    value.description = `Auto-generated mix of ${parents[0]} and ${parents[1]}.`;
+  }
+  return value;
+}
+
 function loadCache() {
   try {
     if (!fs.existsSync(DATA_PATH)) return {};
     const raw = fs.readFileSync(DATA_PATH, "utf8");
     if (!raw) return {};
     const parsed = JSON.parse(raw);
-    return parsed && typeof parsed === "object" ? parsed : {};
+    const out = {};
+    let changed = false;
+    for (const [k, v] of Object.entries(parsed || {})) {
+      const san = sanitizeMixEntry(v, k);
+      if (san) out[k] = san;
+      else {
+        console.warn('[mix_server] dropping invalid cached mix', k, v);
+        changed = true;
+      }
+    }
+    if (changed) {
+      try {
+        saveCache(out);
+      } catch (e) {}
+    }
+    return out;
   } catch (err) {
     console.error("[mix_server] load error", err);
     return {};
@@ -184,8 +230,10 @@ const server = http.createServer(async (req, res) => {
       console.log("[mix_server] set mix", key, Object.keys(body || {}).length);
       if (!body || typeof body !== "object")
         return send(res, 400, { error: "invalid body" });
+      const san = sanitizeMixEntry(body, key);
+      if (!san) return send(res, 400, { error: "invalid mix body" });
       if (!cache[key]) {
-        cache[key] = body;
+        cache[key] = san;
         saveCache(cache);
       }
       return send(res, 200, cache[key]);
@@ -202,3 +250,8 @@ server.listen(PORT, () => {
   console.log(`[mix_server] listening on http://127.0.0.1:${PORT}`);
   console.log(`[mix_server] data file: ${DATA_PATH}`);
 });
+
+// export helpers for testing
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports.sanitizeMixEntry = sanitizeMixEntry;
+}
