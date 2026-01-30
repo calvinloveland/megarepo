@@ -33,8 +33,13 @@ function sanitizeMixEntry(value, key) {
   if (!desc || isListy || badEcho) {
     const parents = Array.isArray(value.__mixParents) && value.__mixParents.length === 2 ? value.__mixParents : ["A","B"];
     value.description = `Auto-generated mix of ${parents[0]} and ${parents[1]}.`;
-  }
-  return value;
+  }  // sanitize name: prefer readable parent-based name when it looks machine-generated
+  const nameStr = String(value.name || '');
+  const looksMachine = /_[a-z0-9]{3,}$/.test(nameStr) || /\d{2,}/.test(nameStr) || nameStr.length < 3;
+  if (looksMachine) {
+    const parents = Array.isArray(value.__mixParents) && value.__mixParents.length === 2 ? value.__mixParents : ['A','B'];
+    value.name = `${parents[0]}_${parents[1]}_mix`;
+  }  return value;
 }
 
 function loadCache() {
