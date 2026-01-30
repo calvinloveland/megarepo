@@ -246,10 +246,12 @@ const server = http.createServer(async (req, res) => {
   return send(res, 404, { error: "not found" });
 });
 
-server.listen(PORT, () => {
-  console.log(`[mix_server] listening on http://127.0.0.1:${PORT}`);
-  console.log(`[mix_server] data file: ${DATA_PATH}`);
-});
+if (require.main === module) {
+  server.listen(PORT, () => {
+    console.log(`[mix_server] listening on http://127.0.0.1:${PORT}`);
+    console.log(`[mix_server] data file: ${DATA_PATH}`);
+  });
+}
 
 // export helpers for testing
 if (typeof module !== 'undefined' && module.exports) {
