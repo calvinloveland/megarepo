@@ -7,7 +7,7 @@ export type LabelCentroid = {
   stdDistance: number;
 };
 
-export const CLASSIFIER_VERSION = "1.2.0";
+export const CLASSIFIER_VERSION = "1.3.0";
 
 export function normalizeLabelExport(payload: LabelExport): LabelExport {
   const maxRow = payload.labels.reduce((max, label) => Math.max(max, label.row), -1);
@@ -50,7 +50,7 @@ export function extractTileVector(imageData: ImageData, rect: Rect, size: number
   return normalizeVector(vector);
 }
 
-function normalizeVector(vector: number[]): number[] {
+export function normalizeVector(vector: number[]): number[] {
   if (vector.length === 0) {
     return vector;
   }
