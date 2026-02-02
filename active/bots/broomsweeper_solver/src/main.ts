@@ -10,6 +10,7 @@ import {
   findNearestCentroid,
   normalizeLabelExport,
   normalizeVector,
+  predictLabelWithKnn,
   type LabelCentroid
 } from "./labeling";
 import { solveBoard } from "./solver";
@@ -197,6 +198,7 @@ let currentDatasetImage: { name: string; url: string } | null = null;
 let labelOutputDirectory: FileSystemDirectoryHandle | null = null;
 let templateBank: TemplateVector[] = [];
 let labelCentroids: LabelCentroid[] = [];
+let templateVectorsByLabel = new Map<string, number[][]>();
 let diagnosticsRows: DiagnosticsRow[] = [];
 let selectedDiagnosticsRow: DiagnosticsRow | null = null;
 let lastMagnifierPoint: Point | null = null;
@@ -1079,7 +1081,7 @@ async function evaluateDiagnostics(
     for (const label of labelExport.labels) {
       const tileRect = getTileRect(boardSpec, label.row, label.col);
       const vector = extractTileVector(imageData, tileRect, 10);
-      const match = findNearestCentroid(vector, centroids);
+      const match = predictLabelWithKnn(vector, trainingVectors, centroids, 5);
       const predicted = match?.label ?? "unknown";
       const distance = match?.distance ?? 0;
       total += 1;
@@ -1746,6 +1748,7 @@ async function ensureTemplateBank(): Promise<void> {
   }
   templateBank = templates;
   labelCentroids = buildLabelCentroids(aggregateVectorsByLabel);
+  templateVectorsByLabel = aggregateVectorsByLabel;
 }
 
 function runAutoLabel(): void {
@@ -1775,7 +1778,7 @@ function runAutoLabel(): void {
       for (let col = 0; col < cols; col += 1) {
         const tileRect = getTileRect(boardSpec, row, col);
         const vector = extractTileVector(imageData, tileRect, 10);
-        const match = findBestCentroid(vector, labelCentroids);
+        const match = predictLabelWithKnn(vector, templateVectorsByLabel, labelCentroids, 5);
         if (match) {
           labelMap.set(`${row}:${col}`, { row, col, label: match.label });
           if (match.label === "unknown") {

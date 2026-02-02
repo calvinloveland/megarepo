@@ -7,7 +7,7 @@ export type LabelCentroid = {
   stdDistance: number;
 };
 
-export const CLASSIFIER_VERSION = "1.3.0";
+export const CLASSIFIER_VERSION = "1.4.0";
 
 export function normalizeLabelExport(payload: LabelExport): LabelExport {
   const maxRow = payload.labels.reduce((max, label) => Math.max(max, label.row), -1);
@@ -224,6 +224,64 @@ export function findNearestCentroid(
     }
   }
   return best;
+}
+
+export function predictLabelWithKnn(
+  vector: number[],
+  vectorsByLabel: Map<string, number[][]>,
+  centroids: LabelCentroid[],
+  k = 5
+): { label: string; distance: number } | null {
+  const neighbors: Array<{ label: string; distance: number }> = [];
+  for (const [label, vectors] of vectorsByLabel.entries()) {
+    for (const candidate of vectors) {
+      if (candidate.length !== vector.length) {
+        continue;
+      }
+      neighbors.push({ label, distance: vectorDistance(vector, candidate) });
+    }
+  }
+  if (neighbors.length === 0) {
+    return findNearestCentroid(vector, centroids);
+  }
+  neighbors.sort((a, b) => a.distance - b.distance);
+  const top = neighbors.slice(0, Math.max(1, Math.min(k, neighbors.length)));
+  const weights = new Map<string, number>();
+  for (const neighbor of top) {
+    const weight = 1 / (neighbor.distance + 1e-6);
+    weights.set(neighbor.label, (weights.get(neighbor.label) ?? 0) + weight);
+  }
+  let bestLabel = top[0].label;
+  let bestWeight = -Infinity;
+  for (const [label, weight] of weights.entries()) {
+    if (weight > bestWeight) {
+      bestWeight = weight;
+      bestLabel = label;
+    }
+  }
+
+  let bestCentroid: LabelCentroid | null = null;
+  let bestDistance = Number.POSITIVE_INFINITY;
+  for (const centroid of centroids) {
+    if (centroid.label !== bestLabel) {
+      continue;
+    }
+    const distance = vectorDistance(vector, centroid.vector);
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      bestCentroid = centroid;
+    }
+  }
+
+  if (!bestCentroid) {
+    return findNearestCentroid(vector, centroids);
+  }
+
+  const threshold = bestCentroid.meanDistance + bestCentroid.stdDistance * 2.25;
+  if (bestDistance > threshold) {
+    return { label: "unknown", distance: bestDistance };
+  }
+  return { label: bestLabel, distance: bestDistance };
 }
 
 export function buildVectorsByLabel(
