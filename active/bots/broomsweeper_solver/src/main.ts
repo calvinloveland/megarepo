@@ -15,6 +15,13 @@ type TemplateVector = {
   vector: number[];
 };
 
+type LabelCentroid = {
+  label: string;
+  vector: number[];
+  meanDistance: number;
+  stdDistance: number;
+};
+
 type FileSystemDirectoryHandle = {
   getFileHandle: (name: string, options?: { create?: boolean }) => Promise<FileSystemFileHandle>;
 };
@@ -147,6 +154,7 @@ let currentLabel = palette[0].label;
 let currentDatasetImage: { name: string; url: string } | null = null;
 let labelOutputDirectory: FileSystemDirectoryHandle | null = null;
 let templateBank: TemplateVector[] = [];
+let labelCentroids: LabelCentroid[] = [];
 
 const labelFilesByImage = new Map<string, LabelExport>();
 for (const labelFile of datasetLabelFiles) {
@@ -649,7 +657,7 @@ async function loadDatasetImage(image: { name: string; url: string }): Promise<v
   exportLabelsButton.disabled = true;
   const existingLabels = labelFilesByImage.get(image.name);
   if (existingLabels) {
-    applyLabelExport(existingLabels);
+    applyLabelExport(normalizeLabelExport(existingLabels));
     setLabelerStatus([`Loaded ${image.name} with existing labels.`]);
   } else {
     setLabelerStatus([`Loaded ${image.name}. Select board bounds.`]);
@@ -760,10 +768,11 @@ function applyDetectedBoardToLabeler(detected: DetectedBoard): void {
 }
 
 function applyLabelExport(payload: LabelExport): void {
-  labelBoardBounds = payload.bounds;
-  labelRowsInput.value = String(payload.rows);
-  labelColsInput.value = String(payload.cols);
-  labelMap = new Map(payload.labels.map((label) => [`${label.row}:${label.col}`, label]));
+  const normalized = normalizeLabelExport(payload);
+  labelBoardBounds = normalized.bounds;
+  labelRowsInput.value = String(normalized.rows);
+  labelColsInput.value = String(normalized.cols);
+  labelMap = new Map(normalized.labels.map((label) => [`${label.row}:${label.col}`, label]));
   drawOverlay();
   autoLabelButton.disabled = false;
   clearLabelsButton.disabled = false;
@@ -822,8 +831,9 @@ async function ensureTemplateBank(): Promise<void> {
     return;
   }
   const templates: TemplateVector[] = [];
+  const vectorsByLabel = new Map<string, number[][]>();
   for (const labelFile of datasetLabelFiles) {
-    const labelExport = labelFile.payload;
+    const labelExport = normalizeLabelExport(labelFile.payload);
     const imageEntry = datasetImages.find((item) => item.name === labelExport.image);
     if (!imageEntry) {
       continue;
@@ -845,16 +855,29 @@ async function ensureTemplateBank(): Promise<void> {
     };
     for (const label of labelExport.labels) {
       const tileRect = getTileRect(boardSpec, label.row, label.col);
-      const vector = extractTileVector(imageData, tileRect, 8);
+      const vector = extractTileVector(imageData, tileRect, 10);
       templates.push({ label: label.label, vector });
+      if (!vectorsByLabel.has(label.label)) {
+        vectorsByLabel.set(label.label, []);
+      }
+      vectorsByLabel.get(label.label)?.push(vector);
     }
   }
   templateBank = templates;
+  labelCentroids = buildLabelCentroids(vectorsByLabel);
 }
 
 function runAutoLabel(): void {
   if (!labelBoardBounds || !currentImage) {
     return;
+  }
+  if (currentDatasetImage) {
+    const existing = labelFilesByImage.get(currentDatasetImage.name);
+    if (existing) {
+      applyLabelExport(existing);
+      setLabelerStatus(["Applied existing manual labels for this image."]);
+      return;
+    }
   }
   const rows = parseInt(labelRowsInput.value, 10);
   const cols = parseInt(labelColsInput.value, 10);
@@ -865,19 +888,27 @@ function runAutoLabel(): void {
   const boardSpec: BoardSpec = { rows, cols, bounds: labelBoardBounds };
   const imageData = imageCtx.getImageData(0, 0, imageCanvas.width, imageCanvas.height);
   let assigned = 0;
+  let unknown = 0;
   for (let row = 0; row < rows; row += 1) {
     for (let col = 0; col < cols; col += 1) {
       const tileRect = getTileRect(boardSpec, row, col);
-      const vector = extractTileVector(imageData, tileRect, 8);
-      const match = findBestTemplate(vector, templateBank);
-      if (match && match.distance < 0.12) {
+      const vector = extractTileVector(imageData, tileRect, 10);
+      const match = findBestCentroid(vector, labelCentroids);
+      if (match) {
         labelMap.set(`${row}:${col}`, { row, col, label: match.label });
-        assigned += 1;
+        if (match.label === "unknown") {
+          unknown += 1;
+        } else {
+          assigned += 1;
+        }
+      } else {
+        labelMap.set(`${row}:${col}`, { row, col, label: "unknown" });
+        unknown += 1;
       }
     }
   }
   drawOverlay();
-  setLabelerStatus([`Auto-label complete. ${assigned} tiles labeled.`]);
+  setLabelerStatus([`Auto-label complete. ${assigned} labeled, ${unknown} unknown.`]);
 }
 
 function extractTileVector(imageData: ImageData, rect: Rect, size: number): number[] {
@@ -891,30 +922,80 @@ function extractTileVector(imageData: ImageData, rect: Rect, size: number): numb
       const r = data[idx];
       const g = data[idx + 1];
       const b = data[idx + 2];
-      vector.push((0.2126 * r + 0.7152 * g + 0.0722 * b) / 255);
+      vector.push(r / 255, g / 255, b / 255);
     }
   }
   return vector;
 }
 
-function findBestTemplate(
-  vector: number[],
-  templates: TemplateVector[]
-): { label: string; distance: number } | null {
-  let best: { label: string; distance: number } | null = null;
-  for (const template of templates) {
-    if (template.vector.length !== vector.length) {
+function buildLabelCentroids(vectorsByLabel: Map<string, number[][]>): LabelCentroid[] {
+  const centroids: LabelCentroid[] = [];
+  for (const [label, vectors] of vectorsByLabel.entries()) {
+    if (vectors.length === 0) {
       continue;
     }
-    let sum = 0;
-    for (let i = 0; i < vector.length; i += 1) {
-      const diff = vector[i] - template.vector[i];
-      sum += diff * diff;
+    const centroid = new Array(vectors[0].length).fill(0);
+    for (const vector of vectors) {
+      for (let i = 0; i < vector.length; i += 1) {
+        centroid[i] += vector[i];
+      }
     }
-    const distance = Math.sqrt(sum / vector.length);
+    for (let i = 0; i < centroid.length; i += 1) {
+      centroid[i] /= vectors.length;
+    }
+    const distances = vectors.map((vector) => vectorDistance(vector, centroid));
+    const mean = distances.reduce((acc, value) => acc + value, 0) / distances.length;
+    const variance = distances.reduce((acc, value) => acc + (value - mean) ** 2, 0) / distances.length;
+    const std = Math.sqrt(variance);
+    centroids.push({ label, vector: centroid, meanDistance: mean, stdDistance: std });
+  }
+  return centroids;
+}
+
+function findBestCentroid(
+  vector: number[],
+  centroids: LabelCentroid[]
+): { label: string; distance: number } | null {
+  if (centroids.length === 0) {
+    return null;
+  }
+  let best: { label: string; distance: number; threshold: number } | null = null;
+  for (const centroid of centroids) {
+    if (centroid.vector.length !== vector.length) {
+      continue;
+    }
+    const distance = vectorDistance(vector, centroid.vector);
+    const threshold = centroid.meanDistance + centroid.stdDistance * 2.25;
     if (!best || distance < best.distance) {
-      best = { label: template.label, distance };
+      best = { label: centroid.label, distance, threshold };
     }
   }
-  return best;
+  if (!best) {
+    return null;
+  }
+  if (best.distance > best.threshold) {
+    return { label: "unknown", distance: best.distance };
+  }
+  return { label: best.label, distance: best.distance };
+}
+
+function vectorDistance(a: number[], b: number[]): number {
+  let sum = 0;
+  for (let i = 0; i < a.length; i += 1) {
+    const diff = a[i] - b[i];
+    sum += diff * diff;
+  }
+  return Math.sqrt(sum / a.length);
+}
+
+function normalizeLabelExport(payload: LabelExport): LabelExport {
+  const maxRow = payload.labels.reduce((max, label) => Math.max(max, label.row), -1);
+  const maxCol = payload.labels.reduce((max, label) => Math.max(max, label.col), -1);
+  const rows = Math.max(payload.rows, maxRow + 1);
+  const cols = Math.max(payload.cols, maxCol + 1);
+  return {
+    ...payload,
+    rows,
+    cols
+  };
 }
