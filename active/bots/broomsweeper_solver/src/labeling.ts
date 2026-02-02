@@ -7,6 +7,8 @@ export type LabelCentroid = {
   stdDistance: number;
 };
 
+export const CLASSIFIER_VERSION = "1.2.0";
+
 export function normalizeLabelExport(payload: LabelExport): LabelExport {
   const maxRow = payload.labels.reduce((max, label) => Math.max(max, label.row), -1);
   const maxCol = payload.labels.reduce((max, label) => Math.max(max, label.col), -1);
@@ -73,10 +75,12 @@ export function buildLabelCentroids(vectorsByLabel: Map<string, number[][]>): La
     if (vectors.length === 0) {
       continue;
     }
-    const clusterCount = chooseClusterCount(vectors.length);
-    const clusterCentroids = clusterCount === 1 ? [meanVector(vectors)] : kMeans(vectors, clusterCount);
+    const filteredVectors = trimOutliers(vectors);
+    const clusterCount = chooseClusterCount(filteredVectors.length);
+    const clusterCentroids =
+      clusterCount === 1 ? [meanVector(filteredVectors)] : kMeans(filteredVectors, clusterCount);
     for (const centroid of clusterCentroids) {
-      const distances = vectors.map((vector) => vectorDistance(vector, centroid));
+      const distances = filteredVectors.map((vector) => vectorDistance(vector, centroid));
       const mean = distances.reduce((acc, value) => acc + value, 0) / distances.length;
       const variance =
         distances.reduce((acc, value) => acc + (value - mean) ** 2, 0) / distances.length;
@@ -85,6 +89,17 @@ export function buildLabelCentroids(vectorsByLabel: Map<string, number[][]>): La
     }
   }
   return centroids;
+}
+
+function trimOutliers(vectors: number[][]): number[][] {
+  if (vectors.length < 10) {
+    return vectors;
+  }
+  const centroid = meanVector(vectors);
+  const scored = vectors.map((vector) => ({ vector, distance: vectorDistance(vector, centroid) }));
+  scored.sort((a, b) => a.distance - b.distance);
+  const keepCount = Math.max(5, Math.ceil(scored.length * 0.9));
+  return scored.slice(0, keepCount).map((entry) => entry.vector);
 }
 
 function chooseClusterCount(sampleCount: number): number {

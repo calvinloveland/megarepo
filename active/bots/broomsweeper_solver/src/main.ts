@@ -2,6 +2,7 @@ import "./style.css";
 import type { Annotation, BoardSpec, DetectedBoard, LabelExport, Point, Rect, TileLabel } from "./types";
 import { detectBoardFromEdges, getTileRect } from "./image";
 import {
+  CLASSIFIER_VERSION,
   buildLabelCentroids,
   buildVectorsByLabel,
   extractTileVector,
@@ -110,6 +111,9 @@ const diagnosticsImageTableBody = document.querySelector<HTMLTableSectionElement
 const diagnosticsConfusionTableBody = document.querySelector<HTMLTableSectionElement>(
   "#diagnosticsConfusionTableBody"
 );
+const diagnosticsHistoryTableBody = document.querySelector<HTMLTableSectionElement>(
+  "#diagnosticsHistoryTableBody"
+);
 const diagnosticsPreviewImage = document.querySelector<HTMLImageElement>("#diagnosticsPreviewImage");
 const diagnosticsPreviewMeta = document.querySelector<HTMLDivElement>("#diagnosticsPreviewMeta");
 const magnifier = document.querySelector<HTMLDivElement>("#magnifier");
@@ -154,6 +158,7 @@ if (
   !diagnosticsLabelTableBody ||
   !diagnosticsImageTableBody ||
   !diagnosticsConfusionTableBody ||
+  !diagnosticsHistoryTableBody ||
   !diagnosticsPreviewImage ||
   !diagnosticsPreviewMeta ||
   !magnifier ||
@@ -906,12 +911,22 @@ type ImageDiagnosticsMetrics = {
   avgDistance: number;
 };
 
+type ClassifierHistoryEntry = {
+  version: string;
+  recordedAt: string;
+  accuracy: number;
+  nonUnknownAccuracy: number;
+  avgDistance: number;
+  total: number;
+};
+
 async function runDiagnostics(): Promise<void> {
   diagnosticsSummary.textContent = "Running diagnostics...";
   diagnosticsTableBody.innerHTML = "";
   diagnosticsLabelTableBody.innerHTML = "";
   diagnosticsImageTableBody.innerHTML = "";
   diagnosticsConfusionTableBody.innerHTML = "";
+  diagnosticsHistoryTableBody.innerHTML = "";
   diagnosticsMetrics.innerHTML = "";
   diagnosticsRows = [];
   selectedDiagnosticsRow = null;
@@ -1069,13 +1084,16 @@ async function runDiagnostics(): Promise<void> {
   const avgDistance = totalDistanceCount > 0 ? totalDistance / totalDistanceCount : 0;
   diagnosticsSummary.textContent = `Accuracy: ${(accuracy * 100).toFixed(1)}% (${correct}/${total}) | Non-unknown: ${(nonUnknownAccuracy * 100).toFixed(1)}% | Avg dist: ${avgDistance.toFixed(4)} | Mismatches: ${mismatched}`;
   setDiagnosticsStatus(["Diagnostics complete."]);
-  renderDiagnosticsMetrics({
+  const summaryMetrics = {
     accuracy,
     nonUnknownAccuracy,
     avgDistance,
     total,
     mismatched
-  });
+  };
+  renderDiagnosticsMetrics(summaryMetrics);
+  recordClassifierAccuracy(summaryMetrics);
+  renderHistoryTable();
   renderLabelMetricsTable(buildLabelMetrics(labelStats));
   renderImageMetricsTable(buildImageMetrics(imageStats));
   renderConfusionTable(buildConfusionRows(confusionCounts, labelStats));
@@ -1091,6 +1109,7 @@ function renderDiagnosticsMetrics(metrics: {
 }): void {
   diagnosticsMetrics.innerHTML = "";
   const metricItems = [
+    { label: "Classifier version", value: CLASSIFIER_VERSION },
     { label: "Overall accuracy", value: formatPercent(metrics.accuracy) },
     { label: "Non-unknown accuracy", value: formatPercent(metrics.nonUnknownAccuracy) },
     { label: "Avg distance", value: metrics.avgDistance.toFixed(4) },
@@ -1251,6 +1270,70 @@ function renderConfusionTable(
     row.appendChild(buildCell(entry.count.toString()));
     row.appendChild(buildCell(formatPercent(entry.rate)));
     diagnosticsConfusionTableBody.appendChild(row);
+  }
+}
+
+function recordClassifierAccuracy(metrics: {
+  accuracy: number;
+  nonUnknownAccuracy: number;
+  avgDistance: number;
+  total: number;
+}): void {
+  const history = loadClassifierHistory();
+  history.unshift({
+    version: CLASSIFIER_VERSION,
+    recordedAt: new Date().toISOString(),
+    accuracy: metrics.accuracy,
+    nonUnknownAccuracy: metrics.nonUnknownAccuracy,
+    avgDistance: metrics.avgDistance,
+    total: metrics.total
+  });
+  const trimmed = history.slice(0, 20);
+  saveClassifierHistory(trimmed);
+}
+
+function loadClassifierHistory(): ClassifierHistoryEntry[] {
+  try {
+    const raw = localStorage.getItem("broomsweeperClassifierHistory");
+    if (!raw) {
+      return [];
+    }
+    const parsed = JSON.parse(raw) as ClassifierHistoryEntry[];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (error) {
+    return [];
+  }
+}
+
+function saveClassifierHistory(history: ClassifierHistoryEntry[]): void {
+  try {
+    localStorage.setItem("broomsweeperClassifierHistory", JSON.stringify(history));
+  } catch (error) {
+    // Ignore storage errors
+  }
+}
+
+function renderHistoryTable(): void {
+  const history = loadClassifierHistory();
+  diagnosticsHistoryTableBody.innerHTML = "";
+  if (history.length === 0) {
+    const row = document.createElement("tr");
+    const cell = document.createElement("td");
+    cell.colSpan = 6;
+    cell.textContent = "No history recorded yet.";
+    row.appendChild(cell);
+    diagnosticsHistoryTableBody.appendChild(row);
+    return;
+  }
+  for (const entry of history) {
+    const row = document.createElement("tr");
+    row.appendChild(buildCell(entry.version));
+    row.appendChild(buildCell(entry.recordedAt.replace("T", " ").replace("Z", "")));
+    row.appendChild(buildCell(formatPercent(entry.accuracy)));
+    row.appendChild(buildCell(formatPercent(entry.nonUnknownAccuracy)));
+    row.appendChild(buildCell(entry.avgDistance.toFixed(4)));
+    row.appendChild(buildCell(entry.total.toString()));
+    diagnosticsHistoryTableBody.appendChild(row);
   }
 }
 
