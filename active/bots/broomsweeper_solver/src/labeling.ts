@@ -73,21 +73,94 @@ export function buildLabelCentroids(vectorsByLabel: Map<string, number[][]>): La
     if (vectors.length === 0) {
       continue;
     }
-    const centroid = new Array(vectors[0].length).fill(0);
-    for (const vector of vectors) {
-      for (let i = 0; i < vector.length; i += 1) {
-        centroid[i] += vector[i];
+    const clusterCount = chooseClusterCount(vectors.length);
+    const clusterCentroids = clusterCount === 1 ? [meanVector(vectors)] : kMeans(vectors, clusterCount);
+    for (const centroid of clusterCentroids) {
+      const distances = vectors.map((vector) => vectorDistance(vector, centroid));
+      const mean = distances.reduce((acc, value) => acc + value, 0) / distances.length;
+      const variance =
+        distances.reduce((acc, value) => acc + (value - mean) ** 2, 0) / distances.length;
+      const std = Math.sqrt(variance);
+      centroids.push({ label, vector: centroid, meanDistance: mean, stdDistance: std });
+    }
+  }
+  return centroids;
+}
+
+function chooseClusterCount(sampleCount: number): number {
+  if (sampleCount < 6) {
+    return 1;
+  }
+  if (sampleCount < 16) {
+    return 2;
+  }
+  return 3;
+}
+
+function meanVector(vectors: number[][]): number[] {
+  const centroid = new Array(vectors[0].length).fill(0);
+  for (const vector of vectors) {
+    for (let i = 0; i < vector.length; i += 1) {
+      centroid[i] += vector[i];
+    }
+  }
+  for (let i = 0; i < centroid.length; i += 1) {
+    centroid[i] /= vectors.length;
+  }
+  return centroid;
+}
+
+function kMeans(vectors: number[][], k: number): number[][] {
+  const centroids: number[][] = [];
+  const step = Math.max(1, Math.floor(vectors.length / k));
+  for (let i = 0; i < k; i += 1) {
+    centroids.push([...vectors[(i * step) % vectors.length]]);
+  }
+
+  const assignments = new Array(vectors.length).fill(0);
+  for (let iteration = 0; iteration < 10; iteration += 1) {
+    let changed = false;
+    for (let i = 0; i < vectors.length; i += 1) {
+      let bestIndex = 0;
+      let bestDistance = Number.POSITIVE_INFINITY;
+      for (let c = 0; c < centroids.length; c += 1) {
+        const distance = vectorDistance(vectors[i], centroids[c]);
+        if (distance < bestDistance) {
+          bestDistance = distance;
+          bestIndex = c;
+        }
+      }
+      if (assignments[i] !== bestIndex) {
+        assignments[i] = bestIndex;
+        changed = true;
       }
     }
-    for (let i = 0; i < centroid.length; i += 1) {
-      centroid[i] /= vectors.length;
+
+    const sums = centroids.map(() => new Array(vectors[0].length).fill(0));
+    const counts = centroids.map(() => 0);
+    for (let i = 0; i < vectors.length; i += 1) {
+      const cluster = assignments[i];
+      counts[cluster] += 1;
+      const vector = vectors[i];
+      for (let d = 0; d < vector.length; d += 1) {
+        sums[cluster][d] += vector[d];
+      }
     }
-    const distances = vectors.map((vector) => vectorDistance(vector, centroid));
-    const mean = distances.reduce((acc, value) => acc + value, 0) / distances.length;
-    const variance = distances.reduce((acc, value) => acc + (value - mean) ** 2, 0) / distances.length;
-    const std = Math.sqrt(variance);
-    centroids.push({ label, vector: centroid, meanDistance: mean, stdDistance: std });
+
+    for (let c = 0; c < centroids.length; c += 1) {
+      if (counts[c] === 0) {
+        continue;
+      }
+      for (let d = 0; d < centroids[c].length; d += 1) {
+        centroids[c][d] = sums[c][d] / counts[c];
+      }
+    }
+
+    if (!changed) {
+      break;
+    }
   }
+
   return centroids;
 }
 
