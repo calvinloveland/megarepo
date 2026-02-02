@@ -16,6 +16,10 @@ body {
   padding: 1.5rem;
 }
 
+.hidden {
+  display: none !important;
+}
+
 header h1 {
   margin: 0 0 0.5rem;
 }
@@ -27,6 +31,26 @@ header h1 {
   align-items: end;
 }
 
+.tab-bar {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.tab {
+  padding: 0.5rem 1rem;
+  border-radius: 999px;
+  border: 1px solid #cbd5f5;
+  background: white;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.tab.active {
+  background: #1d4ed8;
+  color: white;
+  border-color: transparent;
+}
+
 .control {
   display: flex;
   flex-direction: column;
@@ -35,6 +59,7 @@ header h1 {
 }
 
 .control input,
+.control select,
 .control button {
   padding: 0.5rem 0.75rem;
   border-radius: 0.5rem;
@@ -95,4 +120,25 @@ canvas {
   flex-direction: column;
   gap: 0.75rem;
   font-size: 0.95rem;
+}
+
+.label-palette {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.label-chip {
+  border: 1px solid #cbd5f5;
+  border-radius: 999px;
+  padding: 0.3rem 0.75rem;
+  cursor: pointer;
+  font-weight: 600;
+  background: white;
+}
+
+.label-chip.active {
+  background: #0f172a;
+  color: white;
+  border-color: #0f172a;
 }

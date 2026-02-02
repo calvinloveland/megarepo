@@ -11,7 +11,11 @@
         <h1>Broomsweeper Solver</h1>
         <p>Upload a screenshot, mark the board bounds, and run the solver.</p>
       </header>
-      <section class="controls">
+      <section class="tab-bar">
+        <button id="solverTab" type="button" class="tab active">Solver</button>
+        <button id="labelerTab" type="button" class="tab">Labeler</button>
+      </section>
+      <section id="solverSection" class="controls">
         <label class="control">
           Screenshot
           <input id="fileInput" type="file" accept="image/*" />
@@ -30,6 +34,29 @@
           <button id="exportButton" type="button" disabled>Export annotated</button>
         </div>
       </section>
+      <section id="labelerSection" class="controls hidden">
+        <label class="control">
+          Dataset screenshot
+          <select id="datasetSelect"></select>
+        </label>
+        <label class="control">
+          Rows
+          <input id="labelRowsInput" type="number" min="2" max="30" value="10" />
+        </label>
+        <label class="control">
+          Columns
+          <input id="labelColsInput" type="number" min="2" max="30" value="10" />
+        </label>
+        <div class="control">
+          <button id="labelSelectBoardButton" type="button">Select board bounds</button>
+          <button id="clearLabelsButton" type="button" disabled>Clear labels</button>
+          <button id="exportLabelsButton" type="button" disabled>Export labels</button>
+        </div>
+        <div class="control">
+          <span>Label palette</span>
+          <div id="labelPalette" class="label-palette"></div>
+        </div>
+      </section>
       <section class="canvas-wrap">
         <div class="canvas-stack">
           <canvas id="imageCanvas"></canvas>
@@ -38,6 +65,7 @@
         <aside class="status" id="statusPanel">
           <h2>Status</h2>
           <ul id="statusList"></ul>
+          <ul id="labelStatusList" class="hidden"></ul>
         </aside>
       </section>
     </div>

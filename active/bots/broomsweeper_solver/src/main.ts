@@ -1,7 +1,44 @@
 import "./style.css";
-import type { Annotation, BoardSpec, Point, Rect } from "./types";
+import type { Annotation, BoardSpec, LabelExport, Point, Rect, TileLabel } from "./types";
 import { getTileRect } from "./image";
 import { solveBoard } from "./solver";
+
+type Mode = "solver" | "labeler";
+
+type PaletteItem = {
+  label: string;
+  color: string;
+};
+
+const datasetImages = Object.entries(
+  import.meta.glob("../data/*.{png,jpg,jpeg}", {
+    eager: true,
+    query: "?url",
+    import: "default"
+  })
+).map(([path, url]) => ({
+  name: path.split("/").pop() ?? path,
+  url: url as string
+}));
+
+const palette: PaletteItem[] = [
+  { label: "unknown", color: "#64748b" },
+  { label: "empty", color: "#0f172a" },
+  { label: "1", color: "#2563eb" },
+  { label: "2", color: "#16a34a" },
+  { label: "3", color: "#dc2626" },
+  { label: "4", color: "#1e3a8a" },
+  { label: "5", color: "#7f1d1d" },
+  { label: "6", color: "#0d9488" },
+  { label: "7", color: "#111827" },
+  { label: "8", color: "#7c3aed" },
+  { label: "bunny", color: "#f472b6" },
+  { label: "mega", color: "#f97316" },
+  { label: "stack2", color: "#f59e0b" },
+  { label: "stack3", color: "#d97706" },
+  { label: "stack4", color: "#b45309" },
+  { label: "slug", color: "#a855f7" }
+];
 
 const fileInput = document.querySelector<HTMLInputElement>("#fileInput");
 const rowsInput = document.querySelector<HTMLInputElement>("#rowsInput");
@@ -9,9 +46,23 @@ const colsInput = document.querySelector<HTMLInputElement>("#colsInput");
 const selectBoardButton = document.querySelector<HTMLButtonElement>("#selectBoardButton");
 const runSolverButton = document.querySelector<HTMLButtonElement>("#runSolverButton");
 const exportButton = document.querySelector<HTMLButtonElement>("#exportButton");
+
+const solverTab = document.querySelector<HTMLButtonElement>("#solverTab");
+const labelerTab = document.querySelector<HTMLButtonElement>("#labelerTab");
+const solverSection = document.querySelector<HTMLElement>("#solverSection");
+const labelerSection = document.querySelector<HTMLElement>("#labelerSection");
+const datasetSelect = document.querySelector<HTMLSelectElement>("#datasetSelect");
+const labelRowsInput = document.querySelector<HTMLInputElement>("#labelRowsInput");
+const labelColsInput = document.querySelector<HTMLInputElement>("#labelColsInput");
+const labelSelectBoardButton = document.querySelector<HTMLButtonElement>("#labelSelectBoardButton");
+const clearLabelsButton = document.querySelector<HTMLButtonElement>("#clearLabelsButton");
+const exportLabelsButton = document.querySelector<HTMLButtonElement>("#exportLabelsButton");
+const labelPalette = document.querySelector<HTMLDivElement>("#labelPalette");
+
 const imageCanvas = document.querySelector<HTMLCanvasElement>("#imageCanvas");
 const overlayCanvas = document.querySelector<HTMLCanvasElement>("#overlayCanvas");
 const statusList = document.querySelector<HTMLUListElement>("#statusList");
+const labelStatusList = document.querySelector<HTMLUListElement>("#labelStatusList");
 
 if (
   !fileInput ||
@@ -20,9 +71,21 @@ if (
   !selectBoardButton ||
   !runSolverButton ||
   !exportButton ||
+  !solverTab ||
+  !labelerTab ||
+  !solverSection ||
+  !labelerSection ||
+  !datasetSelect ||
+  !labelRowsInput ||
+  !labelColsInput ||
+  !labelSelectBoardButton ||
+  !clearLabelsButton ||
+  !exportLabelsButton ||
+  !labelPalette ||
   !imageCanvas ||
   !overlayCanvas ||
-  !statusList
+  !statusList ||
+  !labelStatusList
 ) {
   throw new Error("Missing required DOM elements.");
 }
@@ -34,12 +97,27 @@ if (!imageCtx || !overlayCtx) {
   throw new Error("Canvas context unavailable.");
 }
 
+let mode: Mode = "solver";
 let currentImage: HTMLImageElement | null = null;
-let boardBounds: Rect | null = null;
-let selectionPoints: Point[] = [];
-let annotations: Annotation[] = [];
+
+let solverBoardBounds: Rect | null = null;
+let solverSelectionPoints: Point[] = [];
+let solverAnnotations: Annotation[] = [];
+
+let labelBoardBounds: Rect | null = null;
+let labelSelectionPoints: Point[] = [];
+let labelMap = new Map<string, TileLabel>();
+let currentLabel = palette[0].label;
+let currentDatasetImage: { name: string; url: string } | null = null;
+
+populateDatasetSelect();
+renderLabelPalette();
+setMode("solver");
 
 fileInput.addEventListener("change", async () => {
+  if (mode !== "solver") {
+    return;
+  }
   const file = fileInput.files?.[0];
   if (!file) {
     return;
@@ -47,20 +125,119 @@ fileInput.addEventListener("change", async () => {
   const image = await loadImageFromFile(file);
   currentImage = image;
   drawBaseImage(image);
-  resetBoardSelection();
-  setStatus(["Screenshot loaded. Select board bounds."]);
+  resetSolverSelection();
+  setSolverStatus(["Screenshot loaded. Select board bounds."]);
 });
 
 selectBoardButton.addEventListener("click", () => {
-  if (!currentImage) {
-    setStatus(["Upload a screenshot first."]);
+  if (mode !== "solver") {
     return;
   }
-  selectionPoints = [];
-  boardBounds = null;
-  annotations = [];
+  if (!currentImage) {
+    setSolverStatus(["Upload a screenshot first."]);
+    return;
+  }
+  solverSelectionPoints = [];
+  solverBoardBounds = null;
+  solverAnnotations = [];
   drawOverlay();
-  setStatus(["Click top-left and bottom-right corners of the board."]);
+  setSolverStatus(["Click top-left and bottom-right corners of the board."]);
+});
+
+runSolverButton.addEventListener("click", () => {
+  if (mode !== "solver") {
+    return;
+  }
+  if (!currentImage || !solverBoardBounds) {
+    setSolverStatus(["Select board bounds before running solver."]);
+    return;
+  }
+  const rows = parseInt(rowsInput.value, 10);
+  const cols = parseInt(colsInput.value, 10);
+  if (!Number.isFinite(rows) || !Number.isFinite(cols) || rows <= 1 || cols <= 1) {
+    setSolverStatus(["Rows/columns must be valid numbers."]);
+    return;
+  }
+  const boardSpec: BoardSpec = { rows, cols, bounds: solverBoardBounds };
+  const imageData = imageCtx.getImageData(0, 0, imageCanvas.width, imageCanvas.height);
+  const result = solveBoard(imageData, boardSpec);
+  solverAnnotations = result.annotations;
+  drawOverlay();
+  const slugCount = result.slugTiles.filter((tile) => tile.slugLie).length;
+  setSolverStatus([
+    `Solver ran. Slug-border tiles detected: ${slugCount}.`,
+    "Next step: classify numbers and dust bunnies."
+  ]);
+});
+
+exportButton.addEventListener("click", () => {
+  if (mode !== "solver" || !currentImage) {
+    return;
+  }
+  exportAnnotatedImage("broomsweeper-annotated.png");
+});
+
+labelSelectBoardButton.addEventListener("click", () => {
+  if (mode !== "labeler") {
+    return;
+  }
+  if (!currentImage) {
+    setLabelerStatus(["Load a dataset image first."]);
+    return;
+  }
+  labelSelectionPoints = [];
+  labelBoardBounds = null;
+  drawOverlay();
+  setLabelerStatus(["Click top-left and bottom-right corners of the board."]);
+});
+
+clearLabelsButton.addEventListener("click", () => {
+  if (mode !== "labeler") {
+    return;
+  }
+  labelMap = new Map();
+  drawOverlay();
+  setLabelerStatus(["Labels cleared."]);
+});
+
+exportLabelsButton.addEventListener("click", () => {
+  if (mode !== "labeler") {
+    return;
+  }
+  if (!currentDatasetImage || !labelBoardBounds) {
+    setLabelerStatus(["Select a dataset image and board bounds first."]);
+    return;
+  }
+  const rows = parseInt(labelRowsInput.value, 10);
+  const cols = parseInt(labelColsInput.value, 10);
+  if (!Number.isFinite(rows) || !Number.isFinite(cols) || rows <= 1 || cols <= 1) {
+    setLabelerStatus(["Rows/columns must be valid numbers."]);
+    return;
+  }
+  const exportPayload: LabelExport = {
+    image: currentDatasetImage.name,
+    rows,
+    cols,
+    bounds: labelBoardBounds,
+    labels: Array.from(labelMap.values()),
+    createdAt: new Date().toISOString()
+  };
+  downloadJson(exportPayload, `${currentDatasetImage.name}.labels.json`);
+  setLabelerStatus(["Label file exported."]);
+});
+
+solverTab.addEventListener("click", () => setMode("solver"));
+labelerTab.addEventListener("click", () => setMode("labeler"));
+
+datasetSelect.addEventListener("change", () => {
+  if (mode !== "labeler") {
+    return;
+  }
+  const selected = datasetImages.find((item) => item.name === datasetSelect.value) ?? null;
+  if (!selected) {
+    return;
+  }
+  void loadDatasetImage(selected);
 });
 
 overlayCanvas.addEventListener("click", (event) => {
@@ -68,60 +245,83 @@ overlayCanvas.addEventListener("click", (event) => {
     return;
   }
   const point = getCanvasPoint(event, overlayCanvas);
-  selectionPoints.push(point);
-  if (selectionPoints.length === 2) {
-    boardBounds = normalizeRect(selectionPoints[0], selectionPoints[1]);
-    selectionPoints = [];
-    drawOverlay();
-    runSolverButton.disabled = false;
-    exportButton.disabled = false;
-    setStatus(["Board bounds set. Run solver to annotate."]);
+  if (mode === "solver") {
+    handleSolverClick(point);
   } else {
-    drawOverlay();
+    handleLabelerClick(point);
   }
 });
 
-runSolverButton.addEventListener("click", () => {
-  if (!currentImage || !boardBounds) {
-    setStatus(["Select board bounds before running solver."]);
-    return;
+function setMode(nextMode: Mode): void {
+  mode = nextMode;
+  solverTab.classList.toggle("active", mode === "solver");
+  labelerTab.classList.toggle("active", mode === "labeler");
+  solverSection.classList.toggle("hidden", mode !== "solver");
+  labelerSection.classList.toggle("hidden", mode !== "labeler");
+  statusList.classList.toggle("hidden", mode !== "solver");
+  labelStatusList.classList.toggle("hidden", mode !== "labeler");
+  if (mode === "solver") {
+    setSolverStatus(["Upload a screenshot to begin."]);
+  } else {
+    setLabelerStatus(["Select a dataset image to begin labeling."]);
+    if (datasetImages.length > 0) {
+      const selected = datasetImages.find((item) => item.name === datasetSelect.value) ?? datasetImages[0];
+      void loadDatasetImage(selected);
+    }
   }
-  const rows = parseInt(rowsInput.value, 10);
-  const cols = parseInt(colsInput.value, 10);
-  if (!Number.isFinite(rows) || !Number.isFinite(cols) || rows <= 1 || cols <= 1) {
-    setStatus(["Rows/columns must be valid numbers."]);
-    return;
-  }
-  const boardSpec: BoardSpec = { rows, cols, bounds: boardBounds };
-  const imageData = imageCtx.getImageData(0, 0, imageCanvas.width, imageCanvas.height);
-  const result = solveBoard(imageData, boardSpec);
-  annotations = result.annotations;
-  drawOverlay();
-  const slugCount = result.slugTiles.filter((tile) => tile.slugLie).length;
-  setStatus([
-    `Solver ran. Slug-border tiles detected: ${slugCount}.`,
-    "Next step: classify numbers and dust bunnies."]);
-});
+}
 
-exportButton.addEventListener("click", () => {
+function handleSolverClick(point: Point): void {
   if (!currentImage) {
     return;
   }
-  const merged = document.createElement("canvas");
-  merged.width = imageCanvas.width;
-  merged.height = imageCanvas.height;
-  const mergedCtx = merged.getContext("2d");
-  if (!mergedCtx) {
+  solverSelectionPoints.push(point);
+  if (solverSelectionPoints.length === 2) {
+    solverBoardBounds = normalizeRect(solverSelectionPoints[0], solverSelectionPoints[1]);
+    solverSelectionPoints = [];
+    drawOverlay();
+    runSolverButton.disabled = false;
+    exportButton.disabled = false;
+    setSolverStatus(["Board bounds set. Run solver to annotate."]);
+  } else {
+    drawOverlay();
+  }
+}
+
+function handleLabelerClick(point: Point): void {
+  if (!currentImage) {
     return;
   }
-  mergedCtx.drawImage(imageCanvas, 0, 0);
-  mergedCtx.drawImage(overlayCanvas, 0, 0);
-  const url = merged.toDataURL("image/png");
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = "broomsweeper-annotated.png";
-  link.click();
-});
+  if (!labelBoardBounds) {
+    labelSelectionPoints.push(point);
+    if (labelSelectionPoints.length === 2) {
+      labelBoardBounds = normalizeRect(labelSelectionPoints[0], labelSelectionPoints[1]);
+      labelSelectionPoints = [];
+      drawOverlay();
+      clearLabelsButton.disabled = false;
+      exportLabelsButton.disabled = false;
+      setLabelerStatus(["Board bounds set. Click tiles to label."]);
+    } else {
+      drawOverlay();
+    }
+    return;
+  }
+  const rows = parseInt(labelRowsInput.value, 10);
+  const cols = parseInt(labelColsInput.value, 10);
+  if (!Number.isFinite(rows) || !Number.isFinite(cols) || rows <= 1 || cols <= 1) {
+    setLabelerStatus(["Rows/columns must be valid numbers."]);
+    return;
+  }
+  const boardSpec: BoardSpec = { rows, cols, bounds: labelBoardBounds };
+  const tile = getTileFromPoint(boardSpec, point);
+  if (!tile) {
+    return;
+  }
+  const key = `${tile.row}:${tile.col}`;
+  const nextLabel: TileLabel = { row: tile.row, col: tile.col, label: currentLabel };
+  labelMap.set(key, nextLabel);
+  drawOverlay();
+}
 
 function drawBaseImage(image: HTMLImageElement): void {
   imageCanvas.width = image.naturalWidth;
@@ -131,30 +331,64 @@ function drawBaseImage(image: HTMLImageElement): void {
   imageCtx.clearRect(0, 0, imageCanvas.width, imageCanvas.height);
   imageCtx.drawImage(image, 0, 0);
   drawOverlay();
-  runSolverButton.disabled = true;
-  exportButton.disabled = true;
+  runSolverButton.disabled = mode !== "solver";
+  exportButton.disabled = mode !== "solver";
 }
 
 function drawOverlay(): void {
   overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
-  if (boardBounds) {
+  if (mode === "solver") {
+    drawSolverOverlay();
+  } else {
+    drawLabelerOverlay();
+  }
+}
+
+function drawSolverOverlay(): void {
+  if (solverBoardBounds) {
     overlayCtx.strokeStyle = "#22c55e";
     overlayCtx.lineWidth = 3;
-    overlayCtx.strokeRect(boardBounds.x, boardBounds.y, boardBounds.width, boardBounds.height);
+    overlayCtx.strokeRect(
+      solverBoardBounds.x,
+      solverBoardBounds.y,
+      solverBoardBounds.width,
+      solverBoardBounds.height
+    );
 
     const rows = parseInt(rowsInput.value, 10);
     const cols = parseInt(colsInput.value, 10);
     if (rows > 1 && cols > 1) {
-      drawGrid(boardBounds, rows, cols);
-      drawAnnotations(boardBounds, rows, cols, annotations);
+      drawGrid(solverBoardBounds, rows, cols);
+      drawAnnotations(solverBoardBounds, rows, cols, solverAnnotations);
     }
   }
 
-  if (selectionPoints.length === 1) {
-    overlayCtx.fillStyle = "rgba(59, 130, 246, 0.7)";
-    overlayCtx.beginPath();
-    overlayCtx.arc(selectionPoints[0].x, selectionPoints[0].y, 6, 0, Math.PI * 2);
-    overlayCtx.fill();
+  if (solverSelectionPoints.length === 1) {
+    drawSelectionDot(solverSelectionPoints[0]);
+  }
+}
+
+function drawLabelerOverlay(): void {
+  if (labelBoardBounds) {
+    overlayCtx.strokeStyle = "#22c55e";
+    overlayCtx.lineWidth = 3;
+    overlayCtx.strokeRect(
+      labelBoardBounds.x,
+      labelBoardBounds.y,
+      labelBoardBounds.width,
+      labelBoardBounds.height
+    );
+
+    const rows = parseInt(labelRowsInput.value, 10);
+    const cols = parseInt(labelColsInput.value, 10);
+    if (rows > 1 && cols > 1) {
+      drawGrid(labelBoardBounds, rows, cols);
+      drawLabelAnnotations(labelBoardBounds, rows, cols);
+    }
+  }
+
+  if (labelSelectionPoints.length === 1) {
+    drawSelectionDot(labelSelectionPoints[0]);
   }
 }
 
@@ -192,6 +426,45 @@ function drawAnnotations(bounds: Rect, rows: number, cols: number, items: Annota
   }
 }
 
+function drawLabelAnnotations(bounds: Rect, rows: number, cols: number): void {
+  for (const label of labelMap.values()) {
+    const tile = getTileRect({ rows, cols, bounds }, label.row, label.col);
+    const paletteItem = palette.find((item) => item.label === label.label);
+    overlayCtx.fillStyle = paletteItem?.color ?? "#0f172a";
+    overlayCtx.globalAlpha = 0.6;
+    overlayCtx.fillRect(tile.x, tile.y, tile.width, tile.height);
+    overlayCtx.globalAlpha = 1;
+    overlayCtx.fillStyle = "white";
+    overlayCtx.font = `${Math.max(12, tile.height * 0.25)}px sans-serif`;
+    overlayCtx.textAlign = "center";
+    overlayCtx.textBaseline = "middle";
+    overlayCtx.fillText(label.label, tile.x + tile.width / 2, tile.y + tile.height / 2);
+  }
+}
+
+function drawSelectionDot(point: Point): void {
+  overlayCtx.fillStyle = "rgba(59, 130, 246, 0.7)";
+  overlayCtx.beginPath();
+  overlayCtx.arc(point.x, point.y, 6, 0, Math.PI * 2);
+  overlayCtx.fill();
+}
+
+function getTileFromPoint(board: BoardSpec, point: Point): { row: number; col: number } | null {
+  if (
+    point.x < board.bounds.x ||
+    point.y < board.bounds.y ||
+    point.x > board.bounds.x + board.bounds.width ||
+    point.y > board.bounds.y + board.bounds.height
+  ) {
+    return null;
+  }
+  const relativeX = point.x - board.bounds.x;
+  const relativeY = point.y - board.bounds.y;
+  const col = Math.floor((relativeX / board.bounds.width) * board.cols);
+  const row = Math.floor((relativeY / board.bounds.height) * board.rows);
+  return { row, col };
+}
+
 function getCanvasPoint(event: MouseEvent, canvas: HTMLCanvasElement): Point {
   const rect = canvas.getBoundingClientRect();
   const scaleX = canvas.width / rect.width;
@@ -210,20 +483,29 @@ function normalizeRect(a: Point, b: Point): Rect {
   return { x, y, width, height };
 }
 
-function resetBoardSelection(): void {
-  boardBounds = null;
-  selectionPoints = [];
-  annotations = [];
+function resetSolverSelection(): void {
+  solverBoardBounds = null;
+  solverSelectionPoints = [];
+  solverAnnotations = [];
   runSolverButton.disabled = true;
   exportButton.disabled = true;
 }
 
-function setStatus(messages: string[]): void {
+function setSolverStatus(messages: string[]): void {
   statusList.innerHTML = "";
   for (const message of messages) {
     const item = document.createElement("li");
     item.textContent = message;
     statusList.appendChild(item);
+  }
+}
+
+function setLabelerStatus(messages: string[]): void {
+  labelStatusList.innerHTML = "";
+  for (const message of messages) {
+    const item = document.createElement("li");
+    item.textContent = message;
+    labelStatusList.appendChild(item);
   }
 }
 
@@ -239,4 +521,94 @@ function loadImageFromFile(file: File): Promise<HTMLImageElement> {
     reader.onerror = () => reject(new Error("Failed to read file"));
     reader.readAsDataURL(file);
   });
+}
+
+async function loadDatasetImage(image: { name: string; url: string }): Promise<void> {
+  const loaded = await loadImageFromUrl(image.url);
+  currentDatasetImage = image;
+  currentImage = loaded;
+  drawBaseImage(loaded);
+  labelBoardBounds = null;
+  labelSelectionPoints = [];
+  labelMap = new Map();
+  clearLabelsButton.disabled = false;
+  exportLabelsButton.disabled = true;
+  setLabelerStatus([`Loaded ${image.name}. Select board bounds.`]);
+}
+
+function loadImageFromUrl(url: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error("Failed to load dataset image"));
+    image.src = url;
+  });
+}
+
+function exportAnnotatedImage(filename: string): void {
+  const merged = document.createElement("canvas");
+  merged.width = imageCanvas.width;
+  merged.height = imageCanvas.height;
+  const mergedCtx = merged.getContext("2d");
+  if (!mergedCtx) {
+    return;
+  }
+  mergedCtx.drawImage(imageCanvas, 0, 0);
+  mergedCtx.drawImage(overlayCanvas, 0, 0);
+  const url = merged.toDataURL("image/png");
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+}
+
+function downloadJson(payload: unknown, filename: string): void {
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+function populateDatasetSelect(): void {
+  datasetSelect.innerHTML = "";
+  if (datasetImages.length === 0) {
+    const option = document.createElement("option");
+    option.value = "";
+    option.textContent = "No dataset images found";
+    datasetSelect.appendChild(option);
+    datasetSelect.disabled = true;
+    return;
+  }
+  datasetSelect.disabled = false;
+  for (const image of datasetImages) {
+    const option = document.createElement("option");
+    option.value = image.name;
+    option.textContent = image.name;
+    datasetSelect.appendChild(option);
+  }
+}
+
+function renderLabelPalette(): void {
+  labelPalette.innerHTML = "";
+  for (const item of palette) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "label-chip";
+    button.style.borderColor = item.color;
+    button.style.color = item.color;
+    button.textContent = item.label;
+    if (item.label === currentLabel) {
+      button.classList.add("active");
+      button.style.background = item.color;
+      button.style.color = "white";
+    }
+    button.addEventListener("click", () => {
+      currentLabel = item.label;
+      renderLabelPalette();
+    });
+    labelPalette.appendChild(button);
+  }
 }

@@ -33,3 +33,18 @@ export type SolverResult = {
   annotations: Annotation[];
   slugTiles: TileAnalysis[];
 };
+
+export type TileLabel = {
+  row: number;
+  col: number;
+  label: string;
+};
+
+export type LabelExport = {
+  image: string;
+  rows: number;
+  cols: number;
+  bounds: Rect;
+  labels: TileLabel[];
+  createdAt: string;
+};
