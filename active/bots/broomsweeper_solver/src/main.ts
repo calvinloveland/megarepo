@@ -1,6 +1,14 @@
 import "./style.css";
 import type { Annotation, BoardSpec, DetectedBoard, LabelExport, Point, Rect, TileLabel } from "./types";
 import { detectBoardFromEdges, getTileRect } from "./image";
+import {
+  buildLabelCentroids,
+  buildVectorsByLabel,
+  extractTileVector,
+  findBestCentroid,
+  normalizeLabelExport,
+  type LabelCentroid
+} from "./labeling";
 import { solveBoard } from "./solver";
 
 type Mode = "solver" | "labeler";
@@ -13,13 +21,6 @@ type PaletteItem = {
 type TemplateVector = {
   label: string;
   vector: number[];
-};
-
-type LabelCentroid = {
-  label: string;
-  vector: number[];
-  meanDistance: number;
-  stdDistance: number;
 };
 
 type FileSystemDirectoryHandle = {
@@ -831,7 +832,7 @@ async function ensureTemplateBank(): Promise<void> {
     return;
   }
   const templates: TemplateVector[] = [];
-  const vectorsByLabel = new Map<string, number[][]>();
+  const aggregateVectorsByLabel = new Map<string, number[][]>();
   for (const labelFile of datasetLabelFiles) {
     const labelExport = normalizeLabelExport(labelFile.payload);
     const imageEntry = datasetImages.find((item) => item.name === labelExport.image);
@@ -853,18 +854,21 @@ async function ensureTemplateBank(): Promise<void> {
       cols: labelExport.cols,
       bounds: labelExport.bounds
     };
-    for (const label of labelExport.labels) {
-      const tileRect = getTileRect(boardSpec, label.row, label.col);
-      const vector = extractTileVector(imageData, tileRect, 10);
-      templates.push({ label: label.label, vector });
-      if (!vectorsByLabel.has(label.label)) {
-        vectorsByLabel.set(label.label, []);
+    const vectorsByLabel = buildVectorsByLabel(imageData, boardSpec, labelExport.labels, 10);
+    for (const [label, vectors] of vectorsByLabel.entries()) {
+      if (!aggregateVectorsByLabel.has(label)) {
+        aggregateVectorsByLabel.set(label, []);
       }
-      vectorsByLabel.get(label.label)?.push(vector);
+      aggregateVectorsByLabel.get(label)?.push(...vectors);
+    }
+    for (const [label, vectors] of vectorsByLabel.entries()) {
+      for (const vector of vectors) {
+        templates.push({ label, vector });
+      }
     }
   }
   templateBank = templates;
-  labelCentroids = buildLabelCentroids(vectorsByLabel);
+  labelCentroids = buildLabelCentroids(aggregateVectorsByLabel);
 }
 
 function runAutoLabel(): void {
@@ -909,93 +913,4 @@ function runAutoLabel(): void {
   }
   drawOverlay();
   setLabelerStatus([`Auto-label complete. ${assigned} labeled, ${unknown} unknown.`]);
-}
-
-function extractTileVector(imageData: ImageData, rect: Rect, size: number): number[] {
-  const { width, data } = imageData;
-  const vector: number[] = [];
-  for (let y = 0; y < size; y += 1) {
-    for (let x = 0; x < size; x += 1) {
-      const sampleX = Math.floor(rect.x + ((x + 0.5) / size) * rect.width);
-      const sampleY = Math.floor(rect.y + ((y + 0.5) / size) * rect.height);
-      const idx = (sampleY * width + sampleX) * 4;
-      const r = data[idx];
-      const g = data[idx + 1];
-      const b = data[idx + 2];
-      vector.push(r / 255, g / 255, b / 255);
-    }
-  }
-  return vector;
-}
-
-function buildLabelCentroids(vectorsByLabel: Map<string, number[][]>): LabelCentroid[] {
-  const centroids: LabelCentroid[] = [];
-  for (const [label, vectors] of vectorsByLabel.entries()) {
-    if (vectors.length === 0) {
-      continue;
-    }
-    const centroid = new Array(vectors[0].length).fill(0);
-    for (const vector of vectors) {
-      for (let i = 0; i < vector.length; i += 1) {
-        centroid[i] += vector[i];
-      }
-    }
-    for (let i = 0; i < centroid.length; i += 1) {
-      centroid[i] /= vectors.length;
-    }
-    const distances = vectors.map((vector) => vectorDistance(vector, centroid));
-    const mean = distances.reduce((acc, value) => acc + value, 0) / distances.length;
-    const variance = distances.reduce((acc, value) => acc + (value - mean) ** 2, 0) / distances.length;
-    const std = Math.sqrt(variance);
-    centroids.push({ label, vector: centroid, meanDistance: mean, stdDistance: std });
-  }
-  return centroids;
-}
-
-function findBestCentroid(
-  vector: number[],
-  centroids: LabelCentroid[]
-): { label: string; distance: number } | null {
-  if (centroids.length === 0) {
-    return null;
-  }
-  let best: { label: string; distance: number; threshold: number } | null = null;
-  for (const centroid of centroids) {
-    if (centroid.vector.length !== vector.length) {
-      continue;
-    }
-    const distance = vectorDistance(vector, centroid.vector);
-    const threshold = centroid.meanDistance + centroid.stdDistance * 2.25;
-    if (!best || distance < best.distance) {
-      best = { label: centroid.label, distance, threshold };
-    }
-  }
-  if (!best) {
-    return null;
-  }
-  if (best.distance > best.threshold) {
-    return { label: "unknown", distance: best.distance };
-  }
-  return { label: best.label, distance: best.distance };
-}
-
-function vectorDistance(a: number[], b: number[]): number {
-  let sum = 0;
-  for (let i = 0; i < a.length; i += 1) {
-    const diff = a[i] - b[i];
-    sum += diff * diff;
-  }
-  return Math.sqrt(sum / a.length);
-}
-
-function normalizeLabelExport(payload: LabelExport): LabelExport {
-  const maxRow = payload.labels.reduce((max, label) => Math.max(max, label.row), -1);
-  const maxCol = payload.labels.reduce((max, label) => Math.max(max, label.col), -1);
-  const rows = Math.max(payload.rows, maxRow + 1);
-  const cols = Math.max(payload.cols, maxCol + 1);
-  return {
-    ...payload,
-    rows,
-    cols
-  };
 }
