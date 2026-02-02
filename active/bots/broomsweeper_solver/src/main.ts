@@ -772,6 +772,10 @@ function applyLabelExport(payload: LabelExport): void {
 
 async function saveLabelExport(payload: LabelExport): Promise<void> {
   const filename = `${payload.image}.labels.json`;
+  const saved = await saveLabelExportToServer(payload);
+  if (saved) {
+    return;
+  }
   if (labelOutputDirectory) {
     try {
       const handle = await labelOutputDirectory.getFileHandle(filename, { create: true });
@@ -786,6 +790,31 @@ async function saveLabelExport(payload: LabelExport): Promise<void> {
   }
   downloadJson(payload, filename);
   setLabelerStatus(["Label file downloaded."]);
+}
+
+async function saveLabelExportToServer(payload: LabelExport): Promise<boolean> {
+  try {
+    const response = await fetch("/api/labels", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+      return false;
+    }
+
+    const json = (await response.json().catch(() => null)) as { file?: string } | null;
+    const message = json?.file
+      ? `Label file saved on server (${json.file}).`
+      : "Label file saved on server.";
+    setLabelerStatus([message]);
+    return true;
+  } catch (error) {
+    return false;
+  }
 }
 
 async function ensureTemplateBank(): Promise<void> {

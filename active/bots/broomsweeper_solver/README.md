@@ -44,8 +44,9 @@ Open the URL printed by Vite (default http://localhost:5174).
 
 ### Saving labels next to data/
 
-Use "Pick label output folder" and select the data/ folder. Exports will be written
-directly to that folder. If directory access is not supported, the label file will
+By default, exports are sent to the local dev server and written into data/.
+If the server is unavailable, you can use "Pick label output folder" to select
+data/ and save directly. If directory access is not supported, the label file will
 download instead.
 
 ## Output format
