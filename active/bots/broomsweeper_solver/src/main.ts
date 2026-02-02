@@ -6,12 +6,13 @@ import {
   buildVectorsByLabel,
   extractTileVector,
   findBestCentroid,
+  findNearestCentroid,
   normalizeLabelExport,
   type LabelCentroid
 } from "./labeling";
 import { solveBoard } from "./solver";
 
-type Mode = "solver" | "labeler";
+type Mode = "solver" | "labeler" | "diagnostics";
 
 type PaletteItem = {
   label: string;
@@ -86,8 +87,10 @@ const exportButton = document.querySelector<HTMLButtonElement>("#exportButton");
 
 const solverTab = document.querySelector<HTMLButtonElement>("#solverTab");
 const labelerTab = document.querySelector<HTMLButtonElement>("#labelerTab");
+const diagnosticsTab = document.querySelector<HTMLButtonElement>("#diagnosticsTab");
 const solverSection = document.querySelector<HTMLElement>("#solverSection");
 const labelerSection = document.querySelector<HTMLElement>("#labelerSection");
+const diagnosticsSection = document.querySelector<HTMLElement>("#diagnosticsSection");
 const datasetSelect = document.querySelector<HTMLSelectElement>("#datasetSelect");
 const labelRowsInput = document.querySelector<HTMLInputElement>("#labelRowsInput");
 const labelColsInput = document.querySelector<HTMLInputElement>("#labelColsInput");
@@ -98,11 +101,16 @@ const clearLabelsButton = document.querySelector<HTMLButtonElement>("#clearLabel
 const exportLabelsButton = document.querySelector<HTMLButtonElement>("#exportLabelsButton");
 const pickLabelFolderButton = document.querySelector<HTMLButtonElement>("#pickLabelFolderButton");
 const labelPalette = document.querySelector<HTMLDivElement>("#labelPalette");
+const runDiagnosticsButton = document.querySelector<HTMLButtonElement>("#runDiagnosticsButton");
+const diagnosticsSummary = document.querySelector<HTMLDivElement>("#diagnosticsSummary");
+const diagnosticsResultsSection = document.querySelector<HTMLElement>("#diagnosticsResults");
+const diagnosticsTableBody = document.querySelector<HTMLTableSectionElement>("#diagnosticsTableBody");
 
 const imageCanvas = document.querySelector<HTMLCanvasElement>("#imageCanvas");
 const overlayCanvas = document.querySelector<HTMLCanvasElement>("#overlayCanvas");
 const statusList = document.querySelector<HTMLUListElement>("#statusList");
 const labelStatusList = document.querySelector<HTMLUListElement>("#labelStatusList");
+const diagnosticsStatusList = document.querySelector<HTMLUListElement>("#diagnosticsStatusList");
 
 if (
   !fileInput ||
@@ -114,8 +122,10 @@ if (
   !exportButton ||
   !solverTab ||
   !labelerTab ||
+  !diagnosticsTab ||
   !solverSection ||
   !labelerSection ||
+  !diagnosticsSection ||
   !datasetSelect ||
   !labelRowsInput ||
   !labelColsInput ||
@@ -126,10 +136,15 @@ if (
   !exportLabelsButton ||
   !pickLabelFolderButton ||
   !labelPalette ||
+  !runDiagnosticsButton ||
+  !diagnosticsSummary ||
+  !diagnosticsResultsSection ||
+  !diagnosticsTableBody ||
   !imageCanvas ||
   !overlayCanvas ||
   !statusList ||
-  !labelStatusList
+  !labelStatusList ||
+  !diagnosticsStatusList
 ) {
   throw new Error("Missing required DOM elements.");
 }
@@ -156,6 +171,7 @@ let currentDatasetImage: { name: string; url: string } | null = null;
 let labelOutputDirectory: FileSystemDirectoryHandle | null = null;
 let templateBank: TemplateVector[] = [];
 let labelCentroids: LabelCentroid[] = [];
+let diagnosticsRows: DiagnosticsRow[] = [];
 
 const labelFilesByImage = new Map<string, LabelExport>();
 for (const labelFile of datasetLabelFiles) {
@@ -348,6 +364,7 @@ pickLabelFolderButton.addEventListener("click", async () => {
 
 solverTab.addEventListener("click", () => setMode("solver"));
 labelerTab.addEventListener("click", () => setMode("labeler"));
+diagnosticsTab.addEventListener("click", () => setMode("diagnostics"));
 
 datasetSelect.addEventListener("change", () => {
   if (mode !== "labeler") {
@@ -372,21 +389,36 @@ overlayCanvas.addEventListener("click", (event) => {
   }
 });
 
+runDiagnosticsButton.addEventListener("click", () => {
+  if (mode !== "diagnostics") {
+    return;
+  }
+  void runDiagnostics();
+});
+
 function setMode(nextMode: Mode): void {
   mode = nextMode;
   solverTab.classList.toggle("active", mode === "solver");
   labelerTab.classList.toggle("active", mode === "labeler");
+  diagnosticsTab.classList.toggle("active", mode === "diagnostics");
   solverSection.classList.toggle("hidden", mode !== "solver");
   labelerSection.classList.toggle("hidden", mode !== "labeler");
+  diagnosticsSection.classList.toggle("hidden", mode !== "diagnostics");
   statusList.classList.toggle("hidden", mode !== "solver");
   labelStatusList.classList.toggle("hidden", mode !== "labeler");
+  diagnosticsStatusList.classList.toggle("hidden", mode !== "diagnostics");
+  diagnosticsResultsSection.classList.toggle("hidden", mode !== "diagnostics");
   if (mode === "solver") {
     setSolverStatus(["Upload a screenshot to begin."]);
   } else {
-    setLabelerStatus(["Select a dataset image to begin labeling."]);
-    if (datasetImages.length > 0) {
-      const selected = datasetImages.find((item) => item.name === datasetSelect.value) ?? datasetImages[0];
-      void loadDatasetImage(selected);
+    if (mode === "labeler") {
+      setLabelerStatus(["Select a dataset image to begin labeling."]);
+      if (datasetImages.length > 0) {
+        const selected = datasetImages.find((item) => item.name === datasetSelect.value) ?? datasetImages[0];
+        void loadDatasetImage(selected);
+      }
+    } else {
+      setDiagnosticsStatus(["Run diagnostics to validate labels."]);
     }
   }
 }
@@ -630,6 +662,15 @@ function setLabelerStatus(messages: string[]): void {
   }
 }
 
+function setDiagnosticsStatus(messages: string[]): void {
+  diagnosticsStatusList.innerHTML = "";
+  for (const message of messages) {
+    const item = document.createElement("li");
+    item.textContent = message;
+    diagnosticsStatusList.appendChild(item);
+  }
+}
+
 function loadImageFromFile(file: File): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -740,6 +781,150 @@ function renderLabelPalette(): void {
     });
     labelPalette.appendChild(button);
   }
+}
+
+type DiagnosticsRow = {
+  image: string;
+  row: number;
+  col: number;
+  expected: string;
+  predicted: string;
+  distance: number;
+};
+
+async function runDiagnostics(): Promise<void> {
+  diagnosticsSummary.textContent = "Running diagnostics...";
+  diagnosticsTableBody.innerHTML = "";
+  diagnosticsRows = [];
+  setDiagnosticsStatus(["Loading images and labels..."]);
+
+  if (datasetLabelFiles.length === 0) {
+    diagnosticsSummary.textContent = "No label files found.";
+    setDiagnosticsStatus(["Add .labels.json files to data/."]);
+    return;
+  }
+
+  let total = 0;
+  let correct = 0;
+  let mismatched = 0;
+
+  for (const labelFile of datasetLabelFiles) {
+    const labelExport = normalizeLabelExport(labelFile.payload);
+    const imageEntry = datasetImages.find((item) => item.name === labelExport.image);
+    if (!imageEntry) {
+      continue;
+    }
+
+    const trainingVectors = await buildTrainingVectors(labelExport.image);
+    const centroids = buildLabelCentroids(trainingVectors);
+    if (centroids.length === 0) {
+      continue;
+    }
+
+    const image = await loadImageFromUrl(imageEntry.url);
+    const imageData = getImageDataFromImage(image);
+    const boardSpec: BoardSpec = {
+      rows: labelExport.rows,
+      cols: labelExport.cols,
+      bounds: labelExport.bounds
+    };
+
+    for (const label of labelExport.labels) {
+      const tileRect = getTileRect(boardSpec, label.row, label.col);
+      const vector = extractTileVector(imageData, tileRect, 10);
+      const match = findNearestCentroid(vector, centroids);
+      const predicted = match?.label ?? "unknown";
+      total += 1;
+      if (predicted === label.label) {
+        correct += 1;
+      } else {
+        mismatched += 1;
+        diagnosticsRows.push({
+          image: labelExport.image,
+          row: label.row,
+          col: label.col,
+          expected: label.label,
+          predicted,
+          distance: match?.distance ?? 0
+        });
+      }
+    }
+  }
+
+  const accuracy = total > 0 ? correct / total : 0;
+  diagnosticsSummary.textContent = `Accuracy: ${(accuracy * 100).toFixed(1)}% (${correct}/${total}) | Mismatches: ${mismatched}`;
+  setDiagnosticsStatus(["Diagnostics complete."]);
+  renderDiagnosticsTable();
+}
+
+async function buildTrainingVectors(excludeImage: string): Promise<Map<string, number[][]>> {
+  const aggregateVectors = new Map<string, number[][]>();
+  for (const labelFile of datasetLabelFiles) {
+    const labelExport = normalizeLabelExport(labelFile.payload);
+    if (labelExport.image === excludeImage) {
+      continue;
+    }
+    const imageEntry = datasetImages.find((item) => item.name === labelExport.image);
+    if (!imageEntry) {
+      continue;
+    }
+    const image = await loadImageFromUrl(imageEntry.url);
+    const imageData = getImageDataFromImage(image);
+    const boardSpec: BoardSpec = {
+      rows: labelExport.rows,
+      cols: labelExport.cols,
+      bounds: labelExport.bounds
+    };
+    const vectorsByLabel = buildVectorsByLabel(imageData, boardSpec, labelExport.labels, 10);
+    for (const [label, vectors] of vectorsByLabel.entries()) {
+      if (!aggregateVectors.has(label)) {
+        aggregateVectors.set(label, []);
+      }
+      aggregateVectors.get(label)?.push(...vectors);
+    }
+  }
+  return aggregateVectors;
+}
+
+function getImageDataFromImage(image: HTMLImageElement): ImageData {
+  const canvas = document.createElement("canvas");
+  canvas.width = image.naturalWidth;
+  canvas.height = image.naturalHeight;
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
+  if (!ctx) {
+    throw new Error("Unable to create diagnostics canvas.");
+  }
+  ctx.drawImage(image, 0, 0);
+  return ctx.getImageData(0, 0, canvas.width, canvas.height);
+}
+
+function renderDiagnosticsTable(): void {
+  diagnosticsTableBody.innerHTML = "";
+  if (diagnosticsRows.length === 0) {
+    const row = document.createElement("tr");
+    const cell = document.createElement("td");
+    cell.colSpan = 6;
+    cell.textContent = "No mismatches found.";
+    row.appendChild(cell);
+    diagnosticsTableBody.appendChild(row);
+    return;
+  }
+  for (const entry of diagnosticsRows) {
+    const row = document.createElement("tr");
+    row.appendChild(buildCell(entry.image));
+    row.appendChild(buildCell(entry.row.toString()));
+    row.appendChild(buildCell(entry.col.toString()));
+    row.appendChild(buildCell(entry.expected));
+    row.appendChild(buildCell(entry.predicted));
+    row.appendChild(buildCell(entry.distance.toFixed(4)));
+    diagnosticsTableBody.appendChild(row);
+  }
+}
+
+function buildCell(text: string): HTMLTableCellElement {
+  const cell = document.createElement("td");
+  cell.textContent = text;
+  return cell;
 }
 
 function detectBoard(): DetectedBoard | null {

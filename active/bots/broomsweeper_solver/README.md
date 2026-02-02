@@ -42,6 +42,16 @@ Open the URL printed by Vite (default http://localhost:5174).
 6. (Optional) Auto-label tiles using existing labels.
 7. Export labels to JSON.
 
+### Diagnostics tab
+
+Use Diagnostics to validate labels against the classifier and list any mismatches.
+
+## Tests
+
+```bash
+npm test
+```
+
 ### Saving labels next to data/
 
 By default, exports are sent to the local dev server and written into data/.

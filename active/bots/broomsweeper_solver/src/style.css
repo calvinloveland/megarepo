@@ -141,6 +141,48 @@ canvas {
   font-size: 0.95rem;
 }
 
+.diagnostics {
+  background: white;
+  border-radius: 0.75rem;
+  padding: 1rem 1.25rem;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
+}
+
+.diagnostics-summary {
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+  border: 1px solid #cbd5f5;
+  background: #f8fafc;
+  font-size: 0.95rem;
+}
+
+.diagnostics-table {
+  overflow: auto;
+  max-height: 360px;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem;
+}
+
+.diagnostics table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.diagnostics th,
+.diagnostics td {
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid #e2e8f0;
+  text-align: left;
+}
+
+.diagnostics th {
+  position: sticky;
+  top: 0;
+  background: #f1f5f9;
+  font-weight: 700;
+}
+
 .label-palette {
   display: flex;
   flex-wrap: wrap;

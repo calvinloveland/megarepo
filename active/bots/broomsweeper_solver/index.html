@@ -23,6 +23,7 @@
       <section class="tab-bar">
         <button id="solverTab" type="button" class="tab active">Solver</button>
         <button id="labelerTab" type="button" class="tab">Labeler</button>
+        <button id="diagnosticsTab" type="button" class="tab">Diagnostics</button>
       </section>
       <section id="solverSection" class="controls">
         <label class="control">
@@ -72,6 +73,15 @@
           <div id="labelPalette" class="label-palette"></div>
         </div>
       </section>
+      <section id="diagnosticsSection" class="controls hidden">
+        <div class="control">
+          <button id="runDiagnosticsButton" type="button">Run label diagnostics</button>
+        </div>
+        <div class="control">
+          <span>Summary</span>
+          <div id="diagnosticsSummary" class="diagnostics-summary">No diagnostics run yet.</div>
+        </div>
+      </section>
       <section class="canvas-wrap">
         <div class="canvas-stack">
           <canvas id="imageCanvas"></canvas>
@@ -81,7 +91,26 @@
           <h2>Status</h2>
           <ul id="statusList"></ul>
           <ul id="labelStatusList" class="hidden"></ul>
+          <ul id="diagnosticsStatusList" class="hidden"></ul>
         </aside>
+      </section>
+      <section id="diagnosticsResults" class="diagnostics hidden">
+        <h2>Diagnostics Results</h2>
+        <div class="diagnostics-table">
+          <table>
+            <thead>
+              <tr>
+                <th>Image</th>
+                <th>Row</th>
+                <th>Col</th>
+                <th>Expected</th>
+                <th>Predicted</th>
+                <th>Distance</th>
+              </tr>
+            </thead>
+            <tbody id="diagnosticsTableBody"></tbody>
+          </table>
+        </div>
       </section>
     </div>
     <script type="module" src="/src/main.ts"></script>

@@ -33,6 +33,7 @@ export function detectBoardFromEdges(imageData: ImageData): DetectedBoard | null
   const { width, height, data } = imageData;
   const rowSum = new Float32Array(height);
   const colSum = new Float32Array(width);
+  const edgeMap = new Float32Array(width * height);
 
   for (let y = 1; y < height - 1; y += 1) {
     for (let x = 1; x < width - 1; x += 1) {
@@ -45,43 +46,65 @@ export function detectBoardFromEdges(imageData: ImageData): DetectedBoard | null
       const edge = Math.abs(lum - lumRight) + Math.abs(lum - lumDown);
       rowSum[y] += edge;
       colSum[x] += edge;
+      edgeMap[y * width + x] = edge;
     }
   }
 
   const rowStats = computeStats(rowSum);
   const colStats = computeStats(colSum);
-  const rowThreshold = rowStats.mean + rowStats.std * 0.8;
-  const colThreshold = colStats.mean + colStats.std * 0.8;
 
-  const rowBounds = findBounds(rowSum, rowThreshold);
-  const colBounds = findBounds(colSum, colThreshold);
+  const attempts = [
+    { factor: 1.6, percentile: 0.9 },
+    { factor: 1.0, percentile: 0.75 },
+    { factor: 0.6, percentile: 0.6 }
+  ];
 
-  if (!rowBounds || !colBounds) {
-    return null;
+  for (const attempt of attempts) {
+    const rowThreshold = Math.max(rowStats.mean + rowStats.std * attempt.factor, percentile(rowSum, attempt.percentile));
+    const colThreshold = Math.max(colStats.mean + colStats.std * attempt.factor, percentile(colSum, attempt.percentile));
+
+    const rowBounds = findBounds(rowSum, rowThreshold);
+    const colBounds = findBounds(colSum, colThreshold);
+
+    if (!rowBounds || !colBounds) {
+      continue;
+    }
+
+    const bounds: Rect = {
+      x: colBounds.min,
+      y: rowBounds.min,
+      width: colBounds.max - colBounds.min,
+      height: rowBounds.max - rowBounds.min
+    };
+
+    const rowPeaks = findPeaks(rowSum, rowBounds.min, rowBounds.max, rowThreshold, 6);
+    const colPeaks = findPeaks(colSum, colBounds.min, colBounds.max, colThreshold, 6);
+
+    const rowSpacing = estimateSpacing(rowPeaks);
+    const colSpacing = estimateSpacing(colPeaks);
+
+    const rows = estimateCount(bounds.height, rowSpacing, rowPeaks.length - 1);
+    const cols = estimateCount(bounds.width, colSpacing, colPeaks.length - 1);
+
+    if (rows > 1 && cols > 1) {
+      const areaRatio = (bounds.width * bounds.height) / (width * height);
+      if (areaRatio > 0.05 && areaRatio < 0.95) {
+        return { bounds, rows, cols };
+      }
+    }
   }
 
-  const bounds: Rect = {
-    x: colBounds.min,
-    y: rowBounds.min,
-    width: colBounds.max - colBounds.min,
-    height: rowBounds.max - rowBounds.min
-  };
-
-  const rowPeaks = findPeaks(rowSum, rowBounds.min, rowBounds.max, rowThreshold, 6);
-  const colPeaks = findPeaks(colSum, colBounds.min, colBounds.max, colThreshold, 6);
-
-  if (rowPeaks.length < 2 || colPeaks.length < 2) {
-    return null;
+  const fallbackBounds = boundsFromEdgeMap(edgeMap, width, height, 0.98);
+  if (fallbackBounds) {
+    const areaRatio = (fallbackBounds.width * fallbackBounds.height) / (width * height);
+    if (areaRatio > 0.05) {
+      const rows = estimateCount(fallbackBounds.height, null, 10);
+      const cols = estimateCount(fallbackBounds.width, null, 10);
+      return { bounds: fallbackBounds, rows, cols };
+    }
   }
 
-  const rows = rowPeaks.length - 1;
-  const cols = colPeaks.length - 1;
-
-  if (rows <= 1 || cols <= 1) {
-    return null;
-  }
-
-  return { bounds, rows, cols };
+  return null;
 }
 
 function hasPurpleBorder(imageData: ImageData, rect: Rect): boolean {
@@ -133,25 +156,53 @@ function computeStats(values: Float32Array): { mean: number; std: number } {
   return { mean, std };
 }
 
+function percentile(values: Float32Array, p: number): number {
+  const sorted = Array.from(values).sort((a, b) => a - b);
+  const index = Math.min(sorted.length - 1, Math.max(0, Math.floor(p * sorted.length)));
+  return sorted[index] ?? 0;
+}
+
 function findBounds(values: Float32Array, threshold: number): { min: number; max: number } | null {
-  let min = -1;
-  let max = -1;
+  let bestStart = -1;
+  let bestEnd = -1;
+  let bestScore = -Infinity;
+
+  let currentStart = -1;
+  let currentScore = 0;
+
   for (let i = 0; i < values.length; i += 1) {
     if (values[i] > threshold) {
-      min = i;
-      break;
+      if (currentStart === -1) {
+        currentStart = i;
+        currentScore = values[i];
+      } else {
+        currentScore += values[i];
+      }
+    } else if (currentStart !== -1) {
+      const currentEnd = i - 1;
+      if (currentScore > bestScore && currentEnd > currentStart) {
+        bestScore = currentScore;
+        bestStart = currentStart;
+        bestEnd = currentEnd;
+      }
+      currentStart = -1;
+      currentScore = 0;
     }
   }
-  for (let i = values.length - 1; i >= 0; i -= 1) {
-    if (values[i] > threshold) {
-      max = i;
-      break;
+
+  if (currentStart !== -1) {
+    const currentEnd = values.length - 1;
+    if (currentScore > bestScore && currentEnd > currentStart) {
+      bestScore = currentScore;
+      bestStart = currentStart;
+      bestEnd = currentEnd;
     }
   }
-  if (min === -1 || max === -1 || max <= min) {
+
+  if (bestStart === -1 || bestEnd === -1 || bestEnd <= bestStart) {
     return null;
   }
-  return { min, max };
+  return { min: bestStart, max: bestEnd };
 }
 
 function findPeaks(
@@ -180,4 +231,73 @@ function findPeaks(
     }
   }
   return peaks;
+}
+
+function estimateSpacing(peaks: number[]): number | null {
+  if (peaks.length < 2) {
+    return null;
+  }
+  const diffs = [] as number[];
+  for (let i = 1; i < peaks.length; i += 1) {
+    const diff = peaks[i] - peaks[i - 1];
+    if (diff > 2) {
+      diffs.push(diff);
+    }
+  }
+  if (diffs.length === 0) {
+    return null;
+  }
+  diffs.sort((a, b) => a - b);
+  return diffs[Math.floor(diffs.length / 2)];
+}
+
+function estimateCount(span: number, spacing: number | null, peakCount: number): number {
+  if (spacing && spacing > 0) {
+    const count = Math.round(span / spacing);
+    return clampCount(count);
+  }
+  return clampCount(peakCount);
+}
+
+function boundsFromEdgeMap(
+  edgeMap: Float32Array,
+  width: number,
+  height: number,
+  percentileThreshold: number
+): Rect | null {
+  const threshold = percentile(edgeMap, percentileThreshold);
+  let minX = width;
+  let minY = height;
+  let maxX = -1;
+  let maxY = -1;
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const value = edgeMap[y * width + x];
+      if (value >= threshold) {
+        if (x < minX) minX = x;
+        if (y < minY) minY = y;
+        if (x > maxX) maxX = x;
+        if (y > maxY) maxY = y;
+      }
+    }
+  }
+  if (maxX <= minX || maxY <= minY) {
+    return null;
+  }
+  return {
+    x: minX,
+    y: minY,
+    width: maxX - minX,
+    height: maxY - minY
+  };
+}
+
+function clampCount(value: number): number {
+  if (value < 2) {
+    return 2;
+  }
+  if (value > 40) {
+    return 40;
+  }
+  return value;
 }

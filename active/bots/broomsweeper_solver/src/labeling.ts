@@ -87,6 +87,26 @@ export function findBestCentroid(
   return { label: best.label, distance: best.distance };
 }
 
+export function findNearestCentroid(
+  vector: number[],
+  centroids: LabelCentroid[]
+): { label: string; distance: number } | null {
+  if (centroids.length === 0) {
+    return null;
+  }
+  let best: { label: string; distance: number } | null = null;
+  for (const centroid of centroids) {
+    if (centroid.vector.length !== vector.length) {
+      continue;
+    }
+    const distance = vectorDistance(vector, centroid.vector);
+    if (!best || distance < best.distance) {
+      best = { label: centroid.label, distance };
+    }
+  }
+  return best;
+}
+
 export function buildVectorsByLabel(
   imageData: ImageData,
   boardSpec: BoardSpec,
