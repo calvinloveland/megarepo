@@ -54,10 +54,8 @@ npm test
 
 ### Saving labels next to data/
 
-By default, exports are sent to the local dev server and written into data/.
-If the server is unavailable, you can use "Pick label output folder" to select
-data/ and save directly. If directory access is not supported, the label file will
-download instead.
+Exports are sent to the local dev server and written into data/. Ensure the dev
+server is running so /api/labels can save the file.
 
 ## Output format
 

@@ -966,25 +966,13 @@ function applyLabelExport(payload: LabelExport): void {
 }
 
 async function saveLabelExport(payload: LabelExport): Promise<void> {
-  const filename = `${payload.image}.labels.json`;
   const saved = await saveLabelExportToServer(payload);
   if (saved) {
     return;
   }
-  if (labelOutputDirectory) {
-    try {
-      const handle = await labelOutputDirectory.getFileHandle(filename, { create: true });
-      const writable = await handle.createWritable();
-      await writable.write(JSON.stringify(payload, null, 2));
-      await writable.close();
-      setLabelerStatus(["Label file saved to selected folder."]);
-      return;
-    } catch (error) {
-      setLabelerStatus(["Could not save to folder. Downloading instead."]);
-    }
-  }
-  downloadJson(payload, filename);
-  setLabelerStatus(["Label file downloaded."]);
+  setLabelerStatus([
+    "Server save failed. Ensure the dev server is running and /api/labels is reachable."
+  ]);
 }
 
 async function saveLabelExportToServer(payload: LabelExport): Promise<boolean> {
