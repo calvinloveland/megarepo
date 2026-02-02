@@ -1139,10 +1139,13 @@ async function saveLabelExportToServer(
       };
     }
 
-    const json = (text ? JSON.parse(text) : null) as { file?: string; overwritten?: boolean } | null;
+    const json = (text ? JSON.parse(text) : null) as
+      | { file?: string; overwritten?: boolean; fallback?: boolean; fallbackDir?: string }
+      | null;
     const overwriteNote = json?.overwritten ? " (overwritten)" : "";
+    const fallbackNote = json?.fallback ? ` (saved to ${json.fallbackDir ?? "label_output"})` : "";
     const message = json?.file
-      ? `Label file saved on server (${json.file})${overwriteNote}.`
+      ? `Label file saved on server (${json.file})${overwriteNote}${fallbackNote}.`
       : "Label file saved on server.";
     return { ok: true, message };
   } catch (error) {

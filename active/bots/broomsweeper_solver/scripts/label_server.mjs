@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const dataDir = path.resolve(__dirname, "../data");
+const fallbackDir = path.resolve(__dirname, "../label_output");
 const port = Number(process.env.LABEL_SERVER_PORT ?? 5175);
 
 const server = http.createServer(async (req, res) => {
@@ -53,17 +54,34 @@ const server = http.createServer(async (req, res) => {
         .stat(outputPath)
         .then(() => true)
         .catch(() => false);
-      await fs.writeFile(outputPath, JSON.stringify(payload, null, 2), "utf-8");
-
-      res.statusCode = 200;
-      res.setHeader("Content-Type", "application/json");
-      res.end(
-        JSON.stringify({
-          ok: true,
-          file: `${safeName}.labels.json`,
-          overwritten: exists
-        })
-      );
+      try {
+        await fs.writeFile(outputPath, JSON.stringify(payload, null, 2), "utf-8");
+        res.statusCode = 200;
+        res.setHeader("Content-Type", "application/json");
+        res.end(
+          JSON.stringify({
+            ok: true,
+            file: `${safeName}.labels.json`,
+            overwritten: exists,
+            fallback: false
+          })
+        );
+      } catch (error) {
+        await fs.mkdir(fallbackDir, { recursive: true });
+        const fallbackPath = path.join(fallbackDir, `${safeName}.labels.json`);
+        await fs.writeFile(fallbackPath, JSON.stringify(payload, null, 2), "utf-8");
+        res.statusCode = 200;
+        res.setHeader("Content-Type", "application/json");
+        res.end(
+          JSON.stringify({
+            ok: true,
+            file: `${safeName}.labels.json`,
+            overwritten: false,
+            fallback: true,
+            fallbackDir: "label_output"
+          })
+        );
+      }
     } catch (error) {
       // eslint-disable-next-line no-console
       console.error("Label save failed:", error);
