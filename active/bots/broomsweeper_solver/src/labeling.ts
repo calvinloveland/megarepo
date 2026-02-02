@@ -20,20 +20,51 @@ export function normalizeLabelExport(payload: LabelExport): LabelExport {
 }
 
 export function extractTileVector(imageData: ImageData, rect: Rect, size: number): number[] {
-  const { width, data } = imageData;
+  const { width, height, data } = imageData;
   const vector: number[] = [];
+  const paddingX = rect.width * 0.08;
+  const paddingY = rect.height * 0.08;
+  const sampleRect = {
+    x: rect.x - paddingX,
+    y: rect.y - paddingY,
+    width: rect.width + paddingX * 2,
+    height: rect.height + paddingY * 2
+  };
+
   for (let y = 0; y < size; y += 1) {
     for (let x = 0; x < size; x += 1) {
-      const sampleX = Math.floor(rect.x + ((x + 0.5) / size) * rect.width);
-      const sampleY = Math.floor(rect.y + ((y + 0.5) / size) * rect.height);
-      const idx = (sampleY * width + sampleX) * 4;
-      const r = data[idx];
-      const g = data[idx + 1];
-      const b = data[idx + 2];
-      vector.push(r / 255, g / 255, b / 255);
+      const sampleX = Math.floor(sampleRect.x + ((x + 0.5) / size) * sampleRect.width);
+      const sampleY = Math.floor(sampleRect.y + ((y + 0.5) / size) * sampleRect.height);
+      const clampedX = Math.max(0, Math.min(width - 1, sampleX));
+      const clampedY = Math.max(0, Math.min(height - 1, sampleY));
+      const idx = (clampedY * width + clampedX) * 4;
+      const r = data[idx] / 255;
+      const g = data[idx + 1] / 255;
+      const b = data[idx + 2] / 255;
+      vector.push(r, g, b);
     }
   }
-  return vector;
+
+  return normalizeVector(vector);
+}
+
+function normalizeVector(vector: number[]): number[] {
+  if (vector.length === 0) {
+    return vector;
+  }
+  let mean = 0;
+  for (const value of vector) {
+    mean += value;
+  }
+  mean /= vector.length;
+
+  let variance = 0;
+  for (const value of vector) {
+    const diff = value - mean;
+    variance += diff * diff;
+  }
+  const std = Math.sqrt(variance / vector.length) || 1;
+  return vector.map((value) => (value - mean) / std);
 }
 
 export function buildLabelCentroids(vectorsByLabel: Map<string, number[][]>): LabelCentroid[] {
