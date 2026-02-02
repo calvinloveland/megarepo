@@ -105,6 +105,60 @@
       </section>
       <section id="diagnosticsResults" class="diagnostics hidden">
         <h2>Diagnostics Results</h2>
+        <div id="diagnosticsMetrics" class="diagnostics-metrics"></div>
+        <div class="diagnostics-grid">
+          <div>
+            <h3>Per-label metrics</h3>
+            <div class="diagnostics-table">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Label</th>
+                    <th>Support</th>
+                    <th>Precision</th>
+                    <th>Recall</th>
+                    <th>F1</th>
+                    <th>Avg dist</th>
+                    <th>False unknown</th>
+                    <th>False positive</th>
+                  </tr>
+                </thead>
+                <tbody id="diagnosticsLabelTableBody"></tbody>
+              </table>
+            </div>
+          </div>
+          <div>
+            <h3>Per-image accuracy</h3>
+            <div class="diagnostics-table">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Image</th>
+                    <th>Accuracy</th>
+                    <th>Correct</th>
+                    <th>Avg dist</th>
+                    <th>Mismatches</th>
+                  </tr>
+                </thead>
+                <tbody id="diagnosticsImageTableBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+        <h3>Top confusions</h3>
+        <div class="diagnostics-table">
+          <table>
+            <thead>
+              <tr>
+                <th>Expected</th>
+                <th>Predicted</th>
+                <th>Count</th>
+                <th>Rate</th>
+              </tr>
+            </thead>
+            <tbody id="diagnosticsConfusionTableBody"></tbody>
+          </table>
+        </div>
         <div class="diagnostics-preview" id="diagnosticsPreview">
           <div class="preview-card">
             <div class="preview-title">Selected tile</div>

@@ -98,8 +98,18 @@ const pickLabelFolderButton = document.querySelector<HTMLButtonElement>("#pickLa
 const labelPalette = document.querySelector<HTMLDivElement>("#labelPalette");
 const runDiagnosticsButton = document.querySelector<HTMLButtonElement>("#runDiagnosticsButton");
 const diagnosticsSummary = document.querySelector<HTMLDivElement>("#diagnosticsSummary");
+const diagnosticsMetrics = document.querySelector<HTMLDivElement>("#diagnosticsMetrics");
 const diagnosticsResultsSection = document.querySelector<HTMLElement>("#diagnosticsResults");
 const diagnosticsTableBody = document.querySelector<HTMLTableSectionElement>("#diagnosticsTableBody");
+const diagnosticsLabelTableBody = document.querySelector<HTMLTableSectionElement>(
+  "#diagnosticsLabelTableBody"
+);
+const diagnosticsImageTableBody = document.querySelector<HTMLTableSectionElement>(
+  "#diagnosticsImageTableBody"
+);
+const diagnosticsConfusionTableBody = document.querySelector<HTMLTableSectionElement>(
+  "#diagnosticsConfusionTableBody"
+);
 const diagnosticsPreviewImage = document.querySelector<HTMLImageElement>("#diagnosticsPreviewImage");
 const diagnosticsPreviewMeta = document.querySelector<HTMLDivElement>("#diagnosticsPreviewMeta");
 const magnifier = document.querySelector<HTMLDivElement>("#magnifier");
@@ -138,8 +148,12 @@ if (
   !labelPalette ||
   !runDiagnosticsButton ||
   !diagnosticsSummary ||
+  !diagnosticsMetrics ||
   !diagnosticsResultsSection ||
   !diagnosticsTableBody ||
+  !diagnosticsLabelTableBody ||
+  !diagnosticsImageTableBody ||
+  !diagnosticsConfusionTableBody ||
   !diagnosticsPreviewImage ||
   !diagnosticsPreviewMeta ||
   !magnifier ||
@@ -871,9 +885,34 @@ type DiagnosticsRow = {
   previewUrl: string;
 };
 
+type LabelDiagnosticsMetrics = {
+  label: string;
+  support: number;
+  predicted: number;
+  correct: number;
+  precision: number;
+  recall: number;
+  f1: number;
+  avgDistance: number;
+  falseUnknown: number;
+  falsePositive: number;
+};
+
+type ImageDiagnosticsMetrics = {
+  image: string;
+  total: number;
+  correct: number;
+  mismatches: number;
+  avgDistance: number;
+};
+
 async function runDiagnostics(): Promise<void> {
   diagnosticsSummary.textContent = "Running diagnostics...";
   diagnosticsTableBody.innerHTML = "";
+  diagnosticsLabelTableBody.innerHTML = "";
+  diagnosticsImageTableBody.innerHTML = "";
+  diagnosticsConfusionTableBody.innerHTML = "";
+  diagnosticsMetrics.innerHTML = "";
   diagnosticsRows = [];
   selectedDiagnosticsRow = null;
   diagnosticsPreviewImage.src = "";
@@ -890,6 +929,56 @@ async function runDiagnostics(): Promise<void> {
   let total = 0;
   let correct = 0;
   let mismatched = 0;
+  let nonUnknownTotal = 0;
+  let nonUnknownCorrect = 0;
+  let totalDistance = 0;
+  let totalDistanceCount = 0;
+
+  const labelStats = new Map<
+    string,
+    {
+      support: number;
+      predicted: number;
+      correct: number;
+      distanceSum: number;
+      distanceCount: number;
+      falseUnknown: number;
+      falsePositive: number;
+    }
+  >();
+  const imageStats = new Map<
+    string,
+    { total: number; correct: number; mismatches: number; distanceSum: number; distanceCount: number }
+  >();
+  const confusionCounts = new Map<string, Map<string, number>>();
+
+  const ensureLabelStats = (label: string) => {
+    if (!labelStats.has(label)) {
+      labelStats.set(label, {
+        support: 0,
+        predicted: 0,
+        correct: 0,
+        distanceSum: 0,
+        distanceCount: 0,
+        falseUnknown: 0,
+        falsePositive: 0
+      });
+    }
+    return labelStats.get(label)!;
+  };
+
+  const ensureImageStats = (image: string) => {
+    if (!imageStats.has(image)) {
+      imageStats.set(image, {
+        total: 0,
+        correct: 0,
+        mismatches: 0,
+        distanceSum: 0,
+        distanceCount: 0
+      });
+    }
+    return imageStats.get(image)!;
+  };
 
   for (const labelExport of labelExports) {
     const imageEntry = datasetImages.find((item) => item.name === labelExport.image);
@@ -911,16 +1000,41 @@ async function runDiagnostics(): Promise<void> {
       bounds: labelExport.bounds
     };
 
+    const perImage = ensureImageStats(labelExport.image);
+
     for (const label of labelExport.labels) {
       const tileRect = getTileRect(boardSpec, label.row, label.col);
       const vector = extractTileVector(imageData, tileRect, 10);
       const match = findNearestCentroid(vector, centroids);
       const predicted = match?.label ?? "unknown";
+      const distance = match?.distance ?? 0;
       total += 1;
+      perImage.total += 1;
+      totalDistance += distance;
+      totalDistanceCount += 1;
+      perImage.distanceSum += distance;
+      perImage.distanceCount += 1;
+
+      const expectedStats = ensureLabelStats(label.label);
+      expectedStats.support += 1;
+      expectedStats.distanceSum += distance;
+      expectedStats.distanceCount += 1;
+
+      const predictedStats = ensureLabelStats(predicted);
+      predictedStats.predicted += 1;
       if (predicted === label.label) {
         correct += 1;
+        perImage.correct += 1;
+        expectedStats.correct += 1;
       } else {
         mismatched += 1;
+        perImage.mismatches += 1;
+        if (predicted === "unknown" && label.label !== "unknown") {
+          expectedStats.falseUnknown += 1;
+        }
+        if (predicted !== "unknown") {
+          predictedStats.falsePositive += 1;
+        }
         const previewUrl = buildTilePreview(imageData, tileRect, 160);
         diagnosticsRows.push({
           image: labelExport.image,
@@ -928,17 +1042,220 @@ async function runDiagnostics(): Promise<void> {
           col: label.col,
           expected: label.label,
           predicted,
-          distance: match?.distance ?? 0,
+          distance,
           previewUrl
         });
+      }
+
+      if (label.label !== "unknown") {
+        nonUnknownTotal += 1;
+        if (predicted === label.label) {
+          nonUnknownCorrect += 1;
+        }
+      }
+
+      if (predicted !== label.label) {
+        if (!confusionCounts.has(label.label)) {
+          confusionCounts.set(label.label, new Map());
+        }
+        const byPredicted = confusionCounts.get(label.label)!;
+        byPredicted.set(predicted, (byPredicted.get(predicted) ?? 0) + 1);
       }
     }
   }
 
   const accuracy = total > 0 ? correct / total : 0;
-  diagnosticsSummary.textContent = `Accuracy: ${(accuracy * 100).toFixed(1)}% (${correct}/${total}) | Mismatches: ${mismatched}`;
+  const nonUnknownAccuracy = nonUnknownTotal > 0 ? nonUnknownCorrect / nonUnknownTotal : 0;
+  const avgDistance = totalDistanceCount > 0 ? totalDistance / totalDistanceCount : 0;
+  diagnosticsSummary.textContent = `Accuracy: ${(accuracy * 100).toFixed(1)}% (${correct}/${total}) | Non-unknown: ${(nonUnknownAccuracy * 100).toFixed(1)}% | Avg dist: ${avgDistance.toFixed(4)} | Mismatches: ${mismatched}`;
   setDiagnosticsStatus(["Diagnostics complete."]);
+  renderDiagnosticsMetrics({
+    accuracy,
+    nonUnknownAccuracy,
+    avgDistance,
+    total,
+    mismatched
+  });
+  renderLabelMetricsTable(buildLabelMetrics(labelStats));
+  renderImageMetricsTable(buildImageMetrics(imageStats));
+  renderConfusionTable(buildConfusionRows(confusionCounts, labelStats));
   renderDiagnosticsTable();
+}
+
+function renderDiagnosticsMetrics(metrics: {
+  accuracy: number;
+  nonUnknownAccuracy: number;
+  avgDistance: number;
+  total: number;
+  mismatched: number;
+}): void {
+  diagnosticsMetrics.innerHTML = "";
+  const metricItems = [
+    { label: "Overall accuracy", value: formatPercent(metrics.accuracy) },
+    { label: "Non-unknown accuracy", value: formatPercent(metrics.nonUnknownAccuracy) },
+    { label: "Avg distance", value: metrics.avgDistance.toFixed(4) },
+    { label: "Total tiles", value: metrics.total.toString() },
+    { label: "Mismatches", value: metrics.mismatched.toString() }
+  ];
+  for (const metric of metricItems) {
+    const card = document.createElement("div");
+    card.className = "metric-card";
+    const label = document.createElement("div");
+    label.className = "metric-label";
+    label.textContent = metric.label;
+    const value = document.createElement("div");
+    value.className = "metric-value";
+    value.textContent = metric.value;
+    card.appendChild(label);
+    card.appendChild(value);
+    diagnosticsMetrics.appendChild(card);
+  }
+}
+
+function buildLabelMetrics(
+  labelStats: Map<
+    string,
+    {
+      support: number;
+      predicted: number;
+      correct: number;
+      distanceSum: number;
+      distanceCount: number;
+      falseUnknown: number;
+      falsePositive: number;
+    }
+  >
+): LabelDiagnosticsMetrics[] {
+  const metrics: LabelDiagnosticsMetrics[] = [];
+  for (const [label, stats] of labelStats.entries()) {
+    const precision = stats.predicted > 0 ? stats.correct / stats.predicted : 0;
+    const recall = stats.support > 0 ? stats.correct / stats.support : 0;
+    const f1 = precision + recall > 0 ? (2 * precision * recall) / (precision + recall) : 0;
+    const avgDistance = stats.distanceCount > 0 ? stats.distanceSum / stats.distanceCount : 0;
+    metrics.push({
+      label,
+      support: stats.support,
+      predicted: stats.predicted,
+      correct: stats.correct,
+      precision,
+      recall,
+      f1,
+      avgDistance,
+      falseUnknown: stats.falseUnknown,
+      falsePositive: stats.falsePositive
+    });
+  }
+  metrics.sort((a, b) => b.support - a.support || a.label.localeCompare(b.label));
+  return metrics;
+}
+
+function buildImageMetrics(
+  imageStats: Map<string, { total: number; correct: number; mismatches: number; distanceSum: number; distanceCount: number }>
+): ImageDiagnosticsMetrics[] {
+  const metrics: ImageDiagnosticsMetrics[] = [];
+  for (const [image, stats] of imageStats.entries()) {
+    const avgDistance = stats.distanceCount > 0 ? stats.distanceSum / stats.distanceCount : 0;
+    metrics.push({
+      image,
+      total: stats.total,
+      correct: stats.correct,
+      mismatches: stats.mismatches,
+      avgDistance
+    });
+  }
+  metrics.sort((a, b) => (a.correct / Math.max(1, a.total)) - (b.correct / Math.max(1, b.total)));
+  return metrics;
+}
+
+function buildConfusionRows(
+  confusionCounts: Map<string, Map<string, number>>,
+  labelStats: Map<string, { support: number }>
+): Array<{ expected: string; predicted: string; count: number; rate: number }> {
+  const rows: Array<{ expected: string; predicted: string; count: number; rate: number }> = [];
+  for (const [expected, predictedMap] of confusionCounts.entries()) {
+    const support = labelStats.get(expected)?.support ?? 0;
+    for (const [predicted, count] of predictedMap.entries()) {
+      const rate = support > 0 ? count / support : 0;
+      rows.push({ expected, predicted, count, rate });
+    }
+  }
+  rows.sort((a, b) => b.count - a.count || b.rate - a.rate);
+  return rows.slice(0, 15);
+}
+
+function renderLabelMetricsTable(metrics: LabelDiagnosticsMetrics[]): void {
+  diagnosticsLabelTableBody.innerHTML = "";
+  if (metrics.length === 0) {
+    const row = document.createElement("tr");
+    const cell = document.createElement("td");
+    cell.colSpan = 8;
+    cell.textContent = "No label metrics available.";
+    row.appendChild(cell);
+    diagnosticsLabelTableBody.appendChild(row);
+    return;
+  }
+  for (const metric of metrics) {
+    const row = document.createElement("tr");
+    row.appendChild(buildCell(metric.label));
+    row.appendChild(buildCell(metric.support.toString()));
+    row.appendChild(buildCell(formatPercent(metric.precision)));
+    row.appendChild(buildCell(formatPercent(metric.recall)));
+    row.appendChild(buildCell(formatPercent(metric.f1)));
+    row.appendChild(buildCell(metric.avgDistance.toFixed(4)));
+    row.appendChild(buildCell(metric.falseUnknown.toString()));
+    row.appendChild(buildCell(metric.falsePositive.toString()));
+    diagnosticsLabelTableBody.appendChild(row);
+  }
+}
+
+function renderImageMetricsTable(metrics: ImageDiagnosticsMetrics[]): void {
+  diagnosticsImageTableBody.innerHTML = "";
+  if (metrics.length === 0) {
+    const row = document.createElement("tr");
+    const cell = document.createElement("td");
+    cell.colSpan = 5;
+    cell.textContent = "No image metrics available.";
+    row.appendChild(cell);
+    diagnosticsImageTableBody.appendChild(row);
+    return;
+  }
+  for (const metric of metrics) {
+    const accuracy = metric.total > 0 ? metric.correct / metric.total : 0;
+    const row = document.createElement("tr");
+    row.appendChild(buildCell(metric.image));
+    row.appendChild(buildCell(formatPercent(accuracy)));
+    row.appendChild(buildCell(`${metric.correct}/${metric.total}`));
+    row.appendChild(buildCell(metric.avgDistance.toFixed(4)));
+    row.appendChild(buildCell(metric.mismatches.toString()));
+    diagnosticsImageTableBody.appendChild(row);
+  }
+}
+
+function renderConfusionTable(
+  rows: Array<{ expected: string; predicted: string; count: number; rate: number }>
+): void {
+  diagnosticsConfusionTableBody.innerHTML = "";
+  if (rows.length === 0) {
+    const row = document.createElement("tr");
+    const cell = document.createElement("td");
+    cell.colSpan = 4;
+    cell.textContent = "No confusions to display.";
+    row.appendChild(cell);
+    diagnosticsConfusionTableBody.appendChild(row);
+    return;
+  }
+  for (const entry of rows) {
+    const row = document.createElement("tr");
+    row.appendChild(buildCell(entry.expected));
+    row.appendChild(buildCell(entry.predicted));
+    row.appendChild(buildCell(entry.count.toString()));
+    row.appendChild(buildCell(formatPercent(entry.rate)));
+    diagnosticsConfusionTableBody.appendChild(row);
+  }
+}
+
+function formatPercent(value: number): string {
+  return `${(value * 100).toFixed(1)}%`;
 }
 
 async function buildTrainingVectors(
