@@ -48,3 +48,9 @@ export type LabelExport = {
   labels: TileLabel[];
   createdAt: string;
 };
+
+export type DetectedBoard = {
+  bounds: Rect;
+  rows: number;
+  cols: number;
+};

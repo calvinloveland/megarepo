@@ -28,7 +28,7 @@ Open the URL printed by Vite (default http://localhost:5174).
 
 1. Select Solver tab.
 2. Upload a screenshot.
-3. Click top-left and bottom-right of the board to set bounds.
+3. Click top-left and bottom-right of the board to set bounds (or auto-detect).
 4. Enter rows/columns and run the solver.
 5. Export the annotated image.
 
@@ -37,9 +37,16 @@ Open the URL printed by Vite (default http://localhost:5174).
 1. Place screenshots in data/ (png/jpg/jpeg).
 2. Select Labeler tab.
 3. Choose a dataset image from the dropdown.
-4. Click top-left and bottom-right of the board to set bounds.
+4. Click top-left and bottom-right of the board to set bounds (or auto-detect).
 5. Pick a label from the palette and click tiles.
-6. Export labels to JSON.
+6. (Optional) Auto-label tiles using existing labels.
+7. Export labels to JSON.
+
+### Saving labels next to data/
+
+Use "Pick label output folder" and select the data/ folder. Exports will be written
+directly to that folder. If directory access is not supported, the label file will
+download instead.
 
 ## Output format
 

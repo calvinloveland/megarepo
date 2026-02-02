@@ -1,6 +1,6 @@
 import "./style.css";
-import type { Annotation, BoardSpec, LabelExport, Point, Rect, TileLabel } from "./types";
-import { getTileRect } from "./image";
+import type { Annotation, BoardSpec, DetectedBoard, LabelExport, Point, Rect, TileLabel } from "./types";
+import { detectBoardFromEdges, getTileRect } from "./image";
 import { solveBoard } from "./solver";
 
 type Mode = "solver" | "labeler";
@@ -8,6 +8,24 @@ type Mode = "solver" | "labeler";
 type PaletteItem = {
   label: string;
   color: string;
+};
+
+type TemplateVector = {
+  label: string;
+  vector: number[];
+};
+
+type FileSystemDirectoryHandle = {
+  getFileHandle: (name: string, options?: { create?: boolean }) => Promise<FileSystemFileHandle>;
+};
+
+type FileSystemFileHandle = {
+  createWritable: () => Promise<FileSystemWritableFileStream>;
+};
+
+type FileSystemWritableFileStream = {
+  write: (data: string) => Promise<void>;
+  close: () => Promise<void>;
 };
 
 const datasetImages = Object.entries(
@@ -19,6 +37,16 @@ const datasetImages = Object.entries(
 ).map(([path, url]) => ({
   name: path.split("/").pop() ?? path,
   url: url as string
+}));
+
+const datasetLabelFiles = Object.entries(
+  import.meta.glob("../data/*.labels.json", {
+    eager: true,
+    import: "default"
+  })
+).map(([path, payload]) => ({
+  name: path.split("/").pop() ?? path,
+  payload: payload as LabelExport
 }));
 
 const palette: PaletteItem[] = [
@@ -44,6 +72,7 @@ const fileInput = document.querySelector<HTMLInputElement>("#fileInput");
 const rowsInput = document.querySelector<HTMLInputElement>("#rowsInput");
 const colsInput = document.querySelector<HTMLInputElement>("#colsInput");
 const selectBoardButton = document.querySelector<HTMLButtonElement>("#selectBoardButton");
+const autoDetectSolverButton = document.querySelector<HTMLButtonElement>("#autoDetectSolverButton");
 const runSolverButton = document.querySelector<HTMLButtonElement>("#runSolverButton");
 const exportButton = document.querySelector<HTMLButtonElement>("#exportButton");
 
@@ -55,8 +84,11 @@ const datasetSelect = document.querySelector<HTMLSelectElement>("#datasetSelect"
 const labelRowsInput = document.querySelector<HTMLInputElement>("#labelRowsInput");
 const labelColsInput = document.querySelector<HTMLInputElement>("#labelColsInput");
 const labelSelectBoardButton = document.querySelector<HTMLButtonElement>("#labelSelectBoardButton");
+const autoDetectLabelerButton = document.querySelector<HTMLButtonElement>("#autoDetectLabelerButton");
+const autoLabelButton = document.querySelector<HTMLButtonElement>("#autoLabelButton");
 const clearLabelsButton = document.querySelector<HTMLButtonElement>("#clearLabelsButton");
 const exportLabelsButton = document.querySelector<HTMLButtonElement>("#exportLabelsButton");
+const pickLabelFolderButton = document.querySelector<HTMLButtonElement>("#pickLabelFolderButton");
 const labelPalette = document.querySelector<HTMLDivElement>("#labelPalette");
 
 const imageCanvas = document.querySelector<HTMLCanvasElement>("#imageCanvas");
@@ -69,6 +101,7 @@ if (
   !rowsInput ||
   !colsInput ||
   !selectBoardButton ||
+  !autoDetectSolverButton ||
   !runSolverButton ||
   !exportButton ||
   !solverTab ||
@@ -79,8 +112,11 @@ if (
   !labelRowsInput ||
   !labelColsInput ||
   !labelSelectBoardButton ||
+  !autoDetectLabelerButton ||
+  !autoLabelButton ||
   !clearLabelsButton ||
   !exportLabelsButton ||
+  !pickLabelFolderButton ||
   !labelPalette ||
   !imageCanvas ||
   !overlayCanvas ||
@@ -109,6 +145,13 @@ let labelSelectionPoints: Point[] = [];
 let labelMap = new Map<string, TileLabel>();
 let currentLabel = palette[0].label;
 let currentDatasetImage: { name: string; url: string } | null = null;
+let labelOutputDirectory: FileSystemDirectoryHandle | null = null;
+let templateBank: TemplateVector[] = [];
+
+const labelFilesByImage = new Map<string, LabelExport>();
+for (const labelFile of datasetLabelFiles) {
+  labelFilesByImage.set(labelFile.payload.image, labelFile.payload);
+}
 
 populateDatasetSelect();
 renderLabelPalette();
@@ -126,6 +169,7 @@ fileInput.addEventListener("change", async () => {
   currentImage = image;
   drawBaseImage(image);
   resetSolverSelection();
+  autoDetectSolverButton.disabled = false;
   setSolverStatus(["Screenshot loaded. Select board bounds."]);
 });
 
@@ -142,6 +186,23 @@ selectBoardButton.addEventListener("click", () => {
   solverAnnotations = [];
   drawOverlay();
   setSolverStatus(["Click top-left and bottom-right corners of the board."]);
+});
+
+autoDetectSolverButton.addEventListener("click", () => {
+  if (mode !== "solver") {
+    return;
+  }
+  if (!currentImage) {
+    setSolverStatus(["Upload a screenshot first."]);
+    return;
+  }
+  const detected = detectBoard();
+  if (!detected) {
+    setSolverStatus(["Auto-detect failed. Try manual selection."]);
+    return;
+  }
+  applyDetectedBoardToSolver(detected);
+  setSolverStatus(["Board auto-detected. Review rows/cols and run solver."]);
 });
 
 runSolverButton.addEventListener("click", () => {
@@ -191,6 +252,39 @@ labelSelectBoardButton.addEventListener("click", () => {
   setLabelerStatus(["Click top-left and bottom-right corners of the board."]);
 });
 
+autoDetectLabelerButton.addEventListener("click", () => {
+  if (mode !== "labeler") {
+    return;
+  }
+  if (!currentImage) {
+    setLabelerStatus(["Load a dataset image first."]);
+    return;
+  }
+  const detected = detectBoard();
+  if (!detected) {
+    setLabelerStatus(["Auto-detect failed. Try manual selection."]);
+    return;
+  }
+  applyDetectedBoardToLabeler(detected);
+  setLabelerStatus(["Board auto-detected. You can start labeling."]);
+});
+
+autoLabelButton.addEventListener("click", async () => {
+  if (mode !== "labeler") {
+    return;
+  }
+  if (!currentImage || !labelBoardBounds) {
+    setLabelerStatus(["Select board bounds before auto-labeling."]);
+    return;
+  }
+  await ensureTemplateBank();
+  if (templateBank.length === 0) {
+    setLabelerStatus(["No templates available. Label at least one image first."]);
+    return;
+  }
+  runAutoLabel();
+});
+
 clearLabelsButton.addEventListener("click", () => {
   if (mode !== "labeler") {
     return;
@@ -222,8 +316,25 @@ exportLabelsButton.addEventListener("click", () => {
     labels: Array.from(labelMap.values()),
     createdAt: new Date().toISOString()
   };
-  downloadJson(exportPayload, `${currentDatasetImage.name}.labels.json`);
-  setLabelerStatus(["Label file exported."]);
+  void saveLabelExport(exportPayload);
+});
+
+pickLabelFolderButton.addEventListener("click", async () => {
+  if (mode !== "labeler") {
+    return;
+  }
+  const picker = (window as Window & { showDirectoryPicker?: () => Promise<FileSystemDirectoryHandle> })
+    .showDirectoryPicker;
+  if (!picker) {
+    setLabelerStatus(["Directory picker not supported in this browser."]);
+    return;
+  }
+  try {
+    labelOutputDirectory = await picker();
+    setLabelerStatus(["Label output folder selected."]);
+  } catch (error) {
+    setLabelerStatus(["Directory selection canceled."]);
+  }
 });
 
 solverTab.addEventListener("click", () => setMode("solver"));
@@ -298,6 +409,7 @@ function handleLabelerClick(point: Point): void {
       labelBoardBounds = normalizeRect(labelSelectionPoints[0], labelSelectionPoints[1]);
       labelSelectionPoints = [];
       drawOverlay();
+      autoLabelButton.disabled = false;
       clearLabelsButton.disabled = false;
       exportLabelsButton.disabled = false;
       setLabelerStatus(["Board bounds set. Click tiles to label."]);
@@ -531,9 +643,17 @@ async function loadDatasetImage(image: { name: string; url: string }): Promise<v
   labelBoardBounds = null;
   labelSelectionPoints = [];
   labelMap = new Map();
+  autoDetectLabelerButton.disabled = false;
+  autoLabelButton.disabled = true;
   clearLabelsButton.disabled = false;
   exportLabelsButton.disabled = true;
-  setLabelerStatus([`Loaded ${image.name}. Select board bounds.`]);
+  const existingLabels = labelFilesByImage.get(image.name);
+  if (existingLabels) {
+    applyLabelExport(existingLabels);
+    setLabelerStatus([`Loaded ${image.name} with existing labels.`]);
+  } else {
+    setLabelerStatus([`Loaded ${image.name}. Select board bounds.`]);
+  }
 }
 
 function loadImageFromUrl(url: string): Promise<HTMLImageElement> {
@@ -611,4 +731,161 @@ function renderLabelPalette(): void {
     });
     labelPalette.appendChild(button);
   }
+}
+
+function detectBoard(): DetectedBoard | null {
+  const imageData = imageCtx.getImageData(0, 0, imageCanvas.width, imageCanvas.height);
+  return detectBoardFromEdges(imageData);
+}
+
+function applyDetectedBoardToSolver(detected: DetectedBoard): void {
+  solverBoardBounds = detected.bounds;
+  rowsInput.value = String(detected.rows);
+  colsInput.value = String(detected.cols);
+  solverSelectionPoints = [];
+  drawOverlay();
+  runSolverButton.disabled = false;
+  exportButton.disabled = false;
+}
+
+function applyDetectedBoardToLabeler(detected: DetectedBoard): void {
+  labelBoardBounds = detected.bounds;
+  labelRowsInput.value = String(detected.rows);
+  labelColsInput.value = String(detected.cols);
+  labelSelectionPoints = [];
+  drawOverlay();
+  autoLabelButton.disabled = false;
+  clearLabelsButton.disabled = false;
+  exportLabelsButton.disabled = false;
+}
+
+function applyLabelExport(payload: LabelExport): void {
+  labelBoardBounds = payload.bounds;
+  labelRowsInput.value = String(payload.rows);
+  labelColsInput.value = String(payload.cols);
+  labelMap = new Map(payload.labels.map((label) => [`${label.row}:${label.col}`, label]));
+  drawOverlay();
+  autoLabelButton.disabled = false;
+  clearLabelsButton.disabled = false;
+  exportLabelsButton.disabled = false;
+}
+
+async function saveLabelExport(payload: LabelExport): Promise<void> {
+  const filename = `${payload.image}.labels.json`;
+  if (labelOutputDirectory) {
+    try {
+      const handle = await labelOutputDirectory.getFileHandle(filename, { create: true });
+      const writable = await handle.createWritable();
+      await writable.write(JSON.stringify(payload, null, 2));
+      await writable.close();
+      setLabelerStatus(["Label file saved to selected folder."]);
+      return;
+    } catch (error) {
+      setLabelerStatus(["Could not save to folder. Downloading instead."]);
+    }
+  }
+  downloadJson(payload, filename);
+  setLabelerStatus(["Label file downloaded."]);
+}
+
+async function ensureTemplateBank(): Promise<void> {
+  if (templateBank.length > 0) {
+    return;
+  }
+  const templates: TemplateVector[] = [];
+  for (const labelFile of datasetLabelFiles) {
+    const labelExport = labelFile.payload;
+    const imageEntry = datasetImages.find((item) => item.name === labelExport.image);
+    if (!imageEntry) {
+      continue;
+    }
+    const image = await loadImageFromUrl(imageEntry.url);
+    const tempCanvas = document.createElement("canvas");
+    tempCanvas.width = image.naturalWidth;
+    tempCanvas.height = image.naturalHeight;
+    const tempCtx = tempCanvas.getContext("2d", { willReadFrequently: true });
+    if (!tempCtx) {
+      continue;
+    }
+    tempCtx.drawImage(image, 0, 0);
+    const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+    const boardSpec: BoardSpec = {
+      rows: labelExport.rows,
+      cols: labelExport.cols,
+      bounds: labelExport.bounds
+    };
+    for (const label of labelExport.labels) {
+      const tileRect = getTileRect(boardSpec, label.row, label.col);
+      const vector = extractTileVector(imageData, tileRect, 8);
+      templates.push({ label: label.label, vector });
+    }
+  }
+  templateBank = templates;
+}
+
+function runAutoLabel(): void {
+  if (!labelBoardBounds || !currentImage) {
+    return;
+  }
+  const rows = parseInt(labelRowsInput.value, 10);
+  const cols = parseInt(labelColsInput.value, 10);
+  if (!Number.isFinite(rows) || !Number.isFinite(cols) || rows <= 1 || cols <= 1) {
+    setLabelerStatus(["Rows/columns must be valid numbers."]);
+    return;
+  }
+  const boardSpec: BoardSpec = { rows, cols, bounds: labelBoardBounds };
+  const imageData = imageCtx.getImageData(0, 0, imageCanvas.width, imageCanvas.height);
+  let assigned = 0;
+  for (let row = 0; row < rows; row += 1) {
+    for (let col = 0; col < cols; col += 1) {
+      const tileRect = getTileRect(boardSpec, row, col);
+      const vector = extractTileVector(imageData, tileRect, 8);
+      const match = findBestTemplate(vector, templateBank);
+      if (match && match.distance < 0.12) {
+        labelMap.set(`${row}:${col}`, { row, col, label: match.label });
+        assigned += 1;
+      }
+    }
+  }
+  drawOverlay();
+  setLabelerStatus([`Auto-label complete. ${assigned} tiles labeled.`]);
+}
+
+function extractTileVector(imageData: ImageData, rect: Rect, size: number): number[] {
+  const { width, data } = imageData;
+  const vector: number[] = [];
+  for (let y = 0; y < size; y += 1) {
+    for (let x = 0; x < size; x += 1) {
+      const sampleX = Math.floor(rect.x + ((x + 0.5) / size) * rect.width);
+      const sampleY = Math.floor(rect.y + ((y + 0.5) / size) * rect.height);
+      const idx = (sampleY * width + sampleX) * 4;
+      const r = data[idx];
+      const g = data[idx + 1];
+      const b = data[idx + 2];
+      vector.push((0.2126 * r + 0.7152 * g + 0.0722 * b) / 255);
+    }
+  }
+  return vector;
+}
+
+function findBestTemplate(
+  vector: number[],
+  templates: TemplateVector[]
+): { label: string; distance: number } | null {
+  let best: { label: string; distance: number } | null = null;
+  for (const template of templates) {
+    if (template.vector.length !== vector.length) {
+      continue;
+    }
+    let sum = 0;
+    for (let i = 0; i < vector.length; i += 1) {
+      const diff = vector[i] - template.vector[i];
+      sum += diff * diff;
+    }
+    const distance = Math.sqrt(sum / vector.length);
+    if (!best || distance < best.distance) {
+      best = { label: template.label, distance };
+    }
+  }
+  return best;
 }
