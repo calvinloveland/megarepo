@@ -1049,7 +1049,10 @@ async function saveLabelExportToServer(
   payload: LabelExport
 ): Promise<{ ok: boolean; message: string }> {
   try {
-    const response = await fetch("/api/labels", {
+    const labelsEndpoint =
+      (import.meta as { env?: { VITE_LABELS_ENDPOINT?: string } }).env?.VITE_LABELS_ENDPOINT ??
+      "/api/labels";
+    const response = await fetch(labelsEndpoint, {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
@@ -1073,7 +1076,7 @@ async function saveLabelExportToServer(
   } catch (error) {
     return {
       ok: false,
-      message: "Server save failed. Ensure the dev server is running and /api/labels is reachable."
+      message: "Server save failed. Ensure the dev server is running or use npm run dev:all."
     };
   }
 }

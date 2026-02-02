@@ -22,6 +22,14 @@ npm run dev
 
 Open the URL printed by Vite (default http://localhost:5174).
 
+### Run frontend + label server
+
+```bash
+npm run dev:all
+```
+
+This starts the Vite dev server and the label API on http://127.0.0.1:5175/api/labels.
+
 ## Usage
 
 ### Solver mode
