@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Broomsweeper Solver</title>
+  </head>
+  <body>
+    <div id="app">
+      <header>
+        <h1>Broomsweeper Solver</h1>
+        <p>Upload a screenshot, mark the board bounds, and run the solver.</p>
+      </header>
+      <section class="controls">
+        <label class="control">
+          Screenshot
+          <input id="fileInput" type="file" accept="image/*" />
+        </label>
+        <label class="control">
+          Rows
+          <input id="rowsInput" type="number" min="2" max="30" value="10" />
+        </label>
+        <label class="control">
+          Columns
+          <input id="colsInput" type="number" min="2" max="30" value="10" />
+        </label>
+        <div class="control">
+          <button id="selectBoardButton" type="button">Select board bounds</button>
+          <button id="runSolverButton" type="button" disabled>Run solver</button>
+          <button id="exportButton" type="button" disabled>Export annotated</button>
+        </div>
+      </section>
+      <section class="canvas-wrap">
+        <div class="canvas-stack">
+          <canvas id="imageCanvas"></canvas>
+          <canvas id="overlayCanvas"></canvas>
+        </div>
+        <aside class="status" id="statusPanel">
+          <h2>Status</h2>
+          <ul id="statusList"></ul>
+        </aside>
+      </section>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
