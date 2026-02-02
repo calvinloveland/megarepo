@@ -1138,9 +1138,10 @@ async function saveLabelExportToServer(
       };
     }
 
-    const json = (text ? JSON.parse(text) : null) as { file?: string } | null;
+    const json = (text ? JSON.parse(text) : null) as { file?: string; overwritten?: boolean } | null;
+    const overwriteNote = json?.overwritten ? " (overwritten)" : "";
     const message = json?.file
-      ? `Label file saved on server (${json.file}).`
+      ? `Label file saved on server (${json.file})${overwriteNote}.`
       : "Label file saved on server.";
     return { ok: true, message };
   } catch (error) {

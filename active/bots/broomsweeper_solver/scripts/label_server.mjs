@@ -43,11 +43,21 @@ const server = http.createServer(async (req, res) => {
       const safeName = path.basename(payload.image).replace(/[^a-zA-Z0-9._-]/g, "_");
       await fs.mkdir(dataDir, { recursive: true });
       const outputPath = path.join(dataDir, `${safeName}.labels.json`);
+      const exists = await fs
+        .stat(outputPath)
+        .then(() => true)
+        .catch(() => false);
       await fs.writeFile(outputPath, JSON.stringify(payload, null, 2), "utf-8");
 
       res.statusCode = 200;
       res.setHeader("Content-Type", "application/json");
-      res.end(JSON.stringify({ ok: true, file: `${safeName}.labels.json` }));
+      res.end(
+        JSON.stringify({
+          ok: true,
+          file: `${safeName}.labels.json`,
+          overwritten: exists
+        })
+      );
     } catch (error) {
       res.statusCode = 500;
       res.setHeader("Content-Type", "application/json");
