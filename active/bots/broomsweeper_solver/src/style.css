@@ -113,6 +113,31 @@ header h1 {
   background: #0f172a;
 }
 
+.magnifier {
+  position: absolute;
+  top: 1rem;
+  left: 1rem;
+  width: 160px;
+  height: 160px;
+  border-radius: 0.75rem;
+  border: 2px solid #38bdf8;
+  background: rgba(15, 23, 42, 0.8);
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.35);
+}
+
+.magnifier canvas {
+  width: 160px;
+  height: 160px;
+}
+
+.magnifier-toggle {
+  margin-top: 1rem;
+  font-weight: 600;
+}
+
 canvas {
   display: block;
   max-width: 100%;

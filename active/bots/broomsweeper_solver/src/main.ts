@@ -107,6 +107,9 @@ const diagnosticsResultsSection = document.querySelector<HTMLElement>("#diagnost
 const diagnosticsTableBody = document.querySelector<HTMLTableSectionElement>("#diagnosticsTableBody");
 const diagnosticsPreviewImage = document.querySelector<HTMLImageElement>("#diagnosticsPreviewImage");
 const diagnosticsPreviewMeta = document.querySelector<HTMLDivElement>("#diagnosticsPreviewMeta");
+const magnifier = document.querySelector<HTMLDivElement>("#magnifier");
+const magnifierCanvas = document.querySelector<HTMLCanvasElement>("#magnifierCanvas");
+const magnifierToggle = document.querySelector<HTMLInputElement>("#magnifierToggle");
 
 const imageCanvas = document.querySelector<HTMLCanvasElement>("#imageCanvas");
 const overlayCanvas = document.querySelector<HTMLCanvasElement>("#overlayCanvas");
@@ -144,6 +147,9 @@ if (
   !diagnosticsTableBody ||
   !diagnosticsPreviewImage ||
   !diagnosticsPreviewMeta ||
+  !magnifier ||
+  !magnifierCanvas ||
+  !magnifierToggle ||
   !imageCanvas ||
   !overlayCanvas ||
   !statusList ||
@@ -155,8 +161,9 @@ if (
 
 const imageCtx = imageCanvas.getContext("2d", { willReadFrequently: true });
 const overlayCtx = overlayCanvas.getContext("2d");
+const magnifierCtx = magnifierCanvas.getContext("2d");
 
-if (!imageCtx || !overlayCtx) {
+if (!imageCtx || !overlayCtx || !magnifierCtx) {
   throw new Error("Canvas context unavailable.");
 }
 
@@ -177,6 +184,7 @@ let templateBank: TemplateVector[] = [];
 let labelCentroids: LabelCentroid[] = [];
 let diagnosticsRows: DiagnosticsRow[] = [];
 let selectedDiagnosticsRow: DiagnosticsRow | null = null;
+let lastMagnifierPoint: Point | null = null;
 
 const labelFilesByImage = new Map<string, LabelExport>();
 for (const labelFile of datasetLabelFiles) {
@@ -394,6 +402,30 @@ overlayCanvas.addEventListener("click", (event) => {
   }
 });
 
+overlayCanvas.addEventListener("mousemove", (event) => {
+  if (!currentImage || magnifierToggle.checked === false) {
+    magnifier.classList.add("hidden");
+    return;
+  }
+  const point = getCanvasPoint(event, overlayCanvas);
+  lastMagnifierPoint = point;
+  updateMagnifier(point);
+});
+
+overlayCanvas.addEventListener("mouseleave", () => {
+  magnifier.classList.add("hidden");
+});
+
+magnifierToggle.addEventListener("change", () => {
+  if (!magnifierToggle.checked) {
+    magnifier.classList.add("hidden");
+    return;
+  }
+  if (lastMagnifierPoint) {
+    updateMagnifier(lastMagnifierPoint);
+  }
+});
+
 runDiagnosticsButton.addEventListener("click", () => {
   if (mode !== "diagnostics") {
     return;
@@ -491,6 +523,9 @@ function drawBaseImage(image: HTMLImageElement): void {
   drawOverlay();
   runSolverButton.disabled = mode !== "solver";
   exportButton.disabled = mode !== "solver";
+  if (magnifierToggle.checked && lastMagnifierPoint) {
+    updateMagnifier(lastMagnifierPoint);
+  }
 }
 
 function drawOverlay(): void {
@@ -969,6 +1004,41 @@ function buildTilePreview(imageData: ImageData, rect: Rect, size: number): strin
   const cropped = cropImageData(imageData, rect);
   ctx.drawImage(cropped.canvas, 0, 0, size, size);
   return canvas.toDataURL("image/png");
+}
+
+function updateMagnifier(point: Point): void {
+  const size = 24;
+  const scale = magnifierCanvas.width / size;
+  const half = Math.floor(size / 2);
+  const sourceX = Math.max(0, Math.min(imageCanvas.width - size, Math.floor(point.x) - half));
+  const sourceY = Math.max(0, Math.min(imageCanvas.height - size, Math.floor(point.y) - half));
+
+  magnifierCtx.imageSmoothingEnabled = false;
+  magnifierCtx.clearRect(0, 0, magnifierCanvas.width, magnifierCanvas.height);
+  magnifierCtx.drawImage(
+    imageCanvas,
+    sourceX,
+    sourceY,
+    size,
+    size,
+    0,
+    0,
+    magnifierCanvas.width,
+    magnifierCanvas.height
+  );
+
+  magnifierCtx.strokeStyle = "rgba(56, 189, 248, 0.9)";
+  magnifierCtx.lineWidth = 1;
+  magnifierCtx.strokeRect(
+    magnifierCanvas.width / 2 - scale / 2,
+    magnifierCanvas.height / 2 - scale / 2,
+    scale,
+    scale
+  );
+
+  magnifier.style.left = `${Math.min(point.x + 24, imageCanvas.width - 176)}px`;
+  magnifier.style.top = `${Math.min(point.y + 24, imageCanvas.height - 176)}px`;
+  magnifier.classList.remove("hidden");
 }
 
 function cropImageData(imageData: ImageData, rect: Rect): { canvas: HTMLCanvasElement } {

@@ -86,12 +86,21 @@
         <div class="canvas-stack">
           <canvas id="imageCanvas"></canvas>
           <canvas id="overlayCanvas"></canvas>
+          <div id="magnifier" class="magnifier hidden">
+            <canvas id="magnifierCanvas" width="160" height="160"></canvas>
+          </div>
         </div>
         <aside class="status" id="statusPanel">
           <h2>Status</h2>
           <ul id="statusList"></ul>
           <ul id="labelStatusList" class="hidden"></ul>
           <ul id="diagnosticsStatusList" class="hidden"></ul>
+          <div class="magnifier-toggle">
+            <label>
+              <input id="magnifierToggle" type="checkbox" checked />
+              Magnifier
+            </label>
+          </div>
         </aside>
       </section>
       <section id="diagnosticsResults" class="diagnostics hidden">
