@@ -48,15 +48,8 @@ const datasetImages = Object.entries(
   url: url as string
 }));
 
-const datasetLabelFiles = Object.entries(
-  import.meta.glob("../data/*.labels.json", {
-    eager: true,
-    import: "default"
-  })
-).map(([path, payload]) => ({
-  name: path.split("/").pop() ?? path,
-  payload: payload as LabelExport
-}));
+const labelExportCache = new Map<string, LabelExport>();
+
 
 const palette: PaletteItem[] = [
   { label: "unknown", color: "#64748b" },
@@ -185,11 +178,6 @@ let labelCentroids: LabelCentroid[] = [];
 let diagnosticsRows: DiagnosticsRow[] = [];
 let selectedDiagnosticsRow: DiagnosticsRow | null = null;
 let lastMagnifierPoint: Point | null = null;
-
-const labelFilesByImage = new Map<string, LabelExport>();
-for (const labelFile of datasetLabelFiles) {
-  labelFilesByImage.set(labelFile.payload.image, labelFile.payload);
-}
 
 populateDatasetSelect();
 renderLabelPalette();
@@ -737,13 +725,55 @@ async function loadDatasetImage(image: { name: string; url: string }): Promise<v
   autoLabelButton.disabled = true;
   clearLabelsButton.disabled = false;
   exportLabelsButton.disabled = true;
-  const existingLabels = labelFilesByImage.get(image.name);
+  const existingLabels = await fetchLabelExport(image.name, { bustCache: true });
   if (existingLabels) {
-    applyLabelExport(normalizeLabelExport(existingLabels));
+    applyLabelExport(existingLabels);
     setLabelerStatus([`Loaded ${image.name} with existing labels.`]);
   } else {
     setLabelerStatus([`Loaded ${image.name}. Select board bounds.`]);
   }
+}
+
+async function fetchLabelExport(
+  imageName: string,
+  options: { bustCache?: boolean } = {}
+): Promise<LabelExport | null> {
+  const cached = labelExportCache.get(imageName);
+  if (cached && !options.bustCache) {
+    return cached;
+  }
+  const cacheBust = options.bustCache ? `?t=${Date.now()}` : "";
+  const candidateRoots = ["/data", "/label_output"];
+  for (const root of candidateRoots) {
+    const safeName = encodeURIComponent(imageName);
+    const url = `${root}/${safeName}.labels.json${cacheBust}`;
+    try {
+      const response = await fetch(url, { cache: "no-store" });
+      if (!response.ok) {
+        continue;
+      }
+      const json = (await response.json()) as LabelExport;
+      const normalized = normalizeLabelExport(json);
+      labelExportCache.set(imageName, normalized);
+      return normalized;
+    } catch (error) {
+      continue;
+    }
+  }
+  return null;
+}
+
+async function getAllLabelExports(
+  options: { bustCache?: boolean } = {}
+): Promise<LabelExport[]> {
+  const results: LabelExport[] = [];
+  for (const image of datasetImages) {
+    const labelExport = await fetchLabelExport(image.name, options);
+    if (labelExport) {
+      results.push(labelExport);
+    }
+  }
+  return results;
 }
 
 function loadImageFromUrl(url: string): Promise<HTMLImageElement> {
@@ -842,7 +872,8 @@ async function runDiagnostics(): Promise<void> {
   diagnosticsPreviewMeta.textContent = "Select a mismatch row to preview.";
   setDiagnosticsStatus(["Loading images and labels..."]);
 
-  if (datasetLabelFiles.length === 0) {
+  const labelExports = await getAllLabelExports({ bustCache: true });
+  if (labelExports.length === 0) {
     diagnosticsSummary.textContent = "No label files found.";
     setDiagnosticsStatus(["Add .labels.json files to data/."]);
     return;
@@ -852,14 +883,13 @@ async function runDiagnostics(): Promise<void> {
   let correct = 0;
   let mismatched = 0;
 
-  for (const labelFile of datasetLabelFiles) {
-    const labelExport = normalizeLabelExport(labelFile.payload);
+  for (const labelExport of labelExports) {
     const imageEntry = datasetImages.find((item) => item.name === labelExport.image);
     if (!imageEntry) {
       continue;
     }
 
-    const trainingVectors = await buildTrainingVectors(labelExport.image);
+    const trainingVectors = await buildTrainingVectors(labelExport.image, labelExports);
     const centroids = buildLabelCentroids(trainingVectors);
     if (centroids.length === 0) {
       continue;
@@ -903,10 +933,12 @@ async function runDiagnostics(): Promise<void> {
   renderDiagnosticsTable();
 }
 
-async function buildTrainingVectors(excludeImage: string): Promise<Map<string, number[][]>> {
+async function buildTrainingVectors(
+  excludeImage: string,
+  labelExports: LabelExport[]
+): Promise<Map<string, number[][]>> {
   const aggregateVectors = new Map<string, number[][]>();
-  for (const labelFile of datasetLabelFiles) {
-    const labelExport = normalizeLabelExport(labelFile.payload);
+  for (const labelExport of labelExports) {
     if (labelExport.image === excludeImage) {
       continue;
     }
@@ -1112,6 +1144,12 @@ function applyLabelExport(payload: LabelExport): void {
 
 async function saveLabelExport(payload: LabelExport): Promise<void> {
   const result = await saveLabelExportToServer(payload);
+  if (result.ok) {
+    const normalized = normalizeLabelExport(payload);
+    labelExportCache.set(normalized.image, normalized);
+    templateBank = [];
+    labelCentroids = [];
+  }
   setLabelerStatus([result.message]);
 }
 
@@ -1162,8 +1200,8 @@ async function ensureTemplateBank(): Promise<void> {
   }
   const templates: TemplateVector[] = [];
   const aggregateVectorsByLabel = new Map<string, number[][]>();
-  for (const labelFile of datasetLabelFiles) {
-    const labelExport = normalizeLabelExport(labelFile.payload);
+  const labelExports = await getAllLabelExports({ bustCache: true });
+  for (const labelExport of labelExports) {
     const imageEntry = datasetImages.find((item) => item.name === labelExport.image);
     if (!imageEntry) {
       continue;
@@ -1204,42 +1242,44 @@ function runAutoLabel(): void {
   if (!labelBoardBounds || !currentImage) {
     return;
   }
-  if (currentDatasetImage) {
-    const existing = labelFilesByImage.get(currentDatasetImage.name);
-    if (existing) {
-      applyLabelExport(existing);
-      setLabelerStatus(["Applied existing manual labels for this image."]);
-      return;
-    }
-  }
-  const rows = parseInt(labelRowsInput.value, 10);
-  const cols = parseInt(labelColsInput.value, 10);
-  if (!Number.isFinite(rows) || !Number.isFinite(cols) || rows <= 1 || cols <= 1) {
-    setLabelerStatus(["Rows/columns must be valid numbers."]);
-    return;
-  }
-  const boardSpec: BoardSpec = { rows, cols, bounds: labelBoardBounds };
-  const imageData = imageCtx.getImageData(0, 0, imageCanvas.width, imageCanvas.height);
-  let assigned = 0;
-  let unknown = 0;
-  for (let row = 0; row < rows; row += 1) {
-    for (let col = 0; col < cols; col += 1) {
-      const tileRect = getTileRect(boardSpec, row, col);
-      const vector = extractTileVector(imageData, tileRect, 10);
-      const match = findBestCentroid(vector, labelCentroids);
-      if (match) {
-        labelMap.set(`${row}:${col}`, { row, col, label: match.label });
-        if (match.label === "unknown") {
-          unknown += 1;
-        } else {
-          assigned += 1;
-        }
-      } else {
-        labelMap.set(`${row}:${col}`, { row, col, label: "unknown" });
-        unknown += 1;
+  void (async () => {
+    if (currentDatasetImage) {
+      const existing = await fetchLabelExport(currentDatasetImage.name, { bustCache: true });
+      if (existing) {
+        applyLabelExport(existing);
+        setLabelerStatus(["Applied existing manual labels for this image."]);
+        return;
       }
     }
-  }
-  drawOverlay();
-  setLabelerStatus([`Auto-label complete. ${assigned} labeled, ${unknown} unknown.`]);
+    const rows = parseInt(labelRowsInput.value, 10);
+    const cols = parseInt(labelColsInput.value, 10);
+    if (!Number.isFinite(rows) || !Number.isFinite(cols) || rows <= 1 || cols <= 1) {
+      setLabelerStatus(["Rows/columns must be valid numbers."]);
+      return;
+    }
+    const boardSpec: BoardSpec = { rows, cols, bounds: labelBoardBounds };
+    const imageData = imageCtx.getImageData(0, 0, imageCanvas.width, imageCanvas.height);
+    let assigned = 0;
+    let unknown = 0;
+    for (let row = 0; row < rows; row += 1) {
+      for (let col = 0; col < cols; col += 1) {
+        const tileRect = getTileRect(boardSpec, row, col);
+        const vector = extractTileVector(imageData, tileRect, 10);
+        const match = findBestCentroid(vector, labelCentroids);
+        if (match) {
+          labelMap.set(`${row}:${col}`, { row, col, label: match.label });
+          if (match.label === "unknown") {
+            unknown += 1;
+          } else {
+            assigned += 1;
+          }
+        } else {
+          labelMap.set(`${row}:${col}`, { row, col, label: "unknown" });
+          unknown += 1;
+        }
+      }
+    }
+    drawOverlay();
+    setLabelerStatus([`Auto-label complete. ${assigned} labeled, ${unknown} unknown.`]);
+  })();
 }
