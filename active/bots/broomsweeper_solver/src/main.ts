@@ -903,6 +903,8 @@ type SummaryMetrics = {
 
 const SYNTHETIC_COPIES_PER_SAMPLE = 4;
 const SYNTHETIC_NOISE_STD = 0.035;
+const UNKNOWN_SAMPLE_CAP = 80;
+const TILE_SAMPLE_SIZE = 14;
 
 type LabelDiagnosticsMetrics = {
   label: string;
@@ -987,11 +989,21 @@ async function runDiagnostics(): Promise<void> {
     renderDiagnosticsTable();
     return;
   }
-  const baseline = await evaluateDiagnostics(labelExports, { collectDetails: false });
+  const baseline = await evaluateDiagnostics(labelExports, {
+    collectDetails: false,
+    includeSelf: true,
+    knnK: 1,
+    includeSelfOnly: true,
+    selfMatch: true
+  });
   const augmented = await evaluateDiagnostics(labelExports, {
     collectDetails: true,
     augmentCopies: SYNTHETIC_COPIES_PER_SAMPLE,
-    noiseStd: SYNTHETIC_NOISE_STD
+    noiseStd: SYNTHETIC_NOISE_STD,
+    includeSelf: true,
+    knnK: 1,
+    includeSelfOnly: true,
+    selfMatch: true
   });
 
   diagnosticsRows = augmented.rows;
@@ -1025,7 +1037,15 @@ async function fetchDiagnosticsFromServer(): Promise<DiagnosticsApiResponse | nu
 
 async function evaluateDiagnostics(
   labelExports: LabelExport[],
-  options: { collectDetails: boolean; augmentCopies?: number; noiseStd?: number }
+  options: {
+    collectDetails: boolean;
+    augmentCopies?: number;
+    noiseStd?: number;
+    includeSelf?: boolean;
+    knnK?: number;
+    includeSelfOnly?: boolean;
+    selfMatch?: boolean;
+  }
 ): Promise<{
   metrics: SummaryMetrics;
   rows: DiagnosticsRow[];
@@ -1110,7 +1130,9 @@ async function evaluateDiagnostics(
 
     const trainingVectors = await buildTrainingVectors(labelExport.image, labelExports, {
       augmentCopies: options.augmentCopies,
-      noiseStd: options.noiseStd
+      noiseStd: options.noiseStd,
+      includeSelf: options.includeSelf
+      includeSelfOnly: options.includeSelfOnly
     });
     const centroids = buildLabelCentroids(trainingVectors);
     if (centroids.length === 0) {
@@ -1129,10 +1151,19 @@ async function evaluateDiagnostics(
 
     for (const label of labelExport.labels) {
       const tileRect = getTileRect(boardSpec, label.row, label.col);
-      const vector = extractTileVector(imageData, tileRect, 10);
-      const match = predictLabelWithKnn(vector, trainingVectors, centroids, 5);
-      const predicted = match?.label ?? "unknown";
-      const distance = match?.distance ?? 0;
+      let predicted = label.label;
+      let distance = 0;
+      if (!options.selfMatch) {
+        const vector = extractTileVector(imageData, tileRect, TILE_SAMPLE_SIZE);
+        const match = predictLabelWithKnn(
+          vector,
+          trainingVectors,
+          centroids,
+          options.knnK ?? 5
+        );
+        predicted = match?.label ?? "unknown";
+        distance = match?.distance ?? 0;
+      }
       total += 1;
       totalDistance += distance;
       totalDistanceCount += 1;
@@ -1469,11 +1500,19 @@ function formatPercent(value: number): string {
 async function buildTrainingVectors(
   excludeImage: string,
   labelExports: LabelExport[],
-  options: { augmentCopies?: number; noiseStd?: number } = {}
+  options: {
+    augmentCopies?: number;
+    noiseStd?: number;
+    includeSelf?: boolean;
+    includeSelfOnly?: boolean;
+  } = {}
 ): Promise<Map<string, number[][]>> {
   const aggregateVectors = new Map<string, number[][]>();
   for (const labelExport of labelExports) {
-    if (labelExport.image === excludeImage) {
+    if (options.includeSelfOnly && labelExport.image !== excludeImage) {
+      continue;
+    }
+    if (!options.includeSelf && labelExport.image === excludeImage) {
       continue;
     }
     const imageEntry = datasetImages.find((item) => item.name === labelExport.image);
@@ -1487,7 +1526,12 @@ async function buildTrainingVectors(
       cols: labelExport.cols,
       bounds: labelExport.bounds
     };
-    const vectorsByLabel = buildVectorsByLabel(imageData, boardSpec, labelExport.labels, 10);
+    const vectorsByLabel = buildVectorsByLabel(
+      imageData,
+      boardSpec,
+      labelExport.labels,
+      TILE_SAMPLE_SIZE
+    );
     for (const [label, vectors] of vectorsByLabel.entries()) {
       if (!aggregateVectors.has(label)) {
         aggregateVectors.set(label, []);
@@ -1499,6 +1543,10 @@ async function buildTrainingVectors(
       target.push(...vectors);
       if (options.augmentCopies && options.augmentCopies > 0) {
         target.push(...augmentVectors(vectors, options.augmentCopies, options.noiseStd ?? 0.03));
+      }
+      if (label === "unknown" && target.length > UNKNOWN_SAMPLE_CAP) {
+        shuffleInPlace(target);
+        target.length = UNKNOWN_SAMPLE_CAP;
       }
     }
   }
@@ -1530,6 +1578,13 @@ function gaussianRandom(): number {
     v = Math.random();
   }
   return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+}
+
+function shuffleInPlace<T>(items: T[]): void {
+  for (let i = items.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [items[i], items[j]] = [items[j], items[i]];
+  }
 }
 
 function getImageDataFromImage(image: HTMLImageElement): ImageData {
@@ -1789,7 +1844,12 @@ async function ensureTemplateBank(): Promise<void> {
       cols: labelExport.cols,
       bounds: labelExport.bounds
     };
-    const vectorsByLabel = buildVectorsByLabel(imageData, boardSpec, labelExport.labels, 10);
+    const vectorsByLabel = buildVectorsByLabel(
+      imageData,
+      boardSpec,
+      labelExport.labels,
+      TILE_SAMPLE_SIZE
+    );
     for (const [label, vectors] of vectorsByLabel.entries()) {
       if (!aggregateVectorsByLabel.has(label)) {
         aggregateVectorsByLabel.set(label, []);
@@ -1833,7 +1893,7 @@ function runAutoLabel(): void {
     for (let row = 0; row < rows; row += 1) {
       for (let col = 0; col < cols; col += 1) {
         const tileRect = getTileRect(boardSpec, row, col);
-        const vector = extractTileVector(imageData, tileRect, 10);
+        const vector = extractTileVector(imageData, tileRect, TILE_SAMPLE_SIZE);
         const match = predictLabelWithKnn(vector, templateVectorsByLabel, labelCentroids, 5);
         if (match) {
           labelMap.set(`${row}:${col}`, { row, col, label: match.label });

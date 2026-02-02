@@ -7,7 +7,7 @@ export type LabelCentroid = {
   stdDistance: number;
 };
 
-export const CLASSIFIER_VERSION = "1.4.0";
+export const CLASSIFIER_VERSION = "1.4.6";
 
 export function normalizeLabelExport(payload: LabelExport): LabelExport {
   const maxRow = payload.labels.reduce((max, label) => Math.max(max, label.row), -1);
@@ -226,6 +226,8 @@ export function findNearestCentroid(
   return best;
 }
 
+const UNKNOWN_STD_MULTIPLIER = 4.5;
+
 export function predictLabelWithKnn(
   vector: number[],
   vectorsByLabel: Map<string, number[][]>,
@@ -277,7 +279,7 @@ export function predictLabelWithKnn(
     return findNearestCentroid(vector, centroids);
   }
 
-  const threshold = bestCentroid.meanDistance + bestCentroid.stdDistance * 2.25;
+  const threshold = bestCentroid.meanDistance + bestCentroid.stdDistance * UNKNOWN_STD_MULTIPLIER;
   if (bestDistance > threshold) {
     return { label: "unknown", distance: bestDistance };
   }

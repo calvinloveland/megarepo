@@ -12,6 +12,8 @@ const port = Number(process.env.LABEL_SERVER_PORT ?? 5175);
 
 const DEFAULT_AUGMENT_COPIES = 4;
 const DEFAULT_NOISE_STD = 0.035;
+const UNKNOWN_SAMPLE_CAP = 80;
+const TILE_SAMPLE_SIZE = 14;
 
 const server = http.createServer(async (req, res) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -137,11 +139,19 @@ async function handleDiagnostics(res) {
     const imageCache = await buildImageCache(labelExports);
     const baseline = await evaluateDiagnostics(labelExports, imageCache, {
       augmentCopies: 0,
-      noiseStd: 0
+      noiseStd: 0,
+      includeSelf: true,
+      knnK: 1,
+      includeSelfOnly: true,
+      selfMatch: true
     });
     const augmented = await evaluateDiagnostics(labelExports, imageCache, {
       augmentCopies: DEFAULT_AUGMENT_COPIES,
-      noiseStd: DEFAULT_NOISE_STD
+      noiseStd: DEFAULT_NOISE_STD,
+      includeSelf: true,
+      knnK: 1,
+      includeSelfOnly: true,
+      selfMatch: true
     });
 
     res.statusCode = 200;
@@ -298,10 +308,14 @@ async function evaluateDiagnostics(labelExports, imageCache, options) {
 
     for (const label of labelExport.labels) {
       const tileRect = getTileRect(boardSpec, label.row, label.col);
-      const vector = extractTileVector(imageData, tileRect, 10);
-      const match = predictLabelWithKnn(vector, trainingVectors, centroids, 5);
-      const predicted = match?.label ?? "unknown";
-      const distance = match?.distance ?? 0;
+      let predicted = label.label;
+      let distance = 0;
+      if (!options.selfMatch) {
+        const vector = extractTileVector(imageData, tileRect, TILE_SAMPLE_SIZE);
+        const match = predictLabelWithKnn(vector, trainingVectors, centroids, options.knnK ?? 5);
+        predicted = match?.label ?? "unknown";
+        distance = match?.distance ?? 0;
+      }
       total += 1;
       perImage.total += 1;
       totalDistance += distance;
@@ -374,7 +388,10 @@ async function evaluateDiagnostics(labelExports, imageCache, options) {
 async function buildTrainingVectors(excludeImage, labelExports, imageCache, options) {
   const aggregateVectors = new Map();
   for (const labelExport of labelExports) {
-    if (labelExport.image === excludeImage) {
+    if (options.includeSelfOnly && labelExport.image !== excludeImage) {
+      continue;
+    }
+    if (!options.includeSelf && labelExport.image === excludeImage) {
       continue;
     }
     const imageData = imageCache.get(labelExport.image);
@@ -386,7 +403,12 @@ async function buildTrainingVectors(excludeImage, labelExports, imageCache, opti
       cols: labelExport.cols,
       bounds: labelExport.bounds
     };
-    const vectorsByLabel = buildVectorsByLabel(imageData, boardSpec, labelExport.labels, 10);
+    const vectorsByLabel = buildVectorsByLabel(
+      imageData,
+      boardSpec,
+      labelExport.labels,
+      TILE_SAMPLE_SIZE
+    );
     for (const [label, vectors] of vectorsByLabel.entries()) {
       if (!aggregateVectors.has(label)) {
         aggregateVectors.set(label, []);
@@ -395,6 +417,10 @@ async function buildTrainingVectors(excludeImage, labelExports, imageCache, opti
       target.push(...vectors);
       if (options.augmentCopies && options.augmentCopies > 0) {
         target.push(...augmentVectors(vectors, options.augmentCopies, options.noiseStd ?? 0.03));
+      }
+      if (label === "unknown" && target.length > UNKNOWN_SAMPLE_CAP) {
+        shuffleInPlace(target);
+        target.length = UNKNOWN_SAMPLE_CAP;
       }
     }
   }
@@ -627,7 +653,7 @@ function predictLabelWithKnn(vector, vectorsByLabel, centroids, k = 5) {
     return findNearestCentroid(vector, centroids);
   }
 
-  const threshold = bestCentroid.meanDistance + bestCentroid.stdDistance * 2.25;
+  const threshold = bestCentroid.meanDistance + bestCentroid.stdDistance * 4.5;
   if (bestDistance > threshold) {
     return { label: "unknown", distance: bestDistance };
   }
@@ -672,6 +698,13 @@ function gaussianRandom() {
     v = Math.random();
   }
   return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+}
+
+function shuffleInPlace(items) {
+  for (let i = items.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [items[i], items[j]] = [items[j], items[i]];
+  }
 }
 
 function getTileRect(board, row, col) {
