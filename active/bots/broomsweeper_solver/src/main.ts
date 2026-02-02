@@ -105,6 +105,8 @@ const runDiagnosticsButton = document.querySelector<HTMLButtonElement>("#runDiag
 const diagnosticsSummary = document.querySelector<HTMLDivElement>("#diagnosticsSummary");
 const diagnosticsResultsSection = document.querySelector<HTMLElement>("#diagnosticsResults");
 const diagnosticsTableBody = document.querySelector<HTMLTableSectionElement>("#diagnosticsTableBody");
+const diagnosticsPreviewImage = document.querySelector<HTMLImageElement>("#diagnosticsPreviewImage");
+const diagnosticsPreviewMeta = document.querySelector<HTMLDivElement>("#diagnosticsPreviewMeta");
 
 const imageCanvas = document.querySelector<HTMLCanvasElement>("#imageCanvas");
 const overlayCanvas = document.querySelector<HTMLCanvasElement>("#overlayCanvas");
@@ -140,6 +142,8 @@ if (
   !diagnosticsSummary ||
   !diagnosticsResultsSection ||
   !diagnosticsTableBody ||
+  !diagnosticsPreviewImage ||
+  !diagnosticsPreviewMeta ||
   !imageCanvas ||
   !overlayCanvas ||
   !statusList ||
@@ -172,6 +176,7 @@ let labelOutputDirectory: FileSystemDirectoryHandle | null = null;
 let templateBank: TemplateVector[] = [];
 let labelCentroids: LabelCentroid[] = [];
 let diagnosticsRows: DiagnosticsRow[] = [];
+let selectedDiagnosticsRow: DiagnosticsRow | null = null;
 
 const labelFilesByImage = new Map<string, LabelExport>();
 for (const labelFile of datasetLabelFiles) {
@@ -790,12 +795,16 @@ type DiagnosticsRow = {
   expected: string;
   predicted: string;
   distance: number;
+  previewUrl: string;
 };
 
 async function runDiagnostics(): Promise<void> {
   diagnosticsSummary.textContent = "Running diagnostics...";
   diagnosticsTableBody.innerHTML = "";
   diagnosticsRows = [];
+  selectedDiagnosticsRow = null;
+  diagnosticsPreviewImage.src = "";
+  diagnosticsPreviewMeta.textContent = "Select a mismatch row to preview.";
   setDiagnosticsStatus(["Loading images and labels..."]);
 
   if (datasetLabelFiles.length === 0) {
@@ -839,13 +848,15 @@ async function runDiagnostics(): Promise<void> {
         correct += 1;
       } else {
         mismatched += 1;
+        const previewUrl = buildTilePreview(imageData, tileRect, 160);
         diagnosticsRows.push({
           image: labelExport.image,
           row: label.row,
           col: label.col,
           expected: label.label,
           predicted,
-          distance: match?.distance ?? 0
+          distance: match?.distance ?? 0,
+          previewUrl
         });
       }
     }
@@ -911,6 +922,15 @@ function renderDiagnosticsTable(): void {
   }
   for (const entry of diagnosticsRows) {
     const row = document.createElement("tr");
+    row.addEventListener("click", () => {
+      selectedDiagnosticsRow = entry;
+      updateDiagnosticsPreview();
+      const existingSelected = diagnosticsTableBody.querySelector("tr.selected");
+      if (existingSelected) {
+        existingSelected.classList.remove("selected");
+      }
+      row.classList.add("selected");
+    });
     row.appendChild(buildCell(entry.image));
     row.appendChild(buildCell(entry.row.toString()));
     row.appendChild(buildCell(entry.col.toString()));
@@ -925,6 +945,61 @@ function buildCell(text: string): HTMLTableCellElement {
   const cell = document.createElement("td");
   cell.textContent = text;
   return cell;
+}
+
+function updateDiagnosticsPreview(): void {
+  if (!selectedDiagnosticsRow) {
+    diagnosticsPreviewImage.src = "";
+    diagnosticsPreviewMeta.textContent = "Select a mismatch row to preview.";
+    return;
+  }
+  diagnosticsPreviewImage.src = selectedDiagnosticsRow.previewUrl;
+  diagnosticsPreviewMeta.textContent = `${selectedDiagnosticsRow.image} • r${selectedDiagnosticsRow.row} c${selectedDiagnosticsRow.col} • ${selectedDiagnosticsRow.expected} → ${selectedDiagnosticsRow.predicted}`;
+}
+
+function buildTilePreview(imageData: ImageData, rect: Rect, size: number): string {
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) {
+    return "";
+  }
+  ctx.imageSmoothingEnabled = false;
+  const cropped = cropImageData(imageData, rect);
+  ctx.drawImage(cropped.canvas, 0, 0, size, size);
+  return canvas.toDataURL("image/png");
+}
+
+function cropImageData(imageData: ImageData, rect: Rect): { canvas: HTMLCanvasElement } {
+  const temp = document.createElement("canvas");
+  temp.width = imageData.width;
+  temp.height = imageData.height;
+  const tempCtx = temp.getContext("2d", { willReadFrequently: true });
+  if (!tempCtx) {
+    throw new Error("Unable to create temp canvas.");
+  }
+  tempCtx.putImageData(imageData, 0, 0);
+
+  const cropCanvas = document.createElement("canvas");
+  cropCanvas.width = Math.max(1, Math.floor(rect.width));
+  cropCanvas.height = Math.max(1, Math.floor(rect.height));
+  const cropCtx = cropCanvas.getContext("2d");
+  if (!cropCtx) {
+    throw new Error("Unable to create crop canvas.");
+  }
+  cropCtx.drawImage(
+    temp,
+    rect.x,
+    rect.y,
+    rect.width,
+    rect.height,
+    0,
+    0,
+    cropCanvas.width,
+    cropCanvas.height
+  );
+  return { canvas: cropCanvas };
 }
 
 function detectBoard(): DetectedBoard | null {
@@ -966,16 +1041,13 @@ function applyLabelExport(payload: LabelExport): void {
 }
 
 async function saveLabelExport(payload: LabelExport): Promise<void> {
-  const saved = await saveLabelExportToServer(payload);
-  if (saved) {
-    return;
-  }
-  setLabelerStatus([
-    "Server save failed. Ensure the dev server is running and /api/labels is reachable."
-  ]);
+  const result = await saveLabelExportToServer(payload);
+  setLabelerStatus([result.message]);
 }
 
-async function saveLabelExportToServer(payload: LabelExport): Promise<boolean> {
+async function saveLabelExportToServer(
+  payload: LabelExport
+): Promise<{ ok: boolean; message: string }> {
   try {
     const response = await fetch("/api/labels", {
       method: "POST",
@@ -985,18 +1057,24 @@ async function saveLabelExportToServer(payload: LabelExport): Promise<boolean> {
       body: JSON.stringify(payload)
     });
 
+    const text = await response.text();
     if (!response.ok) {
-      return false;
+      return {
+        ok: false,
+        message: `Server save failed (${response.status}). ${text || "Ensure dev server is running."}`
+      };
     }
 
-    const json = (await response.json().catch(() => null)) as { file?: string } | null;
+    const json = (text ? JSON.parse(text) : null) as { file?: string } | null;
     const message = json?.file
       ? `Label file saved on server (${json.file}).`
       : "Label file saved on server.";
-    setLabelerStatus([message]);
-    return true;
+    return { ok: true, message };
   } catch (error) {
-    return false;
+    return {
+      ok: false,
+      message: "Server save failed. Ensure the dev server is running and /api/labels is reachable."
+    };
   }
 }
 

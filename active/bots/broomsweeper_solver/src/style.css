@@ -183,6 +183,46 @@ canvas {
   font-weight: 700;
 }
 
+.diagnostics-preview {
+  display: flex;
+  justify-content: flex-start;
+  margin-bottom: 1rem;
+}
+
+.preview-card {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  border-radius: 0.75rem;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  max-width: 220px;
+}
+
+.preview-title {
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.preview-card img {
+  width: 160px;
+  height: 160px;
+  object-fit: contain;
+  border-radius: 0.5rem;
+  border: 1px solid #cbd5f5;
+  background: white;
+}
+
+.preview-meta {
+  font-size: 0.85rem;
+  color: #475569;
+}
+
+.diagnostics tr.selected {
+  background: #e0f2fe;
+}
+
 .label-palette {
   display: flex;
   flex-wrap: wrap;
