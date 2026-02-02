@@ -24,6 +24,8 @@ type TemplateVector = {
   vector: number[];
 };
 
+const MIN_IMAGE_DIMENSION = 900;
+
 type FileSystemDirectoryHandle = {
   getFileHandle: (name: string, options?: { create?: boolean }) => Promise<FileSystemFileHandle>;
 };
@@ -502,12 +504,18 @@ function handleLabelerClick(point: Point): void {
 }
 
 function drawBaseImage(image: HTMLImageElement): void {
-  imageCanvas.width = image.naturalWidth;
-  imageCanvas.height = image.naturalHeight;
-  overlayCanvas.width = image.naturalWidth;
-  overlayCanvas.height = image.naturalHeight;
+  const naturalWidth = image.naturalWidth;
+  const naturalHeight = image.naturalHeight;
+  const scale = Math.max(1, MIN_IMAGE_DIMENSION / Math.min(naturalWidth, naturalHeight));
+  const targetWidth = Math.round(naturalWidth * scale);
+  const targetHeight = Math.round(naturalHeight * scale);
+  imageCanvas.width = targetWidth;
+  imageCanvas.height = targetHeight;
+  overlayCanvas.width = targetWidth;
+  overlayCanvas.height = targetHeight;
   imageCtx.clearRect(0, 0, imageCanvas.width, imageCanvas.height);
-  imageCtx.drawImage(image, 0, 0);
+  imageCtx.imageSmoothingEnabled = scale === 1;
+  imageCtx.drawImage(image, 0, 0, targetWidth, targetHeight);
   drawOverlay();
   runSolverButton.disabled = mode !== "solver";
   exportButton.disabled = mode !== "solver";
