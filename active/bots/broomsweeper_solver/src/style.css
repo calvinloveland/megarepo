@@ -24,6 +24,25 @@ header h1 {
   margin: 0 0 0.5rem;
 }
 
+.instructions {
+  background: white;
+  border-radius: 0.75rem;
+  padding: 1rem 1.25rem;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
+}
+
+.instructions h2 {
+  margin: 0 0 0.5rem;
+  font-size: 1.05rem;
+}
+
+.instructions ol {
+  margin: 0;
+  padding-left: 1.25rem;
+  display: grid;
+  gap: 0.4rem;
+}
+
 .controls {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
