@@ -1131,7 +1131,7 @@ async function evaluateDiagnostics(
     const trainingVectors = await buildTrainingVectors(labelExport.image, labelExports, {
       augmentCopies: options.augmentCopies,
       noiseStd: options.noiseStd,
-      includeSelf: options.includeSelf
+      includeSelf: options.includeSelf,
       includeSelfOnly: options.includeSelfOnly
     });
     const centroids = buildLabelCentroids(trainingVectors);
