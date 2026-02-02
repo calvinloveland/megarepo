@@ -1132,9 +1132,10 @@ async function saveLabelExportToServer(
 
     const text = await response.text();
     if (!response.ok) {
+      const details = text ? ` ${text}` : "";
       return {
         ok: false,
-        message: `Server save failed (${response.status}). ${text || "Ensure dev server is running."}`
+        message: `Server save failed (${response.status}).${details || " Ensure dev server is running."}`
       };
     }
 

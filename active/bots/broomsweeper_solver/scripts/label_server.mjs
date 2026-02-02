@@ -32,6 +32,12 @@ const server = http.createServer(async (req, res) => {
   });
   req.on("end", async () => {
     try {
+      if (!body) {
+        res.statusCode = 400;
+        res.setHeader("Content-Type", "application/json");
+        res.end(JSON.stringify({ ok: false, error: "Empty request body." }));
+        return;
+      }
       const payload = JSON.parse(body);
       if (!payload?.image || typeof payload.image !== "string") {
         res.statusCode = 400;
@@ -59,9 +65,17 @@ const server = http.createServer(async (req, res) => {
         })
       );
     } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error("Label save failed:", error);
       res.statusCode = 500;
       res.setHeader("Content-Type", "application/json");
-      res.end(JSON.stringify({ ok: false, error: "Failed to save labels." }));
+      res.end(
+        JSON.stringify({
+          ok: false,
+          error: "Failed to save labels.",
+          details: error instanceof Error ? error.message : String(error)
+        })
+      );
     }
   });
 });

@@ -11,6 +11,9 @@ export default defineConfig({
   server: {
     host: "0.0.0.0",
     port: 5174,
+    watch: {
+      ignored: ["**/data/*.labels.json"]
+    },
     configureServer(server) {
       server.middlewares.use("/api/labels", async (req, res, next) => {
         if (req.method !== "POST") {
