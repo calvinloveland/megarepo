@@ -50,12 +50,14 @@ const server = http.createServer(async (req, res) => {
       const safeName = path.basename(payload.image).replace(/[^a-zA-Z0-9._-]/g, "_");
       await fs.mkdir(dataDir, { recursive: true });
       const outputPath = path.join(dataDir, `${safeName}.labels.json`);
+      const tempPath = path.join(dataDir, `${safeName}.labels.json.tmp`);
       const exists = await fs
         .stat(outputPath)
         .then(() => true)
         .catch(() => false);
       try {
-        await fs.writeFile(outputPath, JSON.stringify(payload, null, 2), "utf-8");
+        await fs.writeFile(tempPath, JSON.stringify(payload, null, 2), "utf-8");
+        await fs.rename(tempPath, outputPath);
         res.statusCode = 200;
         res.setHeader("Content-Type", "application/json");
         res.end(
@@ -67,6 +69,7 @@ const server = http.createServer(async (req, res) => {
           })
         );
       } catch (error) {
+        await fs.rm(tempPath, { force: true });
         await fs.mkdir(fallbackDir, { recursive: true });
         const fallbackPath = path.join(fallbackDir, `${safeName}.labels.json`);
         await fs.writeFile(fallbackPath, JSON.stringify(payload, null, 2), "utf-8");
