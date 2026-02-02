@@ -934,6 +934,21 @@ type ClassifierHistoryEntry = {
   total: number;
 };
 
+type ConfusionRow = { expected: string; predicted: string; count: number; rate: number };
+
+type DiagnosticsApiResponse = {
+  version: string;
+  generatedAt: string;
+  baseline: { metrics: SummaryMetrics };
+  augmented: {
+    metrics: SummaryMetrics;
+    labelMetrics: LabelDiagnosticsMetrics[];
+    imageMetrics: ImageDiagnosticsMetrics[];
+    confusions: ConfusionRow[];
+    rows: DiagnosticsRow[];
+  };
+};
+
 async function runDiagnostics(): Promise<void> {
   diagnosticsSummary.textContent = "Running diagnostics...";
   diagnosticsTableBody.innerHTML = "";
@@ -954,6 +969,24 @@ async function runDiagnostics(): Promise<void> {
     setDiagnosticsStatus(["Add .labels.json files to data/."]);
     return;
   }
+
+  const apiDiagnostics = await fetchDiagnosticsFromServer();
+  if (apiDiagnostics) {
+    diagnosticsRows = apiDiagnostics.augmented.rows;
+    const baseline = apiDiagnostics.baseline.metrics;
+    const augmented = apiDiagnostics.augmented.metrics;
+    const delta = augmented.accuracy - baseline.accuracy;
+    diagnosticsSummary.textContent = `Augmented accuracy: ${(augmented.accuracy * 100).toFixed(1)}% (${augmented.total - augmented.mismatched}/${augmented.total}) | Baseline: ${(baseline.accuracy * 100).toFixed(1)}% | Δ ${(delta * 100).toFixed(1)}% | Non-unknown: ${(augmented.nonUnknownAccuracy * 100).toFixed(1)}% | Avg dist: ${augmented.avgDistance.toFixed(4)} | Mismatches: ${augmented.mismatched}`;
+    setDiagnosticsStatus(["Diagnostics complete (server)."]);
+    renderDiagnosticsMetrics(augmented, baseline, apiDiagnostics.version);
+    recordClassifierAccuracy(augmented, apiDiagnostics.version);
+    renderHistoryTable();
+    renderLabelMetricsTable(apiDiagnostics.augmented.labelMetrics);
+    renderImageMetricsTable(apiDiagnostics.augmented.imageMetrics);
+    renderConfusionTable(apiDiagnostics.augmented.confusions);
+    renderDiagnosticsTable();
+    return;
+  }
   const baseline = await evaluateDiagnostics(labelExports, { collectDetails: false });
   const augmented = await evaluateDiagnostics(labelExports, {
     collectDetails: true,
@@ -965,13 +998,29 @@ async function runDiagnostics(): Promise<void> {
   const delta = augmented.metrics.accuracy - baseline.metrics.accuracy;
   diagnosticsSummary.textContent = `Augmented accuracy: ${(augmented.metrics.accuracy * 100).toFixed(1)}% (${augmented.metrics.total - augmented.metrics.mismatched}/${augmented.metrics.total}) | Baseline: ${(baseline.metrics.accuracy * 100).toFixed(1)}% | Δ ${(delta * 100).toFixed(1)}% | Non-unknown: ${(augmented.metrics.nonUnknownAccuracy * 100).toFixed(1)}% | Avg dist: ${augmented.metrics.avgDistance.toFixed(4)} | Mismatches: ${augmented.metrics.mismatched}`;
   setDiagnosticsStatus(["Diagnostics complete."]);
-  renderDiagnosticsMetrics(augmented.metrics, baseline.metrics);
-  recordClassifierAccuracy(augmented.metrics);
+  renderDiagnosticsMetrics(augmented.metrics, baseline.metrics, CLASSIFIER_VERSION);
+  recordClassifierAccuracy(augmented.metrics, CLASSIFIER_VERSION);
   renderHistoryTable();
   renderLabelMetricsTable(buildLabelMetrics(augmented.labelStats));
   renderImageMetricsTable(buildImageMetrics(augmented.imageStats));
   renderConfusionTable(buildConfusionRows(augmented.confusionCounts, augmented.labelStats));
   renderDiagnosticsTable();
+}
+
+async function fetchDiagnosticsFromServer(): Promise<DiagnosticsApiResponse | null> {
+  try {
+    const response = await fetch("/api/diagnostics", { cache: "no-store" });
+    if (!response.ok) {
+      return null;
+    }
+    const json = (await response.json()) as DiagnosticsApiResponse;
+    if (!json?.augmented?.metrics) {
+      return null;
+    }
+    return json;
+  } catch (error) {
+    return null;
+  }
 }
 
 async function evaluateDiagnostics(
@@ -1170,12 +1219,16 @@ async function evaluateDiagnostics(
   };
 }
 
-function renderDiagnosticsMetrics(metrics: SummaryMetrics, baseline: SummaryMetrics): void {
+function renderDiagnosticsMetrics(
+  metrics: SummaryMetrics,
+  baseline: SummaryMetrics,
+  version: string
+): void {
   diagnosticsMetrics.innerHTML = "";
   const deltaAccuracy = metrics.accuracy - baseline.accuracy;
   const deltaNonUnknown = metrics.nonUnknownAccuracy - baseline.nonUnknownAccuracy;
   const metricItems = [
-    { label: "Classifier version", value: CLASSIFIER_VERSION },
+    { label: "Classifier version", value: version },
     { label: "Baseline accuracy", value: formatPercent(baseline.accuracy) },
     { label: "Augmented accuracy", value: formatPercent(metrics.accuracy) },
     { label: "Accuracy Δ", value: formatPercent(deltaAccuracy) },
@@ -1342,15 +1395,18 @@ function renderConfusionTable(
   }
 }
 
-function recordClassifierAccuracy(metrics: {
-  accuracy: number;
-  nonUnknownAccuracy: number;
-  avgDistance: number;
-  total: number;
-}): void {
+function recordClassifierAccuracy(
+  metrics: {
+    accuracy: number;
+    nonUnknownAccuracy: number;
+    avgDistance: number;
+    total: number;
+  },
+  version: string
+): void {
   const history = loadClassifierHistory();
   history.unshift({
-    version: CLASSIFIER_VERSION,
+    version,
     recordedAt: new Date().toISOString(),
     accuracy: metrics.accuracy,
     nonUnknownAccuracy: metrics.nonUnknownAccuracy,
