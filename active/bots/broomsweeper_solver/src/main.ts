@@ -867,7 +867,11 @@ async function runDiagnostics(): Promise<void> {
 
     const image = await loadImageFromUrl(imageEntry.url);
     const imageData = getImageDataFromImage(image);
-    const boardSpec = getDiagnosticsBoardSpec(imageData, labelExport);
+    const boardSpec: BoardSpec = {
+      rows: labelExport.rows,
+      cols: labelExport.cols,
+      bounds: labelExport.bounds
+    };
 
     for (const label of labelExport.labels) {
       const tileRect = getTileRect(boardSpec, label.row, label.col);
@@ -895,10 +899,7 @@ async function runDiagnostics(): Promise<void> {
 
   const accuracy = total > 0 ? correct / total : 0;
   diagnosticsSummary.textContent = `Accuracy: ${(accuracy * 100).toFixed(1)}% (${correct}/${total}) | Mismatches: ${mismatched}`;
-  setDiagnosticsStatus([
-    "Diagnostics complete.",
-    "Using auto-detected bounds when available for alignment."
-  ]);
+  setDiagnosticsStatus(["Diagnostics complete."]);
   renderDiagnosticsTable();
 }
 
@@ -915,7 +916,11 @@ async function buildTrainingVectors(excludeImage: string): Promise<Map<string, n
     }
     const image = await loadImageFromUrl(imageEntry.url);
     const imageData = getImageDataFromImage(image);
-    const boardSpec = getDiagnosticsBoardSpec(imageData, labelExport);
+    const boardSpec: BoardSpec = {
+      rows: labelExport.rows,
+      cols: labelExport.cols,
+      bounds: labelExport.bounds
+    };
     const vectorsByLabel = buildVectorsByLabel(imageData, boardSpec, labelExport.labels, 10);
     for (const [label, vectors] of vectorsByLabel.entries()) {
       if (!aggregateVectors.has(label)) {
@@ -937,23 +942,6 @@ function getImageDataFromImage(image: HTMLImageElement): ImageData {
   }
   ctx.drawImage(image, 0, 0);
   return ctx.getImageData(0, 0, canvas.width, canvas.height);
-}
-
-function getDiagnosticsBoardSpec(imageData: ImageData, labelExport: LabelExport): BoardSpec {
-  const normalized = normalizeLabelExport(labelExport);
-  const detected = detectBoardFromEdges(imageData);
-  if (detected) {
-    return {
-      rows: normalized.rows,
-      cols: normalized.cols,
-      bounds: detected.bounds
-    };
-  }
-  return {
-    rows: normalized.rows,
-    cols: normalized.cols,
-    bounds: normalized.bounds
-  };
 }
 
 function renderDiagnosticsTable(): void {
