@@ -37,6 +37,10 @@ These environment variables follow the Wizard Fight Copilot backend pattern:
 - `COPILOT_LINT_FIXER_CLI_URL` (optional)
 - `COPILOT_LINT_FIXER_ALLOW_PREMIUM` (default: `false`)
 
+If the SDK can list models and a premium model is requested while
+`COPILOT_LINT_FIXER_ALLOW_PREMIUM` is false, the tool will error before
+submitting any requests.
+
 ## Fixtures
 
 Intentional lint fixtures live in `fixtures/`. They are designed to trigger `pylint` warnings for testing the tool.

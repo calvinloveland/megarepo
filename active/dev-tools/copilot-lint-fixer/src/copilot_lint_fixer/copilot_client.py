@@ -95,17 +95,103 @@ class CopilotFixer:
             future = executor.submit(runner)
             return future.result()
 
+    def _select_model(self) -> str:
+        self._ensure_client()
+        if self._client is None:
+            return self.model
+
+        try:
+            if hasattr(self._client, "list_models"):
+                async def list_models_with_start():
+                    if hasattr(self._client, "start") and hasattr(self._client, "stop"):
+                        await self._client.start()
+                        try:
+                            return await self._client.list_models()
+                        finally:
+                            await self._client.stop()
+                    return await self._client.list_models()
+
+                models = self._run_async(list_models_with_start())
+                if models:
+                    requested = self.model
+                    for model in models:
+                        model_id = model.get("id") if isinstance(model, dict) else None
+                        billing = model.get("billing") if isinstance(model, dict) else None
+                        is_premium = False
+                        if isinstance(billing, dict):
+                            is_premium = bool(billing.get("is_premium"))
+                        if model_id == requested:
+                            if is_premium and not self.allow_premium:
+                                raise RuntimeError(
+                                    f"Requested model {requested} is premium and allow_premium is false"
+                                )
+                            return requested
+
+                    if requested != DEFAULT_MODEL:
+                        for model in models:
+                            model_id = model.get("id") if isinstance(model, dict) else None
+                            billing = model.get("billing") if isinstance(model, dict) else None
+                            is_premium = False
+                            if isinstance(billing, dict):
+                                is_premium = bool(billing.get("is_premium"))
+                            if model_id == DEFAULT_MODEL and (self.allow_premium or not is_premium):
+                                self.model = DEFAULT_MODEL
+                                return DEFAULT_MODEL
+
+                    for model in models:
+                        model_id = model.get("id") if isinstance(model, dict) else None
+                        billing = model.get("billing") if isinstance(model, dict) else None
+                        is_premium = False
+                        if isinstance(billing, dict):
+                            is_premium = bool(billing.get("is_premium"))
+                        if model_id and not is_premium:
+                            self.model = model_id
+                            return model_id
+
+            if hasattr(self._client, "models"):
+                raw_models = None
+                if hasattr(self._client.models, "list") and callable(getattr(self._client.models, "list")):
+                    raw_models = list(self._client.models.list())  # type: ignore
+                else:
+                    raw_models = list(self._client.models)
+
+                names = [getattr(m, "name", None) for m in raw_models]
+                if self.model in names:
+                    meta = next((m for m in raw_models if getattr(m, "name", None) == self.model), None)
+                    if getattr(meta, "premium", False) and not self.allow_premium:
+                        raise RuntimeError(
+                            f"Requested model {self.model} is premium and allow_premium is false"
+                        )
+                    return self.model
+
+                for candidate in [DEFAULT_MODEL]:
+                    if candidate in names:
+                        self.model = candidate
+                        return candidate
+
+                for m in raw_models:
+                    if not getattr(m, "premium", False):
+                        self.model = getattr(m, "name")
+                        return self.model
+        except Exception as exc:
+            logger.warning("Model selection failed; using configured model %s: %s", self.model, exc)
+
+        return self.model
+
     def generate_fix(self, system: str, user: str) -> str:
         self._ensure_client()
         if self._client is None:
             raise RuntimeError("Copilot client is not available")
+
+        resolved_model = self._select_model()
+        logger.info("Copilot model: %s (allow_premium=%s)", resolved_model, self.allow_premium)
 
         start = time.perf_counter()
 
         if hasattr(self._client, "start") and hasattr(self._client, "create_session"):
             async def run_session():
                 await self._client.start()
-                session = await self._client.create_session({"model": self.model})
+                session = await self._client.create_session({"model": resolved_model})
                 done = asyncio.Event()
                 content_holder = {"text": ""}
 
@@ -135,9 +221,9 @@ class CopilotFixer:
         session = None
         if hasattr(self._client, "create_session"):
             try:
-                session = self._client.create_session(model=self.model, streaming=False)
+                session = self._client.create_session(model=resolved_model, streaming=False)
             except TypeError:
-                session = self._client.create_session({"model": self.model, "streaming": False})
+                session = self._client.create_session({"model": resolved_model, "streaming": False})
 
         if session is not None:
             if hasattr(session, "send_and_wait"):
@@ -151,7 +237,7 @@ class CopilotFixer:
         if hasattr(self._client, "complete"):
             response = self._client.complete(
                 {
-                    "model": self.model,
+                    "model": resolved_model,
                     "prompt": f"{system}\n{user}\nJSON:",
                 }
             )
