@@ -81,6 +81,7 @@ def fix_file(
     issue_index: int,
     pylint_args: List[str],
     dry_run: bool,
+    verbose: bool,
 ) -> bool:
     issues = run_pylint(file_path, pylint_args)
     issue = select_issue(issues, issue_index)
@@ -94,6 +95,8 @@ def fix_file(
     updated = extract_updated_file(response)
     if updated is None:
         logger.warning("Copilot response did not include updated_file for %s", file_path)
+        if verbose:
+            logger.debug("Copilot response for %s: %s", file_path, response)
         return False
 
     if updated == content:
@@ -137,6 +140,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                 args.issue_index,
                 args.pylint_args,
                 args.dry_run,
+                args.verbose,
             ):
                 fixes += 1
         except Exception as exc:  # pragma: no cover - defensive
