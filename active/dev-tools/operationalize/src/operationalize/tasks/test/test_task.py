@@ -1,3 +1,9 @@
+"""Unit tests for operationalize.tasks.task.TaskDAG.
+
+These tests exercise basic TaskDAG behavior used by the operationalize
+package.
+"""
+
 import sys
 from copy import deepcopy
 

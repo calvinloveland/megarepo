@@ -1,3 +1,5 @@
+"""Tests for the operationalize.main Flask app."""
+
 import pytest
 
 from operationalize.main import app

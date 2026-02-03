@@ -1404,7 +1404,15 @@ class Jscpd(Tool):  # pylint: disable=too-few-public-methods
         self.min_lines = min_lines
         self.min_tokens = min_tokens
         self.threshold = threshold
-        self.ignore = ignore or ["**/node_modules/**", "**/.git/**", "**/venv/**", "**/__pycache__/**"]
+        self.ignore = (
+            ignore
+            or [
+                "**/node_modules/**",
+                "**/.git/**",
+                "**/venv/**",
+                "**/__pycache__/**",
+            ]
+        )
         self.timeout = timeout if timeout is not None else DEFAULT_JSCPD_TIMEOUT
 
     def run(self, repo_path: str) -> Dict[str, Any]:

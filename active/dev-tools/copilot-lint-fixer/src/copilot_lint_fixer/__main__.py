@@ -1,3 +1,5 @@
+"""Command-line entry point for copilot-lint-fixer."""
+
 from copilot_lint_fixer.cli import main
 
 

@@ -39,6 +39,7 @@ class _DashboardServer(threading.Thread):
             self._context.pop()
 
     def stop(self) -> None:
+        """Stop the running dashboard server."""
         self._server.shutdown()
 
 

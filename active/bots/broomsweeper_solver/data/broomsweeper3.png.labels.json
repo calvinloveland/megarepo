@@ -1,0 +1,94 @@
+{
+  "image": "broomsweeper3.png",
+  "rows": 4,
+  "cols": 4,
+  "bounds": {
+    "x": 194,
+    "y": 151.828125,
+    "width": 506,
+    "height": 511
+  },
+  "labels": [
+    {
+      "row": 0,
+      "col": 0,
+      "label": "empty"
+    },
+    {
+      "row": 0,
+      "col": 1,
+      "label": "empty"
+    },
+    {
+      "row": 0,
+      "col": 2,
+      "label": "1"
+    },
+    {
+      "row": 0,
+      "col": 3,
+      "label": "unknown"
+    },
+    {
+      "row": 1,
+      "col": 0,
+      "label": "empty"
+    },
+    {
+      "row": 1,
+      "col": 1,
+      "label": "empty"
+    },
+    {
+      "row": 1,
+      "col": 2,
+      "label": "1"
+    },
+    {
+      "row": 1,
+      "col": 3,
+      "label": "unknown"
+    },
+    {
+      "row": 2,
+      "col": 0,
+      "label": "1"
+    },
+    {
+      "row": 2,
+      "col": 1,
+      "label": "1"
+    },
+    {
+      "row": 2,
+      "col": 2,
+      "label": "4"
+    },
+    {
+      "row": 2,
+      "col": 3,
+      "label": "unknown"
+    },
+    {
+      "row": 3,
+      "col": 0,
+      "label": "unknown"
+    },
+    {
+      "row": 3,
+      "col": 1,
+      "label": "unknown"
+    },
+    {
+      "row": 3,
+      "col": 2,
+      "label": "2"
+    },
+    {
+      "row": 3,
+      "col": 3,
+      "label": "unknown"
+    }
+  ],
+  "createdAt": "2026-02-02T21:53:01.839Z"
+}

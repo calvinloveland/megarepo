@@ -14,6 +14,13 @@ async def _send_json(writer: asyncio.StreamWriter, payload: Dict[str, Any]) -> N
 
 
 async def main(host: str, port: int, token: str | None) -> None:
+    """Run the example MCP client: handshake with the server and list repositories.
+
+    Args:
+        host: The MCP server host.
+        port: The MCP server port.
+        token: Optional authentication token to include in requests.
+    """
     reader, writer = await asyncio.open_connection(host, port)
     try:
         request = {"jsonrpc": "2.0", "id": 1, "method": "handshake", "params": {}}

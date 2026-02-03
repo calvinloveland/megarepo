@@ -1,3 +1,5 @@
+"""Simple math utilities used in fixtures."""
+
 import os
 
 
