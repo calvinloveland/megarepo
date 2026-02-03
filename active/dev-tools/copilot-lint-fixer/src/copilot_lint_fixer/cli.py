@@ -92,6 +92,11 @@ def fix_file(
     content = file_path.read_text(encoding="utf-8")
     system, user = build_fix_prompt(str(file_path), issue.to_payload(), content)
     response = fixer.generate_fix(system, user)
+    if not response:
+        logger.warning("Copilot returned empty response for %s", file_path)
+        if verbose:
+            logger.debug("Copilot response for %s: %r", file_path, response)
+        return False
     updated = extract_updated_file(response)
     if updated is None:
         logger.warning("Copilot response did not include updated_file for %s", file_path)
