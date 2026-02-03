@@ -1,7 +1,10 @@
+"""Unit tests for the SoftwareCreation task."""
+
 from operationalize.tasks.software_creation import SoftwareCreation
 
 
 def test_software_creation():
+    """Verify SoftwareCreation has correct name and next task."""
     software_creation = SoftwareCreation()
     assert software_creation.name == "Software Creation"
     assert software_creation.get_next_task().name == "Brainstorming"

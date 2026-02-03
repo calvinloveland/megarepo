@@ -109,10 +109,10 @@ def dashboard_server(tmp_path_factory: pytest.TempPathFactory):
 
 
 @pytest.fixture()
-def dashboard_data_access(dashboard_server):
+def dashboard_data_access(request):
     """Expose the dashboard's data access helper for test setup."""
 
-    return dashboard_server["data_access"]
+    return request.getfixturevalue("dashboard_server")["data_access"]
 
 
 @pytest.fixture(scope="session")

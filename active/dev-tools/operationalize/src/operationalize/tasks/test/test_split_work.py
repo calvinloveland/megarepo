@@ -1,3 +1,5 @@
+"""Unit tests for the SplitWork task."""
+
 import pytest
 
 from operationalize.tasks.split_work import SplitWork
@@ -6,6 +8,7 @@ from operationalize.tasks.task import TaskDAG
 
 @pytest.fixture
 def work_chain():
+    """Fixture that builds a simple work chain with two tasks."""
     first_task = TaskDAG(completion_text="Output from first task:")
     second_task = TaskDAG(completion_text="Output from second task:")
     first_task.append_node(second_task)

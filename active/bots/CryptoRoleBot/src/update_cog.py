@@ -1,3 +1,5 @@
+"""Background task cog for assigning/removing roles and channel permissions based on Rally balances."""
+
 import json
 import threading
 

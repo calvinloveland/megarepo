@@ -1,3 +1,9 @@
+"""Configuration module for CryptoRoleBot.
+
+Provides a global CONFIG and a configargparse ArgParser to parse
+configuration from a config file or command-line arguments.
+"""
+
 import configargparse
 
 CONFIG = None

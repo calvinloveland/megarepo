@@ -1,3 +1,8 @@
+"""Validation helpers for CryptoRoleBot.
+
+Provides checks and validators used by bot commands (permissions, role/channel/coin validation).
+"""
+
 from discord.ext import commands
 from discord.utils import get
 

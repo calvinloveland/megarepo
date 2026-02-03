@@ -1,3 +1,6 @@
+"""Example demonstrating name mangling with double-underscore attributes and inheritance.
+"""
+
 class Parent():
     def __init__(self):
         self.name = 'Parent'
