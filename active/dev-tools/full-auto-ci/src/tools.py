@@ -143,57 +143,87 @@ class Pylint(Tool):  # pylint: disable=too-few-public-methods
                     "details": [],
                 }
 
-            details: List[Dict[str, Any]] = []
-            issues_by_type: Dict[str, int] = {}
-            failed_files: List[str] = []
-            env = os.environ.copy()
-            existing = env.get("PYTHONPATH")
-            env["PYTHONPATH"] = (
-                repo_path if not existing else f"{repo_path}{os.pathsep}{existing}"
-            )
-
-            for file_path in _progress(files, desc="pylint", unit="file"):
-                cmd = self._build_command(repo_path, [file_path])
-                try:
-                    process = subprocess.run(
-                        cmd,
-                        capture_output=True,
-                        text=True,
-                        check=False,
-                        cwd=repo_path,
-                        env=env,
-                        timeout=self.timeout,
-                    )
-                except subprocess.TimeoutExpired:
-                    logger.error("Pylint timed out on %s", file_path)
-                    failed_files.append(file_path)
-                    continue
-
-                parsed = self._parse_process(process)
-                if parsed.get("status") == "success":
-                    file_details = parsed.get("details") or []
-                    if isinstance(file_details, list):
-                        details.extend(file_details)
-                    file_issues = parsed.get("issues") or {}
-                    for issue_type, count in file_issues.items():
-                        issues_by_type[issue_type] = issues_by_type.get(issue_type, 0) + count
-                else:
-                    failed_files.append(file_path)
-
-            score = self._estimate_score(issues_by_type)
-            status = "success" if not failed_files else "error"
-            result: Dict[str, Any] = {
-                "status": status,
-                "score": score,
-                "issues": issues_by_type,
-                "details": details,
-            }
-            if failed_files:
-                result["failed_files"] = failed_files
-            return result
+            env = self._build_pylint_env(repo_path)
+            return self._run_pylint_files(repo_path, files, env)
         except Exception as error:  # pylint: disable=broad-except
             logger.exception("Error running Pylint")
             return {"status": "error", "error": str(error)}
+
+    @staticmethod
+    def _build_pylint_env(repo_path: str) -> Dict[str, str]:
+        env = os.environ.copy()
+        existing = env.get("PYTHONPATH")
+        env["PYTHONPATH"] = (
+            repo_path if not existing else f"{repo_path}{os.pathsep}{existing}"
+        )
+        return env
+
+    def _run_pylint_files(
+        self,
+        repo_path: str,
+        files: List[str],
+        env: Dict[str, str],
+    ) -> Dict[str, Any]:
+        details: List[Dict[str, Any]] = []
+        issues_by_type: Dict[str, int] = {}
+        failed_files: List[str] = []
+
+        for file_path in _progress(files, desc="pylint", unit="file"):
+            parsed = self._run_pylint_for_file(repo_path, file_path, env)
+            if parsed is None:
+                failed_files.append(file_path)
+                continue
+            if parsed.get("status") == "success":
+                self._merge_pylint_results(parsed, details, issues_by_type)
+            else:
+                failed_files.append(file_path)
+
+        score = self._estimate_score(issues_by_type)
+        status = "success" if not failed_files else "error"
+        result: Dict[str, Any] = {
+            "status": status,
+            "score": score,
+            "issues": issues_by_type,
+            "details": details,
+        }
+        if failed_files:
+            result["failed_files"] = failed_files
+        return result
+
+    def _run_pylint_for_file(
+        self,
+        repo_path: str,
+        file_path: str,
+        env: Dict[str, str],
+    ) -> Optional[Dict[str, Any]]:
+        cmd = self._build_command(repo_path, [file_path])
+        try:
+            process = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                check=False,
+                cwd=repo_path,
+                env=env,
+                timeout=self.timeout,
+            )
+        except subprocess.TimeoutExpired:
+            logger.error("Pylint timed out on %s", file_path)
+            return None
+        return self._parse_process(process)
+
+    @staticmethod
+    def _merge_pylint_results(
+        parsed: Dict[str, Any],
+        details: List[Dict[str, Any]],
+        issues_by_type: Dict[str, int],
+    ) -> None:
+        file_details = parsed.get("details") or []
+        if isinstance(file_details, list):
+            details.extend(file_details)
+        file_issues = parsed.get("issues") or {}
+        for issue_type, count in file_issues.items():
+            issues_by_type[issue_type] = issues_by_type.get(issue_type, 0) + count
 
     def _build_command(self, repo_path: str, targets: List[str]) -> List[str]:
         cmd = ["pylint", "--output-format=json"]
@@ -718,6 +748,64 @@ class Coverage(Tool):  # pylint: disable=too-few-public-methods
 
         return cmd
 
+    @staticmethod
+    def _normalize_subprocess_output(value: Optional[Any]) -> Optional[str]:
+        if value is None:
+            return None
+        if isinstance(value, bytes):
+            return value.decode("utf-8", errors="replace")
+        if isinstance(value, str):
+            return value
+        return str(value)
+
+    def _timeout_namespace(
+        self,
+        exc: subprocess.TimeoutExpired,
+        *,
+        returncode: int = -1,
+    ) -> SimpleNamespace:
+        return SimpleNamespace(
+            returncode=returncode,
+            stdout=self._normalize_subprocess_output(exc.stdout),
+            stderr=self._normalize_subprocess_output(exc.stderr),
+        )
+
+    def _attempt_collect_only(self, repo_path: str) -> Optional[subprocess.CompletedProcess]:
+        return subprocess.run(
+            ["pytest", "--collect-only", "-q"],
+            capture_output=True,
+            text=True,
+            check=False,
+            cwd=repo_path,
+            timeout=30,
+        )
+
+    def _handle_coverage_timeout(
+        self,
+        repo_path: str,
+        exc: subprocess.TimeoutExpired,
+    ) -> SimpleNamespace:
+        # Fallback: if coverage run times out, try a lightweight pytest collect-only
+        # to determine whether there are zero tests (which we treat as skipped).
+        try:
+            fallback = self._attempt_collect_only(repo_path)
+        except subprocess.TimeoutExpired:
+            # Fallback also timed out; preserve original timeout result
+            return self._timeout_namespace(exc)
+
+        stdout = fallback.stdout or ""
+        if fallback.returncode == 0 and "collected" in stdout:
+            # Example output: 'collected 0 items'
+            if "collected 0 items" in stdout:
+                return SimpleNamespace(
+                    returncode=5,
+                    stdout=fallback.stdout,
+                    stderr=fallback.stderr,
+                )
+            return self._timeout_namespace(exc)
+
+        return self._timeout_namespace(exc)
+
     def _execute_coverage_run(self, repo_path: str) -> "Coverage._RunContext":
         logger.info("Running coverage on %s", repo_path)
         cmd = ["coverage", "run", "-m", *self._build_test_command(repo_path)]
@@ -738,92 +826,7 @@ class Coverage(Tool):  # pylint: disable=too-few-public-methods
             )
         except subprocess.TimeoutExpired as exc:
             timed_out = True
-            # Fallback: if coverage run times out, try a lightweight pytest collect-only
-            # to determine whether there are zero tests (which we treat as skipped).
-            try:
-                fallback = subprocess.run(
-                    ["pytest", "--collect-only", "-q"],
-                    capture_output=True,
-                    text=True,
-                    check=False,
-                    cwd=repo_path,
-                    timeout=30,
-                )
-                if fallback.returncode == 0 and "collected" in (fallback.stdout or ""):
-                    # Example output: 'collected 0 items'
-                    if "collected 0 items" in (fallback.stdout or ""):
-                        process = SimpleNamespace(
-                            returncode=5,
-                            stdout=fallback.stdout,
-                            stderr=fallback.stderr,
-                        )
-                    else:
-                        process = SimpleNamespace(
-                            returncode=-1,
-                            stdout=(
-                                (
-                                    exc.stdout.decode()
-                                    if isinstance(exc.stdout, bytes)
-                                    else exc.stdout
-                                )
-                                if exc.stdout
-                                else None
-                            ),
-                            stderr=(
-                                (
-                                    exc.stderr.decode()
-                                    if isinstance(exc.stderr, bytes)
-                                    else exc.stderr
-                                )
-                                if exc.stderr
-                                else None
-                            ),
-                        )
-                else:
-                    process = SimpleNamespace(
-                        returncode=-1,
-                        stdout=(
-                            (
-                                exc.stdout.decode()
-                                if isinstance(exc.stdout, bytes)
-                                else exc.stdout
-                            )
-                            if exc.stdout
-                            else None
-                        ),
-                        stderr=(
-                            (
-                                exc.stderr.decode()
-                                if isinstance(exc.stderr, bytes)
-                                else exc.stderr
-                            )
-                            if exc.stderr
-                            else None
-                        ),
-                    )
-            except subprocess.TimeoutExpired:
-                # Fallback also timed out; preserve original timeout result
-                process = SimpleNamespace(
-                    returncode=-1,
-                    stdout=(
-                        (
-                            exc.stdout.decode()
-                            if isinstance(exc.stdout, bytes)
-                            else exc.stdout
-                        )
-                        if exc.stdout
-                        else None
-                    ),
-                    stderr=(
-                        (
-                            exc.stderr.decode()
-                            if isinstance(exc.stderr, bytes)
-                            else exc.stderr
-                        )
-                        if exc.stderr
-                        else None
-                    ),
-                )
+            process = self._handle_coverage_timeout(repo_path, exc)
         duration = time.perf_counter() - start_time
 
         pytest_details = self._parse_pytest_output(process.stdout)
