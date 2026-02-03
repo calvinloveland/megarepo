@@ -252,6 +252,8 @@ def build_fix_prompt(file_path: str, issue: Dict[str, Any], content: str) -> tup
         "You are given a single pylint issue and a file. "
         "Return JSON only with a single key: updated_file. "
         "The updated_file value must be the full updated file content. "
+        "If you cannot return JSON, return the full updated file content "
+        "between tags UPDATED_FILE_START and UPDATED_FILE_END. "
         "Do not include markdown or explanations. "
         "Only fix the specified issue; avoid unrelated changes."
     )
@@ -266,9 +268,32 @@ def build_fix_prompt(file_path: str, issue: Dict[str, Any], content: str) -> tup
     return system, user
 
 
-def extract_updated_file(response: str) -> Optional[str]:
+def extract_updated_file(response: Any) -> Optional[str]:
+    if response is None:
+        return None
+
+    if isinstance(response, dict) and "updated_file" in response:
+        return str(response["updated_file"])
+
+    if isinstance(response, (dict, list)):
+        try:
+            response = json.dumps(response)
+        except TypeError:
+            response = str(response)
+
+    if not isinstance(response, str):
+        response = str(response)
+
     if not response:
         return None
+
+    tag_start = "UPDATED_FILE_START"
+    tag_end = "UPDATED_FILE_END"
+    if tag_start in response and tag_end in response:
+        start_idx = response.find(tag_start) + len(tag_start)
+        end_idx = response.find(tag_end, start_idx)
+        if end_idx > start_idx:
+            return response[start_idx:end_idx].strip("\n")
 
     try:
         parsed = json.loads(response)
@@ -278,14 +303,18 @@ def extract_updated_file(response: str) -> Optional[str]:
         pass
 
     match = re.search(r"\{.*\}", response, flags=re.DOTALL)
-    if not match:
-        return None
+    if match:
+        try:
+            parsed = json.loads(match.group(0))
+            if isinstance(parsed, dict) and "updated_file" in parsed:
+                return str(parsed["updated_file"])
+        except json.JSONDecodeError:
+            pass
 
-    try:
-        parsed = json.loads(match.group(0))
-        if isinstance(parsed, dict) and "updated_file" in parsed:
-            return str(parsed["updated_file"])
-    except json.JSONDecodeError:
-        return None
+    fence_match = re.search(r"```(?:python)?\n(.*?)```", response, flags=re.DOTALL)
+    if fence_match:
+        content = fence_match.group(1)
+        if content.strip():
+            return content
 
     return None

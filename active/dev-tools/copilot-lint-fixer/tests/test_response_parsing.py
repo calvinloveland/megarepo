@@ -21,3 +21,13 @@ def test_extract_updated_file_from_wrapped_json():
 def test_extract_updated_file_missing():
     response = "no json here"
     assert extract_updated_file(response) is None
+
+
+def test_extract_updated_file_from_tags():
+    response = "UPDATED_FILE_START\nprint('ok')\nUPDATED_FILE_END"
+    assert extract_updated_file(response) == "print('ok')"
+
+
+def test_extract_updated_file_from_code_fence():
+    response = "```python\nprint('ok')\n```"
+    assert extract_updated_file(response) == "print('ok')\n"
