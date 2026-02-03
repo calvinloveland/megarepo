@@ -1,0 +1,40 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "copilot-lint-fixer"
+authors = [{ name = "Calvin Loveland", email = "calvin@loveland.dev" }]
+description = "Copilot SDK powered pylint auto-fixer"
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+  "Programming Language :: Python :: 3.8",
+  "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+  "Operating System :: OS Independent",
+]
+dependencies = [
+  "pylint",
+  "github-copilot-sdk",
+  "pytest",
+]
+dynamic = ["version"]
+
+[project.scripts]
+"copilot-lint-fixer" = "copilot_lint_fixer.cli:main"
+
+[tool.hatch.version]
+path = "src/copilot_lint_fixer/__about__.py"
+
+[tool.hatch.build]
+include = [
+  "/src",
+  "/fixtures",
+]
+exclude = [
+  "/.github",
+  "/docs",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/copilot_lint_fixer"]
