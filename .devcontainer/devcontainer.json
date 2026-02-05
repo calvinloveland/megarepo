@@ -72,6 +72,7 @@
   },
   "postCreateCommand": "bash .devcontainer/post-create.sh",
   "remoteUser": "vscode",
+  "updateRemoteUserUID": true,
   "containerEnv": {
     "PATH": "/workspaces/megarepo/.devcontainer/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
   },

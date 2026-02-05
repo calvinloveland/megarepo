@@ -60,27 +60,28 @@ echo "🔧 Configuring git..."
 git config --global init.defaultBranch main
 git config --global pull.rebase false
 
-# Ensure workspace ownership is correct to avoid issues with tools that
-# require repository ownership to match the invoking user (e.g., Nix flakes
-# when evaluating local git inputs). If ownership doesn't match the current
-# user, try to fix it (best-effort). If chown fails, the user may need to fix
-# ownership on the host.
+# Avoid chowning the workspace by default; it can fight host ownership.
+# If you need chown in the container, set MEGAREPO_CHOWN_WORKSPACE=1.
 REPO_DIR="/workspaces/megarepo"
 if [ -d "$REPO_DIR" ]; then
-  repo_owner_uid=$(stat -c %u "$REPO_DIR" 2>/dev/null || true)
-  my_uid=$(id -u)
-  if [ -n "$repo_owner_uid" ] && [ "$repo_owner_uid" != "$my_uid" ]; then
-    user_name=$(id -un)
-    group_name=$(id -gn)
-    echo "⚠️  Fixing ownership of $REPO_DIR to $user_name:$group_name to avoid permission issues (this may change host-side ownership)."
-    if sudo chown -R "$user_name:$group_name" "$REPO_DIR" 2>/dev/null; then
-      echo "    ✅ Ownership of $REPO_DIR fixed to $user_name:$group_name"
-    else
-      echo "    ⚠️ Could not chown $REPO_DIR; this is usually because the workspace mount is owned/managed by the host and disallows chown from the container."
-      echo "    To fix on the host, run (as the host user with sufficient privileges):"
-      echo "      sudo chown -R $user_name:$group_name /path/to/workspace"
-      echo "    Or update the bind mount options so the container user matches the host owner."
+  if [ "${MEGAREPO_CHOWN_WORKSPACE:-0}" = "1" ]; then
+    repo_owner_uid=$(stat -c %u "$REPO_DIR" 2>/dev/null || true)
+    my_uid=$(id -u)
+    if [ -n "$repo_owner_uid" ] && [ "$repo_owner_uid" != "$my_uid" ]; then
+      user_name=$(id -un)
+      group_name=$(id -gn)
+      echo "⚠️  Fixing ownership of $REPO_DIR to $user_name:$group_name to avoid permission issues (this may change host-side ownership)."
+      if sudo chown -R "$user_name:$group_name" "$REPO_DIR" 2>/dev/null; then
+        echo "    ✅ Ownership of $REPO_DIR fixed to $user_name:$group_name"
+      else
+        echo "    ⚠️ Could not chown $REPO_DIR; this is usually because the workspace mount is owned/managed by the host and disallows chown from the container."
+        echo "    To fix on the host, run (as the host user with sufficient privileges):"
+        echo "      sudo chown -R $user_name:$group_name /path/to/workspace"
+        echo "    Or update the bind mount options so the container user matches the host owner."
+      fi
     fi
+  else
+    echo "ℹ️  Skipping workspace chown (MEGAREPO_CHOWN_WORKSPACE=1 to enable)."
   fi
 fi
 
