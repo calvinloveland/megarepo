@@ -29,24 +29,26 @@ def generate_best_chart(
     cols: int,
     iterations: int = 200,
     seed: Optional[int] = None,
+    layout: Optional[List[List[bool]]] = None,
 ) -> ChartResult:
     warnings: List[str] = []
     if rows <= 0 or cols <= 0:
         raise ValueError("Rows and columns must be positive.")
 
-    seat_count = rows * cols
+    layout = _ensure_layout(layout, rows, cols)
+    seat_count = sum(1 for row in layout for seat in row if seat)
     names = [person.name for person in people]
     if len(names) > seat_count:
         warnings.append("More people than seats; extra people are omitted.")
         names = names[:seat_count]
 
     rng = random.Random(seed)
-    best_chart: Chart = _build_chart(names, rows, cols)
+    best_chart = _build_chart(names, layout)
     best_score = score_chart(best_chart, people, rows, cols)
 
     for _ in range(max(1, iterations)):
         rng.shuffle(names)
-        candidate = _build_chart(names, rows, cols)
+        candidate = _build_chart(names, layout)
         candidate_score = score_chart(candidate, people, rows, cols)
         if candidate_score.overall > best_score.overall:
             best_chart = candidate
@@ -113,12 +115,15 @@ def score_chart(chart: Chart, people: Iterable[Person], rows: int, cols: int) ->
     )
 
 
-def _build_chart(names: List[str], rows: int, cols: int) -> Chart:
+def _build_chart(names: List[str], layout: List[List[bool]]) -> Chart:
     chart: Chart = []
     index = 0
-    for _ in range(rows):
+    for row in layout:
         row: List[Optional[str]] = []
-        for _ in range(cols):
+        for seat in row:
+            if not seat:
+                row.append(None)
+                continue
             if index < len(names):
                 row.append(names[index])
                 index += 1
@@ -126,6 +131,14 @@ def _build_chart(names: List[str], rows: int, cols: int) -> Chart:
                 row.append(None)
         chart.append(row)
     return chart
+
+
+def _ensure_layout(
+    layout: Optional[List[List[bool]]], rows: int, cols: int
+) -> List[List[bool]]:
+    if layout:
+        return layout
+    return [[True for _ in range(cols)] for _ in range(rows)]
 
 
 def _adjacent_pairs(chart: Chart, rows: int, cols: int) -> List[Tuple[str, str]]:
