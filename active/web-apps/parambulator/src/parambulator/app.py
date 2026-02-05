@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import json
+from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional
 
-from flask import Flask, Response, render_template, request
+from flask import Flask, Response, jsonify, render_template, request
 
 from .models import (
     Chart,
@@ -163,6 +165,28 @@ def create_app() -> Flask:
             message=f"Loaded '{name}'.",
         )
         return render_design(context)
+
+    @app.post("/feedback")
+    def submit_feedback() -> Response:
+        """Handle feedback submissions and save to files."""
+        data = request.get_json()
+        
+        feedback_dir = PROJECT_ROOT / "data" / "feedback"
+        feedback_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Create a timestamped filename
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+        filename = f"feedback_{timestamp}.json"
+        filepath = feedback_dir / filename
+        
+        # Add server-side timestamp
+        data["server_timestamp"] = datetime.now().isoformat()
+        
+        # Save feedback to file
+        with open(filepath, "w") as f:
+            json.dump(data, f, indent=2)
+        
+        return jsonify({"status": "success", "message": "Feedback saved", "id": timestamp})
 
     @app.errorhandler(ValueError)
     def handle_value_error(err: ValueError) -> Response:

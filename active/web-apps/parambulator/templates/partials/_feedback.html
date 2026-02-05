@@ -1,0 +1,278 @@
+<!-- Feedback Tool -->
+<div id="feedback-tool" class="fixed bottom-6 left-6 z-50">
+  <!-- Floating button to open feedback -->
+  <button
+    id="feedback-toggle"
+    type="button"
+    class="rounded-full bg-blue-600 p-4 text-white shadow-lg hover:bg-blue-700 transition-all"
+    onclick="toggleFeedback()"
+    title="Send feedback"
+  >
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+    </svg>
+  </button>
+
+  <!-- Feedback panel (hidden by default) -->
+  <div
+    id="feedback-panel"
+    class="hidden absolute bottom-16 left-0 w-96 rounded-lg bg-white shadow-2xl border border-slate-200"
+  >
+    <div class="p-4 border-b border-slate-200 flex items-center justify-between">
+      <h3 class="text-lg font-semibold text-slate-900">Send Feedback</h3>
+      <button
+        type="button"
+        class="text-slate-400 hover:text-slate-600"
+        onclick="toggleFeedback()"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+    </div>
+
+    <form id="feedback-form" class="p-4 space-y-4">
+      <div>
+        <label class="block text-sm font-semibold text-slate-700 mb-2">Your feedback</label>
+        <textarea
+          id="feedback-text"
+          name="feedback_text"
+          rows="4"
+          placeholder="Describe the issue or suggestion..."
+          class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
+          required
+        ></textarea>
+      </div>
+
+      <div>
+        <label class="block text-sm font-semibold text-slate-700 mb-2">Selected element (optional)</label>
+        <div class="flex gap-2">
+          <button
+            id="element-selector-btn"
+            type="button"
+            class="flex-1 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            onclick="startElementSelection()"
+          >
+            <span id="selector-btn-text">Click to select element</span>
+          </button>
+          <button
+            id="clear-selection-btn"
+            type="button"
+            class="hidden rounded-md border border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-600 hover:bg-slate-100"
+            onclick="clearSelection()"
+          >
+            Clear
+          </button>
+        </div>
+        <input type="hidden" id="selected-element" name="selected_element" />
+        <p class="text-xs text-slate-500 mt-1">Click the button, then click any element on the page</p>
+      </div>
+
+      <div class="flex gap-2">
+        <button
+          type="submit"
+          class="flex-1 rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-blue-700"
+        >
+          Submit Feedback
+        </button>
+        <button
+          type="button"
+          class="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+          onclick="toggleFeedback()"
+        >
+          Cancel
+        </button>
+      </div>
+    </form>
+
+    <div id="feedback-success" class="hidden p-4 bg-green-50 border-t border-green-200">
+      <p class="text-sm text-green-800">✓ Feedback submitted successfully!</p>
+    </div>
+  </div>
+</div>
+
+<script>
+let selectingElement = false;
+let selectedElementPath = '';
+let originalOutline = '';
+let hoveredElement = null;
+
+function toggleFeedback() {
+  const panel = document.getElementById('feedback-panel');
+  panel.classList.toggle('hidden');
+  
+  // Reset form when closing
+  if (panel.classList.contains('hidden')) {
+    document.getElementById('feedback-form').reset();
+    clearSelection();
+    hideSuccess();
+  }
+}
+
+function startElementSelection() {
+  if (selectingElement) {
+    stopElementSelection();
+    return;
+  }
+
+  selectingElement = true;
+  document.getElementById('selector-btn-text').textContent = 'Selecting... (ESC to cancel)';
+  document.getElementById('element-selector-btn').classList.add('bg-blue-50', 'border-blue-400');
+  document.body.style.cursor = 'crosshair';
+  
+  // Add event listeners
+  document.addEventListener('mouseover', highlightElement);
+  document.addEventListener('mouseout', unhighlightElement);
+  document.addEventListener('click', selectElement);
+  document.addEventListener('keydown', handleEscape);
+}
+
+function stopElementSelection() {
+  selectingElement = false;
+  document.getElementById('selector-btn-text').textContent = 'Click to select element';
+  document.getElementById('element-selector-btn').classList.remove('bg-blue-50', 'border-blue-400');
+  document.body.style.cursor = 'default';
+  
+  // Remove event listeners
+  document.removeEventListener('mouseover', highlightElement);
+  document.removeEventListener('mouseout', unhighlightElement);
+  document.removeEventListener('click', selectElement);
+  document.removeEventListener('keydown', handleEscape);
+  
+  if (hoveredElement) {
+    hoveredElement.style.outline = originalOutline;
+    hoveredElement = null;
+  }
+}
+
+function highlightElement(event) {
+  if (!selectingElement) return;
+  
+  const target = event.target;
+  if (target.closest('#feedback-tool')) return; // Don't highlight feedback tool itself
+  
+  if (hoveredElement && hoveredElement !== target) {
+    hoveredElement.style.outline = originalOutline;
+  }
+  
+  hoveredElement = target;
+  originalOutline = target.style.outline;
+  target.style.outline = '2px solid #3b82f6';
+}
+
+function unhighlightElement(event) {
+  if (!selectingElement || !hoveredElement) return;
+  hoveredElement.style.outline = originalOutline;
+}
+
+function selectElement(event) {
+  if (!selectingElement) return;
+  
+  event.preventDefault();
+  event.stopPropagation();
+  
+  const target = event.target;
+  if (target.closest('#feedback-tool')) return; // Don't select feedback tool itself
+  
+  // Build a path to the element
+  const path = getElementPath(target);
+  selectedElementPath = path;
+  
+  document.getElementById('selected-element').value = path;
+  document.getElementById('selector-btn-text').textContent = `Selected: ${getElementDescription(target)}`;
+  document.getElementById('clear-selection-btn').classList.remove('hidden');
+  
+  stopElementSelection();
+}
+
+function clearSelection() {
+  selectedElementPath = '';
+  document.getElementById('selected-element').value = '';
+  document.getElementById('selector-btn-text').textContent = 'Click to select element';
+  document.getElementById('clear-selection-btn').classList.add('hidden');
+}
+
+function handleEscape(event) {
+  if (event.key === 'Escape') {
+    stopElementSelection();
+  }
+}
+
+function getElementPath(element) {
+  const path = [];
+  let current = element;
+  
+  while (current && current !== document.body) {
+    let selector = current.tagName.toLowerCase();
+    
+    if (current.id) {
+      selector += '#' + current.id;
+    } else if (current.className && typeof current.className === 'string') {
+      const classes = current.className.trim().split(/\s+/).slice(0, 2);
+      if (classes.length > 0) {
+        selector += '.' + classes.join('.');
+      }
+    }
+    
+    path.unshift(selector);
+    current = current.parentElement;
+  }
+  
+  return path.join(' > ');
+}
+
+function getElementDescription(element) {
+  let desc = element.tagName.toLowerCase();
+  if (element.id) desc += '#' + element.id;
+  else if (element.className && typeof element.className === 'string') {
+    const classes = element.className.trim().split(/\s+/);
+    if (classes.length > 0) desc += '.' + classes[0];
+  }
+  return desc;
+}
+
+function showSuccess() {
+  document.getElementById('feedback-success').classList.remove('hidden');
+  setTimeout(() => {
+    hideSuccess();
+    toggleFeedback();
+  }, 2000);
+}
+
+function hideSuccess() {
+  document.getElementById('feedback-success').classList.add('hidden');
+}
+
+// Handle form submission
+document.getElementById('feedback-form').addEventListener('submit', function(event) {
+  event.preventDefault();
+  
+  const formData = new FormData(this);
+  const data = {
+    feedback_text: formData.get('feedback_text'),
+    selected_element: formData.get('selected_element') || '',
+    page_url: window.location.href,
+    timestamp: new Date().toISOString()
+  };
+  
+  fetch('/feedback', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(data)
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.status === 'success') {
+      showSuccess();
+      document.getElementById('feedback-form').reset();
+      clearSelection();
+    }
+  })
+  .catch(error => {
+    console.error('Error submitting feedback:', error);
+    alert('Failed to submit feedback. Please try again.');
+  });
+});
+</script>
