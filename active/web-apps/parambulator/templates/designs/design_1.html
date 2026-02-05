@@ -1,6 +1,6 @@
 <div class="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100">
-  <div class="mx-auto max-w-7xl space-y-8 p-8">
-    <header class="space-y-3 border-b-2 border-slate-900 pb-8">
+  <div class="mx-auto max-w-7xl space-y-6 p-8">
+    <header class="space-y-3 border-b-2 border-slate-900 pb-6">
       <div class="flex items-baseline gap-4">
         <h1 class="text-5xl font-black tracking-tight text-slate-900">Parambulator</h1>
         <span class="text-xs font-bold uppercase tracking-widest text-slate-500">Design 1 • Brutalist</span>
@@ -8,34 +8,21 @@
       <p class="max-w-2xl text-lg text-slate-600">Minimal. Raw. Functional. Build seating arrangements with constraint-based intelligence.</p>
     </header>
 
-    <div class="grid gap-8 lg:grid-cols-[1fr_2fr]">
-      <aside class="space-y-6">
-        <div class="space-y-2 border-l-4 border-slate-900 pl-6">
-          <h2 class="text-sm font-black uppercase tracking-widest text-slate-900">Configuration</h2>
-          <p class="text-xs text-slate-600">Enter people and constraints. Design your space.</p>
-        </div>
-        <div class="space-y-4 divide-y-2 divide-slate-200">
-          {% include "partials/_controls.html" %}
-        </div>
-      </aside>
-      <main class="space-y-6">
-        <div class="space-y-4">
-          <div class="space-y-3 border-l-4 border-slate-900 pl-6">
-            <h2 class="text-sm font-black uppercase tracking-widest text-slate-900">Chart</h2>
-          </div>
-          <div class="rounded-none border-4 border-slate-900 bg-white p-6">
-            {% include "partials/_chart.html" %}
-          </div>
-        </div>
-        <div class="space-y-4">
-          <div class="space-y-3 border-l-4 border-slate-900 pl-6">
-            <h2 class="text-sm font-black uppercase tracking-widest text-slate-900">Scoring</h2>
-          </div>
-          <div class="rounded-none border-4 border-slate-900 bg-white p-6">
-            {% include "partials/_score.html" %}
-          </div>
-        </div>
-      </main>
-    </div>
+    <form id="controls-form" hx-post="/generate" hx-target="#app" class="space-y-4">
+      {% include "partials/_tabs.html" %}
+      <div class="flex justify-center pt-4">
+        <button
+          type="button"
+          class="rounded-none border-4 border-slate-900 bg-slate-900 px-8 py-3 text-sm font-black uppercase tracking-widest text-white transition-colors hover:bg-slate-800"
+          hx-post="/generate"
+          hx-target="#app"
+          hx-include="#controls-form"
+        >
+          Generate Chart
+        </button>
+      </div>
+    </form>
   </div>
 </div>
+
+{% include "partials/_design_panel.html" %}

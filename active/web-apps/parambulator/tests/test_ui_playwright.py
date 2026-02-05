@@ -31,4 +31,6 @@ def test_home_page_loads(page):
 
         expect(page).to_have_title("Parambulator")
         expect(page.get_by_text("Parambulator")).to_be_visible()
-        expect(page.get_by_role("heading", name="Seating chart")).to_be_visible()
+        # Check for tab navigation which indicates tabs are present
+        expect(page.get_by_role("button", name="People & Constraints")).to_be_visible()
+        expect(page.get_by_role("button", name="Seating Chart")).to_be_visible()

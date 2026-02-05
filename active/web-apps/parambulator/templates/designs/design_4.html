@@ -1,6 +1,6 @@
 <div class="min-h-screen" style="background: linear-gradient(135deg, #1a3a2a 0%, #0f2818 50%, #1a2e1f 100%); position: relative;" >
   <div class="absolute inset-0 opacity-20" style="background-image: repeating-linear-gradient(45deg, transparent, transparent 35px, rgba(255,255,255,.05) 35px, rgba(255,255,255,.05) 70px);"></div>
-  <div class="relative mx-auto max-w-7xl space-y-10 px-8 py-12">
+  <div class="relative mx-auto max-w-7xl space-y-6 px-8 py-12">
     <header class="space-y-6 pb-8 border-b-4" style="border-color: rgba(167,243,208,.3)">
       <div>
         <h1 class="text-6xl font-black text-emerald-200 drop-shadow-lg" style="text-shadow: 2px 2px 0 rgba(0,0,0,.3), 4px 4px 0 rgba(16,185,129,.3);">PARAMBULATOR</h1>
@@ -9,22 +9,22 @@
       <p class="max-w-2xl text-emerald-200/90 text-lg font-medium">Groovy seating arrangements. Far out constraint logic, baby. Keep your classroom vibes tight.</p>
     </header>
 
-    <div class="grid gap-8 lg:grid-cols-[320px_1fr]">
-      <aside class="space-y-4">
-        <div class="rounded-lg" style="background: linear-gradient(135deg, rgba(5,150,105,.3) 0%, rgba(16,185,129,.2) 100%); border: 3px solid rgba(167,243,208,.4); padding: 1.5rem;">
-          {% include "partials/_controls.html" %}
-        </div>
-      </aside>
-      <main class="space-y-6">
-        <div class="rounded-lg" style="background: linear-gradient(135deg, rgba(5,150,105,.25) 0%, rgba(16,185,129,.15) 100%); border: 3px dashed rgba(167,243,208,.5); padding: 2rem;">
-          <h2 class="mb-6 text-3xl font-black text-emerald-200" style="text-shadow: 2px 2px 0 rgba(0,0,0,.3);">Seating Chart</h2>
-          {% include "partials/_chart.html" %}
-        </div>
-        <div class="rounded-lg" style="background: linear-gradient(135deg, rgba(5,150,105,.25) 0%, rgba(16,185,129,.15) 100%); border: 3px dotted rgba(167,243,208,.5); padding: 2rem;">
-          <h2 class="mb-6 text-3xl font-black text-emerald-200" style="text-shadow: 2px 2px 0 rgba(0,0,0,.3);">Constraint Score</h2>
-          {% include "partials/_score.html" %}
-        </div>
-      </main>
-    </div>
+    <form id="controls-form" hx-post="/generate" hx-target="#app" class="space-y-4">
+      {% include "partials/_tabs.html" %}
+      <div class="flex justify-center pt-4">
+        <button
+          type="button"
+          class="px-8 py-3 text-sm font-bold uppercase tracking-wider rounded-lg"
+          style="background: linear-gradient(135deg, rgba(5,150,105,.6) 0%, rgba(16,185,129,.6) 100%); border: 3px solid rgba(167,243,208,.5); color: #d1fae5;"
+          hx-post="/generate"
+          hx-target="#app"
+          hx-include="#controls-form"
+        >
+          Generate Chart
+        </button>
+      </div>
+    </form>
   </div>
 </div>
+
+{% include "partials/_design_panel.html" %}

@@ -1,0 +1,24 @@
+<div class="fixed bottom-6 right-6 z-50">
+  <div class="rounded-lg bg-white shadow-lg border border-slate-200 p-4 w-56">
+    <p class="text-xs font-semibold uppercase tracking-wide text-slate-600 mb-3">Design Theme</p>
+    <div class="space-y-2">
+      {% for design_option in available_designs %}
+      <button
+        type="button"
+        class="w-full px-3 py-2 rounded-md text-sm font-medium transition-colors
+          {% if design_option == design %}
+            bg-indigo-600 text-white
+          {% else %}
+            bg-slate-100 text-slate-700 hover:bg-slate-200
+          {% endif %}"
+        hx-post="/design"
+        hx-target="#app"
+        hx-vals='{"design": "{{ design_option }}"}'
+        hx-include="#controls-form"
+      >
+        {{ design_option | replace('design_', '') | title }}
+      </button>
+      {% endfor %}
+    </div>
+  </div>
+</div>
