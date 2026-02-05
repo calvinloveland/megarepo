@@ -70,12 +70,13 @@
     <div class="mt-2 overflow-auto rounded-lg border border-slate-200 bg-white p-3">
       <table class="w-full border-collapse text-center text-xs">
         {% for row in layout_grid %}
+        {% set row_index = loop.index0 %}
         <tr>
           {% for seat in row %}
           <td class="border border-slate-200 p-1">
             <input
               type="checkbox"
-              name="layout_cell_{{ loop.parent.index0 }}_{{ loop.index0 }}"
+              name="layout_cell_{{ row_index }}_{{ loop.index0 }}"
               {% if seat %}checked{% endif %}
               class="h-4 w-4"
             />

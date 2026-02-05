@@ -5,8 +5,9 @@
   </div>
   <div class="grid gap-2" style="grid-template-columns: repeat({{ cols }}, minmax(0, 1fr));">
     {% for row in chart %}
+      {% set row_index = loop.index0 %}
       {% for seat in row %}
-      {% set seat_enabled = layout_grid[loop.parent.index0][loop.index0] %}
+      {% set seat_enabled = layout_grid[row_index][loop.index0] %}
       <div class="seat {% if not seat_enabled %}opacity-40{% endif %}">
         <div class="text-xs uppercase text-slate-400">Seat</div>
         {% if not seat_enabled %}
