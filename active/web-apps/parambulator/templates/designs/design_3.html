@@ -1,0 +1,20 @@
+<div class="mx-auto max-w-6xl space-y-6 p-6">
+  <header class="flex flex-col gap-2 rounded-3xl bg-gradient-to-r from-rose-500 via-orange-400 to-amber-300 p-6 text-white shadow-lg">
+    <h1 class="text-3xl font-bold">Parambulator</h1>
+    <p class="text-sm">Design 3: Sunrise Cards</p>
+  </header>
+
+  <div class="grid gap-6 lg:grid-cols-2">
+    <section class="rounded-3xl bg-white p-5 shadow-lg">
+      {% include "partials/_controls.html" %}
+    </section>
+    <section class="space-y-4">
+      <div class="rounded-3xl bg-white p-5 shadow-lg">
+        {% include "partials/_chart.html" %}
+      </div>
+      <div class="rounded-3xl bg-white p-5 shadow-lg">
+        {% include "partials/_score.html" %}
+      </div>
+    </section>
+  </div>
+</div>

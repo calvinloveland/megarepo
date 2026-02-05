@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "parambulator"
+version = "0.1.0"
+description = "Seating chart planner with constraint-based scoring"
+requires-python = ">=3.8"
+dependencies = [
+    "Flask>=2.3",
+]
+
+[project.scripts]
+parambulator = "parambulator.app:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

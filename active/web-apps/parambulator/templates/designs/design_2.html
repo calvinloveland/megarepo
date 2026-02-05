@@ -1,0 +1,21 @@
+<div class="min-h-screen bg-slate-900 text-slate-100">
+  <div class="mx-auto grid max-w-6xl gap-6 px-6 py-8 lg:grid-cols-[240px_1fr]">
+    <aside class="space-y-6">
+      <div>
+        <h1 class="text-2xl font-bold">Parambulator</h1>
+        <p class="text-xs text-slate-400">Design 2: Blueprint</p>
+      </div>
+      <div class="rounded-lg border border-slate-700 bg-slate-800 p-4">
+        {% include "partials/_controls.html" %}
+      </div>
+    </aside>
+    <main class="space-y-4">
+      <div class="rounded-lg border border-slate-700 bg-slate-800 p-4">
+        {% include "partials/_chart.html" %}
+      </div>
+      <div class="rounded-lg border border-slate-700 bg-slate-800 p-4">
+        {% include "partials/_score.html" %}
+      </div>
+    </main>
+  </div>
+</div>

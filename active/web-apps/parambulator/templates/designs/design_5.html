@@ -1,0 +1,21 @@
+<div class="mx-auto max-w-5xl space-y-8 p-8">
+  <header class="space-y-2">
+    <p class="text-xs uppercase tracking-[0.3em] text-slate-400">Design 5 • Minimal</p>
+    <h1 class="text-4xl font-semibold">Parambulator</h1>
+    <p class="text-sm text-slate-500">A calm workspace for seating plans and constraint scoring.</p>
+  </header>
+
+  <section class="grid gap-8 lg:grid-cols-[320px_1fr]">
+    <div class="space-y-6">
+      {% include "partials/_controls.html" %}
+    </div>
+    <div class="space-y-6">
+      <div class="rounded-xl border border-slate-200 bg-white p-4">
+        {% include "partials/_chart.html" %}
+      </div>
+      <div class="rounded-xl border border-slate-200 bg-white p-4">
+        {% include "partials/_score.html" %}
+      </div>
+    </div>
+  </section>
+</div>

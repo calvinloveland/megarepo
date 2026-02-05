@@ -1,0 +1,27 @@
+<div class="chalk min-h-screen">
+  <div class="mx-auto max-w-6xl space-y-6 p-6">
+    <header class="rounded-2xl border border-emerald-400/40 bg-emerald-900/50 p-6 text-emerald-100 shadow">
+      <div class="flex items-center justify-between">
+        <div>
+          <h1 class="text-3xl font-bold">Parambulator</h1>
+          <p class="text-sm text-emerald-200">Design 4: Chalkboard</p>
+        </div>
+        <span class="rounded-full border border-emerald-300/40 px-3 py-1 text-xs uppercase tracking-wide">Classroom mode</span>
+      </div>
+    </header>
+
+    <div class="grid gap-6 lg:grid-cols-[380px_1fr]">
+      <section class="rounded-2xl border border-emerald-300/30 bg-emerald-900/40 p-4 shadow-lg">
+        {% include "partials/_controls.html" %}
+      </section>
+      <section class="space-y-4">
+        <div class="rounded-2xl border border-emerald-300/30 bg-emerald-900/40 p-4 shadow-lg">
+          {% include "partials/_chart.html" %}
+        </div>
+        <div class="rounded-2xl border border-emerald-300/30 bg-emerald-900/40 p-4 shadow-lg">
+          {% include "partials/_score.html" %}
+        </div>
+      </section>
+    </div>
+  </div>
+</div>

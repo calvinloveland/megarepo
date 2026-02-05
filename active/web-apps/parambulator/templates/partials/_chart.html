@@ -1,0 +1,16 @@
+<div class="space-y-3">
+  <div class="flex items-center justify-between">
+    <h2 class="text-lg font-semibold">Seating chart</h2>
+    <span class="text-xs uppercase tracking-wide text-slate-500">Front of room →</span>
+  </div>
+  <div class="grid gap-2" style="grid-template-columns: repeat({{ cols }}, minmax(0, 1fr));">
+    {% for row in chart %}
+      {% for seat in row %}
+      <div class="seat">
+        <div class="text-xs uppercase text-slate-400">Seat</div>
+        <div class="text-sm font-semibold text-slate-800">{{ seat if seat else "Empty" }}</div>
+      </div>
+      {% endfor %}
+    {% endfor %}
+  </div>
+</div>
