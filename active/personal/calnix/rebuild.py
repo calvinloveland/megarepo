@@ -124,12 +124,14 @@ def ensure_repo_owned_or_fix(non_interactive: bool, auto_yes: bool=False) -> tup
     if auto_yes:
         ans = "y"
     else:
-        ans = input(f"    Fix ownership now by running 'sudo chown -R {me}:{grp.getgrgid(pwd.getpwuid(my_uid).pw_gid).gr_name} "{repo_root"}'? [Y/n] ") or "Y"
+        group_name = grp.getgrgid(pwd.getpwuid(my_uid).pw_gid).gr_name
+        chown_suggestion = f"sudo chown -R {me}:{group_name} '{repo_root}'"
+        ans = input(f"    Fix ownership now by running '{chown_suggestion}'? [Y/n] ") or "Y"
     if ans.lower().startswith("y"):
-        cmd = ["sudo", "chown", "-R", f"{me}:{grp.getgrgid(pwd.getpwuid(my_uid).pw_gid).gr_name}", repo_root]
+        cmd = ["sudo", "chown", "-R", f"{me}:{group_name}", repo_root]
         try:
             subprocess.check_call(cmd)
-            print(f"    ✅ Ownership fixed to {me}:{grp.getgrgid(pwd.getpwuid(my_uid).pw_gid).gr_name}.")
+            print(f"    ✅ Ownership fixed to {me}:{group_name}.")
             return True, None
         except subprocess.CalledProcessError:
             print("    ⚠️  Failed to chown. You may need to run the chown on the host or adjust mount options.")

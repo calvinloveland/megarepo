@@ -3,7 +3,9 @@ import importlib.util
 import sys
 
 # Import detect_host from the new Python script
-spec = importlib.util.spec_from_file_location("rebuild_py", "../rebuild.py")
+from pathlib import Path
+rebuild_path = str((Path(__file__).resolve().parent / ".." / "rebuild.py").resolve())
+spec = importlib.util.spec_from_file_location("rebuild_py", rebuild_path)
 mod = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(mod)
 
