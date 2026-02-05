@@ -1,4 +1,19 @@
 #!/usr/bin/env bash
+set -euo pipefail
+
+# If this script is invoked with sudo, re-exec it as the original user to avoid
+# flake evaluation running as root. Running flake evaluation as root can cause
+# "repository path ... is not owned by current user" errors when Nix fetches
+# local git inputs. The script will still call sudo internally when needed.
+if [ "$(id -u)" -eq 0 ]; then
+  if [ -n "${SUDO_USER:-}" ]; then
+    echo "⚠️  Don't run this script with sudo; re-executing as ${SUDO_USER} to avoid flake ownership errors."
+    exec sudo -u "${SUDO_USER}" -E bash "$0" "$@"
+  else
+    echo "❌ This script must not be run as root. Re-run as your normal user (it will use sudo internally)."
+    exit 1
+  fi
+fi
 
 # Smart multi-host rebuild script for Calvin's NixOS configuration
 # Automatically detects the environment and builds the appropriate configuration

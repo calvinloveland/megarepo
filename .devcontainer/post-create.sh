@@ -60,6 +60,21 @@ echo "🔧 Configuring git..."
 git config --global init.defaultBranch main
 git config --global pull.rebase false
 
+# Ensure workspace ownership is correct to avoid issues with tools that
+# require repository ownership to match the invoking user (e.g., Nix flakes
+# when evaluating local git inputs). If ownership doesn't match the current
+# user, try to fix it (best-effort). If chown fails, the user may need to fix
+# ownership on the host.
+REPO_DIR="/workspaces/megarepo"
+if [ -d "$REPO_DIR" ]; then
+  repo_owner_uid=$(stat -c %u "$REPO_DIR" 2>/dev/null || true)
+  my_uid=$(id -u)
+  if [ -n "$repo_owner_uid" ] && [ "$repo_owner_uid" != "$my_uid" ]; then
+    echo "⚠️  Fixing ownership of $REPO_DIR to current user to avoid permission issues (this may change host-side ownership)."
+    sudo chown -R "$my_uid:$my_uid" "$REPO_DIR" || echo "    ⚠️ Could not chown $REPO_DIR; you may need to fix ownership on the host."
+  fi
+fi
+
 echo ""
 # Setup Copilot SDK virtualenv (Python 3.12 required)
 if command -v python3 >/dev/null 2>&1; then
