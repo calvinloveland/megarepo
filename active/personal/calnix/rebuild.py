@@ -182,7 +182,26 @@ def build_and_switch_flake(flake_expr: str, target: str, extra_args: list[str], 
         return False
 
     print(f"Build output: {build_out}")
-    switch_cmd = [os.path.join(build_out, "bin", "switch-to-configuration"), "switch"]
+
+    candidate = os.path.join(build_out, "bin", "switch-to-configuration")
+    if not os.path.exists(candidate):
+        print("switch-to-configuration not found in build output; attempting to build the system toplevel and try again...")
+        toplevel_expr = flake_expr.replace("config.system.build.nixos-rebuild", "config.system.build.toplevel")
+        if build_as_owner:
+            rc2, out2 = run_cmd(["nix", "--extra-experimental-features", "nix-command flakes", "build", "--print-out-paths", toplevel_expr, "--no-link"], as_user=build_as_owner, capture=True)
+        else:
+            rc2, out2 = run_cmd(["nix", "--extra-experimental-features", "nix-command flakes", "build", "--print-out-paths", toplevel_expr, "--no-link"], capture=True)
+        if rc2 != 0:
+            print("Failed to build toplevel; cannot find switch-to-configuration.")
+            return False
+        build_out = out2.splitlines()[-1] if out2 else build_out
+        candidate = os.path.join(build_out, "bin", "switch-to-configuration")
+
+    if not os.path.exists(candidate):
+        print(f"switch-to-configuration not found at expected locations (checked {candidate}). Cannot proceed automatically.")
+        return False
+
+    switch_cmd = [candidate, "switch"]
     if os.geteuid() != 0:
         # need sudo to switch
         rc, _ = run_cmd(["sudo", *switch_cmd], capture=False)
