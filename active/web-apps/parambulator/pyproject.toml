@@ -9,6 +9,7 @@ description = "Seating chart planner with constraint-based scoring"
 requires-python = ">=3.8"
 dependencies = [
     "Flask>=2.3",
+    "pytest>=7.4",
 ]
 
 [project.scripts]

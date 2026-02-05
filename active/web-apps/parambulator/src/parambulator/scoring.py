@@ -59,8 +59,9 @@ def generate_best_chart(
 
 def score_chart(chart: Chart, people: Iterable[Person], rows: int, cols: int) -> ScoreBreakdown:
     people_by_name = {person.name: person for person in people}
+    chart_rows, chart_cols = _chart_dimensions(chart, rows, cols)
 
-    adjacency_pairs = _adjacent_pairs(chart, rows, cols)
+    adjacency_pairs = _adjacent_pairs(chart, chart_rows, chart_cols)
     total_pairs = len(adjacency_pairs)
 
     reading_matches = 0
@@ -79,10 +80,10 @@ def score_chart(chart: Chart, people: Iterable[Person], rows: int, cols: int) ->
         person = people_by_name.get(name)
         if person and person.iep_front:
             row_index, _ = position
-            if rows <= 1:
+            if chart_rows <= 1:
                 iep_scores.append(1.0)
             else:
-                iep_scores.append(1.0 - (row_index / (rows - 1)))
+                iep_scores.append(1.0 - (row_index / (chart_rows - 1)))
 
     iep_front = 1.0 if not iep_scores else sum(iep_scores) / len(iep_scores)
 
@@ -118,18 +119,18 @@ def score_chart(chart: Chart, people: Iterable[Person], rows: int, cols: int) ->
 def _build_chart(names: List[str], layout: List[List[bool]]) -> Chart:
     chart: Chart = []
     index = 0
-    for row in layout:
-        row: List[Optional[str]] = []
-        for seat in row:
+    for layout_row in layout:
+        chart_row: List[Optional[str]] = []
+        for seat in layout_row:
             if not seat:
-                row.append(None)
+                chart_row.append(None)
                 continue
             if index < len(names):
-                row.append(names[index])
+                chart_row.append(names[index])
                 index += 1
             else:
-                row.append(None)
-        chart.append(row)
+                chart_row.append(None)
+        chart.append(chart_row)
     return chart
 
 
@@ -144,13 +145,17 @@ def _ensure_layout(
 def _adjacent_pairs(chart: Chart, rows: int, cols: int) -> List[Tuple[str, str]]:
     pairs: List[Tuple[str, str]] = []
     for row in range(rows):
+        if row >= len(chart):
+            continue
         for col in range(cols):
+            if col >= len(chart[row]):
+                continue
             name = chart[row][col]
             if name is None:
                 continue
-            if col + 1 < cols and chart[row][col + 1] is not None:
+            if col + 1 < cols and col + 1 < len(chart[row]) and chart[row][col + 1] is not None:
                 pairs.append((name, chart[row][col + 1]))
-            if row + 1 < rows and chart[row + 1][col] is not None:
+            if row + 1 < rows and row + 1 < len(chart) and col < len(chart[row + 1]) and chart[row + 1][col] is not None:
                 pairs.append((name, chart[row + 1][col]))
     return pairs
 
@@ -180,3 +185,11 @@ def _avoid_pairs(people: Dict[str, Person]) -> List[Tuple[str, str]]:
             if avoid_name in people:
                 pairs.append((name, avoid_name))
     return pairs
+
+
+def _chart_dimensions(chart: Chart, fallback_rows: int, fallback_cols: int) -> Tuple[int, int]:
+    if not chart:
+        return fallback_rows, fallback_cols
+    row_count = len(chart)
+    col_count = max((len(row) for row in chart), default=fallback_cols)
+    return row_count, col_count
