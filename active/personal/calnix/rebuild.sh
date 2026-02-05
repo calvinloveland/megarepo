@@ -20,7 +20,7 @@ fi
 
 detect_host() {
     # Check if running in WSL
-    if grep -qi microsoft /proc/version 2>/dev/null || [ -n "${WSL_DISTRO_NAME}" ]; then
+    if grep -qi microsoft /proc/version 2>/dev/null || [ -n "${WSL_DISTRO_NAME:-}" ]; then
         echo "work-wsl"
         return
     fi
@@ -104,7 +104,7 @@ case $HOST in
 # Use the existing detect_host function from the main script
 detect_host() {
     # Check if running in WSL
-    if grep -qi microsoft /proc/version 2>/dev/null || [ -n "${WSL_DISTRO_NAME}" ]; then
+    if grep -qi microsoft /proc/version 2>/dev/null || [ -n "${WSL_DISTRO_NAME:-}" ]; then
         echo "work-wsl"
         return
     fi
