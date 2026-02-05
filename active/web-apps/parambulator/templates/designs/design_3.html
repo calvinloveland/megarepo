@@ -1,20 +1,37 @@
-<div class="mx-auto max-w-6xl space-y-6 p-6">
-  <header class="flex flex-col gap-2 rounded-3xl bg-gradient-to-r from-rose-500 via-orange-400 to-amber-300 p-6 text-white shadow-lg">
-    <h1 class="text-3xl font-bold">Parambulator</h1>
-    <p class="text-sm">Design 3: Sunrise Cards</p>
-  </header>
+<div class="min-h-screen bg-gradient-to-b from-indigo-50 via-purple-50 to-pink-50">
+  <div class="mx-auto max-w-7xl space-y-12 p-8">
+    <header class="text-center space-y-4">
+      <h1 class="text-7xl font-black tracking-tight" style="background: linear-gradient(135deg, #4f46e5 0%, #ec4899 50%, #f97316 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">Parambulator</h1>
+      <p class="text-lg text-slate-600">Design 3 • Vibrant & Playful</p>
+      <p class="mx-auto max-w-2xl text-slate-600">Colorful seating arrangements. Every constraint is a possibility.</p>
+    </header>
 
-  <div class="grid gap-6 lg:grid-cols-2">
-    <section class="rounded-3xl bg-white p-5 shadow-lg">
-      {% include "partials/_controls.html" %}
-    </section>
-    <section class="space-y-4">
-      <div class="rounded-3xl bg-white p-5 shadow-lg">
-        {% include "partials/_chart.html" %}
+    <div class="grid gap-8 lg:grid-cols-[1fr_1.5fr]">
+      <div class="space-y-6">
+        <div class="rounded-3xl bg-gradient-to-br from-blue-400 to-indigo-600 p-0.5">
+          <div class="space-y-6 rounded-3xl bg-white p-8">
+            {% include "partials/_controls.html" %}
+          </div>
+        </div>
       </div>
-      <div class="rounded-3xl bg-white p-5 shadow-lg">
-        {% include "partials/_score.html" %}
+      <div class="space-y-6">
+        <div class="rounded-3xl bg-gradient-to-br from-pink-400 to-rose-600 p-0.5">
+          <div class="rounded-3xl bg-white p-8">
+            <div class="mb-6 space-y-1">
+              <h2 class="text-2xl font-bold bg-gradient-to-r from-pink-600 to-rose-600 -webkit-background-clip-text -webkit-text-fill-color-transparent">Seating Chart</h2>
+            </div>
+            {% include "partials/_chart.html" %}
+          </div>
+        </div>
+        <div class="rounded-3xl bg-gradient-to-br from-amber-400 to-orange-600 p-0.5">
+          <div class="rounded-3xl bg-white p-8">
+            <div class="mb-6 space-y-1">
+              <h2 class="text-2xl font-bold bg-gradient-to-r from-amber-600 to-orange-600 -webkit-background-clip-text -webkit-text-fill-color-transparent">Fitness Score</h2>
+            </div>
+            {% include "partials/_score.html" %}
+          </div>
+        </div>
       </div>
-    </section>
+    </div>
   </div>
 </div>

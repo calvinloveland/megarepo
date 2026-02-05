@@ -1,21 +1,30 @@
-<div class="min-h-screen bg-slate-900 text-slate-100">
-  <div class="mx-auto grid max-w-6xl gap-6 px-6 py-8 lg:grid-cols-[240px_1fr]">
-    <aside class="space-y-6">
-      <div>
-        <h1 class="text-2xl font-bold">Parambulator</h1>
-        <p class="text-xs text-slate-400">Design 2: Blueprint</p>
+<div class="min-h-screen bg-black text-white" style="background-image: radial-gradient(circle at 20% 50%, rgba(139,92,246,0.1) 0%, transparent 50%), radial-gradient(circle at 80% 80%, rgba(236,72,153,0.1) 0%, transparent 50%); position: relative;">
+  <div class="absolute inset-0 opacity-5" style="background-image: linear-gradient(0deg, transparent 24%, rgba(255,255,255,.05) 25%, rgba(255,255,255,.05) 26%, transparent 27%, transparent 74%, rgba(255,255,255,.05) 75%, rgba(255,255,255,.05) 76%, transparent 77%, transparent); background-size: 60px 60px;"></div>
+  <div class="relative mx-auto max-w-7xl space-y-8 px-6 py-12">
+    <header class="space-y-4">
+      <div class="flex items-end gap-4">
+        <div>
+          <h1 class="text-6xl font-black" style="background: linear-gradient(135deg, #a78bfa 0%, #ec4899 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">Parambulator</h1>
+          <p class="text-sm text-purple-300">Design 2 • Cyberpunk</p>
+        </div>
       </div>
-      <div class="rounded-lg border border-slate-700 bg-slate-800 p-4">
+      <p class="max-w-2xl text-lg text-slate-300">Neon-lit seating logic. Neural network constraint satisfaction at light speed.</p>
+    </header>
+
+    <div class="grid gap-8 lg:grid-cols-[280px_1fr]">
+      <aside class="space-y-4 rounded-lg border border-purple-500/30 bg-purple-950/20 p-6 backdrop-blur-sm">
         {% include "partials/_controls.html" %}
-      </div>
-    </aside>
-    <main class="space-y-4">
-      <div class="rounded-lg border border-slate-700 bg-slate-800 p-4">
-        {% include "partials/_chart.html" %}
-      </div>
-      <div class="rounded-lg border border-slate-700 bg-slate-800 p-4">
-        {% include "partials/_score.html" %}
-      </div>
-    </main>
+      </aside>
+      <main class="space-y-6">
+        <div class="rounded-lg border border-pink-500/30 bg-pink-950/20 p-6 backdrop-blur-sm">
+          <h2 class="mb-4 text-xl font-bold text-pink-300">SEATING.GRID</h2>
+          {% include "partials/_chart.html" %}
+        </div>
+        <div class="rounded-lg border border-cyan-500/30 bg-cyan-950/20 p-6 backdrop-blur-sm">
+          <h2 class="mb-4 text-xl font-bold text-cyan-300">ALGORITHM.SCORE</h2>
+          {% include "partials/_score.html" %}
+        </div>
+      </main>
+    </div>
   </div>
 </div>
