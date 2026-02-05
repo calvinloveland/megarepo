@@ -20,3 +20,5 @@ After rebuild:
   python -c "import copilot; print('copilot ok')"
 
 If you prefer a different workflow, you can create your own venv in the workspace instead.
+
+**Note about file ownership:** The post-create script will attempt to fix ownership of `/workspaces/megarepo` to the container user to avoid tool issues (for example when running Nix flakes or git commands). If you see ownership or permission errors after opening the container, try rebuilding the container and ensure the workspace mount is writable by your user on the host.
