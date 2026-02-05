@@ -99,12 +99,47 @@ fi
 case $HOST in
   thinker)
     echo "🖥️  Rebuilding ThinkPad configuration..."
+
+    if ! ensure_repo_owned_or_fix; then
+      exit 1
+    fi
+
+    echo "Building flake as $(id -un) to avoid ownership errors..."
+    BUILD_OUT=$(nix --extra-experimental-features 'nix-command flakes' build --print-out-paths '.#nixosConfigurations."thinker".config.system.build.nixos-rebuild' --no-link 2>/dev/null || true)
+    if [ -z "$BUILD_OUT" ]; then
+      echo "Flake build failed as $(id -un). This usually indicates an ownership or flake input issue. Consider re-running the script and allowing it to chown the repo, or run the build as the repo owner."
+      echo "To manually fix: sudo chown -R $(id -un):$(id -gn) '$repo_root'"
+      exit 1
+    fi
+    BUILD_OUT_PATH=$(echo "$BUILD_OUT" | tail -n1)
+    echo "Build output: $BUILD_OUT_PATH"
+    sudo "$BUILD_OUT_PATH/bin/switch-to-configuration" switch || exit 1
+
+    # Restart waybar to apply changes (desktop hosts)
+    echo "Restarting waybar service..."
+    systemctl --user restart waybar || true
     ;;
   1337book)
     echo "💻 Rebuilding HP Elitebook configuration..."
+
+    if ! ensure_repo_owned_or_fix; then
+      exit 1
+    fi
+
+    echo "Building flake as $(id -un) to avoid ownership errors..."
+    BUILD_OUT=$(nix --extra-experimental-features 'nix-command flakes' build --print-out-paths '.#nixosConfigurations."1337book".config.system.build.nixos-rebuild' --no-link 2>/dev/null || true)
+    if [ -z "$BUILD_OUT" ]; then
+      echo "Flake build failed as $(id -un). This usually indicates an ownership or flake input issue. Consider re-running the script and allowing it to chown the repo, or run the build as the repo owner."
+      echo "To manually fix: sudo chown -R $(id -un):$(id -gn) '$repo_root'"
+      exit 1
+    fi
+    BUILD_OUT_PATH=$(echo "$BUILD_OUT" | tail -n1)
+    echo "Build output: $BUILD_OUT_PATH"
+    sudo "$BUILD_OUT_PATH/bin/switch-to-configuration" switch || exit 1
     ;;
   work-wsl)
     echo "🖱️  Rebuilding WSL work configuration..."
+    sudo nixos-rebuild switch --flake .#work-wsl "${EXTRA_ARGS[@]}"
     ;;
   help)
     echo ""
@@ -114,7 +149,7 @@ case $HOST in
     echo "  1337book  - HP Elitebook with gaming and desktop environment"
     echo "  work-wsl  - WSL work environment without gaming"
     echo ""
-    echo "Examples:"
+    echo "Examples:" 
     echo "  $0                    # Auto-detect host and rebuild"
     echo "  $0 1337book           # Build specific host"
     echo "  $0 1337book --dry-run # Dry run for specific host"
@@ -137,7 +172,7 @@ case $HOST in
     echo "  1337book  - HP Elitebook with gaming and desktop environment"
     echo "  work-wsl  - WSL work environment without gaming"
     echo ""
-    echo "Examples:"
+    echo "Examples:" 
     echo "  $0                    # Auto-detect host and rebuild"
     echo "  $0 1337book           # Build specific host"
     echo "  $0 1337book --dry-run # Dry run for specific host"
@@ -194,8 +229,7 @@ ensure_repo_owned_or_fix() {
     echo -n "    Or run the build as $repo_owner_user using sudo - this requires your sudo password and will execute build steps as that user. Proceed? [y/N] "
     read -r ans2
     if [[ "$ans2" =~ ^[Yy] ]]; then
-      sudo -u "$repo_owner_user" -H bash -lc "$(printf '%q' "$SHELL") -lc 'echo Running build as $repo_owner_user; "'" || true
-      # Signal caller to run build-as-owner
+      # Signal caller to run build-as-owner (build steps will be executed as this user)
       BUILD_AS_OWNER="$repo_owner_user"
       return 0
     fi
@@ -215,96 +249,4 @@ else
     echo "Auto-detected configuration target: $TARGET"
 fi
 
-echo "💻 Rebuilding NixOS configuration..."
-echo "Starting rebuild with target: $TARGET"
 
-# Rebuild with flake and proper target
-sudo nixos-rebuild switch --flake ".#$TARGET"
-
-# Restart waybar to apply changes
-echo "Restarting waybar service..."
-systemctl --user restart waybar
-
-echo "Done! Temperature monitoring should now work correctly."
-    ;;
-  1337book)
-    echo "💻 Rebuilding HP Elitebook configuration..."
-
-    # Ensure repository ownership won't cause flake evaluation to fail
-    if ! ensure_repo_owned_or_fix; then
-      exit 1
-    fi
-
-    # If caller asked to run build as the repo owner, perform the nix build as that user
-    if [ -n "${BUILD_AS_OWNER:-}" ]; then
-      echo "Running flake build as $BUILD_AS_OWNER to avoid ownership checks..."
-      sudo -u "$BUILD_AS_OWNER" -H bash -lc "nix --extra-experimental-features 'nix-command flakes' build --print-out-paths '.#nixosConfigurations."1337book".config.system.build.nixos-rebuild' --no-link" || exit 1
-      # Get the build result and run the switch as root
-      BUILD_OUT=$(sudo -u "$BUILD_AS_OWNER" -H bash -lc "nix --extra-experimental-features 'nix-command flakes' build --print-out-paths '.#nixosConfigurations."1337book".config.system.build.nixos-rebuild' --no-link" | tail -n1)
-      echo "Build output: $BUILD_OUT"
-      sudo "$BUILD_OUT/bin/switch-to-configuration" switch || exit 1
-    else
-      # Preferred path: run a user-owned build (so flake evaluation uses your user) then run the switch as root
-      echo "Building flake as $(id -un) to avoid ownership errors..."
-      BUILD_OUT=$(nix --extra-experimental-features 'nix-command flakes' build --print-out-paths '.#nixosConfigurations."1337book".config.system.build.nixos-rebuild' --no-link 2>/dev/null || true)
-      if [ -z "$BUILD_OUT" ]; then
-        echo "Flake build failed as $(id -un). This usually indicates an ownership or flake input issue. Consider re-running the script and allowing it to chown the repo, or run the build as the repo owner."
-        echo "To manually fix: sudo chown -R $(id -un):$(id -gn) '$repo_root'"
-        exit 1
-      fi
-
-      BUILD_OUT_PATH=$(echo "$BUILD_OUT" | tail -n1)
-      echo "Build output: $BUILD_OUT_PATH"
-      sudo "$BUILD_OUT_PATH/bin/switch-to-configuration" switch || exit 1
-    fi
-    ;;
-  work-wsl)
-    echo "🖱️  Rebuilding WSL work configuration..."
-    sudo nixos-rebuild switch --flake .#work-wsl "${EXTRA_ARGS[@]}"
-    ;;
-  help)
-    echo ""
-    echo "Usage: $0 [host] [nixos-rebuild options]"
-    echo "Available hosts:"
-    echo "  thinker   - ThinkPad with gaming and desktop environment"
-    echo "  1337book  - HP Elitebook with gaming and desktop environment"
-    echo "  work-wsl  - WSL work environment without gaming"
-    echo ""
-    echo "Examples:"
-    echo "  $0                    # Auto-detect host and rebuild"
-    echo "  $0 1337book           # Build specific host"
-    echo "  $0 1337book --dry-run # Dry run for specific host"
-    echo "  $0 --dry-run          # Auto-detect host and dry run"
-    echo ""
-    echo "Auto-detection checks:"
-    echo "  - WSL environment (/proc/version, WSL_DISTRO_NAME)"
-    echo "  - Hostname (Thinker, 1337book, work-wsl)"
-    echo "  - ThinkPad hardware (/proc/acpi/ibm/version, lspci)"
-    echo "  - HP hardware (lspci, dmidecode)"
-    echo "  - Default: thinker"
-    exit 0
-    ;;
-  *)
-    echo "❌ Unknown host: $HOST"
-    echo ""
-    echo "Usage: $0 [host] [nixos-rebuild options]"
-    echo "Available hosts:"
-    echo "  thinker   - ThinkPad with gaming and desktop environment"
-    echo "  1337book  - HP Elitebook with gaming and desktop environment"
-    echo "  work-wsl  - WSL work environment without gaming"
-    echo ""
-    echo "Examples:"
-    echo "  $0                    # Auto-detect host and rebuild"
-    echo "  $0 1337book           # Build specific host"
-    echo "  $0 1337book --dry-run # Dry run for specific host"
-    echo "  $0 --dry-run          # Auto-detect host and dry run"
-    echo ""
-    echo "Auto-detection checks:"
-    echo "  - WSL environment (/proc/version, WSL_DISTRO_NAME)"
-    echo "  - Hostname (Thinker, 1337book, work-wsl)"
-    echo "  - ThinkPad hardware (/proc/acpi/ibm/version, lspci)"
-    echo "  - HP hardware (lspci, dmidecode)"
-    echo "  - Default: thinker"
-    exit 1
-    ;;
-esac
