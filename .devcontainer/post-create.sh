@@ -70,8 +70,17 @@ if [ -d "$REPO_DIR" ]; then
   repo_owner_uid=$(stat -c %u "$REPO_DIR" 2>/dev/null || true)
   my_uid=$(id -u)
   if [ -n "$repo_owner_uid" ] && [ "$repo_owner_uid" != "$my_uid" ]; then
-    echo "⚠️  Fixing ownership of $REPO_DIR to current user to avoid permission issues (this may change host-side ownership)."
-    sudo chown -R "$my_uid:$my_uid" "$REPO_DIR" || echo "    ⚠️ Could not chown $REPO_DIR; you may need to fix ownership on the host."
+    user_name=$(id -un)
+    group_name=$(id -gn)
+    echo "⚠️  Fixing ownership of $REPO_DIR to $user_name:$group_name to avoid permission issues (this may change host-side ownership)."
+    if sudo chown -R "$user_name:$group_name" "$REPO_DIR" 2>/dev/null; then
+      echo "    ✅ Ownership of $REPO_DIR fixed to $user_name:$group_name"
+    else
+      echo "    ⚠️ Could not chown $REPO_DIR; this is usually because the workspace mount is owned/managed by the host and disallows chown from the container."
+      echo "    To fix on the host, run (as the host user with sufficient privileges):"
+      echo "      sudo chown -R $user_name:$group_name /path/to/workspace"
+      echo "    Or update the bind mount options so the container user matches the host owner."
+    fi
   fi
 fi
 
