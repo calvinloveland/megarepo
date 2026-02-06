@@ -24,6 +24,12 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_ROWS = 4
 DEFAULT_COLS = 5
 DEFAULT_DESIGN = "design_1"
+DEFAULT_COLUMN_CONFIG = {
+    "reading_level": {"type": "mix", "weight": 0.35},
+    "talkative": {"type": "avoid", "weight": 0.25},
+    "iep_front": {"type": "directional", "weight": 0.25},
+    "avoid": {"type": "avoid", "weight": 0.15},
+}
 
 
 def create_app() -> Flask:
@@ -53,6 +59,7 @@ def create_app() -> Flask:
             cols=DEFAULT_COLS,
             design=DEFAULT_DESIGN,
             layout_map=layout_map,
+            column_config=json.dumps(DEFAULT_COLUMN_CONFIG, indent=2),
             chart=result.chart,
             breakdown=result.breakdown,
             warnings=result.warnings,
@@ -76,6 +83,7 @@ def create_app() -> Flask:
             cols=form_data["cols"],
             design=form_data["design"],
             layout_map=form_data["layout_map"],
+            column_config=form_data["column_config"],
             chart=result.chart,
             breakdown=result.breakdown,
             warnings=result.warnings,
@@ -95,6 +103,7 @@ def create_app() -> Flask:
             cols=form_data["cols"],
             design=form_data["design"],
             layout_map=form_data["layout_map"],
+            column_config=form_data["column_config"],
             chart=chart,
             breakdown=breakdown,
             warnings=form_data["warnings"],
@@ -114,6 +123,7 @@ def create_app() -> Flask:
             "design": form_data["design"],
             "layout_map": form_data["layout_map"],
             "chart_json": chart_to_json(form_data["chart"]),
+            "column_config": form_data["column_config"],
         }
         save_payload(PROJECT_ROOT, save_name, payload)
         breakdown = score_chart(
@@ -126,6 +136,7 @@ def create_app() -> Flask:
             cols=form_data["cols"],
             design=form_data["design"],
             layout_map=form_data["layout_map"],
+            column_config=form_data["column_config"],
             chart=form_data["chart"],
             breakdown=breakdown,
             warnings=form_data["warnings"],
@@ -142,6 +153,9 @@ def create_app() -> Flask:
         rows = int(payload.get("rows", DEFAULT_ROWS))
         cols = int(payload.get("cols", DEFAULT_COLS))
         design = str(payload.get("design", DEFAULT_DESIGN))
+        column_config = str(
+            payload.get("column_config", json.dumps(DEFAULT_COLUMN_CONFIG, indent=2))
+        )
         chart_json = str(payload.get("chart_json", ""))
         layout_map = str(payload.get("layout_map", "")) or layout_to_text(None, rows, cols)
         people = parse_people_table(people_table) if people_table else parse_people_json(people_json)
@@ -159,6 +173,7 @@ def create_app() -> Flask:
             cols=cols,
             design=design,
             layout_map=layout_map,
+            column_config=column_config,
             chart=chart,
             breakdown=breakdown,
             warnings=[],
@@ -216,6 +231,7 @@ def parse_form(form: Dict[str, str]) -> Dict[str, object]:
     cols = _parse_int(form.get("cols"), DEFAULT_COLS)
     iterations = _parse_int(form.get("iterations"), 200)
     design = form.get("design", DEFAULT_DESIGN) or DEFAULT_DESIGN
+    column_config = form.get("column_config") or json.dumps(DEFAULT_COLUMN_CONFIG, indent=2)
 
     layout = parse_layout_from_form(form, rows, cols)
     layout_map = layout_to_text(layout, rows, cols)
@@ -238,6 +254,7 @@ def parse_form(form: Dict[str, str]) -> Dict[str, object]:
         "cols": cols,
         "iterations": iterations,
         "design": design,
+        "column_config": column_config,
         "layout": layout,
         "layout_map": layout_map,
         "chart": chart,
@@ -253,6 +270,7 @@ def build_context(
     cols: int,
     design: str,
     layout_map: str,
+    column_config: str,
     chart: Chart,
     breakdown,
     warnings: List[str],
@@ -267,6 +285,7 @@ def build_context(
         "design_template": f"designs/{design}.html",
         "layout_map": layout_map,
         "layout_grid": parse_layout_map(layout_map, rows, cols),
+        "column_config": column_config,
         "chart": chart,
         "chart_json": chart_to_json(chart),
         "breakdown": breakdown,

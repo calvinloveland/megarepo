@@ -14,6 +14,70 @@
     </button>
   </div>
 
+  <div class="rounded-lg border border-slate-200 bg-slate-50 p-3">
+    <div class="flex items-center justify-between mb-3">
+      <div>
+        <p class="text-xs font-semibold uppercase tracking-wide text-slate-600">Column Behavior</p>
+        <p class="text-xs text-slate-500">Adjust type and weighting for each column</p>
+      </div>
+    </div>
+    <div class="grid grid-cols-2 gap-3 text-xs">
+      <div class="space-y-1">
+        <label class="font-semibold text-slate-600">Reading Level</label>
+        <div class="flex gap-2">
+          <select id="col-type-reading_level" class="w-full rounded border border-slate-300 px-2 py-1" onchange="updateColumnConfig()">
+            <option value="mix">Mix</option>
+            <option value="avoid">Avoid</option>
+            <option value="group">Group</option>
+            <option value="directional">Directional</option>
+            <option value="ignore">Ignore</option>
+          </select>
+          <input id="col-weight-reading_level" type="number" step="0.05" min="0" max="1" class="w-20 rounded border border-slate-300 px-2 py-1" onchange="updateColumnConfig()" />
+        </div>
+      </div>
+      <div class="space-y-1">
+        <label class="font-semibold text-slate-600">Talkative</label>
+        <div class="flex gap-2">
+          <select id="col-type-talkative" class="w-full rounded border border-slate-300 px-2 py-1" onchange="updateColumnConfig()">
+            <option value="avoid">Avoid</option>
+            <option value="mix">Mix</option>
+            <option value="group">Group</option>
+            <option value="directional">Directional</option>
+            <option value="ignore">Ignore</option>
+          </select>
+          <input id="col-weight-talkative" type="number" step="0.05" min="0" max="1" class="w-20 rounded border border-slate-300 px-2 py-1" onchange="updateColumnConfig()" />
+        </div>
+      </div>
+      <div class="space-y-1">
+        <label class="font-semibold text-slate-600">IEP Front</label>
+        <div class="flex gap-2">
+          <select id="col-type-iep_front" class="w-full rounded border border-slate-300 px-2 py-1" onchange="updateColumnConfig()">
+            <option value="directional">Directional</option>
+            <option value="avoid">Avoid</option>
+            <option value="mix">Mix</option>
+            <option value="group">Group</option>
+            <option value="ignore">Ignore</option>
+          </select>
+          <input id="col-weight-iep_front" type="number" step="0.05" min="0" max="1" class="w-20 rounded border border-slate-300 px-2 py-1" onchange="updateColumnConfig()" />
+        </div>
+      </div>
+      <div class="space-y-1">
+        <label class="font-semibold text-slate-600">Avoid List</label>
+        <div class="flex gap-2">
+          <select id="col-type-avoid" class="w-full rounded border border-slate-300 px-2 py-1" onchange="updateColumnConfig()">
+            <option value="avoid">Avoid</option>
+            <option value="group">Group</option>
+            <option value="mix">Mix</option>
+            <option value="directional">Directional</option>
+            <option value="ignore">Ignore</option>
+          </select>
+          <input id="col-weight-avoid" type="number" step="0.05" min="0" max="1" class="w-20 rounded border border-slate-300 px-2 py-1" onchange="updateColumnConfig()" />
+        </div>
+      </div>
+    </div>
+    <p class="mt-2 text-[11px] text-slate-500">These settings are saved and will be used for future scoring updates.</p>
+  </div>
+
   <div class="overflow-x-auto rounded-lg border border-slate-200 bg-white">
     <table id="people-table" class="w-full text-sm">
       <thead class="bg-slate-50 border-b border-slate-200">
@@ -38,6 +102,7 @@
     id="people_table_hidden"
     class="hidden"
   >{{ people_table }}</textarea>
+  <input type="hidden" name="column_config" id="column_config_hidden" value='{{ column_config | e }}' />
 </div>
 
 <script>
@@ -57,6 +122,10 @@ function parsePeopleTable() {
     // Split by comma, tab, or pipe
     const parts = trimmed.split(/[,\t|]/).map(p => p.trim());
     if (parts.length > 0 && parts[0]) {
+      const headerCandidate = parts[0].toLowerCase();
+      if (headerCandidate === 'name' || headerCandidate === 'student') {
+        continue;
+      }
       people.push({
         name: parts[0] || '',
         reading_level: parts[1] || 'medium',
@@ -68,6 +137,58 @@ function parsePeopleTable() {
   }
   
   return people;
+}
+
+function readColumnConfig() {
+  const configInput = document.getElementById('column_config_hidden');
+  try {
+    return JSON.parse(configInput.value);
+  } catch (error) {
+    return {};
+  }
+}
+
+function writeColumnConfig(config) {
+  const configInput = document.getElementById('column_config_hidden');
+  configInput.value = JSON.stringify(config);
+}
+
+function initializeColumnConfig() {
+  const config = readColumnConfig();
+  if (!config || Object.keys(config).length === 0) {
+    return;
+  }
+
+  const columns = ['reading_level', 'talkative', 'iep_front', 'avoid'];
+  columns.forEach(column => {
+    const typeField = document.getElementById(`col-type-${column}`);
+    const weightField = document.getElementById(`col-weight-${column}`);
+    if (typeField && config[column]) {
+      typeField.value = config[column].type || typeField.value;
+    }
+    if (weightField && config[column]) {
+      weightField.value = config[column].weight ?? weightField.value;
+    }
+  });
+}
+
+function updateColumnConfig() {
+  const config = readColumnConfig();
+  const columns = ['reading_level', 'talkative', 'iep_front', 'avoid'];
+
+  columns.forEach(column => {
+    const typeField = document.getElementById(`col-type-${column}`);
+    const weightField = document.getElementById(`col-weight-${column}`);
+    if (!typeField || !weightField) return;
+
+    const weightValue = parseFloat(weightField.value);
+    config[column] = {
+      type: typeField.value,
+      weight: Number.isFinite(weightValue) ? weightValue : 0,
+    };
+  });
+
+  writeColumnConfig(config);
 }
 
 // Serialize table back to textarea format
@@ -204,6 +325,9 @@ function initializePeopleTable() {
       tbody.appendChild(row);
     });
   }
+
+  initializeColumnConfig();
+  updateColumnConfig();
 }
 
 // Initialize when the tab content loads
