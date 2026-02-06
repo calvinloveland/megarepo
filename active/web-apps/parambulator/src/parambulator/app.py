@@ -30,6 +30,8 @@ DEFAULT_COLUMN_CONFIG = {
     "iep_front": {"type": "directional", "weight": 0.25},
     "avoid": {"type": "avoid", "weight": 0.15},
 }
+FEEDBACK_DIR = PROJECT_ROOT / "data" / "feedback"
+ADDRESSED_DIR = FEEDBACK_DIR / "addressed"
 
 
 def create_app() -> Flask:
@@ -186,22 +188,54 @@ def create_app() -> Flask:
         """Handle feedback submissions and save to files."""
         data = request.get_json()
         
-        feedback_dir = PROJECT_ROOT / "data" / "feedback"
-        feedback_dir.mkdir(parents=True, exist_ok=True)
+        FEEDBACK_DIR.mkdir(parents=True, exist_ok=True)
+        ADDRESSED_DIR.mkdir(parents=True, exist_ok=True)
         
         # Create a timestamped filename
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
         filename = f"feedback_{timestamp}.json"
-        filepath = feedback_dir / filename
+        filepath = FEEDBACK_DIR / filename
         
         # Add server-side timestamp
         data["server_timestamp"] = datetime.now().isoformat()
+        data["addressed"] = False
         
         # Save feedback to file
         with open(filepath, "w") as f:
             json.dump(data, f, indent=2)
         
         return jsonify({"status": "success", "message": "Feedback saved", "id": timestamp})
+
+    @app.post("/feedback/mark-addressed")
+    def mark_feedback_addressed() -> Response:
+        payload = request.get_json() or {}
+        feedback_id = str(payload.get("id", "")).strip()
+        filename = str(payload.get("filename", "")).strip()
+
+        if feedback_id:
+            file_pattern = f"feedback_{feedback_id}.json"
+        elif filename:
+            file_pattern = filename
+        else:
+            return Response("Missing feedback id or filename", status=400)
+
+        source_path = FEEDBACK_DIR / file_pattern
+        if not source_path.exists():
+            return Response("Feedback file not found", status=404)
+
+        with open(source_path) as f:
+            data = json.load(f)
+
+        data["addressed"] = True
+        data["addressed_timestamp"] = datetime.now().isoformat()
+
+        ADDRESSED_DIR.mkdir(parents=True, exist_ok=True)
+        target_path = ADDRESSED_DIR / source_path.name
+        with open(target_path, "w") as f:
+            json.dump(data, f, indent=2)
+
+        source_path.unlink(missing_ok=True)
+        return jsonify({"status": "success", "message": "Feedback marked as addressed"})
 
     @app.errorhandler(ValueError)
     def handle_value_error(err: ValueError) -> Response:
