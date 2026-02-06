@@ -1,0 +1,215 @@
+<!-- Interactive People Table -->
+<div class="space-y-4">
+  <div class="flex items-center justify-between">
+    <div>
+      <label class="block text-sm font-semibold mb-1">People & Constraints</label>
+      <p class="text-xs text-slate-500">Add people and configure their constraints</p>
+    </div>
+    <button
+      type="button"
+      onclick="addPersonRow()"
+      class="rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-indigo-700"
+    >
+      + Add Person
+    </button>
+  </div>
+
+  <div class="overflow-x-auto rounded-lg border border-slate-200 bg-white">
+    <table id="people-table" class="w-full text-sm">
+      <thead class="bg-slate-50 border-b border-slate-200">
+        <tr>
+          <th class="px-3 py-2 text-left font-semibold text-slate-700">Name</th>
+          <th class="px-3 py-2 text-left font-semibold text-slate-700">Reading Level</th>
+          <th class="px-3 py-2 text-left font-semibold text-slate-700">Talkative</th>
+          <th class="px-3 py-2 text-left font-semibold text-slate-700">IEP Front</th>
+          <th class="px-3 py-2 text-left font-semibold text-slate-700">Avoid (semicolon separated)</th>
+          <th class="px-3 py-2 text-center font-semibold text-slate-700">Actions</th>
+        </tr>
+      </thead>
+      <tbody id="people-table-body">
+        <!-- Rows will be populated by JavaScript -->
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Hidden textarea to maintain compatibility with backend -->
+  <textarea
+    name="people_table"
+    id="people_table_hidden"
+    class="hidden"
+  >{{ people_table }}</textarea>
+</div>
+
+<script>
+// Parse the existing people_table data
+function parsePeopleTable() {
+  const textarea = document.getElementById('people_table_hidden');
+  const text = textarea.value.trim();
+  if (!text) return [];
+  
+  const lines = text.split('\n');
+  const people = [];
+  
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    
+    // Split by comma, tab, or pipe
+    const parts = trimmed.split(/[,\t|]/).map(p => p.trim());
+    if (parts.length > 0 && parts[0]) {
+      people.push({
+        name: parts[0] || '',
+        reading_level: parts[1] || 'medium',
+        talkative: parts[2] || 'no',
+        iep_front: parts[3] || 'no',
+        avoid: parts[4] || ''
+      });
+    }
+  }
+  
+  return people;
+}
+
+// Serialize table back to textarea format
+function serializePeopleTable() {
+  const tbody = document.getElementById('people-table-body');
+  const rows = tbody.querySelectorAll('tr');
+  const lines = [];
+  
+  rows.forEach(row => {
+    const name = row.querySelector('input[data-field="name"]').value.trim();
+    if (!name) return; // Skip empty rows
+    
+    const reading_level = row.querySelector('select[data-field="reading_level"]').value;
+    const talkative = row.querySelector('select[data-field="talkative"]').value;
+    const iep_front = row.querySelector('select[data-field="iep_front"]').value;
+    const avoid = row.querySelector('input[data-field="avoid"]').value.trim();
+    
+    lines.push(`${name}, ${reading_level}, ${talkative}, ${iep_front}, ${avoid}`);
+  });
+  
+  document.getElementById('people_table_hidden').value = lines.join('\n');
+}
+
+// Create a table row for a person
+function createPersonRow(person) {
+  const tr = document.createElement('tr');
+  tr.className = 'border-b border-slate-100 hover:bg-slate-50';
+  
+  tr.innerHTML = `
+    <td class="px-3 py-2">
+      <input
+        type="text"
+        data-field="name"
+        value="${person.name}"
+        placeholder="Name"
+        class="w-full rounded border border-slate-300 px-2 py-1 text-sm"
+        onchange="serializePeopleTable()"
+      />
+    </td>
+    <td class="px-3 py-2">
+      <select
+        data-field="reading_level"
+        class="w-full rounded border border-slate-300 px-2 py-1 text-sm"
+        onchange="serializePeopleTable()"
+      >
+        <option value="low" ${person.reading_level === 'low' ? 'selected' : ''}>Low</option>
+        <option value="medium" ${person.reading_level === 'medium' ? 'selected' : ''}>Medium</option>
+        <option value="high" ${person.reading_level === 'high' ? 'selected' : ''}>High</option>
+      </select>
+    </td>
+    <td class="px-3 py-2">
+      <select
+        data-field="talkative"
+        class="w-full rounded border border-slate-300 px-2 py-1 text-sm"
+        onchange="serializePeopleTable()"
+      >
+        <option value="no" ${person.talkative === 'no' ? 'selected' : ''}>No</option>
+        <option value="yes" ${person.talkative === 'yes' ? 'selected' : ''}>Yes</option>
+      </select>
+    </td>
+    <td class="px-3 py-2">
+      <select
+        data-field="iep_front"
+        class="w-full rounded border border-slate-300 px-2 py-1 text-sm"
+        onchange="serializePeopleTable()"
+      >
+        <option value="no" ${person.iep_front === 'no' ? 'selected' : ''}>No</option>
+        <option value="yes" ${person.iep_front === 'yes' ? 'selected' : ''}>Yes</option>
+      </select>
+    </td>
+    <td class="px-3 py-2">
+      <input
+        type="text"
+        data-field="avoid"
+        value="${person.avoid}"
+        placeholder="Names separated by ;"
+        class="w-full rounded border border-slate-300 px-2 py-1 text-sm"
+        onchange="serializePeopleTable()"
+      />
+    </td>
+    <td class="px-3 py-2 text-center">
+      <button
+        type="button"
+        onclick="deletePersonRow(this)"
+        class="text-red-600 hover:text-red-800 text-xs font-semibold"
+        title="Delete"
+      >
+        Delete
+      </button>
+    </td>
+  `;
+  
+  return tr;
+}
+
+// Add a new person row
+function addPersonRow() {
+  const tbody = document.getElementById('people-table-body');
+  const newPerson = {
+    name: '',
+    reading_level: 'medium',
+    talkative: 'no',
+    iep_front: 'no',
+    avoid: ''
+  };
+  const row = createPersonRow(newPerson);
+  tbody.appendChild(row);
+  
+  // Focus the name input
+  row.querySelector('input[data-field="name"]').focus();
+}
+
+// Delete a person row
+function deletePersonRow(button) {
+  const row = button.closest('tr');
+  row.remove();
+  serializePeopleTable();
+}
+
+// Initialize the table on page load
+function initializePeopleTable() {
+  const people = parsePeopleTable();
+  const tbody = document.getElementById('people-table-body');
+  tbody.innerHTML = '';
+  
+  if (people.length === 0) {
+    // Add 3 empty rows if no data
+    for (let i = 0; i < 3; i++) {
+      addPersonRow();
+    }
+  } else {
+    people.forEach(person => {
+      const row = createPersonRow(person);
+      tbody.appendChild(row);
+    });
+  }
+}
+
+// Initialize when the tab content loads
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initializePeopleTable);
+} else {
+  initializePeopleTable();
+}
+</script>
