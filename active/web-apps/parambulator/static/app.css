@@ -192,59 +192,78 @@
 /* Design 4 - Retro 70s */
 .design-4 .seat {
   border-radius: 0.5rem;
-  border: 2px dashed rgba(167, 243, 208, 0.6);
-  background: rgba(6, 95, 70, 0.2);
-  color: #ecfdf3;
+  border: 2px dashed rgba(167, 243, 208, 0.7);
+  background: rgba(6, 95, 70, 0.25);
+  color: #d1fae5;
   box-shadow: none;
+  text-shadow: 1px 1px 0 rgba(0,0,0,.3);
 }
 .design-4 #design-panel .design-panel-card,
 .design-4 #feedback-panel {
   border-radius: 0.75rem;
-  border: 3px dashed rgba(167, 243, 208, 0.6);
-  background: rgba(6, 78, 59, 0.9);
-  color: #d1fae5;
+  border: 3px dashed rgba(167, 243, 208, 0.7);
+  background: rgba(6, 78, 59, 0.95);
+  color: #a7f3d0;
+  text-shadow: 1px 1px 0 rgba(0,0,0,.3);
 }
 .design-4 #design-panel .design-panel-button {
-  background: rgba(217, 119, 6, 0.25) !important;
+  background: rgba(217, 119, 6, 0.3) !important;
   color: #fef3c7 !important;
-  border: 2px dashed rgba(245, 158, 11, 0.7);
+  border: 2px dashed rgba(245, 158, 11, 0.8);
+  text-shadow: 1px 1px 0 rgba(0,0,0,.2);
 }
 .design-4 #design-panel .design-panel-button.is-active {
-  background: rgba(245, 158, 11, 0.8) !important;
+  background: rgba(245, 158, 11, 0.85) !important;
   color: #1f2937 !important;
+  text-shadow: none;
 }
 .design-4 #feedback-tool .feedback-toggle {
   background: rgba(245, 158, 11, 0.9);
-  border: 2px dashed rgba(254, 243, 199, 0.8);
+  border: 2px dashed rgba(254, 243, 199, 0.9);
   color: #1f2937;
 }
 .design-4 .tabs-bar {
-  border-bottom: 3px dashed rgba(167, 243, 208, 0.6);
+  border-bottom: 3px dashed rgba(167, 243, 208, 0.7);
 }
 .design-4 .tabs-trigger {
   text-transform: uppercase;
   letter-spacing: 0.2em;
-  color: #d1fae5;
+  color: #a7f3d0;
+  text-shadow: 1px 1px 0 rgba(0,0,0,.3);
 }
 .design-4 .tabs-trigger.border-b-2 {
-  border-color: rgba(245, 158, 11, 0.8) !important;
+  border-color: rgba(245, 158, 11, 0.9) !important;
   color: #fef3c7;
+  text-shadow: 1px 1px 0 rgba(0,0,0,.2);
 }
 .design-4 .tabs-panel,
 .design-4 .tabs-save-panel,
 .design-4 .people-table-shell {
-  border: 3px dashed rgba(167, 243, 208, 0.6);
-  background: rgba(6, 78, 59, 0.8);
+  border: 3px dashed rgba(167, 243, 208, 0.7);
+  background: rgba(6, 78, 59, 0.9);
+  color: #a7f3d0;
+}
+.design-4 .tabs-panel input,
+.design-4 .tabs-save-panel input,
+.design-4 .people-table-shell input,
+.design-4 .tabs-panel textarea,
+.design-4 .tabs-save-panel textarea,
+.design-4 .people-table-shell textarea {
+  background: rgba(6, 50, 38, 0.8);
   color: #d1fae5;
+  border-color: rgba(167, 243, 208, 0.5);
 }
 .design-4 .score-item {
-  border: 2px dashed rgba(245, 158, 11, 0.8);
-  background: rgba(217, 119, 6, 0.2);
+  border: 2px dashed rgba(245, 158, 11, 0.9);
+  background: rgba(217, 119, 6, 0.25);
+  color: #fef3c7;
+  text-shadow: 1px 1px 0 rgba(0,0,0,.2);
 }
 .design-4 .chart-tooltip {
-  border: 2px dashed rgba(254, 243, 199, 0.8);
-  background: rgba(6, 78, 59, 0.95);
-  color: #fef3c7;
+  border: 2px dashed rgba(254, 243, 199, 0.9);
+  background: rgba(6, 78, 59, 0.98);
+  color: #a7f3d0;
+  text-shadow: 1px 1px 0 rgba(0,0,0,.3);
 }
 .design-4 .seat-info-button {
   border-color: rgba(245, 158, 11, 0.8);

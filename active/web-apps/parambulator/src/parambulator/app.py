@@ -349,6 +349,18 @@ def render_design(context: Dict[str, object]) -> str:
 
 
 def parse_layout_from_form(form: Dict[str, str], rows: int, cols: int) -> List[List[bool]]:
+    # Check for new button-based layout with hidden _value inputs
+    if any(key.startswith("layout_cell_") and key.endswith("_value") for key in form.keys()):
+        layout: List[List[bool]] = []
+        for row_index in range(rows):
+            row: List[bool] = []
+            for col_index in range(cols):
+                key = f"layout_cell_{row_index}_{col_index}_value"
+                row.append(form.get(key) == "1")
+            layout.append(row)
+        return layout
+    
+    # Fallback to old checkbox-based layout
     if any(key.startswith("layout_cell_") for key in form.keys()):
         layout: List[List[bool]] = []
         for row_index in range(rows):
