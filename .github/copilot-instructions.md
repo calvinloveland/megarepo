@@ -61,6 +61,24 @@ This is a monorepo containing multiple projects organized as:
 - Run existing tests before committing: `pytest` or project-specific test command
 - Don't break existing tests
 
+## Test-Driven Development (TDD)
+
+When feasible, prefer TDD:
+
+1. Write a failing test that captures the expected behavior.
+2. Implement the smallest change to make it pass.
+3. Refactor safely with tests still passing.
+
+Use TDD especially for bug fixes, edge cases, or regression prevention.
+
+## General Working Notes
+
+- Prefer editing shared partials over duplicating markup across designs.
+- When adding UI state, persist it across HTMX requests where possible.
+- Keep per-project changes scoped; avoid touching `archive/` unless explicitly requested.
+- Use existing helpers and utilities before adding new ones.
+- For new data written to disk, add appropriate `.gitignore` entries.
+
 ## Process Management
 
 **NEVER use broad pkill/killall commands** that could kill unrelated processes:
