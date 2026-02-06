@@ -8,6 +8,143 @@
   transition: all 0.2s ease;
 }
 
+/* Design 1 - Brutalist */
+.design-1 .seat {
+  border-radius: 0;
+  border: 2px solid #0f172a;
+  box-shadow: none;
+}
+.design-1 #design-panel .design-panel-card,
+.design-1 #feedback-panel {
+  border-radius: 0;
+  border: 2px solid #0f172a;
+  box-shadow: none;
+}
+.design-1 #design-panel .design-panel-button {
+  border-radius: 0;
+  border: 2px solid #0f172a;
+  background: #ffffff !important;
+  color: #0f172a !important;
+}
+.design-1 #design-panel .design-panel-button.is-active {
+  background: #0f172a !important;
+  color: #ffffff !important;
+}
+.design-1 #feedback-tool .feedback-toggle {
+  border-radius: 0;
+  border: 2px solid #0f172a;
+  background: #0f172a;
+}
+
+/* Design 2 - Cyberpunk */
+.design-2 .seat {
+  border-radius: 0.75rem;
+  border: 1px solid rgba(168, 85, 247, 0.6);
+  background: rgba(15, 23, 42, 0.7);
+  color: #e2e8f0;
+  box-shadow: 0 0 12px rgba(168, 85, 247, 0.2);
+}
+.design-2 #design-panel .design-panel-card,
+.design-2 #feedback-panel {
+  border: 1px solid rgba(168, 85, 247, 0.5);
+  background: rgba(3, 7, 18, 0.9);
+  color: #e9d5ff;
+  backdrop-filter: blur(8px);
+}
+.design-2 #design-panel .design-panel-button {
+  background: rgba(236, 72, 153, 0.15) !important;
+  color: #f5d0fe !important;
+  border: 1px solid rgba(236, 72, 153, 0.5);
+}
+.design-2 #design-panel .design-panel-button.is-active {
+  background: linear-gradient(135deg, #a78bfa, #ec4899) !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(168, 85, 247, 0.8);
+}
+.design-2 #feedback-tool .feedback-toggle {
+  background: linear-gradient(135deg, #a78bfa, #ec4899);
+  border: 1px solid rgba(168, 85, 247, 0.8);
+}
+
+/* Design 3 - Vibrant */
+.design-3 .seat {
+  border-radius: 1rem;
+  border: 1px solid rgba(79, 70, 229, 0.2);
+  background: #ffffff;
+  box-shadow: 0 8px 18px rgba(99, 102, 241, 0.08);
+}
+.design-3 #design-panel .design-panel-card,
+.design-3 #feedback-panel {
+  border-radius: 1rem;
+  border: 1px solid rgba(236, 72, 153, 0.3);
+  background: #fff7fd;
+}
+.design-3 #design-panel .design-panel-button {
+  background: #fde2f3 !important;
+  color: #7c3aed !important;
+}
+.design-3 #design-panel .design-panel-button.is-active {
+  background: linear-gradient(135deg, #4f46e5, #ec4899) !important;
+  color: #ffffff !important;
+}
+.design-3 #feedback-tool .feedback-toggle {
+  background: linear-gradient(135deg, #4f46e5, #ec4899);
+}
+
+/* Design 4 - Retro 70s */
+.design-4 .seat {
+  border-radius: 0.5rem;
+  border: 2px dashed rgba(167, 243, 208, 0.6);
+  background: rgba(6, 95, 70, 0.2);
+  color: #ecfdf3;
+  box-shadow: none;
+}
+.design-4 #design-panel .design-panel-card,
+.design-4 #feedback-panel {
+  border-radius: 0.75rem;
+  border: 3px dashed rgba(167, 243, 208, 0.6);
+  background: rgba(6, 78, 59, 0.9);
+  color: #d1fae5;
+}
+.design-4 #design-panel .design-panel-button {
+  background: rgba(217, 119, 6, 0.25) !important;
+  color: #fef3c7 !important;
+  border: 2px dashed rgba(245, 158, 11, 0.7);
+}
+.design-4 #design-panel .design-panel-button.is-active {
+  background: rgba(245, 158, 11, 0.8) !important;
+  color: #1f2937 !important;
+}
+.design-4 #feedback-tool .feedback-toggle {
+  background: rgba(245, 158, 11, 0.9);
+  border: 2px dashed rgba(254, 243, 199, 0.8);
+  color: #1f2937;
+}
+
+/* Design 5 - System UI */
+.design-5 .seat {
+  border-radius: 0.75rem;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+}
+.design-5 #design-panel .design-panel-card,
+.design-5 #feedback-panel {
+  border-radius: 0.75rem;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+}
+.design-5 #design-panel .design-panel-button {
+  background: #f1f5f9 !important;
+  color: #1e293b !important;
+}
+.design-5 #design-panel .design-panel-button.is-active {
+  background: #4f46e5 !important;
+  color: #ffffff !important;
+}
+.design-5 #feedback-tool .feedback-toggle {
+  background: #4f46e5;
+}
+
 /* Shared button styling */
 button[type="button"],
 button[type="submit"] {
