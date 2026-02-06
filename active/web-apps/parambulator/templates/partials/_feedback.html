@@ -121,10 +121,10 @@ function startElementSelection() {
   document.body.style.cursor = 'crosshair';
   
   // Add event listeners
-  document.addEventListener('mouseover', highlightElement);
-  document.addEventListener('mouseout', unhighlightElement);
-  document.addEventListener('click', selectElement);
-  document.addEventListener('keydown', handleEscape);
+  document.addEventListener('mouseover', highlightElement, true);
+  document.addEventListener('mouseout', unhighlightElement, true);
+  document.addEventListener('click', selectElement, true);
+  document.addEventListener('keydown', handleEscape, true);
 }
 
 function stopElementSelection() {
@@ -134,10 +134,10 @@ function stopElementSelection() {
   document.body.style.cursor = 'default';
   
   // Remove event listeners
-  document.removeEventListener('mouseover', highlightElement);
-  document.removeEventListener('mouseout', unhighlightElement);
-  document.removeEventListener('click', selectElement);
-  document.removeEventListener('keydown', handleEscape);
+  document.removeEventListener('mouseover', highlightElement, true);
+  document.removeEventListener('mouseout', unhighlightElement, true);
+  document.removeEventListener('click', selectElement, true);
+  document.removeEventListener('keydown', handleEscape, true);
   
   if (hoveredElement) {
     hoveredElement.style.outline = originalOutline;
@@ -170,6 +170,7 @@ function selectElement(event) {
   
   event.preventDefault();
   event.stopPropagation();
+  event.stopImmediatePropagation();
   
   const target = event.target;
   if (target.closest('#feedback-tool')) return; // Don't select feedback tool itself
