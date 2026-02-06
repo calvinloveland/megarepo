@@ -102,3 +102,53 @@ def test_feedback_submission_from_ui(page):
         data = json.load(f)
     assert data["feedback_text"] == feedback_text
     new_file.unlink(missing_ok=True)
+
+
+def test_feedback_after_selecting_element_from_other_tab(page):
+    """Submit feedback after selecting an element from another tab/design."""
+    FEEDBACK_DIR.mkdir(parents=True, exist_ok=True)
+    before = set(p.name for p in FEEDBACK_DIR.glob("feedback_*.json"))
+    feedback_text = "Feedback from chart tab"
+
+    with run_server() as base_url:
+        page.goto(base_url, wait_until="domcontentloaded")
+
+        # Switch to another design (design panel buttons are labeled 1-5)
+        page.get_by_role("button", name="2").click()
+        page.wait_for_timeout(200)
+
+        # Switch to Seating Chart tab
+        page.get_by_role("button", name="Seating Chart").click()
+        expect(page.locator("#tab-chart")).to_be_visible()
+
+        # Open feedback panel and start element selection
+        page.locator("#feedback-toggle").click()
+        expect(page.locator("#feedback-panel")).to_be_visible()
+        page.locator("#element-selector-btn").click()
+
+        # Click a seat element in the chart to select it
+        chart_seat = page.locator("#tab-chart .seat").first
+        chart_seat.click()
+
+        # Fill feedback and submit
+        page.locator("#feedback-text").fill(feedback_text)
+        page.locator("#feedback-form button[type=submit]").click()
+        expect(page.locator("#feedback-success")).to_be_visible()
+
+    # Wait for file to be written
+    new_file = None
+    deadline = time.time() + 5
+    while time.time() < deadline and new_file is None:
+        after = set(p.name for p in FEEDBACK_DIR.glob("feedback_*.json"))
+        created = list(after - before)
+        if created:
+            new_file = FEEDBACK_DIR / created[0]
+            break
+        time.sleep(0.1)
+
+    assert new_file is not None
+    with open(new_file) as f:
+        data = json.load(f)
+    assert data["feedback_text"] == feedback_text
+    assert data.get("selected_element")
+    new_file.unlink(missing_ok=True)
