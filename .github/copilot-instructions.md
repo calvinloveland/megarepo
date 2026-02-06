@@ -1,5 +1,7 @@
 # Copilot Instructions for Megarepo
 
+Last updated: 2026-02-06
+
 This is a living document and must be kept continuously updated to stay correct.
 
 Read PHILOSOPHY.md
