@@ -1,22 +1,22 @@
-<div class="space-y-3">
-  <div>
-    <h2 class="text-lg font-semibold">Score</h2>
-    <p class="text-sm text-slate-600">Overall fitness: <span class="font-semibold">{{ breakdown.overall }}</span></p>
+<div class="score-card space-y-3">
+  <div class="score-header">
+    <h2 class="score-title text-lg font-semibold">Score</h2>
+    <p class="score-subtitle text-sm text-slate-600">Overall fitness: <span class="font-semibold">{{ breakdown.overall }}</span></p>
   </div>
-  <div class="grid gap-2 text-sm">
-    <div class="flex items-center justify-between rounded-md bg-slate-100 px-3 py-2">
+  <div class="score-grid grid gap-2 text-sm">
+    <div class="score-item flex items-center justify-between rounded-md bg-slate-100 px-3 py-2">
       <span>Reading mix</span>
       <span class="font-semibold">{{ breakdown.reading_mix }}</span>
     </div>
-    <div class="flex items-center justify-between rounded-md bg-slate-100 px-3 py-2">
+    <div class="score-item flex items-center justify-between rounded-md bg-slate-100 px-3 py-2">
       <span>Talkative spacing</span>
       <span class="font-semibold">{{ breakdown.talkative_spacing }}</span>
     </div>
-    <div class="flex items-center justify-between rounded-md bg-slate-100 px-3 py-2">
+    <div class="score-item flex items-center justify-between rounded-md bg-slate-100 px-3 py-2">
       <span>IEP front placement</span>
       <span class="font-semibold">{{ breakdown.iep_front }}</span>
     </div>
-    <div class="flex items-center justify-between rounded-md bg-slate-100 px-3 py-2">
+    <div class="score-item flex items-center justify-between rounded-md bg-slate-100 px-3 py-2">
       <span>Avoid pair separation</span>
       <span class="font-semibold">{{ breakdown.avoid_pairs }}</span>
     </div>

@@ -35,6 +35,42 @@
   border: 2px solid #0f172a;
   background: #0f172a;
 }
+.design-1 .tabs-bar {
+  border-bottom: 2px solid #0f172a;
+}
+.design-1 .tabs-trigger {
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-weight: 800;
+  border: 2px solid transparent;
+}
+.design-1 .tabs-trigger:hover {
+  border-color: #0f172a;
+}
+.design-1 .tabs-panel,
+.design-1 .tabs-save-panel,
+.design-1 .people-table-shell {
+  border-radius: 0;
+  border: 2px solid #0f172a;
+  background: #ffffff;
+  box-shadow: none;
+}
+.design-1 .score-item {
+  border-radius: 0;
+  border: 2px solid #0f172a;
+  background: #ffffff;
+}
+.design-1 .chart-card .chart-header span {
+  color: #0f172a;
+}
+.design-1 .chart-tooltip {
+  border-radius: 0;
+  border: 2px solid #0f172a;
+}
+.design-1 .seat-info-button {
+  border-radius: 0;
+  border: 2px solid #0f172a;
+}
 
 /* Design 2 - Cyberpunk */
 .design-2 .seat {
@@ -65,6 +101,40 @@
   background: linear-gradient(135deg, #a78bfa, #ec4899);
   border: 1px solid rgba(168, 85, 247, 0.8);
 }
+.design-2 .tabs-bar {
+  border-bottom: 1px solid rgba(168, 85, 247, 0.5);
+}
+.design-2 .tabs-trigger {
+  color: #e9d5ff;
+}
+.design-2 .tabs-trigger.border-b-2 {
+  border-color: #ec4899 !important;
+  color: #f5d0fe;
+}
+.design-2 .tabs-panel,
+.design-2 .tabs-save-panel,
+.design-2 .people-table-shell {
+  border: 1px solid rgba(168, 85, 247, 0.4);
+  background: rgba(3, 7, 18, 0.75);
+  color: #e9d5ff;
+  backdrop-filter: blur(6px);
+}
+.design-2 .score-item {
+  border: 1px solid rgba(236, 72, 153, 0.4);
+  background: rgba(236, 72, 153, 0.1);
+}
+.design-2 .chart-card .chart-header span {
+  color: #f5d0fe;
+}
+.design-2 .chart-tooltip {
+  border: 1px solid rgba(168, 85, 247, 0.6);
+  background: rgba(3, 7, 18, 0.95);
+  color: #e9d5ff;
+}
+.design-2 .seat-info-button {
+  border-color: rgba(168, 85, 247, 0.8);
+  color: #e9d5ff;
+}
 
 /* Design 3 - Vibrant */
 .design-3 .seat {
@@ -89,6 +159,34 @@
 }
 .design-3 #feedback-tool .feedback-toggle {
   background: linear-gradient(135deg, #4f46e5, #ec4899);
+}
+.design-3 .tabs-bar {
+  border-bottom: 2px solid rgba(236, 72, 153, 0.3);
+}
+.design-3 .tabs-trigger {
+  color: #6d28d9;
+}
+.design-3 .tabs-trigger.border-b-2 {
+  border-color: #ec4899 !important;
+  color: #ec4899;
+}
+.design-3 .tabs-panel,
+.design-3 .tabs-save-panel,
+.design-3 .people-table-shell {
+  border: 1px solid rgba(236, 72, 153, 0.25);
+  background: #fff7fd;
+}
+.design-3 .score-item {
+  border: 1px solid rgba(79, 70, 229, 0.2);
+  background: #eef2ff;
+}
+.design-3 .chart-tooltip {
+  border: 1px solid rgba(236, 72, 153, 0.4);
+  background: #fff7fd;
+}
+.design-3 .seat-info-button {
+  border-color: rgba(236, 72, 153, 0.5);
+  color: #db2777;
 }
 
 /* Design 4 - Retro 70s */
@@ -120,6 +218,38 @@
   border: 2px dashed rgba(254, 243, 199, 0.8);
   color: #1f2937;
 }
+.design-4 .tabs-bar {
+  border-bottom: 3px dashed rgba(167, 243, 208, 0.6);
+}
+.design-4 .tabs-trigger {
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  color: #d1fae5;
+}
+.design-4 .tabs-trigger.border-b-2 {
+  border-color: rgba(245, 158, 11, 0.8) !important;
+  color: #fef3c7;
+}
+.design-4 .tabs-panel,
+.design-4 .tabs-save-panel,
+.design-4 .people-table-shell {
+  border: 3px dashed rgba(167, 243, 208, 0.6);
+  background: rgba(6, 78, 59, 0.8);
+  color: #d1fae5;
+}
+.design-4 .score-item {
+  border: 2px dashed rgba(245, 158, 11, 0.8);
+  background: rgba(217, 119, 6, 0.2);
+}
+.design-4 .chart-tooltip {
+  border: 2px dashed rgba(254, 243, 199, 0.8);
+  background: rgba(6, 78, 59, 0.95);
+  color: #fef3c7;
+}
+.design-4 .seat-info-button {
+  border-color: rgba(245, 158, 11, 0.8);
+  color: #fef3c7;
+}
 
 /* Design 5 - System UI */
 .design-5 .seat {
@@ -143,6 +273,31 @@
 }
 .design-5 #feedback-tool .feedback-toggle {
   background: #4f46e5;
+}
+.design-5 .tabs-bar {
+  border-bottom: 1px solid #e2e8f0;
+}
+.design-5 .tabs-trigger.border-b-2 {
+  border-color: #4f46e5 !important;
+  color: #4f46e5;
+}
+.design-5 .tabs-panel,
+.design-5 .tabs-save-panel,
+.design-5 .people-table-shell {
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+}
+.design-5 .score-item {
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+.design-5 .chart-tooltip {
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+}
+.design-5 .seat-info-button {
+  border-color: #cbd5f5;
+  color: #4f46e5;
 }
 
 /* Shared button styling */
