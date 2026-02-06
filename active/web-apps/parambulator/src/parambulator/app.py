@@ -17,7 +17,7 @@ from .models import (
     people_to_json,
     people_to_table,
 )
-from .scoring import ChartResult, generate_best_chart, score_chart
+from .scoring import ChartResult, generate_best_chart, score_chart, seat_constraint_statuses
 from .storage import list_saves, load_payload, save_payload
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -329,6 +329,7 @@ def build_context(
         "column_config": column_config,
         "chart": chart,
         "chart_json": chart_to_json(chart),
+        "seat_constraints": seat_constraint_statuses(chart, parse_people_json(people_json), rows, cols),
         "breakdown": breakdown,
         "warnings": warnings,
         "message": message,

@@ -116,6 +116,71 @@ def score_chart(chart: Chart, people: Iterable[Person], rows: int, cols: int) ->
     )
 
 
+def seat_constraint_statuses(
+    chart: Chart, people: Iterable[Person], rows: int, cols: int
+) -> List[List[List[Dict[str, str]]]]:
+    people_by_name = {person.name: person for person in people}
+    chart_rows, chart_cols = _chart_dimensions(chart, rows, cols)
+    front_threshold = max(0, (chart_rows - 1) // 2)
+
+    statuses: List[List[List[Dict[str, str]]]] = []
+    for row_index in range(chart_rows):
+        row_statuses: List[List[Dict[str, str]]] = []
+        for col_index in range(chart_cols):
+            if row_index >= len(chart) or col_index >= len(chart[row_index]):
+                row_statuses.append([])
+                continue
+            name = chart[row_index][col_index]
+            if not name:
+                row_statuses.append([])
+                continue
+
+            person = people_by_name.get(name)
+            neighbors = _adjacent_names(chart, row_index, col_index)
+
+            reading_met = True
+            if person:
+                reading_met = all(
+                    _reading_level(people_by_name, neighbor) != person.reading_level
+                    for neighbor in neighbors
+                )
+
+            talkative_met = True
+            if person and person.talkative:
+                talkative_met = not any(_is_talkative(people_by_name, n) for n in neighbors)
+
+            avoid_met = True
+            if person and person.avoid:
+                avoid_met = not any(neighbor in person.avoid for neighbor in neighbors)
+
+            iep_met = True
+            if person and person.iep_front:
+                iep_met = row_index <= front_threshold
+
+            row_statuses.append(
+                [
+                    {
+                        "label": "Reading mix",
+                        "status": "met" if reading_met else "not met",
+                    },
+                    {
+                        "label": "Talkative spacing",
+                        "status": "met" if talkative_met else "not met",
+                    },
+                    {
+                        "label": "IEP front",
+                        "status": "met" if iep_met else "not met",
+                    },
+                    {
+                        "label": "Avoid pairs",
+                        "status": "met" if avoid_met else "not met",
+                    },
+                ]
+            )
+        statuses.append(row_statuses)
+    return statuses
+
+
 def _build_chart(names: List[str], layout: List[List[bool]]) -> Chart:
     chart: Chart = []
     index = 0
@@ -158,6 +223,20 @@ def _adjacent_pairs(chart: Chart, rows: int, cols: int) -> List[Tuple[str, str]]
             if row + 1 < rows and row + 1 < len(chart) and col < len(chart[row + 1]) and chart[row + 1][col] is not None:
                 pairs.append((name, chart[row + 1][col]))
     return pairs
+
+
+def _adjacent_names(chart: Chart, row: int, col: int) -> List[str]:
+    neighbors: List[str] = []
+    positions = [(row - 1, col), (row + 1, col), (row, col - 1), (row, col + 1)]
+    for r, c in positions:
+        if r < 0 or c < 0 or r >= len(chart):
+            continue
+        if c >= len(chart[r]):
+            continue
+        name = chart[r][c]
+        if name is not None:
+            neighbors.append(name)
+    return neighbors
 
 
 def _seat_positions(chart: Chart) -> Iterable[Tuple[Tuple[int, int], str]]:
