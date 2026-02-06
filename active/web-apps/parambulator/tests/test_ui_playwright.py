@@ -1,11 +1,14 @@
+import json
 import threading
+import time
 from contextlib import contextmanager
+from pathlib import Path
 
 import pytest
 from playwright.sync_api import expect
 from werkzeug.serving import make_server
 
-from parambulator.app import create_app
+from parambulator.app import FEEDBACK_DIR, create_app
 
 
 @contextmanager
@@ -66,3 +69,36 @@ def test_interactive_people_table(page):
         hidden_textarea = page.locator("#people_table_hidden")
         textarea_value = hidden_textarea.input_value()
         assert "Test Person" in textarea_value
+
+
+def test_feedback_submission_from_ui(page):
+    """Ensure feedback submitted from the UI reaches the backend."""
+    FEEDBACK_DIR.mkdir(parents=True, exist_ok=True)
+    before = set(p.name for p in FEEDBACK_DIR.glob("feedback_*.json"))
+    feedback_text = "Playwright feedback test"
+
+    with run_server() as base_url:
+        page.goto(base_url, wait_until="domcontentloaded")
+
+        page.locator("#feedback-toggle").click()
+        expect(page.locator("#feedback-panel")).to_be_visible()
+        page.locator("#feedback-text").fill(feedback_text)
+        page.locator("#feedback-form button[type=submit]").click()
+        expect(page.locator("#feedback-success")).to_be_visible()
+
+    # Wait briefly for the file to be written
+    new_file = None
+    deadline = time.time() + 5
+    while time.time() < deadline and new_file is None:
+        after = set(p.name for p in FEEDBACK_DIR.glob("feedback_*.json"))
+        created = list(after - before)
+        if created:
+            new_file = FEEDBACK_DIR / created[0]
+            break
+        time.sleep(0.1)
+
+    assert new_file is not None
+    with open(new_file) as f:
+        data = json.load(f)
+    assert data["feedback_text"] == feedback_text
+    new_file.unlink(missing_ok=True)
