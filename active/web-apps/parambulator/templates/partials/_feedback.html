@@ -88,6 +88,9 @@
     <div id="feedback-success" class="hidden p-4 bg-green-50 border-t border-green-200">
       <p class="text-sm text-green-800">✓ Feedback submitted successfully!</p>
     </div>
+    <div id="feedback-error" class="hidden p-4 bg-rose-50 border-t border-rose-200">
+      <p class="text-sm text-rose-700"></p>
+    </div>
   </div>
 </div>
 
@@ -106,6 +109,7 @@ function toggleFeedback() {
     document.getElementById('feedback-form').reset();
     clearSelection();
     hideSuccess();
+    hideError();
   }
 }
 
@@ -234,6 +238,7 @@ function getElementDescription(element) {
 
 function showSuccess() {
   document.getElementById('feedback-success').classList.remove('hidden');
+  hideError();
   setTimeout(() => {
     hideSuccess();
     toggleFeedback();
@@ -242,6 +247,18 @@ function showSuccess() {
 
 function hideSuccess() {
   document.getElementById('feedback-success').classList.add('hidden');
+}
+
+function showError(message) {
+  const errorBox = document.getElementById('feedback-error');
+  const text = errorBox.querySelector('p');
+  text.textContent = message || 'Failed to submit feedback.';
+  errorBox.classList.remove('hidden');
+  hideSuccess();
+}
+
+function hideError() {
+  document.getElementById('feedback-error').classList.add('hidden');
 }
 
 function handleFeedbackSubmit(event) {
@@ -263,7 +280,14 @@ function handleFeedbackSubmit(event) {
     },
     body: JSON.stringify(data)
   })
-  .then(response => response.json())
+  .then(response => {
+    if (!response.ok) {
+      return response.text().then(text => {
+        throw new Error(text || 'Failed to submit feedback.');
+      });
+    }
+    return response.json();
+  })
   .then(payload => {
     if (payload.status === 'success') {
       showSuccess();
@@ -276,7 +300,7 @@ function handleFeedbackSubmit(event) {
   })
   .catch(error => {
     console.error('Error submitting feedback:', error);
-    alert('Failed to submit feedback. Please try again.');
+    showError(error.message);
   });
 
   return false;

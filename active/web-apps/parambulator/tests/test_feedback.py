@@ -80,3 +80,18 @@ def test_feedback_mark_addressed():
             data = json.load(f)
         assert data["addressed"] is True
         assert "addressed_timestamp" in data
+
+
+def test_feedback_requires_text():
+    """Feedback without text should return a 400 error and not be saved."""
+    app = create_app()
+    app.config["TESTING"] = True
+
+    with app.test_client() as client:
+        response = client.post(
+            "/feedback",
+            json={"feedback_text": "", "selected_element": ""},
+            content_type="application/json",
+        )
+
+        assert response.status_code == 400

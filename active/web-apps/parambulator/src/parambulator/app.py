@@ -187,6 +187,12 @@ def create_app() -> Flask:
     def submit_feedback() -> Response:
         """Handle feedback submissions and save to files."""
         data = request.get_json()
+        if not isinstance(data, dict):
+            return Response("Invalid feedback payload", status=400)
+
+        feedback_text = str(data.get("feedback_text", "")).strip()
+        if not feedback_text:
+            return Response("Feedback text is required", status=400)
         
         FEEDBACK_DIR.mkdir(parents=True, exist_ok=True)
         ADDRESSED_DIR.mkdir(parents=True, exist_ok=True)
@@ -197,6 +203,7 @@ def create_app() -> Flask:
         filepath = FEEDBACK_DIR / filename
         
         # Add server-side timestamp
+        data["feedback_text"] = feedback_text
         data["server_timestamp"] = datetime.now().isoformat()
         data["addressed"] = False
         
