@@ -1,33 +1,12 @@
----
+//---
 name: Address feedback
 description: Systematically review feedback items, apply fixes, validate, and mark items as addressed to keep the queue clean.
 version: 0.1.0
-owners:
-	- team: engineering
-tags:
-	- feedback
-	- triage
-	- maintenance
+owners: - team: engineering
+tags: - feedback - triage - maintenance
 inputs:
-	- name: feedback_dir
-		description: Path containing feedback JSON files.
-		required: true
-		default: data/feedback
-	- name: addressed_dir
-		description: Subdirectory for addressed feedback.
-		required: true
-		default: data/feedback/addressed
-	- name: include_patterns
-		description: Optional glob patterns for selecting feedback files.
-		required: false
-	- name: exclude_patterns
-		description: Optional glob patterns to exclude.
-		required: false
-outputs:
-	- name: summary
-		description: Brief summary of addressed feedback and changes.
-	- name: addressed_ids
-		description: List of feedback IDs or filenames marked as addressed.
+/ames marked as addressed.
+
 ---
 
 # Address feedback
@@ -50,30 +29,30 @@ Continuously reduce feedback backlog by processing items one by one, implementin
 ## Workflow
 
 1. Discover feedback files
-	 - List JSON files in the feedback directory.
-	 - Exclude the addressed directory and any ignored patterns.
+   - List JSON files in the feedback directory.
+   - Exclude the addressed directory and any ignored patterns.
 
 2. Read and categorize
-	 - Parse each feedback item.
-	 - Classify as actionable, duplicate/test, or already addressed.
+   - Parse each feedback item.
+   - Classify as actionable, duplicate/test, or already addressed.
 
 3. Address actionable items one by one
-	 - Reproduce the reported behavior if possible.
-	 - Identify relevant files and functions.
-	 - Implement a minimal, targeted fix.
-	 - Add or update tests when appropriate.
+   - Reproduce the reported behavior if possible.
+   - Identify relevant files and functions.
+   - Implement a minimal, targeted fix.
+   - Add or update tests when appropriate.
 
 4. Validate
-	 - Run relevant tests or checks.
-	 - Confirm the issue no longer occurs.
+   - Run relevant tests or checks.
+   - Confirm the issue no longer occurs.
 
 5. Mark addressed
-	 - Set `addressed: true` and add an `addressed_timestamp`.
-	 - Move the file into the addressed directory (or call an API if provided).
+   - Set `addressed: true` and add an `addressed_timestamp`.
+   - Move the file into the addressed directory (or call an API if provided).
 
 6. Summarize
-	 - Provide a concise summary of changes.
-	 - List addressed feedback IDs.
+   - Provide a concise summary of changes.
+   - List addressed feedback IDs.
 
 ## Guidelines
 
@@ -90,6 +69,6 @@ Continuously reduce feedback backlog by processing items one by one, implementin
 
 ## Failure modes
 
-- If feedback is unclear, note what additional details are needed.
+- If feedback is unclear, note what additional details may be needed but make a best effort fix giving existing information.
 - If unable to reproduce, document assumptions and provide a best-effort fix.
-- If fix requires product decisions, mark as blocked and do not mark addressed.
+- If fix requires product decisions, or may stomp on other features use a feature flag to allow enabling and disabling of the fix.
