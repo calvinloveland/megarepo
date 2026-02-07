@@ -11,7 +11,7 @@ if [ -d /etc/docker ]; then
   sudo tee /etc/docker/daemon.json >/dev/null <<'EOF'
 {
   "iptables": false,
-  "bridge": "none",
+  "bridge": "docker0",
   "ip-masq": false
 }
 EOF
@@ -20,7 +20,7 @@ else
   sudo tee /etc/docker/daemon.json >/dev/null <<'EOF'
 {
   "iptables": false,
-  "bridge": "none",
+  "bridge": "docker0",
   "ip-masq": false
 }
 EOF
