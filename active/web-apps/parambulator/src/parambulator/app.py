@@ -8,7 +8,7 @@ from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from typing import Dict, List, Optional
 
-from flask import Flask, Response, jsonify, render_template, request
+from flask import Flask, Response, jsonify, make_response, render_template, request
 from flask_wtf.csrf import CSRFProtect
 
 from .models import (
@@ -36,6 +36,40 @@ DEFAULT_COLUMN_CONFIG = {
 }
 FEEDBACK_DIR = PROJECT_ROOT / "data" / "feedback"
 ADDRESSED_DIR = FEEDBACK_DIR / "addressed"
+STATE_COOKIE_NAME = "parambulator_state"
+STATE_COOKIE_MAX_AGE = 60 * 60 * 24 * 30
+
+
+def _serialize_state_cookie(data: Dict[str, object]) -> Optional[str]:
+    try:
+        raw = json.dumps(data, separators=(",", ":"))
+    except (TypeError, ValueError):
+        return None
+
+    if len(raw) <= 3500:
+        return raw
+
+    trimmed = dict(data)
+    trimmed.pop("chart_json", None)
+    try:
+        raw = json.dumps(trimmed, separators=(",", ":"))
+    except (TypeError, ValueError):
+        return None
+    if len(raw) <= 3500:
+        return raw
+    return None
+
+
+def _load_state_cookie(raw: Optional[str]) -> Dict[str, object]:
+    if not raw:
+        return {}
+    try:
+        parsed = json.loads(raw)
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return {}
+    if not isinstance(parsed, dict):
+        return {}
+    return parsed
 
 
 def create_app() -> Flask:
@@ -75,32 +109,93 @@ def create_app() -> Flask:
         app.logger.addHandler(handler)
         app.logger.setLevel(logging.INFO)
 
+        def apply_state_cookie(response: Response, context: Dict[str, object]) -> Response:
+            state_payload = {
+                "people_json": context.get("people_json", ""),
+                "people_table": context.get("people_table", ""),
+                "rows": context.get("rows"),
+                "cols": context.get("cols"),
+                "design": context.get("design"),
+                "layout_map": context.get("layout_map", ""),
+                "column_config": context.get("column_config", ""),
+                "chart_json": context.get("chart_json", ""),
+            }
+            raw = _serialize_state_cookie(state_payload)
+            if not raw:
+                return response
+            response.set_cookie(
+                STATE_COOKIE_NAME,
+                raw,
+                max_age=STATE_COOKIE_MAX_AGE,
+                samesite="Lax",
+                secure=not is_dev,
+                httponly=True,
+            )
+            return response
+
     @app.get("/")
     def index() -> str:
-        people = default_people()
-        people_json = people_to_json(people)
-        people_table = people_to_table(people)
-        layout_map = layout_to_text(None, DEFAULT_ROWS, DEFAULT_COLS)
-        result = generate_best_chart(
-            people,
+        state = _load_state_cookie(request.cookies.get(STATE_COOKIE_NAME))
+        state_people_table = str(state.get("people_table", "")).strip()
+        state_people_json = str(state.get("people_json", "")).strip()
+        if state_people_table:
+            people = parse_people_table(state_people_table) or default_people()
+            people_json = people_to_json(people)
+            people_table = people_to_table(people)
+        else:
+            if not state_people_json:
+                people = default_people()
+                people_json = people_to_json(people)
+            else:
+                people = parse_people_json(state_people_json)
+                people_json = people_to_json(people)
+            people_table = people_to_table(people)
+
+        rows = _parse_int(
+            str(state.get("rows")) if state.get("rows") is not None else None,
             DEFAULT_ROWS,
-            DEFAULT_COLS,
-            iterations=150,
-            layout=parse_layout_map(layout_map, DEFAULT_ROWS, DEFAULT_COLS),
+            min_val=1,
+            max_val=50,
         )
+        cols = _parse_int(
+            str(state.get("cols")) if state.get("cols") is not None else None,
+            DEFAULT_COLS,
+            min_val=1,
+            max_val=50,
+        )
+        design = str(state.get("design", DEFAULT_DESIGN)) or DEFAULT_DESIGN
+        column_config = str(state.get("column_config", json.dumps(DEFAULT_COLUMN_CONFIG, indent=2)))
+        layout_map = str(state.get("layout_map", "")) or layout_to_text(None, rows, cols)
+        chart_json = str(state.get("chart_json", "")).strip()
+        if chart_json:
+            chart = chart_from_json(chart_json)
+            breakdown = score_chart(chart, people, rows, cols)
+            warnings = []
+        else:
+            result = generate_best_chart(
+                people,
+                rows,
+                cols,
+                iterations=150,
+                layout=parse_layout_map(layout_map, rows, cols),
+            )
+            chart = result.chart
+            breakdown = result.breakdown
+            warnings = result.warnings
         context = build_context(
             people_json=people_json,
             people_table=people_table,
-            rows=DEFAULT_ROWS,
-            cols=DEFAULT_COLS,
-            design=DEFAULT_DESIGN,
+            rows=rows,
+            cols=cols,
+            design=design,
             layout_map=layout_map,
-            column_config=json.dumps(DEFAULT_COLUMN_CONFIG, indent=2),
-            chart=result.chart,
-            breakdown=result.breakdown,
-            warnings=result.warnings,
+            column_config=column_config,
+            chart=chart,
+            breakdown=breakdown,
+            warnings=warnings,
         )
-        return render_template("index.html", **context)
+        response = make_response(render_template("index.html", **context))
+        return apply_state_cookie(response, context)
 
     @app.post("/generate")
     def generate() -> str:
@@ -125,7 +220,8 @@ def create_app() -> Flask:
             warnings=result.warnings,
             message="Generated a new chart.",
         )
-        return render_design(context)
+        response = make_response(render_design(context))
+        return apply_state_cookie(response, context)
 
     @app.post("/design")
     def swap_design() -> str:
@@ -145,7 +241,8 @@ def create_app() -> Flask:
             warnings=form_data["warnings"],
             message="Switched design.",
         )
-        return render_design(context)
+        response = make_response(render_design(context))
+        return apply_state_cookie(response, context)
 
     @app.post("/save")
     def save() -> str:
@@ -178,7 +275,8 @@ def create_app() -> Flask:
             warnings=form_data["warnings"],
             message=f"Saved as '{save_name}'.",
         )
-        return render_design(context)
+        response = make_response(render_design(context))
+        return apply_state_cookie(response, context)
 
     @app.get("/load")
     def load() -> str:
@@ -215,7 +313,8 @@ def create_app() -> Flask:
             warnings=[],
             message=f"Loaded '{name}'.",
         )
-        return render_design(context)
+        response = make_response(render_design(context))
+        return apply_state_cookie(response, context)
 
     @app.post("/feedback")
     def submit_feedback() -> Response:
