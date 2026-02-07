@@ -20,7 +20,7 @@
     },
     "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {
       "version": "latest",
-      "dockerSocket": "${localEnv:XDG_RUNTIME_DIR}/docker.sock"
+      "dockerSocket": "/var/run/docker.sock"
     }
   },
   "customizations": {
@@ -78,7 +78,7 @@
   },
   "runArgs": [
     "-v",
-    "${localEnv:XDG_RUNTIME_DIR}/docker.sock:/var/run/docker.sock"
+    "/var/run/docker.sock:/var/run/docker.sock"
   ],
   "mounts": [
     "source=${localWorkspaceFolder}/.devcontainer/cache/pip,target=/home/vscode/.cache/pip,type=bind,consistency=cached",
