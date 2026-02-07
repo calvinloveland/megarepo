@@ -275,6 +275,7 @@ function handleFeedbackSubmit(event) {
   const formData = new FormData(form);
   const data = {
     feedback_text: formData.get('feedback_text'),
+    selected_element: formData.get('selected_element') || '',
     design: getActiveDesign(),
     timestamp: new Date().toISOString()
   };

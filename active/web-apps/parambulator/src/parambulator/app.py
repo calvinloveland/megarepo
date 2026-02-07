@@ -225,10 +225,13 @@ def create_app() -> Flask:
             return Response("Invalid feedback payload", status=400)
 
         feedback_text = str(data.get("feedback_text", "")).strip()
+        selected_element = str(data.get("selected_element", "")).strip()
         if not feedback_text:
             return Response("Feedback text is required", status=400)
         if len(feedback_text) > 5000:
             return Response("Feedback text must be < 5000 characters", status=400)
+        if len(selected_element) > 500:
+            return Response("Selected element must be < 500 characters", status=400)
 
         FEEDBACK_DIR.mkdir(parents=True, exist_ok=True)
         ADDRESSED_DIR.mkdir(parents=True, exist_ok=True)
@@ -238,6 +241,7 @@ def create_app() -> Flask:
 
         feedback_data = {
             "feedback_text": feedback_text,
+            "selected_element": selected_element or None,
             "design": str(data.get("design", "unknown")),
             "timestamp": data.get("timestamp"),
             "server_timestamp": datetime.now().isoformat(),
@@ -306,7 +310,8 @@ def create_app() -> Flask:
         response.headers["X-XSS-Protection"] = "1; mode=block"
         response.headers["Content-Security-Policy"] = (
             "default-src 'self'; "
-            "script-src 'self' https://cdn.tailwindcss.com https://unpkg.com; "
+            "script-src 'self' 'unsafe-inline' 'unsafe-hashes' "
+            "https://cdn.tailwindcss.com https://unpkg.com https://static.cloudflareinsights.com; "
             "style-src 'self' https://cdn.tailwindcss.com 'unsafe-inline'; "
             "img-src 'self' data:; "
             "connect-src 'self'; "
