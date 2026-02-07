@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List
@@ -31,11 +32,19 @@ def save_payload(base_dir: Path, name: str, payload: Dict[str, object]) -> Path:
 def load_payload(base_dir: Path, name: str) -> Dict[str, object]:
     safe_name = _sanitize_name(name)
     path = storage_dir(base_dir) / f"{safe_name}.json"
+    try:
+        path.resolve().relative_to(storage_dir(base_dir).resolve())
+    except ValueError as exc:
+        raise ValueError("Invalid save path") from exc
     if not path.exists():
         raise FileNotFoundError(f"Save '{safe_name}' not found.")
     return json.loads(path.read_text(encoding="utf-8"))
 
 
 def _sanitize_name(name: str) -> str:
-    cleaned = "".join(ch for ch in name if ch.isalnum() or ch in {"-", "_"}).strip()
+    if not name or not isinstance(name, str):
+        raise ValueError("Invalid save name")
+    cleaned = re.sub(r"[^a-zA-Z0-9\-_]", "", name).strip()
+    if not cleaned:
+        raise ValueError("Save name must contain at least one valid character")
     return cleaned[:60]

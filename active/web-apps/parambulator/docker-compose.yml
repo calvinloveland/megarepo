@@ -1,0 +1,24 @@
+version: "3.9"
+
+services:
+  parambulator:
+    build: .
+    ports:
+      - "5000:5000"
+    environment:
+      SECRET_KEY: ${SECRET_KEY}
+      FLASK_DEBUG: "false"
+      HOST: "0.0.0.0"
+      PORT: "5000"
+      MAX_CONTENT_LENGTH: "1048576"
+    volumes:
+      - parambulator-data:/app/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5000/')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  parambulator-data:

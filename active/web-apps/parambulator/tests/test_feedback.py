@@ -8,6 +8,7 @@ def test_feedback_submission():
     """Test that feedback can be submitted and saved."""
     app = create_app()
     app.config["TESTING"] = True
+    app.config["WTF_CSRF_ENABLED"] = False
     
     with app.test_client() as client:
         # Submit feedback
@@ -15,8 +16,7 @@ def test_feedback_submission():
             "/feedback",
             json={
                 "feedback_text": "This is a test feedback",
-                "selected_element": "button#test-button",
-                "page_url": "http://localhost:5000/",
+                "design": "design_1",
                 "timestamp": "2026-02-05T12:00:00.000Z"
             },
             content_type="application/json"
@@ -40,7 +40,8 @@ def test_feedback_submission():
             saved_feedback = json.load(f)
         
         assert saved_feedback["feedback_text"] == "This is a test feedback"
-        assert saved_feedback["selected_element"] == "button#test-button"
+        assert saved_feedback["design"] == "design_1"
+        assert "selected_element" not in saved_feedback
         assert "server_timestamp" in saved_feedback
 
 
@@ -48,14 +49,14 @@ def test_feedback_mark_addressed():
     """Test that feedback can be marked as addressed and moved."""
     app = create_app()
     app.config["TESTING"] = True
+    app.config["WTF_CSRF_ENABLED"] = False
 
     with app.test_client() as client:
         response = client.post(
             "/feedback",
             json={
                 "feedback_text": "Address me",
-                "selected_element": "div#test",
-                "page_url": "http://localhost:5000/",
+                "design": "design_2",
                 "timestamp": "2026-02-06T12:00:00.000Z",
             },
             content_type="application/json",
@@ -86,6 +87,7 @@ def test_feedback_requires_text():
     """Feedback without text should return a 400 error and not be saved."""
     app = create_app()
     app.config["TESTING"] = True
+    app.config["WTF_CSRF_ENABLED"] = False
 
     with app.test_client() as client:
         response = client.post(

@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Error {{ status }}</title>
+    <link rel="stylesheet" href="/static/app.css" />
+  </head>
+  <body class="min-h-screen bg-slate-100 text-slate-900">
+    <div class="mx-auto max-w-2xl px-6 py-16">
+      <div class="rounded-lg border border-slate-200 bg-white p-6 shadow">
+        <h1 class="text-2xl font-bold text-slate-900">Error {{ status }}</h1>
+        <p class="mt-2 text-slate-600">{{ message }}</p>
+        <div class="mt-6">
+          <a href="/" class="inline-flex items-center rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white">Back to home</a>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

@@ -1,11 +1,15 @@
 from __future__ import annotations
 
 import json
+import logging
+import os
 from datetime import datetime
+from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from typing import Dict, List, Optional
 
 from flask import Flask, Response, jsonify, render_template, request
+from flask_wtf.csrf import CSRFProtect
 
 from .models import (
     Chart,
@@ -40,6 +44,36 @@ def create_app() -> Flask:
         template_folder=str(PROJECT_ROOT / "templates"),
         static_folder=str(PROJECT_ROOT / "static"),
     )
+
+    secret_key = os.getenv("SECRET_KEY")
+    is_dev = os.getenv("FLASK_DEBUG", "").lower() == "true" or os.getenv(
+        "FLASK_ENV", ""
+    ).lower() == "development"
+    if not secret_key and not is_dev:
+        raise ValueError("SECRET_KEY environment variable is required in production")
+
+    app.config["SECRET_KEY"] = secret_key or "dev-key-not-for-production"
+    app.config["WTF_CSRF_HEADERS"] = ["X-CSRFToken"]
+    app.config["MAX_CONTENT_LENGTH"] = int(os.getenv("MAX_CONTENT_LENGTH", "1048576"))
+
+    if not is_dev:
+        app.config["SESSION_COOKIE_SECURE"] = True
+        app.config["SESSION_COOKIE_HTTPONLY"] = True
+        app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+
+    CSRFProtect(app)
+
+    if not is_dev:
+        log_file = os.getenv("LOG_FILE")
+        if log_file:
+            handler = RotatingFileHandler(log_file, maxBytes=10485760, backupCount=10)
+        else:
+            handler = logging.StreamHandler()
+        handler.setFormatter(
+            logging.Formatter("[%(asctime)s] %(levelname)s in %(module)s: %(message)s")
+        )
+        app.logger.addHandler(handler)
+        app.logger.setLevel(logging.INFO)
 
     @app.get("/")
     def index() -> str:
@@ -152,8 +186,8 @@ def create_app() -> Flask:
         payload = load_payload(PROJECT_ROOT, name)
         people_json = str(payload.get("people_json", people_to_json(default_people())))
         people_table = str(payload.get("people_table", ""))
-        rows = int(payload.get("rows", DEFAULT_ROWS))
-        cols = int(payload.get("cols", DEFAULT_COLS))
+        rows = _parse_int(str(payload.get("rows")), DEFAULT_ROWS, min_val=1, max_val=50)
+        cols = _parse_int(str(payload.get("cols")), DEFAULT_COLS, min_val=1, max_val=50)
         design = str(payload.get("design", DEFAULT_DESIGN))
         column_config = str(
             payload.get("column_config", json.dumps(DEFAULT_COLUMN_CONFIG, indent=2))
@@ -185,7 +219,7 @@ def create_app() -> Flask:
 
     @app.post("/feedback")
     def submit_feedback() -> Response:
-        """Handle feedback submissions and save to files."""
+        """Handle feedback submissions safely (PII-aware)."""
         data = request.get_json()
         if not isinstance(data, dict):
             return Response("Invalid feedback payload", status=400)
@@ -193,24 +227,26 @@ def create_app() -> Flask:
         feedback_text = str(data.get("feedback_text", "")).strip()
         if not feedback_text:
             return Response("Feedback text is required", status=400)
-        
+        if len(feedback_text) > 5000:
+            return Response("Feedback text must be < 5000 characters", status=400)
+
         FEEDBACK_DIR.mkdir(parents=True, exist_ok=True)
         ADDRESSED_DIR.mkdir(parents=True, exist_ok=True)
-        
-        # Create a timestamped filename
+
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
-        filename = f"feedback_{timestamp}.json"
-        filepath = FEEDBACK_DIR / filename
-        
-        # Add server-side timestamp
-        data["feedback_text"] = feedback_text
-        data["server_timestamp"] = datetime.now().isoformat()
-        data["addressed"] = False
-        
-        # Save feedback to file
+        filepath = FEEDBACK_DIR / f"feedback_{timestamp}.json"
+
+        feedback_data = {
+            "feedback_text": feedback_text,
+            "design": str(data.get("design", "unknown")),
+            "timestamp": data.get("timestamp"),
+            "server_timestamp": datetime.now().isoformat(),
+            "addressed": False,
+        }
+
         with open(filepath, "w") as f:
-            json.dump(data, f, indent=2)
-        
+            json.dump(feedback_data, f, indent=2)
+
         return jsonify({"status": "success", "message": "Feedback saved", "id": timestamp})
 
     @app.post("/feedback/mark-addressed")
@@ -246,7 +282,41 @@ def create_app() -> Flask:
 
     @app.errorhandler(ValueError)
     def handle_value_error(err: ValueError) -> Response:
+        app.logger.warning("Validation error: %s", err)
         return Response(str(err), status=400)
+
+    @app.errorhandler(FileNotFoundError)
+    def handle_file_not_found(err: FileNotFoundError) -> tuple[str, int]:
+        app.logger.warning("File not found: %s", err)
+        return render_template("error.html", status=404, message="Not found"), 404
+
+    @app.errorhandler(404)
+    def not_found(error) -> tuple[str, int]:
+        return render_template("error.html", status=404, message="Page not found"), 404
+
+    @app.errorhandler(500)
+    def server_error(error) -> tuple[str, int]:
+        app.logger.error("Server error: %s", error)
+        return render_template("error.html", status=500, message="Server error"), 500
+
+    @app.after_request
+    def set_security_headers(response):
+        response.headers["X-Frame-Options"] = "SAMEORIGIN"
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self'; "
+            "script-src 'self' https://cdn.tailwindcss.com https://unpkg.com; "
+            "style-src 'self' https://cdn.tailwindcss.com 'unsafe-inline'; "
+            "img-src 'self' data:; "
+            "connect-src 'self'; "
+            "font-src 'self'; "
+            "frame-ancestors 'self'; "
+            "base-uri 'self'"
+        )
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
+        return response
 
     return app
 
@@ -268,9 +338,9 @@ def parse_form(form: Dict[str, str]) -> Dict[str, object]:
             people = parse_people_json(people_json)
         people_table = people_to_table(people)
 
-    rows = _parse_int(form.get("rows"), DEFAULT_ROWS)
-    cols = _parse_int(form.get("cols"), DEFAULT_COLS)
-    iterations = _parse_int(form.get("iterations"), 200)
+    rows = _parse_int(form.get("rows"), DEFAULT_ROWS, min_val=1, max_val=50)
+    cols = _parse_int(form.get("cols"), DEFAULT_COLS, min_val=1, max_val=50)
+    iterations = _parse_int(form.get("iterations"), 200, min_val=1, max_val=500)
     design = form.get("design", DEFAULT_DESIGN) or DEFAULT_DESIGN
     column_config = form.get("column_config") or json.dumps(DEFAULT_COLUMN_CONFIG, indent=2)
 
@@ -406,17 +476,25 @@ def layout_to_text(layout: Optional[List[List[bool]]], rows: int, cols: int) -> 
     return "\n".join(lines)
 
 
-def _parse_int(value: Optional[str], fallback: int) -> int:
+def _parse_int(value: Optional[str], fallback: int, min_val: int = 1, max_val: int = 1000) -> int:
     try:
         parsed = int(value) if value is not None else fallback
-    except ValueError:
+    except (ValueError, TypeError):
         return fallback
-    return parsed if parsed > 0 else fallback
+    if parsed < min_val:
+        return min_val
+    if parsed > max_val:
+        return max_val
+    return parsed
 
 
 def main() -> None:
     app = create_app()
-    app.run(debug=True)
+    debug = os.getenv("FLASK_DEBUG", "").lower() == "true"
+    port = int(os.getenv("PORT", 5000))
+    host = os.getenv("HOST", "127.0.0.1")
+
+    app.run(debug=debug, host=host, port=port)
 
 
 if __name__ == "__main__":

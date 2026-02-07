@@ -1,6 +1,7 @@
 <form id="controls-form" class="space-y-4">
   <input type="hidden" name="chart_json" value="{{ chart_json }}" />
   <input type="hidden" name="people_json" value="{{ people_json }}" />
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
 
   <div>
     <label class="block text-sm font-semibold text-slate-700">People (spreadsheet style)</label>
