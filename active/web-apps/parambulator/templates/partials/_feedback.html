@@ -121,7 +121,7 @@ function startElementSelection() {
   }
 
   selectingElement = true;
-  document.getElementById('selector-btn-text').textContent = 'Selecting... (ESC to cancel)';
+  document.getElementById('selector-btn-text').textContent = 'Selecting... Click element (ESC to cancel)';
   document.getElementById('element-selector-btn').classList.add('bg-blue-50', 'border-blue-400');
   document.body.style.cursor = 'crosshair';
   const panel = document.getElementById('feedback-panel');
