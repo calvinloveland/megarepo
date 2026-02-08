@@ -11,40 +11,19 @@
       rows="10"
       class="mt-2 w-full rounded-lg border border-slate-300 bg-white p-3 font-mono text-xs text-slate-800 shadow-sm"
     >{{ people_table }}</textarea>
+    <button
+      type="button"
+      onclick="document.querySelector('[name=people_table]').value=''; document.querySelector('[name=people_json]').value=''"
+      class="mt-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+    >
+      Clear All People
+    </button>
   </div>
 
-  <div class="grid grid-cols-3 gap-3">
-    <div>
-      <label class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Rows</label>
-      <input
-        type="number"
-        name="rows"
-        min="1"
-        value="{{ rows }}"
-        class="mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
-      />
-    </div>
-    <div>
-      <label class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Columns</label>
-      <input
-        type="number"
-        name="cols"
-        min="1"
-        value="{{ cols }}"
-        class="mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
-      />
-    </div>
-    <div>
-      <label class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Iterations</label>
-      <input
-        type="number"
-        name="iterations"
-        min="1"
-        value="200"
-        class="mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
-      />
-    </div>
-  </div>
+  <!-- Grid configuration (rows/cols/iterations) - hidden inputs used by layout editor, configured when editing layout below -->
+  <input type="hidden" name="rows" min="1" value="{{ rows }}" />
+  <input type="hidden" name="cols" min="1" value="{{ cols }}" />
+  <input type="hidden" name="iterations" min="1" value="200" />
 
   <div>
     <label class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Design</label>

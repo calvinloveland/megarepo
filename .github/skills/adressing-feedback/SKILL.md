@@ -32,9 +32,10 @@ Continuously reduce feedback backlog by processing items one by one, implementin
    - List JSON files in the feedback directory.
    - Exclude the addressed directory and any ignored patterns.
 
-2. Read and categorize
+2. Read and triage
    - Parse each feedback item.
    - Classify as actionable, duplicate/test, or already addressed.
+   - Prioritize the most important items
 
 3. Address actionable items one by one
    - Reproduce the reported behavior if possible.
