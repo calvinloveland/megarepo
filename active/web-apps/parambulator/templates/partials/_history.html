@@ -1,0 +1,284 @@
+<script>
+/**
+ * History Manager for Undo/Redo Functionality
+ * 
+ * Maintains a stack of state snapshots in sessionStorage
+ * Each snapshot captures the complete form state (people, layout, design, etc.)
+ * Max 30 snapshots to avoid exceeding sessionStorage limits (~5MB)
+ */
+
+class HistoryManager {
+  constructor(maxSnapshots = 30) {
+    this.maxSnapshots = maxSnapshots;
+    this.storageKey = 'parambulator_history';
+    this.indexKey = 'parambulator_history_index';
+    this.init();
+  }
+
+  init() {
+    // Clear history on page load (fresh session start)
+    sessionStorage.removeItem(this.storageKey);
+    sessionStorage.removeItem(this.indexKey);
+    this.currentIndex = -1;
+    this.history = [];
+    this.updateUI();
+  }
+
+  /**
+   * Capture current form state as a snapshot
+   * Returns the snapshot object
+   */
+  captureState() {
+    const form = document.getElementById('controls-form');
+    if (!form) return null;
+
+    const snapshot = {
+      people_table: form.querySelector('[name="people_table"]')?.value || '',
+      people_json: form.querySelector('[name="people_json"]')?.value || '',
+      rows: form.querySelector('[name="rows"]')?.value || '',
+      cols: form.querySelector('[name="cols"]')?.value || '',
+      design: form.querySelector('[name="design"]')?.value || 'design_1',
+      layout_map: form.querySelector('[name="layout_map"]')?.value || '',
+      iterations: form.querySelector('[name="iterations"]')?.value || '200',
+      timestamp: Date.now()
+    };
+
+    return snapshot;
+  }
+
+  /**
+   * Restore form state from a snapshot
+   * @param {Object} snapshot - The state snapshot to restore
+   */
+  restoreState(snapshot) {
+    if (!snapshot) return false;
+
+    const form = document.getElementById('controls-form');
+    if (!form) return false;
+
+    // Restore all form fields
+    const fields = {
+      people_table: snapshot.people_table,
+      people_json: snapshot.people_json,
+      rows: snapshot.rows,
+      cols: snapshot.cols,
+      layout_map: snapshot.layout_map,
+      iterations: snapshot.iterations
+    };
+
+    Object.entries(fields).forEach(([name, value]) => {
+      const input = form.querySelector(`[name="${name}"]`);
+      if (input) {
+        input.value = value;
+      }
+    });
+
+    // Update design buttons
+    document.querySelectorAll('[name="design"]').forEach(btn => {
+      if (btn.value === snapshot.design) {
+        btn.classList.add('border-indigo-500', 'bg-indigo-100', 'text-indigo-700');
+        btn.classList.remove('border-slate-300', 'bg-white', 'text-slate-600');
+      } else {
+        btn.classList.remove('border-indigo-500', 'bg-indigo-100', 'text-indigo-700');
+        btn.classList.add('border-slate-300', 'bg-white', 'text-slate-600');
+      }
+    });
+
+    return true;
+  }
+
+  /**
+   * Push a new snapshot onto the history stack
+   * @param {Object} snapshot - The snapshot to push (or captures current state if null)
+   */
+  push(snapshot) {
+    if (!snapshot) {
+      snapshot = this.captureState();
+    }
+    if (!snapshot) return;
+
+    // If we're not at the end of history, truncate future states
+    if (this.currentIndex < this.history.length - 1) {
+      this.history = this.history.slice(0, this.currentIndex + 1);
+    }
+
+    // Add new snapshot
+    this.history.push(snapshot);
+    this.currentIndex++;
+
+    // Enforce max snapshots
+    if (this.history.length > this.maxSnapshots) {
+      this.history.shift();
+      this.currentIndex--;
+    }
+
+    // Persist to sessionStorage
+    this.save();
+    this.updateUI();
+  }
+
+  /**
+   * Undo: Move to previous snapshot in history
+   * @returns {Object|null} The previous snapshot, or null if at beginning
+   */
+  undo() {
+    if (this.currentIndex <= 0) return null;
+
+    this.currentIndex--;
+    const snapshot = this.history[this.currentIndex];
+    this.save();
+    this.updateUI();
+    return snapshot;
+  }
+
+  /**
+   * Redo: Move to next snapshot in history
+   * @returns {Object|null} The next snapshot, or null if at end
+   */
+  redo() {
+    if (this.currentIndex >= this.history.length - 1) return null;
+
+    this.currentIndex++;
+    const snapshot = this.history[this.currentIndex];
+    this.save();
+    this.updateUI();
+    return snapshot;
+  }
+
+  /**
+   * Get the current snapshot without moving
+   */
+  getCurrent() {
+    if (this.currentIndex >= 0 && this.currentIndex < this.history.length) {
+      return this.history[this.currentIndex];
+    }
+    return null;
+  }
+
+  /**
+   * Clear all history (e.g., when loading a saved chart)
+   */
+  clear() {
+    this.history = [];
+    this.currentIndex = -1;
+    sessionStorage.removeItem(this.storageKey);
+    sessionStorage.removeItem(this.indexKey);
+    this.updateUI();
+  }
+
+  /**
+   * Save history to sessionStorage
+   */
+  save() {
+    sessionStorage.setItem(this.storageKey, JSON.stringify(this.history));
+    sessionStorage.setItem(this.indexKey, JSON.stringify(this.currentIndex));
+  }
+
+  /**
+   * Update UI state (enable/disable buttons)
+   */
+  updateUI() {
+    const undoBtn = document.getElementById('undo-btn');
+    const redoBtn = document.getElementById('redo-btn');
+
+    if (undoBtn) {
+      undoBtn.disabled = this.currentIndex <= 0;
+    }
+    if (redoBtn) {
+      redoBtn.disabled = this.currentIndex >= this.history.length - 1;
+    }
+  }
+
+  /**
+   * Get current history stats for debugging
+   */
+  getStats() {
+    return {
+      totalSnapshots: this.history.length,
+      currentIndex: this.currentIndex,
+      canUndo: this.currentIndex > 0,
+      canRedo: this.currentIndex < this.history.length - 1
+    };
+  }
+}
+
+// Initialize history manager globally
+const historyManager = new HistoryManager(30);
+
+// Undo/Redo button handlers
+function performUndo() {
+  const snapshot = historyManager.undo();
+  if (snapshot) {
+    historyManager.restoreState(snapshot);
+    // Trigger form submission to re-render
+    const form = document.getElementById('controls-form');
+    if (form) {
+      // Find the Generate Chart button and trigger it
+      const generateBtn = form.querySelector('[hx-post="/generate"]');
+      if (generateBtn) {
+        generateBtn.click();
+      }
+    }
+  }
+}
+
+function performRedo() {
+  const snapshot = historyManager.redo();
+  if (snapshot) {
+    historyManager.restoreState(snapshot);
+    // Trigger form submission to re-render
+    const form = document.getElementById('controls-form');
+    if (form) {
+      const generateBtn = form.querySelector('[hx-post="/generate"]');
+      if (generateBtn) {
+        generateBtn.click();
+      }
+    }
+  }
+}
+
+// Keyboard shortcuts: Ctrl+Z for undo, Ctrl+Shift+Z for redo
+document.addEventListener('keydown', function(event) {
+  // Don't trigger in input/textarea fields
+  if (['INPUT', 'TEXTAREA'].includes(event.target.tagName)) {
+    return;
+  }
+
+  // Ctrl+Z (Cmd+Z on Mac) = Undo
+  if ((event.ctrlKey || event.metaKey) && event.key === 'z' && !event.shiftKey) {
+    event.preventDefault();
+    performUndo();
+  }
+  // Ctrl+Shift+Z (Cmd+Shift+Z on Mac) = Redo
+  else if ((event.ctrlKey || event.metaKey) && event.key === 'z' && event.shiftKey) {
+    event.preventDefault();
+    performRedo();
+  }
+});
+
+// Hook into HTMX to capture state before requests (but not before undo/redo)
+document.addEventListener('htmx:beforeRequest', function(evt) {
+  // Skip if this is an undo/redo operation (don't double-capture)
+  if (evt.detail.xhr.dataset && evt.detail.xhr.dataset.isUndoRedo) {
+    return;
+  }
+
+  // Skip feedback submissions, load operations, and mark-addressed
+  const path = evt.detail.path;
+  if (path === '/feedback' || path === '/load' || path === '/feedback/mark-addressed') {
+    return;
+  }
+
+  // Capture state before the request for undo/redo support
+  historyManager.push();
+});
+
+// Clear history when loading a saved chart (fresh starting point)
+// Hook into /load response to reset history
+document.addEventListener('htmx:afterSwap', function(evt) {
+  const path = evt.detail.pathInfo.path;
+  if (path === '/load') {
+    historyManager.clear();
+  }
+});
+</script>

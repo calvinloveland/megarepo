@@ -1,3 +1,26 @@
+<div class="mb-4 flex gap-2">
+  <button
+    id="undo-btn"
+    type="button"
+    onclick="performUndo()"
+    title="Undo (Ctrl+Z)"
+    class="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed"
+    disabled
+  >
+    ↶ Undo
+  </button>
+  <button
+    id="redo-btn"
+    type="button"
+    onclick="performRedo()"
+    title="Redo (Ctrl+Shift+Z)"
+    class="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed"
+    disabled
+  >
+    ↷ Redo
+  </button>
+</div>
+
 <div class="tabs-bar flex gap-2 border-b border-slate-200 overflow-x-auto">
   <button
     type="button"
