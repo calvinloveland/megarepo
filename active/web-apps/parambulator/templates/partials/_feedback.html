@@ -137,7 +137,11 @@ function startElementSelection() {
 
 function stopElementSelection() {
   selectingElement = false;
-  document.getElementById('selector-btn-text').textContent = 'Click to select element';
+  // Only reset button text if no element was selected
+  if (!selectedElementPath) {
+    document.getElementById('selector-btn-text').textContent = 'Click to select element';
+    document.getElementById('clear-selection-btn').classList.add('hidden');
+  }
   document.getElementById('element-selector-btn').classList.remove('bg-blue-50', 'border-blue-400');
   document.body.style.cursor = 'default';
   const panel = document.getElementById('feedback-panel');
@@ -194,7 +198,24 @@ function selectElement(event) {
   document.getElementById('selector-btn-text').textContent = `Selected: ${getElementDescription(target)}`;
   document.getElementById('clear-selection-btn').classList.remove('hidden');
   
-  stopElementSelection();
+  // Stop element selection mode (without resetting button text)
+  selectingElement = false;
+  document.getElementById('element-selector-btn').classList.remove('bg-blue-50', 'border-blue-400');
+  document.body.style.cursor = 'default';
+  const panel = document.getElementById('feedback-panel');
+  panel.style.pointerEvents = 'auto';
+  panel.style.opacity = '1';
+  
+  // Remove event listeners
+  document.removeEventListener('mouseover', highlightElement, true);
+  document.removeEventListener('mouseout', unhighlightElement, true);
+  document.removeEventListener('click', selectElement, true);
+  document.removeEventListener('keydown', handleEscape, true);
+  
+  if (hoveredElement) {
+    hoveredElement.style.outline = originalOutline;
+    hoveredElement = null;
+  }
 }
 
 function clearSelection() {
