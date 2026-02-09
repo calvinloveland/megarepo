@@ -46,3 +46,7 @@ exclude = [
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/vroomon"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
