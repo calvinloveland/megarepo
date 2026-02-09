@@ -12,29 +12,202 @@
   <nav class="mb-4"><a href="/">Megarepo pages</a> / active/web-apps/parambulator</nav>
   <article>
     <h1 id="parambulator">Parambulator</h1>
-<p>Parambulator is a Flask + HTMX web app for building seating charts and office plans with constraint-based scoring.</p>
+<p>A Flask + HTMX web application for building seating charts with constraint-based scoring. Designed for educators to optimize classroom layouts using reading levels, behavior considerations, IEP requirements, and social dynamics.</p>
 <h2 id="features">Features</h2>
 <ul>
-<li>People + constraints input as JSON</li>
-<li>Seating chart generation with 0–1 scoring</li>
-<li>Constraint-aware scoring (mix reading levels, separate talkative students, front-row IEP priority, explicit avoidance)</li>
-<li>Save/load seating plans (server-side JSON)</li>
-<li>Five UI designs to compare</li>
+<li><strong>Smart Seating Generation</strong>: Iterative algorithm scores arrangements based on configurable constraints</li>
+<li><strong>Flexible Constraints</strong>: Mix reading levels, separate talkative students, prioritize IEP front-row seating, enforce explicit avoidance pairs</li>
+<li><strong>Multiple Input Formats</strong>: JSON or table-based people input</li>
+<li><strong>Custom Layouts</strong>: Define available seats with visual grid editor</li>
+<li><strong>Save/Load System</strong>: Persistent server-side storage for seating plans</li>
+<li><strong>Five UI Designs</strong>: Compare different interface layouts</li>
+<li><strong>User Feedback</strong>: Built-in feedback system for collecting user suggestions</li>
 </ul>
-<h2 id="quickstart">Quickstart</h2>
+<h2 id="architecture">Architecture</h2>
+<h3 id="stack">Stack</h3>
+<ul>
+<li><strong>Backend</strong>: Flask 2.3+ with Flask-WTF (CSRF protection)</li>
+<li><strong>Frontend</strong>: HTMX for interactivity, Tailwind CSS for styling</li>
+<li><strong>Server</strong>: Gunicorn for production (configured in Dockerfile)</li>
+<li><strong>Testing</strong>: pytest + Playwright for E2E tests (~1300 LOC total)</li>
+</ul>
+<h3 id="project-structure">Project Structure</h3>
+<div class="codehilite"><pre><span></span><code><span class="nv">parambulator</span><span class="o">/</span>
+├──<span class="w"> </span><span class="nv">src</span><span class="o">/</span><span class="nv">parambulator</span><span class="o">/</span>
+│<span class="w">   </span>├──<span class="w"> </span><span class="nv">app</span>.<span class="nv">py</span><span class="w">          </span>#<span class="w"> </span><span class="nv">Flask</span><span class="w"> </span><span class="nv">app</span>,<span class="w"> </span><span class="nv">routes</span>,<span class="w"> </span><span class="nv">request</span><span class="w"> </span><span class="nv">handling</span><span class="w"> </span><span class="ss">(</span><span class="mi">501</span><span class="w"> </span><span class="nv">lines</span><span class="ss">)</span>
+│<span class="w">   </span>├──<span class="w"> </span><span class="nv">models</span>.<span class="nv">py</span><span class="w">       </span>#<span class="w"> </span><span class="nv">Person</span>,<span class="w"> </span><span class="nv">Chart</span><span class="w"> </span><span class="nv">data</span><span class="w"> </span><span class="nv">models</span><span class="w"> </span><span class="ss">(</span><span class="mi">173</span><span class="w"> </span><span class="nv">lines</span><span class="ss">)</span>
+│<span class="w">   </span>├──<span class="w"> </span><span class="nv">scoring</span>.<span class="nv">py</span><span class="w">      </span>#<span class="w"> </span><span class="nv">Constraint</span><span class="w"> </span><span class="nv">scoring</span><span class="w"> </span><span class="nv">algorithms</span><span class="w"> </span><span class="ss">(</span><span class="mi">274</span><span class="w"> </span><span class="nv">lines</span><span class="ss">)</span>
+│<span class="w">   </span>└──<span class="w"> </span><span class="nv">storage</span>.<span class="nv">py</span><span class="w">      </span>#<span class="w"> </span><span class="nv">File</span><span class="w"> </span><span class="nv">I</span><span class="o">/</span><span class="nv">O</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="nv">saves</span><span class="o">/</span><span class="nv">feedback</span><span class="w"> </span><span class="ss">(</span><span class="mi">50</span><span class="w"> </span><span class="nv">lines</span><span class="ss">)</span>
+├──<span class="w"> </span><span class="nv">templates</span><span class="o">/</span><span class="w">          </span>#<span class="w"> </span><span class="mi">14</span><span class="w"> </span><span class="nv">Jinja2</span><span class="w"> </span><span class="nv">templates</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nv">partials</span>
+├──<span class="w"> </span><span class="nv">static</span><span class="o">/</span><span class="w">             </span>#<span class="w"> </span><span class="nv">CSS</span><span class="w"> </span><span class="nv">assets</span>
+├──<span class="w"> </span><span class="nv">tests</span><span class="o">/</span><span class="w">              </span>#<span class="w"> </span><span class="mi">10</span><span class="w"> </span><span class="nv">tests</span><span class="w"> </span><span class="ss">(</span><span class="mi">3</span><span class="w"> </span><span class="nv">units</span>,<span class="w"> </span><span class="mi">3</span><span class="w"> </span><span class="nv">feedback</span>,<span class="w"> </span><span class="mi">4</span><span class="w"> </span><span class="nv">E2E</span><span class="ss">)</span>
+└──<span class="w"> </span><span class="nv">data</span><span class="o">/</span>
+<span class="w">    </span>├──<span class="w"> </span><span class="nv">saves</span><span class="o">/</span><span class="w">          </span>#<span class="w"> </span><span class="nv">User</span><span class="o">-</span><span class="nv">generated</span><span class="w"> </span><span class="nv">seating</span><span class="w"> </span><span class="nv">plans</span>
+<span class="w">    </span>└──<span class="w"> </span><span class="nv">feedback</span><span class="o">/</span><span class="w">       </span>#<span class="w"> </span><span class="nv">User</span><span class="w"> </span><span class="nv">feedback</span><span class="w"> </span><span class="nv">submissions</span>
+</code></pre></div>
+
+<h2 id="quickstart-development">Quickstart (Development)</h2>
 <div class="codehilite"><pre><span></span><code><span class="nb">cd</span><span class="w"> </span>active/web-apps/parambulator
 python<span class="w"> </span>-m<span class="w"> </span>venv<span class="w"> </span>.venv
 <span class="nb">source</span><span class="w"> </span>.venv/bin/activate
 pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span>.
+
+<span class="c1"># Development mode (debug enabled)</span>
+<span class="nb">export</span><span class="w"> </span><span class="nv">FLASK_DEBUG</span><span class="o">=</span><span class="nb">true</span>
 python<span class="w"> </span>-m<span class="w"> </span>parambulator.app
 </code></pre></div>
 
-<p>Then open http://127.0.0.1:5000</p>
-<h2 id="notes">Notes</h2>
+<p>Open http://127.0.0.1:5000</p>
+<h2 id="production-deployment">Production Deployment</h2>
+<h3 id="using-docker-compose-recommended">Using Docker Compose (Recommended)</h3>
+<div class="codehilite"><pre><span></span><code><span class="c1"># Generate secure secret key</span>
+<span class="nb">export</span><span class="w"> </span><span class="nv">SECRET_KEY</span><span class="o">=</span><span class="k">$(</span>python<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;import secrets; print(secrets.token_hex(32))&quot;</span><span class="k">)</span>
+
+<span class="c1"># Start container</span>
+docker-compose<span class="w"> </span>up<span class="w"> </span>-d
+
+<span class="c1"># View logs</span>
+docker-compose<span class="w"> </span>logs<span class="w"> </span>-f
+</code></pre></div>
+
+<h3 id="using-gunicorn-directly">Using Gunicorn Directly</h3>
+<div class="codehilite"><pre><span></span><code><span class="c1"># Install dependencies</span>
+pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span>.
+
+<span class="c1"># Set environment variables</span>
+<span class="nb">export</span><span class="w"> </span><span class="nv">SECRET_KEY</span><span class="o">=</span><span class="s2">&quot;your-secure-key-here&quot;</span>
+<span class="nb">export</span><span class="w"> </span><span class="nv">FLASK_DEBUG</span><span class="o">=</span><span class="nb">false</span>
+<span class="nb">export</span><span class="w"> </span><span class="nv">PORT</span><span class="o">=</span><span class="m">5000</span>
+<span class="nb">export</span><span class="w"> </span><span class="nv">MAX_CONTENT_LENGTH</span><span class="o">=</span><span class="m">1048576</span><span class="w">  </span><span class="c1"># 1MB limit</span>
+
+<span class="c1"># Run with Gunicorn</span>
+gunicorn<span class="w"> </span>-w<span class="w"> </span><span class="m">4</span><span class="w"> </span>-b<span class="w"> </span><span class="m">0</span>.0.0.0:5000<span class="w"> </span><span class="s2">&quot;parambulator.app:create_app()&quot;</span>
+</code></pre></div>
+
+<h2 id="security-status">Security Status</h2>
+<p><strong>Current State</strong>: ✅ <strong>Phase 1 Complete</strong> - Critical security fixes implemented</p>
+<p>The application has undergone comprehensive security hardening:</p>
+<h3 id="implemented-phase-1">✅ Implemented (Phase 1)</h3>
 <ul>
-<li>Saved charts are stored in <code>data/saves/</code>.</li>
-<li>Use the design selector in the UI to compare layouts.</li>
+<li>CSRF protection on all forms (Flask-WTF)</li>
+<li>Debug mode configurable via environment variable</li>
+<li>Input validation and bounds checking</li>
+<li>Path traversal prevention in save/load</li>
+<li>Secure session cookie configuration</li>
+<li>PII protection in feedback system</li>
 </ul>
+<h3 id="recommended-for-public-internet-phase-2">📋 Recommended for Public Internet (Phase 2)</h3>
+<p>See <a href="SECURITY_HARDENING_PLAN.md">SECURITY_HARDENING_PLAN.md</a> for:
+- Authentication system (Weeks 3-4)
+- Rate limiting (Week 5)
+- Security headers (Week 5)
+- Logging and monitoring (Week 6)</p>
+<h3 id="security-documentation">📄 Security Documentation</h3>
+<ul>
+<li><strong><a href="SECURITY_SUMMARY.md">SECURITY_SUMMARY.md</a></strong> - Executive overview, risk assessment, deployment readiness</li>
+<li><strong><a href="SECURITY_REVIEW.md">SECURITY_REVIEW.md</a></strong> - Detailed vulnerability analysis (675 lines)</li>
+<li><strong><a href="SECURITY_HARDENING_PLAN.md">SECURITY_HARDENING_PLAN.md</a></strong> - Week-by-week implementation roadmap</li>
+<li><strong><a href="SECURITY_QUICK_FIX.md">SECURITY_QUICK_FIX.md</a></strong> - Copy-paste code fixes</li>
+</ul>
+<p><strong>Deployment Recommendation</strong>:
+- ✅ Safe for internal/protected networks (VPN, intranet)
+- ⚠️  Add authentication before public internet deployment
+- ✅ Docker setup includes non-root user, health checks, volume persistence</p>
+<h2 id="configuration">Configuration</h2>
+<h3 id="environment-variables">Environment Variables</h3>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>SECRET_KEY</code></td>
+<td><em>(required)</em></td>
+<td>Flask session secret (use <code>secrets.token_hex(32)</code>)</td>
+</tr>
+<tr>
+<td><code>FLASK_DEBUG</code></td>
+<td><code>false</code></td>
+<td>Enable debug mode (dev only)</td>
+</tr>
+<tr>
+<td><code>HOST</code></td>
+<td><code>127.0.0.1</code></td>
+<td>Bind address (<code>0.0.0.0</code> for containers)</td>
+</tr>
+<tr>
+<td><code>PORT</code></td>
+<td><code>5000</code></td>
+<td>HTTP port</td>
+</tr>
+<tr>
+<td><code>MAX_CONTENT_LENGTH</code></td>
+<td><code>1048576</code></td>
+<td>Max request size in bytes (1MB)</td>
+</tr>
+<tr>
+<td><code>LOG_FILE</code></td>
+<td><em>(optional)</em></td>
+<td>Log file path (stdout if unset)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="testing">Testing</h2>
+<div class="codehilite"><pre><span></span><code><span class="c1"># Unit tests (fast)</span>
+pytest<span class="w"> </span>tests/test_scoring.py<span class="w"> </span>tests/test_feedback.py
+
+<span class="c1"># E2E tests (requires Playwright browsers)</span>
+<span class="nb">export</span><span class="w"> </span><span class="nv">PLAYWRIGHT_BROWSERS_PATH</span><span class="o">=</span><span class="nv">$PWD</span>/.playwright_browsers
+npx<span class="w"> </span>playwright<span class="w"> </span>install<span class="w"> </span>--with-deps<span class="w"> </span>chromium
+pytest<span class="w"> </span>tests/test_ui_playwright.py
+
+<span class="c1"># All tests</span>
+<span class="nv">FLASK_DEBUG</span><span class="o">=</span><span class="nb">true</span><span class="w"> </span>pytest<span class="w"> </span>-v
+</code></pre></div>
+
+<p><strong>Note</strong>: Tests require <code>FLASK_DEBUG=true</code> or <code>SECRET_KEY</code> environment variable.</p>
+<h2 id="usage">Usage</h2>
+<ol>
+<li><strong>Input People</strong>: Enter student data via JSON or table format</li>
+<li><strong>Configure Constraints</strong>: Adjust weights for different seating priorities</li>
+<li><strong>Define Layout</strong>: Mark available/unavailable seats in the grid</li>
+<li><strong>Generate</strong>: Algorithm runs 150 iterations to find optimal arrangement</li>
+<li><strong>Review Scores</strong>: See breakdown of constraint satisfaction</li>
+<li><strong>Save/Load</strong>: Persist charts for later reference</li>
+</ol>
+<h3 id="constraint-types">Constraint Types</h3>
+<ul>
+<li><strong>Reading Level Mix</strong> (default 35%): Distributes high/medium/low readers evenly</li>
+<li><strong>Talkative Separation</strong> (default 25%): Spaces out chatty students</li>
+<li><strong>IEP Front Row</strong> (default 25%): Prioritizes special needs students for front seats</li>
+<li><strong>Explicit Avoidance</strong> (default 15%): Prevents specific student pairings</li>
+</ul>
+<h2 id="data-storage">Data Storage</h2>
+<ul>
+<li><strong>Saves</strong>: <code>data/saves/*.json</code> - User-created seating charts (not committed)</li>
+<li><strong>Feedback</strong>: <code>data/feedback/*.json</code> - User submissions (not committed)</li>
+<li><strong>Feedback Addressed</strong>: <code>data/feedback/addressed/*.json</code> - Archived feedback</li>
+</ul>
+<p>All <code>.json</code> files are gitignored. Docker volumes persist across container restarts.</p>
+<h2 id="known-limitations">Known Limitations</h2>
+<ul>
+<li>No multi-user support (single-tenant app)</li>
+<li>No authentication (suitable for trusted environments)</li>
+<li>Limited to rectangular grids (custom shapes via layout editor)</li>
+<li>Scoring is heuristic-based (not guaranteed optimal)</li>
+</ul>
+<h2 id="contributing">Contributing</h2>
+<p>Run tests before committing:</p>
+<div class="codehilite"><pre><span></span><code><span class="nv">FLASK_DEBUG</span><span class="o">=</span><span class="nb">true</span><span class="w"> </span>pytest<span class="w"> </span>-v
+</code></pre></div>
+
+<p>Ensure all security configurations remain intact when modifying <code>app.py</code>.</p>
+<h2 id="license">License</h2>
+<p>MIT License (see LICENSE file if present)</p>
   </article>
   <footer class="mt-5"><hr/><p class="small">Generated by scripts/build_pages.py</p></footer>
 </div>
