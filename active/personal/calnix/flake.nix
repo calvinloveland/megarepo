@@ -115,6 +115,9 @@
                   return 0
                 fi
                 local current="''${!var:-}"
+                case ":$current:" in
+                  *":$value:"*) return 0 ;;
+                esac
                 if [ -n "$current" ]; then
                   eval export "$var=$value:$current"
                 else
