@@ -58,6 +58,49 @@ detect_host() {
     echo "thinker"
 }
 
+# Helper: ensure repository ownership won't cause flake evaluation to fail
+ensure_repo_owned_or_fix() {
+  # Determine repo root (prefer git top-level)
+  repo_root="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+  if [ ! -d "$repo_root" ]; then
+    return 0
+  fi
+
+  repo_owner_uid=$(stat -c %u "$repo_root" 2>/dev/null || true)
+  my_uid=$(id -u)
+  if [ -n "$repo_owner_uid" ] && [ "$repo_owner_uid" != "$my_uid" ]; then
+    repo_owner_user=$(getent passwd "$repo_owner_uid" | cut -d: -f1 || true)
+    repo_owner_user=${repo_owner_user:-$repo_owner_uid}
+
+    echo "⚠️  Repository $repo_root is owned by $repo_owner_user (uid $repo_owner_uid), but you are $(id -un) (uid $my_uid)."
+    echo "    Nix flake evaluation may fail when run as a different user (you've seen: 'repository path ... is not owned by current user')."
+
+    # If non-interactive, bail out with instructions
+    if [ ! -t 0 ]; then
+      echo "    Non-interactive shell: cannot prompt. Please run on host: sudo chown -R $(id -un):$(id -gn) '$repo_root' or run the rebuild as the repo owner."
+      return 1
+    fi
+
+    # Offer to chown the repository to the current user
+    echo -n "    Fix ownership now by running 'sudo chown -R $(id -un):$(id -gn) \"$repo_root\"'? [Y/n] "
+    read -r ans
+    ans=${ans:-Y}
+    if [[ "$ans" =~ ^[Yy] ]]; then
+      if sudo chown -R "$(id -un):$(id -gn)" "$repo_root"; then
+        echo "    ✅ Ownership fixed to $(id -un):$(id -gn)."
+      else
+        echo "    ❌ Failed to change ownership. Please run: sudo chown -R $(id -un):$(id -gn) '$repo_root'"
+        return 1
+      fi
+    else
+      echo "    Skipping ownership fix. Rebuild may fail."
+      return 1
+    fi
+  fi
+
+  return 0
+}
+
 # Parse arguments
 HOST=""
 EXTRA_ARGS=()
@@ -72,50 +115,7 @@ while [[ $# -gt 0 ]]; do
                 EXTRA_ARGS+=("$1")
             fi
             shift
-            ;;
-        -h|--help)
-            HOST="help"
-            shift
-            ;;
-        *)
-            # Check if this looks like a host name but isn't valid
-            if [[ "$1" =~ ^[a-zA-Z0-9-]+$ ]] && [[ ! "$1" =~ ^-- ]] && [[ "$1" != --* ]] && [ -z "$HOST" ]; then
-                # This might be an invalid host name
-                HOST="$1"
-            else
-                EXTRA_ARGS+=("$1")
-            fi
-            shift
-            ;;
-    esac
-done
-
-# Auto-detect host if not specified
-if [ -z "$HOST" ]; then
-    HOST=$(detect_host)
-    echo "Auto-detected host: $HOST"
-fi
-
-case $HOST in
-  thinker)
-    echo "🖥️  Rebuilding ThinkPad configuration..."
-
-    if ! ensure_repo_owned_or_fix; then
-      exit 1
-    fi
-
-    echo "Building flake as $(id -un) to avoid ownership errors..."
-    BUILD_OUT=$(nix --extra-experimental-features 'nix-command flakes' build --print-out-paths '.#nixosConfigurations."thinker".config.system.build.nixos-rebuild' --no-link 2>/dev/null || true)
-    if [ -z "$BUILD_OUT" ]; then
-      echo "Flake build failed as $(id -un). This usually indicates an ownership or flake input issue. Consider re-running the script and allowing it to chown the repo, or run the build as the repo owner."
-      echo "To manually fix: sudo chown -R $(id -un):$(id -gn) '$repo_root'"
-      exit 1
-    fi
-    BUILD_OUT_PATH=$(echo "$BUILD_OUT" | tail -n1)
-    echo "Build output: $BUILD_OUT_PATH"
-    sudo "$BUILD_OUT_PATH/bin/switch-to-configuration" switch || exit 1
-
-    # Restart waybar to apply changes (desktop hosts)
+            esac
     echo "Restarting waybar service..."
     systemctl --user restart waybar || true
     ;;
