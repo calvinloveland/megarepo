@@ -3,6 +3,11 @@ set -e
 
 echo "🚀 Setting up Megarepo development environment..."
 
+# Fix ownership of mounted cache directories
+echo "🔧 Fixing cache directory permissions..."
+sudo chown -R vscode:vscode /home/vscode/.cache/pip 2>/dev/null || true
+sudo chown -R vscode:vscode /home/vscode/.npm 2>/dev/null || true
+
 # Upgrade pip
 pip install --upgrade pip
 
@@ -59,43 +64,6 @@ fi
 echo "🔧 Configuring git..."
 git config --global init.defaultBranch main
 git config --global pull.rebase false
-
-# Avoid chowning the workspace by default; it can fight host ownership.
-# If you need chown in the container, set MEGAREPO_CHOWN_WORKSPACE=1.
-REPO_DIR="/workspaces/megarepo"
-if [ -d "$REPO_DIR" ]; then
-  if [ "${MEGAREPO_CHOWN_WORKSPACE:-0}" = "1" ]; then
-    repo_owner_uid=$(stat -c %u "$REPO_DIR" 2>/dev/null || true)
-    my_uid=$(id -u)
-    if [ -n "$repo_owner_uid" ] && [ "$repo_owner_uid" != "$my_uid" ]; then
-      user_name=$(id -un)
-      group_name=$(id -gn)
-      echo "⚠️  Fixing ownership of $REPO_DIR to $user_name:$group_name to avoid permission issues (this may change host-side ownership)."
-      if sudo chown -R "$user_name:$group_name" "$REPO_DIR" 2>/dev/null; then
-        echo "    ✅ Ownership of $REPO_DIR fixed to $user_name:$group_name"
-      else
-        echo "    ⚠️ Could not chown $REPO_DIR; this is usually because the workspace mount is owned/managed by the host and disallows chown from the container."
-        echo "    To fix on the host, run (as the host user with sufficient privileges):"
-        echo "      sudo chown -R $user_name:$group_name /path/to/workspace"
-        echo "    Or update the bind mount options so the container user matches the host owner."
-      fi
-    fi
-  else
-    echo "ℹ️  Skipping workspace chown (MEGAREPO_CHOWN_WORKSPACE=1 to enable)."
-  fi
-fi
-
-echo ""
-# Setup Copilot SDK virtualenv (Python 3.12 required)
-if command -v python3 >/dev/null 2>&1; then
-  PYV=$(python3 -c 'import sys; print(".".join(map(str, sys.version_info[:2])))')
-  echo "🔁 Creating Copilot SDK virtualenv at /home/vscode/.venv-copilot using python $PYV"
-  # Create venv if missing (best-effort)
-  python3 -m venv /home/vscode/.venv-copilot 2>/dev/null || python -m venv /home/vscode/.venv-copilot 2>/dev/null || true
-  /bin/bash -lc "source /home/vscode/.venv-copilot/bin/activate && python -m pip install --upgrade pip setuptools wheel && pip install github-copilot-sdk" || echo "    ⚠️ Could not install github-copilot-sdk automatically; run 'source /home/vscode/.venv-copilot/bin/activate && pip install github-copilot-sdk' after rebuilding the container"
-else
-  echo "⚠️ python3 not found; Copilot SDK venv not created. Rebuild the devcontainer to install Python 3.12."
-fi
 
 echo ""
 echo "✅ Development environment ready!"

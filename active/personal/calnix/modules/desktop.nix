@@ -118,18 +118,11 @@
     vlc # Video player and basic editing
     ffmpeg # CLI video processing and stitching tool
 
-    # Screen recording / streaming
-    obs-studio # Open Broadcaster Software for recording and streaming
-    v4l-utils # Utilities for video4linux devices (webcams, capture cards)
-
     # System management
     bashmount # Interactive mount manager for USB drives
 
     orca-slicer # Slicer for 3d printing
   ];
-
-  # Ensure user has access to video devices (webcams, capture cards)
-  users.groups.video.members = [ "calvin" ];
 
   # Enable Bluetooth
   hardware.bluetooth = {
@@ -199,7 +192,7 @@ airscan
   xdg.portal = {
     enable = true;
     wlr.enable = true;
-    extraPortals = [ pkgs.xdg-desktop-portal-gtk pkgs.xdg-desktop-portal-wlr ];
+    extraPortals = [ pkgs.xdg-desktop-portal-gtk ];
   };
   
   # GTK configuration
