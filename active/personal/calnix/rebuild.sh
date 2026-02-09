@@ -148,7 +148,7 @@ case $HOST in
     fi
 
     echo "Building flake as $(id -un) to avoid ownership errors..."
-    BUILD_OUT=$(nix --extra-experimental-features 'nix-command flakes' build --print-out-paths '.#nixosConfigurations."thinker".config.system.build.nixos-rebuild' --no-link 2>/dev/null || true)
+    BUILD_OUT=$(nix --extra-experimental-features 'nix-command flakes' build --print-out-paths '.#nixosConfigurations."thinker".config.system.build.toplevel' --no-link 2>/dev/null || true)
     if [ -z "$BUILD_OUT" ]; then
       echo "Flake build failed as $(id -un). This usually indicates an ownership or flake input issue. Consider re-running the script and allowing it to chown the repo, or run the build as the repo owner."
       echo "To manually fix: sudo chown -R $(id -un):$(id -gn) '$repo_root'"
@@ -170,7 +170,7 @@ case $HOST in
     fi
 
     echo "Building flake as $(id -un) to avoid ownership errors..."
-    BUILD_OUT=$(nix --extra-experimental-features 'nix-command flakes' build --print-out-paths '.#nixosConfigurations."1337book".config.system.build.nixos-rebuild' --no-link 2>/dev/null || true)
+    BUILD_OUT=$(nix --extra-experimental-features 'nix-command flakes' build --print-out-paths '.#nixosConfigurations."1337book".config.system.build.toplevel' --no-link 2>/dev/null || true)
     if [ -z "$BUILD_OUT" ]; then
       echo "Flake build failed as $(id -un). This usually indicates an ownership or flake input issue. Consider re-running the script and allowing it to chown the repo, or run the build as the repo owner."
       echo "To manually fix: sudo chown -R $(id -un):$(id -gn) '$repo_root'"
