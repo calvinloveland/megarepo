@@ -81,7 +81,9 @@
   ],
   "mounts": [
     "source=${localWorkspaceFolder}/.devcontainer/cache/pip,target=/home/vscode/.cache/pip,type=bind,consistency=cached",
-    "source=${localWorkspaceFolder}/.devcontainer/cache/npm,target=/home/vscode/.npm,type=bind,consistency=cached"
+    "source=${localWorkspaceFolder}/.devcontainer/cache/npm,target=/home/vscode/.npm,type=bind,consistency=cached",
+    "source=${localEnv:HOME}/.ssh,target=/home/vscode/.ssh,type=bind,consistency=cached",
+    "source=${localEnv:HOME}/.kube,target=/home/vscode/.kube,type=bind,consistency=cached"
   ],
   "initializeCommand": "mkdir -p .devcontainer/cache/pip .devcontainer/cache/npm"
 }
