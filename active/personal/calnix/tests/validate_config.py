@@ -137,28 +137,6 @@ class ConfigValidator:
         except (subprocess.SubprocessError, json.JSONDecodeError) as e:
             self.error(f"Failed to validate flake outputs: {e}")
 
-    def validate_gaming_separation(self):
-        """Ensure gaming packages are properly separated."""
-        gaming_packages = [
-            "steam", "blender", "krita", "aseprite", 
-            "dwarf-fortress", "flatpak"
-        ]
-        
-        # Check that work-wsl doesn't include gaming packages
-        work_config = self.root / "hosts/work-wsl/configuration.nix"
-        if "work-wsl" in self.hosts and work_config.exists():
-            content = work_config.read_text()
-            for package in gaming_packages:
-                if package in content:
-                    self.warning(f"Gaming package '{package}' found in work-wsl config")
-            
-            if "gaming.nix" in content:
-                self.error("work-wsl config imports gaming.nix - this defeats the purpose!")
-            else:
-                self.success("work-wsl properly excludes gaming module")
-        elif "work-wsl" in self.hosts:
-            self.error("Expected work-wsl configuration file is missing during gaming separation check")
-
     def validate_common_imports(self):
         """Check that all hosts import base configuration."""
         for host in self.hosts:
@@ -202,9 +180,6 @@ class ConfigValidator:
         print()
         
         self.validate_flake_outputs()
-        print()
-        
-        self.validate_gaming_separation()
         print()
         
         self.validate_common_imports()

@@ -16,10 +16,6 @@
       url = "github:nix-community/home-manager";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-    nixos-wsl = {
-      url = "github:nix-community/NixOS-WSL";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
     nixos-hardware = {
       url = "github:NixOS/nixos-hardware";
     };
@@ -30,7 +26,6 @@
       self,
       nixpkgs,
       home-manager,
-      nixos-wsl,
       kickstart-nix-nvim,
       nixos-hardware,
       ...
@@ -195,22 +190,6 @@ PY
             }
             home-manager.nixosModules.home-manager
             ./hosts/thinker/configuration.nix
-          ];
-        };
-
-        # WSL work configuration without gaming
-        work-wsl = nixpkgs.lib.nixosSystem {
-          system = "x86_64-linux";
-          specialArgs = { inherit inputs; };
-          modules = [
-            {
-              nixpkgs.overlays = [
-                kickstart-nix-nvim.overlays.default
-                # No darktable overlay needed for WSL as it doesn't include gaming module
-              ];
-            }
-            nixos-wsl.nixosModules.wsl
-            ./hosts/work-wsl/configuration.nix
           ];
         };
 

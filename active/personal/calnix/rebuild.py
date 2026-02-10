@@ -3,11 +3,11 @@
 Python replacement for calnix `rebuild.sh`.
 
 Features:
-- Host auto-detection (WSL-safe)
+- Host auto-detection
 - Safe handling when invoked with sudo (re-exec as SUDO_USER)
 - Repo ownership detection and interactive repair (chown or run build as owner)
 - Builds flake as non-root user, then runs switch as root
-- Preserves behavior for thinker, 1337book, work-wsl
+- Preserves behavior for thinker and 1337book
 - Optional --yes to auto-accept chown
 """
 
@@ -48,27 +48,12 @@ def reexec_if_root():
 
 
 def detect_host() -> str:
-    # WSL detection
-    if os.path.exists("/proc/version"):
-        try:
-            with open("/proc/version", "r") as f:
-                v = f.read()
-            if "microsoft" in v.lower():
-                return "work-wsl"
-        except Exception:
-            pass
-
-    if os.environ.get("WSL_DISTRO_NAME"):
-        return "work-wsl"
-
     hostname = shutil.which("hostname") and subprocess.check_output(["hostname"]).decode().strip() or os.uname()[1]
     host = hostname.lower()
     if host in ("thinker", "thinker"):
         return "thinker"
     if host in ("1337book", "elitebook"):
         return "1337book"
-    if host in ("work-wsl", "work"):
-        return "work-wsl"
 
     # hardware checks (best-effort)
     try:
@@ -310,7 +295,7 @@ def build_and_switch_flake(flake_expr: str, target: str, extra_args: list[str], 
 def main(argv: list[str] | None = None):
     reexec_if_root()
     parser = argparse.ArgumentParser()
-    parser.add_argument("host", nargs="?", choices=["thinker", "1337book", "work-wsl"], help="Host target")
+    parser.add_argument("host", nargs="?", choices=["thinker", "1337book"], help="Host target")
     parser.add_argument("--yes", action="store_true", help="Auto-accept ownership fix (non-interactive) or chown)")
     parser.add_argument("--dry-run", action="store_true", help="Dry run (pass-through) but we still validate ownership)")
     parser.add_argument("-v", "--verbose", action="store_true", help="Show verbose progress and command output")
@@ -323,14 +308,6 @@ def main(argv: list[str] | None = None):
 
     # If non-interactive input, decide accordingly
     non_interactive = not sys.stdin.isatty()
-
-    if host == "work-wsl":
-        print("🖱️  Rebuilding WSL work configuration...")
-        cmd = ["sudo", "nixos-rebuild", "switch", "--flake", ".#work-wsl"]
-        if args.extra:
-            cmd.extend(args.extra)
-        rc = subprocess.call(cmd)
-        sys.exit(rc)
 
     if host in ("thinker", "1337book"):
         print(f"💻 Rebuilding {host} configuration...")

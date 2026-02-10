@@ -19,12 +19,6 @@ HP Elitebook X G1i 14 AI (896Y1UA ABA) configuration featuring:
 - **Power Management**: HP Elitebook-optimized TLP settings with thermal management
 - **Hardware**: Latest kernel packages, HP-specific firmware updates via fwupd
 
-### 🖱️ Work-WSL
-Work-focused WSL configuration featuring:
-- **Development Tools**: VS Code, Docker, cloud tools
-- **No Gaming**: Clean work environment without gaming packages
-- **Minimal**: Only essential packages for productivity
-
 ## Quick Start
 
 ### For ThinkPad (Thinker)
@@ -41,13 +35,6 @@ git clone <this-repo> /etc/nixos
 cd /etc/nixos
 sudo nixos-generate-config --show-hardware-config > hosts/1337book/hardware-configuration.nix
 ./rebuild.sh 1337book
-```
-
-### For WSL (Work)
-```bash
-git clone <this-repo> /etc/nixos
-cd /etc/nixos
-./rebuild.sh work-wsl
 ```
 
 ## Testing
@@ -98,8 +85,6 @@ nix flake check --no-build
 │   ├── 1337book/          # HP Elitebook configuration
 │   │   ├── configuration.nix
 │   │   └── hardware-configuration.nix
-│   └── work-wsl/          # WSL work configuration
-│       └── configuration.nix
 ├── modules/
 │   ├── base.nix           # Shared base configuration
 │   ├── desktop.nix        # Desktop environment (Sway, Bluetooth, audio, etc.)
@@ -110,6 +95,13 @@ nix flake check --no-build
 │   ├── validate_config.py # Configuration validation
 │   └── flake.nix          # Test environment
 ├── homely-man.nix         # Home Manager configuration
+├── home/                  # Home Manager submodules
+│   ├── base.nix            # Shells, git, xdg defaults
+│   ├── notifications.nix   # Mako configuration
+│   ├── kitty.nix           # Kitty settings
+│   ├── sway.nix            # Sway WM config
+│   ├── waybar.nix          # Waybar config + style
+│   └── scripts.nix         # Sway/Waybar helper scripts
 └── python-dev.nix         # Python development environment
 ```
 
@@ -124,22 +116,19 @@ The rebuild script automatically detects your environment:
 # Manual override
 ./rebuild.sh thinker      # Force ThinkPad build
 ./rebuild.sh 1337book     # Force HP Elitebook build
-./rebuild.sh work-wsl     # Force WSL build
 
 # Or use nixos-rebuild directly
 sudo nixos-rebuild switch --flake .#thinker
 sudo nixos-rebuild switch --flake .#1337book
-sudo nixos-rebuild switch --flake .#work-wsl
 ```
 
 ### Auto-Detection Logic
 
 The script detects your environment using:
-1. **WSL Detection** - Checks for Microsoft in `/proc/version` or `WSL_DISTRO_NAME`
-2. **Hostname** - Recognizes "Thinker", "1337book", "elitebook", or "work-wsl"
-3. **Hardware** - Looks for ThinkPad-specific indicators (`/proc/acpi/ibm/version`)
-4. **HP Hardware** - Detects HP/Hewlett-Packard via `lspci` or `dmidecode`
-5. **Fallback** - Defaults to "thinker"
+1. **Hostname** - Recognizes "Thinker", "1337book", or "elitebook"
+2. **Hardware** - Looks for ThinkPad-specific indicators (`/proc/acpi/ibm/version`)
+3. **HP Hardware** - Detects HP/Hewlett-Packard via `lspci` or `dmidecode`
+4. **Fallback** - Defaults to "thinker"
 
 ## Key Features
 
@@ -171,11 +160,6 @@ The script detects your environment using:
 - **Hardware**: Latest kernel packages, HP firmware updates (fwupd)
 - **Battery**: HP-specific charging thresholds (75%-85%)
 
-### WSL Only (Work-WSL)
-- **Work Tools**: AWS CLI, kubectl, PostgreSQL, cloud development
-- **Minimal**: No desktop environment or gaming packages
-- **Productivity**: Database tools, document processing
-
 ## Development Workflow
 
 1. **Make Changes** to configuration files
@@ -196,7 +180,7 @@ The script detects your environment using:
 - **Gaming only**: Edit `modules/gaming.nix`
 - **ThinkPad only**: Edit `hosts/thinker/configuration.nix`
 - **HP Elitebook only**: Edit `hosts/1337book/configuration.nix`
-- **WSL only**: Edit `hosts/work-wsl/configuration.nix`
+- **Home Manager**: Edit `home/*.nix`
 
 ### Creating New Hosts
 1. Create `hosts/new-host/configuration.nix`
@@ -217,10 +201,6 @@ The script detects your environment using:
 ### HP Elitebook-Specific (1337book)
 - Firmware updates: Use `fwupdmgr` for HP firmware management
 - Thermal management: `thermald` service handles temperature control
-
-### WSL-Specific (Work-WSL)
-- Enable WSL systemd: `systemctl --user enable nixos-wsl.service`
-- Docker: Use rootless mode (automatically configured)
 
 ### Testing Issues
 - **Nix not found**: Install Nix or use `--quick` flag

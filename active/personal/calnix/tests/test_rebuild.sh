@@ -39,15 +39,6 @@ source_detect_function() {
     source /tmp/detect_host_test.sh
 }
 
-# Test WSL detection
-test_wsl_detection() {
-    # Mock WSL environment
-    export WSL_DISTRO_NAME="Ubuntu"
-    local result=$(detect_host)
-    unset WSL_DISTRO_NAME
-    
-    [ "$result" = "work-wsl" ]
-}
 
 # Test hostname detection for Thinker
 test_thinker_hostname() {
@@ -59,14 +50,6 @@ test_thinker_hostname() {
     [ "$result" = "thinker" ]
 }
 
-# Test hostname detection for work-wsl
-test_work_hostname() {
-    hostname() { echo "work-wsl"; }
-    local result=$(detect_host)
-    unset -f hostname
-    
-    [ "$result" = "work-wsl" ]
-}
 
 # Test fallback to thinker
 test_fallback_detection() {
@@ -107,9 +90,7 @@ main() {
     source_detect_function
     
     # Run all tests
-    run_test "WSL Detection" test_wsl_detection
     run_test "Thinker Hostname Detection" test_thinker_hostname
-    run_test "Work WSL Hostname Detection" test_work_hostname
     run_test "Fallback Detection" test_fallback_detection
     run_test "Script Syntax Check" test_script_syntax
     run_test "Help Output" test_help_output

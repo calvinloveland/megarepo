@@ -6,7 +6,7 @@
 }:
 {
   # Desktop environment configuration shared by all desktop hosts
-  # (thinker and 1337book) - excludes work-wsl
+  # (thinker and 1337book)
 
   # Import audio configuration module
   imports = [

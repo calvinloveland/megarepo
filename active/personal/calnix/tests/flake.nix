@@ -22,7 +22,6 @@
         configurations = mainFlake.outputs {
           inherit nixpkgs;
           home-manager = nixpkgs.lib.nixosModules.home-manager or { };
-          nixos-wsl = nixpkgs.lib.nixosModules.nixos-wsl or { };
           kickstart-nix-nvim = {
             overlays.default = _: _: { };
           };
@@ -81,11 +80,9 @@
         checks = {
           # Syntax validation tests
           thinker-builds = buildTest "thinker" ../hosts/thinker/configuration.nix;
-          work-wsl-builds = buildTest "work-wsl" ../hosts/work-wsl/configuration.nix;
 
           # VM integration tests (commented out as they're resource intensive)
           # thinker-vm = vmTest "thinker" ../hosts/thinker/configuration.nix;
-          # work-wsl-vm = vmTest "work-wsl" ../hosts/work-wsl/configuration.nix;
 
           # Script tests
           rebuild-script-test =
