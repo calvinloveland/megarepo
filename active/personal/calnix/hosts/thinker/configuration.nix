@@ -6,8 +6,7 @@
 }:
 {
   # ThinkPad (Thinker) NixOS host configuration
-  imports = [
-    ./hardware-configuration.nix
+  imports = (lib.optional (builtins.pathExists ./hardware-configuration.nix) ./hardware-configuration.nix) ++ [
     ../../modules/base.nix
     ../../modules/desktop.nix
     ../../modules/gaming.nix
@@ -22,7 +21,7 @@
 
   # Ensure the hostname `thinker` resolves to the LAN IP 192.168.1.191
   networking.hosts = {
-    thinker = "192.168.1.191";
+    thinker = [ "192.168.1.191" ];
   };
 
   # ThinkPad-specific options could go here (TLP, ACPI tweaks, etc.)
