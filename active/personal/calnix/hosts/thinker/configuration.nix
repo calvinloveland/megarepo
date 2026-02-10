@@ -24,5 +24,11 @@
     thinker = [ "192.168.1.191" ];
   };
 
+  # Allow flake evaluation when hardware-configuration.nix is missing.
+  fileSystems."/" = lib.mkDefault {
+    device = "/dev/disk/by-label/nixos";
+    fsType = "ext4";
+  };
+
   # ThinkPad-specific options could go here (TLP, ACPI tweaks, etc.)
 }
