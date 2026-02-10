@@ -6,7 +6,6 @@
     {
       imports = [
         ./home/base.nix
-        ./home/packages.nix
         ./home/notifications.nix
         ./home/kitty.nix
         ./home/sway.nix

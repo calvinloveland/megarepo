@@ -34,9 +34,13 @@
     # Bluetooth packages
     bluez
     bluez-tools
+    bluez-alsa # ALSA plugin for Bluetooth audio
     blueberry # Bluetooth manager GUI
+    bluetuith # Terminal-based Bluetooth manager
 
     # Wayland/Sway specific
+    brightnessctl
+    fuzzel # Wayland app launcher (used for panic recovery menu)
     grim # screenshot functionality
     slurp # screenshot functionality
     swappy # screenshot annotation tool
@@ -99,11 +103,16 @@
     powertop # Advanced power usage statistics
     acpi # Battery information
     lm_sensors # Hardware monitoring (CPU temp, fan speeds)
+    playerctl # Media controls for Waybar
+    ncdu # Disk usage analyzer
 
     # Desktop applications
     alacritty # terminal emulator
     firefox # browser
     google-chrome # Google has their hooks in me
+    kitty # Kitty terminal emulator
+    vscode # Visual Studio Code editor
+    nodejs # Node.js with npm
     fortune-kind # good fortunes
     libnotify # desktop notifications (used by screenshot script)
     libreoffice # Office suite for documents, spreadsheets, presentations
@@ -118,18 +127,19 @@
     vlc # Video player and basic editing
     ffmpeg # CLI video processing and stitching tool
 
-    # Screen recording / streaming
-    obs-studio # Open Broadcaster Software for recording and streaming
-    v4l-utils # Utilities for video4linux devices (webcams, capture cards)
-
     # System management
     bashmount # Interactive mount manager for USB drives
 
+    # GUI file manager (Thunar) and helpers
+    xfce.thunar
+    xfce.thunar-volman
+    xfce.thunar-archive-plugin
+    xfce.tumbler
+    file-roller
+    lxqt.lxqt-policykit
+
     orca-slicer # Slicer for 3d printing
   ];
-
-  # Ensure user has access to video devices (webcams, capture cards)
-  users.groups.video.members = [ "calvin" ];
 
   # Enable Bluetooth
   hardware.bluetooth = {
@@ -199,7 +209,7 @@ airscan
   xdg.portal = {
     enable = true;
     wlr.enable = true;
-    extraPortals = [ pkgs.xdg-desktop-portal-gtk pkgs.xdg-desktop-portal-wlr ];
+    extraPortals = [ pkgs.xdg-desktop-portal-gtk ];
   };
   
   # GTK configuration

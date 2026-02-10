@@ -81,6 +81,9 @@ in
     dejavu_fonts # Includes DejaVu Sans Mono
     liberation_ttf # Liberation Mono - excellent terminal font
     font-awesome # For icons in status bars
+    fira-code # Fira Code font with ligatures
+    nerd-fonts.fira-code # Nerd Font version of Fira Code
+    nerd-fonts.dejavu-sans-mono # Nerd Font version of DejaVu Sans Mono
 
     # Essential tools
     git # version control
@@ -89,6 +92,7 @@ in
     xdg-utils # xdg-open for opening URLs/files with default applications
 
     # Archive tools
+    atool
     zip
     xz
     unzip
@@ -113,6 +117,7 @@ in
     cifs-utils # SMB/CIFS mounting for NAS access
     rsync # efficient file synchronization
     exfat # Support for exFAT filesystems (cameras, etc.)
+    httpie
 
     # Development tools
     ollama # AI model serving
@@ -123,6 +128,7 @@ in
     cowsay
     glow # markdown viewer
     wget
+    curl
     nixfmt-rfc-style # nix formatter
     home-manager # manage homes
 
@@ -165,8 +171,10 @@ in
     extraGroups = [
       "wheel"
       "networkmanager"
+      "audio"
       "video"
       "render"
+      "input"
       "dialout" # Serial/USB programming (e.g. radios)
       "scanner" # Access to SANE scanner devices
     ];
