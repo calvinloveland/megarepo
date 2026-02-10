@@ -6,7 +6,7 @@
 }:
 {
   # ThinkPad (Thinker) NixOS host configuration
-  imports = (lib.optional (builtins.pathExists ./hardware-configuration.nix) ./hardware-configuration.nix) ++ [
+  imports = [
     ../../modules/base.nix
     ../../modules/desktop.nix
     ../../modules/gaming.nix
@@ -24,8 +24,9 @@
     thinker = [ "192.168.1.191" ];
   };
 
-  # Allow flake evaluation when hardware-configuration.nix is missing.
-  fileSystems."/" = lib.mkDefault {
+  # Provide a default root filesystem to satisfy flake evaluation.
+  # This will be overridden by hardware-configuration.nix if present.
+  fileSystems."/" = {
     device = "/dev/disk/by-label/nixos";
     fsType = "ext4";
   };
