@@ -103,35 +103,227 @@
   <div class="space-y-4">
     <div>
       <label class="block text-sm font-semibold mb-2">Seat layout</label>
-      <p class="text-xs text-slate-500 mb-3">Toggle seats or paste a layout map (X = seat, . = empty).</p>
+      <p class="text-xs text-slate-500 mb-3">Click seats to toggle availability. Use tools below to add/remove rows/columns.</p>
     </div>
-    <div class="tabs-layout-grid overflow-auto rounded-lg border border-slate-200 bg-white p-3">
-      <table class="w-full border-collapse text-center text-xs">
-        {% for row in layout_grid %}
-        {% set row_index = loop.index0 %}
-        <tr>
-          {% for seat in row %}
-          <td class="border border-slate-200 p-1">
-            <input
-              type="checkbox"
-              name="layout_cell_{{ row_index }}_{{ loop.index0 }}"
-              {% if seat %}checked{% endif %}
-              class="h-4 w-4"
-            />
-          </td>
-          {% endfor %}
-        </tr>
-        {% endfor %}
-      </table>
+    
+    <!-- Grid control toolbar -->
+    <div class="flex flex-wrap gap-2 items-center p-3 rounded-lg border border-slate-200 bg-slate-50">
+      <div class="flex gap-1">
+        <button type="button" onclick="addRowTop()" class="px-3 py-1.5 text-xs font-semibold rounded bg-blue-100 hover:bg-blue-200 text-blue-700" title="Add row at top">
+          ↑ Add Row Top
+        </button>
+        <button type="button" onclick="addRowBottom()" class="px-3 py-1.5 text-xs font-semibold rounded bg-blue-100 hover:bg-blue-200 text-blue-700" title="Add row at bottom">
+          ↓ Add Row Bottom
+        </button>
+      </div>
+      <div class="flex gap-1">
+        <button type="button" onclick="addColumnLeft()" class="px-3 py-1.5 text-xs font-semibold rounded bg-green-100 hover:bg-green-200 text-green-700" title="Add column on left">
+          ← Add Col Left
+        </button>
+        <button type="button" onclick="addColumnRight()" class="px-3 py-1.5 text-xs font-semibold rounded bg-green-100 hover:bg-green-200 text-green-700" title="Add column on right">
+          → Add Col Right
+        </button>
+      </div>
+      <div class="flex gap-1">
+        <button type="button" onclick="removeLastRow()" class="px-3 py-1.5 text-xs font-semibold rounded bg-red-100 hover:bg-red-200 text-red-700" title="Remove last row">
+          Remove Row
+        </button>
+        <button type="button" onclick="removeLastColumn()" class="px-3 py-1.5 text-xs font-semibold rounded bg-red-100 hover:bg-red-200 text-red-700" title="Remove last column">
+          Remove Col
+        </button>
+      </div>
+      <button type="button" onclick="clearAllSeats()" class="px-3 py-1.5 text-xs font-semibold rounded bg-slate-200 hover:bg-slate-300 text-slate-700" title="Clear all seats">
+        Clear All
+      </button>
+      <button type="button" onclick="fillAllSeats()" class="px-3 py-1.5 text-xs font-semibold rounded bg-slate-200 hover:bg-slate-300 text-slate-700" title="Fill all seats">
+        Fill All
+      </button>
     </div>
-    <textarea
-      name="layout_map"
-      rows="4"
-      class="w-full rounded-lg border border-slate-300 bg-white p-3 font-mono text-xs text-slate-800 shadow-sm"
-      placeholder="X...X."
-    >{{ layout_map }}</textarea>
+    
+    <!-- Visual grid editor with button-style seats -->
+    <div id="layout-grid-container" class="tabs-layout-grid overflow-auto rounded-lg border border-slate-200 bg-slate-100 p-3">
+      <div id="layout-grid-visual" class="inline-block bg-white p-2 rounded">
+        <!-- Grid will be rendered by JavaScript -->
+      </div>
+    </div>
+    
+    <!-- Advanced: text map editor (collapsed by default) -->
+    <details class="rounded-lg border border-slate-200 bg-slate-50">
+      <summary class="px-3 py-2 cursor-pointer text-xs font-semibold text-slate-600 hover:bg-slate-100">
+        Advanced: Text Layout Editor
+      </summary>
+      <div class="p-3">
+        <p class="text-xs text-slate-500 mb-2">Paste a layout map (X = seat, . = empty). Changes will sync with the visual grid.</p>
+        <textarea
+          id="layout_map_input"
+          name="layout_map"
+          rows="6"
+          onchange="parseLayoutMapToGrid()"
+          class="w-full rounded-lg border border-slate-300 bg-white p-3 font-mono text-xs text-slate-800 shadow-sm"
+          placeholder="X...X&#10;X...X&#10;XXXXX"
+        >{{ layout_map }}</textarea>
+      </div>
+    </details>
   </div>
 </div>
+
+<script>
+// Layout grid state
+let layoutGrid = [];
+
+// Initialize layout grid from the server data
+function initializeLayoutGrid() {
+  const layoutMapInput = document.getElementById('layout_map_input');
+  const mapText = layoutMapInput.value.trim();
+  
+  if (mapText) {
+    parseLayoutMapToGrid();
+  } else {
+    // Default 4x5 grid
+    layoutGrid = Array(4).fill(null).map(() => Array(5).fill(true));
+    renderLayoutGrid();
+  }
+}
+
+// Parse layout map text to grid
+function parseLayoutMapToGrid() {
+  const layoutMapInput = document.getElementById('layout_map_input');
+  const mapText = layoutMapInput.value.trim();
+  
+  if (!mapText) {
+    layoutGrid = Array(4).fill(null).map(() => Array(5).fill(true));
+    renderLayoutGrid();
+    return;
+  }
+  
+  const lines = mapText.split('\n').filter(l => l.trim());
+  layoutGrid = lines.map(line => 
+    line.split('').map(char => char === 'X' || char === 'x')
+  );
+  
+  renderLayoutGrid();
+}
+
+// Serialize grid to layout map text
+function serializeGridToLayoutMap() {
+  const mapText = layoutGrid.map(row => 
+    row.map(seat => seat ? 'X' : '.').join('')
+  ).join('\n');
+  
+  document.getElementById('layout_map_input').value = mapText;
+}
+
+// Render the visual button grid
+function renderLayoutGrid() {
+  const container = document.getElementById('layout-grid-visual');
+  container.innerHTML = '';
+  
+  const table = document.createElement('div');
+  table.style.display = 'inline-block';
+  
+  layoutGrid.forEach((row, rowIdx) => {
+    const rowDiv = document.createElement('div');
+    rowDiv.style.display = 'flex';
+    rowDiv.style.gap = '2px';
+    rowDiv.style.marginBottom = '2px';
+    
+    row.forEach((seat, colIdx) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = seat 
+        ? 'w-10 h-10 rounded border-2 border-emerald-500 bg-emerald-100 hover:bg-emerald-200 text-emerald-700 font-bold text-xs'
+        : 'w-10 h-10 rounded border-2 border-slate-300 bg-slate-50 hover:bg-slate-100 text-slate-400 text-xs';
+      btn.textContent = seat ? '✓' : '✗';
+      btn.title = seat ? 'Click to remove seat' : 'Click to add seat';
+      btn.onclick = () => toggleSeat(rowIdx, colIdx);
+      
+      rowDiv.appendChild(btn);
+    });
+    
+    table.appendChild(rowDiv);
+  });
+  
+  container.appendChild(table);
+  serializeGridToLayoutMap();
+  updateRowColInputs();
+}
+
+// Toggle a seat
+function toggleSeat(row, col) {
+  layoutGrid[row][col] = !layoutGrid[row][col];
+  renderLayoutGrid();
+}
+
+// Add row at top
+function addRowTop() {
+  const cols = layoutGrid[0]?.length || 5;
+  layoutGrid.unshift(Array(cols).fill(true));
+  renderLayoutGrid();
+}
+
+// Add row at bottom
+function addRowBottom() {
+  const cols = layoutGrid[0]?.length || 5;
+  layoutGrid.push(Array(cols).fill(true));
+  renderLayoutGrid();
+}
+
+// Add column on left
+function addColumnLeft() {
+  layoutGrid.forEach(row => row.unshift(true));
+  renderLayoutGrid();
+}
+
+// Add column on right
+function addColumnRight() {
+  layoutGrid.forEach(row => row.push(true));
+  renderLayoutGrid();
+}
+
+// Remove last row
+function removeLastRow() {
+  if (layoutGrid.length > 1) {
+    layoutGrid.pop();
+    renderLayoutGrid();
+  }
+}
+
+// Remove last column
+function removeLastColumn() {
+  if (layoutGrid[0] && layoutGrid[0].length > 1) {
+    layoutGrid.forEach(row => row.pop());
+    renderLayoutGrid();
+  }
+}
+
+// Clear all seats
+function clearAllSeats() {
+  layoutGrid = layoutGrid.map(row => row.map(() => false));
+  renderLayoutGrid();
+}
+
+// Fill all seats
+function fillAllSeats() {
+  layoutGrid = layoutGrid.map(row => row.map(() => true));
+  renderLayoutGrid();
+}
+
+// Update the rows/cols input fields
+function updateRowColInputs() {
+  const rowsInput = document.querySelector('input[name="rows"]');
+  const colsInput = document.querySelector('input[name="cols"]');
+  
+  if (rowsInput) rowsInput.value = layoutGrid.length;
+  if (colsInput) colsInput.value = layoutGrid[0]?.length || 0;
+}
+
+// Initialize on page load
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initializeLayoutGrid);
+} else {
+  initializeLayoutGrid();
+}
+</script>
 
 <div id="tab-chart" class="tabs-content tabs-panel py-6 px-4 hidden">
   <div class="space-y-4">
