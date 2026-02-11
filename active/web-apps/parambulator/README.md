@@ -138,9 +138,26 @@ export PLAYWRIGHT_BROWSERS_PATH=$PWD/.playwright_browsers
 npx playwright install --with-deps chromium
 pytest tests/test_ui_playwright.py
 
+# Feedback improvement tests (comprehensive E2E suite)
+./run_feedback_tests.sh
+
 # All tests
 FLASK_DEBUG=true pytest -v
 ```
+
+### Test Suites
+
+- **test_scoring.py** - Unit tests for seating algorithm
+- **test_feedback.py** - Feedback system unit tests  
+- **test_ui_playwright.py** - Basic UI integration tests
+- **test_feedback_improvements.py** - Comprehensive tests for all feedback-driven improvements:
+  - Feedback element selector fixes
+  - Version tracking in submissions
+  - Button-based grid layout editor
+  - Column configuration UI
+  - Design-4 contrast
+  - Header row parsing
+  - Integration scenarios
 
 **Note**: Tests require `FLASK_DEBUG=true` or `SECRET_KEY` environment variable.
 
