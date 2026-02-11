@@ -1,4 +1,45 @@
 <div class="design design-4">
+  <style>
+    /* Design 4 - Enhanced contrast for text */
+    .design-4 {
+      --text-primary: #e0fdf4;
+      --text-secondary: #ccf5e9;
+      --text-muted: #a7f3d0;
+      --border-color: rgba(167,243,208,.3);
+    }
+    .design-4 .text-slate-700,
+    .design-4 .text-slate-600,
+    .design-4 .text-slate-500 {
+      color: var(--text-secondary) !important;
+      text-shadow: 1px 1px 2px rgba(0,0,0,.8);
+    }
+    .design-4 .text-slate-900,
+    .design-4 .text-slate-800 {
+      color: var(--text-primary) !important;
+      text-shadow: 1px 1px 2px rgba(0,0,0,.8);
+    }
+    .design-4 label,
+    .design-4 p {
+      color: var(--text-secondary);
+      text-shadow: 1px 1px 2px rgba(0,0,0,.7);
+    }
+    .design-4 .font-semibold {
+      color: var(--text-primary);
+      text-shadow: 1px 1px 3px rgba(0,0,0,.8);
+    }
+    /* Ensure form inputs remain readable */
+    .design-4 input,
+    .design-4 select,
+    .design-4 textarea {
+      background: rgba(255,255,255,.9);
+      color: #1a3a2a;
+      border-color: var(--border-color);
+    }
+    .design-4 input::placeholder,
+    .design-4 textarea::placeholder {
+      color: rgba(26,58,42,.5);
+    }
+  </style>
   <div class="min-h-screen" style="background: linear-gradient(135deg, #1a3a2a 0%, #0f2818 50%, #1a2e1f 100%); position: relative;" >
     <div class="absolute inset-0 opacity-20" style="background-image: repeating-linear-gradient(45deg, transparent, transparent 35px, rgba(255,255,255,.05) 35px, rgba(255,255,255,.05) 70px);"></div>
     <div class="relative mx-auto max-w-7xl space-y-6 px-8 py-12">
