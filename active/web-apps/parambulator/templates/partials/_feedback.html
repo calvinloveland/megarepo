@@ -164,7 +164,8 @@ function highlightElement(event) {
   if (!selectingElement) return;
   
   const target = event.target;
-  if (target.closest('#feedback-tool')) return; // Don't highlight feedback tool itself
+  // Don't highlight feedback tool or its children
+  if (target.closest('#feedback-tool') || target.closest('#feedback-panel')) return;
   
   if (hoveredElement && hoveredElement !== target) {
     hoveredElement.style.outline = originalOutline;
@@ -183,19 +184,30 @@ function unhighlightElement(event) {
 function selectElement(event) {
   if (!selectingElement) return;
   
+  const target = event.target;
+  
+  // Prevent selecting feedback tool or any interactive elements within it
+  if (target.closest('#feedback-tool') || target.closest('#feedback-panel')) {
+    // Stop propagation but don't select
+    event.preventDefault();
+    event.stopPropagation();
+    event.stopImmediatePropagation();
+    return;
+  }
+  
   event.preventDefault();
   event.stopPropagation();
   event.stopImmediatePropagation();
-  
-  const target = event.target;
-  if (target.closest('#feedback-tool')) return; // Don't select feedback tool itself
   
   // Build a path to the element
   const path = getElementPath(target);
   selectedElementPath = path;
   
   document.getElementById('selected-element').value = path;
-  document.getElementById('selector-btn-text').textContent = `Selected: ${getElementDescription(target)}`;
+  const btnText = document.getElementById('selector-btn-text');
+  const elementDesc = getElementDescription(target);
+  btnText.textContent = `Selected: ${elementDesc}`;
+  btnText.setAttribute('title', path); // Show full path on hover
   document.getElementById('clear-selection-btn').classList.remove('hidden');
   
   // Stop element selection mode (without resetting button text)

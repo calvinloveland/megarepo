@@ -338,12 +338,34 @@ def create_app() -> Flask:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
         filepath = FEEDBACK_DIR / f"feedback_{timestamp}.json"
 
+        # Get version information
+        app_version = os.getenv("APP_VERSION", "dev")
+        git_commit = os.getenv("GIT_COMMIT", "unknown")
+        
+        # Try to get git commit if not set
+        if git_commit == "unknown":
+            try:
+                import subprocess
+                result = subprocess.run(
+                    ["git", "log", "-1", "--format=%h"],
+                    cwd=PROJECT_ROOT,
+                    capture_output=True,
+                    text=True,
+                    timeout=1
+                )
+                if result.returncode == 0:
+                    git_commit = result.stdout.strip()
+            except Exception:
+                pass
+
         feedback_data = {
             "feedback_text": feedback_text,
             "selected_element": selected_element or None,
             "design": str(data.get("design", "unknown")),
             "timestamp": data.get("timestamp"),
             "server_timestamp": datetime.now().isoformat(),
+            "version": app_version,
+            "git_commit": git_commit,
             "addressed": False,
         }
 
