@@ -4,6 +4,16 @@ A consolidated monorepo containing all public repos from [calvinloveland](https:
 
 Generated: January 15, 2026
 
+## Directory Index
+
+- [**active/**](active/README.md) - Actively maintained projects and tools
+- [**archive/**](archive/README.md) - Archived and legacy projects
+- [**docs/**](docs/README.md) - Repository documentation
+- [**ideas/**](ideas/README.md) - Project ideas and brainstorming
+- [**meta/**](meta/README.md) - Repository metadata and analysis
+- [**scripts/**](scripts/README.md) - Build scripts and utilities
+- [**site/**](site/README.md) - Generated static documentation site
+
 ## Structure
 
 ### 📂 `active/` - Active Projects
