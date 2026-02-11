@@ -4,48 +4,25 @@ This directory contains actively maintained projects and experiments. Projects h
 
 ## Subdirectories
 
-### 🛠️ `dev-tools/` - Development Tools and Utilities
+### 🛠️ [dev-tools/](dev-tools/README.md) - Development Tools and Utilities
 
-Tools and utilities for local development, automation, and productivity:
+Tools and utilities for local development, automation, and productivity. See the [dev-tools index](dev-tools/README.md) for complete list with documentation links.
 
-- **full-auto-ci** - CI automation and deployment tools
-- **cli-to-web** - Framework for converting CLI tools to web interfaces
-- **operationalize** - Party game and development framework
-- **operationalize_vscode_ext** - VS Code extension for operationalize
-- **plaintext_project_management** - Project management using plain text files
-- **time_function_with_timeout** - Python timing utility with timeout support
-- **tough_bugs** - Debugging challenges and solutions
-- **bingo-probability** - Probability calculation tools
-- **browser-error-logger** - Browser error logging utility
-- **copilot-lint-fixer** - Integration with GitHub Copilot for linting fixes
-- **hivemind-llm** - LLM integration tools
-- **operationalize** - Framework for interactive experiences
+### 🎮 [games/](games/README.md) - Game Projects
 
-### 🎮 `games/` - Game Projects
+Interactive games and AI experiments. See the [games index](games/README.md) for complete list with documentation links.
 
-Interactive games and AI experiments:
+### 🤖 [bots/](bots/README.md) - Discord and Automation Bots
 
-- **lets-holdem-together** - Multiplayer poker game with AI players
-- **conway_game_of_war** - Browser-based variant of Conway's Game of Life
-- **MancalaAI** - Mancala board game with AI opponent
-- **powder_play** - Particle physics sandbox game
-- **vroomon** - Vehicle simulation and physics
-- **wizard_fight** - Wizard battle game with AI
+Discord bots and game solvers. See the [bots index](bots/README.md) for details.
 
-### 🤖 `bots/` - Discord and Automation Bots
+### 🌐 [web-apps/](web-apps/README.md) - Web Applications
 
-- **CryptoRoleBot** - Discord bot for crypto-related roles and interactions
-- **broomsweeper_solver** - Minesweeper solver and analyzer
+Standalone web applications. See the [web-apps index](web-apps/README.md) for details.
 
-### 🌐 `web-apps/` - Web Applications
+### 👤 [personal/](personal/README.md) - Personal Configuration
 
-Standalone web applications:
-
-- **parambulator** - Web application for parameter exploration
-
-### 👤 `personal/` - Personal Configuration
-
-- **calnix** - NixOS system configuration and setup
+NixOS system configuration and dotfiles. See the [personal index](personal/README.md) for details.
 
 ## Getting Started
 

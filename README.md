@@ -85,3 +85,8 @@ Forks of other repositories, some already archived on GitHub:
 - **Total repos:** 51
 - **Active:** 14
 - **Archived:** 37
+
+## Development Environment
+
+- [**.devcontainer/**](.devcontainer/README.md) - VS Code devcontainer configuration for consistent development environment
+- [**.github/**](.github/skills/README.md) - GitHub Copilot skills and [repository instructions](.github/copilot-instructions.md)

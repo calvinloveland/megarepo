@@ -4,7 +4,7 @@ This directory contains documentation for the megarepo as a whole, including gui
 
 ## Contents
 
-- **MEGAREPO_PAGES.md** - Index of all generated documentation pages and static site content
+- [**MEGAREPO_PAGES.md**](MEGAREPO_PAGES.md) - Index of all generated documentation pages and static site content
 
 ## Related Documents
 

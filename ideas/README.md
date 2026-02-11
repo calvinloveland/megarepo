@@ -33,3 +33,10 @@ Feel free to add new idea files here. Use clear naming and include:
 - Rough goals or features
 - Any relevant research or references
 - Current status of the idea
+
+## See Also
+
+- [Active Projects](../active/README.md) - Projects currently in development
+- [Archive](../archive/README.md) - Historical projects and experiments
+- [Repository Root](../README.md) - Main repository overview
+- [Development Philosophy](../PHILOSOPHY.md) - Principles guiding project development

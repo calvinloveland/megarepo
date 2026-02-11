@@ -2,15 +2,17 @@
 
 This repository contains an automated static site generator that produces simple, per-subrepo pages and publishes them to the `gh-pages` branch.
 
-What it does
+## What it does
+
 - Discovers subprojects (subrepos) and generates a page for each using either `docs/index.md` or `README.md`.
 - Produces `site/<subrepo>/index.html` and a top-level `site/index.html` with links.
 - Deploys `site/` to the `gh-pages` branch via GitHub Actions on pushes to `main`/`master` or weekly.
 
-How to add custom docs for a subrepo
+## How to add custom docs for a subrepo
+
 - Add or edit `docs/index.md` in the subrepo — the generator prefers `docs/index.md` over `README.md`.
 
-Preview locally
+## Preview locally
 
 1. Install Python requirements:
 
@@ -31,6 +33,14 @@ python -m http.server --directory site 8000
 # then open http://localhost:8000
 ```
 
-Notes
+## Notes
+
 - The generator uses simple heuristics to find subrepos. It looks for directories containing a `README.md` and common project markers like `pyproject.toml`, `package.json`, an explicit `src/` or `tests/` directory, or `docs/`.
 - The top-level `site/` is ignored by the repository (added to `.gitignore`) to prevent accidental commits of generated output.
+
+## Related Documentation
+
+- [Scripts Documentation](../scripts/README.md) - Build scripts including the page generator
+- [Site Output Directory](../site/README.md) - Generated static site (git-ignored)
+- [Docs Directory](README.md) - Back to docs index
+- [Repository Root](../README.md) - Main repository overview

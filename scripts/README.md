@@ -44,5 +44,7 @@ When adding new scripts:
 
 ## See Also
 
-- [../site/](../site/) - Generated static site output
-- [../docs/](../docs/) - Documentation for the repository
+- [../site/README.md](../site/README.md) - Generated static site output
+- [../docs/README.md](../docs/README.md) - Documentation for the repository
+- [../docs/MEGAREPO_PAGES.md](../docs/MEGAREPO_PAGES.md) - Static site generation documentation
+- [../README.md](../README.md) - Repository root
