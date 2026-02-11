@@ -30,8 +30,14 @@ python find_orphans.py --exclude "archive/.*" --exclude "node_modules/.*"
 cd /home/calvin/code/megarepo
 python active/dev-tools/markdown-orphan-finder/find_orphans.py
 
+# Use the convenience script for megarepo (excludes archive and .venv by default)
+./active/dev-tools/markdown-orphan-finder/run_on_megarepo.sh
+
 # Find orphans excluding archive directory
 python active/dev-tools/markdown-orphan-finder/find_orphans.py --exclude "^archive/"
+
+# Show what orphaned files link to
+./active/dev-tools/markdown-orphan-finder/run_on_megarepo.sh --show-links
 ```
 
 ## How it works
