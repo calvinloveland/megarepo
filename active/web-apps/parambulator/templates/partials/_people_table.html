@@ -17,9 +17,17 @@
   <div class="rounded-lg border border-slate-200 bg-slate-50 p-3">
     <div class="flex items-center justify-between mb-3">
       <div>
-        <p class="text-xs font-semibold uppercase tracking-wide text-slate-600">Column Behavior</p>
-        <p class="text-xs text-slate-500">Adjust type and weighting for each column</p>
+        <p class="text-xs font-semibold uppercase tracking-wide text-slate-600">Column Behavior & Constraints</p>
+        <p class="text-xs text-slate-500">Adjust type and weighting for each constraint column below</p>
       </div>
+      <button
+        type="button"
+        class="text-xs font-semibold text-slate-500 px-2 py-1 rounded border border-slate-300 hover:bg-slate-100 cursor-help"
+        title="Adding custom columns requires extending the scoring system. Use 'Ignore' to disable unwanted columns."
+        disabled
+      >
+        + Add Column (future)
+      </button>
     </div>
     <div class="grid grid-cols-2 gap-3 text-xs">
       <div class="space-y-1">
@@ -75,7 +83,10 @@
         </div>
       </div>
     </div>
-    <p class="mt-2 text-[11px] text-slate-500">These settings are saved and will be used for future scoring updates.</p>
+    <p class="mt-2 text-[11px] text-slate-500">
+      <strong>Tip:</strong> Set type to "Ignore" and weight to 0 to disable a column. 
+      These settings persist and affect scoring calculations.
+    </p>
   </div>
 
   <div class="people-table-shell overflow-x-auto rounded-lg border border-slate-200 bg-white">
