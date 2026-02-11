@@ -7,6 +7,7 @@ Standalone web applications for various use cases.
 ### Parameter Exploration & Experimentation
 - [**parambulator**](parambulator/README.md) - Web application for interactive parameter exploration and visualization
   - [Deployment Guide](parambulator/DEPLOYMENT.md)
+  - [Feedback Action Plan](parambulator/FEEDBACK_ACTION_PLAN.md) - User feedback tracking and implementation status
   - Security Documentation:
     - [Security Review](parambulator/SECURITY_REVIEW.md)
     - [Security Summary](parambulator/SECURITY_SUMMARY.md)

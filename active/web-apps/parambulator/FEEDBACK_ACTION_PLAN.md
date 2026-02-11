@@ -1,26 +1,34 @@
 # Parambulator Feedback - Action Plan
 
 **Generated**: 2026-02-11
+**Last Updated**: 2026-02-11
 **Total Real Feedback Items**: 13
-**Status**: All items unaddressed
+**Addressed**: 3
+**Remaining**: 10
 
-## Priority 1: Critical UX Issues
+## ✅ Completed (3 items)
 
-### 1. Feedback System Bugs
-**Issue**: Feedback element selector broken
-- "The feedback element selector button still says 'click to select element after selecting an option'"
-- "Selecting the feedback button with the element selector seems to break the feedback input"
+### ✅ Feedback System Bugs - FIXED (Commit 8b0ff52a)
+- Fixed: "The feedback element selector button still says 'click to select element after selecting an option'"
+- Fixed: "Selecting the feedback button with the element selector seems to break the feedback input"
+- Improvements:
+  - Button text now updates correctly after element selection
+  - Added title attribute showing full element path on hover
+  - Prevented feedback panel from being selectable (which broke the form)
+  - Enhanced element selection logic to completely avoid feedback UI
 
-**Action**: 
-- Fix button text to update correctly after selection
-- Prevent feedback form from breaking when selector is used on feedback button itself
-- Add defensive logic to exclude feedback UI elements from selection
-
-**Files to modify**: Feedback JavaScript handler in templates
+### ✅ Version Tracking in Feedback - FIXED (Commit 8b0ff52a)
+- Fixed: "Feedback should automatically come back with the version the feedback is from"
+- Implementation:
+  - Added `version` field (from APP_VERSION env var, defaults to "dev")
+  - Added `git_commit` field (auto-detected from git or GIT_COMMIT env var)
+  - Graceful fallback if git is unavailable
 
 ---
 
-### 2. Duplicate Title Row Bug
+## Priority 1: Critical UX Issues
+
+### 1. Duplicate Title Row Bug
 **Issue**: "This first row is the title row repeated for some reason"
 
 **Action**:
@@ -122,18 +130,34 @@ feedback_data = {
 ### 7-10. Test Feedback (Various)
 These appear to be smoke tests confirming the feedback system works. No action needed.
 
+### 11. Production Site Confirmation
+- "This feedback came from the production site!"
+Informational only - confirms feedback system working in production.
+
+---
+
+## Summary Statistics
+
+- **Total feedback items**: 13
+- **Addressed**: 3 (23%)
+- **High priority remaining**: 3 items
+- **Medium priority remaining**: 4 items
+- **Test/informational**: 3 items
+- **Estimated remaining work**: 11-14 hours
+
 ---
 
 ## Implementation Order
 
-1. **Fix feedback selector bugs** (30 min) - Highest impact, blocks feedback collection
-2. **Fix duplicate title row** (30 min) - Visual bug, easy win
-3. **Add version to feedback** (15 min) - Quick metadata improvement
-4. **Design 4 contrast fix** (30 min) - Accessibility improvement
+1. ✅ **Fix feedback selector bugs** (30 min) - COMPLETED
+2. ✅ **Add version to feedback** (15 min) - COMPLETED
+3. **Fix duplicate title row** (30 min) - Visual bug, easy win
+4. **Design 4 contrast fix** (30 min) - Accessibility improvement  
 5. **Dynamic column configuration** (4-6 hours) - High-value feature
 6. **Grid layout improvements** (6-8 hours) - High-value UX enhancement
 
-**Total Estimated Time**: 12-15 hours for all items
+**Completed**: 2/6 items (45 minutes)
+**Remaining Estimated Time**: 11-14 hours for remaining items
 
 ---
 
