@@ -123,7 +123,13 @@ function parsePeopleTable() {
     const parts = trimmed.split(/[,\t|]/).map(p => p.trim());
     if (parts.length > 0 && parts[0]) {
       const headerCandidate = parts[0].toLowerCase();
+      // Skip header row - check first column
       if (headerCandidate === 'name' || headerCandidate === 'student') {
+        continue;
+      }
+      // Also skip if all columns look like headers
+      const lowerParts = parts.map(p => p.toLowerCase());
+      if (lowerParts.includes('name') && lowerParts.includes('reading_level') && lowerParts.includes('talkative')) {
         continue;
       }
       people.push({
