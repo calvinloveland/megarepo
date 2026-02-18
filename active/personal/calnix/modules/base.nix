@@ -139,16 +139,32 @@ in
   # Common programs
   programs.fish.enable = true;
   programs.fish.shellInit = ''
+    set -l __calnix_ld_library_path_warn_limit 65536
+
     # Add /usr/local/lib paths if not already present (prevents env bloat)
     for libpath in ${usrLocalLibPathString}
-      if not string match -q "*:$libpath:*" ":$LD_LIBRARY_PATH:"
-        if test -n "$LD_LIBRARY_PATH"
-          set -gx LD_LIBRARY_PATH $libpath:$LD_LIBRARY_PATH
-        else
-          set -gx LD_LIBRARY_PATH $libpath
+      if set -q LD_LIBRARY_PATH
+        if not contains -- $libpath $LD_LIBRARY_PATH
+          set -gx LD_LIBRARY_PATH $libpath $LD_LIBRARY_PATH
+        end
+      else
+        set -gx LD_LIBRARY_PATH $libpath
+      end
+    end
+
+    if set -q LD_LIBRARY_PATH
+      if not set -q CALNIX_WARNED_LD_LIBRARY_PATH_BLOAT
+        set -l __calnix_ld_library_path_joined (string join : -- $LD_LIBRARY_PATH)
+        set -l __calnix_ld_library_path_len (string length -- $__calnix_ld_library_path_joined)
+        if test $__calnix_ld_library_path_len -gt $__calnix_ld_library_path_warn_limit
+          echo "[calnix] WARNING: LD_LIBRARY_PATH is very large ($__calnix_ld_library_path_len bytes)."
+          echo "[calnix] This can break process launches (ARG_MAX). Run: set -e LD_LIBRARY_PATH"
+          set -gx CALNIX_WARNED_LD_LIBRARY_PATH_BLOAT 1
         end
       end
     end
+
+    set -e __calnix_ld_library_path_warn_limit
   '';
   programs.ssh.startAgent = true;
   programs.neovim.enable = true;

@@ -103,9 +103,8 @@ end
 function __calnix_openvino_prepend_ldpath --argument-names value
   if test -e $value
     if set -q LD_LIBRARY_PATH
-      set -l haystack :$LD_LIBRARY_PATH:
-      if not string match -q "*:$value:*" $haystack
-        set -gx LD_LIBRARY_PATH $value:$LD_LIBRARY_PATH
+      if not contains -- $value $LD_LIBRARY_PATH
+        set -gx LD_LIBRARY_PATH $value $LD_LIBRARY_PATH
       end
     else
       set -gx LD_LIBRARY_PATH $value
@@ -116,9 +115,8 @@ end
 function __calnix_openvino_prepend_pkgconfig --argument-names value
   if test -e $value
     if set -q PKG_CONFIG_PATH
-      set -l haystack :$PKG_CONFIG_PATH:
-      if not string match -q "*:$value:*" $haystack
-        set -gx PKG_CONFIG_PATH $value:$PKG_CONFIG_PATH
+      if not contains -- $value $PKG_CONFIG_PATH
+        set -gx PKG_CONFIG_PATH $value $PKG_CONFIG_PATH
       end
     else
       set -gx PKG_CONFIG_PATH $value
@@ -129,9 +127,8 @@ end
 function __calnix_openvino_prepend_python --argument-names value
   if test -e $value
     if set -q PYTHONPATH
-      set -l haystack :$PYTHONPATH:
-      if not string match -q "*:$value:*" $haystack
-        set -gx PYTHONPATH $value:$PYTHONPATH
+      if not contains -- $value $PYTHONPATH
+        set -gx PYTHONPATH $value $PYTHONPATH
       end
     else
       set -gx PYTHONPATH $value
@@ -146,6 +143,20 @@ __calnix_openvino_prepend_ldpath ${levelZeroLibDir}
 __calnix_openvino_prepend_ldpath ${toolchainLibDir}
 __calnix_openvino_prepend_pkgconfig ${openvinoPkgConfigDir}
 __calnix_openvino_prepend_python ${openvinoPythonDir}
+
+if set -q LD_LIBRARY_PATH
+  if not set -q CALNIX_WARNED_LD_LIBRARY_PATH_BLOAT
+    set -l __calnix_ld_library_path_warn_limit 65536
+    set -l __calnix_ld_library_path_joined (string join : -- $LD_LIBRARY_PATH)
+    set -l __calnix_ld_library_path_len (string length -- $__calnix_ld_library_path_joined)
+    if test $__calnix_ld_library_path_len -gt $__calnix_ld_library_path_warn_limit
+      echo "[calnix] WARNING: LD_LIBRARY_PATH is very large ($__calnix_ld_library_path_len bytes)."
+      echo "[calnix] This can break process launches (ARG_MAX). Run: set -e LD_LIBRARY_PATH"
+      set -gx CALNIX_WARNED_LD_LIBRARY_PATH_BLOAT 1
+    end
+    set -e __calnix_ld_library_path_warn_limit
+  end
+end
 
 if test -n "$HOME"
   set -gx INTEL_NPU_HOME "$HOME/.intel_npu"
