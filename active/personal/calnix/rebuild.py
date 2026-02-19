@@ -21,6 +21,33 @@ import shlex
 import shutil
 import subprocess
 import sys
+import time
+
+
+def format_duration(seconds: int) -> str:
+    minutes, secs = divmod(max(0, int(seconds)), 60)
+    if minutes:
+        return f"{minutes}m {secs}s"
+    return f"{secs}s"
+
+
+def format_eta(elapsed: int, estimate: int | None) -> str:
+    if not estimate or estimate <= 0:
+        return f"elapsed {format_duration(elapsed)}"
+
+    percent = min(99, int((elapsed / estimate) * 100))
+    remaining = max(0, estimate - elapsed)
+    return (
+        f"elapsed {format_duration(elapsed)} | "
+        f"~{percent}% | ETA {format_duration(remaining)}"
+    )
+
+
+def phase_banner(step: int, total_steps: int, title: str, estimate_seconds: int | None = None) -> None:
+    estimate_text = ""
+    if estimate_seconds:
+        estimate_text = f" (estimated {format_duration(estimate_seconds)})"
+    print(f"\n[{step}/{total_steps}] {title}{estimate_text}")
 
 
 def reexec_if_root():
@@ -179,7 +206,15 @@ def run_cmd(cmd: list[str], as_user: str|None=None, capture: bool=False) -> tupl
     return proc.returncode, out
 
 
-def run_cmd_stream(cmd: list[str], as_user: str|None=None, capture: bool=True, verbose: bool=False, heartbeat: int=10) -> tuple[int, str]:
+def run_cmd_stream(
+    cmd: list[str],
+    as_user: str | None = None,
+    capture: bool = True,
+    verbose: bool = False,
+    heartbeat: int = 10,
+    label: str = "cmd",
+    estimate_seconds: int | None = None,
+) -> tuple[int, str]:
     """Run a command and stream output to the console while capturing it.
 
     - If `as_user` is provided, the command will be executed via sudo -u.
@@ -205,16 +240,18 @@ def run_cmd_stream(cmd: list[str], as_user: str|None=None, capture: bool=True, v
 
     out_lines: list[str] = []
     last_output = 0
-    start_time = last_output = int(__import__('time').time())
+    start_time = last_output = int(time.time())
+
+    print(f"[{label}] started ({format_eta(0, estimate_seconds)})")
 
     try:
         while True:
             line = proc.stdout.readline()
-            now = int(__import__('time').time())
+            now = int(time.time())
             if line:
                 line = line.rstrip('\n')
                 out_lines.append(line)
-                print(f"[nix] {line}")
+                print(f"[{label}] {line}")
                 last_output = now
             else:
                 if proc.poll() is not None:
@@ -222,10 +259,10 @@ def run_cmd_stream(cmd: list[str], as_user: str|None=None, capture: bool=True, v
                 # heartbeat
                 if now - last_output >= heartbeat:
                     elapsed = now - start_time
-                    print(f"[nix] still building... {elapsed}s elapsed")
+                    print(f"[{label}] still working... {format_eta(elapsed, estimate_seconds)}")
                     last_output = now
                 # small sleep to avoid busy loop
-                __import__('time').sleep(0.5)
+                time.sleep(0.5)
 
         ret = proc.wait()
     except KeyboardInterrupt:
@@ -237,22 +274,39 @@ def run_cmd_stream(cmd: list[str], as_user: str|None=None, capture: bool=True, v
         raise
 
     captured = "\n".join(out_lines) if capture else ""
+    total_elapsed = int(time.time()) - start_time
+    print(f"[{label}] finished in {format_duration(total_elapsed)}")
     return ret, captured
 
 
 def build_and_switch_flake(flake_expr: str, target: str, extra_args: list[str], build_as_owner: str|None, non_interactive: bool, verbose: bool=False) -> bool:
+    phase_banner(2, 4, f"Build system derivation for {target}", estimate_seconds=180)
     nix_cmd = ["nix", "--extra-experimental-features", "nix-command flakes", "build", "--print-out-paths", flake_expr, "--no-link"]
     # Use streaming command for builds so users get progress output for long builds
     if build_as_owner:
         print(f"Running flake build as {build_as_owner} to avoid ownership checks...")
-        rc, out = run_cmd_stream(nix_cmd, as_user=build_as_owner, capture=True, verbose=verbose)
+        rc, out = run_cmd_stream(
+            nix_cmd,
+            as_user=build_as_owner,
+            capture=True,
+            verbose=verbose,
+            label="build",
+            estimate_seconds=180,
+        )
         if rc != 0:
             print("Flake build failed when run as repo owner.")
             return False
         build_out = out.splitlines()[-1] if out else ""
     else:
         print(f"Building flake as {pwd.getpwuid(os.geteuid()).pw_name} to avoid ownership errors...")
-        rc, out = run_cmd_stream(nix_cmd, as_user=None, capture=True, verbose=verbose)
+        rc, out = run_cmd_stream(
+            nix_cmd,
+            as_user=None,
+            capture=True,
+            verbose=verbose,
+            label="build",
+            estimate_seconds=180,
+        )
         if rc != 0:
             print("Flake build failed as current user. This often indicates ownership or flake input problems.")
             print("Consider re-running the script and allowing it to chown the repo, or run the build as the repo owner.")
@@ -267,12 +321,26 @@ def build_and_switch_flake(flake_expr: str, target: str, extra_args: list[str], 
 
     candidate = os.path.join(build_out, "bin", "switch-to-configuration")
     if not os.path.exists(candidate):
+        phase_banner(3, 4, "Fallback: build toplevel output", estimate_seconds=120)
         print("switch-to-configuration not found in build output; attempting to build the system toplevel and try again...")
         toplevel_expr = flake_expr.replace("config.system.build.nixos-rebuild", "config.system.build.toplevel")
         if build_as_owner:
-            rc2, out2 = run_cmd(["nix", "--extra-experimental-features", "nix-command flakes", "build", "--print-out-paths", toplevel_expr, "--no-link"], as_user=build_as_owner, capture=True)
+            rc2, out2 = run_cmd_stream(
+                ["nix", "--extra-experimental-features", "nix-command flakes", "build", "--print-out-paths", toplevel_expr, "--no-link"],
+                as_user=build_as_owner,
+                capture=True,
+                verbose=verbose,
+                label="fallback-build",
+                estimate_seconds=120,
+            )
         else:
-            rc2, out2 = run_cmd(["nix", "--extra-experimental-features", "nix-command flakes", "build", "--print-out-paths", toplevel_expr, "--no-link"], capture=True)
+            rc2, out2 = run_cmd_stream(
+                ["nix", "--extra-experimental-features", "nix-command flakes", "build", "--print-out-paths", toplevel_expr, "--no-link"],
+                capture=True,
+                verbose=verbose,
+                label="fallback-build",
+                estimate_seconds=120,
+            )
         if rc2 != 0:
             print("Failed to build toplevel; cannot find switch-to-configuration.")
             return False
@@ -283,12 +351,13 @@ def build_and_switch_flake(flake_expr: str, target: str, extra_args: list[str], 
         print(f"switch-to-configuration not found at expected locations (checked {candidate}). Cannot proceed automatically.")
         return False
 
+    phase_banner(4, 4, "Activate new configuration", estimate_seconds=45)
     switch_cmd = [candidate, "switch"]
     if os.geteuid() != 0:
         # need sudo to switch
-        rc, _ = run_cmd(["sudo", *switch_cmd], capture=False)
+        rc, _ = run_cmd_stream(["sudo", *switch_cmd], capture=False, verbose=verbose, label="switch", estimate_seconds=45)
     else:
-        rc, _ = run_cmd(switch_cmd, capture=False)
+        rc, _ = run_cmd_stream(switch_cmd, capture=False, verbose=verbose, label="switch", estimate_seconds=45)
     return rc == 0
 
 
@@ -311,6 +380,7 @@ def main(argv: list[str] | None = None):
 
     if host in ("thinker", "1337book"):
         print(f"💻 Rebuilding {host} configuration...")
+        phase_banner(1, 4, "Validate repository ownership", estimate_seconds=15)
 
         ok, build_as_owner = ensure_repo_owned_or_fix(non_interactive, auto_yes=args.yes, allow_chown=args.allow_chown)
         if not ok and not build_as_owner:

@@ -15,7 +15,8 @@ Reading code is harder than writing code
 
 - Make variable and function names descriptive
 - Avoid especially hard to read languages or systems like regex or shell scripting
-
+- Shell scripting or custom ci/cd language type things should just call python scripts
+  
 Out of date documentation is worse than no documentation
 
 Python
