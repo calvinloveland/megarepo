@@ -35,6 +35,7 @@ PROJECTS=(
     "active/games/lets-holdem-together"
     "active/games/MancalaAI"
     "active/games/vroomon"
+    "active/web-apps/parambulator"
 )
 
 for project in "${PROJECTS[@]}"; do

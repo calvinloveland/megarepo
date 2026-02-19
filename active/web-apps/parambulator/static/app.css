@@ -319,6 +319,190 @@
   color: #4f46e5;
 }
 
+/* Design 6 - Military Stencil */
+.design-6 .seat {
+  border-radius: 0;
+  border: 3px solid #2a2a2a;
+  background: #f5f3ed;
+  box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.2);
+}
+.design-6 #design-panel .design-panel-card,
+.design-6 #feedback-panel {
+  border-radius: 0;
+  border: 4px solid #2a2a2a;
+  background: #e8e5dc;
+  box-shadow: 6px 6px 0 rgba(0, 0, 0, 0.2);
+}
+.design-6 #design-panel .design-panel-button {
+  border-radius: 0;
+  border: 3px solid #2a2a2a !important;
+  background: #d4d0c4 !important;
+  color: #2a2a2a !important;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+.design-6 #design-panel .design-panel-button.is-active {
+  background: #4a5c3a !important;
+  color: #ffffff !important;
+}
+.design-6 #feedback-tool .feedback-toggle {
+  border-radius: 0;
+  border: 3px solid #2a2a2a;
+  background: #4a5c3a;
+  color: #ffffff;
+  font-weight: 900;
+}
+.design-6 .tabs-bar {
+  border-bottom: 4px solid #2a2a2a;
+}
+.design-6 .tabs-trigger {
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  font-weight: 900;
+  color: #2a2a2a;
+}
+.design-6 .tabs-trigger.border-b-2 {
+  border-width: 4px;
+  border-color: #4a5c3a !important;
+  color: #4a5c3a;
+}
+.design-6 .tabs-panel,
+.design-6 .tabs-save-panel,
+.design-6 .people-table-shell {
+  border-radius: 0;
+  border: 3px solid #2a2a2a;
+  background: #f5f3ed;
+  box-shadow: none;
+}
+.design-6 .score-item {
+  border-radius: 0;
+  border: 3px solid #2a2a2a;
+  background: #e8e5dc;
+  color: #2a2a2a;
+  font-weight: 900;
+}
+.design-6 .chart-card .chart-header span {
+  color: #2a2a2a;
+  font-weight: 900;
+}
+.design-6 .chart-tooltip {
+  border-radius: 0;
+  border: 3px solid #2a2a2a;
+  background: #f5f3ed;
+  color: #2a2a2a;
+  box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.3);
+}
+.design-6 .seat-info-button {
+  border-radius: 0;
+  border: 3px solid #2a2a2a;
+  color: #2a2a2a;
+  font-weight: 900;
+}
+
+/* Design 7 - NGE Interface */
+.design-7 .seat {
+  border-radius: 0;
+  border: 2px solid #ff6b35;
+  background: rgba(20, 24, 36, 0.9);
+  color: #e8f4ff;
+  box-shadow: 0 0 10px rgba(255, 107, 53, 0.3), inset 0 0 20px rgba(255, 107, 53, 0.05);
+}
+.design-7 #design-panel .design-panel-card,
+.design-7 #feedback-panel {
+  border-radius: 0;
+  border: 3px solid #ff6b35;
+  border-left-width: 6px;
+  background: rgba(10, 14, 26, 0.95);
+  color: #e8f4ff;
+  box-shadow: 0 0 20px rgba(255, 107, 53, 0.4);
+}
+.design-7 #design-panel .design-panel-button {
+  border-radius: 0;
+  border: 2px solid #ff6b35 !important;
+  background: rgba(255, 107, 53, 0.1) !important;
+  color: #e8f4ff !important;
+  font-family: monospace;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+.design-7 #design-panel .design-panel-button.is-active {
+  background: rgba(255, 107, 53, 0.4) !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 10px rgba(255, 107, 53, 0.6);
+}
+.design-7 #feedback-tool .feedback-toggle {
+  border-radius: 0;
+  border: 2px solid #ff6b35;
+  background: rgba(255, 107, 53, 0.3);
+  color: #e8f4ff;
+  font-family: monospace;
+  font-weight: 700;
+}
+.design-7 .tabs-bar {
+  border-bottom: 3px solid #ff6b35;
+}
+.design-7 .tabs-trigger {
+  font-family: monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  font-weight: 700;
+  color: #b8deff;
+}
+.design-7 .tabs-trigger.border-b-2 {
+  border-width: 3px;
+  border-color: #ffb800 !important;
+  color: #ffb800;
+}
+.design-7 .tabs-panel,
+.design-7 .tabs-save-panel,
+.design-7 .people-table-shell {
+  border-radius: 0;
+  border: 2px solid #ff6b35;
+  background: rgba(10, 14, 26, 0.9);
+  color: #e8f4ff;
+  box-shadow: inset 0 0 20px rgba(255, 107, 53, 0.1);
+}
+.design-7 .tabs-panel input,
+.design-7 .tabs-save-panel input,
+.design-7 .people-table-shell input,
+.design-7 .tabs-panel textarea,
+.design-7 .tabs-save-panel textarea,
+.design-7 .people-table-shell textarea {
+  background: rgba(20, 24, 36, 0.9);
+  color: #e8f4ff;
+  border-color: #ff6b35;
+}
+.design-7 .score-item {
+  border-radius: 0;
+  border: 2px solid #ff6b35;
+  background: rgba(255, 107, 53, 0.15);
+  color: #e8f4ff;
+  font-family: monospace;
+  font-weight: 700;
+}
+.design-7 .chart-card .chart-header span {
+  color: #e8f4ff;
+  font-family: monospace;
+  font-weight: 700;
+}
+.design-7 .chart-tooltip {
+  border-radius: 0;
+  border: 2px solid #ff6b35;
+  background: rgba(10, 14, 26, 0.98);
+  color: #e8f4ff;
+  box-shadow: 0 0 15px rgba(255, 107, 53, 0.5);
+  font-family: monospace;
+}
+.design-7 .seat-info-button {
+  border-radius: 0;
+  border: 2px solid #ff6b35;
+  color: #e8f4ff;
+  font-family: monospace;
+  font-weight: 700;
+}
+
 /* Shared button styling */
 button[type="button"],
 button[type="submit"] {

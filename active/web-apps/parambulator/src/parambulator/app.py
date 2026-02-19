@@ -535,6 +535,8 @@ def build_context(
             "design_3",
             "design_4",
             "design_5",
+            "design_6",
+            "design_7",
         ],
         "saves": list_saves(PROJECT_ROOT),
     }

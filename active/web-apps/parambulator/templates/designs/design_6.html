@@ -1,0 +1,77 @@
+<div class="design design-6">
+  <style>
+    /* Design 6 - Military Stencil enhanced contrast */
+    .design-6 {
+      --text-primary: #1a1a1a;
+      --text-secondary: #3a3a3a;
+      --text-muted: #6a6a6a;
+      --border-color: #2a2a2a;
+      --bg-primary: #e8e5dc;
+      --bg-secondary: #d4d0c4;
+      --accent-color: #4a5c3a;
+    }
+    .design-6 .text-slate-700,
+    .design-6 .text-slate-600,
+    .design-6 .text-slate-500 {
+      color: var(--text-secondary) !important;
+    }
+    .design-6 .text-slate-900,
+    .design-6 .text-slate-800 {
+      color: var(--text-primary) !important;
+    }
+    .design-6 label,
+    .design-6 p {
+      color: var(--text-secondary);
+    }
+    .design-6 .font-semibold {
+      color: var(--text-primary);
+    }
+    /* Form inputs remain readable */
+    .design-6 input,
+    .design-6 select,
+    .design-6 textarea {
+      background: #f5f3ed;
+      color: var(--text-primary);
+      border: 2px solid var(--border-color);
+    }
+    .design-6 input::placeholder,
+    .design-6 textarea::placeholder {
+      color: var(--text-muted);
+    }
+  </style>
+  <div class="min-h-screen" style="background: linear-gradient(135deg, #e8e5dc 0%, #d4d0c4 100%); position: relative;">
+    <!-- Subtle grid pattern -->
+    <div class="absolute inset-0 opacity-10" style="background-image: repeating-linear-gradient(0deg, transparent, transparent 40px, #2a2a2a 40px, #2a2a2a 41px), repeating-linear-gradient(90deg, transparent, transparent 40px, #2a2a2a 40px, #2a2a2a 41px);"></div>
+    
+    <div class="relative mx-auto max-w-7xl space-y-6 px-8 py-12">
+    <header class="space-y-4 pb-6 border-b-4" style="border-color: #2a2a2a;">
+      <div class="flex items-baseline gap-6">
+        <div>
+          <h1 class="text-7xl font-black uppercase tracking-tighter" style="color: #2a2a2a; font-family: 'Arial Black', sans-serif; -webkit-text-stroke: 1px #2a2a2a;">PARAMBULATOR</h1>
+          <p class="mt-2 text-sm font-black uppercase tracking-widest" style="color: #4a5c3a;">DESIGN 6 • MILITARY STENCIL</p>
+        </div>
+      </div>
+      <p class="max-w-3xl text-lg font-bold uppercase tracking-wide" style="color: #2a2a2a;">TACTICAL SEATING OPERATIONS. MISSION-CRITICAL CONSTRAINT OPTIMIZATION.</p>
+    </header>
+
+    <form id="controls-form" hx-post="/generate" hx-target="#app" class="space-y-4">
+      {% include "partials/_tabs.html" %}
+      <div class="flex justify-center pt-4">
+        <button
+          type="button"
+          class="px-10 py-4 text-base font-black uppercase tracking-widest border-4"
+          style="background: #4a5c3a; border-color: #2a2a2a; color: #ffffff; clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));"
+          hx-post="/generate"
+          hx-target="#app"
+          hx-include="#controls-form"
+        >
+          ▶ GENERATE CHART
+        </button>
+      </div>
+    </form>
+    </div>
+  </div>
+
+  {% include "partials/_design_panel.html" %}
+  {% include "partials/_feedback.html" %}
+</div>
