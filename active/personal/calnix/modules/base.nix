@@ -88,6 +88,7 @@ in
     # Essential tools
     git # version control
     gh # github cli w/ copilot
+    github-copilot-cli # github copilot cli
     wl-clipboard # wl-copy and wl-paste for copy/paste from stdin / stdout
     xdg-utils # xdg-open for opening URLs/files with default applications
 
