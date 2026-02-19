@@ -143,6 +143,7 @@ The script detects your environment using:
 - **Sanity Checks**: Startup script runs `openvino.runtime.Core().available_devices` and aborts if the NPU is missing (use `CALNIX_SKIP_NPU_CHECK=1` to bypass on unsupported hosts/CI).
 - **Driver Helper**: `intel-npu-driver-helper --install|--status|--uninstall` wraps Intel's `linux-npu-driver` repo so kernel modules stay in sync after updates.
 - **Extra Docs**: See `docs/npu-support.md` for setup notes, verification steps, and troubleshooting tips.
+- **Scanner Runbook**: See `docs/scanners/epson-ds510-linux.md` for DS-510 scan/recovery steps.
 - **System-Wide Runtime**: On 1337book the OpenVINO 2024.6 runtime is installed globally; login shells automatically export the same variables as the dev shell so `python3 -c 'from openvino.runtime import Core'` works anywhere.
 
 ### Desktop Hosts (Thinker & 1337book)
@@ -211,4 +212,3 @@ The script detects your environment using:
 
 The flake maintains backward compatibility with:
 - `nixos` and `Thinker` configurations (both point to thinker host)
-
