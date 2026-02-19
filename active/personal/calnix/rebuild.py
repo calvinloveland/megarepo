@@ -43,11 +43,19 @@ def format_eta(elapsed: int, estimate: int | None) -> str:
     )
 
 
+def progress_bar(percent: int, width: int = 30) -> str:
+    """Generate a simple ASCII progress bar: [====>    ] 45%"""
+    filled = max(0, min(width, int((percent / 100.0) * width)))
+    bar = "=" * filled + (">" if filled < width else "") + " " * (width - filled - 1)
+    return f"[{bar}] {percent}%"
+
+
 def phase_banner(step: int, total_steps: int, title: str, estimate_seconds: int | None = None) -> None:
     estimate_text = ""
     if estimate_seconds:
         estimate_text = f" (estimated {format_duration(estimate_seconds)})"
     print(f"\n[{step}/{total_steps}] {title}{estimate_text}")
+    sys.stdout.flush()
 
 
 def reexec_if_root():
@@ -218,8 +226,9 @@ def run_cmd_stream(
     """Run a command and stream output to the console while capturing it.
 
     - If `as_user` is provided, the command will be executed via sudo -u.
-    - If `verbose` is True, print the full command line before running.
-    - `heartbeat` controls how many seconds of silence before printing a "still working" message.
+    - If `verbose` is True, print each output line.
+    - Uses in-place terminal updates (progress bar) to avoid console spam.
+    - `heartbeat` controls how many seconds of silence before updating progress.
 
     Returns (returncode, captured_output).
     """
@@ -242,7 +251,11 @@ def run_cmd_stream(
     last_output = 0
     start_time = last_output = int(time.time())
 
-    print(f"[{label}] started ({format_eta(0, estimate_seconds)})")
+    # Print start message once
+    status_line = f"[{label}] started"
+    if estimate_seconds:
+        status_line += f" (est. {format_duration(estimate_seconds)})"
+    print(status_line, end="", flush=True)
 
     try:
         while True:
@@ -251,15 +264,23 @@ def run_cmd_stream(
             if line:
                 line = line.rstrip('\n')
                 out_lines.append(line)
-                print(f"[{label}] {line}")
+                # Only print output if verbose; suppress spam from normal builds
+                if verbose:
+                    print(f"\r[{label}] {line:<100}", flush=True)
                 last_output = now
             else:
                 if proc.poll() is not None:
                     break
-                # heartbeat
-                if now - last_output >= heartbeat:
+                # Update progress line in-place
+                if now - last_output >= heartbeat or (now - start_time) % 2 == 0:
                     elapsed = now - start_time
-                    print(f"[{label}] still working... {format_eta(elapsed, estimate_seconds)}")
+                    pct = 0
+                    if estimate_seconds and estimate_seconds > 0:
+                        pct = min(100, int((elapsed / estimate_seconds) * 100))
+                    bar = progress_bar(pct)
+                    eta_str = format_eta(elapsed, estimate_seconds)
+                    # Use carriage return to update line in place
+                    print(f"\r[{label}] {bar} {eta_str:<40}", end="", flush=True)
                     last_output = now
                 # small sleep to avoid busy loop
                 time.sleep(0.5)
@@ -271,11 +292,14 @@ def run_cmd_stream(
         except Exception:
             pass
         proc.wait()
+        # Clear the progress line
+        print(f"\r[{label}] interrupted{' ' * 60}", flush=True)
         raise
 
+    # Final status: move to a fresh line and print summary
     captured = "\n".join(out_lines) if capture else ""
     total_elapsed = int(time.time()) - start_time
-    print(f"[{label}] finished in {format_duration(total_elapsed)}")
+    print(f"\r[{label}] {progress_bar(100)} {format_duration(total_elapsed):<40}")
     return ret, captured
 
 
