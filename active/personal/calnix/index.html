@@ -27,11 +27,6 @@
 - <strong>Desktop Environment</strong>: Full desktop experience with Bluetooth, audio, etc.
 - <strong>Power Management</strong>: HP Elitebook-optimized TLP settings with thermal management
 - <strong>Hardware</strong>: Latest kernel packages, HP-specific firmware updates via fwupd</p>
-<h3 id="work-wsl">🖱️ Work-WSL</h3>
-<p>Work-focused WSL configuration featuring:
-- <strong>Development Tools</strong>: VS Code, Docker, cloud tools
-- <strong>No Gaming</strong>: Clean work environment without gaming packages
-- <strong>Minimal</strong>: Only essential packages for productivity</p>
 <h2 id="quick-start">Quick Start</h2>
 <h3 id="for-thinkpad-thinker">For ThinkPad (Thinker)</h3>
 <div class="codehilite"><pre><span></span><code>git<span class="w"> </span>clone<span class="w"> </span>&lt;this-repo&gt;<span class="w"> </span>/etc/nixos
@@ -45,12 +40,6 @@ sudo<span class="w"> </span>nixos-generate-config<span class="w"> </span>--show-
 <span class="nb">cd</span><span class="w"> </span>/etc/nixos
 sudo<span class="w"> </span>nixos-generate-config<span class="w"> </span>--show-hardware-config<span class="w"> </span>&gt;<span class="w"> </span>hosts/1337book/hardware-configuration.nix
 ./rebuild.sh<span class="w"> </span>1337book
-</code></pre></div>
-
-<h3 id="for-wsl-work">For WSL (Work)</h3>
-<div class="codehilite"><pre><span></span><code>git<span class="w"> </span>clone<span class="w"> </span>&lt;this-repo&gt;<span class="w"> </span>/etc/nixos
-<span class="nb">cd</span><span class="w"> </span>/etc/nixos
-./rebuild.sh<span class="w"> </span>work-wsl
 </code></pre></div>
 
 <h2 id="testing">Testing</h2>
@@ -94,8 +83,6 @@ nix<span class="w"> </span>flake<span class="w"> </span>check<span class="w"> </
 <span class="err">│</span><span class="w">   </span><span class="err">├──</span><span class="w"> </span><span class="mi">1337</span><span class="nx">book</span><span class="o">/</span><span class="w">          </span><span class="err">#</span><span class="w"> </span><span class="nx">HP</span><span class="w"> </span><span class="nx">Elitebook</span><span class="w"> </span><span class="nx">configuration</span>
 <span class="err">│</span><span class="w">   </span><span class="err">│</span><span class="w">   </span><span class="err">├──</span><span class="w"> </span><span class="nx">configuration</span><span class="p">.</span><span class="nx">nix</span>
 <span class="err">│</span><span class="w">   </span><span class="err">│</span><span class="w">   </span><span class="err">└──</span><span class="w"> </span><span class="nx">hardware</span><span class="o">-</span><span class="nx">configuration</span><span class="p">.</span><span class="nx">nix</span>
-<span class="err">│</span><span class="w">   </span><span class="err">└──</span><span class="w"> </span><span class="nx">work</span><span class="o">-</span><span class="nx">wsl</span><span class="o">/</span><span class="w">          </span><span class="err">#</span><span class="w"> </span><span class="nx">WSL</span><span class="w"> </span><span class="nx">work</span><span class="w"> </span><span class="nx">configuration</span>
-<span class="err">│</span><span class="w">       </span><span class="err">└──</span><span class="w"> </span><span class="nx">configuration</span><span class="p">.</span><span class="nx">nix</span>
 <span class="err">├──</span><span class="w"> </span><span class="nx">modules</span><span class="o">/</span>
 <span class="err">│</span><span class="w">   </span><span class="err">├──</span><span class="w"> </span><span class="kd">base</span><span class="p">.</span><span class="nx">nix</span><span class="w">           </span><span class="err">#</span><span class="w"> </span><span class="nx">Shared</span><span class="w"> </span><span class="kd">base</span><span class="w"> </span><span class="nx">configuration</span>
 <span class="err">│</span><span class="w">   </span><span class="err">├──</span><span class="w"> </span><span class="nx">desktop</span><span class="p">.</span><span class="nx">nix</span><span class="w">        </span><span class="err">#</span><span class="w"> </span><span class="nx">Desktop</span><span class="w"> </span><span class="nx">environment</span><span class="w"> </span><span class="p">(</span><span class="nx">Sway</span><span class="p">,</span><span class="w"> </span><span class="nx">Bluetooth</span><span class="p">,</span><span class="w"> </span><span class="nx">audio</span><span class="p">,</span><span class="w"> </span><span class="nx">etc</span><span class="p">.)</span>
@@ -106,6 +93,13 @@ nix<span class="w"> </span>flake<span class="w"> </span>check<span class="w"> </
 <span class="err">│</span><span class="w">   </span><span class="err">├──</span><span class="w"> </span><span class="nx">validate_config</span><span class="p">.</span><span class="nx">py</span><span class="w"> </span><span class="err">#</span><span class="w"> </span><span class="nx">Configuration</span><span class="w"> </span><span class="nx">validation</span>
 <span class="err">│</span><span class="w">   </span><span class="err">└──</span><span class="w"> </span><span class="nx">flake</span><span class="p">.</span><span class="nx">nix</span><span class="w">          </span><span class="err">#</span><span class="w"> </span><span class="nx">Test</span><span class="w"> </span><span class="nx">environment</span>
 <span class="err">├──</span><span class="w"> </span><span class="nx">homely</span><span class="o">-</span><span class="nx">man</span><span class="p">.</span><span class="nx">nix</span><span class="w">         </span><span class="err">#</span><span class="w"> </span><span class="nx">Home</span><span class="w"> </span><span class="nx">Manager</span><span class="w"> </span><span class="nx">configuration</span>
+<span class="err">├──</span><span class="w"> </span><span class="nx">home</span><span class="o">/</span><span class="w">                  </span><span class="err">#</span><span class="w"> </span><span class="nx">Home</span><span class="w"> </span><span class="nx">Manager</span><span class="w"> </span><span class="nx">submodules</span>
+<span class="err">│</span><span class="w">   </span><span class="err">├──</span><span class="w"> </span><span class="kd">base</span><span class="p">.</span><span class="nx">nix</span><span class="w">            </span><span class="err">#</span><span class="w"> </span><span class="nx">Shells</span><span class="p">,</span><span class="w"> </span><span class="nx">git</span><span class="p">,</span><span class="w"> </span><span class="nx">xdg</span><span class="w"> </span><span class="nx">defaults</span>
+<span class="err">│</span><span class="w">   </span><span class="err">├──</span><span class="w"> </span><span class="nx">notifications</span><span class="p">.</span><span class="nx">nix</span><span class="w">   </span><span class="err">#</span><span class="w"> </span><span class="nx">Mako</span><span class="w"> </span><span class="nx">configuration</span>
+<span class="err">│</span><span class="w">   </span><span class="err">├──</span><span class="w"> </span><span class="nx">kitty</span><span class="p">.</span><span class="nx">nix</span><span class="w">           </span><span class="err">#</span><span class="w"> </span><span class="nx">Kitty</span><span class="w"> </span><span class="nx">settings</span>
+<span class="err">│</span><span class="w">   </span><span class="err">├──</span><span class="w"> </span><span class="nx">sway</span><span class="p">.</span><span class="nx">nix</span><span class="w">            </span><span class="err">#</span><span class="w"> </span><span class="nx">Sway</span><span class="w"> </span><span class="nx">WM</span><span class="w"> </span><span class="nx">config</span>
+<span class="err">│</span><span class="w">   </span><span class="err">├──</span><span class="w"> </span><span class="nx">waybar</span><span class="p">.</span><span class="nx">nix</span><span class="w">          </span><span class="err">#</span><span class="w"> </span><span class="nx">Waybar</span><span class="w"> </span><span class="nx">config</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nx">style</span>
+<span class="err">│</span><span class="w">   </span><span class="err">└──</span><span class="w"> </span><span class="nx">scripts</span><span class="p">.</span><span class="nx">nix</span><span class="w">         </span><span class="err">#</span><span class="w"> </span><span class="nx">Sway</span><span class="o">/</span><span class="nx">Waybar</span><span class="w"> </span><span class="nx">helper</span><span class="w"> </span><span class="nx">scripts</span>
 <span class="err">└──</span><span class="w"> </span><span class="nx">python</span><span class="o">-</span><span class="nx">dev</span><span class="p">.</span><span class="nx">nix</span><span class="w">         </span><span class="err">#</span><span class="w"> </span><span class="nx">Python</span><span class="w"> </span><span class="nx">development</span><span class="w"> </span><span class="nx">environment</span>
 </code></pre></div>
 
@@ -117,21 +111,18 @@ nix<span class="w"> </span>flake<span class="w"> </span>check<span class="w"> </
 <span class="c1"># Manual override</span>
 ./rebuild.sh<span class="w"> </span>thinker<span class="w">      </span><span class="c1"># Force ThinkPad build</span>
 ./rebuild.sh<span class="w"> </span>1337book<span class="w">     </span><span class="c1"># Force HP Elitebook build</span>
-./rebuild.sh<span class="w"> </span>work-wsl<span class="w">     </span><span class="c1"># Force WSL build</span>
 
 <span class="c1"># Or use nixos-rebuild directly</span>
 sudo<span class="w"> </span>nixos-rebuild<span class="w"> </span>switch<span class="w"> </span>--flake<span class="w"> </span>.#thinker
 sudo<span class="w"> </span>nixos-rebuild<span class="w"> </span>switch<span class="w"> </span>--flake<span class="w"> </span>.#1337book
-sudo<span class="w"> </span>nixos-rebuild<span class="w"> </span>switch<span class="w"> </span>--flake<span class="w"> </span>.#work-wsl
 </code></pre></div>
 
 <h3 id="auto-detection-logic">Auto-Detection Logic</h3>
 <p>The script detects your environment using:
-1. <strong>WSL Detection</strong> - Checks for Microsoft in <code>/proc/version</code> or <code>WSL_DISTRO_NAME</code>
-2. <strong>Hostname</strong> - Recognizes "Thinker", "1337book", "elitebook", or "work-wsl"
-3. <strong>Hardware</strong> - Looks for ThinkPad-specific indicators (<code>/proc/acpi/ibm/version</code>)
-4. <strong>HP Hardware</strong> - Detects HP/Hewlett-Packard via <code>lspci</code> or <code>dmidecode</code>
-5. <strong>Fallback</strong> - Defaults to "thinker"</p>
+1. <strong>Hostname</strong> - Recognizes "Thinker", "1337book", or "elitebook"
+2. <strong>Hardware</strong> - Looks for ThinkPad-specific indicators (<code>/proc/acpi/ibm/version</code>)
+3. <strong>HP Hardware</strong> - Detects HP/Hewlett-Packard via <code>lspci</code> or <code>dmidecode</code>
+4. <strong>Fallback</strong> - Defaults to "thinker"</p>
 <h2 id="key-features">Key Features</h2>
 <h3 id="shared-all-desktop-hosts">Shared (All Desktop Hosts)</h3>
 <ul>
@@ -166,12 +157,6 @@ sudo<span class="w"> </span>nixos-rebuild<span class="w"> </span>switch<span cla
 <li><strong>Hardware</strong>: Latest kernel packages, HP firmware updates (fwupd)</li>
 <li><strong>Battery</strong>: HP-specific charging thresholds (75%-85%)</li>
 </ul>
-<h3 id="wsl-only-work-wsl">WSL Only (Work-WSL)</h3>
-<ul>
-<li><strong>Work Tools</strong>: AWS CLI, kubectl, PostgreSQL, cloud development</li>
-<li><strong>Minimal</strong>: No desktop environment or gaming packages</li>
-<li><strong>Productivity</strong>: Database tools, document processing</li>
-</ul>
 <h2 id="development-workflow">Development Workflow</h2>
 <ol>
 <li><strong>Make Changes</strong> to configuration files</li>
@@ -190,7 +175,7 @@ sudo<span class="w"> </span>nixos-rebuild<span class="w"> </span>switch<span cla
 <li><strong>Gaming only</strong>: Edit <code>modules/gaming.nix</code></li>
 <li><strong>ThinkPad only</strong>: Edit <code>hosts/thinker/configuration.nix</code></li>
 <li><strong>HP Elitebook only</strong>: Edit <code>hosts/1337book/configuration.nix</code></li>
-<li><strong>WSL only</strong>: Edit <code>hosts/work-wsl/configuration.nix</code></li>
+<li><strong>Home Manager</strong>: Edit <code>home/*.nix</code></li>
 </ul>
 <h3 id="creating-new-hosts">Creating New Hosts</h3>
 <ol>
@@ -214,11 +199,6 @@ sudo<span class="w"> </span>nixos-rebuild<span class="w"> </span>switch<span cla
 <ul>
 <li>Firmware updates: Use <code>fwupdmgr</code> for HP firmware management</li>
 <li>Thermal management: <code>thermald</code> service handles temperature control</li>
-</ul>
-<h3 id="wsl-specific-work-wsl">WSL-Specific (Work-WSL)</h3>
-<ul>
-<li>Enable WSL systemd: <code>systemctl --user enable nixos-wsl.service</code></li>
-<li>Docker: Use rootless mode (automatically configured)</li>
 </ul>
 <h3 id="testing-issues">Testing Issues</h3>
 <ul>

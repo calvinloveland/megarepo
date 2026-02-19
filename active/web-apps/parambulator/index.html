@@ -165,10 +165,27 @@ pytest<span class="w"> </span>tests/test_scoring.py<span class="w"> </span>tests
 npx<span class="w"> </span>playwright<span class="w"> </span>install<span class="w"> </span>--with-deps<span class="w"> </span>chromium
 pytest<span class="w"> </span>tests/test_ui_playwright.py
 
+<span class="c1"># Feedback improvement tests (comprehensive E2E suite)</span>
+./run_feedback_tests.sh
+
 <span class="c1"># All tests</span>
 <span class="nv">FLASK_DEBUG</span><span class="o">=</span><span class="nb">true</span><span class="w"> </span>pytest<span class="w"> </span>-v
 </code></pre></div>
 
+<h3 id="test-suites">Test Suites</h3>
+<ul>
+<li><strong>test_scoring.py</strong> - Unit tests for seating algorithm</li>
+<li><strong>test_feedback.py</strong> - Feedback system unit tests  </li>
+<li><strong>test_ui_playwright.py</strong> - Basic UI integration tests</li>
+<li><strong>test_feedback_improvements.py</strong> - Comprehensive tests for all feedback-driven improvements:</li>
+<li>Feedback element selector fixes</li>
+<li>Version tracking in submissions</li>
+<li>Button-based grid layout editor</li>
+<li>Column configuration UI</li>
+<li>Design-4 contrast</li>
+<li>Header row parsing</li>
+<li>Integration scenarios</li>
+</ul>
 <p><strong>Note</strong>: Tests require <code>FLASK_DEBUG=true</code> or <code>SECRET_KEY</code> environment variable.</p>
 <h2 id="usage">Usage</h2>
 <ol>
