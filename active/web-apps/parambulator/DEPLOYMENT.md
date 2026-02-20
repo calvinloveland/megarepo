@@ -36,6 +36,27 @@ Use the provided script for easy management:
 ./tunnel.sh start
 ```
 
+## Kubernetes + ArgoCD (cluster deployment)
+
+ArgoCD now watches `active/web-apps/parambulator/k8s/` and applies:
+- `k8s/parambulator.yaml` (Parambulator Deployment + Service)
+- `k8s/cloudflared.yaml` (cloudflared Deployment + tunnel config)
+
+Create the cloudflared credential secret in the `parambulator` namespace (never commit this file):
+
+```bash
+kubectl -n parambulator create secret generic parambulator-cloudflared-credentials \
+  --from-file=credentials.json=/secure/path/4cdefe39-9519-41ac-8d7b-d21d975c3df0.json \
+  --dry-run=client -o yaml | kubectl apply -f -
+```
+
+Then verify:
+
+```bash
+kubectl -n parambulator get pods
+kubectl -n argocd get application parambulator
+```
+
 ## Manual Commands
 
 ### Start Services

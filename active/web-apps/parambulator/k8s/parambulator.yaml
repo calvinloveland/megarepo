@@ -1,0 +1,72 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: parambulator
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: parambulator-env
+  namespace: parambulator
+type: Opaque
+stringData:
+  SECRET_KEY: "replace-this-secret-key-before-public-use"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: parambulator
+  namespace: parambulator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: parambulator
+  template:
+    metadata:
+      labels:
+        app: parambulator
+    spec:
+      containers:
+        - name: parambulator
+          image: python:3.12-slim
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/sh", "-ec"]
+          args:
+            - |
+              if [ ! -d /tmp/megarepo-main/active/web-apps/parambulator ]; then
+                python -c 'from urllib.request import urlretrieve; urlretrieve("https://github.com/calvinloveland/megarepo/archive/refs/heads/main.tar.gz", "/tmp/megarepo-main.tar.gz")'
+                tar -xzf /tmp/megarepo-main.tar.gz -C /tmp
+              fi && \
+              cd /tmp/megarepo-main/active/web-apps/parambulator && \
+              pip install --no-cache-dir "Flask>=2.3" "Flask-WTF>=1.1.1,<2.0" "gunicorn>=21.2,<22" && \
+              pip install --no-cache-dir --no-deps -e . && \
+              exec gunicorn -w 2 -b 0.0.0.0:5000 "parambulator.app:create_app()"
+          env:
+            - name: SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: parambulator-env
+                  key: SECRET_KEY
+            - name: FLASK_DEBUG
+              value: "false"
+            - name: HOST
+              value: "0.0.0.0"
+            - name: PORT
+              value: "5000"
+          ports:
+            - name: http
+              containerPort: 5000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: parambulator
+  namespace: parambulator
+spec:
+  selector:
+    app: parambulator
+  ports:
+    - name: http
+      port: 5000
+      targetPort: http
