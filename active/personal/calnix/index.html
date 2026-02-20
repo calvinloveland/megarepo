@@ -137,6 +137,7 @@ sudo<span class="w"> </span>nixos-rebuild<span class="w"> </span>switch<span cla
 <li><strong>Sanity Checks</strong>: Startup script runs <code>openvino.runtime.Core().available_devices</code> and aborts if the NPU is missing (use <code>CALNIX_SKIP_NPU_CHECK=1</code> to bypass on unsupported hosts/CI).</li>
 <li><strong>Driver Helper</strong>: <code>intel-npu-driver-helper --install|--status|--uninstall</code> wraps Intel's <code>linux-npu-driver</code> repo so kernel modules stay in sync after updates.</li>
 <li><strong>Extra Docs</strong>: See <code>docs/npu-support.md</code> for setup notes, verification steps, and troubleshooting tips.</li>
+<li><strong>Scanner Runbook</strong>: See <code>docs/scanners/epson-ds510-linux.md</code> for DS-510 scan/recovery steps.</li>
 <li><strong>System-Wide Runtime</strong>: On 1337book the OpenVINO 2024.6 runtime is installed globally; login shells automatically export the same variables as the dev shell so <code>python3 -c 'from openvino.runtime import Core'</code> works anywhere.</li>
 </ul>
 <h3 id="desktop-hosts-thinker-1337book">Desktop Hosts (Thinker &amp; 1337book)</h3>
