@@ -4,6 +4,7 @@ import json
 import logging
 import os
 from datetime import datetime
+from hmac import compare_digest
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from typing import Dict, List, Optional
@@ -38,6 +39,28 @@ FEEDBACK_DIR = PROJECT_ROOT / "data" / "feedback"
 ADDRESSED_DIR = FEEDBACK_DIR / "addressed"
 STATE_COOKIE_NAME = "parambulator_state"
 STATE_COOKIE_MAX_AGE = 60 * 60 * 24 * 30
+
+
+def _feedback_entries(directory: Path) -> List[Dict[str, object]]:
+    entries: List[Dict[str, object]] = []
+    if not directory.exists():
+        return entries
+
+    feedback_files = sorted(
+        directory.glob("feedback_*.json"),
+        key=lambda path: path.stat().st_mtime,
+        reverse=True,
+    )
+    for feedback_file in feedback_files:
+        with open(feedback_file) as f:
+            payload = json.load(f)
+        if not isinstance(payload, dict):
+            continue
+        payload["id"] = feedback_file.stem.replace("feedback_", "", 1)
+        payload["filename"] = feedback_file.name
+        entries.append(payload)
+
+    return entries
 
 
 def _serialize_state_cookie(data: Dict[str, object]) -> Optional[str]:
@@ -316,6 +339,42 @@ def create_app() -> Flask:
         response = make_response(render_design(context))
         return apply_state_cookie(response, context)
 
+    def require_feedback_auth() -> Optional[Response]:
+        username = os.getenv("FEEDBACK_ADMIN_USERNAME", "").strip()
+        password = os.getenv("FEEDBACK_ADMIN_PASSWORD", "")
+        if not username or not password:
+            app.logger.error("Feedback auth credentials are not configured")
+            return Response("Feedback auth is not configured", status=503)
+
+        unauthorized = Response("Authentication required", status=401)
+        unauthorized.headers["WWW-Authenticate"] = 'Basic realm="Parambulator Feedback"'
+
+        auth = request.authorization
+        if not auth or auth.type.lower() != "basic":
+            return unauthorized
+
+        provided_username = auth.username or ""
+        provided_password = auth.password or ""
+        if not compare_digest(provided_username, username) or not compare_digest(
+            provided_password, password
+        ):
+            return unauthorized
+
+        return None
+
+    @app.get("/feedback")
+    def list_feedback() -> Response:
+        auth_error = require_feedback_auth()
+        if auth_error:
+            return auth_error
+
+        return jsonify(
+            {
+                "open": _feedback_entries(FEEDBACK_DIR),
+                "addressed": _feedback_entries(ADDRESSED_DIR),
+            }
+        )
+
     @app.post("/feedback")
     def submit_feedback() -> Response:
         """Handle feedback submissions safely (PII-aware)."""
@@ -376,6 +435,10 @@ def create_app() -> Flask:
 
     @app.post("/feedback/mark-addressed")
     def mark_feedback_addressed() -> Response:
+        auth_error = require_feedback_auth()
+        if auth_error:
+            return auth_error
+
         payload = request.get_json() or {}
         feedback_id = str(payload.get("id", "")).strip()
         filename = str(payload.get("filename", "")).strip()

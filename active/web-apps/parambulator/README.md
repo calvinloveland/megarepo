@@ -126,6 +126,8 @@ See [SECURITY_HARDENING_PLAN.md](SECURITY_HARDENING_PLAN.md) for:
 | `PORT` | `5000` | HTTP port |
 | `MAX_CONTENT_LENGTH` | `1048576` | Max request size in bytes (1MB) |
 | `LOG_FILE` | _(optional)_ | Log file path (stdout if unset) |
+| `FEEDBACK_ADMIN_USERNAME` | _(required for feedback admin)_ | Basic auth username for `GET /feedback` and `/feedback/mark-addressed` |
+| `FEEDBACK_ADMIN_PASSWORD` | _(required for feedback admin)_ | Basic auth password for `GET /feedback` and `/feedback/mark-addressed` |
 
 ## Testing
 

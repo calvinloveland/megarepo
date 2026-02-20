@@ -54,6 +54,18 @@ spec:
               value: "0.0.0.0"
             - name: PORT
               value: "5000"
+            - name: FEEDBACK_ADMIN_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: parambulator-feedback-auth
+                  key: username
+                  optional: true
+            - name: FEEDBACK_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: parambulator-feedback-auth
+                  key: password
+                  optional: true
           ports:
             - name: http
               containerPort: 5000

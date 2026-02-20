@@ -49,6 +49,15 @@ kubectl -n parambulator create secret generic parambulator-cloudflared-token \
   --dry-run=client -o yaml | kubectl apply -f -
 ```
 
+Set feedback admin credentials for online feedback review routes:
+
+```bash
+kubectl -n parambulator create secret generic parambulator-feedback-auth \
+  --from-literal=username='<feedback-admin-username>' \
+  --from-literal=password='<feedback-admin-password>' \
+  --dry-run=client -o yaml | kubectl apply -f -
+```
+
 Then verify:
 
 ```bash

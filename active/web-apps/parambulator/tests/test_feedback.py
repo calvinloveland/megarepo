@@ -1,7 +1,13 @@
 import json
+from base64 import b64encode
 from pathlib import Path
 
 from parambulator.app import ADDRESSED_DIR, FEEDBACK_DIR, PROJECT_ROOT, create_app
+
+
+def _auth_headers(username: str, password: str) -> dict:
+    token = b64encode(f"{username}:{password}".encode()).decode()
+    return {"Authorization": f"Basic {token}"}
 
 
 def test_feedback_submission():
@@ -45,8 +51,10 @@ def test_feedback_submission():
         assert "server_timestamp" in saved_feedback
 
 
-def test_feedback_mark_addressed():
+def test_feedback_mark_addressed(monkeypatch):
     """Test that feedback can be marked as addressed and moved."""
+    monkeypatch.setenv("FEEDBACK_ADMIN_USERNAME", "admin")
+    monkeypatch.setenv("FEEDBACK_ADMIN_PASSWORD", "secret")
     app = create_app()
     app.config["TESTING"] = True
     app.config["WTF_CSRF_ENABLED"] = False
@@ -70,6 +78,7 @@ def test_feedback_mark_addressed():
             "/feedback/mark-addressed",
             json={"id": feedback_id},
             content_type="application/json",
+            headers=_auth_headers("admin", "secret"),
         )
         assert mark_response.status_code == 200
 
@@ -97,3 +106,29 @@ def test_feedback_requires_text():
         )
 
         assert response.status_code == 400
+
+
+def test_feedback_list_requires_auth(monkeypatch):
+    monkeypatch.setenv("FEEDBACK_ADMIN_USERNAME", "admin")
+    monkeypatch.setenv("FEEDBACK_ADMIN_PASSWORD", "secret")
+    app = create_app()
+    app.config["TESTING"] = True
+    app.config["WTF_CSRF_ENABLED"] = False
+
+    with app.test_client() as client:
+        client.post(
+            "/feedback",
+            json={"feedback_text": "Visible to admins", "design": "design_1"},
+            content_type="application/json",
+        )
+
+        unauthorized = client.get("/feedback")
+        assert unauthorized.status_code == 401
+
+        authorized = client.get(
+            "/feedback", headers=_auth_headers("admin", "secret")
+        )
+        assert authorized.status_code == 200
+        payload = authorized.get_json()
+        assert isinstance(payload.get("open"), list)
+        assert isinstance(payload.get("addressed"), list)
