@@ -57,6 +57,21 @@ spec:
           ports:
             - name: http
               containerPort: 5000
+        - name: cloudflared
+          image: cloudflare/cloudflared:latest
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: TUNNEL_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: parambulator-cloudflared-token
+                  key: token
+          args:
+            - tunnel
+            - --no-autoupdate
+            - run
+            - --token
+            - $(TUNNEL_TOKEN)
 ---
 apiVersion: v1
 kind: Service

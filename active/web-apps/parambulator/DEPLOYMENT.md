@@ -39,14 +39,13 @@ Use the provided script for easy management:
 ## Kubernetes + ArgoCD (cluster deployment)
 
 ArgoCD now watches `active/web-apps/parambulator/k8s/` and applies:
-- `k8s/parambulator.yaml` (Parambulator Deployment + Service)
-- `k8s/cloudflared.yaml` (cloudflared Deployment + tunnel config)
+- `k8s/parambulator.yaml` (Parambulator Deployment + Service + cloudflared sidecar)
 
-Create the cloudflared credential secret in the `parambulator` namespace (never commit this file):
+Create the cloudflared tunnel token secret in the `parambulator` namespace (never commit or log this token):
 
 ```bash
-kubectl -n parambulator create secret generic parambulator-cloudflared-credentials \
-  --from-file=credentials.json=/secure/path/4cdefe39-9519-41ac-8d7b-d21d975c3df0.json \
+kubectl -n parambulator create secret generic parambulator-cloudflared-token \
+  --from-literal=token='<cloudflared-tunnel-token>' \
   --dry-run=client -o yaml | kubectl apply -f -
 ```
 
