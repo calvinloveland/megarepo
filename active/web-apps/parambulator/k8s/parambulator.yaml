@@ -69,7 +69,7 @@ spec:
             - name: PORT
               value: "5000"
             - name: APP_VERSION
-              value: "release-20260221-feedback-ui"
+              value: "release-20260221-feedback-followup"
             - name: FEEDBACK_ADMIN_USERNAME
               valueFrom:
                 secretKeyRef:
