@@ -1,10 +1,10 @@
-<div class="mb-4 flex gap-2">
+<div class="fixed bottom-6 left-6 z-40 flex gap-2">
   <button
     id="undo-btn"
     type="button"
     onclick="performUndo()"
     title="Undo (Ctrl+Z)"
-    class="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed"
+    class="rounded-md border border-slate-300 bg-white/95 px-3 py-2 text-sm font-medium text-slate-700 shadow-md backdrop-blur hover:bg-slate-50 disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed"
     disabled
   >
     ↶ Undo
@@ -14,7 +14,7 @@
     type="button"
     onclick="performRedo()"
     title="Redo (Ctrl+Shift+Z)"
-    class="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed"
+    class="rounded-md border border-slate-300 bg-white/95 px-3 py-2 text-sm font-medium text-slate-700 shadow-md backdrop-blur hover:bg-slate-50 disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed"
     disabled
   >
     ↷ Redo
@@ -60,42 +60,13 @@
 <input type="hidden" name="chart_json" value="{{ chart_json }}" />
 <input type="hidden" name="people_json" value="{{ people_json }}" />
 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+<input type="hidden" name="rows" min="1" value="{{ rows }}" />
+<input type="hidden" name="cols" min="1" value="{{ cols }}" />
+<input type="hidden" name="iterations" min="1" value="200" />
 
 <div id="tab-people" class="tabs-content tabs-panel py-6 px-4">
   <div class="space-y-4">
     {% include "partials/_people_table.html" %}
-    <div class="tabs-input-grid grid grid-cols-3 gap-3">
-      <div>
-        <label class="block text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1">Rows</label>
-        <input
-          type="number"
-          name="rows"
-          min="1"
-          value="{{ rows }}"
-          class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
-        />
-      </div>
-      <div>
-        <label class="block text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1">Columns</label>
-        <input
-          type="number"
-          name="cols"
-          min="1"
-          value="{{ cols }}"
-          class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
-        />
-      </div>
-      <div>
-        <label class="block text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1">Iterations</label>
-        <input
-          type="number"
-          name="iterations"
-          min="1"
-          value="200"
-          class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
-        />
-      </div>
-    </div>
   </div>
 </div>
 

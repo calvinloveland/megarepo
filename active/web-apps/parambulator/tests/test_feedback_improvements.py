@@ -351,17 +351,36 @@ class TestColumnConfigurationUI:
             selector.select_option("ignore")
             assert selector.input_value() == "ignore"
 
-    def test_add_column_button_is_disabled(self, page):
-        """Test that Add Column button exists but is disabled (future feature)."""
+    def test_add_column_button_adds_new_column(self, page):
+        """Test that Add Column creates a new editable table column."""
         with run_server() as base_url:
             page.goto(base_url, wait_until="domcontentloaded")
 
-            # Button should exist
-            add_col_btn = page.get_by_text("+ Add Column (future)")
+            add_col_btn = page.get_by_text("+ Add Column")
             expect(add_col_btn).to_be_visible()
+            assert add_col_btn.is_enabled()
 
-            # Should be disabled
-            assert add_col_btn.is_disabled()
+            page.on("dialog", lambda dialog: dialog.accept("Support Level"))
+            add_col_btn.click()
+            expect(page.get_by_role("columnheader", name="Support Level")).to_be_visible()
+
+    def test_rows_cols_iterations_controls_are_not_visible(self, page):
+        """Rows/Columns/Iterations should not be shown in the people tab UI."""
+        with run_server() as base_url:
+            page.goto(base_url, wait_until="domcontentloaded")
+
+            expect(page.get_by_text("Rows", exact=True)).not_to_be_visible()
+            expect(page.get_by_text("Columns", exact=True)).not_to_be_visible()
+            expect(page.get_by_text("Iterations", exact=True)).not_to_be_visible()
+
+    def test_undo_redo_buttons_are_floating(self, page):
+        with run_server() as base_url:
+            page.goto(base_url, wait_until="domcontentloaded")
+
+            floating_classes = page.evaluate(
+                "() => document.getElementById('undo-btn').parentElement.className"
+            )
+            assert "fixed" in floating_classes
 
 
 class TestDesign4Contrast:

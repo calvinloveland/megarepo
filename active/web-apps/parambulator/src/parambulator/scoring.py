@@ -168,7 +168,7 @@ def seat_constraint_statuses(
                         "status": "met" if talkative_met else "not met",
                     },
                     {
-                        "label": "IEP front",
+                        "label": "Front priority",
                         "status": "met" if iep_met else "not met",
                     },
                     {

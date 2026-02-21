@@ -45,4 +45,4 @@ def test_seat_constraint_statuses_reports_met_and_not_met():
     assert status_map["Reading mix"] == "not met"
     assert status_map["Talkative spacing"] == "not met"
     assert status_map["Avoid pairs"] == "not met"
-    assert status_map["IEP front"] == "met"
+    assert status_map["Front priority"] == "met"
