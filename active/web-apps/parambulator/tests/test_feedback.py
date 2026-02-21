@@ -47,7 +47,7 @@ def test_feedback_submission():
         
         assert saved_feedback["feedback_text"] == "This is a test feedback"
         assert saved_feedback["design"] == "design_1"
-        assert "selected_element" not in saved_feedback
+        assert saved_feedback["selected_element"] is None
         assert "server_timestamp" in saved_feedback
 
 
