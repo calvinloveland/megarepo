@@ -389,8 +389,7 @@ function switchTab(event, tabName) {
   }
 }
 
-// Initialize first tab on page load
-document.addEventListener('DOMContentLoaded', function() {
+function initializeTabs() {
   let preferredTab = 'people';
   try {
     const savedTab = sessionStorage.getItem('parambulatorActiveTab');
@@ -408,5 +407,16 @@ document.addEventListener('DOMContentLoaded', function() {
   if (activeButton) {
     switchTab({ preventDefault: () => {}, target: activeButton }, activeTab);
   }
-});
+}
+
+initializeTabs();
+
+if (!window.__parambulatorTabsAfterSwapBound) {
+  document.body.addEventListener('htmx:afterSwap', function(event) {
+    if (event.target && event.target.id === 'app' && typeof initializeTabs === 'function') {
+      initializeTabs();
+    }
+  });
+  window.__parambulatorTabsAfterSwapBound = true;
+}
 </script>

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import random
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Dict, Iterable, List, Optional, Tuple
 
 from .models import Chart, Person
@@ -21,6 +21,7 @@ class ChartResult:
     chart: Chart
     breakdown: ScoreBreakdown
     warnings: List[str]
+    attempt_charts: List[Chart] = field(default_factory=list)
 
 
 def generate_best_chart(
@@ -45,16 +46,23 @@ def generate_best_chart(
     rng = random.Random(seed)
     best_chart = _build_chart(names, layout)
     best_score = score_chart(best_chart, people, rows, cols)
+    attempt_charts: List[Chart] = [best_chart]
 
     for _ in range(max(1, iterations)):
         rng.shuffle(names)
         candidate = _build_chart(names, layout)
+        attempt_charts.append(candidate)
         candidate_score = score_chart(candidate, people, rows, cols)
         if candidate_score.overall > best_score.overall:
             best_chart = candidate
             best_score = candidate_score
 
-    return ChartResult(chart=best_chart, breakdown=best_score, warnings=warnings)
+    return ChartResult(
+        chart=best_chart,
+        breakdown=best_score,
+        warnings=warnings,
+        attempt_charts=attempt_charts,
+    )
 
 
 def score_chart(chart: Chart, people: Iterable[Person], rows: int, cols: int) -> ScoreBreakdown:

@@ -3,19 +3,19 @@
     <h2 class="text-lg font-semibold">Seating chart</h2>
     <span class="text-xs uppercase tracking-wide text-slate-500">Front of room →</span>
   </div>
-  <div class="chart-grid grid gap-2" style="grid-template-columns: repeat({{ cols }}, minmax(0, 1fr));">
+  <div id="chart-grid-visual" class="chart-grid grid gap-2" style="grid-template-columns: repeat({{ cols }}, minmax(0, 1fr));">
     {% for row in chart %}
       {% set row_index = loop.index0 %}
       {% for seat in row %}
       {% set seat_enabled = layout_grid[row_index][loop.index0] %}
-      <div class="seat relative group {% if not seat_enabled %}opacity-40{% endif %}">
+      <div class="seat relative group {% if not seat_enabled %}opacity-40{% endif %}" data-row="{{ row_index }}" data-col="{{ loop.index0 }}" data-enabled="{{ 1 if seat_enabled else 0 }}">
         <div class="flex items-start justify-between gap-2">
           <div>
             <div class="text-xs uppercase text-slate-400">Seat</div>
             {% if not seat_enabled %}
-              <div class="text-sm font-semibold text-slate-600">No seat</div>
+              <div class="seat-name text-sm font-semibold text-slate-600">No seat</div>
             {% else %}
-              <div class="text-sm font-semibold text-slate-800">{{ seat if seat else "Empty" }}</div>
+              <div class="seat-name text-sm font-semibold text-slate-800">{{ seat if seat else "Empty" }}</div>
             {% endif %}
           </div>
           {% if seat_enabled and seat %}
@@ -49,3 +49,40 @@
     {% endfor %}
   </div>
 </div>
+
+{% if chart_history and chart_history|length > 1 %}
+<script>
+(function animateRejectedCharts() {
+  const attempts = {{ chart_history | tojson }};
+  if (!Array.isArray(attempts) || attempts.length < 2) return;
+
+  const seats = document.querySelectorAll('#chart-grid-visual .seat[data-enabled="1"]');
+  if (!seats.length) return;
+
+  function renderChart(chartMatrix) {
+    seats.forEach((seatEl) => {
+      const row = Number(seatEl.dataset.row);
+      const col = Number(seatEl.dataset.col);
+      const seatNameEl = seatEl.querySelector('.seat-name');
+      if (!seatNameEl) return;
+      const value = chartMatrix?.[row]?.[col];
+      seatNameEl.textContent = value || 'Empty';
+    });
+  }
+
+  const finalChart = attempts[attempts.length - 1];
+  const rejectedCharts = attempts.slice(0, -1);
+
+  let frameIndex = 0;
+  const flashTimer = setInterval(() => {
+    if (frameIndex >= rejectedCharts.length) {
+      clearInterval(flashTimer);
+      renderChart(finalChart);
+      return;
+    }
+    renderChart(rejectedCharts[frameIndex]);
+    frameIndex += 1;
+  }, 70);
+})();
+</script>
+{% endif %}

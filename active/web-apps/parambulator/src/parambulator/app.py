@@ -241,6 +241,7 @@ def create_app() -> Flask:
             chart=result.chart,
             breakdown=result.breakdown,
             warnings=result.warnings,
+            chart_history=result.attempt_charts,
             message="Generated a new chart.",
         )
         response = make_response(render_design(context))
@@ -574,6 +575,7 @@ def build_context(
     chart: Chart,
     breakdown,
     warnings: List[str],
+    chart_history: Optional[List[Chart]] = None,
     message: Optional[str] = None,
 ) -> Dict[str, object]:
     return {
@@ -591,6 +593,7 @@ def build_context(
         "seat_constraints": seat_constraint_statuses(chart, parse_people_json(people_json), rows, cols),
         "breakdown": breakdown,
         "warnings": warnings,
+        "chart_history": chart_history or [],
         "message": message,
         "available_designs": [
             "design_1",
