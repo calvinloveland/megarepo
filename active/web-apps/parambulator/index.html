@@ -154,6 +154,16 @@ gunicorn<span class="w"> </span>-w<span class="w"> </span><span class="m">4</spa
 <td><em>(optional)</em></td>
 <td>Log file path (stdout if unset)</td>
 </tr>
+<tr>
+<td><code>FEEDBACK_ADMIN_USERNAME</code></td>
+<td><em>(required for feedback admin)</em></td>
+<td>Basic auth username for <code>GET /feedback</code> and <code>/feedback/mark-addressed</code></td>
+</tr>
+<tr>
+<td><code>FEEDBACK_ADMIN_PASSWORD</code></td>
+<td><em>(required for feedback admin)</em></td>
+<td>Basic auth password for <code>GET /feedback</code> and <code>/feedback/mark-addressed</code></td>
+</tr>
 </tbody>
 </table>
 <h2 id="testing">Testing</h2>
