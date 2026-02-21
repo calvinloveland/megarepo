@@ -12,6 +12,18 @@ type: Opaque
 stringData:
   SECRET_KEY: "replace-this-secret-key-before-public-use"
 ---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: parambulator-data
+  namespace: parambulator
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -38,6 +50,8 @@ spec:
                 python -c 'from urllib.request import urlretrieve; urlretrieve("https://github.com/calvinloveland/megarepo/archive/refs/heads/main.tar.gz", "/tmp/megarepo-main.tar.gz")'
                 tar -xzf /tmp/megarepo-main.tar.gz -C /tmp
               fi && \
+              mkdir -p /data/feedback/addressed /data/saves && \
+              if [ ! -L /tmp/megarepo-main/active/web-apps/parambulator/data ]; then rm -rf /tmp/megarepo-main/active/web-apps/parambulator/data && ln -s /data /tmp/megarepo-main/active/web-apps/parambulator/data; fi && \
               cd /tmp/megarepo-main/active/web-apps/parambulator && \
               pip install --no-cache-dir "Flask>=2.3" "Flask-WTF>=1.1.1,<2.0" "gunicorn>=21.2,<22" && \
               pip install --no-cache-dir --no-deps -e . && \
@@ -69,6 +83,9 @@ spec:
           ports:
             - name: http
               containerPort: 5000
+          volumeMounts:
+            - name: parambulator-data
+              mountPath: /data
         - name: cloudflared
           image: cloudflare/cloudflared:latest
           imagePullPolicy: IfNotPresent
@@ -84,6 +101,10 @@ spec:
             - run
             - --token
             - $(TUNNEL_TOKEN)
+      volumes:
+        - name: parambulator-data
+          persistentVolumeClaim:
+            claimName: parambulator-data
 ---
 apiVersion: v1
 kind: Service

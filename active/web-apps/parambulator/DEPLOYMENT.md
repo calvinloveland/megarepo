@@ -40,6 +40,7 @@ Use the provided script for easy management:
 
 ArgoCD now watches `active/web-apps/parambulator/k8s/` and applies:
 - `k8s/parambulator.yaml` (Parambulator Deployment + Service + cloudflared sidecar)
+- `PersistentVolumeClaim/parambulator-data` for durable feedback/save storage across pod restarts
 
 Create the cloudflared tunnel token secret in the `parambulator` namespace (never commit or log this token):
 
@@ -62,6 +63,7 @@ Then verify:
 
 ```bash
 kubectl -n parambulator get pods
+kubectl -n parambulator get pvc parambulator-data
 kubectl -n argocd get application parambulator
 ```
 
