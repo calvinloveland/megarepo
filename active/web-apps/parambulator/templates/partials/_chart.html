@@ -51,6 +51,15 @@
 </div>
 
 {% if chart_history and chart_history|length > 1 %}
+<div id="chart-attempt-progress" class="rounded-md border border-indigo-200 bg-indigo-50 px-3 py-2">
+  <div class="mb-1 flex items-center justify-between text-xs text-indigo-700">
+    <span>Reviewing candidate charts…</span>
+    <span id="chart-attempt-progress-text">0%</span>
+  </div>
+  <div class="h-2 w-full overflow-hidden rounded bg-indigo-100">
+    <div id="chart-attempt-progress-bar" class="h-full w-0 rounded bg-indigo-500 transition-all duration-75"></div>
+  </div>
+</div>
 <script>
 (function animateRejectedCharts() {
   const attempts = {{ chart_history | tojson }};
@@ -71,18 +80,43 @@
   }
 
   const finalChart = attempts[attempts.length - 1];
-  const rejectedCharts = attempts.slice(0, -1);
+  let rejectedCharts = attempts.slice(0, -1);
+  const maxFrames = 40;
+  if (rejectedCharts.length > maxFrames) {
+    const step = rejectedCharts.length / maxFrames;
+    rejectedCharts = Array.from({ length: maxFrames }, (_, index) =>
+      rejectedCharts[Math.floor(index * step)]
+    );
+  }
+
+  const progressWrap = document.getElementById('chart-attempt-progress');
+  const progressBar = document.getElementById('chart-attempt-progress-bar');
+  const progressText = document.getElementById('chart-attempt-progress-text');
+  const totalFrames = rejectedCharts.length;
+
+  function updateProgress(completedFrames) {
+    if (!progressBar || !progressText || totalFrames <= 0) return;
+    const percent = Math.min(100, Math.round((completedFrames / totalFrames) * 100));
+    progressBar.style.width = `${percent}%`;
+    progressText.textContent = `${percent}%`;
+  }
 
   let frameIndex = 0;
+  updateProgress(0);
   const flashTimer = setInterval(() => {
-    if (frameIndex >= rejectedCharts.length) {
+    if (frameIndex >= totalFrames) {
       clearInterval(flashTimer);
       renderChart(finalChart);
+      updateProgress(totalFrames);
+      if (progressWrap) {
+        setTimeout(() => progressWrap.remove(), 300);
+      }
       return;
     }
     renderChart(rejectedCharts[frameIndex]);
     frameIndex += 1;
-  }, 70);
+    updateProgress(frameIndex);
+  }, 45);
 })();
 </script>
 {% endif %}
