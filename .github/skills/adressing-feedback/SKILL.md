@@ -5,7 +5,8 @@ version: 0.1.0
 owners: - team: engineering
 tags: - feedback - triage - maintenance
 inputs:
-/ames marked as addressed.
+- Feedback file directory path
+- Optional feedback API base URL and admin credentials
 
 ---
 
@@ -25,6 +26,21 @@ Continuously reduce feedback backlog by processing items one by one, implementin
 
 - Feedback files exist as JSON under the configured directory.
 - A mechanism to mark feedback addressed is available (endpoint, CLI, or file move).
+- If using Parambulator feedback APIs, admin credentials are set:
+  - `FEEDBACK_ADMIN_USERNAME`
+  - `FEEDBACK_ADMIN_PASSWORD`
+
+## Parambulator feedback API endpoints
+
+- `POST /feedback`
+  - Public submission endpoint.
+  - Saves a feedback file with `addressed: false`.
+- `GET /feedback`
+  - Admin endpoint (Basic Auth required).
+  - Returns JSON: `{ "open": [...], "addressed": [...] }`.
+- `POST /feedback/mark-addressed`
+  - Admin endpoint (Basic Auth required).
+  - Accepts JSON with `id` or `filename`, marks item addressed, and moves it to addressed storage.
 
 ## Workflow
 
@@ -48,8 +64,8 @@ Continuously reduce feedback backlog by processing items one by one, implementin
    - Confirm the issue no longer occurs.
 
 5. Mark addressed
-   - Set `addressed: true` and add an `addressed_timestamp`.
-   - Move the file into the addressed directory (or call an API if provided).
+    - Set `addressed: true` and add an `addressed_timestamp`.
+    - Move the file into the addressed directory (or call `POST /feedback/mark-addressed` with auth).
 
 6. Summarize
    - Provide a concise summary of changes.
