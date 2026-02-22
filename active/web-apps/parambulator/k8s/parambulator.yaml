@@ -46,16 +46,62 @@ spec:
           command: ["/bin/sh", "-ec"]
           args:
             - |
-              if [ ! -d /tmp/megarepo-main/active/web-apps/parambulator ]; then
+              APP_DIR=/tmp/megarepo-main/active/web-apps/parambulator
+
+              fetch_remote_sha() {
+                python - <<'PY'
+              import json
+              from urllib.request import Request, urlopen
+
+              req = Request(
+                  "https://api.github.com/repos/calvinloveland/megarepo/commits/main",
+                  headers={
+                      "Accept": "application/vnd.github+json",
+                      "User-Agent": "parambulator-git-sync",
+                  },
+              )
+              with urlopen(req, timeout=10) as response:
+                  payload = json.load(response)
+              print(payload.get("sha", ""))
+              PY
+              }
+
+              install_app() {
+                rm -rf /tmp/megarepo-main /tmp/megarepo-main.tar.gz
                 python -c 'from urllib.request import urlretrieve; urlretrieve("https://github.com/calvinloveland/megarepo/archive/refs/heads/main.tar.gz", "/tmp/megarepo-main.tar.gz")'
                 tar -xzf /tmp/megarepo-main.tar.gz -C /tmp
-              fi && \
-              mkdir -p /data/feedback/addressed /data/saves && \
-              if [ ! -L /tmp/megarepo-main/active/web-apps/parambulator/data ]; then rm -rf /tmp/megarepo-main/active/web-apps/parambulator/data && ln -s /data /tmp/megarepo-main/active/web-apps/parambulator/data; fi && \
-              cd /tmp/megarepo-main/active/web-apps/parambulator && \
-              pip install --no-cache-dir "Flask>=2.3" "Flask-WTF>=1.1.1,<2.0" "gunicorn>=21.2,<22" && \
-              pip install --no-cache-dir --no-deps -e . && \
-              exec gunicorn -w 2 -b 0.0.0.0:5000 "parambulator.app:create_app()"
+                mkdir -p /data/feedback/addressed /data/saves
+                if [ ! -L "$APP_DIR/data" ]; then
+                  rm -rf "$APP_DIR/data"
+                  ln -s /data "$APP_DIR/data"
+                fi
+                cd "$APP_DIR"
+                pip install --no-cache-dir "Flask>=2.3" "Flask-WTF>=1.1.1,<2.0" "gunicorn>=21.2,<22"
+                pip install --no-cache-dir --no-deps -e .
+              }
+
+              CURRENT_SHA="$(fetch_remote_sha || true)"
+              install_app
+              printf '%s\n' "${CURRENT_SHA:-}" > /tmp/parambulator-source-sha
+
+              cd "$APP_DIR"
+              gunicorn -w 2 -b 0.0.0.0:5000 "parambulator.app:create_app()" &
+              APP_PID=$!
+
+              (
+                while true; do
+                  sleep "${GIT_SYNC_INTERVAL_SECONDS:-900}"
+                  NEW_SHA="$(fetch_remote_sha || true)"
+                  [ -z "$NEW_SHA" ] && continue
+                  OLD_SHA="$(cat /tmp/parambulator-source-sha 2>/dev/null || true)"
+                  [ "$NEW_SHA" = "$OLD_SHA" ] && continue
+                  echo "New main commit detected ($OLD_SHA -> $NEW_SHA); restarting pod to refresh code."
+                  kill "$APP_PID" >/dev/null 2>&1 || true
+                  break
+                done
+              ) &
+
+              wait "$APP_PID"
           env:
             - name: SECRET_KEY
               valueFrom:
@@ -69,7 +115,9 @@ spec:
             - name: PORT
               value: "5000"
             - name: APP_VERSION
-              value: "release-20260221-feedback-followup"
+              value: "release-20260222-git-sync"
+            - name: GIT_SYNC_INTERVAL_SECONDS
+              value: "900"
             - name: FEEDBACK_ADMIN_USERNAME
               valueFrom:
                 secretKeyRef:

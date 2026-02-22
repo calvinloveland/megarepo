@@ -41,6 +41,7 @@ Use the provided script for easy management:
 ArgoCD now watches `active/web-apps/parambulator/k8s/` and applies:
 - `k8s/parambulator.yaml` (Parambulator Deployment + Service + cloudflared sidecar)
 - `PersistentVolumeClaim/parambulator-data` for durable feedback/save storage across pod restarts
+- Pod-level Git polling: the app container checks `main` periodically (default every 900s via `GIT_SYNC_INTERVAL_SECONDS`) and restarts itself when a new commit is detected.
 
 Create the cloudflared tunnel token secret in the `parambulator` namespace (never commit or log this token):
 
