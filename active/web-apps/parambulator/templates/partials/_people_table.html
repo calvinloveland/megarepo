@@ -118,8 +118,8 @@
 </div>
 
 <script>
-const BASE_COLUMNS = ['name', 'reading_level', 'talkative', 'iep_front', 'avoid'];
-let additionalColumns = [];
+var BASE_COLUMNS = ['name', 'reading_level', 'talkative', 'iep_front', 'avoid'];
+var additionalColumns = [];
 
 function normalizeColumnKey(value) {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');

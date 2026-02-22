@@ -132,3 +132,17 @@ def test_feedback_list_requires_auth(monkeypatch):
         payload = authorized.get_json()
         assert isinstance(payload.get("open"), list)
         assert isinstance(payload.get("addressed"), list)
+
+
+def test_generate_response_scripts_are_htmx_reswap_safe():
+    app = create_app()
+    app.config["TESTING"] = True
+    app.config["WTF_CSRF_ENABLED"] = False
+
+    with app.test_client() as client:
+        response = client.post("/generate", data={})
+
+    assert response.status_code == 200
+    html = response.get_data(as_text=True)
+    assert "var BASE_COLUMNS = ['name', 'reading_level', 'talkative', 'iep_front', 'avoid'];" in html
+    assert "var layoutGrid = [];" in html
