@@ -306,6 +306,9 @@ function serializePeopleTable() {
   });
 
   document.getElementById('people_table_hidden').value = lines.join('\n');
+  if (typeof window.updateLayoutCounts === 'function') {
+    window.updateLayoutCounts();
+  }
 }
 
 function createPersonRow(person) {

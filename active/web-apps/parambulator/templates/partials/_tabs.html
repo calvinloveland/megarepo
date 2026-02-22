@@ -75,6 +75,13 @@
     <div>
       <label class="block text-sm font-semibold mb-2">Seat layout</label>
       <p class="text-xs text-slate-500 mb-3">Click seats to toggle availability. Use tools below to add/remove rows/columns.</p>
+      <div id="layout-seat-student-count" class="rounded-md border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs text-indigo-800">
+        Seats: <span id="layout-seat-count" class="font-semibold">0</span>
+        <span class="px-2 text-indigo-300">|</span>
+        Students: <span id="layout-student-count" class="font-semibold">0</span>
+        <span class="px-2 text-indigo-300">|</span>
+        Difference: <span id="layout-seat-diff" class="font-semibold">0</span>
+      </div>
     </div>
     
     <!-- Grid control toolbar -->
@@ -141,6 +148,48 @@
 <script>
 // Layout grid state
 var layoutGrid = [];
+
+function countEnabledSeats() {
+  return layoutGrid.reduce((total, row) =>
+    total + row.reduce((rowTotal, seatEnabled) => rowTotal + (seatEnabled ? 1 : 0), 0), 0
+  );
+}
+
+function countStudents() {
+  const peopleTable = document.getElementById('people_table_hidden');
+  if (!peopleTable) return 0;
+
+  const lines = peopleTable.value.split('\n').map(line => line.trim()).filter(Boolean);
+  if (!lines.length) return 0;
+
+  const delimiter = lines[0].includes('\t') ? '\t' : ',';
+  const firstRow = lines[0].split(delimiter).map(part => part.trim().toLowerCase());
+  const hasHeader = firstRow[0] === 'name' || firstRow[0] === 'student';
+  const dataLines = hasHeader ? lines.slice(1) : lines;
+
+  return dataLines.reduce((count, line) => {
+    const name = (line.split(delimiter)[0] || '').trim();
+    return count + (name ? 1 : 0);
+  }, 0);
+}
+
+function updateLayoutCounts() {
+  const seatCountEl = document.getElementById('layout-seat-count');
+  const studentCountEl = document.getElementById('layout-student-count');
+  const diffEl = document.getElementById('layout-seat-diff');
+  if (!seatCountEl || !studentCountEl || !diffEl) return;
+
+  const seatCount = countEnabledSeats();
+  const studentCount = countStudents();
+  const diff = seatCount - studentCount;
+
+  seatCountEl.textContent = String(seatCount);
+  studentCountEl.textContent = String(studentCount);
+  diffEl.textContent = String(diff);
+  diffEl.className = diff === 0 ? 'font-semibold text-emerald-700' : 'font-semibold text-amber-700';
+}
+
+window.updateLayoutCounts = updateLayoutCounts;
 
 // Initialize layout grid from the server data
 function initializeLayoutGrid() {
@@ -217,6 +266,7 @@ function renderLayoutGrid() {
   container.appendChild(table);
   serializeGridToLayoutMap();
   updateRowColInputs();
+  updateLayoutCounts();
 }
 
 // Toggle a seat
