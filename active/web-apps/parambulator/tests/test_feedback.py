@@ -146,6 +146,7 @@ def test_generate_response_scripts_are_htmx_reswap_safe():
     html = response.get_data(as_text=True)
     assert "var BASE_COLUMNS = ['name', 'reading_level', 'talkative', 'iep_front', 'avoid'];" in html
     assert "var layoutGrid = [];" in html
+    assert 'id="pinned_seats_json"' in html
 
 
 def test_generate_response_includes_layout_student_seat_counts():
@@ -160,3 +161,16 @@ def test_generate_response_includes_layout_student_seat_counts():
     html = response.get_data(as_text=True)
     assert 'id="layout-seat-student-count"' in html
     assert "window.updateLayoutCounts = updateLayoutCounts;" in html
+
+
+def test_generate_response_includes_conflict_panel_markup():
+    app = create_app()
+    app.config["TESTING"] = True
+    app.config["WTF_CSRF_ENABLED"] = False
+
+    with app.test_client() as client:
+        response = client.post("/generate", data={})
+
+    assert response.status_code == 200
+    html = response.get_data(as_text=True)
+    assert 'id="chart-conflicts-panel"' in html

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import random
 from dataclasses import dataclass, field
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Dict, Iterable, List, Optional, Set, Tuple
 
 from .models import Chart, Person
 
@@ -31,6 +31,7 @@ def generate_best_chart(
     iterations: int = 200,
     seed: Optional[int] = None,
     layout: Optional[List[List[bool]]] = None,
+    pinned_seats: Optional[Dict[Tuple[int, int], str]] = None,
 ) -> ChartResult:
     warnings: List[str] = []
     if rows <= 0 or cols <= 0:
@@ -43,14 +44,19 @@ def generate_best_chart(
         warnings.append("More people than seats; extra people are omitted.")
         names = names[:seat_count]
 
+    valid_names = set(names)
+    pinned = _normalize_pinned_seats(pinned_seats, layout, rows, cols, valid_names, warnings)
+    available_names = [name for name in names if name not in set(pinned.values())]
+
     rng = random.Random(seed)
-    best_chart = _build_chart(names, layout)
+    best_chart = _build_chart(available_names, layout, pinned)
     best_score = score_chart(best_chart, people, rows, cols)
     attempt_charts: List[Chart] = [best_chart]
 
     for _ in range(max(1, iterations)):
-        rng.shuffle(names)
-        candidate = _build_chart(names, layout)
+        candidate_names = list(available_names)
+        rng.shuffle(candidate_names)
+        candidate = _build_chart(candidate_names, layout, pinned)
         attempt_charts.append(candidate)
         candidate_score = score_chart(candidate, people, rows, cols)
         if candidate_score.overall > best_score.overall:
@@ -189,14 +195,21 @@ def seat_constraint_statuses(
     return statuses
 
 
-def _build_chart(names: List[str], layout: List[List[bool]]) -> Chart:
+def _build_chart(
+    names: List[str], layout: List[List[bool]], pinned: Optional[Dict[Tuple[int, int], str]] = None
+) -> Chart:
+    pinned = pinned or {}
     chart: Chart = []
     index = 0
-    for layout_row in layout:
+    for row_index, layout_row in enumerate(layout):
         chart_row: List[Optional[str]] = []
-        for seat in layout_row:
+        for col_index, seat in enumerate(layout_row):
             if not seat:
                 chart_row.append(None)
+                continue
+            pinned_name = pinned.get((row_index, col_index))
+            if pinned_name:
+                chart_row.append(pinned_name)
                 continue
             if index < len(names):
                 chart_row.append(names[index])
@@ -213,6 +226,37 @@ def _ensure_layout(
     if layout:
         return layout
     return [[True for _ in range(cols)] for _ in range(rows)]
+
+
+def _normalize_pinned_seats(
+    pinned_seats: Optional[Dict[Tuple[int, int], str]],
+    layout: List[List[bool]],
+    rows: int,
+    cols: int,
+    valid_names: Set[str],
+    warnings: List[str],
+) -> Dict[Tuple[int, int], str]:
+    if not pinned_seats:
+        return {}
+
+    normalized: Dict[Tuple[int, int], str] = {}
+    pinned_names: Set[str] = set()
+    for (row_index, col_index), name in pinned_seats.items():
+        if row_index < 0 or col_index < 0 or row_index >= rows or col_index >= cols:
+            warnings.append(f"Ignored pinned seat for {name}: seat is outside layout bounds.")
+            continue
+        if row_index >= len(layout) or col_index >= len(layout[row_index]) or not layout[row_index][col_index]:
+            warnings.append(f"Ignored pinned seat for {name}: seat is disabled.")
+            continue
+        if name not in valid_names:
+            warnings.append(f"Ignored pinned seat for {name}: student is not in the current roster.")
+            continue
+        if name in pinned_names:
+            warnings.append(f"Ignored duplicate pin for {name}: student can only be pinned once.")
+            continue
+        normalized[(row_index, col_index)] = name
+        pinned_names.add(name)
+    return normalized
 
 
 def _adjacent_pairs(chart: Chart, rows: int, cols: int) -> List[Tuple[str, str]]:

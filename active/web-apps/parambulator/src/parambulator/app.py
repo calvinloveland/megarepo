@@ -7,13 +7,14 @@ from datetime import datetime
 from hmac import compare_digest
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Set, Tuple
 
 from flask import Flask, Response, jsonify, make_response, render_template, request
 from flask_wtf.csrf import CSRFProtect
 
 from .models import (
     Chart,
+    Person,
     chart_from_json,
     chart_to_json,
     default_people,
@@ -142,6 +143,7 @@ def create_app() -> Flask:
                 "layout_map": context.get("layout_map", ""),
                 "column_config": context.get("column_config", ""),
                 "chart_json": context.get("chart_json", ""),
+                "pinned_seats_json": context.get("pinned_seats_json", "[]"),
             }
             raw = _serialize_state_cookie(state_payload)
             if not raw:
@@ -189,22 +191,29 @@ def create_app() -> Flask:
         design = str(state.get("design", DEFAULT_DESIGN)) or DEFAULT_DESIGN
         column_config = str(state.get("column_config", json.dumps(DEFAULT_COLUMN_CONFIG, indent=2)))
         layout_map = str(state.get("layout_map", "")) or layout_to_text(None, rows, cols)
+        layout = parse_layout_map(layout_map, rows, cols)
+        pinned_seats_json = str(state.get("pinned_seats_json", "[]"))
+        pinned_seats, pin_warnings = parse_pinned_seats(
+            pinned_seats_json, people, layout, rows, cols
+        )
+        pinned_seats_json = serialize_pinned_seats(pinned_seats)
         chart_json = str(state.get("chart_json", "")).strip()
         if chart_json:
             chart = chart_from_json(chart_json)
             breakdown = score_chart(chart, people, rows, cols)
-            warnings = []
+            warnings = pin_warnings
         else:
             result = generate_best_chart(
                 people,
                 rows,
                 cols,
                 iterations=150,
-                layout=parse_layout_map(layout_map, rows, cols),
+                layout=layout,
+                pinned_seats=pinned_seats,
             )
             chart = result.chart
             breakdown = result.breakdown
-            warnings = result.warnings
+            warnings = pin_warnings + result.warnings
         context = build_context(
             people_json=people_json,
             people_table=people_table,
@@ -213,6 +222,7 @@ def create_app() -> Flask:
             design=design,
             layout_map=layout_map,
             column_config=column_config,
+            pinned_seats_json=pinned_seats_json,
             chart=chart,
             breakdown=breakdown,
             warnings=warnings,
@@ -229,7 +239,9 @@ def create_app() -> Flask:
             form_data["cols"],
             iterations=form_data["iterations"],
             layout=form_data["layout"],
+            pinned_seats=form_data["pinned_seats"],
         )
+        warnings = list(form_data["pin_warnings"]) + list(result.warnings)
         context = build_context(
             people_json=form_data["people_json"],
             people_table=form_data["people_table"],
@@ -238,9 +250,10 @@ def create_app() -> Flask:
             design=form_data["design"],
             layout_map=form_data["layout_map"],
             column_config=form_data["column_config"],
+            pinned_seats_json=form_data["pinned_seats_json"],
             chart=result.chart,
             breakdown=result.breakdown,
-            warnings=result.warnings,
+            warnings=warnings,
             chart_history=result.attempt_charts,
             message="Generated a new chart.",
         )
@@ -260,6 +273,7 @@ def create_app() -> Flask:
             design=form_data["design"],
             layout_map=form_data["layout_map"],
             column_config=form_data["column_config"],
+            pinned_seats_json=form_data["pinned_seats_json"],
             chart=chart,
             breakdown=breakdown,
             warnings=form_data["warnings"],
@@ -281,6 +295,7 @@ def create_app() -> Flask:
             "layout_map": form_data["layout_map"],
             "chart_json": chart_to_json(form_data["chart"]),
             "column_config": form_data["column_config"],
+            "pinned_seats_json": form_data["pinned_seats_json"],
         }
         save_payload(PROJECT_ROOT, save_name, payload)
         breakdown = score_chart(
@@ -294,6 +309,7 @@ def create_app() -> Flask:
             design=form_data["design"],
             layout_map=form_data["layout_map"],
             column_config=form_data["column_config"],
+            pinned_seats_json=form_data["pinned_seats_json"],
             chart=form_data["chart"],
             breakdown=breakdown,
             warnings=form_data["warnings"],
@@ -316,12 +332,18 @@ def create_app() -> Flask:
         )
         chart_json = str(payload.get("chart_json", ""))
         layout_map = str(payload.get("layout_map", "")) or layout_to_text(None, rows, cols)
+        pinned_seats_json = str(payload.get("pinned_seats_json", "[]"))
         people = parse_people_table(people_table) if people_table else parse_people_json(people_json)
         layout = parse_layout_map(layout_map, rows, cols)
+        pinned_seats, pin_warnings = parse_pinned_seats(
+            pinned_seats_json, people, layout, rows, cols
+        )
         chart = (
             chart_from_json(chart_json)
             if chart_json
-            else generate_best_chart(people, rows, cols, iterations=100, layout=layout).chart
+            else generate_best_chart(
+                people, rows, cols, iterations=100, layout=layout, pinned_seats=pinned_seats
+            ).chart
         )
         breakdown = score_chart(chart, people, rows, cols)
         context = build_context(
@@ -332,9 +354,10 @@ def create_app() -> Flask:
             design=design,
             layout_map=layout_map,
             column_config=column_config,
+            pinned_seats_json=serialize_pinned_seats(pinned_seats),
             chart=chart,
             breakdown=breakdown,
-            warnings=[],
+            warnings=pin_warnings,
             message=f"Loaded '{name}'.",
         )
         response = make_response(render_design(context))
@@ -536,14 +559,25 @@ def parse_form(form: Dict[str, str]) -> Dict[str, object]:
 
     layout = parse_layout_from_form(form, rows, cols)
     layout_map = layout_to_text(layout, rows, cols)
+    pinned_seats, pin_warnings = parse_pinned_seats(
+        form.get("pinned_seats_json", ""), people, layout, rows, cols
+    )
+    pinned_seats_json = serialize_pinned_seats(pinned_seats)
 
     chart_json = form.get("chart_json", "").strip()
-    warnings: List[str] = []
+    warnings: List[str] = list(pin_warnings)
     chart: Chart
     if chart_json:
         chart = chart_from_json(chart_json)
     else:
-        result = generate_best_chart(people, rows, cols, iterations=iterations, layout=layout)
+        result = generate_best_chart(
+            people,
+            rows,
+            cols,
+            iterations=iterations,
+            layout=layout,
+            pinned_seats=pinned_seats,
+        )
         chart = result.chart
         warnings.extend(result.warnings)
 
@@ -558,9 +592,128 @@ def parse_form(form: Dict[str, str]) -> Dict[str, object]:
         "column_config": column_config,
         "layout": layout,
         "layout_map": layout_map,
+        "pinned_seats": pinned_seats,
+        "pinned_seats_json": pinned_seats_json,
+        "pin_warnings": list(pin_warnings),
         "chart": chart,
         "warnings": warnings,
     }
+
+
+def parse_pinned_seats(
+    raw_json: str,
+    people: List[Person],
+    layout: List[List[bool]],
+    rows: int,
+    cols: int,
+) -> Tuple[Dict[Tuple[int, int], str], List[str]]:
+    warnings: List[str] = []
+    if not raw_json.strip():
+        return {}, warnings
+
+    try:
+        payload = json.loads(raw_json)
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return {}, ["Pinned seats were cleared because the saved data was invalid."]
+
+    if not isinstance(payload, list):
+        return {}, ["Pinned seats were cleared because the saved data was invalid."]
+
+    valid_names: Set[str] = {person.name for person in people}
+    normalized: Dict[Tuple[int, int], str] = {}
+    pinned_names: Set[str] = set()
+
+    for entry in payload:
+        if not isinstance(entry, dict):
+            warnings.append("Ignored a pinned seat entry with invalid format.")
+            continue
+        try:
+            row_index = int(entry.get("row"))
+            col_index = int(entry.get("col"))
+        except (TypeError, ValueError):
+            warnings.append("Ignored a pinned seat entry with invalid coordinates.")
+            continue
+
+        student_name = str(entry.get("name", "")).strip()
+        if not student_name:
+            warnings.append("Ignored a pinned seat entry without a student name.")
+            continue
+        if student_name not in valid_names:
+            warnings.append(f"Ignored pinned seat for {student_name}: student is not in the roster.")
+            continue
+        if not (0 <= row_index < rows and 0 <= col_index < cols):
+            warnings.append(f"Ignored pinned seat for {student_name}: seat is outside layout bounds.")
+            continue
+        if row_index >= len(layout) or col_index >= len(layout[row_index]) or not layout[row_index][col_index]:
+            warnings.append(f"Ignored pinned seat for {student_name}: seat is disabled.")
+            continue
+        if (row_index, col_index) in normalized:
+            warnings.append(f"Ignored pinned seat for {student_name}: seat already has a pin.")
+            continue
+        if student_name in pinned_names:
+            warnings.append(f"Ignored duplicate pin for {student_name}.")
+            continue
+
+        normalized[(row_index, col_index)] = student_name
+        pinned_names.add(student_name)
+
+    return normalized, warnings
+
+
+def serialize_pinned_seats(pinned_seats: Dict[Tuple[int, int], str]) -> str:
+    payload = [
+        {"row": row_index, "col": col_index, "name": name}
+        for (row_index, col_index), name in sorted(pinned_seats.items())
+    ]
+    return json.dumps(payload, separators=(",", ":"))
+
+
+def pinned_keys_from_json(raw_json: str) -> List[str]:
+    try:
+        payload = json.loads(raw_json)
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return []
+    if not isinstance(payload, list):
+        return []
+
+    keys: List[str] = []
+    for entry in payload:
+        if not isinstance(entry, dict):
+            continue
+        try:
+            row_index = int(entry.get("row"))
+            col_index = int(entry.get("col"))
+        except (TypeError, ValueError):
+            continue
+        keys.append(f"{row_index}:{col_index}")
+    return keys
+
+
+def summarize_conflicts(
+    chart: Chart, seat_constraints: List[List[List[Dict[str, str]]]]
+) -> List[Dict[str, object]]:
+    conflicts: List[Dict[str, object]] = []
+    for row_index, row in enumerate(chart):
+        for col_index, seat_name in enumerate(row):
+            if not seat_name:
+                continue
+            statuses = []
+            if row_index < len(seat_constraints) and col_index < len(seat_constraints[row_index]):
+                statuses = seat_constraints[row_index][col_index]
+            unmet = [
+                item.get("label", "")
+                for item in statuses
+                if isinstance(item, dict) and item.get("status") == "not met"
+            ]
+            if unmet:
+                conflicts.append(
+                    {
+                        "student": seat_name,
+                        "seat": f"R{row_index + 1}C{col_index + 1}",
+                        "constraints": unmet,
+                    }
+                )
+    return conflicts
 
 
 def build_context(
@@ -572,12 +725,18 @@ def build_context(
     design: str,
     layout_map: str,
     column_config: str,
+    pinned_seats_json: str,
     chart: Chart,
     breakdown,
     warnings: List[str],
     chart_history: Optional[List[Chart]] = None,
     message: Optional[str] = None,
 ) -> Dict[str, object]:
+    people = parse_people_json(people_json)
+    layout_grid = parse_layout_map(layout_map, rows, cols)
+    seat_constraints = seat_constraint_statuses(chart, people, rows, cols)
+    conflicts = summarize_conflicts(chart, seat_constraints)
+    pinned_seat_keys = pinned_keys_from_json(pinned_seats_json)
     return {
         "people_json": people_json,
         "people_table": people_table,
@@ -586,11 +745,14 @@ def build_context(
         "design": design,
         "design_template": f"designs/{design}.html",
         "layout_map": layout_map,
-        "layout_grid": parse_layout_map(layout_map, rows, cols),
+        "layout_grid": layout_grid,
         "column_config": column_config,
+        "pinned_seats_json": pinned_seats_json,
+        "pinned_seat_keys": pinned_seat_keys,
         "chart": chart,
         "chart_json": chart_to_json(chart),
-        "seat_constraints": seat_constraint_statuses(chart, parse_people_json(people_json), rows, cols),
+        "seat_constraints": seat_constraints,
+        "conflicts": conflicts,
         "breakdown": breakdown,
         "warnings": warnings,
         "chart_history": chart_history or [],

@@ -60,6 +60,7 @@
 <input type="hidden" name="chart_json" value="{{ chart_json }}" />
 <input type="hidden" name="people_json" value="{{ people_json }}" />
 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+<input type="hidden" id="pinned_seats_json" name="pinned_seats_json" value='{{ pinned_seats_json | e }}' />
 <input type="hidden" name="rows" min="1" value="{{ rows }}" />
 <input type="hidden" name="cols" min="1" value="{{ cols }}" />
 <input type="hidden" name="iterations" min="1" value="200" />

@@ -46,3 +46,24 @@ def test_seat_constraint_statuses_reports_met_and_not_met():
     assert status_map["Talkative spacing"] == "not met"
     assert status_map["Avoid pairs"] == "not met"
     assert status_map["Front priority"] == "met"
+
+
+def test_generate_best_chart_respects_pinned_seats():
+    people = [
+        Person("A", "low"),
+        Person("B", "medium"),
+        Person("C", "high"),
+        Person("D", "low"),
+    ]
+    layout = [[True, True], [True, True]]
+
+    result = generate_best_chart(
+        people,
+        rows=2,
+        cols=2,
+        iterations=25,
+        layout=layout,
+        pinned_seats={(0, 1): "C"},
+    )
+
+    assert result.chart[0][1] == "C"

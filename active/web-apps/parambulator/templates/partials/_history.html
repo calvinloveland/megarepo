@@ -39,6 +39,7 @@ class HistoryManager {
       cols: form.querySelector('[name="cols"]')?.value || '',
       design: form.querySelector('[name="design"]')?.value || 'design_1',
       layout_map: form.querySelector('[name="layout_map"]')?.value || '',
+      pinned_seats_json: form.querySelector('[name="pinned_seats_json"]')?.value || '[]',
       iterations: form.querySelector('[name="iterations"]')?.value || '200',
       timestamp: Date.now()
     };
@@ -63,6 +64,7 @@ class HistoryManager {
       rows: snapshot.rows,
       cols: snapshot.cols,
       layout_map: snapshot.layout_map,
+      pinned_seats_json: snapshot.pinned_seats_json || '[]',
       iterations: snapshot.iterations
     };
 
