@@ -1,13 +1,13 @@
 # Parambulator
 
-A Flask + HTMX web application for building seating charts with constraint-based scoring. Designed for educators to optimize classroom layouts using reading levels, behavior considerations, IEP requirements, and social dynamics.
+A Flask + HTMX web application for building seating charts with constraint-based scoring. Designed for educators to optimize classroom layouts using behavior considerations, front-priority needs, and social dynamics.
 
 ## Features
 
 - **Smart Seating Generation**: Iterative algorithm scores arrangements based on configurable constraints
 - **Flexible Constraints**: Mix reading levels, separate talkative students, prioritize front-row seating, enforce explicit avoidance pairs, and require adjacency pairs
 - **Multiple Input Formats**: JSON or table-based people input
-- **Custom Layouts**: Define available seats with visual grid editor
+- **Custom Layouts**: Define available seats with visual grid editor or starter templates
 - **Save/Load System**: Persistent server-side storage for seating plans
 - **Five UI Designs**: Compare different interface layouts
 - **User Feedback**: Built-in feedback system for collecting user suggestions
@@ -174,7 +174,7 @@ FLASK_DEBUG=true pytest -v
 
 ### Constraint Types
 
-- **Reading Level Mix** (default 35%): Distributes high/medium/low readers evenly
+- **Reading Level Mix** (default off): Optional, can be enabled in the People tab
 - **Talkative Separation** (default 20%): Spaces out chatty students
 - **Front Priority** (default 20%): Prioritizes designated students for front seats
 - **Explicit Avoidance** (default 15%): Prevents specific student pairings

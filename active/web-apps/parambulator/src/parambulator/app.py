@@ -30,12 +30,26 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_ROWS = 4
 DEFAULT_COLS = 5
 DEFAULT_DESIGN = "design_1"
+DEFAULT_SCORING_WEIGHTS = {
+    "reading_mix": 0.3,
+    "talkative_spacing": 0.2,
+    "iep_front": 0.2,
+    "avoid_pairs": 0.15,
+    "must_sit_by": 0.15,
+}
+COLUMN_TO_WEIGHT_KEY = {
+    "reading_level": "reading_mix",
+    "talkative": "talkative_spacing",
+    "iep_front": "iep_front",
+    "avoid": "avoid_pairs",
+    "must_sit_by": "must_sit_by",
+}
 DEFAULT_COLUMN_CONFIG = {
-    "reading_level": {"type": "mix", "weight": 0.35},
-    "talkative": {"type": "avoid", "weight": 0.25},
+    "reading_level": {"type": "ignore", "weight": 0.0},
+    "talkative": {"type": "avoid", "weight": 0.35},
     "iep_front": {"type": "directional", "weight": 0.25},
-    "avoid": {"type": "avoid", "weight": 0.15},
-    "must_sit_by": {"type": "group", "weight": 0.15},
+    "avoid": {"type": "avoid", "weight": 0.2},
+    "must_sit_by": {"type": "group", "weight": 0.2},
 }
 FEEDBACK_DIR = PROJECT_ROOT / "data" / "feedback"
 ADDRESSED_DIR = FEEDBACK_DIR / "addressed"
@@ -191,6 +205,7 @@ def create_app() -> Flask:
         )
         design = str(state.get("design", DEFAULT_DESIGN)) or DEFAULT_DESIGN
         column_config = str(state.get("column_config", json.dumps(DEFAULT_COLUMN_CONFIG, indent=2)))
+        scoring_weights = parse_scoring_weights(column_config)
         layout_map = str(state.get("layout_map", "")) or layout_to_text(None, rows, cols)
         layout = parse_layout_map(layout_map, rows, cols)
         pinned_seats_json = str(state.get("pinned_seats_json", "[]"))
@@ -201,7 +216,7 @@ def create_app() -> Flask:
         chart_json = str(state.get("chart_json", "")).strip()
         if chart_json:
             chart = chart_from_json(chart_json)
-            breakdown = score_chart(chart, people, rows, cols)
+            breakdown = score_chart(chart, people, rows, cols, weights=scoring_weights)
             warnings = pin_warnings
         else:
             result = generate_best_chart(
@@ -211,6 +226,7 @@ def create_app() -> Flask:
                 iterations=150,
                 layout=layout,
                 pinned_seats=pinned_seats,
+                weights=scoring_weights,
             )
             chart = result.chart
             breakdown = result.breakdown
@@ -241,6 +257,7 @@ def create_app() -> Flask:
             iterations=form_data["iterations"],
             layout=form_data["layout"],
             pinned_seats=form_data["pinned_seats"],
+            weights=form_data["scoring_weights"],
         )
         warnings = list(form_data["pin_warnings"]) + list(result.warnings)
         context = build_context(
@@ -265,7 +282,13 @@ def create_app() -> Flask:
     def swap_design() -> str:
         form_data = parse_form(request.form)
         chart = form_data["chart"]
-        breakdown = score_chart(chart, form_data["people"], form_data["rows"], form_data["cols"])
+        breakdown = score_chart(
+            chart,
+            form_data["people"],
+            form_data["rows"],
+            form_data["cols"],
+            weights=form_data["scoring_weights"],
+        )
         context = build_context(
             people_json=form_data["people_json"],
             people_table=form_data["people_table"],
@@ -300,7 +323,11 @@ def create_app() -> Flask:
         }
         save_payload(PROJECT_ROOT, save_name, payload)
         breakdown = score_chart(
-            form_data["chart"], form_data["people"], form_data["rows"], form_data["cols"]
+            form_data["chart"],
+            form_data["people"],
+            form_data["rows"],
+            form_data["cols"],
+            weights=form_data["scoring_weights"],
         )
         context = build_context(
             people_json=form_data["people_json"],
@@ -331,6 +358,7 @@ def create_app() -> Flask:
         column_config = str(
             payload.get("column_config", json.dumps(DEFAULT_COLUMN_CONFIG, indent=2))
         )
+        scoring_weights = parse_scoring_weights(column_config)
         chart_json = str(payload.get("chart_json", ""))
         layout_map = str(payload.get("layout_map", "")) or layout_to_text(None, rows, cols)
         pinned_seats_json = str(payload.get("pinned_seats_json", "[]"))
@@ -343,10 +371,16 @@ def create_app() -> Flask:
             chart_from_json(chart_json)
             if chart_json
             else generate_best_chart(
-                people, rows, cols, iterations=100, layout=layout, pinned_seats=pinned_seats
+                people,
+                rows,
+                cols,
+                iterations=100,
+                layout=layout,
+                pinned_seats=pinned_seats,
+                weights=scoring_weights,
             ).chart
         )
-        breakdown = score_chart(chart, people, rows, cols)
+        breakdown = score_chart(chart, people, rows, cols, weights=scoring_weights)
         context = build_context(
             people_json=people_json,
             people_table=people_table or people_to_table(people),
@@ -558,6 +592,7 @@ def parse_form(form: Dict[str, str]) -> Dict[str, object]:
     iterations = _parse_int(form.get("iterations"), 200, min_val=1, max_val=500)
     design = form.get("design", DEFAULT_DESIGN) or DEFAULT_DESIGN
     column_config = form.get("column_config") or json.dumps(DEFAULT_COLUMN_CONFIG, indent=2)
+    scoring_weights = parse_scoring_weights(column_config)
 
     layout = parse_layout_from_form(form, rows, cols)
     layout_map = layout_to_text(layout, rows, cols)
@@ -579,6 +614,7 @@ def parse_form(form: Dict[str, str]) -> Dict[str, object]:
             iterations=iterations,
             layout=layout,
             pinned_seats=pinned_seats,
+            weights=scoring_weights,
         )
         chart = result.chart
         warnings.extend(result.warnings)
@@ -592,6 +628,7 @@ def parse_form(form: Dict[str, str]) -> Dict[str, object]:
         "iterations": iterations,
         "design": design,
         "column_config": column_config,
+        "scoring_weights": scoring_weights,
         "layout": layout,
         "layout_map": layout_map,
         "pinned_seats": pinned_seats,
@@ -683,6 +720,34 @@ def parse_pinned_seats(
         pinned_names.add(student_name)
 
     return normalized, warnings
+
+
+def parse_scoring_weights(column_config_raw: str) -> Dict[str, float]:
+    weights = dict(DEFAULT_SCORING_WEIGHTS)
+    if not column_config_raw.strip():
+        return weights
+
+    try:
+        parsed = json.loads(column_config_raw)
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return weights
+    if not isinstance(parsed, dict):
+        return weights
+
+    for column_key, score_key in COLUMN_TO_WEIGHT_KEY.items():
+        entry = parsed.get(column_key)
+        if not isinstance(entry, dict):
+            continue
+        if str(entry.get("type", "")).strip().lower() == "ignore":
+            weights[score_key] = 0.0
+            continue
+        try:
+            weight = float(entry.get("weight", weights[score_key]))
+        except (TypeError, ValueError):
+            continue
+        weights[score_key] = max(0.0, weight)
+
+    return weights
 
 
 def serialize_pinned_seats(pinned_seats: Dict[Tuple[int, int], str]) -> str:

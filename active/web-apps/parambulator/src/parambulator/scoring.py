@@ -33,6 +33,7 @@ def generate_best_chart(
     seed: Optional[int] = None,
     layout: Optional[List[List[bool]]] = None,
     pinned_seats: Optional[Dict[Tuple[int, int], str]] = None,
+    weights: Optional[Dict[str, float]] = None,
 ) -> ChartResult:
     warnings: List[str] = []
     if rows <= 0 or cols <= 0:
@@ -51,7 +52,7 @@ def generate_best_chart(
 
     rng = random.Random(seed)
     best_chart = _build_chart(available_names, layout, pinned)
-    best_score = score_chart(best_chart, people, rows, cols)
+    best_score = score_chart(best_chart, people, rows, cols, weights=weights)
     attempt_charts: List[Chart] = [best_chart]
 
     for _ in range(max(1, iterations)):
@@ -59,7 +60,7 @@ def generate_best_chart(
         rng.shuffle(candidate_names)
         candidate = _build_chart(candidate_names, layout, pinned)
         attempt_charts.append(candidate)
-        candidate_score = score_chart(candidate, people, rows, cols)
+        candidate_score = score_chart(candidate, people, rows, cols, weights=weights)
         if candidate_score.overall > best_score.overall:
             best_chart = candidate
             best_score = candidate_score
@@ -72,7 +73,13 @@ def generate_best_chart(
     )
 
 
-def score_chart(chart: Chart, people: Iterable[Person], rows: int, cols: int) -> ScoreBreakdown:
+def score_chart(
+    chart: Chart,
+    people: Iterable[Person],
+    rows: int,
+    cols: int,
+    weights: Optional[Dict[str, float]] = None,
+) -> ScoreBreakdown:
     people_by_name = {person.name: person for person in people}
     chart_rows, chart_cols = _chart_dimensions(chart, rows, cols)
 
@@ -119,20 +126,35 @@ def score_chart(chart: Chart, people: Iterable[Person], rows: int, cols: int) ->
         1.0 if not must_sit_by_pairs else must_sit_by_matches / len(must_sit_by_pairs)
     )
 
-    weights = {
+    default_weights = {
         "reading_mix": 0.3,
         "talkative_spacing": 0.2,
         "iep_front": 0.2,
         "avoid_pairs": 0.15,
         "must_sit_by": 0.15,
     }
+    normalized_weights = dict(default_weights)
+    if weights:
+        for key, default_value in default_weights.items():
+            raw_value = weights.get(key, default_value)
+            try:
+                normalized_weights[key] = max(0.0, float(raw_value))
+            except (TypeError, ValueError):
+                normalized_weights[key] = default_value
+    total_weight = sum(normalized_weights.values())
     overall = (
-        reading_mix * weights["reading_mix"]
-        + talkative_spacing * weights["talkative_spacing"]
-        + iep_front * weights["iep_front"]
-        + avoid_score * weights["avoid_pairs"]
-        + must_sit_by_score * weights["must_sit_by"]
+        reading_mix * normalized_weights["reading_mix"]
+        + talkative_spacing * normalized_weights["talkative_spacing"]
+        + iep_front * normalized_weights["iep_front"]
+        + avoid_score * normalized_weights["avoid_pairs"]
+        + must_sit_by_score * normalized_weights["must_sit_by"]
     )
+    if total_weight > 0:
+        overall /= total_weight
+    else:
+        overall = (
+            reading_mix + talkative_spacing + iep_front + avoid_score + must_sit_by_score
+        ) / 5.0
 
     return ScoreBreakdown(
         overall=round(overall, 4),

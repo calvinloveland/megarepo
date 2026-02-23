@@ -84,6 +84,20 @@
         Difference: <span id="layout-seat-diff" class="font-semibold">0</span>
       </div>
     </div>
+    <div id="layout-template-controls" class="rounded-lg border border-slate-200 bg-slate-50 p-3">
+      <p class="text-xs font-semibold uppercase tracking-wide text-slate-600 mb-2">Starter layout templates</p>
+      <div class="flex flex-wrap items-center gap-2">
+        <select id="layout-template-select" onchange="updateLayoutTemplatePreview()" class="rounded border border-slate-300 bg-white px-2 py-1 text-xs">
+          <option value="classic_4x5">Classic 4x5 (all seats)</option>
+          <option value="u_shape_5x6">U-Shape 5x6</option>
+          <option value="pods_4x6">Pods 4x6</option>
+        </select>
+        <button type="button" onclick="applySelectedLayoutTemplate()" class="rounded bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700">
+          Apply template
+        </button>
+      </div>
+      <p id="layout-template-preview" class="mt-2 text-xs text-slate-600"></p>
+    </div>
     
     <!-- Grid control toolbar -->
     <div class="flex flex-wrap gap-2 items-center p-3 rounded-lg border border-slate-200 bg-slate-50">
@@ -149,6 +163,50 @@
 <script>
 // Layout grid state
 var layoutGrid = [];
+var LAYOUT_TEMPLATES = {
+  classic_4x5: {
+    description: '4 rows x 5 columns, all seats enabled.',
+    map: ['XXXXX', 'XXXXX', 'XXXXX', 'XXXXX'],
+  },
+  u_shape_5x6: {
+    description: 'Open center with a perimeter U-shape.',
+    map: ['XXXXXX', 'X....X', 'X....X', 'X....X', 'XXXXXX'],
+  },
+  pods_4x6: {
+    description: 'Clustered seating pods with spacing gaps.',
+    map: ['XX.XX.', 'XX.XX.', '..XX..', 'XX.XX.'],
+  },
+};
+
+function buildTemplateGrid(templateKey) {
+  const template = LAYOUT_TEMPLATES[templateKey];
+  if (!template) return null;
+  return template.map.map(row => row.split('').map(char => char === 'X'));
+}
+
+function updateLayoutTemplatePreview() {
+  const select = document.getElementById('layout-template-select');
+  const preview = document.getElementById('layout-template-preview');
+  if (!select || !preview) return;
+  const template = LAYOUT_TEMPLATES[select.value];
+  if (!template) {
+    preview.textContent = '';
+    return;
+  }
+  const rows = template.map.length;
+  const cols = template.map[0] ? template.map[0].length : 0;
+  const seats = template.map.join('').split('').filter(char => char === 'X').length;
+  preview.textContent = `${template.description} (${rows}x${cols}, ${seats} seats)`;
+}
+
+function applySelectedLayoutTemplate() {
+  const select = document.getElementById('layout-template-select');
+  if (!select) return;
+  const templateGrid = buildTemplateGrid(select.value);
+  if (!templateGrid) return;
+  layoutGrid = templateGrid;
+  renderLayoutGrid();
+}
 
 function countEnabledSeats() {
   return layoutGrid.reduce((total, row) =>
@@ -204,6 +262,7 @@ function initializeLayoutGrid() {
     layoutGrid = Array(4).fill(null).map(() => Array(5).fill(true));
     renderLayoutGrid();
   }
+  updateLayoutTemplatePreview();
 }
 
 // Parse layout map text to grid

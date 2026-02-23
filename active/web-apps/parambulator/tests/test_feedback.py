@@ -164,6 +164,10 @@ def test_generate_response_includes_layout_student_seat_counts():
     html = response.get_data(as_text=True)
     assert 'id="layout-seat-student-count"' in html
     assert "window.updateLayoutCounts = updateLayoutCounts;" in html
+    assert 'id="layout-template-controls"' in html
+    assert 'id="layout-template-select"' in html
+    assert 'id="layout-template-preview"' in html
+    assert "var LAYOUT_TEMPLATES = {" in html
 
 
 def test_generate_response_includes_conflict_panel_markup():
@@ -196,6 +200,8 @@ def test_generate_response_includes_people_tab_priority_ux_markers():
     assert "parseAvoidList(value)" in html
     assert 'id="col-type-must_sit_by"' in html
     assert "Must sit by" in html
+    assert 'id="reading-level-enabled"' in html
+    assert "onReadingLevelToggleChange()" in html
 
 
 def test_generate_response_positions_undo_redo_above_feedback_button():
@@ -262,3 +268,11 @@ def test_parse_form_rejects_unknown_must_sit_by_names():
                 "cols": "1",
             }
         )
+
+
+def test_parse_form_defaults_to_reading_level_disabled_config():
+    form_data = parse_form({})
+    column_config = json.loads(form_data["column_config"])
+    reading_level_config = column_config["reading_level"]
+    assert reading_level_config["type"] == "ignore"
+    assert float(reading_level_config["weight"]) == 0.0

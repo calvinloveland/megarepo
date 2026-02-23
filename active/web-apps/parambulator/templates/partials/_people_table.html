@@ -25,8 +25,12 @@
         + Add Column
       </button>
     </div>
+    <label class="mb-3 flex items-center gap-2 rounded border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-700">
+      <input id="reading-level-enabled" type="checkbox" onchange="onReadingLevelToggleChange()" />
+      <span class="font-semibold">Enable reading level column and scoring</span>
+    </label>
     <div class="grid grid-cols-2 gap-3 text-xs">
-      <div class="space-y-1">
+      <div id="reading-level-config-block" class="space-y-1">
         <label class="font-semibold text-slate-600">Reading Level</label>
         <div class="flex gap-2">
           <select id="col-type-reading_level" class="w-full rounded border border-slate-300 px-2 py-1" onchange="updateColumnConfig()">
@@ -110,7 +114,7 @@
       <thead class="people-table-head bg-slate-50 border-b border-slate-200">
         <tr id="people-table-head-row">
           <th class="px-3 py-2 text-left font-semibold text-slate-700">Name</th>
-          <th class="px-3 py-2 text-left font-semibold text-slate-700">Reading Level</th>
+          <th data-reading-level-col class="px-3 py-2 text-left font-semibold text-slate-700">Reading Level</th>
           <th class="px-3 py-2 text-left font-semibold text-slate-700">Talkative</th>
           <th class="px-3 py-2 text-left font-semibold text-slate-700">Front Priority</th>
           <th class="px-3 py-2 text-left font-semibold text-slate-700">Avoid (semicolon separated, auto-reciprocal)</th>
@@ -288,6 +292,7 @@ function initializeColumnConfig() {
       weightField.value = config[column].weight ?? weightField.value;
     }
   });
+  syncReadingLevelToggleFromConfig();
 }
 
 function updateColumnConfig() {
@@ -300,13 +305,64 @@ function updateColumnConfig() {
     if (!typeField || !weightField) return;
 
     const weightValue = parseFloat(weightField.value);
+    const readingLevelDisabled = column === 'reading_level' && !isReadingLevelEnabled();
     config[column] = {
-      type: typeField.value,
-      weight: Number.isFinite(weightValue) ? weightValue : 0,
+      type: readingLevelDisabled ? 'ignore' : typeField.value,
+      weight: readingLevelDisabled ? 0 : (Number.isFinite(weightValue) ? weightValue : 0),
     };
   });
 
   writeColumnConfig(config);
+}
+
+function isReadingLevelEnabled() {
+  const toggle = document.getElementById('reading-level-enabled');
+  return !toggle || toggle.checked;
+}
+
+function updateReadingLevelState() {
+  const enabled = isReadingLevelEnabled();
+  document.querySelectorAll('[data-reading-level-col]').forEach(cell => {
+    cell.classList.toggle('hidden', !enabled);
+  });
+  const configBlock = document.getElementById('reading-level-config-block');
+  if (configBlock) {
+    configBlock.classList.toggle('opacity-60', !enabled);
+  }
+}
+
+function syncReadingLevelToggleFromConfig() {
+  const toggle = document.getElementById('reading-level-enabled');
+  const typeField = document.getElementById('col-type-reading_level');
+  const weightField = document.getElementById('col-weight-reading_level');
+  if (!toggle || !typeField || !weightField) return;
+
+  const weight = parseFloat(weightField.value);
+  toggle.checked = typeField.value !== 'ignore' && Number.isFinite(weight) && weight > 0;
+  updateReadingLevelState();
+}
+
+function onReadingLevelToggleChange() {
+  const typeField = document.getElementById('col-type-reading_level');
+  const weightField = document.getElementById('col-weight-reading_level');
+  if (!typeField || !weightField) return;
+
+  if (isReadingLevelEnabled()) {
+    if (typeField.value === 'ignore') {
+      typeField.value = 'mix';
+    }
+    const weight = parseFloat(weightField.value);
+    if (!Number.isFinite(weight) || weight <= 0) {
+      weightField.value = '0.3';
+    }
+  } else {
+    typeField.value = 'ignore';
+    weightField.value = '0';
+  }
+
+  updateColumnConfig();
+  updateReadingLevelState();
+  serializePeopleTable();
 }
 
 function updateTableHeader() {
@@ -315,7 +371,7 @@ function updateTableHeader() {
 
   let headerHtml = `
     <th class="px-3 py-2 text-left font-semibold text-slate-700">Name</th>
-    <th class="px-3 py-2 text-left font-semibold text-slate-700">Reading Level</th>
+    <th data-reading-level-col class="px-3 py-2 text-left font-semibold text-slate-700">Reading Level</th>
     <th class="px-3 py-2 text-left font-semibold text-slate-700">Talkative</th>
     <th class="px-3 py-2 text-left font-semibold text-slate-700">Front Priority</th>
     <th class="px-3 py-2 text-left font-semibold text-slate-700">Avoid (semicolon separated, auto-reciprocal)</th>
@@ -362,7 +418,9 @@ function serializePeopleTable() {
     rowData.push({
       row,
       name,
-      reading_level: row.querySelector('select[data-field="reading_level"]').value,
+      reading_level: isReadingLevelEnabled()
+        ? row.querySelector('select[data-field="reading_level"]').value
+        : 'medium',
       talkative: row.querySelector('select[data-field="talkative"]').value,
       iep_front: row.querySelector('select[data-field="iep_front"]').value,
       avoid: parseAvoidList(row.querySelector('input[data-field="avoid"]').value),
@@ -439,7 +497,7 @@ function createPersonRow(person) {
         onchange="serializePeopleTable()"
       />
     </td>
-    <td class="px-3 py-2">
+    <td data-reading-level-col class="px-3 py-2">
       <select
         data-field="reading_level"
         class="w-full rounded border border-slate-300 px-2 py-1 text-sm"
@@ -519,6 +577,7 @@ function addPersonRow() {
   };
   const row = createPersonRow(newPerson);
   tbody.appendChild(row);
+  updateReadingLevelState();
   
   // Focus the name input
   row.querySelector('input[data-field="name"]').focus();
@@ -602,6 +661,7 @@ function renderPeopleTable(people) {
     });
   }
 
+  updateReadingLevelState();
   serializePeopleTable();
 }
 

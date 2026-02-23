@@ -45,11 +45,11 @@ Date triaged: 2026-02-23
 
 ## P2 - Product Enhancements
 
-- [ ] **PB-010: Add prefilled seat-layout templates**
+- [x] **PB-010: Add prefilled seat-layout templates**
   - Type: New feature
   - Acceptance: Layout tab offers selectable starter layouts (with preview/apply).
 
-- [ ] **PB-011: Remove reading-level column/constraint by default**
+- [x] **PB-011: Remove reading-level column/constraint by default**
   - Type: Default configuration change
   - Acceptance: New sessions start without reading-level enabled, with opt-in toggle.
 
