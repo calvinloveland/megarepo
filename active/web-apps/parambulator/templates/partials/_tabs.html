@@ -67,6 +67,27 @@
 
 <div id="tab-people" class="tabs-content tabs-panel py-6 px-4">
   <div class="space-y-4">
+    <details id="onboarding-tutorial" class="rounded-lg border border-indigo-200 bg-indigo-50 p-3 text-xs text-indigo-900">
+      <summary class="cursor-pointer text-sm font-semibold">Quick tutorial</summary>
+      <ol class="mt-2 space-y-2 list-decimal pl-4">
+        <li>
+          Add students and constraints in <strong>People & Constraints</strong>.
+          <button type="button" class="ml-2 rounded border border-indigo-300 bg-white px-2 py-0.5 text-[11px]" onclick="goToTab('people')">Go</button>
+        </li>
+        <li>
+          Choose or edit a layout in <strong>Seat Layout</strong>.
+          <button type="button" class="ml-2 rounded border border-indigo-300 bg-white px-2 py-0.5 text-[11px]" onclick="goToTab('layout')">Go</button>
+        </li>
+        <li>
+          Generate and review charts in <strong>Seating Chart</strong>.
+          <button type="button" class="ml-2 rounded border border-indigo-300 bg-white px-2 py-0.5 text-[11px]" onclick="goToTab('chart')">Go</button>
+        </li>
+        <li>
+          Review score details and save from <strong>Scoring & Save</strong>.
+          <button type="button" class="ml-2 rounded border border-indigo-300 bg-white px-2 py-0.5 text-[11px]" onclick="goToTab('score')">Go</button>
+        </li>
+      </ol>
+    </details>
     {% include "partials/_people_table.html" %}
   </div>
 </div>
@@ -499,6 +520,26 @@ function switchTab(event, tabName) {
   }
 }
 
+function goToTab(tabName) {
+  const button = document.querySelector(`.tabs-trigger[data-tab="${tabName}"]`);
+  if (!button) return;
+  switchTab({ preventDefault: () => {}, target: button }, tabName);
+}
+
+function initializeOnboardingTutorial() {
+  const tutorial = document.getElementById('onboarding-tutorial');
+  if (!tutorial) return;
+  try {
+    const seen = localStorage.getItem('parambulatorOnboardingSeen');
+    if (!seen) {
+      tutorial.open = true;
+      localStorage.setItem('parambulatorOnboardingSeen', '1');
+    }
+  } catch (error) {
+    tutorial.open = true;
+  }
+}
+
 function initializeTabs() {
   let preferredTab = 'people';
   try {
@@ -520,11 +561,13 @@ function initializeTabs() {
 }
 
 initializeTabs();
+initializeOnboardingTutorial();
 
 if (!window.__parambulatorTabsAfterSwapBound) {
   document.body.addEventListener('htmx:afterSwap', function(event) {
     if (event.target && event.target.id === 'app' && typeof initializeTabs === 'function') {
       initializeTabs();
+      initializeOnboardingTutorial();
     }
   });
   window.__parambulatorTabsAfterSwapBound = true;

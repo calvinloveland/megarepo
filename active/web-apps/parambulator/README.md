@@ -8,8 +8,10 @@ A Flask + HTMX web application for building seating charts with constraint-based
 - **Flexible Constraints**: Mix reading levels, separate talkative students, prioritize front-row seating, enforce explicit avoidance pairs, and require adjacency pairs
 - **Multiple Input Formats**: JSON or table-based people input
 - **Custom Layouts**: Define available seats with visual grid editor or starter templates
+- **Scoring Modes**: Use direct weights or priority ranks for constraint tuning
 - **Save/Load System**: Persistent server-side storage for seating plans
 - **Five UI Designs**: Compare different interface layouts
+- **Onboarding Tutorial**: Built-in quick walkthrough for first-time users
 - **User Feedback**: Built-in feedback system for collecting user suggestions
 
 ## Architecture

@@ -45,11 +45,12 @@ COLUMN_TO_WEIGHT_KEY = {
     "must_sit_by": "must_sit_by",
 }
 DEFAULT_COLUMN_CONFIG = {
-    "reading_level": {"type": "ignore", "weight": 0.0},
-    "talkative": {"type": "avoid", "weight": 0.35},
-    "iep_front": {"type": "directional", "weight": 0.25},
-    "avoid": {"type": "avoid", "weight": 0.2},
-    "must_sit_by": {"type": "group", "weight": 0.2},
+    "__priority_mode": "weight",
+    "reading_level": {"type": "ignore", "weight": 0.0, "priority": 5},
+    "talkative": {"type": "avoid", "weight": 0.35, "priority": 2},
+    "iep_front": {"type": "directional", "weight": 0.25, "priority": 3},
+    "avoid": {"type": "avoid", "weight": 0.2, "priority": 1},
+    "must_sit_by": {"type": "group", "weight": 0.2, "priority": 2},
 }
 FEEDBACK_DIR = PROJECT_ROOT / "data" / "feedback"
 ADDRESSED_DIR = FEEDBACK_DIR / "addressed"
@@ -734,12 +735,22 @@ def parse_scoring_weights(column_config_raw: str) -> Dict[str, float]:
     if not isinstance(parsed, dict):
         return weights
 
+    priority_mode = str(parsed.get("__priority_mode", "weight")).strip().lower()
+
     for column_key, score_key in COLUMN_TO_WEIGHT_KEY.items():
         entry = parsed.get(column_key)
         if not isinstance(entry, dict):
             continue
         if str(entry.get("type", "")).strip().lower() == "ignore":
             weights[score_key] = 0.0
+            continue
+        if priority_mode == "priority":
+            try:
+                priority = int(entry.get("priority", 3))
+            except (TypeError, ValueError):
+                priority = 3
+            priority = min(5, max(1, priority))
+            weights[score_key] = float(6 - priority)
             continue
         try:
             weight = float(entry.get("weight", weights[score_key]))

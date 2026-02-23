@@ -168,6 +168,8 @@ def test_generate_response_includes_layout_student_seat_counts():
     assert 'id="layout-template-select"' in html
     assert 'id="layout-template-preview"' in html
     assert "var LAYOUT_TEMPLATES = {" in html
+    assert 'id="onboarding-tutorial"' in html
+    assert "function initializeOnboardingTutorial()" in html
 
 
 def test_generate_response_includes_conflict_panel_markup():
@@ -202,6 +204,9 @@ def test_generate_response_includes_people_tab_priority_ux_markers():
     assert "Must sit by" in html
     assert 'id="reading-level-enabled"' in html
     assert "onReadingLevelToggleChange()" in html
+    assert 'id="constraint-priority-mode"' in html
+    assert 'id="col-priority-avoid"' in html
+    assert "config.__priority_mode = priorityMode;" in html
 
 
 def test_generate_response_positions_undo_redo_above_feedback_button():
@@ -273,6 +278,22 @@ def test_parse_form_rejects_unknown_must_sit_by_names():
 def test_parse_form_defaults_to_reading_level_disabled_config():
     form_data = parse_form({})
     column_config = json.loads(form_data["column_config"])
+    assert column_config["__priority_mode"] == "weight"
     reading_level_config = column_config["reading_level"]
     assert reading_level_config["type"] == "ignore"
     assert float(reading_level_config["weight"]) == 0.0
+
+
+def test_parse_form_applies_priority_mode_to_scoring_weights():
+    column_config = {
+        "__priority_mode": "priority",
+        "reading_level": {"type": "mix", "weight": 0.5, "priority": 5},
+        "talkative": {"type": "avoid", "weight": 0.1, "priority": 1},
+        "iep_front": {"type": "directional", "weight": 0.1, "priority": 2},
+        "avoid": {"type": "avoid", "weight": 0.1, "priority": 3},
+        "must_sit_by": {"type": "group", "weight": 0.1, "priority": 4},
+    }
+    form_data = parse_form({"column_config": json.dumps(column_config)})
+    scoring_weights = form_data["scoring_weights"]
+    assert scoring_weights["talkative_spacing"] > scoring_weights["reading_mix"]
+    assert scoring_weights["iep_front"] > scoring_weights["must_sit_by"]

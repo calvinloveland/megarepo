@@ -53,10 +53,10 @@ Date triaged: 2026-02-23
   - Type: Default configuration change
   - Acceptance: New sessions start without reading-level enabled, with opt-in toggle.
 
-- [ ] **PB-012: Add constraint priority controls**
+- [x] **PB-012: Add constraint priority controls**
   - Type: Feature refinement
   - Acceptance: Users can set ordering/priority model in addition to or instead of weights.
 
-- [ ] **PB-013: Create onboarding tutorial**
+- [x] **PB-013: Create onboarding tutorial**
   - Type: Documentation/UX feature
   - Acceptance: First-time users can complete a short walkthrough of people, constraints, layout, and generate flow.

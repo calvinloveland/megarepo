@@ -29,6 +29,14 @@
       <input id="reading-level-enabled" type="checkbox" onchange="onReadingLevelToggleChange()" />
       <span class="font-semibold">Enable reading level column and scoring</span>
     </label>
+    <div class="mb-3 flex items-center gap-2 text-xs">
+      <label for="constraint-priority-mode" class="font-semibold text-slate-600">Scoring mode:</label>
+      <select id="constraint-priority-mode" onchange="updateColumnConfig()" class="rounded border border-slate-300 bg-white px-2 py-1">
+        <option value="weight">Use Weights</option>
+        <option value="priority">Use Priorities</option>
+      </select>
+      <span class="text-slate-500">Priority mode derives weights from ranks (1 highest).</span>
+    </div>
     <div class="grid grid-cols-2 gap-3 text-xs">
       <div id="reading-level-config-block" class="space-y-1">
         <label class="font-semibold text-slate-600">Reading Level</label>
@@ -41,6 +49,13 @@
             <option value="ignore">Ignore</option>
           </select>
           <input id="col-weight-reading_level" type="number" step="0.05" min="0" max="1" class="w-20 rounded border border-slate-300 px-2 py-1" onchange="updateColumnConfig()" />
+          <select id="col-priority-reading_level" class="w-20 rounded border border-slate-300 px-2 py-1" onchange="updateColumnConfig()">
+            <option value="1">P1</option>
+            <option value="2">P2</option>
+            <option value="3" selected>P3</option>
+            <option value="4">P4</option>
+            <option value="5">P5</option>
+          </select>
         </div>
       </div>
       <div class="space-y-1">
@@ -54,6 +69,13 @@
             <option value="ignore">Ignore</option>
           </select>
           <input id="col-weight-talkative" type="number" step="0.05" min="0" max="1" class="w-20 rounded border border-slate-300 px-2 py-1" onchange="updateColumnConfig()" />
+          <select id="col-priority-talkative" class="w-20 rounded border border-slate-300 px-2 py-1" onchange="updateColumnConfig()">
+            <option value="1">P1</option>
+            <option value="2">P2</option>
+            <option value="3" selected>P3</option>
+            <option value="4">P4</option>
+            <option value="5">P5</option>
+          </select>
         </div>
       </div>
       <div class="space-y-1">
@@ -67,6 +89,13 @@
             <option value="ignore">Ignore</option>
           </select>
           <input id="col-weight-iep_front" type="number" step="0.05" min="0" max="1" class="w-20 rounded border border-slate-300 px-2 py-1" onchange="updateColumnConfig()" />
+          <select id="col-priority-iep_front" class="w-20 rounded border border-slate-300 px-2 py-1" onchange="updateColumnConfig()">
+            <option value="1">P1</option>
+            <option value="2">P2</option>
+            <option value="3" selected>P3</option>
+            <option value="4">P4</option>
+            <option value="5">P5</option>
+          </select>
         </div>
       </div>
       <div class="space-y-1">
@@ -80,6 +109,13 @@
             <option value="ignore">Ignore</option>
           </select>
           <input id="col-weight-avoid" type="number" step="0.05" min="0" max="1" class="w-20 rounded border border-slate-300 px-2 py-1" onchange="updateColumnConfig()" />
+          <select id="col-priority-avoid" class="w-20 rounded border border-slate-300 px-2 py-1" onchange="updateColumnConfig()">
+            <option value="1">P1</option>
+            <option value="2">P2</option>
+            <option value="3" selected>P3</option>
+            <option value="4">P4</option>
+            <option value="5">P5</option>
+          </select>
         </div>
       </div>
       <div class="space-y-1">
@@ -93,6 +129,13 @@
             <option value="ignore">Ignore</option>
           </select>
           <input id="col-weight-must_sit_by" type="number" step="0.05" min="0" max="1" class="w-20 rounded border border-slate-300 px-2 py-1" onchange="updateColumnConfig()" />
+          <select id="col-priority-must_sit_by" class="w-20 rounded border border-slate-300 px-2 py-1" onchange="updateColumnConfig()">
+            <option value="1">P1</option>
+            <option value="2">P2</option>
+            <option value="3" selected>P3</option>
+            <option value="4">P4</option>
+            <option value="5">P5</option>
+          </select>
         </div>
       </div>
     </div>
@@ -285,34 +328,61 @@ function initializeColumnConfig() {
   columns.forEach(column => {
     const typeField = document.getElementById(`col-type-${column}`);
     const weightField = document.getElementById(`col-weight-${column}`);
+    const priorityField = document.getElementById(`col-priority-${column}`);
     if (typeField && config[column]) {
       typeField.value = config[column].type || typeField.value;
     }
     if (weightField && config[column]) {
       weightField.value = config[column].weight ?? weightField.value;
     }
+    if (priorityField && config[column]) {
+      priorityField.value = String(config[column].priority ?? priorityField.value);
+    }
   });
+  const modeField = document.getElementById('constraint-priority-mode');
+  if (modeField && config.__priority_mode) {
+    modeField.value = String(config.__priority_mode);
+  }
   syncReadingLevelToggleFromConfig();
+  updateScoringModeState();
 }
 
 function updateColumnConfig() {
   const config = readColumnConfig();
   const columns = ['reading_level', 'talkative', 'iep_front', 'avoid', 'must_sit_by'];
+  const modeField = document.getElementById('constraint-priority-mode');
+  const priorityMode = modeField ? modeField.value : 'weight';
+  config.__priority_mode = priorityMode;
 
   columns.forEach(column => {
     const typeField = document.getElementById(`col-type-${column}`);
     const weightField = document.getElementById(`col-weight-${column}`);
-    if (!typeField || !weightField) return;
+    const priorityField = document.getElementById(`col-priority-${column}`);
+    if (!typeField || !weightField || !priorityField) return;
 
     const weightValue = parseFloat(weightField.value);
+    const priorityValue = parseInt(priorityField.value, 10);
     const readingLevelDisabled = column === 'reading_level' && !isReadingLevelEnabled();
     config[column] = {
       type: readingLevelDisabled ? 'ignore' : typeField.value,
       weight: readingLevelDisabled ? 0 : (Number.isFinite(weightValue) ? weightValue : 0),
+      priority: Number.isFinite(priorityValue)
+        ? Math.min(5, Math.max(1, priorityValue))
+        : 3,
     };
   });
 
   writeColumnConfig(config);
+  updateScoringModeState();
+}
+
+function updateScoringModeState() {
+  const modeField = document.getElementById('constraint-priority-mode');
+  const usingPriority = modeField && modeField.value === 'priority';
+  document.querySelectorAll('[id^="col-weight-"]').forEach(input => {
+    input.disabled = usingPriority;
+    input.classList.toggle('bg-slate-100', usingPriority);
+  });
 }
 
 function isReadingLevelEnabled() {
