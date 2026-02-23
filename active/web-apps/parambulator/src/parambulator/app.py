@@ -30,6 +30,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_ROWS = 4
 DEFAULT_COLS = 5
 DEFAULT_DESIGN = "design_1"
+ALLOWED_DESIGNS = ("design_1", "design_2", "design_3", "design_4", "design_5")
 DEFAULT_SCORING_WEIGHTS = {
     "reading_mix": 0.3,
     "talkative_spacing": 0.2,
@@ -204,7 +205,7 @@ def create_app() -> Flask:
             min_val=1,
             max_val=50,
         )
-        design = str(state.get("design", DEFAULT_DESIGN)) or DEFAULT_DESIGN
+        design = sanitize_design(str(state.get("design", DEFAULT_DESIGN)) or DEFAULT_DESIGN)
         column_config = str(state.get("column_config", json.dumps(DEFAULT_COLUMN_CONFIG, indent=2)))
         scoring_weights = parse_scoring_weights(column_config)
         layout_map = str(state.get("layout_map", "")) or layout_to_text(None, rows, cols)
@@ -355,7 +356,7 @@ def create_app() -> Flask:
         people_table = str(payload.get("people_table", ""))
         rows = _parse_int(str(payload.get("rows")), DEFAULT_ROWS, min_val=1, max_val=50)
         cols = _parse_int(str(payload.get("cols")), DEFAULT_COLS, min_val=1, max_val=50)
-        design = str(payload.get("design", DEFAULT_DESIGN))
+        design = sanitize_design(str(payload.get("design", DEFAULT_DESIGN)))
         column_config = str(
             payload.get("column_config", json.dumps(DEFAULT_COLUMN_CONFIG, indent=2))
         )
@@ -591,7 +592,7 @@ def parse_form(form: Dict[str, str]) -> Dict[str, object]:
     rows = _parse_int(form.get("rows"), DEFAULT_ROWS, min_val=1, max_val=50)
     cols = _parse_int(form.get("cols"), DEFAULT_COLS, min_val=1, max_val=50)
     iterations = _parse_int(form.get("iterations"), 200, min_val=1, max_val=500)
-    design = form.get("design", DEFAULT_DESIGN) or DEFAULT_DESIGN
+    design = sanitize_design(form.get("design", DEFAULT_DESIGN) or DEFAULT_DESIGN)
     column_config = form.get("column_config") or json.dumps(DEFAULT_COLUMN_CONFIG, indent=2)
     scoring_weights = parse_scoring_weights(column_config)
 
@@ -721,6 +722,13 @@ def parse_pinned_seats(
         pinned_names.add(student_name)
 
     return normalized, warnings
+
+
+def sanitize_design(design: str) -> str:
+    normalized = str(design or "").strip()
+    if normalized in ALLOWED_DESIGNS:
+        return normalized
+    return DEFAULT_DESIGN
 
 
 def parse_scoring_weights(column_config_raw: str) -> Dict[str, float]:
@@ -858,13 +866,7 @@ def build_context(
         "warnings": warnings,
         "chart_history": chart_history or [],
         "message": message,
-        "available_designs": [
-            "design_1",
-            "design_2",
-            "design_3",
-            "design_4",
-            "design_5",
-        ],
+        "available_designs": list(ALLOWED_DESIGNS),
         "saves": list_saves(PROJECT_ROOT),
     }
 

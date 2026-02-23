@@ -4,7 +4,14 @@ from pathlib import Path
 
 import pytest
 
-from parambulator.app import ADDRESSED_DIR, FEEDBACK_DIR, PROJECT_ROOT, create_app, parse_form
+from parambulator.app import (
+    ADDRESSED_DIR,
+    FEEDBACK_DIR,
+    PROJECT_ROOT,
+    create_app,
+    parse_form,
+    sanitize_design,
+)
 from parambulator.scoring import seat_constraint_statuses
 
 
@@ -282,6 +289,17 @@ def test_parse_form_defaults_to_reading_level_disabled_config():
     reading_level_config = column_config["reading_level"]
     assert reading_level_config["type"] == "ignore"
     assert float(reading_level_config["weight"]) == 0.0
+
+
+def test_sanitize_design_blocks_invalid_template_names():
+    assert sanitize_design("design_3") == "design_3"
+    assert sanitize_design("../../partials/_feedback") == "design_1"
+    assert sanitize_design("design_999") == "design_1"
+
+
+def test_parse_form_invalid_design_falls_back_to_default():
+    form_data = parse_form({"design": "../../../etc/passwd"})
+    assert form_data["design"] == "design_1"
 
 
 def test_parse_form_applies_priority_mode_to_scoring_weights():
