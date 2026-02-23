@@ -179,6 +179,23 @@ def test_generate_response_includes_conflict_panel_markup():
     assert 'id="chart-conflicts-panel"' in html
 
 
+def test_generate_response_includes_people_tab_priority_ux_markers():
+    app = create_app()
+    app.config["TESTING"] = True
+    app.config["WTF_CSRF_ENABLED"] = False
+
+    with app.test_client() as client:
+        response = client.post("/generate", data={})
+
+    assert response.status_code == 200
+    html = response.get_data(as_text=True)
+    assert 'id="people-student-count"' in html
+    assert 'id="add-person-bottom-btn"' in html
+    assert 'id="column-type-help"' in html
+    assert "auto-reciprocal" in html
+    assert "parseAvoidList(value)" in html
+
+
 def test_generate_response_positions_undo_redo_above_feedback_button():
     app = create_app()
     app.config["TESTING"] = True

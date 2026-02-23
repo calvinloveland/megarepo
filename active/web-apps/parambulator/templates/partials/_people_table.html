@@ -1,17 +1,13 @@
 <!-- Interactive People Table -->
 <div class="people-table space-y-4">
-  <div class="flex items-center justify-between">
+  <div class="flex items-center justify-between gap-4">
     <div>
       <label class="block text-sm font-semibold mb-1">People & Constraints</label>
       <p class="text-xs text-slate-500">Add people and configure their constraints</p>
+      <p class="text-xs text-indigo-700 mt-1">
+        Students entered: <span id="people-student-count" class="font-semibold">0</span>
+      </p>
     </div>
-    <button
-      type="button"
-      onclick="addPersonRow()"
-      class="rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-indigo-700"
-    >
-      + Add Person
-    </button>
   </div>
 
   <div class="rounded-lg border border-slate-200 bg-slate-50 p-3">
@@ -87,6 +83,13 @@
       <strong>Tip:</strong> Set type to "Ignore" and weight to 0 to disable a column. 
       These settings persist and affect scoring calculations.
     </p>
+    <div id="column-type-help" class="mt-3 grid gap-1 text-[11px] text-slate-600 sm:grid-cols-2">
+      <p><strong>Mix:</strong> spreads different values apart (example: reading levels).</p>
+      <p><strong>Avoid:</strong> separates matching/linked values (example: talkative or avoid pairs).</p>
+      <p><strong>Group:</strong> keeps similar values together (example: support groups).</p>
+      <p><strong>Directional:</strong> prefers placement by room direction (example: front priority).</p>
+      <p><strong>Ignore:</strong> removes the column from scoring.</p>
+    </div>
   </div>
 
   <div class="people-table-shell overflow-x-auto rounded-lg border border-slate-200 bg-white">
@@ -97,7 +100,7 @@
           <th class="px-3 py-2 text-left font-semibold text-slate-700">Reading Level</th>
           <th class="px-3 py-2 text-left font-semibold text-slate-700">Talkative</th>
           <th class="px-3 py-2 text-left font-semibold text-slate-700">Front Priority</th>
-          <th class="px-3 py-2 text-left font-semibold text-slate-700">Avoid (semicolon separated)</th>
+          <th class="px-3 py-2 text-left font-semibold text-slate-700">Avoid (semicolon separated, auto-reciprocal)</th>
           <th class="px-3 py-2 text-center font-semibold text-slate-700">Actions</th>
         </tr>
       </thead>
@@ -105,6 +108,16 @@
         <!-- Rows will be populated by JavaScript -->
       </tbody>
     </table>
+  </div>
+  <div id="people-actions-bottom" class="flex justify-end">
+    <button
+      id="add-person-bottom-btn"
+      type="button"
+      onclick="addPersonRow()"
+      class="rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-indigo-700"
+    >
+      + Add Person
+    </button>
   </div>
 
   <!-- Hidden textarea to maintain compatibility with backend -->
@@ -140,6 +153,26 @@ function sanitizeValue(value) {
     .replace(/"/g, '&quot;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
+}
+
+function parseAvoidList(value) {
+  const seen = new Set();
+  const items = [];
+  String(value || '')
+    .split(';')
+    .map(part => part.trim())
+    .filter(Boolean)
+    .forEach(name => {
+      const key = name.toLowerCase();
+      if (seen.has(key)) return;
+      seen.add(key);
+      items.push(name);
+    });
+  return items;
+}
+
+function serializeAvoidList(values) {
+  return [...new Set(values)].sort((left, right) => left.localeCompare(right)).join('; ');
 }
 
 function updateAdditionalColumnsInput() {
@@ -270,7 +303,7 @@ function updateTableHeader() {
     <th class="px-3 py-2 text-left font-semibold text-slate-700">Reading Level</th>
     <th class="px-3 py-2 text-left font-semibold text-slate-700">Talkative</th>
     <th class="px-3 py-2 text-left font-semibold text-slate-700">Front Priority</th>
-    <th class="px-3 py-2 text-left font-semibold text-slate-700">Avoid (semicolon separated)</th>
+    <th class="px-3 py-2 text-left font-semibold text-slate-700">Avoid (semicolon separated, auto-reciprocal)</th>
   `;
 
   additionalColumns.forEach(column => {
@@ -281,31 +314,74 @@ function updateTableHeader() {
   headerRow.innerHTML = headerHtml;
 }
 
+function updatePeopleCount() {
+  const countEl = document.getElementById('people-student-count');
+  if (!countEl) return;
+  const rows = document.querySelectorAll('#people-table-body tr');
+  let count = 0;
+  rows.forEach(row => {
+    const name = row.querySelector('input[data-field="name"]')?.value.trim() || '';
+    if (name) count += 1;
+  });
+  countEl.textContent = String(count);
+}
+
 function serializePeopleTable() {
   const tbody = document.getElementById('people-table-body');
   const rows = tbody.querySelectorAll('tr');
   const headers = [...BASE_COLUMNS, ...additionalColumns.map(column => column.key)];
   const lines = [headers.join(', ')];
 
+  const rowData = [];
   rows.forEach(row => {
     const name = row.querySelector('input[data-field="name"]').value.trim();
     if (!name) return; // Skip empty rows
 
-    const reading_level = row.querySelector('select[data-field="reading_level"]').value;
-    const talkative = row.querySelector('select[data-field="talkative"]').value;
-    const iep_front = row.querySelector('select[data-field="iep_front"]').value;
-    const avoid = row.querySelector('input[data-field="avoid"]').value.trim();
-
-    const values = [name, reading_level, talkative, iep_front, avoid];
+    const extra = {};
     additionalColumns.forEach(column => {
       const input = row.querySelector(`input[data-field="${column.key}"]`);
-      values.push(input ? input.value.trim() : '');
+      extra[column.key] = input ? input.value.trim() : '';
+    });
+
+    rowData.push({
+      row,
+      name,
+      reading_level: row.querySelector('select[data-field="reading_level"]').value,
+      talkative: row.querySelector('select[data-field="talkative"]').value,
+      iep_front: row.querySelector('select[data-field="iep_front"]').value,
+      avoid: parseAvoidList(row.querySelector('input[data-field="avoid"]').value),
+      extra,
+    });
+  });
+
+  const byName = new Map(rowData.map(person => [person.name, person]));
+  rowData.forEach(person => {
+    person.avoid.forEach(avoidName => {
+      if (avoidName === person.name) return;
+      const otherPerson = byName.get(avoidName);
+      if (!otherPerson) return;
+      if (!otherPerson.avoid.includes(person.name)) {
+        otherPerson.avoid.push(person.name);
+      }
+    });
+  });
+
+  rowData.forEach(person => {
+    const avoid = serializeAvoidList(person.avoid);
+    const avoidInput = person.row.querySelector('input[data-field="avoid"]');
+    if (avoidInput && avoidInput.value.trim() !== avoid) {
+      avoidInput.value = avoid;
+    }
+    const values = [person.name, person.reading_level, person.talkative, person.iep_front, avoid];
+    additionalColumns.forEach(column => {
+      values.push(person.extra[column.key] || '');
     });
 
     lines.push(values.join(', '));
   });
 
   document.getElementById('people_table_hidden').value = lines.join('\n');
+  updatePeopleCount();
   if (typeof window.updateLayoutCounts === 'function') {
     window.updateLayoutCounts();
   }

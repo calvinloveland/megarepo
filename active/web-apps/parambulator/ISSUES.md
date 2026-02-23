@@ -23,19 +23,19 @@ Date triaged: 2026-02-23
 
 ## P1 - High Value UX
 
-- [ ] **PB-005: Add guidance/examples for each column type**
+- [x] **PB-005: Add guidance/examples for each column type**
   - Type: UX clarity
   - Acceptance: Each type (mix/avoid/group/directional/ignore) has inline explanation + example.
 
-- [ ] **PB-006: Move "Add person" action to bottom of people list**
+- [x] **PB-006: Move "Add person" action to bottom of people list**
   - Type: UX workflow improvement
   - Acceptance: Primary add action is available at the bottom of the table/list.
 
-- [ ] **PB-007: Show current student count while editing people**
+- [x] **PB-007: Show current student count while editing people**
   - Type: UX visibility
   - Acceptance: People editor shows live student count near the table/actions.
 
-- [ ] **PB-008: Auto-create reciprocal avoid pair**
+- [x] **PB-008: Auto-create reciprocal avoid pair**
   - Type: Workflow enhancement
   - Acceptance: If A avoids B, user can one-click (or automatic) apply B avoids A.
 
