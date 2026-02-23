@@ -118,7 +118,7 @@ def parse_people_table(raw_text: str) -> List[Person]:
     if not raw_text.strip():
         return []
     delimiter = "\t" if "\t" in raw_text else ","
-    reader = csv.DictReader(io.StringIO(raw_text), delimiter=delimiter)
+    reader = csv.DictReader(io.StringIO(raw_text), delimiter=delimiter, skipinitialspace=True)
     if not reader.fieldnames:
         raise ValueError("People table must include headers.")
     required = {"name", "reading_level"}
