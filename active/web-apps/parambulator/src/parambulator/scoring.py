@@ -14,6 +14,7 @@ class ScoreBreakdown:
     talkative_spacing: float
     iep_front: float
     avoid_pairs: float
+    must_sit_by: float
 
 
 @dataclass(frozen=True)
@@ -108,17 +109,29 @@ def score_chart(chart: Chart, people: Iterable[Person], rows: int, cols: int) ->
             avoid_violations += 1
     avoid_score = 1.0 if not avoid_pairs else 1.0 - (avoid_violations / len(avoid_pairs))
 
+    must_sit_by_pairs = _must_sit_by_pairs(people_by_name)
+    adjacent_pair_set = set(adjacency_pairs)
+    must_sit_by_matches = 0
+    for left, right in must_sit_by_pairs:
+        if (left, right) in adjacent_pair_set or (right, left) in adjacent_pair_set:
+            must_sit_by_matches += 1
+    must_sit_by_score = (
+        1.0 if not must_sit_by_pairs else must_sit_by_matches / len(must_sit_by_pairs)
+    )
+
     weights = {
-        "reading_mix": 0.35,
-        "talkative_spacing": 0.25,
-        "iep_front": 0.25,
+        "reading_mix": 0.3,
+        "talkative_spacing": 0.2,
+        "iep_front": 0.2,
         "avoid_pairs": 0.15,
+        "must_sit_by": 0.15,
     }
     overall = (
         reading_mix * weights["reading_mix"]
         + talkative_spacing * weights["talkative_spacing"]
         + iep_front * weights["iep_front"]
         + avoid_score * weights["avoid_pairs"]
+        + must_sit_by_score * weights["must_sit_by"]
     )
 
     return ScoreBreakdown(
@@ -127,6 +140,7 @@ def score_chart(chart: Chart, people: Iterable[Person], rows: int, cols: int) ->
         talkative_spacing=round(talkative_spacing, 4),
         iep_front=round(iep_front, 4),
         avoid_pairs=round(avoid_score, 4),
+        must_sit_by=round(must_sit_by_score, 4),
     )
 
 
@@ -167,6 +181,10 @@ def seat_constraint_statuses(
             if person and person.avoid:
                 avoid_met = not any(neighbor in person.avoid for neighbor in neighbors)
 
+            must_sit_by_met = True
+            if person and person.must_sit_by:
+                must_sit_by_met = any(neighbor in person.must_sit_by for neighbor in neighbors)
+
             iep_met = True
             if person and person.iep_front:
                 iep_met = row_index <= front_threshold
@@ -188,6 +206,10 @@ def seat_constraint_statuses(
                     {
                         "label": "Avoid pairs",
                         "status": "met" if avoid_met else "not met",
+                    },
+                    {
+                        "label": "Must sit by",
+                        "status": "met" if must_sit_by_met else "not met",
                     },
                 ]
             )
@@ -315,6 +337,15 @@ def _avoid_pairs(people: Dict[str, Person]) -> List[Tuple[str, str]]:
         for avoid_name in person.avoid:
             if avoid_name in people:
                 pairs.append((name, avoid_name))
+    return pairs
+
+
+def _must_sit_by_pairs(people: Dict[str, Person]) -> List[Tuple[str, str]]:
+    pairs: List[Tuple[str, str]] = []
+    for name, person in people.items():
+        for must_sit_by_name in person.must_sit_by:
+            if must_sit_by_name in people:
+                pairs.append((name, must_sit_by_name))
     return pairs
 
 

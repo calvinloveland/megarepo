@@ -32,7 +32,7 @@ def test_score_chart_uses_chart_dimensions():
 
 def test_seat_constraint_statuses_reports_met_and_not_met():
     people = [
-        Person("A", "low", talkative=True, iep_front=True, avoid=["B"]),
+        Person("A", "low", talkative=True, iep_front=True, avoid=["B"], must_sit_by=["B"]),
         Person("B", "low", talkative=True),
     ]
     chart = [["A", "B"]]
@@ -45,6 +45,7 @@ def test_seat_constraint_statuses_reports_met_and_not_met():
     assert status_map["Reading mix"] == "not met"
     assert status_map["Talkative spacing"] == "not met"
     assert status_map["Avoid pairs"] == "not met"
+    assert status_map["Must sit by"] == "met"
     assert status_map["Front priority"] == "met"
 
 
@@ -67,3 +68,12 @@ def test_generate_best_chart_respects_pinned_seats():
     )
 
     assert result.chart[0][1] == "C"
+
+
+def test_score_chart_supports_must_sit_by_metric():
+    people = [Person("A", "low", must_sit_by=["B"]), Person("B", "high")]
+    chart = [["A", "B"]]
+
+    breakdown = score_chart(chart, people, rows=1, cols=2)
+
+    assert breakdown.must_sit_by == 1.0

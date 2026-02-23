@@ -5,7 +5,7 @@ A Flask + HTMX web application for building seating charts with constraint-based
 ## Features
 
 - **Smart Seating Generation**: Iterative algorithm scores arrangements based on configurable constraints
-- **Flexible Constraints**: Mix reading levels, separate talkative students, prioritize IEP front-row seating, enforce explicit avoidance pairs
+- **Flexible Constraints**: Mix reading levels, separate talkative students, prioritize front-row seating, enforce explicit avoidance pairs, and require adjacency pairs
 - **Multiple Input Formats**: JSON or table-based people input
 - **Custom Layouts**: Define available seats with visual grid editor
 - **Save/Load System**: Persistent server-side storage for seating plans
@@ -175,9 +175,10 @@ FLASK_DEBUG=true pytest -v
 ### Constraint Types
 
 - **Reading Level Mix** (default 35%): Distributes high/medium/low readers evenly
-- **Talkative Separation** (default 25%): Spaces out chatty students
-- **IEP Front Row** (default 25%): Prioritizes special needs students for front seats
+- **Talkative Separation** (default 20%): Spaces out chatty students
+- **Front Priority** (default 20%): Prioritizes designated students for front seats
 - **Explicit Avoidance** (default 15%): Prevents specific student pairings
+- **Must Sit By** (default 15%): Rewards required adjacency pairings
 
 ## Data Storage
 

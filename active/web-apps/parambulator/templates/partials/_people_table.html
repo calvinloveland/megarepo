@@ -78,6 +78,19 @@
           <input id="col-weight-avoid" type="number" step="0.05" min="0" max="1" class="w-20 rounded border border-slate-300 px-2 py-1" onchange="updateColumnConfig()" />
         </div>
       </div>
+      <div class="space-y-1">
+        <label class="font-semibold text-slate-600">Must Sit By</label>
+        <div class="flex gap-2">
+          <select id="col-type-must_sit_by" class="w-full rounded border border-slate-300 px-2 py-1" onchange="updateColumnConfig()">
+            <option value="group">Group</option>
+            <option value="avoid">Avoid</option>
+            <option value="mix">Mix</option>
+            <option value="directional">Directional</option>
+            <option value="ignore">Ignore</option>
+          </select>
+          <input id="col-weight-must_sit_by" type="number" step="0.05" min="0" max="1" class="w-20 rounded border border-slate-300 px-2 py-1" onchange="updateColumnConfig()" />
+        </div>
+      </div>
     </div>
     <p class="mt-2 text-[11px] text-slate-500">
       <strong>Tip:</strong> Set type to "Ignore" and weight to 0 to disable a column. 
@@ -101,6 +114,7 @@
           <th class="px-3 py-2 text-left font-semibold text-slate-700">Talkative</th>
           <th class="px-3 py-2 text-left font-semibold text-slate-700">Front Priority</th>
           <th class="px-3 py-2 text-left font-semibold text-slate-700">Avoid (semicolon separated, auto-reciprocal)</th>
+          <th class="px-3 py-2 text-left font-semibold text-slate-700">Must Sit By (semicolon separated)</th>
           <th class="px-3 py-2 text-center font-semibold text-slate-700">Actions</th>
         </tr>
       </thead>
@@ -131,7 +145,7 @@
 </div>
 
 <script>
-var BASE_COLUMNS = ['name', 'reading_level', 'talkative', 'iep_front', 'avoid'];
+var BASE_COLUMNS = ['name', 'reading_level', 'talkative', 'iep_front', 'avoid', 'must_sit_by'];
 var additionalColumns = [];
 
 function normalizeColumnKey(value) {
@@ -230,6 +244,7 @@ function parsePeopleTable() {
       talkative: row.talkative || 'no',
       iep_front: row.iep_front || 'no',
       avoid: row.avoid || '',
+      must_sit_by: row.must_sit_by || '',
       extra: {},
     };
 
@@ -262,7 +277,7 @@ function initializeColumnConfig() {
     return;
   }
 
-  const columns = ['reading_level', 'talkative', 'iep_front', 'avoid'];
+  const columns = ['reading_level', 'talkative', 'iep_front', 'avoid', 'must_sit_by'];
   columns.forEach(column => {
     const typeField = document.getElementById(`col-type-${column}`);
     const weightField = document.getElementById(`col-weight-${column}`);
@@ -277,7 +292,7 @@ function initializeColumnConfig() {
 
 function updateColumnConfig() {
   const config = readColumnConfig();
-  const columns = ['reading_level', 'talkative', 'iep_front', 'avoid'];
+  const columns = ['reading_level', 'talkative', 'iep_front', 'avoid', 'must_sit_by'];
 
   columns.forEach(column => {
     const typeField = document.getElementById(`col-type-${column}`);
@@ -304,6 +319,7 @@ function updateTableHeader() {
     <th class="px-3 py-2 text-left font-semibold text-slate-700">Talkative</th>
     <th class="px-3 py-2 text-left font-semibold text-slate-700">Front Priority</th>
     <th class="px-3 py-2 text-left font-semibold text-slate-700">Avoid (semicolon separated, auto-reciprocal)</th>
+    <th class="px-3 py-2 text-left font-semibold text-slate-700">Must Sit By (semicolon separated)</th>
   `;
 
   additionalColumns.forEach(column => {
@@ -350,6 +366,7 @@ function serializePeopleTable() {
       talkative: row.querySelector('select[data-field="talkative"]').value,
       iep_front: row.querySelector('select[data-field="iep_front"]').value,
       avoid: parseAvoidList(row.querySelector('input[data-field="avoid"]').value),
+      must_sit_by: parseAvoidList(row.querySelector('input[data-field="must_sit_by"]').value),
       extra,
     });
   });
@@ -372,7 +389,12 @@ function serializePeopleTable() {
     if (avoidInput && avoidInput.value.trim() !== avoid) {
       avoidInput.value = avoid;
     }
-    const values = [person.name, person.reading_level, person.talkative, person.iep_front, avoid];
+    const mustSitBy = serializeAvoidList(person.must_sit_by);
+    const mustSitByInput = person.row.querySelector('input[data-field="must_sit_by"]');
+    if (mustSitByInput && mustSitByInput.value.trim() !== mustSitBy) {
+      mustSitByInput.value = mustSitBy;
+    }
+    const values = [person.name, person.reading_level, person.talkative, person.iep_front, avoid, mustSitBy];
     additionalColumns.forEach(column => {
       values.push(person.extra[column.key] || '');
     });
@@ -458,6 +480,16 @@ function createPersonRow(person) {
         onchange="serializePeopleTable()"
       />
     </td>
+    <td class="px-3 py-2">
+      <input
+        type="text"
+        data-field="must_sit_by"
+        value="${sanitizeValue(person.must_sit_by || '')}"
+        placeholder="Names separated by ;"
+        class="w-full rounded border border-slate-300 px-2 py-1 text-sm"
+        onchange="serializePeopleTable()"
+      />
+    </td>
     ${extraCells}
     <td class="px-3 py-2 text-center">
       <button
@@ -482,6 +514,7 @@ function addPersonRow() {
     talkative: 'no',
     iep_front: 'no',
     avoid: '',
+    must_sit_by: '',
     extra: Object.fromEntries(additionalColumns.map(column => [column.key, ''])),
   };
   const row = createPersonRow(newPerson);
@@ -510,6 +543,7 @@ function collectPeopleFromTable() {
       talkative: row.querySelector('select[data-field="talkative"]')?.value || 'no',
       iep_front: row.querySelector('select[data-field="iep_front"]')?.value || 'no',
       avoid: row.querySelector('input[data-field="avoid"]')?.value.trim() || '',
+      must_sit_by: row.querySelector('input[data-field="must_sit_by"]')?.value.trim() || '',
       extra: {},
     };
     additionalColumns.forEach(column => {

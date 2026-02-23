@@ -39,7 +39,7 @@ Date triaged: 2026-02-23
   - Type: Workflow enhancement
   - Acceptance: If A avoids B, user can one-click (or automatic) apply B avoids A.
 
-- [ ] **PB-009: Add "must sit by" constraint**
+- [x] **PB-009: Add "must sit by" constraint**
   - Type: New feature
   - Acceptance: Users can define required adjacency pairs and see them scored/violations reported.
 

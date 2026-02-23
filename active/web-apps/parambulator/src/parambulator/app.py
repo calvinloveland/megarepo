@@ -35,6 +35,7 @@ DEFAULT_COLUMN_CONFIG = {
     "talkative": {"type": "avoid", "weight": 0.25},
     "iep_front": {"type": "directional", "weight": 0.25},
     "avoid": {"type": "avoid", "weight": 0.15},
+    "must_sit_by": {"type": "group", "weight": 0.15},
 }
 FEEDBACK_DIR = PROJECT_ROOT / "data" / "feedback"
 ADDRESSED_DIR = FEEDBACK_DIR / "addressed"
@@ -550,7 +551,7 @@ def parse_form(form: Dict[str, str]) -> Dict[str, object]:
         else:
             people = parse_people_json(people_json)
         people_table = people_to_table(people)
-    validate_avoid_names(people)
+    validate_relationship_names(people)
 
     rows = _parse_int(form.get("rows"), DEFAULT_ROWS, min_val=1, max_val=50)
     cols = _parse_int(form.get("cols"), DEFAULT_COLS, min_val=1, max_val=50)
@@ -601,16 +602,27 @@ def parse_form(form: Dict[str, str]) -> Dict[str, object]:
     }
 
 
-def validate_avoid_names(people: List[Person]) -> None:
+def validate_relationship_names(people: List[Person]) -> None:
     roster = {person.name for person in people}
-    invalid_entries: List[str] = []
+    invalid_avoid_entries: List[str] = []
     for person in people:
         unknown_names = sorted({name for name in person.avoid if name not in roster})
         if not unknown_names:
             continue
-        invalid_entries.append(f"{person.name}: {', '.join(unknown_names)}")
-    if invalid_entries:
-        raise ValueError("Unknown avoid-list names: " + "; ".join(invalid_entries))
+        invalid_avoid_entries.append(f"{person.name}: {', '.join(unknown_names)}")
+    if invalid_avoid_entries:
+        raise ValueError("Unknown avoid-list names: " + "; ".join(invalid_avoid_entries))
+
+    invalid_must_sit_by_entries: List[str] = []
+    for person in people:
+        unknown_names = sorted({name for name in person.must_sit_by if name not in roster})
+        if not unknown_names:
+            continue
+        invalid_must_sit_by_entries.append(f"{person.name}: {', '.join(unknown_names)}")
+    if invalid_must_sit_by_entries:
+        raise ValueError(
+            "Unknown must-sit-by names: " + "; ".join(invalid_must_sit_by_entries)
+        )
 
 
 def parse_pinned_seats(

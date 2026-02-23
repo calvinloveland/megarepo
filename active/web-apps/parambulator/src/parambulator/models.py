@@ -16,6 +16,7 @@ class Person:
     talkative: bool = False
     iep_front: bool = False
     avoid: List[str] = field(default_factory=list)
+    must_sit_by: List[str] = field(default_factory=list)
 
 
 Chart = List[List[Optional[str]]]
@@ -53,7 +54,7 @@ def people_to_json(people: Iterable[Person]) -> str:
 def people_to_table(people: Iterable[Person]) -> str:
     output = io.StringIO()
     writer = csv.writer(output)
-    writer.writerow(["name", "reading_level", "talkative", "iep_front", "avoid"])
+    writer.writerow(["name", "reading_level", "talkative", "iep_front", "avoid", "must_sit_by"])
     for person in people:
         writer.writerow(
             [
@@ -62,6 +63,7 @@ def people_to_table(people: Iterable[Person]) -> str:
                 "yes" if person.talkative else "no",
                 "yes" if person.iep_front else "no",
                 ";".join(person.avoid),
+                ";".join(person.must_sit_by),
             ]
         )
     return output.getvalue().strip()
@@ -74,6 +76,7 @@ def person_to_dict(person: Person) -> Dict[str, object]:
         "talkative": person.talkative,
         "iep_front": person.iep_front,
         "avoid": list(person.avoid),
+        "must_sit_by": list(person.must_sit_by),
     }
 
 
@@ -102,6 +105,10 @@ def parse_people_json(raw_json: str) -> List[Person]:
         if not isinstance(avoid, list):
             raise ValueError(f"Avoid list for {name} must be a list.")
         avoid_list = [str(item) for item in avoid if str(item).strip()]
+        must_sit_by = entry.get("must_sit_by", [])
+        if not isinstance(must_sit_by, list):
+            raise ValueError(f"Must-sit-by list for {name} must be a list.")
+        must_sit_by_list = [str(item) for item in must_sit_by if str(item).strip()]
         people.append(
             Person(
                 name=name,
@@ -109,6 +116,7 @@ def parse_people_json(raw_json: str) -> List[Person]:
                 talkative=talkative,
                 iep_front=iep_front,
                 avoid=avoid_list,
+                must_sit_by=must_sit_by_list,
             )
         )
     return people
@@ -138,6 +146,8 @@ def parse_people_table(raw_text: str) -> List[Person]:
         iep_front = _parse_bool(row.get("iep_front"))
         avoid_raw = str(row.get("avoid", "")).strip()
         avoid_list = [item.strip() for item in avoid_raw.split(";") if item.strip()]
+        must_sit_by_raw = str(row.get("must_sit_by", "")).strip()
+        must_sit_by_list = [item.strip() for item in must_sit_by_raw.split(";") if item.strip()]
         people.append(
             Person(
                 name=name,
@@ -145,6 +155,7 @@ def parse_people_table(raw_text: str) -> List[Person]:
                 talkative=talkative,
                 iep_front=iep_front,
                 avoid=avoid_list,
+                must_sit_by=must_sit_by_list,
             )
         )
     return people

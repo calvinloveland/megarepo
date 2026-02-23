@@ -147,7 +147,7 @@ def test_generate_response_scripts_are_htmx_reswap_safe():
 
     assert response.status_code == 200
     html = response.get_data(as_text=True)
-    assert "var BASE_COLUMNS = ['name', 'reading_level', 'talkative', 'iep_front', 'avoid'];" in html
+    assert "var BASE_COLUMNS = ['name', 'reading_level', 'talkative', 'iep_front', 'avoid', 'must_sit_by'];" in html
     assert "var layoutGrid = [];" in html
     assert 'id="pinned_seats_json"' in html
 
@@ -194,6 +194,8 @@ def test_generate_response_includes_people_tab_priority_ux_markers():
     assert 'id="column-type-help"' in html
     assert "auto-reciprocal" in html
     assert "parseAvoidList(value)" in html
+    assert 'id="col-type-must_sit_by"' in html
+    assert "Must sit by" in html
 
 
 def test_generate_response_positions_undo_redo_above_feedback_button():
@@ -241,6 +243,20 @@ def test_parse_form_rejects_unknown_avoid_names():
                 "people_table": (
                     "name, reading_level, talkative, iep_front, avoid\n"
                     "Avery, high, no, no, Missing Student"
+                ),
+                "rows": "1",
+                "cols": "1",
+            }
+        )
+
+
+def test_parse_form_rejects_unknown_must_sit_by_names():
+    with pytest.raises(ValueError, match="Unknown must-sit-by names"):
+        parse_form(
+            {
+                "people_table": (
+                    "name, reading_level, talkative, iep_front, avoid, must_sit_by\n"
+                    "Avery, high, no, no, , Missing Student"
                 ),
                 "rows": "1",
                 "cols": "1",
