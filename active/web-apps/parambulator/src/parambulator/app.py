@@ -550,6 +550,7 @@ def parse_form(form: Dict[str, str]) -> Dict[str, object]:
         else:
             people = parse_people_json(people_json)
         people_table = people_to_table(people)
+    validate_avoid_names(people)
 
     rows = _parse_int(form.get("rows"), DEFAULT_ROWS, min_val=1, max_val=50)
     cols = _parse_int(form.get("cols"), DEFAULT_COLS, min_val=1, max_val=50)
@@ -598,6 +599,18 @@ def parse_form(form: Dict[str, str]) -> Dict[str, object]:
         "chart": chart,
         "warnings": warnings,
     }
+
+
+def validate_avoid_names(people: List[Person]) -> None:
+    roster = {person.name for person in people}
+    invalid_entries: List[str] = []
+    for person in people:
+        unknown_names = sorted({name for name in person.avoid if name not in roster})
+        if not unknown_names:
+            continue
+        invalid_entries.append(f"{person.name}: {', '.join(unknown_names)}")
+    if invalid_entries:
+        raise ValueError("Unknown avoid-list names: " + "; ".join(invalid_entries))
 
 
 def parse_pinned_seats(
