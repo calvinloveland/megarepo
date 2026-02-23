@@ -508,4 +508,15 @@ if (document.readyState === 'loading') {
 } else {
   initializePeopleTable();
 }
+
+if (!window.__parambulatorPeopleTableBeforeRequestBound) {
+  document.body.addEventListener('htmx:beforeRequest', function(event) {
+    const form = document.getElementById('controls-form');
+    if (!form) return;
+    if (event.detail && event.detail.elt && !form.contains(event.detail.elt)) return;
+    serializePeopleTable();
+    updateColumnConfig();
+  });
+  window.__parambulatorPeopleTableBeforeRequestBound = true;
+}
 </script>
