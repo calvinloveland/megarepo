@@ -77,3 +77,46 @@ def test_score_chart_supports_must_sit_by_metric():
     breakdown = score_chart(chart, people, rows=1, cols=2)
 
     assert breakdown.must_sit_by == 1.0
+
+
+def test_score_chart_respects_custom_weights():
+    people = [Person("A", "low", avoid=["B"]), Person("B", "low")]
+    chart = [["A", "B"]]
+
+    breakdown = score_chart(
+        chart,
+        people,
+        rows=1,
+        cols=2,
+        weights={
+            "reading_mix": 0.0,
+            "talkative_spacing": 0.0,
+            "iep_front": 0.0,
+            "avoid_pairs": 1.0,
+            "must_sit_by": 0.0,
+        },
+    )
+
+    assert breakdown.avoid_pairs == 0.0
+    assert breakdown.overall == 0.0
+
+
+def test_score_chart_falls_back_when_all_weights_are_zero():
+    people = [Person("A", "low"), Person("B", "high")]
+    chart = [["A", "B"]]
+
+    breakdown = score_chart(
+        chart,
+        people,
+        rows=1,
+        cols=2,
+        weights={
+            "reading_mix": 0.0,
+            "talkative_spacing": 0.0,
+            "iep_front": 0.0,
+            "avoid_pairs": 0.0,
+            "must_sit_by": 0.0,
+        },
+    )
+
+    assert 0.0 <= breakdown.overall <= 1.0
