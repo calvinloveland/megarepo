@@ -5,19 +5,19 @@ Date triaged: 2026-02-23
 
 ## P0 - Fix Next
 
-- [ ] **PB-001: Undo/redo buttons are obscured by feedback button**
+- [x] **PB-001: Undo/redo buttons are obscured by feedback button**
   - Type: UX bug
   - Acceptance: Undo/redo controls remain visible/clickable on all common viewport sizes.
 
-- [ ] **PB-002: "Avoid" values reset after chart generation**
+- [x] **PB-002: "Avoid" values reset after chart generation**
   - Type: State persistence bug
   - Acceptance: Generating a chart preserves all existing avoid entries and related form state.
 
-- [ ] **PB-003: Reading-mix status appears incorrectly unmet for everyone**
+- [x] **PB-003: Reading-mix status appears incorrectly unmet for everyone**
   - Type: Scoring/display bug
   - Acceptance: Reading-mix indicators match actual scored output and no false global-failure state appears.
 
-- [ ] **PB-004: Validate avoid-list names against roster**
+- [x] **PB-004: Validate avoid-list names against roster**
   - Type: Data validation bug
   - Acceptance: Unknown names are rejected with clear error messaging before generation/save.
 

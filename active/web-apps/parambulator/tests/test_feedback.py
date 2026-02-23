@@ -2,7 +2,10 @@ import json
 from base64 import b64encode
 from pathlib import Path
 
-from parambulator.app import ADDRESSED_DIR, FEEDBACK_DIR, PROJECT_ROOT, create_app
+import pytest
+
+from parambulator.app import ADDRESSED_DIR, FEEDBACK_DIR, PROJECT_ROOT, create_app, parse_form
+from parambulator.scoring import seat_constraint_statuses
 
 
 def _auth_headers(username: str, password: str) -> dict:
@@ -174,3 +177,55 @@ def test_generate_response_includes_conflict_panel_markup():
     assert response.status_code == 200
     html = response.get_data(as_text=True)
     assert 'id="chart-conflicts-panel"' in html
+
+
+def test_generate_response_positions_undo_redo_above_feedback_button():
+    app = create_app()
+    app.config["TESTING"] = True
+    app.config["WTF_CSRF_ENABLED"] = False
+
+    with app.test_client() as client:
+        response = client.post("/generate", data={})
+
+    assert response.status_code == 200
+    html = response.get_data(as_text=True)
+    assert "fixed bottom-24 left-6 z-40 flex gap-2 md:bottom-6 md:left-24" in html
+
+
+def test_parse_form_preserves_reading_and_avoid_values_with_spaced_csv():
+    form_data = parse_form(
+        {
+            "people_table": (
+                "name, reading_level, talkative, iep_front, avoid\n"
+                "Avery, high, no, no, Blake\n"
+                "Blake, low, no, no, Avery"
+            ),
+            "rows": "1",
+            "cols": "2",
+            "iterations": "10",
+        }
+    )
+
+    people = form_data["people"]
+    assert people[0].reading_level == "high"
+    assert people[0].avoid == ["Blake"]
+    assert people[1].reading_level == "low"
+    assert people[1].avoid == ["Avery"]
+
+    statuses = seat_constraint_statuses(form_data["chart"], people, rows=1, cols=2)
+    assert statuses[0][0][0]["label"] == "Reading mix"
+    assert statuses[0][0][0]["status"] == "met"
+
+
+def test_parse_form_rejects_unknown_avoid_names():
+    with pytest.raises(ValueError, match="Unknown avoid-list names"):
+        parse_form(
+            {
+                "people_table": (
+                    "name, reading_level, talkative, iep_front, avoid\n"
+                    "Avery, high, no, no, Missing Student"
+                ),
+                "rows": "1",
+                "cols": "1",
+            }
+        )
