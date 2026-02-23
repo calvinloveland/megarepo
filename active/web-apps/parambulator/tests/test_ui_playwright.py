@@ -62,6 +62,9 @@ def test_interactive_people_table(page):
         # Fill in the new row
         new_row = rows.nth(initial_count)
         new_row.locator('input[data-field="name"]').fill("Test Person")
+        reading_level_toggle = page.locator("#reading-level-enabled")
+        if reading_level_toggle.count() and not reading_level_toggle.is_checked():
+            reading_level_toggle.check()
         new_row.locator('select[data-field="reading_level"]').select_option("high")
         new_row.locator('select[data-field="talkative"]').select_option("yes")
         

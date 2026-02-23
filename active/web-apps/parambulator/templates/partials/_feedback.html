@@ -124,9 +124,6 @@ function startElementSelection() {
   document.getElementById('selector-btn-text').textContent = 'Selecting... Click element (ESC to cancel)';
   document.getElementById('element-selector-btn').classList.add('bg-blue-50', 'border-blue-400');
   document.body.style.cursor = 'crosshair';
-  const panel = document.getElementById('feedback-panel');
-  panel.style.pointerEvents = 'none';
-  panel.style.opacity = '0.9';
   
   // Add event listeners
   document.addEventListener('mouseover', highlightElement, true);
@@ -144,9 +141,6 @@ function stopElementSelection() {
   }
   document.getElementById('element-selector-btn').classList.remove('bg-blue-50', 'border-blue-400');
   document.body.style.cursor = 'default';
-  const panel = document.getElementById('feedback-panel');
-  panel.style.pointerEvents = 'auto';
-  panel.style.opacity = '1';
   
   // Remove event listeners
   document.removeEventListener('mouseover', highlightElement, true);
@@ -214,9 +208,6 @@ function selectElement(event) {
   selectingElement = false;
   document.getElementById('element-selector-btn').classList.remove('bg-blue-50', 'border-blue-400');
   document.body.style.cursor = 'default';
-  const panel = document.getElementById('feedback-panel');
-  panel.style.pointerEvents = 'auto';
-  panel.style.opacity = '1';
   
   // Remove event listeners
   document.removeEventListener('mouseover', highlightElement, true);
