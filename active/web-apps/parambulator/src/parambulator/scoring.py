@@ -49,14 +49,18 @@ def generate_best_chart(
     valid_names = set(names)
     pinned = _normalize_pinned_seats(pinned_seats, layout, rows, cols, valid_names, warnings)
     available_names = [name for name in names if name not in set(pinned.values())]
+    unpinned_seat_count = max(0, seat_count - len(pinned))
+    unpinned_assignments: List[Optional[str]] = list(available_names[:unpinned_seat_count])
+    if len(unpinned_assignments) < unpinned_seat_count:
+        unpinned_assignments.extend([None] * (unpinned_seat_count - len(unpinned_assignments)))
 
     rng = random.Random(seed)
-    best_chart = _build_chart(available_names, layout, pinned)
+    best_chart = _build_chart(unpinned_assignments, layout, pinned)
     best_score = score_chart(best_chart, people, rows, cols, weights=weights)
     attempt_charts: List[Chart] = [best_chart]
 
     for _ in range(max(1, iterations)):
-        candidate_names = list(available_names)
+        candidate_names = list(unpinned_assignments)
         rng.shuffle(candidate_names)
         candidate = _build_chart(candidate_names, layout, pinned)
         attempt_charts.append(candidate)
@@ -240,7 +244,9 @@ def seat_constraint_statuses(
 
 
 def _build_chart(
-    names: List[str], layout: List[List[bool]], pinned: Optional[Dict[Tuple[int, int], str]] = None
+    names: List[Optional[str]],
+    layout: List[List[bool]],
+    pinned: Optional[Dict[Tuple[int, int], str]] = None,
 ) -> Chart:
     pinned = pinned or {}
     chart: Chart = []

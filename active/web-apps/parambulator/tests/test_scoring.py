@@ -120,3 +120,24 @@ def test_score_chart_falls_back_when_all_weights_are_zero():
     )
 
     assert 0.0 <= breakdown.overall <= 1.0
+
+
+def test_generate_best_chart_shuffles_empty_seat_positions():
+    people = [Person("A", "low"), Person("B", "high")]
+    result = generate_best_chart(
+        people,
+        rows=1,
+        cols=3,
+        iterations=50,
+        seed=7,
+        layout=[[True, True, True]],
+    )
+
+    empty_positions = set()
+    for chart in result.attempt_charts:
+        for col_index, value in enumerate(chart[0]):
+            if value is None:
+                empty_positions.add(col_index)
+                break
+
+    assert len(empty_positions) > 1
