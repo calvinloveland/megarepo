@@ -22,19 +22,12 @@ Commit messages should be:
 
 ## Project Context
 
-This is a monorepo containing multiple projects organized as:
-
-- `active/dev-tools/` - Development tools and CI utilities
-- `active/games/` - Game projects and AI experiments
-- `active/bots/` - Discord and automation bots
-- `active/personal/` - Personal configurations (NixOS)
-- `archive/` - Legacy and archived projects (generally don't modify)
+This is a monorepo containing multiple projects.
 
 ## Language & Framework Preferences
 
 ### Python (Most Projects)
 
-- Python 3.8+ for compatibility
 - Use `pyproject.toml` for project configuration
 - pytest for testing
 - Type hints where they add clarity
@@ -53,13 +46,12 @@ This is a monorepo containing multiple projects organized as:
 ## Code Style
 
 - Keep functions small and focused
-- Prefer composition over inheritance
 - Configuration over hardcoded values
 - Write self-documenting code; comments explain _why_
 
 ## Testing
 
-- Write tests for new functionality
+- Write tests always
 - Run existing tests before committing: `pytest` or project-specific test command
 - Don't break existing tests
 
@@ -96,21 +88,7 @@ Use TDD especially for bug fixes, edge cases, or regression prevention.
 
 ## Development Philosophy
 
-See [PHILOSOPHY.md](./PHILOSOPHY.md) for detailed principles, but key points:
-
-1. Automate repetitive tasks
-2. Use ratchets for incremental improvement
-3. Plain text and simple formats
-4. Ship working code, polish later
-5. Reproducible environments
-
-## When Working on Specific Projects
-
-Before making changes to a project, check for:
-
-- `README.md` for project-specific instructions
-- `pyproject.toml` or `package.json` for dependencies
-- Existing code style and patterns
+See [PHILOSOPHY.md](./PHILOSOPHY.md) for detailed principles.
 
 ## Running dev servers and background tests (Playwright / Vite) ✅
 
