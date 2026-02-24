@@ -303,7 +303,15 @@ def run_cmd_stream(
     return ret, captured
 
 
-def build_and_switch_flake(flake_expr: str, target: str, extra_args: list[str], build_as_owner: str|None, non_interactive: bool, verbose: bool=False) -> bool:
+def build_and_switch_flake(
+    flake_expr: str,
+    flake_ref: str,
+    target: str,
+    extra_args: list[str],
+    build_as_owner: str | None,
+    non_interactive: bool,
+    verbose: bool = False,
+) -> bool:
     phase_banner(2, 4, f"Build system derivation for {target}", estimate_seconds=180)
     nix_cmd = ["nix", "--extra-experimental-features", "nix-command flakes", "build", "--print-out-paths", flake_expr, "--no-link"]
     # Use streaming command for builds so users get progress output for long builds
@@ -348,7 +356,7 @@ def build_and_switch_flake(flake_expr: str, target: str, extra_args: list[str], 
     if os.path.exists(nixos_rebuild_cmd):
         # New style: use nixos-rebuild command directly
         phase_banner(3, 4, "Activate new configuration", estimate_seconds=45)
-        switch_cmd = [nixos_rebuild_cmd, "switch", "--flake", f".#{target}"] + extra_args
+        switch_cmd = [nixos_rebuild_cmd, "switch", "--flake", flake_ref] + extra_args
         if os.geteuid() != 0:
             rc, _ = run_cmd_stream(["sudo", *switch_cmd], capture=False, verbose=verbose, label="switch", estimate_seconds=45)
         else:
@@ -423,8 +431,18 @@ def main(argv: list[str] | None = None):
         if not ok and not build_as_owner:
             sys.exit(1)
 
-        flake_expr = f".#nixosConfigurations.\"{host}\".config.system.build.nixos-rebuild"
-        success = build_and_switch_flake(flake_expr, host, args.extra or [], build_as_owner, non_interactive, verbose=args.verbose)
+        repo_root = get_repo_root()
+        flake_ref = f"{repo_root}#{host}"
+        flake_expr = f"{repo_root}#nixosConfigurations.\"{host}\".config.system.build.nixos-rebuild"
+        success = build_and_switch_flake(
+            flake_expr,
+            flake_ref,
+            host,
+            args.extra or [],
+            build_as_owner,
+            non_interactive,
+            verbose=args.verbose,
+        )
         if success:
             print("Done!")
             if host == "thinker":
