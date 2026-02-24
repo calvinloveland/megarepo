@@ -130,7 +130,7 @@ in
     glow # markdown viewer
     wget
     curl
-    nixfmt-rfc-style # nix formatter
+    nixfmt # nix formatter
     home-manager # manage homes
 
     calibre # ebook management

@@ -1,0 +1,14 @@
+need better explanation of each column type (should include examples)
+undo redo button is covered by feedback button
+add person button needs to be at the bottom of the list
+dispkay count of current students entered
+avoid list should validate matching names
+set priorities for constraints
+avoid between two students should automatically fill in the other student
+avoid resets after generation??
+everyone shows reading mix not met?
+needs a must sit by also
+include prefilled layouts in seat layout tab
+remove reading level by default
+create a tutorial
+

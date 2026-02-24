@@ -131,10 +131,10 @@
     bashmount # Interactive mount manager for USB drives
 
     # GUI file manager (Thunar) and helpers
-    xfce.thunar
-    xfce.thunar-volman
-    xfce.thunar-archive-plugin
-    xfce.tumbler
+    thunar
+    thunar-volman
+    thunar-archive-plugin
+    tumbler
     file-roller
     lxqt.lxqt-policykit
 
