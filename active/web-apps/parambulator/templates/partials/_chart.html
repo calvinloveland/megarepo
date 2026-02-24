@@ -1,7 +1,17 @@
 <div class="chart-card space-y-3">
   <div class="chart-header flex items-center justify-between">
     <h2 class="text-lg font-semibold">Seating chart</h2>
-    <span class="text-xs uppercase tracking-wide text-slate-500">Front of room →</span>
+    <div class="flex items-center gap-3">
+      <span class="text-xs uppercase tracking-wide text-slate-500">Front of room →</span>
+      <button
+        id="print-chart-btn"
+        type="button"
+        onclick="window.print()"
+        class="rounded border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+      >
+        Print
+      </button>
+    </div>
   </div>
   <div id="chart-grid-visual" class="chart-grid grid gap-2" style="grid-template-columns: repeat({{ cols }}, minmax(0, 1fr));">
     {% for row in chart %}
