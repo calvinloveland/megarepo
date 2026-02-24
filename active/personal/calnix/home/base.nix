@@ -8,6 +8,11 @@
   # Allow unfree packages for this user
   nixpkgs.config.allowUnfree = true;
 
+  # User packages
+  home.packages = with pkgs; [
+    github-copilot-cli
+  ];
+
   # Set Home Manager state version
   home.stateVersion = "23.11";
 
