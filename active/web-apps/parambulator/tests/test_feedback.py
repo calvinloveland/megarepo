@@ -189,6 +189,7 @@ def test_generate_response_includes_conflict_panel_markup():
 
     assert response.status_code == 200
     html = response.get_data(as_text=True)
+    assert 'id="chart-advanced-panel"' in html
     assert 'id="chart-conflicts-panel"' in html
     assert 'id="print-chart-btn"' in html
     assert "window.print()" in html

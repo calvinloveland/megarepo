@@ -74,22 +74,25 @@
   </div>
 </div>
 
-<div id="chart-conflicts-panel" class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
-  <div class="mb-1 font-semibold uppercase tracking-wide">Constraint conflicts</div>
-  {% if conflicts %}
-  <ul class="space-y-1">
-    {% for conflict in conflicts %}
-    <li>
-      <span class="font-semibold">{{ conflict.student }}</span>
-      <span class="text-amber-700">({{ conflict.seat }})</span>:
-      {{ conflict.constraints | join(", ") }}
-    </li>
-    {% endfor %}
-  </ul>
-  {% else %}
-  <div class="text-emerald-700">No active conflicts in this chart.</div>
-  {% endif %}
-</div>
+<details id="chart-advanced-panel" class="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-800">
+  <summary class="cursor-pointer font-semibold uppercase tracking-wide text-slate-600">Advanced chart details</summary>
+  <div id="chart-conflicts-panel" class="mt-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+    <div class="mb-1 font-semibold uppercase tracking-wide">Constraint conflicts</div>
+    {% if conflicts %}
+    <ul class="space-y-1">
+      {% for conflict in conflicts %}
+      <li>
+        <span class="font-semibold">{{ conflict.student }}</span>
+        <span class="text-amber-700">({{ conflict.seat }})</span>:
+        {{ conflict.constraints | join(", ") }}
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <div class="text-emerald-700">No active conflicts in this chart.</div>
+    {% endif %}
+  </div>
+</details>
 
 <script>
 (function initializePinnedSeats() {
