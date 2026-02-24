@@ -209,6 +209,7 @@ def test_generate_response_includes_people_tab_priority_ux_markers():
     assert 'id="column-type-help"' in html
     assert "auto-reciprocal" in html
     assert "parseAvoidList(value)" in html
+    assert "focusNextStudentRow(" in html
     assert 'id="col-type-must_sit_by"' in html
     assert "Must sit by" in html
     assert 'id="reading-level-enabled"' in html
