@@ -343,6 +343,19 @@ def build_and_switch_flake(flake_expr: str, target: str, extra_args: list[str], 
 
     print(f"Build output: {build_out}")
 
+    # Check if this is the new nixos-rebuild-ng (NixOS 26.05+)
+    nixos_rebuild_cmd = os.path.join(build_out, "bin", "nixos-rebuild")
+    if os.path.exists(nixos_rebuild_cmd):
+        # New style: use nixos-rebuild command directly
+        phase_banner(3, 4, "Activate new configuration", estimate_seconds=45)
+        switch_cmd = [nixos_rebuild_cmd, "switch", "--flake", f".#{target}"] + extra_args
+        if os.geteuid() != 0:
+            rc, _ = run_cmd_stream(["sudo", *switch_cmd], capture=False, verbose=verbose, label="switch", estimate_seconds=45)
+        else:
+            rc, _ = run_cmd_stream(switch_cmd, capture=False, verbose=verbose, label="switch", estimate_seconds=45)
+        return rc == 0
+
+    # Old style: look for switch-to-configuration
     candidate = os.path.join(build_out, "bin", "switch-to-configuration")
     if not os.path.exists(candidate):
         phase_banner(3, 4, "Fallback: build toplevel output", estimate_seconds=120)

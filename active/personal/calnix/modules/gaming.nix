@@ -29,7 +29,7 @@ in
     # Godot installed via Flatpak to avoid patchelf issues
     flatpak # Package manager for sandboxed applications
     blender # 3D modeling, animation, and asset creation
-    krita # Digital painting and 2D art creation
+    # krita # Digital painting and 2D art creation - DISABLED due to build issues with lager/boost
     audacity # Audio editing for game sounds
     gimp # Image editing and texture creation
     aseprite # Pixel art editor (great for 2D games)
