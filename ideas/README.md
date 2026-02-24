@@ -5,6 +5,7 @@ This directory contains brainstorming documents, project ideas, and future plans
 ## Contents
 
 - **wizard_fight.txt** - Notes and ideas for a wizard fight game concept
+- **artists_i_like.txt** - Personal artist inspiration list
 
 ## Purpose
 
