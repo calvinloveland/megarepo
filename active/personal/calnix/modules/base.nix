@@ -133,7 +133,7 @@ in
     nixfmt # nix formatter
     home-manager # manage homes
 
-    calibre # ebook management
+    # calibre # ebook management - DISABLED: build failure with qmake
     intelNpuDriverHelper
   ];
 

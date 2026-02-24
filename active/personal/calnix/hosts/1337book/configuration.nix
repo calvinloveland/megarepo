@@ -15,6 +15,12 @@
     ../../python-dev.nix
   ];
 
+  # Disable documentation to work around Python 3.12 doc build issue
+  documentation.enable = false;
+  documentation.man.enable = lib.mkForce false;
+  documentation.doc.enable = false;
+  documentation.info.enable = false;
+
   hardware.enableAllFirmware = true;
 
   nixpkgs.config.permittedInsecurePackages = [
