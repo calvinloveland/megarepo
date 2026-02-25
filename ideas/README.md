@@ -7,6 +7,9 @@ This directory contains brainstorming documents, project ideas, and future plans
 - **wizard_fight.txt** - Notes and ideas for a wizard fight game concept
 - **artists_i_like.txt** - Personal artist inspiration list
 - **calvinloveland_profile_designs.md** - Three artist-inspired GitHub profile README design drafts
+- **calvinloveland_profile_design_1_clean_coastal.md** - Renderable profile draft (Clean Coastal Poster)
+- **calvinloveland_profile_design_2_quiet_studio.md** - Renderable profile draft (Quiet Studio Minimal)
+- **calvinloveland_profile_design_3_neon_narrative.md** - Renderable profile draft (Neon Narrative)
 
 ## Purpose
 
