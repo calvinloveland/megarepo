@@ -34,10 +34,12 @@ DESIGN_OPTION_LABELS = {
     "design_1": "1 • Brutalist",
     "design_2": "2 • Cyberpunk",
     "design_3": "3 • Vibrant",
-    "design_4": "4 • Military",
-    "design_5": "5 • NGE",
+    "design_4": "4 • Retro 70s",
+    "design_5": "5 • System UI",
+    "design_6": "6 • Military",
+    "design_7": "7 • NGE",
 }
-DESIGN_ALIASES = {"military": "design_4", "nge": "design_5"}
+DESIGN_ALIASES = {"military": "design_6", "nge": "design_7"}
 ALLOWED_DESIGNS = tuple(DESIGN_OPTION_LABELS.keys())
 DEFAULT_SCORING_WEIGHTS = {
     "reading_mix": 0.3,

@@ -341,8 +341,10 @@ def test_parse_form_defaults_to_reading_level_disabled_config():
 
 def test_sanitize_design_blocks_invalid_template_names():
     assert sanitize_design("design_3") == "design_3"
-    assert sanitize_design("military") == "design_4"
-    assert sanitize_design("nge") == "design_5"
+    assert sanitize_design("design_6") == "design_6"
+    assert sanitize_design("design_7") == "design_7"
+    assert sanitize_design("military") == "design_6"
+    assert sanitize_design("nge") == "design_7"
     assert sanitize_design("../../partials/_feedback") == "design_1"
     assert sanitize_design("design_999") == "design_1"
 
@@ -362,8 +364,8 @@ def test_generate_response_includes_military_and_nge_design_buttons():
 
     assert response.status_code == 200
     html = response.get_data(as_text=True)
-    assert "Military" in html
-    assert "NGE" in html
+    assert "6 • Military" in html
+    assert "7 • NGE" in html
 
 
 def test_parse_form_applies_priority_mode_to_scoring_weights():
