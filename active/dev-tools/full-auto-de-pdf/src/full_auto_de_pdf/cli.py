@@ -121,6 +121,18 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Rasterization DPI for pdftoppm",
     )
     ocr_pdf_parser.add_argument(
+        "--preprocess-mode",
+        choices=["none", "basic"],
+        default="basic",
+        help="Image preprocessing before OCR",
+    )
+    ocr_pdf_parser.add_argument(
+        "--binarize-threshold",
+        type=int,
+        default=170,
+        help="Binarization threshold for basic preprocessing (0-255)",
+    )
+    ocr_pdf_parser.add_argument(
         "--no-cleanup",
         action="store_true",
         help="Disable OCR cleanup after extraction",
@@ -183,6 +195,8 @@ def main(argv: list[str] | None = None) -> int:
             language=args.language,
             dpi=args.dpi,
             apply_cleanup=not args.no_cleanup,
+            preprocess_mode=args.preprocess_mode,
+            binarize_threshold=args.binarize_threshold,
         )
         print(
             f"OCR complete: {metrics['page_count']} pages, "

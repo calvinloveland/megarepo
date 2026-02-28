@@ -31,9 +31,16 @@ full-auto-de-pdf benchmark-archive \
   --source-mode djvu \
   --output data/benchmark_archive_accuracy.json
 
+# Optional oracle mode (upper-bound): choose best source per book
+full-auto-de-pdf benchmark-archive \
+  --source-mode best \
+  --output data/benchmark_archive_accuracy_best.json
+
 # Run local OCR on a scanned PDF with pdftoppm + tesseract
 full-auto-de-pdf ocr-pdf \
   --pdf scans/book.pdf \
   --output out/book.ocr.txt \
-  --work-dir data/ocr-work
+  --work-dir data/ocr-work \
+  --preprocess-mode basic \
+  --binarize-threshold 170
 ```

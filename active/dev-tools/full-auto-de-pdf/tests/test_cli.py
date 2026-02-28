@@ -92,6 +92,8 @@ def test_ocr_pdf_command_runs_pipeline(monkeypatch, tmp_path) -> None:
         assert kwargs["work_dir"] == work_dir
         assert kwargs["language"] == "eng"
         assert kwargs["dpi"] == 200
+        assert kwargs["preprocess_mode"] == "none"
+        assert kwargs["binarize_threshold"] == 180
         return {"page_count": 3, "word_count": 120, "character_count": 600}
 
     monkeypatch.setattr(cli, "ocr_pdf_with_tesseract", _fake_ocr_pdf_with_tesseract)
@@ -106,6 +108,10 @@ def test_ocr_pdf_command_runs_pipeline(monkeypatch, tmp_path) -> None:
             str(work_dir),
             "--dpi",
             "200",
+            "--preprocess-mode",
+            "none",
+            "--binarize-threshold",
+            "180",
         ]
     )
     assert rc == 0
