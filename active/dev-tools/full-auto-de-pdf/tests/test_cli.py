@@ -164,3 +164,39 @@ def test_ocr_eval_modes_command_runs_pipeline(monkeypatch, tmp_path) -> None:
         ]
     )
     assert rc == 0
+
+
+def test_benchmark_local_archive_command_runs(monkeypatch, tmp_path) -> None:
+    input_pdf = tmp_path / "book.pdf"
+    output_report = tmp_path / "report.json"
+    work_dir = tmp_path / "work"
+    input_pdf.write_bytes(b"fake")
+
+    def _fake_benchmark_local_ocr_against_archive(**kwargs):  # noqa: ANN003
+        assert kwargs["pdf_path"] == input_pdf
+        assert kwargs["archive_identifier"] == "example-book-id"
+        assert kwargs["output_report_path"] == output_report
+        assert kwargs["work_dir"] == work_dir
+        assert kwargs["archive_source_mode"] == "best"
+        return {
+            "selected_archive_source": "djvu",
+            "best_mode": "deskew",
+        }
+
+    monkeypatch.setattr(cli, "benchmark_local_ocr_against_archive", _fake_benchmark_local_ocr_against_archive)
+    rc = cli.main(
+        [
+            "benchmark-local-archive",
+            "--pdf",
+            str(input_pdf),
+            "--archive-identifier",
+            "example-book-id",
+            "--output",
+            str(output_report),
+            "--work-dir",
+            str(work_dir),
+            "--archive-source-mode",
+            "best",
+        ]
+    )
+    assert rc == 0

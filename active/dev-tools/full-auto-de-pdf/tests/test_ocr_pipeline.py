@@ -5,7 +5,11 @@ import pytest
 import json
 
 from full_auto_de_pdf import ocr_pipeline
-from full_auto_de_pdf.ocr_pipeline import evaluate_ocr_preprocess_modes, ocr_pdf_with_tesseract
+from full_auto_de_pdf.ocr_pipeline import (
+    benchmark_local_ocr_against_archive,
+    evaluate_ocr_preprocess_modes,
+    ocr_pdf_with_tesseract,
+)
 
 
 def test_ocr_pdf_with_tesseract_requires_dependencies(tmp_path) -> None:
@@ -166,3 +170,38 @@ def test_evaluate_ocr_preprocess_modes_runs_all_modes(monkeypatch, tmp_path) -> 
     assert "modes" in report
     assert report["best_mode"] == "none"
     assert report["mode_ranking"][0]["mode"] == "none"
+
+
+def test_benchmark_local_ocr_against_archive_selects_best_source(monkeypatch, tmp_path) -> None:
+    input_pdf = tmp_path / "book.pdf"
+    input_pdf.write_bytes(b"pdf")
+    output_report = tmp_path / "report.json"
+    work_dir = tmp_path / "work"
+
+    def _fake_fetch_archive_ocr_text(_identifier: str) -> str:
+        return "djvu reference"
+
+    def _fake_fetch_archive_abbyy_text(_identifier: str) -> str:
+        return "abbyy reference"
+
+    def _fake_evaluate_ocr_preprocess_modes(**kwargs):  # noqa: ANN003
+        source_name = Path(kwargs["reference_text_path"]).stem.split("_")[-1]
+        if source_name == "abbyy":
+            ranking = [{"mode": "deskew", "wer": 0.10, "cer": 0.08}]
+        else:
+            ranking = [{"mode": "deskew", "wer": 0.20, "cer": 0.15}]
+        return {"modes": {"deskew": {}}, "mode_ranking": ranking, "best_mode": "deskew"}
+
+    monkeypatch.setattr("full_auto_de_pdf.benchmark.fetch_archive_ocr_text", _fake_fetch_archive_ocr_text)
+    monkeypatch.setattr("full_auto_de_pdf.benchmark.fetch_archive_abbyy_text", _fake_fetch_archive_abbyy_text)
+    monkeypatch.setattr(ocr_pipeline, "evaluate_ocr_preprocess_modes", _fake_evaluate_ocr_preprocess_modes)
+
+    report = benchmark_local_ocr_against_archive(
+        pdf_path=input_pdf,
+        archive_identifier="book-id",
+        output_report_path=output_report,
+        work_dir=work_dir,
+        archive_source_mode="best",
+    )
+    assert report["selected_archive_source"] == "abbyy"
+    assert output_report.exists()

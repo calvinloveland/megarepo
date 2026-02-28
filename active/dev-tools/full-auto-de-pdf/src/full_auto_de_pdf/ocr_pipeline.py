@@ -352,3 +352,88 @@ def evaluate_ocr_preprocess_modes(
         encoding="utf-8",
     )
     return report
+
+
+def benchmark_local_ocr_against_archive(
+    pdf_path: Path,
+    archive_identifier: str,
+    output_report_path: Path,
+    work_dir: Path,
+    archive_source_mode: str = "djvu",
+    language: str = "eng",
+    dpi: int = 300,
+    apply_cleanup: bool = True,
+    binarize_threshold: int = 170,
+    deskew_max_angle: float = 3.0,
+    deskew_angle_step: float = 0.5,
+) -> dict[str, object]:
+    from .benchmark import fetch_archive_abbyy_text, fetch_archive_ocr_text
+
+    if archive_source_mode not in {"djvu", "abbyy", "best"}:
+        raise ValueError("archive_source_mode must be one of: djvu, abbyy, best")
+
+    djvu_reference = fetch_archive_ocr_text(archive_identifier)
+    abbyy_reference = fetch_archive_abbyy_text(archive_identifier)
+    if archive_source_mode == "abbyy" and abbyy_reference is None:
+        raise ValueError(
+            f"archive_source_mode='abbyy' requested but no ABBYY OCR is available for {archive_identifier}"
+        )
+
+    references: list[tuple[str, str]] = [("djvu", djvu_reference)]
+    if abbyy_reference is not None:
+        references.append(("abbyy", abbyy_reference))
+    if archive_source_mode in {"djvu", "abbyy"}:
+        references = [item for item in references if item[0] == archive_source_mode]
+
+    candidate_reports: list[dict[str, object]] = []
+    for source_name, reference_text in references:
+        reference_path = work_dir / "references" / f"{archive_identifier}_{source_name}.txt"
+        reference_path.parent.mkdir(parents=True, exist_ok=True)
+        reference_path.write_text(reference_text, encoding="utf-8")
+        candidate_output_path = work_dir / "candidate_reports" / f"{source_name}.json"
+        mode_report = evaluate_ocr_preprocess_modes(
+            pdf_path=pdf_path,
+            work_dir=work_dir / f"mode_eval_{source_name}",
+            output_report_path=candidate_output_path,
+            reference_text_path=reference_path,
+            language=language,
+            dpi=dpi,
+            apply_cleanup=apply_cleanup,
+            binarize_threshold=binarize_threshold,
+            deskew_max_angle=deskew_max_angle,
+            deskew_angle_step=deskew_angle_step,
+        )
+        ranking = mode_report.get("mode_ranking", [])
+        best_wer = float(ranking[0]["wer"]) if ranking else 1.0
+        best_cer = float(ranking[0]["cer"]) if ranking else 1.0
+        candidate_reports.append(
+            {
+                "source": source_name,
+                "report_path": str(candidate_output_path),
+                "best_wer": best_wer,
+                "best_cer": best_cer,
+                "mode_report": mode_report,
+            }
+        )
+
+    selected = min(candidate_reports, key=lambda item: (item["best_wer"], item["best_cer"]))
+    selected_report = dict(selected["mode_report"])
+    selected_report["archive_identifier"] = archive_identifier
+    selected_report["archive_source_mode"] = archive_source_mode
+    selected_report["selected_archive_source"] = selected["source"]
+    selected_report["candidate_sources"] = [
+        {
+            "source": item["source"],
+            "best_wer": item["best_wer"],
+            "best_cer": item["best_cer"],
+            "report_path": item["report_path"],
+        }
+        for item in candidate_reports
+    ]
+
+    output_report_path.parent.mkdir(parents=True, exist_ok=True)
+    output_report_path.write_text(
+        json.dumps(selected_report, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    return selected_report

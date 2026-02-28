@@ -53,4 +53,11 @@ full-auto-de-pdf ocr-eval-modes \
   --output data/ocr_mode_eval.json \
   --reference-text refs/book.txt
 # (includes mode_ranking and best_mode when reference text is supplied)
+
+# Benchmark local OCR modes against archive OCR text for a specific identifier
+full-auto-de-pdf benchmark-local-archive \
+  --pdf scans/book.pdf \
+  --archive-identifier dracu00stok \
+  --archive-source-mode djvu \
+  --output data/local_archive_benchmark.json
 ```

@@ -6,7 +6,11 @@ from pathlib import Path
 from .archive_org import build_manifest, write_manifest
 from .benchmark import run_archive_benchmark, write_benchmark_report
 from .epub import build_epub_from_ocr_file
-from .ocr_pipeline import evaluate_ocr_preprocess_modes, ocr_pdf_with_tesseract
+from .ocr_pipeline import (
+    benchmark_local_ocr_against_archive,
+    evaluate_ocr_preprocess_modes,
+    ocr_pdf_with_tesseract,
+)
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -215,6 +219,68 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Disable OCR cleanup after extraction",
     )
+    local_archive_parser = subparsers.add_parser(
+        "benchmark-local-archive",
+        help="Benchmark local OCR modes against archive OCR text for an identifier",
+    )
+    local_archive_parser.add_argument("--pdf", type=Path, required=True, help="Input PDF path")
+    local_archive_parser.add_argument(
+        "--archive-identifier",
+        required=True,
+        help="Archive.org identifier to use as OCR reference source",
+    )
+    local_archive_parser.add_argument(
+        "--output",
+        type=Path,
+        default=Path("data/local_archive_benchmark.json"),
+        help="Output JSON report path",
+    )
+    local_archive_parser.add_argument(
+        "--work-dir",
+        type=Path,
+        default=Path("data/local-archive-benchmark"),
+        help="Working directory for intermediate artifacts",
+    )
+    local_archive_parser.add_argument(
+        "--archive-source-mode",
+        choices=["djvu", "abbyy", "best"],
+        default="djvu",
+        help="Reference OCR source policy",
+    )
+    local_archive_parser.add_argument(
+        "--language",
+        default="eng",
+        help="Tesseract language code",
+    )
+    local_archive_parser.add_argument(
+        "--dpi",
+        type=int,
+        default=300,
+        help="Rasterization DPI for pdftoppm",
+    )
+    local_archive_parser.add_argument(
+        "--binarize-threshold",
+        type=int,
+        default=170,
+        help="Binarization threshold (0-255)",
+    )
+    local_archive_parser.add_argument(
+        "--deskew-max-angle",
+        type=float,
+        default=3.0,
+        help="Maximum absolute deskew angle to search (degrees)",
+    )
+    local_archive_parser.add_argument(
+        "--deskew-angle-step",
+        type=float,
+        default=0.5,
+        help="Deskew angle search step size (degrees)",
+    )
+    local_archive_parser.add_argument(
+        "--no-cleanup",
+        action="store_true",
+        help="Disable OCR cleanup after extraction",
+    )
     return parser
 
 
@@ -301,6 +367,27 @@ def main(argv: list[str] | None = None) -> int:
         )
         mode_count = len(report.get("modes", {}))
         print(f"OCR mode evaluation complete: {mode_count} modes -> {args.output}")
+        return 0
+
+    if args.command == "benchmark-local-archive":
+        report = benchmark_local_ocr_against_archive(
+            pdf_path=args.pdf,
+            archive_identifier=args.archive_identifier,
+            output_report_path=args.output,
+            work_dir=args.work_dir,
+            archive_source_mode=args.archive_source_mode,
+            language=args.language,
+            dpi=args.dpi,
+            apply_cleanup=not args.no_cleanup,
+            binarize_threshold=args.binarize_threshold,
+            deskew_max_angle=args.deskew_max_angle,
+            deskew_angle_step=args.deskew_angle_step,
+        )
+        print(
+            "Local-vs-archive benchmark complete: "
+            f"source={report['selected_archive_source']}, "
+            f"best_mode={report.get('best_mode')} -> {args.output}"
+        )
         return 0
 
     parser.error(f"{args.command!r} is not implemented yet")
