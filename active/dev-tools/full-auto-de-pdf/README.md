@@ -45,4 +45,10 @@ full-auto-de-pdf ocr-pdf \
   --binarize-threshold 170 \
   --deskew-max-angle 3.0 \
   --deskew-angle-step 0.5
+
+# Evaluate OCR output across preprocess modes (none/basic/deskew/dewarp)
+full-auto-de-pdf ocr-eval-modes \
+  --pdf scans/book.pdf \
+  --output data/ocr_mode_eval.json \
+  --reference-text refs/book.txt
 ```

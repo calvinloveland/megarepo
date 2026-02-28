@@ -121,3 +121,46 @@ def test_ocr_pdf_command_runs_pipeline(monkeypatch, tmp_path) -> None:
         ]
     )
     assert rc == 0
+
+
+def test_ocr_eval_modes_command_runs_pipeline(monkeypatch, tmp_path) -> None:
+    input_pdf = tmp_path / "book.pdf"
+    output_report = tmp_path / "report.json"
+    work_dir = tmp_path / "work"
+    reference_text = tmp_path / "reference.txt"
+    input_pdf.write_bytes(b"fake")
+    reference_text.write_text("ref", encoding="utf-8")
+
+    def _fake_evaluate_ocr_preprocess_modes(**kwargs):  # noqa: ANN003
+        assert kwargs["pdf_path"] == input_pdf
+        assert kwargs["work_dir"] == work_dir
+        assert kwargs["output_report_path"] == output_report
+        assert kwargs["reference_text_path"] == reference_text
+        assert kwargs["language"] == "eng"
+        assert kwargs["dpi"] == 250
+        assert kwargs["binarize_threshold"] == 160
+        assert kwargs["deskew_max_angle"] == 5.0
+        assert kwargs["deskew_angle_step"] == 0.5
+        return {"modes": {"none": {}, "basic": {}, "deskew": {}, "dewarp": {}}}
+
+    monkeypatch.setattr(cli, "evaluate_ocr_preprocess_modes", _fake_evaluate_ocr_preprocess_modes)
+    rc = cli.main(
+        [
+            "ocr-eval-modes",
+            "--pdf",
+            str(input_pdf),
+            "--output",
+            str(output_report),
+            "--work-dir",
+            str(work_dir),
+            "--reference-text",
+            str(reference_text),
+            "--dpi",
+            "250",
+            "--binarize-threshold",
+            "160",
+            "--deskew-max-angle",
+            "5.0",
+        ]
+    )
+    assert rc == 0

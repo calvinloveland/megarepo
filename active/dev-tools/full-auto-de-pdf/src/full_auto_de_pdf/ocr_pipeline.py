@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import math
 from pathlib import Path
 import shutil
@@ -50,6 +51,68 @@ def _estimate_skew_angle(denoised_image, max_angle: float, angle_step: float) ->
     return best_angle
 
 
+def _row_center_offsets(binary_image) -> list[float | None]:
+    width, height = binary_image.size
+    pixels = binary_image.load()
+    centers: list[float | None] = []
+    for y in range(height):
+        left: int | None = None
+        right: int | None = None
+        for x in range(width):
+            if pixels[x, y] == 0:
+                left = x
+                break
+        if left is None:
+            centers.append(None)
+            continue
+        for x in range(width - 1, -1, -1):
+            if pixels[x, y] == 0:
+                right = x
+                break
+        if right is None:
+            centers.append(None)
+            continue
+        centers.append((left + right) / 2.0)
+    return centers
+
+
+def _linear_center_baseline(centers: list[float | None]) -> tuple[float, float]:
+    points = [(float(y), center) for y, center in enumerate(centers) if center is not None]
+    if len(points) < 2:
+        return 0.0, 0.0
+    n = float(len(points))
+    sum_x = sum(x for x, _ in points)
+    sum_y = sum(y for _, y in points)
+    sum_xx = sum(x * x for x, _ in points)
+    sum_xy = sum(x * y for x, y in points)
+    denom = n * sum_xx - sum_x * sum_x
+    if abs(denom) < 1e-9:
+        return 0.0, sum_y / n
+    slope = (n * sum_xy - sum_x * sum_y) / denom
+    intercept = (sum_y - slope * sum_x) / n
+    return slope, intercept
+
+
+def _dewarp_by_row_shift(denoised_image, binarize_threshold: int):
+    from PIL import Image
+
+    binary = denoised_image.point(lambda value: 255 if value >= binarize_threshold else 0)
+    centers = _row_center_offsets(binary)
+    slope, intercept = _linear_center_baseline(centers)
+    width, height = denoised_image.size
+    warped = Image.new("L", (width, height), color=255)
+    for y in range(height):
+        center = centers[y]
+        if center is None:
+            shift = 0
+        else:
+            baseline_center = slope * float(y) + intercept
+            shift = int(round(center - baseline_center))
+        row = denoised_image.crop((0, y, width, y + 1))
+        warped.paste(row, (-shift, y))
+    return warped
+
+
 def _preprocess_image(
     input_path: Path,
     output_path: Path,
@@ -78,6 +141,14 @@ def _preprocess_image(
                 angle_step=deskew_angle_step,
             )
             candidate = denoised.rotate(skew_angle, expand=True, fillcolor=255)
+        if preprocess_mode == "dewarp":
+            skew_angle = _estimate_skew_angle(
+                denoised,
+                max_angle=deskew_max_angle,
+                angle_step=deskew_angle_step,
+            )
+            deskewed = denoised.rotate(skew_angle, expand=True, fillcolor=255)
+            candidate = _dewarp_by_row_shift(deskewed, binarize_threshold)
         binarized = candidate.point(lambda value: 255 if value >= binarize_threshold else 0)
         output_path.parent.mkdir(parents=True, exist_ok=True)
         binarized.save(output_path)
@@ -98,8 +169,8 @@ def ocr_pdf_with_tesseract(
     preprocess_image: Callable[[Path, Path, str, int, float, float], None] = _preprocess_image,
     which: Callable[[str], str | None] = shutil.which,
 ) -> dict[str, int]:
-    if preprocess_mode not in {"none", "basic", "deskew"}:
-        raise ValueError("preprocess_mode must be 'none', 'basic', or 'deskew'")
+    if preprocess_mode not in {"none", "basic", "deskew", "dewarp"}:
+        raise ValueError("preprocess_mode must be 'none', 'basic', 'deskew', or 'dewarp'")
     if not (0 <= binarize_threshold <= 255):
         raise ValueError("binarize_threshold must be between 0 and 255")
     if deskew_max_angle <= 0:
@@ -137,7 +208,7 @@ def ocr_pdf_with_tesseract(
     preprocessed_dir = work_dir / "preprocessed"
     for image_path in page_images:
         ocr_input_path = image_path
-        if preprocess_mode in {"basic", "deskew"}:
+        if preprocess_mode in {"basic", "deskew", "dewarp"}:
             preprocessed_path = preprocessed_dir / image_path.name
             preprocess_image(
                 image_path,
@@ -173,3 +244,57 @@ def ocr_pdf_with_tesseract(
         "word_count": len(words),
         "character_count": len(final_text),
     }
+
+
+def evaluate_ocr_preprocess_modes(
+    pdf_path: Path,
+    work_dir: Path,
+    output_report_path: Path,
+    language: str = "eng",
+    dpi: int = 300,
+    apply_cleanup: bool = True,
+    binarize_threshold: int = 170,
+    deskew_max_angle: float = 3.0,
+    deskew_angle_step: float = 0.5,
+    reference_text_path: Path | None = None,
+    modes: tuple[str, ...] = ("none", "basic", "deskew", "dewarp"),
+) -> dict[str, object]:
+    from .benchmark import calculate_accuracy_metrics
+
+    report: dict[str, object] = {
+        "pdf_path": str(pdf_path),
+        "modes": {},
+    }
+
+    reference_text: str | None = None
+    if reference_text_path is not None:
+        reference_text = reference_text_path.read_text(encoding="utf-8")
+        report["reference_text_path"] = str(reference_text_path)
+
+    for mode in modes:
+        mode_output_path = work_dir / "mode_outputs" / f"{mode}.txt"
+        mode_work_dir = work_dir / f"work_{mode}"
+        mode_metrics = ocr_pdf_with_tesseract(
+            pdf_path=pdf_path,
+            output_text_path=mode_output_path,
+            work_dir=mode_work_dir,
+            language=language,
+            dpi=dpi,
+            apply_cleanup=apply_cleanup,
+            preprocess_mode=mode,
+            binarize_threshold=binarize_threshold,
+            deskew_max_angle=deskew_max_angle,
+            deskew_angle_step=deskew_angle_step,
+        )
+        mode_payload: dict[str, object] = dict(mode_metrics)
+        if reference_text is not None:
+            hypothesis_text = mode_output_path.read_text(encoding="utf-8")
+            mode_payload["accuracy"] = calculate_accuracy_metrics(reference_text, hypothesis_text)
+        report["modes"][mode] = mode_payload
+
+    output_report_path.parent.mkdir(parents=True, exist_ok=True)
+    output_report_path.write_text(
+        json.dumps(report, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    return report

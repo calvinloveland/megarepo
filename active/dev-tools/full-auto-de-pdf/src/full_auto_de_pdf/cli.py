@@ -6,7 +6,7 @@ from pathlib import Path
 from .archive_org import build_manifest, write_manifest
 from .benchmark import run_archive_benchmark, write_benchmark_report
 from .epub import build_epub_from_ocr_file
-from .ocr_pipeline import ocr_pdf_with_tesseract
+from .ocr_pipeline import evaluate_ocr_preprocess_modes, ocr_pdf_with_tesseract
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -122,7 +122,7 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     ocr_pdf_parser.add_argument(
         "--preprocess-mode",
-        choices=["none", "basic", "deskew"],
+        choices=["none", "basic", "deskew", "dewarp"],
         default="basic",
         help="Image preprocessing before OCR",
     )
@@ -145,6 +145,62 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Deskew angle search step size (degrees)",
     )
     ocr_pdf_parser.add_argument(
+        "--no-cleanup",
+        action="store_true",
+        help="Disable OCR cleanup after extraction",
+    )
+    eval_modes_parser = subparsers.add_parser(
+        "ocr-eval-modes",
+        help="Run OCR across preprocess modes and compare output quality",
+    )
+    eval_modes_parser.add_argument("--pdf", type=Path, required=True, help="Input PDF path")
+    eval_modes_parser.add_argument(
+        "--output",
+        type=Path,
+        default=Path("data/ocr_mode_eval.json"),
+        help="Output JSON report path",
+    )
+    eval_modes_parser.add_argument(
+        "--work-dir",
+        type=Path,
+        default=Path("data/ocr-mode-eval"),
+        help="Working directory for mode evaluation artifacts",
+    )
+    eval_modes_parser.add_argument(
+        "--reference-text",
+        type=Path,
+        help="Optional reference text file for CER/WER per mode",
+    )
+    eval_modes_parser.add_argument(
+        "--language",
+        default="eng",
+        help="Tesseract language code",
+    )
+    eval_modes_parser.add_argument(
+        "--dpi",
+        type=int,
+        default=300,
+        help="Rasterization DPI for pdftoppm",
+    )
+    eval_modes_parser.add_argument(
+        "--binarize-threshold",
+        type=int,
+        default=170,
+        help="Binarization threshold (0-255)",
+    )
+    eval_modes_parser.add_argument(
+        "--deskew-max-angle",
+        type=float,
+        default=3.0,
+        help="Maximum absolute deskew angle to search (degrees)",
+    )
+    eval_modes_parser.add_argument(
+        "--deskew-angle-step",
+        type=float,
+        default=0.5,
+        help="Deskew angle search step size (degrees)",
+    )
+    eval_modes_parser.add_argument(
         "--no-cleanup",
         action="store_true",
         help="Disable OCR cleanup after extraction",
@@ -216,6 +272,23 @@ def main(argv: list[str] | None = None) -> int:
             f"OCR complete: {metrics['page_count']} pages, "
             f"{metrics['word_count']} words -> {args.output}"
         )
+        return 0
+
+    if args.command == "ocr-eval-modes":
+        report = evaluate_ocr_preprocess_modes(
+            pdf_path=args.pdf,
+            work_dir=args.work_dir,
+            output_report_path=args.output,
+            reference_text_path=args.reference_text,
+            language=args.language,
+            dpi=args.dpi,
+            apply_cleanup=not args.no_cleanup,
+            binarize_threshold=args.binarize_threshold,
+            deskew_max_angle=args.deskew_max_angle,
+            deskew_angle_step=args.deskew_angle_step,
+        )
+        mode_count = len(report.get("modes", {}))
+        print(f"OCR mode evaluation complete: {mode_count} modes -> {args.output}")
         return 0
 
     parser.error(f"{args.command!r} is not implemented yet")

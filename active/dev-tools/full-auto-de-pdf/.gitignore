@@ -3,3 +3,4 @@ data/cache/
 data/archive_manifest.json
 data/benchmark_archive_accuracy.json
 data/benchmark_archive_accuracy_*.json
+data/ocr_mode_eval*.json
