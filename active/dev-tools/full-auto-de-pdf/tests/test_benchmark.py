@@ -3,6 +3,7 @@ import json
 from full_auto_de_pdf.benchmark import (
     BenchmarkBook,
     calculate_accuracy_metrics,
+    parse_abbyy_xml_text,
     run_archive_benchmark,
     strip_gutenberg_boilerplate,
 )
@@ -45,6 +46,10 @@ def test_run_archive_benchmark_with_cached_inputs(monkeypatch, tmp_path) -> None
         raise AssertionError("network fetch should not run with cached files")
 
     monkeypatch.setattr("full_auto_de_pdf.benchmark.fetch_archive_ocr_text", _fail_fetch)
+    monkeypatch.setattr(
+        "full_auto_de_pdf.benchmark.fetch_archive_abbyy_text",
+        lambda *_args, **_kwargs: None,
+    )
     monkeypatch.setattr("full_auto_de_pdf.benchmark.fetch_gutenberg_text", _fail_fetch)
 
     report = run_archive_benchmark(cache_dir=cache_dir, books=books)
@@ -54,6 +59,8 @@ def test_run_archive_benchmark_with_cached_inputs(monkeypatch, tmp_path) -> None
     assert report["summary"]["avg_raw_wer_proxy"] == 0.0
     assert report["summary"]["avg_raw_cer_proxy"] == 0.0
     assert report["books"][0]["alignment_applied"] is False
+    assert report["books"][0]["selected_source"] == "djvu"
+    assert report["summary"]["selected_source_counts"]["djvu"] == 1
 
 
 def test_benchmark_report_is_json_serializable(tmp_path) -> None:
@@ -66,3 +73,17 @@ def test_benchmark_report_is_json_serializable(tmp_path) -> None:
     report = run_archive_benchmark(cache_dir=cache_dir, books=books)
     encoded = json.dumps(report, sort_keys=True)
     assert "avg_word_accuracy_proxy" in encoded
+    assert "selected_source_counts" in encoded
+
+
+def test_parse_abbyy_xml_text_extracts_line_text() -> None:
+    xml_payload = (
+        "<?xml version='1.0' encoding='UTF-8'?>"
+        "<document xmlns='http://www.abbyy.com/FineReader_xml/FineReader10-schema-v1.xml'>"
+        "<page><block><text><par>"
+        "<line><formatting><charParams>H</charParams><charParams>i</charParams></formatting></line>"
+        "<line><formatting><charParams>T</charParams><charParams>h</charParams><charParams>e</charParams></formatting></line>"
+        "</par></text></block></page>"
+        "</document>"
+    )
+    assert parse_abbyy_xml_text(xml_payload) == "Hi\nThe"

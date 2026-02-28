@@ -25,7 +25,8 @@ full-auto-de-pdf build-epub \
   --title "Sample Book"
 
 # Run OCR accuracy benchmark against Project Gutenberg references
-# (true edit-distance CER/WER on normalized sampled text with cleanup + alignment)
+# (true edit-distance CER/WER on normalized sampled text with cleanup + alignment,
+# and per-book source selection between djvu/abbyy when available)
 full-auto-de-pdf benchmark-archive \
   --output data/benchmark_archive_accuracy.json
 ```

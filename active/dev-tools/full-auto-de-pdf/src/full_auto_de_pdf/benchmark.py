@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import gzip
 import json
 from pathlib import Path
 import re
 from typing import Any, Callable
 from urllib.request import urlopen
+import xml.etree.ElementTree as ET
 
 from rapidfuzz.distance import Levenshtein
 
@@ -37,6 +39,11 @@ def _download_text(url: str, timeout_seconds: int = 60) -> str:
         return response.read().decode("utf-8", errors="replace")
 
 
+def _download_bytes(url: str, timeout_seconds: int = 60) -> bytes:
+    with urlopen(url, timeout=timeout_seconds) as response:  # noqa: S310
+        return response.read()
+
+
 def _extract_archive_djvu_filename(metadata: dict[str, Any]) -> str:
     files = metadata.get("files")
     if not isinstance(files, list):
@@ -54,6 +61,23 @@ def _extract_archive_djvu_filename(metadata: dict[str, Any]) -> str:
     return sorted(candidates, key=len)[0]
 
 
+def _extract_archive_abbyy_filename(metadata: dict[str, Any]) -> str | None:
+    files = metadata.get("files")
+    if not isinstance(files, list):
+        return None
+
+    candidates: list[str] = []
+    for file_entry in files:
+        if not isinstance(file_entry, dict):
+            continue
+        name = file_entry.get("name")
+        if isinstance(name, str) and name.lower().endswith("_abbyy.gz"):
+            candidates.append(name)
+    if not candidates:
+        return None
+    return sorted(candidates, key=len)[0]
+
+
 def fetch_archive_ocr_text(identifier: str, timeout_seconds: int = 60) -> str:
     metadata = fetch_metadata(identifier, timeout_seconds=timeout_seconds)
     filename = _extract_archive_djvu_filename(metadata)
@@ -64,6 +88,41 @@ def fetch_archive_ocr_text(identifier: str, timeout_seconds: int = 60) -> str:
 def fetch_gutenberg_text(gutenberg_id: int, timeout_seconds: int = 60) -> str:
     url = GUTENBERG_TEXT_URL.format(gutenberg_id=gutenberg_id)
     return _download_text(url, timeout_seconds=timeout_seconds)
+
+
+def _local_name(tag: str) -> str:
+    if "}" in tag:
+        return tag.split("}", maxsplit=1)[1]
+    return tag
+
+
+def parse_abbyy_xml_text(xml_text: str) -> str:
+    root = ET.fromstring(xml_text)
+    lines: list[str] = []
+    for line_element in root.iter():
+        if _local_name(line_element.tag) != "line":
+            continue
+        line_chars: list[str] = []
+        for char_element in line_element.iter():
+            if _local_name(char_element.tag) != "charParams":
+                continue
+            if char_element.text:
+                line_chars.append(char_element.text)
+        line_text = "".join(line_chars).strip()
+        if line_text:
+            lines.append(line_text)
+    return "\n".join(lines)
+
+
+def fetch_archive_abbyy_text(identifier: str, timeout_seconds: int = 60) -> str | None:
+    metadata = fetch_metadata(identifier, timeout_seconds=timeout_seconds)
+    filename = _extract_archive_abbyy_filename(metadata)
+    if filename is None:
+        return None
+    url = ARCHIVE_DOWNLOAD_URL.format(identifier=identifier, filename=filename)
+    compressed = _download_bytes(url, timeout_seconds=timeout_seconds)
+    xml_payload = gzip.decompress(compressed).decode("utf-8", errors="replace")
+    return parse_abbyy_xml_text(xml_payload)
 
 
 def strip_gutenberg_boilerplate(text: str) -> str:
@@ -220,6 +279,26 @@ def _load_or_fetch_text(path: Path, fetcher: Callable[[], str]) -> str:
     return text
 
 
+def _load_or_fetch_optional_text(path: Path, fetcher: Callable[[], str | None]) -> str | None:
+    if path.exists():
+        return path.read_text(encoding="utf-8")
+    text = fetcher()
+    if text is None:
+        return None
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text, encoding="utf-8")
+    return text
+
+
+def _score_source(reference_text: str, source_text: str) -> tuple[dict[str, float | int], bool]:
+    cleaned_source_text = cleanup_ocr_text(source_text)
+    aligned_reference_text, aligned_source_text, alignment_applied = _align_text_by_shared_ngrams(
+        reference_text,
+        cleaned_source_text,
+    )
+    return calculate_accuracy_metrics(aligned_reference_text, aligned_source_text), alignment_applied
+
+
 def run_archive_benchmark(
     cache_dir: Path,
     timeout_seconds: int = 60,
@@ -228,11 +307,16 @@ def run_archive_benchmark(
     results: list[dict[str, Any]] = []
     for book in books:
         archive_path = cache_dir / f"{book.identifier}_archive_djvu.txt"
+        abbyy_path = cache_dir / f"{book.identifier}_archive_abbyy.txt"
         gutenberg_path = cache_dir / f"pg{book.gutenberg_id}_gutenberg.txt"
 
-        archive_text = _load_or_fetch_text(
+        djvu_text = _load_or_fetch_text(
             archive_path,
             lambda: fetch_archive_ocr_text(book.identifier, timeout_seconds=timeout_seconds),
+        )
+        abbyy_text = _load_or_fetch_optional_text(
+            abbyy_path,
+            lambda: fetch_archive_abbyy_text(book.identifier, timeout_seconds=timeout_seconds),
         )
         gutenberg_text = _load_or_fetch_text(
             gutenberg_path,
@@ -240,19 +324,37 @@ def run_archive_benchmark(
         )
 
         reference_text = strip_gutenberg_boilerplate(gutenberg_text)
-        raw_metrics = calculate_accuracy_metrics(reference_text, archive_text)
-        cleaned_archive_text = cleanup_ocr_text(archive_text)
-        aligned_reference_text, aligned_hypothesis_text, alignment_applied = _align_text_by_shared_ngrams(
-            reference_text,
-            cleaned_archive_text,
+        raw_metrics = calculate_accuracy_metrics(reference_text, djvu_text)
+        djvu_metrics, djvu_aligned = _score_source(reference_text, djvu_text)
+        source_metrics: dict[str, dict[str, float | int | bool]] = {
+            "djvu": {
+                **djvu_metrics,
+                "alignment_applied": djvu_aligned,
+            }
+        }
+        if abbyy_text:
+            abbyy_metrics, abbyy_aligned = _score_source(reference_text, abbyy_text)
+            source_metrics["abbyy"] = {
+                **abbyy_metrics,
+                "alignment_applied": abbyy_aligned,
+            }
+
+        selected_source, selected_metrics = min(
+            source_metrics.items(),
+            key=lambda item: (
+                float(item[1]["wer"]),
+                float(item[1]["cer"]),
+            ),
         )
-        metrics = calculate_accuracy_metrics(aligned_reference_text, aligned_hypothesis_text)
+
         results.append(
             {
                 "identifier": book.identifier,
                 "title": book.title,
                 "gutenberg_id": book.gutenberg_id,
-                "alignment_applied": alignment_applied,
+                "selected_source": selected_source,
+                "alignment_applied": bool(selected_metrics["alignment_applied"]),
+                "source_metrics": source_metrics,
                 "raw_cer": raw_metrics["cer"],
                 "raw_wer": raw_metrics["wer"],
                 "raw_char_accuracy": raw_metrics["char_accuracy"],
@@ -261,7 +363,7 @@ def run_archive_benchmark(
                 "raw_word_accuracy_proxy": raw_metrics["word_accuracy_proxy"],
                 "raw_cer_proxy": raw_metrics["cer_proxy"],
                 "raw_wer_proxy": raw_metrics["wer_proxy"],
-                **metrics,
+                **selected_metrics,
             }
         )
 
@@ -269,16 +371,21 @@ def run_archive_benchmark(
     avg_wer = sum(float(item["wer"]) for item in results) / len(results)
     avg_raw_cer = sum(float(item["raw_cer"]) for item in results) / len(results)
     avg_raw_wer = sum(float(item["raw_wer"]) for item in results) / len(results)
+    source_counts: dict[str, int] = {}
+    for item in results:
+        selected_source_name = str(item["selected_source"])
+        source_counts[selected_source_name] = source_counts.get(selected_source_name, 0) + 1
 
     return {
         "metric_note": (
             "CER/WER are true edit-distance scores on normalized text samples. "
             "Benchmark applies OCR cleanup and shared-ngram alignment against "
-            "Project Gutenberg references before scoring."
+            "Project Gutenberg references and selects the best available OCR source per book."
         ),
         "books": results,
         "summary": {
             "book_count": len(results),
+            "selected_source_counts": source_counts,
             "avg_cer": avg_cer,
             "avg_wer": avg_wer,
             "avg_char_accuracy": max(0.0, 1.0 - avg_cer),
