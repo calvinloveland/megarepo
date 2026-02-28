@@ -52,4 +52,5 @@ full-auto-de-pdf ocr-eval-modes \
   --pdf scans/book.pdf \
   --output data/ocr_mode_eval.json \
   --reference-text refs/book.txt
+# (includes mode_ranking and best_mode when reference text is supplied)
 ```

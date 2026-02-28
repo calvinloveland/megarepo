@@ -137,13 +137,21 @@ def test_evaluate_ocr_preprocess_modes_runs_all_modes(monkeypatch, tmp_path) -> 
     input_pdf.write_bytes(b"pdf")
     output_report = tmp_path / "report.json"
     work_dir = tmp_path / "work"
+    reference_text_path = tmp_path / "reference.txt"
+    reference_text_path.write_text("alpha beta gamma", encoding="utf-8")
     seen_modes: list[str] = []
+    mode_text = {
+        "none": "alpha beta gamma",
+        "basic": "alpha beta",
+        "deskew": "alpha typo",
+        "dewarp": "alpha beta gamma",
+    }
 
     def _fake_ocr_pdf_with_tesseract(**kwargs):  # noqa: ANN003
         seen_modes.append(kwargs["preprocess_mode"])
         output_path = kwargs["output_text_path"]
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        output_path.write_text(f"text-{kwargs['preprocess_mode']}", encoding="utf-8")
+        output_path.write_text(mode_text[kwargs["preprocess_mode"]], encoding="utf-8")
         return {"page_count": 1, "word_count": 2, "character_count": 8}
 
     monkeypatch.setattr(ocr_pipeline, "ocr_pdf_with_tesseract", _fake_ocr_pdf_with_tesseract)
@@ -151,7 +159,10 @@ def test_evaluate_ocr_preprocess_modes_runs_all_modes(monkeypatch, tmp_path) -> 
         pdf_path=input_pdf,
         work_dir=work_dir,
         output_report_path=output_report,
+        reference_text_path=reference_text_path,
     )
     assert seen_modes == ["none", "basic", "deskew", "dewarp"]
     assert output_report.exists()
     assert "modes" in report
+    assert report["best_mode"] == "none"
+    assert report["mode_ranking"][0]["mode"] == "none"

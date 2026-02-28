@@ -299,6 +299,8 @@ def evaluate_ocr_preprocess_modes(
     if reference_text_path is not None:
         reference_text = reference_text_path.read_text(encoding="utf-8")
         report["reference_text_path"] = str(reference_text_path)
+        report["mode_ranking"] = []
+        report["best_mode"] = None
 
     for mode in modes:
         mode_output_path = work_dir / "mode_outputs" / f"{mode}.txt"
@@ -320,6 +322,29 @@ def evaluate_ocr_preprocess_modes(
             hypothesis_text = mode_output_path.read_text(encoding="utf-8")
             mode_payload["accuracy"] = calculate_accuracy_metrics(reference_text, hypothesis_text)
         report["modes"][mode] = mode_payload
+
+    if reference_text is not None:
+        ranked = sorted(
+            (
+                (
+                    mode_name,
+                    float(mode_payload["accuracy"]["wer"]),
+                    float(mode_payload["accuracy"]["cer"]),
+                )
+                for mode_name, mode_payload in report["modes"].items()
+            ),
+            key=lambda item: (item[1], item[2]),
+        )
+        report["mode_ranking"] = [
+            {
+                "mode": mode_name,
+                "wer": wer,
+                "cer": cer,
+            }
+            for mode_name, wer, cer in ranked
+        ]
+        if ranked:
+            report["best_mode"] = ranked[0][0]
 
     output_report_path.parent.mkdir(parents=True, exist_ok=True)
     output_report_path.write_text(
