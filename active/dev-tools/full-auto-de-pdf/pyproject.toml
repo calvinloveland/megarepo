@@ -14,6 +14,9 @@ dependencies = []
 [project.scripts]
 full-auto-de-pdf = "full_auto_de_pdf.cli:main"
 
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
 [tool.hatch.version]
 path = "src/full_auto_de_pdf/__about__.py"
 
@@ -22,3 +25,6 @@ include = ["/src"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/full_auto_de_pdf"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

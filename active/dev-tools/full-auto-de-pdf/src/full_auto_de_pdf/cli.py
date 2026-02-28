@@ -62,9 +62,9 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
     parser = _build_parser()
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     if args.command == "manifest":
         manifest = build_manifest(timeout_seconds=args.timeout_seconds)
         write_manifest(args.output, manifest)
