@@ -1,6 +1,7 @@
 import json
 from base64 import b64encode
 from pathlib import Path
+from uuid import uuid4
 
 import pytest
 
@@ -8,7 +9,9 @@ from parambulator.app import (
     ADDRESSED_DIR,
     FEEDBACK_DIR,
     PROJECT_ROOT,
+    _parse_int,
     create_app,
+    parse_layout_from_form,
     parse_form,
     sanitize_design,
 )
@@ -360,3 +363,143 @@ def test_parse_form_applies_priority_mode_to_scoring_weights():
     scoring_weights = form_data["scoring_weights"]
     assert scoring_weights["talkative_spacing"] > scoring_weights["reading_mix"]
     assert scoring_weights["iep_front"] > scoring_weights["must_sit_by"]
+
+
+def test_save_and_load_routes_round_trip():
+    app = create_app()
+    app.config["TESTING"] = True
+    app.config["WTF_CSRF_ENABLED"] = False
+
+    save_name = f"coverage-{uuid4().hex[:8]}"
+    save_path = PROJECT_ROOT / "data" / "saves" / f"{save_name}.json"
+    save_path.unlink(missing_ok=True)
+
+    try:
+        with app.test_client() as client:
+            save_response = client.post("/save", data={"save_name": save_name})
+            assert save_response.status_code == 200
+            assert save_path.exists()
+            save_html = save_response.get_data(as_text=True)
+            assert "Saved as" in save_html
+            assert save_name in save_html
+
+            load_response = client.get(f"/load?name={save_name}")
+            assert load_response.status_code == 200
+            load_html = load_response.get_data(as_text=True)
+            assert "Loaded" in load_html
+            assert save_name in load_html
+    finally:
+        save_path.unlink(missing_ok=True)
+
+
+def test_load_route_returns_404_for_missing_save():
+    app = create_app()
+    app.config["TESTING"] = True
+    app.config["WTF_CSRF_ENABLED"] = False
+
+    with app.test_client() as client:
+        response = client.get("/load?name=missing-coverage-save")
+
+    assert response.status_code == 404
+
+
+def test_feedback_requires_admin_credentials_to_be_configured(monkeypatch):
+    monkeypatch.delenv("FEEDBACK_ADMIN_USERNAME", raising=False)
+    monkeypatch.delenv("FEEDBACK_ADMIN_PASSWORD", raising=False)
+    app = create_app()
+    app.config["TESTING"] = True
+    app.config["WTF_CSRF_ENABLED"] = False
+
+    with app.test_client() as client:
+        response = client.get("/feedback")
+
+    assert response.status_code == 503
+
+
+def test_feedback_rejects_invalid_payload_and_length_limits():
+    app = create_app()
+    app.config["TESTING"] = True
+    app.config["WTF_CSRF_ENABLED"] = False
+
+    with app.test_client() as client:
+        invalid_type = client.post("/feedback", json=[], content_type="application/json")
+        assert invalid_type.status_code == 400
+        assert "Invalid feedback payload" in invalid_type.get_data(as_text=True)
+
+        too_long_text = client.post(
+            "/feedback",
+            json={"feedback_text": "x" * 5001, "selected_element": ""},
+            content_type="application/json",
+        )
+        assert too_long_text.status_code == 400
+        assert "must be < 5000" in too_long_text.get_data(as_text=True)
+
+        too_long_element = client.post(
+            "/feedback",
+            json={"feedback_text": "valid", "selected_element": "y" * 501},
+            content_type="application/json",
+        )
+        assert too_long_element.status_code == 400
+        assert "Selected element must be < 500 characters" in too_long_element.get_data(
+            as_text=True
+        )
+
+
+def test_mark_addressed_validates_input_and_not_found(monkeypatch):
+    monkeypatch.setenv("FEEDBACK_ADMIN_USERNAME", "admin")
+    monkeypatch.setenv("FEEDBACK_ADMIN_PASSWORD", "secret")
+    app = create_app()
+    app.config["TESTING"] = True
+    app.config["WTF_CSRF_ENABLED"] = False
+
+    with app.test_client() as client:
+        missing_identifiers = client.post(
+            "/feedback/mark-addressed",
+            json={},
+            content_type="application/json",
+            headers=_auth_headers("admin", "secret"),
+        )
+        assert missing_identifiers.status_code == 400
+
+        too_long_commit = client.post(
+            "/feedback/mark-addressed",
+            json={"id": "abc", "addressed_by_commit": "z" * 201},
+            content_type="application/json",
+            headers=_auth_headers("admin", "secret"),
+        )
+        assert too_long_commit.status_code == 400
+
+        not_found = client.post(
+            "/feedback/mark-addressed",
+            json={"id": "not-a-real-feedback-id"},
+            content_type="application/json",
+            headers=_auth_headers("admin", "secret"),
+        )
+        assert not_found.status_code == 404
+
+
+def test_parse_layout_from_form_supports_hidden_value_and_checkbox_formats():
+    value_layout = parse_layout_from_form(
+        {
+            "layout_cell_0_0_value": "1",
+            "layout_cell_0_1_value": "0",
+            "layout_cell_1_0_value": "0",
+            "layout_cell_1_1_value": "1",
+        },
+        rows=2,
+        cols=2,
+    )
+    assert value_layout == [[True, False], [False, True]]
+
+    checkbox_layout = parse_layout_from_form(
+        {"layout_cell_0_0": "on", "layout_cell_1_1": "on"},
+        rows=2,
+        cols=2,
+    )
+    assert checkbox_layout == [[True, False], [False, True]]
+
+
+def test_parse_int_clamps_and_falls_back():
+    assert _parse_int("not-an-int", 5) == 5
+    assert _parse_int("-3", 5, min_val=1, max_val=10) == 1
+    assert _parse_int("99", 5, min_val=1, max_val=10) == 10
