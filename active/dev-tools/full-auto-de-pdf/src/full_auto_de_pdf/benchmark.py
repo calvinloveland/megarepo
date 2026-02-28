@@ -303,7 +303,11 @@ def run_archive_benchmark(
     cache_dir: Path,
     timeout_seconds: int = 60,
     books: tuple[BenchmarkBook, ...] = BENCHMARK_BOOKS,
+    source_mode: str = "djvu",
 ) -> dict[str, Any]:
+    if source_mode not in {"djvu", "abbyy", "best"}:
+        raise ValueError("source_mode must be one of: djvu, abbyy, best")
+
     results: list[dict[str, Any]] = []
     for book in books:
         archive_path = cache_dir / f"{book.identifier}_archive_djvu.txt"
@@ -339,13 +343,24 @@ def run_archive_benchmark(
                 "alignment_applied": abbyy_aligned,
             }
 
-        selected_source, selected_metrics = min(
-            source_metrics.items(),
-            key=lambda item: (
-                float(item[1]["wer"]),
-                float(item[1]["cer"]),
-            ),
-        )
+        if source_mode == "best":
+            selected_source, selected_metrics = min(
+                source_metrics.items(),
+                key=lambda item: (
+                    float(item[1]["wer"]),
+                    float(item[1]["cer"]),
+                ),
+            )
+        elif source_mode == "abbyy":
+            if "abbyy" not in source_metrics:
+                raise ValueError(
+                    f"source_mode='abbyy' requested but no ABBYY OCR is available for {book.identifier}"
+                )
+            selected_source = "abbyy"
+            selected_metrics = source_metrics["abbyy"]
+        else:
+            selected_source = "djvu"
+            selected_metrics = source_metrics["djvu"]
 
         results.append(
             {
@@ -380,11 +395,12 @@ def run_archive_benchmark(
         "metric_note": (
             "CER/WER are true edit-distance scores on normalized text samples. "
             "Benchmark applies OCR cleanup and shared-ngram alignment against "
-            "Project Gutenberg references and selects the best available OCR source per book."
+            "Project Gutenberg references; source selection is controlled by source_mode."
         ),
         "books": results,
         "summary": {
             "book_count": len(results),
+            "source_mode": source_mode,
             "selected_source_counts": source_counts,
             "avg_cer": avg_cer,
             "avg_wer": avg_wer,

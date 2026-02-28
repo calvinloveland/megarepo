@@ -47,8 +47,9 @@ def test_benchmark_archive_command_writes_report(monkeypatch, tmp_path) -> None:
     output = tmp_path / "benchmark.json"
     cache_dir = tmp_path / "cache"
 
-    def _fake_run_archive_benchmark(cache_dir, timeout_seconds):  # noqa: ANN001
+    def _fake_run_archive_benchmark(cache_dir, timeout_seconds, source_mode):  # noqa: ANN001
         assert timeout_seconds == 45
+        assert source_mode == "best"
         return {
             "summary": {
                 "book_count": 1,
@@ -69,9 +70,42 @@ def test_benchmark_archive_command_writes_report(monkeypatch, tmp_path) -> None:
             str(cache_dir),
             "--timeout-seconds",
             "45",
+            "--source-mode",
+            "best",
         ]
     )
 
     assert rc == 0
     payload = json.loads(output.read_text(encoding="utf-8"))
     assert payload["summary"]["book_count"] == 1
+
+
+def test_ocr_pdf_command_runs_pipeline(monkeypatch, tmp_path) -> None:
+    input_pdf = tmp_path / "book.pdf"
+    output_text = tmp_path / "book.txt"
+    work_dir = tmp_path / "work"
+    input_pdf.write_bytes(b"fake")
+
+    def _fake_ocr_pdf_with_tesseract(**kwargs):  # noqa: ANN003
+        assert kwargs["pdf_path"] == input_pdf
+        assert kwargs["output_text_path"] == output_text
+        assert kwargs["work_dir"] == work_dir
+        assert kwargs["language"] == "eng"
+        assert kwargs["dpi"] == 200
+        return {"page_count": 3, "word_count": 120, "character_count": 600}
+
+    monkeypatch.setattr(cli, "ocr_pdf_with_tesseract", _fake_ocr_pdf_with_tesseract)
+    rc = cli.main(
+        [
+            "ocr-pdf",
+            "--pdf",
+            str(input_pdf),
+            "--output",
+            str(output_text),
+            "--work-dir",
+            str(work_dir),
+            "--dpi",
+            "200",
+        ]
+    )
+    assert rc == 0

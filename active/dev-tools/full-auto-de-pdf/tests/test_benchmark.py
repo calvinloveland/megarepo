@@ -87,3 +87,29 @@ def test_parse_abbyy_xml_text_extracts_line_text() -> None:
         "</document>"
     )
     assert parse_abbyy_xml_text(xml_payload) == "Hi\nThe"
+
+
+def test_run_archive_benchmark_source_mode_best_can_select_abbyy(tmp_path) -> None:
+    books = (BenchmarkBook("archive-id", "Title", 123),)
+    cache_dir = tmp_path / "cache"
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    (cache_dir / "archive-id_archive_djvu.txt").write_text("alpha beta typo", encoding="utf-8")
+    (cache_dir / "archive-id_archive_abbyy.txt").write_text("alpha beta gamma", encoding="utf-8")
+    (cache_dir / "pg123_gutenberg.txt").write_text("alpha beta gamma", encoding="utf-8")
+
+    report = run_archive_benchmark(cache_dir=cache_dir, books=books, source_mode="best")
+    assert report["books"][0]["selected_source"] == "abbyy"
+    assert report["summary"]["selected_source_counts"]["abbyy"] == 1
+
+
+def test_run_archive_benchmark_source_mode_djvu_is_strict(tmp_path) -> None:
+    books = (BenchmarkBook("archive-id", "Title", 123),)
+    cache_dir = tmp_path / "cache"
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    (cache_dir / "archive-id_archive_djvu.txt").write_text("alpha beta typo", encoding="utf-8")
+    (cache_dir / "archive-id_archive_abbyy.txt").write_text("alpha beta gamma", encoding="utf-8")
+    (cache_dir / "pg123_gutenberg.txt").write_text("alpha beta gamma", encoding="utf-8")
+
+    report = run_archive_benchmark(cache_dir=cache_dir, books=books, source_mode="djvu")
+    assert report["books"][0]["selected_source"] == "djvu"
+    assert report["summary"]["selected_source_counts"]["djvu"] == 1

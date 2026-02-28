@@ -28,5 +28,12 @@ full-auto-de-pdf build-epub \
 # (true edit-distance CER/WER on normalized sampled text with cleanup + alignment,
 # and per-book source selection between djvu/abbyy when available)
 full-auto-de-pdf benchmark-archive \
+  --source-mode djvu \
   --output data/benchmark_archive_accuracy.json
+
+# Run local OCR on a scanned PDF with pdftoppm + tesseract
+full-auto-de-pdf ocr-pdf \
+  --pdf scans/book.pdf \
+  --output out/book.ocr.txt \
+  --work-dir data/ocr-work
 ```

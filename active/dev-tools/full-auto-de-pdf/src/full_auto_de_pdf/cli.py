@@ -6,6 +6,7 @@ from pathlib import Path
 from .archive_org import build_manifest, write_manifest
 from .benchmark import run_archive_benchmark, write_benchmark_report
 from .epub import build_epub_from_ocr_file
+from .ocr_pipeline import ocr_pdf_with_tesseract
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -66,7 +67,7 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Disable OCR cleanup before EPUB generation",
     )
     benchmark_parser = subparsers.add_parser(
-        "benchmark-archive", help="Run proxy OCR accuracy benchmark"
+        "benchmark-archive", help="Run OCR accuracy benchmark"
     )
     benchmark_parser.add_argument(
         "--output",
@@ -85,6 +86,44 @@ def _build_parser() -> argparse.ArgumentParser:
         type=int,
         default=60,
         help="Network request timeout",
+    )
+    benchmark_parser.add_argument(
+        "--source-mode",
+        choices=["djvu", "abbyy", "best"],
+        default="djvu",
+        help="OCR source policy: strict single-source or oracle best-of-both",
+    )
+    ocr_pdf_parser = subparsers.add_parser(
+        "ocr-pdf", help="Run local PDF OCR using pdftoppm + tesseract"
+    )
+    ocr_pdf_parser.add_argument("--pdf", type=Path, required=True, help="Input PDF path")
+    ocr_pdf_parser.add_argument(
+        "--output",
+        type=Path,
+        required=True,
+        help="Output text file path",
+    )
+    ocr_pdf_parser.add_argument(
+        "--work-dir",
+        type=Path,
+        default=Path("data/ocr-work"),
+        help="Working directory for intermediate page images",
+    )
+    ocr_pdf_parser.add_argument(
+        "--language",
+        default="eng",
+        help="Tesseract language code",
+    )
+    ocr_pdf_parser.add_argument(
+        "--dpi",
+        type=int,
+        default=300,
+        help="Rasterization DPI for pdftoppm",
+    )
+    ocr_pdf_parser.add_argument(
+        "--no-cleanup",
+        action="store_true",
+        help="Disable OCR cleanup after extraction",
     )
     return parser
 
@@ -117,6 +156,7 @@ def main(argv: list[str] | None = None) -> int:
         report = run_archive_benchmark(
             cache_dir=args.cache_dir,
             timeout_seconds=args.timeout_seconds,
+            source_mode=args.source_mode,
         )
         write_benchmark_report(args.output, report)
         summary = report["summary"]
@@ -133,6 +173,21 @@ def main(argv: list[str] | None = None) -> int:
             f"across {int(summary['book_count'])} books"
         )
         print(f"Report: {args.output}")
+        return 0
+
+    if args.command == "ocr-pdf":
+        metrics = ocr_pdf_with_tesseract(
+            pdf_path=args.pdf,
+            output_text_path=args.output,
+            work_dir=args.work_dir,
+            language=args.language,
+            dpi=args.dpi,
+            apply_cleanup=not args.no_cleanup,
+        )
+        print(
+            f"OCR complete: {metrics['page_count']} pages, "
+            f"{metrics['word_count']} words -> {args.output}"
+        )
         return 0
 
     parser.error(f"{args.command!r} is not implemented yet")
