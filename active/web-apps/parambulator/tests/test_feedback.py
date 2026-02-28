@@ -59,6 +59,44 @@ def test_feedback_submission():
         assert saved_feedback["design"] == "design_1"
         assert saved_feedback["selected_element"] is None
         assert "server_timestamp" in saved_feedback
+        assert saved_feedback["addressed"] is False
+        assert saved_feedback["addressed_by_commit"] is None
+
+
+def test_feedback_submission_remains_open_until_marked_addressed(monkeypatch):
+    """Test that a newly submitted feedback item is not auto-addressed."""
+    monkeypatch.setenv("FEEDBACK_ADMIN_USERNAME", "admin")
+    monkeypatch.setenv("FEEDBACK_ADMIN_PASSWORD", "secret")
+    app = create_app()
+    app.config["TESTING"] = True
+    app.config["WTF_CSRF_ENABLED"] = False
+
+    with app.test_client() as client:
+        submit_response = client.post(
+            "/feedback",
+            json={
+                "feedback_text": "Should stay open",
+                "design": "design_1",
+                "timestamp": "2026-02-06T12:00:00.000Z",
+            },
+            content_type="application/json",
+        )
+        feedback_id = submit_response.get_json()["id"]
+
+        list_response = client.get("/feedback", headers=_auth_headers("admin", "secret"))
+        assert list_response.status_code == 200
+        payload = list_response.get_json()
+        open_ids = {entry["id"] for entry in payload["open"]}
+        addressed_ids = {entry["id"] for entry in payload["addressed"]}
+        assert feedback_id in open_ids
+        assert feedback_id not in addressed_ids
+
+        source_path = FEEDBACK_DIR / f"feedback_{feedback_id}.json"
+        with open(source_path) as f:
+            data = json.load(f)
+        assert data["addressed"] is False
+        assert data["addressed_by_commit"] is None
+        assert "addressed_timestamp" not in data
 
 
 def test_feedback_mark_addressed(monkeypatch):
@@ -86,7 +124,7 @@ def test_feedback_mark_addressed(monkeypatch):
 
         mark_response = client.post(
             "/feedback/mark-addressed",
-            json={"id": feedback_id},
+            json={"id": feedback_id, "addressed_by_commit": "abc1234"},
             content_type="application/json",
             headers=_auth_headers("admin", "secret"),
         )
@@ -99,6 +137,7 @@ def test_feedback_mark_addressed(monkeypatch):
         with open(addressed_path) as f:
             data = json.load(f)
         assert data["addressed"] is True
+        assert data["addressed_by_commit"] == "abc1234"
         assert "addressed_timestamp" in data
 
 

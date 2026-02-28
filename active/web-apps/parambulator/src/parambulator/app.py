@@ -486,6 +486,7 @@ def create_app() -> Flask:
             "server_timestamp": datetime.now().isoformat(),
             "version": app_version,
             "git_commit": git_commit,
+            "addressed_by_commit": None,
             "addressed": False,
         }
 
@@ -503,6 +504,13 @@ def create_app() -> Flask:
         payload = request.get_json() or {}
         feedback_id = str(payload.get("id", "")).strip()
         filename = str(payload.get("filename", "")).strip()
+        raw_addressed_commit = payload.get("addressed_by_commit")
+        addressed_by_commit = (
+            str(raw_addressed_commit).strip() if raw_addressed_commit is not None else ""
+        )
+
+        if len(addressed_by_commit) > 200:
+            return Response("Addressing commit must be < 200 characters", status=400)
 
         if feedback_id:
             file_pattern = f"feedback_{feedback_id}.json"
@@ -520,6 +528,7 @@ def create_app() -> Flask:
 
         data["addressed"] = True
         data["addressed_timestamp"] = datetime.now().isoformat()
+        data["addressed_by_commit"] = addressed_by_commit or None
 
         ADDRESSED_DIR.mkdir(parents=True, exist_ok=True)
         target_path = ADDRESSED_DIR / source_path.name
