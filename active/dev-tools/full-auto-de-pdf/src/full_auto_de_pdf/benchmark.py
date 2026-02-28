@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from difflib import SequenceMatcher
 import json
 from pathlib import Path
 import re
 from typing import Any, Callable
 from urllib.request import urlopen
+
+from rapidfuzz.distance import Levenshtein
 
 from .archive_org import fetch_metadata
 from .ocr_cleanup import cleanup_ocr_text
@@ -162,7 +163,7 @@ def _sample_list_edges(items: list[str], max_items: int) -> list[str]:
     return items[:head] + items[-tail:]
 
 
-def calculate_proxy_accuracy(reference_text: str, hypothesis_text: str) -> dict[str, float | int]:
+def calculate_accuracy_metrics(reference_text: str, hypothesis_text: str) -> dict[str, float | int]:
     ref_chars = _normalize_for_char_metric(reference_text)
     hyp_chars = _normalize_for_char_metric(hypothesis_text)
     ref_words = _normalize_for_word_metric(reference_text)
@@ -172,22 +173,33 @@ def calculate_proxy_accuracy(reference_text: str, hypothesis_text: str) -> dict[
     sampled_ref_words = _sample_list_edges(ref_words, max_items=12000)
     sampled_hyp_words = _sample_list_edges(hyp_words, max_items=12000)
 
-    char_similarity = (
-        SequenceMatcher(a=sampled_ref_chars, b=sampled_hyp_chars, autojunk=False).ratio()
+    char_distance = Levenshtein.distance(sampled_ref_chars, sampled_hyp_chars)
+    word_distance = Levenshtein.distance(sampled_ref_words, sampled_hyp_words)
+    cer = (
+        float(char_distance) / float(len(sampled_ref_chars))
         if sampled_ref_chars
         else 0.0
     )
-    word_similarity = (
-        SequenceMatcher(a=sampled_ref_words, b=sampled_hyp_words, autojunk=False).ratio()
+    wer = (
+        float(word_distance) / float(len(sampled_ref_words))
         if sampled_ref_words
         else 0.0
     )
+    char_accuracy = max(0.0, 1.0 - cer)
+    word_accuracy = max(0.0, 1.0 - wer)
 
     return {
-        "cer_proxy": 1.0 - char_similarity,
-        "wer_proxy": 1.0 - word_similarity,
-        "char_accuracy_proxy": char_similarity,
-        "word_accuracy_proxy": word_similarity,
+        "cer": cer,
+        "wer": wer,
+        "char_accuracy": char_accuracy,
+        "word_accuracy": word_accuracy,
+        # Backward-compatible aliases
+        "cer_proxy": cer,
+        "wer_proxy": wer,
+        "char_accuracy_proxy": char_accuracy,
+        "word_accuracy_proxy": word_accuracy,
+        "char_edit_distance": int(char_distance),
+        "word_edit_distance": int(word_distance),
         "reference_char_count": len(ref_chars),
         "hypothesis_char_count": len(hyp_chars),
         "reference_word_count": len(ref_words),
@@ -228,19 +240,23 @@ def run_archive_benchmark(
         )
 
         reference_text = strip_gutenberg_boilerplate(gutenberg_text)
-        raw_metrics = calculate_proxy_accuracy(reference_text, archive_text)
+        raw_metrics = calculate_accuracy_metrics(reference_text, archive_text)
         cleaned_archive_text = cleanup_ocr_text(archive_text)
         aligned_reference_text, aligned_hypothesis_text, alignment_applied = _align_text_by_shared_ngrams(
             reference_text,
             cleaned_archive_text,
         )
-        metrics = calculate_proxy_accuracy(aligned_reference_text, aligned_hypothesis_text)
+        metrics = calculate_accuracy_metrics(aligned_reference_text, aligned_hypothesis_text)
         results.append(
             {
                 "identifier": book.identifier,
                 "title": book.title,
                 "gutenberg_id": book.gutenberg_id,
                 "alignment_applied": alignment_applied,
+                "raw_cer": raw_metrics["cer"],
+                "raw_wer": raw_metrics["wer"],
+                "raw_char_accuracy": raw_metrics["char_accuracy"],
+                "raw_word_accuracy": raw_metrics["word_accuracy"],
                 "raw_char_accuracy_proxy": raw_metrics["char_accuracy_proxy"],
                 "raw_word_accuracy_proxy": raw_metrics["word_accuracy_proxy"],
                 "raw_cer_proxy": raw_metrics["cer_proxy"],
@@ -249,28 +265,37 @@ def run_archive_benchmark(
             }
         )
 
-    avg_cer = sum(float(item["cer_proxy"]) for item in results) / len(results)
-    avg_wer = sum(float(item["wer_proxy"]) for item in results) / len(results)
-    avg_raw_cer = sum(float(item["raw_cer_proxy"]) for item in results) / len(results)
-    avg_raw_wer = sum(float(item["raw_wer_proxy"]) for item in results) / len(results)
+    avg_cer = sum(float(item["cer"]) for item in results) / len(results)
+    avg_wer = sum(float(item["wer"]) for item in results) / len(results)
+    avg_raw_cer = sum(float(item["raw_cer"]) for item in results) / len(results)
+    avg_raw_wer = sum(float(item["raw_wer"]) for item in results) / len(results)
 
     return {
         "metric_note": (
-            "CER/WER are proxy values computed from normalized text samples. "
+            "CER/WER are true edit-distance scores on normalized text samples. "
             "Benchmark applies OCR cleanup and shared-ngram alignment against "
             "Project Gutenberg references before scoring."
         ),
         "books": results,
         "summary": {
             "book_count": len(results),
+            "avg_cer": avg_cer,
+            "avg_wer": avg_wer,
+            "avg_char_accuracy": max(0.0, 1.0 - avg_cer),
+            "avg_word_accuracy": max(0.0, 1.0 - avg_wer),
+            "avg_raw_cer": avg_raw_cer,
+            "avg_raw_wer": avg_raw_wer,
+            "avg_raw_char_accuracy": max(0.0, 1.0 - avg_raw_cer),
+            "avg_raw_word_accuracy": max(0.0, 1.0 - avg_raw_wer),
+            # Backward-compatible aliases
             "avg_cer_proxy": avg_cer,
             "avg_wer_proxy": avg_wer,
-            "avg_char_accuracy_proxy": 1.0 - avg_cer,
-            "avg_word_accuracy_proxy": 1.0 - avg_wer,
+            "avg_char_accuracy_proxy": max(0.0, 1.0 - avg_cer),
+            "avg_word_accuracy_proxy": max(0.0, 1.0 - avg_wer),
             "avg_raw_cer_proxy": avg_raw_cer,
             "avg_raw_wer_proxy": avg_raw_wer,
-            "avg_raw_char_accuracy_proxy": 1.0 - avg_raw_cer,
-            "avg_raw_word_accuracy_proxy": 1.0 - avg_raw_wer,
+            "avg_raw_char_accuracy_proxy": max(0.0, 1.0 - avg_raw_cer),
+            "avg_raw_word_accuracy_proxy": max(0.0, 1.0 - avg_raw_wer),
         },
     }
 

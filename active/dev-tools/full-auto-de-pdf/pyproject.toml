@@ -9,7 +9,7 @@ description = "Scanned PDF to EPUB conversion toolkit"
 readme = "README.md"
 requires-python = ">=3.10"
 authors = [{ name = "Calvin Loveland" }]
-dependencies = []
+dependencies = ["rapidfuzz>=3.10.0"]
 
 [project.scripts]
 full-auto-de-pdf = "full_auto_de_pdf.cli:main"

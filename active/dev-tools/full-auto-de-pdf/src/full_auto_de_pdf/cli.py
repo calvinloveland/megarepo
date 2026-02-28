@@ -120,10 +120,16 @@ def main(argv: list[str] | None = None) -> int:
         )
         write_benchmark_report(args.output, report)
         summary = report["summary"]
+        avg_char_accuracy = float(
+            summary.get("avg_char_accuracy", summary["avg_char_accuracy_proxy"])
+        )
+        avg_word_accuracy = float(
+            summary.get("avg_word_accuracy", summary["avg_word_accuracy_proxy"])
+        )
         print(
-            "Proxy accuracy: "
-            f"char={float(summary['avg_char_accuracy_proxy']):.4f}, "
-            f"word={float(summary['avg_word_accuracy_proxy']):.4f} "
+            "Benchmark accuracy: "
+            f"char={avg_char_accuracy:.4f}, "
+            f"word={avg_word_accuracy:.4f} "
             f"across {int(summary['book_count'])} books"
         )
         print(f"Report: {args.output}")

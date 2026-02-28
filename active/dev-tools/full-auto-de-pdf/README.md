@@ -24,8 +24,8 @@ full-auto-de-pdf build-epub \
   --metrics-output out/book.metrics.json \
   --title "Sample Book"
 
-# Run proxy OCR accuracy benchmark against Project Gutenberg references
-# (applies OCR cleanup + shared-ngram alignment before scoring)
+# Run OCR accuracy benchmark against Project Gutenberg references
+# (true edit-distance CER/WER on normalized sampled text with cleanup + alignment)
 full-auto-de-pdf benchmark-archive \
   --output data/benchmark_archive_accuracy.json
 ```

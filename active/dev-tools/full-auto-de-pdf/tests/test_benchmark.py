@@ -2,7 +2,7 @@ import json
 
 from full_auto_de_pdf.benchmark import (
     BenchmarkBook,
-    calculate_proxy_accuracy,
+    calculate_accuracy_metrics,
     run_archive_benchmark,
     strip_gutenberg_boilerplate,
 )
@@ -19,12 +19,14 @@ def test_strip_gutenberg_boilerplate() -> None:
     assert strip_gutenberg_boilerplate(raw) == "Actual book text."
 
 
-def test_calculate_proxy_accuracy_identical_text_is_perfect() -> None:
-    metrics = calculate_proxy_accuracy("Same text here", "Same text here")
-    assert metrics["cer_proxy"] == 0.0
-    assert metrics["wer_proxy"] == 0.0
-    assert metrics["char_accuracy_proxy"] == 1.0
-    assert metrics["word_accuracy_proxy"] == 1.0
+def test_calculate_accuracy_metrics_identical_text_is_perfect() -> None:
+    metrics = calculate_accuracy_metrics("Same text here", "Same text here")
+    assert metrics["cer"] == 0.0
+    assert metrics["wer"] == 0.0
+    assert metrics["char_accuracy"] == 1.0
+    assert metrics["word_accuracy"] == 1.0
+    assert metrics["char_edit_distance"] == 0
+    assert metrics["word_edit_distance"] == 0
 
 
 def test_run_archive_benchmark_with_cached_inputs(monkeypatch, tmp_path) -> None:
