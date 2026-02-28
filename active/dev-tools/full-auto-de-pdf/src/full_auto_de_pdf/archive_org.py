@@ -18,11 +18,11 @@ class StarterBook:
 
 
 STARTER_BOOKS: tuple[StarterBook, ...] = (
-    StarterBook("prideprejudice00austiala", "Pride and Prejudice"),
-    StarterBook("mobydickorwhale00melvuoft", "Moby-Dick; or, The Whale"),
-    StarterBook("adventuresofsher00doyliala", "The Adventures of Sherlock Holmes"),
-    StarterBook("frankensteinor00sheluoft", "Frankenstein; or, The Modern Prometheus"),
-    StarterBook("dracula00bramuoft", "Dracula"),
+    StarterBook("jane-austen_pride-and-prejudice", "Pride and Prejudice"),
+    StarterBook("in.ernet.dli.2015.461099", "Moby-Dick; or, The Whale"),
+    StarterBook("TheAdventuresOfSherlockHolmes-English", "The Adventures of Sherlock Holmes"),
+    StarterBook("frankensteinormo00shel_10", "Frankenstein; or, The Modern Prometheus"),
+    StarterBook("dracu00stok", "Dracula"),
 )
 
 

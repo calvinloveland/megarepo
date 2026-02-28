@@ -41,3 +41,37 @@ def test_build_epub_command_builds_file(tmp_path) -> None:
     assert rc == 0
     assert epub_path.exists()
     assert metrics_path.exists()
+
+
+def test_benchmark_archive_command_writes_report(monkeypatch, tmp_path) -> None:
+    output = tmp_path / "benchmark.json"
+    cache_dir = tmp_path / "cache"
+
+    def _fake_run_archive_benchmark(cache_dir, timeout_seconds):  # noqa: ANN001
+        assert timeout_seconds == 45
+        return {
+            "summary": {
+                "book_count": 1,
+                "avg_char_accuracy_proxy": 0.95,
+                "avg_word_accuracy_proxy": 0.90,
+            },
+            "books": [],
+            "metric_note": "test",
+        }
+
+    monkeypatch.setattr(cli, "run_archive_benchmark", _fake_run_archive_benchmark)
+    rc = cli.main(
+        [
+            "benchmark-archive",
+            "--output",
+            str(output),
+            "--cache-dir",
+            str(cache_dir),
+            "--timeout-seconds",
+            "45",
+        ]
+    )
+
+    assert rc == 0
+    payload = json.loads(output.read_text(encoding="utf-8"))
+    assert payload["summary"]["book_count"] == 1

@@ -4,6 +4,7 @@ import argparse
 from pathlib import Path
 
 from .archive_org import build_manifest, write_manifest
+from .benchmark import run_archive_benchmark, write_benchmark_report
 from .epub import build_epub_from_ocr_file
 
 
@@ -59,6 +60,27 @@ def _build_parser() -> argparse.ArgumentParser:
         default="en",
         help="EPUB language code",
     )
+    benchmark_parser = subparsers.add_parser(
+        "benchmark-archive", help="Run proxy OCR accuracy benchmark"
+    )
+    benchmark_parser.add_argument(
+        "--output",
+        type=Path,
+        default=Path("data/benchmark_archive_accuracy.json"),
+        help="Path to write benchmark report JSON",
+    )
+    benchmark_parser.add_argument(
+        "--cache-dir",
+        type=Path,
+        default=Path("data/cache"),
+        help="Cache directory for downloaded source texts",
+    )
+    benchmark_parser.add_argument(
+        "--timeout-seconds",
+        type=int,
+        default=60,
+        help="Network request timeout",
+    )
     return parser
 
 
@@ -83,6 +105,22 @@ def main(argv: list[str] | None = None) -> int:
             f"Built {args.output} ({metrics['word_count']} words, "
             f"{metrics['paragraph_count']} paragraphs)"
         )
+        return 0
+
+    if args.command == "benchmark-archive":
+        report = run_archive_benchmark(
+            cache_dir=args.cache_dir,
+            timeout_seconds=args.timeout_seconds,
+        )
+        write_benchmark_report(args.output, report)
+        summary = report["summary"]
+        print(
+            "Proxy accuracy: "
+            f"char={float(summary['avg_char_accuracy_proxy']):.4f}, "
+            f"word={float(summary['avg_word_accuracy_proxy']):.4f} "
+            f"across {int(summary['book_count'])} books"
+        )
+        print(f"Report: {args.output}")
         return 0
 
     parser.error(f"{args.command!r} is not implemented yet")

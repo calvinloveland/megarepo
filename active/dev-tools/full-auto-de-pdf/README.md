@@ -22,4 +22,8 @@ full-auto-de-pdf build-epub \
   --output out/book.epub \
   --metrics-output out/book.metrics.json \
   --title "Sample Book"
+
+# Run proxy OCR accuracy benchmark against Project Gutenberg references
+full-auto-de-pdf benchmark-archive \
+  --output data/benchmark_archive_accuracy.json
 ```

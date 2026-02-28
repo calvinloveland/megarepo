@@ -67,15 +67,15 @@ Phase 3 (SOTA)
 
 Archive.org public-domain scanned books (starter test set)
 1) Pride and Prejudice
-   - https://archive.org/details/prideprejudice00austiala
+   - https://archive.org/details/jane-austen_pride-and-prejudice
 2) Moby-Dick; or, The Whale
-   - https://archive.org/details/mobydickorwhale00melvuoft
+   - https://archive.org/details/in.ernet.dli.2015.461099
 3) The Adventures of Sherlock Holmes
-   - https://archive.org/details/adventuresofsher00doyliala
+   - https://archive.org/details/TheAdventuresOfSherlockHolmes-English
 4) Frankenstein; or, The Modern Prometheus
-   - https://archive.org/details/frankensteinor00sheluoft
+   - https://archive.org/details/frankensteinormo00shel_10
 5) Dracula
-   - https://archive.org/details/dracula00bramuoft
+   - https://archive.org/details/dracu00stok
 
 Archive data usage notes
 - Prefer items that include OCR artifacts in Download Options (DjVuTXT and/or ABBYY GZ).
