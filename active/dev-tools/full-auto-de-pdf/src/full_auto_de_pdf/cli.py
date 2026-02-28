@@ -60,6 +60,11 @@ def _build_parser() -> argparse.ArgumentParser:
         default="en",
         help="EPUB language code",
     )
+    build_epub_parser.add_argument(
+        "--no-cleanup",
+        action="store_true",
+        help="Disable OCR cleanup before EPUB generation",
+    )
     benchmark_parser = subparsers.add_parser(
         "benchmark-archive", help="Run proxy OCR accuracy benchmark"
     )
@@ -100,6 +105,7 @@ def main(argv: list[str] | None = None) -> int:
             metrics_output_path=args.metrics_output,
             title=args.title,
             language=args.language,
+            apply_cleanup=not args.no_cleanup,
         )
         print(
             f"Built {args.output} ({metrics['word_count']} words, "

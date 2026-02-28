@@ -49,6 +49,9 @@ def test_run_archive_benchmark_with_cached_inputs(monkeypatch, tmp_path) -> None
     assert report["summary"]["book_count"] == 1
     assert report["summary"]["avg_wer_proxy"] == 0.0
     assert report["summary"]["avg_cer_proxy"] == 0.0
+    assert report["summary"]["avg_raw_wer_proxy"] == 0.0
+    assert report["summary"]["avg_raw_cer_proxy"] == 0.0
+    assert report["books"][0]["alignment_applied"] is False
 
 
 def test_benchmark_report_is_json_serializable(tmp_path) -> None:

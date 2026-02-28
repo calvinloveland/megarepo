@@ -17,6 +17,7 @@ full-auto-de-pdf --help
 full-auto-de-pdf manifest --output data/archive_manifest.json
 
 # Build baseline EPUB from OCR text
+# (OCR cleanup is enabled by default; pass --no-cleanup to disable)
 full-auto-de-pdf build-epub \
   --ocr-text sample.txt \
   --output out/book.epub \
@@ -24,6 +25,7 @@ full-auto-de-pdf build-epub \
   --title "Sample Book"
 
 # Run proxy OCR accuracy benchmark against Project Gutenberg references
+# (applies OCR cleanup + shared-ngram alignment before scoring)
 full-auto-de-pdf benchmark-archive \
   --output data/benchmark_archive_accuracy.json
 ```

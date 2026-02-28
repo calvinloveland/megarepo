@@ -9,6 +9,7 @@ from typing import Any, Callable
 from urllib.request import urlopen
 
 from .archive_org import fetch_metadata
+from .ocr_cleanup import cleanup_ocr_text
 
 ARCHIVE_DOWNLOAD_URL = "https://archive.org/download/{identifier}/{filename}"
 GUTENBERG_TEXT_URL = "https://www.gutenberg.org/cache/epub/{gutenberg_id}/pg{gutenberg_id}.txt"
@@ -95,6 +96,56 @@ def _normalize_for_word_metric(text: str) -> list[str]:
     return re.findall(r"[a-z0-9']+", lower)
 
 
+def _align_text_by_shared_ngrams(
+    reference_text: str,
+    hypothesis_text: str,
+    ngram_size: int = 12,
+    window_words: int = 50000,
+    min_aligned_words: int = 5000,
+) -> tuple[str, str, bool]:
+    reference_words = _normalize_for_word_metric(reference_text)
+    hypothesis_words = _normalize_for_word_metric(hypothesis_text)
+    if len(reference_words) < ngram_size or len(hypothesis_words) < ngram_size:
+        return reference_text, hypothesis_text, False
+
+    hypothesis_index: dict[tuple[str, ...], int] = {}
+    for index in range(len(hypothesis_words) - ngram_size + 1):
+        ngram = tuple(hypothesis_words[index : index + ngram_size])
+        hypothesis_index.setdefault(ngram, index)
+
+    start_anchor: tuple[int, int] | None = None
+    start_search_limit = min(window_words, len(reference_words) - ngram_size + 1)
+    for index in range(start_search_limit):
+        ngram = tuple(reference_words[index : index + ngram_size])
+        hypothesis_index_value = hypothesis_index.get(ngram)
+        if hypothesis_index_value is not None:
+            start_anchor = (index, hypothesis_index_value)
+            break
+
+    end_anchor: tuple[int, int] | None = None
+    end_search_start = max(0, len(reference_words) - ngram_size - window_words)
+    for index in range(len(reference_words) - ngram_size, end_search_start - 1, -1):
+        ngram = tuple(reference_words[index : index + ngram_size])
+        hypothesis_index_value = hypothesis_index.get(ngram)
+        if hypothesis_index_value is not None:
+            end_anchor = (index + ngram_size, hypothesis_index_value + ngram_size)
+            break
+
+    if start_anchor is None or end_anchor is None:
+        return reference_text, hypothesis_text, False
+
+    ref_start, hyp_start = start_anchor
+    ref_end, hyp_end = end_anchor
+    if ref_end <= ref_start or hyp_end <= hyp_start:
+        return reference_text, hypothesis_text, False
+    if (ref_end - ref_start) < min_aligned_words or (hyp_end - hyp_start) < min_aligned_words:
+        return reference_text, hypothesis_text, False
+
+    aligned_reference = " ".join(reference_words[ref_start:ref_end])
+    aligned_hypothesis = " ".join(hypothesis_words[hyp_start:hyp_end])
+    return aligned_reference, aligned_hypothesis, True
+
+
 def _sample_text_edges(text: str, max_length: int) -> str:
     if len(text) <= max_length:
         return text
@@ -177,23 +228,37 @@ def run_archive_benchmark(
         )
 
         reference_text = strip_gutenberg_boilerplate(gutenberg_text)
-        metrics = calculate_proxy_accuracy(reference_text, archive_text)
+        raw_metrics = calculate_proxy_accuracy(reference_text, archive_text)
+        cleaned_archive_text = cleanup_ocr_text(archive_text)
+        aligned_reference_text, aligned_hypothesis_text, alignment_applied = _align_text_by_shared_ngrams(
+            reference_text,
+            cleaned_archive_text,
+        )
+        metrics = calculate_proxy_accuracy(aligned_reference_text, aligned_hypothesis_text)
         results.append(
             {
                 "identifier": book.identifier,
                 "title": book.title,
                 "gutenberg_id": book.gutenberg_id,
+                "alignment_applied": alignment_applied,
+                "raw_char_accuracy_proxy": raw_metrics["char_accuracy_proxy"],
+                "raw_word_accuracy_proxy": raw_metrics["word_accuracy_proxy"],
+                "raw_cer_proxy": raw_metrics["cer_proxy"],
+                "raw_wer_proxy": raw_metrics["wer_proxy"],
                 **metrics,
             }
         )
 
     avg_cer = sum(float(item["cer_proxy"]) for item in results) / len(results)
     avg_wer = sum(float(item["wer_proxy"]) for item in results) / len(results)
+    avg_raw_cer = sum(float(item["raw_cer_proxy"]) for item in results) / len(results)
+    avg_raw_wer = sum(float(item["raw_wer_proxy"]) for item in results) / len(results)
 
     return {
         "metric_note": (
-            "CER/WER are proxy values computed from normalized head+tail text samples "
-            "and compared against Project Gutenberg references."
+            "CER/WER are proxy values computed from normalized text samples. "
+            "Benchmark applies OCR cleanup and shared-ngram alignment against "
+            "Project Gutenberg references before scoring."
         ),
         "books": results,
         "summary": {
@@ -202,6 +267,10 @@ def run_archive_benchmark(
             "avg_wer_proxy": avg_wer,
             "avg_char_accuracy_proxy": 1.0 - avg_cer,
             "avg_word_accuracy_proxy": 1.0 - avg_wer,
+            "avg_raw_cer_proxy": avg_raw_cer,
+            "avg_raw_wer_proxy": avg_raw_wer,
+            "avg_raw_char_accuracy_proxy": 1.0 - avg_raw_cer,
+            "avg_raw_word_accuracy_proxy": 1.0 - avg_raw_wer,
         },
     }
 

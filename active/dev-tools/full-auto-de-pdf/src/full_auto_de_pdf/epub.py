@@ -7,6 +7,8 @@ from pathlib import Path
 import uuid
 import zipfile
 
+from .ocr_cleanup import cleanup_ocr_text
+
 
 def _paragraphs(text: str) -> list[str]:
     normalized = text.replace("\r\n", "\n").replace("\r", "\n")
@@ -86,9 +88,11 @@ def build_epub_from_ocr_text(
     output_path: Path,
     title: str,
     language: str = "en",
+    apply_cleanup: bool = True,
 ) -> dict[str, int]:
-    paragraphs = _paragraphs(ocr_text)
-    words = [token for token in ocr_text.split() if token]
+    prepared_text = cleanup_ocr_text(ocr_text) if apply_cleanup else ocr_text
+    paragraphs = _paragraphs(prepared_text)
+    words = [token for token in prepared_text.split() if token]
     identifier = f"urn:uuid:{uuid.uuid4()}"
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -121,7 +125,7 @@ def build_epub_from_ocr_text(
     return {
         "paragraph_count": len(paragraphs),
         "word_count": len(words),
-        "character_count": len(ocr_text),
+        "character_count": len(prepared_text),
     }
 
 
@@ -131,9 +135,16 @@ def build_epub_from_ocr_file(
     metrics_output_path: Path | None,
     title: str,
     language: str = "en",
+    apply_cleanup: bool = True,
 ) -> dict[str, int]:
     ocr_text = ocr_text_path.read_text(encoding="utf-8")
-    metrics = build_epub_from_ocr_text(ocr_text, output_epub_path, title, language=language)
+    metrics = build_epub_from_ocr_text(
+        ocr_text,
+        output_epub_path,
+        title,
+        language=language,
+        apply_cleanup=apply_cleanup,
+    )
     if metrics_output_path is not None:
         metrics_output_path.parent.mkdir(parents=True, exist_ok=True)
         metrics_output_path.write_text(
