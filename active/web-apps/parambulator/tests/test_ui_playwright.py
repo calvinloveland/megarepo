@@ -130,7 +130,8 @@ def test_feedback_after_selecting_element_from_other_tab(page):
         page.locator("#element-selector-btn").click()
 
         # Click a seat element in the chart to select it
-        chart_seat = page.locator("#tab-chart .seat").first
+        chart_seat = page.locator('#tab-chart .seat[data-row="1"][data-col="2"]').first
+        chart_seat.scroll_into_view_if_needed()
         chart_seat.click()
 
         # Fill feedback and submit

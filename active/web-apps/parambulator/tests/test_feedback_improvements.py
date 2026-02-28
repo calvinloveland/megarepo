@@ -41,6 +41,14 @@ def run_server():
         thread.join(timeout=2)
 
 
+def _open_scoring_settings(page) -> None:
+    page.get_by_role("button", name="People & Constraints").click()
+    panel = page.locator("#scoring-settings-panel")
+    if not panel.evaluate("el => el.open"):
+        panel.locator("summary").click()
+    expect(page.locator("#col-type-reading_level")).to_be_visible()
+
+
 class TestFeedbackImprovements:
     """Test fixes from commits 8b0ff52a (feedback selector + version)."""
 
@@ -323,6 +331,7 @@ class TestColumnConfigurationUI:
         """Test that each column has type selector."""
         with run_server() as base_url:
             page.goto(base_url, wait_until="domcontentloaded")
+            _open_scoring_settings(page)
 
             # Check for column type selectors
             assert page.locator("#col-type-reading_level").is_visible()
@@ -334,6 +343,7 @@ class TestColumnConfigurationUI:
         """Test that each column has weight input."""
         with run_server() as base_url:
             page.goto(base_url, wait_until="domcontentloaded")
+            _open_scoring_settings(page)
 
             # Check for weight inputs
             assert page.locator("#col-weight-reading_level").is_visible()
@@ -345,6 +355,7 @@ class TestColumnConfigurationUI:
         """Test that column type selector has 'Ignore' option."""
         with run_server() as base_url:
             page.goto(base_url, wait_until="domcontentloaded")
+            _open_scoring_settings(page)
 
             # Check first selector has ignore option
             selector = page.locator("#col-type-reading_level")
@@ -461,6 +472,7 @@ class TestIntegrationScenarios:
         """Test complete workflow using all new features."""
         with run_server() as base_url:
             page.goto(base_url, wait_until="domcontentloaded")
+            _open_scoring_settings(page)
 
             # 1. Modify column configuration
             page.locator("#col-type-reading_level").select_option("mix")
