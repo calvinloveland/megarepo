@@ -30,7 +30,15 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_ROWS = 4
 DEFAULT_COLS = 5
 DEFAULT_DESIGN = "design_1"
-ALLOWED_DESIGNS = ("design_1", "design_2", "design_3", "design_4", "design_5")
+DESIGN_OPTION_LABELS = {
+    "design_1": "1 • Brutalist",
+    "design_2": "2 • Cyberpunk",
+    "design_3": "3 • Vibrant",
+    "design_4": "4 • Military",
+    "design_5": "5 • NGE",
+}
+DESIGN_ALIASES = {"military": "design_4", "nge": "design_5"}
+ALLOWED_DESIGNS = tuple(DESIGN_OPTION_LABELS.keys())
 DEFAULT_SCORING_WEIGHTS = {
     "reading_mix": 0.3,
     "talkative_spacing": 0.2,
@@ -735,6 +743,7 @@ def parse_pinned_seats(
 
 def sanitize_design(design: str) -> str:
     normalized = str(design or "").strip()
+    normalized = DESIGN_ALIASES.get(normalized.lower(), normalized)
     if normalized in ALLOWED_DESIGNS:
         return normalized
     return DEFAULT_DESIGN
@@ -876,6 +885,7 @@ def build_context(
         "chart_history": chart_history or [],
         "message": message,
         "available_designs": list(ALLOWED_DESIGNS),
+        "design_option_labels": dict(DESIGN_OPTION_LABELS),
         "saves": list_saves(PROJECT_ROOT),
     }
 

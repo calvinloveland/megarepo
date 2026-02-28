@@ -16,7 +16,7 @@
         hx-vals='{"design": "{{ design_option }}"}'
         hx-include="#controls-form"
       >
-        {{ design_option | replace('design_', '') | title }}
+        {{ design_option_labels.get(design_option, design_option | replace('design_', '') | title) }}
       </button>
       {% endfor %}
     </div>

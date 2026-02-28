@@ -38,7 +38,7 @@
         hx-target="#app"
         hx-include="#controls-form"
       >
-        {{ option|replace('_', ' ') }}
+        {{ design_option_labels.get(option, option|replace('_', ' ')) }}
       </button>
       {% endfor %}
     </div>
