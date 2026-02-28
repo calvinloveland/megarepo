@@ -149,6 +149,16 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Disable OCR cleanup after extraction",
     )
+    ocr_pdf_parser.add_argument(
+        "--no-page-artifacts",
+        action="store_true",
+        help="Disable per-page OCR artifact text files",
+    )
+    ocr_pdf_parser.add_argument(
+        "--page-artifacts-dir",
+        type=Path,
+        help="Optional directory for per-page OCR artifacts",
+    )
     eval_modes_parser = subparsers.add_parser(
         "ocr-eval-modes",
         help="Run OCR across preprocess modes and compare output quality",
@@ -267,6 +277,8 @@ def main(argv: list[str] | None = None) -> int:
             binarize_threshold=args.binarize_threshold,
             deskew_max_angle=args.deskew_max_angle,
             deskew_angle_step=args.deskew_angle_step,
+            emit_page_artifacts=not args.no_page_artifacts,
+            page_artifacts_dir=args.page_artifacts_dir,
         )
         print(
             f"OCR complete: {metrics['page_count']} pages, "

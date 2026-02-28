@@ -2,6 +2,8 @@ from pathlib import Path
 
 import pytest
 
+import json
+
 from full_auto_de_pdf import ocr_pipeline
 from full_auto_de_pdf.ocr_pipeline import evaluate_ocr_preprocess_modes, ocr_pdf_with_tesseract
 
@@ -68,6 +70,10 @@ def test_ocr_pdf_with_tesseract_happy_path(tmp_path) -> None:
     assert metrics["page_count"] == 2
     assert metrics["word_count"] >= 5
     assert "first" in output_path.read_text(encoding="utf-8").lower()
+    artifacts_manifest = Path(str(metrics["page_artifacts_manifest"]))
+    assert artifacts_manifest.exists()
+    manifest_payload = json.loads(artifacts_manifest.read_text(encoding="utf-8"))
+    assert len(manifest_payload["pages"]) == 2
 
     metrics_dewarp = ocr_pdf_with_tesseract(
         pdf_path=pdf_path,
@@ -79,6 +85,17 @@ def test_ocr_pdf_with_tesseract_happy_path(tmp_path) -> None:
         which=_which,
     )
     assert metrics_dewarp["page_count"] == 2
+
+    metrics_no_artifacts = ocr_pdf_with_tesseract(
+        pdf_path=pdf_path,
+        output_text_path=output_path,
+        work_dir=work_dir,
+        run_command=_run,
+        preprocess_image=_preprocess_image,
+        emit_page_artifacts=False,
+        which=_which,
+    )
+    assert "page_artifacts_manifest" not in metrics_no_artifacts
 
 
 def test_ocr_pdf_with_tesseract_rejects_invalid_preprocess_mode(tmp_path) -> None:

@@ -45,6 +45,7 @@ full-auto-de-pdf ocr-pdf \
   --binarize-threshold 170 \
   --deskew-max-angle 3.0 \
   --deskew-angle-step 0.5
+# (writes per-page OCR artifacts under data/ocr-work/page_ocr by default)
 
 # Evaluate OCR output across preprocess modes (none/basic/deskew/dewarp)
 full-auto-de-pdf ocr-eval-modes \

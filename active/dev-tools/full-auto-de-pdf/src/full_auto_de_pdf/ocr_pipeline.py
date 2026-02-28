@@ -165,10 +165,12 @@ def ocr_pdf_with_tesseract(
     binarize_threshold: int = 170,
     deskew_max_angle: float = 3.0,
     deskew_angle_step: float = 0.5,
+    emit_page_artifacts: bool = True,
+    page_artifacts_dir: Path | None = None,
     run_command: Callable[[list[str], bool], str] = _run_command,
     preprocess_image: Callable[[Path, Path, str, int, float, float], None] = _preprocess_image,
     which: Callable[[str], str | None] = shutil.which,
-) -> dict[str, int]:
+) -> dict[str, int | str]:
     if preprocess_mode not in {"none", "basic", "deskew", "dewarp"}:
         raise ValueError("preprocess_mode must be 'none', 'basic', 'deskew', or 'dewarp'")
     if not (0 <= binarize_threshold <= 255):
@@ -206,6 +208,10 @@ def ocr_pdf_with_tesseract(
 
     page_texts: list[str] = []
     preprocessed_dir = work_dir / "preprocessed"
+    page_details: list[dict[str, object]] = []
+    artifacts_dir = page_artifacts_dir or (work_dir / "page_ocr")
+    if emit_page_artifacts:
+        artifacts_dir.mkdir(parents=True, exist_ok=True)
     for image_path in page_images:
         ocr_input_path = image_path
         if preprocess_mode in {"basic", "deskew", "dewarp"}:
@@ -233,17 +239,40 @@ def ocr_pdf_with_tesseract(
             True,
         )
         page_texts.append(text)
+        page_word_count = len([word for word in text.split() if word])
+        page_index = len(page_texts)
+        page_entry: dict[str, object] = {
+            "page_index": page_index,
+            "image_path": str(image_path),
+            "ocr_input_path": str(ocr_input_path),
+            "word_count": page_word_count,
+            "character_count": len(text),
+        }
+        if emit_page_artifacts:
+            page_text_path = artifacts_dir / f"page-{page_index:04d}.txt"
+            page_text_path.write_text(text, encoding="utf-8")
+            page_entry["text_path"] = str(page_text_path)
+        page_details.append(page_entry)
 
     combined_text = "\n\n".join(page_texts)
     final_text = cleanup_ocr_text(combined_text) if apply_cleanup else combined_text
     output_text_path.parent.mkdir(parents=True, exist_ok=True)
     output_text_path.write_text(final_text, encoding="utf-8")
     words = [word for word in final_text.split() if word]
-    return {
+    result = {
         "page_count": len(page_images),
         "word_count": len(words),
         "character_count": len(final_text),
     }
+    if emit_page_artifacts:
+        artifacts_manifest_path = artifacts_dir / "manifest.json"
+        artifacts_manifest_path.write_text(
+            json.dumps({"pages": page_details}, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        result["page_artifacts_dir"] = str(artifacts_dir)
+        result["page_artifacts_manifest"] = str(artifacts_manifest_path)
+    return result
 
 
 def evaluate_ocr_preprocess_modes(
