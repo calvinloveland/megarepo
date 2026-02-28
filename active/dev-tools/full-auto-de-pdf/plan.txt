@@ -1,0 +1,89 @@
+full-auto-de-pdf: scanned PDF -> ebook plan
+
+Goal
+- Build a state-of-the-art pipeline that converts scanned public-domain PDFs into high-quality, accessible EPUB3 ebooks.
+
+Product targets
+- Input: scanned PDF, image-PDF, or page image bundles.
+- Output: EPUB3 (primary), plus optional MOBI/AZW3 and clean TXT/HTML.
+- Quality targets:
+  - Low character error rate (CER) and word error rate (WER)
+  - Correct reading order and chapter structure
+  - Preserved tables/lists/footnotes/captions
+  - Accessibility metadata + semantic markup
+
+Architecture (v1 -> v3)
+1) Ingestion and image normalization
+- Detect page orientation and split spreads.
+- Deskew, dewarp, denoise, and adaptive contrast/binarization.
+- Margin/crop normalization with page-level quality scoring.
+
+2) Layout + structure understanding
+- Detect regions: headings, body text, footnotes, tables, figures, sidebars.
+- Infer reading order for single and multi-column layouts.
+- Recover hierarchy (parts/chapters/sections) and TOC candidates.
+
+3) Hybrid OCR ensemble
+- Run multiple OCR engines per page/region (example stack: PaddleOCR + TrOCR/Donut + Tesseract).
+- Do confidence-aware reconciliation across engines.
+- Language-aware post-correction with strict grounding to OCR spans.
+
+4) Semantic reconstruction
+- Rebuild paragraphs, lists, quotes, footnotes, and references.
+- Preserve table structure as real table markup where possible.
+- Link chapter anchors, cross-references, and notes.
+
+5) EPUB generation
+- Build valid EPUB3 package with nav/toc, metadata, and CSS themes.
+- Add alt text pipeline for figures (human or model-assisted review).
+- Emit validation report from epubcheck.
+
+6) QA + human-in-the-loop
+- Heatmap low-confidence pages/blocks.
+- Provide lightweight correction workflow (line-level edits with provenance).
+- Feed corrections back into post-processing rules/models.
+
+Evaluation harness
+- Text metrics: CER/WER against reference texts where available.
+- Structure metrics: heading/tree accuracy, TOC accuracy, reading-order score.
+- Usability metrics: epubcheck pass rate, accessibility checks, rendering sanity across readers.
+- Dataset split:
+  - easy clean scans
+  - medium noisy scans
+  - hard historical typography + degraded pages
+
+Execution phases
+Phase 1 (MVP)
+- End-to-end pipeline: preprocess -> OCR -> basic structure -> EPUB3.
+- CLI with reproducible runs and artifact bundle per book.
+
+Phase 2 (quality)
+- OCR ensemble voting + stronger layout/reading-order model.
+- Confidence map + review workflow.
+
+Phase 3 (SOTA)
+- Domain adaptation by genre/period typography.
+- Automated benchmark dashboards and regression alerts.
+
+Archive.org public-domain scanned books (starter test set)
+1) Pride and Prejudice
+   - https://archive.org/details/prideprejudice00austiala
+2) Moby-Dick; or, The Whale
+   - https://archive.org/details/mobydickorwhale00melvuoft
+3) The Adventures of Sherlock Holmes
+   - https://archive.org/details/adventuresofsher00doyliala
+4) Frankenstein; or, The Modern Prometheus
+   - https://archive.org/details/frankensteinor00sheluoft
+5) Dracula
+   - https://archive.org/details/dracula00bramuoft
+
+Archive data usage notes
+- Prefer items that include OCR artifacts in Download Options (DjVuTXT and/or ABBYY GZ).
+- Keep a balanced benchmark set across clean and degraded scans.
+- Save per-item metadata (identifier, year, language, page count, OCR artifact presence) before model comparisons.
+
+Immediate next steps
+1) Scaffold project package + CLI entrypoint.
+2) Add downloader/normalizer for archive.org items.
+3) Build baseline OCR-only pipeline and emit EPUB + metrics JSON.
+4) Add regression dataset runner for all test items above.
