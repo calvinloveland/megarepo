@@ -5,3 +5,4 @@ data/benchmark_archive_accuracy.json
 data/benchmark_archive_accuracy_*.json
 data/ocr_mode_eval*.json
 data/local_archive_benchmark*.json
+data/epub_eval*.json

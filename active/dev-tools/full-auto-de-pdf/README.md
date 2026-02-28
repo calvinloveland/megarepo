@@ -60,4 +60,9 @@ full-auto-de-pdf benchmark-local-archive \
   --archive-identifier dracu00stok \
   --archive-source-mode djvu \
   --output data/local_archive_benchmark.json
+
+# Evaluate EPUB structure + optional epubcheck
+full-auto-de-pdf eval-epub \
+  --epub out/book.epub \
+  --output data/epub_eval.json
 ```

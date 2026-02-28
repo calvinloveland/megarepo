@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
 
 from .archive_org import build_manifest, write_manifest
 from .benchmark import run_archive_benchmark, write_benchmark_report
 from .epub import build_epub_from_ocr_file
+from .epub_eval import evaluate_epub_structure
 from .ocr_pipeline import (
     benchmark_local_ocr_against_archive,
     evaluate_ocr_preprocess_modes,
@@ -281,6 +283,27 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Disable OCR cleanup after extraction",
     )
+    eval_epub_parser = subparsers.add_parser(
+        "eval-epub",
+        help="Evaluate EPUB structure metrics and optional epubcheck status",
+    )
+    eval_epub_parser.add_argument("--epub", type=Path, required=True, help="Input EPUB path")
+    eval_epub_parser.add_argument(
+        "--output",
+        type=Path,
+        default=Path("data/epub_eval.json"),
+        help="Output JSON report path",
+    )
+    eval_epub_parser.add_argument(
+        "--skip-epubcheck",
+        action="store_true",
+        help="Skip epubcheck subprocess validation",
+    )
+    eval_epub_parser.add_argument(
+        "--epubcheck-cmd",
+        default="epubcheck",
+        help="epubcheck command name/path",
+    )
     return parser
 
 
@@ -387,6 +410,25 @@ def main(argv: list[str] | None = None) -> int:
             "Local-vs-archive benchmark complete: "
             f"source={report['selected_archive_source']}, "
             f"best_mode={report.get('best_mode')} -> {args.output}"
+        )
+        return 0
+
+    if args.command == "eval-epub":
+        report = evaluate_epub_structure(
+            epub_path=args.epub,
+            run_epubcheck=not args.skip_epubcheck,
+            epubcheck_cmd=args.epubcheck_cmd,
+        )
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        args.output.write_text(
+            json.dumps(report, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        structure_score = float(report["metrics"]["structure_score"])
+        epubcheck_status = report["epubcheck"]["status"]
+        print(
+            "EPUB evaluation complete: "
+            f"structure_score={structure_score:.3f}, epubcheck={epubcheck_status} -> {args.output}"
         )
         return 0
 

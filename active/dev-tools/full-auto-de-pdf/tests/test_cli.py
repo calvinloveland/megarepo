@@ -200,3 +200,34 @@ def test_benchmark_local_archive_command_runs(monkeypatch, tmp_path) -> None:
         ]
     )
     assert rc == 0
+
+
+def test_eval_epub_command_writes_report(monkeypatch, tmp_path) -> None:
+    input_epub = tmp_path / "book.epub"
+    output_report = tmp_path / "epub_eval.json"
+    input_epub.write_bytes(b"fake")
+
+    def _fake_evaluate_epub_structure(epub_path, run_epubcheck, epubcheck_cmd):  # noqa: ANN001
+        assert epub_path == input_epub
+        assert run_epubcheck is False
+        assert epubcheck_cmd == "epubcheck"
+        return {
+            "metrics": {"structure_score": 0.9},
+            "epubcheck": {"status": "skipped"},
+            "checks": {},
+        }
+
+    monkeypatch.setattr(cli, "evaluate_epub_structure", _fake_evaluate_epub_structure)
+    rc = cli.main(
+        [
+            "eval-epub",
+            "--epub",
+            str(input_epub),
+            "--output",
+            str(output_report),
+            "--skip-epubcheck",
+        ]
+    )
+    assert rc == 0
+    payload = json.loads(output_report.read_text(encoding="utf-8"))
+    assert payload["epubcheck"]["status"] == "skipped"
