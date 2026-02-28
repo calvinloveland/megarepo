@@ -92,8 +92,10 @@ def test_ocr_pdf_command_runs_pipeline(monkeypatch, tmp_path) -> None:
         assert kwargs["work_dir"] == work_dir
         assert kwargs["language"] == "eng"
         assert kwargs["dpi"] == 200
-        assert kwargs["preprocess_mode"] == "none"
+        assert kwargs["preprocess_mode"] == "deskew"
         assert kwargs["binarize_threshold"] == 180
+        assert kwargs["deskew_max_angle"] == 4.0
+        assert kwargs["deskew_angle_step"] == 0.25
         return {"page_count": 3, "word_count": 120, "character_count": 600}
 
     monkeypatch.setattr(cli, "ocr_pdf_with_tesseract", _fake_ocr_pdf_with_tesseract)
@@ -109,9 +111,13 @@ def test_ocr_pdf_command_runs_pipeline(monkeypatch, tmp_path) -> None:
             "--dpi",
             "200",
             "--preprocess-mode",
-            "none",
+            "deskew",
             "--binarize-threshold",
             "180",
+            "--deskew-max-angle",
+            "4.0",
+            "--deskew-angle-step",
+            "0.25",
         ]
     )
     assert rc == 0

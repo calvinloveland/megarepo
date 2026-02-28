@@ -122,7 +122,7 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     ocr_pdf_parser.add_argument(
         "--preprocess-mode",
-        choices=["none", "basic"],
+        choices=["none", "basic", "deskew"],
         default="basic",
         help="Image preprocessing before OCR",
     )
@@ -131,6 +131,18 @@ def _build_parser() -> argparse.ArgumentParser:
         type=int,
         default=170,
         help="Binarization threshold for basic preprocessing (0-255)",
+    )
+    ocr_pdf_parser.add_argument(
+        "--deskew-max-angle",
+        type=float,
+        default=3.0,
+        help="Maximum absolute deskew angle to search (degrees)",
+    )
+    ocr_pdf_parser.add_argument(
+        "--deskew-angle-step",
+        type=float,
+        default=0.5,
+        help="Deskew angle search step size (degrees)",
     )
     ocr_pdf_parser.add_argument(
         "--no-cleanup",
@@ -197,6 +209,8 @@ def main(argv: list[str] | None = None) -> int:
             apply_cleanup=not args.no_cleanup,
             preprocess_mode=args.preprocess_mode,
             binarize_threshold=args.binarize_threshold,
+            deskew_max_angle=args.deskew_max_angle,
+            deskew_angle_step=args.deskew_angle_step,
         )
         print(
             f"OCR complete: {metrics['page_count']} pages, "

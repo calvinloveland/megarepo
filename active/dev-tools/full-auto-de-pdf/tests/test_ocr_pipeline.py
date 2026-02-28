@@ -44,7 +44,14 @@ def test_ocr_pdf_with_tesseract_happy_path(tmp_path) -> None:
             return "Second page text"
         raise AssertionError("unexpected command")
 
-    def _preprocess_image(input_path: Path, output_path: Path, _threshold: int) -> None:
+    def _preprocess_image(
+        input_path: Path,
+        output_path: Path,
+        _mode: str,
+        _threshold: int,
+        _max_angle: float,
+        _step: float,
+    ) -> None:
         output_path.parent.mkdir(parents=True, exist_ok=True)
         output_path.write_bytes(input_path.read_bytes())
 
@@ -74,5 +81,22 @@ def test_ocr_pdf_with_tesseract_rejects_invalid_preprocess_mode(tmp_path) -> Non
             output_text_path=tmp_path / "out.txt",
             work_dir=tmp_path / "work",
             preprocess_mode="invalid",
+            which=_which,
+        )
+
+
+def test_ocr_pdf_with_tesseract_rejects_invalid_deskew_step(tmp_path) -> None:
+    pdf_path = tmp_path / "book.pdf"
+    pdf_path.write_bytes(b"pdf")
+
+    def _which(_name: str) -> str | None:
+        return "/usr/bin/fake"
+
+    with pytest.raises(ValueError):
+        ocr_pdf_with_tesseract(
+            pdf_path=pdf_path,
+            output_text_path=tmp_path / "out.txt",
+            work_dir=tmp_path / "work",
+            deskew_angle_step=0.0,
             which=_which,
         )

@@ -41,6 +41,8 @@ full-auto-de-pdf ocr-pdf \
   --pdf scans/book.pdf \
   --output out/book.ocr.txt \
   --work-dir data/ocr-work \
-  --preprocess-mode basic \
-  --binarize-threshold 170
+  --preprocess-mode deskew \
+  --binarize-threshold 170 \
+  --deskew-max-angle 3.0 \
+  --deskew-angle-step 0.5
 ```
