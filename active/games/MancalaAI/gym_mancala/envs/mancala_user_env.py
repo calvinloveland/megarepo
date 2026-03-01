@@ -1,14 +1,13 @@
-import random
+"""Mancala environment that requests moves from stdin for player two."""
 
-import gymnasium as gym
-
-from gym_mancala.envs.board import Board
-from gym_mancala.envs.mancala_env import MancalaEnv
+from .mancala_env import MancalaEnv
 
 
 class MancalaUserEnv(MancalaEnv):
+    """Interactive environment for human-vs-agent play."""
 
     def step(self, action):
+        """Apply agent move then request human input until turn returns."""
         if not self.board.player2_turn:
             self.board.execute_turn(action)
             self.board.print_board()

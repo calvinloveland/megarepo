@@ -1,3 +1,5 @@
+"""Gym registration for Mancala environments."""
+
 from gymnasium.envs.registration import register
 
 register(

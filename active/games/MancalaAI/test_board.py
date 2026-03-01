@@ -8,7 +8,7 @@ import unittest
 
 import numpy as np
 
-from gym_mancala.envs.board import Board
+from .gym_mancala.envs.board import Board
 
 
 class TestBoardInitialization(unittest.TestCase):

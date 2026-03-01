@@ -1,0 +1,2 @@
+[BASIC]
+module-rgx=([a-z_][a-z0-9_]{1,30}|[A-Z][a-zA-Z0-9_]+)$
