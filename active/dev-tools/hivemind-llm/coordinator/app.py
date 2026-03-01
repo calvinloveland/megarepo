@@ -5,29 +5,24 @@ Flask application with WebSocket support for coordinating distributed
 browser-based LLM inference.
 """
 
+import logging
 import os
 from flask import Flask, jsonify, request
-from flask_socketio import SocketIO, emit, join_room, leave_room  # pylint: disable=import-error
+from flask_socketio import SocketIO, emit, join_room
 from flask_cors import CORS
-from loguru import logger
 from pydantic import BaseModel, ValidationError
 
 from cluster import (
     cluster,
     PeerCapabilities,
     PeerState,
-    ClusterStats,
 )
 from models import MODEL_REGISTRY, ModelConfig
 
 
 # Configure logging
-logger.add(
-    "logs/coordinator.log",
-    rotation="10 MB",
-    retention="7 days",
-    level="DEBUG",
-)
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
 
 
 # Flask app setup
@@ -55,10 +50,34 @@ class CapabilitiesReport(BaseModel):
     browser: str = "unknown"
     estimated_tflops: float = 0.0
 
+    @classmethod
+    def from_payload(cls, payload: dict) -> "CapabilitiesReport":
+        """Build a capabilities report from a socket payload."""
+        return cls(**payload)
+
+    def to_peer_capabilities(self) -> PeerCapabilities:
+        """Convert to cluster peer capability structure."""
+        return PeerCapabilities(
+            vram_gb=self.vram_gb,
+            webgpu_supported=self.webgpu_supported,
+            compute_capability=self.compute_capability,
+            browser=self.browser,
+            estimated_tflops=self.estimated_tflops,
+        )
+
 
 class StateUpdate(BaseModel):
     """Peer state update message."""
     state: str  # PeerState value
+
+    @classmethod
+    def from_payload(cls, payload: dict) -> "StateUpdate":
+        """Build a state update from a socket payload."""
+        return cls(**payload)
+
+    def to_peer_state(self) -> PeerState:
+        """Convert to a peer state enum."""
+        return PeerState(self.state)
 
 
 class InferenceRequest(BaseModel):
@@ -67,6 +86,20 @@ class InferenceRequest(BaseModel):
     max_tokens: int = 256
     temperature: float = 0.7
     top_p: float = 0.9
+
+    @classmethod
+    def from_payload(cls, payload: dict) -> "InferenceRequest":
+        """Build an inference request from payload data."""
+        return cls(**payload)
+
+    def as_prompt_kwargs(self) -> dict:
+        """Return request data as keyword arguments for inference calls."""
+        return {
+            "prompt": self.prompt,
+            "max_tokens": self.max_tokens,
+            "temperature": self.temperature,
+            "top_p": self.top_p,
+        }
 
 
 # ==================== REST Endpoints ====================
@@ -110,7 +143,7 @@ def cluster_stats():
     """Get detailed cluster statistics."""
     stats = cluster.get_stats()
     peers = cluster.get_all_peers()
-    
+
     return jsonify({
         "total_peers": stats.total_peers,
         "ready_peers": stats.ready_peers,
@@ -159,20 +192,27 @@ def receive_errors():
     try:
         data = request.get_json()
         errors = data.get("errors", [])
-        
+
         for error in errors:
-            logger.error(
-                f"[BROWSER ERROR] {error.get('type', 'Error')}: {error.get('message', 'Unknown')}\n"
-                f"  URL: {error.get('url', 'N/A')}\n"
-                f"  File: {error.get('filename', 'N/A')}:{error.get('lineno', '?')}:{error.get('colno', '?')}\n"
-                f"  Source: {error.get('source', 'unknown')}\n"
-                f"  Stack: {error.get('stack', 'N/A')}"
+            location = (
+                f"{error.get('filename', 'N/A')}:"
+                f"{error.get('lineno', '?')}:"
+                f"{error.get('colno', '?')}"
             )
-        
+            logger.error(
+                "[BROWSER ERROR] %s: %s\n  URL: %s\n  File: %s\n  Source: %s\n  Stack: %s",
+                error.get("type", "Error"),
+                error.get("message", "Unknown"),
+                error.get("url", "N/A"),
+                location,
+                error.get("source", "unknown"),
+                error.get("stack", "N/A"),
+            )
+
         return jsonify({"received": len(errors)}), 200
-    except Exception as e:
+    except (TypeError, ValueError, AttributeError) as error:
         logger.exception("Failed to process error report")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": str(error)}), 500
 
 
 # ==================== WebSocket Events ====================
@@ -181,7 +221,7 @@ def receive_errors():
 def handle_connect():
     """Handle new WebSocket connection."""
     peer_id = request.sid
-    logger.info(f"Peer connecting: {peer_id}")
+    logger.info("Peer connecting: %s", peer_id)
     emit("welcome", {"peer_id": peer_id})
 
 
@@ -189,8 +229,8 @@ def handle_connect():
 def handle_disconnect():
     """Handle WebSocket disconnection."""
     peer_id = request.sid
-    logger.info(f"Peer disconnecting: {peer_id}")
-    
+    logger.info("Peer disconnecting: %s", peer_id)
+
     removed = cluster.remove_peer(peer_id)
     if removed:
         # Notify other peers of the change
@@ -201,28 +241,22 @@ def handle_disconnect():
 def handle_capabilities(data):
     """Handle peer capability report."""
     peer_id = request.sid
-    
+
     try:
-        caps_data = CapabilitiesReport(**data)
-        caps = PeerCapabilities(
-            vram_gb=caps_data.vram_gb,
-            webgpu_supported=caps_data.webgpu_supported,
-            compute_capability=caps_data.compute_capability,
-            browser=caps_data.browser,
-            estimated_tflops=caps_data.estimated_tflops,
-        )
+        caps_data = CapabilitiesReport.from_payload(data)
+        caps = caps_data.to_peer_capabilities()
     except ValidationError as e:
-        logger.error(f"Invalid capabilities from {peer_id}: {e}")
+        logger.error("Invalid capabilities from %s: %s", peer_id, e)
         emit("error", {"message": "Invalid capabilities format"})
         return
-    
+
     # Add peer to cluster
     assignment = cluster.add_peer(peer_id, caps)
-    
+
     if assignment is None:
         emit("error", {"message": "Cannot join cluster: insufficient capabilities"})
         return
-    
+
     # Send assignment to peer
     emit("layer_assignment", {
         "model": {
@@ -239,10 +273,10 @@ def handle_capabilities(data):
         "is_last": assignment.is_last,
         "peer_order": assignment.peer_order,
     })
-    
+
     # Join the coordination room
     join_room("cluster")
-    
+
     # Notify other peers
     broadcast_cluster_update()
 
@@ -251,16 +285,16 @@ def handle_capabilities(data):
 def handle_state_update(data):
     """Handle peer state update."""
     peer_id = request.sid
-    
+
     try:
-        update = StateUpdate(**data)
-        state = PeerState(update.state)
+        update = StateUpdate.from_payload(data)
+        state = update.to_peer_state()
     except (ValidationError, ValueError) as e:
-        logger.error(f"Invalid state update from {peer_id}: {e}")
+        logger.error("Invalid state update from %s: %s", peer_id, e)
         return
-    
+
     cluster.update_peer_state(peer_id, state)
-    
+
     # Broadcast if peer became ready
     if state == PeerState.READY:
         broadcast_cluster_update()
@@ -280,10 +314,10 @@ def handle_webrtc_signal(data):
     from_peer = request.sid
     to_peer = data.get("target_peer")
     signal_data = data.get("signal")
-    
+
     if not to_peer or not signal_data:
         return
-    
+
     # Relay to target peer
     emit(
         "webrtc_signal",
@@ -306,7 +340,7 @@ def handle_inference_complete(data):
 def broadcast_cluster_update():
     """Broadcast cluster state update to all peers."""
     stats = cluster.get_stats()
-    
+
     socketio.emit(
         "cluster_update",
         {
@@ -324,8 +358,8 @@ def broadcast_cluster_update():
 
 def on_model_change(model: ModelConfig | None):
     """Handle model change event."""
-    logger.info(f"Broadcasting model change: {model.id if model else 'None'}")
-    
+    logger.info("Broadcasting model change: %s", model.id if model else "None")
+
     # Notify all peers they need to reload
     if model:
         socketio.emit(
@@ -353,8 +387,8 @@ def main():
     host = os.environ.get("HOST", "0.0.0.0")
     port = int(os.environ.get("PORT", 5000))
     debug = os.environ.get("DEBUG", "true").lower() == "true"
-    
-    logger.info(f"Starting HiveMind Coordinator on {host}:{port}")
+
+    logger.info("Starting HiveMind Coordinator on %s:%s", host, port)
     socketio.run(app, host=host, port=port, debug=debug)
 
 
