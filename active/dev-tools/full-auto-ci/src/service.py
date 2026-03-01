@@ -18,6 +18,7 @@ from urllib.parse import unquote, urlparse
 from .config import Config
 from .db import DataAccess
 from .git import GitTracker
+from .lint_defaults import coerce_bool
 from .providers import BaseProvider, ProviderConfigError
 from .providers import registry as provider_registry
 from .ratchet import RatchetManager
@@ -508,18 +509,7 @@ class CIService:
 
     @staticmethod
     def _coerce_bool(value: Any, default: bool = False) -> bool:
-        if value is None:
-            return default
-        if isinstance(value, bool):
-            return value
-        if isinstance(value, (int, float)):
-            return value != 0
-        if isinstance(value, str):
-            normalized = value.strip().lower()
-            if not normalized:
-                return default
-            return normalized not in {"0", "false", "no", "off"}
-        return default
+        return coerce_bool(value, default=default, truthy_unknown_str=True)
 
     @staticmethod
     def _has_local_changes(repo_url: str) -> bool:
@@ -1240,7 +1230,7 @@ class CIService:
         except (OSError, ValueError):
             return None
         value = (result.stdout or "").strip()
-        return value if result.returncode == 0 and value else None
+        return value if not result.returncode and value else None
 
     def _snapshot_working_tree(self, repo_path: str, repo_id: int) -> str:
         base_dir = os.path.expanduser("~/.fullautoci/working_tree_snapshots")

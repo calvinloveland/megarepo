@@ -8,6 +8,7 @@ from typing import Any, Dict, Optional
 
 from .config import Config
 from .db import DataAccess
+from .lint_defaults import coerce_bool
 
 logger = logging.getLogger(__name__)
 
@@ -283,17 +284,7 @@ class RatchetManager:
 
     @staticmethod
     def _coerce_bool(value: Any) -> bool:
-        if isinstance(value, bool):
-            return value
-        if isinstance(value, (int, float)):
-            return value != 0
-        if isinstance(value, str):
-            lowered = value.strip().lower()
-            if lowered in {"1", "true", "yes", "on"}:
-                return True
-            if lowered in {"0", "false", "no", "off"}:
-                return False
-        return False
+        return coerce_bool(value)
 
     @staticmethod
     def _format_value(value: float) -> str:

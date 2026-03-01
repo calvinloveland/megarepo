@@ -14,6 +14,7 @@ from .cli_mcp import serve as run_mcp_serve
 from .cli_providers import handle_provider_command as run_provider_command
 from .cli_service import handle_service_command as run_service_command
 from .cli_service import register_service_commands as add_service_commands
+from .lint_defaults import PROJECT_SCAN_IGNORE_DIRS
 from .service import CIService
 from .tools import _progress
 
@@ -340,23 +341,7 @@ class CLI:
             "setup.cfg",
             "setup.py",
         }
-        ignore_dirs = {
-            ".git",
-            "archive",
-            ".venv",
-            "venv",
-            ".env",
-            "env",
-            "node_modules",
-            "__pycache__",
-            ".tox",
-            ".nox",
-            ".eggs",
-            "dist",
-            "build",
-            ".pytest_cache",
-            ".mypy_cache",
-        }
+        ignore_dirs = set(PROJECT_SCAN_IGNORE_DIRS)
         roots: List[str] = []
 
         scan_roots = [root_path]

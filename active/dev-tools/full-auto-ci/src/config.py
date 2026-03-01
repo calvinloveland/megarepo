@@ -7,6 +7,8 @@ from typing import Any, Dict, Optional
 
 import yaml
 
+from .lint_defaults import COVERAGE_IGNORE_PATTERNS
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
@@ -58,25 +60,7 @@ class Config:
                 "run_tests_cmd": ["pytest"],
                 "timeout_seconds": 600,
                 "xml_timeout_seconds": 120,
-                "ignore_patterns": [
-                    ".venv",
-                    "venv",
-                    ".env",
-                    "env",
-                    "node_modules",
-                    ".git",
-                    "__pycache__",
-                    ".tox",
-                    ".nox",
-                    ".eggs",
-                    "*.egg-info",
-                    "archive",
-                    "ui_tests",
-                    "build",
-                    "dist",
-                    ".mypy_cache",
-                    ".pytest_cache",
-                ],
+                "ignore_patterns": list(COVERAGE_IGNORE_PATTERNS),
                 "ratchet": {
                     "enabled": False,
                     "metric": "percentage",

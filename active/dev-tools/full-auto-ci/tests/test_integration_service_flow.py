@@ -70,6 +70,10 @@ class StubGitTracker:
         """Return a fake repository by identifier, if present."""
         return self.repos.get(repo_id)
 
+    def check_for_updates(self):
+        """Return no background updates for deterministic integration tests."""
+        return {}
+
     # The following hooks keep the stub compatible with CIService management APIs.
     def add_repository(
         self, repo_id: int, name: str, url: str, branch: str = "main"
@@ -153,7 +157,7 @@ def test_cli_test_run_end_to_end(capsys, integration_service):
 
     exit_code = cli.run(["test", "run", str(repo_id), "abc1234"])
 
-    assert exit_code == 0
+    assert not exit_code
     captured = capsys.readouterr().out
     assert "Overall" in captured
     assert "dummy" in captured

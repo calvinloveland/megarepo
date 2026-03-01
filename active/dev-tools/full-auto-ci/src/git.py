@@ -296,7 +296,7 @@ class GitRepo:
                 capture_output=True,
                 text=True,
             )
-            if exists_result.returncode != 0:
+            if exists_result.returncode:
                 logger.info(
                     "Commit %s missing locally for %s; fetching updates",
                     commit_hash,

@@ -11,6 +11,8 @@ from dataclasses import dataclass
 from types import SimpleNamespace
 from typing import Any, Dict, Iterable, List, Optional, Tuple, TypeVar
 
+from .lint_defaults import COVERAGE_IGNORE_PATTERNS, PYLINT_IGNORE_DIRS
+
 try:
     from tqdm import tqdm
 except ImportError:
@@ -38,23 +40,7 @@ DEFAULT_LIZARD_TIMEOUT = 300  # 5 minutes
 DEFAULT_JSCPD_TIMEOUT = 300  # 5 minutes
 
 # Default directories to ignore when running pylint or scanning for Python projects
-DEFAULT_PYLINT_IGNORE_DIRS = [
-    ".git",
-    ".venv",
-    "venv",
-    ".env",
-    "env",
-    "node_modules",
-    "__pycache__",
-    ".tox",
-    ".nox",
-    ".eggs",
-    "archive",
-    "dist",
-    "build",
-    ".mypy_cache",
-    ".pytest_cache",
-]
+DEFAULT_PYLINT_IGNORE_DIRS = list(PYLINT_IGNORE_DIRS)
 
 
 class Tool:
@@ -504,25 +490,7 @@ class Pylint(Tool):
 
 # Default directories to ignore when running pytest
 # These commonly contain test files from installed packages that shouldn't be run
-DEFAULT_PYTEST_IGNORE_PATTERNS = [
-    ".venv",
-    "venv",
-    ".env",
-    "env",
-    "node_modules",
-    ".git",
-    "__pycache__",
-    ".tox",
-    ".nox",
-    ".eggs",
-    "*.egg-info",
-    "archive",
-    "ui_tests",
-    "build",
-    "dist",
-    ".mypy_cache",
-    ".pytest_cache",
-]
+DEFAULT_PYTEST_IGNORE_PATTERNS = list(COVERAGE_IGNORE_PATTERNS)
 
 
 class Coverage(Tool):
@@ -612,11 +580,11 @@ class Coverage(Tool):
 
     def _run_inside_repository(self, repo_path: str) -> Dict[str, Any]:
         run_ctx = self._execute_coverage_run(repo_path)
-        if run_ctx.returncode != 0:
+        if run_ctx.returncode:
             return self._build_test_failure_result(run_ctx)
 
         xml_ctx = self._generate_coverage_xml()
-        if xml_ctx.returncode != 0:
+        if xml_ctx.returncode:
             return self._build_xml_failure_result(run_ctx, xml_ctx)
 
         try:
@@ -809,7 +777,7 @@ class Coverage(Tool):
             return self._timeout_namespace(exc)
 
         stdout = fallback.stdout or ""
-        if fallback.returncode == 0 and "collected" in stdout:
+        if not fallback.returncode and "collected" in stdout:
             # Example output: 'collected 0 items'
             if "collected 0 items" in stdout:
                 return SimpleNamespace(
@@ -1098,7 +1066,7 @@ class Lizard(Tool):
                 errors.append(f"Error launching lizard CLI for {file_path}: {exc}")
                 continue
 
-            if process.returncode != 0:
+            if process.returncode:
                 logger.error("Lizard CLI failed on %s", file_path)
                 failed.append(file_path)
                 errors.append(f"Lizard CLI failed on {file_path}")
@@ -1191,7 +1159,7 @@ class Lizard(Tool):
 
         duration = time.perf_counter() - start_time
 
-        if process.returncode != 0:
+        if process.returncode:
             logger.error("Lizard CLI failed with return code %s", process.returncode)
             return {
                 "status": "error",
@@ -1557,7 +1525,7 @@ class Jscpd(Tool):
         self, process: subprocess.CompletedProcess, duration: float
     ) -> Dict[str, Any]:
         """Fallback parser for stdout when JSON report is unavailable."""
-        if process.returncode != 0 and not process.stdout:
+        if process.returncode and not process.stdout:
             return {
                 "status": "error",
                 "error": f"jscpd failed with return code {process.returncode}",
