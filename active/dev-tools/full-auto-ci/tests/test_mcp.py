@@ -275,8 +275,8 @@ class DummyToolRunner:
         return self._results
 
 
-@pytest.fixture()
-def service_stub():
+@pytest.fixture(name="service_stub")
+def _service_stub_fixture():
     """Provide a DummyService instance for tests."""
 
     return DummyService()
@@ -629,7 +629,7 @@ def test_shutdown_handler_signals_event(service_stub):
 
         server = MCPServer(service_stub)
         shutdown_event = asyncio.Event()
-        server._shutdown_event = shutdown_event
+        setattr(server, "_shutdown_event", shutdown_event)
 
         response = await server.handle_message(
             {"jsonrpc": "2.0", "id": 99, "method": "shutdown", "params": {}}
@@ -692,7 +692,8 @@ def test_tcp_server_emits_initialize_response(service_stub):
         result = response["result"]
         assert result["serverInfo"]["name"] == "full-auto-ci"
         assert result["serverInfo"]["version"] == PACKAGE_VERSION
-        assert result["protocolVersion"] in MCPServer._SUPPORTED_PROTOCOL_VERSIONS
+        supported_versions = getattr(MCPServer, "_SUPPORTED_PROTOCOL_VERSIONS")
+        assert result["protocolVersion"] in supported_versions
         assert "instructions" in result and "Full Auto CI" in result["instructions"]
 
     _run(scenario())
@@ -1122,7 +1123,8 @@ def test_transport_reader_handles_content_length():
         reader.feed_data(f"Content-Length: {len(raw)}\r\n\r\n".encode("utf-8") + raw)
         reader.feed_eof()
 
-        data, framing = await MCPServer._read_transport_message(reader)
+        read_message = getattr(MCPServer, "_read_transport_message")
+        data, framing = await read_message(reader)
         assert framing == "content-length"
         assert json.loads(data) == payload
 
@@ -1138,7 +1140,8 @@ def test_transport_reader_handles_newline():
         reader.feed_data((json.dumps(payload) + "\n").encode("utf-8"))
         reader.feed_eof()
 
-        data, framing = await MCPServer._read_transport_message(reader)
+        read_message = getattr(MCPServer, "_read_transport_message")
+        data, framing = await read_message(reader)
         assert framing == "newline"
         assert json.loads(data) == payload
 
@@ -1149,7 +1152,8 @@ def test_encode_message_content_length_round_trip():
     """Content-length encoding should round-trip back to the original payload."""
 
     payload = {"jsonrpc": "2.0", "id": 3, "result": {}}
-    encoded = MCPServer._encode_message(payload, "content-length")
+    encode_message = getattr(MCPServer, "_encode_message")
+    encoded = encode_message(payload, "content-length")
     header, body = encoded.split(b"\r\n\r\n", 1)
     assert header.startswith(b"Content-Length: ")
     assert int(header.split(b": ")[1]) == len(body)

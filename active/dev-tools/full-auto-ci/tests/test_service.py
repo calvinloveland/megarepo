@@ -1,7 +1,5 @@
 """Tests for the CI service."""
 
-# pylint: disable=protected-access
-
 import json
 import os
 import sqlite3
@@ -16,6 +14,10 @@ from src.service import CIService
 
 class TestCIService(unittest.TestCase):
     """Test cases for CIService."""
+
+    def _call_private(self, method_name: str, *args, **kwargs):
+        """Call a private CIService helper by name for focused unit tests."""
+        return getattr(self.service, method_name)(*args, **kwargs)
 
     def setUp(self):
         """Set up test fixtures."""
@@ -341,9 +343,7 @@ class TestCIService(unittest.TestCase):
         (
             status,
             message,
-        ) = self.service._summarize_tool_results(  # pylint: disable=protected-access
-            results
-        )
+        ) = self._call_private("_summarize_tool_results", results)
         self.assertEqual(status, "error")
         self.assertIn("coverage", message)
         self.assertIn("pytest", message)
@@ -387,31 +387,17 @@ class TestCIService(unittest.TestCase):
 
     def test_coerce_bool_variants(self):
         """_coerce_bool should normalize common truthy and falsy values."""
-        self.assertTrue(
-            self.service._coerce_bool(True)
-        )  # pylint: disable=protected-access
-        self.assertFalse(
-            self.service._coerce_bool(False)
-        )  # pylint: disable=protected-access
-        self.assertTrue(
-            self.service._coerce_bool("yes")
-        )  # pylint: disable=protected-access
-        self.assertFalse(
-            self.service._coerce_bool("0")
-        )  # pylint: disable=protected-access
-        self.assertTrue(
-            self.service._coerce_bool(1)
-        )  # pylint: disable=protected-access
-        self.assertFalse(
-            self.service._coerce_bool(0)
-        )  # pylint: disable=protected-access
+        self.assertTrue(self._call_private("_coerce_bool", True))
+        self.assertFalse(self._call_private("_coerce_bool", False))
+        self.assertTrue(self._call_private("_coerce_bool", "yes"))
+        self.assertFalse(self._call_private("_coerce_bool", "0"))
+        self.assertTrue(self._call_private("_coerce_bool", 1))
+        self.assertFalse(self._call_private("_coerce_bool", 0))
 
     @patch("src.service.os.path.isdir", return_value=False)
     def test_has_local_changes_nonexistent(self, mock_isdir):
         """Missing directories should be treated as having no local changes."""
-        self.assertFalse(
-            self.service._has_local_changes("/missing")
-        )  # pylint: disable=protected-access
+        self.assertFalse(self._call_private("_has_local_changes", "/missing"))
         mock_isdir.assert_called_once_with("/missing")
 
     @patch("src.service.subprocess.run")
@@ -422,9 +408,7 @@ class TestCIService(unittest.TestCase):
         mock_result.stdout = " M file.txt\n"
         mock_run.return_value = mock_result
 
-        self.assertTrue(
-            self.service._has_local_changes("/repo")
-        )  # pylint: disable=protected-access
+        self.assertTrue(self._call_private("_has_local_changes", "/repo"))
         mock_isdir.assert_called_once_with("/repo")
         mock_run.assert_called_once()
 

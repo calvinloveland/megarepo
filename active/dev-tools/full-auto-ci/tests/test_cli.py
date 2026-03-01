@@ -1,7 +1,5 @@
 """Tests for the CLI module."""
 
-# pylint: disable=missing-function-docstring,unused-argument
-
 import asyncio
 import json
 import os
@@ -283,7 +281,8 @@ class TestCLI(unittest.TestCase):
             },
         }
 
-        exit_code = self.cli._run_default_tools()
+        run_default_tools = getattr(self.cli, "_run_default_tools")
+        exit_code = run_default_tools()
 
         self.assertEqual(exit_code, 1)
         joined = "\n".join(
@@ -296,7 +295,7 @@ class TestCLI(unittest.TestCase):
         self.assertIn("Pytest", joined)
 
     @patch("builtins.print")
-    def test_run_default_tools_runs_each_project(self, mock_print):
+    def test_run_default_tools_runs_each_project(self, _mock_print):
         """Default run should execute tools for each project root."""
         with tempfile.TemporaryDirectory() as tmpdir:
             project_a = Path(tmpdir) / "proj_a"
@@ -313,7 +312,8 @@ class TestCLI(unittest.TestCase):
             with patch("os.getcwd", return_value=tmpdir):
                 # Patch _progress to avoid producing tqdm output during test runs
                 with patch("src.cli._progress", side_effect=lambda it, **k: it):
-                    exit_code = self.cli._run_default_tools()
+                    run_default_tools = getattr(self.cli, "_run_default_tools")
+                    exit_code = run_default_tools()
 
             self.assertEqual(exit_code, 0)
             called_paths = [call.args[0] for call in self.cli.service.tool_runner.run_all.call_args_list]

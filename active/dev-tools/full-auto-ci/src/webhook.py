@@ -77,7 +77,7 @@ class WebhookHandler:
             result = handler(headers, payload)
         except _WebhookAbort:
             result = None
-        except Exception:  # pylint: disable=broad-exception-caught
+        except (KeyError, OSError, TypeError, ValueError, sqlite3.Error):
             logger.exception("Error handling %s webhook", provider)
             result = None
 

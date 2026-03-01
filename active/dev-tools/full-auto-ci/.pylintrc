@@ -1,14 +1,15 @@
 [MASTER]
 init-hook=import sys; sys.path.insert(0, ".")
 
-[MESSAGES CONTROL]
-disable=
-    line-too-long,
-    too-many-lines,
-    too-many-branches,
-    too-many-return-statements,
-    too-many-arguments,
-    too-many-instance-attributes,
-    too-many-public-methods,
-    redefined-outer-name,
-    protected-access
+[BASIC]
+no-docstring-rgx=^(_|test_).*
+
+[FORMAT]
+max-line-length=140
+
+[DESIGN]
+max-args=8
+max-attributes=10
+max-public-methods=50
+max-module-lines=2000
+min-public-methods=1

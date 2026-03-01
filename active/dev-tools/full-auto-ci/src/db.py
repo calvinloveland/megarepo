@@ -13,8 +13,6 @@ from typing import Any, Dict, List, Optional, Tuple
 class DataAccess:
     """Lightweight data-access helper around the SQLite database."""
 
-    # pylint: disable=too-many-public-methods
-
     def __init__(self, db_path: str):
         self.db_path = db_path
 

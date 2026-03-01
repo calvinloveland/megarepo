@@ -14,6 +14,14 @@ logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
+GIT_HANDLED_EXCEPTIONS = (
+    OSError,
+    ValueError,
+    TypeError,
+    KeyError,
+    sqlite3.Error,
+    subprocess.SubprocessError,
+)
 
 
 @dataclass(frozen=True)
@@ -72,7 +80,7 @@ class GitRepo:
             logger.error("Stdout: %s", error.stdout)
             logger.error("Stderr: %s", error.stderr)
             return False
-        except Exception:  # pylint: disable=broad-exception-caught
+        except GIT_HANDLED_EXCEPTIONS:
             logger.exception("Error cloning repository %s", self.name)
             return False
 
@@ -108,7 +116,7 @@ class GitRepo:
             logger.error("Stdout: %s", error.stdout)
             logger.error("Stderr: %s", error.stderr)
             return False
-        except Exception:  # pylint: disable=broad-exception-caught
+        except GIT_HANDLED_EXCEPTIONS:
             logger.exception("Error pulling repository %s", self.name)
             return False
 
@@ -167,7 +175,7 @@ class GitRepo:
             logger.error("Stdout: %s", error.stdout)
             logger.error("Stderr: %s", error.stderr)
             return None
-        except Exception:  # pylint: disable=broad-exception-caught
+        except GIT_HANDLED_EXCEPTIONS:
             logger.exception("Error getting latest commit for repository %s", self.name)
             return None
 
@@ -254,7 +262,7 @@ class GitRepo:
             logger.error("Stdout: %s", error.stdout)
             logger.error("Stderr: %s", error.stderr)
             return []
-        except Exception:  # pylint: disable=broad-exception-caught
+        except GIT_HANDLED_EXCEPTIONS:
             logger.exception(
                 "Error getting commits since %s for repository %s",
                 since_commit,
@@ -327,7 +335,7 @@ class GitRepo:
             logger.error("Stdout: %s", error.stdout)
             logger.error("Stderr: %s", error.stderr)
             return False
-        except Exception:  # pylint: disable=broad-exception-caught
+        except GIT_HANDLED_EXCEPTIONS:
             logger.exception(
                 "Error checking out commit %s for repository %s",
                 commit_hash,
@@ -385,7 +393,7 @@ class GitTracker:
                 self._store_commit(commit)
 
             return True
-        except Exception:  # pylint: disable=broad-exception-caught
+        except GIT_HANDLED_EXCEPTIONS:
             logger.exception("Error adding repository %s", name)
             return False
 
@@ -415,7 +423,7 @@ class GitTracker:
             del self.repos[repo_id]
 
             return True
-        except Exception:  # pylint: disable=broad-exception-caught
+        except GIT_HANDLED_EXCEPTIONS:
             logger.exception("Error removing repository %s", repo_id)
             return False
 
@@ -454,7 +462,7 @@ class GitTracker:
                         for commit in commits:
                             self._store_commit(commit)
                         new_commits[repo_id] = commits
-            except Exception:  # pylint: disable=broad-exception-caught
+            except GIT_HANDLED_EXCEPTIONS:
                 logger.exception("Error checking for updates in repository %s", repo_id)
 
         return new_commits
@@ -505,7 +513,7 @@ class GitTracker:
                 )
 
             logger.info("Loaded %s repositories from database", len(self.repos))
-        except Exception:  # pylint: disable=broad-exception-caught
+        except GIT_HANDLED_EXCEPTIONS:
             logger.exception("Error loading repositories from database")
 
     def _get_latest_commit_hash(self, repo_id: int) -> Optional[str]:
@@ -539,7 +547,7 @@ class GitTracker:
             conn.close()
 
             return result[0] if result else None
-        except Exception:  # pylint: disable=broad-exception-caught
+        except GIT_HANDLED_EXCEPTIONS:
             logger.exception(
                 "Error getting latest commit hash for repository %s", repo_id
             )
@@ -581,6 +589,6 @@ class GitTracker:
             conn.close()
 
             return True
-        except Exception:  # pylint: disable=broad-exception-caught
+        except GIT_HANDLED_EXCEPTIONS:
             logger.exception("Error storing commit %s", commit["hash"])
             return False

@@ -1,7 +1,5 @@
 """Tests for webhook handlers."""
 
-# pylint: disable=protected-access
-
 import hashlib
 import hmac
 import json
@@ -16,6 +14,16 @@ from src.webhook import WebhookHandler
 
 class TestWebhookHandler(unittest.TestCase):
     """Test the webhook handler."""
+
+    def _verify_signature(self, provider, headers, payload):
+        """Invoke the internal signature verifier for targeted tests."""
+        verify = getattr(self.webhook_handler, "_verify_signature")
+        return verify(provider, headers, payload)
+
+    def _run_provider_handler(self, provider, headers, payload):
+        """Invoke a provider-specific internal webhook handler."""
+        handler = getattr(self.webhook_handler, f"_handle_{provider}")
+        return handler(headers, payload)
 
     def setUp(self):
         """Set up the test environment."""
@@ -93,21 +101,15 @@ class TestWebhookHandler(unittest.TestCase):
 
         # Test valid signature
         headers = {"X-Hub-Signature-256": signature}
-        self.assertTrue(
-            self.webhook_handler._verify_signature("github", headers, payload)
-        )
+        self.assertTrue(self._verify_signature("github", headers, payload))
 
         # Test invalid signature
         headers = {"X-Hub-Signature-256": "sha256=invalid"}
-        self.assertFalse(
-            self.webhook_handler._verify_signature("github", headers, payload)
-        )
+        self.assertFalse(self._verify_signature("github", headers, payload))
 
         # Test missing signature
         headers = {}
-        self.assertFalse(
-            self.webhook_handler._verify_signature("github", headers, payload)
-        )
+        self.assertFalse(self._verify_signature("github", headers, payload))
 
     def test_verify_signature_gitlab(self):
         """Test GitLab signature verification."""
@@ -116,21 +118,15 @@ class TestWebhookHandler(unittest.TestCase):
 
         # Test valid token
         headers = {"X-Gitlab-Token": self.webhook_secret}
-        self.assertTrue(
-            self.webhook_handler._verify_signature("gitlab", headers, payload)
-        )
+        self.assertTrue(self._verify_signature("gitlab", headers, payload))
 
         # Test invalid token
         headers = {"X-Gitlab-Token": "invalid"}
-        self.assertFalse(
-            self.webhook_handler._verify_signature("gitlab", headers, payload)
-        )
+        self.assertFalse(self._verify_signature("gitlab", headers, payload))
 
         # Test missing token
         headers = {}
-        self.assertFalse(
-            self.webhook_handler._verify_signature("gitlab", headers, payload)
-        )
+        self.assertFalse(self._verify_signature("gitlab", headers, payload))
 
     def test_handle_github_non_push_event(self):
         """Test handling GitHub non-push event."""
@@ -144,7 +140,7 @@ class TestWebhookHandler(unittest.TestCase):
 
         # Test non-push event
         headers = {"X-GitHub-Event": "issue"}
-        result = self.webhook_handler._handle_github(headers, payload)
+        result = self._run_provider_handler("github", headers, payload)
         self.assertIsNone(result)
 
     def test_handle_missing_repository_info(self):
@@ -164,7 +160,7 @@ class TestWebhookHandler(unittest.TestCase):
 
         # Test with push event but missing repository info
         headers = {"X-GitHub-Event": "push"}
-        result = self.webhook_handler._handle_github(headers, payload)
+        result = self._run_provider_handler("github", headers, payload)
         self.assertIsNone(result)
 
     def test_handle_github_push_success(self):
@@ -185,7 +181,7 @@ class TestWebhookHandler(unittest.TestCase):
         }
         headers = {"X-GitHub-Event": "push"}
 
-        result = self.webhook_handler._handle_github(headers, payload)
+        result = self._run_provider_handler("github", headers, payload)
 
         self.assertIsNotNone(result)
         self.assertEqual(result["provider"], "github")
@@ -210,7 +206,7 @@ class TestWebhookHandler(unittest.TestCase):
         }
         headers = {"X-Gitlab-Event": "Push Hook"}
 
-        result = self.webhook_handler._handle_gitlab(headers, payload)
+        result = self._run_provider_handler("gitlab", headers, payload)
 
         self.assertIsNotNone(result)
         self.assertEqual(result["provider"], "gitlab")
@@ -243,7 +239,7 @@ class TestWebhookHandler(unittest.TestCase):
         }
         headers = {"X-Event-Key": "repo:push"}
 
-        result = self.webhook_handler._handle_bitbucket(headers, payload)
+        result = self._run_provider_handler("bitbucket", headers, payload)
 
         self.assertIsNotNone(result)
         self.assertEqual(result["provider"], "bitbucket")

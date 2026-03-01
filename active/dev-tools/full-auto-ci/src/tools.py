@@ -57,7 +57,7 @@ DEFAULT_PYLINT_IGNORE_DIRS = [
 ]
 
 
-class Tool:  # pylint: disable=too-few-public-methods
+class Tool:
     """Base class for all tools."""
 
     def __init__(self, name: str):
@@ -80,7 +80,7 @@ class Tool:  # pylint: disable=too-few-public-methods
         raise NotImplementedError("Subclasses must implement this method")
 
 
-class Pylint(Tool):  # pylint: disable=too-few-public-methods
+class Pylint(Tool):
     """Pylint code analysis tool."""
 
     def __init__(
@@ -147,7 +147,15 @@ class Pylint(Tool):  # pylint: disable=too-few-public-methods
 
             env = self._build_pylint_env(repo_path)
             return self._run_pylint_files(repo_path, files, env)
-        except Exception as error:  # pylint: disable=broad-except
+        except (
+            OSError,
+            TypeError,
+            ValueError,
+            RuntimeError,
+            json.JSONDecodeError,
+            ET.ParseError,
+            subprocess.SubprocessError,
+        ) as error:
             logger.exception("Error running Pylint")
             return {"status": "error", "error": str(error)}
 
@@ -517,7 +525,7 @@ DEFAULT_PYTEST_IGNORE_PATTERNS = [
 ]
 
 
-class Coverage(Tool):  # pylint: disable=too-few-public-methods
+class Coverage(Tool):
     """Coverage measurement tool."""
 
     def __init__(
@@ -588,7 +596,15 @@ class Coverage(Tool):  # pylint: disable=too-few-public-methods
         try:
             os.chdir(repo_path)
             return self._run_inside_repository(repo_path)
-        except Exception as error:  # pylint: disable=broad-except
+        except (
+            OSError,
+            TypeError,
+            ValueError,
+            RuntimeError,
+            json.JSONDecodeError,
+            ET.ParseError,
+            subprocess.SubprocessError,
+        ) as error:
             logger.exception("Error running Coverage")
             return {"status": "error", "error": str(error)}
         finally:
@@ -1022,7 +1038,7 @@ class Coverage(Tool):  # pylint: disable=too-few-public-methods
             payload["embedded_results"] = run_ctx.embedded_results
 
 
-class Lizard(Tool):  # pylint: disable=too-few-public-methods
+class Lizard(Tool):
     """Cyclomatic complexity analysis via the Lizard tool."""
 
     def __init__(self, max_ccn: int = 10, *, timeout: Optional[float] = None):
@@ -1068,7 +1084,15 @@ class Lizard(Tool):  # pylint: disable=too-few-public-methods
                 )
                 logger.error(message)
                 return {"status": "error", "error": message}
-            except Exception as exc:  # pylint: disable=broad-except
+            except (
+                OSError,
+                TypeError,
+                ValueError,
+                RuntimeError,
+                json.JSONDecodeError,
+                ET.ParseError,
+                subprocess.SubprocessError,
+            ) as exc:
                 logger.exception("Error launching lizard CLI for %s", file_path)
                 failed.append(file_path)
                 errors.append(f"Error launching lizard CLI for {file_path}: {exc}")
@@ -1082,7 +1106,15 @@ class Lizard(Tool):  # pylint: disable=too-few-public-methods
 
             try:
                 functions.extend(self._parse_xml_output(repo_path, process.stdout))
-            except Exception as exc:  # pylint: disable=broad-except
+            except (
+                OSError,
+                TypeError,
+                ValueError,
+                RuntimeError,
+                json.JSONDecodeError,
+                ET.ParseError,
+                subprocess.SubprocessError,
+            ) as exc:
                 logger.exception("Failed to parse Lizard XML output for %s", file_path)
                 failed.append(file_path)
                 errors.append(
@@ -1145,7 +1177,15 @@ class Lizard(Tool):  # pylint: disable=too-few-public-methods
             )
             logger.error(message)
             return {"status": "error", "error": message}
-        except Exception as exc:  # pylint: disable=broad-except
+        except (
+            OSError,
+            TypeError,
+            ValueError,
+            RuntimeError,
+            json.JSONDecodeError,
+            ET.ParseError,
+            subprocess.SubprocessError,
+        ) as exc:
             logger.exception("Error launching lizard CLI")
             return {"status": "error", "error": str(exc)}
 
@@ -1163,7 +1203,15 @@ class Lizard(Tool):  # pylint: disable=too-few-public-methods
 
         try:
             functions = self._parse_xml_output(repo_path, process.stdout)
-        except Exception as exc:  # pylint: disable=broad-except
+        except (
+            OSError,
+            TypeError,
+            ValueError,
+            RuntimeError,
+            json.JSONDecodeError,
+            ET.ParseError,
+            subprocess.SubprocessError,
+        ) as exc:
             logger.exception("Failed to parse Lizard XML output")
             return {
                 "status": "error",
@@ -1378,7 +1426,7 @@ class Lizard(Tool):  # pylint: disable=too-few-public-methods
         return relative
 
 
-class Jscpd(Tool):  # pylint: disable=too-few-public-methods
+class Jscpd(Tool):
     """Duplicate code detection using jscpd (copy-paste detector)."""
 
     def __init__(
@@ -1462,7 +1510,15 @@ class Jscpd(Tool):  # pylint: disable=too-few-public-methods
             )
             logger.error(message)
             return {"status": "error", "error": message}
-        except Exception as exc:  # pylint: disable=broad-except
+        except (
+            OSError,
+            TypeError,
+            ValueError,
+            RuntimeError,
+            json.JSONDecodeError,
+            ET.ParseError,
+            subprocess.SubprocessError,
+        ) as exc:
             logger.exception("Error running jscpd")
             return {"status": "error", "error": str(exc)}
 

@@ -28,6 +28,15 @@ logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
+SERVICE_HANDLED_EXCEPTIONS = (
+    OSError,
+    TypeError,
+    ValueError,
+    KeyError,
+    RuntimeError,
+    json.JSONDecodeError,
+    subprocess.SubprocessError,
+)
 
 
 @dataclass
@@ -816,7 +825,7 @@ class CIService:
 
                 # Mark the task as done
                 self.task_queue.task_done()
-            except Exception:  # pylint: disable=broad-except
+            except SERVICE_HANDLED_EXCEPTIONS:
                 logger.exception("Error in worker thread")
 
     def _process_test_task(self, task):
@@ -856,7 +865,7 @@ class CIService:
             results = self.tool_runner.run_all(repo.repo_path)
             try:
                 self.ratchet_manager.apply(repo_id, results)
-            except Exception as exc:  # pylint: disable=broad-except
+            except SERVICE_HANDLED_EXCEPTIONS as exc:
                 logger.error("Ratchet evaluation failed: %s", exc)
                 for tool_result in results.values():
                     if (
@@ -881,7 +890,7 @@ class CIService:
                     message,
                 )
                 self._update_test_run(test_run_id, "error", message)
-        except Exception as exc:  # pylint: disable=broad-except
+        except SERVICE_HANDLED_EXCEPTIONS as exc:
             logger.error(
                 "Error running tests for repository %s, commit %s: %s",
                 repo_id,
@@ -907,7 +916,7 @@ class CIService:
                 self._store_tool_result(commit_id, tool_name, tool_result)
 
             logger.info("Stored test results for commit %s", commit_hash)
-        except Exception as exc:  # pylint: disable=broad-except
+        except SERVICE_HANDLED_EXCEPTIONS as exc:
             logger.error(
                 "Error storing test results for commit %s: %s", commit_hash, exc
             )
@@ -1013,7 +1022,7 @@ class CIService:
                 # Sleep before next check
                 poll_interval = self.config.get("service", "poll_interval") or 60
                 time.sleep(poll_interval)
-            except Exception as exc:  # pylint: disable=broad-except
+            except SERVICE_HANDLED_EXCEPTIONS as exc:
                 logger.error("Error monitoring repositories: %s", exc)
                 time.sleep(60)  # Retry after a minute
 
@@ -1317,7 +1326,7 @@ class CIService:
             return self._format_run_results(
                 overall_status, message, results, test_run_id, warnings
             )
-        except Exception as exc:  # pylint: disable=broad-except
+        except SERVICE_HANDLED_EXCEPTIONS as exc:
             logger.error(
                 "Error running tests for repository %s, commit %s: %s",
                 repo_id,

@@ -15,8 +15,8 @@ from src.dashboard import create_app
 from src.db import DataAccess
 
 
-@pytest.fixture()
-def dashboard_app(monkeypatch):
+@pytest.fixture(name="dashboard_app")
+def _dashboard_app_fixture(monkeypatch):
     """Build a seeded dashboard app backed by a temporary sqlite database."""
     monkeypatch.setenv("FULL_AUTO_CI_DOGFOOD", "0")
     with tempfile.TemporaryDirectory() as tmp_dir:
@@ -67,8 +67,8 @@ def dashboard_app(monkeypatch):
         yield app
 
 
-@pytest.fixture()
-def client(dashboard_app):
+@pytest.fixture(name="client")
+def _client_fixture(dashboard_app):
     """Return a Flask test client for dashboard route assertions."""
     return dashboard_app.test_client()
 

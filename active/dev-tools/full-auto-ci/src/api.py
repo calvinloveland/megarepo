@@ -320,7 +320,7 @@ class API:
                 return jsonify({"status": "success", "repository_id": result})
 
             return jsonify({"error": "Error adding repository"}), 500
-        except Exception as error:  # pylint: disable=broad-exception-caught
+        except (OSError, RuntimeError, TypeError, ValueError, sqlite3.Error) as error:
             logger.exception("Error adding repository")
             return jsonify({"error": str(error)}), 500
 
@@ -335,7 +335,7 @@ class API:
                 return jsonify({"status": "success"})
 
             return jsonify({"error": "Repository not found"}), 404
-        except Exception as error:  # pylint: disable=broad-exception-caught
+        except (OSError, RuntimeError, TypeError, ValueError, sqlite3.Error) as error:
             logger.exception("Error removing repository")
             return jsonify({"error": str(error)}), 500
 

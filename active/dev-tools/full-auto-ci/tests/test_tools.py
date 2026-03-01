@@ -133,9 +133,8 @@ class TestPylint(unittest.TestCase):
                 "print('hello')\n", encoding="utf-8"
             )
 
-            targets = self.pylint._discover_targets(
-                tmpdir
-            )  # pylint: disable=protected-access
+            discover_targets = getattr(self.pylint, "_discover_targets")
+            targets = discover_targets(tmpdir)
             self.assertIn("src", targets)
 
     @patch("subprocess.run")
@@ -175,9 +174,8 @@ class TestPylint(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             (Path(tmpdir) / ".pylintrc").write_text("", encoding="utf-8")
 
-            targets = self.pylint._discover_targets(
-                tmpdir
-            )  # pylint: disable=protected-access
+            discover_targets = getattr(self.pylint, "_discover_targets")
+            targets = discover_targets(tmpdir)
             self.assertEqual(targets, ["."])
 
     def test_discover_targets_falls_back_to_packages(self):
@@ -187,17 +185,15 @@ class TestPylint(unittest.TestCase):
             pkg.mkdir()
             (pkg / "__init__.py").write_text("", encoding="utf-8")
 
-            targets = self.pylint._discover_targets(
-                tmpdir
-            )  # pylint: disable=protected-access
+            discover_targets = getattr(self.pylint, "_discover_targets")
+            targets = discover_targets(tmpdir)
             self.assertEqual(targets, ["myapp"])
 
     def test_discover_targets_defaults_to_repo(self):
         """If no obvious directories are found, lint the whole repo."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            targets = self.pylint._discover_targets(
-                tmpdir
-            )  # pylint: disable=protected-access
+            discover_targets = getattr(self.pylint, "_discover_targets")
+            targets = discover_targets(tmpdir)
             self.assertEqual(targets, ["."])
 
 

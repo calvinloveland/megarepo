@@ -74,8 +74,8 @@ def _wait_for_server(url: str, timeout: float = 15.0) -> None:
     raise RuntimeError(f"Dashboard did not become ready at {url}")
 
 
-@pytest.fixture(scope="session")
-def dashboard_server(tmp_path_factory: pytest.TempPathFactory):
+@pytest.fixture(name="dashboard_server", scope="session")
+def _dashboard_server_fixture(tmp_path_factory: pytest.TempPathFactory):
     """Start a dashboard instance that Playwright tests can target."""
     if make_server is None:
         pytest.skip("werkzeug is required for dashboard UI tests")

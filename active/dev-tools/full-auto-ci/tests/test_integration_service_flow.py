@@ -91,8 +91,8 @@ class StubGitTracker:
         return self.repos.pop(repo_id, None) is not None
 
 
-@pytest.fixture()
-def integration_service(monkeypatch, tmp_path):
+@pytest.fixture(name="integration_service")
+def _integration_service_fixture(monkeypatch, tmp_path):
     """Provision a CIService wired with stubbed git + tool layers."""
 
     monkeypatch.setenv("FULL_AUTO_CI_DOGFOOD", "0")

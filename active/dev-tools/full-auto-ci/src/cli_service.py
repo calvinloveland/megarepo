@@ -267,7 +267,7 @@ def _maybe_open_dashboard(url: str, dashboard_cfg: dict[str, Any]) -> None:
             print(f"Opened {url} in your browser.")
         else:
             logger.info("Browser reported failure to open %s", url)
-    except Exception as error:  # pylint: disable=broad-except
+    except (OSError, webbrowser.Error) as error:
         logger.warning("Unable to open browser for %s: %s", url, error)
 
 

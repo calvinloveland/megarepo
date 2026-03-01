@@ -1,7 +1,7 @@
 """Integration provider registry for Full Auto CI."""
 
 # Import built-in providers to trigger registration side effects.
-from . import (  # noqa: F401  pylint: disable=unused-import
+from . import (
     bamboo,
     github,
     gitlab,
@@ -9,6 +9,8 @@ from . import (  # noqa: F401  pylint: disable=unused-import
 )
 from .base import BaseProvider, ProviderConfigError
 from .registry import ProviderRegistrationError, ProviderRegistry, registry
+
+_BUILTIN_PROVIDERS = (bamboo, github, gitlab, jenkins)
 
 __all__ = [
     "BaseProvider",

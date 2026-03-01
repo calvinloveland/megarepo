@@ -138,9 +138,9 @@ class MCPServer:
     ) -> Any:
         try:
             return await handler(params)
-        except MCPError:
-            raise
-        except Exception as exc:  # pylint: disable=broad-except
+        except (MCPError, OSError, RuntimeError, TypeError, ValueError, KeyError) as exc:
+            if isinstance(exc, MCPError):
+                raise
             logger.exception("Unhandled exception in MCP handler %s", method)
             raise MCPError(code=-32000, message=str(exc)) from exc
 
