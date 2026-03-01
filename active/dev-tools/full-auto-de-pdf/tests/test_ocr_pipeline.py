@@ -308,6 +308,7 @@ def test_evaluate_ocr_preprocess_modes_runs_all_modes(monkeypatch, tmp_path) -> 
     assert "modes" in report
     assert report["best_mode"] == "none"
     assert report["mode_ranking"][0]["mode"] == "none"
+    assert report["modes"]["none"]["output_text_path"].endswith("/mode_outputs/none.txt")
 
 
 def test_benchmark_local_ocr_against_archive_selects_best_source(monkeypatch, tmp_path) -> None:

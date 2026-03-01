@@ -71,6 +71,11 @@ full-auto-de-pdf benchmark-local-archive \
   --ocr-engine paddleocr \
   --output data/local_archive_benchmark.json
 
+# Render an HTML page with failure tokens and page images from local benchmark artifacts
+full-auto-de-pdf benchmark-failures-page \
+  --report data/local_archive_benchmark.json \
+  --output data/benchmark_failures.html
+
 # Evaluate EPUB structure + optional epubcheck
 full-auto-de-pdf eval-epub \
   --epub out/book.epub \

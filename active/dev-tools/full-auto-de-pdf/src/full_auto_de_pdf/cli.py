@@ -6,6 +6,7 @@ from pathlib import Path
 
 from .archive_org import build_manifest, write_manifest
 from .benchmark import run_archive_benchmark, write_benchmark_report
+from .benchmark_viz import build_local_benchmark_failure_page
 from .epub import build_epub_from_ocr_file
 from .epub_eval import evaluate_epub_structure
 from .ocr_pipeline import (
@@ -327,6 +328,34 @@ def _build_parser() -> argparse.ArgumentParser:
         type=Path,
         help="Optional newline-delimited heading/TOC reference file",
     )
+    failure_page_parser = subparsers.add_parser(
+        "benchmark-failures-page",
+        help="Render an HTML page showing token failures and source page images",
+    )
+    failure_page_parser.add_argument(
+        "--report",
+        type=Path,
+        required=True,
+        help="Input benchmark-local-archive or ocr-eval-modes report JSON",
+    )
+    failure_page_parser.add_argument(
+        "--output",
+        type=Path,
+        default=Path("data/benchmark_failures.html"),
+        help="Output HTML path",
+    )
+    failure_page_parser.add_argument(
+        "--max-failures",
+        type=int,
+        default=50,
+        help="Maximum token failures to list per mode",
+    )
+    failure_page_parser.add_argument(
+        "--max-pages-per-token",
+        type=int,
+        default=3,
+        help="Maximum page image cards to show per token",
+    )
     return parser
 
 
@@ -456,6 +485,19 @@ def main(argv: list[str] | None = None) -> int:
         print(
             "EPUB evaluation complete: "
             f"structure_score={structure_score:.3f}, epubcheck={epubcheck_status} -> {args.output}"
+        )
+        return 0
+
+    if args.command == "benchmark-failures-page":
+        summary = build_local_benchmark_failure_page(
+            report_path=args.report,
+            output_html_path=args.output,
+            max_failures=args.max_failures,
+            max_pages_per_token=args.max_pages_per_token,
+        )
+        print(
+            "Benchmark failure page written: "
+            f"modes={summary['mode_count']} best_mode={summary['best_mode']} -> {args.output}"
         )
         return 0
 

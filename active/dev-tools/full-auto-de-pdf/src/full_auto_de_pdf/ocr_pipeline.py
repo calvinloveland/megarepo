@@ -414,6 +414,7 @@ def evaluate_ocr_preprocess_modes(
             ocr_engine=ocr_engine,
         )
         mode_payload: dict[str, object] = dict(mode_metrics)
+        mode_payload["output_text_path"] = str(mode_output_path)
         if reference_text is not None:
             hypothesis_text = mode_output_path.read_text(encoding="utf-8")
             mode_payload["accuracy"] = calculate_accuracy_metrics(reference_text, hypothesis_text)
