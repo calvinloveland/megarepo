@@ -3,7 +3,7 @@ The Project class is a container for a set of tasks that make up a project.
 The Project class is responsible for managing the tasks that are part of the project.
 """
 
-from operationalize.tasks.task import TaskDAG
+from .tasks.task import TaskDAG
 
 
 class Project:

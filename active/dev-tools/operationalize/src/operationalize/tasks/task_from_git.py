@@ -6,8 +6,8 @@ import random
 import git
 from loguru import logger
 
-from operationalize.tasks.task import TaskDAG
-from operationalize.tasks.task_selection import TaskSelection
+from .task import TaskDAG
+from .task_selection import TaskSelection
 
 
 class TaskFromGit(TaskDAG):

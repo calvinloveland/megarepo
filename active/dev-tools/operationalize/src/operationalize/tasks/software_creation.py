@@ -1,7 +1,7 @@
 """Module for software creation tasks in the operationalize project."""
 
-from operationalize.tasks.split_work import SplitWork
-from operationalize.tasks.task import TaskDAG
+from .split_work import SplitWork
+from .task import TaskDAG
 
 ## Software Creation
 ## -----------------

@@ -1,6 +1,6 @@
 """Unit tests for the SoftwareCreation task."""
 
-from operationalize.tasks.software_creation import SoftwareCreation
+from ..software_creation import SoftwareCreation
 
 
 def test_software_creation():

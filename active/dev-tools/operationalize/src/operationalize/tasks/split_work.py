@@ -2,7 +2,7 @@
 
 import copy
 
-from operationalize.tasks.task import TaskDAG
+from .task import TaskDAG
 
 
 class SplitWork(TaskDAG):

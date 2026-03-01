@@ -9,7 +9,7 @@ from copy import deepcopy
 
 from loguru import logger
 
-from operationalize.tasks.task import TaskDAG
+from ..task import TaskDAG
 
 # Set logging level stdout to DEBUG
 logger.remove()

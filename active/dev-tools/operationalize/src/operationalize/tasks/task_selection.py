@@ -1,6 +1,6 @@
 """Module for selecting tasks within a project."""
 
-from operationalize.tasks.task import TaskDAG
+from .task import TaskDAG
 
 
 class TaskSelection(TaskDAG):

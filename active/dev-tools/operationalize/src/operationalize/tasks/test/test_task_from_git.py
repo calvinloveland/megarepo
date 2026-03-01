@@ -2,7 +2,7 @@ from unittest.mock import mock_open, patch
 
 import pytest
 
-from operationalize.tasks.task_from_git import TaskFromGit
+from ..task_from_git import TaskFromGit
 
 
 class TestTaskFromGit:

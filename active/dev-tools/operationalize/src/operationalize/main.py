@@ -7,7 +7,7 @@ import flask
 from flask import request
 from loguru import logger
 
-from operationalize.project import NEW_PROJECT
+from .project import NEW_PROJECT
 
 app = flask.Flask(
     __name__,

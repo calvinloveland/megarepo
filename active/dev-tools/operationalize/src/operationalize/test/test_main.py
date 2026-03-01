@@ -2,7 +2,7 @@
 
 import pytest
 
-from operationalize.main import app
+from ..main import app
 
 
 @pytest.fixture

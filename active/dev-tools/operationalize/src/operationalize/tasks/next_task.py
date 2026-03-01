@@ -1,6 +1,6 @@
 """Module for selecting the next task in the operationalize project."""
 
-from operationalize.tasks.task_selection import TaskSelection
+from .task_selection import TaskSelection
 
 
 class NextTaskSelection(TaskSelection):
