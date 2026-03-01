@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import Counter, defaultdict
 import re
 import unicodedata
 
@@ -21,6 +22,91 @@ _UNICODE_REPLACEMENTS = {
 _PAGE_NUMBER_LINE = re.compile(r"^[\s\divxlcdmIVXLCDM\-\.\[\]\(\)]{1,12}$")
 _LINE_ART_LINE = re.compile(r"^[\s\\/_|+=*#~`^]{3,}$")
 _BROKEN_HYPHEN = re.compile(r"([A-Za-z])-\n([a-z])")
+_WORD_TOKEN = re.compile(r"\b[A-Za-z]{3,}\b")
+_LOWER_ALPHA = "abcdefghijklmnopqrstuvwxyz"
+_MIN_ERROR_OCCURRENCES = 2
+_MIN_CORRECTION_OCCURRENCES = 2
+_MIN_CORRECTION_RATIO = 1.0
+_MIN_DISTINCT_WORDS_PER_CHAR = 3
+
+
+def _match_case(source: str, replacement: str) -> str:
+    if source.isupper():
+        return replacement.upper()
+    if source[:1].isupper() and source[1:].islower():
+        return replacement.capitalize()
+    return replacement
+
+
+def _extract_word_counts(text: str) -> Counter[str]:
+    return Counter(token.lower() for token in _WORD_TOKEN.findall(text))
+
+
+def _best_missing_char_variant(word: str, word_count: int, counts: Counter[str]) -> tuple[str, str] | None:
+    best_candidate: str | None = None
+    best_candidate_count = 0
+    best_missing_char = ""
+    for index in range(len(word) + 1):
+        for char in _LOWER_ALPHA:
+            candidate = word[:index] + char + word[index:]
+            candidate_count = counts.get(candidate, 0)
+            if candidate_count < _MIN_CORRECTION_OCCURRENCES:
+                continue
+            if candidate_count > best_candidate_count:
+                best_candidate = candidate
+                best_candidate_count = candidate_count
+                best_missing_char = char
+    if best_candidate is None:
+        return None
+    if best_candidate_count < int(word_count * _MIN_CORRECTION_RATIO):
+        return None
+    return best_candidate, best_missing_char
+
+
+def _infer_missing_char_corrections(text: str) -> dict[str, str]:
+    counts = _extract_word_counts(text)
+    provisional: dict[str, tuple[str, str]] = {}
+    char_word_support: dict[str, set[str]] = defaultdict(set)
+    for word, word_count in counts.items():
+        if word_count < _MIN_ERROR_OCCURRENCES:
+            continue
+        variant = _best_missing_char_variant(word, word_count, counts)
+        if variant is None:
+            continue
+        corrected_word, missing_char = variant
+        provisional[word] = (corrected_word, missing_char)
+        char_word_support[missing_char].add(word)
+
+    supported_chars = {
+        char
+        for char, words in char_word_support.items()
+        if len(words) >= _MIN_DISTINCT_WORDS_PER_CHAR
+    }
+    if not supported_chars:
+        return {}
+    return {
+        source: corrected
+        for source, (corrected, missing_char) in provisional.items()
+        if missing_char in supported_chars
+    }
+
+
+def _apply_word_corrections(text: str, corrections: dict[str, str]) -> str:
+    if not corrections:
+        return text
+    pattern = re.compile(
+        r"\b(" + "|".join(sorted((re.escape(word) for word in corrections), key=len, reverse=True)) + r")\b",
+        flags=re.IGNORECASE,
+    )
+
+    def _replace(match: re.Match[str]) -> str:
+        source = match.group(0)
+        corrected = corrections.get(source.lower())
+        if corrected is None:
+            return source
+        return _match_case(source, corrected)
+
+    return pattern.sub(_replace, text)
 
 
 def cleanup_ocr_text(text: str) -> str:
@@ -45,4 +131,6 @@ def cleanup_ocr_text(text: str) -> str:
     cleaned = "\n".join(cleaned_lines)
     cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
     cleaned = re.sub(r"[ \t]+", " ", cleaned)
+    corrections = _infer_missing_char_corrections(cleaned)
+    cleaned = _apply_word_corrections(cleaned, corrections)
     return cleaned.strip()
