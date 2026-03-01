@@ -8,16 +8,26 @@ from src.ratchet import RatchetManager
 
 
 class DummyDataAccess:
+    """In-memory history fixture for ratchet evaluation tests."""
+
     def __init__(self, history=None):
         self._history = history or {}
 
     def fetch_tool_history(self, repo_id, tool, limit=None):
+        """Return deep-copied historical tool runs for a repository."""
         _ = limit
         return copy.deepcopy(self._history.get((repo_id, tool), []))
 
+    def clear_history(self):
+        """Remove any stored history entries."""
+        self._history = {}
+
 
 class TestRatchetManager(unittest.TestCase):
+    """Validate ratchet behavior across progress and regression scenarios."""
+
     def setUp(self):
+        """Build a config with ratchets enabled for all supported tools."""
         self.config = Config(config_path="/nonexistent")
         # prevent attempts to load real config
         self.config.config = copy.deepcopy(Config.DEFAULT_CONFIG)
@@ -26,6 +36,7 @@ class TestRatchetManager(unittest.TestCase):
                 tool["ratchet"]["enabled"] = True
 
     def test_coverage_progress_allows_success(self):
+        """Coverage improvements over best history should pass."""
         history = {
             (1, "coverage"): [
                 {
@@ -51,6 +62,7 @@ class TestRatchetManager(unittest.TestCase):
         )
 
     def test_coverage_regression_fails(self):
+        """Coverage regressions below prior best should fail the run."""
         history = {
             (1, "coverage"): [
                 {
@@ -74,6 +86,7 @@ class TestRatchetManager(unittest.TestCase):
         self.assertIn("requires", coverage["error"].lower())
 
     def test_coverage_target_enforced_after_reaching(self):
+        """Crossing the target should make later regressions fail."""
         history = {
             (1, "coverage"): [
                 {
@@ -97,6 +110,7 @@ class TestRatchetManager(unittest.TestCase):
         self.assertIn("requires", coverage["error"].lower())
 
     def test_lizard_counts_must_not_increase(self):
+        """Lower over-threshold complexity counts should be treated as progress."""
         history = {
             (1, "lizard"): [
                 {
@@ -124,6 +138,7 @@ class TestRatchetManager(unittest.TestCase):
         self.assertEqual(lizard["ratchet"]["status"], "progress")
 
     def test_baseline_allows_initial_failure(self):
+        """First successful result should establish a permissive baseline."""
         data = DummyDataAccess()
         manager = RatchetManager(data, self.config)
 

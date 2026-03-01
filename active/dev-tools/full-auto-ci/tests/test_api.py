@@ -73,6 +73,7 @@ def _api_app(tmp_path, monkeypatch):
 
 
 def test_health_check(api_app):
+    """Health endpoint returns a healthy status payload."""
     api_instance, _service, _webhook, _db = api_app
     client = api_instance.app.test_client()
 
@@ -82,6 +83,7 @@ def test_health_check(api_app):
 
 
 def test_generate_and_verify_api_key(api_app, monkeypatch):
+    """Generated API keys should be persisted and verifiable."""
     api_instance, _service, _webhook, db_path = api_app
     client = api_instance.app.test_client()
 
@@ -112,6 +114,7 @@ def test_generate_and_verify_api_key(api_app, monkeypatch):
 
 
 def test_list_and_get_repository(api_app):
+    """Repository listing and detail endpoints should reflect stored rows."""
     api_instance, _service, _webhook, db_path = api_app
     client = api_instance.app.test_client()
 
@@ -140,6 +143,7 @@ def test_list_and_get_repository(api_app):
 
 
 def test_repository_modification_endpoints(api_app):
+    """Repository add/remove endpoints should proxy service outcomes."""
     api_instance, service, _webhook, _db = api_app
     client = api_instance.app.test_client()
 
@@ -161,6 +165,7 @@ def test_repository_modification_endpoints(api_app):
 
 
 def test_test_results_endpoints(api_app):
+    """Test result endpoints should return repository and latest run data."""
     api_instance, _service, _webhook, db_path = api_app
     client = api_instance.app.test_client()
 
@@ -194,6 +199,7 @@ def test_test_results_endpoints(api_app):
 
 
 def test_webhook_endpoints(api_app):
+    """Webhook routes should queue runs for accepted payloads."""
     api_instance, service, webhook, _db = api_app
     client = api_instance.app.test_client()
 
@@ -225,6 +231,7 @@ def test_webhook_endpoints(api_app):
 
 
 def test_api_run_logs(api_app, caplog):
+    """Running the API should emit informational startup logs."""
     api_instance, _service, _webhook, _db = api_app
     caplog.clear()
     caplog.set_level(logging.INFO, logger="src.api")

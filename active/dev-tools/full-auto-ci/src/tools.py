@@ -6,11 +6,15 @@ import os
 import re
 import subprocess
 import time
-from typing import Iterable, TypeVar
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from types import SimpleNamespace
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Tuple, TypeVar
+
+try:
+    from tqdm import tqdm
+except ImportError:
+    tqdm = None
 
 # Configure logging
 logging.basicConfig(
@@ -22,9 +26,7 @@ T = TypeVar("T")
 
 
 def _progress(iterable: Iterable[T], **kwargs: Any) -> Iterable[T]:
-    try:
-        from tqdm import tqdm
-    except ImportError:
+    if tqdm is None:
         return iterable
     return tqdm(iterable, **kwargs)
 
@@ -726,11 +728,8 @@ class Coverage(Tool):  # pylint: disable=too-few-public-methods
             return trimmed
         return trimmed[-20000:]
 
-    def _build_test_command(self, repo_path: str) -> List[str]:
+    def _build_test_command(self) -> List[str]:
         """Build the test command with appropriate ignore patterns.
-
-        Args:
-            repo_path: Path to the repository
 
         Returns:
             List of command arguments
@@ -808,7 +807,7 @@ class Coverage(Tool):  # pylint: disable=too-few-public-methods
 
     def _execute_coverage_run(self, repo_path: str) -> "Coverage._RunContext":
         logger.info("Running coverage on %s", repo_path)
-        cmd = ["coverage", "run", "-m", *self._build_test_command(repo_path)]
+        cmd = ["coverage", "run", "-m", *self._build_test_command()]
         start_time = time.perf_counter()
         timeout_kwargs: Dict[str, Any] = {}
         if self.timeout is not None:

@@ -10,12 +10,14 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from src.dashboard import __main__ as dashboard_main
 from src.dashboard import create_app
 from src.db import DataAccess
 
 
 @pytest.fixture()
 def dashboard_app(monkeypatch):
+    """Build a seeded dashboard app backed by a temporary sqlite database."""
     monkeypatch.setenv("FULL_AUTO_CI_DOGFOOD", "0")
     with tempfile.TemporaryDirectory() as tmp_dir:
         db_path = os.path.join(tmp_dir, "test.sqlite")
@@ -67,10 +69,12 @@ def dashboard_app(monkeypatch):
 
 @pytest.fixture()
 def client(dashboard_app):
+    """Return a Flask test client for dashboard route assertions."""
     return dashboard_app.test_client()
 
 
 def test_index_lists_repositories(client):
+    """Index route should render repository cards and heading text."""
     response = client.get("/")
     assert response.status_code == 200
     assert b"Demo" in response.data
@@ -78,6 +82,7 @@ def test_index_lists_repositories(client):
 
 
 def test_repository_detail(client):
+    """Repository detail page should include run and tool metadata."""
     # repository id is 1 because DataAccess autoincrements starting at 1
     response = client.get("/repo/1")
     assert response.status_code == 200
@@ -90,6 +95,7 @@ def test_repository_detail(client):
 
 
 def test_repositories_partial(client):
+    """Repository partial should return the overview cards markup."""
     response = client.get("/partials/repositories")
     assert response.status_code == 200
     body = response.data.decode()
@@ -98,6 +104,7 @@ def test_repositories_partial(client):
 
 
 def test_repository_insights_partial(client):
+    """Insights partial should render trend and comparison sections."""
     response = client.get("/repo/1/insights")
     assert response.status_code == 200
     body = response.data.decode()
@@ -110,8 +117,8 @@ def test_repository_insights_partial(client):
 
 
 def test_dashboard_main_runs(monkeypatch):
+    """Dashboard module main() should start Flask with configured values."""
     monkeypatch.setenv("FULL_AUTO_CI_DOGFOOD", "0")
-    from src.dashboard import __main__ as dashboard_main
 
     mock_app = MagicMock()
     mock_service = MagicMock()

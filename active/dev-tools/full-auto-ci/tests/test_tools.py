@@ -5,7 +5,6 @@ import subprocess
 import tempfile
 import unittest
 from pathlib import Path
-from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 from src.tools import (
@@ -363,6 +362,7 @@ class TestLizard(unittest.TestCase):
 
     @patch("subprocess.run")
     def test_run_success_module(self, mock_run):
+        """Lizard should aggregate per-file XML payloads into one summary."""
         xml_payload = """
 <?xml version="1.0" ?>
 <cppncss>
@@ -422,6 +422,7 @@ class TestLizard(unittest.TestCase):
 
     @patch("subprocess.run")
     def test_run_cli_success(self, mock_run):
+        """Lizard CLI XML output should produce parsed summary metrics."""
         xml_payload = """
 <?xml version="1.0" ?>
 <cppncss>
@@ -476,6 +477,7 @@ class TestLizard(unittest.TestCase):
 
     @patch("subprocess.run")
     def test_run_cli_failure(self, mock_run):
+        """Non-zero Lizard CLI exits should return an error result."""
         mock_process = MagicMock()
         mock_process.returncode = 1
         mock_process.stdout = ""
@@ -492,6 +494,7 @@ class TestLizard(unittest.TestCase):
 
     @patch("subprocess.run")
     def test_run_cli_invalid_xml(self, mock_run):
+        """Invalid XML output should be surfaced as a parse error."""
         mock_process = MagicMock()
         mock_process.returncode = 0
         mock_process.stdout = "not xml"
@@ -508,6 +511,7 @@ class TestLizard(unittest.TestCase):
 
     @patch("subprocess.run", side_effect=FileNotFoundError)
     def test_run_missing_binary(self, _mock_run):
+        """Missing lizard executable should return a clear error message."""
         with patch.object(
             self.lizard, "_discover_python_files", return_value=["/repo/pkg/module.py"]
         ):

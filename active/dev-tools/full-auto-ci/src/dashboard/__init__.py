@@ -8,17 +8,23 @@ import secrets
 from datetime import datetime
 from typing import Any, Dict
 
-from flask import (
-    Blueprint,
-    Flask,
-    abort,
-    current_app,
-    flash,
-    redirect,
-    render_template,
-    request,
-    url_for,
-)
+try:
+    from flask import (
+        Blueprint,
+        Flask,
+        abort,
+        current_app,
+        flash,
+        redirect,
+        render_template,
+        request,
+        url_for,
+    )
+except ImportError as error:
+    Blueprint = Flask = Any
+    _FLASK_IMPORT_ERROR = error
+else:
+    _FLASK_IMPORT_ERROR = None
 
 from ..service import CIService
 
@@ -236,6 +242,10 @@ def _build_repository_insights(service: CIService, data_access, repo_id: int):
 
 def create_app(config_path: str | None = None, db_path: str | None = None) -> Flask:
     """Create and configure the dashboard Flask application."""
+    if _FLASK_IMPORT_ERROR is not None:
+        raise RuntimeError(
+            "Flask is required to use the Full Auto CI dashboard."
+        ) from _FLASK_IMPORT_ERROR
 
     service = CIService(config_path=config_path, db_path=db_path)
     app = Flask(__name__, template_folder="templates", static_folder="static")

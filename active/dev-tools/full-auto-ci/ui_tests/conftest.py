@@ -12,7 +12,10 @@ from typing import Dict
 
 import pytest
 import yaml
-from werkzeug.serving import make_server
+try:
+    from werkzeug.serving import make_server
+except ImportError:
+    make_server = None
 
 from src.dashboard import create_app
 from src.db import DataAccess
@@ -74,6 +77,8 @@ def _wait_for_server(url: str, timeout: float = 15.0) -> None:
 @pytest.fixture(scope="session")
 def dashboard_server(tmp_path_factory: pytest.TempPathFactory):
     """Start a dashboard instance that Playwright tests can target."""
+    if make_server is None:
+        pytest.skip("werkzeug is required for dashboard UI tests")
 
     work_dir = tmp_path_factory.mktemp("full_auto_ci_ui")
     config_path = work_dir / "config.yml"

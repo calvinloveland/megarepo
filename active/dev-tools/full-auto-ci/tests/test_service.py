@@ -40,6 +40,7 @@ class TestCIService(unittest.TestCase):
         self.assertFalse(self.service.running)
 
     def test_tool_runner_respects_config(self):
+        """Tool runner should honor enabled/disabled tool configuration."""
         cfg_fd, cfg_path = tempfile.mkstemp(suffix=".yml")
         os.close(cfg_fd)
         config_data = {
@@ -68,6 +69,7 @@ class TestCIService(unittest.TestCase):
             os.unlink(cfg_path)
 
     def test_tool_runner_configures_coverage_timeouts(self):
+        """Coverage tool should adopt configured command and timeout values."""
         cfg_fd, cfg_path = tempfile.mkstemp(suffix=".yml")
         os.close(cfg_fd)
         config_data = {
@@ -207,7 +209,6 @@ class TestCIService(unittest.TestCase):
         self.assertTrue(mock_thread_instance.join.called)
 
     @patch("src.service.CIService._create_test_run")
-    @patch("src.service.CIService._store_results")
     @patch("src.service.CIService._summarize_tool_results")
     @patch("src.service.CIService._update_test_run")
     @patch("src.git.GitTracker.get_repository")
@@ -216,7 +217,6 @@ class TestCIService(unittest.TestCase):
         mock_get_repo,
         mock_update_run,
         mock_summarize,
-        mock_store,
         mock_create_run,
     ):
         """Test running tests synchronously via run_tests."""
@@ -230,15 +230,16 @@ class TestCIService(unittest.TestCase):
         mock_create_run.return_value = 42
         mock_summarize.return_value = ("success", None)
 
-        with patch("src.service.os.path.exists", return_value=True):
-            with patch.object(self.service, "tool_runner") as mock_tool_runner:
-                mock_tool_runner.run_all.return_value = {
-                    "pylint": {"status": "success"},
-                    "coverage": {"status": "success"},
-                    "lizard": {"status": "success"},
-                }
+        with patch("src.service.CIService._store_results") as mock_store, patch(
+            "src.service.os.path.exists", return_value=True
+        ), patch.object(self.service, "tool_runner") as mock_tool_runner:
+            mock_tool_runner.run_all.return_value = {
+                "pylint": {"status": "success"},
+                "coverage": {"status": "success"},
+                "lizard": {"status": "success"},
+            }
 
-                result = self.service.run_tests(1, "abcdef")
+            result = self.service.run_tests(1, "abcdef")
 
         self.assertEqual(result["status"], "success")
         self.assertEqual(result["test_run_id"], 42)
@@ -250,6 +251,7 @@ class TestCIService(unittest.TestCase):
         mock_store.assert_called_once()
 
     def test_get_test_results_hydrates_commit_and_results(self):
+        """get_test_results should include commit and parsed tool results."""
         repo_id = self.service.add_repository("demo", "https://example.com/demo.git")
 
         commit_hash = "deadbeef"
@@ -302,6 +304,7 @@ class TestCIService(unittest.TestCase):
         _mock_create_run,
         mock_dirty,
     ):
+        """run_tests should emit warnings when local source has pending changes."""
         mock_repo = MagicMock()
         mock_repo.repo_path = "/tmp/repo"
         mock_repo.clone.return_value = True
@@ -323,6 +326,7 @@ class TestCIService(unittest.TestCase):
         mock_dirty.assert_called_once_with("/source")
 
     def test_summarize_tool_results_reports_errors(self):
+        """Tool summary should aggregate failing tool names into the message."""
         results = {
             "pylint": {"status": "success"},
             "coverage": {
@@ -345,6 +349,7 @@ class TestCIService(unittest.TestCase):
         self.assertIn("pytest", message)
 
     def test_add_provider_creates_record(self):
+        """Adding a provider should create and list a persisted record."""
         provider = self.service.add_provider(
             "github",
             "GitHub Demo",
@@ -359,6 +364,7 @@ class TestCIService(unittest.TestCase):
         self.assertEqual(providers[0]["name"], "GitHub Demo")
 
     def test_remove_provider(self):
+        """Removing a provider should delete it from provider listings."""
         provider = self.service.add_provider(
             "github",
             "GitHub Demo",
@@ -372,6 +378,7 @@ class TestCIService(unittest.TestCase):
         self.assertEqual(self.service.list_providers(), [])
 
     def test_get_provider_types(self):
+        """Provider type registry should include built-in integrations."""
         types = self.service.get_provider_types()
         # At least github, gitlab, jenkins, bamboo should be present
         registered = {entry["type"] for entry in types}
@@ -379,6 +386,7 @@ class TestCIService(unittest.TestCase):
         self.assertIn("gitlab", registered)
 
     def test_coerce_bool_variants(self):
+        """_coerce_bool should normalize common truthy and falsy values."""
         self.assertTrue(
             self.service._coerce_bool(True)
         )  # pylint: disable=protected-access
@@ -400,6 +408,7 @@ class TestCIService(unittest.TestCase):
 
     @patch("src.service.os.path.isdir", return_value=False)
     def test_has_local_changes_nonexistent(self, mock_isdir):
+        """Missing directories should be treated as having no local changes."""
         self.assertFalse(
             self.service._has_local_changes("/missing")
         )  # pylint: disable=protected-access
@@ -408,6 +417,7 @@ class TestCIService(unittest.TestCase):
     @patch("src.service.subprocess.run")
     @patch("src.service.os.path.isdir", return_value=True)
     def test_has_local_changes_detects_output(self, mock_isdir, mock_run):
+        """Non-empty git status output should count as local changes."""
         mock_result = MagicMock()
         mock_result.stdout = " M file.txt\n"
         mock_run.return_value = mock_result

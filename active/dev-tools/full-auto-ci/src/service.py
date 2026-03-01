@@ -1081,8 +1081,8 @@ class CIService:
                 repo_id,
                 resolved_commit_hash,
                 repo,
-                test_run_id,
-                warnings,
+                test_run_id=test_run_id,
+                warnings=warnings,
                 run_root=run_root,
             )
         finally:
@@ -1293,9 +1293,9 @@ class CIService:
         repo_id: int,
         commit_hash: str,
         repo: Any,
+        *,
         test_run_id: int,
         warnings: List[str],
-        *,
         run_root: Optional[str] = None,
     ) -> Dict[str, Any]:
         try:
@@ -1308,7 +1308,11 @@ class CIService:
 
             overall_status, message = self._summarize_tool_results(results)
             self._finalize_test_run(
-                test_run_id, repo_id, commit_hash, overall_status, message
+                test_run_id=test_run_id,
+                repo_id=repo_id,
+                commit_hash=commit_hash,
+                overall_status=overall_status,
+                message=message,
             )
             return self._format_run_results(
                 overall_status, message, results, test_run_id, warnings
@@ -1325,6 +1329,7 @@ class CIService:
 
     def _finalize_test_run(
         self,
+        *,
         test_run_id: int,
         repo_id: int,
         commit_hash: str,
