@@ -16,7 +16,13 @@ full-auto-de-pdf = "full_auto_de_pdf.cli:main"
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0"]
-ocr = ["paddleocr>=3.0.0", "paddlepaddle>=3.2.0,<3.3.0", "opencv-python-headless>=4.10.0.84"]
+ocr = [
+    "paddleocr>=3.0.0",
+    "paddlepaddle>=3.2.0,<3.3.0",
+    "opencv-python-headless>=4.10.0.84",
+    "surya-ocr>=0.17.0",
+    "transformers>=4.56.1,<5",
+]
 
 [tool.hatch.version]
 path = "src/full_auto_de_pdf/__about__.py"

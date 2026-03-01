@@ -100,7 +100,7 @@ def _build_parser() -> argparse.ArgumentParser:
         help="OCR source policy: strict single-source or oracle best-of-both",
     )
     ocr_pdf_parser = subparsers.add_parser(
-        "ocr-pdf", help="Run local PDF OCR using pdftoppm + tesseract"
+        "ocr-pdf", help="Run local PDF OCR using pdftoppm + selectable engine"
     )
     ocr_pdf_parser.add_argument("--pdf", type=Path, required=True, help="Input PDF path")
     ocr_pdf_parser.add_argument(
@@ -128,7 +128,7 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     ocr_pdf_parser.add_argument(
         "--ocr-engine",
-        choices=["tesseract", "paddleocr"],
+        choices=["tesseract", "paddleocr", "surya"],
         default="tesseract",
         help="OCR engine backend",
     )
@@ -206,7 +206,7 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     eval_modes_parser.add_argument(
         "--ocr-engine",
-        choices=["tesseract", "paddleocr"],
+        choices=["tesseract", "paddleocr", "surya"],
         default="tesseract",
         help="OCR engine backend",
     )
@@ -274,7 +274,7 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     local_archive_parser.add_argument(
         "--ocr-engine",
-        choices=["tesseract", "paddleocr"],
+        choices=["tesseract", "paddleocr", "surya"],
         default="tesseract",
         help="OCR engine backend",
     )
