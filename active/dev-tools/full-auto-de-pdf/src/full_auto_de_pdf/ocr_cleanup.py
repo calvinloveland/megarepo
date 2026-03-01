@@ -32,8 +32,9 @@ _MAX_ERROR_OCCURRENCES = 2
 _MIN_CORRECTION_OCCURRENCES = 5
 _MIN_CORRECTION_RATIO = 2.5
 _MIN_BEST_CANDIDATE_MARGIN = 1.5
-_MIN_DISTINCT_WORDS_PER_CHAR = 5
-_MAX_TOTAL_CORRECTIONS = 10
+_MIN_DISTINCT_WORDS_PER_CHAR = 3
+_MIN_DISTINCT_WORDS_PER_SIGNATURE = 1
+_MAX_TOTAL_CORRECTIONS = 30
 _CONTEXT_MIN_TARGET_SCORE = 2
 _CONTEXT_REQUIRED_MARGIN = 0
 
@@ -50,11 +51,14 @@ def _extract_word_counts(text: str) -> Counter[str]:
     return Counter(token.lower() for token in _WORD_TOKEN.findall(text))
 
 
-def _best_missing_char_variant(word: str, word_count: int, counts: Counter[str]) -> tuple[str, str] | None:
+def _best_missing_char_variant(
+    word: str, word_count: int, counts: Counter[str]
+) -> tuple[str, str, int, int] | None:
     best_candidate: str | None = None
     best_candidate_count = 0
     second_best_count = 0
     best_missing_char = ""
+    best_index = -1
     for index in range(1, len(word)):
         for char in _LOWER_ALPHA:
             candidate = word[:index] + char + word[index:]
@@ -68,6 +72,7 @@ def _best_missing_char_variant(word: str, word_count: int, counts: Counter[str])
                 best_candidate = candidate
                 best_candidate_count = candidate_count
                 best_missing_char = char
+                best_index = index
             elif candidate_count > second_best_count:
                 second_best_count = candidate_count
     if best_candidate is None:
@@ -76,13 +81,20 @@ def _best_missing_char_variant(word: str, word_count: int, counts: Counter[str])
         return None
     if second_best_count and (best_candidate_count / second_best_count) < _MIN_BEST_CANDIDATE_MARGIN:
         return None
-    return best_candidate, best_missing_char
+    return best_candidate, best_missing_char, best_index, best_candidate_count
+
+
+def _insertion_signature(source_word: str, insertion_index: int, missing_char: str) -> tuple[str, str, str]:
+    previous_char = source_word[insertion_index - 1] if insertion_index > 0 else "^"
+    next_char = source_word[insertion_index] if insertion_index < len(source_word) else "$"
+    return missing_char, previous_char, next_char
 
 
 def _infer_missing_char_corrections(text: str) -> dict[str, str]:
     counts = _extract_word_counts(text)
-    provisional: dict[str, tuple[str, str, float]] = {}
+    provisional: dict[str, tuple[str, str, tuple[str, str, str], float]] = {}
     char_word_support: dict[str, set[str]] = defaultdict(set)
+    signature_word_support: dict[tuple[str, str, str], set[str]] = defaultdict(set)
     for word, word_count in counts.items():
         if _ROMAN_WORD.fullmatch(word):
             continue
@@ -93,11 +105,12 @@ def _infer_missing_char_corrections(text: str) -> dict[str, str]:
         variant = _best_missing_char_variant(word, word_count, counts)
         if variant is None:
             continue
-        corrected_word, missing_char = variant
-        corrected_count = counts.get(corrected_word, 0)
+        corrected_word, missing_char, insertion_index, corrected_count = variant
+        signature = _insertion_signature(word, insertion_index, missing_char)
         score = (float(corrected_count) / float(max(word_count, 1))) * 1000.0 + float(corrected_count)
-        provisional[word] = (corrected_word, missing_char, score)
+        provisional[word] = (corrected_word, missing_char, signature, score)
         char_word_support[missing_char].add(word)
+        signature_word_support[signature].add(word)
 
     supported_chars = {
         char
@@ -106,23 +119,22 @@ def _infer_missing_char_corrections(text: str) -> dict[str, str]:
     }
     if not supported_chars:
         return {}
-    corrections = {
-        source: corrected
-        for source, (corrected, missing_char, _score) in provisional.items()
-        if missing_char in supported_chars
-    }
-    if len(corrections) > _MAX_TOTAL_CORRECTIONS:
-        ranked = sorted(
-            (
-                (source, corrected, score)
-                for source, (corrected, missing_char, score) in provisional.items()
-                if missing_char in supported_chars
-            ),
-            key=lambda item: item[2],
-            reverse=True,
-        )
-        corrections = {source: corrected for source, corrected, _score in ranked[:_MAX_TOTAL_CORRECTIONS]}
-    return corrections
+    ranked_candidates: list[tuple[str, str, float]] = []
+    for source, (corrected, missing_char, signature, score) in provisional.items():
+        if missing_char not in supported_chars:
+            continue
+        signature_support = len(signature_word_support[signature])
+        if signature_support < _MIN_DISTINCT_WORDS_PER_SIGNATURE:
+            continue
+        char_support = len(char_word_support[missing_char])
+        total_score = score + (float(char_support) * 25.0) + (float(signature_support) * 60.0)
+        ranked_candidates.append((source, corrected, total_score))
+
+    if not ranked_candidates:
+        return {}
+    ranked_candidates.sort(key=lambda item: item[2], reverse=True)
+    selected = ranked_candidates[:_MAX_TOTAL_CORRECTIONS]
+    return {source: corrected for source, corrected, _score in selected}
 
 
 def _apply_word_corrections(text: str, corrections: dict[str, str]) -> str:
