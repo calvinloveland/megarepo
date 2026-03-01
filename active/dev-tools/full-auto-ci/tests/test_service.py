@@ -26,6 +26,8 @@ class TestCIService(unittest.TestCase):
         self._dogfood_env = os.environ.get("FULL_AUTO_CI_DOGFOOD")
         os.environ["FULL_AUTO_CI_DOGFOOD"] = "0"
         self.service = CIService(db_path=self.temp_db_path)
+        self.service.git_tracker.add_repository = MagicMock(return_value=True)
+        self.service.git_tracker.remove_repository = MagicMock(return_value=True)
 
     def tearDown(self):
         """Tear down test fixtures."""

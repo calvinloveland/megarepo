@@ -61,7 +61,7 @@ class TestGitRepo(unittest.TestCase):
     def test_clone_failure(self, mock_run):
         """Test cloning a repository with failure."""
         # Mock the subprocess.run result
-        mock_run.side_effect = Exception("Error cloning repository")
+        mock_run.side_effect = OSError("Error cloning repository")
 
         # Clone the repository
         success = self.repo.clone()
