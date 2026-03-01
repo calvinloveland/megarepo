@@ -23,6 +23,8 @@ _PAGE_NUMBER_LINE = re.compile(r"^[\s\divxlcdmIVXLCDM\-\.\[\]\(\)]{1,12}$")
 _LINE_ART_LINE = re.compile(r"^[\s\\/_|+=*#~`^]{3,}$")
 _BROKEN_HYPHEN = re.compile(r"([A-Za-z])-\n([a-z])")
 _WORD_TOKEN = re.compile(r"\b[A-Za-z]{4,}\b")
+_CONTEXT_TOKEN = re.compile(r"[A-Za-z]+")
+_HARD_CONTEXT_BREAK = re.compile(r"[.!?;:\n]")
 _ROMAN_WORD = re.compile(r"^[ivxlcdm]+$")
 _LOWER_ALPHA = "abcdefghijklmnopqrstuvwxyz"
 _MIN_ERROR_OCCURRENCES = 2
@@ -32,6 +34,8 @@ _MIN_CORRECTION_RATIO = 2.5
 _MIN_BEST_CANDIDATE_MARGIN = 1.5
 _MIN_DISTINCT_WORDS_PER_CHAR = 5
 _MAX_TOTAL_CORRECTIONS = 10
+_CONTEXT_MIN_TARGET_SCORE = 2
+_CONTEXT_REQUIRED_MARGIN = 0
 
 
 def _match_case(source: str, replacement: str) -> str:
@@ -77,7 +81,7 @@ def _best_missing_char_variant(word: str, word_count: int, counts: Counter[str])
 
 def _infer_missing_char_corrections(text: str) -> dict[str, str]:
     counts = _extract_word_counts(text)
-    provisional: dict[str, tuple[str, str]] = {}
+    provisional: dict[str, tuple[str, str, float]] = {}
     char_word_support: dict[str, set[str]] = defaultdict(set)
     for word, word_count in counts.items():
         if _ROMAN_WORD.fullmatch(word):
@@ -90,7 +94,9 @@ def _infer_missing_char_corrections(text: str) -> dict[str, str]:
         if variant is None:
             continue
         corrected_word, missing_char = variant
-        provisional[word] = (corrected_word, missing_char)
+        corrected_count = counts.get(corrected_word, 0)
+        score = (float(corrected_count) / float(max(word_count, 1))) * 1000.0 + float(corrected_count)
+        provisional[word] = (corrected_word, missing_char, score)
         char_word_support[missing_char].add(word)
 
     supported_chars = {
@@ -102,30 +108,72 @@ def _infer_missing_char_corrections(text: str) -> dict[str, str]:
         return {}
     corrections = {
         source: corrected
-        for source, (corrected, missing_char) in provisional.items()
+        for source, (corrected, missing_char, _score) in provisional.items()
         if missing_char in supported_chars
     }
     if len(corrections) > _MAX_TOTAL_CORRECTIONS:
-        return {}
+        ranked = sorted(
+            (
+                (source, corrected, score)
+                for source, (corrected, missing_char, score) in provisional.items()
+                if missing_char in supported_chars
+            ),
+            key=lambda item: item[2],
+            reverse=True,
+        )
+        corrections = {source: corrected for source, corrected, _score in ranked[:_MAX_TOTAL_CORRECTIONS]}
     return corrections
 
 
 def _apply_word_corrections(text: str, corrections: dict[str, str]) -> str:
     if not corrections:
         return text
-    pattern = re.compile(
-        r"\b(" + "|".join(sorted((re.escape(word) for word in corrections), key=len, reverse=True)) + r")\b",
-        flags=re.IGNORECASE,
-    )
+    matches = list(_CONTEXT_TOKEN.finditer(text))
+    if not matches:
+        return text
 
-    def _replace(match: re.Match[str]) -> str:
-        source = match.group(0)
-        corrected = corrections.get(source.lower())
-        if corrected is None:
-            return source
-        return _match_case(source, corrected)
+    words = [match.group(0).lower() for match in matches]
+    bigram_counts: Counter[tuple[str, str]] = Counter(zip(words, words[1:]))
+    replacements: list[tuple[int, int, str]] = []
+    for index, match in enumerate(matches):
+        source_word = words[index]
+        target_word = corrections.get(source_word)
+        if target_word is None:
+            continue
+        source_score = 0
+        target_score = 0
+        if index > 0:
+            between_prev = text[matches[index - 1].end() : match.start()]
+            if not _HARD_CONTEXT_BREAK.search(between_prev):
+                previous_word = words[index - 1]
+                source_score += bigram_counts[(previous_word, source_word)]
+                target_score += bigram_counts[(previous_word, target_word)]
+        if index + 1 < len(words):
+            between_next = text[match.end() : matches[index + 1].start()]
+            if not _HARD_CONTEXT_BREAK.search(between_next):
+                next_word = words[index + 1]
+                source_score += bigram_counts[(source_word, next_word)]
+                target_score += bigram_counts[(target_word, next_word)]
+        if source_score == 0 and target_score == 0:
+            continue
+        if target_score < _CONTEXT_MIN_TARGET_SCORE:
+            continue
+        if target_score < source_score + _CONTEXT_REQUIRED_MARGIN:
+            continue
+        replacement = _match_case(match.group(0), target_word)
+        replacements.append((match.start(), match.end(), replacement))
 
-    return pattern.sub(_replace, text)
+    if not replacements:
+        return text
+
+    chunks: list[str] = []
+    cursor = 0
+    for start, end, replacement in replacements:
+        chunks.append(text[cursor:start])
+        chunks.append(replacement)
+        cursor = end
+    chunks.append(text[cursor:])
+    return "".join(chunks)
 
 
 def cleanup_ocr_text(text: str) -> str:

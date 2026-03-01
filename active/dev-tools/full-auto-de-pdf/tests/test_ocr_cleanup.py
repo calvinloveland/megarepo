@@ -1,4 +1,4 @@
-from full_auto_de_pdf.ocr_cleanup import cleanup_ocr_text
+from full_auto_de_pdf.ocr_cleanup import _apply_word_corrections, cleanup_ocr_text
 
 
 def test_cleanup_ocr_text_normalizes_ligatures_and_quotes() -> None:
@@ -21,11 +21,11 @@ def test_cleanup_ocr_text_dehyphenates_line_breaks() -> None:
 
 def test_cleanup_ocr_text_corrects_repeated_missing_character_errors() -> None:
     source = (
-        "The world was quiet. The world moved. The world waited. The world turned. The world changed.\n"
-        "A brown fox crossed the path. Another brown dog followed. Brown leaves and brown bark covered the brown road.\n"
-        "The crown was polished. The crown jewels were packed. A silver crown sat beside the old crown stand. Another crown mark appeared.\n"
-        "They strike the bell at dawn. They strike again at noon. Workers strike once more before they strike camp. They strike together.\n"
-        "The group assembled early. The group returned late. Every group crossed with another group from town. One group waited.\n"
+        "The world map was quiet. The world map moved. The world atlas waited. The world map turned. The world atlas changed.\n"
+        "A brown trail crossed the path. Another brown trail followed. Brown leaves and brown bark covered the brown gate.\n"
+        "The crown emblem was polished. The crown seal was packed. A silver crown emblem sat beside the old crown seal. Another crown emblem appeared.\n"
+        "They strike once at dawn. They strike again at noon. Workers strike once more before they strike again. They strike once together.\n"
+        "The group waited early. The group listened late. Every group listened with another group from town. One group waited.\n"
         "A wold map was pinned beside another wold atlas.\n"
         "The bown trail curved toward a bown gate.\n"
         "A cown emblem sat under another cown seal.\n"
@@ -52,3 +52,15 @@ def test_cleanup_ocr_text_does_not_correct_single_word_pattern() -> None:
     )
     cleaned = cleanup_ocr_text(source)
     assert "wold phrase" in cleaned.lower()
+
+
+def test_apply_word_corrections_uses_neighbor_context() -> None:
+    source = (
+        "The world map is old. Another world map appears.\n"
+        "Wold map remains in the margin.\n"
+        "Red rose blooms near the gate. Red rose fades by dusk.\n"
+    )
+    corrected = _apply_word_corrections(source, {"wold": "world", "red": "read"})
+    assert "world map remains" in corrected.lower()
+    assert "red rose blooms" in corrected.lower()
+    assert "read rose" not in corrected.lower()
