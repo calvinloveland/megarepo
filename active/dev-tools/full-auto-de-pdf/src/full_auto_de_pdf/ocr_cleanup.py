@@ -23,10 +23,12 @@ _PAGE_NUMBER_LINE = re.compile(r"^[\s\divxlcdmIVXLCDM\-\.\[\]\(\)]{1,12}$")
 _LINE_ART_LINE = re.compile(r"^[\s\\/_|+=*#~`^]{3,}$")
 _BROKEN_HYPHEN = re.compile(r"([A-Za-z])-\n([a-z])")
 _WORD_TOKEN = re.compile(r"\b[A-Za-z]{4,}\b")
-_CONTEXT_TOKEN = re.compile(r"[A-Za-z]+")
+_WORD_WITH_MARKS = re.compile(r"[A-Za-z0-9']+")
+_CONTEXT_TOKEN = _WORD_WITH_MARKS
 _HARD_CONTEXT_BREAK = re.compile(r"[.!?;:\n]")
 _ROMAN_WORD = re.compile(r"^[ivxlcdm]+$")
 _LOWER_ALPHA = "abcdefghijklmnopqrstuvwxyz"
+_TOC_HINT = re.compile(r"^\s*(contents?|chapter|book|appendix|part)\b", flags=re.IGNORECASE)
 _MIN_ERROR_OCCURRENCES = 2
 _MAX_ERROR_OCCURRENCES = 2
 _MIN_CORRECTION_OCCURRENCES = 5
@@ -37,6 +39,10 @@ _MIN_DISTINCT_WORDS_PER_SIGNATURE = 1
 _MAX_TOTAL_CORRECTIONS = 30
 _CONTEXT_MIN_TARGET_SCORE = 2
 _CONTEXT_REQUIRED_MARGIN = 0
+_MIN_APOSTROPHE_ERROR_OCCURRENCES = 1
+_MAX_TOTAL_APOSTROPHE_CORRECTIONS = 20
+_MIN_DIGIT_ERROR_OCCURRENCES = 1
+_MAX_TOTAL_DIGIT_CORRECTIONS = 3
 
 
 def _match_case(source: str, replacement: str) -> str:
@@ -49,6 +55,23 @@ def _match_case(source: str, replacement: str) -> str:
 
 def _extract_word_counts(text: str) -> Counter[str]:
     return Counter(token.lower() for token in _WORD_TOKEN.findall(text))
+
+
+def _extract_token_counts(text: str) -> Counter[str]:
+    return Counter(token.lower() for token in _WORD_WITH_MARKS.findall(text))
+
+
+def _is_toc_like_line(line: str) -> bool:
+    lowered = line.lower()
+    has_digit = any(char.isdigit() for char in lowered)
+    chapter_hits = lowered.count("chapter")
+    if _TOC_HINT.search(line) and has_digit:
+        return True
+    if chapter_hits >= 1 and has_digit:
+        return True
+    if has_digit and ("contents" in lowered or "diary" in lowered) and len(lowered.split()) >= 3:
+        return True
+    return False
 
 
 def _best_missing_char_variant(
@@ -137,6 +160,55 @@ def _infer_missing_char_corrections(text: str) -> dict[str, str]:
     return {source: corrected for source, corrected, _score in selected}
 
 
+def _infer_apostrophe_corrections(text: str) -> dict[str, str]:
+    counts = _extract_token_counts(text)
+    candidates: list[tuple[str, str, float]] = []
+    for source, source_count in counts.items():
+        if "'" in source:
+            continue
+        if source_count < _MIN_APOSTROPHE_ERROR_OCCURRENCES or source_count > _MAX_ERROR_OCCURRENCES:
+            continue
+        proposal_list = [
+            source + "'s",
+            source + "'d",
+            source + "'re",
+            source + "'ll",
+            source + "'ve",
+            source + "'m",
+        ]
+        if source.endswith("n"):
+            proposal_list.append(source + "'t")
+        best_target = ""
+        best_target_count = 0
+        for target in proposal_list:
+            target_count = counts.get(target, 0)
+            if target_count < _MIN_CORRECTION_OCCURRENCES:
+                continue
+            if target_count > best_target_count:
+                best_target = target
+                best_target_count = target_count
+        if not best_target:
+            continue
+        if best_target_count < int(source_count * _MIN_CORRECTION_RATIO):
+            continue
+        score = (float(best_target_count) / float(source_count)) * 1000.0 + float(best_target_count)
+        candidates.append((source, best_target, score))
+
+    candidates.sort(key=lambda item: item[2], reverse=True)
+    selected = candidates[:_MAX_TOTAL_APOSTROPHE_CORRECTIONS]
+    return {source: target for source, target, _score in selected}
+
+
+def _infer_digit_letter_corrections(text: str) -> dict[str, str]:
+    counts = _extract_token_counts(text)
+    corrections: dict[str, str] = {}
+    if counts.get("1", 0) >= _MIN_DIGIT_ERROR_OCCURRENCES and counts.get("i", 0) >= _MIN_CORRECTION_OCCURRENCES:
+        corrections["1"] = "i"
+    if len(corrections) > _MAX_TOTAL_DIGIT_CORRECTIONS:
+        return {}
+    return corrections
+
+
 def _apply_word_corrections(text: str, corrections: dict[str, str]) -> str:
     if not corrections:
         return text
@@ -205,11 +277,16 @@ def cleanup_ocr_text(text: str) -> str:
             continue
         if _LINE_ART_LINE.fullmatch(stripped):
             continue
+        if _is_toc_like_line(stripped):
+            continue
         cleaned_lines.append(stripped)
 
     cleaned = "\n".join(cleaned_lines)
     cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
     cleaned = re.sub(r"[ \t]+", " ", cleaned)
-    corrections = _infer_missing_char_corrections(cleaned)
+    corrections = {}
+    corrections.update(_infer_missing_char_corrections(cleaned))
+    corrections.update(_infer_apostrophe_corrections(cleaned))
+    corrections.update(_infer_digit_letter_corrections(cleaned))
     cleaned = _apply_word_corrections(cleaned, corrections)
     return cleaned.strip()

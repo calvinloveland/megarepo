@@ -64,3 +64,37 @@ def test_apply_word_corrections_uses_neighbor_context() -> None:
     assert "world map remains" in corrected.lower()
     assert "red rose blooms" in corrected.lower()
     assert "read rose" not in corrected.lower()
+
+
+def test_cleanup_ocr_text_removes_toc_like_lines() -> None:
+    source = (
+        "CONTENTS\n"
+        "Chapter I Jonathan Harker's Journal 1\n"
+        "Chapter II Dr Seward's Diary 17\n"
+        "Real story opening line.\n"
+    )
+    cleaned = cleanup_ocr_text(source)
+    assert "chapter i" not in cleaned.lower()
+    assert "diary 17" not in cleaned.lower()
+    assert "real story opening line" in cleaned.lower()
+
+
+def test_cleanup_ocr_text_restores_apostrophe_suffixes() -> None:
+    source = (
+        "I don't agree. I don't agree. I don't agree. I don't agree. I don't agree.\n"
+        "I don agree in this line.\n"
+    )
+    cleaned = cleanup_ocr_text(source)
+    assert "don agree" not in cleaned.lower()
+    assert "don't agree in this line" in cleaned.lower()
+
+
+def test_cleanup_ocr_text_corrects_isolated_digit_one_to_i() -> None:
+    source = (
+        "I think therefore I am. I think therefore I learn. I think therefore I write. "
+        "I think therefore I read. I think therefore I know. "
+        "He said 1 think this should work.\n"
+    )
+    cleaned = cleanup_ocr_text(source)
+    assert " 1 think" not in cleaned.lower()
+    assert "i think this should work" in cleaned.lower()
