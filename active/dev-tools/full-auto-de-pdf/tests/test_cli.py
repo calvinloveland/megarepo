@@ -96,6 +96,7 @@ def test_ocr_pdf_command_runs_pipeline(monkeypatch, tmp_path) -> None:
         assert kwargs["binarize_threshold"] == 180
         assert kwargs["deskew_max_angle"] == 4.0
         assert kwargs["deskew_angle_step"] == 0.25
+        assert kwargs["ocr_engine"] == "paddleocr"
         return {"page_count": 3, "word_count": 120, "character_count": 600}
 
     monkeypatch.setattr(cli, "ocr_pdf_with_tesseract", _fake_ocr_pdf_with_tesseract)
@@ -118,6 +119,8 @@ def test_ocr_pdf_command_runs_pipeline(monkeypatch, tmp_path) -> None:
             "4.0",
             "--deskew-angle-step",
             "0.25",
+            "--ocr-engine",
+            "paddleocr",
         ]
     )
     assert rc == 0
@@ -141,6 +144,7 @@ def test_ocr_eval_modes_command_runs_pipeline(monkeypatch, tmp_path) -> None:
         assert kwargs["binarize_threshold"] == 160
         assert kwargs["deskew_max_angle"] == 5.0
         assert kwargs["deskew_angle_step"] == 0.5
+        assert kwargs["ocr_engine"] == "paddleocr"
         return {"modes": {"none": {}, "basic": {}, "deskew": {}, "dewarp": {}}}
 
     monkeypatch.setattr(cli, "evaluate_ocr_preprocess_modes", _fake_evaluate_ocr_preprocess_modes)
@@ -161,6 +165,8 @@ def test_ocr_eval_modes_command_runs_pipeline(monkeypatch, tmp_path) -> None:
             "160",
             "--deskew-max-angle",
             "5.0",
+            "--ocr-engine",
+            "paddleocr",
         ]
     )
     assert rc == 0
@@ -178,6 +184,7 @@ def test_benchmark_local_archive_command_runs(monkeypatch, tmp_path) -> None:
         assert kwargs["output_report_path"] == output_report
         assert kwargs["work_dir"] == work_dir
         assert kwargs["archive_source_mode"] == "best"
+        assert kwargs["ocr_engine"] == "paddleocr"
         return {
             "selected_archive_source": "djvu",
             "best_mode": "deskew",
@@ -197,6 +204,8 @@ def test_benchmark_local_archive_command_runs(monkeypatch, tmp_path) -> None:
             str(work_dir),
             "--archive-source-mode",
             "best",
+            "--ocr-engine",
+            "paddleocr",
         ]
     )
     assert rc == 0

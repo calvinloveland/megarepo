@@ -119,6 +119,23 @@ def test_ocr_pdf_with_tesseract_rejects_invalid_preprocess_mode(tmp_path) -> Non
         )
 
 
+def test_ocr_pdf_with_tesseract_rejects_invalid_engine(tmp_path) -> None:
+    pdf_path = tmp_path / "book.pdf"
+    pdf_path.write_bytes(b"pdf")
+
+    def _which(_name: str) -> str | None:
+        return "/usr/bin/fake"
+
+    with pytest.raises(ValueError):
+        ocr_pdf_with_tesseract(
+            pdf_path=pdf_path,
+            output_text_path=tmp_path / "out.txt",
+            work_dir=tmp_path / "work",
+            ocr_engine="invalid",
+            which=_which,
+        )
+
+
 def test_ocr_pdf_with_tesseract_rejects_invalid_deskew_step(tmp_path) -> None:
     pdf_path = tmp_path / "book.pdf"
     pdf_path.write_bytes(b"pdf")
@@ -134,6 +151,48 @@ def test_ocr_pdf_with_tesseract_rejects_invalid_deskew_step(tmp_path) -> None:
             deskew_angle_step=0.0,
             which=_which,
         )
+
+
+def test_ocr_pdf_with_paddleocr_engine_path(tmp_path) -> None:
+    pdf_path = tmp_path / "book.pdf"
+    output_path = tmp_path / "out.txt"
+    work_dir = tmp_path / "work"
+    pdf_path.write_bytes(b"pdf")
+    seen_images: list[str] = []
+
+    def _which(name: str) -> str | None:
+        if name == "pdftoppm":
+            return "/usr/bin/fake"
+        return None
+
+    def _run(command: list[str], _capture_output: bool) -> str:
+        if command[0] == "pdftoppm":
+            pages_dir = work_dir / "pages"
+            pages_dir.mkdir(parents=True, exist_ok=True)
+            (pages_dir / "page-1.png").write_bytes(b"x")
+            return ""
+        raise AssertionError("tesseract should not be called for paddleocr engine")
+
+    def _factory(_language: str):
+        def _reader(image_path: Path) -> str:
+            seen_images.append(image_path.name)
+            return "Paddle OCR text"
+
+        return _reader
+
+    metrics = ocr_pdf_with_tesseract(
+        pdf_path=pdf_path,
+        output_text_path=output_path,
+        work_dir=work_dir,
+        preprocess_mode="none",
+        ocr_engine="paddleocr",
+        run_command=_run,
+        paddle_reader_factory=_factory,
+        which=_which,
+    )
+    assert metrics["page_count"] == 1
+    assert seen_images == ["page-1.png"]
+    assert "paddle" in output_path.read_text(encoding="utf-8").lower()
 
 
 def test_evaluate_ocr_preprocess_modes_runs_all_modes(monkeypatch, tmp_path) -> None:
@@ -153,6 +212,7 @@ def test_evaluate_ocr_preprocess_modes_runs_all_modes(monkeypatch, tmp_path) -> 
 
     def _fake_ocr_pdf_with_tesseract(**kwargs):  # noqa: ANN003
         seen_modes.append(kwargs["preprocess_mode"])
+        assert kwargs["ocr_engine"] == "paddleocr"
         output_path = kwargs["output_text_path"]
         output_path.parent.mkdir(parents=True, exist_ok=True)
         output_path.write_text(mode_text[kwargs["preprocess_mode"]], encoding="utf-8")
@@ -164,6 +224,7 @@ def test_evaluate_ocr_preprocess_modes_runs_all_modes(monkeypatch, tmp_path) -> 
         work_dir=work_dir,
         output_report_path=output_report,
         reference_text_path=reference_text_path,
+        ocr_engine="paddleocr",
     )
     assert seen_modes == ["none", "basic", "deskew", "dewarp"]
     assert output_report.exists()
@@ -185,6 +246,7 @@ def test_benchmark_local_ocr_against_archive_selects_best_source(monkeypatch, tm
         return "abbyy reference"
 
     def _fake_evaluate_ocr_preprocess_modes(**kwargs):  # noqa: ANN003
+        assert kwargs["ocr_engine"] == "paddleocr"
         source_name = Path(kwargs["reference_text_path"]).stem.split("_")[-1]
         if source_name == "abbyy":
             ranking = [{"mode": "deskew", "wer": 0.10, "cer": 0.08}]
@@ -202,6 +264,7 @@ def test_benchmark_local_ocr_against_archive_selects_best_source(monkeypatch, tm
         output_report_path=output_report,
         work_dir=work_dir,
         archive_source_mode="best",
+        ocr_engine="paddleocr",
     )
     assert report["selected_archive_source"] == "abbyy"
     assert output_report.exists()

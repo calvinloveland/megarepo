@@ -16,6 +16,7 @@ full-auto-de-pdf = "full_auto_de_pdf.cli:main"
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0"]
+ocr = ["paddleocr>=2.8.1"]
 
 [tool.hatch.version]
 path = "src/full_auto_de_pdf/__about__.py"

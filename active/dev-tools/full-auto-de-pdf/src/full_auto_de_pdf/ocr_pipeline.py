@@ -20,6 +20,60 @@ def _run_command(command: list[str], capture_output: bool = False) -> str:
     return completed.stdout if capture_output else ""
 
 
+def _map_paddleocr_language(language: str) -> str:
+    normalized = language.lower().strip()
+    mapping = {
+        "eng": "en",
+        "en": "en",
+        "fra": "fr",
+        "fr": "fr",
+        "deu": "german",
+        "de": "german",
+        "spa": "es",
+        "es": "es",
+        "ita": "it",
+        "it": "it",
+    }
+    return mapping.get(normalized, "en")
+
+
+def _build_paddleocr_reader(language: str) -> Callable[[Path], str]:
+    try:
+        from paddleocr import PaddleOCR
+    except ImportError as exc:
+        raise RuntimeError(
+            "Missing dependency for paddleocr engine: paddleocr. "
+            "Install with `pip install paddleocr` or use --ocr-engine tesseract."
+        ) from exc
+
+    paddle_language = _map_paddleocr_language(language)
+    reader = PaddleOCR(
+        use_angle_cls=True,
+        lang=paddle_language,
+        use_gpu=False,
+        show_log=False,
+    )
+
+    def _read(image_path: Path) -> str:
+        result = reader.ocr(str(image_path), cls=True)
+        lines: list[str] = []
+        for page_result in result or []:
+            if not isinstance(page_result, list):
+                continue
+            for row in page_result:
+                if not isinstance(row, list | tuple) or len(row) < 2:
+                    continue
+                text_info = row[1]
+                if not isinstance(text_info, list | tuple) or not text_info:
+                    continue
+                text = text_info[0]
+                if isinstance(text, str) and text.strip():
+                    lines.append(text.strip())
+        return "\n".join(lines)
+
+    return _read
+
+
 def _projection_variance(binary_image) -> float:
     width, height = binary_image.size
     pixels = binary_image.load()
@@ -165,14 +219,18 @@ def ocr_pdf_with_tesseract(
     binarize_threshold: int = 170,
     deskew_max_angle: float = 3.0,
     deskew_angle_step: float = 0.5,
+    ocr_engine: str = "tesseract",
     emit_page_artifacts: bool = True,
     page_artifacts_dir: Path | None = None,
     run_command: Callable[[list[str], bool], str] = _run_command,
     preprocess_image: Callable[[Path, Path, str, int, float, float], None] = _preprocess_image,
+    paddle_reader_factory: Callable[[str], Callable[[Path], str]] = _build_paddleocr_reader,
     which: Callable[[str], str | None] = shutil.which,
 ) -> dict[str, int | str]:
     if preprocess_mode not in {"none", "basic", "deskew", "dewarp"}:
         raise ValueError("preprocess_mode must be 'none', 'basic', 'deskew', or 'dewarp'")
+    if ocr_engine not in {"tesseract", "paddleocr"}:
+        raise ValueError("ocr_engine must be 'tesseract' or 'paddleocr'")
     if not (0 <= binarize_threshold <= 255):
         raise ValueError("binarize_threshold must be between 0 and 255")
     if deskew_max_angle <= 0:
@@ -181,7 +239,7 @@ def ocr_pdf_with_tesseract(
         raise ValueError("deskew_angle_step must be greater than 0")
     if which("pdftoppm") is None:
         raise RuntimeError("Missing dependency: pdftoppm")
-    if which("tesseract") is None:
+    if ocr_engine == "tesseract" and which("tesseract") is None:
         raise RuntimeError("Missing dependency: tesseract")
     if not pdf_path.exists():
         raise FileNotFoundError(f"Input PDF not found: {pdf_path}")
@@ -212,6 +270,7 @@ def ocr_pdf_with_tesseract(
     artifacts_dir = page_artifacts_dir or (work_dir / "page_ocr")
     if emit_page_artifacts:
         artifacts_dir.mkdir(parents=True, exist_ok=True)
+    paddle_reader = paddle_reader_factory(language) if ocr_engine == "paddleocr" else None
     for image_path in page_images:
         ocr_input_path = image_path
         if preprocess_mode in {"basic", "deskew", "dewarp"}:
@@ -226,18 +285,23 @@ def ocr_pdf_with_tesseract(
             )
             ocr_input_path = preprocessed_path
 
-        text = run_command(
-            [
-                "tesseract",
-                str(ocr_input_path),
-                "stdout",
-                "-l",
-                language,
-                "--psm",
-                "3",
-            ],
-            True,
-        )
+        if ocr_engine == "tesseract":
+            text = run_command(
+                [
+                    "tesseract",
+                    str(ocr_input_path),
+                    "stdout",
+                    "-l",
+                    language,
+                    "--psm",
+                    "3",
+                ],
+                True,
+            )
+        else:
+            if paddle_reader is None:
+                raise RuntimeError("PaddleOCR reader was not initialized")
+            text = paddle_reader(ocr_input_path)
         page_texts.append(text)
         page_word_count = len([word for word in text.split() if word])
         page_index = len(page_texts)
@@ -285,6 +349,7 @@ def evaluate_ocr_preprocess_modes(
     binarize_threshold: int = 170,
     deskew_max_angle: float = 3.0,
     deskew_angle_step: float = 0.5,
+    ocr_engine: str = "tesseract",
     reference_text_path: Path | None = None,
     modes: tuple[str, ...] = ("none", "basic", "deskew", "dewarp"),
 ) -> dict[str, object]:
@@ -316,6 +381,7 @@ def evaluate_ocr_preprocess_modes(
             binarize_threshold=binarize_threshold,
             deskew_max_angle=deskew_max_angle,
             deskew_angle_step=deskew_angle_step,
+            ocr_engine=ocr_engine,
         )
         mode_payload: dict[str, object] = dict(mode_metrics)
         if reference_text is not None:
@@ -366,6 +432,7 @@ def benchmark_local_ocr_against_archive(
     binarize_threshold: int = 170,
     deskew_max_angle: float = 3.0,
     deskew_angle_step: float = 0.5,
+    ocr_engine: str = "tesseract",
 ) -> dict[str, object]:
     from .benchmark import fetch_archive_abbyy_text, fetch_archive_ocr_text
 
@@ -402,6 +469,7 @@ def benchmark_local_ocr_against_archive(
             binarize_threshold=binarize_threshold,
             deskew_max_angle=deskew_max_angle,
             deskew_angle_step=deskew_angle_step,
+            ocr_engine=ocr_engine,
         )
         ranking = mode_report.get("mode_ranking", [])
         best_wer = float(ranking[0]["wer"]) if ranking else 1.0

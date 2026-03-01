@@ -44,14 +44,22 @@ full-auto-de-pdf ocr-pdf \
   --preprocess-mode deskew \
   --binarize-threshold 170 \
   --deskew-max-angle 3.0 \
-  --deskew-angle-step 0.5
+  --deskew-angle-step 0.5 \
+  --ocr-engine tesseract
 # (writes per-page OCR artifacts under data/ocr-work/page_ocr by default)
+
+# Optional stronger engine (install first: pip install -e '.[ocr]')
+full-auto-de-pdf ocr-pdf \
+  --pdf scans/book.pdf \
+  --output out/book.paddle.txt \
+  --ocr-engine paddleocr
 
 # Evaluate OCR output across preprocess modes (none/basic/deskew/dewarp)
 full-auto-de-pdf ocr-eval-modes \
   --pdf scans/book.pdf \
   --output data/ocr_mode_eval.json \
-  --reference-text refs/book.txt
+  --reference-text refs/book.txt \
+  --ocr-engine paddleocr
 # (includes mode_ranking and best_mode when reference text is supplied)
 
 # Benchmark local OCR modes against archive OCR text for a specific identifier
@@ -59,6 +67,7 @@ full-auto-de-pdf benchmark-local-archive \
   --pdf scans/book.pdf \
   --archive-identifier dracu00stok \
   --archive-source-mode djvu \
+  --ocr-engine paddleocr \
   --output data/local_archive_benchmark.json
 
 # Evaluate EPUB structure + optional epubcheck

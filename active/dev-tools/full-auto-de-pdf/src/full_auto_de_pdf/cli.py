@@ -127,6 +127,12 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Rasterization DPI for pdftoppm",
     )
     ocr_pdf_parser.add_argument(
+        "--ocr-engine",
+        choices=["tesseract", "paddleocr"],
+        default="tesseract",
+        help="OCR engine backend",
+    )
+    ocr_pdf_parser.add_argument(
         "--preprocess-mode",
         choices=["none", "basic", "deskew", "dewarp"],
         default="basic",
@@ -199,6 +205,12 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Rasterization DPI for pdftoppm",
     )
     eval_modes_parser.add_argument(
+        "--ocr-engine",
+        choices=["tesseract", "paddleocr"],
+        default="tesseract",
+        help="OCR engine backend",
+    )
+    eval_modes_parser.add_argument(
         "--binarize-threshold",
         type=int,
         default=170,
@@ -259,6 +271,12 @@ def _build_parser() -> argparse.ArgumentParser:
         type=int,
         default=300,
         help="Rasterization DPI for pdftoppm",
+    )
+    local_archive_parser.add_argument(
+        "--ocr-engine",
+        choices=["tesseract", "paddleocr"],
+        default="tesseract",
+        help="OCR engine backend",
     )
     local_archive_parser.add_argument(
         "--binarize-threshold",
@@ -371,6 +389,7 @@ def main(argv: list[str] | None = None) -> int:
             binarize_threshold=args.binarize_threshold,
             deskew_max_angle=args.deskew_max_angle,
             deskew_angle_step=args.deskew_angle_step,
+            ocr_engine=args.ocr_engine,
             emit_page_artifacts=not args.no_page_artifacts,
             page_artifacts_dir=args.page_artifacts_dir,
         )
@@ -392,6 +411,7 @@ def main(argv: list[str] | None = None) -> int:
             binarize_threshold=args.binarize_threshold,
             deskew_max_angle=args.deskew_max_angle,
             deskew_angle_step=args.deskew_angle_step,
+            ocr_engine=args.ocr_engine,
         )
         mode_count = len(report.get("modes", {}))
         print(f"OCR mode evaluation complete: {mode_count} modes -> {args.output}")
@@ -410,6 +430,7 @@ def main(argv: list[str] | None = None) -> int:
             binarize_threshold=args.binarize_threshold,
             deskew_max_angle=args.deskew_max_angle,
             deskew_angle_step=args.deskew_angle_step,
+            ocr_engine=args.ocr_engine,
         )
         print(
             "Local-vs-archive benchmark complete: "
