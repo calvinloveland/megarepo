@@ -98,27 +98,7 @@ Examples:
     print()
     
     if args.compare:
-        results = compare_solvers(board, mc_samples=args.samples, seed=args.seed)
-        
-        mc = results["monte_carlo"]
-        print(f"Monte Carlo ({mc['samples']:,} samples):")
-        print(f"  Probability: {mc['probability']:.6f} ± {mc['std_error']:.6f}")
-        print(f"  95% CI: [{mc['95_ci'][0]:.6f}, {mc['95_ci'][1]:.6f}]")
-        print(f"  Time: {mc['time_seconds']*1000:.2f} ms")
-        
-        ie = results.get("inclusion_exclusion", {})
-        if "error" not in ie:
-            print(f"\nInclusion-Exclusion ({ie['terms']:,} terms):")
-            print(f"  Probability: {ie['probability']:.6f} (exact)")
-            print(f"  Time: {ie['time_seconds']*1000:.2f} ms")
-            
-            print(f"\nComparison:")
-            print(f"  Absolute difference: {results['difference']:.2e}")
-            print(f"  MC within 1σ of exact: {'✓' if results['mc_within_1_std'] else '✗'}")
-            print(f"  MC within 2σ of exact: {'✓' if results['mc_within_2_std'] else '✗'}")
-        else:
-            print(f"\nInclusion-Exclusion: {ie['error']}")
-        
+        _run_comparison(board, samples=args.samples, seed=args.seed)
         return
     
     # Run requested method(s)
@@ -139,6 +119,29 @@ Examples:
                 print(f"  P(bingo) = {prob:.6f} (exact)")
             except ValueError as e:
                 print(f"\nInclusion-Exclusion: {e}")
+
+
+def _run_comparison(board: BingoBoard, samples: int, seed: int | None) -> None:
+    results = compare_solvers(board, mc_samples=samples, seed=seed)
+
+    mc = results["monte_carlo"]
+    print(f"Monte Carlo ({mc['samples']:,} samples):")
+    print(f"  Probability: {mc['probability']:.6f} ± {mc['std_error']:.6f}")
+    print(f"  95% CI: [{mc['95_ci'][0]:.6f}, {mc['95_ci'][1]:.6f}]")
+    print(f"  Time: {mc['time_seconds']*1000:.2f} ms")
+
+    ie = results.get("inclusion_exclusion", {})
+    if "error" not in ie:
+        print(f"\nInclusion-Exclusion ({ie['terms']:,} terms):")
+        print(f"  Probability: {ie['probability']:.6f} (exact)")
+        print(f"  Time: {ie['time_seconds']*1000:.2f} ms")
+
+        print(f"\nComparison:")
+        print(f"  Absolute difference: {results['difference']:.2e}")
+        print(f"  MC within 1σ of exact: {'✓' if results['mc_within_1_std'] else '✗'}")
+        print(f"  MC within 2σ of exact: {'✓' if results['mc_within_2_std'] else '✗'}")
+    else:
+        print(f"\nInclusion-Exclusion: {ie['error']}")
 
 
 if __name__ == "__main__":
