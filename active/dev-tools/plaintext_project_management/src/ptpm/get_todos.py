@@ -1,8 +1,8 @@
 """Module for finding and extracting TODO comments from project files."""
 
 import os
+import subprocess
 
-from git import Repo  # pylint: disable=no-name-in-module
 
 
 def find_git_path_or_none():
@@ -39,10 +39,21 @@ def find_relavent_files(search_path):
                     files_to_search.append(os.path.join(root, file))
 
     if git_path:
-        repo = Repo(git_path)
-        ignored_files = repo.ignored(files_to_search)
-        files_to_search = filter(lambda x: x not in ignored_files, files_to_search)
+        files_to_search = [
+            file for file in files_to_search if not _is_git_ignored(search_path, file)
+        ]
     return files_to_search
+
+
+def _is_git_ignored(search_path, file_path):
+    rel_path = os.path.relpath(file_path, search_path)
+    result = subprocess.run(
+        ["git", "-C", search_path, "check-ignore", "-q", rel_path],
+        check=False,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    return result.returncode == 0
 
 
 def get_todos():
