@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import math
 from pathlib import Path
+import re
 import shutil
 import subprocess
 from typing import Callable
@@ -47,17 +48,46 @@ def _build_paddleocr_reader(language: str) -> Callable[[Path], str]:
         ) from exc
 
     paddle_language = _map_paddleocr_language(language)
-    reader = PaddleOCR(
-        use_angle_cls=True,
-        lang=paddle_language,
-        use_gpu=False,
-        show_log=False,
-    )
+    reader_kwargs = {
+        "use_angle_cls": True,
+        "lang": paddle_language,
+        "use_gpu": False,
+        "show_log": False,
+    }
+    while True:
+        try:
+            reader = PaddleOCR(**reader_kwargs)
+            break
+        except (TypeError, ValueError) as exc:
+            message = str(exc)
+            match = re.search(r"Unknown argument:\s*([A-Za-z_][A-Za-z0-9_]*)", message)
+            if not match:
+                match = re.search(r"unexpected keyword argument '([A-Za-z_][A-Za-z0-9_]*)'", message)
+            unknown_argument = match.group(1) if match else None
+            if not unknown_argument or unknown_argument not in reader_kwargs:
+                raise
+            reader_kwargs.pop(unknown_argument)
 
     def _read(image_path: Path) -> str:
-        result = reader.ocr(str(image_path), cls=True)
+        result = None
+        if hasattr(reader, "predict"):
+            result = list(reader.predict(str(image_path)))
+        else:
+            try:
+                result = reader.ocr(str(image_path), cls=True)
+            except TypeError as exc:
+                if "cls" not in str(exc):
+                    raise
+                result = reader.ocr(str(image_path))
         lines: list[str] = []
         for page_result in result or []:
+            if isinstance(page_result, dict):
+                rec_texts = page_result.get("rec_texts")
+                if isinstance(rec_texts, list):
+                    for text in rec_texts:
+                        if isinstance(text, str) and text.strip():
+                            lines.append(text.strip())
+                continue
             if not isinstance(page_result, list):
                 continue
             for row in page_result:

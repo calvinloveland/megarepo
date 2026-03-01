@@ -49,6 +49,7 @@ full-auto-de-pdf ocr-pdf \
 # (writes per-page OCR artifacts under data/ocr-work/page_ocr by default)
 
 # Optional stronger engine (install first: pip install -e '.[ocr]')
+# (the optional extras pin a CPU-compatible Paddle runtime for Linux/headless use)
 full-auto-de-pdf ocr-pdf \
   --pdf scans/book.pdf \
   --output out/book.paddle.txt \

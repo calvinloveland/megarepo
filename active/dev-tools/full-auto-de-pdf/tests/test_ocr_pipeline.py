@@ -1,4 +1,6 @@
 from pathlib import Path
+import sys
+import types
 
 import pytest
 
@@ -7,6 +9,7 @@ import json
 from full_auto_de_pdf import ocr_pipeline
 from full_auto_de_pdf.ocr_pipeline import (
     benchmark_local_ocr_against_archive,
+    _build_paddleocr_reader,
     evaluate_ocr_preprocess_modes,
     ocr_pdf_with_tesseract,
 )
@@ -193,6 +196,80 @@ def test_ocr_pdf_with_paddleocr_engine_path(tmp_path) -> None:
     assert metrics["page_count"] == 1
     assert seen_images == ["page-1.png"]
     assert "paddle" in output_path.read_text(encoding="utf-8").lower()
+
+
+def test_build_paddleocr_reader_falls_back_without_show_log(monkeypatch, tmp_path) -> None:
+    class _FakePaddleOCR:
+        def __init__(self, **kwargs):  # noqa: ANN003
+            if "show_log" in kwargs:
+                raise ValueError("Unknown argument: show_log")
+            if "use_gpu" in kwargs:
+                raise ValueError("Unknown argument: use_gpu")
+
+        def ocr(self, _image_path: str, cls: bool = True):  # noqa: FBT001, FBT002
+            assert cls is True
+            return [[[None, ("paddle line one", 0.99)], [None, ("line two", 0.98)]]]
+
+    fake_module = types.SimpleNamespace(PaddleOCR=_FakePaddleOCR)
+    monkeypatch.setitem(sys.modules, "paddleocr", fake_module)
+
+    reader = _build_paddleocr_reader("eng")
+    text = reader(tmp_path / "page.png")
+    assert "paddle line one" in text
+    assert "line two" in text
+
+
+def test_build_paddleocr_reader_falls_back_without_show_log_typeerror(monkeypatch, tmp_path) -> None:
+    class _FakePaddleOCR:
+        def __init__(self, **kwargs):  # noqa: ANN003
+            if "show_log" in kwargs:
+                raise TypeError("__init__() got an unexpected keyword argument 'show_log'")
+
+        def ocr(self, _image_path: str, cls: bool = True):  # noqa: FBT001, FBT002
+            assert cls is True
+            return [[[None, ("paddle line one", 0.99)], [None, ("line two", 0.98)]]]
+
+    fake_module = types.SimpleNamespace(PaddleOCR=_FakePaddleOCR)
+    monkeypatch.setitem(sys.modules, "paddleocr", fake_module)
+
+    reader = _build_paddleocr_reader("eng")
+    text = reader(tmp_path / "page.png")
+    assert "paddle line one" in text
+    assert "line two" in text
+
+
+def test_build_paddleocr_reader_supports_predict_output(monkeypatch, tmp_path) -> None:
+    class _FakePaddleOCR:
+        def __init__(self, **kwargs):  # noqa: ANN003
+            assert kwargs["lang"] == "en"
+
+        def predict(self, _image_path: str):  # noqa: ANN001
+            return [{"rec_texts": ["predict line one", "", "line two"]}]
+
+    fake_module = types.SimpleNamespace(PaddleOCR=_FakePaddleOCR)
+    monkeypatch.setitem(sys.modules, "paddleocr", fake_module)
+
+    reader = _build_paddleocr_reader("eng")
+    text = reader(tmp_path / "page.png")
+    assert "predict line one" in text
+    assert "line two" in text
+
+
+def test_build_paddleocr_reader_falls_back_when_cls_not_supported(monkeypatch, tmp_path) -> None:
+    class _FakePaddleOCR:
+        def __init__(self, **kwargs):  # noqa: ANN003
+            assert kwargs["lang"] == "en"
+
+        def ocr(self, _image_path: str):  # noqa: ANN001
+            return [[[None, ("ocr line one", 0.99)], [None, ("line two", 0.98)]]]
+
+    fake_module = types.SimpleNamespace(PaddleOCR=_FakePaddleOCR)
+    monkeypatch.setitem(sys.modules, "paddleocr", fake_module)
+
+    reader = _build_paddleocr_reader("eng")
+    text = reader(tmp_path / "page.png")
+    assert "ocr line one" in text
+    assert "line two" in text
 
 
 def test_evaluate_ocr_preprocess_modes_runs_all_modes(monkeypatch, tmp_path) -> None:
