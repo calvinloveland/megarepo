@@ -98,3 +98,54 @@ def test_cleanup_ocr_text_corrects_isolated_digit_one_to_i() -> None:
     cleaned = cleanup_ocr_text(source)
     assert " 1 think" not in cleaned.lower()
     assert "i think this should work" in cleaned.lower()
+
+
+def test_cleanup_ocr_text_corrects_book_length_patterns() -> None:
+    chapters: list[str] = []
+    for _ in range(120):
+        chapters.append(
+            "The world map and world atlas guided the group across the brown valley below the crown tower."
+        )
+        chapters.append("A brown valley touched another brown valley near the river.")
+        chapters.append("A crown tower stood near the crown gate at sunset.")
+        chapters.append("Workers strike once and strike again.")
+        chapters.append("The group rested and the group listened.")
+        chapters.append("I don't agree with panic; I think we can keep moving.")
+
+    chapters.append("A wold atlas sat beside a wold map.")
+    chapters.append("A bown valley touched another bown valley.")
+    chapters.append("A cown tower stood near the cown gate.")
+    chapters.append("Workers stike once and stike again.")
+    chapters.append("The goup rested and the goup listened.")
+    chapters.append("I don agree with this and don agree with that.")
+    chapters.append("1 think this note should stay readable.")
+
+    cleaned = cleanup_ocr_text("\n".join(chapters))
+    lowered = cleaned.lower()
+    assert "wold" not in lowered
+    assert "bown" not in lowered
+    assert "cown" not in lowered
+    assert "stike" not in lowered
+    assert "goup" not in lowered
+    assert " don agree" not in lowered
+    assert " 1 think" not in lowered
+    assert "world atlas" in lowered
+    assert "brown valley" in lowered
+    assert "crown tower" in lowered
+    assert "strike again" in lowered
+    assert "group rested" in lowered
+    assert "don't agree with this" in lowered
+    assert "i think this note should stay readable" in lowered
+
+
+def test_cleanup_ocr_text_book_length_avoids_ambiguous_missing_char_fix() -> None:
+    lines: list[str] = []
+    for _ in range(12):
+        lines.append("The brown path wound through the trees.")
+    for _ in range(10):
+        lines.append("The brawn guard stood near the gate.")
+    lines.append("The brwn path looked narrow at dusk.")
+    lines.append("Another brwn path looked narrow at dawn.")
+
+    cleaned = cleanup_ocr_text("\n".join(lines))
+    assert "brwn path" in cleaned.lower()
