@@ -21,18 +21,28 @@ def test_cleanup_ocr_text_dehyphenates_line_breaks() -> None:
 
 def test_cleanup_ocr_text_corrects_repeated_missing_character_errors() -> None:
     source = (
-        "The world was quiet. The world moved. The world waited.\n"
+        "The world was quiet. The world moved. The world waited. The world turned. The world changed.\n"
+        "A brown fox crossed the path. Another brown dog followed. Brown leaves and brown bark covered the brown road.\n"
+        "The crown was polished. The crown jewels were packed. A silver crown sat beside the old crown stand. Another crown mark appeared.\n"
+        "They strike the bell at dawn. They strike again at noon. Workers strike once more before they strike camp. They strike together.\n"
+        "The group assembled early. The group returned late. Every group crossed with another group from town. One group waited.\n"
         "A wold map was pinned beside another wold atlas.\n"
-        "Notes from the village were copied from an old fom letter and another fom note.\n"
-        "A brown fox crossed the path. Another brown dog followed a bown trail and bown sign.\n"
+        "The bown trail curved toward a bown gate.\n"
+        "A cown emblem sat under another cown seal.\n"
+        "They wrote stike once and then stike again.\n"
+        "The goup waited and the goup listened.\n"
     )
     cleaned = cleanup_ocr_text(source)
     assert "wold" not in cleaned.lower()
-    assert "fom" not in cleaned.lower()
     assert "bown" not in cleaned.lower()
+    assert "cown" not in cleaned.lower()
+    assert "stike" not in cleaned.lower()
+    assert "goup" not in cleaned.lower()
     assert "world atlas" in cleaned.lower()
-    assert "from letter" in cleaned.lower()
-    assert "brown sign" in cleaned.lower()
+    assert "brown gate" in cleaned.lower()
+    assert "crown seal" in cleaned.lower()
+    assert "strike again" in cleaned.lower()
+    assert "group listened" in cleaned.lower()
 
 
 def test_cleanup_ocr_text_does_not_correct_single_word_pattern() -> None:

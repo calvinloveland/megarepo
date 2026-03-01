@@ -22,12 +22,16 @@ _UNICODE_REPLACEMENTS = {
 _PAGE_NUMBER_LINE = re.compile(r"^[\s\divxlcdmIVXLCDM\-\.\[\]\(\)]{1,12}$")
 _LINE_ART_LINE = re.compile(r"^[\s\\/_|+=*#~`^]{3,}$")
 _BROKEN_HYPHEN = re.compile(r"([A-Za-z])-\n([a-z])")
-_WORD_TOKEN = re.compile(r"\b[A-Za-z]{3,}\b")
+_WORD_TOKEN = re.compile(r"\b[A-Za-z]{4,}\b")
+_ROMAN_WORD = re.compile(r"^[ivxlcdm]+$")
 _LOWER_ALPHA = "abcdefghijklmnopqrstuvwxyz"
 _MIN_ERROR_OCCURRENCES = 2
-_MIN_CORRECTION_OCCURRENCES = 2
-_MIN_CORRECTION_RATIO = 1.0
-_MIN_DISTINCT_WORDS_PER_CHAR = 3
+_MAX_ERROR_OCCURRENCES = 2
+_MIN_CORRECTION_OCCURRENCES = 5
+_MIN_CORRECTION_RATIO = 2.5
+_MIN_BEST_CANDIDATE_MARGIN = 1.5
+_MIN_DISTINCT_WORDS_PER_CHAR = 5
+_MAX_TOTAL_CORRECTIONS = 10
 
 
 def _match_case(source: str, replacement: str) -> str:
@@ -45,20 +49,28 @@ def _extract_word_counts(text: str) -> Counter[str]:
 def _best_missing_char_variant(word: str, word_count: int, counts: Counter[str]) -> tuple[str, str] | None:
     best_candidate: str | None = None
     best_candidate_count = 0
+    second_best_count = 0
     best_missing_char = ""
-    for index in range(len(word) + 1):
+    for index in range(1, len(word)):
         for char in _LOWER_ALPHA:
             candidate = word[:index] + char + word[index:]
+            if candidate[:1] != word[:1] or candidate[-2:] != word[-2:]:
+                continue
             candidate_count = counts.get(candidate, 0)
             if candidate_count < _MIN_CORRECTION_OCCURRENCES:
                 continue
             if candidate_count > best_candidate_count:
+                second_best_count = best_candidate_count
                 best_candidate = candidate
                 best_candidate_count = candidate_count
                 best_missing_char = char
+            elif candidate_count > second_best_count:
+                second_best_count = candidate_count
     if best_candidate is None:
         return None
     if best_candidate_count < int(word_count * _MIN_CORRECTION_RATIO):
+        return None
+    if second_best_count and (best_candidate_count / second_best_count) < _MIN_BEST_CANDIDATE_MARGIN:
         return None
     return best_candidate, best_missing_char
 
@@ -68,7 +80,11 @@ def _infer_missing_char_corrections(text: str) -> dict[str, str]:
     provisional: dict[str, tuple[str, str]] = {}
     char_word_support: dict[str, set[str]] = defaultdict(set)
     for word, word_count in counts.items():
+        if _ROMAN_WORD.fullmatch(word):
+            continue
         if word_count < _MIN_ERROR_OCCURRENCES:
+            continue
+        if word_count > _MAX_ERROR_OCCURRENCES:
             continue
         variant = _best_missing_char_variant(word, word_count, counts)
         if variant is None:
@@ -84,11 +100,14 @@ def _infer_missing_char_corrections(text: str) -> dict[str, str]:
     }
     if not supported_chars:
         return {}
-    return {
+    corrections = {
         source: corrected
         for source, (corrected, missing_char) in provisional.items()
         if missing_char in supported_chars
     }
+    if len(corrections) > _MAX_TOTAL_CORRECTIONS:
+        return {}
+    return corrections
 
 
 def _apply_word_corrections(text: str, corrections: dict[str, str]) -> str:
