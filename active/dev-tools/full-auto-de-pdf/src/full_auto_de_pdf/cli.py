@@ -304,6 +304,11 @@ def _build_parser() -> argparse.ArgumentParser:
         default="epubcheck",
         help="epubcheck command name/path",
     )
+    eval_epub_parser.add_argument(
+        "--reference-headings",
+        type=Path,
+        help="Optional newline-delimited heading/TOC reference file",
+    )
     return parser
 
 
@@ -418,6 +423,7 @@ def main(argv: list[str] | None = None) -> int:
             epub_path=args.epub,
             run_epubcheck=not args.skip_epubcheck,
             epubcheck_cmd=args.epubcheck_cmd,
+            reference_headings_path=args.reference_headings,
         )
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(

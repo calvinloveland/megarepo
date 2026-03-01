@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from difflib import SequenceMatcher
 import posixpath
 from pathlib import Path
 from typing import Any
@@ -41,6 +42,49 @@ def _count_headings(xhtml_text: str) -> int:
     return count
 
 
+def _extract_headings(xhtml_text: str) -> list[str]:
+    root = ET.fromstring(xhtml_text)
+    headings: list[str] = []
+    for element in root.iter():
+        local = _local_name(element.tag).lower()
+        if local not in {"h1", "h2", "h3", "h4", "h5", "h6"}:
+            continue
+        text = "".join(element.itertext()).strip()
+        if text:
+            headings.append(text)
+    return headings
+
+
+def _normalize_heading(text: str) -> str:
+    normalized = " ".join(text.lower().split())
+    return "".join(ch for ch in normalized if ch.isalnum() or ch.isspace())
+
+
+def _load_reference_headings(reference_headings_path: Path) -> list[str]:
+    lines = reference_headings_path.read_text(encoding="utf-8").splitlines()
+    headings = [line.strip() for line in lines if line.strip()]
+    return headings
+
+
+def _evaluate_heading_sequence(extracted: list[str], reference: list[str]) -> dict[str, float | int]:
+    extracted_norm = [_normalize_heading(value) for value in extracted if _normalize_heading(value)]
+    reference_norm = [_normalize_heading(value) for value in reference if _normalize_heading(value)]
+    matcher = SequenceMatcher(a=reference_norm, b=extracted_norm, autojunk=False)
+    matching_blocks = matcher.get_matching_blocks()
+    matched_count = sum(block.size for block in matching_blocks)
+    ratio = matcher.ratio()
+    precision = (matched_count / len(extracted_norm)) if extracted_norm else 0.0
+    recall = (matched_count / len(reference_norm)) if reference_norm else 0.0
+    return {
+        "reference_count": len(reference_norm),
+        "extracted_count": len(extracted_norm),
+        "matched_count": matched_count,
+        "sequence_ratio": ratio,
+        "precision_proxy": precision,
+        "recall_proxy": recall,
+    }
+
+
 def _run_epubcheck(epub_path: Path, epubcheck_cmd: str) -> dict[str, Any]:
     if shutil.which(epubcheck_cmd) is None:
         return {"status": "unavailable", "command": epubcheck_cmd}
@@ -62,6 +106,7 @@ def evaluate_epub_structure(
     epub_path: Path,
     run_epubcheck: bool = True,
     epubcheck_cmd: str = "epubcheck",
+    reference_headings_path: Path | None = None,
 ) -> dict[str, Any]:
     with zipfile.ZipFile(epub_path) as epub_zip:
         names = set(epub_zip.namelist())
@@ -116,10 +161,13 @@ def evaluate_epub_structure(
                 nav_entry_count = _count_toc_entries(epub_zip.read(nav_path).decode("utf-8"))
 
         heading_count = 0
+        extracted_headings: list[str] = []
         for item in xhtml_items:
             xhtml_path = item["href"]
             if xhtml_path in names:
-                heading_count += _count_headings(epub_zip.read(xhtml_path).decode("utf-8"))
+                xhtml_text = epub_zip.read(xhtml_path).decode("utf-8")
+                heading_count += _count_headings(xhtml_text)
+                extracted_headings.extend(_extract_headings(xhtml_text))
 
         checks = [
             has_mimetype,
@@ -153,4 +201,11 @@ def evaluate_epub_structure(
         },
     }
     report["epubcheck"] = _run_epubcheck(epub_path, epubcheck_cmd) if run_epubcheck else {"status": "skipped"}
+    if reference_headings_path is not None:
+        reference_headings = _load_reference_headings(reference_headings_path)
+        report["reference_headings_path"] = str(reference_headings_path)
+        report["heading_sequence_eval"] = _evaluate_heading_sequence(
+            extracted=extracted_headings,
+            reference=reference_headings,
+        )
     return report

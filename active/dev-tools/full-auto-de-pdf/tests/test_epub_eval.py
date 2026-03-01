@@ -26,3 +26,23 @@ def test_evaluate_epub_structure_handles_missing_epubcheck(tmp_path) -> None:
         epubcheck_cmd="nonexistent-epubcheck-cmd",
     )
     assert report["epubcheck"]["status"] == "unavailable"
+
+
+def test_evaluate_epub_structure_with_reference_headings(tmp_path) -> None:
+    epub_path = tmp_path / "book.epub"
+    reference_path = tmp_path / "headings.txt"
+    build_epub_from_ocr_text(
+        "Chapter start.\n\nMore text.",
+        output_path=epub_path,
+        title="Eval Book",
+    )
+    reference_path.write_text("Eval Book\nChapter One\n", encoding="utf-8")
+    report = evaluate_epub_structure(
+        epub_path,
+        run_epubcheck=False,
+        reference_headings_path=reference_path,
+    )
+    heading_eval = report["heading_sequence_eval"]
+    assert heading_eval["reference_count"] == 2
+    assert heading_eval["extracted_count"] >= 1
+    assert "sequence_ratio" in heading_eval

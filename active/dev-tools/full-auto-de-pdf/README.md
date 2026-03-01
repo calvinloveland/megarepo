@@ -64,5 +64,6 @@ full-auto-de-pdf benchmark-local-archive \
 # Evaluate EPUB structure + optional epubcheck
 full-auto-de-pdf eval-epub \
   --epub out/book.epub \
-  --output data/epub_eval.json
+  --output data/epub_eval.json \
+  --reference-headings refs/book_headings.txt
 ```
