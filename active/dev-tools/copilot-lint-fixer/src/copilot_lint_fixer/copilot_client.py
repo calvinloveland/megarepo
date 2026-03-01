@@ -39,43 +39,46 @@ class CopilotFixer:
             return
 
         try:
-            import importlib
-
-            copilot_mod = None
-            client_class = None
-            try:
-                copilot_mod = importlib.import_module("copilot")
-                client_class = getattr(copilot_mod, "CopilotClient", None)
-            except Exception:
-                copilot_mod = importlib.import_module("github_copilot_sdk")
-                client_class = (
-                    getattr(copilot_mod, "CopilotClient", None)
-                    or getattr(copilot_mod, "Copilot", None)
-                    or getattr(copilot_mod, "Client", None)
-                )
-
+            client_class = self._load_client_class()
             if client_class is None:
                 raise ImportError("No client class found in copilot SDK module")
-
-            if self.cli_url:
-                try:
-                    self._client = client_class({"cli_url": self.cli_url})
-                except TypeError:
-                    try:
-                        self._client = client_class({"cliUrl": self.cli_url})
-                    except TypeError:
-                        try:
-                            self._client = client_class(cli_url=self.cli_url)
-                        except TypeError:
-                            self._client = client_class()
-            else:
-                try:
-                    self._client = client_class()
-                except TypeError:
-                    self._client = client_class({})
+            self._client = self._instantiate_client(client_class)
         except Exception as exc:  # pragma: no cover - defensive
             logger.info("Copilot SDK not available or failed to initialize: %s", exc)
             self._client = None
+
+    def _load_client_class(self):
+        import importlib
+
+        try:
+            copilot_mod = importlib.import_module("copilot")
+            return getattr(copilot_mod, "CopilotClient", None)
+        except Exception:
+            sdk_mod = importlib.import_module("github_copilot_sdk")
+            return (
+                getattr(sdk_mod, "CopilotClient", None)
+                or getattr(sdk_mod, "Copilot", None)
+                or getattr(sdk_mod, "Client", None)
+            )
+
+    def _instantiate_client(self, client_class):
+        if not self.cli_url:
+            try:
+                return client_class()
+            except TypeError:
+                return client_class({})
+
+        for args, kwargs in [
+            (({"cli_url": self.cli_url},), {}),
+            (({"cliUrl": self.cli_url},), {}),
+            ((), {"cli_url": self.cli_url}),
+            ((), {}),
+        ]:
+            try:
+                return client_class(*args, **kwargs)
+            except TypeError:
+                continue
+        return client_class()
 
     def _run_async(self, coro):
         try:
@@ -101,78 +104,13 @@ class CopilotFixer:
             return self.model
 
         try:
-            if hasattr(self._client, "list_models"):
-                async def list_models_with_start():
-                    if hasattr(self._client, "start") and hasattr(self._client, "stop"):
-                        await self._client.start()
-                        try:
-                            return await self._client.list_models()
-                        finally:
-                            await self._client.stop()
-                    return await self._client.list_models()
+            selected = self._select_from_list_models()
+            if selected:
+                return selected
 
-                models = self._run_async(list_models_with_start())
-                if models:
-                    requested = self.model
-                    for model in models:
-                        model_id = model.get("id") if isinstance(model, dict) else None
-                        billing = model.get("billing") if isinstance(model, dict) else None
-                        is_premium = False
-                        if isinstance(billing, dict):
-                            is_premium = bool(billing.get("is_premium"))
-                        if model_id == requested:
-                            if is_premium and not self.allow_premium:
-                                raise RuntimeError(
-                                    f"Requested model {requested} is premium and allow_premium is false"
-                                )
-                            return requested
-
-                    if requested != DEFAULT_MODEL:
-                        for model in models:
-                            model_id = model.get("id") if isinstance(model, dict) else None
-                            billing = model.get("billing") if isinstance(model, dict) else None
-                            is_premium = False
-                            if isinstance(billing, dict):
-                                is_premium = bool(billing.get("is_premium"))
-                            if model_id == DEFAULT_MODEL and (self.allow_premium or not is_premium):
-                                self.model = DEFAULT_MODEL
-                                return DEFAULT_MODEL
-
-                    for model in models:
-                        model_id = model.get("id") if isinstance(model, dict) else None
-                        billing = model.get("billing") if isinstance(model, dict) else None
-                        is_premium = False
-                        if isinstance(billing, dict):
-                            is_premium = bool(billing.get("is_premium"))
-                        if model_id and not is_premium:
-                            self.model = model_id
-                            return model_id
-
-            if hasattr(self._client, "models"):
-                raw_models = None
-                if hasattr(self._client.models, "list") and callable(getattr(self._client.models, "list")):
-                    raw_models = list(self._client.models.list())  # type: ignore
-                else:
-                    raw_models = list(self._client.models)
-
-                names = [getattr(m, "name", None) for m in raw_models]
-                if self.model in names:
-                    meta = next((m for m in raw_models if getattr(m, "name", None) == self.model), None)
-                    if getattr(meta, "premium", False) and not self.allow_premium:
-                        raise RuntimeError(
-                            f"Requested model {self.model} is premium and allow_premium is false"
-                        )
-                    return self.model
-
-                for candidate in [DEFAULT_MODEL]:
-                    if candidate in names:
-                        self.model = candidate
-                        return candidate
-
-                for m in raw_models:
-                    if not getattr(m, "premium", False):
-                        self.model = getattr(m, "name")
-                        return self.model
+            selected = self._select_from_legacy_models()
+            if selected:
+                return selected
         except Exception as exc:
             logger.warning("Model selection failed; using configured model %s: %s", self.model, exc)
 
@@ -189,50 +127,13 @@ class CopilotFixer:
         start = time.perf_counter()
 
         if hasattr(self._client, "start") and hasattr(self._client, "create_session"):
-            async def run_session():
-                await self._client.start()
-                session = await self._client.create_session({"model": resolved_model})
-                done = asyncio.Event()
-                content_holder = {"text": ""}
-
-                def on_event(event):
-                    try:
-                        if event.type.value == "assistant.message":
-                            content_holder["text"] = event.data.content
-                        elif event.type.value == "session.idle":
-                            done.set()
-                    except Exception:
-                        pass
-
-                session.on(on_event)
-                await session.send({"prompt": f"{system}\n{user}\nJSON:"})
-                try:
-                    await asyncio.wait_for(done.wait(), timeout=self.timeout)
-                except asyncio.TimeoutError:
-                    pass
-                await session.destroy()
-                await self._client.stop()
-                return content_holder["text"]
-
-            response = self._run_async(run_session())
+            response = self._run_async(self._run_async_session(system, user, resolved_model))
             logger.info("Copilot generate (async client) completed in %.2fs", time.perf_counter() - start)
             return str(response or "")
 
-        session = None
-        if hasattr(self._client, "create_session"):
-            try:
-                session = self._client.create_session(model=resolved_model, streaming=False)
-            except TypeError:
-                session = self._client.create_session({"model": resolved_model, "streaming": False})
-
-        if session is not None:
-            if hasattr(session, "send_and_wait"):
-                response = session.send_and_wait({"prompt": f"{system}\n{user}\nJSON:"})
-                return str(response or "")
-            if hasattr(session, "send") and hasattr(session, "wait"):
-                session.send({"prompt": f"{system}\n{user}\nJSON:"})
-                response = session.wait(timeout=self.timeout)
-                return str(response or "")
+        response = self._run_sync_session(system, user, resolved_model)
+        if response is not None:
+            return response
 
         if hasattr(self._client, "complete"):
             response = self._client.complete(
@@ -244,6 +145,131 @@ class CopilotFixer:
             return str(response or "")
 
         raise RuntimeError("Unsupported Copilot client interface")
+
+    def _select_from_list_models(self) -> Optional[str]:
+        if not hasattr(self._client, "list_models"):
+            return None
+
+        async def list_models_with_start():
+            if hasattr(self._client, "start") and hasattr(self._client, "stop"):
+                await self._client.start()
+                try:
+                    return await self._client.list_models()
+                finally:
+                    await self._client.stop()
+            return await self._client.list_models()
+
+        models = self._run_async(list_models_with_start()) or []
+        candidates = [self._candidate_from_dict(model) for model in models]
+        return self._pick_model([(model_id, premium) for model_id, premium in candidates if model_id])
+
+    def _select_from_legacy_models(self) -> Optional[str]:
+        if not hasattr(self._client, "models"):
+            return None
+
+        models_obj = self._client.models
+        if hasattr(models_obj, "list") and callable(getattr(models_obj, "list")):
+            raw_models = list(models_obj.list())
+        else:
+            raw_models = list(models_obj)
+
+        candidates = []
+        for model in raw_models:
+            model_name = getattr(model, "name", None)
+            if model_name:
+                candidates.append((str(model_name), bool(getattr(model, "premium", False))))
+        return self._pick_model(candidates)
+
+    def _pick_model(self, candidates: list[tuple[str, bool]]) -> Optional[str]:
+        requested_meta = self._find_candidate(candidates, self.model)
+        selected = self._select_requested_model(requested_meta)
+        if selected:
+            return selected
+
+        default_meta = self._find_candidate(candidates, DEFAULT_MODEL)
+        if self._can_use_default(default_meta):
+            self.model = DEFAULT_MODEL
+            return DEFAULT_MODEL
+
+        first_non_premium = self._first_non_premium(candidates)
+        if first_non_premium:
+            self.model = first_non_premium
+            return first_non_premium
+        return None
+
+    @staticmethod
+    def _find_candidate(candidates: list[tuple[str, bool]], model_name: str) -> Optional[tuple[str, bool]]:
+        return next((item for item in candidates if item[0] == model_name), None)
+
+    def _select_requested_model(self, requested_meta: Optional[tuple[str, bool]]) -> Optional[str]:
+        if not requested_meta:
+            return None
+        if requested_meta[1] and not self.allow_premium:
+            raise RuntimeError(
+                f"Requested model {self.model} is premium and allow_premium is false"
+            )
+        return self.model
+
+    def _can_use_default(self, default_meta: Optional[tuple[str, bool]]) -> bool:
+        if not default_meta or self.model == DEFAULT_MODEL:
+            return False
+        return self.allow_premium or not default_meta[1]
+
+    @staticmethod
+    def _first_non_premium(candidates: list[tuple[str, bool]]) -> Optional[str]:
+        return next((item[0] for item in candidates if not item[1]), None)
+
+    @staticmethod
+    def _candidate_from_dict(model: Any) -> tuple[Optional[str], bool]:
+        if not isinstance(model, dict):
+            return None, False
+        model_id = model.get("id")
+        billing = model.get("billing")
+        is_premium = bool(billing.get("is_premium")) if isinstance(billing, dict) else False
+        return (str(model_id), is_premium) if model_id else (None, False)
+
+    async def _run_async_session(self, system: str, user: str, resolved_model: str) -> str:
+        await self._client.start()
+        session = await self._client.create_session({"model": resolved_model})
+        done = asyncio.Event()
+        content_holder = {"text": ""}
+
+        def on_event(event):
+            try:
+                if event.type.value == "assistant.message":
+                    content_holder["text"] = event.data.content
+                elif event.type.value == "session.idle":
+                    done.set()
+            except Exception:
+                pass
+
+        session.on(on_event)
+        await session.send({"prompt": f"{system}\n{user}\nJSON:"})
+        try:
+            await asyncio.wait_for(done.wait(), timeout=self.timeout)
+        except asyncio.TimeoutError:
+            pass
+        await session.destroy()
+        await self._client.stop()
+        return content_holder["text"]
+
+    def _run_sync_session(self, system: str, user: str, resolved_model: str) -> Optional[str]:
+        if not hasattr(self._client, "create_session"):
+            return None
+
+        try:
+            session = self._client.create_session(model=resolved_model, streaming=False)
+        except TypeError:
+            session = self._client.create_session({"model": resolved_model, "streaming": False})
+
+        if hasattr(session, "send_and_wait"):
+            response = session.send_and_wait({"prompt": f"{system}\n{user}\nJSON:"})
+            return str(response or "")
+        if hasattr(session, "send") and hasattr(session, "wait"):
+            session.send({"prompt": f"{system}\n{user}\nJSON:"})
+            response = session.wait(timeout=self.timeout)
+            return str(response or "")
+        return None
 
 
 def build_fix_prompt(file_path: str, issue: Dict[str, Any], content: str) -> tuple[str, str]:
@@ -275,46 +301,71 @@ def extract_updated_file(response: Any) -> Optional[str]:
     if isinstance(response, dict) and "updated_file" in response:
         return str(response["updated_file"])
 
-    if isinstance(response, (dict, list)):
-        try:
-            response = json.dumps(response)
-        except TypeError:
-            response = str(response)
-
-    if not isinstance(response, str):
-        response = str(response)
-
-    if not response:
+    normalized = _normalize_response(response)
+    if not normalized:
         return None
 
+    for extractor in (
+        _extract_tagged_file,
+        _extract_updated_file_from_json,
+        _extract_updated_file_from_embedded_json,
+        _extract_fenced_file,
+    ):
+        extracted = extractor(normalized)
+        if extracted is not None:
+            return extracted
+    return None
+
+
+def _normalize_response(response: Any) -> str:
+    if isinstance(response, (dict, list)):
+        try:
+            return json.dumps(response)
+        except TypeError:
+            return str(response)
+    if isinstance(response, str):
+        return response
+    return str(response)
+
+
+def _extract_tagged_file(response: str) -> Optional[str]:
     tag_start = "UPDATED_FILE_START"
     tag_end = "UPDATED_FILE_END"
-    if tag_start in response and tag_end in response:
-        start_idx = response.find(tag_start) + len(tag_start)
-        end_idx = response.find(tag_end, start_idx)
-        if end_idx > start_idx:
-            return response[start_idx:end_idx].strip("\n")
+    if tag_start not in response or tag_end not in response:
+        return None
+    start_idx = response.find(tag_start) + len(tag_start)
+    end_idx = response.find(tag_end, start_idx)
+    if end_idx <= start_idx:
+        return None
+    return response[start_idx:end_idx].strip("\n")
 
+
+def _extract_updated_file_from_json(response: str) -> Optional[str]:
     try:
         parsed = json.loads(response)
-        if isinstance(parsed, dict) and "updated_file" in parsed:
-            return str(parsed["updated_file"])
     except json.JSONDecodeError:
-        pass
-
-    match = re.search(r"\{.*\}", response, flags=re.DOTALL)
-    if match:
-        try:
-            parsed = json.loads(match.group(0))
-            if isinstance(parsed, dict) and "updated_file" in parsed:
-                return str(parsed["updated_file"])
-        except json.JSONDecodeError:
-            pass
-
-    fence_match = re.search(r"```(?:python)?\n(.*?)```", response, flags=re.DOTALL)
-    if fence_match:
-        content = fence_match.group(1)
-        if content.strip():
-            return content
-
+        return None
+    if isinstance(parsed, dict) and "updated_file" in parsed:
+        return str(parsed["updated_file"])
     return None
+
+
+def _extract_updated_file_from_embedded_json(response: str) -> Optional[str]:
+    match = re.search(r"\{.*\}", response, flags=re.DOTALL)
+    if not match:
+        return None
+    try:
+        parsed = json.loads(match.group(0))
+    except json.JSONDecodeError:
+        return None
+    if isinstance(parsed, dict) and "updated_file" in parsed:
+        return str(parsed["updated_file"])
+    return None
+
+
+def _extract_fenced_file(response: str) -> Optional[str]:
+    fence_match = re.search(r"```(?:python)?\n(.*?)```", response, flags=re.DOTALL)
+    if not fence_match:
+        return None
+    content = fence_match.group(1)
+    return content if content.strip() else None
