@@ -1,5 +1,7 @@
 """Conway's game of life but with some extra sauce to enable WAR!"""
 
+from __future__ import annotations
+
 import random
 from dataclasses import dataclass
 from typing import Optional
@@ -18,6 +20,17 @@ PLAYER_2_COLOR = (0, 0, 255)
 
 PLAYER_1_START_POINT = (20, 20)
 PLAYER_2_START_POINT = (DEFAULT_BOARD_SIZE_X - 20, DEFAULT_BOARD_SIZE_Y - 20)
+
+NEIGHBOR_OFFSETS = [
+    (-1, -1),
+    (-1, 0),
+    (-1, 1),
+    (0, -1),
+    (0, 1),
+    (1, -1),
+    (1, 0),
+    (1, 1),
+]
 
 
 @dataclass
@@ -62,33 +75,10 @@ class EasyAIPlayer(AIPlayer):
             else PLAYER_2
         )
         player_obj = game_state.players[idx]
-        frontier = []
-        for x in range(game_state.board_size_x):
-            for y in range(game_state.board_size_y):
-                cell = game_state.board[x][y]
-                if cell.alive:
-                    continue
-                # Do not place on opponent-owned territory
-                if cell.owner is not None and cell.owner != player_obj:
-                    continue
-                # Only place adjacent to your alive owned cells
-                if game_state.count_friendly_neighbors(x, y, player_obj) > 0:
-                    frontier.append((x, y))
+        frontier = game_state.collect_frontier_cells(player_obj)
         if not frontier:
-            # fallback to near start point neighborhood
-            sx, sy = player_obj.start_point
-            for i in range(-1, 2):
-                for j in range(-1, 2):
-                    nx = (sx + i) % game_state.board_size_x
-                    ny = (sy + j) % game_state.board_size_y
-                    cell = game_state.board[nx][ny]
-                    if (not cell.alive) and (cell.owner in (None, player_obj)):
-                        frontier.append((nx, ny))
-        if frontier:
-            x, y = random.choice(frontier)
-            target = game_state.board[x][y]
-            target.owner = player_obj
-            target.alive = True
+            frontier = game_state.collect_fallback_frontier(player_obj)
+        game_state.claim_random_cell(frontier, player_obj)
 
 
 class MediumAIPlayer(AIPlayer):
@@ -152,43 +142,57 @@ class GameState:
             self.board[player.start_point[0]][player.start_point[1]].alive = True
             self.board[player.start_point[0]][player.start_point[1]].immortal = True
 
-    def update_ownership_around_cell(self, x, y):
-        """Update the ownership of the cells around a cell."""
-        # Whoever has the most friendly neighbors gets the cell
-        player_counts = [0 for _ in range(len(self.players))]
+    def collect_frontier_cells(self, player_obj: Player) -> list[tuple[int, int]]:
+        """Collect legal frontier cells for an AI move."""
+        frontier = []
+        for x in range(self.board_size_x):
+            for y in range(self.board_size_y):
+                if self._is_frontier_cell(x, y, player_obj):
+                    frontier.append((x, y))
+        return frontier
+
+    def collect_fallback_frontier(self, player_obj: Player) -> list[tuple[int, int]]:
+        """Collect legal fallback cells near a player's start location."""
+        frontier = []
+        sx, sy = player_obj.start_point
         for i in range(-1, 2):
             for j in range(-1, 2):
-                if i == 0 and j == 0:
-                    continue
-                loop_cell = self.board[(x + i) % self.board_size_x][
-                    (y + j) % self.board_size_y
-                ]
-                if loop_cell.alive and loop_cell.owner is not None:
-                    player_counts[self.players.index(loop_cell.owner)] += 1
-        # If there is a tie, the cell remains with the current owner
+                nx = (sx + i) % self.board_size_x
+                ny = (sy + j) % self.board_size_y
+                cell = self.board[nx][ny]
+                if (not cell.alive) and (cell.owner in (None, player_obj)):
+                    frontier.append((nx, ny))
+        return frontier
+
+    def claim_random_cell(
+        self, frontier: list[tuple[int, int]], player_obj: Player
+    ) -> None:
+        """Claim a random cell from frontier cells for the specified player."""
+        if not frontier:
+            return
+        x, y = random.choice(frontier)
+        target = self.board[x][y]
+        target.owner = player_obj
+        target.alive = True
+
+    def _is_frontier_cell(self, x: int, y: int, player_obj: Player) -> bool:
         cell = self.board[x][y]
-        current_owner_count = (
-            player_counts[self.players.index(cell.owner)]
-            if cell.owner is not None
-            else 0
-        )
-        for i in range(len(self.players)):
-            if player_counts[i] > current_owner_count:
-                cell.owner = self.players[i]
+        if cell.alive:
+            return False
+        if cell.owner is not None and cell.owner != player_obj:
+            return False
+        return self.count_friendly_neighbors(x, y, player_obj) > 0
+
+    def update_ownership_around_cell(self, x, y):
+        """Update the ownership of the cells around a cell."""
+        cell = self.board[x][y]
+        player_counts = self._count_neighbor_owners(x, y)
+        cell.owner = self._pick_owner_from_counts(cell.owner, player_counts)
 
     def count_friendly_neighbors(self, x, y, player):
         """Count neighbors and wrap around the board."""
         count = 0
-        for i, j in [
-            (-1, -1),
-            (-1, 0),
-            (-1, 1),
-            (0, -1),
-            (0, 1),
-            (1, -1),
-            (1, 0),
-            (1, 1),
-        ]:
+        for i, j in NEIGHBOR_OFFSETS:
             if len(self.board) <= (x + i) % self.board_size_x:
                 logger.error(f"Index out of range: {(x + i) % self.board_size_x}")
             if len(self.board[0]) <= (y + j) % self.board_size_y:
@@ -227,28 +231,34 @@ class GameState:
 
     def _compute_new_owner(self, x, y):
         """Compute what the new owner of a cell should be based on neighbors."""
-        player_counts = [0 for _ in range(len(self.players))]
-        for i in range(-1, 2):
-            for j in range(-1, 2):
-                if i == 0 and j == 0:
-                    continue
-                loop_cell = self.board[(x + i) % self.board_size_x][
-                    (y + j) % self.board_size_y
-                ]
-                if loop_cell.alive and loop_cell.owner is not None:
-                    player_counts[self.players.index(loop_cell.owner)] += 1
         cell = self.board[x][y]
+        player_counts = self._count_neighbor_owners(x, y)
+        return self._pick_owner_from_counts(cell.owner, player_counts)
+
+    def _count_neighbor_owners(self, x: int, y: int) -> list[int]:
+        player_counts = [0 for _ in range(len(self.players))]
+        for i, j in NEIGHBOR_OFFSETS:
+            loop_cell = self.board[(x + i) % self.board_size_x][
+                (y + j) % self.board_size_y
+            ]
+            if loop_cell.alive and loop_cell.owner is not None:
+                player_counts[self.players.index(loop_cell.owner)] += 1
+        return player_counts
+
+    def _pick_owner_from_counts(
+        self, current_owner: Optional[Player], player_counts: list[int]
+    ) -> Optional[Player]:
         current_owner_count = (
-            player_counts[self.players.index(cell.owner)]
-            if cell.owner is not None
+            player_counts[self.players.index(current_owner)]
+            if current_owner is not None
             else 0
         )
-        new_owner = cell.owner
-        for i in range(len(self.players)):
-            if player_counts[i] > current_owner_count:
-                new_owner = self.players[i]
-                current_owner_count = player_counts[i]
-        return new_owner
+        selected_owner = current_owner
+        for index, count in enumerate(player_counts):
+            if count > current_owner_count:
+                selected_owner = self.players[index]
+                current_owner_count = count
+        return selected_owner
 
     def _compute_cell_update(self, x, y):
         """
@@ -257,119 +267,49 @@ class GameState:
         """
         cell = self.board[x][y]
         change = {"x": x, "y": y}
-        has_change = False
-
-        # Crop growth for dead owned cells
-        if not cell.alive and cell.crop_level < 2 and cell.owner is not None:
-            change["crop_level"] = cell.crop_level * 2
-            has_change = True
-
-        # Combat - if has unfriendly neighbor, cell dies
+        change.update(self._crop_growth_change(cell))
         in_combat = self._has_unfriendly_neighbor(x, y, cell.owner)
-
-        friendly_neighbors = cell.friendly_neighbors
-        new_alive = cell.alive
-
-        if cell.immortal:
-            pass  # immortal cells don't change
-        elif in_combat and cell.alive:
-            logger.info(f"Cell at {x}, {y} is in combat and dies")
-            new_alive = False
-        elif cell.alive:
-            if friendly_neighbors < 2:
-                logger.debug(
-                    f"Cell at {x}, {y} is lonely :( with {friendly_neighbors} friendly neighbors"
-                )
-                new_alive = False
-            elif friendly_neighbors > 3:
-                logger.debug(
-                    f"Cell at {x}, {y} overpopulated: {friendly_neighbors} neighbors"
-                )
-                new_alive = False
-        else:
-            if friendly_neighbors == 3:
-                logger.debug(f"Cell at {x}, {y} is coming to life")
-                new_alive = True
-
+        new_alive = self._resolve_alive_state(cell, cell.friendly_neighbors, in_combat)
         if new_alive != cell.alive:
             change["alive"] = new_alive
-            has_change = True
-
-        # Energy harvesting and crop reset
-        if cell.owner is not None and new_alive:
-            change["energy_delta"] = cell.crop_level
-            change["crop_level"] = 2.0 / (2**4)
-            has_change = True
-
-        # Ownership update
+        change.update(self._energy_and_crop_change(cell, new_alive))
         new_owner = self._compute_new_owner(x, y)
         if new_owner != cell.owner:
             change["owner"] = new_owner
-            has_change = True
+        return change if len(change) > 2 else None
 
-        return change if has_change else None
+    @staticmethod
+    def _crop_growth_change(cell: CellState) -> dict:
+        if not cell.alive and cell.crop_level < 2 and cell.owner is not None:
+            return {"crop_level": cell.crop_level * 2}
+        return {}
+
+    def _resolve_alive_state(
+        self, cell: CellState, friendly_neighbors: int, in_combat: bool
+    ) -> bool:
+        if cell.immortal:
+            return cell.alive
+        if in_combat and cell.alive:
+            return False
+        if not cell.alive:
+            return friendly_neighbors == 3
+        return 2 <= friendly_neighbors <= 3
+
+    @staticmethod
+    def _energy_and_crop_change(cell: CellState, new_alive: bool) -> dict:
+        if cell.owner is not None and new_alive:
+            return {"energy_delta": cell.crop_level, "crop_level": 2.0 / (2**4)}
+        return {}
 
     def update_cell(self, x, y):
         """
         Update the state of a cell following the rules of conway's game of life.
         with the additional rules of war!
         """
-
-        def fight_unfriendly_neighbors(x, y, player):
-            """Kill unfriendly neighbors and wrap around the board."""
-            if self.board[x][y].owner is None:
-                return False
-            for i in range(-1, 2):
-                for j in range(-1, 2):
-                    if i == 0 and j == 0:
-                        continue
-                    neighbor_cell = self.board[(x + i) % self.board_size_x][
-                        (y + j) % self.board_size_y
-                    ]
-                    if (
-                        neighbor_cell.alive
-                        and neighbor_cell.owner is not None
-                        and neighbor_cell.owner != player
-                    ):
-                        logger.info(
-                            f"Player {player} is fighting player {neighbor_cell.owner}"
-                        )
-                        neighbor_cell.alive = False
-                        self.board[x][y].alive = False
-                        return True
-            return False
-
-        cell = self.board[x][y]
-        # If the cell is not alive and has a crop level less than 2, double the crop level
-        if not cell.alive and cell.crop_level < 2 and cell.owner is not None:
-            cell.crop_level = cell.crop_level * 2
-        fight_unfriendly_neighbors(x, y, cell.owner)
-        friendly_neighbors = cell.friendly_neighbors
-        if cell.immortal:
-            pass
-        elif cell.alive:
-            # The cell dies if it has less than 2 friendly neighbors
-            if friendly_neighbors < 2:
-                logger.debug(
-                    f"Cell at {x}, {y} is lonely :( with {friendly_neighbors} friendly neighbors"
-                )
-                cell.alive = False
-            # The cell dies if it has more than 3 friendly neighbors
-            elif friendly_neighbors > 3:
-                logger.debug(
-                    f"Cell at {x}, {y} overpopulated: {friendly_neighbors} neighbors"
-                )
-                cell.alive = False
-        else:
-            # The cell comes to life if it has exactly 3 friendly neighbors
-            if friendly_neighbors == 3:
-                logger.debug(f"Cell at {x}, {y} is coming to life")
-                cell.alive = True
-
-        if cell.owner is not None and cell.alive:
-            cell.owner.energy += cell.crop_level
-            cell.crop_level = 2.0 / (2**4)
-        self.update_ownership_around_cell(x, y)
+        self.update_friend_counts()
+        change = self._compute_cell_update(x, y)
+        if change:
+            self._apply_change(change)
 
     def update(self):
         """Update the board.
@@ -378,28 +318,36 @@ class GameState:
         when calculating cell transitions (fixes issue #24).
         """
         self.update_friend_counts()
-        # Store all cell changes to apply atomically after computing all transitions
+        changes = self._collect_changes()
+        self._apply_changes(changes)
+        if self.ai_player:
+            self.ai_player.make_move(self)
+        return self.board
+
+    def _collect_changes(self) -> list[dict]:
         changes = []
         for x in range(self.board_size_x):
             for y in range(self.board_size_y):
                 change = self._compute_cell_update(x, y)
                 if change:
                     changes.append(change)
-        # Apply all changes atomically
+        return changes
+
+    def _apply_change(self, change: dict) -> None:
+        x, y = change["x"], change["y"]
+        cell = self.board[x][y]
+        if "alive" in change:
+            cell.alive = change["alive"]
+        if "crop_level" in change:
+            cell.crop_level = change["crop_level"]
+        if "owner" in change:
+            cell.owner = change["owner"]
+        if "energy_delta" in change and cell.owner is not None:
+            cell.owner.energy += change["energy_delta"]
+
+    def _apply_changes(self, changes: list[dict]) -> None:
         for change in changes:
-            x, y = change["x"], change["y"]
-            cell = self.board[x][y]
-            if "alive" in change:
-                cell.alive = change["alive"]
-            if "crop_level" in change:
-                cell.crop_level = change["crop_level"]
-            if "owner" in change:
-                cell.owner = change["owner"]
-            if "energy_delta" in change and cell.owner is not None:
-                cell.owner.energy += change["energy_delta"]
-        if self.ai_player:
-            self.ai_player.make_move(self)
-        return self.board
+            self._apply_change(change)
 
     def _clamp_rgb(self, r, g, b):
         r = int(max(0, min(255, r)))
@@ -428,56 +376,62 @@ class GameState:
 
     def board_to_html(self, current_player_index: Optional[int] = None):
         """Convert the board to an html string, with data for client-side zoom."""
-        # Determine bounding box of the current player's controlled area
-        if current_player_index is not None:
-            xmin, ymin = self.board_size_x, self.board_size_y
-            xmax, ymax = -1, -1
-            player_obj = self.players[current_player_index]
+        bbox = self._player_bbox(current_player_index)
+        html = [self._table_prefix(*bbox)]
+        for y in range(self.board_size_y):
+            html.append("<tr>")
             for x in range(self.board_size_x):
-                for y in range(self.board_size_y):
-                    cell = self.board[x][y]
-                    if cell.owner == player_obj and (cell.alive or cell.immortal):
-                        xmin = min(xmin, x)
-                        ymin = min(ymin, y)
-                        xmax = max(xmax, x)
-                        ymax = max(ymax, y)
-            if xmax < xmin or ymax < ymin:
-                # fallback to start point area
-                sx, sy = player_obj.start_point
-                xmin, ymin, xmax, ymax = sx, sy, sx, sy
-        else:
-            xmin, ymin, xmax, ymax = 0, 0, self.board_size_x - 1, self.board_size_y - 1
+                html.append(self._cell_html(x, y))
+            html.append("</tr>")
+        html.append("</table>")
+        return "".join(html)
 
-        html = (
+    def _player_bbox(self, current_player_index: Optional[int]) -> tuple[int, int, int, int]:
+        if current_player_index is None:
+            return 0, 0, self.board_size_x - 1, self.board_size_y - 1
+        player_obj = self.players[current_player_index]
+        xmin, ymin = self.board_size_x, self.board_size_y
+        xmax, ymax = -1, -1
+        for x in range(self.board_size_x):
+            for y in range(self.board_size_y):
+                cell = self.board[x][y]
+                if cell.owner == player_obj and (cell.alive or cell.immortal):
+                    xmin = min(xmin, x)
+                    ymin = min(ymin, y)
+                    xmax = max(xmax, x)
+                    ymax = max(ymax, y)
+        if xmax < xmin or ymax < ymin:
+            sx, sy = player_obj.start_point
+            return sx, sy, sx, sy
+        return xmin, ymin, xmax, ymax
+
+    def _table_prefix(self, xmin: int, ymin: int, xmax: int, ymax: int) -> str:
+        return (
             "<style>table {border-collapse: collapse;} "
             "td {padding: 0;} #game{transform-origin:0 0;}</style>"
             f"<table id='game' data-bbox-xmin='{xmin}' data-bbox-ymin='{ymin}' "
             f"data-bbox-xmax='{xmax}' data-bbox-ymax='{ymax}' data-cell-px='{CELL_PX}' "
             f"data-board-w='{self.board_size_x}' data-board-h='{self.board_size_y}'>"
         )
-        for y in range(self.board_size_y):
-            html += "<tr>"
-            for x in range(self.board_size_x):
-                color = self.generate_cell_color(x, y)
-                border_color = self.generate_cell_border_color(x, y)
-                internal_div = (
-                    f"<div hx-trigger='click' hx-post='/update_cell?x={x}&y={y}' "
-                    "hx-target='#game' hx-swap='outerHTML' "
-                    f"style='height:{CELL_PX}px;width:{CELL_PX}px'></div>"
-                )
-                if self.board[x][y].immortal:
-                    internal_div = (
-                        f"<div style='height:{CELL_PX}px;width:{CELL_PX}px'></div>"
-                    )
-                html += (
-                    f"<td style='width:{CELL_PX}px; height:{CELL_PX}px; background-color:rgb("
-                    f"{color[0]},{color[1]},{color[2]}); border: 1px solid rgb("
-                    f"{border_color[0]},{border_color[1]},{border_color[2]});'>"
-                    f"{internal_div}</td>"
-                )
-            html += "</tr>"
-        html += "</table>"
-        return html
+
+    def _cell_html(self, x: int, y: int) -> str:
+        color = self.generate_cell_color(x, y)
+        border_color = self.generate_cell_border_color(x, y)
+        return (
+            f"<td style='width:{CELL_PX}px; height:{CELL_PX}px; background-color:rgb("
+            f"{color[0]},{color[1]},{color[2]}); border: 1px solid rgb("
+            f"{border_color[0]},{border_color[1]},{border_color[2]});'>"
+            f"{self._cell_inner_div(x, y)}</td>"
+        )
+
+    def _cell_inner_div(self, x: int, y: int) -> str:
+        if self.board[x][y].immortal:
+            return f"<div style='height:{CELL_PX}px;width:{CELL_PX}px'></div>"
+        return (
+            f"<div hx-trigger='click' hx-post='/update_cell?x={x}&y={y}' "
+            "hx-target='#game' hx-swap='outerHTML' "
+            f"style='height:{CELL_PX}px;width:{CELL_PX}px'></div>"
+        )
 
     def flip_cell(self, x, y):
         """Flip the state of a cell."""

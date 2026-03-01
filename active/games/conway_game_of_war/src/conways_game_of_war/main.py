@@ -1,16 +1,18 @@
 """Main module for running the Conway's Game of War Flask application."""
 
 import os
+from typing import Tuple
+
 import flask
 
-from conways_game_of_war import game_state
+from . import game_state
 
 app = flask.Flask(__name__)
 # Prefer env var for production, fallback for dev
 app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-key")
 
-GAME = game_state.GameState()
-ZOOM_LEVEL = 1.0
+app.config["GAME"] = game_state.GameState()
+app.config["ZOOM_LEVEL"] = 1.0
 
 
 def _hex_to_rgb(hex_color: str):
@@ -26,16 +28,51 @@ def _hex_to_rgb(hex_color: str):
     return None
 
 
+def _get_game() -> game_state.GameState:
+    return app.config["GAME"]
+
+
+def _set_game(game: game_state.GameState) -> None:
+    app.config["GAME"] = game
+
+
+def _current_player_index() -> int:
+    player_key = flask.session.get("player")
+    return game_state.PLAYER_1 if player_key == "player1" else game_state.PLAYER_2
+
+
+def _current_player() -> Tuple[game_state.Player, int]:
+    game = _get_game()
+    idx = _current_player_index()
+    return game.players[idx], idx
+
+
+def _cell_can_toggle(
+    game: game_state.GameState, x: int, y: int, player_obj: game_state.Player
+) -> bool:
+    cell = game.board[x][y]
+    if cell.immortal:
+        return False
+    if cell.owner == player_obj:
+        return True
+    return (
+        (not cell.alive)
+        and (cell.owner in (None, player_obj))
+        and (game.count_friendly_neighbors(x, y, player_obj) > 0)
+    )
+
+
 def _apply_session_options_to_game():
     """Apply player color and AI difficulty from session to the GAME instance."""
+    game = _get_game()
     p1_hex = flask.session.get("player1_color")
     p2_hex = flask.session.get("player2_color")
     p1_rgb = _hex_to_rgb(p1_hex)
     p2_rgb = _hex_to_rgb(p2_hex)
     if p1_rgb:
-        GAME.players[game_state.PLAYER_1].color = p1_rgb
+        game.players[game_state.PLAYER_1].color = p1_rgb
     if p2_rgb:
-        GAME.players[game_state.PLAYER_2].color = p2_rgb
+        game.players[game_state.PLAYER_2].color = p2_rgb
 
     # Configure AI side/difficulty once per session change
     ai_diff = flask.session.get("ai_difficulty")
@@ -46,24 +83,24 @@ def _apply_session_options_to_game():
             ai_index = game_state.PLAYER_2
         else:
             ai_index = game_state.PLAYER_1
-        GAME.ai_player_index = ai_index
+        game.ai_player_index = ai_index
         if ai_diff == "easy":
-            GAME.ai_player = game_state.EasyAIPlayer(
-                color=GAME.players[ai_index].color,
-                start_point=GAME.players[ai_index].start_point,
+            game.ai_player = game_state.EasyAIPlayer(
+                color=game.players[ai_index].color,
+                start_point=game.players[ai_index].start_point,
             )
         elif ai_diff == "medium":
-            GAME.ai_player = game_state.MediumAIPlayer(
-                color=GAME.players[ai_index].color,
-                start_point=GAME.players[ai_index].start_point,
+            game.ai_player = game_state.MediumAIPlayer(
+                color=game.players[ai_index].color,
+                start_point=game.players[ai_index].start_point,
             )
         elif ai_diff == "hard":
-            GAME.ai_player = game_state.HardAIPlayer(
-                color=GAME.players[ai_index].color,
-                start_point=GAME.players[ai_index].start_point,
+            game.ai_player = game_state.HardAIPlayer(
+                color=game.players[ai_index].color,
+                start_point=game.players[ai_index].start_point,
             )
         else:
-            GAME.ai_player = None
+            game.ai_player = None
 
 
 def main():
@@ -115,74 +152,50 @@ def set_player():
 @app.route("/game_state")
 def get_game_state():
     """Advance the game one tick and return the current game state as HTML."""
-    GAME.update()
-    player_key = flask.session.get("player")
-    idx = game_state.PLAYER_1 if player_key == "player1" else game_state.PLAYER_2
-    return GAME.board_to_html(current_player_index=idx)
+    game = _get_game()
+    game.update()
+    return game.board_to_html(current_player_index=_current_player_index())
 
 
 @app.route("/update_cell", methods=["POST"])
 def update_cell():
     """Update the state of a cell and return the updated game state as HTML."""
+    game = _get_game()
     x = flask.request.args.get("x", type=int)
     y = flask.request.args.get("y", type=int)
     if x is None or y is None:
-        player_key = flask.session.get("player")
-        idx = game_state.PLAYER_1 if player_key == "player1" else game_state.PLAYER_2
-        return GAME.board_to_html(current_player_index=idx)
+        return game.board_to_html(current_player_index=_current_player_index())
 
-    # Determine current player
-    player_key = flask.session.get("player")
-    if player_key == "player1":
-        player_obj = GAME.players[game_state.PLAYER_1]
-        idx = game_state.PLAYER_1
-    else:
-        player_obj = GAME.players[game_state.PLAYER_2]
-        idx = game_state.PLAYER_2
-
-    # Only allow toggling in owned cells or placing adjacent to owned alive cells
-    cell = GAME.board[x][y]
-    allowed = False
-    if not cell.immortal:
-        if cell.owner == player_obj:
-            allowed = True
-        elif (
-            (not cell.alive)
-            and (cell.owner in (None, player_obj))
-            and (GAME.count_friendly_neighbors(x, y, player_obj) > 0)
-        ):
-            allowed = True
-
-    if allowed:
+    player_obj, idx = _current_player()
+    cell = game.board[x][y]
+    if _cell_can_toggle(game, x, y, player_obj):
         if cell.owner is None:
             cell.owner = player_obj
             cell.alive = True
         elif cell.owner == player_obj:
             cell.alive = not cell.alive
 
-    return GAME.board_to_html(current_player_index=idx)
+    return game.board_to_html(current_player_index=idx)
 
 
 @app.route("/zoom", methods=["POST"])
 def zoom():
     """Update the zoom level (client uses CSS scaling) and return the board."""
     zoom_level = flask.request.args.get("zoom", type=float)
-    global ZOOM_LEVEL
     if zoom_level is not None:
-        ZOOM_LEVEL = zoom_level
-    player_key = flask.session.get("player")
-    idx = game_state.PLAYER_1 if player_key == "player1" else game_state.PLAYER_2
-    return GAME.board_to_html(current_player_index=idx)
+        app.config["ZOOM_LEVEL"] = zoom_level
+    return _get_game().board_to_html(current_player_index=_current_player_index())
 
 
 @app.route("/player_energy")
 def player_energy():
     """Return the player's energy level as HTML."""
-    player = flask.session.get("player")
-    if player == "player1":
-        energy_level = GAME.players[0].get_energy_level()
-    elif player == "player2":
-        energy_level = GAME.players[1].get_energy_level()
+    game = _get_game()
+    player_key = flask.session.get("player")
+    if player_key == "player1":
+        energy_level = game.players[0].get_energy_level()
+    elif player_key == "player2":
+        energy_level = game.players[1].get_energy_level()
     else:
         energy_level = "Unknown player"
     return f"<div>{energy_level}</div>"
@@ -191,12 +204,10 @@ def player_energy():
 @app.route("/reset", methods=["POST"])
 def reset():
     """Reset the game to a fresh state, preserving session options."""
-    global GAME
-    GAME = game_state.GameState()
+    game = game_state.GameState()
+    _set_game(game)
     _apply_session_options_to_game()
-    player_key = flask.session.get("player")
-    idx = game_state.PLAYER_1 if player_key == "player1" else game_state.PLAYER_2
-    return GAME.board_to_html(current_player_index=idx)
+    return game.board_to_html(current_player_index=_current_player_index())
 
 
 if __name__ == "__main__":
