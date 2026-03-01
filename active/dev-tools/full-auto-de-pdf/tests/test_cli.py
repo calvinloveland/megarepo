@@ -126,30 +126,6 @@ def test_ocr_pdf_command_runs_pipeline(monkeypatch, tmp_path) -> None:
     assert rc == 0
 
 
-def test_ocr_pdf_command_accepts_surya_engine(monkeypatch, tmp_path) -> None:
-    input_pdf = tmp_path / "book.pdf"
-    output_text = tmp_path / "book.txt"
-    input_pdf.write_bytes(b"fake")
-
-    def _fake_ocr_pdf_with_tesseract(**kwargs):  # noqa: ANN003
-        assert kwargs["ocr_engine"] == "surya"
-        return {"page_count": 1, "word_count": 5, "character_count": 20}
-
-    monkeypatch.setattr(cli, "ocr_pdf_with_tesseract", _fake_ocr_pdf_with_tesseract)
-    rc = cli.main(
-        [
-            "ocr-pdf",
-            "--pdf",
-            str(input_pdf),
-            "--output",
-            str(output_text),
-            "--ocr-engine",
-            "surya",
-        ]
-    )
-    assert rc == 0
-
-
 def test_ocr_eval_modes_command_runs_pipeline(monkeypatch, tmp_path) -> None:
     input_pdf = tmp_path / "book.pdf"
     output_report = tmp_path / "report.json"

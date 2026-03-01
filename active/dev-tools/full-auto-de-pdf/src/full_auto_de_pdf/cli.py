@@ -128,7 +128,7 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     ocr_pdf_parser.add_argument(
         "--ocr-engine",
-        choices=["tesseract", "paddleocr", "surya"],
+        choices=["tesseract", "paddleocr"],
         default="tesseract",
         help="OCR engine backend",
     )
@@ -206,7 +206,7 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     eval_modes_parser.add_argument(
         "--ocr-engine",
-        choices=["tesseract", "paddleocr", "surya"],
+        choices=["tesseract", "paddleocr"],
         default="tesseract",
         help="OCR engine backend",
     )
@@ -274,7 +274,7 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     local_archive_parser.add_argument(
         "--ocr-engine",
-        choices=["tesseract", "paddleocr", "surya"],
+        choices=["tesseract", "paddleocr"],
         default="tesseract",
         help="OCR engine backend",
     )

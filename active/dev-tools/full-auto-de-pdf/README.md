@@ -55,12 +55,6 @@ full-auto-de-pdf ocr-pdf \
   --output out/book.paddle.txt \
   --ocr-engine paddleocr
 
-# Optional next-gen engine (first run downloads Surya model weights)
-full-auto-de-pdf ocr-pdf \
-  --pdf scans/book.pdf \
-  --output out/book.surya.txt \
-  --ocr-engine surya
-
 # Evaluate OCR output across preprocess modes (none/basic/deskew/dewarp)
 full-auto-de-pdf ocr-eval-modes \
   --pdf scans/book.pdf \

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import inspect
 import math
 from pathlib import Path
 import re
@@ -31,23 +30,6 @@ def _map_paddleocr_language(language: str) -> str:
         "fr": "fr",
         "deu": "german",
         "de": "german",
-        "spa": "es",
-        "es": "es",
-        "ita": "it",
-        "it": "it",
-    }
-    return mapping.get(normalized, "en")
-
-
-def _map_surya_language(language: str) -> str:
-    normalized = language.lower().strip()
-    mapping = {
-        "eng": "en",
-        "en": "en",
-        "fra": "fr",
-        "fr": "fr",
-        "deu": "de",
-        "de": "de",
         "spa": "es",
         "es": "es",
         "ita": "it",
@@ -118,71 +100,6 @@ def _build_paddleocr_reader(language: str) -> Callable[[Path], str]:
                 if isinstance(text, str) and text.strip():
                     lines.append(text.strip())
         return "\n".join(lines)
-
-    return _read
-
-
-def _extract_surya_text(result: object) -> str:
-    lines: list[str] = []
-    for page_result in result if isinstance(result, list) else []:
-        text_lines = None
-        if isinstance(page_result, dict):
-            text_lines = page_result.get("text_lines")
-        elif hasattr(page_result, "text_lines"):
-            text_lines = getattr(page_result, "text_lines")
-        if not isinstance(text_lines, list):
-            continue
-        for line in text_lines:
-            if isinstance(line, dict):
-                text = line.get("text")
-            else:
-                text = getattr(line, "text", None)
-            if isinstance(text, str) and text.strip():
-                lines.append(text.strip())
-    return "\n".join(lines)
-
-
-def _build_surya_reader(language: str) -> Callable[[Path], str]:
-    try:
-        from PIL import Image
-        from surya.detection import DetectionPredictor
-        from surya.foundation import FoundationPredictor
-        from surya.recognition import RecognitionPredictor
-    except ImportError as exc:
-        raise RuntimeError(
-            "Missing dependency for surya engine: surya-ocr. "
-            "Install with `pip install surya-ocr` or use --ocr-engine tesseract."
-        ) from exc
-
-    foundation_predictor = FoundationPredictor()
-    recognition_predictor = RecognitionPredictor(foundation_predictor)
-    detection_predictor = DetectionPredictor()
-    surya_language = _map_surya_language(language)
-
-    def _predict(image):
-        call = recognition_predictor
-        try:
-            parameters = inspect.signature(call).parameters
-        except (TypeError, ValueError):
-            parameters = {}
-        if "languages" in parameters:
-            for languages_payload in ([[surya_language]], [surya_language]):
-                try:
-                    return list(
-                        call(
-                            [image],
-                            det_predictor=detection_predictor,
-                            languages=languages_payload,
-                        )
-                    )
-                except TypeError:
-                    continue
-        return list(call([image], det_predictor=detection_predictor))
-
-    def _read(image_path: Path) -> str:
-        with Image.open(image_path) as image:
-            result = _predict(image)
-        return _extract_surya_text(result)
 
     return _read
 
@@ -338,13 +255,12 @@ def ocr_pdf_with_tesseract(
     run_command: Callable[[list[str], bool], str] = _run_command,
     preprocess_image: Callable[[Path, Path, str, int, float, float], None] = _preprocess_image,
     paddle_reader_factory: Callable[[str], Callable[[Path], str]] = _build_paddleocr_reader,
-    surya_reader_factory: Callable[[str], Callable[[Path], str]] = _build_surya_reader,
     which: Callable[[str], str | None] = shutil.which,
 ) -> dict[str, int | str]:
     if preprocess_mode not in {"none", "basic", "deskew", "dewarp"}:
         raise ValueError("preprocess_mode must be 'none', 'basic', 'deskew', or 'dewarp'")
-    if ocr_engine not in {"tesseract", "paddleocr", "surya"}:
-        raise ValueError("ocr_engine must be 'tesseract', 'paddleocr', or 'surya'")
+    if ocr_engine not in {"tesseract", "paddleocr"}:
+        raise ValueError("ocr_engine must be 'tesseract' or 'paddleocr'")
     if not (0 <= binarize_threshold <= 255):
         raise ValueError("binarize_threshold must be between 0 and 255")
     if deskew_max_angle <= 0:
@@ -385,7 +301,6 @@ def ocr_pdf_with_tesseract(
     if emit_page_artifacts:
         artifacts_dir.mkdir(parents=True, exist_ok=True)
     paddle_reader = paddle_reader_factory(language) if ocr_engine == "paddleocr" else None
-    surya_reader = surya_reader_factory(language) if ocr_engine == "surya" else None
     for image_path in page_images:
         ocr_input_path = image_path
         if preprocess_mode in {"basic", "deskew", "dewarp"}:
@@ -417,10 +332,6 @@ def ocr_pdf_with_tesseract(
             if paddle_reader is None:
                 raise RuntimeError("PaddleOCR reader was not initialized")
             text = paddle_reader(ocr_input_path)
-        else:
-            if surya_reader is None:
-                raise RuntimeError("Surya reader was not initialized")
-            text = surya_reader(ocr_input_path)
         page_texts.append(text)
         page_word_count = len([word for word in text.split() if word])
         page_index = len(page_texts)
