@@ -89,6 +89,21 @@ def test_cleanup_ocr_text_restores_apostrophe_suffixes() -> None:
     assert "don't agree in this line" in cleaned.lower()
 
 
+def test_cleanup_ocr_text_contextually_corrects_can_to_cant() -> None:
+    lines: list[str] = []
+    for _ in range(8):
+        lines.append("I can't agree with this plan.")
+    for _ in range(4):
+        lines.append("I can swim at dawn.")
+    lines.append("I can agree with this plan.")
+
+    cleaned = cleanup_ocr_text("\n".join(lines))
+    lowered = cleaned.lower()
+    assert "i can agree with this plan." not in lowered
+    assert "i can't agree with this plan." in lowered
+    assert "i can swim at dawn." in lowered
+
+
 def test_cleanup_ocr_text_corrects_isolated_digit_one_to_i() -> None:
     source = (
         "I think therefore I am. I think therefore I learn. I think therefore I write. "

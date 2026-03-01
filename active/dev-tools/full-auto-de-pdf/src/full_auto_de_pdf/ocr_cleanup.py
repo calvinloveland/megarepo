@@ -41,6 +41,12 @@ _CONTEXT_MIN_TARGET_SCORE = 2
 _CONTEXT_REQUIRED_MARGIN = 0
 _MIN_APOSTROPHE_ERROR_OCCURRENCES = 1
 _MAX_TOTAL_APOSTROPHE_CORRECTIONS = 20
+_AMBIGUOUS_APOSTROPHE_TARGETS = {
+    "can": "can't",
+}
+_MIN_AMBIGUOUS_APOSTROPHE_TARGET_OCCURRENCES = 5
+_MIN_AMBIGUOUS_APOSTROPHE_RATIO = 0.5
+_MAX_AMBIGUOUS_APOSTROPHE_SOURCE_LENGTH = 5
 _MIN_DIGIT_ERROR_OCCURRENCES = 1
 _MAX_TOTAL_DIGIT_CORRECTIONS = 3
 
@@ -199,6 +205,24 @@ def _infer_apostrophe_corrections(text: str) -> dict[str, str]:
     return {source: target for source, target, _score in selected}
 
 
+def _infer_contextual_apostrophe_corrections(text: str) -> dict[str, str]:
+    counts = _extract_token_counts(text)
+    corrections: dict[str, str] = {}
+    for source, target in _AMBIGUOUS_APOSTROPHE_TARGETS.items():
+        if len(source) > _MAX_AMBIGUOUS_APOSTROPHE_SOURCE_LENGTH:
+            continue
+        source_count = counts.get(source, 0)
+        target_count = counts.get(target, 0)
+        if source_count < _MIN_APOSTROPHE_ERROR_OCCURRENCES:
+            continue
+        if target_count < _MIN_AMBIGUOUS_APOSTROPHE_TARGET_OCCURRENCES:
+            continue
+        if (float(target_count) / float(max(source_count, 1))) < _MIN_AMBIGUOUS_APOSTROPHE_RATIO:
+            continue
+        corrections[source] = target
+    return corrections
+
+
 def _infer_digit_letter_corrections(text: str) -> dict[str, str]:
     counts = _extract_token_counts(text)
     corrections: dict[str, str] = {}
@@ -287,6 +311,7 @@ def cleanup_ocr_text(text: str) -> str:
     corrections = {}
     corrections.update(_infer_missing_char_corrections(cleaned))
     corrections.update(_infer_apostrophe_corrections(cleaned))
+    corrections.update(_infer_contextual_apostrophe_corrections(cleaned))
     corrections.update(_infer_digit_letter_corrections(cleaned))
     cleaned = _apply_word_corrections(cleaned, corrections)
     return cleaned.strip()
