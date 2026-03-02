@@ -1,3 +1,5 @@
+"""SQLite persistence helpers for researched spells."""
+
 from __future__ import annotations
 
 import json
@@ -9,6 +11,8 @@ from typing import Any, Dict, List, Optional, Tuple
 
 @dataclass
 class StoredSpell:
+    """Stored spell row and parsed JSON payloads."""
+
     spell_id: int
     name: str
     prompt: str
@@ -17,10 +21,12 @@ class StoredSpell:
 
 
 def default_db_path() -> Path:
+    """Return the default SQLite database path."""
     return Path(__file__).resolve().parents[2] / "data" / "wizard_fight.db"
 
 
 def init_db(path: Path | None = None) -> None:
+    """Create the spells table if missing."""
     db_path = path or default_db_path()
     db_path.parent.mkdir(parents=True, exist_ok=True)
     with sqlite3.connect(db_path) as conn:
@@ -45,6 +51,7 @@ def save_spell(
     spec: Dict[str, Any],
     path: Path | None = None,
 ) -> int:
+    """Insert a spell record and return its generated id."""
     db_path = path or default_db_path()
     init_db(db_path)
     with sqlite3.connect(db_path) as conn:
@@ -57,6 +64,7 @@ def save_spell(
 
 
 def load_spell(spell_id: int, path: Path | None = None) -> Optional[StoredSpell]:
+    """Load a spell by id, returning None when not found."""
     db_path = path or default_db_path()
     if not db_path.exists():
         return None
@@ -73,6 +81,7 @@ def load_spell(spell_id: int, path: Path | None = None) -> Optional[StoredSpell]
 
 
 def load_spell_by_prompt(prompt: str, path: Path | None = None) -> Optional[StoredSpell]:
+    """Load the most recent spell for a normalized prompt."""
     db_path = path or default_db_path()
     if not db_path.exists():
         return None
@@ -80,8 +89,12 @@ def load_spell_by_prompt(prompt: str, path: Path | None = None) -> Optional[Stor
     if not normalized:
         return None
     with sqlite3.connect(db_path) as conn:
+        query = (
+            "SELECT id, name, prompt, design_json, spec_json FROM spells "
+            "WHERE LOWER(prompt) = ? ORDER BY id DESC LIMIT 1"
+        )
         row = conn.execute(
-            "SELECT id, name, prompt, design_json, spec_json FROM spells WHERE LOWER(prompt) = ? ORDER BY id DESC LIMIT 1",
+            query,
             (normalized,),
         ).fetchone()
     if row is None:
@@ -92,6 +105,7 @@ def load_spell_by_prompt(prompt: str, path: Path | None = None) -> Optional[Stor
 
 
 def list_spells(limit: int = 50, path: Path | None = None) -> List[StoredSpell]:
+    """Return recent spells ordered from newest to oldest."""
     db_path = path or default_db_path()
     if not db_path.exists():
         return []
@@ -111,6 +125,7 @@ def list_spells(limit: int = 50, path: Path | None = None) -> List[StoredSpell]:
 
 
 def list_spell_leaderboard(limit: int = 10, path: Path | None = None) -> List[Tuple[str, int]]:
+    """Return spell usage counts grouped by name."""
     db_path = path or default_db_path()
     if not db_path.exists():
         return []

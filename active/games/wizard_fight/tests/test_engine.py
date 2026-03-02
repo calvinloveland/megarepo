@@ -1,3 +1,5 @@
+"""Deterministic engine behavior and combat interaction tests."""
+
 from __future__ import annotations
 
 from wizard_fight.engine import GameConfig, apply_spell, build_initial_state, simulate, step
@@ -33,6 +35,7 @@ def _monkey_spell() -> dict:
 
 
 def test_deterministic_simulation_same_seed() -> None:
+    """Same seed and actions should produce the same results."""
     config = _config()
     state_a = build_initial_state(seed=123, config=config)
     state_b = build_initial_state(seed=123, config=config)
@@ -45,6 +48,7 @@ def test_deterministic_simulation_same_seed() -> None:
 
 
 def test_unit_reaches_enemy_wizard() -> None:
+    """A spawned attacker should eventually damage the opposing wizard."""
     config = _config()
     state = build_initial_state(seed=0, config=config)
     apply_spell(state, 0, _monkey_spell())
@@ -53,6 +57,7 @@ def test_unit_reaches_enemy_wizard() -> None:
 
 
 def test_units_collide_and_take_damage() -> None:
+    """Opposing units should collide and reduce each other's hit points."""
     config = _config()
     state = build_initial_state(seed=0, config=config)
     spell = _monkey_spell()
@@ -68,6 +73,7 @@ def test_units_collide_and_take_damage() -> None:
 
 
 def test_environment_effects_expire() -> None:
+    """Temporary environment effects should expire after their duration."""
     config = _config()
     state = build_initial_state(seed=0, config=config)
     fog_spell = {

@@ -1,3 +1,5 @@
+"""Storage tests for save/load, listing, and leaderboard ordering."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -6,6 +8,7 @@ from wizard_fight.storage import list_spell_leaderboard, list_spells, load_spell
 
 
 def test_save_and_load_spell(tmp_path: Path) -> None:
+    """Saved spells should load back with expected fields."""
     db_path = tmp_path / "wizard_fight.db"
     spell_id = save_spell(
         name="Arcane Sample",
@@ -22,6 +25,7 @@ def test_save_and_load_spell(tmp_path: Path) -> None:
 
 
 def test_list_spells_returns_latest(tmp_path: Path) -> None:
+    """List API should return newest spells first."""
     db_path = tmp_path / "wizard_fight.db"
     save_spell(
         name="First",
@@ -42,6 +46,7 @@ def test_list_spells_returns_latest(tmp_path: Path) -> None:
 
 
 def test_leaderboard_counts_spells(tmp_path: Path) -> None:
+    """Leaderboard should aggregate spell counts by spell name."""
     db_path = tmp_path / "wizard_fight.db"
     save_spell(
         name="Spark",

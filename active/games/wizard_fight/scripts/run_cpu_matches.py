@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+"""Run repeated CPU-vs-CPU matches and export event logs."""
+
 from __future__ import annotations
 
 import argparse
@@ -11,8 +13,24 @@ from typing import Any, Dict, List
 
 from loguru import logger
 
-from wizard_fight.engine import build_initial_state, step
-from wizard_fight.server import Lobby, SpellLibrary, Telemetry, _cpu_take_turn, _resolve_research
+try:
+    from wizard_fight.engine import build_initial_state, step
+    from wizard_fight.server import (
+        Lobby,
+        SpellLibrary,
+        Telemetry,
+        _cpu_take_turn,
+        _resolve_research,
+    )
+except ModuleNotFoundError:
+    from src.wizard_fight.engine import build_initial_state, step
+    from src.wizard_fight.server import (
+        Lobby,
+        SpellLibrary,
+        Telemetry,
+        _cpu_take_turn,
+        _resolve_research,
+    )
 
 
 def _wizard_snapshot(lobby: Lobby) -> Dict[str, Any]:
@@ -73,9 +91,7 @@ def _run_match(
 
     tick = 0
     while tick < max_ticks:
-        w0 = lobby.state.wizards[0].health
-        w1 = lobby.state.wizards[1].health
-        if w0 <= 0 or w1 <= 0:
+        if _is_match_over(lobby):
             break
         _cpu_take_turn(lobby, spells)
         _resolve_research(lobby, telemetry)
@@ -86,28 +102,35 @@ def _run_match(
 
     logger.remove(sink_id)
 
-    winner = "draw"
-    if lobby.state.wizards[0].health > 0 and lobby.state.wizards[1].health <= 0:
-        winner = "cpu_0"
-    elif lobby.state.wizards[1].health > 0 and lobby.state.wizards[0].health <= 0:
-        winner = "cpu_1"
-
-    summary = {
-        "casts_by_cpu": {cpu: dict(counter) for cpu, counter in casts_by_cpu.items()},
-        "ticks": tick,
-        "winner": winner,
-        "telemetry": asdict(telemetry),
-    }
-
     return {
         "match_id": match_id,
         "seed": seed,
-        "summary": summary,
+        "summary": {
+            "casts_by_cpu": {cpu: dict(counter) for cpu, counter in casts_by_cpu.items()},
+            "ticks": tick,
+            "winner": _determine_winner(lobby),
+            "telemetry": asdict(telemetry),
+        },
         "events": events,
     }
 
 
+def _is_match_over(lobby: Lobby) -> bool:
+    return lobby.state.wizards[0].health <= 0 or lobby.state.wizards[1].health <= 0
+
+
+def _determine_winner(lobby: Lobby) -> str:
+    wizard_0_alive = lobby.state.wizards[0].health > 0
+    wizard_1_alive = lobby.state.wizards[1].health > 0
+    if wizard_0_alive and not wizard_1_alive:
+        return "cpu_0"
+    if wizard_1_alive and not wizard_0_alive:
+        return "cpu_1"
+    return "draw"
+
+
 def main() -> None:
+    """Parse CLI args, run matches, and write JSON output."""
     parser = argparse.ArgumentParser(description="Run CPU vs CPU Wizard Fight matches.")
     parser.add_argument("--matches", type=int, default=3, help="Number of matches to run.")
     parser.add_argument("--seed", type=int, default=7, help="Base RNG seed for matches.")

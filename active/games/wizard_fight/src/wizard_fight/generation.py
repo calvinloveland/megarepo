@@ -9,9 +9,10 @@ This keeps `research.py` LLM-agnostic and allows adding multiple backends.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional
-import os
+import importlib
 import logging
+import os
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +33,10 @@ class SpellGenerator(ABC):
             Raw text output from model (usually contains JSON payload)
         """
 
+    @abstractmethod
+    def backend_name(self) -> str:
+        """Return a short identifier for telemetry/debug output."""
+
 
 class LocalFallbackGenerator(SpellGenerator):
     """Adapter that invokes existing local/openai/ollama helpers in research.py.
@@ -47,6 +52,9 @@ class LocalFallbackGenerator(SpellGenerator):
     def generate(self, system: str, user: str, *, timeout: Optional[float] = None) -> str:
         return self._caller(system, user)
 
+    def backend_name(self) -> str:
+        return "local-fallback"
+
 
 def get_generator_from_env() -> SpellGenerator:
     """Return a SpellGenerator instance configured by environment vars.
@@ -55,19 +63,26 @@ def get_generator_from_env() -> SpellGenerator:
     """
     backend = os.getenv("WIZARD_FIGHT_SPELL_BACKEND", "auto").lower()
 
-    # Lazy import to avoid hard dependency
+    if backend == "copilot":
+        copilot_generator = _load_copilot_generator()
+        if copilot_generator is not None:
+            return copilot_generator()
+        logger.warning("Failed to initialize Copilot backend; falling back to local")
+
     try:
-        if backend == "copilot":
-            from wizard_fight.backends.copilot_backend import CopilotGenerator
-
-            return CopilotGenerator()
-    except Exception:  # pragma: no cover - defensive import
-        logger.exception("Failed to initialize Copilot backend; falling back to local")
-
-    # Default fallback: use existing _call_llm behavior in research module
-    try:
-        from wizard_fight import research as research_module
-
-        return LocalFallbackGenerator(research_module._call_llm)
-    except Exception:  # pragma: no cover - defensive
+        research_module = importlib.import_module("wizard_fight.research")
+    except ModuleNotFoundError as exc:
+        raise RuntimeError("No available spell generator backends") from exc
+    caller = getattr(research_module, "_call_llm", None)
+    if caller is None:
         raise RuntimeError("No available spell generator backends")
+    return LocalFallbackGenerator(caller)
+
+
+def _load_copilot_generator():
+    """Load Copilot generator class without hard import-time dependency."""
+    try:
+        module = importlib.import_module("wizard_fight.backends.copilot_backend")
+    except ModuleNotFoundError:
+        return None
+    return getattr(module, "CopilotGenerator", None)

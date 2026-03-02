@@ -1,7 +1,8 @@
+"""Flask/Socket.IO server for Wizard Fight matches and spell research."""
+
 from __future__ import annotations
 
 import json
-import random
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -14,7 +15,7 @@ from loguru import logger
 from flask_socketio import SocketIO
 
 from wizard_fight.engine import GameState, apply_spell, build_initial_state, step
-from wizard_fight.research import SpellDesign, build_spell_spec, design_spell, upgrade_spell
+from wizard_fight.research import build_spell_spec, design_spell, upgrade_spell
 from wizard_fight.llm import llm_backend_label
 from wizard_fight.storage import (
     list_spell_leaderboard,
@@ -29,6 +30,8 @@ _BASELINE_SPELL_PATH = _REPO_ROOT / "docs" / "spells" / "summon_flying_monkey.js
 
 @dataclass
 class Lobby:
+    """Live multiplayer lobby with state, players, and pending research."""
+
     lobby_id: str
     state: GameState
     players: Dict[str, int] = field(default_factory=dict)
@@ -42,6 +45,7 @@ class Lobby:
     cpu_last_cast_time: Dict[int, float] = field(default_factory=dict)
 
     def add_player(self, sid: str) -> Optional[int]:
+        """Register a connection and return assigned player id."""
         if sid in self.players:
             return self.players[sid]
         if len(self.players) >= 2:
@@ -51,30 +55,37 @@ class Lobby:
         return player_id
 
     def remove_player(self, sid: str) -> None:
+        """Remove a connection from the lobby."""
         self.players.pop(sid, None)
 
     def get_player_id(self, sid: str) -> Optional[int]:
+        """Return player id for a connection id."""
         return self.players.get(sid)
 
     def add_spell(self, player_id: int, entry: Dict[str, Any]) -> None:
+        """Store researched spell entry for a player."""
         self.spellbook.setdefault(player_id, []).append(entry)
 
     def get_spell(self, player_id: int, spell_index: int) -> Optional[Dict[str, Any]]:
+        """Fetch spellbook entry by index for a player."""
         spells = self.spellbook.get(player_id, [])
         if 0 <= spell_index < len(spells):
             return spells[spell_index]
         return None
 
     def is_cpu(self, player_id: int) -> bool:
+        """Return whether the given player id is CPU-controlled."""
         return player_id in self.cpu_players
 
     def start_research(self, player_id: int, prompt: str) -> float:
+        """Start research timer for player and return completion timestamp."""
         complete_at = self.state.time_seconds + self.state.config.research_delay_seconds
         self.researching_until[player_id] = complete_at
         self.pending_prompts[player_id] = prompt
         return complete_at
 
     def is_researching(self, player_id: int) -> bool:
+        """Return True when research timer is still active for a player."""
         complete_at = self.researching_until.get(player_id)
         if complete_at is None:
             return False
@@ -82,10 +93,13 @@ class Lobby:
 
 
 class LobbyStore:
+    """In-memory store for active lobbies."""
+
     def __init__(self) -> None:
         self._lobbies: Dict[str, Lobby] = {}
 
     def create(self, seed: int, cpu_players: set[int] | None = None) -> Lobby:
+        """Create and store a new lobby."""
         lobby_id = uuid4().hex
         state = build_initial_state(seed=seed)
         lobby = Lobby(lobby_id=lobby_id, state=state, cpu_players=cpu_players or set())
@@ -93,28 +107,36 @@ class LobbyStore:
         return lobby
 
     def get(self, lobby_id: str) -> Optional[Lobby]:
+        """Return lobby by id when present."""
         return self._lobbies.get(lobby_id)
 
     def remove(self, lobby_id: str) -> None:
+        """Delete lobby from store."""
         self._lobbies.pop(lobby_id, None)
 
 
 @dataclass
 class Telemetry:
+    """Counters for high-level lobby and spell events."""
+
     lobbies_created: int = 0
     spells_researched: int = 0
     spells_cast: int = 0
 
 
 class SpellLibrary:
+    """Provide read-only access to baseline spell templates."""
+
     def __init__(self) -> None:
         self._baseline_spell = json.loads(_BASELINE_SPELL_PATH.read_text(encoding="utf-8"))
 
     def baseline(self) -> Dict[str, Any]:
+        """Return a copy of the baseline spell specification."""
         return dict(self._baseline_spell)
 
 
 def serialize_state(state: GameState) -> Dict[str, Any]:
+    """Serialize engine state for websocket payloads."""
     return {
         "time_seconds": state.time_seconds,
         "wizards": {
@@ -159,16 +181,18 @@ def serialize_state(state: GameState) -> Dict[str, Any]:
 
 
 def create_app() -> Flask:
+    """Create Flask application instance."""
     return Flask(__name__)
 
 
-def create_socketio(app: Flask) -> SocketIO:
-    socketio = SocketIO(app, async_mode="threading", cors_allowed_origins="*")
+def create_socketio(flask_app: Flask) -> SocketIO:
+    """Create Socket.IO server and register lobby/game event handlers."""
+    socketio = SocketIO(flask_app, async_mode="threading", cors_allowed_origins="*")
     store = LobbyStore()
     spells = SpellLibrary()
     telemetry = Telemetry()
 
-    @app.get("/")
+    @flask_app.get("/")
     def landing() -> str:
         return (
             "<html><head><title>Wizard Fight</title></head>"
@@ -179,7 +203,7 @@ def create_socketio(app: Flask) -> SocketIO:
             "</body></html>"
         )
 
-    @app.get("/metrics")
+    @flask_app.get("/metrics")
     def metrics() -> Any:
         return jsonify(
             {
@@ -189,7 +213,7 @@ def create_socketio(app: Flask) -> SocketIO:
             }
         )
 
-    @app.get("/spellbook")
+    @flask_app.get("/spellbook")
     def spellbook() -> Any:
         spells = storage_list_spells(limit=50)
         response = jsonify(
@@ -209,7 +233,7 @@ def create_socketio(app: Flask) -> SocketIO:
         response.headers["Access-Control-Allow-Origin"] = "*"
         return response
 
-    @app.route("/generate_spell", methods=["POST", "OPTIONS"])
+    @flask_app.route("/generate_spell", methods=["POST", "OPTIONS"])
     def generate_spell() -> Any:
         if request.method == "OPTIONS":
             response = jsonify({"status": "ok"})
@@ -249,7 +273,7 @@ def create_socketio(app: Flask) -> SocketIO:
         response.headers["Access-Control-Allow-Headers"] = "Content-Type"
         return response
 
-    @app.get("/leaderboard")
+    @flask_app.get("/leaderboard")
     def leaderboard() -> Any:
         top_spells = list_spell_leaderboard(limit=10)
         response = jsonify(
@@ -267,7 +291,7 @@ def create_socketio(app: Flask) -> SocketIO:
         response.headers["Access-Control-Allow-Origin"] = "*"
         return response
 
-    @app.route("/client-errors", methods=["POST", "OPTIONS"])
+    @flask_app.route("/client-errors", methods=["POST", "OPTIONS"])
     def client_errors() -> Any:
         if request.method == "OPTIONS":
             response = jsonify({"status": "ok"})
@@ -286,7 +310,7 @@ def create_socketio(app: Flask) -> SocketIO:
         def wrapper(*args, **kwargs):
             try:
                 return func(*args, **kwargs)
-            except Exception as exc:  # noqa: BLE001
+            except (KeyError, TypeError, ValueError, RuntimeError) as exc:
                 logger.exception("handler_failed", error=str(exc))
                 return {"error": "server_error"}
 
@@ -337,7 +361,11 @@ def create_socketio(app: Flask) -> SocketIO:
         if lobby.is_researching(player_id):
             return {"error": "research_in_progress"}
         lane = data.get("lane")
-        apply_spell(lobby.state, player_id, _assign_lane_to_spawn_units(lobby, spells.baseline(), lane))
+        apply_spell(
+            lobby.state,
+            player_id,
+            _assign_lane_to_spawn_units(lobby, spells.baseline(), lane),
+        )
         telemetry.spells_cast += 1
         logger.info("spell_cast", lobby_id=lobby.lobby_id, player_id=player_id)
         return {"state": serialize_state(lobby.state)}
@@ -372,7 +400,12 @@ def create_socketio(app: Flask) -> SocketIO:
         if entry is None:
             return {"error": "spell_not_found"}
         spec = upgrade_spell(entry["spec"], str(data.get("prompt", "upgrade")))
-        spell_id = save_spell(spec["name"], str(data.get("prompt", "upgrade")), entry["design"], spec)
+        spell_id = save_spell(
+            spec["name"],
+            str(data.get("prompt", "upgrade")),
+            entry["design"],
+            spec,
+        )
         lobby.add_spell(player_id, {"spell_id": spell_id, "spec": spec, "design": entry["design"]})
         logger.info("spell_upgraded", lobby_id=lobby.lobby_id, player_id=player_id)
         return {"spell_id": spell_id, "spec": spec}
@@ -489,7 +522,7 @@ def _resolve_research(lobby: Lobby, telemetry: Telemetry) -> list[Dict[str, Any]
                 player_id=player_id,
                 prompt=prompt,
             )
-        except Exception as exc:  # noqa: BLE001
+        except (KeyError, TypeError, ValueError, RuntimeError) as exc:
             logger.exception(
                 "research_failed",
                 lobby_id=lobby.lobby_id,
@@ -551,77 +584,135 @@ def _cpu_research_prompt(lobby: Lobby) -> str:
 
 
 def _cpu_take_turn(lobby: Lobby, spells: SpellLibrary) -> None:
+    baseline_spell = spells.baseline()
+    baseline_cost = float(baseline_spell.get("mana_cost", 0))
     for cpu_id in lobby.cpu_players:
-        research_pending = cpu_id in lobby.researching_until
-        wizard = lobby.state.wizards[cpu_id]
-        spellbook = lobby.spellbook.get(cpu_id, [])
-        baseline_cost = float(spells.baseline().get("mana_cost", 0))
-        now = lobby.state.time_seconds
-        last_cast = lobby.cpu_last_cast_time.get(cpu_id, now)
+        _cpu_take_turn_for_player(lobby, cpu_id, baseline_spell, baseline_cost)
 
-        if not spellbook:
-            if wizard.mana >= baseline_cost:
-                apply_spell(lobby.state, cpu_id, _assign_lane_to_spawn_units(lobby, spells.baseline(), None))
-                logger.info("cpu_cast_baseline", lobby_id=lobby.lobby_id, player_id=cpu_id)
-                lobby.cpu_last_cast_time[cpu_id] = now
-            if not research_pending:
-                prompt = _cpu_research_prompt(lobby)
-                lobby.start_research(cpu_id, prompt)
-                lobby.cpu_next_research[cpu_id] = (
-                    now + lobby.state.config.research_delay_seconds + 6.0
-                )
-                logger.info(
-                    "cpu_research_started",
-                    lobby_id=lobby.lobby_id,
-                    player_id=cpu_id,
-                    prompt=prompt,
-                )
-            continue
 
-        next_research = lobby.cpu_next_research.get(cpu_id, 0.0)
-        if not research_pending and now >= next_research and len(spellbook) < 4:
-            prompt = _cpu_research_prompt(lobby)
-            lobby.start_research(cpu_id, prompt)
-            lobby.cpu_next_research[cpu_id] = (
-                now + lobby.state.config.research_delay_seconds + 6.0
-            )
-            logger.info(
-                "cpu_research_started",
-                lobby_id=lobby.lobby_id,
-                player_id=cpu_id,
-                prompt=prompt,
-            )
+def _cpu_take_turn_for_player(
+    lobby: Lobby, cpu_id: int, baseline_spell: Dict[str, Any], baseline_cost: float
+) -> None:
+    research_pending = cpu_id in lobby.researching_until
+    wizard = lobby.state.wizards[cpu_id]
+    spellbook = lobby.spellbook.get(cpu_id, [])
+    now = lobby.state.time_seconds
+    last_cast = lobby.cpu_last_cast_time.get(cpu_id, now)
+    if _cpu_handle_empty_spellbook(
+        lobby, cpu_id, wizard, spellbook, research_pending, baseline_spell, baseline_cost, now
+    ):
+        return
+    _cpu_maybe_start_research(lobby, cpu_id, research_pending, spellbook, now)
+    affordable = _cpu_affordable_spells(wizard, spellbook)
+    if _cpu_cast_affordable_spell(lobby, cpu_id, affordable, now):
+        return
+    _cpu_handle_baseline_fallback(
+        lobby, cpu_id, wizard, spellbook, baseline_spell, baseline_cost, now, last_cast
+    )
 
-        affordable = [
-            entry
-            for entry in spellbook
-            if wizard.mana >= float(entry["spec"].get("mana_cost", 0))
-        ]
-        if affordable:
-            entry = lobby.state.rng.choice(affordable)
-            apply_spell(lobby.state, cpu_id, _assign_lane_to_spawn_units(lobby, entry["spec"], None))
-            logger.info(
-                "cpu_cast_spell",
-                lobby_id=lobby.lobby_id,
-                player_id=cpu_id,
-                spell_name=entry["spec"].get("name"),
-            )
-            lobby.cpu_last_cast_time[cpu_id] = now
-            continue
-        spell_costs = [float(entry["spec"].get("mana_cost", 0)) for entry in spellbook]
-        cheapest_cost = min(spell_costs) if spell_costs else None
-        if cheapest_cost is None or cheapest_cost <= baseline_cost:
-            if wizard.mana >= baseline_cost:
-                apply_spell(lobby.state, cpu_id, _assign_lane_to_spawn_units(lobby, spells.baseline(), None))
-                logger.info("cpu_cast_baseline", lobby_id=lobby.lobby_id, player_id=cpu_id)
-                lobby.cpu_last_cast_time[cpu_id] = now
-            continue
-        if wizard.mana < cheapest_cost:
-            if (now - last_cast) >= 6.0 and wizard.mana >= baseline_cost:
-                apply_spell(lobby.state, cpu_id, _assign_lane_to_spawn_units(lobby, spells.baseline(), None))
-                logger.info("cpu_cast_baseline", lobby_id=lobby.lobby_id, player_id=cpu_id)
-                lobby.cpu_last_cast_time[cpu_id] = now
-            continue
+
+def _cpu_handle_empty_spellbook(
+    lobby: Lobby,
+    cpu_id: int,
+    wizard,
+    spellbook: list[Dict[str, Any]],
+    research_pending: bool,
+    baseline_spell: Dict[str, Any],
+    baseline_cost: float,
+    now: float,
+) -> bool:
+    if spellbook:
+        return False
+    _cpu_cast_baseline_if_affordable(lobby, cpu_id, wizard, baseline_spell, baseline_cost, now)
+    if not research_pending:
+        _cpu_start_research(lobby, cpu_id, now)
+    return True
+
+
+def _cpu_maybe_start_research(
+    lobby: Lobby,
+    cpu_id: int,
+    research_pending: bool,
+    spellbook: list[Dict[str, Any]],
+    now: float,
+) -> None:
+    next_research = lobby.cpu_next_research.get(cpu_id, 0.0)
+    if not research_pending and now >= next_research and len(spellbook) < 4:
+        _cpu_start_research(lobby, cpu_id, now)
+
+
+def _cpu_handle_baseline_fallback(
+    lobby: Lobby,
+    cpu_id: int,
+    wizard,
+    spellbook: list[Dict[str, Any]],
+    baseline_spell: Dict[str, Any],
+    baseline_cost: float,
+    now: float,
+    last_cast: float,
+) -> None:
+    spell_costs = [float(entry["spec"].get("mana_cost", 0)) for entry in spellbook]
+    cheapest_cost = min(spell_costs) if spell_costs else None
+    if cheapest_cost is None or cheapest_cost <= baseline_cost:
+        _cpu_cast_baseline_if_affordable(lobby, cpu_id, wizard, baseline_spell, baseline_cost, now)
+        return
+    if wizard.mana < cheapest_cost and (now - last_cast) >= 6.0:
+        _cpu_cast_baseline_if_affordable(lobby, cpu_id, wizard, baseline_spell, baseline_cost, now)
+
+
+def _cpu_start_research(lobby: Lobby, cpu_id: int, now: float) -> None:
+    prompt = _cpu_research_prompt(lobby)
+    lobby.start_research(cpu_id, prompt)
+    lobby.cpu_next_research[cpu_id] = now + lobby.state.config.research_delay_seconds + 6.0
+    logger.info(
+        "cpu_research_started",
+        lobby_id=lobby.lobby_id,
+        player_id=cpu_id,
+        prompt=prompt,
+    )
+
+
+def _cpu_cast_baseline_if_affordable(
+    lobby: Lobby,
+    cpu_id: int,
+    wizard,
+    baseline_spell: Dict[str, Any],
+    baseline_cost: float,
+    now: float,
+) -> bool:
+    if wizard.mana < baseline_cost:
+        return False
+    apply_spell(
+        lobby.state,
+        cpu_id,
+        _assign_lane_to_spawn_units(lobby, baseline_spell, None),
+    )
+    logger.info("cpu_cast_baseline", lobby_id=lobby.lobby_id, player_id=cpu_id)
+    lobby.cpu_last_cast_time[cpu_id] = now
+    return True
+
+
+def _cpu_affordable_spells(wizard, spellbook: list[Dict[str, Any]]) -> list[Dict[str, Any]]:
+    return [
+        entry for entry in spellbook if wizard.mana >= float(entry["spec"].get("mana_cost", 0))
+    ]
+
+
+def _cpu_cast_affordable_spell(
+    lobby: Lobby, cpu_id: int, affordable: list[Dict[str, Any]], now: float
+) -> bool:
+    if not affordable:
+        return False
+    entry = lobby.state.rng.choice(affordable)
+    apply_spell(lobby.state, cpu_id, _assign_lane_to_spawn_units(lobby, entry["spec"], None))
+    logger.info(
+        "cpu_cast_spell",
+        lobby_id=lobby.lobby_id,
+        player_id=cpu_id,
+        spell_name=entry["spec"].get("name"),
+    )
+    lobby.cpu_last_cast_time[cpu_id] = now
+    return True
 
 
 
@@ -634,7 +725,7 @@ def _assign_lane_to_spawn_units(lobby: Lobby, spec: Dict[str, Any], lane: Any) -
         lane = lobby.state.rng.randrange(lane_count)
     try:
         lane = int(lane)
-    except Exception:
+    except (TypeError, ValueError):
         lane = lobby.state.rng.randrange(lane_count)
     if lane < 0 or lane >= lane_count:
         lane = lobby.state.rng.randrange(lane_count)
@@ -652,13 +743,16 @@ def _assign_lane_to_spawn_units(lobby: Lobby, spec: Dict[str, Any], lane: Any) -
 
 
 def create_server() -> tuple[Flask, SocketIO]:
-    app = create_app()
-    socketio = create_socketio(app)
-    return app, socketio
+    """Build Flask and Socket.IO instances for local execution."""
+    flask_app = create_app()
+    socketio_server = create_socketio(flask_app)
+    return flask_app, socketio_server
 
 
 if __name__ == "__main__":
-    app, socketio = create_server()
+    runtime_app, runtime_socketio = create_server()
     host = os.getenv("WIZARD_FIGHT_HOST", "0.0.0.0")
     port = int(os.getenv("WIZARD_FIGHT_PORT", "5055"))
-    socketio.run(app, host=host, port=port, allow_unsafe_werkzeug=True)
+    runtime_socketio.run(
+        runtime_app, host=host, port=port, allow_unsafe_werkzeug=True
+    )

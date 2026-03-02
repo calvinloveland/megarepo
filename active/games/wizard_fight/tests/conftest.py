@@ -1,3 +1,5 @@
+"""Test bootstrap and cleanup hooks for Wizard Fight test suite."""
+
 from __future__ import annotations
 
 import os
@@ -22,7 +24,9 @@ def _stop_pid(pid: int) -> None:
         return
 
 
-def pytest_sessionstart(session) -> None:  # type: ignore[unused-argument]
+def pytest_sessionstart(session) -> None:
+    """Terminate stale dev server PIDs before running tests."""
+    _ = session
     pid_file = REPO_ROOT / ".wizard_fight_dev.pids"
     if not pid_file.exists():
         return

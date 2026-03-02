@@ -1,3 +1,5 @@
+"""Timing configuration bounds tests for docs/timing_v1.json."""
+
 from __future__ import annotations
 
 import json
@@ -7,6 +9,7 @@ TIMING_PATH = Path(__file__).resolve().parents[1] / "docs" / "timing_v1.json"
 
 
 def test_timing_config_ranges() -> None:
+    """Timing values should stay within accepted gameplay ranges."""
     payload = json.loads(TIMING_PATH.read_text(encoding="utf-8"))
     assert 10 <= payload["tick_rate_hz"] <= 60
     assert 0.2 <= payload["cast_time_seconds"] <= 1.5

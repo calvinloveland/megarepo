@@ -1,3 +1,5 @@
+"""Core simulation engine for Wizard Fight battles."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -11,6 +13,8 @@ _CONFIG_PATH = Path(__file__).resolve().parents[2] / "docs" / "timing_v1.json"
 
 @dataclass
 class GameConfig:
+    """Runtime tuning for spell combat simulation."""
+
     tick_rate_hz: int
     cast_time_seconds: float
     research_delay_seconds: float
@@ -23,11 +27,14 @@ class GameConfig:
 
     @property
     def dt(self) -> float:
+        """Simulation timestep derived from configured tick rate."""
         return 1.0 / self.tick_rate_hz
 
 
 @dataclass
 class Wizard:
+    """Wizard health and mana state."""
+
     wizard_id: int
     health: float
     mana: float
@@ -35,6 +42,8 @@ class Wizard:
 
 @dataclass
 class Unit:
+    """Combat unit spawned by spells."""
+
     unit_id: int
     owner_id: int
     lane: int
@@ -52,6 +61,8 @@ class Unit:
 
 @dataclass
 class GameState:
+    """Mutable simulation state for a running match."""
+
     config: GameConfig
     wizards: Dict[int, Wizard]
     units: List[Unit] = field(default_factory=list)
@@ -64,6 +75,8 @@ class GameState:
 
 @dataclass
 class EnvironmentEffect:
+    """Area effect that modifies unit movement or damage."""
+
     effect_type: str
     magnitude: float
     remaining_duration: float
@@ -74,6 +87,8 @@ class EnvironmentEffect:
 
 @dataclass
 class SpellCastEvent:
+    """Short-lived event for frontend cast animations."""
+
     name: str
     emoji: str
     caster_id: int
@@ -82,12 +97,14 @@ class SpellCastEvent:
 
 
 def load_config(path: Path | None = None) -> GameConfig:
+    """Load timing/combat configuration from JSON."""
     config_path = path or _CONFIG_PATH
     payload = json.loads(config_path.read_text(encoding="utf-8"))
     return GameConfig(**payload)
 
 
 def build_initial_state(seed: int, config: GameConfig | None = None) -> GameState:
+    """Build a new game state with two fresh wizards."""
     resolved_config = config or load_config()
     wizards = {
         0: Wizard(0, resolved_config.starting_health, resolved_config.starting_mana),
@@ -98,6 +115,7 @@ def build_initial_state(seed: int, config: GameConfig | None = None) -> GameStat
 
 
 def apply_spell(state: GameState, caster_id: int, spell: Dict[str, Any]) -> bool:
+    """Apply a spell and mutate state, returning False when mana is insufficient."""
     mana_cost = float(spell.get("mana_cost", 0))
     caster = state.wizards[caster_id]
     if caster.mana < mana_cost:
@@ -142,6 +160,7 @@ def apply_spell(state: GameState, caster_id: int, spell: Dict[str, Any]) -> bool
 
 
 def step(state: GameState, steps: int = 1) -> None:
+    """Advance simulation by a number of fixed time steps."""
     for _ in range(steps):
         _regen_mana(state)
         _move_units(state)
@@ -215,12 +234,16 @@ def _apply_projectiles(state: GameState, caster_id: int, projectiles: List[Dict[
     for projectile in projectiles:
         target = projectile.get("target")
         if target == "wizard":
-            damage = float(projectile["damage"]) * _environment_projectile_multiplier(state, middle_lane)
+            damage = float(projectile["damage"]) * _environment_projectile_multiplier(
+                state, middle_lane
+            )
             state.wizards[enemy_id].health -= damage
             continue
-        damage = float(projectile["damage"]) * _environment_projectile_multiplier(state, middle_lane)
+        damage = float(projectile["damage"]) * _environment_projectile_multiplier(
+            state, middle_lane
+        )
         element = _normalize_element(projectile.get("element"))
-        _apply_projectile_damage_to_lane(state, middle_lane, damage, element, target)
+        _apply_projectile_damage_to_lane(state, middle_lane, damage, element)
 
 
 def _apply_effects(state: GameState, caster_id: int, effects: List[Dict[str, Any]]) -> None:
@@ -254,7 +277,7 @@ def _spell_cast_lane(state: GameState, spawn_units: List[Dict[str, Any]]) -> int
         lane_value = spawn_units[0].get("lane")
         try:
             return _resolve_lane(state, lane_value)
-        except Exception:
+        except (TypeError, ValueError):
             return _middle_lane(state)
     return _middle_lane(state)
 
@@ -314,12 +337,14 @@ def _environment_damage_multiplier(state: GameState, lane_id: int) -> float:
 
 
 def simulate(state: GameState, total_seconds: float) -> GameState:
+    """Run simulation for the requested duration and return the mutated state."""
     steps = int(total_seconds / state.config.dt)
     step(state, steps)
     return state
 
 
 def iter_units_by_owner(state: GameState, owner_id: int) -> Iterable[Unit]:
+    """Iterate over all units owned by a given wizard."""
     return (unit for unit in state.units if unit.owner_id == owner_id)
 
 
@@ -328,7 +353,7 @@ def _resolve_lane(state: GameState, lane_value: Any) -> int:
         lane = int(lane_value)
         if 0 <= lane < state.config.lane_count:
             return lane
-    except Exception:
+    except (TypeError, ValueError):
         pass
     return state.rng.randrange(state.config.lane_count)
 
@@ -354,7 +379,10 @@ def _adjust_damage(base_damage: float, element: str | None, target: Unit) -> flo
 
 
 def _apply_projectile_damage_to_lane(
-    state: GameState, lane_id: int, damage: float, element: str | None, target: str | None
+    state: GameState,
+    lane_id: int,
+    damage: float,
+    element: str | None,
 ) -> None:
     for unit in state.units:
         if unit.lane != lane_id:

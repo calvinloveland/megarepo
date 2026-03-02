@@ -1,27 +1,21 @@
-"""Copilot SDK adapter for spell generation.
+"""Copilot backend adapter used by spell generation."""
 
-This is a conservative, minimal adapter that:
-- Prefers non-premium models (default: raptor-mini)
-- Reads config via env vars:
-  - WIZARD_FIGHT_COPILOT_MODEL (default raptor-mini)
-  - WIZARD_FIGHT_COPILOT_API_KEY (optional depending on setup)
-  - WIZARD_FIGHT_ALLOW_PREMIUM (default false)
-
-The adapter attempts to import the `github_copilot_sdk` Python client if
-available; otherwise it defers to using the CLI/server approach described in
-the SDK docs. Error handling is defensive so the rest of the game can fall
-back to existing generators.
-"""
 from __future__ import annotations
 
 import asyncio
+import importlib
 import logging
 import os
 import time
 from concurrent.futures import ThreadPoolExecutor
-from typing import Optional
+from shutil import which
+from typing import Any, Optional
 
-from wizard_fight.generation import SpellGenerator
+try:
+    from wizard_fight.generation import SpellGenerator
+except ModuleNotFoundError:
+    SpellGenerator = object  # pragma: no cover - fallback for local lint/runtime contexts
+
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +23,8 @@ DEFAULT_MODEL = "raptor-mini"
 
 
 class CopilotGenerator(SpellGenerator):
+    """Spell generator backed by a Copilot-compatible SDK client."""
+
     def __init__(self, model: Optional[str] = None, timeout: float = 20.0):
         self.model = model or os.getenv("WIZARD_FIGHT_COPILOT_MODEL", DEFAULT_MODEL)
         self.timeout = float(os.getenv("WIZARD_FIGHT_COPILOT_TIMEOUT", str(timeout)))
@@ -37,70 +33,70 @@ class CopilotGenerator(SpellGenerator):
             "true",
             "yes",
         )
-
-        # client is lazily initialized to avoid import-time errors
         self._client = None
 
+    @staticmethod
+    def _load_client_class():
+        module_names = ("copilot", "github_copilot_sdk")
+        for module_name in module_names:
+            try:
+                module = importlib.import_module(module_name)
+            except ModuleNotFoundError:
+                continue
+            for class_name in ("CopilotClient", "Copilot", "Client"):
+                client_class = getattr(module, class_name, None)
+                if client_class is not None:
+                    return client_class
+        return None
+
+    @staticmethod
+    def _build_client(client_class, cli_url: Optional[str]):
+        if cli_url is None:
+            try:
+                return client_class()
+            except TypeError:
+                return client_class({})
+        option_candidates = (
+            ({"cli_url": cli_url},),
+            ({"cliUrl": cli_url},),
+            (),
+        )
+        keyword_candidates = ({"cli_url": cli_url}, {})
+        for args in option_candidates:
+            try:
+                return client_class(*args)
+            except TypeError:
+                continue
+        for kwargs in keyword_candidates:
+            try:
+                return client_class(**kwargs)
+            except TypeError:
+                continue
+        return None
+
     def _ensure_client(self):
+        """Initialize Copilot client lazily."""
         if self._client is not None:
             return
-
-        # Try to import the official Python client in a robust way and pass CLI URL
-        try:
-            import importlib
-
-            copilot_mod = None
-            ClientClass = None
-            try:
-                copilot_mod = importlib.import_module("copilot")
-                ClientClass = getattr(copilot_mod, "CopilotClient", None)
-            except Exception:
-                copilot_mod = importlib.import_module("github_copilot_sdk")
-                ClientClass = getattr(copilot_mod, "CopilotClient", None) or getattr(
-                    copilot_mod, "Copilot", None
-                ) or getattr(copilot_mod, "Client", None)
-
-            if ClientClass is None:
-                raise ImportError("No client class found in copilot SDK module")
-
-            cli_url = os.getenv("WIZARD_FIGHT_COPILOT_CLI_URL")
-
-            # Prefer options-dict initialization (CopilotClient signature expects options: Optional[dict])
-            if cli_url:
-                try:
-                    self._client = ClientClass({"cli_url": cli_url})
-                except TypeError:
-                    try:
-                        self._client = ClientClass({"cliUrl": cli_url})
-                    except TypeError:
-                        try:
-                            self._client = ClientClass(cli_url=cli_url)
-                        except TypeError:
-                            self._client = ClientClass()
-            else:
-                try:
-                    self._client = ClientClass()
-                except TypeError:
-                    self._client = ClientClass({})
-
-            # If client exposes a models attribute, good; otherwise we'll handle defensively later
-        except Exception:  # pragma: no cover - fallback
-            logger.info(
-                "github_copilot_sdk not available or failed to initialize; Copilot backend will not be usable unless the SDK is installed or CLI URL is provided"
-            )
-            self._client = None
-
-        # If client is not available and a local 'copilot' CLI seems present, log a hint
+        client_class = self._load_client_class()
+        if client_class is None:
+            self._log_cli_hint()
+            return
+        cli_url = os.getenv("WIZARD_FIGHT_COPILOT_CLI_URL")
+        self._client = self._build_client(client_class, cli_url)
         if self._client is None:
-            from shutil import which
+            self._log_cli_hint()
 
-            if which("copilot"):
-                logger.info(
-                    "'copilot' CLI found on PATH. To use with this backend, either install 'github-copilot-sdk' or run 'copilot --server --port 4321' and set WIZARD_FIGHT_COPILOT_CLI_URL=localhost:4321"
-                )
+    @staticmethod
+    def _log_cli_hint():
+        if not which("copilot"):
+            return
+        logger.info(
+            "'copilot' CLI found on PATH. Set WIZARD_FIGHT_COPILOT_CLI_URL to use CLI server mode."
+        )
 
-    def _run_async(self, coro):
-        """Run async coroutine from sync context safely."""
+    @staticmethod
+    def _run_async(coro):
         try:
             asyncio.get_running_loop()
         except RuntimeError:
@@ -115,189 +111,219 @@ class CopilotGenerator(SpellGenerator):
                 loop.close()
 
         with ThreadPoolExecutor(max_workers=1) as executor:
-            future = executor.submit(runner)
-            return future.result()
+            return executor.submit(runner).result()
+
+    def _list_models(self):
+        """Return available models as tuples of (model_id, is_premium)."""
+        self._ensure_client()
+        if self._client is None:
+            return []
+
+        if hasattr(self._client, "list_models"):
+            model_items = self._client.list_models()
+            if asyncio.iscoroutine(model_items):
+                model_items = self._run_async(model_items)
+            return self._normalize_dict_models(model_items)
+
+        models_attr = getattr(self._client, "models", None)
+        if models_attr is None:
+            return []
+        if hasattr(models_attr, "list") and callable(models_attr.list):
+            model_items = list(models_attr.list())
+        else:
+            model_items = list(models_attr)
+        return self._normalize_object_models(model_items)
+
+    @staticmethod
+    def _normalize_dict_models(model_items: Any):
+        normalized = []
+        for model in model_items or []:
+            if not isinstance(model, dict):
+                continue
+            model_id = model.get("id")
+            billing = model.get("billing")
+            is_premium = bool(billing.get("is_premium")) if isinstance(billing, dict) else False
+            if model_id:
+                normalized.append((str(model_id), is_premium))
+        return normalized
+
+    @staticmethod
+    def _normalize_object_models(model_items: Any):
+        normalized = []
+        for model in model_items or []:
+            model_name = getattr(model, "name", None)
+            if not model_name:
+                continue
+            normalized.append((str(model_name), bool(getattr(model, "premium", False))))
+        return normalized
 
     def _select_model(self) -> str:
-        # If client provides model listing, use it to ensure non-premium selection.
-        try:
-            self._ensure_client()
-            if self._client is not None and hasattr(self._client, "list_models"):
-                async def list_models_with_start():
-                    if hasattr(self._client, "start") and hasattr(self._client, "stop"):
-                        await self._client.start()
-                        try:
-                            return await self._client.list_models()
-                        finally:
-                            await self._client.stop()
-                    return await self._client.list_models()
+        """Select model respecting premium restrictions when metadata is available."""
+        models = self._list_models()
+        if not models:
+            return self.model
 
-                models = self._run_async(list_models_with_start())
-                if models:
-                    requested = self.model
-                    for model in models:
-                        model_id = model.get("id") if isinstance(model, dict) else None
-                        billing = model.get("billing") if isinstance(model, dict) else None
-                        is_premium = False
-                        if isinstance(billing, dict):
-                            is_premium = bool(billing.get("is_premium"))
-                        if model_id == requested and is_premium and not self.allow_premium:
-                            logger.warning(
-                                "Requested model %s is premium; falling back to default non-premium model",
-                                self.model,
-                            )
-                            self.model = DEFAULT_MODEL
-                            requested = self.model
-                        if model_id == requested:
-                            return requested
+        requested = self._resolve_requested_model(models)
+        if requested is not None:
+            return requested
+        fallback = self._select_fallback_model(models)
+        return fallback if fallback is not None else self.model
 
-                    # Prefer default model if present and non-premium
-                    for model in models:
-                        model_id = model.get("id") if isinstance(model, dict) else None
-                        billing = model.get("billing") if isinstance(model, dict) else None
-                        is_premium = False
-                        if isinstance(billing, dict):
-                            is_premium = bool(billing.get("is_premium"))
-                        if model_id == DEFAULT_MODEL and (self.allow_premium or not is_premium):
-                            return DEFAULT_MODEL
+    def _resolve_requested_model(self, models):
+        model_ids = {model_id for model_id, _ in models}
+        requested = self.model
+        if requested not in model_ids:
+            return None
+        if self.allow_premium or not self._is_premium_model(models, requested):
+            return requested
+        logger.warning(
+            "Requested model %s is premium; falling back to non-premium model",
+            requested,
+        )
+        self.model = DEFAULT_MODEL
+        return None
 
-                    # Otherwise pick first non-premium model
-                    for model in models:
-                        model_id = model.get("id") if isinstance(model, dict) else None
-                        billing = model.get("billing") if isinstance(model, dict) else None
-                        is_premium = False
-                        if isinstance(billing, dict):
-                            is_premium = bool(billing.get("is_premium"))
-                        if model_id and not is_premium:
-                            return model_id
+    def _select_fallback_model(self, models):
+        for model_id, is_premium in models:
+            if model_id == DEFAULT_MODEL and (self.allow_premium or not is_premium):
+                return model_id
+        for model_id, is_premium in models:
+            if self.allow_premium or not is_premium:
+                return model_id
+        return None
 
-            if self._client is not None and hasattr(self._client, "models"):
-                raw_models = None
-                # Support multiple model-listing shapes: attribute list, method list(), or iterable
-                if hasattr(self._client.models, "list") and callable(getattr(self._client.models, "list")):
-                    raw_models = list(self._client.models.list())  # type: ignore
-                else:
-                    raw_models = list(self._client.models)
-
-                # Filter algorithm: prefer requested model if available and allowed
-                names = [getattr(m, "name", None) for m in raw_models]
-                if self.model in names:
-                    # Check for premium flag if exposed
-                    meta = next((m for m in raw_models if getattr(m, "name", None) == self.model), None)
-                    if getattr(meta, "premium", False) and not self.allow_premium:
-                        logger.warning("Requested model %s is premium; falling back to default non-premium model", self.model)
-                        self.model = DEFAULT_MODEL
-                    return self.model
-
-                # Fallback: pick DEFAULT_MODEL if available
-                for candidate in [DEFAULT_MODEL]:
-                    if candidate in names:
-                        return candidate
-                # Otherwise pick first non-premium model
-                for m in raw_models:
-                    if not getattr(m, "premium", False):
-                        return getattr(m, "name")
-        except Exception:  # pragma: no cover - defensive
-            logger.exception("Model listing failed; using configured model: %s", self.model)
-
-        return self.model
+    @staticmethod
+    def _is_premium_model(models, model_name):
+        return any(model_id == model_name and is_premium for model_id, is_premium in models)
 
     def generate(self, system: str, user: str, *, timeout: Optional[float] = None) -> str:
-        timeout = timeout or self.timeout
+        """Generate text from Copilot client, returning empty string on failure."""
+        active_timeout = timeout or self.timeout
         model = self._select_model()
         self._ensure_client()
-
-        # Minimal implementation: use client if available; otherwise, fall back to CLI via subprocess
-        if self._client is not None:
-            try:
-                if hasattr(self._client, "start") and hasattr(self._client, "create_session"):
-                    # Async CopilotClient path (Python SDK)
-                    async def run_session():
-                        await self._client.start()
-                        session = await self._client.create_session({"model": model})
-                        done = asyncio.Event()
-                        content_holder = {"text": ""}
-
-                        def on_event(event):
-                            try:
-                                if event.type.value == "assistant.message":
-                                    content_holder["text"] = event.data.content
-                                elif event.type.value == "session.idle":
-                                    done.set()
-                            except Exception:
-                                pass
-
-                        session.on(on_event)
-                        await session.send({"prompt": f"{system}\n{user}\nJSON:"})
-                        try:
-                            await asyncio.wait_for(done.wait(), timeout=timeout)
-                        except asyncio.TimeoutError:
-                            pass
-                        await session.destroy()
-                        await self._client.stop()
-                        return content_holder["text"]
-
-                    start = time.perf_counter()
-                    response = self._run_async(run_session())
-                    duration = time.perf_counter() - start
-                    logger.info("Copilot generate (async client) completed in %.2fs", duration)
-                    return str(response or "")
-
-                # Try session-based API first (common pattern in SDKs)
-                start = time.perf_counter()
-                session = None
-                if hasattr(self._client, "create_session"):
-                    # Prefer named-arg style
-                    try:
-                        session = self._client.create_session(model=self.model, streaming=False)
-                    except TypeError:
-                        session = self._client.create_session({"model": self.model, "streaming": False})
-
-                if session is not None:
-                    # Try common session send/wait forms
-                    try:
-                        if hasattr(session, "send_and_wait"):
-                            resp = session.send_and_wait({"prompt": f"{system}\n{user}\nJSON:"})
-                        elif hasattr(session, "sendAndWait"):
-                            resp = session.sendAndWait({"prompt": f"{system}\n{user}\nJSON:"})
-                        else:
-                            resp = session.send_and_wait(f"{system}\n{user}\nJSON:")
-                    finally:
-                        # Best-effort stop/cleanup
-                        try:
-                            if hasattr(session, "stop"):
-                                session.stop()
-                            elif hasattr(session, "close"):
-                                session.close()
-                        except Exception:
-                            pass
-
-                    duration = time.perf_counter() - start
-                    logger.info("Copilot generate (session) completed in %.2fs", duration)
-                    # Extract likely fields
-                    for candidate in ("data", "content", "text", "message"):
-                        if isinstance(resp, dict) and candidate in resp:
-                            return str(resp[candidate])
-                        if hasattr(resp, candidate):
-                            return str(getattr(resp, candidate))
-                    # Fallback to string conversion
-                    return str(resp)
-
-                # If no session API, try a one-shot generate method
-                if hasattr(self._client, "generate"):
-                    resp = self._client.generate(model=model, system=system, user=user, timeout=timeout)
-                    duration = time.perf_counter() - start
-                    logger.info("Copilot generate completed in %.2fs", duration)
-                    return str(getattr(resp, "text", getattr(resp, "content", "")))
-
-                # Unknown client shape
-                logger.warning("Copilot client present but does not expose known generate APIs")
-            except Exception as exc:  # pragma: no cover - error handling
-                logger.exception("Copilot client generate failed: %s", exc)
-                # Allow caller to catch; return empty string to fall back
-                return ""
-
-        # CLI fallback: call 'copilot' CLI in server mode via subprocess or HTTP JSON-RPC.
-        # For now, return empty string to signal failure so caller falls back to other generators.
-        logger.warning("Copilot client not available and CLI fallback not implemented; returning empty response")
+        if self._client is None:
+            return ""
+        try:
+            if hasattr(self._client, "start") and hasattr(self._client, "create_session"):
+                return self._generate_async_session(system, user, model, active_timeout)
+            if hasattr(self._client, "create_session"):
+                return self._generate_sync_session(system, user, model)
+            if hasattr(self._client, "generate"):
+                return self._generate_one_shot(system, user, model, active_timeout)
+        except (AttributeError, RuntimeError, TypeError, ValueError):
+            logger.exception("Copilot client generation failed")
+            return ""
+        logger.warning("Copilot client does not expose supported generation APIs")
         return ""
+
+    def backend_name(self) -> str:
+        """Return backend label for telemetry/debug."""
+        return "copilot"
+
+    def ensure_client(self) -> None:
+        """Public wrapper for lazy client initialization."""
+        self._ensure_client()
+
+    @property
+    def client(self):
+        """Expose underlying SDK client for integration/testing hooks."""
+        return self._client
+
+    @client.setter
+    def client(self, value) -> None:
+        self._client = value
+
+    def selected_model(self) -> str:
+        """Public helper used by callers/tests that need the resolved model."""
+        return self._select_model()
+
+    def _generate_async_session(
+        self, system: str, user: str, model: str, timeout: float
+    ) -> str:
+        async def run_session():
+            await self._client.start()
+            session = await self._client.create_session({"model": model})
+            done = asyncio.Event()
+            content_holder = {"text": ""}
+
+            def on_event(event):
+                event_type = getattr(getattr(event, "type", None), "value", "")
+                if event_type == "assistant.message":
+                    content = getattr(getattr(event, "data", None), "content", "")
+                    content_holder["text"] = str(content)
+                if event_type == "session.idle":
+                    done.set()
+
+            session.on(on_event)
+            await session.send({"prompt": f"{system}\n{user}\nJSON:"})
+            try:
+                await asyncio.wait_for(done.wait(), timeout=timeout)
+            except asyncio.TimeoutError:
+                logger.info("Copilot session timed out after %.1fs", timeout)
+            await session.destroy()
+            await self._client.stop()
+            return content_holder["text"]
+
+        start = time.perf_counter()
+        response = self._run_async(run_session())
+        duration = time.perf_counter() - start
+        logger.info("Copilot async generation completed in %.2fs", duration)
+        return str(response or "")
+
+    def _generate_sync_session(self, system: str, user: str, model: str) -> str:
+        start = time.perf_counter()
+        session = self._create_sync_session(model)
+        if session is None:
+            return ""
+        try:
+            response = self._send_session_prompt(session, system, user)
+        finally:
+            self._cleanup_session(session)
+        logger.info("Copilot session generation completed in %.2fs", time.perf_counter() - start)
+        return self._extract_response_text(response)
+
+    def _create_sync_session(self, model: str):
+        try:
+            return self._client.create_session(model=model, streaming=False)
+        except TypeError:
+            return self._client.create_session({"model": model, "streaming": False})
+
+    @staticmethod
+    def _send_session_prompt(session, system: str, user: str):
+        prompt_payload = {"prompt": f"{system}\n{user}\nJSON:"}
+        if hasattr(session, "send_and_wait"):
+            return session.send_and_wait(prompt_payload)
+        if hasattr(session, "sendAndWait"):
+            return session.sendAndWait(prompt_payload)
+        return session.send_and_wait(f"{system}\n{user}\nJSON:")
+
+    @staticmethod
+    def _cleanup_session(session):
+        if hasattr(session, "stop"):
+            session.stop()
+        elif hasattr(session, "close"):
+            session.close()
+
+    def _generate_one_shot(self, system: str, user: str, model: str, timeout: float) -> str:
+        start = time.perf_counter()
+        response = self._client.generate(
+            model=model,
+            system=system,
+            user=user,
+            timeout=timeout,
+        )
+        logger.info("Copilot one-shot generation completed in %.2fs", time.perf_counter() - start)
+        return self._extract_response_text(response)
+
+    @staticmethod
+    def _extract_response_text(response: Any) -> str:
+        """Extract text content from common response shapes."""
+        if isinstance(response, dict):
+            for key in ("data", "content", "text", "message"):
+                if key in response:
+                    return str(response[key])
+            return str(response)
+        for key in ("text", "content", "message", "data"):
+            if hasattr(response, key):
+                return str(getattr(response, key))
+        return str(response)

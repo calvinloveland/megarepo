@@ -1,7 +1,10 @@
+"""Spell design and DSL generation logic for Wizard Fight research."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
 import hashlib
+import importlib
 import json
 import os
 import random
@@ -11,20 +14,34 @@ import re
 
 from urllib import request
 
+from wizard_fight.llm import llm_backend_label
 from wizard_fight.storage import list_spells
 from wizard_fight.validators import validate_spell
+
+__all__ = [
+    "SpellDesign",
+    "design_spell",
+    "build_spell_spec",
+    "research_spell",
+    "upgrade_spell",
+    "llm_backend_label",
+]
 
 
 @dataclass(frozen=True)
 class SpellDesign:
+    """User-facing name and description generated during research."""
+
     name: str
     description: str
 
     def to_dict(self) -> Dict[str, Any]:
+        """Serialize design payload for API responses."""
         return {"name": self.name, "description": self.description}
 
 
 def design_spell(prompt: str) -> SpellDesign:
+    """Create a spell design from prompt text."""
     design_payload = _design_with_llm(prompt)
     name = str(design_payload.get("name") or _format_name(prompt))
     description = str(
@@ -36,6 +53,7 @@ def design_spell(prompt: str) -> SpellDesign:
 
 
 def build_spell_spec(prompt: str, design: SpellDesign) -> Dict[str, Any]:
+    """Build validated DSL spec from prompt and design."""
     spec = _dsl_with_llm(prompt, design)
     spec.setdefault("name", design.name)
     spec["name"] = design.name
@@ -48,11 +66,13 @@ def build_spell_spec(prompt: str, design: SpellDesign) -> Dict[str, Any]:
 
 
 def research_spell(prompt: str) -> Dict[str, Any]:
+    """Run full research flow and return the final spell spec."""
     design = design_spell(prompt)
     return build_spell_spec(prompt, design)
 
 
 def upgrade_spell(spec: Dict[str, Any], prompt: str) -> Dict[str, Any]:
+    """Apply bounded random upgrades while keeping validation constraints."""
     upgraded = {**spec}
     rng = random.Random(_seed_from_prompt(prompt + spec.get("name", "")))
     upgraded["name"] = f"{spec.get('name', 'Spell')} Mk II"
@@ -60,41 +80,59 @@ def upgrade_spell(spec: Dict[str, Any], prompt: str) -> Dict[str, Any]:
         upgraded["emoji"] = spec["emoji"]
 
     if "spawn_units" in spec:
-        units = [dict(unit) for unit in spec["spawn_units"]]
-        for unit in units:
-            unit["hp"] = _clamp(unit["hp"] + rng.randint(-5, 10), 1, 120)
-            unit["speed"] = round(_clamp(float(unit["speed"]) + rng.uniform(-0.5, 0.8), 0.5, 6.0), 1)
-            unit["damage"] = round(_clamp(float(unit["damage"]) + rng.uniform(-1.0, 2.5), 0.5, 25.0), 1)
-        upgraded["spawn_units"] = units
+        upgraded["spawn_units"] = _upgrade_spawn_units(spec["spawn_units"], rng)
     if "projectiles" in spec:
-        projectiles = [dict(projectile) for projectile in spec["projectiles"]]
-        for projectile in projectiles:
-            projectile["damage"] = round(
-                _clamp(float(projectile["damage"]) + rng.uniform(-2.0, 4.0), 1.0, 30.0),
-                1,
-            )
-            projectile["speed"] = round(
-                _clamp(float(projectile["speed"]) + rng.uniform(-1.0, 2.5), 1.0, 15.0),
-                1,
-            )
-        upgraded["projectiles"] = projectiles
+        upgraded["projectiles"] = _upgrade_projectiles(spec["projectiles"], rng)
     if "effects" in spec:
-        effects = [dict(effect) for effect in spec["effects"]]
-        for effect in effects:
-            effect["magnitude"] = round(
-                _clamp(float(effect["magnitude"]) + rng.uniform(-0.3, 0.7), 0.1, 5.0),
-                1,
-            )
-            effect["duration"] = round(
-                _clamp(float(effect["duration"]) + rng.uniform(-1.0, 2.0), 0.5, 10.0),
-                1,
-            )
-        upgraded["effects"] = effects
+        upgraded["effects"] = _upgrade_effects(spec["effects"], rng)
 
     errors = validate_spell(upgraded)
     if errors:
         return spec
     return upgraded
+
+
+def _upgrade_spawn_units(units: list[Dict[str, Any]], rng: random.Random):
+    upgraded_units = [dict(unit) for unit in units]
+    for unit in upgraded_units:
+        unit["hp"] = _clamp(unit["hp"] + rng.randint(-5, 10), 1, 120)
+        unit["speed"] = round(
+            _clamp(float(unit["speed"]) + rng.uniform(-0.5, 0.8), 0.5, 6.0),
+            1,
+        )
+        unit["damage"] = round(
+            _clamp(float(unit["damage"]) + rng.uniform(-1.0, 2.5), 0.5, 25.0),
+            1,
+        )
+    return upgraded_units
+
+
+def _upgrade_projectiles(projectiles: list[Dict[str, Any]], rng: random.Random):
+    upgraded_projectiles = [dict(projectile) for projectile in projectiles]
+    for projectile in upgraded_projectiles:
+        projectile["damage"] = round(
+            _clamp(float(projectile["damage"]) + rng.uniform(-2.0, 4.0), 1.0, 30.0),
+            1,
+        )
+        projectile["speed"] = round(
+            _clamp(float(projectile["speed"]) + rng.uniform(-1.0, 2.5), 1.0, 15.0),
+            1,
+        )
+    return upgraded_projectiles
+
+
+def _upgrade_effects(effects: list[Dict[str, Any]], rng: random.Random):
+    upgraded_effects = [dict(effect) for effect in effects]
+    for effect in upgraded_effects:
+        effect["magnitude"] = round(
+            _clamp(float(effect["magnitude"]) + rng.uniform(-0.3, 0.7), 0.1, 5.0),
+            1,
+        )
+        effect["duration"] = round(
+            _clamp(float(effect["duration"]) + rng.uniform(-1.0, 2.0), 0.5, 10.0),
+            1,
+        )
+    return upgraded_effects
 
 
 def _extract_keyword(prompt: str) -> str:
@@ -114,11 +152,20 @@ def _seed_from_prompt(prompt: str) -> int:
 
 def _choose_effect_type(prompt: str, rng: random.Random) -> str:
     lowered = prompt.lower()
-    if any(word in lowered for word in ["summon", "spawn", "monkey", "golem", "drone", "robot", "mech"]):
+    if any(
+        word in lowered
+        for word in ["summon", "spawn", "monkey", "golem", "drone", "robot", "mech"]
+    ):
         return "spawn_units"
-    if any(word in lowered for word in ["bolt", "blast", "fire", "arrow", "laser", "plasma", "rail"]):
+    if any(
+        word in lowered
+        for word in ["bolt", "blast", "fire", "arrow", "laser", "plasma", "rail"]
+    ):
         return "projectiles"
-    if any(word in lowered for word in ["shield", "slow", "haste", "curse", "stun", "jam", "freeze"]):
+    if any(
+        word in lowered
+        for word in ["shield", "slow", "haste", "curse", "stun", "jam", "freeze"]
+    ):
         return "effects"
     return rng.choices(
         ["spawn_units", "projectiles", "effects"],
@@ -131,9 +178,8 @@ def _local_model_hint(prompt: str) -> Optional[str]:
     mode = os.getenv("WIZARD_FIGHT_LLM_MODE", "local").lower()
     if mode != "local":
         return None
-    try:
-        from transformers import pipeline  # type: ignore
-    except Exception:
+    pipeline = _load_transformers_pipeline()
+    if pipeline is None:
         return None
 
     model_name = os.getenv("WIZARD_FIGHT_LOCAL_MODEL", "sshleifer/tiny-gpt2")
@@ -152,8 +198,16 @@ def _local_model_hint(prompt: str) -> Optional[str]:
         if not output:
             return None
         return str(output[0].get("generated_text", ""))
-    except Exception:
+    except (OSError, TypeError, ValueError):
         return None
+
+
+def _load_transformers_pipeline():
+    try:
+        module = importlib.import_module("transformers")
+    except ModuleNotFoundError:
+        return None
+    return getattr(module, "pipeline", None)
 
 
 def _clamp(value: float, minimum: float, maximum: float) -> float:
@@ -178,7 +232,9 @@ def _design_with_llm(prompt: str) -> Dict[str, Any]:
     keyword = _extract_keyword(prompt)
     return {
         "name": f"{keyword.title()} Echo",
-        "description": f"A creative {keyword.lower()} spell that trades power for timing and control.",
+        "description": (
+            f"A creative {keyword.lower()} spell that trades power for timing and control."
+        ),
     }
 
 
@@ -191,10 +247,10 @@ def _dsl_with_llm(prompt: str, design: SpellDesign) -> Dict[str, Any]:
         "Keep values within limits and avoid instant-win power."
     )
     user = (
-        "Prompt: {prompt}\n"
-        "Name: {name}\n"
-        "Description: {description}\n"
-        "Output only JSON.".format(prompt=prompt, name=design.name, description=design.description)
+        f"Prompt: {prompt}\n"
+        f"Name: {design.name}\n"
+        f"Description: {design.description}\n"
+        "Output only JSON."
     )
     response = _call_llm(system=system, user=user)
     payload = _parse_json(response)
@@ -210,12 +266,11 @@ def _call_llm(system: str, user: str) -> str:
     backend via `WIZARD_FIGHT_SPELL_BACKEND` and `wizard_fight.generation`.
     """
     try:
-        from wizard_fight.generation import get_generator_from_env
-
-        gen = get_generator_from_env()
-        return gen.generate(system, user, timeout=20)
-    except Exception:
-        # If no generator or it fails, fall back to legacy env var based behavior
+        generation_module = importlib.import_module("wizard_fight.generation")
+        generator_factory = getattr(generation_module, "get_generator_from_env")
+        generator = generator_factory()
+        return generator.generate(system, user, timeout=20)
+    except (AttributeError, ModuleNotFoundError, RuntimeError, TypeError, ValueError):
         mode = os.getenv("WIZARD_FIGHT_LLM_MODE", "local").lower()
         if mode == "openai":
             return _call_openai(system, user)
@@ -247,7 +302,7 @@ def _call_openai(system: str, user: str) -> str:
             raw = resp.read().decode("utf-8")
             body = json.loads(raw)
             return str(body["choices"][0]["message"]["content"])
-    except Exception:
+    except (OSError, ValueError, KeyError, json.JSONDecodeError, TypeError):
         return ""
 
 
@@ -262,9 +317,8 @@ def _call_local_model(system: str, user: str) -> str:
         if response:
             return response
 
-    try:
-        from transformers import pipeline  # type: ignore
-    except Exception:
+    pipeline = _load_transformers_pipeline()
+    if pipeline is None:
         return ""
 
     model_name = os.getenv("WIZARD_FIGHT_LOCAL_MODEL", "sshleifer/tiny-gpt2")
@@ -283,7 +337,7 @@ def _call_local_model(system: str, user: str) -> str:
         if not output:
             return ""
         return str(output[0].get("generated_text", ""))
-    except Exception:
+    except (OSError, TypeError, ValueError):
         return ""
 
 
@@ -306,7 +360,7 @@ def _call_ollama(system: str, user: str) -> str:
             raw = resp.read().decode("utf-8")
             body = json.loads(raw)
             return str(body.get("response", ""))
-    except Exception:
+    except (OSError, TypeError, ValueError, json.JSONDecodeError):
         return ""
 
 
@@ -315,7 +369,7 @@ def _parse_json(text: str) -> Optional[Dict[str, Any]]:
         return None
     try:
         return json.loads(text)
-    except Exception:
+    except json.JSONDecodeError:
         pass
     start = text.find("{")
     end = text.rfind("}")
@@ -324,7 +378,7 @@ def _parse_json(text: str) -> Optional[Dict[str, Any]]:
     snippet = text[start : end + 1]
     try:
         return json.loads(snippet)
-    except Exception:
+    except json.JSONDecodeError:
         return None
 
 
@@ -391,22 +445,19 @@ def _fallback_spell_spec(prompt: str, design: SpellDesign) -> Dict[str, Any]:
 
 def _choose_emoji(prompt: str, spec: Dict[str, Any]) -> str:
     lowered = prompt.lower()
-    if "monkey" in lowered or "summon" in lowered or "spawn" in lowered:
-        return "🐒"
-    if "shield" in lowered or "barrier" in lowered:
-        return "🛡️"
-    if "fire" in lowered or "ember" in lowered or "burn" in lowered:
-        return "🔥"
-    if "ice" in lowered or "frost" in lowered:
-        return "❄️"
-    if "wind" in lowered or "storm" in lowered:
-        return "🌪️"
-    if "bolt" in lowered or "arcane" in lowered:
-        return "✨"
-    if any(word in lowered for word in ["laser", "plasma", "drone", "robot", "mech"]):
-        return "🤖"
-    if any(word in lowered for word in ["nanite", "virus", "hack", "jam"]):
-        return "🧪"
+    rules = (
+        ("🐒", ("monkey", "summon", "spawn")),
+        ("🛡️", ("shield", "barrier")),
+        ("🔥", ("fire", "ember", "burn")),
+        ("❄️", ("ice", "frost")),
+        ("🌪️", ("wind", "storm")),
+        ("✨", ("bolt", "arcane")),
+        ("🤖", ("laser", "plasma", "drone", "robot", "mech")),
+        ("🧪", ("nanite", "virus", "hack", "jam")),
+    )
+    for emoji, keywords in rules:
+        if any(keyword in lowered for keyword in keywords):
+            return emoji
     if spec.get("projectiles"):
         return "⚡"
     if spec.get("effects"):
@@ -472,38 +523,12 @@ def _ensure_unique_spec(prompt: str, spec: Dict[str, Any]) -> Dict[str, Any]:
         return spec
     adjusted = json.loads(json.dumps(spec))
     rng = random.Random(_seed_from_prompt(prompt + spec.get("name", "")))
-    adjusted["mana_cost"] = int(_clamp(float(adjusted.get("mana_cost", 0)) + rng.randint(-2, 2), 0, 100))
-
-    if "spawn_units" in adjusted:
-        for unit in adjusted["spawn_units"]:
-            unit["speed"] = round(
-                _clamp(float(unit["speed"]) + rng.uniform(-0.6, 0.6), 0.5, 6.0),
-                1,
-            )
-            unit["damage"] = round(
-                _clamp(float(unit["damage"]) + rng.uniform(-1.0, 1.2), 0.5, 25.0),
-                1,
-            )
-    if "projectiles" in adjusted:
-        for projectile in adjusted["projectiles"]:
-            projectile["speed"] = round(
-                _clamp(float(projectile["speed"]) + rng.uniform(-1.0, 1.0), 1.0, 15.0),
-                1,
-            )
-            projectile["damage"] = round(
-                _clamp(float(projectile["damage"]) + rng.uniform(-2.0, 2.0), 1.0, 30.0),
-                1,
-            )
-    if "effects" in adjusted:
-        for effect in adjusted["effects"]:
-            effect["magnitude"] = round(
-                _clamp(float(effect["magnitude"]) + rng.uniform(-0.4, 0.6), 0.1, 5.0),
-                1,
-            )
-            effect["duration"] = round(
-                _clamp(float(effect["duration"]) + rng.uniform(-1.2, 1.2), 0.5, 10.0),
-                1,
-            )
+    adjusted["mana_cost"] = int(
+        _clamp(float(adjusted.get("mana_cost", 0)) + rng.randint(-2, 2), 0, 100)
+    )
+    _adjust_spawn_units(adjusted, rng)
+    _adjust_projectiles(adjusted, rng)
+    _adjust_effects(adjusted, rng)
 
     errors = validate_spell(adjusted)
     if errors:
@@ -511,4 +536,37 @@ def _ensure_unique_spec(prompt: str, spec: Dict[str, Any]) -> Dict[str, Any]:
     return adjusted
 
 
-from wizard_fight.llm import llm_backend_label  # re-export helper to keep compatibility
+def _adjust_spawn_units(spec: Dict[str, Any], rng: random.Random) -> None:
+    for unit in spec.get("spawn_units", []):
+        unit["speed"] = round(
+            _clamp(float(unit["speed"]) + rng.uniform(-0.6, 0.6), 0.5, 6.0),
+            1,
+        )
+        unit["damage"] = round(
+            _clamp(float(unit["damage"]) + rng.uniform(-1.0, 1.2), 0.5, 25.0),
+            1,
+        )
+
+
+def _adjust_projectiles(spec: Dict[str, Any], rng: random.Random) -> None:
+    for projectile in spec.get("projectiles", []):
+        projectile["speed"] = round(
+            _clamp(float(projectile["speed"]) + rng.uniform(-1.0, 1.0), 1.0, 15.0),
+            1,
+        )
+        projectile["damage"] = round(
+            _clamp(float(projectile["damage"]) + rng.uniform(-2.0, 2.0), 1.0, 30.0),
+            1,
+        )
+
+
+def _adjust_effects(spec: Dict[str, Any], rng: random.Random) -> None:
+    for effect in spec.get("effects", []):
+        effect["magnitude"] = round(
+            _clamp(float(effect["magnitude"]) + rng.uniform(-0.4, 0.6), 0.1, 5.0),
+            1,
+        )
+        effect["duration"] = round(
+            _clamp(float(effect["duration"]) + rng.uniform(-1.2, 1.2), 0.5, 10.0),
+            1,
+        )

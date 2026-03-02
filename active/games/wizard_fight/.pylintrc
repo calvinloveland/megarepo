@@ -1,0 +1,10 @@
+[MASTER]
+init-hook=import sys, pathlib; sys.path.insert(0, str(pathlib.Path('.').resolve() / 'src'))
+
+[DESIGN]
+max-attributes=14
+max-locals=30
+max-statements=130
+max-args=8
+max-positional-arguments=8
+min-public-methods=1

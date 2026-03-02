@@ -1,10 +1,14 @@
+"""Server integration tests for lobby and spellbook workflows."""
+
 from __future__ import annotations
 
+from wizard_fight import storage
 from wizard_fight.server import create_server
 from wizard_fight.storage import save_spell
 
 
 def test_lobby_flow_and_state_updates() -> None:
+    """Lobby flow should update state and complete a research cycle."""
     app, socketio = create_server()
     metrics_response = app.test_client().get("/metrics")
     metrics_payload = metrics_response.get_json()
@@ -53,6 +57,7 @@ def test_lobby_flow_and_state_updates() -> None:
 
 
 def test_cast_baseline_respects_lane() -> None:
+    """Baseline cast should honor the provided lane value."""
     app, socketio = create_server()
     client = socketio.test_client(app)
     lobby_response = client.emit("create_lobby", {"seed": 7}, callback=True)
@@ -72,8 +77,8 @@ def test_cast_baseline_respects_lane() -> None:
 
 
 def test_spellbook_route_returns_spells(tmp_path, monkeypatch) -> None:
+    """Spellbook endpoint should return saved spell payloads."""
     db_path = tmp_path / "wizard_fight.db"
-    from wizard_fight import storage
 
     monkeypatch.setattr(storage, "default_db_path", lambda: db_path)
     save_spell(
@@ -92,8 +97,8 @@ def test_spellbook_route_returns_spells(tmp_path, monkeypatch) -> None:
 
 
 def test_generate_spell_saves_and_reports_backend(tmp_path, monkeypatch) -> None:
+    """Generate endpoint should persist and return spell content."""
     db_path = tmp_path / "wizard_fight.db"
-    from wizard_fight import storage
 
     monkeypatch.setattr(storage, "default_db_path", lambda: db_path)
     monkeypatch.setenv("WIZARD_FIGHT_LLM_MODE", "disabled")
