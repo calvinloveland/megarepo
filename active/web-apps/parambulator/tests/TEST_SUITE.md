@@ -6,7 +6,7 @@ Comprehensive Playwright tests validating all fixes from the feedback addressing
 
 ### ✅ Feedback System Improvements (Commit 8b0ff52a)
 
-**TestFeedbackImprovements class** - 5 tests
+**TestFeedbackImprovements class** - 4 tests
 
 1. `test_feedback_element_selector_updates_button_text`
    - Verifies button text changes from "Click to select" → "Selecting..." → "Selected:"
@@ -23,11 +23,6 @@ Comprehensive Playwright tests validating all fixes from the feedback addressing
 4. `test_feedback_clear_button_works`
    - Tests clear selection functionality
    - Validates button visibility and state reset
-
-5. `test_feedback_selector_button_text_with_selection`
-   - Integration test for complete selector workflow
-
----
 
 ### ✅ Grid Layout Improvements (Commit 46685601)
 
@@ -69,26 +64,32 @@ Comprehensive Playwright tests validating all fixes from the feedback addressing
 
 ### ✅ Column Configuration (Commit 6194238e)
 
-**TestColumnConfigurationUI class** - 5 tests
+**TestColumnConfigurationUI class** - 7 tests
 
 1. `test_column_configuration_section_exists`
    - Verifies "Column Behavior & Constraints" heading visible
 
 2. `test_column_type_selectors_exist`
-   - Confirms all 4 column type dropdowns present
+   - Confirms core column type dropdowns are present
    - reading_level, talkative, iep_front, avoid
 
 3. `test_column_weight_inputs_exist`
-   - Confirms all 4 weight inputs present
+   - Confirms core weight inputs are present
    - Validates numeric inputs for weighting
 
 4. `test_column_type_has_ignore_option`
    - Tests "Ignore" option available in type selector
    - Validates ability to disable columns
 
-5. `test_add_column_button_is_disabled`
-   - Confirms "+ Add Column (future)" button exists
-   - Validates it's disabled (future feature)
+5. `test_add_column_button_adds_new_column`
+   - Confirms "+ Add Column" button is enabled
+   - Validates creating a new editable table column
+
+6. `test_rows_cols_iterations_controls_are_not_visible`
+   - Confirms legacy rows/cols/iterations controls are hidden in People tab
+
+7. `test_undo_redo_buttons_are_floating`
+   - Confirms undo/redo controls use floating placement
 
 ---
 
@@ -148,25 +149,24 @@ Comprehensive Playwright tests validating all fixes from the feedback addressing
 
 ```bash
 # Install dependencies (if needed)
-pip install -e .
-pip install pytest playwright
+.venv/bin/pip install -e .
 npx playwright install chromium
 
 # Set up Playwright browsers path
 export PLAYWRIGHT_BROWSERS_PATH=$PWD/.playwright_browsers
 
 # Run tests
-FLASK_DEBUG=true pytest tests/test_feedback_improvements.py -v
+SECRET_KEY=test-key .venv/bin/pytest tests/test_feedback_improvements.py -v
 ```
 
 ### Run Specific Test Class
 
 ```bash
 # Only feedback system tests
-pytest tests/test_feedback_improvements.py::TestFeedbackImprovements -v
+SECRET_KEY=test-key .venv/bin/pytest tests/test_feedback_improvements.py::TestFeedbackImprovements -v
 
 # Only grid layout tests
-pytest tests/test_feedback_improvements.py::TestGridLayoutImprovements -v
+SECRET_KEY=test-key .venv/bin/pytest tests/test_feedback_improvements.py::TestGridLayoutImprovements -v
 ```
 
 ---
@@ -174,7 +174,7 @@ pytest tests/test_feedback_improvements.py::TestGridLayoutImprovements -v
 ## Test Statistics
 
 - **Total Test Classes**: 6
-- **Total Test Methods**: 23
+- **Total Test Methods**: 24
 - **Coverage**: All 13 feedback items validated
 - **Test Types**: Unit + Integration + E2E
 - **Frameworks**: pytest + Playwright
@@ -191,9 +191,7 @@ These tests are designed to run in CI pipelines:
   run: npx playwright install --with-deps chromium
 
 - name: Run feedback tests
-  run: |
-    export FLASK_DEBUG=true
-    pytest tests/test_feedback_improvements.py -v
+  run: SECRET_KEY=test-key .venv/bin/pytest tests/test_feedback_improvements.py -v
 ```
 
 ---
@@ -212,6 +210,6 @@ When adding new feedback-driven features:
 
 ## Related Documentation
 
-- [FEEDBACK_ACTION_PLAN.md](FEEDBACK_ACTION_PLAN.md) - All addressed feedback items
-- [README.md](README.md) - Main project documentation
+- [../FEEDBACK_ACTION_PLAN.md](../FEEDBACK_ACTION_PLAN.md) - All addressed feedback items
+- [../README.md](../README.md) - Main project documentation
 - [tests/test_ui_playwright.py](tests/test_ui_playwright.py) - Original E2E tests

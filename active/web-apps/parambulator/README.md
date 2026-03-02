@@ -10,8 +10,9 @@ A Flask + HTMX web application for building seating charts with constraint-based
 - **Custom Layouts**: Define available seats with visual grid editor or starter templates
 - **Scoring Modes**: Use direct weights or priority ranks for constraint tuning
 - **Save/Load System**: Persistent server-side storage for seating plans
-- **Five UI Designs**: Compare different interface layouts
+- **Seven UI Designs**: Compare different interface layouts
 - **Onboarding Tutorial**: Built-in quick walkthrough for first-time users
+- **Contextual Tips**: Inline guidance on People, Layout, Chart, and Score tabs
 - **User Feedback**: Built-in feedback system for collecting user suggestions
 
 ## Architecture
@@ -32,7 +33,7 @@ parambulator/
 │   └── storage.py      # File I/O for saves/feedback (50 lines)
 ├── templates/          # 14 Jinja2 templates + partials
 ├── static/             # CSS assets
-├── tests/              # 10 tests (3 units, 3 feedback, 4 E2E)
+├── tests/              # pytest unit + Playwright integration suites
 └── data/
     ├── saves/          # User-generated seating plans
     └── feedback/       # User feedback submissions
@@ -135,18 +136,18 @@ See [SECURITY_HARDENING_PLAN.md](SECURITY_HARDENING_PLAN.md) for:
 
 ```bash
 # Unit tests (fast)
-pytest tests/test_scoring.py tests/test_feedback.py
+SECRET_KEY=test-key .venv/bin/pytest tests/test_scoring.py tests/test_storage.py tests/test_feedback.py
 
 # E2E tests (requires Playwright browsers)
 export PLAYWRIGHT_BROWSERS_PATH=$PWD/.playwright_browsers
 npx playwright install --with-deps chromium
-pytest tests/test_ui_playwright.py
+SECRET_KEY=test-key .venv/bin/pytest tests/test_ui_playwright.py
 
 # Feedback improvement tests (comprehensive E2E suite)
 ./run_feedback_tests.sh
 
 # All tests
-FLASK_DEBUG=true pytest -v
+SECRET_KEY=test-key .venv/bin/pytest -v
 ```
 
 ### Test Suites
@@ -163,14 +164,14 @@ FLASK_DEBUG=true pytest -v
   - Header row parsing
   - Integration scenarios
 
-**Note**: Tests require `FLASK_DEBUG=true` or `SECRET_KEY` environment variable.
+**Note**: Use the project virtualenv (`.venv`) so Playwright and pytest dependencies match the project setup.
 
 ## Usage
 
-1. **Input People**: Enter student data via JSON or table format
+1. **Input People**: Enter student data in the People & Constraints table
 2. **Configure Constraints**: Adjust weights for different seating priorities
 3. **Define Layout**: Mark available/unavailable seats in the grid
-4. **Generate**: Algorithm runs 150 iterations to find optimal arrangement
+4. **Generate & Pin**: Generate a chart, pin required seats, then regenerate as needed
 5. **Review Scores**: See breakdown of constraint satisfaction
 6. **Save/Load**: Persist charts for later reference
 
@@ -201,7 +202,7 @@ All `.json` files are gitignored. Docker volumes persist across container restar
 
 Run tests before committing:
 ```bash
-FLASK_DEBUG=true pytest -v
+SECRET_KEY=test-key .venv/bin/pytest -v
 ```
 
 Ensure all security configurations remain intact when modifying `app.py`.

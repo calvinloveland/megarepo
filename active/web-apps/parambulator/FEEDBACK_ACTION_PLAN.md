@@ -1,7 +1,7 @@
 # Parambulator Feedback - Action Plan
 
 **Generated**: 2026-02-11
-**Last Updated**: 2026-02-11 (18:10 UTC)
+**Last Updated**: 2026-03-02 (docs refresh)
 **Total Real Feedback Items**: 13
 **Status**: ✅ ALL FEEDBACK ADDRESSED (100%)
 
@@ -88,11 +88,11 @@
 **Implementation**:
 - Improved UI clarity with "Column Behavior & Constraints" heading
 - Added tip about using 'Ignore' type to effectively disable columns
-- Added disabled "+ Add Column (future)" button with explanatory tooltip
+- Enabled "+ Add Column" so users can add editable custom table columns
 
 **Limitation** (documented as future enhancement):
-- Full dynamic column addition requires backend scoring system changes
-- Users can effectively customize existing 4 columns via type/weight/ignore
+- Custom columns can be added to the people table, but scoring behavior is still fixed to built-in scoring columns
+- Extending scoring to arbitrary new columns requires backend scoring system changes
 
 ---
 
@@ -140,10 +140,10 @@
 
 While all current feedback has been addressed, potential improvements for future consideration:
 
-1. **Fully Dynamic Columns** (high complexity)
-   - Allow users to create entirely new column types beyond the 4 defaults
-   - Requires extending backend scoring system
-   - Would need Person model changes and scoring algorithm updates
+1. **Custom scoring for added columns** (high complexity)
+   - Users can already add custom table columns
+   - Additional work would map those custom columns into scoring behavior
+   - Would need scoring algorithm updates and configuration UX changes
 
 2. **Row/Column Duplication** (low complexity)
    - Currently can add blank rows/columns
