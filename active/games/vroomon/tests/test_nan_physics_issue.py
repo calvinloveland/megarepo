@@ -2,7 +2,6 @@
 
 import unittest
 import math
-import pymunk
 from vroomon.car.car import Car
 from vroomon.simulation import Simulation
 from vroomon.ground import Ground
@@ -208,34 +207,23 @@ class TestNaNPhysicsIssue(unittest.TestCase):
     def _check_car_for_nan(self, car, car_name):
         """Helper method to check a car for NaN values."""
         print(f"\nChecking {car_name}:")
-        
-        # Check main body
-        if hasattr(car, 'body') and car.body:
-            pos = car.body.position
-            vel = car.body.velocity
-            print(f"  Main body position: {pos}")
-            print(f"  Main body velocity: {vel}")
-            
-            if math.isnan(pos.x) or math.isnan(pos.y):
-                self.fail(f"NaN in {car_name} main body position: {pos}")
-            if math.isnan(vel.x) or math.isnan(vel.y):
-                self.fail(f"NaN in {car_name} main body velocity: {vel}")
-        
-        # Check frame parts
-        for i, (body, shape) in enumerate(car.frame):
-            pos = body.position
-            vel = body.velocity
-            angular_vel = body.angular_velocity
-            
-            print(f"  Frame part {i} position: {pos}")
-            print(f"  Frame part {i} velocity: {vel}")
-            
-            if math.isnan(pos.x) or math.isnan(pos.y):
-                self.fail(f"NaN in {car_name} frame part {i} position: {pos}")
-            if math.isnan(vel.x) or math.isnan(vel.y):
-                self.fail(f"NaN in {car_name} frame part {i} velocity: {vel}")
-            if math.isnan(angular_vel):
-                self.fail(f"NaN in {car_name} frame part {i} angular velocity: {angular_vel}")
+        if hasattr(car, "body") and car.body:
+            self._assert_body_finite(car.body, f"{car_name} main body")
+        for i, (body, _) in enumerate(car.frame):
+            self._assert_body_finite(body, f"{car_name} frame part {i}")
+
+    def _assert_body_finite(self, body, label):
+        pos = body.position
+        vel = body.velocity
+        angular_vel = body.angular_velocity
+        print(f"  {label} position: {pos}")
+        print(f"  {label} velocity: {vel}")
+        if math.isnan(pos.x) or math.isnan(pos.y):
+            self.fail(f"NaN in {label} position: {pos}")
+        if math.isnan(vel.x) or math.isnan(vel.y):
+            self.fail(f"NaN in {label} velocity: {vel}")
+        if math.isnan(angular_vel):
+            self.fail(f"NaN in {label} angular velocity: {angular_vel}")
 
     def test_score_car_simulation_for_nan(self):
         """Test the full score_car simulation process for NaN generation."""

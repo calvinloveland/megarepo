@@ -15,87 +15,80 @@ class TestReproduceNaNIssue(unittest.TestCase):
     def test_reproduce_main_simulation_issue(self):
         """Reproduce the exact sequence from main.py that causes the NaN issue."""
         print("=== Reproducing Main Simulation Issue ===")
-        
-        # Use the same random seed to get reproducible results
         random.seed(42)
-        
-        # Replicate the main.py simulation parameters
         population_size = 20
         dna_length = 5
-        generations = 2  # Just a few generations to trigger the issue
-        
-        # Initialize population exactly like main.py
+        generations = 2
         pop = initialize_population(population_size, dna_length)
         ground = Ground()
-        
         print(f"Initial population size: {len(pop)}")
-        
-        # Check each car in the initial population for potential NaN issues
         for i, car_dna in enumerate(pop):
-            print(f"\nChecking car {i}: {car_dna}")
-            
+            self._check_car_from_dna(car_dna, i, ground)
+
+        for gen in range(generations):
+            print(f"\n=== Generation {gen + 1} ===")
+            sim = Simulation()
+            pop = evolve_population(
+                pop, retain_ratio=0.5, mutation_rate=0.1, ground=ground, simulation=sim
+            )
+            print(f"Population after evolution: {len(pop)} cars")
+            self._check_generation_sample(pop, gen + 1, ground)
+
+    def _check_car_from_dna(self, car_dna, car_index, ground):
+        """Create a car, validate wheel motors, and run a score simulation."""
+        print(f"\nChecking car {car_index}: {car_dna}")
+        try:
+            car = Car(car_dna)
+            self._assert_wheel_motor_values(car, car_index)
+            self._log_car_score(car, ground, f"Car {car_index}")
+        except Exception as error:
+            print(f"  Car {car_index} creation failed: {error}")
+
+    def _assert_wheel_motor_values(self, car, car_index):
+        """Assert wheel motor values are finite for each wheel in the car."""
+        for wheel_index, part in enumerate(car.frame_parts):
+            if not hasattr(part, "motor"):
+                continue
+            motor = part.motor
+            print(
+                f"  Wheel {wheel_index}: rate={motor.rate}, max_force={motor.max_force}"
+            )
+            self.assertFalse(
+                math.isnan(motor.rate),
+                f"Car {car_index} wheel {wheel_index} has NaN motor rate",
+            )
+            self.assertFalse(
+                math.isnan(motor.max_force),
+                f"Car {car_index} wheel {wheel_index} has NaN motor max_force",
+            )
+            self.assertFalse(
+                math.isinf(motor.rate),
+                f"Car {car_index} wheel {wheel_index} has infinite motor rate",
+            )
+            self.assertFalse(
+                math.isinf(motor.max_force),
+                f"Car {car_index} wheel {wheel_index} has infinite motor max_force",
+            )
+
+    def _check_generation_sample(self, population, generation, ground):
+        """Run score checks on a small sample from an evolved population."""
+        for i, car_dna in enumerate(population[:5]):
             try:
                 car = Car(car_dna)
-                
-                # Check for problematic wheel configurations
-                for j, part in enumerate(car.frame_parts):
-                    if hasattr(part, 'motor'):  # It's a wheel
-                        motor = part.motor
-                        print(f"  Wheel {j}: rate={motor.rate}, max_force={motor.max_force}")
-                        
-                        # Check for NaN or problematic values
-                        if math.isnan(motor.rate):
-                            self.fail(f"Car {i} wheel {j} has NaN motor rate")
-                        if math.isnan(motor.max_force):
-                            self.fail(f"Car {i} wheel {j} has NaN motor max_force")
-                        if math.isinf(motor.rate):
-                            self.fail(f"Car {i} wheel {j} has infinite motor rate")
-                        if math.isinf(motor.max_force):
-                            self.fail(f"Car {i} wheel {j} has infinite motor max_force")
-                
-                # Try a quick simulation to see if it causes NaN
-                sim = Simulation()
-                try:
-                    score = sim.score_car(car, ground, visualize=False)
-                    print(f"  Car {i} simulation succeeded with score: {score}")
-                    
-                    if math.isnan(score):
-                        print(f"  WARNING: Car {i} has NaN score!")
-                        
-                except Exception as e:
-                    print(f"  Car {i} simulation failed: {e}")
-                    
-            except Exception as e:
-                print(f"  Car {i} creation failed: {e}")
-        
-        # Now try the evolution process that triggers the issue
+                self._log_car_score(car, ground, f"Generation {generation} car {i}")
+            except Exception as error:
+                print(f"  Generation {generation} car {i} failed: {error}")
+
+    def _log_car_score(self, car, ground, label):
+        """Simulate and log score, warning when a NaN score appears."""
+        sim = Simulation()
         try:
-            for gen in range(generations):
-                print(f"\n=== Generation {gen + 1} ===")
-                
-                sim = Simulation()
-                pop = evolve_population(
-                    pop, retain_ratio=0.5, mutation_rate=0.1, ground=ground, simulation=sim
-                )
-                
-                print(f"Population after evolution: {len(pop)} cars")
-                
-                # Check for any cars with NaN issues after evolution
-                for i, car_dna in enumerate(pop[:5]):  # Check first 5 cars
-                    try:
-                        car = Car(car_dna)
-                        test_sim = Simulation()
-                        score = test_sim.score_car(car, ground, visualize=False)
-                        
-                        if math.isnan(score):
-                            print(f"  Generation {gen+1} car {i} has NaN score!")
-                            
-                    except Exception as e:
-                        print(f"  Generation {gen+1} car {i} failed: {e}")
-                        
-        except Exception as e:
-            print(f"Evolution failed: {e}")
-            raise
+            score = sim.score_car(car, ground, visualize=False)
+            print(f"  {label} simulation succeeded with score: {score}")
+            if math.isnan(score):
+                print(f"  WARNING: {label} has NaN score!")
+        except Exception as error:
+            print(f"  {label} simulation failed: {error}")
 
     def test_specific_nan_conditions(self):
         """Test specific conditions that might lead to NaN in motor parameters."""
@@ -127,7 +120,7 @@ class TestReproduceNaNIssue(unittest.TestCase):
                 pos = pymunk.Vec2d(0, 0)
                 
                 # Test wheel creation with problematic values
-                wheel = Wheel(body, pos, case['power'], 1000.0, case['size'])
+                wheel = Wheel(body, pos, (case["power"], 1000.0), case["size"])
                 
                 # Check the resulting motor parameters
                 rate = wheel.motor.rate

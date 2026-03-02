@@ -62,6 +62,5 @@ def main(visualize_generations=False):
 
 # Example: how to enable generation visualization
 if __name__ == "__main__":
-    # Set this to True to watch each generation evolve
-    visualize_each_generation = True  # Changed from False to True
-    main(visualize_generations=visualize_each_generation)
+    VISUALIZE_EACH_GENERATION = True
+    main(visualize_generations=VISUALIZE_EACH_GENERATION)

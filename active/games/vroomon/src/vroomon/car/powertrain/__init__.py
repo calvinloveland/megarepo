@@ -2,6 +2,8 @@
 
 
 class PowertrainPart:
+    """Base interface for powertrain parts."""
+
     def to_dna(self):
         """Convert the powertrain part to DNA format."""
         raise NotImplementedError

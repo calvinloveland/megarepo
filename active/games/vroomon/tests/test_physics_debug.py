@@ -33,7 +33,7 @@ class TestPhysicsDebug(unittest.TestCase):
         body.position = (10, 10)
         pos = type('Position', (), {'x': 0, 'y': 0})()
         
-        wheel = Wheel(body, pos, power=10, torque=5, size=15)
+        wheel = Wheel(body, pos, (10, 5), 15)
         
         # Verify the wheel was created properly
         self.assertIsNotNone(wheel.wheel_body)

@@ -124,7 +124,9 @@ class TestCoordinateNaNTracking(unittest.TestCase):
                     body.position = (50, 100)
                     pos = type('Position', (), {'x': 0, 'y': 0})()
                     
-                    wheel = Wheel(body, pos, config['power'], config['torque'], config['size'])
+                    wheel = Wheel(
+                        body, pos, (config["power"], config["torque"]), config["size"]
+                    )
                     
                     # Add to space
                     space.add(wheel.wheel_body, wheel.circle, wheel.pivot, wheel.motor)
@@ -231,39 +233,28 @@ class TestCoordinateNaNTracking(unittest.TestCase):
 
     def _check_all_coordinates(self, car, context, fail_on_nan=True):
         """Check all coordinates in a car for NaN/inf values."""
-        for i, (body, shape) in enumerate(car.frame):
-            pos = body.position
-            vel = body.velocity
-            
-            # Check for NaN
-            if math.isnan(pos.x) or math.isnan(pos.y):
-                msg = f"{context} - frame {i} has NaN position: {pos}"
-                if fail_on_nan:
-                    self.fail(msg)
-                else:
-                    print(f"    WARNING: {msg}")
-            
-            if math.isnan(vel.x) or math.isnan(vel.y):
-                msg = f"{context} - frame {i} has NaN velocity: {vel}"
-                if fail_on_nan:
-                    self.fail(msg)
-                else:
-                    print(f"    WARNING: {msg}")
-            
-            # Check for infinite values
-            if math.isinf(pos.x) or math.isinf(pos.y):
-                msg = f"{context} - frame {i} has infinite position: {pos}"
-                if fail_on_nan:
-                    self.fail(msg)
-                else:
-                    print(f"    WARNING: {msg}")
-            
-            if math.isinf(vel.x) or math.isinf(vel.y):
-                msg = f"{context} - frame {i} has infinite velocity: {vel}"
-                if fail_on_nan:
-                    self.fail(msg)
-                else:
-                    print(f"    WARNING: {msg}")
+        for i, (body, _) in enumerate(car.frame):
+            self._check_vector(context, i, "position", body.position, fail_on_nan)
+            self._check_vector(context, i, "velocity", body.velocity, fail_on_nan)
+
+    def _check_vector(self, context, index, label, vector, fail_on_nan):
+        self._report_if_invalid(
+            context, index, label, vector, "NaN", math.isnan, fail_on_nan
+        )
+        self._report_if_invalid(
+            context, index, label, vector, "infinite", math.isinf, fail_on_nan
+        )
+
+    def _report_if_invalid(
+        self, context, index, label, vector, description, predicate, fail_on_nan
+    ):
+        if not predicate(vector.x) and not predicate(vector.y):
+            return
+        msg = f"{context} - frame {index} has {description} {label}: {vector}"
+        if fail_on_nan:
+            self.fail(msg)
+            return
+        print(f"    WARNING: {msg}")
 
     def _has_nan_coordinates(self, car):
         """Check if any car coordinates are NaN."""

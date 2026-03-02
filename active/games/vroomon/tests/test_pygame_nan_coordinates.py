@@ -6,8 +6,6 @@ import pygame
 import pymunk
 import pymunk.pygame_util
 from vroomon.car.car import Car
-from vroomon.simulation import Simulation
-from vroomon.ground import Ground
 
 
 class TestPygameNaNCoordinates(unittest.TestCase):
@@ -25,8 +23,6 @@ class TestPygameNaNCoordinates(unittest.TestCase):
     def test_coordinate_validation_during_simulation(self):
         """Test that all physics body coordinates remain valid numbers during simulation."""
         print("=== Testing Coordinate Validation During Simulation ===")
-        
-        # Test various car configurations that might cause NaN
         test_cars = [
             {"frame": ["W"], "powertrain": ["D"]},  # Zero power wheel
             {"frame": ["W"], "powertrain": ["G"]},  # Zero power wheel
@@ -34,61 +30,62 @@ class TestPygameNaNCoordinates(unittest.TestCase):
             {"frame": ["R"], "powertrain": ["C"]},  # Rectangle only
             {"frame": ["W", "R"], "powertrain": ["D", "C"]},  # Mixed
         ]
-        
+
         for i, dna in enumerate(test_cars):
             print(f"\nTesting car {i}: {dna}")
-            
             with self.subTest(car_config=i, dna=dna):
                 car = Car(dna)
-                simulation = Simulation()
-                ground = Ground()
-                
-                # Check initial coordinates
                 self._validate_car_coordinates(car, f"Car {i} initial state")
-                
                 try:
-                    # Run a short simulation step by step
-                    space = pymunk.Space()
-                    space.gravity = (0, -981)  # Earth gravity
-                    
-                    # Add ground
-                    ground_body = pymunk.Body(body_type=pymunk.Body.STATIC)
-                    ground_shape = pymunk.Segment(ground_body, (0, 0), (1000, 0), 5)
-                    ground_shape.friction = 0.7
-                    space.add(ground_body, ground_shape)
-                    
-                    # Add car to space
-                    for body, shape in car.frame:
-                        space.add(body, shape)
-                    
-                    # Step through simulation and check coordinates
-                    for step in range(100):  # 100 steps should be enough to trigger NaN
-                        space.step(1/60.0)  # 60 FPS
-                        
-                        # Check coordinates after each step
-                        for j, (body, shape) in enumerate(car.frame):
-                            pos = body.position
-                            vel = body.velocity
-                            
-                            if math.isnan(pos.x) or math.isnan(pos.y):
-                                self.fail(f"Car {i} frame {j} position became NaN at step {step}: {pos}")
-                            
-                            if math.isnan(vel.x) or math.isnan(vel.y):
-                                self.fail(f"Car {i} frame {j} velocity became NaN at step {step}: {vel}")
-                            
-                            if math.isinf(pos.x) or math.isinf(pos.y):
-                                self.fail(f"Car {i} frame {j} position became infinite at step {step}: {pos}")
-                            
-                            if math.isinf(vel.x) or math.isinf(vel.y):
-                                self.fail(f"Car {i} frame {j} velocity became infinite at step {step}: {vel}")
-                    
+                    space = self._build_test_space(car)
+                    self._run_coordinate_checks(space, car, i)
                     print(f"Car {i} completed 100 simulation steps without NaN coordinates")
-                    
-                except Exception as e:
-                    print(f"Car {i} failed during simulation: {e}")
-                    # Still validate final coordinates
+
+                except Exception as error:
+                    print(f"Car {i} failed during simulation: {error}")
                     self._validate_car_coordinates(car, f"Car {i} after failure", allow_failure=True)
                     raise
+
+    @staticmethod
+    def _build_test_space(car):
+        """Build a minimal physics space containing ground and the given car."""
+        space = pymunk.Space()
+        space.gravity = (0, -981)
+        ground_body = pymunk.Body(body_type=pymunk.Body.STATIC)
+        ground_shape = pymunk.Segment(ground_body, (0, 0), (1000, 0), 5)
+        ground_shape.friction = 0.7
+        space.add(ground_body, ground_shape)
+        for body, shape in car.frame:
+            space.add(body, shape)
+        return space
+
+    def _run_coordinate_checks(self, space, car, car_index):
+        """Step simulation and assert coordinates stay finite."""
+        for step in range(100):
+            space.step(1 / 60.0)
+            for frame_index, (body, _) in enumerate(car.frame):
+                self._assert_finite_coordinates(car_index, frame_index, step, body)
+
+    def _assert_finite_coordinates(self, car_index, frame_index, step, body):
+        """Assert that both position and velocity remain finite."""
+        pos = body.position
+        vel = body.velocity
+        self.assertFalse(
+            math.isnan(pos.x) or math.isnan(pos.y),
+            f"Car {car_index} frame {frame_index} position became NaN at step {step}: {pos}",
+        )
+        self.assertFalse(
+            math.isnan(vel.x) or math.isnan(vel.y),
+            f"Car {car_index} frame {frame_index} velocity became NaN at step {step}: {vel}",
+        )
+        self.assertFalse(
+            math.isinf(pos.x) or math.isinf(pos.y),
+            f"Car {car_index} frame {frame_index} position became infinite at step {step}: {pos}",
+        )
+        self.assertFalse(
+            math.isinf(vel.x) or math.isinf(vel.y),
+            f"Car {car_index} frame {frame_index} velocity became infinite at step {step}: {vel}",
+        )
 
     def test_wheel_motor_forces_for_nan(self):
         """Test that wheel motor forces don't become NaN."""

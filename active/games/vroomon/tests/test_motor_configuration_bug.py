@@ -5,9 +5,6 @@ import math
 import pymunk
 from vroomon.car.car import Car
 from vroomon.car.frame.wheel import Wheel
-from vroomon.car.powertrain.cylinder import Cylinder
-from vroomon.car.powertrain.driveshaft import DriveShaft
-from vroomon.car.powertrain.gearset import GearSet
 
 
 class TestMotorConfigurationBug(unittest.TestCase):
@@ -76,7 +73,7 @@ class TestMotorConfigurationBug(unittest.TestCase):
         import pymunk
         body = pymunk.Body(body_type=pymunk.Body.STATIC)
         pos = pymunk.Vec2d(0, 0)
-        wheel = Wheel(body, pos, 0.0, 10.0, 5.0)
+        wheel = Wheel(body, pos, (0.0, 10.0), 5.0)
         
         # Test NaN power validation
         validated_power = wheel._validate_power(float('nan'))
@@ -110,69 +107,66 @@ class TestMotorConfigurationBug(unittest.TestCase):
     def test_zero_power_wheel_creation(self):
         """Test the exact wheel creation process that leads to zero power wheels."""
         print("\n=== Testing Zero Power Wheel Creation ===")
-        
-        # Test the problematic DNA configurations
+
         problematic_dnas = [
             {"frame": ["W"], "powertrain": ["D"]},  # DriveShaft only
             {"frame": ["W"], "powertrain": ["G"]},  # GearSet only
         ]
-        
+
         for i, dna in enumerate(problematic_dnas):
             print(f"\nTesting DNA {i}: {dna}")
-            
             car = Car(dna)
-            
-            # Analyze the power calculation
-            power, torque = car.calculate_wheel_power(0)  # For first wheel
+            power, torque = car.calculate_wheel_power(0)
             print(f"  Power calculation: power={power}, torque={torque}")
-            
-            # Get the actual wheel
             wheel = car.frame_parts[0]
             print(f"  Wheel power: {wheel.power}")
             print(f"  Wheel torque: {wheel.torque}")
             print(f"  Motor rate: {wheel.motor.rate}")
             print(f"  Motor max_force: {wheel.motor.max_force}")
-            
-            # This is the problematic combination we suspect
-            if wheel.power == 0.0 and wheel.motor.max_force > 0:
-                print(f"  *** FOUND PROBLEMATIC COMBINATION ***")
-                print(f"  Zero power but non-zero motor force!")
-                
-                # Test this configuration in isolation
-                space = pymunk.Space()
-                space.gravity = (0, -981)
-                
-                # Add a ground
-                ground_body = pymunk.Body(body_type=pymunk.Body.STATIC)
-                ground_shape = pymunk.Segment(ground_body, (0, 0), (200, 0), 5)
-                space.add(ground_body, ground_shape)
-                
-                # Add the car
-                for body, shape in car.frame:
-                    space.add(body, shape)
-                
-                # Run simulation and watch for NaN
-                nan_detected = False
-                for step in range(50):
-                    space.step(1/60.0)
-                    
-                    for body, shape in car.frame:
-                        pos = body.position
-                        vel = body.velocity
-                        
-                        if math.isnan(pos.x) or math.isnan(pos.y) or math.isnan(vel.x) or math.isnan(vel.y):
-                            print(f"    NaN detected at step {step}!")
-                            print(f"    Position: {pos}, Velocity: {vel}")
-                            nan_detected = True
-                            break
-                    
-                    if nan_detected:
-                        break
-                
-                if nan_detected:
-                    print("  *** CONFIRMED: This configuration causes NaN ***")
-                else:
-                    print("  Surprisingly, no NaN detected in 50 steps")
+            self._check_problematic_wheel_configuration(car, wheel)
+
+    @staticmethod
+    def _has_nan_vector(vector):
+        return math.isnan(vector.x) or math.isnan(vector.y)
+
+    def _check_problematic_wheel_configuration(self, car, wheel):
+        if wheel.power != 0.0 or wheel.motor.max_force <= 0:
+            return
+        print("  *** FOUND PROBLEMATIC COMBINATION ***")
+        print("  Zero power but non-zero motor force!")
+        space = self._build_isolation_space(car)
+        if self._detect_nan_during_steps(space, car):
+            print("  *** CONFIRMED: This configuration causes NaN ***")
+        else:
+            print("  Surprisingly, no NaN detected in 50 steps")
+
+    @staticmethod
+    def _build_isolation_space(car):
+        space = pymunk.Space()
+        space.gravity = (0, -981)
+        ground_body = pymunk.Body(body_type=pymunk.Body.STATIC)
+        ground_shape = pymunk.Segment(ground_body, (0, 0), (200, 0), 5)
+        space.add(ground_body, ground_shape)
+        for body, shape in car.frame:
+            space.add(body, shape)
+        return space
+
+    def _detect_nan_during_steps(self, space, car):
+        for step in range(50):
+            space.step(1 / 60.0)
+            if self._car_has_nan_state(car):
+                print(f"    NaN detected at step {step}!")
+                return True
+        return False
+
+    def _car_has_nan_state(self, car):
+        for body, _ in car.frame:
+            pos = body.position
+            vel = body.velocity
+            if self._has_nan_vector(pos) or self._has_nan_vector(vel):
+                print(f"    Position: {pos}, Velocity: {vel}")
+                return True
+        return False
 
     def test_powertrain_power_calculation(self):
         """Test power calculations for different powertrain configurations."""

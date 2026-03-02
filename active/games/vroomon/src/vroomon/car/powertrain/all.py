@@ -1,3 +1,5 @@
+"""Registry of available powertrain part classes."""
+
 from .cylinder import Cylinder
 from .driveshaft import DriveShaft
 from .gearset import GearSet

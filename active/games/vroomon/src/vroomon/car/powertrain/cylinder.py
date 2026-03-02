@@ -2,10 +2,12 @@
 
 import random
 
-from vroomon.car.powertrain import PowertrainPart
+from . import PowertrainPart
 
 
 class Cylinder(PowertrainPart):
+    """Power-generating cylinder element."""
+
     def __init__(self, power):
         """Initialize a cylinder with a given power."""
         self.power = power

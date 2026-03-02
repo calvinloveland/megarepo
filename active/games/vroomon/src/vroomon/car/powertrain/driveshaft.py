@@ -2,10 +2,12 @@
 
 import random
 
-from vroomon.car.powertrain import PowertrainPart
+from . import PowertrainPart
 
 
 class DriveShaft(PowertrainPart):
+    """Efficiency-reducing shaft between power stages."""
+
     def __init__(self, efficiency):
         """Initialize a drive shaft with a given efficiency."""
         self.efficiency = efficiency

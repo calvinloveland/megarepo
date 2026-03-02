@@ -1,4 +1,3 @@
-# pylint: disable=too-few-public-methods
 """Ground module: generate and add terrain to physics simulation."""
 
 import random
@@ -11,18 +10,18 @@ class Ground:
 
     def __init__(self):
         """Generate random ground points with increasing variation."""
+        self.points = self.generate_points()
 
-        def generate_points():
-            """Generate a list of (x, y) points for the ground terrain."""
-            points = []
-            previous = 200
-            for i in range(100):
-                variation = random.normalvariate(0, 1 + i)
-                previous = previous + variation
-                points.append((i * 50, previous))
-            return points
-
-        self.points = generate_points()
+    @staticmethod
+    def generate_points():
+        """Generate a list of (x, y) points for the ground terrain."""
+        points = []
+        previous = 200
+        for i in range(100):
+            variation = random.normalvariate(0, 1 + i)
+            previous = previous + variation
+            points.append((i * 50, previous))
+        return points
 
     def add_to_space(self, space):
         """Add the ground segments to the given Pymunk physics space."""
