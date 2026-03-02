@@ -14,6 +14,9 @@ Standalone web applications for various use cases.
     - [Security Hardening Plan](parambulator/SECURITY_HARDENING_PLAN.md)
     - [Security Quick Fix](parambulator/SECURITY_QUICK_FIX.md)
 
+### Teacher Workflow Tools
+- [**sub-day-generator**](sub-day-generator/README.md) - Prototype app for generating substitute-ready classroom day plans
+
 ## Related Projects
 
 For web development tools, see:
