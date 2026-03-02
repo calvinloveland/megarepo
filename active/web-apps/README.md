@@ -16,6 +16,7 @@ Standalone web applications for various use cases.
 
 ### Teacher Workflow Tools
 - [**sub-day-generator**](sub-day-generator/README.md) - Prototype app for generating substitute-ready classroom day plans
+  - [Deployment Guide](sub-day-generator/DEPLOYMENT.md)
 
 ## Related Projects
 
