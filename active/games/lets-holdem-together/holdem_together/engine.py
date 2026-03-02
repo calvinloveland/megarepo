@@ -79,6 +79,629 @@ def _compute_side_pots(contrib_total: list[int], eligible: list[bool]) -> list[d
     return pots
 
 
+def _empty_hand_result(seed: int, dealer_seat: int, players: list[PlayerState], actions: list[dict[str, Any]]) -> HandResult:
+    final_stacks = [p.stack for p in players]
+    return HandResult(
+        seed=seed,
+        dealer_seat=dealer_seat,
+        board=[],
+        hole_cards=[p.hole_cards for p in players],
+        actions=actions,
+        delta_stacks=[0 for _ in players],
+        final_stacks=final_stacks,
+        winners=[i for i, p in enumerate(players) if p.stack > 0],
+        side_pots=[],
+    )
+
+
+def _find_blinds(config: TableConfig, players: list[PlayerState], dealer_seat: int) -> tuple[int | None, int | None]:
+    active_players = [i for i in range(config.seats) if players[i].stack > 0]
+    if len(active_players) == 2:
+        sb_seat = dealer_seat if players[dealer_seat].stack > 0 else active_players[0]
+        bb_seat = _next_active_seat(config.seats, sb_seat, lambda s: players[s].stack > 0)
+        return sb_seat, bb_seat
+    sb_seat = _next_active_seat(config.seats, dealer_seat, lambda s: players[s].stack > 0)
+    bb_seat = None if sb_seat is None else _next_active_seat(config.seats, sb_seat, lambda s: players[s].stack > 0)
+    return sb_seat, bb_seat
+
+
+def _can_act(players: list[PlayerState], seat: int) -> bool:
+    p = players[seat]
+    return (not p.folded) and (p.hole_cards is not None) and (not p.all_in)
+
+
+def _round_complete(
+    players: list[PlayerState],
+    contributed_street: list[int],
+    current_bet: int,
+    acted_since_raise: list[bool],
+) -> bool:
+    for s, p in enumerate(players):
+        if p.folded or p.hole_cards is None or p.all_in:
+            continue
+        if contributed_street[s] != current_bet or not acted_since_raise[s]:
+            return False
+    return True
+
+
+def _next_actor(config: TableConfig, players: list[PlayerState], start_idx: int) -> int | None:
+    idx = start_idx
+    for _ in range(config.seats):
+        if _can_act(players, idx):
+            return idx
+        idx = (idx + 1) % config.seats
+    return None
+
+
+def _build_legal_actions(
+    *,
+    seat: int,
+    to_call: int,
+    current_bet: int,
+    last_raise: int,
+    contributed_street: list[int],
+    players: list[PlayerState],
+    config: TableConfig,
+) -> list[dict[str, Any]]:
+    p = players[seat]
+    legal: list[dict[str, Any]] = [{"type": "fold"}]
+    if to_call == 0:
+        legal.append({"type": "check"})
+    else:
+        legal.append({"type": "call", "amount": min(to_call, p.stack)})
+    if p.stack <= to_call:
+        return legal
+    min_total = current_bet + max(last_raise, config.big_blind) if current_bet > 0 else config.big_blind
+    min_total = max(min_total, current_bet + 1)
+    max_total = contributed_street[seat] + p.stack
+    if max_total >= min_total:
+        legal.append({"type": "raise", "min": int(min_total), "max": int(max_total)})
+    return legal
+
+
+def _apply_call(
+    *,
+    players: list[PlayerState],
+    seat: int,
+    to_call: int,
+    contributed_street: list[int],
+    contrib_total: list[int],
+    actions: list[dict[str, Any]],
+    street: str,
+) -> None:
+    p = players[seat]
+    pay = min(to_call, p.stack)
+    p.stack -= pay
+    contributed_street[seat] += pay
+    contrib_total[seat] += pay
+    if p.stack == 0:
+        p.all_in = True
+    actions.append({"street": street, "seat": seat, "type": "call", "amount": pay})
+
+
+def _legal_raise_action(legal: list[dict[str, Any]]) -> dict[str, Any] | None:
+    return next((a for a in legal if a["type"] == "raise"), None)
+
+
+def _apply_raise(
+    *,
+    norm: dict[str, Any],
+    legal: list[dict[str, Any]],
+    seat: int,
+    street: str,
+    config: TableConfig,
+    players: list[PlayerState],
+    contributed_street: list[int],
+    contrib_total: list[int],
+    acted_since_raise: list[bool],
+    actions: list[dict[str, Any]],
+    current_bet: int,
+) -> tuple[int, int] | None:
+    ra = _legal_raise_action(legal)
+    if ra is None:
+        return None
+    raise_to_req = int(norm.get("amount", 0))
+    raise_to = max(int(ra["min"]), min(int(ra["max"]), raise_to_req))
+    if raise_to <= current_bet:
+        raise_to = int(ra["min"])
+    p = players[seat]
+    pay = min(raise_to - contributed_street[seat], p.stack)
+    prev_bet = current_bet
+    p.stack -= pay
+    contributed_street[seat] += pay
+    contrib_total[seat] += pay
+    new_bet = max(current_bet, contributed_street[seat])
+    new_last_raise = max(1, new_bet - prev_bet)
+    if p.stack == 0:
+        p.all_in = True
+    for s in range(config.seats):
+        acted_since_raise[s] = False
+    acted_since_raise[seat] = True
+    actions.append({"street": street, "seat": seat, "type": "raise", "to": new_bet, "amount": pay})
+    return new_bet, new_last_raise
+
+
+def _apply_fallback_or_check(
+    *,
+    to_call: int,
+    players: list[PlayerState],
+    seat: int,
+    contributed_street: list[int],
+    contrib_total: list[int],
+    actions: list[dict[str, Any]],
+    street: str,
+) -> None:
+    if to_call == 0:
+        actions.append({"street": street, "seat": seat, "type": "check"})
+        return
+    _apply_call(
+        players=players,
+        seat=seat,
+        to_call=to_call,
+        contributed_street=contributed_street,
+        contrib_total=contrib_total,
+        actions=actions,
+        street=street,
+    )
+
+
+def _apply_action(
+    *,
+    atype: str,
+    norm: dict[str, Any],
+    to_call: int,
+    players: list[PlayerState],
+    seat: int,
+    street: str,
+    config: TableConfig,
+    contributed_street: list[int],
+    contrib_total: list[int],
+    acted_since_raise: list[bool],
+    actions: list[dict[str, Any]],
+    legal: list[dict[str, Any]],
+    current_bet: int,
+    last_raise: int,
+) -> tuple[int, int]:
+    if atype == "fold":
+        players[seat].folded = True
+        acted_since_raise[seat] = True
+        actions.append({"street": street, "seat": seat, "type": "fold"})
+        return current_bet, last_raise
+    if atype == "check":
+        _apply_fallback_or_check(
+            to_call=to_call,
+            players=players,
+            seat=seat,
+            contributed_street=contributed_street,
+            contrib_total=contrib_total,
+            actions=actions,
+            street=street,
+        )
+        acted_since_raise[seat] = True
+        return current_bet, last_raise
+    if atype == "call":
+        _apply_call(
+            players=players,
+            seat=seat,
+            to_call=to_call,
+            contributed_street=contributed_street,
+            contrib_total=contrib_total,
+            actions=actions,
+            street=street,
+        )
+        acted_since_raise[seat] = True
+        return current_bet, last_raise
+    if atype == "raise":
+        raised = _apply_raise(
+            norm=norm,
+            legal=legal,
+            seat=seat,
+            street=street,
+            config=config,
+            players=players,
+            contributed_street=contributed_street,
+            contrib_total=contrib_total,
+            acted_since_raise=acted_since_raise,
+            actions=actions,
+            current_bet=current_bet,
+        )
+        if raised is not None:
+            return raised
+    _apply_fallback_or_check(
+        to_call=to_call,
+        players=players,
+        seat=seat,
+        contributed_street=contributed_street,
+        contrib_total=contrib_total,
+        actions=actions,
+        street=street,
+    )
+    acted_since_raise[seat] = True
+    return current_bet, last_raise
+
+
+def _build_actor_state(
+    *,
+    seed: int,
+    street: str,
+    dealer_seat: int,
+    seat: int,
+    players: list[PlayerState],
+    board: list[str],
+    contributed_street: list[int],
+    contrib_total: list[int],
+    actions: list[dict[str, Any]],
+    legal: list[dict[str, Any]],
+    make_state_for_actor,
+) -> dict[str, Any]:
+    return make_state_for_actor(
+        seed=seed,
+        street=street,
+        dealer_seat=dealer_seat,
+        actor_seat=seat,
+        hole_cards=players[seat].hole_cards or [],
+        board_cards=board,
+        stacks=[pl.stack for pl in players],
+        contributed_this_street=contributed_street,
+        contributed_total=contrib_total,
+        action_history=actions,
+        legal_actions=legal,
+        active_seats=[i for i, pl in enumerate(players) if (not pl.folded) and (pl.hole_cards is not None)],
+    )
+
+
+def _normalize_or_default_action(raw_action: Any, to_call: int) -> dict[str, Any]:
+    ok, _, norm = normalize_action(raw_action)
+    if ok and norm is not None:
+        return norm
+    return {"type": "check"} if to_call == 0 else {"type": "call"}
+
+
+def _betting_round_step(
+    *,
+    config: TableConfig,
+    players: list[PlayerState],
+    idx: int,
+    current_bet: int,
+    last_raise: int,
+    contributed_street: list[int],
+    acted_since_raise: list[bool],
+    street: str,
+    seed: int,
+    dealer_seat: int,
+    board: list[str],
+    contrib_total: list[int],
+    actions: list[dict[str, Any]],
+    bot_codes: list[str],
+    bot_decide,
+    make_state_for_actor,
+) -> tuple[int, int, int] | None:
+    seat = _next_actor(config, players, idx)
+    if seat is None:
+        return None
+    to_call = max(0, current_bet - contributed_street[seat])
+    legal = _build_legal_actions(
+        seat=seat,
+        to_call=to_call,
+        current_bet=current_bet,
+        last_raise=last_raise,
+        contributed_street=contributed_street,
+        players=players,
+        config=config,
+    )
+    game_state = _build_actor_state(
+        seed=seed,
+        street=street,
+        dealer_seat=dealer_seat,
+        seat=seat,
+        players=players,
+        board=board,
+        contributed_street=contributed_street,
+        contrib_total=contrib_total,
+        actions=actions,
+        legal=legal,
+        make_state_for_actor=make_state_for_actor,
+    )
+    norm = _normalize_or_default_action(bot_decide(bot_codes[seat], game_state), to_call)
+    new_bet, new_raise = _apply_action(
+        atype=norm["type"],
+        norm=norm,
+        to_call=to_call,
+        players=players,
+        seat=seat,
+        street=street,
+        config=config,
+        contributed_street=contributed_street,
+        contrib_total=contrib_total,
+        acted_since_raise=acted_since_raise,
+        actions=actions,
+        legal=legal,
+        current_bet=current_bet,
+        last_raise=last_raise,
+    )
+    return seat, new_bet, new_raise
+
+
+def _round_should_end(
+    players: list[PlayerState],
+    contributed_street: list[int],
+    current_bet: int,
+    acted_since_raise: list[bool],
+) -> bool:
+    if _count_in_hand(players) <= 1:
+        return True
+    return _round_complete(players, contributed_street, current_bet, acted_since_raise)
+
+
+def _betting_round(
+    *,
+    street: str,
+    first_to_act: int,
+    initial_bet: int,
+    initial_last_raise: int,
+    config: TableConfig,
+    players: list[PlayerState],
+    board: list[str],
+    actions: list[dict[str, Any]],
+    contrib_total: list[int],
+    initial_stacks: list[int],
+    sb_seat: int,
+    bb_seat: int,
+    seed: int,
+    dealer_seat: int,
+    bot_codes: list[str],
+    bot_decide,
+    make_state_for_actor,
+) -> None:
+    contributed_street = [0 for _ in range(config.seats)]
+    if street == "preflop":
+        contributed_street[sb_seat] = min(config.small_blind, initial_stacks[sb_seat])
+        contributed_street[bb_seat] = min(config.big_blind, initial_stacks[bb_seat])
+
+    current_bet = initial_bet
+    last_raise = initial_last_raise
+    acted_since_raise = [False for _ in range(config.seats)]
+    idx = first_to_act
+    action_count = 0
+
+    if bot_decide is None or make_state_for_actor is None:
+        raise ValueError("bot_decide and make_state_for_actor must be provided")
+
+    while True:
+        if _round_should_end(players, contributed_street, current_bet, acted_since_raise):
+            return
+        step = _betting_round_step(
+            config=config,
+            players=players,
+            idx=idx,
+            current_bet=current_bet,
+            last_raise=last_raise,
+            contributed_street=contributed_street,
+            acted_since_raise=acted_since_raise,
+            street=street,
+            seed=seed,
+            dealer_seat=dealer_seat,
+            board=board,
+            contrib_total=contrib_total,
+            actions=actions,
+            bot_codes=bot_codes,
+            bot_decide=bot_decide,
+            make_state_for_actor=make_state_for_actor,
+        )
+        if step is None:
+            return
+        seat, current_bet, last_raise = step
+        action_count += 1
+        if action_count >= config.max_actions_per_street:
+            return
+        idx = (seat + 1) % config.seats
+
+
+def _deal_board(deck: list[str], board: list[str], n: int) -> None:
+    deck.pop()
+    for _ in range(n):
+        board.append(deck.pop())
+
+
+def _run_postflop_round(
+    *,
+    street: str,
+    cards_to_deal: int,
+    deck: list[str],
+    board: list[str],
+    config: TableConfig,
+    players: list[PlayerState],
+    dealer_seat: int,
+    actions: list[dict[str, Any]],
+    contrib_total: list[int],
+    initial_stacks: list[int],
+    sb_seat: int,
+    bb_seat: int,
+    seed: int,
+    bot_codes: list[str],
+    bot_decide,
+    make_state_for_actor,
+) -> None:
+    if _count_in_hand(players) <= 1:
+        return
+    _deal_board(deck, board, cards_to_deal)
+    first_postflop = _next_active_seat(config.seats, dealer_seat, lambda s: not players[s].folded and not players[s].all_in)
+    if first_postflop is None:
+        return
+    _betting_round(
+        street=street,
+        first_to_act=first_postflop,
+        initial_bet=0,
+        initial_last_raise=config.big_blind,
+        config=config,
+        players=players,
+        board=board,
+        actions=actions,
+        contrib_total=contrib_total,
+        initial_stacks=initial_stacks,
+        sb_seat=sb_seat,
+        bb_seat=bb_seat,
+        seed=seed,
+        dealer_seat=dealer_seat,
+        bot_codes=bot_codes,
+        bot_decide=bot_decide,
+        make_state_for_actor=make_state_for_actor,
+    )
+
+
+def _showdown_board(board: list[str], deck: list[str]) -> list[str]:
+    board5 = board + [deck.pop() for _ in range(max(0, 5 - len(board)))]
+    return board5[:5]
+
+
+def _best_seats_for_pot(players: list[PlayerState], board5: list[str], elig_seats: list[int]) -> list[int]:
+    best = elig_seats[0]
+    tied = [best]
+    for s in elig_seats[1:]:
+        best_cards = (players[best].hole_cards or []) + board5
+        seat_cards = (players[s].hole_cards or []) + board5
+        cmp = compare_best_of_7(seat_cards, best_cards)
+        if cmp > 0:
+            best = s
+            tied = [s]
+        elif cmp == 0:
+            tied.append(s)
+    return tied
+
+
+def _award_tied_players(players: list[PlayerState], tied: list[int], amount: int) -> None:
+    share = amount // len(tied)
+    rem = amount % len(tied)
+    for i, seat in enumerate(tied):
+        players[seat].stack += share + (1 if i < rem else 0)
+
+
+def _award_pots(players: list[PlayerState], board: list[str], deck: list[str], contrib_total: list[int]) -> tuple[list[int], list[dict[str, Any]]]:
+    eligible = [(not p.folded) and (p.hole_cards is not None) for p in players]
+    remaining = [i for i, ok in enumerate(eligible) if ok]
+    side_pots = _compute_side_pots(contrib_total, eligible)
+    if len(remaining) == 1:
+        winner = remaining[0]
+        players[winner].stack += sum(contrib_total)
+        return [winner], side_pots
+
+    board5 = _showdown_board(board, deck)
+    all_winners: set[int] = set()
+    for pot in side_pots:
+        elig_seats = pot["eligible_seats"]
+        if not elig_seats:
+            continue
+        tied = _best_seats_for_pot(players, board5, elig_seats)
+        _award_tied_players(players, tied, int(pot["amount"]))
+        pot["winner_seats"] = tied
+        all_winners.update(tied)
+    return sorted(all_winners) if all_winners else remaining, side_pots
+
+
+def _normalize_inputs(
+    bot_codes: list[str],
+    config: TableConfig | None,
+    initial_stacks: list[int] | None,
+) -> tuple[TableConfig, list[int]]:
+    cfg = config or TableConfig(seats=len(bot_codes))
+    if len(bot_codes) != cfg.seats:
+        raise ValueError("bot_codes length must equal config.seats")
+    stacks = initial_stacks if initial_stacks is not None else [cfg.starting_stack for _ in range(cfg.seats)]
+    if len(stacks) != cfg.seats:
+        raise ValueError("initial_stacks length must equal config.seats")
+    return cfg, stacks
+
+
+def _init_players(config: TableConfig, initial_stacks: list[int], deck: list[str]) -> list[PlayerState]:
+    players = [PlayerState(stack=int(initial_stacks[i])) for i in range(config.seats)]
+    for seat in range(config.seats):
+        if players[seat].stack > 0:
+            players[seat].hole_cards = [deck.pop(), deck.pop()]
+    return players
+
+
+def _run_preflop_round(
+    *,
+    config: TableConfig,
+    players: list[PlayerState],
+    bb_seat: int,
+    board: list[str],
+    actions: list[dict[str, Any]],
+    contrib_total: list[int],
+    initial_stacks: list[int],
+    sb_seat: int,
+    seed: int,
+    dealer_seat: int,
+    bot_codes: list[str],
+    bot_decide,
+    make_state_for_actor,
+) -> None:
+    first_preflop = _next_active_seat(
+        config.seats,
+        bb_seat,
+        lambda s: not players[s].folded and not players[s].all_in and players[s].hole_cards is not None,
+    )
+    if first_preflop is None:
+        return
+    _betting_round(
+        street="preflop",
+        first_to_act=first_preflop,
+        initial_bet=config.big_blind,
+        initial_last_raise=config.big_blind,
+        config=config,
+        players=players,
+        board=board,
+        actions=actions,
+        contrib_total=contrib_total,
+        initial_stacks=initial_stacks,
+        sb_seat=sb_seat,
+        bb_seat=bb_seat,
+        seed=seed,
+        dealer_seat=dealer_seat,
+        bot_codes=bot_codes,
+        bot_decide=bot_decide,
+        make_state_for_actor=make_state_for_actor,
+    )
+
+
+def _run_all_postflop_rounds(
+    *,
+    deck: list[str],
+    board: list[str],
+    config: TableConfig,
+    players: list[PlayerState],
+    dealer_seat: int,
+    actions: list[dict[str, Any]],
+    contrib_total: list[int],
+    initial_stacks: list[int],
+    sb_seat: int,
+    bb_seat: int,
+    seed: int,
+    bot_codes: list[str],
+    bot_decide,
+    make_state_for_actor,
+) -> None:
+    for street, cards_to_deal in (("flop", 3), ("turn", 1), ("river", 1)):
+        _run_postflop_round(
+            street=street,
+            cards_to_deal=cards_to_deal,
+            deck=deck,
+            board=board,
+            config=config,
+            players=players,
+            dealer_seat=dealer_seat,
+            actions=actions,
+            contrib_total=contrib_total,
+            initial_stacks=initial_stacks,
+            sb_seat=sb_seat,
+            bb_seat=bb_seat,
+            seed=seed,
+            bot_codes=bot_codes,
+            bot_decide=bot_decide,
+            make_state_for_actor=make_state_for_actor,
+        )
+
+
 def simulate_hand(
     bot_codes: list[str],
     seed: int,
@@ -100,27 +723,12 @@ def simulate_hand(
     are injected by the web layer so we can keep this module pure.
     """
 
-    if config is None:
-        config = TableConfig(seats=len(bot_codes))
-    if len(bot_codes) != config.seats:
-        raise ValueError("bot_codes length must equal config.seats")
+    config, initial_stacks = _normalize_inputs(bot_codes, config, initial_stacks)
 
     rng = random.Random(seed)
     deck = _make_deck()
     rng.shuffle(deck)
-
-    if initial_stacks is None:
-        initial_stacks = [config.starting_stack for _ in range(config.seats)]
-    if len(initial_stacks) != config.seats:
-        raise ValueError("initial_stacks length must equal config.seats")
-
-    players = [PlayerState(stack=int(initial_stacks[i])) for i in range(config.seats)]
-
-    # Deal hole cards only to players with chips (skip busted players).
-    for seat in range(config.seats):
-        if players[seat].stack > 0:
-            players[seat].hole_cards = [deck.pop(), deck.pop()]
-        # else: busted player has no hole_cards (None)
+    players = _init_players(config, initial_stacks, deck)
 
     actions: list[dict[str, Any]] = []
     contrib_total = [0 for _ in range(config.seats)]
@@ -133,302 +741,52 @@ def simulate_hand(
             players[seat].all_in = True
         actions.append({"street": "preflop", "seat": seat, "type": kind, "amount": pay})
 
-    # Blinds
-    # Count how many players have chips (are actually playing)
     active_players = [i for i in range(config.seats) if players[i].stack > 0]
-    num_active = len(active_players)
-    
-    if num_active < 2:
-        # Everyone busted except one (or zero)
-        final_stacks = [p.stack for p in players]
-        return HandResult(
-            seed=seed,
-            dealer_seat=dealer_seat,
-            board=[],
-            hole_cards=[p.hole_cards for p in players],
-            actions=actions,
-            delta_stacks=[0 for _ in players],
-            final_stacks=final_stacks,
-            winners=[i for i, p in enumerate(players) if p.stack > 0],
-            side_pots=[],
-        )
-    
-    # Heads-up special case: dealer posts SB, other player posts BB
-    if num_active == 2:
-        # Find the dealer among active players (or use first active if dealer is busted)
-        if players[dealer_seat].stack > 0:
-            sb_seat = dealer_seat
-        else:
-            sb_seat = active_players[0]
-        bb_seat = _next_active_seat(config.seats, sb_seat, lambda s: players[s].stack > 0)
-    else:
-        # Normal case: SB is left of dealer, BB is left of SB
-        sb_seat = _next_active_seat(config.seats, dealer_seat, lambda s: players[s].stack > 0)
-        bb_seat = None if sb_seat is None else _next_active_seat(config.seats, sb_seat, lambda s: players[s].stack > 0)
+    if len(active_players) < 2:
+        return _empty_hand_result(seed, dealer_seat, players, actions)
 
+    sb_seat, bb_seat = _find_blinds(config, players, dealer_seat)
     if sb_seat is None or bb_seat is None:
-        # Shouldn't happen if we have 2+ active players, but safety check
-        final_stacks = [p.stack for p in players]
-        return HandResult(
-            seed=seed,
-            dealer_seat=dealer_seat,
-            board=[],
-            hole_cards=[p.hole_cards for p in players],
-            actions=actions,
-            delta_stacks=[0 for _ in players],
-            final_stacks=final_stacks,
-            winners=[i for i, p in enumerate(players) if p.stack > 0],
-            side_pots=[],
-        )
+        return _empty_hand_result(seed, dealer_seat, players, actions)
 
     post_blind(sb_seat, "post_sb", config.small_blind)
     post_blind(bb_seat, "post_bb", config.big_blind)
-
     board: list[str] = []
 
-    def betting_round(street: str, first_to_act: int, initial_bet: int, initial_last_raise: int) -> None:
-        nonlocal actions
+    _run_preflop_round(
+        config=config,
+        players=players,
+        bb_seat=bb_seat,
+        board=board,
+        actions=actions,
+        contrib_total=contrib_total,
+        initial_stacks=initial_stacks,
+        sb_seat=sb_seat,
+        seed=seed,
+        dealer_seat=dealer_seat,
+        bot_codes=bot_codes,
+        bot_decide=bot_decide,
+        make_state_for_actor=make_state_for_actor,
+    )
 
-        contributed_street = [0 for _ in range(config.seats)]
-        # initialize with blinds already in contrib_total during preflop
-        if street == "preflop":
-            contributed_street[sb_seat] = min(config.small_blind, initial_stacks[sb_seat])
-            contributed_street[bb_seat] = min(config.big_blind, initial_stacks[bb_seat])
+    _run_all_postflop_rounds(
+        deck=deck,
+        board=board,
+        config=config,
+        players=players,
+        dealer_seat=dealer_seat,
+        actions=actions,
+        contrib_total=contrib_total,
+        initial_stacks=initial_stacks,
+        sb_seat=sb_seat,
+        bb_seat=bb_seat,
+        seed=seed,
+        bot_codes=bot_codes,
+        bot_decide=bot_decide,
+        make_state_for_actor=make_state_for_actor,
+    )
 
-        current_bet = initial_bet
-        last_raise = initial_last_raise
-
-        acted_since_raise = [False for _ in range(config.seats)]
-
-        def in_hand(seat: int) -> bool:
-            p = players[seat]
-            return (not p.folded) and (p.hole_cards is not None) and (not p.all_in)
-
-        # Preflop special: big blind should be allowed to act if no raise.
-        # We'll treat the blind posters as not yet acted.
-
-        idx = first_to_act
-        action_count = 0
-        while True:
-            if _count_in_hand(players) <= 1:
-                return
-
-            # End condition: everyone who can act has acted, and all bets are matched.
-            all_matched = True
-            all_acted = True
-            for s in range(config.seats):
-                p = players[s]
-                if p.folded or p.hole_cards is None:
-                    continue
-                if not p.all_in:
-                    if contributed_street[s] != current_bet:
-                        all_matched = False
-                    if not acted_since_raise[s]:
-                        all_acted = False
-            if all_matched and all_acted:
-                return
-
-            # Find next seat who can act.
-            seat = None
-            for _ in range(config.seats):
-                if in_hand(idx):
-                    seat = idx
-                    break
-                idx = (idx + 1) % config.seats
-            if seat is None:
-                return
-
-            to_call = max(0, current_bet - contributed_street[seat])
-            p = players[seat]
-
-            legal: list[dict[str, Any]] = [{"type": "fold"}]
-            if to_call == 0:
-                legal.append({"type": "check"})
-            else:
-                legal.append({"type": "call", "amount": min(to_call, p.stack)})
-
-            if p.stack > to_call:
-                min_total = current_bet + max(last_raise, config.big_blind) if current_bet > 0 else config.big_blind
-                min_total = max(min_total, current_bet + 1)
-                max_total = contributed_street[seat] + p.stack
-                if max_total >= min_total:
-                    legal.append({"type": "raise", "min": int(min_total), "max": int(max_total)})
-
-            if bot_decide is None or make_state_for_actor is None:
-                raise ValueError("bot_decide and make_state_for_actor must be provided")
-
-            game_state = make_state_for_actor(
-                seed=seed,
-                street=street,
-                dealer_seat=dealer_seat,
-                actor_seat=seat,
-                hole_cards=players[seat].hole_cards or [],
-                board_cards=board,
-                stacks=[pl.stack for pl in players],
-                contributed_this_street=contributed_street,
-                contributed_total=contrib_total,
-                action_history=actions,
-                legal_actions=legal,
-                active_seats=[i for i, pl in enumerate(players) if (not pl.folded) and (pl.hole_cards is not None)],
-            )
-
-            raw_action = bot_decide(bot_codes[seat], game_state)
-            ok, _, norm = normalize_action(raw_action)
-            if not ok or norm is None:
-                norm = {"type": "check"} if to_call == 0 else {"type": "call"}
-
-            atype = norm["type"]
-
-            def apply_call() -> None:
-                nonlocal to_call
-                pay = min(to_call, p.stack)
-                p.stack -= pay
-                contributed_street[seat] += pay
-                contrib_total[seat] += pay
-                if p.stack == 0:
-                    p.all_in = True
-                actions.append({"street": street, "seat": seat, "type": "call", "amount": pay})
-
-            if atype == "fold":
-                p.folded = True
-                acted_since_raise[seat] = True
-                actions.append({"street": street, "seat": seat, "type": "fold"})
-            elif atype == "check":
-                if to_call != 0:
-                    # Bot tried to check but there's a bet to call - force call instead
-                    apply_call()
-                    acted_since_raise[seat] = True
-                else:
-                    acted_since_raise[seat] = True
-                    actions.append({"street": street, "seat": seat, "type": "check"})
-            elif atype == "call":
-                apply_call()
-                acted_since_raise[seat] = True
-            elif atype == "raise":
-                # amount is interpreted as total contribution for this street
-                raise_to_req = int(norm.get("amount", 0))
-                # clamp to legal
-                ra = next((a for a in legal if a["type"] == "raise"), None)
-                if ra is None:
-                    apply_call() if to_call > 0 else actions.append({"street": street, "seat": seat, "type": "check"})
-                    acted_since_raise[seat] = True
-                else:
-                    raise_to = max(int(ra["min"]), min(int(ra["max"]), raise_to_req))
-                    if raise_to <= current_bet:
-                        raise_to = int(ra["min"])
-                    pay = raise_to - contributed_street[seat]
-                    pay = min(pay, p.stack)
-                    prev_bet = current_bet
-                    p.stack -= pay
-                    contributed_street[seat] += pay
-                    contrib_total[seat] += pay
-                    current_bet = max(current_bet, contributed_street[seat])
-                    last_raise = max(1, current_bet - prev_bet)
-                    if p.stack == 0:
-                        p.all_in = True
-                    # reset acted flags
-                    for s in range(config.seats):
-                        acted_since_raise[s] = False
-                    acted_since_raise[seat] = True
-                    actions.append(
-                        {"street": street, "seat": seat, "type": "raise", "to": current_bet, "amount": pay}
-                    )
-            else:
-                # fallback
-                if to_call == 0:
-                    actions.append({"street": street, "seat": seat, "type": "check"})
-                else:
-                    apply_call()
-                acted_since_raise[seat] = True
-
-            action_count += 1
-            if action_count >= config.max_actions_per_street:
-                # Force-close the round to prevent infinite loops.
-                return
-
-            idx = (seat + 1) % config.seats
-
-    # Determine first to act preflop: left of big blind (must be able to act - not folded and not all-in).
-    first_preflop = _next_active_seat(config.seats, bb_seat, lambda s: not players[s].folded and not players[s].all_in and players[s].hole_cards is not None)
-    
-    # If someone can act preflop, run the betting round
-    if first_preflop is not None:
-        betting_round("preflop", first_preflop, initial_bet=config.big_blind, initial_last_raise=config.big_blind)
-
-    def deal_board(n: int) -> None:
-        # burn 1
-        deck.pop()
-        for _ in range(n):
-            board.append(deck.pop())
-
-    # If hand not ended, run flop/turn/river.
-    if _count_in_hand(players) > 1:
-        deal_board(3)
-        first_postflop = _next_active_seat(config.seats, dealer_seat, lambda s: not players[s].folded and not players[s].all_in)
-        if first_postflop is not None:
-            betting_round("flop", first_postflop, initial_bet=0, initial_last_raise=config.big_blind)
-
-    if _count_in_hand(players) > 1:
-        deal_board(1)
-        first_postflop = _next_active_seat(config.seats, dealer_seat, lambda s: not players[s].folded and not players[s].all_in)
-        if first_postflop is not None:
-            betting_round("turn", first_postflop, initial_bet=0, initial_last_raise=config.big_blind)
-
-    if _count_in_hand(players) > 1:
-        deal_board(1)
-        first_postflop = _next_active_seat(config.seats, dealer_seat, lambda s: not players[s].folded and not players[s].all_in)
-        if first_postflop is not None:
-            betting_round("river", first_postflop, initial_bet=0, initial_last_raise=config.big_blind)
-
-    # Award pots.
-    eligible = [(not p.folded) and (p.hole_cards is not None) for p in players]
-    pot_total = sum(contrib_total)
-
-    # If everyone but one folded, give entire pot to remaining.
-    remaining = [i for i, ok in enumerate(eligible) if ok]
-    winners: list[int] = []
-    side_pots = _compute_side_pots(contrib_total, eligible)
-
-    if len(remaining) == 1:
-        w = remaining[0]
-        players[w].stack += pot_total
-        winners = [w]
-    else:
-        # showdown: compare best_of_7 among eligible
-        # Build 7-card sets
-        board5 = board + [deck.pop() for _ in range(max(0, 5 - len(board)))]  # safety; should be 5
-        board5 = board5[:5]
-
-        def best_for(seat: int) -> list[str]:
-            hc = players[seat].hole_cards or []
-            return hc + board5
-
-        # Award each side pot separately.
-        for pot in side_pots:
-            elig_seats = pot["eligible_seats"]
-            if not elig_seats:
-                continue
-            best = elig_seats[0]
-            tied = [best]
-            for s in elig_seats[1:]:
-                cmp = compare_best_of_7(best_for(s), best_for(best))
-                if cmp > 0:
-                    best = s
-                    tied = [s]
-                elif cmp == 0:
-                    tied.append(s)
-            share = pot["amount"] // len(tied)
-            rem = pot["amount"] % len(tied)
-            for i, s in enumerate(tied):
-                players[s].stack += share + (1 if i < rem else 0)
-            pot["winner_seats"] = tied
-
-        # winners = those who actually won chips from pots (collect unique winners)
-        all_winners: set[int] = set()
-        for pot in side_pots:
-            if "winner_seats" in pot:
-                all_winners.update(pot["winner_seats"])
-        winners = sorted(all_winners) if all_winners else remaining
+    winners, side_pots = _award_pots(players, board, deck, contrib_total)
 
     final_stacks = [p.stack for p in players]
     delta = [final_stacks[i] - int(initial_stacks[i]) for i in range(config.seats)]

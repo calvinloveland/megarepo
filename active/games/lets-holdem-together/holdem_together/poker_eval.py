@@ -67,6 +67,61 @@ def _is_straight(ranks_desc: list[int]) -> tuple[bool, int]:
     return False, 0
 
 
+def _four_of_a_kind(groups: list[tuple[int, int]], unique_ranks_desc: list[int]) -> HandStrength | None:
+    if groups[0][0] != 4:
+        return None
+    quad = groups[0][1]
+    kicker = max(r for r in unique_ranks_desc if r != quad)
+    return HandStrength("four_of_a_kind", (quad, kicker))
+
+
+def _full_house(groups: list[tuple[int, int]]) -> HandStrength | None:
+    if groups[0][0] != 3 or len(groups) <= 1 or groups[1][0] < 2:
+        return None
+    trips = groups[0][1]
+    pair = max(r for cnt, r in groups[1:] if cnt >= 2)
+    return HandStrength("full_house", (trips, pair))
+
+
+def _three_of_a_kind(groups: list[tuple[int, int]], unique_ranks_desc: list[int]) -> HandStrength | None:
+    if groups[0][0] != 3:
+        return None
+    trips = groups[0][1]
+    kickers = sorted([r for r in unique_ranks_desc if r != trips], reverse=True)[:2]
+    return HandStrength("three_of_a_kind", (trips, *kickers))
+
+
+def _pairs(groups: list[tuple[int, int]], unique_ranks_desc: list[int]) -> HandStrength | None:
+    if groups[0][0] != 2:
+        return None
+    pairs = sorted([r for cnt, r in groups if cnt == 2], reverse=True)
+    if len(pairs) >= 2:
+        hi, lo = pairs[0], pairs[1]
+        kicker = max(r for r in unique_ranks_desc if r not in (hi, lo))
+        return HandStrength("two_pair", (hi, lo, kicker))
+    pair = pairs[0]
+    kickers = sorted([r for r in unique_ranks_desc if r != pair], reverse=True)[:3]
+    return HandStrength("pair", (pair, *kickers))
+
+
+def _straight_flush(is_flush: bool, is_straight: bool, top: int) -> HandStrength | None:
+    if is_flush and is_straight:
+        return HandStrength("straight_flush", (top,))
+    return None
+
+
+def _flush_hand(is_flush: bool, ranks: list[int]) -> HandStrength | None:
+    if is_flush:
+        return HandStrength("flush", tuple(sorted(ranks, reverse=True)))
+    return None
+
+
+def _straight_hand(is_straight: bool, top: int) -> HandStrength | None:
+    if is_straight:
+        return HandStrength("straight", (top,))
+    return None
+
+
 @functools.lru_cache(maxsize=500_000)
 def _rank_5_cached(cards: tuple[str, ...]) -> HandStrength:
     parsed = [_CARD_CACHE[c] for c in cards]
@@ -81,41 +136,19 @@ def _rank_5_cached(cards: tuple[str, ...]) -> HandStrength:
     groups = sorted(((cnt, r) for r, cnt in counts.items()), reverse=True)
     unique_ranks_desc = sorted(counts.keys(), reverse=True)
     is_straight, top = _is_straight(unique_ranks_desc)
-
-    if is_flush and is_straight:
-        return HandStrength("straight_flush", (top,))
-
-    if groups[0][0] == 4:
-        quad = groups[0][1]
-        kicker = max(r for r in unique_ranks_desc if r != quad)
-        return HandStrength("four_of_a_kind", (quad, kicker))
-
-    if groups[0][0] == 3 and len(groups) > 1 and groups[1][0] >= 2:
-        trips = groups[0][1]
-        pair = max(r for cnt, r in groups[1:] if cnt >= 2)
-        return HandStrength("full_house", (trips, pair))
-
-    if is_flush:
-        return HandStrength("flush", tuple(sorted(ranks, reverse=True)))
-
-    if is_straight:
-        return HandStrength("straight", (top,))
-
-    if groups[0][0] == 3:
-        trips = groups[0][1]
-        kickers = sorted([r for r in unique_ranks_desc if r != trips], reverse=True)[:2]
-        return HandStrength("three_of_a_kind", (trips, *kickers))
-
-    if groups[0][0] == 2:
-        pairs = sorted([r for cnt, r in groups if cnt == 2], reverse=True)
-        if len(pairs) >= 2:
-            hi, lo = pairs[0], pairs[1]
-            kicker = max(r for r in unique_ranks_desc if r not in (hi, lo))
-            return HandStrength("two_pair", (hi, lo, kicker))
-        pair = pairs[0]
-        kickers = sorted([r for r in unique_ranks_desc if r != pair], reverse=True)[:3]
-        return HandStrength("pair", (pair, *kickers))
-
+    evaluators = [
+        lambda: _straight_flush(is_flush, is_straight, top),
+        lambda: _four_of_a_kind(groups, unique_ranks_desc),
+        lambda: _full_house(groups),
+        lambda: _flush_hand(is_flush, ranks),
+        lambda: _straight_hand(is_straight, top),
+        lambda: _three_of_a_kind(groups, unique_ranks_desc),
+        lambda: _pairs(groups, unique_ranks_desc),
+    ]
+    for evaluator in evaluators:
+        result = evaluator()
+        if result is not None:
+            return result
     return HandStrength("high_card", tuple(sorted(ranks, reverse=True)))
 
 

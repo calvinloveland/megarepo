@@ -55,6 +55,34 @@ def _make_deck_excluding(exclude: set[str]) -> list[str]:
     return [c for c in deck if c not in exclude]
 
 
+def _sample_equity_score(
+    *,
+    drawn: list[str],
+    hole: tuple[str, str],
+    board: tuple[str, ...],
+    need_board: int,
+    opponents: int,
+) -> float:
+    runout = list(board) + drawn[:need_board]
+    hero7 = tuple(hole) + tuple(runout)
+    hero_best = best_of_7(hero7)
+
+    hero_ties = True
+    idx = need_board
+    for _ in range(opponents):
+        opp_hole = (drawn[idx], drawn[idx + 1])
+        idx += 2
+        opp7 = opp_hole + tuple(runout)
+        opp_best = best_of_7(opp7)
+        cmp = _compare_hand_strength(hero_best, opp_best)
+        if cmp < 0:
+            return 0.0
+        if cmp != 0:
+            hero_ties = False
+
+    return 0.5 if hero_ties else 1.0
+
+
 @functools.lru_cache(maxsize=50_000)
 def _equity_cached(
     hole: tuple[str, str],
@@ -77,32 +105,13 @@ def _equity_cached(
     for _ in range(samples):
         # Use sample() instead of shuffle() - only pick what we need
         drawn = rng.sample(deck, cards_per_sample)
-        
-        runout = list(board) + drawn[:need_board]
-        hero7 = tuple(hole) + tuple(runout)
-        hero_best = best_of_7(hero7)
-
-        hero_beats_all = True
-        hero_ties = True
-        idx = need_board
-        for _ in range(opponents):
-            opp_hole = (drawn[idx], drawn[idx + 1])
-            idx += 2
-            opp7 = opp_hole + tuple(runout)
-            opp_best = best_of_7(opp7)
-            
-            cmp = _compare_hand_strength(hero_best, opp_best)
-            if cmp < 0:
-                hero_beats_all = False
-                hero_ties = False
-                break
-            if cmp != 0:
-                hero_ties = False
-
-        if hero_beats_all and not hero_ties:
-            wins += 1.0
-        elif hero_beats_all and hero_ties:
-            wins += 0.5
+        wins += _sample_equity_score(
+            drawn=drawn,
+            hole=hole,
+            board=board,
+            need_board=need_board,
+            opponents=opponents,
+        )
 
     return float(wins / samples) if samples > 0 else 0.0
 
