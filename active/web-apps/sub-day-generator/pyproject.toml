@@ -9,6 +9,7 @@ description = "Prototype web app for generating substitute teacher day plans"
 requires-python = ">=3.8"
 dependencies = [
     "Flask>=2.3",
+    "gunicorn>=21.2,<22.0",
     "pytest>=7.4",
 ]
 

@@ -27,9 +27,15 @@ cd active/web-apps/sub-day-generator
 python -m pytest -q
 ```
 
+## Hosting
+
+- Docker: `Dockerfile` + `docker-compose.yml`
+- Cloudflare tunnel helper: `tunnel.sh`
+- Kubernetes manifest: `k8s/sub-day-generator.yaml`
+- Deployment guide: [DEPLOYMENT.md](DEPLOYMENT.md)
+
 ## Next Prototype Steps
 
 - Add reusable templates (elementary, middle school, high school day patterns)
 - Add export options (print and markdown copy)
 - Add optional per-student medical/accommodation flags with safe wording
-
