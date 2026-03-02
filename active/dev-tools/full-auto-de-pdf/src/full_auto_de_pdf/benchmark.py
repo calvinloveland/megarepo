@@ -1,3 +1,5 @@
+"""Archive/Gutenberg OCR benchmarking utilities."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -15,21 +17,56 @@ from .archive_org import fetch_metadata
 from .ocr_cleanup import cleanup_ocr_text
 
 ARCHIVE_DOWNLOAD_URL = "https://archive.org/download/{identifier}/{filename}"
-GUTENBERG_TEXT_URL = "https://www.gutenberg.org/cache/epub/{gutenberg_id}/pg{gutenberg_id}.txt"
+GUTENBERG_TEXT_URL = (
+    "https://www.gutenberg.org/cache/epub/{gutenberg_id}/pg{gutenberg_id}.txt"
+)
 
 
 @dataclass(frozen=True)
 class BenchmarkBook:
+    """Archive/Gutenberg pairing used for OCR quality benchmarking."""
+
     identifier: str
     title: str
     gutenberg_id: int
 
 
+@dataclass(frozen=True)
+class _BookPaths:
+    archive_path: Path
+    abbyy_path: Path
+    gutenberg_path: Path
+
+
+@dataclass(frozen=True)
+class _SampledMetricsInput:
+    sampled_ref_chars: str
+    sampled_hyp_chars: str
+    sampled_ref_words: list[str]
+    sampled_hyp_words: list[str]
+    reference: _TextMetrics
+    hypothesis: _TextMetrics
+
+
+@dataclass(frozen=True)
+class _TextMetrics:
+    chars: str
+    words: list[str]
+
+
 BENCHMARK_BOOKS: tuple[BenchmarkBook, ...] = (
     BenchmarkBook("jane-austen_pride-and-prejudice", "Pride and Prejudice", 1342),
     BenchmarkBook("in.ernet.dli.2015.461099", "Moby-Dick; or, The Whale", 2701),
-    BenchmarkBook("TheAdventuresOfSherlockHolmes-English", "The Adventures of Sherlock Holmes", 1661),
-    BenchmarkBook("frankensteinormo00shel_10", "Frankenstein; or, The Modern Prometheus", 84),
+    BenchmarkBook(
+        "TheAdventuresOfSherlockHolmes-English",
+        "The Adventures of Sherlock Holmes",
+        1661,
+    ),
+    BenchmarkBook(
+        "frankensteinormo00shel_10",
+        "Frankenstein; or, The Modern Prometheus",
+        84,
+    ),
     BenchmarkBook("dracu00stok", "Dracula", 345),
 )
 
@@ -44,41 +81,46 @@ def _download_bytes(url: str, timeout_seconds: int = 60) -> bytes:
         return response.read()
 
 
-def _extract_archive_djvu_filename(metadata: dict[str, Any]) -> str:
+def _extract_filename_by_suffix(
+    metadata: dict[str, Any],
+    suffix: str,
+    *,
+    required: bool,
+) -> str | None:
     files = metadata.get("files")
     if not isinstance(files, list):
-        raise ValueError("metadata payload did not include a files list")
-
+        if required:
+            raise ValueError("metadata payload did not include a files list")
+        return None
     candidates: list[str] = []
+    lowered_suffix = suffix.lower()
     for file_entry in files:
         if not isinstance(file_entry, dict):
             continue
         name = file_entry.get("name")
-        if isinstance(name, str) and name.lower().endswith("_djvu.txt"):
+        if isinstance(name, str) and name.lower().endswith(lowered_suffix):
             candidates.append(name)
-    if not candidates:
+    if candidates:
+        return sorted(candidates, key=len)[0]
+    if required:
+        raise ValueError(f"metadata payload did not include a {suffix} file")
+    return None
+
+
+def _extract_archive_djvu_filename(metadata: dict[str, Any]) -> str:
+    filename = _extract_filename_by_suffix(metadata, "_djvu.txt", required=True)
+    if filename is None:
         raise ValueError("metadata payload did not include a _djvu.txt file")
-    return sorted(candidates, key=len)[0]
+    return filename
 
 
 def _extract_archive_abbyy_filename(metadata: dict[str, Any]) -> str | None:
-    files = metadata.get("files")
-    if not isinstance(files, list):
-        return None
-
-    candidates: list[str] = []
-    for file_entry in files:
-        if not isinstance(file_entry, dict):
-            continue
-        name = file_entry.get("name")
-        if isinstance(name, str) and name.lower().endswith("_abbyy.gz"):
-            candidates.append(name)
-    if not candidates:
-        return None
-    return sorted(candidates, key=len)[0]
+    return _extract_filename_by_suffix(metadata, "_abbyy.gz", required=False)
 
 
 def fetch_archive_ocr_text(identifier: str, timeout_seconds: int = 60) -> str:
+    """Fetch archive.org DJVU OCR text for a book identifier."""
+
     metadata = fetch_metadata(identifier, timeout_seconds=timeout_seconds)
     filename = _extract_archive_djvu_filename(metadata)
     url = ARCHIVE_DOWNLOAD_URL.format(identifier=identifier, filename=filename)
@@ -86,6 +128,8 @@ def fetch_archive_ocr_text(identifier: str, timeout_seconds: int = 60) -> str:
 
 
 def fetch_gutenberg_text(gutenberg_id: int, timeout_seconds: int = 60) -> str:
+    """Fetch plain text from Project Gutenberg for a Gutenberg ID."""
+
     url = GUTENBERG_TEXT_URL.format(gutenberg_id=gutenberg_id)
     return _download_text(url, timeout_seconds=timeout_seconds)
 
@@ -97,6 +141,8 @@ def _local_name(tag: str) -> str:
 
 
 def parse_abbyy_xml_text(xml_text: str) -> str:
+    """Extract text lines from ABBYY FineReader XML output."""
+
     root = ET.fromstring(xml_text)
     lines: list[str] = []
     for line_element in root.iter():
@@ -115,6 +161,8 @@ def parse_abbyy_xml_text(xml_text: str) -> str:
 
 
 def fetch_archive_abbyy_text(identifier: str, timeout_seconds: int = 60) -> str | None:
+    """Fetch and decode archive.org ABBYY OCR XML text when available."""
+
     metadata = fetch_metadata(identifier, timeout_seconds=timeout_seconds)
     filename = _extract_archive_abbyy_filename(metadata)
     if filename is None:
@@ -126,24 +174,27 @@ def fetch_archive_abbyy_text(identifier: str, timeout_seconds: int = 60) -> str 
 
 
 def strip_gutenberg_boilerplate(text: str) -> str:
+    """Trim standard Gutenberg START/END wrappers when present."""
+
     lines = text.splitlines()
-    start = 0
-    end = len(lines)
-
-    for index, line in enumerate(lines):
-        upper = line.upper()
-        if "*** START OF THE PROJECT GUTENBERG EBOOK" in upper:
-            start = index + 1
-            break
-
-    for index in range(len(lines) - 1, -1, -1):
-        upper = lines[index].upper()
-        if "*** END OF THE PROJECT GUTENBERG EBOOK" in upper:
-            end = index
-            break
-
+    start = _find_gutenberg_start(lines)
+    end = _find_gutenberg_end(lines)
     stripped = "\n".join(lines[start:end]).strip()
     return stripped or text.strip()
+
+
+def _find_gutenberg_start(lines: list[str]) -> int:
+    for index, line in enumerate(lines):
+        if "*** START OF THE PROJECT GUTENBERG EBOOK" in line.upper():
+            return index + 1
+    return 0
+
+
+def _find_gutenberg_end(lines: list[str]) -> int:
+    for index in range(len(lines) - 1, -1, -1):
+        if "*** END OF THE PROJECT GUTENBERG EBOOK" in lines[index].upper():
+            return index
+    return len(lines)
 
 
 def _normalize_for_char_metric(text: str) -> str:
@@ -154,6 +205,71 @@ def _normalize_for_char_metric(text: str) -> str:
 def _normalize_for_word_metric(text: str) -> list[str]:
     lower = text.lower()
     return re.findall(r"[a-z0-9']+", lower)
+
+
+def _build_hypothesis_index(words: list[str], ngram_size: int) -> dict[tuple[str, ...], int]:
+    index_by_ngram: dict[tuple[str, ...], int] = {}
+    for index in range(len(words) - ngram_size + 1):
+        ngram = tuple(words[index : index + ngram_size])
+        index_by_ngram.setdefault(ngram, index)
+    return index_by_ngram
+
+
+def _find_start_anchor(
+    reference_words: list[str],
+    hypothesis_index: dict[tuple[str, ...], int],
+    ngram_size: int,
+    window_words: int,
+) -> tuple[int, int] | None:
+    limit = min(window_words, len(reference_words) - ngram_size + 1)
+    for index in range(limit):
+        ngram = tuple(reference_words[index : index + ngram_size])
+        hypothesis_index_value = hypothesis_index.get(ngram)
+        if hypothesis_index_value is not None:
+            return index, hypothesis_index_value
+    return None
+
+
+def _find_end_anchor(
+    reference_words: list[str],
+    hypothesis_index: dict[tuple[str, ...], int],
+    ngram_size: int,
+    window_words: int,
+) -> tuple[int, int] | None:
+    search_start = max(0, len(reference_words) - ngram_size - window_words)
+    for index in range(len(reference_words) - ngram_size, search_start - 1, -1):
+        ngram = tuple(reference_words[index : index + ngram_size])
+        hypothesis_index_value = hypothesis_index.get(ngram)
+        if hypothesis_index_value is not None:
+            return index + ngram_size, hypothesis_index_value + ngram_size
+    return None
+
+
+def _alignment_is_valid(
+    start_anchor: tuple[int, int] | None,
+    end_anchor: tuple[int, int] | None,
+    min_aligned_words: int,
+) -> bool:
+    if start_anchor is None or end_anchor is None:
+        return False
+    ref_start, hyp_start = start_anchor
+    ref_end, hyp_end = end_anchor
+    if ref_end <= ref_start or hyp_end <= hyp_start:
+        return False
+    return (ref_end - ref_start) >= min_aligned_words and (hyp_end - hyp_start) >= min_aligned_words
+
+
+def _aligned_text_slices(
+    reference_words: list[str],
+    hypothesis_words: list[str],
+    start_anchor: tuple[int, int],
+    end_anchor: tuple[int, int],
+) -> tuple[str, str]:
+    ref_start, hyp_start = start_anchor
+    ref_end, hyp_end = end_anchor
+    aligned_reference = " ".join(reference_words[ref_start:ref_end])
+    aligned_hypothesis = " ".join(hypothesis_words[hyp_start:hyp_end])
+    return aligned_reference, aligned_hypothesis
 
 
 def _align_text_by_shared_ngrams(
@@ -168,41 +284,20 @@ def _align_text_by_shared_ngrams(
     if len(reference_words) < ngram_size or len(hypothesis_words) < ngram_size:
         return reference_text, hypothesis_text, False
 
-    hypothesis_index: dict[tuple[str, ...], int] = {}
-    for index in range(len(hypothesis_words) - ngram_size + 1):
-        ngram = tuple(hypothesis_words[index : index + ngram_size])
-        hypothesis_index.setdefault(ngram, index)
-
-    start_anchor: tuple[int, int] | None = None
-    start_search_limit = min(window_words, len(reference_words) - ngram_size + 1)
-    for index in range(start_search_limit):
-        ngram = tuple(reference_words[index : index + ngram_size])
-        hypothesis_index_value = hypothesis_index.get(ngram)
-        if hypothesis_index_value is not None:
-            start_anchor = (index, hypothesis_index_value)
-            break
-
-    end_anchor: tuple[int, int] | None = None
-    end_search_start = max(0, len(reference_words) - ngram_size - window_words)
-    for index in range(len(reference_words) - ngram_size, end_search_start - 1, -1):
-        ngram = tuple(reference_words[index : index + ngram_size])
-        hypothesis_index_value = hypothesis_index.get(ngram)
-        if hypothesis_index_value is not None:
-            end_anchor = (index + ngram_size, hypothesis_index_value + ngram_size)
-            break
+    hypothesis_index = _build_hypothesis_index(hypothesis_words, ngram_size)
+    start_anchor = _find_start_anchor(reference_words, hypothesis_index, ngram_size, window_words)
+    end_anchor = _find_end_anchor(reference_words, hypothesis_index, ngram_size, window_words)
+    if not _alignment_is_valid(start_anchor, end_anchor, min_aligned_words):
+        return reference_text, hypothesis_text, False
 
     if start_anchor is None or end_anchor is None:
         return reference_text, hypothesis_text, False
-
-    ref_start, hyp_start = start_anchor
-    ref_end, hyp_end = end_anchor
-    if ref_end <= ref_start or hyp_end <= hyp_start:
-        return reference_text, hypothesis_text, False
-    if (ref_end - ref_start) < min_aligned_words or (hyp_end - hyp_start) < min_aligned_words:
-        return reference_text, hypothesis_text, False
-
-    aligned_reference = " ".join(reference_words[ref_start:ref_end])
-    aligned_hypothesis = " ".join(hypothesis_words[hyp_start:hyp_end])
+    aligned_reference, aligned_hypothesis = _aligned_text_slices(
+        reference_words,
+        hypothesis_words,
+        start_anchor,
+        end_anchor,
+    )
     return aligned_reference, aligned_hypothesis, True
 
 
@@ -222,51 +317,60 @@ def _sample_list_edges(items: list[str], max_items: int) -> list[str]:
     return items[:head] + items[-tail:]
 
 
-def calculate_accuracy_metrics(reference_text: str, hypothesis_text: str) -> dict[str, float | int]:
+def _prepare_metrics_input(reference_text: str, hypothesis_text: str) -> _SampledMetricsInput:
     ref_chars = _normalize_for_char_metric(reference_text)
     hyp_chars = _normalize_for_char_metric(hypothesis_text)
     ref_words = _normalize_for_word_metric(reference_text)
     hyp_words = _normalize_for_word_metric(hypothesis_text)
-    sampled_ref_chars = _sample_text_edges(ref_chars, max_length=30000)
-    sampled_hyp_chars = _sample_text_edges(hyp_chars, max_length=30000)
-    sampled_ref_words = _sample_list_edges(ref_words, max_items=12000)
-    sampled_hyp_words = _sample_list_edges(hyp_words, max_items=12000)
+    return _SampledMetricsInput(
+        sampled_ref_chars=_sample_text_edges(ref_chars, max_length=30000),
+        sampled_hyp_chars=_sample_text_edges(hyp_chars, max_length=30000),
+        sampled_ref_words=_sample_list_edges(ref_words, max_items=12000),
+        sampled_hyp_words=_sample_list_edges(hyp_words, max_items=12000),
+        reference=_TextMetrics(chars=ref_chars, words=ref_words),
+        hypothesis=_TextMetrics(chars=hyp_chars, words=hyp_words),
+    )
 
-    char_distance = Levenshtein.distance(sampled_ref_chars, sampled_hyp_chars)
-    word_distance = Levenshtein.distance(sampled_ref_words, sampled_hyp_words)
-    cer = (
-        float(char_distance) / float(len(sampled_ref_chars))
-        if sampled_ref_chars
-        else 0.0
+
+def _safe_ratio(numerator: int, denominator: int) -> float:
+    return float(numerator) / float(denominator) if denominator else 0.0
+
+
+def calculate_accuracy_metrics(reference_text: str, hypothesis_text: str) -> dict[str, float | int]:
+    """Calculate CER/WER-style distance metrics on normalized text samples."""
+
+    metric_input = _prepare_metrics_input(reference_text, hypothesis_text)
+    char_distance = Levenshtein.distance(
+        metric_input.sampled_ref_chars,
+        metric_input.sampled_hyp_chars,
     )
-    wer = (
-        float(word_distance) / float(len(sampled_ref_words))
-        if sampled_ref_words
-        else 0.0
+    word_distance = Levenshtein.distance(
+        metric_input.sampled_ref_words,
+        metric_input.sampled_hyp_words,
     )
+    cer = _safe_ratio(char_distance, len(metric_input.sampled_ref_chars))
+    wer = _safe_ratio(word_distance, len(metric_input.sampled_ref_words))
     char_accuracy = max(0.0, 1.0 - cer)
     word_accuracy = max(0.0, 1.0 - wer)
-
     return {
         "cer": cer,
         "wer": wer,
         "char_accuracy": char_accuracy,
         "word_accuracy": word_accuracy,
-        # Backward-compatible aliases
         "cer_proxy": cer,
         "wer_proxy": wer,
         "char_accuracy_proxy": char_accuracy,
         "word_accuracy_proxy": word_accuracy,
         "char_edit_distance": int(char_distance),
         "word_edit_distance": int(word_distance),
-        "reference_char_count": len(ref_chars),
-        "hypothesis_char_count": len(hyp_chars),
-        "reference_word_count": len(ref_words),
-        "hypothesis_word_count": len(hyp_words),
-        "sampled_reference_char_count": len(sampled_ref_chars),
-        "sampled_hypothesis_char_count": len(sampled_hyp_chars),
-        "sampled_reference_word_count": len(sampled_ref_words),
-        "sampled_hypothesis_word_count": len(sampled_hyp_words),
+        "reference_char_count": len(metric_input.reference.chars),
+        "hypothesis_char_count": len(metric_input.hypothesis.chars),
+        "reference_word_count": len(metric_input.reference.words),
+        "hypothesis_word_count": len(metric_input.hypothesis.words),
+        "sampled_reference_char_count": len(metric_input.sampled_ref_chars),
+        "sampled_hypothesis_char_count": len(metric_input.sampled_hyp_chars),
+        "sampled_reference_word_count": len(metric_input.sampled_ref_words),
+        "sampled_hypothesis_word_count": len(metric_input.sampled_hyp_words),
     }
 
 
@@ -290,13 +394,134 @@ def _load_or_fetch_optional_text(path: Path, fetcher: Callable[[], str | None]) 
     return text
 
 
+def _book_paths(cache_dir: Path, book: BenchmarkBook) -> _BookPaths:
+    return _BookPaths(
+        archive_path=cache_dir / f"{book.identifier}_archive_djvu.txt",
+        abbyy_path=cache_dir / f"{book.identifier}_archive_abbyy.txt",
+        gutenberg_path=cache_dir / f"pg{book.gutenberg_id}_gutenberg.txt",
+    )
+
+
+def _fetch_djvu_text(book: BenchmarkBook, timeout_seconds: int) -> str:
+    return fetch_archive_ocr_text(book.identifier, timeout_seconds=timeout_seconds)
+
+
+def _fetch_abbyy_text(book: BenchmarkBook, timeout_seconds: int) -> str | None:
+    return fetch_archive_abbyy_text(book.identifier, timeout_seconds=timeout_seconds)
+
+
+def _fetch_gutenberg(book: BenchmarkBook, timeout_seconds: int) -> str:
+    return fetch_gutenberg_text(book.gutenberg_id, timeout_seconds=timeout_seconds)
+
+
 def _score_source(reference_text: str, source_text: str) -> tuple[dict[str, float | int], bool]:
     cleaned_source_text = cleanup_ocr_text(source_text)
-    aligned_reference_text, aligned_source_text, alignment_applied = _align_text_by_shared_ngrams(
+    aligned_reference, aligned_source, alignment_applied = _align_text_by_shared_ngrams(
         reference_text,
         cleaned_source_text,
     )
-    return calculate_accuracy_metrics(aligned_reference_text, aligned_source_text), alignment_applied
+    return calculate_accuracy_metrics(aligned_reference, aligned_source), alignment_applied
+
+
+def _collect_source_metrics(
+    reference_text: str,
+    djvu_text: str,
+    abbyy_text: str | None,
+) -> dict[str, dict[str, float | int | bool]]:
+    djvu_metrics, djvu_aligned = _score_source(reference_text, djvu_text)
+    source_metrics: dict[str, dict[str, float | int | bool]] = {
+        "djvu": {**djvu_metrics, "alignment_applied": djvu_aligned}
+    }
+    if abbyy_text:
+        abbyy_metrics, abbyy_aligned = _score_source(reference_text, abbyy_text)
+        source_metrics["abbyy"] = {**abbyy_metrics, "alignment_applied": abbyy_aligned}
+    return source_metrics
+
+
+def _select_source_metrics(
+    source_mode: str,
+    source_metrics: dict[str, dict[str, float | int | bool]],
+    identifier: str,
+) -> tuple[str, dict[str, float | int | bool]]:
+    if source_mode == "best":
+        return min(
+            source_metrics.items(),
+            key=lambda item: (float(item[1]["wer"]), float(item[1]["cer"])),
+        )
+    if source_mode == "abbyy":
+        if "abbyy" not in source_metrics:
+            raise ValueError(
+                "source_mode='abbyy' requested but no ABBYY OCR is available for "
+                f"{identifier}"
+            )
+        return "abbyy", source_metrics["abbyy"]
+    return "djvu", source_metrics["djvu"]
+
+
+def _build_book_result(
+    book: BenchmarkBook,
+    raw_metrics: dict[str, float | int],
+    source_metrics: dict[str, dict[str, float | int | bool]],
+    selected_source: str,
+    selected_metrics: dict[str, float | int | bool],
+) -> dict[str, Any]:
+    return {
+        "identifier": book.identifier,
+        "title": book.title,
+        "gutenberg_id": book.gutenberg_id,
+        "selected_source": selected_source,
+        "alignment_applied": bool(selected_metrics["alignment_applied"]),
+        "source_metrics": source_metrics,
+        "raw_cer": raw_metrics["cer"],
+        "raw_wer": raw_metrics["wer"],
+        "raw_char_accuracy": raw_metrics["char_accuracy"],
+        "raw_word_accuracy": raw_metrics["word_accuracy"],
+        "raw_char_accuracy_proxy": raw_metrics["char_accuracy_proxy"],
+        "raw_word_accuracy_proxy": raw_metrics["word_accuracy_proxy"],
+        "raw_cer_proxy": raw_metrics["cer_proxy"],
+        "raw_wer_proxy": raw_metrics["wer_proxy"],
+        **selected_metrics,
+    }
+
+
+def _average_metric(results: list[dict[str, Any]], key: str) -> float:
+    return sum(float(item[key]) for item in results) / len(results)
+
+
+def _count_selected_sources(results: list[dict[str, Any]]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for item in results:
+        name = str(item["selected_source"])
+        counts[name] = counts.get(name, 0) + 1
+    return counts
+
+
+def _build_summary(results: list[dict[str, Any]], source_mode: str) -> dict[str, Any]:
+    avg_cer = _average_metric(results, "cer")
+    avg_wer = _average_metric(results, "wer")
+    avg_raw_cer = _average_metric(results, "raw_cer")
+    avg_raw_wer = _average_metric(results, "raw_wer")
+    return {
+        "book_count": len(results),
+        "source_mode": source_mode,
+        "selected_source_counts": _count_selected_sources(results),
+        "avg_cer": avg_cer,
+        "avg_wer": avg_wer,
+        "avg_char_accuracy": max(0.0, 1.0 - avg_cer),
+        "avg_word_accuracy": max(0.0, 1.0 - avg_wer),
+        "avg_raw_cer": avg_raw_cer,
+        "avg_raw_wer": avg_raw_wer,
+        "avg_raw_char_accuracy": max(0.0, 1.0 - avg_raw_cer),
+        "avg_raw_word_accuracy": max(0.0, 1.0 - avg_raw_wer),
+        "avg_cer_proxy": avg_cer,
+        "avg_wer_proxy": avg_wer,
+        "avg_char_accuracy_proxy": max(0.0, 1.0 - avg_cer),
+        "avg_word_accuracy_proxy": max(0.0, 1.0 - avg_wer),
+        "avg_raw_cer_proxy": avg_raw_cer,
+        "avg_raw_wer_proxy": avg_raw_wer,
+        "avg_raw_char_accuracy_proxy": max(0.0, 1.0 - avg_raw_cer),
+        "avg_raw_word_accuracy_proxy": max(0.0, 1.0 - avg_raw_wer),
+    }
 
 
 def run_archive_benchmark(
@@ -305,92 +530,17 @@ def run_archive_benchmark(
     books: tuple[BenchmarkBook, ...] = BENCHMARK_BOOKS,
     source_mode: str = "djvu",
 ) -> dict[str, Any]:
+    """Run OCR-vs-reference metrics for curated books and return a report payload."""
+
     if source_mode not in {"djvu", "abbyy", "best"}:
         raise ValueError("source_mode must be one of: djvu, abbyy, best")
 
-    results: list[dict[str, Any]] = []
-    for book in books:
-        archive_path = cache_dir / f"{book.identifier}_archive_djvu.txt"
-        abbyy_path = cache_dir / f"{book.identifier}_archive_abbyy.txt"
-        gutenberg_path = cache_dir / f"pg{book.gutenberg_id}_gutenberg.txt"
+    results = [
+        _benchmark_book(book, cache_dir, timeout_seconds, source_mode)
+        for book in books
+    ]
 
-        djvu_text = _load_or_fetch_text(
-            archive_path,
-            lambda: fetch_archive_ocr_text(book.identifier, timeout_seconds=timeout_seconds),
-        )
-        abbyy_text = _load_or_fetch_optional_text(
-            abbyy_path,
-            lambda: fetch_archive_abbyy_text(book.identifier, timeout_seconds=timeout_seconds),
-        )
-        gutenberg_text = _load_or_fetch_text(
-            gutenberg_path,
-            lambda: fetch_gutenberg_text(book.gutenberg_id, timeout_seconds=timeout_seconds),
-        )
-
-        reference_text = strip_gutenberg_boilerplate(gutenberg_text)
-        raw_metrics = calculate_accuracy_metrics(reference_text, djvu_text)
-        djvu_metrics, djvu_aligned = _score_source(reference_text, djvu_text)
-        source_metrics: dict[str, dict[str, float | int | bool]] = {
-            "djvu": {
-                **djvu_metrics,
-                "alignment_applied": djvu_aligned,
-            }
-        }
-        if abbyy_text:
-            abbyy_metrics, abbyy_aligned = _score_source(reference_text, abbyy_text)
-            source_metrics["abbyy"] = {
-                **abbyy_metrics,
-                "alignment_applied": abbyy_aligned,
-            }
-
-        if source_mode == "best":
-            selected_source, selected_metrics = min(
-                source_metrics.items(),
-                key=lambda item: (
-                    float(item[1]["wer"]),
-                    float(item[1]["cer"]),
-                ),
-            )
-        elif source_mode == "abbyy":
-            if "abbyy" not in source_metrics:
-                raise ValueError(
-                    f"source_mode='abbyy' requested but no ABBYY OCR is available for {book.identifier}"
-                )
-            selected_source = "abbyy"
-            selected_metrics = source_metrics["abbyy"]
-        else:
-            selected_source = "djvu"
-            selected_metrics = source_metrics["djvu"]
-
-        results.append(
-            {
-                "identifier": book.identifier,
-                "title": book.title,
-                "gutenberg_id": book.gutenberg_id,
-                "selected_source": selected_source,
-                "alignment_applied": bool(selected_metrics["alignment_applied"]),
-                "source_metrics": source_metrics,
-                "raw_cer": raw_metrics["cer"],
-                "raw_wer": raw_metrics["wer"],
-                "raw_char_accuracy": raw_metrics["char_accuracy"],
-                "raw_word_accuracy": raw_metrics["word_accuracy"],
-                "raw_char_accuracy_proxy": raw_metrics["char_accuracy_proxy"],
-                "raw_word_accuracy_proxy": raw_metrics["word_accuracy_proxy"],
-                "raw_cer_proxy": raw_metrics["cer_proxy"],
-                "raw_wer_proxy": raw_metrics["wer_proxy"],
-                **selected_metrics,
-            }
-        )
-
-    avg_cer = sum(float(item["cer"]) for item in results) / len(results)
-    avg_wer = sum(float(item["wer"]) for item in results) / len(results)
-    avg_raw_cer = sum(float(item["raw_cer"]) for item in results) / len(results)
-    avg_raw_wer = sum(float(item["raw_wer"]) for item in results) / len(results)
-    source_counts: dict[str, int] = {}
-    for item in results:
-        selected_source_name = str(item["selected_source"])
-        source_counts[selected_source_name] = source_counts.get(selected_source_name, 0) + 1
-
+    summary = _build_summary(results, source_mode)
     return {
         "metric_note": (
             "CER/WER are true edit-distance scores on normalized text samples. "
@@ -398,31 +548,48 @@ def run_archive_benchmark(
             "Project Gutenberg references; source selection is controlled by source_mode."
         ),
         "books": results,
-        "summary": {
-            "book_count": len(results),
-            "source_mode": source_mode,
-            "selected_source_counts": source_counts,
-            "avg_cer": avg_cer,
-            "avg_wer": avg_wer,
-            "avg_char_accuracy": max(0.0, 1.0 - avg_cer),
-            "avg_word_accuracy": max(0.0, 1.0 - avg_wer),
-            "avg_raw_cer": avg_raw_cer,
-            "avg_raw_wer": avg_raw_wer,
-            "avg_raw_char_accuracy": max(0.0, 1.0 - avg_raw_cer),
-            "avg_raw_word_accuracy": max(0.0, 1.0 - avg_raw_wer),
-            # Backward-compatible aliases
-            "avg_cer_proxy": avg_cer,
-            "avg_wer_proxy": avg_wer,
-            "avg_char_accuracy_proxy": max(0.0, 1.0 - avg_cer),
-            "avg_word_accuracy_proxy": max(0.0, 1.0 - avg_wer),
-            "avg_raw_cer_proxy": avg_raw_cer,
-            "avg_raw_wer_proxy": avg_raw_wer,
-            "avg_raw_char_accuracy_proxy": max(0.0, 1.0 - avg_raw_cer),
-            "avg_raw_word_accuracy_proxy": max(0.0, 1.0 - avg_raw_wer),
-        },
+        "summary": summary,
     }
 
 
+def _benchmark_book(
+    book: BenchmarkBook,
+    cache_dir: Path,
+    timeout_seconds: int,
+    source_mode: str,
+) -> dict[str, Any]:
+    paths = _book_paths(cache_dir, book)
+    djvu_text = _load_or_fetch_text(
+        paths.archive_path,
+        lambda book=book: _fetch_djvu_text(book, timeout_seconds),
+    )
+    abbyy_text = _load_or_fetch_optional_text(
+        paths.abbyy_path,
+        lambda book=book: _fetch_abbyy_text(book, timeout_seconds),
+    )
+    gutenberg_text = _load_or_fetch_text(
+        paths.gutenberg_path,
+        lambda book=book: _fetch_gutenberg(book, timeout_seconds),
+    )
+    reference_text = strip_gutenberg_boilerplate(gutenberg_text)
+    raw_metrics = calculate_accuracy_metrics(reference_text, djvu_text)
+    source_metrics = _collect_source_metrics(reference_text, djvu_text, abbyy_text)
+    selected_source, selected_metrics = _select_source_metrics(
+        source_mode,
+        source_metrics,
+        book.identifier,
+    )
+    return _build_book_result(
+        book,
+        raw_metrics,
+        source_metrics,
+        selected_source,
+        selected_metrics,
+    )
+
+
 def write_benchmark_report(path: Path, report: dict[str, Any]) -> None:
+    """Write benchmark report JSON to disk."""
+
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")

@@ -1,3 +1,5 @@
+"""archive.org starter-manifest helpers."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -13,6 +15,8 @@ ARCHIVE_METADATA_URL = "https://archive.org/metadata/{identifier}"
 
 @dataclass(frozen=True)
 class StarterBook:
+    """A curated archive.org item used in the starter dataset."""
+
     identifier: str
     title: str
 
@@ -27,6 +31,8 @@ STARTER_BOOKS: tuple[StarterBook, ...] = (
 
 
 def fetch_metadata(identifier: str, timeout_seconds: int = 30) -> dict[str, Any]:
+    """Fetch archive.org metadata JSON for an identifier."""
+
     url = ARCHIVE_METADATA_URL.format(identifier=identifier)
     with urlopen(url, timeout=timeout_seconds) as response:  # noqa: S310
         payload = response.read().decode("utf-8")
@@ -80,6 +86,8 @@ def _has_suffix(files: list[dict[str, Any]], suffix: str) -> bool:
 
 
 def build_manifest_entry(book: StarterBook, metadata: dict[str, Any]) -> dict[str, Any]:
+    """Build one normalized manifest row for a starter book."""
+
     md = metadata.get("metadata")
     md_obj = md if isinstance(md, dict) else {}
     files = _normalize_files(metadata.get("files"))
@@ -106,6 +114,8 @@ def build_manifest_entry(book: StarterBook, metadata: dict[str, Any]) -> dict[st
 
 
 def build_manifest(timeout_seconds: int = 30) -> list[dict[str, Any]]:
+    """Build the default starter manifest by fetching all starter books."""
+
     manifest: list[dict[str, Any]] = []
     for book in STARTER_BOOKS:
         metadata = fetch_metadata(book.identifier, timeout_seconds=timeout_seconds)
@@ -114,6 +124,8 @@ def build_manifest(timeout_seconds: int = 30) -> list[dict[str, Any]]:
 
 
 def write_manifest(path: Path, manifest: list[dict[str, Any]]) -> None:
+    """Write a manifest payload to disk as pretty JSON."""
+
     path.parent.mkdir(parents=True, exist_ok=True)
     payload = {"books": manifest}
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")

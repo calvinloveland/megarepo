@@ -1,14 +1,90 @@
+"""Local OCR pipeline and mode-evaluation helpers."""
+
 from __future__ import annotations
 
+from dataclasses import dataclass
+import importlib
 import json
 import math
 from pathlib import Path
 import re
 import shutil
 import subprocess
-from typing import Callable
+from typing import Any, Callable
 
+try:
+    from PIL import Image, ImageFilter, ImageOps
+except ImportError:
+    Image = None
+    ImageFilter = None
+    ImageOps = None
+
+from . import benchmark as benchmark_module
 from .ocr_cleanup import cleanup_ocr_text
+
+
+@dataclass(frozen=True)
+class OCRCoreOptions:
+    """Shared OCR option values."""
+
+    language: str = "eng"
+    dpi: int = 300
+    apply_cleanup: bool = True
+    binarize_threshold: int = 170
+    deskew_max_angle: float = 3.0
+    deskew_angle_step: float = 0.5
+
+
+@dataclass(frozen=True)
+class OCRRunOptions:
+    """Config for a single OCR execution."""
+
+    core: OCRCoreOptions
+    preprocess_mode: str = "basic"
+    ocr_engine: str = "tesseract"
+    emit_page_artifacts: bool = True
+    page_artifacts_dir: Path | None = None
+
+
+@dataclass(frozen=True)
+class OCRDependencies:
+    """Injectable dependencies for OCR execution and testing."""
+
+    run_command: Callable[[list[str], bool], str]
+    preprocess_image: Callable[[Path, Path, str, int, float, float], None]
+    paddle_reader_factory: Callable[[str], Callable[[Path], str]]
+    which: Callable[[str], str | None]
+
+
+@dataclass(frozen=True)
+class ModeEvalOptions:
+    """Config for preprocessing-mode comparisons."""
+
+    core: OCRCoreOptions
+    ocr_engine: str = "tesseract"
+    reference_text_path: Path | None = None
+    modes: tuple[str, ...] = ("none", "basic", "deskew", "dewarp")
+
+
+@dataclass(frozen=True)
+class LocalArchiveBenchmarkOptions:
+    """Config for local-vs-archive benchmark runs."""
+
+    core: OCRCoreOptions
+    archive_source_mode: str = "djvu"
+    ocr_engine: str = "tesseract"
+
+
+@dataclass(frozen=True)
+class SourceCandidateRequest:
+    """Input bundle for one local-vs-archive source candidate run."""
+
+    pdf_path: Path
+    archive_identifier: str
+    source_name: str
+    reference_text: str
+    work_dir: Path
+    options: LocalArchiveBenchmarkOptions
 
 
 def _run_command(command: list[str], capture_output: bool = False) -> str:
@@ -39,72 +115,102 @@ def _map_paddleocr_language(language: str) -> str:
 
 
 def _build_paddleocr_reader(language: str) -> Callable[[Path], str]:
+    paddle_ocr_type = _load_paddleocr_type()
+    reader = _initialize_paddle_reader(paddle_ocr_type, language)
+    return lambda image_path: _read_with_paddle(reader, image_path)
+
+
+def _load_paddleocr_type() -> Any:
     try:
-        from paddleocr import PaddleOCR
+        module = importlib.import_module("paddleocr")
     except ImportError as exc:
         raise RuntimeError(
             "Missing dependency for paddleocr engine: paddleocr. "
             "Install with `pip install paddleocr` or use --ocr-engine tesseract."
         ) from exc
+    paddle_ocr_type = getattr(module, "PaddleOCR", None)
+    if paddle_ocr_type is None:
+        raise RuntimeError("paddleocr module does not provide PaddleOCR")
+    return paddle_ocr_type
 
-    paddle_language = _map_paddleocr_language(language)
+
+def _initialize_paddle_reader(paddle_ocr_type: Any, language: str) -> Any:
     reader_kwargs = {
         "use_angle_cls": True,
-        "lang": paddle_language,
+        "lang": _map_paddleocr_language(language),
         "use_gpu": False,
         "show_log": False,
     }
     while True:
         try:
-            reader = PaddleOCR(**reader_kwargs)
-            break
+            return paddle_ocr_type(**reader_kwargs)
         except (TypeError, ValueError) as exc:
-            message = str(exc)
-            match = re.search(r"Unknown argument:\s*([A-Za-z_][A-Za-z0-9_]*)", message)
-            if not match:
-                match = re.search(r"unexpected keyword argument '([A-Za-z_][A-Za-z0-9_]*)'", message)
-            unknown_argument = match.group(1) if match else None
-            if not unknown_argument or unknown_argument not in reader_kwargs:
+            unknown_argument = _extract_unknown_argument(str(exc))
+            if unknown_argument is None or unknown_argument not in reader_kwargs:
                 raise
             reader_kwargs.pop(unknown_argument)
 
-    def _read(image_path: Path) -> str:
-        result = None
-        if hasattr(reader, "predict"):
-            result = list(reader.predict(str(image_path)))
-        else:
-            try:
-                result = reader.ocr(str(image_path), cls=True)
-            except TypeError as exc:
-                if "cls" not in str(exc):
-                    raise
-                result = reader.ocr(str(image_path))
-        lines: list[str] = []
-        for page_result in result or []:
-            if isinstance(page_result, dict):
-                rec_texts = page_result.get("rec_texts")
-                if isinstance(rec_texts, list):
-                    for text in rec_texts:
-                        if isinstance(text, str) and text.strip():
-                            lines.append(text.strip())
-                continue
-            if not isinstance(page_result, list):
-                continue
-            for row in page_result:
-                if not isinstance(row, list | tuple) or len(row) < 2:
-                    continue
-                text_info = row[1]
-                if not isinstance(text_info, list | tuple) or not text_info:
-                    continue
-                text = text_info[0]
-                if isinstance(text, str) and text.strip():
-                    lines.append(text.strip())
-        return "\n".join(lines)
 
-    return _read
+def _extract_unknown_argument(message: str) -> str | None:
+    direct_match = re.search(r"Unknown argument:\s*([A-Za-z_][A-Za-z0-9_]*)", message)
+    if direct_match:
+        return direct_match.group(1)
+    kwarg_match = re.search(
+        r"unexpected keyword argument '([A-Za-z_][A-Za-z0-9_]*)'",
+        message,
+    )
+    return kwarg_match.group(1) if kwarg_match else None
 
 
-def _projection_variance(binary_image) -> float:
+def _read_with_paddle(reader: Any, image_path: Path) -> str:
+    raw_result = _run_paddle_raw(reader, image_path)
+    lines: list[str] = []
+    for page_result in raw_result or []:
+        lines.extend(_extract_lines_from_page_result(page_result))
+    return "\n".join(lines)
+
+
+def _run_paddle_raw(reader: Any, image_path: Path) -> Any:
+    if hasattr(reader, "predict"):
+        return list(reader.predict(str(image_path)))
+    try:
+        return reader.ocr(str(image_path), cls=True)
+    except TypeError as exc:
+        if "cls" not in str(exc):
+            raise
+        return reader.ocr(str(image_path))
+
+
+def _extract_lines_from_page_result(page_result: Any) -> list[str]:
+    if isinstance(page_result, dict):
+        return _extract_lines_from_predict_result(page_result)
+    if not isinstance(page_result, list):
+        return []
+    return _extract_lines_from_ocr_rows(page_result)
+
+
+def _extract_lines_from_predict_result(page_result: dict[str, Any]) -> list[str]:
+    rec_texts = page_result.get("rec_texts")
+    if not isinstance(rec_texts, list):
+        return []
+    return [text.strip() for text in rec_texts if isinstance(text, str) and text.strip()]
+
+
+def _extract_lines_from_ocr_rows(rows: list[Any]) -> list[str]:
+    lines: list[str] = []
+    for row in rows:
+        if not isinstance(row, (list, tuple)) or len(row) < 2:
+            continue
+        text_info = row[1]
+        if not isinstance(text_info, (list, tuple)) or not text_info:
+            continue
+        text = text_info[0]
+        if isinstance(text, str) and text.strip():
+            lines.append(text.strip())
+    return lines
+
+
+def _projection_variance(binary_image: Any) -> float:
     width, height = binary_image.size
     pixels = binary_image.load()
     row_counts: list[int] = []
@@ -120,7 +226,7 @@ def _projection_variance(binary_image) -> float:
     return sum((value - mean) ** 2 for value in row_counts) / len(row_counts)
 
 
-def _estimate_skew_angle(denoised_image, max_angle: float, angle_step: float) -> float:
+def _estimate_skew_angle(denoised_image: Any, max_angle: float, angle_step: float) -> float:
     best_angle = 0.0
     best_score = -math.inf
     angle = -max_angle
@@ -135,29 +241,35 @@ def _estimate_skew_angle(denoised_image, max_angle: float, angle_step: float) ->
     return best_angle
 
 
-def _row_center_offsets(binary_image) -> list[float | None]:
+def _row_center_offsets(binary_image: Any) -> list[float | None]:
     width, height = binary_image.size
     pixels = binary_image.load()
     centers: list[float | None] = []
     for y in range(height):
-        left: int | None = None
-        right: int | None = None
-        for x in range(width):
-            if pixels[x, y] == 0:
-                left = x
-                break
+        left = _first_black_pixel(pixels, width, y)
         if left is None:
             centers.append(None)
             continue
-        for x in range(width - 1, -1, -1):
-            if pixels[x, y] == 0:
-                right = x
-                break
+        right = _last_black_pixel(pixels, width, y)
         if right is None:
             centers.append(None)
             continue
         centers.append((left + right) / 2.0)
     return centers
+
+
+def _first_black_pixel(pixels: Any, width: int, y: int) -> int | None:
+    for x in range(width):
+        if pixels[x, y] == 0:
+            return x
+    return None
+
+
+def _last_black_pixel(pixels: Any, width: int, y: int) -> int | None:
+    for x in range(width - 1, -1, -1):
+        if pixels[x, y] == 0:
+            return x
+    return None
 
 
 def _linear_center_baseline(centers: list[float | None]) -> tuple[float, float]:
@@ -177,103 +289,167 @@ def _linear_center_baseline(centers: list[float | None]) -> tuple[float, float]:
     return slope, intercept
 
 
-def _dewarp_by_row_shift(denoised_image, binarize_threshold: int):
-    from PIL import Image
-
+def _dewarp_by_row_shift(denoised_image: Any, binarize_threshold: int) -> Any:
+    if Image is None:
+        raise RuntimeError(
+            "Missing dependency for preprocessing: pillow. "
+            "Install with `pip install pillow` or disable preprocessing."
+        )
     binary = denoised_image.point(lambda value: 255 if value >= binarize_threshold else 0)
     centers = _row_center_offsets(binary)
     slope, intercept = _linear_center_baseline(centers)
     width, height = denoised_image.size
     warped = Image.new("L", (width, height), color=255)
     for y in range(height):
-        center = centers[y]
-        if center is None:
-            shift = 0
-        else:
-            baseline_center = slope * float(y) + intercept
-            shift = int(round(center - baseline_center))
+        shift = _row_shift_for_dewarp(centers, slope, intercept, y)
         row = denoised_image.crop((0, y, width, y + 1))
         warped.paste(row, (-shift, y))
     return warped
 
 
+def _row_shift_for_dewarp(
+    centers: list[float | None],
+    slope: float,
+    intercept: float,
+    y: int,
+) -> int:
+    center = centers[y]
+    if center is None:
+        return 0
+    baseline_center = slope * float(y) + intercept
+    return int(round(center - baseline_center))
+
+
 def _preprocess_image(
     input_path: Path,
     output_path: Path,
-    preprocess_mode: str,
-    binarize_threshold: int,
-    deskew_max_angle: float,
-    deskew_angle_step: float,
+    *args: Any,
 ) -> None:
-    try:
-        from PIL import Image, ImageFilter, ImageOps
-    except ImportError as exc:
+    preprocess_mode, binarize_threshold, deskew_max_angle, deskew_angle_step = (
+        _parse_preprocess_args(args)
+    )
+    if Image is None or ImageFilter is None or ImageOps is None:
         raise RuntimeError(
             "Missing dependency for preprocessing: pillow. "
             "Install with `pip install pillow` or disable preprocessing."
-        ) from exc
-
+        )
     with Image.open(input_path) as image:
         gray = image.convert("L")
         contrasted = ImageOps.autocontrast(gray)
         denoised = contrasted.filter(ImageFilter.MedianFilter(size=3))
-        candidate = denoised
-        if preprocess_mode == "deskew":
-            skew_angle = _estimate_skew_angle(
-                denoised,
-                max_angle=deskew_max_angle,
-                angle_step=deskew_angle_step,
-            )
-            candidate = denoised.rotate(skew_angle, expand=True, fillcolor=255)
-        if preprocess_mode == "dewarp":
-            skew_angle = _estimate_skew_angle(
-                denoised,
-                max_angle=deskew_max_angle,
-                angle_step=deskew_angle_step,
-            )
-            deskewed = denoised.rotate(skew_angle, expand=True, fillcolor=255)
-            candidate = _dewarp_by_row_shift(deskewed, binarize_threshold)
+        candidate = _preprocess_candidate(
+            denoised,
+            preprocess_mode,
+            deskew_max_angle,
+            deskew_angle_step,
+            binarize_threshold,
+        )
         binarized = candidate.point(lambda value: 255 if value >= binarize_threshold else 0)
         output_path.parent.mkdir(parents=True, exist_ok=True)
         binarized.save(output_path)
 
 
-def ocr_pdf_with_tesseract(
+def _parse_preprocess_args(args: tuple[Any, ...]) -> tuple[str, int, float, float]:
+    if len(args) != 4:
+        raise TypeError("_preprocess_image expects preprocess mode, threshold, max angle, step")
+    preprocess_mode = str(args[0])
+    binarize_threshold = int(args[1])
+    deskew_max_angle = float(args[2])
+    deskew_angle_step = float(args[3])
+    return preprocess_mode, binarize_threshold, deskew_max_angle, deskew_angle_step
+
+
+def _preprocess_candidate(
+    denoised: Any,
+    preprocess_mode: str,
+    deskew_max_angle: float,
+    deskew_angle_step: float,
+    binarize_threshold: int,
+) -> Any:
+    if preprocess_mode == "deskew":
+        skew_angle = _estimate_skew_angle(
+            denoised,
+            max_angle=deskew_max_angle,
+            angle_step=deskew_angle_step,
+        )
+        return denoised.rotate(skew_angle, expand=True, fillcolor=255)
+    if preprocess_mode == "dewarp":
+        skew_angle = _estimate_skew_angle(
+            denoised,
+            max_angle=deskew_max_angle,
+            angle_step=deskew_angle_step,
+        )
+        deskewed = denoised.rotate(skew_angle, expand=True, fillcolor=255)
+        return _dewarp_by_row_shift(deskewed, binarize_threshold)
+    return denoised
+
+
+def _parse_ocr_dependencies(kwargs: dict[str, Any]) -> OCRDependencies:
+    return OCRDependencies(
+        run_command=kwargs.pop("run_command", _run_command),
+        preprocess_image=kwargs.pop("preprocess_image", _preprocess_image),
+        paddle_reader_factory=kwargs.pop("paddle_reader_factory", _build_paddleocr_reader),
+        which=kwargs.pop("which", shutil.which),
+    )
+
+
+def _parse_ocr_options(kwargs: dict[str, Any]) -> OCRRunOptions:
+    page_artifacts_dir = kwargs.pop("page_artifacts_dir", None)
+    if page_artifacts_dir is not None and not isinstance(page_artifacts_dir, Path):
+        page_artifacts_dir = Path(str(page_artifacts_dir))
+    core_options = OCRCoreOptions(
+        language=str(kwargs.pop("language", "eng")),
+        dpi=int(kwargs.pop("dpi", 300)),
+        apply_cleanup=bool(kwargs.pop("apply_cleanup", True)),
+        binarize_threshold=int(kwargs.pop("binarize_threshold", 170)),
+        deskew_max_angle=float(kwargs.pop("deskew_max_angle", 3.0)),
+        deskew_angle_step=float(kwargs.pop("deskew_angle_step", 0.5)),
+    )
+    return OCRRunOptions(
+        core=core_options,
+        preprocess_mode=str(kwargs.pop("preprocess_mode", "basic")),
+        ocr_engine=str(kwargs.pop("ocr_engine", "tesseract")),
+        emit_page_artifacts=bool(kwargs.pop("emit_page_artifacts", True)),
+        page_artifacts_dir=page_artifacts_dir,
+    )
+
+
+def _ensure_no_unknown_kwargs(kwargs: dict[str, Any], function_name: str) -> None:
+    if not kwargs:
+        return
+    unknown = ", ".join(sorted(kwargs))
+    raise TypeError(f"{function_name} got unexpected keyword arguments: {unknown}")
+
+
+def _validate_ocr_run_options(
     pdf_path: Path,
-    output_text_path: Path,
-    work_dir: Path,
-    language: str = "eng",
-    dpi: int = 300,
-    apply_cleanup: bool = True,
-    preprocess_mode: str = "basic",
-    binarize_threshold: int = 170,
-    deskew_max_angle: float = 3.0,
-    deskew_angle_step: float = 0.5,
-    ocr_engine: str = "tesseract",
-    emit_page_artifacts: bool = True,
-    page_artifacts_dir: Path | None = None,
-    run_command: Callable[[list[str], bool], str] = _run_command,
-    preprocess_image: Callable[[Path, Path, str, int, float, float], None] = _preprocess_image,
-    paddle_reader_factory: Callable[[str], Callable[[Path], str]] = _build_paddleocr_reader,
-    which: Callable[[str], str | None] = shutil.which,
-) -> dict[str, int | str]:
-    if preprocess_mode not in {"none", "basic", "deskew", "dewarp"}:
+    options: OCRRunOptions,
+    which: Callable[[str], str | None],
+) -> None:
+    if options.preprocess_mode not in {"none", "basic", "deskew", "dewarp"}:
         raise ValueError("preprocess_mode must be 'none', 'basic', 'deskew', or 'dewarp'")
-    if ocr_engine not in {"tesseract", "paddleocr"}:
+    if options.ocr_engine not in {"tesseract", "paddleocr"}:
         raise ValueError("ocr_engine must be 'tesseract' or 'paddleocr'")
-    if not (0 <= binarize_threshold <= 255):
+    if not 0 <= options.core.binarize_threshold <= 255:
         raise ValueError("binarize_threshold must be between 0 and 255")
-    if deskew_max_angle <= 0:
+    if options.core.deskew_max_angle <= 0:
         raise ValueError("deskew_max_angle must be greater than 0")
-    if deskew_angle_step <= 0:
+    if options.core.deskew_angle_step <= 0:
         raise ValueError("deskew_angle_step must be greater than 0")
     if which("pdftoppm") is None:
         raise RuntimeError("Missing dependency: pdftoppm")
-    if ocr_engine == "tesseract" and which("tesseract") is None:
+    if options.ocr_engine == "tesseract" and which("tesseract") is None:
         raise RuntimeError("Missing dependency: tesseract")
     if not pdf_path.exists():
         raise FileNotFoundError(f"Input PDF not found: {pdf_path}")
 
+
+def _rasterize_pdf_to_images(
+    pdf_path: Path,
+    work_dir: Path,
+    dpi: int,
+    run_command: Callable[[list[str], bool], str],
+) -> list[Path]:
     pages_dir = work_dir / "pages"
     pages_dir.mkdir(parents=True, exist_ok=True)
     page_prefix = pages_dir / "page"
@@ -289,159 +465,266 @@ def ocr_pdf_with_tesseract(
         ],
         False,
     )
-
     page_images = sorted(pages_dir.glob("page-*.png"))
     if not page_images:
         raise RuntimeError("pdftoppm produced no page images")
+    return page_images
 
-    page_texts: list[str] = []
-    preprocessed_dir = work_dir / "preprocessed"
-    page_details: list[dict[str, object]] = []
-    artifacts_dir = page_artifacts_dir or (work_dir / "page_ocr")
-    if emit_page_artifacts:
+
+def _prepare_artifacts_dir(work_dir: Path, options: OCRRunOptions) -> Path:
+    artifacts_dir = options.page_artifacts_dir or (work_dir / "page_ocr")
+    if options.emit_page_artifacts:
         artifacts_dir.mkdir(parents=True, exist_ok=True)
-    paddle_reader = paddle_reader_factory(language) if ocr_engine == "paddleocr" else None
+    return artifacts_dir
+
+
+def _run_ocr_on_page(
+    image_path: Path,
+    options: OCRRunOptions,
+    dependencies: OCRDependencies,
+    preprocessed_dir: Path,
+    paddle_reader: Callable[[Path], str] | None,
+) -> tuple[Path, str]:
+    ocr_input_path = image_path
+    if options.preprocess_mode in {"basic", "deskew", "dewarp"}:
+        preprocessed_path = preprocessed_dir / image_path.name
+        dependencies.preprocess_image(
+            image_path,
+            preprocessed_path,
+            options.preprocess_mode,
+            options.core.binarize_threshold,
+            options.core.deskew_max_angle,
+            options.core.deskew_angle_step,
+        )
+        ocr_input_path = preprocessed_path
+    if options.ocr_engine == "tesseract":
+        return ocr_input_path, _run_tesseract(
+            dependencies.run_command,
+            ocr_input_path,
+            options.core.language,
+        )
+    return ocr_input_path, _run_paddle_reader(paddle_reader, ocr_input_path)
+
+
+def _run_tesseract(
+    run_command: Callable[[list[str], bool], str],
+    image_path: Path,
+    language: str,
+) -> str:
+    return run_command(
+        [
+            "tesseract",
+            str(image_path),
+            "stdout",
+            "-l",
+            language,
+            "--psm",
+            "3",
+        ],
+        True,
+    )
+
+
+def _run_paddle_reader(
+    paddle_reader: Callable[[Path], str] | None,
+    image_path: Path,
+) -> str:
+    if paddle_reader is None:
+        raise RuntimeError("PaddleOCR reader was not initialized")
+    return paddle_reader(image_path)
+
+
+def _page_entry(
+    page_index: int,
+    image_path: Path,
+    ocr_input_path: Path,
+    text: str,
+) -> dict[str, object]:
+    return {
+        "page_index": page_index,
+        "image_path": str(image_path),
+        "ocr_input_path": str(ocr_input_path),
+        "word_count": len([word for word in text.split() if word]),
+        "character_count": len(text),
+    }
+
+
+def _collect_page_ocr_results(
+    page_images: list[Path],
+    options: OCRRunOptions,
+    dependencies: OCRDependencies,
+    work_dir: Path,
+    artifacts_dir: Path,
+) -> tuple[list[str], list[dict[str, object]]]:
+    page_texts: list[str] = []
+    page_details: list[dict[str, object]] = []
+    preprocessed_dir = work_dir / "preprocessed"
+    paddle_reader = (
+        dependencies.paddle_reader_factory(options.core.language)
+        if options.ocr_engine == "paddleocr"
+        else None
+    )
     for image_path in page_images:
-        ocr_input_path = image_path
-        if preprocess_mode in {"basic", "deskew", "dewarp"}:
-            preprocessed_path = preprocessed_dir / image_path.name
-            preprocess_image(
-                image_path,
-                preprocessed_path,
-                preprocess_mode,
-                binarize_threshold,
-                deskew_max_angle,
-                deskew_angle_step,
-            )
-            ocr_input_path = preprocessed_path
-
-        if ocr_engine == "tesseract":
-            text = run_command(
-                [
-                    "tesseract",
-                    str(ocr_input_path),
-                    "stdout",
-                    "-l",
-                    language,
-                    "--psm",
-                    "3",
-                ],
-                True,
-            )
-        elif ocr_engine == "paddleocr":
-            if paddle_reader is None:
-                raise RuntimeError("PaddleOCR reader was not initialized")
-            text = paddle_reader(ocr_input_path)
+        ocr_input_path, text = _run_ocr_on_page(
+            image_path,
+            options,
+            dependencies,
+            preprocessed_dir,
+            paddle_reader,
+        )
         page_texts.append(text)
-        page_word_count = len([word for word in text.split() if word])
         page_index = len(page_texts)
-        page_entry: dict[str, object] = {
-            "page_index": page_index,
-            "image_path": str(image_path),
-            "ocr_input_path": str(ocr_input_path),
-            "word_count": page_word_count,
-            "character_count": len(text),
-        }
-        if emit_page_artifacts:
-            page_text_path = artifacts_dir / f"page-{page_index:04d}.txt"
-            page_text_path.write_text(text, encoding="utf-8")
-            page_entry["text_path"] = str(page_text_path)
-        page_details.append(page_entry)
+        entry = _page_entry(page_index, image_path, ocr_input_path, text)
+        if options.emit_page_artifacts:
+            text_path = artifacts_dir / f"page-{page_index:04d}.txt"
+            text_path.write_text(text, encoding="utf-8")
+            entry["text_path"] = str(text_path)
+        page_details.append(entry)
+    return page_texts, page_details
 
+
+def _finalize_ocr_output(
+    page_texts: list[str],
+    output_text_path: Path,
+    options: OCRRunOptions,
+) -> tuple[str, dict[str, int | str]]:
     combined_text = "\n\n".join(page_texts)
-    final_text = cleanup_ocr_text(combined_text) if apply_cleanup else combined_text
+    final_text = (
+        cleanup_ocr_text(combined_text)
+        if options.core.apply_cleanup
+        else combined_text
+    )
     output_text_path.parent.mkdir(parents=True, exist_ok=True)
     output_text_path.write_text(final_text, encoding="utf-8")
     words = [word for word in final_text.split() if word]
-    result = {
-        "page_count": len(page_images),
+    return final_text, {
+        "page_count": len(page_texts),
         "word_count": len(words),
         "character_count": len(final_text),
     }
-    if emit_page_artifacts:
-        artifacts_manifest_path = artifacts_dir / "manifest.json"
-        artifacts_manifest_path.write_text(
-            json.dumps({"pages": page_details}, indent=2, sort_keys=True) + "\n",
-            encoding="utf-8",
-        )
-        result["page_artifacts_dir"] = str(artifacts_dir)
-        result["page_artifacts_manifest"] = str(artifacts_manifest_path)
+
+
+def _attach_page_artifacts(
+    result: dict[str, int | str],
+    artifacts_dir: Path,
+    page_details: list[dict[str, object]],
+) -> None:
+    artifacts_manifest_path = artifacts_dir / "manifest.json"
+    artifacts_manifest_path.write_text(
+        json.dumps({"pages": page_details}, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    result["page_artifacts_dir"] = str(artifacts_dir)
+    result["page_artifacts_manifest"] = str(artifacts_manifest_path)
+
+
+def ocr_pdf_with_tesseract(
+    pdf_path: Path,
+    output_text_path: Path,
+    work_dir: Path,
+    **kwargs: Any,
+) -> dict[str, int | str]:
+    """Run OCR on a PDF with optional preprocessing and artifact output."""
+
+    parse_kwargs = dict(kwargs)
+    dependencies = _parse_ocr_dependencies(parse_kwargs)
+    options = _parse_ocr_options(parse_kwargs)
+    _ensure_no_unknown_kwargs(parse_kwargs, "ocr_pdf_with_tesseract")
+    _validate_ocr_run_options(pdf_path, options, dependencies.which)
+    page_images = _rasterize_pdf_to_images(
+        pdf_path,
+        work_dir,
+        options.core.dpi,
+        dependencies.run_command,
+    )
+    artifacts_dir = _prepare_artifacts_dir(work_dir, options)
+    page_texts, page_details = _collect_page_ocr_results(
+        page_images,
+        options,
+        dependencies,
+        work_dir,
+        artifacts_dir,
+    )
+    _final_text, result = _finalize_ocr_output(page_texts, output_text_path, options)
+    if options.emit_page_artifacts:
+        _attach_page_artifacts(result, artifacts_dir, page_details)
     return result
+
+
+def _parse_mode_eval_options(kwargs: dict[str, Any]) -> ModeEvalOptions:
+    reference_text_path = kwargs.pop("reference_text_path", None)
+    if reference_text_path is not None and not isinstance(reference_text_path, Path):
+        reference_text_path = Path(str(reference_text_path))
+    raw_modes = kwargs.pop("modes", ("none", "basic", "deskew", "dewarp"))
+    modes = tuple(str(mode) for mode in raw_modes)
+    core_options = OCRCoreOptions(
+        language=str(kwargs.pop("language", "eng")),
+        dpi=int(kwargs.pop("dpi", 300)),
+        apply_cleanup=bool(kwargs.pop("apply_cleanup", True)),
+        binarize_threshold=int(kwargs.pop("binarize_threshold", 170)),
+        deskew_max_angle=float(kwargs.pop("deskew_max_angle", 3.0)),
+        deskew_angle_step=float(kwargs.pop("deskew_angle_step", 0.5)),
+    )
+    return ModeEvalOptions(
+        core=core_options,
+        ocr_engine=str(kwargs.pop("ocr_engine", "tesseract")),
+        reference_text_path=reference_text_path,
+        modes=modes,
+    )
+
+
+def _mode_ocr_kwargs(options: ModeEvalOptions, mode: str) -> dict[str, Any]:
+    return {
+        "language": options.core.language,
+        "dpi": options.core.dpi,
+        "apply_cleanup": options.core.apply_cleanup,
+        "preprocess_mode": mode,
+        "binarize_threshold": options.core.binarize_threshold,
+        "deskew_max_angle": options.core.deskew_max_angle,
+        "deskew_angle_step": options.core.deskew_angle_step,
+        "ocr_engine": options.ocr_engine,
+    }
+
+
+def _rank_modes(report: dict[str, object]) -> list[tuple[str, float, float]]:
+    modes_payload = report["modes"]
+    if not isinstance(modes_payload, dict):
+        return []
+    ranked = []
+    for mode_name, mode_payload in modes_payload.items():
+        if not isinstance(mode_name, str) or not isinstance(mode_payload, dict):
+            continue
+        accuracy_payload = mode_payload.get("accuracy", {})
+        if not isinstance(accuracy_payload, dict):
+            continue
+        ranked.append(
+            (
+                mode_name,
+                float(accuracy_payload.get("wer", 1.0)),
+                float(accuracy_payload.get("cer", 1.0)),
+            )
+        )
+    return sorted(ranked, key=lambda item: (item[1], item[2]))
 
 
 def evaluate_ocr_preprocess_modes(
     pdf_path: Path,
     work_dir: Path,
     output_report_path: Path,
-    language: str = "eng",
-    dpi: int = 300,
-    apply_cleanup: bool = True,
-    binarize_threshold: int = 170,
-    deskew_max_angle: float = 3.0,
-    deskew_angle_step: float = 0.5,
-    ocr_engine: str = "tesseract",
-    reference_text_path: Path | None = None,
-    modes: tuple[str, ...] = ("none", "basic", "deskew", "dewarp"),
+    **kwargs: Any,
 ) -> dict[str, object]:
-    from .benchmark import calculate_accuracy_metrics
+    """Run OCR across preprocess modes and optionally score against reference text."""
 
-    report: dict[str, object] = {
-        "pdf_path": str(pdf_path),
-        "modes": {},
-    }
-
-    reference_text: str | None = None
-    if reference_text_path is not None:
-        reference_text = reference_text_path.read_text(encoding="utf-8")
-        report["reference_text_path"] = str(reference_text_path)
-        report["mode_ranking"] = []
-        report["best_mode"] = None
-
-    for mode in modes:
-        mode_output_path = work_dir / "mode_outputs" / f"{mode}.txt"
-        mode_work_dir = work_dir / f"work_{mode}"
-        mode_metrics = ocr_pdf_with_tesseract(
-            pdf_path=pdf_path,
-            output_text_path=mode_output_path,
-            work_dir=mode_work_dir,
-            language=language,
-            dpi=dpi,
-            apply_cleanup=apply_cleanup,
-            preprocess_mode=mode,
-            binarize_threshold=binarize_threshold,
-            deskew_max_angle=deskew_max_angle,
-            deskew_angle_step=deskew_angle_step,
-            ocr_engine=ocr_engine,
-        )
-        mode_payload: dict[str, object] = dict(mode_metrics)
-        mode_payload["output_text_path"] = str(mode_output_path)
-        if reference_text is not None:
-            hypothesis_text = mode_output_path.read_text(encoding="utf-8")
-            mode_payload["accuracy"] = calculate_accuracy_metrics(reference_text, hypothesis_text)
-        report["modes"][mode] = mode_payload
-
+    parse_kwargs = dict(kwargs)
+    options = _parse_mode_eval_options(parse_kwargs)
+    _ensure_no_unknown_kwargs(parse_kwargs, "evaluate_ocr_preprocess_modes")
+    report = _initialize_mode_eval_report(pdf_path, options)
+    reference_text = _load_reference_text(options)
+    for mode in options.modes:
+        mode_payload = _run_single_mode(pdf_path, work_dir, options, mode, reference_text)
+        _store_mode_payload(report, mode, mode_payload)
     if reference_text is not None:
-        ranked = sorted(
-            (
-                (
-                    mode_name,
-                    float(mode_payload["accuracy"]["wer"]),
-                    float(mode_payload["accuracy"]["cer"]),
-                )
-                for mode_name, mode_payload in report["modes"].items()
-            ),
-            key=lambda item: (item[1], item[2]),
-        )
-        report["mode_ranking"] = [
-            {
-                "mode": mode_name,
-                "wer": wer,
-                "cer": cer,
-            }
-            for mode_name, wer, cer in ranked
-        ]
-        if ranked:
-            report["best_mode"] = ranked[0][0]
+        _attach_mode_ranking(report)
 
     output_report_path.parent.mkdir(parents=True, exist_ok=True)
     output_report_path.write_text(
@@ -451,71 +734,196 @@ def evaluate_ocr_preprocess_modes(
     return report
 
 
+def _initialize_mode_eval_report(pdf_path: Path, options: ModeEvalOptions) -> dict[str, object]:
+    report: dict[str, object] = {"pdf_path": str(pdf_path), "modes": {}}
+    if options.reference_text_path is not None:
+        report["reference_text_path"] = str(options.reference_text_path)
+        report["mode_ranking"] = []
+        report["best_mode"] = None
+    return report
+
+
+def _load_reference_text(options: ModeEvalOptions) -> str | None:
+    if options.reference_text_path is None:
+        return None
+    return options.reference_text_path.read_text(encoding="utf-8")
+
+
+def _run_single_mode(
+    pdf_path: Path,
+    work_dir: Path,
+    options: ModeEvalOptions,
+    mode: str,
+    reference_text: str | None,
+) -> dict[str, object]:
+    mode_output_path = work_dir / "mode_outputs" / f"{mode}.txt"
+    mode_work_dir = work_dir / f"work_{mode}"
+    mode_metrics = ocr_pdf_with_tesseract(
+        pdf_path=pdf_path,
+        output_text_path=mode_output_path,
+        work_dir=mode_work_dir,
+        **_mode_ocr_kwargs(options, mode),
+    )
+    mode_payload: dict[str, object] = dict(mode_metrics)
+    mode_payload["output_text_path"] = str(mode_output_path)
+    if reference_text is not None:
+        hypothesis_text = mode_output_path.read_text(encoding="utf-8")
+        mode_payload["accuracy"] = benchmark_module.calculate_accuracy_metrics(
+            reference_text,
+            hypothesis_text,
+        )
+    return mode_payload
+
+
+def _store_mode_payload(
+    report: dict[str, object],
+    mode: str,
+    mode_payload: dict[str, object],
+) -> None:
+    modes_payload = report.get("modes")
+    if isinstance(modes_payload, dict):
+        modes_payload[mode] = mode_payload
+
+
+def _attach_mode_ranking(report: dict[str, object]) -> None:
+    ranked = _rank_modes(report)
+    report["mode_ranking"] = [
+        {"mode": mode_name, "wer": wer, "cer": cer}
+        for mode_name, wer, cer in ranked
+    ]
+    if ranked:
+        report["best_mode"] = ranked[0][0]
+
+
+def _parse_local_archive_options(kwargs: dict[str, Any]) -> LocalArchiveBenchmarkOptions:
+    core_options = OCRCoreOptions(
+        language=str(kwargs.pop("language", "eng")),
+        dpi=int(kwargs.pop("dpi", 300)),
+        apply_cleanup=bool(kwargs.pop("apply_cleanup", True)),
+        binarize_threshold=int(kwargs.pop("binarize_threshold", 170)),
+        deskew_max_angle=float(kwargs.pop("deskew_max_angle", 3.0)),
+        deskew_angle_step=float(kwargs.pop("deskew_angle_step", 0.5)),
+    )
+    return LocalArchiveBenchmarkOptions(
+        core=core_options,
+        archive_source_mode=str(kwargs.pop("archive_source_mode", "djvu")),
+        ocr_engine=str(kwargs.pop("ocr_engine", "tesseract")),
+    )
+
+
+def _archive_reference_pairs(
+    archive_identifier: str,
+    archive_source_mode: str,
+) -> list[tuple[str, str]]:
+    if archive_source_mode not in {"djvu", "abbyy", "best"}:
+        raise ValueError("archive_source_mode must be one of: djvu, abbyy, best")
+    djvu_reference = benchmark_module.fetch_archive_ocr_text(archive_identifier)
+    abbyy_reference = benchmark_module.fetch_archive_abbyy_text(archive_identifier)
+    if archive_source_mode == "abbyy" and abbyy_reference is None:
+        raise ValueError(
+            "archive_source_mode='abbyy' requested but no ABBYY OCR is available for "
+            f"{archive_identifier}"
+        )
+    references: list[tuple[str, str]] = [("djvu", djvu_reference)]
+    if abbyy_reference is not None:
+        references.append(("abbyy", abbyy_reference))
+    if archive_source_mode in {"djvu", "abbyy"}:
+        return [item for item in references if item[0] == archive_source_mode]
+    return references
+
+
+def _best_scores(mode_report: dict[str, object]) -> tuple[float, float]:
+    ranking = mode_report.get("mode_ranking", [])
+    if isinstance(ranking, list) and ranking:
+        first = ranking[0]
+        if isinstance(first, dict):
+            return float(first.get("wer", 1.0)), float(first.get("cer", 1.0))
+    return 1.0, 1.0
+
+
 def benchmark_local_ocr_against_archive(
     pdf_path: Path,
     archive_identifier: str,
     output_report_path: Path,
     work_dir: Path,
-    archive_source_mode: str = "djvu",
-    language: str = "eng",
-    dpi: int = 300,
-    apply_cleanup: bool = True,
-    binarize_threshold: int = 170,
-    deskew_max_angle: float = 3.0,
-    deskew_angle_step: float = 0.5,
-    ocr_engine: str = "tesseract",
+    **kwargs: Any,
 ) -> dict[str, object]:
-    from .benchmark import fetch_archive_abbyy_text, fetch_archive_ocr_text
+    """Benchmark local OCR outputs against archive OCR references."""
 
-    if archive_source_mode not in {"djvu", "abbyy", "best"}:
-        raise ValueError("archive_source_mode must be one of: djvu, abbyy, best")
-
-    djvu_reference = fetch_archive_ocr_text(archive_identifier)
-    abbyy_reference = fetch_archive_abbyy_text(archive_identifier)
-    if archive_source_mode == "abbyy" and abbyy_reference is None:
-        raise ValueError(
-            f"archive_source_mode='abbyy' requested but no ABBYY OCR is available for {archive_identifier}"
+    parse_kwargs = dict(kwargs)
+    options = _parse_local_archive_options(parse_kwargs)
+    _ensure_no_unknown_kwargs(parse_kwargs, "benchmark_local_ocr_against_archive")
+    references = _archive_reference_pairs(archive_identifier, options.archive_source_mode)
+    candidate_reports = [
+        _build_source_candidate(
+            SourceCandidateRequest(
+                pdf_path=pdf_path,
+                archive_identifier=archive_identifier,
+                source_name=source_name,
+                reference_text=reference_text,
+                work_dir=work_dir,
+                options=options,
+            )
         )
+        for source_name, reference_text in references
+    ]
 
-    references: list[tuple[str, str]] = [("djvu", djvu_reference)]
-    if abbyy_reference is not None:
-        references.append(("abbyy", abbyy_reference))
-    if archive_source_mode in {"djvu", "abbyy"}:
-        references = [item for item in references if item[0] == archive_source_mode]
+    selected = min(
+        candidate_reports,
+        key=lambda item: (float(item["best_wer"]), float(item["best_cer"])),
+    )
+    selected_report = _build_selected_archive_report(
+        selected,
+        archive_identifier,
+        options.archive_source_mode,
+        candidate_reports,
+    )
+    output_report_path.parent.mkdir(parents=True, exist_ok=True)
+    output_report_path.write_text(
+        json.dumps(selected_report, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    return selected_report
 
-    candidate_reports: list[dict[str, object]] = []
-    for source_name, reference_text in references:
-        reference_path = work_dir / "references" / f"{archive_identifier}_{source_name}.txt"
-        reference_path.parent.mkdir(parents=True, exist_ok=True)
-        reference_path.write_text(reference_text, encoding="utf-8")
-        candidate_output_path = work_dir / "candidate_reports" / f"{source_name}.json"
-        mode_report = evaluate_ocr_preprocess_modes(
-            pdf_path=pdf_path,
-            work_dir=work_dir / f"mode_eval_{source_name}",
-            output_report_path=candidate_output_path,
-            reference_text_path=reference_path,
-            language=language,
-            dpi=dpi,
-            apply_cleanup=apply_cleanup,
-            binarize_threshold=binarize_threshold,
-            deskew_max_angle=deskew_max_angle,
-            deskew_angle_step=deskew_angle_step,
-            ocr_engine=ocr_engine,
-        )
-        ranking = mode_report.get("mode_ranking", [])
-        best_wer = float(ranking[0]["wer"]) if ranking else 1.0
-        best_cer = float(ranking[0]["cer"]) if ranking else 1.0
-        candidate_reports.append(
-            {
-                "source": source_name,
-                "report_path": str(candidate_output_path),
-                "best_wer": best_wer,
-                "best_cer": best_cer,
-                "mode_report": mode_report,
-            }
-        )
 
-    selected = min(candidate_reports, key=lambda item: (item["best_wer"], item["best_cer"]))
+def _build_source_candidate(request: SourceCandidateRequest) -> dict[str, object]:
+    reference_path = (
+        request.work_dir
+        / "references"
+        / f"{request.archive_identifier}_{request.source_name}.txt"
+    )
+    reference_path.parent.mkdir(parents=True, exist_ok=True)
+    reference_path.write_text(request.reference_text, encoding="utf-8")
+    candidate_output_path = request.work_dir / "candidate_reports" / f"{request.source_name}.json"
+    mode_report = evaluate_ocr_preprocess_modes(
+        pdf_path=request.pdf_path,
+        work_dir=request.work_dir / f"mode_eval_{request.source_name}",
+        output_report_path=candidate_output_path,
+        reference_text_path=reference_path,
+        language=request.options.core.language,
+        dpi=request.options.core.dpi,
+        apply_cleanup=request.options.core.apply_cleanup,
+        binarize_threshold=request.options.core.binarize_threshold,
+        deskew_max_angle=request.options.core.deskew_max_angle,
+        deskew_angle_step=request.options.core.deskew_angle_step,
+        ocr_engine=request.options.ocr_engine,
+    )
+    best_wer, best_cer = _best_scores(mode_report)
+    return {
+        "source": request.source_name,
+        "report_path": str(candidate_output_path),
+        "best_wer": best_wer,
+        "best_cer": best_cer,
+        "mode_report": mode_report,
+    }
+
+
+def _build_selected_archive_report(
+    selected: dict[str, object],
+    archive_identifier: str,
+    archive_source_mode: str,
+    candidate_reports: list[dict[str, object]],
+) -> dict[str, object]:
     selected_report = dict(selected["mode_report"])
     selected_report["archive_identifier"] = archive_identifier
     selected_report["archive_source_mode"] = archive_source_mode
@@ -529,10 +937,4 @@ def benchmark_local_ocr_against_archive(
         }
         for item in candidate_reports
     ]
-
-    output_report_path.parent.mkdir(parents=True, exist_ok=True)
-    output_report_path.write_text(
-        json.dumps(selected_report, indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
-    )
     return selected_report

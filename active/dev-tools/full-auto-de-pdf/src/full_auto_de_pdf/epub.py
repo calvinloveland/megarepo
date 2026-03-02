@@ -1,9 +1,12 @@
+"""EPUB generation helpers for OCR text."""
+
 from __future__ import annotations
 
 from datetime import datetime, timezone
 from html import escape
 import json
 from pathlib import Path
+from typing import Any
 import uuid
 import zipfile
 
@@ -90,6 +93,8 @@ def build_epub_from_ocr_text(
     language: str = "en",
     apply_cleanup: bool = True,
 ) -> dict[str, int]:
+    """Build a minimal EPUB from OCR text and return simple text metrics."""
+
     prepared_text = cleanup_ocr_text(ocr_text) if apply_cleanup else ocr_text
     paragraphs = _paragraphs(prepared_text)
     words = [token for token in prepared_text.split() if token]
@@ -129,14 +134,51 @@ def build_epub_from_ocr_text(
     }
 
 
+def _parse_build_epub_file_args(
+    args: tuple[Any, ...],
+    kwargs: dict[str, Any],
+) -> tuple[Path | None, str, str, bool]:
+    metrics_output_path = kwargs.pop("metrics_output_path", None)
+    title = kwargs.pop("title", None)
+    language = kwargs.pop("language", "en")
+    apply_cleanup = kwargs.pop("apply_cleanup", True)
+    if args:
+        metrics_output_path = args[0]
+    if len(args) >= 2:
+        title = args[1]
+    if len(args) >= 3:
+        language = args[2]
+    if len(args) >= 4:
+        apply_cleanup = args[3]
+    if len(args) > 4:
+        raise TypeError("build_epub_from_ocr_file accepts at most 4 positional extras")
+    if kwargs:
+        unknown = ", ".join(sorted(kwargs))
+        raise TypeError(f"Unexpected keyword arguments: {unknown}")
+    if title is None:
+        raise TypeError("build_epub_from_ocr_file missing required argument: 'title'")
+    normalized_metrics_path: Path | None = None
+    if metrics_output_path is not None:
+        normalized_metrics_path = (
+            metrics_output_path
+            if isinstance(metrics_output_path, Path)
+            else Path(str(metrics_output_path))
+        )
+    return normalized_metrics_path, str(title), str(language), bool(apply_cleanup)
+
+
 def build_epub_from_ocr_file(
     ocr_text_path: Path,
     output_epub_path: Path,
-    metrics_output_path: Path | None,
-    title: str,
-    language: str = "en",
-    apply_cleanup: bool = True,
+    *args: Any,
+    **kwargs: Any,
 ) -> dict[str, int]:
+    """Build an EPUB from an OCR text file with backward-compatible arguments."""
+
+    metrics_output_path, title, language, apply_cleanup = _parse_build_epub_file_args(
+        args,
+        kwargs,
+    )
     ocr_text = ocr_text_path.read_text(encoding="utf-8")
     metrics = build_epub_from_ocr_text(
         ocr_text,
