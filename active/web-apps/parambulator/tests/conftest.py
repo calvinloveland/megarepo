@@ -2,10 +2,16 @@
 
 import os
 import shutil
+import sys
 from pathlib import Path
 
 import pytest
 from playwright.sync_api import sync_playwright
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+SRC_DIR = PROJECT_ROOT / "src"
+if str(SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(SRC_DIR))
 
 
 def _configure_playwright_node_runtime() -> None:

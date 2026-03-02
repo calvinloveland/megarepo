@@ -1,8 +1,13 @@
+"""Flask app for generating and managing seating charts."""
+
 from __future__ import annotations
 
 import json
 import logging
 import os
+import subprocess
+import sys
+from dataclasses import dataclass
 from datetime import datetime
 from hmac import compare_digest
 from logging.handlers import RotatingFileHandler
@@ -23,7 +28,7 @@ from .models import (
     people_to_json,
     people_to_table,
 )
-from .scoring import ChartResult, generate_best_chart, score_chart, seat_constraint_statuses
+from .scoring import generate_best_chart, score_chart, seat_constraint_statuses
 from .storage import list_saves, load_payload, save_payload
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -67,6 +72,19 @@ FEEDBACK_DIR = PROJECT_ROOT / "data" / "feedback"
 ADDRESSED_DIR = FEEDBACK_DIR / "addressed"
 STATE_COOKIE_NAME = "parambulator_state"
 STATE_COOKIE_MAX_AGE = 60 * 60 * 24 * 30
+INVALID_PINNED_SEATS_WARNING = "Pinned seats were cleared because the saved data was invalid."
+
+
+@dataclass(frozen=True)
+class PinValidationContext:
+    """Shared context for validating pinned-seat entries."""
+
+    valid_names: Set[str]
+    layout: List[List[bool]]
+    rows: int
+    cols: int
+    normalized: Dict[Tuple[int, int], str]
+    pinned_names: Set[str]
 
 
 def _feedback_entries(directory: Path) -> List[Dict[str, object]]:
@@ -80,7 +98,7 @@ def _feedback_entries(directory: Path) -> List[Dict[str, object]]:
         reverse=True,
     )
     for feedback_file in feedback_files:
-        with open(feedback_file) as f:
+        with open(feedback_file, encoding="utf-8") as f:
             payload = json.load(f)
         if not isinstance(payload, dict):
             continue
@@ -124,6 +142,7 @@ def _load_state_cookie(raw: Optional[str]) -> Dict[str, object]:
 
 
 def create_app() -> Flask:
+    """Create and configure the Flask application."""
     app = Flask(
         __name__,
         template_folder=str(PROJECT_ROOT / "templates"),
@@ -134,7 +153,8 @@ def create_app() -> Flask:
     is_dev = os.getenv("FLASK_DEBUG", "").lower() == "true" or os.getenv(
         "FLASK_ENV", ""
     ).lower() == "development"
-    if not secret_key and not is_dev:
+    is_test = "pytest" in sys.modules or os.getenv("PYTEST_CURRENT_TEST") is not None
+    if not secret_key and not is_dev and not is_test:
         raise ValueError("SECRET_KEY environment variable is required in production")
 
     app.config["SECRET_KEY"] = secret_key or "dev-key-not-for-production"
@@ -160,30 +180,30 @@ def create_app() -> Flask:
         app.logger.addHandler(handler)
         app.logger.setLevel(logging.INFO)
 
-        def apply_state_cookie(response: Response, context: Dict[str, object]) -> Response:
-            state_payload = {
-                "people_json": context.get("people_json", ""),
-                "people_table": context.get("people_table", ""),
-                "rows": context.get("rows"),
-                "cols": context.get("cols"),
-                "design": context.get("design"),
-                "layout_map": context.get("layout_map", ""),
-                "column_config": context.get("column_config", ""),
-                "chart_json": context.get("chart_json", ""),
-                "pinned_seats_json": context.get("pinned_seats_json", "[]"),
-            }
-            raw = _serialize_state_cookie(state_payload)
-            if not raw:
-                return response
-            response.set_cookie(
-                STATE_COOKIE_NAME,
-                raw,
-                max_age=STATE_COOKIE_MAX_AGE,
-                samesite="Lax",
-                secure=not is_dev,
-                httponly=True,
-            )
+    def apply_state_cookie(response: Response, context: Dict[str, object]) -> Response:
+        state_payload = {
+            "people_json": context.get("people_json", ""),
+            "people_table": context.get("people_table", ""),
+            "rows": context.get("rows"),
+            "cols": context.get("cols"),
+            "design": context.get("design"),
+            "layout_map": context.get("layout_map", ""),
+            "column_config": context.get("column_config", ""),
+            "chart_json": context.get("chart_json", ""),
+            "pinned_seats_json": context.get("pinned_seats_json", "[]"),
+        }
+        raw = _serialize_state_cookie(state_payload)
+        if not raw:
             return response
+        response.set_cookie(
+            STATE_COOKIE_NAME,
+            raw,
+            max_age=STATE_COOKIE_MAX_AGE,
+            samesite="Lax",
+            secure=not is_dev,
+            httponly=True,
+        )
+        return response
 
     @app.get("/")
     def index() -> str:
@@ -374,7 +394,9 @@ def create_app() -> Flask:
         chart_json = str(payload.get("chart_json", ""))
         layout_map = str(payload.get("layout_map", "")) or layout_to_text(None, rows, cols)
         pinned_seats_json = str(payload.get("pinned_seats_json", "[]"))
-        people = parse_people_table(people_table) if people_table else parse_people_json(people_json)
+        people = (
+            parse_people_table(people_table) if people_table else parse_people_json(people_json)
+        )
         layout = parse_layout_map(layout_map, rows, cols)
         pinned_seats, pin_warnings = parse_pinned_seats(
             pinned_seats_json, people, layout, rows, cols
@@ -468,25 +490,23 @@ def create_app() -> Flask:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
         filepath = FEEDBACK_DIR / f"feedback_{timestamp}.json"
 
-        # Get version information
         app_version = os.getenv("APP_VERSION", "dev")
         git_commit = os.getenv("GIT_COMMIT", "unknown")
-        
-        # Try to get git commit if not set
+
         if git_commit == "unknown":
             try:
-                import subprocess
                 result = subprocess.run(
                     ["git", "log", "-1", "--format=%h"],
                     cwd=PROJECT_ROOT,
                     capture_output=True,
                     text=True,
-                    timeout=1
+                    timeout=1,
+                    check=False,
                 )
                 if result.returncode == 0:
                     git_commit = result.stdout.strip()
-            except Exception:
-                pass
+            except (subprocess.SubprocessError, OSError):
+                app.logger.debug("Unable to resolve git commit hash", exc_info=True)
 
         feedback_data = {
             "feedback_text": feedback_text,
@@ -500,7 +520,7 @@ def create_app() -> Flask:
             "addressed": False,
         }
 
-        with open(filepath, "w") as f:
+        with open(filepath, "w", encoding="utf-8") as f:
             json.dump(feedback_data, f, indent=2)
 
         return jsonify({"status": "success", "message": "Feedback saved", "id": timestamp})
@@ -533,7 +553,7 @@ def create_app() -> Flask:
         if not source_path.exists():
             return Response("Feedback file not found", status=404)
 
-        with open(source_path) as f:
+        with open(source_path, encoding="utf-8") as f:
             data = json.load(f)
 
         data["addressed"] = True
@@ -542,7 +562,7 @@ def create_app() -> Flask:
 
         ADDRESSED_DIR.mkdir(parents=True, exist_ok=True)
         target_path = ADDRESSED_DIR / source_path.name
-        with open(target_path, "w") as f:
+        with open(target_path, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2)
 
         source_path.unlink(missing_ok=True)
@@ -559,12 +579,12 @@ def create_app() -> Flask:
         return render_template("error.html", status=404, message="Not found"), 404
 
     @app.errorhandler(404)
-    def not_found(error) -> tuple[str, int]:
+    def not_found(_error) -> tuple[str, int]:
         return render_template("error.html", status=404, message="Page not found"), 404
 
     @app.errorhandler(500)
-    def server_error(error) -> tuple[str, int]:
-        app.logger.error("Server error: %s", error)
+    def server_error(_error) -> tuple[str, int]:
+        app.logger.error("Server error")
         return render_template("error.html", status=500, message="Server error"), 500
 
     @app.after_request
@@ -591,6 +611,7 @@ def create_app() -> Flask:
 
 
 def parse_form(form: Dict[str, str]) -> Dict[str, object]:
+    """Parse and validate submitted form data into app-ready structures."""
     people_table = form.get("people_table", "").strip()
     people_json = form.get("people_json", "").strip()
     if people_table:
@@ -661,22 +682,11 @@ def parse_form(form: Dict[str, str]) -> Dict[str, object]:
 
 
 def validate_relationship_names(people: List[Person]) -> None:
-    roster = {person.name for person in people}
-    invalid_avoid_entries: List[str] = []
-    for person in people:
-        unknown_names = sorted({name for name in person.avoid if name not in roster})
-        if not unknown_names:
-            continue
-        invalid_avoid_entries.append(f"{person.name}: {', '.join(unknown_names)}")
+    """Ensure avoid/must-sit-by relationships only reference roster members."""
+    invalid_avoid_entries = _unknown_relationship_entries(people, "avoid")
     if invalid_avoid_entries:
         raise ValueError("Unknown avoid-list names: " + "; ".join(invalid_avoid_entries))
-
-    invalid_must_sit_by_entries: List[str] = []
-    for person in people:
-        unknown_names = sorted({name for name in person.must_sit_by if name not in roster})
-        if not unknown_names:
-            continue
-        invalid_must_sit_by_entries.append(f"{person.name}: {', '.join(unknown_names)}")
+    invalid_must_sit_by_entries = _unknown_relationship_entries(people, "must_sit_by")
     if invalid_must_sit_by_entries:
         raise ValueError(
             "Unknown must-sit-by names: " + "; ".join(invalid_must_sit_by_entries)
@@ -690,60 +700,45 @@ def parse_pinned_seats(
     rows: int,
     cols: int,
 ) -> Tuple[Dict[Tuple[int, int], str], List[str]]:
+    """Parse and validate persisted pinned-seat assignments."""
     warnings: List[str] = []
     if not raw_json.strip():
         return {}, warnings
 
-    try:
-        payload = json.loads(raw_json)
-    except (TypeError, ValueError, json.JSONDecodeError):
-        return {}, ["Pinned seats were cleared because the saved data was invalid."]
-
-    if not isinstance(payload, list):
-        return {}, ["Pinned seats were cleared because the saved data was invalid."]
+    payload = _decode_pinned_seat_payload(raw_json)
+    if payload is None:
+        return {}, [INVALID_PINNED_SEATS_WARNING]
 
     valid_names: Set[str] = {person.name for person in people}
     normalized: Dict[Tuple[int, int], str] = {}
     pinned_names: Set[str] = set()
+    context = PinValidationContext(
+        valid_names=valid_names,
+        layout=layout,
+        rows=rows,
+        cols=cols,
+        normalized=normalized,
+        pinned_names=pinned_names,
+    )
 
     for entry in payload:
         if not isinstance(entry, dict):
             warnings.append("Ignored a pinned seat entry with invalid format.")
             continue
-        try:
-            row_index = int(entry.get("row"))
-            col_index = int(entry.get("col"))
-        except (TypeError, ValueError):
-            warnings.append("Ignored a pinned seat entry with invalid coordinates.")
+        warning, seat, student_name = _validate_pinned_seat_entry(entry, context)
+        if warning:
+            warnings.append(warning)
             continue
-
-        student_name = str(entry.get("name", "")).strip()
-        if not student_name:
-            warnings.append("Ignored a pinned seat entry without a student name.")
+        if seat is None or student_name is None:
             continue
-        if student_name not in valid_names:
-            warnings.append(f"Ignored pinned seat for {student_name}: student is not in the roster.")
-            continue
-        if not (0 <= row_index < rows and 0 <= col_index < cols):
-            warnings.append(f"Ignored pinned seat for {student_name}: seat is outside layout bounds.")
-            continue
-        if row_index >= len(layout) or col_index >= len(layout[row_index]) or not layout[row_index][col_index]:
-            warnings.append(f"Ignored pinned seat for {student_name}: seat is disabled.")
-            continue
-        if (row_index, col_index) in normalized:
-            warnings.append(f"Ignored pinned seat for {student_name}: seat already has a pin.")
-            continue
-        if student_name in pinned_names:
-            warnings.append(f"Ignored duplicate pin for {student_name}.")
-            continue
-
-        normalized[(row_index, col_index)] = student_name
+        normalized[seat] = student_name
         pinned_names.add(student_name)
 
     return normalized, warnings
 
 
 def sanitize_design(design: str) -> str:
+    """Map aliases and invalid values to a supported design identifier."""
     normalized = str(design or "").strip()
     normalized = DESIGN_ALIASES.get(normalized.lower(), normalized)
     if normalized in ALLOWED_DESIGNS:
@@ -751,7 +746,90 @@ def sanitize_design(design: str) -> str:
     return DEFAULT_DESIGN
 
 
+def _unknown_relationship_entries(people: List[Person], attribute: str) -> List[str]:
+    roster = {person.name for person in people}
+    invalid_entries: List[str] = []
+    for person in people:
+        names = getattr(person, attribute)
+        unknown_names = sorted({name for name in names if name not in roster})
+        if unknown_names:
+            invalid_entries.append(f"{person.name}: {', '.join(unknown_names)}")
+    return invalid_entries
+
+
+def _decode_pinned_seat_payload(raw_json: str) -> Optional[List[object]]:
+    try:
+        payload = json.loads(raw_json)
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return None
+    if not isinstance(payload, list):
+        return None
+    return payload
+
+
+def _validate_pinned_seat_entry(
+    entry: Dict[str, object],
+    context: PinValidationContext,
+) -> Tuple[Optional[str], Optional[Tuple[int, int]], Optional[str]]:
+    warning, row_index, col_index, student_name = _pinned_entry_identity_error(entry, context)
+    if warning:
+        return warning, None, None
+
+    warning = _pinned_entry_seat_error(row_index, col_index, student_name, context)
+    if warning:
+        return warning, None, None
+
+    seat = (row_index, col_index)
+    if seat in context.normalized:
+        return f"Ignored pinned seat for {student_name}: seat already has a pin.", None, None
+    if student_name in context.pinned_names:
+        return f"Ignored duplicate pin for {student_name}.", None, None
+    return None, seat, student_name
+
+
+def _pinned_entry_identity_error(
+    entry: Dict[str, object], context: PinValidationContext
+) -> Tuple[Optional[str], Optional[int], Optional[int], str]:
+    row_index, col_index = _parse_pin_coordinates(entry)
+    seat: Optional[Tuple[int, int]] = None
+    student_name = str(entry.get("name", "")).strip()
+    if row_index is None or col_index is None:
+        return "Ignored a pinned seat entry with invalid coordinates.", None, None, ""
+    if not student_name:
+        return "Ignored a pinned seat entry without a student name.", None, None, ""
+    if student_name not in context.valid_names:
+        return (
+            f"Ignored pinned seat for {student_name}: student is not in the roster."
+        ), None, None, ""
+    return None, row_index, col_index, student_name
+
+
+def _pinned_entry_seat_error(
+    row_index: int,
+    col_index: int,
+    student_name: str,
+    context: PinValidationContext,
+) -> Optional[str]:
+    if not (0 <= row_index < context.rows and 0 <= col_index < context.cols):
+        return f"Ignored pinned seat for {student_name}: seat is outside layout bounds."
+    if (
+        row_index >= len(context.layout)
+        or col_index >= len(context.layout[row_index])
+        or not context.layout[row_index][col_index]
+    ):
+        return f"Ignored pinned seat for {student_name}: seat is disabled."
+    return None
+
+
+def _parse_pin_coordinates(entry: Dict[str, object]) -> Tuple[Optional[int], Optional[int]]:
+    try:
+        return int(entry.get("row")), int(entry.get("col"))
+    except (TypeError, ValueError):
+        return None, None
+
+
 def parse_scoring_weights(column_config_raw: str) -> Dict[str, float]:
+    """Convert column configuration JSON into scoring weights."""
     weights = dict(DEFAULT_SCORING_WEIGHTS)
     if not column_config_raw.strip():
         return weights
@@ -790,6 +868,7 @@ def parse_scoring_weights(column_config_raw: str) -> Dict[str, float]:
 
 
 def serialize_pinned_seats(pinned_seats: Dict[Tuple[int, int], str]) -> str:
+    """Serialize pinned seats to compact JSON for hidden form fields."""
     payload = [
         {"row": row_index, "col": col_index, "name": name}
         for (row_index, col_index), name in sorted(pinned_seats.items())
@@ -798,6 +877,7 @@ def serialize_pinned_seats(pinned_seats: Dict[Tuple[int, int], str]) -> str:
 
 
 def pinned_keys_from_json(raw_json: str) -> List[str]:
+    """Return normalized row:col keys extracted from pinned seat JSON."""
     try:
         payload = json.loads(raw_json)
     except (TypeError, ValueError, json.JSONDecodeError):
@@ -821,6 +901,7 @@ def pinned_keys_from_json(raw_json: str) -> List[str]:
 def summarize_conflicts(
     chart: Chart, seat_constraints: List[List[List[Dict[str, str]]]]
 ) -> List[Dict[str, object]]:
+    """List unmet constraints by student and seat in the current chart."""
     conflicts: List[Dict[str, object]] = []
     for row_index, row in enumerate(chart):
         for col_index, seat_name in enumerate(row):
@@ -861,6 +942,7 @@ def build_context(
     chart_history: Optional[List[Chart]] = None,
     message: Optional[str] = None,
 ) -> Dict[str, object]:
+    """Build template context for rendering the current chart state."""
     people = parse_people_json(people_json)
     layout_grid = parse_layout_map(layout_map, rows, cols)
     seat_constraints = seat_constraint_statuses(chart, people, rows, cols)
@@ -893,11 +975,12 @@ def build_context(
 
 
 def render_design(context: Dict[str, object]) -> str:
+    """Render the active design template with shared context."""
     return render_template(context["design_template"], **context)
 
 
 def parse_layout_from_form(form: Dict[str, str], rows: int, cols: int) -> List[List[bool]]:
-    # Check for new button-based layout with hidden _value inputs
+    """Parse seat layout from hidden button fields, checkboxes, or text map."""
     if any(key.startswith("layout_cell_") and key.endswith("_value") for key in form.keys()):
         layout: List[List[bool]] = []
         for row_index in range(rows):
@@ -907,8 +990,7 @@ def parse_layout_from_form(form: Dict[str, str], rows: int, cols: int) -> List[L
                 row.append(form.get(key) == "1")
             layout.append(row)
         return layout
-    
-    # Fallback to old checkbox-based layout
+
     if any(key.startswith("layout_cell_") for key in form.keys()):
         layout: List[List[bool]] = []
         for row_index in range(rows):
@@ -924,6 +1006,7 @@ def parse_layout_from_form(form: Dict[str, str], rows: int, cols: int) -> List[L
 
 
 def parse_layout_map(raw_text: str, rows: int, cols: int) -> List[List[bool]]:
+    """Parse text layout markers into a rows-by-cols enabled-seat grid."""
     if not raw_text.strip():
         return [[True for _ in range(cols)] for _ in range(rows)]
     lines = [line.strip() for line in raw_text.splitlines() if line.strip()]
@@ -945,6 +1028,7 @@ def parse_layout_map(raw_text: str, rows: int, cols: int) -> List[List[bool]]:
 
 
 def layout_to_text(layout: Optional[List[List[bool]]], rows: int, cols: int) -> str:
+    """Render layout grid to newline-delimited text map."""
     if not layout:
         layout = [[True for _ in range(cols)] for _ in range(rows)]
     lines: List[str] = []
@@ -967,9 +1051,10 @@ def _parse_int(value: Optional[str], fallback: int, min_val: int = 1, max_val: i
 
 
 def main() -> None:
+    """Run the Flask development server."""
     app = create_app()
     debug = os.getenv("FLASK_DEBUG", "").lower() == "true"
-    port = int(os.getenv("PORT", 5000))
+    port = int(os.getenv("PORT", "5000"))
     host = os.getenv("HOST", "127.0.0.1")
 
     app.run(debug=debug, host=host, port=port)

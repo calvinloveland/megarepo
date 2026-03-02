@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from typing import Dict, Iterable, List, Optional
 
 ReadingLevel = str
+VALID_READING_LEVELS = {"low", "medium", "high"}
 
 
 @dataclass(frozen=True)
@@ -89,37 +90,7 @@ def parse_people_json(raw_json: str) -> List[Person]:
     if not isinstance(data, list):
         raise ValueError("People JSON must be a list of objects.")
 
-    people: List[Person] = []
-    for entry in data:
-        if not isinstance(entry, dict):
-            raise ValueError("Each person entry must be an object.")
-        name = str(entry.get("name", "")).strip()
-        if not name:
-            raise ValueError("Each person must have a name.")
-        reading_level = str(entry.get("reading_level", "medium")).strip().lower()
-        if reading_level not in {"low", "medium", "high"}:
-            raise ValueError(f"Invalid reading_level for {name}.")
-        talkative = bool(entry.get("talkative", False))
-        iep_front = bool(entry.get("iep_front", False))
-        avoid = entry.get("avoid", [])
-        if not isinstance(avoid, list):
-            raise ValueError(f"Avoid list for {name} must be a list.")
-        avoid_list = [str(item) for item in avoid if str(item).strip()]
-        must_sit_by = entry.get("must_sit_by", [])
-        if not isinstance(must_sit_by, list):
-            raise ValueError(f"Must-sit-by list for {name} must be a list.")
-        must_sit_by_list = [str(item) for item in must_sit_by if str(item).strip()]
-        people.append(
-            Person(
-                name=name,
-                reading_level=reading_level,
-                talkative=talkative,
-                iep_front=iep_front,
-                avoid=avoid_list,
-                must_sit_by=must_sit_by_list,
-            )
-        )
-    return people
+    return [_person_from_json_entry(entry) for entry in data]
 
 
 def parse_people_table(raw_text: str) -> List[Person]:
@@ -129,35 +100,17 @@ def parse_people_table(raw_text: str) -> List[Person]:
     reader = csv.DictReader(io.StringIO(raw_text), delimiter=delimiter, skipinitialspace=True)
     if not reader.fieldnames:
         raise ValueError("People table must include headers.")
-    required = {"name", "reading_level"}
-    missing = required.difference({name.strip() for name in reader.fieldnames})
+    missing = {"name", "reading_level"}.difference(
+        {name.strip() for name in reader.fieldnames}
+    )
     if missing:
         raise ValueError("People table must include name and reading_level columns.")
 
     people: List[Person] = []
     for row in reader:
-        name = str(row.get("name", "")).strip()
-        if not name:
-            continue
-        reading_level = str(row.get("reading_level", "medium")).strip().lower()
-        if reading_level not in {"low", "medium", "high"}:
-            raise ValueError(f"Invalid reading_level for {name}.")
-        talkative = _parse_bool(row.get("talkative"))
-        iep_front = _parse_bool(row.get("iep_front"))
-        avoid_raw = str(row.get("avoid", "")).strip()
-        avoid_list = [item.strip() for item in avoid_raw.split(";") if item.strip()]
-        must_sit_by_raw = str(row.get("must_sit_by", "")).strip()
-        must_sit_by_list = [item.strip() for item in must_sit_by_raw.split(";") if item.strip()]
-        people.append(
-            Person(
-                name=name,
-                reading_level=reading_level,
-                talkative=talkative,
-                iep_front=iep_front,
-                avoid=avoid_list,
-                must_sit_by=must_sit_by_list,
-            )
-        )
+        person = _person_from_table_row(row)
+        if person is not None:
+            people.append(person)
     return people
 
 
@@ -182,3 +135,58 @@ def _parse_bool(value: object) -> bool:
         return value
     text = str(value).strip().lower()
     return text in {"1", "true", "yes", "y"}
+
+
+def _person_from_json_entry(entry: object) -> Person:
+    if not isinstance(entry, dict):
+        raise ValueError("Each person entry must be an object.")
+
+    name = _require_name(entry.get("name", ""))
+    reading_level = _normalize_reading_level(name, entry.get("reading_level", "medium"))
+    return Person(
+        name=name,
+        reading_level=reading_level,
+        talkative=bool(entry.get("talkative", False)),
+        iep_front=bool(entry.get("iep_front", False)),
+        avoid=_list_field(entry.get("avoid", []), name, "Avoid"),
+        must_sit_by=_list_field(entry.get("must_sit_by", []), name, "Must-sit-by"),
+    )
+
+
+def _person_from_table_row(row: Dict[str, object]) -> Optional[Person]:
+    name = str(row.get("name", "")).strip()
+    if not name:
+        return None
+    reading_level = _normalize_reading_level(name, row.get("reading_level", "medium"))
+    return Person(
+        name=name,
+        reading_level=reading_level,
+        talkative=_parse_bool(row.get("talkative")),
+        iep_front=_parse_bool(row.get("iep_front")),
+        avoid=_semicolon_list(row.get("avoid", "")),
+        must_sit_by=_semicolon_list(row.get("must_sit_by", "")),
+    )
+
+
+def _require_name(value: object) -> str:
+    name = str(value).strip()
+    if not name:
+        raise ValueError("Each person must have a name.")
+    return name
+
+
+def _normalize_reading_level(name: str, value: object) -> str:
+    reading_level = str(value).strip().lower()
+    if reading_level not in VALID_READING_LEVELS:
+        raise ValueError(f"Invalid reading_level for {name}.")
+    return reading_level
+
+
+def _list_field(value: object, name: str, field_label: str) -> List[str]:
+    if not isinstance(value, list):
+        raise ValueError(f"{field_label} list for {name} must be a list.")
+    return [str(item) for item in value if str(item).strip()]
+
+
+def _semicolon_list(value: object) -> List[str]:
+    return [item.strip() for item in str(value).strip().split(";") if item.strip()]
