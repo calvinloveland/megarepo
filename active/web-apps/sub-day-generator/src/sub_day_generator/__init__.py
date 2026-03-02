@@ -1,0 +1,2 @@
+"""Sub day generator package."""
+

@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sub-day-generator"
+version = "0.1.0"
+description = "Prototype web app for generating substitute teacher day plans"
+requires-python = ">=3.8"
+dependencies = [
+    "Flask>=2.3",
+    "pytest>=7.4",
+]
+
+[project.scripts]
+sub-day-generator = "sub_day_generator.app:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

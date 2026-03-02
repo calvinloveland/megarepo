@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sub Day Generator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+  </head>
+  <body class="min-h-screen bg-slate-100 text-slate-900">
+    <main class="mx-auto max-w-7xl space-y-6 p-6">
+      <header class="space-y-2">
+        <h1 class="text-3xl font-bold">Sub Day Generator (Prototype)</h1>
+        <p class="text-sm text-slate-600">Build a clear substitute-ready plan in one screen.</p>
+      </header>
+
+      <div class="grid gap-6 lg:grid-cols-2">
+        <section class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+          <h2 class="mb-3 text-lg font-semibold">Teacher Inputs</h2>
+          <form method="post" action="/generate" class="space-y-3">
+            <div class="grid gap-3 sm:grid-cols-2">
+              <label class="text-sm font-medium">Teacher name
+                <input name="teacher_name" value="{{ form_data.teacher_name }}" class="mt-1 w-full rounded border border-slate-300 px-2 py-1.5 text-sm" />
+              </label>
+              <label class="text-sm font-medium">Class
+                <input name="class_name" value="{{ form_data.class_name }}" class="mt-1 w-full rounded border border-slate-300 px-2 py-1.5 text-sm" />
+              </label>
+            </div>
+
+            <label class="block text-sm font-medium">Date
+              <input name="day_date" value="{{ form_data.day_date }}" class="mt-1 w-full rounded border border-slate-300 px-2 py-1.5 text-sm" />
+            </label>
+
+            <label class="block text-sm font-medium">Welcome note
+              <textarea name="welcome_note" rows="2" class="mt-1 w-full rounded border border-slate-300 px-2 py-1.5 text-sm">{{ form_data.welcome_note }}</textarea>
+            </label>
+
+            <label class="block text-sm font-medium">Periods (time | subject | activity)
+              <textarea name="periods_text" rows="6" class="mt-1 w-full rounded border border-slate-300 px-2 py-1.5 text-sm">{{ form_data.periods_text }}</textarea>
+            </label>
+
+            <label class="block text-sm font-medium">Student notes (name | note)
+              <textarea name="students_text" rows="5" class="mt-1 w-full rounded border border-slate-300 px-2 py-1.5 text-sm">{{ form_data.students_text }}</textarea>
+            </label>
+
+            <label class="block text-sm font-medium">Must do checklist (one item per line)
+              <textarea name="must_do_text" rows="4" class="mt-1 w-full rounded border border-slate-300 px-2 py-1.5 text-sm">{{ form_data.must_do_text }}</textarea>
+            </label>
+
+            <label class="block text-sm font-medium">Classroom routines (one item per line)
+              <textarea name="routines_text" rows="4" class="mt-1 w-full rounded border border-slate-300 px-2 py-1.5 text-sm">{{ form_data.routines_text }}</textarea>
+            </label>
+
+            <label class="block text-sm font-medium">Emergency contacts (one item per line)
+              <textarea name="emergency_text" rows="3" class="mt-1 w-full rounded border border-slate-300 px-2 py-1.5 text-sm">{{ form_data.emergency_text }}</textarea>
+            </label>
+
+            <button class="rounded bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">Generate substitute plan</button>
+          </form>
+        </section>
+
+        <section class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+          <h2 class="mb-3 text-lg font-semibold">Generated Plan</h2>
+          {% if plan %}
+          <article class="space-y-4 text-sm">
+            <div class="rounded border border-slate-200 bg-slate-50 p-3">
+              <h3 class="font-semibold">{{ plan.header.class_name }}{% if plan.header.day_date %} — {{ plan.header.day_date }}{% endif %}</h3>
+              <p class="mt-1 text-slate-700">{{ plan.header.welcome_note }}</p>
+              <p class="mt-2 text-xs text-slate-500">Prepared by {{ plan.header.teacher_name }}</p>
+            </div>
+
+            <div>
+              <h3 class="font-semibold">Schedule</h3>
+              <ul class="mt-1 space-y-1">
+                {% for period in plan.periods %}
+                <li class="rounded border border-slate-200 px-2 py-1">
+                  <span class="font-semibold">{{ period.time }}</span> - {{ period.subject }}{% if period.activity %}: {{ period.activity }}{% endif %}
+                </li>
+                {% endfor %}
+              </ul>
+            </div>
+
+            <div>
+              <h3 class="font-semibold">Must-do checklist</h3>
+              <ul class="mt-1 list-disc space-y-1 pl-5">
+                {% for item in plan.must_do %}
+                <li>{{ item }}</li>
+                {% endfor %}
+              </ul>
+            </div>
+
+            <div>
+              <h3 class="font-semibold">Student notes</h3>
+              <ul class="mt-1 space-y-1">
+                {% for student in plan.student_notes %}
+                <li class="rounded border border-slate-200 px-2 py-1"><span class="font-semibold">{{ student.name }}</span>{% if student.note %} — {{ student.note }}{% endif %}</li>
+                {% endfor %}
+              </ul>
+            </div>
+
+            <div>
+              <h3 class="font-semibold">Classroom routines</h3>
+              <ul class="mt-1 list-disc space-y-1 pl-5">
+                {% for item in plan.routines %}
+                <li>{{ item }}</li>
+                {% endfor %}
+              </ul>
+            </div>
+
+            <div>
+              <h3 class="font-semibold">Emergency contacts</h3>
+              <ul class="mt-1 list-disc space-y-1 pl-5">
+                {% for contact in plan.emergency_contacts %}
+                <li>{{ contact }}</li>
+                {% endfor %}
+              </ul>
+            </div>
+          </article>
+          {% else %}
+          <p class="text-sm text-slate-600">Fill out the form and click “Generate substitute plan” to preview the day packet.</p>
+          {% endif %}
+        </section>
+      </div>
+    </main>
+  </body>
+</html>
+
