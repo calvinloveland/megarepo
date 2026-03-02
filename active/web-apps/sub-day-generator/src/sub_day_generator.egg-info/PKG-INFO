@@ -1,7 +1,0 @@
-Metadata-Version: 2.4
-Name: sub-day-generator
-Version: 0.1.0
-Summary: Prototype web app for generating substitute teacher day plans
-Requires-Python: >=3.8
-Requires-Dist: Flask>=2.3
-Requires-Dist: pytest>=7.4
