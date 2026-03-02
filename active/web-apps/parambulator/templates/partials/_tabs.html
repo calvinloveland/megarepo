@@ -88,6 +88,14 @@
         </li>
       </ol>
     </details>
+    <div id="people-context-tips" class="rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-900">
+      <p class="font-semibold">Tips for this step</p>
+      <ul class="mt-1 list-disc space-y-1 pl-4">
+        <li>Keep names consistent everywhere; avoid/must-sit-by matching uses exact text.</li>
+        <li>Start with just names, generate once, then add constraints to iterate faster.</li>
+        <li>If the table feels crowded, add one custom column at a time and keep labels short.</li>
+      </ul>
+    </div>
     {% include "partials/_people_table.html" %}
   </div>
 </div>
@@ -104,6 +112,9 @@
         <span class="px-2 text-indigo-300">|</span>
         Difference: <span id="layout-seat-diff" class="font-semibold">0</span>
       </div>
+      <p class="rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-900">
+        <strong>Tip:</strong> Aim for 1-3 extra seats so the generator has flexibility without leaving too many empty spots.
+      </p>
     </div>
     <div id="layout-template-controls" class="rounded-lg border border-slate-200 bg-slate-50 p-3">
       <p class="text-xs font-semibold uppercase tracking-wide text-slate-600 mb-2">Starter layout templates</p>
@@ -431,6 +442,9 @@ if (document.readyState === 'loading') {
   <div class="space-y-4">
     <div>
       <label class="block text-sm font-semibold mb-3">Current seating arrangement:</label>
+      <p class="rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-900">
+        <strong>Tip:</strong> Pin only seats that are non-negotiable, then regenerate to optimize the rest.
+      </p>
     </div>
     {% include "partials/_chart.html" %}
   </div>
@@ -440,6 +454,10 @@ if (document.readyState === 'loading') {
   <div class="space-y-6">
     <div>
       <label class="block text-sm font-semibold mb-3">Chart fitness metrics:</label>
+      <div class="rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-900">
+        <p><strong>Tip:</strong> Use relative changes more than absolute numbers; compare two runs after each constraint tweak.</p>
+        <p class="mt-1"><strong>Tip:</strong> Save versions with names like "period-1-v2-pinned-front" so you can quickly revisit decisions.</p>
+      </div>
       {% include "partials/_score.html" %}
     </div>
     <div class="tabs-save-panel rounded-lg border border-slate-200 bg-slate-50 p-4">
