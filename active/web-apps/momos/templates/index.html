@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MomOS</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+  </head>
+  <body class="min-h-screen bg-slate-100 text-slate-900">
+    <main class="mx-auto max-w-7xl space-y-6 p-6">
+      <header class="space-y-2">
+        <h1 class="text-3xl font-bold">MomOS (Prototype)</h1>
+        <p class="text-sm text-slate-600">AI-style family command center for daily logistics.</p>
+      </header>
+
+      <div class="grid gap-6 lg:grid-cols-2">
+        <section class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+          <h2 class="mb-3 text-lg font-semibold">Family Inputs</h2>
+          <form method="post" action="/generate" class="space-y-3">
+            <label class="block text-sm font-medium">School emails (paste text)
+              <textarea name="school_emails_text" rows="8" class="mt-1 w-full rounded border border-slate-300 px-2 py-1.5 text-sm">{{ form_data.school_emails_text }}</textarea>
+            </label>
+
+            <label class="block text-sm font-medium">Calendar (when | event | responsible)
+              <textarea name="calendar_text" rows="5" class="mt-1 w-full rounded border border-slate-300 px-2 py-1.5 text-sm">{{ form_data.calendar_text }}</textarea>
+            </label>
+
+            <label class="block text-sm font-medium">Pantry basics (item | current | minimum)
+              <textarea name="pantry_text" rows="5" class="mt-1 w-full rounded border border-slate-300 px-2 py-1.5 text-sm">{{ form_data.pantry_text }}</textarea>
+            </label>
+
+            <label class="block text-sm font-medium">Reminders (date | task)
+              <textarea name="reminders_text" rows="4" class="mt-1 w-full rounded border border-slate-300 px-2 py-1.5 text-sm">{{ form_data.reminders_text }}</textarea>
+            </label>
+
+            <label class="block text-sm font-medium">Kid profiles (name | size info...)
+              <textarea name="kids_text" rows="4" class="mt-1 w-full rounded border border-slate-300 px-2 py-1.5 text-sm">{{ form_data.kids_text }}</textarea>
+            </label>
+
+            <button class="rounded bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">Generate dashboard</button>
+          </form>
+        </section>
+
+        <section class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+          <h2 class="mb-3 text-lg font-semibold">Family Snapshot</h2>
+          {% if snapshot %}
+          <article class="space-y-4 text-sm">
+            <div>
+              <h3 class="font-semibold">School email action items</h3>
+              <ul class="mt-1 space-y-1">
+                {% for action in snapshot.actions %}
+                <li class="rounded border border-slate-200 px-2 py-1">
+                  {{ action.task }} <span class="text-xs text-slate-500">(due: {{ action.due }})</span>
+                </li>
+                {% endfor %}
+              </ul>
+            </div>
+
+            <div>
+              <h3 class="font-semibold">Family calendar ownership</h3>
+              <ul class="mt-1 space-y-1">
+                {% for event in snapshot.calendar %}
+                <li class="rounded border border-slate-200 px-2 py-1">
+                  <span class="font-semibold">{{ event.when }}</span> - {{ event.event }}
+                  <span class="text-xs text-slate-500">({{ event.responsible }})</span>
+                </li>
+                {% endfor %}
+              </ul>
+            </div>
+
+            <div>
+              <h3 class="font-semibold">Grocery list from pantry gaps</h3>
+              {% if snapshot.grocery %}
+              <ul class="mt-1 list-disc space-y-1 pl-5">
+                {% for item in snapshot.grocery %}
+                <li>{{ item.item }} (need {{ item.needed }})</li>
+                {% endfor %}
+              </ul>
+              {% else %}
+              <p class="text-slate-600">Pantry basics are covered.</p>
+              {% endif %}
+            </div>
+
+            <div>
+              <h3 class="font-semibold">Reminder queue</h3>
+              <ul class="mt-1 list-disc space-y-1 pl-5">
+                {% for reminder in snapshot.reminders %}
+                <li>{{ reminder.when }} - {{ reminder.task }}</li>
+                {% endfor %}
+              </ul>
+            </div>
+
+            <div>
+              <h3 class="font-semibold">Kid size tracker</h3>
+              <ul class="mt-1 space-y-1">
+                {% for kid in snapshot.kids %}
+                <li class="rounded border border-slate-200 px-2 py-1">
+                  <span class="font-semibold">{{ kid.name }}</span>{% for size in kid.sizes %} - {{ size }}{% endfor %}
+                </li>
+                {% endfor %}
+              </ul>
+            </div>
+          </article>
+          {% else %}
+          <p class="text-sm text-slate-600">Fill out the form and click “Generate dashboard” to preview MomOS.</p>
+          {% endif %}
+        </section>
+      </div>
+    </main>
+  </body>
+</html>

@@ -18,6 +18,9 @@ Standalone web applications for various use cases.
 - [**sub-day-generator**](sub-day-generator/README.md) - Prototype app for generating substitute-ready classroom day plans
   - [Deployment Guide](sub-day-generator/DEPLOYMENT.md)
 
+### Family Workflow Tools
+- [**momos**](momos/README.md) - Prototype family command center for school emails, schedules, pantry tracking, reminders, and kid profiles
+
 ## Related Projects
 
 For web development tools, see:

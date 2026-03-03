@@ -1,0 +1,36 @@
+# MomOS
+
+Prototype Flask app for a family command center that consolidates household logistics.
+
+## What it does (prototype)
+
+- Extracts likely action items from pasted school email text
+- Organizes shared calendar events with an explicit responsibility tag
+- Tracks pantry basics and generates a grocery gap list
+- Builds a reminder queue from manual reminders plus due-dated email actions
+- Stores kid profile details such as clothing and shoe sizes
+
+## Quickstart
+
+```bash
+cd active/web-apps/momos
+python -m venv .venv
+source .venv/bin/activate
+pip install -e .
+python -m momos.app
+```
+
+Open: http://127.0.0.1:5000
+
+## Tests
+
+```bash
+cd active/web-apps/momos
+python -m pytest -q
+```
+
+## Next Prototype Steps
+
+- Add Gmail/Google Calendar connectors behind explicit OAuth consent
+- Add recurring reminders and household role templates
+- Add saved household profiles and exportable weekly plan summaries
