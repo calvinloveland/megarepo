@@ -58,4 +58,11 @@ Provide a safe, repeatable workflow for accessing a remote Kubernetes cluster wh
 - If `kubectl` times out, check network reachability to the API server (port 6443).
 - If SSH works but `kubectl` does not, verify kubeconfig `server:` points to the correct host/IP.
 - If `systemctl` reports inactive, start or troubleshoot the k3s service on the host.
+
+## Lessons learned (ArgoCD + Cloudflare tunnel rollout)
+
+- If `kubectl` has no contexts or defaults to `localhost:8080`, use an explicit kubeconfig file under `~/.kube/` (for example `kubectl --kubeconfig ~/.kube/<cluster>.yaml ...`) rather than assuming global context is set.
+- If ArgoCD shows `ComparisonError` with "app path does not exist", verify the `targetRevision` actually contains the app path; use a temporary deploy branch if needed, then move back to `main` after merge/push.
+- For token-based `cloudflared tunnel run` in Kubernetes, include an origin target (`--url http://localhost:<port>` or equivalent ingress config). Without origin routing, Cloudflare will return HTTP 503 even when the tunnel is connected.
+- Always validate both internal and external paths: pod/container readiness + logs, ArgoCD `Synced/Healthy`, local service HTTP status, and public hostname HTTP status.
 ```
