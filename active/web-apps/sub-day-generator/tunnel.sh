@@ -1,11 +1,12 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Sub Day Generator Cloudflare Tunnel Management Script
 
 TUNNEL_NAME="sub-day-generator"
 APP_PORT=5000
 APP_DIR="$(cd "$(dirname "$0")" && pwd)"
 CF_CONFIG="${CF_CONFIG:-$HOME/.cloudflared/config.yml}"
-PUBLIC_URL="https://subday.example.com"
+CLOUDFLARED_BIN="${CLOUDFLARED_BIN:-$HOME/.local/bin/cloudflared}"
+PUBLIC_URL="https://subday.shsw.dev"
 
 case "$1" in
   start)
@@ -17,7 +18,7 @@ case "$1" in
     echo "Sub Day Generator started (PID: $(cat /tmp/sub-day-generator.pid))"
 
     echo "Starting Cloudflare tunnel..."
-    nohup cloudflared tunnel --config "$CF_CONFIG" run $TUNNEL_NAME > /tmp/cloudflared-subday.log 2>&1 &
+    nohup "$CLOUDFLARED_BIN" tunnel --config "$CF_CONFIG" run $TUNNEL_NAME > /tmp/cloudflared-subday.log 2>&1 &
     echo $! > /tmp/cloudflared-subday.pid
     echo "Tunnel started (PID: $(cat /tmp/cloudflared-subday.pid))"
 
