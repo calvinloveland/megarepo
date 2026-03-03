@@ -36,7 +36,9 @@ def test_feedback_submission():
             json={
                 "feedback_text": "This is a test feedback",
                 "design": "design_1",
-                "timestamp": "2026-02-05T12:00:00.000Z"
+                "timestamp": "2026-02-05T12:00:00.000Z",
+                "page_path": "/?design=design_1",
+                "page_title": "Parambulator Test Page",
             },
             content_type="application/json"
         )
@@ -59,6 +61,9 @@ def test_feedback_submission():
             saved_feedback = json.load(f)
         
         assert saved_feedback["feedback_text"] == "This is a test feedback"
+        assert saved_feedback["app"] == "Parambulator"
+        assert saved_feedback["page_path"] == "/?design=design_1"
+        assert saved_feedback["page_title"] == "Parambulator Test Page"
         assert saved_feedback["design"] == "design_1"
         assert saved_feedback["selected_element"] is None
         assert "server_timestamp" in saved_feedback

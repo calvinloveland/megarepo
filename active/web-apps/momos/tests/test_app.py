@@ -107,7 +107,12 @@ def test_feedback_submission_creates_file():
     client = app.test_client()
     response = client.post(
         "/feedback",
-        json={"feedback_text": "Cozi feedback", "design": "cozi-workspace"},
+        json={
+            "feedback_text": "Cozi feedback",
+            "design": "cozi-workspace",
+            "page_path": "/workspace",
+            "page_title": "Cozi Workspace",
+        },
         content_type="application/json",
     )
     assert response.status_code == 200
@@ -117,6 +122,9 @@ def test_feedback_submission_creates_file():
     with open(path, encoding="utf-8") as file_handle:
         data = json.load(file_handle)
     assert data["feedback_text"] == "Cozi feedback"
+    assert data["app"] == "Cozi"
+    assert data["page_path"] == "/workspace"
+    assert data["page_title"] == "Cozi Workspace"
     path.unlink(missing_ok=True)
 
 

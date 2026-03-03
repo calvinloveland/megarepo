@@ -294,6 +294,16 @@ function feedbackContextDesign() {
   return designClass || 'unknown';
 }
 
+function feedbackContextPagePath() {
+  if (typeof window.getFeedbackContext === 'function') {
+    const context = window.getFeedbackContext();
+    if (context && context.pagePath) {
+      return String(context.pagePath);
+    }
+  }
+  return `${window.location.pathname}${window.location.search}`;
+}
+
 function handleFeedbackSubmit(event) {
   event.preventDefault();
 
@@ -303,6 +313,8 @@ function handleFeedbackSubmit(event) {
     feedback_text: formData.get('feedback_text'),
     selected_element: formData.get('selected_element') || '',
     design: feedbackContextDesign(),
+    page_path: feedbackContextPagePath(),
+    page_title: document.title || '',
     timestamp: new Date().toISOString()
   };
   const headers = {

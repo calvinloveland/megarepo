@@ -10,6 +10,7 @@ from datetime import datetime
 from hmac import compare_digest
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
+from urllib.parse import urlparse
 
 from flask import Blueprint, Flask, Response, current_app, jsonify, request
 from jinja2 import ChoiceLoader, FileSystemLoader
@@ -80,12 +81,18 @@ def _register_feedback_blueprint(
 
         feedback_text = str(data.get("feedback_text", "")).strip()
         selected_element = str(data.get("selected_element", "")).strip()
+        raw_page_path = str(data.get("page_path", "")).strip()
+        page_title = str(data.get("page_title", "")).strip()
         if not feedback_text:
             return Response("Feedback text is required", status=400)
         if len(feedback_text) > 5000:
             return Response("Feedback text must be < 5000 characters", status=400)
         if len(selected_element) > 500:
             return Response("Selected element must be < 500 characters", status=400)
+        if len(raw_page_path) > 1000:
+            return Response("Page path must be < 1000 characters", status=400)
+        if len(page_title) > 500:
+            return Response("Page title must be < 500 characters", status=400)
 
         feedback_dir.mkdir(parents=True, exist_ok=True)
         addressed_dir.mkdir(parents=True, exist_ok=True)
@@ -95,10 +102,16 @@ def _register_feedback_blueprint(
 
         app_version = os.getenv("APP_VERSION", "dev")
         git_commit = _resolve_git_commit(project_root)
+        page_path = _normalize_page_path(raw_page_path) or _normalize_page_path(
+            request.headers.get("Referer", "")
+        )
 
         payload = {
             "feedback_text": feedback_text,
             "selected_element": selected_element or None,
+            "app": app_name,
+            "page_path": page_path or None,
+            "page_title": page_title or None,
             "design": str(data.get("design", "unknown")),
             "timestamp": data.get("timestamp"),
             "server_timestamp": datetime.now().isoformat(),
@@ -224,3 +237,15 @@ def _resolve_git_commit(project_root: Path) -> str:
     if result.returncode != 0:
         return "unknown"
     return result.stdout.strip() or "unknown"
+
+
+def _normalize_page_path(raw_value: str) -> str:
+    value = raw_value.strip()
+    if not value:
+        return ""
+    parsed = urlparse(value)
+    if parsed.scheme or parsed.netloc:
+        if not parsed.path:
+            return "/"
+        return f"{parsed.path}?{parsed.query}" if parsed.query else parsed.path
+    return value

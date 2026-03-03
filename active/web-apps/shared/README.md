@@ -12,3 +12,8 @@ Reusable components shared by multiple web apps in this directory.
   - `POST /feedback/mark-addressed`
 
 Apps enable this system via `enable_shared_feedback(...)` and keep their data in each app's `data/feedback/` directory.
+
+Saved feedback items include context fields:
+- `app` (server-defined app name)
+- `page_path` (client page path)
+- `page_title` (client page title)
