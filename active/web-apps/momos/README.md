@@ -35,6 +35,13 @@ cd active/web-apps/momos
 python -m pytest -q
 ```
 
+## Hosting
+
+- Docker: `Dockerfile` + `docker-compose.yml`
+- Cloudflare tunnel helper: `tunnel.sh`
+- Kubernetes manifest: `k8s/cozi.yaml`
+- Deployment guide: [DEPLOYMENT.md](DEPLOYMENT.md)
+
 ## Next Prototype Steps
 
 - Add Gmail/Google Calendar connectors behind explicit OAuth consent

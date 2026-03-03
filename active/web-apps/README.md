@@ -20,6 +20,7 @@ Standalone web applications for various use cases.
 
 ### Family Workflow Tools
 - [**Cozi (momos)**](momos/README.md) - Prototype family command center for school emails, schedules, pantry tracking, reminders, and kid profiles
+  - [Deployment Guide](momos/DEPLOYMENT.md)
 
 ## Related Projects
 
