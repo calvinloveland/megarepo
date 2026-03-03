@@ -7,6 +7,7 @@ Prototype Flask app that helps teachers quickly create a substitute-ready day pl
 - Captures core sub-day inputs in one form (schedule, student notes, routines, checklist, contacts)
 - Generates a structured substitute plan preview instantly
 - Keeps formatting teacher-friendly for quick print/copy
+- Uses the shared web feedback system (`/feedback`) with the floating feedback widget
 
 ## Quickstart
 
@@ -33,6 +34,12 @@ python -m pytest -q
 - Cloudflare tunnel helper: `tunnel.sh`
 - Kubernetes manifest: `k8s/sub-day-generator.yaml`
 - Deployment guide: [DEPLOYMENT.md](DEPLOYMENT.md)
+
+## Feedback Admin Access
+
+`GET /feedback` and `POST /feedback/mark-addressed` require:
+- `FEEDBACK_ADMIN_USERNAME`
+- `FEEDBACK_ADMIN_PASSWORD`
 
 ## Next Prototype Steps
 

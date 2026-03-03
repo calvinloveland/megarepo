@@ -27,16 +27,20 @@ A Flask + HTMX web application for building seating charts with constraint-based
 ```
 parambulator/
 ├── src/parambulator/
-│   ├── app.py          # Flask app, routes, request handling (501 lines)
+│   ├── app.py          # Flask app, chart routes, request handling
 │   ├── models.py       # Person, Chart data models (173 lines)
 │   ├── scoring.py      # Constraint scoring algorithms (274 lines)
-│   └── storage.py      # File I/O for saves/feedback (50 lines)
+│   └── storage.py      # File I/O for save/load payloads
 ├── templates/          # 14 Jinja2 templates + partials
 ├── static/             # CSS assets
 ├── tests/              # pytest unit + Playwright integration suites
 └── data/
     ├── saves/          # User-generated seating plans
     └── feedback/       # User feedback submissions
+
+../shared/
+├── src/web_feedback/   # Shared feedback backend routes
+└── templates/_shared_feedback.html  # Shared floating feedback widget
 ```
 
 ## Quickstart (Development)

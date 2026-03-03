@@ -5,16 +5,13 @@ from __future__ import annotations
 import json
 import logging
 import os
-import subprocess
 import sys
 from dataclasses import dataclass
-from datetime import datetime
-from hmac import compare_digest
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from typing import Dict, List, Optional, Set, Tuple
 
-from flask import Flask, Response, jsonify, make_response, render_template, request
+from flask import Flask, Response, make_response, render_template, request
 from flask_wtf.csrf import CSRFProtect
 
 from .models import (
@@ -32,6 +29,18 @@ from .scoring import generate_best_chart, score_chart, seat_constraint_statuses
 from .storage import list_saves, load_payload, save_payload
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
+SHARED_SRC_ROOT_CANDIDATES = (
+    PROJECT_ROOT.parent / "shared" / "src",
+    PROJECT_ROOT / "shared" / "src",
+)
+for shared_src_root in SHARED_SRC_ROOT_CANDIDATES:
+    if shared_src_root.exists():
+        if str(shared_src_root) not in sys.path:
+            sys.path.insert(0, str(shared_src_root))
+        break
+
+from web_feedback import enable_shared_feedback, feedback_storage_paths
+
 DEFAULT_ROWS = 4
 DEFAULT_COLS = 5
 DEFAULT_DESIGN = "design_1"
@@ -68,8 +77,7 @@ DEFAULT_COLUMN_CONFIG = {
     "avoid": {"type": "avoid", "weight": 0.2, "priority": 1},
     "must_sit_by": {"type": "group", "weight": 0.2, "priority": 2},
 }
-FEEDBACK_DIR = PROJECT_ROOT / "data" / "feedback"
-ADDRESSED_DIR = FEEDBACK_DIR / "addressed"
+FEEDBACK_DIR, ADDRESSED_DIR = feedback_storage_paths(PROJECT_ROOT)
 STATE_COOKIE_NAME = "parambulator_state"
 STATE_COOKIE_MAX_AGE = 60 * 60 * 24 * 30
 INVALID_PINNED_SEATS_WARNING = "Pinned seats were cleared because the saved data was invalid."
@@ -85,28 +93,6 @@ class PinValidationContext:
     cols: int
     normalized: Dict[Tuple[int, int], str]
     pinned_names: Set[str]
-
-
-def _feedback_entries(directory: Path) -> List[Dict[str, object]]:
-    entries: List[Dict[str, object]] = []
-    if not directory.exists():
-        return entries
-
-    feedback_files = sorted(
-        directory.glob("feedback_*.json"),
-        key=lambda path: path.stat().st_mtime,
-        reverse=True,
-    )
-    for feedback_file in feedback_files:
-        with open(feedback_file, encoding="utf-8") as f:
-            payload = json.load(f)
-        if not isinstance(payload, dict):
-            continue
-        payload["id"] = feedback_file.stem.replace("feedback_", "", 1)
-        payload["filename"] = feedback_file.name
-        entries.append(payload)
-
-    return entries
 
 
 def _serialize_state_cookie(data: Dict[str, object]) -> Optional[str]:
@@ -432,141 +418,13 @@ def create_app() -> Flask:
         response = make_response(render_design(context))
         return apply_state_cookie(response, context)
 
-    def require_feedback_auth() -> Optional[Response]:
-        username = os.getenv("FEEDBACK_ADMIN_USERNAME", "").strip()
-        password = os.getenv("FEEDBACK_ADMIN_PASSWORD", "")
-        if not username or not password:
-            app.logger.error("Feedback auth credentials are not configured")
-            return Response("Feedback auth is not configured", status=503)
-
-        unauthorized = Response("Authentication required", status=401)
-        unauthorized.headers["WWW-Authenticate"] = 'Basic realm="Parambulator Feedback"'
-
-        auth = request.authorization
-        if not auth or auth.type.lower() != "basic":
-            return unauthorized
-
-        provided_username = auth.username or ""
-        provided_password = auth.password or ""
-        if not compare_digest(provided_username, username) or not compare_digest(
-            provided_password, password
-        ):
-            return unauthorized
-
-        return None
-
-    @app.get("/feedback")
-    def list_feedback() -> Response:
-        auth_error = require_feedback_auth()
-        if auth_error:
-            return auth_error
-
-        return jsonify(
-            {
-                "open": _feedback_entries(FEEDBACK_DIR),
-                "addressed": _feedback_entries(ADDRESSED_DIR),
-            }
-        )
-
-    @app.post("/feedback")
-    def submit_feedback() -> Response:
-        """Handle feedback submissions safely (PII-aware)."""
-        data = request.get_json()
-        if not isinstance(data, dict):
-            return Response("Invalid feedback payload", status=400)
-
-        feedback_text = str(data.get("feedback_text", "")).strip()
-        selected_element = str(data.get("selected_element", "")).strip()
-        if not feedback_text:
-            return Response("Feedback text is required", status=400)
-        if len(feedback_text) > 5000:
-            return Response("Feedback text must be < 5000 characters", status=400)
-        if len(selected_element) > 500:
-            return Response("Selected element must be < 500 characters", status=400)
-
-        FEEDBACK_DIR.mkdir(parents=True, exist_ok=True)
-        ADDRESSED_DIR.mkdir(parents=True, exist_ok=True)
-
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
-        filepath = FEEDBACK_DIR / f"feedback_{timestamp}.json"
-
-        app_version = os.getenv("APP_VERSION", "dev")
-        git_commit = os.getenv("GIT_COMMIT", "unknown")
-
-        if git_commit == "unknown":
-            try:
-                result = subprocess.run(
-                    ["git", "log", "-1", "--format=%h"],
-                    cwd=PROJECT_ROOT,
-                    capture_output=True,
-                    text=True,
-                    timeout=1,
-                    check=False,
-                )
-                if result.returncode == 0:
-                    git_commit = result.stdout.strip()
-            except (subprocess.SubprocessError, OSError):
-                app.logger.debug("Unable to resolve git commit hash", exc_info=True)
-
-        feedback_data = {
-            "feedback_text": feedback_text,
-            "selected_element": selected_element or None,
-            "design": str(data.get("design", "unknown")),
-            "timestamp": data.get("timestamp"),
-            "server_timestamp": datetime.now().isoformat(),
-            "version": app_version,
-            "git_commit": git_commit,
-            "addressed_by_commit": None,
-            "addressed": False,
-        }
-
-        with open(filepath, "w", encoding="utf-8") as f:
-            json.dump(feedback_data, f, indent=2)
-
-        return jsonify({"status": "success", "message": "Feedback saved", "id": timestamp})
-
-    @app.post("/feedback/mark-addressed")
-    def mark_feedback_addressed() -> Response:
-        auth_error = require_feedback_auth()
-        if auth_error:
-            return auth_error
-
-        payload = request.get_json() or {}
-        feedback_id = str(payload.get("id", "")).strip()
-        filename = str(payload.get("filename", "")).strip()
-        raw_addressed_commit = payload.get("addressed_by_commit")
-        addressed_by_commit = (
-            str(raw_addressed_commit).strip() if raw_addressed_commit is not None else ""
-        )
-
-        if len(addressed_by_commit) > 200:
-            return Response("Addressing commit must be < 200 characters", status=400)
-
-        if feedback_id:
-            file_pattern = f"feedback_{feedback_id}.json"
-        elif filename:
-            file_pattern = filename
-        else:
-            return Response("Missing feedback id or filename", status=400)
-
-        source_path = FEEDBACK_DIR / file_pattern
-        if not source_path.exists():
-            return Response("Feedback file not found", status=404)
-
-        with open(source_path, encoding="utf-8") as f:
-            data = json.load(f)
-
-        data["addressed"] = True
-        data["addressed_timestamp"] = datetime.now().isoformat()
-        data["addressed_by_commit"] = addressed_by_commit or None
-
-        ADDRESSED_DIR.mkdir(parents=True, exist_ok=True)
-        target_path = ADDRESSED_DIR / source_path.name
-        with open(target_path, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=2)
-
-        source_path.unlink(missing_ok=True)
-        return jsonify({"status": "success", "message": "Feedback marked as addressed"})
+    enable_shared_feedback(
+        app,
+        project_root=PROJECT_ROOT,
+        app_name="Parambulator",
+        feedback_dir=FEEDBACK_DIR,
+        addressed_dir=ADDRESSED_DIR,
+    )
 
     @app.errorhandler(ValueError)
     def handle_value_error(err: ValueError) -> Response:

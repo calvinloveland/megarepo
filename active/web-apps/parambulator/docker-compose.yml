@@ -2,7 +2,9 @@ version: "3.9"
 
 services:
   parambulator:
-    build: .
+    build:
+      context: ..
+      dockerfile: parambulator/Dockerfile
     ports:
       - "5000:5000"
     environment:

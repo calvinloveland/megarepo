@@ -1,6 +1,8 @@
 services:
   sub-day-generator:
-    build: .
+    build:
+      context: ..
+      dockerfile: sub-day-generator/Dockerfile
     ports:
       - "5001:5000"
     environment:

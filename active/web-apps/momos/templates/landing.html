@@ -37,5 +37,7 @@
         <p class="mt-2 max-w-3xl text-sm sm:text-base">Cozi gives families one command center for decisions, deadlines, supplies, and role clarity. Fewer surprises. Faster mornings. Smoother handoffs.</p>
       </section>
     </main>
+    {% set feedback_design = "cozi-" ~ style.name|lower|replace(" ", "-") %}
+    {% include "_shared_feedback.html" %}
   </body>
 </html>

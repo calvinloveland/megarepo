@@ -1,4 +1,9 @@
+import json
+from base64 import b64encode
+
 from momos.app import (
+    ADDRESSED_DIR,
+    FEEDBACK_DIR,
     LANDING_STYLES,
     build_grocery_list,
     build_snapshot,
@@ -7,6 +12,11 @@ from momos.app import (
     parse_calendar_entries,
     parse_kids,
 )
+
+
+def _auth_headers(username: str, password: str) -> dict:
+    token = b64encode(f"{username}:{password}".encode()).decode()
+    return {"Authorization": f"Basic {token}"}
 
 
 def test_index_lists_landing_styles():
@@ -89,3 +99,44 @@ def test_build_snapshot_merges_due_actions_into_reminders():
         }
     )
     assert any(reminder["when"] == "March 10" for reminder in snapshot["reminders"])
+
+
+def test_feedback_submission_creates_file():
+    app = create_app()
+    app.testing = True
+    client = app.test_client()
+    response = client.post(
+        "/feedback",
+        json={"feedback_text": "Cozi feedback", "design": "cozi-workspace"},
+        content_type="application/json",
+    )
+    assert response.status_code == 200
+    feedback_id = response.get_json()["id"]
+    path = FEEDBACK_DIR / f"feedback_{feedback_id}.json"
+    assert path.exists()
+    with open(path, encoding="utf-8") as file_handle:
+        data = json.load(file_handle)
+    assert data["feedback_text"] == "Cozi feedback"
+    path.unlink(missing_ok=True)
+
+
+def test_feedback_list_requires_admin_auth(monkeypatch):
+    monkeypatch.setenv("FEEDBACK_ADMIN_USERNAME", "admin")
+    monkeypatch.setenv("FEEDBACK_ADMIN_PASSWORD", "secret")
+    app = create_app()
+    app.testing = True
+    client = app.test_client()
+    response = client.post(
+        "/feedback",
+        json={"feedback_text": "Needs review"},
+        content_type="application/json",
+    )
+    feedback_id = response.get_json()["id"]
+    unauthorized = client.get("/feedback")
+    assert unauthorized.status_code == 401
+    authorized = client.get("/feedback", headers=_auth_headers("admin", "secret"))
+    assert authorized.status_code == 200
+    open_ids = {entry["id"] for entry in authorized.get_json()["open"]}
+    assert feedback_id in open_ids
+    (FEEDBACK_DIR / f"feedback_{feedback_id}.json").unlink(missing_ok=True)
+    (ADDRESSED_DIR / f"feedback_{feedback_id}.json").unlink(missing_ok=True)

@@ -4,12 +4,26 @@ from __future__ import annotations
 
 import os
 import re
+import sys
 from pathlib import Path
 from typing import Dict, List
 
 from flask import Flask, abort, render_template, request
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
+SHARED_SRC_ROOT_CANDIDATES = (
+    PROJECT_ROOT.parent / "shared" / "src",
+    PROJECT_ROOT / "shared" / "src",
+)
+for shared_src_root in SHARED_SRC_ROOT_CANDIDATES:
+    if shared_src_root.exists():
+        if str(shared_src_root) not in sys.path:
+            sys.path.insert(0, str(shared_src_root))
+        break
+
+from web_feedback import enable_shared_feedback, feedback_storage_paths
+
+FEEDBACK_DIR, ADDRESSED_DIR = feedback_storage_paths(PROJECT_ROOT)
 
 ACTION_KEYWORDS = (
     "due",
@@ -214,6 +228,13 @@ def build_snapshot(form_data: Dict[str, str]) -> Dict[str, object]:
 
 def create_app() -> Flask:
     app = Flask(__name__, template_folder=str(PROJECT_ROOT / "templates"))
+    enable_shared_feedback(
+        app,
+        project_root=PROJECT_ROOT,
+        app_name="Cozi",
+        feedback_dir=FEEDBACK_DIR,
+        addressed_dir=ADDRESSED_DIR,
+    )
 
     @app.get("/")
     def index() -> str:

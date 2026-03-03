@@ -7,9 +7,11 @@ WORKDIR /app
 
 RUN addgroup --system app && adduser --system --ingroup app app
 
-COPY pyproject.toml /app/pyproject.toml
-COPY src /app/src
-COPY templates /app/templates
+COPY sub-day-generator/pyproject.toml /app/pyproject.toml
+COPY sub-day-generator/src /app/src
+COPY sub-day-generator/templates /app/templates
+COPY shared/src /app/shared/src
+COPY shared/templates /app/shared/templates
 
 RUN pip install --no-cache-dir .
 

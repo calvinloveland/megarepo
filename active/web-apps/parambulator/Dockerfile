@@ -7,11 +7,13 @@ WORKDIR /app
 
 RUN addgroup --system app && adduser --system --ingroup app app
 
-COPY pyproject.toml /app/pyproject.toml
-COPY src /app/src
-COPY templates /app/templates
-COPY static /app/static
-COPY data /app/data
+COPY parambulator/pyproject.toml /app/pyproject.toml
+COPY parambulator/src /app/src
+COPY parambulator/templates /app/templates
+COPY parambulator/static /app/static
+COPY parambulator/data /app/data
+COPY shared/src /app/shared/src
+COPY shared/templates /app/shared/templates
 
 RUN pip install --no-cache-dir . \
   && mkdir -p /app/data/feedback /app/data/saves \

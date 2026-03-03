@@ -22,6 +22,10 @@ Standalone web applications for various use cases.
 - [**Cozi (momos)**](momos/README.md) - Prototype family command center for school emails, schedules, pantry tracking, reminders, and kid profiles
   - [Deployment Guide](momos/DEPLOYMENT.md)
 
+## Shared Web Systems
+
+- [**shared**](shared/) - Reusable web feedback system (`/feedback`, `/feedback/mark-addressed`, shared floating widget template)
+
 ## Related Projects
 
 For web development tools, see:

@@ -9,6 +9,7 @@ Prototype Flask app for a family command center that consolidates household logi
 - Tracks pantry basics and generates a grocery gap list
 - Builds a reminder queue from manual reminders plus due-dated email actions
 - Stores kid profile details such as clothing and shoe sizes
+- Uses the shared web feedback system (`/feedback`) with the floating feedback widget
 - Includes multiple bold landing page concepts:
   - `/landing/neon-sprint`
   - `/landing/editorial-pop`
@@ -41,6 +42,12 @@ python -m pytest -q
 - Cloudflare tunnel helper: `tunnel.sh`
 - Kubernetes manifest: `k8s/cozi.yaml`
 - Deployment guide: [DEPLOYMENT.md](DEPLOYMENT.md)
+
+## Feedback Admin Access
+
+`GET /feedback` and `POST /feedback/mark-addressed` require:
+- `FEEDBACK_ADMIN_USERNAME`
+- `FEEDBACK_ADMIN_PASSWORD`
 
 ## Next Prototype Steps
 

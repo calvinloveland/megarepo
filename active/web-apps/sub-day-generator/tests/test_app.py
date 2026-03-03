@@ -1,4 +1,19 @@
-from sub_day_generator.app import build_plan, create_app, parse_periods, parse_student_notes
+import json
+from base64 import b64encode
+
+from sub_day_generator.app import (
+    ADDRESSED_DIR,
+    FEEDBACK_DIR,
+    build_plan,
+    create_app,
+    parse_periods,
+    parse_student_notes,
+)
+
+
+def _auth_headers(username: str, password: str) -> dict:
+    token = b64encode(f"{username}:{password}".encode()).decode()
+    return {"Authorization": f"Basic {token}"}
 
 
 def test_parse_periods_with_pipe_format():
@@ -55,3 +70,44 @@ def test_generate_route_renders_output():
     assert "Room 204" in html
     assert "Take attendance" in html
 
+
+def test_feedback_submission_creates_file():
+    app = create_app()
+    app.testing = True
+    client = app.test_client()
+    response = client.post(
+        "/feedback",
+        json={"feedback_text": "Sub-day feedback", "design": "sub-day-generator"},
+        content_type="application/json",
+    )
+    assert response.status_code == 200
+    payload = response.get_json()
+    feedback_id = payload["id"]
+    path = FEEDBACK_DIR / f"feedback_{feedback_id}.json"
+    assert path.exists()
+    with open(path, encoding="utf-8") as file_handle:
+        data = json.load(file_handle)
+    assert data["feedback_text"] == "Sub-day feedback"
+    path.unlink(missing_ok=True)
+
+
+def test_feedback_list_requires_admin_auth(monkeypatch):
+    monkeypatch.setenv("FEEDBACK_ADMIN_USERNAME", "admin")
+    monkeypatch.setenv("FEEDBACK_ADMIN_PASSWORD", "secret")
+    app = create_app()
+    app.testing = True
+    client = app.test_client()
+    response = client.post(
+        "/feedback",
+        json={"feedback_text": "Needs review"},
+        content_type="application/json",
+    )
+    feedback_id = response.get_json()["id"]
+    unauthorized = client.get("/feedback")
+    assert unauthorized.status_code == 401
+    authorized = client.get("/feedback", headers=_auth_headers("admin", "secret"))
+    assert authorized.status_code == 200
+    open_ids = {entry["id"] for entry in authorized.get_json()["open"]}
+    assert feedback_id in open_ids
+    (FEEDBACK_DIR / f"feedback_{feedback_id}.json").unlink(missing_ok=True)
+    (ADDRESSED_DIR / f"feedback_{feedback_id}.json").unlink(missing_ok=True)
