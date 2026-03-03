@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Cozi Landing Concepts</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+  </head>
+  <body class="min-h-screen bg-slate-950 text-white">
+    <main class="mx-auto max-w-7xl space-y-8 p-6">
+      <header class="space-y-4 rounded-2xl bg-gradient-to-r from-fuchsia-600 via-purple-700 to-indigo-700 p-8 shadow-2xl">
+        <p class="inline-flex rounded bg-white/20 px-3 py-1 text-xs font-semibold uppercase tracking-wide">New concept</p>
+        <h1 class="text-4xl font-black uppercase leading-tight sm:text-5xl">COZI: THE FAMILY OPERATING SYSTEM</h1>
+        <p class="max-w-3xl text-sm sm:text-base">School emails. Sports schedules. Pantry inventory. Permission slips. Birthdays. Refills. Cozi turns invisible load into visible action.</p>
+        <div class="flex flex-wrap gap-3">
+          <a href="/workspace" class="rounded bg-white px-4 py-2 text-sm font-bold text-slate-900 hover:bg-slate-100">Open prototype workspace</a>
+          <a href="/landing/neon-sprint" class="rounded border border-white/70 px-4 py-2 text-sm font-bold hover:bg-white/10">View first concept</a>
+        </div>
+      </header>
+
+      <section class="space-y-3">
+        <h2 class="text-2xl font-black uppercase">Bold landing page directions</h2>
+        <div class="grid gap-4 md:grid-cols-3">
+          {% for key, style in styles.items() %}
+          <a href="/landing/{{ key }}" class="group rounded-2xl border border-white/20 bg-slate-900 p-5 transition hover:-translate-y-1 hover:border-cyan-300 hover:shadow-xl">
+            <p class="text-xs font-bold uppercase tracking-wider text-cyan-300">{{ style.name }}</p>
+            <h3 class="mt-2 text-xl font-black uppercase">{{ style.headline }}</h3>
+            <p class="mt-2 text-sm text-slate-300">{{ style.subhead }}</p>
+            <p class="mt-4 text-xs font-semibold uppercase tracking-wide text-white/80 group-hover:text-cyan-200">Open this page →</p>
+          </a>
+          {% endfor %}
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Cozi - {{ style.name }}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+  </head>
+  <body class="min-h-screen {{ style.hero_class }}">
+    <main class="mx-auto max-w-6xl space-y-8 p-6">
+      <nav class="flex flex-wrap items-center gap-3 text-xs font-semibold uppercase tracking-wide">
+        <a href="/" class="rounded border border-current/60 px-3 py-1 hover:bg-white/10">All concepts</a>
+        <a href="/workspace" class="rounded border border-current/60 px-3 py-1 hover:bg-white/10">Prototype workspace</a>
+      </nav>
+
+      <section class="space-y-4">
+        <p class="inline-flex rounded px-3 py-1 text-xs font-bold uppercase tracking-wider {{ style.accent_class }}">{{ style.name }}</p>
+        <h1 class="max-w-5xl text-4xl font-black uppercase leading-tight sm:text-6xl">{{ style.headline }}</h1>
+        <p class="max-w-3xl text-sm sm:text-lg">{{ style.subhead }}</p>
+        <div class="flex flex-wrap gap-3">
+          <a href="/workspace" class="rounded px-5 py-3 text-sm font-black uppercase {{ style.accent_class }}">Start your Cozi dashboard</a>
+          <a href="/" class="rounded border border-current/70 px-5 py-3 text-sm font-black uppercase hover:bg-white/10">See other styles</a>
+        </div>
+      </section>
+
+      <section class="grid gap-3 md:grid-cols-3">
+        {% for bullet in style.bullets %}
+        <article class="rounded-2xl border border-current/30 bg-black/20 p-4 backdrop-blur">
+          <h2 class="text-xs font-bold uppercase tracking-wider">Cozi power move</h2>
+          <p class="mt-2 text-lg font-bold leading-snug">{{ bullet }}</p>
+        </article>
+        {% endfor %}
+      </section>
+
+      <section class="rounded-2xl border border-current/30 bg-black/30 p-6">
+        <h2 class="text-2xl font-black uppercase">Own the week before it owns you.</h2>
+        <p class="mt-2 max-w-3xl text-sm sm:text-base">Cozi gives families one command center for decisions, deadlines, supplies, and role clarity. Fewer surprises. Faster mornings. Smoother handoffs.</p>
+      </section>
+    </main>
+  </body>
+</html>

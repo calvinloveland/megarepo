@@ -19,7 +19,7 @@ Standalone web applications for various use cases.
   - [Deployment Guide](sub-day-generator/DEPLOYMENT.md)
 
 ### Family Workflow Tools
-- [**momos**](momos/README.md) - Prototype family command center for school emails, schedules, pantry tracking, reminders, and kid profiles
+- [**Cozi (momos)**](momos/README.md) - Prototype family command center for school emails, schedules, pantry tracking, reminders, and kid profiles
 
 ## Related Projects
 

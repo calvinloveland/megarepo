@@ -1,4 +1,4 @@
-"""Flask prototype for MomOS family logistics dashboard."""
+"""Flask prototype for Cozi family logistics dashboard."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ import re
 from pathlib import Path
 from typing import Dict, List
 
-from flask import Flask, render_template, request
+from flask import Flask, abort, render_template, request
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
@@ -55,6 +55,45 @@ DEFAULT_FORM_DATA: Dict[str, str] = {
         "Ava | shirt: M(10-12) | pants: 10 | shoes: 4Y\n"
         "Noah | shirt: S(6-7) | pants: 7 | shoes: 1Y"
     ),
+}
+
+LANDING_STYLES: Dict[str, Dict[str, object]] = {
+    "neon-sprint": {
+        "name": "Neon Sprint",
+        "headline": "RUN YOUR HOME LIKE A LEGENDARY PIT CREW",
+        "subhead": "Cozi turns school chaos, pantry gaps, and family scheduling into one electric action board.",
+        "hero_class": "bg-gradient-to-br from-fuchsia-600 via-purple-700 to-indigo-800 text-white",
+        "accent_class": "bg-yellow-300 text-black",
+        "bullets": [
+            "Auto-pull action items from school emails in seconds",
+            "Tag every event with a clear owner: Mom, Dad, or Team",
+            "Never run out of staples with smart pantry gap alerts",
+        ],
+    },
+    "editorial-pop": {
+        "name": "Editorial Pop",
+        "headline": "THE FAMILY OPS STACK, DESIGNED LIKE A MAGAZINE COVER",
+        "subhead": "Big typography. Sharp priorities. Zero mental clutter. Cozi makes responsibilities obvious.",
+        "hero_class": "bg-amber-200 text-slate-900",
+        "accent_class": "bg-slate-900 text-amber-200",
+        "bullets": [
+            "Action cards for permission slips, medicine refills, and school tasks",
+            "Shared calendar ownership with visible accountability",
+            "Kid profile memory for sizes, notes, and essentials",
+        ],
+    },
+    "midnight-luxe": {
+        "name": "Midnight Luxe",
+        "headline": "FROM DAILY FIRE DRILLS TO CALM, COMMANDING CONTROL",
+        "subhead": "Cozi centralizes family logistics with premium clarity, proactive reminders, and confident execution.",
+        "hero_class": "bg-slate-950 text-cyan-100",
+        "accent_class": "bg-cyan-300 text-slate-950",
+        "bullets": [
+            "Unified command center for email, schedules, pantry, and reminders",
+            "Instant grocery lists generated from real household inventory",
+            "Role-tagged events so everyone knows who owns what",
+        ],
+    },
 }
 
 
@@ -178,6 +217,17 @@ def create_app() -> Flask:
 
     @app.get("/")
     def index() -> str:
+        return render_template("landing_hub.html", styles=LANDING_STYLES)
+
+    @app.get("/landing/<style_name>")
+    def landing(style_name: str) -> str:
+        style = LANDING_STYLES.get(style_name)
+        if not style:
+            abort(404)
+        return render_template("landing.html", style=style, styles=LANDING_STYLES)
+
+    @app.get("/workspace")
+    def workspace() -> str:
         return render_template("index.html", form_data=DEFAULT_FORM_DATA, snapshot=None)
 
     @app.post("/generate")

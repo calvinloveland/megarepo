@@ -1,4 +1,4 @@
-# MomOS
+# Cozi
 
 Prototype Flask app for a family command center that consolidates household logistics.
 
@@ -9,6 +9,10 @@ Prototype Flask app for a family command center that consolidates household logi
 - Tracks pantry basics and generates a grocery gap list
 - Builds a reminder queue from manual reminders plus due-dated email actions
 - Stores kid profile details such as clothing and shoe sizes
+- Includes multiple bold landing page concepts:
+  - `/landing/neon-sprint`
+  - `/landing/editorial-pop`
+  - `/landing/midnight-luxe`
 
 ## Quickstart
 
@@ -21,6 +25,8 @@ python -m momos.app
 ```
 
 Open: http://127.0.0.1:5000
+
+Use `/` to browse landing concepts and `/workspace` for the working Cozi dashboard form.
 
 ## Tests
 

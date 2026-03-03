@@ -1,4 +1,5 @@
 from momos.app import (
+    LANDING_STYLES,
     build_grocery_list,
     build_snapshot,
     create_app,
@@ -6,6 +7,28 @@ from momos.app import (
     parse_calendar_entries,
     parse_kids,
 )
+
+
+def test_index_lists_landing_styles():
+    app = create_app()
+    app.testing = True
+    client = app.test_client()
+    response = client.get("/")
+    assert response.status_code == 200
+    html = response.get_data(as_text=True)
+    assert "COZI: THE FAMILY OPERATING SYSTEM" in html
+    for style in LANDING_STYLES.values():
+        assert style["name"] in html
+
+
+def test_each_landing_style_route_renders():
+    app = create_app()
+    app.testing = True
+    client = app.test_client()
+    for style_name, style in LANDING_STYLES.items():
+        response = client.get(f"/landing/{style_name}")
+        assert response.status_code == 200
+        assert style["headline"] in response.get_data(as_text=True)
 
 
 def test_extract_action_items_finds_due_dates():
@@ -50,7 +73,7 @@ def test_generate_route_renders_snapshot():
     )
     assert response.status_code == 200
     html = response.get_data(as_text=True)
-    assert "Family Snapshot" in html
+    assert "Cozi Family Snapshot" in html
     assert "Soccer practice" in html
     assert "Milk (need 1)" in html
 
