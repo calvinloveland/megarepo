@@ -23,6 +23,7 @@ classifiers = [
 ]
 dependencies = [
     "pylint>=2.8.0",
+    "ruff>=0.6.0",
     "coverage>=5.5",
     "lizard>=1.17.10",
     "tqdm>=4.66.0",

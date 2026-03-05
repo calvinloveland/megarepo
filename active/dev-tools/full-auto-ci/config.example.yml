@@ -47,6 +47,16 @@ tools:
       metric: "score"
       direction: "higher"
       tolerance: 0.0
+
+  ruff:
+    enabled: true
+    timeout_seconds: 300  # 5 minutes
+    ratchet:
+      enabled: false
+      target: 0.0
+      metric: "summary.error_count"
+      direction: "lower"
+      tolerance: 0.0
   
   coverage:
     enabled: true

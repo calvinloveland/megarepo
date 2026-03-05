@@ -22,7 +22,7 @@ from .lint_defaults import coerce_bool
 from .providers import BaseProvider, ProviderConfigError
 from .providers import registry as provider_registry
 from .ratchet import RatchetManager
-from .tools import Coverage, Jscpd, Lizard, Pylint, Tool, ToolRunner
+from .tools import Coverage, Jscpd, Lizard, Pylint, Ruff, Tool, ToolRunner
 
 # Configure logging
 logging.basicConfig(
@@ -170,6 +170,11 @@ class CIService:
                     ignore_patterns=ignore_patterns,
                 )
             )
+
+        ruff_config = tools_config.get("ruff", {})
+        if self._tool_enabled(ruff_config):
+            timeout = self._coerce_positive_float(ruff_config.get("timeout_seconds"))
+            tools.append(Ruff(timeout=timeout))
 
         coverage_config = tools_config.get("coverage", {})
         if self._tool_enabled(coverage_config):

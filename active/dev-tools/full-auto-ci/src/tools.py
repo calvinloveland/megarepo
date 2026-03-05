@@ -35,6 +35,7 @@ def _progress(iterable: Iterable[T], **kwargs: Any) -> Iterable[T]:
 
 # Default timeout values (in seconds)
 DEFAULT_PYLINT_TIMEOUT = 300  # 5 minutes
+DEFAULT_RUFF_TIMEOUT = 300  # 5 minutes
 DEFAULT_COVERAGE_TIMEOUT = 600  # 10 minutes
 DEFAULT_COVERAGE_XML_TIMEOUT = 120  # 2 minutes
 DEFAULT_DEPENDENCY_INSTALL_TIMEOUT = 180  # 3 minutes
@@ -488,6 +489,160 @@ class Pylint(Tool):
                 return needle in handle.read()
         except OSError:
             return False
+
+
+class Ruff(Tool):
+    """Ruff linting tool."""
+
+    def __init__(self, *, timeout: Optional[float] = None):
+        """Initialize Ruff.
+
+        Args:
+            timeout: Timeout in seconds for Ruff execution
+        """
+        super().__init__("ruff")
+        self.timeout = timeout if timeout is not None else DEFAULT_RUFF_TIMEOUT
+
+    def run(self, repo_path: str) -> Dict[str, Any]:
+        """Run Ruff lint checks.
+
+        Args:
+            repo_path: Path to the repository
+
+        Returns:
+            Ruff results
+        """
+        start_time = time.perf_counter()
+        try:
+            process = subprocess.run(
+                ["ruff", "check", "--output-format", "json", "."],
+                capture_output=True,
+                text=True,
+                check=False,
+                cwd=repo_path,
+                timeout=self.timeout,
+            )
+        except subprocess.TimeoutExpired:
+            logger.error("Ruff timed out after %s seconds", self.timeout)
+            return {
+                "status": "error",
+                "error": f"Ruff timed out after {self.timeout} seconds",
+                "timed_out": True,
+            }
+        except FileNotFoundError:
+            message = (
+                "Ruff executable not found. Install 'ruff' to enable Ruff linting."
+            )
+            logger.error(message)
+            return {"status": "error", "error": message}
+        except (
+            OSError,
+            TypeError,
+            ValueError,
+            RuntimeError,
+            json.JSONDecodeError,
+            ET.ParseError,
+            subprocess.SubprocessError,
+        ) as exc:
+            logger.exception("Error running Ruff")
+            return {"status": "error", "error": str(exc)}
+
+        duration = time.perf_counter() - start_time
+        if process.returncode not in {0, 1}:
+            return {
+                "status": "error",
+                "error": f"Ruff failed with return code {process.returncode}",
+                "stdout": process.stdout,
+                "stderr": process.stderr,
+                "duration": duration,
+            }
+
+        try:
+            findings = json.loads(process.stdout or "[]")
+        except json.JSONDecodeError:
+            return {
+                "status": "error",
+                "error": "Failed to parse Ruff output",
+                "stdout": process.stdout,
+                "stderr": process.stderr,
+                "duration": duration,
+            }
+
+        if not isinstance(findings, list):
+            return {
+                "status": "error",
+                "error": "Unexpected Ruff output format",
+                "stdout": process.stdout,
+                "stderr": process.stderr,
+                "duration": duration,
+            }
+
+        details = [
+            self._normalize_finding(item, repo_path)
+            for item in findings
+            if isinstance(item, dict)
+        ]
+        issues = self._count_issues(details)
+
+        return {
+            "status": "success",
+            "issues": issues,
+            "summary": {
+                "total_issues": sum(issues.values()),
+                "error_count": issues.get("error", 0),
+                "warning_count": issues.get("warning", 0),
+                "files_affected": len(
+                    {item.get("path") for item in details if item.get("path")}
+                ),
+            },
+            "details": details,
+            "duration": duration,
+        }
+
+    @staticmethod
+    def _severity_from_code(code: str) -> str:
+        normalized = code.upper()
+        if normalized.startswith(("E", "F")):
+            return "error"
+        if normalized.startswith("W"):
+            return "warning"
+        return "warning"
+
+    @classmethod
+    def _count_issues(cls, details: List[Dict[str, Any]]) -> Dict[str, int]:
+        counts: Dict[str, int] = {"error": 0, "warning": 0}
+        for item in details:
+            severity = str(item.get("type") or "warning")
+            if severity not in counts:
+                counts[severity] = 0
+            counts[severity] += 1
+        return counts
+
+    @classmethod
+    def _normalize_finding(cls, item: Dict[str, Any], repo_path: str) -> Dict[str, Any]:
+        code = str(item.get("code") or "")
+        filename = str(item.get("filename") or "")
+        location = item.get("location") if isinstance(item.get("location"), dict) else {}
+        end_location = (
+            item.get("end_location") if isinstance(item.get("end_location"), dict) else {}
+        )
+        path = filename
+        try:
+            path = os.path.relpath(filename, repo_path)
+        except (ValueError, OSError):
+            path = filename
+
+        return {
+            "type": cls._severity_from_code(code),
+            "code": code,
+            "message": str(item.get("message") or ""),
+            "path": path,
+            "line": location.get("row"),
+            "column": location.get("column"),
+            "endLine": end_location.get("row"),
+            "endColumn": end_location.get("column"),
+            "fixable": bool(item.get("fix")),
+        }
 
 
 # Default directories to ignore when running pytest

@@ -371,6 +371,8 @@ class CLI:
     def _tool_issue_printer(self, tool_name: str):
         if tool_name == "pylint":
             return self._print_pylint_issues
+        if tool_name == "ruff":
+            return self._print_ruff_issues
         if tool_name == "lizard":
             return self._print_lizard_issues
         if tool_name == "coverage":
@@ -426,6 +428,38 @@ class CLI:
                 rows,
                 title="Lizard offenders (first 20)",
                 alignments=("left", "left", "left"),
+            )
+
+    def _print_ruff_issues(self, result: Dict[str, Any]) -> None:
+        details = result.get("details")
+        if not isinstance(details, list) or not details:
+            return
+        self._print_heading("Ruff")
+        rows: List[Sequence[str]] = []
+        for item in details[:20]:
+            if not isinstance(item, dict):
+                continue
+            path = str(item.get("path", ""))
+            line = item.get("line")
+            column = item.get("column")
+            if line and column:
+                location = f"{path}:{line}:{column}"
+            elif line:
+                location = f"{path}:{line}"
+            else:
+                location = path
+            rows.append((
+                item.get("type", ""),
+                item.get("code", ""),
+                location,
+                str(item.get("message", "")),
+            ))
+        if rows:
+            self._print_table(
+                ("Type", "Code", "Location", "Message"),
+                rows,
+                title="Ruff issues (first 20)",
+                alignments=("left", "left", "left", "left"),
             )
 
     def _print_coverage_issues(self, result: Dict[str, Any]) -> None:
@@ -1301,6 +1335,14 @@ class CLI:
         if isinstance(threshold, (int, float)) and isinstance(above, int) and above > 0:
             extras.append(f">{threshold:g} in {above}")
 
+        error_count = summary.get("error_count")
+        if isinstance(error_count, int) and error_count > 0:
+            extras.append(f"errors {error_count}")
+
+        warning_count = summary.get("warning_count")
+        if isinstance(warning_count, int) and warning_count > 0:
+            extras.append(f"warnings {warning_count}")
+
         return extras
 
     @staticmethod
@@ -1321,6 +1363,9 @@ class CLI:
 
         if tool_name == "pylint":
             return CLI._pylint_has_issues(result)
+
+        if tool_name == "ruff":
+            return CLI._ruff_has_issues(result)
 
         if tool_name == "lizard":
             return CLI._lizard_has_issues(result)
@@ -1353,6 +1398,15 @@ class CLI:
             return False
         above = summary.get("above_threshold")
         return isinstance(above, int) and above > 0
+
+    @staticmethod
+    def _ruff_has_issues(result: Dict[str, Any]) -> bool:
+        issues = result.get("issues")
+        if not isinstance(issues, dict):
+            return False
+        return any(
+            isinstance(count, (int, float)) and count > 0 for count in issues.values()
+        )
 
     @staticmethod
     def _coverage_has_issues(result: Dict[str, Any]) -> bool:

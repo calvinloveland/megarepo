@@ -55,6 +55,17 @@ class Config:
                     "tolerance": 0.0,
                 },
             },
+            "ruff": {
+                "enabled": True,
+                "timeout_seconds": 300,
+                "ratchet": {
+                    "enabled": False,
+                    "metric": "summary.error_count",
+                    "direction": "lower",
+                    "target": 0.0,
+                    "tolerance": 0.0,
+                },
+            },
             "coverage": {
                 "enabled": True,
                 "run_tests_cmd": ["pytest"],

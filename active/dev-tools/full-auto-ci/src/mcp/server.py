@@ -454,8 +454,9 @@ class MCPServer:
         name = str(tool_name or "").strip().lower()
         weights = {
             "pylint": 0,
-            "coverage": 1,
-            "lizard": 2,
+            "ruff": 1,
+            "coverage": 2,
+            "lizard": 3,
         }
         return weights.get(name, 5)
 
@@ -593,6 +594,8 @@ class MCPServer:
 
         if tool_name == "pylint":
             issues.extend(self._issues_from_pylint_details(tool_result.get("details")))
+        elif tool_name == "ruff":
+            issues.extend(self._issues_from_ruff_details(tool_result.get("details")))
         elif tool_name == "lizard":
             issues.extend(
                 self._issues_from_lizard_offenders(tool_result.get("top_offenders"))
@@ -628,6 +631,15 @@ class MCPServer:
         for offender in offenders:
             if isinstance(offender, dict):
                 issues.append(self._issue_from_lizard(offender))
+        return issues
+
+    def _issues_from_ruff_details(self, details: Any) -> List[Dict[str, Any]]:
+        if not isinstance(details, list):
+            return []
+        issues: List[Dict[str, Any]] = []
+        for item in details:
+            if isinstance(item, dict):
+                issues.append(self._issue_from_ruff(item))
         return issues
 
     def _issue_from_pylint(self, item: Dict[str, Any]) -> Dict[str, Any]:
@@ -672,6 +684,19 @@ class MCPServer:
             message=f"High cyclomatic complexity (CCN={offender.get('ccn')})",
             path=rel_path,
             line=self._coerce_int(offender.get("line")),
+        )
+
+    def _issue_from_ruff(self, item: Dict[str, Any]) -> Dict[str, Any]:
+        issue_type = str(item.get("type") or "warning").strip().lower()
+        severity = "error" if issue_type == "error" else "warning"
+        return self._make_issue(
+            tool="ruff",
+            severity=severity,
+            message=str(item.get("message") or "Ruff issue"),
+            path=str(item.get("path") or "") or None,
+            line=self._coerce_int(item.get("line")),
+            column=self._coerce_int(item.get("column")),
+            code=str(item.get("code") or "") or None,
         )
 
     @staticmethod

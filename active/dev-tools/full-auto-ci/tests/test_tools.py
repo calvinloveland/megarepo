@@ -12,12 +12,14 @@ from src.tools import (
     Coverage,
     Lizard,
     Pylint,
+    Ruff,
     Tool,
     ToolRunner,
     DEFAULT_COVERAGE_TIMEOUT,
     DEFAULT_COVERAGE_XML_TIMEOUT,
-    DEFAULT_PYLINT_TIMEOUT,
     DEFAULT_LIZARD_TIMEOUT,
+    DEFAULT_PYLINT_TIMEOUT,
+    DEFAULT_RUFF_TIMEOUT,
 )
 
 
@@ -196,6 +198,52 @@ class TestPylint(unittest.TestCase):
             discover_targets = getattr(self.pylint, "_discover_targets")
             targets = discover_targets(tmpdir)
             self.assertEqual(targets, ["."])
+
+
+class TestRuff(unittest.TestCase):
+    """Test cases for the Ruff tool."""
+
+    def setUp(self):
+        self.ruff = Ruff()
+
+    def test_init(self):
+        """Ruff initializes with the expected defaults."""
+        self.assertEqual(self.ruff.name, "ruff")
+        self.assertEqual(self.ruff.timeout, DEFAULT_RUFF_TIMEOUT)
+
+    @patch("subprocess.run")
+    def test_run_success_with_findings(self, mock_run):
+        """Ruff findings should be parsed into normalized issue details."""
+        mock_process = MagicMock()
+        mock_process.returncode = 1
+        mock_process.stdout = json.dumps(
+            [
+                {
+                    "code": "F401",
+                    "message": "`os` imported but unused",
+                    "filename": "/repo/src/app.py",
+                    "location": {"row": 2, "column": 8},
+                    "end_location": {"row": 2, "column": 10},
+                }
+            ]
+        )
+        mock_process.stderr = ""
+        mock_run.return_value = mock_process
+
+        result = self.ruff.run("/repo")
+
+        self.assertEqual(result["status"], "success")
+        self.assertEqual(result["issues"]["error"], 1)
+        self.assertEqual(result["summary"]["error_count"], 1)
+        self.assertEqual(result["details"][0]["path"], "src/app.py")
+        self.assertEqual(result["details"][0]["code"], "F401")
+
+    @patch("subprocess.run", side_effect=FileNotFoundError)
+    def test_run_missing_binary(self, _mock_run):
+        """Missing Ruff executable should return a clear error."""
+        result = self.ruff.run("/repo")
+        self.assertEqual(result["status"], "error")
+        self.assertIn("Ruff executable not found", result["error"])
 
 
 class TestCoverage(unittest.TestCase):

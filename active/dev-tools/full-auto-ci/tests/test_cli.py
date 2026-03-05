@@ -279,6 +279,20 @@ class TestCLI(unittest.TestCase):
                 "error": "Test run failed",
                 "stderr": "boom",
             },
+            "ruff": {
+                "status": "success",
+                "issues": {"error": 1, "warning": 0},
+                "details": [
+                    {
+                        "type": "error",
+                        "code": "F401",
+                        "path": "src/app.py",
+                        "line": 4,
+                        "column": 1,
+                        "message": "Unused import",
+                    }
+                ],
+            },
         }
 
         run_default_tools = getattr(self.cli, "_run_default_tools")
@@ -293,6 +307,7 @@ class TestCLI(unittest.TestCase):
         self.assertIn("Pylint issues", joined)
         self.assertIn("Lizard offenders", joined)
         self.assertIn("Pytest", joined)
+        self.assertIn("Ruff issues", joined)
 
     @patch("builtins.print")
     def test_run_default_tools_runs_each_project(self, _mock_print):

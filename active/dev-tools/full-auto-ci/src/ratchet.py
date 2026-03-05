@@ -39,6 +39,7 @@ class RatchetManager:
     DEFAULT_RULES: Dict[str, RatchetRule] = {
         "coverage": RatchetRule("percentage", "higher", 90.0, 0.0),
         "pylint": RatchetRule("score", "higher", 10.0, 0.0),
+        "ruff": RatchetRule("summary.error_count", "lower", 0.0, 0.0),
         "lizard": RatchetRule("summary.above_threshold", "lower", 0.0, 0.0),
     }
 

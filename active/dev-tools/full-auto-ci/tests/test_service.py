@@ -50,6 +50,7 @@ class TestCIService(unittest.TestCase):
         config_data = {
             "tools": {
                 "pylint": {"enabled": False},
+                "ruff": {"enabled": False},
                 "coverage": {"enabled": False},
                 "lizard": {"enabled": True, "max_ccn": 7},
             }
@@ -62,6 +63,7 @@ class TestCIService(unittest.TestCase):
             service = CIService(config_path=cfg_path, db_path=self.temp_db_path)
             tool_names = [tool.name for tool in service.tool_runner.tools]
             self.assertNotIn("pylint", tool_names)
+            self.assertNotIn("ruff", tool_names)
             self.assertNotIn("coverage", tool_names)
             self.assertIn("lizard", tool_names)
 
@@ -79,6 +81,7 @@ class TestCIService(unittest.TestCase):
         config_data = {
             "tools": {
                 "pylint": {"enabled": False},
+                "ruff": {"enabled": False},
                 "coverage": {
                     "enabled": True,
                     "run_tests_cmd": ["pytest", "-k", "slow"],
