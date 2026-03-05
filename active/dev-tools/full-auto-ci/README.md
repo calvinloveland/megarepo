@@ -53,6 +53,9 @@ tools:
 		run_tests_cmd: ["pytest"]  # override to customize the test runner
 		timeout_seconds: 300        # abort the coverage run command after 5 minutes
 		xml_timeout_seconds: 120    # abort `coverage xml` if report generation stalls
+		auto_install_missing_dependencies: true  # retry after pip-installing missing imports from pytest errors
+		max_dependency_install_attempts: 2       # cap automatic install/retry loops
+		dependency_install_timeout_seconds: 180  # timeout each pip install attempt
 		ratchet:
 			enabled: true
 			target: 90.0              # require at least 90% line coverage eventually
@@ -70,7 +73,7 @@ tools:
 			target: 9.5               # enforce a minimum pylint score
 ```
 
-`timeout_seconds` and `xml_timeout_seconds` are especially helpful when running against large or flaky suites—timeouts surface as explicit tool errors instead of hanging the overall pipeline. Set `enabled: false` on any entry to skip that tool entirely.
+`timeout_seconds` and `xml_timeout_seconds` are especially helpful when running against large or flaky suites—timeouts surface as explicit tool errors instead of hanging the overall pipeline. Coverage can also auto-install missing Python modules when pytest reports `ModuleNotFoundError`; disable this with `auto_install_missing_dependencies: false` if you want strict no-install runs. Set `enabled: false` on any entry to skip that tool entirely.
 
 Ratchets let teams make incremental progress toward ambitious targets without blocking every run: when enabled, a tool run succeeds if it reaches the configured target or improves upon the repository's best historical result. Once the target is achieved, CI enforces it strictly—new commits must stay at or beyond the goal (for example, no reduction in coverage or increase in cyclomatic complexity).
 

@@ -1,6 +1,7 @@
 """Tests for the tools module."""
 
 import json
+import sys
 import subprocess
 import tempfile
 import unittest
@@ -210,6 +211,7 @@ class TestCoverage(unittest.TestCase):
         self.assertEqual(self.coverage.run_tests_cmd, ["pytest"])
         self.assertEqual(self.coverage.timeout, DEFAULT_COVERAGE_TIMEOUT)
         self.assertEqual(self.coverage.xml_timeout, DEFAULT_COVERAGE_XML_TIMEOUT)
+        self.assertTrue(self.coverage.auto_install_missing_dependencies)
 
         # Test with custom command
         custom_coverage = Coverage(
@@ -220,6 +222,65 @@ class TestCoverage(unittest.TestCase):
         self.assertEqual(custom_coverage.run_tests_cmd, ["python", "-m", "unittest"])
         self.assertEqual(custom_coverage.timeout, 10)
         self.assertEqual(custom_coverage.xml_timeout, 20)
+
+    @patch("os.chdir")
+    @patch("subprocess.run")
+    @patch("os.path.exists")
+    @patch("xml.etree.ElementTree.parse")
+    def test_run_auto_installs_missing_module(
+        self, mock_parse, mock_exists, mock_run, _mock_chdir
+    ):
+        """Coverage auto-installs missing modules and retries once."""
+        failing_process = MagicMock()
+        failing_process.returncode = 2
+        failing_process.stdout = (
+            "ImportError while importing test module.\n"
+            "ModuleNotFoundError: No module named 'freezegun'\n"
+            "=========================== short test summary info ============================\n"
+            "ERROR tests/test_timed.py\n"
+            "============================== 1 error in 0.10s ==============================="
+        )
+        failing_process.stderr = ""
+
+        install_process = MagicMock()
+        install_process.returncode = 0
+        install_process.stdout = "Successfully installed freezegun"
+        install_process.stderr = ""
+
+        retry_process = MagicMock()
+        retry_process.returncode = 0
+        retry_process.stdout = "============================== 4 passed in 0.12s ==============================="
+        retry_process.stderr = ""
+
+        xml_process = MagicMock()
+        xml_process.returncode = 0
+        xml_process.stdout = ""
+        xml_process.stderr = ""
+
+        mock_run.side_effect = [
+            failing_process,
+            install_process,
+            retry_process,
+            xml_process,
+        ]
+        mock_exists.return_value = True
+
+        mock_root = MagicMock()
+        mock_root.get.side_effect = lambda key, default: (
+            "0.90" if key == "line-rate" else default
+        )
+        mock_root.findall.return_value = []
+        mock_tree = MagicMock()
+        mock_tree.getroot.return_value = mock_root
+        mock_parse.return_value = mock_tree
+
+        result = self.coverage.run("/repo")
+
+        self.assertEqual(result["status"], "success")
+        self.assertEqual(result.get("auto_installed_dependencies"), ["freezegun"])
+        install_cmd = mock_run.call_args_list[1][0][0]
+        self.assertEqual(install_cmd[:4], [sys.executable, "-m", "pip", "install"])
+        self.assertIn("freezegun", install_cmd)
 
     @patch("os.chdir")
     @patch("subprocess.run")

@@ -180,6 +180,14 @@ class CIService:
             xml_timeout = self._coerce_positive_float(
                 coverage_config.get("xml_timeout_seconds")
             )
+            dependency_install_timeout = self._coerce_positive_float(
+                coverage_config.get("dependency_install_timeout_seconds")
+            )
+            max_dependency_install_attempts = coverage_config.get(
+                "max_dependency_install_attempts", 2
+            )
+            if not isinstance(max_dependency_install_attempts, int):
+                max_dependency_install_attempts = 2
             ignore_patterns = self._normalize_ignore_patterns(
                 coverage_config.get("ignore_patterns")
             )
@@ -189,6 +197,12 @@ class CIService:
                     timeout=timeout,
                     xml_timeout=xml_timeout,
                     ignore_patterns=ignore_patterns,
+                    auto_install_missing_dependencies=coerce_bool(
+                        coverage_config.get("auto_install_missing_dependencies"),
+                        default=True,
+                    ),
+                    max_dependency_install_attempts=max_dependency_install_attempts,
+                    dependency_install_timeout=dependency_install_timeout,
                 )
             )
 

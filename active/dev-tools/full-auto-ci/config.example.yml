@@ -53,6 +53,9 @@ tools:
     run_tests_cmd: ["pytest", "-xvs"]  # Custom test command
     timeout_seconds: 600  # 10 minutes
     xml_timeout_seconds: 120
+    auto_install_missing_dependencies: true
+    max_dependency_install_attempts: 2
+    dependency_install_timeout_seconds: 180
     # Directories to ignore when running pytest (defaults shown below)
     # ignore_patterns:
     #   - ".venv"

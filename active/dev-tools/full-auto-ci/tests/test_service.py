@@ -84,6 +84,9 @@ class TestCIService(unittest.TestCase):
                     "run_tests_cmd": ["pytest", "-k", "slow"],
                     "timeout_seconds": 12,
                     "xml_timeout_seconds": "3.5",
+                    "auto_install_missing_dependencies": False,
+                    "max_dependency_install_attempts": 4,
+                    "dependency_install_timeout_seconds": 9,
                 },
                 "lizard": {"enabled": False},
             }
@@ -100,6 +103,9 @@ class TestCIService(unittest.TestCase):
             self.assertEqual(coverage_tool.run_tests_cmd, ["pytest", "-k", "slow"])
             self.assertEqual(coverage_tool.timeout, 12.0)
             self.assertEqual(coverage_tool.xml_timeout, 3.5)
+            self.assertFalse(coverage_tool.auto_install_missing_dependencies)
+            self.assertEqual(coverage_tool.max_dependency_install_attempts, 4)
+            self.assertEqual(coverage_tool.dependency_install_timeout, 9.0)
         finally:
             os.unlink(cfg_path)
 

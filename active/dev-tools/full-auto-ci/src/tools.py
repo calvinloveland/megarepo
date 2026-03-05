@@ -5,6 +5,7 @@ import logging
 import os
 import re
 import subprocess
+import sys
 import time
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
@@ -36,6 +37,7 @@ def _progress(iterable: Iterable[T], **kwargs: Any) -> Iterable[T]:
 DEFAULT_PYLINT_TIMEOUT = 300  # 5 minutes
 DEFAULT_COVERAGE_TIMEOUT = 600  # 10 minutes
 DEFAULT_COVERAGE_XML_TIMEOUT = 120  # 2 minutes
+DEFAULT_DEPENDENCY_INSTALL_TIMEOUT = 180  # 3 minutes
 DEFAULT_LIZARD_TIMEOUT = 300  # 5 minutes
 DEFAULT_JSCPD_TIMEOUT = 300  # 5 minutes
 
@@ -503,6 +505,9 @@ class Coverage(Tool):
         timeout: Optional[float] = None,
         xml_timeout: Optional[float] = None,
         ignore_patterns: Optional[List[str]] = None,
+        auto_install_missing_dependencies: bool = True,
+        max_dependency_install_attempts: int = 2,
+        dependency_install_timeout: Optional[float] = None,
     ):
         """Initialize Coverage.
 
@@ -511,6 +516,9 @@ class Coverage(Tool):
             timeout: Timeout in seconds for test execution
             xml_timeout: Timeout in seconds for XML report generation
             ignore_patterns: List of directory patterns to ignore when running pytest
+            auto_install_missing_dependencies: Whether to auto-install missing modules
+            max_dependency_install_attempts: Maximum dependency install/retry attempts
+            dependency_install_timeout: Timeout in seconds for dependency installation
         """
         super().__init__("coverage")
         self.run_tests_cmd = run_tests_cmd or ["pytest"]
@@ -523,8 +531,24 @@ class Coverage(Tool):
             if ignore_patterns is not None
             else DEFAULT_PYTEST_IGNORE_PATTERNS
         )
+        self.auto_install_missing_dependencies = auto_install_missing_dependencies
+        self.max_dependency_install_attempts = max(0, max_dependency_install_attempts)
+        self.dependency_install_timeout = (
+            dependency_install_timeout
+            if dependency_install_timeout is not None
+            else DEFAULT_DEPENDENCY_INSTALL_TIMEOUT
+        )
 
     ANSI_ESCAPE_RE = re.compile(r"\x1B\[[0-?]*[ -/]*[@-~]")
+    MISSING_MODULE_RE = re.compile(r"No module named ['\"]?([A-Za-z0-9_.-]+)['\"]?")
+    MODULE_PACKAGE_ALIASES = {
+        "yaml": "PyYAML",
+        "cv2": "opencv-python",
+        "PIL": "Pillow",
+        "Crypto": "pycryptodome",
+        "sklearn": "scikit-learn",
+        "dateutil": "python-dateutil",
+    }
 
     @dataclass
     class _RunContext:
@@ -535,6 +559,7 @@ class Coverage(Tool):
         pytest_details: Optional[Dict[str, Any]]
         pytest_summary: Optional[Dict[str, Any]]
         embedded_results: List[Dict[str, Any]]
+        auto_installed_dependencies: List[str]
         timed_out: bool = False
 
     @dataclass
@@ -791,26 +816,29 @@ class Coverage(Tool):
 
     def _execute_coverage_run(self, repo_path: str) -> "Coverage._RunContext":
         logger.info("Running coverage on %s", repo_path)
-        cmd = ["coverage", "run", "-m", *self._build_test_command()]
-        start_time = time.perf_counter()
-        timeout_kwargs: Dict[str, Any] = {}
-        if self.timeout is not None:
-            timeout_kwargs["timeout"] = self.timeout
+        process, duration, timed_out = self._run_coverage_subprocess(repo_path)
+        auto_installed_dependencies: List[str] = []
+        install_error_message: Optional[str] = None
 
-        timed_out = False
-        try:
-            process = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                check=False,
-                cwd=repo_path,
-                **timeout_kwargs,
+        if self.auto_install_missing_dependencies and process.returncode and not timed_out:
+            (
+                process,
+                duration,
+                timed_out,
+                auto_installed_dependencies,
+                install_error_message,
+            ) = self._retry_after_dependency_install(
+                repo_path,
+                process,
+                duration,
+                timed_out,
             )
-        except subprocess.TimeoutExpired as exc:
-            timed_out = True
-            process = self._handle_coverage_timeout(repo_path, exc)
-        duration = time.perf_counter() - start_time
+            if install_error_message:
+                process = SimpleNamespace(
+                    returncode=process.returncode,
+                    stdout=process.stdout,
+                    stderr=self._append_output(process.stderr, install_error_message),
+                )
 
         pytest_details = self._parse_pytest_output(process.stdout)
         pytest_summary: Optional[Dict[str, Any]] = None
@@ -835,8 +863,175 @@ class Coverage(Tool):
             pytest_details=pytest_details,
             pytest_summary=pytest_summary,
             embedded_results=embedded_results,
+            auto_installed_dependencies=auto_installed_dependencies,
             timed_out=timed_out,
         )
+
+    def _run_coverage_subprocess(
+        self, repo_path: str
+    ) -> Tuple[subprocess.CompletedProcess | SimpleNamespace, float, bool]:
+        cmd = ["coverage", "run", "-m", *self._build_test_command()]
+        start_time = time.perf_counter()
+        timeout_kwargs: Dict[str, Any] = {}
+        if self.timeout is not None:
+            timeout_kwargs["timeout"] = self.timeout
+
+        timed_out = False
+        try:
+            process = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                check=False,
+                cwd=repo_path,
+                **timeout_kwargs,
+            )
+        except subprocess.TimeoutExpired as exc:
+            timed_out = True
+            process = self._handle_coverage_timeout(repo_path, exc)
+        duration = time.perf_counter() - start_time
+        return process, duration, timed_out
+
+    def _retry_after_dependency_install(
+        self,
+        repo_path: str,
+        process: subprocess.CompletedProcess | SimpleNamespace,
+        duration: float,
+        timed_out: bool,
+    ) -> Tuple[
+        subprocess.CompletedProcess | SimpleNamespace,
+        float,
+        bool,
+        List[str],
+        Optional[str],
+    ]:
+        installed: List[str] = []
+        error_message: Optional[str] = None
+
+        for _ in range(self.max_dependency_install_attempts):
+            missing_modules = self._extract_missing_modules(process.stdout, process.stderr)
+            packages = self._module_packages_to_install(missing_modules, installed)
+            if not packages:
+                break
+
+            install_process, install_duration, install_timed_out = self._install_packages(
+                repo_path, packages
+            )
+            duration += install_duration
+            if install_timed_out:
+                error_message = (
+                    "Dependency auto-install timed out after "
+                    f"{self.dependency_install_timeout} seconds while installing "
+                    f"{', '.join(packages)}."
+                )
+                break
+
+            if install_process.returncode:
+                install_output = self._append_output(
+                    getattr(install_process, "stderr", None),
+                    getattr(install_process, "stdout", None),
+                )
+                install_output = install_output or "pip install failed"
+                error_message = (
+                    f"Dependency auto-install failed for {', '.join(packages)}: "
+                    f"{install_output}"
+                )
+                break
+
+            installed.extend(packages)
+            process, rerun_duration, timed_out = self._run_coverage_subprocess(repo_path)
+            duration += rerun_duration
+            if not process.returncode or timed_out:
+                break
+
+        return process, duration, timed_out, installed, error_message
+
+    def _install_packages(
+        self, repo_path: str, packages: List[str]
+    ) -> Tuple[subprocess.CompletedProcess | SimpleNamespace, float, bool]:
+        cmd = [sys.executable, "-m", "pip", "install", "--disable-pip-version-check", *packages]
+        start_time = time.perf_counter()
+        timeout_kwargs: Dict[str, Any] = {}
+        if self.dependency_install_timeout is not None:
+            timeout_kwargs["timeout"] = self.dependency_install_timeout
+
+        timed_out = False
+        try:
+            process = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                check=False,
+                cwd=repo_path,
+                **timeout_kwargs,
+            )
+        except subprocess.TimeoutExpired as exc:
+            timed_out = True
+            process = self._timeout_namespace(exc)
+        duration = time.perf_counter() - start_time
+        return process, duration, timed_out
+
+    @classmethod
+    def _extract_missing_modules(
+        cls, stdout: Optional[str], stderr: Optional[str]
+    ) -> List[str]:
+        output = cls._append_output(stdout, stderr)
+        if not output:
+            return []
+        modules = [match.strip() for match in cls.MISSING_MODULE_RE.findall(output)]
+        unique: List[str] = []
+        seen: set[str] = set()
+        for module in modules:
+            if not module or module in seen:
+                continue
+            seen.add(module)
+            unique.append(module)
+        return unique
+
+    @classmethod
+    def _module_packages_to_install(
+        cls, missing_modules: List[str], already_installed: List[str]
+    ) -> List[str]:
+        packages: List[str] = []
+        seen = set(already_installed)
+        for module in missing_modules:
+            normalized = module.strip()
+            if not normalized:
+                continue
+            root_module = normalized.split(".", maxsplit=1)[0]
+            for candidate in cls._module_to_package_candidates(root_module):
+                if candidate in seen:
+                    continue
+                seen.add(candidate)
+                packages.append(candidate)
+        return packages
+
+    @classmethod
+    def _module_to_package_candidates(cls, module_name: str) -> List[str]:
+        candidates: List[str] = []
+        alias = cls.MODULE_PACKAGE_ALIASES.get(module_name)
+        if alias:
+            candidates.append(alias)
+        candidates.append(module_name)
+        if "_" in module_name:
+            candidates.append(module_name.replace("_", "-"))
+        if "-" in module_name:
+            candidates.append(module_name.replace("-", "_"))
+        unique: List[str] = []
+        seen: set[str] = set()
+        for candidate in candidates:
+            if candidate in seen:
+                continue
+            seen.add(candidate)
+            unique.append(candidate)
+        return unique
+
+    @staticmethod
+    def _append_output(*parts: Optional[str]) -> Optional[str]:
+        values = [part for part in parts if part]
+        if not values:
+            return None
+        return "\n".join(values)
 
     def _generate_coverage_xml(self) -> "Coverage._XmlContext":
         cmd = ["coverage", "xml"]
@@ -1004,6 +1199,8 @@ class Coverage(Tool):
             payload["pytest_summary"] = run_ctx.pytest_summary
         if run_ctx.embedded_results:
             payload["embedded_results"] = run_ctx.embedded_results
+        if run_ctx.auto_installed_dependencies:
+            payload["auto_installed_dependencies"] = run_ctx.auto_installed_dependencies
 
 
 class Lizard(Tool):
