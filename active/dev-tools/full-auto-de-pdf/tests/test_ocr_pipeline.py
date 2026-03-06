@@ -194,7 +194,7 @@ def test_ocr_pdf_with_tesseract_auto_selects_best_mode_and_psm(tmp_path) -> None
             assert capture_output is True
             mode = Path(command[1]).parent.name
             psm = command[-1]
-            if mode == "basic" and psm == "6":
+            if mode == "scan" and psm == "6":
                 return "The printed text is clean and readable"
             if mode == "deskew":
                 return "The prlnted text 1s noisy"
@@ -211,7 +211,7 @@ def test_ocr_pdf_with_tesseract_auto_selects_best_mode_and_psm(tmp_path) -> None
     ) -> None:
         output_path.parent.mkdir(parents=True, exist_ok=True)
         output_path.write_bytes(input_path.read_bytes())
-        assert mode in {"basic", "deskew", "dewarp"}
+        assert mode in {"scan", "basic", "deskew", "dewarp"}
 
     metrics = ocr_pdf_with_tesseract(
         pdf_path=pdf_path,
@@ -225,15 +225,37 @@ def test_ocr_pdf_with_tesseract_auto_selects_best_mode_and_psm(tmp_path) -> None
     )
 
     assert "clean and readable" in output_path.read_text(encoding="utf-8")
-    assert metrics["mode_usage"] == {"basic": 1}
+    assert metrics["mode_usage"] == {"scan": 1}
     assert metrics["tesseract_psm_usage"] == {"6": 1}
     manifest_payload = json.loads(
         Path(str(metrics["page_artifacts_manifest"])).read_text(encoding="utf-8")
     )
     page_entry = manifest_payload["pages"][0]
-    assert page_entry["selected_preprocess_mode"] == "basic"
+    assert page_entry["selected_preprocess_mode"] == "scan"
     assert page_entry["tesseract_psm"] == 6
-    assert len(page_entry["candidate_runs"]) == 12
+    assert len(page_entry["candidate_runs"]) == 15
+
+
+def test_score_ocr_text_uses_supplied_lexicon() -> None:
+    noisy = "It teontains realistcsynthetic notes for eaders."
+    unguided = ocr_pipeline._score_ocr_text(noisy, "eng", ())
+    guided = ocr_pipeline._score_ocr_text(
+        noisy,
+        "eng",
+        ("contains realistic synthetic notes for readers",),
+    )
+    assert guided > unguided
+
+
+def test_preprocess_image_upsamples_small_pages(tmp_path) -> None:
+    input_path = tmp_path / "page.png"
+    output_path = tmp_path / "processed.png"
+    Image.new("L", (120, 180), color=255).save(input_path)
+
+    ocr_pipeline._preprocess_image(input_path, output_path, "basic", 170, 2.0, 0.5)
+
+    with Image.open(output_path) as processed:
+        assert processed.size == (240, 360)
 
 
 def test_ocr_page_images_runs_without_pdftoppm(tmp_path) -> None:
@@ -390,6 +412,7 @@ def test_evaluate_ocr_preprocess_modes_runs_all_modes(monkeypatch, tmp_path) -> 
     seen_modes: list[str] = []
     mode_text = {
         "none": "alpha beta gamma",
+        "scan": "alpha beta gamma",
         "basic": "alpha beta",
         "deskew": "alpha typo",
         "dewarp": "alpha beta gamma",
@@ -411,7 +434,7 @@ def test_evaluate_ocr_preprocess_modes_runs_all_modes(monkeypatch, tmp_path) -> 
         reference_text_path=reference_text_path,
         ocr_engine="paddleocr",
     )
-    assert seen_modes == ["none", "basic", "deskew", "dewarp"]
+    assert seen_modes == ["none", "scan", "basic", "deskew", "dewarp"]
     assert output_report.exists()
     assert "modes" in report
     assert report["best_mode"] == "none"

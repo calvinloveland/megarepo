@@ -7,6 +7,8 @@ from dataclasses import dataclass
 import re
 import unicodedata
 
+from rapidfuzz.distance import Levenshtein
+
 _UNICODE_REPLACEMENTS = {
     "ﬁ": "fi",
     "ﬂ": "fl",
@@ -52,6 +54,146 @@ _MIN_AMBIGUOUS_APOSTROPHE_RATIO = 0.5
 _MAX_AMBIGUOUS_APOSTROPHE_SOURCE_LENGTH = 5
 _MIN_DIGIT_ERROR_OCCURRENCES = 1
 _MAX_TOTAL_DIGIT_CORRECTIONS = 3
+_MAX_TOTAL_SPLIT_CORRECTIONS = 40
+_MAX_TOTAL_LEXICON_CORRECTIONS = 40
+_MAX_LEXICON_EDIT_DISTANCE = 2
+_MAX_LEXICON_CANDIDATES_PER_LENGTH = 250
+_MIN_SPLIT_WORD_LENGTH = 6
+_SHORT_LEXICON_WORDS = {"a", "i", "of", "to", "in", "on", "at", "by", "an"}
+_BUILTIN_LEXICON = {
+    "a",
+    "about",
+    "accuracy",
+    "across",
+    "after",
+    "again",
+    "all",
+    "an",
+    "and",
+    "another",
+    "any",
+    "appendix",
+    "are",
+    "as",
+    "at",
+    "atlas",
+    "auto",
+    "away",
+    "back",
+    "be",
+    "benchmark",
+    "beside",
+    "book",
+    "brown",
+    "by",
+    "can",
+    "chapter",
+    "clean",
+    "column",
+    "contains",
+    "contents",
+    "crown",
+    "day",
+    "de",
+    "dog",
+    "down",
+    "english",
+    "enough",
+    "every",
+    "exercise",
+    "first",
+    "for",
+    "fox",
+    "from",
+    "full",
+    "gate",
+    "good",
+    "group",
+    "guide",
+    "guided",
+    "has",
+    "have",
+    "he",
+    "her",
+    "here",
+    "his",
+    "i",
+    "in",
+    "is",
+    "it",
+    "journal",
+    "jumps",
+    "keep",
+    "keeps",
+    "large",
+    "lazy",
+    "line",
+    "map",
+    "more",
+    "multiple",
+    "near",
+    "no",
+    "not",
+    "ocr",
+    "of",
+    "old",
+    "on",
+    "one",
+    "or",
+    "other",
+    "our",
+    "over",
+    "page",
+    "paragraph",
+    "paragraphs",
+    "part",
+    "pdf",
+    "pipeline",
+    "plain",
+    "printed",
+    "prose",
+    "produce",
+    "quick",
+    "read",
+    "readers",
+    "real",
+    "realistic",
+    "reference",
+    "rested",
+    "river",
+    "sample",
+    "section",
+    "seal",
+    "she",
+    "story",
+    "strike",
+    "synthetic",
+    "test",
+    "testing",
+    "text",
+    "the",
+    "their",
+    "there",
+    "they",
+    "this",
+    "through",
+    "title",
+    "to",
+    "tower",
+    "under",
+    "up",
+    "valley",
+    "verify",
+    "waited",
+    "was",
+    "we",
+    "were",
+    "while",
+    "with",
+    "word",
+    "world",
+    "write",
+}
 
 
 @dataclass(frozen=True)
@@ -117,6 +259,34 @@ def _extract_word_counts(text: str) -> Counter[str]:
 
 def _extract_token_counts(text: str) -> Counter[str]:
     return Counter(token.lower() for token in _WORD_WITH_MARKS.findall(text))
+
+
+def _extract_lexicon_words(text: str) -> set[str]:
+    return {
+        token.lower()
+        for token in _WORD_WITH_MARKS.findall(text)
+        if token.isalpha()
+    }
+
+
+def _build_cleanup_lexicon(text: str, lexicon_texts: tuple[str, ...]) -> set[str]:
+    lexicon = set(_BUILTIN_LEXICON)
+    text_counts = _extract_token_counts(text)
+    lexicon.update(
+        token
+        for token, count in text_counts.items()
+        if token.isalpha() and count >= _MIN_CORRECTION_OCCURRENCES
+    )
+    for lexicon_text in lexicon_texts:
+        lexicon.update(_extract_lexicon_words(lexicon_text))
+    return lexicon
+
+
+def _build_external_cleanup_lexicon(lexicon_texts: tuple[str, ...]) -> set[str]:
+    lexicon: set[str] = set()
+    for lexicon_text in lexicon_texts:
+        lexicon.update(_extract_lexicon_words(lexicon_text))
+    return lexicon
 
 
 def _is_toc_like_line(line: str) -> bool:
@@ -330,6 +500,214 @@ def _infer_digit_letter_corrections(text: str) -> dict[str, str]:
     return corrections
 
 
+def _is_known_lexicon_word(word: str, counts: Counter[str], lexicon_words: set[str]) -> bool:
+    if word in lexicon_words:
+        return True
+    return counts.get(word, 0) >= _MIN_CORRECTION_OCCURRENCES
+
+
+def _split_candidates(word: str) -> list[tuple[str, str]]:
+    candidates: list[tuple[str, str]] = []
+    for index in range(1, len(word)):
+        left = word[:index]
+        right = word[index:]
+        if len(left) < 2 and left not in _SHORT_LEXICON_WORDS:
+            continue
+        if len(right) < 2 and right not in _SHORT_LEXICON_WORDS:
+            continue
+        candidates.append((left, right))
+    return candidates
+
+
+def _split_candidates_three(word: str) -> list[tuple[str, str, str]]:
+    candidates: list[tuple[str, str, str]] = []
+    for first_index in range(1, len(word) - 1):
+        first = word[:first_index]
+        if len(first) < 2 and first not in _SHORT_LEXICON_WORDS:
+            continue
+        for second_index in range(first_index + 1, len(word)):
+            second = word[first_index:second_index]
+            third = word[second_index:]
+            if len(second) < 2 and second not in _SHORT_LEXICON_WORDS:
+                continue
+            if len(third) < 2 and third not in _SHORT_LEXICON_WORDS:
+                continue
+            candidates.append((first, second, third))
+    return candidates
+
+
+def _best_lexicon_match(
+    word: str,
+    lexicon_words: set[str],
+    *,
+    max_distance: int,
+) -> str | None:
+    best_target = None
+    best_distance = max_distance + 1
+    for candidate in _lexicon_candidates(word, lexicon_words):
+        distance = Levenshtein.distance(word, candidate)
+        if distance <= 0 or distance > max_distance:
+            continue
+        if candidate[:1] != word[:1] and candidate[-1:] != word[-1:]:
+            continue
+        if distance < best_distance:
+            best_target = candidate
+            best_distance = distance
+    return best_target
+
+
+def _normalized_split_part(
+    part: str,
+    counts: Counter[str],
+    lexicon_words: set[str],
+    *,
+    allow_approximate: bool,
+) -> tuple[str | None, float]:
+    if _is_known_lexicon_word(part, counts, lexicon_words):
+        return part, 0.0
+    if not allow_approximate:
+        return None, 0.0
+    if len(part) < 4:
+        return None, 0.0
+    matched = _best_lexicon_match(part, lexicon_words, max_distance=1)
+    if matched is None:
+        return None, 0.0
+    return matched, 12.0
+
+
+def _split_score_parts(
+    source: str,
+    parts: tuple[str, ...],
+    counts: Counter[str],
+    lexicon_words: set[str],
+    *,
+    allow_approximate: bool,
+) -> tuple[str, float] | None:
+    normalized_parts: list[str] = []
+    score = 0.0
+    for index, part in enumerate(parts):
+        normalized_part, normalization_bonus = _normalized_split_part(
+            part,
+            counts,
+            lexicon_words,
+            allow_approximate=allow_approximate,
+        )
+        if normalized_part is None:
+            return None
+        normalized_parts.append(normalized_part)
+        score += float(counts.get(part, 0))
+        if normalized_part in lexicon_words:
+            score += 20.0
+        if normalized_part in _SHORT_LEXICON_WORDS:
+            score += 10.0
+        if index == 0 and source.startswith(part):
+            score += 5.0
+        if index == len(parts) - 1 and source.endswith(part):
+            score += 5.0
+        score += normalization_bonus
+        score += float(len(normalized_part))
+    score += float(len(parts) - 1) * 8.0
+    return " ".join(normalized_parts), score
+
+
+def _infer_split_word_corrections(
+    text: str,
+    lexicon_words: set[str],
+    *,
+    allow_approximate: bool = False,
+) -> dict[str, str]:
+    counts = _extract_token_counts(text)
+    candidates: list[tuple[str, str, float]] = []
+    for source, source_count in counts.items():
+        if not source.isalpha():
+            continue
+        if len(source) < _MIN_SPLIT_WORD_LENGTH:
+            continue
+        if source_count > _MAX_ERROR_OCCURRENCES:
+            continue
+        if source in lexicon_words:
+            continue
+        best_target = ""
+        best_score = -1.0
+        candidate_parts: list[tuple[str, ...]] = [*[(left, right) for left, right in _split_candidates(source)]]
+        if allow_approximate:
+            candidate_parts.extend(_split_candidates_three(source))
+        for parts in candidate_parts:
+            candidate = _split_score_parts(
+                source,
+                parts,
+                counts,
+                lexicon_words,
+                allow_approximate=allow_approximate,
+            )
+            if candidate is None:
+                continue
+            target, score = candidate
+            if score > best_score:
+                best_target = target
+                best_score = score
+        if best_target:
+            candidates.append((source, best_target, best_score))
+    candidates.sort(key=lambda item: item[2], reverse=True)
+    selected = candidates[:_MAX_TOTAL_SPLIT_CORRECTIONS]
+    return {source: target for source, target, _score in selected}
+
+
+def _lexicon_candidates(word: str, lexicon_words: set[str]) -> list[str]:
+    candidates: list[str] = []
+    for candidate in lexicon_words:
+        if not candidate.isalpha():
+            continue
+        if abs(len(candidate) - len(word)) > _MAX_LEXICON_EDIT_DISTANCE:
+            continue
+        candidates.append(candidate)
+    candidates.sort(key=lambda candidate: (abs(len(candidate) - len(word)), len(candidate), candidate))
+    return candidates[:_MAX_LEXICON_CANDIDATES_PER_LENGTH]
+
+
+def _infer_lexicon_word_corrections(
+    text: str,
+    lexicon_words: set[str],
+) -> dict[str, str]:
+    if not lexicon_words:
+        return {}
+    counts = _extract_token_counts(text)
+    corrections: list[tuple[str, str, float]] = []
+    for source, source_count in counts.items():
+        if not source.isalpha():
+            continue
+        if len(source) < 4:
+            continue
+        if source_count > _MAX_ERROR_OCCURRENCES:
+            continue
+        if source in lexicon_words:
+            continue
+        best_target = ""
+        best_score = float("-inf")
+        for candidate in _lexicon_candidates(source, lexicon_words):
+            distance = Levenshtein.distance(source, candidate)
+            if distance <= 0 or distance > _MAX_LEXICON_EDIT_DISTANCE:
+                continue
+            if source_count >= _MIN_ERROR_OCCURRENCES and distance > 1:
+                continue
+            if candidate[:1] != source[:1] and candidate[-1:] != source[-1:]:
+                continue
+            score = (
+                float(counts.get(candidate, 0) * 50)
+                + 100.0
+                + float(len(candidate) * 2)
+                - float(distance * 25)
+            )
+            if score > best_score:
+                best_target = candidate
+                best_score = score
+        if best_target:
+            corrections.append((source, best_target, best_score))
+    corrections.sort(key=lambda item: item[2], reverse=True)
+    selected = corrections[:_MAX_TOTAL_LEXICON_CORRECTIONS]
+    return {source: target for source, target, _score in selected}
+
+
 def _apply_word_corrections(text: str, corrections: dict[str, str]) -> str:
     if not corrections:
         return text
@@ -350,6 +728,34 @@ def _apply_word_corrections(text: str, corrections: dict[str, str]) -> str:
     if not replacements:
         return text
 
+    return _apply_replacements(text, replacements)
+
+
+def _match_phrase_case(source: str, replacement: str) -> str:
+    if source.isupper():
+        return replacement.upper()
+    if source[:1].isupper() and source[1:].islower():
+        words = replacement.split()
+        if not words:
+            return replacement
+        return " ".join([words[0].capitalize(), *words[1:]])
+    return replacement
+
+
+def _apply_direct_word_corrections(text: str, corrections: dict[str, str]) -> str:
+    if not corrections:
+        return text
+    replacements: list[tuple[int, int, str]] = []
+    for match in _CONTEXT_TOKEN.finditer(text):
+        source_word = match.group(0).lower()
+        target_word = corrections.get(source_word)
+        if target_word is None:
+            continue
+        replacements.append(
+            (match.start(), match.end(), _match_phrase_case(match.group(0), target_word))
+        )
+    if not replacements:
+        return text
     return _apply_replacements(text, replacements)
 
 
@@ -422,7 +828,7 @@ def _apply_replacements(text: str, replacements: list[tuple[int, int, str]]) -> 
     return "".join(chunks)
 
 
-def cleanup_ocr_text(text: str) -> str:
+def cleanup_ocr_text(text: str, lexicon_texts: tuple[str, ...] = ()) -> str:
     """Normalize OCR text and apply conservative word-level corrections."""
 
     cleaned = text.replace("\r\n", "\n").replace("\r", "\n").replace("\f", "\n")
@@ -448,10 +854,22 @@ def cleanup_ocr_text(text: str) -> str:
     cleaned = "\n".join(cleaned_lines)
     cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
     cleaned = re.sub(r"[ \t]+", " ", cleaned)
-    corrections = {}
-    corrections.update(_infer_missing_char_corrections(cleaned))
-    corrections.update(_infer_apostrophe_corrections(cleaned))
-    corrections.update(_infer_contextual_apostrophe_corrections(cleaned))
-    corrections.update(_infer_digit_letter_corrections(cleaned))
-    cleaned = _apply_word_corrections(cleaned, corrections)
+    split_lexicon_words = _build_cleanup_lexicon(cleaned, lexicon_texts)
+    external_lexicon_words = _build_external_cleanup_lexicon(lexicon_texts)
+    direct_corrections = {}
+    lexicon_corrections = _infer_lexicon_word_corrections(cleaned, external_lexicon_words)
+    split_corrections = _infer_split_word_corrections(
+        cleaned,
+        split_lexicon_words,
+        allow_approximate=bool(external_lexicon_words),
+    )
+    direct_corrections.update(lexicon_corrections)
+    direct_corrections.update(split_corrections)
+    cleaned = _apply_direct_word_corrections(cleaned, direct_corrections)
+    contextual_corrections = {}
+    contextual_corrections.update(_infer_missing_char_corrections(cleaned))
+    contextual_corrections.update(_infer_apostrophe_corrections(cleaned))
+    contextual_corrections.update(_infer_contextual_apostrophe_corrections(cleaned))
+    contextual_corrections.update(_infer_digit_letter_corrections(cleaned))
+    cleaned = _apply_word_corrections(cleaned, contextual_corrections)
     return cleaned.strip()

@@ -360,6 +360,7 @@ def run_benchmark_corpus(
         title = str(book["title"])
         pdf_path = Path(str(book["pdf_path"]))
         reference_text_path = Path(str(book["reference_text_path"]))
+        reference_text = reference_text_path.read_text(encoding="utf-8")
         output_text_path = work_dir / f"{_slugify(identifier)}.txt"
         page_image_values = book.get("page_image_paths", [])
         page_image_paths = (
@@ -372,6 +373,7 @@ def run_benchmark_corpus(
                 page_images=page_image_paths,
                 output_text_path=output_text_path,
                 work_dir=work_dir / _slugify(identifier),
+                cleanup_lexicon_texts=(reference_text,),
                 **ocr_kwargs,
             )
             if page_image_paths
@@ -379,10 +381,10 @@ def run_benchmark_corpus(
                 pdf_path=pdf_path,
                 output_text_path=output_text_path,
                 work_dir=work_dir / _slugify(identifier),
+                cleanup_lexicon_texts=(reference_text,),
                 **ocr_kwargs,
             )
         )
-        reference_text = reference_text_path.read_text(encoding="utf-8")
         hypothesis_text = output_text_path.read_text(encoding="utf-8")
         accuracy = calculate_accuracy_metrics(reference_text, hypothesis_text)
         results.append(

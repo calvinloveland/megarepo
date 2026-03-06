@@ -164,3 +164,38 @@ def test_cleanup_ocr_text_book_length_avoids_ambiguous_missing_char_fix() -> Non
 
     cleaned = cleanup_ocr_text("\n".join(lines))
     assert "brwn path" in cleaned.lower()
+
+
+def test_cleanup_ocr_text_splits_compound_words_with_builtin_lexicon() -> None:
+    source = (
+        "The foxjumps over the dog.\n"
+        "Another paragraphsof plain prose appeared.\n"
+        "Readers keepsthe story moving.\n"
+    )
+    cleaned = cleanup_ocr_text(source)
+    lowered = cleaned.lower()
+    assert "fox jumps over" in lowered
+    assert "paragraphs of plain prose" in lowered
+    assert "keeps the story" in lowered
+
+
+def test_cleanup_ocr_text_uses_supplied_lexicon_for_one_off_errors() -> None:
+    source = "It teontains realistcsynthetic notes for eaders.\n"
+    cleaned = cleanup_ocr_text(
+        source,
+        lexicon_texts=("contains realistic synthetic readers notes",),
+    )
+    lowered = cleaned.lower()
+    assert "contains realistic synthetic notes for readers" in lowered
+
+
+def test_cleanup_ocr_text_prefers_split_corrections_and_three_word_splits() -> None:
+    source = "Thisisa sample for full autode pdf and toexercise the OCR.\n"
+    cleaned = cleanup_ocr_text(
+        source,
+        lexicon_texts=("This is a sample for full auto de pdf and to exercise the OCR",),
+    )
+    lowered = cleaned.lower()
+    assert "this is a sample" in lowered
+    assert "full auto de pdf" in lowered
+    assert "to exercise the ocr" in lowered

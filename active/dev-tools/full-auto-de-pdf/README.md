@@ -56,11 +56,12 @@ full-auto-de-pdf ocr-pdf \
   --work-dir data/ocr-work \
   --preprocess-mode auto \
   --tesseract-psm auto \
-  --binarize-threshold 170 \
+  --binarize-threshold 190 \
   --deskew-max-angle 3.0 \
   --deskew-angle-step 0.5 \
   --ocr-engine tesseract
-# (tries multiple preprocess modes / Tesseract page-segmentation modes per page,
+# (tries multiple preprocess modes, including a scan-tuned thresholded mode,
+#  plus multiple Tesseract page-segmentation modes per page,
 #  then writes per-page OCR artifacts and selection metadata under
 #  data/ocr-work/page_ocr by default)
 
@@ -71,7 +72,7 @@ full-auto-de-pdf ocr-pdf \
   --output out/book.paddle.txt \
   --ocr-engine paddleocr
 
-# Evaluate OCR output across preprocess modes (none/basic/deskew/dewarp)
+# Evaluate OCR output across preprocess modes (none/scan/basic/deskew/dewarp)
 full-auto-de-pdf ocr-eval-modes \
   --pdf scans/book.pdf \
   --output data/ocr_mode_eval.json \
@@ -101,7 +102,7 @@ full-auto-de-pdf eval-epub \
 
 ## What changed
 
-- `ocr-pdf` can now use `--preprocess-mode auto` and `--tesseract-psm auto` to try several page-level OCR candidates and keep the best-scoring result for each page.
+- `ocr-pdf` can now use `--preprocess-mode auto` and `--tesseract-psm auto` to try several page-level OCR candidates, including a scan-tuned upsample + threshold path, and keep the best-scoring result for each page.
 - Per-page OCR manifests now record the selected preprocess mode, selected Tesseract PSM, and candidate scoring data for debugging and benchmarking.
 - `build-epub` now emits a more structured EPUB3 archive with multiple XHTML chapters when chapter headings are detected, a richer navigation document, semantic headings, preserved ordered/unordered lists, and a bundled stylesheet.
 - `build-benchmark-corpus` now creates a reproducible local printed-text corpus by rendering curated Project Gutenberg excerpts into synthetic PDFs and page images.

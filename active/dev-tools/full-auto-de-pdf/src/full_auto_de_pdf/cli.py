@@ -187,14 +187,14 @@ def _add_benchmark_corpus_command(
     )
     parser.add_argument(
         "--preprocess-mode",
-        choices=["none", "basic", "deskew", "dewarp", "auto"],
+        choices=["none", "scan", "basic", "deskew", "dewarp", "auto"],
         default="auto",
         help="Image preprocessing before OCR",
     )
     parser.add_argument(
         "--binarize-threshold",
         type=int,
-        default=170,
+        default=190,
         help="Binarization threshold (0-255)",
     )
     parser.add_argument(
@@ -249,7 +249,7 @@ def _add_ocr_pdf_command(subparsers: argparse._SubParsersAction[argparse.Argumen
     )
     parser.add_argument(
         "--preprocess-mode",
-        choices=["none", "basic", "deskew", "dewarp", "auto"],
+        choices=["none", "scan", "basic", "deskew", "dewarp", "auto"],
         default="auto",
         help="Image preprocessing before OCR (auto tries multiple modes per page)",
     )
@@ -261,8 +261,8 @@ def _add_ocr_pdf_command(subparsers: argparse._SubParsersAction[argparse.Argumen
     parser.add_argument(
         "--binarize-threshold",
         type=int,
-        default=170,
-        help="Binarization threshold for basic preprocessing (0-255)",
+        default=190,
+        help="Binarization threshold for scan/basic preprocessing (0-255)",
     )
     parser.add_argument(
         "--deskew-max-angle",
@@ -329,7 +329,7 @@ def _add_ocr_eval_modes_command(
     parser.add_argument(
         "--binarize-threshold",
         type=int,
-        default=170,
+        default=190,
         help="Binarization threshold (0-255)",
     )
     parser.add_argument(
@@ -398,7 +398,7 @@ def _add_benchmark_local_archive_command(
     parser.add_argument(
         "--binarize-threshold",
         type=int,
-        default=170,
+        default=190,
         help="Binarization threshold (0-255)",
     )
     parser.add_argument(

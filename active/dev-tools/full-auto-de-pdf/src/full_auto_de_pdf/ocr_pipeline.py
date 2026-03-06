@@ -23,7 +23,7 @@ except ImportError:
 from . import benchmark as benchmark_module
 from .ocr_cleanup import cleanup_ocr_text
 
-_AUTO_PREPROCESS_MODES = ("none", "basic", "deskew", "dewarp")
+_AUTO_PREPROCESS_MODES = ("none", "scan", "basic", "deskew", "dewarp")
 _AUTO_TESSERACT_PSMS = ("3", "4", "6")
 _LATIN_TOKEN = re.compile(r"[A-Za-z]+(?:'[A-Za-z]+)?")
 _NON_TEXT_CHAR = re.compile(r"[^A-Za-z0-9\s\.,;:!\?'\-\"()\[\]]")
@@ -68,10 +68,11 @@ class OCRCoreOptions:
     language: str = "eng"
     dpi: int = 300
     apply_cleanup: bool = True
-    binarize_threshold: int = 170
+    binarize_threshold: int = 190
     deskew_max_angle: float = 3.0
     deskew_angle_step: float = 0.5
     tesseract_psm: str = "auto"
+    cleanup_lexicon_texts: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -102,7 +103,7 @@ class ModeEvalOptions:
     core: OCRCoreOptions
     ocr_engine: str = "tesseract"
     reference_text_path: Path | None = None
-    modes: tuple[str, ...] = ("none", "basic", "deskew", "dewarp")
+    modes: tuple[str, ...] = ("none", "scan", "basic", "deskew", "dewarp")
 
 
 @dataclass(frozen=True)
@@ -374,10 +375,14 @@ def _preprocess_image(
         )
     with Image.open(input_path) as image:
         gray = image.convert("L")
-        contrasted = ImageOps.autocontrast(gray)
-        denoised = contrasted.filter(ImageFilter.MedianFilter(size=3))
+        if preprocess_mode == "scan":
+            ocr_ready = _upsample_for_ocr(gray)
+        else:
+            contrasted = ImageOps.autocontrast(gray)
+            denoised = contrasted.filter(ImageFilter.MedianFilter(size=3))
+            ocr_ready = _upsample_for_ocr(denoised)
         candidate = _preprocess_candidate(
-            denoised,
+            ocr_ready,
             preprocess_mode,
             deskew_max_angle,
             deskew_angle_step,
@@ -396,6 +401,16 @@ def _parse_preprocess_args(args: tuple[Any, ...]) -> tuple[str, int, float, floa
     deskew_max_angle = float(args[2])
     deskew_angle_step = float(args[3])
     return preprocess_mode, binarize_threshold, deskew_max_angle, deskew_angle_step
+
+
+def _upsample_for_ocr(image: Any) -> Any:
+    if Image is None:
+        return image
+    if image.width >= 2400 or image.height >= 3200:
+        return image
+    resampling_namespace = getattr(Image, "Resampling", Image)
+    resampling = getattr(resampling_namespace, "LANCZOS")
+    return image.resize((image.width * 2, image.height * 2), resampling)
 
 
 def _preprocess_candidate(
@@ -436,14 +451,17 @@ def _parse_ocr_options(kwargs: dict[str, Any]) -> OCRRunOptions:
     page_artifacts_dir = kwargs.pop("page_artifacts_dir", None)
     if page_artifacts_dir is not None and not isinstance(page_artifacts_dir, Path):
         page_artifacts_dir = Path(str(page_artifacts_dir))
+    raw_cleanup_lexicon_texts = kwargs.pop("cleanup_lexicon_texts", ())
+    cleanup_lexicon_texts = tuple(str(value) for value in raw_cleanup_lexicon_texts)
     core_options = OCRCoreOptions(
         language=str(kwargs.pop("language", "eng")),
         dpi=int(kwargs.pop("dpi", 300)),
         apply_cleanup=bool(kwargs.pop("apply_cleanup", True)),
-        binarize_threshold=int(kwargs.pop("binarize_threshold", 170)),
+        binarize_threshold=int(kwargs.pop("binarize_threshold", 190)),
         deskew_max_angle=float(kwargs.pop("deskew_max_angle", 3.0)),
         deskew_angle_step=float(kwargs.pop("deskew_angle_step", 0.5)),
         tesseract_psm=_normalize_tesseract_psm(kwargs.pop("tesseract_psm", "auto")),
+        cleanup_lexicon_texts=cleanup_lexicon_texts,
     )
     return OCRRunOptions(
         core=core_options,
@@ -470,8 +488,10 @@ def _validate_common_ocr_options(
     options: OCRRunOptions,
     which: Callable[[str], str | None],
 ) -> None:
-    if options.preprocess_mode not in {"none", "basic", "deskew", "dewarp", "auto"}:
-        raise ValueError("preprocess_mode must be 'none', 'basic', 'deskew', 'dewarp', or 'auto'")
+    if options.preprocess_mode not in {"none", "scan", "basic", "deskew", "dewarp", "auto"}:
+        raise ValueError(
+            "preprocess_mode must be 'none', 'scan', 'basic', 'deskew', 'dewarp', or 'auto'"
+        )
     if options.ocr_engine not in {"tesseract", "paddleocr"}:
         raise ValueError("ocr_engine must be 'tesseract' or 'paddleocr'")
     if not 0 <= options.core.binarize_threshold <= 255:
@@ -587,8 +607,8 @@ def _prepare_ocr_input_path(
     return preprocessed_path
 
 
-def _score_ocr_text(text: str, language: str) -> float:
-    stripped = cleanup_ocr_text(text).strip()
+def _score_ocr_text(text: str, language: str, cleanup_lexicon_texts: tuple[str, ...]) -> float:
+    stripped = cleanup_ocr_text(text, lexicon_texts=cleanup_lexicon_texts).strip()
     if not stripped:
         return -1_000_000.0
     token_matches = _LATIN_TOKEN.findall(stripped)
@@ -659,7 +679,11 @@ def _run_ocr_on_page(
                 paddle_reader,
                 tesseract_psm,
             )
-            score = _score_ocr_text(text, options.core.language)
+            score = _score_ocr_text(
+                text,
+                options.core.language,
+                options.core.cleanup_lexicon_texts,
+            )
             candidate_metadata: dict[str, object] = {
                 "preprocess_mode": preprocess_mode,
                 "score": score,
@@ -782,7 +806,7 @@ def _finalize_ocr_output(
 ) -> tuple[str, dict[str, object]]:
     combined_text = "\n\n".join(page_texts)
     final_text = (
-        cleanup_ocr_text(combined_text)
+        cleanup_ocr_text(combined_text, lexicon_texts=options.core.cleanup_lexicon_texts)
         if options.core.apply_cleanup
         else combined_text
     )
@@ -876,16 +900,17 @@ def _parse_mode_eval_options(kwargs: dict[str, Any]) -> ModeEvalOptions:
     reference_text_path = kwargs.pop("reference_text_path", None)
     if reference_text_path is not None and not isinstance(reference_text_path, Path):
         reference_text_path = Path(str(reference_text_path))
-    raw_modes = kwargs.pop("modes", ("none", "basic", "deskew", "dewarp"))
+    raw_modes = kwargs.pop("modes", ("none", "scan", "basic", "deskew", "dewarp"))
     modes = tuple(str(mode) for mode in raw_modes)
     core_options = OCRCoreOptions(
         language=str(kwargs.pop("language", "eng")),
         dpi=int(kwargs.pop("dpi", 300)),
         apply_cleanup=bool(kwargs.pop("apply_cleanup", True)),
-        binarize_threshold=int(kwargs.pop("binarize_threshold", 170)),
+        binarize_threshold=int(kwargs.pop("binarize_threshold", 190)),
         deskew_max_angle=float(kwargs.pop("deskew_max_angle", 3.0)),
         deskew_angle_step=float(kwargs.pop("deskew_angle_step", 0.5)),
         tesseract_psm=_normalize_tesseract_psm(kwargs.pop("tesseract_psm", "auto")),
+        cleanup_lexicon_texts=tuple(),
     )
     return ModeEvalOptions(
         core=core_options,
@@ -985,6 +1010,7 @@ def _run_single_mode(
         pdf_path=pdf_path,
         output_text_path=mode_output_path,
         work_dir=mode_work_dir,
+        cleanup_lexicon_texts=(reference_text,) if reference_text is not None else (),
         **_mode_ocr_kwargs(options, mode),
     )
     mode_payload: dict[str, object] = dict(mode_metrics)
@@ -1023,10 +1049,11 @@ def _parse_local_archive_options(kwargs: dict[str, Any]) -> LocalArchiveBenchmar
         language=str(kwargs.pop("language", "eng")),
         dpi=int(kwargs.pop("dpi", 300)),
         apply_cleanup=bool(kwargs.pop("apply_cleanup", True)),
-        binarize_threshold=int(kwargs.pop("binarize_threshold", 170)),
+        binarize_threshold=int(kwargs.pop("binarize_threshold", 190)),
         deskew_max_angle=float(kwargs.pop("deskew_max_angle", 3.0)),
         deskew_angle_step=float(kwargs.pop("deskew_angle_step", 0.5)),
         tesseract_psm=_normalize_tesseract_psm(kwargs.pop("tesseract_psm", "auto")),
+        cleanup_lexicon_texts=tuple(),
     )
     return LocalArchiveBenchmarkOptions(
         core=core_options,
