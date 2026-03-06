@@ -9,6 +9,7 @@ from typing import Callable
 
 from .archive_org import build_manifest, write_manifest
 from .benchmark import run_archive_benchmark, write_benchmark_report
+from .benchmark_corpus import build_benchmark_corpus, run_benchmark_corpus
 from .benchmark_viz import build_local_benchmark_failure_page
 from .epub import build_epub_from_ocr_file
 from .epub_eval import evaluate_epub_structure
@@ -29,6 +30,8 @@ def _build_parser() -> argparse.ArgumentParser:
         _add_manifest_command,
         _add_build_epub_command,
         _add_benchmark_archive_command,
+        _add_build_benchmark_corpus_command,
+        _add_benchmark_corpus_command,
         _add_ocr_pdf_command,
         _add_ocr_eval_modes_command,
         _add_benchmark_local_archive_command,
@@ -102,6 +105,124 @@ def _add_benchmark_archive_command(
         choices=["djvu", "abbyy", "best"],
         default="djvu",
         help="OCR source policy: strict single-source or oracle best-of-both",
+    )
+
+
+def _add_build_benchmark_corpus_command(
+    subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
+) -> None:
+    parser = subparsers.add_parser(
+        "build-benchmark-corpus",
+        help="Build a generated printed-text OCR benchmark corpus from public-domain books",
+    )
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        default=Path("data/benchmark-corpus"),
+        help="Directory for generated corpus assets and manifest",
+    )
+    parser.add_argument(
+        "--cache-dir",
+        type=Path,
+        default=Path("data/cache"),
+        help="Cache directory for downloaded Gutenberg source texts",
+    )
+    parser.add_argument("--timeout-seconds", type=int, default=60, help="Network request timeout")
+    parser.add_argument(
+        "--max-books",
+        type=int,
+        help="Optional limit on the number of benchmark books to generate",
+    )
+    parser.add_argument(
+        "--excerpt-word-count",
+        type=int,
+        default=1200,
+        help="Approximate words to keep per generated benchmark book",
+    )
+    parser.add_argument(
+        "--skip-word-count",
+        type=int,
+        default=250,
+        help="Words to skip before excerpt extraction to reduce front-matter noise",
+    )
+    parser.add_argument("--font-path", help="Optional TTF font path for synthetic page rendering")
+    parser.add_argument("--font-size", type=int, default=32, help="Synthetic page font size")
+    parser.add_argument("--page-width", type=int, default=1654, help="Synthetic page width in px")
+    parser.add_argument("--page-height", type=int, default=2339, help="Synthetic page height in px")
+    parser.add_argument("--margin", type=int, default=150, help="Synthetic page margin in px")
+
+
+def _add_benchmark_corpus_command(
+    subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
+) -> None:
+    parser = subparsers.add_parser(
+        "benchmark-corpus",
+        help="Run local OCR against a generated corpus manifest",
+    )
+    parser.add_argument(
+        "--corpus-manifest",
+        type=Path,
+        required=True,
+        help="Generated corpus manifest JSON",
+    )
+    parser.add_argument(
+        "--output",
+        type=Path,
+        default=Path("data/benchmark_corpus_report.json"),
+        help="Output JSON report path",
+    )
+    parser.add_argument(
+        "--work-dir",
+        type=Path,
+        default=Path("data/benchmark-corpus-work"),
+        help="Working directory for OCR outputs and intermediate files",
+    )
+    parser.add_argument("--language", default="eng", help="Tesseract language code")
+    parser.add_argument("--dpi", type=int, default=300, help="Rasterization DPI for pdftoppm")
+    parser.add_argument(
+        "--ocr-engine",
+        choices=["tesseract", "paddleocr"],
+        default="tesseract",
+        help="OCR engine backend",
+    )
+    parser.add_argument(
+        "--preprocess-mode",
+        choices=["none", "basic", "deskew", "dewarp", "auto"],
+        default="auto",
+        help="Image preprocessing before OCR",
+    )
+    parser.add_argument(
+        "--binarize-threshold",
+        type=int,
+        default=170,
+        help="Binarization threshold (0-255)",
+    )
+    parser.add_argument(
+        "--deskew-max-angle",
+        type=float,
+        default=3.0,
+        help="Maximum absolute deskew angle to search (degrees)",
+    )
+    parser.add_argument(
+        "--deskew-angle-step",
+        type=float,
+        default=0.5,
+        help="Deskew angle search step size (degrees)",
+    )
+    parser.add_argument(
+        "--tesseract-psm",
+        default="auto",
+        help="Tesseract page segmentation mode (0-13) or 'auto' to try several layouts",
+    )
+    parser.add_argument(
+        "--no-cleanup",
+        action="store_true",
+        help="Disable OCR cleanup after extraction",
+    )
+    parser.add_argument(
+        "--no-page-artifacts",
+        action="store_true",
+        help="Disable per-book per-page OCR artifact text files",
     )
 
 
@@ -405,6 +526,49 @@ def _handle_benchmark_archive(args: argparse.Namespace) -> int:
     return 0
 
 
+def _handle_build_benchmark_corpus(args: argparse.Namespace) -> int:
+    manifest = build_benchmark_corpus(
+        output_dir=args.output_dir,
+        cache_dir=args.cache_dir,
+        timeout_seconds=args.timeout_seconds,
+        max_books=args.max_books,
+        excerpt_word_count=args.excerpt_word_count,
+        skip_word_count=args.skip_word_count,
+        font_path=args.font_path,
+        font_size=args.font_size,
+        page_width=args.page_width,
+        page_height=args.page_height,
+        margin=args.margin,
+    )
+    print(f"Built benchmark corpus: {manifest['book_count']} books -> {args.output_dir / 'manifest.json'}")
+    return 0
+
+
+def _handle_benchmark_corpus(args: argparse.Namespace) -> int:
+    report = run_benchmark_corpus(
+        corpus_manifest_path=args.corpus_manifest,
+        output_report_path=args.output,
+        work_dir=args.work_dir,
+        language=args.language,
+        dpi=args.dpi,
+        apply_cleanup=not args.no_cleanup,
+        preprocess_mode=args.preprocess_mode,
+        binarize_threshold=args.binarize_threshold,
+        deskew_max_angle=args.deskew_max_angle,
+        deskew_angle_step=args.deskew_angle_step,
+        tesseract_psm=args.tesseract_psm,
+        ocr_engine=args.ocr_engine,
+        emit_page_artifacts=not args.no_page_artifacts,
+    )
+    summary = report["summary"]
+    print(
+        "Benchmark corpus complete: "
+        f"word_accuracy={float(summary['avg_word_accuracy']):.4f}, "
+        f"char_accuracy={float(summary['avg_char_accuracy']):.4f} -> {args.output}"
+    )
+    return 0
+
+
 def _handle_ocr_pdf(args: argparse.Namespace) -> int:
     metrics = ocr_pdf_with_tesseract(
         pdf_path=args.pdf,
@@ -509,6 +673,8 @@ _COMMAND_HANDLERS: dict[str, Callable[[argparse.Namespace], int]] = {
     "manifest": _handle_manifest,
     "build-epub": _handle_build_epub,
     "benchmark-archive": _handle_benchmark_archive,
+    "build-benchmark-corpus": _handle_build_benchmark_corpus,
+    "benchmark-corpus": _handle_benchmark_corpus,
     "ocr-pdf": _handle_ocr_pdf,
     "ocr-eval-modes": _handle_ocr_eval_modes,
     "benchmark-local-archive": _handle_benchmark_local_archive,

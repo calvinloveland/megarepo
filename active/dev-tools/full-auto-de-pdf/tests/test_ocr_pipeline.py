@@ -3,6 +3,7 @@ import sys
 import types
 
 import pytest
+from PIL import Image
 
 import json
 
@@ -11,6 +12,7 @@ from full_auto_de_pdf.ocr_pipeline import (
     benchmark_local_ocr_against_archive,
     _build_paddleocr_reader,
     evaluate_ocr_preprocess_modes,
+    ocr_page_images,
     ocr_pdf_with_tesseract,
 )
 
@@ -232,6 +234,34 @@ def test_ocr_pdf_with_tesseract_auto_selects_best_mode_and_psm(tmp_path) -> None
     assert page_entry["selected_preprocess_mode"] == "basic"
     assert page_entry["tesseract_psm"] == 6
     assert len(page_entry["candidate_runs"]) == 12
+
+
+def test_ocr_page_images_runs_without_pdftoppm(tmp_path) -> None:
+    page_image = tmp_path / "page-1.png"
+    output_path = tmp_path / "out.txt"
+    work_dir = tmp_path / "work"
+    Image.new("RGB", (20, 20), color="white").save(page_image)
+
+    def _which(name: str) -> str | None:
+        if name == "tesseract":
+            return "/usr/bin/fake"
+        return None
+
+    def _run(command: list[str], capture_output: bool) -> str:
+        assert command[0] == "tesseract"
+        assert capture_output is True
+        return "Page image OCR text"
+
+    metrics = ocr_page_images(
+        page_images=[page_image],
+        output_text_path=output_path,
+        work_dir=work_dir,
+        run_command=_run,
+        which=_which,
+    )
+
+    assert metrics["page_count"] == 1
+    assert "page image ocr text" in output_path.read_text(encoding="utf-8").lower()
 
 
 def test_ocr_pdf_with_paddleocr_engine_path(tmp_path) -> None:

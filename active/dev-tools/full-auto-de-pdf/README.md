@@ -36,6 +36,19 @@ full-auto-de-pdf benchmark-archive \
   --source-mode best \
   --output data/benchmark_archive_accuracy_best.json
 
+# Build a local synthetic printed-text benchmark corpus from public-domain books
+full-auto-de-pdf build-benchmark-corpus \
+  --output-dir data/benchmark-corpus \
+  --cache-dir data/cache \
+  --max-books 5
+
+# Run the local OCR pipeline against the generated corpus
+full-auto-de-pdf benchmark-corpus \
+  --corpus-manifest data/benchmark-corpus/manifest.json \
+  --output data/benchmark_corpus_report.json \
+  --preprocess-mode auto \
+  --tesseract-psm auto
+
 # Run local OCR on a scanned PDF with pdftoppm + adaptive page-level OCR selection
 full-auto-de-pdf ocr-pdf \
   --pdf scans/book.pdf \
@@ -91,7 +104,15 @@ full-auto-de-pdf eval-epub \
 - `ocr-pdf` can now use `--preprocess-mode auto` and `--tesseract-psm auto` to try several page-level OCR candidates and keep the best-scoring result for each page.
 - Per-page OCR manifests now record the selected preprocess mode, selected Tesseract PSM, and candidate scoring data for debugging and benchmarking.
 - `build-epub` now emits a more structured EPUB3 archive with multiple XHTML chapters when chapter headings are detected, a richer navigation document, semantic headings, preserved ordered/unordered lists, and a bundled stylesheet.
+- `build-benchmark-corpus` now creates a reproducible local printed-text corpus by rendering curated Project Gutenberg excerpts into synthetic PDFs and page images.
+- `benchmark-corpus` runs the local OCR pipeline against that generated corpus so printed-text accuracy can be measured end to end inside the repo.
 
 ## Accuracy note
 
 This project now has a stronger adaptive OCR pipeline aimed at high printed-text accuracy, but a true 99.9% claim still depends on measuring against a representative benchmark corpus for the exact document set you care about.
+
+## Benchmark corpus strategy
+
+- Ideal external corpus: the Gutenberg-HathiTrust Parallel Corpus described at <https://hdl.handle.net/2142/109695>, which reports 19,049 aligned OCR/proofread English book pairs.
+- Built-in practical corpus: `build-benchmark-corpus` generates a smaller, reproducible public-domain printed-text corpus locally so you can benchmark immediately without depending on an external dataset mirror.
+- Real scanned-book accuracy should still be checked with `benchmark-archive` and `benchmark-local-archive`, because the generated corpus is intentionally cleaner than real scans.

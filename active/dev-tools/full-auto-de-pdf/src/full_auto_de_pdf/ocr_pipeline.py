@@ -466,8 +466,7 @@ def _normalize_tesseract_psm(value: Any) -> str:
     return "auto" if normalized == "auto" else str(int(value))
 
 
-def _validate_ocr_run_options(
-    pdf_path: Path,
+def _validate_common_ocr_options(
     options: OCRRunOptions,
     which: Callable[[str], str | None],
 ) -> None:
@@ -485,12 +484,33 @@ def _validate_ocr_run_options(
         psm_value = int(options.core.tesseract_psm)
         if not 0 <= psm_value <= 13:
             raise ValueError("tesseract_psm must be 'auto' or an integer between 0 and 13")
-    if which("pdftoppm") is None:
-        raise RuntimeError("Missing dependency: pdftoppm")
     if options.ocr_engine == "tesseract" and which("tesseract") is None:
         raise RuntimeError("Missing dependency: tesseract")
+
+
+def _validate_ocr_run_options(
+    pdf_path: Path,
+    options: OCRRunOptions,
+    which: Callable[[str], str | None],
+) -> None:
+    _validate_common_ocr_options(options, which)
+    if which("pdftoppm") is None:
+        raise RuntimeError("Missing dependency: pdftoppm")
     if not pdf_path.exists():
         raise FileNotFoundError(f"Input PDF not found: {pdf_path}")
+
+
+def _validate_page_image_run_options(
+    page_images: list[Path],
+    options: OCRRunOptions,
+    which: Callable[[str], str | None],
+) -> None:
+    _validate_common_ocr_options(options, which)
+    if not page_images:
+        raise ValueError("page_images must include at least one image path")
+    missing_images = [str(path) for path in page_images if not path.exists()]
+    if missing_images:
+        raise FileNotFoundError(f"Input page images not found: {', '.join(missing_images)}")
 
 
 def _rasterize_pdf_to_images(
@@ -809,6 +829,34 @@ def ocr_pdf_with_tesseract(
         options.core.dpi,
         dependencies.run_command,
     )
+    artifacts_dir = _prepare_artifacts_dir(work_dir, options)
+    page_texts, page_details, selection_summary = _collect_page_ocr_results(
+        page_images,
+        options,
+        dependencies,
+        work_dir,
+        artifacts_dir,
+    )
+    _final_text, result = _finalize_ocr_output(page_texts, output_text_path, options)
+    result.update(selection_summary)
+    if options.emit_page_artifacts:
+        _attach_page_artifacts(result, artifacts_dir, page_details)
+    return result
+
+
+def ocr_page_images(
+    page_images: list[Path],
+    output_text_path: Path,
+    work_dir: Path,
+    **kwargs: Any,
+) -> dict[str, object]:
+    """Run OCR on an existing list of page images."""
+
+    parse_kwargs = dict(kwargs)
+    dependencies = _parse_ocr_dependencies(parse_kwargs)
+    options = _parse_ocr_options(parse_kwargs)
+    _ensure_no_unknown_kwargs(parse_kwargs, "ocr_page_images")
+    _validate_page_image_run_options(page_images, options, dependencies.which)
     artifacts_dir = _prepare_artifacts_dir(work_dir, options)
     page_texts, page_details, selection_summary = _collect_page_ocr_results(
         page_images,

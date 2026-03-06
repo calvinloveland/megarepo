@@ -80,6 +80,77 @@ def test_benchmark_archive_command_writes_report(monkeypatch, tmp_path) -> None:
     assert payload["summary"]["book_count"] == 1
 
 
+def test_build_benchmark_corpus_command_writes_manifest(monkeypatch, tmp_path) -> None:
+    output_dir = tmp_path / "corpus"
+    cache_dir = tmp_path / "cache"
+
+    def _fake_build_benchmark_corpus(**kwargs):  # noqa: ANN003
+        assert kwargs["output_dir"] == output_dir
+        assert kwargs["cache_dir"] == cache_dir
+        assert kwargs["timeout_seconds"] == 30
+        assert kwargs["max_books"] == 2
+        return {"book_count": 2, "books": []}
+
+    monkeypatch.setattr(cli, "build_benchmark_corpus", _fake_build_benchmark_corpus)
+    rc = cli.main(
+        [
+            "build-benchmark-corpus",
+            "--output-dir",
+            str(output_dir),
+            "--cache-dir",
+            str(cache_dir),
+            "--timeout-seconds",
+            "30",
+            "--max-books",
+            "2",
+        ]
+    )
+
+    assert rc == 0
+
+
+def test_benchmark_corpus_command_runs_pipeline(monkeypatch, tmp_path) -> None:
+    corpus_manifest = tmp_path / "manifest.json"
+    output_report = tmp_path / "report.json"
+    work_dir = tmp_path / "work"
+    corpus_manifest.write_text("{}", encoding="utf-8")
+
+    def _fake_run_benchmark_corpus(**kwargs):  # noqa: ANN003
+        assert kwargs["corpus_manifest_path"] == corpus_manifest
+        assert kwargs["output_report_path"] == output_report
+        assert kwargs["work_dir"] == work_dir
+        assert kwargs["preprocess_mode"] == "auto"
+        assert kwargs["tesseract_psm"] == "6"
+        assert kwargs["ocr_engine"] == "paddleocr"
+        return {
+            "summary": {
+                "avg_word_accuracy": 0.98,
+                "avg_char_accuracy": 0.995,
+            }
+        }
+
+    monkeypatch.setattr(cli, "run_benchmark_corpus", _fake_run_benchmark_corpus)
+    rc = cli.main(
+        [
+            "benchmark-corpus",
+            "--corpus-manifest",
+            str(corpus_manifest),
+            "--output",
+            str(output_report),
+            "--work-dir",
+            str(work_dir),
+            "--preprocess-mode",
+            "auto",
+            "--tesseract-psm",
+            "6",
+            "--ocr-engine",
+            "paddleocr",
+        ]
+    )
+
+    assert rc == 0
+
+
 def test_ocr_pdf_command_runs_pipeline(monkeypatch, tmp_path) -> None:
     input_pdf = tmp_path / "book.pdf"
     output_text = tmp_path / "book.txt"
