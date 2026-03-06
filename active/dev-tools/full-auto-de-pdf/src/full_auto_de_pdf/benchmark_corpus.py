@@ -6,6 +6,8 @@ from dataclasses import dataclass
 import json
 from pathlib import Path
 import re
+import shutil
+import subprocess
 from typing import Any, Callable
 
 try:
@@ -34,6 +36,7 @@ _DEFAULT_FONT_CANDIDATES = (
     "/usr/share/fonts/truetype/liberation2/LiberationSerif-Regular.ttf",
 )
 _WORD_RE = re.compile(r"\S+")
+_PNG_DPI = (300, 300)
 
 
 @dataclass(frozen=True)
@@ -47,6 +50,22 @@ class CorpusBook:
     reference_text_path: Path
     excerpt_text_path: Path
     page_image_paths: tuple[Path, ...]
+    font_path: str
+
+
+def _fontconfig_match(family: str) -> str | None:
+    if shutil.which("fc-match") is None:
+        return None
+    completed = subprocess.run(
+        ["fc-match", "-f", "%{file}\n", family],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if completed.returncode != 0:
+        return None
+    candidate = completed.stdout.strip()
+    return candidate or None
 
 
 def _gutenberg_cache_path(cache_dir: Path, book: BenchmarkBook) -> Path:
@@ -115,21 +134,30 @@ def _slugify(value: str) -> str:
     return slug or "book"
 
 
-def _resolve_font(font_path: str | None, font_size: int) -> Any:
+def _resolve_font(font_path: str | None, font_size: int) -> tuple[Any, str]:
     if ImageFont is None:
         raise RuntimeError(
             "Missing dependency for corpus rendering: pillow. "
             "Install with `pip install pillow`."
         )
     candidates = [font_path] if font_path else []
+    candidates.extend(
+        candidate
+        for candidate in (
+            _fontconfig_match("serif"),
+            _fontconfig_match("sans"),
+            _fontconfig_match("monospace"),
+        )
+        if candidate is not None
+    )
     candidates.extend(_DEFAULT_FONT_CANDIDATES)
     for candidate in candidates:
         if not candidate:
             continue
         path = Path(candidate)
         if path.exists():
-            return ImageFont.truetype(str(path), size=font_size)
-    return ImageFont.load_default()
+            return ImageFont.truetype(str(path), size=font_size), str(path)
+    return ImageFont.load_default(), "Pillow default bitmap font"
 
 
 def _wrap_paragraph(draw: Any, font: Any, paragraph: str, max_width: int) -> list[str]:
@@ -151,8 +179,13 @@ def _wrap_paragraph(draw: Any, font: Any, paragraph: str, max_width: int) -> lis
 
 def _save_page_image(page_image: Any, page_number: int, pages_dir: Path) -> Path:
     page_path = pages_dir / f"page-{page_number:04d}.png"
-    page_image.save(page_path)
+    page_image.save(page_path, dpi=_PNG_DPI)
     return page_path
+
+
+def _ocr_ready_image(page_image: Any) -> Any:
+    grayscale = page_image.convert("L")
+    return grayscale.point(lambda value: 255 if value >= 220 else 0, mode="1").convert("L")
 
 
 def _render_page_images(
@@ -164,7 +197,7 @@ def _render_page_images(
     page_width: int,
     page_height: int,
     margin: int,
-) -> list[Path]:
+) -> tuple[list[Path], str]:
     if Image is None or ImageDraw is None:
         raise RuntimeError(
             "Missing dependency for corpus rendering: pillow. "
@@ -172,9 +205,9 @@ def _render_page_images(
         )
     pages_dir = output_dir / "pages"
     pages_dir.mkdir(parents=True, exist_ok=True)
-    font = _resolve_font(font_path, font_size)
+    font, resolved_font_path = _resolve_font(font_path, font_size)
     page_paths: list[Path] = []
-    page_image = Image.new("RGB", (page_width, page_height), color="white")
+    page_image = Image.new("L", (page_width, page_height), color=255)
     draw = ImageDraw.Draw(page_image)
     page_number = 1
     max_width = page_width - (margin * 2)
@@ -184,17 +217,17 @@ def _render_page_images(
     for paragraph in _normalize_paragraphs(excerpt_text):
         for line in _wrap_paragraph(draw, font, paragraph, max_width):
             if y + line_height > page_height - margin:
-                page_paths.append(_save_page_image(page_image, page_number, pages_dir))
+                page_paths.append(_save_page_image(_ocr_ready_image(page_image), page_number, pages_dir))
                 page_number += 1
-                page_image = Image.new("RGB", (page_width, page_height), color="white")
+                page_image = Image.new("L", (page_width, page_height), color=255)
                 draw = ImageDraw.Draw(page_image)
                 y = margin
-            draw.text((margin, y), line, font=font, fill="black")
+            draw.text((margin, y), line, font=font, fill=0)
             y += line_height
         y += line_height
 
-    page_paths.append(_save_page_image(page_image, page_number, pages_dir))
-    return page_paths
+    page_paths.append(_save_page_image(_ocr_ready_image(page_image), page_number, pages_dir))
+    return page_paths, resolved_font_path
 
 
 def _write_pdf(page_image_paths: list[Path], pdf_path: Path) -> None:
@@ -249,7 +282,7 @@ def build_benchmark_corpus(
         reference_text_path.parent.mkdir(parents=True, exist_ok=True)
         reference_text_path.write_text(excerpt_text, encoding="utf-8")
         excerpt_text_path.write_text(excerpt_text, encoding="utf-8")
-        page_image_paths = _render_page_images(
+        page_image_paths, resolved_font_path = _render_page_images(
             excerpt_text,
             book_dir,
             font_path=font_path,
@@ -268,6 +301,7 @@ def build_benchmark_corpus(
                 reference_text_path=reference_text_path,
                 excerpt_text_path=excerpt_text_path,
                 page_image_paths=tuple(page_image_paths),
+                font_path=resolved_font_path,
             )
         )
 
@@ -290,6 +324,7 @@ def build_benchmark_corpus(
                 "page_image_paths": [str(path) for path in item.page_image_paths],
                 "page_count": len(item.page_image_paths),
                 "reference_word_count": _word_count(item.reference_text),
+                "font_path": item.font_path,
             }
             for item in built_books
         ],

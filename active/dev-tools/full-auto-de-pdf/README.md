@@ -106,6 +106,7 @@ full-auto-de-pdf eval-epub \
 - `build-epub` now emits a more structured EPUB3 archive with multiple XHTML chapters when chapter headings are detected, a richer navigation document, semantic headings, preserved ordered/unordered lists, and a bundled stylesheet.
 - `build-benchmark-corpus` now creates a reproducible local printed-text corpus by rendering curated Project Gutenberg excerpts into synthetic PDFs and page images.
 - `benchmark-corpus` runs the local OCR pipeline against that generated corpus so printed-text accuracy can be measured end to end inside the repo.
+- Generated benchmark pages now prefer system fontconfig fonts when available and are saved as OCR-ready monochrome 300 DPI images, which makes the built-in printed-text benchmark far more representative and stable.
 
 ## Accuracy note
 
