@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections import Counter
 from dataclasses import dataclass
 import importlib
 import json
@@ -22,6 +23,43 @@ except ImportError:
 from . import benchmark as benchmark_module
 from .ocr_cleanup import cleanup_ocr_text
 
+_AUTO_PREPROCESS_MODES = ("none", "basic", "deskew", "dewarp")
+_AUTO_TESSERACT_PSMS = ("3", "4", "6")
+_LATIN_TOKEN = re.compile(r"[A-Za-z]+(?:'[A-Za-z]+)?")
+_NON_TEXT_CHAR = re.compile(r"[^A-Za-z0-9\s\.,;:!\?'\-\"()\[\]]")
+_COMMON_ENGLISH_WORDS = frozenset(
+    {
+        "a",
+        "an",
+        "and",
+        "are",
+        "as",
+        "at",
+        "be",
+        "by",
+        "for",
+        "from",
+        "has",
+        "he",
+        "in",
+        "is",
+        "it",
+        "of",
+        "on",
+        "or",
+        "that",
+        "the",
+        "their",
+        "there",
+        "this",
+        "to",
+        "was",
+        "were",
+        "which",
+        "with",
+    }
+)
+
 
 @dataclass(frozen=True)
 class OCRCoreOptions:
@@ -33,6 +71,7 @@ class OCRCoreOptions:
     binarize_threshold: int = 170
     deskew_max_angle: float = 3.0
     deskew_angle_step: float = 0.5
+    tesseract_psm: str = "auto"
 
 
 @dataclass(frozen=True)
@@ -404,6 +443,7 @@ def _parse_ocr_options(kwargs: dict[str, Any]) -> OCRRunOptions:
         binarize_threshold=int(kwargs.pop("binarize_threshold", 170)),
         deskew_max_angle=float(kwargs.pop("deskew_max_angle", 3.0)),
         deskew_angle_step=float(kwargs.pop("deskew_angle_step", 0.5)),
+        tesseract_psm=_normalize_tesseract_psm(kwargs.pop("tesseract_psm", "auto")),
     )
     return OCRRunOptions(
         core=core_options,
@@ -421,13 +461,18 @@ def _ensure_no_unknown_kwargs(kwargs: dict[str, Any], function_name: str) -> Non
     raise TypeError(f"{function_name} got unexpected keyword arguments: {unknown}")
 
 
+def _normalize_tesseract_psm(value: Any) -> str:
+    normalized = str(value).strip().lower()
+    return "auto" if normalized == "auto" else str(int(value))
+
+
 def _validate_ocr_run_options(
     pdf_path: Path,
     options: OCRRunOptions,
     which: Callable[[str], str | None],
 ) -> None:
-    if options.preprocess_mode not in {"none", "basic", "deskew", "dewarp"}:
-        raise ValueError("preprocess_mode must be 'none', 'basic', 'deskew', or 'dewarp'")
+    if options.preprocess_mode not in {"none", "basic", "deskew", "dewarp", "auto"}:
+        raise ValueError("preprocess_mode must be 'none', 'basic', 'deskew', 'dewarp', or 'auto'")
     if options.ocr_engine not in {"tesseract", "paddleocr"}:
         raise ValueError("ocr_engine must be 'tesseract' or 'paddleocr'")
     if not 0 <= options.core.binarize_threshold <= 255:
@@ -436,6 +481,10 @@ def _validate_ocr_run_options(
         raise ValueError("deskew_max_angle must be greater than 0")
     if options.core.deskew_angle_step <= 0:
         raise ValueError("deskew_angle_step must be greater than 0")
+    if options.core.tesseract_psm != "auto":
+        psm_value = int(options.core.tesseract_psm)
+        if not 0 <= psm_value <= 13:
+            raise ValueError("tesseract_psm must be 'auto' or an integer between 0 and 13")
     if which("pdftoppm") is None:
         raise RuntimeError("Missing dependency: pdftoppm")
     if options.ocr_engine == "tesseract" and which("tesseract") is None:
@@ -478,38 +527,145 @@ def _prepare_artifacts_dir(work_dir: Path, options: OCRRunOptions) -> Path:
     return artifacts_dir
 
 
+def _candidate_preprocess_modes(preprocess_mode: str) -> tuple[str, ...]:
+    if preprocess_mode == "auto":
+        return _AUTO_PREPROCESS_MODES
+    return (preprocess_mode,)
+
+
+def _candidate_tesseract_psms(options: OCRRunOptions) -> tuple[str, ...]:
+    if options.ocr_engine != "tesseract":
+        return ("",)
+    if options.core.tesseract_psm == "auto":
+        return _AUTO_TESSERACT_PSMS
+    return (options.core.tesseract_psm,)
+
+
+def _prepare_ocr_input_path(
+    image_path: Path,
+    preprocess_mode: str,
+    options: OCRRunOptions,
+    dependencies: OCRDependencies,
+    preprocessed_dir: Path,
+    prepared_inputs: dict[str, Path],
+) -> Path:
+    if preprocess_mode == "none":
+        return image_path
+    cached_path = prepared_inputs.get(preprocess_mode)
+    if cached_path is not None:
+        return cached_path
+    preprocessed_path = preprocessed_dir / preprocess_mode / image_path.name
+    dependencies.preprocess_image(
+        image_path,
+        preprocessed_path,
+        preprocess_mode,
+        options.core.binarize_threshold,
+        options.core.deskew_max_angle,
+        options.core.deskew_angle_step,
+    )
+    prepared_inputs[preprocess_mode] = preprocessed_path
+    return preprocessed_path
+
+
+def _score_ocr_text(text: str, language: str) -> float:
+    stripped = cleanup_ocr_text(text).strip()
+    if not stripped:
+        return -1_000_000.0
+    token_matches = _LATIN_TOKEN.findall(stripped)
+    if not token_matches:
+        return -500_000.0
+    alpha_chars = sum(1 for char in stripped if char.isalpha())
+    space_chars = sum(1 for char in stripped if char.isspace())
+    digit_chars = sum(1 for char in stripped if char.isdigit())
+    noisy_chars = len(_NON_TEXT_CHAR.findall(stripped))
+    common_word_bonus = 0.0
+    if language.lower().strip() in {"eng", "en"}:
+        common_word_bonus = float(
+            sum(1 for token in token_matches if token.lower() in _COMMON_ENGLISH_WORDS)
+        )
+    avg_token_length = sum(len(token) for token in token_matches) / len(token_matches)
+    token_length_penalty = abs(avg_token_length - 5.0) * 3.0
+    return (
+        float(alpha_chars) * 1.4
+        + float(space_chars) * 0.4
+        + common_word_bonus * 10.0
+        - float(digit_chars) * 0.3
+        - float(noisy_chars) * 18.0
+        - token_length_penalty
+    )
+
+
+def _run_candidate_ocr(
+    ocr_input_path: Path,
+    options: OCRRunOptions,
+    dependencies: OCRDependencies,
+    paddle_reader: Callable[[Path], str] | None,
+    tesseract_psm: str,
+) -> str:
+    if options.ocr_engine == "tesseract":
+        return _run_tesseract(
+            dependencies.run_command,
+            ocr_input_path,
+            options.core.language,
+            tesseract_psm,
+        )
+    return _run_paddle_reader(paddle_reader, ocr_input_path)
+
+
 def _run_ocr_on_page(
     image_path: Path,
     options: OCRRunOptions,
     dependencies: OCRDependencies,
     preprocessed_dir: Path,
     paddle_reader: Callable[[Path], str] | None,
-) -> tuple[Path, str]:
-    ocr_input_path = image_path
-    if options.preprocess_mode in {"basic", "deskew", "dewarp"}:
-        preprocessed_path = preprocessed_dir / image_path.name
-        dependencies.preprocess_image(
+) -> tuple[Path, str, dict[str, object]]:
+    prepared_inputs: dict[str, Path] = {}
+    candidate_runs: list[dict[str, object]] = []
+    best_candidate: tuple[float, Path, str, dict[str, object]] | None = None
+    for preprocess_mode in _candidate_preprocess_modes(options.preprocess_mode):
+        ocr_input_path = _prepare_ocr_input_path(
             image_path,
-            preprocessed_path,
-            options.preprocess_mode,
-            options.core.binarize_threshold,
-            options.core.deskew_max_angle,
-            options.core.deskew_angle_step,
+            preprocess_mode,
+            options,
+            dependencies,
+            preprocessed_dir,
+            prepared_inputs,
         )
-        ocr_input_path = preprocessed_path
-    if options.ocr_engine == "tesseract":
-        return ocr_input_path, _run_tesseract(
-            dependencies.run_command,
-            ocr_input_path,
-            options.core.language,
-        )
-    return ocr_input_path, _run_paddle_reader(paddle_reader, ocr_input_path)
+        for tesseract_psm in _candidate_tesseract_psms(options):
+            text = _run_candidate_ocr(
+                ocr_input_path,
+                options,
+                dependencies,
+                paddle_reader,
+                tesseract_psm,
+            )
+            score = _score_ocr_text(text, options.core.language)
+            candidate_metadata: dict[str, object] = {
+                "preprocess_mode": preprocess_mode,
+                "score": score,
+                "word_count": len([word for word in text.split() if word]),
+                "character_count": len(text),
+            }
+            if options.ocr_engine == "tesseract":
+                candidate_metadata["tesseract_psm"] = int(tesseract_psm)
+            candidate_runs.append(candidate_metadata)
+            if best_candidate is None or score > best_candidate[0]:
+                best_candidate = (score, ocr_input_path, text, dict(candidate_metadata))
+    if best_candidate is None:
+        raise RuntimeError(f"OCR produced no candidates for page: {image_path}")
+    selected_score, selected_path, selected_text, selected_metadata = best_candidate
+    selected_metadata["selected_preprocess_mode"] = selected_metadata["preprocess_mode"]
+    selected_metadata["selection_score"] = selected_score
+    if len(candidate_runs) > 1:
+        selected_metadata["candidate_runs"] = candidate_runs
+    return selected_path, selected_text, selected_metadata
 
 
 def _run_tesseract(
     run_command: Callable[[list[str], bool], str],
     image_path: Path,
     language: str,
+    tesseract_psm: str,
 ) -> str:
     return run_command(
         [
@@ -519,7 +675,7 @@ def _run_tesseract(
             "-l",
             language,
             "--psm",
-            "3",
+            tesseract_psm,
         ],
         True,
     )
@@ -539,14 +695,17 @@ def _page_entry(
     image_path: Path,
     ocr_input_path: Path,
     text: str,
+    selection_metadata: dict[str, object],
 ) -> dict[str, object]:
-    return {
+    entry: dict[str, object] = {
         "page_index": page_index,
         "image_path": str(image_path),
         "ocr_input_path": str(ocr_input_path),
         "word_count": len([word for word in text.split() if word]),
         "character_count": len(text),
     }
+    entry.update(selection_metadata)
+    return entry
 
 
 def _collect_page_ocr_results(
@@ -555,7 +714,7 @@ def _collect_page_ocr_results(
     dependencies: OCRDependencies,
     work_dir: Path,
     artifacts_dir: Path,
-) -> tuple[list[str], list[dict[str, object]]]:
+) -> tuple[list[str], list[dict[str, object]], dict[str, object]]:
     page_texts: list[str] = []
     page_details: list[dict[str, object]] = []
     preprocessed_dir = work_dir / "preprocessed"
@@ -564,8 +723,10 @@ def _collect_page_ocr_results(
         if options.ocr_engine == "paddleocr"
         else None
     )
+    mode_usage: Counter[str] = Counter()
+    tesseract_psm_usage: Counter[str] = Counter()
     for image_path in page_images:
-        ocr_input_path, text = _run_ocr_on_page(
+        ocr_input_path, text, selection_metadata = _run_ocr_on_page(
             image_path,
             options,
             dependencies,
@@ -574,20 +735,31 @@ def _collect_page_ocr_results(
         )
         page_texts.append(text)
         page_index = len(page_texts)
-        entry = _page_entry(page_index, image_path, ocr_input_path, text)
+        entry = _page_entry(page_index, image_path, ocr_input_path, text, selection_metadata)
+        selected_mode = entry.get("selected_preprocess_mode")
+        if isinstance(selected_mode, str):
+            mode_usage[selected_mode] += 1
+        selected_psm = entry.get("tesseract_psm")
+        if isinstance(selected_psm, int):
+            tesseract_psm_usage[str(selected_psm)] += 1
         if options.emit_page_artifacts:
             text_path = artifacts_dir / f"page-{page_index:04d}.txt"
             text_path.write_text(text, encoding="utf-8")
             entry["text_path"] = str(text_path)
         page_details.append(entry)
-    return page_texts, page_details
+    selection_summary: dict[str, object] = {
+        "mode_usage": dict(mode_usage),
+    }
+    if tesseract_psm_usage:
+        selection_summary["tesseract_psm_usage"] = dict(tesseract_psm_usage)
+    return page_texts, page_details, selection_summary
 
 
 def _finalize_ocr_output(
     page_texts: list[str],
     output_text_path: Path,
     options: OCRRunOptions,
-) -> tuple[str, dict[str, int | str]]:
+) -> tuple[str, dict[str, object]]:
     combined_text = "\n\n".join(page_texts)
     final_text = (
         cleanup_ocr_text(combined_text)
@@ -605,7 +777,7 @@ def _finalize_ocr_output(
 
 
 def _attach_page_artifacts(
-    result: dict[str, int | str],
+    result: dict[str, object],
     artifacts_dir: Path,
     page_details: list[dict[str, object]],
 ) -> None:
@@ -623,7 +795,7 @@ def ocr_pdf_with_tesseract(
     output_text_path: Path,
     work_dir: Path,
     **kwargs: Any,
-) -> dict[str, int | str]:
+) -> dict[str, object]:
     """Run OCR on a PDF with optional preprocessing and artifact output."""
 
     parse_kwargs = dict(kwargs)
@@ -638,7 +810,7 @@ def ocr_pdf_with_tesseract(
         dependencies.run_command,
     )
     artifacts_dir = _prepare_artifacts_dir(work_dir, options)
-    page_texts, page_details = _collect_page_ocr_results(
+    page_texts, page_details, selection_summary = _collect_page_ocr_results(
         page_images,
         options,
         dependencies,
@@ -646,6 +818,7 @@ def ocr_pdf_with_tesseract(
         artifacts_dir,
     )
     _final_text, result = _finalize_ocr_output(page_texts, output_text_path, options)
+    result.update(selection_summary)
     if options.emit_page_artifacts:
         _attach_page_artifacts(result, artifacts_dir, page_details)
     return result
@@ -664,6 +837,7 @@ def _parse_mode_eval_options(kwargs: dict[str, Any]) -> ModeEvalOptions:
         binarize_threshold=int(kwargs.pop("binarize_threshold", 170)),
         deskew_max_angle=float(kwargs.pop("deskew_max_angle", 3.0)),
         deskew_angle_step=float(kwargs.pop("deskew_angle_step", 0.5)),
+        tesseract_psm=_normalize_tesseract_psm(kwargs.pop("tesseract_psm", "auto")),
     )
     return ModeEvalOptions(
         core=core_options,
@@ -682,6 +856,7 @@ def _mode_ocr_kwargs(options: ModeEvalOptions, mode: str) -> dict[str, Any]:
         "binarize_threshold": options.core.binarize_threshold,
         "deskew_max_angle": options.core.deskew_max_angle,
         "deskew_angle_step": options.core.deskew_angle_step,
+        "tesseract_psm": options.core.tesseract_psm,
         "ocr_engine": options.ocr_engine,
     }
 
@@ -803,6 +978,7 @@ def _parse_local_archive_options(kwargs: dict[str, Any]) -> LocalArchiveBenchmar
         binarize_threshold=int(kwargs.pop("binarize_threshold", 170)),
         deskew_max_angle=float(kwargs.pop("deskew_max_angle", 3.0)),
         deskew_angle_step=float(kwargs.pop("deskew_angle_step", 0.5)),
+        tesseract_psm=_normalize_tesseract_psm(kwargs.pop("tesseract_psm", "auto")),
     )
     return LocalArchiveBenchmarkOptions(
         core=core_options,

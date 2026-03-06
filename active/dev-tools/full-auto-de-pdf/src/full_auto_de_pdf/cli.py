@@ -128,9 +128,14 @@ def _add_ocr_pdf_command(subparsers: argparse._SubParsersAction[argparse.Argumen
     )
     parser.add_argument(
         "--preprocess-mode",
-        choices=["none", "basic", "deskew", "dewarp"],
-        default="basic",
-        help="Image preprocessing before OCR",
+        choices=["none", "basic", "deskew", "dewarp", "auto"],
+        default="auto",
+        help="Image preprocessing before OCR (auto tries multiple modes per page)",
+    )
+    parser.add_argument(
+        "--tesseract-psm",
+        default="auto",
+        help="Tesseract page segmentation mode (0-13) or 'auto' to try several layouts",
     )
     parser.add_argument(
         "--binarize-threshold",
@@ -223,6 +228,11 @@ def _add_ocr_eval_modes_command(
         action="store_true",
         help="Disable OCR cleanup after extraction",
     )
+    parser.add_argument(
+        "--tesseract-psm",
+        default="auto",
+        help="Tesseract page segmentation mode (0-13) or 'auto' to try several layouts",
+    )
 
 
 def _add_benchmark_local_archive_command(
@@ -286,6 +296,11 @@ def _add_benchmark_local_archive_command(
         "--no-cleanup",
         action="store_true",
         help="Disable OCR cleanup after extraction",
+    )
+    parser.add_argument(
+        "--tesseract-psm",
+        default="auto",
+        help="Tesseract page segmentation mode (0-13) or 'auto' to try several layouts",
     )
 
 
@@ -402,6 +417,7 @@ def _handle_ocr_pdf(args: argparse.Namespace) -> int:
         binarize_threshold=args.binarize_threshold,
         deskew_max_angle=args.deskew_max_angle,
         deskew_angle_step=args.deskew_angle_step,
+        tesseract_psm=args.tesseract_psm,
         ocr_engine=args.ocr_engine,
         emit_page_artifacts=not args.no_page_artifacts,
         page_artifacts_dir=args.page_artifacts_dir,
@@ -425,6 +441,7 @@ def _handle_ocr_eval_modes(args: argparse.Namespace) -> int:
         binarize_threshold=args.binarize_threshold,
         deskew_max_angle=args.deskew_max_angle,
         deskew_angle_step=args.deskew_angle_step,
+        tesseract_psm=args.tesseract_psm,
         ocr_engine=args.ocr_engine,
     )
     mode_count = len(report.get("modes", {}))
@@ -445,6 +462,7 @@ def _handle_benchmark_local_archive(args: argparse.Namespace) -> int:
         binarize_threshold=args.binarize_threshold,
         deskew_max_angle=args.deskew_max_angle,
         deskew_angle_step=args.deskew_angle_step,
+        tesseract_psm=args.tesseract_psm,
         ocr_engine=args.ocr_engine,
     )
     print(

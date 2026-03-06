@@ -156,6 +156,84 @@ def test_ocr_pdf_with_tesseract_rejects_invalid_deskew_step(tmp_path) -> None:
         )
 
 
+def test_ocr_pdf_with_tesseract_rejects_invalid_tesseract_psm(tmp_path) -> None:
+    pdf_path = tmp_path / "book.pdf"
+    pdf_path.write_bytes(b"pdf")
+
+    def _which(_name: str) -> str | None:
+        return "/usr/bin/fake"
+
+    with pytest.raises(ValueError):
+        ocr_pdf_with_tesseract(
+            pdf_path=pdf_path,
+            output_text_path=tmp_path / "out.txt",
+            work_dir=tmp_path / "work",
+            tesseract_psm="99",
+            which=_which,
+        )
+
+
+def test_ocr_pdf_with_tesseract_auto_selects_best_mode_and_psm(tmp_path) -> None:
+    pdf_path = tmp_path / "book.pdf"
+    output_path = tmp_path / "out.txt"
+    work_dir = tmp_path / "work"
+    pdf_path.write_bytes(b"pdf")
+
+    def _which(_name: str) -> str | None:
+        return "/usr/bin/fake"
+
+    def _run(command: list[str], capture_output: bool) -> str:
+        if command[0] == "pdftoppm":
+            pages_dir = work_dir / "pages"
+            pages_dir.mkdir(parents=True, exist_ok=True)
+            (pages_dir / "page-1.png").write_bytes(b"x")
+            return ""
+        if command[0] == "tesseract":
+            assert capture_output is True
+            mode = Path(command[1]).parent.name
+            psm = command[-1]
+            if mode == "basic" and psm == "6":
+                return "The printed text is clean and readable"
+            if mode == "deskew":
+                return "The prlnted text 1s noisy"
+            return "###"
+        raise AssertionError("unexpected command")
+
+    def _preprocess_image(
+        input_path: Path,
+        output_path: Path,
+        mode: str,
+        _threshold: int,
+        _max_angle: float,
+        _step: float,
+    ) -> None:
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_bytes(input_path.read_bytes())
+        assert mode in {"basic", "deskew", "dewarp"}
+
+    metrics = ocr_pdf_with_tesseract(
+        pdf_path=pdf_path,
+        output_text_path=output_path,
+        work_dir=work_dir,
+        preprocess_mode="auto",
+        tesseract_psm="auto",
+        run_command=_run,
+        preprocess_image=_preprocess_image,
+        which=_which,
+    )
+
+    assert "clean and readable" in output_path.read_text(encoding="utf-8")
+    assert metrics["mode_usage"] == {"basic": 1}
+    assert metrics["tesseract_psm_usage"] == {"6": 1}
+    manifest_payload = json.loads(
+        Path(str(metrics["page_artifacts_manifest"])).read_text(encoding="utf-8")
+    )
+    page_entry = manifest_payload["pages"][0]
+    assert page_entry["selected_preprocess_mode"] == "basic"
+    assert page_entry["tesseract_psm"] == 6
+    assert len(page_entry["candidate_runs"]) == 12
+
+
 def test_ocr_pdf_with_paddleocr_engine_path(tmp_path) -> None:
     pdf_path = tmp_path / "book.pdf"
     output_path = tmp_path / "out.txt"

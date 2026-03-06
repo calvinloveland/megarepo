@@ -16,7 +16,7 @@ full-auto-de-pdf --help
 # Build starter archive.org metadata manifest
 full-auto-de-pdf manifest --output data/archive_manifest.json
 
-# Build baseline EPUB from OCR text
+# Build a structured EPUB from OCR text
 # (OCR cleanup is enabled by default; pass --no-cleanup to disable)
 full-auto-de-pdf build-epub \
   --ocr-text sample.txt \
@@ -36,17 +36,20 @@ full-auto-de-pdf benchmark-archive \
   --source-mode best \
   --output data/benchmark_archive_accuracy_best.json
 
-# Run local OCR on a scanned PDF with pdftoppm + tesseract
+# Run local OCR on a scanned PDF with pdftoppm + adaptive page-level OCR selection
 full-auto-de-pdf ocr-pdf \
   --pdf scans/book.pdf \
   --output out/book.ocr.txt \
   --work-dir data/ocr-work \
-  --preprocess-mode deskew \
+  --preprocess-mode auto \
+  --tesseract-psm auto \
   --binarize-threshold 170 \
   --deskew-max-angle 3.0 \
   --deskew-angle-step 0.5 \
   --ocr-engine tesseract
-# (writes per-page OCR artifacts under data/ocr-work/page_ocr by default)
+# (tries multiple preprocess modes / Tesseract page-segmentation modes per page,
+#  then writes per-page OCR artifacts and selection metadata under
+#  data/ocr-work/page_ocr by default)
 
 # Optional stronger engine (install first: pip install -e '.[ocr]')
 # (the optional extras pin a CPU-compatible Paddle runtime for Linux/headless use)
@@ -82,3 +85,13 @@ full-auto-de-pdf eval-epub \
   --output data/epub_eval.json \
   --reference-headings refs/book_headings.txt
 ```
+
+## What changed
+
+- `ocr-pdf` can now use `--preprocess-mode auto` and `--tesseract-psm auto` to try several page-level OCR candidates and keep the best-scoring result for each page.
+- Per-page OCR manifests now record the selected preprocess mode, selected Tesseract PSM, and candidate scoring data for debugging and benchmarking.
+- `build-epub` now emits a more structured EPUB3 archive with multiple XHTML chapters when chapter headings are detected, a richer navigation document, semantic headings, preserved ordered/unordered lists, and a bundled stylesheet.
+
+## Accuracy note
+
+This project now has a stronger adaptive OCR pipeline aimed at high printed-text accuracy, but a true 99.9% claim still depends on measuring against a representative benchmark corpus for the exact document set you care about.

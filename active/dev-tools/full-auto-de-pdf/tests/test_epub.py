@@ -12,6 +12,7 @@ def test_build_epub_from_ocr_text_creates_required_epub_entries(tmp_path) -> Non
         title="Example Title",
     )
 
+    assert metrics["chapter_count"] == 1
     assert metrics["paragraph_count"] == 2
     assert metrics["word_count"] == 4
     with zipfile.ZipFile(output_epub) as epub_file:
@@ -20,7 +21,41 @@ def test_build_epub_from_ocr_text_creates_required_epub_entries(tmp_path) -> Non
         assert "META-INF/container.xml" in names
         assert "OEBPS/content.opf" in names
         assert "OEBPS/nav.xhtml" in names
+        assert "OEBPS/styles.css" in names
         assert "OEBPS/chapter1.xhtml" in names
+
+
+def test_build_epub_from_ocr_text_splits_chapters_and_preserves_lists(tmp_path) -> None:
+    output_epub = tmp_path / "structured.epub"
+    metrics = build_epub_from_ocr_text(
+        (
+            "CHAPTER I\n\n"
+            "The Beginning\n\n"
+            "- First item\n\n"
+            "- Second item\n\n"
+            "CHAPTER II\n\n"
+            "Another Section\n\n"
+            "1. Step one\n\n"
+            "2. Step two"
+        ),
+        output_path=output_epub,
+        title="Structured Book",
+        apply_cleanup=False,
+    )
+
+    assert metrics["chapter_count"] == 2
+    assert metrics["heading_count"] >= 4
+    assert metrics["list_count"] == 2
+    with zipfile.ZipFile(output_epub) as epub_file:
+        nav_text = epub_file.read("OEBPS/nav.xhtml").decode("utf-8")
+        chapter1_text = epub_file.read("OEBPS/chapter1.xhtml").decode("utf-8")
+        chapter2_text = epub_file.read("OEBPS/chapter2.xhtml").decode("utf-8")
+        assert "CHAPTER I" in nav_text
+        assert "CHAPTER II" in nav_text
+        assert "<ul>" in chapter1_text
+        assert "<ol>" in chapter2_text
+        assert "<h2>The Beginning</h2>" in chapter1_text
+        assert "<h2>Another Section</h2>" in chapter2_text
 
 
 def test_build_epub_from_ocr_file_writes_metrics(tmp_path) -> None:
