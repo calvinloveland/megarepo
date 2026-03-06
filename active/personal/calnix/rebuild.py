@@ -104,6 +104,17 @@ def detect_host() -> str:
 
 
 def get_repo_root() -> str:
+    # Prefer the nearest flake root so nested repos (like megarepo) work.
+    for start in (os.getcwd(), os.path.dirname(os.path.realpath(__file__))):
+        cursor = os.path.abspath(start)
+        while True:
+            if os.path.exists(os.path.join(cursor, "flake.nix")):
+                return cursor
+            parent = os.path.dirname(cursor)
+            if parent == cursor:
+                break
+            cursor = parent
+
     try:
         root = subprocess.check_output(["git", "rev-parse", "--show-toplevel"], stderr=subprocess.DEVNULL).decode().strip()
         return root
