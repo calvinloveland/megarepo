@@ -5,6 +5,7 @@ from full_auto_de_pdf.benchmark import (
     calculate_accuracy_metrics,
     parse_abbyy_xml_text,
     run_archive_benchmark,
+    run_parallel_text_benchmark,
     strip_gutenberg_boilerplate,
 )
 
@@ -113,3 +114,39 @@ def test_run_archive_benchmark_source_mode_djvu_is_strict(tmp_path) -> None:
     report = run_archive_benchmark(cache_dir=cache_dir, books=books, source_mode="djvu")
     assert report["books"][0]["selected_source"] == "djvu"
     assert report["summary"]["selected_source_counts"]["djvu"] == 1
+
+
+def test_run_parallel_text_benchmark_improves_split_words(tmp_path) -> None:
+    corpus_path = tmp_path / "pairs.tsv"
+    corpus_path.write_text(
+        "domain\tgid\thid\tgsent\thsent\n"
+        "Fiction\t1\ta\tThe fox jumps over the dog.\tThe foxjumps over the dog.\n"
+        "Fiction\t1\ta\tReaders keep the story moving.\tReaders keepsthe story moving.\n",
+        encoding="utf-8",
+    )
+
+    report = run_parallel_text_benchmark(
+        corpus_path=corpus_path,
+        output_report_path=tmp_path / "report.json",
+    )
+
+    assert report["summary"]["row_count"] == 2
+    assert report["summary"]["cleaned_metrics"]["word_accuracy"] > report["summary"]["raw_metrics"]["word_accuracy"]
+
+
+def test_run_parallel_text_benchmark_can_score_reference_lexicon_cleanup(tmp_path) -> None:
+    corpus_path = tmp_path / "pairs.tsv"
+    corpus_path.write_text(
+        "domain\tgid\thid\tgsent\thsent\n"
+        "Fiction\t1\ta\tIt contains realistic synthetic notes for readers.\tIt teontains realistcsynthetic notes for eaders.\n",
+        encoding="utf-8",
+    )
+
+    report = run_parallel_text_benchmark(
+        corpus_path=corpus_path,
+        output_report_path=tmp_path / "report.json",
+        include_reference_lexicon_cleanup=True,
+    )
+
+    assert "reference_lexicon_metrics" in report["summary"]
+    assert report["summary"]["reference_lexicon_metrics"]["word_accuracy"] > report["summary"]["cleaned_metrics"]["word_accuracy"]

@@ -339,6 +339,70 @@ def _average_metric(results: list[dict[str, Any]], key: str) -> float:
     return sum(float(item[key]) for item in results) / len(results) if results else 0.0
 
 
+def _index_paths_by_stem(root_dir: Path, pattern: str) -> dict[str, Path]:
+    return {
+        path.stem: path
+        for path in sorted(root_dir.glob(pattern))
+        if path.is_file()
+    }
+
+
+def build_image_text_corpus_manifest(
+    output_manifest_path: Path,
+    images_dir: Path,
+    texts_dir: Path,
+    *,
+    image_glob: str = "**/*.tif*",
+    text_glob: str = "**/*.txt",
+    limit: int | None = None,
+    title_prefix: str = "Ground Truth Page",
+) -> dict[str, Any]:
+    """Build a benchmark manifest from local page-image and text pairs."""
+
+    image_paths = _index_paths_by_stem(images_dir, image_glob)
+    text_paths = _index_paths_by_stem(texts_dir, text_glob)
+    shared_identifiers = sorted(set(image_paths).intersection(text_paths))
+    if limit is not None:
+        shared_identifiers = shared_identifiers[:limit]
+    if not shared_identifiers:
+        raise ValueError("no matching image/text pairs were found for the requested corpus paths")
+
+    books = []
+    for identifier in shared_identifiers:
+        reference_text_path = text_paths[identifier]
+        reference_text = reference_text_path.read_text(encoding="utf-8")
+        books.append(
+            {
+                "identifier": identifier,
+                "title": f"{title_prefix} {identifier}",
+                "reference_text_path": str(reference_text_path),
+                "page_image_paths": [str(image_paths[identifier])],
+                "page_count": 1,
+                "reference_word_count": _word_count(reference_text),
+            }
+        )
+
+    manifest = {
+        "corpus_type": "local-image-text-groundtruth",
+        "description": (
+            "Image/text OCR corpus manifest built from existing local page images and "
+            "ground-truth transcription files."
+        ),
+        "book_count": len(books),
+        "images_dir": str(images_dir),
+        "texts_dir": str(texts_dir),
+        "image_glob": image_glob,
+        "text_glob": text_glob,
+        "books": books,
+    }
+    output_manifest_path.parent.mkdir(parents=True, exist_ok=True)
+    output_manifest_path.write_text(
+        json.dumps(manifest, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    return manifest
+
+
 def run_benchmark_corpus(
     corpus_manifest_path: Path,
     output_report_path: Path,
@@ -358,7 +422,8 @@ def run_benchmark_corpus(
             continue
         identifier = str(book["identifier"])
         title = str(book["title"])
-        pdf_path = Path(str(book["pdf_path"]))
+        pdf_value = book.get("pdf_path")
+        pdf_path = Path(str(pdf_value)) if pdf_value else None
         reference_text_path = Path(str(book["reference_text_path"]))
         reference_text = reference_text_path.read_text(encoding="utf-8")
         output_text_path = work_dir / f"{_slugify(identifier)}.txt"
@@ -378,7 +443,7 @@ def run_benchmark_corpus(
             )
             if page_image_paths
             else ocr_pdf_with_tesseract(
-                pdf_path=pdf_path,
+                pdf_path=_require_pdf_path(pdf_path, identifier),
                 output_text_path=output_text_path,
                 work_dir=work_dir / _slugify(identifier),
                 cleanup_lexicon_texts=(reference_text,),
@@ -391,7 +456,7 @@ def run_benchmark_corpus(
             {
                 "identifier": identifier,
                 "title": title,
-                "pdf_path": str(pdf_path),
+                "pdf_path": str(pdf_path) if pdf_path is not None else None,
                 "reference_text_path": str(reference_text_path),
                 "ocr_output_path": str(output_text_path),
                 "page_count": ocr_result["page_count"],
@@ -426,3 +491,11 @@ def run_benchmark_corpus(
     output_report_path.parent.mkdir(parents=True, exist_ok=True)
     output_report_path.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return report
+
+
+def _require_pdf_path(pdf_path: Path | None, identifier: str) -> Path:
+    if pdf_path is None:
+        raise ValueError(
+            f"corpus entry {identifier!r} did not include page_image_paths or a pdf_path"
+        )
+    return pdf_path

@@ -151,6 +151,87 @@ def test_benchmark_corpus_command_runs_pipeline(monkeypatch, tmp_path) -> None:
     assert rc == 0
 
 
+def test_build_image_text_corpus_command_writes_manifest(monkeypatch, tmp_path) -> None:
+    output_manifest = tmp_path / "manifest.json"
+    images_dir = tmp_path / "images"
+    texts_dir = tmp_path / "texts"
+
+    def _fake_build_image_text_corpus_manifest(**kwargs):  # noqa: ANN003
+        assert kwargs["output_manifest_path"] == output_manifest
+        assert kwargs["images_dir"] == images_dir
+        assert kwargs["texts_dir"] == texts_dir
+        assert kwargs["image_glob"] == "*.tiff"
+        assert kwargs["text_glob"] == "*.txt"
+        assert kwargs["limit"] == 3
+        return {"book_count": 3, "books": []}
+
+    monkeypatch.setattr(cli, "build_image_text_corpus_manifest", _fake_build_image_text_corpus_manifest)
+    rc = cli.main(
+        [
+            "build-image-text-corpus",
+            "--output-manifest",
+            str(output_manifest),
+            "--images-dir",
+            str(images_dir),
+            "--texts-dir",
+            str(texts_dir),
+            "--image-glob",
+            "*.tiff",
+            "--text-glob",
+            "*.txt",
+            "--limit",
+            "3",
+        ]
+    )
+
+    assert rc == 0
+
+
+def test_benchmark_parallel_text_command_runs_pipeline(monkeypatch, tmp_path) -> None:
+    input_tsv = tmp_path / "pairs.tsv"
+    output_report = tmp_path / "report.json"
+    input_tsv.write_text("domain\tgsent\thsent\n", encoding="utf-8")
+
+    def _fake_run_parallel_text_benchmark(**kwargs):  # noqa: ANN003
+        assert kwargs["corpus_path"] == input_tsv
+        assert kwargs["output_report_path"] == output_report
+        assert kwargs["reference_column"] == "clean"
+        assert kwargs["hypothesis_column"] == "ocr"
+        assert kwargs["domains"] == ("Fiction", "History")
+        assert kwargs["row_limit"] == 10
+        assert kwargs["include_reference_lexicon_cleanup"] is True
+        return {
+            "summary": {
+                "raw_metrics": {"word_accuracy": 0.9},
+                "cleaned_metrics": {"word_accuracy": 0.95},
+            }
+        }
+
+    monkeypatch.setattr(cli, "run_parallel_text_benchmark", _fake_run_parallel_text_benchmark)
+    rc = cli.main(
+        [
+            "benchmark-parallel-text",
+            "--input",
+            str(input_tsv),
+            "--output",
+            str(output_report),
+            "--reference-column",
+            "clean",
+            "--hypothesis-column",
+            "ocr",
+            "--domain",
+            "Fiction",
+            "--domain",
+            "History",
+            "--limit",
+            "10",
+            "--reference-lexicon-cleanup",
+        ]
+    )
+
+    assert rc == 0
+
+
 def test_ocr_pdf_command_runs_pipeline(monkeypatch, tmp_path) -> None:
     input_pdf = tmp_path / "book.pdf"
     output_text = tmp_path / "book.txt"

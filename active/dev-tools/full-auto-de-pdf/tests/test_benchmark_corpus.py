@@ -2,7 +2,11 @@ import json
 from pathlib import Path
 
 from full_auto_de_pdf.benchmark import BenchmarkBook
-from full_auto_de_pdf.benchmark_corpus import build_benchmark_corpus, run_benchmark_corpus
+from full_auto_de_pdf.benchmark_corpus import (
+    build_benchmark_corpus,
+    build_image_text_corpus_manifest,
+    run_benchmark_corpus,
+)
 
 
 def test_build_benchmark_corpus_creates_manifest_and_assets(monkeypatch, tmp_path) -> None:
@@ -137,3 +141,63 @@ def test_run_benchmark_corpus_prefers_page_images_when_available(monkeypatch, tm
 
     assert seen["page_images"] is True
     assert report["summary"]["avg_word_accuracy"] == 1.0
+
+
+def test_build_image_text_corpus_manifest_pairs_matching_stems(tmp_path) -> None:
+    images_dir = tmp_path / "images"
+    texts_dir = tmp_path / "texts"
+    images_dir.mkdir()
+    texts_dir.mkdir()
+    (images_dir / "a006.tiff").write_bytes(b"fake-image")
+    (texts_dir / "a006.txt").write_text("Ground truth text", encoding="utf-8")
+    (images_dir / "orphan.tiff").write_bytes(b"ignored")
+
+    manifest = build_image_text_corpus_manifest(
+        output_manifest_path=tmp_path / "manifest.json",
+        images_dir=images_dir,
+        texts_dir=texts_dir,
+    )
+
+    assert manifest["book_count"] == 1
+    assert manifest["books"][0]["identifier"] == "a006"
+    assert manifest["books"][0]["page_image_paths"] == [str(images_dir / "a006.tiff")]
+
+
+def test_run_benchmark_corpus_supports_image_only_manifest(monkeypatch, tmp_path) -> None:
+    reference_path = tmp_path / "reference.txt"
+    reference_path.write_text("clean printed text", encoding="utf-8")
+    page_path = tmp_path / "page-1.png"
+    page_path.write_bytes(b"fake-image")
+    manifest_path = tmp_path / "manifest.json"
+    manifest_path.write_text(
+        json.dumps(
+            {
+                "books": [
+                    {
+                        "identifier": "demo-book",
+                        "title": "Demo Book",
+                        "reference_text_path": str(reference_path),
+                        "page_image_paths": [str(page_path)],
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    def _fake_ocr_page_images(**kwargs):  # noqa: ANN003
+        output_path = kwargs["output_text_path"]
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text("clean printed text", encoding="utf-8")
+        return {"page_count": 1, "word_count": 3, "character_count": 18}
+
+    monkeypatch.setattr("full_auto_de_pdf.benchmark_corpus.ocr_page_images", _fake_ocr_page_images)
+
+    report = run_benchmark_corpus(
+        corpus_manifest_path=manifest_path,
+        output_report_path=tmp_path / "report.json",
+        work_dir=tmp_path / "work",
+    )
+
+    assert report["books"][0]["pdf_path"] is None
+    assert report["summary"]["avg_char_accuracy"] == 1.0

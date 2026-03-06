@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import csv
 from dataclasses import dataclass
 import gzip
 import json
@@ -372,6 +373,129 @@ def calculate_accuracy_metrics(reference_text: str, hypothesis_text: str) -> dic
         "sampled_reference_word_count": len(metric_input.sampled_ref_words),
         "sampled_hypothesis_word_count": len(metric_input.sampled_hyp_words),
     }
+
+
+def _count_row_values(rows: list[dict[str, str]], key: str) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for row in rows:
+        value = row.get(key, "").strip()
+        if not value:
+            continue
+        counts[value] = counts.get(value, 0) + 1
+    return counts
+
+
+def _unique_nonempty_values(rows: list[dict[str, str]], key: str) -> int:
+    return len({row.get(key, "").strip() for row in rows if row.get(key, "").strip()})
+
+
+def _read_parallel_text_rows(
+    corpus_path: Path,
+    *,
+    reference_column: str,
+    hypothesis_column: str,
+    domains: tuple[str, ...],
+    row_limit: int | None,
+) -> list[dict[str, str]]:
+    with corpus_path.open("r", encoding="utf-8", newline="") as handle:
+        reader = csv.DictReader(handle, delimiter="\t")
+        fieldnames = tuple(reader.fieldnames or ())
+        missing_columns = [
+            column
+            for column in (reference_column, hypothesis_column)
+            if column not in fieldnames
+        ]
+        if missing_columns:
+            raise ValueError(
+                "parallel corpus TSV is missing required columns: "
+                + ", ".join(missing_columns)
+            )
+        selected_domains = {domain.strip() for domain in domains if domain.strip()}
+        rows: list[dict[str, str]] = []
+        for raw_row in reader:
+            if not isinstance(raw_row, dict):
+                continue
+            domain_value = str(raw_row.get("domain", "")).strip()
+            if selected_domains and domain_value not in selected_domains:
+                continue
+            reference_text = str(raw_row.get(reference_column, "")).strip()
+            hypothesis_text = str(raw_row.get(hypothesis_column, "")).strip()
+            if not reference_text or not hypothesis_text:
+                continue
+            rows.append(
+                {
+                    "domain": domain_value,
+                    "gid": str(raw_row.get("gid", "")).strip(),
+                    "hid": str(raw_row.get("hid", "")).strip(),
+                    "reference_text": reference_text,
+                    "hypothesis_text": hypothesis_text,
+                }
+            )
+            if row_limit is not None and len(rows) >= row_limit:
+                break
+    if not rows:
+        raise ValueError("parallel corpus TSV did not yield any usable rows")
+    return rows
+
+
+def run_parallel_text_benchmark(
+    corpus_path: Path,
+    output_report_path: Path,
+    *,
+    reference_column: str = "gsent",
+    hypothesis_column: str = "hsent",
+    domains: tuple[str, ...] = (),
+    row_limit: int | None = None,
+    include_reference_lexicon_cleanup: bool = False,
+) -> dict[str, Any]:
+    """Benchmark a local aligned OCR/proofread TSV corpus."""
+
+    rows = _read_parallel_text_rows(
+        corpus_path,
+        reference_column=reference_column,
+        hypothesis_column=hypothesis_column,
+        domains=domains,
+        row_limit=row_limit,
+    )
+    reference_text = "\n".join(row["reference_text"] for row in rows)
+    hypothesis_text = "\n".join(row["hypothesis_text"] for row in rows)
+    cleaned_hypothesis_text = cleanup_ocr_text(hypothesis_text)
+
+    summary: dict[str, Any] = {
+        "row_count": len(rows),
+        "raw_metrics": calculate_accuracy_metrics(reference_text, hypothesis_text),
+        "cleaned_metrics": calculate_accuracy_metrics(reference_text, cleaned_hypothesis_text),
+    }
+    if include_reference_lexicon_cleanup:
+        reference_guided_hypothesis = cleanup_ocr_text(
+            hypothesis_text,
+            lexicon_texts=(reference_text,),
+        )
+        summary["reference_lexicon_metrics"] = calculate_accuracy_metrics(
+            reference_text,
+            reference_guided_hypothesis,
+        )
+
+    report = {
+        "corpus_path": str(corpus_path),
+        "corpus_type": "aligned-parallel-text-tsv",
+        "reference_column": reference_column,
+        "hypothesis_column": hypothesis_column,
+        "selected_domains": [domain for domain in domains if domain.strip()],
+        "row_limit": row_limit,
+        "domain_counts": _count_row_values(rows, "domain"),
+        "gutenberg_id_count": _unique_nonempty_values(rows, "gid"),
+        "hathitrust_id_count": _unique_nonempty_values(rows, "hid"),
+        "metric_note": (
+            "Raw metrics score the selected OCR sentences exactly as supplied. "
+            "Cleaned metrics score the same corpus after applying cleanup_ocr_text to the "
+            "joined OCR text. Reference-lexicon metrics, when enabled, are oracle-style "
+            "and should not be treated as deployable accuracy."
+        ),
+        "summary": summary,
+    }
+    write_benchmark_report(output_report_path, report)
+    return report
 
 
 def _load_or_fetch_text(path: Path, fetcher: Callable[[], str]) -> str:

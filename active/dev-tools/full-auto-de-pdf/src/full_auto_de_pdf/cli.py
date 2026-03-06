@@ -8,8 +8,12 @@ from pathlib import Path
 from typing import Callable
 
 from .archive_org import build_manifest, write_manifest
-from .benchmark import run_archive_benchmark, write_benchmark_report
-from .benchmark_corpus import build_benchmark_corpus, run_benchmark_corpus
+from .benchmark import run_archive_benchmark, run_parallel_text_benchmark, write_benchmark_report
+from .benchmark_corpus import (
+    build_benchmark_corpus,
+    build_image_text_corpus_manifest,
+    run_benchmark_corpus,
+)
 from .benchmark_viz import build_local_benchmark_failure_page
 from .epub import build_epub_from_ocr_file
 from .epub_eval import evaluate_epub_structure
@@ -31,7 +35,9 @@ def _build_parser() -> argparse.ArgumentParser:
         _add_build_epub_command,
         _add_benchmark_archive_command,
         _add_build_benchmark_corpus_command,
+        _add_build_image_text_corpus_command,
         _add_benchmark_corpus_command,
+        _add_benchmark_parallel_text_command,
         _add_ocr_pdf_command,
         _add_ocr_eval_modes_command,
         _add_benchmark_local_archive_command,
@@ -223,6 +229,77 @@ def _add_benchmark_corpus_command(
         "--no-page-artifacts",
         action="store_true",
         help="Disable per-book per-page OCR artifact text files",
+    )
+
+
+def _add_build_image_text_corpus_command(
+    subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
+) -> None:
+    parser = subparsers.add_parser(
+        "build-image-text-corpus",
+        help="Build a benchmark manifest from local page images and ground-truth text files",
+    )
+    parser.add_argument(
+        "--output-manifest",
+        type=Path,
+        default=Path("data/image_text_corpus_manifest.json"),
+        help="Output manifest JSON path",
+    )
+    parser.add_argument("--images-dir", type=Path, required=True, help="Directory containing page images")
+    parser.add_argument("--texts-dir", type=Path, required=True, help="Directory containing ground-truth text files")
+    parser.add_argument(
+        "--image-glob",
+        default="**/*.tif*",
+        help="Glob pattern under images-dir for page images",
+    )
+    parser.add_argument(
+        "--text-glob",
+        default="**/*.txt",
+        help="Glob pattern under texts-dir for ground-truth text files",
+    )
+    parser.add_argument("--limit", type=int, help="Optional limit on the number of matched pairs")
+    parser.add_argument(
+        "--title-prefix",
+        default="Ground Truth Page",
+        help="Title prefix for generated manifest entries",
+    )
+
+
+def _add_benchmark_parallel_text_command(
+    subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
+) -> None:
+    parser = subparsers.add_parser(
+        "benchmark-parallel-text",
+        help="Benchmark a local aligned OCR/proofread TSV corpus",
+    )
+    parser.add_argument("--input", type=Path, required=True, help="Input TSV corpus path")
+    parser.add_argument(
+        "--output",
+        type=Path,
+        default=Path("data/parallel_text_benchmark.json"),
+        help="Output JSON report path",
+    )
+    parser.add_argument(
+        "--reference-column",
+        default="gsent",
+        help="TSV column containing reference text",
+    )
+    parser.add_argument(
+        "--hypothesis-column",
+        default="hsent",
+        help="TSV column containing OCR hypothesis text",
+    )
+    parser.add_argument(
+        "--domain",
+        action="append",
+        default=[],
+        help="Optional domain filter; may be repeated",
+    )
+    parser.add_argument("--limit", type=int, help="Optional limit on selected TSV rows")
+    parser.add_argument(
+        "--reference-lexicon-cleanup",
+        action="store_true",
+        help="Also score oracle-style cleanup using the reference text as a lexicon",
     )
 
 
@@ -544,6 +621,20 @@ def _handle_build_benchmark_corpus(args: argparse.Namespace) -> int:
     return 0
 
 
+def _handle_build_image_text_corpus(args: argparse.Namespace) -> int:
+    manifest = build_image_text_corpus_manifest(
+        output_manifest_path=args.output_manifest,
+        images_dir=args.images_dir,
+        texts_dir=args.texts_dir,
+        image_glob=args.image_glob,
+        text_glob=args.text_glob,
+        limit=args.limit,
+        title_prefix=args.title_prefix,
+    )
+    print(f"Built image/text corpus: {manifest['book_count']} entries -> {args.output_manifest}")
+    return 0
+
+
 def _handle_benchmark_corpus(args: argparse.Namespace) -> int:
     report = run_benchmark_corpus(
         corpus_manifest_path=args.corpus_manifest,
@@ -565,6 +656,27 @@ def _handle_benchmark_corpus(args: argparse.Namespace) -> int:
         "Benchmark corpus complete: "
         f"word_accuracy={float(summary['avg_word_accuracy']):.4f}, "
         f"char_accuracy={float(summary['avg_char_accuracy']):.4f} -> {args.output}"
+    )
+    return 0
+
+
+def _handle_benchmark_parallel_text(args: argparse.Namespace) -> int:
+    report = run_parallel_text_benchmark(
+        corpus_path=args.input,
+        output_report_path=args.output,
+        reference_column=args.reference_column,
+        hypothesis_column=args.hypothesis_column,
+        domains=tuple(args.domain),
+        row_limit=args.limit,
+        include_reference_lexicon_cleanup=args.reference_lexicon_cleanup,
+    )
+    summary = report["summary"]
+    raw_word = float(summary["raw_metrics"]["word_accuracy"])
+    cleaned_word = float(summary["cleaned_metrics"]["word_accuracy"])
+    print(
+        "Parallel-text benchmark complete: "
+        f"raw_word_accuracy={raw_word:.4f}, "
+        f"cleaned_word_accuracy={cleaned_word:.4f} -> {args.output}"
     )
     return 0
 
@@ -674,7 +786,9 @@ _COMMAND_HANDLERS: dict[str, Callable[[argparse.Namespace], int]] = {
     "build-epub": _handle_build_epub,
     "benchmark-archive": _handle_benchmark_archive,
     "build-benchmark-corpus": _handle_build_benchmark_corpus,
+    "build-image-text-corpus": _handle_build_image_text_corpus,
     "benchmark-corpus": _handle_benchmark_corpus,
+    "benchmark-parallel-text": _handle_benchmark_parallel_text,
     "ocr-pdf": _handle_ocr_pdf,
     "ocr-eval-modes": _handle_ocr_eval_modes,
     "benchmark-local-archive": _handle_benchmark_local_archive,

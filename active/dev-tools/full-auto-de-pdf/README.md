@@ -49,6 +49,21 @@ full-auto-de-pdf benchmark-corpus \
   --preprocess-mode auto \
   --tesseract-psm auto
 
+# Build a benchmark manifest from existing page images + ground-truth text
+# (useful for corpora like Old Books Dataset after downloading them locally)
+full-auto-de-pdf build-image-text-corpus \
+  --images-dir data/old-books/300dpi/tiff \
+  --texts-dir data/old-books/groundtruth \
+  --output-manifest data/old_books_manifest.json
+
+# Benchmark a local aligned OCR/proofread TSV corpus such as
+# Guten_HT_highpairs.tsv or Guten_HT_lowpairs.tsv from Illinois Data Bank
+full-auto-de-pdf benchmark-parallel-text \
+  --input data/Guten_HT_highpairs.tsv \
+  --output data/guten_ht_highpairs_report.json \
+  --domain Fiction \
+  --limit 5000
+
 # Run local OCR on a scanned PDF with pdftoppm + adaptive page-level OCR selection
 full-auto-de-pdf ocr-pdf \
   --pdf scans/book.pdf \
@@ -107,6 +122,8 @@ full-auto-de-pdf eval-epub \
 - `build-epub` now emits a more structured EPUB3 archive with multiple XHTML chapters when chapter headings are detected, a richer navigation document, semantic headings, preserved ordered/unordered lists, and a bundled stylesheet.
 - `build-benchmark-corpus` now creates a reproducible local printed-text corpus by rendering curated Project Gutenberg excerpts into synthetic PDFs and page images.
 - `benchmark-corpus` runs the local OCR pipeline against that generated corpus so printed-text accuracy can be measured end to end inside the repo.
+- `build-image-text-corpus` can turn a local page-image + transcript directory pair into a `benchmark-corpus` manifest, which makes image-based external corpora easier to evaluate with the existing OCR pipeline.
+- `benchmark-parallel-text` can score aligned OCR/proofread TSV corpora such as the Gutenberg-HathiTrust sentence-pair downloads without manual sampling.
 - Generated benchmark pages now prefer system fontconfig fonts when available and are saved as OCR-ready monochrome 300 DPI images, which makes the built-in printed-text benchmark far more representative and stable.
 
 ## Accuracy note
