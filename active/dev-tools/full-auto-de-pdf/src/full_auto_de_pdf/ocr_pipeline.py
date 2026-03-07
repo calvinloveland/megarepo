@@ -376,7 +376,9 @@ def _preprocess_image(
     with Image.open(input_path) as image:
         gray = image.convert("L")
         if preprocess_mode == "scan":
-            ocr_ready = _upsample_for_ocr(gray)
+            contrasted = ImageOps.autocontrast(gray)
+            denoised = contrasted.filter(ImageFilter.MedianFilter(size=3))
+            ocr_ready = _upsample_for_ocr(denoised, scale_factor=3)
         else:
             contrasted = ImageOps.autocontrast(gray)
             denoised = contrasted.filter(ImageFilter.MedianFilter(size=3))
@@ -388,7 +390,10 @@ def _preprocess_image(
             deskew_angle_step,
             binarize_threshold,
         )
-        binarized = candidate.point(lambda value: 255 if value >= binarize_threshold else 0)
+        effective_threshold = (
+            _otsu_threshold(candidate) if preprocess_mode == "scan" else binarize_threshold
+        )
+        binarized = candidate.point(lambda value: 255 if value >= effective_threshold else 0)
         output_path.parent.mkdir(parents=True, exist_ok=True)
         binarized.save(output_path)
 
@@ -403,14 +408,46 @@ def _parse_preprocess_args(args: tuple[Any, ...]) -> tuple[str, int, float, floa
     return preprocess_mode, binarize_threshold, deskew_max_angle, deskew_angle_step
 
 
-def _upsample_for_ocr(image: Any) -> Any:
+def _upsample_for_ocr(image: Any, scale_factor: int = 2) -> Any:
     if Image is None:
         return image
     if image.width >= 2400 or image.height >= 3200:
         return image
     resampling_namespace = getattr(Image, "Resampling", Image)
     resampling = getattr(resampling_namespace, "LANCZOS")
-    return image.resize((image.width * 2, image.height * 2), resampling)
+    return image.resize((image.width * scale_factor, image.height * scale_factor), resampling)
+
+
+def _otsu_threshold(image: Any) -> int:
+    grayscale = image.convert("L")
+    histogram = grayscale.histogram()
+    total = sum(histogram)
+    if total <= 0:
+        return 128
+    weighted_sum = sum(value * count for value, count in enumerate(histogram))
+    background_weight = 0
+    background_sum = 0.0
+    best_threshold = 128
+    best_variance = -1.0
+    for value, count in enumerate(histogram):
+        background_weight += count
+        if background_weight == 0:
+            continue
+        foreground_weight = total - background_weight
+        if foreground_weight == 0:
+            break
+        background_sum += float(value * count)
+        background_mean = background_sum / float(background_weight)
+        foreground_mean = (weighted_sum - background_sum) / float(foreground_weight)
+        between_class_variance = (
+            float(background_weight)
+            * float(foreground_weight)
+            * (background_mean - foreground_mean) ** 2
+        )
+        if between_class_variance > best_variance:
+            best_variance = between_class_variance
+            best_threshold = value
+    return best_threshold
 
 
 def _preprocess_candidate(

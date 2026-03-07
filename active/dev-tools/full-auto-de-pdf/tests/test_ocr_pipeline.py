@@ -258,6 +258,37 @@ def test_preprocess_image_upsamples_small_pages(tmp_path) -> None:
         assert processed.size == (240, 360)
 
 
+def test_preprocess_image_scan_uses_otsu_threshold_and_3x_upsample(tmp_path) -> None:
+    input_path = tmp_path / "page.png"
+    output_path = tmp_path / "processed.png"
+    image = Image.new("L", (120, 180), color=220)
+    pixels = image.load()
+    for x in range(50):
+        for y in range(180):
+            pixels[x, y] = 25
+    image.save(input_path)
+
+    ocr_pipeline._preprocess_image(input_path, output_path, "scan", 190, 2.0, 0.5)
+
+    with Image.open(output_path) as processed:
+        assert processed.size == (360, 540)
+        assert set(processed.getdata()) <= {0, 255}
+        assert processed.getpixel((30, 30)) == 0
+        assert processed.getpixel((320, 30)) == 255
+
+
+def test_otsu_threshold_splits_bimodal_histogram() -> None:
+    image = Image.new("L", (100, 10), color=235)
+    pixels = image.load()
+    for x in range(35):
+        for y in range(10):
+            pixels[x, y] = 20
+
+    threshold = ocr_pipeline._otsu_threshold(image)
+
+    assert 20 <= threshold < 235
+
+
 def test_ocr_page_images_runs_without_pdftoppm(tmp_path) -> None:
     page_image = tmp_path / "page-1.png"
     output_path = tmp_path / "out.txt"
