@@ -8,6 +8,7 @@ Custom skills and capabilities for GitHub Copilot in this repository.
 - [**addressing-feedback**](adressing-feedback/SKILL.md) - Techniques for addressing code review feedback effectively
 - [**cluster-access**](cluster-access/SKILL.md) - Guidelines for accessing and working with compute clusters
 - [**profile-readme-design**](profile-readme-design/SKILL.md) - Bold GitHub profile README design patterns using markdown + HTML
+- [**subagent-experiments**](subagent-experiments/SKILL.md) - Coordinate multiple bounded subagents and synthesize their findings efficiently
 
 ## Related Documentation
 
