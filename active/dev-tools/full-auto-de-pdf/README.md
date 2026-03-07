@@ -145,6 +145,8 @@ This project now has a stronger adaptive OCR pipeline aimed at high printed-text
 - Best currently re-measured local benchmark: generated clean synthetic corpus slice (1 book, current seed-9 artifacts) at **0.999869 char accuracy / 0.984756 word accuracy**.
 - Best degraded synthetic scan snapshot with the new Otsu-based `scan` mode: combined `scan-moderate` + `scan-heavy` slice at **0.997766 char accuracy / 0.973476 word accuracy**.
 - Inverse-render reranking is implemented, but it still needs broader corpus validation before its accuracy impact should be claimed beyond targeted page-level experiments.
+- Most remaining clean-slice “word errors” are benchmark-normalization issues rather than serious reading errors: smart quotes vs straight quotes, Gutenberg italic markers (`_word_` vs `word`), and possessive tokenization (`author’s` vs `author s`). Under a light typography normalization pass, that clean slice rises to about **0.998386 word accuracy**.
+- The remaining degraded-scan failures are much more informative: they cluster around merge/split errors and a few glyph confusions, such as `Norris -> not is`, `world -> worid`, `before -> be fox`, and `not -> net`. These suggest the next likely gains are in high-precision word-join/split repair and stronger candidate verification on ambiguous pages, not generic lexicon expansion or naive segmentation.
 
 ## Benchmark corpus strategy
 
