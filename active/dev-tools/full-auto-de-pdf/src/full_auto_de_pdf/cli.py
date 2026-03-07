@@ -243,6 +243,7 @@ def _add_benchmark_corpus_command(
         action="store_true",
         help="Disable per-book per-page OCR artifact text files",
     )
+    _add_inverse_render_args(parser)
 
 
 def _add_build_image_text_corpus_command(
@@ -275,6 +276,20 @@ def _add_build_image_text_corpus_command(
         "--title-prefix",
         default="Ground Truth Page",
         help="Title prefix for generated manifest entries",
+    )
+
+
+def _add_inverse_render_args(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--inverse-render-rerank",
+        action="store_true",
+        help="Rerank top OCR candidates by re-rendering text and comparing ink overlap",
+    )
+    parser.add_argument(
+        "--inverse-render-top-k",
+        type=int,
+        default=3,
+        help="Top text-scored OCR candidates to inverse-render per page",
     )
 
 
@@ -381,6 +396,7 @@ def _add_ocr_pdf_command(subparsers: argparse._SubParsersAction[argparse.Argumen
         type=Path,
         help="Optional directory for per-page OCR artifacts",
     )
+    _add_inverse_render_args(parser)
 
 
 def _add_ocr_eval_modes_command(
@@ -665,6 +681,8 @@ def _handle_benchmark_corpus(args: argparse.Namespace) -> int:
         tesseract_psm=args.tesseract_psm,
         ocr_engine=args.ocr_engine,
         emit_page_artifacts=not args.no_page_artifacts,
+        inverse_render_rerank=args.inverse_render_rerank,
+        inverse_render_top_k=args.inverse_render_top_k,
     )
     summary = report["summary"]
     print(
@@ -712,6 +730,8 @@ def _handle_ocr_pdf(args: argparse.Namespace) -> int:
         ocr_engine=args.ocr_engine,
         emit_page_artifacts=not args.no_page_artifacts,
         page_artifacts_dir=args.page_artifacts_dir,
+        inverse_render_rerank=args.inverse_render_rerank,
+        inverse_render_top_k=args.inverse_render_top_k,
     )
     print(
         f"OCR complete: {metrics['page_count']} pages, "

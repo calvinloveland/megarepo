@@ -14,10 +14,12 @@ import subprocess
 from typing import Any, Callable
 
 try:
-    from PIL import Image, ImageFilter, ImageOps
+    from PIL import Image, ImageDraw, ImageFilter, ImageFont, ImageOps
 except ImportError:
     Image = None
+    ImageDraw = None
     ImageFilter = None
+    ImageFont = None
     ImageOps = None
 
 from . import benchmark as benchmark_module
@@ -25,6 +27,14 @@ from .ocr_cleanup import cleanup_ocr_text
 
 _AUTO_PREPROCESS_MODES = ("none", "scan", "basic", "deskew", "dewarp")
 _AUTO_TESSERACT_PSMS = ("3", "4", "6")
+_DEFAULT_RENDER_FONT_CANDIDATES = (
+    "/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf",
+    "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+    "/usr/share/fonts/truetype/liberation2/LiberationSerif-Regular.ttf",
+)
+_INVERSE_RENDER_SIZE_ADJUSTMENTS = (-2, 0, 2)
+_INVERSE_RENDER_ROTATIONS = (-0.5, 0.0, 0.5)
+_INVERSE_RENDER_OFFSETS = (-4, 0, 4)
 _LATIN_TOKEN = re.compile(r"[A-Za-z]+(?:'[A-Za-z]+)?")
 _NON_TEXT_CHAR = re.compile(r"[^A-Za-z0-9\s\.,;:!\?'\-\"()\[\]]")
 _COMMON_ENGLISH_WORDS = frozenset(
@@ -73,6 +83,8 @@ class OCRCoreOptions:
     deskew_angle_step: float = 0.5
     tesseract_psm: str = "auto"
     cleanup_lexicon_texts: tuple[str, ...] = ()
+    inverse_render_rerank: bool = False
+    inverse_render_top_k: int = 3
 
 
 @dataclass(frozen=True)
@@ -94,6 +106,16 @@ class OCRDependencies:
     preprocess_image: Callable[[Path, Path, str, int, float, float], None]
     paddle_reader_factory: Callable[[str], Callable[[Path], str]]
     which: Callable[[str], str | None]
+
+
+@dataclass(frozen=True)
+class OCRCandidate:
+    """One OCR candidate and its selection metadata."""
+
+    score: float
+    ocr_input_path: Path
+    text: str
+    metadata: dict[str, object]
 
 
 @dataclass(frozen=True)
@@ -499,6 +521,8 @@ def _parse_ocr_options(kwargs: dict[str, Any]) -> OCRRunOptions:
         deskew_angle_step=float(kwargs.pop("deskew_angle_step", 0.5)),
         tesseract_psm=_normalize_tesseract_psm(kwargs.pop("tesseract_psm", "auto")),
         cleanup_lexicon_texts=cleanup_lexicon_texts,
+        inverse_render_rerank=bool(kwargs.pop("inverse_render_rerank", False)),
+        inverse_render_top_k=int(kwargs.pop("inverse_render_top_k", 3)),
     )
     return OCRRunOptions(
         core=core_options,
@@ -537,6 +561,8 @@ def _validate_common_ocr_options(
         raise ValueError("deskew_max_angle must be greater than 0")
     if options.core.deskew_angle_step <= 0:
         raise ValueError("deskew_angle_step must be greater than 0")
+    if options.core.inverse_render_top_k <= 0:
+        raise ValueError("inverse_render_top_k must be greater than 0")
     if options.core.tesseract_psm != "auto":
         psm_value = int(options.core.tesseract_psm)
         if not 0 <= psm_value <= 13:
@@ -672,6 +698,250 @@ def _score_ocr_text(text: str, language: str, cleanup_lexicon_texts: tuple[str, 
     )
 
 
+def _fontconfig_match(family: str) -> str | None:
+    try:
+        completed = subprocess.run(
+            ["fc-match", "-f", "%{file}", family],
+            check=True,
+            text=True,
+            capture_output=True,
+        )
+    except (FileNotFoundError, subprocess.CalledProcessError):
+        return None
+    path = completed.stdout.strip()
+    return path or None
+
+
+def _inverse_render_font_paths() -> tuple[str, ...]:
+    candidates = [
+        _fontconfig_match("serif"),
+        _fontconfig_match("sans"),
+        _fontconfig_match("monospace"),
+        *_DEFAULT_RENDER_FONT_CANDIDATES,
+    ]
+    unique_paths: list[str] = []
+    seen: set[str] = set()
+    for candidate in candidates:
+        if not candidate:
+            continue
+        path = str(candidate)
+        if path in seen or not Path(path).exists():
+            continue
+        seen.add(path)
+        unique_paths.append(path)
+    return tuple(unique_paths)
+
+
+def _load_inverse_render_font(font_path: str | None, font_size: int) -> Any:
+    if ImageFont is None:
+        raise RuntimeError(
+            "Missing dependency for inverse-render reranking: pillow. "
+            "Install with `pip install pillow` or disable inverse-render reranking."
+        )
+    if font_path is not None:
+        try:
+            return ImageFont.truetype(font_path, font_size)
+        except OSError:
+            pass
+    return ImageFont.load_default()
+
+
+def _normalize_scan_for_inverse_render(image_path: Path) -> tuple[Any, tuple[int, int, int, int]]:
+    if Image is None or ImageFilter is None or ImageOps is None:
+        raise RuntimeError(
+            "Missing dependency for inverse-render reranking: pillow. "
+            "Install with `pip install pillow` or disable inverse-render reranking."
+        )
+    with Image.open(image_path) as image:
+        gray = image.convert("L")
+        contrasted = ImageOps.autocontrast(gray)
+        denoised = contrasted.filter(ImageFilter.MedianFilter(size=3))
+        threshold = _otsu_threshold(denoised)
+        binary = denoised.point(lambda value: 255 if value >= threshold else 0, mode="L")
+    inverted = ImageOps.invert(binary)
+    bbox = inverted.getbbox()
+    if bbox is None:
+        width, height = binary.size
+        margin_x = max(20, width // 12)
+        margin_y = max(20, height // 12)
+        bbox = (margin_x, margin_y, width - margin_x, height - margin_y)
+    return binary, bbox
+
+
+def _inverse_render_text_lines(text: str) -> list[str]:
+    lines = [line.rstrip() for line in text.splitlines()]
+    if not lines:
+        stripped = text.strip()
+        return [stripped] if stripped else []
+    return lines
+
+
+def _estimate_inverse_render_font_size(
+    bbox: tuple[int, int, int, int],
+    lines: list[str],
+) -> int:
+    line_count = max(1, sum(1 for line in lines if line.strip()))
+    bbox_height = max(1, bbox[3] - bbox[1])
+    estimated = int(round(bbox_height / max(1.0, (line_count * 1.45))))
+    return max(12, min(estimated, 64))
+
+
+def _wrap_render_line(
+    draw: Any,
+    font: Any,
+    line: str,
+    max_width: int,
+) -> list[str]:
+    stripped = line.strip()
+    if not stripped:
+        return [""]
+    words = stripped.split()
+    wrapped = [words[0]]
+    for word in words[1:]:
+        candidate = f"{wrapped[-1]} {word}"
+        left, _top, right, _bottom = draw.textbbox((0, 0), candidate, font=font)
+        if right - left <= max_width:
+            wrapped[-1] = candidate
+            continue
+        wrapped.append(word)
+    return wrapped
+
+
+def _render_inverse_text_image(
+    text: str,
+    canvas_size: tuple[int, int],
+    bbox: tuple[int, int, int, int],
+    *,
+    font_path: str | None,
+    font_size: int,
+    offset_x: int,
+    offset_y: int,
+    rotation: float,
+) -> Any:
+    if Image is None or ImageDraw is None:
+        raise RuntimeError(
+            "Missing dependency for inverse-render reranking: pillow. "
+            "Install with `pip install pillow` or disable inverse-render reranking."
+        )
+    canvas = Image.new("L", canvas_size, color=255)
+    draw = ImageDraw.Draw(canvas)
+    font = _load_inverse_render_font(font_path, font_size)
+    max_width = max(1, bbox[2] - bbox[0])
+    x = bbox[0] + offset_x
+    y = bbox[1] + offset_y
+    line_height = max(font_size + 6, int(round(font_size * 1.35)))
+    for raw_line in _inverse_render_text_lines(text):
+        for rendered_line in _wrap_render_line(draw, font, raw_line, max_width):
+            if rendered_line:
+                draw.text((x, y), rendered_line, font=font, fill=0)
+            y += line_height
+        if not raw_line.strip():
+            y += line_height
+    if abs(rotation) < 1e-9:
+        return canvas
+    resampling_namespace = getattr(Image, "Resampling", Image)
+    bicubic = getattr(resampling_namespace, "BICUBIC")
+    return canvas.rotate(rotation, resample=bicubic, fillcolor=255)
+
+
+def _binary_ink_iou(observed_binary: Any, rendered_binary: Any) -> float:
+    observed_pixels = observed_binary.getdata()
+    rendered_pixels = rendered_binary.getdata()
+    overlap = 0
+    union = 0
+    for observed, rendered in zip(observed_pixels, rendered_pixels, strict=True):
+        observed_ink = observed == 0
+        rendered_ink = rendered == 0
+        if observed_ink or rendered_ink:
+            union += 1
+            if observed_ink and rendered_ink:
+                overlap += 1
+    if union == 0:
+        return 0.0
+    return float(overlap) / float(union)
+
+
+def _inverse_render_score_candidate(
+    observed_binary: Any,
+    bbox: tuple[int, int, int, int],
+    text: str,
+) -> tuple[float, dict[str, object]]:
+    lines = _inverse_render_text_lines(text)
+    if not lines:
+        return -1.0, {"inverse_render_score": -1.0}
+    base_font_size = _estimate_inverse_render_font_size(bbox, lines)
+    font_paths = _inverse_render_font_paths()
+    render_fonts = font_paths if font_paths else (None,)
+    best_score = -1.0
+    best_metadata: dict[str, object] = {
+        "inverse_render_score": -1.0,
+        "inverse_render_bbox": list(bbox),
+    }
+    for font_path in render_fonts:
+        for adjustment in _INVERSE_RENDER_SIZE_ADJUSTMENTS:
+            font_size = max(10, base_font_size + adjustment)
+            for offset_x in _INVERSE_RENDER_OFFSETS:
+                for offset_y in _INVERSE_RENDER_OFFSETS:
+                    for rotation in _INVERSE_RENDER_ROTATIONS:
+                        rendered = _render_inverse_text_image(
+                            text,
+                            observed_binary.size,
+                            bbox,
+                            font_path=font_path,
+                            font_size=font_size,
+                            offset_x=offset_x,
+                            offset_y=offset_y,
+                            rotation=rotation,
+                        )
+                        score = _binary_ink_iou(observed_binary, rendered)
+                        if score <= best_score:
+                            continue
+                        best_score = score
+                        best_metadata = {
+                            "inverse_render_score": score,
+                            "inverse_render_bbox": list(bbox),
+                            "inverse_render_font_path": font_path,
+                            "inverse_render_font_size": font_size,
+                            "inverse_render_offset_x": offset_x,
+                            "inverse_render_offset_y": offset_y,
+                            "inverse_render_rotation": rotation,
+                        }
+    return best_score, best_metadata
+
+
+def _maybe_inverse_render_rerank(
+    image_path: Path,
+    candidates: list[OCRCandidate],
+    options: OCRRunOptions,
+) -> OCRCandidate | None:
+    if not options.core.inverse_render_rerank or len(candidates) < 2:
+        return None
+    ranked_candidates = sorted(candidates, key=lambda candidate: candidate.score, reverse=True)
+    limit = min(len(ranked_candidates), options.core.inverse_render_top_k)
+    rerank_subset = ranked_candidates[:limit]
+    observed_binary, bbox = _normalize_scan_for_inverse_render(image_path)
+    best_candidate: OCRCandidate | None = None
+    best_score = -1.0
+    for candidate in rerank_subset:
+        inverse_render_score, inverse_metadata = _inverse_render_score_candidate(
+            observed_binary,
+            bbox,
+            candidate.text,
+        )
+        candidate.metadata.update(inverse_metadata)
+        if (
+            best_candidate is None
+            or inverse_render_score > best_score
+            or (
+                math.isclose(inverse_render_score, best_score)
+                and candidate.score > best_candidate.score
+            )
+        ):
+            best_candidate = candidate
+            best_score = inverse_render_score
+    return best_candidate
+
+
 def _run_candidate_ocr(
     ocr_input_path: Path,
     options: OCRRunOptions,
@@ -698,7 +968,7 @@ def _run_ocr_on_page(
 ) -> tuple[Path, str, dict[str, object]]:
     prepared_inputs: dict[str, Path] = {}
     candidate_runs: list[dict[str, object]] = []
-    best_candidate: tuple[float, Path, str, dict[str, object]] | None = None
+    candidates: list[OCRCandidate] = []
     for preprocess_mode in _candidate_preprocess_modes(options.preprocess_mode):
         ocr_input_path = _prepare_ocr_input_path(
             image_path,
@@ -730,16 +1000,28 @@ def _run_ocr_on_page(
             if options.ocr_engine == "tesseract":
                 candidate_metadata["tesseract_psm"] = int(tesseract_psm)
             candidate_runs.append(candidate_metadata)
-            if best_candidate is None or score > best_candidate[0]:
-                best_candidate = (score, ocr_input_path, text, dict(candidate_metadata))
-    if best_candidate is None:
+            candidates.append(
+                OCRCandidate(
+                    score=score,
+                    ocr_input_path=ocr_input_path,
+                    text=text,
+                    metadata=candidate_metadata,
+                )
+            )
+    if not candidates:
         raise RuntimeError(f"OCR produced no candidates for page: {image_path}")
-    selected_score, selected_path, selected_text, selected_metadata = best_candidate
+    best_candidate = max(candidates, key=lambda candidate: candidate.score)
+    reranked_candidate = _maybe_inverse_render_rerank(image_path, candidates, options)
+    selected_candidate = reranked_candidate or best_candidate
+    selected_metadata = dict(selected_candidate.metadata)
     selected_metadata["selected_preprocess_mode"] = selected_metadata["preprocess_mode"]
-    selected_metadata["selection_score"] = selected_score
+    selected_metadata["selection_score"] = selected_candidate.score
+    selected_metadata["selection_strategy"] = (
+        "inverse-render-rerank" if reranked_candidate is not None else "text-score"
+    )
     if len(candidate_runs) > 1:
         selected_metadata["candidate_runs"] = candidate_runs
-    return selected_path, selected_text, selected_metadata
+    return selected_candidate.ocr_input_path, selected_candidate.text, selected_metadata
 
 
 def _run_tesseract(

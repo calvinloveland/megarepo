@@ -236,6 +236,78 @@ def test_ocr_pdf_with_tesseract_auto_selects_best_mode_and_psm(tmp_path) -> None
     assert len(page_entry["candidate_runs"]) == 15
 
 
+def test_ocr_page_images_inverse_render_reranks_candidates(monkeypatch, tmp_path) -> None:
+    page_image = tmp_path / "page-1.png"
+    output_path = tmp_path / "out.txt"
+    work_dir = tmp_path / "work"
+    Image.new("L", (20, 20), color=255).save(page_image)
+
+    def _which(name: str) -> str | None:
+        if name == "tesseract":
+            return "/usr/bin/fake"
+        return None
+
+    def _run(command: list[str], capture_output: bool) -> str:
+        assert command[0] == "tesseract"
+        assert capture_output is True
+        mode = "none" if Path(command[1]) == page_image else Path(command[1]).parent.name
+        psm = command[-1]
+        if mode == "none" and psm == "3":
+            return "The printed text is clean and readable"
+        if mode == "scan" and psm == "6":
+            return "Visual match sample"
+        return "###"
+
+    def _preprocess_image(
+        input_path: Path,
+        output_path: Path,
+        mode: str,
+        _threshold: int,
+        _max_angle: float,
+        _step: float,
+    ) -> None:
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_bytes(input_path.read_bytes())
+        assert mode in {"scan", "basic", "deskew", "dewarp"}
+
+    monkeypatch.setattr(
+        ocr_pipeline,
+        "_normalize_scan_for_inverse_render",
+        lambda _path: (Image.new("L", (20, 20), color=255), (0, 0, 20, 20)),
+    )
+
+    def _fake_inverse_render_score(_observed, _bbox, text):  # noqa: ANN001, ANN202
+        score = 0.9 if text == "Visual match sample" else 0.1
+        return score, {"inverse_render_score": score}
+
+    monkeypatch.setattr(
+        ocr_pipeline,
+        "_inverse_render_score_candidate",
+        _fake_inverse_render_score,
+    )
+
+    metrics = ocr_page_images(
+        page_images=[page_image],
+        output_text_path=output_path,
+        work_dir=work_dir,
+        preprocess_mode="auto",
+        tesseract_psm="auto",
+        inverse_render_rerank=True,
+        inverse_render_top_k=2,
+        run_command=_run,
+        preprocess_image=_preprocess_image,
+        which=_which,
+    )
+
+    assert output_path.read_text(encoding="utf-8") == "Visual match sample"
+    assert metrics["mode_usage"] == {"scan": 1}
+    manifest_payload = json.loads(Path(str(metrics["page_artifacts_manifest"])).read_text(encoding="utf-8"))
+    page_entry = manifest_payload["pages"][0]
+    assert page_entry["selection_strategy"] == "inverse-render-rerank"
+    assert page_entry["selected_preprocess_mode"] == "scan"
+    assert page_entry["inverse_render_score"] == 0.9
+
+
 def test_score_ocr_text_uses_supplied_lexicon() -> None:
     noisy = "It teontains realistcsynthetic notes for eaders."
     unguided = ocr_pipeline._score_ocr_text(noisy, "eng", ())
@@ -287,6 +359,36 @@ def test_otsu_threshold_splits_bimodal_histogram() -> None:
     threshold = ocr_pipeline._otsu_threshold(image)
 
     assert 20 <= threshold < 235
+
+
+def test_inverse_render_score_prefers_matching_text(monkeypatch, tmp_path) -> None:
+    image_path = tmp_path / "page.png"
+    monkeypatch.setattr(ocr_pipeline, "_inverse_render_font_paths", lambda: ())
+    rendered = ocr_pipeline._render_inverse_text_image(
+        "Alpha beta\nGamma delta",
+        (320, 240),
+        (24, 24, 296, 216),
+        font_path=None,
+        font_size=18,
+        offset_x=0,
+        offset_y=0,
+        rotation=0.0,
+    )
+    rendered.save(image_path)
+
+    observed_binary, bbox = ocr_pipeline._normalize_scan_for_inverse_render(image_path)
+    matching_score, _ = ocr_pipeline._inverse_render_score_candidate(
+        observed_binary,
+        bbox,
+        "Alpha beta\nGamma delta",
+    )
+    mismatched_score, _ = ocr_pipeline._inverse_render_score_candidate(
+        observed_binary,
+        bbox,
+        "Wrong words entirely",
+    )
+
+    assert matching_score > mismatched_score
 
 
 def test_ocr_page_images_runs_without_pdftoppm(tmp_path) -> None:
