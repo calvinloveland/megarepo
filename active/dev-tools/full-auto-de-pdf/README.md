@@ -128,6 +128,7 @@ full-auto-de-pdf eval-epub \
 
 - `ocr-pdf` can now use `--preprocess-mode auto` and `--tesseract-psm auto` to try several page-level OCR candidates, including a scan-tuned autocontrast + median + 3x upsample + per-page Otsu threshold path, and keep the best-scoring result for each page.
 - `ocr-pdf` and `benchmark-corpus` can optionally use `--inverse-render-rerank` to re-render the top OCR candidates and compare thresholded ink overlap against the scanned page as a slow second-pass verifier.
+- OCR cleanup now includes precision-gated adjacent-word merge repair plus conservative confusable-word repair for residual scan errors like split names and `world`/`worid`-style glyph confusions; inverse-render reranking also evaluates cleaned candidate variants so these repairs can be image-verified before selection.
 - Per-page OCR manifests now record the selected preprocess mode, selected Tesseract PSM, and candidate scoring data for debugging and benchmarking.
 - `build-epub` now emits a more structured EPUB3 archive with multiple XHTML chapters when chapter headings are detected, a richer navigation document, semantic headings, preserved ordered/unordered lists, and a bundled stylesheet.
 - `build-benchmark-corpus` now creates a reproducible local printed-text corpus by rendering curated Project Gutenberg excerpts into synthetic PDFs and page images, and it can expand each excerpt into multiple deterministic scan-artifact variants (`clean`, `scan-light`, `scan-moderate`, `scan-heavy`).
@@ -146,7 +147,7 @@ This project now has a stronger adaptive OCR pipeline aimed at high printed-text
 - Best degraded synthetic scan snapshot with the new Otsu-based `scan` mode: combined `scan-moderate` + `scan-heavy` slice at **0.997766 char accuracy / 0.973476 word accuracy**.
 - Inverse-render reranking is implemented, but it still needs broader corpus validation before its accuracy impact should be claimed beyond targeted page-level experiments.
 - Most remaining clean-slice “word errors” are benchmark-normalization issues rather than serious reading errors: smart quotes vs straight quotes, Gutenberg italic markers (`_word_` vs `word`), and possessive tokenization (`author’s` vs `author s`). Under a light typography normalization pass, that clean slice rises to about **0.998386 word accuracy**.
-- The remaining degraded-scan failures are much more informative: they cluster around merge/split errors and a few glyph confusions, such as `Norris -> not is`, `world -> worid`, `before -> be fox`, and `not -> net`. These suggest the next likely gains are in high-precision word-join/split repair and stronger candidate verification on ambiguous pages, not generic lexicon expansion or naive segmentation.
+- The remaining degraded-scan failures are much more informative: they cluster around merge/split errors and a few glyph confusions, such as `Norris -> not is`, `world -> worid`, `before -> be fox`, and `not -> net`. The pipeline now includes a precision-gated repair layer for these patterns and lets inverse-render reranking verify cleaned candidate variants, but the aggregate benchmark impact still needs remeasurement on a larger scan slice.
 
 ## Benchmark corpus strategy
 

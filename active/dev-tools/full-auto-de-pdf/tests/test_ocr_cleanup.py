@@ -199,3 +199,30 @@ def test_cleanup_ocr_text_prefers_split_corrections_and_three_word_splits() -> N
     assert "this is a sample" in lowered
     assert "full auto de pdf" in lowered
     assert "to exercise the ocr" in lowered
+
+
+def test_cleanup_ocr_text_merges_verified_split_words() -> None:
+    lines = ["Captain Norris answered plainly." for _ in range(6)]
+    lines.extend("We waited before sunrise." for _ in range(6))
+    lines.append("Captain not is answered plainly.")
+    lines.append("We waited be fox sunrise.")
+    cleaned = cleanup_ocr_text("\n".join(lines))
+    lowered = cleaned.lower()
+    assert "captain not is answered plainly" not in lowered
+    assert "we waited be fox sunrise" not in lowered
+    assert "captain norris answered plainly" in lowered
+    assert "we waited before sunrise" in lowered
+
+
+def test_cleanup_ocr_text_keeps_unverified_split_words() -> None:
+    source = "The margin note says not is and be fox.\n"
+    cleaned = cleanup_ocr_text(source)
+    lowered = cleaned.lower()
+    assert "not is" in lowered
+    assert "be fox" in lowered
+
+
+def test_cleanup_ocr_text_corrects_confusable_builtin_word() -> None:
+    source = "The worid turned quietly at dusk.\n"
+    cleaned = cleanup_ocr_text(source)
+    assert "world turned quietly" in cleaned.lower()

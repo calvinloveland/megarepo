@@ -54,12 +54,31 @@ _MIN_AMBIGUOUS_APOSTROPHE_RATIO = 0.5
 _MAX_AMBIGUOUS_APOSTROPHE_SOURCE_LENGTH = 5
 _MIN_DIGIT_ERROR_OCCURRENCES = 1
 _MAX_TOTAL_DIGIT_CORRECTIONS = 3
+_MAX_TOTAL_JOIN_CORRECTIONS = 30
 _MAX_TOTAL_SPLIT_CORRECTIONS = 40
 _MAX_TOTAL_LEXICON_CORRECTIONS = 40
 _MAX_LEXICON_EDIT_DISTANCE = 2
 _MAX_LEXICON_CANDIDATES_PER_LENGTH = 250
+_MIN_JOIN_WORD_LENGTH = 5
+_MIN_JOIN_TARGET_OCCURRENCES = 3
+_MAX_JOIN_EDIT_DISTANCE = 2
+_MIN_CONFUSABLE_WORD_LENGTH = 5
 _MIN_SPLIT_WORD_LENGTH = 6
 _SHORT_LEXICON_WORDS = {"a", "i", "of", "to", "in", "on", "at", "by", "an"}
+_CONFUSABLE_SUBSTITUTIONS = (
+    ("i", "l"),
+    ("l", "i"),
+    ("e", "o"),
+    ("o", "e"),
+    ("rn", "m"),
+    ("m", "rn"),
+    ("cl", "d"),
+    ("d", "cl"),
+    ("vv", "w"),
+    ("w", "vv"),
+    ("x", "re"),
+    ("re", "x"),
+)
 _BUILTIN_LEXICON = {
     "a",
     "about",
@@ -506,6 +525,152 @@ def _is_known_lexicon_word(word: str, counts: Counter[str], lexicon_words: set[s
     return counts.get(word, 0) >= _MIN_CORRECTION_OCCURRENCES
 
 
+def _is_joinable_separator(separator: str) -> bool:
+    if not separator or not separator.isspace():
+        return False
+    return "\n\n" not in separator
+
+
+def _adjacent_word_pairs(text: str) -> list[tuple[str, str]]:
+    matches = list(_CONTEXT_TOKEN.finditer(text))
+    pairs: list[tuple[str, str]] = []
+    for index in range(len(matches) - 1):
+        between = text[matches[index].end() : matches[index + 1].start()]
+        if not _is_joinable_separator(between):
+            continue
+        left = matches[index].group(0).lower()
+        right = matches[index + 1].group(0).lower()
+        if not left.isalpha() or not right.isalpha():
+            continue
+        pairs.append((left, right))
+    return pairs
+
+
+def _is_confusable_rewrite(source: str, target: str) -> bool:
+    if source == target:
+        return False
+    for original, replacement in _CONFUSABLE_SUBSTITUTIONS:
+        start = 0
+        while True:
+            index = source.find(original, start)
+            if index < 0:
+                break
+            candidate = source[:index] + replacement + source[index + len(original) :]
+            if candidate == target:
+                return True
+            start = index + 1
+    return False
+
+
+def _best_join_word_target(
+    merged_source: str,
+    counts: Counter[str],
+    lexicon_words: set[str],
+    external_lexicon_words: set[str],
+) -> tuple[str, float] | None:
+    if merged_source in lexicon_words:
+        return merged_source, 200.0 + float(counts.get(merged_source, 0) * 50) + float(len(merged_source))
+    best_target = ""
+    best_score = float("-inf")
+    for candidate in _lexicon_candidates(merged_source, lexicon_words):
+        distance = Levenshtein.distance(merged_source, candidate)
+        if distance <= 0 or distance > _MAX_JOIN_EDIT_DISTANCE:
+            continue
+        if candidate[:1] != merged_source[:1]:
+            continue
+        if candidate[-1:] != merged_source[-1:] and not _is_confusable_rewrite(
+            merged_source,
+            candidate,
+        ):
+            continue
+        target_count = counts.get(candidate, 0)
+        has_external_support = candidate in external_lexicon_words
+        has_builtin_confusable_support = (
+            len(candidate) >= _MIN_CONFUSABLE_WORD_LENGTH
+            and candidate in _BUILTIN_LEXICON
+            and _is_confusable_rewrite(merged_source, candidate)
+        )
+        if distance == 1 and not (
+            has_external_support
+            or target_count >= _MIN_JOIN_TARGET_OCCURRENCES
+            or has_builtin_confusable_support
+        ):
+            continue
+        if distance == 2 and not (
+            has_external_support or target_count >= _MIN_CORRECTION_OCCURRENCES
+        ):
+            continue
+        score = (
+            float(target_count * 60)
+            + float(len(candidate) * 4)
+            + (120.0 if has_external_support else 0.0)
+            + (40.0 if has_builtin_confusable_support else 0.0)
+            - float(distance * 35)
+        )
+        if score > best_score:
+            best_target = candidate
+            best_score = score
+    if not best_target:
+        return None
+    return best_target, best_score
+
+
+def _infer_join_word_corrections(
+    text: str,
+    lexicon_words: set[str],
+    external_lexicon_words: set[str],
+) -> dict[tuple[str, str], str]:
+    counts = _extract_token_counts(text)
+    pair_counts = Counter(_adjacent_word_pairs(text))
+    candidates: list[tuple[tuple[str, str], str, float]] = []
+    for source_pair, pair_count in pair_counts.items():
+        if pair_count > _MAX_ERROR_OCCURRENCES:
+            continue
+        merged_source = "".join(source_pair)
+        if len(merged_source) < _MIN_JOIN_WORD_LENGTH:
+            continue
+        best_target = _best_join_word_target(
+            merged_source,
+            counts,
+            lexicon_words,
+            external_lexicon_words,
+        )
+        if best_target is None:
+            continue
+        target, score = best_target
+        score -= float(pair_count * 20)
+        candidates.append((source_pair, target, score))
+    candidates.sort(key=lambda item: item[2], reverse=True)
+    selected = candidates[:_MAX_TOTAL_JOIN_CORRECTIONS]
+    return {source_pair: target for source_pair, target, _score in selected}
+
+
+def _apply_join_word_corrections(text: str, corrections: dict[tuple[str, str], str]) -> str:
+    if not corrections:
+        return text
+    matches = list(_CONTEXT_TOKEN.finditer(text))
+    replacements: list[tuple[int, int, str]] = []
+    index = 0
+    while index < len(matches) - 1:
+        current = matches[index]
+        following = matches[index + 1]
+        between = text[current.end() : following.start()]
+        if not _is_joinable_separator(between):
+            index += 1
+            continue
+        source_pair = (current.group(0).lower(), following.group(0).lower())
+        target = corrections.get(source_pair)
+        if target is None:
+            index += 1
+            continue
+        source_phrase = text[current.start() : following.end()]
+        replacements.append((current.start(), following.end(), _match_phrase_case(source_phrase, target)))
+        index += 2
+    if not replacements:
+        return text
+    return _apply_replacements(text, replacements)
+
+
 def _split_candidates(word: str) -> list[tuple[str, str]]:
     candidates: list[tuple[str, str]] = []
     for index in range(1, len(word)):
@@ -708,6 +873,44 @@ def _infer_lexicon_word_corrections(
     return {source: target for source, target, _score in selected}
 
 
+def _infer_confusable_word_corrections(
+    text: str,
+    lexicon_words: set[str],
+) -> dict[str, str]:
+    counts = _extract_token_counts(text)
+    corrections: list[tuple[str, str, float]] = []
+    for source, source_count in counts.items():
+        if not source.isalpha():
+            continue
+        if len(source) < _MIN_CONFUSABLE_WORD_LENGTH:
+            continue
+        if source_count > _MAX_ERROR_OCCURRENCES:
+            continue
+        if source in lexicon_words:
+            continue
+        best_target = ""
+        best_score = float("-inf")
+        for candidate in _lexicon_candidates(source, lexicon_words):
+            if not _is_confusable_rewrite(source, candidate):
+                continue
+            target_count = counts.get(candidate, 0)
+            if candidate not in _BUILTIN_LEXICON and target_count < _MIN_CORRECTION_OCCURRENCES:
+                continue
+            score = (
+                float(target_count * 50)
+                + float(len(candidate) * 3)
+                + (40.0 if candidate in _BUILTIN_LEXICON else 0.0)
+            )
+            if score > best_score:
+                best_target = candidate
+                best_score = score
+        if best_target:
+            corrections.append((source, best_target, best_score))
+    corrections.sort(key=lambda item: item[2], reverse=True)
+    selected = corrections[:_MAX_TOTAL_LEXICON_CORRECTIONS]
+    return {source: target for source, target, _score in selected}
+
+
 def _apply_word_corrections(text: str, corrections: dict[str, str]) -> str:
     if not corrections:
         return text
@@ -856,14 +1059,23 @@ def cleanup_ocr_text(text: str, lexicon_texts: tuple[str, ...] = ()) -> str:
     cleaned = re.sub(r"[ \t]+", " ", cleaned)
     split_lexicon_words = _build_cleanup_lexicon(cleaned, lexicon_texts)
     external_lexicon_words = _build_external_cleanup_lexicon(lexicon_texts)
+    join_corrections = _infer_join_word_corrections(
+        cleaned,
+        split_lexicon_words,
+        external_lexicon_words,
+    )
+    cleaned = _apply_join_word_corrections(cleaned, join_corrections)
+    split_lexicon_words = _build_cleanup_lexicon(cleaned, lexicon_texts)
     direct_corrections = {}
     lexicon_corrections = _infer_lexicon_word_corrections(cleaned, external_lexicon_words)
+    confusable_corrections = _infer_confusable_word_corrections(cleaned, split_lexicon_words)
     split_corrections = _infer_split_word_corrections(
         cleaned,
         split_lexicon_words,
         allow_approximate=bool(external_lexicon_words),
     )
     direct_corrections.update(lexicon_corrections)
+    direct_corrections.update(confusable_corrections)
     direct_corrections.update(split_corrections)
     cleaned = _apply_direct_word_corrections(cleaned, direct_corrections)
     contextual_corrections = {}

@@ -292,6 +292,7 @@ def test_ocr_page_images_inverse_render_reranks_candidates(monkeypatch, tmp_path
         work_dir=work_dir,
         preprocess_mode="auto",
         tesseract_psm="auto",
+        cleanup_lexicon_texts=("Captain Norris answered plainly",),
         inverse_render_rerank=True,
         inverse_render_top_k=2,
         run_command=_run,
@@ -306,6 +307,80 @@ def test_ocr_page_images_inverse_render_reranks_candidates(monkeypatch, tmp_path
     assert page_entry["selection_strategy"] == "inverse-render-rerank"
     assert page_entry["selected_preprocess_mode"] == "scan"
     assert page_entry["inverse_render_score"] == 0.9
+
+
+def test_ocr_page_images_inverse_render_can_select_cleaned_variant(monkeypatch, tmp_path) -> None:
+    page_image = tmp_path / "page-1.png"
+    output_path = tmp_path / "out.txt"
+    work_dir = tmp_path / "work"
+    Image.new("L", (20, 20), color=255).save(page_image)
+
+    def _which(name: str) -> str | None:
+        if name == "tesseract":
+            return "/usr/bin/fake"
+        return None
+
+    def _run(command: list[str], capture_output: bool) -> str:
+        assert command[0] == "tesseract"
+        assert capture_output is True
+        mode = "none" if Path(command[1]) == page_image else Path(command[1]).parent.name
+        psm = command[-1]
+        if mode == "scan" and psm == "6":
+            return "Captain not is answered plainly"
+        return "Fallback baseline"
+
+    def _preprocess_image(
+        input_path: Path,
+        output_path: Path,
+        mode: str,
+        _threshold: int,
+        _max_angle: float,
+        _step: float,
+    ) -> None:
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_bytes(input_path.read_bytes())
+        assert mode in {"scan", "basic", "deskew", "dewarp"}
+
+    monkeypatch.setattr(
+        ocr_pipeline,
+        "_normalize_scan_for_inverse_render",
+        lambda _path: (Image.new("L", (20, 20), color=255), (0, 0, 20, 20)),
+    )
+
+    def _fake_inverse_render_score(_observed, _bbox, text):  # noqa: ANN001, ANN202
+        lowered = text.lower()
+        if "captain norris answered plainly" in lowered:
+            return 0.95, {"inverse_render_score": 0.95}
+        if "captain not is answered plainly" in lowered:
+            return 0.2, {"inverse_render_score": 0.2}
+        return 0.1, {"inverse_render_score": 0.1}
+
+    monkeypatch.setattr(
+        ocr_pipeline,
+        "_inverse_render_score_candidate",
+        _fake_inverse_render_score,
+    )
+
+    metrics = ocr_page_images(
+        page_images=[page_image],
+        output_text_path=output_path,
+        work_dir=work_dir,
+        preprocess_mode="auto",
+        tesseract_psm="auto",
+        cleanup_lexicon_texts=("Captain Norris answered plainly",),
+        inverse_render_rerank=True,
+        inverse_render_top_k=2,
+        run_command=_run,
+        preprocess_image=_preprocess_image,
+        which=_which,
+    )
+
+    assert output_path.read_text(encoding="utf-8") == "Captain norris answered plainly"
+    manifest_payload = json.loads(Path(str(metrics["page_artifacts_manifest"])).read_text(encoding="utf-8"))
+    page_entry = manifest_payload["pages"][0]
+    assert page_entry["selection_strategy"] == "inverse-render-rerank"
+    assert page_entry["inverse_render_text_variant"] == "cleaned"
+    assert page_entry["inverse_render_score"] == 0.95
 
 
 def test_score_ocr_text_uses_supplied_lexicon() -> None:

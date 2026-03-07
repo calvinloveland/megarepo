@@ -923,22 +923,55 @@ def _maybe_inverse_render_rerank(
     best_candidate: OCRCandidate | None = None
     best_score = -1.0
     for candidate in rerank_subset:
-        inverse_render_score, inverse_metadata = _inverse_render_score_candidate(
-            observed_binary,
-            bbox,
-            candidate.text,
-        )
-        candidate.metadata.update(inverse_metadata)
+        candidate_variants = [(candidate.text, "raw")]
+        if options.core.apply_cleanup:
+            cleaned_variant = cleanup_ocr_text(
+                candidate.text,
+                lexicon_texts=options.core.cleanup_lexicon_texts,
+            )
+            if cleaned_variant and cleaned_variant != candidate.text:
+                candidate_variants.append((cleaned_variant, "cleaned"))
+        best_variant: OCRCandidate | None = None
+        best_variant_score = -1.0
+        for variant_text, variant_label in candidate_variants:
+            inverse_render_score, inverse_metadata = _inverse_render_score_candidate(
+                observed_binary,
+                bbox,
+                variant_text,
+            )
+            variant_metadata = dict(candidate.metadata)
+            variant_metadata.update(inverse_metadata)
+            variant_metadata["inverse_render_text_variant"] = variant_label
+            variant_candidate = OCRCandidate(
+                score=candidate.score,
+                ocr_input_path=candidate.ocr_input_path,
+                text=variant_text,
+                metadata=variant_metadata,
+            )
+            if (
+                best_variant is None
+                or inverse_render_score > best_variant_score
+                or (
+                    math.isclose(inverse_render_score, best_variant_score)
+                    and variant_label == "cleaned"
+                    and best_variant.text == candidate.text
+                )
+            ):
+                best_variant = variant_candidate
+                best_variant_score = inverse_render_score
+        if best_variant is None:
+            continue
+        candidate.metadata.update(best_variant.metadata)
         if (
             best_candidate is None
-            or inverse_render_score > best_score
+            or best_variant_score > best_score
             or (
-                math.isclose(inverse_render_score, best_score)
-                and candidate.score > best_candidate.score
+                math.isclose(best_variant_score, best_score)
+                and best_variant.score > best_candidate.score
             )
         ):
-            best_candidate = candidate
-            best_score = inverse_render_score
+            best_candidate = best_variant
+            best_score = best_variant_score
     return best_candidate
 
 
