@@ -25,7 +25,17 @@ except ImportError:
 from . import benchmark as benchmark_module
 from .ocr_cleanup import cleanup_ocr_text
 
+_VALID_PREPROCESS_MODES = (
+    "none",
+    "scan",
+    "scan-local-threshold",
+    "basic",
+    "deskew",
+    "dewarp",
+    "auto",
+)
 _AUTO_PREPROCESS_MODES = ("none", "scan", "basic", "deskew", "dewarp")
+_MODE_EVAL_PREPROCESS_MODES = ("none", "scan", "scan-local-threshold", "basic", "deskew", "dewarp")
 _AUTO_TESSERACT_PSMS = ("3", "4", "6")
 _DEFAULT_RENDER_FONT_CANDIDATES = (
     "/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf",
@@ -125,7 +135,7 @@ class ModeEvalOptions:
     core: OCRCoreOptions
     ocr_engine: str = "tesseract"
     reference_text_path: Path | None = None
-    modes: tuple[str, ...] = ("none", "scan", "basic", "deskew", "dewarp")
+    modes: tuple[str, ...] = _MODE_EVAL_PREPROCESS_MODES
 
 
 @dataclass(frozen=True)
@@ -397,7 +407,7 @@ def _preprocess_image(
         )
     with Image.open(input_path) as image:
         gray = image.convert("L")
-        if preprocess_mode == "scan":
+        if _uses_scan_preprocess_stack(preprocess_mode):
             contrasted = ImageOps.autocontrast(gray)
             denoised = contrasted.filter(ImageFilter.MedianFilter(size=3))
             ocr_ready = _upsample_for_ocr(denoised, scale_factor=3)
@@ -412,10 +422,7 @@ def _preprocess_image(
             deskew_angle_step,
             binarize_threshold,
         )
-        effective_threshold = (
-            _otsu_threshold(candidate) if preprocess_mode == "scan" else binarize_threshold
-        )
-        binarized = candidate.point(lambda value: 255 if value >= effective_threshold else 0)
+        binarized = _binarize_preprocessed_candidate(candidate, preprocess_mode, binarize_threshold)
         output_path.parent.mkdir(parents=True, exist_ok=True)
         binarized.save(output_path)
 
@@ -438,6 +445,23 @@ def _upsample_for_ocr(image: Any, scale_factor: int = 2) -> Any:
     resampling_namespace = getattr(Image, "Resampling", Image)
     resampling = getattr(resampling_namespace, "LANCZOS")
     return image.resize((image.width * scale_factor, image.height * scale_factor), resampling)
+
+
+def _uses_scan_preprocess_stack(preprocess_mode: str) -> bool:
+    return preprocess_mode in {"scan", "scan-local-threshold"}
+
+
+def _binarize_preprocessed_candidate(
+    candidate: Any,
+    preprocess_mode: str,
+    binarize_threshold: int,
+) -> Any:
+    if preprocess_mode == "scan":
+        effective_threshold = _otsu_threshold(candidate)
+        return candidate.point(lambda value: 255 if value >= effective_threshold else 0)
+    if preprocess_mode == "scan-local-threshold":
+        return _adaptive_gaussian_threshold(candidate, block_size=51, subtract_constant=15)
+    return candidate.point(lambda value: 255 if value >= binarize_threshold else 0)
 
 
 def _otsu_threshold(image: Any) -> int:
@@ -470,6 +494,33 @@ def _otsu_threshold(image: Any) -> int:
             best_variance = between_class_variance
             best_threshold = value
     return best_threshold
+
+
+def _adaptive_gaussian_threshold(
+    image: Any,
+    *,
+    block_size: int,
+    subtract_constant: int,
+) -> Any:
+    if Image is None or ImageFilter is None:
+        raise RuntimeError(
+            "Missing dependency for preprocessing: pillow. "
+            "Install with `pip install pillow` or disable preprocessing."
+        )
+    if block_size < 3 or block_size % 2 == 0:
+        raise ValueError("block_size must be an odd integer >= 3")
+    grayscale = image.convert("L")
+    radius = max(1.0, float(block_size - 1) / 6.0)
+    blurred = grayscale.filter(ImageFilter.GaussianBlur(radius=radius))
+    binary = Image.new("L", grayscale.size, color=255)
+    source_pixels = grayscale.load()
+    blurred_pixels = blurred.load()
+    binary_pixels = binary.load()
+    for y in range(grayscale.height):
+        for x in range(grayscale.width):
+            local_threshold = max(0, min(255, int(blurred_pixels[x, y]) - subtract_constant))
+            binary_pixels[x, y] = 255 if int(source_pixels[x, y]) > local_threshold else 0
+    return binary
 
 
 def _preprocess_candidate(
@@ -549,9 +600,10 @@ def _validate_common_ocr_options(
     options: OCRRunOptions,
     which: Callable[[str], str | None],
 ) -> None:
-    if options.preprocess_mode not in {"none", "scan", "basic", "deskew", "dewarp", "auto"}:
+    if options.preprocess_mode not in _VALID_PREPROCESS_MODES:
         raise ValueError(
-            "preprocess_mode must be 'none', 'scan', 'basic', 'deskew', 'dewarp', or 'auto'"
+            "preprocess_mode must be 'none', 'scan', 'scan-local-threshold', "
+            "'basic', 'deskew', 'dewarp', or 'auto'"
         )
     if options.ocr_engine not in {"tesseract", "paddleocr"}:
         raise ValueError("ocr_engine must be 'tesseract' or 'paddleocr'")
@@ -1252,7 +1304,7 @@ def _parse_mode_eval_options(kwargs: dict[str, Any]) -> ModeEvalOptions:
     reference_text_path = kwargs.pop("reference_text_path", None)
     if reference_text_path is not None and not isinstance(reference_text_path, Path):
         reference_text_path = Path(str(reference_text_path))
-    raw_modes = kwargs.pop("modes", ("none", "scan", "basic", "deskew", "dewarp"))
+    raw_modes = kwargs.pop("modes", _MODE_EVAL_PREPROCESS_MODES)
     modes = tuple(str(mode) for mode in raw_modes)
     core_options = OCRCoreOptions(
         language=str(kwargs.pop("language", "eng")),

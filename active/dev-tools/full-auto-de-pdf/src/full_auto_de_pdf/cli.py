@@ -206,7 +206,7 @@ def _add_benchmark_corpus_command(
     )
     parser.add_argument(
         "--preprocess-mode",
-        choices=["none", "scan", "basic", "deskew", "dewarp", "auto"],
+        choices=["none", "scan", "scan-local-threshold", "basic", "deskew", "dewarp", "auto"],
         default="auto",
         help="Image preprocessing before OCR",
     )
@@ -354,7 +354,7 @@ def _add_ocr_pdf_command(subparsers: argparse._SubParsersAction[argparse.Argumen
     )
     parser.add_argument(
         "--preprocess-mode",
-        choices=["none", "scan", "basic", "deskew", "dewarp", "auto"],
+        choices=["none", "scan", "scan-local-threshold", "basic", "deskew", "dewarp", "auto"],
         default="auto",
         help="Image preprocessing before OCR (auto tries multiple modes per page)",
     )

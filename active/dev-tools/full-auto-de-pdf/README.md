@@ -89,6 +89,15 @@ full-auto-de-pdf ocr-pdf \
 #  per-page OCR artifacts and selection metadata under
 #  data/ocr-work/page_ocr by default)
 
+# Optional experimental degraded-scan mode:
+# keep the scan stack, but swap final Otsu binarization for adaptive Gaussian thresholding
+full-auto-de-pdf ocr-pdf \
+  --pdf scans/book.pdf \
+  --output out/book.scan-local-threshold.txt \
+  --work-dir data/ocr-work-local-threshold \
+  --preprocess-mode scan-local-threshold \
+  --tesseract-psm 6
+
 # Optional stronger engine (install first: pip install -e '.[ocr]')
 # (the optional extras pin a CPU-compatible Paddle runtime for Linux/headless use)
 full-auto-de-pdf ocr-pdf \
@@ -127,6 +136,7 @@ full-auto-de-pdf eval-epub \
 ## What changed
 
 - `ocr-pdf` can now use `--preprocess-mode auto` and `--tesseract-psm auto` to try several page-level OCR candidates, including a scan-tuned autocontrast + median + 3x upsample + per-page Otsu threshold path, and keep the best-scoring result for each page.
+- There is now an experimental `scan-local-threshold` preprocess mode that keeps the scan stack (`autocontrast -> median -> 3x upsample`) but swaps the final Otsu binarization for adaptive Gaussian thresholding; this is intended for degraded scans and is not yet part of `auto`.
 - `ocr-pdf` and `benchmark-corpus` can optionally use `--inverse-render-rerank` to re-render the top OCR candidates and compare thresholded ink overlap against the scanned page as a slow second-pass verifier.
 - OCR cleanup now includes precision-gated adjacent-word merge repair plus conservative confusable-word repair for residual scan errors like split names and `world`/`worid`-style glyph confusions; inverse-render reranking also evaluates cleaned candidate variants so these repairs can be image-verified before selection.
 - Per-page OCR manifests now record the selected preprocess mode, selected Tesseract PSM, and candidate scoring data for debugging and benchmarking.
@@ -145,6 +155,7 @@ This project now has a stronger adaptive OCR pipeline aimed at high printed-text
 
 - Best currently re-measured local benchmark: generated clean synthetic corpus slice (1 book, current seed-9 artifacts) at **0.999869 char accuracy / 0.984756 word accuracy**.
 - Best degraded synthetic scan snapshot with the new Otsu-based `scan` mode: combined `scan-moderate` + `scan-heavy` slice at **0.997766 char accuracy / 0.973476 word accuracy**.
+- In a newer local validation on the existing degraded scans-only manifest with `--tesseract-psm 6`, experimental `scan-local-threshold` improved aggregate accuracy from **0.989685 char / 0.935061 word** (`scan`) to **0.991656 char / 0.945122 word**.
 - Inverse-render reranking is implemented, but it still needs broader corpus validation before its accuracy impact should be claimed beyond targeted page-level experiments.
 - Most remaining clean-slice “word errors” are benchmark-normalization issues rather than serious reading errors: smart quotes vs straight quotes, Gutenberg italic markers (`_word_` vs `word`), and possessive tokenization (`author’s` vs `author s`). Under a light typography normalization pass, that clean slice rises to about **0.998386 word accuracy**.
 - The remaining degraded-scan failures are much more informative: they cluster around merge/split errors and a few glyph confusions, such as `Norris -> not is`, `world -> worid`, `before -> be fox`, and `not -> net`. The pipeline now includes a precision-gated repair layer for these patterns and lets inverse-render reranking verify cleaned candidate variants, but the aggregate benchmark impact still needs remeasurement on a larger scan slice.

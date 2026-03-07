@@ -127,7 +127,7 @@ def test_benchmark_corpus_command_runs_pipeline(monkeypatch, tmp_path) -> None:
         assert kwargs["corpus_manifest_path"] == corpus_manifest
         assert kwargs["output_report_path"] == output_report
         assert kwargs["work_dir"] == work_dir
-        assert kwargs["preprocess_mode"] == "auto"
+        assert kwargs["preprocess_mode"] == "scan-local-threshold"
         assert kwargs["tesseract_psm"] == "6"
         assert kwargs["ocr_engine"] == "paddleocr"
         assert kwargs["inverse_render_rerank"] is True
@@ -150,7 +150,7 @@ def test_benchmark_corpus_command_runs_pipeline(monkeypatch, tmp_path) -> None:
             "--work-dir",
             str(work_dir),
             "--preprocess-mode",
-            "auto",
+            "scan-local-threshold",
             "--tesseract-psm",
             "6",
             "--ocr-engine",

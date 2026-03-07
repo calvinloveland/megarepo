@@ -424,6 +424,42 @@ def test_preprocess_image_scan_uses_otsu_threshold_and_3x_upsample(tmp_path) -> 
         assert processed.getpixel((320, 30)) == 255
 
 
+def test_preprocess_image_scan_local_threshold_uses_adaptive_threshold_and_3x_upsample(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    input_path = tmp_path / "page.png"
+    output_path = tmp_path / "processed.png"
+    Image.new("L", (120, 180), color=220).save(input_path)
+    seen: dict[str, object] = {}
+
+    def _fake_adaptive_threshold(image, *, block_size, subtract_constant):  # noqa: ANN001, ANN202
+        seen["size"] = image.size
+        seen["block_size"] = block_size
+        seen["subtract_constant"] = subtract_constant
+        return image.point(lambda value: 255 if value >= 128 else 0)
+
+    monkeypatch.setattr(
+        ocr_pipeline,
+        "_adaptive_gaussian_threshold",
+        _fake_adaptive_threshold,
+    )
+
+    ocr_pipeline._preprocess_image(
+        input_path,
+        output_path,
+        "scan-local-threshold",
+        190,
+        2.0,
+        0.5,
+    )
+
+    with Image.open(output_path) as processed:
+        assert processed.size == (360, 540)
+        assert set(processed.getdata()) <= {0, 255}
+    assert seen == {"size": (360, 540), "block_size": 51, "subtract_constant": 15}
+
+
 def test_otsu_threshold_splits_bimodal_histogram() -> None:
     image = Image.new("L", (100, 10), color=235)
     pixels = image.load()
@@ -434,6 +470,26 @@ def test_otsu_threshold_splits_bimodal_histogram() -> None:
     threshold = ocr_pipeline._otsu_threshold(image)
 
     assert 20 <= threshold < 235
+
+
+def test_adaptive_gaussian_threshold_handles_uneven_background() -> None:
+    image = Image.new("L", (15, 15), color=255)
+    pixels = image.load()
+    for x in range(15):
+        for y in range(15):
+            pixels[x, y] = min(255, 120 + (x * 7) + (y * 2))
+    for y in range(3, 12):
+        pixels[7, y] = 45
+
+    binary = ocr_pipeline._adaptive_gaussian_threshold(
+        image,
+        block_size=5,
+        subtract_constant=7,
+    )
+
+    assert binary.getpixel((7, 7)) == 0
+    assert binary.getpixel((2, 2)) == 255
+    assert binary.getpixel((12, 12)) == 255
 
 
 def test_inverse_render_score_prefers_matching_text(monkeypatch, tmp_path) -> None:
@@ -621,6 +677,7 @@ def test_evaluate_ocr_preprocess_modes_runs_all_modes(monkeypatch, tmp_path) -> 
     mode_text = {
         "none": "alpha beta gamma",
         "scan": "alpha beta gamma",
+        "scan-local-threshold": "alpha beta gamma",
         "basic": "alpha beta",
         "deskew": "alpha typo",
         "dewarp": "alpha beta gamma",
@@ -642,7 +699,7 @@ def test_evaluate_ocr_preprocess_modes_runs_all_modes(monkeypatch, tmp_path) -> 
         reference_text_path=reference_text_path,
         ocr_engine="paddleocr",
     )
-    assert seen_modes == ["none", "scan", "basic", "deskew", "dewarp"]
+    assert seen_modes == ["none", "scan", "scan-local-threshold", "basic", "deskew", "dewarp"]
     assert output_report.exists()
     assert "modes" in report
     assert report["best_mode"] == "none"
