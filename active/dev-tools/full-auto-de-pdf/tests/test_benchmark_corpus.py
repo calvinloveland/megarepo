@@ -43,6 +43,83 @@ def test_build_benchmark_corpus_creates_manifest_and_assets(monkeypatch, tmp_pat
     saved_reference = Path(book_payload["reference_text_path"]).read_text(encoding="utf-8")
     assert "Chapter One begins" in saved_reference
     assert manifest["recommended_external_corpus"]["name"] == "Gutenberg-HathiTrust Parallel Corpus"
+    assert book_payload["artifact_profile"] == "clean"
+
+
+def test_build_benchmark_corpus_can_emit_multiple_artifact_profiles(monkeypatch, tmp_path) -> None:
+    book = BenchmarkBook("demo-book", "Demo Book", 123)
+    source_text = (
+        "Intro words only.\n\n"
+        "Chapter One begins with clean printed text for OCR benchmarking.\n\n"
+        "This paragraph should appear in the generated excerpt and PDF output.\n\n"
+        "Another paragraph keeps the sample long enough for wrapping."
+    )
+
+    monkeypatch.setattr(
+        "full_auto_de_pdf.benchmark_corpus.fetch_gutenberg_text",
+        lambda _gutenberg_id, timeout_seconds=60: source_text,
+    )
+
+    manifest = build_benchmark_corpus(
+        output_dir=tmp_path / "corpus",
+        cache_dir=tmp_path / "cache",
+        books=(book,),
+        excerpt_word_count=18,
+        skip_word_count=2,
+        font_size=20,
+        page_width=900,
+        page_height=1200,
+        margin=80,
+        artifact_profiles=("clean", "scan-heavy"),
+        artifact_seed=11,
+    )
+
+    assert manifest["book_count"] == 2
+    clean_book = next(item for item in manifest["books"] if item["artifact_profile"] == "clean")
+    heavy_book = next(item for item in manifest["books"] if item["artifact_profile"] == "scan-heavy")
+    assert clean_book["identifier"] == "demo-book"
+    assert heavy_book["identifier"] == "demo-book-scan-heavy"
+    assert Path(clean_book["page_image_paths"][0]).read_bytes() != Path(
+        heavy_book["page_image_paths"][0]
+    ).read_bytes()
+
+
+def test_build_benchmark_corpus_artifacts_are_seed_stable(monkeypatch, tmp_path) -> None:
+    book = BenchmarkBook("demo-book", "Demo Book", 123)
+    source_text = (
+        "Intro words only.\n\n"
+        "Chapter One begins with clean printed text for OCR benchmarking.\n\n"
+        "This paragraph should appear in the generated excerpt and PDF output.\n\n"
+        "Another paragraph keeps the sample long enough for wrapping."
+    )
+
+    monkeypatch.setattr(
+        "full_auto_de_pdf.benchmark_corpus.fetch_gutenberg_text",
+        lambda _gutenberg_id, timeout_seconds=60: source_text,
+    )
+
+    first_manifest = build_benchmark_corpus(
+        output_dir=tmp_path / "corpus-a",
+        cache_dir=tmp_path / "cache-a",
+        books=(book,),
+        excerpt_word_count=18,
+        skip_word_count=2,
+        artifact_profiles=("scan-moderate",),
+        artifact_seed=21,
+    )
+    second_manifest = build_benchmark_corpus(
+        output_dir=tmp_path / "corpus-b",
+        cache_dir=tmp_path / "cache-b",
+        books=(book,),
+        excerpt_word_count=18,
+        skip_word_count=2,
+        artifact_profiles=("scan-moderate",),
+        artifact_seed=21,
+    )
+
+    first_image = Path(first_manifest["books"][0]["page_image_paths"][0]).read_bytes()
+    second_image = Path(second_manifest["books"][0]["page_image_paths"][0]).read_bytes()
+    assert first_image == second_image
 
 
 def test_run_benchmark_corpus_aggregates_accuracy(monkeypatch, tmp_path) -> None:

@@ -5,16 +5,19 @@ from __future__ import annotations
 from dataclasses import dataclass
 import json
 from pathlib import Path
+import random
 import re
 import shutil
 import subprocess
 from typing import Any, Callable
 
 try:
-    from PIL import Image, ImageDraw, ImageFont
+    from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageFont
 except ImportError:
     Image = None
+    ImageChops = None
     ImageDraw = None
+    ImageFilter = None
     ImageFont = None
 
 from .benchmark import BENCHMARK_BOOKS, BenchmarkBook, calculate_accuracy_metrics
@@ -35,6 +38,7 @@ _DEFAULT_FONT_CANDIDATES = (
     "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
     "/usr/share/fonts/truetype/liberation2/LiberationSerif-Regular.ttf",
 )
+_ARTIFACT_PROFILES = ("clean", "scan-light", "scan-moderate", "scan-heavy")
 _WORD_RE = re.compile(r"\S+")
 _PNG_DPI = (300, 300)
 
@@ -51,6 +55,7 @@ class CorpusBook:
     excerpt_text_path: Path
     page_image_paths: tuple[Path, ...]
     font_path: str
+    artifact_profile: str
 
 
 def _fontconfig_match(family: str) -> str | None:
@@ -188,6 +193,140 @@ def _ocr_ready_image(page_image: Any) -> Any:
     return grayscale.point(lambda value: 255 if value >= 220 else 0, mode="1").convert("L")
 
 
+def _normalize_artifact_profiles(artifact_profiles: tuple[str, ...] | list[str] | None) -> tuple[str, ...]:
+    raw_values = artifact_profiles if artifact_profiles else ("clean",)
+    normalized = tuple(str(value).strip().lower() for value in raw_values if str(value).strip())
+    if not normalized:
+        return ("clean",)
+    invalid = [value for value in normalized if value not in _ARTIFACT_PROFILES]
+    if invalid:
+        raise ValueError(
+            "artifact_profiles must be chosen from: " + ", ".join(_ARTIFACT_PROFILES)
+        )
+    return normalized
+
+
+def _resampling_filter(name: str) -> Any:
+    if Image is None:
+        return None
+    namespace = getattr(Image, "Resampling", Image)
+    return getattr(namespace, name)
+
+
+def _noise_texture(size: tuple[int, int], rng: random.Random, amplitude: int) -> Any:
+    if Image is None:
+        raise RuntimeError("pillow is required for artifact rendering")
+    tile = Image.new("L", (96, 96), color=128)
+    tile.putdata(
+        [
+            max(0, min(255, 128 + rng.randint(-amplitude, amplitude)))
+            for _ in range(96 * 96)
+        ]
+    )
+    return tile.resize(size, _resampling_filter("BILINEAR"))
+
+
+def _gradient_mask(size: tuple[int, int], rng: random.Random, intensity: int) -> Any:
+    if Image is None:
+        raise RuntimeError("pillow is required for artifact rendering")
+    width, height = size
+    vertical = Image.new("L", (1, 64), color=255)
+    horizontal = Image.new("L", (64, 1), color=255)
+    vertical_start = 255 - rng.randint(0, 4 * intensity)
+    vertical_end = 255 - rng.randint(6 * intensity, 14 * intensity)
+    horizontal_start = 255 - rng.randint(0, 3 * intensity)
+    horizontal_end = 255 - rng.randint(4 * intensity, 10 * intensity)
+    vertical.putdata(
+        [
+            int(round(vertical_start + ((vertical_end - vertical_start) * index / 63.0)))
+            for index in range(64)
+        ]
+    )
+    horizontal.putdata(
+        [
+            int(round(horizontal_start + ((horizontal_end - horizontal_start) * index / 63.0)))
+            for index in range(64)
+        ]
+    )
+    vertical_mask = vertical.resize((width, height), _resampling_filter("BILINEAR"))
+    horizontal_mask = horizontal.resize((width, height), _resampling_filter("BILINEAR"))
+    return ImageChops.multiply(vertical_mask, horizontal_mask)
+
+
+def _paper_texture(size: tuple[int, int], rng: random.Random, intensity: int) -> Any:
+    if Image is None or ImageChops is None:
+        raise RuntimeError("pillow is required for artifact rendering")
+    texture = Image.new("L", size, color=248 - (intensity * 3))
+    texture = ImageChops.multiply(texture, _gradient_mask(size, rng, intensity))
+    noise = _noise_texture(size, rng, amplitude=5 * intensity)
+    texture = ImageChops.add(texture, noise, scale=2.0, offset=-8 * intensity)
+    return texture
+
+
+def _apply_scan_artifacts(page_image: Any, artifact_profile: str, seed: int) -> Any:
+    if Image is None or ImageChops is None or ImageFilter is None:
+        raise RuntimeError(
+            "Missing dependency for corpus rendering: pillow. "
+            "Install with `pip install pillow`."
+        )
+    if artifact_profile == "clean":
+        return _ocr_ready_image(page_image)
+
+    intensity_map = {
+        "scan-light": 1,
+        "scan-moderate": 2,
+        "scan-heavy": 3,
+    }
+    intensity = intensity_map[artifact_profile]
+    rng = random.Random(seed)
+    processed = page_image.convert("L")
+    width, height = processed.size
+    rotation = rng.uniform(-0.35, 0.35) * float(intensity)
+    processed = processed.rotate(
+        rotation,
+        resample=_resampling_filter("BICUBIC"),
+        fillcolor=255,
+    )
+    shrink_factor = max(0.70, 1.0 - (0.06 * intensity) - rng.uniform(0.0, 0.02 * intensity))
+    downsampled = processed.resize(
+        (
+            max(1, int(round(width * shrink_factor))),
+            max(1, int(round(height * shrink_factor))),
+        ),
+        _resampling_filter("BILINEAR"),
+    )
+    processed = downsampled.resize((width, height), _resampling_filter("BICUBIC"))
+    processed = processed.filter(ImageFilter.GaussianBlur(radius=0.35 * intensity))
+    ink_floor = 8 * intensity
+    background_ceiling = 255 - (4 * intensity)
+    processed = processed.point(
+        lambda value: int(
+            round(ink_floor + ((value / 255.0) * (background_ceiling - ink_floor)))
+        )
+    )
+    texture = _paper_texture((width, height), rng, intensity)
+    processed = ImageChops.multiply(processed, texture)
+    if intensity >= 2:
+        transpose_namespace = getattr(Image, "Transpose", Image)
+        bleed = processed.transpose(getattr(transpose_namespace, "FLIP_LEFT_RIGHT")).filter(
+            ImageFilter.GaussianBlur(radius=2.0 + intensity)
+        )
+        bleed = bleed.point(lambda value: 255 if value > 245 else min(255, value + 55))
+        processed = ImageChops.multiply(processed, bleed)
+    return processed
+
+
+def _variant_identifier(identifier: str, artifact_profile: str) -> str:
+    if artifact_profile == "clean":
+        return identifier
+    return f"{identifier}-{artifact_profile}"
+
+
+def _stable_variant_seed(identifier: str, artifact_profile: str, artifact_seed: int) -> int:
+    seed_material = f"{identifier}:{artifact_profile}:{artifact_seed}"
+    return sum((index + 1) * ord(char) for index, char in enumerate(seed_material))
+
+
 def _render_page_images(
     excerpt_text: str,
     output_dir: Path,
@@ -197,6 +336,8 @@ def _render_page_images(
     page_width: int,
     page_height: int,
     margin: int,
+    artifact_profile: str,
+    artifact_seed: int,
 ) -> tuple[list[Path], str]:
     if Image is None or ImageDraw is None:
         raise RuntimeError(
@@ -217,7 +358,17 @@ def _render_page_images(
     for paragraph in _normalize_paragraphs(excerpt_text):
         for line in _wrap_paragraph(draw, font, paragraph, max_width):
             if y + line_height > page_height - margin:
-                page_paths.append(_save_page_image(_ocr_ready_image(page_image), page_number, pages_dir))
+                page_paths.append(
+                    _save_page_image(
+                        _apply_scan_artifacts(
+                            page_image,
+                            artifact_profile,
+                            artifact_seed + page_number,
+                        ),
+                        page_number,
+                        pages_dir,
+                    )
+                )
                 page_number += 1
                 page_image = Image.new("L", (page_width, page_height), color=255)
                 draw = ImageDraw.Draw(page_image)
@@ -226,7 +377,17 @@ def _render_page_images(
             y += line_height
         y += line_height
 
-    page_paths.append(_save_page_image(_ocr_ready_image(page_image), page_number, pages_dir))
+    page_paths.append(
+        _save_page_image(
+            _apply_scan_artifacts(
+                page_image,
+                artifact_profile,
+                artifact_seed + page_number,
+            ),
+            page_number,
+            pages_dir,
+        )
+    )
     return page_paths, resolved_font_path
 
 
@@ -260,6 +421,8 @@ def build_benchmark_corpus(
     page_width: int = 1654,
     page_height: int = 2339,
     margin: int = 150,
+    artifact_profiles: tuple[str, ...] = ("clean",),
+    artifact_seed: int = 0,
 ) -> dict[str, Any]:
     """Build a local synthetic printed-text OCR benchmark corpus."""
 
@@ -267,6 +430,7 @@ def build_benchmark_corpus(
         raise ValueError("excerpt_word_count must be greater than 0")
     if skip_word_count < 0:
         raise ValueError("skip_word_count must be zero or greater")
+    normalized_artifact_profiles = _normalize_artifact_profiles(artifact_profiles)
     selected_books = books[:max_books] if max_books is not None else books
     if not selected_books:
         raise ValueError("build_benchmark_corpus requires at least one book")
@@ -275,35 +439,44 @@ def build_benchmark_corpus(
     for book in selected_books:
         reference_text = _load_reference_text(book, cache_dir, timeout_seconds)
         excerpt_text = _extract_excerpt(reference_text, excerpt_word_count, skip_word_count)
-        book_dir = output_dir / _slugify(book.identifier)
-        reference_text_path = book_dir / "reference.txt"
-        excerpt_text_path = book_dir / "excerpt.txt"
-        pdf_path = book_dir / "synthetic.pdf"
-        reference_text_path.parent.mkdir(parents=True, exist_ok=True)
-        reference_text_path.write_text(excerpt_text, encoding="utf-8")
-        excerpt_text_path.write_text(excerpt_text, encoding="utf-8")
-        page_image_paths, resolved_font_path = _render_page_images(
-            excerpt_text,
-            book_dir,
-            font_path=font_path,
-            font_size=font_size,
-            page_width=page_width,
-            page_height=page_height,
-            margin=margin,
-        )
-        _write_pdf(page_image_paths, pdf_path)
-        built_books.append(
-            CorpusBook(
-                book=book,
-                reference_text=excerpt_text,
-                excerpt_text=excerpt_text,
-                pdf_path=pdf_path,
-                reference_text_path=reference_text_path,
-                excerpt_text_path=excerpt_text_path,
-                page_image_paths=tuple(page_image_paths),
-                font_path=resolved_font_path,
+        for artifact_profile in normalized_artifact_profiles:
+            variant_identifier = _variant_identifier(book.identifier, artifact_profile)
+            book_dir = output_dir / _slugify(variant_identifier)
+            reference_text_path = book_dir / "reference.txt"
+            excerpt_text_path = book_dir / "excerpt.txt"
+            pdf_path = book_dir / "synthetic.pdf"
+            reference_text_path.parent.mkdir(parents=True, exist_ok=True)
+            reference_text_path.write_text(excerpt_text, encoding="utf-8")
+            excerpt_text_path.write_text(excerpt_text, encoding="utf-8")
+            page_image_paths, resolved_font_path = _render_page_images(
+                excerpt_text,
+                book_dir,
+                font_path=font_path,
+                font_size=font_size,
+                page_width=page_width,
+                page_height=page_height,
+                margin=margin,
+                artifact_profile=artifact_profile,
+                artifact_seed=_stable_variant_seed(
+                    book.identifier,
+                    artifact_profile,
+                    artifact_seed,
+                ),
             )
-        )
+            _write_pdf(page_image_paths, pdf_path)
+            built_books.append(
+                CorpusBook(
+                    book=BenchmarkBook(variant_identifier, book.title, book.gutenberg_id),
+                    reference_text=excerpt_text,
+                    excerpt_text=excerpt_text,
+                    pdf_path=pdf_path,
+                    reference_text_path=reference_text_path,
+                    excerpt_text_path=excerpt_text_path,
+                    page_image_paths=tuple(page_image_paths),
+                    font_path=resolved_font_path,
+                    artifact_profile=artifact_profile,
+                )
+            )
 
     manifest = {
         "corpus_type": "generated-public-domain-printed-text",
@@ -312,6 +485,8 @@ def build_benchmark_corpus(
             "reference texts rendered into reproducible PDFs."
         ),
         "recommended_external_corpus": _EXTERNAL_CORPUS_NOTE,
+        "artifact_profiles": list(normalized_artifact_profiles),
+        "artifact_seed": artifact_seed,
         "book_count": len(built_books),
         "books": [
             {
@@ -325,6 +500,7 @@ def build_benchmark_corpus(
                 "page_count": len(item.page_image_paths),
                 "reference_word_count": _word_count(item.reference_text),
                 "font_path": item.font_path,
+                "artifact_profile": item.artifact_profile,
             }
             for item in built_books
         ],

@@ -156,6 +156,19 @@ def _add_build_benchmark_corpus_command(
     parser.add_argument("--page-width", type=int, default=1654, help="Synthetic page width in px")
     parser.add_argument("--page-height", type=int, default=2339, help="Synthetic page height in px")
     parser.add_argument("--margin", type=int, default=150, help="Synthetic page margin in px")
+    parser.add_argument(
+        "--artifact-profile",
+        action="append",
+        choices=["clean", "scan-light", "scan-moderate", "scan-heavy"],
+        default=[],
+        help="Synthetic scan-artifact profile to generate; may be repeated",
+    )
+    parser.add_argument(
+        "--artifact-seed",
+        type=int,
+        default=0,
+        help="Base seed for deterministic synthetic scan artifacts",
+    )
 
 
 def _add_benchmark_corpus_command(
@@ -616,6 +629,8 @@ def _handle_build_benchmark_corpus(args: argparse.Namespace) -> int:
         page_width=args.page_width,
         page_height=args.page_height,
         margin=args.margin,
+        artifact_profiles=tuple(args.artifact_profile) or ("clean",),
+        artifact_seed=args.artifact_seed,
     )
     print(f"Built benchmark corpus: {manifest['book_count']} books -> {args.output_dir / 'manifest.json'}")
     return 0

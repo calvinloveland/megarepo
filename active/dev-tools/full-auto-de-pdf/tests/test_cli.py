@@ -89,6 +89,8 @@ def test_build_benchmark_corpus_command_writes_manifest(monkeypatch, tmp_path) -
         assert kwargs["cache_dir"] == cache_dir
         assert kwargs["timeout_seconds"] == 30
         assert kwargs["max_books"] == 2
+        assert kwargs["artifact_profiles"] == ("clean", "scan-moderate")
+        assert kwargs["artifact_seed"] == 7
         return {"book_count": 2, "books": []}
 
     monkeypatch.setattr(cli, "build_benchmark_corpus", _fake_build_benchmark_corpus)
@@ -103,6 +105,12 @@ def test_build_benchmark_corpus_command_writes_manifest(monkeypatch, tmp_path) -
             "30",
             "--max-books",
             "2",
+            "--artifact-profile",
+            "clean",
+            "--artifact-profile",
+            "scan-moderate",
+            "--artifact-seed",
+            "7",
         ]
     )
 
