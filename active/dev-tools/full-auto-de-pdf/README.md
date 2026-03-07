@@ -140,6 +140,12 @@ full-auto-de-pdf eval-epub \
 
 This project now has a stronger adaptive OCR pipeline aimed at high printed-text accuracy, but a true 99.9% claim still depends on measuring against a representative benchmark corpus for the exact document set you care about.
 
+### Current benchmark snapshot
+
+- Best currently re-measured local benchmark: generated clean synthetic corpus slice (1 book, current seed-9 artifacts) at **0.999869 char accuracy / 0.984756 word accuracy**.
+- Best degraded synthetic scan snapshot with the new Otsu-based `scan` mode: combined `scan-moderate` + `scan-heavy` slice at **0.997766 char accuracy / 0.973476 word accuracy**.
+- Inverse-render reranking is implemented, but it still needs broader corpus validation before its accuracy impact should be claimed beyond targeted page-level experiments.
+
 ## Benchmark corpus strategy
 
 - Ideal external corpus: the Gutenberg-HathiTrust Parallel Corpus described at <https://hdl.handle.net/2142/109695>, which reports 19,049 aligned OCR/proofread English book pairs.
