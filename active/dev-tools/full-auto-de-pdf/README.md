@@ -81,9 +81,11 @@ full-auto-de-pdf ocr-pdf \
   --deskew-max-angle 3.0 \
   --deskew-angle-step 0.5 \
   --ocr-engine tesseract
-# (tries multiple preprocess modes, including a scan-tuned autocontrast + median +
-#  3x upsample + per-page Otsu threshold mode,
+# (tries multiple preprocess modes, including scan-tuned Otsu and
+#  scan-local-threshold variants built from autocontrast + median + 3x upsample,
 #  plus multiple Tesseract page-segmentation modes per page,
+#  applies a narrow inverse-render tie-break among close none/scan/scan-local-threshold
+#  candidates in auto mode,
 #  optionally re-renders the top OCR candidates back into page images to
 #  rerank ambiguous pages by ink-overlap against the scan, then writes
 #  per-page OCR artifacts and selection metadata under
@@ -135,8 +137,8 @@ full-auto-de-pdf eval-epub \
 
 ## What changed
 
-- `ocr-pdf` can now use `--preprocess-mode auto` and `--tesseract-psm auto` to try several page-level OCR candidates, including a scan-tuned autocontrast + median + 3x upsample + per-page Otsu threshold path, and keep the best-scoring result for each page.
-- There is now an experimental `scan-local-threshold` preprocess mode that keeps the scan stack (`autocontrast -> median -> 3x upsample`) but swaps the final Otsu binarization for adaptive Gaussian thresholding; this is intended for degraded scans and is not yet part of `auto`.
+- `ocr-pdf` can now use `--preprocess-mode auto` and `--tesseract-psm auto` to try several page-level OCR candidates, including both scan-tuned Otsu and scan-local-threshold paths, and keep the best-scoring result for each page; when the top text-score candidates are close, `auto` now applies a narrow inverse-render tie-break across `none`/`scan`/`scan-local-threshold` instead of broad page-wide reranking.
+- There is now an experimental `scan-local-threshold` preprocess mode that keeps the scan stack (`autocontrast -> median -> 3x upsample`) but swaps the final Otsu binarization for adaptive Gaussian thresholding; it is intended for degraded scans and is now included in `auto`.
 - `ocr-pdf` and `benchmark-corpus` can optionally use `--inverse-render-rerank` to re-render the top OCR candidates and compare thresholded ink overlap against the scanned page as a slow second-pass verifier.
 - OCR cleanup now includes precision-gated adjacent-word merge repair plus conservative confusable-word repair for residual scan errors like split names and `world`/`worid`-style glyph confusions; inverse-render reranking also evaluates cleaned candidate variants so these repairs can be image-verified before selection.
 - Per-page OCR manifests now record the selected preprocess mode, selected Tesseract PSM, and candidate scoring data for debugging and benchmarking.

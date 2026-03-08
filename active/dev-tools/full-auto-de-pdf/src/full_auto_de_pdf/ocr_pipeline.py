@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections import Counter
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 import importlib
 import json
 import math
@@ -34,7 +34,7 @@ _VALID_PREPROCESS_MODES = (
     "dewarp",
     "auto",
 )
-_AUTO_PREPROCESS_MODES = ("none", "scan", "basic", "deskew", "dewarp")
+_AUTO_PREPROCESS_MODES = ("none", "scan", "scan-local-threshold", "basic", "deskew", "dewarp")
 _MODE_EVAL_PREPROCESS_MODES = ("none", "scan", "scan-local-threshold", "basic", "deskew", "dewarp")
 _AUTO_TESSERACT_PSMS = ("3", "4", "6")
 _DEFAULT_RENDER_FONT_CANDIDATES = (
@@ -45,6 +45,8 @@ _DEFAULT_RENDER_FONT_CANDIDATES = (
 _INVERSE_RENDER_SIZE_ADJUSTMENTS = (-2, 0, 2)
 _INVERSE_RENDER_ROTATIONS = (-0.5, 0.0, 0.5)
 _INVERSE_RENDER_OFFSETS = (-4, 0, 4)
+_AUTO_INVERSE_RENDER_SCORE_WINDOW = 80.0
+_AUTO_INVERSE_RENDER_PREPROCESS_MODES = frozenset({"none", "scan", "scan-local-threshold"})
 _LATIN_TOKEN = re.compile(r"[A-Za-z]+(?:'[A-Za-z]+)?")
 _NON_TEXT_CHAR = re.compile(r"[^A-Za-z0-9\s\.,;:!\?'\-\"()\[\]]")
 _COMMON_ENGLISH_WORDS = frozenset(
@@ -1027,6 +1029,34 @@ def _maybe_inverse_render_rerank(
     return best_candidate
 
 
+def _maybe_auto_inverse_render_tiebreak(
+    image_path: Path,
+    candidates: list[OCRCandidate],
+    options: OCRRunOptions,
+) -> OCRCandidate | None:
+    if options.core.inverse_render_rerank or options.preprocess_mode != "auto" or len(candidates) < 2:
+        return None
+    ranked_candidates = sorted(candidates, key=lambda candidate: candidate.score, reverse=True)
+    best_score = ranked_candidates[0].score
+    rerank_candidates = [
+        candidate
+        for candidate in ranked_candidates
+        if best_score - candidate.score <= _AUTO_INVERSE_RENDER_SCORE_WINDOW
+        and candidate.metadata.get("preprocess_mode") in _AUTO_INVERSE_RENDER_PREPROCESS_MODES
+    ]
+    if len(rerank_candidates) < 2:
+        return None
+    rerank_options = replace(
+        options,
+        core=replace(
+            options.core,
+            inverse_render_rerank=True,
+            inverse_render_top_k=len(rerank_candidates),
+        ),
+    )
+    return _maybe_inverse_render_rerank(image_path, rerank_candidates, rerank_options)
+
+
 def _run_candidate_ocr(
     ocr_input_path: Path,
     options: OCRRunOptions,
@@ -1097,12 +1127,19 @@ def _run_ocr_on_page(
         raise RuntimeError(f"OCR produced no candidates for page: {image_path}")
     best_candidate = max(candidates, key=lambda candidate: candidate.score)
     reranked_candidate = _maybe_inverse_render_rerank(image_path, candidates, options)
-    selected_candidate = reranked_candidate or best_candidate
+    auto_tiebreak_candidate = (
+        None if reranked_candidate is not None else _maybe_auto_inverse_render_tiebreak(image_path, candidates, options)
+    )
+    selected_candidate = reranked_candidate or auto_tiebreak_candidate or best_candidate
     selected_metadata = dict(selected_candidate.metadata)
     selected_metadata["selected_preprocess_mode"] = selected_metadata["preprocess_mode"]
     selected_metadata["selection_score"] = selected_candidate.score
     selected_metadata["selection_strategy"] = (
-        "inverse-render-rerank" if reranked_candidate is not None else "text-score"
+        "inverse-render-rerank"
+        if reranked_candidate is not None
+        else "auto-inverse-render-tiebreak"
+        if auto_tiebreak_candidate is not None
+        else "text-score"
     )
     if len(candidate_runs) > 1:
         selected_metadata["candidate_runs"] = candidate_runs
