@@ -14,7 +14,10 @@ from .benchmark_corpus import (
     build_image_text_corpus_manifest,
     run_benchmark_corpus,
 )
-from .benchmark_viz import build_local_benchmark_failure_page
+from .benchmark_viz import (
+    build_local_benchmark_failure_page,
+    build_local_benchmark_processing_page,
+)
 from .epub import build_epub_from_ocr_file
 from .epub_eval import evaluate_epub_structure
 from .ocr_pipeline import (
@@ -43,6 +46,7 @@ def _build_parser() -> argparse.ArgumentParser:
         _add_benchmark_local_archive_command,
         _add_eval_epub_command,
         _add_failure_page_command,
+        _add_processing_page_command,
     ):
         register(subparsers)
     return parser
@@ -587,6 +591,39 @@ def _add_failure_page_command(
         default=3,
         help="Maximum page image cards to show per token",
     )
+    parser.add_argument(
+        "--max-example-pages",
+        type=int,
+        default=6,
+        help="Maximum representative PDF page examples to show per mode",
+    )
+
+
+def _add_processing_page_command(
+    subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
+) -> None:
+    parser = subparsers.add_parser(
+        "benchmark-processing-page",
+        help="Render an HTML page explaining OCR processing with page examples",
+    )
+    parser.add_argument(
+        "--report",
+        type=Path,
+        required=True,
+        help="Input benchmark-local-archive or ocr-eval-modes report JSON",
+    )
+    parser.add_argument(
+        "--output",
+        type=Path,
+        default=Path("data/benchmark_processing.html"),
+        help="Output HTML path",
+    )
+    parser.add_argument(
+        "--max-example-pages",
+        type=int,
+        default=4,
+        help="Maximum representative PDF page examples to show per mode",
+    )
 
 
 def _handle_manifest(args: argparse.Namespace) -> int:
@@ -808,9 +845,23 @@ def _handle_benchmark_failures_page(args: argparse.Namespace) -> int:
         output_html_path=args.output,
         max_failures=args.max_failures,
         max_pages_per_token=args.max_pages_per_token,
+        max_example_pages=args.max_example_pages,
     )
     print(
         "Benchmark failure page written: "
+        f"modes={summary['mode_count']} best_mode={summary['best_mode']} -> {args.output}"
+    )
+    return 0
+
+
+def _handle_benchmark_processing_page(args: argparse.Namespace) -> int:
+    summary = build_local_benchmark_processing_page(
+        report_path=args.report,
+        output_html_path=args.output,
+        max_example_pages=args.max_example_pages,
+    )
+    print(
+        "Benchmark processing page written: "
         f"modes={summary['mode_count']} best_mode={summary['best_mode']} -> {args.output}"
     )
     return 0
@@ -829,6 +880,7 @@ _COMMAND_HANDLERS: dict[str, Callable[[argparse.Namespace], int]] = {
     "benchmark-local-archive": _handle_benchmark_local_archive,
     "eval-epub": _handle_eval_epub,
     "benchmark-failures-page": _handle_benchmark_failures_page,
+    "benchmark-processing-page": _handle_benchmark_processing_page,
 }
 
 

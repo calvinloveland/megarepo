@@ -434,12 +434,13 @@ def test_benchmark_failures_page_command_writes_html(monkeypatch, tmp_path) -> N
     input_report.write_text("{}", encoding="utf-8")
 
     def _fake_build_local_benchmark_failure_page(  # noqa: ANN001
-        report_path, output_html_path, max_failures, max_pages_per_token
+        report_path, output_html_path, max_failures, max_pages_per_token, max_example_pages
     ):
         assert report_path == input_report
         assert output_html_path == output_html
         assert max_failures == 20
         assert max_pages_per_token == 2
+        assert max_example_pages == 5
         output_html_path.write_text("<html></html>", encoding="utf-8")
         return {"mode_count": 4, "best_mode": "deskew"}
 
@@ -455,6 +456,36 @@ def test_benchmark_failures_page_command_writes_html(monkeypatch, tmp_path) -> N
             "20",
             "--max-pages-per-token",
             "2",
+            "--max-example-pages",
+            "5",
+        ]
+    )
+    assert rc == 0
+    assert output_html.exists()
+
+
+def test_benchmark_processing_page_command_writes_html(monkeypatch, tmp_path) -> None:
+    input_report = tmp_path / "report.json"
+    output_html = tmp_path / "processing.html"
+    input_report.write_text("{}", encoding="utf-8")
+
+    def _fake_build_local_benchmark_processing_page(report_path, output_html_path, max_example_pages):  # noqa: ANN001
+        assert report_path == input_report
+        assert output_html_path == output_html
+        assert max_example_pages == 3
+        output_html_path.write_text("<html></html>", encoding="utf-8")
+        return {"mode_count": 2, "best_mode": "scan"}
+
+    monkeypatch.setattr(cli, "build_local_benchmark_processing_page", _fake_build_local_benchmark_processing_page)
+    rc = cli.main(
+        [
+            "benchmark-processing-page",
+            "--report",
+            str(input_report),
+            "--output",
+            str(output_html),
+            "--max-example-pages",
+            "3",
         ]
     )
     assert rc == 0
