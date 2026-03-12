@@ -1458,6 +1458,50 @@ def _page_entry(
     return entry
 
 
+def _page_artifacts_manifest_payload(
+    page_details: list[dict[str, object]],
+    total_pages: int,
+    *,
+    status: str,
+    current_page_index: int | None,
+) -> dict[str, object]:
+    return {
+        "pages": page_details,
+        "progress": {
+            "status": status,
+            "total_pages": total_pages,
+            "completed_pages": len(page_details),
+            "current_page_index": current_page_index,
+        },
+    }
+
+
+def _write_page_artifacts_manifest(
+    artifacts_dir: Path,
+    page_details: list[dict[str, object]],
+    total_pages: int,
+    *,
+    status: str,
+    current_page_index: int | None,
+) -> Path:
+    artifacts_manifest_path = artifacts_dir / "manifest.json"
+    artifacts_manifest_path.write_text(
+        json.dumps(
+            _page_artifacts_manifest_payload(
+                page_details,
+                total_pages,
+                status=status,
+                current_page_index=current_page_index,
+            ),
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    return artifacts_manifest_path
+
+
 def _collect_page_ocr_results(
     page_images: list[Path],
     options: OCRRunOptions,
@@ -1475,6 +1519,15 @@ def _collect_page_ocr_results(
     )
     mode_usage: Counter[str] = Counter()
     tesseract_psm_usage: Counter[str] = Counter()
+    total_pages = len(page_images)
+    if options.emit_page_artifacts:
+        _write_page_artifacts_manifest(
+            artifacts_dir,
+            page_details,
+            total_pages,
+            status="running",
+            current_page_index=1 if total_pages else None,
+        )
     for image_path in page_images:
         ocr_input_path, text, selection_metadata = _run_ocr_on_page(
             image_path,
@@ -1500,6 +1553,14 @@ def _collect_page_ocr_results(
             text_path.write_text(text, encoding="utf-8")
             entry["text_path"] = str(text_path)
         page_details.append(entry)
+        if options.emit_page_artifacts:
+            _write_page_artifacts_manifest(
+                artifacts_dir,
+                page_details,
+                total_pages,
+                status="complete" if page_index >= total_pages else "running",
+                current_page_index=page_index + 1 if page_index < total_pages else None,
+            )
     selection_summary: dict[str, object] = {
         "mode_usage": dict(mode_usage),
     }
@@ -1532,10 +1593,12 @@ def _attach_page_artifacts(
     artifacts_dir: Path,
     page_details: list[dict[str, object]],
 ) -> None:
-    artifacts_manifest_path = artifacts_dir / "manifest.json"
-    artifacts_manifest_path.write_text(
-        json.dumps({"pages": page_details}, indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
+    artifacts_manifest_path = _write_page_artifacts_manifest(
+        artifacts_dir,
+        page_details,
+        len(page_details),
+        status="complete",
+        current_page_index=None,
     )
     result["page_artifacts_dir"] = str(artifacts_dir)
     result["page_artifacts_manifest"] = str(artifacts_manifest_path)

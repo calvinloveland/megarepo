@@ -83,6 +83,12 @@ def test_ocr_pdf_with_tesseract_happy_path(tmp_path) -> None:
     assert artifacts_manifest.exists()
     manifest_payload = json.loads(artifacts_manifest.read_text(encoding="utf-8"))
     assert len(manifest_payload["pages"]) == 2
+    assert manifest_payload["progress"] == {
+        "status": "complete",
+        "total_pages": 2,
+        "completed_pages": 2,
+        "current_page_index": None,
+    }
 
     metrics_dewarp = ocr_pdf_with_tesseract(
         pdf_path=pdf_path,
@@ -105,6 +111,64 @@ def test_ocr_pdf_with_tesseract_happy_path(tmp_path) -> None:
         which=_which,
     )
     assert "page_artifacts_manifest" not in metrics_no_artifacts
+
+
+def test_ocr_pdf_with_tesseract_updates_page_manifest_during_run(tmp_path) -> None:
+    pdf_path = tmp_path / "book.pdf"
+    output_path = tmp_path / "out.txt"
+    work_dir = tmp_path / "work"
+    manifest_path = work_dir / "page_ocr" / "manifest.json"
+    pdf_path.write_bytes(b"pdf")
+
+    def _which(_name: str) -> str | None:
+        return "/usr/bin/fake"
+
+    def _run(command: list[str], capture_output: bool) -> str:
+        if command[0] == "pdftoppm":
+            pages_dir = work_dir / "pages"
+            pages_dir.mkdir(parents=True, exist_ok=True)
+            Image.new("L", (20, 20), color=255).save(pages_dir / "page-1.png")
+            Image.new("L", (20, 20), color=255).save(pages_dir / "page-2.png")
+            return ""
+        if command[0] == "tesseract":
+            assert capture_output is True
+            image_name = Path(command[1]).name
+            manifest_payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+            if image_name == "page-1.png":
+                assert manifest_payload["progress"] == {
+                    "status": "running",
+                    "total_pages": 2,
+                    "completed_pages": 0,
+                    "current_page_index": 1,
+                }
+                return "First page text"
+            assert image_name == "page-2.png"
+            assert manifest_payload["progress"] == {
+                "status": "running",
+                "total_pages": 2,
+                "completed_pages": 1,
+                "current_page_index": 2,
+            }
+            assert (work_dir / "page_ocr" / "page-0001.txt").read_text(encoding="utf-8") == "First page text"
+            return "Second page text"
+        raise AssertionError("unexpected command")
+
+    metrics = ocr_pdf_with_tesseract(
+        pdf_path=pdf_path,
+        output_text_path=output_path,
+        work_dir=work_dir,
+        run_command=_run,
+        preprocess_mode="none",
+        which=_which,
+    )
+
+    manifest_payload = json.loads(Path(str(metrics["page_artifacts_manifest"])).read_text(encoding="utf-8"))
+    assert manifest_payload["progress"] == {
+        "status": "complete",
+        "total_pages": 2,
+        "completed_pages": 2,
+        "current_page_index": None,
+    }
 
 
 def test_ocr_pdf_with_tesseract_rejects_invalid_preprocess_mode(tmp_path) -> None:
