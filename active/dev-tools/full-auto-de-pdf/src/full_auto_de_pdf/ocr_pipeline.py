@@ -48,6 +48,7 @@ _INVERSE_RENDER_ROTATIONS = (-0.5, 0.0, 0.5)
 _INVERSE_RENDER_OFFSETS = (-4, 0, 4)
 _AUTO_INVERSE_RENDER_SCORE_WINDOW = 80.0
 _AUTO_INVERSE_RENDER_PREPROCESS_MODES = frozenset({"none", "scan", "scan-local-threshold"})
+_AUTO_SCAN_LOCAL_THRESHOLD_MIN_SCORE = 500.0
 _LATIN_TOKEN = re.compile(r"[A-Za-z]+(?:'[A-Za-z]+)?")
 _NON_TEXT_CHAR = re.compile(r"[^A-Za-z0-9\s\.,;:!\?'\-\"()\[\]]")
 _COMMON_ENGLISH_WORDS = frozenset(
@@ -1060,6 +1061,28 @@ def _maybe_auto_inverse_render_tiebreak(
     return _maybe_inverse_render_rerank(image_path, rerank_candidates, rerank_options)
 
 
+def _maybe_prefer_scan_local_threshold_candidate(
+    candidates: list[OCRCandidate],
+    options: OCRRunOptions,
+) -> OCRCandidate | None:
+    if options.core.inverse_render_rerank or options.preprocess_mode != "auto" or len(candidates) < 2:
+        return None
+    ranked_candidates = sorted(candidates, key=lambda candidate: candidate.score, reverse=True)
+    best_candidate = ranked_candidates[0]
+    if (
+        best_candidate.metadata.get("preprocess_mode") != "scan"
+        or best_candidate.score < _AUTO_SCAN_LOCAL_THRESHOLD_MIN_SCORE
+    ):
+        return None
+    for candidate in ranked_candidates[1:]:
+        if candidate.metadata.get("preprocess_mode") != "scan-local-threshold":
+            continue
+        if best_candidate.score - candidate.score > _AUTO_INVERSE_RENDER_SCORE_WINDOW:
+            continue
+        return candidate
+    return None
+
+
 def _run_candidate_ocr(
     ocr_input_path: Path,
     options: OCRRunOptions,
@@ -1130,16 +1153,30 @@ def _run_ocr_on_page(
         raise RuntimeError(f"OCR produced no candidates for page: {image_path}")
     best_candidate = max(candidates, key=lambda candidate: candidate.score)
     reranked_candidate = _maybe_inverse_render_rerank(image_path, candidates, options)
-    auto_tiebreak_candidate = (
-        None if reranked_candidate is not None else _maybe_auto_inverse_render_tiebreak(image_path, candidates, options)
+    preferred_scan_local_threshold_candidate = (
+        None
+        if reranked_candidate is not None
+        else _maybe_prefer_scan_local_threshold_candidate(candidates, options)
     )
-    selected_candidate = reranked_candidate or auto_tiebreak_candidate or best_candidate
+    auto_tiebreak_candidate = (
+        None
+        if reranked_candidate is not None or preferred_scan_local_threshold_candidate is not None
+        else _maybe_auto_inverse_render_tiebreak(image_path, candidates, options)
+    )
+    selected_candidate = (
+        reranked_candidate
+        or preferred_scan_local_threshold_candidate
+        or auto_tiebreak_candidate
+        or best_candidate
+    )
     selected_metadata = dict(selected_candidate.metadata)
     selected_metadata["selected_preprocess_mode"] = selected_metadata["preprocess_mode"]
     selected_metadata["selection_score"] = selected_candidate.score
     selected_metadata["selection_strategy"] = (
         "inverse-render-rerank"
         if reranked_candidate is not None
+        else "auto-scan-local-threshold-preference"
+        if preferred_scan_local_threshold_candidate is not None
         else "auto-inverse-render-tiebreak"
         if auto_tiebreak_candidate is not None
         else "text-score"

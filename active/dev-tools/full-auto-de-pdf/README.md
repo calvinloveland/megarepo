@@ -83,6 +83,8 @@ full-auto-de-pdf ocr-pdf \
   --ocr-engine tesseract
 # (tries multiple preprocess modes, including scan-tuned Otsu and
 #  scan-local-threshold variants built from autocontrast + median + 3x upsample,
+#  now prefers a near-best scan-local-threshold result over the plain scan winner
+#  on strong degraded pages before falling back to the narrow visual tie-break,
 #  plus multiple Tesseract page-segmentation modes per page,
 #  applies a narrow inverse-render tie-break among close none/scan/scan-local-threshold
 #  candidates in auto mode,
@@ -142,7 +144,7 @@ full-auto-de-pdf eval-epub \
 
 ## What changed
 
-- `ocr-pdf` can now use `--preprocess-mode auto` and `--tesseract-psm auto` to try several page-level OCR candidates, including both scan-tuned Otsu and scan-local-threshold paths, and keep the best-scoring result for each page; when the top text-score candidates are close, `auto` now applies a narrow inverse-render tie-break across `none`/`scan`/`scan-local-threshold` instead of broad page-wide reranking.
+- `ocr-pdf` can now use `--preprocess-mode auto` and `--tesseract-psm auto` to try several page-level OCR candidates, including both scan-tuned Otsu and scan-local-threshold paths, and keep the best-scoring result for each page; on stronger degraded pages it now also prefers a near-best `scan-local-threshold` result over the plain `scan` winner before applying the existing narrow inverse-render tie-break across `none`/`scan`/`scan-local-threshold`.
 - There is now an experimental `scan-local-threshold` preprocess mode that keeps the scan stack (`autocontrast -> median -> 3x upsample`) but swaps the final Otsu binarization for adaptive Gaussian thresholding; it is intended for degraded scans and is now included in `auto`.
 - `ocr-pdf` and `benchmark-corpus` can optionally use `--inverse-render-rerank` to re-render the top OCR candidates and compare thresholded ink overlap against the scanned page as a slow second-pass verifier.
 - `benchmark-failures-page` now includes richer representative PDF/page examples with selected preprocess metadata and candidate-score tables, and `benchmark-processing-page` renders a separate walkthrough page that explains the OCR pipeline stages with page examples.
