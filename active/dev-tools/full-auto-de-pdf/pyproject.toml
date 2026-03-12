@@ -33,3 +33,13 @@ packages = ["src/full_auto_de_pdf"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.pylint.format]
+max-line-length = 160
+max-module-lines = 2200
+
+[tool.pylint.design]
+max-args = 14
+max-attributes = 12
+max-locals = 30
+max-positional-arguments = 8

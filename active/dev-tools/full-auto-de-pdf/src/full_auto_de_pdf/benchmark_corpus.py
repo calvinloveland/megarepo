@@ -9,21 +9,14 @@ import random
 import re
 import shutil
 import subprocess
-from typing import Any, Callable
-
-try:
-    from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageFont
-except ImportError:
-    Image = None
-    ImageChops = None
-    ImageDraw = None
-    ImageFilter = None
-    ImageFont = None
+from typing import Any
 
 from .benchmark import BENCHMARK_BOOKS, BenchmarkBook, calculate_accuracy_metrics
 from .benchmark import fetch_gutenberg_text, strip_gutenberg_boilerplate
 from .image_validation import validate_raster_image
 from .ocr_pipeline import ocr_page_images, ocr_pdf_with_tesseract
+from .pillow_compat import Image, ImageChops, ImageDraw, ImageFilter, ImageFont
+from .text_cache import load_or_fetch_text
 
 _EXTERNAL_CORPUS_NOTE = {
     "name": "Gutenberg-HathiTrust Parallel Corpus",
@@ -88,18 +81,9 @@ def _gutenberg_cache_path(cache_dir: Path, book: BenchmarkBook) -> Path:
     return cache_dir / f"pg{book.gutenberg_id}_gutenberg.txt"
 
 
-def _load_or_fetch_text(path: Path, fetcher: Callable[[], str]) -> str:
-    if path.exists():
-        return path.read_text(encoding="utf-8")
-    text = fetcher()
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(text, encoding="utf-8")
-    return text
-
-
 def _load_reference_text(book: BenchmarkBook, cache_dir: Path, timeout_seconds: int) -> str:
     cached_path = _gutenberg_cache_path(cache_dir, book)
-    raw_text = _load_or_fetch_text(
+    raw_text = load_or_fetch_text(
         cached_path,
         lambda book=book: fetch_gutenberg_text(book.gutenberg_id, timeout_seconds=timeout_seconds),
     )
@@ -350,6 +334,7 @@ def _render_page_images(
     artifact_profile: str,
     artifact_seed: int,
 ) -> tuple[list[Path], str]:
+    # lizard forgive: page rendering and rollover logic are intentionally centralized.
     if Image is None or ImageDraw is None:
         raise RuntimeError(
             "Missing dependency for corpus rendering: pillow. "
@@ -435,6 +420,7 @@ def build_benchmark_corpus(
     artifact_profiles: tuple[str, ...] = ("clean",),
     artifact_seed: int = 0,
 ) -> dict[str, Any]:
+    # lizard forgive: corpus assembly wires together fetching, rendering, and manifest output.
     """Build a local synthetic printed-text OCR benchmark corpus."""
 
     if excerpt_word_count <= 0:
@@ -604,6 +590,7 @@ def run_benchmark_corpus(
     work_dir: Path,
     **ocr_kwargs: Any,
 ) -> dict[str, Any]:
+    # lizard forgive: benchmark execution keeps manifest parsing and OCR dispatch in one place.
     """Run local OCR against a benchmark corpus manifest."""
 
     payload = json.loads(corpus_manifest_path.read_text(encoding="utf-8"))

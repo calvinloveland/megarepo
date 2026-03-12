@@ -4,10 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-try:
-    from PIL import Image
-except ImportError:
-    Image = None
+from .pillow_compat import Image
 
 
 def validate_raster_image(image_path: Path, *, context: str) -> None:

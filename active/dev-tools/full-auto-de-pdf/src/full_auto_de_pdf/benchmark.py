@@ -8,7 +8,7 @@ import gzip
 import json
 from pathlib import Path
 import re
-from typing import Any, Callable
+from typing import Any
 from urllib.request import urlopen
 import xml.etree.ElementTree as ET
 
@@ -16,6 +16,7 @@ from rapidfuzz.distance import Levenshtein
 
 from .archive_org import fetch_metadata
 from .ocr_cleanup import cleanup_ocr_text
+from .text_cache import load_or_fetch_optional_text, load_or_fetch_text
 
 ARCHIVE_DOWNLOAD_URL = "https://archive.org/download/{identifier}/{filename}"
 GUTENBERG_TEXT_URL = (
@@ -397,6 +398,7 @@ def _read_parallel_text_rows(
     domains: tuple[str, ...],
     row_limit: int | None,
 ) -> list[dict[str, str]]:
+    # lizard forgive: TSV validation and row filtering are intentionally kept together.
     with corpus_path.open("r", encoding="utf-8", newline="") as handle:
         reader = csv.DictReader(handle, delimiter="\t")
         fieldnames = tuple(reader.fieldnames or ())
@@ -496,26 +498,6 @@ def run_parallel_text_benchmark(
     }
     write_benchmark_report(output_report_path, report)
     return report
-
-
-def _load_or_fetch_text(path: Path, fetcher: Callable[[], str]) -> str:
-    if path.exists():
-        return path.read_text(encoding="utf-8")
-    text = fetcher()
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(text, encoding="utf-8")
-    return text
-
-
-def _load_or_fetch_optional_text(path: Path, fetcher: Callable[[], str | None]) -> str | None:
-    if path.exists():
-        return path.read_text(encoding="utf-8")
-    text = fetcher()
-    if text is None:
-        return None
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(text, encoding="utf-8")
-    return text
 
 
 def _book_paths(cache_dir: Path, book: BenchmarkBook) -> _BookPaths:
@@ -683,15 +665,15 @@ def _benchmark_book(
     source_mode: str,
 ) -> dict[str, Any]:
     paths = _book_paths(cache_dir, book)
-    djvu_text = _load_or_fetch_text(
+    djvu_text = load_or_fetch_text(
         paths.archive_path,
         lambda book=book: _fetch_djvu_text(book, timeout_seconds),
     )
-    abbyy_text = _load_or_fetch_optional_text(
+    abbyy_text = load_or_fetch_optional_text(
         paths.abbyy_path,
         lambda book=book: _fetch_abbyy_text(book, timeout_seconds),
     )
-    gutenberg_text = _load_or_fetch_text(
+    gutenberg_text = load_or_fetch_text(
         paths.gutenberg_path,
         lambda book=book: _fetch_gutenberg(book, timeout_seconds),
     )

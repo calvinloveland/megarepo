@@ -1,4 +1,5 @@
 """OCR text cleanup and lightweight correction heuristics."""
+# pylint: disable=too-many-lines
 
 from __future__ import annotations
 
@@ -568,6 +569,7 @@ def _best_join_word_target(
     lexicon_words: set[str],
     external_lexicon_words: set[str],
 ) -> tuple[str, float] | None:
+    # lizard forgive: this scorer keeps conservative join heuristics explicit.
     if merged_source in lexicon_words:
         return merged_source, 200.0 + float(counts.get(merged_source, 0) * 50) + float(len(merged_source))
     best_target = ""
@@ -781,6 +783,7 @@ def _infer_split_word_corrections(
     *,
     allow_approximate: bool = False,
 ) -> dict[str, str]:
+    # lizard forgive: split-candidate gating is intentionally explicit to stay conservative.
     counts = _extract_token_counts(text)
     candidates: list[tuple[str, str, float]] = []
     for source, source_count in counts.items():
@@ -794,7 +797,7 @@ def _infer_split_word_corrections(
             continue
         best_target = ""
         best_score = -1.0
-        candidate_parts: list[tuple[str, ...]] = [*[(left, right) for left, right in _split_candidates(source)]]
+        candidate_parts: list[tuple[str, ...]] = list(_split_candidates(source))
         if allow_approximate:
             candidate_parts.extend(_split_candidates_three(source))
         for parts in candidate_parts:
@@ -834,6 +837,7 @@ def _infer_lexicon_word_corrections(
     text: str,
     lexicon_words: set[str],
 ) -> dict[str, str]:
+    # lizard forgive: lexicon correction scoring keeps all precision gates together.
     if not lexicon_words:
         return {}
     counts = _extract_token_counts(text)
@@ -877,6 +881,7 @@ def _infer_confusable_word_corrections(
     text: str,
     lexicon_words: set[str],
 ) -> dict[str, str]:
+    # lizard forgive: confusable-word scoring stays branchy because each safety gate matters.
     counts = _extract_token_counts(text)
     corrections: list[tuple[str, str, float]] = []
     for source, source_count in counts.items():
