@@ -22,6 +22,7 @@ except ImportError:
 
 from .benchmark import BENCHMARK_BOOKS, BenchmarkBook, calculate_accuracy_metrics
 from .benchmark import fetch_gutenberg_text, strip_gutenberg_boilerplate
+from .image_validation import validate_raster_image
 from .ocr_pipeline import ocr_page_images, ocr_pdf_with_tesseract
 
 _EXTERNAL_CORPUS_NOTE = {
@@ -41,6 +42,16 @@ _DEFAULT_FONT_CANDIDATES = (
 _ARTIFACT_PROFILES = ("clean", "scan-light", "scan-moderate", "scan-heavy")
 _WORD_RE = re.compile(r"\S+")
 _PNG_DPI = (300, 300)
+_SYNTHETIC_CORPUS_METRIC_NOTE = (
+    "This benchmark uses synthetic printed PDFs rendered from clean public-domain "
+    "reference text. It is useful for measuring OCR engine and cleanup quality on "
+    "clean printed pages, but it is easier than real scanned-book evaluation."
+)
+_LOCAL_IMAGE_TEXT_METRIC_NOTE = (
+    "This benchmark uses existing local page images paired with local ground-truth "
+    "transcriptions. It measures OCR quality on the selected raster corpus rather "
+    "than the synthetic printed-PDF benchmark."
+)
 
 
 @dataclass(frozen=True)
@@ -523,6 +534,12 @@ def _index_paths_by_stem(root_dir: Path, pattern: str) -> dict[str, Path]:
     }
 
 
+def _metric_note_for_corpus_type(corpus_type: str) -> str:
+    if corpus_type == "local-image-text-groundtruth":
+        return _LOCAL_IMAGE_TEXT_METRIC_NOTE
+    return _SYNTHETIC_CORPUS_METRIC_NOTE
+
+
 def build_image_text_corpus_manifest(
     output_manifest_path: Path,
     images_dir: Path,
@@ -545,6 +562,8 @@ def build_image_text_corpus_manifest(
 
     books = []
     for identifier in shared_identifiers:
+        image_path = image_paths[identifier]
+        validate_raster_image(image_path, context="build-image-text-corpus rejected")
         reference_text_path = text_paths[identifier]
         reference_text = reference_text_path.read_text(encoding="utf-8")
         books.append(
@@ -552,7 +571,7 @@ def build_image_text_corpus_manifest(
                 "identifier": identifier,
                 "title": f"{title_prefix} {identifier}",
                 "reference_text_path": str(reference_text_path),
-                "page_image_paths": [str(image_paths[identifier])],
+                "page_image_paths": [str(image_path)],
                 "page_count": 1,
                 "reference_word_count": _word_count(reference_text),
             }
@@ -585,9 +604,10 @@ def run_benchmark_corpus(
     work_dir: Path,
     **ocr_kwargs: Any,
 ) -> dict[str, Any]:
-    """Run local OCR against a generated corpus manifest."""
+    """Run local OCR against a benchmark corpus manifest."""
 
     payload = json.loads(corpus_manifest_path.read_text(encoding="utf-8"))
+    corpus_type = str(payload.get("corpus_type") or "")
     books = payload.get("books", [])
     if not isinstance(books, list) or not books:
         raise ValueError("corpus manifest did not include any books")
@@ -656,11 +676,8 @@ def run_benchmark_corpus(
     }
     report = {
         "corpus_manifest_path": str(corpus_manifest_path),
-        "metric_note": (
-            "This benchmark uses synthetic printed PDFs rendered from clean public-domain "
-            "reference text. It is useful for measuring OCR engine and cleanup quality on "
-            "clean printed pages, but it is easier than real scanned-book evaluation."
-        ),
+        "corpus_type": corpus_type or None,
+        "metric_note": _metric_note_for_corpus_type(corpus_type),
         "books": results,
         "summary": summary,
     }

@@ -23,6 +23,7 @@ except ImportError:
     ImageOps = None
 
 from . import benchmark as benchmark_module
+from .image_validation import validate_raster_image
 from .ocr_cleanup import cleanup_ocr_text
 
 _VALID_PREPROCESS_MODES = (
@@ -648,6 +649,8 @@ def _validate_page_image_run_options(
     missing_images = [str(path) for path in page_images if not path.exists()]
     if missing_images:
         raise FileNotFoundError(f"Input page images not found: {', '.join(missing_images)}")
+    for page_image in page_images:
+        validate_raster_image(page_image, context="ocr-page-images rejected")
 
 
 def _rasterize_pdf_to_images(

@@ -1,12 +1,19 @@
 import json
 from pathlib import Path
 
+from PIL import Image
+import pytest
+
 from full_auto_de_pdf.benchmark import BenchmarkBook
 from full_auto_de_pdf.benchmark_corpus import (
     build_benchmark_corpus,
     build_image_text_corpus_manifest,
     run_benchmark_corpus,
 )
+
+
+def _write_test_image(path: Path) -> None:
+    Image.new("L", (24, 24), color=255).save(path)
 
 
 def test_build_benchmark_corpus_creates_manifest_and_assets(monkeypatch, tmp_path) -> None:
@@ -172,6 +179,7 @@ def test_run_benchmark_corpus_aggregates_accuracy(monkeypatch, tmp_path) -> None
     assert report["summary"]["avg_word_accuracy"] == 1.0
     assert report["summary"]["avg_char_accuracy"] == 1.0
     assert report["books"][0]["mode_usage"] == {"auto": 1}
+    assert "synthetic printed PDFs" in report["metric_note"]
 
 
 def test_run_benchmark_corpus_prefers_page_images_when_available(monkeypatch, tmp_path) -> None:
@@ -180,7 +188,7 @@ def test_run_benchmark_corpus_prefers_page_images_when_available(monkeypatch, tm
     pdf_path = tmp_path / "synthetic.pdf"
     pdf_path.write_bytes(b"fake-pdf")
     page_path = tmp_path / "page-1.png"
-    page_path.write_bytes(b"fake-image")
+    _write_test_image(page_path)
     manifest_path = tmp_path / "manifest.json"
     manifest_path.write_text(
         json.dumps(
@@ -225,9 +233,9 @@ def test_build_image_text_corpus_manifest_pairs_matching_stems(tmp_path) -> None
     texts_dir = tmp_path / "texts"
     images_dir.mkdir()
     texts_dir.mkdir()
-    (images_dir / "a006.tiff").write_bytes(b"fake-image")
+    _write_test_image(images_dir / "a006.tiff")
     (texts_dir / "a006.txt").write_text("Ground truth text", encoding="utf-8")
-    (images_dir / "orphan.tiff").write_bytes(b"ignored")
+    _write_test_image(images_dir / "orphan.tiff")
 
     manifest = build_image_text_corpus_manifest(
         output_manifest_path=tmp_path / "manifest.json",
@@ -240,15 +248,32 @@ def test_build_image_text_corpus_manifest_pairs_matching_stems(tmp_path) -> None
     assert manifest["books"][0]["page_image_paths"] == [str(images_dir / "a006.tiff")]
 
 
+def test_build_image_text_corpus_manifest_rejects_corrupt_images(tmp_path) -> None:
+    images_dir = tmp_path / "images"
+    texts_dir = tmp_path / "texts"
+    images_dir.mkdir()
+    texts_dir.mkdir()
+    (images_dir / "a006.tiff").write_bytes(b"fake-image")
+    (texts_dir / "a006.txt").write_text("Ground truth text", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="unreadable or corrupt image"):
+        build_image_text_corpus_manifest(
+            output_manifest_path=tmp_path / "manifest.json",
+            images_dir=images_dir,
+            texts_dir=texts_dir,
+        )
+
+
 def test_run_benchmark_corpus_supports_image_only_manifest(monkeypatch, tmp_path) -> None:
     reference_path = tmp_path / "reference.txt"
     reference_path.write_text("clean printed text", encoding="utf-8")
     page_path = tmp_path / "page-1.png"
-    page_path.write_bytes(b"fake-image")
+    _write_test_image(page_path)
     manifest_path = tmp_path / "manifest.json"
     manifest_path.write_text(
         json.dumps(
             {
+                "corpus_type": "local-image-text-groundtruth",
                 "books": [
                     {
                         "identifier": "demo-book",
@@ -278,3 +303,5 @@ def test_run_benchmark_corpus_supports_image_only_manifest(monkeypatch, tmp_path
 
     assert report["books"][0]["pdf_path"] is None
     assert report["summary"]["avg_char_accuracy"] == 1.0
+    assert report["corpus_type"] == "local-image-text-groundtruth"
+    assert "existing local page images" in report["metric_note"]

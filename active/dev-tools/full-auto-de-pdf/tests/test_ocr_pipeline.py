@@ -774,6 +774,28 @@ def test_ocr_page_images_runs_without_pdftoppm(tmp_path) -> None:
     assert "page image ocr text" in output_path.read_text(encoding="utf-8").lower()
 
 
+def test_ocr_page_images_rejects_corrupt_inputs(tmp_path) -> None:
+    page_image = tmp_path / "page-1.png"
+    page_image.write_bytes(b"fake-image")
+
+    def _which(name: str) -> str | None:
+        if name == "tesseract":
+            return "/usr/bin/fake"
+        return None
+
+    def _run(_command: list[str], _capture_output: bool) -> str:
+        raise AssertionError("ocr command should not run for corrupt page images")
+
+    with pytest.raises(ValueError, match="unreadable or corrupt image"):
+        ocr_page_images(
+            page_images=[page_image],
+            output_text_path=tmp_path / "out.txt",
+            work_dir=tmp_path / "work",
+            run_command=_run,
+            which=_which,
+        )
+
+
 def test_ocr_pdf_with_paddleocr_engine_path(tmp_path) -> None:
     pdf_path = tmp_path / "book.pdf"
     output_path = tmp_path / "out.txt"
