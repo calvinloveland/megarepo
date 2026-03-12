@@ -132,6 +132,7 @@ def test_benchmark_corpus_command_runs_pipeline(monkeypatch, tmp_path) -> None:
         assert kwargs["ocr_engine"] == "paddleocr"
         assert kwargs["inverse_render_rerank"] is True
         assert kwargs["inverse_render_top_k"] == 4
+        assert kwargs["verify_cleanup_spans"] is True
         return {
             "summary": {
                 "avg_word_accuracy": 0.98,
@@ -158,6 +159,7 @@ def test_benchmark_corpus_command_runs_pipeline(monkeypatch, tmp_path) -> None:
             "--inverse-render-rerank",
             "--inverse-render-top-k",
             "4",
+            "--verify-cleanup-spans",
         ]
     )
 
@@ -265,6 +267,7 @@ def test_ocr_pdf_command_runs_pipeline(monkeypatch, tmp_path) -> None:
         assert kwargs["ocr_engine"] == "paddleocr"
         assert kwargs["inverse_render_rerank"] is True
         assert kwargs["inverse_render_top_k"] == 5
+        assert kwargs["verify_cleanup_spans"] is True
         return {"page_count": 3, "word_count": 120, "character_count": 600}
 
     monkeypatch.setattr(cli, "ocr_pdf_with_tesseract", _fake_ocr_pdf_with_tesseract)
@@ -294,6 +297,7 @@ def test_ocr_pdf_command_runs_pipeline(monkeypatch, tmp_path) -> None:
             "--inverse-render-rerank",
             "--inverse-render-top-k",
             "5",
+            "--verify-cleanup-spans",
         ]
     )
     assert rc == 0

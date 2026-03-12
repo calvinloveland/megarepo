@@ -248,6 +248,7 @@ def _add_benchmark_corpus_command(
         help="Disable per-book per-page OCR artifact text files",
     )
     _add_inverse_render_args(parser)
+    _add_cleanup_verifier_args(parser)
 
 
 def _add_build_image_text_corpus_command(
@@ -294,6 +295,14 @@ def _add_inverse_render_args(parser: argparse.ArgumentParser) -> None:
         type=int,
         default=3,
         help="Top text-scored OCR candidates to inverse-render per page",
+    )
+
+
+def _add_cleanup_verifier_args(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--verify-cleanup-spans",
+        action="store_true",
+        help="Opt in to narrow image-verified cleanup checks for short cleanup replacements",
     )
 
 
@@ -401,6 +410,7 @@ def _add_ocr_pdf_command(subparsers: argparse._SubParsersAction[argparse.Argumen
         help="Optional directory for per-page OCR artifacts",
     )
     _add_inverse_render_args(parser)
+    _add_cleanup_verifier_args(parser)
 
 
 def _add_ocr_eval_modes_command(
@@ -720,6 +730,7 @@ def _handle_benchmark_corpus(args: argparse.Namespace) -> int:
         emit_page_artifacts=not args.no_page_artifacts,
         inverse_render_rerank=args.inverse_render_rerank,
         inverse_render_top_k=args.inverse_render_top_k,
+        verify_cleanup_spans=args.verify_cleanup_spans,
     )
     summary = report["summary"]
     print(
@@ -769,6 +780,7 @@ def _handle_ocr_pdf(args: argparse.Namespace) -> int:
         page_artifacts_dir=args.page_artifacts_dir,
         inverse_render_rerank=args.inverse_render_rerank,
         inverse_render_top_k=args.inverse_render_top_k,
+        verify_cleanup_spans=args.verify_cleanup_spans,
     )
     print(
         f"OCR complete: {metrics['page_count']} pages, "

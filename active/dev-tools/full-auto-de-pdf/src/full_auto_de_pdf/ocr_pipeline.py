@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections import Counter
 from dataclasses import dataclass, replace
+from difflib import SequenceMatcher
 import importlib
 import json
 import math
@@ -14,9 +15,10 @@ import subprocess
 from typing import Any, Callable
 
 try:
-    from PIL import Image, ImageDraw, ImageFilter, ImageFont, ImageOps
+    from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageFont, ImageOps
 except ImportError:
     Image = None
+    ImageChops = None
     ImageDraw = None
     ImageFilter = None
     ImageFont = None
@@ -49,7 +51,13 @@ _INVERSE_RENDER_OFFSETS = (-4, 0, 4)
 _AUTO_INVERSE_RENDER_SCORE_WINDOW = 80.0
 _AUTO_INVERSE_RENDER_PREPROCESS_MODES = frozenset({"none", "scan", "scan-local-threshold"})
 _AUTO_SCAN_LOCAL_THRESHOLD_MIN_SCORE = 500.0
+_CLEANUP_SPAN_VERIFIER_MAX_TOKENS = 3
+_CLEANUP_SPAN_VERIFIER_LOCAL_MARGIN = 0.03
+_CLEANUP_SPAN_VERIFIER_GLOBAL_MARGIN = 0.005
+_CLEANUP_SPAN_VERIFIER_MAX_AREA_RATIO = 0.2
+_CLEANUP_SPAN_VERIFIER_DIFF_PADDING = 12
 _LATIN_TOKEN = re.compile(r"[A-Za-z]+(?:'[A-Za-z]+)?")
+_NON_SPACE_TOKEN = re.compile(r"\S+")
 _NON_TEXT_CHAR = re.compile(r"[^A-Za-z0-9\s\.,;:!\?'\-\"()\[\]]")
 _COMMON_ENGLISH_WORDS = frozenset(
     {
@@ -99,6 +107,7 @@ class OCRCoreOptions:
     cleanup_lexicon_texts: tuple[str, ...] = ()
     inverse_render_rerank: bool = False
     inverse_render_top_k: int = 3
+    verify_cleanup_spans: bool = False
 
 
 @dataclass(frozen=True)
@@ -130,6 +139,18 @@ class OCRCandidate:
     ocr_input_path: Path
     text: str
     metadata: dict[str, object]
+
+
+@dataclass(frozen=True)
+class _CleanupSpanChange:
+    raw_start: int
+    raw_end: int
+    cleaned_start: int
+    cleaned_end: int
+    raw_text: str
+    cleaned_text: str
+    raw_token_count: int
+    cleaned_token_count: int
 
 
 @dataclass(frozen=True)
@@ -578,6 +599,7 @@ def _parse_ocr_options(kwargs: dict[str, Any]) -> OCRRunOptions:
         cleanup_lexicon_texts=cleanup_lexicon_texts,
         inverse_render_rerank=bool(kwargs.pop("inverse_render_rerank", False)),
         inverse_render_top_k=int(kwargs.pop("inverse_render_top_k", 3)),
+        verify_cleanup_spans=bool(kwargs.pop("verify_cleanup_spans", False)),
     )
     return OCRRunOptions(
         core=core_options,
@@ -686,6 +708,47 @@ def _prepare_artifacts_dir(work_dir: Path, options: OCRRunOptions) -> Path:
     if options.emit_page_artifacts:
         artifacts_dir.mkdir(parents=True, exist_ok=True)
     return artifacts_dir
+
+
+def _cleanup_span_changes(raw_text: str, cleaned_text: str) -> list[_CleanupSpanChange]:
+    raw_matches = list(_NON_SPACE_TOKEN.finditer(raw_text))
+    cleaned_matches = list(_NON_SPACE_TOKEN.finditer(cleaned_text))
+    matcher = SequenceMatcher(
+        a=[match.group(0) for match in raw_matches],
+        b=[match.group(0) for match in cleaned_matches],
+        autojunk=False,
+    )
+    changes: list[_CleanupSpanChange] = []
+    for tag, raw_start_index, raw_end_index, cleaned_start_index, cleaned_end_index in matcher.get_opcodes():
+        if tag == "equal" or raw_start_index == raw_end_index or cleaned_start_index == cleaned_end_index:
+            continue
+        raw_token_count = raw_end_index - raw_start_index
+        cleaned_token_count = cleaned_end_index - cleaned_start_index
+        if max(raw_token_count, cleaned_token_count) > _CLEANUP_SPAN_VERIFIER_MAX_TOKENS:
+            continue
+        raw_start = raw_matches[raw_start_index].start()
+        raw_end = raw_matches[raw_end_index - 1].end()
+        cleaned_start = cleaned_matches[cleaned_start_index].start()
+        cleaned_end = cleaned_matches[cleaned_end_index - 1].end()
+        raw_span = raw_text[raw_start:raw_end]
+        cleaned_span = cleaned_text[cleaned_start:cleaned_end]
+        if "\n" in raw_span or "\n" in cleaned_span:
+            continue
+        if not _LATIN_TOKEN.search(raw_span) or not _LATIN_TOKEN.search(cleaned_span):
+            continue
+        changes.append(
+            _CleanupSpanChange(
+                raw_start=raw_start,
+                raw_end=raw_end,
+                cleaned_start=cleaned_start,
+                cleaned_end=cleaned_end,
+                raw_text=raw_span,
+                cleaned_text=cleaned_span,
+                raw_token_count=raw_token_count,
+                cleaned_token_count=cleaned_token_count,
+            )
+        )
+    return changes
 
 
 def _candidate_preprocess_modes(preprocess_mode: str) -> tuple[str, ...]:
@@ -965,6 +1028,170 @@ def _inverse_render_score_candidate(
                             "inverse_render_rotation": rotation,
                         }
     return best_score, best_metadata
+
+
+def _render_inverse_text_from_metadata(
+    text: str,
+    canvas_size: tuple[int, int],
+    metadata: dict[str, object],
+) -> Any:
+    bbox_values = metadata.get("inverse_render_bbox")
+    if not isinstance(bbox_values, (list, tuple)) or len(bbox_values) != 4:
+        raise ValueError("inverse render metadata did not include a valid bbox")
+    bbox = tuple(int(value) for value in bbox_values)
+    return _render_inverse_text_image(
+        text,
+        canvas_size,
+        bbox,
+        font_path=str(metadata["inverse_render_font_path"])
+        if metadata.get("inverse_render_font_path") is not None
+        else None,
+        font_size=int(metadata["inverse_render_font_size"]),
+        offset_x=int(metadata["inverse_render_offset_x"]),
+        offset_y=int(metadata["inverse_render_offset_y"]),
+        rotation=float(metadata["inverse_render_rotation"]),
+    )
+
+
+def _bbox_area(bbox: tuple[int, int, int, int]) -> int:
+    return max(0, bbox[2] - bbox[0]) * max(0, bbox[3] - bbox[1])
+
+
+def _expand_bbox(
+    bbox: tuple[int, int, int, int],
+    canvas_size: tuple[int, int],
+    padding: int,
+) -> tuple[int, int, int, int]:
+    width, height = canvas_size
+    return (
+        max(0, bbox[0] - padding),
+        max(0, bbox[1] - padding),
+        min(width, bbox[2] + padding),
+        min(height, bbox[3] + padding),
+    )
+
+
+def _cleanup_span_diff_bbox(raw_render: Any, cleaned_render: Any) -> tuple[int, int, int, int] | None:
+    if ImageChops is None:
+        raise RuntimeError(
+            "Missing dependency for cleanup span verification: pillow. "
+            "Install with `pip install pillow` or disable cleanup span verification."
+        )
+    return ImageChops.difference(raw_render, cleaned_render).getbbox()
+
+
+def _evaluate_cleanup_span_replacement(
+    observed_binary: Any,
+    bbox: tuple[int, int, int, int],
+    raw_text: str,
+    cleaned_text: str,
+) -> tuple[bool, dict[str, object]]:
+    raw_score, raw_metadata = _inverse_render_score_candidate(observed_binary, bbox, raw_text)
+    cleaned_score, _cleaned_metadata = _inverse_render_score_candidate(observed_binary, bbox, cleaned_text)
+    raw_render = _render_inverse_text_from_metadata(raw_text, observed_binary.size, raw_metadata)
+    cleaned_render = _render_inverse_text_from_metadata(cleaned_text, observed_binary.size, raw_metadata)
+    diff_bbox = _cleanup_span_diff_bbox(raw_render, cleaned_render)
+    if diff_bbox is None:
+        return False, {
+            "accepted": False,
+            "reason": "no-local-image-difference",
+            "raw_inverse_render_score": raw_score,
+            "cleaned_inverse_render_score": cleaned_score,
+        }
+    local_bbox = _expand_bbox(diff_bbox, observed_binary.size, _CLEANUP_SPAN_VERIFIER_DIFF_PADDING)
+    full_area = _bbox_area(bbox)
+    local_area_ratio = (
+        float(_bbox_area(local_bbox)) / float(full_area)
+        if full_area > 0
+        else 1.0
+    )
+    if local_area_ratio > _CLEANUP_SPAN_VERIFIER_MAX_AREA_RATIO:
+        return False, {
+            "accepted": False,
+            "reason": "diff-region-too-large",
+            "raw_inverse_render_score": raw_score,
+            "cleaned_inverse_render_score": cleaned_score,
+            "local_bbox": list(local_bbox),
+            "local_area_ratio": local_area_ratio,
+        }
+    observed_crop = observed_binary.crop(local_bbox)
+    raw_local_score = _binary_ink_iou(observed_crop, raw_render.crop(local_bbox))
+    cleaned_local_score = _binary_ink_iou(observed_crop, cleaned_render.crop(local_bbox))
+    accepted = (
+        cleaned_local_score >= raw_local_score + _CLEANUP_SPAN_VERIFIER_LOCAL_MARGIN
+        and cleaned_score >= raw_score + _CLEANUP_SPAN_VERIFIER_GLOBAL_MARGIN
+    )
+    return accepted, {
+        "accepted": accepted,
+        "reason": "accepted" if accepted else "insufficient-image-margin",
+        "raw_inverse_render_score": raw_score,
+        "cleaned_inverse_render_score": cleaned_score,
+        "raw_local_inverse_render_score": raw_local_score,
+        "cleaned_local_inverse_render_score": cleaned_local_score,
+        "local_bbox": list(local_bbox),
+        "local_area_ratio": local_area_ratio,
+    }
+
+
+def _maybe_verify_cleanup_spans(
+    image_path: Path,
+    text: str,
+    options: OCRRunOptions,
+) -> tuple[str, dict[str, object]]:
+    if not options.core.apply_cleanup:
+        return text, {}
+    cleaned_text = cleanup_ocr_text(text, lexicon_texts=options.core.cleanup_lexicon_texts)
+    if not options.core.verify_cleanup_spans or cleaned_text == text:
+        return cleaned_text, {}
+    changes = _cleanup_span_changes(text, cleaned_text)
+    if not changes:
+        return cleaned_text, {
+            "cleanup_span_verifier": {
+                "enabled": True,
+                "changes_considered": 0,
+                "changes_kept": 0,
+                "changes_reverted": 0,
+            }
+        }
+    observed_binary, bbox = _normalize_scan_for_inverse_render(image_path)
+    verified_text = cleaned_text
+    decisions: list[dict[str, object]] = []
+    reverted_count = 0
+    for change in reversed(changes):
+        raw_variant = (
+            verified_text[:change.cleaned_start]
+            + change.raw_text
+            + verified_text[change.cleaned_end:]
+        )
+        keep_cleaned, decision = _evaluate_cleanup_span_replacement(
+            observed_binary,
+            bbox,
+            raw_variant,
+            verified_text,
+        )
+        decision.update(
+            {
+                "raw_text": change.raw_text,
+                "cleaned_text": change.cleaned_text,
+                "raw_token_count": change.raw_token_count,
+                "cleaned_token_count": change.cleaned_token_count,
+            }
+        )
+        decisions.append(decision)
+        if keep_cleaned:
+            continue
+        verified_text = raw_variant
+        reverted_count += 1
+    decisions.reverse()
+    return verified_text, {
+        "cleanup_span_verifier": {
+            "enabled": True,
+            "changes_considered": len(changes),
+            "changes_kept": len(changes) - reverted_count,
+            "changes_reverted": reverted_count,
+            "decisions": decisions,
+        }
+    }
 
 
 def _maybe_inverse_render_rerank(
@@ -1258,6 +1485,9 @@ def _collect_page_ocr_results(
             preprocessed_dir,
             paddle_reader,
         )
+        text, cleanup_metadata = _maybe_verify_cleanup_spans(image_path, text, options)
+        if cleanup_metadata:
+            selection_metadata.update(cleanup_metadata)
         page_texts.append(text)
         page_index = len(page_texts)
         entry = _page_entry(page_index, image_path, ocr_input_path, text, selection_metadata)
@@ -1286,11 +1516,9 @@ def _finalize_ocr_output(
     options: OCRRunOptions,
 ) -> tuple[str, dict[str, object]]:
     combined_text = "\n\n".join(page_texts)
-    final_text = (
-        cleanup_ocr_text(combined_text, lexicon_texts=options.core.cleanup_lexicon_texts)
-        if options.core.apply_cleanup
-        else combined_text
-    )
+    final_text = combined_text
+    if options.core.apply_cleanup and not options.core.verify_cleanup_spans:
+        final_text = cleanup_ocr_text(combined_text, lexicon_texts=options.core.cleanup_lexicon_texts)
     output_text_path.parent.mkdir(parents=True, exist_ok=True)
     output_text_path.write_text(final_text, encoding="utf-8")
     words = [word for word in final_text.split() if word]

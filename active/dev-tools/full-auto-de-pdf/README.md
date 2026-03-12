@@ -51,7 +51,8 @@ full-auto-de-pdf benchmark-corpus \
   --corpus-manifest data/benchmark-corpus/manifest.json \
   --output data/benchmark_corpus_report.json \
   --preprocess-mode auto \
-  --tesseract-psm auto
+  --tesseract-psm auto \
+  --verify-cleanup-spans
 
 # Build a benchmark manifest from existing page images + ground-truth text
 # (useful for corpora like Old Books Dataset after downloading them locally)
@@ -75,6 +76,7 @@ full-auto-de-pdf ocr-pdf \
   --work-dir data/ocr-work \
   --preprocess-mode auto \
   --tesseract-psm auto \
+  --verify-cleanup-spans \
   --inverse-render-rerank \
   --inverse-render-top-k 3 \
   --binarize-threshold 190 \
@@ -145,6 +147,7 @@ full-auto-de-pdf eval-epub \
 ## What changed
 
 - `ocr-pdf` can now use `--preprocess-mode auto` and `--tesseract-psm auto` to try several page-level OCR candidates, including both scan-tuned Otsu and scan-local-threshold paths, and keep the best-scoring result for each page; on stronger degraded pages it now also prefers a near-best `scan-local-threshold` result over the plain `scan` winner before applying the existing narrow inverse-render tie-break across `none`/`scan`/`scan-local-threshold`.
+- `ocr-pdf` and `benchmark-corpus` now also accept opt-in `--verify-cleanup-spans`, which keeps the default pipeline unchanged but lets you re-check short cleanup replacements against page-local image evidence before keeping them.
 - There is now an experimental `scan-local-threshold` preprocess mode that keeps the scan stack (`autocontrast -> median -> 3x upsample`) but swaps the final Otsu binarization for adaptive Gaussian thresholding; it is intended for degraded scans and is now included in `auto`.
 - `ocr-pdf` and `benchmark-corpus` can optionally use `--inverse-render-rerank` to re-render the top OCR candidates and compare thresholded ink overlap against the scanned page as a slow second-pass verifier.
 - `benchmark-failures-page` now includes richer representative PDF/page examples with selected preprocess metadata and candidate-score tables, and `benchmark-processing-page` renders a separate walkthrough page that explains the OCR pipeline stages with page examples.

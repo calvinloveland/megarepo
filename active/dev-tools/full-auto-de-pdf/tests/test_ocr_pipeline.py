@@ -766,6 +766,136 @@ def test_ocr_page_images_inverse_render_can_select_cleaned_variant(monkeypatch, 
     assert page_entry["inverse_render_score"] == 0.95
 
 
+def test_ocr_page_images_verify_cleanup_spans_keeps_image_backed_short_fix(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    page_image = tmp_path / "page-1.png"
+    output_path = tmp_path / "out.txt"
+    work_dir = tmp_path / "work"
+    Image.new("L", (20, 20), color=255).save(page_image)
+
+    def _which(name: str) -> str | None:
+        if name == "tesseract":
+            return "/usr/bin/fake"
+        return None
+
+    def _run(command: list[str], capture_output: bool) -> str:
+        assert command[0] == "tesseract"
+        assert capture_output is True
+        return "Captain not is answered plainly"
+
+    monkeypatch.setattr(
+        ocr_pipeline,
+        "cleanup_ocr_text",
+        lambda text, lexicon_texts=(): (
+            "Captain Norris answered plainly" if "not is" in text else text
+        ),
+    )
+    monkeypatch.setattr(
+        ocr_pipeline,
+        "_evaluate_cleanup_span_replacement",
+        lambda _observed, _bbox, raw_text, cleaned_text: (
+            True,
+            {
+                "accepted": True,
+                "raw_inverse_render_score": 0.22,
+                "cleaned_inverse_render_score": 0.41,
+                "raw_local_inverse_render_score": 0.18,
+                "cleaned_local_inverse_render_score": 0.56,
+                "reason": "accepted",
+            },
+        )
+        if raw_text == "Captain not is answered plainly"
+        and cleaned_text == "Captain Norris answered plainly"
+        else (_ for _ in ()).throw(AssertionError("unexpected cleanup span comparison")),
+    )
+
+    metrics = ocr_page_images(
+        page_images=[page_image],
+        output_text_path=output_path,
+        work_dir=work_dir,
+        preprocess_mode="none",
+        tesseract_psm="6",
+        verify_cleanup_spans=True,
+        run_command=_run,
+        which=_which,
+    )
+
+    assert output_path.read_text(encoding="utf-8") == "Captain Norris answered plainly"
+    manifest_payload = json.loads(Path(str(metrics["page_artifacts_manifest"])).read_text(encoding="utf-8"))
+    verifier = manifest_payload["pages"][0]["cleanup_span_verifier"]
+    assert verifier["changes_considered"] == 1
+    assert verifier["changes_kept"] == 1
+    assert verifier["changes_reverted"] == 0
+    assert verifier["decisions"][0]["cleaned_text"] == "Norris"
+
+
+def test_ocr_page_images_verify_cleanup_spans_reverts_unverified_rare_word_change(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    page_image = tmp_path / "page-1.png"
+    output_path = tmp_path / "out.txt"
+    work_dir = tmp_path / "work"
+    Image.new("L", (20, 20), color=255).save(page_image)
+
+    def _which(name: str) -> str | None:
+        if name == "tesseract":
+            return "/usr/bin/fake"
+        return None
+
+    def _run(command: list[str], capture_output: bool) -> str:
+        assert command[0] == "tesseract"
+        assert capture_output is True
+        return "The rareword appears again"
+
+    monkeypatch.setattr(
+        ocr_pipeline,
+        "cleanup_ocr_text",
+        lambda text, lexicon_texts=(): (
+            "The rareward appears again" if "rareword" in text else text
+        ),
+    )
+    monkeypatch.setattr(
+        ocr_pipeline,
+        "_evaluate_cleanup_span_replacement",
+        lambda _observed, _bbox, raw_text, cleaned_text: (
+            False,
+            {
+                "accepted": False,
+                "raw_inverse_render_score": 0.35,
+                "cleaned_inverse_render_score": 0.34,
+                "raw_local_inverse_render_score": 0.48,
+                "cleaned_local_inverse_render_score": 0.40,
+                "reason": "insufficient-image-margin",
+            },
+        )
+        if raw_text == "The rareword appears again" and cleaned_text == "The rareward appears again"
+        else (_ for _ in ()).throw(AssertionError("unexpected cleanup span comparison")),
+    )
+
+    metrics = ocr_page_images(
+        page_images=[page_image],
+        output_text_path=output_path,
+        work_dir=work_dir,
+        preprocess_mode="none",
+        tesseract_psm="6",
+        verify_cleanup_spans=True,
+        run_command=_run,
+        which=_which,
+    )
+
+    assert output_path.read_text(encoding="utf-8") == "The rareword appears again"
+    manifest_payload = json.loads(Path(str(metrics["page_artifacts_manifest"])).read_text(encoding="utf-8"))
+    verifier = manifest_payload["pages"][0]["cleanup_span_verifier"]
+    assert verifier["changes_considered"] == 1
+    assert verifier["changes_kept"] == 0
+    assert verifier["changes_reverted"] == 1
+    assert verifier["decisions"][0]["raw_text"] == "rareword"
+    assert verifier["decisions"][0]["accepted"] is False
+
+
 def test_score_ocr_text_uses_supplied_lexicon() -> None:
     noisy = "It teontains realistcsynthetic notes for eaders."
     unguided = ocr_pipeline._score_ocr_text(noisy, "eng", ())
