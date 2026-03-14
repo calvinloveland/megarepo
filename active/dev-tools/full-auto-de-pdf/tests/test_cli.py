@@ -166,6 +166,77 @@ def test_benchmark_corpus_command_runs_pipeline(monkeypatch, tmp_path) -> None:
     assert rc == 0
 
 
+def test_benchmark_streaming_corpus_command_runs_pipeline(monkeypatch, tmp_path) -> None:
+    output_report = tmp_path / "report.json"
+    work_dir = tmp_path / "work"
+    failures_dir = tmp_path / "failures"
+    cache_dir = tmp_path / "cache"
+
+    def _fake_run_streaming_benchmark_corpus(**kwargs):  # noqa: ANN003
+        assert kwargs["output_report_path"] == output_report
+        assert kwargs["work_dir"] == work_dir
+        assert kwargs["failures_dir"] == failures_dir
+        assert kwargs["cache_dir"] == cache_dir
+        assert kwargs["samples_per_book"] == 4
+        assert kwargs["artifact_profiles"] == ("scan-moderate", "scan-heavy")
+        assert kwargs["max_recorded_failures"] == 12
+        assert kwargs["failure_word_accuracy_below"] == 0.97
+        assert kwargs["failure_char_accuracy_below"] == 0.995
+        assert kwargs["preprocess_mode"] == "scan-local-threshold"
+        assert kwargs["tesseract_psm"] == "6"
+        assert kwargs["ocr_engine"] == "paddleocr"
+        assert kwargs["inverse_render_rerank"] is True
+        assert kwargs["inverse_render_top_k"] == 4
+        assert kwargs["verify_cleanup_spans"] is True
+        return {
+            "summary": {
+                "sample_count": 8,
+                "failure_count": 3,
+                "avg_word_accuracy": 0.98,
+                "avg_char_accuracy": 0.995,
+            }
+        }
+
+    monkeypatch.setattr(cli, "run_streaming_benchmark_corpus", _fake_run_streaming_benchmark_corpus)
+    rc = cli.main(
+        [
+            "benchmark-streaming-corpus",
+            "--output",
+            str(output_report),
+            "--work-dir",
+            str(work_dir),
+            "--failures-dir",
+            str(failures_dir),
+            "--cache-dir",
+            str(cache_dir),
+            "--samples-per-book",
+            "4",
+            "--artifact-profile",
+            "scan-moderate",
+            "--artifact-profile",
+            "scan-heavy",
+            "--max-recorded-failures",
+            "12",
+            "--failure-word-accuracy-below",
+            "0.97",
+            "--failure-char-accuracy-below",
+            "0.995",
+            "--preprocess-mode",
+            "scan-local-threshold",
+            "--tesseract-psm",
+            "6",
+            "--ocr-engine",
+            "paddleocr",
+            "--inverse-render-rerank",
+            "--inverse-render-top-k",
+            "4",
+            "--verify-cleanup-spans",
+        ]
+    )
+
+    assert rc == 0
+
+
 def test_build_image_text_corpus_command_writes_manifest(monkeypatch, tmp_path) -> None:
     output_manifest = tmp_path / "manifest.json"
     images_dir = tmp_path / "images"

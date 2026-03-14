@@ -9,6 +9,7 @@ from full_auto_de_pdf.benchmark_corpus import (
     build_benchmark_corpus,
     build_image_text_corpus_manifest,
     run_benchmark_corpus,
+    run_streaming_benchmark_corpus,
 )
 
 
@@ -305,3 +306,85 @@ def test_run_benchmark_corpus_supports_image_only_manifest(monkeypatch, tmp_path
     assert report["summary"]["avg_char_accuracy"] == 1.0
     assert report["corpus_type"] == "local-image-text-groundtruth"
     assert "existing local page images" in report["metric_note"]
+
+
+def test_run_streaming_benchmark_corpus_records_only_failures(monkeypatch, tmp_path) -> None:
+    book = BenchmarkBook("demo-book", "Demo Book", 123)
+    source_text = (
+        "Alpha beta gamma delta epsilon zeta eta theta iota kappa lambda mu.\n\n"
+        "Alpha beta gamma delta epsilon zeta eta theta iota kappa lambda nu."
+    )
+
+    monkeypatch.setattr(
+        "full_auto_de_pdf.benchmark_corpus.fetch_gutenberg_text",
+        lambda _gutenberg_id, timeout_seconds=60: source_text,
+    )
+
+    seen_identifiers: list[str] = []
+
+    def _fake_ocr_page_images(**kwargs):  # noqa: ANN003
+        output_path = kwargs["output_text_path"]
+        sample_identifier = output_path.stem
+        seen_identifiers.append(sample_identifier)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        if sample_identifier.endswith("sample-001"):
+            output_path.write_text(
+                "Alpha beta gamma delta epsilon zeta eta theta iota kappa lambda mu.",
+                encoding="utf-8",
+            )
+        else:
+            output_path.write_text(
+                "Alpha beta gamma delta epsilon zeta eta theta iota kappa lambda net.",
+                encoding="utf-8",
+            )
+            page_ocr_dir = kwargs["work_dir"] / "page_ocr"
+            page_ocr_dir.mkdir(parents=True, exist_ok=True)
+            (page_ocr_dir / "page-0001.txt").write_text("failure page text", encoding="utf-8")
+            (page_ocr_dir / "manifest.json").write_text(
+                json.dumps({"pages": [{"page_index": 1}], "progress": {"status": "complete"}}),
+                encoding="utf-8",
+            )
+        return {
+            "page_count": 1,
+            "word_count": len(output_path.read_text(encoding="utf-8").split()),
+            "character_count": len(output_path.read_text(encoding="utf-8")),
+            "mode_usage": {"scan-local-threshold": 1},
+            "tesseract_psm_usage": {"6": 1},
+        }
+
+    monkeypatch.setattr("full_auto_de_pdf.benchmark_corpus.ocr_page_images", _fake_ocr_page_images)
+
+    report = run_streaming_benchmark_corpus(
+        output_report_path=tmp_path / "report.json",
+        work_dir=tmp_path / "work",
+        cache_dir=tmp_path / "cache",
+        books=(book,),
+        samples_per_book=2,
+        excerpt_word_count=12,
+        skip_word_count=0,
+        artifact_profiles=("clean",),
+        failures_dir=tmp_path / "failures",
+        max_recorded_failures=1,
+        failure_word_accuracy_below=1.0,
+        failure_char_accuracy_below=1.0,
+    )
+
+    assert seen_identifiers == ["demo-book-sample-001", "demo-book-sample-002"]
+    assert report["summary"]["sample_count"] == 2
+    assert report["summary"]["failure_count"] == 1
+    assert report["summary"]["recorded_failure_count"] == 1
+    assert report["summary"]["common_failure_patterns"]["substitutions"] == [
+        {"reference": "nu.", "hypothesis": "net.", "count": 1}
+    ]
+    assert report["summary"]["common_failure_patterns"]["missing_tokens"] == []
+    assert report["summary"]["common_failure_patterns"]["unexpected_tokens"] == []
+    success_artifact_dir = tmp_path / "failures" / "demo-book-sample-001"
+    failure_artifact_dir = tmp_path / "failures" / "demo-book-sample-002"
+    assert not success_artifact_dir.exists()
+    assert failure_artifact_dir.exists()
+    assert (failure_artifact_dir / "reference.txt").exists()
+    assert (failure_artifact_dir / "hypothesis.txt").exists()
+    assert (failure_artifact_dir / "pages" / "page-0001.png").exists()
+    assert (failure_artifact_dir / "page_ocr" / "page-0001.txt").exists()
+    assert not any((tmp_path / "work" / "generated").glob("**/*"))
+    assert not any((tmp_path / "work" / "ocr").glob("**/*"))

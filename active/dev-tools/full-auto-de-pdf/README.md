@@ -54,6 +54,23 @@ full-auto-de-pdf benchmark-corpus \
   --tesseract-psm auto \
   --verify-cleanup-spans
 
+# Stream synthetic samples on demand and only keep failure artifacts
+full-auto-de-pdf benchmark-streaming-corpus \
+  --output data/benchmark_streaming_corpus_report.json \
+  --work-dir data/benchmark-streaming-work \
+  --failures-dir data/benchmark-streaming-failures \
+  --artifact-profile scan-moderate \
+  --artifact-profile scan-heavy \
+  --samples-per-book 8 \
+  --max-recorded-failures 40 \
+  --failure-word-accuracy-below 1.0 \
+  --failure-char-accuracy-below 1.0 \
+  --preprocess-mode auto \
+  --tesseract-psm auto
+# (generates one excerpt window at a time, OCRs it immediately, deletes successful
+#  intermediates, and keeps compact failure bundles plus an aggregate summary of
+#  common substitutions/missing/unexpected tokens)
+
 # Build a benchmark manifest from existing page images + ground-truth text
 # (useful for corpora like Old Books Dataset after downloading them locally)
 full-auto-de-pdf build-image-text-corpus \
@@ -156,6 +173,7 @@ full-auto-de-pdf eval-epub \
 - `build-epub` now emits a more structured EPUB3 archive with multiple XHTML chapters when chapter headings are detected, a richer navigation document, semantic headings, preserved ordered/unordered lists, and a bundled stylesheet.
 - `build-benchmark-corpus` now creates a reproducible local printed-text corpus by rendering curated Project Gutenberg excerpts into synthetic PDFs and page images, and it can expand each excerpt into multiple deterministic scan-artifact variants (`clean`, `scan-light`, `scan-moderate`, `scan-heavy`).
 - `benchmark-corpus` runs the local OCR pipeline against that generated corpus so printed-text accuracy can be measured end to end inside the repo.
+- `benchmark-streaming-corpus` now lets you stream many more synthetic samples without keeping a huge corpus on disk: it generates one sample at a time, OCRs it immediately, records aggregate failure-pattern summaries, and only persists compact artifacts for failing cases.
 - `build-image-text-corpus` can turn a local page-image + transcript directory pair into a `benchmark-corpus` manifest, which makes image-based external corpora easier to evaluate with the existing OCR pipeline.
 - `benchmark-parallel-text` can score aligned OCR/proofread TSV corpora such as the Gutenberg-HathiTrust sentence-pair downloads without manual sampling.
 - Generated benchmark pages now prefer system fontconfig fonts when available and are saved as OCR-ready monochrome 300 DPI images, which makes the built-in printed-text benchmark far more representative and stable.

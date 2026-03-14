@@ -13,6 +13,7 @@ from .benchmark_corpus import (
     build_benchmark_corpus,
     build_image_text_corpus_manifest,
     run_benchmark_corpus,
+    run_streaming_benchmark_corpus,
 )
 from .benchmark_viz import (
     build_local_benchmark_failure_page,
@@ -40,6 +41,7 @@ def _build_parser() -> argparse.ArgumentParser:
         _add_build_benchmark_corpus_command,
         _add_build_image_text_corpus_command,
         _add_benchmark_corpus_command,
+        _add_streaming_benchmark_corpus_command,
         _add_benchmark_parallel_text_command,
         _add_ocr_pdf_command,
         _add_ocr_eval_modes_command,
@@ -200,6 +202,104 @@ def _add_benchmark_corpus_command(
         default=Path("data/benchmark-corpus-work"),
         help="Working directory for OCR outputs and intermediate files",
     )
+    _add_benchmark_ocr_args(parser)
+
+
+def _add_streaming_benchmark_corpus_command(
+    subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
+) -> None:
+    parser = subparsers.add_parser(
+        "benchmark-streaming-corpus",
+        help="Generate synthetic OCR samples on demand and only persist failures",
+    )
+    parser.add_argument(
+        "--output",
+        type=Path,
+        default=Path("data/benchmark_streaming_corpus_report.json"),
+        help="Output JSON report path",
+    )
+    parser.add_argument(
+        "--work-dir",
+        type=Path,
+        default=Path("data/benchmark-streaming-work"),
+        help="Working directory for temporary OCR inputs and intermediate files",
+    )
+    parser.add_argument(
+        "--failures-dir",
+        type=Path,
+        default=Path("data/benchmark-streaming-failures"),
+        help="Directory to keep compact failure artifacts",
+    )
+    parser.add_argument(
+        "--cache-dir",
+        type=Path,
+        default=Path("data/cache"),
+        help="Cache directory for downloaded Gutenberg source texts",
+    )
+    parser.add_argument("--timeout-seconds", type=int, default=60, help="Network request timeout")
+    parser.add_argument(
+        "--max-books",
+        type=int,
+        help="Optional limit on the number of benchmark books to sample",
+    )
+    parser.add_argument(
+        "--samples-per-book",
+        type=int,
+        default=1,
+        help="Number of excerpt windows to stream per selected book",
+    )
+    parser.add_argument(
+        "--excerpt-word-count",
+        type=int,
+        default=1200,
+        help="Approximate words to keep per streamed sample",
+    )
+    parser.add_argument(
+        "--skip-word-count",
+        type=int,
+        default=250,
+        help="Words to skip before the first excerpt window",
+    )
+    parser.add_argument("--font-path", help="Optional TTF font path for synthetic page rendering")
+    parser.add_argument("--font-size", type=int, default=32, help="Synthetic page font size")
+    parser.add_argument("--page-width", type=int, default=1654, help="Synthetic page width in px")
+    parser.add_argument("--page-height", type=int, default=2339, help="Synthetic page height in px")
+    parser.add_argument("--margin", type=int, default=150, help="Synthetic page margin in px")
+    parser.add_argument(
+        "--artifact-profile",
+        action="append",
+        choices=["clean", "scan-light", "scan-moderate", "scan-heavy"],
+        default=[],
+        help="Synthetic scan-artifact profile to benchmark; may be repeated",
+    )
+    parser.add_argument(
+        "--artifact-seed",
+        type=int,
+        default=0,
+        help="Base seed for deterministic synthetic scan artifacts",
+    )
+    parser.add_argument(
+        "--max-recorded-failures",
+        type=int,
+        default=100,
+        help="Maximum number of failure cases to persist to failures-dir",
+    )
+    parser.add_argument(
+        "--failure-word-accuracy-below",
+        type=float,
+        default=1.0,
+        help="Persist samples with word accuracy below this threshold",
+    )
+    parser.add_argument(
+        "--failure-char-accuracy-below",
+        type=float,
+        default=1.0,
+        help="Persist samples with character accuracy below this threshold",
+    )
+    _add_benchmark_ocr_args(parser)
+
+
+def _add_benchmark_ocr_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--language", default="eng", help="Tesseract language code")
     parser.add_argument("--dpi", type=int, default=300, help="Rasterization DPI for pdftoppm")
     parser.add_argument(
@@ -718,19 +818,7 @@ def _handle_benchmark_corpus(args: argparse.Namespace) -> int:
         corpus_manifest_path=args.corpus_manifest,
         output_report_path=args.output,
         work_dir=args.work_dir,
-        language=args.language,
-        dpi=args.dpi,
-        apply_cleanup=not args.no_cleanup,
-        preprocess_mode=args.preprocess_mode,
-        binarize_threshold=args.binarize_threshold,
-        deskew_max_angle=args.deskew_max_angle,
-        deskew_angle_step=args.deskew_angle_step,
-        tesseract_psm=args.tesseract_psm,
-        ocr_engine=args.ocr_engine,
-        emit_page_artifacts=not args.no_page_artifacts,
-        inverse_render_rerank=args.inverse_render_rerank,
-        inverse_render_top_k=args.inverse_render_top_k,
-        verify_cleanup_spans=args.verify_cleanup_spans,
+        **_benchmark_ocr_kwargs_from_args(args),
     )
     summary = report["summary"]
     print(
@@ -739,6 +827,58 @@ def _handle_benchmark_corpus(args: argparse.Namespace) -> int:
         f"char_accuracy={float(summary['avg_char_accuracy']):.4f} -> {args.output}"
     )
     return 0
+
+
+def _handle_streaming_benchmark_corpus(args: argparse.Namespace) -> int:
+    report = run_streaming_benchmark_corpus(
+        output_report_path=args.output,
+        work_dir=args.work_dir,
+        cache_dir=args.cache_dir,
+        timeout_seconds=args.timeout_seconds,
+        max_books=args.max_books,
+        samples_per_book=args.samples_per_book,
+        excerpt_word_count=args.excerpt_word_count,
+        skip_word_count=args.skip_word_count,
+        font_path=args.font_path,
+        font_size=args.font_size,
+        page_width=args.page_width,
+        page_height=args.page_height,
+        margin=args.margin,
+        artifact_profiles=tuple(args.artifact_profile) or ("clean",),
+        artifact_seed=args.artifact_seed,
+        failures_dir=args.failures_dir,
+        max_recorded_failures=args.max_recorded_failures,
+        failure_word_accuracy_below=args.failure_word_accuracy_below,
+        failure_char_accuracy_below=args.failure_char_accuracy_below,
+        **_benchmark_ocr_kwargs_from_args(args),
+    )
+    summary = report["summary"]
+    print(
+        "Streaming benchmark complete: "
+        f"samples={int(summary['sample_count'])}, "
+        f"failures={int(summary['failure_count'])}, "
+        f"word_accuracy={float(summary['avg_word_accuracy']):.4f}, "
+        f"char_accuracy={float(summary['avg_char_accuracy']):.4f} -> {args.output}"
+    )
+    return 0
+
+
+def _benchmark_ocr_kwargs_from_args(args: argparse.Namespace) -> dict[str, object]:
+    return {
+        "language": args.language,
+        "dpi": args.dpi,
+        "apply_cleanup": not args.no_cleanup,
+        "preprocess_mode": args.preprocess_mode,
+        "binarize_threshold": args.binarize_threshold,
+        "deskew_max_angle": args.deskew_max_angle,
+        "deskew_angle_step": args.deskew_angle_step,
+        "tesseract_psm": args.tesseract_psm,
+        "ocr_engine": args.ocr_engine,
+        "emit_page_artifacts": not args.no_page_artifacts,
+        "inverse_render_rerank": args.inverse_render_rerank,
+        "inverse_render_top_k": args.inverse_render_top_k,
+        "verify_cleanup_spans": args.verify_cleanup_spans,
+    }
 
 
 def _handle_benchmark_parallel_text(args: argparse.Namespace) -> int:
@@ -886,6 +1026,7 @@ _COMMAND_HANDLERS: dict[str, Callable[[argparse.Namespace], int]] = {
     "build-benchmark-corpus": _handle_build_benchmark_corpus,
     "build-image-text-corpus": _handle_build_image_text_corpus,
     "benchmark-corpus": _handle_benchmark_corpus,
+    "benchmark-streaming-corpus": _handle_streaming_benchmark_corpus,
     "benchmark-parallel-text": _handle_benchmark_parallel_text,
     "ocr-pdf": _handle_ocr_pdf,
     "ocr-eval-modes": _handle_ocr_eval_modes,
