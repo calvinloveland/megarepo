@@ -17,6 +17,12 @@ The rewrite is targeting the richer standalone Godot branch feature set rather t
 
 ## Electron development
 
+From `active/games/vroomon/`:
+
+- `./run.sh`
+
+The helper script changes into the Electron app directory, installs dependencies when needed, and starts the app. On NixOS it automatically launches through `nix shell nixpkgs#electron` so Electron can run without the bundled binary linker issue.
+
 From `active/games/vroomon/electron/`:
 
 - `npm install`
