@@ -12,7 +12,8 @@
     "profile:sim": "npm run build && node scripts/profile-sim.mjs",
     "package:dir": "npm run build && electron-builder --dir",
     "start": "npm run build && electron .",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:e2e": "npm run build && node scripts/run-playwright.mjs"
   },
   "build": {
     "appId": "dev.loveland.vroomon",
@@ -24,18 +25,22 @@
       "package.json"
     ],
     "linux": {
-      "target": ["dir"]
+      "target": [
+        "dir"
+      ]
     }
   },
   "dependencies": {
     "matter-js": "^0.20.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.58.2",
     "@types/matter-js": "^0.20.2",
     "@types/node": "^22.10.0",
     "electron": "^35.0.0",
     "electron-builder": "^26.0.12",
     "patch-package": "^8.0.1",
+    "playwright": "^1.58.2",
     "typescript": "^5.8.2",
     "vitest": "^3.0.8"
   }

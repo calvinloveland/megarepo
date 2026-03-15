@@ -3,6 +3,7 @@ import { dirname, resolve } from "node:path";
 
 const filesToCopy = [
   ["src/renderer/index.html", "dist/renderer/index.html"],
+  ["src/renderer/e2e.html", "dist/renderer/e2e.html"],
 ];
 
 for (const [source, destination] of filesToCopy) {

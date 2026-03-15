@@ -13,6 +13,29 @@ import { type RunStateSnapshot } from "./shared/parity-contract.js";
 
 const currentFile = fileURLToPath(import.meta.url);
 const currentDirectory = dirname(currentFile);
+const userDataOverride = process.env.VROOMON_USER_DATA_DIR;
+const shouldDisableHardwareAcceleration =
+  process.env.VROOMON_DISABLE_HARDWARE_ACCELERATION === "1";
+const shouldDisableSandbox = process.env.VROOMON_DISABLE_SANDBOX === "1";
+const shouldDisableDevShmUsage = process.env.VROOMON_DISABLE_DEV_SHM_USAGE === "1";
+
+if (userDataOverride) {
+  app.setPath("userData", userDataOverride);
+}
+
+if (shouldDisableHardwareAcceleration) {
+  app.disableHardwareAcceleration();
+  app.commandLine.appendSwitch("disable-gpu");
+  app.commandLine.appendSwitch("disable-gpu-compositing");
+}
+
+if (shouldDisableSandbox) {
+  app.commandLine.appendSwitch("no-sandbox");
+}
+
+if (shouldDisableDevShmUsage) {
+  app.commandLine.appendSwitch("disable-dev-shm-usage");
+}
 
 function createMainWindow(): BrowserWindow {
   const window = new BrowserWindow({

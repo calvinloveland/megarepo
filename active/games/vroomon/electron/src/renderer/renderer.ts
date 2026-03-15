@@ -158,7 +158,10 @@ const generationLogOutputElement = generationLogOutput;
 const statusMessageElement = statusMessage;
 const panelsElements = Array.from(panels);
 const parityContract = window.vroomon.getParityContract();
-let rendererState = createRendererState(parityContract, dnaInputElement.value);
+let rendererState = createRendererState(
+  window.vroomon.createEmptyRunState("evolution"),
+  dnaInputElement.value,
+);
 
 populateTerrainSelect();
 renderApp();
@@ -197,8 +200,30 @@ function renderApp(): void {
   renderPanels();
   renderRunState();
   renderSelectedVehiclePanel();
-  renderPreviewEvolution();
-  renderDecodedDna(rendererState.draftDna);
+  if (rendererState.mode === "evolution") {
+    renderPreviewEvolution();
+  } else if (!rendererState.latestGeneration) {
+    evolutionPreviewOutputElement.textContent = JSON.stringify(
+      { message: "Switch to evolution mode to preview the current generation." },
+      null,
+      2,
+    );
+  }
+
+  if (rendererState.mode === "test-drive") {
+    renderDecodedDna(rendererState.draftDna);
+  } else {
+    outputElement.textContent = JSON.stringify(
+      { message: "Switch to test-drive mode to inspect decoded DNA." },
+      null,
+      2,
+    );
+    physicsPreviewOutputElement.textContent = JSON.stringify(
+      { message: "Switch to test-drive mode to preview vehicle physics." },
+      null,
+      2,
+    );
+  }
   statusMessageElement.textContent = rendererState.statusMessage;
 }
 
@@ -397,7 +422,11 @@ async function runGeneration(): Promise<void> {
     window.vroomon.createGenerationLogEntry(runState, generationResult),
   );
 
-  rendererState = applyGenerationToState(baseRendererState, generationResult);
+  rendererState = applyGenerationToState(
+    baseRendererState,
+    generationResult,
+    window.vroomon.advanceRunState(runState, generationResult),
+  );
   if (generatedPopulation) {
     rendererState = {
       ...rendererState,

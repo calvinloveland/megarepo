@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { createPreviewRunState, runEvolutionGeneration } from "../src/core/population.js";
-import { VROOMON_PARITY_CONTRACT } from "../src/shared/parity-contract.js";
+import {
+  advanceRunState,
+  createPreviewRunState,
+  runEvolutionGeneration,
+} from "../src/core/population.js";
+import { createEmptyRunState, VROOMON_PARITY_CONTRACT } from "../src/shared/parity-contract.js";
 import { applyGenerationToState, createRendererState } from "../src/renderer/state.js";
 import {
   resolveEvolutionPreviewRunState,
@@ -10,7 +14,10 @@ import {
 
 describe("renderer view model", () => {
   it("creates an evolution population when running from an empty state", () => {
-    const state = createRendererState(VROOMON_PARITY_CONTRACT, "A3x9K2m7P4zQ");
+    const state = createRendererState(
+      createEmptyRunState("evolution", VROOMON_PARITY_CONTRACT.terrains[0]!.name, "preview"),
+      "A3x9K2m7P4zQ",
+    );
     const flatState = {
       ...state,
       runState: {
@@ -31,7 +38,10 @@ describe("renderer view model", () => {
   });
 
   it("normalizes populated runs into evolution mode before a generation starts", () => {
-    const state = createRendererState(VROOMON_PARITY_CONTRACT, "A3x9K2m7P4zQ");
+    const state = createRendererState(
+      createEmptyRunState("evolution", VROOMON_PARITY_CONTRACT.terrains[0]!.name, "preview"),
+      "A3x9K2m7P4zQ",
+    );
     const populatedState = {
       ...state,
       runState: createPreviewRunState("preview", {
@@ -50,7 +60,10 @@ describe("renderer view model", () => {
   });
 
   it("uses the last evaluated run state for evolution previews after advancing", () => {
-    const state = createRendererState(VROOMON_PARITY_CONTRACT, "A3x9K2m7P4zQ");
+    const state = createRendererState(
+      createEmptyRunState("evolution", VROOMON_PARITY_CONTRACT.terrains[0]!.name, "preview"),
+      "A3x9K2m7P4zQ",
+    );
     const runnable = resolveRunnableRunState(state, createPreviewRunState).runState;
     const generation = runEvolutionGeneration(runnable);
     const nextState = applyGenerationToState(
@@ -59,6 +72,7 @@ describe("renderer view model", () => {
         runState: runnable,
       },
       generation,
+      advanceRunState(runnable, generation),
     );
 
     const previewState = resolveEvolutionPreviewRunState(

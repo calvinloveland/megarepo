@@ -1,10 +1,8 @@
-import { advanceRunState, type GenerationResult } from "../core/population.js";
 import {
-  createEmptyRunState,
   type AppModeId,
   type RunStateSnapshot,
-  type VroomonParityContract,
 } from "../shared/parity-contract.js";
+import { type GenerationResult } from "../core/population.js";
 
 export interface RendererState {
   mode: AppModeId;
@@ -27,17 +25,13 @@ export interface SelectedVehicleSummary {
 }
 
 export function createRendererState(
-  contract: VroomonParityContract,
+  initialRunState: RunStateSnapshot,
   draftDna: string,
 ): RendererState {
   return {
     mode: "menu",
     draftDna,
-    runState: createEmptyRunState(
-      "evolution",
-      contract.terrains[0]?.name ?? "Grassland",
-      "preview",
-    ),
+    runState: initialRunState,
     lastEvaluatedRunState: null,
     latestGeneration: null,
     selectedVehicleId: null,
@@ -103,6 +97,7 @@ export function setDraftDna(
 export function applyGenerationToState(
   state: RendererState,
   generationResult: GenerationResult,
+  nextRunState: RunStateSnapshot,
 ): RendererState {
   const selectedVehicleId =
     generationResult.evaluatedPopulation
@@ -113,7 +108,7 @@ export function applyGenerationToState(
     ...state,
     mode: "evolution",
     lastEvaluatedRunState: state.runState,
-    runState: advanceRunState(state.runState, generationResult),
+    runState: nextRunState,
     latestGeneration: generationResult,
     selectedVehicleId,
     statusMessage: `Completed generation ${state.runState.generation + 1}.`,

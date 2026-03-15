@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { runEvolutionGeneration } from "../src/core/population.js";
+import { advanceRunState, runEvolutionGeneration } from "../src/core/population.js";
 import { VROOMON_PARITY_CONTRACT } from "../src/shared/parity-contract.js";
 import {
   applyGenerationToState,
@@ -15,7 +15,10 @@ import { createEmptyRunState } from "../src/shared/parity-contract.js";
 
 describe("renderer state", () => {
   it("switches between menu and app modes", () => {
-    const state = createRendererState(VROOMON_PARITY_CONTRACT, "A3x9K2m7P4zQ");
+    const state = createRendererState(
+      createEmptyRunState("evolution", VROOMON_PARITY_CONTRACT.terrains[0]!.name, "preview"),
+      "A3x9K2m7P4zQ",
+    );
 
     const testDriveState = setRendererMode(state, "test-drive");
     const evolutionState = setRendererMode(state, "evolution");
@@ -27,13 +30,19 @@ describe("renderer state", () => {
   });
 
   it("tracks terrain changes in the run state", () => {
-    const state = createRendererState(VROOMON_PARITY_CONTRACT, "A3x9K2m7P4zQ");
+    const state = createRendererState(
+      createEmptyRunState("evolution", VROOMON_PARITY_CONTRACT.terrains[0]!.name, "preview"),
+      "A3x9K2m7P4zQ",
+    );
 
     expect(setRendererTerrain(state, "Flat").runState.terrainName).toBe("Flat");
   });
 
   it("clears stale generation data when terrain changes", () => {
-    const state = createRendererState(VROOMON_PARITY_CONTRACT, "A3x9K2m7P4zQ");
+    const state = createRendererState(
+      createEmptyRunState("evolution", VROOMON_PARITY_CONTRACT.terrains[0]!.name, "preview"),
+      "A3x9K2m7P4zQ",
+    );
     const generation = runEvolutionGeneration({
       ...state.runState,
       population: [
@@ -45,7 +54,11 @@ describe("renderer state", () => {
         "preview-00002": [],
       },
     });
-    const nextState = applyGenerationToState(state, generation);
+    const nextState = applyGenerationToState(
+      state,
+      generation,
+      advanceRunState(state.runState, generation),
+    );
     const flatState = setRendererTerrain(nextState, "Flat");
 
     expect(flatState.latestGeneration).toBeNull();
@@ -55,7 +68,10 @@ describe("renderer state", () => {
   });
 
   it("selects the best vehicle after a generation is applied", () => {
-    const state = createRendererState(VROOMON_PARITY_CONTRACT, "A3x9K2m7P4zQ");
+    const state = createRendererState(
+      createEmptyRunState("evolution", VROOMON_PARITY_CONTRACT.terrains[0]!.name, "preview"),
+      "A3x9K2m7P4zQ",
+    );
     const generation = runEvolutionGeneration({
       ...state.runState,
       population: [
@@ -68,7 +84,11 @@ describe("renderer state", () => {
       },
     });
 
-    const nextState = applyGenerationToState(state, generation);
+    const nextState = applyGenerationToState(
+      state,
+      generation,
+      advanceRunState(state.runState, generation),
+    );
 
     expect(nextState.latestGeneration).not.toBeNull();
     expect(nextState.lastEvaluatedRunState).toEqual(state.runState);
@@ -78,7 +98,10 @@ describe("renderer state", () => {
   });
 
   it("returns selected vehicle summaries for the sidebar", () => {
-    const state = createRendererState(VROOMON_PARITY_CONTRACT, "A3x9K2m7P4zQ");
+    const state = createRendererState(
+      createEmptyRunState("evolution", VROOMON_PARITY_CONTRACT.terrains[0]!.name, "preview"),
+      "A3x9K2m7P4zQ",
+    );
     const generation = runEvolutionGeneration({
       ...state.runState,
       population: [
@@ -91,7 +114,11 @@ describe("renderer state", () => {
       },
     });
     const nextState = selectVehicle(
-      applyGenerationToState(state, generation),
+      applyGenerationToState(
+        state,
+        generation,
+        advanceRunState(state.runState, generation),
+      ),
       generation.evaluatedPopulation[0]!.id,
     );
 
@@ -101,7 +128,10 @@ describe("renderer state", () => {
   });
 
   it("adopts the loaded run mode when a saved state is restored", () => {
-    const state = createRendererState(VROOMON_PARITY_CONTRACT, "A3x9K2m7P4zQ");
+    const state = createRendererState(
+      createEmptyRunState("evolution", VROOMON_PARITY_CONTRACT.terrains[0]!.name, "preview"),
+      "A3x9K2m7P4zQ",
+    );
     const loadedState = createEmptyRunState("test-drive", "Flat", "loaded-run");
 
     const nextState = setRendererRunState(state, loadedState, "Loaded run.");

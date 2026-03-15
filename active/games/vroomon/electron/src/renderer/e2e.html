@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0"
+    />
+    <title>vroomon rewrite</title>
+    <script src="../../node_modules/matter-js/build/matter.js"></script>
+    <script type="importmap">
+      {
+        "imports": {
+          "matter-js": "./matter-browser-shim.js"
+        }
+      }
+    </script>
+    <style>
+      :root {
+        color-scheme: dark;
+        font-family: Inter, system-ui, sans-serif;
+      }
+
+      body {
+        margin: 0;
+        background: #10141d;
+        color: #edf2f7;
+      }
+
+      main {
+        display: grid;
+        grid-template-columns: minmax(320px, 420px) 1fr;
+        gap: 24px;
+        min-height: 100vh;
+        padding: 24px;
+        box-sizing: border-box;
+      }
+
+      section {
+        background: #182131;
+        border: 1px solid #2c3a52;
+        border-radius: 16px;
+        padding: 20px;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+      }
+
+      h1,
+      h2 {
+        margin-top: 0;
+      }
+
+      .stack {
+        display: grid;
+        gap: 16px;
+      }
+
+      label {
+        display: grid;
+        gap: 8px;
+        font-size: 0.95rem;
+      }
+
+      input,
+      button {
+        font: inherit;
+        border-radius: 10px;
+        border: 1px solid #40516d;
+        padding: 12px 14px;
+      }
+
+      input {
+        background: #0f1725;
+        color: inherit;
+      }
+
+      button {
+        cursor: pointer;
+        background: #2b6ef2;
+        color: white;
+        border-color: #2b6ef2;
+      }
+
+      pre {
+        margin: 0;
+        white-space: pre-wrap;
+        word-break: break-word;
+        background: #0d1320;
+        border-radius: 12px;
+        padding: 16px;
+        min-height: 320px;
+        overflow: auto;
+      }
+
+      ul {
+        margin: 0;
+        padding-left: 20px;
+        color: #c1cfdf;
+      }
+
+      li + li {
+        margin-top: 12px;
+      }
+
+      .muted {
+        color: #9fb0c8;
+      }
+
+      .button-row,
+      .nav-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+      }
+
+      .ghost {
+        background: #182131;
+        border-color: #40516d;
+      }
+
+      .secondary {
+        background: #243246;
+        border-color: #243246;
+      }
+
+      .active {
+        outline: 2px solid #8ab4ff;
+      }
+
+      select {
+        font: inherit;
+        border-radius: 10px;
+        border: 1px solid #40516d;
+        padding: 12px 14px;
+        background: #0f1725;
+        color: inherit;
+      }
+
+      .panel {
+        display: none;
+      }
+
+      .panel[data-active="true"] {
+        display: grid;
+        gap: 16px;
+      }
+
+      .status {
+        padding: 12px 14px;
+        border-radius: 12px;
+        background: #101828;
+        border: 1px solid #2c3a52;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="stack">
+        <div>
+          <h1>vroomon rewrite</h1>
+          <p>
+            The Electron rewrite starts by porting the Godot DNA v2 system into
+            deterministic TypeScript domain code.
+          </p>
+        </div>
+
+        <div class="status" data-status-message></div>
+
+        <div>
+          <h2>Modes</h2>
+          <div class="nav-row">
+            <button class="ghost" type="button" data-mode-button="menu">Menu</button>
+            <button class="ghost" type="button" data-mode-button="evolution">Evolution</button>
+            <button class="ghost" type="button" data-mode-button="test-drive">Test Drive</button>
+          </div>
+        </div>
+
+        <label>
+          Terrain preset
+          <select data-terrain-select></select>
+        </label>
+
+        <label>
+          DNA string
+          <input data-dna-input value="A3x9K2m7P4zQ" />
+        </label>
+
+        <div class="button-row">
+          <button type="button" data-randomize-dna>Generate random DNA</button>
+          <button class="secondary" type="button" data-generate-population>
+            Generate population
+          </button>
+        </div>
+
+        <div class="button-row">
+          <button type="button" data-run-generation>Run generation</button>
+          <button class="secondary" type="button" data-save-run>Save run</button>
+          <button class="ghost" type="button" data-load-run>Load run</button>
+        </div>
+
+        <div>
+          <h2>Parity contract</h2>
+          <p class="muted" data-contract-summary></p>
+        </div>
+
+        <div>
+          <h2>Modes</h2>
+          <ul data-mode-list></ul>
+        </div>
+
+        <div>
+          <h2>Terrain presets</h2>
+          <ul data-terrain-list></ul>
+        </div>
+      </section>
+
+      <section class="stack">
+        <div class="panel" data-panel="menu">
+          <div>
+            <h2>Main menu parity surface</h2>
+            <p class="muted">
+              Mirrors the Godot main menu by exposing navigation, terrain context,
+              and run bootstrapping from one place.
+            </p>
+          </div>
+          <pre data-run-state-output></pre>
+        </div>
+
+        <div class="panel" data-panel="evolution">
+          <div>
+            <h2>Evolution mode</h2>
+            <p class="muted">
+              Run a full generation, inspect the selected car, and save or reload
+              the current run state.
+            </p>
+          </div>
+          <div class="button-row" data-selected-vehicle-buttons></div>
+          <pre data-selected-vehicle-output></pre>
+          <pre data-evolution-preview-output></pre>
+          <pre data-generation-log-output></pre>
+        </div>
+
+        <div class="panel" data-panel="test-drive">
+          <div>
+            <h2>Test drive</h2>
+            <p class="muted">
+              Preview a single DNA string, its decoded build, and the current
+              physics snapshot.
+            </p>
+          </div>
+          <pre data-dna-output></pre>
+          <pre data-physics-preview-output></pre>
+        </div>
+      </section>
+    </main>
+
+    <script type="module" src="./playwright-preload-shim.js"></script>
+    <script type="module" src="./renderer.js"></script>
+  </body>
+</html>

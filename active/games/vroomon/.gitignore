@@ -120,6 +120,8 @@ electron/node_modules/
 electron/dist/
 electron/*.tsbuildinfo
 electron/release/
+electron/playwright-report/
+electron/test-results/
 
 # Spyder project settings
 .spyderproject
