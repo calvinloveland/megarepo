@@ -63,6 +63,10 @@ EOF
   usrLocalLibPathString = lib.concatStringsSep ":" usrLocalLibPaths;
 in
 {
+  imports = [
+    ./remote-access.nix
+  ];
+
   # Enable parallel building for faster compilation
   nix.settings = {
     max-jobs = "auto"; # Use all available CPU cores

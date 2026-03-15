@@ -67,6 +67,11 @@
     viAlias = true;
   };
 
+  programs.tmux = {
+    enable = true;
+    terminal = "screen-256color";
+  };
+
   # VS Code settings are not managed here to allow in-application edits.
 
   programs.swaylock.enable = true;

@@ -88,7 +88,8 @@ nix flake check --no-build
 ├── modules/
 │   ├── base.nix           # Shared base configuration
 │   ├── desktop.nix        # Desktop environment (Sway, Bluetooth, audio, etc.)
-│   └── gaming.nix         # Gaming-specific packages
+│   ├── gaming.nix         # Gaming-specific packages
+│   └── remote-access.nix  # Shared SSH/Tailscale/mosh remote access
 ├── tests/                 # Testing infrastructure
 │   ├── run_tests.sh       # Master test runner
 │   ├── test_rebuild.sh    # Rebuild script unit tests
@@ -136,6 +137,7 @@ The script detects your environment using:
 - **Development**: Git, GitHub CLI, Docker, Python environment
 - **Tools**: Fish shell, Neovim, essential CLI utilities
 - **Base System**: Common NixOS configuration
+- **Remote Access**: Key-only OpenSSH over Tailscale, mosh-ready firewall rules, and tmux for persistent CLI sessions
 
 ### Intel NPU / OpenVINO (1337book focus)
 - **Reproducible Toolkit**: `nix develop` now unpacks Intel OpenVINO 2024.6 with the Intel NPU plugin pre-configured.
@@ -172,6 +174,48 @@ The script detects your environment using:
    ```bash
    ./rebuild.sh
    ```
+
+## Phone CLI Access
+
+Calnix now includes the pieces needed for a phone-friendly Copilot CLI workflow:
+
+- **OpenSSH server** with key-only authentication
+- **Tailscale** for private remote access without exposing SSH to the public internet
+- **mosh**-ready firewall rules on `tailscale0` for roaming between Wi-Fi and cellular
+- **tmux** so long-running CLI sessions survive disconnects
+
+Recommended setup:
+
+1. Rebuild the host:
+   ```bash
+   sudo nixos-rebuild switch --flake .#thinker
+   # or
+   sudo nixos-rebuild switch --flake .#1337book
+   ```
+2. Bring Tailscale up on the laptop:
+   ```bash
+   sudo tailscale up
+   ```
+3. Ensure your phone is signed into the same Tailnet.
+4. Add your public key to `~/.ssh/authorized_keys` for the `calvin` user if it is not already present.
+5. Start or attach a tmux session:
+   ```bash
+   tmux new -A -s phone
+   ```
+6. Connect from the phone:
+   ```bash
+   ssh calvin@<tailscale-hostname>
+   ```
+   or, for better network handoff:
+   ```bash
+   mosh calvin@<tailscale-hostname>
+   ```
+
+Inside the remote session you can run Copilot CLI normally, for example:
+
+```bash
+gh copilot suggest -t shell "find the failing test command in this repo"
+```
 
 ## Customization
 
