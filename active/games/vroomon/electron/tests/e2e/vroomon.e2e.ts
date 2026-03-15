@@ -1,5 +1,7 @@
 import { expect, test } from "@playwright/test";
 
+type ModeId = "menu" | "evolution" | "test-drive";
+
 interface RunStateSnapshot {
   mode: "evolution" | "test-drive";
   terrainName: string;
@@ -28,6 +30,51 @@ test.beforeEach(async ({ page }) => {
 });
 
 test.describe("vroomon Playwright harness", () => {
+  test("switches visible panels and active mode buttons", async ({ page }) => {
+    await expectModeState(page, "menu");
+    await expect(page.locator("[data-run-state-output]")).toContainText('"generation": 0');
+
+    await page.locator('[data-mode-button="evolution"]').click();
+    await expectModeState(page, "evolution");
+    await expect(page.locator("[data-evolution-preview-output]")).toContainText(
+      '"generatedPopulation"',
+    );
+    await expect(page.locator("[data-selected-vehicle-output]")).toContainText(
+      "Run a generation to inspect a selected car.",
+    );
+
+    await page.locator('[data-mode-button="test-drive"]').click();
+    await expectModeState(page, "test-drive");
+    await expect(page.locator("[data-dna-output]")).toContainText('"dna"');
+    await expect(page.locator("[data-physics-preview-output]")).toContainText(
+      '"terrainName"',
+    );
+
+    await page.locator('[data-mode-button="menu"]').click();
+    await expectModeState(page, "menu");
+  });
+
+  test("updates the test-drive preview when controls change", async ({ page }) => {
+    await page.locator('[data-mode-button="test-drive"]').click();
+    await expectModeState(page, "test-drive");
+
+    const initialDna = await readJson<{ dna: string }>(page, "[data-dna-output]");
+
+    await page.locator("[data-terrain-select]").selectOption("Flat");
+    await expect
+      .poll(
+        async () =>
+          (await readJson<{ terrainName: string }>(page, "[data-physics-preview-output]"))
+            .terrainName,
+      )
+      .toBe("Flat");
+
+    await page.locator("[data-randomize-dna]").click();
+    await expect
+      .poll(async () => (await readJson<{ dna: string }>(page, "[data-dna-output]")).dna)
+      .not.toBe(initialDna.dna);
+  });
+
   test("supports evolution flow buttons end to end", async ({ page }) => {
     await page.locator('[data-mode-button="test-drive"]').click();
     const initialDna = await readJson<{ dna: string }>(page, "[data-dna-output]");
@@ -65,6 +112,7 @@ test.describe("vroomon Playwright harness", () => {
     const targetVehicleId =
       (await vehicleButtons.nth(targetIndex).textContent())?.trim() ?? "";
     await vehicleButtons.nth(targetIndex).click();
+    await expect(vehicleButtons.nth(targetIndex)).toHaveClass(/active/);
 
     await expect
       .poll(
@@ -107,6 +155,29 @@ test.describe("vroomon Playwright harness", () => {
     expect(loadedState.terrainName).toBe("Flat");
   });
 });
+
+async function expectModeState(
+  page: import("@playwright/test").Page,
+  activeMode: ModeId,
+): Promise<void> {
+  const modes: ModeId[] = ["menu", "evolution", "test-drive"];
+
+  for (const mode of modes) {
+    const button = page.locator(`[data-mode-button="${mode}"]`);
+    const panel = page.locator(`[data-panel="${mode}"]`);
+    const isActive = mode === activeMode;
+
+    if (isActive) {
+      await expect(button).toHaveClass(/active/);
+      await expect(panel).toHaveAttribute("data-active", "true");
+      await expect(panel).toBeVisible();
+    } else {
+      await expect(button).not.toHaveClass(/active/);
+      await expect(panel).toHaveAttribute("data-active", "false");
+      await expect(panel).toBeHidden();
+    }
+  }
+}
 
 async function readJson<T>(page: import("@playwright/test").Page, selector: string): Promise<T> {
   const text = await page.locator(selector).textContent();
