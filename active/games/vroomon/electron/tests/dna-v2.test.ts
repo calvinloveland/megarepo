@@ -1,6 +1,54 @@
 import { describe, expect, it } from "vitest";
 
 import { cleanDna, decodeDnaV2, uniformAt } from "../src/shared/dna-v2.js";
+import dnaFixtures from "./fixtures/dna-v2-fixtures.json";
+
+function roundDecodedDna(dna: string) {
+  const decoded = decodeDnaV2(dna);
+
+  return {
+    dna: decoded.dna,
+    modules: decoded.modules,
+    powertrainModules: decoded.powertrainModules,
+    positions: decoded.positions.map((value) => Number(value.toFixed(4))),
+    rectParams: decoded.rectParams.map((value) =>
+      value
+        ? {
+            width: Number(value.width.toFixed(4)),
+            height: Number(value.height.toFixed(4)),
+            density: Number(value.density.toFixed(4)),
+          }
+        : null,
+    ),
+    wheelParams: decoded.wheelParams.map((value) =>
+      value
+        ? {
+            radius: Number(value.radius.toFixed(4)),
+            friction: Number(value.friction.toFixed(4)),
+            motorPower: Number(value.motorPower.toFixed(4)),
+          }
+        : null,
+    ),
+    powertrainParams: decoded.powertrainParams.map((value) => ({
+      gearRatio: Number(value.gearRatio.toFixed(4)),
+      efficiency: Number(value.efficiency.toFixed(4)),
+    })),
+    connectors: decoded.connectors.map((value) => ({
+      i: value.i,
+      j: value.j,
+      angleDeg: Number(value.angleDeg.toFixed(4)),
+      stiffnessK: Number(value.stiffnessK.toFixed(4)),
+      dampingC: Number(value.dampingC.toFixed(4)),
+      slackDeg: Number(value.slackDeg.toFixed(4)),
+    })),
+    globals: {
+      comShift: Number(decoded.globals.comShift.toFixed(4)),
+      dampingLinear: Number(decoded.globals.dampingLinear.toFixed(4)),
+      dampingAngular: Number(decoded.globals.dampingAngular.toFixed(4)),
+      temperature: Number(decoded.globals.temperature.toFixed(4)),
+    },
+  };
+}
 
 describe("DNA v2 utilities", () => {
   it("cleans non-base62 characters and keeps a deterministic fallback", () => {
@@ -52,5 +100,11 @@ describe("DNA v2 utilities", () => {
     expect(decoded.globals.dampingAngular).toBeLessThanOrEqual(0.7);
     expect(decoded.globals.temperature).toBeGreaterThanOrEqual(0.2);
     expect(decoded.globals.temperature).toBeLessThanOrEqual(1.5);
+  });
+
+  it("matches the stored regression fixtures for representative DNA samples", () => {
+    expect(
+      dnaFixtures.map((fixture) => roundDecodedDna(fixture.dna)),
+    ).toEqual(dnaFixtures);
   });
 });
