@@ -21,14 +21,19 @@ def test_get_repo_root():
     assert isinstance(root, str) and root
 
 
-def test_get_repo_root_prefers_nearest_flake(monkeypatch):
-    cwd = "/tmp/work/megarepo/active/personal/calnix"
+def test_get_repo_root_prefers_script_flake_over_unrelated_cwd(monkeypatch):
+    script_dir = "/tmp/work/megarepo/active/personal/calnix"
+    cwd = "/tmp/work/etc/nixos"
 
     def fake_exists(path):
-        return path == f"{cwd}/flake.nix"
+        return path in {
+            f"{script_dir}/flake.nix",
+            f"{cwd}/flake.nix",
+        }
 
     monkeypatch.setattr(mod.os, "getcwd", lambda: cwd)
+    monkeypatch.setattr(mod, "__file__", f"{script_dir}/rebuild.py")
     monkeypatch.setattr(mod.os.path, "exists", fake_exists)
     monkeypatch.setattr(mod.subprocess, "check_output", lambda *args, **kwargs: b"/tmp/work/megarepo\n")
 
-    assert mod.get_repo_root() == cwd
+    assert mod.get_repo_root() == script_dir

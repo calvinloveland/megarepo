@@ -104,8 +104,10 @@ def detect_host() -> str:
 
 
 def get_repo_root() -> str:
-    # Prefer the nearest flake root so nested repos (like megarepo) work.
-    for start in (os.getcwd(), os.path.dirname(os.path.realpath(__file__))):
+    # Prefer the flake that contains this script so running rebuild.py from
+    # another flake-backed directory (for example /etc/nixos) still applies
+    # the calnix configuration instead of silently targeting the wrong repo.
+    for start in (os.path.dirname(os.path.realpath(__file__)), os.getcwd()):
         cursor = os.path.abspath(start)
         while True:
             if os.path.exists(os.path.join(cursor, "flake.nix")):
