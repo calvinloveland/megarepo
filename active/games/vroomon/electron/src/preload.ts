@@ -48,8 +48,10 @@ const api = {
   createEmptyRunState: (
     mode: "evolution" | "test-drive",
   ): RunStateSnapshot => createEmptyRunState(mode),
-  createPreviewRunState: (runId: string): RunStateSnapshot =>
-    createPreviewRunState(runId, createEmptyRunState("evolution")),
+  createPreviewRunState: (
+    runId: string,
+    baseState: RunStateSnapshot = createEmptyRunState("evolution"),
+  ): RunStateSnapshot => createPreviewRunState(runId, baseState),
   computeScoreStats: (scores: number[]): ScoreStats | undefined =>
     computeScoreStats(scores),
   evaluatePopulation: (state: RunStateSnapshot): PopulationEvaluation =>
@@ -106,7 +108,10 @@ declare global {
       getParityContract: () => VroomonParityContract;
       getTerrainPreset: (name: string) => TerrainPresetDefinition | undefined;
       createEmptyRunState: (mode: "evolution" | "test-drive") => RunStateSnapshot;
-      createPreviewRunState: (runId: string) => RunStateSnapshot;
+      createPreviewRunState: (
+        runId: string,
+        baseState?: RunStateSnapshot,
+      ) => RunStateSnapshot;
       computeScoreStats: (scores: number[]) => ScoreStats | undefined;
       evaluatePopulation: (state: RunStateSnapshot) => PopulationEvaluation;
       runEvolutionGeneration: (state: RunStateSnapshot) => GenerationResult;

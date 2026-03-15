@@ -10,6 +10,7 @@ export interface RendererState {
   mode: AppModeId;
   draftDna: string;
   runState: RunStateSnapshot;
+  lastEvaluatedRunState: RunStateSnapshot | null;
   latestGeneration: GenerationResult | null;
   selectedVehicleId: string | null;
   statusMessage: string;
@@ -37,6 +38,7 @@ export function createRendererState(
       contract.terrains[0]?.name ?? "Grassland",
       "preview",
     ),
+    lastEvaluatedRunState: null,
     latestGeneration: null,
     selectedVehicleId: null,
     statusMessage: "Ready to begin the Electron rewrite preview.",
@@ -51,6 +53,13 @@ export function setRendererMode(
   return {
     ...state,
     mode,
+    runState:
+      mode === "menu"
+        ? state.runState
+        : {
+            ...state.runState,
+            mode,
+          },
   };
 }
 
@@ -59,11 +68,12 @@ export function setRendererTerrain(
   terrainName: string,
 ): RendererState {
   return {
-    ...state,
+    ...clearEvaluatedGenerationState(state),
     runState: {
       ...state.runState,
       terrainName,
     },
+    statusMessage: `Switched terrain to ${terrainName}.`,
   };
 }
 
@@ -73,10 +83,9 @@ export function setRendererRunState(
   statusMessage: string,
 ): RendererState {
   return {
-    ...state,
+    ...clearEvaluatedGenerationState(state),
+    mode: runState.mode,
     runState,
-    latestGeneration: null,
-    selectedVehicleId: null,
     statusMessage,
   };
 }
@@ -102,6 +111,8 @@ export function applyGenerationToState(
 
   return {
     ...state,
+    mode: "evolution",
+    lastEvaluatedRunState: state.runState,
     runState: advanceRunState(state.runState, generationResult),
     latestGeneration: generationResult,
     selectedVehicleId,
@@ -152,5 +163,14 @@ export function getSelectedVehicleSummary(
     parents: vehicle.parents,
     mutated: vehicle.mutated,
     children: state.runState.genealogy[vehicle.id] ?? [],
+  };
+}
+
+function clearEvaluatedGenerationState(state: RendererState): RendererState {
+  return {
+    ...state,
+    lastEvaluatedRunState: null,
+    latestGeneration: null,
+    selectedVehicleId: null,
   };
 }

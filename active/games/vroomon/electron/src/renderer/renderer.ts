@@ -28,6 +28,10 @@ import {
   setSavedPath,
   type RendererState,
 } from "./state.js";
+import {
+  resolveEvolutionPreviewRunState,
+  resolveRunnableRunState,
+} from "./view-model.js";
 
 declare global {
   interface Window {
@@ -38,7 +42,10 @@ declare global {
       getParityContract: () => VroomonParityContract;
       getTerrainPreset: (name: string) => TerrainPresetDefinition | undefined;
       createEmptyRunState: (mode: "evolution" | "test-drive") => RunStateSnapshot;
-      createPreviewRunState: (runId: string) => RunStateSnapshot;
+      createPreviewRunState: (
+        runId: string,
+        baseState?: RunStateSnapshot,
+      ) => RunStateSnapshot;
       computeScoreStats: (scores: number[]) => ScoreStats | undefined;
       evaluatePopulation: (state: RunStateSnapshot) => PopulationEvaluation;
       runEvolutionGeneration: (state: RunStateSnapshot) => GenerationResult;
@@ -220,18 +227,15 @@ function renderContract(): void {
 }
 
 function renderPreviewEvolution(): void {
-  const previewState =
-    rendererState.runState.population.length > 0
-      ? rendererState.runState
-      : window.vroomon.createPreviewRunState(rendererState.runState.runId);
+  const previewState = resolveEvolutionPreviewRunState(
+    rendererState,
+    window.vroomon.createPreviewRunState,
+  );
   const generationResult =
     rendererState.latestGeneration ??
     window.vroomon.runEvolutionGeneration(previewState);
   const previewRace = window.vroomon.previewPopulationRace(previewState, 120);
-  const previewScores = previewRace.map(
-    (result) => Math.max(0, result.centerX - result.initialCenterX),
-  );
-  const scoreStats = window.vroomon.computeScoreStats(previewScores);
+  const scoreStats = generationResult.evaluation.stats;
 
   evolutionPreviewOutputElement.textContent = JSON.stringify(
     {
@@ -253,7 +257,7 @@ function renderPreviewEvolution(): void {
 }
 
 function renderPhysicsPreview(dna: string): void {
-  const terrainName = parityContract.terrains[0]?.name ?? "Grassland";
+  const terrainName = rendererState.runState.terrainName;
   const snapshot = window.vroomon.previewPhysicsSnapshot(dna, terrainName, 90);
 
   physicsPreviewOutputElement.textContent = JSON.stringify(
@@ -334,19 +338,6 @@ function populateTerrainSelect(): void {
 
 async function saveCurrentRunState(): Promise<void> {
   const savePath = await window.vroomon.saveRunState(rendererState.runState);
-
-  if (rendererState.latestGeneration) {
-    await window.vroomon.appendGenerationLog(
-      window.vroomon.createGenerationLogEntry(
-        {
-          ...rendererState.runState,
-          generation: rendererState.runState.generation - 1,
-        },
-        rendererState.latestGeneration,
-      ),
-    );
-  }
-
   rendererState = setSavedPath(rendererState, savePath);
   await renderGenerationLog();
   renderApp();
@@ -386,21 +377,46 @@ async function renderGenerationLog(): Promise<void> {
 }
 
 async function runGeneration(): Promise<void> {
-  const generationResult = window.vroomon.runEvolutionGeneration(rendererState.runState);
-  rendererState = applyGenerationToState(rendererState, generationResult);
+  const { runState, generatedPopulation } = resolveRunnableRunState(
+    rendererState,
+    window.vroomon.createPreviewRunState,
+  );
+  const baseRendererState =
+    runState === rendererState.runState
+      ? rendererState
+      : setRendererRunState(
+          rendererState,
+          runState,
+          generatedPopulation
+            ? `Generated initial population for run ${runState.runId}.`
+            : `Prepared run ${runState.runId} for evolution mode.`,
+        );
+  const generationResult = window.vroomon.runEvolutionGeneration(runState);
+
+  await window.vroomon.appendGenerationLog(
+    window.vroomon.createGenerationLogEntry(runState, generationResult),
+  );
+
+  rendererState = applyGenerationToState(baseRendererState, generationResult);
+  if (generatedPopulation) {
+    rendererState = {
+      ...rendererState,
+      statusMessage: `Generated initial population and completed generation ${runState.generation + 1}.`,
+    };
+  }
   await renderGenerationLog();
   renderApp();
 }
 
 function generatePopulation(): void {
   const nextRunId = `preview-${Date.now().toString(36)}`;
-  const nextRunState = window.vroomon.createPreviewRunState(nextRunId);
+  const nextRunState = window.vroomon.createPreviewRunState(nextRunId, {
+    ...rendererState.runState,
+    mode: "evolution",
+  });
   rendererState = setRendererRunState(
     rendererState,
-    {
-      ...nextRunState,
-      terrainName: rendererState.runState.terrainName,
-    },
+    nextRunState,
     `Generated population for run ${nextRunId}.`,
   );
   renderApp();
