@@ -364,6 +364,13 @@ def build_and_switch_flake(
 
     print(f"Build output: {build_out}")
 
+    def report_switch_failure(output: str) -> None:
+        print("Activation failed while switching to the new configuration.")
+        if output:
+            print(output)
+        else:
+            print("Re-run with -v to stream the failing nixos-rebuild output.")
+
     # Check if this is the new nixos-rebuild-ng (NixOS 26.05+)
     nixos_rebuild_cmd = os.path.join(build_out, "bin", "nixos-rebuild")
     if os.path.exists(nixos_rebuild_cmd):
@@ -371,9 +378,11 @@ def build_and_switch_flake(
         phase_banner(3, 4, "Activate new configuration", estimate_seconds=45)
         switch_cmd = [nixos_rebuild_cmd, "switch", "--flake", flake_ref] + extra_args
         if os.geteuid() != 0:
-            rc, _ = run_cmd_stream(["sudo", *switch_cmd], capture=False, verbose=verbose, label="switch", estimate_seconds=45)
+            rc, output = run_cmd_stream(["sudo", *switch_cmd], capture=True, verbose=verbose, label="switch", estimate_seconds=45)
         else:
-            rc, _ = run_cmd_stream(switch_cmd, capture=False, verbose=verbose, label="switch", estimate_seconds=45)
+            rc, output = run_cmd_stream(switch_cmd, capture=True, verbose=verbose, label="switch", estimate_seconds=45)
+        if rc != 0:
+            report_switch_failure(output)
         return rc == 0
 
     # Old style: look for switch-to-configuration
@@ -413,9 +422,11 @@ def build_and_switch_flake(
     switch_cmd = [candidate, "switch"]
     if os.geteuid() != 0:
         # need sudo to switch
-        rc, _ = run_cmd_stream(["sudo", *switch_cmd], capture=False, verbose=verbose, label="switch", estimate_seconds=45)
+        rc, output = run_cmd_stream(["sudo", *switch_cmd], capture=True, verbose=verbose, label="switch", estimate_seconds=45)
     else:
-        rc, _ = run_cmd_stream(switch_cmd, capture=False, verbose=verbose, label="switch", estimate_seconds=45)
+        rc, output = run_cmd_stream(switch_cmd, capture=True, verbose=verbose, label="switch", estimate_seconds=45)
+    if rc != 0:
+        report_switch_failure(output)
     return rc == 0
 
 
