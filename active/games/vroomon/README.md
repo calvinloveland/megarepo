@@ -21,7 +21,7 @@ From `active/games/vroomon/`:
 
 - `./run.sh`
 
-The helper script changes into the Electron app directory, installs dependencies when needed, and starts the app. On NixOS it automatically launches through `nix shell nixpkgs#electron` so Electron can run without the bundled binary linker issue.
+The helper script changes into the Electron app directory, installs dependencies when needed, and starts the app. On NixOS it automatically launches through `nix shell nixpkgs#electron`, applies the Electron runtime stability flags used by the app, and uses `xvfb-run` automatically when no display is available.
 
 From `active/games/vroomon/electron/`:
 

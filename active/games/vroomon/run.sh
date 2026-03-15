@@ -13,6 +13,14 @@ is_nixos() {
   [[ -f /etc/os-release ]] && grep -qi '^ID=nixos' /etc/os-release
 }
 
+run_with_optional_xvfb() {
+  if [[ -z "${DISPLAY:-}" ]] && command -v xvfb-run >/dev/null 2>&1; then
+    exec xvfb-run -a "$@"
+  fi
+
+  exec "$@"
+}
+
 cd "${ELECTRON_DIR}"
 
 if [[ ! -d node_modules ]] || [[ ! -f node_modules/.package-lock.json ]] || [[ package-lock.json -nt node_modules/.package-lock.json ]]; then
@@ -20,8 +28,11 @@ if [[ ! -d node_modules ]] || [[ ! -f node_modules/.package-lock.json ]] || [[ p
 fi
 
 if is_nixos && command -v nix >/dev/null 2>&1; then
+  export VROOMON_DISABLE_HARDWARE_ACCELERATION="${VROOMON_DISABLE_HARDWARE_ACCELERATION:-1}"
+  export VROOMON_DISABLE_SANDBOX="${VROOMON_DISABLE_SANDBOX:-1}"
+  export VROOMON_DISABLE_DEV_SHM_USAGE="${VROOMON_DISABLE_DEV_SHM_USAGE:-1}"
   npm run build
-  exec nix --extra-experimental-features "nix-command flakes" shell nixpkgs#electron -c electron . "$@"
+  run_with_optional_xvfb nix --extra-experimental-features "nix-command flakes" shell nixpkgs#electron -c electron . "$@"
 fi
 
-exec npm start -- "$@"
+run_with_optional_xvfb npm start -- "$@"

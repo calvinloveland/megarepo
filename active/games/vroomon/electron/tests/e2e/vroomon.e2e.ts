@@ -32,10 +32,16 @@ test.beforeEach(async ({ page }) => {
 test.describe("vroomon Playwright harness", () => {
   test("switches visible panels and active mode buttons", async ({ page }) => {
     await expectModeState(page, "menu");
+    await expect(page.locator("[data-status-message]")).toContainText(
+      "Ready to begin the Electron rewrite preview.",
+    );
     await expect(page.locator("[data-run-state-output]")).toContainText('"generation": 0');
 
     await page.locator('[data-mode-button="evolution"]').click();
     await expectModeState(page, "evolution");
+    await expect(page.locator("[data-status-message]")).toContainText(
+      "Viewing evolution mode.",
+    );
     await expect(page.locator("[data-evolution-preview-output]")).toContainText(
       '"generatedPopulation"',
     );
@@ -45,6 +51,9 @@ test.describe("vroomon Playwright harness", () => {
 
     await page.locator('[data-mode-button="test-drive"]').click();
     await expectModeState(page, "test-drive");
+    await expect(page.locator("[data-status-message]")).toContainText(
+      "Viewing test-drive mode.",
+    );
     await expect(page.locator("[data-dna-output]")).toContainText('"dna"');
     await expect(page.locator("[data-physics-preview-output]")).toContainText(
       '"terrainName"',
@@ -52,6 +61,9 @@ test.describe("vroomon Playwright harness", () => {
 
     await page.locator('[data-mode-button="menu"]').click();
     await expectModeState(page, "menu");
+    await expect(page.locator("[data-status-message]")).toContainText(
+      "Viewing the main menu.",
+    );
   });
 
   test("updates the test-drive preview when controls change", async ({ page }) => {

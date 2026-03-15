@@ -25,8 +25,10 @@ describe("renderer state", () => {
 
     expect(testDriveState.mode).toBe("test-drive");
     expect(testDriveState.runState.mode).toBe("test-drive");
+    expect(testDriveState.statusMessage).toBe("Viewing test-drive mode.");
     expect(evolutionState.mode).toBe("evolution");
     expect(evolutionState.runState.mode).toBe("evolution");
+    expect(evolutionState.statusMessage).toBe("Viewing evolution mode.");
   });
 
   it("tracks terrain changes in the run state", () => {

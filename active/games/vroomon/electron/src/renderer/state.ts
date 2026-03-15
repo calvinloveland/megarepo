@@ -44,16 +44,24 @@ export function setRendererMode(
   state: RendererState,
   mode: AppModeId,
 ): RendererState {
+  const modeStatusMessage =
+    mode === "menu"
+      ? "Viewing the main menu."
+      : mode === "evolution"
+        ? "Viewing evolution mode."
+        : "Viewing test-drive mode.";
+
   return {
     ...state,
     mode,
     runState:
       mode === "menu"
         ? state.runState
-        : {
-            ...state.runState,
-            mode,
-          },
+         : {
+             ...state.runState,
+             mode,
+           },
+    statusMessage: modeStatusMessage,
   };
 }
 
