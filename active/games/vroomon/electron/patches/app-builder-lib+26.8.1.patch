@@ -1,0 +1,13 @@
+diff --git a/node_modules/app-builder-lib/out/node-module-collector/nodeModulesCollector.js b/node_modules/app-builder-lib/out/node-module-collector/nodeModulesCollector.js
+index 0956d26..4b354b4 100644
+--- a/node_modules/app-builder-lib/out/node-module-collector/nodeModulesCollector.js
++++ b/node_modules/app-builder-lib/out/node-module-collector/nodeModulesCollector.js
+@@ -315,7 +315,7 @@ class NodeModulesCollector {
+             const child = childProcess.spawn(command, args, {
+                 cwd,
+                 env: { COREPACK_ENABLE_STRICT: "0", ...process.env }, // allow `process.env` overrides
+-                shell: true, // `true`` is now required: https://github.com/electron-userland/electron-builder/issues/9488
++                shell: process.platform === "win32",
+             });
+             let stderr = "";
+             child.stdout.pipe(outStream);
