@@ -119,6 +119,7 @@ venv.bak/
 electron/node_modules/
 electron/dist/
 electron/*.tsbuildinfo
+electron/release/
 
 # Spyder project settings
 .spyderproject

@@ -1,11 +1,4 @@
-import {
-  Bodies,
-  Body,
-  Composite,
-  Constraint,
-  Engine,
-  type IChamferableBodyDefinition,
-} from "matter-js";
+import Matter, { type Body, type Constraint, type Engine, type IChamferableBodyDefinition } from "matter-js";
 
 import { decodeDnaV2, type DecodedDnaV2 } from "../shared/dna-v2.js";
 import {
@@ -66,6 +59,7 @@ export interface MatterRace {
 
 const GROUND_COLLISION_CATEGORY = 0x0001;
 const VEHICLE_COLLISION_CATEGORY = 0x0002;
+const { Bodies, Body: MatterBody, Composite, Constraint: MatterConstraint, Engine: MatterEngine } = Matter;
 
 export function createMatterVehicle(
   dna: string,
@@ -164,7 +158,7 @@ export function stepMatterVehicle(
 ): VehicleSnapshot {
   for (let index = 0; index < stepCount; index += 1) {
     applyWheelDrive(vehicle.wheelDriveBodies);
-    Engine.update(vehicle.engine, deltaMs);
+    MatterEngine.update(vehicle.engine, deltaMs);
   }
 
   return snapshotMatterVehicle(vehicle);
@@ -186,7 +180,7 @@ export function simulatePopulationRace(
     for (const vehicle of race.vehicles) {
       applyWheelDrive(vehicle.wheelDriveBodies);
     }
-    Engine.update(race.engine, deltaMs);
+    MatterEngine.update(race.engine, deltaMs);
   }
 
   return race.vehicles.map((vehicle) => {
@@ -319,7 +313,7 @@ function buildVehicleBodies(
           (candidate) => candidate.j === index,
         );
         constraints.push(
-          Constraint.create({
+          MatterConstraint.create({
             bodyA: lastChassisBody,
             bodyB: body,
             stiffness: connector?.stiffnessK ?? 0.8,
@@ -357,7 +351,7 @@ function buildVehicleBodies(
 
     if (lastChassisBody) {
       constraints.push(
-        Constraint.create({
+        MatterConstraint.create({
           bodyA: lastChassisBody,
           bodyB: wheelBody,
           stiffness: 0.9,
@@ -400,7 +394,7 @@ function snapshotVehicleBodies(
 }
 
 function createEngine(): Engine {
-  return Engine.create({
+  return MatterEngine.create({
     gravity: { x: 0, y: 1, scale: 0.0012 },
   });
 }
@@ -409,11 +403,11 @@ function applyWheelDrive(
   wheelDriveBodies: Array<{ wheel: Body; motorPower: number; friction: number }>,
 ): void {
   for (const drive of wheelDriveBodies) {
-    Body.applyForce(drive.wheel, drive.wheel.position, {
+    MatterBody.applyForce(drive.wheel, drive.wheel.position, {
       x: drive.motorPower * drive.friction * 0.000012,
       y: 0,
     });
-    Body.setAngularVelocity(
+    MatterBody.setAngularVelocity(
       drive.wheel,
       Math.min(0.7, drive.wheel.angularVelocity + drive.motorPower * 0.000015),
     );
