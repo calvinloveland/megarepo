@@ -11,124 +11,300 @@
       :root {
         color-scheme: dark;
         font-family: Inter, system-ui, sans-serif;
+        --bg: #08111f;
+        --panel: rgba(11, 19, 33, 0.94);
+        --panel-strong: rgba(16, 28, 48, 0.98);
+        --border: rgba(125, 148, 186, 0.22);
+        --border-strong: rgba(138, 180, 255, 0.5);
+        --text: #edf2f7;
+        --muted: #97abc7;
+        --accent: #8ab4ff;
+        --accent-strong: #3f82ff;
+        --accent-warm: #ffd166;
+        --success: #49dcb1;
+        --shadow: 0 28px 60px rgba(0, 0, 0, 0.34);
+      }
+
+      * {
+        box-sizing: border-box;
       }
 
       body {
         margin: 0;
-        background: #10141d;
-        color: #edf2f7;
-      }
-
-      main {
-        display: grid;
-        grid-template-columns: minmax(320px, 420px) 1fr;
-        gap: 24px;
         min-height: 100vh;
-        padding: 24px;
-        box-sizing: border-box;
+        background:
+          radial-gradient(circle at top, rgba(63, 130, 255, 0.22), transparent 28%),
+          linear-gradient(180deg, #08111f 0%, #0d1727 100%);
+        color: var(--text);
       }
 
-      section {
-        background: #182131;
-        border: 1px solid #2c3a52;
-        border-radius: 16px;
-        padding: 20px;
-        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
-      }
-
-      h1,
-      h2 {
-        margin-top: 0;
-      }
-
-      .stack {
-        display: grid;
-        gap: 16px;
-      }
-
-      label {
-        display: grid;
-        gap: 8px;
-        font-size: 0.95rem;
-      }
-
+      button,
       input,
-      button {
+      select,
+      summary {
         font: inherit;
-        border-radius: 10px;
-        border: 1px solid #40516d;
-        padding: 12px 14px;
       }
 
-      input {
-        background: #0f1725;
+      button,
+      input,
+      select {
+        border-radius: 12px;
+        border: 1px solid rgba(125, 148, 186, 0.28);
+        background: rgba(9, 16, 30, 0.92);
         color: inherit;
+        padding: 0.8rem 1rem;
       }
 
       button {
         cursor: pointer;
-        background: #2b6ef2;
-        color: white;
-        border-color: #2b6ef2;
+        background: linear-gradient(180deg, #3d7dff 0%, #2256c4 100%);
+        border-color: rgba(138, 180, 255, 0.48);
+        font-weight: 600;
+      }
+
+      button:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 12px 24px rgba(34, 86, 196, 0.3);
+      }
+
+      button.ghost {
+        background: rgba(17, 27, 43, 0.96);
+      }
+
+      button.secondary {
+        background: rgba(32, 46, 70, 0.98);
+      }
+
+      button.active {
+        background: linear-gradient(180deg, #8ab4ff 0%, #5a90ff 100%);
+        border-color: rgba(138, 180, 255, 0.85);
+        color: #081120;
+        box-shadow: 0 0 0 2px rgba(138, 180, 255, 0.16);
       }
 
       pre {
         margin: 0;
         white-space: pre-wrap;
         word-break: break-word;
-        background: #0d1320;
-        border-radius: 12px;
-        padding: 16px;
-        min-height: 320px;
+        background: #09111e;
+        border-radius: 14px;
+        border: 1px solid rgba(125, 148, 186, 0.18);
+        padding: 1rem;
+        min-height: 160px;
         overflow: auto;
+        font-size: 0.88rem;
       }
 
       ul {
         margin: 0;
-        padding-left: 20px;
-        color: #c1cfdf;
+        padding-left: 1.1rem;
+        color: #cfdaea;
       }
 
       li + li {
-        margin-top: 12px;
+        margin-top: 0.65rem;
       }
 
-      .muted {
-        color: #9fb0c8;
+      .app-shell {
+        display: grid;
+        gap: 1.25rem;
+        min-height: 100vh;
+        padding: 1.25rem;
       }
 
+      .app-bar,
+      .card,
+      .viewport-card,
+      .leaderboard-card,
+      .sidebar,
+      .panel,
+      .diagnostics {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        box-shadow: var(--shadow);
+      }
+
+      .app-bar {
+        display: grid;
+        grid-template-columns: minmax(220px, 1fr) 2fr;
+        gap: 1rem;
+        padding: 1.1rem 1.25rem;
+        border-radius: 22px;
+        align-items: center;
+      }
+
+      .brand {
+        display: grid;
+        gap: 0.25rem;
+      }
+
+      .brand h1,
+      .card h2,
+      .viewport-card h2,
+      .leaderboard-card h2,
+      .panel h2,
+      .panel h3,
+      .diagnostics h3 {
+        margin: 0;
+      }
+
+      .brand p,
+      .muted,
+      .section-copy,
+      .metric-value--muted {
+        color: var(--muted);
+      }
+
+      .app-bar__controls {
+        display: grid;
+        gap: 0.85rem;
+      }
+
+      .nav-row,
       .button-row,
-      .nav-row {
+      .toolbar-row,
+      .leaderboard-strip {
         display: flex;
         flex-wrap: wrap;
-        gap: 12px;
+        gap: 0.75rem;
+        align-items: center;
       }
 
-      .ghost {
-        background: #182131;
-        border-color: #40516d;
+      .compact-field {
+        display: grid;
+        gap: 0.35rem;
+        min-width: 180px;
+        color: var(--muted);
+        font-size: 0.88rem;
       }
 
-      .secondary {
-        background: #243246;
-        border-color: #243246;
+      .status {
+        border-radius: 14px;
+        border: 1px solid rgba(138, 180, 255, 0.26);
+        background: rgba(14, 24, 40, 0.92);
+        padding: 0.9rem 1rem;
+        min-height: 3.25rem;
+        display: flex;
+        align-items: center;
       }
 
-      .active {
-        outline: 2px solid #8ab4ff;
-        background: #8ab4ff;
-        border-color: #8ab4ff;
-        color: #081120;
-        font-weight: 700;
+      .app-content {
+        display: grid;
+        grid-template-columns: minmax(0, 2.1fr) minmax(320px, 0.95fr);
+        gap: 1.25rem;
+        min-height: 0;
       }
 
-      select {
-        font: inherit;
-        border-radius: 10px;
-        border: 1px solid #40516d;
-        padding: 12px 14px;
-        background: #0f1725;
-        color: inherit;
+      .viewport-column,
+      .sidebar {
+        display: grid;
+        gap: 1rem;
+        min-height: 0;
+      }
+
+      .viewport-card {
+        border-radius: 24px;
+        padding: 1rem;
+        display: grid;
+        gap: 0.9rem;
+      }
+
+      .viewport-header {
+        display: flex;
+        justify-content: space-between;
+        gap: 1rem;
+        align-items: end;
+      }
+
+      .viewport-header p {
+        margin: 0.35rem 0 0;
+      }
+
+      .viewport-meta {
+        color: var(--muted);
+        text-align: right;
+        font-size: 0.9rem;
+      }
+
+      .race-viewport {
+        width: 100%;
+        min-height: 420px;
+        border-radius: 20px;
+        border: 1px solid rgba(138, 180, 255, 0.16);
+        background: linear-gradient(180deg, #18304f 0%, #0b1626 62%, #08111f 100%);
+        overflow: hidden;
+      }
+
+      .summary-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 1rem;
+      }
+
+      .card,
+      .leaderboard-card,
+      .panel,
+      .diagnostics {
+        border-radius: 20px;
+        padding: 1rem;
+      }
+
+      .card,
+      .panel,
+      .diagnostics {
+        display: grid;
+        gap: 0.9rem;
+      }
+
+      .leaderboard-card {
+        display: grid;
+        gap: 0.9rem;
+      }
+
+      .metric-list {
+        display: grid;
+        gap: 0.75rem;
+      }
+
+      .metric-row {
+        display: flex;
+        justify-content: space-between;
+        gap: 0.75rem;
+        padding-bottom: 0.6rem;
+        border-bottom: 1px solid rgba(125, 148, 186, 0.12);
+      }
+
+      .metric-row:last-child {
+        border-bottom: none;
+        padding-bottom: 0;
+      }
+
+      .metric-label {
+        color: var(--muted);
+        font-size: 0.9rem;
+      }
+
+      .metric-value {
+        font-weight: 600;
+        text-align: right;
+      }
+
+      .feature-grid {
+        display: grid;
+        gap: 0.8rem;
+      }
+
+      .feature-grid article {
+        padding: 0.9rem;
+        border-radius: 16px;
+        background: rgba(12, 21, 35, 0.72);
+        border: 1px solid rgba(125, 148, 186, 0.16);
+      }
+
+      .feature-grid p,
+      .leaderboard-card p,
+      .panel p {
+        margin: 0;
       }
 
       .panel {
@@ -137,116 +313,256 @@
 
       .panel[data-active="true"] {
         display: grid;
-        gap: 16px;
       }
 
-      .status {
-        padding: 12px 14px;
-        border-radius: 12px;
-        background: #101828;
-        border: 1px solid #2c3a52;
+      .leaderboard-strip {
+        min-height: 3rem;
+      }
+
+      .leaderboard-strip button {
+        min-width: 5.75rem;
+      }
+
+      details summary {
+        cursor: pointer;
+        color: var(--muted);
+        font-weight: 600;
+      }
+
+      .diagnostics-grid {
+        display: grid;
+        gap: 1rem;
+      }
+
+      .diagnostics-grid section {
+        display: grid;
+        gap: 0.55rem;
+      }
+
+      .viewport-label {
+        font-size: 22px;
+        font-weight: 700;
+        fill: #f8fbff;
+        paint-order: stroke;
+        stroke: rgba(8, 17, 31, 0.75);
+        stroke-width: 5px;
+        stroke-linejoin: round;
+      }
+
+      .viewport-subtitle {
+        font-size: 14px;
+        fill: rgba(255, 255, 255, 0.78);
+        paint-order: stroke;
+        stroke: rgba(8, 17, 31, 0.6);
+        stroke-width: 4px;
+        stroke-linejoin: round;
+      }
+
+      @media (max-width: 1120px) {
+        .app-bar,
+        .app-content {
+          grid-template-columns: 1fr;
+        }
       }
     </style>
   </head>
   <body>
-    <main>
-      <section class="stack">
-        <div>
+    <main class="app-shell">
+      <header class="app-bar">
+        <div class="brand">
           <h1>vroomon rewrite</h1>
-          <p>
-            The Electron rewrite starts by porting the Godot DNA v2 system into
-            deterministic TypeScript domain code.
-          </p>
+          <p>Viewport-first evolution lab for the Electron rewrite.</p>
         </div>
 
-        <div class="status" data-status-message></div>
+        <div class="app-bar__controls">
+          <div class="toolbar-row">
+            <div class="nav-row">
+              <button class="ghost" type="button" data-mode-button="menu">Menu</button>
+              <button class="ghost" type="button" data-mode-button="evolution">Evolution</button>
+              <button class="ghost" type="button" data-mode-button="test-drive">Test Drive</button>
+            </div>
 
-        <div>
-          <h2>Modes</h2>
-          <div class="nav-row">
-            <button class="ghost" type="button" data-mode-button="menu">Menu</button>
-            <button class="ghost" type="button" data-mode-button="evolution">Evolution</button>
-            <button class="ghost" type="button" data-mode-button="test-drive">Test Drive</button>
+            <label class="compact-field">
+              Terrain preset
+              <select data-terrain-select></select>
+            </label>
+
+            <div class="button-row">
+              <button class="secondary" type="button" data-save-run>Save run</button>
+              <button class="ghost" type="button" data-load-run>Load run</button>
+            </div>
           </div>
+
+          <div class="status" data-status-message></div>
         </div>
+      </header>
 
-        <label>
-          Terrain preset
-          <select data-terrain-select></select>
-        </label>
+      <div class="app-content">
+        <section class="viewport-column">
+          <article class="viewport-card">
+            <div class="viewport-header">
+              <div>
+                <h2 data-viewport-title>Race viewport</h2>
+                <p class="section-copy" data-viewport-subtitle>
+                  Watch the current mode play out instead of decoding raw JSON.
+                </p>
+              </div>
+              <div class="viewport-meta" data-viewport-caption></div>
+            </div>
+            <svg
+              class="race-viewport"
+              data-race-viewport
+              viewBox="0 0 1000 480"
+              preserveAspectRatio="xMidYMid meet"
+              aria-label="Race viewport"
+            ></svg>
+          </article>
 
-        <label>
-          DNA string
-          <input data-dna-input value="A3x9K2m7P4zQ" />
-        </label>
+          <section class="summary-grid">
+            <article class="card">
+              <h2>Run snapshot</h2>
+              <div class="metric-list" data-run-summary></div>
+            </article>
+            <article class="card">
+              <h2>Selected focus</h2>
+              <div class="metric-list" data-selected-vehicle-summary></div>
+            </article>
+            <article class="card">
+              <h2>Track and camera</h2>
+              <div class="metric-list" data-track-summary></div>
+            </article>
+            <article class="card">
+              <h2>Latest event</h2>
+              <div class="metric-list" data-event-summary></div>
+            </article>
+          </section>
 
-        <div class="button-row">
-          <button type="button" data-randomize-dna>Generate random DNA</button>
-          <button class="secondary" type="button" data-generate-population>
-            Generate population
-          </button>
-        </div>
+          <article class="leaderboard-card">
+            <div>
+              <h2>Race focus</h2>
+              <p class="muted" data-leaderboard-summary>
+                Run a generation to inspect a leader board of active racers.
+              </p>
+            </div>
+            <div class="leaderboard-strip" data-selected-vehicle-buttons></div>
+          </article>
+        </section>
 
-        <div class="button-row">
-          <button type="button" data-run-generation>Run generation</button>
-          <button class="secondary" type="button" data-save-run>Save run</button>
-          <button class="ghost" type="button" data-load-run>Load run</button>
-        </div>
+        <aside class="sidebar">
+          <section class="panel" data-panel="menu">
+            <article class="card">
+              <h2>Main menu</h2>
+              <p class="section-copy" data-menu-summary>
+                Choose between the evolution lab and the single-car test drive.
+              </p>
+            </article>
+            <section class="feature-grid">
+              <article>
+                <h3>Evolution mode</h3>
+                <p>
+                  Multi-car races stay visible in the main viewport while the sidebar
+                  focuses on progress, terrain, and lineage.
+                </p>
+              </article>
+              <article>
+                <h3>Test drive</h3>
+                <p>
+                  Tune one DNA string, reset instantly, and inspect the current build
+                  without leaving the shared viewport shell.
+                </p>
+              </article>
+            </section>
+            <article class="card">
+              <h2>Parity contract</h2>
+              <p class="muted" data-contract-summary></p>
+              <div class="feature-grid">
+                <article>
+                  <h3>Modes</h3>
+                  <ul data-mode-list></ul>
+                </article>
+                <article>
+                  <h3>Terrain presets</h3>
+                  <ul data-terrain-list></ul>
+                </article>
+              </div>
+            </article>
+          </section>
 
-        <div>
-          <h2>Parity contract</h2>
-          <p class="muted" data-contract-summary></p>
-        </div>
+          <section class="panel" data-panel="evolution">
+            <article class="card">
+              <h2>Evolution controls</h2>
+              <p class="section-copy" data-evolution-summary>
+                Generate a field, race it in the viewport, then focus the leading cars.
+              </p>
+              <div class="button-row">
+                <button class="secondary" type="button" data-generate-population>
+                  Generate population
+                </button>
+                <button type="button" data-run-generation>Run generation</button>
+              </div>
+            </article>
+            <article class="card">
+              <h2>Selection</h2>
+              <p class="section-copy">
+                Use the race focus strip to pin a racer and inspect its lineage.
+              </p>
+            </article>
+          </section>
 
-        <div>
-          <h2>Modes</h2>
-          <ul data-mode-list></ul>
-        </div>
+          <section class="panel" data-panel="test-drive">
+            <article class="card">
+              <h2>Test-drive editor</h2>
+              <p class="section-copy" data-test-drive-summary>
+                Spawn a single machine and keep its chassis motion front and center.
+              </p>
+              <label class="compact-field">
+                DNA string
+                <input data-dna-input value="A3x9K2m7P4zQ" />
+              </label>
+              <div class="button-row">
+                <button type="button" data-randomize-dna>Generate random DNA</button>
+              </div>
+            </article>
+            <article class="card">
+              <h2>Handling cues</h2>
+              <p class="section-copy">
+                The viewport tracks the active car and updates the build summary as you
+                change DNA or terrain.
+              </p>
+            </article>
+          </section>
 
-        <div>
-          <h2>Terrain presets</h2>
-          <ul data-terrain-list></ul>
-        </div>
-      </section>
-
-      <section class="stack">
-        <div class="panel" data-panel="menu">
-          <div>
-            <h2>Main menu parity surface</h2>
-            <p class="muted">
-              Mirrors the Godot main menu by exposing navigation, terrain context,
-              and run bootstrapping from one place.
-            </p>
-          </div>
-          <pre data-run-state-output></pre>
-        </div>
-
-        <div class="panel" data-panel="evolution">
-          <div>
-            <h2>Evolution mode</h2>
-            <p class="muted">
-              Run a full generation, inspect the selected car, and save or reload
-              the current run state.
-            </p>
-          </div>
-          <div class="button-row" data-selected-vehicle-buttons></div>
-          <pre data-selected-vehicle-output></pre>
-          <pre data-evolution-preview-output></pre>
-          <pre data-generation-log-output></pre>
-        </div>
-
-        <div class="panel" data-panel="test-drive">
-          <div>
-            <h2>Test drive</h2>
-            <p class="muted">
-              Preview a single DNA string, its decoded build, and the current
-              physics snapshot.
-            </p>
-          </div>
-          <pre data-dna-output></pre>
-          <pre data-physics-preview-output></pre>
-        </div>
-      </section>
+          <details class="diagnostics">
+            <summary>Diagnostics</summary>
+            <div class="diagnostics-grid">
+              <section>
+                <h3>Run state</h3>
+                <pre data-run-state-output></pre>
+              </section>
+              <section>
+                <h3>Evolution preview</h3>
+                <pre data-evolution-preview-output></pre>
+              </section>
+              <section>
+                <h3>Generation log</h3>
+                <pre data-generation-log-output></pre>
+              </section>
+              <section>
+                <h3>DNA decode</h3>
+                <pre data-dna-output></pre>
+              </section>
+              <section>
+                <h3>Physics snapshot</h3>
+                <pre data-physics-preview-output></pre>
+              </section>
+              <section>
+                <h3>Selected vehicle</h3>
+                <pre data-selected-vehicle-output></pre>
+              </section>
+            </div>
+          </details>
+        </aside>
+      </div>
     </main>
 
     <script type="module" src="./renderer.js"></script>

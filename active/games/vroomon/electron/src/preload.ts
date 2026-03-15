@@ -32,9 +32,13 @@ import {
 } from "./core/persistence.js";
 import {
   createMatterVehicle,
+  simulateMatterVehicleFrames,
   simulatePopulationRace,
+  simulatePopulationRaceFrames,
   stepMatterVehicle,
+  type RacePreviewFrame,
   type VehicleSnapshot,
+  type VehiclePreviewFrame,
   type RaceVehicleSnapshot,
 } from "./simulation/matter-simulation.js";
 
@@ -80,6 +84,13 @@ const api = {
     stepCount = 120,
   ): VehicleSnapshot =>
     stepMatterVehicle(createMatterVehicle(dna, terrainName), stepCount),
+  previewPhysicsFrames: (
+    dna: string,
+    terrainName: string,
+    stepCount = 120,
+    frameCount = 24,
+  ): VehiclePreviewFrame[] =>
+    simulateMatterVehicleFrames(dna, terrainName, { stepCount, frameCount }),
   previewPopulationRace: (
     state: RunStateSnapshot,
     stepCount = 180,
@@ -88,6 +99,16 @@ const api = {
       state.population.map((entry) => ({ id: entry.id, dna: entry.dna })),
       state.terrainName,
       { stepCount },
+    ),
+  previewPopulationRaceFrames: (
+    state: RunStateSnapshot,
+    stepCount = 180,
+    frameCount = 24,
+  ): RacePreviewFrame[] =>
+    simulatePopulationRaceFrames(
+      state.population.map((entry) => ({ id: entry.id, dna: entry.dna })),
+      state.terrainName,
+      { stepCount, frameCount },
     ),
   saveRunState: (state: RunStateSnapshot): Promise<string> =>
     ipcRenderer.invoke("vroomon:save-run-state", state),
@@ -129,10 +150,21 @@ declare global {
         terrainName: string,
         stepCount?: number,
       ) => VehicleSnapshot;
+      previewPhysicsFrames: (
+        dna: string,
+        terrainName: string,
+        stepCount?: number,
+        frameCount?: number,
+      ) => VehiclePreviewFrame[];
       previewPopulationRace: (
         state: RunStateSnapshot,
         stepCount?: number,
       ) => RaceVehicleSnapshot[];
+      previewPopulationRaceFrames: (
+        state: RunStateSnapshot,
+        stepCount?: number,
+        frameCount?: number,
+      ) => RacePreviewFrame[];
       saveRunState: (state: RunStateSnapshot) => Promise<string>;
       loadRunState: () => Promise<RunStateSnapshot | null>;
       appendGenerationLog: (entry: GenerationLogEntry) => Promise<string>;

@@ -35,6 +35,7 @@ test.describe("vroomon Playwright harness", () => {
     await expect(page.locator("[data-status-message]")).toContainText(
       "Ready to begin the Electron rewrite preview.",
     );
+    await expect(page.locator("[data-race-viewport] [data-viewport-vehicle]")).toHaveCount(1);
     await expect(page.locator("[data-run-state-output]")).toContainText('"generation": 0');
 
     await page.locator('[data-mode-button="evolution"]').click();
@@ -42,6 +43,7 @@ test.describe("vroomon Playwright harness", () => {
     await expect(page.locator("[data-status-message]")).toContainText(
       "Viewing evolution mode.",
     );
+    await expect(page.locator("[data-race-viewport] [data-viewport-vehicle]")).not.toHaveCount(0);
     await expect(page.locator("[data-evolution-preview-output]")).toContainText(
       '"generatedPopulation"',
     );
@@ -54,6 +56,7 @@ test.describe("vroomon Playwright harness", () => {
     await expect(page.locator("[data-status-message]")).toContainText(
       "Viewing test-drive mode.",
     );
+    await expect(page.locator("[data-race-viewport] [data-viewport-vehicle]")).toHaveCount(1);
     await expect(page.locator("[data-dna-output]")).toContainText('"dna"');
     await expect(page.locator("[data-physics-preview-output]")).toContainText(
       '"terrainName"',
@@ -85,6 +88,7 @@ test.describe("vroomon Playwright harness", () => {
     await expect
       .poll(async () => (await readJson<{ dna: string }>(page, "[data-dna-output]")).dna)
       .not.toBe(initialDna.dna);
+    await expect(page.locator("[data-selected-vehicle-summary]")).toContainText("Wheel count");
   });
 
   test("supports evolution flow buttons end to end", async ({ page }) => {
@@ -110,6 +114,7 @@ test.describe("vroomon Playwright harness", () => {
     await expect(page.locator("[data-status-message]")).toContainText(
       "Completed generation 1",
     );
+    await expect(page.locator("[data-race-viewport] [data-viewport-vehicle]")).not.toHaveCount(0);
 
     const advancedState = await readJson<RunStateSnapshot>(page, "[data-run-state-output]");
     expect(advancedState.mode).toBe("evolution");
@@ -132,6 +137,7 @@ test.describe("vroomon Playwright harness", () => {
           (await readJson<{ id: string }>(page, "[data-selected-vehicle-output]")).id,
       )
       .toBe(targetVehicleId);
+    await expect(page.locator("[data-selected-vehicle-summary]")).toContainText(targetVehicleId);
 
     const generationLog = await readJson<GenerationLogEntry[]>(
       page,

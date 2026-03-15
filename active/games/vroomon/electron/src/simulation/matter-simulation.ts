@@ -10,6 +10,10 @@ export interface BodySnapshot {
   x: number;
   y: number;
   angle: number;
+  shape: "circle" | "rectangle";
+  radius?: number;
+  width?: number;
+  height?: number;
 }
 
 export interface VehicleSnapshot {
@@ -37,6 +41,23 @@ export interface RaceVehicleSnapshot extends VehicleSnapshot {
   initialCenterY: number;
   finalCenterX: number;
   finalCenterY: number;
+}
+
+export interface RaceVehicleFrameSnapshot extends VehicleSnapshot {
+  id: string;
+  dna: string;
+  initialCenterX: number;
+  initialCenterY: number;
+}
+
+export interface VehiclePreviewFrame {
+  elapsedMs: number;
+  snapshot: VehicleSnapshot;
+}
+
+export interface RacePreviewFrame {
+  elapsedMs: number;
+  vehicles: RaceVehicleFrameSnapshot[];
 }
 
 export interface RaceVehicleDefinition {
@@ -164,6 +185,42 @@ export function stepMatterVehicle(
   return snapshotMatterVehicle(vehicle);
 }
 
+export function simulateMatterVehicleFrames(
+  dna: string,
+  terrainName = "Grassland",
+  options?: {
+    stepCount?: number;
+    deltaMs?: number;
+    frameCount?: number;
+  },
+): VehiclePreviewFrame[] {
+  const vehicle = createMatterVehicle(dna, terrainName);
+  const stepCount = options?.stepCount ?? 180;
+  const deltaMs = options?.deltaMs ?? 1000 / 60;
+  const frameCount = Math.max(2, options?.frameCount ?? 24);
+  const captureEvery = Math.max(1, Math.floor(stepCount / (frameCount - 1)));
+  const frames: VehiclePreviewFrame[] = [
+    {
+      elapsedMs: 0,
+      snapshot: snapshotMatterVehicle(vehicle),
+    },
+  ];
+
+  for (let index = 0; index < stepCount; index += 1) {
+    applyWheelDrive(vehicle.wheelDriveBodies);
+    MatterEngine.update(vehicle.engine, deltaMs);
+
+    if ((index + 1) % captureEvery === 0 || index === stepCount - 1) {
+      frames.push({
+        elapsedMs: (index + 1) * deltaMs,
+        snapshot: snapshotMatterVehicle(vehicle),
+      });
+    }
+  }
+
+  return frames;
+}
+
 export function simulatePopulationRace(
   vehicles: RaceVehicleDefinition[],
   terrainName = "Grassland",
@@ -196,6 +253,44 @@ export function simulatePopulationRace(
       finalCenterY: snapshot.centerY,
     };
   });
+}
+
+export function simulatePopulationRaceFrames(
+  vehicles: RaceVehicleDefinition[],
+  terrainName = "Grassland",
+  options?: {
+    stepCount?: number;
+    deltaMs?: number;
+    frameCount?: number;
+  },
+): RacePreviewFrame[] {
+  const race = createMatterRace(vehicles, terrainName);
+  const stepCount = options?.stepCount ?? 180;
+  const deltaMs = options?.deltaMs ?? 1000 / 60;
+  const frameCount = Math.max(2, options?.frameCount ?? 24);
+  const captureEvery = Math.max(1, Math.floor(stepCount / (frameCount - 1)));
+  const frames: RacePreviewFrame[] = [
+    {
+      elapsedMs: 0,
+      vehicles: snapshotRaceVehicles(race),
+    },
+  ];
+
+  for (let index = 0; index < stepCount; index += 1) {
+    for (const vehicle of race.vehicles) {
+      applyWheelDrive(vehicle.wheelDriveBodies);
+    }
+    MatterEngine.update(race.engine, deltaMs);
+
+    if ((index + 1) % captureEvery === 0 || index === stepCount - 1) {
+      frames.push({
+        elapsedMs: (index + 1) * deltaMs,
+        vehicles: snapshotRaceVehicles(race),
+      });
+    }
+  }
+
+  return frames;
 }
 
 export function snapshotMatterVehicle(vehicle: MatterVehicle): VehicleSnapshot {
@@ -366,10 +461,18 @@ function buildVehicleBodies(
 }
 
 function snapshotBody(body: Body): BodySnapshot {
+  const isCircle = typeof body.circleRadius === "number" && body.circleRadius > 0;
+  const boundsWidth = body.bounds.max.x - body.bounds.min.x;
+  const boundsHeight = body.bounds.max.y - body.bounds.min.y;
+
   return {
     x: body.position.x,
     y: body.position.y,
     angle: body.angle,
+    shape: isCircle ? "circle" : "rectangle",
+    radius: isCircle ? body.circleRadius ?? undefined : undefined,
+    width: isCircle ? undefined : boundsWidth,
+    height: isCircle ? undefined : boundsHeight,
   };
 }
 
@@ -391,6 +494,20 @@ function snapshotVehicleBodies(
     centerX,
     centerY,
   };
+}
+
+function snapshotRaceVehicles(race: MatterRace): RaceVehicleFrameSnapshot[] {
+  return race.vehicles.map((vehicle) => {
+    const snapshot = snapshotMatterVehicle(vehicle);
+
+    return {
+      id: vehicle.id,
+      dna: vehicle.dna,
+      initialCenterX: vehicle.initialSnapshot.centerX,
+      initialCenterY: vehicle.initialSnapshot.centerY,
+      ...snapshot,
+    };
+  });
 }
 
 function createEngine(): Engine {
