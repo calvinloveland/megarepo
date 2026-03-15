@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0"
+    />
+    <title>vroomon rewrite</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        font-family: Inter, system-ui, sans-serif;
+      }
+
+      body {
+        margin: 0;
+        background: #10141d;
+        color: #edf2f7;
+      }
+
+      main {
+        display: grid;
+        grid-template-columns: minmax(320px, 420px) 1fr;
+        gap: 24px;
+        min-height: 100vh;
+        padding: 24px;
+        box-sizing: border-box;
+      }
+
+      section {
+        background: #182131;
+        border: 1px solid #2c3a52;
+        border-radius: 16px;
+        padding: 20px;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+      }
+
+      h1,
+      h2 {
+        margin-top: 0;
+      }
+
+      .stack {
+        display: grid;
+        gap: 16px;
+      }
+
+      label {
+        display: grid;
+        gap: 8px;
+        font-size: 0.95rem;
+      }
+
+      input,
+      button {
+        font: inherit;
+        border-radius: 10px;
+        border: 1px solid #40516d;
+        padding: 12px 14px;
+      }
+
+      input {
+        background: #0f1725;
+        color: inherit;
+      }
+
+      button {
+        cursor: pointer;
+        background: #2b6ef2;
+        color: white;
+        border-color: #2b6ef2;
+      }
+
+      pre {
+        margin: 0;
+        white-space: pre-wrap;
+        word-break: break-word;
+        background: #0d1320;
+        border-radius: 12px;
+        padding: 16px;
+        min-height: 320px;
+        overflow: auto;
+      }
+
+      ul {
+        margin: 0;
+        padding-left: 20px;
+        color: #c1cfdf;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="stack">
+        <div>
+          <h1>vroomon rewrite</h1>
+          <p>
+            The Electron rewrite starts by porting the Godot DNA v2 system into
+            deterministic TypeScript domain code.
+          </p>
+        </div>
+
+        <label>
+          DNA string
+          <input data-dna-input value="A3x9K2m7P4zQ" />
+        </label>
+
+        <button type="button" data-randomize-dna>Generate random DNA</button>
+
+        <div>
+          <h2>Immediate goals</h2>
+          <ul>
+            <li>keep genome decoding deterministic and locality-aware</li>
+            <li>establish the Electron shell that later scenes can plug into</li>
+            <li>use this DNA output as the base for car construction and terrain</li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="stack">
+        <div>
+          <h2>Decoded DNA v2 summary</h2>
+          <p>
+            This is the first rewrite slice: a browser-safe domain preview wired
+            through Electron preload.
+          </p>
+        </div>
+        <pre data-dna-output></pre>
+      </section>
+    </main>
+
+    <script type="module" src="./renderer.js"></script>
+  </body>
+</html>
