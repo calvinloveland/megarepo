@@ -4,6 +4,10 @@ import type {
   TerrainPresetDefinition,
   VroomonParityContract,
 } from "../shared/parity-contract.js";
+import type {
+  EvolutionPreview,
+  ScoreStats,
+} from "../core/population.js";
 
 declare global {
   interface Window {
@@ -14,6 +18,9 @@ declare global {
       getParityContract: () => VroomonParityContract;
       getTerrainPreset: (name: string) => TerrainPresetDefinition | undefined;
       createEmptyRunState: (mode: "evolution" | "test-drive") => RunStateSnapshot;
+      createPreviewRunState: (runId: string) => RunStateSnapshot;
+      computeScoreStats: (scores: number[]) => ScoreStats | undefined;
+      previewEvolutionStep: (state: RunStateSnapshot) => EvolutionPreview;
     };
   }
 }
@@ -27,6 +34,9 @@ const modesList = document.querySelector<HTMLElement>("[data-mode-list]");
 const terrainList = document.querySelector<HTMLElement>("[data-terrain-list]");
 const contractSummary = document.querySelector<HTMLElement>("[data-contract-summary]");
 const runStateOutput = document.querySelector<HTMLElement>("[data-run-state-output]");
+const evolutionPreviewOutput = document.querySelector<HTMLElement>(
+  "[data-evolution-preview-output]",
+);
 
 if (
   !dnaInput ||
@@ -35,7 +45,8 @@ if (
   !modesList ||
   !terrainList ||
   !contractSummary ||
-  !runStateOutput
+  !runStateOutput ||
+  !evolutionPreviewOutput
 ) {
   throw new Error("Renderer UI did not initialize correctly.");
 }
@@ -47,6 +58,7 @@ const modesListElement = modesList;
 const terrainListElement = terrainList;
 const contractSummaryElement = contractSummary;
 const runStateOutputElement = runStateOutput;
+const evolutionPreviewOutputElement = evolutionPreviewOutput;
 const parityContract = window.vroomon.getParityContract();
 
 renderContract();
@@ -104,6 +116,24 @@ function renderContract(): void {
 
   const emptyEvolutionState = window.vroomon.createEmptyRunState("evolution");
   runStateOutputElement.textContent = JSON.stringify(emptyEvolutionState, null, 2);
+  renderPreviewEvolution();
+}
+
+function renderPreviewEvolution(): void {
+  const previewState = window.vroomon.createPreviewRunState("preview");
+  const previewStep = window.vroomon.previewEvolutionStep(previewState);
+  const previewScores = previewStep.population.map((entry, index) => index * 12.5);
+  const scoreStats = window.vroomon.computeScoreStats(previewScores);
+
+  evolutionPreviewOutputElement.textContent = JSON.stringify(
+    {
+      generatedPopulation: previewState.population.slice(0, 5),
+      breeding: previewStep.breeding,
+      scoreStats,
+    },
+    null,
+    2,
+  );
 }
 
 randomizeButtonElement.addEventListener("click", () => {

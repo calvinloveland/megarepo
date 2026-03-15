@@ -14,6 +14,13 @@ import {
   type TerrainPresetDefinition,
   type VroomonParityContract,
 } from "./shared/parity-contract.js";
+import {
+  computeScoreStats,
+  createPreviewRunState,
+  previewEvolutionStep,
+  type EvolutionPreview,
+  type ScoreStats,
+} from "./core/population.js";
 
 const api = {
   cleanDna,
@@ -25,6 +32,17 @@ const api = {
   createEmptyRunState: (
     mode: "evolution" | "test-drive",
   ): RunStateSnapshot => createEmptyRunState(mode),
+  createPreviewRunState: (runId: string): RunStateSnapshot =>
+    createPreviewRunState(runId, createEmptyRunState("evolution")),
+  computeScoreStats: (scores: number[]): ScoreStats | undefined =>
+    computeScoreStats(scores),
+  previewEvolutionStep: (state: RunStateSnapshot): EvolutionPreview =>
+    previewEvolutionStep(
+      state.population,
+      state.config.retainRatio,
+      state.config.mutationRate,
+      "preview",
+    ),
 };
 
 declare global {
@@ -36,6 +54,9 @@ declare global {
       getParityContract: () => VroomonParityContract;
       getTerrainPreset: (name: string) => TerrainPresetDefinition | undefined;
       createEmptyRunState: (mode: "evolution" | "test-drive") => RunStateSnapshot;
+      createPreviewRunState: (runId: string) => RunStateSnapshot;
+      computeScoreStats: (scores: number[]) => ScoreStats | undefined;
+      previewEvolutionStep: (state: RunStateSnapshot) => EvolutionPreview;
     };
   }
 }
