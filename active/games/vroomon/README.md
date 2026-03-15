@@ -28,6 +28,7 @@ From `active/games/vroomon/electron/`:
 - `npm install`
 - `npm test`
 - `npm run test:e2e`
+- `npm run test:smoke`
 - `npm run build`
 - `npm run profile:sim`
 - `npm run package:dir`
