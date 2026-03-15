@@ -96,6 +96,52 @@
       .muted {
         color: #9fb0c8;
       }
+
+      .button-row,
+      .nav-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+      }
+
+      .ghost {
+        background: #182131;
+        border-color: #40516d;
+      }
+
+      .secondary {
+        background: #243246;
+        border-color: #243246;
+      }
+
+      .active {
+        outline: 2px solid #8ab4ff;
+      }
+
+      select {
+        font: inherit;
+        border-radius: 10px;
+        border: 1px solid #40516d;
+        padding: 12px 14px;
+        background: #0f1725;
+        color: inherit;
+      }
+
+      .panel {
+        display: none;
+      }
+
+      .panel[data-active="true"] {
+        display: grid;
+        gap: 16px;
+      }
+
+      .status {
+        padding: 12px 14px;
+        border-radius: 12px;
+        background: #101828;
+        border: 1px solid #2c3a52;
+      }
     </style>
   </head>
   <body>
@@ -109,12 +155,39 @@
           </p>
         </div>
 
+        <div class="status" data-status-message></div>
+
+        <div>
+          <h2>Modes</h2>
+          <div class="nav-row">
+            <button class="ghost" type="button" data-mode-button="menu">Menu</button>
+            <button class="ghost" type="button" data-mode-button="evolution">Evolution</button>
+            <button class="ghost" type="button" data-mode-button="test-drive">Test Drive</button>
+          </div>
+        </div>
+
+        <label>
+          Terrain preset
+          <select data-terrain-select></select>
+        </label>
+
         <label>
           DNA string
           <input data-dna-input value="A3x9K2m7P4zQ" />
         </label>
 
-        <button type="button" data-randomize-dna>Generate random DNA</button>
+        <div class="button-row">
+          <button type="button" data-randomize-dna>Generate random DNA</button>
+          <button class="secondary" type="button" data-generate-population>
+            Generate population
+          </button>
+        </div>
+
+        <div class="button-row">
+          <button type="button" data-run-generation>Run generation</button>
+          <button class="secondary" type="button" data-save-run>Save run</button>
+          <button class="ghost" type="button" data-load-run>Load run</button>
+        </div>
 
         <div>
           <h2>Parity contract</h2>
@@ -133,35 +206,42 @@
       </section>
 
       <section class="stack">
-        <div>
-          <h2>Decoded DNA v2 summary</h2>
-          <p>
-            This is the first rewrite slice: a browser-safe domain preview wired
-            through Electron preload.
-          </p>
+        <div class="panel" data-panel="menu">
+          <div>
+            <h2>Main menu parity surface</h2>
+            <p class="muted">
+              Mirrors the Godot main menu by exposing navigation, terrain context,
+              and run bootstrapping from one place.
+            </p>
+          </div>
+          <pre data-run-state-output></pre>
         </div>
-        <pre data-dna-output></pre>
-        <div>
-          <h2>Initial run-state contract</h2>
-          <p class="muted">
-            Persistence and lineage work will serialize this shape.
-          </p>
+
+        <div class="panel" data-panel="evolution">
+          <div>
+            <h2>Evolution mode</h2>
+            <p class="muted">
+              Run a full generation, inspect the selected car, and save or reload
+              the current run state.
+            </p>
+          </div>
+          <div class="button-row" data-selected-vehicle-buttons></div>
+          <pre data-selected-vehicle-output></pre>
+          <pre data-evolution-preview-output></pre>
+          <pre data-generation-log-output></pre>
         </div>
-        <pre data-run-state-output></pre>
-        <div>
-          <h2>Core-domain preview</h2>
-          <p class="muted">
-            This uses the pure population core rather than renderer-owned state.
-          </p>
+
+        <div class="panel" data-panel="test-drive">
+          <div>
+            <h2>Test drive</h2>
+            <p class="muted">
+              Preview a single DNA string, its decoded build, and the current
+              physics snapshot.
+            </p>
+          </div>
+          <pre data-dna-output></pre>
+          <pre data-physics-preview-output></pre>
         </div>
-        <pre data-evolution-preview-output></pre>
-        <div>
-          <h2>Physics spike preview</h2>
-          <p class="muted">
-            Matter.js currently backs the first finite-step chassis and wheel probe.
-          </p>
-        </div>
-        <pre data-physics-preview-output></pre>
       </section>
     </main>
 

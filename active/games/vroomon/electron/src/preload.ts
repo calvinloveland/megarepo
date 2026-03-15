@@ -1,4 +1,4 @@
-import { contextBridge } from "electron";
+import { contextBridge, ipcRenderer } from "electron";
 
 import {
   cleanDna,
@@ -15,6 +15,7 @@ import {
   type VroomonParityContract,
 } from "./shared/parity-contract.js";
 import {
+  advanceRunState,
   evaluatePopulation,
   computeScoreStats,
   createPreviewRunState,
@@ -25,6 +26,10 @@ import {
   type PopulationEvaluation,
   type ScoreStats,
 } from "./core/population.js";
+import {
+  createGenerationLogEntry,
+  type GenerationLogEntry,
+} from "./core/persistence.js";
 import {
   createMatterVehicle,
   simulatePopulationRace,
@@ -51,6 +56,14 @@ const api = {
     evaluatePopulation(state.population, state.terrainName),
   runEvolutionGeneration: (state: RunStateSnapshot): GenerationResult =>
     runEvolutionGeneration(state),
+  advanceRunState: (
+    state: RunStateSnapshot,
+    generationResult: GenerationResult,
+  ): RunStateSnapshot => advanceRunState(state, generationResult),
+  createGenerationLogEntry: (
+    state: RunStateSnapshot,
+    generationResult: GenerationResult,
+  ): GenerationLogEntry => createGenerationLogEntry(state, generationResult),
   previewEvolutionStep: (state: RunStateSnapshot): EvolutionPreview =>
     previewEvolutionStep(
       state.population,
@@ -74,6 +87,14 @@ const api = {
       state.terrainName,
       { stepCount },
     ),
+  saveRunState: (state: RunStateSnapshot): Promise<string> =>
+    ipcRenderer.invoke("vroomon:save-run-state", state),
+  loadRunState: (): Promise<RunStateSnapshot | null> =>
+    ipcRenderer.invoke("vroomon:load-run-state"),
+  appendGenerationLog: (entry: GenerationLogEntry): Promise<string> =>
+    ipcRenderer.invoke("vroomon:append-generation-log", entry),
+  loadGenerationLog: (runId: string): Promise<GenerationLogEntry[]> =>
+    ipcRenderer.invoke("vroomon:load-generation-log", runId),
 };
 
 declare global {
@@ -89,6 +110,14 @@ declare global {
       computeScoreStats: (scores: number[]) => ScoreStats | undefined;
       evaluatePopulation: (state: RunStateSnapshot) => PopulationEvaluation;
       runEvolutionGeneration: (state: RunStateSnapshot) => GenerationResult;
+      advanceRunState: (
+        state: RunStateSnapshot,
+        generationResult: GenerationResult,
+      ) => RunStateSnapshot;
+      createGenerationLogEntry: (
+        state: RunStateSnapshot,
+        generationResult: GenerationResult,
+      ) => GenerationLogEntry;
       previewEvolutionStep: (state: RunStateSnapshot) => EvolutionPreview;
       previewPhysicsSnapshot: (
         dna: string,
@@ -99,6 +128,10 @@ declare global {
         state: RunStateSnapshot,
         stepCount?: number,
       ) => RaceVehicleSnapshot[];
+      saveRunState: (state: RunStateSnapshot) => Promise<string>;
+      loadRunState: () => Promise<RunStateSnapshot | null>;
+      appendGenerationLog: (entry: GenerationLogEntry) => Promise<string>;
+      loadGenerationLog: (runId: string) => Promise<GenerationLogEntry[]>;
     };
   }
 }

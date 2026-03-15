@@ -1,6 +1,15 @@
-import { app, BrowserWindow } from "electron";
+import { app, BrowserWindow, ipcMain } from "electron";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
+
+import {
+  appendGenerationLogToDisk,
+  loadGenerationLogFromDisk,
+  loadRunStateFromDisk,
+  saveRunStateToDisk,
+} from "./main/file-store.js";
+import { type GenerationLogEntry } from "./core/persistence.js";
+import { type RunStateSnapshot } from "./shared/parity-contract.js";
 
 const currentFile = fileURLToPath(import.meta.url);
 const currentDirectory = dirname(currentFile);
@@ -22,6 +31,22 @@ function createMainWindow(): BrowserWindow {
 }
 
 app.whenReady().then(() => {
+  ipcMain.handle(
+    "vroomon:save-run-state",
+    (_event, state: RunStateSnapshot) => saveRunStateToDisk(app.getPath("userData"), state),
+  );
+  ipcMain.handle("vroomon:load-run-state", () =>
+    loadRunStateFromDisk(app.getPath("userData")),
+  );
+  ipcMain.handle(
+    "vroomon:append-generation-log",
+    (_event, entry: GenerationLogEntry) =>
+      appendGenerationLogToDisk(app.getPath("userData"), entry),
+  );
+  ipcMain.handle("vroomon:load-generation-log", (_event, runId: string) =>
+    loadGenerationLogFromDisk(app.getPath("userData"), runId),
+  );
+
   createMainWindow();
 
   app.on("activate", () => {

@@ -260,6 +260,24 @@ export function runEvolutionGeneration(
   };
 }
 
+export function advanceRunState(
+  state: RunStateSnapshot,
+  generationResult: GenerationResult,
+): RunStateSnapshot {
+  const bestScore = Math.max(
+    0,
+    ...generationResult.evaluation.results.map((result) => result.score),
+  );
+
+  return {
+    ...state,
+    generation: state.generation + 1,
+    wallet: state.wallet + Math.floor(bestScore / 50),
+    population: generationResult.nextPopulation,
+    genealogy: generationResult.nextGenealogy,
+  };
+}
+
 function formatPopulationId(runId: string, sequenceNumber: number): string {
   return `${runId}-${sequenceNumber.toString().padStart(5, "0")}`;
 }
