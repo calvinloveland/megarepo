@@ -42,12 +42,14 @@ describe("parity contract", () => {
   it("creates an empty persisted run state with the default config", () => {
     expect(createEmptyRunState("evolution")).toEqual({
       version: 1,
+      runId: "run",
       mode: "evolution",
       terrainName: "Grassland",
       generation: 0,
       wallet: 0,
       config: DEFAULT_RUN_CONFIG,
       population: [],
+      genealogy: {},
     });
   });
 });

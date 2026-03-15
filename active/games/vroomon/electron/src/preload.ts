@@ -15,16 +15,22 @@ import {
   type VroomonParityContract,
 } from "./shared/parity-contract.js";
 import {
+  evaluatePopulation,
   computeScoreStats,
   createPreviewRunState,
   previewEvolutionStep,
+  runEvolutionGeneration,
   type EvolutionPreview,
+  type GenerationResult,
+  type PopulationEvaluation,
   type ScoreStats,
 } from "./core/population.js";
 import {
   createMatterVehicle,
+  simulatePopulationRace,
   stepMatterVehicle,
   type VehicleSnapshot,
+  type RaceVehicleSnapshot,
 } from "./simulation/matter-simulation.js";
 
 const api = {
@@ -41,12 +47,17 @@ const api = {
     createPreviewRunState(runId, createEmptyRunState("evolution")),
   computeScoreStats: (scores: number[]): ScoreStats | undefined =>
     computeScoreStats(scores),
+  evaluatePopulation: (state: RunStateSnapshot): PopulationEvaluation =>
+    evaluatePopulation(state.population, state.terrainName),
+  runEvolutionGeneration: (state: RunStateSnapshot): GenerationResult =>
+    runEvolutionGeneration(state),
   previewEvolutionStep: (state: RunStateSnapshot): EvolutionPreview =>
     previewEvolutionStep(
       state.population,
       state.config.retainRatio,
       state.config.mutationRate,
-      "preview",
+      state.runId,
+      state.genealogy,
     ),
   previewPhysicsSnapshot: (
     dna: string,
@@ -54,6 +65,15 @@ const api = {
     stepCount = 120,
   ): VehicleSnapshot =>
     stepMatterVehicle(createMatterVehicle(dna, terrainName), stepCount),
+  previewPopulationRace: (
+    state: RunStateSnapshot,
+    stepCount = 180,
+  ): RaceVehicleSnapshot[] =>
+    simulatePopulationRace(
+      state.population.map((entry) => ({ id: entry.id, dna: entry.dna })),
+      state.terrainName,
+      { stepCount },
+    ),
 };
 
 declare global {
@@ -67,12 +87,18 @@ declare global {
       createEmptyRunState: (mode: "evolution" | "test-drive") => RunStateSnapshot;
       createPreviewRunState: (runId: string) => RunStateSnapshot;
       computeScoreStats: (scores: number[]) => ScoreStats | undefined;
+      evaluatePopulation: (state: RunStateSnapshot) => PopulationEvaluation;
+      runEvolutionGeneration: (state: RunStateSnapshot) => GenerationResult;
       previewEvolutionStep: (state: RunStateSnapshot) => EvolutionPreview;
       previewPhysicsSnapshot: (
         dna: string,
         terrainName: string,
         stepCount?: number,
       ) => VehicleSnapshot;
+      previewPopulationRace: (
+        state: RunStateSnapshot,
+        stepCount?: number,
+      ) => RaceVehicleSnapshot[];
     };
   }
 }

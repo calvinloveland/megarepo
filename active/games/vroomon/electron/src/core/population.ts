@@ -1,4 +1,5 @@
 import { createRandomDna } from "../shared/dna-v2.js";
+import { simulatePopulationRace } from "../simulation/matter-simulation.js";
 import {
   DEFAULT_RUN_CONFIG,
   type PopulationEntry,
@@ -34,6 +35,33 @@ export interface BreedingSummary {
 export interface EvolutionPreview {
   population: PopulationEntry[];
   breeding: BreedingSummary;
+  genealogy: Record<string, string[]>;
+}
+
+export interface VehicleEvaluation {
+  id: string;
+  dna: string;
+  score: number;
+  initialCenterX: number;
+  finalCenterX: number;
+  initialCenterY: number;
+  finalCenterY: number;
+  chassisCount: number;
+  wheelCount: number;
+}
+
+export interface PopulationEvaluation {
+  terrainName: string;
+  results: VehicleEvaluation[];
+  stats?: ScoreStats;
+}
+
+export interface GenerationResult {
+  evaluatedPopulation: PopulationEntry[];
+  evaluation: PopulationEvaluation;
+  breeding: BreedingSummary;
+  nextPopulation: PopulationEntry[];
+  nextGenealogy: Record<string, string[]>;
 }
 
 export function createInitialPopulation(
@@ -92,12 +120,14 @@ export function previewEvolutionStep(
   retainRatio: number,
   mutationRate: number,
   runId: string,
+  genealogy: Record<string, string[]> = seedGenealogy(population),
   random: () => number = Math.random,
 ): EvolutionPreview {
   const survivorCount = Math.max(2, Math.floor(population.length * retainRatio));
   const scoredPopulation = [...population].sort((left, right) => right.score - left.score);
   const survivors = scoredPopulation.slice(0, survivorCount);
   const children: PopulationEntry[] = [];
+  const nextGenealogy = structuredClone(genealogy);
   const parentUsage: Record<string, number> = Object.fromEntries(
     survivors.map((survivor) => [survivor.id, 0]),
   );
@@ -129,6 +159,10 @@ export function previewEvolutionStep(
       mutated: shouldMutate,
       score: 0,
     });
+    const childId = formatPopulationId(runId, nextId);
+    nextGenealogy[firstParent.id] = [...(nextGenealogy[firstParent.id] ?? []), childId];
+    nextGenealogy[secondParent.id] = [...(nextGenealogy[secondParent.id] ?? []), childId];
+    nextGenealogy[childId] = nextGenealogy[childId] ?? [];
     nextId += 1;
   }
 
@@ -140,6 +174,7 @@ export function previewEvolutionStep(
       parentUsage,
       samplePairs,
     },
+    genealogy: nextGenealogy,
   };
 }
 
@@ -148,9 +183,80 @@ export function createPreviewRunState(
   baseState: RunStateSnapshot,
   random: () => number = Math.random,
 ): RunStateSnapshot {
+  const population = createInitialPopulation(runId, baseState.config, random);
+
   return {
     ...baseState,
-    population: createInitialPopulation(runId, baseState.config, random),
+    runId,
+    population,
+    genealogy: seedGenealogy(population),
+  };
+}
+
+export function seedGenealogy(
+  population: PopulationEntry[],
+): Record<string, string[]> {
+  return Object.fromEntries(population.map((entry) => [entry.id, []]));
+}
+
+export function evaluatePopulation(
+  population: PopulationEntry[],
+  terrainName: string,
+  options?: {
+    stepCount?: number;
+    deltaMs?: number;
+  },
+): PopulationEvaluation {
+  const results = simulatePopulationRace(
+    population.map((entry) => ({ id: entry.id, dna: entry.dna })),
+    terrainName,
+    options,
+  ).map((result) => ({
+    id: result.id,
+    dna: result.dna,
+    score: scoreVehicle(result.initialCenterX, result.finalCenterX, result.initialCenterY, result.finalCenterY),
+    initialCenterX: result.initialCenterX,
+    finalCenterX: result.finalCenterX,
+    initialCenterY: result.initialCenterY,
+    finalCenterY: result.finalCenterY,
+    chassisCount: result.chassis.length,
+    wheelCount: result.wheels.length,
+  }));
+
+  return {
+    terrainName,
+    results,
+    stats: computeScoreStats(results.map((result) => result.score)),
+  };
+}
+
+export function runEvolutionGeneration(
+  state: RunStateSnapshot,
+  random: () => number = Math.random,
+): GenerationResult {
+  const evaluation = evaluatePopulation(state.population, state.terrainName);
+  const scoredPopulation = state.population.map((entry) => {
+    const vehicleResult = evaluation.results.find((result) => result.id === entry.id);
+    return {
+      ...entry,
+      score: vehicleResult?.score ?? 0,
+    };
+  });
+  const preview = previewEvolutionStep(
+    scoredPopulation,
+    state.config.retainRatio,
+    state.config.mutationRate,
+    state.runId,
+    state.genealogy,
+    random,
+  );
+
+  return {
+    evaluatedPopulation: scoredPopulation,
+    evaluation,
+    breeding: preview.breeding,
+    nextPopulation: preview.population,
+    nextGenealogy: preview.genealogy,
   };
 }
 
@@ -211,4 +317,18 @@ function randomInt(
   random: () => number,
 ): number {
   return Math.floor(random() * (max - min + 1)) + min;
+}
+
+function scoreVehicle(
+  initialCenterX: number,
+  finalCenterX: number,
+  initialCenterY: number,
+  finalCenterY: number,
+): number {
+  const distanceTravelled = Math.max(0, finalCenterX - initialCenterX);
+  const heightDelta = initialCenterY - finalCenterY;
+  const survivalBonus = Math.max(0, -heightDelta * 0.5);
+  const fellTooFar = finalCenterY > 600;
+
+  return (fellTooFar ? distanceTravelled * 0.1 : distanceTravelled) + survivalBonus;
 }

@@ -47,12 +47,14 @@ export interface PopulationEntry {
 
 export interface RunStateSnapshot {
   version: 1;
+  runId: string;
   mode: Extract<AppModeId, "evolution" | "test-drive">;
   terrainName: string;
   generation: number;
   wallet: number;
   config: RunConfig;
   population: PopulationEntry[];
+  genealogy: Record<string, string[]>;
 }
 
 export interface VroomonParityContract {
@@ -186,14 +188,17 @@ export function getTerrainPreset(
 export function createEmptyRunState(
   mode: Extract<AppModeId, "evolution" | "test-drive">,
   terrainName = TERRAIN_PRESETS[0]!.name,
+  runId = "run",
 ): RunStateSnapshot {
   return {
     version: 1,
+    runId,
     mode,
     terrainName,
     generation: 0,
     wallet: 0,
     config: { ...DEFAULT_RUN_CONFIG },
     population: [],
+    genealogy: {},
   };
 }

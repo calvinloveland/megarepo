@@ -6,9 +6,14 @@ import type {
 } from "../shared/parity-contract.js";
 import type {
   EvolutionPreview,
+  GenerationResult,
+  PopulationEvaluation,
   ScoreStats,
 } from "../core/population.js";
-import type { VehicleSnapshot } from "../simulation/matter-simulation.js";
+import type {
+  RaceVehicleSnapshot,
+  VehicleSnapshot,
+} from "../simulation/matter-simulation.js";
 
 declare global {
   interface Window {
@@ -21,12 +26,18 @@ declare global {
       createEmptyRunState: (mode: "evolution" | "test-drive") => RunStateSnapshot;
       createPreviewRunState: (runId: string) => RunStateSnapshot;
       computeScoreStats: (scores: number[]) => ScoreStats | undefined;
+      evaluatePopulation: (state: RunStateSnapshot) => PopulationEvaluation;
+      runEvolutionGeneration: (state: RunStateSnapshot) => GenerationResult;
       previewEvolutionStep: (state: RunStateSnapshot) => EvolutionPreview;
       previewPhysicsSnapshot: (
         dna: string,
         terrainName: string,
         stepCount?: number,
       ) => VehicleSnapshot;
+      previewPopulationRace: (
+        state: RunStateSnapshot,
+        stepCount?: number,
+      ) => RaceVehicleSnapshot[];
     };
   }
 }
@@ -133,15 +144,25 @@ function renderContract(): void {
 
 function renderPreviewEvolution(): void {
   const previewState = window.vroomon.createPreviewRunState("preview");
-  const previewStep = window.vroomon.previewEvolutionStep(previewState);
-  const previewScores = previewStep.population.map((entry, index) => index * 12.5);
+  const generationResult = window.vroomon.runEvolutionGeneration(previewState);
+  const previewRace = window.vroomon.previewPopulationRace(previewState, 120);
+  const previewScores = previewRace.map(
+    (result) => Math.max(0, result.centerX - result.initialCenterX),
+  );
   const scoreStats = window.vroomon.computeScoreStats(previewScores);
 
   evolutionPreviewOutputElement.textContent = JSON.stringify(
     {
       generatedPopulation: previewState.population.slice(0, 5),
-      breeding: previewStep.breeding,
+      evaluatedPopulation: generationResult.evaluatedPopulation.slice(0, 5),
+      breeding: generationResult.breeding,
       scoreStats,
+      evaluationSummary: generationResult.evaluation.stats,
+      racePreview: previewRace.slice(0, 5).map((result) => ({
+        id: result.id,
+        travel: Number((result.centerX - result.initialCenterX).toFixed(2)),
+        finalY: Number(result.centerY.toFixed(2)),
+      })),
     },
     null,
     2,

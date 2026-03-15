@@ -34,7 +34,38 @@ export interface MatterVehicle {
   chassisBodies: Body[];
   wheelBodies: Body[];
   constraints: Constraint[];
+  wheelDriveBodies: Array<{ wheel: Body; motorPower: number; friction: number }>;
 }
+
+export interface RaceVehicleSnapshot extends VehicleSnapshot {
+  id: string;
+  dna: string;
+  initialCenterX: number;
+  initialCenterY: number;
+  finalCenterX: number;
+  finalCenterY: number;
+}
+
+export interface RaceVehicleDefinition {
+  id: string;
+  dna: string;
+}
+
+export interface MatterRace {
+  engine: Engine;
+  terrain: TerrainPresetDefinition;
+  terrainBodies: Body[];
+  vehicles: Array<
+    MatterVehicle & {
+      id: string;
+      dna: string;
+      initialSnapshot: VehicleSnapshot;
+    }
+  >;
+}
+
+const GROUND_COLLISION_CATEGORY = 0x0001;
+const VEHICLE_COLLISION_CATEGORY = 0x0002;
 
 export function createMatterVehicle(
   dna: string,
@@ -46,14 +77,18 @@ export function createMatterVehicle(
     throw new Error(`Unknown terrain preset: ${terrainName}`);
   }
 
-  const engine = Engine.create({
-    gravity: { x: 0, y: 1, scale: 0.0012 },
-  });
+  const engine = createEngine();
   const decoded = decodeDnaV2(dna);
   const terrainBodies = buildTerrainBodies(terrain);
-  const { chassisBodies, wheelBodies, constraints } = buildVehicleBodies(decoded);
+  const { chassisBodies, wheelBodies, constraints, wheelDriveBodies } =
+    buildVehicleBodies(decoded, 220, 220);
 
-  Composite.add(engine.world, [...terrainBodies, ...chassisBodies, ...wheelBodies, ...constraints]);
+  Composite.add(engine.world, [
+    ...terrainBodies,
+    ...chassisBodies,
+    ...wheelBodies,
+    ...constraints,
+  ]);
 
   return {
     engine,
@@ -63,6 +98,62 @@ export function createMatterVehicle(
     chassisBodies,
     wheelBodies,
     constraints,
+    wheelDriveBodies,
+  };
+}
+
+export function createMatterRace(
+  vehicles: RaceVehicleDefinition[],
+  terrainName = "Grassland",
+): MatterRace {
+  const terrain = getTerrainPreset(terrainName);
+
+  if (!terrain) {
+    throw new Error(`Unknown terrain preset: ${terrainName}`);
+  }
+
+  const terrainBodies = buildTerrainBodies(terrain);
+  const engine = createEngine();
+  Composite.add(engine.world, terrainBodies);
+
+  const raceVehicles = vehicles.map((vehicle, index) => {
+    const decoded = decodeDnaV2(vehicle.dna);
+    const builtVehicle = buildVehicleBodies(
+      decoded,
+      220 + index * 150,
+      220 - index * 4,
+    );
+    Composite.add(engine.world, [
+      ...builtVehicle.chassisBodies,
+      ...builtVehicle.wheelBodies,
+      ...builtVehicle.constraints,
+    ]);
+
+    const matterVehicle = {
+      engine,
+      terrain,
+      decoded,
+      terrainBodies,
+      chassisBodies: builtVehicle.chassisBodies,
+      wheelBodies: builtVehicle.wheelBodies,
+      constraints: builtVehicle.constraints,
+      wheelDriveBodies: builtVehicle.wheelDriveBodies,
+      id: vehicle.id,
+      dna: vehicle.dna,
+      initialSnapshot: snapshotVehicleBodies(
+        builtVehicle.chassisBodies,
+        builtVehicle.wheelBodies,
+      ),
+    };
+
+    return matterVehicle;
+  });
+
+  return {
+    engine,
+    terrain,
+    terrainBodies,
+    vehicles: raceVehicles,
   };
 }
 
@@ -72,10 +163,45 @@ export function stepMatterVehicle(
   deltaMs = 1000 / 60,
 ): VehicleSnapshot {
   for (let index = 0; index < stepCount; index += 1) {
+    applyWheelDrive(vehicle.wheelDriveBodies);
     Engine.update(vehicle.engine, deltaMs);
   }
 
   return snapshotMatterVehicle(vehicle);
+}
+
+export function simulatePopulationRace(
+  vehicles: RaceVehicleDefinition[],
+  terrainName = "Grassland",
+  options?: {
+    stepCount?: number;
+    deltaMs?: number;
+  },
+): RaceVehicleSnapshot[] {
+  const race = createMatterRace(vehicles, terrainName);
+  const stepCount = options?.stepCount ?? 180;
+  const deltaMs = options?.deltaMs ?? 1000 / 60;
+
+  for (let index = 0; index < stepCount; index += 1) {
+    for (const vehicle of race.vehicles) {
+      applyWheelDrive(vehicle.wheelDriveBodies);
+    }
+    Engine.update(race.engine, deltaMs);
+  }
+
+  return race.vehicles.map((vehicle) => {
+    const snapshot = snapshotMatterVehicle(vehicle);
+
+    return {
+      id: vehicle.id,
+      dna: vehicle.dna,
+      ...snapshot,
+      initialCenterX: vehicle.initialSnapshot.centerX,
+      initialCenterY: vehicle.initialSnapshot.centerY,
+      finalCenterX: snapshot.centerX,
+      finalCenterY: snapshot.centerY,
+    };
+  });
 }
 
 export function snapshotMatterVehicle(vehicle: MatterVehicle): VehicleSnapshot {
@@ -104,6 +230,10 @@ function buildTerrainBodies(terrain: TerrainPresetDefinition): Body[] {
     {
       isStatic: true,
       friction: terrain.friction,
+      collisionFilter: {
+        category: GROUND_COLLISION_CATEGORY,
+        mask: VEHICLE_COLLISION_CATEGORY,
+      },
     },
   );
   const bodies = [ground];
@@ -123,7 +253,14 @@ function buildTerrainBodies(terrain: TerrainPresetDefinition): Body[] {
           terrain.groundHeight - height / 2,
           terrain.obstacleWidth,
           height,
-          { isStatic: true, friction: terrain.friction },
+          {
+            isStatic: true,
+            friction: terrain.friction,
+            collisionFilter: {
+              category: GROUND_COLLISION_CATEGORY,
+              mask: VEHICLE_COLLISION_CATEGORY,
+            },
+          },
         ),
       );
     }
@@ -132,19 +269,25 @@ function buildTerrainBodies(terrain: TerrainPresetDefinition): Body[] {
   return bodies;
 }
 
-function buildVehicleBodies(decoded: DecodedDnaV2): {
+function buildVehicleBodies(
+  decoded: DecodedDnaV2,
+  originX: number,
+  originY: number,
+): {
   chassisBodies: Body[];
   wheelBodies: Body[];
   constraints: Constraint[];
+  wheelDriveBodies: Array<{ wheel: Body; motorPower: number; friction: number }>;
 } {
   const chassisBodies: Body[] = [];
   const wheelBodies: Body[] = [];
   const constraints: Constraint[] = [];
+  const wheelDriveBodies: Array<{ wheel: Body; motorPower: number; friction: number }> = [];
   let lastChassisBody: Body | undefined;
-  let lastChassisAnchorX = 220;
+  let lastChassisAnchorX = originX;
 
   for (const [index, module] of decoded.modules.entries()) {
-    const anchorX = 220 + decoded.positions[index]!;
+    const anchorX = originX + decoded.positions[index]!;
 
     if (module === "R") {
       const rectangle = decoded.rectParams[index];
@@ -153,11 +296,21 @@ function buildVehicleBodies(decoded: DecodedDnaV2): {
         continue;
       }
 
-      const body = Bodies.rectangle(anchorX, 220, rectangle.width, rectangle.height, {
-        density: rectangle.density * 0.001,
-        frictionAir: decoded.globals.dampingLinear,
-        chamfer: { radius: 6 },
-      } satisfies IChamferableBodyDefinition);
+      const body = Bodies.rectangle(
+        anchorX,
+        originY,
+        rectangle.width,
+        rectangle.height,
+        {
+          density: rectangle.density * 0.001,
+          frictionAir: decoded.globals.dampingLinear,
+          chamfer: { radius: 6 },
+          collisionFilter: {
+            category: VEHICLE_COLLISION_CATEGORY,
+            mask: GROUND_COLLISION_CATEGORY,
+          },
+        } satisfies IChamferableBodyDefinition,
+      );
 
       chassisBodies.push(body);
 
@@ -187,11 +340,20 @@ function buildVehicleBodies(decoded: DecodedDnaV2): {
       continue;
     }
 
-    const wheelBody = Bodies.circle(anchorX, 270, wheel.radius, {
+    const wheelBody = Bodies.circle(anchorX, originY + 50, wheel.radius, {
       friction: wheel.friction,
       frictionAir: decoded.globals.dampingAngular,
+      collisionFilter: {
+        category: VEHICLE_COLLISION_CATEGORY,
+        mask: GROUND_COLLISION_CATEGORY,
+      },
     });
     wheelBodies.push(wheelBody);
+    wheelDriveBodies.push({
+      wheel: wheelBody,
+      motorPower: wheel.motorPower,
+      friction: wheel.friction,
+    });
 
     if (lastChassisBody) {
       constraints.push(
@@ -206,7 +368,7 @@ function buildVehicleBodies(decoded: DecodedDnaV2): {
     }
   }
 
-  return { chassisBodies, wheelBodies, constraints };
+  return { chassisBodies, wheelBodies, constraints, wheelDriveBodies };
 }
 
 function snapshotBody(body: Body): BodySnapshot {
@@ -215,4 +377,45 @@ function snapshotBody(body: Body): BodySnapshot {
     y: body.position.y,
     angle: body.angle,
   };
+}
+
+function snapshotVehicleBodies(
+  chassisBodies: Body[],
+  wheelBodies: Body[],
+): VehicleSnapshot {
+  const chassis = chassisBodies.map(snapshotBody);
+  const wheels = wheelBodies.map(snapshotBody);
+  const allBodies = [...chassis, ...wheels];
+  const centerX =
+    allBodies.reduce((sum, body) => sum + body.x, 0) / Math.max(allBodies.length, 1);
+  const centerY =
+    allBodies.reduce((sum, body) => sum + body.y, 0) / Math.max(allBodies.length, 1);
+
+  return {
+    chassis,
+    wheels,
+    centerX,
+    centerY,
+  };
+}
+
+function createEngine(): Engine {
+  return Engine.create({
+    gravity: { x: 0, y: 1, scale: 0.0012 },
+  });
+}
+
+function applyWheelDrive(
+  wheelDriveBodies: Array<{ wheel: Body; motorPower: number; friction: number }>,
+): void {
+  for (const drive of wheelDriveBodies) {
+    Body.applyForce(drive.wheel, drive.wheel.position, {
+      x: drive.motorPower * drive.friction * 0.000012,
+      y: 0,
+    });
+    Body.setAngularVelocity(
+      drive.wheel,
+      Math.min(0.7, drive.wheel.angularVelocity + drive.motorPower * 0.000015),
+    );
+  }
 }

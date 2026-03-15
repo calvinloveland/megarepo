@@ -5,6 +5,7 @@ import {
   createInitialPopulation,
   createPreviewRunState,
   previewEvolutionStep,
+  runEvolutionGeneration,
 } from "../src/core/population.js";
 import { parseRunState, serializeRunState } from "../src/core/persistence.js";
 import { createEmptyRunState } from "../src/shared/parity-contract.js";
@@ -60,6 +61,7 @@ describe("population core", () => {
       0.5,
       0.5,
       "run",
+      undefined,
       createSequenceRandom([0.1, 0.9, 0.4, 0.2, 0.7, 0.3]),
     );
 
@@ -67,6 +69,7 @@ describe("population core", () => {
     expect(preview.breeding.survivorCount).toBe(2);
     expect(preview.breeding.childCount).toBe(2);
     expect(preview.population[2]?.parents).toHaveLength(2);
+    expect(Object.keys(preview.genealogy)).toContain("run-00005");
   });
 
   it("serializes and parses preview run states", () => {
@@ -80,5 +83,26 @@ describe("population core", () => {
 
     expect(parsed.population).toHaveLength(previewState.config.populationSize);
     expect(parsed.mode).toBe("evolution");
+  });
+
+  it("runs a generation with scored vehicles and next-generation lineage", () => {
+    const generation = runEvolutionGeneration(
+      createPreviewRunState(
+        "preview",
+        createEmptyRunState("evolution"),
+        createSequenceRandom([0.1, 0.2, 0.3, 0.4]),
+      ),
+      createSequenceRandom([0.1, 0.9, 0.4, 0.2, 0.7, 0.3]),
+    );
+
+    expect(generation.evaluation.results).toHaveLength(
+      generation.evaluatedPopulation.length,
+    );
+    expect(generation.evaluation.stats?.count).toBe(
+      generation.evaluatedPopulation.length,
+    );
+    expect(Object.keys(generation.nextGenealogy).length).toBeGreaterThanOrEqual(
+      generation.nextPopulation.length,
+    );
   });
 });

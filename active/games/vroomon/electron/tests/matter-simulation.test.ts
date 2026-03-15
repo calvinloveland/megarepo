@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   createMatterVehicle,
+  simulatePopulationRace,
   snapshotMatterVehicle,
   stepMatterVehicle,
 } from "../src/simulation/matter-simulation.js";
@@ -26,5 +27,20 @@ describe("matter physics spike", () => {
       expect(Number.isFinite(body.y)).toBe(true);
       expect(Number.isFinite(body.angle)).toBe(true);
     }
+  });
+
+  it("can simulate a no-collision population race with forward progress", () => {
+    const results = simulatePopulationRace(
+      [
+        { id: "car-1", dna: "A3x9K2m7P4zQ" },
+        { id: "car-2", dna: "zzYY1199ABcd" },
+      ],
+      "Flat",
+      { stepCount: 180 },
+    );
+
+    expect(results).toHaveLength(2);
+    expect(results[0]?.centerX).toBeGreaterThan(results[0]?.initialCenterX ?? 0);
+    expect(results[1]?.centerX).toBeGreaterThan(results[1]?.initialCenterX ?? 0);
   });
 });
