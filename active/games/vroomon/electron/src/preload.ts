@@ -21,6 +21,11 @@ import {
   type EvolutionPreview,
   type ScoreStats,
 } from "./core/population.js";
+import {
+  createMatterVehicle,
+  stepMatterVehicle,
+  type VehicleSnapshot,
+} from "./simulation/matter-simulation.js";
 
 const api = {
   cleanDna,
@@ -43,6 +48,12 @@ const api = {
       state.config.mutationRate,
       "preview",
     ),
+  previewPhysicsSnapshot: (
+    dna: string,
+    terrainName: string,
+    stepCount = 120,
+  ): VehicleSnapshot =>
+    stepMatterVehicle(createMatterVehicle(dna, terrainName), stepCount),
 };
 
 declare global {
@@ -57,6 +68,11 @@ declare global {
       createPreviewRunState: (runId: string) => RunStateSnapshot;
       computeScoreStats: (scores: number[]) => ScoreStats | undefined;
       previewEvolutionStep: (state: RunStateSnapshot) => EvolutionPreview;
+      previewPhysicsSnapshot: (
+        dna: string,
+        terrainName: string,
+        stepCount?: number,
+      ) => VehicleSnapshot;
     };
   }
 }

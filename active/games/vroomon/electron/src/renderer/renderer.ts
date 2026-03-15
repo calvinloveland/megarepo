@@ -8,6 +8,7 @@ import type {
   EvolutionPreview,
   ScoreStats,
 } from "../core/population.js";
+import type { VehicleSnapshot } from "../simulation/matter-simulation.js";
 
 declare global {
   interface Window {
@@ -21,6 +22,11 @@ declare global {
       createPreviewRunState: (runId: string) => RunStateSnapshot;
       computeScoreStats: (scores: number[]) => ScoreStats | undefined;
       previewEvolutionStep: (state: RunStateSnapshot) => EvolutionPreview;
+      previewPhysicsSnapshot: (
+        dna: string,
+        terrainName: string,
+        stepCount?: number,
+      ) => VehicleSnapshot;
     };
   }
 }
@@ -37,6 +43,9 @@ const runStateOutput = document.querySelector<HTMLElement>("[data-run-state-outp
 const evolutionPreviewOutput = document.querySelector<HTMLElement>(
   "[data-evolution-preview-output]",
 );
+const physicsPreviewOutput = document.querySelector<HTMLElement>(
+  "[data-physics-preview-output]",
+);
 
 if (
   !dnaInput ||
@@ -46,7 +55,8 @@ if (
   !terrainList ||
   !contractSummary ||
   !runStateOutput ||
-  !evolutionPreviewOutput
+  !evolutionPreviewOutput ||
+  !physicsPreviewOutput
 ) {
   throw new Error("Renderer UI did not initialize correctly.");
 }
@@ -59,6 +69,7 @@ const terrainListElement = terrainList;
 const contractSummaryElement = contractSummary;
 const runStateOutputElement = runStateOutput;
 const evolutionPreviewOutputElement = evolutionPreviewOutput;
+const physicsPreviewOutputElement = physicsPreviewOutput;
 const parityContract = window.vroomon.getParityContract();
 
 renderContract();
@@ -89,6 +100,7 @@ function renderDecodedDna(dna: string): void {
     null,
     2,
   );
+  renderPhysicsPreview(decoded.dna);
 }
 
 function renderContract(): void {
@@ -130,6 +142,25 @@ function renderPreviewEvolution(): void {
       generatedPopulation: previewState.population.slice(0, 5),
       breeding: previewStep.breeding,
       scoreStats,
+    },
+    null,
+    2,
+  );
+}
+
+function renderPhysicsPreview(dna: string): void {
+  const terrainName = parityContract.terrains[0]?.name ?? "Grassland";
+  const snapshot = window.vroomon.previewPhysicsSnapshot(dna, terrainName, 90);
+
+  physicsPreviewOutputElement.textContent = JSON.stringify(
+    {
+      terrainName,
+      chassisCount: snapshot.chassis.length,
+      wheelCount: snapshot.wheels.length,
+      centerX: Number(snapshot.centerX.toFixed(2)),
+      centerY: Number(snapshot.centerY.toFixed(2)),
+      firstChassis: snapshot.chassis[0] ?? null,
+      firstWheel: snapshot.wheels[0] ?? null,
     },
     null,
     2,

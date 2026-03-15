@@ -9,7 +9,11 @@
     "start": "npm run build && electron .",
     "test": "vitest run"
   },
+  "dependencies": {
+    "matter-js": "^0.20.0"
+  },
   "devDependencies": {
+    "@types/matter-js": "^0.20.2",
     "@types/node": "^22.10.0",
     "electron": "^35.0.0",
     "typescript": "^5.8.2",
