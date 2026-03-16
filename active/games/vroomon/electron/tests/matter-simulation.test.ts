@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 
+import { decodeDnaV2 } from "../src/shared/dna-v2.js";
+import { getTerrainPreset } from "../src/shared/parity-contract.js";
 import {
   createMatterVehicle,
   simulatePopulationRace,
@@ -42,5 +44,17 @@ describe("matter physics spike", () => {
     expect(results).toHaveLength(2);
     expect(results[0]?.centerX).toBeGreaterThan(results[0]?.initialCenterX ?? 0);
     expect(results[1]?.centerX).toBeGreaterThan(results[1]?.initialCenterX ?? 0);
+  });
+
+  it("lets a simple two-wheel car reach the end of a flat track", () => {
+    const dna = "aaaaaaaaaaaa";
+    const decoded = decodeDnaV2(dna);
+    const flatTerrain = getTerrainPreset("Flat");
+    const vehicle = createMatterVehicle(dna, "Flat");
+    const snapshot = stepMatterVehicle(vehicle, 11_000);
+
+    expect(decoded.wheelParams.filter(Boolean)).toHaveLength(2);
+    expect(flatTerrain).toBeDefined();
+    expect(snapshot.centerX).toBeGreaterThanOrEqual(flatTerrain?.groundLength ?? 0);
   });
 });
