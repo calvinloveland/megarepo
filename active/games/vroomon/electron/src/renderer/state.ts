@@ -11,9 +11,16 @@ export interface RendererState {
   lastEvaluatedRunState: RunStateSnapshot | null;
   latestGeneration: GenerationResult | null;
   selectedVehicleId: string | null;
+  testDriveStepCount: number;
+  testDriveFrameCount: number;
+  testDrivePlaybackDurationMs: number | null;
+  testDriveScenarioLabel: string | null;
   statusMessage: string;
   lastSavedPath: string | null;
 }
+
+export const DEFAULT_TEST_DRIVE_STEP_COUNT = 90;
+export const DEFAULT_TEST_DRIVE_FRAME_COUNT = 24;
 
 export interface SelectedVehicleSummary {
   id: string;
@@ -35,6 +42,10 @@ export function createRendererState(
     lastEvaluatedRunState: null,
     latestGeneration: null,
     selectedVehicleId: null,
+    testDriveStepCount: DEFAULT_TEST_DRIVE_STEP_COUNT,
+    testDriveFrameCount: DEFAULT_TEST_DRIVE_FRAME_COUNT,
+    testDrivePlaybackDurationMs: null,
+    testDriveScenarioLabel: null,
     statusMessage: "Ready to begin the Electron rewrite preview.",
     lastSavedPath: null,
   };
@@ -70,7 +81,7 @@ export function setRendererTerrain(
   terrainName: string,
 ): RendererState {
   return {
-    ...clearEvaluatedGenerationState(state),
+    ...resetTestDriveReplay(clearEvaluatedGenerationState(state)),
     runState: {
       ...state.runState,
       terrainName,
@@ -97,8 +108,37 @@ export function setDraftDna(
   draftDna: string,
 ): RendererState {
   return {
-    ...state,
+    ...resetTestDriveReplay(state),
     draftDna,
+  };
+}
+
+export function setTestDriveReplay(
+  state: RendererState,
+  options: {
+    dna: string;
+    terrainName: string;
+    stepCount: number;
+    frameCount: number;
+    playbackDurationMs: number | null;
+    label: string;
+    statusMessage: string;
+  },
+): RendererState {
+  return {
+    ...resetTestDriveReplay(clearEvaluatedGenerationState(state)),
+    mode: "test-drive",
+    draftDna: options.dna,
+    runState: {
+      ...state.runState,
+      mode: "test-drive",
+      terrainName: options.terrainName,
+    },
+    testDriveStepCount: options.stepCount,
+    testDriveFrameCount: options.frameCount,
+    testDrivePlaybackDurationMs: options.playbackDurationMs,
+    testDriveScenarioLabel: options.label,
+    statusMessage: options.statusMessage,
   };
 }
 
@@ -175,5 +215,15 @@ function clearEvaluatedGenerationState(state: RendererState): RendererState {
     lastEvaluatedRunState: null,
     latestGeneration: null,
     selectedVehicleId: null,
+  };
+}
+
+function resetTestDriveReplay(state: RendererState): RendererState {
+  return {
+    ...state,
+    testDriveStepCount: DEFAULT_TEST_DRIVE_STEP_COUNT,
+    testDriveFrameCount: DEFAULT_TEST_DRIVE_FRAME_COUNT,
+    testDrivePlaybackDurationMs: null,
+    testDriveScenarioLabel: null,
   };
 }

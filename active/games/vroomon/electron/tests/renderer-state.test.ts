@@ -3,13 +3,17 @@ import { describe, expect, it } from "vitest";
 import { advanceRunState, runEvolutionGeneration } from "../src/core/population.js";
 import { VROOMON_PARITY_CONTRACT } from "../src/shared/parity-contract.js";
 import {
+  DEFAULT_TEST_DRIVE_FRAME_COUNT,
+  DEFAULT_TEST_DRIVE_STEP_COUNT,
   applyGenerationToState,
   createRendererState,
   getSelectedVehicleSummary,
+  setDraftDna,
   selectVehicle,
   setRendererMode,
   setRendererRunState,
   setRendererTerrain,
+  setTestDriveReplay,
 } from "../src/renderer/state.js";
 import { createEmptyRunState } from "../src/shared/parity-contract.js";
 
@@ -140,5 +144,34 @@ describe("renderer state", () => {
 
     expect(nextState.mode).toBe("test-drive");
     expect(nextState.runState.mode).toBe("test-drive");
+  });
+
+  it("stores replay settings for the flat-track regression viewer", () => {
+    const state = createRendererState(
+      createEmptyRunState("evolution", VROOMON_PARITY_CONTRACT.terrains[0]!.name, "preview"),
+      "A3x9K2m7P4zQ",
+    );
+
+    const replayState = setTestDriveReplay(state, {
+      dna: "aaaaaaaaaaaa",
+      terrainName: "Flat",
+      stepCount: 11_000,
+      frameCount: 96,
+      playbackDurationMs: 12_000,
+      label: "flat-track regression replay",
+      statusMessage: "Watching flat-track regression replay.",
+    });
+    const resetState = setDraftDna(replayState, "zzYY1199ABcd");
+
+    expect(replayState.mode).toBe("test-drive");
+    expect(replayState.runState.terrainName).toBe("Flat");
+    expect(replayState.testDriveStepCount).toBe(11_000);
+    expect(replayState.testDriveFrameCount).toBe(96);
+    expect(replayState.testDrivePlaybackDurationMs).toBe(12_000);
+    expect(replayState.testDriveScenarioLabel).toBe("flat-track regression replay");
+    expect(resetState.testDriveStepCount).toBe(DEFAULT_TEST_DRIVE_STEP_COUNT);
+    expect(resetState.testDriveFrameCount).toBe(DEFAULT_TEST_DRIVE_FRAME_COUNT);
+    expect(resetState.testDrivePlaybackDurationMs).toBeNull();
+    expect(resetState.testDriveScenarioLabel).toBeNull();
   });
 });

@@ -20,6 +20,8 @@ import type {
   VehicleSnapshot,
 } from "../simulation/matter-simulation.js";
 import {
+  DEFAULT_TEST_DRIVE_FRAME_COUNT,
+  DEFAULT_TEST_DRIVE_STEP_COUNT,
   applyGenerationToState,
   createRendererState,
   getSelectedVehicleSummary,
@@ -29,6 +31,7 @@ import {
   setRendererRunState,
   setRendererTerrain,
   setSavedPath,
+  setTestDriveReplay,
   type RendererState,
 } from "./state.js";
 import {
@@ -104,6 +107,9 @@ interface TestDriveViewData {
   decoded: DecodedDnaV2;
   snapshot: VehicleSnapshot;
   frames: ViewportFrame[];
+  scenarioLabel: string | null;
+  stepCount: number;
+  playbackDurationMs: number | null;
 }
 
 interface ViewportEntity {
@@ -144,6 +150,10 @@ const dnaInput = requireElement(
 const randomizeButton = requireElement(
   document.querySelector<HTMLButtonElement>("[data-randomize-dna]"),
   "[data-randomize-dna]",
+);
+const watchRegressionButton = requireElement(
+  document.querySelector<HTMLButtonElement>("[data-watch-flat-track-regression]"),
+  "[data-watch-flat-track-regression]",
 );
 const generatePopulationButton = requireElement(
   document.querySelector<HTMLButtonElement>(
@@ -290,6 +300,14 @@ const SVG_HEIGHT = 480;
 const modeButtonsElements = Array.from(modeButtons);
 const panelsElements = Array.from(panels);
 const parityContract = window.vroomon.getParityContract();
+const FLAT_TRACK_REGRESSION_REPLAY = {
+  label: "flat-track regression replay",
+  dna: "aaaaaaaaaaaa",
+  terrainName: "Flat",
+  stepCount: 11_000,
+  frameCount: 96,
+  playbackDurationMs: 12_000,
+} as const;
 let rendererState = createRendererState(
   window.vroomon.createEmptyRunState("evolution"),
   dnaInput.value,
@@ -462,11 +480,15 @@ function renderTestDriveStage(
     subtitle:
       rendererState.mode === "menu"
         ? "A sample vehicle preview keeps the rewrite grounded in visible motion."
-        : `Previewing the current DNA build on ${terrain.name}.`,
+        : testDriveViewData.scenarioLabel
+          ? `Watching ${testDriveViewData.scenarioLabel} on ${terrain.name}.`
+          : `Previewing the current DNA build on ${terrain.name}.`,
     caption:
       rendererState.mode === "menu"
         ? `Sample car with ${wheelCount} wheels and ${rectangleCount} chassis pieces.`
-        : `Following the draft car across ${terrain.name}.`,
+        : testDriveViewData.scenarioLabel
+          ? `Replaying ${testDriveViewData.stepCount.toLocaleString()} simulation steps in a ${Math.round((testDriveViewData.playbackDurationMs ?? 0) / 1000)} second loop.`
+          : `Following the draft car across ${terrain.name}.`,
     terrain,
     frames: testDriveViewData.frames,
     focusVehicleId: "draft-car",
@@ -509,6 +531,7 @@ function renderTestDriveStage(
     { label: "Terrain", value: terrain.name },
     { label: "Ground length", value: `${terrain.groundLength}px` },
     { label: "Obstacles", value: String(terrain.obstacleCount) },
+    { label: "Preview steps", value: testDriveViewData.stepCount.toLocaleString() },
     {
       label: "Camera target",
       value: rendererState.mode === "menu" ? "Sample preview" : "Draft car",
@@ -520,10 +543,12 @@ function renderTestDriveStage(
     { label: "Run ID", value: rendererState.runState.runId },
     {
       label: "Tip",
-      value:
-        rendererState.mode === "menu"
-          ? "Switch modes to move from overview into simulation control."
-          : "Randomize DNA or change terrain to watch the motion update.",
+        value:
+          rendererState.mode === "menu"
+            ? "Switch modes to move from overview into simulation control."
+            : testDriveViewData.scenarioLabel
+              ? "Edit the DNA or terrain to leave replay mode, or click the replay button again."
+              : "Randomize DNA or change terrain to watch the motion update.",
       muted: true,
     },
   ]);
@@ -547,7 +572,9 @@ function renderSidebarCopy(
       } from the race strip below.`
     : "Generate a population, then run a generation to fill the viewport with racers.";
   testDriveSummary.textContent = testDriveViewData
-    ? `Current DNA ${testDriveViewData.decoded.dna} is rendered live in the shared viewport.`
+    ? testDriveViewData.scenarioLabel
+      ? `Replay mode is showing ${testDriveViewData.scenarioLabel} with DNA ${testDriveViewData.decoded.dna}.`
+      : `Current DNA ${testDriveViewData.decoded.dna} is rendered live in the shared viewport.`
     : "The test-drive editor previews one car at a time.";
 }
 
@@ -591,6 +618,9 @@ function renderDiagnostics(
     physicsPreviewOutput.textContent = JSON.stringify(
       {
         terrainName: terrain.name,
+        scenarioLabel: testDriveViewData.scenarioLabel,
+        stepCount: testDriveViewData.stepCount,
+        playbackDurationMs: testDriveViewData.playbackDurationMs,
         chassisCount: testDriveViewData.snapshot.chassis.length,
         wheelCount: testDriveViewData.snapshot.wheels.length,
         centerX: Number(testDriveViewData.snapshot.centerX.toFixed(2)),
@@ -837,27 +867,65 @@ function buildTestDriveViewData(
 ): TestDriveViewData {
   const cleanedDna = window.vroomon.cleanDna(dna);
   const decoded = window.vroomon.decodeDnaV2(cleanedDna);
-  const snapshot = window.vroomon.previewPhysicsSnapshot(cleanedDna, terrainName, 90);
-  const frames = window.vroomon
-    .previewPhysicsFrames(cleanedDna, terrainName, 90, 24)
-    .map((frame) => ({
-      elapsedMs: frame.elapsedMs,
-      entities: [
-        {
-          id: "draft-car",
-          label: rendererState.mode === "menu" ? "Preview" : "Draft car",
-          snapshot: frame.snapshot,
-          variant: "solo",
-        } satisfies ViewportEntity,
-      ],
-    }));
+  const stepCount = rendererState.testDriveStepCount || DEFAULT_TEST_DRIVE_STEP_COUNT;
+  const frameCount = rendererState.testDriveFrameCount || DEFAULT_TEST_DRIVE_FRAME_COUNT;
+  const playbackDurationMs = rendererState.testDrivePlaybackDurationMs;
+  const snapshot = window.vroomon.previewPhysicsSnapshot(
+    cleanedDna,
+    terrainName,
+    stepCount,
+  );
+  const frames = retimeViewportFrames(
+    window.vroomon
+      .previewPhysicsFrames(cleanedDna, terrainName, stepCount, frameCount)
+      .map((frame) => ({
+        elapsedMs: frame.elapsedMs,
+        entities: [
+          {
+            id: "draft-car",
+            label: rendererState.mode === "menu" ? "Preview" : "Draft car",
+            snapshot: frame.snapshot,
+            variant: "solo",
+          } satisfies ViewportEntity,
+        ],
+      })),
+    playbackDurationMs,
+  );
 
   return {
     dna: cleanedDna,
     decoded,
     snapshot,
     frames,
+    scenarioLabel: rendererState.testDriveScenarioLabel,
+    stepCount,
+    playbackDurationMs,
   };
+}
+
+function retimeViewportFrames(
+  frames: ViewportFrame[],
+  durationMs: number | null,
+): ViewportFrame[] {
+  if (frames.length <= 1 || durationMs === null || durationMs <= 0) {
+    return frames;
+  }
+
+  const originalDuration = frames[frames.length - 1]?.elapsedMs ?? 0;
+
+  if (originalDuration <= 0 || originalDuration === durationMs) {
+    return frames;
+  }
+
+  return frames.map((frame, index) => ({
+    ...frame,
+    elapsedMs:
+      index === 0
+        ? 0
+        : index === frames.length - 1
+          ? durationMs
+          : Math.round((frame.elapsedMs / originalDuration) * durationMs),
+  }));
 }
 
 function playViewportScene(scene: ViewportScene): void {
@@ -1164,6 +1232,16 @@ randomizeButton.addEventListener("click", () => {
   const nextDna = window.vroomon.createRandomDna(12);
   dnaInput.value = nextDna;
   rendererState = setDraftDna(rendererState, nextDna);
+  renderApp();
+});
+
+watchRegressionButton.addEventListener("click", () => {
+  dnaInput.value = FLAT_TRACK_REGRESSION_REPLAY.dna;
+  terrainSelect.value = FLAT_TRACK_REGRESSION_REPLAY.terrainName;
+  rendererState = setTestDriveReplay(rendererState, {
+    ...FLAT_TRACK_REGRESSION_REPLAY,
+    statusMessage: `Watching ${FLAT_TRACK_REGRESSION_REPLAY.label}.`,
+  });
   renderApp();
 });
 

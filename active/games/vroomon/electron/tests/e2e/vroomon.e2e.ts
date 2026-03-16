@@ -91,6 +91,41 @@ test.describe("vroomon Playwright harness", () => {
     await expect(page.locator("[data-selected-vehicle-summary]")).toContainText("Wheel count");
   });
 
+  test("loads the flat-track regression replay in test-drive mode", async ({ page }) => {
+    await page.locator('[data-mode-button="test-drive"]').click();
+    await page.locator("[data-watch-flat-track-regression]").click();
+
+    await expect(page.locator("[data-status-message]")).toContainText(
+      "Watching flat-track regression replay.",
+    );
+    await expect(page.locator("[data-terrain-select]")).toHaveValue("Flat");
+    await expect(page.locator("[data-test-drive-summary]")).toContainText(
+      "flat-track regression replay",
+    );
+
+    await expect
+      .poll(async () => (await readJson<{ dna: string }>(page, "[data-dna-output]")).dna)
+      .toBe("aaaaaaaaaaaa");
+    await expect
+      .poll(
+        async () =>
+          (
+            await readJson<{
+              scenarioLabel: string | null;
+              stepCount: number;
+              playbackDurationMs: number | null;
+              wheelCount: number;
+            }>(page, "[data-physics-preview-output]")
+          ),
+      )
+      .toMatchObject({
+        scenarioLabel: "flat-track regression replay",
+        stepCount: 11_000,
+        playbackDurationMs: 12_000,
+        wheelCount: 2,
+      });
+  });
+
   test("supports evolution flow buttons end to end", async ({ page }) => {
     await page.locator('[data-mode-button="test-drive"]').click();
     const initialDna = await readJson<{ dna: string }>(page, "[data-dna-output]");
