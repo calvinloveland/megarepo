@@ -12,13 +12,17 @@ spec.loader.exec_module(mod)
 def test_build_and_switch_fallback(monkeypatch, tmp_path):
     built1 = "/nix/store/abc-nixos-rebuild"
     built2 = "/nix/store/xyz-toplevel"
+    seen_switch_cmd = None
 
     def fake_run_cmd_stream(cmd, as_user=None, capture=True, verbose=False, heartbeat=10, label="cmd", estimate_seconds=None):
+        nonlocal seen_switch_cmd
         s = " ".join(cmd)
         if "--print-out-paths" in s and "toplevel" not in s:
             return 0, built1
         if "--print-out-paths" in s and "toplevel" in s:
             return 0, built2
+        if label == "switch":
+            seen_switch_cmd = cmd
         return 0, ""
 
     def fake_exists(path):
@@ -27,6 +31,7 @@ def test_build_and_switch_fallback(monkeypatch, tmp_path):
 
     monkeypatch.setattr(mod, "run_cmd_stream", fake_run_cmd_stream)
     monkeypatch.setattr(mod.os.path, "exists", fake_exists)
+    monkeypatch.setattr(mod, "get_git_toplevel", lambda path: "/repo")
 
     ok = mod.build_and_switch_flake(
         '/repo#nixosConfigurations."1337book".config.system.build.nixos-rebuild',
@@ -37,6 +42,13 @@ def test_build_and_switch_fallback(monkeypatch, tmp_path):
         non_interactive=True,
     )
     assert ok is True
+    assert seen_switch_cmd[:5] == [
+        "sudo",
+        "env",
+        "GIT_CONFIG_COUNT=1",
+        "GIT_CONFIG_KEY_0=safe.directory",
+        "GIT_CONFIG_VALUE_0=/repo",
+    ]
 
 
 def test_build_and_switch_new_style_uses_absolute_flake_ref(monkeypatch):
@@ -59,6 +71,7 @@ def test_build_and_switch_new_style_uses_absolute_flake_ref(monkeypatch):
 
     monkeypatch.setattr(mod, "run_cmd_stream", fake_run_cmd_stream)
     monkeypatch.setattr(mod.os.path, "exists", fake_exists)
+    monkeypatch.setattr(mod, "get_git_toplevel", lambda path: "/repo")
 
     ok = mod.build_and_switch_flake(
         '/repo#nixosConfigurations."1337book".config.system.build.nixos-rebuild',
@@ -71,6 +84,12 @@ def test_build_and_switch_new_style_uses_absolute_flake_ref(monkeypatch):
     assert ok is True
     assert seen_switch_cmd is not None
     assert seen_switch_cmd[0] == "sudo"
+    assert seen_switch_cmd[1:5] == [
+        "env",
+        "GIT_CONFIG_COUNT=1",
+        "GIT_CONFIG_KEY_0=safe.directory",
+        "GIT_CONFIG_VALUE_0=/repo",
+    ]
     assert "--flake" in seen_switch_cmd
     assert "/repo#1337book" in seen_switch_cmd
     assert seen_switch_capture is True
@@ -91,6 +110,7 @@ def test_build_and_switch_reports_switch_failure_output(monkeypatch, capsys):
 
     monkeypatch.setattr(mod, "run_cmd_stream", fake_run_cmd_stream)
     monkeypatch.setattr(mod.os.path, "exists", fake_exists)
+    monkeypatch.setattr(mod, "get_git_toplevel", lambda path: "/repo")
 
     ok = mod.build_and_switch_flake(
         '/repo#nixosConfigurations."1337book".config.system.build.nixos-rebuild',

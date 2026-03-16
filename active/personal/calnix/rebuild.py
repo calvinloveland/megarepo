@@ -124,6 +124,21 @@ def get_repo_root() -> str:
         return os.getcwd()
 
 
+def get_git_toplevel(path: str) -> str | None:
+    try:
+        root = (
+            subprocess.check_output(
+                ["git", "-C", path, "rev-parse", "--show-toplevel"],
+                stderr=subprocess.DEVNULL,
+            )
+            .decode()
+            .strip()
+        )
+        return root or None
+    except Exception:
+        return None
+
+
 def uid_to_user(uid: int) -> str:
     try:
         return pwd.getpwuid(uid).pw_name
@@ -371,16 +386,38 @@ def build_and_switch_flake(
         else:
             print("Re-run with -v to stream the failing nixos-rebuild output.")
 
+    flake_path = flake_ref.split("#", 1)[0]
+    git_toplevel = get_git_toplevel(flake_path)
+
+    def wrap_switch_cmd(base_cmd: list[str]) -> list[str]:
+        env_prefix: list[str] = []
+        if git_toplevel:
+            env_prefix = [
+                "env",
+                "GIT_CONFIG_COUNT=1",
+                "GIT_CONFIG_KEY_0=safe.directory",
+                f"GIT_CONFIG_VALUE_0={git_toplevel}",
+            ]
+
+        if os.geteuid() != 0:
+            return ["sudo", *env_prefix, *base_cmd]
+        if env_prefix:
+            return [*env_prefix, *base_cmd]
+        return base_cmd
+
     # Check if this is the new nixos-rebuild-ng (NixOS 26.05+)
     nixos_rebuild_cmd = os.path.join(build_out, "bin", "nixos-rebuild")
     if os.path.exists(nixos_rebuild_cmd):
         # New style: use nixos-rebuild command directly
         phase_banner(3, 4, "Activate new configuration", estimate_seconds=45)
         switch_cmd = [nixos_rebuild_cmd, "switch", "--flake", flake_ref] + extra_args
-        if os.geteuid() != 0:
-            rc, output = run_cmd_stream(["sudo", *switch_cmd], capture=True, verbose=verbose, label="switch", estimate_seconds=45)
-        else:
-            rc, output = run_cmd_stream(switch_cmd, capture=True, verbose=verbose, label="switch", estimate_seconds=45)
+        rc, output = run_cmd_stream(
+            wrap_switch_cmd(switch_cmd),
+            capture=True,
+            verbose=verbose,
+            label="switch",
+            estimate_seconds=45,
+        )
         if rc != 0:
             report_switch_failure(output)
         return rc == 0
@@ -420,11 +457,13 @@ def build_and_switch_flake(
 
     phase_banner(4, 4, "Activate new configuration", estimate_seconds=45)
     switch_cmd = [candidate, "switch"]
-    if os.geteuid() != 0:
-        # need sudo to switch
-        rc, output = run_cmd_stream(["sudo", *switch_cmd], capture=True, verbose=verbose, label="switch", estimate_seconds=45)
-    else:
-        rc, output = run_cmd_stream(switch_cmd, capture=True, verbose=verbose, label="switch", estimate_seconds=45)
+    rc, output = run_cmd_stream(
+        wrap_switch_cmd(switch_cmd),
+        capture=True,
+        verbose=verbose,
+        label="switch",
+        estimate_seconds=45,
+    )
     if rc != 0:
         report_switch_failure(output)
     return rc == 0
