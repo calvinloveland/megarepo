@@ -4,6 +4,16 @@
   lib,
   ...
 }:
+let
+  orcaSlicerWrapped = pkgs.symlinkJoin {
+    name = "orca-slicer-calnix";
+    paths = [ pkgs.orca-slicer ];
+    nativeBuildInputs = [ pkgs.makeWrapper ];
+    postBuild = ''
+      wrapProgram "$out/bin/orca-slicer" --unset LD_LIBRARY_PATH
+    '';
+  };
+in
 {
   # Desktop environment configuration shared by all desktop hosts
   # (thinker and 1337book)
@@ -138,7 +148,7 @@
     file-roller
     lxqt.lxqt-policykit
 
-    orca-slicer # Slicer for 3d printing
+    orcaSlicerWrapped # Slicer for 3d printing; clears OpenVINO LD_LIBRARY_PATH pollution
   ];
 
   # Enable Bluetooth
