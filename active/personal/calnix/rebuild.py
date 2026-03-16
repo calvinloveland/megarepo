@@ -139,6 +139,10 @@ def get_git_toplevel(path: str) -> str | None:
         return None
 
 
+def format_flake_locator(repo_root: str) -> str:
+    return f"path:{repo_root}"
+
+
 def uid_to_user(uid: int) -> str:
     try:
         return pwd.getpwuid(uid).pw_name
@@ -387,6 +391,8 @@ def build_and_switch_flake(
             print("Re-run with -v to stream the failing nixos-rebuild output.")
 
     flake_path = flake_ref.split("#", 1)[0]
+    if flake_path.startswith("path:"):
+        flake_path = flake_path[len("path:") :]
     git_toplevel = get_git_toplevel(flake_path)
 
     def wrap_switch_cmd(base_cmd: list[str]) -> list[str]:
@@ -495,8 +501,9 @@ def main(argv: list[str] | None = None):
             sys.exit(1)
 
         repo_root = get_repo_root()
-        flake_ref = f"{repo_root}#{host}"
-        flake_expr = f"{repo_root}#nixosConfigurations.\"{host}\".config.system.build.nixos-rebuild"
+        flake_locator = format_flake_locator(repo_root)
+        flake_ref = f"{flake_locator}#{host}"
+        flake_expr = f"{flake_locator}#nixosConfigurations.\"{host}\".config.system.build.nixos-rebuild"
         success = build_and_switch_flake(
             flake_expr,
             flake_ref,

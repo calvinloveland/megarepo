@@ -34,8 +34,8 @@ def test_build_and_switch_fallback(monkeypatch, tmp_path):
     monkeypatch.setattr(mod, "get_git_toplevel", lambda path: "/repo")
 
     ok = mod.build_and_switch_flake(
-        '/repo#nixosConfigurations."1337book".config.system.build.nixos-rebuild',
-        "/repo#1337book",
+        'path:/repo#nixosConfigurations."1337book".config.system.build.nixos-rebuild',
+        "path:/repo#1337book",
         "1337book",
         [],
         None,
@@ -74,8 +74,8 @@ def test_build_and_switch_new_style_uses_absolute_flake_ref(monkeypatch):
     monkeypatch.setattr(mod, "get_git_toplevel", lambda path: "/repo")
 
     ok = mod.build_and_switch_flake(
-        '/repo#nixosConfigurations."1337book".config.system.build.nixos-rebuild',
-        "/repo#1337book",
+        'path:/repo#nixosConfigurations."1337book".config.system.build.nixos-rebuild',
+        "path:/repo#1337book",
         "1337book",
         [],
         None,
@@ -91,7 +91,7 @@ def test_build_and_switch_new_style_uses_absolute_flake_ref(monkeypatch):
         "GIT_CONFIG_VALUE_0=/repo",
     ]
     assert "--flake" in seen_switch_cmd
-    assert "/repo#1337book" in seen_switch_cmd
+    assert "path:/repo#1337book" in seen_switch_cmd
     assert seen_switch_capture is True
 
 
@@ -113,8 +113,8 @@ def test_build_and_switch_reports_switch_failure_output(monkeypatch, capsys):
     monkeypatch.setattr(mod, "get_git_toplevel", lambda path: "/repo")
 
     ok = mod.build_and_switch_flake(
-        '/repo#nixosConfigurations."1337book".config.system.build.nixos-rebuild',
-        "/repo#1337book",
+        'path:/repo#nixosConfigurations."1337book".config.system.build.nixos-rebuild',
+        "path:/repo#1337book",
         "1337book",
         [],
         None,
