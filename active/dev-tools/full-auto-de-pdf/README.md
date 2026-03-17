@@ -177,6 +177,7 @@ full-auto-de-pdf eval-epub \
 - `ocr-pdf` and `benchmark-corpus` can optionally use `--inverse-render-rerank` to re-render the top OCR candidates and compare thresholded ink overlap against the scanned page as a slow second-pass verifier.
 - `benchmark-failures-page` now includes richer representative PDF/page examples with selected preprocess metadata and candidate-score tables, and `benchmark-processing-page` renders a separate walkthrough page that explains the OCR pipeline stages with page examples.
 - `archive-epub-compare-page` now defaults to this tool's local OCR of the archive PDF, with page controls for browsing aligned scan/IA/generated excerpts and a random-page jump.
+- Long-running local OCR commands now print progress with elapsed time and an estimated remaining duration while pages are being processed.
 - OCR cleanup now includes precision-gated adjacent-word merge repair plus conservative confusable-word repair for residual scan errors like split names and `world`/`worid`-style glyph confusions; inverse-render reranking also evaluates cleaned candidate variants so these repairs can be image-verified before selection.
 - Per-page OCR manifests now record the selected preprocess mode, selected Tesseract PSM, and candidate scoring data for debugging and benchmarking.
 - `build-epub` now emits a more structured EPUB3 archive with multiple XHTML chapters when chapter headings are detected, a richer navigation document, semantic headings, preserved ordered/unordered lists, and a bundled stylesheet.

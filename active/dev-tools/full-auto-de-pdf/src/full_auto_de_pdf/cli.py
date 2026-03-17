@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
+import sys
 from typing import Callable
 
 from .archive_compare import build_archive_epub_compare_page
@@ -27,6 +28,72 @@ from .ocr_pipeline import (
     evaluate_ocr_preprocess_modes,
     ocr_pdf_with_tesseract,
 )
+
+
+def _format_duration(seconds: object) -> str:
+    if not isinstance(seconds, (int, float)):
+        return "estimating"
+    total_seconds = max(0, int(round(float(seconds))))
+    hours, remainder = divmod(total_seconds, 3600)
+    minutes, secs = divmod(remainder, 60)
+    if hours > 0:
+        return f"{hours:d}:{minutes:02d}:{secs:02d}"
+    return f"{minutes:02d}:{secs:02d}"
+
+
+def _make_progress_reporter(label: str) -> Callable[[dict[str, object]], None]:
+    last_completed = -1
+
+    def _report(payload: dict[str, object]) -> None:
+        nonlocal last_completed
+        stage = str(payload.get("stage", ""))
+        status = str(payload.get("status", ""))
+        if stage == "archive-compare":
+            message = payload.get("message")
+            if isinstance(message, str) and message:
+                print(f"{label}: {message}", file=sys.stderr, flush=True)
+            return
+        if stage == "rasterize":
+            message = payload.get("message")
+            if isinstance(message, str) and message:
+                print(f"{label}: {message}", file=sys.stderr, flush=True)
+            return
+        if stage != "ocr":
+            return
+        completed_pages = int(payload.get("completed_pages", 0))
+        total_pages = int(payload.get("total_pages", 0))
+        current_page_index = payload.get("current_page_index")
+        should_print = (
+            status == "complete"
+            or completed_pages <= 1
+            or completed_pages == total_pages
+            or completed_pages - last_completed >= 10
+        )
+        if not should_print:
+            return
+        last_completed = completed_pages
+        if status == "complete":
+            print(
+                f"{label}: OCR complete ({completed_pages}/{total_pages} pages, "
+                f"elapsed={_format_duration(payload.get('elapsed_seconds'))})",
+                file=sys.stderr,
+                flush=True,
+            )
+            return
+        current_text = (
+            f", current page={int(current_page_index)}"
+            if isinstance(current_page_index, int)
+            else ""
+        )
+        print(
+            f"{label}: OCR {completed_pages}/{total_pages} pages complete{current_text}, "
+            f"elapsed={_format_duration(payload.get('elapsed_seconds'))}, "
+            f"eta={_format_duration(payload.get('estimated_remaining_seconds'))}",
+            file=sys.stderr,
+            flush=True,
+        )
+
+    return _report
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -1023,6 +1090,7 @@ def _handle_benchmark_parallel_text(args: argparse.Namespace) -> int:
 
 
 def _handle_ocr_pdf(args: argparse.Namespace) -> int:
+    progress_callback = _make_progress_reporter("OCR")
     metrics = ocr_pdf_with_tesseract(
         pdf_path=args.pdf,
         output_text_path=args.output,
@@ -1041,6 +1109,7 @@ def _handle_ocr_pdf(args: argparse.Namespace) -> int:
         inverse_render_rerank=args.inverse_render_rerank,
         inverse_render_top_k=args.inverse_render_top_k,
         verify_cleanup_spans=args.verify_cleanup_spans,
+        progress_callback=progress_callback,
     )
     print(
         f"OCR complete: {metrics['page_count']} pages, "
@@ -1140,6 +1209,7 @@ def _handle_benchmark_processing_page(args: argparse.Namespace) -> int:
 
 
 def _handle_archive_epub_compare_page(args: argparse.Namespace) -> int:
+    progress_callback = _make_progress_reporter("Archive compare")
     summary = build_archive_epub_compare_page(
         archive_identifier=args.archive_identifier,
         output_html_path=args.output,
@@ -1162,6 +1232,7 @@ def _handle_archive_epub_compare_page(args: argparse.Namespace) -> int:
         inverse_render_rerank=not args.no_inverse_render_rerank,
         inverse_render_top_k=args.inverse_render_top_k,
         verify_cleanup_spans=not args.no_verify_cleanup_spans,
+        progress_callback=progress_callback,
     )
     print(
         "Archive EPUB compare page written: "

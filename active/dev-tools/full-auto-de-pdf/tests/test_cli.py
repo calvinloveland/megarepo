@@ -339,6 +339,7 @@ def test_ocr_pdf_command_runs_pipeline(monkeypatch, tmp_path) -> None:
         assert kwargs["inverse_render_rerank"] is True
         assert kwargs["inverse_render_top_k"] == 5
         assert kwargs["verify_cleanup_spans"] is True
+        assert callable(kwargs["progress_callback"])
         return {"page_count": 3, "word_count": 120, "character_count": 600}
 
     monkeypatch.setattr(cli, "ocr_pdf_with_tesseract", _fake_ocr_pdf_with_tesseract)
@@ -592,6 +593,7 @@ def test_archive_epub_compare_page_command_writes_html(monkeypatch, tmp_path) ->
         inverse_render_rerank,
         inverse_render_top_k,
         verify_cleanup_spans,
+        progress_callback,
     ):
         assert archive_identifier == "demo-book"
         assert output_html_path == output_html
@@ -614,6 +616,7 @@ def test_archive_epub_compare_page_command_writes_html(monkeypatch, tmp_path) ->
         assert inverse_render_rerank is True
         assert inverse_render_top_k == 3
         assert verify_cleanup_spans is True
+        assert callable(progress_callback)
         output_html_path.write_text("<html></html>", encoding="utf-8")
         return {
             "generated_source": "local-ocr",

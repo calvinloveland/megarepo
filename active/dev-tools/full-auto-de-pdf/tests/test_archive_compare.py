@@ -56,6 +56,7 @@ def test_build_archive_epub_compare_page_writes_html(monkeypatch, tmp_path) -> N
             "inverse_render_rerank": True,
             "inverse_render_top_k": 3,
             "verify_cleanup_spans": True,
+            "progress_callback": None,
         }
         output_text_path.write_text(
             "CHAPTER I\n\n"

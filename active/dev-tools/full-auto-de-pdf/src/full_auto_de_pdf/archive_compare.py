@@ -7,7 +7,7 @@ import json
 from pathlib import Path
 import re
 import subprocess
-from typing import Any
+from typing import Any, Callable
 from urllib.request import urlopen
 import xml.etree.ElementTree as ET
 import zipfile
@@ -658,6 +658,7 @@ def build_archive_epub_compare_page(
     inverse_render_rerank: bool = True,
     inverse_render_top_k: int = 3,
     verify_cleanup_spans: bool = True,
+    progress_callback: Callable[[dict[str, object]], None] | None = None,
 ) -> dict[str, Any]:
     """Build a local HTML page comparing an archive.org EPUB with a generated EPUB."""
 
@@ -667,6 +668,8 @@ def build_archive_epub_compare_page(
         raise ValueError("archive_source_mode must be one of: djvu, abbyy")
     if selected_pdf_page is not None and selected_pdf_page < 1:
         raise ValueError("selected_pdf_page must be greater than or equal to 1")
+    if progress_callback is not None:
+        progress_callback({"stage": "archive-compare", "status": "running", "message": "Fetching archive metadata"})
     metadata = fetch_metadata(archive_identifier, timeout_seconds=timeout_seconds)
     files = _normalized_files(metadata)
     archive_epub_filename = _select_archive_filename(files, ".epub")
@@ -688,10 +691,14 @@ def build_archive_epub_compare_page(
     generated_dir.mkdir(parents=True, exist_ok=True)
 
     archive_epub_path = downloads_dir / archive_epub_filename
+    if progress_callback is not None:
+        progress_callback({"stage": "archive-compare", "status": "running", "message": "Downloading Internet Archive EPUB"})
     _download_archive_file(archive_identifier, archive_epub_filename, archive_epub_path, timeout_seconds)
     archive_pdf_path: Path | None = None
     if archive_pdf_filename is not None:
         archive_pdf_path = downloads_dir / archive_pdf_filename
+        if progress_callback is not None:
+            progress_callback({"stage": "archive-compare", "status": "running", "message": "Downloading archive scan PDF"})
         _download_archive_file(archive_identifier, archive_pdf_filename, archive_pdf_path, timeout_seconds)
     archive_pdf_url = (
         ARCHIVE_DOWNLOAD_URL.format(identifier=archive_identifier, filename=archive_pdf_filename)
@@ -727,6 +734,7 @@ def build_archive_epub_compare_page(
             inverse_render_rerank=inverse_render_rerank,
             inverse_render_top_k=inverse_render_top_k,
             verify_cleanup_spans=verify_cleanup_spans,
+            progress_callback=progress_callback,
         )
         ocr_text = ocr_text_path.read_text(encoding="utf-8")
         page_artifacts_manifest = ocr_metrics.get("page_artifacts_manifest")
@@ -766,6 +774,8 @@ def build_archive_epub_compare_page(
         }
 
     generated_epub_path = generated_dir / f"{archive_identifier}_{generated_source_slug}_generated.epub"
+    if progress_callback is not None:
+        progress_callback({"stage": "archive-compare", "status": "running", "message": "Building generated EPUB"})
     generated_metrics = build_epub_from_ocr_text(
         ocr_text=ocr_text,
         output_path=generated_epub_path,
@@ -774,6 +784,8 @@ def build_archive_epub_compare_page(
         apply_cleanup=True,
     )
 
+    if progress_callback is not None:
+        progress_callback({"stage": "archive-compare", "status": "running", "message": "Evaluating EPUB structure"})
     archive_eval = evaluate_epub_structure(archive_epub_path, run_epubcheck=run_epubcheck)
     generated_eval = evaluate_epub_structure(generated_epub_path, run_epubcheck=run_epubcheck)
     archive_preview = _epub_preview(archive_epub_path)
@@ -819,6 +831,8 @@ def build_archive_epub_compare_page(
         encoding="utf-8",
     )
     output_html_path.write_text(_render_compare_page(summary), encoding="utf-8")
+    if progress_callback is not None:
+        progress_callback({"stage": "archive-compare", "status": "complete", "message": "Archive compare page ready"})
     return {
         "archive_identifier": archive_identifier,
         "title": title,

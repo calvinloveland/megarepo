@@ -13,6 +13,7 @@ from pathlib import Path
 import re
 import shutil
 import subprocess
+import time
 from typing import Any, Callable
 
 from . import benchmark as benchmark_module
@@ -111,6 +112,7 @@ class OCRRunOptions:
     ocr_engine: str = "tesseract"
     emit_page_artifacts: bool = True
     page_artifacts_dir: Path | None = None
+    progress_callback: Callable[[dict[str, object]], None] | None = None
 
 
 @dataclass(frozen=True)
@@ -599,6 +601,7 @@ def _parse_ocr_options(kwargs: dict[str, Any]) -> OCRRunOptions:
         ocr_engine=str(kwargs.pop("ocr_engine", "tesseract")),
         emit_page_artifacts=bool(kwargs.pop("emit_page_artifacts", True)),
         page_artifacts_dir=page_artifacts_dir,
+        progress_callback=kwargs.pop("progress_callback", None),
     )
 
 
@@ -1464,14 +1467,45 @@ def _page_artifacts_manifest_payload(
     *,
     status: str,
     current_page_index: int | None,
+    elapsed_seconds: float,
 ) -> dict[str, object]:
+    completed_pages = len(page_details)
+    seconds_per_page = (
+        elapsed_seconds / completed_pages
+        if completed_pages > 0 and elapsed_seconds > 0
+        else None
+    )
+    estimated_remaining_seconds = (
+        seconds_per_page * (total_pages - completed_pages)
+        if seconds_per_page is not None and status != "complete"
+        else 0.0 if status == "complete"
+        else None
+    )
+    estimated_total_seconds = (
+        seconds_per_page * total_pages
+        if seconds_per_page is not None
+        else elapsed_seconds if status == "complete"
+        else None
+    )
     return {
         "pages": page_details,
         "progress": {
             "status": status,
             "total_pages": total_pages,
-            "completed_pages": len(page_details),
+            "completed_pages": completed_pages,
             "current_page_index": current_page_index,
+            "elapsed_seconds": round(elapsed_seconds, 3),
+            "seconds_per_page": round(seconds_per_page, 3) if seconds_per_page is not None else None,
+            "estimated_remaining_seconds": (
+                round(estimated_remaining_seconds, 3)
+                if estimated_remaining_seconds is not None
+                else None
+            ),
+            "estimated_total_seconds": (
+                round(estimated_total_seconds, 3)
+                if estimated_total_seconds is not None
+                else None
+            ),
         },
     }
 
@@ -1483,8 +1517,10 @@ def _write_page_artifacts_manifest(
     *,
     status: str,
     current_page_index: int | None,
+    started_at: float,
 ) -> Path:
     artifacts_manifest_path = artifacts_dir / "manifest.json"
+    elapsed_seconds = max(0.0, time.monotonic() - started_at)
     artifacts_manifest_path.write_text(
         json.dumps(
             _page_artifacts_manifest_payload(
@@ -1492,6 +1528,7 @@ def _write_page_artifacts_manifest(
                 total_pages,
                 status=status,
                 current_page_index=current_page_index,
+                elapsed_seconds=elapsed_seconds,
             ),
             indent=2,
             sort_keys=True,
@@ -1502,12 +1539,54 @@ def _write_page_artifacts_manifest(
     return artifacts_manifest_path
 
 
+def _ocr_progress_payload(
+    *,
+    total_pages: int,
+    completed_pages: int,
+    status: str,
+    current_page_index: int | None,
+    started_at: float,
+) -> dict[str, object]:
+    elapsed_seconds = max(0.0, time.monotonic() - started_at)
+    seconds_per_page = (
+        elapsed_seconds / completed_pages
+        if completed_pages > 0 and elapsed_seconds > 0
+        else None
+    )
+    estimated_remaining_seconds = (
+        seconds_per_page * (total_pages - completed_pages)
+        if seconds_per_page is not None and status != "complete"
+        else 0.0 if status == "complete"
+        else None
+    )
+    return {
+        "stage": "ocr",
+        "status": status,
+        "total_pages": total_pages,
+        "completed_pages": completed_pages,
+        "current_page_index": current_page_index,
+        "elapsed_seconds": elapsed_seconds,
+        "seconds_per_page": seconds_per_page,
+        "estimated_remaining_seconds": estimated_remaining_seconds,
+    }
+
+
+def _emit_progress(
+    callback: Callable[[dict[str, object]], None] | None,
+    payload: dict[str, object],
+) -> None:
+    if callback is None:
+        return
+    callback(payload)
+
+
 def _collect_page_ocr_results(
     page_images: list[Path],
     options: OCRRunOptions,
     dependencies: OCRDependencies,
     work_dir: Path,
     artifacts_dir: Path,
+    started_at: float,
 ) -> tuple[list[str], list[dict[str, object]], dict[str, object]]:
     page_texts: list[str] = []
     page_details: list[dict[str, object]] = []
@@ -1527,7 +1606,18 @@ def _collect_page_ocr_results(
             total_pages,
             status="running",
             current_page_index=1 if total_pages else None,
+            started_at=started_at,
         )
+    _emit_progress(
+        options.progress_callback,
+        _ocr_progress_payload(
+            total_pages=total_pages,
+            completed_pages=0,
+            status="running",
+            current_page_index=1 if total_pages else None,
+            started_at=started_at,
+        ),
+    )
     for image_path in page_images:
         ocr_input_path, text, selection_metadata = _run_ocr_on_page(
             image_path,
@@ -1560,7 +1650,18 @@ def _collect_page_ocr_results(
                 total_pages,
                 status="complete" if page_index >= total_pages else "running",
                 current_page_index=page_index + 1 if page_index < total_pages else None,
+                started_at=started_at,
             )
+        _emit_progress(
+            options.progress_callback,
+            _ocr_progress_payload(
+                total_pages=total_pages,
+                completed_pages=page_index,
+                status="complete" if page_index >= total_pages else "running",
+                current_page_index=page_index + 1 if page_index < total_pages else None,
+                started_at=started_at,
+            ),
+        )
     selection_summary: dict[str, object] = {
         "mode_usage": dict(mode_usage),
     }
@@ -1592,6 +1693,7 @@ def _attach_page_artifacts(
     result: dict[str, object],
     artifacts_dir: Path,
     page_details: list[dict[str, object]],
+    started_at: float,
 ) -> None:
     artifacts_manifest_path = _write_page_artifacts_manifest(
         artifacts_dir,
@@ -1599,6 +1701,7 @@ def _attach_page_artifacts(
         len(page_details),
         status="complete",
         current_page_index=None,
+        started_at=started_at,
     )
     result["page_artifacts_dir"] = str(artifacts_dir)
     result["page_artifacts_manifest"] = str(artifacts_manifest_path)
@@ -1617,11 +1720,29 @@ def ocr_pdf_with_tesseract(
     options = _parse_ocr_options(parse_kwargs)
     _ensure_no_unknown_kwargs(parse_kwargs, "ocr_pdf_with_tesseract")
     _validate_ocr_run_options(pdf_path, options, dependencies.which)
+    _emit_progress(
+        options.progress_callback,
+        {
+            "stage": "rasterize",
+            "status": "running",
+            "message": f"Rasterizing {pdf_path.name} at {options.core.dpi} DPI",
+        },
+    )
     page_images = _rasterize_pdf_to_images(
         pdf_path,
         work_dir,
         options.core.dpi,
         dependencies.run_command,
+    )
+    started_at = time.monotonic()
+    _emit_progress(
+        options.progress_callback,
+        {
+            "stage": "rasterize",
+            "status": "complete",
+            "message": f"Rasterized {len(page_images)} pages",
+            "total_pages": len(page_images),
+        },
     )
     artifacts_dir = _prepare_artifacts_dir(work_dir, options)
     page_texts, page_details, selection_summary = _collect_page_ocr_results(
@@ -1630,11 +1751,12 @@ def ocr_pdf_with_tesseract(
         dependencies,
         work_dir,
         artifacts_dir,
+        started_at,
     )
     _final_text, result = _finalize_ocr_output(page_texts, output_text_path, options)
     result.update(selection_summary)
     if options.emit_page_artifacts:
-        _attach_page_artifacts(result, artifacts_dir, page_details)
+        _attach_page_artifacts(result, artifacts_dir, page_details, started_at)
     return result
 
 
@@ -1651,6 +1773,7 @@ def ocr_page_images(
     options = _parse_ocr_options(parse_kwargs)
     _ensure_no_unknown_kwargs(parse_kwargs, "ocr_page_images")
     _validate_page_image_run_options(page_images, options, dependencies.which)
+    started_at = time.monotonic()
     artifacts_dir = _prepare_artifacts_dir(work_dir, options)
     page_texts, page_details, selection_summary = _collect_page_ocr_results(
         page_images,
@@ -1658,11 +1781,12 @@ def ocr_page_images(
         dependencies,
         work_dir,
         artifacts_dir,
+        started_at,
     )
     _final_text, result = _finalize_ocr_output(page_texts, output_text_path, options)
     result.update(selection_summary)
     if options.emit_page_artifacts:
-        _attach_page_artifacts(result, artifacts_dir, page_details)
+        _attach_page_artifacts(result, artifacts_dir, page_details, started_at)
     return result
 
 
