@@ -4,10 +4,12 @@ from __future__ import annotations
 
 from collections import Counter, defaultdict
 from dataclasses import dataclass
+import hashlib
 import html
 import json
 from pathlib import Path
 import re
+import shutil
 from typing import Any
 
 from .ocr_cleanup import cleanup_ocr_text
@@ -64,10 +66,28 @@ def _resolve_path(path_value: str, report_dir: Path) -> Path:
 
 
 def _to_href(path: Path, output_dir: Path) -> str:
+    resolved_output_dir = output_dir.resolve()
+    resolved_path = path.resolve()
     try:
-        return path.relative_to(output_dir).as_posix()
+        return resolved_path.relative_to(resolved_output_dir).as_posix()
     except ValueError:
-        return path.resolve().as_uri()
+        copied_asset_path = _copy_asset_into_output_dir(resolved_path, resolved_output_dir)
+        return copied_asset_path.relative_to(resolved_output_dir).as_posix()
+
+
+def _copy_asset_into_output_dir(path: Path, output_dir: Path) -> Path:
+    digest = hashlib.sha256(str(path).encode("utf-8")).hexdigest()[:12]
+    asset_dir = output_dir / "_assets" / digest
+    asset_dir.mkdir(parents=True, exist_ok=True)
+    asset_path = asset_dir / path.name
+    if not asset_path.exists():
+        shutil.copy2(path, asset_path)
+        return asset_path
+    source_stat = path.stat()
+    asset_stat = asset_path.stat()
+    if source_stat.st_size != asset_stat.st_size or source_stat.st_mtime_ns != asset_stat.st_mtime_ns:
+        shutil.copy2(path, asset_path)
+    return asset_path
 
 
 def _summarize_token_failures(

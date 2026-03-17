@@ -153,6 +153,26 @@ def test_build_local_benchmark_failure_page_renders_failures_and_images(tmp_path
     assert "candidate scoring" in html
 
 
+def test_build_local_benchmark_failure_page_copies_images_when_output_is_elsewhere(tmp_path) -> None:
+    report_dir = tmp_path / "report_data"
+    report_dir.mkdir()
+    report_path = _write_sample_report(report_dir)
+    output_dir = tmp_path / "site"
+    output_html = output_dir / "benchmark_failures.html"
+    build_local_benchmark_failure_page(
+        report_path=report_path,
+        output_html_path=output_html,
+        max_failures=10,
+        max_pages_per_token=2,
+        max_example_pages=3,
+    )
+    html = output_html.read_text(encoding="utf-8")
+    assert "file://" not in html
+    assert "_assets/" in html
+    copied_assets = list((output_dir / "_assets").rglob("*.png"))
+    assert copied_assets
+
+
 def test_build_local_benchmark_processing_page_renders_processing_examples(tmp_path) -> None:
     report_path = _write_sample_report(tmp_path)
     output_html = tmp_path / "benchmark_processing.html"
@@ -170,6 +190,24 @@ def test_build_local_benchmark_processing_page_renders_processing_examples(tmp_p
     assert "mode summary" in html
     assert "ocr input (scan)" in html
     assert "candidate scoring" in html
+
+
+def test_build_local_benchmark_processing_page_copies_images_when_output_is_elsewhere(tmp_path) -> None:
+    report_dir = tmp_path / "report_data"
+    report_dir.mkdir()
+    report_path = _write_sample_report(report_dir)
+    output_dir = tmp_path / "site"
+    output_html = output_dir / "benchmark_processing.html"
+    build_local_benchmark_processing_page(
+        report_path=report_path,
+        output_html_path=output_html,
+        max_example_pages=2,
+    )
+    html = output_html.read_text(encoding="utf-8")
+    assert "file://" not in html
+    assert "_assets/" in html
+    copied_assets = list((output_dir / "_assets").rglob("*.png"))
+    assert copied_assets
 
 
 def test_build_local_benchmark_failure_page_requires_reference_path(tmp_path) -> None:
