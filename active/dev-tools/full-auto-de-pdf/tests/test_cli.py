@@ -573,20 +573,50 @@ def test_archive_epub_compare_page_command_writes_html(monkeypatch, tmp_path) ->
     def _fake_build_archive_epub_compare_page(  # noqa: ANN001
         archive_identifier,
         output_html_path,
+        generated_source,
         archive_source_mode,
         timeout_seconds,
         run_epubcheck,
         selected_pdf_page,
+        ocr_language,
+        dpi,
+        ocr_engine,
+        preprocess_mode,
+        binarize_threshold,
+        deskew_max_angle,
+        deskew_angle_step,
+        tesseract_psm,
+        apply_cleanup,
+        emit_page_artifacts,
+        page_artifacts_dir,
+        inverse_render_rerank,
+        inverse_render_top_k,
+        verify_cleanup_spans,
     ):
         assert archive_identifier == "demo-book"
         assert output_html_path == output_html
+        assert generated_source == "local-ocr"
         assert archive_source_mode == "abbyy"
         assert timeout_seconds == 75
         assert run_epubcheck is True
         assert selected_pdf_page == 12
+        assert ocr_language is None
+        assert dpi == 300
+        assert ocr_engine == "tesseract"
+        assert preprocess_mode == "auto"
+        assert binarize_threshold == 190
+        assert deskew_max_angle == 3.0
+        assert deskew_angle_step == 0.5
+        assert tesseract_psm == "auto"
+        assert apply_cleanup is True
+        assert emit_page_artifacts is True
+        assert page_artifacts_dir is None
+        assert inverse_render_rerank is True
+        assert inverse_render_top_k == 3
+        assert verify_cleanup_spans is True
         output_html_path.write_text("<html></html>", encoding="utf-8")
         return {
-            "archive_source": "abbyy",
+            "generated_source": "local-ocr",
             "title": "Demo Book",
         }
 

@@ -16,6 +16,7 @@ from .archive_org import ARCHIVE_DETAILS_URL, fetch_metadata
 from .benchmark import ARCHIVE_DOWNLOAD_URL, fetch_archive_abbyy_text, fetch_archive_ocr_text
 from .epub import build_epub_from_ocr_text
 from .epub_eval import _read_epub_contents, evaluate_epub_structure
+from .ocr_pipeline import ocr_pdf_with_tesseract
 
 _TAG_RE = re.compile(r"<[^>]+>")
 _TOKEN_RE = re.compile(r"[a-z0-9']+")
@@ -41,6 +42,13 @@ def _normalize_language(value: Any) -> str:
     if raw in {"eng", "en", "english"}:
         return "en"
     return raw or "en"
+
+
+def _normalize_ocr_language(value: Any) -> str:
+    raw = (_extract_first_string(value) or "").strip().lower()
+    if raw in {"eng", "en", "english"}:
+        return "eng"
+    return raw or "eng"
 
 
 def _normalized_files(metadata: dict[str, Any]) -> list[dict[str, Any]]:
@@ -379,6 +387,88 @@ def _render_preview_list(items: list[str], empty_message: str) -> str:
     return "<ol>" + "".join(f"<li>{escape(item)}</li>" for item in items) + "</ol>"
 
 
+def _render_generated_source_details(summary: dict[str, Any]) -> str:
+    details = summary.get("generated_source_details")
+    if not isinstance(details, dict):
+        return ""
+    detail_items = [
+        ("generated source", str(summary.get("generated_from", "n/a"))),
+    ]
+    detail_type = details.get("type")
+    if detail_type == "local-ocr":
+        detail_items.extend(
+            [
+                ("OCR engine", str(details.get("ocr_engine", "n/a"))),
+                ("OCR language", str(details.get("ocr_language", "n/a"))),
+                ("preprocess mode", str(details.get("preprocess_mode", "n/a"))),
+                ("Tesseract PSM", str(details.get("tesseract_psm", "n/a"))),
+                ("cleanup", "enabled" if details.get("apply_cleanup") else "disabled"),
+                (
+                    "inverse-render rerank",
+                    "enabled" if details.get("inverse_render_rerank") else "disabled",
+                ),
+                (
+                    "cleanup span verification",
+                    "enabled" if details.get("verify_cleanup_spans") else "disabled",
+                ),
+            ]
+        )
+        ocr_metrics = details.get("ocr_metrics")
+        if isinstance(ocr_metrics, dict):
+            detail_items.extend(
+                [
+                    ("OCR pages", str(ocr_metrics.get("page_count", "n/a"))),
+                    ("OCR words", str(ocr_metrics.get("word_count", "n/a"))),
+                ]
+            )
+            mode_usage = ocr_metrics.get("mode_usage")
+            if isinstance(mode_usage, dict) and mode_usage:
+                detail_items.append(
+                    (
+                        "selected preprocess usage",
+                        ", ".join(
+                            f"{str(mode)}: {int(count)}"
+                            for mode, count in sorted(mode_usage.items())
+                        ),
+                    )
+                )
+            tesseract_psm_usage = ocr_metrics.get("tesseract_psm_usage")
+            if isinstance(tesseract_psm_usage, dict) and tesseract_psm_usage:
+                detail_items.append(
+                    (
+                        "selected Tesseract PSM usage",
+                        ", ".join(
+                            f"{str(psm)}: {int(count)}"
+                            for psm, count in sorted(tesseract_psm_usage.items())
+                        ),
+                    )
+                )
+        page_artifacts_manifest_href = details.get("page_artifacts_manifest_href")
+        if page_artifacts_manifest_href is not None:
+            detail_items.append(
+                (
+                    "local OCR page artifacts manifest",
+                    f"<a href='{escape(str(page_artifacts_manifest_href))}'>page_ocr/manifest.json</a>",
+                )
+            )
+    elif detail_type == "archive-ocr":
+        detail_items.append(("archive OCR source", str(details.get("archive_source_mode", "n/a"))))
+    return (
+        "<h2>Generated EPUB input</h2>"
+        "<table><tbody>"
+        + "".join(
+            (
+                "<tr>"
+                f"<th>{escape(label)}</th>"
+                f"<td>{value if value.startswith('<a ') else escape(value)}</td>"
+                "</tr>"
+            )
+            for label, value in detail_items
+        )
+        + "</tbody></table>"
+    )
+
+
 def _render_aligned_section(summary: dict[str, Any]) -> str:
     aligned_section = summary.get("aligned_section")
     if not isinstance(aligned_section, dict):
@@ -508,15 +598,16 @@ def _render_compare_page(summary: dict[str, Any]) -> str:
         f"<h1>{escape(summary['title'])}: Internet Archive EPUB vs generated EPUB</h1>"
         "<p>"
         f"identifier=<code>{escape(summary['identifier'])}</code>, "
-        f"generated_from=<code>archive {escape(summary['archive_source'])} OCR text</code>"
+        f"generated_from=<code>{escape(str(summary['generated_from']))}</code>"
         "</p>"
         "<ul>"
         f"<li><a href='{escape(summary['details_url'])}'>Internet Archive details page</a></li>"
         f"<li><a href='{escape(summary['archive_epub_href'])}'>Downloaded Internet Archive EPUB</a></li>"
         f"<li><a href='{escape(summary['generated_epub_href'])}'>Generated EPUB</a></li>"
-        f"<li><a href='{escape(summary['ocr_text_href'])}'>Source OCR text used for generation</a></li>"
+        f"<li><a href='{escape(summary['ocr_text_href'])}'>{escape(str(summary['ocr_text_label']))}</a></li>"
         f"{archive_pdf_html}"
         "</ul>"
+        f"{_render_generated_source_details(summary)}"
         "<h2>Structure and generation stats</h2>"
         "<table><thead><tr><th>metric</th><th>Internet Archive EPUB</th><th>Generated EPUB</th></tr></thead><tbody>"
         f"{_render_metric_rows(archive_eval, generated_eval, generated_metrics)}"
@@ -548,13 +639,30 @@ def build_archive_epub_compare_page(
     *,
     archive_identifier: str,
     output_html_path: Path,
+    generated_source: str = "local-ocr",
     archive_source_mode: str = "djvu",
     timeout_seconds: int = 60,
     run_epubcheck: bool = False,
     selected_pdf_page: int | None = None,
+    ocr_language: str | None = None,
+    dpi: int = 300,
+    ocr_engine: str = "tesseract",
+    preprocess_mode: str = "auto",
+    binarize_threshold: int = 190,
+    deskew_max_angle: float = 3.0,
+    deskew_angle_step: float = 0.5,
+    tesseract_psm: str = "auto",
+    apply_cleanup: bool = True,
+    emit_page_artifacts: bool = True,
+    page_artifacts_dir: Path | None = None,
+    inverse_render_rerank: bool = True,
+    inverse_render_top_k: int = 3,
+    verify_cleanup_spans: bool = True,
 ) -> dict[str, Any]:
     """Build a local HTML page comparing an archive.org EPUB with a generated EPUB."""
 
+    if generated_source not in {"local-ocr", "archive-ocr"}:
+        raise ValueError("generated_source must be one of: local-ocr, archive-ocr")
     if archive_source_mode not in {"djvu", "abbyy"}:
         raise ValueError("archive_source_mode must be one of: djvu, abbyy")
     if selected_pdf_page is not None and selected_pdf_page < 1:
@@ -569,6 +677,7 @@ def build_archive_epub_compare_page(
     metadata_dict = metadata_obj if isinstance(metadata_obj, dict) else {}
     title = _extract_first_string(metadata_dict.get("title")) or archive_identifier
     language = _normalize_language(metadata_dict.get("language"))
+    resolved_ocr_language = ocr_language or _normalize_ocr_language(metadata_dict.get("language"))
 
     output_dir = output_html_path.parent.resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -590,16 +699,73 @@ def build_archive_epub_compare_page(
         else None
     )
 
-    if archive_source_mode == "djvu":
-        ocr_text = fetch_archive_ocr_text(archive_identifier, timeout_seconds=timeout_seconds)
+    if generated_source == "local-ocr":
+        if archive_pdf_path is None:
+            raise ValueError(
+                f"archive item {archive_identifier!r} does not provide a PDF needed for local OCR generation"
+            )
+        generated_source_slug = "local_ocr"
+        generated_from = "local OCR on archive PDF"
+        ocr_text_label = "Local OCR text used for generation"
+        ocr_text_path = assets_dir / f"{archive_identifier}_{generated_source_slug}.txt"
+        resolved_page_artifacts_dir = page_artifacts_dir or (assets_dir / "page_ocr")
+        ocr_metrics = ocr_pdf_with_tesseract(
+            pdf_path=archive_pdf_path,
+            output_text_path=ocr_text_path,
+            work_dir=generated_dir / "local_ocr_work",
+            language=resolved_ocr_language,
+            dpi=dpi,
+            apply_cleanup=apply_cleanup,
+            preprocess_mode=preprocess_mode,
+            binarize_threshold=binarize_threshold,
+            deskew_max_angle=deskew_max_angle,
+            deskew_angle_step=deskew_angle_step,
+            tesseract_psm=tesseract_psm,
+            ocr_engine=ocr_engine,
+            emit_page_artifacts=emit_page_artifacts,
+            page_artifacts_dir=resolved_page_artifacts_dir,
+            inverse_render_rerank=inverse_render_rerank,
+            inverse_render_top_k=inverse_render_top_k,
+            verify_cleanup_spans=verify_cleanup_spans,
+        )
+        ocr_text = ocr_text_path.read_text(encoding="utf-8")
+        page_artifacts_manifest = ocr_metrics.get("page_artifacts_manifest")
+        page_artifacts_manifest_href: str | None = None
+        if isinstance(page_artifacts_manifest, str):
+            page_artifacts_manifest_path = Path(page_artifacts_manifest).resolve()
+            if page_artifacts_manifest_path.is_relative_to(output_dir):
+                page_artifacts_manifest_href = _to_rel_href(page_artifacts_manifest_path, output_dir)
+        generated_source_details: dict[str, Any] = {
+            "type": "local-ocr",
+            "ocr_language": resolved_ocr_language,
+            "ocr_engine": ocr_engine,
+            "preprocess_mode": preprocess_mode,
+            "tesseract_psm": tesseract_psm,
+            "apply_cleanup": apply_cleanup,
+            "inverse_render_rerank": inverse_render_rerank,
+            "inverse_render_top_k": inverse_render_top_k,
+            "verify_cleanup_spans": verify_cleanup_spans,
+            "ocr_metrics": ocr_metrics,
+            "page_artifacts_manifest_href": page_artifacts_manifest_href,
+        }
     else:
-        ocr_text = fetch_archive_abbyy_text(archive_identifier, timeout_seconds=timeout_seconds)
-        if ocr_text is None:
-            raise ValueError(f"archive item {archive_identifier!r} does not provide ABBYY OCR text")
+        if archive_source_mode == "djvu":
+            ocr_text = fetch_archive_ocr_text(archive_identifier, timeout_seconds=timeout_seconds)
+        else:
+            ocr_text = fetch_archive_abbyy_text(archive_identifier, timeout_seconds=timeout_seconds)
+            if ocr_text is None:
+                raise ValueError(f"archive item {archive_identifier!r} does not provide ABBYY OCR text")
+        generated_source_slug = archive_source_mode
+        generated_from = f"archive {archive_source_mode} OCR text"
+        ocr_text_label = "Archive OCR text used for generation"
+        ocr_text_path = assets_dir / f"{archive_identifier}_{generated_source_slug}.txt"
+        ocr_text_path.write_text(ocr_text, encoding="utf-8")
+        generated_source_details = {
+            "type": "archive-ocr",
+            "archive_source_mode": archive_source_mode,
+        }
 
-    ocr_text_path = assets_dir / f"{archive_identifier}_{archive_source_mode}.txt"
-    ocr_text_path.write_text(ocr_text, encoding="utf-8")
-    generated_epub_path = generated_dir / f"{archive_identifier}_{archive_source_mode}_generated.epub"
+    generated_epub_path = generated_dir / f"{archive_identifier}_{generated_source_slug}_generated.epub"
     generated_metrics = build_epub_from_ocr_text(
         ocr_text=ocr_text,
         output_path=generated_epub_path,
@@ -628,7 +794,11 @@ def build_archive_epub_compare_page(
     summary = {
         "identifier": archive_identifier,
         "title": title,
+        "generated_source": generated_source,
+        "generated_from": generated_from,
         "archive_source": archive_source_mode,
+        "generated_source_details": generated_source_details,
+        "ocr_text_label": ocr_text_label,
         "details_url": ARCHIVE_DETAILS_URL.format(identifier=archive_identifier),
         "archive_pdf_url": archive_pdf_url,
         "archive_epub_path": str(archive_epub_path),
@@ -655,6 +825,7 @@ def build_archive_epub_compare_page(
         "output_html_path": str(output_html_path),
         "archive_epub_path": str(archive_epub_path),
         "generated_epub_path": str(generated_epub_path),
+        "generated_source": generated_source,
         "archive_source": archive_source_mode,
         "selected_pdf_page": selected_pdf_page,
     }

@@ -760,7 +760,13 @@ def _add_archive_epub_compare_page_command(
         "--archive-source-mode",
         choices=["djvu", "abbyy"],
         default="djvu",
-        help="Which Internet Archive OCR text to use for generated EPUB input",
+        help="Which Internet Archive OCR text to use when --generated-source=archive-ocr",
+    )
+    parser.add_argument(
+        "--generated-source",
+        choices=["local-ocr", "archive-ocr"],
+        default="local-ocr",
+        help="Build the generated EPUB from local OCR of the archive PDF or from archive OCR text",
     )
     parser.add_argument(
         "--timeout-seconds",
@@ -777,6 +783,76 @@ def _add_archive_epub_compare_page_command(
         "--pdf-page",
         type=int,
         help="Prefer a specific PDF page for the initial aligned comparison view",
+    )
+    parser.add_argument(
+        "--language",
+        help="Tesseract language code for local OCR (defaults from archive metadata)",
+    )
+    parser.add_argument("--dpi", type=int, default=300, help="Rasterization DPI for local OCR")
+    parser.add_argument(
+        "--ocr-engine",
+        choices=["tesseract", "paddleocr"],
+        default="tesseract",
+        help="OCR engine backend for local OCR generation",
+    )
+    parser.add_argument(
+        "--preprocess-mode",
+        default="auto",
+        help="Preprocess mode for local OCR generation",
+    )
+    parser.add_argument(
+        "--binarize-threshold",
+        type=int,
+        default=190,
+        help="Binarization threshold for local OCR (0-255)",
+    )
+    parser.add_argument(
+        "--deskew-max-angle",
+        type=float,
+        default=3.0,
+        help="Maximum absolute deskew angle to search for local OCR (degrees)",
+    )
+    parser.add_argument(
+        "--deskew-angle-step",
+        type=float,
+        default=0.5,
+        help="Deskew angle search step size for local OCR (degrees)",
+    )
+    parser.add_argument(
+        "--tesseract-psm",
+        default="auto",
+        help="Tesseract page segmentation mode for local OCR (0-13) or 'auto'",
+    )
+    parser.add_argument(
+        "--no-cleanup",
+        action="store_true",
+        help="Disable OCR cleanup before building the generated EPUB",
+    )
+    parser.add_argument(
+        "--no-page-artifacts",
+        action="store_true",
+        help="Disable per-page local OCR artifacts",
+    )
+    parser.add_argument(
+        "--page-artifacts-dir",
+        type=Path,
+        help="Optional directory for local OCR page artifacts",
+    )
+    parser.add_argument(
+        "--no-inverse-render-rerank",
+        action="store_true",
+        help="Disable inverse-render reranking for local OCR generation",
+    )
+    parser.add_argument(
+        "--inverse-render-top-k",
+        type=int,
+        default=3,
+        help="Top text-scored OCR candidates to inverse-render per page",
+    )
+    parser.add_argument(
+        "--no-verify-cleanup-spans",
+        action="store_true",
+        help="Disable image-verified cleanup checks for local OCR generation",
     )
 
 
@@ -1067,14 +1143,29 @@ def _handle_archive_epub_compare_page(args: argparse.Namespace) -> int:
     summary = build_archive_epub_compare_page(
         archive_identifier=args.archive_identifier,
         output_html_path=args.output,
+        generated_source=args.generated_source,
         archive_source_mode=args.archive_source_mode,
         timeout_seconds=args.timeout_seconds,
         run_epubcheck=args.run_epubcheck,
         selected_pdf_page=args.pdf_page,
+        ocr_language=args.language,
+        dpi=args.dpi,
+        ocr_engine=args.ocr_engine,
+        preprocess_mode=args.preprocess_mode,
+        binarize_threshold=args.binarize_threshold,
+        deskew_max_angle=args.deskew_max_angle,
+        deskew_angle_step=args.deskew_angle_step,
+        tesseract_psm=args.tesseract_psm,
+        apply_cleanup=not args.no_cleanup,
+        emit_page_artifacts=not args.no_page_artifacts,
+        page_artifacts_dir=args.page_artifacts_dir,
+        inverse_render_rerank=not args.no_inverse_render_rerank,
+        inverse_render_top_k=args.inverse_render_top_k,
+        verify_cleanup_spans=not args.no_verify_cleanup_spans,
     )
     print(
         "Archive EPUB compare page written: "
-        f"source={summary['archive_source']} "
+        f"generated_source={summary['generated_source']} "
         f"title={summary['title']} -> {args.output}"
     )
     return 0

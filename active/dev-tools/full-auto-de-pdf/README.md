@@ -155,11 +155,12 @@ full-auto-de-pdf benchmark-processing-page \
   --output data/benchmark_processing.html
 
 # Compare an Internet Archive EPUB with a generated EPUB built from
-# the archive's OCR text, including page controls for the scan/EPUB tri-view
+# this tool's local OCR of the archive PDF, including page controls for the tri-view
 full-auto-de-pdf archive-epub-compare-page \
   --archive-identifier dracu00stok \
   --pdf-page 8 \
   --output data/archive_epub_compare.html
+# (pass --generated-source archive-ocr to reproduce the older archive-OCR-based compare flow)
 
 # Evaluate EPUB structure + optional epubcheck
 full-auto-de-pdf eval-epub \
@@ -175,6 +176,7 @@ full-auto-de-pdf eval-epub \
 - There is now an experimental `scan-local-threshold` preprocess mode that keeps the scan stack (`autocontrast -> median -> 3x upsample`) but swaps the final Otsu binarization for adaptive Gaussian thresholding; it is intended for degraded scans and is now included in `auto`.
 - `ocr-pdf` and `benchmark-corpus` can optionally use `--inverse-render-rerank` to re-render the top OCR candidates and compare thresholded ink overlap against the scanned page as a slow second-pass verifier.
 - `benchmark-failures-page` now includes richer representative PDF/page examples with selected preprocess metadata and candidate-score tables, and `benchmark-processing-page` renders a separate walkthrough page that explains the OCR pipeline stages with page examples.
+- `archive-epub-compare-page` now defaults to this tool's local OCR of the archive PDF, with page controls for browsing aligned scan/IA/generated excerpts and a random-page jump.
 - OCR cleanup now includes precision-gated adjacent-word merge repair plus conservative confusable-word repair for residual scan errors like split names and `world`/`worid`-style glyph confusions; inverse-render reranking also evaluates cleaned candidate variants so these repairs can be image-verified before selection.
 - Per-page OCR manifests now record the selected preprocess mode, selected Tesseract PSM, and candidate scoring data for debugging and benchmarking.
 - `build-epub` now emits a more structured EPUB3 archive with multiple XHTML chapters when chapter headings are detected, a richer navigation document, semantic headings, preserved ordered/unordered lists, and a bundled stylesheet.
