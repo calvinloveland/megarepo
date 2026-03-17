@@ -190,7 +190,7 @@ SECRET_KEY=test-key .venv/bin/pytest -v
 ## Data Storage
 
 - **Saves**: `data/saves/*.json` - User-created seating charts (not committed)
-- **Feedback**: `data/feedback/*.json` - User submissions (not committed)
+- **Feedback**: [`data/feedback/*.json`](data/feedback/README.md) - User submissions (not committed)
 - **Feedback Addressed**: `data/feedback/addressed/*.json` - Archived feedback
 
 All `.json` files are gitignored. Docker volumes persist across container restarts.

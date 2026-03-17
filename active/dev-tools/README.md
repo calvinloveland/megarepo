@@ -6,6 +6,7 @@ Development tools and utilities for productivity, automation, and software devel
 
 ### CI/CD & Automation
 - [**full-auto-ci**](full-auto-ci/README.md) - CI automation and deployment tools with [design documentation](full-auto-ci/design.md)
+- [**full-auto-de-pdf**](full-auto-de-pdf/README.md) - Scanned PDF to EPUB conversion toolkit and OCR benchmarking utilities
 - [**copilot-lint-fixer**](copilot-lint-fixer/README.md) - Integration with GitHub Copilot for automatic linting fixes
 
 ### Web Development

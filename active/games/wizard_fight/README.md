@@ -11,12 +11,12 @@ A web-based wizard duel game where players research spells via LLMs and battle i
 ## Quick Start
 
 ### One Command (Backend + Frontend)
-From [active/games/wizard_fight](active/games/wizard_fight):
+From [`active/games/wizard_fight/`](.):
 
 - `./scripts/dev.sh`
 
 ### One Command (Backend + Frontend + Ollama)
-From [active/games/wizard_fight](active/games/wizard_fight):
+From [`active/games/wizard_fight/`](.):
 
 - `./scripts/start_all.sh`
 
@@ -28,7 +28,7 @@ Override with env vars:
 - `WIZARD_FIGHT_PORT=6060 WIZARD_FIGHT_FRONTEND_PORT=6061 ./scripts/dev.sh`
 
 ### Backend
-From [active/games/wizard_fight](active/games/wizard_fight):
+From [`active/games/wizard_fight/`](.):
 
 1. Create a virtual environment and install dependencies:
 	- `python -m venv .venv`
@@ -41,7 +41,7 @@ From [active/games/wizard_fight](active/games/wizard_fight):
 The backend listens on port `5055` by default.
 
 ### Frontend
-From [active/games/wizard_fight/frontend](active/games/wizard_fight/frontend):
+From [`active/games/wizard_fight/frontend/`](frontend/):
 
 Serve the static files:
 - `python -m http.server 5175`
@@ -51,20 +51,20 @@ Open http://localhost:5175 in a browser.
 ## Tests
 
 ### Backend
-From [active/games/wizard_fight](active/games/wizard_fight):
+From [`active/games/wizard_fight/`](.):
 - `python -m pytest`
 
 ### Frontend
 No frontend test runner is required for the vanilla setup.
 
 ## Useful Docs
-- Development plan: [active/games/wizard_fight/DEVELOPMENT_PLAN.md](active/games/wizard_fight/DEVELOPMENT_PLAN.md)
-- Spell DSL schema: [active/games/wizard_fight/docs/dsl_v1.md](active/games/wizard_fight/docs/dsl_v1.md)
-- VPS deployment: [active/games/wizard_fight/docs/deploy_vps.md](active/games/wizard_fight/docs/deploy_vps.md)
+- Development plan: [DEVELOPMENT_PLAN.md](DEVELOPMENT_PLAN.md)
+- Spell DSL schema: [docs/dsl_v1.md](docs/dsl_v1.md)
+- VPS deployment: [docs/deploy_vps.md](docs/deploy_vps.md)
 
 ## Notes
 - The spell system never executes arbitrary code. All spells are validated against the JSON schema before use.
-- Research has a built-in delay (see [active/games/wizard_fight/docs/timing_v1.json](active/games/wizard_fight/docs/timing_v1.json)).
+- Research has a built-in delay (see [`docs/timing_v1.json`](docs/timing_v1.json)).
 - To point the frontend at a different backend URL, edit `frontend/app.js` (defaults to `http://localhost:5055`).
 - The frontend is plain HTML/CSS/JS and can be served by any static file server.
 - The Spell Lab on the game page lets you generate and save spells without starting a match.

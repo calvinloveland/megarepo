@@ -1,19 +1,43 @@
 # Shared Web Systems
 
-Reusable components shared by multiple web apps in this directory.
+Reusable building blocks shared by applications in [`active/web-apps/`](../README.md).
 
-## Feedback system
+## Shared Feedback System
+
+The current shared package is the feedback system used by HTMX/Flask apps in this area.
 
 - Backend module: `src/web_feedback/`
 - Shared widget template: `templates/_shared_feedback.html`
-- Routes provided to apps:
-  - `POST /feedback`
-  - `GET /feedback` (basic auth via `FEEDBACK_ADMIN_USERNAME` and `FEEDBACK_ADMIN_PASSWORD`)
-  - `POST /feedback/mark-addressed`
+- Helper entrypoint: `enable_shared_feedback(...)`
 
-Apps enable this system via `enable_shared_feedback(...)` and keep their data in each app's `data/feedback/` directory.
+### Routes provided to apps
 
-Saved feedback items include context fields:
-- `app` (server-defined app name)
-- `page_path` (client page path)
-- `page_title` (client page title)
+- `POST /feedback`
+- `GET /feedback` (basic auth via `FEEDBACK_ADMIN_USERNAME` and `FEEDBACK_ADMIN_PASSWORD`)
+- `POST /feedback/mark-addressed`
+
+### Stored feedback fields
+
+Saved feedback items include:
+
+- `app` - server-defined application name
+- `page_path` - client page path
+- `page_title` - client page title
+
+## Integration Notes
+
+Apps using the shared system should:
+
+1. wire in `enable_shared_feedback(...)`
+2. provide admin credentials for feedback review
+3. store runtime submissions in an app-local `data/feedback/` directory
+
+Current example:
+
+- [Parambulator](../parambulator/README.md) uses this feedback system
+- [Parambulator feedback data notes](../parambulator/data/feedback/README.md) describe the runtime storage directory
+
+## Related Documentation
+
+- [Web Apps index](../README.md)
+- [Repository root](../../../README.md)

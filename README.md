@@ -1,92 +1,87 @@
 # Megarepo
 
-A consolidated monorepo containing all public repos from [calvinloveland](https://github.com/calvinloveland).
+A consolidated monorepo for active projects, archived experiments, shared tooling, and repository-level documentation.
 
-Generated: January 15, 2026
+## Start Here
 
-## Directory Index
+- [**active/**](active/README.md) - maintained projects grouped by area
+- [**archive/**](archive/README.md) - legacy projects, experiments, and third-party forks kept for reference
+- [**docs/**](docs/README.md) - repository-wide guides and generated page indexes
+- [**ideas/**](ideas/README.md) - project concepts and brainstorming notes
+- [**meta/**](meta/README.md) - repository analysis and maintenance notes
+- [**scripts/**](scripts/README.md) - utilities that build and index repository documentation
+- [**.devcontainer/**](.devcontainer/README.md) - local development container setup
+- [**.github/skills/**](.github/skills/README.md) - Copilot skill experiments and repository guidance
 
-- [**active/**](active/README.md) - Actively maintained projects and tools
-- [**archive/**](archive/README.md) - Archived and legacy projects
-- [**docs/**](docs/README.md) - Repository documentation
-- [**ideas/**](ideas/README.md) - Project ideas and brainstorming
-- [**meta/**](meta/README.md) - Repository metadata and analysis
-- [**scripts/**](scripts/README.md) - Build scripts and utilities
-- [**site/**](site/README.md) - Generated static documentation site
+`site/` is generated output; rebuild it with [`scripts/build_pages.py`](scripts/README.md).
 
-## Structure
+## Active Projects
 
-### 📂 `active/` - Active Projects
+### 🛠️ Development Tools
 
-#### 🛠️ `active/dev-tools/` - Development Tools
 | Project | Description | Language |
 |---------|-------------|----------|
-| **full-auto-ci** | CI automation tool | Python |
-| **cli-to-web** | Convert CLI tools to web interfaces | Python |
-| **operationalize** | Party game / development framework | Python |
-| **operationalize_vscode_ext** | VS Code extension for operationalize | JavaScript |
-| **plaintext_project_management** | Project management in plain text | Python |
-| **time_function_with_timeout** | Python timing utility | Python |
-| **tough_bugs** | Debugging challenges | Python |
+| [**full-auto-ci**](active/dev-tools/full-auto-ci/README.md) | CI automation and local dogfooding tools | Python |
+| [**full-auto-de-pdf**](active/dev-tools/full-auto-de-pdf/README.md) | Scanned PDF to EPUB conversion and OCR benchmarking toolkit | Python |
+| [**cli-to-web**](active/dev-tools/cli-to-web/README.md) | Framework for turning CLI workflows into web interfaces | Python |
+| [**browser-error-logger**](active/dev-tools/browser-error-logger/README.md) | Browser-side JavaScript error capture library | TypeScript |
+| [**copilot-lint-fixer**](active/dev-tools/copilot-lint-fixer/README.md) | Copilot-assisted `pylint` fixer for Python files | Python |
+| [**plaintext_project_management**](active/dev-tools/plaintext_project_management/README.md) | Plain-text project management tooling | Python |
+| [**markdown-orphan-finder**](active/dev-tools/markdown-orphan-finder/README.md) | Markdown graph tool for finding orphaned docs | Python |
+| [**bingo-probability**](active/dev-tools/bingo-probability/README.md) | Exact and Monte Carlo bingo probability solver | Python |
+| [**operationalize**](active/dev-tools/operationalize/README.md) | Party game and interactive development framework | Python |
+| [**operationalize_vscode_ext**](active/dev-tools/operationalize_vscode_ext/README.md) | VS Code extension for operationalize | JavaScript |
+| [**hivemind-llm**](active/dev-tools/hivemind-llm/README.md) | LLM integration and orchestration experiments | Python |
+| [**time_function_with_timeout**](active/dev-tools/time_function_with_timeout/README.md) | Python timing helper with timeout support | Python |
+| [**tough_bugs**](active/dev-tools/tough_bugs/README.md) | Debugging challenge collection | Python |
 
-#### 🎮 `active/games/` - Games
+### 🎮 Games
+
 | Project | Description | Language |
 |---------|-------------|----------|
-| **lets-holdem-together** | Poker game (⭐1 star) | Python |
-| **conway_game_of_war** | Browser game - Conway's Game of Life variant | Python |
-| **MancalaAI** | Mancala AI player | Python |
-| **vroomon** | Vehicle simulation | Python |
+| [**lets-holdem-together**](active/games/lets-holdem-together/README.md) | Multiplayer poker game with AI players | Python |
+| [**wizard_fight**](active/games/wizard_fight/README.md) | Turn-based wizard battle game | Python |
+| [**conway_game_of_war**](active/games/conway_game_of_war/README.md) | Browser-based Conway variant with competitive rules | Python |
+| [**powder_play**](active/games/powder_play/README.md) | Falling-sand style particle sandbox | Python |
+| [**MancalaAI**](active/games/MancalaAI/README.md) | Mancala AI experiments | Python |
+| [**vroomon**](active/games/vroomon/README.md) | Vehicle simulation and physics experiments | Python |
 
-#### 🤖 `active/bots/` - Bots
+### 🤖 Bots
+
 | Project | Description | Language |
 |---------|-------------|----------|
-| **CryptoRoleBot** | Discord bot (13 forks!) | Python |
+| [**CryptoRoleBot**](active/bots/CryptoRoleBot/README.md) | Discord bot for crypto-related role management | Python |
+| [**broomsweeper_solver**](active/bots/broomsweeper_solver/README.md) | Screenshot annotation and solver tooling for Broomsweeper | TypeScript |
 
-#### 👤 `active/personal/` - Personal Config
+### 🌐 Web Apps
+
 | Project | Description | Language |
 |---------|-------------|----------|
-| **calnix** | NixOS configuration | Nix |
+| [**parambulator**](active/web-apps/parambulator/README.md) | Seating-chart builder for classroom constraints | Python |
+| [**sub-day-generator**](active/web-apps/sub-day-generator/README.md) | Substitute-ready classroom day plan prototype | Python |
+| [**momos**](active/web-apps/momos/README.md) | Family command center prototype | Python |
+| [**shared**](active/web-apps/shared/README.md) | Shared web feedback components used by multiple apps | Python |
 
-### 📦 `archive/` - Archived Projects
+### 👤 Personal Configuration
 
-#### `archive/homework/` - Academic Work
-Old CS3100 assignments and compiler course work from 2018.
+| Project | Description | Language |
+|---------|-------------|----------|
+| [**calnix**](active/personal/calnix/README.md) | Personal NixOS configuration and dotfiles | Nix |
 
-#### `archive/old-websites/` - Legacy Websites
-- calvinloveland.com
-- synonymroll.net  
-- website
-- handcoded_html
+For curated project indexes and related docs, start from [active/README.md](active/README.md).
 
-#### `archive/experiments/` - Old Experiments
-Hobby projects, learning exercises, and one-off experiments:
-- screeps (game AI)
-- bend_mandelbrot
-- performant-python (presentation)
-- mancala.py / mancalaCpp (early mancala implementations)
-- recipes
-- And more...
+## Archived Material
 
-#### `archive/forks/` - Forked Projects
-Forks of other repositories, some already archived on GitHub:
-- text-generation-webui
-- wolverine
-- petals-chat-langchain
-- kag-base
-- SteamBot
-- And more...
+Archived work is indexed in [archive/README.md](archive/README.md), including:
 
-#### `archive/configs/` - Old Configuration Files
-- i3 (window manager config from 2017)
+- coursework and old class projects
+- legacy websites and prototypes
+- older experiments and learning projects
+- third-party forks retained for reference
 
----
+## Repository Documentation
 
-## Stats
-- **Total repos:** 51
-- **Active:** 14
-- **Archived:** 37
-
-## Development Environment
-
-- [**.devcontainer/**](.devcontainer/README.md) - VS Code devcontainer configuration for consistent development environment
-- [**.github/**](.github/skills/README.md) - GitHub Copilot skills and [repository instructions](.github/copilot-instructions.md)
+- [**PHILOSOPHY.md**](PHILOSOPHY.md) - core development principles
+- [**PLAN.md**](PLAN.md) - repository roadmap and planning notes
+- [**ISSUES.md**](ISSUES.md) - known issues and follow-up work
+- [**docs/MEGAREPO_PAGES.md**](docs/MEGAREPO_PAGES.md) - generated documentation page index

@@ -8,6 +8,7 @@ Standalone web applications for various use cases.
 - [**parambulator**](parambulator/README.md) - Web application for interactive parameter exploration and visualization
   - [Deployment Guide](parambulator/DEPLOYMENT.md)
   - [Feedback Action Plan](parambulator/FEEDBACK_ACTION_PLAN.md) - User feedback tracking and implementation status
+  - [Feedback Storage Notes](parambulator/data/feedback/README.md) - Runtime feedback data directory and retention notes
   - Security Documentation:
     - [Security Review](parambulator/SECURITY_REVIEW.md)
     - [Security Summary](parambulator/SECURITY_SUMMARY.md)
@@ -24,7 +25,7 @@ Standalone web applications for various use cases.
 
 ## Shared Web Systems
 
-- [**shared**](shared/) - Reusable web feedback system (`/feedback`, `/feedback/mark-addressed`, shared floating widget template)
+- [**shared**](shared/README.md) - Reusable web feedback system (`/feedback`, `/feedback/mark-addressed`, shared floating widget template)
 
 ## Related Projects
 
