@@ -773,6 +773,11 @@ def _add_archive_epub_compare_page_command(
         action="store_true",
         help="Run epubcheck on both EPUBs if available",
     )
+    parser.add_argument(
+        "--pdf-page",
+        type=int,
+        help="Prefer a specific PDF page for the initial aligned comparison view",
+    )
 
 
 def _handle_manifest(args: argparse.Namespace) -> int:
@@ -1065,6 +1070,7 @@ def _handle_archive_epub_compare_page(args: argparse.Namespace) -> int:
         archive_source_mode=args.archive_source_mode,
         timeout_seconds=args.timeout_seconds,
         run_epubcheck=args.run_epubcheck,
+        selected_pdf_page=args.pdf_page,
     )
     print(
         "Archive EPUB compare page written: "

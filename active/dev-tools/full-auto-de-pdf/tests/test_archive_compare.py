@@ -46,23 +46,34 @@ def test_build_archive_epub_compare_page_writes_html(monkeypatch, tmp_path) -> N
             "Second generated paragraph continues the same section with more matching words."
         )
 
-    def _fake_extract_pdf_page_texts(pdf_path, max_pages=40):  # noqa: ANN001
+    rendered_pages = []
+
+    def _fake_extract_pdf_page_texts(pdf_path, max_pages=40, include_page_numbers=()):  # noqa: ANN001
         assert pdf_path.name == "demo-book.pdf"
         assert max_pages == 40
+        assert include_page_numbers == (12,)
         return [
-                {
-                    "page_number": 7,
-                    "text": (
-                        "Archive paragraph with several matching words for the aligned section "
-                        "another archive paragraph continues the same section with more matching words "
-                        "generated paragraph with several matching words for the aligned section"
-                    ),
-                }
-            ]
+            {
+                "page_number": 7,
+                "text": (
+                    "Archive paragraph with several matching words for the aligned section "
+                    "another archive paragraph continues the same section with more matching words "
+                    "generated paragraph with several matching words for the aligned section"
+                ),
+            },
+            {
+                "page_number": 12,
+                "text": (
+                    "Generated paragraph with several matching words for the aligned section "
+                    "second generated paragraph continues the same section with more matching words "
+                    "archive paragraph with several matching words for the aligned section"
+                ),
+            },
+        ]
 
     def _fake_render_pdf_page_image(pdf_path, page_number, output_path):  # noqa: ANN001
         assert pdf_path.name == "demo-book.pdf"
-        assert page_number == 7
+        rendered_pages.append(page_number)
         output_path.parent.mkdir(parents=True, exist_ok=True)
         output_path.write_bytes(b"fake-image")
         return output_path
@@ -80,17 +91,25 @@ def test_build_archive_epub_compare_page_writes_html(monkeypatch, tmp_path) -> N
         archive_source_mode="djvu",
         timeout_seconds=15,
         run_epubcheck=False,
+        selected_pdf_page=12,
     )
 
     html = output_html.read_text(encoding="utf-8")
     assert summary["archive_source"] == "djvu"
+    assert summary["selected_pdf_page"] == 12
     assert "Archive Example" in html
     assert "Internet Archive EPUB vs generated EPUB" in html
     assert "Downloaded Internet Archive EPUB" in html
     assert "Generated EPUB" in html
     assert "Source OCR text used for generation" in html
     assert "Aligned scanned page and EPUB excerpts" in html
-    assert "Archive scan page 7" in html
+    assert "Archive scan page 12" in html
     assert "Internet Archive EPUB excerpt" in html
     assert "Generated EPUB excerpt" in html
+    assert "selected_pdf_page=<code>12</code>" in html
+    assert "Random page" in html
+    assert "id='aligned-page-select'" in html
+    assert "compare_assets/aligned_page_0007.png" in html
+    assert "compare_assets/aligned_page_0012.png" in html
+    assert sorted(rendered_pages) == [7, 12]
     assert (tmp_path / "compare_assets" / "compare_summary.json").exists()

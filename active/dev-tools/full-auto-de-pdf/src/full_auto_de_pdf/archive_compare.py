@@ -21,6 +21,7 @@ _TAG_RE = re.compile(r"<[^>]+>")
 _TOKEN_RE = re.compile(r"[a-z0-9']+")
 _MIN_WINDOW_TOKEN_COUNT = 6
 _MIN_PAGE_TOKEN_COUNT = 8
+_DEFAULT_MAX_ALIGNED_PAGES = 40
 
 
 def _extract_first_string(value: Any) -> str | None:
@@ -171,10 +172,20 @@ def _pdf_page_count(pdf_path: Path) -> int:
     raise ValueError(f"Unable to determine page count for {pdf_path}")
 
 
-def _extract_pdf_page_texts(pdf_path: Path, max_pages: int = 40) -> list[dict[str, Any]]:
-    page_count = min(_pdf_page_count(pdf_path), max_pages)
+def _extract_pdf_page_texts(
+    pdf_path: Path,
+    max_pages: int = _DEFAULT_MAX_ALIGNED_PAGES,
+    include_page_numbers: tuple[int, ...] = (),
+) -> list[dict[str, Any]]:
+    pdf_page_count = _pdf_page_count(pdf_path)
+    page_numbers = list(range(1, min(pdf_page_count, max_pages) + 1))
+    for page_number in include_page_numbers:
+        if page_number < 1 or page_number > pdf_page_count:
+            raise ValueError(f"Requested PDF page {page_number} is out of range 1..{pdf_page_count}")
+        if page_number not in page_numbers:
+            page_numbers.append(page_number)
     pages: list[dict[str, Any]] = []
-    for page_number in range(1, page_count + 1):
+    for page_number in sorted(page_numbers):
         completed = subprocess.run(
             [
                 "pdftotext",
@@ -261,15 +272,21 @@ def _build_aligned_section(
     archive_pdf_path: Path,
     archive_epub_path: Path,
     generated_epub_path: Path,
-    output_dir: Path,
+    image_output_dir: Path,
+    href_base_dir: Path,
+    selected_page_number: int | None = None,
+    max_pages: int = _DEFAULT_MAX_ALIGNED_PAGES,
 ) -> dict[str, Any] | None:
     archive_windows = _paragraph_windows(_epub_paragraphs(archive_epub_path))
     generated_windows = _paragraph_windows(_epub_paragraphs(generated_epub_path))
     if not archive_windows or not generated_windows:
         return None
-    pages = _extract_pdf_page_texts(archive_pdf_path)
-    best_match: dict[str, Any] | None = None
-    best_score = 0.0
+    pages = _extract_pdf_page_texts(
+        archive_pdf_path,
+        max_pages=max_pages,
+        include_page_numbers=((selected_page_number,) if selected_page_number is not None else ()),
+    )
+    page_matches: list[dict[str, Any]] = []
     for page in pages:
         page_tokens = _tokenize_match_text(str(page.get("text", "")))
         if len(page_tokens) < _MIN_PAGE_TOKEN_COUNT:
@@ -279,33 +296,44 @@ def _build_aligned_section(
         if archive_match is None or generated_match is None:
             continue
         combined_score = min(float(archive_match["score"]), float(generated_match["score"]))
-        if combined_score <= best_score:
-            continue
-        best_score = combined_score
-        best_match = {
-            "page_number": int(page["page_number"]),
-            "page_text": str(page["text"]),
-            "archive_match": archive_match,
-            "generated_match": generated_match,
-            "combined_score": combined_score,
-        }
-    if best_match is None:
+        page_number = int(page["page_number"])
+        page_image_path = _render_pdf_page_image(
+            archive_pdf_path,
+            page_number,
+            image_output_dir / f"aligned_page_{page_number:04d}.png",
+        )
+        page_matches.append(
+            {
+                "page_number": page_number,
+                "page_image_path": str(page_image_path),
+                "page_image_href": _to_rel_href(page_image_path, href_base_dir),
+                "page_text_excerpt": _trim_words(str(page["text"])),
+                "archive_excerpt": str(archive_match["text"]),
+                "generated_excerpt": str(generated_match["text"]),
+                "archive_score": float(archive_match["score"]),
+                "generated_score": float(generated_match["score"]),
+                "combined_score": combined_score,
+            }
+        )
+    if not page_matches:
         return None
-    page_image_path = _render_pdf_page_image(
-        archive_pdf_path,
-        int(best_match["page_number"]),
-        output_dir / f"aligned_page_{int(best_match['page_number']):04d}.png",
-    )
+    page_matches.sort(key=lambda item: int(item["page_number"]))
+    auto_selected_page = max(page_matches, key=lambda item: float(item["combined_score"]))
+    selected_page = auto_selected_page
+    if selected_page_number is not None:
+        selected_page = next(
+            (page for page in page_matches if int(page["page_number"]) == selected_page_number),
+            None,
+        )
+        if selected_page is None:
+            raise ValueError(
+                f"Requested PDF page {selected_page_number} could not be aligned with EPUB excerpts"
+            )
     return {
-        "page_number": int(best_match["page_number"]),
-        "page_image_path": str(page_image_path),
-        "page_image_href": _to_rel_href(page_image_path, output_dir),
-        "page_text_excerpt": _trim_words(str(best_match["page_text"])),
-        "archive_excerpt": str(best_match["archive_match"]["text"]),
-        "generated_excerpt": str(best_match["generated_match"]["text"]),
-        "archive_score": float(best_match["archive_match"]["score"]),
-        "generated_score": float(best_match["generated_match"]["score"]),
-        "combined_score": float(best_match["combined_score"]),
+        **selected_page,
+        "page_count": len(page_matches),
+        "pages": page_matches,
+        "auto_selected_page_number": int(auto_selected_page["page_number"]),
     }
 
 
@@ -355,28 +383,96 @@ def _render_aligned_section(summary: dict[str, Any]) -> str:
     aligned_section = summary.get("aligned_section")
     if not isinstance(aligned_section, dict):
         return "<p>No aligned scanned-page section could be extracted automatically.</p>"
+    pages = aligned_section.get("pages", [])
+    if not isinstance(pages, list) or not pages:
+        return "<p>No aligned scanned-page section could be extracted automatically.</p>"
+    pages_json = json.dumps(pages, ensure_ascii=False).replace("</", "<\\/")
+    selected_page_number = int(aligned_section["page_number"])
+    auto_selected_page_number = int(aligned_section["auto_selected_page_number"])
+    page_options = "".join(
+        (
+            f"<option value='{int(page['page_number'])}'"
+            f"{' selected' if int(page['page_number']) == selected_page_number else ''}>"
+            f"Page {int(page['page_number'])}</option>"
+        )
+        for page in pages
+    )
     return (
         "<h2>Aligned scanned page and EPUB excerpts</h2>"
+        "<div class='aligned-controls'>"
+        "<label for='aligned-page-select'>Compared page</label> "
+        f"<select id='aligned-page-select'>{page_options}</select> "
+        "<button type='button' id='aligned-page-random'>Random page</button>"
+        "</div>"
         "<p>"
-        f"auto_selected_pdf_page=<code>{int(aligned_section['page_number'])}</code>, "
+        f"selected_pdf_page=<code>{selected_page_number}</code>, "
+        f"auto_selected_pdf_page=<code>{auto_selected_page_number}</code>, "
         f"archive_match_score={float(aligned_section['archive_score']):.3f}, "
         f"generated_match_score={float(aligned_section['generated_score']):.3f}"
         "</p>"
         "<div class='tri-grid'>"
         "<section class='card'>"
-        f"<h3>Archive scan page {int(aligned_section['page_number'])}</h3>"
-        f"<img class='page-image' src='{escape(str(aligned_section['page_image_href']))}' alt='Archive scan page' />"
-        f"<p class='excerpt'>{escape(str(aligned_section['page_text_excerpt']))}</p>"
+        f"<h3 id='aligned-page-heading'>Archive scan page {selected_page_number}</h3>"
+        f"<img id='aligned-page-image' class='page-image' src='{escape(str(aligned_section['page_image_href']))}' alt='Archive scan page' />"
+        f"<p id='aligned-page-text' class='excerpt'>{escape(str(aligned_section['page_text_excerpt']))}</p>"
         "</section>"
         "<section class='card'>"
-        "<h3>Internet Archive EPUB excerpt</h3>"
-        f"<div class='excerpt'>{escape(str(aligned_section['archive_excerpt']))}</div>"
+        "<h3 id='aligned-archive-heading'>Internet Archive EPUB excerpt</h3>"
+        f"<div id='aligned-archive-excerpt' class='excerpt'>{escape(str(aligned_section['archive_excerpt']))}</div>"
         "</section>"
         "<section class='card'>"
-        "<h3>Generated EPUB excerpt</h3>"
-        f"<div class='excerpt'>{escape(str(aligned_section['generated_excerpt']))}</div>"
+        "<h3 id='aligned-generated-heading'>Generated EPUB excerpt</h3>"
+        f"<div id='aligned-generated-excerpt' class='excerpt'>{escape(str(aligned_section['generated_excerpt']))}</div>"
         "</section>"
         "</div>"
+        f"<script id='aligned-pages-data' type='application/json'>{pages_json}</script>"
+        "<script>"
+        "(() => {"
+        "const pages = JSON.parse(document.getElementById('aligned-pages-data').textContent);"
+        "if (!Array.isArray(pages) || pages.length === 0) return;"
+        "const pageByNumber = new Map(pages.map((page) => [String(page.page_number), page]));"
+        "const select = document.getElementById('aligned-page-select');"
+        "const randomButton = document.getElementById('aligned-page-random');"
+        "const heading = document.getElementById('aligned-page-heading');"
+        "const image = document.getElementById('aligned-page-image');"
+        "const pageText = document.getElementById('aligned-page-text');"
+        "const archiveExcerpt = document.getElementById('aligned-archive-excerpt');"
+        "const generatedExcerpt = document.getElementById('aligned-generated-excerpt');"
+        "const scoreText = select.parentElement.nextElementSibling;"
+        f"const autoSelectedPageNumber = '{auto_selected_page_number}';"
+        "const render = (pageNumber, syncUrl = true) => {"
+        "  const page = pageByNumber.get(String(pageNumber));"
+        "  if (!page) return;"
+        "  select.value = String(page.page_number);"
+        "  heading.textContent = `Archive scan page ${page.page_number}`;"
+        "  image.src = page.page_image_href;"
+        "  pageText.textContent = page.page_text_excerpt;"
+        "  archiveExcerpt.textContent = page.archive_excerpt;"
+        "  generatedExcerpt.textContent = page.generated_excerpt;"
+        "  scoreText.innerHTML = "
+        "    `selected_pdf_page=<code>${page.page_number}</code>, "
+        "auto_selected_pdf_page=<code>${autoSelectedPageNumber}</code>, "
+        "archive_match_score=${Number(page.archive_score).toFixed(3)}, "
+        "generated_match_score=${Number(page.generated_score).toFixed(3)}`;"
+        "  if (syncUrl) {"
+        "    const url = new URL(window.location.href);"
+        "    url.searchParams.set('page', String(page.page_number));"
+        "    window.history.replaceState(null, '', url);"
+        "  }"
+        "};"
+        "select.addEventListener('change', () => render(select.value));"
+        "randomButton.addEventListener('click', () => {"
+        "  if (pages.length === 1) { render(select.value); return; }"
+        "  let nextPage = String(select.value);"
+        "  while (nextPage === String(select.value)) {"
+        "    nextPage = String(pages[Math.floor(Math.random() * pages.length)].page_number);"
+        "  }"
+        "  render(nextPage);"
+        "});"
+        "const requestedPage = new URLSearchParams(window.location.search).get('page');"
+        "render(pageByNumber.has(String(requestedPage)) ? requestedPage : select.value, Boolean(requestedPage));"
+        "})();"
+        "</script>"
     )
 
 
@@ -402,6 +498,7 @@ def _render_compare_page(summary: dict[str, Any]) -> str:
         "th{background:#f5f5f5}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:1rem}"
         ".tri-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1rem;margin:1rem 0}"
         ".card{border:1px solid #ddd;border-radius:.4rem;padding:.85rem;background:#fafafa}"
+        ".aligned-controls{display:flex;flex-wrap:wrap;gap:.6rem;align-items:center;margin:.75rem 0}"
         ".page-image{width:100%;height:auto;border:1px solid #ccc;background:#fff}"
         ".excerpt{white-space:pre-wrap}"
         "code{background:#f3f3f3;padding:0 .2rem;border-radius:.2rem}"
@@ -454,11 +551,14 @@ def build_archive_epub_compare_page(
     archive_source_mode: str = "djvu",
     timeout_seconds: int = 60,
     run_epubcheck: bool = False,
+    selected_pdf_page: int | None = None,
 ) -> dict[str, Any]:
     """Build a local HTML page comparing an archive.org EPUB with a generated EPUB."""
 
     if archive_source_mode not in {"djvu", "abbyy"}:
         raise ValueError("archive_source_mode must be one of: djvu, abbyy")
+    if selected_pdf_page is not None and selected_pdf_page < 1:
+        raise ValueError("selected_pdf_page must be greater than or equal to 1")
     metadata = fetch_metadata(archive_identifier, timeout_seconds=timeout_seconds)
     files = _normalized_files(metadata)
     archive_epub_filename = _select_archive_filename(files, ".epub")
@@ -517,7 +617,9 @@ def build_archive_epub_compare_page(
             archive_pdf_path=archive_pdf_path,
             archive_epub_path=archive_epub_path,
             generated_epub_path=generated_epub_path,
-            output_dir=assets_dir,
+            image_output_dir=assets_dir,
+            href_base_dir=output_dir,
+            selected_page_number=selected_pdf_page,
         )
         if archive_pdf_path is not None
         else None
@@ -554,4 +656,5 @@ def build_archive_epub_compare_page(
         "archive_epub_path": str(archive_epub_path),
         "generated_epub_path": str(generated_epub_path),
         "archive_source": archive_source_mode,
+        "selected_pdf_page": selected_pdf_page,
     }

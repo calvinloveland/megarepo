@@ -155,9 +155,10 @@ full-auto-de-pdf benchmark-processing-page \
   --output data/benchmark_processing.html
 
 # Compare an Internet Archive EPUB with a generated EPUB built from
-# the archive's OCR text, including an auto-aligned scan page + excerpt view
+# the archive's OCR text, including page controls for the scan/EPUB tri-view
 full-auto-de-pdf archive-epub-compare-page \
   --archive-identifier dracu00stok \
+  --pdf-page 8 \
   --output data/archive_epub_compare.html
 
 # Evaluate EPUB structure + optional epubcheck

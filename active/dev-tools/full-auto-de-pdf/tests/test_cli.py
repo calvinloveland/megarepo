@@ -571,13 +571,19 @@ def test_archive_epub_compare_page_command_writes_html(monkeypatch, tmp_path) ->
     output_html = tmp_path / "compare.html"
 
     def _fake_build_archive_epub_compare_page(  # noqa: ANN001
-        archive_identifier, output_html_path, archive_source_mode, timeout_seconds, run_epubcheck
+        archive_identifier,
+        output_html_path,
+        archive_source_mode,
+        timeout_seconds,
+        run_epubcheck,
+        selected_pdf_page,
     ):
         assert archive_identifier == "demo-book"
         assert output_html_path == output_html
         assert archive_source_mode == "abbyy"
         assert timeout_seconds == 75
         assert run_epubcheck is True
+        assert selected_pdf_page == 12
         output_html_path.write_text("<html></html>", encoding="utf-8")
         return {
             "archive_source": "abbyy",
@@ -597,6 +603,8 @@ def test_archive_epub_compare_page_command_writes_html(monkeypatch, tmp_path) ->
             "--timeout-seconds",
             "75",
             "--run-epubcheck",
+            "--pdf-page",
+            "12",
         ]
     )
     assert rc == 0
