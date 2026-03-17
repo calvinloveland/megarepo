@@ -6,6 +6,7 @@ from html import escape
 import json
 from pathlib import Path
 import re
+import subprocess
 from typing import Any
 from urllib.request import urlopen
 import xml.etree.ElementTree as ET
@@ -17,6 +18,9 @@ from .epub import build_epub_from_ocr_text
 from .epub_eval import _read_epub_contents, evaluate_epub_structure
 
 _TAG_RE = re.compile(r"<[^>]+>")
+_TOKEN_RE = re.compile(r"[a-z0-9']+")
+_MIN_WINDOW_TOKEN_COUNT = 6
+_MIN_PAGE_TOKEN_COUNT = 8
 
 
 def _extract_first_string(value: Any) -> str | None:
@@ -118,6 +122,193 @@ def _epub_preview(epub_path: Path, max_paragraphs: int = 4) -> dict[str, Any]:
     }
 
 
+def _epub_paragraphs(epub_path: Path) -> list[str]:
+    contents = _read_epub_contents(epub_path)
+    paragraphs: list[str] = []
+    with zipfile.ZipFile(epub_path) as epub_zip:
+        for xhtml_path in _spine_xhtml_paths(contents):
+            paragraphs.extend(
+                _read_xhtml_text(epub_zip.read(xhtml_path).decode("utf-8", errors="replace"))
+            )
+    return paragraphs
+
+
+def _tokenize_match_text(text: str) -> set[str]:
+    return {token for token in _TOKEN_RE.findall(text.lower()) if token}
+
+
+def _paragraph_windows(paragraphs: list[str], window_size: int = 2) -> list[dict[str, Any]]:
+    windows: list[dict[str, Any]] = []
+    for start_index in range(len(paragraphs)):
+        section = paragraphs[start_index : start_index + window_size]
+        if not section:
+            continue
+        text = "\n\n".join(section).strip()
+        tokens = _tokenize_match_text(text)
+        if len(tokens) < _MIN_WINDOW_TOKEN_COUNT:
+            continue
+        windows.append(
+            {
+                "start_index": start_index,
+                "text": text,
+                "tokens": tokens,
+            }
+        )
+    return windows
+
+
+def _pdf_page_count(pdf_path: Path) -> int:
+    completed = subprocess.run(
+        ["pdfinfo", str(pdf_path)],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    for line in completed.stdout.splitlines():
+        if not line.startswith("Pages:"):
+            continue
+        return int(line.split(":", maxsplit=1)[1].strip())
+    raise ValueError(f"Unable to determine page count for {pdf_path}")
+
+
+def _extract_pdf_page_texts(pdf_path: Path, max_pages: int = 40) -> list[dict[str, Any]]:
+    page_count = min(_pdf_page_count(pdf_path), max_pages)
+    pages: list[dict[str, Any]] = []
+    for page_number in range(1, page_count + 1):
+        completed = subprocess.run(
+            [
+                "pdftotext",
+                "-layout",
+                "-f",
+                str(page_number),
+                "-l",
+                str(page_number),
+                str(pdf_path),
+                "-",
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        text = " ".join(completed.stdout.split())
+        if len(_tokenize_match_text(text)) < _MIN_PAGE_TOKEN_COUNT:
+            continue
+        pages.append({"page_number": page_number, "text": text})
+    return pages
+
+
+def _render_pdf_page_image(pdf_path: Path, page_number: int, output_path: Path) -> Path:
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_prefix = output_path.with_suffix("")
+    subprocess.run(
+        [
+            "pdftoppm",
+            "-png",
+            "-singlefile",
+            "-f",
+            str(page_number),
+            "-l",
+            str(page_number),
+            str(pdf_path),
+            str(output_prefix),
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    rendered_path = output_prefix.with_suffix(".png")
+    if not rendered_path.exists():
+        raise ValueError(f"Expected rendered page image at {rendered_path}")
+    return rendered_path
+
+
+def _overlap_score(left_tokens: set[str], right_tokens: set[str]) -> float:
+    if not left_tokens or not right_tokens:
+        return 0.0
+    return len(left_tokens & right_tokens) / min(len(left_tokens), len(right_tokens))
+
+
+def _best_window_match(page_tokens: set[str], windows: list[dict[str, Any]]) -> dict[str, Any] | None:
+    best_window: dict[str, Any] | None = None
+    best_score = -1.0
+    for window in windows:
+        window_tokens = window.get("tokens")
+        if not isinstance(window_tokens, set):
+            continue
+        score = _overlap_score(page_tokens, window_tokens)
+        if score <= best_score:
+            continue
+        best_window = window
+        best_score = score
+    if best_window is None:
+        return None
+    return {
+        "text": best_window["text"],
+        "start_index": best_window["start_index"],
+        "score": best_score,
+    }
+
+
+def _trim_words(text: str, max_words: int = 120) -> str:
+    words = text.split()
+    if len(words) <= max_words:
+        return text
+    return " ".join(words[:max_words]) + " ..."
+
+
+def _build_aligned_section(
+    *,
+    archive_pdf_path: Path,
+    archive_epub_path: Path,
+    generated_epub_path: Path,
+    output_dir: Path,
+) -> dict[str, Any] | None:
+    archive_windows = _paragraph_windows(_epub_paragraphs(archive_epub_path))
+    generated_windows = _paragraph_windows(_epub_paragraphs(generated_epub_path))
+    if not archive_windows or not generated_windows:
+        return None
+    pages = _extract_pdf_page_texts(archive_pdf_path)
+    best_match: dict[str, Any] | None = None
+    best_score = 0.0
+    for page in pages:
+        page_tokens = _tokenize_match_text(str(page.get("text", "")))
+        if len(page_tokens) < _MIN_PAGE_TOKEN_COUNT:
+            continue
+        archive_match = _best_window_match(page_tokens, archive_windows)
+        generated_match = _best_window_match(page_tokens, generated_windows)
+        if archive_match is None or generated_match is None:
+            continue
+        combined_score = min(float(archive_match["score"]), float(generated_match["score"]))
+        if combined_score <= best_score:
+            continue
+        best_score = combined_score
+        best_match = {
+            "page_number": int(page["page_number"]),
+            "page_text": str(page["text"]),
+            "archive_match": archive_match,
+            "generated_match": generated_match,
+            "combined_score": combined_score,
+        }
+    if best_match is None:
+        return None
+    page_image_path = _render_pdf_page_image(
+        archive_pdf_path,
+        int(best_match["page_number"]),
+        output_dir / f"aligned_page_{int(best_match['page_number']):04d}.png",
+    )
+    return {
+        "page_number": int(best_match["page_number"]),
+        "page_image_path": str(page_image_path),
+        "page_image_href": _to_rel_href(page_image_path, output_dir),
+        "page_text_excerpt": _trim_words(str(best_match["page_text"])),
+        "archive_excerpt": str(best_match["archive_match"]["text"]),
+        "generated_excerpt": str(best_match["generated_match"]["text"]),
+        "archive_score": float(best_match["archive_match"]["score"]),
+        "generated_score": float(best_match["generated_match"]["score"]),
+        "combined_score": float(best_match["combined_score"]),
+    }
+
+
 def _metric_value(report: dict[str, Any], metric_name: str) -> str:
     metrics = report.get("metrics", {})
     if not isinstance(metrics, dict):
@@ -160,6 +351,35 @@ def _render_preview_list(items: list[str], empty_message: str) -> str:
     return "<ol>" + "".join(f"<li>{escape(item)}</li>" for item in items) + "</ol>"
 
 
+def _render_aligned_section(summary: dict[str, Any]) -> str:
+    aligned_section = summary.get("aligned_section")
+    if not isinstance(aligned_section, dict):
+        return "<p>No aligned scanned-page section could be extracted automatically.</p>"
+    return (
+        "<h2>Aligned scanned page and EPUB excerpts</h2>"
+        "<p>"
+        f"auto_selected_pdf_page=<code>{int(aligned_section['page_number'])}</code>, "
+        f"archive_match_score={float(aligned_section['archive_score']):.3f}, "
+        f"generated_match_score={float(aligned_section['generated_score']):.3f}"
+        "</p>"
+        "<div class='tri-grid'>"
+        "<section class='card'>"
+        f"<h3>Archive scan page {int(aligned_section['page_number'])}</h3>"
+        f"<img class='page-image' src='{escape(str(aligned_section['page_image_href']))}' alt='Archive scan page' />"
+        f"<p class='excerpt'>{escape(str(aligned_section['page_text_excerpt']))}</p>"
+        "</section>"
+        "<section class='card'>"
+        "<h3>Internet Archive EPUB excerpt</h3>"
+        f"<div class='excerpt'>{escape(str(aligned_section['archive_excerpt']))}</div>"
+        "</section>"
+        "<section class='card'>"
+        "<h3>Generated EPUB excerpt</h3>"
+        f"<div class='excerpt'>{escape(str(aligned_section['generated_excerpt']))}</div>"
+        "</section>"
+        "</div>"
+    )
+
+
 def _render_compare_page(summary: dict[str, Any]) -> str:
     archive_preview = summary["archive_preview"]
     generated_preview = summary["generated_preview"]
@@ -180,9 +400,13 @@ def _render_compare_page(summary: dict[str, Any]) -> str:
         "table{border-collapse:collapse;width:100%;max-width:70rem}"
         "th,td{border:1px solid #ccc;padding:.45rem .6rem;text-align:left;vertical-align:top}"
         "th{background:#f5f5f5}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:1rem}"
+        ".tri-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1rem;margin:1rem 0}"
         ".card{border:1px solid #ddd;border-radius:.4rem;padding:.85rem;background:#fafafa}"
+        ".page-image{width:100%;height:auto;border:1px solid #ccc;background:#fff}"
+        ".excerpt{white-space:pre-wrap}"
         "code{background:#f3f3f3;padding:0 .2rem;border-radius:.2rem}"
         "ul{margin-top:.4rem}ol{padding-left:1.3rem}"
+        "@media (max-width: 1100px){.tri-grid{grid-template-columns:1fr}}"
         "</style></head><body>"
         f"<h1>{escape(summary['title'])}: Internet Archive EPUB vs generated EPUB</h1>"
         "<p>"
@@ -200,6 +424,7 @@ def _render_compare_page(summary: dict[str, Any]) -> str:
         "<table><thead><tr><th>metric</th><th>Internet Archive EPUB</th><th>Generated EPUB</th></tr></thead><tbody>"
         f"{_render_metric_rows(archive_eval, generated_eval, generated_metrics)}"
         "</tbody></table>"
+        f"{_render_aligned_section(summary)}"
         "<div class='grid'>"
         "<section class='card'>"
         "<h2>Internet Archive EPUB preview</h2>"
@@ -255,6 +480,10 @@ def build_archive_epub_compare_page(
 
     archive_epub_path = downloads_dir / archive_epub_filename
     _download_archive_file(archive_identifier, archive_epub_filename, archive_epub_path, timeout_seconds)
+    archive_pdf_path: Path | None = None
+    if archive_pdf_filename is not None:
+        archive_pdf_path = downloads_dir / archive_pdf_filename
+        _download_archive_file(archive_identifier, archive_pdf_filename, archive_pdf_path, timeout_seconds)
     archive_pdf_url = (
         ARCHIVE_DOWNLOAD_URL.format(identifier=archive_identifier, filename=archive_pdf_filename)
         if archive_pdf_filename is not None
@@ -283,6 +512,16 @@ def build_archive_epub_compare_page(
     generated_eval = evaluate_epub_structure(generated_epub_path, run_epubcheck=run_epubcheck)
     archive_preview = _epub_preview(archive_epub_path)
     generated_preview = _epub_preview(generated_epub_path)
+    aligned_section = (
+        _build_aligned_section(
+            archive_pdf_path=archive_pdf_path,
+            archive_epub_path=archive_epub_path,
+            generated_epub_path=generated_epub_path,
+            output_dir=assets_dir,
+        )
+        if archive_pdf_path is not None
+        else None
+    )
 
     summary = {
         "identifier": archive_identifier,
@@ -301,6 +540,7 @@ def build_archive_epub_compare_page(
         "generated_metrics": generated_metrics,
         "archive_preview": archive_preview,
         "generated_preview": generated_preview,
+        "aligned_section": aligned_section,
     }
     (assets_dir / "compare_summary.json").write_text(
         json.dumps(summary, indent=2, sort_keys=True) + "\n",
