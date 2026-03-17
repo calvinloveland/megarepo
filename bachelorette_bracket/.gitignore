@@ -1,0 +1,5 @@
+contestants/
+contestants.json
+venv/
+__pycache__/
+*.pyc
