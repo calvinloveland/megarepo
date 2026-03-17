@@ -672,27 +672,71 @@ def _validate_page_image_run_options(
         validate_raster_image(page_image, context="ocr-page-images rejected")
 
 
+def _pdf_page_count(pdf_path: Path) -> int | None:
+    try:
+        completed = subprocess.run(
+            ["pdfinfo", str(pdf_path)],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except (FileNotFoundError, subprocess.CalledProcessError):
+        return None
+    for line in completed.stdout.splitlines():
+        if line.startswith("Pages:"):
+            return int(line.split(":", maxsplit=1)[1].strip())
+    return None
+
+
 def _rasterize_pdf_to_images(
     pdf_path: Path,
     work_dir: Path,
     dpi: int,
     run_command: Callable[[list[str], bool], str],
+    progress_callback: Callable[[dict[str, object]], None] | None = None,
 ) -> list[Path]:
     pages_dir = work_dir / "pages"
     pages_dir.mkdir(parents=True, exist_ok=True)
     page_prefix = pages_dir / "page"
-    run_command(
-        [
-            "pdftoppm",
-            "-r",
-            str(dpi),
-            "-gray",
-            "-png",
-            str(pdf_path),
-            str(page_prefix),
-        ],
-        False,
-    )
+    command = [
+        "pdftoppm",
+        "-r",
+        str(dpi),
+        "-gray",
+        "-png",
+        str(pdf_path),
+        str(page_prefix),
+    ]
+    if progress_callback is not None and run_command is _run_command:
+        total_pages = _pdf_page_count(pdf_path)
+        if total_pages is not None:
+            started_at = time.monotonic()
+            process = subprocess.Popen(command)  # noqa: S603
+            last_reported = -1
+            while True:
+                completed_pages = len(list(pages_dir.glob("page-*.png")))
+                if completed_pages != last_reported:
+                    _emit_progress(
+                        progress_callback,
+                        _timed_page_progress_payload(
+                            stage="rasterize",
+                            total_pages=total_pages,
+                            completed_pages=min(completed_pages, total_pages),
+                            status="complete" if completed_pages >= total_pages else "running",
+                            current_page_index=completed_pages + 1 if completed_pages < total_pages else None,
+                            started_at=started_at,
+                        ),
+                    )
+                    last_reported = completed_pages
+                if process.poll() is not None:
+                    if process.returncode != 0:
+                        raise subprocess.CalledProcessError(process.returncode, command)
+                    break
+                time.sleep(1.0)
+        else:
+            run_command(command, False)
+    else:
+        run_command(command, False)
     page_images = sorted(pages_dir.glob("page-*.png"))
     if not page_images:
         raise RuntimeError("pdftoppm produced no page images")
@@ -1539,8 +1583,9 @@ def _write_page_artifacts_manifest(
     return artifacts_manifest_path
 
 
-def _ocr_progress_payload(
+def _timed_page_progress_payload(
     *,
+    stage: str,
     total_pages: int,
     completed_pages: int,
     status: str,
@@ -1560,7 +1605,7 @@ def _ocr_progress_payload(
         else None
     )
     return {
-        "stage": "ocr",
+        "stage": stage,
         "status": status,
         "total_pages": total_pages,
         "completed_pages": completed_pages,
@@ -1610,7 +1655,8 @@ def _collect_page_ocr_results(
         )
     _emit_progress(
         options.progress_callback,
-        _ocr_progress_payload(
+        _timed_page_progress_payload(
+            stage="ocr",
             total_pages=total_pages,
             completed_pages=0,
             status="running",
@@ -1654,7 +1700,8 @@ def _collect_page_ocr_results(
             )
         _emit_progress(
             options.progress_callback,
-            _ocr_progress_payload(
+            _timed_page_progress_payload(
+                stage="ocr",
                 total_pages=total_pages,
                 completed_pages=page_index,
                 status="complete" if page_index >= total_pages else "running",
@@ -1733,6 +1780,7 @@ def ocr_pdf_with_tesseract(
         work_dir,
         options.core.dpi,
         dependencies.run_command,
+        progress_callback=options.progress_callback,
     )
     started_at = time.monotonic()
     _emit_progress(
