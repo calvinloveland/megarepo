@@ -565,3 +565,39 @@ def test_benchmark_processing_page_command_writes_html(monkeypatch, tmp_path) ->
     )
     assert rc == 0
     assert output_html.exists()
+
+
+def test_archive_epub_compare_page_command_writes_html(monkeypatch, tmp_path) -> None:
+    output_html = tmp_path / "compare.html"
+
+    def _fake_build_archive_epub_compare_page(  # noqa: ANN001
+        archive_identifier, output_html_path, archive_source_mode, timeout_seconds, run_epubcheck
+    ):
+        assert archive_identifier == "demo-book"
+        assert output_html_path == output_html
+        assert archive_source_mode == "abbyy"
+        assert timeout_seconds == 75
+        assert run_epubcheck is True
+        output_html_path.write_text("<html></html>", encoding="utf-8")
+        return {
+            "archive_source": "abbyy",
+            "title": "Demo Book",
+        }
+
+    monkeypatch.setattr(cli, "build_archive_epub_compare_page", _fake_build_archive_epub_compare_page)
+    rc = cli.main(
+        [
+            "archive-epub-compare-page",
+            "--archive-identifier",
+            "demo-book",
+            "--output",
+            str(output_html),
+            "--archive-source-mode",
+            "abbyy",
+            "--timeout-seconds",
+            "75",
+            "--run-epubcheck",
+        ]
+    )
+    assert rc == 0
+    assert output_html.exists()

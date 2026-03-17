@@ -154,6 +154,12 @@ full-auto-de-pdf benchmark-processing-page \
   --report data/local_archive_benchmark.json \
   --output data/benchmark_processing.html
 
+# Compare an Internet Archive EPUB with a generated EPUB built from
+# the archive's OCR text
+full-auto-de-pdf archive-epub-compare-page \
+  --archive-identifier dracu00stok \
+  --output data/archive_epub_compare.html
+
 # Evaluate EPUB structure + optional epubcheck
 full-auto-de-pdf eval-epub \
   --epub out/book.epub \

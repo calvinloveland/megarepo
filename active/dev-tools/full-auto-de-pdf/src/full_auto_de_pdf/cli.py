@@ -7,6 +7,7 @@ import json
 from pathlib import Path
 from typing import Callable
 
+from .archive_compare import build_archive_epub_compare_page
 from .archive_org import build_manifest, write_manifest
 from .benchmark import run_archive_benchmark, run_parallel_text_benchmark, write_benchmark_report
 from .benchmark_corpus import (
@@ -49,6 +50,7 @@ def _build_parser() -> argparse.ArgumentParser:
         _add_eval_epub_command,
         _add_failure_page_command,
         _add_processing_page_command,
+        _add_archive_epub_compare_page_command,
     ):
         register(subparsers)
     return parser
@@ -736,6 +738,43 @@ def _add_processing_page_command(
     )
 
 
+def _add_archive_epub_compare_page_command(
+    subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
+) -> None:
+    parser = subparsers.add_parser(
+        "archive-epub-compare-page",
+        help="Build an HTML page comparing an Internet Archive EPUB with a generated EPUB",
+    )
+    parser.add_argument(
+        "--archive-identifier",
+        required=True,
+        help="Internet Archive item identifier",
+    )
+    parser.add_argument(
+        "--output",
+        type=Path,
+        default=Path("data/archive_epub_compare.html"),
+        help="Output HTML path",
+    )
+    parser.add_argument(
+        "--archive-source-mode",
+        choices=["djvu", "abbyy"],
+        default="djvu",
+        help="Which Internet Archive OCR text to use for generated EPUB input",
+    )
+    parser.add_argument(
+        "--timeout-seconds",
+        type=int,
+        default=60,
+        help="Network request timeout",
+    )
+    parser.add_argument(
+        "--run-epubcheck",
+        action="store_true",
+        help="Run epubcheck on both EPUBs if available",
+    )
+
+
 def _handle_manifest(args: argparse.Namespace) -> int:
     manifest = build_manifest(timeout_seconds=args.timeout_seconds)
     write_manifest(args.output, manifest)
@@ -1019,6 +1058,22 @@ def _handle_benchmark_processing_page(args: argparse.Namespace) -> int:
     return 0
 
 
+def _handle_archive_epub_compare_page(args: argparse.Namespace) -> int:
+    summary = build_archive_epub_compare_page(
+        archive_identifier=args.archive_identifier,
+        output_html_path=args.output,
+        archive_source_mode=args.archive_source_mode,
+        timeout_seconds=args.timeout_seconds,
+        run_epubcheck=args.run_epubcheck,
+    )
+    print(
+        "Archive EPUB compare page written: "
+        f"source={summary['archive_source']} "
+        f"title={summary['title']} -> {args.output}"
+    )
+    return 0
+
+
 _COMMAND_HANDLERS: dict[str, Callable[[argparse.Namespace], int]] = {
     "manifest": _handle_manifest,
     "build-epub": _handle_build_epub,
@@ -1034,6 +1089,7 @@ _COMMAND_HANDLERS: dict[str, Callable[[argparse.Namespace], int]] = {
     "eval-epub": _handle_eval_epub,
     "benchmark-failures-page": _handle_benchmark_failures_page,
     "benchmark-processing-page": _handle_benchmark_processing_page,
+    "archive-epub-compare-page": _handle_archive_epub_compare_page,
 }
 
 
