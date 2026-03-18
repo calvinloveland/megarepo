@@ -6,6 +6,8 @@ from __future__ import annotations
 from collections import Counter
 from dataclasses import dataclass, replace
 from difflib import SequenceMatcher
+import html
+from html.parser import HTMLParser
 import importlib
 import json
 import math
@@ -52,6 +54,8 @@ _CLEANUP_SPAN_VERIFIER_DIFF_PADDING = 12
 _LATIN_TOKEN = re.compile(r"[A-Za-z]+(?:'[A-Za-z]+)?")
 _NON_SPACE_TOKEN = re.compile(r"\S+")
 _NON_TEXT_CHAR = re.compile(r"[^A-Za-z0-9\s\.,;:!\?'\-\"()\[\]]")
+_HOCR_WCONF_RE = re.compile(r"\bx_wconf\s+(\d{1,3})\b", re.IGNORECASE)
+_HOCR_LOW_CONFIDENCE_WORD_THRESHOLD = 70
 _COMMON_ENGLISH_WORDS = frozenset(
     {
         "a",
@@ -97,7 +101,10 @@ class OCRCoreOptions:
     deskew_max_angle: float = 7.0
     deskew_angle_step: float = 0.5
     tesseract_psm: str = "auto"
+    tesseract_output_format: str = "text"
     cleanup_lexicon_texts: tuple[str, ...] = ()
+    confidence_aware_cleanup: bool = False
+    cleanup_high_confidence_threshold: float = 95.0
     inverse_render_rerank: bool = False
     inverse_render_top_k: int = 3
     verify_cleanup_spans: bool = False
@@ -593,7 +600,10 @@ def _parse_ocr_options(kwargs: dict[str, Any]) -> OCRRunOptions:
         deskew_max_angle=float(kwargs.pop("deskew_max_angle", 7.0)),
         deskew_angle_step=float(kwargs.pop("deskew_angle_step", 0.5)),
         tesseract_psm=_normalize_tesseract_psm(kwargs.pop("tesseract_psm", "auto")),
+        tesseract_output_format=str(kwargs.pop("tesseract_output_format", "text")).strip().lower(),
         cleanup_lexicon_texts=cleanup_lexicon_texts,
+        confidence_aware_cleanup=bool(kwargs.pop("confidence_aware_cleanup", False)),
+        cleanup_high_confidence_threshold=float(kwargs.pop("cleanup_high_confidence_threshold", 95.0)),
         inverse_render_rerank=bool(kwargs.pop("inverse_render_rerank", False)),
         inverse_render_top_k=int(kwargs.pop("inverse_render_top_k", 3)),
         verify_cleanup_spans=bool(kwargs.pop("verify_cleanup_spans", False)),
@@ -632,6 +642,10 @@ def _validate_common_ocr_options(
         )
     if options.ocr_engine not in {"tesseract", "paddleocr"}:
         raise ValueError("ocr_engine must be 'tesseract' or 'paddleocr'")
+    if options.core.tesseract_output_format not in {"text", "hocr"}:
+        raise ValueError("tesseract_output_format must be 'text' or 'hocr'")
+    if not 0.0 <= options.core.cleanup_high_confidence_threshold <= 100.0:
+        raise ValueError("cleanup_high_confidence_threshold must be between 0 and 100")
     if not 0 <= options.core.binarize_threshold <= 255:
         raise ValueError("binarize_threshold must be between 0 and 255")
     if options.core.deskew_max_angle <= 0:
@@ -1183,9 +1197,23 @@ def _maybe_verify_cleanup_spans(
     image_path: Path,
     text: str,
     options: OCRRunOptions,
+    selection_metadata: dict[str, object],
 ) -> tuple[str, dict[str, object]]:
     if not options.core.apply_cleanup:
         return text, {}
+    if options.core.confidence_aware_cleanup:
+        mean_confidence = selection_metadata.get("hocr_confidence_mean")
+        if isinstance(mean_confidence, (float, int)):
+            mean_confidence_value = float(mean_confidence)
+            if mean_confidence_value >= options.core.cleanup_high_confidence_threshold:
+                return text, {
+                    "cleanup_confidence_gate": {
+                        "enabled": True,
+                        "action": "skipped-cleanup",
+                        "mean_confidence": mean_confidence_value,
+                        "threshold": options.core.cleanup_high_confidence_threshold,
+                    }
+                }
     cleaned_text = cleanup_ocr_text(text, lexicon_texts=options.core.cleanup_lexicon_texts)
     # Auto-enable span verification for scan modes: they have a real binarised scan
     # image available, so inverse render can judge whether each cleanup change is correct.
@@ -1366,15 +1394,16 @@ def _run_candidate_ocr(
     dependencies: OCRDependencies,
     paddle_reader: Callable[[Path], str] | None,
     tesseract_psm: str,
-) -> str:
+) -> tuple[str, dict[str, object]]:
     if options.ocr_engine == "tesseract":
         return _run_tesseract(
             dependencies.run_command,
             ocr_input_path,
             options.core.language,
             tesseract_psm,
+            options.core.tesseract_output_format,
         )
-    return _run_paddle_reader(paddle_reader, ocr_input_path)
+    return _run_paddle_reader(paddle_reader, ocr_input_path), {}
 
 
 def _run_ocr_on_page(
@@ -1398,7 +1427,7 @@ def _run_ocr_on_page(
             prepared_inputs,
         )
         for tesseract_psm in _candidate_tesseract_psms(options):
-            text = _run_candidate_ocr(
+            text, ocr_metadata = _run_candidate_ocr(
                 ocr_input_path,
                 options,
                 dependencies,
@@ -1418,6 +1447,8 @@ def _run_ocr_on_page(
             }
             if options.ocr_engine == "tesseract":
                 candidate_metadata["tesseract_psm"] = int(tesseract_psm)
+                candidate_metadata["tesseract_output_format"] = options.core.tesseract_output_format
+            candidate_metadata.update(ocr_metadata)
             candidate_runs.append(candidate_metadata)
             candidates.append(
                 OCRCandidate(
@@ -1469,19 +1500,108 @@ def _run_tesseract(
     image_path: Path,
     language: str,
     tesseract_psm: str,
-) -> str:
-    return run_command(
-        [
-            "tesseract",
-            str(image_path),
-            "stdout",
-            "-l",
-            language,
-            "--psm",
-            tesseract_psm,
-        ],
-        True,
+    output_format: str,
+) -> tuple[str, dict[str, object]]:
+    command = [
+        "tesseract",
+        str(image_path),
+        "stdout",
+        "-l",
+        language,
+        "--psm",
+        tesseract_psm,
+    ]
+    if output_format == "hocr":
+        hocr_text = run_command([*command, "hocr"], True)
+        parsed_text, metadata = _parse_hocr_text_and_metadata(hocr_text)
+        return parsed_text, metadata
+    return run_command(command, True), {}
+
+
+def _extract_hocr_word_confidence(title: str) -> int | None:
+    confidence_match = _HOCR_WCONF_RE.search(title)
+    if confidence_match is None:
+        return None
+    confidence = int(confidence_match.group(1))
+    return max(0, min(100, confidence))
+
+
+class _HocrTextExtractor(HTMLParser):
+    """Extract plain text lines and x_wconf values from Tesseract hOCR."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.lines: list[str] = []
+        self.confidences: list[int] = []
+        self._line_depth = 0
+        self._inside_word = False
+        self._current_word_parts: list[str] = []
+        self._current_word_confidence: int | None = None
+        self._current_line_words: list[str] = []
+        self._fallback_words: list[str] = []
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if tag.lower() != "span":
+            return
+        attrs_map = {key.lower(): (value or "") for key, value in attrs}
+        classes = set(attrs_map.get("class", "").split())
+        if "ocr_line" in classes:
+            if self._line_depth == 0:
+                self._current_line_words = []
+            self._line_depth += 1
+        if "ocrx_word" in classes:
+            self._inside_word = True
+            self._current_word_parts = []
+            self._current_word_confidence = _extract_hocr_word_confidence(attrs_map.get("title", ""))
+
+    def handle_data(self, data: str) -> None:
+        if self._inside_word:
+            self._current_word_parts.append(data)
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag.lower() != "span":
+            return
+        if self._inside_word:
+            token = html.unescape("".join(self._current_word_parts)).strip()
+            if token:
+                self._current_line_words.append(token)
+                self._fallback_words.append(token)
+                if self._current_word_confidence is not None:
+                    self.confidences.append(self._current_word_confidence)
+            self._inside_word = False
+            self._current_word_parts = []
+            self._current_word_confidence = None
+            return
+        if self._line_depth > 0:
+            self._line_depth -= 1
+            if self._line_depth == 0 and self._current_line_words:
+                self.lines.append(" ".join(self._current_line_words))
+                self._current_line_words = []
+
+    @property
+    def text(self) -> str:
+        if self.lines:
+            return "\n".join(self.lines).strip()
+        return " ".join(self._fallback_words).strip()
+
+
+def _parse_hocr_text_and_metadata(hocr_text: str) -> tuple[str, dict[str, object]]:
+    parser = _HocrTextExtractor()
+    parser.feed(hocr_text)
+    parsed_text = parser.text
+    confidences = parser.confidences
+    if not confidences:
+        return parsed_text, {}
+    low_confidence_words = sum(
+        1 for confidence in confidences if confidence < _HOCR_LOW_CONFIDENCE_WORD_THRESHOLD
     )
+    return parsed_text, {
+        "hocr_word_count": len(confidences),
+        "hocr_confidence_mean": sum(confidences) / len(confidences),
+        "hocr_confidence_min": min(confidences),
+        "hocr_low_confidence_word_count": low_confidence_words,
+        "hocr_low_confidence_ratio": low_confidence_words / len(confidences),
+    }
 
 
 def _run_paddle_reader(
@@ -1678,7 +1798,12 @@ def _collect_page_ocr_results(
             preprocessed_dir,
             paddle_reader,
         )
-        text, cleanup_metadata = _maybe_verify_cleanup_spans(image_path, text, options)
+        text, cleanup_metadata = _maybe_verify_cleanup_spans(
+            image_path,
+            text,
+            options,
+            selection_metadata,
+        )
         if cleanup_metadata:
             selection_metadata.update(cleanup_metadata)
         page_texts.append(text)
@@ -1733,7 +1858,11 @@ def _finalize_ocr_output(
     # Skip the combined pass when per-page image verification already ran — each
     # page's text has been individually verified against the scan, so applying a
     # second unverified combined-stats pass could reintroduce reverted corrections.
-    per_page_verified = options.core.verify_cleanup_spans or _uses_scan_preprocess_stack(options.preprocess_mode)
+    per_page_verified = (
+        options.core.verify_cleanup_spans
+        or _uses_scan_preprocess_stack(options.preprocess_mode)
+        or options.core.confidence_aware_cleanup
+    )
     if options.core.apply_cleanup and not per_page_verified:
         final_text = cleanup_ocr_text(combined_text, lexicon_texts=options.core.cleanup_lexicon_texts)
     output_text_path.parent.mkdir(parents=True, exist_ok=True)
@@ -1862,7 +1991,10 @@ def _parse_mode_eval_options(kwargs: dict[str, Any]) -> ModeEvalOptions:
         deskew_max_angle=float(kwargs.pop("deskew_max_angle", 7.0)),
         deskew_angle_step=float(kwargs.pop("deskew_angle_step", 0.5)),
         tesseract_psm=_normalize_tesseract_psm(kwargs.pop("tesseract_psm", "auto")),
+        tesseract_output_format=str(kwargs.pop("tesseract_output_format", "text")).strip().lower(),
         cleanup_lexicon_texts=tuple(),
+        confidence_aware_cleanup=bool(kwargs.pop("confidence_aware_cleanup", False)),
+        cleanup_high_confidence_threshold=float(kwargs.pop("cleanup_high_confidence_threshold", 95.0)),
     )
     return ModeEvalOptions(
         core=core_options,
@@ -1882,6 +2014,9 @@ def _mode_ocr_kwargs(options: ModeEvalOptions, mode: str) -> dict[str, Any]:
         "deskew_max_angle": options.core.deskew_max_angle,
         "deskew_angle_step": options.core.deskew_angle_step,
         "tesseract_psm": options.core.tesseract_psm,
+        "tesseract_output_format": options.core.tesseract_output_format,
+        "confidence_aware_cleanup": options.core.confidence_aware_cleanup,
+        "cleanup_high_confidence_threshold": options.core.cleanup_high_confidence_threshold,
         "ocr_engine": options.ocr_engine,
     }
 
@@ -2005,7 +2140,10 @@ def _parse_local_archive_options(kwargs: dict[str, Any]) -> LocalArchiveBenchmar
         deskew_max_angle=float(kwargs.pop("deskew_max_angle", 7.0)),
         deskew_angle_step=float(kwargs.pop("deskew_angle_step", 0.5)),
         tesseract_psm=_normalize_tesseract_psm(kwargs.pop("tesseract_psm", "auto")),
+        tesseract_output_format=str(kwargs.pop("tesseract_output_format", "text")).strip().lower(),
         cleanup_lexicon_texts=tuple(),
+        confidence_aware_cleanup=bool(kwargs.pop("confidence_aware_cleanup", False)),
+        cleanup_high_confidence_threshold=float(kwargs.pop("cleanup_high_confidence_threshold", 95.0)),
     )
     return LocalArchiveBenchmarkOptions(
         core=core_options,

@@ -335,6 +335,9 @@ def test_ocr_pdf_command_runs_pipeline(monkeypatch, tmp_path) -> None:
         assert kwargs["deskew_max_angle"] == 4.0
         assert kwargs["deskew_angle_step"] == 0.25
         assert kwargs["tesseract_psm"] == "6"
+        assert kwargs["tesseract_output_format"] == "hocr"
+        assert kwargs["confidence_aware_cleanup"] is True
+        assert kwargs["cleanup_high_confidence_threshold"] == 92.0
         assert kwargs["ocr_engine"] == "paddleocr"
         assert kwargs["inverse_render_rerank"] is True
         assert kwargs["inverse_render_top_k"] == 5
@@ -364,6 +367,11 @@ def test_ocr_pdf_command_runs_pipeline(monkeypatch, tmp_path) -> None:
             "0.25",
             "--tesseract-psm",
             "6",
+            "--tesseract-output-format",
+            "hocr",
+            "--confidence-aware-cleanup",
+            "--cleanup-high-confidence-threshold",
+            "92",
             "--ocr-engine",
             "paddleocr",
             "--inverse-render-rerank",

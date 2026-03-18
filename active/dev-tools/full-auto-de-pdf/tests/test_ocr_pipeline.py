@@ -1086,6 +1086,112 @@ def test_ocr_page_images_scan_mode_auto_enables_verify_cleanup_spans(
     assert verifier["changes_reverted"] == 1
 
 
+def test_parse_hocr_text_and_metadata_extracts_text_and_confidence() -> None:
+    hocr = """
+    <html><body>
+      <span class='ocr_line' id='line_1'>
+        <span class='ocrx_word' title='bbox 0 0 10 10; x_wconf 98'>Hello</span>
+        <span class='ocrx_word' title='bbox 11 0 30 10; x_wconf 65'>world</span>
+      </span>
+      <span class='ocr_line' id='line_2'>
+        <span class='ocrx_word' title='bbox 0 12 20 22; x_wconf 90'>Again</span>
+      </span>
+    </body></html>
+    """
+    text, metadata = ocr_pipeline._parse_hocr_text_and_metadata(hocr)
+    assert text == "Hello world\nAgain"
+    assert metadata["hocr_word_count"] == 3
+    assert float(metadata["hocr_confidence_mean"]) == pytest.approx((98 + 65 + 90) / 3.0)
+    assert metadata["hocr_low_confidence_word_count"] == 1
+
+
+def test_ocr_page_images_hocr_output_records_confidence_metadata(tmp_path) -> None:
+    page_image = tmp_path / "page-1.png"
+    output_path = tmp_path / "out.txt"
+    work_dir = tmp_path / "work"
+    Image.new("L", (20, 20), color=255).save(page_image)
+
+    def _which(name: str) -> str | None:
+        if name == "tesseract":
+            return "/usr/bin/fake"
+        return None
+
+    def _run(command: list[str], capture_output: bool) -> str:
+        assert command[0] == "tesseract"
+        assert capture_output is True
+        assert command[-1] == "hocr"
+        return (
+            "<html><body><span class='ocr_line'>"
+            "<span class='ocrx_word' title='bbox 0 0 10 10; x_wconf 98'>Hello</span>"
+            "<span class='ocrx_word' title='bbox 11 0 30 10; x_wconf 88'>world</span>"
+            "</span></body></html>"
+        )
+
+    metrics = ocr_page_images(
+        page_images=[page_image],
+        output_text_path=output_path,
+        work_dir=work_dir,
+        preprocess_mode="none",
+        tesseract_psm="6",
+        tesseract_output_format="hocr",
+        run_command=_run,
+        which=_which,
+    )
+
+    assert output_path.read_text(encoding="utf-8") == "Hello world"
+    manifest_payload = json.loads(Path(str(metrics["page_artifacts_manifest"])).read_text(encoding="utf-8"))
+    page_entry = manifest_payload["pages"][0]
+    assert page_entry["tesseract_output_format"] == "hocr"
+    assert page_entry["hocr_word_count"] == 2
+    assert page_entry["hocr_confidence_min"] == 88
+
+
+def test_ocr_page_images_confidence_aware_cleanup_skips_high_confidence_page(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    page_image = tmp_path / "page-1.png"
+    output_path = tmp_path / "out.txt"
+    work_dir = tmp_path / "work"
+    Image.new("L", (20, 20), color=255).save(page_image)
+
+    def _which(name: str) -> str | None:
+        if name == "tesseract":
+            return "/usr/bin/fake"
+        return None
+
+    def _run(command: list[str], capture_output: bool) -> str:
+        assert command[0] == "tesseract"
+        assert capture_output is True
+        assert command[-1] == "hocr"
+        return (
+            "<html><body><span class='ocr_line'>"
+            "<span class='ocrx_word' title='bbox 0 0 10 10; x_wconf 99'>raw</span>"
+            "<span class='ocrx_word' title='bbox 11 0 30 10; x_wconf 98'>text</span>"
+            "</span></body></html>"
+        )
+
+    monkeypatch.setattr(ocr_pipeline, "cleanup_ocr_text", lambda text, lexicon_texts=(): "CLEANED")
+    metrics = ocr_page_images(
+        page_images=[page_image],
+        output_text_path=output_path,
+        work_dir=work_dir,
+        preprocess_mode="none",
+        tesseract_psm="6",
+        tesseract_output_format="hocr",
+        confidence_aware_cleanup=True,
+        cleanup_high_confidence_threshold=95.0,
+        run_command=_run,
+        which=_which,
+    )
+
+    assert output_path.read_text(encoding="utf-8") == "raw text"
+    manifest_payload = json.loads(Path(str(metrics["page_artifacts_manifest"])).read_text(encoding="utf-8"))
+    gate = manifest_payload["pages"][0]["cleanup_confidence_gate"]
+    assert gate["enabled"] is True
+    assert gate["action"] == "skipped-cleanup"
+
+
 def test_score_ocr_text_uses_supplied_lexicon() -> None:
     noisy = "It teontains realistcsynthetic notes for eaders."
     unguided = ocr_pipeline._score_ocr_text(noisy, "eng", ())
