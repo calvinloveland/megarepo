@@ -45,6 +45,8 @@ _MIN_DISTINCT_WORDS_PER_SIGNATURE = 1
 _MAX_TOTAL_CORRECTIONS = 30
 _CONTEXT_MIN_TARGET_SCORE = 2
 _CONTEXT_REQUIRED_MARGIN = 0
+_MIN_CONTEXTUAL_CONFUSABLE_TARGET_OCCURRENCES = 20
+_MIN_CONTEXTUAL_CONFUSABLE_RATIO = 2.5
 _MIN_APOSTROPHE_ERROR_OCCURRENCES = 1
 _MAX_TOTAL_APOSTROPHE_CORRECTIONS = 20
 _AMBIGUOUS_APOSTROPHE_TARGETS = {
@@ -69,6 +71,8 @@ _SHORT_LEXICON_WORDS = {"a", "i", "of", "to", "in", "on", "at", "by", "an"}
 _CONFUSABLE_SUBSTITUTIONS = (
     ("i", "l"),
     ("l", "i"),
+    ("c", "e"),
+    ("e", "c"),
     ("e", "o"),
     ("o", "e"),
     ("rn", "m"),
@@ -184,6 +188,7 @@ _BUILTIN_LEXICON = {
     "sample",
     "section",
     "seal",
+    "see",
     "she",
     "story",
     "strike",
@@ -916,6 +921,46 @@ def _infer_confusable_word_corrections(
     return {source: target for source, target, _score in selected}
 
 
+def _infer_contextual_confusable_corrections(
+    text: str,
+    lexicon_words: set[str],
+) -> dict[str, str]:
+    counts = _extract_token_counts(text)
+    corrections: list[tuple[str, str, float]] = []
+    for source, source_count in counts.items():
+        if not source.isalpha():
+            continue
+        if len(source) < 3:
+            continue
+        if source in lexicon_words:
+            continue
+        best_target = ""
+        best_score = float("-inf")
+        for candidate in _lexicon_candidates(source, lexicon_words):
+            if not _is_confusable_rewrite(source, candidate):
+                continue
+            target_count = counts.get(candidate, 0)
+            if target_count < _MIN_CONTEXTUAL_CONFUSABLE_TARGET_OCCURRENCES:
+                continue
+            ratio = float(target_count) / float(max(source_count, 1))
+            if ratio < _MIN_CONTEXTUAL_CONFUSABLE_RATIO:
+                continue
+            score = (
+                float(target_count * 40)
+                - float(source_count * 10)
+                + float(len(candidate) * 3)
+                + (50.0 if candidate in _BUILTIN_LEXICON else 0.0)
+            )
+            if score > best_score:
+                best_target = candidate
+                best_score = score
+        if best_target:
+            corrections.append((source, best_target, best_score))
+    corrections.sort(key=lambda item: item[2], reverse=True)
+    selected = corrections[:_MAX_TOTAL_LEXICON_CORRECTIONS]
+    return {source: target for source, target, _score in selected}
+
+
 def _apply_word_corrections(text: str, corrections: dict[str, str]) -> str:
     if not corrections:
         return text
@@ -1043,6 +1088,7 @@ def cleanup_ocr_text(text: str, lexicon_texts: tuple[str, ...] = ()) -> str:
     cleaned = unicodedata.normalize("NFKC", cleaned)
     for original, replacement in _UNICODE_REPLACEMENTS.items():
         cleaned = cleaned.replace(original, replacement)
+    cleaned = re.sub(r"(?<![A-Za-z0-9])\[(?=\s+[a-z])", "I", cleaned)
 
     cleaned = _BROKEN_HYPHEN.sub(r"\1\2", cleaned)
     cleaned_lines: list[str] = []
@@ -1088,5 +1134,6 @@ def cleanup_ocr_text(text: str, lexicon_texts: tuple[str, ...] = ()) -> str:
     contextual_corrections.update(_infer_apostrophe_corrections(cleaned))
     contextual_corrections.update(_infer_contextual_apostrophe_corrections(cleaned))
     contextual_corrections.update(_infer_digit_letter_corrections(cleaned))
+    contextual_corrections.update(_infer_contextual_confusable_corrections(cleaned, split_lexicon_words))
     cleaned = _apply_word_corrections(cleaned, contextual_corrections)
     return cleaned.strip()

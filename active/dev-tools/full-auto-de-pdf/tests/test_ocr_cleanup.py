@@ -115,6 +115,31 @@ def test_cleanup_ocr_text_corrects_isolated_digit_one_to_i() -> None:
     assert "i think this should work" in cleaned.lower()
 
 
+def test_cleanup_ocr_text_restores_isolated_bracket_pronoun_i() -> None:
+    source = (
+        "[ am ready to begin.\n"
+        "[ could not see the road.\n"
+        "[All rights reserved.]\n"
+    )
+    cleaned = cleanup_ocr_text(source)
+    assert "I am ready to begin." in cleaned
+    assert "I could not see the road." in cleaned
+    assert "[All rights reserved.]" in cleaned
+
+
+def test_cleanup_ocr_text_contextually_corrects_sec_to_see() -> None:
+    lines = ["I can see the road ahead." for _ in range(12)]
+    lines.extend(["They did not see the harbor lights." for _ in range(12)])
+    lines.append("I can sec the road ahead.")
+    lines.append("They did not sec the harbor lights.")
+    cleaned = cleanup_ocr_text("\n".join(lines))
+    lowered = cleaned.lower()
+    assert "can sec the road ahead" not in lowered
+    assert "did not sec the harbor lights" not in lowered
+    assert "can see the road ahead" in lowered
+    assert "did not see the harbor lights" in lowered
+
+
 def test_cleanup_ocr_text_corrects_book_length_patterns() -> None:
     chapters: list[str] = []
     for _ in range(120):
