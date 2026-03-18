@@ -275,3 +275,39 @@ def test_cleanup_ocr_text_corrects_confusable_builtin_word() -> None:
     source = "The worid turned quietly at dusk.\n"
     cleaned = cleanup_ocr_text(source)
     assert "world turned quietly" in cleaned.lower()
+
+
+def test_cleanup_ocr_text_joins_known_split_pairs() -> None:
+    """Systematic OCR splits of compound words are corrected regardless of frequency."""
+    lines = ["She said she can not stay." for _ in range(10)]
+    cleaned = cleanup_ocr_text("\n".join(lines))
+    assert "can not" not in cleaned.lower()
+    assert "cannot" in cleaned.lower()
+
+
+def test_cleanup_ocr_text_joins_known_split_within() -> None:
+    lines = ["He remained with in the walls." for _ in range(10)]
+    cleaned = cleanup_ocr_text("\n".join(lines))
+    assert "with in" not in cleaned.lower()
+    assert "within" in cleaned.lower()
+
+
+def test_cleanup_ocr_text_removes_dot_leader_toc_lines() -> None:
+    """OCR'd TOC entries with dot-leader patterns are removed even when keywords are garbled."""
+    source = (
+        "Jonatan Harker's Journal ......... 1\n"
+        "Dr Seward's Diary ........... 17\n"
+        "Real story opening line.\n"
+    )
+    cleaned = cleanup_ocr_text(source)
+    assert "........." not in cleaned
+    assert "real story opening line" in cleaned.lower()
+
+
+def test_cleanup_ocr_text_corrects_ew_ow_confusable() -> None:
+    """The ew↔ow confusable fixes tewer→tower when tower dominates the text."""
+    lines = ["The stone tower stood tall." for _ in range(10)]
+    lines.append("The stone tewer stood tall.")
+    cleaned = cleanup_ocr_text("\n".join(lines))
+    assert "tewer" not in cleaned.lower()
+    assert "tower" in cleaned.lower()

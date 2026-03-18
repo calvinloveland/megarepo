@@ -35,6 +35,7 @@ _HARD_CONTEXT_BREAK = re.compile(r"[.!?;:\n]")
 _ROMAN_WORD = re.compile(r"^[ivxlcdm]+$")
 _LOWER_ALPHA = "abcdefghijklmnopqrstuvwxyz"
 _TOC_HINT = re.compile(r"^\s*(contents?|chapter|book|appendix|part)\b", flags=re.IGNORECASE)
+_DOT_LEADER_LINE = re.compile(r"(?:\.{3,}|(?:\.\s){3,})\s*\d+\s*$")
 _MIN_ERROR_OCCURRENCES = 2
 _MAX_ERROR_OCCURRENCES = 2
 _MIN_CORRECTION_OCCURRENCES = 5
@@ -70,8 +71,38 @@ _MIN_JOIN_WORD_LENGTH = 5
 _MIN_JOIN_TARGET_OCCURRENCES = 3
 _MAX_JOIN_EDIT_DISTANCE = 2
 _MIN_CONFUSABLE_WORD_LENGTH = 5
-_MIN_SPLIT_WORD_LENGTH = 6
+_MIN_SPLIT_WORD_LENGTH = 5
 _SHORT_LEXICON_WORDS = {"a", "i", "of", "to", "in", "on", "at", "by", "an"}
+# Known word pairs that OCR frequently splits but should be joined. These bypass the
+# occurrence-count threshold so systematic splits (e.g. 59× "can not") are always fixed.
+_KNOWN_JOIN_PAIRS: dict[tuple[str, str], str] = {
+    ("can", "not"): "cannot",
+    ("with", "in"): "within",
+    ("with", "out"): "without",
+    ("him", "self"): "himself",
+    ("her", "self"): "herself",
+    ("my", "self"): "myself",
+    ("your", "self"): "yourself",
+    ("our", "selves"): "ourselves",
+    ("them", "selves"): "themselves",
+    ("some", "thing"): "something",
+    ("any", "thing"): "anything",
+    ("every", "thing"): "everything",
+    ("some", "one"): "someone",
+    ("every", "one"): "everyone",
+    ("any", "one"): "anyone",
+    ("out", "side"): "outside",
+    ("in", "side"): "inside",
+    ("to", "gether"): "together",
+    ("for", "ever"): "forever",
+    ("what", "ever"): "whatever",
+    ("when", "ever"): "whenever",
+    ("where", "ever"): "wherever",
+    ("how", "ever"): "however",
+    ("what", "soever"): "whatsoever",
+    ("where", "upon"): "whereupon",
+    ("there", "fore"): "therefore",
+}
 _CONFUSABLE_SUBSTITUTIONS = (
     ("i", "l"),
     ("l", "i"),
@@ -79,6 +110,8 @@ _CONFUSABLE_SUBSTITUTIONS = (
     ("e", "c"),
     ("e", "o"),
     ("o", "e"),
+    ("ew", "ow"),
+    ("ow", "ew"),
     ("rn", "m"),
     ("m", "rn"),
     ("cl", "d"),
@@ -342,6 +375,10 @@ def _is_toc_like_line(line: str) -> bool:
     if chapter_hits >= 1 and has_digit:
         return True
     if has_digit and ("contents" in lowered or "diary" in lowered) and len(lowered.split()) >= 3:
+        return True
+    # Dot-leader pattern: catches OCR'd TOC entries like "Title ......... 47"
+    # even when keywords like "Chapter" were garbled by OCR.
+    if has_digit and _DOT_LEADER_LINE.search(line):
         return True
     return False
 
@@ -649,7 +686,14 @@ def _infer_join_word_corrections(
     counts = _extract_token_counts(text)
     pair_counts = Counter(_adjacent_word_pairs(text))
     candidates: list[tuple[tuple[str, str], str, float]] = []
+    # Apply curated known joins first — these bypass the occurrence threshold because
+    # systematic OCR splits (e.g. 59× "can not") would otherwise be filtered out.
+    for source_pair, target in _KNOWN_JOIN_PAIRS.items():
+        if source_pair in pair_counts:
+            candidates.append((source_pair, target, 2000.0))
     for source_pair, pair_count in pair_counts.items():
+        if source_pair in _KNOWN_JOIN_PAIRS:
+            continue  # already handled above
         if pair_count > _MAX_ERROR_OCCURRENCES:
             continue
         merged_source = "".join(source_pair)
