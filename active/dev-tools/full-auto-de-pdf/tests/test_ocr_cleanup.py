@@ -140,6 +140,30 @@ def test_cleanup_ocr_text_contextually_corrects_sec_to_see() -> None:
     assert "did not see the harbor lights" in lowered
 
 
+def test_cleanup_ocr_text_corrects_dominant_confusable_words() -> None:
+    lines: list[str] = []
+    for _ in range(8):
+        lines.append("I have seen enough to believe myself calm.")
+        lines.append("We seem quiet even after we read each note once.")
+        lines.append("I would ever search the earth before I gave up.")
+    lines.extend(
+        [
+            "I have scen enough to belicve mysclf calm.",
+            "We scem quict cven after we rcad cach note onc.",
+            "I would cver scarch the carth before I gave up.",
+        ]
+    )
+    cleaned = cleanup_ocr_text("\n".join(lines))
+    lowered = cleaned.lower()
+    assert "scen enough" not in lowered
+    for unexpected in ("belicve", "mysclf", "cven", "rcad", "cach", "cver", "scarch", "carth"):
+        assert f" {unexpected} " not in lowered
+    assert " scem " not in lowered
+    assert "seen enough to believe myself calm" in lowered
+    assert "seem quiet even after we read each note once" in lowered
+    assert "ever search the earth before i gave up" in lowered
+
+
 def test_cleanup_ocr_text_corrects_book_length_patterns() -> None:
     chapters: list[str] = []
     for _ in range(120):

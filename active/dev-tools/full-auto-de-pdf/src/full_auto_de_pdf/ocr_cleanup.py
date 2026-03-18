@@ -45,6 +45,10 @@ _MIN_DISTINCT_WORDS_PER_SIGNATURE = 1
 _MAX_TOTAL_CORRECTIONS = 30
 _CONTEXT_MIN_TARGET_SCORE = 2
 _CONTEXT_REQUIRED_MARGIN = 0
+_MIN_DOMINANT_CONFUSABLE_WORD_LENGTH = 4
+_MIN_DOMINANT_CONFUSABLE_TARGET_OCCURRENCES = 5
+_MIN_DOMINANT_CONFUSABLE_RATIO = 1.5
+_MAX_DOMINANT_CONFUSABLE_SOURCE_OCCURRENCES = 30
 _MIN_CONTEXTUAL_CONFUSABLE_TARGET_OCCURRENCES = 20
 _MIN_CONTEXTUAL_CONFUSABLE_RATIO = 2.5
 _MIN_APOSTROPHE_ERROR_OCCURRENCES = 1
@@ -111,6 +115,7 @@ _BUILTIN_LEXICON = {
     "brown",
     "by",
     "can",
+    "believe",
     "chapter",
     "clean",
     "column",
@@ -121,13 +126,19 @@ _BUILTIN_LEXICON = {
     "de",
     "dog",
     "down",
+    "each",
+    "earth",
+    "either",
     "english",
     "enough",
+    "even",
     "every",
+    "ever",
     "exercise",
     "first",
     "for",
     "fox",
+    "forehead",
     "from",
     "full",
     "gate",
@@ -155,6 +166,7 @@ _BUILTIN_LEXICON = {
     "map",
     "more",
     "multiple",
+    "myself",
     "near",
     "no",
     "not",
@@ -163,6 +175,7 @@ _BUILTIN_LEXICON = {
     "old",
     "on",
     "one",
+    "once",
     "or",
     "other",
     "our",
@@ -178,6 +191,7 @@ _BUILTIN_LEXICON = {
     "prose",
     "produce",
     "quick",
+    "quiet",
     "read",
     "readers",
     "real",
@@ -189,6 +203,11 @@ _BUILTIN_LEXICON = {
     "section",
     "seal",
     "see",
+    "seem",
+    "seemed",
+    "seems",
+    "seen",
+    "search",
     "she",
     "story",
     "strike",
@@ -974,6 +993,55 @@ def _infer_contextual_confusable_corrections(
     return {source: target for source, target, _score in selected}
 
 
+def _infer_dominant_confusable_corrections(
+    text: str,
+    lexicon_words: set[str],
+    external_lexicon_words: set[str],
+) -> dict[str, str]:
+    counts = _extract_token_counts(text)
+    corrections: list[tuple[str, str, float]] = []
+    for source, source_count in counts.items():
+        if not source.isalpha():
+            continue
+        if len(source) < _MIN_DOMINANT_CONFUSABLE_WORD_LENGTH:
+            continue
+        if source_count < 1:
+            continue
+        if source_count > _MAX_DOMINANT_CONFUSABLE_SOURCE_OCCURRENCES:
+            continue
+        if source in _BUILTIN_LEXICON or source in external_lexicon_words:
+            continue
+        best_target = ""
+        best_score = float("-inf")
+        for candidate in _confusable_rewrite_candidates(source, lexicon_words):
+            if candidate not in _BUILTIN_LEXICON and candidate not in external_lexicon_words:
+                continue
+            target_count = counts.get(candidate, 0)
+            if (
+                candidate not in external_lexicon_words
+                and target_count < _MIN_DOMINANT_CONFUSABLE_TARGET_OCCURRENCES
+            ):
+                continue
+            ratio = float(target_count) / float(max(source_count, 1))
+            if candidate not in external_lexicon_words and ratio < _MIN_DOMINANT_CONFUSABLE_RATIO:
+                continue
+            score = (
+                float(target_count * 45)
+                - float(source_count * 15)
+                + float(len(candidate) * 4)
+                + (60.0 if candidate in _BUILTIN_LEXICON else 0.0)
+                + (120.0 if candidate in external_lexicon_words else 0.0)
+            )
+            if score > best_score:
+                best_target = candidate
+                best_score = score
+        if best_target:
+            corrections.append((source, best_target, best_score))
+    corrections.sort(key=lambda item: item[2], reverse=True)
+    selected = corrections[:_MAX_TOTAL_LEXICON_CORRECTIONS]
+    return {source: target for source, target, _score in selected}
+
+
 def _apply_word_corrections(text: str, corrections: dict[str, str]) -> str:
     if not corrections:
         return text
@@ -1133,6 +1201,11 @@ def cleanup_ocr_text(text: str, lexicon_texts: tuple[str, ...] = ()) -> str:
     direct_corrections = {}
     lexicon_corrections = _infer_lexicon_word_corrections(cleaned, external_lexicon_words)
     confusable_corrections = _infer_confusable_word_corrections(cleaned, split_lexicon_words)
+    dominant_confusable_corrections = _infer_dominant_confusable_corrections(
+        cleaned,
+        split_lexicon_words,
+        external_lexicon_words,
+    )
     split_corrections = _infer_split_word_corrections(
         cleaned,
         split_lexicon_words,
@@ -1140,6 +1213,7 @@ def cleanup_ocr_text(text: str, lexicon_texts: tuple[str, ...] = ()) -> str:
     )
     direct_corrections.update(lexicon_corrections)
     direct_corrections.update(confusable_corrections)
+    direct_corrections.update(dominant_confusable_corrections)
     direct_corrections.update(split_corrections)
     cleaned = _apply_direct_word_corrections(cleaned, direct_corrections)
     contextual_corrections = {}
