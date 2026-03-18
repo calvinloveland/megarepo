@@ -36,6 +36,8 @@ _ROMAN_WORD = re.compile(r"^[ivxlcdm]+$")
 _LOWER_ALPHA = "abcdefghijklmnopqrstuvwxyz"
 _TOC_HINT = re.compile(r"^\s*(contents?|chapter|book|appendix|part)\b", flags=re.IGNORECASE)
 _DOT_LEADER_LINE = re.compile(r"(?:\.{3,}|(?:\.\s){3,})\s*\d+\s*$")
+# Matches a 1-3 digit page number at the end of a line (capped at 999 to avoid matching years)
+_TOC_ENTRY_END = re.compile(r"\s*\d{1,3}\s*$")
 _MIN_ERROR_OCCURRENCES = 2
 _MAX_ERROR_OCCURRENCES = 2
 _MIN_CORRECTION_OCCURRENCES = 5
@@ -369,12 +371,15 @@ def _build_external_cleanup_lexicon(lexicon_texts: tuple[str, ...]) -> set[str]:
 def _is_toc_like_line(line: str) -> bool:
     lowered = line.lower()
     has_digit = any(char.isdigit() for char in lowered)
-    chapter_hits = lowered.count("chapter")
-    if _TOC_HINT.search(line) and has_digit:
+    ends_with_page_number = has_digit and bool(_TOC_ENTRY_END.search(line))
+    # TOC entries start with a structural keyword and end with a bare page number.
+    # Requiring the page-number tail prevents false positives on body sentences like
+    # "In chapter 5, the Count arrived." which contain a keyword + digit but don't
+    # end with a standalone number.
+    if _TOC_HINT.search(line) and ends_with_page_number:
         return True
-    if chapter_hits >= 1 and has_digit:
-        return True
-    if has_digit and ("contents" in lowered or "diary" in lowered) and len(lowered.split()) >= 3:
+    # Secondary TOC keywords that can appear mid-line in table-of-contents context.
+    if ends_with_page_number and ("contents" in lowered or "diary" in lowered) and len(lowered.split()) >= 3:
         return True
     # Dot-leader pattern: catches OCR'd TOC entries like "Title ......... 47"
     # even when keywords like "Chapter" were garbled by OCR.

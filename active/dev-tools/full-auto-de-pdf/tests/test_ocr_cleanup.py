@@ -79,6 +79,47 @@ def test_cleanup_ocr_text_removes_toc_like_lines() -> None:
     assert "real story opening line" in cleaned.lower()
 
 
+def test_cleanup_ocr_text_preserves_body_sentences_with_chapter_keyword() -> None:
+    """Body sentences mentioning 'chapter' + a digit must not be deleted."""
+    source = (
+        "In chapter 5, the Count arrived at dawn.\n"
+        "She had read chapter 3 twice.\n"
+        "Chapter 7 was the climax of the story.\n"
+        "Normal content here.\n"
+    )
+    cleaned = cleanup_ocr_text(source)
+    lowered = cleaned.lower()
+    assert "in chapter 5" in lowered
+    assert "she had read chapter 3" in lowered
+    assert "chapter 7 was the climax" in lowered
+    assert "normal content here" in lowered
+
+
+def test_cleanup_ocr_text_preserves_body_sentences_with_diary_keyword() -> None:
+    """Body sentences mentioning 'diary' + a digit must not be deleted."""
+    source = (
+        "I wrote in my diary for 3 hours.\n"
+        "The diary contained 17 entries.\n"
+        "Normal content here.\n"
+    )
+    cleaned = cleanup_ocr_text(source)
+    lowered = cleaned.lower()
+    assert "diary for 3 hours" in lowered
+    assert "diary contained 17" in lowered
+    assert "normal content here" in lowered
+
+
+def test_cleanup_ocr_text_removes_diary_toc_entry() -> None:
+    """A line like 'Dr Seward's Diary 17' (ending with bare page number) IS a TOC entry."""
+    source = (
+        "Dr Seward's Diary 17\n"
+        "Real story content.\n"
+    )
+    cleaned = cleanup_ocr_text(source)
+    assert "diary 17" not in cleaned.lower()
+    assert "real story content" in cleaned.lower()
+
+
 def test_cleanup_ocr_text_restores_apostrophe_suffixes() -> None:
     source = (
         "I don't agree. I don't agree. I don't agree. I don't agree. I don't agree.\n"
@@ -290,6 +331,27 @@ def test_cleanup_ocr_text_joins_known_split_within() -> None:
     cleaned = cleanup_ocr_text("\n".join(lines))
     assert "with in" not in cleaned.lower()
     assert "within" in cleaned.lower()
+
+
+def test_cleanup_ocr_text_joins_multiple_known_pairs_in_same_text() -> None:
+    """Multiple _KNOWN_JOIN_PAIRS corrections can fire in the same document."""
+    lines = ["She can not do it with in the walls." for _ in range(10)]
+    cleaned = cleanup_ocr_text("\n".join(lines))
+    lowered = cleaned.lower()
+    assert "can not" not in lowered
+    assert "with in" not in lowered
+    assert "cannot" in lowered
+    assert "within" in lowered
+
+
+def test_cleanup_ocr_text_statistical_join_does_not_break_on_unknown_pair() -> None:
+    """Unknown split pairs that appear rarely and have a clear lexicon target are joined."""
+    lines = ["Captain Norris answered plainly." for _ in range(6)]
+    lines.append("Captain not is answered plainly.")
+    cleaned = cleanup_ocr_text("\n".join(lines))
+    lowered = cleaned.lower()
+    assert "not is" not in lowered
+    assert "norris" in lowered
 
 
 def test_cleanup_ocr_text_removes_dot_leader_toc_lines() -> None:
