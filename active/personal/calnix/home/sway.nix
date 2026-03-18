@@ -106,7 +106,7 @@
         "XF86MonBrightnessDown" = "exec ~/.config/sway/brightness.sh down 10%";
 
         # Bluetooth controls
-        "${modifier}+b" = "exec blueberry"; # Open Bluetooth manager GUI
+        "${modifier}+b" = "exec blueman-manager"; # Open Bluetooth manager GUI
         "${modifier}+Shift+b" = "exec ${terminal} -e bluetuith"; # Open terminal Bluetooth manager
 
         # Pywal controls - generate colors from wallpaper and update Sway

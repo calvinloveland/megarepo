@@ -45,7 +45,7 @@ in
     bluez
     bluez-tools
     bluez-alsa # ALSA plugin for Bluetooth audio
-    blueberry # Bluetooth manager GUI
+    blueman # Bluetooth manager GUI
     bluetuith # Terminal-based Bluetooth manager
 
     # Wayland/Sway specific
