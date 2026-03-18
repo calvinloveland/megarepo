@@ -1086,6 +1086,62 @@ def test_ocr_page_images_scan_mode_auto_enables_verify_cleanup_spans(
     assert verifier["changes_reverted"] == 1
 
 
+def test_ocr_page_images_verify_cleanup_spans_uses_hocr_bbox_hint(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    page_image = tmp_path / "page-1.png"
+    output_path = tmp_path / "out.txt"
+    work_dir = tmp_path / "work"
+    Image.new("L", (20, 20), color=255).save(page_image)
+    seen_hint: dict[str, tuple[int, int, int, int] | None] = {}
+
+    def _which(name: str) -> str | None:
+        if name == "tesseract":
+            return "/usr/bin/fake"
+        return None
+
+    def _run(command: list[str], capture_output: bool) -> str:
+        assert command[0] == "tesseract"
+        assert capture_output is True
+        assert command[-1] == "hocr"
+        return (
+            "<html><body><span class='ocr_line'>"
+            "<span class='ocrx_word' title='bbox 10 10 30 20; x_wconf 60'>raw</span>"
+            "<span class='ocrx_word' title='bbox 35 10 60 20; x_wconf 60'>text</span>"
+            "</span></body></html>"
+        )
+
+    monkeypatch.setattr(
+        ocr_pipeline,
+        "cleanup_ocr_text",
+        lambda text, lexicon_texts=(): "new text" if text == "raw text" else text,
+    )
+
+    def _fake_evaluate(_obs, _bbox, _raw, _cleaned, hint_bbox=None):  # noqa: ANN001, ANN202
+        seen_hint["bbox"] = hint_bbox
+        return False, {"accepted": False, "reason": "insufficient-image-margin"}
+
+    monkeypatch.setattr(ocr_pipeline, "_evaluate_cleanup_span_replacement", _fake_evaluate)
+    metrics = ocr_page_images(
+        page_images=[page_image],
+        output_text_path=output_path,
+        work_dir=work_dir,
+        preprocess_mode="none",
+        tesseract_psm="6",
+        tesseract_output_format="hocr",
+        verify_cleanup_spans=True,
+        run_command=_run,
+        which=_which,
+    )
+
+    assert output_path.read_text(encoding="utf-8") == "raw text"
+    assert seen_hint["bbox"] == (10, 10, 30, 20)
+    manifest_payload = json.loads(Path(str(metrics["page_artifacts_manifest"])).read_text(encoding="utf-8"))
+    decision = manifest_payload["pages"][0]["cleanup_span_verifier"]["decisions"][0]
+    assert decision["hocr_hint_bbox"] == [10, 10, 30, 20]
+
+
 def test_ocr_page_images_orientation_fallback_can_select_rotated_candidate(
     monkeypatch,
     tmp_path,

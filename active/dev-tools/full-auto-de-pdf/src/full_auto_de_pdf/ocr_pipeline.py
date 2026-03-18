@@ -62,6 +62,7 @@ _LATIN_TOKEN = re.compile(r"[A-Za-z]+(?:'[A-Za-z]+)?")
 _NON_SPACE_TOKEN = re.compile(r"\S+")
 _NON_TEXT_CHAR = re.compile(r"[^A-Za-z0-9\s\.,;:!\?'\-\"()\[\]]")
 _HOCR_WCONF_RE = re.compile(r"\bx_wconf\s+(\d{1,3})\b", re.IGNORECASE)
+_HOCR_BBOX_RE = re.compile(r"\bbbox\s+(-?\d+)\s+(-?\d+)\s+(-?\d+)\s+(-?\d+)\b", re.IGNORECASE)
 _HOCR_LOW_CONFIDENCE_WORD_THRESHOLD = 70
 _COMMON_ENGLISH_WORDS = frozenset(
     {
@@ -162,6 +163,8 @@ class _CleanupSpanChange:
     cleaned_text: str
     raw_token_count: int
     cleaned_token_count: int
+    raw_token_start_index: int
+    raw_token_end_index: int
 
 
 @dataclass(frozen=True)
@@ -979,6 +982,8 @@ def _cleanup_span_changes(raw_text: str, cleaned_text: str) -> list[_CleanupSpan
                 cleaned_text=cleaned_span,
                 raw_token_count=raw_token_count,
                 cleaned_token_count=cleaned_token_count,
+                raw_token_start_index=raw_start_index,
+                raw_token_end_index=raw_end_index,
             )
         )
     return changes
@@ -1320,20 +1325,24 @@ def _evaluate_cleanup_span_replacement(
     bbox: tuple[int, int, int, int],
     raw_text: str,
     cleaned_text: str,
+    hint_bbox: tuple[int, int, int, int] | None = None,
 ) -> tuple[bool, dict[str, object]]:
     raw_score, raw_metadata = _inverse_render_score_candidate(observed_binary, bbox, raw_text)
     cleaned_score, _cleaned_metadata = _inverse_render_score_candidate(observed_binary, bbox, cleaned_text)
     raw_render = _render_inverse_text_from_metadata(raw_text, observed_binary.size, raw_metadata)
     cleaned_render = _render_inverse_text_from_metadata(cleaned_text, observed_binary.size, raw_metadata)
-    diff_bbox = _cleanup_span_diff_bbox(raw_render, cleaned_render)
-    if diff_bbox is None:
-        return False, {
-            "accepted": False,
-            "reason": "no-local-image-difference",
-            "raw_inverse_render_score": raw_score,
-            "cleaned_inverse_render_score": cleaned_score,
-        }
-    local_bbox = _expand_bbox(diff_bbox, observed_binary.size, _CLEANUP_SPAN_VERIFIER_DIFF_PADDING)
+    if hint_bbox is None:
+        diff_bbox = _cleanup_span_diff_bbox(raw_render, cleaned_render)
+        if diff_bbox is None:
+            return False, {
+                "accepted": False,
+                "reason": "no-local-image-difference",
+                "raw_inverse_render_score": raw_score,
+                "cleaned_inverse_render_score": cleaned_score,
+            }
+        local_bbox = _expand_bbox(diff_bbox, observed_binary.size, _CLEANUP_SPAN_VERIFIER_DIFF_PADDING)
+    else:
+        local_bbox = _expand_bbox(hint_bbox, observed_binary.size, _CLEANUP_SPAN_VERIFIER_DIFF_PADDING)
     full_area = _bbox_area(bbox)
     local_area_ratio = (
         float(_bbox_area(local_bbox)) / float(full_area)
@@ -1415,12 +1424,22 @@ def _maybe_verify_cleanup_spans(
             + change.raw_text
             + verified_text[change.cleaned_end:]
         )
-        keep_cleaned, decision = _evaluate_cleanup_span_replacement(
-            observed_binary,
-            bbox,
-            raw_variant,
-            verified_text,
-        )
+        hint_bbox = _hocr_bbox_hint_for_change(change, selection_metadata)
+        if hint_bbox is None:
+            keep_cleaned, decision = _evaluate_cleanup_span_replacement(
+                observed_binary,
+                bbox,
+                raw_variant,
+                verified_text,
+            )
+        else:
+            keep_cleaned, decision = _evaluate_cleanup_span_replacement(
+                observed_binary,
+                bbox,
+                raw_variant,
+                verified_text,
+                hint_bbox=hint_bbox,
+            )
         decision.update(
             {
                 "raw_text": change.raw_text,
@@ -1429,6 +1448,8 @@ def _maybe_verify_cleanup_spans(
                 "cleaned_token_count": change.cleaned_token_count,
             }
         )
+        if hint_bbox is not None:
+            decision["hocr_hint_bbox"] = list(hint_bbox)
         decisions.append(decision)
         if keep_cleaned:
             continue
@@ -1444,6 +1465,37 @@ def _maybe_verify_cleanup_spans(
             "decisions": decisions,
         }
     }
+
+
+def _hocr_bbox_hint_for_change(
+    change: _CleanupSpanChange,
+    selection_metadata: dict[str, object],
+) -> tuple[int, int, int, int] | None:
+    payload = selection_metadata.get("hocr_word_boxes_runtime")
+    if not isinstance(payload, list):
+        return None
+    if change.raw_token_end_index <= change.raw_token_start_index:
+        return None
+    if change.raw_token_end_index > len(payload):
+        return None
+    candidate_boxes: list[tuple[int, int, int, int]] = []
+    for item in payload[change.raw_token_start_index : change.raw_token_end_index]:
+        if (
+            isinstance(item, (list, tuple))
+            and len(item) == 4
+            and all(isinstance(value, int) for value in item)
+        ):
+            left, top, right, bottom = (int(value) for value in item)
+            if right > left and bottom > top:
+                candidate_boxes.append((left, top, right, bottom))
+    if not candidate_boxes:
+        return None
+    return (
+        min(box[0] for box in candidate_boxes),
+        min(box[1] for box in candidate_boxes),
+        max(box[2] for box in candidate_boxes),
+        max(box[3] for box in candidate_boxes),
+    )
 
 
 def _maybe_inverse_render_rerank(
@@ -1624,7 +1676,13 @@ def _run_ocr_on_page(
                 candidate_metadata["tesseract_psm"] = int(tesseract_psm)
                 candidate_metadata["tesseract_output_format"] = options.core.tesseract_output_format
             candidate_metadata.update(ocr_metadata)
-            candidate_runs.append(candidate_metadata)
+            candidate_runs.append(
+                {
+                    key: value
+                    for key, value in candidate_metadata.items()
+                    if key != "hocr_word_boxes_runtime"
+                }
+            )
             candidates.append(
                 OCRCandidate(
                     score=score,
@@ -1839,6 +1897,16 @@ def _extract_hocr_word_confidence(title: str) -> int | None:
     return max(0, min(100, confidence))
 
 
+def _extract_hocr_bbox(title: str) -> tuple[int, int, int, int] | None:
+    bbox_match = _HOCR_BBOX_RE.search(title)
+    if bbox_match is None:
+        return None
+    left, top, right, bottom = (int(value) for value in bbox_match.groups())
+    if right <= left or bottom <= top:
+        return None
+    return (left, top, right, bottom)
+
+
 class _HocrTextExtractor(HTMLParser):
     """Extract plain text lines and x_wconf values from Tesseract hOCR."""
 
@@ -1850,8 +1918,10 @@ class _HocrTextExtractor(HTMLParser):
         self._inside_word = False
         self._current_word_parts: list[str] = []
         self._current_word_confidence: int | None = None
+        self._current_word_bbox: tuple[int, int, int, int] | None = None
         self._current_line_words: list[str] = []
         self._fallback_words: list[str] = []
+        self.word_boxes: list[tuple[int, int, int, int] | None] = []
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         if tag.lower() != "span":
@@ -1865,7 +1935,9 @@ class _HocrTextExtractor(HTMLParser):
         if "ocrx_word" in classes:
             self._inside_word = True
             self._current_word_parts = []
-            self._current_word_confidence = _extract_hocr_word_confidence(attrs_map.get("title", ""))
+            title = attrs_map.get("title", "")
+            self._current_word_confidence = _extract_hocr_word_confidence(title)
+            self._current_word_bbox = _extract_hocr_bbox(title)
 
     def handle_data(self, data: str) -> None:
         if self._inside_word:
@@ -1879,11 +1951,13 @@ class _HocrTextExtractor(HTMLParser):
             if token:
                 self._current_line_words.append(token)
                 self._fallback_words.append(token)
+                self.word_boxes.append(self._current_word_bbox)
                 if self._current_word_confidence is not None:
                     self.confidences.append(self._current_word_confidence)
             self._inside_word = False
             self._current_word_parts = []
             self._current_word_confidence = None
+            self._current_word_bbox = None
             return
         if self._line_depth > 0:
             self._line_depth -= 1
@@ -1903,18 +1977,24 @@ def _parse_hocr_text_and_metadata(hocr_text: str) -> tuple[str, dict[str, object
     parser.feed(hocr_text)
     parsed_text = parser.text
     confidences = parser.confidences
+    metadata: dict[str, object] = {}
+    if parser.word_boxes:
+        metadata["hocr_word_boxes_runtime"] = parser.word_boxes
     if not confidences:
-        return parsed_text, {}
+        return parsed_text, metadata
     low_confidence_words = sum(
         1 for confidence in confidences if confidence < _HOCR_LOW_CONFIDENCE_WORD_THRESHOLD
     )
-    return parsed_text, {
-        "hocr_word_count": len(confidences),
-        "hocr_confidence_mean": sum(confidences) / len(confidences),
-        "hocr_confidence_min": min(confidences),
-        "hocr_low_confidence_word_count": low_confidence_words,
-        "hocr_low_confidence_ratio": low_confidence_words / len(confidences),
-    }
+    metadata.update(
+        {
+            "hocr_word_count": len(confidences),
+            "hocr_confidence_mean": sum(confidences) / len(confidences),
+            "hocr_confidence_min": min(confidences),
+            "hocr_low_confidence_word_count": low_confidence_words,
+            "hocr_low_confidence_ratio": low_confidence_words / len(confidences),
+        }
+    )
+    return parsed_text, metadata
 
 
 def _run_paddle_reader(
@@ -2119,6 +2199,7 @@ def _collect_page_ocr_results(
         )
         if cleanup_metadata:
             selection_metadata.update(cleanup_metadata)
+        selection_metadata.pop("hocr_word_boxes_runtime", None)
         page_texts.append(text)
         page_index = len(page_texts)
         entry = _page_entry(page_index, image_path, ocr_input_path, text, selection_metadata)
