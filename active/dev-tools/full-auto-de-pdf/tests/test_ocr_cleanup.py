@@ -130,6 +130,25 @@ def test_cleanup_ocr_text_restores_apostrophe_suffixes() -> None:
     assert "don't agree in this line" in cleaned.lower()
 
 
+def test_cleanup_ocr_text_restores_nt_contractions() -> None:
+    """OCR that drops the apostrophe from n't contractions is restored."""
+    # Build text where correct form appears often, error form appears a few times.
+    lines = ["don't worry." for _ in range(5)] + ["dont worry." for _ in range(2)]
+    cleaned = cleanup_ocr_text("\n".join(lines))
+    assert "dont" not in cleaned
+    assert "don't" in cleaned
+
+    lines2 = ["didn't do it." for _ in range(5)] + ["didnt do it." for _ in range(2)]
+    cleaned2 = cleanup_ocr_text("\n".join(lines2))
+    assert "didnt" not in cleaned2
+    assert "didn't" in cleaned2
+
+    lines3 = ["wouldn't go." for _ in range(5)] + ["wouldnt go." for _ in range(2)]
+    cleaned3 = cleanup_ocr_text("\n".join(lines3))
+    assert "wouldnt" not in cleaned3
+    assert "wouldn't" in cleaned3
+
+
 def test_cleanup_ocr_text_contextually_corrects_can_to_cant() -> None:
     lines: list[str] = []
     for _ in range(8):
@@ -373,3 +392,19 @@ def test_cleanup_ocr_text_corrects_ew_ow_confusable() -> None:
     cleaned = cleanup_ocr_text("\n".join(lines))
     assert "tewer" not in cleaned.lower()
     assert "tower" in cleaned.lower()
+
+
+def test_cleanup_ocr_text_known_word_corrections() -> None:
+    """Curated _KNOWN_WORD_CORRECTIONS are applied unconditionally to non-word OCR tokens."""
+    cases = [
+        ("She was slecping soundly.", "sleeping"),
+        ("Her tecth were white.", "teeth"),
+        ("With great cffort he rose.", "effort"),
+        ("He was alrcady there.", "already"),
+        ("She did not nced to ask.", "need"),
+        ("He would seck her out.", "seek"),
+        ("The wound on his forchead bled.", "forehead"),
+    ]
+    for source, expected_word in cases:
+        cleaned = cleanup_ocr_text(source)
+        assert expected_word in cleaned.lower(), f"Expected {expected_word!r} in cleanup of {source!r}; got {cleaned!r}"

@@ -105,6 +105,25 @@ _KNOWN_JOIN_PAIRS: dict[tuple[str, str], str] = {
     ("where", "upon"): "whereupon",
     ("there", "fore"): "therefore",
 }
+# Curated lookup for non-word OCR tokens that the statistical system cannot fix because
+# the correct form never appears in the OCR output (Tesseract always misreads them).
+# Keys are lowercase; corrections are case-adapted at apply time. Only add entries where
+# the source is provably not a real English word (prevents false positives).
+_KNOWN_WORD_CORRECTIONS: dict[str, str] = {
+    # c↔e OCR confusion in multi-syllable words
+    "slecping": "sleeping",
+    "slceping": "sleeping",
+    "tecth": "teeth",
+    "cffort": "effort",
+    "cfforts": "efforts",
+    "alrcady": "already",
+    "nced": "need",
+    "nceds": "needs",
+    "nceded": "needed",
+    "seck": "seek",
+    "forchead": "forehead",
+    "forchcad": "forehead",
+}
 _CONFUSABLE_SUBSTITUTIONS = (
     ("i", "l"),
     ("l", "i"),
@@ -535,7 +554,11 @@ def _apostrophe_proposals(source: str) -> list[str]:
         source + "'m",
     ]
     if source.endswith("n"):
+        # OCR drops "'t" entirely: "can" ← "can't"
         proposals.append(source + "'t")
+    if source.endswith("nt") and len(source) > 2:
+        # OCR drops only the apostrophe: "dont" ← "don't", "cant" ← "can't"
+        proposals.append(source[:-1] + "'" + source[-1])
     return proposals
 
 
@@ -1264,6 +1287,8 @@ def cleanup_ocr_text(text: str, lexicon_texts: tuple[str, ...] = ()) -> str:
     direct_corrections.update(confusable_corrections)
     direct_corrections.update(dominant_confusable_corrections)
     direct_corrections.update(split_corrections)
+    # Curated corrections override statistical ones where we have high confidence.
+    direct_corrections.update(_KNOWN_WORD_CORRECTIONS)
     cleaned = _apply_direct_word_corrections(cleaned, direct_corrections)
     contextual_corrections = {}
     contextual_corrections.update(_infer_missing_char_corrections(cleaned))
