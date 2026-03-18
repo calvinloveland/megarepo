@@ -727,6 +727,18 @@ def _infer_join_word_corrections(
         merged_source = "".join(source_pair)
         if len(merged_source) < _MIN_JOIN_WORD_LENGTH:
             continue
+        # Reject edit-distance joins of two already-valid component words when
+        # the merged form is not directly in the lexicon. "to"+"his"→"this"
+        # and "we"+"are"→"were" are false positives — the OCR got both tokens
+        # right. If the merged form IS in the lexicon ("be"+"fore"→"before"),
+        # the join is an exact match and clearly correct.
+        left_word, right_word = source_pair
+        if (
+            merged_source not in lexicon_words
+            and left_word in lexicon_words
+            and right_word in lexicon_words
+        ):
+            continue
         best_target = _best_join_word_target(
             merged_source,
             counts,

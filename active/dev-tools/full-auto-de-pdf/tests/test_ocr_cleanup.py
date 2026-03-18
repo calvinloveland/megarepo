@@ -311,14 +311,15 @@ def test_cleanup_ocr_text_prefers_split_corrections_and_three_word_splits() -> N
 
 
 def test_cleanup_ocr_text_merges_verified_split_words() -> None:
+    # "Norr is" → "norris": "norr" is not a lexicon word, merged form is → joins OK
     lines = ["Captain Norris answered plainly." for _ in range(6)]
     lines.extend("We waited before sunrise." for _ in range(6))
-    lines.append("Captain not is answered plainly.")
-    lines.append("We waited be fox sunrise.")
+    lines.append("Captain Norr is answered plainly.")
+    lines.append("We waited be fore sunrise.")
     cleaned = cleanup_ocr_text("\n".join(lines))
     lowered = cleaned.lower()
-    assert "captain not is answered plainly" not in lowered
-    assert "we waited be fox sunrise" not in lowered
+    assert "captain norr is answered plainly" not in lowered
+    assert "we waited be fore sunrise" not in lowered
     assert "captain norris answered plainly" in lowered
     assert "we waited before sunrise" in lowered
 
@@ -364,13 +365,31 @@ def test_cleanup_ocr_text_joins_multiple_known_pairs_in_same_text() -> None:
 
 
 def test_cleanup_ocr_text_statistical_join_does_not_break_on_unknown_pair() -> None:
-    """Unknown split pairs that appear rarely and have a clear lexicon target are joined."""
+    """Unknown split pairs are joined when the merged form is in the text lexicon."""
+    # "Norr is": "norr" is not a lexicon word; "norris" IS → exact join goes through.
     lines = ["Captain Norris answered plainly." for _ in range(6)]
-    lines.append("Captain not is answered plainly.")
+    lines.append("Captain Norr is answered plainly.")
     cleaned = cleanup_ocr_text("\n".join(lines))
     lowered = cleaned.lower()
-    assert "not is" not in lowered
+    assert "norr is" not in lowered
     assert "norris" in lowered
+
+
+def test_cleanup_ocr_text_does_not_join_two_valid_words_via_edit_distance() -> None:
+    """Two already-valid words must NOT be joined via edit-distance matching.
+
+    'to his' → 'this' (edit distance 1) and 'we are' → 'were' (edit distance 1)
+    are false positives: the OCR got both tokens right.
+    """
+    source = (
+        "He gave it to his friend.\n" * 3
+        + "We are ready now.\n" * 3
+    )
+    cleaned = cleanup_ocr_text(source)
+    lowered = cleaned.lower()
+    assert "to his" in lowered
+    assert "we are" in lowered
+    assert "this" not in lowered.replace("he gave it to his friend", "")  # no spurious "this"
 
 
 def test_cleanup_ocr_text_removes_dot_leader_toc_lines() -> None:

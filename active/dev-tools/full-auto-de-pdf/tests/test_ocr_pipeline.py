@@ -831,7 +831,7 @@ def test_ocr_page_images_inverse_render_can_select_cleaned_variant(monkeypatch, 
         mode = "none" if Path(command[1]) == page_image else Path(command[1]).parent.name
         psm = command[-1]
         if mode == "scan" and psm == "6":
-            return "Captain not is answered plainly"
+            return "Captain Norr is answered plainly"
         return "Fallback baseline"
 
     def _preprocess_image(
@@ -856,7 +856,7 @@ def test_ocr_page_images_inverse_render_can_select_cleaned_variant(monkeypatch, 
         lowered = text.lower()
         if "captain norris answered plainly" in lowered:
             return 0.95, {"inverse_render_score": 0.95}
-        if "captain not is answered plainly" in lowered:
+        if "captain norr is answered plainly" in lowered:
             return 0.2, {"inverse_render_score": 0.2}
         return 0.1, {"inverse_render_score": 0.1}
 
@@ -880,7 +880,7 @@ def test_ocr_page_images_inverse_render_can_select_cleaned_variant(monkeypatch, 
         which=_which,
     )
 
-    assert output_path.read_text(encoding="utf-8") == "Captain norris answered plainly"
+    assert output_path.read_text(encoding="utf-8") == "Captain Norris answered plainly"
     manifest_payload = json.loads(Path(str(metrics["page_artifacts_manifest"])).read_text(encoding="utf-8"))
     page_entry = manifest_payload["pages"][0]
     assert page_entry["selection_strategy"] == "inverse-render-rerank"
