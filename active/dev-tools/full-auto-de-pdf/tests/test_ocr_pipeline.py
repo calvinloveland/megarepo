@@ -1269,6 +1269,68 @@ def test_preprocess_image_scan_local_threshold_uses_adaptive_threshold_and_3x_up
     assert seen == {"size": (360, 540), "block_size": 51, "subtract_constant": 15}
 
 
+def test_preprocess_image_scan_sauvola_uses_sauvola_threshold_and_3x_upsample(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    input_path = tmp_path / "page.png"
+    output_path = tmp_path / "processed.png"
+    Image.new("L", (120, 180), color=220).save(input_path)
+    seen: dict[str, object] = {}
+
+    def _fake_sauvola(image, *, block_size, k, dynamic_range=128.0):  # noqa: ANN001, ANN202
+        seen["size"] = image.size
+        seen["block_size"] = block_size
+        seen["k"] = k
+        seen["dynamic_range"] = dynamic_range
+        return image.point(lambda value: 255 if value >= 128 else 0)
+
+    monkeypatch.setattr(ocr_pipeline, "_sauvola_threshold", _fake_sauvola)
+    ocr_pipeline._preprocess_image(
+        input_path,
+        output_path,
+        "scan-sauvola",
+        190,
+        2.0,
+        0.5,
+    )
+
+    with Image.open(output_path) as processed:
+        assert processed.size == (360, 540)
+        assert set(processed.getdata()) <= {0, 255}
+    assert seen == {"size": (360, 540), "block_size": 41, "k": 0.25, "dynamic_range": 128.0}
+
+
+def test_preprocess_image_scan_morphology_uses_morphological_cleanup(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    input_path = tmp_path / "page.png"
+    output_path = tmp_path / "processed.png"
+    Image.new("L", (120, 180), color=220).save(input_path)
+    seen: dict[str, object] = {}
+
+    def _fake_cleanup(binary_image, *, min_component_pixels):  # noqa: ANN001, ANN202
+        seen["size"] = binary_image.size
+        seen["min_component_pixels"] = min_component_pixels
+        return binary_image
+
+    monkeypatch.setattr(ocr_pipeline, "_morphological_cleanup_binary", _fake_cleanup)
+    ocr_pipeline._preprocess_image(
+        input_path,
+        output_path,
+        "scan-morphology",
+        190,
+        2.0,
+        0.5,
+    )
+
+    with Image.open(output_path) as processed:
+        assert processed.size == (360, 540)
+        assert set(processed.getdata()) <= {0, 255}
+    assert seen == {"size": (360, 540), "min_component_pixels": 6}
+
+
 def test_otsu_threshold_splits_bimodal_histogram() -> None:
     image = Image.new("L", (100, 10), color=235)
     pixels = image.load()

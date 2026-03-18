@@ -27,6 +27,8 @@ _VALID_PREPROCESS_MODES = (
     "none",
     "scan",
     "scan-local-threshold",
+    "scan-sauvola",
+    "scan-morphology",
     "basic",
     "deskew",
     "dewarp",
@@ -477,7 +479,7 @@ def _upsample_for_ocr(image: Any, scale_factor: int = 2) -> Any:
 
 
 def _uses_scan_preprocess_stack(preprocess_mode: str) -> bool:
-    return preprocess_mode in {"scan", "scan-local-threshold"}
+    return preprocess_mode in {"scan", "scan-local-threshold", "scan-sauvola", "scan-morphology"}
 
 
 def _binarize_preprocessed_candidate(
@@ -490,6 +492,12 @@ def _binarize_preprocessed_candidate(
         return candidate.point(lambda value: 255 if value >= effective_threshold else 0)
     if preprocess_mode == "scan-local-threshold":
         return _adaptive_gaussian_threshold(candidate, block_size=51, subtract_constant=15)
+    if preprocess_mode == "scan-sauvola":
+        return _sauvola_threshold(candidate, block_size=41, k=0.25)
+    if preprocess_mode == "scan-morphology":
+        effective_threshold = _otsu_threshold(candidate)
+        binary = candidate.point(lambda value: 255 if value >= effective_threshold else 0)
+        return _morphological_cleanup_binary(binary, min_component_pixels=6)
     return candidate.point(lambda value: 255 if value >= binarize_threshold else 0)
 
 
@@ -550,6 +558,89 @@ def _adaptive_gaussian_threshold(
             local_threshold = max(0, min(255, int(blurred_pixels[x, y]) - subtract_constant))
             binary_pixels[x, y] = 255 if int(source_pixels[x, y]) > local_threshold else 0
     return binary
+
+
+def _sauvola_threshold(
+    image: Any,
+    *,
+    block_size: int,
+    k: float,
+    dynamic_range: float = 128.0,
+) -> Any:
+    if Image is None or ImageFilter is None:
+        raise RuntimeError(
+            "Missing dependency for preprocessing: pillow. "
+            "Install with `pip install pillow` or disable preprocessing."
+        )
+    if block_size < 3 or block_size % 2 == 0:
+        raise ValueError("block_size must be an odd integer >= 3")
+    if dynamic_range <= 0:
+        raise ValueError("dynamic_range must be greater than 0")
+    grayscale = image.convert("L")
+    radius = max(1, (block_size - 1) // 2)
+    local_mean = grayscale.filter(ImageFilter.BoxBlur(radius=radius))
+    squared = grayscale.point(lambda value: float(value * value), mode="F")
+    local_squared_mean = squared.filter(ImageFilter.BoxBlur(radius=radius))
+    binary = Image.new("L", grayscale.size, color=255)
+    source_pixels = grayscale.load()
+    mean_pixels = local_mean.load()
+    squared_mean_pixels = local_squared_mean.load()
+    binary_pixels = binary.load()
+    for y in range(grayscale.height):
+        for x in range(grayscale.width):
+            mean = float(mean_pixels[x, y])
+            variance = max(0.0, float(squared_mean_pixels[x, y]) - (mean * mean))
+            stddev = math.sqrt(variance)
+            threshold = mean * (1.0 + (k * ((stddev / dynamic_range) - 1.0)))
+            binary_pixels[x, y] = 255 if float(source_pixels[x, y]) > threshold else 0
+    return binary
+
+
+def _morphological_cleanup_binary(binary_image: Any, *, min_component_pixels: int) -> Any:
+    if Image is None or ImageFilter is None:
+        raise RuntimeError(
+            "Missing dependency for preprocessing: pillow. "
+            "Install with `pip install pillow` or disable preprocessing."
+        )
+    opened = binary_image.filter(ImageFilter.MinFilter(size=3)).filter(ImageFilter.MaxFilter(size=3))
+    closed = opened.filter(ImageFilter.MaxFilter(size=3)).filter(ImageFilter.MinFilter(size=3))
+    return _remove_small_black_components(closed, min_component_pixels=min_component_pixels)
+
+
+def _remove_small_black_components(image: Any, *, min_component_pixels: int) -> Any:
+    if min_component_pixels <= 1:
+        return image
+    cleaned = image.copy()
+    pixels = cleaned.load()
+    width, height = cleaned.size
+    visited = bytearray(width * height)
+
+    def _index(x: int, y: int) -> int:
+        return (y * width) + x
+
+    for y in range(height):
+        for x in range(width):
+            idx = _index(x, y)
+            if visited[idx] or int(pixels[x, y]) >= 128:
+                continue
+            stack = [(x, y)]
+            component: list[tuple[int, int]] = []
+            visited[idx] = 1
+            while stack:
+                cx, cy = stack.pop()
+                component.append((cx, cy))
+                for ny in range(max(0, cy - 1), min(height - 1, cy + 1) + 1):
+                    for nx in range(max(0, cx - 1), min(width - 1, cx + 1) + 1):
+                        neighbor_idx = _index(nx, ny)
+                        if visited[neighbor_idx] or int(pixels[nx, ny]) >= 128:
+                            continue
+                        visited[neighbor_idx] = 1
+                        stack.append((nx, ny))
+            if len(component) >= min_component_pixels:
+                continue
+            for cx, cy in component:
+                pixels[cx, cy] = 255
+    return cleaned
 
 
 def _preprocess_candidate(
@@ -638,6 +729,7 @@ def _validate_common_ocr_options(
     if options.preprocess_mode not in _VALID_PREPROCESS_MODES:
         raise ValueError(
             "preprocess_mode must be 'none', 'scan', 'scan-local-threshold', "
+            "'scan-sauvola', 'scan-morphology', "
             "'basic', 'deskew', 'dewarp', or 'auto'"
         )
     if options.ocr_engine not in {"tesseract", "paddleocr"}:
