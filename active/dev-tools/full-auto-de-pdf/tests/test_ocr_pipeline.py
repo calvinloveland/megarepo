@@ -1018,6 +1018,74 @@ def test_ocr_page_images_verify_cleanup_spans_reverts_unverified_rare_word_chang
     assert verifier["decisions"][0]["accepted"] is False
 
 
+def test_ocr_page_images_scan_mode_auto_enables_verify_cleanup_spans(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    """verify_cleanup_spans is automatically enabled for scan preprocess modes."""
+    page_image = tmp_path / "page-1.png"
+    output_path = tmp_path / "out.txt"
+    work_dir = tmp_path / "work"
+    Image.new("L", (20, 20), color=255).save(page_image)
+
+    def _which(name: str) -> str | None:
+        if name == "tesseract":
+            return "/usr/bin/fake"
+        return None
+
+    def _run(command: list[str], capture_output: bool) -> str:
+        assert command[0] == "tesseract"
+        return "The rareword appears again"
+
+    monkeypatch.setattr(
+        ocr_pipeline,
+        "cleanup_ocr_text",
+        lambda text, lexicon_texts=(): (
+            "The rareward appears again" if "rareword" in text else text
+        ),
+    )
+    # Simulate verifier rejecting the cleanup change (image doesn't support it).
+    monkeypatch.setattr(
+        ocr_pipeline,
+        "_evaluate_cleanup_span_replacement",
+        lambda _obs, _bbox, raw_text, _cleaned: (
+            False,
+            {
+                "accepted": False,
+                "raw_inverse_render_score": 0.35,
+                "cleaned_inverse_render_score": 0.34,
+                "raw_local_inverse_render_score": 0.48,
+                "cleaned_local_inverse_render_score": 0.40,
+                "reason": "insufficient-image-margin",
+            },
+        ),
+    )
+
+    def _preprocess_image(src: Path, dst: Path, mode: str, *_args, **_kwargs) -> None:  # noqa: ANN001
+        import shutil
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy(src, dst)
+
+    metrics = ocr_page_images(
+        page_images=[page_image],
+        output_text_path=output_path,
+        work_dir=work_dir,
+        preprocess_mode="scan",
+        tesseract_psm="6",
+        # verify_cleanup_spans NOT passed — should auto-enable for scan mode
+        run_command=_run,
+        which=_which,
+        preprocess_image=_preprocess_image,
+    )
+
+    # Verifier should have run and reverted the unsupported change.
+    assert output_path.read_text(encoding="utf-8") == "The rareword appears again"
+    manifest_payload = json.loads(Path(str(metrics["page_artifacts_manifest"])).read_text(encoding="utf-8"))
+    verifier = manifest_payload["pages"][0]["cleanup_span_verifier"]
+    assert verifier["enabled"] is True
+    assert verifier["changes_reverted"] == 1
+
+
 def test_score_ocr_text_uses_supplied_lexicon() -> None:
     noisy = "It teontains realistcsynthetic notes for eaders."
     unguided = ocr_pipeline._score_ocr_text(noisy, "eng", ())

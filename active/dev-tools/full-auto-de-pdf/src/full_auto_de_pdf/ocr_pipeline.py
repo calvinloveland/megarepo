@@ -1187,7 +1187,10 @@ def _maybe_verify_cleanup_spans(
     if not options.core.apply_cleanup:
         return text, {}
     cleaned_text = cleanup_ocr_text(text, lexicon_texts=options.core.cleanup_lexicon_texts)
-    if not options.core.verify_cleanup_spans or cleaned_text == text:
+    # Auto-enable span verification for scan modes: they have a real binarised scan
+    # image available, so inverse render can judge whether each cleanup change is correct.
+    verify = options.core.verify_cleanup_spans or _uses_scan_preprocess_stack(options.preprocess_mode)
+    if not verify or cleaned_text == text:
         return cleaned_text, {}
     changes = _cleanup_span_changes(text, cleaned_text)
     if not changes:
@@ -1727,7 +1730,11 @@ def _finalize_ocr_output(
 ) -> tuple[str, dict[str, object]]:
     combined_text = "\n\n".join(page_texts)
     final_text = combined_text
-    if options.core.apply_cleanup and not options.core.verify_cleanup_spans:
+    # Skip the combined pass when per-page image verification already ran — each
+    # page's text has been individually verified against the scan, so applying a
+    # second unverified combined-stats pass could reintroduce reverted corrections.
+    per_page_verified = options.core.verify_cleanup_spans or _uses_scan_preprocess_stack(options.preprocess_mode)
+    if options.core.apply_cleanup and not per_page_verified:
         final_text = cleanup_ocr_text(combined_text, lexicon_texts=options.core.cleanup_lexicon_texts)
     output_text_path.parent.mkdir(parents=True, exist_ok=True)
     output_text_path.write_text(final_text, encoding="utf-8")
