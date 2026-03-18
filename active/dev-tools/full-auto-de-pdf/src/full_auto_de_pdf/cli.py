@@ -488,6 +488,17 @@ def _add_benchmark_ocr_args(parser: argparse.ArgumentParser) -> None:
         help="Try a 180-degree OCR fallback candidate when it scores better",
     )
     parser.add_argument(
+        "--tiered-ocr-fallback",
+        action="store_true",
+        help="Retry weak pages with horizontal tile OCR and keep the better score",
+    )
+    parser.add_argument(
+        "--tiered-ocr-min-score",
+        type=float,
+        default=200.0,
+        help="Only trigger tiered OCR fallback when base text score is below this value",
+    )
+    parser.add_argument(
         "--no-cleanup",
         action="store_true",
         help="Disable OCR cleanup after extraction",
@@ -657,6 +668,17 @@ def _add_ocr_pdf_command(subparsers: argparse._SubParsersAction[argparse.Argumen
         "--orientation-fallback",
         action="store_true",
         help="Try a 180-degree OCR fallback candidate when it scores better",
+    )
+    parser.add_argument(
+        "--tiered-ocr-fallback",
+        action="store_true",
+        help="Retry weak pages with horizontal tile OCR and keep the better score",
+    )
+    parser.add_argument(
+        "--tiered-ocr-min-score",
+        type=float,
+        default=200.0,
+        help="Only trigger tiered OCR fallback when base text score is below this value",
     )
     parser.add_argument(
         "--binarize-threshold",
@@ -1184,6 +1206,8 @@ def _benchmark_ocr_kwargs_from_args(args: argparse.Namespace) -> dict[str, objec
         "confidence_aware_cleanup": args.confidence_aware_cleanup,
         "cleanup_high_confidence_threshold": args.cleanup_high_confidence_threshold,
         "orientation_fallback": args.orientation_fallback,
+        "tiered_ocr_fallback": args.tiered_ocr_fallback,
+        "tiered_ocr_min_score": args.tiered_ocr_min_score,
         "ocr_engine": args.ocr_engine,
         "emit_page_artifacts": not args.no_page_artifacts,
         "inverse_render_rerank": args.inverse_render_rerank,
@@ -1231,6 +1255,8 @@ def _handle_ocr_pdf(args: argparse.Namespace) -> int:
         confidence_aware_cleanup=args.confidence_aware_cleanup,
         cleanup_high_confidence_threshold=args.cleanup_high_confidence_threshold,
         orientation_fallback=args.orientation_fallback,
+        tiered_ocr_fallback=args.tiered_ocr_fallback,
+        tiered_ocr_min_score=args.tiered_ocr_min_score,
         ocr_engine=args.ocr_engine,
         emit_page_artifacts=not args.no_page_artifacts,
         page_artifacts_dir=args.page_artifacts_dir,
@@ -1253,6 +1279,8 @@ def _handle_ocr_eval_modes(args: argparse.Namespace) -> int:
         getattr(args, "cleanup_high_confidence_threshold", 95.0)
     )
     orientation_fallback = bool(getattr(args, "orientation_fallback", False))
+    tiered_ocr_fallback = bool(getattr(args, "tiered_ocr_fallback", False))
+    tiered_ocr_min_score = float(getattr(args, "tiered_ocr_min_score", 200.0))
     report = evaluate_ocr_preprocess_modes(
         pdf_path=args.pdf,
         work_dir=args.work_dir,
@@ -1269,6 +1297,8 @@ def _handle_ocr_eval_modes(args: argparse.Namespace) -> int:
         confidence_aware_cleanup=confidence_aware_cleanup,
         cleanup_high_confidence_threshold=cleanup_high_confidence_threshold,
         orientation_fallback=orientation_fallback,
+        tiered_ocr_fallback=tiered_ocr_fallback,
+        tiered_ocr_min_score=tiered_ocr_min_score,
         ocr_engine=args.ocr_engine,
     )
     mode_count = len(report.get("modes", {}))
@@ -1283,6 +1313,8 @@ def _handle_benchmark_local_archive(args: argparse.Namespace) -> int:
         getattr(args, "cleanup_high_confidence_threshold", 95.0)
     )
     orientation_fallback = bool(getattr(args, "orientation_fallback", False))
+    tiered_ocr_fallback = bool(getattr(args, "tiered_ocr_fallback", False))
+    tiered_ocr_min_score = float(getattr(args, "tiered_ocr_min_score", 200.0))
     report = benchmark_local_ocr_against_archive(
         pdf_path=args.pdf,
         archive_identifier=args.archive_identifier,
@@ -1300,6 +1332,8 @@ def _handle_benchmark_local_archive(args: argparse.Namespace) -> int:
         confidence_aware_cleanup=confidence_aware_cleanup,
         cleanup_high_confidence_threshold=cleanup_high_confidence_threshold,
         orientation_fallback=orientation_fallback,
+        tiered_ocr_fallback=tiered_ocr_fallback,
+        tiered_ocr_min_score=tiered_ocr_min_score,
         ocr_engine=args.ocr_engine,
     )
     print(

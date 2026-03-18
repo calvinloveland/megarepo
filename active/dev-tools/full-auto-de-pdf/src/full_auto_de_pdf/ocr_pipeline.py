@@ -51,6 +51,8 @@ _AUTO_SCAN_LOCAL_THRESHOLD_MIN_SCORE = 500.0
 _TILED_THRESHOLD_MIN_PIXELS = 2_500_000
 _TILED_THRESHOLD_TILE_SIZE = 1024
 _TILED_THRESHOLD_OVERLAP = 192
+_TIERED_FALLBACK_TILE_HEIGHT = 400
+_TIERED_FALLBACK_TILE_OVERLAP = 50
 _CLEANUP_SPAN_VERIFIER_MAX_TOKENS = 3
 _CLEANUP_SPAN_VERIFIER_LOCAL_MARGIN = 0.03
 _CLEANUP_SPAN_VERIFIER_GLOBAL_MARGIN = 0.005
@@ -111,6 +113,8 @@ class OCRCoreOptions:
     confidence_aware_cleanup: bool = False
     cleanup_high_confidence_threshold: float = 95.0
     orientation_fallback: bool = False
+    tiered_ocr_fallback: bool = False
+    tiered_ocr_min_score: float = 200.0
     inverse_render_rerank: bool = False
     inverse_render_top_k: int = 3
     verify_cleanup_spans: bool = False
@@ -770,6 +774,8 @@ def _parse_ocr_options(kwargs: dict[str, Any]) -> OCRRunOptions:
         confidence_aware_cleanup=bool(kwargs.pop("confidence_aware_cleanup", False)),
         cleanup_high_confidence_threshold=float(kwargs.pop("cleanup_high_confidence_threshold", 95.0)),
         orientation_fallback=bool(kwargs.pop("orientation_fallback", False)),
+        tiered_ocr_fallback=bool(kwargs.pop("tiered_ocr_fallback", False)),
+        tiered_ocr_min_score=float(kwargs.pop("tiered_ocr_min_score", 200.0)),
         inverse_render_rerank=bool(kwargs.pop("inverse_render_rerank", False)),
         inverse_render_top_k=int(kwargs.pop("inverse_render_top_k", 3)),
         verify_cleanup_spans=bool(kwargs.pop("verify_cleanup_spans", False)),
@@ -813,6 +819,8 @@ def _validate_common_ocr_options(
         raise ValueError("tesseract_output_format must be 'text' or 'hocr'")
     if not 0.0 <= options.core.cleanup_high_confidence_threshold <= 100.0:
         raise ValueError("cleanup_high_confidence_threshold must be between 0 and 100")
+    if options.core.tiered_ocr_min_score <= 0:
+        raise ValueError("tiered_ocr_min_score must be greater than 0")
     if not 0 <= options.core.binarize_threshold <= 255:
         raise ValueError("binarize_threshold must be between 0 and 255")
     if options.core.deskew_max_angle <= 0:
@@ -1645,20 +1653,30 @@ def _run_ocr_on_page(
         or auto_tiebreak_candidate
         or best_candidate
     )
-    orientation_fallback_candidate = _maybe_orientation_fallback_candidate(
+    tiered_fallback_candidate = _maybe_tiered_fallback_candidate(
         base_selected_candidate,
         options,
         dependencies,
         paddle_reader,
         preprocessed_dir,
     )
-    selected_candidate = orientation_fallback_candidate or base_selected_candidate
+    candidate_after_tiered = tiered_fallback_candidate or base_selected_candidate
+    orientation_fallback_candidate = _maybe_orientation_fallback_candidate(
+        candidate_after_tiered,
+        options,
+        dependencies,
+        paddle_reader,
+        preprocessed_dir,
+    )
+    selected_candidate = orientation_fallback_candidate or candidate_after_tiered
     selected_metadata = dict(selected_candidate.metadata)
     selected_metadata["selected_preprocess_mode"] = selected_metadata["preprocess_mode"]
     selected_metadata["selection_score"] = selected_candidate.score
     selected_metadata["selection_strategy"] = (
         "orientation-fallback"
         if orientation_fallback_candidate is not None
+        else "tiered-ocr-fallback"
+        if tiered_fallback_candidate is not None
         else "inverse-render-rerank"
         if reranked_candidate is not None
         else "auto-scan-local-threshold-preference"
@@ -1670,6 +1688,72 @@ def _run_ocr_on_page(
     if len(candidate_runs) > 1:
         selected_metadata["candidate_runs"] = candidate_runs
     return selected_candidate.ocr_input_path, selected_candidate.text, selected_metadata
+
+
+def _maybe_tiered_fallback_candidate(
+    candidate: OCRCandidate,
+    options: OCRRunOptions,
+    dependencies: OCRDependencies,
+    paddle_reader: Callable[[Path], str] | None,
+    preprocessed_dir: Path,
+) -> OCRCandidate | None:
+    if (
+        not options.core.tiered_ocr_fallback
+        or options.ocr_engine != "tesseract"
+        or candidate.score >= options.core.tiered_ocr_min_score
+        or Image is None
+    ):
+        return None
+    selected_psm = candidate.metadata.get("tesseract_psm")
+    if not isinstance(selected_psm, int):
+        return None
+    with Image.open(candidate.ocr_input_path) as image:
+        grayscale = image.convert("L")
+        tile_starts = _tile_start_positions(
+            grayscale.height,
+            _TIERED_FALLBACK_TILE_HEIGHT,
+            _TIERED_FALLBACK_TILE_HEIGHT - _TIERED_FALLBACK_TILE_OVERLAP,
+        )
+        if len(tile_starts) <= 1:
+            return None
+        tiered_dir = preprocessed_dir / "tiered-fallback"
+        tiered_dir.mkdir(parents=True, exist_ok=True)
+        segment_texts: list[str] = []
+        for tile_index, y_start in enumerate(tile_starts):
+            y_end = min(grayscale.height, y_start + _TIERED_FALLBACK_TILE_HEIGHT)
+            tile = grayscale.crop((0, y_start, grayscale.width, y_end))
+            tile_path = tiered_dir / f"{candidate.ocr_input_path.stem}-tile-{tile_index:02d}.png"
+            tile.save(tile_path)
+            tile_text, _tile_metadata = _run_candidate_ocr(
+                tile_path,
+                options,
+                dependencies,
+                paddle_reader,
+                str(selected_psm),
+            )
+            if tile_text.strip():
+                segment_texts.append(tile_text.strip())
+    if not segment_texts:
+        return None
+    merged_text = "\n".join(segment_texts)
+    merged_score = _score_ocr_text(
+        merged_text,
+        options.core.language,
+        options.core.cleanup_lexicon_texts,
+    )
+    if merged_score <= candidate.score:
+        return None
+    metadata = dict(candidate.metadata)
+    metadata["tiered_fallback_applied"] = True
+    metadata["tiered_fallback_tile_count"] = len(segment_texts)
+    metadata["tiered_fallback_base_score"] = candidate.score
+    metadata["tiered_fallback_score"] = merged_score
+    return OCRCandidate(
+        score=merged_score,
+        ocr_input_path=candidate.ocr_input_path,
+        text=merged_text,
+        metadata=metadata,
+    )
 
 
 def _maybe_orientation_fallback_candidate(
@@ -2225,6 +2309,8 @@ def _parse_mode_eval_options(kwargs: dict[str, Any]) -> ModeEvalOptions:
         confidence_aware_cleanup=bool(kwargs.pop("confidence_aware_cleanup", False)),
         cleanup_high_confidence_threshold=float(kwargs.pop("cleanup_high_confidence_threshold", 95.0)),
         orientation_fallback=bool(kwargs.pop("orientation_fallback", False)),
+        tiered_ocr_fallback=bool(kwargs.pop("tiered_ocr_fallback", False)),
+        tiered_ocr_min_score=float(kwargs.pop("tiered_ocr_min_score", 200.0)),
     )
     return ModeEvalOptions(
         core=core_options,
@@ -2248,6 +2334,8 @@ def _mode_ocr_kwargs(options: ModeEvalOptions, mode: str) -> dict[str, Any]:
         "confidence_aware_cleanup": options.core.confidence_aware_cleanup,
         "cleanup_high_confidence_threshold": options.core.cleanup_high_confidence_threshold,
         "orientation_fallback": options.core.orientation_fallback,
+        "tiered_ocr_fallback": options.core.tiered_ocr_fallback,
+        "tiered_ocr_min_score": options.core.tiered_ocr_min_score,
         "ocr_engine": options.ocr_engine,
     }
 
@@ -2380,6 +2468,8 @@ def _parse_local_archive_options(kwargs: dict[str, Any]) -> LocalArchiveBenchmar
         confidence_aware_cleanup=bool(kwargs.pop("confidence_aware_cleanup", False)),
         cleanup_high_confidence_threshold=float(kwargs.pop("cleanup_high_confidence_threshold", 95.0)),
         orientation_fallback=bool(kwargs.pop("orientation_fallback", False)),
+        tiered_ocr_fallback=bool(kwargs.pop("tiered_ocr_fallback", False)),
+        tiered_ocr_min_score=float(kwargs.pop("tiered_ocr_min_score", 200.0)),
     )
     return LocalArchiveBenchmarkOptions(
         core=core_options,

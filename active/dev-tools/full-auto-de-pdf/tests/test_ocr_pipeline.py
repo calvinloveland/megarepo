@@ -1131,6 +1131,53 @@ def test_ocr_page_images_orientation_fallback_can_select_rotated_candidate(
     assert page_entry["orientation_angle"] == 180
 
 
+def test_ocr_page_images_tiered_fallback_can_select_tiled_candidate(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    page_image = tmp_path / "page-1.png"
+    output_path = tmp_path / "out.txt"
+    work_dir = tmp_path / "work"
+    Image.new("L", (60, 900), color=255).save(page_image)
+
+    def _which(name: str) -> str | None:
+        if name == "tesseract":
+            return "/usr/bin/fake"
+        return None
+
+    def _run(command: list[str], capture_output: bool) -> str:
+        assert command[0] == "tesseract"
+        assert capture_output is True
+        image_name = Path(command[1]).name
+        if "-tile-" in image_name:
+            return "good tile text"
+        return "###"
+
+    monkeypatch.setattr(
+        ocr_pipeline,
+        "_score_ocr_text",
+        lambda text, _lang, _lexicon: 12.0 if "good tile text" in text else 1.0,
+    )
+    metrics = ocr_page_images(
+        page_images=[page_image],
+        output_text_path=output_path,
+        work_dir=work_dir,
+        preprocess_mode="none",
+        tesseract_psm="6",
+        tiered_ocr_fallback=True,
+        tiered_ocr_min_score=5.0,
+        run_command=_run,
+        which=_which,
+    )
+
+    assert output_path.read_text(encoding="utf-8").splitlines()[0] == "good tile text"
+    manifest_payload = json.loads(Path(str(metrics["page_artifacts_manifest"])).read_text(encoding="utf-8"))
+    page_entry = manifest_payload["pages"][0]
+    assert page_entry["selection_strategy"] == "tiered-ocr-fallback"
+    assert page_entry["tiered_fallback_applied"] is True
+    assert page_entry["tiered_fallback_tile_count"] >= 2
+
+
 def test_parse_hocr_text_and_metadata_extracts_text_and_confidence() -> None:
     hocr = """
     <html><body>
