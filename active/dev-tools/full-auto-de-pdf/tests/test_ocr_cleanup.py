@@ -427,3 +427,33 @@ def test_cleanup_ocr_text_known_word_corrections() -> None:
     for source, expected_word in cases:
         cleaned = cleanup_ocr_text(source)
         assert expected_word in cleaned.lower(), f"Expected {expected_word!r} in cleanup of {source!r}; got {cleaned!r}"
+
+
+def test_cleanup_ocr_text_short_word_corrections() -> None:
+    """2-3 char non-word OCR tokens are corrected; ALL-CAPS forms are preserved."""
+    cases = [
+        ("hc said nothing.", "he said nothing."),
+        ("She saw hc leave.", "she saw he leave."),
+        ("Hc stood tall.", "he stood tall."),
+        ("She told mc nothing.", "she told me nothing."),
+        ("She could sct it down.", "she could set it down."),
+        ("There was onc man.", "there was one man."),
+    ]
+    for source, expected_fragment in cases:
+        cleaned = cleanup_ocr_text(source).lower()
+        assert expected_fragment in cleaned, f"Expected {expected_fragment!r} in {cleaned!r}"
+
+
+def test_cleanup_ocr_text_short_word_preserves_abbreviations() -> None:
+    """ALL-CAPS short tokens (abbreviations) are not corrected."""
+    source = "The HC committee and MC chair discussed the ONC report.\n"
+    cleaned = cleanup_ocr_text(source)
+    assert " HC " in cleaned
+    assert " MC " in cleaned
+    assert "ONC" in cleaned
+
+
+def test_cleanup_ocr_text_corrects_renfield_proper_noun() -> None:
+    """Renficld (c↔e confusion in proper noun) is corrected."""
+    cleaned = cleanup_ocr_text("Count Renficld entered the room.")
+    assert "Renfield" in cleaned

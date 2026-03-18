@@ -123,7 +123,22 @@ _KNOWN_WORD_CORRECTIONS: dict[str, str] = {
     "seck": "seek",
     "forchead": "forehead",
     "forchcad": "forehead",
+    # Proper noun c↔e confusions (character names that OCR always misreads)
+    "renficld": "renfield",
 }
+# Short (2-3 char) OCR tokens that are provably not real English words.
+# _apply_direct_word_corrections uses _CONTEXT_TOKEN (4+ chars) and cannot reach these.
+# A dedicated pass handles them, skipping ALL-CAPS forms to preserve abbreviations.
+_KNOWN_SHORT_WORD_CORRECTIONS: dict[str, str] = {
+    "hc": "he",   # OCR drops the bar of 'e', reads it as 'c'
+    "mc": "me",
+    "sct": "set",
+    "onc": "one",
+}
+_SHORT_WORD_PATTERN = re.compile(
+    r"\b(" + "|".join(re.escape(k) for k in sorted(_KNOWN_SHORT_WORD_CORRECTIONS, key=len, reverse=True)) + r")\b",
+    flags=re.IGNORECASE,
+)
 _CONFUSABLE_SUBSTITUTIONS = (
     ("i", "l"),
     ("l", "i"),
@@ -349,6 +364,21 @@ def _match_case(source: str, replacement: str) -> str:
     if source[:1].isupper() and source[1:].islower():
         return replacement.capitalize()
     return replacement
+
+
+def _apply_short_word_corrections(text: str) -> str:
+    """Fix 2-3 char non-word OCR tokens that _apply_direct_word_corrections cannot reach.
+
+    Skips ALL-CAPS matches to preserve abbreviations (HC, MC, SCT, ONC).
+    """
+    def _replace(match: re.Match) -> str:  # type: ignore[type-arg]
+        src = match.group(0)
+        if src.isupper():
+            return src  # preserve abbreviations like HC, MC
+        tgt = _KNOWN_SHORT_WORD_CORRECTIONS[src.lower()]
+        return _match_case(src, tgt)
+
+    return _SHORT_WORD_PATTERN.sub(_replace, text)
 
 
 def _extract_word_counts(text: str) -> Counter[str]:
@@ -1315,4 +1345,5 @@ def cleanup_ocr_text(text: str, lexicon_texts: tuple[str, ...] = ()) -> str:
         )
     )
     cleaned = _apply_word_corrections(cleaned, contextual_corrections)
+    cleaned = _apply_short_word_corrections(cleaned)
     return cleaned.strip()

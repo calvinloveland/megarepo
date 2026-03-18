@@ -94,7 +94,7 @@ class OCRCoreOptions:
     dpi: int = 300
     apply_cleanup: bool = True
     binarize_threshold: int = 190
-    deskew_max_angle: float = 3.0
+    deskew_max_angle: float = 7.0
     deskew_angle_step: float = 0.5
     tesseract_psm: str = "auto"
     cleanup_lexicon_texts: tuple[str, ...] = ()
@@ -429,7 +429,10 @@ def _preprocess_image(
         if _uses_scan_preprocess_stack(preprocess_mode):
             contrasted = ImageOps.autocontrast(gray)
             denoised = contrasted.filter(ImageFilter.MedianFilter(size=3))
-            ocr_ready = _upsample_for_ocr(denoised, scale_factor=3)
+            # Sharpen after denoising so Tesseract sees crisp character edges.
+            # UnsharpMask enhances fine strokes (e.g. the bar in 'e' vs 'c').
+            sharpened = denoised.filter(ImageFilter.UnsharpMask(radius=1, percent=150, threshold=3))
+            ocr_ready = _upsample_for_ocr(sharpened, scale_factor=3)
         else:
             contrasted = ImageOps.autocontrast(gray)
             denoised = contrasted.filter(ImageFilter.MedianFilter(size=3))
@@ -587,7 +590,7 @@ def _parse_ocr_options(kwargs: dict[str, Any]) -> OCRRunOptions:
         dpi=int(kwargs.pop("dpi", 300)),
         apply_cleanup=bool(kwargs.pop("apply_cleanup", True)),
         binarize_threshold=int(kwargs.pop("binarize_threshold", 190)),
-        deskew_max_angle=float(kwargs.pop("deskew_max_angle", 3.0)),
+        deskew_max_angle=float(kwargs.pop("deskew_max_angle", 7.0)),
         deskew_angle_step=float(kwargs.pop("deskew_angle_step", 0.5)),
         tesseract_psm=_normalize_tesseract_psm(kwargs.pop("tesseract_psm", "auto")),
         cleanup_lexicon_texts=cleanup_lexicon_texts,
@@ -1849,7 +1852,7 @@ def _parse_mode_eval_options(kwargs: dict[str, Any]) -> ModeEvalOptions:
         dpi=int(kwargs.pop("dpi", 300)),
         apply_cleanup=bool(kwargs.pop("apply_cleanup", True)),
         binarize_threshold=int(kwargs.pop("binarize_threshold", 190)),
-        deskew_max_angle=float(kwargs.pop("deskew_max_angle", 3.0)),
+        deskew_max_angle=float(kwargs.pop("deskew_max_angle", 7.0)),
         deskew_angle_step=float(kwargs.pop("deskew_angle_step", 0.5)),
         tesseract_psm=_normalize_tesseract_psm(kwargs.pop("tesseract_psm", "auto")),
         cleanup_lexicon_texts=tuple(),
@@ -1992,7 +1995,7 @@ def _parse_local_archive_options(kwargs: dict[str, Any]) -> LocalArchiveBenchmar
         dpi=int(kwargs.pop("dpi", 300)),
         apply_cleanup=bool(kwargs.pop("apply_cleanup", True)),
         binarize_threshold=int(kwargs.pop("binarize_threshold", 190)),
-        deskew_max_angle=float(kwargs.pop("deskew_max_angle", 3.0)),
+        deskew_max_angle=float(kwargs.pop("deskew_max_angle", 7.0)),
         deskew_angle_step=float(kwargs.pop("deskew_angle_step", 0.5)),
         tesseract_psm=_normalize_tesseract_psm(kwargs.pop("tesseract_psm", "auto")),
         cleanup_lexicon_texts=tuple(),
