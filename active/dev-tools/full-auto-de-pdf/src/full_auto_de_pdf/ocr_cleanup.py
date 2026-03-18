@@ -838,6 +838,21 @@ def _lexicon_candidates(word: str, lexicon_words: set[str]) -> list[str]:
     return candidates[:_MAX_LEXICON_CANDIDATES_PER_LENGTH]
 
 
+def _confusable_rewrite_candidates(word: str, lexicon_words: set[str]) -> list[str]:
+    candidates: set[str] = set()
+    for original, replacement in _CONFUSABLE_SUBSTITUTIONS:
+        start = 0
+        while True:
+            index = word.find(original, start)
+            if index < 0:
+                break
+            candidate = word[:index] + replacement + word[index + len(original) :]
+            if candidate in lexicon_words and candidate != word:
+                candidates.add(candidate)
+            start = index + 1
+    return sorted(candidates)
+
+
 def _infer_lexicon_word_corrections(
     text: str,
     lexicon_words: set[str],
@@ -900,9 +915,7 @@ def _infer_confusable_word_corrections(
             continue
         best_target = ""
         best_score = float("-inf")
-        for candidate in _lexicon_candidates(source, lexicon_words):
-            if not _is_confusable_rewrite(source, candidate):
-                continue
+        for candidate in _confusable_rewrite_candidates(source, lexicon_words):
             target_count = counts.get(candidate, 0)
             if candidate not in _BUILTIN_LEXICON and target_count < _MIN_CORRECTION_OCCURRENCES:
                 continue
@@ -924,6 +937,7 @@ def _infer_confusable_word_corrections(
 def _infer_contextual_confusable_corrections(
     text: str,
     lexicon_words: set[str],
+    external_lexicon_words: set[str],
 ) -> dict[str, str]:
     counts = _extract_token_counts(text)
     corrections: list[tuple[str, str, float]] = []
@@ -932,13 +946,11 @@ def _infer_contextual_confusable_corrections(
             continue
         if len(source) < 3:
             continue
-        if source in lexicon_words:
+        if source in _BUILTIN_LEXICON or source in external_lexicon_words:
             continue
         best_target = ""
         best_score = float("-inf")
-        for candidate in _lexicon_candidates(source, lexicon_words):
-            if not _is_confusable_rewrite(source, candidate):
-                continue
+        for candidate in _confusable_rewrite_candidates(source, lexicon_words):
             target_count = counts.get(candidate, 0)
             if target_count < _MIN_CONTEXTUAL_CONFUSABLE_TARGET_OCCURRENCES:
                 continue
@@ -950,6 +962,7 @@ def _infer_contextual_confusable_corrections(
                 - float(source_count * 10)
                 + float(len(candidate) * 3)
                 + (50.0 if candidate in _BUILTIN_LEXICON else 0.0)
+                + (80.0 if candidate in external_lexicon_words else 0.0)
             )
             if score > best_score:
                 best_target = candidate
@@ -1134,6 +1147,12 @@ def cleanup_ocr_text(text: str, lexicon_texts: tuple[str, ...] = ()) -> str:
     contextual_corrections.update(_infer_apostrophe_corrections(cleaned))
     contextual_corrections.update(_infer_contextual_apostrophe_corrections(cleaned))
     contextual_corrections.update(_infer_digit_letter_corrections(cleaned))
-    contextual_corrections.update(_infer_contextual_confusable_corrections(cleaned, split_lexicon_words))
+    contextual_corrections.update(
+        _infer_contextual_confusable_corrections(
+            cleaned,
+            split_lexicon_words,
+            external_lexicon_words,
+        )
+    )
     cleaned = _apply_word_corrections(cleaned, contextual_corrections)
     return cleaned.strip()
