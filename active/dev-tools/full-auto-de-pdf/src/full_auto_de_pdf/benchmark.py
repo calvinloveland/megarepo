@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+from collections import Counter
 import csv
 from dataclasses import dataclass
+from difflib import SequenceMatcher
 import gzip
 import json
 from pathlib import Path
@@ -376,6 +378,56 @@ def calculate_accuracy_metrics(reference_text: str, hypothesis_text: str) -> dic
     }
 
 
+def _token_error_rows(counter: Counter[str], *, limit: int = 20) -> list[dict[str, object]]:
+    return [{"token": token, "count": count} for token, count in counter.most_common(limit)]
+
+
+def _substitution_rows(
+    counter: Counter[tuple[str, str]],
+    *,
+    limit: int = 20,
+) -> list[dict[str, object]]:
+    return [
+        {"reference": reference, "hypothesis": hypothesis, "count": count}
+        for (reference, hypothesis), count in counter.most_common(limit)
+    ]
+
+
+def summarize_token_confusions(
+    reference_text: str,
+    hypothesis_text: str,
+    *,
+    limit: int = 20,
+) -> dict[str, object]:
+    """Summarize common token substitutions, drops, and insertions."""
+
+    reference_tokens = _normalize_for_word_metric(reference_text)
+    hypothesis_tokens = _normalize_for_word_metric(hypothesis_text)
+    matcher = SequenceMatcher(a=reference_tokens, b=hypothesis_tokens, autojunk=False)
+    substitutions: Counter[tuple[str, str]] = Counter()
+    missing: Counter[str] = Counter()
+    unexpected: Counter[str] = Counter()
+    for tag, i1, i2, j1, j2 in matcher.get_opcodes():
+        if tag == "replace":
+            reference_span = reference_tokens[i1:i2]
+            hypothesis_span = hypothesis_tokens[j1:j2]
+            if reference_span and hypothesis_span:
+                substitutions[(" ".join(reference_span), " ".join(hypothesis_span))] += 1
+            elif reference_span:
+                missing.update(reference_span)
+            elif hypothesis_span:
+                unexpected.update(hypothesis_span)
+        elif tag == "delete":
+            missing.update(reference_tokens[i1:i2])
+        elif tag == "insert":
+            unexpected.update(hypothesis_tokens[j1:j2])
+    return {
+        "substitutions": _substitution_rows(substitutions, limit=limit),
+        "missing_tokens": _token_error_rows(missing, limit=limit),
+        "unexpected_tokens": _token_error_rows(unexpected, limit=limit),
+    }
+
+
 def _count_row_values(rows: list[dict[str, str]], key: str) -> dict[str, int]:
     counts: dict[str, int] = {}
     for row in rows:
@@ -467,6 +519,8 @@ def run_parallel_text_benchmark(
         "row_count": len(rows),
         "raw_metrics": calculate_accuracy_metrics(reference_text, hypothesis_text),
         "cleaned_metrics": calculate_accuracy_metrics(reference_text, cleaned_hypothesis_text),
+        "raw_token_confusions": summarize_token_confusions(reference_text, hypothesis_text),
+        "cleaned_token_confusions": summarize_token_confusions(reference_text, cleaned_hypothesis_text),
     }
     if include_reference_lexicon_cleanup:
         reference_guided_hypothesis = cleanup_ocr_text(
@@ -474,6 +528,10 @@ def run_parallel_text_benchmark(
             lexicon_texts=(reference_text,),
         )
         summary["reference_lexicon_metrics"] = calculate_accuracy_metrics(
+            reference_text,
+            reference_guided_hypothesis,
+        )
+        summary["reference_lexicon_token_confusions"] = summarize_token_confusions(
             reference_text,
             reference_guided_hypothesis,
         )
@@ -630,11 +688,66 @@ def _build_summary(results: list[dict[str, Any]], source_mode: str) -> dict[str,
     }
 
 
+def _evaluate_archive_guardrails(
+    summary: dict[str, Any],
+    results: list[dict[str, Any]],
+    *,
+    min_avg_word_accuracy: float | None,
+    max_avg_wer: float | None,
+    max_book_wer: float | None,
+) -> dict[str, Any]:
+    checks: list[dict[str, Any]] = []
+    if min_avg_word_accuracy is not None:
+        observed = float(summary["avg_word_accuracy"])
+        checks.append(
+            {
+                "name": "min_avg_word_accuracy",
+                "threshold": float(min_avg_word_accuracy),
+                "observed": observed,
+                "passed": observed >= float(min_avg_word_accuracy),
+            }
+        )
+    if max_avg_wer is not None:
+        observed = float(summary["avg_wer"])
+        checks.append(
+            {
+                "name": "max_avg_wer",
+                "threshold": float(max_avg_wer),
+                "observed": observed,
+                "passed": observed <= float(max_avg_wer),
+            }
+        )
+    if max_book_wer is not None:
+        threshold = float(max_book_wer)
+        failing_books = [
+            {
+                "identifier": str(book["identifier"]),
+                "title": str(book["title"]),
+                "wer": float(book["wer"]),
+            }
+            for book in results
+            if float(book["wer"]) > threshold
+        ]
+        checks.append(
+            {
+                "name": "max_book_wer",
+                "threshold": threshold,
+                "observed": max(float(book["wer"]) for book in results) if results else 0.0,
+                "passed": len(failing_books) == 0,
+                "failing_books": failing_books,
+            }
+        )
+    return {"enabled": True, "passed": all(bool(check["passed"]) for check in checks), "checks": checks}
+
+
 def run_archive_benchmark(
     cache_dir: Path,
     timeout_seconds: int = 60,
     books: tuple[BenchmarkBook, ...] = BENCHMARK_BOOKS,
     source_mode: str = "djvu",
+    min_avg_word_accuracy: float | None = None,
+    max_avg_wer: float | None = None,
+    max_book_wer: float | None = None,
 ) -> dict[str, Any]:
     """Run OCR-vs-reference metrics for curated books and return a report payload."""
 
@@ -647,7 +760,7 @@ def run_archive_benchmark(
     ]
 
     summary = _build_summary(results, source_mode)
-    return {
+    report = {
         "metric_note": (
             "CER/WER are true edit-distance scores on normalized text samples. "
             "Benchmark applies OCR cleanup and shared-ngram alignment against "
@@ -656,6 +769,17 @@ def run_archive_benchmark(
         "books": results,
         "summary": summary,
     }
+    if any(
+        threshold is not None for threshold in (min_avg_word_accuracy, max_avg_wer, max_book_wer)
+    ):
+        report["guardrails"] = _evaluate_archive_guardrails(
+            summary,
+            results,
+            min_avg_word_accuracy=min_avg_word_accuracy,
+            max_avg_wer=max_avg_wer,
+            max_book_wer=max_book_wer,
+        )
+    return report
 
 
 def _benchmark_book(

@@ -6,6 +6,7 @@ from full_auto_de_pdf.benchmark import (
     parse_abbyy_xml_text,
     run_archive_benchmark,
     run_parallel_text_benchmark,
+    summarize_token_confusions,
     strip_gutenberg_boilerplate,
 )
 
@@ -29,6 +30,13 @@ def test_calculate_accuracy_metrics_identical_text_is_perfect() -> None:
     assert metrics["word_accuracy"] == 1.0
     assert metrics["char_edit_distance"] == 0
     assert metrics["word_edit_distance"] == 0
+
+
+def test_summarize_token_confusions_reports_substitutions() -> None:
+    summary = summarize_token_confusions("the quick brown fox", "the quick brawn fox")
+    assert summary["substitutions"][0]["reference"] == "brown"
+    assert summary["substitutions"][0]["hypothesis"] == "brawn"
+    assert summary["substitutions"][0]["count"] == 1
 
 
 def test_run_archive_benchmark_with_cached_inputs(monkeypatch, tmp_path) -> None:
@@ -114,6 +122,26 @@ def test_run_archive_benchmark_source_mode_djvu_is_strict(tmp_path) -> None:
     report = run_archive_benchmark(cache_dir=cache_dir, books=books, source_mode="djvu")
     assert report["books"][0]["selected_source"] == "djvu"
     assert report["summary"]["selected_source_counts"]["djvu"] == 1
+
+
+def test_run_archive_benchmark_emits_guardrails_when_requested(tmp_path) -> None:
+    books = (BenchmarkBook("archive-id", "Title", 123),)
+    cache_dir = tmp_path / "cache"
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    (cache_dir / "archive-id_archive_djvu.txt").write_text("alpha beta typo", encoding="utf-8")
+    (cache_dir / "pg123_gutenberg.txt").write_text("alpha beta gamma", encoding="utf-8")
+
+    report = run_archive_benchmark(
+        cache_dir=cache_dir,
+        books=books,
+        min_avg_word_accuracy=0.95,
+        max_avg_wer=0.05,
+        max_book_wer=0.05,
+    )
+    guardrails = report["guardrails"]
+    assert guardrails["enabled"] is True
+    assert guardrails["passed"] is False
+    assert len(guardrails["checks"]) == 3
 
 
 def test_run_parallel_text_benchmark_improves_split_words(tmp_path) -> None:

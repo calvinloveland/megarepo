@@ -47,9 +47,13 @@ def test_benchmark_archive_command_writes_report(monkeypatch, tmp_path) -> None:
     output = tmp_path / "benchmark.json"
     cache_dir = tmp_path / "cache"
 
-    def _fake_run_archive_benchmark(cache_dir, timeout_seconds, source_mode):  # noqa: ANN001
-        assert timeout_seconds == 45
-        assert source_mode == "best"
+    def _fake_run_archive_benchmark(**kwargs):  # noqa: ANN003
+        assert kwargs["cache_dir"] == cache_dir
+        assert kwargs["timeout_seconds"] == 45
+        assert kwargs["source_mode"] == "best"
+        assert kwargs["min_avg_word_accuracy"] is None
+        assert kwargs["max_avg_wer"] is None
+        assert kwargs["max_book_wer"] is None
         return {
             "summary": {
                 "book_count": 1,

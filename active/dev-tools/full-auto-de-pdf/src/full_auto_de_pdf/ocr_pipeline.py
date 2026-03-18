@@ -2200,6 +2200,10 @@ def _run_single_mode(
             reference_text,
             hypothesis_text,
         )
+        mode_payload["token_confusions"] = benchmark_module.summarize_token_confusions(
+            reference_text,
+            hypothesis_text,
+        )
     return mode_payload
 
 

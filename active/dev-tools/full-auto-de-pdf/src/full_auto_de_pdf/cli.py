@@ -221,6 +221,21 @@ def _add_benchmark_archive_command(
         default="djvu",
         help="OCR source policy: strict single-source or oracle best-of-both",
     )
+    parser.add_argument(
+        "--min-avg-word-accuracy",
+        type=float,
+        help="Optional guardrail: fail if average word accuracy falls below this value",
+    )
+    parser.add_argument(
+        "--max-avg-wer",
+        type=float,
+        help="Optional guardrail: fail if average WER rises above this value",
+    )
+    parser.add_argument(
+        "--max-book-wer",
+        type=float,
+        help="Optional guardrail: fail if any single book WER rises above this value",
+    )
 
 
 def _add_build_benchmark_corpus_command(
@@ -1039,6 +1054,9 @@ def _handle_benchmark_archive(args: argparse.Namespace) -> int:
         cache_dir=args.cache_dir,
         timeout_seconds=args.timeout_seconds,
         source_mode=args.source_mode,
+        min_avg_word_accuracy=args.min_avg_word_accuracy,
+        max_avg_wer=args.max_avg_wer,
+        max_book_wer=args.max_book_wer,
     )
     write_benchmark_report(args.output, report)
     summary = report["summary"]
@@ -1050,6 +1068,10 @@ def _handle_benchmark_archive(args: argparse.Namespace) -> int:
         f"word={avg_word_accuracy:.4f} "
         f"across {int(summary['book_count'])} books"
     )
+    guardrails = report.get("guardrails")
+    if isinstance(guardrails, dict):
+        status = "PASS" if bool(guardrails.get("passed")) else "FAIL"
+        print(f"Guardrails: {status}")
     print(f"Report: {args.output}")
     return 0
 
