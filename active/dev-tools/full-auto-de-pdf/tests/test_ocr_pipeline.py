@@ -1086,6 +1086,51 @@ def test_ocr_page_images_scan_mode_auto_enables_verify_cleanup_spans(
     assert verifier["changes_reverted"] == 1
 
 
+def test_ocr_page_images_orientation_fallback_can_select_rotated_candidate(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    page_image = tmp_path / "page-1.png"
+    output_path = tmp_path / "out.txt"
+    work_dir = tmp_path / "work"
+    Image.new("L", (20, 20), color=255).save(page_image)
+
+    def _which(name: str) -> str | None:
+        if name == "tesseract":
+            return "/usr/bin/fake"
+        return None
+
+    def _run(command: list[str], capture_output: bool) -> str:
+        assert command[0] == "tesseract"
+        assert capture_output is True
+        image_name = Path(command[1]).name
+        if "rot180" in image_name:
+            return "upright readable text"
+        return "###"
+
+    monkeypatch.setattr(
+        ocr_pipeline,
+        "_score_ocr_text",
+        lambda text, _lang, _lexicon: 100.0 if "upright readable text" in text else 1.0,
+    )
+    metrics = ocr_page_images(
+        page_images=[page_image],
+        output_text_path=output_path,
+        work_dir=work_dir,
+        preprocess_mode="none",
+        tesseract_psm="6",
+        orientation_fallback=True,
+        run_command=_run,
+        which=_which,
+    )
+
+    assert output_path.read_text(encoding="utf-8") == "upright readable text"
+    manifest_payload = json.loads(Path(str(metrics["page_artifacts_manifest"])).read_text(encoding="utf-8"))
+    page_entry = manifest_payload["pages"][0]
+    assert page_entry["selection_strategy"] == "orientation-fallback"
+    assert page_entry["orientation_angle"] == 180
+
+
 def test_parse_hocr_text_and_metadata_extracts_text_and_confidence() -> None:
     hocr = """
     <html><body>
@@ -1329,6 +1374,26 @@ def test_preprocess_image_scan_morphology_uses_morphological_cleanup(
         assert processed.size == (360, 540)
         assert set(processed.getdata()) <= {0, 255}
     assert seen == {"size": (360, 540), "min_component_pixels": 6}
+
+
+def test_scan_local_threshold_large_page_uses_overlapping_tiled_threshold(monkeypatch) -> None:
+    image = Image.new("L", (2000, 1500), color=220)
+    seen: dict[str, object] = {}
+
+    def _fake_tiled(image, *, tile_size, overlap, threshold_fn):  # noqa: ANN001, ANN202
+        seen["size"] = image.size
+        seen["tile_size"] = tile_size
+        seen["overlap"] = overlap
+        return threshold_fn(image)
+
+    monkeypatch.setattr(
+        ocr_pipeline,
+        "_threshold_image_in_overlapping_tiles",
+        _fake_tiled,
+    )
+    binary = ocr_pipeline._binarize_preprocessed_candidate(image, "scan-local-threshold", 190)
+    assert seen == {"size": (2000, 1500), "tile_size": 1024, "overlap": 192}
+    assert set(binary.getdata()) <= {0, 255}
 
 
 def test_otsu_threshold_splits_bimodal_histogram() -> None:

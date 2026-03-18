@@ -48,6 +48,9 @@ _INVERSE_RENDER_OFFSETS = (-4, 0, 4)
 _AUTO_INVERSE_RENDER_SCORE_WINDOW = 80.0
 _AUTO_INVERSE_RENDER_PREPROCESS_MODES = frozenset({"none", "scan", "scan-local-threshold"})
 _AUTO_SCAN_LOCAL_THRESHOLD_MIN_SCORE = 500.0
+_TILED_THRESHOLD_MIN_PIXELS = 2_500_000
+_TILED_THRESHOLD_TILE_SIZE = 1024
+_TILED_THRESHOLD_OVERLAP = 192
 _CLEANUP_SPAN_VERIFIER_MAX_TOKENS = 3
 _CLEANUP_SPAN_VERIFIER_LOCAL_MARGIN = 0.03
 _CLEANUP_SPAN_VERIFIER_GLOBAL_MARGIN = 0.005
@@ -107,6 +110,7 @@ class OCRCoreOptions:
     cleanup_lexicon_texts: tuple[str, ...] = ()
     confidence_aware_cleanup: bool = False
     cleanup_high_confidence_threshold: float = 95.0
+    orientation_fallback: bool = False
     inverse_render_rerank: bool = False
     inverse_render_top_k: int = 3
     verify_cleanup_spans: bool = False
@@ -491,8 +495,30 @@ def _binarize_preprocessed_candidate(
         effective_threshold = _otsu_threshold(candidate)
         return candidate.point(lambda value: 255 if value >= effective_threshold else 0)
     if preprocess_mode == "scan-local-threshold":
+        if _should_use_tiled_threshold(candidate):
+            return _threshold_image_in_overlapping_tiles(
+                candidate,
+                tile_size=_TILED_THRESHOLD_TILE_SIZE,
+                overlap=_TILED_THRESHOLD_OVERLAP,
+                threshold_fn=lambda tile: _adaptive_gaussian_threshold(
+                    tile,
+                    block_size=51,
+                    subtract_constant=15,
+                ),
+            )
         return _adaptive_gaussian_threshold(candidate, block_size=51, subtract_constant=15)
     if preprocess_mode == "scan-sauvola":
+        if _should_use_tiled_threshold(candidate):
+            return _threshold_image_in_overlapping_tiles(
+                candidate,
+                tile_size=_TILED_THRESHOLD_TILE_SIZE,
+                overlap=_TILED_THRESHOLD_OVERLAP,
+                threshold_fn=lambda tile: _sauvola_threshold(
+                    tile,
+                    block_size=41,
+                    k=0.25,
+                ),
+            )
         return _sauvola_threshold(candidate, block_size=41, k=0.25)
     if preprocess_mode == "scan-morphology":
         effective_threshold = _otsu_threshold(candidate)
@@ -558,6 +584,54 @@ def _adaptive_gaussian_threshold(
             local_threshold = max(0, min(255, int(blurred_pixels[x, y]) - subtract_constant))
             binary_pixels[x, y] = 255 if int(source_pixels[x, y]) > local_threshold else 0
     return binary
+
+
+def _should_use_tiled_threshold(image: Any) -> bool:
+    return (image.width * image.height) >= _TILED_THRESHOLD_MIN_PIXELS
+
+
+def _tile_start_positions(length: int, tile_size: int, stride: int) -> list[int]:
+    if length <= tile_size:
+        return [0]
+    starts = list(range(0, max(1, length - tile_size + 1), stride))
+    last_start = length - tile_size
+    if starts[-1] != last_start:
+        starts.append(last_start)
+    return starts
+
+
+def _threshold_image_in_overlapping_tiles(
+    image: Any,
+    *,
+    tile_size: int,
+    overlap: int,
+    threshold_fn: Callable[[Any], Any],
+) -> Any:
+    if Image is None:
+        raise RuntimeError(
+            "Missing dependency for preprocessing: pillow. "
+            "Install with `pip install pillow` or disable preprocessing."
+        )
+    if overlap < 0 or overlap >= tile_size:
+        raise ValueError("overlap must be >= 0 and less than tile_size")
+    stride = tile_size - overlap
+    x_starts = _tile_start_positions(image.width, tile_size, stride)
+    y_starts = _tile_start_positions(image.height, tile_size, stride)
+    stitched = Image.new("L", image.size, color=255)
+    overlap_crop = overlap // 2
+    for y_start in y_starts:
+        for x_start in x_starts:
+            x_end = min(image.width, x_start + tile_size)
+            y_end = min(image.height, y_start + tile_size)
+            tile = image.crop((x_start, y_start, x_end, y_end))
+            thresholded_tile = threshold_fn(tile).convert("L")
+            left_crop = 0 if x_start == 0 else overlap_crop
+            top_crop = 0 if y_start == 0 else overlap_crop
+            right_crop = thresholded_tile.width if x_end == image.width else thresholded_tile.width - overlap_crop
+            bottom_crop = thresholded_tile.height if y_end == image.height else thresholded_tile.height - overlap_crop
+            cropped_tile = thresholded_tile.crop((left_crop, top_crop, right_crop, bottom_crop))
+            stitched.paste(cropped_tile, (x_start + left_crop, y_start + top_crop))
+    return stitched
 
 
 def _sauvola_threshold(
@@ -695,6 +769,7 @@ def _parse_ocr_options(kwargs: dict[str, Any]) -> OCRRunOptions:
         cleanup_lexicon_texts=cleanup_lexicon_texts,
         confidence_aware_cleanup=bool(kwargs.pop("confidence_aware_cleanup", False)),
         cleanup_high_confidence_threshold=float(kwargs.pop("cleanup_high_confidence_threshold", 95.0)),
+        orientation_fallback=bool(kwargs.pop("orientation_fallback", False)),
         inverse_render_rerank=bool(kwargs.pop("inverse_render_rerank", False)),
         inverse_render_top_k=int(kwargs.pop("inverse_render_top_k", 3)),
         verify_cleanup_spans=bool(kwargs.pop("verify_cleanup_spans", False)),
@@ -1564,17 +1639,27 @@ def _run_ocr_on_page(
         if reranked_candidate is not None or preferred_scan_local_threshold_candidate is not None
         else _maybe_auto_inverse_render_tiebreak(image_path, candidates, options)
     )
-    selected_candidate = (
+    base_selected_candidate = (
         reranked_candidate
         or preferred_scan_local_threshold_candidate
         or auto_tiebreak_candidate
         or best_candidate
     )
+    orientation_fallback_candidate = _maybe_orientation_fallback_candidate(
+        base_selected_candidate,
+        options,
+        dependencies,
+        paddle_reader,
+        preprocessed_dir,
+    )
+    selected_candidate = orientation_fallback_candidate or base_selected_candidate
     selected_metadata = dict(selected_candidate.metadata)
     selected_metadata["selected_preprocess_mode"] = selected_metadata["preprocess_mode"]
     selected_metadata["selection_score"] = selected_candidate.score
     selected_metadata["selection_strategy"] = (
-        "inverse-render-rerank"
+        "orientation-fallback"
+        if orientation_fallback_candidate is not None
+        else "inverse-render-rerank"
         if reranked_candidate is not None
         else "auto-scan-local-threshold-preference"
         if preferred_scan_local_threshold_candidate is not None
@@ -1585,6 +1670,58 @@ def _run_ocr_on_page(
     if len(candidate_runs) > 1:
         selected_metadata["candidate_runs"] = candidate_runs
     return selected_candidate.ocr_input_path, selected_candidate.text, selected_metadata
+
+
+def _maybe_orientation_fallback_candidate(
+    candidate: OCRCandidate,
+    options: OCRRunOptions,
+    dependencies: OCRDependencies,
+    paddle_reader: Callable[[Path], str] | None,
+    preprocessed_dir: Path,
+) -> OCRCandidate | None:
+    if (
+        not options.core.orientation_fallback
+        or options.ocr_engine != "tesseract"
+        or Image is None
+    ):
+        return None
+    selected_psm = candidate.metadata.get("tesseract_psm")
+    if not isinstance(selected_psm, int):
+        return None
+    rotated_input_path = (
+        preprocessed_dir
+        / "orientation-fallback"
+        / f"{candidate.ocr_input_path.stem}-rot180{candidate.ocr_input_path.suffix}"
+    )
+    rotated_input_path.parent.mkdir(parents=True, exist_ok=True)
+    with Image.open(candidate.ocr_input_path) as image:
+        image.rotate(180, expand=True).save(rotated_input_path)
+    rotated_text, rotated_metadata = _run_candidate_ocr(
+        rotated_input_path,
+        options,
+        dependencies,
+        paddle_reader,
+        str(selected_psm),
+    )
+    rotated_score = _score_ocr_text(
+        rotated_text,
+        options.core.language,
+        options.core.cleanup_lexicon_texts,
+    )
+    if rotated_score <= candidate.score:
+        return None
+    metadata = dict(candidate.metadata)
+    metadata.update(rotated_metadata)
+    metadata["orientation_fallback_applied"] = True
+    metadata["orientation_angle"] = 180
+    metadata["orientation_fallback_base_score"] = candidate.score
+    metadata["orientation_fallback_score"] = rotated_score
+    return OCRCandidate(
+        score=rotated_score,
+        ocr_input_path=rotated_input_path,
+        text=rotated_text,
+        metadata=metadata,
+    )
 
 
 def _run_tesseract(
@@ -2087,6 +2224,7 @@ def _parse_mode_eval_options(kwargs: dict[str, Any]) -> ModeEvalOptions:
         cleanup_lexicon_texts=tuple(),
         confidence_aware_cleanup=bool(kwargs.pop("confidence_aware_cleanup", False)),
         cleanup_high_confidence_threshold=float(kwargs.pop("cleanup_high_confidence_threshold", 95.0)),
+        orientation_fallback=bool(kwargs.pop("orientation_fallback", False)),
     )
     return ModeEvalOptions(
         core=core_options,
@@ -2109,6 +2247,7 @@ def _mode_ocr_kwargs(options: ModeEvalOptions, mode: str) -> dict[str, Any]:
         "tesseract_output_format": options.core.tesseract_output_format,
         "confidence_aware_cleanup": options.core.confidence_aware_cleanup,
         "cleanup_high_confidence_threshold": options.core.cleanup_high_confidence_threshold,
+        "orientation_fallback": options.core.orientation_fallback,
         "ocr_engine": options.ocr_engine,
     }
 
@@ -2240,6 +2379,7 @@ def _parse_local_archive_options(kwargs: dict[str, Any]) -> LocalArchiveBenchmar
         cleanup_lexicon_texts=tuple(),
         confidence_aware_cleanup=bool(kwargs.pop("confidence_aware_cleanup", False)),
         cleanup_high_confidence_threshold=float(kwargs.pop("cleanup_high_confidence_threshold", 95.0)),
+        orientation_fallback=bool(kwargs.pop("orientation_fallback", False)),
     )
     return LocalArchiveBenchmarkOptions(
         core=core_options,

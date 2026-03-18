@@ -342,6 +342,7 @@ def test_ocr_pdf_command_runs_pipeline(monkeypatch, tmp_path) -> None:
         assert kwargs["tesseract_output_format"] == "hocr"
         assert kwargs["confidence_aware_cleanup"] is True
         assert kwargs["cleanup_high_confidence_threshold"] == 92.0
+        assert kwargs["orientation_fallback"] is True
         assert kwargs["ocr_engine"] == "paddleocr"
         assert kwargs["inverse_render_rerank"] is True
         assert kwargs["inverse_render_top_k"] == 5
@@ -376,6 +377,7 @@ def test_ocr_pdf_command_runs_pipeline(monkeypatch, tmp_path) -> None:
             "--confidence-aware-cleanup",
             "--cleanup-high-confidence-threshold",
             "92",
+            "--orientation-fallback",
             "--ocr-engine",
             "paddleocr",
             "--inverse-render-rerank",

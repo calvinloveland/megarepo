@@ -483,6 +483,11 @@ def _add_benchmark_ocr_args(parser: argparse.ArgumentParser) -> None:
         help="Skip cleanup when mean page confidence is at or above this percentage",
     )
     parser.add_argument(
+        "--orientation-fallback",
+        action="store_true",
+        help="Try a 180-degree OCR fallback candidate when it scores better",
+    )
+    parser.add_argument(
         "--no-cleanup",
         action="store_true",
         help="Disable OCR cleanup after extraction",
@@ -647,6 +652,11 @@ def _add_ocr_pdf_command(subparsers: argparse._SubParsersAction[argparse.Argumen
         type=float,
         default=95.0,
         help="Skip cleanup when mean page confidence is at or above this percentage",
+    )
+    parser.add_argument(
+        "--orientation-fallback",
+        action="store_true",
+        help="Try a 180-degree OCR fallback candidate when it scores better",
     )
     parser.add_argument(
         "--binarize-threshold",
@@ -1173,6 +1183,7 @@ def _benchmark_ocr_kwargs_from_args(args: argparse.Namespace) -> dict[str, objec
         "tesseract_output_format": args.tesseract_output_format,
         "confidence_aware_cleanup": args.confidence_aware_cleanup,
         "cleanup_high_confidence_threshold": args.cleanup_high_confidence_threshold,
+        "orientation_fallback": args.orientation_fallback,
         "ocr_engine": args.ocr_engine,
         "emit_page_artifacts": not args.no_page_artifacts,
         "inverse_render_rerank": args.inverse_render_rerank,
@@ -1219,6 +1230,7 @@ def _handle_ocr_pdf(args: argparse.Namespace) -> int:
         tesseract_output_format=args.tesseract_output_format,
         confidence_aware_cleanup=args.confidence_aware_cleanup,
         cleanup_high_confidence_threshold=args.cleanup_high_confidence_threshold,
+        orientation_fallback=args.orientation_fallback,
         ocr_engine=args.ocr_engine,
         emit_page_artifacts=not args.no_page_artifacts,
         page_artifacts_dir=args.page_artifacts_dir,
@@ -1240,6 +1252,7 @@ def _handle_ocr_eval_modes(args: argparse.Namespace) -> int:
     cleanup_high_confidence_threshold = float(
         getattr(args, "cleanup_high_confidence_threshold", 95.0)
     )
+    orientation_fallback = bool(getattr(args, "orientation_fallback", False))
     report = evaluate_ocr_preprocess_modes(
         pdf_path=args.pdf,
         work_dir=args.work_dir,
@@ -1255,6 +1268,7 @@ def _handle_ocr_eval_modes(args: argparse.Namespace) -> int:
         tesseract_output_format=tesseract_output_format,
         confidence_aware_cleanup=confidence_aware_cleanup,
         cleanup_high_confidence_threshold=cleanup_high_confidence_threshold,
+        orientation_fallback=orientation_fallback,
         ocr_engine=args.ocr_engine,
     )
     mode_count = len(report.get("modes", {}))
@@ -1268,6 +1282,7 @@ def _handle_benchmark_local_archive(args: argparse.Namespace) -> int:
     cleanup_high_confidence_threshold = float(
         getattr(args, "cleanup_high_confidence_threshold", 95.0)
     )
+    orientation_fallback = bool(getattr(args, "orientation_fallback", False))
     report = benchmark_local_ocr_against_archive(
         pdf_path=args.pdf,
         archive_identifier=args.archive_identifier,
@@ -1284,6 +1299,7 @@ def _handle_benchmark_local_archive(args: argparse.Namespace) -> int:
         tesseract_output_format=tesseract_output_format,
         confidence_aware_cleanup=confidence_aware_cleanup,
         cleanup_high_confidence_threshold=cleanup_high_confidence_threshold,
+        orientation_fallback=orientation_fallback,
         ocr_engine=args.ocr_engine,
     )
     print(
