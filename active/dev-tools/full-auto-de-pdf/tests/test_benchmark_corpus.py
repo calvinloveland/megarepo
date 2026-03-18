@@ -179,6 +179,8 @@ def test_run_benchmark_corpus_aggregates_accuracy(monkeypatch, tmp_path) -> None
 
     assert report["summary"]["avg_word_accuracy"] == 1.0
     assert report["summary"]["avg_char_accuracy"] == 1.0
+    assert report["summary"]["avg_unexpected_alpha_token_rate"] == 0.0
+    assert report["summary"]["common_unexpected_alpha_tokens"] == []
     assert report["books"][0]["mode_usage"] == {"auto": 1}
     assert "synthetic printed PDFs" in report["metric_note"]
 
@@ -227,6 +229,59 @@ def test_run_benchmark_corpus_prefers_page_images_when_available(monkeypatch, tm
 
     assert seen["page_images"] is True
     assert report["summary"]["avg_word_accuracy"] == 1.0
+
+
+def test_run_benchmark_corpus_reports_unexpected_alpha_tokens(monkeypatch, tmp_path) -> None:
+    reference_path = tmp_path / "reference.txt"
+    reference_path.write_text("I seem calm and have seen each note.", encoding="utf-8")
+    pdf_path = tmp_path / "synthetic.pdf"
+    pdf_path.write_bytes(b"fake-pdf")
+    manifest_path = tmp_path / "manifest.json"
+    manifest_path.write_text(
+        json.dumps(
+            {
+                "books": [
+                    {
+                        "identifier": "demo-book",
+                        "title": "Demo Book",
+                        "pdf_path": str(pdf_path),
+                        "reference_text_path": str(reference_path),
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    def _fake_ocr_pdf_with_tesseract(**kwargs):  # noqa: ANN003
+        output_path = kwargs["output_text_path"]
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text("I scem calm and have scen cach note.", encoding="utf-8")
+        return {"page_count": 1, "word_count": 8, "character_count": 37}
+
+    monkeypatch.setattr(
+        "full_auto_de_pdf.benchmark_corpus.ocr_pdf_with_tesseract",
+        _fake_ocr_pdf_with_tesseract,
+    )
+
+    report = run_benchmark_corpus(
+        corpus_manifest_path=manifest_path,
+        output_report_path=tmp_path / "report.json",
+        work_dir=tmp_path / "work",
+    )
+
+    assert report["books"][0]["unexpected_alpha_token_count"] == 3
+    assert report["books"][0]["unexpected_alpha_tokens"] == [
+        {"token": "scem", "count": 1},
+        {"token": "scen", "count": 1},
+        {"token": "cach", "count": 1},
+    ]
+    assert report["summary"]["common_unexpected_alpha_tokens"] == [
+        {"token": "scem", "count": 1},
+        {"token": "scen", "count": 1},
+        {"token": "cach", "count": 1},
+    ]
+    assert report["summary"]["avg_unexpected_alpha_token_rate"] == 3 / 8
 
 
 def test_build_image_text_corpus_manifest_pairs_matching_stems(tmp_path) -> None:
@@ -373,6 +428,7 @@ def test_run_streaming_benchmark_corpus_records_only_failures(monkeypatch, tmp_p
     assert report["summary"]["sample_count"] == 2
     assert report["summary"]["failure_count"] == 1
     assert report["summary"]["recorded_failure_count"] == 1
+    assert report["summary"]["common_unexpected_alpha_tokens"] == [{"token": "net", "count": 1}]
     assert report["summary"]["common_failure_patterns"]["substitutions"] == [
         {"reference": "nu.", "hypothesis": "net.", "count": 1}
     ]

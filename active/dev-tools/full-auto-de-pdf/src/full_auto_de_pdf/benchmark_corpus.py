@@ -36,6 +36,7 @@ _DEFAULT_FONT_CANDIDATES = (
 )
 _ARTIFACT_PROFILES = ("clean", "scan-light", "scan-moderate", "scan-heavy")
 _WORD_RE = re.compile(r"\S+")
+_ALPHA_TOKEN_RE = re.compile(r"[A-Za-z]+(?:'[A-Za-z]+)?")
 _PNG_DPI = (300, 300)
 _SYNTHETIC_CORPUS_METRIC_NOTE = (
     "This benchmark uses synthetic printed PDFs rendered from clean public-domain "
@@ -596,6 +597,22 @@ def _token_summary_rows(counter: Counter[str], *, limit: int = 20) -> list[dict[
     return [{"token": token, "count": count} for token, count in counter.most_common(limit)]
 
 
+def _alpha_tokens(text: str) -> list[str]:
+    return [token.lower() for token in _ALPHA_TOKEN_RE.findall(text)]
+
+
+def _unexpected_alpha_token_counts(reference_text: str, hypothesis_text: str) -> Counter[str]:
+    reference_tokens = set(_alpha_tokens(reference_text))
+    counts: Counter[str] = Counter()
+    for token in _alpha_tokens(hypothesis_text):
+        if len(token.replace("'", "")) < 3:
+            continue
+        if token in reference_tokens:
+            continue
+        counts[token] += 1
+    return counts
+
+
 def _record_streaming_failure_artifacts(
     *,
     sample_dir: Path,
@@ -712,6 +729,7 @@ def run_benchmark_corpus(
         raise ValueError("corpus manifest did not include any books")
 
     results: list[dict[str, Any]] = []
+    unexpected_alpha_counter: Counter[str] = Counter()
     for book in books:
         if not isinstance(book, dict):
             continue
@@ -747,6 +765,10 @@ def run_benchmark_corpus(
         )
         hypothesis_text = output_text_path.read_text(encoding="utf-8")
         accuracy = calculate_accuracy_metrics(reference_text, hypothesis_text)
+        unexpected_alpha_tokens = _unexpected_alpha_token_counts(reference_text, hypothesis_text)
+        unexpected_alpha_token_count = sum(unexpected_alpha_tokens.values())
+        hypothesis_alpha_token_count = max(len(_alpha_tokens(hypothesis_text)), 1)
+        unexpected_alpha_counter.update(unexpected_alpha_tokens)
         results.append(
             {
                 "identifier": identifier,
@@ -761,6 +783,9 @@ def run_benchmark_corpus(
                 "wer": accuracy["wer"],
                 "char_accuracy": accuracy["char_accuracy"],
                 "word_accuracy": accuracy["word_accuracy"],
+                "unexpected_alpha_token_count": unexpected_alpha_token_count,
+                "unexpected_alpha_token_rate": unexpected_alpha_token_count / hypothesis_alpha_token_count,
+                "unexpected_alpha_tokens": _token_summary_rows(unexpected_alpha_tokens),
                 "mode_usage": ocr_result.get("mode_usage", {}),
                 "tesseract_psm_usage": ocr_result.get("tesseract_psm_usage", {}),
             }
@@ -772,6 +797,8 @@ def run_benchmark_corpus(
         "avg_wer": _average_metric(results, "wer"),
         "avg_char_accuracy": _average_metric(results, "char_accuracy"),
         "avg_word_accuracy": _average_metric(results, "word_accuracy"),
+        "avg_unexpected_alpha_token_rate": _average_metric(results, "unexpected_alpha_token_rate"),
+        "common_unexpected_alpha_tokens": _token_summary_rows(unexpected_alpha_counter),
     }
     report = {
         "corpus_manifest_path": str(corpus_manifest_path),
@@ -840,6 +867,7 @@ def run_streaming_benchmark_corpus(
     substitution_counter: Counter[tuple[str, str]] = Counter()
     missing_counter: Counter[str] = Counter()
     unexpected_counter: Counter[str] = Counter()
+    unexpected_alpha_counter: Counter[str] = Counter()
 
     for book in selected_books:
         reference_text = _load_reference_text(book, cache_dir, timeout_seconds)
@@ -886,6 +914,10 @@ def run_streaming_benchmark_corpus(
                     )
                     hypothesis_text = output_text_path.read_text(encoding="utf-8")
                     accuracy = calculate_accuracy_metrics(excerpt_text, hypothesis_text)
+                    unexpected_alpha_tokens = _unexpected_alpha_token_counts(excerpt_text, hypothesis_text)
+                    unexpected_alpha_token_count = sum(unexpected_alpha_tokens.values())
+                    hypothesis_alpha_token_count = max(len(_alpha_tokens(hypothesis_text)), 1)
+                    unexpected_alpha_counter.update(unexpected_alpha_tokens)
                     is_failure = (
                         accuracy["word_accuracy"] < failure_word_accuracy_below
                         or accuracy["char_accuracy"] < failure_char_accuracy_below
@@ -905,6 +937,10 @@ def run_streaming_benchmark_corpus(
                         "wer": accuracy["wer"],
                         "char_accuracy": accuracy["char_accuracy"],
                         "word_accuracy": accuracy["word_accuracy"],
+                        "unexpected_alpha_token_count": unexpected_alpha_token_count,
+                        "unexpected_alpha_token_rate": unexpected_alpha_token_count
+                        / hypothesis_alpha_token_count,
+                        "unexpected_alpha_tokens": _token_summary_rows(unexpected_alpha_tokens),
                         "mode_usage": ocr_result.get("mode_usage", {}),
                         "tesseract_psm_usage": ocr_result.get("tesseract_psm_usage", {}),
                         "font_path": resolved_font_path,
@@ -952,6 +988,8 @@ def run_streaming_benchmark_corpus(
         "avg_wer": _average_metric(results, "wer"),
         "avg_char_accuracy": _average_metric(results, "char_accuracy"),
         "avg_word_accuracy": _average_metric(results, "word_accuracy"),
+        "avg_unexpected_alpha_token_rate": _average_metric(results, "unexpected_alpha_token_rate"),
+        "common_unexpected_alpha_tokens": _token_summary_rows(unexpected_alpha_counter),
         "common_failure_patterns": {
             "substitutions": _substitution_summary_rows(substitution_counter),
             "missing_tokens": _token_summary_rows(missing_counter),
