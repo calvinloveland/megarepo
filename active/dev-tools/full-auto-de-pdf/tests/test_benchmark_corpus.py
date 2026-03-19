@@ -205,6 +205,57 @@ def test_run_benchmark_corpus_aggregates_accuracy(monkeypatch, tmp_path) -> None
     assert "synthetic printed PDFs" in report["metric_note"]
 
 
+def test_run_benchmark_corpus_emits_progress_updates(monkeypatch, tmp_path) -> None:
+    reference_path = tmp_path / "reference.txt"
+    reference_path.write_text("clean printed text", encoding="utf-8")
+    pdf_path = tmp_path / "synthetic.pdf"
+    pdf_path.write_bytes(b"fake-pdf")
+    manifest_path = tmp_path / "manifest.json"
+    manifest_path.write_text(
+        json.dumps(
+            {
+                "books": [
+                    {
+                        "identifier": "demo-book",
+                        "title": "Demo Book",
+                        "pdf_path": str(pdf_path),
+                        "reference_text_path": str(reference_path),
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    def _fake_ocr_pdf_with_tesseract(**kwargs):  # noqa: ANN003
+        output_path = kwargs["output_text_path"]
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text("clean printed text", encoding="utf-8")
+        return {"page_count": 1, "word_count": 3, "character_count": 18}
+
+    monkeypatch.setattr(
+        "full_auto_de_pdf.benchmark_corpus.ocr_pdf_with_tesseract",
+        _fake_ocr_pdf_with_tesseract,
+    )
+    events: list[dict[str, object]] = []
+
+    run_benchmark_corpus(
+        corpus_manifest_path=manifest_path,
+        output_report_path=tmp_path / "report.json",
+        work_dir=tmp_path / "work",
+        progress_callback=events.append,
+    )
+
+    assert [event["status"] for event in events] == ["running", "running", "complete"]
+    assert events[0]["stage"] == "benchmark-corpus"
+    assert events[0]["completed_items"] == 0
+    assert events[0]["total_items"] == 1
+    assert events[1]["current_identifier"] == "demo-book"
+    assert events[1]["completed_items"] == 1
+    assert events[2]["completed_items"] == 1
+    assert events[2]["estimated_remaining_seconds"] == 0.0
+
+
 def test_run_benchmark_corpus_prefers_page_images_when_available(monkeypatch, tmp_path) -> None:
     reference_path = tmp_path / "reference.txt"
     reference_path.write_text("clean printed text", encoding="utf-8")
@@ -491,3 +542,43 @@ def test_run_streaming_benchmark_corpus_records_only_failures(monkeypatch, tmp_p
     assert (failure_artifact_dir / "page_ocr" / "page-0001.txt").exists()
     assert not any((tmp_path / "work" / "generated").glob("**/*"))
     assert not any((tmp_path / "work" / "ocr").glob("**/*"))
+
+
+def test_run_streaming_benchmark_corpus_emits_progress_updates(monkeypatch, tmp_path) -> None:
+    book = BenchmarkBook("demo-book", "Demo Book", 123)
+    source_text = "Alpha beta gamma delta epsilon zeta eta theta iota kappa lambda mu."
+
+    monkeypatch.setattr(
+        "full_auto_de_pdf.benchmark_corpus.fetch_gutenberg_text",
+        lambda _gutenberg_id, timeout_seconds=60: source_text,
+    )
+
+    def _fake_ocr_page_images(**kwargs):  # noqa: ANN003
+        output_path = kwargs["output_text_path"]
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(source_text, encoding="utf-8")
+        return {"page_count": 1, "word_count": 12, "character_count": len(source_text)}
+
+    monkeypatch.setattr("full_auto_de_pdf.benchmark_corpus.ocr_page_images", _fake_ocr_page_images)
+    events: list[dict[str, object]] = []
+
+    run_streaming_benchmark_corpus(
+        output_report_path=tmp_path / "report.json",
+        work_dir=tmp_path / "work",
+        cache_dir=tmp_path / "cache",
+        books=(book,),
+        samples_per_book=1,
+        excerpt_word_count=12,
+        skip_word_count=0,
+        artifact_profiles=("clean",),
+        progress_callback=events.append,
+    )
+
+    assert [event["status"] for event in events] == ["running", "running", "complete"]
+    assert events[0]["stage"] == "benchmark-streaming-corpus"
+    assert events[0]["completed_items"] == 0
+    assert events[0]["total_items"] == 1
+    assert events[1]["current_identifier"] == "demo-book-sample-001"
+    assert events[1]["completed_items"] == 1
+    assert events[2]["completed_items"] == 1
+    assert events[2]["estimated_remaining_seconds"] == 0.0

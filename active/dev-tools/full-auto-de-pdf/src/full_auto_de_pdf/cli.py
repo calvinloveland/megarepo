@@ -91,6 +91,42 @@ def _make_progress_reporter(label: str) -> Callable[[dict[str, object]], None]:
             if isinstance(message, str) and message:
                 print(f"{label}: {message}", file=sys.stderr, flush=True)
             return
+        if stage in {"benchmark-corpus", "benchmark-streaming-corpus"}:
+            completed_items = int(payload.get("completed_items", 0))
+            total_items = int(payload.get("total_items", 0))
+            current_identifier = payload.get("current_identifier")
+            last_completed = last_completed_by_stage.get(stage, -1)
+            should_print = (
+                status == "complete"
+                or completed_items <= 1
+                or completed_items == total_items
+                or completed_items > last_completed
+            )
+            if not should_print:
+                return
+            last_completed_by_stage[stage] = completed_items
+            noun = "books" if stage == "benchmark-corpus" else "samples"
+            current_text = (
+                f", current={current_identifier}"
+                if isinstance(current_identifier, str) and current_identifier
+                else ""
+            )
+            if status == "complete":
+                print(
+                    f"{label}: Benchmark complete ({completed_items}/{total_items} {noun}, "
+                    f"elapsed={_format_duration(payload.get('elapsed_seconds'))})",
+                    file=sys.stderr,
+                    flush=True,
+                )
+                return
+            print(
+                f"{label}: Benchmarked {completed_items}/{total_items} {noun}{current_text}, "
+                f"elapsed={_format_duration(payload.get('elapsed_seconds'))}, "
+                f"eta={_format_duration(payload.get('estimated_remaining_seconds'))}",
+                file=sys.stderr,
+                flush=True,
+            )
+            return
         if stage != "ocr":
             return
         completed_pages = int(payload.get("completed_pages", 0))
@@ -1297,10 +1333,12 @@ def _handle_build_image_text_corpus(args: argparse.Namespace) -> int:
 
 
 def _handle_benchmark_corpus(args: argparse.Namespace) -> int:
+    progress_callback = _make_progress_reporter("Benchmark corpus")
     report = run_benchmark_corpus(
         corpus_manifest_path=args.corpus_manifest,
         output_report_path=args.output,
         work_dir=args.work_dir,
+        progress_callback=progress_callback,
         **_benchmark_ocr_kwargs_from_args(args),
     )
     summary = report["summary"]
@@ -1313,6 +1351,7 @@ def _handle_benchmark_corpus(args: argparse.Namespace) -> int:
 
 
 def _handle_streaming_benchmark_corpus(args: argparse.Namespace) -> int:
+    progress_callback = _make_progress_reporter("Streaming benchmark")
     report = run_streaming_benchmark_corpus(
         output_report_path=args.output,
         work_dir=args.work_dir,
@@ -1333,6 +1372,7 @@ def _handle_streaming_benchmark_corpus(args: argparse.Namespace) -> int:
         max_recorded_failures=args.max_recorded_failures,
         failure_word_accuracy_below=args.failure_word_accuracy_below,
         failure_char_accuracy_below=args.failure_char_accuracy_below,
+        progress_callback=progress_callback,
         **_benchmark_ocr_kwargs_from_args(args),
     )
     summary = report["summary"]

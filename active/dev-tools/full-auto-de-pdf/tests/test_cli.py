@@ -131,6 +131,7 @@ def test_benchmark_corpus_command_runs_pipeline(monkeypatch, tmp_path) -> None:
         assert kwargs["corpus_manifest_path"] == corpus_manifest
         assert kwargs["output_report_path"] == output_report
         assert kwargs["work_dir"] == work_dir
+        assert callable(kwargs["progress_callback"])
         assert kwargs["preprocess_mode"] == "scan-local-threshold"
         assert kwargs["tesseract_psm"] == "6"
         assert kwargs["ocr_engine"] == "paddleocr"
@@ -181,6 +182,7 @@ def test_benchmark_streaming_corpus_command_runs_pipeline(monkeypatch, tmp_path)
         assert kwargs["work_dir"] == work_dir
         assert kwargs["failures_dir"] == failures_dir
         assert kwargs["cache_dir"] == cache_dir
+        assert callable(kwargs["progress_callback"])
         assert kwargs["samples_per_book"] == 4
         assert kwargs["artifact_profiles"] == ("scan-moderate", "scan-heavy")
         assert kwargs["max_recorded_failures"] == 12

@@ -11,6 +11,7 @@ import random
 import re
 import shutil
 import subprocess
+import time
 from typing import Any
 
 from .benchmark import BENCHMARK_BOOKS, BenchmarkBook, calculate_accuracy_metrics
@@ -651,6 +652,47 @@ def _token_summary_rows(counter: Counter[str], *, limit: int = 20) -> list[dict[
     return [{"token": token, "count": count} for token, count in counter.most_common(limit)]
 
 
+def _timed_benchmark_progress_payload(
+    *,
+    stage: str,
+    status: str,
+    started_at: float,
+    completed_items: int,
+    total_items: int,
+    current_identifier: str | None = None,
+) -> dict[str, object]:
+    elapsed_seconds = max(0.0, time.monotonic() - started_at)
+    seconds_per_item = (
+        elapsed_seconds / completed_items if completed_items > 0 and elapsed_seconds > 0 else None
+    )
+    estimated_remaining_seconds = (
+        seconds_per_item * (total_items - completed_items)
+        if seconds_per_item is not None and status != "complete"
+        else 0.0 if status == "complete"
+        else None
+    )
+    payload: dict[str, object] = {
+        "stage": stage,
+        "status": status,
+        "completed_items": completed_items,
+        "total_items": total_items,
+        "elapsed_seconds": elapsed_seconds,
+        "seconds_per_item": seconds_per_item,
+        "estimated_remaining_seconds": estimated_remaining_seconds,
+    }
+    if current_identifier:
+        payload["current_identifier"] = current_identifier
+    return payload
+
+
+def _emit_benchmark_progress(
+    progress_callback: Any,
+    payload: dict[str, object],
+) -> None:
+    if callable(progress_callback):
+        progress_callback(payload)
+
+
 def _alpha_tokens(text: str) -> list[str]:
     return [token.lower() for token in _ALPHA_TOKEN_RE.findall(text)]
 
@@ -782,6 +824,18 @@ def run_benchmark_corpus(
     if not isinstance(books, list) or not books:
         raise ValueError("corpus manifest did not include any books")
 
+    progress_callback = ocr_kwargs.get("progress_callback")
+    started_at = time.monotonic()
+    _emit_benchmark_progress(
+        progress_callback,
+        _timed_benchmark_progress_payload(
+            stage="benchmark-corpus",
+            status="running",
+            started_at=started_at,
+            completed_items=0,
+            total_items=len(books),
+        ),
+    )
     results: list[dict[str, Any]] = []
     unexpected_alpha_counter: Counter[str] = Counter()
     page_type_counter: Counter[str] = Counter()
@@ -863,6 +917,17 @@ def run_benchmark_corpus(
                 "targeted_page_retry_rate": targeted_page_retry_count / max(int(ocr_result["page_count"]), 1),
             }
         )
+        _emit_benchmark_progress(
+            progress_callback,
+            _timed_benchmark_progress_payload(
+                stage="benchmark-corpus",
+                status="running",
+                started_at=started_at,
+                completed_items=len(results),
+                total_items=len(books),
+                current_identifier=identifier,
+            ),
+        )
 
     summary = {
         "book_count": len(results),
@@ -889,6 +954,16 @@ def run_benchmark_corpus(
     }
     output_report_path.parent.mkdir(parents=True, exist_ok=True)
     output_report_path.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    _emit_benchmark_progress(
+        progress_callback,
+        _timed_benchmark_progress_payload(
+            stage="benchmark-corpus",
+            status="complete",
+            started_at=started_at,
+            completed_items=len(results),
+            total_items=len(books),
+        ),
+    )
     return report
 
 
@@ -936,6 +1011,19 @@ def run_streaming_benchmark_corpus(
     if not selected_books:
         raise ValueError("run_streaming_benchmark_corpus requires at least one book")
 
+    progress_callback = ocr_kwargs.get("progress_callback")
+    total_samples = len(selected_books) * samples_per_book * len(artifact_profiles)
+    started_at = time.monotonic()
+    _emit_benchmark_progress(
+        progress_callback,
+        _timed_benchmark_progress_payload(
+            stage="benchmark-streaming-corpus",
+            status="running",
+            started_at=started_at,
+            completed_items=0,
+            total_items=total_samples,
+        ),
+    )
     generated_dir = work_dir / "generated"
     ocr_dir = work_dir / "ocr"
     generated_dir.mkdir(parents=True, exist_ok=True)
@@ -952,6 +1040,7 @@ def run_streaming_benchmark_corpus(
     page_quality_tier_counter: Counter[str] = Counter()
     page_route_counter: Counter[str] = Counter()
     targeted_page_retry_reason_counter: Counter[str] = Counter()
+    processed_samples = 0
 
     for book in selected_books:
         reference_text = _load_reference_text(book, cache_dir, timeout_seconds)
@@ -1074,6 +1163,18 @@ def run_streaming_benchmark_corpus(
                             result["failure_artifact_dir"] = str(failure_artifact_dir)
                             recorded_failure_count += 1
                     results.append(result)
+                    processed_samples += 1
+                    _emit_benchmark_progress(
+                        progress_callback,
+                        _timed_benchmark_progress_payload(
+                            stage="benchmark-streaming-corpus",
+                            status="running",
+                            started_at=started_at,
+                            completed_items=processed_samples,
+                            total_items=total_samples,
+                            current_identifier=sample_identifier,
+                        ),
+                    )
                 finally:
                     if sample_dir.exists():
                         shutil.rmtree(sample_dir, ignore_errors=True)
@@ -1120,6 +1221,16 @@ def run_streaming_benchmark_corpus(
     }
     output_report_path.parent.mkdir(parents=True, exist_ok=True)
     output_report_path.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    _emit_benchmark_progress(
+        progress_callback,
+        _timed_benchmark_progress_payload(
+            stage="benchmark-streaming-corpus",
+            status="complete",
+            started_at=started_at,
+            completed_items=processed_samples,
+            total_items=total_samples,
+        ),
+    )
     return report
 
 
