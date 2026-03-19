@@ -5,9 +5,6 @@
     DOCKER_HOST = "unix:///run/user/1000/docker.sock";
   };
 
-  # Allow unfree packages for this user
-  nixpkgs.config.allowUnfree = true;
-
   # User packages
   home.packages = with pkgs; [
     github-copilot-cli

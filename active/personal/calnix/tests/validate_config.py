@@ -134,8 +134,11 @@ class ConfigValidator:
                     else:
                         self.error(f"Missing nixosConfiguration: {host}")
                     
-        except (subprocess.SubprocessError, json.JSONDecodeError) as e:
-            self.error(f"Failed to validate flake outputs: {e}")
+        except (subprocess.SubprocessError, json.JSONDecodeError, FileNotFoundError) as e:
+            if isinstance(e, FileNotFoundError):
+                self.warning("nix not found, skipping flake output validation")
+            else:
+                self.error(f"Failed to validate flake outputs: {e}")
 
     def validate_common_imports(self):
         """Check that all hosts import base configuration."""
@@ -169,6 +172,77 @@ class ConfigValidator:
         else:
             self.error("rebuild.sh missing detect_host function")
 
+    def validate_copilot_overlay(self):
+        """Check that github-copilot-cli overlay and home-manager global pkgs are configured.
+
+        The copilot v1.0.4 pre-built binary requires its filename to remain
+        exactly 'copilot' for internal self-referencing. wrapProgram renames it
+        to '.copilot-wrapped', which breaks the CLI. The overlay switches to
+        makeBinaryWrapper via libexec to preserve the name.
+
+        home-manager.useGlobalPkgs = true ensures the overlay also applies to
+        user packages installed via home-manager (otherwise home-manager
+        instantiates its own pkgs without the overlay).
+        """
+        flake_nix = self.root / "flake.nix"
+        if not flake_nix.exists():
+            self.error("flake.nix not found; cannot validate copilot overlay")
+            return
+
+        flake_content = flake_nix.read_text()
+
+        if "githubCopilotCliOverlay" in flake_content:
+            self.success("flake.nix defines githubCopilotCliOverlay for copilot v1.0.4 fix")
+        else:
+            self.error("flake.nix missing githubCopilotCliOverlay (required for copilot v1.0.4)")
+
+        if "makeBinaryWrapper" in flake_content and "libexec" in flake_content:
+            self.success("copilot overlay uses makeBinaryWrapper via libexec (preserves binary name)")
+        else:
+            self.error(
+                "copilot overlay should use makeBinaryWrapper + libexec to preserve 'copilot' filename"
+            )
+
+        # Check that the overlay is both defined and applied in nixosConfigurations.
+        # The definition is "githubCopilotCliOverlay = final: prev:" and the
+        # application is inside a nixpkgs.overlays list.
+        overlay_defined = "githubCopilotCliOverlay = final: prev:" in flake_content
+        overlay_applied = "githubCopilotCliOverlay" in flake_content and (
+            "overlays" in flake_content
+        )
+        if overlay_defined and overlay_applied:
+            self.success("githubCopilotCliOverlay is defined and applied in nixosConfigurations")
+        elif not overlay_defined:
+            self.error("githubCopilotCliOverlay definition not found in flake.nix")
+        else:
+            self.error("githubCopilotCliOverlay must be applied in nixosConfigurations overlays list")
+
+        # Verify home-manager uses global pkgs so the overlay reaches user packages
+        base_nix = self.root / "modules" / "base.nix"
+        if base_nix.exists():
+            base_content = base_nix.read_text()
+            if "home-manager.useGlobalPkgs = true" in base_content:
+                self.success("modules/base.nix sets home-manager.useGlobalPkgs = true")
+            else:
+                self.error(
+                    "modules/base.nix must set home-manager.useGlobalPkgs = true so the "
+                    "githubCopilotCliOverlay is applied to home-manager packages"
+                )
+        else:
+            self.warning("modules/base.nix not found; cannot verify home-manager.useGlobalPkgs")
+
+        # Ensure home/base.nix does not redundantly override nixpkgs.config
+        home_base = self.root / "home" / "base.nix"
+        if home_base.exists():
+            home_content = home_base.read_text()
+            if "nixpkgs.config.allowUnfree" in home_content:
+                self.warning(
+                    "home/base.nix sets nixpkgs.config.allowUnfree, which is ignored when "
+                    "home-manager.useGlobalPkgs = true; consider removing it"
+                )
+            else:
+                self.success("home/base.nix does not redundantly set nixpkgs.config (correct with useGlobalPkgs)")
+
     def run_all_validations(self):
         """Run all validation checks."""
         print("🔍 Starting configuration validation...\n")
@@ -187,7 +261,10 @@ class ConfigValidator:
         
         self.validate_rebuild_script()
         print()
-        
+
+        self.validate_copilot_overlay()
+        print()
+
         # Summary
         print("📊 Validation Summary:")
         print(f"Errors: {len(self.errors)}")
