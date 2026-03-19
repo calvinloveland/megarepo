@@ -97,6 +97,7 @@ def _make_progress_reporter(label: str) -> Callable[[dict[str, object]], None]:
             current_page_index = payload.get("current_page_index")
             preprocess_mode = payload.get("preprocess_mode")
             tesseract_psm = payload.get("tesseract_psm")
+            retry_reason = payload.get("retry_reason")
             if isinstance(candidate_index, int) and isinstance(candidate_total, int):
                 page_text = (
                     f"page {int(current_page_index)} "
@@ -107,9 +108,14 @@ def _make_progress_reporter(label: str) -> Callable[[dict[str, object]], None]:
                     str(preprocess_mode) if isinstance(preprocess_mode, str) else "unknown"
                 )
                 psm_text = str(tesseract_psm) if isinstance(tesseract_psm, str) else "unknown"
+                retry_text = (
+                    f"retry={retry_reason}, "
+                    if isinstance(retry_reason, str) and retry_reason
+                    else ""
+                )
                 print(
                     f"{label}: Evaluating {page_text}candidate {candidate_index}/{candidate_total} "
-                    f"(mode={preprocess_text}, psm={psm_text}), "
+                    f"({retry_text}mode={preprocess_text}, psm={psm_text}), "
                     f"elapsed={_format_duration(payload.get('elapsed_seconds'))}",
                     file=sys.stderr,
                     flush=True,

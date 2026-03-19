@@ -56,6 +56,7 @@ def test_progress_reporter_handles_candidate_and_benchmark_updates(capsys) -> No
             "preprocess_mode": "scan-local-threshold",
             "tesseract_psm": "6",
             "elapsed_seconds": 12.0,
+            "retry_reason": "low-quality",
         }
     )
     reporter(
@@ -72,7 +73,7 @@ def test_progress_reporter_handles_candidate_and_benchmark_updates(capsys) -> No
 
     captured = capsys.readouterr()
     assert "Evaluating page 1 candidate 2/5" in captured.err
-    assert "mode=scan-local-threshold, psm=6" in captured.err
+    assert "retry=low-quality, mode=scan-local-threshold, psm=6" in captured.err
     assert "Benchmarked 1/4 samples, current=demo-sample-001" in captured.err
     assert "eta=01:30" in captured.err
 

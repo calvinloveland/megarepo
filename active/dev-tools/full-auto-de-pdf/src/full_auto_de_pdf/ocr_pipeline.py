@@ -1701,6 +1701,7 @@ def _run_ocr_on_page(
     completed_pages: int = 0,
     current_page_index: int | None = None,
     started_at: float | None = None,
+    retry_reason: str | None = None,
 ) -> tuple[Path, str, dict[str, object]]:
     # lizard forgive: per-page OCR orchestration needs explicit candidate bookkeeping.
     prepared_inputs: dict[str, Path] = {}
@@ -1738,6 +1739,7 @@ def _run_ocr_on_page(
                         preprocess_mode=preprocess_mode,
                         tesseract_psm=tesseract_psm,
                         started_at=started_at,
+                        retry_reason=retry_reason,
                     ),
                 )
             text, ocr_metadata = _run_candidate_ocr(
@@ -2286,9 +2288,10 @@ def _ocr_candidate_progress_payload(
     preprocess_mode: str,
     tesseract_psm: str,
     started_at: float,
+    retry_reason: str | None = None,
 ) -> dict[str, object]:
     elapsed_seconds = max(0.0, time.monotonic() - started_at)
-    return {
+    payload = {
         "stage": "ocr-candidate",
         "status": "running",
         "total_pages": total_pages,
@@ -2300,6 +2303,9 @@ def _ocr_candidate_progress_payload(
         "tesseract_psm": tesseract_psm,
         "elapsed_seconds": elapsed_seconds,
     }
+    if retry_reason is not None:
+        payload["retry_reason"] = retry_reason
+    return payload
 
 
 def _emit_progress(
@@ -2729,6 +2735,7 @@ def _maybe_retry_targeted_page(
     dependencies: OCRDependencies,
     preprocessed_dir: Path,
     paddle_reader: Callable[[Path], str] | None,
+    started_at: float,
 ) -> tuple[Path, str, dict[str, object]]:
     retry_reason = _targeted_page_retry_reason(selection_metadata, options)
     if retry_reason is None:
@@ -2740,6 +2747,11 @@ def _maybe_retry_targeted_page(
         dependencies,
         preprocessed_dir,
         paddle_reader,
+        total_pages=total_pages,
+        completed_pages=page_index - 1,
+        current_page_index=page_index,
+        started_at=started_at,
+        retry_reason=retry_reason,
     )
     retry_text, retry_metadata = _postprocess_page_text(
         image_path,
@@ -2841,6 +2853,7 @@ def _collect_page_ocr_results(
             dependencies=dependencies,
             preprocessed_dir=preprocessed_dir,
             paddle_reader=paddle_reader,
+            started_at=started_at,
         )
         selection_metadata.pop("hocr_word_boxes_runtime", None)
         selection_metadata.pop("hocr_line_entries_runtime", None)
