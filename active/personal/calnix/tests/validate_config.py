@@ -203,6 +203,29 @@ class ConfigValidator:
                 "copilot overlay should use makeBinaryWrapper + libexec to preserve 'copilot' filename"
             )
 
+        # Verify --no-warnings is NOT injected by the overlay (fixes nixpkgs #500198).
+        # The overlay must not add --no-warnings because newer Node.js removed that flag.
+        overlay_start = flake_content.find("githubCopilotCliOverlay = final: prev:")
+        overlay_end = flake_content.find("};", overlay_start) + 2 if overlay_start != -1 else -1
+        if overlay_start != -1 and overlay_end > overlay_start:
+            overlay_text = flake_content[overlay_start:overlay_end]
+            if "--no-warnings" in overlay_text:
+                self.error(
+                    "copilot overlay must NOT pass --no-warnings (removed in newer Node.js, "
+                    "see nixpkgs issue #500198)"
+                )
+            else:
+                self.success("copilot overlay does not inject --no-warnings (correct)")
+
+        # Verify the fixed copilot package is exposed as a flake output for buildability testing.
+        if "github-copilot-cli = pkgs.github-copilot-cli" in flake_content:
+            self.success("flake.nix exposes github-copilot-cli as a testable package output")
+        else:
+            self.warning(
+                "flake.nix does not expose github-copilot-cli as a package output; "
+                "add it so the fix can be verified with: nix build .#packages.x86_64-linux.github-copilot-cli"
+            )
+
         # Check that the overlay is both defined and applied in nixosConfigurations.
         # The definition is "githubCopilotCliOverlay = final: prev:" and the
         # application is inside a nixpkgs.overlays list.

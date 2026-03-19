@@ -190,9 +190,21 @@ PY
     in
     {
       inherit devShells;
-      packages = lib.genAttrs supportedSystems (system: {
-        openvino-runtime = openvinoContexts.${system}.openvinoRuntime;
-      });
+      packages = lib.genAttrs supportedSystems (system:
+        let
+          pkgs = import nixpkgs {
+            inherit system;
+            config.allowUnfree = true;
+            overlays = [ githubCopilotCliOverlay ];
+          };
+        in
+        {
+          openvino-runtime = openvinoContexts.${system}.openvinoRuntime;
+          # Expose the patched copilot package so it can be built and tested
+          # independently: `nix build .#packages.x86_64-linux.github-copilot-cli`
+          # Resolves nixpkgs issue #500198 (--no-warnings / wrapProgram rename bug).
+          github-copilot-cli = pkgs.github-copilot-cli;
+        });
 
       nixosConfigurations = {
         # ThinkPad configuration with gaming
