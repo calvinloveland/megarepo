@@ -553,8 +553,12 @@ def _normalized_page_analysis(value: object) -> dict[str, Any]:
     page_type_counts = _string_counter_from_mapping(payload.get("page_type_counts"))
     page_quality_tier_counts = _string_counter_from_mapping(payload.get("page_quality_tier_counts"))
     page_route_counts = _string_counter_from_mapping(payload.get("page_route_counts"))
+    targeted_page_retry_reason_counts = _string_counter_from_mapping(
+        payload.get("targeted_page_retry_reason_counts")
+    )
     front_matter_page_indices = _int_list(payload.get("front_matter_page_indices"))
     low_quality_page_indices = _int_list(payload.get("low_quality_page_indices"))
+    targeted_page_retry_page_indices = _int_list(payload.get("targeted_page_retry_page_indices"))
     return {
         "page_type_counts": _sorted_counter_dict(page_type_counts),
         "page_quality_tier_counts": _sorted_counter_dict(page_quality_tier_counts),
@@ -563,6 +567,11 @@ def _normalized_page_analysis(value: object) -> dict[str, Any]:
         "front_matter_page_indices": front_matter_page_indices,
         "low_quality_page_count": int(payload.get("low_quality_page_count", len(low_quality_page_indices))),
         "low_quality_page_indices": low_quality_page_indices,
+        "targeted_page_retry_count": int(
+            payload.get("targeted_page_retry_count", len(targeted_page_retry_page_indices))
+        ),
+        "targeted_page_retry_page_indices": targeted_page_retry_page_indices,
+        "targeted_page_retry_reason_counts": _sorted_counter_dict(targeted_page_retry_reason_counts),
     }
 
 
@@ -778,6 +787,7 @@ def run_benchmark_corpus(
     page_type_counter: Counter[str] = Counter()
     page_quality_tier_counter: Counter[str] = Counter()
     page_route_counter: Counter[str] = Counter()
+    targeted_page_retry_reason_counter: Counter[str] = Counter()
     for book in books:
         if not isinstance(book, dict):
             continue
@@ -823,6 +833,8 @@ def run_benchmark_corpus(
         page_route_counter.update(page_analysis["page_route_counts"])
         low_quality_page_count = int(page_analysis["low_quality_page_count"])
         front_matter_page_count = int(page_analysis["front_matter_page_count"])
+        targeted_page_retry_count = int(page_analysis["targeted_page_retry_count"])
+        targeted_page_retry_reason_counter.update(page_analysis["targeted_page_retry_reason_counts"])
         results.append(
             {
                 "identifier": identifier,
@@ -847,6 +859,8 @@ def run_benchmark_corpus(
                 "low_quality_page_rate": low_quality_page_count / max(int(ocr_result["page_count"]), 1),
                 "front_matter_page_count": front_matter_page_count,
                 "front_matter_page_rate": front_matter_page_count / max(int(ocr_result["page_count"]), 1),
+                "targeted_page_retry_count": targeted_page_retry_count,
+                "targeted_page_retry_rate": targeted_page_retry_count / max(int(ocr_result["page_count"]), 1),
             }
         )
 
@@ -859,10 +873,12 @@ def run_benchmark_corpus(
         "avg_unexpected_alpha_token_rate": _average_metric(results, "unexpected_alpha_token_rate"),
         "avg_low_quality_page_rate": _average_metric(results, "low_quality_page_rate"),
         "avg_front_matter_page_rate": _average_metric(results, "front_matter_page_rate"),
+        "avg_targeted_page_retry_rate": _average_metric(results, "targeted_page_retry_rate"),
         "common_unexpected_alpha_tokens": _token_summary_rows(unexpected_alpha_counter),
         "page_type_counts": _sorted_counter_dict(page_type_counter),
         "page_quality_tier_counts": _sorted_counter_dict(page_quality_tier_counter),
         "page_route_counts": _sorted_counter_dict(page_route_counter),
+        "targeted_page_retry_reason_counts": _sorted_counter_dict(targeted_page_retry_reason_counter),
     }
     report = {
         "corpus_manifest_path": str(corpus_manifest_path),
@@ -935,6 +951,7 @@ def run_streaming_benchmark_corpus(
     page_type_counter: Counter[str] = Counter()
     page_quality_tier_counter: Counter[str] = Counter()
     page_route_counter: Counter[str] = Counter()
+    targeted_page_retry_reason_counter: Counter[str] = Counter()
 
     for book in selected_books:
         reference_text = _load_reference_text(book, cache_dir, timeout_seconds)
@@ -991,6 +1008,10 @@ def run_streaming_benchmark_corpus(
                     page_route_counter.update(page_analysis["page_route_counts"])
                     low_quality_page_count = int(page_analysis["low_quality_page_count"])
                     front_matter_page_count = int(page_analysis["front_matter_page_count"])
+                    targeted_page_retry_count = int(page_analysis["targeted_page_retry_count"])
+                    targeted_page_retry_reason_counter.update(
+                        page_analysis["targeted_page_retry_reason_counts"]
+                    )
                     is_failure = (
                         accuracy["word_accuracy"] < failure_word_accuracy_below
                         or accuracy["char_accuracy"] < failure_char_accuracy_below
@@ -1021,6 +1042,9 @@ def run_streaming_benchmark_corpus(
                         "low_quality_page_rate": low_quality_page_count / max(int(ocr_result["page_count"]), 1),
                         "front_matter_page_count": front_matter_page_count,
                         "front_matter_page_rate": front_matter_page_count
+                        / max(int(ocr_result["page_count"]), 1),
+                        "targeted_page_retry_count": targeted_page_retry_count,
+                        "targeted_page_retry_rate": targeted_page_retry_count
                         / max(int(ocr_result["page_count"]), 1),
                         "font_path": resolved_font_path,
                         "failure": is_failure,
@@ -1070,10 +1094,12 @@ def run_streaming_benchmark_corpus(
         "avg_unexpected_alpha_token_rate": _average_metric(results, "unexpected_alpha_token_rate"),
         "avg_low_quality_page_rate": _average_metric(results, "low_quality_page_rate"),
         "avg_front_matter_page_rate": _average_metric(results, "front_matter_page_rate"),
+        "avg_targeted_page_retry_rate": _average_metric(results, "targeted_page_retry_rate"),
         "common_unexpected_alpha_tokens": _token_summary_rows(unexpected_alpha_counter),
         "page_type_counts": _sorted_counter_dict(page_type_counter),
         "page_quality_tier_counts": _sorted_counter_dict(page_quality_tier_counter),
         "page_route_counts": _sorted_counter_dict(page_route_counter),
+        "targeted_page_retry_reason_counts": _sorted_counter_dict(targeted_page_retry_reason_counter),
         "common_failure_patterns": {
             "substitutions": _substitution_summary_rows(substitution_counter),
             "missing_tokens": _token_summary_rows(missing_counter),

@@ -2096,8 +2096,10 @@ def _page_analysis_summary(page_details: list[dict[str, object]]) -> dict[str, o
     page_type_counts: Counter[str] = Counter()
     page_quality_tier_counts: Counter[str] = Counter()
     page_route_counts: Counter[str] = Counter()
+    targeted_page_retry_reason_counts: Counter[str] = Counter()
     low_quality_page_indices: list[int] = []
     front_matter_page_indices: list[int] = []
+    targeted_page_retry_page_indices: list[int] = []
     for entry in page_details:
         page_index = entry.get("page_index")
         if not isinstance(page_index, int):
@@ -2115,6 +2117,11 @@ def _page_analysis_summary(page_details: list[dict[str, object]]) -> dict[str, o
         page_route = entry.get("page_route")
         if isinstance(page_route, str):
             page_route_counts[page_route] += 1
+        if entry.get("targeted_page_retry") == "applied":
+            targeted_page_retry_page_indices.append(page_index)
+            retry_reason = entry.get("targeted_page_retry_reason")
+            if isinstance(retry_reason, str):
+                targeted_page_retry_reason_counts[retry_reason] += 1
     return {
         "page_type_counts": dict(page_type_counts),
         "page_quality_tier_counts": dict(page_quality_tier_counts),
@@ -2123,6 +2130,9 @@ def _page_analysis_summary(page_details: list[dict[str, object]]) -> dict[str, o
         "front_matter_page_indices": front_matter_page_indices,
         "low_quality_page_count": len(low_quality_page_indices),
         "low_quality_page_indices": low_quality_page_indices,
+        "targeted_page_retry_count": len(targeted_page_retry_page_indices),
+        "targeted_page_retry_page_indices": targeted_page_retry_page_indices,
+        "targeted_page_retry_reason_counts": dict(targeted_page_retry_reason_counts),
     }
 
 
@@ -2556,6 +2566,154 @@ def _maybe_apply_llm_post_correction(
     }
 
 
+def _postprocess_page_text(
+    image_path: Path,
+    text: str,
+    selection_metadata: dict[str, object],
+    *,
+    page_index: int,
+    total_pages: int,
+    options: OCRRunOptions,
+    dependencies: OCRDependencies,
+) -> tuple[str, dict[str, object]]:
+    processed_metadata = dict(selection_metadata)
+    text, cleanup_metadata = _maybe_verify_cleanup_spans(
+        image_path,
+        text,
+        options,
+        processed_metadata,
+    )
+    if cleanup_metadata:
+        processed_metadata.update(cleanup_metadata)
+    text, layout_metadata = _maybe_apply_layout_region_detection(text, processed_metadata, options)
+    if layout_metadata:
+        processed_metadata.update(layout_metadata)
+    text, llm_metadata = _maybe_apply_llm_post_correction(
+        text,
+        processed_metadata,
+        options,
+        dependencies,
+    )
+    if llm_metadata:
+        processed_metadata.update(llm_metadata)
+    processed_metadata.update(
+        _page_analysis_metadata(
+            text,
+            processed_metadata,
+            page_index=page_index,
+            total_pages=total_pages,
+        )
+    )
+    return text, processed_metadata
+
+
+def _targeted_page_retry_reason(
+    selection_metadata: dict[str, object],
+    options: OCRRunOptions,
+) -> str | None:
+    if options.ocr_engine not in {"tesseract", "ensemble"}:
+        return None
+    if (
+        options.preprocess_mode == "auto"
+        and options.core.tesseract_psm == "auto"
+        and options.core.tesseract_output_format == "hocr"
+    ):
+        return None
+    page_route = selection_metadata.get("page_route")
+    if page_route == "front-matter":
+        return "front-matter"
+    if selection_metadata.get("page_quality_tier") == "low":
+        return "low-quality"
+    return None
+
+
+def _targeted_page_retry_options(options: OCRRunOptions) -> OCRRunOptions:
+    retry_core = replace(
+        options.core,
+        tesseract_psm="auto",
+        tesseract_output_format="hocr",
+    )
+    return replace(
+        options,
+        core=retry_core,
+        preprocess_mode="auto",
+        emit_page_artifacts=False,
+    )
+
+
+def _quality_tier_rank(value: object) -> int:
+    if value == "high":
+        return 2
+    if value == "medium":
+        return 1
+    return 0
+
+
+def _should_keep_targeted_retry(
+    current_metadata: dict[str, object],
+    retry_metadata: dict[str, object],
+) -> bool:
+    current_score = float(current_metadata.get("selection_score", 0.0))
+    retry_score = float(retry_metadata.get("selection_score", 0.0))
+    if retry_score > current_score:
+        return True
+    current_quality_rank = _quality_tier_rank(current_metadata.get("page_quality_tier"))
+    retry_quality_rank = _quality_tier_rank(retry_metadata.get("page_quality_tier"))
+    return retry_quality_rank > current_quality_rank and retry_score >= (current_score - 25.0)
+
+
+def _maybe_retry_targeted_page(
+    image_path: Path,
+    ocr_input_path: Path,
+    text: str,
+    selection_metadata: dict[str, object],
+    *,
+    page_index: int,
+    total_pages: int,
+    options: OCRRunOptions,
+    dependencies: OCRDependencies,
+    preprocessed_dir: Path,
+    paddle_reader: Callable[[Path], str] | None,
+) -> tuple[Path, str, dict[str, object]]:
+    retry_reason = _targeted_page_retry_reason(selection_metadata, options)
+    if retry_reason is None:
+        return ocr_input_path, text, selection_metadata
+    retry_options = _targeted_page_retry_options(options)
+    retry_ocr_input_path, retry_text, retry_metadata = _run_ocr_on_page(
+        image_path,
+        retry_options,
+        dependencies,
+        preprocessed_dir,
+        paddle_reader,
+    )
+    retry_text, retry_metadata = _postprocess_page_text(
+        image_path,
+        retry_text,
+        retry_metadata,
+        page_index=page_index,
+        total_pages=total_pages,
+        options=retry_options,
+        dependencies=dependencies,
+    )
+    current_score = float(selection_metadata.get("selection_score", 0.0))
+    retry_score = float(retry_metadata.get("selection_score", 0.0))
+    if _should_keep_targeted_retry(selection_metadata, retry_metadata):
+        resolved_metadata = dict(retry_metadata)
+        resolved_metadata["targeted_page_retry"] = "applied"
+        resolved_metadata["targeted_page_retry_reason"] = retry_reason
+        resolved_metadata["targeted_page_retry_base_selection_score"] = current_score
+        resolved_metadata["targeted_page_retry_retry_selection_score"] = retry_score
+        resolved_metadata["targeted_page_retry_base_route"] = selection_metadata.get("page_route")
+        resolved_metadata["targeted_page_retry_selected_strategy"] = retry_metadata.get("selection_strategy")
+        resolved_metadata["selection_strategy"] = "targeted-page-retry"
+        return retry_ocr_input_path, retry_text, resolved_metadata
+    resolved_metadata = dict(selection_metadata)
+    resolved_metadata["targeted_page_retry"] = "rejected-no-gain"
+    resolved_metadata["targeted_page_retry_reason"] = retry_reason
+    resolved_metadata["targeted_page_retry_retry_selection_score"] = retry_score
+    return ocr_input_path, text, resolved_metadata
+
+
 def _collect_page_ocr_results(
     page_images: list[Path],
     options: OCRRunOptions,
@@ -2603,33 +2761,27 @@ def _collect_page_ocr_results(
             preprocessed_dir,
             paddle_reader,
         )
-        text, cleanup_metadata = _maybe_verify_cleanup_spans(
+        page_index = len(page_texts) + 1
+        text, selection_metadata = _postprocess_page_text(
             image_path,
             text,
-            options,
             selection_metadata,
+            page_index=page_index,
+            total_pages=total_pages,
+            options=options,
+            dependencies=dependencies,
         )
-        if cleanup_metadata:
-            selection_metadata.update(cleanup_metadata)
-        text, layout_metadata = _maybe_apply_layout_region_detection(text, selection_metadata, options)
-        if layout_metadata:
-            selection_metadata.update(layout_metadata)
-        text, llm_metadata = _maybe_apply_llm_post_correction(
+        ocr_input_path, text, selection_metadata = _maybe_retry_targeted_page(
+            image_path,
+            ocr_input_path,
             text,
             selection_metadata,
-            options,
-            dependencies,
-        )
-        if llm_metadata:
-            selection_metadata.update(llm_metadata)
-        page_index = len(page_texts) + 1
-        selection_metadata.update(
-            _page_analysis_metadata(
-                text,
-                selection_metadata,
-                page_index=page_index,
-                total_pages=total_pages,
-            )
+            page_index=page_index,
+            total_pages=total_pages,
+            options=options,
+            dependencies=dependencies,
+            preprocessed_dir=preprocessed_dir,
+            paddle_reader=paddle_reader,
         )
         selection_metadata.pop("hocr_word_boxes_runtime", None)
         selection_metadata.pop("hocr_line_entries_runtime", None)

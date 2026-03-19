@@ -1335,6 +1335,88 @@ def test_ocr_page_images_hocr_output_records_confidence_metadata(tmp_path) -> No
     assert metrics["page_analysis"]["page_quality_tier_counts"]
 
 
+def test_ocr_page_images_targeted_retry_reprocesses_low_quality_page(monkeypatch, tmp_path) -> None:
+    page_image = tmp_path / "page-1.png"
+    output_path = tmp_path / "out.txt"
+    work_dir = tmp_path / "work"
+    Image.new("L", (20, 20), color=255).save(page_image)
+    seen_calls: list[tuple[str, str, str]] = []
+
+    def _which(name: str) -> str | None:
+        if name == "tesseract":
+            return "/usr/bin/fake"
+        return None
+
+    def _fake_run_ocr_on_page(
+        image_path, options, dependencies, preprocessed_dir, paddle_reader  # noqa: ANN001
+    ):
+        assert image_path == page_image
+        seen_calls.append(
+            (
+                options.preprocess_mode,
+                options.core.tesseract_psm,
+                options.core.tesseract_output_format,
+            )
+        )
+        if len(seen_calls) == 1:
+            assert options.preprocess_mode == "basic"
+            assert options.core.tesseract_psm == "6"
+            assert options.core.tesseract_output_format == "text"
+            return (
+                page_image,
+                "Hc scld thc tcarh | [ ] cffort",
+                {
+                    "preprocess_mode": "basic",
+                    "selected_preprocess_mode": "basic",
+                    "selection_score": 20.0,
+                    "selection_strategy": "text-score",
+                    "tesseract_psm": 6,
+                    "tesseract_output_format": "text",
+                    "hocr_confidence_mean": 60.0,
+                    "hocr_low_confidence_ratio": 0.8,
+                },
+            )
+        assert options.preprocess_mode == "auto"
+        assert options.core.tesseract_psm == "auto"
+        assert options.core.tesseract_output_format == "hocr"
+        return (
+            page_image,
+            "He said the truth with effort",
+            {
+                "preprocess_mode": "scan-local-threshold",
+                "selected_preprocess_mode": "scan-local-threshold",
+                "selection_score": 260.0,
+                "selection_strategy": "auto-scan-local-threshold-preference",
+                "tesseract_psm": 4,
+                "tesseract_output_format": "hocr",
+                "hocr_confidence_mean": 96.0,
+                "hocr_low_confidence_ratio": 0.0,
+            },
+        )
+
+    monkeypatch.setattr(ocr_pipeline, "_run_ocr_on_page", _fake_run_ocr_on_page)
+
+    metrics = ocr_page_images(
+        page_images=[page_image],
+        output_text_path=output_path,
+        work_dir=work_dir,
+        apply_cleanup=False,
+        preprocess_mode="basic",
+        tesseract_psm="6",
+        run_command=lambda _command, _capture_output: "",
+        which=_which,
+    )
+
+    assert output_path.read_text(encoding="utf-8") == "He said the truth with effort"
+    assert seen_calls == [("basic", "6", "text"), ("auto", "auto", "hocr")]
+    manifest_payload = json.loads(Path(str(metrics["page_artifacts_manifest"])).read_text(encoding="utf-8"))
+    page_entry = manifest_payload["pages"][0]
+    assert page_entry["selection_strategy"] == "targeted-page-retry"
+    assert page_entry["targeted_page_retry"] == "applied"
+    assert page_entry["targeted_page_retry_reason"] == "low-quality"
+    assert metrics["page_analysis"]["targeted_page_retry_count"] == 1
+    assert metrics["page_analysis"]["targeted_page_retry_reason_counts"] == {"low-quality": 1}
+
 
 def test_ocr_page_images_confidence_aware_cleanup_skips_high_confidence_page(
     monkeypatch,
