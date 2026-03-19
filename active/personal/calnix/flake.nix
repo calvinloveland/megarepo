@@ -41,6 +41,24 @@
         };
       };
 
+      # Fix github-copilot-cli: v1.0.4 requires the binary filename to be exactly
+      # "copilot" for internal self-referencing. wrapProgram renames it to
+      # ".copilot-wrapped", breaking the CLI. Use makeBinaryWrapper via libexec
+      # instead. Mirrors nixpkgs PR #501183 (fixes nixpkgs issue #500198).
+      githubCopilotCliOverlay = final: prev: {
+        github-copilot-cli = prev.github-copilot-cli.overrideAttrs (oldAttrs: {
+          installPhase = ''
+            runHook preInstall
+            install -Dm755 copilot $out/libexec/copilot
+            runHook postInstall
+          '';
+          postInstall = ''
+            makeBinaryWrapper $out/libexec/copilot $out/bin/copilot \
+              --add-flags "--no-auto-update"
+          '';
+        });
+      };
+
       supportedSystems = [ "x86_64-linux" ];
 
       openvinoUrl = "https://storage.openvinotoolkit.org/repositories/openvino/packages/2024.6/linux/l_openvino_toolkit_ubuntu22_2024.6.0.17404.4c0f47d2335_x86_64.tgz";
@@ -186,6 +204,7 @@ PY
               nixpkgs.overlays = [
                 kickstart-nix-nvim.overlays.default
                 darktableOverlay # Add our Darktable fix overlay
+                githubCopilotCliOverlay # Fix copilot CLI filename issue
               ];
             }
             home-manager.nixosModules.home-manager
@@ -202,6 +221,7 @@ PY
               nixpkgs.overlays = [
                 kickstart-nix-nvim.overlays.default
                 darktableOverlay # Add our Darktable fix overlay
+                githubCopilotCliOverlay # Fix copilot CLI filename issue
               ];
             }
             home-manager.nixosModules.home-manager
@@ -220,6 +240,7 @@ PY
               nixpkgs.overlays = [
                 kickstart-nix-nvim.overlays.default
                 darktableOverlay # Add our Darktable fix overlay
+                githubCopilotCliOverlay # Fix copilot CLI filename issue
               ];
             }
             home-manager.nixosModules.home-manager
@@ -235,6 +256,7 @@ PY
               nixpkgs.overlays = [
                 kickstart-nix-nvim.overlays.default
                 darktableOverlay # Add our Darktable fix overlay
+                githubCopilotCliOverlay # Fix copilot CLI filename issue
               ];
             }
             home-manager.nixosModules.home-manager
