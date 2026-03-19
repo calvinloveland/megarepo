@@ -1253,6 +1253,45 @@ def test_parse_hocr_text_and_metadata_extracts_text_and_confidence() -> None:
     assert metadata["hocr_low_confidence_word_count"] == 1
 
 
+def test_page_analysis_metadata_marks_sparse_early_page_as_front_matter() -> None:
+    metadata = ocr_pipeline._page_analysis_metadata(
+        "DRACULA\n\nCONTENTS ..... 7",
+        {
+            "selection_score": 720.0,
+            "hocr_confidence_mean": 97.0,
+            "hocr_low_confidence_ratio": 0.0,
+            "hocr_line_entries_runtime": [
+                {"text": "DRACULA", "bbox": [20, 20, 200, 50]},
+                {"text": "CONTENTS ..... 7", "bbox": [20, 90, 260, 120]},
+            ],
+        },
+        page_index=1,
+        total_pages=120,
+    )
+    assert metadata["page_type"] == "front-matter"
+    assert metadata["page_route"] == "front-matter"
+    assert metadata["page_layout_region_counts"] == {"header": 1, "toc": 1}
+
+
+def test_page_analysis_metadata_marks_noisy_body_page_low_quality() -> None:
+    metadata = ocr_pipeline._page_analysis_metadata(
+        "Hc scld thc tcarh | [ ] cffort",
+        {
+            "selection_score": 120.0,
+            "hocr_confidence_mean": 68.0,
+            "hocr_low_confidence_ratio": 0.45,
+            "hocr_line_entries_runtime": [
+                {"text": "Hc scld thc tcarh | [ ] cffort", "bbox": [20, 20, 380, 60]},
+            ],
+        },
+        page_index=18,
+        total_pages=120,
+    )
+    assert metadata["page_type"] == "sparse"
+    assert metadata["page_quality_tier"] == "low"
+    assert metadata["page_route"] == "body-low-quality"
+
+
 def test_ocr_page_images_hocr_output_records_confidence_metadata(tmp_path) -> None:
     page_image = tmp_path / "page-1.png"
     output_path = tmp_path / "out.txt"
@@ -1292,6 +1331,9 @@ def test_ocr_page_images_hocr_output_records_confidence_metadata(tmp_path) -> No
     assert page_entry["tesseract_output_format"] == "hocr"
     assert page_entry["hocr_word_count"] == 2
     assert page_entry["hocr_confidence_min"] == 88
+    assert page_entry["page_quality_tier"] in {"high", "medium", "low"}
+    assert metrics["page_analysis"]["page_quality_tier_counts"]
+
 
 
 def test_ocr_page_images_confidence_aware_cleanup_skips_high_confidence_page(

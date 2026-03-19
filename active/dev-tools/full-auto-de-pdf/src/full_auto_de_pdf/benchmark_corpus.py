@@ -521,6 +521,51 @@ def _average_metric(results: list[dict[str, Any]], key: str) -> float:
     return sum(float(item[key]) for item in results) / len(results) if results else 0.0
 
 
+def _sorted_counter_dict(counter: Counter[str]) -> dict[str, int]:
+    return {key: counter[key] for key in sorted(counter)}
+
+
+def _string_counter_from_mapping(value: object) -> Counter[str]:
+    counter: Counter[str] = Counter()
+    if not isinstance(value, dict):
+        return counter
+    for key, raw_count in value.items():
+        if not isinstance(key, str):
+            continue
+        if isinstance(raw_count, bool):
+            continue
+        if isinstance(raw_count, int):
+            counter[key] = raw_count
+            continue
+        if isinstance(raw_count, float) and raw_count.is_integer():
+            counter[key] = int(raw_count)
+    return counter
+
+
+def _int_list(value: object) -> list[int]:
+    if not isinstance(value, list):
+        return []
+    return [item for item in value if isinstance(item, int)]
+
+
+def _normalized_page_analysis(value: object) -> dict[str, Any]:
+    payload = value if isinstance(value, dict) else {}
+    page_type_counts = _string_counter_from_mapping(payload.get("page_type_counts"))
+    page_quality_tier_counts = _string_counter_from_mapping(payload.get("page_quality_tier_counts"))
+    page_route_counts = _string_counter_from_mapping(payload.get("page_route_counts"))
+    front_matter_page_indices = _int_list(payload.get("front_matter_page_indices"))
+    low_quality_page_indices = _int_list(payload.get("low_quality_page_indices"))
+    return {
+        "page_type_counts": _sorted_counter_dict(page_type_counts),
+        "page_quality_tier_counts": _sorted_counter_dict(page_quality_tier_counts),
+        "page_route_counts": _sorted_counter_dict(page_route_counts),
+        "front_matter_page_count": int(payload.get("front_matter_page_count", len(front_matter_page_indices))),
+        "front_matter_page_indices": front_matter_page_indices,
+        "low_quality_page_count": int(payload.get("low_quality_page_count", len(low_quality_page_indices))),
+        "low_quality_page_indices": low_quality_page_indices,
+    }
+
+
 def _iter_streaming_excerpts(
     reference_text: str,
     excerpt_word_count: int,
@@ -730,6 +775,9 @@ def run_benchmark_corpus(
 
     results: list[dict[str, Any]] = []
     unexpected_alpha_counter: Counter[str] = Counter()
+    page_type_counter: Counter[str] = Counter()
+    page_quality_tier_counter: Counter[str] = Counter()
+    page_route_counter: Counter[str] = Counter()
     for book in books:
         if not isinstance(book, dict):
             continue
@@ -768,7 +816,13 @@ def run_benchmark_corpus(
         unexpected_alpha_tokens = _unexpected_alpha_token_counts(reference_text, hypothesis_text)
         unexpected_alpha_token_count = sum(unexpected_alpha_tokens.values())
         hypothesis_alpha_token_count = max(len(_alpha_tokens(hypothesis_text)), 1)
+        page_analysis = _normalized_page_analysis(ocr_result.get("page_analysis"))
         unexpected_alpha_counter.update(unexpected_alpha_tokens)
+        page_type_counter.update(page_analysis["page_type_counts"])
+        page_quality_tier_counter.update(page_analysis["page_quality_tier_counts"])
+        page_route_counter.update(page_analysis["page_route_counts"])
+        low_quality_page_count = int(page_analysis["low_quality_page_count"])
+        front_matter_page_count = int(page_analysis["front_matter_page_count"])
         results.append(
             {
                 "identifier": identifier,
@@ -788,6 +842,11 @@ def run_benchmark_corpus(
                 "unexpected_alpha_tokens": _token_summary_rows(unexpected_alpha_tokens),
                 "mode_usage": ocr_result.get("mode_usage", {}),
                 "tesseract_psm_usage": ocr_result.get("tesseract_psm_usage", {}),
+                "page_analysis": page_analysis,
+                "low_quality_page_count": low_quality_page_count,
+                "low_quality_page_rate": low_quality_page_count / max(int(ocr_result["page_count"]), 1),
+                "front_matter_page_count": front_matter_page_count,
+                "front_matter_page_rate": front_matter_page_count / max(int(ocr_result["page_count"]), 1),
             }
         )
 
@@ -798,7 +857,12 @@ def run_benchmark_corpus(
         "avg_char_accuracy": _average_metric(results, "char_accuracy"),
         "avg_word_accuracy": _average_metric(results, "word_accuracy"),
         "avg_unexpected_alpha_token_rate": _average_metric(results, "unexpected_alpha_token_rate"),
+        "avg_low_quality_page_rate": _average_metric(results, "low_quality_page_rate"),
+        "avg_front_matter_page_rate": _average_metric(results, "front_matter_page_rate"),
         "common_unexpected_alpha_tokens": _token_summary_rows(unexpected_alpha_counter),
+        "page_type_counts": _sorted_counter_dict(page_type_counter),
+        "page_quality_tier_counts": _sorted_counter_dict(page_quality_tier_counter),
+        "page_route_counts": _sorted_counter_dict(page_route_counter),
     }
     report = {
         "corpus_manifest_path": str(corpus_manifest_path),
@@ -868,6 +932,9 @@ def run_streaming_benchmark_corpus(
     missing_counter: Counter[str] = Counter()
     unexpected_counter: Counter[str] = Counter()
     unexpected_alpha_counter: Counter[str] = Counter()
+    page_type_counter: Counter[str] = Counter()
+    page_quality_tier_counter: Counter[str] = Counter()
+    page_route_counter: Counter[str] = Counter()
 
     for book in selected_books:
         reference_text = _load_reference_text(book, cache_dir, timeout_seconds)
@@ -917,7 +984,13 @@ def run_streaming_benchmark_corpus(
                     unexpected_alpha_tokens = _unexpected_alpha_token_counts(excerpt_text, hypothesis_text)
                     unexpected_alpha_token_count = sum(unexpected_alpha_tokens.values())
                     hypothesis_alpha_token_count = max(len(_alpha_tokens(hypothesis_text)), 1)
+                    page_analysis = _normalized_page_analysis(ocr_result.get("page_analysis"))
                     unexpected_alpha_counter.update(unexpected_alpha_tokens)
+                    page_type_counter.update(page_analysis["page_type_counts"])
+                    page_quality_tier_counter.update(page_analysis["page_quality_tier_counts"])
+                    page_route_counter.update(page_analysis["page_route_counts"])
+                    low_quality_page_count = int(page_analysis["low_quality_page_count"])
+                    front_matter_page_count = int(page_analysis["front_matter_page_count"])
                     is_failure = (
                         accuracy["word_accuracy"] < failure_word_accuracy_below
                         or accuracy["char_accuracy"] < failure_char_accuracy_below
@@ -943,6 +1016,12 @@ def run_streaming_benchmark_corpus(
                         "unexpected_alpha_tokens": _token_summary_rows(unexpected_alpha_tokens),
                         "mode_usage": ocr_result.get("mode_usage", {}),
                         "tesseract_psm_usage": ocr_result.get("tesseract_psm_usage", {}),
+                        "page_analysis": page_analysis,
+                        "low_quality_page_count": low_quality_page_count,
+                        "low_quality_page_rate": low_quality_page_count / max(int(ocr_result["page_count"]), 1),
+                        "front_matter_page_count": front_matter_page_count,
+                        "front_matter_page_rate": front_matter_page_count
+                        / max(int(ocr_result["page_count"]), 1),
                         "font_path": resolved_font_path,
                         "failure": is_failure,
                         "failure_artifact_dir": None,
@@ -989,7 +1068,12 @@ def run_streaming_benchmark_corpus(
         "avg_char_accuracy": _average_metric(results, "char_accuracy"),
         "avg_word_accuracy": _average_metric(results, "word_accuracy"),
         "avg_unexpected_alpha_token_rate": _average_metric(results, "unexpected_alpha_token_rate"),
+        "avg_low_quality_page_rate": _average_metric(results, "low_quality_page_rate"),
+        "avg_front_matter_page_rate": _average_metric(results, "front_matter_page_rate"),
         "common_unexpected_alpha_tokens": _token_summary_rows(unexpected_alpha_counter),
+        "page_type_counts": _sorted_counter_dict(page_type_counter),
+        "page_quality_tier_counts": _sorted_counter_dict(page_quality_tier_counter),
+        "page_route_counts": _sorted_counter_dict(page_route_counter),
         "common_failure_patterns": {
             "substitutions": _substitution_summary_rows(substitution_counter),
             "missing_tokens": _token_summary_rows(missing_counter),

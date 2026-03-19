@@ -162,6 +162,15 @@ def test_run_benchmark_corpus_aggregates_accuracy(monkeypatch, tmp_path) -> None
             "character_count": 18,
             "mode_usage": {"auto": 1},
             "tesseract_psm_usage": {"6": 1},
+            "page_analysis": {
+                "page_type_counts": {"body": 1},
+                "page_quality_tier_counts": {"high": 1},
+                "page_route_counts": {"body": 1},
+                "front_matter_page_count": 0,
+                "front_matter_page_indices": [],
+                "low_quality_page_count": 0,
+                "low_quality_page_indices": [],
+            },
         }
 
     monkeypatch.setattr(
@@ -180,8 +189,14 @@ def test_run_benchmark_corpus_aggregates_accuracy(monkeypatch, tmp_path) -> None
     assert report["summary"]["avg_word_accuracy"] == 1.0
     assert report["summary"]["avg_char_accuracy"] == 1.0
     assert report["summary"]["avg_unexpected_alpha_token_rate"] == 0.0
+    assert report["summary"]["avg_low_quality_page_rate"] == 0.0
+    assert report["summary"]["avg_front_matter_page_rate"] == 0.0
     assert report["summary"]["common_unexpected_alpha_tokens"] == []
+    assert report["summary"]["page_type_counts"] == {"body": 1}
+    assert report["summary"]["page_quality_tier_counts"] == {"high": 1}
+    assert report["summary"]["page_route_counts"] == {"body": 1}
     assert report["books"][0]["mode_usage"] == {"auto": 1}
+    assert report["books"][0]["page_analysis"]["page_type_counts"] == {"body": 1}
     assert "synthetic printed PDFs" in report["metric_note"]
 
 
@@ -405,6 +420,21 @@ def test_run_streaming_benchmark_corpus_records_only_failures(monkeypatch, tmp_p
             "character_count": len(output_path.read_text(encoding="utf-8")),
             "mode_usage": {"scan-local-threshold": 1},
             "tesseract_psm_usage": {"6": 1},
+            "page_analysis": {
+                "page_type_counts": {"front-matter": 1}
+                if sample_identifier.endswith("sample-001")
+                else {"body": 1},
+                "page_quality_tier_counts": {"high": 1}
+                if sample_identifier.endswith("sample-001")
+                else {"low": 1},
+                "page_route_counts": {"front-matter": 1}
+                if sample_identifier.endswith("sample-001")
+                else {"body-low-quality": 1},
+                "front_matter_page_count": 1 if sample_identifier.endswith("sample-001") else 0,
+                "front_matter_page_indices": [1] if sample_identifier.endswith("sample-001") else [],
+                "low_quality_page_count": 0 if sample_identifier.endswith("sample-001") else 1,
+                "low_quality_page_indices": [] if sample_identifier.endswith("sample-001") else [1],
+            },
         }
 
     monkeypatch.setattr("full_auto_de_pdf.benchmark_corpus.ocr_page_images", _fake_ocr_page_images)
@@ -428,7 +458,12 @@ def test_run_streaming_benchmark_corpus_records_only_failures(monkeypatch, tmp_p
     assert report["summary"]["sample_count"] == 2
     assert report["summary"]["failure_count"] == 1
     assert report["summary"]["recorded_failure_count"] == 1
+    assert report["summary"]["avg_low_quality_page_rate"] == 0.5
+    assert report["summary"]["avg_front_matter_page_rate"] == 0.5
     assert report["summary"]["common_unexpected_alpha_tokens"] == [{"token": "net", "count": 1}]
+    assert report["summary"]["page_type_counts"] == {"body": 1, "front-matter": 1}
+    assert report["summary"]["page_quality_tier_counts"] == {"high": 1, "low": 1}
+    assert report["summary"]["page_route_counts"] == {"body-low-quality": 1, "front-matter": 1}
     assert report["summary"]["common_failure_patterns"]["substitutions"] == [
         {"reference": "nu.", "hypothesis": "net.", "count": 1}
     ]

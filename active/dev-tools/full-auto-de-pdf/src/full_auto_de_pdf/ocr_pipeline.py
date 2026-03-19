@@ -64,6 +64,20 @@ _NON_TEXT_CHAR = re.compile(r"[^A-Za-z0-9\s\.,;:!\?'\-\"()\[\]]")
 _HOCR_WCONF_RE = re.compile(r"\bx_wconf\s+(\d{1,3})\b", re.IGNORECASE)
 _HOCR_BBOX_RE = re.compile(r"\bbbox\s+(-?\d+)\s+(-?\d+)\s+(-?\d+)\s+(-?\d+)\b", re.IGNORECASE)
 _HOCR_LOW_CONFIDENCE_WORD_THRESHOLD = 70
+_PAGE_NUMBER_LINE_RE = re.compile(r"^\(?([0-9]{1,4}|[ivxlcdm]{1,8})\)?$", re.IGNORECASE)
+_CHAPTER_MARKER_RE = re.compile(r"^(chapter|part|book|section)\b", re.IGNORECASE)
+_TOC_LINE_RE = re.compile(
+    r"^.+(?:(?:\.\s*){2,}|(?:\s{2,}))(?:[0-9]{1,4}|[ivxlcdm]{1,8})$",
+    re.IGNORECASE,
+)
+_FRONT_MATTER_MAX_PAGES = 12
+_BACK_MATTER_MAX_PAGES = 10
+_MEDIUM_QUALITY_SELECTION_SCORE = 550.0
+_LOW_QUALITY_SELECTION_SCORE = 250.0
+_MEDIUM_QUALITY_LOW_CONFIDENCE_RATIO = 0.1
+_LOW_QUALITY_LOW_CONFIDENCE_RATIO = 0.25
+_MEDIUM_QUALITY_NOISE_RATIO = 0.08
+_LOW_QUALITY_NOISE_RATIO = 0.18
 _COMMON_ENGLISH_WORDS = frozenset(
     {
         "a",
@@ -116,6 +130,10 @@ class OCRCoreOptions:
     orientation_fallback: bool = False
     tiered_ocr_fallback: bool = False
     tiered_ocr_min_score: float = 200.0
+    layout_region_detection: bool = False
+    llm_post_correction: bool = False
+    llm_min_low_confidence_ratio: float = 0.08
+    llm_max_word_delta_ratio: float = 0.2
     inverse_render_rerank: bool = False
     inverse_render_top_k: int = 3
     verify_cleanup_spans: bool = False
@@ -141,6 +159,7 @@ class OCRDependencies:
     preprocess_image: Callable[[Path, Path, str, int, float, float], None]
     paddle_reader_factory: Callable[[str], Callable[[Path], str]]
     which: Callable[[str], str | None]
+    llm_corrector: Callable[[str], str] | None = None
 
 
 @dataclass(frozen=True)
@@ -755,6 +774,7 @@ def _parse_ocr_dependencies(kwargs: dict[str, Any]) -> OCRDependencies:
         preprocess_image=kwargs.pop("preprocess_image", _preprocess_image),
         paddle_reader_factory=kwargs.pop("paddle_reader_factory", _build_paddleocr_reader),
         which=kwargs.pop("which", shutil.which),
+        llm_corrector=kwargs.pop("llm_corrector", None),
     )
 
 
@@ -779,6 +799,10 @@ def _parse_ocr_options(kwargs: dict[str, Any]) -> OCRRunOptions:
         orientation_fallback=bool(kwargs.pop("orientation_fallback", False)),
         tiered_ocr_fallback=bool(kwargs.pop("tiered_ocr_fallback", False)),
         tiered_ocr_min_score=float(kwargs.pop("tiered_ocr_min_score", 200.0)),
+        layout_region_detection=bool(kwargs.pop("layout_region_detection", False)),
+        llm_post_correction=bool(kwargs.pop("llm_post_correction", False)),
+        llm_min_low_confidence_ratio=float(kwargs.pop("llm_min_low_confidence_ratio", 0.08)),
+        llm_max_word_delta_ratio=float(kwargs.pop("llm_max_word_delta_ratio", 0.2)),
         inverse_render_rerank=bool(kwargs.pop("inverse_render_rerank", False)),
         inverse_render_top_k=int(kwargs.pop("inverse_render_top_k", 3)),
         verify_cleanup_spans=bool(kwargs.pop("verify_cleanup_spans", False)),
@@ -816,14 +840,18 @@ def _validate_common_ocr_options(
             "'scan-sauvola', 'scan-morphology', "
             "'basic', 'deskew', 'dewarp', or 'auto'"
         )
-    if options.ocr_engine not in {"tesseract", "paddleocr"}:
-        raise ValueError("ocr_engine must be 'tesseract' or 'paddleocr'")
+    if options.ocr_engine not in {"tesseract", "paddleocr", "ensemble"}:
+        raise ValueError("ocr_engine must be 'tesseract', 'paddleocr', or 'ensemble'")
     if options.core.tesseract_output_format not in {"text", "hocr"}:
         raise ValueError("tesseract_output_format must be 'text' or 'hocr'")
     if not 0.0 <= options.core.cleanup_high_confidence_threshold <= 100.0:
         raise ValueError("cleanup_high_confidence_threshold must be between 0 and 100")
     if options.core.tiered_ocr_min_score <= 0:
         raise ValueError("tiered_ocr_min_score must be greater than 0")
+    if not 0.0 <= options.core.llm_min_low_confidence_ratio <= 1.0:
+        raise ValueError("llm_min_low_confidence_ratio must be between 0 and 1")
+    if not 0.0 < options.core.llm_max_word_delta_ratio <= 1.0:
+        raise ValueError("llm_max_word_delta_ratio must be greater than 0 and at most 1")
     if not 0 <= options.core.binarize_threshold <= 255:
         raise ValueError("binarize_threshold must be between 0 and 255")
     if options.core.deskew_max_angle <= 0:
@@ -836,7 +864,7 @@ def _validate_common_ocr_options(
         psm_value = int(options.core.tesseract_psm)
         if not 0 <= psm_value <= 13:
             raise ValueError("tesseract_psm must be 'auto' or an integer between 0 and 13")
-    if options.ocr_engine == "tesseract" and which("tesseract") is None:
+    if options.ocr_engine in {"tesseract", "ensemble"} and which("tesseract") is None:
         raise RuntimeError("Missing dependency: tesseract")
 
 
@@ -996,7 +1024,7 @@ def _candidate_preprocess_modes(preprocess_mode: str) -> tuple[str, ...]:
 
 
 def _candidate_tesseract_psms(options: OCRRunOptions) -> tuple[str, ...]:
-    if options.ocr_engine != "tesseract":
+    if options.ocr_engine not in {"tesseract", "ensemble"}:
         return ("",)
     if options.core.tesseract_psm == "auto":
         return _AUTO_TESSERACT_PSMS
@@ -1630,6 +1658,35 @@ def _run_candidate_ocr(
             tesseract_psm,
             options.core.tesseract_output_format,
         )
+    if options.ocr_engine == "ensemble":
+        tesseract_text, tesseract_metadata = _run_tesseract(
+            dependencies.run_command,
+            ocr_input_path,
+            options.core.language,
+            tesseract_psm,
+            options.core.tesseract_output_format,
+        )
+        paddle_text = _run_paddle_reader(paddle_reader, ocr_input_path)
+        tesseract_score = _score_ocr_text(
+            tesseract_text,
+            options.core.language,
+            options.core.cleanup_lexicon_texts,
+        )
+        paddle_score = _score_ocr_text(
+            paddle_text,
+            options.core.language,
+            options.core.cleanup_lexicon_texts,
+        )
+        selected_engine = "tesseract" if tesseract_score >= paddle_score else "paddleocr"
+        metadata: dict[str, object] = {
+            "ensemble_tesseract_score": tesseract_score,
+            "ensemble_paddle_score": paddle_score,
+            "ensemble_selected_engine": selected_engine,
+        }
+        if selected_engine == "tesseract":
+            metadata.update(tesseract_metadata)
+            return tesseract_text, metadata
+        return paddle_text, metadata
     return _run_paddle_reader(paddle_reader, ocr_input_path), {}
 
 
@@ -1672,7 +1729,7 @@ def _run_ocr_on_page(
                 "word_count": len([word for word in text.split() if word]),
                 "character_count": len(text),
             }
-            if options.ocr_engine == "tesseract":
+            if options.ocr_engine in {"tesseract", "ensemble"}:
                 candidate_metadata["tesseract_psm"] = int(tesseract_psm)
                 candidate_metadata["tesseract_output_format"] = options.core.tesseract_output_format
             candidate_metadata.update(ocr_metadata)
@@ -1915,6 +1972,7 @@ class _HocrTextExtractor(HTMLParser):
         self.lines: list[str] = []
         self.confidences: list[int] = []
         self._line_depth = 0
+        self._current_line_bbox: tuple[int, int, int, int] | None = None
         self._inside_word = False
         self._current_word_parts: list[str] = []
         self._current_word_confidence: int | None = None
@@ -1922,6 +1980,7 @@ class _HocrTextExtractor(HTMLParser):
         self._current_line_words: list[str] = []
         self._fallback_words: list[str] = []
         self.word_boxes: list[tuple[int, int, int, int] | None] = []
+        self.line_entries: list[dict[str, object]] = []
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         if tag.lower() != "span":
@@ -1931,6 +1990,7 @@ class _HocrTextExtractor(HTMLParser):
         if "ocr_line" in classes:
             if self._line_depth == 0:
                 self._current_line_words = []
+                self._current_line_bbox = _extract_hocr_bbox(attrs_map.get("title", ""))
             self._line_depth += 1
         if "ocrx_word" in classes:
             self._inside_word = True
@@ -1962,8 +2022,14 @@ class _HocrTextExtractor(HTMLParser):
         if self._line_depth > 0:
             self._line_depth -= 1
             if self._line_depth == 0 and self._current_line_words:
-                self.lines.append(" ".join(self._current_line_words))
+                line_text = " ".join(self._current_line_words)
+                self.lines.append(line_text)
+                line_entry: dict[str, object] = {"text": line_text}
+                if self._current_line_bbox is not None:
+                    line_entry["bbox"] = list(self._current_line_bbox)
+                self.line_entries.append(line_entry)
                 self._current_line_words = []
+                self._current_line_bbox = None
 
     @property
     def text(self) -> str:
@@ -1980,6 +2046,8 @@ def _parse_hocr_text_and_metadata(hocr_text: str) -> tuple[str, dict[str, object
     metadata: dict[str, object] = {}
     if parser.word_boxes:
         metadata["hocr_word_boxes_runtime"] = parser.word_boxes
+    if parser.line_entries:
+        metadata["hocr_line_entries_runtime"] = parser.line_entries
     if not confidences:
         return parsed_text, metadata
     low_confidence_words = sum(
@@ -2022,6 +2090,40 @@ def _page_entry(
     }
     entry.update(selection_metadata)
     return entry
+
+
+def _page_analysis_summary(page_details: list[dict[str, object]]) -> dict[str, object]:
+    page_type_counts: Counter[str] = Counter()
+    page_quality_tier_counts: Counter[str] = Counter()
+    page_route_counts: Counter[str] = Counter()
+    low_quality_page_indices: list[int] = []
+    front_matter_page_indices: list[int] = []
+    for entry in page_details:
+        page_index = entry.get("page_index")
+        if not isinstance(page_index, int):
+            continue
+        page_type = entry.get("page_type")
+        if isinstance(page_type, str):
+            page_type_counts[page_type] += 1
+            if page_type == "front-matter":
+                front_matter_page_indices.append(page_index)
+        quality_tier = entry.get("page_quality_tier")
+        if isinstance(quality_tier, str):
+            page_quality_tier_counts[quality_tier] += 1
+            if quality_tier == "low":
+                low_quality_page_indices.append(page_index)
+        page_route = entry.get("page_route")
+        if isinstance(page_route, str):
+            page_route_counts[page_route] += 1
+    return {
+        "page_type_counts": dict(page_type_counts),
+        "page_quality_tier_counts": dict(page_quality_tier_counts),
+        "page_route_counts": dict(page_route_counts),
+        "front_matter_page_count": len(front_matter_page_indices),
+        "front_matter_page_indices": front_matter_page_indices,
+        "low_quality_page_count": len(low_quality_page_indices),
+        "low_quality_page_indices": low_quality_page_indices,
+    }
 
 
 def _page_artifacts_manifest_payload(
@@ -2144,6 +2246,316 @@ def _emit_progress(
     callback(payload)
 
 
+def _is_probable_page_number(text: str) -> bool:
+    compact = " ".join(text.split())
+    return bool(compact and _PAGE_NUMBER_LINE_RE.fullmatch(compact))
+
+
+def _is_probable_chapter_marker(text: str) -> bool:
+    compact = " ".join(text.split())
+    return bool(compact and _CHAPTER_MARKER_RE.search(compact))
+
+
+def _is_probable_toc_line(text: str) -> bool:
+    compact = " ".join(text.split())
+    return bool(compact and _TOC_LINE_RE.fullmatch(compact))
+
+
+def _classify_layout_line(
+    text: str,
+    bbox: tuple[int, int, int, int] | None,
+    line_index: int,
+    line_count: int,
+) -> str:
+    compact = " ".join(text.split())
+    if not compact:
+        return "blank"
+    word_count = len(compact.split())
+    if _is_probable_page_number(compact):
+        return "page-number"
+    if _is_probable_toc_line(compact):
+        return "toc"
+    top_edge = line_index <= 1
+    bottom_edge = line_index >= max(0, line_count - 2)
+    if top_edge and word_count <= 8 and not _is_probable_chapter_marker(compact):
+        return "header"
+    if bottom_edge and word_count <= 8 and not _is_probable_chapter_marker(compact):
+        return "footer"
+    if bbox is not None:
+        left, _top, right, _bottom = bbox
+        if (right - left) >= 1 and left <= 16 and word_count <= 3:
+            return "margin-note"
+    return "body"
+
+
+def _coerce_layout_entries(
+    text: str,
+    selection_metadata: dict[str, object],
+) -> list[dict[str, object]]:
+    runtime_entries = selection_metadata.get("hocr_line_entries_runtime")
+    entries: list[dict[str, object]] = []
+    if isinstance(runtime_entries, list):
+        for entry in runtime_entries:
+            if not isinstance(entry, dict):
+                continue
+            line_text = str(entry.get("text", "")).strip()
+            if not line_text:
+                continue
+            normalized_entry: dict[str, object] = {"text": line_text}
+            raw_bbox = entry.get("bbox")
+            if (
+                isinstance(raw_bbox, (list, tuple))
+                and len(raw_bbox) == 4
+                and all(isinstance(value, int) for value in raw_bbox)
+            ):
+                normalized_entry["bbox"] = tuple(int(value) for value in raw_bbox)
+            entries.append(normalized_entry)
+    if entries:
+        return entries
+    return [{"text": line.strip()} for line in text.splitlines() if line.strip()]
+
+
+def _classify_layout_entries(
+    text: str,
+    selection_metadata: dict[str, object],
+) -> list[dict[str, object]]:
+    entries = _coerce_layout_entries(text, selection_metadata)
+    classified_entries: list[dict[str, object]] = []
+    for index, entry in enumerate(entries):
+        line_text = str(entry["text"])
+        raw_bbox = entry.get("bbox")
+        bbox = raw_bbox if isinstance(raw_bbox, tuple) else None
+        classified_entries.append(
+            {
+                "text": line_text,
+                "bbox": bbox,
+                "region": _classify_layout_line(line_text, bbox, index, len(entries)),
+            }
+        )
+    return classified_entries
+
+
+def _edge_page_window(total_pages: int, max_pages: int) -> int:
+    if total_pages <= 0:
+        return 0
+    return max(1, min(max_pages, math.ceil(total_pages * 0.1)))
+
+
+def _page_text_noise_ratio(text: str) -> float:
+    compact = "".join(text.split())
+    if not compact:
+        return 1.0
+    noisy_chars = len(_NON_TEXT_CHAR.findall(compact))
+    return noisy_chars / len(compact)
+
+
+def _classify_page_type(
+    *,
+    page_index: int,
+    total_pages: int,
+    word_count: int,
+    dense_body_line_count: int,
+    region_counts: Counter[str],
+    chapter_marker_count: int,
+) -> str:
+    sparse_page = word_count <= 60 and dense_body_line_count <= 2
+    toc_page = region_counts.get("toc", 0) >= 2
+    body_lines = region_counts.get("body", 0)
+    if total_pages >= 4 and page_index <= _edge_page_window(total_pages, _FRONT_MATTER_MAX_PAGES):
+        if toc_page:
+            return "front-matter"
+        if sparse_page and (body_lines <= 4 or chapter_marker_count > 0):
+            return "front-matter"
+    if total_pages >= 4 and page_index > total_pages - _edge_page_window(total_pages, _BACK_MATTER_MAX_PAGES):
+        if sparse_page and body_lines <= 4:
+            return "back-matter"
+    if sparse_page and body_lines <= 2:
+        return "sparse"
+    return "body"
+
+
+def _classify_page_quality_tier(
+    *,
+    page_type: str,
+    word_count: int,
+    dense_body_line_count: int,
+    selection_score: float,
+    noise_ratio: float,
+    hocr_confidence_mean: float | None,
+    hocr_low_confidence_ratio: float | None,
+) -> str:
+    penalty = 0
+    if word_count == 0:
+        penalty += 3
+    if selection_score < _LOW_QUALITY_SELECTION_SCORE:
+        penalty += 2
+    elif selection_score < _MEDIUM_QUALITY_SELECTION_SCORE:
+        penalty += 1
+    if hocr_low_confidence_ratio is not None:
+        if hocr_low_confidence_ratio >= _LOW_QUALITY_LOW_CONFIDENCE_RATIO:
+            penalty += 2
+        elif hocr_low_confidence_ratio >= _MEDIUM_QUALITY_LOW_CONFIDENCE_RATIO:
+            penalty += 1
+    if hocr_confidence_mean is not None:
+        if hocr_confidence_mean < 75.0:
+            penalty += 2
+        elif hocr_confidence_mean < 88.0:
+            penalty += 1
+    if noise_ratio >= _LOW_QUALITY_NOISE_RATIO:
+        penalty += 2
+    elif noise_ratio >= _MEDIUM_QUALITY_NOISE_RATIO:
+        penalty += 1
+    if page_type in {"front-matter", "back-matter", "sparse"} and dense_body_line_count <= 1:
+        penalty = max(0, penalty - 1)
+    if penalty >= 4:
+        return "low"
+    if penalty >= 2:
+        return "medium"
+    return "high"
+
+
+def _page_route(page_type: str, quality_tier: str) -> str:
+    if page_type in {"front-matter", "back-matter"}:
+        return page_type
+    if quality_tier == "low":
+        return "body-low-quality"
+    if quality_tier == "medium":
+        return "body-review"
+    return "body"
+
+
+def _page_analysis_metadata(
+    text: str,
+    selection_metadata: dict[str, object],
+    *,
+    page_index: int,
+    total_pages: int,
+) -> dict[str, object]:
+    classified_entries = _classify_layout_entries(text, selection_metadata)
+    region_counts = Counter(str(entry["region"]) for entry in classified_entries)
+    line_count = len(classified_entries)
+    word_count = len([word for word in text.split() if word])
+    dense_body_line_count = sum(
+        1 for entry in classified_entries if len(str(entry["text"]).split()) >= 6
+    )
+    chapter_marker_count = sum(
+        1 for entry in classified_entries if _is_probable_chapter_marker(str(entry["text"]))
+    )
+    noise_ratio = _page_text_noise_ratio(text)
+    selection_score = float(selection_metadata.get("selection_score", 0.0))
+    raw_confidence_mean = selection_metadata.get("hocr_confidence_mean")
+    hocr_confidence_mean = (
+        float(raw_confidence_mean)
+        if isinstance(raw_confidence_mean, (int, float))
+        else None
+    )
+    raw_low_confidence_ratio = selection_metadata.get("hocr_low_confidence_ratio")
+    hocr_low_confidence_ratio = (
+        float(raw_low_confidence_ratio)
+        if isinstance(raw_low_confidence_ratio, (int, float))
+        else None
+    )
+    page_type = _classify_page_type(
+        page_index=page_index,
+        total_pages=total_pages,
+        word_count=word_count,
+        dense_body_line_count=dense_body_line_count,
+        region_counts=region_counts,
+        chapter_marker_count=chapter_marker_count,
+    )
+    quality_tier = _classify_page_quality_tier(
+        page_type=page_type,
+        word_count=word_count,
+        dense_body_line_count=dense_body_line_count,
+        selection_score=selection_score,
+        noise_ratio=noise_ratio,
+        hocr_confidence_mean=hocr_confidence_mean,
+        hocr_low_confidence_ratio=hocr_low_confidence_ratio,
+    )
+    metadata: dict[str, object] = {
+        "page_type": page_type,
+        "page_route": _page_route(page_type, quality_tier),
+        "page_quality_tier": quality_tier,
+        "page_line_count": line_count,
+        "page_dense_body_line_count": dense_body_line_count,
+        "page_avg_words_per_line": round(word_count / line_count, 3) if line_count else 0.0,
+        "page_text_noise_ratio": round(noise_ratio, 4),
+        "page_layout_region_counts": dict(region_counts),
+    }
+    if chapter_marker_count:
+        metadata["page_chapter_marker_count"] = chapter_marker_count
+    return metadata
+
+
+def _maybe_apply_layout_region_detection(
+    text: str,
+    selection_metadata: dict[str, object],
+    options: OCRRunOptions,
+) -> tuple[str, dict[str, object]]:
+    if not options.core.layout_region_detection:
+        return text, {}
+    classified_entries = _classify_layout_entries(text, selection_metadata)
+    if not classified_entries:
+        return text, {"layout_region_detection_enabled": True}
+    zone_counts: Counter[str] = Counter()
+    removed_lines = 0
+    kept_lines: list[str] = []
+    for entry in classified_entries:
+        region = str(entry["region"])
+        zone_counts[region] += 1
+        if region == "page-number":
+            removed_lines += 1
+            continue
+        kept_lines.append(str(entry["text"]))
+    if removed_lines == 0:
+        return text, {
+            "layout_region_detection_enabled": True,
+            "layout_region_counts": dict(zone_counts),
+            "layout_removed_lines": 0,
+        }
+    return "\n".join(kept_lines).strip(), {
+        "layout_region_detection_enabled": True,
+        "layout_region_counts": dict(zone_counts),
+        "layout_removed_lines": removed_lines,
+    }
+
+
+def _maybe_apply_llm_post_correction(
+    text: str,
+    selection_metadata: dict[str, object],
+    options: OCRRunOptions,
+    dependencies: OCRDependencies,
+) -> tuple[str, dict[str, object]]:
+    if not options.core.llm_post_correction:
+        return text, {}
+    if dependencies.llm_corrector is None:
+        return text, {"llm_post_correction": "unavailable"}
+    low_confidence_ratio = selection_metadata.get("hocr_low_confidence_ratio")
+    if (
+        not isinstance(low_confidence_ratio, (int, float))
+        or float(low_confidence_ratio) < options.core.llm_min_low_confidence_ratio
+    ):
+        return text, {"llm_post_correction": "skipped-low-risk"}
+    corrected_text = dependencies.llm_corrector(text)
+    if not isinstance(corrected_text, str):
+        return text, {"llm_post_correction": "invalid-output"}
+    corrected_text = corrected_text.strip()
+    if not corrected_text or corrected_text == text:
+        return text, {"llm_post_correction": "no-change"}
+    original_word_count = len([word for word in text.split() if word])
+    corrected_word_count = len([word for word in corrected_text.split() if word])
+    word_delta_ratio = abs(corrected_word_count - original_word_count) / max(1, original_word_count)
+    if word_delta_ratio > options.core.llm_max_word_delta_ratio:
+        return text, {
+            "llm_post_correction": "rejected-word-delta",
+            "llm_word_delta_ratio": word_delta_ratio,
+        }
+    return corrected_text, {
+        "llm_post_correction": "applied",
+        "llm_word_delta_ratio": word_delta_ratio,
+    }
+
+
 def _collect_page_ocr_results(
     page_images: list[Path],
     options: OCRRunOptions,
@@ -2157,7 +2569,7 @@ def _collect_page_ocr_results(
     preprocessed_dir = work_dir / "preprocessed"
     paddle_reader = (
         dependencies.paddle_reader_factory(options.core.language)
-        if options.ocr_engine == "paddleocr"
+        if options.ocr_engine in {"paddleocr", "ensemble"}
         else None
     )
     mode_usage: Counter[str] = Counter()
@@ -2199,9 +2611,29 @@ def _collect_page_ocr_results(
         )
         if cleanup_metadata:
             selection_metadata.update(cleanup_metadata)
+        text, layout_metadata = _maybe_apply_layout_region_detection(text, selection_metadata, options)
+        if layout_metadata:
+            selection_metadata.update(layout_metadata)
+        text, llm_metadata = _maybe_apply_llm_post_correction(
+            text,
+            selection_metadata,
+            options,
+            dependencies,
+        )
+        if llm_metadata:
+            selection_metadata.update(llm_metadata)
+        page_index = len(page_texts) + 1
+        selection_metadata.update(
+            _page_analysis_metadata(
+                text,
+                selection_metadata,
+                page_index=page_index,
+                total_pages=total_pages,
+            )
+        )
         selection_metadata.pop("hocr_word_boxes_runtime", None)
+        selection_metadata.pop("hocr_line_entries_runtime", None)
         page_texts.append(text)
-        page_index = len(page_texts)
         entry = _page_entry(page_index, image_path, ocr_input_path, text, selection_metadata)
         selected_mode = entry.get("selected_preprocess_mode")
         if isinstance(selected_mode, str):
@@ -2236,6 +2668,7 @@ def _collect_page_ocr_results(
         )
     selection_summary: dict[str, object] = {
         "mode_usage": dict(mode_usage),
+        "page_analysis": _page_analysis_summary(page_details),
     }
     if tesseract_psm_usage:
         selection_summary["tesseract_psm_usage"] = dict(tesseract_psm_usage)
@@ -2392,6 +2825,10 @@ def _parse_mode_eval_options(kwargs: dict[str, Any]) -> ModeEvalOptions:
         orientation_fallback=bool(kwargs.pop("orientation_fallback", False)),
         tiered_ocr_fallback=bool(kwargs.pop("tiered_ocr_fallback", False)),
         tiered_ocr_min_score=float(kwargs.pop("tiered_ocr_min_score", 200.0)),
+        layout_region_detection=bool(kwargs.pop("layout_region_detection", False)),
+        llm_post_correction=bool(kwargs.pop("llm_post_correction", False)),
+        llm_min_low_confidence_ratio=float(kwargs.pop("llm_min_low_confidence_ratio", 0.08)),
+        llm_max_word_delta_ratio=float(kwargs.pop("llm_max_word_delta_ratio", 0.2)),
     )
     return ModeEvalOptions(
         core=core_options,
@@ -2417,6 +2854,10 @@ def _mode_ocr_kwargs(options: ModeEvalOptions, mode: str) -> dict[str, Any]:
         "orientation_fallback": options.core.orientation_fallback,
         "tiered_ocr_fallback": options.core.tiered_ocr_fallback,
         "tiered_ocr_min_score": options.core.tiered_ocr_min_score,
+        "layout_region_detection": options.core.layout_region_detection,
+        "llm_post_correction": options.core.llm_post_correction,
+        "llm_min_low_confidence_ratio": options.core.llm_min_low_confidence_ratio,
+        "llm_max_word_delta_ratio": options.core.llm_max_word_delta_ratio,
         "ocr_engine": options.ocr_engine,
     }
 

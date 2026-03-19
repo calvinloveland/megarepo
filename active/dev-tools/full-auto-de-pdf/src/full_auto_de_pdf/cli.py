@@ -422,7 +422,7 @@ def _add_benchmark_ocr_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--dpi", type=int, default=300, help="Rasterization DPI for pdftoppm")
     parser.add_argument(
         "--ocr-engine",
-        choices=["tesseract", "paddleocr"],
+        choices=["tesseract", "paddleocr", "ensemble"],
         default="tesseract",
         help="OCR engine backend",
     )
@@ -497,6 +497,28 @@ def _add_benchmark_ocr_args(parser: argparse.ArgumentParser) -> None:
         type=float,
         default=200.0,
         help="Only trigger tiered OCR fallback when base text score is below this value",
+    )
+    parser.add_argument(
+        "--layout-region-detection",
+        action="store_true",
+        help="Enable simple layout-zone detection and strip page-number lines",
+    )
+    parser.add_argument(
+        "--llm-post-correction",
+        action="store_true",
+        help="Enable guarded post-correction callback for low-confidence OCR pages",
+    )
+    parser.add_argument(
+        "--llm-min-low-confidence-ratio",
+        type=float,
+        default=0.08,
+        help="Minimum low-confidence word ratio required before LLM post-correction runs",
+    )
+    parser.add_argument(
+        "--llm-max-word-delta-ratio",
+        type=float,
+        default=0.2,
+        help="Maximum relative word-count delta allowed for LLM post-correction output",
     )
     parser.add_argument(
         "--no-cleanup",
@@ -622,7 +644,7 @@ def _add_ocr_pdf_command(subparsers: argparse._SubParsersAction[argparse.Argumen
     parser.add_argument("--dpi", type=int, default=300, help="Rasterization DPI for pdftoppm")
     parser.add_argument(
         "--ocr-engine",
-        choices=["tesseract", "paddleocr"],
+        choices=["tesseract", "paddleocr", "ensemble"],
         default="tesseract",
         help="OCR engine backend",
     )
@@ -679,6 +701,28 @@ def _add_ocr_pdf_command(subparsers: argparse._SubParsersAction[argparse.Argumen
         type=float,
         default=200.0,
         help="Only trigger tiered OCR fallback when base text score is below this value",
+    )
+    parser.add_argument(
+        "--layout-region-detection",
+        action="store_true",
+        help="Enable simple layout-zone detection and strip page-number lines",
+    )
+    parser.add_argument(
+        "--llm-post-correction",
+        action="store_true",
+        help="Enable guarded post-correction callback for low-confidence OCR pages",
+    )
+    parser.add_argument(
+        "--llm-min-low-confidence-ratio",
+        type=float,
+        default=0.08,
+        help="Minimum low-confidence word ratio required before LLM post-correction runs",
+    )
+    parser.add_argument(
+        "--llm-max-word-delta-ratio",
+        type=float,
+        default=0.2,
+        help="Maximum relative word-count delta allowed for LLM post-correction output",
     )
     parser.add_argument(
         "--binarize-threshold",
@@ -746,9 +790,64 @@ def _add_ocr_eval_modes_command(
     parser.add_argument("--dpi", type=int, default=300, help="Rasterization DPI for pdftoppm")
     parser.add_argument(
         "--ocr-engine",
-        choices=["tesseract", "paddleocr"],
+        choices=["tesseract", "paddleocr", "ensemble"],
         default="tesseract",
         help="OCR engine backend",
+    )
+    parser.add_argument(
+        "--tesseract-output-format",
+        choices=["text", "hocr"],
+        default="text",
+        help="Tesseract output format ('text' or hOCR with per-word confidence metadata)",
+    )
+    parser.add_argument(
+        "--confidence-aware-cleanup",
+        action="store_true",
+        help="Skip cleanup for high-confidence OCR pages when confidence metadata is available",
+    )
+    parser.add_argument(
+        "--cleanup-high-confidence-threshold",
+        type=float,
+        default=95.0,
+        help="Skip cleanup when mean page confidence is at or above this percentage",
+    )
+    parser.add_argument(
+        "--orientation-fallback",
+        action="store_true",
+        help="Try a 180-degree OCR fallback candidate when it scores better",
+    )
+    parser.add_argument(
+        "--tiered-ocr-fallback",
+        action="store_true",
+        help="Retry weak pages with horizontal tile OCR and keep the better score",
+    )
+    parser.add_argument(
+        "--tiered-ocr-min-score",
+        type=float,
+        default=200.0,
+        help="Only trigger tiered OCR fallback when base text score is below this value",
+    )
+    parser.add_argument(
+        "--layout-region-detection",
+        action="store_true",
+        help="Enable simple layout-zone detection and strip page-number lines",
+    )
+    parser.add_argument(
+        "--llm-post-correction",
+        action="store_true",
+        help="Enable guarded post-correction callback for low-confidence OCR pages",
+    )
+    parser.add_argument(
+        "--llm-min-low-confidence-ratio",
+        type=float,
+        default=0.08,
+        help="Minimum low-confidence word ratio required before LLM post-correction runs",
+    )
+    parser.add_argument(
+        "--llm-max-word-delta-ratio",
+        type=float,
+        default=0.2,
+        help="Maximum relative word-count delta allowed for LLM post-correction output",
     )
     parser.add_argument(
         "--binarize-threshold",
@@ -815,9 +914,64 @@ def _add_benchmark_local_archive_command(
     parser.add_argument("--dpi", type=int, default=300, help="Rasterization DPI for pdftoppm")
     parser.add_argument(
         "--ocr-engine",
-        choices=["tesseract", "paddleocr"],
+        choices=["tesseract", "paddleocr", "ensemble"],
         default="tesseract",
         help="OCR engine backend",
+    )
+    parser.add_argument(
+        "--tesseract-output-format",
+        choices=["text", "hocr"],
+        default="text",
+        help="Tesseract output format ('text' or hOCR with per-word confidence metadata)",
+    )
+    parser.add_argument(
+        "--confidence-aware-cleanup",
+        action="store_true",
+        help="Skip cleanup for high-confidence OCR pages when confidence metadata is available",
+    )
+    parser.add_argument(
+        "--cleanup-high-confidence-threshold",
+        type=float,
+        default=95.0,
+        help="Skip cleanup when mean page confidence is at or above this percentage",
+    )
+    parser.add_argument(
+        "--orientation-fallback",
+        action="store_true",
+        help="Try a 180-degree OCR fallback candidate when it scores better",
+    )
+    parser.add_argument(
+        "--tiered-ocr-fallback",
+        action="store_true",
+        help="Retry weak pages with horizontal tile OCR and keep the better score",
+    )
+    parser.add_argument(
+        "--tiered-ocr-min-score",
+        type=float,
+        default=200.0,
+        help="Only trigger tiered OCR fallback when base text score is below this value",
+    )
+    parser.add_argument(
+        "--layout-region-detection",
+        action="store_true",
+        help="Enable simple layout-zone detection and strip page-number lines",
+    )
+    parser.add_argument(
+        "--llm-post-correction",
+        action="store_true",
+        help="Enable guarded post-correction callback for low-confidence OCR pages",
+    )
+    parser.add_argument(
+        "--llm-min-low-confidence-ratio",
+        type=float,
+        default=0.08,
+        help="Minimum low-confidence word ratio required before LLM post-correction runs",
+    )
+    parser.add_argument(
+        "--llm-max-word-delta-ratio",
+        type=float,
+        default=0.2,
+        help="Maximum relative word-count delta allowed for LLM post-correction output",
     )
     parser.add_argument(
         "--binarize-threshold",
@@ -993,7 +1147,7 @@ def _add_archive_epub_compare_page_command(
     parser.add_argument("--dpi", type=int, default=300, help="Rasterization DPI for local OCR")
     parser.add_argument(
         "--ocr-engine",
-        choices=["tesseract", "paddleocr"],
+        choices=["tesseract", "paddleocr", "ensemble"],
         default="tesseract",
         help="OCR engine backend for local OCR generation",
     )
@@ -1208,6 +1362,10 @@ def _benchmark_ocr_kwargs_from_args(args: argparse.Namespace) -> dict[str, objec
         "orientation_fallback": args.orientation_fallback,
         "tiered_ocr_fallback": args.tiered_ocr_fallback,
         "tiered_ocr_min_score": args.tiered_ocr_min_score,
+        "layout_region_detection": args.layout_region_detection,
+        "llm_post_correction": args.llm_post_correction,
+        "llm_min_low_confidence_ratio": args.llm_min_low_confidence_ratio,
+        "llm_max_word_delta_ratio": args.llm_max_word_delta_ratio,
         "ocr_engine": args.ocr_engine,
         "emit_page_artifacts": not args.no_page_artifacts,
         "inverse_render_rerank": args.inverse_render_rerank,
@@ -1257,6 +1415,10 @@ def _handle_ocr_pdf(args: argparse.Namespace) -> int:
         orientation_fallback=args.orientation_fallback,
         tiered_ocr_fallback=args.tiered_ocr_fallback,
         tiered_ocr_min_score=args.tiered_ocr_min_score,
+        layout_region_detection=args.layout_region_detection,
+        llm_post_correction=args.llm_post_correction,
+        llm_min_low_confidence_ratio=args.llm_min_low_confidence_ratio,
+        llm_max_word_delta_ratio=args.llm_max_word_delta_ratio,
         ocr_engine=args.ocr_engine,
         emit_page_artifacts=not args.no_page_artifacts,
         page_artifacts_dir=args.page_artifacts_dir,
@@ -1281,6 +1443,10 @@ def _handle_ocr_eval_modes(args: argparse.Namespace) -> int:
     orientation_fallback = bool(getattr(args, "orientation_fallback", False))
     tiered_ocr_fallback = bool(getattr(args, "tiered_ocr_fallback", False))
     tiered_ocr_min_score = float(getattr(args, "tiered_ocr_min_score", 200.0))
+    layout_region_detection = bool(getattr(args, "layout_region_detection", False))
+    llm_post_correction = bool(getattr(args, "llm_post_correction", False))
+    llm_min_low_confidence_ratio = float(getattr(args, "llm_min_low_confidence_ratio", 0.08))
+    llm_max_word_delta_ratio = float(getattr(args, "llm_max_word_delta_ratio", 0.2))
     report = evaluate_ocr_preprocess_modes(
         pdf_path=args.pdf,
         work_dir=args.work_dir,
@@ -1299,6 +1465,10 @@ def _handle_ocr_eval_modes(args: argparse.Namespace) -> int:
         orientation_fallback=orientation_fallback,
         tiered_ocr_fallback=tiered_ocr_fallback,
         tiered_ocr_min_score=tiered_ocr_min_score,
+        layout_region_detection=layout_region_detection,
+        llm_post_correction=llm_post_correction,
+        llm_min_low_confidence_ratio=llm_min_low_confidence_ratio,
+        llm_max_word_delta_ratio=llm_max_word_delta_ratio,
         ocr_engine=args.ocr_engine,
     )
     mode_count = len(report.get("modes", {}))
@@ -1315,6 +1485,10 @@ def _handle_benchmark_local_archive(args: argparse.Namespace) -> int:
     orientation_fallback = bool(getattr(args, "orientation_fallback", False))
     tiered_ocr_fallback = bool(getattr(args, "tiered_ocr_fallback", False))
     tiered_ocr_min_score = float(getattr(args, "tiered_ocr_min_score", 200.0))
+    layout_region_detection = bool(getattr(args, "layout_region_detection", False))
+    llm_post_correction = bool(getattr(args, "llm_post_correction", False))
+    llm_min_low_confidence_ratio = float(getattr(args, "llm_min_low_confidence_ratio", 0.08))
+    llm_max_word_delta_ratio = float(getattr(args, "llm_max_word_delta_ratio", 0.2))
     report = benchmark_local_ocr_against_archive(
         pdf_path=args.pdf,
         archive_identifier=args.archive_identifier,
@@ -1334,6 +1508,10 @@ def _handle_benchmark_local_archive(args: argparse.Namespace) -> int:
         orientation_fallback=orientation_fallback,
         tiered_ocr_fallback=tiered_ocr_fallback,
         tiered_ocr_min_score=tiered_ocr_min_score,
+        layout_region_detection=layout_region_detection,
+        llm_post_correction=llm_post_correction,
+        llm_min_low_confidence_ratio=llm_min_low_confidence_ratio,
+        llm_max_word_delta_ratio=llm_max_word_delta_ratio,
         ocr_engine=args.ocr_engine,
     )
     print(
