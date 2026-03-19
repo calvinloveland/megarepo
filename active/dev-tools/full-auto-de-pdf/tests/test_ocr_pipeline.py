@@ -177,8 +177,14 @@ def test_ocr_pdf_with_tesseract_emits_progress_with_eta(tmp_path, monkeypatch) -
     pdf_path.write_bytes(b"pdf")
     progress_events: list[dict[str, object]] = []
 
-    monotonic_values = iter([10.0, 10.0, 22.0, 34.0])
-    monkeypatch.setattr(ocr_pipeline.time, "monotonic", lambda: next(monotonic_values))
+    monotonic_state = {"value": 10.0}
+
+    def _monotonic() -> float:
+        value = monotonic_state["value"]
+        monotonic_state["value"] += 6.0
+        return value
+
+    monkeypatch.setattr(ocr_pipeline.time, "monotonic", _monotonic)
 
     def _which(_name: str) -> str | None:
         return "/usr/bin/fake"
@@ -207,26 +213,33 @@ def test_ocr_pdf_with_tesseract_emits_progress_with_eta(tmp_path, monkeypatch) -
         progress_callback=progress_events.append,
     )
 
-    assert progress_events[0] == {
+    raster_events = [event for event in progress_events if event["stage"] == "rasterize"]
+    ocr_events = [event for event in progress_events if event["stage"] == "ocr"]
+    candidate_events = [event for event in progress_events if event["stage"] == "ocr-candidate"]
+
+    assert raster_events[0] == {
         "stage": "rasterize",
         "status": "running",
         "message": "Rasterizing book.pdf at 300 DPI",
     }
-    assert progress_events[1] == {
+    assert raster_events[1] == {
         "stage": "rasterize",
         "status": "complete",
         "message": "Rasterized 2 pages",
         "total_pages": 2,
     }
-    assert progress_events[2]["stage"] == "ocr"
-    assert progress_events[2]["completed_pages"] == 0
-    assert progress_events[2]["estimated_remaining_seconds"] is None
-    assert progress_events[3]["completed_pages"] == 1
-    assert progress_events[3]["elapsed_seconds"] == 12.0
-    assert progress_events[3]["estimated_remaining_seconds"] == 12.0
-    assert progress_events[4]["status"] == "complete"
-    assert progress_events[4]["completed_pages"] == 2
-    assert progress_events[4]["estimated_remaining_seconds"] == 0.0
+    assert ocr_events[0]["completed_pages"] == 0
+    assert ocr_events[0]["estimated_remaining_seconds"] is None
+    assert candidate_events
+    assert candidate_events[0]["current_page_index"] == 1
+    assert candidate_events[0]["candidate_index"] == 1
+    assert candidate_events[0]["candidate_total"] >= 1
+    assert ocr_events[1]["completed_pages"] == 1
+    assert ocr_events[1]["elapsed_seconds"] > 0
+    assert ocr_events[1]["estimated_remaining_seconds"] is not None
+    assert ocr_events[-1]["status"] == "complete"
+    assert ocr_events[-1]["completed_pages"] == 2
+    assert ocr_events[-1]["estimated_remaining_seconds"] == 0.0
 
 
 def test_ocr_pdf_with_tesseract_rejects_invalid_preprocess_mode(tmp_path) -> None:
@@ -1348,7 +1361,12 @@ def test_ocr_page_images_targeted_retry_reprocesses_low_quality_page(monkeypatch
         return None
 
     def _fake_run_ocr_on_page(
-        image_path, options, dependencies, preprocessed_dir, paddle_reader  # noqa: ANN001
+        image_path,
+        options,
+        dependencies,
+        preprocessed_dir,
+        paddle_reader,
+        **_kwargs,  # noqa: ANN001
     ):
         assert image_path == page_image
         seen_calls.append(

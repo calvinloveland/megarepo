@@ -43,6 +43,40 @@ def test_build_epub_command_builds_file(tmp_path) -> None:
     assert metrics_path.exists()
 
 
+def test_progress_reporter_handles_candidate_and_benchmark_updates(capsys) -> None:
+    reporter = cli._make_progress_reporter("Demo")
+
+    reporter(
+        {
+            "stage": "ocr-candidate",
+            "status": "running",
+            "current_page_index": 1,
+            "candidate_index": 2,
+            "candidate_total": 5,
+            "preprocess_mode": "scan-local-threshold",
+            "tesseract_psm": "6",
+            "elapsed_seconds": 12.0,
+        }
+    )
+    reporter(
+        {
+            "stage": "benchmark-streaming-corpus",
+            "status": "running",
+            "completed_items": 1,
+            "total_items": 4,
+            "current_identifier": "demo-sample-001",
+            "elapsed_seconds": 30.0,
+            "estimated_remaining_seconds": 90.0,
+        }
+    )
+
+    captured = capsys.readouterr()
+    assert "Evaluating page 1 candidate 2/5" in captured.err
+    assert "mode=scan-local-threshold, psm=6" in captured.err
+    assert "Benchmarked 1/4 samples, current=demo-sample-001" in captured.err
+    assert "eta=01:30" in captured.err
+
+
 def test_benchmark_archive_command_writes_report(monkeypatch, tmp_path) -> None:
     output = tmp_path / "benchmark.json"
     cache_dir = tmp_path / "cache"

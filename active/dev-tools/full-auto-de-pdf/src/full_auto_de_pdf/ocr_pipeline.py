@@ -1696,12 +1696,21 @@ def _run_ocr_on_page(
     dependencies: OCRDependencies,
     preprocessed_dir: Path,
     paddle_reader: Callable[[Path], str] | None,
+    *,
+    total_pages: int | None = None,
+    completed_pages: int = 0,
+    current_page_index: int | None = None,
+    started_at: float | None = None,
 ) -> tuple[Path, str, dict[str, object]]:
     # lizard forgive: per-page OCR orchestration needs explicit candidate bookkeeping.
     prepared_inputs: dict[str, Path] = {}
     candidate_runs: list[dict[str, object]] = []
     candidates: list[OCRCandidate] = []
-    for preprocess_mode in _candidate_preprocess_modes(options.preprocess_mode):
+    preprocess_modes = _candidate_preprocess_modes(options.preprocess_mode)
+    tesseract_psms = _candidate_tesseract_psms(options)
+    candidate_total = len(preprocess_modes) * len(tesseract_psms)
+    candidate_index = 0
+    for preprocess_mode in preprocess_modes:
         ocr_input_path = _prepare_ocr_input_path(
             image_path,
             preprocess_mode,
@@ -1710,7 +1719,27 @@ def _run_ocr_on_page(
             preprocessed_dir,
             prepared_inputs,
         )
-        for tesseract_psm in _candidate_tesseract_psms(options):
+        for tesseract_psm in tesseract_psms:
+            candidate_index += 1
+            if (
+                options.progress_callback is not None
+                and total_pages is not None
+                and current_page_index is not None
+                and started_at is not None
+            ):
+                _emit_progress(
+                    options.progress_callback,
+                    _ocr_candidate_progress_payload(
+                        total_pages=total_pages,
+                        completed_pages=completed_pages,
+                        current_page_index=current_page_index,
+                        candidate_index=candidate_index,
+                        candidate_total=candidate_total,
+                        preprocess_mode=preprocess_mode,
+                        tesseract_psm=tesseract_psm,
+                        started_at=started_at,
+                    ),
+                )
             text, ocr_metadata = _run_candidate_ocr(
                 ocr_input_path,
                 options,
@@ -2247,6 +2276,32 @@ def _timed_page_progress_payload(
     }
 
 
+def _ocr_candidate_progress_payload(
+    *,
+    total_pages: int,
+    completed_pages: int,
+    current_page_index: int,
+    candidate_index: int,
+    candidate_total: int,
+    preprocess_mode: str,
+    tesseract_psm: str,
+    started_at: float,
+) -> dict[str, object]:
+    elapsed_seconds = max(0.0, time.monotonic() - started_at)
+    return {
+        "stage": "ocr-candidate",
+        "status": "running",
+        "total_pages": total_pages,
+        "completed_pages": completed_pages,
+        "current_page_index": current_page_index,
+        "candidate_index": candidate_index,
+        "candidate_total": candidate_total,
+        "preprocess_mode": preprocess_mode,
+        "tesseract_psm": tesseract_psm,
+        "elapsed_seconds": elapsed_seconds,
+    }
+
+
 def _emit_progress(
     callback: Callable[[dict[str, object]], None] | None,
     payload: dict[str, object],
@@ -2760,6 +2815,10 @@ def _collect_page_ocr_results(
             dependencies,
             preprocessed_dir,
             paddle_reader,
+            total_pages=total_pages,
+            completed_pages=len(page_texts),
+            current_page_index=len(page_texts) + 1,
+            started_at=started_at,
         )
         page_index = len(page_texts) + 1
         text, selection_metadata = _postprocess_page_text(
