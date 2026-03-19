@@ -77,7 +77,8 @@ discover_hosts() {
 # Smoke test for nixpkgs issue #500198: copilot must not fail with --no-warnings.
 # Builds the patched github-copilot-cli package from the flake and checks that:
 #   1. The bin/copilot wrapper is an ELF binary (makeBinaryWrapper, not wrapProgram).
-#   2. Running "copilot --help" does not produce the --no-warnings error.
+#   2. Running "copilot" with no arguments does not produce the --no-warnings error.
+#      (--help bypasses the re-exec path that triggers the bug; no-args exercises it.)
 test_copilot_no_warnings() {
     local out
     out=$(nix build .#packages.x86_64-linux.github-copilot-cli --no-link --print-out-paths 2>/dev/null)
@@ -96,17 +97,17 @@ test_copilot_no_warnings() {
     fi
     log_success "copilot wrapper is an ELF binary (makeBinaryWrapper used)"
 
-    # Invoke the binary and confirm --no-warnings is NOT reported.
+    # Run copilot with NO arguments (not --help) to exercise the re-exec code path
+    # that triggers the --no-warnings bug. A non-zero exit is expected/acceptable;
+    # what must be absent is the specific "unknown option '--no-warnings'" error.
     local output exit_code
-    output=$("$bin" --help 2>&1) && exit_code=0 || exit_code=$?
+    output=$("$bin" 2>&1) && exit_code=0 || exit_code=$?
     if echo "$output" | grep -q "unknown option '--no-warnings'"; then
-        log_error "copilot --help still produces --no-warnings error (nixpkgs issue #500198 not fixed)"
+        log_error "copilot (no args) still produces --no-warnings error (nixpkgs issue #500198 not fixed)"
         echo "  Output was: $output"
         return 1
     fi
-    # A non-zero exit from --help is acceptable (some tools exit 1 for --help).
-    # What matters is the absence of the specific --no-warnings error above.
-    log_success "copilot --help does not produce --no-warnings error"
+    log_success "copilot (no args) does not produce --no-warnings error (exit code: $exit_code)"
 }
 
 
