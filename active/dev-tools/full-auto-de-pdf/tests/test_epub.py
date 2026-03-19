@@ -58,6 +58,43 @@ def test_build_epub_from_ocr_text_splits_chapters_and_preserves_lists(tmp_path) 
         assert "<h2>Another Section</h2>" in chapter2_text
 
 
+def test_build_epub_from_ocr_text_splits_front_matter_sections(tmp_path) -> None:
+    output_epub = tmp_path / "frontmatter.epub"
+    metrics = build_epub_from_ocr_text(
+        (
+            "Dracula\n\n"
+            "CONTENTS\n\n"
+            "Letter from Jonathan Harker\n\n"
+            "DEDICATION\n\n"
+            "For my dear friend.\n\n"
+            "CHAPTER I\n\n"
+            "Jonathan Harker's Journal"
+        ),
+        output_path=output_epub,
+        title="Dracula",
+        apply_cleanup=False,
+    )
+
+    assert metrics["chapter_count"] == 4
+    with zipfile.ZipFile(output_epub) as epub_file:
+        nav_text = epub_file.read("OEBPS/nav.xhtml").decode("utf-8")
+        title_page_text = epub_file.read("OEBPS/chapter1.xhtml").decode("utf-8")
+        contents_text = epub_file.read("OEBPS/chapter2.xhtml").decode("utf-8")
+        dedication_text = epub_file.read("OEBPS/chapter3.xhtml").decode("utf-8")
+        chapter_text = epub_file.read("OEBPS/chapter4.xhtml").decode("utf-8")
+        assert "Title Page" in nav_text
+        assert "CONTENTS" in nav_text
+        assert "DEDICATION" in nav_text
+        assert "CHAPTER I" in nav_text
+        assert "epub:type='frontmatter titlepage'" in title_page_text
+        assert "<h2>Dracula</h2>" in title_page_text
+        assert "epub:type='frontmatter toc'" in contents_text
+        assert "Letter from Jonathan Harker" in contents_text
+        assert "epub:type='frontmatter'" in dedication_text
+        assert "<p>For my dear friend.</p>" in dedication_text
+        assert "epub:type='bodymatter chapter'" in chapter_text
+
+
 def test_build_epub_from_ocr_file_writes_metrics(tmp_path) -> None:
     ocr_text = tmp_path / "ocr.txt"
     output_epub = tmp_path / "book.epub"

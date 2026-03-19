@@ -18,6 +18,10 @@ _CHAPTER_HEADING = re.compile(
     r"^(chapter|part|book|section)\s+([0-9]+|[ivxlcdm]+|[A-Za-z]+)\b.*$",
     flags=re.IGNORECASE,
 )
+_FRONT_MATTER_HEADING = re.compile(
+    r"^(contents?|table\s+of\s+contents|dedication|preface|foreword|introduction|prologue|acknowledg(?:e)?ments?)$",
+    flags=re.IGNORECASE,
+)
 _BULLET_ITEM = re.compile("^(?:[-*]|\\u2022)\\s+(.+)$")
 _ORDERED_ITEM = re.compile(r"^\d+[\.\)]\s+(.+)$")
 
@@ -39,6 +43,7 @@ class Chapter:
     title: str
     file_name: str
     blocks: tuple[ContentBlock, ...]
+    epub_type: str = "bodymatter chapter"
 
 
 def _paragraphs(text: str) -> list[str]:
@@ -73,6 +78,8 @@ def _looks_like_short_heading(text: str) -> bool:
 
 def _is_chapter_heading(text: str) -> bool:
     stripped = " ".join(text.split())
+    if _is_front_matter_heading(stripped):
+        return False
     if _CHAPTER_HEADING.match(stripped):
         return True
     if _is_mostly_uppercase(stripped) and _heading_word_count(stripped) <= 6:
@@ -98,6 +105,67 @@ def _normalize_heading_text(text: str) -> str:
     return " ".join(text.split())
 
 
+def _is_front_matter_heading(text: str) -> bool:
+    return bool(_FRONT_MATTER_HEADING.match(_normalize_heading_text(text)))
+
+
+def _is_title_page_paragraph(text: str, title: str) -> bool:
+    normalized_text = _normalize_heading_text(text)
+    normalized_title = _normalize_heading_text(title)
+    if not normalized_text:
+        return False
+    if normalized_text.casefold() == normalized_title.casefold():
+        return True
+    return _is_mostly_uppercase(normalized_text) and _heading_word_count(normalized_text) <= 8
+
+
+def _front_matter_epub_type(section_title: str) -> str:
+    normalized = _normalize_heading_text(section_title).casefold()
+    if "contents" in normalized or normalized == "content":
+        return "frontmatter toc"
+    if normalized == "title page":
+        return "frontmatter titlepage"
+    return "frontmatter"
+
+
+def _build_front_matter_chapters(paragraphs: list[str], title: str) -> list[Chapter]:
+    chapters: list[Chapter] = []
+    index = 0
+    if paragraphs and _is_title_page_paragraph(paragraphs[0], title):
+        chapters.append(
+            Chapter(
+                title="Title Page",
+                file_name="",
+                blocks=tuple(_build_blocks([paragraphs[0]])),
+                epub_type=_front_matter_epub_type("Title Page"),
+            )
+        )
+        index = 1
+
+    while index < len(paragraphs):
+        paragraph = paragraphs[index]
+        section_title = "Front Matter"
+        if _is_front_matter_heading(paragraph):
+            section_title = _normalize_heading_text(paragraph)
+            index += 1
+        section_paragraphs: list[str] = []
+        while index < len(paragraphs) and not _is_front_matter_heading(paragraphs[index]):
+            section_paragraphs.append(paragraphs[index])
+            index += 1
+        if not section_paragraphs and section_title == "Front Matter":
+            section_paragraphs.append(paragraph)
+            index += 1
+        chapters.append(
+            Chapter(
+                title=section_title,
+                file_name="",
+                blocks=tuple(_build_blocks(section_paragraphs)),
+                epub_type=_front_matter_epub_type(section_title),
+            )
+        )
+    return chapters
+
+
 def _build_chapters(paragraphs: list[str], title: str) -> list[Chapter]:
     chapters: list[tuple[str, list[str]]] = []
     intro_content: list[str] = []
@@ -121,13 +189,7 @@ def _build_chapters(paragraphs: list[str], title: str) -> list[Chapter]:
 
     structured_chapters: list[Chapter] = []
     if intro_content:
-        structured_chapters.append(
-            Chapter(
-                title=title,
-                file_name="chapter1.xhtml",
-                blocks=tuple(_build_blocks(intro_content)),
-            )
-        )
+        structured_chapters.extend(_build_front_matter_chapters(intro_content, title))
 
     for index, (chapter_title, chapter_paragraphs) in enumerate(
         chapters,
@@ -140,6 +202,17 @@ def _build_chapters(paragraphs: list[str], title: str) -> list[Chapter]:
                 blocks=tuple(_build_blocks(chapter_paragraphs)),
             )
         )
+
+    if structured_chapters:
+        for index, chapter in enumerate(structured_chapters, start=1):
+            if chapter.file_name:
+                continue
+            structured_chapters[index - 1] = Chapter(
+                title=chapter.title,
+                file_name=f"chapter{index}.xhtml",
+                blocks=chapter.blocks,
+                epub_type=chapter.epub_type,
+            )
 
     if structured_chapters:
         return structured_chapters
@@ -220,7 +293,7 @@ def _chapter_xhtml(chapter: Chapter, book_title: str, language: str) -> str:
         "    <link rel='stylesheet' type='text/css' href='styles.css'/>\n"
         "  </head>\n"
         "  <body>\n"
-        "    <section epub:type='bodymatter chapter' xmlns:epub='http://www.idpf.org/2007/ops'>\n"
+        f"    <section epub:type='{escape(chapter.epub_type)}' xmlns:epub='http://www.idpf.org/2007/ops'>\n"
         f"      <h1>{escaped_chapter_title}</h1>\n"
         f"{body}\n"
         "    </section>\n"
