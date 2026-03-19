@@ -1703,6 +1703,19 @@ def test_inverse_render_score_prefers_matching_text(monkeypatch, tmp_path) -> No
     assert matching_score > mismatched_score
 
 
+def test_binary_ink_iou_treats_only_black_pixels_as_ink() -> None:
+    observed = Image.new("L", (2, 2), color=255)
+    rendered = Image.new("L", (2, 2), color=255)
+
+    observed.putpixel((0, 0), 0)
+    observed.putpixel((1, 0), 128)
+    rendered.putpixel((0, 0), 0)
+    rendered.putpixel((0, 1), 0)
+    rendered.putpixel((1, 0), 32)
+
+    assert ocr_pipeline._binary_ink_iou(observed, rendered) == 0.5
+
+
 def test_ocr_page_images_runs_without_pdftoppm(tmp_path) -> None:
     page_image = tmp_path / "page-1.png"
     output_path = tmp_path / "out.txt"

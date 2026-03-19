@@ -6,6 +6,7 @@ from __future__ import annotations
 from collections import Counter
 from dataclasses import dataclass, replace
 from difflib import SequenceMatcher
+from functools import lru_cache
 import html
 from html.parser import HTMLParser
 import importlib
@@ -1120,6 +1121,7 @@ def _inverse_render_font_paths() -> tuple[str, ...]:
     return tuple(unique_paths)
 
 
+@lru_cache(maxsize=64)
 def _load_inverse_render_font(font_path: str | None, font_size: int) -> Any:
     if ImageFont is None:
         raise RuntimeError(
@@ -1233,19 +1235,25 @@ def _render_inverse_text_image(
 
 
 def _binary_ink_iou(observed_binary: Any, rendered_binary: Any) -> float:
-    observed_pixels = observed_binary.getdata()
-    rendered_pixels = rendered_binary.getdata()
-    overlap = 0
-    union = 0
-    for observed, rendered in zip(observed_pixels, rendered_pixels, strict=True):
-        observed_ink = observed == 0
-        rendered_ink = rendered == 0
-        if observed_ink or rendered_ink:
-            union += 1
-            if observed_ink and rendered_ink:
-                overlap += 1
+    if ImageChops is None:
+        observed_pixels = observed_binary.getdata()
+        rendered_pixels = rendered_binary.getdata()
+        overlap = 0
+        union = 0
+        for observed, rendered in zip(observed_pixels, rendered_pixels, strict=True):
+            observed_ink = observed == 0
+            rendered_ink = rendered == 0
+            if observed_ink or rendered_ink:
+                union += 1
+                if observed_ink and rendered_ink:
+                    overlap += 1
+        if union == 0:
+            return 0.0
+        return float(overlap) / float(union)
+    union = ImageChops.darker(observed_binary, rendered_binary).histogram()[0]
     if union == 0:
         return 0.0
+    overlap = ImageChops.lighter(observed_binary, rendered_binary).histogram()[0]
     return float(overlap) / float(union)
 
 
