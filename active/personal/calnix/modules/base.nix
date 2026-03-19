@@ -79,6 +79,10 @@ in
 
   nixpkgs.config.allowUnfree = true;
 
+  # Let home-manager reuse the system's pkgs so that nixpkgs overlays
+  # (e.g. githubCopilotCliOverlay) are applied to user packages as well.
+  home-manager.useGlobalPkgs = true;
+
   # Common packages for all hosts
   environment.systemPackages = with pkgs; [
     # Fonts for proper terminal display
