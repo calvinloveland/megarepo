@@ -901,6 +901,121 @@ def test_ocr_page_images_inverse_render_can_select_cleaned_variant(monkeypatch, 
     assert page_entry["inverse_render_score"] == 0.95
 
 
+def test_maybe_inverse_render_rerank_limits_scoring_to_top_k(monkeypatch, tmp_path) -> None:
+    image_path = tmp_path / "page.png"
+    image_path.write_bytes(b"image")
+    candidates = [
+        ocr_pipeline.OCRCandidate(
+            score=300.0,
+            ocr_input_path=image_path,
+            text="top candidate",
+            metadata={"preprocess_mode": "scan"},
+        ),
+        ocr_pipeline.OCRCandidate(
+            score=250.0,
+            ocr_input_path=image_path,
+            text="second candidate",
+            metadata={"preprocess_mode": "scan-local-threshold"},
+        ),
+        ocr_pipeline.OCRCandidate(
+            score=200.0,
+            ocr_input_path=image_path,
+            text="ignored candidate",
+            metadata={"preprocess_mode": "none"},
+        ),
+    ]
+    options = ocr_pipeline.OCRRunOptions(
+        core=ocr_pipeline.OCRCoreOptions(
+            inverse_render_rerank=True,
+            inverse_render_top_k=2,
+            apply_cleanup=False,
+        ),
+        preprocess_mode="auto",
+    )
+    seen_texts: list[str] = []
+
+    monkeypatch.setattr(
+        ocr_pipeline,
+        "_normalize_scan_for_inverse_render",
+        lambda _path: (Image.new("L", (20, 20), color=255), (0, 0, 20, 20)),
+    )
+
+    def _fake_inverse_render_score(_observed, _bbox, text):  # noqa: ANN001, ANN202
+        seen_texts.append(text)
+        scores = {
+            "top candidate": 0.3,
+            "second candidate": 0.4,
+            "ignored candidate": 1.0,
+        }
+        score = scores[text]
+        return score, {"inverse_render_score": score}
+
+    monkeypatch.setattr(ocr_pipeline, "_inverse_render_score_candidate", _fake_inverse_render_score)
+
+    selected = ocr_pipeline._maybe_inverse_render_rerank(image_path, candidates, options)
+
+    assert selected is not None
+    assert selected.text == "second candidate"
+    assert seen_texts == ["top candidate", "second candidate"]
+
+
+def test_maybe_auto_inverse_render_tiebreak_filters_candidates_before_reranking(tmp_path, monkeypatch) -> None:
+    image_path = tmp_path / "page.png"
+    image_path.write_bytes(b"image")
+    candidates = [
+        ocr_pipeline.OCRCandidate(
+            score=600.0,
+            ocr_input_path=image_path,
+            text="scan best",
+            metadata={"preprocess_mode": "scan"},
+        ),
+        ocr_pipeline.OCRCandidate(
+            score=560.0,
+            ocr_input_path=image_path,
+            text="threshold close",
+            metadata={"preprocess_mode": "scan-local-threshold"},
+        ),
+        ocr_pipeline.OCRCandidate(
+            score=540.0,
+            ocr_input_path=image_path,
+            text="basic disallowed",
+            metadata={"preprocess_mode": "basic"},
+        ),
+        ocr_pipeline.OCRCandidate(
+            score=400.0,
+            ocr_input_path=image_path,
+            text="too far behind",
+            metadata={"preprocess_mode": "scan"},
+        ),
+    ]
+    options = ocr_pipeline.OCRRunOptions(
+        core=ocr_pipeline.OCRCoreOptions(),
+        preprocess_mode="auto",
+    )
+    captured: dict[str, object] = {}
+    sentinel = ocr_pipeline.OCRCandidate(
+        score=560.0,
+        ocr_input_path=image_path,
+        text="threshold close",
+        metadata={},
+    )
+
+    def _fake_rerank(_image_path, rerank_candidates, rerank_options):  # noqa: ANN001, ANN202
+        captured["texts"] = [candidate.text for candidate in rerank_candidates]
+        captured["top_k"] = rerank_options.core.inverse_render_top_k
+        captured["rerank_enabled"] = rerank_options.core.inverse_render_rerank
+        return sentinel
+
+    monkeypatch.setattr(ocr_pipeline, "_maybe_inverse_render_rerank", _fake_rerank)
+
+    selected = ocr_pipeline._maybe_auto_inverse_render_tiebreak(image_path, candidates, options)
+
+    assert selected is sentinel
+    assert captured["texts"] == ["scan best", "threshold close"]
+    assert captured["top_k"] == 2
+    assert captured["rerank_enabled"] is True
+
+
 def test_ocr_page_images_verify_cleanup_spans_keeps_image_backed_short_fix(
     monkeypatch,
     tmp_path,
@@ -1701,6 +1816,47 @@ def test_inverse_render_score_prefers_matching_text(monkeypatch, tmp_path) -> No
     )
 
     assert matching_score > mismatched_score
+
+
+def test_inverse_render_score_candidate_keeps_best_render_metadata(monkeypatch) -> None:
+    observed_binary = Image.new("L", (20, 20), color=255)
+    bbox = (0, 0, 20, 20)
+    render_calls: list[tuple[str | None, int, int, int, float]] = []
+
+    monkeypatch.setattr(ocr_pipeline, "_inverse_render_font_paths", lambda: ("font-a", "font-b"))
+    monkeypatch.setattr(ocr_pipeline, "_estimate_inverse_render_font_size", lambda _bbox, _lines: 12)
+
+    def _fake_render(
+        _text,
+        _canvas_size,
+        _bbox,
+        *,
+        font_path,
+        font_size,
+        offset_x,
+        offset_y,
+        rotation,
+    ):  # noqa: ANN001, ANN202
+        payload = (font_path, font_size, offset_x, offset_y, rotation)
+        render_calls.append(payload)
+        return payload
+
+    def _fake_iou(_observed_binary, rendered_payload):  # noqa: ANN001, ANN202
+        return 1.0 if rendered_payload == ("font-b", 14, 4, 0, 0.5) else 0.2
+
+    monkeypatch.setattr(ocr_pipeline, "_render_inverse_text_image", _fake_render)
+    monkeypatch.setattr(ocr_pipeline, "_binary_ink_iou", _fake_iou)
+
+    score, metadata = ocr_pipeline._inverse_render_score_candidate(observed_binary, bbox, "Example text")
+
+    assert score == 1.0
+    assert metadata["inverse_render_font_path"] == "font-b"
+    assert metadata["inverse_render_font_size"] == 14
+    assert metadata["inverse_render_offset_x"] == 4
+    assert metadata["inverse_render_offset_y"] == 0
+    assert metadata["inverse_render_rotation"] == 0.5
+    assert ("font-a", 10, -4, -4, -0.5) in render_calls
+    assert ("font-b", 14, 4, 0, 0.5) in render_calls
 
 
 def test_binary_ink_iou_treats_only_black_pixels_as_ink() -> None:
