@@ -44,7 +44,7 @@ full-auto-de-pdf build-benchmark-corpus \
   --artifact-profile clean \
   --artifact-profile scan-light \
   --artifact-profile scan-moderate \
-  --artifact-profile scan-extreme \
+  --artifact-profile scan-photocopy \
   --artifact-seed 7
 
 # Run the local OCR pipeline against the generated corpus
@@ -189,6 +189,7 @@ full-auto-de-pdf eval-epub \
 - `benchmark-corpus` runs the local OCR pipeline against that generated corpus so printed-text accuracy can be measured end to end inside the repo.
 - `benchmark-streaming-corpus` now lets you stream many more synthetic samples without keeping a huge corpus on disk: it generates one sample at a time, OCRs it immediately, records aggregate failure-pattern summaries, and only persists compact artifacts for failing cases.
 - Benchmark reports now include per-profile rollups plus worst-case item summaries, which makes it easier to see when average accuracy saturates on easier slices while harder variants still move.
+- Current calibration suggests `scan-photocopy` is the most useful new harder routine profile, while `scan-extreme` behaves more like an opt-in stress/torture profile than a well-calibrated everyday benchmark rung.
 - `benchmark-corpus` and `benchmark-streaming-corpus` now also report unexpected alphabetic token summaries, which makes confusable-word regressions like `see -> sec` or `seem -> scem` much easier to spot even when aggregate CER/WER only moves slightly.
 - `build-image-text-corpus` can turn a local page-image + transcript directory pair into a `benchmark-corpus` manifest, which makes image-based external corpora easier to evaluate with the existing OCR pipeline.
 - `benchmark-parallel-text` can score aligned OCR/proofread TSV corpora such as the Gutenberg-HathiTrust sentence-pair downloads without manual sampling.

@@ -393,7 +393,7 @@ def _apply_scan_artifacts(page_image: Any, artifact_profile: str, seed: int) -> 
         )
         bleed = bleed.point(lambda value: 255 if value > 245 else min(255, value + 55))
         processed = ImageChops.multiply(processed, bleed)
-    if intensity >= 4:
+    if artifact_profile == "scan-extreme":
         processed = ImageChops.multiply(processed, _edge_shadow_mask((width, height), rng, intensity))
         processed = ImageChops.lighter(processed, _speckle_mask((width, height), rng, intensity))
         processed = processed.filter(ImageFilter.GaussianBlur(radius=0.4))
