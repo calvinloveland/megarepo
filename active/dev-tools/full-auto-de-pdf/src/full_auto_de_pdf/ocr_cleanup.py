@@ -126,6 +126,21 @@ _KNOWN_WORD_CORRECTIONS: dict[str, str] = {
     "forchcad": "forehead",
     # Proper noun c↔e confusions (character names that OCR always misreads)
     "renficld": "renfield",
+    "godaiming": "godalming",
+    # High-confidence one-off OCR nonwords found while auditing Dracula
+    "ile": "he",
+    "sca": "sea",
+    "shonld": "should",
+    "sucg": "such",
+    "steet": "steel",
+    "supersteetion": "superstition",
+}
+_KNOWN_TEXT_CORRECTIONS: dict[str, str] = {
+    "feel in%of suspense": "feeling of suspense",
+    "%he answers to the first": "She answers to the first",
+    "%he Count, if you remember": "The Count, if you remember",
+    "no thin%',dsave": "nothing, save",
+    "W%th a stately gravity": "With a stately gravity",
 }
 # Short (2-3 char) OCR tokens that are provably not real English words.
 # _apply_direct_word_corrections uses _CONTEXT_TOKEN (4+ chars) and cannot reach these.
@@ -143,6 +158,31 @@ _KNOWN_SYMBOLIC_TOKEN_CORRECTIONS: dict[str, str] = {
     "j)ulling": "pulling",
     "lau{éh": "laugh",
     "ba%": "bag",
+    "al}ifht": "alight",
+    "ja%ged": "jagged",
+    "enou%h": "enough",
+    "travcllin%": "travelling",
+    "quickenin%": "quickening",
+    "gettin%": "getting",
+    "%et": "get",
+    "%ut": "but",
+    "%or": "for",
+    "%y": "by",
+    "%ying": "flying",
+    "%amplight": "lamplight",
+    "com%orting": "comforting",
+    "do%s": "dogs",
+    "oran'%e": "orange",
+    "wit%": "with",
+    "wit%l": "with",
+    "t%at": "that",
+    "t%cy": "they",
+    "t%c": "the",
+    "w%th": "with",
+    "ke%t": "kept",
+    "{am": "I am",
+    "{felt": "I felt",
+    "\\we": "We",
 }
 _SHORT_WORD_PATTERN = re.compile(
     r"\b(" + "|".join(re.escape(k) for k in sorted(_KNOWN_SHORT_WORD_CORRECTIONS, key=len, reverse=True)) + r")\b",
@@ -416,6 +456,12 @@ def _apply_symbolic_token_corrections(text: str) -> str:
     if not replacements:
         return text
     return _apply_replacements(text, replacements)
+
+
+def _apply_known_text_corrections(text: str) -> str:
+    for source, target in _KNOWN_TEXT_CORRECTIONS.items():
+        text = text.replace(source, target)
+    return text
 
 
 def _strip_stray_pipe_markers(text: str) -> str:
@@ -1367,6 +1413,7 @@ def cleanup_ocr_text(text: str, lexicon_texts: tuple[str, ...] = ()) -> str:
     cleaned = "\n".join(cleaned_lines)
     cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
     cleaned = re.sub(r"[ \t]+", " ", cleaned)
+    cleaned = _apply_known_text_corrections(cleaned)
     cleaned = _strip_stray_pipe_markers(cleaned)
     cleaned = _apply_symbolic_token_corrections(cleaned)
     split_lexicon_words = _build_cleanup_lexicon(cleaned, lexicon_texts)

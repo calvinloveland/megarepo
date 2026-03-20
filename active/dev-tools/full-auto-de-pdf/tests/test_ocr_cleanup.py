@@ -198,12 +198,38 @@ def test_cleanup_ocr_text_repairs_symbol_polluted_tokens() -> None:
         "})ust then a heavy cloud passed across the face of the moon.\n"
         "The driver was in the act of J)ulling up the horses.\n"
         "She answered with a low lau{éh, and pointed to the ba% on the floor. | |\n"
+        "He held out his hand to assist me to al}ifht.\n"
+        "The horizon seems ja%ged, and you may have enou%h of sucg matters.\n"
+        "An attack of gout forbids absolutely any travcllin% on my part.\n"
+        "I dreaded lest she should %et some deadly chill, %ut all the time the roses faded.\n"
+        "His face was convulsed wit% fear, and made t%at all right because t%cy agreed.\n"
+        "The warm grey of quickenin% sky showed I was gettin% too diffuse.\n"
+        "I see you have been com%orting him while the lintels %ying dust blinded us.\n"
+        "W%th a stately gravity he ke%t watch by the %amplight beside oran'%e trees and the do%s.\n"
+        "{am thinking still, and {felt a little strangely. \\We must act soon.\n"
+        "What it 1s now, bring 1t to the sca and let Ile speak.\n"
+        "I waited with a sick feel in%of suspense, and %he answers to the first. %he Count, if you remember.\n"
+        "Though I could say no thin%',dsave accept it, Godaiming knew the steet vice and the supersteetion.\n"
     )
     cleaned = cleanup_ocr_text(source)
     assert cleaned.startswith("of terror encompassed")
     assert "Just then a heavy cloud passed across the face of the moon." in cleaned
     assert "the act of pulling up the horses." in cleaned
     assert "a low laugh, and pointed to the bag on the floor." in cleaned
+    assert "assist me to alight." in cleaned
+    assert "The horizon seems jagged, and you may have enough of such matters." in cleaned
+    assert "any travelling on my part." in cleaned
+    assert "should get some deadly chill, but all the time" in cleaned
+    assert "convulsed with fear, and made that all right because they agreed." in cleaned
+    assert "The warm grey of quickening sky showed I was getting too diffuse." in cleaned
+    assert "I see you have been comforting him while the lintels flying dust blinded us." in cleaned
+    assert "With a stately gravity he kept watch by the lamplight beside orange trees and the dogs." in cleaned
+    assert "I am thinking still, and I felt a little strangely. We must act soon." in cleaned
+    assert "to the sea and let He speak." in cleaned
+    assert "I waited with a sick feeling of suspense, and" in cleaned
+    assert "She answers to the first." in cleaned
+    assert "The Count, if you remember." in cleaned
+    assert "Though I could say nothing, save accept it, Godalming knew the steel vice and the superstition." in cleaned
     assert "| |" not in cleaned
 
 
