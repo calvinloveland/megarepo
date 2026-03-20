@@ -192,6 +192,21 @@ def test_cleanup_ocr_text_restores_isolated_bracket_pronoun_i() -> None:
     assert "[All rights reserved.]" in cleaned
 
 
+def test_cleanup_ocr_text_repairs_symbol_polluted_tokens() -> None:
+    source = (
+        "| of terror encompassed them on every side.\n"
+        "})ust then a heavy cloud passed across the face of the moon.\n"
+        "The driver was in the act of J)ulling up the horses.\n"
+        "She answered with a low lau{éh, and pointed to the ba% on the floor. | |\n"
+    )
+    cleaned = cleanup_ocr_text(source)
+    assert cleaned.startswith("of terror encompassed")
+    assert "Just then a heavy cloud passed across the face of the moon." in cleaned
+    assert "the act of pulling up the horses." in cleaned
+    assert "a low laugh, and pointed to the bag on the floor." in cleaned
+    assert "| |" not in cleaned
+
+
 def test_cleanup_ocr_text_contextually_corrects_sec_to_see() -> None:
     lines = ["I can see the road ahead." for _ in range(12)]
     lines.extend(["They did not see the harbor lights." for _ in range(12)])

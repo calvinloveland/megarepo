@@ -136,10 +136,19 @@ _KNOWN_SHORT_WORD_CORRECTIONS: dict[str, str] = {
     "sct": "set",
     "onc": "one",
 }
+_KNOWN_SYMBOLIC_TOKEN_CORRECTIONS: dict[str, str] = {
+    # Curated fixes for symbol-polluted OCR tokens that are not valid words and
+    # fall outside the normal letter-only correction passes.
+    "})ust": "Just",
+    "j)ulling": "pulling",
+    "lau{éh": "laugh",
+    "ba%": "bag",
+}
 _SHORT_WORD_PATTERN = re.compile(
     r"\b(" + "|".join(re.escape(k) for k in sorted(_KNOWN_SHORT_WORD_CORRECTIONS, key=len, reverse=True)) + r")\b",
     flags=re.IGNORECASE,
 )
+_SYMBOLIC_TOKEN_PATTERN = re.compile(r"\S*[%{}\[\]<>|\\/@#$^*_~`()]+\S*")
 _CONFUSABLE_SUBSTITUTIONS = (
     ("i", "l"),
     ("l", "i"),
@@ -381,6 +390,40 @@ def _apply_short_word_corrections(text: str) -> str:
         return _match_case(src, tgt)
 
     return _SHORT_WORD_PATTERN.sub(_replace, text)
+
+
+def _apply_symbolic_token_corrections(text: str) -> str:
+    """Fix exact non-word OCR tokens that contain stray symbols."""
+
+    replacements: list[tuple[int, int, str]] = []
+    trailing_punctuation = "\"'”’.,;:!?"
+    leading_quotes = "\"'“‘"
+    for match in _SYMBOLIC_TOKEN_PATTERN.finditer(text):
+        token = match.group(0)
+        core = token
+        leading = ""
+        trailing = ""
+        while core and core[0] in leading_quotes:
+            leading += core[0]
+            core = core[1:]
+        while core and core[-1] in trailing_punctuation:
+            trailing = core[-1] + trailing
+            core = core[:-1]
+        replacement = _KNOWN_SYMBOLIC_TOKEN_CORRECTIONS.get(core.lower())
+        if replacement is None:
+            continue
+        replacements.append((match.start(), match.end(), leading + replacement + trailing))
+    if not replacements:
+        return text
+    return _apply_replacements(text, replacements)
+
+
+def _strip_stray_pipe_markers(text: str) -> str:
+    """Remove obvious leading/trailing pipe artifacts left by OCR."""
+
+    cleaned = re.sub(r"(?m)^(?:\|\s+)+(?=[a-z])", "", text)
+    cleaned = re.sub(r"(?m)\s+(?:\|\s*){1,}$", "", cleaned)
+    return cleaned
 
 
 def _extract_word_counts(text: str) -> Counter[str]:
@@ -1324,6 +1367,8 @@ def cleanup_ocr_text(text: str, lexicon_texts: tuple[str, ...] = ()) -> str:
     cleaned = "\n".join(cleaned_lines)
     cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
     cleaned = re.sub(r"[ \t]+", " ", cleaned)
+    cleaned = _strip_stray_pipe_markers(cleaned)
+    cleaned = _apply_symbolic_token_corrections(cleaned)
     split_lexicon_words = _build_cleanup_lexicon(cleaned, lexicon_texts)
     external_lexicon_words = _build_external_cleanup_lexicon(lexicon_texts)
     join_corrections = _infer_join_word_corrections(
