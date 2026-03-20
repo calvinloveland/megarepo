@@ -24,6 +24,7 @@ from . import benchmark as benchmark_module
 from .image_validation import validate_raster_image
 from .ocr_cleanup import cleanup_ocr_text
 from .pillow_compat import Image, ImageChops, ImageDraw, ImageFilter, ImageFont, ImageOps
+from .rust_accel import get_rust_inverse_render_accel
 
 _VALID_PREPROCESS_MODES = (
     "none",
@@ -1266,9 +1267,7 @@ def _render_inverse_text_image(
             y += line_height
     if abs(rotation) < 1e-9:
         return canvas
-    resampling_namespace = getattr(Image, "Resampling", Image)
-    bicubic = getattr(resampling_namespace, "BICUBIC")
-    return canvas.rotate(rotation, resample=bicubic, fillcolor=255)
+    return canvas.rotate(rotation, resample=_inverse_render_bicubic_resample(), fillcolor=255)
 
 
 def _binary_ink_iou(observed_binary: Any, rendered_binary: Any) -> float:
@@ -1292,6 +1291,48 @@ def _binary_ink_iou(observed_binary: Any, rendered_binary: Any) -> float:
         return 0.0
     overlap = ImageChops.lighter(observed_binary, rendered_binary).histogram()[0]
     return float(overlap) / float(union)
+
+
+def _inverse_render_bicubic_resample() -> Any:
+    if Image is None:
+        raise RuntimeError(
+            "Missing dependency for inverse-render reranking: pillow. "
+            "Install with `pip install pillow` or disable inverse-render reranking."
+        )
+    resampling_namespace = getattr(Image, "Resampling", Image)
+    return getattr(resampling_namespace, "BICUBIC")
+
+
+def _rotate_inverse_render_image(rendered_binary: Any, rotation: float) -> Any:
+    if abs(rotation) < 1e-9:
+        return rendered_binary
+    return rendered_binary.rotate(rotation, resample=_inverse_render_bicubic_resample(), fillcolor=255)
+
+
+def _best_inverse_render_rendered_batch(
+    observed_binary: Any,
+    rendered_candidates: list[Any],
+    *,
+    observed_bytes: bytes | None = None,
+) -> tuple[int, float]:
+    if not rendered_candidates:
+        raise ValueError("rendered_candidates must not be empty")
+    rust_accel = get_rust_inverse_render_accel()
+    if rust_accel is not None:
+        image_bytes = observed_bytes if observed_bytes is not None else observed_binary.tobytes()
+        best_index, best_score = rust_accel.best_iou_score(
+            image_bytes,
+            [rendered_candidate.tobytes() for rendered_candidate in rendered_candidates],
+        )
+        return best_index, best_score
+    best_index = 0
+    best_score = -1.0
+    for index, rendered_candidate in enumerate(rendered_candidates):
+        score = _binary_ink_iou(observed_binary, rendered_candidate)
+        if score > best_score:
+            best_index = index
+            best_score = score
+    return best_index, best_score
 
 
 def _inverse_render_score_candidate(
@@ -1319,35 +1360,51 @@ def _inverse_render_score_candidate(
         "inverse_render_score": -1.0,
         "inverse_render_bbox": list(bbox),
     }
+    observed_region_bytes = observed_region.tobytes() if get_rust_inverse_render_accel() is not None else None
+    rendered_candidates: list[Any] = []
+    rendered_metadata: list[dict[str, object]] = []
     for font_path in render_fonts:
         for adjustment in _INVERSE_RENDER_SIZE_ADJUSTMENTS:
             font_size = max(10, base_font_size + adjustment)
             for offset_x in _INVERSE_RENDER_OFFSETS:
                 for offset_y in _INVERSE_RENDER_OFFSETS:
-                    for rotation in _INVERSE_RENDER_ROTATIONS:
-                        rendered = _render_inverse_text_image(
-                            text,
-                            observed_region.size,
-                            local_bbox,
-                            font_path=font_path,
-                            font_size=font_size,
-                            offset_x=offset_x,
-                            offset_y=offset_y,
-                            rotation=rotation,
-                        )
-                        score = _binary_ink_iou(observed_region, rendered)
-                        if score <= best_score:
-                            continue
-                        best_score = score
-                        best_metadata = {
-                            "inverse_render_score": score,
-                            "inverse_render_bbox": list(bbox),
-                            "inverse_render_font_path": font_path,
-                            "inverse_render_font_size": font_size,
-                            "inverse_render_offset_x": offset_x,
-                            "inverse_render_offset_y": offset_y,
-                            "inverse_render_rotation": rotation,
-                        }
+                    base_rendered = _render_inverse_text_image(
+                        text,
+                        observed_region.size,
+                        local_bbox,
+                        font_path=font_path,
+                        font_size=font_size,
+                        offset_x=offset_x,
+                        offset_y=offset_y,
+                        rotation=0.0,
+                    )
+                    rendered_candidates.extend(
+                        [
+                            base_rendered if abs(rotation) < 1e-9 else _rotate_inverse_render_image(base_rendered, rotation)
+                            for rotation in _INVERSE_RENDER_ROTATIONS
+                        ]
+                    )
+                    rendered_metadata.extend(
+                        [
+                            {
+                                "inverse_render_score": -1.0,
+                                "inverse_render_bbox": list(bbox),
+                                "inverse_render_font_path": font_path,
+                                "inverse_render_font_size": font_size,
+                                "inverse_render_offset_x": offset_x,
+                                "inverse_render_offset_y": offset_y,
+                                "inverse_render_rotation": rotation,
+                            }
+                            for rotation in _INVERSE_RENDER_ROTATIONS
+                        ]
+                    )
+    best_index, best_score = _best_inverse_render_rendered_batch(
+        observed_region,
+        rendered_candidates,
+        observed_bytes=observed_region_bytes,
+    )
+    best_metadata = dict(rendered_metadata[best_index])
+    best_metadata["inverse_render_score"] = best_score
     return best_score, best_metadata
 
 

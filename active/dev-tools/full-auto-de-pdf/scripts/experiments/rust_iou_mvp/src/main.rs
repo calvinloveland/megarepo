@@ -3,6 +3,8 @@ use std::error::Error;
 use std::io::{self, Read};
 use std::time::Instant;
 
+use rust_iou_mvp::{binary_ink_iou, score_compare_candidates};
+
 struct ComparePayload<'a> {
     observed: &'a [u8],
     candidates: Vec<&'a [u8]>,
@@ -97,39 +99,6 @@ fn parse_rotate_payload(buffer: &[u8]) -> Result<RotatePayload<'_>, Box<dyn Erro
     })
 }
 
-fn binary_ink_iou(observed: &[u8], rendered: &[u8]) -> f64 {
-    let mut overlap: u64 = 0;
-    let mut union: u64 = 0;
-    for (observed_pixel, rendered_pixel) in observed.iter().zip(rendered.iter()) {
-        let observed_ink = *observed_pixel == 0;
-        let rendered_ink = *rendered_pixel == 0;
-        if observed_ink || rendered_ink {
-            union += 1;
-            if observed_ink && rendered_ink {
-                overlap += 1;
-            }
-        }
-    }
-    if union == 0 {
-        0.0
-    } else {
-        overlap as f64 / union as f64
-    }
-}
-
-fn score_compare_candidates(payload: &ComparePayload<'_>) -> (usize, f64) {
-    let mut best_index = 0usize;
-    let mut best_score = -1.0f64;
-    for (index, candidate) in payload.candidates.iter().enumerate() {
-        let score = binary_ink_iou(payload.observed, candidate);
-        if score > best_score {
-            best_index = index;
-            best_score = score;
-        }
-    }
-    (best_index, best_score)
-}
-
 fn rotate_image_into(
     input: &[u8],
     output: &mut [u8],
@@ -215,7 +184,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         Mode::Compare => {
             let payload = parse_compare_payload(&buffer)?;
             for _ in 0..repeats {
-                (best_index, best_score) = score_compare_candidates(&payload);
+                (best_index, best_score) = score_compare_candidates(payload.observed, &payload.candidates);
             }
         }
         Mode::RotateCompare => {
@@ -251,7 +220,7 @@ mod tests {
             2, 0, 0, 0, 2, 0, 0, 0, 4, 0, 0, 0, 2, 0, 0, 0, 0, 255, 0, 255, 0, 255, 255, 255, 0, 255, 0, 255,
         ];
         let payload = parse_compare_payload(&payload_bytes).expect("payload should parse");
-        let (best_index, best_score) = score_compare_candidates(&payload);
+        let (best_index, best_score) = score_compare_candidates(payload.observed, &payload.candidates);
         assert_eq!(best_index, 1);
         assert!((best_score - 1.0).abs() < 1e-12);
     }

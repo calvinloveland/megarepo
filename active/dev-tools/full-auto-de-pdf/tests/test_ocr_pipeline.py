@@ -1863,6 +1863,7 @@ def test_inverse_render_score_candidate_keeps_best_render_metadata(monkeypatch) 
     observed_binary = Image.new("L", (20, 20), color=255)
     bbox = (0, 0, 20, 20)
     render_calls: list[tuple[str | None, int, int, int, float]] = []
+    rotation_calls: list[float] = []
 
     monkeypatch.setattr(ocr_pipeline, "_inverse_render_font_paths", lambda: ("font-a", "font-b"))
     monkeypatch.setattr(ocr_pipeline, "_estimate_inverse_render_font_size", lambda _bbox, _lines: 12)
@@ -1882,11 +1883,23 @@ def test_inverse_render_score_candidate_keeps_best_render_metadata(monkeypatch) 
         render_calls.append(payload)
         return payload
 
-    def _fake_iou(_observed_binary, rendered_payload):  # noqa: ANN001, ANN202
-        return 1.0 if rendered_payload == ("font-b", 14, 4, 0, 0.5) else 0.2
+    def _fake_rotate(rendered_payload, rotation):  # noqa: ANN001, ANN202
+        rotation_calls.append(rotation)
+        return (*rendered_payload[:-1], rotation)
+
+    def _fake_best_batch(_observed_binary, rendered_candidates, **_kwargs):  # noqa: ANN001, ANN202
+        best_index = 0
+        best_score = -1.0
+        for index, candidate in enumerate(rendered_candidates):
+            score = 1.0 if candidate == ("font-b", 14, 4, 0, 0.5) else 0.2
+            if score > best_score:
+                best_index = index
+                best_score = score
+        return best_index, best_score
 
     monkeypatch.setattr(ocr_pipeline, "_render_inverse_text_image", _fake_render)
-    monkeypatch.setattr(ocr_pipeline, "_binary_ink_iou", _fake_iou)
+    monkeypatch.setattr(ocr_pipeline, "_rotate_inverse_render_image", _fake_rotate)
+    monkeypatch.setattr(ocr_pipeline, "_best_inverse_render_rendered_batch", _fake_best_batch)
 
     score, metadata = ocr_pipeline._inverse_render_score_candidate(observed_binary, bbox, "Example text")
 
@@ -1896,8 +1909,10 @@ def test_inverse_render_score_candidate_keeps_best_render_metadata(monkeypatch) 
     assert metadata["inverse_render_offset_x"] == 4
     assert metadata["inverse_render_offset_y"] == 0
     assert metadata["inverse_render_rotation"] == 0.5
-    assert ("font-a", 10, -4, -4, -0.5) in render_calls
-    assert ("font-b", 14, 4, 0, 0.5) in render_calls
+    assert ("font-a", 10, -4, -4, 0.0) in render_calls
+    assert ("font-b", 14, 4, 0, 0.0) in render_calls
+    assert rotation_calls.count(-0.5) > 0
+    assert rotation_calls.count(0.5) > 0
 
 
 def test_inverse_render_score_candidate_uses_local_crop_region(monkeypatch) -> None:
@@ -1931,7 +1946,11 @@ def test_inverse_render_score_candidate_uses_local_crop_region(monkeypatch) -> N
         return Image.new("L", canvas_size, color=255)
 
     monkeypatch.setattr(ocr_pipeline, "_render_inverse_text_image", _fake_render)
-    monkeypatch.setattr(ocr_pipeline, "_binary_ink_iou", lambda _observed, _rendered: 0.5)
+    monkeypatch.setattr(
+        ocr_pipeline,
+        "_best_inverse_render_rendered_batch",
+        lambda _observed, _rendered_candidates, **_kwargs: (0, 0.5),
+    )
 
     score, metadata = ocr_pipeline._inverse_render_score_candidate(observed_binary, bbox, "Example text")
 
@@ -1951,6 +1970,78 @@ def test_inverse_render_score_candidate_uses_local_crop_region(monkeypatch) -> N
     assert score == 0.5
     assert metadata["inverse_render_bbox"] == list(bbox)
     assert render_args == [(expected_canvas, expected_local_bbox)]
+
+
+def test_best_inverse_render_rendered_batch_uses_rust_accel(monkeypatch) -> None:
+    observed = Image.new("L", (2, 2), color=255)
+    observed.putpixel((0, 0), 0)
+    rendered_candidates = [
+        Image.new("L", (2, 2), color=255),
+        Image.new("L", (2, 2), color=255),
+    ]
+    rendered_candidates[1].putpixel((0, 0), 0)
+
+    class _FakeRustAccel:
+        def best_iou_score(self, observed_bytes, candidates_bytes):  # noqa: ANN001
+            assert observed_bytes == observed.tobytes()
+            assert candidates_bytes == [candidate.tobytes() for candidate in rendered_candidates]
+            return 1, 0.75
+
+    monkeypatch.setattr(ocr_pipeline, "get_rust_inverse_render_accel", lambda: _FakeRustAccel())
+
+    best_index, best_score = ocr_pipeline._best_inverse_render_rendered_batch(observed, rendered_candidates)
+
+    assert best_index == 1
+    assert best_score == 0.75
+
+
+def test_inverse_render_score_candidate_renders_base_once_per_rotation_group(monkeypatch) -> None:
+    observed_binary = Image.new("L", (20, 20), color=255)
+    bbox = (0, 0, 20, 20)
+    render_calls: list[tuple[str | None, int, int, int, float]] = []
+    rotate_calls: list[float] = []
+
+    monkeypatch.setattr(ocr_pipeline, "_inverse_render_font_paths", lambda: ("font-a",))
+    monkeypatch.setattr(ocr_pipeline, "_estimate_inverse_render_font_size", lambda _bbox, _lines: 12)
+    monkeypatch.setattr(ocr_pipeline, "_INVERSE_RENDER_SIZE_ADJUSTMENTS", (0,))
+    monkeypatch.setattr(ocr_pipeline, "_INVERSE_RENDER_OFFSETS", (0,))
+    monkeypatch.setattr(ocr_pipeline, "_INVERSE_RENDER_ROTATIONS", (-0.5, 0.0, 0.5))
+
+    def _fake_render(
+        _text,
+        _canvas_size,
+        _bbox,
+        *,
+        font_path,
+        font_size,
+        offset_x,
+        offset_y,
+        rotation,
+    ):  # noqa: ANN001, ANN202
+        payload = (font_path, font_size, offset_x, offset_y, rotation)
+        render_calls.append(payload)
+        return payload
+
+    def _fake_rotate(rendered_payload, rotation):  # noqa: ANN001, ANN202
+        rotate_calls.append(rotation)
+        return (*rendered_payload[:-1], rotation)
+
+    monkeypatch.setattr(ocr_pipeline, "_render_inverse_text_image", _fake_render)
+    monkeypatch.setattr(ocr_pipeline, "_rotate_inverse_render_image", _fake_rotate)
+    monkeypatch.setattr(
+        ocr_pipeline,
+        "_best_inverse_render_rendered_batch",
+        lambda _observed, rendered_candidates, **_kwargs: (2, 0.9)
+        if rendered_candidates[2] == ("font-a", 12, 0, 0, 0.5)
+        else (0, 0.1),
+    )
+
+    score, metadata = ocr_pipeline._inverse_render_score_candidate(observed_binary, bbox, "Example text")
+
+    assert score == 0.9
+    assert metadata["inverse_render_rotation"] == 0.5
+    assert render_calls == [("font-a", 12, 0, 0, 0.0)]
+    assert rotate_calls == [-0.5, 0.5]
 
 
 def test_binary_ink_iou_treats_only_black_pixels_as_ink() -> None:
