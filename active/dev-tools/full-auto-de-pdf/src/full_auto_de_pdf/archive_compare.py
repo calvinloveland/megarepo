@@ -657,6 +657,7 @@ def build_archive_epub_compare_page(
     page_artifacts_dir: Path | None = None,
     inverse_render_rerank: bool = True,
     inverse_render_top_k: int = 3,
+    inverse_render_workers: int = 1,
     verify_cleanup_spans: bool = True,
     progress_callback: Callable[[dict[str, object]], None] | None = None,
 ) -> dict[str, Any]:
@@ -733,6 +734,7 @@ def build_archive_epub_compare_page(
             page_artifacts_dir=resolved_page_artifacts_dir,
             inverse_render_rerank=inverse_render_rerank,
             inverse_render_top_k=inverse_render_top_k,
+            inverse_render_workers=inverse_render_workers,
             verify_cleanup_spans=verify_cleanup_spans,
             progress_callback=progress_callback,
         )
@@ -752,6 +754,7 @@ def build_archive_epub_compare_page(
             "apply_cleanup": apply_cleanup,
             "inverse_render_rerank": inverse_render_rerank,
             "inverse_render_top_k": inverse_render_top_k,
+            "inverse_render_workers": inverse_render_workers,
             "verify_cleanup_spans": verify_cleanup_spans,
             "ocr_metrics": ocr_metrics,
             "page_artifacts_manifest_href": page_artifacts_manifest_href,

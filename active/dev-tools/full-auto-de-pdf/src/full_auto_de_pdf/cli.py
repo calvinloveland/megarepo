@@ -645,6 +645,12 @@ def _add_inverse_render_args(parser: argparse.ArgumentParser) -> None:
         default=3,
         help="Top text-scored OCR candidates to inverse-render per page",
     )
+    parser.add_argument(
+        "--inverse-render-workers",
+        type=int,
+        default=1,
+        help="Process workers for independent inverse-render score evaluations",
+    )
 
 
 def _add_cleanup_verifier_args(parser: argparse.ArgumentParser) -> None:
@@ -1272,6 +1278,12 @@ def _add_archive_epub_compare_page_command(
         help="Top text-scored OCR candidates to inverse-render per page",
     )
     parser.add_argument(
+        "--inverse-render-workers",
+        type=int,
+        default=1,
+        help="Process workers for independent inverse-render score evaluations",
+    )
+    parser.add_argument(
         "--no-verify-cleanup-spans",
         action="store_true",
         help="Disable image-verified cleanup checks for local OCR generation",
@@ -1440,6 +1452,7 @@ def _benchmark_ocr_kwargs_from_args(args: argparse.Namespace) -> dict[str, objec
         "emit_page_artifacts": not args.no_page_artifacts,
         "inverse_render_rerank": args.inverse_render_rerank,
         "inverse_render_top_k": args.inverse_render_top_k,
+        "inverse_render_workers": args.inverse_render_workers,
         "verify_cleanup_spans": args.verify_cleanup_spans,
     }
 
@@ -1494,6 +1507,7 @@ def _handle_ocr_pdf(args: argparse.Namespace) -> int:
         page_artifacts_dir=args.page_artifacts_dir,
         inverse_render_rerank=args.inverse_render_rerank,
         inverse_render_top_k=args.inverse_render_top_k,
+        inverse_render_workers=args.inverse_render_workers,
         verify_cleanup_spans=args.verify_cleanup_spans,
         progress_callback=progress_callback,
     )
@@ -1661,6 +1675,7 @@ def _handle_archive_epub_compare_page(args: argparse.Namespace) -> int:
         page_artifacts_dir=args.page_artifacts_dir,
         inverse_render_rerank=not args.no_inverse_render_rerank,
         inverse_render_top_k=args.inverse_render_top_k,
+        inverse_render_workers=args.inverse_render_workers,
         verify_cleanup_spans=not args.no_verify_cleanup_spans,
         progress_callback=progress_callback,
     )

@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+from concurrent.futures import ProcessPoolExecutor
 from collections import Counter
 from dataclasses import dataclass, replace
 from difflib import SequenceMatcher
@@ -138,6 +139,7 @@ class OCRCoreOptions:
     llm_max_word_delta_ratio: float = 0.2
     inverse_render_rerank: bool = False
     inverse_render_top_k: int = 3
+    inverse_render_workers: int = 1
     verify_cleanup_spans: bool = False
 
 
@@ -186,6 +188,13 @@ class _CleanupSpanChange:
     cleaned_token_count: int
     raw_token_start_index: int
     raw_token_end_index: int
+
+
+@dataclass(frozen=True)
+class _InverseRenderScoreRequest:
+    observed_binary: Any
+    bbox: tuple[int, int, int, int]
+    text: str
 
 
 @dataclass(frozen=True)
@@ -807,6 +816,7 @@ def _parse_ocr_options(kwargs: dict[str, Any]) -> OCRRunOptions:
         llm_max_word_delta_ratio=float(kwargs.pop("llm_max_word_delta_ratio", 0.2)),
         inverse_render_rerank=bool(kwargs.pop("inverse_render_rerank", False)),
         inverse_render_top_k=int(kwargs.pop("inverse_render_top_k", 3)),
+        inverse_render_workers=int(kwargs.pop("inverse_render_workers", 1)),
         verify_cleanup_spans=bool(kwargs.pop("verify_cleanup_spans", False)),
     )
     return OCRRunOptions(
@@ -862,6 +872,8 @@ def _validate_common_ocr_options(
         raise ValueError("deskew_angle_step must be greater than 0")
     if options.core.inverse_render_top_k <= 0:
         raise ValueError("inverse_render_top_k must be greater than 0")
+    if options.core.inverse_render_workers <= 0:
+        raise ValueError("inverse_render_workers must be greater than 0")
     if options.core.tesseract_psm != "auto":
         psm_value = int(options.core.tesseract_psm)
         if not 0 <= psm_value <= 13:
@@ -1339,6 +1351,38 @@ def _inverse_render_score_candidate(
     return best_score, best_metadata
 
 
+def _score_inverse_render_request(
+    request: _InverseRenderScoreRequest,
+) -> tuple[float, dict[str, object]]:
+    return _inverse_render_score_candidate(
+        request.observed_binary,
+        request.bbox,
+        request.text,
+    )
+
+
+def _inverse_render_score_many(
+    observed_binary: Any,
+    bbox: tuple[int, int, int, int],
+    texts: list[str],
+    *,
+    workers: int,
+) -> list[tuple[float, dict[str, object]]]:
+    if workers <= 1 or len(texts) <= 1:
+        return [_inverse_render_score_candidate(observed_binary, bbox, text) for text in texts]
+    requests = [
+        _InverseRenderScoreRequest(
+            observed_binary=observed_binary,
+            bbox=bbox,
+            text=text,
+        )
+        for text in texts
+    ]
+    worker_count = min(workers, len(requests))
+    with ProcessPoolExecutor(max_workers=worker_count) as executor:
+        return list(executor.map(_score_inverse_render_request, requests))
+
+
 def _render_inverse_text_from_metadata(
     text: str,
     canvas_size: tuple[int, int],
@@ -1395,9 +1439,17 @@ def _evaluate_cleanup_span_replacement(
     raw_text: str,
     cleaned_text: str,
     hint_bbox: tuple[int, int, int, int] | None = None,
+    *,
+    inverse_render_workers: int = 1,
 ) -> tuple[bool, dict[str, object]]:
-    raw_score, raw_metadata = _inverse_render_score_candidate(observed_binary, bbox, raw_text)
-    cleaned_score, _cleaned_metadata = _inverse_render_score_candidate(observed_binary, bbox, cleaned_text)
+    raw_score_payload, cleaned_score_payload = _inverse_render_score_many(
+        observed_binary,
+        bbox,
+        [raw_text, cleaned_text],
+        workers=inverse_render_workers,
+    )
+    raw_score, raw_metadata = raw_score_payload
+    cleaned_score, _cleaned_metadata = cleaned_score_payload
     raw_render = _render_inverse_text_from_metadata(raw_text, observed_binary.size, raw_metadata)
     cleaned_render = _render_inverse_text_from_metadata(cleaned_text, observed_binary.size, raw_metadata)
     if hint_bbox is None:
@@ -1503,6 +1555,7 @@ def _maybe_verify_cleanup_spans(
                 bbox,
                 raw_variant,
                 verified_text,
+                inverse_render_workers=options.core.inverse_render_workers,
             )
         else:
             keep_cleaned, decision = _evaluate_cleanup_span_replacement(
@@ -1511,6 +1564,7 @@ def _maybe_verify_cleanup_spans(
                 raw_variant,
                 verified_text,
                 hint_bbox=hint_bbox,
+                inverse_render_workers=options.core.inverse_render_workers,
             )
         decision.update(
             {
@@ -1582,9 +1636,9 @@ def _maybe_inverse_render_rerank(
     limit = min(len(ranked_candidates), options.core.inverse_render_top_k)
     rerank_subset = ranked_candidates[:limit]
     observed_binary, bbox = _normalize_scan_for_inverse_render(image_path)
-    best_candidate: OCRCandidate | None = None
-    best_score = -1.0
-    for candidate in rerank_subset:
+    candidate_variant_entries: list[tuple[int, OCRCandidate, str, str]] = []
+    variant_texts: list[str] = []
+    for candidate_index, candidate in enumerate(rerank_subset):
         candidate_variants = [(candidate.text, "raw")]
         if options.core.apply_cleanup:
             cleaned_variant = cleanup_ocr_text(
@@ -1593,29 +1647,46 @@ def _maybe_inverse_render_rerank(
             )
             if cleaned_variant and cleaned_variant != candidate.text:
                 candidate_variants.append((cleaned_variant, "cleaned"))
+        for variant_text, variant_label in candidate_variants:
+            candidate_variant_entries.append((candidate_index, candidate, variant_text, variant_label))
+            variant_texts.append(variant_text)
+    variant_scores = _inverse_render_score_many(
+        observed_binary,
+        bbox,
+        variant_texts,
+        workers=options.core.inverse_render_workers,
+    )
+    per_candidate_variants: list[list[tuple[OCRCandidate, float]]] = [[] for _ in rerank_subset]
+    for (candidate_index, candidate, variant_text, variant_label), (
+        inverse_render_score,
+        inverse_metadata,
+    ) in zip(candidate_variant_entries, variant_scores, strict=True):
+        variant_metadata = dict(candidate.metadata)
+        variant_metadata.update(inverse_metadata)
+        variant_metadata["inverse_render_text_variant"] = variant_label
+        per_candidate_variants[candidate_index].append(
+            (
+                OCRCandidate(
+                    score=candidate.score,
+                    ocr_input_path=candidate.ocr_input_path,
+                    text=variant_text,
+                    metadata=variant_metadata,
+                ),
+                inverse_render_score,
+            )
+        )
+    best_candidate: OCRCandidate | None = None
+    best_score = -1.0
+    for candidate, candidate_variants in zip(rerank_subset, per_candidate_variants, strict=True):
         best_variant: OCRCandidate | None = None
         best_variant_score = -1.0
-        for variant_text, variant_label in candidate_variants:
-            inverse_render_score, inverse_metadata = _inverse_render_score_candidate(
-                observed_binary,
-                bbox,
-                variant_text,
-            )
-            variant_metadata = dict(candidate.metadata)
-            variant_metadata.update(inverse_metadata)
-            variant_metadata["inverse_render_text_variant"] = variant_label
-            variant_candidate = OCRCandidate(
-                score=candidate.score,
-                ocr_input_path=candidate.ocr_input_path,
-                text=variant_text,
-                metadata=variant_metadata,
-            )
+        for variant_candidate, inverse_render_score in candidate_variants:
             if (
                 best_variant is None
                 or inverse_render_score > best_variant_score
                 or (
                     math.isclose(inverse_render_score, best_variant_score)
-                    and variant_label == "cleaned"
+                    and variant_candidate.metadata.get("inverse_render_text_variant") == "cleaned"
                     and best_variant.text == candidate.text
                 )
             ):

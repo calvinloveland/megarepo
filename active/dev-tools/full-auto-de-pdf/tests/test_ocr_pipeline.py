@@ -959,6 +959,47 @@ def test_maybe_inverse_render_rerank_limits_scoring_to_top_k(monkeypatch, tmp_pa
     assert seen_texts == ["top candidate", "second candidate"]
 
 
+def test_inverse_render_score_many_uses_process_pool(monkeypatch) -> None:
+    observed_binary = Image.new("L", (10, 10), color=255)
+    seen: dict[str, object] = {}
+
+    class _FakeExecutor:
+        def __init__(self, max_workers: int) -> None:
+            seen["max_workers"] = max_workers
+
+        def __enter__(self):  # noqa: ANN204
+            return self
+
+        def __exit__(self, exc_type, exc, tb) -> bool:  # noqa: ANN001, ANN204
+            return False
+
+        def map(self, fn, requests):  # noqa: ANN001, ANN201
+            request_list = list(requests)
+            seen["texts"] = [request.text for request in request_list]
+            return [fn(request) for request in request_list]
+
+    monkeypatch.setattr(ocr_pipeline, "ProcessPoolExecutor", _FakeExecutor)
+    monkeypatch.setattr(
+        ocr_pipeline,
+        "_score_inverse_render_request",
+        lambda request: (float(len(request.text)), {"inverse_render_score": float(len(request.text))}),
+    )
+
+    scores = ocr_pipeline._inverse_render_score_many(
+        observed_binary,
+        (0, 0, 10, 10),
+        ["a", "bbbb"],
+        workers=4,
+    )
+
+    assert seen["max_workers"] == 2
+    assert seen["texts"] == ["a", "bbbb"]
+    assert scores == [
+        (1.0, {"inverse_render_score": 1.0}),
+        (4.0, {"inverse_render_score": 4.0}),
+    ]
+
+
 def test_maybe_auto_inverse_render_tiebreak_filters_candidates_before_reranking(tmp_path, monkeypatch) -> None:
     image_path = tmp_path / "page.png"
     image_path.write_bytes(b"image")
@@ -1045,7 +1086,7 @@ def test_ocr_page_images_verify_cleanup_spans_keeps_image_backed_short_fix(
     monkeypatch.setattr(
         ocr_pipeline,
         "_evaluate_cleanup_span_replacement",
-        lambda _observed, _bbox, raw_text, cleaned_text: (
+        lambda _observed, _bbox, raw_text, cleaned_text, **_kwargs: (
             True,
             {
                 "accepted": True,
@@ -1110,7 +1151,7 @@ def test_ocr_page_images_verify_cleanup_spans_reverts_unverified_rare_word_chang
     monkeypatch.setattr(
         ocr_pipeline,
         "_evaluate_cleanup_span_replacement",
-        lambda _observed, _bbox, raw_text, cleaned_text: (
+        lambda _observed, _bbox, raw_text, cleaned_text, **_kwargs: (
             False,
             {
                 "accepted": False,
@@ -1176,7 +1217,7 @@ def test_ocr_page_images_scan_mode_auto_enables_verify_cleanup_spans(
     monkeypatch.setattr(
         ocr_pipeline,
         "_evaluate_cleanup_span_replacement",
-        lambda _obs, _bbox, raw_text, _cleaned: (
+        lambda _obs, _bbox, raw_text, _cleaned, **_kwargs: (
             False,
             {
                 "accepted": False,
@@ -1246,7 +1287,7 @@ def test_ocr_page_images_verify_cleanup_spans_uses_hocr_bbox_hint(
         lambda text, lexicon_texts=(): "new text" if text == "raw text" else text,
     )
 
-    def _fake_evaluate(_obs, _bbox, _raw, _cleaned, hint_bbox=None):  # noqa: ANN001, ANN202
+    def _fake_evaluate(_obs, _bbox, _raw, _cleaned, hint_bbox=None, **_kwargs):  # noqa: ANN001, ANN202
         seen_hint["bbox"] = hint_bbox
         return False, {"accepted": False, "reason": "insufficient-image-margin"}
 

@@ -172,6 +172,7 @@ def test_benchmark_corpus_command_runs_pipeline(monkeypatch, tmp_path) -> None:
         assert kwargs["ocr_engine"] == "paddleocr"
         assert kwargs["inverse_render_rerank"] is True
         assert kwargs["inverse_render_top_k"] == 4
+        assert kwargs["inverse_render_workers"] == 2
         assert kwargs["verify_cleanup_spans"] is True
         return {
             "summary": {
@@ -199,6 +200,8 @@ def test_benchmark_corpus_command_runs_pipeline(monkeypatch, tmp_path) -> None:
             "--inverse-render-rerank",
             "--inverse-render-top-k",
             "4",
+            "--inverse-render-workers",
+            "2",
             "--verify-cleanup-spans",
         ]
     )
@@ -228,6 +231,7 @@ def test_benchmark_streaming_corpus_command_runs_pipeline(monkeypatch, tmp_path)
         assert kwargs["ocr_engine"] == "paddleocr"
         assert kwargs["inverse_render_rerank"] is True
         assert kwargs["inverse_render_top_k"] == 4
+        assert kwargs["inverse_render_workers"] == 2
         assert kwargs["verify_cleanup_spans"] is True
         return {
             "summary": {
@@ -271,6 +275,8 @@ def test_benchmark_streaming_corpus_command_runs_pipeline(monkeypatch, tmp_path)
             "--inverse-render-rerank",
             "--inverse-render-top-k",
             "4",
+            "--inverse-render-workers",
+            "2",
             "--verify-cleanup-spans",
         ]
     )
@@ -385,6 +391,7 @@ def test_ocr_pdf_command_runs_pipeline(monkeypatch, tmp_path) -> None:
         assert kwargs["ocr_engine"] == "paddleocr"
         assert kwargs["inverse_render_rerank"] is True
         assert kwargs["inverse_render_top_k"] == 5
+        assert kwargs["inverse_render_workers"] == 2
         assert kwargs["verify_cleanup_spans"] is True
         assert callable(kwargs["progress_callback"])
         return {"page_count": 3, "word_count": 120, "character_count": 600}
@@ -425,6 +432,8 @@ def test_ocr_pdf_command_runs_pipeline(monkeypatch, tmp_path) -> None:
             "--inverse-render-rerank",
             "--inverse-render-top-k",
             "5",
+            "--inverse-render-workers",
+            "2",
             "--verify-cleanup-spans",
         ]
     )
@@ -648,6 +657,7 @@ def test_archive_epub_compare_page_command_writes_html(monkeypatch, tmp_path) ->
         page_artifacts_dir,
         inverse_render_rerank,
         inverse_render_top_k,
+        inverse_render_workers,
         verify_cleanup_spans,
         progress_callback,
     ):
@@ -671,6 +681,7 @@ def test_archive_epub_compare_page_command_writes_html(monkeypatch, tmp_path) ->
         assert page_artifacts_dir is None
         assert inverse_render_rerank is True
         assert inverse_render_top_k == 3
+        assert inverse_render_workers == 2
         assert verify_cleanup_spans is True
         assert callable(progress_callback)
         output_html_path.write_text("<html></html>", encoding="utf-8")
@@ -694,6 +705,8 @@ def test_archive_epub_compare_page_command_writes_html(monkeypatch, tmp_path) ->
             "--run-epubcheck",
             "--pdf-page",
             "12",
+            "--inverse-render-workers",
+            "2",
         ]
     )
     assert rc == 0
