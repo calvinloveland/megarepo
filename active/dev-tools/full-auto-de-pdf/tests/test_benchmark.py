@@ -9,6 +9,7 @@ from full_auto_de_pdf.benchmark import (
     summarize_token_confusions,
     strip_gutenberg_boilerplate,
 )
+from full_auto_de_pdf.ocr_cleanup import cleanup_ocr_text
 
 
 def test_strip_gutenberg_boilerplate() -> None:
@@ -178,3 +179,42 @@ def test_run_parallel_text_benchmark_can_score_reference_lexicon_cleanup(tmp_pat
 
     assert "reference_lexicon_metrics" in report["summary"]
     assert report["summary"]["reference_lexicon_metrics"]["word_accuracy"] > report["summary"]["cleaned_metrics"]["word_accuracy"]
+
+
+def test_run_parallel_text_benchmark_catches_dracula_symbol_corruption(tmp_path) -> None:
+    reference = (
+        "The living ring of terror encompassed them on every side, and they had "
+        "perforce to remain within it. Just then a heavy cloud passed across the "
+        "face of the moon, so that we were again in darkness. The driver was in "
+        "the act of pulling up the horses in the courtyard of a vast ruined "
+        "castle. She answered with a low laugh, and pointed to the bag on the floor."
+    )
+    hypothesis = (
+        "| of terror encompassed them on every side, and they had perforce to "
+        "remain with in it. })ust then a heavy cloud passed across the face of the "
+        "moon, so that we were again in darkness. The driver was in the act of "
+        "J)ulling up the horses in the courtyard of a vast ruined castle. She "
+        "answered with a low lau{éh, and pointed to the ba% on the floor. | |"
+    )
+    corpus_path = tmp_path / "pairs.tsv"
+    corpus_path.write_text(
+        "domain\tgid\thid\tgsent\thsent\n"
+        f"Fiction\t345\tdracu00stok\t{reference}\t{hypothesis}\n",
+        encoding="utf-8",
+    )
+
+    report = run_parallel_text_benchmark(
+        corpus_path=corpus_path,
+        output_report_path=tmp_path / "report.json",
+    )
+    cleaned_hypothesis = cleanup_ocr_text(hypothesis)
+
+    assert "})ust" in hypothesis
+    assert "J)ulling" in hypothesis
+    assert "lau{éh" in hypothesis
+    assert "ba%" in hypothesis
+    assert "Just then a heavy cloud passed across the face of the moon" in cleaned_hypothesis
+    assert "the act of pulling up the horses" in cleaned_hypothesis
+    assert "a low laugh, and pointed to the bag on the floor." in cleaned_hypothesis
+    assert report["summary"]["cleaned_metrics"]["word_accuracy"] > report["summary"]["raw_metrics"]["word_accuracy"]
+    assert report["summary"]["cleaned_metrics"]["char_accuracy"] > report["summary"]["raw_metrics"]["char_accuracy"]
