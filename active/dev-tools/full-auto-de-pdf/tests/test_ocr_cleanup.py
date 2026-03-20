@@ -1,4 +1,9 @@
-from full_auto_de_pdf.ocr_cleanup import _apply_word_corrections, cleanup_ocr_text
+from full_auto_de_pdf.ocr_cleanup import (
+    _apply_word_corrections,
+    _match_phrase_case,
+    cleanup_ocr_text,
+    is_known_word_correction,
+)
 
 
 def test_cleanup_ocr_text_normalizes_ligatures_and_quotes() -> None:
@@ -336,6 +341,23 @@ def test_cleanup_ocr_text_corrects_confusable_builtin_word() -> None:
     source = "The worid turned quietly at dusk.\n"
     cleaned = cleanup_ocr_text(source)
     assert "world turned quietly" in cleaned.lower()
+
+
+def test_cleanup_ocr_text_corrects_illustration_builtin_word() -> None:
+    source = "Inlustration shows the figure.\n"
+    cleaned = cleanup_ocr_text(source)
+    assert "illustration shows the figure" in cleaned.lower()
+
+
+def test_match_phrase_case_treats_mostly_titlecase_ocr_glitches_as_titlecase() -> None:
+    assert _match_phrase_case("INlustration", "illustration") == "Illustration"
+    assert _match_phrase_case("PReface", "preface") == "Preface"
+    assert _match_phrase_case("McDONALD", "mcdonald") == "mcdonald"
+
+
+def test_is_known_word_correction_matches_single_token_replacements() -> None:
+    assert is_known_word_correction("[INlustration:", "[Illustration:") is True
+    assert is_known_word_correction("rareword", "rareward") is False
 
 
 def test_cleanup_ocr_text_joins_known_split_pairs() -> None:

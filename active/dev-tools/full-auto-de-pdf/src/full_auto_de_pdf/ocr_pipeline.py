@@ -22,7 +22,7 @@ from typing import Any, Callable
 
 from . import benchmark as benchmark_module
 from .image_validation import validate_raster_image
-from .ocr_cleanup import cleanup_ocr_text
+from .ocr_cleanup import cleanup_ocr_text, is_known_word_correction
 from .pillow_compat import Image, ImageChops, ImageDraw, ImageFilter, ImageFont, ImageOps
 from .rust_accel import get_rust_inverse_render_accel
 
@@ -1635,6 +1635,14 @@ def _maybe_verify_cleanup_spans(
             decision["hocr_hint_bbox"] = list(hint_bbox)
         decisions.append(decision)
         if keep_cleaned:
+            continue
+        if (
+            decision.get("reason") == "insufficient-image-margin"
+            and is_known_word_correction(change.raw_text, change.cleaned_text)
+        ):
+            decision["accepted"] = True
+            decision["reason"] = "accepted-known-word-correction"
+            decision["accepted_without_image_margin"] = True
             continue
         verified_text = raw_variant
         reverted_count += 1

@@ -655,10 +655,10 @@ def build_archive_epub_compare_page(
     apply_cleanup: bool = True,
     emit_page_artifacts: bool = True,
     page_artifacts_dir: Path | None = None,
-    inverse_render_rerank: bool = True,
+    inverse_render_rerank: bool = False,
     inverse_render_top_k: int = 3,
     inverse_render_workers: int = 1,
-    verify_cleanup_spans: bool = True,
+    verify_cleanup_spans: bool = False,
     progress_callback: Callable[[dict[str, object]], None] | None = None,
 ) -> dict[str, Any]:
     """Build a local HTML page comparing an archive.org EPUB with a generated EPUB."""

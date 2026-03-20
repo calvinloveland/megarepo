@@ -116,6 +116,7 @@ _KNOWN_WORD_CORRECTIONS: dict[str, str] = {
     "tecth": "teeth",
     "cffort": "effort",
     "cfforts": "efforts",
+    "inlustration": "illustration",
     "alrcady": "already",
     "nced": "need",
     "nceds": "needs",
@@ -223,6 +224,7 @@ _BUILTIN_LEXICON = {
     "his",
     "i",
     "in",
+    "illustration",
     "is",
     "it",
     "journal",
@@ -1187,6 +1189,15 @@ def _match_phrase_case(source: str, replacement: str) -> str:
         if not words:
             return replacement
         return " ".join([words[0].capitalize(), *words[1:]])
+    remainder = source[1:]
+    if source[:1].isupper() and any(char.islower() for char in remainder):
+        uppercase_count = sum(1 for char in remainder if char.isupper())
+        lowercase_count = sum(1 for char in remainder if char.islower())
+        if lowercase_count > uppercase_count:
+            words = replacement.split()
+            if not words:
+                return replacement
+            return " ".join([words[0].capitalize(), *words[1:]])
     return replacement
 
 
@@ -1205,6 +1216,16 @@ def _apply_direct_word_corrections(text: str, corrections: dict[str, str]) -> st
     if not replacements:
         return text
     return _apply_replacements(text, replacements)
+
+
+def is_known_word_correction(raw_text: str, cleaned_text: str) -> bool:
+    raw_tokens = _WORD_WITH_MARKS.findall(raw_text)
+    cleaned_tokens = _WORD_WITH_MARKS.findall(cleaned_text)
+    if len(raw_tokens) != 1 or len(cleaned_tokens) != 1:
+        return False
+    raw_token = raw_tokens[0].lower()
+    cleaned_token = cleaned_tokens[0].lower()
+    return _KNOWN_WORD_CORRECTIONS.get(raw_token) == cleaned_token
 
 
 def _collect_contextual_replacements(

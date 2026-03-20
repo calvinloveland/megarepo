@@ -1187,6 +1187,71 @@ def test_ocr_page_images_verify_cleanup_spans_reverts_unverified_rare_word_chang
     assert verifier["decisions"][0]["accepted"] is False
 
 
+def test_ocr_page_images_verify_cleanup_spans_keeps_known_word_correction_when_margin_is_insufficient(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    page_image = tmp_path / "page-1.png"
+    output_path = tmp_path / "out.txt"
+    work_dir = tmp_path / "work"
+    Image.new("L", (20, 20), color=255).save(page_image)
+
+    def _which(name: str) -> str | None:
+        if name == "tesseract":
+            return "/usr/bin/fake"
+        return None
+
+    def _run(command: list[str], capture_output: bool) -> str:
+        assert command[0] == "tesseract"
+        assert capture_output is True
+        return "[INlustration: 1894]"
+
+    monkeypatch.setattr(
+        ocr_pipeline,
+        "cleanup_ocr_text",
+        lambda text, lexicon_texts=(): (
+            "[Illustration: 1894]" if "INlustration" in text else text
+        ),
+    )
+    monkeypatch.setattr(
+        ocr_pipeline,
+        "_evaluate_cleanup_span_replacement",
+        lambda _observed, _bbox, raw_text, cleaned_text, **_kwargs: (
+            False,
+            {
+                "accepted": False,
+                "raw_inverse_render_score": 0.35,
+                "cleaned_inverse_render_score": 0.34,
+                "raw_local_inverse_render_score": 0.48,
+                "cleaned_local_inverse_render_score": 0.40,
+                "reason": "insufficient-image-margin",
+            },
+        )
+        if raw_text == "[INlustration: 1894]" and cleaned_text == "[Illustration: 1894]"
+        else (_ for _ in ()).throw(AssertionError("unexpected cleanup span comparison")),
+    )
+
+    metrics = ocr_page_images(
+        page_images=[page_image],
+        output_text_path=output_path,
+        work_dir=work_dir,
+        preprocess_mode="none",
+        tesseract_psm="6",
+        verify_cleanup_spans=True,
+        run_command=_run,
+        which=_which,
+    )
+
+    assert output_path.read_text(encoding="utf-8") == "[Illustration: 1894]"
+    manifest_payload = json.loads(Path(str(metrics["page_artifacts_manifest"])).read_text(encoding="utf-8"))
+    verifier = manifest_payload["pages"][0]["cleanup_span_verifier"]
+    assert verifier["changes_kept"] == 1
+    assert verifier["changes_reverted"] == 0
+    assert verifier["decisions"][0]["accepted"] is True
+    assert verifier["decisions"][0]["reason"] == "accepted-known-word-correction"
+    assert verifier["decisions"][0]["accepted_without_image_margin"] is True
+
+
 def test_ocr_page_images_scan_mode_auto_enables_verify_cleanup_spans(
     monkeypatch,
     tmp_path,

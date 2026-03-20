@@ -679,10 +679,10 @@ def test_archive_epub_compare_page_command_writes_html(monkeypatch, tmp_path) ->
         assert apply_cleanup is True
         assert emit_page_artifacts is True
         assert page_artifacts_dir is None
-        assert inverse_render_rerank is True
+        assert inverse_render_rerank is False
         assert inverse_render_top_k == 3
         assert inverse_render_workers == 2
-        assert verify_cleanup_spans is True
+        assert verify_cleanup_spans is False
         assert callable(progress_callback)
         output_html_path.write_text("<html></html>", encoding="utf-8")
         return {

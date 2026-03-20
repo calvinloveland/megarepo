@@ -53,10 +53,10 @@ def test_build_archive_epub_compare_page_writes_html(monkeypatch, tmp_path) -> N
             "ocr_engine": "tesseract",
             "emit_page_artifacts": True,
             "page_artifacts_dir": tmp_path / "compare_assets" / "page_ocr",
-            "inverse_render_rerank": True,
+            "inverse_render_rerank": False,
             "inverse_render_top_k": 3,
             "inverse_render_workers": 1,
-            "verify_cleanup_spans": True,
+            "verify_cleanup_spans": False,
             "progress_callback": None,
         }
         output_text_path.write_text(

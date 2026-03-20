@@ -1266,10 +1266,18 @@ def _add_archive_epub_compare_page_command(
         type=Path,
         help="Optional directory for local OCR page artifacts",
     )
+    parser.set_defaults(inverse_render_rerank=False, verify_cleanup_spans=False)
+    parser.add_argument(
+        "--inverse-render-rerank",
+        dest="inverse_render_rerank",
+        action="store_true",
+        help="Enable inverse-render reranking for local OCR generation",
+    )
     parser.add_argument(
         "--no-inverse-render-rerank",
-        action="store_true",
-        help="Disable inverse-render reranking for local OCR generation",
+        dest="inverse_render_rerank",
+        action="store_false",
+        help=argparse.SUPPRESS,
     )
     parser.add_argument(
         "--inverse-render-top-k",
@@ -1284,9 +1292,16 @@ def _add_archive_epub_compare_page_command(
         help="Process workers for independent inverse-render score evaluations",
     )
     parser.add_argument(
-        "--no-verify-cleanup-spans",
+        "--verify-cleanup-spans",
+        dest="verify_cleanup_spans",
         action="store_true",
-        help="Disable image-verified cleanup checks for local OCR generation",
+        help="Enable image-verified cleanup checks for local OCR generation",
+    )
+    parser.add_argument(
+        "--no-verify-cleanup-spans",
+        dest="verify_cleanup_spans",
+        action="store_false",
+        help=argparse.SUPPRESS,
     )
 
 
@@ -1673,10 +1688,10 @@ def _handle_archive_epub_compare_page(args: argparse.Namespace) -> int:
         apply_cleanup=not args.no_cleanup,
         emit_page_artifacts=not args.no_page_artifacts,
         page_artifacts_dir=args.page_artifacts_dir,
-        inverse_render_rerank=not args.no_inverse_render_rerank,
+        inverse_render_rerank=args.inverse_render_rerank,
         inverse_render_top_k=args.inverse_render_top_k,
         inverse_render_workers=args.inverse_render_workers,
-        verify_cleanup_spans=not args.no_verify_cleanup_spans,
+        verify_cleanup_spans=args.verify_cleanup_spans,
         progress_callback=progress_callback,
     )
     print(
