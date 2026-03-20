@@ -44,6 +44,7 @@ full-auto-de-pdf build-benchmark-corpus \
   --artifact-profile clean \
   --artifact-profile scan-light \
   --artifact-profile scan-moderate \
+  --artifact-profile scan-extreme \
   --artifact-seed 7
 
 # Run the local OCR pipeline against the generated corpus
@@ -61,6 +62,7 @@ full-auto-de-pdf benchmark-streaming-corpus \
   --failures-dir data/benchmark-streaming-failures \
   --artifact-profile scan-moderate \
   --artifact-profile scan-heavy \
+  --artifact-profile scan-photocopy \
   --samples-per-book 8 \
   --max-recorded-failures 40 \
   --failure-word-accuracy-below 1.0 \
@@ -183,9 +185,10 @@ full-auto-de-pdf eval-epub \
 - Per-page OCR manifests now record the selected preprocess mode, selected Tesseract PSM, and candidate scoring data for debugging and benchmarking.
 - Per-page OCR manifests now also label pages with coarse routing hints (`front-matter`, `body`, `back-matter`, `body-low-quality`) plus a simple quality tier, can automatically retry front-matter / low-quality pages with a stronger OCR configuration, and `benchmark-corpus` / `benchmark-streaming-corpus` roll those signals up into front-matter, low-quality, and targeted-retry summaries.
 - `build-epub` now emits a more structured EPUB3 archive with split front-matter sections (for example title page / contents / dedication), multiple XHTML body chapters when chapter headings are detected, a richer navigation document, semantic headings, preserved ordered/unordered lists, and a bundled stylesheet.
-- `build-benchmark-corpus` now creates a reproducible local printed-text corpus by rendering curated Project Gutenberg excerpts into synthetic PDFs and page images, and it can expand each excerpt into multiple deterministic scan-artifact variants (`clean`, `scan-light`, `scan-moderate`, `scan-heavy`).
+- `build-benchmark-corpus` now creates a reproducible local printed-text corpus by rendering curated Project Gutenberg excerpts into synthetic PDFs and page images, and it can expand each excerpt into multiple deterministic scan-artifact variants (`clean`, `scan-light`, `scan-moderate`, `scan-heavy`, `scan-extreme`, `scan-photocopy`).
 - `benchmark-corpus` runs the local OCR pipeline against that generated corpus so printed-text accuracy can be measured end to end inside the repo.
 - `benchmark-streaming-corpus` now lets you stream many more synthetic samples without keeping a huge corpus on disk: it generates one sample at a time, OCRs it immediately, records aggregate failure-pattern summaries, and only persists compact artifacts for failing cases.
+- Benchmark reports now include per-profile rollups plus worst-case item summaries, which makes it easier to see when average accuracy saturates on easier slices while harder variants still move.
 - `benchmark-corpus` and `benchmark-streaming-corpus` now also report unexpected alphabetic token summaries, which makes confusable-word regressions like `see -> sec` or `seem -> scem` much easier to spot even when aggregate CER/WER only moves slightly.
 - `build-image-text-corpus` can turn a local page-image + transcript directory pair into a `benchmark-corpus` manifest, which makes image-based external corpora easier to evaluate with the existing OCR pipeline.
 - `benchmark-parallel-text` can score aligned OCR/proofread TSV corpora such as the Gutenberg-HathiTrust sentence-pair downloads without manual sampling.

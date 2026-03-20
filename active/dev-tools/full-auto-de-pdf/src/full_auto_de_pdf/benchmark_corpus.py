@@ -35,7 +35,14 @@ _DEFAULT_FONT_CANDIDATES = (
     "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
     "/usr/share/fonts/truetype/liberation2/LiberationSerif-Regular.ttf",
 )
-_ARTIFACT_PROFILES = ("clean", "scan-light", "scan-moderate", "scan-heavy")
+ARTIFACT_PROFILES = (
+    "clean",
+    "scan-light",
+    "scan-moderate",
+    "scan-heavy",
+    "scan-extreme",
+    "scan-photocopy",
+)
 _WORD_RE = re.compile(r"\S+")
 _ALPHA_TOKEN_RE = re.compile(r"[A-Za-z]+(?:'[A-Za-z]+)?")
 _PNG_DPI = (300, 300)
@@ -203,10 +210,10 @@ def _normalize_artifact_profiles(artifact_profiles: tuple[str, ...] | list[str] 
     normalized = tuple(str(value).strip().lower() for value in raw_values if str(value).strip())
     if not normalized:
         return ("clean",)
-    invalid = [value for value in normalized if value not in _ARTIFACT_PROFILES]
+    invalid = [value for value in normalized if value not in ARTIFACT_PROFILES]
     if invalid:
         raise ValueError(
-            "artifact_profiles must be chosen from: " + ", ".join(_ARTIFACT_PROFILES)
+            "artifact_profiles must be chosen from: " + ", ".join(ARTIFACT_PROFILES)
         )
     return normalized
 
@@ -268,6 +275,49 @@ def _paper_texture(size: tuple[int, int], rng: random.Random, intensity: int) ->
     return texture
 
 
+def _edge_shadow_mask(size: tuple[int, int], rng: random.Random, intensity: int) -> Any:
+    if Image is None or ImageFilter is None:
+        raise RuntimeError("pillow is required for artifact rendering")
+    width, height = size
+    band_width = max(120, width // 7)
+    minimum_value = max(112, 255 - (28 * intensity))
+    edge = rng.choice(("left", "right"))
+    gradient = Image.new("L", (64, 1), color=255)
+    if edge == "left":
+        gradient.putdata(
+            [
+                int(round(minimum_value + ((255 - minimum_value) * index / 63.0)))
+                for index in range(64)
+            ]
+        )
+    else:
+        gradient.putdata(
+            [
+                int(round(255 - ((255 - minimum_value) * index / 63.0)))
+                for index in range(64)
+            ]
+        )
+    band = gradient.resize((band_width, height), _resampling_filter("BILINEAR"))
+    shadow = Image.new("L", size, color=255)
+    shadow.paste(band, (0 if edge == "left" else width - band_width, 0))
+    return shadow.filter(ImageFilter.GaussianBlur(radius=6.0 + intensity))
+
+
+def _speckle_mask(size: tuple[int, int], rng: random.Random, intensity: int) -> Any:
+    if Image is None or ImageFilter is None:
+        raise RuntimeError("pillow is required for artifact rendering")
+    coarse_width = max(48, size[0] // 28)
+    coarse_height = max(48, size[1] // 28)
+    mask = Image.new("L", (coarse_width, coarse_height), color=255)
+    threshold = min(48, 4 + (4 * intensity))
+    mask.putdata(
+        [255 if rng.randint(0, 255) < threshold else 0 for _ in range(coarse_width * coarse_height)]
+    )
+    return mask.resize(size, _resampling_filter("NEAREST")).filter(
+        ImageFilter.GaussianBlur(radius=0.5 + (0.2 * intensity))
+    )
+
+
 def _apply_scan_artifacts(page_image: Any, artifact_profile: str, seed: int) -> Any:
     if Image is None or ImageChops is None or ImageFilter is None:
         raise RuntimeError(
@@ -277,10 +327,34 @@ def _apply_scan_artifacts(page_image: Any, artifact_profile: str, seed: int) -> 
     if artifact_profile == "clean":
         return _ocr_ready_image(page_image)
 
+    if artifact_profile == "scan-photocopy":
+        rng = random.Random(seed)
+        processed = page_image.convert("L")
+        width, height = processed.size
+        processed = processed.rotate(
+            rng.uniform(-0.45, 0.45),
+            resample=_resampling_filter("BICUBIC"),
+            fillcolor=255,
+        )
+        processed = processed.filter(ImageFilter.GaussianBlur(radius=0.9))
+        processed = ImageChops.multiply(processed, _paper_texture((width, height), rng, 2))
+        processed = ImageChops.multiply(processed, _edge_shadow_mask((width, height), rng, 3))
+        processed = ImageChops.lighter(processed, _speckle_mask((width, height), rng, 4))
+        processed = ImageChops.add(
+            processed,
+            _noise_texture((width, height), rng, amplitude=10),
+            scale=2.0,
+            offset=12,
+        )
+        processed = processed.point(lambda value: 255 if value >= 120 else 0)
+        processed = processed.filter(ImageFilter.MedianFilter(3))
+        return processed.convert("L")
+
     intensity_map = {
         "scan-light": 1,
         "scan-moderate": 2,
         "scan-heavy": 3,
+        "scan-extreme": 4,
     }
     intensity = intensity_map[artifact_profile]
     rng = random.Random(seed)
@@ -292,7 +366,8 @@ def _apply_scan_artifacts(page_image: Any, artifact_profile: str, seed: int) -> 
         resample=_resampling_filter("BICUBIC"),
         fillcolor=255,
     )
-    shrink_factor = max(0.70, 1.0 - (0.06 * intensity) - rng.uniform(0.0, 0.02 * intensity))
+    shrink_floor = 0.62 if intensity >= 4 else 0.70
+    shrink_factor = max(shrink_floor, 1.0 - (0.06 * intensity) - rng.uniform(0.0, 0.02 * intensity))
     downsampled = processed.resize(
         (
             max(1, int(round(width * shrink_factor))),
@@ -318,6 +393,10 @@ def _apply_scan_artifacts(page_image: Any, artifact_profile: str, seed: int) -> 
         )
         bleed = bleed.point(lambda value: 255 if value > 245 else min(255, value + 55))
         processed = ImageChops.multiply(processed, bleed)
+    if intensity >= 4:
+        processed = ImageChops.multiply(processed, _edge_shadow_mask((width, height), rng, intensity))
+        processed = ImageChops.lighter(processed, _speckle_mask((width, height), rng, intensity))
+        processed = processed.filter(ImageFilter.GaussianBlur(radius=0.4))
     return processed
 
 
@@ -522,8 +601,74 @@ def _average_metric(results: list[dict[str, Any]], key: str) -> float:
     return sum(float(item[key]) for item in results) / len(results) if results else 0.0
 
 
+def _minimum_metric(results: list[dict[str, Any]], key: str) -> float:
+    return min(float(item[key]) for item in results) if results else 0.0
+
+
+def _exact_metric_rate(results: list[dict[str, Any]], key: str) -> float:
+    return (
+        sum(1 for item in results if float(item[key]) >= 1.0) / len(results)
+        if results
+        else 0.0
+    )
+
+
 def _sorted_counter_dict(counter: Counter[str]) -> dict[str, int]:
     return {key: counter[key] for key in sorted(counter)}
+
+
+def _lowest_metric_rows(
+    results: list[dict[str, Any]],
+    key: str,
+    *,
+    limit: int = 5,
+) -> list[dict[str, object]]:
+    ranked = sorted(results, key=lambda item: (float(item[key]), str(item.get("identifier", ""))))[:limit]
+    rows: list[dict[str, object]] = []
+    for item in ranked:
+        row: dict[str, object] = {
+            "identifier": str(item.get("identifier", "")),
+            "title": str(item.get("title", "")),
+            key: float(item[key]),
+            "char_accuracy": float(item.get("char_accuracy", 0.0)),
+            "word_accuracy": float(item.get("word_accuracy", 0.0)),
+        }
+        artifact_profile = item.get("artifact_profile")
+        if isinstance(artifact_profile, str):
+            row["artifact_profile"] = artifact_profile
+        unexpected_alpha_token_count = item.get("unexpected_alpha_token_count")
+        if isinstance(unexpected_alpha_token_count, int):
+            row["unexpected_alpha_token_count"] = unexpected_alpha_token_count
+        rows.append(row)
+    return rows
+
+
+def _artifact_profile_summary(results: list[dict[str, Any]]) -> dict[str, dict[str, object]]:
+    grouped: dict[str, list[dict[str, Any]]] = {}
+    for item in results:
+        artifact_profile = item.get("artifact_profile")
+        if not isinstance(artifact_profile, str):
+            continue
+        grouped.setdefault(artifact_profile, []).append(item)
+    summary: dict[str, dict[str, object]] = {}
+    for artifact_profile, profile_results in sorted(grouped.items()):
+        entry: dict[str, object] = {
+            "item_count": len(profile_results),
+            "avg_char_accuracy": _average_metric(profile_results, "char_accuracy"),
+            "avg_word_accuracy": _average_metric(profile_results, "word_accuracy"),
+            "avg_unexpected_alpha_token_rate": _average_metric(
+                profile_results,
+                "unexpected_alpha_token_rate",
+            ),
+            "perfect_char_accuracy_rate": _exact_metric_rate(profile_results, "char_accuracy"),
+            "perfect_word_accuracy_rate": _exact_metric_rate(profile_results, "word_accuracy"),
+            "worst_char_accuracy": _minimum_metric(profile_results, "char_accuracy"),
+            "worst_word_accuracy": _minimum_metric(profile_results, "word_accuracy"),
+        }
+        if any("failure" in item for item in profile_results):
+            entry["failure_count"] = sum(1 for item in profile_results if bool(item.get("failure")))
+        summary[artifact_profile] = entry
+    return summary
 
 
 def _string_counter_from_mapping(value: object) -> Counter[str]:
@@ -893,6 +1038,7 @@ def run_benchmark_corpus(
             {
                 "identifier": identifier,
                 "title": title,
+                "artifact_profile": book.get("artifact_profile"),
                 "pdf_path": str(pdf_path) if pdf_path is not None else None,
                 "reference_text_path": str(reference_text_path),
                 "ocr_output_path": str(output_text_path),
@@ -935,11 +1081,17 @@ def run_benchmark_corpus(
         "avg_wer": _average_metric(results, "wer"),
         "avg_char_accuracy": _average_metric(results, "char_accuracy"),
         "avg_word_accuracy": _average_metric(results, "word_accuracy"),
+        "perfect_char_accuracy_rate": _exact_metric_rate(results, "char_accuracy"),
+        "perfect_word_accuracy_rate": _exact_metric_rate(results, "word_accuracy"),
+        "worst_char_accuracy": _minimum_metric(results, "char_accuracy"),
+        "worst_word_accuracy": _minimum_metric(results, "word_accuracy"),
         "avg_unexpected_alpha_token_rate": _average_metric(results, "unexpected_alpha_token_rate"),
         "avg_low_quality_page_rate": _average_metric(results, "low_quality_page_rate"),
         "avg_front_matter_page_rate": _average_metric(results, "front_matter_page_rate"),
         "avg_targeted_page_retry_rate": _average_metric(results, "targeted_page_retry_rate"),
+        "lowest_word_accuracy_items": _lowest_metric_rows(results, "word_accuracy"),
         "common_unexpected_alpha_tokens": _token_summary_rows(unexpected_alpha_counter),
+        "artifact_profile_summary": _artifact_profile_summary(results),
         "page_type_counts": _sorted_counter_dict(page_type_counter),
         "page_quality_tier_counts": _sorted_counter_dict(page_quality_tier_counter),
         "page_route_counts": _sorted_counter_dict(page_route_counter),
@@ -1192,11 +1344,17 @@ def run_streaming_benchmark_corpus(
         "avg_wer": _average_metric(results, "wer"),
         "avg_char_accuracy": _average_metric(results, "char_accuracy"),
         "avg_word_accuracy": _average_metric(results, "word_accuracy"),
+        "perfect_char_accuracy_rate": _exact_metric_rate(results, "char_accuracy"),
+        "perfect_word_accuracy_rate": _exact_metric_rate(results, "word_accuracy"),
+        "worst_char_accuracy": _minimum_metric(results, "char_accuracy"),
+        "worst_word_accuracy": _minimum_metric(results, "word_accuracy"),
         "avg_unexpected_alpha_token_rate": _average_metric(results, "unexpected_alpha_token_rate"),
         "avg_low_quality_page_rate": _average_metric(results, "low_quality_page_rate"),
         "avg_front_matter_page_rate": _average_metric(results, "front_matter_page_rate"),
         "avg_targeted_page_retry_rate": _average_metric(results, "targeted_page_retry_rate"),
+        "lowest_word_accuracy_items": _lowest_metric_rows(results, "word_accuracy"),
         "common_unexpected_alpha_tokens": _token_summary_rows(unexpected_alpha_counter),
+        "artifact_profile_summary": _artifact_profile_summary(results),
         "page_type_counts": _sorted_counter_dict(page_type_counter),
         "page_quality_tier_counts": _sorted_counter_dict(page_quality_tier_counter),
         "page_route_counts": _sorted_counter_dict(page_route_counter),

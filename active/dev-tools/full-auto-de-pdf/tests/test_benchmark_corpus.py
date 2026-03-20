@@ -78,15 +78,15 @@ def test_build_benchmark_corpus_can_emit_multiple_artifact_profiles(monkeypatch,
         page_width=900,
         page_height=1200,
         margin=80,
-        artifact_profiles=("clean", "scan-heavy"),
+        artifact_profiles=("clean", "scan-photocopy"),
         artifact_seed=11,
     )
 
     assert manifest["book_count"] == 2
     clean_book = next(item for item in manifest["books"] if item["artifact_profile"] == "clean")
-    heavy_book = next(item for item in manifest["books"] if item["artifact_profile"] == "scan-heavy")
+    heavy_book = next(item for item in manifest["books"] if item["artifact_profile"] == "scan-photocopy")
     assert clean_book["identifier"] == "demo-book"
-    assert heavy_book["identifier"] == "demo-book-scan-heavy"
+    assert heavy_book["identifier"] == "demo-book-scan-photocopy"
     assert Path(clean_book["page_image_paths"][0]).read_bytes() != Path(
         heavy_book["page_image_paths"][0]
     ).read_bytes()
@@ -145,6 +145,7 @@ def test_run_benchmark_corpus_aggregates_accuracy(monkeypatch, tmp_path) -> None
                         "title": "Demo Book",
                         "pdf_path": str(pdf_path),
                         "reference_text_path": str(reference_path),
+                        "artifact_profile": "scan-extreme",
                     }
                 ]
             }
@@ -191,10 +192,36 @@ def test_run_benchmark_corpus_aggregates_accuracy(monkeypatch, tmp_path) -> None
 
     assert report["summary"]["avg_word_accuracy"] == 1.0
     assert report["summary"]["avg_char_accuracy"] == 1.0
+    assert report["summary"]["perfect_word_accuracy_rate"] == 1.0
+    assert report["summary"]["perfect_char_accuracy_rate"] == 1.0
+    assert report["summary"]["worst_word_accuracy"] == 1.0
+    assert report["summary"]["worst_char_accuracy"] == 1.0
     assert report["summary"]["avg_unexpected_alpha_token_rate"] == 0.0
     assert report["summary"]["avg_low_quality_page_rate"] == 0.0
     assert report["summary"]["avg_front_matter_page_rate"] == 0.0
     assert report["summary"]["avg_targeted_page_retry_rate"] == 0.0
+    assert report["summary"]["lowest_word_accuracy_items"] == [
+        {
+            "identifier": "demo-book",
+            "title": "Demo Book",
+            "artifact_profile": "scan-extreme",
+            "word_accuracy": 1.0,
+            "char_accuracy": 1.0,
+            "unexpected_alpha_token_count": 0,
+        }
+    ]
+    assert report["summary"]["artifact_profile_summary"] == {
+        "scan-extreme": {
+            "item_count": 1,
+            "avg_char_accuracy": 1.0,
+            "avg_word_accuracy": 1.0,
+            "avg_unexpected_alpha_token_rate": 0.0,
+            "perfect_char_accuracy_rate": 1.0,
+            "perfect_word_accuracy_rate": 1.0,
+            "worst_char_accuracy": 1.0,
+            "worst_word_accuracy": 1.0,
+        }
+    }
     assert report["summary"]["common_unexpected_alpha_tokens"] == []
     assert report["summary"]["page_type_counts"] == {"body": 1}
     assert report["summary"]["page_quality_tier_counts"] == {"high": 1}
@@ -353,6 +380,8 @@ def test_run_benchmark_corpus_reports_unexpected_alpha_tokens(monkeypatch, tmp_p
         {"token": "cach", "count": 1},
     ]
     assert report["summary"]["avg_unexpected_alpha_token_rate"] == 3 / 8
+    assert report["summary"]["perfect_word_accuracy_rate"] == 0.0
+    assert report["summary"]["worst_word_accuracy"] == report["books"][0]["word_accuracy"]
 
 
 def test_build_image_text_corpus_manifest_pairs_matching_stems(tmp_path) -> None:
@@ -522,6 +551,22 @@ def test_run_streaming_benchmark_corpus_records_only_failures(monkeypatch, tmp_p
     assert report["summary"]["avg_low_quality_page_rate"] == 0.5
     assert report["summary"]["avg_front_matter_page_rate"] == 0.5
     assert report["summary"]["avg_targeted_page_retry_rate"] == 0.5
+    assert report["summary"]["perfect_word_accuracy_rate"] == 0.5
+    assert report["summary"]["worst_word_accuracy"] == 11 / 12
+    assert report["summary"]["artifact_profile_summary"] == {
+        "clean": {
+            "item_count": 2,
+            "avg_char_accuracy": report["summary"]["avg_char_accuracy"],
+            "avg_word_accuracy": report["summary"]["avg_word_accuracy"],
+            "avg_unexpected_alpha_token_rate": report["summary"]["avg_unexpected_alpha_token_rate"],
+            "perfect_char_accuracy_rate": 0.5,
+            "perfect_word_accuracy_rate": 0.5,
+            "worst_char_accuracy": report["samples"][1]["char_accuracy"],
+            "worst_word_accuracy": 11 / 12,
+            "failure_count": 1,
+        }
+    }
+    assert report["summary"]["lowest_word_accuracy_items"][0]["identifier"] == "demo-book-sample-002"
     assert report["summary"]["common_unexpected_alpha_tokens"] == [{"token": "net", "count": 1}]
     assert report["summary"]["page_type_counts"] == {"body": 1, "front-matter": 1}
     assert report["summary"]["page_quality_tier_counts"] == {"high": 1, "low": 1}

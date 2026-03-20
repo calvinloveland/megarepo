@@ -128,7 +128,7 @@ def test_build_benchmark_corpus_command_writes_manifest(monkeypatch, tmp_path) -
         assert kwargs["cache_dir"] == cache_dir
         assert kwargs["timeout_seconds"] == 30
         assert kwargs["max_books"] == 2
-        assert kwargs["artifact_profiles"] == ("clean", "scan-moderate")
+        assert kwargs["artifact_profiles"] == ("clean", "scan-extreme")
         assert kwargs["artifact_seed"] == 7
         return {"book_count": 2, "books": []}
 
@@ -147,7 +147,7 @@ def test_build_benchmark_corpus_command_writes_manifest(monkeypatch, tmp_path) -
             "--artifact-profile",
             "clean",
             "--artifact-profile",
-            "scan-moderate",
+            "scan-extreme",
             "--artifact-seed",
             "7",
         ]
@@ -222,7 +222,7 @@ def test_benchmark_streaming_corpus_command_runs_pipeline(monkeypatch, tmp_path)
         assert kwargs["cache_dir"] == cache_dir
         assert callable(kwargs["progress_callback"])
         assert kwargs["samples_per_book"] == 4
-        assert kwargs["artifact_profiles"] == ("scan-moderate", "scan-heavy")
+        assert kwargs["artifact_profiles"] == ("scan-moderate", "scan-photocopy")
         assert kwargs["max_recorded_failures"] == 12
         assert kwargs["failure_word_accuracy_below"] == 0.97
         assert kwargs["failure_char_accuracy_below"] == 0.995
@@ -259,7 +259,7 @@ def test_benchmark_streaming_corpus_command_runs_pipeline(monkeypatch, tmp_path)
             "--artifact-profile",
             "scan-moderate",
             "--artifact-profile",
-            "scan-heavy",
+            "scan-photocopy",
             "--max-recorded-failures",
             "12",
             "--failure-word-accuracy-below",

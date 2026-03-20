@@ -12,6 +12,7 @@ from .archive_compare import build_archive_epub_compare_page
 from .archive_org import build_manifest, write_manifest
 from .benchmark import run_archive_benchmark, run_parallel_text_benchmark, write_benchmark_report
 from .benchmark_corpus import (
+    ARTIFACT_PROFILES,
     build_benchmark_corpus,
     build_image_text_corpus_manifest,
     run_benchmark_corpus,
@@ -349,7 +350,7 @@ def _add_build_benchmark_corpus_command(
     parser.add_argument(
         "--artifact-profile",
         action="append",
-        choices=["clean", "scan-light", "scan-moderate", "scan-heavy"],
+        choices=list(ARTIFACT_PROFILES),
         default=[],
         help="Synthetic scan-artifact profile to generate; may be repeated",
     )
@@ -452,7 +453,7 @@ def _add_streaming_benchmark_corpus_command(
     parser.add_argument(
         "--artifact-profile",
         action="append",
-        choices=["clean", "scan-light", "scan-moderate", "scan-heavy"],
+        choices=list(ARTIFACT_PROFILES),
         default=[],
         help="Synthetic scan-artifact profile to benchmark; may be repeated",
     )
