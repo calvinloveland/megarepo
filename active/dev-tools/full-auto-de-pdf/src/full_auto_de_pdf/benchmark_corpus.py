@@ -49,7 +49,9 @@ _PNG_DPI = (300, 300)
 _SYNTHETIC_CORPUS_METRIC_NOTE = (
     "This benchmark uses synthetic printed PDFs rendered from clean public-domain "
     "reference text. It is useful for measuring OCR engine and cleanup quality on "
-    "clean printed pages, but it is easier than real scanned-book evaluation."
+    "clean printed pages, but it is easier than real scanned-book evaluation. "
+    "Reports also include OCR wall-clock throughput so you can track the same "
+    "accuracy/speed trade-offs that public OCR benchmarks usually publish."
 )
 _STREAMING_SYNTHETIC_CORPUS_METRIC_NOTE = (
     _SYNTHETIC_CORPUS_METRIC_NOTE
@@ -60,7 +62,8 @@ _STREAMING_SYNTHETIC_CORPUS_METRIC_NOTE = (
 _LOCAL_IMAGE_TEXT_METRIC_NOTE = (
     "This benchmark uses existing local page images paired with local ground-truth "
     "transcriptions. It measures OCR quality on the selected raster corpus rather "
-    "than the synthetic printed-PDF benchmark."
+    "than the synthetic printed-PDF benchmark, and it also records OCR throughput "
+    "so external image-text corpora can be compared on both accuracy and speed."
 )
 
 
@@ -601,6 +604,14 @@ def _average_metric(results: list[dict[str, Any]], key: str) -> float:
     return sum(float(item[key]) for item in results) / len(results) if results else 0.0
 
 
+def _sum_metric(results: list[dict[str, Any]], key: str) -> float:
+    return sum(float(item.get(key, 0.0)) for item in results)
+
+
+def _sum_int_metric(results: list[dict[str, Any]], key: str) -> int:
+    return sum(int(item.get(key, 0)) for item in results)
+
+
 def _minimum_metric(results: list[dict[str, Any]], key: str) -> float:
     return min(float(item[key]) for item in results) if results else 0.0
 
@@ -615,6 +626,52 @@ def _exact_metric_rate(results: list[dict[str, Any]], key: str) -> float:
 
 def _sorted_counter_dict(counter: Counter[str]) -> dict[str, int]:
     return {key: counter[key] for key in sorted(counter)}
+
+
+def _safe_rate(numerator: int | float, denominator: int | float) -> float:
+    if float(denominator) <= 0.0:
+        return 0.0
+    return float(numerator) / float(denominator)
+
+
+def _ocr_throughput_metrics(
+    *,
+    page_count: int,
+    word_count: int,
+    character_count: int,
+    elapsed_seconds: float,
+) -> dict[str, float]:
+    return {
+        "ocr_elapsed_seconds": elapsed_seconds,
+        "ocr_pages_per_second": _safe_rate(page_count, elapsed_seconds),
+        "ocr_words_per_second": _safe_rate(word_count, elapsed_seconds),
+        "ocr_characters_per_second": _safe_rate(character_count, elapsed_seconds),
+    }
+
+
+def _summary_ocr_throughput(
+    results: list[dict[str, Any]],
+    *,
+    benchmark_elapsed_seconds: float,
+) -> dict[str, float | int]:
+    total_page_count = _sum_int_metric(results, "page_count")
+    total_word_count = _sum_int_metric(results, "word_count")
+    total_character_count = _sum_int_metric(results, "character_count")
+    total_ocr_elapsed_seconds = _sum_metric(results, "ocr_elapsed_seconds")
+    return {
+        "benchmark_elapsed_seconds": benchmark_elapsed_seconds,
+        "total_page_count": total_page_count,
+        "total_word_count": total_word_count,
+        "total_character_count": total_character_count,
+        "total_ocr_elapsed_seconds": total_ocr_elapsed_seconds,
+        "avg_ocr_elapsed_seconds_per_item": _safe_rate(total_ocr_elapsed_seconds, len(results)),
+        "overall_ocr_pages_per_second": _safe_rate(total_page_count, total_ocr_elapsed_seconds),
+        "overall_ocr_words_per_second": _safe_rate(total_word_count, total_ocr_elapsed_seconds),
+        "overall_ocr_characters_per_second": _safe_rate(
+            total_character_count,
+            total_ocr_elapsed_seconds,
+        ),
+    }
 
 
 def _lowest_metric_rows(
@@ -652,6 +709,10 @@ def _artifact_profile_summary(results: list[dict[str, Any]]) -> dict[str, dict[s
         grouped.setdefault(artifact_profile, []).append(item)
     summary: dict[str, dict[str, object]] = {}
     for artifact_profile, profile_results in sorted(grouped.items()):
+        total_page_count = _sum_int_metric(profile_results, "page_count")
+        total_word_count = _sum_int_metric(profile_results, "word_count")
+        total_character_count = _sum_int_metric(profile_results, "character_count")
+        total_ocr_elapsed_seconds = _sum_metric(profile_results, "ocr_elapsed_seconds")
         entry: dict[str, object] = {
             "item_count": len(profile_results),
             "avg_char_accuracy": _average_metric(profile_results, "char_accuracy"),
@@ -664,6 +725,26 @@ def _artifact_profile_summary(results: list[dict[str, Any]]) -> dict[str, dict[s
             "perfect_word_accuracy_rate": _exact_metric_rate(profile_results, "word_accuracy"),
             "worst_char_accuracy": _minimum_metric(profile_results, "char_accuracy"),
             "worst_word_accuracy": _minimum_metric(profile_results, "word_accuracy"),
+            "total_page_count": total_page_count,
+            "total_word_count": total_word_count,
+            "total_character_count": total_character_count,
+            "total_ocr_elapsed_seconds": total_ocr_elapsed_seconds,
+            "avg_ocr_elapsed_seconds_per_item": _safe_rate(
+                total_ocr_elapsed_seconds,
+                len(profile_results),
+            ),
+            "overall_ocr_pages_per_second": _safe_rate(
+                total_page_count,
+                total_ocr_elapsed_seconds,
+            ),
+            "overall_ocr_words_per_second": _safe_rate(
+                total_word_count,
+                total_ocr_elapsed_seconds,
+            ),
+            "overall_ocr_characters_per_second": _safe_rate(
+                total_character_count,
+                total_ocr_elapsed_seconds,
+            ),
         }
         if any("failure" in item for item in profile_results):
             entry["failure_count"] = sum(1 for item in profile_results if bool(item.get("failure")))
@@ -1003,6 +1084,7 @@ def run_benchmark_corpus(
             if isinstance(page_image_values, list)
             else []
         )
+        ocr_started_at = time.monotonic()
         ocr_result = (
             ocr_page_images(
                 page_images=page_image_paths,
@@ -1020,6 +1102,7 @@ def run_benchmark_corpus(
                 **ocr_kwargs,
             )
         )
+        ocr_elapsed_seconds = max(0.0, time.monotonic() - ocr_started_at)
         hypothesis_text = output_text_path.read_text(encoding="utf-8")
         accuracy = calculate_accuracy_metrics(reference_text, hypothesis_text)
         unexpected_alpha_tokens = _unexpected_alpha_token_counts(reference_text, hypothesis_text)
@@ -1061,6 +1144,12 @@ def run_benchmark_corpus(
                 "front_matter_page_rate": front_matter_page_count / max(int(ocr_result["page_count"]), 1),
                 "targeted_page_retry_count": targeted_page_retry_count,
                 "targeted_page_retry_rate": targeted_page_retry_count / max(int(ocr_result["page_count"]), 1),
+                **_ocr_throughput_metrics(
+                    page_count=int(ocr_result["page_count"]),
+                    word_count=int(ocr_result["word_count"]),
+                    character_count=int(ocr_result["character_count"]),
+                    elapsed_seconds=ocr_elapsed_seconds,
+                ),
             }
         )
         _emit_benchmark_progress(
@@ -1075,6 +1164,13 @@ def run_benchmark_corpus(
             ),
         )
 
+    complete_payload = _timed_benchmark_progress_payload(
+        stage="benchmark-corpus",
+        status="complete",
+        started_at=started_at,
+        completed_items=len(results),
+        total_items=len(books),
+    )
     summary = {
         "book_count": len(results),
         "avg_cer": _average_metric(results, "cer"),
@@ -1097,6 +1193,12 @@ def run_benchmark_corpus(
         "page_route_counts": _sorted_counter_dict(page_route_counter),
         "targeted_page_retry_reason_counts": _sorted_counter_dict(targeted_page_retry_reason_counter),
     }
+    summary.update(
+        _summary_ocr_throughput(
+            results,
+            benchmark_elapsed_seconds=float(complete_payload["elapsed_seconds"]),
+        )
+    )
     report = {
         "corpus_manifest_path": str(corpus_manifest_path),
         "corpus_type": corpus_type or None,
@@ -1106,16 +1208,7 @@ def run_benchmark_corpus(
     }
     output_report_path.parent.mkdir(parents=True, exist_ok=True)
     output_report_path.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    _emit_benchmark_progress(
-        progress_callback,
-        _timed_benchmark_progress_payload(
-            stage="benchmark-corpus",
-            status="complete",
-            started_at=started_at,
-            completed_items=len(results),
-            total_items=len(books),
-        ),
-    )
+    _emit_benchmark_progress(progress_callback, complete_payload)
     return report
 
 
@@ -1230,6 +1323,7 @@ def run_streaming_benchmark_corpus(
                         artifact_profile=artifact_profile,
                         artifact_seed=stable_seed,
                     )
+                    ocr_started_at = time.monotonic()
                     ocr_result = ocr_page_images(
                         page_images=page_image_paths,
                         output_text_path=output_text_path,
@@ -1237,6 +1331,7 @@ def run_streaming_benchmark_corpus(
                         cleanup_lexicon_texts=(excerpt_text,),
                         **ocr_kwargs,
                     )
+                    ocr_elapsed_seconds = max(0.0, time.monotonic() - ocr_started_at)
                     hypothesis_text = output_text_path.read_text(encoding="utf-8")
                     accuracy = calculate_accuracy_metrics(excerpt_text, hypothesis_text)
                     unexpected_alpha_tokens = _unexpected_alpha_token_counts(excerpt_text, hypothesis_text)
@@ -1290,6 +1385,12 @@ def run_streaming_benchmark_corpus(
                         "font_path": resolved_font_path,
                         "failure": is_failure,
                         "failure_artifact_dir": None,
+                        **_ocr_throughput_metrics(
+                            page_count=int(ocr_result["page_count"]),
+                            word_count=int(ocr_result["word_count"]),
+                            character_count=int(ocr_result["character_count"]),
+                            elapsed_seconds=ocr_elapsed_seconds,
+                        ),
                     }
                     if is_failure:
                         _update_token_failure_counters(
@@ -1335,6 +1436,13 @@ def run_streaming_benchmark_corpus(
                     if output_text_path.exists():
                         output_text_path.unlink()
 
+    complete_payload = _timed_benchmark_progress_payload(
+        stage="benchmark-streaming-corpus",
+        status="complete",
+        started_at=started_at,
+        completed_items=processed_samples,
+        total_items=total_samples,
+    )
     summary: dict[str, Any] = {
         "sample_count": len(results),
         "book_count": len(selected_books),
@@ -1365,6 +1473,12 @@ def run_streaming_benchmark_corpus(
             "unexpected_tokens": _token_summary_rows(unexpected_counter),
         },
     }
+    summary.update(
+        _summary_ocr_throughput(
+            results,
+            benchmark_elapsed_seconds=float(complete_payload["elapsed_seconds"]),
+        )
+    )
     report = {
         "corpus_type": "streaming-generated-public-domain-printed-text",
         "metric_note": _STREAMING_SYNTHETIC_CORPUS_METRIC_NOTE,
@@ -1379,16 +1493,7 @@ def run_streaming_benchmark_corpus(
     }
     output_report_path.parent.mkdir(parents=True, exist_ok=True)
     output_report_path.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    _emit_benchmark_progress(
-        progress_callback,
-        _timed_benchmark_progress_payload(
-            stage="benchmark-streaming-corpus",
-            status="complete",
-            started_at=started_at,
-            completed_items=processed_samples,
-            total_items=total_samples,
-        ),
-    )
+    _emit_benchmark_progress(progress_callback, complete_payload)
     return report
 
 

@@ -54,6 +54,9 @@ full-auto-de-pdf benchmark-corpus \
   --preprocess-mode auto \
   --tesseract-psm auto \
   --verify-cleanup-spans
+# (report now includes per-book OCR wall-clock time plus overall pages/sec,
+#  words/sec, and chars/sec so you can compare speed/accuracy trade-offs the
+#  same way external OCR benchmarks do)
 
 # Stream synthetic samples on demand and only keep failure artifacts
 full-auto-de-pdf benchmark-streaming-corpus \
@@ -181,6 +184,7 @@ full-auto-de-pdf eval-epub \
 - `archive-epub-compare-page` now defaults to this tool's local OCR of the archive PDF, with page controls for browsing aligned scan/IA/generated excerpts and a random-page jump.
 - Long-running local OCR commands now print progress with elapsed time and an estimated remaining duration while pages are being processed.
 - `benchmark-corpus` and `benchmark-streaming-corpus` now also print progress with elapsed time and an estimated remaining duration while books/samples are being processed.
+- `benchmark-corpus` and `benchmark-streaming-corpus` reports now also record per-item OCR elapsed time plus aggregate throughput (`pages/sec`, `words/sec`, `chars/sec`), which makes the built-in corpus much closer to the accuracy-and-speed scorecards used by public OCR benchmarks.
 - OCR cleanup now includes precision-gated adjacent-word merge repair plus conservative confusable-word repair for residual scan errors like split names and `world`/`worid`-style glyph confusions; inverse-render reranking also evaluates cleaned candidate variants so these repairs can be image-verified before selection.
 - Per-page OCR manifests now record the selected preprocess mode, selected Tesseract PSM, and candidate scoring data for debugging and benchmarking.
 - Per-page OCR manifests now also label pages with coarse routing hints (`front-matter`, `body`, `back-matter`, `body-low-quality`) plus a simple quality tier, can automatically retry front-matter / low-quality pages with a stronger OCR configuration, and `benchmark-corpus` / `benchmark-streaming-corpus` roll those signals up into front-matter, low-quality, and targeted-retry summaries.
@@ -212,5 +216,6 @@ This project now has a stronger adaptive OCR pipeline aimed at high printed-text
 
 - Ideal external corpus: the Gutenberg-HathiTrust Parallel Corpus described at <https://hdl.handle.net/2142/109695>, which reports 19,049 aligned OCR/proofread English book pairs.
 - Built-in practical corpus: `build-benchmark-corpus` generates a smaller, reproducible public-domain printed-text corpus locally so you can benchmark immediately without depending on an external dataset mirror.
+- External OCR benchmarks usually publish both error rates and throughput; the local `benchmark-corpus` / `benchmark-streaming-corpus` reports now expose both so you can tune for “faster at the same accuracy” instead of accuracy alone.
 - Larger image-based candidates when you want true raster OCR benchmarking: Old Bailey Proceedings page images plus transcripts (~180k pages), IMPACT ground-truth collections, and local Old Books / NOD-style image-text datasets once downloaded into the workspace.
 - Real scanned-book accuracy should still be checked with `benchmark-archive` and `benchmark-local-archive`, because the generated corpus is intentionally cleaner than real scans.

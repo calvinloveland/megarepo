@@ -181,6 +181,11 @@ def test_run_benchmark_corpus_aggregates_accuracy(monkeypatch, tmp_path) -> None
         "full_auto_de_pdf.benchmark_corpus.ocr_pdf_with_tesseract",
         _fake_ocr_pdf_with_tesseract,
     )
+    monotonic_values = iter([0.0, 0.0, 1.0, 3.0, 4.0, 5.0])
+    monkeypatch.setattr(
+        "full_auto_de_pdf.benchmark_corpus.time.monotonic",
+        lambda: next(monotonic_values),
+    )
 
     report = run_benchmark_corpus(
         corpus_manifest_path=manifest_path,
@@ -200,6 +205,15 @@ def test_run_benchmark_corpus_aggregates_accuracy(monkeypatch, tmp_path) -> None
     assert report["summary"]["avg_low_quality_page_rate"] == 0.0
     assert report["summary"]["avg_front_matter_page_rate"] == 0.0
     assert report["summary"]["avg_targeted_page_retry_rate"] == 0.0
+    assert report["summary"]["benchmark_elapsed_seconds"] == 5.0
+    assert report["summary"]["total_page_count"] == 1
+    assert report["summary"]["total_word_count"] == 3
+    assert report["summary"]["total_character_count"] == 18
+    assert report["summary"]["total_ocr_elapsed_seconds"] == 2.0
+    assert report["summary"]["avg_ocr_elapsed_seconds_per_item"] == 2.0
+    assert report["summary"]["overall_ocr_pages_per_second"] == 0.5
+    assert report["summary"]["overall_ocr_words_per_second"] == 1.5
+    assert report["summary"]["overall_ocr_characters_per_second"] == 9.0
     assert report["summary"]["lowest_word_accuracy_items"] == [
         {
             "identifier": "demo-book",
@@ -220,6 +234,14 @@ def test_run_benchmark_corpus_aggregates_accuracy(monkeypatch, tmp_path) -> None
             "perfect_word_accuracy_rate": 1.0,
             "worst_char_accuracy": 1.0,
             "worst_word_accuracy": 1.0,
+            "total_page_count": 1,
+            "total_word_count": 3,
+            "total_character_count": 18,
+            "total_ocr_elapsed_seconds": 2.0,
+            "avg_ocr_elapsed_seconds_per_item": 2.0,
+            "overall_ocr_pages_per_second": 0.5,
+            "overall_ocr_words_per_second": 1.5,
+            "overall_ocr_characters_per_second": 9.0,
         }
     }
     assert report["summary"]["common_unexpected_alpha_tokens"] == []
@@ -229,6 +251,10 @@ def test_run_benchmark_corpus_aggregates_accuracy(monkeypatch, tmp_path) -> None
     assert report["summary"]["targeted_page_retry_reason_counts"] == {}
     assert report["books"][0]["mode_usage"] == {"auto": 1}
     assert report["books"][0]["page_analysis"]["page_type_counts"] == {"body": 1}
+    assert report["books"][0]["ocr_elapsed_seconds"] == 2.0
+    assert report["books"][0]["ocr_pages_per_second"] == 0.5
+    assert report["books"][0]["ocr_words_per_second"] == 1.5
+    assert report["books"][0]["ocr_characters_per_second"] == 9.0
     assert "synthetic printed PDFs" in report["metric_note"]
 
 
@@ -528,6 +554,11 @@ def test_run_streaming_benchmark_corpus_records_only_failures(monkeypatch, tmp_p
         }
 
     monkeypatch.setattr("full_auto_de_pdf.benchmark_corpus.ocr_page_images", _fake_ocr_page_images)
+    monotonic_values = iter([0.0, 0.0, 1.0, 2.0, 2.5, 3.0, 5.0, 5.5, 6.0])
+    monkeypatch.setattr(
+        "full_auto_de_pdf.benchmark_corpus.time.monotonic",
+        lambda: next(monotonic_values),
+    )
 
     report = run_streaming_benchmark_corpus(
         output_report_path=tmp_path / "report.json",
@@ -553,6 +584,16 @@ def test_run_streaming_benchmark_corpus_records_only_failures(monkeypatch, tmp_p
     assert report["summary"]["avg_targeted_page_retry_rate"] == 0.5
     assert report["summary"]["perfect_word_accuracy_rate"] == 0.5
     assert report["summary"]["worst_word_accuracy"] == 11 / 12
+    assert report["summary"]["benchmark_elapsed_seconds"] == 6.0
+    assert report["summary"]["total_page_count"] == 2
+    assert report["summary"]["total_word_count"] == 24
+    total_character_count = sum(sample["character_count"] for sample in report["samples"])
+    assert report["summary"]["total_character_count"] == total_character_count
+    assert report["summary"]["total_ocr_elapsed_seconds"] == 3.0
+    assert report["summary"]["avg_ocr_elapsed_seconds_per_item"] == 1.5
+    assert report["summary"]["overall_ocr_pages_per_second"] == 2 / 3
+    assert report["summary"]["overall_ocr_words_per_second"] == 8.0
+    assert report["summary"]["overall_ocr_characters_per_second"] == total_character_count / 3
     assert report["summary"]["artifact_profile_summary"] == {
         "clean": {
             "item_count": 2,
@@ -563,6 +604,14 @@ def test_run_streaming_benchmark_corpus_records_only_failures(monkeypatch, tmp_p
             "perfect_word_accuracy_rate": 0.5,
             "worst_char_accuracy": report["samples"][1]["char_accuracy"],
             "worst_word_accuracy": 11 / 12,
+            "total_page_count": 2,
+            "total_word_count": 24,
+            "total_character_count": total_character_count,
+            "total_ocr_elapsed_seconds": 3.0,
+            "avg_ocr_elapsed_seconds_per_item": 1.5,
+            "overall_ocr_pages_per_second": 2 / 3,
+            "overall_ocr_words_per_second": 8.0,
+            "overall_ocr_characters_per_second": total_character_count / 3,
             "failure_count": 1,
         }
     }
@@ -581,6 +630,18 @@ def test_run_streaming_benchmark_corpus_records_only_failures(monkeypatch, tmp_p
     failure_artifact_dir = tmp_path / "failures" / "demo-book-sample-002"
     assert not success_artifact_dir.exists()
     assert failure_artifact_dir.exists()
+    assert report["samples"][0]["ocr_elapsed_seconds"] == 1.0
+    assert report["samples"][0]["ocr_pages_per_second"] == 1.0
+    assert report["samples"][0]["ocr_words_per_second"] == 12.0
+    assert report["samples"][0]["ocr_characters_per_second"] == float(
+        report["samples"][0]["character_count"]
+    )
+    assert report["samples"][1]["ocr_elapsed_seconds"] == 2.0
+    assert report["samples"][1]["ocr_pages_per_second"] == 0.5
+    assert report["samples"][1]["ocr_words_per_second"] == 6.0
+    assert report["samples"][1]["ocr_characters_per_second"] == (
+        float(report["samples"][1]["character_count"]) / 2.0
+    )
     assert (failure_artifact_dir / "reference.txt").exists()
     assert (failure_artifact_dir / "hypothesis.txt").exists()
     assert (failure_artifact_dir / "pages" / "page-0001.png").exists()
