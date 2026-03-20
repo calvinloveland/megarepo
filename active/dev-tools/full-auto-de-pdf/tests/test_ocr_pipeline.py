@@ -1859,6 +1859,59 @@ def test_inverse_render_score_candidate_keeps_best_render_metadata(monkeypatch) 
     assert ("font-b", 14, 4, 0, 0.5) in render_calls
 
 
+def test_inverse_render_score_candidate_uses_local_crop_region(monkeypatch) -> None:
+    observed_binary = Image.new("L", (200, 120), color=255)
+    bbox = (60, 20, 140, 80)
+    render_args: list[tuple[tuple[int, int], tuple[int, int, int, int]]] = []
+
+    monkeypatch.setattr(ocr_pipeline, "_inverse_render_font_paths", lambda: ())
+    monkeypatch.setattr(ocr_pipeline, "_estimate_inverse_render_font_size", lambda _bbox, _lines: 12)
+    monkeypatch.setattr(ocr_pipeline, "_INVERSE_RENDER_SIZE_ADJUSTMENTS", (0,))
+    monkeypatch.setattr(ocr_pipeline, "_INVERSE_RENDER_OFFSETS", (0,))
+    monkeypatch.setattr(ocr_pipeline, "_INVERSE_RENDER_ROTATIONS", (0.0,))
+
+    def _fake_render(
+        _text,
+        canvas_size,
+        local_bbox,
+        *,
+        font_path,
+        font_size,
+        offset_x,
+        offset_y,
+        rotation,
+    ):  # noqa: ANN001, ANN202
+        render_args.append((canvas_size, local_bbox))
+        assert font_path is None
+        assert font_size == 12
+        assert offset_x == 0
+        assert offset_y == 0
+        assert rotation == 0.0
+        return Image.new("L", canvas_size, color=255)
+
+    monkeypatch.setattr(ocr_pipeline, "_render_inverse_text_image", _fake_render)
+    monkeypatch.setattr(ocr_pipeline, "_binary_ink_iou", lambda _observed, _rendered: 0.5)
+
+    score, metadata = ocr_pipeline._inverse_render_score_candidate(observed_binary, bbox, "Example text")
+
+    expected_crop = ocr_pipeline._expand_bbox(
+        bbox,
+        observed_binary.size,
+        ocr_pipeline._INVERSE_RENDER_SCORE_PADDING,
+    )
+    expected_canvas = (expected_crop[2] - expected_crop[0], expected_crop[3] - expected_crop[1])
+    expected_local_bbox = (
+        bbox[0] - expected_crop[0],
+        bbox[1] - expected_crop[1],
+        bbox[2] - expected_crop[0],
+        bbox[3] - expected_crop[1],
+    )
+
+    assert score == 0.5
+    assert metadata["inverse_render_bbox"] == list(bbox)
+    assert render_args == [(expected_canvas, expected_local_bbox)]
+
+
 def test_binary_ink_iou_treats_only_black_pixels_as_ink() -> None:
     observed = Image.new("L", (2, 2), color=255)
     rendered = Image.new("L", (2, 2), color=255)

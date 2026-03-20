@@ -46,6 +46,7 @@ _DEFAULT_RENDER_FONT_CANDIDATES = (
 _INVERSE_RENDER_SIZE_ADJUSTMENTS = (-2, 0, 2)
 _INVERSE_RENDER_ROTATIONS = (-0.5, 0.0, 0.5)
 _INVERSE_RENDER_OFFSETS = (-4, 0, 4)
+_INVERSE_RENDER_SCORE_PADDING = 24
 _AUTO_INVERSE_RENDER_SCORE_WINDOW = 80.0
 _AUTO_INVERSE_RENDER_PREPROCESS_MODES = frozenset({"none", "scan", "scan-local-threshold"})
 _AUTO_SCAN_LOCAL_THRESHOLD_MIN_SCORE = 500.0
@@ -1197,6 +1198,26 @@ def _wrap_render_line(
     return wrapped
 
 
+@lru_cache(maxsize=256)
+def _wrapped_inverse_render_line_groups(
+    text: str,
+    font_path: str | None,
+    font_size: int,
+    max_width: int,
+) -> tuple[tuple[str, ...], ...]:
+    if Image is None or ImageDraw is None:
+        raise RuntimeError(
+            "Missing dependency for inverse-render reranking: pillow. "
+            "Install with `pip install pillow` or disable inverse-render reranking."
+        )
+    font = _load_inverse_render_font(font_path, font_size)
+    draw = ImageDraw.Draw(Image.new("L", (max(1, max_width), 1), color=255))
+    wrapped_groups: list[tuple[str, ...]] = []
+    for raw_line in _inverse_render_text_lines(text):
+        wrapped_groups.append(tuple(_wrap_render_line(draw, font, raw_line, max_width)))
+    return tuple(wrapped_groups)
+
+
 def _render_inverse_text_image(
     text: str,
     canvas_size: tuple[int, int],
@@ -1220,8 +1241,12 @@ def _render_inverse_text_image(
     x = bbox[0] + offset_x
     y = bbox[1] + offset_y
     line_height = max(font_size + 6, int(round(font_size * 1.35)))
-    for raw_line in _inverse_render_text_lines(text):
-        for rendered_line in _wrap_render_line(draw, font, raw_line, max_width):
+    for raw_line, wrapped_group in zip(
+        _inverse_render_text_lines(text),
+        _wrapped_inverse_render_line_groups(text, font_path, font_size, max_width),
+        strict=True,
+    ):
+        for rendered_line in wrapped_group:
             if rendered_line:
                 draw.text((x, y), rendered_line, font=font, fill=0)
             y += line_height
@@ -1269,6 +1294,14 @@ def _inverse_render_score_candidate(
     base_font_size = _estimate_inverse_render_font_size(bbox, lines)
     font_paths = _inverse_render_font_paths()
     render_fonts = font_paths if font_paths else (None,)
+    score_bbox = _expand_bbox(bbox, observed_binary.size, _INVERSE_RENDER_SCORE_PADDING)
+    observed_region = observed_binary.crop(score_bbox)
+    local_bbox = (
+        bbox[0] - score_bbox[0],
+        bbox[1] - score_bbox[1],
+        bbox[2] - score_bbox[0],
+        bbox[3] - score_bbox[1],
+    )
     best_score = -1.0
     best_metadata: dict[str, object] = {
         "inverse_render_score": -1.0,
@@ -1282,15 +1315,15 @@ def _inverse_render_score_candidate(
                     for rotation in _INVERSE_RENDER_ROTATIONS:
                         rendered = _render_inverse_text_image(
                             text,
-                            observed_binary.size,
-                            bbox,
+                            observed_region.size,
+                            local_bbox,
                             font_path=font_path,
                             font_size=font_size,
                             offset_x=offset_x,
                             offset_y=offset_y,
                             rotation=rotation,
                         )
-                        score = _binary_ink_iou(observed_binary, rendered)
+                        score = _binary_ink_iou(observed_region, rendered)
                         if score <= best_score:
                             continue
                         best_score = score
@@ -1450,11 +1483,14 @@ def _maybe_verify_cleanup_spans(
                 "changes_reverted": 0,
             }
         }
-    observed_binary, bbox = _normalize_scan_for_inverse_render(image_path)
+    observed_binary: Any | None = None
+    bbox: tuple[int, int, int, int] | None = None
     verified_text = cleaned_text
     decisions: list[dict[str, object]] = []
     reverted_count = 0
     for change in reversed(changes):
+        if observed_binary is None or bbox is None:
+            observed_binary, bbox = _normalize_scan_for_inverse_render(image_path)
         raw_variant = (
             verified_text[:change.cleaned_start]
             + change.raw_text
