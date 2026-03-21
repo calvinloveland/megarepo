@@ -411,6 +411,10 @@ def _render_generated_source_details(summary: dict[str, Any]) -> str:
                     "cleanup span verification",
                     "enabled" if details.get("verify_cleanup_spans") else "disabled",
                 ),
+                (
+                    "LLM suspicious section scan",
+                    "enabled" if details.get("llm_suspicious_sections") else "disabled",
+                ),
             ]
         )
         ocr_metrics = details.get("ocr_metrics")
@@ -466,6 +470,59 @@ def _render_generated_source_details(summary: dict[str, Any]) -> str:
             for label, value in detail_items
         )
         + "</tbody></table>"
+    )
+
+
+def _render_suspicious_sections(summary: dict[str, Any]) -> str:
+    details = summary.get("generated_source_details")
+    if not isinstance(details, dict):
+        return ""
+    ocr_metrics = details.get("ocr_metrics")
+    if not isinstance(ocr_metrics, dict):
+        return ""
+    suspicious_sections = ocr_metrics.get("suspicious_sections")
+    if not isinstance(suspicious_sections, dict):
+        return ""
+    sections = suspicious_sections.get("sections")
+    if not isinstance(sections, list):
+        sections = []
+    status = str(suspicious_sections.get("status", "unknown"))
+    if not sections:
+        return (
+            "<h2>Suspicious generated sections</h2>"
+            f"<p>status=<code>{escape(status)}</code>, flagged_sections=<code>0</code></p>"
+        )
+    cards = []
+    for section in sections:
+        if not isinstance(section, dict):
+            continue
+        page_index = section.get("page_index", "n/a")
+        llm_confidence = str(section.get("llm_confidence", "medium"))
+        reason = str(section.get("llm_reason", ""))
+        excerpt = str(section.get("excerpt", ""))
+        focus_spans = section.get("focus_spans", [])
+        spans_html = ""
+        if isinstance(focus_spans, list) and focus_spans:
+            spans_html = (
+                "<p><strong>focus spans:</strong> "
+                + ", ".join(f"<code>{escape(str(span))}</code>" for span in focus_spans[:3])
+                + "</p>"
+            )
+        cards.append(
+            "<section class='card'>"
+            f"<h3>Page {escape(str(page_index))}</h3>"
+            f"<p><strong>confidence:</strong> {escape(llm_confidence)}</p>"
+            f"<p><strong>reason:</strong> {escape(reason)}</p>"
+            f"{spans_html}"
+            f"<div class='excerpt'>{escape(excerpt)}</div>"
+            "</section>"
+        )
+    return (
+        "<h2>Suspicious generated sections</h2>"
+        f"<p>status=<code>{escape(status)}</code>, flagged_sections=<code>{len(cards)}</code></p>"
+        "<div class='grid'>"
+        + "".join(cards)
+        + "</div>"
     )
 
 
@@ -608,6 +665,7 @@ def _render_compare_page(summary: dict[str, Any]) -> str:
         f"{archive_pdf_html}"
         "</ul>"
         f"{_render_generated_source_details(summary)}"
+        f"{_render_suspicious_sections(summary)}"
         "<h2>Structure and generation stats</h2>"
         "<table><thead><tr><th>metric</th><th>Internet Archive EPUB</th><th>Generated EPUB</th></tr></thead><tbody>"
         f"{_render_metric_rows(archive_eval, generated_eval, generated_metrics)}"
@@ -659,6 +717,9 @@ def build_archive_epub_compare_page(
     inverse_render_top_k: int = 3,
     inverse_render_workers: int = 1,
     verify_cleanup_spans: bool = False,
+    llm_suspicious_sections: bool = False,
+    llm_suspicious_max_candidates: int = 12,
+    llm_suspicious_max_sections: int = 6,
     progress_callback: Callable[[dict[str, object]], None] | None = None,
 ) -> dict[str, Any]:
     """Build a local HTML page comparing an archive.org EPUB with a generated EPUB."""
@@ -736,6 +797,9 @@ def build_archive_epub_compare_page(
             inverse_render_top_k=inverse_render_top_k,
             inverse_render_workers=inverse_render_workers,
             verify_cleanup_spans=verify_cleanup_spans,
+            llm_suspicious_sections=llm_suspicious_sections,
+            llm_suspicious_max_candidates=llm_suspicious_max_candidates,
+            llm_suspicious_max_sections=llm_suspicious_max_sections,
             progress_callback=progress_callback,
         )
         ocr_text = ocr_text_path.read_text(encoding="utf-8")
@@ -756,6 +820,9 @@ def build_archive_epub_compare_page(
             "inverse_render_top_k": inverse_render_top_k,
             "inverse_render_workers": inverse_render_workers,
             "verify_cleanup_spans": verify_cleanup_spans,
+            "llm_suspicious_sections": llm_suspicious_sections,
+            "llm_suspicious_max_candidates": llm_suspicious_max_candidates,
+            "llm_suspicious_max_sections": llm_suspicious_max_sections,
             "ocr_metrics": ocr_metrics,
             "page_artifacts_manifest_href": page_artifacts_manifest_href,
         }

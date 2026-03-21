@@ -82,6 +82,12 @@ _MEDIUM_QUALITY_LOW_CONFIDENCE_RATIO = 0.1
 _LOW_QUALITY_LOW_CONFIDENCE_RATIO = 0.25
 _MEDIUM_QUALITY_NOISE_RATIO = 0.08
 _LOW_QUALITY_NOISE_RATIO = 0.18
+_SUSPICIOUS_SECTION_MIN_WORDS = 24
+_SUSPICIOUS_SECTION_WINDOW_WORDS = 120
+_SUSPICIOUS_SECTION_WINDOW_OVERLAP_WORDS = 40
+_MAX_SUSPICIOUS_SECTION_FOCUS_SPANS = 3
+_SUSPICIOUS_SYMBOLIC_TOKEN_RE = re.compile(r"\b(?=\S*[A-Za-z])(?=\S*[%{}\[\]<>|\\/@#$^*_~`])\S+\b")
+_SUSPICIOUS_DIGIT_ALPHA_TOKEN_RE = re.compile(r"\b(?=\w*[A-Za-z])(?=\w*\d)\w+\b")
 _COMMON_ENGLISH_WORDS = frozenset(
     {
         "a",
@@ -138,6 +144,9 @@ class OCRCoreOptions:
     llm_post_correction: bool = False
     llm_min_low_confidence_ratio: float = 0.08
     llm_max_word_delta_ratio: float = 0.2
+    llm_suspicious_sections: bool = False
+    llm_suspicious_max_candidates: int = 12
+    llm_suspicious_max_sections: int = 6
     inverse_render_rerank: bool = False
     inverse_render_top_k: int = 3
     inverse_render_workers: int = 1
@@ -165,6 +174,7 @@ class OCRDependencies:
     paddle_reader_factory: Callable[[str], Callable[[Path], str]]
     which: Callable[[str], str | None]
     llm_corrector: Callable[[str], str] | None = None
+    llm_suspicious_section_analyzer: Callable[[str], str] | None = None
 
 
 @dataclass(frozen=True)
@@ -787,6 +797,7 @@ def _parse_ocr_dependencies(kwargs: dict[str, Any]) -> OCRDependencies:
         paddle_reader_factory=kwargs.pop("paddle_reader_factory", _build_paddleocr_reader),
         which=kwargs.pop("which", shutil.which),
         llm_corrector=kwargs.pop("llm_corrector", None),
+        llm_suspicious_section_analyzer=kwargs.pop("llm_suspicious_section_analyzer", None),
     )
 
 
@@ -815,6 +826,9 @@ def _parse_ocr_options(kwargs: dict[str, Any]) -> OCRRunOptions:
         llm_post_correction=bool(kwargs.pop("llm_post_correction", False)),
         llm_min_low_confidence_ratio=float(kwargs.pop("llm_min_low_confidence_ratio", 0.08)),
         llm_max_word_delta_ratio=float(kwargs.pop("llm_max_word_delta_ratio", 0.2)),
+        llm_suspicious_sections=bool(kwargs.pop("llm_suspicious_sections", False)),
+        llm_suspicious_max_candidates=int(kwargs.pop("llm_suspicious_max_candidates", 12)),
+        llm_suspicious_max_sections=int(kwargs.pop("llm_suspicious_max_sections", 6)),
         inverse_render_rerank=bool(kwargs.pop("inverse_render_rerank", False)),
         inverse_render_top_k=int(kwargs.pop("inverse_render_top_k", 3)),
         inverse_render_workers=int(kwargs.pop("inverse_render_workers", 1)),
@@ -865,6 +879,10 @@ def _validate_common_ocr_options(
         raise ValueError("llm_min_low_confidence_ratio must be between 0 and 1")
     if not 0.0 < options.core.llm_max_word_delta_ratio <= 1.0:
         raise ValueError("llm_max_word_delta_ratio must be greater than 0 and at most 1")
+    if options.core.llm_suspicious_max_candidates <= 0:
+        raise ValueError("llm_suspicious_max_candidates must be greater than 0")
+    if options.core.llm_suspicious_max_sections <= 0:
+        raise ValueError("llm_suspicious_max_sections must be greater than 0")
     if not 0 <= options.core.binarize_threshold <= 255:
         raise ValueError("binarize_threshold must be between 0 and 255")
     if options.core.deskew_max_angle <= 0:
@@ -2347,6 +2365,230 @@ def _page_analysis_summary(page_details: list[dict[str, object]]) -> dict[str, o
     }
 
 
+def _windowed_section_excerpts(text: str) -> list[tuple[int, int, str]]:
+    words = [word for word in text.split() if word]
+    if len(words) < _SUSPICIOUS_SECTION_MIN_WORDS:
+        return []
+    if len(words) <= _SUSPICIOUS_SECTION_WINDOW_WORDS:
+        return [(0, len(words), " ".join(words))]
+    step = max(1, _SUSPICIOUS_SECTION_WINDOW_WORDS - _SUSPICIOUS_SECTION_WINDOW_OVERLAP_WORDS)
+    windows: list[tuple[int, int, str]] = []
+    for start in range(0, len(words), step):
+        end = min(len(words), start + _SUSPICIOUS_SECTION_WINDOW_WORDS)
+        if end - start < _SUSPICIOUS_SECTION_MIN_WORDS:
+            continue
+        windows.append((start, end, " ".join(words[start:end])))
+        if end >= len(words):
+            break
+    return windows
+
+
+def _suspicious_section_candidates(
+    page_texts: list[str],
+    page_details: list[dict[str, object]],
+    *,
+    max_candidates: int,
+) -> list[dict[str, object]]:
+    candidates: list[dict[str, object]] = []
+    for page_index, text in enumerate(page_texts, start=1):
+        if page_index - 1 >= len(page_details):
+            break
+        detail = page_details[page_index - 1]
+        page_quality_tier = str(detail.get("page_quality_tier", "unknown"))
+        page_route = str(detail.get("page_route", "unknown"))
+        raw_low_confidence_ratio = detail.get("hocr_low_confidence_ratio")
+        low_confidence_ratio = (
+            float(raw_low_confidence_ratio)
+            if isinstance(raw_low_confidence_ratio, (int, float))
+            else 0.0
+        )
+        for section_index, (start_word, end_word, excerpt) in enumerate(_windowed_section_excerpts(text), start=1):
+            symbolic_token_count = len(_SUSPICIOUS_SYMBOLIC_TOKEN_RE.findall(excerpt))
+            digit_alpha_token_count = len(_SUSPICIOUS_DIGIT_ALPHA_TOKEN_RE.findall(excerpt))
+            noise_ratio = _page_text_noise_ratio(excerpt)
+            quality_bonus = 2.0 if page_quality_tier == "low" else 1.0 if page_quality_tier == "medium" else 0.0
+            route_bonus = 0.5 if page_route.endswith("review") or page_route.endswith("low-quality") else 0.0
+            heuristic_score = (
+                float(symbolic_token_count * 3)
+                + float(digit_alpha_token_count * 2)
+                + (noise_ratio * 10.0)
+                + (low_confidence_ratio * 8.0)
+                + quality_bonus
+                + route_bonus
+            )
+            if (
+                heuristic_score <= 0.0
+                and page_quality_tier == "high"
+                and low_confidence_ratio < 0.08
+                and symbolic_token_count == 0
+                and digit_alpha_token_count == 0
+            ):
+                continue
+            candidates.append(
+                {
+                    "page_index": page_index,
+                    "section_index": section_index,
+                    "start_word_index": start_word,
+                    "end_word_index": end_word,
+                    "page_quality_tier": page_quality_tier,
+                    "page_route": page_route,
+                    "page_text_noise_ratio": round(noise_ratio, 4),
+                    "hocr_low_confidence_ratio": round(low_confidence_ratio, 4),
+                    "symbolic_token_count": symbolic_token_count,
+                    "digit_alpha_token_count": digit_alpha_token_count,
+                    "heuristic_score": round(heuristic_score, 4),
+                    "excerpt": excerpt,
+                }
+            )
+    candidates.sort(
+        key=lambda item: (
+            float(item["heuristic_score"]),
+            int(item["symbolic_token_count"]),
+            int(item["digit_alpha_token_count"]),
+        ),
+        reverse=True,
+    )
+    return candidates[:max_candidates]
+
+
+def _build_suspicious_section_prompt(candidate: dict[str, object]) -> str:
+    return (
+        "Review this OCR excerpt for likely recognition errors.\n"
+        "Return ONLY compact JSON with keys "
+        '{"suspicious":true|false,"confidence":"low|medium|high","reason":"short reason","focus_spans":["exact short spans"]}.\n'
+        "Mark suspicious=true only when the excerpt likely deserves deeper OCR review.\n"
+        f"page_index={int(candidate['page_index'])}, "
+        f"section_index={int(candidate['section_index'])}, "
+        f"heuristic_score={float(candidate['heuristic_score']):.3f}, "
+        f"page_quality_tier={candidate['page_quality_tier']}, "
+        f"page_route={candidate['page_route']}, "
+        f"page_text_noise_ratio={float(candidate['page_text_noise_ratio']):.4f}, "
+        f"hocr_low_confidence_ratio={float(candidate['hocr_low_confidence_ratio']):.4f}, "
+        f"symbolic_token_count={int(candidate['symbolic_token_count'])}, "
+        f"digit_alpha_token_count={int(candidate['digit_alpha_token_count'])}\n"
+        "Excerpt:\n<<<\n"
+        f"{candidate['excerpt']}\n"
+        ">>>"
+    )
+
+
+def _extract_first_json_object(text: str) -> dict[str, object] | None:
+    decoder = json.JSONDecoder()
+    for index, char in enumerate(text):
+        if char != "{":
+            continue
+        try:
+            payload, _ = decoder.raw_decode(text[index:])
+        except json.JSONDecodeError:
+            continue
+        if isinstance(payload, dict):
+            return payload
+    return None
+
+
+def _parse_suspicious_section_response(response_text: str) -> dict[str, object] | None:
+    payload = _extract_first_json_object(response_text.strip())
+    if payload is None:
+        return None
+    suspicious = payload.get("suspicious")
+    if not isinstance(suspicious, bool):
+        return None
+    confidence = str(payload.get("confidence", "medium")).strip().lower()
+    if confidence not in {"low", "medium", "high"}:
+        confidence = "medium"
+    reason = str(payload.get("reason", "")).strip()
+    if not reason:
+        return None
+    focus_spans_value = payload.get("focus_spans", [])
+    focus_spans: list[str] = []
+    if isinstance(focus_spans_value, list):
+        for item in focus_spans_value:
+            if not isinstance(item, str):
+                continue
+            candidate = item.strip()
+            if candidate:
+                focus_spans.append(candidate[:120])
+            if len(focus_spans) >= _MAX_SUSPICIOUS_SECTION_FOCUS_SPANS:
+                break
+    return {
+        "suspicious": suspicious,
+        "confidence": confidence,
+        "reason": reason[:240],
+        "focus_spans": focus_spans,
+    }
+
+
+def _maybe_analyze_suspicious_sections(
+    page_texts: list[str],
+    page_details: list[dict[str, object]],
+    options: OCRRunOptions,
+    dependencies: OCRDependencies,
+) -> dict[str, object]:
+    if not options.core.llm_suspicious_sections:
+        return {}
+    if dependencies.llm_suspicious_section_analyzer is None:
+        return {
+            "enabled": True,
+            "status": "unavailable",
+            "candidate_count": 0,
+            "reviewed_count": 0,
+            "flagged_count": 0,
+            "invalid_response_count": 0,
+            "sections": [],
+        }
+    candidates = _suspicious_section_candidates(
+        page_texts,
+        page_details,
+        max_candidates=options.core.llm_suspicious_max_candidates,
+    )
+    if not candidates:
+        return {
+            "enabled": True,
+            "status": "skipped-no-candidates",
+            "candidate_count": 0,
+            "reviewed_count": 0,
+            "flagged_count": 0,
+            "invalid_response_count": 0,
+            "sections": [],
+        }
+    sections: list[dict[str, object]] = []
+    reviewed_count = 0
+    invalid_response_count = 0
+    for candidate in candidates:
+        if len(sections) >= options.core.llm_suspicious_max_sections:
+            break
+        reviewed_count += 1
+        response_text = dependencies.llm_suspicious_section_analyzer(
+            _build_suspicious_section_prompt(candidate)
+        )
+        if not isinstance(response_text, str):
+            invalid_response_count += 1
+            continue
+        parsed = _parse_suspicious_section_response(response_text)
+        if parsed is None:
+            invalid_response_count += 1
+            continue
+        if not bool(parsed["suspicious"]):
+            continue
+        section = dict(candidate)
+        section["llm_confidence"] = parsed["confidence"]
+        section["llm_reason"] = parsed["reason"]
+        section["focus_spans"] = parsed["focus_spans"]
+        sections.append(section)
+    status = "applied"
+    if reviewed_count > 0 and invalid_response_count == reviewed_count:
+        status = "invalid-output"
+    return {
+        "enabled": True,
+        "status": status,
+        "candidate_count": len(candidates),
+        "reviewed_count": reviewed_count,
+        "flagged_count": len(sections),
+        "invalid_response_count": invalid_response_count,
+        "sections": sections,
+    }
+
+
 def _page_artifacts_manifest_payload(
     page_details: list[dict[str, object]],
     total_pages: int,
@@ -3074,6 +3316,14 @@ def _collect_page_ocr_results(
         "mode_usage": dict(mode_usage),
         "page_analysis": _page_analysis_summary(page_details),
     }
+    suspicious_sections = _maybe_analyze_suspicious_sections(
+        page_texts,
+        page_details,
+        options,
+        dependencies,
+    )
+    if suspicious_sections:
+        selection_summary["suspicious_sections"] = suspicious_sections
     if tesseract_psm_usage:
         selection_summary["tesseract_psm_usage"] = dict(tesseract_psm_usage)
     return page_texts, page_details, selection_summary
@@ -3233,6 +3483,9 @@ def _parse_mode_eval_options(kwargs: dict[str, Any]) -> ModeEvalOptions:
         llm_post_correction=bool(kwargs.pop("llm_post_correction", False)),
         llm_min_low_confidence_ratio=float(kwargs.pop("llm_min_low_confidence_ratio", 0.08)),
         llm_max_word_delta_ratio=float(kwargs.pop("llm_max_word_delta_ratio", 0.2)),
+        llm_suspicious_sections=bool(kwargs.pop("llm_suspicious_sections", False)),
+        llm_suspicious_max_candidates=int(kwargs.pop("llm_suspicious_max_candidates", 12)),
+        llm_suspicious_max_sections=int(kwargs.pop("llm_suspicious_max_sections", 6)),
     )
     return ModeEvalOptions(
         core=core_options,
@@ -3262,6 +3515,9 @@ def _mode_ocr_kwargs(options: ModeEvalOptions, mode: str) -> dict[str, Any]:
         "llm_post_correction": options.core.llm_post_correction,
         "llm_min_low_confidence_ratio": options.core.llm_min_low_confidence_ratio,
         "llm_max_word_delta_ratio": options.core.llm_max_word_delta_ratio,
+        "llm_suspicious_sections": options.core.llm_suspicious_sections,
+        "llm_suspicious_max_candidates": options.core.llm_suspicious_max_candidates,
+        "llm_suspicious_max_sections": options.core.llm_suspicious_max_sections,
         "ocr_engine": options.ocr_engine,
     }
 
@@ -3396,6 +3652,13 @@ def _parse_local_archive_options(kwargs: dict[str, Any]) -> LocalArchiveBenchmar
         orientation_fallback=bool(kwargs.pop("orientation_fallback", False)),
         tiered_ocr_fallback=bool(kwargs.pop("tiered_ocr_fallback", False)),
         tiered_ocr_min_score=float(kwargs.pop("tiered_ocr_min_score", 200.0)),
+        layout_region_detection=bool(kwargs.pop("layout_region_detection", False)),
+        llm_post_correction=bool(kwargs.pop("llm_post_correction", False)),
+        llm_min_low_confidence_ratio=float(kwargs.pop("llm_min_low_confidence_ratio", 0.08)),
+        llm_max_word_delta_ratio=float(kwargs.pop("llm_max_word_delta_ratio", 0.2)),
+        llm_suspicious_sections=bool(kwargs.pop("llm_suspicious_sections", False)),
+        llm_suspicious_max_candidates=int(kwargs.pop("llm_suspicious_max_candidates", 12)),
+        llm_suspicious_max_sections=int(kwargs.pop("llm_suspicious_max_sections", 6)),
     )
     return LocalArchiveBenchmarkOptions(
         core=core_options,

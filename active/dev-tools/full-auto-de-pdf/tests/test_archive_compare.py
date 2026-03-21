@@ -57,6 +57,9 @@ def test_build_archive_epub_compare_page_writes_html(monkeypatch, tmp_path) -> N
             "inverse_render_top_k": 3,
             "inverse_render_workers": 1,
             "verify_cleanup_spans": False,
+            "llm_suspicious_sections": False,
+            "llm_suspicious_max_candidates": 12,
+            "llm_suspicious_max_sections": 6,
             "progress_callback": None,
         }
         output_text_path.write_text(
@@ -75,6 +78,18 @@ def test_build_archive_epub_compare_page_writes_html(monkeypatch, tmp_path) -> N
             "mode_usage": {"scan": 2},
             "tesseract_psm_usage": {"6": 2},
             "page_artifacts_manifest": str(manifest_path),
+            "suspicious_sections": {
+                "status": "applied",
+                "sections": [
+                    {
+                        "page_index": 12,
+                        "llm_confidence": "high",
+                        "llm_reason": "garbled punctuation cluster needs review",
+                        "focus_spans": ["frontier--f)(')r"],
+                        "excerpt": "The frontier--f)(')r pass looked suspicious.",
+                    }
+                ],
+            },
         }
 
     rendered_pages = []
@@ -140,6 +155,9 @@ def test_build_archive_epub_compare_page_writes_html(monkeypatch, tmp_path) -> N
     assert "Archive scan page 12" in html
     assert "Internet Archive EPUB excerpt" in html
     assert "Generated EPUB excerpt" in html
+    assert "Suspicious generated sections" in html
+    assert "garbled punctuation cluster needs review" in html
+    assert "frontier--f)(&#x27;)r" in html
     assert "selected_pdf_page=<code>12</code>" in html
     assert "Random page" in html
     assert "id='aligned-page-select'" in html

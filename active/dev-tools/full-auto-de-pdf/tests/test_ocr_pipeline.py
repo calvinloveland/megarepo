@@ -1569,6 +1569,63 @@ def test_ocr_page_images_hocr_output_records_confidence_metadata(tmp_path) -> No
     assert metrics["page_analysis"]["page_quality_tier_counts"]
 
 
+def test_ocr_page_images_llm_suspicious_sections_flags_symbolic_excerpt(tmp_path) -> None:
+    page_image = tmp_path / "page-1.png"
+    output_path = tmp_path / "out.txt"
+    work_dir = tmp_path / "work"
+    Image.new("L", (20, 20), color=255).save(page_image)
+    prompts: list[str] = []
+
+    def _which(name: str) -> str | None:
+        if name == "tesseract":
+            return "/usr/bin/fake"
+        return None
+
+    def _run(command: list[str], capture_output: bool) -> str:
+        assert command[0] == "tesseract"
+        assert capture_output is True
+        return (
+            "The fron|ier pass looked strange enough to warrant a closer look, and the "
+            "witnesses agreed that the text looked suspicious and garbled while several "
+            "other careful readers compared every nearby word for context and consistency."
+        )
+
+    def _analyze(prompt: str) -> str:
+        prompts.append(prompt)
+        assert "fron|ier" in prompt
+        return json.dumps(
+            {
+                "suspicious": True,
+                "confidence": "high",
+                "reason": "garbled token with embedded punctuation likely reflects OCR damage",
+                "focus_spans": ["fron|ier"],
+            }
+        )
+
+    metrics = ocr_page_images(
+        page_images=[page_image],
+        output_text_path=output_path,
+        work_dir=work_dir,
+        preprocess_mode="none",
+        tesseract_psm="6",
+        llm_suspicious_sections=True,
+        llm_suspicious_section_analyzer=_analyze,
+        run_command=_run,
+        which=_which,
+    )
+
+    suspicious = metrics["suspicious_sections"]
+    assert suspicious["status"] == "applied"
+    assert suspicious["candidate_count"] >= 1
+    assert suspicious["flagged_count"] == 1
+    section = suspicious["sections"][0]
+    assert section["page_index"] == 1
+    assert section["llm_confidence"] == "high"
+    assert section["focus_spans"] == ["fron|ier"]
+    assert "garbled token" in section["llm_reason"]
+    assert prompts
+
+
 def test_ocr_page_images_targeted_retry_reprocesses_low_quality_page(monkeypatch, tmp_path) -> None:
     page_image = tmp_path / "page-1.png"
     output_path = tmp_path / "out.txt"

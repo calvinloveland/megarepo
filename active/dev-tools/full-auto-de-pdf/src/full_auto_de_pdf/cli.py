@@ -587,6 +587,7 @@ def _add_benchmark_ocr_args(parser: argparse.ArgumentParser) -> None:
         default=0.2,
         help="Maximum relative word-count delta allowed for LLM post-correction output",
     )
+    _add_llm_suspicious_section_args(parser)
     parser.add_argument(
         "--no-cleanup",
         action="store_true",
@@ -651,6 +652,26 @@ def _add_inverse_render_args(parser: argparse.ArgumentParser) -> None:
         type=int,
         default=1,
         help="Process workers for independent inverse-render score evaluations",
+    )
+
+
+def _add_llm_suspicious_section_args(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--llm-suspicious-sections",
+        action="store_true",
+        help="Enable a guarded callback that flags suspicious OCR excerpts for deeper review",
+    )
+    parser.add_argument(
+        "--llm-suspicious-max-candidates",
+        type=int,
+        default=12,
+        help="Maximum OCR excerpt candidates to send to the suspicious-section callback",
+    )
+    parser.add_argument(
+        "--llm-suspicious-max-sections",
+        type=int,
+        default=6,
+        help="Maximum suspicious OCR excerpts to keep in the final report",
     )
 
 
@@ -797,6 +818,7 @@ def _add_ocr_pdf_command(subparsers: argparse._SubParsersAction[argparse.Argumen
         default=0.2,
         help="Maximum relative word-count delta allowed for LLM post-correction output",
     )
+    _add_llm_suspicious_section_args(parser)
     parser.add_argument(
         "--binarize-threshold",
         type=int,
@@ -922,6 +944,7 @@ def _add_ocr_eval_modes_command(
         default=0.2,
         help="Maximum relative word-count delta allowed for LLM post-correction output",
     )
+    _add_llm_suspicious_section_args(parser)
     parser.add_argument(
         "--binarize-threshold",
         type=int,
@@ -1046,6 +1069,7 @@ def _add_benchmark_local_archive_command(
         default=0.2,
         help="Maximum relative word-count delta allowed for LLM post-correction output",
     )
+    _add_llm_suspicious_section_args(parser)
     parser.add_argument(
         "--binarize-threshold",
         type=int,
@@ -1267,6 +1291,7 @@ def _add_archive_epub_compare_page_command(
         type=Path,
         help="Optional directory for local OCR page artifacts",
     )
+    _add_llm_suspicious_section_args(parser)
     parser.set_defaults(inverse_render_rerank=False, verify_cleanup_spans=False)
     parser.add_argument(
         "--inverse-render-rerank",
@@ -1464,6 +1489,9 @@ def _benchmark_ocr_kwargs_from_args(args: argparse.Namespace) -> dict[str, objec
         "llm_post_correction": args.llm_post_correction,
         "llm_min_low_confidence_ratio": args.llm_min_low_confidence_ratio,
         "llm_max_word_delta_ratio": args.llm_max_word_delta_ratio,
+        "llm_suspicious_sections": args.llm_suspicious_sections,
+        "llm_suspicious_max_candidates": args.llm_suspicious_max_candidates,
+        "llm_suspicious_max_sections": args.llm_suspicious_max_sections,
         "ocr_engine": args.ocr_engine,
         "emit_page_artifacts": not args.no_page_artifacts,
         "inverse_render_rerank": args.inverse_render_rerank,
@@ -1518,6 +1546,9 @@ def _handle_ocr_pdf(args: argparse.Namespace) -> int:
         llm_post_correction=args.llm_post_correction,
         llm_min_low_confidence_ratio=args.llm_min_low_confidence_ratio,
         llm_max_word_delta_ratio=args.llm_max_word_delta_ratio,
+        llm_suspicious_sections=args.llm_suspicious_sections,
+        llm_suspicious_max_candidates=args.llm_suspicious_max_candidates,
+        llm_suspicious_max_sections=args.llm_suspicious_max_sections,
         ocr_engine=args.ocr_engine,
         emit_page_artifacts=not args.no_page_artifacts,
         page_artifacts_dir=args.page_artifacts_dir,
@@ -1547,6 +1578,9 @@ def _handle_ocr_eval_modes(args: argparse.Namespace) -> int:
     llm_post_correction = bool(getattr(args, "llm_post_correction", False))
     llm_min_low_confidence_ratio = float(getattr(args, "llm_min_low_confidence_ratio", 0.08))
     llm_max_word_delta_ratio = float(getattr(args, "llm_max_word_delta_ratio", 0.2))
+    llm_suspicious_sections = bool(getattr(args, "llm_suspicious_sections", False))
+    llm_suspicious_max_candidates = int(getattr(args, "llm_suspicious_max_candidates", 12))
+    llm_suspicious_max_sections = int(getattr(args, "llm_suspicious_max_sections", 6))
     report = evaluate_ocr_preprocess_modes(
         pdf_path=args.pdf,
         work_dir=args.work_dir,
@@ -1569,6 +1603,9 @@ def _handle_ocr_eval_modes(args: argparse.Namespace) -> int:
         llm_post_correction=llm_post_correction,
         llm_min_low_confidence_ratio=llm_min_low_confidence_ratio,
         llm_max_word_delta_ratio=llm_max_word_delta_ratio,
+        llm_suspicious_sections=llm_suspicious_sections,
+        llm_suspicious_max_candidates=llm_suspicious_max_candidates,
+        llm_suspicious_max_sections=llm_suspicious_max_sections,
         ocr_engine=args.ocr_engine,
     )
     mode_count = len(report.get("modes", {}))
@@ -1589,6 +1626,9 @@ def _handle_benchmark_local_archive(args: argparse.Namespace) -> int:
     llm_post_correction = bool(getattr(args, "llm_post_correction", False))
     llm_min_low_confidence_ratio = float(getattr(args, "llm_min_low_confidence_ratio", 0.08))
     llm_max_word_delta_ratio = float(getattr(args, "llm_max_word_delta_ratio", 0.2))
+    llm_suspicious_sections = bool(getattr(args, "llm_suspicious_sections", False))
+    llm_suspicious_max_candidates = int(getattr(args, "llm_suspicious_max_candidates", 12))
+    llm_suspicious_max_sections = int(getattr(args, "llm_suspicious_max_sections", 6))
     report = benchmark_local_ocr_against_archive(
         pdf_path=args.pdf,
         archive_identifier=args.archive_identifier,
@@ -1612,6 +1652,9 @@ def _handle_benchmark_local_archive(args: argparse.Namespace) -> int:
         llm_post_correction=llm_post_correction,
         llm_min_low_confidence_ratio=llm_min_low_confidence_ratio,
         llm_max_word_delta_ratio=llm_max_word_delta_ratio,
+        llm_suspicious_sections=llm_suspicious_sections,
+        llm_suspicious_max_candidates=llm_suspicious_max_candidates,
+        llm_suspicious_max_sections=llm_suspicious_max_sections,
         ocr_engine=args.ocr_engine,
     )
     print(
@@ -1693,6 +1736,9 @@ def _handle_archive_epub_compare_page(args: argparse.Namespace) -> int:
         inverse_render_top_k=args.inverse_render_top_k,
         inverse_render_workers=args.inverse_render_workers,
         verify_cleanup_spans=args.verify_cleanup_spans,
+        llm_suspicious_sections=args.llm_suspicious_sections,
+        llm_suspicious_max_candidates=args.llm_suspicious_max_candidates,
+        llm_suspicious_max_sections=args.llm_suspicious_max_sections,
         progress_callback=progress_callback,
     )
     print(

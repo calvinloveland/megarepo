@@ -182,6 +182,7 @@ full-auto-de-pdf eval-epub \
 - `ocr-pdf` and `benchmark-corpus` can optionally use `--inverse-render-rerank` to re-render the top OCR candidates and compare thresholded ink overlap against the scanned page as a slow second-pass verifier.
 - `benchmark-failures-page` now includes richer representative PDF/page examples with selected preprocess metadata and candidate-score tables, and `benchmark-processing-page` renders a separate walkthrough page that explains the OCR pipeline stages with page examples.
 - `archive-epub-compare-page` now defaults to this tool's local OCR of the archive PDF, with page controls for browsing aligned scan/IA/generated excerpts and a random-page jump.
+- The OCR pipeline now has an opt-in suspicious-section review pass that can send high-risk excerpts to an injected completion-only callback, then surface flagged spans and reasons in OCR metadata and on the archive compare page.
 - Long-running local OCR commands now print progress with elapsed time and an estimated remaining duration while pages are being processed.
 - `benchmark-corpus` and `benchmark-streaming-corpus` now also print progress with elapsed time and an estimated remaining duration while books/samples are being processed.
 - `benchmark-corpus` and `benchmark-streaming-corpus` reports now also record per-item OCR elapsed time plus aggregate throughput (`pages/sec`, `words/sec`, `chars/sec`), which makes the built-in corpus much closer to the accuracy-and-speed scorecards used by public OCR benchmarks.

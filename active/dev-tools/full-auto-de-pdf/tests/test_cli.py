@@ -393,6 +393,9 @@ def test_ocr_pdf_command_runs_pipeline(monkeypatch, tmp_path) -> None:
         assert kwargs["inverse_render_top_k"] == 5
         assert kwargs["inverse_render_workers"] == 2
         assert kwargs["verify_cleanup_spans"] is True
+        assert kwargs["llm_suspicious_sections"] is False
+        assert kwargs["llm_suspicious_max_candidates"] == 12
+        assert kwargs["llm_suspicious_max_sections"] == 6
         assert callable(kwargs["progress_callback"])
         return {"page_count": 3, "word_count": 120, "character_count": 600}
 
@@ -659,6 +662,9 @@ def test_archive_epub_compare_page_command_writes_html(monkeypatch, tmp_path) ->
         inverse_render_top_k,
         inverse_render_workers,
         verify_cleanup_spans,
+        llm_suspicious_sections,
+        llm_suspicious_max_candidates,
+        llm_suspicious_max_sections,
         progress_callback,
     ):
         assert archive_identifier == "demo-book"
@@ -683,6 +689,9 @@ def test_archive_epub_compare_page_command_writes_html(monkeypatch, tmp_path) ->
         assert inverse_render_top_k == 3
         assert inverse_render_workers == 2
         assert verify_cleanup_spans is False
+        assert llm_suspicious_sections is False
+        assert llm_suspicious_max_candidates == 12
+        assert llm_suspicious_max_sections == 6
         assert callable(progress_callback)
         output_html_path.write_text("<html></html>", encoding="utf-8")
         return {
