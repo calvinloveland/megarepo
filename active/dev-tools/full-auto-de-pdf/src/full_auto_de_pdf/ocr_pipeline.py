@@ -63,6 +63,7 @@ _INVERSE_RENDER_ROTATIONS = (-0.5, 0.0, 0.5)
 _INVERSE_RENDER_OFFSETS = (-4, 0, 4)
 _INVERSE_RENDER_SCORE_PADDING = 24
 _AUTO_INVERSE_RENDER_SCORE_WINDOW = 80.0
+_AUTO_MASKED_MIN_SCORE_GAIN = 80.0
 _AUTO_INVERSE_RENDER_PREPROCESS_MODES = frozenset({"none", "scan", "scan-local-threshold"})
 _AUTO_SCAN_LOCAL_THRESHOLD_MIN_SCORE = 500.0
 _FRONT_MATTER_RETRY_PREPROCESS_MODES = (
@@ -2176,6 +2177,40 @@ def _maybe_prefer_scan_local_threshold_candidate(
     return None
 
 
+def _maybe_prefer_unmasked_auto_candidate(
+    selected_candidate: OCRCandidate,
+    candidates: list[OCRCandidate],
+    options: OCRRunOptions,
+) -> OCRCandidate | None:
+    if (
+        options.core.inverse_render_rerank
+        or options.preprocess_mode != "auto"
+        or len(candidates) < 2
+    ):
+        return None
+    selected_candidate_mode = selected_candidate.metadata.get("candidate_preprocess_mode")
+    if (
+        not isinstance(selected_candidate_mode, str)
+        or not selected_candidate_mode.endswith(_MASKED_PREPROCESS_SUFFIX)
+    ):
+        return None
+    base_preprocess_mode = selected_candidate_mode.removesuffix(_MASKED_PREPROCESS_SUFFIX)
+    unmasked_candidates = [
+        candidate
+        for candidate in candidates
+        if candidate.metadata.get("candidate_preprocess_mode") == base_preprocess_mode
+    ]
+    if not unmasked_candidates:
+        return None
+    best_unmasked_candidate = max(unmasked_candidates, key=lambda candidate: candidate.score)
+    if (
+        selected_candidate.score - best_unmasked_candidate.score
+        >= _AUTO_MASKED_MIN_SCORE_GAIN
+    ):
+        return None
+    return best_unmasked_candidate
+
+
 def _run_candidate_ocr(
     ocr_input_path: Path,
     options: OCRRunOptions,
@@ -2341,14 +2376,20 @@ def _run_ocr_on_page(
         or auto_tiebreak_candidate
         or best_candidate
     )
-    tiered_fallback_candidate = _maybe_tiered_fallback_candidate(
+    masked_guardrail_candidate = _maybe_prefer_unmasked_auto_candidate(
         base_selected_candidate,
+        candidates,
+        options,
+    )
+    candidate_after_masked_guardrail = masked_guardrail_candidate or base_selected_candidate
+    tiered_fallback_candidate = _maybe_tiered_fallback_candidate(
+        candidate_after_masked_guardrail,
         options,
         dependencies,
         paddle_reader,
         preprocessed_dir,
     )
-    candidate_after_tiered = tiered_fallback_candidate or base_selected_candidate
+    candidate_after_tiered = tiered_fallback_candidate or candidate_after_masked_guardrail
     orientation_fallback_candidate = _maybe_orientation_fallback_candidate(
         candidate_after_tiered,
         options,
@@ -2369,6 +2410,8 @@ def _run_ocr_on_page(
         if reranked_candidate is not None
         else "auto-scan-local-threshold-preference"
         if preferred_scan_local_threshold_candidate is not None
+        else "auto-masked-guardrail"
+        if masked_guardrail_candidate is not None
         else "auto-inverse-render-tiebreak"
         if auto_tiebreak_candidate is not None
         else "text-score"
