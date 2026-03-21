@@ -1346,6 +1346,20 @@ def _candidate_tesseract_psms(options: OCRRunOptions) -> tuple[str, ...]:
     return (options.core.tesseract_psm,)
 
 
+def _prepared_ocr_inputs_match(first_path: Path, second_path: Path) -> bool:
+    if first_path == second_path:
+        return True
+    if Image is not None and ImageChops is not None:
+        try:
+            with Image.open(first_path) as first_image, Image.open(second_path) as second_image:
+                if first_image.size != second_image.size or first_image.mode != second_image.mode:
+                    return False
+                return ImageChops.difference(first_image, second_image).getbbox() is None
+        except OSError:
+            pass
+    return first_path.read_bytes() == second_path.read_bytes()
+
+
 def _prepare_ocr_input_path(
     image_path: Path,
     preprocess_mode: str,
@@ -1359,6 +1373,18 @@ def _prepare_ocr_input_path(
     cached_path = prepared_inputs.get(preprocess_mode)
     if cached_path is not None:
         return cached_path
+    base_preprocess_mode, apply_region_masking = _split_preprocess_mode(preprocess_mode)
+    if apply_region_masking:
+        unmasked_path = _prepare_ocr_input_path(
+            image_path,
+            base_preprocess_mode,
+            options,
+            dependencies,
+            preprocessed_dir,
+            prepared_inputs,
+        )
+    else:
+        unmasked_path = None
     preprocessed_path = preprocessed_dir / preprocess_mode / image_path.name
     dependencies.preprocess_image(
         image_path,
@@ -1368,6 +1394,14 @@ def _prepare_ocr_input_path(
         options.core.deskew_max_angle,
         options.core.deskew_angle_step,
     )
+    if (
+        unmasked_path is not None
+        and preprocessed_path.exists()
+        and _prepared_ocr_inputs_match(unmasked_path, preprocessed_path)
+    ):
+        preprocessed_path.unlink()
+        prepared_inputs[preprocess_mode] = unmasked_path
+        return unmasked_path
     prepared_inputs[preprocess_mode] = preprocessed_path
     return preprocessed_path
 
@@ -2274,6 +2308,7 @@ def _run_ocr_on_page(
 ) -> tuple[Path, str, dict[str, object]]:
     # lizard forgive: per-page OCR orchestration needs explicit candidate bookkeeping.
     prepared_inputs: dict[str, Path] = {}
+    ocr_result_cache: dict[tuple[Path, str, str, str], tuple[str, dict[str, object]]] = {}
     candidate_runs: list[dict[str, object]] = []
     candidates: list[OCRCandidate] = []
     preprocess_modes = _candidate_preprocess_modes_for_options(options)
@@ -2311,13 +2346,25 @@ def _run_ocr_on_page(
                         retry_reason=retry_reason,
                     ),
                 )
-            text, ocr_metadata = _run_candidate_ocr(
+            cache_key = (
                 ocr_input_path,
-                options,
-                dependencies,
-                paddle_reader,
+                options.ocr_engine,
                 tesseract_psm,
+                options.core.tesseract_output_format,
             )
+            cached_result = ocr_result_cache.get(cache_key)
+            if cached_result is None:
+                text, ocr_metadata = _run_candidate_ocr(
+                    ocr_input_path,
+                    options,
+                    dependencies,
+                    paddle_reader,
+                    tesseract_psm,
+                )
+                ocr_result_cache[cache_key] = (text, dict(ocr_metadata))
+            else:
+                text, cached_metadata = cached_result
+                ocr_metadata = dict(cached_metadata)
             score, score_details = _score_ocr_candidate(
                 text,
                 options.core.language,

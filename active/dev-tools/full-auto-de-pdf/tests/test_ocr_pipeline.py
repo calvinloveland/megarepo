@@ -355,8 +355,17 @@ def test_ocr_pdf_with_tesseract_auto_selects_best_mode_and_psm(tmp_path) -> None
         _step: float,
     ) -> None:
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        output_path.write_bytes(input_path.read_bytes())
         assert mode in _AUTO_TEST_PREPROCESS_MODES
+        color = {
+            "scan": 255,
+            "scan-masked": 235,
+            "scan-local-threshold": 225,
+            "scan-local-threshold-masked": 215,
+            "basic": 205,
+            "deskew": 195,
+            "dewarp": 185,
+        }[mode]
+        Image.new("L", (20, 20), color=color).save(output_path)
 
     metrics = ocr_pdf_with_tesseract(
         pdf_path=pdf_path,
@@ -416,8 +425,17 @@ def test_ocr_pdf_with_tesseract_auto_can_select_scan_local_threshold_mode(tmp_pa
         _step: float,
     ) -> None:
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        output_path.write_bytes(input_path.read_bytes())
         assert mode in _AUTO_TEST_PREPROCESS_MODES
+        color = {
+            "scan": 255,
+            "scan-masked": 235,
+            "scan-local-threshold": 225,
+            "scan-local-threshold-masked": 215,
+            "basic": 205,
+            "deskew": 195,
+            "dewarp": 185,
+        }[mode]
+        Image.new("L", (20, 20), color=color).save(output_path)
 
     metrics = ocr_pdf_with_tesseract(
         pdf_path=pdf_path,
@@ -470,8 +488,17 @@ def test_ocr_page_images_auto_can_select_masked_scan_candidate(monkeypatch, tmp_
         _step: float,
     ) -> None:
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        output_path.write_bytes(input_path.read_bytes())
         assert mode in _AUTO_TEST_PREPROCESS_MODES
+        color = {
+            "scan": 255,
+            "scan-masked": 235,
+            "scan-local-threshold": 225,
+            "scan-local-threshold-masked": 215,
+            "basic": 205,
+            "deskew": 195,
+            "dewarp": 185,
+        }[mode]
+        Image.new("L", (20, 20), color=color).save(output_path)
 
     monkeypatch.setattr(
         ocr_pipeline,
@@ -504,6 +531,132 @@ def test_ocr_page_images_auto_can_select_masked_scan_candidate(monkeypatch, tmp_
     assert page_entry["selected_preprocess_mode"] == "scan"
     assert page_entry["candidate_preprocess_mode"] == "scan-masked"
     assert page_entry["pre_ocr_region_masked"] is True
+
+
+def test_prepare_ocr_input_path_reuses_unmasked_path_for_identical_masked_image(tmp_path) -> None:
+    page_image = tmp_path / "page-1.png"
+    Image.new("L", (20, 20), color=255).save(page_image)
+    preprocessed_dir = tmp_path / "preprocessed"
+    seen_modes: list[str] = []
+
+    def _preprocess_image(
+        _input_path: Path,
+        output_path: Path,
+        mode: str,
+        _threshold: int,
+        _max_angle: float,
+        _step: float,
+    ) -> None:
+        seen_modes.append(mode)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        Image.new("L", (20, 20), color=255).save(output_path)
+
+    dependencies = ocr_pipeline.OCRDependencies(
+        run_command=lambda _command, _capture_output: "",
+        preprocess_image=_preprocess_image,
+        paddle_reader_factory=lambda _language: (lambda _path: ""),
+        which=lambda _name: "/usr/bin/fake",
+    )
+    prepared_inputs: dict[str, Path] = {}
+
+    resolved_path = ocr_pipeline._prepare_ocr_input_path(
+        page_image,
+        "scan-masked",
+        ocr_pipeline.OCRRunOptions(core=ocr_pipeline.OCRCoreOptions(), preprocess_mode="auto"),
+        dependencies,
+        preprocessed_dir,
+        prepared_inputs,
+    )
+
+    assert resolved_path == preprocessed_dir / "scan" / page_image.name
+    assert prepared_inputs["scan"] == resolved_path
+    assert prepared_inputs["scan-masked"] == resolved_path
+    assert seen_modes == ["scan", "scan-masked"]
+    assert not (preprocessed_dir / "scan-masked" / page_image.name).exists()
+
+
+def test_ocr_page_images_auto_reuses_ocr_for_identical_masked_inputs(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    page_image = tmp_path / "page-1.png"
+    output_path = tmp_path / "out.txt"
+    work_dir = tmp_path / "work"
+    Image.new("L", (20, 20), color=255).save(page_image)
+    run_calls: list[str] = []
+
+    def _which(name: str) -> str | None:
+        if name == "tesseract":
+            return "/usr/bin/fake"
+        return None
+
+    def _run(command: list[str], capture_output: bool) -> str:
+        assert command[0] == "tesseract"
+        assert capture_output is True
+        candidate_mode = "none" if Path(command[1]) == page_image else Path(command[1]).parent.name
+        run_calls.append(candidate_mode)
+        return {
+            "none": "Baseline garbage",
+            "scan": "Winning scan text",
+            "scan-local-threshold": "Threshold text",
+            "basic": "###",
+            "deskew": "###",
+            "dewarp": "###",
+        }[candidate_mode]
+
+    def _preprocess_image(
+        input_path: Path,
+        output_path: Path,
+        mode: str,
+        _threshold: int,
+        _max_angle: float,
+        _step: float,
+    ) -> None:
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        if mode in {"scan", "scan-masked"}:
+            Image.new("L", (20, 20), color=255).save(output_path)
+            return
+        if mode in {"scan-local-threshold", "scan-local-threshold-masked"}:
+            Image.new("L", (20, 20), color=240).save(output_path)
+            return
+        output_path.write_bytes(input_path.read_bytes())
+        assert mode in _AUTO_TEST_PREPROCESS_MODES
+
+    monkeypatch.setattr(
+        ocr_pipeline,
+        "_score_ocr_candidate",
+        lambda text, _language, _lexicon, _metadata=None: ({
+            "Baseline garbage": 100.0,
+            "Winning scan text": 950.0,
+            "Threshold text": 700.0,
+            "###": -25.0,
+        }[text], {}),
+    )
+
+    metrics = ocr_page_images(
+        page_images=[page_image],
+        output_text_path=output_path,
+        work_dir=work_dir,
+        preprocess_mode="auto",
+        tesseract_psm="6",
+        run_command=_run,
+        preprocess_image=_preprocess_image,
+        which=_which,
+    )
+
+    assert output_path.read_text(encoding="utf-8") == "Winning scan text"
+    assert run_calls == [
+        "none",
+        "scan",
+        "scan-local-threshold",
+        "basic",
+        "deskew",
+        "dewarp",
+    ]
+    manifest_payload = json.loads(Path(str(metrics["page_artifacts_manifest"])).read_text(encoding="utf-8"))
+    page_entry = manifest_payload["pages"][0]
+    assert page_entry["selected_preprocess_mode"] == "scan"
+    assert page_entry["candidate_preprocess_mode"] == "scan"
 
 
 def test_ocr_page_images_auto_inverse_render_tiebreak_requires_clear_masked_gain(
@@ -544,8 +697,17 @@ def test_ocr_page_images_auto_inverse_render_tiebreak_requires_clear_masked_gain
         _step: float,
     ) -> None:
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        output_path.write_bytes(input_path.read_bytes())
         assert mode in _AUTO_TEST_PREPROCESS_MODES
+        color = {
+            "scan": 255,
+            "scan-masked": 235,
+            "scan-local-threshold": 225,
+            "scan-local-threshold-masked": 215,
+            "basic": 205,
+            "deskew": 195,
+            "dewarp": 185,
+        }[mode]
+        Image.new("L", (20, 20), color=color).save(output_path)
 
     monkeypatch.setattr(
         ocr_pipeline,
