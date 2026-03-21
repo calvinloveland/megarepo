@@ -21,6 +21,10 @@ _AUTO_TEST_PREPROCESS_MODES = {
     "scan-masked",
     "scan-local-threshold",
     "scan-local-threshold-masked",
+    "scan-background-normalized",
+    "scan-background-normalized-masked",
+    "scan-sauvola",
+    "scan-morphology",
     "basic",
     "deskew",
     "dewarp",
@@ -975,12 +979,12 @@ def test_ocr_page_images_auto_scan_local_threshold_preference_skips_low_score_pa
         ocr_pipeline,
         "_score_ocr_candidate",
         lambda text, _language, _lexicon, _metadata=None: ({
-            "Baseline page text": 170.0,
-            "Scan candidate text": 180.0,
-            "Threshold candidate text": 160.0,
-            "Basic garbage": 40.0,
-            "Deskew garbage": 30.0,
-            "Dewarp garbage": -20.0,
+            "Baseline page text": 1700.0,
+            "Scan candidate text": 1800.0,
+            "Threshold candidate text": 1600.0,
+            "Basic garbage": 400.0,
+            "Deskew garbage": 300.0,
+            "Dewarp garbage": -200.0,
         }[text], {}),
     )
     monkeypatch.setattr(
@@ -1714,6 +1718,7 @@ def test_ocr_page_images_verify_cleanup_spans_uses_hocr_bbox_hint(
         "cleanup_ocr_text",
         lambda text, lexicon_texts=(): "new text" if text == "raw text" else text,
     )
+    monkeypatch.setattr(ocr_pipeline, "_targeted_page_retry_reason", lambda *_args, **_kwargs: None)
 
     def _fake_evaluate(_obs, _bbox, _raw, _cleaned, hint_bbox=None, **_kwargs):  # noqa: ANN001, ANN202
         seen_hint["bbox"] = hint_bbox
@@ -1856,6 +1861,36 @@ def test_parse_hocr_text_and_metadata_extracts_text_and_confidence() -> None:
     assert metadata["hocr_low_confidence_word_count"] == 1
 
 
+def test_candidate_disagreement_metadata_tracks_near_best_family_conflict(tmp_path) -> None:
+    selected = ocr_pipeline.OCRCandidate(
+        score=920.0,
+        ocr_input_path=tmp_path / "selected.png",
+        text="The careful reader saw a clean line of text across the page",
+        metadata={"preprocess_mode": "basic", "candidate_preprocess_mode": "basic"},
+    )
+    conflicting = ocr_pipeline.OCRCandidate(
+        score=875.0,
+        ocr_input_path=tmp_path / "scan.png",
+        text="The doubtful render found broken words and missing sense across this page",
+        metadata={"preprocess_mode": "scan", "candidate_preprocess_mode": "scan"},
+    )
+    same_family = ocr_pipeline.OCRCandidate(
+        score=900.0,
+        ocr_input_path=tmp_path / "basic-2.png",
+        text="The careful reader saw a clean line of text across the page",
+        metadata={"preprocess_mode": "basic", "candidate_preprocess_mode": "basic"},
+    )
+
+    metadata = ocr_pipeline._candidate_disagreement_metadata(
+        selected,
+        [selected, conflicting, same_family],
+    )
+
+    assert metadata["candidate_near_best_family_count"] == 1
+    assert float(metadata["candidate_best_alt_score_gap"]) == pytest.approx(45.0)
+    assert float(metadata["candidate_best_alt_text_similarity"]) < 0.94
+
+
 def test_page_analysis_metadata_marks_sparse_early_page_as_front_matter() -> None:
     metadata = ocr_pipeline._page_analysis_metadata(
         "DRACULA\n\nCONTENTS ..... 7",
@@ -1895,6 +1930,61 @@ def test_page_analysis_metadata_marks_noisy_body_page_low_quality() -> None:
     assert metadata["page_route"] == "body-low-quality"
 
 
+def test_page_analysis_metadata_marks_fragmented_body_page_low_quality() -> None:
+    lines = [
+        "The witness e d h said 'walt bel' the plan moved ahead before dawn today",
+        "Another careful reader e s r saw 'north bel' the damaged copy drift apart again",
+        "The editor e d m kept 'sense bel' while the blurred letters fell away from view",
+        "Each observer e h l noted 'paper bel' as the broken scan split words in half",
+    ]
+    metadata = ocr_pipeline._page_analysis_metadata(
+        "\n".join(lines),
+        {
+            "selection_score": 920.0,
+            "hocr_line_entries_runtime": [
+                {"text": line, "bbox": [20, 20 + (index * 30), 420, 45 + (index * 30)]}
+                for index, line in enumerate(lines)
+            ],
+        },
+        page_index=42,
+        total_pages=120,
+    )
+    assert metadata["page_type"] == "body"
+    assert metadata["page_quality_tier"] == "low"
+    assert metadata["page_route"] == "body-low-quality"
+    assert float(metadata["page_single_char_fragment_ratio"]) > 0.03
+    assert float(metadata["page_apostrophe_fragment_ratio"]) > 0.015
+
+
+def test_page_analysis_metadata_marks_ambiguous_body_page_for_review() -> None:
+    lines = [
+        "The careful readers compared the passage and found every sentence easy to follow",
+        "Another observer checked the layout and reported steady text across the whole page",
+        "The chapter continued with ordinary prose and a stable cadence from line to line",
+        "Several reviewers agreed the wording looked plausible despite the close OCR race",
+    ]
+    metadata = ocr_pipeline._page_analysis_metadata(
+        "\n".join(lines),
+        {
+            "selection_score": 920.0,
+            "candidate_near_best_family_count": 2,
+            "candidate_best_alt_score_gap": 60.0,
+            "candidate_best_alt_text_similarity": 0.82,
+            "hocr_line_entries_runtime": [
+                {"text": line, "bbox": [20, 20 + (index * 30), 420, 45 + (index * 30)]}
+                for index, line in enumerate(lines)
+            ],
+        },
+        page_index=42,
+        total_pages=120,
+    )
+    assert metadata["page_type"] == "body"
+    assert metadata["page_quality_tier"] == "medium"
+    assert metadata["page_route"] == "body-review"
+    assert metadata["page_candidate_near_best_family_count"] == 2
+    assert float(metadata["page_candidate_best_alt_text_similarity"]) == pytest.approx(0.82)
+
+
 def test_targeted_page_retry_reason_allows_body_review_and_back_matter() -> None:
     options = ocr_pipeline.OCRRunOptions(core=ocr_pipeline.OCRCoreOptions())
 
@@ -1905,6 +1995,46 @@ def test_targeted_page_retry_reason_allows_body_review_and_back_matter() -> None
     assert (
         ocr_pipeline._targeted_page_retry_reason({"page_route": "back-matter"}, options)
         == "back-matter"
+    )
+
+
+def test_should_keep_targeted_retry_accepts_cleaner_low_quality_retry() -> None:
+    assert (
+        ocr_pipeline._should_keep_targeted_retry(
+            {
+                "selection_score": 4166.35,
+                "page_quality_tier": "low",
+                "page_single_char_fragment_ratio": 0.0338,
+                "page_apostrophe_fragment_ratio": 0.0320,
+            },
+            {
+                "selection_score": 4159.68,
+                "page_quality_tier": "low",
+                "page_single_char_fragment_ratio": 0.0180,
+                "page_apostrophe_fragment_ratio": 0.0200,
+            },
+        )
+        is True
+    )
+
+
+def test_should_keep_targeted_retry_rejects_low_quality_retry_without_enough_cleanup() -> None:
+    assert (
+        ocr_pipeline._should_keep_targeted_retry(
+            {
+                "selection_score": 4166.35,
+                "page_quality_tier": "low",
+                "page_single_char_fragment_ratio": 0.0338,
+                "page_apostrophe_fragment_ratio": 0.0320,
+            },
+            {
+                "selection_score": 4159.68,
+                "page_quality_tier": "low",
+                "page_single_char_fragment_ratio": 0.0300,
+                "page_apostrophe_fragment_ratio": 0.0290,
+            },
+        )
+        is False
     )
 
 
@@ -2199,6 +2329,141 @@ def test_ocr_page_images_targeted_retry_reprocesses_low_quality_page(monkeypatch
     assert page_entry["targeted_page_retry_policy"] == "body-low-quality"
     assert metrics["page_analysis"]["targeted_page_retry_count"] == 1
     assert metrics["page_analysis"]["targeted_page_retry_reason_counts"] == {"low-quality": 1}
+
+
+def test_ocr_page_images_targeted_retry_reprocesses_fragmented_body_page(monkeypatch, tmp_path) -> None:
+    page_image = tmp_path / "page-1.png"
+    output_path = tmp_path / "out.txt"
+    work_dir = tmp_path / "work"
+    Image.new("L", (20, 20), color=255).save(page_image)
+    seen_calls: list[tuple[str, str, str, tuple[str, ...] | None, str | None]] = []
+    fragmented_text = "\n".join(
+        [
+            "The witness e d h said 'walt bel' the plan moved ahead before dawn today",
+            "Another careful reader e s r saw 'north bel' the damaged copy drift apart again",
+            "The editor e d m kept 'sense bel' while the blurred letters fell away from view",
+            "Each observer e h l noted 'paper bel' as the broken scan split words in half",
+        ]
+    )
+
+    def _which(name: str) -> str | None:
+        if name == "tesseract":
+            return "/usr/bin/fake"
+        return None
+
+    def _fake_run_ocr_on_page(
+        image_path,
+        options,
+        dependencies,
+        preprocessed_dir,
+        paddle_reader,
+        **_kwargs,  # noqa: ANN001
+    ):
+        assert image_path == page_image
+        seen_calls.append(
+            (
+                options.preprocess_mode,
+                options.core.tesseract_psm,
+                options.core.tesseract_output_format,
+                options.candidate_preprocess_modes_override,
+                options.route_ocr_policy,
+            )
+        )
+        if len(seen_calls) == 1:
+            return (
+                page_image,
+                fragmented_text,
+                {
+                    "preprocess_mode": "basic",
+                    "selected_preprocess_mode": "basic",
+                    "selection_score": 920.0,
+                    "selection_strategy": "text-score",
+                    "tesseract_psm": 6,
+                    "tesseract_output_format": "text",
+                },
+            )
+        assert options.preprocess_mode == "auto"
+        assert options.core.tesseract_psm == "auto"
+        assert options.core.tesseract_output_format == "hocr"
+        assert options.candidate_preprocess_modes_override == (
+            "scan-background-normalized",
+            "scan-background-normalized-masked",
+            "scan-sauvola",
+            "scan-morphology",
+            "scan",
+            "scan-masked",
+            "scan-local-threshold",
+            "scan-local-threshold-masked",
+            "deskew",
+            "basic",
+            "dewarp",
+        )
+        assert options.route_ocr_policy == "body-low-quality"
+        return (
+            page_image,
+            "\n".join(
+                [
+                    "The witness said the plan moved ahead before dawn today with steady prose",
+                    "Another careful reader saw the damaged copy drift apart again in context",
+                    "The editor kept the sentence intact while the clearer scan restored detail",
+                    "Each observer noted the repaired page as the broken words disappeared",
+                ]
+            ),
+            {
+                "preprocess_mode": "scan-background-normalized",
+                "selected_preprocess_mode": "scan-background-normalized",
+                "selection_score": 930.0,
+                "selection_strategy": "text-score",
+                "tesseract_psm": 6,
+                "tesseract_output_format": "hocr",
+                "hocr_confidence_mean": 95.0,
+                "hocr_low_confidence_ratio": 0.0,
+            },
+        )
+
+    monkeypatch.setattr(ocr_pipeline, "_run_ocr_on_page", _fake_run_ocr_on_page)
+    monkeypatch.setattr(ocr_pipeline, "_adaptive_raster_retry_image", lambda *_args: None)
+
+    metrics = ocr_page_images(
+        page_images=[page_image],
+        output_text_path=output_path,
+        work_dir=work_dir,
+        apply_cleanup=False,
+        preprocess_mode="basic",
+        tesseract_psm="6",
+        run_command=lambda _command, _capture_output: "",
+        which=_which,
+    )
+
+    assert "witness said the plan" in output_path.read_text(encoding="utf-8").lower()
+    assert seen_calls == [
+        ("basic", "6", "text", None, None),
+        (
+            "auto",
+            "auto",
+            "hocr",
+            (
+                "scan-background-normalized",
+                "scan-background-normalized-masked",
+                "scan-sauvola",
+                "scan-morphology",
+                "scan",
+                "scan-masked",
+                "scan-local-threshold",
+                "scan-local-threshold-masked",
+                "deskew",
+                "basic",
+                "dewarp",
+            ),
+            "body-low-quality",
+        ),
+    ]
+    manifest_payload = json.loads(Path(str(metrics["page_artifacts_manifest"])).read_text(encoding="utf-8"))
+    page_entry = manifest_payload["pages"][0]
+    assert page_entry["selection_strategy"] == "targeted-page-retry"
+    assert page_entry["targeted_page_retry"] == "applied"
+    assert page_entry["targeted_page_retry_reason"] == "low-quality"
+    assert page_entry["targeted_page_retry_policy"] == "body-low-quality"
 
 
 def test_maybe_retry_targeted_page_can_select_adaptive_raster_candidate(

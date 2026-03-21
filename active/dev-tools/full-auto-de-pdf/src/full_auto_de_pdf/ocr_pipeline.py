@@ -160,12 +160,24 @@ _MEDIUM_QUALITY_LOW_CONFIDENCE_RATIO = 0.1
 _LOW_QUALITY_LOW_CONFIDENCE_RATIO = 0.25
 _MEDIUM_QUALITY_NOISE_RATIO = 0.08
 _LOW_QUALITY_NOISE_RATIO = 0.18
+_MEDIUM_QUALITY_SINGLE_CHAR_FRAGMENT_RATIO = 0.012
+_LOW_QUALITY_SINGLE_CHAR_FRAGMENT_RATIO = 0.03
+_MEDIUM_QUALITY_APOSTROPHE_FRAGMENT_RATIO = 0.006
+_LOW_QUALITY_APOSTROPHE_FRAGMENT_RATIO = 0.015
+_AMBIGUOUS_CANDIDATE_SCORE_GAP = 140.0
+_HIGH_AMBIGUITY_CANDIDATE_SCORE_GAP = 80.0
+_AMBIGUOUS_CANDIDATE_TEXT_SIMILARITY = 0.94
+_HIGH_AMBIGUITY_CANDIDATE_TEXT_SIMILARITY = 0.9
+_LOW_QUALITY_RETRY_MAX_SCORE_DROP = 10.0
+_LOW_QUALITY_RETRY_ARTIFACT_IMPROVEMENT_RATIO = 0.85
 _SUSPICIOUS_SECTION_MIN_WORDS = 24
 _SUSPICIOUS_SECTION_WINDOW_WORDS = 120
 _SUSPICIOUS_SECTION_WINDOW_OVERLAP_WORDS = 40
 _MAX_SUSPICIOUS_SECTION_FOCUS_SPANS = 3
 _SUSPICIOUS_SYMBOLIC_TOKEN_RE = re.compile(r"\b(?=\S*[A-Za-z])(?=\S*[%{}\[\]<>|\\/@#$^*_~`])\S+\b")
 _SUSPICIOUS_DIGIT_ALPHA_TOKEN_RE = re.compile(r"\b(?=\w*[A-Za-z])(?=\w*\d)\w+\b")
+_PUNCTUATION_STRIP_CHARS = ".,;:!?()[]{}<>\""
+_SINGLE_CHAR_TOKEN_ALLOWLIST = frozenset({"a", "i"})
 _COMMON_ENGLISH_WORDS = frozenset(
     {
         "a",
@@ -2448,6 +2460,7 @@ def _run_ocr_on_page(
     selected_metadata = dict(selected_candidate.metadata)
     selected_metadata["selected_preprocess_mode"] = selected_metadata["preprocess_mode"]
     selected_metadata["selection_score"] = selected_candidate.score
+    selected_metadata.update(_candidate_disagreement_metadata(selected_candidate, candidates))
     selected_metadata["selection_strategy"] = (
         "orientation-fallback"
         if orientation_fallback_candidate is not None
@@ -3277,6 +3290,95 @@ def _page_text_noise_ratio(text: str) -> float:
     return noisy_chars / len(compact)
 
 
+def _page_ocr_artifact_metrics(text: str) -> dict[str, float]:
+    alphaish_token_count = 0
+    single_char_fragment_count = 0
+    apostrophe_fragment_count = 0
+    for token in _NON_SPACE_TOKEN.findall(text):
+        compact = token.strip(_PUNCTUATION_STRIP_CHARS)
+        if not compact or not any(char.isalpha() for char in compact):
+            continue
+        alphaish_token_count += 1
+        letters_only = "".join(char for char in compact if char.isalpha()).lower()
+        if len(letters_only) == 1 and letters_only not in _SINGLE_CHAR_TOKEN_ALLOWLIST:
+            single_char_fragment_count += 1
+        if "'" in compact and _LATIN_TOKEN.fullmatch(compact) is None:
+            apostrophe_fragment_count += 1
+    if alphaish_token_count == 0:
+        return {
+            "alphaish_token_count": 0.0,
+            "single_char_fragment_ratio": 0.0,
+            "apostrophe_fragment_ratio": 0.0,
+        }
+    return {
+        "alphaish_token_count": float(alphaish_token_count),
+        "single_char_fragment_ratio": single_char_fragment_count / alphaish_token_count,
+        "apostrophe_fragment_ratio": apostrophe_fragment_count / alphaish_token_count,
+    }
+
+
+def _preprocess_family(preprocess_mode: str) -> str:
+    base_preprocess_mode, _pre_ocr_region_masked = _split_preprocess_mode(preprocess_mode)
+    return base_preprocess_mode
+
+
+def _normalized_ocr_text(text: str) -> str:
+    return " ".join(text.lower().split())
+
+
+def _candidate_disagreement_metadata(
+    selected_candidate: OCRCandidate,
+    candidates: list[OCRCandidate],
+) -> dict[str, object]:
+    if len(candidates) <= 1:
+        return {}
+    selected_family = _preprocess_family(
+        str(
+            selected_candidate.metadata.get(
+                "candidate_preprocess_mode",
+                selected_candidate.metadata.get("preprocess_mode", ""),
+            )
+        )
+    )
+    selected_text = _normalized_ocr_text(selected_candidate.text)
+    near_best_family_count = 0
+    best_alt_score_gap: float | None = None
+    best_alt_text_similarity: float | None = None
+    seen_families: set[str] = set()
+    for candidate in candidates:
+        if candidate is selected_candidate:
+            continue
+        score_gap = selected_candidate.score - candidate.score
+        if score_gap < 0.0 or score_gap > _AMBIGUOUS_CANDIDATE_SCORE_GAP:
+            continue
+        candidate_family = _preprocess_family(
+            str(candidate.metadata.get("candidate_preprocess_mode", candidate.metadata.get("preprocess_mode", "")))
+        )
+        if candidate_family == selected_family:
+            continue
+        seen_families.add(candidate_family)
+        similarity = SequenceMatcher(
+            None,
+            selected_text,
+            _normalized_ocr_text(candidate.text),
+        ).ratio()
+        if best_alt_score_gap is None or score_gap < best_alt_score_gap:
+            best_alt_score_gap = score_gap
+        if best_alt_text_similarity is None or similarity < best_alt_text_similarity:
+            best_alt_text_similarity = similarity
+    near_best_family_count = len(seen_families)
+    if near_best_family_count == 0:
+        return {}
+    metadata: dict[str, object] = {
+        "candidate_near_best_family_count": near_best_family_count,
+    }
+    if best_alt_score_gap is not None:
+        metadata["candidate_best_alt_score_gap"] = round(best_alt_score_gap, 3)
+    if best_alt_text_similarity is not None:
+        metadata["candidate_best_alt_text_similarity"] = round(best_alt_text_similarity, 4)
+    return metadata
+
+
 def _classify_page_type(
     *,
     page_index: int,
@@ -3311,6 +3413,11 @@ def _classify_page_quality_tier(
     noise_ratio: float,
     hocr_confidence_mean: float | None,
     hocr_low_confidence_ratio: float | None,
+    single_char_fragment_ratio: float,
+    apostrophe_fragment_ratio: float,
+    candidate_near_best_family_count: int,
+    candidate_best_alt_score_gap: float | None,
+    candidate_best_alt_text_similarity: float | None,
 ) -> str:
     penalty = 0
     if word_count == 0:
@@ -3333,6 +3440,26 @@ def _classify_page_quality_tier(
         penalty += 2
     elif noise_ratio >= _MEDIUM_QUALITY_NOISE_RATIO:
         penalty += 1
+    if single_char_fragment_ratio >= _LOW_QUALITY_SINGLE_CHAR_FRAGMENT_RATIO:
+        penalty += 2
+    elif single_char_fragment_ratio >= _MEDIUM_QUALITY_SINGLE_CHAR_FRAGMENT_RATIO:
+        penalty += 1
+    if apostrophe_fragment_ratio >= _LOW_QUALITY_APOSTROPHE_FRAGMENT_RATIO:
+        penalty += 2
+    elif apostrophe_fragment_ratio >= _MEDIUM_QUALITY_APOSTROPHE_FRAGMENT_RATIO:
+        penalty += 1
+    if (
+        candidate_near_best_family_count >= 2
+        and candidate_best_alt_score_gap is not None
+        and candidate_best_alt_text_similarity is not None
+    ):
+        if (
+            candidate_best_alt_score_gap <= _HIGH_AMBIGUITY_CANDIDATE_SCORE_GAP
+            and candidate_best_alt_text_similarity < _HIGH_AMBIGUITY_CANDIDATE_TEXT_SIMILARITY
+        ):
+            penalty += 2
+        elif candidate_best_alt_text_similarity < _AMBIGUOUS_CANDIDATE_TEXT_SIMILARITY:
+            penalty += 1
     if page_type in {"front-matter", "back-matter", "sparse"} and dense_body_line_count <= 1:
         penalty = max(0, penalty - 1)
     if penalty >= 4:
@@ -3370,6 +3497,7 @@ def _page_analysis_metadata(
         1 for entry in classified_entries if _is_probable_chapter_marker(str(entry["text"]))
     )
     noise_ratio = _page_text_noise_ratio(text)
+    artifact_metrics = _page_ocr_artifact_metrics(text)
     selection_score = float(selection_metadata.get("selection_score", 0.0))
     raw_confidence_mean = selection_metadata.get("hocr_confidence_mean")
     hocr_confidence_mean = (
@@ -3381,6 +3509,24 @@ def _page_analysis_metadata(
     hocr_low_confidence_ratio = (
         float(raw_low_confidence_ratio)
         if isinstance(raw_low_confidence_ratio, (int, float))
+        else None
+    )
+    raw_candidate_near_best_family_count = selection_metadata.get("candidate_near_best_family_count")
+    candidate_near_best_family_count = (
+        int(raw_candidate_near_best_family_count)
+        if isinstance(raw_candidate_near_best_family_count, int)
+        else 0
+    )
+    raw_candidate_best_alt_score_gap = selection_metadata.get("candidate_best_alt_score_gap")
+    candidate_best_alt_score_gap = (
+        float(raw_candidate_best_alt_score_gap)
+        if isinstance(raw_candidate_best_alt_score_gap, (int, float))
+        else None
+    )
+    raw_candidate_best_alt_text_similarity = selection_metadata.get("candidate_best_alt_text_similarity")
+    candidate_best_alt_text_similarity = (
+        float(raw_candidate_best_alt_text_similarity)
+        if isinstance(raw_candidate_best_alt_text_similarity, (int, float))
         else None
     )
     page_type = _classify_page_type(
@@ -3399,6 +3545,11 @@ def _page_analysis_metadata(
         noise_ratio=noise_ratio,
         hocr_confidence_mean=hocr_confidence_mean,
         hocr_low_confidence_ratio=hocr_low_confidence_ratio,
+        single_char_fragment_ratio=float(artifact_metrics["single_char_fragment_ratio"]),
+        apostrophe_fragment_ratio=float(artifact_metrics["apostrophe_fragment_ratio"]),
+        candidate_near_best_family_count=candidate_near_best_family_count,
+        candidate_best_alt_score_gap=candidate_best_alt_score_gap,
+        candidate_best_alt_text_similarity=candidate_best_alt_text_similarity,
     )
     metadata: dict[str, object] = {
         "page_type": page_type,
@@ -3409,7 +3560,18 @@ def _page_analysis_metadata(
         "page_avg_words_per_line": round(word_count / line_count, 3) if line_count else 0.0,
         "page_text_noise_ratio": round(noise_ratio, 4),
         "page_layout_region_counts": dict(region_counts),
+        "page_single_char_fragment_ratio": round(float(artifact_metrics["single_char_fragment_ratio"]), 4),
+        "page_apostrophe_fragment_ratio": round(float(artifact_metrics["apostrophe_fragment_ratio"]), 4),
     }
+    if candidate_near_best_family_count:
+        metadata["page_candidate_near_best_family_count"] = candidate_near_best_family_count
+    if candidate_best_alt_score_gap is not None:
+        metadata["page_candidate_best_alt_score_gap"] = round(candidate_best_alt_score_gap, 3)
+    if candidate_best_alt_text_similarity is not None:
+        metadata["page_candidate_best_alt_text_similarity"] = round(
+            candidate_best_alt_text_similarity,
+            4,
+        )
     if chapter_marker_count:
         metadata["page_chapter_marker_count"] = chapter_marker_count
     return metadata
@@ -3666,13 +3828,31 @@ def _should_keep_targeted_retry(
     current_metadata: dict[str, object],
     retry_metadata: dict[str, object],
 ) -> bool:
+    def _artifact_burden(metadata: dict[str, object]) -> float | None:
+        single_char_ratio = metadata.get("page_single_char_fragment_ratio")
+        apostrophe_ratio = metadata.get("page_apostrophe_fragment_ratio")
+        if not isinstance(single_char_ratio, (int, float)) or not isinstance(apostrophe_ratio, (int, float)):
+            return None
+        return float(single_char_ratio) + float(apostrophe_ratio)
+
     current_score = float(current_metadata.get("selection_score", 0.0))
     retry_score = float(retry_metadata.get("selection_score", 0.0))
     if retry_score > current_score:
         return True
     current_quality_rank = _quality_tier_rank(current_metadata.get("page_quality_tier"))
     retry_quality_rank = _quality_tier_rank(retry_metadata.get("page_quality_tier"))
-    return retry_quality_rank > current_quality_rank and retry_score >= (current_score - 25.0)
+    if retry_quality_rank > current_quality_rank and retry_score >= (current_score - 25.0):
+        return True
+    current_artifact_burden = _artifact_burden(current_metadata)
+    retry_artifact_burden = _artifact_burden(retry_metadata)
+    return (
+        current_metadata.get("page_quality_tier") == "low"
+        and retry_metadata.get("page_quality_tier") == "low"
+        and current_artifact_burden is not None
+        and retry_artifact_burden is not None
+        and retry_artifact_burden <= (current_artifact_burden * _LOW_QUALITY_RETRY_ARTIFACT_IMPROVEMENT_RATIO)
+        and retry_score >= (current_score - _LOW_QUALITY_RETRY_MAX_SCORE_DROP)
+    )
 
 
 def _maybe_retry_targeted_page(
