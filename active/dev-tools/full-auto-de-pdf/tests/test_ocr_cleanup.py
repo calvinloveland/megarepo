@@ -467,6 +467,42 @@ def test_cleanup_ocr_text_removes_dot_leader_toc_lines() -> None:
     assert "real story opening line" in cleaned.lower()
 
 
+def test_cleanup_ocr_text_removes_garbled_toc_lines_without_dot_leaders() -> None:
+    source = (
+        "Cuarter VII Jonathan Harker's Journal 64\n"
+        "Crarrer XXIIL Dr Seward's Diary 302\n"
+        "Real story opening line.\n"
+    )
+    cleaned = cleanup_ocr_text(source)
+    lowered = cleaned.lower()
+    assert "harker's journal 64" not in lowered
+    assert "seward's diary 302" not in lowered
+    assert "real story opening line" in lowered
+
+
+def test_cleanup_ocr_text_trims_title_page_stamp_prelude() -> None:
+    source = (
+        "v A\n"
+        "Smithsonian Institution\n"
+        "The Comegys Library\n"
+        "'--'-fi\n"
+        "DRACULA\n"
+        "Bram Stoker\n"
+    )
+    cleaned = cleanup_ocr_text(source)
+    assert "Smithsonian Institution" not in cleaned
+    assert "Comegys Library" not in cleaned
+    assert "'--'-fi" not in cleaned
+    assert cleaned.startswith("DRACULA")
+    assert "Bram Stoker" in cleaned
+
+
+def test_cleanup_ocr_text_repairs_mixed_alnum_and_general_join_pairs() -> None:
+    source = "It 1s a back ground fit for an English Church man.\n"
+    cleaned = cleanup_ocr_text(source)
+    assert "It is a background fit for an English Churchman." in cleaned
+
+
 def test_cleanup_ocr_text_corrects_ew_ow_confusable() -> None:
     """The ew↔ow confusable fixes tewer→tower when tower dominates the text."""
     lines = ["The stone tower stood tall." for _ in range(10)]
@@ -520,3 +556,11 @@ def test_cleanup_ocr_text_corrects_renfield_proper_noun() -> None:
     """Renficld (c↔e confusion in proper noun) is corrected."""
     cleaned = cleanup_ocr_text("Count Renficld entered the room.")
     assert "Renfield" in cleaned
+
+
+def test_cleanup_ocr_text_corrects_short_common_confusable_words() -> None:
+    source = "Her ncck bent above the becf, and the quecr light faded.\n"
+    cleaned = cleanup_ocr_text(source)
+    lowered = cleaned.lower()
+    assert "neck bent above the beef" in lowered
+    assert "queer light faded" in lowered

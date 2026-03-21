@@ -36,8 +36,15 @@ _ROMAN_WORD = re.compile(r"^[ivxlcdm]+$")
 _LOWER_ALPHA = "abcdefghijklmnopqrstuvwxyz"
 _TOC_HINT = re.compile(r"^\s*(contents?|chapter|book|appendix|part)\b", flags=re.IGNORECASE)
 _DOT_LEADER_LINE = re.compile(r"(?:\.{3,}|(?:\.\s){3,})\s*\d+\s*$")
+_DOT_LEADER_ANYWHERE = re.compile(r"(?:\.{3,}|(?:\.\s){3,})")
 # Matches a 1-3 digit page number at the end of a line (capped at 999 to avoid matching years)
 _TOC_ENTRY_END = re.compile(r"\s*\d{1,3}\s*$")
+_TITLE_LINE_TOKEN = re.compile(r"[A-Za-z][A-Za-z'&-]*")
+_TITLE_PAGE_STAMP_HINT = re.compile(
+    r"\b(library|libraries|institution|university|museum|archive|collection|press)\b",
+    flags=re.IGNORECASE,
+)
+_INLINE_PAGE_NUMBER = re.compile(r"\b(?:\d{1,3}|[ivxlcdm]{2,8})\b", flags=re.IGNORECASE)
 _MIN_ERROR_OCCURRENCES = 2
 _MAX_ERROR_OCCURRENCES = 2
 _MIN_CORRECTION_OCCURRENCES = 5
@@ -72,7 +79,7 @@ _MAX_LEXICON_CANDIDATES_PER_LENGTH = 250
 _MIN_JOIN_WORD_LENGTH = 5
 _MIN_JOIN_TARGET_OCCURRENCES = 3
 _MAX_JOIN_EDIT_DISTANCE = 2
-_MIN_CONFUSABLE_WORD_LENGTH = 5
+_MIN_CONFUSABLE_WORD_LENGTH = 4
 _MIN_SPLIT_WORD_LENGTH = 5
 _SHORT_LEXICON_WORDS = {"a", "i", "of", "to", "in", "on", "at", "by", "an"}
 # Known word pairs that OCR frequently splits but should be joined. These bypass the
@@ -104,6 +111,8 @@ _KNOWN_JOIN_PAIRS: dict[tuple[str, str], str] = {
     ("what", "soever"): "whatsoever",
     ("where", "upon"): "whereupon",
     ("there", "fore"): "therefore",
+    ("back", "ground"): "background",
+    ("church", "man"): "churchman",
 }
 # Curated lookup for non-word OCR tokens that the statistical system cannot fix because
 # the correct form never appears in the OCR output (Tesseract always misreads them).
@@ -207,6 +216,10 @@ _CONFUSABLE_SUBSTITUTIONS = (
     ("x", "re"),
     ("re", "x"),
 )
+_MIXED_ALNUM_SUBSTITUTIONS = {
+    "0": "o",
+    "1": "i",
+}
 _BUILTIN_LEXICON = {
     "a",
     "about",
@@ -227,7 +240,9 @@ _BUILTIN_LEXICON = {
     "auto",
     "away",
     "back",
+    "background",
     "be",
+    "beef",
     "benchmark",
     "beside",
     "book",
@@ -236,6 +251,7 @@ _BUILTIN_LEXICON = {
     "can",
     "believe",
     "chapter",
+    "churchman",
     "clean",
     "column",
     "contains",
@@ -317,6 +333,7 @@ _BUILTIN_LEXICON = {
     "real",
     "realistic",
     "reference",
+    "road",
     "rested",
     "river",
     "sample",
@@ -329,6 +346,8 @@ _BUILTIN_LEXICON = {
     "seen",
     "search",
     "she",
+    "neck",
+    "queer",
     "story",
     "strike",
     "synthetic",
@@ -512,19 +531,119 @@ def _is_toc_like_line(line: str) -> bool:
     lowered = line.lower()
     has_digit = any(char.isdigit() for char in lowered)
     ends_with_page_number = has_digit and bool(_TOC_ENTRY_END.search(line))
+    tokens = [token.lower() for token in _TITLE_LINE_TOKEN.findall(line)]
+    first_tokens = tokens[:2]
+    page_number_count = len(_INLINE_PAGE_NUMBER.findall(line))
     # TOC entries start with a structural keyword and end with a bare page number.
     # Requiring the page-number tail prevents false positives on body sentences like
     # "In chapter 5, the Count arrived." which contain a keyword + digit but don't
     # end with a standalone number.
     if _TOC_HINT.search(line) and ends_with_page_number:
         return True
+    if ends_with_page_number and any(_looks_like_toc_keyword(token) for token in first_tokens):
+        return True
     # Secondary TOC keywords that can appear mid-line in table-of-contents context.
-    if ends_with_page_number and ("contents" in lowered or "diary" in lowered) and len(lowered.split()) >= 3:
+    if (
+        ends_with_page_number
+        and any(keyword in lowered for keyword in ("contents", "diary", "journal", "phonograph"))
+        and len(lowered.split()) >= 3
+    ):
+        return True
+    if (
+        page_number_count >= 2
+        and any(keyword in lowered for keyword in ("contents", "diary", "journal", "phonograph"))
+    ):
         return True
     # Dot-leader pattern: catches OCR'd TOC entries like "Title ......... 47"
     # even when keywords like "Chapter" were garbled by OCR.
     if has_digit and _DOT_LEADER_LINE.search(line):
         return True
+    if (
+        page_number_count >= 1
+        and _DOT_LEADER_ANYWHERE.search(line)
+        and any(
+            keyword in lowered for keyword in ("contents", "diary", "journal", "phonograph")
+        )
+    ):
+        return True
+    return False
+
+
+def _looks_like_toc_keyword(token: str) -> bool:
+    normalized = "".join(char for char in token.lower() if char.isalpha())
+    if len(normalized) < 4:
+        return False
+    for target in ("chapter", "contents", "appendix", "section"):
+        if abs(len(normalized) - len(target)) > 2:
+            continue
+        if Levenshtein.distance(normalized, target) <= 2:
+            return True
+    return False
+
+
+def _is_probable_title_line(line: str) -> bool:
+    tokens = _TITLE_LINE_TOKEN.findall(" ".join(line.split()))
+    if not 1 <= len(tokens) <= 8:
+        return False
+    if sum(1 for token in tokens if len(token) >= 4) == 0:
+        return False
+    if _TITLE_PAGE_STAMP_HINT.search(line):
+        return False
+    uppercase_like = sum(1 for token in tokens if token.isupper())
+    if uppercase_like == 0:
+        return False
+    title_like = sum(1 for token in tokens if token[:1].isupper() and token[1:].islower())
+    return (uppercase_like + title_like) >= max(1, len(tokens) - 1)
+
+
+def _is_probable_noise_line(line: str) -> bool:
+    compact = " ".join(line.split())
+    if not compact:
+        return False
+    tokens = _TITLE_LINE_TOKEN.findall(compact)
+    alpha_count = sum(1 for char in compact if char.isalpha())
+    digit_count = sum(1 for char in compact if char.isdigit())
+    punctuation_count = sum(1 for char in compact if not char.isalnum() and not char.isspace())
+    if tokens and all(len(token) == 1 for token in tokens) and len(tokens) <= 4:
+        return True
+    if alpha_count <= 4 and punctuation_count >= 2:
+        return True
+    if alpha_count <= 6 and digit_count >= 2:
+        return True
+    return False
+
+
+def _trim_title_page_stamp_prelude(lines: list[str]) -> list[str]:
+    visible = [(index, line) for index, line in enumerate(lines) if line.strip()]
+    if len(visible) < 3:
+        return lines
+    title_pos = -1
+    for visible_index, (index, line) in enumerate(visible[:8]):
+        if _is_probable_title_line(line):
+            title_pos = visible_index
+            title_line_index = index
+            break
+    if title_pos <= 0:
+        return lines
+    prelude = visible[:title_pos]
+    removable_count = sum(
+        1 for _index, line in prelude if _is_probable_noise_line(line) or _has_probable_stamp_hint(line)
+    )
+    if removable_count < max(1, int(len(prelude) * 0.75)):
+        return lines
+    return lines[title_line_index:]
+
+
+def _has_probable_stamp_hint(line: str) -> bool:
+    if _TITLE_PAGE_STAMP_HINT.search(line) is not None:
+        return True
+    for token in _TITLE_LINE_TOKEN.findall(line):
+        normalized = token.lower()
+        for target in ("library", "libraries", "institution", "university", "museum", "archive"):
+            if abs(len(normalized) - len(target)) > 2:
+                continue
+            if Levenshtein.distance(normalized, target) <= 2:
+                return True
     return False
 
 
@@ -727,6 +846,30 @@ def _infer_digit_letter_corrections(text: str) -> dict[str, str]:
         corrections["1"] = "i"
     if len(corrections) > _MAX_TOTAL_DIGIT_CORRECTIONS:
         return {}
+    return corrections
+
+
+def _infer_mixed_alnum_word_corrections(
+    text: str,
+    lexicon_words: set[str],
+    external_lexicon_words: set[str],
+) -> dict[str, str]:
+    counts = _extract_token_counts(text)
+    corrections: dict[str, str] = {}
+    for source, source_count in counts.items():
+        if source.isalpha() or source.isdigit():
+            continue
+        if not any(char.isalpha() for char in source) or not any(char.isdigit() for char in source):
+            continue
+        candidate = "".join(_MIXED_ALNUM_SUBSTITUTIONS.get(char, char) for char in source)
+        if candidate == source or not candidate.isalpha():
+            continue
+        if (
+            candidate in external_lexicon_words
+            or candidate in _BUILTIN_LEXICON
+            or candidate in lexicon_words
+        ):
+            corrections[source] = candidate
     return corrections
 
 
@@ -1410,6 +1553,7 @@ def cleanup_ocr_text(text: str, lexicon_texts: tuple[str, ...] = ()) -> str:
             continue
         cleaned_lines.append(stripped)
 
+    cleaned_lines = _trim_title_page_stamp_prelude(cleaned_lines)
     cleaned = "\n".join(cleaned_lines)
     cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
     cleaned = re.sub(r"[ \t]+", " ", cleaned)
@@ -1426,6 +1570,11 @@ def cleanup_ocr_text(text: str, lexicon_texts: tuple[str, ...] = ()) -> str:
     cleaned = _apply_join_word_corrections(cleaned, join_corrections)
     split_lexicon_words = _build_cleanup_lexicon(cleaned, lexicon_texts)
     direct_corrections = {}
+    mixed_alnum_corrections = _infer_mixed_alnum_word_corrections(
+        cleaned,
+        split_lexicon_words,
+        external_lexicon_words,
+    )
     lexicon_corrections = _infer_lexicon_word_corrections(cleaned, external_lexicon_words)
     confusable_corrections = _infer_confusable_word_corrections(cleaned, split_lexicon_words)
     dominant_confusable_corrections = _infer_dominant_confusable_corrections(
@@ -1438,6 +1587,7 @@ def cleanup_ocr_text(text: str, lexicon_texts: tuple[str, ...] = ()) -> str:
         split_lexicon_words,
         allow_approximate=bool(external_lexicon_words),
     )
+    direct_corrections.update(mixed_alnum_corrections)
     direct_corrections.update(lexicon_corrections)
     direct_corrections.update(confusable_corrections)
     direct_corrections.update(dominant_confusable_corrections)

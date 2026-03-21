@@ -393,7 +393,7 @@ def test_ocr_pdf_with_tesseract_auto_can_select_scan_local_threshold_mode(tmp_pa
             if mode == "scan-local-threshold" and psm == "6":
                 return "The printed text is crisp and readable"
             if mode == "scan" and psm == "6":
-                return "The printed text 1s crisp and readable"
+                return "###"
             return "###"
         raise AssertionError("unexpected command")
 
