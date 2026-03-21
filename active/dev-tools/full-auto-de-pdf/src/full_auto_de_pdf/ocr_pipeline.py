@@ -54,6 +54,40 @@ _INVERSE_RENDER_SCORE_PADDING = 24
 _AUTO_INVERSE_RENDER_SCORE_WINDOW = 80.0
 _AUTO_INVERSE_RENDER_PREPROCESS_MODES = frozenset({"none", "scan", "scan-local-threshold"})
 _AUTO_SCAN_LOCAL_THRESHOLD_MIN_SCORE = 500.0
+_FRONT_MATTER_RETRY_PREPROCESS_MODES = (
+    "scan-masked",
+    "scan-local-threshold-masked",
+    "scan",
+    "scan-local-threshold",
+    "basic",
+    "deskew",
+)
+_FRONT_MATTER_RETRY_TESSERACT_PSMS = ("6", "4")
+_BACK_MATTER_RETRY_PREPROCESS_MODES = (
+    "scan-local-threshold",
+    "scan-local-threshold-masked",
+    "scan",
+    "scan-masked",
+    "basic",
+)
+_BACK_MATTER_RETRY_TESSERACT_PSMS = ("6", "3")
+_BODY_LOW_QUALITY_RETRY_PREPROCESS_MODES = (
+    "scan",
+    "scan-masked",
+    "scan-local-threshold",
+    "scan-local-threshold-masked",
+    "deskew",
+    "basic",
+    "dewarp",
+)
+_BODY_LOW_QUALITY_RETRY_TESSERACT_PSMS = ("3", "6", "4")
+_BODY_REVIEW_RETRY_PREPROCESS_MODES = (
+    "scan-local-threshold",
+    "scan-local-threshold-masked",
+    "scan",
+    "basic",
+)
+_BODY_REVIEW_RETRY_TESSERACT_PSMS = ("6", "4")
 _PRE_OCR_MASK_ACTIVE_ROW_INK_RATIO = 0.015
 _PRE_OCR_MASK_ROW_GAP = 8
 _PRE_OCR_MASK_SIGNIFICANT_BAND_HEIGHT = 18
@@ -172,6 +206,9 @@ class OCRRunOptions:
     emit_page_artifacts: bool = True
     page_artifacts_dir: Path | None = None
     progress_callback: Callable[[dict[str, object]], None] | None = None
+    candidate_preprocess_modes_override: tuple[str, ...] | None = None
+    candidate_tesseract_psms_override: tuple[str, ...] | None = None
+    route_ocr_policy: str | None = None
 
 
 @dataclass(frozen=True)
@@ -1200,9 +1237,17 @@ def _candidate_preprocess_modes(preprocess_mode: str) -> tuple[str, ...]:
     return (preprocess_mode,)
 
 
+def _candidate_preprocess_modes_for_options(options: OCRRunOptions) -> tuple[str, ...]:
+    if options.candidate_preprocess_modes_override:
+        return options.candidate_preprocess_modes_override
+    return _candidate_preprocess_modes(options.preprocess_mode)
+
+
 def _candidate_tesseract_psms(options: OCRRunOptions) -> tuple[str, ...]:
     if options.ocr_engine not in {"tesseract", "ensemble"}:
         return ("",)
+    if options.candidate_tesseract_psms_override:
+        return options.candidate_tesseract_psms_override
     if options.core.tesseract_psm == "auto":
         return _AUTO_TESSERACT_PSMS
     return (options.core.tesseract_psm,)
@@ -2104,7 +2149,7 @@ def _run_ocr_on_page(
     prepared_inputs: dict[str, Path] = {}
     candidate_runs: list[dict[str, object]] = []
     candidates: list[OCRCandidate] = []
-    preprocess_modes = _candidate_preprocess_modes(options.preprocess_mode)
+    preprocess_modes = _candidate_preprocess_modes_for_options(options)
     tesseract_psms = _candidate_tesseract_psms(options)
     candidate_total = len(preprocess_modes) * len(tesseract_psms)
     candidate_index = 0
@@ -2160,6 +2205,8 @@ def _run_ocr_on_page(
                 "word_count": len([word for word in text.split() if word]),
                 "character_count": len(text),
             }
+            if options.route_ocr_policy:
+                candidate_metadata["route_ocr_policy"] = options.route_ocr_policy
             if pre_ocr_region_masked:
                 candidate_metadata["pre_ocr_region_masked"] = True
             if options.ocr_engine in {"tesseract", "ensemble"}:
@@ -3302,21 +3349,65 @@ def _targeted_page_retry_reason(
 ) -> str | None:
     if options.ocr_engine not in {"tesseract", "ensemble"}:
         return None
-    if (
-        options.preprocess_mode == "auto"
-        and options.core.tesseract_psm == "auto"
-        and options.core.tesseract_output_format == "hocr"
-    ):
-        return None
     page_route = selection_metadata.get("page_route")
     if page_route == "front-matter":
         return "front-matter"
+    if page_route == "back-matter":
+        return "back-matter"
+    if page_route == "body-review":
+        return "body-review"
     if selection_metadata.get("page_quality_tier") == "low":
         return "low-quality"
     return None
 
 
-def _targeted_page_retry_options(options: OCRRunOptions) -> OCRRunOptions:
+def _targeted_page_retry_policy(
+    selection_metadata: dict[str, object],
+    retry_reason: str,
+) -> dict[str, object]:
+    layout_region_counts = selection_metadata.get("page_layout_region_counts")
+    toc_count = 0
+    if isinstance(layout_region_counts, dict):
+        raw_toc_count = layout_region_counts.get("toc", 0)
+        if isinstance(raw_toc_count, int):
+            toc_count = raw_toc_count
+    if retry_reason == "front-matter":
+        if toc_count >= 1:
+            return {
+                "name": "front-matter-toc",
+                "preprocess_modes": _FRONT_MATTER_RETRY_PREPROCESS_MODES,
+                "tesseract_psms": _FRONT_MATTER_RETRY_TESSERACT_PSMS,
+            }
+        return {
+            "name": "front-matter-sparse",
+            "preprocess_modes": _FRONT_MATTER_RETRY_PREPROCESS_MODES,
+            "tesseract_psms": ("4", "6"),
+        }
+    if retry_reason == "back-matter":
+        return {
+            "name": "back-matter",
+            "preprocess_modes": _BACK_MATTER_RETRY_PREPROCESS_MODES,
+            "tesseract_psms": _BACK_MATTER_RETRY_TESSERACT_PSMS,
+        }
+    if retry_reason == "body-review":
+        return {
+            "name": "body-review",
+            "preprocess_modes": _BODY_REVIEW_RETRY_PREPROCESS_MODES,
+            "tesseract_psms": _BODY_REVIEW_RETRY_TESSERACT_PSMS,
+        }
+    return {
+        "name": "body-low-quality",
+        "preprocess_modes": _BODY_LOW_QUALITY_RETRY_PREPROCESS_MODES,
+        "tesseract_psms": _BODY_LOW_QUALITY_RETRY_TESSERACT_PSMS,
+    }
+
+
+def _targeted_page_retry_options(
+    options: OCRRunOptions,
+    retry_reason: str,
+    selection_metadata: dict[str, object],
+) -> OCRRunOptions:
+    policy = _targeted_page_retry_policy(selection_metadata, retry_reason)
     retry_core = replace(
         options.core,
         tesseract_psm="auto",
@@ -3327,6 +3418,9 @@ def _targeted_page_retry_options(options: OCRRunOptions) -> OCRRunOptions:
         core=retry_core,
         preprocess_mode="auto",
         emit_page_artifacts=False,
+        candidate_preprocess_modes_override=tuple(policy["preprocess_modes"]),
+        candidate_tesseract_psms_override=tuple(policy["tesseract_psms"]),
+        route_ocr_policy=str(policy["name"]),
     )
 
 
@@ -3368,7 +3462,7 @@ def _maybe_retry_targeted_page(
     retry_reason = _targeted_page_retry_reason(selection_metadata, options)
     if retry_reason is None:
         return ocr_input_path, text, selection_metadata
-    retry_options = _targeted_page_retry_options(options)
+    retry_options = _targeted_page_retry_options(options, retry_reason, selection_metadata)
     retry_ocr_input_path, retry_text, retry_metadata = _run_ocr_on_page(
         image_path,
         retry_options,
@@ -3399,12 +3493,14 @@ def _maybe_retry_targeted_page(
         resolved_metadata["targeted_page_retry_base_selection_score"] = current_score
         resolved_metadata["targeted_page_retry_retry_selection_score"] = retry_score
         resolved_metadata["targeted_page_retry_base_route"] = selection_metadata.get("page_route")
+        resolved_metadata["targeted_page_retry_policy"] = retry_options.route_ocr_policy
         resolved_metadata["targeted_page_retry_selected_strategy"] = retry_metadata.get("selection_strategy")
         resolved_metadata["selection_strategy"] = "targeted-page-retry"
         return retry_ocr_input_path, retry_text, resolved_metadata
     resolved_metadata = dict(selection_metadata)
     resolved_metadata["targeted_page_retry"] = "rejected-no-gain"
     resolved_metadata["targeted_page_retry_reason"] = retry_reason
+    resolved_metadata["targeted_page_retry_policy"] = retry_options.route_ocr_policy
     resolved_metadata["targeted_page_retry_retry_selection_score"] = retry_score
     return ocr_input_path, text, resolved_metadata
 

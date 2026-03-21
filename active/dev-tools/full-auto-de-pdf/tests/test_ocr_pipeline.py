@@ -1637,6 +1637,46 @@ def test_page_analysis_metadata_marks_noisy_body_page_low_quality() -> None:
     assert metadata["page_route"] == "body-low-quality"
 
 
+def test_targeted_page_retry_reason_allows_body_review_and_back_matter() -> None:
+    options = ocr_pipeline.OCRRunOptions(core=ocr_pipeline.OCRCoreOptions())
+
+    assert (
+        ocr_pipeline._targeted_page_retry_reason({"page_route": "body-review"}, options)
+        == "body-review"
+    )
+    assert (
+        ocr_pipeline._targeted_page_retry_reason({"page_route": "back-matter"}, options)
+        == "back-matter"
+    )
+
+
+def test_targeted_page_retry_options_use_front_matter_toc_policy() -> None:
+    options = ocr_pipeline.OCRRunOptions(core=ocr_pipeline.OCRCoreOptions(), preprocess_mode="basic")
+
+    retry_options = ocr_pipeline._targeted_page_retry_options(
+        options,
+        "front-matter",
+        {
+            "page_route": "front-matter",
+            "page_layout_region_counts": {"toc": 2},
+        },
+    )
+
+    assert retry_options.preprocess_mode == "auto"
+    assert retry_options.core.tesseract_psm == "auto"
+    assert retry_options.core.tesseract_output_format == "hocr"
+    assert retry_options.route_ocr_policy == "front-matter-toc"
+    assert retry_options.candidate_preprocess_modes_override == (
+        "scan-masked",
+        "scan-local-threshold-masked",
+        "scan",
+        "scan-local-threshold",
+        "basic",
+        "deskew",
+    )
+    assert retry_options.candidate_tesseract_psms_override == ("6", "4")
+
+
 def test_ocr_page_images_hocr_output_records_confidence_metadata(tmp_path) -> None:
     page_image = tmp_path / "page-1.png"
     output_path = tmp_path / "out.txt"
@@ -1763,12 +1803,18 @@ def test_ocr_page_images_targeted_retry_reprocesses_low_quality_page(monkeypatch
                 options.preprocess_mode,
                 options.core.tesseract_psm,
                 options.core.tesseract_output_format,
+                options.candidate_preprocess_modes_override,
+                options.candidate_tesseract_psms_override,
+                options.route_ocr_policy,
             )
         )
         if len(seen_calls) == 1:
             assert options.preprocess_mode == "basic"
             assert options.core.tesseract_psm == "6"
             assert options.core.tesseract_output_format == "text"
+            assert options.candidate_preprocess_modes_override is None
+            assert options.candidate_tesseract_psms_override is None
+            assert options.route_ocr_policy is None
             return (
                 page_image,
                 "Hc scld thc tcarh | [ ] cffort",
@@ -1786,6 +1832,17 @@ def test_ocr_page_images_targeted_retry_reprocesses_low_quality_page(monkeypatch
         assert options.preprocess_mode == "auto"
         assert options.core.tesseract_psm == "auto"
         assert options.core.tesseract_output_format == "hocr"
+        assert options.candidate_preprocess_modes_override == (
+            "scan",
+            "scan-masked",
+            "scan-local-threshold",
+            "scan-local-threshold-masked",
+            "deskew",
+            "basic",
+            "dewarp",
+        )
+        assert options.candidate_tesseract_psms_override == ("3", "6", "4")
+        assert options.route_ocr_policy == "body-low-quality"
         return (
             page_image,
             "He said the truth with effort",
@@ -1815,12 +1872,31 @@ def test_ocr_page_images_targeted_retry_reprocesses_low_quality_page(monkeypatch
     )
 
     assert output_path.read_text(encoding="utf-8") == "He said the truth with effort"
-    assert seen_calls == [("basic", "6", "text"), ("auto", "auto", "hocr")]
+    assert seen_calls == [
+        ("basic", "6", "text", None, None, None),
+        (
+            "auto",
+            "auto",
+            "hocr",
+            (
+                "scan",
+                "scan-masked",
+                "scan-local-threshold",
+                "scan-local-threshold-masked",
+                "deskew",
+                "basic",
+                "dewarp",
+            ),
+            ("3", "6", "4"),
+            "body-low-quality",
+        ),
+    ]
     manifest_payload = json.loads(Path(str(metrics["page_artifacts_manifest"])).read_text(encoding="utf-8"))
     page_entry = manifest_payload["pages"][0]
     assert page_entry["selection_strategy"] == "targeted-page-retry"
     assert page_entry["targeted_page_retry"] == "applied"
     assert page_entry["targeted_page_retry_reason"] == "low-quality"
+    assert page_entry["targeted_page_retry_policy"] == "body-low-quality"
     assert metrics["page_analysis"]["targeted_page_retry_count"] == 1
     assert metrics["page_analysis"]["targeted_page_retry_reason_counts"] == {"low-quality": 1}
 
