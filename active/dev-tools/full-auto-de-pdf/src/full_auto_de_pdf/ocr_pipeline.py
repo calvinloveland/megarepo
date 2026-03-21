@@ -30,6 +30,7 @@ _VALID_PREPROCESS_MODES = (
     "none",
     "scan",
     "scan-local-threshold",
+    "scan-background-normalized",
     "scan-sauvola",
     "scan-morphology",
     "basic",
@@ -38,7 +39,17 @@ _VALID_PREPROCESS_MODES = (
     "auto",
 )
 _AUTO_PREPROCESS_MODES = ("none", "scan", "scan-local-threshold", "basic", "deskew", "dewarp")
-_MODE_EVAL_PREPROCESS_MODES = ("none", "scan", "scan-local-threshold", "basic", "deskew", "dewarp")
+_MODE_EVAL_PREPROCESS_MODES = (
+    "none",
+    "scan",
+    "scan-local-threshold",
+    "scan-background-normalized",
+    "scan-sauvola",
+    "scan-morphology",
+    "basic",
+    "deskew",
+    "dewarp",
+)
 _AUTO_TESSERACT_PSMS = ("3", "4", "6")
 _MASKED_PREPROCESS_SUFFIX = "-masked"
 _AUTO_MASKED_PREPROCESS_MODES = frozenset({"scan", "scan-local-threshold"})
@@ -55,23 +66,34 @@ _AUTO_INVERSE_RENDER_SCORE_WINDOW = 80.0
 _AUTO_INVERSE_RENDER_PREPROCESS_MODES = frozenset({"none", "scan", "scan-local-threshold"})
 _AUTO_SCAN_LOCAL_THRESHOLD_MIN_SCORE = 500.0
 _FRONT_MATTER_RETRY_PREPROCESS_MODES = (
+    "scan-background-normalized-masked",
+    "scan-background-normalized",
     "scan-masked",
     "scan-local-threshold-masked",
     "scan",
     "scan-local-threshold",
+    "scan-sauvola",
+    "scan-morphology",
     "basic",
     "deskew",
 )
 _FRONT_MATTER_RETRY_TESSERACT_PSMS = ("6", "4")
 _BACK_MATTER_RETRY_PREPROCESS_MODES = (
+    "scan-background-normalized",
+    "scan-background-normalized-masked",
     "scan-local-threshold",
     "scan-local-threshold-masked",
     "scan",
     "scan-masked",
+    "scan-sauvola",
     "basic",
 )
 _BACK_MATTER_RETRY_TESSERACT_PSMS = ("6", "3")
 _BODY_LOW_QUALITY_RETRY_PREPROCESS_MODES = (
+    "scan-background-normalized",
+    "scan-background-normalized-masked",
+    "scan-sauvola",
+    "scan-morphology",
     "scan",
     "scan-masked",
     "scan-local-threshold",
@@ -82,12 +104,18 @@ _BODY_LOW_QUALITY_RETRY_PREPROCESS_MODES = (
 )
 _BODY_LOW_QUALITY_RETRY_TESSERACT_PSMS = ("3", "6", "4")
 _BODY_REVIEW_RETRY_PREPROCESS_MODES = (
+    "scan-background-normalized",
+    "scan-background-normalized-masked",
     "scan-local-threshold",
     "scan-local-threshold-masked",
     "scan",
+    "scan-sauvola",
     "basic",
 )
 _BODY_REVIEW_RETRY_TESSERACT_PSMS = ("6", "4")
+_SCAN_BACKGROUND_NORMALIZATION_BLUR_RADIUS = 12.0
+_SCAN_BACKGROUND_NORMALIZATION_CONTRAST_SCALE = 5.0
+_SCAN_BACKGROUND_NORMALIZATION_CLOSING_SIZE = 9
 _PRE_OCR_MASK_ACTIVE_ROW_INK_RATIO = 0.015
 _PRE_OCR_MASK_ROW_GAP = 8
 _PRE_OCR_MASK_SIGNIFICANT_BAND_HEIGHT = 18
@@ -595,7 +623,13 @@ def _upsample_for_ocr(image: Any, scale_factor: int = 2) -> Any:
 
 def _uses_scan_preprocess_stack(preprocess_mode: str) -> bool:
     preprocess_mode, _ = _split_preprocess_mode(preprocess_mode)
-    return preprocess_mode in {"scan", "scan-local-threshold", "scan-sauvola", "scan-morphology"}
+    return preprocess_mode in {
+        "scan",
+        "scan-local-threshold",
+        "scan-background-normalized",
+        "scan-sauvola",
+        "scan-morphology",
+    }
 
 
 def _ink_row_counts(binary_image: Any) -> list[int]:
@@ -731,6 +765,25 @@ def _binarize_preprocessed_candidate(
                 ),
             )
         return _adaptive_gaussian_threshold(candidate, block_size=51, subtract_constant=15)
+    if preprocess_mode == "scan-background-normalized":
+        normalized = _normalize_scan_background(
+            candidate,
+            blur_radius=_SCAN_BACKGROUND_NORMALIZATION_BLUR_RADIUS,
+            contrast_scale=_SCAN_BACKGROUND_NORMALIZATION_CONTRAST_SCALE,
+            closing_size=_SCAN_BACKGROUND_NORMALIZATION_CLOSING_SIZE,
+        )
+        if _should_use_tiled_threshold(normalized):
+            return _threshold_image_in_overlapping_tiles(
+                normalized,
+                tile_size=_TILED_THRESHOLD_TILE_SIZE,
+                overlap=_TILED_THRESHOLD_OVERLAP,
+                threshold_fn=lambda tile: _sauvola_threshold(
+                    tile,
+                    block_size=41,
+                    k=0.25,
+                ),
+            )
+        return _sauvola_threshold(normalized, block_size=41, k=0.25)
     if preprocess_mode == "scan-sauvola":
         if _should_use_tiled_threshold(candidate):
             return _threshold_image_in_overlapping_tiles(
@@ -781,6 +834,37 @@ def _otsu_threshold(image: Any) -> int:
             best_variance = between_class_variance
             best_threshold = value
     return best_threshold
+
+
+def _normalize_scan_background(
+    image: Any,
+    *,
+    blur_radius: float,
+    contrast_scale: float,
+    closing_size: int,
+) -> Any:
+    if Image is None or ImageFilter is None or ImageOps is None:
+        raise RuntimeError(
+            "Missing dependency for preprocessing: pillow. "
+            "Install with `pip install pillow` or disable preprocessing."
+        )
+    grayscale = image.convert("L")
+    background = grayscale.filter(ImageFilter.GaussianBlur(radius=max(1.0, blur_radius)))
+    if closing_size >= 3 and closing_size % 2 == 1:
+        background = background.filter(ImageFilter.MaxFilter(size=closing_size)).filter(
+            ImageFilter.MinFilter(size=closing_size)
+        )
+    normalized = Image.new("L", grayscale.size, color=255)
+    source_pixels = grayscale.load()
+    background_pixels = background.load()
+    normalized_pixels = normalized.load()
+    for y in range(grayscale.height):
+        for x in range(grayscale.width):
+            background_value = int(background_pixels[x, y])
+            source_value = int(source_pixels[x, y])
+            adjusted = 255 + int(round((source_value - background_value) * contrast_scale))
+            normalized_pixels[x, y] = max(0, min(255, adjusted))
+    return ImageOps.autocontrast(normalized)
 
 
 def _adaptive_gaussian_threshold(
@@ -877,7 +961,7 @@ def _sauvola_threshold(
     grayscale = image.convert("L")
     radius = max(1, (block_size - 1) // 2)
     local_mean = grayscale.filter(ImageFilter.BoxBlur(radius=radius))
-    squared = grayscale.point(lambda value: float(value * value), mode="F")
+    squared = grayscale.point(lambda value: int(round((value * value) / 255.0)))
     local_squared_mean = squared.filter(ImageFilter.BoxBlur(radius=radius))
     binary = Image.new("L", grayscale.size, color=255)
     source_pixels = grayscale.load()
@@ -887,7 +971,8 @@ def _sauvola_threshold(
     for y in range(grayscale.height):
         for x in range(grayscale.width):
             mean = float(mean_pixels[x, y])
-            variance = max(0.0, float(squared_mean_pixels[x, y]) - (mean * mean))
+            squared_mean = float(squared_mean_pixels[x, y]) * 255.0
+            variance = max(0.0, squared_mean - (mean * mean))
             stddev = math.sqrt(variance)
             threshold = mean * (1.0 + (k * ((stddev / dynamic_range) - 1.0)))
             binary_pixels[x, y] = 255 if float(source_pixels[x, y]) > threshold else 0
@@ -1040,6 +1125,7 @@ def _validate_common_ocr_options(
     if options.preprocess_mode not in _VALID_PREPROCESS_MODES:
         raise ValueError(
             "preprocess_mode must be 'none', 'scan', 'scan-local-threshold', "
+            "'scan-background-normalized', "
             "'scan-sauvola', 'scan-morphology', "
             "'basic', 'deskew', 'dewarp', or 'auto'"
         )

@@ -1667,10 +1667,14 @@ def test_targeted_page_retry_options_use_front_matter_toc_policy() -> None:
     assert retry_options.core.tesseract_output_format == "hocr"
     assert retry_options.route_ocr_policy == "front-matter-toc"
     assert retry_options.candidate_preprocess_modes_override == (
+        "scan-background-normalized-masked",
+        "scan-background-normalized",
         "scan-masked",
         "scan-local-threshold-masked",
         "scan",
         "scan-local-threshold",
+        "scan-sauvola",
+        "scan-morphology",
         "basic",
         "deskew",
     )
@@ -1833,6 +1837,10 @@ def test_ocr_page_images_targeted_retry_reprocesses_low_quality_page(monkeypatch
         assert options.core.tesseract_psm == "auto"
         assert options.core.tesseract_output_format == "hocr"
         assert options.candidate_preprocess_modes_override == (
+            "scan-background-normalized",
+            "scan-background-normalized-masked",
+            "scan-sauvola",
+            "scan-morphology",
             "scan",
             "scan-masked",
             "scan-local-threshold",
@@ -1879,6 +1887,10 @@ def test_ocr_page_images_targeted_retry_reprocesses_low_quality_page(monkeypatch
             "auto",
             "hocr",
             (
+                "scan-background-normalized",
+                "scan-background-normalized-masked",
+                "scan-sauvola",
+                "scan-morphology",
                 "scan",
                 "scan-masked",
                 "scan-local-threshold",
@@ -2078,6 +2090,55 @@ def test_preprocess_image_scan_local_threshold_uses_adaptive_threshold_and_3x_up
     assert seen == {"size": (360, 540), "block_size": 51, "subtract_constant": 15}
 
 
+def test_preprocess_image_scan_background_normalized_uses_normalization_and_sauvola(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    input_path = tmp_path / "page.png"
+    output_path = tmp_path / "processed.png"
+    Image.new("L", (120, 180), color=220).save(input_path)
+    seen: dict[str, object] = {}
+
+    def _fake_normalize(image, *, blur_radius, contrast_scale, closing_size):  # noqa: ANN001, ANN202
+        seen["normalize_size"] = image.size
+        seen["blur_radius"] = blur_radius
+        seen["contrast_scale"] = contrast_scale
+        seen["closing_size"] = closing_size
+        return image
+
+    def _fake_sauvola(image, *, block_size, k, dynamic_range=128.0):  # noqa: ANN001, ANN202
+        seen["sauvola_size"] = image.size
+        seen["block_size"] = block_size
+        seen["k"] = k
+        seen["dynamic_range"] = dynamic_range
+        return image.point(lambda value: 255 if value >= 128 else 0)
+
+    monkeypatch.setattr(ocr_pipeline, "_normalize_scan_background", _fake_normalize)
+    monkeypatch.setattr(ocr_pipeline, "_sauvola_threshold", _fake_sauvola)
+    ocr_pipeline._preprocess_image(
+        input_path,
+        output_path,
+        "scan-background-normalized",
+        190,
+        2.0,
+        0.5,
+    )
+
+    with Image.open(output_path) as processed:
+        assert processed.size == (360, 540)
+        assert set(processed.getdata()) <= {0, 255}
+    assert seen == {
+        "normalize_size": (360, 540),
+        "blur_radius": 12.0,
+        "contrast_scale": 5.0,
+        "closing_size": 9,
+        "sauvola_size": (360, 540),
+        "block_size": 41,
+        "k": 0.25,
+        "dynamic_range": 128.0,
+    }
+
+
 def test_preprocess_image_scan_sauvola_uses_sauvola_threshold_and_3x_upsample(
     monkeypatch,
     tmp_path,
@@ -2108,6 +2169,20 @@ def test_preprocess_image_scan_sauvola_uses_sauvola_threshold_and_3x_upsample(
         assert processed.size == (360, 540)
         assert set(processed.getdata()) <= {0, 255}
     assert seen == {"size": (360, 540), "block_size": 41, "k": 0.25, "dynamic_range": 128.0}
+
+
+def test_sauvola_threshold_returns_binary_image() -> None:
+    image = Image.new("L", (15, 15), color=220)
+    pixels = image.load()
+    for x in range(4, 11):
+        for y in range(4, 11):
+            pixels[x, y] = 80
+
+    binary = ocr_pipeline._sauvola_threshold(image, block_size=5, k=0.25)
+
+    values = set(binary.getdata())
+    assert values <= {0, 255}
+    assert values == {0, 255}
 
 
 def test_preprocess_image_scan_morphology_uses_morphological_cleanup(
@@ -2598,6 +2673,9 @@ def test_evaluate_ocr_preprocess_modes_runs_all_modes(monkeypatch, tmp_path) -> 
         "none": "alpha beta gamma",
         "scan": "alpha beta gamma",
         "scan-local-threshold": "alpha beta gamma",
+        "scan-background-normalized": "alpha beta gamma",
+        "scan-sauvola": "alpha beta gamma",
+        "scan-morphology": "alpha beta gamma",
         "basic": "alpha beta",
         "deskew": "alpha typo",
         "dewarp": "alpha beta gamma",
@@ -2619,7 +2697,17 @@ def test_evaluate_ocr_preprocess_modes_runs_all_modes(monkeypatch, tmp_path) -> 
         reference_text_path=reference_text_path,
         ocr_engine="paddleocr",
     )
-    assert seen_modes == ["none", "scan", "scan-local-threshold", "basic", "deskew", "dewarp"]
+    assert seen_modes == [
+        "none",
+        "scan",
+        "scan-local-threshold",
+        "scan-background-normalized",
+        "scan-sauvola",
+        "scan-morphology",
+        "basic",
+        "deskew",
+        "dewarp",
+    ]
     assert output_report.exists()
     assert "modes" in report
     assert report["best_mode"] == "none"
