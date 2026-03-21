@@ -40,6 +40,8 @@ _VALID_PREPROCESS_MODES = (
 _AUTO_PREPROCESS_MODES = ("none", "scan", "scan-local-threshold", "basic", "deskew", "dewarp")
 _MODE_EVAL_PREPROCESS_MODES = ("none", "scan", "scan-local-threshold", "basic", "deskew", "dewarp")
 _AUTO_TESSERACT_PSMS = ("3", "4", "6")
+_MASKED_PREPROCESS_SUFFIX = "-masked"
+_AUTO_MASKED_PREPROCESS_MODES = frozenset({"scan", "scan-local-threshold"})
 _DEFAULT_RENDER_FONT_CANDIDATES = (
     "/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf",
     "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
@@ -52,6 +54,13 @@ _INVERSE_RENDER_SCORE_PADDING = 24
 _AUTO_INVERSE_RENDER_SCORE_WINDOW = 80.0
 _AUTO_INVERSE_RENDER_PREPROCESS_MODES = frozenset({"none", "scan", "scan-local-threshold"})
 _AUTO_SCAN_LOCAL_THRESHOLD_MIN_SCORE = 500.0
+_PRE_OCR_MASK_ACTIVE_ROW_INK_RATIO = 0.015
+_PRE_OCR_MASK_ROW_GAP = 8
+_PRE_OCR_MASK_SIGNIFICANT_BAND_HEIGHT = 18
+_PRE_OCR_MASK_SIGNIFICANT_BAND_WIDTH_RATIO = 0.4
+_PRE_OCR_MASK_MAX_NOISE_BAND_HEIGHT_RATIO = 0.08
+_PRE_OCR_MASK_MAX_NOISE_BAND_WIDTH_RATIO = 0.75
+_PRE_OCR_MASK_MAX_TRIM_RATIO = 0.18
 _TILED_THRESHOLD_MIN_PIXELS = 2_500_000
 _TILED_THRESHOLD_TILE_SIZE = 1024
 _TILED_THRESHOLD_OVERLAP = 192
@@ -480,6 +489,7 @@ def _preprocess_image(
     preprocess_mode, binarize_threshold, deskew_max_angle, deskew_angle_step = (
         _parse_preprocess_args(args)
     )
+    base_preprocess_mode, apply_region_masking = _split_preprocess_mode(preprocess_mode)
     if Image is None or ImageFilter is None or ImageOps is None:
         raise RuntimeError(
             "Missing dependency for preprocessing: pillow. "
@@ -487,7 +497,7 @@ def _preprocess_image(
         )
     with Image.open(input_path) as image:
         gray = image.convert("L")
-        if _uses_scan_preprocess_stack(preprocess_mode):
+        if _uses_scan_preprocess_stack(base_preprocess_mode):
             contrasted = ImageOps.autocontrast(gray)
             denoised = contrasted.filter(ImageFilter.MedianFilter(size=3))
             # Sharpen after denoising so Tesseract sees crisp character edges.
@@ -500,12 +510,18 @@ def _preprocess_image(
             ocr_ready = _upsample_for_ocr(denoised)
         candidate = _preprocess_candidate(
             ocr_ready,
-            preprocess_mode,
+            base_preprocess_mode,
             deskew_max_angle,
             deskew_angle_step,
             binarize_threshold,
         )
-        binarized = _binarize_preprocessed_candidate(candidate, preprocess_mode, binarize_threshold)
+        binarized = _binarize_preprocessed_candidate(
+            candidate,
+            base_preprocess_mode,
+            binarize_threshold,
+        )
+        if apply_region_masking:
+            binarized = _mask_sparse_outer_text_bands(binarized)
         output_path.parent.mkdir(parents=True, exist_ok=True)
         binarized.save(output_path)
 
@@ -520,6 +536,16 @@ def _parse_preprocess_args(args: tuple[Any, ...]) -> tuple[str, int, float, floa
     return preprocess_mode, binarize_threshold, deskew_max_angle, deskew_angle_step
 
 
+def _split_preprocess_mode(preprocess_mode: str) -> tuple[str, bool]:
+    if preprocess_mode.endswith(_MASKED_PREPROCESS_SUFFIX):
+        return preprocess_mode[: -len(_MASKED_PREPROCESS_SUFFIX)], True
+    return preprocess_mode, False
+
+
+def _masked_preprocess_mode(preprocess_mode: str) -> str:
+    return f"{preprocess_mode}{_MASKED_PREPROCESS_SUFFIX}"
+
+
 def _upsample_for_ocr(image: Any, scale_factor: int = 2) -> Any:
     if Image is None:
         return image
@@ -531,7 +557,120 @@ def _upsample_for_ocr(image: Any, scale_factor: int = 2) -> Any:
 
 
 def _uses_scan_preprocess_stack(preprocess_mode: str) -> bool:
+    preprocess_mode, _ = _split_preprocess_mode(preprocess_mode)
     return preprocess_mode in {"scan", "scan-local-threshold", "scan-sauvola", "scan-morphology"}
+
+
+def _ink_row_counts(binary_image: Any) -> list[int]:
+    grayscale = binary_image.convert("L")
+    width, height = grayscale.size
+    if width <= 0 or height <= 0:
+        return []
+    raw = grayscale.tobytes()
+    return [raw[offset : offset + width].count(0) for offset in range(0, len(raw), width)]
+
+
+def _collect_ink_bands(binary_image: Any) -> list[dict[str, int]]:
+    row_counts = _ink_row_counts(binary_image)
+    width, _height = binary_image.size
+    if not row_counts or width <= 0:
+        return []
+    active_threshold = max(3, int(round(width * _PRE_OCR_MASK_ACTIVE_ROW_INK_RATIO)))
+    active_rows = [index for index, count in enumerate(row_counts) if count >= active_threshold]
+    if not active_rows:
+        return []
+    bands: list[dict[str, int]] = []
+    start = active_rows[0]
+    end = active_rows[0]
+    for row_index in active_rows[1:]:
+        if row_index - end <= _PRE_OCR_MASK_ROW_GAP + 1:
+            end = row_index
+            continue
+        bands.append(_band_metadata(binary_image, row_counts, start, end))
+        start = row_index
+        end = row_index
+    bands.append(_band_metadata(binary_image, row_counts, start, end))
+    return bands
+
+
+def _band_metadata(binary_image: Any, row_counts: list[int], start: int, end: int) -> dict[str, int]:
+    width, _height = binary_image.size
+    crop = binary_image.crop((0, start, width, end + 1))
+    bbox = ImageOps.invert(crop).getbbox()
+    ink_left = 0 if bbox is None else int(bbox[0])
+    ink_right = 0 if bbox is None else int(bbox[2])
+    return {
+        "top": start,
+        "bottom": end,
+        "height": end - start + 1,
+        "peak_row_ink": max(row_counts[start : end + 1], default=0),
+        "ink_width": max(0, ink_right - ink_left),
+        "ink_left": ink_left,
+        "ink_right": ink_right,
+    }
+
+
+def _is_significant_ink_band(band: dict[str, int], page_width: int) -> bool:
+    return (
+        band["height"] >= _PRE_OCR_MASK_SIGNIFICANT_BAND_HEIGHT
+        and band["ink_width"] >= int(page_width * _PRE_OCR_MASK_SIGNIFICANT_BAND_WIDTH_RATIO)
+    )
+
+
+def _should_mask_outer_band(
+    band: dict[str, int],
+    anchor_band: dict[str, int],
+    page_width: int,
+    page_height: int,
+) -> bool:
+    max_noise_height = max(12, int(page_height * _PRE_OCR_MASK_MAX_NOISE_BAND_HEIGHT_RATIO))
+    return (
+        band["height"] <= max_noise_height
+        and band["ink_width"] > 0
+        and anchor_band["ink_width"] > 0
+        and band["ink_width"]
+        <= int(max(anchor_band["ink_width"] * _PRE_OCR_MASK_MAX_NOISE_BAND_WIDTH_RATIO, page_width * 0.18))
+    )
+
+
+def _mask_sparse_outer_text_bands(binary_image: Any) -> Any:
+    if ImageDraw is None:
+        return binary_image
+    width, height = binary_image.size
+    if width <= 0 or height <= 0:
+        return binary_image
+    bands = _collect_ink_bands(binary_image)
+    if not bands:
+        return binary_image
+    significant_indices = [
+        index for index, band in enumerate(bands) if _is_significant_ink_band(band, width)
+    ]
+    if not significant_indices:
+        return binary_image
+    first_significant = bands[significant_indices[0]]
+    last_significant = bands[significant_indices[-1]]
+    trim_limit = max(1, int(height * _PRE_OCR_MASK_MAX_TRIM_RATIO))
+    masked = binary_image.copy()
+    draw = ImageDraw.Draw(masked)
+    trimmed_top = 0
+    for band in bands[: significant_indices[0]]:
+        band_height = band["height"]
+        if trimmed_top + band_height > trim_limit:
+            break
+        if not _should_mask_outer_band(band, first_significant, width, height):
+            continue
+        draw.rectangle((0, band["top"], width, band["bottom"]), fill=255)
+        trimmed_top += band_height
+    trimmed_bottom = 0
+    for band in reversed(bands[significant_indices[-1] + 1 :]):
+        band_height = band["height"]
+        if trimmed_bottom + band_height > trim_limit:
+            break
+        if not _should_mask_outer_band(band, last_significant, width, height):
+            continue
+        draw.rectangle((0, band["top"], width, band["bottom"]), fill=255)
+        trimmed_bottom += band_height
+    return masked
 
 
 def _binarize_preprocessed_candidate(
@@ -1052,7 +1191,12 @@ def _cleanup_span_changes(raw_text: str, cleaned_text: str) -> list[_CleanupSpan
 
 def _candidate_preprocess_modes(preprocess_mode: str) -> tuple[str, ...]:
     if preprocess_mode == "auto":
-        return _AUTO_PREPROCESS_MODES
+        candidates: list[str] = []
+        for candidate in _AUTO_PREPROCESS_MODES:
+            candidates.append(candidate)
+            if candidate in _AUTO_MASKED_PREPROCESS_MODES:
+                candidates.append(_masked_preprocess_mode(candidate))
+        return tuple(candidates)
     return (preprocess_mode,)
 
 
@@ -1952,12 +2096,16 @@ def _run_ocr_on_page(
                 options.core.language,
                 options.core.cleanup_lexicon_texts,
             )
+            base_preprocess_mode, pre_ocr_region_masked = _split_preprocess_mode(preprocess_mode)
             candidate_metadata: dict[str, object] = {
-                "preprocess_mode": preprocess_mode,
+                "preprocess_mode": base_preprocess_mode,
+                "candidate_preprocess_mode": preprocess_mode,
                 "score": score,
                 "word_count": len([word for word in text.split() if word]),
                 "character_count": len(text),
             }
+            if pre_ocr_region_masked:
+                candidate_metadata["pre_ocr_region_masked"] = True
             if options.ocr_engine in {"tesseract", "ensemble"}:
                 candidate_metadata["tesseract_psm"] = int(tesseract_psm)
                 candidate_metadata["tesseract_output_format"] = options.core.tesseract_output_format
