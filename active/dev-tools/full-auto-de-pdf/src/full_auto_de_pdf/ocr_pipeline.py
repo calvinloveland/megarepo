@@ -1234,9 +1234,8 @@ def _prepare_ocr_input_path(
     return preprocessed_path
 
 
-def _score_ocr_text(text: str, language: str, cleanup_lexicon_texts: tuple[str, ...]) -> float:
+def _score_text_quality(stripped: str, language: str) -> float:
     # lizard forgive: OCR text scoring combines several small heuristics by design.
-    stripped = cleanup_ocr_text(text, lexicon_texts=cleanup_lexicon_texts).strip()
     if not stripped:
         return -1_000_000.0
     token_matches = _LATIN_TOKEN.findall(stripped)
@@ -1261,6 +1260,61 @@ def _score_ocr_text(text: str, language: str, cleanup_lexicon_texts: tuple[str, 
         - float(noisy_chars) * 18.0
         - token_length_penalty
     )
+
+
+def _score_ocr_text(text: str, language: str, cleanup_lexicon_texts: tuple[str, ...]) -> float:
+    cleaned_text = cleanup_ocr_text(text, lexicon_texts=cleanup_lexicon_texts).strip()
+    return _score_text_quality(cleaned_text, language)
+
+
+def _hocr_candidate_score_adjustment(ocr_metadata: dict[str, object]) -> float:
+    raw_confidence_mean = ocr_metadata.get("hocr_confidence_mean")
+    confidence_mean = (
+        float(raw_confidence_mean)
+        if isinstance(raw_confidence_mean, (int, float))
+        else None
+    )
+    raw_low_confidence_ratio = ocr_metadata.get("hocr_low_confidence_ratio")
+    low_confidence_ratio = (
+        float(raw_low_confidence_ratio)
+        if isinstance(raw_low_confidence_ratio, (int, float))
+        else None
+    )
+    adjustment = 0.0
+    if confidence_mean is not None:
+        adjustment += (confidence_mean - 50.0) * 0.5
+    if low_confidence_ratio is not None:
+        adjustment -= low_confidence_ratio * 60.0
+    return adjustment
+
+
+def _score_ocr_candidate(
+    text: str,
+    language: str,
+    cleanup_lexicon_texts: tuple[str, ...],
+    ocr_metadata: dict[str, object] | None = None,
+) -> tuple[float, dict[str, object]]:
+    raw_text = text.strip()
+    cleaned_text = cleanup_ocr_text(text, lexicon_texts=cleanup_lexicon_texts).strip()
+    raw_score = _score_text_quality(raw_text, language)
+    cleaned_score = _score_text_quality(cleaned_text, language)
+    cleanup_changed_text = cleaned_text != raw_text
+    lexical_score = (
+        cleaned_score if not cleanup_changed_text else (cleaned_score * 0.7) + (raw_score * 0.3)
+    )
+    confidence_adjustment = (
+        _hocr_candidate_score_adjustment(ocr_metadata)
+        if isinstance(ocr_metadata, dict)
+        else 0.0
+    )
+    score = lexical_score + confidence_adjustment
+    return score, {
+        "raw_text_score": raw_score,
+        "cleaned_text_score": cleaned_score,
+        "lexical_candidate_score": lexical_score,
+        "hocr_confidence_adjustment": confidence_adjustment,
+        "cleanup_changed_text": cleanup_changed_text,
+    }
 
 
 def _fontconfig_match(family: str) -> str | None:
@@ -2009,12 +2063,13 @@ def _run_candidate_ocr(
             options.core.tesseract_output_format,
         )
         paddle_text = _run_paddle_reader(paddle_reader, ocr_input_path)
-        tesseract_score = _score_ocr_text(
+        tesseract_score, _tesseract_score_details = _score_ocr_candidate(
             tesseract_text,
             options.core.language,
             options.core.cleanup_lexicon_texts,
+            tesseract_metadata,
         )
-        paddle_score = _score_ocr_text(
+        paddle_score, _paddle_score_details = _score_ocr_candidate(
             paddle_text,
             options.core.language,
             options.core.cleanup_lexicon_texts,
@@ -2091,10 +2146,11 @@ def _run_ocr_on_page(
                 paddle_reader,
                 tesseract_psm,
             )
-            score = _score_ocr_text(
+            score, score_details = _score_ocr_candidate(
                 text,
                 options.core.language,
                 options.core.cleanup_lexicon_texts,
+                ocr_metadata,
             )
             base_preprocess_mode, pre_ocr_region_masked = _split_preprocess_mode(preprocess_mode)
             candidate_metadata: dict[str, object] = {
@@ -2109,6 +2165,7 @@ def _run_ocr_on_page(
             if options.ocr_engine in {"tesseract", "ensemble"}:
                 candidate_metadata["tesseract_psm"] = int(tesseract_psm)
                 candidate_metadata["tesseract_output_format"] = options.core.tesseract_output_format
+            candidate_metadata.update(score_details)
             candidate_metadata.update(ocr_metadata)
             candidate_runs.append(
                 {
@@ -2279,10 +2336,11 @@ def _maybe_orientation_fallback_candidate(
         paddle_reader,
         str(selected_psm),
     )
-    rotated_score = _score_ocr_text(
+    rotated_score, _rotated_score_details = _score_ocr_candidate(
         rotated_text,
         options.core.language,
         options.core.cleanup_lexicon_texts,
+        rotated_metadata,
     )
     if rotated_score <= candidate.score:
         return None

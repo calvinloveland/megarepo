@@ -475,13 +475,13 @@ def test_ocr_page_images_auto_can_select_masked_scan_candidate(monkeypatch, tmp_
 
     monkeypatch.setattr(
         ocr_pipeline,
-        "_score_ocr_text",
-        lambda text, _language, _lexicon: {
+        "_score_ocr_candidate",
+        lambda text, _language, _lexicon, _metadata=None: ({
             "Baseline garbage": 100.0,
             "})ust then a heavy cloud passed across the face of the moon": 820.0,
             "Just then a heavy cloud passed across the face of the moon": 940.0,
             "###": -25.0,
-        }[text],
+        }[text], {}),
     )
 
     metrics = ocr_page_images(
@@ -548,15 +548,15 @@ def test_ocr_page_images_auto_can_use_inverse_render_tiebreak(monkeypatch, tmp_p
 
     monkeypatch.setattr(
         ocr_pipeline,
-        "_score_ocr_text",
-        lambda text, _language, _lexicon: {
+        "_score_ocr_candidate",
+        lambda text, _language, _lexicon, _metadata=None: ({
             "Baseline page text": 1000.0,
             "Scan candidate text": 980.0,
             "Threshold candidate text": 955.0,
             "Basic garbage": 100.0,
             "Deskew garbage": 90.0,
             "Dewarp garbage": -100.0,
-        }[text],
+        }[text], {}),
     )
     monkeypatch.setattr(
         ocr_pipeline,
@@ -640,15 +640,15 @@ def test_ocr_page_images_auto_prefers_near_best_scan_local_threshold_candidate(
 
     monkeypatch.setattr(
         ocr_pipeline,
-        "_score_ocr_text",
-        lambda text, _language, _lexicon: {
+        "_score_ocr_candidate",
+        lambda text, _language, _lexicon, _metadata=None: ({
             "Baseline page text": 920.0,
             "Scan candidate text": 1000.0,
             "Threshold candidate text": 960.0,
             "Basic garbage": 120.0,
             "Deskew garbage": 80.0,
             "Dewarp garbage": 40.0,
-        }[text],
+        }[text], {}),
     )
 
     metrics = ocr_page_images(
@@ -715,15 +715,15 @@ def test_ocr_page_images_auto_scan_local_threshold_preference_skips_low_score_pa
 
     monkeypatch.setattr(
         ocr_pipeline,
-        "_score_ocr_text",
-        lambda text, _language, _lexicon: {
+        "_score_ocr_candidate",
+        lambda text, _language, _lexicon, _metadata=None: ({
             "Baseline page text": 170.0,
             "Scan candidate text": 180.0,
             "Threshold candidate text": 160.0,
             "Basic garbage": 40.0,
             "Deskew garbage": 30.0,
             "Dewarp garbage": -20.0,
-        }[text],
+        }[text], {}),
     )
     monkeypatch.setattr(
         ocr_pipeline,
@@ -807,15 +807,15 @@ def test_ocr_page_images_auto_tiebreak_ignores_distant_low_score_candidate(
 
     monkeypatch.setattr(
         ocr_pipeline,
-        "_score_ocr_text",
-        lambda text, _language, _lexicon: {
+        "_score_ocr_candidate",
+        lambda text, _language, _lexicon, _metadata=None: ({
             "Baseline page text": 1000.0,
             "Scan candidate text": 975.0,
             "Threshold candidate text": 955.0,
             "Basic garbage": 150.0,
             "Deskew garbage": 700.0,
             "Dewarp garbage": -100.0,
-        }[text],
+        }[text], {}),
     )
     monkeypatch.setattr(
         ocr_pipeline,
@@ -1505,8 +1505,11 @@ def test_ocr_page_images_orientation_fallback_can_select_rotated_candidate(
 
     monkeypatch.setattr(
         ocr_pipeline,
-        "_score_ocr_text",
-        lambda text, _lang, _lexicon: 100.0 if "upright readable text" in text else 1.0,
+        "_score_ocr_candidate",
+        lambda text, _lang, _lexicon, _metadata=None: (
+            100.0 if "upright readable text" in text else 1.0,
+            {},
+        ),
     )
     metrics = ocr_page_images(
         page_images=[page_image],
@@ -1550,8 +1553,11 @@ def test_ocr_page_images_tiered_fallback_can_select_tiled_candidate(
 
     monkeypatch.setattr(
         ocr_pipeline,
-        "_score_ocr_text",
-        lambda text, _lang, _lexicon: 12.0 if "good tile text" in text else 1.0,
+        "_score_ocr_candidate",
+        lambda text, _lang, _lexicon, _metadata=None: (
+            12.0 if "good tile text" in text else 1.0,
+            {},
+        ),
     )
     metrics = ocr_page_images(
         page_images=[page_image],
@@ -1874,6 +1880,40 @@ def test_score_ocr_text_uses_supplied_lexicon() -> None:
         ("contains realistic synthetic notes for readers",),
     )
     assert guided > unguided
+
+
+def test_score_ocr_candidate_blends_raw_and_cleaned_text_quality() -> None:
+    noisy = "The prlnted text 1s noisy"
+    raw_score = ocr_pipeline._score_text_quality(noisy.strip(), "eng")
+    cleaned_score = ocr_pipeline._score_ocr_text(noisy, "eng", ())
+    candidate_score, details = ocr_pipeline._score_ocr_candidate(noisy, "eng", ())
+
+    assert details["cleanup_changed_text"] is True
+    assert raw_score < candidate_score < cleaned_score
+    assert details["raw_text_score"] == raw_score
+    assert details["cleaned_text_score"] == cleaned_score
+
+
+def test_score_ocr_candidate_uses_hocr_confidence_signals() -> None:
+    text = "Just then a heavy cloud passed across the face of the moon"
+    baseline_score, baseline_details = ocr_pipeline._score_ocr_candidate(text, "eng", ())
+    high_score, high_details = ocr_pipeline._score_ocr_candidate(
+        text,
+        "eng",
+        (),
+        {"hocr_confidence_mean": 95.0, "hocr_low_confidence_ratio": 0.02},
+    )
+    low_score, low_details = ocr_pipeline._score_ocr_candidate(
+        text,
+        "eng",
+        (),
+        {"hocr_confidence_mean": 45.0, "hocr_low_confidence_ratio": 0.35},
+    )
+
+    assert baseline_details["hocr_confidence_adjustment"] == 0.0
+    assert high_details["hocr_confidence_adjustment"] > 0.0
+    assert low_details["hocr_confidence_adjustment"] < 0.0
+    assert high_score > baseline_score > low_score
 
 
 def test_preprocess_image_upsamples_small_pages(tmp_path) -> None:
