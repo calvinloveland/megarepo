@@ -1681,6 +1681,35 @@ def test_targeted_page_retry_options_use_front_matter_toc_policy() -> None:
     assert retry_options.candidate_tesseract_psms_override == ("6", "4")
 
 
+def test_adaptive_raster_retry_image_crops_and_resizes(tmp_path) -> None:
+    input_path = tmp_path / "page.png"
+    image = Image.new("L", (40, 40), color=255)
+    pixels = image.load()
+    for x in range(40):
+        for y in range(4):
+            pixels[x, y] = 0
+            pixels[x, 39 - y] = 0
+    for y in range(40):
+        for x in range(3):
+            pixels[x, y] = 0
+            pixels[39 - x, y] = 0
+    image.save(input_path)
+
+    adaptive = ocr_pipeline._adaptive_raster_retry_image(
+        input_path,
+        tmp_path / "preprocessed",
+        "front-matter",
+    )
+
+    assert adaptive is not None
+    adaptive_path, metadata = adaptive
+    assert adaptive_path.exists()
+    assert metadata["adaptive_raster_retry_variant"] == "cropped-resized"
+    assert metadata["adaptive_raster_retry_crop_box"] == (1, 2, 39, 38)
+    with Image.open(adaptive_path) as adaptive_image:
+        assert adaptive_image.size == (40, 40)
+
+
 def test_ocr_page_images_hocr_output_records_confidence_metadata(tmp_path) -> None:
     page_image = tmp_path / "page-1.png"
     output_path = tmp_path / "out.txt"
@@ -1864,9 +1893,10 @@ def test_ocr_page_images_targeted_retry_reprocesses_low_quality_page(monkeypatch
                 "hocr_confidence_mean": 96.0,
                 "hocr_low_confidence_ratio": 0.0,
             },
-        )
+    )
 
     monkeypatch.setattr(ocr_pipeline, "_run_ocr_on_page", _fake_run_ocr_on_page)
+    monkeypatch.setattr(ocr_pipeline, "_adaptive_raster_retry_image", lambda *_args: None)
 
     metrics = ocr_page_images(
         page_images=[page_image],
@@ -1911,6 +1941,93 @@ def test_ocr_page_images_targeted_retry_reprocesses_low_quality_page(monkeypatch
     assert page_entry["targeted_page_retry_policy"] == "body-low-quality"
     assert metrics["page_analysis"]["targeted_page_retry_count"] == 1
     assert metrics["page_analysis"]["targeted_page_retry_reason_counts"] == {"low-quality": 1}
+
+
+def test_maybe_retry_targeted_page_can_select_adaptive_raster_candidate(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    page_image = tmp_path / "page-1.png"
+    Image.new("L", (40, 40), color=255).save(page_image)
+    preprocessed_dir = tmp_path / "preprocessed"
+    seen_calls: list[tuple[str, str | None]] = []
+
+    def _fake_run_ocr_on_page(  # noqa: ANN001, ANN202
+        image_path,
+        options,
+        _dependencies,
+        _preprocessed_dir,
+        _paddle_reader,
+        *,
+        retry_reason=None,
+        **_kwargs,
+    ):
+        seen_calls.append((image_path.parent.name, retry_reason))
+        if retry_reason == "low-quality":
+            return (
+                image_path,
+                "standard retry text",
+                {
+                    "selection_score": 35.0,
+                    "selection_strategy": "text-score",
+                    "page_quality_tier": "medium",
+                },
+            )
+        assert retry_reason == "low-quality-adaptive-raster"
+        assert options.route_ocr_policy == "body-low-quality"
+        return (
+            image_path,
+            "adaptive retry text",
+            {
+                "selection_score": 90.0,
+                "selection_strategy": "text-score",
+                "page_quality_tier": "high",
+            },
+        )
+
+    monkeypatch.setattr(ocr_pipeline, "_run_ocr_on_page", _fake_run_ocr_on_page)
+    monkeypatch.setattr(
+        ocr_pipeline,
+        "_postprocess_page_text",
+        lambda image_path, text, metadata, **_kwargs: (text, metadata),
+    )
+
+    dependencies = ocr_pipeline.OCRDependencies(
+        run_command=lambda _command, _capture_output: "",
+        preprocess_image=lambda *_args: None,
+        paddle_reader_factory=lambda _language: (lambda _path: ""),
+        which=lambda _name: "/usr/bin/fake",
+    )
+    result_path, result_text, result_metadata = ocr_pipeline._maybe_retry_targeted_page(
+        page_image,
+        page_image,
+        "original text",
+        {
+            "selection_score": 20.0,
+            "page_route": "body-low-quality",
+            "page_quality_tier": "low",
+        },
+        page_index=1,
+        total_pages=10,
+        options=ocr_pipeline.OCRRunOptions(
+            core=ocr_pipeline.OCRCoreOptions(),
+            preprocess_mode="basic",
+        ),
+        dependencies=dependencies,
+        preprocessed_dir=preprocessed_dir,
+        paddle_reader=None,
+        started_at=0.0,
+    )
+
+    assert result_text == "adaptive retry text"
+    assert result_path.parent.name == "adaptive-raster"
+    assert result_metadata["selection_strategy"] == "targeted-page-retry"
+    assert result_metadata["adaptive_raster_retry"] == "applied"
+    assert result_metadata["adaptive_raster_retry_variant"] == "cropped-resized"
+    assert seen_calls == [
+        (page_image.parent.name, "low-quality"),
+        ("adaptive-raster", "low-quality-adaptive-raster"),
+    ]
 
 
 def test_ocr_page_images_confidence_aware_cleanup_skips_high_confidence_page(

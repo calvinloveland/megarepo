@@ -116,6 +116,12 @@ _BODY_REVIEW_RETRY_TESSERACT_PSMS = ("6", "4")
 _SCAN_BACKGROUND_NORMALIZATION_BLUR_RADIUS = 12.0
 _SCAN_BACKGROUND_NORMALIZATION_CONTRAST_SCALE = 5.0
 _SCAN_BACKGROUND_NORMALIZATION_CLOSING_SIZE = 9
+_ADAPTIVE_RASTER_MARGIN_BY_REASON = {
+    "front-matter": (0.03, 0.045),
+    "back-matter": (0.025, 0.035),
+    "body-review": (0.018, 0.025),
+    "low-quality": (0.02, 0.03),
+}
 _PRE_OCR_MASK_ACTIVE_ROW_INK_RATIO = 0.015
 _PRE_OCR_MASK_ROW_GAP = 8
 _PRE_OCR_MASK_SIGNIFICANT_BAND_HEIGHT = 18
@@ -3518,6 +3524,54 @@ def _quality_tier_rank(value: object) -> int:
     return 0
 
 
+def _adaptive_raster_retry_image(
+    image_path: Path,
+    preprocessed_dir: Path,
+    retry_reason: str,
+) -> tuple[Path, dict[str, object]] | None:
+    if Image is None:
+        return None
+    margin_ratios = _ADAPTIVE_RASTER_MARGIN_BY_REASON.get(retry_reason)
+    if margin_ratios is None:
+        return None
+    horizontal_ratio, vertical_ratio = margin_ratios
+    with Image.open(image_path) as image:
+        width, height = image.size
+        left_margin = min(
+            max(1, int(round(width * horizontal_ratio))),
+            max(0, (width - 8) // 2),
+        )
+        top_margin = min(
+            max(1, int(round(height * vertical_ratio))),
+            max(0, (height - 8) // 2),
+        )
+        if left_margin <= 0 and top_margin <= 0:
+            return None
+        crop_box = (
+            left_margin,
+            top_margin,
+            max(left_margin + 1, width - left_margin),
+            max(top_margin + 1, height - top_margin),
+        )
+        if crop_box[2] - crop_box[0] < 8 or crop_box[3] - crop_box[1] < 8:
+            return None
+        cropped = image.crop(crop_box)
+        resampling_namespace = getattr(Image, "Resampling", Image)
+        resized = cropped.resize(image.size, getattr(resampling_namespace, "LANCZOS"))
+        adaptive_dir = preprocessed_dir / "adaptive-raster"
+        adaptive_dir.mkdir(parents=True, exist_ok=True)
+        adaptive_path = adaptive_dir / f"{image_path.stem}-{retry_reason}{image_path.suffix}"
+        resized.save(adaptive_path)
+    return adaptive_path, {
+        "adaptive_raster_retry_variant": "cropped-resized",
+        "adaptive_raster_retry_crop_box": crop_box,
+        "adaptive_raster_retry_margin_ratio": {
+            "horizontal": round(horizontal_ratio, 4),
+            "vertical": round(vertical_ratio, 4),
+        },
+    }
+
+
 def _should_keep_targeted_retry(
     current_metadata: dict[str, object],
     retry_metadata: dict[str, object],
@@ -3549,6 +3603,7 @@ def _maybe_retry_targeted_page(
     if retry_reason is None:
         return ocr_input_path, text, selection_metadata
     retry_options = _targeted_page_retry_options(options, retry_reason, selection_metadata)
+    retry_candidates: list[tuple[Path, str, dict[str, object]]] = []
     retry_ocr_input_path, retry_text, retry_metadata = _run_ocr_on_page(
         image_path,
         retry_options,
@@ -3570,24 +3625,65 @@ def _maybe_retry_targeted_page(
         options=retry_options,
         dependencies=dependencies,
     )
+    retry_candidates.append((retry_ocr_input_path, retry_text, retry_metadata))
+    adaptive_retry_image = _adaptive_raster_retry_image(image_path, preprocessed_dir, retry_reason)
+    if adaptive_retry_image is not None:
+        adaptive_image_path, adaptive_retry_base_metadata = adaptive_retry_image
+        adaptive_ocr_input_path, adaptive_text, adaptive_metadata = _run_ocr_on_page(
+            adaptive_image_path,
+            retry_options,
+            dependencies,
+            preprocessed_dir,
+            paddle_reader,
+            total_pages=total_pages,
+            completed_pages=page_index - 1,
+            current_page_index=page_index,
+            started_at=started_at,
+            retry_reason=f"{retry_reason}-adaptive-raster",
+        )
+        adaptive_text, adaptive_metadata = _postprocess_page_text(
+            adaptive_image_path,
+            adaptive_text,
+            adaptive_metadata,
+            page_index=page_index,
+            total_pages=total_pages,
+            options=retry_options,
+            dependencies=dependencies,
+        )
+        adaptive_candidate_metadata = dict(adaptive_metadata)
+        adaptive_candidate_metadata.update(adaptive_retry_base_metadata)
+        adaptive_candidate_metadata["adaptive_raster_retry"] = "candidate"
+        retry_candidates.append((adaptive_ocr_input_path, adaptive_text, adaptive_candidate_metadata))
+    best_retry_ocr_input_path, best_retry_text, best_retry_metadata = retry_candidates[0]
+    for candidate_ocr_input_path, candidate_text, candidate_metadata in retry_candidates[1:]:
+        if _should_keep_targeted_retry(best_retry_metadata, candidate_metadata):
+            best_retry_ocr_input_path = candidate_ocr_input_path
+            best_retry_text = candidate_text
+            best_retry_metadata = candidate_metadata
     current_score = float(selection_metadata.get("selection_score", 0.0))
-    retry_score = float(retry_metadata.get("selection_score", 0.0))
-    if _should_keep_targeted_retry(selection_metadata, retry_metadata):
-        resolved_metadata = dict(retry_metadata)
+    retry_score = float(best_retry_metadata.get("selection_score", 0.0))
+    if _should_keep_targeted_retry(selection_metadata, best_retry_metadata):
+        resolved_metadata = dict(best_retry_metadata)
         resolved_metadata["targeted_page_retry"] = "applied"
         resolved_metadata["targeted_page_retry_reason"] = retry_reason
         resolved_metadata["targeted_page_retry_base_selection_score"] = current_score
         resolved_metadata["targeted_page_retry_retry_selection_score"] = retry_score
         resolved_metadata["targeted_page_retry_base_route"] = selection_metadata.get("page_route")
         resolved_metadata["targeted_page_retry_policy"] = retry_options.route_ocr_policy
-        resolved_metadata["targeted_page_retry_selected_strategy"] = retry_metadata.get("selection_strategy")
+        resolved_metadata["targeted_page_retry_selected_strategy"] = best_retry_metadata.get(
+            "selection_strategy"
+        )
         resolved_metadata["selection_strategy"] = "targeted-page-retry"
-        return retry_ocr_input_path, retry_text, resolved_metadata
+        if resolved_metadata.get("adaptive_raster_retry") == "candidate":
+            resolved_metadata["adaptive_raster_retry"] = "applied"
+        return best_retry_ocr_input_path, best_retry_text, resolved_metadata
     resolved_metadata = dict(selection_metadata)
     resolved_metadata["targeted_page_retry"] = "rejected-no-gain"
     resolved_metadata["targeted_page_retry_reason"] = retry_reason
     resolved_metadata["targeted_page_retry_policy"] = retry_options.route_ocr_policy
     resolved_metadata["targeted_page_retry_retry_selection_score"] = retry_score
+    if len(retry_candidates) > 1:
+        resolved_metadata["adaptive_raster_retry"] = "rejected-no-gain"
     return ocr_input_path, text, resolved_metadata
 
 
