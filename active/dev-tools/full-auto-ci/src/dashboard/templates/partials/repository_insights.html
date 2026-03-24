@@ -142,8 +142,8 @@
                     <div class="result-body">
                         {% set payload = result.data %}
                         {% set duration_value = None %}
-                        {% if payload and payload.duration is not none %}
-                        {% set duration_value = payload.duration %}
+                        {% if payload and payload.get('duration') is not none %}
+                        {% set duration_value = payload.get('duration') %}
                         {% elif result.duration %}
                         {% set duration_value = result.duration %}
                         {% endif %}
@@ -153,8 +153,9 @@
                         {% endif %}
 
                         {% if result.tool == 'coverage' and payload %}
-                        {% if payload.percentage is not none %}
-                        <p><strong>Total coverage:</strong> {{ '%.2f'|format(payload.percentage|float) }}%</p>
+                        {% set coverage_percentage = payload.get('percentage') %}
+                        {% if coverage_percentage is not none %}
+                        <p><strong>Total coverage:</strong> {{ '%.2f'|format(coverage_percentage|float) }}%</p>
                         {% endif %}
                         {% if payload.pytest_summary %}
                         {% set summary = payload.pytest_summary %}
@@ -197,10 +198,11 @@
                             {% if payload.summary %}
                             <p><strong>Summary:</strong> {{ payload.summary }}</p>
                             {% endif %}
-                            {% if payload.collected is not none %}
-                            <p class="pytest-collected">Collected {{ payload.collected }} test{% if payload.collected !=
+                        {% set collected_count = payload.get('collected') %}
+                        {% if collected_count is not none %}
+                        <p class="pytest-collected">Collected {{ collected_count }} test{% if collected_count !=
                                 1 %}s{% endif %}</p>
-                            {% endif %}
+                        {% endif %}
                             {% if payload.counts %}
                             <ul class="pytest-counts">
                                 {% for item in payload.counts %}
@@ -219,8 +221,9 @@
                         </details>
                         {% endif %}
                         {% elif result.tool == 'pylint' and payload %}
-                        {% if payload.score is not none %}
-                        <p><strong>Score:</strong> {{ '%.2f'|format(payload.score|float) }}/10</p>
+                        {% set pylint_score = payload.get('score') %}
+                        {% if pylint_score is not none %}
+                        <p><strong>Score:</strong> {{ '%.2f'|format(pylint_score|float) }}/10</p>
                         {% endif %}
                         {% if payload.issues %}
                         <ul class="pylint-issues">

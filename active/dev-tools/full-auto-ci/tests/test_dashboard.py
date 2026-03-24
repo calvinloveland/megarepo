@@ -61,6 +61,20 @@ def _dashboard_app_fixture(monkeypatch):
             ),
             duration=0.04,
         )
+        data.insert_result(
+            commit_id,
+            tool="coverage",
+            status="error",
+            output=json.dumps(
+                {
+                    "status": "error",
+                    "error": "coverage failed before report generation",
+                    "raw_output": "coverage: command not found",
+                    "duration": 0.12,
+                }
+            ),
+            duration=0.12,
+        )
 
         app = create_app(db_path=db_path)
         app.config.update(TESTING=True)
@@ -92,6 +106,7 @@ def test_repository_detail(client):
     assert "pylint" in body
     assert "pytest" in body
     assert "2 passed" in body
+    assert "coverage failed before report generation" in body
 
 
 def test_repositories_partial(client):
@@ -104,13 +119,14 @@ def test_repositories_partial(client):
 
 
 def test_repository_insights_partial(client):
-    """Insights partial should render trend and comparison sections."""
+    """Insights partial should render even when coverage lacks a percentage."""
     response = client.get("/repo/1/insights")
     assert response.status_code == 200
     body = response.data.decode()
     assert "Recent Test Runs" in body
     assert "abc1234" in body
     assert "2 passed" in body
+    assert "coverage failed before report generation" in body
     assert "Historical Trend" in body
     assert "Commit Comparison" in body
     assert "data-chart" in body

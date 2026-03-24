@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import time
 
 import pytest
@@ -43,3 +44,49 @@ def test_dashboard_renders_repository_card(
     card_locator.wait_for()
     expect(card_locator.locator("h3 a")).to_have_text("Example Repo")
     expect(card_locator.locator(".status-pill")).to_contain_text("completed")
+
+
+@pytest.mark.only_browser("chromium")
+def test_repository_detail_handles_coverage_error_without_percentage(
+    page, dashboard_server, dashboard_data_access
+):
+    """Repository detail should render coverage errors that omit percentage."""
+
+    repo_id = dashboard_data_access.create_repository(
+        "Example Repo", "https://example.com/repo.git", "main"
+    )
+    timestamp = int(time.time())
+    dashboard_data_access.create_test_run(
+        repo_id=repo_id,
+        commit_hash="abcdef1",
+        status="completed",
+        created_at=timestamp,
+    )
+    commit_id = dashboard_data_access.create_commit(
+        repo_id=repo_id,
+        commit_hash="abcdef1",
+        author="Dev Bot",
+        message="Exercise coverage error rendering",
+        timestamp=timestamp,
+    )
+    dashboard_data_access.insert_result(
+        commit_id=commit_id,
+        tool="coverage",
+        status="error",
+        output=json.dumps(
+            {
+                "status": "error",
+                "error": "coverage failed before report generation",
+                "raw_output": "coverage: command not found",
+                "duration": 0.12,
+            }
+        ),
+        duration=0.12,
+    )
+
+    page.goto(f"{dashboard_server['base_url']}/repo/{repo_id}", wait_until="networkidle")
+    expect(page.locator("main")).to_contain_text("Example Repo")
+    expect(page.locator("main")).to_contain_text(
+        "coverage failed before report generation"
+    )
+    expect(page.locator("body")).not_to_contain_text("Internal Server Error")
