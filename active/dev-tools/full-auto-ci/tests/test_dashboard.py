@@ -76,6 +76,30 @@ def _dashboard_app_fixture(monkeypatch):
             duration=0.12,
         )
 
+        running_timestamp = timestamp + 30
+        running_run_id = data.create_test_run(
+            repo_id, "def5678", "running", running_timestamp
+        )
+        data.update_test_run(
+            running_run_id,
+            status="running",
+            started_at=running_timestamp,
+        )
+        running_commit_id = data.create_commit(
+            repo_id,
+            "def5678",
+            author="Build Bot",
+            message="Currently scanning",
+            timestamp=running_timestamp,
+        )
+        data.insert_result(
+            running_commit_id,
+            tool="pylint",
+            status="success",
+            output=json.dumps({"status": "success", "score": 9.8, "duration": 1.6}),
+            duration=1.6,
+        )
+
         app = create_app(db_path=db_path)
         app.config.update(TESTING=True)
         yield app
@@ -96,17 +120,22 @@ def test_index_lists_repositories(client):
 
 
 def test_repository_detail(client):
-    """Repository detail page should include run and tool metadata."""
+    """Repository detail page should include progress bars and an SVG chart."""
     # repository id is 1 because DataAccess autoincrements starting at 1
     response = client.get("/repo/1")
     assert response.status_code == 200
     body = response.data.decode()
     assert "Demo" in body
     assert "abc1234" in body
+    assert "def5678" in body
     assert "pylint" in body
     assert "pytest" in body
     assert "2 passed" in body
     assert "coverage failed before report generation" in body
+    assert "1 of 4 tools complete" in body
+    assert "Estimated total" in body
+    assert 'class="trend-chart"' in body
+    assert "chart.umd.min.js" not in body
 
 
 def test_repositories_partial(client):
@@ -119,17 +148,19 @@ def test_repositories_partial(client):
 
 
 def test_repository_insights_partial(client):
-    """Insights partial should render even when coverage lacks a percentage."""
+    """Insights partial should render progress bars and the SVG trend chart."""
     response = client.get("/repo/1/insights")
     assert response.status_code == 200
     body = response.data.decode()
     assert "Recent Test Runs" in body
     assert "abc1234" in body
+    assert "def5678" in body
     assert "2 passed" in body
     assert "coverage failed before report generation" in body
     assert "Historical Trend" in body
     assert "Commit Comparison" in body
-    assert "data-chart" in body
+    assert "1 of 4 tools complete" in body
+    assert 'class="trend-chart"' in body
 
 
 def test_dashboard_main_runs(monkeypatch):

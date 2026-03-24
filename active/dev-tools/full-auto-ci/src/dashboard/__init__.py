@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import os
 import secrets
+import time
 from datetime import datetime
 from typing import Any, Dict
 
@@ -92,6 +93,52 @@ def _status_class(status: str | None) -> str:
         "failed": "status-error",
     }
     return mapping.get((status or "").lower(), "status-unknown")
+
+
+def _status_color(status: str | None) -> str:
+    mapping = {
+        "pending": "#facc15",
+        "queued": "#facc15",
+        "running": "#38bdf8",
+        "completed": "#4ade80",
+        "success": "#4ade80",
+        "error": "#f87171",
+        "failed": "#f87171",
+    }
+    return mapping.get((status or "").lower(), "#94a3b8")
+
+
+def _format_duration_compact(value: float | int | None) -> str:
+    if value is None:
+        return "—"
+
+    try:
+        total_seconds = max(0, int(round(float(value))))
+    except (TypeError, ValueError):
+        return "—"
+
+    if total_seconds < 60:
+        return f"{total_seconds}s"
+
+    minutes, seconds = divmod(total_seconds, 60)
+    if minutes < 60:
+        return f"{minutes}m {seconds}s" if seconds else f"{minutes}m"
+
+    hours, minutes = divmod(minutes, 60)
+    if hours < 24:
+        return f"{hours}h {minutes}m" if minutes else f"{hours}h"
+
+    days, hours = divmod(hours, 24)
+    return f"{days}d {hours}h" if hours else f"{days}d"
+
+
+def _format_tool_name(name: str) -> str:
+    normalized = name.strip().lower()
+    if normalized == "ruff":
+        return "Ruff"
+    if normalized == "jscpd":
+        return "JSCPD"
+    return normalized.capitalize()
 
 
 def _summarize_repo(repo: Dict[str, Any], data_access) -> Dict[str, Any]:
@@ -218,6 +265,222 @@ def _build_commit_comparison(runs: list[Dict[str, Any]]) -> list[Dict[str, Any]]
     return comparison
 
 
+def _enabled_tool_names(service: CIService) -> list[str]:
+    names: list[str] = []
+    for tool in service.tool_runner.tools:
+        name = getattr(tool, "name", None)
+        if isinstance(name, str) and name and name not in names:
+            names.append(name)
+    return names
+
+
+def _average_tool_durations(
+    data_access, repo_id: int, tool_names: list[str]
+) -> dict[str, float]:
+    averages: dict[str, float] = {}
+    for tool_name in tool_names:
+        history = data_access.fetch_tool_history(repo_id, tool_name, limit=12)
+        durations: list[float] = []
+        for entry in history:
+            duration = entry.get("duration")
+            if isinstance(duration, (int, float)) and duration > 0:
+                durations.append(float(duration))
+        if durations:
+            averages[tool_name] = sum(durations) / len(durations)
+    return averages
+
+
+def _build_run_progress(
+    run: Dict[str, Any],
+    expected_tools: list[str],
+    average_durations: dict[str, float],
+    *,
+    now_timestamp: float,
+) -> Dict[str, Any] | None:
+    status = str(run.get("status") or "").lower()
+    if status not in {"pending", "queued", "running"} or not expected_tools:
+        return None
+
+    expected_tool_set = set(expected_tools)
+    completed_tools: list[str] = []
+    for result in run.get("results") or []:
+        tool_name = result.get("tool")
+        if tool_name in expected_tool_set and tool_name not in completed_tools:
+            completed_tools.append(str(tool_name))
+
+    total_tools = len(expected_tools)
+    completed_count = len(completed_tools)
+    next_tool = expected_tools[completed_count] if completed_count < total_tools else None
+
+    started_at = run.get("started_at")
+    elapsed_seconds: float | None = None
+    if started_at is not None:
+        try:
+            elapsed_seconds = max(0.0, now_timestamp - float(started_at))
+        except (TypeError, ValueError):
+            elapsed_seconds = None
+
+    observed_durations = [
+        float(result.get("duration"))
+        for result in run.get("results") or []
+        if result.get("tool") in expected_tool_set
+        and isinstance(result.get("duration"), (int, float))
+        and float(result.get("duration")) > 0
+    ]
+    known_average_durations = list(average_durations.values())
+    if observed_durations:
+        fallback_tool_duration = sum(observed_durations) / len(observed_durations)
+    elif known_average_durations:
+        fallback_tool_duration = sum(known_average_durations) / len(known_average_durations)
+    else:
+        fallback_tool_duration = 60.0
+
+    estimated_total_seconds = sum(
+        average_durations.get(tool_name, fallback_tool_duration)
+        for tool_name in expected_tools
+    )
+    if estimated_total_seconds <= 0:
+        estimated_total_seconds = fallback_tool_duration * total_tools
+
+    completed_fraction = completed_count / total_tools
+    if status in {"pending", "queued"}:
+        progress_fraction = completed_fraction
+    else:
+        estimated_fraction = (
+            elapsed_seconds / estimated_total_seconds
+            if elapsed_seconds is not None and estimated_total_seconds > 0
+            else completed_fraction
+        )
+        progress_fraction = max(completed_fraction, estimated_fraction)
+        if completed_count < total_tools:
+            progress_fraction = min(progress_fraction, 0.98)
+        else:
+            progress_fraction = min(progress_fraction, 1.0)
+
+    percent_complete = int(round(progress_fraction * 100))
+
+    if status == "pending":
+        phase_label = "Waiting to be scheduled"
+    elif status == "queued":
+        phase_label = (
+            f"Queued to start with {_format_tool_name(expected_tools[0])}"
+            if expected_tools
+            else "Queued to start"
+        )
+    elif next_tool is not None:
+        phase_label = f"Running {_format_tool_name(next_tool)}"
+    else:
+        phase_label = "Finalizing results"
+
+    remaining_seconds: float | None = None
+    if elapsed_seconds is not None and estimated_total_seconds > elapsed_seconds:
+        remaining_seconds = estimated_total_seconds - elapsed_seconds
+
+    return {
+        "status": status,
+        "percent_complete": percent_complete,
+        "completed_count": completed_count,
+        "total_tools": total_tools,
+        "completed_label": f"{completed_count} of {total_tools} tools complete",
+        "phase_label": phase_label,
+        "elapsed_label": _format_duration_compact(elapsed_seconds),
+        "estimated_total_label": _format_duration_compact(estimated_total_seconds),
+        "remaining_label": _format_duration_compact(remaining_seconds),
+    }
+
+
+def _annotate_run_progress(
+    runs: list[Dict[str, Any]], expected_tools: list[str], average_durations: dict[str, float]
+) -> list[Dict[str, Any]]:
+    now_timestamp = time.time()
+    annotated: list[Dict[str, Any]] = []
+    for run in runs:
+        run_copy = dict(run)
+        run_copy["progress"] = _build_run_progress(
+            run_copy,
+            expected_tools,
+            average_durations,
+            now_timestamp=now_timestamp,
+        )
+        annotated.append(run_copy)
+    return annotated
+
+
+def _build_trend_chart(points: list[Dict[str, Any]]) -> Dict[str, Any] | None:
+    if not points:
+        return None
+
+    width = 720
+    height = 280
+    padding_left = 52
+    padding_right = 20
+    padding_top = 20
+    padding_bottom = 44
+    plot_width = width - padding_left - padding_right
+    plot_height = height - padding_top - padding_bottom
+
+    measured_durations = [
+        float(point["duration"])
+        for point in points
+        if isinstance(point.get("duration"), (int, float))
+    ]
+    scale_max = max(measured_durations) if measured_durations else 0.0
+    if scale_max <= 0:
+        scale_max = 1.0
+
+    x_denominator = max(len(points) - 1, 1)
+    rendered_points: list[Dict[str, Any]] = []
+    polyline_points: list[str] = []
+    x_label_step = max(1, len(points) // 6)
+
+    for index, point in enumerate(points):
+        x = padding_left + (plot_width * index / x_denominator)
+        duration = point.get("duration")
+        has_duration = isinstance(duration, (int, float))
+        y = padding_top + plot_height
+        if has_duration:
+            duration_value = float(duration)
+            y = padding_top + plot_height - ((duration_value / scale_max) * plot_height)
+            polyline_points.append(f"{x:.2f},{y:.2f}")
+
+        rendered_points.append(
+            {
+                "x": round(x, 2),
+                "y": round(y, 2),
+                "label": point.get("label", ""),
+                "status": point.get("status", "unknown"),
+                "status_class": _status_class(point.get("status")),
+                "color": _status_color(point.get("status")),
+                "has_duration": has_duration,
+                "duration_label": _format_duration_compact(duration if has_duration else None),
+                "show_x_label": index % x_label_step == 0 or index == len(points) - 1,
+            }
+        )
+
+    y_ticks: list[Dict[str, Any]] = []
+    for tick_index in range(5):
+        fraction = tick_index / 4
+        y = padding_top + (plot_height * fraction)
+        value = scale_max * (1 - fraction)
+        y_ticks.append(
+            {
+                "y": round(y, 2),
+                "label": _format_duration_compact(value),
+            }
+        )
+
+    return {
+        "width": width,
+        "height": height,
+        "plot_bottom": padding_top + plot_height,
+        "plot_left": padding_left,
+        "plot_right": width - padding_right,
+        "polyline_points": " ".join(polyline_points),
+        "points": rendered_points,
+        "y_ticks": y_ticks,
+    }
+
+
 def _build_repository_insights(service: CIService, data_access, repo_id: int):
     repository = service.get_repository(repo_id)
     if not repository:
@@ -225,9 +488,13 @@ def _build_repository_insights(service: CIService, data_access, repo_id: int):
 
     runs = data_access.fetch_recent_test_runs(repo_id, limit=20)
     hydrated = _hydrate_test_runs(data_access, runs)
+    expected_tools = _enabled_tool_names(service)
+    average_durations = _average_tool_durations(data_access, repo_id, expected_tools)
+    hydrated = _annotate_run_progress(hydrated, expected_tools, average_durations)
     summary = data_access.summarize_test_runs(repo_id)
 
     trend_points = _build_trend_points(hydrated)
+    trend_chart = _build_trend_chart(trend_points)
     commit_comparison = _build_commit_comparison(hydrated[:10])
 
     return {
@@ -236,6 +503,7 @@ def _build_repository_insights(service: CIService, data_access, repo_id: int):
         "summary": summary,
         "last_run": hydrated[0] if hydrated else None,
         "trend_points": trend_points,
+        "trend_chart": trend_chart,
         "commit_comparison": commit_comparison,
     }
 

@@ -25,15 +25,39 @@
 </div>
 {% endif %}
 
-{% if trend_points %}
+{% if trend_chart %}
 <section class="section-card">
     <header class="section-subheader">
         <h3>Historical Trend</h3>
     </header>
     <div class="chart-card">
-        <canvas id="run-trend-chart" width="640" height="280" data-chart='{{ trend_points | tojson }}'></canvas>
+        <svg class="trend-chart" viewBox="0 0 {{ trend_chart.width }} {{ trend_chart.height }}" role="img"
+            aria-label="Historical test run duration trend">
+            {% for tick in trend_chart.y_ticks %}
+            <line class="trend-chart__grid" x1="{{ trend_chart.plot_left }}" y1="{{ tick.y }}"
+                x2="{{ trend_chart.plot_right }}" y2="{{ tick.y }}"></line>
+            <text class="trend-chart__tick-label" x="{{ trend_chart.plot_left - 10 }}" y="{{ tick.y + 4 }}">
+                {{ tick.label }}
+            </text>
+            {% endfor %}
+            <line class="trend-chart__axis" x1="{{ trend_chart.plot_left }}" y1="{{ trend_chart.plot_bottom }}"
+                x2="{{ trend_chart.plot_right }}" y2="{{ trend_chart.plot_bottom }}"></line>
+            {% if trend_chart.polyline_points %}
+            <polyline class="trend-chart__line" points="{{ trend_chart.polyline_points }}"></polyline>
+            {% endif %}
+            {% for point in trend_chart.points %}
+            <circle class="trend-chart__point{% if not point.has_duration %} trend-chart__point--empty{% endif %}"
+                cx="{{ point.x }}" cy="{{ point.y }}" r="5" style="--point-color: {{ point.color }};">
+                <title>{{ point.label }} · {{ point.status }} · {{ point.duration_label }}</title>
+            </circle>
+            {% if point.show_x_label %}
+            <text class="trend-chart__x-label" x="{{ point.x }}" y="{{ trend_chart.height - 12 }}">{{ point.label }}</text>
+            {% endif %}
+            {% endfor %}
+        </svg>
     </div>
-    <p class="chart-hint">Durations use the difference between test start and completion timestamps.</p>
+    <p class="chart-hint">Durations use the difference between test start and completion timestamps. Runs without a
+        finished duration stay on the baseline until they complete.</p>
 </section>
 {% endif %}
 
@@ -128,6 +152,28 @@
                 <p class="commit-meta">{{ run.commit.author or "Unknown author" }}</p>
                 {% else %}
                 <h4>Commit {{ run.commit_hash[:7] }}</h4>
+                {% endif %}
+                {% if run.progress %}
+                <div class="run-progress">
+                    <div class="run-progress__header">
+                        <strong>{{ run.progress.completed_label }}</strong>
+                        <span>{{ run.progress.percent_complete }}%</span>
+                    </div>
+                    <div class="run-progress__bar" role="progressbar" aria-valuemin="0" aria-valuemax="100"
+                        aria-valuenow="{{ run.progress.percent_complete }}"
+                        aria-label="{{ run.progress.completed_label }}">
+                        <span class="run-progress__fill run-progress__fill--{{ run.progress.status }}"
+                            style="width: {{ run.progress.percent_complete }}%;"></span>
+                    </div>
+                    <div class="run-progress__meta">
+                        <span>{{ run.progress.phase_label }}</span>
+                        <span>Elapsed {{ run.progress.elapsed_label }}</span>
+                        <span>Estimated total {{ run.progress.estimated_total_label }}</span>
+                        {% if run.progress.remaining_label != '—' %}
+                        <span>Roughly {{ run.progress.remaining_label }} remaining</span>
+                        {% endif %}
+                    </div>
+                </div>
                 {% endif %}
             </header>
 

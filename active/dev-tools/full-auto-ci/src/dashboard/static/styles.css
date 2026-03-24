@@ -386,10 +386,55 @@ body {
   padding: 1rem 0;
 }
 
-.chart-card canvas {
-  width: 100% !important;
-  height: auto !important;
-  max-height: 320px;
+.trend-chart {
+  width: 100%;
+  height: auto;
+  display: block;
+  overflow: visible;
+}
+
+.trend-chart__grid {
+  stroke: rgba(148, 163, 184, 0.16);
+  stroke-width: 1;
+}
+
+.trend-chart__axis {
+  stroke: rgba(148, 163, 184, 0.28);
+  stroke-width: 1.2;
+}
+
+.trend-chart__line {
+  fill: none;
+  stroke: rgba(56, 189, 248, 0.9);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.trend-chart__point {
+  fill: var(--point-color, var(--accent));
+  stroke: rgba(2, 6, 23, 0.95);
+  stroke-width: 2;
+}
+
+.trend-chart__point--empty {
+  fill: rgba(2, 6, 23, 0.9);
+  stroke: var(--point-color, var(--muted));
+  stroke-dasharray: 2 2;
+}
+
+.trend-chart__tick-label,
+.trend-chart__x-label {
+  fill: var(--muted);
+  font-size: 12px;
+}
+
+.trend-chart__tick-label {
+  text-anchor: end;
+}
+
+.trend-chart__x-label {
+  text-anchor: middle;
 }
 
 .chart-hint {
@@ -458,6 +503,54 @@ body {
   display: grid;
   gap: 0.75rem;
   margin-bottom: 1rem;
+}
+
+.run-progress {
+  display: grid;
+  gap: 0.55rem;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 12px;
+  padding: 0.9rem 1rem;
+  background: rgba(2, 6, 23, 0.35);
+}
+
+.run-progress__header,
+.run-progress__meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.run-progress__meta {
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.run-progress__bar {
+  width: 100%;
+  height: 0.7rem;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(148, 163, 184, 0.15);
+}
+
+.run-progress__fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--muted);
+  transition: width 240ms ease;
+}
+
+.run-progress__fill--running {
+  background: linear-gradient(90deg, rgba(56, 189, 248, 0.65), rgba(56, 189, 248, 1));
+}
+
+.run-progress__fill--queued,
+.run-progress__fill--pending {
+  background: linear-gradient(90deg, rgba(250, 204, 21, 0.45), rgba(250, 204, 21, 0.85));
 }
 
 .run-meta {
