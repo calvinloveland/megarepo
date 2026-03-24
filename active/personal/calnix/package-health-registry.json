@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "packages": {
+    "darktable": {
+      "attrPath": ["darktable"],
+      "defaultPolicy": "legacy-darktable-no-avif",
+      "description": "RAW photo workflow package that previously needed AVIF disabled to build reliably."
+    },
+    "dwarf-fortress-full": {
+      "attrPath": ["dwarf-fortress-packages", "dwarf-fortress-full"],
+      "defaultPolicy": "current",
+      "description": "Dwarf Fortress with dfhack; tracked for health-managed rollbacks when the package is enabled."
+    },
+    "krita": {
+      "attrPath": ["krita"],
+      "defaultPolicy": "current",
+      "description": "Digital painting package tracked for future health-managed rollbacks."
+    },
+    "calibre": {
+      "attrPath": ["calibre"],
+      "defaultPolicy": "current",
+      "description": "Ebook management package tracked for future health-managed rollbacks."
+    }
+  }
+}

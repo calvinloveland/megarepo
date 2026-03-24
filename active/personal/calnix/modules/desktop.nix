@@ -21,6 +21,7 @@ in
   # Import audio configuration module
   imports = [
     ./audio.nix
+    ./desktop-scripts.nix
   ];
 
   # Home Manager configuration

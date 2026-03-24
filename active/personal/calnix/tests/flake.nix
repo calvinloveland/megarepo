@@ -96,15 +96,15 @@
               ''
                 cd ${../.}
 
-                # Test script syntax
-                bash -n rebuild.sh
+                 # Test script syntax
+                 bash -n rebuild.sh
 
-                # Test help output
-                output=$(bash rebuild.sh unknown-host 2>&1 || true)
-                if [[ "$output" != *"Unknown host"* ]]; then
-                  echo "Help output test failed"
-                  exit 1
-                fi
+                 # Test help output
+                 output=$(bash rebuild.sh unknown-host 2>&1 || true)
+                 if [[ "$output" != *"invalid choice"* ]]; then
+                   echo "Invalid host test failed"
+                   exit 1
+                 fi
 
                 echo "Rebuild script tests passed"
                 touch $out

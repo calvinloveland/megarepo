@@ -63,7 +63,7 @@
         # CPU temperature using custom script for reliability
         "custom/temperature" = {
           format = "Temp {}";
-          exec = "${pkgs.bash}/bin/bash ~/.config/waybar/temp-monitor.sh";
+          exec = "calnix-waybar-temperature";
           return-type = "json";
           interval = 2;
           on-click = "${pkgs.kitty}/bin/kitty -e ${pkgs.lm_sensors}/bin/sensors";
@@ -148,7 +148,7 @@
 
         # Weather
         "custom/weather" = {
-          exec = "${pkgs.bash}/bin/bash ~/.config/waybar/weather.sh";
+          exec = "calnix-waybar-weather";
           interval = 600; # Update every 10 minutes
           return-type = "json";
           format = "{icon} {}";

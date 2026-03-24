@@ -77,7 +77,11 @@ nix flake check --no-build
 
 ```
 ├── flake.nix              # Multi-host flake configuration
-├── rebuild.sh             # Smart host-aware rebuild script
+├── rebuild.sh             # Shell wrapper for rebuild.py
+├── rebuild.py             # Smart host-aware rebuild script + generation telemetry
+├── calnix_cli.py          # Machine-local package health CLI
+├── calnix_state.py        # Shared state helpers for CLI + rebuild telemetry
+├── package-health-registry.json # Health-managed package registry
 ├── hosts/
 │   ├── thinker/           # ThinkPad configuration
 │   │   ├── configuration.nix
@@ -87,7 +91,9 @@ nix flake check --no-build
 │   │   └── hardware-configuration.nix
 ├── modules/
 │   ├── base.nix           # Shared base configuration
+│   ├── calnix.nix         # Machine-local calnix state + CLI install
 │   ├── desktop.nix        # Desktop environment (Sway, Bluetooth, audio, etc.)
+│   ├── desktop-scripts.nix # System-managed sway/waybar helper scripts
 │   ├── gaming.nix         # Gaming-specific packages
 │   └── remote-access.nix  # Shared SSH/Tailscale/mosh remote access
 ├── tests/                 # Testing infrastructure
@@ -138,6 +144,35 @@ The script detects your environment using:
 - **Tools**: Fish shell, Neovim, essential CLI utilities
 - **Base System**: Common NixOS configuration
 - **Remote Access**: Key-only OpenSSH over Tailscale, mosh-ready firewall rules, and tmux for persistent CLI sessions
+- **Package Health**: `calnix` can track package failures, confirmations, and runtime observations in `/var/lib/calnix`
+- **Generation Telemetry**: successful rebuilds record timing and robustness metadata under `/var/lib/calnix/generations/`
+
+### Package health workflow
+
+Calnix now includes a machine-local package health layer so broken packages can be rolled back without baking long-lived workaround comments into modules.
+
+Common commands:
+
+```bash
+# See managed packages and their active policies
+calnix package list
+calnix package status
+
+# Bless the package source currently selected by the flake as working
+calnix package confirm darktable --repo /etc/nixos --notes "worked for a full editing session"
+
+# Mark the current package version as failing so the next rebuild uses the
+# last confirmed-good nixpkgs revision (or the package's legacy fallback policy)
+calnix package mark-failing darktable --repo /etc/nixos --notes "crashes on startup"
+
+# Stop forcing a rollback and try current nixpkgs again
+calnix package use-current darktable --notes "retry after nixpkgs update"
+
+# Record a healthy runtime observation without explicitly blessing the package
+calnix package observe-healthy darktable --minutes 90 --notes "no crashes during export batch"
+```
+
+The package health state lives outside the repo in `/var/lib/calnix/state.json`, so rebuild decisions can be machine-local while the flake remains the place where package selection is implemented.
 
 ### Intel NPU / OpenVINO (1337book focus)
 - **Reproducible Toolkit**: `nix develop` now unpacks Intel OpenVINO 2024.6 with the Intel NPU plugin pre-configured.
@@ -174,6 +209,12 @@ The script detects your environment using:
    ```bash
    ./rebuild.sh
    ```
+
+After a successful rebuild, inspect the recorded generation history with:
+
+```bash
+calnix generation list
+```
 
 ## Phone CLI Access
 
@@ -251,6 +292,7 @@ gh copilot suggest -t shell "find the failing test command in this repo"
 - **Nix not found**: Install Nix or use `--quick` flag
 - **Permission errors**: Ensure scripts are executable: `chmod +x tests/*.sh`
 - **Python errors**: Ensure Python 3 is available
+- **Package rollback not activating**: confirm a working package first with `calnix package confirm <package> --repo /etc/nixos`, then mark the broken version as failing
 
 ## Legacy Support
 

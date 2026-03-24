@@ -23,6 +23,22 @@ import subprocess
 import sys
 import time
 
+SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
+if SCRIPT_DIR not in sys.path:
+    sys.path.insert(0, SCRIPT_DIR)
+
+from calnix_state import (
+    active_package_policies,
+    current_generation_number,
+    load_flake_lock,
+    load_registry,
+    load_state,
+    nixpkgs_locked_revision,
+    record_generation_metadata,
+    resolve_state_dir,
+    state_digest,
+)
+
 
 def format_duration(seconds: int) -> str:
     minutes, secs = divmod(max(0, int(seconds)), 60)
@@ -343,10 +359,27 @@ def build_and_switch_flake(
     build_as_owner: str | None,
     non_interactive: bool,
     verbose: bool = False,
+    phase_timings: dict[str, int] | None = None,
+    build_details: dict[str, object] | None = None,
 ) -> bool:
-    phase_banner(2, 4, f"Build system derivation for {target}", estimate_seconds=180)
-    nix_cmd = ["nix", "--extra-experimental-features", "nix-command flakes", "build", "--print-out-paths", flake_expr, "--no-link"]
+    phase_banner(2, 5, f"Build system derivation for {target}", estimate_seconds=180)
+    state_file = os.path.join(str(resolve_state_dir()), "state.json")
+    build_details = build_details if build_details is not None else {}
+    build_details["state_file"] = state_file
+    nix_cmd = [
+        "env",
+        f"CALNIX_STATE_FILE={state_file}",
+        "nix",
+        "--extra-experimental-features",
+        "nix-command flakes",
+        "build",
+        "--impure",
+        "--print-out-paths",
+        flake_expr,
+        "--no-link",
+    ]
     # Use streaming command for builds so users get progress output for long builds
+    build_started = time.time()
     if build_as_owner:
         print(f"Running flake build as {build_as_owner} to avoid ownership checks...")
         rc, out = run_cmd_stream(
@@ -357,6 +390,8 @@ def build_and_switch_flake(
             label="build",
             estimate_seconds=180,
         )
+        if phase_timings is not None:
+            phase_timings["build_seconds"] = int(time.time() - build_started)
         if rc != 0:
             print("Flake build failed when run as repo owner.")
             return False
@@ -371,6 +406,8 @@ def build_and_switch_flake(
             label="build",
             estimate_seconds=180,
         )
+        if phase_timings is not None:
+            phase_timings["build_seconds"] = int(time.time() - build_started)
         if rc != 0:
             print("Flake build failed as current user. This often indicates ownership or flake input problems.")
             print("Consider re-running the script and allowing it to chown the repo, or run the build as the repo owner.")
@@ -396,14 +433,17 @@ def build_and_switch_flake(
     git_toplevel = get_git_toplevel(flake_path)
 
     def wrap_switch_cmd(base_cmd: list[str]) -> list[str]:
-        env_prefix: list[str] = []
+        env_vars = [f"CALNIX_STATE_FILE={state_file}"]
         if git_toplevel:
-            env_prefix = [
-                "env",
-                "GIT_CONFIG_COUNT=1",
-                "GIT_CONFIG_KEY_0=safe.directory",
-                f"GIT_CONFIG_VALUE_0={git_toplevel}",
-            ]
+            env_vars.extend(
+                [
+                    "GIT_CONFIG_COUNT=1",
+                    "GIT_CONFIG_KEY_0=safe.directory",
+                    f"GIT_CONFIG_VALUE_0={git_toplevel}",
+                ]
+            )
+
+        env_prefix: list[str] = ["env", *env_vars]
 
         if os.geteuid() != 0:
             return ["sudo", *env_prefix, *base_cmd]
@@ -415,8 +455,9 @@ def build_and_switch_flake(
     nixos_rebuild_cmd = os.path.join(build_out, "bin", "nixos-rebuild")
     if os.path.exists(nixos_rebuild_cmd):
         # New style: use nixos-rebuild command directly
-        phase_banner(3, 4, "Activate new configuration", estimate_seconds=45)
-        switch_cmd = [nixos_rebuild_cmd, "switch", "--flake", flake_ref] + extra_args
+        phase_banner(3, 5, "Activate new configuration", estimate_seconds=45)
+        switch_cmd = [nixos_rebuild_cmd, "switch", "--impure", "--flake", flake_ref] + extra_args
+        switch_started = time.time()
         rc, output = run_cmd_stream(
             wrap_switch_cmd(switch_cmd),
             capture=True,
@@ -424,6 +465,9 @@ def build_and_switch_flake(
             label="switch",
             estimate_seconds=45,
         )
+        if phase_timings is not None:
+            phase_timings["switch_seconds"] = int(time.time() - switch_started)
+        build_details["activation_mode"] = "nixos-rebuild"
         if rc != 0:
             report_switch_failure(output)
         return rc == 0
@@ -431,12 +475,25 @@ def build_and_switch_flake(
     # Old style: look for switch-to-configuration
     candidate = os.path.join(build_out, "bin", "switch-to-configuration")
     if not os.path.exists(candidate):
-        phase_banner(3, 4, "Fallback: build toplevel output", estimate_seconds=120)
+        phase_banner(3, 5, "Fallback: build toplevel output", estimate_seconds=120)
         print("switch-to-configuration not found in build output; attempting to build the system toplevel and try again...")
         toplevel_expr = flake_expr.replace("config.system.build.nixos-rebuild", "config.system.build.toplevel")
+        fallback_cmd = [
+            "env",
+            f"CALNIX_STATE_FILE={state_file}",
+            "nix",
+            "--extra-experimental-features",
+            "nix-command flakes",
+            "build",
+            "--impure",
+            "--print-out-paths",
+            toplevel_expr,
+            "--no-link",
+        ]
+        fallback_started = time.time()
         if build_as_owner:
             rc2, out2 = run_cmd_stream(
-                ["nix", "--extra-experimental-features", "nix-command flakes", "build", "--print-out-paths", toplevel_expr, "--no-link"],
+                fallback_cmd,
                 as_user=build_as_owner,
                 capture=True,
                 verbose=verbose,
@@ -445,12 +502,14 @@ def build_and_switch_flake(
             )
         else:
             rc2, out2 = run_cmd_stream(
-                ["nix", "--extra-experimental-features", "nix-command flakes", "build", "--print-out-paths", toplevel_expr, "--no-link"],
+                fallback_cmd,
                 capture=True,
                 verbose=verbose,
                 label="fallback-build",
                 estimate_seconds=120,
             )
+        if phase_timings is not None:
+            phase_timings["fallback_build_seconds"] = int(time.time() - fallback_started)
         if rc2 != 0:
             print("Failed to build toplevel; cannot find switch-to-configuration.")
             return False
@@ -461,8 +520,9 @@ def build_and_switch_flake(
         print(f"switch-to-configuration not found at expected locations (checked {candidate}). Cannot proceed automatically.")
         return False
 
-    phase_banner(4, 4, "Activate new configuration", estimate_seconds=45)
+    phase_banner(4, 5, "Activate new configuration", estimate_seconds=45)
     switch_cmd = [candidate, "switch"]
+    switch_started = time.time()
     rc, output = run_cmd_stream(
         wrap_switch_cmd(switch_cmd),
         capture=True,
@@ -470,6 +530,9 @@ def build_and_switch_flake(
         label="switch",
         estimate_seconds=45,
     )
+    if phase_timings is not None:
+        phase_timings["switch_seconds"] = int(time.time() - switch_started)
+    build_details["activation_mode"] = "switch-to-configuration"
     if rc != 0:
         report_switch_failure(output)
     return rc == 0
@@ -494,9 +557,14 @@ def main(argv: list[str] | None = None):
 
     if host in ("thinker", "1337book"):
         print(f"💻 Rebuilding {host} configuration...")
-        phase_banner(1, 4, "Validate repository ownership", estimate_seconds=15)
+        phase_banner(1, 5, "Validate repository ownership", estimate_seconds=15)
+        overall_started = time.time()
+        phase_timings: dict[str, int] = {}
+        build_details: dict[str, object] = {"host": host}
 
+        ownership_started = time.time()
         ok, build_as_owner = ensure_repo_owned_or_fix(non_interactive, auto_yes=args.yes, allow_chown=args.allow_chown)
+        phase_timings["ownership_validation_seconds"] = int(time.time() - ownership_started)
         if not ok and not build_as_owner:
             sys.exit(1)
 
@@ -504,6 +572,8 @@ def main(argv: list[str] | None = None):
         flake_locator = format_flake_locator(repo_root)
         flake_ref = f"{flake_locator}#{host}"
         flake_expr = f"{flake_locator}#nixosConfigurations.\"{host}\".config.system.build.nixos-rebuild"
+        build_details["repo_root"] = repo_root
+        build_details["flake_ref"] = flake_ref
         success = build_and_switch_flake(
             flake_expr,
             flake_ref,
@@ -512,8 +582,60 @@ def main(argv: list[str] | None = None):
             build_as_owner,
             non_interactive,
             verbose=args.verbose,
+            phase_timings=phase_timings,
+            build_details=build_details,
         )
         if success:
+            phase_banner(5, 5, "Record generation metadata", estimate_seconds=5)
+            generation = current_generation_number()
+            if generation is None:
+                print("❌ Switched successfully, but could not determine the active generation number.")
+                sys.exit(1)
+
+            try:
+                state_dir = resolve_state_dir()
+                registry = load_registry()
+                state = load_state(state_dir)
+                lock_data = load_flake_lock(repo_root)
+                current_rev = nixpkgs_locked_revision(lock_data)
+                package_policies = active_package_policies(state, registry, current_revision=current_rev)
+                degraded = [entry["package"] for entry in package_policies if entry["degraded"]]
+                phase_timings["total_seconds"] = int(time.time() - overall_started)
+                metadata_path = record_generation_metadata(
+                    state_dir,
+                    generation,
+                    {
+                        "version": 1,
+                        "generation": generation,
+                        "host": host,
+                        "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                        "flake": {
+                            "repo_root": repo_root,
+                            "ref": flake_ref,
+                            "nixpkgs_revision": current_rev,
+                            "state_digest": state_digest(state_dir),
+                        },
+                        "timings": phase_timings,
+                        "package_health": {
+                            "policies": package_policies,
+                            "degraded_packages": degraded,
+                        },
+                        "robustness": {
+                            "status": "degraded" if degraded else "standard",
+                            "summary": (
+                                "Generation used fallback or workaround package policies."
+                                if degraded
+                                else "Generation built with current package selections."
+                            ),
+                        },
+                        "build_details": build_details,
+                    },
+                )
+                print(f"Recorded generation metadata at {metadata_path}")
+            except Exception as exc:
+                print(f"❌ Switched successfully, but failed to record calnix metadata: {exc}")
+                sys.exit(1)
+
             print("Done!")
             if host == "thinker":
                 print("Restarting waybar service...")

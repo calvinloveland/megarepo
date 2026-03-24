@@ -33,12 +33,41 @@
     let
       lib = nixpkgs.lib;
 
-      # Create an overlay to fix the Darktable build issue
-      darktableOverlay = final: prev: {
-        # Override darktable to disable AVIF support which is causing build issues
-        darktable = prev.darktable.override {
-          libavif = null; # Disable AVIF support to avoid the build error
+      packageHealthRegistry = builtins.fromJSON (builtins.readFile ./package-health-registry.json);
+
+      calnixState =
+        let
+          stateFile = builtins.getEnv "CALNIX_STATE_FILE";
+        in
+        if stateFile != "" && builtins.pathExists stateFile then
+          builtins.fromJSON (builtins.readFile stateFile)
+        else
+          {
+            packages = { };
+          };
+
+      currentNixpkgsRev =
+        if nixpkgs ? rev then
+          nixpkgs.rev
+        else if nixpkgs ? sourceInfo && nixpkgs.sourceInfo ? rev then
+          nixpkgs.sourceInfo.rev
+        else
+          null;
+
+      importPackageSetForRevision =
+        system: revision:
+        import (builtins.getFlake "github:NixOS/nixpkgs/${revision}").outPath {
+          inherit system;
+          config.allowUnfree = true;
         };
+
+      packageHealth = {
+        inherit
+          calnixState
+          currentNixpkgsRev
+          importPackageSetForRevision
+          packageHealthRegistry
+          ;
       };
 
       # Fix github-copilot-cli: v1.0.4 requires the binary filename to be exactly
@@ -187,6 +216,11 @@ PY
           };
         }
       );
+
+      commonOverlays = [
+        kickstart-nix-nvim.overlays.default
+        githubCopilotCliOverlay
+      ];
     in
     {
       inherit devShells;
@@ -198,14 +232,12 @@ PY
         # ThinkPad configuration with gaming
         thinker = nixpkgs.lib.nixosSystem {
           system = "x86_64-linux";
-          specialArgs = { inherit inputs; };
+          specialArgs = {
+            inherit inputs packageHealth;
+          };
           modules = [
             {
-              nixpkgs.overlays = [
-                kickstart-nix-nvim.overlays.default
-                darktableOverlay # Add our Darktable fix overlay
-                githubCopilotCliOverlay # Fix copilot CLI filename issue
-              ];
+              nixpkgs.overlays = commonOverlays;
             }
             home-manager.nixosModules.home-manager
             ./hosts/thinker/configuration.nix
@@ -215,14 +247,12 @@ PY
         # HP Elitebook configuration with gaming
         "1337book" = nixpkgs.lib.nixosSystem {
           system = "x86_64-linux";
-          specialArgs = { inherit inputs; };
+          specialArgs = {
+            inherit inputs packageHealth;
+          };
           modules = [
             {
-              nixpkgs.overlays = [
-                kickstart-nix-nvim.overlays.default
-                darktableOverlay # Add our Darktable fix overlay
-                githubCopilotCliOverlay # Fix copilot CLI filename issue
-              ];
+              nixpkgs.overlays = commonOverlays;
             }
             home-manager.nixosModules.home-manager
             # Add Intel Lunar Lake CPU and GPU support
@@ -234,14 +264,12 @@ PY
         # Legacy configuration names for backward compatibility
         nixos = nixpkgs.lib.nixosSystem {
           system = "x86_64-linux";
-          specialArgs = { inherit inputs; };
+          specialArgs = {
+            inherit inputs packageHealth;
+          };
           modules = [
             {
-              nixpkgs.overlays = [
-                kickstart-nix-nvim.overlays.default
-                darktableOverlay # Add our Darktable fix overlay
-                githubCopilotCliOverlay # Fix copilot CLI filename issue
-              ];
+              nixpkgs.overlays = commonOverlays;
             }
             home-manager.nixosModules.home-manager
             ./hosts/thinker/configuration.nix
@@ -250,14 +278,12 @@ PY
 
         Thinker = nixpkgs.lib.nixosSystem {
           system = "x86_64-linux";
-          specialArgs = { inherit inputs; };
+          specialArgs = {
+            inherit inputs packageHealth;
+          };
           modules = [
             {
-              nixpkgs.overlays = [
-                kickstart-nix-nvim.overlays.default
-                darktableOverlay # Add our Darktable fix overlay
-                githubCopilotCliOverlay # Fix copilot CLI filename issue
-              ];
+              nixpkgs.overlays = commonOverlays;
             }
             home-manager.nixosModules.home-manager
             ./hosts/thinker/configuration.nix

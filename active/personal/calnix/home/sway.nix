@@ -89,11 +89,11 @@
         # File manager
         "${modifier}+e" = "exec thunar";
         # Audio volume keys (robust wrapper script tries both PipeWire aliases)
-        "XF86AudioRaiseVolume" = "exec ~/.config/sway/volume.sh up 5%";
-        "XF86AudioLowerVolume" = "exec ~/.config/sway/volume.sh down 5%";
-        "XF86AudioMute" = "exec ~/.config/sway/volume.sh mute";
+        "XF86AudioRaiseVolume" = "exec calnix-sway-volume up 5%";
+        "XF86AudioLowerVolume" = "exec calnix-sway-volume down 5%";
+        "XF86AudioMute" = "exec calnix-sway-volume mute";
         # Mic mute toggle
-        "XF86AudioMicMute" = "exec ~/.config/sway/volume.sh mic-mute";
+        "XF86AudioMicMute" = "exec calnix-sway-volume mic-mute";
 
         # Media transport keys
         "XF86AudioPlay" = "exec playerctl play-pause";
@@ -102,26 +102,26 @@
         "XF86AudioStop" = "exec playerctl stop";
 
         # Brightness controls (wrapper handles common device names)
-        "XF86MonBrightnessUp" = "exec ~/.config/sway/brightness.sh up 10%";
-        "XF86MonBrightnessDown" = "exec ~/.config/sway/brightness.sh down 10%";
+        "XF86MonBrightnessUp" = "exec calnix-sway-brightness up 10%";
+        "XF86MonBrightnessDown" = "exec calnix-sway-brightness down 10%";
 
         # Bluetooth controls
         "${modifier}+b" = "exec blueman-manager"; # Open Bluetooth manager GUI
         "${modifier}+Shift+b" = "exec ${terminal} -e bluetuith"; # Open terminal Bluetooth manager
 
         # Pywal controls - generate colors from wallpaper and update Sway
-        "${modifier}+w" = "exec ~/.config/sway/update-colors.sh";
+        "${modifier}+w" = "exec calnix-sway-update-colors";
 
         # Alternative: choose wallpaper with file picker
-        "${modifier}+Shift+w" = "exec ~/.config/sway/choose-wallpaper.sh";
+        "${modifier}+Shift+w" = "exec calnix-sway-choose-wallpaper";
 
         # PANIC! Recovery menu for when things go wrong (focus issues, etc.)
-        "${modifier}+p" = "exec ~/.config/sway/panic.sh";
+        "${modifier}+p" = "exec calnix-sway-panic";
       };
 
       startup = [
         { command = "wal -R"; } # Restore last pywal color scheme
-        { command = "~/.config/sway/apply-colors.sh"; } # Apply colors to Sway
+        { command = "calnix-sway-apply-colors"; } # Apply colors to Sway
         { command = "swaybg -o '*' -i ~/Pictures/background.jpg"; }
 
         # Auto-start applications - they will be assigned to workspaces automatically

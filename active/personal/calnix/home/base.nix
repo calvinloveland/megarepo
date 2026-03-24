@@ -1,15 +1,5 @@
 { config, pkgs, lib, ... }:
 {
-  # Ensure GUI apps (VS Code, etc.) see Docker rootless socket
-  home.sessionVariables = {
-    DOCKER_HOST = "unix:///run/user/1000/docker.sock";
-  };
-
-  # User packages
-  home.packages = with pkgs; [
-    github-copilot-cli
-  ];
-
   # Set Home Manager state version
   home.stateVersion = "23.11";
 

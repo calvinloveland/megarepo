@@ -55,9 +55,15 @@ class ConfigValidator:
         """Validate expected file structure exists."""
         required_files = [
             "flake.nix",
-            "rebuild.sh", 
+            "rebuild.sh",
+            "rebuild.py",
+            "calnix_cli.py",
+            "calnix_state.py",
+            "package-health-registry.json",
             "modules/base.nix",
+            "modules/calnix.nix",
             "modules/desktop.nix",
+            "modules/desktop-scripts.nix",
             "modules/gaming.nix",
             "homely-man.nix",
             "python-dev.nix"
@@ -111,7 +117,7 @@ class ConfigValidator:
         """Validate flake outputs are correctly defined."""
         try:
             result = subprocess.run(
-                ["nix", "flake", "show", "--json"],
+                ["nix", "flake", "show", "--json", f"path:{self.root}"],
                 capture_output=True,
                 text=True,
                 cwd=self.root
@@ -160,17 +166,22 @@ class ConfigValidator:
         if not script.exists():
             self.error("rebuild.sh not found")
             return
-            
+
         # Check if script is executable
         if not os.access(script, os.X_OK):
             self.warning("rebuild.sh is not executable")
-            
-        # Check for required functions
+
         content = script.read_text()
-        if "detect_host()" in content:
-            self.success("rebuild.sh has detect_host function")
+        if "rebuild.py" in content:
+            self.success("rebuild.sh delegates to rebuild.py")
         else:
-            self.error("rebuild.sh missing detect_host function")
+            self.error("rebuild.sh should delegate to rebuild.py")
+
+        rebuild_py = self.root / "rebuild.py"
+        if rebuild_py.exists():
+            self.success("rebuild.py exists")
+        else:
+            self.error("rebuild.py not found")
 
     def validate_copilot_overlay(self):
         """Check that github-copilot-cli overlay and home-manager global pkgs are configured.

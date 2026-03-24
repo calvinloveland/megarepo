@@ -92,24 +92,27 @@ main() {
     
     # 2. Rebuild script tests
     run_test_suite "Rebuild Script Tests" "./test_rebuild.sh" "tests"
+
+    # 3. calnix CLI/state tests
+    run_test_suite "Calnix CLI Tests" "python3 tests/test_calnix_cli.py" ""
     
-    # 3. Nix flake checks (if available)
+    # 4. Nix flake checks (if available)
     if command -v nix >/dev/null 2>&1; then
         # Use the main project flake, not the tests flake
-        run_test_suite "Nix Flake Check" "nix flake check --no-build ." ""
+        run_test_suite "Nix Flake Check" "nix flake check --no-build path:$PROJECT_ROOT" ""
         
         if [ ${#HOSTS[@]} -eq 0 ]; then
             log_warning "No host directories found; skipping build checks"
         else
             for host in "${HOSTS[@]}"; do
-                run_test_suite "${host} Build Check" "nix build .#nixosConfigurations.${host}.config.system.build.toplevel --dry-run" ""
+                run_test_suite "${host} Build Check" "nix build path:$PROJECT_ROOT#nixosConfigurations.${host}.config.system.build.toplevel --dry-run" ""
             done
         fi
     else
         log_warning "Nix command not available, skipping flake checks"
     fi
     
-    # 5. Code quality checks (if tools available)
+    # 6. Code quality checks (if tools available)
     if command -v statix >/dev/null 2>&1; then
         run_test_suite "Nix Code Linting" "statix check ." ""
     else
@@ -122,7 +125,7 @@ main() {
         log_info "deadnix not available, skipping dead code detection"
     fi
     
-    # 6. Security checks
+    # 7. Security checks
     run_test_suite "File Permissions Check" "find . -name '*.sh' -not -perm -u+x | wc -l | grep -q '^0$'" ""
     
     # Test summary
@@ -172,6 +175,7 @@ case "${1:-}" in
             cd "$(dirname "$0")/.."
             run_test_suite "Configuration Validation" "python3 tests/validate_config.py" ""
             run_test_suite "Rebuild Script Tests" "./test_rebuild.sh" "tests"
+            run_test_suite "Calnix CLI Tests" "python3 tests/test_calnix_cli.py" ""
             echo -e "\n${GREEN}✅ Quick tests completed${NC}"
         }
         ;;

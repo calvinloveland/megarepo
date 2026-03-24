@@ -64,6 +64,7 @@ EOF
 in
 {
   imports = [
+    ./calnix.nix
     ./remote-access.nix
   ];
 
@@ -141,7 +142,6 @@ in
     nixfmt # nix formatter
     home-manager # manage homes
 
-    # calibre # ebook management - DISABLED: build failure with qmake
     intelNpuDriverHelper
   ];
 

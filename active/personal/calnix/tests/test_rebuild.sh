@@ -1,29 +1,23 @@
 #!/usr/bin/env bash
 
-# Unit tests for the smart rebuild script
-# Tests the host detection logic without actually running nixos-rebuild
-
 set -e
 
-# Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
+NC='\033[0m'
 
-# Test counter
 TESTS_RUN=0
 TESTS_PASSED=0
 
-# Test helper functions
 run_test() {
     local test_name="$1"
-    local test_function="$2"
-    
+    local test_command="$2"
+
     echo -e "${YELLOW}🧪 Running: $test_name${NC}"
     TESTS_RUN=$((TESTS_RUN + 1))
-    
-    if $test_function; then
+
+    if eval "$test_command"; then
         echo -e "${GREEN}✅ PASS: $test_name${NC}"
         TESTS_PASSED=$((TESTS_PASSED + 1))
     else
@@ -32,76 +26,72 @@ run_test() {
     echo
 }
 
-# Extract the detect_host function from rebuild.sh for testing
-source_detect_function() {
-    # Extract just the detect_host function from rebuild.sh
-    sed -n '/^detect_host()/,/^}/p' ../rebuild.sh > /tmp/detect_host_test.sh
-    source /tmp/detect_host_test.sh
-}
-
-
-# Test hostname detection for Thinker
 test_thinker_hostname() {
-    # Mock hostname command
-    hostname() { echo "Thinker"; }
-    local result=$(detect_host)
-    unset -f hostname
-    
-    [ "$result" = "thinker" ]
+    python3 - <<'PY'
+import importlib.util
+from pathlib import Path
+from unittest.mock import patch
+
+rebuild_path = (Path.cwd().parent / "rebuild.py").resolve()
+spec = importlib.util.spec_from_file_location("rebuild_py", rebuild_path)
+mod = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(mod)
+
+with patch.object(mod.shutil, "which", return_value="/usr/bin/hostname"), \
+     patch.object(mod.subprocess, "check_output", return_value=b"Thinker\n"):
+    assert mod.detect_host() == "thinker"
+PY
 }
 
-
-# Test fallback to thinker
 test_fallback_detection() {
-    # Mock environment with no special indicators
-    hostname() { echo "unknown-host"; }
-    # Mock /proc/version without microsoft
-    local result=$(detect_host)
-    unset -f hostname
-    
-    [ "$result" = "thinker" ]
+    python3 - <<'PY'
+import importlib.util
+from pathlib import Path
+from unittest.mock import patch
+
+rebuild_path = (Path.cwd().parent / "rebuild.py").resolve()
+spec = importlib.util.spec_from_file_location("rebuild_py", rebuild_path)
+mod = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(mod)
+
+with patch.object(mod.shutil, "which", return_value="/usr/bin/hostname"), \
+     patch.object(mod.subprocess, "check_output", return_value=b"unknown-host\n"):
+    assert mod.detect_host() == "thinker"
+PY
 }
 
-# Test rebuild script syntax
 test_script_syntax() {
     bash -n ../rebuild.sh
 }
 
-# Test rebuild script help output
 test_help_output() {
-    local output=$(bash ../rebuild.sh invalid-host 2>&1 || true)
-    [[ "$output" == *"Unknown host"* ]] && [[ "$output" == *"Usage:"* ]]
+    local output
+    output=$(bash ../rebuild.sh -h 2>&1 || true)
+    [[ "$output" == *"usage:"* ]]
 }
 
-# Test rebuild script manual override
-test_manual_override() {
-    # Test that manual arguments are respected
-    local output=$(bash -c 'HOST="$1"; echo "Host would be: $HOST"' -- thinker)
-    [[ "$output" == *"thinker"* ]]
+test_invalid_host_rejected() {
+    local output
+    output=$(bash ../rebuild.sh invalid-host 2>&1 || true)
+    [[ "$output" == *"invalid choice"* ]]
 }
 
-# Main test execution
 main() {
     echo -e "${YELLOW}🚀 Starting NixOS Configuration Tests${NC}"
     echo "Testing rebuild script functionality..."
     echo
-    
-    # Source the detect function
-    source_detect_function
-    
-    # Run all tests
+
     run_test "Thinker Hostname Detection" test_thinker_hostname
     run_test "Fallback Detection" test_fallback_detection
     run_test "Script Syntax Check" test_script_syntax
     run_test "Help Output" test_help_output
-    run_test "Manual Override" test_manual_override
-    
-    # Summary
+    run_test "Invalid Host Rejected" test_invalid_host_rejected
+
     echo -e "${YELLOW}📊 Test Summary${NC}"
     echo "Tests run: $TESTS_RUN"
     echo "Tests passed: $TESTS_PASSED"
     echo "Tests failed: $((TESTS_RUN - TESTS_PASSED))"
-    
+
     if [ $TESTS_PASSED -eq $TESTS_RUN ]; then
         echo -e "${GREEN}🎉 All tests passed!${NC}"
         exit 0
@@ -110,12 +100,5 @@ main() {
         exit 1
     fi
 }
-
-# Cleanup function
-cleanup() {
-    rm -f /tmp/detect_host_test.sh
-}
-
-trap cleanup EXIT
 
 main "$@"

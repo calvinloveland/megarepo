@@ -2,23 +2,58 @@
   config,
   pkgs,
   lib,
+  packageHealth,
   ...
 }:
 let
-  # Upstream dwarf-fortress build is currently failing (dfhack segfault during install/test phase).
-  # Work around by disabling package tests. Provide a feature flag so it can be toggled off entirely.
-  dwarfFortressPatched = pkgs.dwarf-fortress-packages.dwarf-fortress-full.overrideAttrs (old: {
-    doCheck = false;
-    doInstallCheck = false; # Some failures happen in installCheck phase
-    # Leave other attrs untouched.
-  });
+  packageStates = packageHealth.calnixState.packages or { };
+  registry = packageHealth.packageHealthRegistry.packages or { };
+  currentRevision = packageHealth.currentNixpkgsRev;
+  system = pkgs.stdenv.hostPlatform.system;
+
+  resolveHealthManagedPackage =
+    packageName: currentPackage:
+    let
+      registryEntry = registry.${packageName} or null;
+      packageState = packageStates.${packageName} or { };
+      activePolicy =
+        if registryEntry == null then
+          "current"
+        else
+          packageState.active_policy or registryEntry.defaultPolicy or "current";
+      activeRevision = packageState.active_revision or null;
+      revisionPackageSet =
+        if activePolicy == "revision" && activeRevision != null && activeRevision != currentRevision then
+          packageHealth.importPackageSetForRevision system activeRevision
+        else
+          null;
+    in
+    if registryEntry == null then
+      currentPackage
+    else if activePolicy == "revision" && revisionPackageSet != null then
+      lib.attrByPath registryEntry.attrPath currentPackage revisionPackageSet
+    else if activePolicy == "legacy-darktable-no-avif" && packageName == "darktable" then
+      currentPackage.override {
+        libavif = null;
+      }
+    else if activePolicy == "disable-checks" && packageName == "dwarf-fortress-full" then
+      currentPackage.overrideAttrs (_: {
+        doCheck = false;
+        doInstallCheck = false;
+      })
+    else
+      currentPackage;
+
+  darktablePackage = resolveHealthManagedPackage "darktable" pkgs.darktable;
+  dwarfFortressPackage =
+    resolveHealthManagedPackage "dwarf-fortress-full" pkgs.dwarf-fortress-packages.dwarf-fortress-full;
 in
 {
   options = {
     calnix.enableDwarfFortress = lib.mkOption {
       type = lib.types.bool;
-      default = false; # Temporarily disable until upstream dfhack segfault resolved
-      description = ''Enable Dwarf Fortress (with dfhack). Currently defaults to false due to upstream dfhack segfault during build (install/test phase). Flip to true once nixpkgs updates fix it.'';
+      default = false;
+      description = "Enable Dwarf Fortress (with dfhack). If the current nixpkgs version regresses, use `calnix package mark-failing dwarf-fortress-full` to activate the health-managed fallback policy.";
     };
   };
 
@@ -29,15 +64,14 @@ in
     # Godot installed via Flatpak to avoid patchelf issues
     flatpak # Package manager for sandboxed applications
     blender # 3D modeling, animation, and asset creation
-    # krita # Digital painting and 2D art creation - DISABLED due to build issues with lager/boost
     audacity # Audio editing for game sounds
     gimp # Image editing and texture creation
     aseprite # Pixel art editor (great for 2D games)
     inkscape # Vector graphics editor for UI and icons
-    darktable # RAW photo processing for textures - DISABLED due to build issues
+    darktablePackage # RAW photo processing for textures; fallback policy is health-managed
 
   # Games (conditional)
-  ] ++ lib.optional config.calnix.enableDwarfFortress dwarfFortressPatched ++ [
+  ] ++ lib.optional config.calnix.enableDwarfFortress dwarfFortressPackage ++ [
 
     discord # for saying gamer words
     ];
