@@ -10,6 +10,23 @@ python -m pip install -e .
 full-auto-de-pdf --help
 ```
 
+Optional extras:
+
+```bash
+# Install test dependencies
+python -m pip install -e '.[dev]'
+
+# Install the optional PaddleOCR stack
+python -m pip install -e '.[ocr]'
+```
+
+## Testing
+
+```bash
+cd active/dev-tools/full-auto-de-pdf
+pytest -q
+```
+
 ## Current commands
 
 ```bash
@@ -126,6 +143,15 @@ full-auto-de-pdf ocr-pdf \
   --preprocess-mode scan-local-threshold \
   --tesseract-psm 6
 
+# Optional uneven-background mode:
+# normalize the page background before thresholding harder degraded scans
+full-auto-de-pdf ocr-pdf \
+  --pdf scans/book.pdf \
+  --output out/book.scan-background-normalized.txt \
+  --work-dir data/ocr-work-background-normalized \
+  --preprocess-mode scan-background-normalized \
+  --tesseract-psm 6
+
 # Optional stronger engine (install first: pip install -e '.[ocr]')
 # (the optional extras pin a CPU-compatible Paddle runtime for Linux/headless use)
 full-auto-de-pdf ocr-pdf \
@@ -205,6 +231,19 @@ full-auto-de-pdf eval-epub \
 - `build-image-text-corpus` can turn a local page-image + transcript directory pair into a `benchmark-corpus` manifest, which makes image-based external corpora easier to evaluate with the existing OCR pipeline.
 - `benchmark-parallel-text` can score aligned OCR/proofread TSV corpora such as the Gutenberg-HathiTrust sentence-pair downloads without manual sampling.
 - Generated benchmark pages now prefer system fontconfig fonts when available and are saved as OCR-ready monochrome 300 DPI images, which makes the built-in printed-text benchmark far more representative and stable.
+
+## Additional OCR tuning options
+
+- `--tesseract-output-format hocr` keeps per-word confidence metadata, which enables `--confidence-aware-cleanup` and can improve ranking/debugging on harder pages.
+- `--confidence-aware-cleanup --cleanup-high-confidence-threshold 95` skips cleanup on high-confidence pages when confidence metadata is available.
+- `--orientation-fallback` adds a 180-degree retry candidate for upside-down pages.
+- `--tiered-ocr-fallback --tiered-ocr-min-score 200` retries weak pages with horizontal tile OCR and keeps the stronger result.
+- `--layout-region-detection` enables simple layout-zone detection and strips likely page-number lines.
+- `--inverse-render-rerank --inverse-render-top-k 3` re-renders top OCR candidates and compares ink overlap as a slower second-pass verifier.
+- `--verify-cleanup-spans` re-checks short cleanup replacements against page-local image evidence before keeping them.
+- `--page-artifacts-dir PATH` customizes per-page OCR artifact output, and `--no-page-artifacts` disables those files.
+- `--llm-post-correction` and `--llm-suspicious-sections` enable guarded callback hooks for low-confidence or suspicious excerpts when you inject an external completion/review callback in code.
+- For the full current CLI surface, run `full-auto-de-pdf ocr-pdf --help`.
 
 ## Accuracy note
 
