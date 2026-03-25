@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import os
 import secrets
+import subprocess
 import time
 from datetime import datetime
 from typing import Any, Dict
@@ -141,6 +142,17 @@ def _format_tool_name(name: str) -> str:
     return normalized.capitalize()
 
 
+def _format_signed_int(value: int | float | None) -> str:
+    if value is None:
+        return "—"
+    try:
+        numeric = int(round(float(value)))
+    except (TypeError, ValueError):
+        return "—"
+    sign = "+" if numeric > 0 else ""
+    return f"{sign}{numeric}"
+
+
 def _summarize_repo(repo: Dict[str, Any], data_access) -> Dict[str, Any]:
     repo_copy = dict(repo)
     summary = data_access.summarize_test_runs(repo["id"])
@@ -263,6 +275,73 @@ def _build_commit_comparison(runs: list[Dict[str, Any]]) -> list[Dict[str, Any]]
             }
         )
     return comparison
+
+
+def _git_numstat_for_commit(repo_path: str, commit_hash: str) -> Dict[str, int] | None:
+    if not repo_path or not os.path.exists(repo_path):
+        return None
+
+    try:
+        result = subprocess.run(
+            ["git", "show", "--numstat", "--format=", commit_hash],
+            cwd=repo_path,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except (OSError, subprocess.CalledProcessError):
+        logger.exception("Unable to compute LOC stats for commit %s", commit_hash)
+        return None
+
+    added = 0
+    deleted = 0
+    for line in result.stdout.splitlines():
+        parts = line.split("\t")
+        if len(parts) < 3:
+            continue
+        raw_added, raw_deleted = parts[0], parts[1]
+        if raw_added.isdigit():
+            added += int(raw_added)
+        if raw_deleted.isdigit():
+            deleted += int(raw_deleted)
+
+    return {
+        "added": added,
+        "deleted": deleted,
+        "net": added - deleted,
+    }
+
+
+def _build_loc_change_points(
+    repo_path: str | None, runs: list[Dict[str, Any]]
+) -> list[Dict[str, Any]]:
+    if not repo_path:
+        return []
+
+    points: list[Dict[str, Any]] = []
+    ordered = sorted(
+        runs,
+        key=lambda item: (item.get("created_at") or 0, item.get("id") or 0),
+    )
+    for run in ordered:
+        commit = run.get("commit") or {}
+        commit_hash = str(commit.get("hash") or run.get("commit_hash") or "")
+        if not commit_hash:
+            continue
+
+        stats = _git_numstat_for_commit(repo_path, commit_hash)
+        if stats is None:
+            continue
+
+        points.append(
+            {
+                "label": commit_hash[:7],
+                "status": run.get("status", "unknown"),
+                "created_at": run.get("created_at"),
+                **stats,
+            }
+        )
+    return points
 
 
 def _enabled_tool_names(service: CIService) -> list[str]:
@@ -481,6 +560,75 @@ def _build_trend_chart(points: list[Dict[str, Any]]) -> Dict[str, Any] | None:
     }
 
 
+def _build_loc_change_chart(points: list[Dict[str, Any]]) -> Dict[str, Any] | None:
+    if not points:
+        return None
+
+    width = 720
+    height = 280
+    padding_left = 64
+    padding_right = 24
+    padding_top = 20
+    padding_bottom = 44
+    plot_width = width - padding_left - padding_right
+    plot_height = height - padding_top - padding_bottom
+    baseline_y = padding_top + (plot_height / 2)
+
+    net_values = [int(point.get("net", 0)) for point in points]
+    max_abs_value = max((abs(value) for value in net_values), default=1)
+    if max_abs_value <= 0:
+        max_abs_value = 1
+
+    x_denominator = max(len(points), 1)
+    bar_width = min(28.0, max(10.0, (plot_width / max(len(points), 1)) * 0.55))
+    x_label_step = max(1, len(points) // 6)
+
+    rendered_points: list[Dict[str, Any]] = []
+    for index, point in enumerate(points):
+        net = int(point.get("net", 0))
+        added = int(point.get("added", 0))
+        deleted = int(point.get("deleted", 0))
+        center_x = padding_left + ((index + 0.5) * plot_width / x_denominator)
+        magnitude = abs(net) / max_abs_value
+        bar_height = max(2.0, magnitude * (plot_height / 2)) if net != 0 else 2.0
+        y = baseline_y - bar_height if net >= 0 else baseline_y
+        color = "#4ade80" if net > 0 else "#f87171" if net < 0 else "#94a3b8"
+        rendered_points.append(
+            {
+                "label": point.get("label", ""),
+                "net_label": _format_signed_int(net),
+                "added_label": _format_signed_int(added),
+                "deleted_label": _format_signed_int(-deleted),
+                "x": round(center_x - (bar_width / 2), 2),
+                "y": round(y, 2),
+                "width": round(bar_width, 2),
+                "height": round(bar_height, 2),
+                "color": color,
+                "show_x_label": index % x_label_step == 0 or index == len(points) - 1,
+                "label_x": round(center_x, 2),
+            }
+        )
+
+    y_ticks = [
+        {"y": round(padding_top, 2), "label": _format_signed_int(max_abs_value)},
+        {"y": round(baseline_y, 2), "label": "0"},
+        {
+            "y": round(padding_top + plot_height, 2),
+            "label": _format_signed_int(-max_abs_value),
+        },
+    ]
+
+    return {
+        "width": width,
+        "height": height,
+        "plot_left": padding_left,
+        "plot_right": width - padding_right,
+        "baseline_y": round(baseline_y, 2),
+        "points": rendered_points,
+        "y_ticks": y_ticks,
+    }
+
+
 def _build_repository_insights(service: CIService, data_access, repo_id: int):
     repository = service.get_repository(repo_id)
     if not repository:
@@ -492,9 +640,13 @@ def _build_repository_insights(service: CIService, data_access, repo_id: int):
     average_durations = _average_tool_durations(data_access, repo_id, expected_tools)
     hydrated = _annotate_run_progress(hydrated, expected_tools, average_durations)
     summary = data_access.summarize_test_runs(repo_id)
+    tracked_repo = service.git_tracker.get_repository(repo_id)
+    repo_path = getattr(tracked_repo, "repo_path", None)
 
     trend_points = _build_trend_points(hydrated)
     trend_chart = _build_trend_chart(trend_points)
+    loc_change_points = _build_loc_change_points(repo_path, hydrated)
+    loc_change_chart = _build_loc_change_chart(loc_change_points)
     commit_comparison = _build_commit_comparison(hydrated[:10])
 
     return {
@@ -504,6 +656,7 @@ def _build_repository_insights(service: CIService, data_access, repo_id: int):
         "last_run": hydrated[0] if hydrated else None,
         "trend_points": trend_points,
         "trend_chart": trend_chart,
+        "loc_change_chart": loc_change_chart,
         "commit_comparison": commit_comparison,
     }
 

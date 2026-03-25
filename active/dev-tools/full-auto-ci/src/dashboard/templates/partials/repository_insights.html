@@ -61,6 +61,40 @@
 </section>
 {% endif %}
 
+{% if loc_change_chart %}
+<section class="section-card">
+    <header class="section-subheader">
+        <h3>LOC Change Over Time</h3>
+    </header>
+    <div class="chart-card">
+        <svg class="loc-chart" viewBox="0 0 {{ loc_change_chart.width }} {{ loc_change_chart.height }}" role="img"
+            aria-label="Historical LOC change over time">
+            {% for tick in loc_change_chart.y_ticks %}
+            <line class="loc-chart__grid" x1="{{ loc_change_chart.plot_left }}" y1="{{ tick.y }}"
+                x2="{{ loc_change_chart.plot_right }}" y2="{{ tick.y }}"></line>
+            <text class="loc-chart__tick-label" x="{{ loc_change_chart.plot_left - 10 }}" y="{{ tick.y + 4 }}">
+                {{ tick.label }}
+            </text>
+            {% endfor %}
+            <line class="loc-chart__axis" x1="{{ loc_change_chart.plot_left }}" y1="{{ loc_change_chart.baseline_y }}"
+                x2="{{ loc_change_chart.plot_right }}" y2="{{ loc_change_chart.baseline_y }}"></line>
+            {% for point in loc_change_chart.points %}
+            <rect class="loc-chart__bar" x="{{ point.x }}" y="{{ point.y }}" width="{{ point.width }}"
+                height="{{ point.height }}" style="--bar-color: {{ point.color }};">
+                <title>{{ point.label }} · net {{ point.net_label }} LOC · added {{ point.added_label }} · removed {{
+                    point.deleted_label }}</title>
+            </rect>
+            {% if point.show_x_label %}
+            <text class="loc-chart__x-label" x="{{ point.label_x }}" y="{{ loc_change_chart.height - 12 }}">{{
+                point.label }}</text>
+            {% endif %}
+            {% endfor %}
+        </svg>
+    </div>
+    <p class="chart-hint">Each bar shows the net LOC delta for a commit. Hover a bar to see added and removed lines.</p>
+</section>
+{% endif %}
+
 {% if commit_comparison %}
 <section class="section-card">
     <header class="section-subheader">

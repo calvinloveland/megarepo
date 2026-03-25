@@ -393,12 +393,29 @@ body {
   overflow: visible;
 }
 
+.loc-chart {
+  width: 100%;
+  height: auto;
+  display: block;
+  overflow: visible;
+}
+
 .trend-chart__grid {
   stroke: rgba(148, 163, 184, 0.16);
   stroke-width: 1;
 }
 
+.loc-chart__grid {
+  stroke: rgba(148, 163, 184, 0.16);
+  stroke-width: 1;
+}
+
 .trend-chart__axis {
+  stroke: rgba(148, 163, 184, 0.28);
+  stroke-width: 1.2;
+}
+
+.loc-chart__axis {
   stroke: rgba(148, 163, 184, 0.28);
   stroke-width: 1.2;
 }
@@ -424,7 +441,9 @@ body {
 }
 
 .trend-chart__tick-label,
-.trend-chart__x-label {
+.trend-chart__x-label,
+.loc-chart__tick-label,
+.loc-chart__x-label {
   fill: var(--muted);
   font-size: 12px;
 }
@@ -435,6 +454,19 @@ body {
 
 .trend-chart__x-label {
   text-anchor: middle;
+}
+
+.loc-chart__tick-label {
+  text-anchor: end;
+}
+
+.loc-chart__x-label {
+  text-anchor: middle;
+}
+
+.loc-chart__bar {
+  fill: var(--bar-color, var(--muted));
+  opacity: 0.9;
 }
 
 .chart-hint {

@@ -4,15 +4,65 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
 import tempfile
 import time
+from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
 
+import src.dashboard as dashboard_module
 from src.dashboard import __main__ as dashboard_main
 from src.dashboard import create_app
 from src.db import DataAccess
+
+
+def _run_git(repo_dir: str, *args: str) -> str:
+    result = subprocess.run(
+        ["git", *args],
+        cwd=repo_dir,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return result.stdout.strip()
+
+
+def _create_test_repository(tmp_dir: str) -> tuple[str, str, str]:
+    repo_dir = os.path.join(tmp_dir, "tracked-repo")
+    os.makedirs(repo_dir, exist_ok=True)
+    _run_git(repo_dir, "init")
+    _run_git(repo_dir, "config", "user.name", "Dev Bot")
+    _run_git(repo_dir, "config", "user.email", "dev@example.com")
+    _run_git(repo_dir, "checkout", "-b", "main")
+
+    app_file = Path(repo_dir) / "app.py"
+    app_file.write_text(
+        "def greet(name):\n"
+        "    return f'hello {name}'\n",
+        encoding="utf-8",
+    )
+    _run_git(repo_dir, "add", "app.py")
+    _run_git(repo_dir, "commit", "-m", "Initial commit")
+    first_hash = _run_git(repo_dir, "rev-parse", "HEAD")
+
+    app_file.write_text(
+        "def greet(name):\n"
+        "    if not name:\n"
+        "        return 'hello stranger'\n"
+        "    return f'hello {name}'\n"
+        "\n"
+        "\n"
+        "def farewell(name):\n"
+        "    return f'bye {name}'\n",
+        encoding="utf-8",
+    )
+    _run_git(repo_dir, "add", "app.py")
+    _run_git(repo_dir, "commit", "-m", "Currently scanning")
+    second_hash = _run_git(repo_dir, "rev-parse", "HEAD")
+    return repo_dir, first_hash, second_hash
 
 
 @pytest.fixture(name="dashboard_app")
@@ -23,15 +73,16 @@ def _dashboard_app_fixture(monkeypatch):
         db_path = os.path.join(tmp_dir, "test.sqlite")
         data = DataAccess(db_path)
         data.initialize_schema()
+        repo_dir, first_hash, second_hash = _create_test_repository(tmp_dir)
 
         repo_id = data.create_repository("Demo", "https://example.com/demo.git", "main")
         timestamp = int(time.time())
-        run_id = data.create_test_run(repo_id, "abc1234", "completed", timestamp)
+        run_id = data.create_test_run(repo_id, first_hash, "completed", timestamp)
         data.update_test_run(run_id, status="completed", completed_at=timestamp)
 
         commit_id = data.create_commit(
             repo_id,
-            "abc1234",
+            first_hash,
             author="Dev Bot",
             message="Initial commit",
             timestamp=timestamp,
@@ -78,7 +129,7 @@ def _dashboard_app_fixture(monkeypatch):
 
         running_timestamp = timestamp + 30
         running_run_id = data.create_test_run(
-            repo_id, "def5678", "running", running_timestamp
+            repo_id, second_hash, "running", running_timestamp
         )
         data.update_test_run(
             running_run_id,
@@ -87,7 +138,7 @@ def _dashboard_app_fixture(monkeypatch):
         )
         running_commit_id = data.create_commit(
             repo_id,
-            "def5678",
+            second_hash,
             author="Build Bot",
             message="Currently scanning",
             timestamp=running_timestamp,
@@ -102,6 +153,9 @@ def _dashboard_app_fixture(monkeypatch):
 
         app = create_app(db_path=db_path)
         app.config.update(TESTING=True)
+        app.config["CI_SERVICE"].git_tracker.repos[repo_id] = SimpleNamespace(
+            repo_path=repo_dir
+        )
         yield app
 
 
@@ -126,8 +180,8 @@ def test_repository_detail(client):
     assert response.status_code == 200
     body = response.data.decode()
     assert "Demo" in body
-    assert "abc1234" in body
-    assert "def5678" in body
+    assert "Initial commit" in body
+    assert "Currently scanning" in body
     assert "pylint" in body
     assert "pytest" in body
     assert "2 passed" in body
@@ -135,6 +189,8 @@ def test_repository_detail(client):
     assert "1 of 4 tools complete" in body
     assert "Estimated total" in body
     assert 'class="trend-chart"' in body
+    assert 'class="loc-chart"' in body
+    assert "LOC Change Over Time" in body
     assert "chart.umd.min.js" not in body
 
 
@@ -153,14 +209,46 @@ def test_repository_insights_partial(client):
     assert response.status_code == 200
     body = response.data.decode()
     assert "Recent Test Runs" in body
-    assert "abc1234" in body
-    assert "def5678" in body
+    assert "Initial commit" in body
+    assert "Currently scanning" in body
     assert "2 passed" in body
     assert "coverage failed before report generation" in body
     assert "Historical Trend" in body
+    assert "LOC Change Over Time" in body
     assert "Commit Comparison" in body
     assert "1 of 4 tools complete" in body
     assert 'class="trend-chart"' in body
+    assert 'class="loc-chart"' in body
+
+
+def test_build_loc_change_chart_uses_git_numstat(tmp_path):
+    """LOC chart data should reflect git numstat output from the tracked repo."""
+    repo_dir, first_hash, second_hash = _create_test_repository(str(tmp_path))
+    runs = [
+        {
+            "id": 1,
+            "commit_hash": first_hash,
+            "commit": {"hash": first_hash},
+            "created_at": 1,
+            "status": "completed",
+        },
+        {
+            "id": 2,
+            "commit_hash": second_hash,
+            "commit": {"hash": second_hash},
+            "created_at": 2,
+            "status": "running",
+        },
+    ]
+
+    points = dashboard_module._build_loc_change_points(repo_dir, runs)
+    assert [point["label"] for point in points] == [first_hash[:7], second_hash[:7]]
+    assert points[0]["added"] == 2
+    assert points[0]["deleted"] == 0
+    assert points[0]["net"] == 2
+    assert points[1]["added"] == 6
+    assert points[1]["deleted"] == 0
+    assert points[1]["net"] == 6
 
 
 def test_dashboard_main_runs(monkeypatch):
