@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import shutil
 import threading
 import time
 import urllib.error
@@ -20,7 +21,61 @@ except ImportError:
 from src.dashboard import create_app
 from src.db import DataAccess
 
+
+def _running_on_nixos() -> bool:
+    """Return True when the current host is NixOS."""
+
+    try:
+        os_release = Path("/etc/os-release").read_text(encoding="utf-8")
+    except OSError:
+        return False
+    return "ID=nixos" in os_release
+
+
+def _default_playwright_browser_path() -> str | None:
+    """Pick a system-managed Chromium executable when available."""
+
+    explicit = os.getenv("PLAYWRIGHT_BROWSER_EXECUTABLE_PATH")
+    if explicit:
+        return explicit
+
+    for candidate in ("google-chrome", "chromium", "chromium-browser"):
+        browser_path = shutil.which(candidate)
+        if browser_path:
+            return browser_path
+    return None
+
+
+if _running_on_nixos():
+    node_path = shutil.which("node")
+    if node_path:
+        os.environ.setdefault("PLAYWRIGHT_NODEJS_PATH", node_path)
+
 pytest_plugins = ["pytest_playwright.pytest_playwright"]
+
+
+@pytest.fixture(scope="session")
+def browser_type_launch_args(pytestconfig: pytest.Config) -> Dict[str, object]:
+    """Customize Playwright launch options for local runtime quirks."""
+
+    launch_options: Dict[str, object] = {}
+    if pytestconfig.getoption("--headed"):
+        launch_options["headless"] = False
+
+    browser_channel_option = pytestconfig.getoption("--browser-channel")
+    if browser_channel_option:
+        launch_options["channel"] = browser_channel_option
+
+    slowmo_option = pytestconfig.getoption("--slowmo")
+    if slowmo_option:
+        launch_options["slow_mo"] = slowmo_option
+
+    browser_path = _default_playwright_browser_path()
+    if browser_path and _running_on_nixos():
+        launch_options["executable_path"] = browser_path
+        launch_options["args"] = ["--no-sandbox"]
+
+    return launch_options
 
 
 class _DashboardServer(threading.Thread):

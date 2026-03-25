@@ -234,6 +234,8 @@ PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 pytest ui_tests
 
 The fixture starts the dashboard in headless mode with `FULL_AUTO_CI_OPEN_BROWSER=0` and `FULL_AUTO_CI_START_DASHBOARD=1`. Override the default host/port via `ui_tests/conftest.py` if you need to avoid local conflicts.
 
+On NixOS, the Python Playwright package may need the system `node` runtime instead of the bundled driver binary. The UI test fixture now auto-detects NixOS, points Playwright at the system `node`, and prefers a system-managed Chromium/Chrome executable when one is available. If you need to override the detected browser path manually, set `PLAYWRIGHT_BROWSER_EXECUTABLE_PATH` before running the tests.
+
 ### MCP server endpoint
 
 Expose the CI service over the Model Context Protocol using the built-in JSON-RPC server:
