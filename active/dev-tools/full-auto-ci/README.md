@@ -181,6 +181,8 @@ python -m src.dashboard
 
 By default the dashboard listens on `http://127.0.0.1:8000`. Configure host/port in `~/.fullautoci/config.yml` under the `dashboard` section.
 
+The dashboard also includes the shared monorepo feedback widget. Submissions are stored locally under `data/feedback/` and addressed items move to `data/feedback/addressed/`. To review or mark feedback addressed through the API, set `FEEDBACK_ADMIN_USERNAME` and `FEEDBACK_ADMIN_PASSWORD`.
+
 ### Dogfooding the project
 
 The dev container initialization script automatically registers this repository so the service can test itself. To customise:

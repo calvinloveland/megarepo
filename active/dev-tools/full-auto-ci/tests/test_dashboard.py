@@ -7,6 +7,7 @@ import os
 import subprocess
 import tempfile
 import time
+from base64 import b64encode
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock
@@ -65,12 +66,21 @@ def _create_test_repository(tmp_dir: str) -> tuple[str, str, str]:
     return repo_dir, first_hash, second_hash
 
 
+def _auth_headers(username: str, password: str) -> dict[str, str]:
+    token = b64encode(f"{username}:{password}".encode()).decode()
+    return {"Authorization": f"Basic {token}"}
+
+
 @pytest.fixture(name="dashboard_app")
 def _dashboard_app_fixture(monkeypatch):
     """Build a seeded dashboard app backed by a temporary sqlite database."""
     monkeypatch.setenv("FULL_AUTO_CI_DOGFOOD", "0")
+    monkeypatch.setenv("FEEDBACK_ADMIN_USERNAME", "admin")
+    monkeypatch.setenv("FEEDBACK_ADMIN_PASSWORD", "secret")
     with tempfile.TemporaryDirectory() as tmp_dir:
         db_path = os.path.join(tmp_dir, "test.sqlite")
+        feedback_dir = Path(tmp_dir) / "data" / "feedback"
+        addressed_dir = feedback_dir / "addressed"
         data = DataAccess(db_path)
         data.initialize_schema()
         repo_dir, first_hash, second_hash = _create_test_repository(tmp_dir)
@@ -151,7 +161,11 @@ def _dashboard_app_fixture(monkeypatch):
             duration=1.6,
         )
 
-        app = create_app(db_path=db_path)
+        app = create_app(
+            db_path=db_path,
+            feedback_dir=feedback_dir,
+            addressed_dir=addressed_dir,
+        )
         app.config.update(TESTING=True)
         app.config["CI_SERVICE"].git_tracker.repos[repo_id] = SimpleNamespace(
             repo_path=repo_dir
@@ -171,6 +185,7 @@ def test_index_lists_repositories(client):
     assert response.status_code == 200
     assert b"Demo" in response.data
     assert b"Repositories" in response.data
+    assert b'id="feedback-tool"' in response.data
 
 
 def test_repository_detail(client):
@@ -219,6 +234,38 @@ def test_repository_insights_partial(client):
     assert "1 of 4 tools complete" in body
     assert 'class="trend-chart"' in body
     assert 'class="loc-chart"' in body
+
+
+def test_feedback_submission_and_listing(dashboard_app, client):
+    """Dashboard should save feedback through the shared feedback tool."""
+    feedback_dir = dashboard_app.config["FEEDBACK_DIR"]
+    response = client.post(
+        "/feedback",
+        json={
+            "feedback_text": "Please make queue visibility clearer.",
+            "selected_element": "main > section.section",
+            "page_path": "/repo/1",
+            "page_title": "Full Auto CI",
+            "design": "full-auto-ci-dashboard",
+            "timestamp": "2026-03-25T23:00:00.000Z",
+        },
+    )
+    assert response.status_code == 200
+    payload = response.get_json()
+    assert payload["status"] == "success"
+
+    feedback_file = feedback_dir / f"feedback_{payload['id']}.json"
+    assert feedback_file.exists()
+    with open(feedback_file, encoding="utf-8") as handle:
+        saved_feedback = json.load(handle)
+    assert saved_feedback["app"] == "Full Auto CI Dashboard"
+    assert saved_feedback["page_path"] == "/repo/1"
+    assert saved_feedback["selected_element"] == "main > section.section"
+
+    list_response = client.get("/feedback", headers=_auth_headers("admin", "secret"))
+    assert list_response.status_code == 200
+    listed = list_response.get_json()
+    assert any(entry["id"] == payload["id"] for entry in listed["open"])
 
 
 def test_build_loc_change_chart_uses_git_numstat(tmp_path):

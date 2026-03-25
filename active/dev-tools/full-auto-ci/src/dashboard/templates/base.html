@@ -40,6 +40,11 @@
     </div>
   </footer>
 
+  {% if config.get("FEEDBACK_ENABLED") %}
+  {% set feedback_design = "full-auto-ci-dashboard" %}
+  {% include "_shared_feedback.html" %}
+  {% endif %}
+
   <script src="https://unpkg.com/htmx.org@1.9.12"
     integrity="sha384-OeA4jZb9XiAxZg/PquPLUyaHtkobaN6D+PfYZ7R6pujISiFDUFxIr05oig3NbS1U"
     crossorigin="anonymous"></script>

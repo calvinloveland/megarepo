@@ -6,8 +6,10 @@ import logging
 import os
 import secrets
 import subprocess
+import sys
 import time
 from datetime import datetime
+from pathlib import Path
 from typing import Any, Dict
 
 try:
@@ -27,6 +29,29 @@ except ImportError as error:
     _FLASK_IMPORT_ERROR = error
 else:
     _FLASK_IMPORT_ERROR = None
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+SHARED_SRC_ROOT_CANDIDATES = (
+    PROJECT_ROOT.parent / "shared" / "src",
+    PROJECT_ROOT.parents[2] / "active" / "web-apps" / "shared" / "src",
+)
+for shared_src_root in SHARED_SRC_ROOT_CANDIDATES:
+    if shared_src_root.exists():
+        if str(shared_src_root) not in sys.path:
+            sys.path.insert(0, str(shared_src_root))
+        break
+
+try:
+    from web_feedback import enable_shared_feedback, feedback_storage_paths
+except ImportError as error:
+    enable_shared_feedback = None
+    feedback_storage_paths = None
+    _SHARED_FEEDBACK_IMPORT_ERROR = error
+    FEEDBACK_DIR = None
+    ADDRESSED_DIR = None
+else:
+    _SHARED_FEEDBACK_IMPORT_ERROR = None
+    FEEDBACK_DIR, ADDRESSED_DIR = feedback_storage_paths(PROJECT_ROOT)
 
 from ..service import CIService
 
@@ -661,7 +686,12 @@ def _build_repository_insights(service: CIService, data_access, repo_id: int):
     }
 
 
-def create_app(config_path: str | None = None, db_path: str | None = None) -> Flask:
+def create_app(
+    config_path: str | None = None,
+    db_path: str | None = None,
+    feedback_dir: str | Path | None = None,
+    addressed_dir: str | Path | None = None,
+) -> Flask:
     """Create and configure the dashboard Flask application."""
     if _FLASK_IMPORT_ERROR is not None:
         raise RuntimeError(
@@ -675,6 +705,27 @@ def create_app(config_path: str | None = None, db_path: str | None = None) -> Fl
     app.config["SECRET_KEY"] = secret_key
     app.config["CI_SERVICE"] = service
     app.config["DATA_ACCESS"] = service.data
+    app.config["FEEDBACK_ENABLED"] = _SHARED_FEEDBACK_IMPORT_ERROR is None
+
+    if enable_shared_feedback is not None:
+        resolved_feedback_dir = Path(feedback_dir) if feedback_dir else FEEDBACK_DIR
+        resolved_addressed_dir = (
+            Path(addressed_dir) if addressed_dir else ADDRESSED_DIR
+        )
+        enable_shared_feedback(
+            app,
+            project_root=PROJECT_ROOT,
+            app_name="Full Auto CI Dashboard",
+            feedback_dir=resolved_feedback_dir,
+            addressed_dir=resolved_addressed_dir,
+        )
+        app.config["FEEDBACK_DIR"] = resolved_feedback_dir
+        app.config["FEEDBACK_ADDRESSED_DIR"] = resolved_addressed_dir
+    else:
+        logger.warning(
+            "Shared feedback system unavailable; dashboard feedback disabled: %s",
+            _SHARED_FEEDBACK_IMPORT_ERROR,
+        )
 
     dashboard_bp = Blueprint(
         "dashboard",

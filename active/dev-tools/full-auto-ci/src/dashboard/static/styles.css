@@ -823,6 +823,216 @@ code {
   background: var(--danger-soft);
 }
 
+.hidden {
+  display: none !important;
+}
+
+#feedback-tool {
+  position: fixed;
+  left: 1.5rem;
+  bottom: 1.5rem;
+  z-index: 50;
+}
+
+#feedback-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 3.5rem;
+  height: 3.5rem;
+  border: 0;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #f8fffd;
+  box-shadow: 0 20px 30px -16px rgba(15, 118, 110, 0.55);
+  cursor: pointer;
+}
+
+#feedback-toggle:hover,
+#feedback-toggle:focus {
+  background: #0b5f59;
+}
+
+#feedback-toggle svg {
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
+#feedback-panel {
+  position: absolute;
+  left: 0;
+  bottom: 4.5rem;
+  width: min(24rem, calc(100vw - 3rem));
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--surface);
+  box-shadow: 0 26px 50px -24px rgba(15, 23, 42, 0.35);
+  overflow: hidden;
+}
+
+#feedback-panel > div:first-child {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+#feedback-panel h3 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+#feedback-panel button {
+  font: inherit;
+}
+
+#feedback-panel form,
+#feedback-form {
+  display: grid;
+  gap: 1rem;
+  padding: 1rem;
+}
+
+#feedback-panel label {
+  display: block;
+  margin-bottom: 0.35rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+#feedback-panel textarea,
+#feedback-panel input[type="text"] {
+  width: 100%;
+  min-height: 2.5rem;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  color: inherit;
+}
+
+#feedback-panel textarea {
+  min-height: 7rem;
+  resize: vertical;
+}
+
+#feedback-panel p {
+  margin: 0;
+}
+
+#feedback-panel .flex,
+#feedback-panel > div:first-child,
+#feedback-form .flex {
+  display: flex;
+}
+
+#feedback-form .gap-2 {
+  gap: 0.5rem;
+}
+
+#feedback-form .flex-1 {
+  flex: 1 1 auto;
+}
+
+#feedback-form .text-xs {
+  margin-top: 0.35rem;
+  color: var(--muted);
+  font-size: 0.76rem;
+}
+
+#feedback-panel .text-slate-400,
+#feedback-panel .text-slate-500,
+#feedback-panel .text-slate-600,
+#feedback-panel .text-slate-700 {
+  color: var(--muted);
+}
+
+#feedback-panel .text-slate-900 {
+  color: var(--fg);
+}
+
+#feedback-panel .border,
+#feedback-panel .border-slate-200,
+#feedback-panel .border-slate-300 {
+  border-color: var(--border);
+}
+
+#feedback-panel .bg-white {
+  background: var(--surface);
+}
+
+#feedback-panel .bg-slate-50 {
+  background: var(--surface-muted);
+}
+
+#feedback-panel .bg-blue-50 {
+  background: rgba(59, 130, 246, 0.08);
+}
+
+#feedback-panel .border-blue-400 {
+  border-color: rgba(59, 130, 246, 0.55);
+}
+
+#feedback-panel .bg-blue-600 {
+  background: var(--accent);
+  color: #f8fffd;
+}
+
+#feedback-panel .bg-blue-600:hover,
+#feedback-panel .bg-blue-600:focus {
+  background: #0b5f59;
+}
+
+#feedback-panel .hover\:bg-blue-700:hover,
+#feedback-panel .hover\:bg-blue-700:focus {
+  background: #0b5f59;
+}
+
+#feedback-panel .hover\:bg-slate-50:hover,
+#feedback-panel .hover\:bg-slate-50:focus,
+#feedback-panel .hover\:bg-slate-100:hover,
+#feedback-panel .hover\:bg-slate-100:focus {
+  background: var(--surface-strong);
+}
+
+#feedback-panel button:not([type="submit"]) {
+  min-height: 2.5rem;
+  padding: 0.55rem 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  color: inherit;
+  cursor: pointer;
+}
+
+#feedback-panel button[type="submit"] {
+  min-height: 2.5rem;
+  padding: 0.55rem 1rem;
+  border: 1px solid var(--accent);
+  border-radius: 12px;
+  background: var(--accent);
+  color: #f8fffd;
+  cursor: pointer;
+}
+
+#feedback-success,
+#feedback-error {
+  padding: 0.9rem 1rem;
+  border-top: 1px solid var(--border);
+}
+
+#feedback-success {
+  background: var(--success-soft);
+  color: var(--success);
+}
+
+#feedback-error {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
 .section-subheader form {
   display: flex;
   align-items: center;
@@ -878,6 +1088,19 @@ code {
 }
 
 @media (max-width: 640px) {
+  #feedback-tool {
+    left: 1rem;
+    right: 1rem;
+    bottom: 1rem;
+  }
+
+  #feedback-panel {
+    left: 0;
+    right: 0;
+    width: auto;
+    bottom: 4.5rem;
+  }
+
   .app-header__inner {
     align-items: flex-start;
     flex-direction: column;
