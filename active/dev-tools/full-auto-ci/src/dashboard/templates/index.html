@@ -4,12 +4,19 @@
 
 {% block content %}
 <section class="section">
-  <div class="section-header">
-    <h2>Repositories</h2>
-    <p>Overview of all repositories currently tracked by Full Auto CI.</p>
+  <div class="page-intro">
+    <div>
+      <p class="page-eyebrow">Overview</p>
+      <h2>Tracked repositories</h2>
+      <p>See current status, last activity, and recent outcomes across every repository.</p>
+    </div>
+    <div class="page-intro__meta">
+      <span class="live-badge">Refreshes every 15s</span>
+      <span id="overview-refresh-indicator" class="hx-indicator" aria-hidden="true">Refreshing…</span>
+    </div>
   </div>
   <div id="repository-overview" hx-get="{{ url_for('dashboard.repositories_partial') }}" hx-trigger="load, every 15s"
-    hx-target="#repository-overview" hx-swap="innerHTML">
+    hx-target="#repository-overview" hx-swap="innerHTML" hx-indicator="#overview-refresh-indicator">
     {% include "partials/repositories_overview.html" %}
   </div>
 </section>

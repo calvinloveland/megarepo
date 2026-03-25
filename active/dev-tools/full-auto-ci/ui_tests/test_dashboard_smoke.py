@@ -15,7 +15,7 @@ def test_dashboard_shows_empty_state(page, dashboard_server):
 
     page.goto(dashboard_server["base_url"], wait_until="networkidle")
     expect(page.locator("header.app-header h1 a")).to_have_text(
-        "Full Auto CI Dashboard"
+        "Full Auto CI"
     )
     page.wait_for_selector("div.empty-state")
     expect(page.locator("div.empty-state")).to_contain_text(

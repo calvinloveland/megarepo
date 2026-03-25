@@ -1,155 +1,223 @@
 {% set current_status = last_run.status if last_run else None %}
 
-<div class="repo-meta">
-    <div>
-        <strong>Branch</strong>
-        <span>{{ repository.branch }}</span>
-    </div>
-    <div>
-        <strong>Last run</strong>
-        <span>{% if last_run %}{{ last_run.created_at | timeago }}{% else %}Never{% endif %}</span>
-    </div>
-    <div>
-        <strong>Status</strong>
-        <span class="status-pill {{ current_status | status_class }}">
-            {{ current_status or "no runs" }}
-        </span>
-    </div>
-</div>
-
-{% if summary %}
-<div class="status-summary status-summary--wrap">
-    {% for status, count in summary.items() %}
-    <span class="summary-chip {{ status | status_class }}">{{ status }}: {{ count }}</span>
-    {% endfor %}
-</div>
+{% set latest_commit_hash = None %}
+{% if last_run %}
+{% if last_run.commit and last_run.commit.hash %}
+{% set latest_commit_hash = last_run.commit.hash[:7] %}
+{% elif last_run.commit_hash %}
+{% set latest_commit_hash = last_run.commit_hash[:7] %}
+{% endif %}
 {% endif %}
 
-{% if trend_chart %}
 <section class="section-card">
     <header class="section-subheader">
-        <h3>Historical Trend</h3>
+        <div>
+            <h3>Repository status</h3>
+            <p class="section-note">Scan branch, latest activity, and the recent outcome mix before diving into run details.</p>
+        </div>
     </header>
-    <div class="chart-card">
-        <svg class="trend-chart" viewBox="0 0 {{ trend_chart.width }} {{ trend_chart.height }}" role="img"
-            aria-label="Historical test run duration trend">
-            {% for tick in trend_chart.y_ticks %}
-            <line class="trend-chart__grid" x1="{{ trend_chart.plot_left }}" y1="{{ tick.y }}"
-                x2="{{ trend_chart.plot_right }}" y2="{{ tick.y }}"></line>
-            <text class="trend-chart__tick-label" x="{{ trend_chart.plot_left - 10 }}" y="{{ tick.y + 4 }}">
-                {{ tick.label }}
-            </text>
-            {% endfor %}
-            <line class="trend-chart__axis" x1="{{ trend_chart.plot_left }}" y1="{{ trend_chart.plot_bottom }}"
-                x2="{{ trend_chart.plot_right }}" y2="{{ trend_chart.plot_bottom }}"></line>
-            {% if trend_chart.polyline_points %}
-            <polyline class="trend-chart__line" points="{{ trend_chart.polyline_points }}"></polyline>
-            {% endif %}
-            {% for point in trend_chart.points %}
-            <circle class="trend-chart__point{% if not point.has_duration %} trend-chart__point--empty{% endif %}"
-                cx="{{ point.x }}" cy="{{ point.y }}" r="5" style="--point-color: {{ point.color }};">
-                <title>{{ point.label }} · {{ point.status }} · {{ point.duration_label }}</title>
-            </circle>
-            {% if point.show_x_label %}
-            <text class="trend-chart__x-label" x="{{ point.x }}" y="{{ trend_chart.height - 12 }}">{{ point.label }}</text>
-            {% endif %}
-            {% endfor %}
-        </svg>
+    <div class="snapshot-grid">
+        <div class="snapshot-card">
+            <span class="status-label">Current status</span>
+            <span class="status-pill {{ current_status | status_class }}">
+                {{ current_status or "no runs" }}
+            </span>
+            <p class="snapshot-detail">
+                {% if last_run %}
+                Queued {{ last_run.created_at | timeago }}
+                {% else %}
+                No test runs recorded yet.
+                {% endif %}
+            </p>
+        </div>
+        <div class="snapshot-card">
+            <span class="status-label">Tracked branch</span>
+            <div class="snapshot-value">{{ repository.branch }}</div>
+            <p class="snapshot-detail">Queued runs follow this branch.</p>
+        </div>
+        <div class="snapshot-card">
+            <span class="status-label">Latest commit</span>
+            <div class="snapshot-value">
+                {% if latest_commit_hash %}
+                <code>{{ latest_commit_hash }}</code>
+                {% else %}
+                —
+                {% endif %}
+            </div>
+            <p class="snapshot-detail">
+                {% if last_run and last_run.commit and last_run.commit.message %}
+                {{ last_run.commit.message }}
+                {% elif last_run %}
+                Most recent queued commit.
+                {% else %}
+                Queue a commit to begin tracking.
+                {% endif %}
+            </p>
+        </div>
+        <div class="snapshot-card">
+            <span class="status-label">Last completed run</span>
+            <div class="snapshot-value">
+                {% if last_run and last_run.completed_at %}
+                {{ last_run.completed_at | timeago }}
+                {% elif last_run and last_run.started_at %}
+                In progress
+                {% elif last_run %}
+                Queued
+                {% else %}
+                Never
+                {% endif %}
+            </div>
+            <p class="snapshot-detail">Recent activity for this repository.</p>
+        </div>
     </div>
-    <p class="chart-hint">Durations use the difference between test start and completion timestamps. Runs without a
-        finished duration stay on the baseline until they complete.</p>
+    {% if summary %}
+    <div class="status-summary status-summary--wrap">
+        {% for status, count in summary.items() %}
+        <span class="summary-chip {{ status | status_class }}">{{ status }}: {{ count }}</span>
+        {% endfor %}
+    </div>
+    {% endif %}
 </section>
-{% endif %}
 
-{% if loc_change_chart %}
-<section class="section-card">
-    <header class="section-subheader">
-        <h3>LOC Change Over Time</h3>
-    </header>
-    <div class="chart-card">
-        <svg class="loc-chart" viewBox="0 0 {{ loc_change_chart.width }} {{ loc_change_chart.height }}" role="img"
-            aria-label="Historical LOC change over time">
-            {% for tick in loc_change_chart.y_ticks %}
-            <line class="loc-chart__grid" x1="{{ loc_change_chart.plot_left }}" y1="{{ tick.y }}"
-                x2="{{ loc_change_chart.plot_right }}" y2="{{ tick.y }}"></line>
-            <text class="loc-chart__tick-label" x="{{ loc_change_chart.plot_left - 10 }}" y="{{ tick.y + 4 }}">
-                {{ tick.label }}
-            </text>
-            {% endfor %}
-            <line class="loc-chart__axis" x1="{{ loc_change_chart.plot_left }}" y1="{{ loc_change_chart.baseline_y }}"
-                x2="{{ loc_change_chart.plot_right }}" y2="{{ loc_change_chart.baseline_y }}"></line>
-            {% for point in loc_change_chart.points %}
-            <rect class="loc-chart__bar" x="{{ point.x }}" y="{{ point.y }}" width="{{ point.width }}"
-                height="{{ point.height }}" style="--bar-color: {{ point.color }};">
-                <title>{{ point.label }} · net {{ point.net_label }} LOC · added {{ point.added_label }} · removed {{
-                    point.deleted_label }}</title>
-            </rect>
-            {% if point.show_x_label %}
-            <text class="loc-chart__x-label" x="{{ point.label_x }}" y="{{ loc_change_chart.height - 12 }}">{{
-                point.label }}</text>
-            {% endif %}
-            {% endfor %}
-        </svg>
-    </div>
-    <p class="chart-hint">Each bar shows the net LOC delta for a commit. Hover a bar to see added and removed lines.</p>
-</section>
-{% endif %}
-
-{% if commit_comparison %}
-<section class="section-card">
-    <header class="section-subheader">
-        <h3>Commit Comparison</h3>
-    </header>
-    <div class="comparison-table">
-        <table>
-            <thead>
-                <tr>
-                    <th>Commit</th>
-                    <th>Status</th>
-                    <th>Duration</th>
-                    <th>Tools</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for row in commit_comparison %}
-                <tr>
-                    <td>
-                        <code>{{ row.commit_hash[:7] }}</code>
-                        {% if row.message %}<div class="comparison-message">{{ row.message }}</div>{% endif %}
-                    </td>
-                    <td>
-                        <span class="status-pill {{ row.status | status_class }}">{{ row.status }}</span>
-                    </td>
-                    <td>
-                        {% if row.duration is not none %}
-                        {{ '%.2f'|format(row.duration) }}s
-                        {% else %}
-                        —
-                        {% endif %}
-                    </td>
-                    <td>
-                        {% if row.tools %}
-                        <ul class="tool-status-list">
-                            {% for tool in row.tools %}
-                            <li><span>{{ tool.tool }}</span> <span
-                                    class="status-pill {{ tool.status | status_class }}">{{ tool.status }}</span></li>
-                            {% endfor %}
-                        </ul>
-                        {% else %}
-                        <span class="muted">no tool results</span>
-                        {% endif %}
-                    </td>
-                </tr>
+<div class="insights-grid">
+    {% if trend_chart %}
+    <section class="section-card">
+        <header class="section-subheader">
+            <div>
+                <h3>Historical Trend</h3>
+                <p class="section-note">Track how total run time changes as commits move through the queue.</p>
+            </div>
+        </header>
+        <div class="chart-card">
+            <svg class="trend-chart" viewBox="0 0 {{ trend_chart.width }} {{ trend_chart.height }}" role="img"
+                aria-label="Historical test run duration trend">
+                {% for tick in trend_chart.y_ticks %}
+                <line class="trend-chart__grid" x1="{{ trend_chart.plot_left }}" y1="{{ tick.y }}"
+                    x2="{{ trend_chart.plot_right }}" y2="{{ tick.y }}"></line>
+                <text class="trend-chart__tick-label" x="{{ trend_chart.plot_left - 10 }}" y="{{ tick.y + 4 }}">
+                    {{ tick.label }}
+                </text>
                 {% endfor %}
-            </tbody>
-        </table>
-    </div>
-</section>
-{% endif %}
+                <line class="trend-chart__axis" x1="{{ trend_chart.plot_left }}" y1="{{ trend_chart.plot_bottom }}"
+                    x2="{{ trend_chart.plot_right }}" y2="{{ trend_chart.plot_bottom }}"></line>
+                {% if trend_chart.polyline_points %}
+                <polyline class="trend-chart__line" points="{{ trend_chart.polyline_points }}"></polyline>
+                {% endif %}
+                {% for point in trend_chart.points %}
+                <circle class="trend-chart__point{% if not point.has_duration %} trend-chart__point--empty{% endif %}"
+                    cx="{{ point.x }}" cy="{{ point.y }}" r="5" style="--point-color: {{ point.color }};">
+                    <title>{{ point.label }} · {{ point.status }} · {{ point.duration_label }}</title>
+                </circle>
+                {% if point.show_x_label %}
+                <text class="trend-chart__x-label" x="{{ point.x }}" y="{{ trend_chart.height - 12 }}">{{ point.label }}</text>
+                {% endif %}
+                {% endfor %}
+            </svg>
+        </div>
+        <p class="chart-hint">Durations use the difference between test start and completion timestamps. Runs without a
+            finished duration stay on the baseline until they complete.</p>
+    </section>
+    {% endif %}
 
-<section class="section">
+    {% if loc_change_chart %}
+    <section class="section-card">
+        <header class="section-subheader">
+            <div>
+                <h3>LOC Change Over Time</h3>
+                <p class="section-note">Use commit size to spot run outliers or unusually large queued changes.</p>
+            </div>
+        </header>
+        <div class="chart-card">
+            <svg class="loc-chart" viewBox="0 0 {{ loc_change_chart.width }} {{ loc_change_chart.height }}" role="img"
+                aria-label="Historical LOC change over time">
+                {% for tick in loc_change_chart.y_ticks %}
+                <line class="loc-chart__grid" x1="{{ loc_change_chart.plot_left }}" y1="{{ tick.y }}"
+                    x2="{{ loc_change_chart.plot_right }}" y2="{{ tick.y }}"></line>
+                <text class="loc-chart__tick-label" x="{{ loc_change_chart.plot_left - 10 }}" y="{{ tick.y + 4 }}">
+                    {{ tick.label }}
+                </text>
+                {% endfor %}
+                <line class="loc-chart__axis" x1="{{ loc_change_chart.plot_left }}" y1="{{ loc_change_chart.baseline_y }}"
+                    x2="{{ loc_change_chart.plot_right }}" y2="{{ loc_change_chart.baseline_y }}"></line>
+                {% for point in loc_change_chart.points %}
+                <rect class="loc-chart__bar" x="{{ point.x }}" y="{{ point.y }}" width="{{ point.width }}"
+                    height="{{ point.height }}" style="--bar-color: {{ point.color }};">
+                    <title>{{ point.label }} · net {{ point.net_label }} LOC · added {{ point.added_label }} · removed {{
+                        point.deleted_label }}</title>
+                </rect>
+                {% if point.show_x_label %}
+                <text class="loc-chart__x-label" x="{{ point.label_x }}" y="{{ loc_change_chart.height - 12 }}">{{
+                    point.label }}</text>
+                {% endif %}
+                {% endfor %}
+            </svg>
+        </div>
+        <p class="chart-hint">Each bar shows the net LOC delta for a commit. Hover a bar to see added and removed lines.</p>
+    </section>
+    {% endif %}
+
+    {% if commit_comparison %}
+    <section class="section-card insights-grid__wide">
+        <header class="section-subheader">
+            <div>
+                <h3>Commit Comparison</h3>
+                <p class="section-note">Compare recent runs side by side before opening individual tool output.</p>
+            </div>
+        </header>
+        <div class="comparison-table">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Commit</th>
+                        <th>Status</th>
+                        <th>Duration</th>
+                        <th>Tools</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in commit_comparison %}
+                    <tr>
+                        <td>
+                            <code>{{ row.commit_hash[:7] }}</code>
+                            {% if row.message %}<div class="comparison-message">{{ row.message }}</div>{% endif %}
+                        </td>
+                        <td>
+                            <span class="status-pill {{ row.status | status_class }}">{{ row.status }}</span>
+                        </td>
+                        <td>
+                            {% if row.duration is not none %}
+                            {{ '%.2f'|format(row.duration) }}s
+                            {% else %}
+                            —
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if row.tools %}
+                            <ul class="tool-status-list">
+                                {% for tool in row.tools %}
+                                <li><span>{{ tool.tool }}</span> <span
+                                        class="status-pill {{ tool.status | status_class }}">{{ tool.status }}</span></li>
+                                {% endfor %}
+                            </ul>
+                            {% else %}
+                            <span class="muted">no tool results</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+    {% endif %}
+</div>
+
+<section class="section-card">
     <header class="section-subheader">
-        <h3>Recent Test Runs</h3>
+        <div>
+            <h3>Recent Test Runs</h3>
+            <p class="section-note">Queue a commit or inspect captured tool output from the latest runs.</p>
+        </div>
         <form method="post" action="{{ url_for('dashboard.rerun_test', repo_id=repository.id) }}">
             <label for="commit_hash">Queue tests for commit:</label>
             <input type="text" id="commit_hash" name="commit_hash" placeholder="Commit hash" required />

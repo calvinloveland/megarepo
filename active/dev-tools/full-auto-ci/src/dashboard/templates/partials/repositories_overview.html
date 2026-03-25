@@ -19,7 +19,15 @@
         <span class="status-label">Failing</span>
         <strong>{{ overview.failing | default(0) }}</strong>
     </div>
+    <div class="status-card">
+        <span class="status-label">No runs yet</span>
+        <strong>{{ overview.never | default(0) }}</strong>
+    </div>
 </div>
+
+{% if overview.never %}
+<p class="overview-note muted">{{ overview.never }} repos still need their first recorded run.</p>
+{% endif %}
 
 {% if not repositories %}
 <div class="empty-state empty-state--full">
@@ -27,21 +35,22 @@
     <pre><code>full-auto-ci repo add "My Project" https://github.com/example/repo.git</code></pre>
 </div>
 {% else %}
-<div class="card-grid">
+<div class="repository-list">
     {% for repo in repositories %}
-    <article class="card" data-repo-id="{{ repo.id }}">
-        <header class="card-header">
-            <h3><a href="{{ url_for('dashboard.repository_detail', repo_id=repo.id) }}">{{ repo.name }}</a></h3>
-            <span class="status-pill {{ repo.latest_status | status_class }}">
-                {{ repo.latest_status or "no runs" }}
-            </span>
-        </header>
-        <div class="card-body">
-            <dl class="meta-list">
-                <div>
-                    <dt>URL</dt>
-                    <dd><a href="{{ repo.url }}" target="_blank" rel="noopener">{{ repo.url }}</a></dd>
+    <article class="card repository-row" data-repo-id="{{ repo.id }}">
+        <div class="repository-row__main">
+            <div class="repository-row__identity">
+                <div class="repository-row__title">
+                    <h3><a href="{{ url_for('dashboard.repository_detail', repo_id=repo.id) }}">{{ repo.name }}</a></h3>
+                    <span class="status-pill {{ repo.latest_status | status_class }}">
+                        {{ repo.latest_status or "no runs" }}
+                    </span>
                 </div>
+                <p class="repository-row__url">
+                    <a href="{{ repo.url }}" target="_blank" rel="noopener">{{ repo.url }}</a>
+                </p>
+            </div>
+            <dl class="repository-row__facts">
                 <div>
                     <dt>Branch</dt>
                     <dd>{{ repo.branch }}</dd>
@@ -50,18 +59,33 @@
                     <dt>Last run</dt>
                     <dd>{{ repo.latest_run.created_at | timeago if repo.latest_run else "Never" }}</dd>
                 </div>
+                <div>
+                    <dt>Latest commit</dt>
+                    <dd>
+                        {% if repo.latest_run and repo.latest_run.commit_hash %}
+                        <code>{{ repo.latest_run.commit_hash[:7] }}</code>
+                        {% else %}
+                        <span class="muted">—</span>
+                        {% endif %}
+                    </dd>
+                </div>
             </dl>
-            {% if repo.summary %}
-            <div class="status-summary">
-                {% for status, count in repo.summary.items() %}
-                <span class="summary-chip {{ status | status_class }}">{{ status }}: {{ count }}</span>
-                {% endfor %}
-            </div>
-            {% endif %}
         </div>
-        <footer class="card-footer">
-            <a class="btn" href="{{ url_for('dashboard.repository_detail', repo_id=repo.id) }}">View details</a>
-        </footer>
+        <div class="repository-row__status">
+            <div>
+                <span class="status-label">Recent outcomes</span>
+                {% if repo.summary %}
+                <div class="status-summary">
+                    {% for status, count in repo.summary.items() %}
+                    <span class="summary-chip {{ status | status_class }}">{{ status }}: {{ count }}</span>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="muted">No recent runs yet.</p>
+                {% endif %}
+            </div>
+            <a class="btn" href="{{ url_for('dashboard.repository_detail', repo_id=repo.id) }}">Open repository</a>
+        </div>
     </article>
     {% endfor %}
 </div>
