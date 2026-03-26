@@ -43,15 +43,11 @@ If `thinker` is running the user-level Tailscale Serve proxy, the Control UI is 
 Because the gateway uses token auth, bootstrap the UI with a tokenized dashboard URL:
 
 ```bash
-kubectl -n openclaw exec deploy/openclaw -- sh -lc '
-  export HOME=/data/home
-  export NPM_CONFIG_PREFIX=/data/npm
-  export PATH=$NPM_CONFIG_PREFIX/bin:$PATH
-  openclaw dashboard --no-open
-'
+TOKEN=$(kubectl -n openclaw get secret openclaw-env -o go-template='{{index .data "gateway-token"}}' | base64 -d)
+printf 'https://thinker-openclaw.tail876a6b.ts.net/#token=%s\n' "$TOKEN"
 ```
 
-Open the printed `https://.../#token=...` URL once in your browser. After that, the Control UI keeps the token in session storage for that browser tab session.
+Open the printed URL once in your browser. After that, the Control UI keeps the token in session storage for that browser tab session.
 
 ## Notes
 
