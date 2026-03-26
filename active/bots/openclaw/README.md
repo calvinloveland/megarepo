@@ -13,6 +13,7 @@ Create the runtime secret in the `openclaw` namespace before applying the deploy
 ```bash
 kubectl -n openclaw create secret generic openclaw-env \
   --from-literal=openrouter-api-key='<OPENROUTER_API_KEY>' \
+  --from-literal=telegram-bot-token='<TELEGRAM_BOT_TOKEN>' \
   --dry-run=client -o yaml | kubectl apply -f -
 ```
 
@@ -50,6 +51,12 @@ printf 'https://thinker-openclaw.tail876a6b.ts.net/#token=%s\n' "$TOKEN"
 Open the printed URL once in your browser. After that, the Control UI keeps the token in session storage for that browser tab session.
 
 If the user-level Tailscale Serve proxy on `thinker` ever starts returning TLS errors or a blank/404-ish failure before the OpenClaw UI loads, make sure the userspace daemon was started with a writable `--statedir` in addition to `--state`. HTTPS cert issuance for Serve fails without it and logs `no TailscaleVarRoot`.
+
+## Telegram
+
+The deployment enables the Telegram Bot API channel when the `telegram-bot-token` secret key is present.
+
+DM access is configured with `dmPolicy: "pairing"` by default, so the first DM from a new Telegram user will need approval before the bot replies.
 
 ## Notes
 

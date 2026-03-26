@@ -81,6 +81,13 @@ spec:
                       "https://thinker-openclaw.tail876a6b.ts.net"
                     ]
                   }
+                },
+                "channels": {
+                  "telegram": {
+                    "enabled": true,
+                    "botToken": "${OPENCLAW_TELEGRAM_BOT_TOKEN}",
+                    "dmPolicy": "pairing"
+                  }
                 }
               }
               JSON
@@ -97,6 +104,11 @@ spec:
                 secretKeyRef:
                   name: openclaw-env
                   key: gateway-token
+            - name: OPENCLAW_TELEGRAM_BOT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: openclaw-env
+                  key: telegram-bot-token
             - name: TZ
               value: UTC
           resources:
