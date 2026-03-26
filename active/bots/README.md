@@ -8,6 +8,9 @@ Discord bots and automation tools.
 - [**CryptoRoleBot**](CryptoRoleBot/README.md) - Discord bot for crypto-related roles and interactions (13 forks!)
   - Manages role assignments based on cryptocurrency holdings
   - Community engagement features
+- [**OpenClaw**](openclaw/README.md) - Cluster-hosted OpenClaw gateway backed by OpenRouter free routing
+  - Internal dashboard reachable with `kubectl port-forward`
+  - Uses `openrouter/free` as the primary model router
 
 ### Game Solvers & Analyzers
 - [**broomsweeper_solver**](broomsweeper_solver/README.md) - Minesweeper solver and analyzer
