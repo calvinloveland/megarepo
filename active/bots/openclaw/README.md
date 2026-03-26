@@ -34,7 +34,25 @@ kubectl -n openclaw port-forward svc/openclaw 18789:18789
 
 Then open `http://127.0.0.1:18789`.
 
+## Tailscale access
+
+If `thinker` is running the user-level Tailscale Serve proxy, the Control UI is also reachable at:
+
+`https://thinker-openclaw.tail876a6b.ts.net`
+
+Because the gateway uses token auth, bootstrap the UI with a tokenized dashboard URL:
+
+```bash
+kubectl -n openclaw exec deploy/openclaw -- sh -lc '
+  export HOME=/data/home
+  export NPM_CONFIG_PREFIX=/data/npm
+  export PATH=$NPM_CONFIG_PREFIX/bin:$PATH
+  openclaw dashboard --no-open
+'
+```
+
+Open the printed `https://.../#token=...` URL once in your browser. After that, the Control UI keeps the token in session storage for that browser tab session.
+
 ## Notes
 
-- The deployment intentionally uses `--auth none` because the service is cluster-internal only and expected to be reached through `kubectl port-forward`.
 - The container installs `openclaw` onto the mounted PVC on first boot to avoid pulling the much larger all-in-one image on a disk-pressured node.
