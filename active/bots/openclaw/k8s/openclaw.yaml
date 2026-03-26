@@ -84,13 +84,18 @@ spec:
               }
               JSON
 
-              exec openclaw gateway --allow-unconfigured --auth none --bind lan --port 18789
+              exec openclaw gateway --allow-unconfigured --auth token --bind lan --port 18789 --token "$OPENCLAW_GATEWAY_TOKEN"
           env:
             - name: OPENROUTER_API_KEY
               valueFrom:
                 secretKeyRef:
                   name: openclaw-env
                   key: openrouter-api-key
+            - name: OPENCLAW_GATEWAY_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: openclaw-env
+                  key: gateway-token
             - name: TZ
               value: UTC
           resources:
