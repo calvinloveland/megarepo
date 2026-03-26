@@ -13,12 +13,8 @@ Create the runtime secret in the `openclaw` namespace before applying the deploy
 ```bash
 kubectl -n openclaw create secret generic openclaw-env \
   --from-literal=openrouter-api-key='<OPENROUTER_API_KEY>' \
-  --from-literal=auth-password='<dashboard-password>' \
-  --from-literal=gateway-token='<gateway-bearer-token>' \
   --dry-run=client -o yaml | kubectl apply -f -
 ```
-
-The dashboard username defaults to `admin`.
 
 ## Deploy
 
@@ -33,7 +29,12 @@ kubectl -n openclaw get pods,svc,pvc
 Keep the service internal and port-forward it when needed:
 
 ```bash
-kubectl -n openclaw port-forward svc/openclaw 8080:8080
+kubectl -n openclaw port-forward svc/openclaw 18789:18789
 ```
 
-Then open `http://127.0.0.1:8080`.
+Then open `http://127.0.0.1:18789`.
+
+## Notes
+
+- The deployment intentionally uses `--auth none` because the service is cluster-internal only and expected to be reached through `kubectl port-forward`.
+- The container installs `openclaw` onto the mounted PVC on first boot to avoid pulling the much larger all-in-one image on a disk-pressured node.
