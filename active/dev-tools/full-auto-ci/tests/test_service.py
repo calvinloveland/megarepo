@@ -221,6 +221,44 @@ class TestCIService(unittest.TestCase):
         self.assertFalse(self.service.running)
         self.assertTrue(mock_thread_instance.join.called)
 
+    @patch("threading.Thread")
+    def test_start_marks_interrupted_runs_as_error(self, mock_thread):
+        """Service startup should reconcile stale active runs left in the database."""
+        mock_thread_instance = MagicMock()
+        mock_thread.return_value = mock_thread_instance
+
+        repo_id = self.service.add_repository(
+            "demo", "https://github.com/test/demo.git"
+        )
+        running_run_id = self.service.data.create_test_run(
+            repo_id, "deadbeef", "running", 100
+        )
+        self.service.data.update_test_run(
+            running_run_id, status="running", started_at=120
+        )
+        queued_run_id = self.service.data.create_test_run(
+            repo_id, "cafebabe", "queued", 101
+        )
+        self.service.data.update_test_run(queued_run_id, status="queued")
+
+        self.service.start()
+
+        active_runs = self.service.data.list_test_runs_by_status(["queued", "running"])
+        self.assertEqual(active_runs, [])
+
+        all_runs = self.service.data.fetch_recent_test_runs(repo_id, limit=10)
+        run_by_id = {run["id"]: run for run in all_runs}
+        self.assertEqual(run_by_id[running_run_id]["status"], "error")
+        self.assertEqual(run_by_id[queued_run_id]["status"], "error")
+        self.assertEqual(
+            run_by_id[running_run_id]["error"],
+            CIService.INTERRUPTED_RUNNING_MESSAGE,
+        )
+        self.assertEqual(
+            run_by_id[queued_run_id]["error"],
+            CIService.INTERRUPTED_QUEUED_MESSAGE,
+        )
+
     @patch("src.service.CIService._create_test_run")
     @patch("src.service.CIService._summarize_tool_results")
     @patch("src.service.CIService._update_test_run")

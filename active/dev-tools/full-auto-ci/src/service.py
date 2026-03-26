@@ -63,6 +63,15 @@ class ServiceComponents:
 class CIService:
     """Main service class that runs the continuous integration process."""
 
+    INTERRUPTED_RUNNING_MESSAGE = (
+        "This run was interrupted because the Full Auto CI service stopped before it "
+        "finished. Requeue the commit to run it again."
+    )
+    INTERRUPTED_QUEUED_MESSAGE = (
+        "This queued run never started because the Full Auto CI service stopped before "
+        "processing it. Requeue the commit to run it again."
+    )
+
     def __init__(
         self, config_path: Optional[str] = None, db_path: Optional[str] = None
     ):
@@ -744,6 +753,26 @@ class CIService:
         self.task_queue.put(task)
         return True
 
+    def _recover_interrupted_test_runs(self) -> None:
+        """Mark stale active runs as interrupted before workers restart."""
+        interrupted_runs = self.data.list_test_runs_by_status(
+            ["pending", "queued", "running"]
+        )
+        if not interrupted_runs:
+            return
+
+        logger.warning(
+            "Recovering %s interrupted test runs left active while the service was offline",
+            len(interrupted_runs),
+        )
+
+        for run in interrupted_runs:
+            if run["status"] == "running":
+                message = self.INTERRUPTED_RUNNING_MESSAGE
+            else:
+                message = self.INTERRUPTED_QUEUED_MESSAGE
+            self._update_test_run(run["id"], "error", message)
+
     def _update_repository_last_check(self, repo_id: int):
         """Record the last time a repository was polled."""
         self.data.update_repository_last_check(repo_id, int(time.time()))
@@ -774,6 +803,7 @@ class CIService:
             logger.warning("Service is already running")
             return
 
+        self._recover_interrupted_test_runs()
         self.running = True
 
         # Start worker threads

@@ -99,6 +99,8 @@ full-auto-ci service start
 
 The command launches the service in a background process, prints the dashboard URL (defaults to `http://127.0.0.1:8000` unless overridden via `dashboard.host`/`dashboard.port` in `~/.fullautoci/config.yml`), and—when possible—opens it in your default browser. A PID file is stored under the Full Auto CI data directory (`service.pid`) so you can inspect or stop the process later. Disable the auto-open behavior by setting `dashboard.auto_open: false` in your config or by exporting `FULL_AUTO_CI_OPEN_BROWSER=0`.
 
+On startup, the service now reconciles any stale `pending`, `queued`, or `running` test rows left behind by an earlier crash or stop. Those abandoned runs are marked as interrupted so the dashboard stops reporting them as active and future requeues are not blocked by stale state.
+
 Check the status:
 
 ```bash
