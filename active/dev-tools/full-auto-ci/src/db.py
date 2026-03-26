@@ -600,6 +600,38 @@ class DataAccess:
 
         return {row[0]: int(row[1]) for row in rows}
 
+    def list_test_runs_by_status(self, statuses: List[str]) -> List[Dict[str, Any]]:
+        """Return test runs whose status is in ``statuses``."""
+        if not statuses:
+            return []
+
+        placeholders = ", ".join("?" for _ in statuses)
+        sql = (
+            "SELECT id, repository_id, commit_hash, status, created_at, started_at, "
+            "completed_at, error FROM test_runs "
+            f"WHERE status IN ({placeholders}) "
+            "ORDER BY created_at ASC, id ASC"
+        )
+
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute(sql, statuses)
+            rows = cursor.fetchall()
+
+        return [
+            {
+                "id": int(row[0]),
+                "repository_id": int(row[1]),
+                "commit_hash": row[2],
+                "status": row[3],
+                "created_at": row[4],
+                "started_at": row[5],
+                "completed_at": row[6],
+                "error": row[7],
+            }
+            for row in rows
+        ]
+
     def fetch_recent_test_runs(
         self, repo_id: int, limit: int = 20, commit_hash: Optional[str] = None
     ) -> List[Dict[str, Any]]:
