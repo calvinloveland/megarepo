@@ -49,6 +49,8 @@ printf 'https://thinker-openclaw.tail876a6b.ts.net/#token=%s\n' "$TOKEN"
 
 Open the printed URL once in your browser. After that, the Control UI keeps the token in session storage for that browser tab session.
 
+If the user-level Tailscale Serve proxy on `thinker` ever starts returning TLS errors or a blank/404-ish failure before the OpenClaw UI loads, make sure the userspace daemon was started with a writable `--statedir` in addition to `--state`. HTTPS cert issuance for Serve fails without it and logs `no TailscaleVarRoot`.
+
 ## Notes
 
 - The container installs `openclaw` onto the mounted PVC on first boot to avoid pulling the much larger all-in-one image on a disk-pressured node.
