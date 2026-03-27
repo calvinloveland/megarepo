@@ -46,6 +46,7 @@ spec:
               export NPM_CONFIG_PREFIX=/data/npm
               export NPM_CONFIG_CACHE=/data/npm-cache
               export PATH="$NPM_CONFIG_PREFIX/bin:$PATH"
+              export HIMALAYA_PREFIX=/data/tools/himalaya
               export OPENCLAW_STATE_DIR=/data/.openclaw
               export OPENCLAW_WORKSPACE_DIR=/data/workspace
 
@@ -54,11 +55,60 @@ spec:
                 "$TMPDIR" \
                 "$NPM_CONFIG_PREFIX" \
                 "$NPM_CONFIG_CACHE" \
+                "$HIMALAYA_PREFIX" \
                 "$OPENCLAW_STATE_DIR" \
                 "$OPENCLAW_WORKSPACE_DIR"
 
               if [ ! -x "$NPM_CONFIG_PREFIX/bin/openclaw" ]; then
                 npm install -g "openclaw@2026.3.24"
+              fi
+
+              if [ -n "${HIMALAYA_GMAIL_ADDRESS:-}" ] && [ -n "${HIMALAYA_GMAIL_APP_PASSWORD:-}" ]; then
+                export PATH="$HIMALAYA_PREFIX/bin:$PATH"
+
+                if [ ! -x "$HIMALAYA_PREFIX/bin/himalaya" ]; then
+                  apt-get update -qq
+                  apt-get install -y --no-install-recommends ca-certificates curl tar
+                  arch="$(uname -m)"
+                  case "$arch" in
+                    x86_64) himalaya_target="x86_64-linux" ;;
+                    aarch64|arm64) himalaya_target="aarch64-linux" ;;
+                    *)
+                      echo "unsupported himalaya architecture: $arch" >&2
+                      exit 1
+                      ;;
+                  esac
+                  curl -fsSL \
+                    "https://github.com/pimalaya/himalaya/releases/latest/download/himalaya.${himalaya_target}.tgz" \
+                    -o /tmp/himalaya.tgz
+                  tar -xzf /tmp/himalaya.tgz -C /tmp
+                  install -m 0755 /tmp/himalaya "$HIMALAYA_PREFIX/bin/himalaya"
+                  rm -f /tmp/himalaya /tmp/himalaya.tgz
+                fi
+
+                mkdir -p "$HOME/.config/himalaya"
+                cat > "$HOME/.config/himalaya/config.toml" <<EOF
+                [accounts.gmail]
+                email = "$HIMALAYA_GMAIL_ADDRESS"
+                display-name = "$HIMALAYA_GMAIL_ADDRESS"
+                default = true
+
+                backend.type = "imap"
+                backend.host = "imap.gmail.com"
+                backend.port = 993
+                backend.encryption.type = "tls"
+                backend.login = "$HIMALAYA_GMAIL_ADDRESS"
+                backend.auth.type = "password"
+                backend.auth.cmd = "printf '%s' \"\$HIMALAYA_GMAIL_APP_PASSWORD\""
+
+                message.send.backend.type = "smtp"
+                message.send.backend.host = "smtp.gmail.com"
+                message.send.backend.port = 587
+                message.send.backend.encryption.type = "start-tls"
+                message.send.backend.login = "$HIMALAYA_GMAIL_ADDRESS"
+                message.send.backend.auth.type = "password"
+                message.send.backend.auth.cmd = "printf '%s' \"\$HIMALAYA_GMAIL_APP_PASSWORD\""
+                EOF
               fi
 
               cat > "$OPENCLAW_STATE_DIR/openclaw.json" <<'JSON'
@@ -109,6 +159,18 @@ spec:
                 secretKeyRef:
                   name: openclaw-env
                   key: telegram-bot-token
+            - name: HIMALAYA_GMAIL_ADDRESS
+              valueFrom:
+                secretKeyRef:
+                  name: openclaw-env
+                  key: gmail-address
+                  optional: true
+            - name: HIMALAYA_GMAIL_APP_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: openclaw-env
+                  key: gmail-app-password
+                  optional: true
             - name: TZ
               value: UTC
           resources:

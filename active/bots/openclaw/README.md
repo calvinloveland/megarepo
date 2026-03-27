@@ -14,6 +14,8 @@ Create the runtime secret in the `openclaw` namespace before applying the deploy
 kubectl -n openclaw create secret generic openclaw-env \
   --from-literal=openrouter-api-key='<OPENROUTER_API_KEY>' \
   --from-literal=telegram-bot-token='<TELEGRAM_BOT_TOKEN>' \
+  --from-literal=gmail-address='<GMAIL_ADDRESS>' \
+  --from-literal=gmail-app-password='<GMAIL_APP_PASSWORD>' \
   --dry-run=client -o yaml | kubectl apply -f -
 ```
 
@@ -57,6 +59,14 @@ If the user-level Tailscale Serve proxy on `thinker` ever starts returning TLS e
 The deployment enables the Telegram Bot API channel when the `telegram-bot-token` secret key is present.
 
 DM access is configured with `dmPolicy: "pairing"` by default, so the first DM from a new Telegram user will need approval before the bot replies.
+
+## Gmail / email
+
+The deployment also supports optional Gmail access through the bundled `himalaya` skill.
+
+When both `gmail-address` and `gmail-app-password` secret keys are present, the pod installs `himalaya`, writes `~/.config/himalaya/config.toml`, and exposes email actions to OpenClaw through the existing bundled skill.
+
+For Gmail, use a Google App Password rather than the main account password. This requires Google 2-Step Verification to be enabled first.
 
 ## Notes
 
