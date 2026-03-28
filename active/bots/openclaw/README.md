@@ -14,8 +14,7 @@ Create the runtime secret in the `openclaw` namespace before applying the deploy
 kubectl -n openclaw create secret generic openclaw-env \
   --from-literal=openrouter-api-key='<OPENROUTER_API_KEY>' \
   --from-literal=telegram-bot-token='<TELEGRAM_BOT_TOKEN>' \
-  --from-literal=gmail-address='<GMAIL_ADDRESS>' \
-  --from-literal=gmail-app-password='<GMAIL_APP_PASSWORD>' \
+  --from-literal=hooks-token='<OPENCLAW_HOOKS_TOKEN>' \
   --dry-run=client -o yaml | kubectl apply -f -
 ```
 
@@ -62,11 +61,21 @@ DM access is configured with `dmPolicy: "pairing"` by default, so the first DM f
 
 ## Gmail / email
 
-The deployment also supports optional Gmail access through the bundled `himalaya` skill.
+The secure Gmail path for this deployment is the official Gmail Pub/Sub webhook flow with Google OAuth read-only scopes.
 
-When both `gmail-address` and `gmail-app-password` secret keys are present, the pod installs `himalaya`, writes `~/.config/himalaya/config.toml`, and exposes email actions to OpenClaw through the existing bundled skill.
+The cluster deployment enables OpenClaw hooks and the built-in Gmail preset at `/hooks/gmail`. Use a dedicated `hooks-token`; do not reuse the gateway token.
 
-For Gmail, use a Google App Password rather than the main account password. This requires Google 2-Step Verification to be enabled first.
+The Gmail watcher itself runs outside the pod with `gog` + `gcloud`, then posts into the gateway hook endpoint. This keeps Gmail access on OAuth with `gmail.readonly` and avoids storing an app password in the cluster.
+
+High-level flow:
+
+1. Authorize `gog` against the Gmail account with `--gmail-scope=readonly`.
+2. Enable `gmail.googleapis.com` and `pubsub.googleapis.com` in the Google Cloud project that owns the OAuth client.
+3. Create a Pub/Sub topic and push subscription.
+4. Run `gog gmail watch serve` on `thinker`, pointing `--hook-url` at the OpenClaw gateway’s `/hooks/gmail` endpoint and authenticating with `--hook-token`.
+5. Expose the watcher’s public HTTPS endpoint with Tailscale Funnel so Google Pub/Sub can reach it.
+
+This secure path only covers new-mail events. It does not grant broad historical inbox browsing the way IMAP would.
 
 ## Notes
 
