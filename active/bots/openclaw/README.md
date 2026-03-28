@@ -38,15 +38,15 @@ Then open `http://127.0.0.1:18789`.
 
 ## Tailscale access
 
-If `thinker` is running the user-level Tailscale Serve proxy, the Control UI is also reachable at:
+If `thinker` is running the user-level Tailscale Serve proxy, the Control UI is reachable privately on the tailnet at:
 
-`https://thinker-openclaw.tail876a6b.ts.net`
+`https://thinker-openclaw.tail876a6b.ts.net:8443`
 
 Because the gateway uses token auth, bootstrap the UI with a tokenized dashboard URL:
 
 ```bash
 TOKEN=$(kubectl -n openclaw get secret openclaw-env -o go-template='{{index .data "gateway-token"}}' | base64 -d)
-printf 'https://thinker-openclaw.tail876a6b.ts.net/#token=%s\n' "$TOKEN"
+  printf 'https://thinker-openclaw.tail876a6b.ts.net:8443/#token=%s\n' "$TOKEN"
 ```
 
 Open the printed URL once in your browser. After that, the Control UI keeps the token in session storage for that browser tab session.
@@ -76,6 +76,8 @@ High-level flow:
 5. Expose the watcher’s public HTTPS endpoint with Tailscale Funnel so Google Pub/Sub can reach it.
 
 This secure path only covers new-mail events. It does not grant broad historical inbox browsing the way IMAP would.
+
+For safety, keep the OpenClaw Control UI on a tailnet-only Serve port and reserve Funnel for the Gmail webhook endpoint only. Do not Funnel the Control UI root.
 
 ## Notes
 

@@ -79,7 +79,7 @@ spec:
                     "allowedOrigins": [
                       "http://127.0.0.1:18789",
                       "http://localhost:18789",
-                      "https://thinker-openclaw.tail876a6b.ts.net"
+                      "https://thinker-openclaw.tail876a6b.ts.net:8443"
                     ]
                   }
                 },
