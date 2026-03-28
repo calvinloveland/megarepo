@@ -79,6 +79,10 @@ This secure path only covers new-mail events. It does not grant broad historical
 
 For safety, keep the OpenClaw Control UI on a tailnet-only Serve port and reserve Funnel for the Gmail webhook endpoint only. Do not Funnel the Control UI root.
 
+## Browser automation
+
+The deployment installs Debian `chromium` inside the pod and configures the OpenClaw-managed browser profile to run in headless, `noSandbox` mode. That matches the container environment on `thinker`, where there is no desktop session and Chromium sandboxing is not usable as root.
+
 ## Notes
 
 - The container installs `openclaw` onto the mounted PVC on first boot to avoid pulling the much larger all-in-one image on a disk-pressured node.

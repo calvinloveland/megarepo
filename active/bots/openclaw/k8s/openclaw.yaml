@@ -61,6 +61,12 @@ spec:
                 npm install -g "openclaw@2026.3.24"
               fi
 
+              if [ ! -x /usr/bin/chromium ]; then
+                apt-get update -qq
+                apt-get install -y --no-install-recommends chromium
+                rm -rf /var/lib/apt/lists/*
+              fi
+
               cat > "$OPENCLAW_STATE_DIR/openclaw.json" <<'JSON'
               {
                 "agents": {
@@ -99,6 +105,11 @@ spec:
                 }
               }
               JSON
+
+              openclaw config set browser.executablePath /usr/bin/chromium
+              openclaw config set browser.headless true
+              openclaw config set browser.noSandbox true
+              openclaw config set browser.defaultProfile openclaw
 
               exec openclaw gateway --allow-unconfigured --auth token --bind lan --port 18789 --token "$OPENCLAW_GATEWAY_TOKEN"
           env:
