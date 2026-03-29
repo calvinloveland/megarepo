@@ -63,11 +63,21 @@ spec:
                 npm install -g "openclaw@2026.3.24"
               fi
 
-              if [ ! -x /usr/bin/chromium ]; then
+              if [ -x /usr/bin/chromium ]; then
+                BROWSER_EXECUTABLE=/usr/bin/chromium
+              else
                 apt-get update -qq
                 apt-get install -y --no-install-recommends chromium
                 rm -rf /var/lib/apt/lists/*
+                BROWSER_EXECUTABLE=/usr/bin/chromium
               fi
+
+              mkdir -p /data/.openclaw/browser/openclaw/user-data
+              rm -f \
+                /data/.openclaw/browser/openclaw/user-data/SingletonCookie \
+                /data/.openclaw/browser/openclaw/user-data/SingletonLock \
+                /data/.openclaw/browser/openclaw/user-data/SingletonSocket
+              find /data/tmp -maxdepth 1 -type d -name 'org.chromium.Chromium.*' -exec rm -rf {} +
 
               cat > "$OPENCLAW_STATE_DIR/openclaw.json" <<'JSON'
               {
@@ -145,7 +155,7 @@ spec:
               - Do not switch this deployment back to IMAP or Gmail app passwords.
               MD
 
-              openclaw config set browser.executablePath /usr/bin/chromium
+              openclaw config set browser.executablePath "$BROWSER_EXECUTABLE"
               openclaw config set browser.headless true
               openclaw config set browser.noSandbox true
               openclaw config set browser.defaultProfile openclaw
@@ -177,10 +187,10 @@ spec:
           resources:
             requests:
               cpu: 100m
-              memory: 512Mi
+              memory: 768Mi
               ephemeral-storage: 1Gi
             limits:
-              memory: 2Gi
+              memory: 3Gi
               ephemeral-storage: 4Gi
           ports:
             - name: http

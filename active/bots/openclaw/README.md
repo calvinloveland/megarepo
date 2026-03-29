@@ -93,6 +93,10 @@ For safety, keep the OpenClaw Control UI on a tailnet-only Serve port and reserv
 
 The deployment installs Debian `chromium` inside the pod and configures the OpenClaw-managed browser profile to run in headless, `noSandbox` mode. That matches the container environment on `thinker`, where there is no desktop session and Chromium sandboxing is not usable as root.
 
+On startup, the pod also removes stale Chromium `Singleton*` lock files from the persistent OpenClaw browser profile. That matters on this PVC-backed deployment because crashed or replaced pods can otherwise leave the shared profile in a permanently "already running" state.
+
+Fresh pod starts can take a couple of minutes before readiness goes green because the container installs `chromium` into the ephemeral filesystem before launching the gateway.
+
 ## Notes
 
 - The container installs `openclaw` onto the mounted PVC on first boot to avoid pulling the much larger all-in-one image on a disk-pressured node.
