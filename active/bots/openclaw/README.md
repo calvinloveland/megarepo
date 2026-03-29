@@ -97,6 +97,12 @@ On startup, the pod also removes stale Chromium `Singleton*` lock files from the
 
 Fresh pod starts can take a couple of minutes before readiness goes green because the container installs `chromium` into the ephemeral filesystem before launching the gateway.
 
+## Model fallback
+
+The deployment keeps `openrouter/free` as the primary default model and configures `github-copilot/gpt-4.1` as the first fallback.
+
+The GitHub Copilot provider requires an interactive device login (`openclaw models auth login-github-copilot`) and stores the resulting auth profile in the persistent OpenClaw state. Once that profile exists on the PVC, restarts keep the fallback available.
+
 ## Notes
 
 - The container installs `openclaw` onto the mounted PVC on first boot to avoid pulling the much larger all-in-one image on a disk-pressured node.

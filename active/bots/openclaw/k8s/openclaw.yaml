@@ -159,6 +159,9 @@ spec:
               openclaw config set browser.headless true
               openclaw config set browser.noSandbox true
               openclaw config set browser.defaultProfile openclaw
+              openclaw models set openrouter/free
+              openclaw models fallbacks clear
+              openclaw models fallbacks add github-copilot/gpt-4.1
 
               exec openclaw gateway --allow-unconfigured --auth token --bind lan --port 18789 --token "$OPENCLAW_GATEWAY_TOKEN"
           env:
