@@ -57,6 +57,8 @@ spec:
                 "$OPENCLAW_STATE_DIR" \
                 "$OPENCLAW_WORKSPACE_DIR"
 
+              mkdir -p "$HOME/.openclaw/workspace"
+
               if [ ! -x "$NPM_CONFIG_PREFIX/bin/openclaw" ]; then
                 npm install -g "openclaw@2026.3.24"
               fi
@@ -93,8 +95,17 @@ spec:
                   "enabled": true,
                   "token": "${OPENCLAW_HOOKS_TOKEN}",
                   "path": "/hooks",
-                  "presets": ["gmail"],
-                  "defaultSessionKey": "hook:gmail"
+                  "mappings": [
+                    {
+                      "id": "gmail-triage",
+                      "match": {
+                        "path": "gmail"
+                      },
+                      "action": "wake",
+                      "wakeMode": "now",
+                      "textTemplate": "Email triage event\\nFrom: {{messages[0].from}}\\nSubject: {{messages[0].subject}}\\nSnippet: {{messages[0].snippet}}\\nBody:\\n{{messages[0].body}}\\n\\nApply the inbox triage policy in HEARTBEAT.md. Do not automatically summarize every email to Calvin."
+                    }
+                  ]
                 },
                 "channels": {
                   "telegram": {
@@ -105,6 +116,34 @@ spec:
                 }
               }
               JSON
+
+              cat > "$HOME/.openclaw/workspace/HEARTBEAT.md" <<'MD'
+              # Gmail inbox triage policy
+
+              Use heartbeat turns for inbox triage only. Do not use them for unrelated research, status chatter, or "heartbeat successful" messages.
+
+              When a system event contains an incoming email:
+
+              - Treat it as triage, not as a request to automatically message Calvin.
+              - Only send Calvin a message if the email is important and likely needs attention or action.
+              - Important/actionable usually includes real-person email, security alerts, bills or money movement, travel changes, deadlines, verification codes, account issues, school/work/medical matters, and anything time-sensitive or high-consequence.
+              - For important emails that do not require action, append a short note to `memory/YYYY-MM-DD.md` (create the directory if needed), then reply `HEARTBEAT_OK`.
+              - For routine promos, newsletters, marketing blasts, shopping recommendations, social digests, shipping ads, or low-signal automated notices, reply `HEARTBEAT_OK`.
+              - Keep any user-facing alert brief: sender, subject, why it matters, and what action is needed.
+              - Never mention HEARTBEAT.md, heartbeat policy, internal tasks, or "manual triage" in a user-facing alert.
+              - Stay quiet overnight unless the email is urgent or time-sensitive.
+              MD
+
+              cat > "$HOME/.openclaw/workspace/GMAIL_READONLY_SETUP.md" <<'MD'
+              # Gmail access for this deployment
+
+              This OpenClaw deployment uses the secure Gmail Pub/Sub + OAuth `gmail.readonly` flow on `thinker`.
+
+              - The watcher runs outside the pod with `gog gmail watch serve`.
+              - New-mail events are posted to `/hooks/gmail`.
+              - The gateway triages inbox events through `HEARTBEAT.md`.
+              - Do not switch this deployment back to IMAP or Gmail app passwords.
+              MD
 
               openclaw config set browser.executablePath /usr/bin/chromium
               openclaw config set browser.headless true

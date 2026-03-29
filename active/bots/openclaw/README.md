@@ -63,7 +63,7 @@ DM access is configured with `dmPolicy: "pairing"` by default, so the first DM f
 
 The secure Gmail path for this deployment is the official Gmail Pub/Sub webhook flow with Google OAuth read-only scopes.
 
-The cluster deployment enables OpenClaw hooks and the built-in Gmail preset at `/hooks/gmail`. Use a dedicated `hooks-token`; do not reuse the gateway token.
+The cluster deployment enables OpenClaw hooks at `/hooks/gmail` with a custom wake mapping instead of the built-in “summarize every email” preset. Use a dedicated `hooks-token`; do not reuse the gateway token.
 
 The Gmail watcher itself runs outside the pod with `gog` + `gcloud`, then posts into the gateway hook endpoint. This keeps Gmail access on OAuth with `gmail.readonly` and avoids storing an app password in the cluster.
 
@@ -76,6 +76,16 @@ High-level flow:
 5. Expose the watcher’s public HTTPS endpoint with Tailscale Funnel so Google Pub/Sub can reach it.
 
 This secure path only covers new-mail events. It does not grant broad historical inbox browsing the way IMAP would.
+
+### Gmail triage behavior
+
+On startup, the deployment rewrites the live workspace `HEARTBEAT.md` so inbox events are triaged quietly:
+
+- routine promotions, newsletters, and low-signal automated mail stay silent
+- important but non-actionable mail is recorded in `memory/YYYY-MM-DD.md`
+- only important mail that likely needs Calvin's attention triggers a user-facing alert
+
+This prevents the old behavior where every inbound message was summarized back into the main chat flow.
 
 For safety, keep the OpenClaw Control UI on a tailnet-only Serve port and reserve Funnel for the Gmail webhook endpoint only. Do not Funnel the Control UI root.
 
