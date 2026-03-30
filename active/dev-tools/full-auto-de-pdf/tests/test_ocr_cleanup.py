@@ -384,6 +384,27 @@ def test_cleanup_ocr_text_corrects_confusable_builtin_word() -> None:
     assert "world turned quietly" in cleaned.lower()
 
 
+def test_cleanup_ocr_text_corrects_confusable_builtin_word_present_in_noisy_text() -> None:
+    source = "The iarge gate stood by the road.\n"
+    cleaned = cleanup_ocr_text(source)
+    assert "large gate stood by the road" in cleaned.lower()
+
+
+def test_cleanup_ocr_text_corrects_mined_common_confusable_words() -> None:
+    source = (
+        "You may glve it away.\n"
+        "The piot, theugh not eiaborate, is aimost reguiar.\n"
+        "The eiopement startled them.\n"
+        "She may even have bcen very dlfficult to know when she wlll like it.\n"
+    )
+    cleaned = cleanup_ocr_text(source)
+    lowered = cleaned.lower()
+    assert "give it away" in lowered
+    assert "plot, though not elaborate, is almost regular" in lowered
+    assert "elopement startled them" in lowered
+    assert "she may even have been very difficult to know when she will like it" in lowered
+
+
 def test_cleanup_ocr_text_corrects_illustration_builtin_word() -> None:
     source = "Inlustration shows the figure.\n"
     cleaned = cleanup_ocr_text(source)
