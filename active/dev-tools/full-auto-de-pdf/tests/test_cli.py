@@ -284,6 +284,56 @@ def test_benchmark_streaming_corpus_command_runs_pipeline(monkeypatch, tmp_path)
     assert rc == 0
 
 
+def test_mine_cleanup_corpus_command_writes_report(monkeypatch, tmp_path) -> None:
+    output_report = tmp_path / "cleanup_mining.json"
+    cache_dir = tmp_path / "cache"
+
+    def _fake_mine_cleanup_corpus(**kwargs):  # noqa: ANN003
+        assert kwargs["cache_dir"] == cache_dir
+        assert kwargs["output_report_path"] == output_report
+        assert kwargs["max_books"] == 2
+        assert kwargs["max_sentences_per_book"] == 25
+        assert kwargs["sentence_min_chars"] == 20
+        assert kwargs["sentence_max_chars"] == 140
+        assert kwargs["max_words_per_sentence"] == 4
+        assert kwargs["max_examples"] == 7
+        assert kwargs["candidate_min_failures"] == 3
+        return {
+            "summary": {
+                "case_count": 12,
+                "failure_count": 4,
+                "candidate_builtin_lexicon_additions": ["example"],
+            }
+        }
+
+    monkeypatch.setattr(cli, "mine_cleanup_corpus", _fake_mine_cleanup_corpus)
+    rc = cli.main(
+        [
+            "mine-cleanup-corpus",
+            "--cache-dir",
+            str(cache_dir),
+            "--output",
+            str(output_report),
+            "--max-books",
+            "2",
+            "--max-sentences-per-book",
+            "25",
+            "--sentence-min-chars",
+            "20",
+            "--sentence-max-chars",
+            "140",
+            "--max-words-per-sentence",
+            "4",
+            "--max-examples",
+            "7",
+            "--candidate-min-failures",
+            "3",
+        ]
+    )
+
+    assert rc == 0
+
+
 def test_build_image_text_corpus_command_writes_manifest(monkeypatch, tmp_path) -> None:
     output_manifest = tmp_path / "manifest.json"
     images_dir = tmp_path / "images"

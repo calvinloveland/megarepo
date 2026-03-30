@@ -108,6 +108,16 @@ full-auto-de-pdf benchmark-parallel-text \
   --domain Fiction \
   --limit 5000
 
+# Mine synthetic OCR-like cleanup misses from cached Gutenberg text
+full-auto-de-pdf mine-cleanup-corpus \
+  --cache-dir data/cache \
+  --output data/cleanup_mining_report.json \
+  --max-books 3 \
+  --max-sentences-per-book 120 \
+  --candidate-min-failures 2
+# (reports top failure targets/rules, separates lowercase vs proper-name misses,
+#  and suggests candidate builtin lexicon additions for repeated lowercase failures)
+
 # Run local OCR on a scanned PDF with pdftoppm + adaptive page-level OCR selection
 full-auto-de-pdf ocr-pdf \
   --pdf scans/book.pdf \

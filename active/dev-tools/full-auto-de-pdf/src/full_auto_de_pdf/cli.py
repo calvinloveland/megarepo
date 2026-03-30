@@ -22,6 +22,7 @@ from .benchmark_viz import (
     build_local_benchmark_failure_page,
     build_local_benchmark_processing_page,
 )
+from .cleanup_mining import mine_cleanup_corpus
 from .epub import build_epub_from_ocr_file
 from .epub_eval import evaluate_epub_structure
 from .ocr_pipeline import (
@@ -211,6 +212,7 @@ def _build_parser() -> argparse.ArgumentParser:
         _add_build_image_text_corpus_command,
         _add_benchmark_corpus_command,
         _add_streaming_benchmark_corpus_command,
+        _add_mine_cleanup_corpus_command,
         _add_benchmark_parallel_text_command,
         _add_ocr_pdf_command,
         _add_ocr_eval_modes_command,
@@ -482,6 +484,68 @@ def _add_streaming_benchmark_corpus_command(
         help="Persist samples with character accuracy below this threshold",
     )
     _add_benchmark_ocr_args(parser)
+
+
+def _add_mine_cleanup_corpus_command(
+    subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
+) -> None:
+    parser = subparsers.add_parser(
+        "mine-cleanup-corpus",
+        help="Mine synthetic OCR-like cleanup failures from cached Gutenberg text",
+    )
+    parser.add_argument(
+        "--cache-dir",
+        type=Path,
+        default=Path("data/cache"),
+        help="Cache directory containing cached Gutenberg source texts",
+    )
+    parser.add_argument(
+        "--output",
+        type=Path,
+        default=Path("data/cleanup_mining_report.json"),
+        help="Output JSON report path",
+    )
+    parser.add_argument(
+        "--max-books",
+        type=int,
+        help="Optional limit on the number of cached books to mine",
+    )
+    parser.add_argument(
+        "--max-sentences-per-book",
+        type=int,
+        default=120,
+        help="Maximum mined sentences per cached book",
+    )
+    parser.add_argument(
+        "--sentence-min-chars",
+        type=int,
+        default=40,
+        help="Minimum sentence length to mine",
+    )
+    parser.add_argument(
+        "--sentence-max-chars",
+        type=int,
+        default=180,
+        help="Maximum sentence length to mine",
+    )
+    parser.add_argument(
+        "--max-words-per-sentence",
+        type=int,
+        default=8,
+        help="Maximum leading words per sentence to corrupt with confusable substitutions",
+    )
+    parser.add_argument(
+        "--max-examples",
+        type=int,
+        default=50,
+        help="Maximum failure examples to keep in the output report",
+    )
+    parser.add_argument(
+        "--candidate-min-failures",
+        type=int,
+        default=2,
+        help="Minimum lowercase failure count before suggesting a builtin lexicon addition",
+    )
 
 
 def _add_benchmark_ocr_args(parser: argparse.ArgumentParser) -> None:
@@ -1469,6 +1533,28 @@ def _handle_streaming_benchmark_corpus(args: argparse.Namespace) -> int:
     return 0
 
 
+def _handle_mine_cleanup_corpus(args: argparse.Namespace) -> int:
+    report = mine_cleanup_corpus(
+        cache_dir=args.cache_dir,
+        output_report_path=args.output,
+        max_books=args.max_books,
+        max_sentences_per_book=args.max_sentences_per_book,
+        sentence_min_chars=args.sentence_min_chars,
+        sentence_max_chars=args.sentence_max_chars,
+        max_words_per_sentence=args.max_words_per_sentence,
+        max_examples=args.max_examples,
+        candidate_min_failures=args.candidate_min_failures,
+    )
+    summary = report["summary"]
+    print(
+        "Cleanup mining complete: "
+        f"cases={int(summary['case_count'])}, "
+        f"failures={int(summary['failure_count'])}, "
+        f"candidate_additions={len(summary['candidate_builtin_lexicon_additions'])} -> {args.output}"
+    )
+    return 0
+
+
 def _benchmark_ocr_kwargs_from_args(args: argparse.Namespace) -> dict[str, object]:
     return {
         "language": args.language,
@@ -1757,6 +1843,7 @@ _COMMAND_HANDLERS: dict[str, Callable[[argparse.Namespace], int]] = {
     "build-image-text-corpus": _handle_build_image_text_corpus,
     "benchmark-corpus": _handle_benchmark_corpus,
     "benchmark-streaming-corpus": _handle_streaming_benchmark_corpus,
+    "mine-cleanup-corpus": _handle_mine_cleanup_corpus,
     "benchmark-parallel-text": _handle_benchmark_parallel_text,
     "ocr-pdf": _handle_ocr_pdf,
     "ocr-eval-modes": _handle_ocr_eval_modes,
