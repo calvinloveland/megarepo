@@ -32,6 +32,21 @@ def _replace_match(text: str, match: re.Match[str], replacement: str) -> str:
     return text[: match.start()] + replacement + text[match.end() :]
 
 
+def _is_likely_proper_noun(
+    word: str,
+    *,
+    token_index: int,
+    lowercase_words: set[str],
+) -> bool:
+    if not word[:1].isupper():
+        return False
+    if word.isupper():
+        return True
+    if token_index != 0:
+        return True
+    return word.lower() not in lowercase_words
+
+
 def _iter_sentence_cases(
     sentence: str,
     *,
@@ -58,19 +73,23 @@ def _iter_sentence_cases(
                 "corrupted_word": replacement,
                 "corrupted_text": corrupted,
                 "source_word": words[index],
-                "proper_noun": words[index][:1].isupper(),
+                "token_index": index,
             }
         )
 
-    for match, word in list(zip(matches, words))[:max_words_per_sentence]:
+    for token_index, (match, word) in enumerate(list(zip(matches, words))[:max_words_per_sentence]):
         lowered_word = word.lower().strip("'")
         if len(lowered_word) < 4 or not lowered_word.isalpha():
             continue
         for original, replacement in _CONFUSABLE_SUBSTITUTIONS:
-            index = lowered_word.find(original)
-            if index < 0:
+            replace_index = lowered_word.find(original)
+            if replace_index < 0:
                 continue
-            corrupted_word = lowered_word[:index] + replacement + lowered_word[index + len(original) :]
+            corrupted_word = (
+                lowered_word[:replace_index]
+                + replacement
+                + lowered_word[replace_index + len(original) :]
+            )
             if corrupted_word == lowered_word or not corrupted_word.isalpha():
                 continue
             corrupted = _replace_match(sentence, match, _match_case(word, corrupted_word))
@@ -82,7 +101,7 @@ def _iter_sentence_cases(
                     "corrupted_word": corrupted_word,
                     "corrupted_text": corrupted,
                     "source_word": word,
-                    "proper_noun": word[:1].isupper(),
+                    "token_index": token_index,
                 }
             )
             break
@@ -152,6 +171,11 @@ def mine_cleanup_corpus(
 
     for book_path in books:
         text = book_path.read_text(encoding="utf-8", errors="ignore")
+        lowercase_words = {
+            match.group(0)
+            for match in _WORD_RE.finditer(text)
+            if match.group(0).islower()
+        }
         sentences = [
             sentence.strip().replace("\n", " ")
             for sentence in _SENTENCE_SPLIT_RE.split(text)
@@ -174,7 +198,11 @@ def mine_cleanup_corpus(
                     join_failure_count += 1
                 else:
                     confusable_failure_count += 1
-                proper_noun = bool(case["proper_noun"])
+                proper_noun = _is_likely_proper_noun(
+                    str(case["source_word"]),
+                    token_index=int(case["token_index"]),
+                    lowercase_words=lowercase_words,
+                )
                 if proper_noun:
                     proper_noun_failure_count += 1
                     proper_noun_failure_targets[target] += 1

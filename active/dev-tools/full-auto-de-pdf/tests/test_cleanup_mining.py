@@ -56,3 +56,32 @@ def test_mine_cleanup_corpus_rejects_invalid_limits(tmp_path) -> None:
         assert "max_sentences_per_book" in str(exc)
     else:
         raise AssertionError("Expected ValueError for invalid max_sentences_per_book")
+
+
+def test_mine_cleanup_corpus_keeps_sentence_initial_common_words_out_of_proper_nouns(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    cache_dir = tmp_path / "cache"
+    cache_dir.mkdir()
+    (cache_dir / "pg1342_gutenberg.txt").write_text(
+        "What Bennet loves. I know what matters.",
+        encoding="utf-8",
+    )
+    output = tmp_path / "report.json"
+
+    monkeypatch.setattr(cleanup_mining, "cleanup_ocr_text", lambda text: text)
+    report = cleanup_mining.mine_cleanup_corpus(
+        cache_dir=cache_dir,
+        output_report_path=output,
+        max_books=1,
+        max_sentences_per_book=5,
+        sentence_min_chars=5,
+        sentence_max_chars=120,
+        max_words_per_sentence=2,
+        max_examples=5,
+        candidate_min_failures=1,
+    )
+
+    assert report["summary"]["top_lowercase_failure_targets"][0] == {"target": "what", "count": 1}
+    assert report["summary"]["top_proper_noun_failure_targets"][0] == {"target": "bennet", "count": 1}
