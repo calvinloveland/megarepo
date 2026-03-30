@@ -129,6 +129,43 @@ def test_ocr_pdf_with_tesseract_happy_path(tmp_path) -> None:
     assert "page_artifacts_manifest" not in metrics_no_artifacts
 
 
+def test_validate_page_image_run_options_allows_masked_scan_retry_modes(tmp_path) -> None:
+    page_image = tmp_path / "page.png"
+    Image.new("L", (12, 12), color=255).save(page_image)
+    options = ocr_pipeline.OCRRunOptions(
+        core=ocr_pipeline.OCRCoreOptions(),
+        preprocess_mode="basic",
+        candidate_preprocess_modes_override=("scan-background-normalized-masked", "scan-masked", "scan"),
+    )
+
+    def _which(_name: str) -> str | None:
+        return "/usr/bin/fake"
+
+    ocr_pipeline._validate_page_image_run_options([page_image], options, _which)
+
+
+def test_validate_page_image_run_options_rejects_invalid_candidate_preprocess_override(tmp_path) -> None:
+    page_image = tmp_path / "page.png"
+    Image.new("L", (12, 12), color=255).save(page_image)
+    options = ocr_pipeline.OCRRunOptions(
+        core=ocr_pipeline.OCRCoreOptions(),
+        preprocess_mode="basic",
+        candidate_preprocess_modes_override=("scan-masked", "basic-masked", "mystery-mode"),
+    )
+
+    def _which(_name: str) -> str | None:
+        return "/usr/bin/fake"
+
+    with pytest.raises(
+        ValueError,
+        match=(
+            "candidate_preprocess_modes_override must contain only concrete preprocess modes "
+            "or supported masked scan variants"
+        ),
+    ):
+        ocr_pipeline._validate_page_image_run_options([page_image], options, _which)
+
+
 def test_ocr_pdf_with_tesseract_updates_page_manifest_during_run(tmp_path) -> None:
     pdf_path = tmp_path / "book.pdf"
     output_path = tmp_path / "out.txt"

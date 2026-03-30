@@ -1148,6 +1148,8 @@ def _validate_common_ocr_options(
             "'scan-sauvola', 'scan-morphology', "
             "'basic', 'deskew', 'dewarp', or 'auto'"
         )
+    if options.candidate_preprocess_modes_override:
+        _validate_candidate_preprocess_modes(options.candidate_preprocess_modes_override)
     if options.ocr_engine not in {"tesseract", "paddleocr", "ensemble"}:
         raise ValueError("ocr_engine must be 'tesseract', 'paddleocr', or 'ensemble'")
     if options.core.tesseract_output_format not in {"text", "hocr"}:
@@ -1342,9 +1344,29 @@ def _candidate_preprocess_modes(preprocess_mode: str) -> tuple[str, ...]:
     return (preprocess_mode,)
 
 
+def _is_valid_candidate_preprocess_mode(preprocess_mode: str) -> bool:
+    base_preprocess_mode, apply_region_masking = _split_preprocess_mode(preprocess_mode)
+    if base_preprocess_mode == "auto" or base_preprocess_mode not in _VALID_PREPROCESS_MODES:
+        return False
+    if not apply_region_masking:
+        return True
+    return _uses_scan_preprocess_stack(base_preprocess_mode)
+
+
+def _validate_candidate_preprocess_modes(modes: tuple[str, ...]) -> tuple[str, ...]:
+    invalid_modes = [mode for mode in modes if not _is_valid_candidate_preprocess_mode(mode)]
+    if invalid_modes:
+        invalid = ", ".join(sorted(set(invalid_modes)))
+        raise ValueError(
+            "candidate_preprocess_modes_override must contain only concrete preprocess modes "
+            f"or supported masked scan variants; invalid values: {invalid}"
+        )
+    return modes
+
+
 def _candidate_preprocess_modes_for_options(options: OCRRunOptions) -> tuple[str, ...]:
     if options.candidate_preprocess_modes_override:
-        return options.candidate_preprocess_modes_override
+        return _validate_candidate_preprocess_modes(options.candidate_preprocess_modes_override)
     return _candidate_preprocess_modes(options.preprocess_mode)
 
 
