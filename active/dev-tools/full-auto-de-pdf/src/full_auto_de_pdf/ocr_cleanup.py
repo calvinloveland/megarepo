@@ -111,9 +111,11 @@ _KNOWN_JOIN_PAIRS: dict[tuple[str, str], str] = {
     ("what", "soever"): "whatsoever",
     ("where", "upon"): "whereupon",
     ("there", "fore"): "therefore",
+    ("be", "fore"): "before",
     ("back", "ground"): "background",
     ("church", "man"): "churchman",
 }
+_KNOWN_JOIN_TARGETS = frozenset(_KNOWN_JOIN_PAIRS.values())
 # Curated lookup for non-word OCR tokens that the statistical system cannot fix because
 # the correct form never appears in the OCR output (Tesseract always misreads them).
 # Keys are lowercase; corrections are case-adapted at apply time. Only add entries where
@@ -1164,6 +1166,8 @@ def _infer_split_word_corrections(
         if len(source) < _MIN_SPLIT_WORD_LENGTH:
             continue
         if source_count > _MAX_ERROR_OCCURRENCES:
+            continue
+        if source in _KNOWN_JOIN_TARGETS:
             continue
         if source in lexicon_words:
             continue

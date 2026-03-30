@@ -409,6 +409,20 @@ def test_cleanup_ocr_text_joins_known_split_pairs() -> None:
     assert "cannot" in cleaned.lower()
 
 
+def test_cleanup_ocr_text_keeps_known_join_single_occurrence_joined() -> None:
+    cleaned = cleanup_ocr_text("She said she can not stay.")
+    lowered = cleaned.lower()
+    assert "can not" not in lowered
+    assert "cannot" in lowered
+
+
+def test_cleanup_ocr_text_keeps_before_single_occurrence_joined() -> None:
+    cleaned = cleanup_ocr_text("We waited be fore sunrise.")
+    lowered = cleaned.lower()
+    assert "be fore" not in lowered
+    assert "before" in lowered
+
+
 def test_cleanup_ocr_text_joins_known_split_within() -> None:
     lines = ["He remained with in the walls." for _ in range(10)]
     cleaned = cleanup_ocr_text("\n".join(lines))
