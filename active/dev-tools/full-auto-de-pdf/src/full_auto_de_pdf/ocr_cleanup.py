@@ -541,6 +541,7 @@ def _extract_lexicon_words(text: str) -> set[str]:
 
 def _build_cleanup_lexicon(text: str, lexicon_texts: tuple[str, ...]) -> set[str]:
     lexicon = set(_BUILTIN_LEXICON)
+    lexicon.update(_KNOWN_JOIN_TARGETS)
     text_counts = _extract_token_counts(text)
     lexicon.update(
         token
@@ -1313,18 +1314,19 @@ def _infer_confusable_word_corrections(
             continue
         if source_count > _MAX_ERROR_OCCURRENCES:
             continue
-        if source in _BUILTIN_LEXICON or source in external_lexicon_words:
+        if source in _BUILTIN_LEXICON or source in _KNOWN_JOIN_TARGETS or source in external_lexicon_words:
             continue
         best_target = ""
         best_score = float("-inf")
         for candidate in _confusable_rewrite_candidates(source, lexicon_words):
             target_count = counts.get(candidate, 0)
-            if candidate not in _BUILTIN_LEXICON and target_count < _MIN_CORRECTION_OCCURRENCES:
+            has_trusted_target_support = candidate in _BUILTIN_LEXICON or candidate in _KNOWN_JOIN_TARGETS
+            if not has_trusted_target_support and target_count < _MIN_CORRECTION_OCCURRENCES:
                 continue
             score = (
                 float(target_count * 50)
                 + float(len(candidate) * 3)
-                + (40.0 if candidate in _BUILTIN_LEXICON else 0.0)
+                + (40.0 if has_trusted_target_support else 0.0)
             )
             if score > best_score:
                 best_target = candidate

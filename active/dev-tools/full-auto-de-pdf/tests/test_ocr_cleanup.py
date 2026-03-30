@@ -444,6 +444,14 @@ def test_cleanup_ocr_text_keeps_before_single_occurrence_joined() -> None:
     assert "before" in lowered
 
 
+def test_cleanup_ocr_text_corrects_confusable_known_join_targets() -> None:
+    source = "She kept the note to herseif and moved withln the doorway."
+    cleaned = cleanup_ocr_text(source)
+    lowered = cleaned.lower()
+    assert "herself" in lowered
+    assert "within" in lowered
+
+
 def test_cleanup_ocr_text_joins_known_split_within() -> None:
     lines = ["He remained with in the walls." for _ in range(10)]
     cleaned = cleanup_ocr_text("\n".join(lines))
