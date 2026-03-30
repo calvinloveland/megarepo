@@ -132,16 +132,20 @@ spec:
 
               Use heartbeat turns for inbox triage only. Do not use them for unrelated research, status chatter, or "heartbeat successful" messages.
 
+              OpenClaw has limited read-only visibility into recent inbox activity through Gmail hook events. Those events should be logged to `memory/email/YYYY-MM-DD.md` so the main agent can answer later questions about recent email without claiming it has no visibility at all.
+
               When a system event contains an incoming email:
 
               - Treat it as triage, not as a request to automatically message Calvin.
+              - Always append a short ledger entry to `memory/email/YYYY-MM-DD.md` with the timestamp, sender, subject, snippet, and a triage label (`routine`, `important`, or `actionable`).
               - Only send Calvin a message if the email is important and likely needs attention or action.
               - Important/actionable usually includes real-person email, security alerts, bills or money movement, travel changes, deadlines, verification codes, account issues, school/work/medical matters, and anything time-sensitive or high-consequence.
               - For important emails that do not require action, append a short note to `memory/YYYY-MM-DD.md` (create the directory if needed), then reply `HEARTBEAT_OK`.
-              - For routine promos, newsletters, marketing blasts, shopping recommendations, social digests, shipping ads, or low-signal automated notices, reply `HEARTBEAT_OK`.
+              - For routine promos, newsletters, marketing blasts, shopping recommendations, social digests, shipping ads, or low-signal automated notices, keep them out of the user chat but still record the ledger entry, then reply `HEARTBEAT_OK`.
               - Keep any user-facing alert brief: sender, subject, why it matters, and what action is needed.
               - Never mention HEARTBEAT.md, heartbeat policy, internal tasks, or "manual triage" in a user-facing alert.
               - Stay quiet overnight unless the email is urgent or time-sensitive.
+              - When Calvin asks about email or recent inbox activity, inspect the recent `memory/email/` files before saying you cannot see email. Be honest that this is a read-only recent-event ledger, not a full historical inbox browser.
               MD
 
               cat > "$HOME/.openclaw/workspace/GMAIL_READONLY_SETUP.md" <<'MD'
@@ -152,8 +156,21 @@ spec:
               - The watcher runs outside the pod with `gog gmail watch serve`.
               - New-mail events are posted to `/hooks/gmail`.
               - The gateway triages inbox events through `HEARTBEAT.md`.
+              - Recent inbound email events should be written to `memory/email/YYYY-MM-DD.md` for later read-only lookup by the main agent.
               - Do not switch this deployment back to IMAP or Gmail app passwords.
               MD
+
+              AGENTS_FILE="$HOME/.openclaw/workspace/AGENTS.md"
+              if [ -f "$AGENTS_FILE" ] && ! grep -q '^## Gmail inbox visibility$' "$AGENTS_FILE"; then
+                cat >> "$AGENTS_FILE" <<'MD'
+
+              ## Gmail inbox visibility
+
+              - Recent inbound email events are logged in `memory/email/YYYY-MM-DD.md`.
+              - When Calvin asks about email or recent inbox activity, read recent files under `memory/email/` before saying you cannot see email.
+              - This is a read-only recent-event ledger, not a full historical inbox browser.
+              MD
+              fi
 
               openclaw config set browser.executablePath "$BROWSER_EXECUTABLE"
               openclaw config set browser.headless true

@@ -81,11 +81,14 @@ This secure path only covers new-mail events. It does not grant broad historical
 
 On startup, the deployment rewrites the live workspace `HEARTBEAT.md` so inbox events are triaged quietly:
 
+- every inbound message is recorded in a recent-inbox ledger under `memory/email/YYYY-MM-DD.md`
 - routine promotions, newsletters, and low-signal automated mail stay silent
 - important but non-actionable mail is recorded in `memory/YYYY-MM-DD.md`
 - only important mail that likely needs Calvin's attention triggers a user-facing alert
 
-This prevents the old behavior where every inbound message was summarized back into the main chat flow.
+This prevents the old behavior where every inbound message was summarized back into the main chat flow while still giving the main agent a read-only record of recent inbox activity it can consult later.
+
+On startup, the deployment also appends a short `AGENTS.md` note so the main agent knows to read recent `memory/email/` files before claiming it cannot see email.
 
 For safety, keep the OpenClaw Control UI on a tailnet-only Serve port and reserve Funnel for the Gmail webhook endpoint only. Do not Funnel the Control UI root.
 
