@@ -221,6 +221,79 @@ def test_ocr_pdf_with_tesseract_updates_page_manifest_during_run(tmp_path) -> No
     assert manifest_payload["progress"]["estimated_remaining_seconds"] == 0.0
 
 
+def test_ocr_pdf_with_tesseract_resume_reuses_existing_raster_and_page_artifacts(tmp_path) -> None:
+    pdf_path = tmp_path / "book.pdf"
+    output_path = tmp_path / "out.txt"
+    work_dir = tmp_path / "work"
+    pages_dir = work_dir / "pages"
+    artifacts_dir = work_dir / "page_ocr"
+    pdf_path.write_bytes(b"pdf")
+    pages_dir.mkdir(parents=True, exist_ok=True)
+    artifacts_dir.mkdir(parents=True, exist_ok=True)
+    for page_index in range(1, 4):
+        Image.new("L", (20, 20), color=255).save(pages_dir / f"page-{page_index}.png")
+    first_page_text_path = artifacts_dir / "page-0001.txt"
+    first_page_text_path.write_text("Existing first page", encoding="utf-8")
+    (artifacts_dir / "manifest.json").write_text(
+        json.dumps(
+            {
+                "pages": [
+                    {
+                        "page_index": 1,
+                        "image_path": str(pages_dir / "page-1.png"),
+                        "ocr_input_path": str(pages_dir / "page-1.png"),
+                        "selected_preprocess_mode": "none",
+                        "tesseract_psm": 6,
+                        "text_path": str(first_page_text_path),
+                    }
+                ],
+                "progress": {
+                    "status": "running",
+                    "total_pages": 3,
+                    "completed_pages": 1,
+                    "current_page_index": 2,
+                },
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    seen_tesseract_images: list[str] = []
+
+    def _which(_name: str) -> str | None:
+        return "/usr/bin/fake"
+
+    def _run(command: list[str], capture_output: bool) -> str:
+        if command[0] == "pdftoppm":
+            raise AssertionError("resume should reuse rasterized pages")
+        if command[0] == "tesseract":
+            assert capture_output is True
+            image_name = Path(command[1]).name
+            seen_tesseract_images.append(image_name)
+            return "Second page text" if image_name == "page-2.png" else "Third page text"
+        raise AssertionError("unexpected command")
+
+    metrics = ocr_pdf_with_tesseract(
+        pdf_path=pdf_path,
+        output_text_path=output_path,
+        work_dir=work_dir,
+        run_command=_run,
+        preprocess_mode="none",
+        tesseract_psm="6",
+        resume=True,
+        which=_which,
+    )
+
+    assert seen_tesseract_images == ["page-2.png", "page-3.png"]
+    assert output_path.read_text(encoding="utf-8") == (
+        "Existing first page\n\nSecond page text\n\nThird page text"
+    )
+    assert metrics["page_count"] == 3
+    manifest_payload = json.loads(Path(str(metrics["page_artifacts_manifest"])).read_text(encoding="utf-8"))
+    assert manifest_payload["progress"]["status"] == "complete"
+    assert manifest_payload["progress"]["completed_pages"] == 3
+
+
 def test_ocr_pdf_with_tesseract_emits_progress_with_eta(tmp_path, monkeypatch) -> None:
     pdf_path = tmp_path / "book.pdf"
     output_path = tmp_path / "out.txt"

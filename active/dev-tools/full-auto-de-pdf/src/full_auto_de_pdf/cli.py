@@ -916,6 +916,11 @@ def _add_ocr_pdf_command(subparsers: argparse._SubParsersAction[argparse.Argumen
         type=Path,
         help="Optional directory for per-page OCR artifacts",
     )
+    parser.add_argument(
+        "--resume",
+        action="store_true",
+        help="Resume an interrupted OCR run by reusing existing page images and per-page artifacts",
+    )
     _add_inverse_render_args(parser)
     _add_cleanup_verifier_args(parser)
 
@@ -1638,6 +1643,7 @@ def _handle_ocr_pdf(args: argparse.Namespace) -> int:
         ocr_engine=args.ocr_engine,
         emit_page_artifacts=not args.no_page_artifacts,
         page_artifacts_dir=args.page_artifacts_dir,
+        resume=args.resume,
         inverse_render_rerank=args.inverse_render_rerank,
         inverse_render_top_k=args.inverse_render_top_k,
         inverse_render_workers=args.inverse_render_workers,

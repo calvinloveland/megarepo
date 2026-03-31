@@ -256,6 +256,7 @@ class OCRRunOptions:
     candidate_preprocess_modes_override: tuple[str, ...] | None = None
     candidate_tesseract_psms_override: tuple[str, ...] | None = None
     route_ocr_policy: str | None = None
+    resume: bool = False
 
 
 @dataclass(frozen=True)
@@ -1121,6 +1122,7 @@ def _parse_ocr_options(kwargs: dict[str, Any]) -> OCRRunOptions:
         emit_page_artifacts=bool(kwargs.pop("emit_page_artifacts", True)),
         page_artifacts_dir=page_artifacts_dir,
         progress_callback=kwargs.pop("progress_callback", None),
+        resume=bool(kwargs.pop("resume", False)),
     )
 
 
@@ -1233,9 +1235,14 @@ def _rasterize_pdf_to_images(
     dpi: int,
     run_command: Callable[[list[str], bool], str],
     progress_callback: Callable[[dict[str, object]], None] | None = None,
+    reuse_existing: bool = False,
 ) -> list[Path]:
     pages_dir = work_dir / "pages"
     pages_dir.mkdir(parents=True, exist_ok=True)
+    if reuse_existing:
+        existing_page_images = sorted(pages_dir.glob("page-*.png"))
+        if existing_page_images:
+            return existing_page_images
     page_prefix = pages_dir / "page"
     command = [
         "pdftoppm",
@@ -3176,6 +3183,58 @@ def _page_artifacts_manifest_payload(
     }
 
 
+def _page_artifact_text_path(artifacts_dir: Path, page_index: int) -> Path:
+    return artifacts_dir / f"page-{page_index:04d}.txt"
+
+
+def _load_resumed_page_artifacts(
+    artifacts_dir: Path,
+    page_images: list[Path],
+) -> tuple[list[str], list[dict[str, object]]]:
+    manifest_path = artifacts_dir / "manifest.json"
+    if not manifest_path.exists():
+        return [], []
+    try:
+        payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return [], []
+    raw_pages = payload.get("pages")
+    if not isinstance(raw_pages, list):
+        return [], []
+    page_texts: list[str] = []
+    page_details: list[dict[str, object]] = []
+    for expected_page_index, image_path in enumerate(page_images, start=1):
+        if expected_page_index > len(raw_pages):
+            break
+        raw_entry = raw_pages[expected_page_index - 1]
+        if not isinstance(raw_entry, dict):
+            break
+        raw_page_index = raw_entry.get("page_index")
+        if not isinstance(raw_page_index, int) or raw_page_index != expected_page_index:
+            break
+        raw_image_path = raw_entry.get("image_path")
+        if isinstance(raw_image_path, str) and raw_image_path:
+            if Path(raw_image_path).name != image_path.name:
+                break
+        raw_text_path = raw_entry.get("text_path")
+        text_path = (
+            Path(str(raw_text_path))
+            if isinstance(raw_text_path, str) and raw_text_path
+            else _page_artifact_text_path(artifacts_dir, expected_page_index)
+        )
+        if not text_path.exists():
+            break
+        try:
+            text = text_path.read_text(encoding="utf-8")
+        except OSError:
+            break
+        entry = dict(raw_entry)
+        entry["text_path"] = str(text_path)
+        page_texts.append(text)
+        page_details.append(entry)
+    return page_texts, page_details
+
+
 def _write_page_artifacts_manifest(
     artifacts_dir: Path,
     page_details: list[dict[str, object]],
@@ -4055,8 +4114,9 @@ def _collect_page_ocr_results(
     artifacts_dir: Path,
     started_at: float,
 ) -> tuple[list[str], list[dict[str, object]], dict[str, object]]:
-    page_texts: list[str] = []
-    page_details: list[dict[str, object]] = []
+    page_texts, page_details = (
+        _load_resumed_page_artifacts(artifacts_dir, page_images) if options.resume else ([], [])
+    )
     preprocessed_dir = work_dir / "preprocessed"
     paddle_reader = (
         dependencies.paddle_reader_factory(options.core.language)
@@ -4065,14 +4125,21 @@ def _collect_page_ocr_results(
     )
     mode_usage: Counter[str] = Counter()
     tesseract_psm_usage: Counter[str] = Counter()
+    for entry in page_details:
+        selected_mode = entry.get("selected_preprocess_mode")
+        if isinstance(selected_mode, str):
+            mode_usage[selected_mode] += 1
+        selected_psm = entry.get("tesseract_psm")
+        if isinstance(selected_psm, int):
+            tesseract_psm_usage[str(selected_psm)] += 1
     total_pages = len(page_images)
     if options.emit_page_artifacts:
         _write_page_artifacts_manifest(
             artifacts_dir,
             page_details,
             total_pages,
-            status="running",
-            current_page_index=1 if total_pages else None,
+            status="complete" if len(page_texts) >= total_pages else "running",
+            current_page_index=len(page_texts) + 1 if len(page_texts) < total_pages else None,
             started_at=started_at,
         )
     _emit_progress(
@@ -4080,13 +4147,13 @@ def _collect_page_ocr_results(
         _timed_page_progress_payload(
             stage="ocr",
             total_pages=total_pages,
-            completed_pages=0,
-            status="running",
-            current_page_index=1 if total_pages else None,
+            completed_pages=len(page_texts),
+            status="complete" if len(page_texts) >= total_pages else "running",
+            current_page_index=len(page_texts) + 1 if len(page_texts) < total_pages else None,
             started_at=started_at,
         ),
     )
-    for image_path in page_images:
+    for image_path in page_images[len(page_texts) :]:
         ocr_input_path, text, selection_metadata = _run_ocr_on_page(
             image_path,
             options,
@@ -4245,6 +4312,7 @@ def ocr_pdf_with_tesseract(
         options.core.dpi,
         dependencies.run_command,
         progress_callback=options.progress_callback,
+        reuse_existing=options.resume,
     )
     started_at = time.monotonic()
     _emit_progress(

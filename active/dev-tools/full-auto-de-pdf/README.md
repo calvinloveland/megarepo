@@ -132,6 +132,9 @@ full-auto-de-pdf ocr-pdf \
   --deskew-max-angle 3.0 \
   --deskew-angle-step 0.5 \
   --ocr-engine tesseract
+# If the run is interrupted, rerun the same command with `--resume` to reuse
+# existing `data/ocr-work/pages/` rasters and completed `data/ocr-work/page_ocr/`
+# page artifacts instead of starting from page 1 again.
 # (tries multiple preprocess modes, including scan-tuned Otsu and
 #  scan-local-threshold variants built from autocontrast + median + 3x upsample,
 #  now prefers a near-best scan-local-threshold result over the plain scan winner
