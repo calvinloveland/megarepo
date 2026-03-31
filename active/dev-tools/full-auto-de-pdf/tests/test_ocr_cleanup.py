@@ -422,6 +422,19 @@ def test_cleanup_ocr_text_corrects_mined_common_confusable_words() -> None:
     assert "she may even have been very difficult to know when she will like it" in lowered
 
 
+def test_cleanup_ocr_text_corrects_common_word_confusable_batch() -> None:
+    source = (
+        "He couid oniy think that these things shouid never be easy.\n"
+        "Perhaps there is iittle time, but we must take them.\n"
+        "What then could which note mean in your thought?\n"
+    )
+    cleaned = cleanup_ocr_text(source)
+    lowered = cleaned.lower()
+    assert "he could only think that these things should never be easy" in lowered
+    assert "perhaps there is little time, but we must take them" in lowered
+    assert "what then could which note mean in your thought" in lowered
+
+
 def test_cleanup_ocr_text_corrects_illustration_builtin_word() -> None:
     source = "Inlustration shows the figure.\n"
     cleaned = cleanup_ocr_text(source)
