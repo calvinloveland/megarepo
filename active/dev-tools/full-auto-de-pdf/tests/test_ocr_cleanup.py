@@ -344,6 +344,23 @@ def test_cleanup_ocr_text_uses_supplied_lexicon_for_one_off_errors() -> None:
     assert "contains realistic synthetic notes for readers" in lowered
 
 
+def test_cleanup_ocr_text_uses_supplied_lexicon_for_one_off_confusable_words() -> None:
+    source = (
+        "All the minor passages--the ioves of Jane and Bingley, the advent of Mr.\n"
+        "Rushworth, a_ coup de théâtre; _it eonnects itself in the strlctest way with the course of the story earlier.\n"
+    )
+    cleaned = cleanup_ocr_text(
+        source,
+        lexicon_texts=(
+            "All the minor passages--the loves of Jane and Bingley, the advent of Mr.",
+            "Rushworth, a_ coup de théâtre; _it connects itself in the strictest way with the course of the story earlier.",
+        ),
+    )
+    lowered = cleaned.lower()
+    assert "the loves of jane and bingley" in lowered
+    assert "it connects itself in the strictest way" in lowered
+
+
 def test_cleanup_ocr_text_prefers_split_corrections_and_three_word_splits() -> None:
     source = "Thisisa sample for full autode pdf and toexercise the OCR.\n"
     cleaned = cleanup_ocr_text(

@@ -218,6 +218,24 @@ _CONFUSABLE_SUBSTITUTIONS = (
     ("x", "re"),
     ("re", "x"),
 )
+_CONFUSABLE_SUBSTITUTION_COSTS: dict[tuple[str, str], float] = {
+    ("i", "l"): 1.0,
+    ("l", "i"): 1.0,
+    ("c", "e"): 1.0,
+    ("e", "c"): 1.0,
+    ("e", "o"): 1.15,
+    ("o", "e"): 1.15,
+    ("ew", "ow"): 1.1,
+    ("ow", "ew"): 1.1,
+    ("rn", "m"): 1.2,
+    ("m", "rn"): 1.2,
+    ("cl", "d"): 1.2,
+    ("d", "cl"): 1.2,
+    ("vv", "w"): 1.25,
+    ("w", "vv"): 1.25,
+    ("x", "re"): 1.3,
+    ("re", "x"): 1.3,
+}
 _MIXED_ALNUM_SUBSTITUTIONS = {
     "0": "o",
     "1": "i",
@@ -1255,6 +1273,34 @@ def _confusable_rewrite_candidates(word: str, lexicon_words: set[str]) -> list[s
     return sorted(candidates)
 
 
+def _weighted_confusable_rewrite_candidates(
+    word: str,
+    candidate_words: set[str],
+) -> list[tuple[str, float]]:
+    candidates: dict[str, float] = {}
+    for original, replacement in _CONFUSABLE_SUBSTITUTIONS:
+        rewrite_cost = _CONFUSABLE_SUBSTITUTION_COSTS[(original, replacement)]
+        start = 0
+        while True:
+            index = word.find(original, start)
+            if index < 0:
+                break
+            candidate = word[:index] + replacement + word[index + len(original) :]
+            if candidate in candidate_words and candidate != word:
+                current_cost = candidates.get(candidate)
+                if current_cost is None or rewrite_cost < current_cost:
+                    candidates[candidate] = rewrite_cost
+            start = index + 1
+    return sorted(candidates.items(), key=lambda item: (item[1], len(item[0]), item[0]))
+
+
+def _confusable_candidate_pool(
+    lexicon_words: set[str],
+    external_lexicon_words: set[str],
+) -> set[str]:
+    return lexicon_words | external_lexicon_words | _KNOWN_JOIN_TARGETS | _BUILTIN_LEXICON
+
+
 def _infer_lexicon_word_corrections(
     text: str,
     lexicon_words: set[str],
@@ -1306,6 +1352,7 @@ def _infer_confusable_word_corrections(
 ) -> dict[str, str]:
     # lizard forgive: confusable-word scoring stays branchy because each safety gate matters.
     counts = _extract_token_counts(text)
+    candidate_pool = _confusable_candidate_pool(lexicon_words, external_lexicon_words)
     corrections: list[tuple[str, str, float]] = []
     for source, source_count in counts.items():
         if not source.isalpha():
@@ -1318,15 +1365,22 @@ def _infer_confusable_word_corrections(
             continue
         best_target = ""
         best_score = float("-inf")
-        for candidate in _confusable_rewrite_candidates(source, lexicon_words):
+        for candidate, rewrite_cost in _weighted_confusable_rewrite_candidates(source, candidate_pool):
             target_count = counts.get(candidate, 0)
-            has_trusted_target_support = candidate in _BUILTIN_LEXICON or candidate in _KNOWN_JOIN_TARGETS
+            has_external_target_support = candidate in external_lexicon_words
+            has_trusted_target_support = (
+                candidate in _BUILTIN_LEXICON
+                or candidate in _KNOWN_JOIN_TARGETS
+                or has_external_target_support
+            )
             if not has_trusted_target_support and target_count < _MIN_CORRECTION_OCCURRENCES:
                 continue
             score = (
                 float(target_count * 50)
                 + float(len(candidate) * 3)
+                + (120.0 if has_external_target_support else 0.0)
                 + (40.0 if has_trusted_target_support else 0.0)
+                - float(rewrite_cost * 20.0)
             )
             if score > best_score:
                 best_target = candidate
@@ -1344,6 +1398,7 @@ def _infer_contextual_confusable_corrections(
     external_lexicon_words: set[str],
 ) -> dict[str, str]:
     counts = _extract_token_counts(text)
+    candidate_pool = _confusable_candidate_pool(lexicon_words, external_lexicon_words)
     corrections: list[tuple[str, str, float]] = []
     for source, source_count in counts.items():
         if not source.isalpha():
@@ -1354,12 +1409,14 @@ def _infer_contextual_confusable_corrections(
             continue
         best_target = ""
         best_score = float("-inf")
-        for candidate in _confusable_rewrite_candidates(source, lexicon_words):
+        for candidate, rewrite_cost in _weighted_confusable_rewrite_candidates(source, candidate_pool):
             target_count = counts.get(candidate, 0)
+            if candidate in external_lexicon_words:
+                target_count = max(target_count, _MIN_CONTEXTUAL_CONFUSABLE_TARGET_OCCURRENCES)
             if target_count < _MIN_CONTEXTUAL_CONFUSABLE_TARGET_OCCURRENCES:
                 continue
             ratio = float(target_count) / float(max(source_count, 1))
-            if ratio < _MIN_CONTEXTUAL_CONFUSABLE_RATIO:
+            if candidate not in external_lexicon_words and ratio < _MIN_CONTEXTUAL_CONFUSABLE_RATIO:
                 continue
             score = (
                 float(target_count * 40)
@@ -1367,6 +1424,7 @@ def _infer_contextual_confusable_corrections(
                 + float(len(candidate) * 3)
                 + (50.0 if candidate in _BUILTIN_LEXICON else 0.0)
                 + (80.0 if candidate in external_lexicon_words else 0.0)
+                - float(rewrite_cost * 15.0)
             )
             if score > best_score:
                 best_target = candidate
@@ -1384,6 +1442,7 @@ def _infer_dominant_confusable_corrections(
     external_lexicon_words: set[str],
 ) -> dict[str, str]:
     counts = _extract_token_counts(text)
+    candidate_pool = _confusable_candidate_pool(lexicon_words, external_lexicon_words)
     corrections: list[tuple[str, str, float]] = []
     for source, source_count in counts.items():
         if not source.isalpha():
@@ -1398,7 +1457,7 @@ def _infer_dominant_confusable_corrections(
             continue
         best_target = ""
         best_score = float("-inf")
-        for candidate in _confusable_rewrite_candidates(source, lexicon_words):
+        for candidate, rewrite_cost in _weighted_confusable_rewrite_candidates(source, candidate_pool):
             if candidate not in _BUILTIN_LEXICON and candidate not in external_lexicon_words:
                 continue
             target_count = counts.get(candidate, 0)
@@ -1416,6 +1475,7 @@ def _infer_dominant_confusable_corrections(
                 + float(len(candidate) * 4)
                 + (60.0 if candidate in _BUILTIN_LEXICON else 0.0)
                 + (120.0 if candidate in external_lexicon_words else 0.0)
+                - float(rewrite_cost * 15.0)
             )
             if score > best_score:
                 best_target = candidate
@@ -1630,9 +1690,9 @@ def cleanup_ocr_text(text: str, lexicon_texts: tuple[str, ...] = ()) -> str:
     )
     direct_corrections.update(mixed_alnum_corrections)
     direct_corrections.update(lexicon_corrections)
+    direct_corrections.update(split_corrections)
     direct_corrections.update(confusable_corrections)
     direct_corrections.update(dominant_confusable_corrections)
-    direct_corrections.update(split_corrections)
     # Curated corrections override statistical ones where we have high confidence.
     direct_corrections.update(_KNOWN_WORD_CORRECTIONS)
     cleaned = _apply_direct_word_corrections(cleaned, direct_corrections)
