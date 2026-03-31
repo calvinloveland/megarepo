@@ -435,6 +435,19 @@ def test_cleanup_ocr_text_corrects_common_word_confusable_batch() -> None:
     assert "what then could which note mean in your thought" in lowered
 
 
+def test_cleanup_ocr_text_corrects_common_word_confusable_and_join_extensions() -> None:
+    source = (
+        "The iady said her llfe was hard.\n"
+        "The hand some stranger and the we man laughed.\n"
+        "The youngcst child looked up.\n"
+    )
+    cleaned = cleanup_ocr_text(source)
+    lowered = cleaned.lower()
+    assert "the lady said her life was hard" in lowered
+    assert "the handsome stranger and the woman laughed" in lowered
+    assert "the youngest child looked up" in lowered
+
+
 def test_cleanup_ocr_text_corrects_illustration_builtin_word() -> None:
     source = "Inlustration shows the figure.\n"
     cleaned = cleanup_ocr_text(source)
