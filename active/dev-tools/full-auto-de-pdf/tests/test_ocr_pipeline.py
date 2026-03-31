@@ -1578,6 +1578,57 @@ def test_maybe_inverse_render_rerank_skips_cleanup_when_metadata_says_unchanged(
     assert seen_texts == ["top candidate", "second candidate"]
 
 
+def test_maybe_inverse_render_rerank_skips_scoring_when_all_variants_match(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    image_path = tmp_path / "page.png"
+    image_path.write_bytes(b"image")
+    candidates = [
+        ocr_pipeline.OCRCandidate(
+            score=300.0,
+            ocr_input_path=image_path,
+            text="same text",
+            metadata={"cleanup_changed_text": False},
+        ),
+        ocr_pipeline.OCRCandidate(
+            score=250.0,
+            ocr_input_path=image_path,
+            text="same text",
+            metadata={"cleanup_changed_text": False},
+        ),
+    ]
+    options = ocr_pipeline.OCRRunOptions(
+        core=ocr_pipeline.OCRCoreOptions(
+            inverse_render_rerank=True,
+            inverse_render_top_k=2,
+            apply_cleanup=True,
+        ),
+        preprocess_mode="auto",
+    )
+
+    monkeypatch.setattr(
+        ocr_pipeline,
+        "_normalize_scan_for_inverse_render",
+        lambda _path: (_ for _ in ()).throw(
+            AssertionError("_normalize_scan_for_inverse_render should not be called")
+        ),
+    )
+    monkeypatch.setattr(
+        ocr_pipeline,
+        "_inverse_render_score_many",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("_inverse_render_score_many should not be called")
+        ),
+    )
+
+    selected = ocr_pipeline._maybe_inverse_render_rerank(image_path, candidates, options)
+
+    assert selected is not None
+    assert selected.text == "same text"
+    assert selected.score == 300.0
+
+
 def test_ocr_page_images_verify_cleanup_spans_keeps_image_backed_short_fix(
     monkeypatch,
     tmp_path,

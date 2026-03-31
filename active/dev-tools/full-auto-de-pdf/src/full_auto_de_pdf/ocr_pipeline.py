@@ -2140,7 +2140,6 @@ def _maybe_inverse_render_rerank(
     ranked_candidates = sorted(candidates, key=lambda candidate: candidate.score, reverse=True)
     limit = min(len(ranked_candidates), options.core.inverse_render_top_k)
     rerank_subset = ranked_candidates[:limit]
-    observed_binary, bbox = _normalize_scan_for_inverse_render(image_path)
     candidate_variant_entries: list[tuple[int, OCRCandidate, str, str]] = []
     variant_texts: list[str] = []
     for candidate_index, candidate in enumerate(rerank_subset):
@@ -2157,6 +2156,9 @@ def _maybe_inverse_render_rerank(
         for variant_text, variant_label in candidate_variants:
             candidate_variant_entries.append((candidate_index, candidate, variant_text, variant_label))
             variant_texts.append(variant_text)
+    if len(set(variant_texts)) <= 1:
+        return rerank_subset[0]
+    observed_binary, bbox = _normalize_scan_for_inverse_render(image_path)
     variant_scores = _inverse_render_score_many(
         observed_binary,
         bbox,
