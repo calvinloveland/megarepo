@@ -1938,6 +1938,22 @@ def _expand_bbox(
     )
 
 
+def _clip_bbox_to_canvas(
+    bbox: tuple[int, int, int, int],
+    canvas_size: tuple[int, int],
+) -> tuple[int, int, int, int] | None:
+    width, height = canvas_size
+    clipped = (
+        max(0, min(width, bbox[0])),
+        max(0, min(height, bbox[1])),
+        max(0, min(width, bbox[2])),
+        max(0, min(height, bbox[3])),
+    )
+    if clipped[2] <= clipped[0] or clipped[3] <= clipped[1]:
+        return None
+    return clipped
+
+
 def _cleanup_span_diff_bbox(raw_render: Any, cleaned_render: Any) -> tuple[int, int, int, int] | None:
     if ImageChops is None:
         raise RuntimeError(
@@ -1975,9 +1991,22 @@ def _evaluate_cleanup_span_replacement(
                 "raw_inverse_render_score": raw_score,
                 "cleaned_inverse_render_score": cleaned_score,
             }
-        local_bbox = _expand_bbox(diff_bbox, observed_binary.size, _CLEANUP_SPAN_VERIFIER_DIFF_PADDING)
+        local_bbox = _clip_bbox_to_canvas(
+            _expand_bbox(diff_bbox, observed_binary.size, _CLEANUP_SPAN_VERIFIER_DIFF_PADDING),
+            observed_binary.size,
+        )
     else:
-        local_bbox = _expand_bbox(hint_bbox, observed_binary.size, _CLEANUP_SPAN_VERIFIER_DIFF_PADDING)
+        local_bbox = _clip_bbox_to_canvas(
+            _expand_bbox(hint_bbox, observed_binary.size, _CLEANUP_SPAN_VERIFIER_DIFF_PADDING),
+            observed_binary.size,
+        )
+    if local_bbox is None:
+        return False, {
+            "accepted": False,
+            "reason": "invalid-local-bbox",
+            "raw_inverse_render_score": raw_score,
+            "cleaned_inverse_render_score": cleaned_score,
+        }
     full_area = _bbox_area(bbox)
     local_area_ratio = (
         float(_bbox_area(local_bbox)) / float(full_area)

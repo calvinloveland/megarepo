@@ -2001,6 +2001,37 @@ def test_ocr_page_images_verify_cleanup_spans_uses_hocr_bbox_hint(
     assert decision["hocr_hint_bbox"] == [10, 10, 30, 20]
 
 
+def test_evaluate_cleanup_span_replacement_rejects_out_of_bounds_hint_bbox(
+    monkeypatch,
+) -> None:
+    observed_binary = Image.new("L", (20, 20), color=255)
+    monkeypatch.setattr(
+        ocr_pipeline,
+        "_inverse_render_score_many",
+        lambda *_args, **_kwargs: [
+            (0.2, {"inverse_render_bbox": [0, 0, 20, 20]}),
+            (0.3, {"inverse_render_bbox": [0, 0, 20, 20]}),
+        ],
+    )
+    monkeypatch.setattr(
+        ocr_pipeline,
+        "_render_inverse_text_from_metadata",
+        lambda *_args, **_kwargs: Image.new("L", (20, 20), color=255),
+    )
+
+    accepted, decision = ocr_pipeline._evaluate_cleanup_span_replacement(
+        observed_binary,
+        (0, 0, 20, 20),
+        "raw text",
+        "cleaned text",
+        hint_bbox=(100, 5, 110, 15),
+    )
+
+    assert accepted is False
+    assert decision["reason"] == "invalid-local-bbox"
+    assert decision["accepted"] is False
+
+
 def test_ocr_page_images_orientation_fallback_can_select_rotated_candidate(
     monkeypatch,
     tmp_path,
