@@ -1404,6 +1404,63 @@ def test_inverse_render_score_many_uses_process_pool(monkeypatch) -> None:
     ]
 
 
+def test_inverse_render_score_many_deduplicates_duplicate_texts(monkeypatch) -> None:
+    observed_binary = Image.new("L", (10, 10), color=255)
+    seen_texts: list[str] = []
+
+    def _fake_inverse_render_score(_observed, _bbox, text):  # noqa: ANN001, ANN202
+        seen_texts.append(text)
+        score = float(len(text))
+        return score, {"inverse_render_score": score}
+
+    monkeypatch.setattr(ocr_pipeline, "_inverse_render_score_candidate", _fake_inverse_render_score)
+
+    scores = ocr_pipeline._inverse_render_score_many(
+        observed_binary,
+        (0, 0, 10, 10),
+        ["same", "other", "same", "same", "other"],
+        workers=1,
+    )
+
+    assert seen_texts == ["same", "other"]
+    assert scores == [
+        (4.0, {"inverse_render_score": 4.0}),
+        (5.0, {"inverse_render_score": 5.0}),
+        (4.0, {"inverse_render_score": 4.0}),
+        (4.0, {"inverse_render_score": 4.0}),
+        (5.0, {"inverse_render_score": 5.0}),
+    ]
+
+
+def test_inverse_render_font_paths_caches_resolved_paths(monkeypatch, tmp_path) -> None:
+    serif_path = tmp_path / "serif.ttf"
+    sans_path = tmp_path / "sans.ttf"
+    mono_path = tmp_path / "mono.ttf"
+    for path in (serif_path, sans_path, mono_path):
+        path.write_bytes(b"font")
+    seen_families: list[str] = []
+
+    def _fake_fontconfig_match(family: str) -> str | None:
+        seen_families.append(family)
+        return {
+            "serif": str(serif_path),
+            "sans": str(sans_path),
+            "monospace": str(mono_path),
+        }[family]
+
+    monkeypatch.setattr(ocr_pipeline, "_fontconfig_match", _fake_fontconfig_match)
+    monkeypatch.setattr(ocr_pipeline, "_DEFAULT_RENDER_FONT_CANDIDATES", ())
+    ocr_pipeline._inverse_render_font_paths.cache_clear()
+    try:
+        first = ocr_pipeline._inverse_render_font_paths()
+        second = ocr_pipeline._inverse_render_font_paths()
+    finally:
+        ocr_pipeline._inverse_render_font_paths.cache_clear()
+
+    assert first == second == (str(serif_path), str(sans_path), str(mono_path))
+    assert seen_families == ["serif", "sans", "monospace"]
+
+
 def test_maybe_auto_inverse_render_tiebreak_filters_candidates_before_reranking(tmp_path, monkeypatch) -> None:
     image_path = tmp_path / "page.png"
     image_path.write_bytes(b"image")
@@ -1459,6 +1516,66 @@ def test_maybe_auto_inverse_render_tiebreak_filters_candidates_before_reranking(
     assert captured["texts"] == ["scan best", "threshold close"]
     assert captured["top_k"] == 2
     assert captured["rerank_enabled"] is True
+
+
+def test_maybe_inverse_render_rerank_skips_cleanup_when_metadata_says_unchanged(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    image_path = tmp_path / "page.png"
+    image_path.write_bytes(b"image")
+    candidates = [
+        ocr_pipeline.OCRCandidate(
+            score=300.0,
+            ocr_input_path=image_path,
+            text="top candidate",
+            metadata={"cleanup_changed_text": False},
+        ),
+        ocr_pipeline.OCRCandidate(
+            score=250.0,
+            ocr_input_path=image_path,
+            text="second candidate",
+            metadata={"cleanup_changed_text": False},
+        ),
+    ]
+    options = ocr_pipeline.OCRRunOptions(
+        core=ocr_pipeline.OCRCoreOptions(
+            inverse_render_rerank=True,
+            inverse_render_top_k=2,
+            apply_cleanup=True,
+        ),
+        preprocess_mode="auto",
+    )
+    seen_texts: list[str] = []
+
+    monkeypatch.setattr(
+        ocr_pipeline,
+        "_normalize_scan_for_inverse_render",
+        lambda _path: (Image.new("L", (20, 20), color=255), (0, 0, 20, 20)),
+    )
+    monkeypatch.setattr(
+        ocr_pipeline,
+        "cleanup_ocr_text",
+        lambda _text, lexicon_texts=(): (_ for _ in ()).throw(
+            AssertionError("cleanup_ocr_text should not be called")
+        ),
+    )
+
+    def _fake_inverse_render_score_many(_observed, _bbox, texts, *, workers):  # noqa: ANN001, ANN202
+        assert workers == 1
+        seen_texts.extend(texts)
+        return [
+            (0.2, {"inverse_render_score": 0.2}),
+            (0.4, {"inverse_render_score": 0.4}),
+        ]
+
+    monkeypatch.setattr(ocr_pipeline, "_inverse_render_score_many", _fake_inverse_render_score_many)
+
+    selected = ocr_pipeline._maybe_inverse_render_rerank(image_path, candidates, options)
+
+    assert selected is not None
+    assert selected.text == "second candidate"
+    assert seen_texts == ["top candidate", "second candidate"]
 
 
 def test_ocr_page_images_verify_cleanup_spans_keeps_image_backed_short_fix(

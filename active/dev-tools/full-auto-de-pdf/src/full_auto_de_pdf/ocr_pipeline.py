@@ -1537,6 +1537,7 @@ def _fontconfig_match(family: str) -> str | None:
     return path or None
 
 
+@lru_cache(maxsize=1)
 def _inverse_render_font_paths() -> tuple[str, ...]:
     candidates = [
         _fontconfig_match("serif"),
@@ -1847,19 +1848,36 @@ def _inverse_render_score_many(
     *,
     workers: int,
 ) -> list[tuple[float, dict[str, object]]]:
-    if workers <= 1 or len(texts) <= 1:
-        return [_inverse_render_score_candidate(observed_binary, bbox, text) for text in texts]
+    if not texts:
+        return []
+    unique_texts: list[str] = []
+    text_indexes: dict[str, int] = {}
+    result_indexes: list[int] = []
+    for text in texts:
+        text_index = text_indexes.get(text)
+        if text_index is None:
+            text_index = len(unique_texts)
+            unique_texts.append(text)
+            text_indexes[text] = text_index
+        result_indexes.append(text_index)
+    if workers <= 1 or len(unique_texts) <= 1:
+        unique_scores = [
+            _inverse_render_score_candidate(observed_binary, bbox, text)
+            for text in unique_texts
+        ]
+        return [unique_scores[index] for index in result_indexes]
     requests = [
         _InverseRenderScoreRequest(
             observed_binary=observed_binary,
             bbox=bbox,
             text=text,
         )
-        for text in texts
+        for text in unique_texts
     ]
     worker_count = min(workers, len(requests))
     with ProcessPoolExecutor(max_workers=worker_count) as executor:
-        return list(executor.map(_score_inverse_render_request, requests))
+        unique_scores = list(executor.map(_score_inverse_render_request, requests))
+    return [unique_scores[index] for index in result_indexes]
 
 
 def _render_inverse_text_from_metadata(
@@ -2128,12 +2146,14 @@ def _maybe_inverse_render_rerank(
     for candidate_index, candidate in enumerate(rerank_subset):
         candidate_variants = [(candidate.text, "raw")]
         if options.core.apply_cleanup:
-            cleaned_variant = cleanup_ocr_text(
-                candidate.text,
-                lexicon_texts=options.core.cleanup_lexicon_texts,
-            )
-            if cleaned_variant and cleaned_variant != candidate.text:
-                candidate_variants.append((cleaned_variant, "cleaned"))
+            cleanup_changed_text = candidate.metadata.get("cleanup_changed_text")
+            if cleanup_changed_text is not False:
+                cleaned_variant = cleanup_ocr_text(
+                    candidate.text,
+                    lexicon_texts=options.core.cleanup_lexicon_texts,
+                )
+                if cleaned_variant and cleaned_variant != candidate.text:
+                    candidate_variants.append((cleaned_variant, "cleaned"))
         for variant_text, variant_label in candidate_variants:
             candidate_variant_entries.append((candidate_index, candidate, variant_text, variant_label))
             variant_texts.append(variant_text)
