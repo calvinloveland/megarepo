@@ -448,6 +448,26 @@ def test_cleanup_ocr_text_corrects_common_word_confusable_and_join_extensions() 
     assert "the youngest child looked up" in lowered
 
 
+def test_cleanup_ocr_text_corrects_double_l_confusable_words() -> None:
+    support = "".join(
+        "Elizabeth and Lizzy spoke quietly about the day.\n" for _ in range(7)
+    )
+    source = support + "Later ellzabeth smiled while llzzy laughed, and her llfe felt brighter.\n"
+    cleaned = cleanup_ocr_text(source)
+    lowered = cleaned.lower()
+    assert "later elizabeth smiled while lizzy laughed, and her life felt brighter" in lowered
+
+
+def test_cleanup_ocr_text_uses_supplied_lexicon_for_double_l_confusable_words() -> None:
+    source = "The ellzabeth beside llzzy waved to lydla.\n"
+    cleaned = cleanup_ocr_text(
+        source,
+        lexicon_texts=("Elizabeth Lizzy Lydia",),
+    )
+    lowered = cleaned.lower()
+    assert "the elizabeth beside lizzy waved to lydia" in lowered
+
+
 def test_cleanup_ocr_text_corrects_illustration_builtin_word() -> None:
     source = "Inlustration shows the figure.\n"
     cleaned = cleanup_ocr_text(source)

@@ -58,6 +58,8 @@ _CONTEXT_REQUIRED_MARGIN = 0
 _MIN_DOMINANT_CONFUSABLE_WORD_LENGTH = 4
 _MIN_DOMINANT_CONFUSABLE_TARGET_OCCURRENCES = 5
 _MIN_DOMINANT_CONFUSABLE_RATIO = 1.5
+_MIN_DYNAMIC_DOMINANT_CONFUSABLE_TARGET_OCCURRENCES = 7
+_MIN_DYNAMIC_DOMINANT_CONFUSABLE_RATIO = 2.0
 _MAX_DOMINANT_CONFUSABLE_SOURCE_OCCURRENCES = 30
 _MIN_CONTEXTUAL_CONFUSABLE_TARGET_OCCURRENCES = 20
 _MIN_CONTEXTUAL_CONFUSABLE_RATIO = 2.5
@@ -203,6 +205,8 @@ _SYMBOLIC_TOKEN_PATTERN = re.compile(r"\S*[%{}\[\]<>|\\/@#$^*_~`()]+\S*")
 _CONFUSABLE_SUBSTITUTIONS = (
     ("i", "l"),
     ("l", "i"),
+    ("ll", "i"),
+    ("i", "ll"),
     ("c", "e"),
     ("e", "c"),
     ("e", "o"),
@@ -221,6 +225,8 @@ _CONFUSABLE_SUBSTITUTIONS = (
 _CONFUSABLE_SUBSTITUTION_COSTS: dict[tuple[str, str], float] = {
     ("i", "l"): 1.0,
     ("l", "i"): 1.0,
+    ("ll", "i"): 1.35,
+    ("i", "ll"): 1.35,
     ("c", "e"): 1.0,
     ("e", "c"): 1.0,
     ("e", "o"): 1.15,
@@ -1487,23 +1493,40 @@ def _infer_dominant_confusable_corrections(
         best_target = ""
         best_score = float("-inf")
         for candidate, rewrite_cost in _weighted_confusable_rewrite_candidates(source, candidate_pool):
-            if candidate not in _BUILTIN_LEXICON and candidate not in external_lexicon_words:
-                continue
-            target_count = counts.get(candidate, 0)
-            if (
-                candidate not in external_lexicon_words
-                and target_count < _MIN_DOMINANT_CONFUSABLE_TARGET_OCCURRENCES
+            has_builtin_target_support = candidate in _BUILTIN_LEXICON
+            has_external_target_support = candidate in external_lexicon_words
+            has_dynamic_target_support = (
+                candidate in lexicon_words
+                and not has_builtin_target_support
+                and not has_external_target_support
+            )
+            if not (
+                has_builtin_target_support
+                or has_external_target_support
+                or has_dynamic_target_support
             ):
                 continue
+            target_count = counts.get(candidate, 0)
+            if has_external_target_support:
+                target_count = max(target_count, _MIN_DOMINANT_CONFUSABLE_TARGET_OCCURRENCES)
+            elif has_dynamic_target_support:
+                if target_count < _MIN_DYNAMIC_DOMINANT_CONFUSABLE_TARGET_OCCURRENCES:
+                    continue
+            elif target_count < _MIN_DOMINANT_CONFUSABLE_TARGET_OCCURRENCES:
+                continue
             ratio = float(target_count) / float(max(source_count, 1))
-            if candidate not in external_lexicon_words and ratio < _MIN_DOMINANT_CONFUSABLE_RATIO:
+            required_ratio = _MIN_DOMINANT_CONFUSABLE_RATIO
+            if has_dynamic_target_support:
+                required_ratio = _MIN_DYNAMIC_DOMINANT_CONFUSABLE_RATIO
+            if not has_external_target_support and ratio < required_ratio:
                 continue
             score = (
                 float(target_count * 45)
                 - float(source_count * 15)
                 + float(len(candidate) * 4)
-                + (60.0 if candidate in _BUILTIN_LEXICON else 0.0)
-                + (120.0 if candidate in external_lexicon_words else 0.0)
+                + (60.0 if has_builtin_target_support else 0.0)
+                + (120.0 if has_external_target_support else 0.0)
+                + (30.0 if has_dynamic_target_support else 0.0)
                 - float(rewrite_cost * 15.0)
             )
             if score > best_score:
