@@ -468,6 +468,72 @@ def test_cleanup_ocr_text_uses_supplied_lexicon_for_double_l_confusable_words() 
     assert "the elizabeth beside lizzy waved to lydia" in lowered
 
 
+def test_cleanup_ocr_text_keeps_low_frequency_external_confusables_under_large_batch() -> None:
+    pairs = [
+        ("bcnnet", "bennet"),
+        ("headlng", "heading"),
+        ("thcm", "them"),
+        ("vvhat", "what"),
+        ("vlsit", "visit"),
+        ("colllns", "collins"),
+        ("ellzabeth", "elizabeth"),
+        ("yeur", "your"),
+        ("shouid", "should"),
+        ("blngley", "bingley"),
+        ("austcn", "austen"),
+        ("grcat", "great"),
+        ("janc", "jane"),
+        ("ncver", "never"),
+        ("oniy", "only"),
+        ("hopc", "hope"),
+        ("dcar", "dear"),
+        ("wlfe", "wife"),
+        ("nothlng", "nothing"),
+        ("cailed", "called"),
+        ("nonscnse", "nonsense"),
+        ("mlss", "miss"),
+        ("kltty", "kitty"),
+        ("sueh", "such"),
+        ("reaily", "really"),
+        ("kncw", "knew"),
+        ("iove", "love"),
+        ("fortnlght", "fortnight"),
+        ("eourse", "course"),
+        ("thlnk", "think"),
+        ("makc", "make"),
+        ("mueh", "much"),
+        ("mest", "most"),
+        ("llttle", "little"),
+        ("perfectiy", "perfectly"),
+        ("mothcr", "mother"),
+        ("mcan", "mean"),
+        ("ailen", "allen"),
+        ("darey", "darcy"),
+        ("accompanled", "accompanied"),
+        ("lydla", "lydia"),
+        ("quallty", "quality"),
+        ("dellght", "delight"),
+        ("llzzy", "lizzy"),
+        ("gcorge", "george"),
+        ("iady", "lady"),
+        ("ieast", "least"),
+        ("takc", "take"),
+        ("llfe", "life"),
+        ("bctter", "better"),
+    ]
+    source = "\n".join(f"The {source_word} token should normalize." for source_word, _ in pairs)
+    cleaned = cleanup_ocr_text(
+        source,
+        lexicon_texts=(" ".join(target_word for _, target_word in pairs),),
+    )
+    lowered = cleaned.lower()
+    assert "the lady token should normalize." in lowered
+    assert "the least token should normalize." in lowered
+    assert "the take token should normalize." in lowered
+    assert "the life token should normalize." in lowered
+    assert "the better token should normalize." in lowered
+
+
 def test_cleanup_ocr_text_corrects_illustration_builtin_word() -> None:
     source = "Inlustration shows the figure.\n"
     cleaned = cleanup_ocr_text(source)

@@ -76,6 +76,8 @@ _MAX_TOTAL_DIGIT_CORRECTIONS = 3
 _MAX_TOTAL_JOIN_CORRECTIONS = 30
 _MAX_TOTAL_SPLIT_CORRECTIONS = 40
 _MAX_TOTAL_LEXICON_CORRECTIONS = 40
+_MAX_TOTAL_DIRECT_CONFUSABLE_CORRECTIONS = 60
+_MAX_TOTAL_DOMINANT_CONFUSABLE_CORRECTIONS = 60
 _MAX_LEXICON_EDIT_DISTANCE = 2
 _MAX_LEXICON_CANDIDATES_PER_LENGTH = 250
 _MIN_JOIN_WORD_LENGTH = 5
@@ -1423,7 +1425,7 @@ def _infer_confusable_word_corrections(
         if best_target:
             corrections.append((source, best_target, best_score))
     corrections.sort(key=lambda item: item[2], reverse=True)
-    selected = corrections[:_MAX_TOTAL_LEXICON_CORRECTIONS]
+    selected = corrections[:_MAX_TOTAL_DIRECT_CONFUSABLE_CORRECTIONS]
     return {source: target for source, target, _score in selected}
 
 
@@ -1467,7 +1469,7 @@ def _infer_contextual_confusable_corrections(
         if best_target:
             corrections.append((source, best_target, best_score))
     corrections.sort(key=lambda item: item[2], reverse=True)
-    selected = corrections[:_MAX_TOTAL_LEXICON_CORRECTIONS]
+    selected = corrections[:_MAX_TOTAL_DOMINANT_CONFUSABLE_CORRECTIONS]
     return {source: target for source, target, _score in selected}
 
 
