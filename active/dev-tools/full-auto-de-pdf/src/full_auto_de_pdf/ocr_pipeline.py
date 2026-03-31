@@ -1573,12 +1573,14 @@ def _load_inverse_render_font(font_path: str | None, font_size: int) -> Any:
     return ImageFont.load_default()
 
 
-def _normalize_scan_for_inverse_render(image_path: Path) -> tuple[Any, tuple[int, int, int, int]]:
-    if Image is None or ImageFilter is None or ImageOps is None:
-        raise RuntimeError(
-            "Missing dependency for inverse-render reranking: pillow. "
-            "Install with `pip install pillow` or disable inverse-render reranking."
-        )
+@lru_cache(maxsize=64)
+def _normalized_scan_for_inverse_render_payload(
+    image_path_str: str,
+    modified_time_ns: int,
+    file_size: int,
+) -> tuple[bytes, tuple[int, int], tuple[int, int, int, int]]:
+    del modified_time_ns, file_size
+    image_path = Path(image_path_str)
     with Image.open(image_path) as image:
         gray = image.convert("L")
         contrasted = ImageOps.autocontrast(gray)
@@ -1592,7 +1594,22 @@ def _normalize_scan_for_inverse_render(image_path: Path) -> tuple[Any, tuple[int
         margin_x = max(20, width // 12)
         margin_y = max(20, height // 12)
         bbox = (margin_x, margin_y, width - margin_x, height - margin_y)
-    return binary, bbox
+    return binary.tobytes(), binary.size, bbox
+
+
+def _normalize_scan_for_inverse_render(image_path: Path) -> tuple[Any, tuple[int, int, int, int]]:
+    if Image is None or ImageFilter is None or ImageOps is None:
+        raise RuntimeError(
+            "Missing dependency for inverse-render reranking: pillow. "
+            "Install with `pip install pillow` or disable inverse-render reranking."
+        )
+    stat = image_path.stat()
+    image_bytes, image_size, bbox = _normalized_scan_for_inverse_render_payload(
+        str(image_path.resolve()),
+        stat.st_mtime_ns,
+        stat.st_size,
+    )
+    return Image.frombytes("L", image_size, image_bytes), bbox
 
 
 def _inverse_render_text_lines(text: str) -> list[str]:

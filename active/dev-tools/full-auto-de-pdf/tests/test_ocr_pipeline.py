@@ -1461,6 +1461,58 @@ def test_inverse_render_font_paths_caches_resolved_paths(monkeypatch, tmp_path) 
     assert seen_families == ["serif", "sans", "monospace"]
 
 
+def test_normalize_scan_for_inverse_render_caches_payload_by_file_signature(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    image_path = tmp_path / "page.png"
+    Image.new("L", (12, 12), color=255).save(image_path)
+    real_open = ocr_pipeline.Image.open
+    open_calls: list[str] = []
+
+    def _counting_open(path, *args, **kwargs):  # noqa: ANN001, ANN202
+        open_calls.append(str(path))
+        return real_open(path, *args, **kwargs)
+
+    monkeypatch.setattr(ocr_pipeline.Image, "open", _counting_open)
+    ocr_pipeline._normalized_scan_for_inverse_render_payload.cache_clear()
+    try:
+        first_binary, first_bbox = ocr_pipeline._normalize_scan_for_inverse_render(image_path)
+        second_binary, second_bbox = ocr_pipeline._normalize_scan_for_inverse_render(image_path)
+    finally:
+        ocr_pipeline._normalized_scan_for_inverse_render_payload.cache_clear()
+
+    assert open_calls == [str(image_path.resolve())]
+    assert first_bbox == second_bbox
+    assert first_binary.size == second_binary.size
+    assert first_binary.tobytes() == second_binary.tobytes()
+
+
+def test_normalize_scan_for_inverse_render_cache_invalidates_when_file_changes(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    image_path = tmp_path / "page.png"
+    Image.new("L", (12, 12), color=255).save(image_path)
+    real_open = ocr_pipeline.Image.open
+    open_calls: list[str] = []
+
+    def _counting_open(path, *args, **kwargs):  # noqa: ANN001, ANN202
+        open_calls.append(str(path))
+        return real_open(path, *args, **kwargs)
+
+    monkeypatch.setattr(ocr_pipeline.Image, "open", _counting_open)
+    ocr_pipeline._normalized_scan_for_inverse_render_payload.cache_clear()
+    try:
+        ocr_pipeline._normalize_scan_for_inverse_render(image_path)
+        Image.new("L", (14, 14), color=0).save(image_path)
+        ocr_pipeline._normalize_scan_for_inverse_render(image_path)
+    finally:
+        ocr_pipeline._normalized_scan_for_inverse_render_payload.cache_clear()
+
+    assert open_calls == [str(image_path.resolve()), str(image_path.resolve())]
+
+
 def test_maybe_auto_inverse_render_tiebreak_filters_candidates_before_reranking(tmp_path, monkeypatch) -> None:
     image_path = tmp_path / "page.png"
     image_path.write_bytes(b"image")
