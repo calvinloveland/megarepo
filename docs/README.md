@@ -14,6 +14,10 @@ The root directory also contains important documentation:
 - [../PLAN.md](../PLAN.md) - Overall roadmap and planning document
 - [../ISSUES.md](../ISSUES.md) - Known issues and tracking
 
+Project-specific operational runbooks stay with each project. For example:
+
+- [../active/bots/openclaw/README.md](../active/bots/openclaw/README.md) - OpenClaw deployment, access, Gmail, browser, and model fallback operations
+
 ## Adding Documentation
 
 When adding new documentation:

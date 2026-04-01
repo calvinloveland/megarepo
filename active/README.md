@@ -12,9 +12,9 @@ Tools and utilities for local development, automation, and productivity. See the
 
 Interactive games and AI experiments. See the [games index](games/README.md) for complete list with documentation links.
 
-### 🤖 [bots/](bots/README.md) - Discord and Automation Bots
+### 🤖 [bots/](bots/README.md) - Bots and Automation Gateways
 
-Discord bots and game solvers. See the [bots index](bots/README.md) for details.
+Discord bots, automation gateways, and game solvers. See the [bots index](bots/README.md) for details, including the cluster-hosted OpenClaw deployment.
 
 ### 🌐 [web-apps/](web-apps/README.md) - Web Applications
 
