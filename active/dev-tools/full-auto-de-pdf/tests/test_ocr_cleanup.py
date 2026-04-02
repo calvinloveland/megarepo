@@ -1,3 +1,6 @@
+from collections import Counter
+
+import full_auto_de_pdf.ocr_cleanup as ocr_cleanup
 from full_auto_de_pdf.ocr_cleanup import (
     _apply_word_corrections,
     _match_phrase_case,
@@ -550,6 +553,174 @@ def test_is_known_word_correction_matches_single_token_replacements() -> None:
     assert is_known_word_correction("[INlustration:", "[Illustration:") is True
     assert is_known_word_correction("rareword", "rareward") is False
 
+
+def test_missing_char_helper_edges(monkeypatch) -> None:
+    assert ocr_cleanup._should_consider_missing_char_word("iv", 2) is False
+    assert ocr_cleanup._passes_missing_char_thresholds(2, 4, 0) is False
+    assert ocr_cleanup._match_case("NASA", "read") == "READ"
+    assert ocr_cleanup._best_missing_char_variant(
+        "wold",
+        2,
+        Counter({"world": 8, "would": 5}),
+    ) == ("world", "r", 2, 8)
+
+    low_support = ocr_cleanup._MissingCharSupport(
+        provisional={
+            "wold": ("world", "r", ("r", "o", "l"), 10.0),
+            "goup": ("group", "r", ("r", "g", "o"), 9.0),
+            "tezt": ("text", "x", ("x", "e", "z"), 7.0),
+        },
+        char_word_support={"x": {"xray", "xenon", "xylophone"}, "r": {"wold", "goup", "bown"}},
+        signature_word_support={
+            ("r", "o", "l"): set(),
+            ("r", "g", "o"): set(),
+            ("x", "e", "z"): {"tezt"},
+        },
+    )
+    ranked = ocr_cleanup._rank_missing_char_candidates(low_support, {"r"})
+    assert ranked == []
+
+    infer_support = ocr_cleanup._MissingCharSupport(
+        provisional={
+            "wold": ("world", "r", ("r", "o", "l"), 10.0),
+            "goup": ("group", "r", ("r", "g", "o"), 9.0),
+        },
+        char_word_support={"r": {"wold", "goup", "bown"}},
+        signature_word_support={
+            ("r", "o", "l"): set(),
+            ("r", "g", "o"): set(),
+        },
+    )
+    monkeypatch.setattr(ocr_cleanup, "_collect_missing_char_support", lambda counts: infer_support)
+    assert ocr_cleanup._infer_missing_char_corrections("wold goup") == {}
+
+
+def test_symbolic_toc_and_stamp_helper_edges() -> None:
+    assert ocr_cleanup._apply_symbolic_token_corrections('"})ust!"') == '"Just!"'
+    assert ocr_cleanup._is_toc_like_line("Random diary 12 note 34 extra") is True
+    assert ocr_cleanup._is_toc_like_line("Title ......... 47") is True
+    assert ocr_cleanup._is_toc_like_line("Random diary ......... page 17 extra") is True
+    assert ocr_cleanup._is_probable_noise_line("") is False
+    assert ocr_cleanup._is_probable_noise_line("AB12 CD34") is True
+
+    lines = [
+        "Ordinary note",
+        "Another ordinary line",
+        "Smithsonian Institution",
+        "Yet another normal line",
+        "DRACULA",
+        "Bram Stoker",
+    ]
+    assert ocr_cleanup._trim_title_page_stamp_prelude(lines) == lines
+    assert ocr_cleanup._has_probable_stamp_hint("Librari copy") is True
+
+
+def test_apostrophe_digit_and_mixed_alnum_helper_edges(monkeypatch) -> None:
+    monkeypatch.setattr(ocr_cleanup, "_extract_token_counts", lambda text: Counter({"cant": 0}))
+    assert ocr_cleanup._infer_apostrophe_corrections("cant") == {}
+
+    monkeypatch.setattr(ocr_cleanup, "_extract_token_counts", lambda text: Counter({"cant": 3}))
+    assert ocr_cleanup._infer_apostrophe_corrections("cant cant cant") == {}
+
+    monkeypatch.setattr(ocr_cleanup, "_extract_token_counts", lambda text: Counter({"cant": 1}))
+    monkeypatch.setattr(ocr_cleanup, "_best_apostrophe_target", lambda source, counts: ("can't", 1))
+    assert ocr_cleanup._infer_apostrophe_corrections("cant can't") == {}
+
+    monkeypatch.setattr(ocr_cleanup, "_AMBIGUOUS_APOSTROPHE_TARGETS", {"toolong": "toolong's"})
+    assert (
+        ocr_cleanup._infer_contextual_apostrophe_corrections("toolong toolong toolong toolong toolong")
+        == {}
+    )
+
+    monkeypatch.setattr(ocr_cleanup, "_AMBIGUOUS_APOSTROPHE_TARGETS", {"can": "can't"})
+    monkeypatch.setattr(ocr_cleanup, "_extract_token_counts", lambda text: Counter({"can": 11, "can't": 5}))
+    assert (
+        ocr_cleanup._infer_contextual_apostrophe_corrections(
+            " ".join(["can"] * 11 + ["can't"] * 5)
+        )
+        == {}
+    )
+
+    monkeypatch.setattr(ocr_cleanup, "_extract_token_counts", lambda text: Counter({"1": 1, "i": 5}))
+    monkeypatch.setattr(ocr_cleanup, "_MAX_TOTAL_DIGIT_CORRECTIONS", 0)
+    assert ocr_cleanup._infer_digit_letter_corrections("1 i") == {}
+    monkeypatch.setattr(ocr_cleanup, "_extract_token_counts", lambda text: Counter({"a2b": 2}))
+    assert ocr_cleanup._infer_mixed_alnum_word_corrections("a2b a2b", set(), set()) == {}
+
+
+def test_join_split_lexicon_and_context_helper_edges(monkeypatch) -> None:
+    assert ocr_cleanup._is_confusable_rewrite("world", "world") is False
+    assert ocr_cleanup._best_join_word_target("stxre", Counter(), {"stare"}, set()) is None
+    assert (
+        ocr_cleanup._apply_join_word_corrections(
+            "alpha beta",
+            {("gamma", "delta"): "gammadelta"},
+        )
+        == "alpha beta"
+    )
+    assert ocr_cleanup._split_candidates_three("zzcde") == []
+    assert ocr_cleanup._best_lexicon_match("abce", {"xbcd"}, max_distance=2) is None
+    assert ocr_cleanup._normalized_split_part(
+        "zzz",
+        Counter(),
+        {"alpha"},
+        allow_approximate=False,
+    ) == (None, 0.0)
+    assert ocr_cleanup._normalized_split_part(
+        "zzz",
+        Counter(),
+        {"alpha"},
+        allow_approximate=True,
+    ) == (None, 0.0)
+    assert ocr_cleanup._lexicon_candidates("world", {"world", "1234"}) == ["world"]
+    assert ocr_cleanup._confusable_rewrite_candidates("worid", {"world", "worid"}) == ["world"]
+
+    assert ocr_cleanup._infer_lexicon_word_corrections(
+        "abc1 abc1 stxxe stxxe",
+        {"stare"},
+    ) == {}
+    assert ocr_cleanup._infer_confusable_word_corrections("blngley blngley", {"bingley"}, set()) == {}
+    assert ocr_cleanup._infer_contextual_confusable_corrections("tewer", set(), {"tower"}) == {"tewer": "tower"}
+    assert (
+        ocr_cleanup._infer_contextual_confusable_corrections(
+            " ".join(["tewer"] * 10 + ["tower"] * 20),
+            {"tower"},
+            set(),
+        )
+        == {}
+    )
+
+    monkeypatch.setattr(ocr_cleanup, "_extract_token_counts", lambda text: Counter({"ghost": 0}))
+    assert ocr_cleanup._infer_dominant_confusable_corrections("ghost", set(), set()) == {}
+
+    monkeypatch.setattr(ocr_cleanup, "_extract_token_counts", lambda text: Counter({"withln": 2}))
+    assert ocr_cleanup._infer_dominant_confusable_corrections("withln withln", set(), set()) == {}
+
+    monkeypatch.setattr(
+        ocr_cleanup,
+        "_extract_token_counts",
+        lambda text: Counter({"worid": 10, "world": 5}),
+    )
+    assert ocr_cleanup._infer_dominant_confusable_corrections("worid world", {"world"}, set()) == {}
+
+    assert ocr_cleanup._apply_word_corrections("!!!", {"wold": "world"}) == "!!!"
+    assert ocr_cleanup._apply_word_corrections("wold here", {"wold": "world"}) == "wold here"
+    assert ocr_cleanup._match_phrase_case("NASA", "read me") == "READ ME"
+    assert ocr_cleanup._match_phrase_case("Title", "") == ""
+    assert ocr_cleanup._match_phrase_case("INlustration", "") == ""
+    assert ocr_cleanup._apply_direct_word_corrections("word", {}) == "word"
+    assert ocr_cleanup._apply_direct_word_corrections("word", {"other": "target"}) == "word"
+    assert is_known_word_correction("two words", "two words") is False
+
+    matches = list(ocr_cleanup._CONTEXT_TOKEN.finditer("world. wold map"))
+    context = ocr_cleanup._ContextWindow(
+        text="world. wold map",
+        matches=matches,
+        words=[match.group(0).lower() for match in matches],
+        bigram_counts=Counter(zip(["world", "wold"], ["wold", "map"])),
+    )
+    assert ocr_cleanup._context_scores(context, 1, "wold", "world") == (1, 0)
+    assert ocr_cleanup._should_replace_from_scores(0, 0) is False
 
 def test_cleanup_ocr_text_joins_known_split_pairs() -> None:
     """Systematic OCR splits of compound words are corrected regardless of frequency."""

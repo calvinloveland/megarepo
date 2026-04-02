@@ -511,8 +511,11 @@ def _passes_missing_char_thresholds(
         return False
     if second_best_count == 0:
         return True
-    ratio = best_candidate_count / second_best_count
-    return ratio >= _MIN_BEST_CANDIDATE_MARGIN
+    return _ratio_at_least(best_candidate_count, second_best_count, _MIN_BEST_CANDIDATE_MARGIN)
+
+
+def _ratio_at_least(numerator: int, denominator: int, threshold: float) -> bool:
+    return (float(numerator) / float(max(denominator, 1))) >= threshold
 
 
 def _match_case(source: str, replacement: str) -> str:
@@ -915,8 +918,7 @@ def _infer_contextual_apostrophe_corrections(text: str) -> dict[str, str]:
             continue
         if target_count < _MIN_AMBIGUOUS_APOSTROPHE_TARGET_OCCURRENCES:
             continue
-        ratio = float(target_count) / float(max(source_count, 1))
-        if ratio < _MIN_AMBIGUOUS_APOSTROPHE_RATIO:
+        if not _ratio_at_least(target_count, source_count, _MIN_AMBIGUOUS_APOSTROPHE_RATIO):
             continue
         corrections[source] = target
     return corrections
@@ -1452,8 +1454,11 @@ def _infer_contextual_confusable_corrections(
                 target_count = max(target_count, _MIN_CONTEXTUAL_CONFUSABLE_TARGET_OCCURRENCES)
             if target_count < _MIN_CONTEXTUAL_CONFUSABLE_TARGET_OCCURRENCES:
                 continue
-            ratio = float(target_count) / float(max(source_count, 1))
-            if candidate not in external_lexicon_words and ratio < _MIN_CONTEXTUAL_CONFUSABLE_RATIO:
+            if candidate not in external_lexicon_words and not _ratio_at_least(
+                target_count,
+                source_count,
+                _MIN_CONTEXTUAL_CONFUSABLE_RATIO,
+            ):
                 continue
             score = (
                 float(target_count * 40)
@@ -1516,11 +1521,14 @@ def _infer_dominant_confusable_corrections(
                     continue
             elif target_count < _MIN_DOMINANT_CONFUSABLE_TARGET_OCCURRENCES:
                 continue
-            ratio = float(target_count) / float(max(source_count, 1))
             required_ratio = _MIN_DOMINANT_CONFUSABLE_RATIO
             if has_dynamic_target_support:
                 required_ratio = _MIN_DYNAMIC_DOMINANT_CONFUSABLE_RATIO
-            if not has_external_target_support and ratio < required_ratio:
+            if not has_external_target_support and not _ratio_at_least(
+                target_count,
+                source_count,
+                required_ratio,
+            ):
                 continue
             score = (
                 float(target_count * 45)
