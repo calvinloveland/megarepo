@@ -1375,6 +1375,12 @@ class Lizard(Tool):
     def run(self, repo_path: str) -> Dict[str, Any]:
         return self._run_via_cli_per_file(repo_path)
 
+    @staticmethod
+    def _missing_binary_result() -> Dict[str, Any]:
+        message = "Lizard executable not found. Install 'lizard' to enable CCN scanning."
+        logger.error(message)
+        return {"status": "error", "error": message}
+
     def _run_via_cli_per_file(self, repo_path: str) -> Dict[str, Any]:
         start_time = time.perf_counter()
         files = self._discover_python_files(repo_path)
@@ -1399,11 +1405,7 @@ class Lizard(Tool):
                 errors.append(f"Lizard timed out on {file_path}")
                 continue
             except FileNotFoundError:
-                message = (
-                    "Lizard executable not found. Install 'lizard' to enable CCN scanning."
-                )
-                logger.error(message)
-                return {"status": "error", "error": message}
+                return self._missing_binary_result()
             except (
                 OSError,
                 TypeError,
@@ -1492,11 +1494,7 @@ class Lizard(Tool):
                 "timed_out": True,
             }
         except FileNotFoundError:
-            message = (
-                "Lizard executable not found. Install 'lizard' to enable CCN scanning."
-            )
-            logger.error(message)
-            return {"status": "error", "error": message}
+            return self._missing_binary_result()
         except (
             OSError,
             TypeError,
