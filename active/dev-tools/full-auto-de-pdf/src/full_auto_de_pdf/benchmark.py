@@ -688,6 +688,21 @@ def _build_summary(results: list[dict[str, Any]], source_mode: str) -> dict[str,
     }
 
 
+def _threshold_check(
+    name: str,
+    threshold: float,
+    observed: float,
+    *,
+    passed: bool,
+) -> dict[str, Any]:
+    return {
+        "name": name,
+        "threshold": threshold,
+        "observed": observed,
+        "passed": passed,
+    }
+
+
 def _evaluate_archive_guardrails(
     summary: dict[str, Any],
     results: list[dict[str, Any]],
@@ -699,23 +714,25 @@ def _evaluate_archive_guardrails(
     checks: list[dict[str, Any]] = []
     if min_avg_word_accuracy is not None:
         observed = float(summary["avg_word_accuracy"])
+        threshold = float(min_avg_word_accuracy)
         checks.append(
-            {
-                "name": "min_avg_word_accuracy",
-                "threshold": float(min_avg_word_accuracy),
-                "observed": observed,
-                "passed": observed >= float(min_avg_word_accuracy),
-            }
+            _threshold_check(
+                "min_avg_word_accuracy",
+                threshold,
+                observed,
+                passed=observed >= threshold,
+            )
         )
     if max_avg_wer is not None:
         observed = float(summary["avg_wer"])
+        threshold = float(max_avg_wer)
         checks.append(
-            {
-                "name": "max_avg_wer",
-                "threshold": float(max_avg_wer),
-                "observed": observed,
-                "passed": observed <= float(max_avg_wer),
-            }
+            _threshold_check(
+                "max_avg_wer",
+                threshold,
+                observed,
+                passed=observed <= threshold,
+            )
         )
     if max_book_wer is not None:
         threshold = float(max_book_wer)
