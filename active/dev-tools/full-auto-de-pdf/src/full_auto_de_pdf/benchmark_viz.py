@@ -48,6 +48,10 @@ class _ProcessingModeInputs:
     max_example_pages: int
 
 
+def _no_candidate_runs_note() -> str:
+    return "<p class='candidate-note'>No per-page candidate breakdown was recorded for this page.</p>"
+
+
 def _tokenize(text: str) -> list[str]:
     return [match.group(0).lower() for match in _TOKEN_PATTERN.finditer(text)]
 
@@ -477,7 +481,7 @@ def _format_optional_float(value: Any) -> str | None:
 def _render_candidate_runs_table(page: dict[str, Any]) -> str:
     candidate_runs = page.get("candidate_runs")
     if not isinstance(candidate_runs, list) or not candidate_runs:
-        return "<p class='candidate-note'>No per-page candidate breakdown was recorded for this page.</p>"
+        return _no_candidate_runs_note()
     selected_mode = page.get("selected_preprocess_mode")
     selected_psm = page.get("tesseract_psm")
     rows = []
@@ -504,7 +508,7 @@ def _render_candidate_runs_table(page: dict[str, Any]) -> str:
             + "</tr>"
         )
     if not rows:
-        return "<p class='candidate-note'>No per-page candidate breakdown was recorded for this page.</p>"
+        return _no_candidate_runs_note()
     return (
         "<details class='candidate-details'><summary>Candidate scoring</summary>"
         "<table class='candidate-table'><thead><tr>"
