@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import socket
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 import pytest
@@ -929,6 +930,30 @@ def test_add_repository_validates_params(service_stub):
             )
         )
     assert excinfo.value.code == -32602
+    with pytest.raises(MCPError) as excinfo:
+        _run(
+            server.handle_message(
+                {
+                    "jsonrpc": "2.0",
+                    "id": 110,
+                    "method": "addRepository",
+                    "params": {"name": "Repo", "url": "", "branch": "main"},
+                }
+            )
+        )
+    assert excinfo.value.message == "url must be a non-empty string"
+    with pytest.raises(MCPError) as excinfo:
+        _run(
+            server.handle_message(
+                {
+                    "jsonrpc": "2.0",
+                    "id": 111,
+                    "method": "addRepository",
+                    "params": {"name": "Repo", "url": "https://example.com", "branch": ""},
+                }
+            )
+        )
+    assert excinfo.value.message == "branch must be a non-empty string"
 
 
 def test_add_repository_failure_raises(service_stub):
@@ -1183,3 +1208,425 @@ def test_notifications_without_id_are_ignored(service_stub):
         )
     )
     assert response is None
+
+
+def test_mcp_error_and_request_validation_helpers(service_stub):
+    error = MCPError(code=1, message="boom")
+    assert error.to_dict() == {"code": 1, "message": "boom"}
+    with_data = MCPError(code=2, message="bad", data={"detail": True})
+    assert with_data.to_dict()["data"] == {"detail": True}
+
+    server = MCPServer(service_stub)
+    with pytest.raises(MCPError) as excinfo:
+        server._validate_request({"jsonrpc": "1.0", "method": "handshake"})
+    assert excinfo.value.message == "Invalid JSON-RPC version"
+    with pytest.raises(MCPError) as excinfo:
+        server._validate_request({"jsonrpc": "2.0", "method": 1})
+    assert excinfo.value.message == "Method must be a string"
+    with pytest.raises(MCPError) as excinfo:
+        server._validate_request(
+            {"jsonrpc": "2.0", "id": 1, "method": "handshake", "params": [1]}
+        )
+    assert excinfo.value.message == "Params must be an object"
+    method, message_id, params, handler = server._validate_request(
+        {"jsonrpc": "2.0", "method": "handshake"}
+    )
+    assert method == "handshake"
+    assert message_id is None
+    assert params == {}
+    assert handler is not None
+
+
+def test_mcp_invoke_and_param_helpers(service_stub):
+    server = MCPServer(service_stub)
+
+    async def _ok(_params):
+        return {"ok": True}
+
+    async def _boom(_params):
+        raise RuntimeError("boom")
+
+    async def _mcp(_params):
+        raise MCPError(code=-1, message="bad")
+
+    assert _run(server._invoke_handler("ok", _ok, {})) == {"ok": True}
+    with pytest.raises(MCPError) as excinfo:
+        _run(server._invoke_handler("boom", _boom, {}))
+    assert excinfo.value.code == -32000
+    with pytest.raises(MCPError) as excinfo:
+        _run(server._invoke_handler("mcp", _mcp, {}))
+    assert excinfo.value.code == -1
+
+    assert server._dict_param({"clientInfo": {"name": "ok"}}, "clientInfo") == {"name": "ok"}
+    assert server._dict_param({"clientInfo": []}, "clientInfo") == {}
+    assert server._protocol_candidates({"protocolVersion": " 2025-06-18 ", "protocolVersions": ["", 1, "2024-12-06"]}) == [
+        "2025-06-18",
+        "2024-12-06",
+    ]
+    assert server._negotiate_protocol_version([]) == "2025-06-18"
+
+
+def test_mcp_repository_and_result_param_validation(service_stub):
+    server = MCPServer(service_stub)
+    with pytest.raises(MCPError) as excinfo:
+        _run(server._handle_queue_test_run({"repositoryId": "1", "commit": "abc"}))
+    assert excinfo.value.message == "repositoryId must be an integer"
+    with pytest.raises(MCPError) as excinfo:
+        _run(server._handle_queue_test_run({"repositoryId": 1, "commit": ""}))
+    assert excinfo.value.message == "commit must be a non-empty string"
+
+    with pytest.raises(MCPError) as excinfo:
+        server._latest_results_params({"repositoryId": "1"})
+    assert excinfo.value.message == "repositoryId must be an integer"
+    with pytest.raises(MCPError) as excinfo:
+        server._latest_results_params({"repositoryId": 1, "limit": 0})
+    assert excinfo.value.message == "limit must be a positive integer"
+    with pytest.raises(MCPError) as excinfo:
+        server._latest_results_params({"repositoryId": 1, "maxResults": 0})
+    assert excinfo.value.message == "maxResults must be a positive integer"
+    with pytest.raises(MCPError) as excinfo:
+        server._latest_results_params({"repositoryId": 1, "commit": " "})
+    assert excinfo.value.message == "commit must be a non-empty string when provided"
+    assert server._latest_results_params({"repositoryId": 1, "commit": " abc ", "limit": 2, "maxResults": 3}) == (
+        1,
+        "abc",
+        2,
+        3,
+    )
+
+    runs = [{"results": []}, {"results": [{"status": "success", "tool": "coverage"}, {"status": "error", "tool": "pylint"}]}, {"other": True}]
+    server._limit_test_run_results(runs, 1)
+    assert runs[1]["results"][0]["tool"] == "pylint"
+    assert server._result_sort_key("bad") == (100, 5)
+
+
+def test_mcp_run_tests_and_issue_helpers(service_stub, monkeypatch, tmp_path):
+    server = MCPServer(service_stub)
+    with pytest.raises(MCPError) as excinfo:
+        server._run_tests_params({"repositoryId": 0, "commit": "abc"})
+    assert excinfo.value.message == "repositoryId must be a positive integer"
+    with pytest.raises(MCPError) as excinfo:
+        server._run_tests_params({"repositoryId": 1, "commit": ""})
+    assert excinfo.value.message == "commit must be a non-empty string"
+    with pytest.raises(MCPError) as excinfo:
+        server._run_tests_params({"repositoryId": 1, "commit": "abc", "maxResults": 0})
+    assert excinfo.value.message == "maxResults must be a positive integer"
+
+    assert server._trim_tools(None, 1) is None
+    trimmed = server._trim_tools(
+        {
+            "unknown": {"status": "running"},
+            "coverage": {"status": "success"},
+            "pylint": {"status": "error"},
+        },
+        2,
+    )
+    assert list(trimmed.keys()) == ["pylint", "coverage"]
+    assert server._status_priority({}) == 90
+    assert server._status_priority("bad") == 100
+    assert server._tool_weight("other") == 5
+
+    with pytest.raises(MCPError) as excinfo:
+        server._parse_working_tree_issue_params({"maxIssues": 0})
+    assert excinfo.value.message == "maxIssues must be a positive integer"
+    with pytest.raises(MCPError) as excinfo:
+        server._parse_working_tree_issue_params({"repoPath": ""})
+    assert excinfo.value.message == "repoPath must be a non-empty string"
+    with pytest.raises(MCPError) as excinfo:
+        server._parse_working_tree_issue_params({"toolNames": ["ok", ""]})
+    assert excinfo.value.message == "toolNames must be a list of non-empty strings"
+    assert server._parse_working_tree_issue_params({"toolNames": ["pylint", "ruff"]}) == (
+        50,
+        ".",
+        {"pylint", "ruff"},
+    )
+
+    monkeypatch.chdir(tmp_path)
+    inside = tmp_path / "repo"
+    inside.mkdir()
+    assert server._resolve_repo_root("repo") == str(inside.resolve())
+    with pytest.raises(MCPError) as excinfo:
+        server._resolve_repo_root(str(Path(tmp_path).parent))
+    assert excinfo.value.message == "repoPath must be within the server working directory"
+    with pytest.raises(MCPError) as excinfo:
+        server._resolve_repo_root("missing")
+    assert excinfo.value.message == "repoPath must point to a directory"
+
+    service_stub.tool_runner = None
+    with pytest.raises(MCPError) as excinfo:
+        server._require_tool_runner()
+    assert excinfo.value.message == "Tool runner not available"
+    service_stub.tool_runner = DummyToolRunner({"pylint": {"status": "error", "error": "boom"}})
+    service_stub.tool_runner.results = []
+    with pytest.raises(MCPError) as excinfo:
+        _run(server._handle_get_working_tree_issues({"repoPath": ".", "maxIssues": 5}))
+    assert excinfo.value.message == "Tool runner returned invalid results"
+
+
+def test_mcp_issue_translation_helpers(service_stub, monkeypatch, tmp_path):
+    server = MCPServer(service_stub)
+    assert server._include_tool("pylint", None) is True
+    assert server._include_tool("pylint", {"ruff"}) is False
+    assert server._tool_failure_issue("pylint", {"status": "success"}) is None
+    failure = server._tool_failure_issue("pylint", {"status": "error", "error": "boom"})
+    assert failure["message"] == "boom"
+
+    monkeypatch.chdir(tmp_path)
+    file_path = tmp_path / "src" / "app.py"
+    file_path.parent.mkdir()
+    file_path.write_text("print('ok')\n", encoding="utf-8")
+    pylint_issue = server._issue_from_pylint(
+        {
+            "type": "refactor",
+            "abspath": str(file_path),
+            "line": "12",
+            "column": "3",
+            "message": "Refactor this",
+            "symbol": "refactor-me",
+        }
+    )
+    assert pylint_issue["severity"] == "info"
+    assert pylint_issue["path"] == "src/app.py"
+    assert pylint_issue["code"] == "refactor-me"
+    ruff_issue = server._issue_from_ruff({"type": "warning", "message": "warn", "path": "src/app.py", "line": 1, "column": 2, "code": "R1"})
+    assert ruff_issue["severity"] == "warning"
+    lizard_issue = server._issue_from_lizard({"filename": "src/app.py", "line": 9, "ccn": 42})
+    assert "CCN=42" in lizard_issue["message"]
+    assert server._status_priority({"status": "warn"}) == 10
+
+    assert server._issues_from_pylint_details("bad") == []
+    assert server._issues_from_lizard_offenders("bad") == []
+    assert server._issues_from_ruff_details("bad") == []
+    assert len(server._issues_from_ruff_details([{"type": "error", "message": "bad", "path": "x.py"}, "bad"])) == 1
+    assert len(server._issues_for_tool("ruff", {"status": "success", "details": [{"type": "error", "message": "bad", "path": "x.py"}]})) == 1
+    assert server._coerce_int(1.2) == 1
+    assert server._coerce_int("3.0") == 3
+    assert server._coerce_int("bad") is None
+    payload = server._make_issue(tool="ruff", severity="warning", message="msg", path="x.py", line=1, column=2, code="R1")
+    assert payload["path"] == "x.py"
+    summary = server._summarize_issues([payload, {"tool": "ruff", "severity": "warning"}, "bad"])
+    assert summary["total"] == 3
+    assert summary["bySeverity"]["warning"] == 2
+
+    issues, truncated = server._extract_issues(
+        {
+            "pylint": {"status": "error", "error": "boom", "details": [{"type": "warning", "message": "warn"}]},
+            "ruff": {"status": "success", "details": [{"type": "error", "message": "bad", "path": "x.py"}]},
+            "ignored": "bad",
+        },
+        max_issues=2,
+        tool_filter={"pylint", "ruff"},
+    )
+    assert truncated is True
+    assert len(issues) == 2
+    issues, truncated = server._extract_issues(
+        {"skip": {"status": "success", "details": []}, "bad": "oops"},
+        max_issues=5,
+        tool_filter={"ruff"},
+    )
+    assert issues == []
+    assert truncated is False
+    issues, truncated = server._extract_issues(
+        {"ruff": "oops"},
+        max_issues=5,
+        tool_filter=None,
+    )
+    assert issues == []
+    assert truncated is False
+
+
+def test_mcp_logging_tool_and_auth_helpers(service_stub):
+    server = MCPServer(service_stub, auth_token="secret")
+    with pytest.raises(MCPError) as excinfo:
+        _run(server._handle_logging_set_level({"level": ""}))
+    assert excinfo.value.message == "level must be a non-empty string"
+    assert _run(server._handle_logging_set_level({"level": "warn"})) == {}
+    with pytest.raises(MCPError) as excinfo:
+        _run(server._handle_logging_set_level({"level": "banana"}))
+    assert excinfo.value.message == "Unsupported log level: banana"
+
+    with pytest.raises(MCPError) as excinfo:
+        _run(server._handle_tools_call({"name": "", "arguments": {}}))
+    assert excinfo.value.message == "name must be a non-empty string"
+    with pytest.raises(MCPError) as excinfo:
+        _run(server._handle_tools_call({"name": "listRepositories", "arguments": []}))
+    assert excinfo.value.message == "arguments must be an object"
+    with pytest.raises(MCPError) as excinfo:
+        _run(server._handle_tools_call({"name": "unknown", "arguments": {}}))
+    assert excinfo.value.message == "Unknown tool: unknown"
+    payload = _run(server._handle_tools_call({"name": "listRepositories", "arguments": None}))
+    assert payload["content"][0]["type"] == "text"
+    with pytest.raises(MCPError) as excinfo:
+        _run(server._handle_tools_call({"name": "addRepository", "arguments": {"name": ""}}))
+    assert excinfo.value.code == -32602
+    assert _run(server._handle_prompts_list({})) == {"prompts": []}
+    assert server._trigger_shutdown() is False
+    assert _run(server._handle_shutdown({})) == {"shuttingDown": False}
+    server._shutdown_event = asyncio.Event()
+    assert server._trigger_shutdown() is True
+    assert server._trigger_shutdown() is False
+
+    server._verify_token("listRepositories", {"token": "secret"})
+    with pytest.raises(MCPError) as excinfo:
+        server._verify_token("listRepositories", {"token": "bad"})
+    assert excinfo.value.message == "Unauthorized"
+    assert server._extract_token("initialize", {"capabilities": {"experimental": {"fullAutoCI": {"authToken": "secret"}}}}) == "secret"
+    assert server._extract_token_from_capabilities("bad") is None
+    assert server._extract_token_from_capabilities({}) is None
+    assert server._extract_token_from_capabilities({"experimental": {}}) is None
+
+
+def test_mcp_transport_and_capability_helpers(service_stub):
+    async def scenario():
+        reader = asyncio.StreamReader()
+        reader.feed_data(b"\n\r\n")
+        reader.feed_eof()
+        assert await MCPServer._read_first_content_line(reader) is None
+
+        reader = asyncio.StreamReader()
+        reader.feed_data(b"Content-Length: nope\r\n\r\n")
+        with pytest.raises(MCPError) as excinfo:
+            await MCPServer._read_content_length_body(reader, b"Content-Length: nope\r\n")
+        assert excinfo.value.message == "Invalid Content-Length header"
+
+        reader = asyncio.StreamReader()
+        reader.feed_data(b"header line\nsecond line }\n")
+        reader.feed_eof()
+        assert await MCPServer._read_newline_body(reader, b"{\n") == "{\nheader line\nsecond line }"
+
+        reader = asyncio.StreamReader()
+        reader.feed_eof()
+        assert await MCPServer._read_transport_message(reader) == (None, "newline")
+
+        reader = asyncio.StreamReader()
+        reader.feed_data(b"Content-Length: 5\r\n")
+        reader.feed_eof()
+        assert await MCPServer._read_content_length_body(reader, b"Content-Length: 5\r\n") is None
+
+        reader = asyncio.StreamReader()
+        reader.feed_data(b"Content-Length: 5\r\n")
+        reader.feed_eof()
+        assert await MCPServer._read_transport_message(reader) == (None, "content-length")
+
+        reader = asyncio.StreamReader()
+        reader.feed_eof()
+        assert await MCPServer._read_newline_body(reader, b"{") == "{"
+
+    asyncio.run(scenario())
+
+    payload = {"jsonrpc": "2.0", "id": 1, "result": {}}
+    assert MCPServer._encode_message(payload, "newline").endswith(b"\n")
+    assert "experimental" in MCPServer._server_capabilities()
+    assert set(MCPServer(service_stub)._tool_handlers().keys()) == {
+        "listRepositories",
+        "addRepository",
+        "removeRepository",
+        "queueTestRun",
+        "getLatestResults",
+        "runTests",
+        "getWorkingTreeIssues",
+        "shutdown",
+    }
+    assert any(tool["name"] == "shutdown" for tool in MCPServer._tool_definitions())
+
+
+def test_mcp_serve_connection_handles_transport_parse_and_notifications(service_stub):
+    class FakeWriter:
+        def __init__(self) -> None:
+            self.payloads: list[bytes] = []
+            self.closed = False
+
+        def write(self, data: bytes) -> None:
+            self.payloads.append(data)
+
+        async def drain(self) -> None:
+            return None
+
+        def close(self) -> None:
+            self.closed = True
+
+        async def wait_closed(self) -> None:
+            return None
+
+    async def scenario() -> list[bytes]:
+        server = MCPServer(service_stub)
+        reader = asyncio.StreamReader()
+        reader.feed_data(b"Content-Length: nope\r\n\r\n")
+        reader.feed_data(b"{not json}\n")
+        reader.feed_data(json.dumps({"jsonrpc": "2.0", "method": "handshake"}).encode("utf-8") + b"\n")
+        reader.feed_eof()
+        writer = FakeWriter()
+        await server._serve_connection(reader, writer, "peer")
+        assert writer.closed is True
+        return writer.payloads
+
+    payloads = asyncio.run(scenario())
+    assert len(payloads) == 2
+    assert json.loads(payloads[0].decode("utf-8"))["error"]["code"] == -32600
+    assert json.loads(payloads[1].decode("utf-8"))["error"]["code"] == -32700
+
+
+def test_mcp_serve_connection_handles_handler_errors(service_stub):
+    class FakeWriter:
+        def __init__(self) -> None:
+            self.payloads: list[bytes] = []
+
+        def write(self, data: bytes) -> None:
+            self.payloads.append(data)
+
+        async def drain(self) -> None:
+            return None
+
+        def close(self) -> None:
+            return None
+
+        async def wait_closed(self) -> None:
+            return None
+
+    async def scenario() -> list[bytes]:
+        server = MCPServer(service_stub)
+        reader = asyncio.StreamReader()
+        reader.feed_data(json.dumps({"jsonrpc": "2.0", "id": 1, "method": "unknown"}).encode("utf-8") + b"\n")
+        reader.feed_eof()
+        writer = FakeWriter()
+        await server._serve_connection(reader, writer, "peer")
+        return writer.payloads
+
+    payloads = asyncio.run(scenario())
+    assert json.loads(payloads[0].decode("utf-8"))["error"]["code"] == -32601
+
+
+def test_mcp_serve_stdio_cleanup_path(service_stub, monkeypatch):
+    class FakeLoop:
+        async def connect_read_pipe(self, factory, pipe):
+            return object(), object()
+
+        async def connect_write_pipe(self, protocol_factory, pipe):
+            return object(), object()
+
+    class FakeWriter:
+        def __init__(self) -> None:
+            self.closed = False
+            self.waited = False
+
+        def close(self) -> None:
+            self.closed = True
+
+        async def wait_closed(self) -> None:
+            self.waited = True
+
+    async def scenario():
+        server = MCPServer(service_stub)
+        fake_writer = FakeWriter()
+
+        async def fake_serve_connection(reader, writer, peer):
+            return None
+
+        monkeypatch.setattr("src.mcp.server.asyncio.get_running_loop", lambda: FakeLoop())
+        monkeypatch.setattr("src.mcp.server.asyncio.StreamWriter", lambda *args: fake_writer)
+        monkeypatch.setattr(server, "_serve_connection", fake_serve_connection)
+        await server.serve_stdio()
+        assert fake_writer.closed is True
+        assert fake_writer.waited is True
+
+    asyncio.run(scenario())

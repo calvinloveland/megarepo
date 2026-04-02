@@ -833,23 +833,17 @@ class MCPServer:
             if -32100 < exc.code <= -32000:
                 return {
                     "isError": True,
-                    "content": [
-                        {
-                            "type": "text",
-                            "text": json.dumps({"error": exc.to_dict()}, indent=2),
-                        }
-                    ],
+                    "content": [self._text_content(json.dumps({"error": exc.to_dict()}, indent=2))],
                 }
             raise
 
         return {
-            "content": [
-                {
-                    "type": "text",
-                    "text": json.dumps(result, indent=2, sort_keys=True),
-                }
-            ]
+            "content": [self._text_content(json.dumps(result, indent=2, sort_keys=True))]
         }
+
+    @staticmethod
+    def _text_content(text: str) -> Dict[str, str]:
+        return {"type": "text", "text": text}
 
     async def _handle_prompts_list(self, _params: Dict[str, Any]) -> Dict[str, Any]:
         """Return the catalog of available prompts."""
