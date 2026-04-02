@@ -204,15 +204,7 @@ def _build_chapters(paragraphs: list[str], title: str) -> list[Chapter]:
         )
 
     if structured_chapters:
-        for index, chapter in enumerate(structured_chapters, start=1):
-            if chapter.file_name:
-                continue
-            structured_chapters[index - 1] = Chapter(
-                title=chapter.title,
-                file_name=f"chapter{index}.xhtml",
-                blocks=chapter.blocks,
-                epub_type=chapter.epub_type,
-            )
+        _assign_generated_file_names(structured_chapters)
 
     if structured_chapters:
         return structured_chapters
@@ -224,6 +216,18 @@ def _build_chapters(paragraphs: list[str], title: str) -> list[Chapter]:
             blocks=tuple(_build_blocks(paragraphs)),
         )
     ]
+
+
+def _assign_generated_file_names(chapters: list[Chapter]) -> None:
+    for index, chapter in enumerate(chapters, start=1):
+        if chapter.file_name:
+            continue
+        chapters[index - 1] = Chapter(
+            title=chapter.title,
+            file_name=f"chapter{index}.xhtml",
+            blocks=chapter.blocks,
+            epub_type=chapter.epub_type,
+        )
 
 
 def _build_blocks(paragraphs: list[str]) -> list[ContentBlock]:

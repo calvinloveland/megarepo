@@ -1,6 +1,9 @@
 import json
 import zipfile
 
+import pytest
+
+import full_auto_de_pdf.epub as epub_module
 from full_auto_de_pdf.epub import build_epub_from_ocr_file, build_epub_from_ocr_text
 
 
@@ -112,3 +115,71 @@ def test_build_epub_from_ocr_file_writes_metrics(tmp_path) -> None:
     assert metrics["word_count"] == 3
     parsed_metrics = json.loads(metrics_path.read_text(encoding="utf-8"))
     assert parsed_metrics["character_count"] == len("One line only.")
+
+
+def test_epub_helper_edge_cases(monkeypatch) -> None:
+    assert epub_module._is_mostly_uppercase("12345") is False
+    assert epub_module._looks_like_short_heading("A" * 91) is False
+    assert epub_module._looks_like_short_heading("one two three four five six seven eight nine ten eleven") is False
+    assert epub_module._is_chapter_heading("LOUD TITLE") is True
+    assert epub_module._is_title_page_paragraph("", "Book") is False
+    assert epub_module._build_front_matter_chapters(["A plain opening"], "Book") == [
+        epub_module.Chapter(
+            title="Front Matter",
+            file_name="",
+            blocks=(epub_module.ContentBlock(kind="paragraph", text="A plain opening"),),
+            epub_type="frontmatter",
+        )
+    ]
+    calls = iter([False, True])
+    monkeypatch.setattr(epub_module, "_is_front_matter_heading", lambda text: next(calls))
+    assert epub_module._build_front_matter_chapters(["Edge paragraph"], "Book") == [
+        epub_module.Chapter(
+            title="Front Matter",
+            file_name="",
+            blocks=(epub_module.ContentBlock(kind="paragraph", text="Edge paragraph"),),
+            epub_type="frontmatter",
+        )
+    ]
+    assert epub_module._build_chapters([], "Book") == [
+        epub_module.Chapter(
+            title="Book",
+            file_name="chapter1.xhtml",
+            blocks=(),
+        )
+    ]
+    assert epub_module._consume_list(["- First item", "Paragraph"], 0, "unordered_list") == (
+        "unordered_list",
+        ["First item"],
+        1,
+    )
+
+
+def test_epub_parse_build_file_args_edge_cases(tmp_path) -> None:
+    metrics_path, title, language, apply_cleanup = epub_module._parse_build_epub_file_args(
+        ("metrics.json", "Demo", "fr", False),
+        {},
+    )
+    assert metrics_path == epub_module.Path("metrics.json")
+    assert title == "Demo"
+    assert language == "fr"
+    assert apply_cleanup is False
+
+    with pytest.raises(TypeError, match="at most 4 positional extras"):
+        epub_module._parse_build_epub_file_args((1, 2, 3, 4, 5), {})
+    with pytest.raises(TypeError, match="Unexpected keyword arguments: extra"):
+        epub_module._parse_build_epub_file_args((), {"title": "Demo", "extra": True})
+    with pytest.raises(TypeError, match="missing required argument: 'title'"):
+        epub_module._parse_build_epub_file_args((), {})
+
+    ocr_text = tmp_path / "ocr.txt"
+    output_epub = tmp_path / "book.epub"
+    ocr_text.write_text("One line only.", encoding="utf-8")
+    metrics = build_epub_from_ocr_file(
+        ocr_text,
+        output_epub,
+        "Positional Demo",
+        "de",
+        False,
+    )
+    assert metrics["word_count"] == 3
