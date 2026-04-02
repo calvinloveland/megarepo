@@ -94,9 +94,24 @@ def _evaluate_heading_sequence(
     }
 
 
+def _epubcheck_result(
+    command: str,
+    status: str,
+    *,
+    return_code: int | None = None,
+    output: str = "",
+) -> dict[str, Any]:
+    result: dict[str, Any] = {"status": status, "command": command}
+    if return_code is not None:
+        result["return_code"] = return_code
+    if output:
+        result["output"] = output
+    return result
+
+
 def _run_epubcheck(epub_path: Path, epubcheck_cmd: str) -> dict[str, Any]:
     if shutil.which(epubcheck_cmd) is None:
-        return {"status": "unavailable", "command": epubcheck_cmd}
+        return _epubcheck_result(epubcheck_cmd, "unavailable")
     completed = subprocess.run(
         [epubcheck_cmd, str(epub_path)],
         capture_output=True,
@@ -104,12 +119,12 @@ def _run_epubcheck(epub_path: Path, epubcheck_cmd: str) -> dict[str, Any]:
         check=False,
     )
     output = (completed.stdout or "") + ("\n" + completed.stderr if completed.stderr else "")
-    return {
-        "status": "pass" if completed.returncode == 0 else "fail",
-        "command": epubcheck_cmd,
-        "return_code": completed.returncode,
-        "output": output.strip(),
-    }
+    return _epubcheck_result(
+        epubcheck_cmd,
+        "pass" if completed.returncode == 0 else "fail",
+        return_code=completed.returncode,
+        output=output.strip(),
+    )
 
 
 def _extract_opf_path(epub_zip: zipfile.ZipFile) -> str:
