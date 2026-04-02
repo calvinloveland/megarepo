@@ -25,6 +25,16 @@ _MIN_PAGE_TOKEN_COUNT = 8
 _DEFAULT_MAX_ALIGNED_PAGES = 40
 
 
+def _emit_archive_progress(
+    progress_callback: Callable[[dict[str, object]], None] | None,
+    *,
+    status: str,
+    message: str,
+) -> None:
+    if progress_callback is not None:
+        progress_callback({"stage": "archive-compare", "status": status, "message": message})
+
+
 def _extract_first_string(value: Any) -> str | None:
     if isinstance(value, str):
         stripped = value.strip()
@@ -730,8 +740,7 @@ def build_archive_epub_compare_page(
         raise ValueError("archive_source_mode must be one of: djvu, abbyy")
     if selected_pdf_page is not None and selected_pdf_page < 1:
         raise ValueError("selected_pdf_page must be greater than or equal to 1")
-    if progress_callback is not None:
-        progress_callback({"stage": "archive-compare", "status": "running", "message": "Fetching archive metadata"})
+    _emit_archive_progress(progress_callback, status="running", message="Fetching archive metadata")
     metadata = fetch_metadata(archive_identifier, timeout_seconds=timeout_seconds)
     files = _normalized_files(metadata)
     archive_epub_filename = _select_archive_filename(files, ".epub")
@@ -753,14 +762,12 @@ def build_archive_epub_compare_page(
     generated_dir.mkdir(parents=True, exist_ok=True)
 
     archive_epub_path = downloads_dir / archive_epub_filename
-    if progress_callback is not None:
-        progress_callback({"stage": "archive-compare", "status": "running", "message": "Downloading Internet Archive EPUB"})
+    _emit_archive_progress(progress_callback, status="running", message="Downloading Internet Archive EPUB")
     _download_archive_file(archive_identifier, archive_epub_filename, archive_epub_path, timeout_seconds)
     archive_pdf_path: Path | None = None
     if archive_pdf_filename is not None:
         archive_pdf_path = downloads_dir / archive_pdf_filename
-        if progress_callback is not None:
-            progress_callback({"stage": "archive-compare", "status": "running", "message": "Downloading archive scan PDF"})
+        _emit_archive_progress(progress_callback, status="running", message="Downloading archive scan PDF")
         _download_archive_file(archive_identifier, archive_pdf_filename, archive_pdf_path, timeout_seconds)
     archive_pdf_url = (
         ARCHIVE_DOWNLOAD_URL.format(identifier=archive_identifier, filename=archive_pdf_filename)
@@ -844,8 +851,7 @@ def build_archive_epub_compare_page(
         }
 
     generated_epub_path = generated_dir / f"{archive_identifier}_{generated_source_slug}_generated.epub"
-    if progress_callback is not None:
-        progress_callback({"stage": "archive-compare", "status": "running", "message": "Building generated EPUB"})
+    _emit_archive_progress(progress_callback, status="running", message="Building generated EPUB")
     generated_metrics = build_epub_from_ocr_text(
         ocr_text=ocr_text,
         output_path=generated_epub_path,
@@ -854,8 +860,7 @@ def build_archive_epub_compare_page(
         apply_cleanup=True,
     )
 
-    if progress_callback is not None:
-        progress_callback({"stage": "archive-compare", "status": "running", "message": "Evaluating EPUB structure"})
+    _emit_archive_progress(progress_callback, status="running", message="Evaluating EPUB structure")
     archive_eval = evaluate_epub_structure(archive_epub_path, run_epubcheck=run_epubcheck)
     generated_eval = evaluate_epub_structure(generated_epub_path, run_epubcheck=run_epubcheck)
     archive_preview = _epub_preview(archive_epub_path)
@@ -901,8 +906,7 @@ def build_archive_epub_compare_page(
         encoding="utf-8",
     )
     output_html_path.write_text(_render_compare_page(summary), encoding="utf-8")
-    if progress_callback is not None:
-        progress_callback({"stage": "archive-compare", "status": "complete", "message": "Archive compare page ready"})
+    _emit_archive_progress(progress_callback, status="complete", message="Archive compare page ready")
     return {
         "archive_identifier": archive_identifier,
         "title": title,
