@@ -43,6 +43,26 @@ def _format_duration(seconds: object) -> str:
     return f"{minutes:02d}:{secs:02d}"
 
 
+def _emit_progress(label: str, message: str) -> None:
+    print(f"{label}: {message}", file=sys.stderr, flush=True)
+
+
+def _should_report_progress(
+    *,
+    status: str,
+    completed: int,
+    total: int,
+    last_completed: int,
+    min_increment: int,
+) -> bool:
+    return (
+        status == "complete"
+        or completed <= 1
+        or completed == total
+        or completed - last_completed >= min_increment
+    )
+
+
 def _make_progress_reporter(label: str) -> Callable[[dict[str, object]], None]:
     last_completed_by_stage: dict[str, int] = {}
 
@@ -52,27 +72,28 @@ def _make_progress_reporter(label: str) -> Callable[[dict[str, object]], None]:
         if stage == "archive-compare":
             message = payload.get("message")
             if isinstance(message, str) and message:
-                print(f"{label}: {message}", file=sys.stderr, flush=True)
+                _emit_progress(label, message)
             return
         if stage == "rasterize":
             total_pages = payload.get("total_pages")
             completed_pages = payload.get("completed_pages")
             if isinstance(total_pages, int) and isinstance(completed_pages, int):
                 last_completed = last_completed_by_stage.get(stage, -1)
-                should_print = (
-                    status == "complete"
-                    or completed_pages <= 1
-                    or completed_pages == total_pages
-                    or completed_pages - last_completed >= 25
+                should_print = _should_report_progress(
+                    status=status,
+                    completed=completed_pages,
+                    total=total_pages,
+                    last_completed=last_completed,
+                    min_increment=25,
                 )
                 if should_print:
                     last_completed_by_stage[stage] = completed_pages
                     if status == "complete":
-                        print(
-                            f"{label}: Rasterization complete ({completed_pages}/{total_pages} pages, "
+                        _emit_progress(
+                            label,
+                            "Rasterization complete "
+                            f"({completed_pages}/{total_pages} pages, "
                             f"elapsed={_format_duration(payload.get('elapsed_seconds'))})",
-                            file=sys.stderr,
-                            flush=True,
                         )
                     else:
                         current_page_index = payload.get("current_page_index")
@@ -81,17 +102,16 @@ def _make_progress_reporter(label: str) -> Callable[[dict[str, object]], None]:
                             if isinstance(current_page_index, int)
                             else ""
                         )
-                        print(
-                            f"{label}: Rasterized {completed_pages}/{total_pages} pages{current_text}, "
+                        _emit_progress(
+                            label,
+                            f"Rasterized {completed_pages}/{total_pages} pages{current_text}, "
                             f"elapsed={_format_duration(payload.get('elapsed_seconds'))}, "
                             f"eta={_format_duration(payload.get('estimated_remaining_seconds'))}",
-                            file=sys.stderr,
-                            flush=True,
                         )
                 return
             message = payload.get("message")
             if isinstance(message, str) and message:
-                print(f"{label}: {message}", file=sys.stderr, flush=True)
+                _emit_progress(label, message)
             return
         if stage == "ocr-candidate":
             candidate_index = payload.get("candidate_index")
@@ -115,12 +135,11 @@ def _make_progress_reporter(label: str) -> Callable[[dict[str, object]], None]:
                     if isinstance(retry_reason, str) and retry_reason
                     else ""
                 )
-                print(
-                    f"{label}: Evaluating {page_text}candidate {candidate_index}/{candidate_total} "
+                _emit_progress(
+                    label,
+                    f"Evaluating {page_text}candidate {candidate_index}/{candidate_total} "
                     f"({retry_text}mode={preprocess_text}, psm={psm_text}), "
                     f"elapsed={_format_duration(payload.get('elapsed_seconds'))}",
-                    file=sys.stderr,
-                    flush=True,
                 )
             return
         if stage in {"benchmark-corpus", "benchmark-streaming-corpus"}:
@@ -128,11 +147,12 @@ def _make_progress_reporter(label: str) -> Callable[[dict[str, object]], None]:
             total_items = int(payload.get("total_items", 0))
             current_identifier = payload.get("current_identifier")
             last_completed = last_completed_by_stage.get(stage, -1)
-            should_print = (
-                status == "complete"
-                or completed_items <= 1
-                or completed_items == total_items
-                or completed_items > last_completed
+            should_print = _should_report_progress(
+                status=status,
+                completed=completed_items,
+                total=total_items,
+                last_completed=last_completed,
+                min_increment=1,
             )
             if not should_print:
                 return
@@ -144,19 +164,17 @@ def _make_progress_reporter(label: str) -> Callable[[dict[str, object]], None]:
                 else ""
             )
             if status == "complete":
-                print(
-                    f"{label}: Benchmark complete ({completed_items}/{total_items} {noun}, "
+                _emit_progress(
+                    label,
+                    f"Benchmark complete ({completed_items}/{total_items} {noun}, "
                     f"elapsed={_format_duration(payload.get('elapsed_seconds'))})",
-                    file=sys.stderr,
-                    flush=True,
                 )
                 return
-            print(
-                f"{label}: Benchmarked {completed_items}/{total_items} {noun}{current_text}, "
+            _emit_progress(
+                label,
+                f"Benchmarked {completed_items}/{total_items} {noun}{current_text}, "
                 f"elapsed={_format_duration(payload.get('elapsed_seconds'))}, "
                 f"eta={_format_duration(payload.get('estimated_remaining_seconds'))}",
-                file=sys.stderr,
-                flush=True,
             )
             return
         if stage != "ocr":
@@ -165,21 +183,21 @@ def _make_progress_reporter(label: str) -> Callable[[dict[str, object]], None]:
         total_pages = int(payload.get("total_pages", 0))
         current_page_index = payload.get("current_page_index")
         last_completed = last_completed_by_stage.get(stage, -1)
-        should_print = (
-            status == "complete"
-            or completed_pages <= 1
-            or completed_pages == total_pages
-            or completed_pages - last_completed >= 10
+        should_print = _should_report_progress(
+            status=status,
+            completed=completed_pages,
+            total=total_pages,
+            last_completed=last_completed,
+            min_increment=10,
         )
         if not should_print:
             return
         last_completed_by_stage[stage] = completed_pages
         if status == "complete":
-            print(
-                f"{label}: OCR complete ({completed_pages}/{total_pages} pages, "
+            _emit_progress(
+                label,
+                f"OCR complete ({completed_pages}/{total_pages} pages, "
                 f"elapsed={_format_duration(payload.get('elapsed_seconds'))})",
-                file=sys.stderr,
-                flush=True,
             )
             return
         current_text = (
@@ -187,12 +205,11 @@ def _make_progress_reporter(label: str) -> Callable[[dict[str, object]], None]:
             if isinstance(current_page_index, int)
             else ""
         )
-        print(
-            f"{label}: OCR {completed_pages}/{total_pages} pages complete{current_text}, "
+        _emit_progress(
+            label,
+            f"OCR {completed_pages}/{total_pages} pages complete{current_text}, "
             f"elapsed={_format_duration(payload.get('elapsed_seconds'))}, "
             f"eta={_format_duration(payload.get('estimated_remaining_seconds'))}",
-            file=sys.stderr,
-            flush=True,
         )
 
     return _report

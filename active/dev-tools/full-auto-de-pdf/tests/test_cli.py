@@ -1,5 +1,10 @@
 import json
+import runpy
+import sys
 
+import pytest
+
+from full_auto_de_pdf import archive_org
 from full_auto_de_pdf import cli
 
 
@@ -78,7 +83,122 @@ def test_progress_reporter_handles_candidate_and_benchmark_updates(capsys) -> No
     assert "eta=01:30" in captured.err
 
 
-def test_benchmark_archive_command_writes_report(monkeypatch, tmp_path) -> None:
+def test_progress_reporter_handles_remaining_stage_variants(capsys) -> None:
+    reporter = cli._make_progress_reporter("Demo")
+
+    assert cli._format_duration("unknown") == "estimating"
+    assert cli._format_duration(3661) == "1:01:01"
+
+    reporter({"stage": "archive-compare", "message": "Comparing OCR output"})
+    reporter(
+        {
+            "stage": "rasterize",
+            "status": "running",
+            "completed_pages": 1,
+            "total_pages": 3,
+            "current_page_index": 2,
+            "elapsed_seconds": 30.0,
+            "estimated_remaining_seconds": 90.0,
+        }
+    )
+    reporter(
+        {
+            "stage": "rasterize",
+            "status": "complete",
+            "completed_pages": 3,
+            "total_pages": 3,
+            "elapsed_seconds": 120.0,
+        }
+    )
+    reporter({"stage": "rasterize", "message": "Rasterizer warming up"})
+    reporter(
+        {
+            "stage": "benchmark-corpus",
+            "status": "running",
+            "completed_items": 2,
+            "total_items": 4,
+            "current_identifier": "demo-book-002",
+            "elapsed_seconds": 60.0,
+            "estimated_remaining_seconds": 60.0,
+        }
+    )
+    reporter(
+        {
+            "stage": "benchmark-corpus",
+            "status": "running",
+            "completed_items": 2,
+            "total_items": 4,
+            "current_identifier": "demo-book-002",
+            "elapsed_seconds": 61.0,
+            "estimated_remaining_seconds": 59.0,
+        }
+    )
+    reporter(
+        {
+            "stage": "benchmark-corpus",
+            "status": "complete",
+            "completed_items": 4,
+            "total_items": 4,
+            "elapsed_seconds": 120.0,
+        }
+    )
+    reporter({"stage": "ignored", "status": "running"})
+    reporter(
+        {
+            "stage": "ocr",
+            "status": "running",
+            "completed_pages": 1,
+            "total_pages": 12,
+            "current_page_index": 1,
+            "elapsed_seconds": 45.0,
+            "estimated_remaining_seconds": 495.0,
+        }
+    )
+    reporter(
+        {
+            "stage": "ocr",
+            "status": "running",
+            "completed_pages": 5,
+            "total_pages": 12,
+            "current_page_index": 5,
+            "elapsed_seconds": 75.0,
+            "estimated_remaining_seconds": 420.0,
+        }
+    )
+    reporter(
+        {
+            "stage": "ocr",
+            "status": "running",
+            "completed_pages": 11,
+            "total_pages": 12,
+            "current_page_index": 11,
+            "elapsed_seconds": 120.0,
+            "estimated_remaining_seconds": 30.0,
+        }
+    )
+    reporter(
+        {
+            "stage": "ocr",
+            "status": "complete",
+            "completed_pages": 12,
+            "total_pages": 12,
+            "elapsed_seconds": 150.0,
+        }
+    )
+
+    captured = capsys.readouterr()
+    assert "Demo: Comparing OCR output" in captured.err
+    assert "Demo: Rasterized 1/3 pages, current page=2" in captured.err
+    assert "Demo: Rasterization complete (3/3 pages, elapsed=02:00)" in captured.err
+    assert "Demo: Rasterizer warming up" in captured.err
+    assert "Demo: Benchmarked 2/4 books, current=demo-book-002" in captured.err
+    assert captured.err.count("Benchmarked 2/4 books, current=demo-book-002") == 1
+    assert "Demo: Benchmark complete (4/4 books, elapsed=02:00)" in captured.err
+    assert "Demo: OCR 11/12 pages complete, current page=11" in captured.err
+    assert "Demo: OCR complete (12/12 pages, elapsed=02:30)" in captured.err
+
+
+def test_benchmark_archive_command_writes_report(monkeypatch, tmp_path, capsys) -> None:
     output = tmp_path / "benchmark.json"
     cache_dir = tmp_path / "cache"
 
@@ -97,6 +217,7 @@ def test_benchmark_archive_command_writes_report(monkeypatch, tmp_path) -> None:
             },
             "books": [],
             "metric_note": "test",
+            "guardrails": {"passed": True},
         }
 
     monkeypatch.setattr(cli, "run_archive_benchmark", _fake_run_archive_benchmark)
@@ -114,9 +235,11 @@ def test_benchmark_archive_command_writes_report(monkeypatch, tmp_path) -> None:
         ]
     )
 
+    captured = capsys.readouterr()
     assert rc == 0
     payload = json.loads(output.read_text(encoding="utf-8"))
     assert payload["summary"]["book_count"] == 1
+    assert "Guardrails: PASS" in captured.out
 
 
 def test_build_benchmark_corpus_command_writes_manifest(monkeypatch, tmp_path) -> None:
@@ -770,3 +893,46 @@ def test_archive_epub_compare_page_command_writes_html(monkeypatch, tmp_path) ->
     )
     assert rc == 0
     assert output_html.exists()
+
+
+def test_main_returns_error_code_when_handler_is_missing(monkeypatch, tmp_path) -> None:
+    output = tmp_path / "manifest.json"
+    errors: list[str] = []
+
+    def _fake_error(self, message: str) -> None:  # noqa: ANN001
+        errors.append(message)
+
+    monkeypatch.setattr(cli, "_COMMAND_HANDLERS", {})
+    monkeypatch.setattr(cli.argparse.ArgumentParser, "error", _fake_error)
+
+    rc = cli.main(["manifest", "--output", str(output)])
+
+    assert rc == 2
+    assert errors == ["'manifest' is not implemented yet"]
+
+
+def test_module_entrypoint_raises_system_exit(monkeypatch, tmp_path) -> None:
+    output = tmp_path / "manifest.json"
+
+    def _fake_build_manifest(timeout_seconds: int) -> list[dict[str, object]]:
+        assert timeout_seconds == 9
+        return [{"identifier": "entrypoint-book"}]
+
+    def _fake_write_manifest(path, books) -> None:  # noqa: ANN001
+        path.write_text(json.dumps({"books": books}), encoding="utf-8")
+
+    monkeypatch.setattr(archive_org, "build_manifest", _fake_build_manifest)
+    monkeypatch.setattr(archive_org, "write_manifest", _fake_write_manifest)
+    monkeypatch.delitem(sys.modules, "full_auto_de_pdf.cli", raising=False)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["full-auto-de-pdf", "manifest", "--output", str(output), "--timeout-seconds", "9"],
+    )
+
+    with pytest.raises(SystemExit) as excinfo:
+        runpy.run_module("full_auto_de_pdf.cli", run_name="__main__")
+
+    assert excinfo.value.code == 0
+    payload = json.loads(output.read_text(encoding="utf-8"))
+    assert payload["books"][0]["identifier"] == "entrypoint-book"
