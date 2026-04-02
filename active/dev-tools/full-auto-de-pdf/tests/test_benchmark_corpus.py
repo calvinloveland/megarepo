@@ -1,9 +1,12 @@
 import json
+from collections import Counter
 from pathlib import Path
+from types import SimpleNamespace
 
 from PIL import Image
 import pytest
 
+import full_auto_de_pdf.benchmark_corpus as benchmark_corpus
 from full_auto_de_pdf.benchmark import BenchmarkBook
 from full_auto_de_pdf.benchmark_corpus import (
     build_benchmark_corpus,
@@ -688,3 +691,294 @@ def test_run_streaming_benchmark_corpus_emits_progress_updates(monkeypatch, tmp_
     assert events[1]["completed_items"] == 1
     assert events[2]["completed_items"] == 1
     assert events[2]["estimated_remaining_seconds"] == 0.0
+
+
+def test_benchmark_corpus_helper_guards_and_fallbacks(monkeypatch) -> None:
+    monkeypatch.setattr(benchmark_corpus.shutil, "which", lambda name: None)
+    assert benchmark_corpus._fontconfig_match("serif") is None
+
+    monkeypatch.setattr(benchmark_corpus.shutil, "which", lambda name: "/usr/bin/fc-match")
+    monkeypatch.setattr(
+        benchmark_corpus.subprocess,
+        "run",
+        lambda *args, **kwargs: SimpleNamespace(returncode=1, stdout=""),
+    )
+    assert benchmark_corpus._fontconfig_match("serif") is None
+
+    assert benchmark_corpus._extract_excerpt("   ", excerpt_word_count=5, skip_word_count=0) == ""
+    fallback_excerpt = benchmark_corpus._extract_excerpt(
+        "Alpha beta gamma.\n\nDelta epsilon zeta.",
+        excerpt_word_count=5,
+        skip_word_count=99,
+    )
+    assert fallback_excerpt == "Alpha beta gamma.\n\nDelta epsilon zeta."
+    many_paragraphs = "\n\n".join(f"word{i} alpha beta" for i in range(100))
+    assert benchmark_corpus._extract_excerpt(
+        many_paragraphs,
+        excerpt_word_count=10,
+        skip_word_count=999,
+    ).count("\n\n") < 99
+
+    monkeypatch.setattr(benchmark_corpus, "ImageFont", None)
+    with pytest.raises(RuntimeError, match="Missing dependency for corpus rendering: pillow"):
+        benchmark_corpus._resolve_font(None, 12)
+
+    fake_font_module = SimpleNamespace(
+        truetype=lambda *args, **kwargs: "truetype-font",
+        load_default=lambda: "default-font",
+    )
+    monkeypatch.setattr(benchmark_corpus, "ImageFont", fake_font_module)
+    monkeypatch.setattr(benchmark_corpus, "_fontconfig_match", lambda family: None)
+    monkeypatch.setattr(benchmark_corpus, "_DEFAULT_FONT_CANDIDATES", ("",))
+    assert benchmark_corpus._resolve_font(None, 12) == (
+        "default-font",
+        "Pillow default bitmap font",
+    )
+
+    assert benchmark_corpus._wrap_paragraph(None, None, "", 100) == [""]
+    assert benchmark_corpus._normalize_artifact_profiles([" ", ""]) == ("clean",)
+    with pytest.raises(ValueError, match="artifact_profiles must be chosen from"):
+        benchmark_corpus._normalize_artifact_profiles(("clean", "bogus"))
+
+    monkeypatch.setattr(benchmark_corpus, "Image", None)
+    assert benchmark_corpus._resampling_filter("BILINEAR") is None
+
+
+def test_benchmark_corpus_rendering_helpers_cover_guard_paths(monkeypatch, tmp_path) -> None:
+    monkeypatch.setattr(benchmark_corpus, "Image", None)
+    with pytest.raises(RuntimeError, match="pillow is required for artifact rendering"):
+        benchmark_corpus._noise_texture((10, 10), benchmark_corpus.random.Random(1), 1)
+    with pytest.raises(RuntimeError, match="pillow is required for artifact rendering"):
+        benchmark_corpus._gradient_mask((10, 10), benchmark_corpus.random.Random(1), 1)
+
+    monkeypatch.setattr(benchmark_corpus, "ImageChops", None)
+    with pytest.raises(RuntimeError, match="pillow is required for artifact rendering"):
+        benchmark_corpus._paper_texture((10, 10), benchmark_corpus.random.Random(1), 1)
+
+    monkeypatch.setattr(benchmark_corpus, "ImageFilter", None)
+    with pytest.raises(RuntimeError, match="pillow is required for artifact rendering"):
+        benchmark_corpus._edge_shadow_mask((10, 10), benchmark_corpus.random.Random(1), 1)
+    with pytest.raises(RuntimeError, match="pillow is required for artifact rendering"):
+        benchmark_corpus._speckle_mask((10, 10), benchmark_corpus.random.Random(1), 1)
+
+    monkeypatch.setattr(benchmark_corpus, "ImageDraw", None)
+    with pytest.raises(RuntimeError, match="Missing dependency for corpus rendering: pillow"):
+        benchmark_corpus._render_page_images(
+            "Alpha beta gamma",
+            tmp_path / "rendered",
+            font_path=None,
+            font_size=12,
+            page_width=100,
+            page_height=100,
+            margin=5,
+            artifact_profile="clean",
+            artifact_seed=0,
+        )
+
+    with pytest.raises(RuntimeError, match="Missing dependency for corpus rendering: pillow"):
+        benchmark_corpus._apply_scan_artifacts(Image.new("L", (10, 10), color=255), "scan-photocopy", 1)
+
+    with pytest.raises(RuntimeError, match="Missing dependency for corpus rendering: pillow"):
+        benchmark_corpus._write_pdf([], tmp_path / "output.pdf")
+
+
+def test_benchmark_corpus_rendering_helpers_cover_scan_extreme_and_rollover(tmp_path) -> None:
+    page_image = Image.new("L", (120, 120), color=255)
+    processed = benchmark_corpus._apply_scan_artifacts(page_image, "scan-extreme", 7)
+    assert processed.size == page_image.size
+
+    excerpt = "\n\n".join(
+        [
+            "Alpha beta gamma delta epsilon zeta eta theta iota kappa lambda mu.",
+            "Nu xi omicron pi rho sigma tau upsilon phi chi psi omega.",
+            "More words to force a second page with a very small canvas height.",
+        ]
+    )
+    page_paths, resolved_font_path = benchmark_corpus._render_page_images(
+        excerpt,
+        tmp_path / "rendered",
+        font_path=None,
+        font_size=14,
+        page_width=180,
+        page_height=80,
+        margin=8,
+        artifact_profile="clean",
+        artifact_seed=0,
+    )
+    assert len(page_paths) >= 2
+    assert resolved_font_path
+
+
+def test_benchmark_corpus_counter_and_failure_helpers(monkeypatch, tmp_path) -> None:
+    assert benchmark_corpus._safe_rate(3, 0) == 0.0
+    assert benchmark_corpus._string_counter_from_mapping(
+        {1: 2, "alpha": True, "beta": 3, "gamma": 4.0, "delta": 2.5}
+    ) == Counter({"gamma": 4, "beta": 3})
+
+    assert benchmark_corpus._iter_streaming_excerpts(
+        "Alpha beta gamma.",
+        excerpt_word_count=10,
+        skip_word_count=0,
+        samples_per_book=3,
+    ) == [(1, 0, "Alpha beta gamma.")]
+
+    substitution_counter: Counter[tuple[str, str]] = Counter()
+    missing_counter: Counter[str] = Counter()
+    unexpected_counter: Counter[str] = Counter()
+    benchmark_corpus._update_token_failure_counters(
+        "alpha beta",
+        "alpha",
+        substitution_counter=substitution_counter,
+        missing_counter=missing_counter,
+        unexpected_counter=unexpected_counter,
+    )
+    benchmark_corpus._update_token_failure_counters(
+        "alpha",
+        "alpha beta",
+        substitution_counter=substitution_counter,
+        missing_counter=missing_counter,
+        unexpected_counter=unexpected_counter,
+    )
+    assert missing_counter == Counter({"beta": 1})
+    assert unexpected_counter == Counter({"beta": 1})
+
+    failure_dir = tmp_path / "failure"
+    failure_dir.mkdir()
+    monkeypatch.setattr(benchmark_corpus.shutil, "rmtree", lambda path, ignore_errors=True: None)
+    with pytest.raises(RuntimeError, match="could not clear existing failure artifact directory"):
+        benchmark_corpus._record_streaming_failure_artifacts(
+            sample_dir=tmp_path / "sample",
+            ocr_work_dir=tmp_path / "ocr",
+            failure_dir=failure_dir,
+            reference_text="reference",
+            hypothesis_text="hypothesis",
+            metadata={"identifier": "demo"},
+        )
+
+
+def test_build_image_text_corpus_manifest_limit_and_empty_match_errors(tmp_path) -> None:
+    images_dir = tmp_path / "images"
+    texts_dir = tmp_path / "texts"
+    images_dir.mkdir()
+    texts_dir.mkdir()
+    _write_test_image(images_dir / "a006.tiff")
+    (texts_dir / "a006.txt").write_text("Ground truth text", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="no matching image/text pairs"):
+        build_image_text_corpus_manifest(
+            output_manifest_path=tmp_path / "manifest.json",
+            images_dir=images_dir,
+            texts_dir=texts_dir,
+            limit=0,
+        )
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "message"),
+    [
+        ({"excerpt_word_count": 0}, "excerpt_word_count must be greater than 0"),
+        ({"skip_word_count": -1}, "skip_word_count must be zero or greater"),
+        ({"books": ()}, "build_benchmark_corpus requires at least one book"),
+    ],
+)
+def test_build_benchmark_corpus_validates_inputs(kwargs, message, tmp_path) -> None:
+    with pytest.raises(ValueError, match=message):
+        build_benchmark_corpus(
+            output_dir=tmp_path / "corpus",
+            cache_dir=tmp_path / "cache",
+            **kwargs,
+        )
+
+
+def test_run_benchmark_corpus_validates_manifest_and_skips_non_dict_books(monkeypatch, tmp_path) -> None:
+    reference_path = tmp_path / "reference.txt"
+    reference_path.write_text("clean printed text", encoding="utf-8")
+    page_path = tmp_path / "page-1.png"
+    _write_test_image(page_path)
+
+    empty_manifest_path = tmp_path / "empty-manifest.json"
+    empty_manifest_path.write_text(json.dumps({"books": []}), encoding="utf-8")
+    with pytest.raises(ValueError, match="corpus manifest did not include any books"):
+        run_benchmark_corpus(
+            corpus_manifest_path=empty_manifest_path,
+            output_report_path=tmp_path / "empty-report.json",
+            work_dir=tmp_path / "empty-work",
+        )
+
+    mixed_manifest_path = tmp_path / "mixed-manifest.json"
+    mixed_manifest_path.write_text(
+        json.dumps(
+            {
+                "books": [
+                    "skip-me",
+                    {
+                        "identifier": "demo-book",
+                        "title": "Demo Book",
+                        "reference_text_path": str(reference_path),
+                        "page_image_paths": [str(page_path)],
+                    },
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    def _fake_ocr_page_images(**kwargs):  # noqa: ANN003
+        output_path = kwargs["output_text_path"]
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text("clean printed text", encoding="utf-8")
+        return {
+            "page_count": 1,
+            "word_count": 3,
+            "character_count": 18,
+        }
+
+    monkeypatch.setattr(benchmark_corpus, "ocr_page_images", _fake_ocr_page_images)
+    report = run_benchmark_corpus(
+        corpus_manifest_path=mixed_manifest_path,
+        output_report_path=tmp_path / "report.json",
+        work_dir=tmp_path / "work",
+    )
+    assert [book["identifier"] for book in report["books"]] == ["demo-book"]
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "message"),
+    [
+        ({"excerpt_word_count": 0}, "excerpt_word_count must be greater than 0"),
+        ({"skip_word_count": -1}, "skip_word_count must be zero or greater"),
+        ({"samples_per_book": 0}, "samples_per_book must be greater than 0"),
+        ({"max_recorded_failures": -1}, "max_recorded_failures must be zero or greater"),
+        (
+            {"failure_word_accuracy_below": 1.5},
+            "failure_word_accuracy_below must be between 0.0 and 1.0",
+        ),
+        (
+            {"failure_char_accuracy_below": -0.1},
+            "failure_char_accuracy_below must be between 0.0 and 1.0",
+        ),
+    ],
+)
+def test_run_streaming_benchmark_corpus_validates_inputs(kwargs, message, tmp_path) -> None:
+    book = BenchmarkBook("demo-book", "Demo Book", 123)
+    with pytest.raises(ValueError, match=message):
+        run_streaming_benchmark_corpus(
+            output_report_path=tmp_path / "report.json",
+            work_dir=tmp_path / "work",
+            cache_dir=tmp_path / "cache",
+            books=(book,),
+            **kwargs,
+        )
+
+
+def test_run_streaming_benchmark_corpus_requires_books_and_pdf_paths(tmp_path) -> None:
+    with pytest.raises(ValueError, match="run_streaming_benchmark_corpus requires at least one book"):
+        run_streaming_benchmark_corpus(
+            output_report_path=tmp_path / "report.json",
+            work_dir=tmp_path / "work",
+            cache_dir=tmp_path / "cache",
+            books=(),
+        )
+
+    with pytest.raises(ValueError, match="did not include page_image_paths or a pdf_path"):
+        benchmark_corpus._require_pdf_path(None, "demo-book")

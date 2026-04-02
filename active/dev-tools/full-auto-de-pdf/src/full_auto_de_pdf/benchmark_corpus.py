@@ -82,6 +82,17 @@ class CorpusBook:
     artifact_profile: str
 
 
+def _missing_pillow_runtime_error(context: str) -> RuntimeError:
+    return RuntimeError(
+        f"Missing dependency for {context}: pillow. "
+        "Install with `pip install pillow`."
+    )
+
+
+def _artifact_rendering_runtime_error() -> RuntimeError:
+    return RuntimeError("pillow is required for artifact rendering")
+
+
 def _fontconfig_match(family: str) -> str | None:
     if shutil.which("fc-match") is None:
         return None
@@ -156,10 +167,7 @@ def _slugify(value: str) -> str:
 
 def _resolve_font(font_path: str | None, font_size: int) -> tuple[Any, str]:
     if ImageFont is None:
-        raise RuntimeError(
-            "Missing dependency for corpus rendering: pillow. "
-            "Install with `pip install pillow`."
-        )
+        raise _missing_pillow_runtime_error("corpus rendering")
     candidates = [font_path] if font_path else []
     candidates.extend(
         candidate
@@ -230,7 +238,7 @@ def _resampling_filter(name: str) -> Any:
 
 def _noise_texture(size: tuple[int, int], rng: random.Random, amplitude: int) -> Any:
     if Image is None:
-        raise RuntimeError("pillow is required for artifact rendering")
+        raise _artifact_rendering_runtime_error()
     tile = Image.new("L", (96, 96), color=128)
     tile.putdata(
         [
@@ -243,7 +251,7 @@ def _noise_texture(size: tuple[int, int], rng: random.Random, amplitude: int) ->
 
 def _gradient_mask(size: tuple[int, int], rng: random.Random, intensity: int) -> Any:
     if Image is None:
-        raise RuntimeError("pillow is required for artifact rendering")
+        raise _artifact_rendering_runtime_error()
     width, height = size
     vertical = Image.new("L", (1, 64), color=255)
     horizontal = Image.new("L", (64, 1), color=255)
@@ -270,7 +278,7 @@ def _gradient_mask(size: tuple[int, int], rng: random.Random, intensity: int) ->
 
 def _paper_texture(size: tuple[int, int], rng: random.Random, intensity: int) -> Any:
     if Image is None or ImageChops is None:
-        raise RuntimeError("pillow is required for artifact rendering")
+        raise _artifact_rendering_runtime_error()
     texture = Image.new("L", size, color=248 - (intensity * 3))
     texture = ImageChops.multiply(texture, _gradient_mask(size, rng, intensity))
     noise = _noise_texture(size, rng, amplitude=5 * intensity)
@@ -280,7 +288,7 @@ def _paper_texture(size: tuple[int, int], rng: random.Random, intensity: int) ->
 
 def _edge_shadow_mask(size: tuple[int, int], rng: random.Random, intensity: int) -> Any:
     if Image is None or ImageFilter is None:
-        raise RuntimeError("pillow is required for artifact rendering")
+        raise _artifact_rendering_runtime_error()
     width, height = size
     band_width = max(120, width // 7)
     minimum_value = max(112, 255 - (28 * intensity))
@@ -308,7 +316,7 @@ def _edge_shadow_mask(size: tuple[int, int], rng: random.Random, intensity: int)
 
 def _speckle_mask(size: tuple[int, int], rng: random.Random, intensity: int) -> Any:
     if Image is None or ImageFilter is None:
-        raise RuntimeError("pillow is required for artifact rendering")
+        raise _artifact_rendering_runtime_error()
     coarse_width = max(48, size[0] // 28)
     coarse_height = max(48, size[1] // 28)
     mask = Image.new("L", (coarse_width, coarse_height), color=255)
@@ -323,10 +331,7 @@ def _speckle_mask(size: tuple[int, int], rng: random.Random, intensity: int) -> 
 
 def _apply_scan_artifacts(page_image: Any, artifact_profile: str, seed: int) -> Any:
     if Image is None or ImageChops is None or ImageFilter is None:
-        raise RuntimeError(
-            "Missing dependency for corpus rendering: pillow. "
-            "Install with `pip install pillow`."
-        )
+        raise _missing_pillow_runtime_error("corpus rendering")
     if artifact_profile == "clean":
         return _ocr_ready_image(page_image)
 
@@ -428,10 +433,7 @@ def _render_page_images(
 ) -> tuple[list[Path], str]:
     # lizard forgive: page rendering and rollover logic are intentionally centralized.
     if Image is None or ImageDraw is None:
-        raise RuntimeError(
-            "Missing dependency for corpus rendering: pillow. "
-            "Install with `pip install pillow`."
-        )
+        raise _missing_pillow_runtime_error("corpus rendering")
     pages_dir = output_dir / "pages"
     pages_dir.mkdir(parents=True, exist_ok=True)
     font, resolved_font_path = _resolve_font(font_path, font_size)
@@ -481,10 +483,7 @@ def _render_page_images(
 
 def _write_pdf(page_image_paths: list[Path], pdf_path: Path) -> None:
     if Image is None:
-        raise RuntimeError(
-            "Missing dependency for corpus rendering: pillow. "
-            "Install with `pip install pillow`."
-        )
+        raise _missing_pillow_runtime_error("corpus rendering")
     images = [Image.open(path).convert("RGB") for path in page_image_paths]
     try:
         first, rest = images[0], images[1:]
