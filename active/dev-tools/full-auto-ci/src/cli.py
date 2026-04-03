@@ -9,7 +9,6 @@ import urllib.parse
 from dataclasses import dataclass
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
-from . import __version__ as PACKAGE_VERSION
 from .cli_mcp import serve as run_mcp_serve
 from .cli_providers import handle_provider_command as run_provider_command
 from .cli_service import handle_service_command as run_service_command
@@ -1321,28 +1320,39 @@ class CLI:
         if not isinstance(summary, dict):
             return []
 
+        extras = CLI._numeric_summary_extras(summary)
+        threshold_extra = CLI._threshold_summary_extra(summary)
+        if threshold_extra is not None:
+            extras.append(threshold_extra)
+        extras.extend(CLI._count_summary_extras(summary))
+        return extras
+
+    @staticmethod
+    def _numeric_summary_extras(summary: Dict[str, Any]) -> List[str]:
         extras: List[str] = []
         avg_ccn = summary.get("average_ccn")
         if isinstance(avg_ccn, (int, float)):
             extras.append(f"avg CCN {avg_ccn:.2f}")
-
         max_ccn = summary.get("max_ccn")
         if isinstance(max_ccn, (int, float)):
             extras.append(f"max {max_ccn:g}")
+        return extras
 
+    @staticmethod
+    def _threshold_summary_extra(summary: Dict[str, Any]) -> Optional[str]:
         threshold = summary.get("threshold")
         above = summary.get("above_threshold")
         if isinstance(threshold, (int, float)) and isinstance(above, int) and above > 0:
-            extras.append(f">{threshold:g} in {above}")
+            return f">{threshold:g} in {above}"
+        return None
 
-        error_count = summary.get("error_count")
-        if isinstance(error_count, int) and error_count > 0:
-            extras.append(f"errors {error_count}")
-
-        warning_count = summary.get("warning_count")
-        if isinstance(warning_count, int) and warning_count > 0:
-            extras.append(f"warnings {warning_count}")
-
+    @staticmethod
+    def _count_summary_extras(summary: Dict[str, Any]) -> List[str]:
+        extras: List[str] = []
+        for key, label in (("error_count", "errors"), ("warning_count", "warnings")):
+            count = summary.get(key)
+            if isinstance(count, int) and count > 0:
+                extras.append(f"{label} {count}")
         return extras
 
     @staticmethod

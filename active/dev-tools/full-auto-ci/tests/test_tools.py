@@ -12,7 +12,6 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
-import pytest
 
 import src.tools as tools_module
 from src.tools import (
@@ -404,6 +403,25 @@ class TestRuff(unittest.TestCase):
         self.assertEqual(result["status"], "error")
         self.assertIn("Unexpected Ruff output format", result["error"])
 
+    @patch("src.tools.shutil.which")
+    @patch("subprocess.run")
+    def test_run_retries_ruff_with_nixos_fallback(self, mock_run, mock_which):
+        first = MagicMock(
+            returncode=127,
+            stdout="",
+            stderr="Could not start dynamically linked executable: ruff\n"
+            "NixOS cannot run dynamically linked executables intended for generic\n"
+            "linux environments out of the box.\n",
+        )
+        second = MagicMock(returncode=0, stdout="[]", stderr="")
+        mock_run.side_effect = [first, second]
+        mock_which.side_effect = ["/repo/.venv/bin/ruff", "/run/current-system/sw/bin/ruff"]
+
+        result = self.ruff.run("/repo")
+
+        self.assertEqual(result["status"], "success")
+        self.assertEqual(mock_run.call_args_list[1][0][0][0], "/run/current-system/sw/bin/ruff")
+
     def test_ruff_helper_methods(self):
         self.assertEqual(Ruff._severity_from_code("f401"), "error")
         self.assertEqual(Ruff._severity_from_code("w291"), "warning")
@@ -425,6 +443,18 @@ class TestRuff(unittest.TestCase):
             )
         self.assertEqual(finding["path"], "/repo/src/app.py")
         self.assertTrue(finding["fixable"])
+        self.assertEqual(Ruff._build_command(), ["ruff", "check", "--output-format", "json", "."])
+        self.assertIsNone(Ruff._build_command(None))
+        retry = Ruff._should_retry_with_fallback(
+            SimpleNamespace(returncode=127, stderr="NixOS cannot run dynamically linked executables")
+        )
+        self.assertTrue(retry)
+        with patch("src.tools.shutil.which", side_effect=["/tmp/venv/bin/ruff", "/run/current-system/sw/bin/ruff"]), patch.dict(
+            "src.tools.os.environ",
+            {"PATH": f"/tmp/venv/bin{os.pathsep}/run/current-system/sw/bin"},
+            clear=False,
+        ):
+            self.assertEqual(Ruff._find_fallback_binary(), "/run/current-system/sw/bin/ruff")
 
 
 class TestCoverage(unittest.TestCase):
@@ -492,7 +522,7 @@ class TestCoverage(unittest.TestCase):
             retry_process,
             xml_process,
         ]
-        mock_exists.return_value = True
+        mock_exists.side_effect = lambda path: str(path).endswith("coverage.xml")
 
         mock_root = MagicMock()
         mock_root.get.side_effect = lambda key, default: (
@@ -667,6 +697,14 @@ class TestCoverage(unittest.TestCase):
             self.assertIsNone(Coverage._extract_collected_count(["collected 7 items"]))
         self.assertEqual(Coverage()._build_test_command()[:1], ["pytest"])
         self.assertEqual(Coverage(run_tests_cmd=["python", "-m", "unittest"])._build_test_command(), ["python", "-m", "unittest"])
+        with tempfile.TemporaryDirectory() as tmpdir:
+            src_dir = Path(tmpdir) / "src"
+            src_dir.mkdir()
+            env = Coverage._build_coverage_env(tmpdir)
+            self.assertTrue(env["PYTHONPATH"].startswith(f"{src_dir}{os.pathsep}{tmpdir}"))
+            self.assertTrue(Coverage._has_editable_install_target(tmpdir) is False)
+            (Path(tmpdir) / "pyproject.toml").write_text("[project]\nname='demo'\n")
+            self.assertTrue(Coverage._has_editable_install_target(tmpdir))
         self.assertIsNone(Coverage._normalize_subprocess_output(None))
         self.assertEqual(Coverage._normalize_subprocess_output(b"hi"), "hi")
         self.assertEqual(Coverage._normalize_subprocess_output(3), "3")
@@ -715,6 +753,19 @@ class TestCoverage(unittest.TestCase):
         with patch.object(self.coverage, "_install_packages", return_value=(SimpleNamespace(returncode=1, stdout="pip failed", stderr="stderr"), 1.0, False)):
             retried = self.coverage._retry_after_dependency_install("/repo", process, 0.5, False)
         self.assertIn("Dependency auto-install failed", retried[4] or "")
+
+        with patch.object(self.coverage, "_has_editable_install_target", return_value=True), patch.object(
+            self.coverage,
+            "_install_editable_project",
+            return_value=(SimpleNamespace(returncode=0, stdout="ok", stderr=""), 1.0, False),
+        ), patch.object(
+            self.coverage,
+            "_run_coverage_subprocess",
+            return_value=(SimpleNamespace(returncode=0, stdout="ok", stderr=""), 0.5, False),
+        ):
+            retried = self.coverage._retry_after_dependency_install("/repo", process, 0.5, False)
+        self.assertEqual(retried[0].returncode, 0)
+        self.assertEqual(retried[3], [])
 
     def test_result_builder_helpers(self):
         run_ctx = Coverage._RunContext(
@@ -807,6 +858,10 @@ class TestCoverage(unittest.TestCase):
 
         with patch("subprocess.run", side_effect=subprocess.TimeoutExpired(cmd=["pip"], timeout=1, output="out", stderr="err")):
             process, _duration, timed_out = self.coverage._install_packages("/repo", ["demo"])
+        self.assertTrue(timed_out)
+        self.assertEqual(process.stderr, "err")
+        with patch("subprocess.run", side_effect=subprocess.TimeoutExpired(cmd=["pip"], timeout=1, output="out", stderr="err")):
+            process, _duration, timed_out = self.coverage._install_editable_project("/repo")
         self.assertTrue(timed_out)
         self.assertEqual(process.stderr, "err")
 

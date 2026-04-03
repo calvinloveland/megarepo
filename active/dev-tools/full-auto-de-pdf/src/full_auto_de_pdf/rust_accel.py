@@ -5,7 +5,19 @@ import os
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
-from typing import Sequence
+from typing import Protocol, Sequence
+
+
+class _ScoreFunc(Protocol):
+    def __call__(
+        self,
+        observed: ctypes.Array[ctypes.c_uint8],
+        image_len: int,
+        candidates: ctypes.Array[ctypes.c_uint8],
+        candidate_count: int,
+        best_index: ctypes.c_void_p,
+        best_score: ctypes.c_void_p,
+    ) -> int: ...
 
 _RUST_ACCEL_ENV = "FULL_AUTO_DE_PDF_RUST_ACCEL_LIB"
 
@@ -13,7 +25,7 @@ _RUST_ACCEL_ENV = "FULL_AUTO_DE_PDF_RUST_ACCEL_LIB"
 @dataclass(frozen=True)
 class RustInverseRenderAccel:
     path: Path
-    _score_func: object
+    _score_func: _ScoreFunc
 
     def best_iou_score(self, observed: bytes, candidates: Sequence[bytes]) -> tuple[int, float]:
         if not candidates:

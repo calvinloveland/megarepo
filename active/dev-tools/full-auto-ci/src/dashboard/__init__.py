@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import importlib
 import os
 import secrets
 import subprocess
@@ -11,6 +12,8 @@ import time
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict
+
+from ..service import CIService
 
 try:
     from flask import (
@@ -42,7 +45,7 @@ for shared_src_root in SHARED_SRC_ROOT_CANDIDATES:
         break
 
 try:
-    from web_feedback import enable_shared_feedback, feedback_storage_paths
+    web_feedback = importlib.import_module("web_feedback")
 except ImportError as error:
     enable_shared_feedback = None
     feedback_storage_paths = None
@@ -50,11 +53,10 @@ except ImportError as error:
     FEEDBACK_DIR = None
     ADDRESSED_DIR = None
 else:
+    enable_shared_feedback = web_feedback.enable_shared_feedback
+    feedback_storage_paths = web_feedback.feedback_storage_paths
     _SHARED_FEEDBACK_IMPORT_ERROR = None
     FEEDBACK_DIR, ADDRESSED_DIR = feedback_storage_paths(PROJECT_ROOT)
-
-from ..service import CIService
-
 logger = logging.getLogger(__name__)
 
 
@@ -405,80 +407,23 @@ def _build_run_progress(
     if status not in {"pending", "queued", "running"} or not expected_tools:
         return None
 
-    expected_tool_set = set(expected_tools)
-    completed_tools: list[str] = []
-    for result in run.get("results") or []:
-        tool_name = result.get("tool")
-        if tool_name in expected_tool_set and tool_name not in completed_tools:
-            completed_tools.append(str(tool_name))
-
+    completed_tools = _completed_tools(run.get("results") or [], expected_tools)
     total_tools = len(expected_tools)
     completed_count = len(completed_tools)
     next_tool = expected_tools[completed_count] if completed_count < total_tools else None
 
-    started_at = run.get("started_at")
-    elapsed_seconds: float | None = None
-    if started_at is not None:
-        try:
-            elapsed_seconds = max(0.0, now_timestamp - float(started_at))
-        except (TypeError, ValueError):
-            elapsed_seconds = None
-
-    observed_durations = [
-        float(result.get("duration"))
-        for result in run.get("results") or []
-        if result.get("tool") in expected_tool_set
-        and isinstance(result.get("duration"), (int, float))
-        and float(result.get("duration")) > 0
-    ]
-    known_average_durations = list(average_durations.values())
-    if observed_durations:
-        fallback_tool_duration = sum(observed_durations) / len(observed_durations)
-    elif known_average_durations:
-        fallback_tool_duration = sum(known_average_durations) / len(known_average_durations)
-    else:
-        fallback_tool_duration = 60.0
-
-    estimated_total_seconds = sum(
-        average_durations.get(tool_name, fallback_tool_duration)
-        for tool_name in expected_tools
+    elapsed_seconds = _elapsed_seconds(run.get("started_at"), now_timestamp)
+    fallback_tool_duration = _fallback_tool_duration(
+        run.get("results") or [], expected_tools, average_durations
     )
-    if estimated_total_seconds <= 0:
-        estimated_total_seconds = fallback_tool_duration * total_tools
-
-    completed_fraction = completed_count / total_tools
-    if status in {"pending", "queued"}:
-        progress_fraction = completed_fraction
-    else:
-        estimated_fraction = (
-            elapsed_seconds / estimated_total_seconds
-            if elapsed_seconds is not None and estimated_total_seconds > 0
-            else completed_fraction
-        )
-        progress_fraction = max(completed_fraction, estimated_fraction)
-        if completed_count < total_tools:
-            progress_fraction = min(progress_fraction, 0.98)
-        else:
-            progress_fraction = min(progress_fraction, 1.0)
-
-    percent_complete = int(round(progress_fraction * 100))
-
-    if status == "pending":
-        phase_label = "Waiting to be scheduled"
-    elif status == "queued":
-        phase_label = (
-            f"Queued to start with {_format_tool_name(expected_tools[0])}"
-            if expected_tools
-            else "Queued to start"
-        )
-    elif next_tool is not None:
-        phase_label = f"Running {_format_tool_name(next_tool)}"
-    else:
-        phase_label = "Finalizing results"
-
-    remaining_seconds: float | None = None
-    if elapsed_seconds is not None and estimated_total_seconds > elapsed_seconds:
-        remaining_seconds = estimated_total_seconds - elapsed_seconds
+    estimated_total_seconds = _estimated_total_seconds(
+        expected_tools, average_durations, fallback_tool_duration
+    )
+    percent_complete = _percent_complete(
+        status, completed_count, total_tools, elapsed_seconds, estimated_total_seconds
+    )
+    phase_label = _progress_phase_label(status, expected_tools, next_tool)
+    remaining_seconds = _remaining_seconds(elapsed_seconds, estimated_total_seconds)
 
     return {
         "status": status,
@@ -491,6 +436,105 @@ def _build_run_progress(
         "estimated_total_label": _format_duration_compact(estimated_total_seconds),
         "remaining_label": _format_duration_compact(remaining_seconds),
     }
+
+
+def _completed_tools(results: list[Dict[str, Any]], expected_tools: list[str]) -> list[str]:
+    expected_tool_set = set(expected_tools)
+    completed: list[str] = []
+    for result in results:
+        tool_name = result.get("tool")
+        if tool_name in expected_tool_set and tool_name not in completed:
+            completed.append(str(tool_name))
+    return completed
+
+
+def _elapsed_seconds(started_at: Any, now_timestamp: float) -> float | None:
+    if started_at is None:
+        return None
+    try:
+        return max(0.0, now_timestamp - float(started_at))
+    except (TypeError, ValueError):
+        return None
+
+
+def _fallback_tool_duration(
+    results: list[Dict[str, Any]],
+    expected_tools: list[str],
+    average_durations: dict[str, float],
+) -> float:
+    expected_tool_set = set(expected_tools)
+    observed_durations = [
+        float(result.get("duration"))
+        for result in results
+        if result.get("tool") in expected_tool_set
+        and isinstance(result.get("duration"), (int, float))
+        and float(result.get("duration")) > 0
+    ]
+    if observed_durations:
+        return sum(observed_durations) / len(observed_durations)
+    known_average_durations = list(average_durations.values())
+    if known_average_durations:
+        return sum(known_average_durations) / len(known_average_durations)
+    return 60.0
+
+
+def _estimated_total_seconds(
+    expected_tools: list[str],
+    average_durations: dict[str, float],
+    fallback_tool_duration: float,
+) -> float:
+    estimated_total = sum(
+        average_durations.get(tool_name, fallback_tool_duration)
+        for tool_name in expected_tools
+    )
+    if estimated_total > 0:
+        return estimated_total
+    return fallback_tool_duration * len(expected_tools)
+
+
+def _percent_complete(
+    status: str,
+    completed_count: int,
+    total_tools: int,
+    elapsed_seconds: float | None,
+    estimated_total_seconds: float,
+) -> int:
+    completed_fraction = completed_count / total_tools
+    if status in {"pending", "queued"}:
+        progress_fraction = completed_fraction
+    else:
+        estimated_fraction = (
+            elapsed_seconds / estimated_total_seconds
+            if elapsed_seconds is not None and estimated_total_seconds > 0
+            else completed_fraction
+        )
+        progress_fraction = max(completed_fraction, estimated_fraction)
+        progress_fraction = min(progress_fraction, 1.0 if completed_count >= total_tools else 0.98)
+    return int(round(progress_fraction * 100))
+
+
+def _progress_phase_label(
+    status: str, expected_tools: list[str], next_tool: str | None
+) -> str:
+    if status == "pending":
+        return "Waiting to be scheduled"
+    if status == "queued":
+        return (
+            f"Queued to start with {_format_tool_name(expected_tools[0])}"
+            if expected_tools
+            else "Queued to start"
+        )
+    if next_tool is not None:
+        return f"Running {_format_tool_name(next_tool)}"
+    return "Finalizing results"
+
+
+def _remaining_seconds(
+    elapsed_seconds: float | None, estimated_total_seconds: float
+) -> float | None:
+    if elapsed_seconds is None or estimated_total_seconds <= elapsed_seconds:
+        return None
+    return estimated_total_seconds - elapsed_seconds
 
 
 def _annotate_run_progress(
@@ -533,45 +577,20 @@ def _build_trend_chart(points: list[Dict[str, Any]]) -> Dict[str, Any] | None:
         scale_max = 1.0
 
     x_denominator = max(len(points) - 1, 1)
-    rendered_points: list[Dict[str, Any]] = []
-    polyline_points: list[str] = []
     x_label_step = max(1, len(points) // 6)
-
-    for index, point in enumerate(points):
-        x = padding_left + (plot_width * index / x_denominator)
-        duration = point.get("duration")
-        has_duration = isinstance(duration, (int, float))
-        y = padding_top + plot_height
-        if has_duration:
-            duration_value = float(duration)
-            y = padding_top + plot_height - ((duration_value / scale_max) * plot_height)
-            polyline_points.append(f"{x:.2f},{y:.2f}")
-
-        rendered_points.append(
-            {
-                "x": round(x, 2),
-                "y": round(y, 2),
-                "label": point.get("label", ""),
-                "status": point.get("status", "unknown"),
-                "status_class": _status_class(point.get("status")),
-                "color": _status_color(point.get("status")),
-                "has_duration": has_duration,
-                "duration_label": _format_duration_compact(duration if has_duration else None),
-                "show_x_label": index % x_label_step == 0 or index == len(points) - 1,
-            }
-        )
-
-    y_ticks: list[Dict[str, Any]] = []
-    for tick_index in range(5):
-        fraction = tick_index / 4
-        y = padding_top + (plot_height * fraction)
-        value = scale_max * (1 - fraction)
-        y_ticks.append(
-            {
-                "y": round(y, 2),
-                "label": _format_duration_compact(value),
-            }
-        )
+    rendered_points, polyline_points = _render_trend_chart_points(
+        points,
+        padding_left=padding_left,
+        padding_top=padding_top,
+        plot_width=plot_width,
+        plot_height=plot_height,
+        scale_max=scale_max,
+        x_denominator=x_denominator,
+        x_label_step=x_label_step,
+    )
+    y_ticks = _trend_chart_y_ticks(
+        padding_top=padding_top, plot_height=plot_height, scale_max=scale_max
+    )
 
     return {
         "width": width,
@@ -583,6 +602,88 @@ def _build_trend_chart(points: list[Dict[str, Any]]) -> Dict[str, Any] | None:
         "points": rendered_points,
         "y_ticks": y_ticks,
     }
+
+
+def _render_trend_chart_points(
+    points: list[Dict[str, Any]],
+    *,
+    padding_left: int,
+    padding_top: int,
+    plot_width: int,
+    plot_height: int,
+    scale_max: float,
+    x_denominator: int,
+    x_label_step: int,
+) -> tuple[list[Dict[str, Any]], list[str]]:
+    rendered_points: list[Dict[str, Any]] = []
+    polyline_points: list[str] = []
+    for index, point in enumerate(points):
+        rendered_point, polyline_point = _render_trend_chart_point(
+            point,
+            index=index,
+            point_count=len(points),
+            padding_left=padding_left,
+            padding_top=padding_top,
+            plot_width=plot_width,
+            plot_height=plot_height,
+            scale_max=scale_max,
+            x_denominator=x_denominator,
+            x_label_step=x_label_step,
+        )
+        rendered_points.append(rendered_point)
+        if polyline_point is not None:
+            polyline_points.append(polyline_point)
+    return rendered_points, polyline_points
+
+
+def _render_trend_chart_point(
+    point: Dict[str, Any],
+    *,
+    index: int,
+    point_count: int,
+    padding_left: int,
+    padding_top: int,
+    plot_width: int,
+    plot_height: int,
+    scale_max: float,
+    x_denominator: int,
+    x_label_step: int,
+) -> tuple[Dict[str, Any], str | None]:
+    x = padding_left + (plot_width * index / x_denominator)
+    duration = point.get("duration")
+    has_duration = isinstance(duration, (int, float))
+    y = padding_top + plot_height
+    polyline_point = None
+    if has_duration:
+        duration_value = float(duration)
+        y = padding_top + plot_height - ((duration_value / scale_max) * plot_height)
+        polyline_point = f"{x:.2f},{y:.2f}"
+    return (
+        {
+            "x": round(x, 2),
+            "y": round(y, 2),
+            "label": point.get("label", ""),
+            "status": point.get("status", "unknown"),
+            "status_class": _status_class(point.get("status")),
+            "color": _status_color(point.get("status")),
+            "has_duration": has_duration,
+            "duration_label": _format_duration_compact(duration if has_duration else None),
+            "show_x_label": index % x_label_step == 0 or index == point_count - 1,
+        },
+        polyline_point,
+    )
+
+
+def _trend_chart_y_ticks(
+    *, padding_top: int, plot_height: int, scale_max: float
+) -> list[Dict[str, Any]]:
+    return [
+        {
+            "y": round(padding_top + (plot_height * (tick_index / 4)), 2),
+            "label": _format_duration_compact(scale_max * (1 - (tick_index / 4))),
+        }
+        for tick_index in range(5)
+    ]
 
 
 def _build_loc_change_chart(points: list[Dict[str, Any]]) -> Dict[str, Any] | None:
@@ -607,41 +708,23 @@ def _build_loc_change_chart(points: list[Dict[str, Any]]) -> Dict[str, Any] | No
     x_denominator = max(len(points), 1)
     bar_width = min(28.0, max(10.0, (plot_width / max(len(points), 1)) * 0.55))
     x_label_step = max(1, len(points) // 6)
-
-    rendered_points: list[Dict[str, Any]] = []
-    for index, point in enumerate(points):
-        net = int(point.get("net", 0))
-        added = int(point.get("added", 0))
-        deleted = int(point.get("deleted", 0))
-        center_x = padding_left + ((index + 0.5) * plot_width / x_denominator)
-        magnitude = abs(net) / max_abs_value
-        bar_height = max(2.0, magnitude * (plot_height / 2)) if net != 0 else 2.0
-        y = baseline_y - bar_height if net >= 0 else baseline_y
-        color = "#4ade80" if net > 0 else "#f87171" if net < 0 else "#94a3b8"
-        rendered_points.append(
-            {
-                "label": point.get("label", ""),
-                "net_label": _format_signed_int(net),
-                "added_label": _format_signed_int(added),
-                "deleted_label": _format_signed_int(-deleted),
-                "x": round(center_x - (bar_width / 2), 2),
-                "y": round(y, 2),
-                "width": round(bar_width, 2),
-                "height": round(bar_height, 2),
-                "color": color,
-                "show_x_label": index % x_label_step == 0 or index == len(points) - 1,
-                "label_x": round(center_x, 2),
-            }
-        )
-
-    y_ticks = [
-        {"y": round(padding_top, 2), "label": _format_signed_int(max_abs_value)},
-        {"y": round(baseline_y, 2), "label": "0"},
-        {
-            "y": round(padding_top + plot_height, 2),
-            "label": _format_signed_int(-max_abs_value),
-        },
-    ]
+    rendered_points = _render_loc_change_chart_points(
+        points,
+        padding_left=padding_left,
+        plot_width=plot_width,
+        x_denominator=x_denominator,
+        max_abs_value=max_abs_value,
+        plot_height=plot_height,
+        baseline_y=baseline_y,
+        bar_width=bar_width,
+        x_label_step=x_label_step,
+    )
+    y_ticks = _loc_change_chart_y_ticks(
+        padding_top=padding_top,
+        baseline_y=baseline_y,
+        plot_height=plot_height,
+        max_abs_value=max_abs_value,
+    )
 
     return {
         "width": width,
@@ -652,6 +735,97 @@ def _build_loc_change_chart(points: list[Dict[str, Any]]) -> Dict[str, Any] | No
         "points": rendered_points,
         "y_ticks": y_ticks,
     }
+
+
+def _render_loc_change_chart_points(
+    points: list[Dict[str, Any]],
+    *,
+    padding_left: int,
+    plot_width: int,
+    x_denominator: int,
+    max_abs_value: int,
+    plot_height: int,
+    baseline_y: float,
+    bar_width: float,
+    x_label_step: int,
+) -> list[Dict[str, Any]]:
+    return [
+        _render_loc_change_chart_point(
+            point,
+            index=index,
+            point_count=len(points),
+            padding_left=padding_left,
+            plot_width=plot_width,
+            x_denominator=x_denominator,
+            max_abs_value=max_abs_value,
+            plot_height=plot_height,
+            baseline_y=baseline_y,
+            bar_width=bar_width,
+            x_label_step=x_label_step,
+        )
+        for index, point in enumerate(points)
+    ]
+
+
+def _render_loc_change_chart_point(
+    point: Dict[str, Any],
+    *,
+    index: int,
+    point_count: int,
+    padding_left: int,
+    plot_width: int,
+    x_denominator: int,
+    max_abs_value: int,
+    plot_height: int,
+    baseline_y: float,
+    bar_width: float,
+    x_label_step: int,
+) -> Dict[str, Any]:
+    net = int(point.get("net", 0))
+    added = int(point.get("added", 0))
+    deleted = int(point.get("deleted", 0))
+    center_x = padding_left + ((index + 0.5) * plot_width / x_denominator)
+    magnitude = abs(net) / max_abs_value
+    bar_height = max(2.0, magnitude * (plot_height / 2)) if net != 0 else 2.0
+    y = baseline_y - bar_height if net >= 0 else baseline_y
+    return {
+        "label": point.get("label", ""),
+        "net_label": _format_signed_int(net),
+        "added_label": _format_signed_int(added),
+        "deleted_label": _format_signed_int(-deleted),
+        "x": round(center_x - (bar_width / 2), 2),
+        "y": round(y, 2),
+        "width": round(bar_width, 2),
+        "height": round(bar_height, 2),
+        "color": _loc_change_color(net),
+        "show_x_label": index % x_label_step == 0 or index == point_count - 1,
+        "label_x": round(center_x, 2),
+    }
+
+
+def _loc_change_color(net: int) -> str:
+    if net > 0:
+        return "#4ade80"
+    if net < 0:
+        return "#f87171"
+    return "#94a3b8"
+
+
+def _loc_change_chart_y_ticks(
+    *,
+    padding_top: int,
+    baseline_y: float,
+    plot_height: int,
+    max_abs_value: int,
+) -> list[Dict[str, Any]]:
+    return [
+        {"y": round(padding_top, 2), "label": _format_signed_int(max_abs_value)},
+        {"y": round(baseline_y, 2), "label": "0"},
+        {
+            "y": round(padding_top + plot_height, 2),
+            "label": _format_signed_int(-max_abs_value),
+        },
+    ]
 
 
 def _build_repository_insights(service: CIService, data_access, repo_id: int):

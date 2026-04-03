@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import re
+import shutil
 import subprocess
 import sys
 import time
@@ -494,6 +495,8 @@ class Pylint(Tool):
 class Ruff(Tool):
     """Ruff linting tool."""
 
+    NIXOS_DYNAMIC_BINARY_ERROR = "NixOS cannot run dynamically linked executables"
+
     def __init__(self, *, timeout: Optional[float] = None):
         """Initialize Ruff.
 
@@ -513,18 +516,33 @@ class Ruff(Tool):
             Ruff results
         """
         start_time = time.perf_counter()
+        process, error_result = self._collect_process(repo_path)
+        if error_result is not None:
+            return error_result
+
+        duration = time.perf_counter() - start_time
+        invalid_process_result = self._invalid_process_result(process, duration)
+        if invalid_process_result is not None:
+            return invalid_process_result
+        findings, parse_error = self._parse_findings(process, duration)
+        if parse_error is not None:
+            return parse_error
+        details = [
+            self._normalize_finding(item, repo_path)
+            for item in findings
+            if isinstance(item, dict)
+        ]
+        issues = self._count_issues(details)
+        return self._success_result(issues, details, duration)
+
+    def _collect_process(
+        self, repo_path: str
+    ) -> Tuple[Optional[subprocess.CompletedProcess[str]], Optional[Dict[str, Any]]]:
         try:
-            process = subprocess.run(
-                ["ruff", "check", "--output-format", "json", "."],
-                capture_output=True,
-                text=True,
-                check=False,
-                cwd=repo_path,
-                timeout=self.timeout,
-            )
+            return self._run_with_optional_fallback(repo_path), None
         except subprocess.TimeoutExpired:
             logger.error("Ruff timed out after %s seconds", self.timeout)
-            return {
+            return None, {
                 "status": "error",
                 "error": f"Ruff timed out after {self.timeout} seconds",
                 "timed_out": True,
@@ -534,7 +552,7 @@ class Ruff(Tool):
                 "Ruff executable not found. Install 'ruff' to enable Ruff linting."
             )
             logger.error(message)
-            return {"status": "error", "error": message}
+            return None, {"status": "error", "error": message}
         except (
             OSError,
             TypeError,
@@ -545,44 +563,51 @@ class Ruff(Tool):
             subprocess.SubprocessError,
         ) as exc:
             logger.exception("Error running Ruff")
-            return {"status": "error", "error": str(exc)}
+            return None, {"status": "error", "error": str(exc)}
 
-        duration = time.perf_counter() - start_time
-        if process.returncode not in {0, 1}:
-            return {
-                "status": "error",
-                "error": f"Ruff failed with return code {process.returncode}",
-                "stdout": process.stdout,
-                "stderr": process.stderr,
-                "duration": duration,
-            }
+    @staticmethod
+    def _invalid_process_result(
+        process: subprocess.CompletedProcess[str], duration: float
+    ) -> Optional[Dict[str, Any]]:
+        if process.returncode in {0, 1}:
+            return None
+        return {
+            "status": "error",
+            "error": f"Ruff failed with return code {process.returncode}",
+            "stdout": process.stdout,
+            "stderr": process.stderr,
+            "duration": duration,
+        }
 
+    @staticmethod
+    def _parse_findings(
+        process: subprocess.CompletedProcess[str], duration: float
+    ) -> Tuple[List[Any], Optional[Dict[str, Any]]]:
         try:
             findings = json.loads(process.stdout or "[]")
         except json.JSONDecodeError:
-            return {
+            return [], {
                 "status": "error",
                 "error": "Failed to parse Ruff output",
                 "stdout": process.stdout,
                 "stderr": process.stderr,
                 "duration": duration,
             }
+        if isinstance(findings, list):
+            return findings, None
+        return [], {
+            "status": "error",
+            "error": "Unexpected Ruff output format",
+            "stdout": process.stdout,
+            "stderr": process.stderr,
+            "duration": duration,
+        }
 
-        if not isinstance(findings, list):
-            return {
-                "status": "error",
-                "error": "Unexpected Ruff output format",
-                "stdout": process.stdout,
-                "stderr": process.stderr,
-                "duration": duration,
-            }
-
-        details = [
-            self._normalize_finding(item, repo_path)
-            for item in findings
-            if isinstance(item, dict)
-        ]
-        issues = self._count_issues(details)
+    @staticmethod
+    def _success_result(
+        issues: Dict[str, int], details: List[Dict[str, Any]], duration: float
+    ) -> Dict[str, Any]:
+        files_affected = len({item.get("path") for item in details if item.get("path")})
 
         return {
             "status": "success",
@@ -591,13 +616,63 @@ class Ruff(Tool):
                 "total_issues": sum(issues.values()),
                 "error_count": issues.get("error", 0),
                 "warning_count": issues.get("warning", 0),
-                "files_affected": len(
-                    {item.get("path") for item in details if item.get("path")}
-                ),
+                "files_affected": files_affected,
             },
             "details": details,
             "duration": duration,
         }
+
+    def _run_with_optional_fallback(
+        self, repo_path: str
+    ) -> subprocess.CompletedProcess[str]:
+        process = self._run_command(repo_path, self._build_command())
+        if not self._should_retry_with_fallback(process):
+            return process
+        fallback_command = self._build_command(self._find_fallback_binary())
+        if fallback_command is None:
+            return process
+        return self._run_command(repo_path, fallback_command)
+
+    def _run_command(
+        self, repo_path: str, command: List[str]
+    ) -> subprocess.CompletedProcess[str]:
+        return subprocess.run(
+            command,
+            capture_output=True,
+            text=True,
+            check=False,
+            cwd=repo_path,
+            timeout=self.timeout,
+        )
+
+    @staticmethod
+    def _build_command(binary: Optional[str] = "ruff") -> Optional[List[str]]:
+        if not binary:
+            return None
+        return [binary, "check", "--output-format", "json", "."]
+
+    @classmethod
+    def _should_retry_with_fallback(
+        cls, process: subprocess.CompletedProcess | SimpleNamespace
+    ) -> bool:
+        stderr = getattr(process, "stderr", "") or ""
+        return (
+            getattr(process, "returncode", 0) == 127
+            and cls.NIXOS_DYNAMIC_BINARY_ERROR in stderr
+        )
+
+    @staticmethod
+    def _find_fallback_binary() -> Optional[str]:
+        current = shutil.which("ruff")
+        path_entries = os.environ.get("PATH", "").split(os.pathsep)
+        filtered_entries = [
+            entry
+            for entry in path_entries
+            if entry and current != os.path.join(entry, "ruff")
+        ]
+        if not filtered_entries:
+            return None
+        return shutil.which("ruff", path=os.pathsep.join(filtered_entries))
 
     @staticmethod
     def _severity_from_code(code: str) -> str:
@@ -912,6 +987,27 @@ class Coverage(Tool):
         return cmd
 
     @staticmethod
+    def _build_coverage_env(repo_path: str) -> Dict[str, str]:
+        env = os.environ.copy()
+        pythonpath_entries: List[str] = []
+        src_dir = os.path.join(repo_path, "src")
+        if os.path.isdir(src_dir):
+            pythonpath_entries.append(src_dir)
+        pythonpath_entries.append(repo_path)
+        existing = env.get("PYTHONPATH")
+        if existing:
+            pythonpath_entries.append(existing)
+        env["PYTHONPATH"] = os.pathsep.join(pythonpath_entries)
+        return env
+
+    @staticmethod
+    def _has_editable_install_target(repo_path: str) -> bool:
+        return any(
+            os.path.exists(os.path.join(repo_path, marker))
+            for marker in ("pyproject.toml", "setup.py", "setup.cfg")
+        )
+
+    @staticmethod
     def _normalize_subprocess_output(value: Optional[Any]) -> Optional[str]:
         if value is None:
             return None
@@ -940,6 +1036,7 @@ class Coverage(Tool):
             text=True,
             check=False,
             cwd=repo_path,
+            env=self._build_coverage_env(repo_path),
             timeout=30,
         )
 
@@ -1026,6 +1123,7 @@ class Coverage(Tool):
         self, repo_path: str
     ) -> Tuple[subprocess.CompletedProcess | SimpleNamespace, float, bool]:
         cmd = ["coverage", "run", "-m", *self._build_test_command()]
+        env = self._build_coverage_env(repo_path)
         start_time = time.perf_counter()
         timeout_kwargs: Dict[str, Any] = {}
         if self.timeout is not None:
@@ -1039,6 +1137,7 @@ class Coverage(Tool):
                 text=True,
                 check=False,
                 cwd=repo_path,
+                env=env,
                 **timeout_kwargs,
             )
         except subprocess.TimeoutExpired as exc:
@@ -1062,22 +1161,34 @@ class Coverage(Tool):
     ]:
         installed: List[str] = []
         error_message: Optional[str] = None
+        attempted_editable_install = False
 
         for _ in range(self.max_dependency_install_attempts):
             missing_modules = self._extract_missing_modules(process.stdout, process.stderr)
-            packages = self._module_packages_to_install(missing_modules, installed)
-            if not packages:
+            if not missing_modules:
                 break
 
-            install_process, install_duration, install_timed_out = self._install_packages(
-                repo_path, packages
-            )
+            install_label: str
+            if not attempted_editable_install and self._has_editable_install_target(repo_path):
+                attempted_editable_install = True
+                install_label = "editable project install"
+                install_process, install_duration, install_timed_out = self._install_editable_project(
+                    repo_path
+                )
+            else:
+                packages = self._module_packages_to_install(missing_modules, installed)
+                if not packages:
+                    break
+                install_label = ", ".join(packages)
+                install_process, install_duration, install_timed_out = self._install_packages(
+                    repo_path, packages
+                )
             duration += install_duration
             if install_timed_out:
                 error_message = (
                     "Dependency auto-install timed out after "
-                    f"{self.dependency_install_timeout} seconds while installing "
-                    f"{', '.join(packages)}."
+                    f"{self.dependency_install_timeout} seconds while running "
+                    f"{install_label}."
                 )
                 break
 
@@ -1088,18 +1199,45 @@ class Coverage(Tool):
                 )
                 install_output = install_output or "pip install failed"
                 error_message = (
-                    f"Dependency auto-install failed for {', '.join(packages)}: "
+                    f"Dependency auto-install failed for {install_label}: "
                     f"{install_output}"
                 )
                 break
 
-            installed.extend(packages)
+            if install_label != "editable project install":
+                installed.extend(packages)
             process, rerun_duration, timed_out = self._run_coverage_subprocess(repo_path)
             duration += rerun_duration
             if not process.returncode or timed_out:
                 break
 
         return process, duration, timed_out, installed, error_message
+
+    def _install_editable_project(
+        self, repo_path: str
+    ) -> Tuple[subprocess.CompletedProcess | SimpleNamespace, float, bool]:
+        cmd = [sys.executable, "-m", "pip", "install", "--disable-pip-version-check", "-e", "."]
+        start_time = time.perf_counter()
+        timeout_kwargs: Dict[str, Any] = {}
+        if self.dependency_install_timeout is not None:
+            timeout_kwargs["timeout"] = self.dependency_install_timeout
+
+        timed_out = False
+        try:
+            process = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                check=False,
+                cwd=repo_path,
+                env=self._build_coverage_env(repo_path),
+                **timeout_kwargs,
+            )
+        except subprocess.TimeoutExpired as exc:
+            timed_out = True
+            process = self._timeout_namespace(exc)
+        duration = time.perf_counter() - start_time
+        return process, duration, timed_out
 
     def _install_packages(
         self, repo_path: str, packages: List[str]
@@ -1118,6 +1256,7 @@ class Coverage(Tool):
                 text=True,
                 check=False,
                 cwd=repo_path,
+                env=self._build_coverage_env(repo_path),
                 **timeout_kwargs,
             )
         except subprocess.TimeoutExpired as exc:

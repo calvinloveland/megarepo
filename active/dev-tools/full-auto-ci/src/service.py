@@ -157,96 +157,94 @@ class CIService:
         """Instantiate the ToolRunner using configuration flags."""
 
         tools_config = self.config.get("tools") or {}
-        tools: List[Tool] = []
-
-        pylint_config = tools_config.get("pylint", {})
-        if self._tool_enabled(pylint_config):
-            config_file = None
-            timeout = None
-            ignore_patterns = None
-            if isinstance(pylint_config, dict):
-                config_file = pylint_config.get("config_file")
-                timeout = self._coerce_positive_float(
-                    pylint_config.get("timeout_seconds")
-                )
-                ignore_patterns = self._normalize_ignore_patterns(
-                    pylint_config.get("ignore_patterns")
-                )
-            tools.append(
-                Pylint(
-                    config_file=config_file if isinstance(config_file, str) else None,
-                    timeout=timeout,
-                    ignore_patterns=ignore_patterns,
-                )
+        tools = [
+            tool
+            for tool in (
+                self._build_pylint_tool(tools_config.get("pylint", {})),
+                self._build_ruff_tool(tools_config.get("ruff", {})),
+                self._build_coverage_tool(tools_config.get("coverage", {})),
+                self._build_lizard_tool(tools_config.get("lizard", {})),
+                self._build_jscpd_tool(tools_config.get("jscpd", {})),
             )
-
-        ruff_config = tools_config.get("ruff", {})
-        if self._tool_enabled(ruff_config):
-            timeout = self._coerce_positive_float(ruff_config.get("timeout_seconds"))
-            tools.append(Ruff(timeout=timeout))
-
-        coverage_config = tools_config.get("coverage", {})
-        if self._tool_enabled(coverage_config):
-            run_cmd = self._normalize_run_tests_cmd(coverage_config)
-            timeout = self._coerce_positive_float(
-                coverage_config.get("timeout_seconds")
-            )
-            xml_timeout = self._coerce_positive_float(
-                coverage_config.get("xml_timeout_seconds")
-            )
-            dependency_install_timeout = self._coerce_positive_float(
-                coverage_config.get("dependency_install_timeout_seconds")
-            )
-            max_dependency_install_attempts = coverage_config.get(
-                "max_dependency_install_attempts", 2
-            )
-            if not isinstance(max_dependency_install_attempts, int):
-                max_dependency_install_attempts = 2
-            ignore_patterns = self._normalize_ignore_patterns(
-                coverage_config.get("ignore_patterns")
-            )
-            tools.append(
-                Coverage(
-                    run_tests_cmd=run_cmd,
-                    timeout=timeout,
-                    xml_timeout=xml_timeout,
-                    ignore_patterns=ignore_patterns,
-                    auto_install_missing_dependencies=coerce_bool(
-                        coverage_config.get("auto_install_missing_dependencies"),
-                        default=True,
-                    ),
-                    max_dependency_install_attempts=max_dependency_install_attempts,
-                    dependency_install_timeout=dependency_install_timeout,
-                )
-            )
-
-        lizard_config = tools_config.get("lizard", {})
-        if self._tool_enabled(lizard_config):
-            max_ccn = lizard_config.get("max_ccn")
-            timeout = self._coerce_positive_float(
-                lizard_config.get("timeout_seconds")
-            )
-            if isinstance(max_ccn, (int, float)):
-                tools.append(Lizard(max_ccn=int(max_ccn), timeout=timeout))
-            else:
-                tools.append(Lizard(timeout=timeout))
-
-        jscpd_config = tools_config.get("jscpd", {})
-        if self._tool_enabled(jscpd_config, default=False):
-            timeout = self._coerce_positive_float(
-                jscpd_config.get("timeout_seconds")
-            )
-            tools.append(
-                Jscpd(
-                    min_lines=int(jscpd_config.get("min_lines", 5)),
-                    min_tokens=int(jscpd_config.get("min_tokens", 50)),
-                    threshold=float(jscpd_config.get("threshold", 0.0)),
-                    ignore=jscpd_config.get("ignore"),
-                    timeout=timeout,
-                )
-            )
-
+            if tool is not None
+        ]
         return ToolRunner(tools)
+
+    def _build_pylint_tool(self, config: Any) -> Optional[Pylint]:
+        if not self._tool_enabled(config):
+            return None
+        config_file = None
+        timeout = None
+        ignore_patterns = None
+        if isinstance(config, dict):
+            config_file = config.get("config_file")
+            timeout = self._coerce_positive_float(config.get("timeout_seconds"))
+            ignore_patterns = self._normalize_ignore_patterns(
+                config.get("ignore_patterns")
+            )
+        return Pylint(
+            config_file=config_file if isinstance(config_file, str) else None,
+            timeout=timeout,
+            ignore_patterns=ignore_patterns,
+        )
+
+    def _build_ruff_tool(self, config: Any) -> Optional[Ruff]:
+        if not self._tool_enabled(config):
+            return None
+        timeout = None
+        if isinstance(config, dict):
+            timeout = self._coerce_positive_float(config.get("timeout_seconds"))
+        return Ruff(timeout=timeout)
+
+    def _build_coverage_tool(self, config: Any) -> Optional[Coverage]:
+        if not self._tool_enabled(config):
+            return None
+        if not isinstance(config, dict):
+            config = {}
+        max_dependency_install_attempts = config.get(
+            "max_dependency_install_attempts", 2
+        )
+        if not isinstance(max_dependency_install_attempts, int):
+            max_dependency_install_attempts = 2
+        return Coverage(
+            run_tests_cmd=self._normalize_run_tests_cmd(config),
+            timeout=self._coerce_positive_float(config.get("timeout_seconds")),
+            xml_timeout=self._coerce_positive_float(config.get("xml_timeout_seconds")),
+            ignore_patterns=self._normalize_ignore_patterns(config.get("ignore_patterns")),
+            auto_install_missing_dependencies=coerce_bool(
+                config.get("auto_install_missing_dependencies"),
+                default=True,
+            ),
+            max_dependency_install_attempts=max_dependency_install_attempts,
+            dependency_install_timeout=self._coerce_positive_float(
+                config.get("dependency_install_timeout_seconds")
+            ),
+        )
+
+    def _build_lizard_tool(self, config: Any) -> Optional[Lizard]:
+        if not self._tool_enabled(config):
+            return None
+        max_ccn = None
+        timeout = None
+        if isinstance(config, dict):
+            max_ccn = config.get("max_ccn")
+            timeout = self._coerce_positive_float(config.get("timeout_seconds"))
+        if isinstance(max_ccn, (int, float)):
+            return Lizard(max_ccn=int(max_ccn), timeout=timeout)
+        return Lizard(timeout=timeout)
+
+    def _build_jscpd_tool(self, config: Any) -> Optional[Jscpd]:
+        if not self._tool_enabled(config, default=False):
+            return None
+        if not isinstance(config, dict):
+            config = {}
+        return Jscpd(
+            min_lines=int(config.get("min_lines", 5)),
+            min_tokens=int(config.get("min_tokens", 50)),
+            threshold=float(config.get("threshold", 0.0)),
+            ignore=config.get("ignore"),
+            timeout=self._coerce_positive_float(config.get("timeout_seconds")),
+        )
 
     @staticmethod
     def _tool_enabled(config: Any, default: bool = True) -> bool:
