@@ -16,11 +16,10 @@ kubectl -n openclaw create secret generic openclaw-env \
   --from-literal=telegram-bot-token='<TELEGRAM_BOT_TOKEN>' \
   --from-literal=brave-api-key='<BRAVE_API_KEY>' \
   --from-literal=hooks-token='<OPENCLAW_HOOKS_TOKEN>' \
-  --from-literal=searxng-base-url='http://searxng.example.internal:8080' \
   --dry-run=client -o yaml | kubectl apply -f -
 ```
 
-`brave-api-key` and `searxng-base-url` are optional. Omit either one if you do not want that extra search provider.
+`brave-api-key` is optional. Omit it if you do not want the extra Brave search provider.
 
 ## Deploy
 
@@ -117,9 +116,8 @@ The deployment now defaults `web_search` to DuckDuckGo so the agent has a free s
 You can also expose the other upstream-documented free options:
 
 - `brave-api-key`: enables Brave Search with its free monthly credit tier
-- `searxng-base-url`: enables SearXNG if you already run a reachable JSON-enabled SearXNG instance
 
-The deployment pre-enables the bundled `duckduckgo`, `brave`, and `searxng` search plugins so those provider switches work without additional image changes.
+The deployment pre-enables the bundled `duckduckgo` and `brave` search plugins so those provider switches work without additional image changes.
 
 DuckDuckGo remains the baked-in default on every pod start. If you want to switch providers live inside the running pod, use:
 
@@ -130,9 +128,9 @@ kubectl -n openclaw exec deploy/openclaw -- sh -lc '
 '
 ```
 
-Replace `brave` with `duckduckgo` or `searxng` as needed. Because the deployment rewrites its baseline config at startup, those live changes are temporary; edit `k8s/openclaw.yaml` if you want a different persistent default.
+Replace `brave` with `duckduckgo` as needed. Because the deployment rewrites its baseline config at startup, those live changes are temporary; edit `k8s/openclaw.yaml` if you want a different persistent default.
 
-For SearXNG, make sure the instance behind `searxng-base-url` has the JSON API enabled (`search.formats` includes `json`) or OpenClaw search requests will fail.
+Although newer upstream OpenClaw docs mention SearXNG, the pinned deployment version here (`openclaw@2026.3.24`) does not ship a bundled `searxng` plugin, so this deployment intentionally exposes only the free providers that are actually available in that build.
 
 ## Notes
 

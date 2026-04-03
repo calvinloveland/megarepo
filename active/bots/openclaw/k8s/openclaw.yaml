@@ -115,9 +115,6 @@ spec:
                            "safeSearch": "moderate"
                          }
                        }
-                     },
-                     "searxng": {
-                       "enabled": true
                      }
                    }
                  },
@@ -215,7 +212,6 @@ spec:
                openclaw config set plugins.entries.duckduckgo.enabled true
                openclaw config set plugins.entries.duckduckgo.config.webSearch.region us-en
                openclaw config set plugins.entries.duckduckgo.config.webSearch.safeSearch moderate
-               openclaw config set plugins.entries.searxng.enabled true
                openclaw models set openrouter/free
                openclaw models fallbacks clear
                openclaw models fallbacks add github-copilot/gpt-4.1
@@ -248,12 +244,6 @@ spec:
                 secretKeyRef:
                   name: openclaw-env
                   key: hooks-token
-            - name: SEARXNG_BASE_URL
-              valueFrom:
-                secretKeyRef:
-                  name: openclaw-env
-                  key: searxng-base-url
-                  optional: true
             - name: TZ
               value: UTC
           resources:
