@@ -22,7 +22,7 @@ from .lint_defaults import coerce_bool
 from .providers import BaseProvider, ProviderConfigError
 from .providers import registry as provider_registry
 from .ratchet import RatchetManager
-from .tools import Coverage, Jscpd, Lizard, Pylint, Ruff, Tool, ToolRunner
+from .tools import Coverage, Jscpd, Lizard, Pylint, Ruff, ToolRunner
 
 # Configure logging
 logging.basicConfig(
