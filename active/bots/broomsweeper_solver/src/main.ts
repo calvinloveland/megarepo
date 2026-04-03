@@ -508,12 +508,12 @@ function handleLabelerClick(point: Point): void {
     }
     return;
   }
-  const rows = parseInt(labelRowsInput.value, 10);
-  const cols = parseInt(labelColsInput.value, 10);
-  if (!Number.isFinite(rows) || !Number.isFinite(cols) || rows <= 1 || cols <= 1) {
+  const dimensions = parseBoardDimensions(labelRowsInput.value, labelColsInput.value);
+  if (!dimensions) {
     setLabelerStatus(["Rows/columns must be valid numbers."]);
     return;
   }
+  const { rows, cols } = dimensions;
   const boardSpec: BoardSpec = { rows, cols, bounds: labelBoardBounds };
   const tile = getTileFromPoint(boardSpec, point);
   if (!tile) {
@@ -566,11 +566,10 @@ function drawSolverOverlay(): void {
       solverBoardBounds.height
     );
 
-    const rows = parseInt(rowsInput.value, 10);
-    const cols = parseInt(colsInput.value, 10);
-    if (rows > 1 && cols > 1) {
-      drawGrid(solverBoardBounds, rows, cols);
-      drawAnnotations(solverBoardBounds, rows, cols, solverAnnotations);
+    const dimensions = parseBoardDimensions(rowsInput.value, colsInput.value);
+    if (dimensions) {
+      drawGrid(solverBoardBounds, dimensions.rows, dimensions.cols);
+      drawAnnotations(solverBoardBounds, dimensions.rows, dimensions.cols, solverAnnotations);
     }
   }
 
@@ -590,11 +589,10 @@ function drawLabelerOverlay(): void {
       labelBoardBounds.height
     );
 
-    const rows = parseInt(labelRowsInput.value, 10);
-    const cols = parseInt(labelColsInput.value, 10);
-    if (rows > 1 && cols > 1) {
-      drawGrid(labelBoardBounds, rows, cols);
-      drawLabelAnnotations(labelBoardBounds, rows, cols);
+    const dimensions = parseBoardDimensions(labelRowsInput.value, labelColsInput.value);
+    if (dimensions) {
+      drawGrid(labelBoardBounds, dimensions.rows, dimensions.cols);
+      drawLabelAnnotations(labelBoardBounds, dimensions.rows, dimensions.cols);
     }
   }
 
@@ -684,6 +682,15 @@ function getCanvasPoint(event: MouseEvent, canvas: HTMLCanvasElement): Point {
     x: (event.clientX - rect.left) * scaleX,
     y: (event.clientY - rect.top) * scaleY
   };
+}
+
+function parseBoardDimensions(rowsValue: string, colsValue: string): { rows: number; cols: number } | null {
+  const rows = parseInt(rowsValue, 10);
+  const cols = parseInt(colsValue, 10);
+  if (!Number.isFinite(rows) || !Number.isFinite(cols) || rows <= 1 || cols <= 1) {
+    return null;
+  }
+  return { rows, cols };
 }
 
 function normalizeRect(a: Point, b: Point): Rect {
@@ -1912,3 +1919,213 @@ function runAutoLabel(): void {
     setLabelerStatus([`Auto-label complete. ${assigned} labeled, ${unknown} unknown.`]);
   })();
 }
+
+type MainTestState = {
+  mode?: Mode;
+  currentImage?: HTMLImageElement | null;
+  solverBoardBounds?: Rect | null;
+  solverSelectionPoints?: Point[];
+  solverAnnotations?: Annotation[];
+  labelBoardBounds?: Rect | null;
+  labelSelectionPoints?: Point[];
+  labelMap?: Map<string, TileLabel>;
+  currentLabel?: string;
+  currentDatasetImage?: { name: string; url: string } | null;
+  labelOutputDirectory?: FileSystemDirectoryHandle | null;
+  templateBank?: TemplateVector[];
+  labelCentroids?: LabelCentroid[];
+  templateVectorsByLabel?: Map<string, number[][]>;
+  diagnosticsRows?: DiagnosticsRow[];
+  selectedDiagnosticsRow?: DiagnosticsRow | null;
+  lastMagnifierPoint?: Point | null;
+};
+
+export const __testApi = {
+  elements: {
+    fileInput,
+    rowsInput,
+    colsInput,
+    selectBoardButton,
+    autoDetectSolverButton,
+    runSolverButton,
+    exportButton,
+    solverTab,
+    labelerTab,
+    diagnosticsTab,
+    solverSection,
+    labelerSection,
+    diagnosticsSection,
+    datasetSelect,
+    labelRowsInput,
+    labelColsInput,
+    labelSelectBoardButton,
+    autoDetectLabelerButton,
+    autoLabelButton,
+    clearLabelsButton,
+    exportLabelsButton,
+    pickLabelFolderButton,
+    labelPalette,
+    runDiagnosticsButton,
+    diagnosticsSummary,
+    diagnosticsMetrics,
+    diagnosticsResultsSection,
+    diagnosticsTableBody,
+    diagnosticsLabelTableBody,
+    diagnosticsImageTableBody,
+    diagnosticsConfusionTableBody,
+    diagnosticsHistoryTableBody,
+    diagnosticsPreviewImage,
+    diagnosticsPreviewMeta,
+    magnifier,
+    magnifierCanvas,
+    magnifierToggle,
+    imageCanvas,
+    overlayCanvas,
+    statusList,
+    labelStatusList,
+    diagnosticsStatusList
+  },
+  datasetImages,
+  palette,
+  clearLabelExportCache(): void {
+    labelExportCache.clear();
+  },
+  getState(): Required<MainTestState> {
+    return {
+      mode,
+      currentImage,
+      solverBoardBounds,
+      solverSelectionPoints,
+      solverAnnotations,
+      labelBoardBounds,
+      labelSelectionPoints,
+      labelMap,
+      currentLabel,
+      currentDatasetImage,
+      labelOutputDirectory,
+      templateBank,
+      labelCentroids,
+      templateVectorsByLabel,
+      diagnosticsRows,
+      selectedDiagnosticsRow,
+      lastMagnifierPoint
+    };
+  },
+  setState(patch: MainTestState): void {
+    if ("mode" in patch && patch.mode) {
+      mode = patch.mode;
+    }
+    if ("currentImage" in patch) {
+      currentImage = patch.currentImage ?? null;
+    }
+    if ("solverBoardBounds" in patch) {
+      solverBoardBounds = patch.solverBoardBounds ?? null;
+    }
+    if ("solverSelectionPoints" in patch && patch.solverSelectionPoints) {
+      solverSelectionPoints = patch.solverSelectionPoints;
+    }
+    if ("solverAnnotations" in patch && patch.solverAnnotations) {
+      solverAnnotations = patch.solverAnnotations;
+    }
+    if ("labelBoardBounds" in patch) {
+      labelBoardBounds = patch.labelBoardBounds ?? null;
+    }
+    if ("labelSelectionPoints" in patch && patch.labelSelectionPoints) {
+      labelSelectionPoints = patch.labelSelectionPoints;
+    }
+    if ("labelMap" in patch && patch.labelMap) {
+      labelMap = patch.labelMap;
+    }
+    if ("currentLabel" in patch && patch.currentLabel) {
+      currentLabel = patch.currentLabel;
+    }
+    if ("currentDatasetImage" in patch) {
+      currentDatasetImage = patch.currentDatasetImage ?? null;
+    }
+    if ("labelOutputDirectory" in patch) {
+      labelOutputDirectory = patch.labelOutputDirectory ?? null;
+    }
+    if ("templateBank" in patch && patch.templateBank) {
+      templateBank = patch.templateBank;
+    }
+    if ("labelCentroids" in patch && patch.labelCentroids) {
+      labelCentroids = patch.labelCentroids;
+    }
+    if ("templateVectorsByLabel" in patch && patch.templateVectorsByLabel) {
+      templateVectorsByLabel = patch.templateVectorsByLabel;
+    }
+    if ("diagnosticsRows" in patch && patch.diagnosticsRows) {
+      diagnosticsRows = patch.diagnosticsRows;
+    }
+    if ("selectedDiagnosticsRow" in patch) {
+      selectedDiagnosticsRow = patch.selectedDiagnosticsRow ?? null;
+    }
+    if ("lastMagnifierPoint" in patch) {
+      lastMagnifierPoint = patch.lastMagnifierPoint ?? null;
+    }
+  }
+};
+
+export {
+  applyDetectedBoardToLabeler,
+  applyDetectedBoardToSolver,
+  applyLabelExport,
+  augmentVectors,
+  buildCell,
+  buildConfusionRows,
+  buildImageMetrics,
+  buildLabelMetrics,
+  buildTilePreview,
+  buildTrainingVectors,
+  cropImageData,
+  detectBoard,
+  downloadJson,
+  drawAnnotations,
+  drawBaseImage,
+  drawGrid,
+  drawLabelAnnotations,
+  drawLabelerOverlay,
+  drawOverlay,
+  drawSelectionDot,
+  drawSolverOverlay,
+  ensureTemplateBank,
+  evaluateDiagnostics,
+  exportAnnotatedImage,
+  fetchDiagnosticsFromServer,
+  fetchLabelExport,
+  formatPercent,
+  gaussianRandom,
+  getAllLabelExports,
+  getCanvasPoint,
+  getImageDataFromImage,
+  getTileFromPoint,
+  handleLabelerClick,
+  handleSolverClick,
+  loadClassifierHistory,
+  loadDatasetImage,
+  loadImageFromFile,
+  loadImageFromUrl,
+  normalizeRect,
+  populateDatasetSelect,
+  recordClassifierAccuracy,
+  renderConfusionTable,
+  renderDiagnosticsMetrics,
+  renderDiagnosticsTable,
+  renderHistoryTable,
+  renderImageMetricsTable,
+  renderLabelMetricsTable,
+  renderLabelPalette,
+  resetSolverSelection,
+  runAutoLabel,
+  runDiagnostics,
+  saveClassifierHistory,
+  saveLabelExport,
+  saveLabelExportToServer,
+  setDiagnosticsStatus,
+  setLabelerStatus,
+  setMode,
+  setSolverStatus,
+  shuffleInPlace,
+  updateDiagnosticsPreview,
+  updateMagnifier
+};
