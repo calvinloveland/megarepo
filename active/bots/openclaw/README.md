@@ -119,6 +119,8 @@ You can also expose the other upstream-documented free options:
 - `brave-api-key`: enables Brave Search with its free monthly credit tier
 - `searxng-base-url`: enables SearXNG if you already run a reachable JSON-enabled SearXNG instance
 
+The deployment pre-enables the bundled `duckduckgo`, `brave`, and `searxng` search plugins so those provider switches work without additional image changes.
+
 DuckDuckGo remains the baked-in default on every pod start. If you want to switch providers live inside the running pod, use:
 
 ```bash

@@ -104,13 +104,20 @@ spec:
                  },
                  "plugins": {
                    "entries": {
+                     "brave": {
+                       "enabled": true
+                     },
                      "duckduckgo": {
+                       "enabled": true,
                        "config": {
                          "webSearch": {
                            "region": "us-en",
                            "safeSearch": "moderate"
                          }
                        }
+                     },
+                     "searxng": {
+                       "enabled": true
                      }
                    }
                  },
