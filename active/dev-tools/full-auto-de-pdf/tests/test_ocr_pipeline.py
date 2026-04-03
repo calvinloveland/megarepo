@@ -1,3 +1,4 @@
+import builtins
 from pathlib import Path
 import sys
 import types
@@ -3751,3 +3752,1673 @@ def test_benchmark_local_ocr_against_archive_selects_best_source(monkeypatch, tm
     )
     assert report["selected_archive_source"] == "abbyy"
     assert output_report.exists()
+
+
+def test_run_command_respects_capture_output(monkeypatch) -> None:
+    seen: list[tuple[list[str], bool]] = []
+
+    def _fake_run(command, *, check, text, capture_output):  # noqa: ANN001, ANN202
+        assert check is True
+        assert text is True
+        seen.append((command, capture_output))
+        return types.SimpleNamespace(stdout="captured")
+
+    monkeypatch.setattr(ocr_pipeline.subprocess, "run", _fake_run)
+
+    assert ocr_pipeline._run_command(["echo", "hi"], capture_output=False) == ""
+    assert ocr_pipeline._run_command(["echo", "hi"], capture_output=True) == "captured"
+    assert seen == [(["echo", "hi"], False), (["echo", "hi"], True)]
+
+
+def test_load_paddleocr_type_raises_for_missing_dependency(monkeypatch) -> None:
+    def _missing_module(_name: str):  # noqa: ANN001, ANN202
+        raise ImportError("missing")
+
+    monkeypatch.setattr(ocr_pipeline.importlib, "import_module", _missing_module)
+
+    with pytest.raises(RuntimeError, match="Missing dependency for paddleocr engine"):
+        ocr_pipeline._load_paddleocr_type()
+
+
+def test_load_paddleocr_type_requires_paddleocr_class(monkeypatch) -> None:
+    monkeypatch.setattr(
+        ocr_pipeline.importlib,
+        "import_module",
+        lambda _name: types.SimpleNamespace(),
+    )
+
+    with pytest.raises(RuntimeError, match="does not provide PaddleOCR"):
+        ocr_pipeline._load_paddleocr_type()
+
+
+def test_paddleocr_helper_paths_cover_defensive_branches(tmp_path) -> None:
+    assert ocr_pipeline._map_paddleocr_language(" FRA ") == "fr"
+    assert ocr_pipeline._map_paddleocr_language("unknown") == "en"
+    assert ocr_pipeline._extract_unknown_argument("Unknown argument: show_log") == "show_log"
+    assert (
+        ocr_pipeline._extract_unknown_argument("__init__() got an unexpected keyword argument 'use_gpu'")
+        == "use_gpu"
+    )
+    assert ocr_pipeline._extract_unknown_argument("plain failure") is None
+
+    class _BadReader:
+        def ocr(self, _image_path: str, cls: bool = True):  # noqa: FBT001, FBT002
+            raise TypeError("different problem")
+
+    with pytest.raises(TypeError, match="different problem"):
+        ocr_pipeline._run_paddle_raw(_BadReader(), tmp_path / "page.png")
+
+    assert ocr_pipeline._extract_lines_from_page_result("bad") == []
+    assert ocr_pipeline._extract_lines_from_predict_result({"rec_texts": "bad"}) == []
+    assert ocr_pipeline._extract_lines_from_ocr_rows(
+        [
+            "bad",
+            [None],
+            [None, []],
+            [None, [123]],
+            [None, ["good text", 0.9]],
+        ]
+    ) == ["good text"]
+
+
+def test_projection_and_deskew_helpers_cover_simple_edge_cases(monkeypatch) -> None:
+    image = Image.new("L", (4, 3), color=255)
+    assert ocr_pipeline._projection_variance(image) == 0.0
+
+    pixels = image.load()
+    pixels[1, 1] = 0
+    pixels[2, 1] = 0
+    centers = ocr_pipeline._row_center_offsets(image)
+    assert centers == [None, 1.5, None]
+    assert ocr_pipeline._first_black_pixel(pixels, image.width, 0) is None
+    assert ocr_pipeline._last_black_pixel(pixels, image.width, 0) is None
+    assert ocr_pipeline._linear_center_baseline([1.0]) == (0.0, 0.0)
+    assert ocr_pipeline._row_shift_for_dewarp([None, 3.0], 0.5, 1.0, 0) == 0
+    assert ocr_pipeline._row_shift_for_dewarp([None, 3.0], 0.5, 1.0, 1) == 2
+
+    class _FakeRotated:
+        def __init__(self, angle: float) -> None:
+            self.angle = angle
+
+        def point(self, _fn, mode="L"):  # noqa: ANN001, ANN202
+            assert mode == "L"
+            return self
+
+    class _FakeImage:
+        def rotate(self, angle: float, *, expand: bool, fillcolor: int):  # noqa: ANN001
+            assert expand is True
+            assert fillcolor == 255
+            return _FakeRotated(angle)
+
+    monkeypatch.setattr(
+        ocr_pipeline,
+        "_projection_variance",
+        lambda rotated: {-1.0: 1.0, 0.0: 3.0, 1.0: 2.0}[rotated.angle],
+    )
+    assert ocr_pipeline._estimate_skew_angle(_FakeImage(), 1.0, 1.0) == 0.0
+
+
+def test_dewarp_and_preprocess_helpers_cover_runtime_guards(monkeypatch, tmp_path) -> None:
+    image = Image.new("L", (4, 2), color=255)
+    image.putpixel((1, 0), 0)
+    image.putpixel((2, 1), 0)
+
+    monkeypatch.setattr(ocr_pipeline, "_row_center_offsets", lambda _binary: [1.0, 2.0])
+    monkeypatch.setattr(ocr_pipeline, "_linear_center_baseline", lambda _centers: (0.0, 1.0))
+    result = ocr_pipeline._dewarp_by_row_shift(image, 128)
+    assert result.size == image.size
+
+    monkeypatch.setattr(ocr_pipeline, "Image", None)
+    with pytest.raises(RuntimeError, match="Missing dependency for preprocessing"):
+        ocr_pipeline._dewarp_by_row_shift(image, 128)
+    with pytest.raises(RuntimeError, match="Missing dependency for preprocessing"):
+        ocr_pipeline._preprocess_image(tmp_path / "in.png", tmp_path / "out.png", "scan", 180, 2.0, 0.5)
+
+
+def test_parse_preprocess_and_scan_stack_helpers_cover_edges() -> None:
+    with pytest.raises(TypeError, match="expects preprocess mode"):
+        ocr_pipeline._parse_preprocess_args(("scan", 180, 2.0))
+
+    assert ocr_pipeline._parse_preprocess_args(("scan", "180", "2.0", "0.5")) == (
+        "scan",
+        180,
+        2.0,
+        0.5,
+    )
+    assert ocr_pipeline._split_preprocess_mode("scan-masked") == ("scan", True)
+    assert ocr_pipeline._masked_preprocess_mode("scan") == "scan-masked"
+    assert ocr_pipeline._uses_scan_preprocess_stack("scan-background-normalized-masked") is True
+    assert ocr_pipeline._uses_scan_preprocess_stack("basic") is False
+
+
+def test_upsample_and_band_helpers_cover_small_edge_cases() -> None:
+    assert ocr_pipeline._upsample_for_ocr(Image.new("L", (2500, 100), color=255)).size == (2500, 100)
+
+    image = Image.new("L", (6, 4), color=255)
+    pixels = image.load()
+    for x in range(6):
+        pixels[x, 1] = 0
+        pixels[x, 2] = 0
+
+    assert ocr_pipeline._ink_row_counts(image) == [0, 6, 6, 0]
+    assert ocr_pipeline._collect_ink_bands(Image.new("L", (6, 4), color=255)) == []
+    assert ocr_pipeline._collect_ink_bands(image) == [
+        {
+            "top": 1,
+            "bottom": 2,
+            "height": 2,
+            "peak_row_ink": 6,
+            "ink_width": 6,
+            "ink_left": 0,
+            "ink_right": 6,
+        }
+    ]
+
+
+def test_threshold_helpers_cover_invalid_inputs_and_edges() -> None:
+    assert ocr_pipeline._otsu_threshold(Image.new("L", (0, 0), color=255)) == 128
+    assert ocr_pipeline._tile_start_positions(100, 128, 64) == [0]
+    assert ocr_pipeline._tile_start_positions(250, 100, 60) == [0, 60, 120, 150]
+
+    with pytest.raises(ValueError, match="odd integer >= 3"):
+        ocr_pipeline._adaptive_gaussian_threshold(Image.new("L", (5, 5), color=255), block_size=4, subtract_constant=5)
+    with pytest.raises(ValueError, match="odd integer >= 3"):
+        ocr_pipeline._sauvola_threshold(Image.new("L", (5, 5), color=255), block_size=2, k=0.25)
+    with pytest.raises(ValueError, match="dynamic_range must be greater than 0"):
+        ocr_pipeline._sauvola_threshold(Image.new("L", (5, 5), color=255), block_size=5, k=0.25, dynamic_range=0.0)
+    with pytest.raises(ValueError, match="overlap must be >= 0 and less than tile_size"):
+        ocr_pipeline._threshold_image_in_overlapping_tiles(
+            Image.new("L", (10, 10), color=255),
+            tile_size=8,
+            overlap=8,
+            threshold_fn=lambda tile: tile,
+        )
+
+
+def test_background_and_morphology_helpers_cover_simple_outputs() -> None:
+    white = Image.new("L", (5, 5), color=255)
+    normalized = ocr_pipeline._normalize_scan_background(
+        white,
+        blur_radius=1.0,
+        contrast_scale=1.5,
+        closing_size=1,
+    )
+    assert set(normalized.getdata()) == {255}
+
+    mostly_white = Image.new("L", (5, 5), color=255)
+    mostly_white.putpixel((2, 2), 0)
+    cleaned = ocr_pipeline._remove_small_black_components(mostly_white, min_component_pixels=2)
+    assert cleaned.getpixel((2, 2)) == 255
+    assert ocr_pipeline._remove_small_black_components(mostly_white, min_component_pixels=1).getpixel((2, 2)) == 0
+    assert set(ocr_pipeline._morphological_cleanup_binary(mostly_white, min_component_pixels=2).getdata()) <= {0, 255}
+
+
+def test_validation_helpers_cover_boundaries_and_failures(tmp_path) -> None:
+    options = ocr_pipeline.OCRRunOptions(
+        core=ocr_pipeline.OCRCoreOptions(),
+        preprocess_mode="none",
+    )
+    ocr_pipeline._validate_common_ocr_options(options, lambda _name: "/usr/bin/fake")
+
+    bad_threshold = ocr_pipeline.OCRRunOptions(
+        core=ocr_pipeline.OCRCoreOptions(binarize_threshold=256),
+        preprocess_mode="none",
+    )
+    with pytest.raises(ValueError, match="binarize_threshold"):
+        ocr_pipeline._validate_common_ocr_options(bad_threshold, lambda _name: "/usr/bin/fake")
+
+    bad_angle = ocr_pipeline.OCRRunOptions(
+        core=ocr_pipeline.OCRCoreOptions(deskew_max_angle=0.0),
+        preprocess_mode="none",
+    )
+    with pytest.raises(ValueError, match="deskew_max_angle"):
+        ocr_pipeline._validate_common_ocr_options(bad_angle, lambda _name: "/usr/bin/fake")
+
+    bad_ratio = ocr_pipeline.OCRRunOptions(
+        core=ocr_pipeline.OCRCoreOptions(llm_max_word_delta_ratio=1.01),
+        preprocess_mode="none",
+    )
+    with pytest.raises(ValueError, match="llm_max_word_delta_ratio"):
+        ocr_pipeline._validate_common_ocr_options(bad_ratio, lambda _name: "/usr/bin/fake")
+
+    with pytest.raises(RuntimeError, match="Missing dependency: pdftoppm"):
+        ocr_pipeline._validate_ocr_run_options(tmp_path / "book.pdf", options, lambda name: "/usr/bin/fake" if name == "tesseract" else None)
+    with pytest.raises(ValueError, match="page_images must include at least one image path"):
+        ocr_pipeline._validate_page_image_run_options([], options, lambda _name: "/usr/bin/fake")
+
+
+def test_text_scoring_and_layout_helpers_cover_pure_logic() -> None:
+    assert ocr_pipeline._score_text_quality("", "eng") == -1_000_000.0
+    assert ocr_pipeline._score_text_quality("123 456", "eng") == -500_000.0
+    assert ocr_pipeline._score_text_quality("the cat sat", "eng") > ocr_pipeline._score_text_quality("zzz qqq vvv", "eng")
+    assert ocr_pipeline._hocr_candidate_score_adjustment({}) == 0.0
+    assert ocr_pipeline._hocr_candidate_score_adjustment(
+        {"hocr_confidence_mean": 90.0, "hocr_low_confidence_ratio": 0.25}
+    ) == pytest.approx(5.0)
+
+    assert ocr_pipeline._is_probable_page_number("(12)") is True
+    assert ocr_pipeline._is_probable_page_number("Page 12") is False
+    assert ocr_pipeline._is_probable_chapter_marker("Chapter 3") is True
+    assert ocr_pipeline._is_probable_toc_line("Chapter One ........ 12") is True
+    assert ocr_pipeline._classify_layout_line("", None, 0, 3) == "blank"
+    assert ocr_pipeline._classify_layout_line("iii", None, 0, 3) == "page-number"
+    assert ocr_pipeline._classify_layout_line("short heading", None, 0, 6) == "header"
+    assert ocr_pipeline._classify_layout_line("note", (0, 0, 8, 10), 3, 6) == "margin-note"
+    assert ocr_pipeline._classify_layout_line("tail note", None, 5, 6) == "footer"
+
+    entries = ocr_pipeline._coerce_layout_entries(
+        "line one\nline two",
+        {"hocr_line_entries_runtime": ["bad", {"text": "  "}, {"text": "Body", "bbox": [1, 2, 3, 4]}]},
+    )
+    assert entries == [{"text": "Body", "bbox": (1, 2, 3, 4)}]
+    assert ocr_pipeline._coerce_layout_entries("line one\nline two", {"hocr_line_entries_runtime": "bad"}) == [
+        {"text": "line one"},
+        {"text": "line two"},
+    ]
+    classified = ocr_pipeline._classify_layout_entries(
+        "line one\n12",
+        {"hocr_line_entries_runtime": [{"text": "line one"}, {"text": "12"}]},
+    )
+    assert classified[1]["region"] == "page-number"
+    assert ocr_pipeline._page_text_noise_ratio("") == 1.0
+    assert ocr_pipeline._page_ocr_artifact_metrics("123 !!!") == {
+        "alphaish_token_count": 0.0,
+        "single_char_fragment_ratio": 0.0,
+        "apostrophe_fragment_ratio": 0.0,
+    }
+
+
+def test_hocr_extractor_parses_lines_entities_and_fallbacks() -> None:
+    parser = ocr_pipeline._HocrTextExtractor()
+    parser.feed(
+        """
+        <span class="ocr_line" title="bbox 1 2 20 10">
+          <span class="ocrx_word" title="bbox 1 2 5 7; x_wconf 91">Tom&amp;</span>
+          <span class="ocrx_word" title="bbox 6 2 12 7; x_wconf 88">Jerry</span>
+        </span>
+        """
+    )
+    assert parser.text == "Tom& Jerry"
+    assert parser.lines == ["Tom& Jerry"]
+    assert parser.confidences == [91, 88]
+    assert parser.line_entries == [{"text": "Tom& Jerry", "bbox": [1, 2, 20, 10]}]
+
+    fallback = ocr_pipeline._HocrTextExtractor()
+    fallback.feed('<span class="ocrx_word" title="x_wconf 88">Solo</span>')
+    assert fallback.text == "Solo"
+
+    assert ocr_pipeline._extract_hocr_bbox("missing bbox") is None
+    assert ocr_pipeline._extract_hocr_bbox("bbox 5 5 5 8") is None
+
+
+def test_suspicious_section_helpers_cover_windows_and_parsing() -> None:
+    short_text = "word " * (ocr_pipeline._SUSPICIOUS_SECTION_MIN_WORDS - 1)
+    assert ocr_pipeline._windowed_section_excerpts(short_text) == []
+
+    exact_text = " ".join(f"w{i}" for i in range(ocr_pipeline._SUSPICIOUS_SECTION_WINDOW_WORDS))
+    windows = ocr_pipeline._windowed_section_excerpts(exact_text)
+    assert windows == [(0, ocr_pipeline._SUSPICIOUS_SECTION_WINDOW_WORDS, exact_text)]
+
+    long_text = " ".join(f"w{i}" for i in range(170))
+    assert len(ocr_pipeline._windowed_section_excerpts(long_text)) == 2
+
+    assert ocr_pipeline._extract_first_json_object("prefix {not json") is None
+    assert ocr_pipeline._extract_first_json_object('prefix {"ok": 1} suffix {"ignore": 2}') == {"ok": 1}
+    assert ocr_pipeline._parse_suspicious_section_response("nonsense") is None
+    assert ocr_pipeline._parse_suspicious_section_response('{"suspicious":"yes"}') is None
+    parsed = ocr_pipeline._parse_suspicious_section_response(
+        json.dumps(
+            {
+                "suspicious": True,
+                "confidence": "LOUD",
+                "reason": "x" * 300,
+                "focus_spans": ["a" * 130, "keep", 3, "trim", "extra"],
+            }
+        )
+    )
+    assert parsed == {
+        "suspicious": True,
+        "confidence": "medium",
+        "reason": "x" * 240,
+        "focus_spans": ["a" * 120, "keep", "trim"],
+    }
+
+    candidates = ocr_pipeline._suspicious_section_candidates(
+        ["clean words " * 20, ("token@@ alpha1 " * 20).strip()],
+        [
+            {"page_quality_tier": "high", "page_route": "body", "hocr_low_confidence_ratio": 0.0},
+            {"page_quality_tier": "low", "page_route": "body-review", "hocr_low_confidence_ratio": 0.25},
+        ],
+        max_candidates=5,
+    )
+    assert len(candidates) == 1
+    assert candidates[0]["page_index"] == 2
+
+
+def test_page_classification_helpers_cover_routes_and_thresholds() -> None:
+    assert ocr_pipeline._classify_page_type(
+        page_index=1,
+        total_pages=10,
+        word_count=30,
+        dense_body_line_count=1,
+        region_counts=ocr_pipeline.Counter({"toc": 2, "body": 1}),
+        chapter_marker_count=0,
+    ) == "front-matter"
+    assert ocr_pipeline._classify_page_type(
+        page_index=10,
+        total_pages=10,
+        word_count=20,
+        dense_body_line_count=1,
+        region_counts=ocr_pipeline.Counter({"body": 1}),
+        chapter_marker_count=0,
+    ) == "back-matter"
+    assert ocr_pipeline._classify_page_type(
+        page_index=3,
+        total_pages=10,
+        word_count=20,
+        dense_body_line_count=1,
+        region_counts=ocr_pipeline.Counter({"body": 1}),
+        chapter_marker_count=0,
+    ) == "sparse"
+
+    assert ocr_pipeline._classify_page_quality_tier(
+        page_type="body",
+        word_count=0,
+        dense_body_line_count=3,
+        selection_score=0.0,
+        noise_ratio=1.0,
+        hocr_confidence_mean=60.0,
+        hocr_low_confidence_ratio=0.5,
+        single_char_fragment_ratio=0.5,
+        apostrophe_fragment_ratio=0.5,
+        candidate_near_best_family_count=2,
+        candidate_best_alt_score_gap=0.2,
+        candidate_best_alt_text_similarity=0.2,
+    ) == "low"
+    assert ocr_pipeline._classify_page_quality_tier(
+        page_type="body",
+        word_count=100,
+        dense_body_line_count=5,
+        selection_score=ocr_pipeline._MEDIUM_QUALITY_SELECTION_SCORE - 0.1,
+        noise_ratio=ocr_pipeline._MEDIUM_QUALITY_NOISE_RATIO,
+        hocr_confidence_mean=87.0,
+        hocr_low_confidence_ratio=ocr_pipeline._MEDIUM_QUALITY_LOW_CONFIDENCE_RATIO,
+        single_char_fragment_ratio=ocr_pipeline._MEDIUM_QUALITY_SINGLE_CHAR_FRAGMENT_RATIO,
+        apostrophe_fragment_ratio=ocr_pipeline._MEDIUM_QUALITY_APOSTROPHE_FRAGMENT_RATIO,
+        candidate_near_best_family_count=0,
+        candidate_best_alt_score_gap=None,
+        candidate_best_alt_text_similarity=None,
+    ) == "low"
+    assert ocr_pipeline._classify_page_quality_tier(
+        page_type="front-matter",
+        word_count=20,
+        dense_body_line_count=1,
+        selection_score=ocr_pipeline._MEDIUM_QUALITY_SELECTION_SCORE,
+        noise_ratio=0.0,
+        hocr_confidence_mean=None,
+        hocr_low_confidence_ratio=None,
+        single_char_fragment_ratio=0.0,
+        apostrophe_fragment_ratio=0.0,
+        candidate_near_best_family_count=0,
+        candidate_best_alt_score_gap=None,
+        candidate_best_alt_text_similarity=None,
+    ) == "high"
+
+    assert ocr_pipeline._page_route("front-matter", "low") == "front-matter"
+    assert ocr_pipeline._page_route("body", "low") == "body-low-quality"
+    assert ocr_pipeline._page_route("body", "medium") == "body-review"
+    assert ocr_pipeline._page_route("body", "high") == "body"
+
+
+def test_second_wave_helper_edges_cover_remaining_small_branches(monkeypatch, tmp_path) -> None:
+    class _FakePaddleOCR:
+        def __init__(self, **kwargs):  # noqa: ANN003
+            raise ValueError("Unknown argument: mystery")
+
+    with pytest.raises(ValueError, match="Unknown argument: mystery"):
+        ocr_pipeline._initialize_paddle_reader(_FakePaddleOCR, "eng")
+
+    dark_row = Image.new("L", (3, 2), color=255)
+    for x in range(3):
+        dark_row.putpixel((x, 1), 0)
+    assert ocr_pipeline._projection_variance(dark_row) > 0.0
+
+    monkeypatch.setattr(ocr_pipeline, "_first_black_pixel", lambda _pixels, _width, _y: 0)
+    monkeypatch.setattr(ocr_pipeline, "_last_black_pixel", lambda _pixels, _width, _y: None)
+    assert ocr_pipeline._row_center_offsets(Image.new("L", (2, 2), color=255)) == [None, None]
+
+    real_enumerate = builtins.enumerate
+    centers = [10.0, 20.0]
+
+    def _fake_enumerate(values):  # noqa: ANN001, ANN202
+        if values is centers:
+            return iter(((0, 10.0), (0, 20.0)))
+        return real_enumerate(values)
+
+    monkeypatch.setattr(builtins, "enumerate", _fake_enumerate)
+    assert ocr_pipeline._linear_center_baseline(centers) == (0.0, 15.0)
+
+
+def test_masking_and_preprocess_candidate_helper_paths(monkeypatch, tmp_path) -> None:
+    input_path = tmp_path / "page.png"
+    output_path = tmp_path / "masked.png"
+    Image.new("L", (20, 20), color=255).save(input_path)
+
+    masked_seen: list[tuple[int, int]] = []
+
+    def _fake_mask(image):  # noqa: ANN001, ANN202
+        masked_seen.append(image.size)
+        return image
+
+    monkeypatch.setattr(ocr_pipeline, "_mask_sparse_outer_text_bands", _fake_mask)
+    ocr_pipeline._preprocess_image(input_path, output_path, "scan-masked", 190, 2.0, 0.5)
+    assert masked_seen == [(60, 60)]
+
+    image = Image.new("L", (20, 20), color=255)
+    monkeypatch.setattr(ocr_pipeline, "_estimate_skew_angle", lambda *_args, **_kwargs: 1.5)
+    deskewed = ocr_pipeline._preprocess_candidate(image, "deskew", 2.0, 0.5, 190)
+    assert deskewed.size[0] >= image.size[0]
+
+    monkeypatch.setattr(ocr_pipeline, "_dewarp_by_row_shift", lambda candidate, _threshold: ("dewarped", candidate.size))
+    assert ocr_pipeline._preprocess_candidate(image, "dewarp", 2.0, 0.5, 190)[0] == "dewarped"
+
+
+def test_mask_sparse_outer_text_bands_defensive_branches(monkeypatch) -> None:
+    image = Image.new("L", (20, 20), color=255)
+    original_image_draw = ocr_pipeline.ImageDraw
+    monkeypatch.setattr(ocr_pipeline, "ImageDraw", None)
+    assert ocr_pipeline._mask_sparse_outer_text_bands(image) is image
+
+    monkeypatch.setattr(ocr_pipeline, "ImageDraw", original_image_draw)
+    zero = types.SimpleNamespace(size=(0, 0))
+    assert ocr_pipeline._mask_sparse_outer_text_bands(zero) is zero
+
+    monkeypatch.setattr(ocr_pipeline, "_collect_ink_bands", lambda _image: [])
+    assert ocr_pipeline._mask_sparse_outer_text_bands(image).size == image.size
+
+    monkeypatch.setattr(
+        ocr_pipeline,
+        "_collect_ink_bands",
+        lambda _image: [{"top": 0, "bottom": 0, "height": 1, "ink_width": 1}],
+    )
+    monkeypatch.setattr(ocr_pipeline, "_is_significant_ink_band", lambda *_args: False)
+    assert ocr_pipeline._mask_sparse_outer_text_bands(image).size == image.size
+    assert original_image_draw is not None
+
+
+def test_threshold_and_preprocessing_runtime_guards_and_tiling(monkeypatch) -> None:
+    fake_empty = types.SimpleNamespace(
+        size=(0, 0),
+        convert=lambda _mode: types.SimpleNamespace(size=(0, 0), tobytes=lambda: b""),
+    )
+    assert ocr_pipeline._ink_row_counts(fake_empty) == []
+    assert ocr_pipeline._collect_ink_bands(fake_empty) == []
+
+    original_image = ocr_pipeline.Image
+    original_image_filter = ocr_pipeline.ImageFilter
+    original_image_draw = ocr_pipeline.ImageDraw
+    original_image_ops = ocr_pipeline.ImageOps
+    try:
+        monkeypatch.setattr(ocr_pipeline, "Image", None)
+        sample = Image.new("L", (5, 5), color=255)
+        assert ocr_pipeline._upsample_for_ocr(sample) is sample
+        with pytest.raises(RuntimeError, match="Missing dependency for preprocessing"):
+            ocr_pipeline._threshold_image_in_overlapping_tiles(sample, tile_size=4, overlap=2, threshold_fn=lambda tile: tile)
+        with pytest.raises(RuntimeError, match="Missing dependency for inverse-render reranking"):
+            ocr_pipeline._inverse_render_bicubic_resample()
+    finally:
+        monkeypatch.setattr(ocr_pipeline, "Image", original_image)
+
+    monkeypatch.setattr(ocr_pipeline, "ImageFilter", None)
+    sample = Image.new("L", (5, 5), color=255)
+    with pytest.raises(RuntimeError, match="Missing dependency for preprocessing"):
+        ocr_pipeline._normalize_scan_background(sample, blur_radius=1.0, contrast_scale=1.0, closing_size=3)
+    with pytest.raises(RuntimeError, match="Missing dependency for preprocessing"):
+        ocr_pipeline._adaptive_gaussian_threshold(sample, block_size=5, subtract_constant=3)
+    with pytest.raises(RuntimeError, match="Missing dependency for preprocessing"):
+        ocr_pipeline._sauvola_threshold(sample, block_size=5, k=0.25)
+    with pytest.raises(RuntimeError, match="Missing dependency for preprocessing"):
+        ocr_pipeline._morphological_cleanup_binary(sample, min_component_pixels=2)
+    monkeypatch.setattr(ocr_pipeline, "ImageFilter", original_image_filter)
+    monkeypatch.setattr(ocr_pipeline, "ImageDraw", original_image_draw)
+    monkeypatch.setattr(ocr_pipeline, "ImageOps", original_image_ops)
+
+    image = Image.new("L", (6, 6), color=255)
+    stitched = ocr_pipeline._threshold_image_in_overlapping_tiles(
+        image,
+        tile_size=4,
+        overlap=2,
+        threshold_fn=lambda tile: Image.new("L", tile.size, color=0),
+    )
+    assert set(stitched.getdata()) == {0}
+
+    connected = Image.new("L", (3, 3), color=255)
+    connected.putpixel((0, 0), 0)
+    connected.putpixel((1, 1), 0)
+    kept = ocr_pipeline._remove_small_black_components(connected, min_component_pixels=2)
+    assert kept.getpixel((0, 0)) == 0
+    assert kept.getpixel((1, 1)) == 0
+
+
+def test_parse_and_pdf_resume_helpers_cover_misc_branches(monkeypatch, tmp_path) -> None:
+    kwargs = {
+        "run_command": "run",
+        "preprocess_image": "prep",
+        "paddle_reader_factory": "factory",
+        "which": "which",
+        "llm_corrector": "corrector",
+        "llm_suspicious_section_analyzer": "analyzer",
+    }
+    deps = ocr_pipeline._parse_ocr_dependencies(kwargs)
+    assert deps.run_command == "run"
+    assert deps.preprocess_image == "prep"
+    assert kwargs == {}
+
+    option_kwargs = {
+        "page_artifacts_dir": str(tmp_path / "artifacts"),
+        "cleanup_lexicon_texts": [1, "lex"],
+        "language": "fra",
+        "preprocess_mode": "scan",
+        "ocr_engine": "paddleocr",
+        "emit_page_artifacts": False,
+        "resume": True,
+    }
+    options = ocr_pipeline._parse_ocr_options(option_kwargs)
+    assert options.page_artifacts_dir == tmp_path / "artifacts"
+    assert options.core.cleanup_lexicon_texts == ("1", "lex")
+    assert options.core.language == "fra"
+    assert options.resume is True
+    assert option_kwargs == {}
+
+    with pytest.raises(TypeError, match="unexpected keyword arguments: alpha, beta"):
+        ocr_pipeline._ensure_no_unknown_kwargs({"beta": 1, "alpha": 2}, "demo")
+    assert ocr_pipeline._normalize_tesseract_psm(" auto ") == "auto"
+    assert ocr_pipeline._normalize_tesseract_psm("6") == "6"
+
+    monkeypatch.setattr(
+        ocr_pipeline.subprocess,
+        "run",
+        lambda *_args, **_kwargs: types.SimpleNamespace(stdout="Pages: 12\n"),
+    )
+    assert ocr_pipeline._pdf_page_count(tmp_path / "demo.pdf") == 12
+
+    def _missing_pdfinfo(*_args, **_kwargs):  # noqa: ANN001, ANN202
+        raise FileNotFoundError("missing")
+
+    monkeypatch.setattr(ocr_pipeline.subprocess, "run", _missing_pdfinfo)
+    assert ocr_pipeline._pdf_page_count(tmp_path / "demo.pdf") is None
+
+    artifacts_dir = tmp_path / "artifacts"
+    artifacts_dir.mkdir()
+    page_images = [tmp_path / "page-1.png", tmp_path / "page-2.png"]
+    for image_path in page_images:
+        image_path.write_bytes(b"x")
+    assert ocr_pipeline._load_resumed_page_artifacts(artifacts_dir, page_images) == ([], [])
+
+    manifest_path = artifacts_dir / "manifest.json"
+    manifest_path.write_text("{bad json", encoding="utf-8")
+    assert ocr_pipeline._load_resumed_page_artifacts(artifacts_dir, page_images) == ([], [])
+
+    manifest_path.write_text(json.dumps({"pages": [{"page_index": 9}]}), encoding="utf-8")
+    assert ocr_pipeline._load_resumed_page_artifacts(artifacts_dir, page_images) == ([], [])
+
+    text_path = artifacts_dir / "page-0001.txt"
+    text_path.write_text("First page", encoding="utf-8")
+    manifest_path.write_text(
+        json.dumps(
+            {
+                "pages": [
+                    {"page_index": 1, "image_path": str(page_images[0]), "text_path": str(text_path)},
+                    {"page_index": 2, "image_path": "wrong-name.png"},
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    resumed_texts, resumed_details = ocr_pipeline._load_resumed_page_artifacts(artifacts_dir, page_images)
+    assert resumed_texts == ["First page"]
+    assert resumed_details[0]["text_path"] == str(text_path)
+
+
+def test_cleanup_inverse_render_and_llm_helpers_cover_small_branches(monkeypatch, tmp_path) -> None:
+    large_raw = " ".join(f"word{i}" for i in range(ocr_pipeline._CLEANUP_SPAN_VERIFIER_MAX_TOKENS + 1))
+    large_clean = " ".join(f"term{i}" for i in range(ocr_pipeline._CLEANUP_SPAN_VERIFIER_MAX_TOKENS + 1))
+    assert ocr_pipeline._cleanup_span_changes(large_raw, large_clean) == []
+    assert ocr_pipeline._cleanup_span_changes("alpha\nbeta", "gamma") == []
+    assert ocr_pipeline._cleanup_span_changes("123 456", "123 789") == []
+    changes = ocr_pipeline._cleanup_span_changes("alpha beta", "alpha gamma")
+    assert len(changes) == 1
+    assert changes[0].raw_text == "beta"
+    assert changes[0].cleaned_text == "gamma"
+
+    monkeypatch.setattr(
+        ocr_pipeline.subprocess,
+        "run",
+        lambda *_args, **_kwargs: types.SimpleNamespace(stdout="/tmp/font.ttf\n"),
+    )
+    assert ocr_pipeline._fontconfig_match("serif") == "/tmp/font.ttf"
+
+    def _fc_missing(*_args, **_kwargs):  # noqa: ANN001, ANN202
+        raise FileNotFoundError("missing")
+
+    monkeypatch.setattr(ocr_pipeline.subprocess, "run", _fc_missing)
+    assert ocr_pipeline._fontconfig_match("serif") is None
+
+    original_image_font = ocr_pipeline.ImageFont
+    monkeypatch.setattr(ocr_pipeline, "ImageFont", None)
+    with pytest.raises(RuntimeError, match="Missing dependency for inverse-render reranking"):
+        ocr_pipeline._load_inverse_render_font("font.ttf", 12)
+    monkeypatch.setattr(ocr_pipeline, "ImageFont", original_image_font)
+    ocr_pipeline._load_inverse_render_font.cache_clear()
+
+    class _FakeImageFont:
+        @staticmethod
+        def truetype(_font_path, _font_size):  # noqa: ANN001, ANN202
+            raise OSError("bad font")
+
+        @staticmethod
+        def load_default():  # noqa: ANN202
+            return "default-font"
+
+    monkeypatch.setattr(ocr_pipeline, "ImageFont", _FakeImageFont)
+    assert ocr_pipeline._load_inverse_render_font("font.ttf", 12) == "default-font"
+    ocr_pipeline._load_inverse_render_font.cache_clear()
+    monkeypatch.setattr(ocr_pipeline, "ImageFont", original_image_font)
+
+    image_path = tmp_path / "scan.png"
+    Image.new("L", (10, 10), color=255).save(image_path)
+    original_image_filter = ocr_pipeline.ImageFilter
+    monkeypatch.setattr(ocr_pipeline, "ImageFilter", None)
+    with pytest.raises(RuntimeError, match="Missing dependency for inverse-render reranking"):
+        ocr_pipeline._normalize_scan_for_inverse_render(image_path)
+    monkeypatch.setattr(ocr_pipeline, "ImageFilter", original_image_filter)
+
+    assert ocr_pipeline._inverse_render_text_lines(" single line ") == [" single line"]
+    assert ocr_pipeline._inverse_render_text_lines("") == []
+
+    class _FakeDraw:
+        def textbbox(self, _pos, text, *, font):  # noqa: ANN001, ANN202
+            del font
+            return (0, 0, len(text) * 10, 10)
+
+    assert ocr_pipeline._wrap_render_line(_FakeDraw(), object(), "", 50) == [""]
+    assert ocr_pipeline._wrap_render_line(_FakeDraw(), object(), "one two three", 45) == ["one", "two", "three"]
+
+    original_image_draw = ocr_pipeline.ImageDraw
+    monkeypatch.setattr(ocr_pipeline, "ImageDraw", None)
+    with pytest.raises(RuntimeError, match="Missing dependency for inverse-render reranking"):
+        ocr_pipeline._wrapped_inverse_render_line_groups("text", None, 12, 100)
+    with pytest.raises(RuntimeError, match="Missing dependency for inverse-render reranking"):
+        ocr_pipeline._render_inverse_text_image("text", (20, 20), (0, 0, 10, 10), font_path=None, font_size=12, offset_x=0, offset_y=0, rotation=0.0)
+    monkeypatch.setattr(ocr_pipeline, "ImageDraw", original_image_draw)
+
+    original_image_chops = ocr_pipeline.ImageChops
+    monkeypatch.setattr(ocr_pipeline, "ImageChops", None)
+    blank = Image.new("L", (2, 2), color=255)
+    assert ocr_pipeline._binary_ink_iou(blank, blank) == 0.0
+    monkeypatch.setattr(ocr_pipeline, "ImageChops", original_image_chops)
+    assert ocr_pipeline._rotate_inverse_render_image(blank, 0.0) is blank
+    with pytest.raises(ValueError, match="rendered_candidates must not be empty"):
+        ocr_pipeline._best_inverse_render_rendered_batch(blank, [])
+
+    assert ocr_pipeline._page_artifact_text_path(tmp_path, 7) == tmp_path / "page-0007.txt"
+
+    options = ocr_pipeline.OCRRunOptions(core=ocr_pipeline.OCRCoreOptions(llm_suspicious_sections=False), preprocess_mode="none")
+    deps = ocr_pipeline.OCRDependencies(
+        run_command=ocr_pipeline._run_command,
+        preprocess_image=ocr_pipeline._preprocess_image,
+        paddle_reader_factory=ocr_pipeline._build_paddleocr_reader,
+        which=ocr_pipeline.shutil.which,
+        llm_corrector=None,
+        llm_suspicious_section_analyzer=None,
+    )
+    assert ocr_pipeline._maybe_analyze_suspicious_sections([], [], options, deps) == {}
+
+    options = ocr_pipeline.OCRRunOptions(core=ocr_pipeline.OCRCoreOptions(llm_suspicious_sections=True), preprocess_mode="none")
+    assert ocr_pipeline._maybe_analyze_suspicious_sections([], [], options, deps)["status"] == "unavailable"
+
+    monkeypatch.setattr(ocr_pipeline, "_suspicious_section_candidates", lambda *_args, **_kwargs: [])
+    deps = ocr_pipeline.OCRDependencies(
+        run_command=ocr_pipeline._run_command,
+        preprocess_image=ocr_pipeline._preprocess_image,
+        paddle_reader_factory=ocr_pipeline._build_paddleocr_reader,
+        which=ocr_pipeline.shutil.which,
+        llm_corrector=None,
+        llm_suspicious_section_analyzer=lambda prompt: prompt,
+    )
+    assert ocr_pipeline._maybe_analyze_suspicious_sections(["text"], [{}], options, deps)["status"] == "skipped-no-candidates"
+
+    monkeypatch.setattr(
+        ocr_pipeline,
+        "_suspicious_section_candidates",
+        lambda *_args, **_kwargs: [{"page_index": 1, "section_index": 1, "heuristic_score": 1.0, "page_quality_tier": "low", "page_route": "body", "page_text_noise_ratio": 0.1, "hocr_low_confidence_ratio": 0.5, "symbolic_token_count": 1, "digit_alpha_token_count": 0, "excerpt": "excerpt"}],
+    )
+    deps = ocr_pipeline.OCRDependencies(
+        run_command=ocr_pipeline._run_command,
+        preprocess_image=ocr_pipeline._preprocess_image,
+        paddle_reader_factory=ocr_pipeline._build_paddleocr_reader,
+        which=ocr_pipeline.shutil.which,
+        llm_corrector=None,
+        llm_suspicious_section_analyzer=lambda _prompt: 3,
+    )
+    assert ocr_pipeline._maybe_analyze_suspicious_sections(["text"], [{}], options, deps)["status"] == "invalid-output"
+
+    deps = ocr_pipeline.OCRDependencies(
+        run_command=ocr_pipeline._run_command,
+        preprocess_image=ocr_pipeline._preprocess_image,
+        paddle_reader_factory=ocr_pipeline._build_paddleocr_reader,
+        which=ocr_pipeline.shutil.which,
+        llm_corrector=None,
+        llm_suspicious_section_analyzer=lambda _prompt: '{"suspicious": true, "confidence": "high", "reason": "review", "focus_spans": ["span"]}',
+    )
+    review = ocr_pipeline._maybe_analyze_suspicious_sections(["text"], [{}], options, deps)
+    assert review["status"] == "applied"
+    assert review["flagged_count"] == 1
+
+
+def test_page_analysis_and_llm_layout_helpers_cover_remaining_decision_paths(monkeypatch) -> None:
+    metadata = ocr_pipeline._page_analysis_metadata(
+        "Chapter 1\nBody text with enough words here",
+        {
+            "selection_score": 50.0,
+            "hocr_confidence_mean": 80.0,
+            "hocr_low_confidence_ratio": 0.2,
+            "candidate_near_best_family_count": 2,
+            "candidate_best_alt_score_gap": 0.4,
+            "candidate_best_alt_text_similarity": 0.4,
+        },
+        page_index=1,
+        total_pages=10,
+    )
+    assert metadata["page_candidate_near_best_family_count"] == 2
+    assert metadata["page_chapter_marker_count"] == 1
+
+    options = ocr_pipeline.OCRRunOptions(core=ocr_pipeline.OCRCoreOptions(layout_region_detection=False), preprocess_mode="none")
+    assert ocr_pipeline._maybe_apply_layout_region_detection("12", {}, options) == ("12", {})
+
+    options = ocr_pipeline.OCRRunOptions(core=ocr_pipeline.OCRCoreOptions(layout_region_detection=True), preprocess_mode="none")
+    monkeypatch.setattr(ocr_pipeline, "_classify_layout_entries", lambda *_args, **_kwargs: [])
+    assert ocr_pipeline._maybe_apply_layout_region_detection("12", {}, options) == (
+        "12",
+        {"layout_region_detection_enabled": True},
+    )
+
+    monkeypatch.setattr(
+        ocr_pipeline,
+        "_classify_layout_entries",
+        lambda *_args, **_kwargs: [{"text": "Body", "region": "body"}, {"text": "More", "region": "body"}],
+    )
+    kept_text, layout_meta = ocr_pipeline._maybe_apply_layout_region_detection("Body\nMore", {}, options)
+    assert kept_text == "Body\nMore"
+    assert layout_meta["layout_removed_lines"] == 0
+
+    monkeypatch.setattr(
+        ocr_pipeline,
+        "_classify_layout_entries",
+        lambda *_args, **_kwargs: [{"text": "12", "region": "page-number"}, {"text": "Body", "region": "body"}],
+    )
+    kept_text, layout_meta = ocr_pipeline._maybe_apply_layout_region_detection("12\nBody", {}, options)
+    assert kept_text == "Body"
+    assert layout_meta["layout_removed_lines"] == 1
+
+    core = ocr_pipeline.OCRCoreOptions(llm_post_correction=True, llm_min_low_confidence_ratio=0.1, llm_max_word_delta_ratio=0.2)
+    options = ocr_pipeline.OCRRunOptions(core=core, preprocess_mode="none")
+    deps = ocr_pipeline.OCRDependencies(
+        run_command=ocr_pipeline._run_command,
+        preprocess_image=ocr_pipeline._preprocess_image,
+        paddle_reader_factory=ocr_pipeline._build_paddleocr_reader,
+        which=ocr_pipeline.shutil.which,
+        llm_corrector=None,
+        llm_suspicious_section_analyzer=None,
+    )
+    assert ocr_pipeline._maybe_apply_llm_post_correction("text", {}, options, deps) == (
+        "text",
+        {"llm_post_correction": "unavailable"},
+    )
+
+    deps = ocr_pipeline.OCRDependencies(
+        run_command=ocr_pipeline._run_command,
+        preprocess_image=ocr_pipeline._preprocess_image,
+        paddle_reader_factory=ocr_pipeline._build_paddleocr_reader,
+        which=ocr_pipeline.shutil.which,
+        llm_corrector=lambda text: text,
+        llm_suspicious_section_analyzer=None,
+    )
+    assert ocr_pipeline._maybe_apply_llm_post_correction("text", {"hocr_low_confidence_ratio": 0.01}, options, deps)[1]["llm_post_correction"] == "skipped-low-risk"
+
+    deps = ocr_pipeline.OCRDependencies(
+        run_command=ocr_pipeline._run_command,
+        preprocess_image=ocr_pipeline._preprocess_image,
+        paddle_reader_factory=ocr_pipeline._build_paddleocr_reader,
+        which=ocr_pipeline.shutil.which,
+        llm_corrector=lambda _text: 3,
+        llm_suspicious_section_analyzer=None,
+    )
+    assert ocr_pipeline._maybe_apply_llm_post_correction("text", {"hocr_low_confidence_ratio": 0.5}, options, deps)[1]["llm_post_correction"] == "invalid-output"
+
+    deps = ocr_pipeline.OCRDependencies(
+        run_command=ocr_pipeline._run_command,
+        preprocess_image=ocr_pipeline._preprocess_image,
+        paddle_reader_factory=ocr_pipeline._build_paddleocr_reader,
+        which=ocr_pipeline.shutil.which,
+        llm_corrector=lambda text: f"  {text}  ",
+        llm_suspicious_section_analyzer=None,
+    )
+    assert ocr_pipeline._maybe_apply_llm_post_correction("text", {"hocr_low_confidence_ratio": 0.5}, options, deps)[1]["llm_post_correction"] == "no-change"
+
+    deps = ocr_pipeline.OCRDependencies(
+        run_command=ocr_pipeline._run_command,
+        preprocess_image=ocr_pipeline._preprocess_image,
+        paddle_reader_factory=ocr_pipeline._build_paddleocr_reader,
+        which=ocr_pipeline.shutil.which,
+        llm_corrector=lambda _text: "one two three four five six",
+        llm_suspicious_section_analyzer=None,
+    )
+    assert ocr_pipeline._maybe_apply_llm_post_correction("one two", {"hocr_low_confidence_ratio": 0.5}, options, deps)[1]["llm_post_correction"] == "rejected-word-delta"
+
+    deps = ocr_pipeline.OCRDependencies(
+        run_command=ocr_pipeline._run_command,
+        preprocess_image=ocr_pipeline._preprocess_image,
+        paddle_reader_factory=ocr_pipeline._build_paddleocr_reader,
+        which=ocr_pipeline.shutil.which,
+        llm_corrector=lambda _text: "fixed words",
+        llm_suspicious_section_analyzer=None,
+    )
+    corrected_text, llm_meta = ocr_pipeline._maybe_apply_llm_post_correction(
+        "broken words",
+        {"hocr_low_confidence_ratio": 0.5},
+        options,
+        deps,
+    )
+    assert corrected_text == "fixed words"
+    assert llm_meta["llm_post_correction"] == "applied"
+
+
+@pytest.mark.parametrize(
+    ("core_kwargs", "message"),
+    [
+        ({"tesseract_output_format": "pdf"}, "tesseract_output_format"),
+        ({"cleanup_high_confidence_threshold": 101.0}, "cleanup_high_confidence_threshold"),
+        ({"tiered_ocr_min_score": 0.0}, "tiered_ocr_min_score"),
+        ({"llm_min_low_confidence_ratio": -0.1}, "llm_min_low_confidence_ratio"),
+        ({"llm_suspicious_max_candidates": 0}, "llm_suspicious_max_candidates"),
+        ({"llm_suspicious_max_sections": 0}, "llm_suspicious_max_sections"),
+        ({"inverse_render_top_k": 0}, "inverse_render_top_k"),
+        ({"inverse_render_workers": 0}, "inverse_render_workers"),
+    ],
+)
+def test_validate_common_ocr_options_covers_remaining_guards(core_kwargs, message) -> None:
+    options = ocr_pipeline.OCRRunOptions(
+        core=ocr_pipeline.OCRCoreOptions(**core_kwargs),
+        preprocess_mode="none",
+    )
+
+    with pytest.raises(ValueError, match=message):
+        ocr_pipeline._validate_common_ocr_options(options, lambda _name: "/usr/bin/fake")
+
+
+def test_validate_run_options_and_pdf_page_count_cover_missing_edges(tmp_path, monkeypatch) -> None:
+    options = ocr_pipeline.OCRRunOptions(core=ocr_pipeline.OCRCoreOptions(), preprocess_mode="none")
+    with pytest.raises(FileNotFoundError, match="Input PDF not found"):
+        ocr_pipeline._validate_ocr_run_options(
+            tmp_path / "missing.pdf",
+            options,
+            lambda _name: "/usr/bin/fake",
+        )
+
+    missing_page = tmp_path / "missing.png"
+    with pytest.raises(FileNotFoundError, match="Input page images not found"):
+        ocr_pipeline._validate_page_image_run_options(
+            [missing_page],
+            options,
+            lambda _name: "/usr/bin/fake",
+        )
+
+    monkeypatch.setattr(
+        ocr_pipeline.subprocess,
+        "run",
+        lambda *_args, **_kwargs: types.SimpleNamespace(stdout="Title: demo\n"),
+    )
+    assert ocr_pipeline._pdf_page_count(tmp_path / "demo.pdf") is None
+
+
+def test_rasterize_pdf_to_images_covers_progress_and_empty_output(tmp_path, monkeypatch) -> None:
+    pdf_path = tmp_path / "book.pdf"
+    pdf_path.write_bytes(b"pdf")
+    work_dir = tmp_path / "work"
+    pages_dir = work_dir / "pages"
+    progress_events: list[dict[str, object]] = []
+
+    monkeypatch.setattr(ocr_pipeline, "_pdf_page_count", lambda _pdf_path: 2)
+    monkeypatch.setattr(ocr_pipeline.time, "sleep", lambda _seconds: None)
+
+    class _FakeProcess:
+        def __init__(self) -> None:
+            self.returncode = 0
+            self._poll_count = 0
+
+        def poll(self):  # noqa: ANN202
+            self._poll_count += 1
+            if self._poll_count == 1:
+                (pages_dir / "page-1.png").write_bytes(b"1")
+                return None
+            if self._poll_count == 2:
+                (pages_dir / "page-2.png").write_bytes(b"2")
+                return None
+            return 0
+
+    monkeypatch.setattr(ocr_pipeline.subprocess, "Popen", lambda _command: _FakeProcess())
+    page_images = ocr_pipeline._rasterize_pdf_to_images(
+        pdf_path,
+        work_dir,
+        300,
+        ocr_pipeline._run_command,
+        progress_callback=progress_events.append,
+    )
+    assert [path.name for path in page_images] == ["page-1.png", "page-2.png"]
+    assert progress_events
+
+    empty_work_dir = tmp_path / "empty-work"
+
+    def _no_output(_command: list[str], _capture_output: bool) -> str:
+        return ""
+
+    with pytest.raises(RuntimeError, match="pdftoppm produced no page images"):
+        ocr_pipeline._rasterize_pdf_to_images(pdf_path, empty_work_dir, 300, _no_output)
+
+
+def test_prepared_input_match_and_inverse_render_helpers_cover_remaining_edges(tmp_path, monkeypatch) -> None:
+    first = tmp_path / "first.png"
+    second = tmp_path / "second.png"
+    Image.new("L", (5, 5), color=255).save(first)
+    Image.new("L", (6, 5), color=255).save(second)
+
+    assert ocr_pipeline._prepared_ocr_inputs_match(first, first) is True
+    assert ocr_pipeline._prepared_ocr_inputs_match(first, second) is False
+
+    same_bytes = tmp_path / "same-bytes.bin"
+    other_same_bytes = tmp_path / "other-same-bytes.bin"
+    same_bytes.write_bytes(b"abc")
+    other_same_bytes.write_bytes(b"abc")
+
+    def _raise_open(_path):  # noqa: ANN001, ANN202
+        raise OSError("bad image")
+
+    monkeypatch.setattr(ocr_pipeline.Image, "open", _raise_open)
+    assert ocr_pipeline._prepared_ocr_inputs_match(same_bytes, other_same_bytes) is True
+
+    existing = tmp_path / "font.ttf"
+    existing.write_text("font", encoding="utf-8")
+    missing = tmp_path / "missing.ttf"
+    ocr_pipeline._inverse_render_font_paths.cache_clear()
+    monkeypatch.setattr(
+        ocr_pipeline,
+        "_fontconfig_match",
+        lambda family: {"serif": None, "sans": str(existing), "monospace": str(existing)}.get(family),
+    )
+    monkeypatch.setattr(
+        ocr_pipeline,
+        "_DEFAULT_RENDER_FONT_CANDIDATES",
+        (str(missing), str(existing)),
+    )
+    try:
+        assert ocr_pipeline._inverse_render_font_paths() == (str(existing),)
+    finally:
+        ocr_pipeline._inverse_render_font_paths.cache_clear()
+
+
+def test_inverse_render_small_helpers_cover_remaining_branches(monkeypatch) -> None:
+    rendered = ocr_pipeline._render_inverse_text_image(
+        "top\n\nbottom",
+        (80, 80),
+        (0, 0, 60, 60),
+        font_path=None,
+        font_size=12,
+        offset_x=0,
+        offset_y=0,
+        rotation=1.0,
+    )
+    assert rendered.size == (80, 80)
+    blank = Image.new("L", (2, 2), color=255)
+    assert ocr_pipeline._binary_ink_iou(blank, blank) == 0.0
+
+    request = ocr_pipeline._InverseRenderScoreRequest(observed_binary=blank, bbox=(0, 0, 2, 2), text="")
+    assert ocr_pipeline._score_inverse_render_request(request)[0] == -1.0
+    assert ocr_pipeline._inverse_render_score_many(blank, (0, 0, 2, 2), [], workers=1) == []
+
+    with pytest.raises(ValueError, match="valid bbox"):
+        ocr_pipeline._render_inverse_text_from_metadata(
+            "text",
+            (20, 20),
+            {"inverse_render_bbox": "bad"},
+        )
+    metadata = {
+        "inverse_render_bbox": [0, 0, 10, 10],
+        "inverse_render_font_path": None,
+        "inverse_render_font_size": 12,
+        "inverse_render_offset_x": 0,
+        "inverse_render_offset_y": 0,
+        "inverse_render_rotation": 0.0,
+    }
+    assert ocr_pipeline._render_inverse_text_from_metadata("text", (20, 20), metadata).size == (20, 20)
+    assert ocr_pipeline._bbox_area((5, 5, 4, 4)) == 0
+    assert ocr_pipeline._clip_bbox_to_canvas((10, 10, 5, 5), (20, 20)) is None
+
+    original_image_chops = ocr_pipeline.ImageChops
+    monkeypatch.setattr(ocr_pipeline, "ImageChops", None)
+    with pytest.raises(RuntimeError, match="cleanup span verification"):
+        ocr_pipeline._cleanup_span_diff_bbox(blank, blank)
+    monkeypatch.setattr(ocr_pipeline, "ImageChops", original_image_chops)
+
+    changed = blank.copy()
+    changed.putpixel((1, 1), 0)
+    assert ocr_pipeline._cleanup_span_diff_bbox(blank, changed) is not None
+
+
+def test_cleanup_span_replacement_and_ensemble_helpers_cover_remaining_branches(monkeypatch) -> None:
+    observed = Image.new("L", (20, 20), color=255)
+    monkeypatch.setattr(
+        ocr_pipeline,
+        "_inverse_render_score_many",
+        lambda *_args, **_kwargs: [(0.5, metadata := {"inverse_render_bbox": [0, 0, 20, 20], "inverse_render_font_path": None, "inverse_render_font_size": 12, "inverse_render_offset_x": 0, "inverse_render_offset_y": 0, "inverse_render_rotation": 0.0}), (0.6, metadata)],
+    )
+    monkeypatch.setattr(ocr_pipeline, "_render_inverse_text_from_metadata", lambda *_args, **_kwargs: observed)
+    monkeypatch.setattr(ocr_pipeline, "_cleanup_span_diff_bbox", lambda *_args, **_kwargs: None)
+    accepted, decision = ocr_pipeline._evaluate_cleanup_span_replacement(observed, (0, 0, 20, 20), "raw", "clean")
+    assert accepted is False
+    assert decision["reason"] == "no-local-image-difference"
+
+    monkeypatch.setattr(ocr_pipeline, "_cleanup_span_diff_bbox", lambda *_args, **_kwargs: (0, 0, 20, 20))
+    accepted, decision = ocr_pipeline._evaluate_cleanup_span_replacement(observed, (0, 0, 20, 20), "raw", "clean")
+    assert accepted is False
+    assert decision["reason"] == "diff-region-too-large"
+
+    candidate = ocr_pipeline.OCRCandidate(
+        score=100.0,
+        text="masked",
+        ocr_input_path=Path("page.png"),
+        metadata={"candidate_preprocess_mode": "scan-masked"},
+    )
+    assert (
+        ocr_pipeline._maybe_prefer_unmasked_auto_candidate(
+            candidate,
+            [candidate],
+            ocr_pipeline.OCRRunOptions(core=ocr_pipeline.OCRCoreOptions(), preprocess_mode="auto"),
+        )
+        is None
+    )
+
+    options = ocr_pipeline.OCRRunOptions(
+        core=ocr_pipeline.OCRCoreOptions(cleanup_lexicon_texts=("ref",)),
+        preprocess_mode="none",
+        ocr_engine="ensemble",
+    )
+    dependencies = ocr_pipeline.OCRDependencies(
+        run_command=lambda _cmd, _capture: "",
+        preprocess_image=ocr_pipeline._preprocess_image,
+        paddle_reader_factory=ocr_pipeline._build_paddleocr_reader,
+        which=ocr_pipeline.shutil.which,
+        llm_corrector=None,
+        llm_suspicious_section_analyzer=None,
+    )
+    monkeypatch.setattr(ocr_pipeline, "_run_tesseract", lambda *_args, **_kwargs: ("tesseract text", {"engine": "tesseract"}))
+    monkeypatch.setattr(ocr_pipeline, "_run_paddle_reader", lambda *_args, **_kwargs: "paddle text")
+    monkeypatch.setattr(
+        ocr_pipeline,
+        "_score_ocr_candidate",
+        lambda text, *_args, **_kwargs: (20.0, {}) if "tesseract" in text else (10.0, {}),
+    )
+    text, metadata = ocr_pipeline._run_candidate_ocr(Path("page.png"), options, dependencies, None, "6")
+    assert text == "tesseract text"
+    assert metadata["ensemble_selected_engine"] == "tesseract"
+
+    monkeypatch.setattr(
+        ocr_pipeline,
+        "_score_ocr_candidate",
+        lambda text, *_args, **_kwargs: (5.0, {}) if "tesseract" in text else (15.0, {}),
+    )
+    text, metadata = ocr_pipeline._run_candidate_ocr(Path("page.png"), options, dependencies, None, "6")
+    assert text == "paddle text"
+    assert metadata["ensemble_selected_engine"] == "paddleocr"
+
+
+def test_suspicious_resume_retry_and_mode_archive_helpers_cover_remaining_branches(tmp_path, monkeypatch) -> None:
+    assert ocr_pipeline._parse_suspicious_section_response('{"suspicious": true, "reason": ""}') is None
+
+    options = ocr_pipeline.OCRRunOptions(
+        core=ocr_pipeline.OCRCoreOptions(llm_suspicious_sections=True, llm_suspicious_max_sections=1),
+        preprocess_mode="none",
+    )
+    deps = ocr_pipeline.OCRDependencies(
+        run_command=ocr_pipeline._run_command,
+        preprocess_image=ocr_pipeline._preprocess_image,
+        paddle_reader_factory=ocr_pipeline._build_paddleocr_reader,
+        which=ocr_pipeline.shutil.which,
+        llm_corrector=None,
+        llm_suspicious_section_analyzer=lambda _prompt: '{"suspicious": false, "confidence": "low", "reason": "nope", "focus_spans": []}',
+    )
+    monkeypatch.setattr(
+        ocr_pipeline,
+        "_suspicious_section_candidates",
+        lambda *_args, **_kwargs: [{"page_index": 1, "section_index": 1, "heuristic_score": 1.0, "page_quality_tier": "low", "page_route": "body", "page_text_noise_ratio": 0.1, "hocr_low_confidence_ratio": 0.5, "symbolic_token_count": 1, "digit_alpha_token_count": 0, "excerpt": "excerpt"}],
+    )
+    review = ocr_pipeline._maybe_analyze_suspicious_sections(["text"], [{}], options, deps)
+    assert review["flagged_count"] == 0
+
+    deps = ocr_pipeline.OCRDependencies(
+        run_command=ocr_pipeline._run_command,
+        preprocess_image=ocr_pipeline._preprocess_image,
+        paddle_reader_factory=ocr_pipeline._build_paddleocr_reader,
+        which=ocr_pipeline.shutil.which,
+        llm_corrector=None,
+        llm_suspicious_section_analyzer=lambda _prompt: "not json",
+    )
+    review = ocr_pipeline._maybe_analyze_suspicious_sections(["text"], [{}], options, deps)
+    assert review["invalid_response_count"] == 1
+
+    artifacts_dir = tmp_path / "resume-artifacts"
+    artifacts_dir.mkdir()
+    page_images = [tmp_path / "page-1.png"]
+    page_images[0].write_bytes(b"x")
+    manifest_path = artifacts_dir / "manifest.json"
+    manifest_path.write_text(json.dumps({"pages": {}}), encoding="utf-8")
+    assert ocr_pipeline._load_resumed_page_artifacts(artifacts_dir, page_images) == ([], [])
+
+    manifest_path.write_text(json.dumps({"pages": ["bad"]}), encoding="utf-8")
+    assert ocr_pipeline._load_resumed_page_artifacts(artifacts_dir, page_images) == ([], [])
+
+    text_path = artifacts_dir / "page-0001.txt"
+    manifest_path.write_text(json.dumps({"pages": [{"page_index": 1, "image_path": str(page_images[0]), "text_path": str(text_path)}]}), encoding="utf-8")
+    assert ocr_pipeline._load_resumed_page_artifacts(artifacts_dir, page_images) == ([], [])
+    text_path.write_text("ok", encoding="utf-8")
+    original_read_text = Path.read_text
+    monkeypatch.setattr(
+        Path,
+        "read_text",
+        lambda self, encoding="utf-8": (_ for _ in ()).throw(OSError("bad"))
+        if self == text_path
+        else original_read_text(self, encoding=encoding),
+    )
+    assert ocr_pipeline._load_resumed_page_artifacts(artifacts_dir, page_images) == ([], [])
+
+    assert ocr_pipeline._targeted_page_retry_reason({"page_route": "front-matter"}, options) == "front-matter"
+    assert ocr_pipeline._targeted_page_retry_policy({"page_layout_region_counts": {"toc": 1}}, "front-matter")["name"] == "front-matter-toc"
+    assert ocr_pipeline._targeted_page_retry_policy({}, "front-matter")["name"] == "front-matter-sparse"
+    assert ocr_pipeline._targeted_page_retry_policy({}, "back-matter")["name"] == "back-matter"
+    assert ocr_pipeline._quality_tier_rank("high") == 2
+
+    original_image = ocr_pipeline.Image
+    monkeypatch.setattr(ocr_pipeline, "Image", None)
+    assert ocr_pipeline._adaptive_raster_retry_image(Path("page.png"), Path("prep"), "front-matter") is None
+    monkeypatch.setattr(ocr_pipeline, "Image", original_image)
+    assert ocr_pipeline._adaptive_raster_retry_image(Path("page.png"), Path("prep"), "unknown") is None
+
+    tiny = tmp_path / "tiny.png"
+    Image.new("L", (8, 8), color=255).save(tiny)
+    assert ocr_pipeline._adaptive_raster_retry_image(tiny, tmp_path, "front-matter") is None
+
+    assert ocr_pipeline._should_keep_targeted_retry(
+        {"selection_score": 10.0, "page_quality_tier": "low"},
+        {"selection_score": 9.0, "page_quality_tier": "medium"},
+    ) is True
+    assert ocr_pipeline._should_keep_targeted_retry(
+        {"selection_score": 10.0, "page_quality_tier": "low", "page_single_char_fragment_ratio": "bad"},
+        {"selection_score": 9.0, "page_quality_tier": "low", "page_single_char_fragment_ratio": 0.1, "page_apostrophe_fragment_ratio": 0.1},
+    ) is False
+
+    assert ocr_pipeline._parse_mode_eval_options({"reference_text_path": str(tmp_path / "ref.txt")}).reference_text_path == tmp_path / "ref.txt"
+    assert ocr_pipeline._rank_modes({"modes": []}) == []
+    assert ocr_pipeline._rank_modes({"modes": {"scan": []}}) == []
+    assert ocr_pipeline._rank_modes({"modes": {"scan": {"accuracy": []}}}) == []
+    assert ocr_pipeline._load_reference_text(
+        ocr_pipeline.ModeEvalOptions(core=ocr_pipeline.OCRCoreOptions(), ocr_engine="tesseract", reference_text_path=None, modes=("none",))
+    ) is None
+
+    report = {"modes": {}}
+    ocr_pipeline._store_mode_payload(report, "scan", {"ok": True})
+    assert report["modes"]["scan"] == {"ok": True}
+    ocr_pipeline._attach_mode_ranking(report)
+    assert report["best_mode"] == "scan"
+    empty_report = {"modes": {}}
+    ocr_pipeline._attach_mode_ranking(empty_report)
+    assert "best_mode" not in empty_report
+
+    with pytest.raises(ValueError, match="archive_source_mode must be one of"):
+        ocr_pipeline._archive_reference_pairs("demo", "bad")
+    monkeypatch.setattr("full_auto_de_pdf.benchmark.fetch_archive_ocr_text", lambda _identifier: "djvu")
+    monkeypatch.setattr("full_auto_de_pdf.benchmark.fetch_archive_abbyy_text", lambda _identifier: None)
+    with pytest.raises(ValueError, match="no ABBYY OCR is available"):
+        ocr_pipeline._archive_reference_pairs("demo", "abbyy")
+    assert ocr_pipeline._archive_reference_pairs("demo", "djvu") == [("djvu", "djvu")]
+    assert ocr_pipeline._best_scores({"mode_ranking": []}) == (1.0, 1.0)
+
+
+def test_projection_baseline_and_tiled_binarize_cover_remaining_helper_branches(monkeypatch) -> None:
+    assert ocr_pipeline._projection_variance(Image.new("L", (1, 0), color=255)) == 0.0
+    slope, intercept = ocr_pipeline._linear_center_baseline([1.0, 2.0, 3.0])
+    assert slope == pytest.approx(1.0)
+    assert intercept == pytest.approx(1.0)
+
+    candidate = Image.new("L", (20, 20), color=200)
+    monkeypatch.setattr(ocr_pipeline, "_should_use_tiled_threshold", lambda _image: True)
+    monkeypatch.setattr(ocr_pipeline, "_threshold_image_in_overlapping_tiles", lambda image, **_kwargs: image)
+    monkeypatch.setattr(ocr_pipeline, "_normalize_scan_background", lambda image, **_kwargs: image)
+    assert (
+        ocr_pipeline._binarize_preprocessed_candidate(candidate, "scan-background-normalized", 128)
+        is candidate
+    )
+    assert ocr_pipeline._binarize_preprocessed_candidate(candidate, "scan-sauvola", 128) is candidate
+
+
+def test_mask_sparse_outer_text_bands_covers_top_and_bottom_control_flow(monkeypatch) -> None:
+    image = Image.new("L", (100, 100), color=0)
+    bands = [
+        {"top": 0, "bottom": 4, "height": 5, "ink_width": 5, "peak_row_ink": 1},
+        {"top": 5, "bottom": 9, "height": 5, "ink_width": 1, "peak_row_ink": 1},
+        {"top": 10, "bottom": 28, "height": 19, "ink_width": 1, "peak_row_ink": 1},
+        {"top": 29, "bottom": 59, "height": 31, "ink_width": 60, "peak_row_ink": 20},
+        {"top": 60, "bottom": 78, "height": 19, "ink_width": 1, "peak_row_ink": 1},
+        {"top": 79, "bottom": 83, "height": 5, "ink_width": 1, "peak_row_ink": 1},
+        {"top": 84, "bottom": 88, "height": 5, "ink_width": 5, "peak_row_ink": 1},
+    ]
+    monkeypatch.setattr(ocr_pipeline, "_collect_ink_bands", lambda _image: bands)
+    monkeypatch.setattr(ocr_pipeline, "_is_significant_ink_band", lambda band, _width: band["ink_width"] >= 60)
+    monkeypatch.setattr(ocr_pipeline, "_should_mask_outer_band", lambda band, *_args: band["ink_width"] == 1)
+    masked = ocr_pipeline._mask_sparse_outer_text_bands(image)
+    assert masked.getpixel((0, 6)) == 255
+    assert masked.getpixel((0, 12)) == 0
+    assert masked.getpixel((0, 80)) == 255
+    assert masked.getpixel((0, 80)) == 255
+
+
+def test_normalize_background_page_summary_and_excerpt_helpers_cover_remaining_edges() -> None:
+    normalized = ocr_pipeline._normalize_scan_background(
+        Image.new("L", (12, 12), color=200),
+        blur_radius=1.0,
+        contrast_scale=1.2,
+        closing_size=3,
+    )
+    assert normalized.size == (12, 12)
+
+    with pytest.raises(RuntimeError, match="PaddleOCR reader was not initialized"):
+        ocr_pipeline._run_paddle_reader(None, Path("page.png"))
+
+    summary = ocr_pipeline._page_analysis_summary(
+        [
+            {"page_index": "bad"},
+            {"page_index": 2, "page_type": "front-matter", "page_quality_tier": "low", "page_route": "body"},
+        ]
+    )
+    assert summary["front_matter_page_indices"] == [2]
+    assert summary["low_quality_page_indices"] == [2]
+    assert ocr_pipeline._extract_hocr_word_confidence("no confidence here") is None
+    assert ocr_pipeline._edge_page_window(0, 10) == 0
+
+    assert ocr_pipeline._suspicious_section_candidates(["text", "more text"], [{}], max_candidates=5) == []
+
+
+def test_rasterize_pdf_to_images_covers_failure_and_non_progress_paths(tmp_path, monkeypatch) -> None:
+    pdf_path = tmp_path / "book.pdf"
+    pdf_path.write_bytes(b"pdf")
+    work_dir = tmp_path / "work"
+    pages_dir = work_dir / "pages"
+
+    monkeypatch.setattr(ocr_pipeline, "_pdf_page_count", lambda _pdf_path: 1)
+    monkeypatch.setattr(ocr_pipeline.time, "sleep", lambda _seconds: None)
+
+    class _FailingProcess:
+        def __init__(self) -> None:
+            self.returncode = 1
+
+        def poll(self):  # noqa: ANN202
+            return 1
+
+    monkeypatch.setattr(ocr_pipeline.subprocess, "Popen", lambda _command: _FailingProcess())
+    with pytest.raises(ocr_pipeline.subprocess.CalledProcessError):
+        ocr_pipeline._rasterize_pdf_to_images(
+            pdf_path,
+            work_dir,
+            300,
+            ocr_pipeline._run_command,
+            progress_callback=lambda _payload: None,
+        )
+
+    invoked: list[list[str]] = []
+
+    def _run_command(command: list[str], _capture_output: bool) -> str:
+        invoked.append(command)
+        pages_dir.mkdir(parents=True, exist_ok=True)
+        (pages_dir / "page-1.png").write_bytes(b"1")
+        return ""
+
+    page_images = ocr_pipeline._rasterize_pdf_to_images(pdf_path, work_dir, 300, _run_command)
+    assert invoked
+    assert [path.name for path in page_images] == ["page-1.png"]
+
+    unknown_work_dir = tmp_path / "unknown-work"
+    pages_dir = unknown_work_dir / "pages"
+    monkeypatch.setattr(
+        ocr_pipeline.subprocess,
+        "run",
+        lambda command, check, text, capture_output: (
+            pages_dir.mkdir(parents=True, exist_ok=True),
+            (pages_dir / "page-1.png").write_bytes(b"1"),
+            types.SimpleNamespace(stdout=""),
+        )[-1],
+    )
+    monkeypatch.setattr(ocr_pipeline, "_pdf_page_count", lambda _pdf_path: None)
+    page_images = ocr_pipeline._rasterize_pdf_to_images(
+        pdf_path,
+        unknown_work_dir,
+        300,
+        ocr_pipeline._run_command,
+        progress_callback=lambda _payload: None,
+    )
+    assert [path.name for path in page_images] == ["page-1.png"]
+
+
+def test_binary_iou_fallback_and_cleanup_verifier_no_change_branch(monkeypatch) -> None:
+    original_image_chops = ocr_pipeline.ImageChops
+    monkeypatch.setattr(ocr_pipeline, "ImageChops", None)
+    observed = Image.new("L", (2, 1), color=255)
+    rendered = Image.new("L", (2, 1), color=255)
+    observed.putpixel((0, 0), 0)
+    rendered.putpixel((0, 0), 0)
+    rendered.putpixel((1, 0), 0)
+    assert ocr_pipeline._binary_ink_iou(observed, rendered) == pytest.approx(0.5)
+    monkeypatch.setattr(ocr_pipeline, "ImageChops", original_image_chops)
+
+    monkeypatch.setattr(ocr_pipeline, "cleanup_ocr_text", lambda *_args, **_kwargs: "changed text")
+    monkeypatch.setattr(ocr_pipeline, "_cleanup_span_changes", lambda *_args, **_kwargs: [])
+    cleaned, metadata = ocr_pipeline._maybe_verify_cleanup_spans(
+        Path("page.png"),
+        "raw text",
+        ocr_pipeline.OCRRunOptions(
+            core=ocr_pipeline.OCRCoreOptions(apply_cleanup=True, verify_cleanup_spans=True),
+            preprocess_mode="none",
+        ),
+        {},
+    )
+    assert cleaned == "changed text"
+    assert metadata["cleanup_span_verifier"]["changes_considered"] == 0
+
+
+def test_hocr_bbox_rerank_and_candidate_selection_cover_remaining_edges(monkeypatch) -> None:
+    change = ocr_pipeline._CleanupSpanChange(
+        raw_start=0,
+        raw_end=1,
+        cleaned_start=0,
+        cleaned_end=1,
+        raw_text="raw",
+        cleaned_text="clean",
+        raw_token_count=1,
+        cleaned_token_count=1,
+        raw_token_start_index=1,
+        raw_token_end_index=1,
+    )
+    assert ocr_pipeline._hocr_bbox_hint_for_change(change, {"hocr_word_boxes_runtime": [(0, 0, 1, 1)]}) is None
+    change = ocr_pipeline._CleanupSpanChange(
+        raw_start=0,
+        raw_end=1,
+        cleaned_start=0,
+        cleaned_end=1,
+        raw_text="raw",
+        cleaned_text="clean",
+        raw_token_count=1,
+        cleaned_token_count=1,
+        raw_token_start_index=1,
+        raw_token_end_index=3,
+    )
+    assert ocr_pipeline._hocr_bbox_hint_for_change(change, {"hocr_word_boxes_runtime": [(0, 0, 1, 1)]}) is None
+    change = ocr_pipeline._CleanupSpanChange(
+        raw_start=0,
+        raw_end=1,
+        cleaned_start=0,
+        cleaned_end=1,
+        raw_text="raw",
+        cleaned_text="clean",
+        raw_token_count=1,
+        cleaned_token_count=1,
+        raw_token_start_index=0,
+        raw_token_end_index=1,
+    )
+    assert ocr_pipeline._hocr_bbox_hint_for_change(change, {"hocr_word_boxes_runtime": [("bad",)]}) is None
+
+    selected = ocr_pipeline.OCRCandidate(
+        score=100.0,
+        ocr_input_path=Path("page.png"),
+        text="masked",
+        metadata={"candidate_preprocess_mode": "scan-masked"},
+    )
+    assert (
+        ocr_pipeline._maybe_prefer_unmasked_auto_candidate(
+            selected,
+            [
+                selected,
+                ocr_pipeline.OCRCandidate(
+                    score=90.0,
+                    ocr_input_path=Path("other.png"),
+                    text="other",
+                    metadata={"candidate_preprocess_mode": "deskew"},
+                ),
+            ],
+            ocr_pipeline.OCRRunOptions(core=ocr_pipeline.OCRCoreOptions(), preprocess_mode="auto"),
+        )
+        is None
+    )
+
+    original_zip = zip
+
+    def _patched_zip(*args, **kwargs):  # noqa: ANN202, ANN003
+        if args and isinstance(args[0], list) and args[0] and isinstance(args[0][0], tuple) and len(args[0][0]) == 4:
+            return iter(())
+        return original_zip(*args, **kwargs)
+
+    monkeypatch.setattr("builtins.zip", _patched_zip)
+    monkeypatch.setattr(
+        ocr_pipeline,
+        "_normalize_scan_for_inverse_render",
+        lambda _image_path: (Image.new("L", (2, 2), color=255), (0, 0, 2, 2)),
+    )
+    monkeypatch.setattr(ocr_pipeline, "_inverse_render_score_many", lambda *_args, **_kwargs: [(0.2, {}), (0.1, {})])
+    candidates = [
+        ocr_pipeline.OCRCandidate(10.0, Path("a.png"), "first", {}),
+        ocr_pipeline.OCRCandidate(9.0, Path("b.png"), "second", {}),
+    ]
+    reranked = ocr_pipeline._maybe_inverse_render_rerank(
+        Path("page.png"),
+        candidates,
+        ocr_pipeline.OCRRunOptions(
+            core=ocr_pipeline.OCRCoreOptions(inverse_render_rerank=True),
+            preprocess_mode="none",
+        ),
+    )
+    assert reranked is None
+
+
+def test_run_ocr_on_page_tiered_and_orientation_fallback_cover_remaining_negative_paths(
+    tmp_path, monkeypatch
+) -> None:
+    dependencies = ocr_pipeline.OCRDependencies(
+        run_command=lambda _cmd, _capture: "",
+        preprocess_image=ocr_pipeline._preprocess_image,
+        paddle_reader_factory=ocr_pipeline._build_paddleocr_reader,
+        which=ocr_pipeline.shutil.which,
+        llm_corrector=None,
+        llm_suspicious_section_analyzer=None,
+    )
+    options = ocr_pipeline.OCRRunOptions(core=ocr_pipeline.OCRCoreOptions(), preprocess_mode="none")
+    monkeypatch.setattr(ocr_pipeline, "_candidate_preprocess_modes_for_options", lambda _options: ())
+    monkeypatch.setattr(ocr_pipeline, "_candidate_tesseract_psms", lambda _options: ("6",))
+    with pytest.raises(RuntimeError, match="OCR produced no candidates"):
+        ocr_pipeline._run_ocr_on_page(tmp_path / "page.png", options, dependencies, tmp_path, None)
+
+    image_path = tmp_path / "page.png"
+    Image.new("L", (20, 100), color=255).save(image_path)
+    candidate = ocr_pipeline.OCRCandidate(10.0, image_path, "text", {"tesseract_psm": "6"})
+    options = ocr_pipeline.OCRRunOptions(
+        core=ocr_pipeline.OCRCoreOptions(tiered_ocr_fallback=True, orientation_fallback=True),
+        preprocess_mode="none",
+    )
+    assert ocr_pipeline._maybe_tiered_fallback_candidate(candidate, options, dependencies, None, tmp_path) is None
+    assert ocr_pipeline._maybe_orientation_fallback_candidate(candidate, options, dependencies, None, tmp_path) is None
+
+    candidate = ocr_pipeline.OCRCandidate(10.0, image_path, "text", {"tesseract_psm": 6})
+    assert ocr_pipeline._maybe_tiered_fallback_candidate(candidate, options, dependencies, None, tmp_path) is None
+
+    tall_image = tmp_path / "tall.png"
+    Image.new("L", (20, 900), color=255).save(tall_image)
+    candidate = ocr_pipeline.OCRCandidate(10.0, tall_image, "text", {"tesseract_psm": 6})
+    monkeypatch.setattr(ocr_pipeline, "_run_candidate_ocr", lambda *_args, **_kwargs: ("   ", {}))
+    assert ocr_pipeline._maybe_tiered_fallback_candidate(candidate, options, dependencies, None, tmp_path) is None
+
+    monkeypatch.setattr(ocr_pipeline, "_run_candidate_ocr", lambda *_args, **_kwargs: ("better", {}))
+    monkeypatch.setattr(ocr_pipeline, "_score_ocr_text", lambda *_args, **_kwargs: 9.0)
+    assert ocr_pipeline._maybe_tiered_fallback_candidate(candidate, options, dependencies, None, tmp_path) is None
+
+    monkeypatch.setattr(ocr_pipeline, "_score_ocr_candidate", lambda *_args, **_kwargs: (9.0, {}))
+    assert ocr_pipeline._maybe_orientation_fallback_candidate(candidate, options, dependencies, None, tmp_path) is None
+
+
+def test_remaining_suspicious_progress_quality_and_postprocess_branches(tmp_path, monkeypatch) -> None:
+    options = ocr_pipeline.OCRRunOptions(
+        core=ocr_pipeline.OCRCoreOptions(llm_suspicious_sections=True, llm_suspicious_max_sections=1),
+        preprocess_mode="none",
+        ocr_engine="ensemble",
+    )
+    deps = ocr_pipeline.OCRDependencies(
+        run_command=ocr_pipeline._run_command,
+        preprocess_image=ocr_pipeline._preprocess_image,
+        paddle_reader_factory=ocr_pipeline._build_paddleocr_reader,
+        which=ocr_pipeline.shutil.which,
+        llm_corrector=lambda text: text,
+        llm_suspicious_section_analyzer=lambda _prompt: '{"suspicious": true, "confidence": "high", "reason": "bad", "focus_spans": []}',
+    )
+    monkeypatch.setattr(
+        ocr_pipeline,
+        "_suspicious_section_candidates",
+        lambda *_args, **_kwargs: [
+            {
+                "page_index": 1,
+                "section_index": 1,
+                "heuristic_score": 1.0,
+                "page_quality_tier": "low",
+                "page_route": "body",
+                "page_text_noise_ratio": 0.1,
+                "hocr_low_confidence_ratio": 0.4,
+                "symbolic_token_count": 1,
+                "digit_alpha_token_count": 0,
+                "excerpt": "one",
+            },
+            {
+                "page_index": 1,
+                "section_index": 2,
+                "heuristic_score": 1.1,
+                "page_quality_tier": "low",
+                "page_route": "body",
+                "page_text_noise_ratio": 0.1,
+                "hocr_low_confidence_ratio": 0.4,
+                "symbolic_token_count": 1,
+                "digit_alpha_token_count": 0,
+                "excerpt": "two",
+            },
+        ],
+    )
+    review = ocr_pipeline._maybe_analyze_suspicious_sections(["text"], [{}], options, deps)
+    assert review["reviewed_count"] == 1
+    assert review["flagged_count"] == 1
+
+    payload = ocr_pipeline._ocr_candidate_progress_payload(
+        total_pages=5,
+        completed_pages=1,
+        current_page_index=2,
+        candidate_index=1,
+        candidate_total=3,
+        preprocess_mode="none",
+        tesseract_psm="6",
+        started_at=0.0,
+        retry_reason="body-review",
+    )
+    assert payload["retry_reason"] == "body-review"
+    assert ocr_pipeline._classify_page_quality_tier(
+        page_type="body",
+        word_count=100,
+        dense_body_line_count=5,
+        selection_score=700.0,
+        noise_ratio=0.0,
+        hocr_confidence_mean=95.0,
+        hocr_low_confidence_ratio=0.0,
+        single_char_fragment_ratio=0.0,
+        apostrophe_fragment_ratio=0.0,
+        candidate_near_best_family_count=2,
+        candidate_best_alt_score_gap=100.0,
+        candidate_best_alt_text_similarity=0.93,
+    ) == "high"
+
+    monkeypatch.setattr(ocr_pipeline, "_maybe_verify_cleanup_spans", lambda *_args, **_kwargs: ("text", {}))
+    monkeypatch.setattr(ocr_pipeline, "_maybe_apply_layout_region_detection", lambda text, *_args, **_kwargs: (text, {"layout": "applied"}))
+    monkeypatch.setattr(ocr_pipeline, "_maybe_apply_llm_post_correction", lambda text, *_args, **_kwargs: (text, {"llm": "applied"}))
+    monkeypatch.setattr(ocr_pipeline, "_page_analysis_metadata", lambda *_args, **_kwargs: {"analysis": "ok"})
+    text, metadata = ocr_pipeline._postprocess_page_text(
+        tmp_path / "page.png",
+        "text",
+        {},
+        page_index=1,
+        total_pages=1,
+        options=options,
+        dependencies=deps,
+    )
+    assert text == "text"
+    assert metadata["layout"] == "applied"
+    assert metadata["llm"] == "applied"
+
+    assert ocr_pipeline._targeted_page_retry_reason({"page_route": "back-matter"}, options) == "back-matter"
+    assert ocr_pipeline._targeted_page_retry_reason({"page_route": "body-review"}, options) == "body-review"
+
+
+def test_adaptive_raster_retry_image_covers_small_crop_guard(tmp_path) -> None:
+    image_path = tmp_path / "narrow.png"
+    Image.new("L", (7, 20), color=255).save(image_path)
+    assert ocr_pipeline._adaptive_raster_retry_image(image_path, tmp_path, "front-matter") is None
+
+
+def test_cleanup_verifier_accept_path_and_window_skip_branch(monkeypatch) -> None:
+    observed = Image.new("L", (20, 20), color=255)
+    metadata = {
+        "inverse_render_bbox": [0, 0, 20, 20],
+        "inverse_render_font_path": None,
+        "inverse_render_font_size": 12,
+        "inverse_render_offset_x": 0,
+        "inverse_render_offset_y": 0,
+        "inverse_render_rotation": 0.0,
+    }
+    monkeypatch.setattr(ocr_pipeline, "_inverse_render_score_many", lambda *_args, **_kwargs: [(0.2, metadata), (0.3, metadata)])
+    monkeypatch.setattr(ocr_pipeline, "_expand_bbox", lambda bbox, _size, _padding: bbox)
+    monkeypatch.setattr(ocr_pipeline, "_clip_bbox_to_canvas", lambda bbox, _size: bbox)
+    raw_render = Image.new("L", (20, 20), color=255)
+    cleaned_render = Image.new("L", (20, 20), color=255)
+    monkeypatch.setattr(
+        ocr_pipeline,
+        "_render_inverse_text_from_metadata",
+        lambda text, *_args, **_kwargs: raw_render if text == "raw" else cleaned_render,
+    )
+    local_scores = iter([0.1, 0.2])
+    monkeypatch.setattr(ocr_pipeline, "_binary_ink_iou", lambda *_args, **_kwargs: next(local_scores))
+    accepted, decision = ocr_pipeline._evaluate_cleanup_span_replacement(
+        observed,
+        (0, 0, 20, 20),
+        "raw",
+        "clean",
+        hint_bbox=(0, 0, 2, 2),
+    )
+    assert accepted is True
+    assert decision["reason"] == "accepted"
+
+    original_min_words = ocr_pipeline._SUSPICIOUS_SECTION_MIN_WORDS
+    monkeypatch.setattr(ocr_pipeline, "_SUSPICIOUS_SECTION_MIN_WORDS", 60)
+    try:
+        text = " ".join(f"word{i}" for i in range(210))
+        windows = ocr_pipeline._windowed_section_excerpts(text)
+        assert len(windows) == 2
+    finally:
+        monkeypatch.setattr(ocr_pipeline, "_SUSPICIOUS_SECTION_MIN_WORDS", original_min_words)

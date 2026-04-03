@@ -3795,6 +3795,14 @@ def _maybe_apply_llm_post_correction(
     }
 
 
+def _update_metadata_if_present(
+    target_metadata: dict[str, object],
+    additional_metadata: dict[str, object],
+) -> None:
+    if additional_metadata:
+        target_metadata.update(additional_metadata)
+
+
 def _postprocess_page_text(
     image_path: Path,
     text: str,
@@ -3812,19 +3820,16 @@ def _postprocess_page_text(
         options,
         processed_metadata,
     )
-    if cleanup_metadata:
-        processed_metadata.update(cleanup_metadata)
+    _update_metadata_if_present(processed_metadata, cleanup_metadata)
     text, layout_metadata = _maybe_apply_layout_region_detection(text, processed_metadata, options)
-    if layout_metadata:
-        processed_metadata.update(layout_metadata)
+    _update_metadata_if_present(processed_metadata, layout_metadata)
     text, llm_metadata = _maybe_apply_llm_post_correction(
         text,
         processed_metadata,
         options,
         dependencies,
     )
-    if llm_metadata:
-        processed_metadata.update(llm_metadata)
+    _update_metadata_if_present(processed_metadata, llm_metadata)
     processed_metadata.update(
         _page_analysis_metadata(
             text,
