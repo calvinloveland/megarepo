@@ -18,7 +18,7 @@ import re
 import shutil
 import subprocess
 import time
-from typing import Any, Callable
+from typing import Any, Callable, Sequence
 
 from . import benchmark as benchmark_module
 from .image_validation import validate_raster_image
