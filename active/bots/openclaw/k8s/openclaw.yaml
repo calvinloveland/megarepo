@@ -215,8 +215,23 @@ spec:
                openclaw models set openrouter/free
                openclaw models fallbacks clear
                openclaw models fallbacks add github-copilot/gpt-4.1
+               node <<'NODE'
+               const fs = require("fs");
+               const path = `${process.env.OPENCLAW_STATE_DIR}/openclaw.json`;
+               const config = JSON.parse(fs.readFileSync(path, "utf8"));
+               if (config.plugins?.entries?.searxng) {
+                 delete config.plugins.entries.searxng;
+                 if (Object.keys(config.plugins.entries).length === 0) {
+                   delete config.plugins.entries;
+                 }
+                 if (config.plugins && Object.keys(config.plugins).length === 0) {
+                   delete config.plugins;
+                 }
+                 fs.writeFileSync(path, `${JSON.stringify(config, null, 2)}\n`);
+               }
+               NODE
 
-              exec openclaw gateway --allow-unconfigured --auth token --bind lan --port 18789 --token "$OPENCLAW_GATEWAY_TOKEN"
+               exec openclaw gateway --allow-unconfigured --auth token --bind lan --port 18789 --token "$OPENCLAW_GATEWAY_TOKEN"
           env:
             - name: OPENROUTER_API_KEY
               valueFrom:
