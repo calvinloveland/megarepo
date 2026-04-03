@@ -743,6 +743,36 @@ def _mask_sparse_outer_text_bands(binary_image: Any) -> Any:
     trim_limit = max(1, int(height * _PRE_OCR_MASK_MAX_TRIM_RATIO))
     masked = binary_image.copy()
     draw = ImageDraw.Draw(masked)
+    _trim_top_bands(
+        bands,
+        significant_indices,
+        draw,
+        width,
+        first_significant,
+        height,
+        trim_limit,
+    )
+    _trim_bottom_bands(
+        bands,
+        significant_indices,
+        draw,
+        width,
+        last_significant,
+        height,
+        trim_limit,
+    )
+    return masked
+
+
+def _trim_top_bands(
+    bands: list[dict[str, int]],
+    significant_indices: list[int],
+    draw: Any,
+    width: int,
+    first_significant: dict[str, int],
+    height: int,
+    trim_limit: int,
+) -> int:
     trimmed_top = 0
     for band in bands[: significant_indices[0]]:
         band_height = band["height"]
@@ -752,6 +782,18 @@ def _mask_sparse_outer_text_bands(binary_image: Any) -> Any:
             continue
         draw.rectangle((0, band["top"], width, band["bottom"]), fill=255)
         trimmed_top += band_height
+    return trimmed_top
+
+
+def _trim_bottom_bands(
+    bands: list[dict[str, int]],
+    significant_indices: list[int],
+    draw: Any,
+    width: int,
+    last_significant: dict[str, int],
+    height: int,
+    trim_limit: int,
+) -> int:
     trimmed_bottom = 0
     for band in reversed(bands[significant_indices[-1] + 1 :]):
         band_height = band["height"]
@@ -761,7 +803,43 @@ def _mask_sparse_outer_text_bands(binary_image: Any) -> Any:
             continue
         draw.rectangle((0, band["top"], width, band["bottom"]), fill=255)
         trimmed_bottom += band_height
-    return masked
+    return trimmed_bottom
+
+
+def _apply_threshold_tiled_or_direct(
+    image: Any,
+    threshold_fn: Callable[[Any], Any],
+) -> Any:
+    if _should_use_tiled_threshold(image):
+        return _threshold_image_in_overlapping_tiles(
+            image,
+            tile_size=_TILED_THRESHOLD_TILE_SIZE,
+            overlap=_TILED_THRESHOLD_OVERLAP,
+            threshold_fn=threshold_fn,
+        )
+    return threshold_fn(image)
+
+
+def _apply_gaussian_threshold_tiled_or_direct(image: Any) -> Any:
+    return _apply_threshold_tiled_or_direct(
+        image,
+        lambda tile: _adaptive_gaussian_threshold(
+            tile,
+            block_size=51,
+            subtract_constant=15,
+        ),
+    )
+
+
+def _apply_sauvola_threshold_tiled_or_direct(image: Any) -> Any:
+    return _apply_threshold_tiled_or_direct(
+        image,
+        lambda tile: _sauvola_threshold(
+            tile,
+            block_size=41,
+            k=0.25,
+        ),
+    )
 
 
 def _binarize_preprocessed_candidate(
@@ -773,18 +851,7 @@ def _binarize_preprocessed_candidate(
         effective_threshold = _otsu_threshold(candidate)
         return candidate.point(lambda value: 255 if value >= effective_threshold else 0)
     if preprocess_mode == "scan-local-threshold":
-        if _should_use_tiled_threshold(candidate):
-            return _threshold_image_in_overlapping_tiles(
-                candidate,
-                tile_size=_TILED_THRESHOLD_TILE_SIZE,
-                overlap=_TILED_THRESHOLD_OVERLAP,
-                threshold_fn=lambda tile: _adaptive_gaussian_threshold(
-                    tile,
-                    block_size=51,
-                    subtract_constant=15,
-                ),
-            )
-        return _adaptive_gaussian_threshold(candidate, block_size=51, subtract_constant=15)
+        return _apply_gaussian_threshold_tiled_or_direct(candidate)
     if preprocess_mode == "scan-background-normalized":
         normalized = _normalize_scan_background(
             candidate,
@@ -792,31 +859,9 @@ def _binarize_preprocessed_candidate(
             contrast_scale=_SCAN_BACKGROUND_NORMALIZATION_CONTRAST_SCALE,
             closing_size=_SCAN_BACKGROUND_NORMALIZATION_CLOSING_SIZE,
         )
-        if _should_use_tiled_threshold(normalized):
-            return _threshold_image_in_overlapping_tiles(
-                normalized,
-                tile_size=_TILED_THRESHOLD_TILE_SIZE,
-                overlap=_TILED_THRESHOLD_OVERLAP,
-                threshold_fn=lambda tile: _sauvola_threshold(
-                    tile,
-                    block_size=41,
-                    k=0.25,
-                ),
-            )
-        return _sauvola_threshold(normalized, block_size=41, k=0.25)
+        return _apply_sauvola_threshold_tiled_or_direct(normalized)
     if preprocess_mode == "scan-sauvola":
-        if _should_use_tiled_threshold(candidate):
-            return _threshold_image_in_overlapping_tiles(
-                candidate,
-                tile_size=_TILED_THRESHOLD_TILE_SIZE,
-                overlap=_TILED_THRESHOLD_OVERLAP,
-                threshold_fn=lambda tile: _sauvola_threshold(
-                    tile,
-                    block_size=41,
-                    k=0.25,
-                ),
-            )
-        return _sauvola_threshold(candidate, block_size=41, k=0.25)
+        return _apply_sauvola_threshold_tiled_or_direct(candidate)
     if preprocess_mode == "scan-morphology":
         effective_threshold = _otsu_threshold(candidate)
         binary = candidate.point(lambda value: 255 if value >= effective_threshold else 0)
@@ -953,13 +998,39 @@ def _threshold_image_in_overlapping_tiles(
             y_end = min(image.height, y_start + tile_size)
             tile = image.crop((x_start, y_start, x_end, y_end))
             thresholded_tile = threshold_fn(tile).convert("L")
-            left_crop = 0 if x_start == 0 else overlap_crop
-            top_crop = 0 if y_start == 0 else overlap_crop
-            right_crop = thresholded_tile.width if x_end == image.width else thresholded_tile.width - overlap_crop
-            bottom_crop = thresholded_tile.height if y_end == image.height else thresholded_tile.height - overlap_crop
+            left_crop, top_crop, right_crop, bottom_crop = _threshold_tile_crop_bounds(
+                x_start,
+                y_start,
+                x_end,
+                y_end,
+                thresholded_tile.width,
+                thresholded_tile.height,
+                image.width,
+                image.height,
+                overlap_crop,
+            )
             cropped_tile = thresholded_tile.crop((left_crop, top_crop, right_crop, bottom_crop))
             stitched.paste(cropped_tile, (x_start + left_crop, y_start + top_crop))
     return stitched
+
+
+def _threshold_tile_crop_bounds(
+    x_start: int,
+    y_start: int,
+    x_end: int,
+    y_end: int,
+    tile_width: int,
+    tile_height: int,
+    image_width: int,
+    image_height: int,
+    overlap_crop: int,
+) -> tuple[int, int, int, int]:
+    return (
+        0 if x_start == 0 else overlap_crop,
+        0 if y_start == 0 else overlap_crop,
+        tile_width if x_end == image_width else tile_width - overlap_crop,
+        tile_height if y_end == image_height else tile_height - overlap_crop,
+    )
 
 
 def _sauvola_threshold(
@@ -1018,32 +1089,44 @@ def _remove_small_black_components(image: Any, *, min_component_pixels: int) -> 
     width, height = cleaned.size
     visited = bytearray(width * height)
 
-    def _index(x: int, y: int) -> int:
-        return (y * width) + x
-
     for y in range(height):
         for x in range(width):
-            idx = _index(x, y)
-            if visited[idx] or int(pixels[x, y]) >= 128:
-                continue
-            stack = [(x, y)]
-            component: list[tuple[int, int]] = []
-            visited[idx] = 1
-            while stack:
-                cx, cy = stack.pop()
-                component.append((cx, cy))
-                for ny in range(max(0, cy - 1), min(height - 1, cy + 1) + 1):
-                    for nx in range(max(0, cx - 1), min(width - 1, cx + 1) + 1):
-                        neighbor_idx = _index(nx, ny)
-                        if visited[neighbor_idx] or int(pixels[nx, ny]) >= 128:
-                            continue
-                        visited[neighbor_idx] = 1
-                        stack.append((nx, ny))
-            if len(component) >= min_component_pixels:
+            component = _flood_fill_component(pixels, width, height, x, y, visited)
+            if len(component) >= min_component_pixels or not component:
                 continue
             for cx, cy in component:
                 pixels[cx, cy] = 255
     return cleaned
+
+
+def _flood_fill_component(
+    pixels: Any,
+    width: int,
+    height: int,
+    x: int,
+    y: int,
+    visited: bytearray,
+) -> list[tuple[int, int]]:
+    def _index(current_x: int, current_y: int) -> int:
+        return (current_y * width) + current_x
+
+    start_index = _index(x, y)
+    if visited[start_index] or int(pixels[x, y]) >= 128:
+        return []
+    stack = [(x, y)]
+    component: list[tuple[int, int]] = []
+    visited[start_index] = 1
+    while stack:
+        current_x, current_y = stack.pop()
+        component.append((current_x, current_y))
+        for next_y in range(max(0, current_y - 1), min(height - 1, current_y + 1) + 1):
+            for next_x in range(max(0, current_x - 1), min(width - 1, current_x + 1) + 1):
+                neighbor_index = _index(next_x, next_y)
+                if visited[neighbor_index] or int(pixels[next_x, next_y]) >= 128:
+                    continue
+                visited[neighbor_index] = 1
+                stack.append((next_x, next_y))
+    return component
 
 
 def _preprocess_candidate(
@@ -1257,28 +1340,13 @@ def _rasterize_pdf_to_images(
         total_pages = _pdf_page_count(pdf_path)
         if total_pages is not None:
             started_at = time.monotonic()
-            process = subprocess.Popen(command)  # noqa: S603
-            last_reported = -1
-            while True:
-                completed_pages = len(list(pages_dir.glob("page-*.png")))
-                if completed_pages != last_reported:
-                    _emit_progress(
-                        progress_callback,
-                        _timed_page_progress_payload(
-                            stage="rasterize",
-                            total_pages=total_pages,
-                            completed_pages=min(completed_pages, total_pages),
-                            status="complete" if completed_pages >= total_pages else "running",
-                            current_page_index=completed_pages + 1 if completed_pages < total_pages else None,
-                            started_at=started_at,
-                        ),
-                    )
-                    last_reported = completed_pages
-                if process.poll() is not None:
-                    if process.returncode != 0:
-                        raise subprocess.CalledProcessError(process.returncode, command)
-                    break
-                time.sleep(1.0)
+            _poll_rasterize_with_progress(
+                command,
+                pages_dir,
+                total_pages,
+                progress_callback,
+                started_at,
+            )
         else:
             run_command(command, False)
     else:
@@ -1287,6 +1355,37 @@ def _rasterize_pdf_to_images(
     if not page_images:
         raise RuntimeError("pdftoppm produced no page images")
     return page_images
+
+
+def _poll_rasterize_with_progress(
+    command: list[str],
+    pages_dir: Path,
+    total_pages: int,
+    progress_callback: Callable[[dict[str, object]], None],
+    started_at: float,
+) -> None:
+    process = subprocess.Popen(command)  # noqa: S603
+    last_reported = -1
+    while True:
+        completed_pages = len(list(pages_dir.glob("page-*.png")))
+        if completed_pages != last_reported:
+            _emit_progress(
+                progress_callback,
+                _timed_page_progress_payload(
+                    stage="rasterize",
+                    total_pages=total_pages,
+                    completed_pages=min(completed_pages, total_pages),
+                    status="complete" if completed_pages >= total_pages else "running",
+                    current_page_index=completed_pages + 1 if completed_pages < total_pages else None,
+                    started_at=started_at,
+                ),
+            )
+            last_reported = completed_pages
+        if process.poll() is not None:
+            if process.returncode != 0:
+                raise subprocess.CalledProcessError(process.returncode, command)
+            return
+        time.sleep(1.0)
 
 
 def _prepare_artifacts_dir(work_dir: Path, options: OCRRunOptions) -> Path:
@@ -1808,6 +1907,32 @@ def _inverse_render_score_candidate(
         "inverse_render_bbox": list(bbox),
     }
     observed_region_bytes = observed_region.tobytes() if get_rust_inverse_render_accel() is not None else None
+    rendered_candidates, rendered_metadata = _build_inverse_render_candidate_batch(
+        render_fonts,
+        base_font_size,
+        observed_region,
+        local_bbox,
+        bbox,
+        text,
+    )
+    best_index, best_score = _best_inverse_render_rendered_batch(
+        observed_region,
+        rendered_candidates,
+        observed_bytes=observed_region_bytes,
+    )
+    best_metadata = dict(rendered_metadata[best_index])
+    best_metadata["inverse_render_score"] = best_score
+    return best_score, best_metadata
+
+
+def _build_inverse_render_candidate_batch(
+    render_fonts: Sequence[str | None],
+    base_font_size: int,
+    observed_region: Any,
+    local_bbox: tuple[int, int, int, int],
+    bbox: tuple[int, int, int, int],
+    text: str,
+) -> tuple[list[Any], list[dict[str, object]]]:
     rendered_candidates: list[Any] = []
     rendered_metadata: list[dict[str, object]] = []
     for font_path in render_fonts:
@@ -1825,14 +1950,13 @@ def _inverse_render_score_candidate(
                         offset_y=offset_y,
                         rotation=0.0,
                     )
-                    rendered_candidates.extend(
-                        [
-                            base_rendered if abs(rotation) < 1e-9 else _rotate_inverse_render_image(base_rendered, rotation)
-                            for rotation in _INVERSE_RENDER_ROTATIONS
-                        ]
-                    )
-                    rendered_metadata.extend(
-                        [
+                    for rotation in _INVERSE_RENDER_ROTATIONS:
+                        rendered_candidates.append(
+                            base_rendered
+                            if abs(rotation) < 1e-9
+                            else _rotate_inverse_render_image(base_rendered, rotation)
+                        )
+                        rendered_metadata.append(
                             {
                                 "inverse_render_score": -1.0,
                                 "inverse_render_bbox": list(bbox),
@@ -1842,17 +1966,8 @@ def _inverse_render_score_candidate(
                                 "inverse_render_offset_y": offset_y,
                                 "inverse_render_rotation": rotation,
                             }
-                            for rotation in _INVERSE_RENDER_ROTATIONS
-                        ]
-                    )
-    best_index, best_score = _best_inverse_render_rendered_batch(
-        observed_region,
-        rendered_candidates,
-        observed_bytes=observed_region_bytes,
-    )
-    best_metadata = dict(rendered_metadata[best_index])
-    best_metadata["inverse_render_score"] = best_score
-    return best_score, best_metadata
+                        )
+    return rendered_candidates, rendered_metadata
 
 
 def _score_inverse_render_request(
@@ -1874,16 +1989,7 @@ def _inverse_render_score_many(
 ) -> list[tuple[float, dict[str, object]]]:
     if not texts:
         return []
-    unique_texts: list[str] = []
-    text_indexes: dict[str, int] = {}
-    result_indexes: list[int] = []
-    for text in texts:
-        text_index = text_indexes.get(text)
-        if text_index is None:
-            text_index = len(unique_texts)
-            unique_texts.append(text)
-            text_indexes[text] = text_index
-        result_indexes.append(text_index)
+    unique_texts, result_indexes = _unique_inverse_render_texts(texts)
     if workers <= 1 or len(unique_texts) <= 1:
         unique_scores = [
             _inverse_render_score_candidate(observed_binary, bbox, text)
@@ -1902,6 +2008,20 @@ def _inverse_render_score_many(
     with ProcessPoolExecutor(max_workers=worker_count) as executor:
         unique_scores = list(executor.map(_score_inverse_render_request, requests))
     return [unique_scores[index] for index in result_indexes]
+
+
+def _unique_inverse_render_texts(texts: list[str]) -> tuple[list[str], list[int]]:
+    unique_texts: list[str] = []
+    text_indexes: dict[str, int] = {}
+    result_indexes: list[int] = []
+    for text in texts:
+        text_index = text_indexes.get(text)
+        if text_index is None:
+            text_index = len(unique_texts)
+            unique_texts.append(text)
+            text_indexes[text] = text_index
+        result_indexes.append(text_index)
+    return unique_texts, result_indexes
 
 
 def _render_inverse_text_from_metadata(
@@ -2056,19 +2176,9 @@ def _maybe_verify_cleanup_spans(
 ) -> tuple[str, dict[str, object]]:
     if not options.core.apply_cleanup:
         return text, {}
-    if options.core.confidence_aware_cleanup:
-        mean_confidence = selection_metadata.get("hocr_confidence_mean")
-        if isinstance(mean_confidence, (float, int)):
-            mean_confidence_value = float(mean_confidence)
-            if mean_confidence_value >= options.core.cleanup_high_confidence_threshold:
-                return text, {
-                    "cleanup_confidence_gate": {
-                        "enabled": True,
-                        "action": "skipped-cleanup",
-                        "mean_confidence": mean_confidence_value,
-                        "threshold": options.core.cleanup_high_confidence_threshold,
-                    }
-                }
+    skip_cleanup, gate_metadata = _cleanup_confidence_gate(selection_metadata, options)
+    if skip_cleanup:
+        return text, gate_metadata
     cleaned_text = cleanup_ocr_text(text, lexicon_texts=options.core.cleanup_lexicon_texts)
     # Auto-enable span verification for scan modes: they have a real binarised scan
     # image available, so inverse render can judge whether each cleanup change is correct.
@@ -2085,37 +2195,96 @@ def _maybe_verify_cleanup_spans(
                 "changes_reverted": 0,
             }
         }
-    observed_binary: Any | None = None
-    bbox: tuple[int, int, int, int] | None = None
-    verified_text = cleaned_text
+    observed_binary, bbox = _normalize_scan_for_inverse_render(image_path)
+    verified_text, decisions, reverted_count = _apply_cleanup_span_reversions(
+        changes,
+        cleaned_text,
+        observed_binary,
+        bbox,
+        options,
+        selection_metadata,
+    )
+    decisions.reverse()
+    return verified_text, {
+        "cleanup_span_verifier": {
+            "enabled": True,
+            "changes_considered": len(changes),
+            "changes_kept": len(changes) - reverted_count,
+            "changes_reverted": reverted_count,
+            "decisions": decisions,
+        }
+    }
+
+
+def _cleanup_confidence_gate(
+    selection_metadata: dict[str, object],
+    options: OCRRunOptions,
+) -> tuple[bool, dict[str, object]]:
+    if not options.core.confidence_aware_cleanup:
+        return False, {}
+    mean_confidence = selection_metadata.get("hocr_confidence_mean")
+    if not isinstance(mean_confidence, (float, int)):
+        return False, {}
+    mean_confidence_value = float(mean_confidence)
+    if mean_confidence_value < options.core.cleanup_high_confidence_threshold:
+        return False, {}
+    return True, {
+        "cleanup_confidence_gate": {
+            "enabled": True,
+            "action": "skipped-cleanup",
+            "mean_confidence": mean_confidence_value,
+            "threshold": options.core.cleanup_high_confidence_threshold,
+        }
+    }
+
+
+def _cleanup_span_decision(
+    observed_binary: Any,
+    bbox: tuple[int, int, int, int],
+    raw_variant: str,
+    verified_text: str,
+    hint_bbox: tuple[int, int, int, int] | None,
+    options: OCRRunOptions,
+) -> tuple[bool, dict[str, object]]:
+    evaluation_kwargs: dict[str, object] = {
+        "inverse_render_workers": options.core.inverse_render_workers,
+    }
+    if hint_bbox is not None:
+        evaluation_kwargs["hint_bbox"] = hint_bbox
+    return _evaluate_cleanup_span_replacement(
+        observed_binary,
+        bbox,
+        raw_variant,
+        verified_text,
+        **evaluation_kwargs,
+    )
+
+
+def _apply_cleanup_span_reversions(
+    changes: list[_CleanupSpanChange],
+    verified_text: str,
+    observed_binary: Any,
+    bbox: tuple[int, int, int, int],
+    options: OCRRunOptions,
+    selection_metadata: dict[str, object],
+) -> tuple[str, list[dict[str, object]], int]:
     decisions: list[dict[str, object]] = []
     reverted_count = 0
     for change in reversed(changes):
-        if observed_binary is None or bbox is None:
-            observed_binary, bbox = _normalize_scan_for_inverse_render(image_path)
         raw_variant = (
             verified_text[:change.cleaned_start]
             + change.raw_text
             + verified_text[change.cleaned_end:]
         )
         hint_bbox = _hocr_bbox_hint_for_change(change, selection_metadata)
-        if hint_bbox is None:
-            keep_cleaned, decision = _evaluate_cleanup_span_replacement(
-                observed_binary,
-                bbox,
-                raw_variant,
-                verified_text,
-                inverse_render_workers=options.core.inverse_render_workers,
-            )
-        else:
-            keep_cleaned, decision = _evaluate_cleanup_span_replacement(
-                observed_binary,
-                bbox,
-                raw_variant,
-                verified_text,
-                hint_bbox=hint_bbox,
-                inverse_render_workers=options.core.inverse_render_workers,
-            )
+        keep_cleaned, decision = _cleanup_span_decision(
+            observed_binary,
+            bbox,
+            raw_variant,
+            verified_text,
+            hint_bbox,
+            options,
+        )
         decision.update(
             {
                 "raw_text": change.raw_text,
@@ -2139,16 +2308,7 @@ def _maybe_verify_cleanup_spans(
             continue
         verified_text = raw_variant
         reverted_count += 1
-    decisions.reverse()
-    return verified_text, {
-        "cleanup_span_verifier": {
-            "enabled": True,
-            "changes_considered": len(changes),
-            "changes_kept": len(changes) - reverted_count,
-            "changes_reverted": reverted_count,
-            "decisions": decisions,
-        }
-    }
+    return verified_text, decisions, reverted_count
 
 
 def _hocr_bbox_hint_for_change(
@@ -2156,24 +2316,51 @@ def _hocr_bbox_hint_for_change(
     selection_metadata: dict[str, object],
 ) -> tuple[int, int, int, int] | None:
     payload = selection_metadata.get("hocr_word_boxes_runtime")
+    token_payload = _hocr_payload_slice_for_change(payload, change)
+    if token_payload is None:
+        return None
+    candidate_boxes = _hocr_candidate_boxes_for_change(token_payload)
+    if not candidate_boxes:
+        return None
+    return _merged_bbox(candidate_boxes)
+
+
+def _coerce_valid_bbox(item: object) -> tuple[int, int, int, int] | None:
+    if not isinstance(item, (list, tuple)) or len(item) != 4:
+        return None
+    if not all(isinstance(value, int) for value in item):
+        return None
+    left, top, right, bottom = (int(value) for value in item)
+    if right <= left or bottom <= top:
+        return None
+    return (left, top, right, bottom)
+
+
+def _hocr_payload_slice_for_change(
+    payload: object,
+    change: _CleanupSpanChange,
+) -> list[object] | None:
     if not isinstance(payload, list):
         return None
     if change.raw_token_end_index <= change.raw_token_start_index:
         return None
     if change.raw_token_end_index > len(payload):
         return None
+    return payload[change.raw_token_start_index : change.raw_token_end_index]
+
+
+def _hocr_candidate_boxes_for_change(
+    token_payload: list[object],
+) -> list[tuple[int, int, int, int]]:
     candidate_boxes: list[tuple[int, int, int, int]] = []
-    for item in payload[change.raw_token_start_index : change.raw_token_end_index]:
-        if (
-            isinstance(item, (list, tuple))
-            and len(item) == 4
-            and all(isinstance(value, int) for value in item)
-        ):
-            left, top, right, bottom = (int(value) for value in item)
-            if right > left and bottom > top:
-                candidate_boxes.append((left, top, right, bottom))
-    if not candidate_boxes:
-        return None
+    for item in token_payload:
+        bbox = _coerce_valid_bbox(item)
+        if bbox is not None:
+            candidate_boxes.append(bbox)
+    return candidate_boxes
+
+
+def _merged_bbox(candidate_boxes: list[tuple[int, int, int, int]]) -> tuple[int, int, int, int]:
     return (
         min(box[0] for box in candidate_boxes),
         min(box[1] for box in candidate_boxes),
@@ -2331,27 +2518,60 @@ def _maybe_prefer_unmasked_auto_candidate(
         or len(candidates) < 2
     ):
         return None
-    selected_candidate_mode = selected_candidate.metadata.get("candidate_preprocess_mode")
-    if (
-        not isinstance(selected_candidate_mode, str)
-        or not selected_candidate_mode.endswith(_MASKED_PREPROCESS_SUFFIX)
-    ):
+    base_preprocess_mode = _masked_candidate_base_mode(selected_candidate)
+    if base_preprocess_mode is None:
         return None
-    base_preprocess_mode = selected_candidate_mode.removesuffix(_MASKED_PREPROCESS_SUFFIX)
-    unmasked_candidates = [
-        candidate
-        for candidate in candidates
-        if candidate.metadata.get("candidate_preprocess_mode") == base_preprocess_mode
-    ]
-    if not unmasked_candidates:
+    best_unmasked_candidate = _best_candidate_for_preprocess_mode(candidates, base_preprocess_mode)
+    if best_unmasked_candidate is None:
         return None
-    best_unmasked_candidate = max(unmasked_candidates, key=lambda candidate: candidate.score)
     if (
         selected_candidate.score - best_unmasked_candidate.score
         >= _AUTO_MASKED_MIN_SCORE_GAIN
     ):
         return None
     return best_unmasked_candidate
+
+
+def _masked_candidate_base_mode(selected_candidate: OCRCandidate) -> str | None:
+    selected_candidate_mode = selected_candidate.metadata.get("candidate_preprocess_mode")
+    if not isinstance(selected_candidate_mode, str) or not selected_candidate_mode.endswith(_MASKED_PREPROCESS_SUFFIX):
+        return None
+    return selected_candidate_mode.removesuffix(_MASKED_PREPROCESS_SUFFIX)
+
+
+def _best_candidate_for_preprocess_mode(
+    candidates: list[OCRCandidate],
+    preprocess_mode: str,
+) -> OCRCandidate | None:
+    matching_candidates = [
+        candidate
+        for candidate in candidates
+        if candidate.metadata.get("candidate_preprocess_mode") == preprocess_mode
+    ]
+    if not matching_candidates:
+        return None
+    return max(matching_candidates, key=lambda candidate: candidate.score)
+
+
+def _near_best_alt_candidates(
+    selected_candidate: OCRCandidate,
+    candidates: list[OCRCandidate],
+    selected_family: str,
+) -> list[OCRCandidate]:
+    filtered_candidates: list[OCRCandidate] = []
+    for candidate in candidates:
+        if candidate is selected_candidate:
+            continue
+        score_gap = selected_candidate.score - candidate.score
+        if score_gap < 0.0 or score_gap > _AMBIGUOUS_CANDIDATE_SCORE_GAP:
+            continue
+        candidate_family = _preprocess_family(
+            str(candidate.metadata.get("candidate_preprocess_mode", candidate.metadata.get("preprocess_mode", "")))
+        )
+        if candidate_family == selected_family:
+            continue
+        filtered_candidates.append(candidate)
+    return filtered_candidates
 
 
 def _run_candidate_ocr(
@@ -2606,21 +2826,15 @@ def _maybe_tiered_fallback_candidate(
             return None
         tiered_dir = preprocessed_dir / "tiered-fallback"
         tiered_dir.mkdir(parents=True, exist_ok=True)
-        segment_texts: list[str] = []
-        for tile_index, y_start in enumerate(tile_starts):
-            y_end = min(grayscale.height, y_start + _TIERED_FALLBACK_TILE_HEIGHT)
-            tile = grayscale.crop((0, y_start, grayscale.width, y_end))
-            tile_path = tiered_dir / f"{candidate.ocr_input_path.stem}-tile-{tile_index:02d}.png"
-            tile.save(tile_path)
-            tile_text, _tile_metadata = _run_candidate_ocr(
-                tile_path,
-                options,
-                dependencies,
-                paddle_reader,
-                str(selected_psm),
-            )
-            if tile_text.strip():
-                segment_texts.append(tile_text.strip())
+        segment_texts = _run_tiered_fallback_tiles(
+            grayscale,
+            options,
+            dependencies,
+            paddle_reader,
+            selected_psm,
+            candidate,
+            tiered_dir,
+        )
     if not segment_texts:
         return None
     merged_text = "\n".join(segment_texts)
@@ -2642,6 +2856,39 @@ def _maybe_tiered_fallback_candidate(
         text=merged_text,
         metadata=metadata,
     )
+
+
+def _run_tiered_fallback_tiles(
+    grayscale: Any,
+    options: OCRRunOptions,
+    dependencies: OCRDependencies,
+    paddle_reader: Callable[[Path], str] | None,
+    selected_psm: int,
+    candidate: OCRCandidate,
+    tiered_dir: Path,
+) -> list[str]:
+    segment_texts: list[str] = []
+    tile_starts = _tile_start_positions(
+        grayscale.height,
+        _TIERED_FALLBACK_TILE_HEIGHT,
+        _TIERED_FALLBACK_TILE_HEIGHT - _TIERED_FALLBACK_TILE_OVERLAP,
+    )
+    for tile_index, y_start in enumerate(tile_starts):
+        y_end = min(grayscale.height, y_start + _TIERED_FALLBACK_TILE_HEIGHT)
+        tile = grayscale.crop((0, y_start, grayscale.width, y_end))
+        tile_path = tiered_dir / f"{candidate.ocr_input_path.stem}-tile-{tile_index:02d}.png"
+        tile.save(tile_path)
+        tile_text, _tile_metadata = _run_candidate_ocr(
+            tile_path,
+            options,
+            dependencies,
+            paddle_reader,
+            str(selected_psm),
+        )
+        compact_text = tile_text.strip()
+        if compact_text:
+            segment_texts.append(compact_text)
+    return segment_texts
 
 
 def _maybe_orientation_fallback_candidate(
@@ -2875,27 +3122,16 @@ def _page_analysis_summary(page_details: list[dict[str, object]]) -> dict[str, o
     front_matter_page_indices: list[int] = []
     targeted_page_retry_page_indices: list[int] = []
     for entry in page_details:
-        page_index = entry.get("page_index")
-        if not isinstance(page_index, int):
-            continue
-        page_type = entry.get("page_type")
-        if isinstance(page_type, str):
-            page_type_counts[page_type] += 1
-            if page_type == "front-matter":
-                front_matter_page_indices.append(page_index)
-        quality_tier = entry.get("page_quality_tier")
-        if isinstance(quality_tier, str):
-            page_quality_tier_counts[quality_tier] += 1
-            if quality_tier == "low":
-                low_quality_page_indices.append(page_index)
-        page_route = entry.get("page_route")
-        if isinstance(page_route, str):
-            page_route_counts[page_route] += 1
-        if entry.get("targeted_page_retry") == "applied":
-            targeted_page_retry_page_indices.append(page_index)
-            retry_reason = entry.get("targeted_page_retry_reason")
-            if isinstance(retry_reason, str):
-                targeted_page_retry_reason_counts[retry_reason] += 1
+        _record_page_analysis_summary_entry(
+            entry,
+            page_type_counts,
+            page_quality_tier_counts,
+            page_route_counts,
+            targeted_page_retry_reason_counts,
+            low_quality_page_indices,
+            front_matter_page_indices,
+            targeted_page_retry_page_indices,
+        )
     return {
         "page_type_counts": dict(page_type_counts),
         "page_quality_tier_counts": dict(page_quality_tier_counts),
@@ -2908,6 +3144,40 @@ def _page_analysis_summary(page_details: list[dict[str, object]]) -> dict[str, o
         "targeted_page_retry_page_indices": targeted_page_retry_page_indices,
         "targeted_page_retry_reason_counts": dict(targeted_page_retry_reason_counts),
     }
+
+
+def _record_page_analysis_summary_entry(
+    entry: dict[str, object],
+    page_type_counts: Counter[str],
+    page_quality_tier_counts: Counter[str],
+    page_route_counts: Counter[str],
+    targeted_page_retry_reason_counts: Counter[str],
+    low_quality_page_indices: list[int],
+    front_matter_page_indices: list[int],
+    targeted_page_retry_page_indices: list[int],
+) -> None:
+    page_index = entry.get("page_index")
+    if not isinstance(page_index, int):
+        return
+    page_type = entry.get("page_type")
+    if isinstance(page_type, str):
+        page_type_counts[page_type] += 1
+        if page_type == "front-matter":
+            front_matter_page_indices.append(page_index)
+    quality_tier = entry.get("page_quality_tier")
+    if isinstance(quality_tier, str):
+        page_quality_tier_counts[quality_tier] += 1
+        if quality_tier == "low":
+            low_quality_page_indices.append(page_index)
+    page_route = entry.get("page_route")
+    if isinstance(page_route, str):
+        page_route_counts[page_route] += 1
+    if entry.get("targeted_page_retry") != "applied":
+        return
+    targeted_page_retry_page_indices.append(page_index)
+    retry_reason = entry.get("targeted_page_retry_reason")
+    if isinstance(retry_reason, str):
+        targeted_page_retry_reason_counts[retry_reason] += 1
 
 
 def _windowed_section_excerpts(text: str) -> list[tuple[int, int, str]]:
@@ -2941,26 +3211,14 @@ def _suspicious_section_candidates(
         detail = page_details[page_index - 1]
         page_quality_tier = str(detail.get("page_quality_tier", "unknown"))
         page_route = str(detail.get("page_route", "unknown"))
-        raw_low_confidence_ratio = detail.get("hocr_low_confidence_ratio")
-        low_confidence_ratio = (
-            float(raw_low_confidence_ratio)
-            if isinstance(raw_low_confidence_ratio, (int, float))
-            else 0.0
-        )
         for section_index, (start_word, end_word, excerpt) in enumerate(_windowed_section_excerpts(text), start=1):
-            symbolic_token_count = len(_SUSPICIOUS_SYMBOLIC_TOKEN_RE.findall(excerpt))
-            digit_alpha_token_count = len(_SUSPICIOUS_DIGIT_ALPHA_TOKEN_RE.findall(excerpt))
-            noise_ratio = _page_text_noise_ratio(excerpt)
-            quality_bonus = 2.0 if page_quality_tier == "low" else 1.0 if page_quality_tier == "medium" else 0.0
-            route_bonus = 0.5 if page_route.endswith("review") or page_route.endswith("low-quality") else 0.0
-            heuristic_score = (
-                float(symbolic_token_count * 3)
-                + float(digit_alpha_token_count * 2)
-                + (noise_ratio * 10.0)
-                + (low_confidence_ratio * 8.0)
-                + quality_bonus
-                + route_bonus
-            )
+            (
+                heuristic_score,
+                symbolic_token_count,
+                digit_alpha_token_count,
+                noise_ratio,
+                low_confidence_ratio,
+            ) = _score_section_candidate(excerpt, detail)
             if (
                 heuristic_score <= 0.0
                 and page_quality_tier == "high"
@@ -2994,6 +3252,40 @@ def _suspicious_section_candidates(
         reverse=True,
     )
     return candidates[:max_candidates]
+
+
+def _score_section_candidate(
+    text_excerpt: str,
+    page_detail: dict[str, object],
+) -> tuple[float, int, int, float, float]:
+    page_quality_tier = str(page_detail.get("page_quality_tier", "unknown"))
+    page_route = str(page_detail.get("page_route", "unknown"))
+    raw_low_confidence_ratio = page_detail.get("hocr_low_confidence_ratio")
+    low_confidence_ratio = (
+        float(raw_low_confidence_ratio)
+        if isinstance(raw_low_confidence_ratio, (int, float))
+        else 0.0
+    )
+    symbolic_token_count = len(_SUSPICIOUS_SYMBOLIC_TOKEN_RE.findall(text_excerpt))
+    digit_alpha_token_count = len(_SUSPICIOUS_DIGIT_ALPHA_TOKEN_RE.findall(text_excerpt))
+    noise_ratio = _page_text_noise_ratio(text_excerpt)
+    quality_bonus = 2.0 if page_quality_tier == "low" else 1.0 if page_quality_tier == "medium" else 0.0
+    route_bonus = 0.5 if page_route.endswith("review") or page_route.endswith("low-quality") else 0.0
+    heuristic_score = (
+        float(symbolic_token_count * 3)
+        + float(digit_alpha_token_count * 2)
+        + (noise_ratio * 10.0)
+        + (low_confidence_ratio * 8.0)
+        + quality_bonus
+        + route_bonus
+    )
+    return (
+        heuristic_score,
+        symbolic_token_count,
+        digit_alpha_token_count,
+        noise_ratio,
+        low_confidence_ratio,
+    )
 
 
 def _build_suspicious_section_prompt(candidate: dict[str, object]) -> str:
@@ -3038,29 +3330,36 @@ def _parse_suspicious_section_response(response_text: str) -> dict[str, object] 
     suspicious = payload.get("suspicious")
     if not isinstance(suspicious, bool):
         return None
-    confidence = str(payload.get("confidence", "medium")).strip().lower()
-    if confidence not in {"low", "medium", "high"}:
-        confidence = "medium"
+    confidence = _normalized_suspicious_confidence(payload.get("confidence", "medium"))
     reason = str(payload.get("reason", "")).strip()
     if not reason:
         return None
-    focus_spans_value = payload.get("focus_spans", [])
-    focus_spans: list[str] = []
-    if isinstance(focus_spans_value, list):
-        for item in focus_spans_value:
-            if not isinstance(item, str):
-                continue
-            candidate = item.strip()
-            if candidate:
-                focus_spans.append(candidate[:120])
-            if len(focus_spans) >= _MAX_SUSPICIOUS_SECTION_FOCUS_SPANS:
-                break
     return {
         "suspicious": suspicious,
         "confidence": confidence,
         "reason": reason[:240],
-        "focus_spans": focus_spans,
+        "focus_spans": _normalized_focus_spans(payload.get("focus_spans", [])),
     }
+
+
+def _normalized_suspicious_confidence(value: object) -> str:
+    confidence = str(value).strip().lower()
+    return confidence if confidence in {"low", "medium", "high"} else "medium"
+
+
+def _normalized_focus_spans(value: object) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    focus_spans: list[str] = []
+    for item in value:
+        if not isinstance(item, str):
+            continue
+        candidate = item.strip()
+        if candidate:
+            focus_spans.append(candidate[:120])
+        if len(focus_spans) >= _MAX_SUSPICIOUS_SECTION_FOCUS_SPANS:
+            break
+    return focus_spans
 
 
 def _maybe_analyze_suspicious_sections(
@@ -3072,54 +3371,19 @@ def _maybe_analyze_suspicious_sections(
     if not options.core.llm_suspicious_sections:
         return {}
     if dependencies.llm_suspicious_section_analyzer is None:
-        return {
-            "enabled": True,
-            "status": "unavailable",
-            "candidate_count": 0,
-            "reviewed_count": 0,
-            "flagged_count": 0,
-            "invalid_response_count": 0,
-            "sections": [],
-        }
+        return _suspicious_sections_unavailable_result()
     candidates = _suspicious_section_candidates(
         page_texts,
         page_details,
         max_candidates=options.core.llm_suspicious_max_candidates,
     )
     if not candidates:
-        return {
-            "enabled": True,
-            "status": "skipped-no-candidates",
-            "candidate_count": 0,
-            "reviewed_count": 0,
-            "flagged_count": 0,
-            "invalid_response_count": 0,
-            "sections": [],
-        }
-    sections: list[dict[str, object]] = []
-    reviewed_count = 0
-    invalid_response_count = 0
-    for candidate in candidates:
-        if len(sections) >= options.core.llm_suspicious_max_sections:
-            break
-        reviewed_count += 1
-        response_text = dependencies.llm_suspicious_section_analyzer(
-            _build_suspicious_section_prompt(candidate)
-        )
-        if not isinstance(response_text, str):
-            invalid_response_count += 1
-            continue
-        parsed = _parse_suspicious_section_response(response_text)
-        if parsed is None:
-            invalid_response_count += 1
-            continue
-        if not bool(parsed["suspicious"]):
-            continue
-        section = dict(candidate)
-        section["llm_confidence"] = parsed["confidence"]
-        section["llm_reason"] = parsed["reason"]
-        section["focus_spans"] = parsed["focus_spans"]
-        sections.append(section)
+        return _suspicious_sections_no_candidates_result()
+    sections, reviewed_count, invalid_response_count = _review_suspicious_section_candidates(
+        candidates,
+        options,
+        dependencies,
+    )
     status = "applied"
     if reviewed_count > 0 and invalid_response_count == reviewed_count:
         status = "invalid-output"
@@ -3134,6 +3398,63 @@ def _maybe_analyze_suspicious_sections(
     }
 
 
+def _suspicious_sections_unavailable_result() -> dict[str, object]:
+    return {
+        "enabled": True,
+        "status": "unavailable",
+        "candidate_count": 0,
+        "reviewed_count": 0,
+        "flagged_count": 0,
+        "invalid_response_count": 0,
+        "sections": [],
+    }
+
+
+def _suspicious_sections_no_candidates_result() -> dict[str, object]:
+    return {
+        "enabled": True,
+        "status": "skipped-no-candidates",
+        "candidate_count": 0,
+        "reviewed_count": 0,
+        "flagged_count": 0,
+        "invalid_response_count": 0,
+        "sections": [],
+    }
+
+
+def _review_suspicious_section_candidates(
+    candidates: list[dict[str, object]],
+    options: OCRRunOptions,
+    dependencies: OCRDependencies,
+) -> tuple[list[dict[str, object]], int, int]:
+    analyzer = dependencies.llm_suspicious_section_analyzer
+    if analyzer is None:
+        return [], 0, 0
+    sections: list[dict[str, object]] = []
+    reviewed_count = 0
+    invalid_response_count = 0
+    for candidate in candidates:
+        if len(sections) >= options.core.llm_suspicious_max_sections:
+            break
+        reviewed_count += 1
+        response_text = analyzer(_build_suspicious_section_prompt(candidate))
+        if not isinstance(response_text, str):
+            invalid_response_count += 1
+            continue
+        parsed = _parse_suspicious_section_response(response_text)
+        if parsed is None:
+            invalid_response_count += 1
+            continue
+        if not bool(parsed["suspicious"]):
+            continue
+        section = dict(candidate)
+        section["llm_confidence"] = parsed["confidence"]
+        section["llm_reason"] = parsed["reason"]
+        section["focus_spans"] = parsed["focus_spans"]
+        sections.append(section)
+    return sections, reviewed_count, invalid_response_count
+
+
 def _page_artifacts_manifest_payload(
     page_details: list[dict[str, object]],
     total_pages: int,
@@ -3143,22 +3464,11 @@ def _page_artifacts_manifest_payload(
     elapsed_seconds: float,
 ) -> dict[str, object]:
     completed_pages = len(page_details)
-    seconds_per_page = (
-        elapsed_seconds / completed_pages
-        if completed_pages > 0 and elapsed_seconds > 0
-        else None
-    )
-    estimated_remaining_seconds = (
-        seconds_per_page * (total_pages - completed_pages)
-        if seconds_per_page is not None and status != "complete"
-        else 0.0 if status == "complete"
-        else None
-    )
-    estimated_total_seconds = (
-        seconds_per_page * total_pages
-        if seconds_per_page is not None
-        else elapsed_seconds if status == "complete"
-        else None
+    seconds_per_page, estimated_remaining_seconds, estimated_total_seconds = _estimate_timing(
+        elapsed_seconds,
+        completed_pages,
+        total_pages,
+        status,
     )
     return {
         "pages": page_details,
@@ -3181,6 +3491,31 @@ def _page_artifacts_manifest_payload(
             ),
         },
     }
+
+
+def _estimate_timing(
+    elapsed_seconds: float,
+    completed_pages: int,
+    total_pages: int,
+    status: str,
+) -> tuple[float | None, float | None, float | None]:
+    seconds_per_page = (
+        elapsed_seconds / completed_pages
+        if completed_pages > 0 and elapsed_seconds > 0
+        else None
+    )
+    if seconds_per_page is None:
+        if status == "complete":
+            return None, 0.0, elapsed_seconds
+        return None, None, None
+    estimated_remaining_seconds = (
+        0.0 if status == "complete" else seconds_per_page * (total_pages - completed_pages)
+    )
+    return (
+        seconds_per_page,
+        estimated_remaining_seconds,
+        seconds_per_page * total_pages,
+    )
 
 
 def _page_artifact_text_path(artifacts_dir: Path, page_index: int) -> Path:
@@ -3206,33 +3541,61 @@ def _load_resumed_page_artifacts(
     for expected_page_index, image_path in enumerate(page_images, start=1):
         if expected_page_index > len(raw_pages):
             break
-        raw_entry = raw_pages[expected_page_index - 1]
-        if not isinstance(raw_entry, dict):
-            break
-        raw_page_index = raw_entry.get("page_index")
-        if not isinstance(raw_page_index, int) or raw_page_index != expected_page_index:
-            break
-        raw_image_path = raw_entry.get("image_path")
-        if isinstance(raw_image_path, str) and raw_image_path:
-            if Path(raw_image_path).name != image_path.name:
-                break
-        raw_text_path = raw_entry.get("text_path")
-        text_path = (
-            Path(str(raw_text_path))
-            if isinstance(raw_text_path, str) and raw_text_path
-            else _page_artifact_text_path(artifacts_dir, expected_page_index)
+        loaded_entry = _load_resumed_page_entry(
+            raw_pages[expected_page_index - 1],
+            expected_page_index,
+            image_path,
+            artifacts_dir,
         )
-        if not text_path.exists():
+        if loaded_entry is None:
             break
-        try:
-            text = text_path.read_text(encoding="utf-8")
-        except OSError:
-            break
-        entry = dict(raw_entry)
-        entry["text_path"] = str(text_path)
+        text, entry = loaded_entry
         page_texts.append(text)
         page_details.append(entry)
     return page_texts, page_details
+
+
+def _load_resumed_page_entry(
+    raw_entry: object,
+    expected_page_index: int,
+    image_path: Path,
+    artifacts_dir: Path,
+) -> tuple[str, dict[str, object]] | None:
+    if not isinstance(raw_entry, dict):
+        return None
+    raw_page_index = raw_entry.get("page_index")
+    if not isinstance(raw_page_index, int) or raw_page_index != expected_page_index:
+        return None
+    text_path = _resumed_text_path_for_entry(raw_entry, expected_page_index, image_path, artifacts_dir)
+    if text_path is None:
+        return None
+    try:
+        text = text_path.read_text(encoding="utf-8")
+    except OSError:
+        return None
+    entry = dict(raw_entry)
+    entry["text_path"] = str(text_path)
+    return text, entry
+
+
+def _resumed_text_path_for_entry(
+    raw_entry: dict[str, object],
+    expected_page_index: int,
+    image_path: Path,
+    artifacts_dir: Path,
+) -> Path | None:
+    raw_image_path = raw_entry.get("image_path")
+    if isinstance(raw_image_path, str) and raw_image_path and Path(raw_image_path).name != image_path.name:
+        return None
+    raw_text_path = raw_entry.get("text_path")
+    text_path = (
+        Path(str(raw_text_path))
+        if isinstance(raw_text_path, str) and raw_text_path
+        else _page_artifact_text_path(artifacts_dir, expected_page_index)
+    )
+    if not text_path.exists():
+        return None
+    return text_path
 
 
 def _write_page_artifacts_manifest(
@@ -3365,17 +3728,50 @@ def _classify_layout_line(
         return "page-number"
     if _is_probable_toc_line(compact):
         return "toc"
-    top_edge = line_index <= 1
-    bottom_edge = line_index >= max(0, line_count - 2)
-    if top_edge and word_count <= 8 and not _is_probable_chapter_marker(compact):
-        return "header"
-    if bottom_edge and word_count <= 8 and not _is_probable_chapter_marker(compact):
-        return "footer"
-    if bbox is not None:
-        left, _top, right, _bottom = bbox
-        if (right - left) >= 1 and left <= 16 and word_count <= 3:
-            return "margin-note"
+    edge_region = _is_edge_header_or_footer(compact, line_index, line_count, word_count)
+    if edge_region is not None:
+        return edge_region
+    if _is_margin_note(bbox, word_count):
+        return "margin-note"
     return "body"
+
+
+def _is_edge_header_or_footer(
+    compact: str,
+    line_index: int,
+    line_count: int,
+    word_count: int,
+) -> str | None:
+    if word_count > 8 or _is_probable_chapter_marker(compact):
+        return None
+    if line_index <= 1:
+        return "header"
+    if line_index >= max(0, line_count - 2):
+        return "footer"
+    return None
+
+
+def _is_margin_note(
+    bbox: tuple[int, int, int, int] | None,
+    word_count: int,
+) -> bool:
+    if bbox is None:
+        return False
+    left, _top, right, _bottom = bbox
+    return (right - left) >= 1 and left <= 16 and word_count <= 3
+
+
+def _coerce_single_layout_entry(entry: object) -> dict[str, object] | None:
+    if not isinstance(entry, dict):
+        return None
+    line_text = str(entry.get("text", "")).strip()
+    if not line_text:
+        return None
+    normalized_entry: dict[str, object] = {"text": line_text}
+    bbox = _coerce_valid_bbox(entry.get("bbox"))
+    if bbox is not None:
+        normalized_entry["bbox"] = bbox
+    return normalized_entry
 
 
 def _coerce_layout_entries(
@@ -3386,20 +3782,9 @@ def _coerce_layout_entries(
     entries: list[dict[str, object]] = []
     if isinstance(runtime_entries, list):
         for entry in runtime_entries:
-            if not isinstance(entry, dict):
-                continue
-            line_text = str(entry.get("text", "")).strip()
-            if not line_text:
-                continue
-            normalized_entry: dict[str, object] = {"text": line_text}
-            raw_bbox = entry.get("bbox")
-            if (
-                isinstance(raw_bbox, (list, tuple))
-                and len(raw_bbox) == 4
-                and all(isinstance(value, int) for value in raw_bbox)
-            ):
-                normalized_entry["bbox"] = tuple(int(value) for value in raw_bbox)
-            entries.append(normalized_entry)
+            normalized_entry = _coerce_single_layout_entry(entry)
+            if normalized_entry is not None:
+                entries.append(normalized_entry)
     if entries:
         return entries
     return [{"text": line.strip()} for line in text.splitlines() if line.strip()]
@@ -3448,10 +3833,10 @@ def _page_ocr_artifact_metrics(text: str) -> dict[str, float]:
         if not compact or not any(char.isalpha() for char in compact):
             continue
         alphaish_token_count += 1
-        letters_only = "".join(char for char in compact if char.isalpha()).lower()
-        if len(letters_only) == 1 and letters_only not in _SINGLE_CHAR_TOKEN_ALLOWLIST:
+        is_single_char_fragment, is_apostrophe_fragment = _classify_token_artifacts(compact)
+        if is_single_char_fragment:
             single_char_fragment_count += 1
-        if "'" in compact and _LATIN_TOKEN.fullmatch(compact) is None:
+        if is_apostrophe_fragment:
             apostrophe_fragment_count += 1
     if alphaish_token_count == 0:
         return {
@@ -3466,6 +3851,14 @@ def _page_ocr_artifact_metrics(text: str) -> dict[str, float]:
     }
 
 
+def _classify_token_artifacts(compact_token: str) -> tuple[bool, bool]:
+    letters_only = "".join(char for char in compact_token if char.isalpha()).lower()
+    return (
+        len(letters_only) == 1 and letters_only not in _SINGLE_CHAR_TOKEN_ALLOWLIST,
+        "'" in compact_token and _LATIN_TOKEN.fullmatch(compact_token) is None,
+    )
+
+
 def _preprocess_family(preprocess_mode: str) -> str:
     base_preprocess_mode, _pre_ocr_region_masked = _split_preprocess_mode(preprocess_mode)
     return base_preprocess_mode
@@ -3475,12 +3868,10 @@ def _normalized_ocr_text(text: str) -> str:
     return " ".join(text.lower().split())
 
 
-def _candidate_disagreement_metadata(
+def _near_best_alt_stats(
     selected_candidate: OCRCandidate,
     candidates: list[OCRCandidate],
-) -> dict[str, object]:
-    if len(candidates) <= 1:
-        return {}
+) -> tuple[int, float | None, float | None]:
     selected_family = _preprocess_family(
         str(
             selected_candidate.metadata.get(
@@ -3490,22 +3881,17 @@ def _candidate_disagreement_metadata(
         )
     )
     selected_text = _normalized_ocr_text(selected_candidate.text)
-    near_best_family_count = 0
     best_alt_score_gap: float | None = None
     best_alt_text_similarity: float | None = None
-    seen_families: set[str] = set()
-    for candidate in candidates:
-        if candidate is selected_candidate:
-            continue
-        score_gap = selected_candidate.score - candidate.score
-        if score_gap < 0.0 or score_gap > _AMBIGUOUS_CANDIDATE_SCORE_GAP:
-            continue
-        candidate_family = _preprocess_family(
+    filtered_candidates = _near_best_alt_candidates(selected_candidate, candidates, selected_family)
+    seen_families = {
+        _preprocess_family(
             str(candidate.metadata.get("candidate_preprocess_mode", candidate.metadata.get("preprocess_mode", "")))
         )
-        if candidate_family == selected_family:
-            continue
-        seen_families.add(candidate_family)
+        for candidate in filtered_candidates
+    }
+    for candidate in filtered_candidates:
+        score_gap = selected_candidate.score - candidate.score
         similarity = SequenceMatcher(
             None,
             selected_text,
@@ -3515,7 +3901,19 @@ def _candidate_disagreement_metadata(
             best_alt_score_gap = score_gap
         if best_alt_text_similarity is None or similarity < best_alt_text_similarity:
             best_alt_text_similarity = similarity
-    near_best_family_count = len(seen_families)
+    return len(seen_families), best_alt_score_gap, best_alt_text_similarity
+
+
+def _candidate_disagreement_metadata(
+    selected_candidate: OCRCandidate,
+    candidates: list[OCRCandidate],
+) -> dict[str, object]:
+    if len(candidates) <= 1:
+        return {}
+    near_best_family_count, best_alt_score_gap, best_alt_text_similarity = _near_best_alt_stats(
+        selected_candidate,
+        candidates,
+    )
     if near_best_family_count == 0:
         return {}
     metadata: dict[str, object] = {
@@ -3526,6 +3924,35 @@ def _candidate_disagreement_metadata(
     if best_alt_text_similarity is not None:
         metadata["candidate_best_alt_text_similarity"] = round(best_alt_text_similarity, 4)
     return metadata
+
+
+def _is_front_matter_page(
+    page_index: int,
+    total_pages: int,
+    sparse_page: bool,
+    toc_page: bool,
+    body_lines: int,
+    chapter_marker_count: int,
+) -> bool:
+    if total_pages < 4:
+        return False
+    if page_index > _edge_page_window(total_pages, _FRONT_MATTER_MAX_PAGES):
+        return False
+    return toc_page or (sparse_page and (body_lines <= 4 or chapter_marker_count > 0))
+
+
+def _is_back_matter_page(
+    page_index: int,
+    total_pages: int,
+    sparse_page: bool,
+    body_lines: int,
+) -> bool:
+    return (
+        total_pages >= 4
+        and page_index > total_pages - _edge_page_window(total_pages, _BACK_MATTER_MAX_PAGES)
+        and sparse_page
+        and body_lines <= 4
+    )
 
 
 def _classify_page_type(
@@ -3540,17 +3967,93 @@ def _classify_page_type(
     sparse_page = word_count <= 60 and dense_body_line_count <= 2
     toc_page = region_counts.get("toc", 0) >= 2
     body_lines = region_counts.get("body", 0)
-    if total_pages >= 4 and page_index <= _edge_page_window(total_pages, _FRONT_MATTER_MAX_PAGES):
-        if toc_page:
-            return "front-matter"
-        if sparse_page and (body_lines <= 4 or chapter_marker_count > 0):
-            return "front-matter"
-    if total_pages >= 4 and page_index > total_pages - _edge_page_window(total_pages, _BACK_MATTER_MAX_PAGES):
-        if sparse_page and body_lines <= 4:
-            return "back-matter"
+    if _is_front_matter_page(
+        page_index,
+        total_pages,
+        sparse_page,
+        toc_page,
+        body_lines,
+        chapter_marker_count,
+    ):
+        return "front-matter"
+    if _is_back_matter_page(page_index, total_pages, sparse_page, body_lines):
+        return "back-matter"
     if sparse_page and body_lines <= 2:
         return "sparse"
     return "body"
+
+
+def _penalty_for_word_count(word_count: int) -> int:
+    return 3 if word_count == 0 else 0
+
+
+def _penalty_for_selection_score(score: float) -> int:
+    if score < _LOW_QUALITY_SELECTION_SCORE:
+        return 2
+    if score < _MEDIUM_QUALITY_SELECTION_SCORE:
+        return 1
+    return 0
+
+
+def _penalty_for_low_confidence_ratio(ratio: float | None) -> int:
+    if ratio is None:
+        return 0
+    if ratio >= _LOW_QUALITY_LOW_CONFIDENCE_RATIO:
+        return 2
+    if ratio >= _MEDIUM_QUALITY_LOW_CONFIDENCE_RATIO:
+        return 1
+    return 0
+
+
+def _penalty_for_confidence_mean(mean: float | None) -> int:
+    if mean is None:
+        return 0
+    if mean < 75.0:
+        return 2
+    if mean < 88.0:
+        return 1
+    return 0
+
+
+def _penalty_for_noise_ratio(ratio: float) -> int:
+    if ratio >= _LOW_QUALITY_NOISE_RATIO:
+        return 2
+    if ratio >= _MEDIUM_QUALITY_NOISE_RATIO:
+        return 1
+    return 0
+
+
+def _penalty_for_single_char_fragment_ratio(ratio: float) -> int:
+    if ratio >= _LOW_QUALITY_SINGLE_CHAR_FRAGMENT_RATIO:
+        return 2
+    if ratio >= _MEDIUM_QUALITY_SINGLE_CHAR_FRAGMENT_RATIO:
+        return 1
+    return 0
+
+
+def _penalty_for_apostrophe_fragment_ratio(ratio: float) -> int:
+    if ratio >= _LOW_QUALITY_APOSTROPHE_FRAGMENT_RATIO:
+        return 2
+    if ratio >= _MEDIUM_QUALITY_APOSTROPHE_FRAGMENT_RATIO:
+        return 1
+    return 0
+
+
+def _penalty_for_candidate_ambiguity(
+    near_best_count: int,
+    gap: float | None,
+    similarity: float | None,
+) -> int:
+    if near_best_count < 2 or gap is None or similarity is None:
+        return 0
+    if (
+        gap <= _HIGH_AMBIGUITY_CANDIDATE_SCORE_GAP
+        and similarity < _HIGH_AMBIGUITY_CANDIDATE_TEXT_SIMILARITY
+    ):
+        return 2
+    if similarity < _AMBIGUOUS_CANDIDATE_TEXT_SIMILARITY:
+        return 1
+    return 0
 
 
 def _classify_page_quality_tier(
@@ -3568,47 +4071,22 @@ def _classify_page_quality_tier(
     candidate_best_alt_score_gap: float | None,
     candidate_best_alt_text_similarity: float | None,
 ) -> str:
-    penalty = 0
-    if word_count == 0:
-        penalty += 3
-    if selection_score < _LOW_QUALITY_SELECTION_SCORE:
-        penalty += 2
-    elif selection_score < _MEDIUM_QUALITY_SELECTION_SCORE:
-        penalty += 1
-    if hocr_low_confidence_ratio is not None:
-        if hocr_low_confidence_ratio >= _LOW_QUALITY_LOW_CONFIDENCE_RATIO:
-            penalty += 2
-        elif hocr_low_confidence_ratio >= _MEDIUM_QUALITY_LOW_CONFIDENCE_RATIO:
-            penalty += 1
-    if hocr_confidence_mean is not None:
-        if hocr_confidence_mean < 75.0:
-            penalty += 2
-        elif hocr_confidence_mean < 88.0:
-            penalty += 1
-    if noise_ratio >= _LOW_QUALITY_NOISE_RATIO:
-        penalty += 2
-    elif noise_ratio >= _MEDIUM_QUALITY_NOISE_RATIO:
-        penalty += 1
-    if single_char_fragment_ratio >= _LOW_QUALITY_SINGLE_CHAR_FRAGMENT_RATIO:
-        penalty += 2
-    elif single_char_fragment_ratio >= _MEDIUM_QUALITY_SINGLE_CHAR_FRAGMENT_RATIO:
-        penalty += 1
-    if apostrophe_fragment_ratio >= _LOW_QUALITY_APOSTROPHE_FRAGMENT_RATIO:
-        penalty += 2
-    elif apostrophe_fragment_ratio >= _MEDIUM_QUALITY_APOSTROPHE_FRAGMENT_RATIO:
-        penalty += 1
-    if (
-        candidate_near_best_family_count >= 2
-        and candidate_best_alt_score_gap is not None
-        and candidate_best_alt_text_similarity is not None
-    ):
-        if (
-            candidate_best_alt_score_gap <= _HIGH_AMBIGUITY_CANDIDATE_SCORE_GAP
-            and candidate_best_alt_text_similarity < _HIGH_AMBIGUITY_CANDIDATE_TEXT_SIMILARITY
-        ):
-            penalty += 2
-        elif candidate_best_alt_text_similarity < _AMBIGUOUS_CANDIDATE_TEXT_SIMILARITY:
-            penalty += 1
+    penalty = sum(
+        (
+            _penalty_for_word_count(word_count),
+            _penalty_for_selection_score(selection_score),
+            _penalty_for_low_confidence_ratio(hocr_low_confidence_ratio),
+            _penalty_for_confidence_mean(hocr_confidence_mean),
+            _penalty_for_noise_ratio(noise_ratio),
+            _penalty_for_single_char_fragment_ratio(single_char_fragment_ratio),
+            _penalty_for_apostrophe_fragment_ratio(apostrophe_fragment_ratio),
+            _penalty_for_candidate_ambiguity(
+                candidate_near_best_family_count,
+                candidate_best_alt_score_gap,
+                candidate_best_alt_text_similarity,
+            ),
+        )
+    )
     if page_type in {"front-matter", "back-matter", "sparse"} and dense_body_line_count <= 1:
         penalty = max(0, penalty - 1)
     if penalty >= 4:
@@ -3616,6 +4094,75 @@ def _classify_page_quality_tier(
     if penalty >= 2:
         return "medium"
     return "high"
+
+
+def _coerce_candidate_fields(selection_metadata: dict[str, object]) -> dict[str, float | int | None]:
+    raw_confidence_mean = selection_metadata.get("hocr_confidence_mean")
+    raw_low_confidence_ratio = selection_metadata.get("hocr_low_confidence_ratio")
+    raw_candidate_near_best_family_count = selection_metadata.get("candidate_near_best_family_count")
+    raw_candidate_best_alt_score_gap = selection_metadata.get("candidate_best_alt_score_gap")
+    raw_candidate_best_alt_text_similarity = selection_metadata.get("candidate_best_alt_text_similarity")
+    return {
+        "hocr_confidence_mean": (
+            float(raw_confidence_mean)
+            if isinstance(raw_confidence_mean, (int, float))
+            else None
+        ),
+        "hocr_low_confidence_ratio": (
+            float(raw_low_confidence_ratio)
+            if isinstance(raw_low_confidence_ratio, (int, float))
+            else None
+        ),
+        "candidate_near_best_family_count": (
+            int(raw_candidate_near_best_family_count)
+            if isinstance(raw_candidate_near_best_family_count, int)
+            else 0
+        ),
+        "candidate_best_alt_score_gap": (
+            float(raw_candidate_best_alt_score_gap)
+            if isinstance(raw_candidate_best_alt_score_gap, (int, float))
+            else None
+        ),
+        "candidate_best_alt_text_similarity": (
+            float(raw_candidate_best_alt_text_similarity)
+            if isinstance(raw_candidate_best_alt_text_similarity, (int, float))
+            else None
+        ),
+    }
+
+
+def _page_line_metrics(
+    classified_entries: list[dict[str, object]],
+) -> tuple[int, int, int]:
+    line_count = len(classified_entries)
+    dense_body_line_count = sum(
+        1 for entry in classified_entries if len(str(entry["text"]).split()) >= 6
+    )
+    chapter_marker_count = sum(
+        1 for entry in classified_entries if _is_probable_chapter_marker(str(entry["text"]))
+    )
+    return line_count, dense_body_line_count, chapter_marker_count
+
+
+def _page_analysis_optional_metadata(
+    candidate_near_best_family_count: int,
+    candidate_best_alt_score_gap: float | None,
+    candidate_best_alt_text_similarity: float | None,
+    chapter_marker_count: int,
+) -> dict[str, object]:
+    metadata: dict[str, object] = {}
+    if candidate_near_best_family_count:
+        metadata["page_candidate_near_best_family_count"] = candidate_near_best_family_count
+    if candidate_best_alt_score_gap is not None:
+        metadata["page_candidate_best_alt_score_gap"] = round(candidate_best_alt_score_gap, 3)
+    if candidate_best_alt_text_similarity is not None:
+        metadata["page_candidate_best_alt_text_similarity"] = round(
+            candidate_best_alt_text_similarity,
+            4,
+        )
+    if chapter_marker_count:
+        metadata["page_chapter_marker_count"] = chapter_marker_count
+    return metadata
 
 
 def _page_route(page_type: str, quality_tier: str) -> str:
@@ -3637,47 +4184,17 @@ def _page_analysis_metadata(
 ) -> dict[str, object]:
     classified_entries = _classify_layout_entries(text, selection_metadata)
     region_counts = Counter(str(entry["region"]) for entry in classified_entries)
-    line_count = len(classified_entries)
+    line_count, dense_body_line_count, chapter_marker_count = _page_line_metrics(classified_entries)
     word_count = len([word for word in text.split() if word])
-    dense_body_line_count = sum(
-        1 for entry in classified_entries if len(str(entry["text"]).split()) >= 6
-    )
-    chapter_marker_count = sum(
-        1 for entry in classified_entries if _is_probable_chapter_marker(str(entry["text"]))
-    )
     noise_ratio = _page_text_noise_ratio(text)
     artifact_metrics = _page_ocr_artifact_metrics(text)
     selection_score = float(selection_metadata.get("selection_score", 0.0))
-    raw_confidence_mean = selection_metadata.get("hocr_confidence_mean")
-    hocr_confidence_mean = (
-        float(raw_confidence_mean)
-        if isinstance(raw_confidence_mean, (int, float))
-        else None
-    )
-    raw_low_confidence_ratio = selection_metadata.get("hocr_low_confidence_ratio")
-    hocr_low_confidence_ratio = (
-        float(raw_low_confidence_ratio)
-        if isinstance(raw_low_confidence_ratio, (int, float))
-        else None
-    )
-    raw_candidate_near_best_family_count = selection_metadata.get("candidate_near_best_family_count")
-    candidate_near_best_family_count = (
-        int(raw_candidate_near_best_family_count)
-        if isinstance(raw_candidate_near_best_family_count, int)
-        else 0
-    )
-    raw_candidate_best_alt_score_gap = selection_metadata.get("candidate_best_alt_score_gap")
-    candidate_best_alt_score_gap = (
-        float(raw_candidate_best_alt_score_gap)
-        if isinstance(raw_candidate_best_alt_score_gap, (int, float))
-        else None
-    )
-    raw_candidate_best_alt_text_similarity = selection_metadata.get("candidate_best_alt_text_similarity")
-    candidate_best_alt_text_similarity = (
-        float(raw_candidate_best_alt_text_similarity)
-        if isinstance(raw_candidate_best_alt_text_similarity, (int, float))
-        else None
-    )
+    candidate_fields = _coerce_candidate_fields(selection_metadata)
+    hocr_confidence_mean = candidate_fields["hocr_confidence_mean"]
+    hocr_low_confidence_ratio = candidate_fields["hocr_low_confidence_ratio"]
+    candidate_near_best_family_count = int(candidate_fields["candidate_near_best_family_count"] or 0)
+    candidate_best_alt_score_gap = candidate_fields["candidate_best_alt_score_gap"]
+    candidate_best_alt_text_similarity = candidate_fields["candidate_best_alt_text_similarity"]
     page_type = _classify_page_type(
         page_index=page_index,
         total_pages=total_pages,
@@ -3712,18 +4229,34 @@ def _page_analysis_metadata(
         "page_single_char_fragment_ratio": round(float(artifact_metrics["single_char_fragment_ratio"]), 4),
         "page_apostrophe_fragment_ratio": round(float(artifact_metrics["apostrophe_fragment_ratio"]), 4),
     }
-    if candidate_near_best_family_count:
-        metadata["page_candidate_near_best_family_count"] = candidate_near_best_family_count
-    if candidate_best_alt_score_gap is not None:
-        metadata["page_candidate_best_alt_score_gap"] = round(candidate_best_alt_score_gap, 3)
-    if candidate_best_alt_text_similarity is not None:
-        metadata["page_candidate_best_alt_text_similarity"] = round(
+    metadata.update(
+        _page_analysis_optional_metadata(
+            candidate_near_best_family_count,
+            candidate_best_alt_score_gap,
             candidate_best_alt_text_similarity,
-            4,
+            chapter_marker_count,
         )
-    if chapter_marker_count:
-        metadata["page_chapter_marker_count"] = chapter_marker_count
+    )
     return metadata
+
+
+def _validate_llm_correction(
+    corrected_text: str,
+    original_text: str,
+    options: OCRRunOptions,
+) -> tuple[bool, dict[str, object]]:
+    original_word_count = len([word for word in original_text.split() if word])
+    corrected_word_count = len([word for word in corrected_text.split() if word])
+    word_delta_ratio = abs(corrected_word_count - original_word_count) / max(1, original_word_count)
+    if word_delta_ratio > options.core.llm_max_word_delta_ratio:
+        return False, {
+            "llm_post_correction": "rejected-word-delta",
+            "llm_word_delta_ratio": word_delta_ratio,
+        }
+    return True, {
+        "llm_post_correction": "applied",
+        "llm_word_delta_ratio": word_delta_ratio,
+    }
 
 
 def _maybe_apply_layout_region_detection(
@@ -3781,18 +4314,10 @@ def _maybe_apply_llm_post_correction(
     corrected_text = corrected_text.strip()
     if not corrected_text or corrected_text == text:
         return text, {"llm_post_correction": "no-change"}
-    original_word_count = len([word for word in text.split() if word])
-    corrected_word_count = len([word for word in corrected_text.split() if word])
-    word_delta_ratio = abs(corrected_word_count - original_word_count) / max(1, original_word_count)
-    if word_delta_ratio > options.core.llm_max_word_delta_ratio:
-        return text, {
-            "llm_post_correction": "rejected-word-delta",
-            "llm_word_delta_ratio": word_delta_ratio,
-        }
-    return corrected_text, {
-        "llm_post_correction": "applied",
-        "llm_word_delta_ratio": word_delta_ratio,
-    }
+    accepted, metadata = _validate_llm_correction(corrected_text, text, options)
+    if not accepted:
+        return text, metadata
+    return corrected_text, metadata
 
 
 def _update_metadata_if_present(
@@ -4111,6 +4636,61 @@ def _maybe_retry_targeted_page(
     return ocr_input_path, text, resolved_metadata
 
 
+def _ocr_results_mode_usage_from_resumed(
+    page_details: list[dict[str, object]],
+) -> tuple[Counter[str], Counter[str]]:
+    mode_usage: Counter[str] = Counter()
+    tesseract_psm_usage: Counter[str] = Counter()
+    for entry in page_details:
+        _record_page_ocr_entry(entry, mode_usage, tesseract_psm_usage)
+    return mode_usage, tesseract_psm_usage
+
+
+def _record_page_ocr_entry(
+    entry: dict[str, object],
+    mode_usage: Counter[str],
+    tesseract_psm_usage: Counter[str],
+) -> None:
+    selected_mode = entry.get("selected_preprocess_mode")
+    if isinstance(selected_mode, str):
+        mode_usage[selected_mode] += 1
+    selected_psm = entry.get("tesseract_psm")
+    if isinstance(selected_psm, int):
+        tesseract_psm_usage[str(selected_psm)] += 1
+
+
+def _write_page_progress(
+    options: OCRRunOptions,
+    artifacts_dir: Path,
+    page_details: list[dict[str, object]],
+    total_pages: int,
+    page_index: int,
+    started_at: float,
+) -> None:
+    status = "complete" if page_index >= total_pages else "running"
+    current_page_index = page_index + 1 if page_index < total_pages else None
+    if options.emit_page_artifacts:
+        _write_page_artifacts_manifest(
+            artifacts_dir,
+            page_details,
+            total_pages,
+            status=status,
+            current_page_index=current_page_index,
+            started_at=started_at,
+        )
+    _emit_progress(
+        options.progress_callback,
+        _timed_page_progress_payload(
+            stage="ocr",
+            total_pages=total_pages,
+            completed_pages=page_index,
+            status=status,
+            current_page_index=current_page_index,
+            started_at=started_at,
+        ),
+    )
+
+
 def _collect_page_ocr_results(
     page_images: list[Path],
     options: OCRRunOptions,
@@ -4128,35 +4708,15 @@ def _collect_page_ocr_results(
         if options.ocr_engine in {"paddleocr", "ensemble"}
         else None
     )
-    mode_usage: Counter[str] = Counter()
-    tesseract_psm_usage: Counter[str] = Counter()
-    for entry in page_details:
-        selected_mode = entry.get("selected_preprocess_mode")
-        if isinstance(selected_mode, str):
-            mode_usage[selected_mode] += 1
-        selected_psm = entry.get("tesseract_psm")
-        if isinstance(selected_psm, int):
-            tesseract_psm_usage[str(selected_psm)] += 1
+    mode_usage, tesseract_psm_usage = _ocr_results_mode_usage_from_resumed(page_details)
     total_pages = len(page_images)
-    if options.emit_page_artifacts:
-        _write_page_artifacts_manifest(
-            artifacts_dir,
-            page_details,
-            total_pages,
-            status="complete" if len(page_texts) >= total_pages else "running",
-            current_page_index=len(page_texts) + 1 if len(page_texts) < total_pages else None,
-            started_at=started_at,
-        )
-    _emit_progress(
-        options.progress_callback,
-        _timed_page_progress_payload(
-            stage="ocr",
-            total_pages=total_pages,
-            completed_pages=len(page_texts),
-            status="complete" if len(page_texts) >= total_pages else "running",
-            current_page_index=len(page_texts) + 1 if len(page_texts) < total_pages else None,
-            started_at=started_at,
-        ),
+    _write_page_progress(
+        options,
+        artifacts_dir,
+        page_details,
+        total_pages,
+        len(page_texts),
+        started_at,
     )
     for image_path in page_images[len(page_texts) :]:
         ocr_input_path, text, selection_metadata = _run_ocr_on_page(
@@ -4197,36 +4757,19 @@ def _collect_page_ocr_results(
         selection_metadata.pop("hocr_line_entries_runtime", None)
         page_texts.append(text)
         entry = _page_entry(page_index, image_path, ocr_input_path, text, selection_metadata)
-        selected_mode = entry.get("selected_preprocess_mode")
-        if isinstance(selected_mode, str):
-            mode_usage[selected_mode] += 1
-        selected_psm = entry.get("tesseract_psm")
-        if isinstance(selected_psm, int):
-            tesseract_psm_usage[str(selected_psm)] += 1
+        _record_page_ocr_entry(entry, mode_usage, tesseract_psm_usage)
         if options.emit_page_artifacts:
-            text_path = artifacts_dir / f"page-{page_index:04d}.txt"
+            text_path = _page_artifact_text_path(artifacts_dir, page_index)
             text_path.write_text(text, encoding="utf-8")
             entry["text_path"] = str(text_path)
         page_details.append(entry)
-        if options.emit_page_artifacts:
-            _write_page_artifacts_manifest(
-                artifacts_dir,
-                page_details,
-                total_pages,
-                status="complete" if page_index >= total_pages else "running",
-                current_page_index=page_index + 1 if page_index < total_pages else None,
-                started_at=started_at,
-            )
-        _emit_progress(
-            options.progress_callback,
-            _timed_page_progress_payload(
-                stage="ocr",
-                total_pages=total_pages,
-                completed_pages=page_index,
-                status="complete" if page_index >= total_pages else "running",
-                current_page_index=page_index + 1 if page_index < total_pages else None,
-                started_at=started_at,
-            ),
+        _write_page_progress(
+            options,
+            artifacts_dir,
+            page_details,
+            total_pages,
+            page_index,
+            started_at,
         )
     selection_summary: dict[str, object] = {
         "mode_usage": dict(mode_usage),
