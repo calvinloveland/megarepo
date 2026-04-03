@@ -2,7 +2,6 @@
 
 import math
 import pymunk
-import pytest
 from unittest.mock import patch
 
 from vroomon.car.frame.rectangle import Rectangle, create_box_with_offset
@@ -140,8 +139,6 @@ def test_rectangle_mutate():
     
     rect = Rectangle(body, pos, 10.0, 5.0)
     original_color = rect.polygon.color
-    original_length = rect.length
-    original_height = rect.height
     
     rect.mutate()
     

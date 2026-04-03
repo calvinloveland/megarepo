@@ -130,13 +130,13 @@ class TestReproduceNaNIssue(unittest.TestCase):
                 
                 # Check for NaN/inf
                 if math.isnan(rate):
-                    print(f"  ERROR: Motor rate is NaN!")
+                    print("  ERROR: Motor rate is NaN!")
                 if math.isnan(max_force):
-                    print(f"  ERROR: Motor max_force is NaN!")
+                    print("  ERROR: Motor max_force is NaN!")
                 if math.isinf(rate):
-                    print(f"  ERROR: Motor rate is infinite!")
+                    print("  ERROR: Motor rate is infinite!")
                 if math.isinf(max_force):
-                    print(f"  ERROR: Motor max_force is infinite!")
+                    print("  ERROR: Motor max_force is infinite!")
                     
             except Exception as e:
                 print(f"  Exception during wheel creation: {e}")
@@ -186,8 +186,8 @@ class TestReproduceNaNIssue(unittest.TestCase):
                 print(f"  Configuration {i} failed: {e}")
                 # Log pygame-specific errors but don't fail the test
                 if "center argument must be a pair of numbers" in str(e):
-                    print(f"  *** FOUND THE PYGAME ERROR! ***")
-                    print(f"  This suggests NaN coordinates are reaching pygame")
+                    print("  *** FOUND THE PYGAME ERROR! ***")
+                    print("  This suggests NaN coordinates are reaching pygame")
                 else:
                     # For other errors, we want to know about them
                     self.fail(f"Unexpected error in config {i}: {e}")

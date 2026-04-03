@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import importlib
 import os
 import re
 import sys
@@ -21,8 +22,10 @@ for shared_src_root in SHARED_SRC_ROOT_CANDIDATES:
             sys.path.insert(0, str(shared_src_root))
         break
 
-from web_feedback import enable_shared_feedback, feedback_storage_paths
+web_feedback = importlib.import_module("web_feedback")
 
+enable_shared_feedback = web_feedback.enable_shared_feedback
+feedback_storage_paths = web_feedback.feedback_storage_paths
 FEEDBACK_DIR, ADDRESSED_DIR = feedback_storage_paths(PROJECT_ROOT)
 
 ACTION_KEYWORDS = (

@@ -1,7 +1,6 @@
 """Comprehensive tests for game_state module."""
 from __future__ import annotations
 
-import pytest
 
 from holdem_together.game_state import (
     make_bot_visible_state,

@@ -59,7 +59,7 @@ class TestMotorConfigurationBug(unittest.TestCase):
                         if math.isnan(vel.x) or math.isnan(vel.y):
                             self.fail(f"Velocity became NaN at step {step} with {config['name']}: {vel}")
                     
-                    print(f"  Configuration survived 20 simulation steps")
+                    print("  Configuration survived 20 simulation steps")
                     
                 except Exception as e:
                     print(f"  Configuration failed with exception: {e}")

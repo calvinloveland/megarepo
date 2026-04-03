@@ -1,7 +1,6 @@
 """Command-line interface for bingo probability solver."""
 
 import argparse
-import sys
 
 import numpy as np
 
@@ -136,7 +135,7 @@ def _run_comparison(board: BingoBoard, samples: int, seed: int | None) -> None:
         print(f"  Probability: {ie['probability']:.6f} (exact)")
         print(f"  Time: {ie['time_seconds']*1000:.2f} ms")
 
-        print(f"\nComparison:")
+        print("\nComparison:")
         print(f"  Absolute difference: {results['difference']:.2e}")
         print(f"  MC within 1σ of exact: {'✓' if results['mc_within_1_std'] else '✗'}")
         print(f"  MC within 2σ of exact: {'✓' if results['mc_within_2_std'] else '✗'}")

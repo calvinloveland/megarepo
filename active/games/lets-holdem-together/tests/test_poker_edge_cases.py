@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
 from holdem_together.engine import TableConfig, simulate_hand, _compute_side_pots
 from holdem_together.game_state import make_bot_visible_state
 
@@ -223,9 +222,6 @@ class TestAllInShowdown:
             bot_decide=_always_all_in,
             make_state_for_actor=make_bot_visible_state,
         )
-        
-        # Count action types
-        action_types = [a.get("type") for a in hr.actions]
         
         # After all-in, there shouldn't be any check/call/fold actions on later streets
         # (Only preflop has the all-in raises)

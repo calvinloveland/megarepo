@@ -1,9 +1,7 @@
 """Background task cog for assigning/removing roles and channel permissions based on Rally balances."""
 
-import json
 import threading
 
-import discord
 from discord.ext import commands, tasks
 from discord.utils import get
 

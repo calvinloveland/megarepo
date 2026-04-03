@@ -38,3 +38,6 @@ exclude = [
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/copilot_lint_fixer"]
+
+[tool.ruff.lint.per-file-ignores]
+"fixtures/*.py" = ["F401", "F841"]

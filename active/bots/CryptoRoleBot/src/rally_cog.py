@@ -1,11 +1,7 @@
-import json
 
-import discord
-from discord.ext import commands, tasks
-from discord.utils import get
+from discord.ext import commands
 
 import data
-import rally_api
 from base_cog import BaseCog
 
 

@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from holdem_together.app import create_app
-from holdem_together.db import Bot, BotVersion, Match, MatchResult, Rating, User, db
+from holdem_together.db import Bot, BotVersion, Match, Rating, User, db
 
 
 @pytest.fixture

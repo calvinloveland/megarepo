@@ -1,3 +1,4 @@
+import importlib
 import sys
 from pathlib import Path
 
@@ -5,7 +6,9 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SRC_ROOT = PROJECT_ROOT / "src"
 sys.path.insert(0, str(SRC_ROOT))
 
-from copilot_lint_fixer.copilot_client import extract_updated_file
+extract_updated_file = importlib.import_module(
+    "copilot_lint_fixer.copilot_client"
+).extract_updated_file
 
 
 def test_extract_updated_file_from_json():

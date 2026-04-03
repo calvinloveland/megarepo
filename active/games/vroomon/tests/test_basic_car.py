@@ -27,7 +27,7 @@ def test_car_with_visualization():
 def test_car_with_empty_dna():
     empty_dna = {"frame": [], "powertrain": []}
     try:
-        car = Car(empty_dna)
+        Car(empty_dna)
         assert False, "Car with empty DNA should raise a ValueError"
     except ValueError as e:
         assert "Frame must have at least one part" in str(e)

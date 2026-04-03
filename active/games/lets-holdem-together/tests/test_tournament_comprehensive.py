@@ -297,12 +297,6 @@ class TestRunMatchStackProgression:
             bot_decide=_always_check_or_call,
             make_state_for_actor=make_bot_visible_state,
         )
-        # Each hand's final stacks should be next hand's starting stacks
-        for i in range(len(result.hand_results) - 1):
-            current = result.hand_results[i].final_stacks
-            # The engine uses these as initial stacks for next hand
-            # We can't directly verify, but ensure continuity through final result
-        
         # Final match stacks should equal last hand's final stacks
         assert result.final_stacks == result.hand_results[-1].final_stacks
 

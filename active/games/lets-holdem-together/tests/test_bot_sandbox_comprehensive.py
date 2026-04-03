@@ -1,14 +1,11 @@
 """Comprehensive tests for bot_sandbox module."""
 from __future__ import annotations
 
-import pytest
 
 from holdem_together.bot_sandbox import (
-    BotRunResult,
     run_bot_action,
     run_bot_action_fast,
     validate_bot_code,
-    _ALLOWED_IMPORTS,
 )
 from holdem_together.game_state import make_bot_visible_state
 

@@ -121,8 +121,8 @@ class TestPygameNaNCoordinates(unittest.TestCase):
                     
                     # Check for problematic combinations
                     if motor.rate == 0 and motor.max_force > 0:
-                        print(f"    WARNING: Zero rate with non-zero force detected!")
-                        print(f"    This combination may cause physics instability")
+                        print("    WARNING: Zero rate with non-zero force detected!")
+                        print("    This combination may cause physics instability")
 
     def test_pygame_drawing_with_known_nan_values(self):
         """Test pygame drawing functions with known NaN values to reproduce the error."""

@@ -195,7 +195,7 @@ class TestCarReproduction(unittest.TestCase):
         for seed in range(100):
             random.seed(seed)
             try:
-                child = Car.reproduce(long_car, short_car)
+                Car.reproduce(long_car, short_car)
                 print(f"Seed {seed}: Reproduction succeeded")
             except IndexError as e:
                 print(f"Seed {seed}: IndexError caught: {e}")
@@ -207,7 +207,6 @@ class TestCarReproduction(unittest.TestCase):
     def test_manual_reproduction_simulation(self):
         """Manually simulate the reproduction logic to show the bug."""
         import copy
-        import random
         
         # Create test cars
         short_car_dna = {

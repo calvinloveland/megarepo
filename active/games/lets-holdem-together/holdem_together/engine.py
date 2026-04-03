@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from .game_state import normalize_action
-from .poker_eval import best_of_7, compare_best_of_7
+from .poker_eval import compare_best_of_7
 
 
 @dataclass(frozen=True)

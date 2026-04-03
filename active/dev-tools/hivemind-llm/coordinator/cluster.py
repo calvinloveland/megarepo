@@ -16,7 +16,6 @@ from models import (
     ModelConfig,
     get_best_model_for_capacity,
     calculate_layer_distribution,
-    MODEL_REGISTRY,
 )
 
 

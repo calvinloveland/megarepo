@@ -78,22 +78,30 @@ class TestNextActiveSeat:
     """Tests for finding next active seat."""
 
     def test_finds_next_seat(self):
-        active = lambda s: s in [0, 2, 4]
+        def active(seat: int) -> bool:
+            return seat in [0, 2, 4]
+
         result = _next_active_seat(6, 0, active)
         assert result == 2
 
     def test_wraps_around(self):
-        active = lambda s: s in [0, 1]
+        def active(seat: int) -> bool:
+            return seat in [0, 1]
+
         result = _next_active_seat(6, 5, active)
         assert result == 0
 
     def test_no_active_seat(self):
-        active = lambda s: False
+        def active(_seat: int) -> bool:
+            return False
+
         result = _next_active_seat(6, 0, active)
         assert result is None
 
     def test_single_active(self):
-        active = lambda s: s == 3
+        def active(seat: int) -> bool:
+            return seat == 3
+
         result = _next_active_seat(6, 0, active)
         assert result == 3
 
@@ -288,8 +296,6 @@ class TestSimulateHandAllIn:
             bot_decide=_always_raise_max,
             make_state_for_actor=make_bot_visible_state,
         )
-        # At least one player should have gone all in
-        has_all_in = any(stack == 0 for stack in result.final_stacks)
         # The hand should complete normally
         assert sum(result.final_stacks) == cfg.starting_stack * cfg.seats
 

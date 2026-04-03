@@ -105,14 +105,14 @@ class TestPhysicsDebug(unittest.TestCase):
                 print(f"  Adding body to space: {body}")
                 try:
                     space.add(body)
-                    print(f"  Body added successfully")
+                    print("  Body added successfully")
                 except Exception as e:
                     self.fail(f"Failed to add body to space: {e}")
             
             print(f"  Adding shape to space: {shape}")
             try:
                 space.add(shape)
-                print(f"  Shape added successfully")
+                print("  Shape added successfully")
             except Exception as e:
                 self.fail(f"Failed to add shape to space: {e}")
 

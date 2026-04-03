@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import importlib
 import json
 import logging
 import os
@@ -39,8 +40,10 @@ for shared_src_root in SHARED_SRC_ROOT_CANDIDATES:
             sys.path.insert(0, str(shared_src_root))
         break
 
-from web_feedback import enable_shared_feedback, feedback_storage_paths
+web_feedback = importlib.import_module("web_feedback")
 
+enable_shared_feedback = web_feedback.enable_shared_feedback
+feedback_storage_paths = web_feedback.feedback_storage_paths
 DEFAULT_ROWS = 4
 DEFAULT_COLS = 5
 DEFAULT_DESIGN = "design_1"
@@ -649,7 +652,6 @@ def _pinned_entry_identity_error(
     entry: Dict[str, object], context: PinValidationContext
 ) -> Tuple[Optional[str], Optional[int], Optional[int], str]:
     row_index, col_index = _parse_pin_coordinates(entry)
-    seat: Optional[Tuple[int, int]] = None
     student_name = str(entry.get("name", "")).strip()
     if row_index is None or col_index is None:
         return "Ignored a pinned seat entry with invalid coordinates.", None, None, ""

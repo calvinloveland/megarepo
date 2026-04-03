@@ -2,9 +2,7 @@ import json
 import threading
 import time
 from contextlib import contextmanager
-from pathlib import Path
 
-import pytest
 from playwright.sync_api import expect
 from werkzeug.serving import make_server
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import importlib
 import os
 import sys
 from pathlib import Path
@@ -20,8 +21,10 @@ for shared_src_root in SHARED_SRC_ROOT_CANDIDATES:
             sys.path.insert(0, str(shared_src_root))
         break
 
-from web_feedback import enable_shared_feedback, feedback_storage_paths
+web_feedback = importlib.import_module("web_feedback")
 
+enable_shared_feedback = web_feedback.enable_shared_feedback
+feedback_storage_paths = web_feedback.feedback_storage_paths
 FEEDBACK_DIR, ADDRESSED_DIR = feedback_storage_paths(PROJECT_ROOT)
 
 DEFAULT_FORM_DATA: Dict[str, str] = {

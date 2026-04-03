@@ -1,7 +1,6 @@
 """Comprehensive tests for ratings module - Elo calculations."""
 from __future__ import annotations
 
-import math
 import pytest
 
 from holdem_together.ratings import (

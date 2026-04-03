@@ -104,7 +104,7 @@ def test_score_car_nan_detection():
     
     # Mock math.isnan to always return True (simulating NaN detection)
     with patch('vroomon.simulation.math.isnan', return_value=True):
-        with patch('vroomon.simulation.logger') as mock_logger:
+        with patch('vroomon.simulation.logger'):
             score = sim.score_car(car, ground, visualize=True)
             # Should complete without error despite NaN
             assert isinstance(score, (int, float))
