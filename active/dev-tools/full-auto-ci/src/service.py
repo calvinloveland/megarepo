@@ -1086,7 +1086,7 @@ class CIService:
         repo = self.git_tracker.get_repository(repo_id)
         if not repo:
             logger.error("Repository %s not found", repo_id)
-            return {"status": "error", "error": f"Repository {repo_id} not found"}
+            return self._error_result(f"Repository {repo_id} not found")
 
         repo_url = self._coerce_repo_url(repo)
         include_working_tree, local_repo_path = self._resolve_working_tree_inclusion(
@@ -1193,7 +1193,7 @@ class CIService:
         if not local_repo_path:
             error_msg = "includeWorkingTree is only supported for local repository URLs"
             logger.error("%s (repo %s: %s)", error_msg, repo_id, repo_url)
-            return {"status": "error", "error": error_msg}
+            return self._error_result(error_msg)
 
         if not os.path.isdir(local_repo_path):
             error_msg = "Local repository path not found"
@@ -1204,7 +1204,7 @@ class CIService:
                 repo_url,
                 local_repo_path,
             )
-            return {"status": "error", "error": error_msg}
+            return self._error_result(error_msg)
 
         head = self._resolve_head_commit(local_repo_path)
         suffix = f"working-tree-{int(time.time())}"
@@ -1326,13 +1326,13 @@ class CIService:
             error_msg = f"Failed to clone repository {repo_id}"
             logger.error(error_msg)
             self._update_test_run(test_run_id, "error", error_msg)
-            return {"status": "error", "error": error_msg}
+            return self._error_result(error_msg)
 
         if not repo.checkout_commit(commit_hash):
             error_msg = f"Failed to checkout commit {commit_hash}"
             logger.error(error_msg)
             self._update_test_run(test_run_id, "error", error_msg)
-            return {"status": "error", "error": error_msg}
+            return self._error_result(error_msg)
 
         return None
 
@@ -1373,7 +1373,7 @@ class CIService:
                 exc,
             )
             self._update_test_run(test_run_id, "error", str(exc))
-            return {"status": "error", "error": str(exc)}
+            return self._error_result(str(exc))
 
     def _finalize_test_run(
         self,
@@ -1417,6 +1417,11 @@ class CIService:
         if warnings:
             formatted_results["warnings"] = warnings
         return formatted_results
+
+    @staticmethod
+    def _error_result(message: str) -> Dict[str, str]:
+        """Build a standard error-shaped response payload."""
+        return {"status": "error", "error": message}
 
     def add_repository(self, name: str, url: str, branch: str = "main") -> int:
         """Add a repository to monitor.
