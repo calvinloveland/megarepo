@@ -14,9 +14,13 @@ Create the runtime secret in the `openclaw` namespace before applying the deploy
 kubectl -n openclaw create secret generic openclaw-env \
   --from-literal=openrouter-api-key='<OPENROUTER_API_KEY>' \
   --from-literal=telegram-bot-token='<TELEGRAM_BOT_TOKEN>' \
+  --from-literal=brave-api-key='<BRAVE_API_KEY>' \
   --from-literal=hooks-token='<OPENCLAW_HOOKS_TOKEN>' \
+  --from-literal=searxng-base-url='http://searxng.example.internal:8080' \
   --dry-run=client -o yaml | kubectl apply -f -
 ```
+
+`brave-api-key` and `searxng-base-url` are optional. Omit either one if you do not want that extra search provider.
 
 ## Deploy
 
@@ -105,6 +109,28 @@ Fresh pod starts can take a couple of minutes before readiness goes green becaus
 The deployment keeps `openrouter/free` as the primary default model and configures `github-copilot/gpt-4.1` as the first fallback.
 
 The GitHub Copilot provider requires an interactive device login (`openclaw models auth login-github-copilot`) and stores the resulting auth profile in the persistent OpenClaw state. Once that profile exists on the PVC, restarts keep the fallback available.
+
+## Web search providers
+
+The deployment now defaults `web_search` to DuckDuckGo so the agent has a free search provider available out of the box.
+
+You can also expose the other upstream-documented free options:
+
+- `brave-api-key`: enables Brave Search with its free monthly credit tier
+- `searxng-base-url`: enables SearXNG if you already run a reachable JSON-enabled SearXNG instance
+
+DuckDuckGo remains the baked-in default on every pod start. If you want to switch providers live inside the running pod, use:
+
+```bash
+kubectl -n openclaw exec deploy/openclaw -- sh -lc '
+  export HOME=/data/home OPENCLAW_STATE_DIR=/data/.openclaw
+  openclaw config set tools.web.search.provider brave
+'
+```
+
+Replace `brave` with `duckduckgo` or `searxng` as needed. Because the deployment rewrites its baseline config at startup, those live changes are temporary; edit `k8s/openclaw.yaml` if you want a different persistent default.
+
+For SearXNG, make sure the instance behind `searxng-base-url` has the JSON API enabled (`search.formats` includes `json`) or OpenClaw search requests will fail.
 
 ## Notes
 

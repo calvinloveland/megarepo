@@ -80,22 +80,45 @@ spec:
               find /data/tmp -maxdepth 1 -type d -name 'org.chromium.Chromium.*' -exec rm -rf {} +
 
               cat > "$OPENCLAW_STATE_DIR/openclaw.json" <<'JSON'
-              {
-                "agents": {
-                  "defaults": {
-                    "model": {
-                      "primary": "openrouter/free"
-                    },
-                    "models": {
-                      "openrouter/free": {}
-                    }
-                  }
-                },
-                "gateway": {
-                  "mode": "local",
-                  "controlUi": {
-                    "allowedOrigins": [
-                      "http://127.0.0.1:18789",
+               {
+                 "agents": {
+                   "defaults": {
+                     "model": {
+                       "primary": "openrouter/free"
+                     },
+                     "models": {
+                       "openrouter/free": {}
+                     }
+                   }
+                 },
+                 "tools": {
+                   "web": {
+                     "search": {
+                       "enabled": true,
+                       "provider": "duckduckgo",
+                       "maxResults": 8,
+                       "timeoutSeconds": 30,
+                       "cacheTtlMinutes": 15
+                     }
+                   }
+                 },
+                 "plugins": {
+                   "entries": {
+                     "duckduckgo": {
+                       "config": {
+                         "webSearch": {
+                           "region": "us-en",
+                           "safeSearch": "moderate"
+                         }
+                       }
+                     }
+                   }
+                 },
+                 "gateway": {
+                   "mode": "local",
+                   "controlUi": {
+                     "allowedOrigins": [
+                       "http://127.0.0.1:18789",
                       "http://localhost:18789",
                       "https://thinker-openclaw.tail876a6b.ts.net:8443"
                     ]
@@ -187,6 +210,12 @@ spec:
                 secretKeyRef:
                   name: openclaw-env
                   key: openrouter-api-key
+            - name: BRAVE_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: openclaw-env
+                  key: brave-api-key
+                  optional: true
             - name: OPENCLAW_GATEWAY_TOKEN
               valueFrom:
                 secretKeyRef:
@@ -202,6 +231,12 @@ spec:
                 secretKeyRef:
                   name: openclaw-env
                   key: hooks-token
+            - name: SEARXNG_BASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: openclaw-env
+                  key: searxng-base-url
+                  optional: true
             - name: TZ
               value: UTC
           resources:
