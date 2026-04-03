@@ -67,152 +67,229 @@ def _make_progress_reporter(label: str) -> Callable[[dict[str, object]], None]:
     last_completed_by_stage: dict[str, int] = {}
 
     def _report(payload: dict[str, object]) -> None:
-        stage = str(payload.get("stage", ""))
         status = str(payload.get("status", ""))
-        if stage == "archive-compare":
-            message = payload.get("message")
-            if isinstance(message, str) and message:
-                _emit_progress(label, message)
+        if _handle_archive_compare_progress(label, payload):
             return
-        if stage == "rasterize":
-            total_pages = payload.get("total_pages")
-            completed_pages = payload.get("completed_pages")
-            if isinstance(total_pages, int) and isinstance(completed_pages, int):
-                last_completed = last_completed_by_stage.get(stage, -1)
-                should_print = _should_report_progress(
-                    status=status,
-                    completed=completed_pages,
-                    total=total_pages,
-                    last_completed=last_completed,
-                    min_increment=25,
-                )
-                if should_print:
-                    last_completed_by_stage[stage] = completed_pages
-                    if status == "complete":
-                        _emit_progress(
-                            label,
-                            "Rasterization complete "
-                            f"({completed_pages}/{total_pages} pages, "
-                            f"elapsed={_format_duration(payload.get('elapsed_seconds'))})",
-                        )
-                    else:
-                        current_page_index = payload.get("current_page_index")
-                        current_text = (
-                            f", current page={int(current_page_index)}"
-                            if isinstance(current_page_index, int)
-                            else ""
-                        )
-                        _emit_progress(
-                            label,
-                            f"Rasterized {completed_pages}/{total_pages} pages{current_text}, "
-                            f"elapsed={_format_duration(payload.get('elapsed_seconds'))}, "
-                            f"eta={_format_duration(payload.get('estimated_remaining_seconds'))}",
-                        )
-                return
-            message = payload.get("message")
-            if isinstance(message, str) and message:
-                _emit_progress(label, message)
+        if _handle_rasterize_progress(label, payload, status, last_completed_by_stage):
             return
-        if stage == "ocr-candidate":
-            candidate_index = payload.get("candidate_index")
-            candidate_total = payload.get("candidate_total")
-            current_page_index = payload.get("current_page_index")
-            preprocess_mode = payload.get("preprocess_mode")
-            tesseract_psm = payload.get("tesseract_psm")
-            retry_reason = payload.get("retry_reason")
-            if isinstance(candidate_index, int) and isinstance(candidate_total, int):
-                page_text = (
-                    f"page {int(current_page_index)} "
-                    if isinstance(current_page_index, int)
-                    else ""
-                )
-                preprocess_text = (
-                    str(preprocess_mode) if isinstance(preprocess_mode, str) else "unknown"
-                )
-                psm_text = str(tesseract_psm) if isinstance(tesseract_psm, str) else "unknown"
-                retry_text = (
-                    f"retry={retry_reason}, "
-                    if isinstance(retry_reason, str) and retry_reason
-                    else ""
-                )
-                _emit_progress(
-                    label,
-                    f"Evaluating {page_text}candidate {candidate_index}/{candidate_total} "
-                    f"({retry_text}mode={preprocess_text}, psm={psm_text}), "
-                    f"elapsed={_format_duration(payload.get('elapsed_seconds'))}",
-                )
+        if _handle_candidate_progress(label, payload):
             return
-        if stage in {"benchmark-corpus", "benchmark-streaming-corpus"}:
-            completed_items = int(payload.get("completed_items", 0))
-            total_items = int(payload.get("total_items", 0))
-            current_identifier = payload.get("current_identifier")
-            last_completed = last_completed_by_stage.get(stage, -1)
-            should_print = _should_report_progress(
-                status=status,
-                completed=completed_items,
-                total=total_items,
-                last_completed=last_completed,
-                min_increment=1,
-            )
-            if not should_print:
-                return
-            last_completed_by_stage[stage] = completed_items
-            noun = "books" if stage == "benchmark-corpus" else "samples"
-            current_text = (
-                f", current={current_identifier}"
-                if isinstance(current_identifier, str) and current_identifier
-                else ""
-            )
-            if status == "complete":
-                _emit_progress(
-                    label,
-                    f"Benchmark complete ({completed_items}/{total_items} {noun}, "
-                    f"elapsed={_format_duration(payload.get('elapsed_seconds'))})",
-                )
-                return
-            _emit_progress(
-                label,
-                f"Benchmarked {completed_items}/{total_items} {noun}{current_text}, "
-                f"elapsed={_format_duration(payload.get('elapsed_seconds'))}, "
-                f"eta={_format_duration(payload.get('estimated_remaining_seconds'))}",
-            )
+        if _handle_benchmark_progress(label, payload, status, last_completed_by_stage):
             return
-        if stage != "ocr":
-            return
-        completed_pages = int(payload.get("completed_pages", 0))
-        total_pages = int(payload.get("total_pages", 0))
-        current_page_index = payload.get("current_page_index")
-        last_completed = last_completed_by_stage.get(stage, -1)
-        should_print = _should_report_progress(
+        _handle_ocr_progress(label, payload, status, last_completed_by_stage)
+
+    return _report
+
+
+def _handle_archive_compare_progress(label: str, payload: dict[str, object]) -> bool:
+    if str(payload.get("stage", "")) != "archive-compare":
+        return False
+    message = payload.get("message")
+    if isinstance(message, str) and message:
+        _emit_progress(label, message)
+    return True
+
+
+def _handle_rasterize_progress(
+    label: str,
+    payload: dict[str, object],
+    status: str,
+    last_completed_by_stage: dict[str, int],
+) -> bool:
+    if str(payload.get("stage", "")) != "rasterize":
+        return False
+    total_pages = payload.get("total_pages")
+    completed_pages = payload.get("completed_pages")
+    if isinstance(total_pages, int) and isinstance(completed_pages, int):
+        if _should_emit_stage_progress(
             status=status,
             completed=completed_pages,
             total=total_pages,
-            last_completed=last_completed,
-            min_increment=10,
-        )
-        if not should_print:
-            return
-        last_completed_by_stage[stage] = completed_pages
-        if status == "complete":
+            stage="rasterize",
+            last_completed_by_stage=last_completed_by_stage,
+            min_increment=25,
+        ):
             _emit_progress(
                 label,
-                f"OCR complete ({completed_pages}/{total_pages} pages, "
-                f"elapsed={_format_duration(payload.get('elapsed_seconds'))})",
+                _rasterize_progress_message(
+                    payload, status=status, completed_pages=completed_pages, total_pages=total_pages
+                ),
             )
-            return
-        current_text = (
-            f", current page={int(current_page_index)}"
-            if isinstance(current_page_index, int)
-            else ""
+        return True
+    message = payload.get("message")
+    if isinstance(message, str) and message:
+        _emit_progress(label, message)
+    return True
+
+
+def _rasterize_progress_message(
+    payload: dict[str, object], *, status: str, completed_pages: int, total_pages: int
+) -> str:
+    if status == "complete":
+        return (
+            "Rasterization complete "
+            f"({completed_pages}/{total_pages} pages, "
+            f"elapsed={_format_duration(payload.get('elapsed_seconds'))})"
         )
+    return (
+        f"Rasterized {completed_pages}/{total_pages} pages"
+        f"{_current_page_suffix(payload.get('current_page_index'))}, "
+        f"elapsed={_format_duration(payload.get('elapsed_seconds'))}, "
+        f"eta={_format_duration(payload.get('estimated_remaining_seconds'))}"
+    )
+
+
+def _handle_candidate_progress(label: str, payload: dict[str, object]) -> bool:
+    if str(payload.get("stage", "")) != "ocr-candidate":
+        return False
+    candidate_index = payload.get("candidate_index")
+    candidate_total = payload.get("candidate_total")
+    if isinstance(candidate_index, int) and isinstance(candidate_total, int):
+        _emit_progress(label, _candidate_progress_message(payload, candidate_index, candidate_total))
+    return True
+
+
+def _candidate_progress_message(
+    payload: dict[str, object], candidate_index: int, candidate_total: int
+) -> str:
+    current_page_index = payload.get("current_page_index")
+    page_text = f"page {int(current_page_index)} " if isinstance(current_page_index, int) else ""
+    preprocess_mode = payload.get("preprocess_mode")
+    preprocess_text = str(preprocess_mode) if isinstance(preprocess_mode, str) else "unknown"
+    tesseract_psm = payload.get("tesseract_psm")
+    psm_text = str(tesseract_psm) if isinstance(tesseract_psm, str) else "unknown"
+    retry_reason = payload.get("retry_reason")
+    retry_text = (
+        f"retry={retry_reason}, " if isinstance(retry_reason, str) and retry_reason else ""
+    )
+    return (
+        f"Evaluating {page_text}candidate {candidate_index}/{candidate_total} "
+        f"({retry_text}mode={preprocess_text}, psm={psm_text}), "
+        f"elapsed={_format_duration(payload.get('elapsed_seconds'))}"
+    )
+
+
+def _handle_benchmark_progress(
+    label: str,
+    payload: dict[str, object],
+    status: str,
+    last_completed_by_stage: dict[str, int],
+) -> bool:
+    stage = str(payload.get("stage", ""))
+    if stage not in {"benchmark-corpus", "benchmark-streaming-corpus"}:
+        return False
+    completed_items = int(payload.get("completed_items", 0))
+    total_items = int(payload.get("total_items", 0))
+    if not _should_emit_stage_progress(
+        status=status,
+        completed=completed_items,
+        total=total_items,
+        stage=stage,
+        last_completed_by_stage=last_completed_by_stage,
+        min_increment=1,
+    ):
+        return True
+    _emit_progress(
+        label,
+        _benchmark_progress_message(
+            payload,
+            stage=stage,
+            status=status,
+            completed_items=completed_items,
+            total_items=total_items,
+        ),
+    )
+    return True
+
+
+def _benchmark_progress_message(
+    payload: dict[str, object],
+    *,
+    stage: str,
+    status: str,
+    completed_items: int,
+    total_items: int,
+) -> str:
+    noun = "books" if stage == "benchmark-corpus" else "samples"
+    if status == "complete":
+        return (
+            f"Benchmark complete ({completed_items}/{total_items} {noun}, "
+            f"elapsed={_format_duration(payload.get('elapsed_seconds'))})"
+        )
+    current_identifier = payload.get("current_identifier")
+    current_text = (
+        f", current={current_identifier}"
+        if isinstance(current_identifier, str) and current_identifier
+        else ""
+    )
+    return (
+        f"Benchmarked {completed_items}/{total_items} {noun}{current_text}, "
+        f"elapsed={_format_duration(payload.get('elapsed_seconds'))}, "
+        f"eta={_format_duration(payload.get('estimated_remaining_seconds'))}"
+    )
+
+
+def _handle_ocr_progress(
+    label: str,
+    payload: dict[str, object],
+    status: str,
+    last_completed_by_stage: dict[str, int],
+) -> None:
+    if str(payload.get("stage", "")) != "ocr":
+        return
+    completed_pages = int(payload.get("completed_pages", 0))
+    total_pages = int(payload.get("total_pages", 0))
+    if not _should_emit_stage_progress(
+        status=status,
+        completed=completed_pages,
+        total=total_pages,
+        stage="ocr",
+        last_completed_by_stage=last_completed_by_stage,
+        min_increment=10,
+    ):
+        return
+    if status == "complete":
         _emit_progress(
             label,
-            f"OCR {completed_pages}/{total_pages} pages complete{current_text}, "
-            f"elapsed={_format_duration(payload.get('elapsed_seconds'))}, "
-            f"eta={_format_duration(payload.get('estimated_remaining_seconds'))}",
+            f"OCR complete ({completed_pages}/{total_pages} pages, "
+            f"elapsed={_format_duration(payload.get('elapsed_seconds'))})",
         )
+        return
+    _emit_progress(
+        label,
+        f"OCR {completed_pages}/{total_pages} pages complete"
+        f"{_current_page_suffix(payload.get('current_page_index'))}, "
+        f"elapsed={_format_duration(payload.get('elapsed_seconds'))}, "
+        f"eta={_format_duration(payload.get('estimated_remaining_seconds'))}",
+    )
 
-    return _report
+
+def _should_emit_stage_progress(
+    *,
+    status: str,
+    completed: int,
+    total: int,
+    stage: str,
+    last_completed_by_stage: dict[str, int],
+    min_increment: int,
+) -> bool:
+    last_completed = last_completed_by_stage.get(stage, -1)
+    should_print = _should_report_progress(
+        status=status,
+        completed=completed,
+        total=total,
+        last_completed=last_completed,
+        min_increment=min_increment,
+    )
+    if should_print:
+        last_completed_by_stage[stage] = completed
+    return should_print
+
+
+def _current_page_suffix(current_page_index: object) -> str:
+    if isinstance(current_page_index, int):
+        return f", current page={int(current_page_index)}"
+    return ""
 
 
 def _build_parser() -> argparse.ArgumentParser:

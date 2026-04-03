@@ -625,39 +625,56 @@ def _is_toc_like_line(line: str) -> bool:
     tokens = [token.lower() for token in _TITLE_LINE_TOKEN.findall(line)]
     first_tokens = tokens[:2]
     page_number_count = len(_INLINE_PAGE_NUMBER.findall(line))
+    keyword_hint = _has_secondary_toc_keyword(lowered)
+    return any(
+        (
+            _has_structural_toc_hint(line, ends_with_page_number),
+            _has_keywordled_page_tail(ends_with_page_number, first_tokens),
+            _has_secondary_keyworded_page_tail(lowered, ends_with_page_number, keyword_hint),
+            _has_multiple_inline_page_numbers(page_number_count, keyword_hint),
+            _has_dot_leader_page_tail(line, has_digit),
+            _has_keyworded_dot_leader(page_number_count, line, keyword_hint),
+        )
+    )
+
+
+def _has_structural_toc_hint(line: str, ends_with_page_number: bool) -> bool:
     # TOC entries start with a structural keyword and end with a bare page number.
     # Requiring the page-number tail prevents false positives on body sentences like
     # "In chapter 5, the Count arrived." which contain a keyword + digit but don't
     # end with a standalone number.
-    if _TOC_HINT.search(line) and ends_with_page_number:
-        return True
-    if ends_with_page_number and any(_looks_like_toc_keyword(token) for token in first_tokens):
-        return True
-    # Secondary TOC keywords that can appear mid-line in table-of-contents context.
-    if (
-        ends_with_page_number
-        and any(keyword in lowered for keyword in ("contents", "diary", "journal", "phonograph"))
-        and len(lowered.split()) >= 3
-    ):
-        return True
-    if (
-        page_number_count >= 2
-        and any(keyword in lowered for keyword in ("contents", "diary", "journal", "phonograph"))
-    ):
-        return True
-    # Dot-leader pattern: catches OCR'd TOC entries like "Title ......... 47"
+    return bool(_TOC_HINT.search(line) and ends_with_page_number)
+
+
+def _has_keywordled_page_tail(ends_with_page_number: bool, first_tokens: list[str]) -> bool:
+    return ends_with_page_number and any(_looks_like_toc_keyword(token) for token in first_tokens)
+
+
+def _has_secondary_toc_keyword(lowered: str) -> bool:
+    return any(keyword in lowered for keyword in ("contents", "diary", "journal", "phonograph"))
+
+
+def _has_secondary_keyworded_page_tail(
+    lowered: str, ends_with_page_number: bool, keyword_hint: bool
+) -> bool:
+    # Secondary TOC keywords can appear mid-line in table-of-contents context.
+    return ends_with_page_number and keyword_hint and len(lowered.split()) >= 3
+
+
+def _has_multiple_inline_page_numbers(page_number_count: int, keyword_hint: bool) -> bool:
+    return page_number_count >= 2 and keyword_hint
+
+
+def _has_dot_leader_page_tail(line: str, has_digit: bool) -> bool:
+    # Dot-leader pattern catches OCR'd TOC entries like "Title ......... 47"
     # even when keywords like "Chapter" were garbled by OCR.
-    if has_digit and _DOT_LEADER_LINE.search(line):
-        return True
-    if (
-        page_number_count >= 1
-        and _DOT_LEADER_ANYWHERE.search(line)
-        and any(
-            keyword in lowered for keyword in ("contents", "diary", "journal", "phonograph")
-        )
-    ):
-        return True
-    return False
+    return bool(has_digit and _DOT_LEADER_LINE.search(line))
+
+
+def _has_keyworded_dot_leader(
+    page_number_count: int, line: str, keyword_hint: bool
+) -> bool:
+    return page_number_count >= 1 and bool(_DOT_LEADER_ANYWHERE.search(line)) and keyword_hint
 
 
 def _looks_like_toc_keyword(token: str) -> bool:
@@ -695,13 +712,13 @@ def _is_probable_noise_line(line: str) -> bool:
     alpha_count = sum(1 for char in compact if char.isalpha())
     digit_count = sum(1 for char in compact if char.isdigit())
     punctuation_count = sum(1 for char in compact if not char.isalnum() and not char.isspace())
-    if tokens and all(len(token) == 1 for token in tokens) and len(tokens) <= 4:
-        return True
-    if alpha_count <= 4 and punctuation_count >= 2:
-        return True
-    if alpha_count <= 6 and digit_count >= 2:
-        return True
-    return False
+    return any(
+        (
+            bool(tokens) and all(len(token) == 1 for token in tokens) and len(tokens) <= 4,
+            alpha_count <= 4 and punctuation_count >= 2,
+            alpha_count <= 6 and digit_count >= 2,
+        )
+    )
 
 
 def _trim_title_page_stamp_prelude(lines: list[str]) -> list[str]:
@@ -946,7 +963,7 @@ def _infer_mixed_alnum_word_corrections(
 ) -> dict[str, str]:
     counts = _extract_token_counts(text)
     corrections: dict[str, str] = {}
-    for source, source_count in counts.items():
+    for source in counts:
         if source.isalpha() or source.isdigit():
             continue
         if not any(char.isalpha() for char in source) or not any(char.isdigit() for char in source):
@@ -1487,58 +1504,23 @@ def _infer_dominant_confusable_corrections(
     candidate_pool = _confusable_candidate_pool(lexicon_words, external_lexicon_words)
     corrections: list[tuple[str, str, float]] = []
     for source, source_count in counts.items():
-        if not source.isalpha():
-            continue
-        if len(source) < _MIN_DOMINANT_CONFUSABLE_WORD_LENGTH:
-            continue
-        if source_count < 1:
-            continue
-        if source_count > _MAX_DOMINANT_CONFUSABLE_SOURCE_OCCURRENCES:
-            continue
-        if source in _BUILTIN_LEXICON or source in external_lexicon_words:
+        if not _is_eligible_dominant_confusable_source(
+            source, source_count, external_lexicon_words
+        ):
             continue
         best_target = ""
         best_score = float("-inf")
         for candidate, rewrite_cost in _weighted_confusable_rewrite_candidates(source, candidate_pool):
-            has_builtin_target_support = candidate in _BUILTIN_LEXICON
-            has_external_target_support = candidate in external_lexicon_words
-            has_dynamic_target_support = (
-                candidate in lexicon_words
-                and not has_builtin_target_support
-                and not has_external_target_support
+            score = _dominant_confusable_score(
+                candidate,
+                rewrite_cost=rewrite_cost,
+                counts=counts,
+                source_count=source_count,
+                lexicon_words=lexicon_words,
+                external_lexicon_words=external_lexicon_words,
             )
-            if not (
-                has_builtin_target_support
-                or has_external_target_support
-                or has_dynamic_target_support
-            ):
+            if score is None:
                 continue
-            target_count = counts.get(candidate, 0)
-            if has_external_target_support:
-                target_count = max(target_count, _MIN_DOMINANT_CONFUSABLE_TARGET_OCCURRENCES)
-            elif has_dynamic_target_support:
-                if target_count < _MIN_DYNAMIC_DOMINANT_CONFUSABLE_TARGET_OCCURRENCES:
-                    continue
-            elif target_count < _MIN_DOMINANT_CONFUSABLE_TARGET_OCCURRENCES:
-                continue
-            required_ratio = _MIN_DOMINANT_CONFUSABLE_RATIO
-            if has_dynamic_target_support:
-                required_ratio = _MIN_DYNAMIC_DOMINANT_CONFUSABLE_RATIO
-            if not has_external_target_support and not _ratio_at_least(
-                target_count,
-                source_count,
-                required_ratio,
-            ):
-                continue
-            score = (
-                float(target_count * 45)
-                - float(source_count * 15)
-                + float(len(candidate) * 4)
-                + (60.0 if has_builtin_target_support else 0.0)
-                + (120.0 if has_external_target_support else 0.0)
-                + (30.0 if has_dynamic_target_support else 0.0)
-                - float(rewrite_cost * 15.0)
-            )
             if score > best_score:
                 best_target = candidate
                 best_score = score
@@ -1547,6 +1529,92 @@ def _infer_dominant_confusable_corrections(
     corrections.sort(key=lambda item: item[2], reverse=True)
     selected = corrections[:_MAX_TOTAL_LEXICON_CORRECTIONS]
     return {source: target for source, target, _score in selected}
+
+
+def _is_eligible_dominant_confusable_source(
+    source: str, source_count: int, external_lexicon_words: set[str]
+) -> bool:
+    return (
+        source.isalpha()
+        and len(source) >= _MIN_DOMINANT_CONFUSABLE_WORD_LENGTH
+        and 1 <= source_count <= _MAX_DOMINANT_CONFUSABLE_SOURCE_OCCURRENCES
+        and source not in _BUILTIN_LEXICON
+        and source not in external_lexicon_words
+    )
+
+
+def _dominant_confusable_score(
+    candidate: str,
+    *,
+    rewrite_cost: int,
+    counts: Counter[str],
+    source_count: int,
+    lexicon_words: set[str],
+    external_lexicon_words: set[str],
+) -> float | None:
+    support = _dominant_confusable_support(candidate, lexicon_words, external_lexicon_words)
+    if not any(support.values()):
+        return None
+    target_count = _dominant_confusable_target_count(
+        candidate,
+        counts,
+        has_external_target_support=support["external"],
+        has_dynamic_target_support=support["dynamic"],
+    )
+    if target_count is None:
+        return None
+    required_ratio = (
+        _MIN_DYNAMIC_DOMINANT_CONFUSABLE_RATIO
+        if support["dynamic"]
+        else _MIN_DOMINANT_CONFUSABLE_RATIO
+    )
+    if not support["external"] and not _ratio_at_least(target_count, source_count, required_ratio):
+        return None
+    return (
+        float(target_count * 45)
+        - float(source_count * 15)
+        + float(len(candidate) * 4)
+        + (60.0 if support["builtin"] else 0.0)
+        + (120.0 if support["external"] else 0.0)
+        + (30.0 if support["dynamic"] else 0.0)
+        - float(rewrite_cost * 15.0)
+    )
+
+
+def _dominant_confusable_support(
+    candidate: str, lexicon_words: set[str], external_lexicon_words: set[str]
+) -> dict[str, bool]:
+    has_builtin_target_support = candidate in _BUILTIN_LEXICON
+    has_external_target_support = candidate in external_lexicon_words
+    has_dynamic_target_support = (
+        candidate in lexicon_words
+        and not has_builtin_target_support
+        and not has_external_target_support
+    )
+    return {
+        "builtin": has_builtin_target_support,
+        "external": has_external_target_support,
+        "dynamic": has_dynamic_target_support,
+    }
+
+
+def _dominant_confusable_target_count(
+    candidate: str,
+    counts: Counter[str],
+    *,
+    has_external_target_support: bool,
+    has_dynamic_target_support: bool,
+) -> int | None:
+    target_count = counts.get(candidate, 0)
+    if has_external_target_support:
+        return max(target_count, _MIN_DOMINANT_CONFUSABLE_TARGET_OCCURRENCES)
+    if has_dynamic_target_support:
+        if target_count < _MIN_DYNAMIC_DOMINANT_CONFUSABLE_TARGET_OCCURRENCES:
+            return None
+        return target_count
+    if target_count < _MIN_DOMINANT_CONFUSABLE_TARGET_OCCURRENCES:
+        return None
+    return target_count
 
 
 def _apply_word_corrections(text: str, corrections: dict[str, str]) -> str:
