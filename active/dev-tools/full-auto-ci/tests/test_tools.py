@@ -1069,6 +1069,10 @@ class TestLizard(unittest.TestCase):
         )
         with patch("src.tools.os.path.relpath", side_effect=ValueError):
             self.assertEqual(self.lizard._normalize_path("/repo", "/repo/pkg/module.py"), "/repo/pkg/module.py")
+        offenders = self.lizard._lizard_offenders([{"ccn": 9.0}, {"ccn": 12.0}], max_ccn=10)
+        self.assertEqual(len(offenders), 1)
+        summary = self.lizard._lizard_summary([], [9.0, 12.0], offenders, max_ccn=12)
+        self.assertEqual(summary["threshold"], 12)
 
     def test_discover_python_files_and_cli_helper_paths(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -1082,6 +1086,27 @@ class TestLizard(unittest.TestCase):
         self.assertIn(".venv", Lizard._sanitize_ignore_dirs())
         with patch.object(tools_module, "DEFAULT_PYLINT_IGNORE_DIRS", ["", "*.cache", ".venv"]):
             self.assertEqual(Lizard._sanitize_ignore_dirs(), [".venv"])
+
+    def test_project_specific_max_ccn_override(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo = Path(tmpdir)
+            (repo / "pyproject.toml").write_text(
+                "[tool.full-auto-ci.lizard]\nmax_ccn = 26\n",
+                encoding="utf-8",
+            )
+            self.assertEqual(self.lizard._configured_max_ccn(tmpdir), 26)
+
+            (repo / "pyproject.toml").write_text(
+                "[tool.full_auto_ci.tools.lizard]\nmax_ccn = 24\n",
+                encoding="utf-8",
+            )
+            self.assertEqual(self.lizard._configured_max_ccn(tmpdir), 24)
+
+            (repo / "pyproject.toml").write_text(
+                "[tool.full-auto-ci.lizard]\nmax_ccn = 'bad'\n",
+                encoding="utf-8",
+            )
+            self.assertEqual(self.lizard._configured_max_ccn(tmpdir), self.lizard.max_ccn)
 
     @patch("subprocess.run", side_effect=subprocess.TimeoutExpired(cmd=["lizard"], timeout=1))
     def test_run_via_cli_timeout(self, _mock_run):
