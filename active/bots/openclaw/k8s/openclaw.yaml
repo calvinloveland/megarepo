@@ -202,13 +202,23 @@ spec:
               MD
               fi
 
-              openclaw config set browser.executablePath "$BROWSER_EXECUTABLE"
-              openclaw config set browser.headless true
-              openclaw config set browser.noSandbox true
-              openclaw config set browser.defaultProfile openclaw
-              openclaw models set openrouter/free
-              openclaw models fallbacks clear
-              openclaw models fallbacks add github-copilot/gpt-4.1
+               openclaw config set browser.executablePath "$BROWSER_EXECUTABLE"
+               openclaw config set browser.headless true
+               openclaw config set browser.noSandbox true
+               openclaw config set browser.defaultProfile openclaw
+               openclaw config set tools.web.search.enabled true
+               openclaw config set tools.web.search.provider duckduckgo
+               openclaw config set tools.web.search.maxResults 8
+               openclaw config set tools.web.search.timeoutSeconds 30
+               openclaw config set tools.web.search.cacheTtlMinutes 15
+               openclaw config set plugins.entries.brave.enabled true
+               openclaw config set plugins.entries.duckduckgo.enabled true
+               openclaw config set plugins.entries.duckduckgo.config.webSearch.region us-en
+               openclaw config set plugins.entries.duckduckgo.config.webSearch.safeSearch moderate
+               openclaw config set plugins.entries.searxng.enabled true
+               openclaw models set openrouter/free
+               openclaw models fallbacks clear
+               openclaw models fallbacks add github-copilot/gpt-4.1
 
               exec openclaw gateway --allow-unconfigured --auth token --bind lan --port 18789 --token "$OPENCLAW_GATEWAY_TOKEN"
           env:
