@@ -693,10 +693,14 @@ def _is_probable_title_line(line: str) -> bool:
     tokens = _TITLE_LINE_TOKEN.findall(" ".join(line.split()))
     if not 1 <= len(tokens) <= 8:
         return False
-    if sum(1 for token in tokens if len(token) >= 4) == 0:
+    if not any(len(token) >= 4 for token in tokens):
         return False
     if _TITLE_PAGE_STAMP_HINT.search(line):
         return False
+    return _has_probable_title_token_shape(tokens)
+
+
+def _has_probable_title_token_shape(tokens: list[str]) -> bool:
     uppercase_like = sum(1 for token in tokens if token.isupper())
     if uppercase_like == 0:
         return False
@@ -709,37 +713,57 @@ def _is_probable_noise_line(line: str) -> bool:
     if not compact:
         return False
     tokens = _TITLE_LINE_TOKEN.findall(compact)
-    alpha_count = sum(1 for char in compact if char.isalpha())
-    digit_count = sum(1 for char in compact if char.isdigit())
-    punctuation_count = sum(1 for char in compact if not char.isalnum() and not char.isspace())
+    alpha_count, digit_count, punctuation_count = _line_character_counts(compact)
     return any(
         (
-            bool(tokens) and all(len(token) == 1 for token in tokens) and len(tokens) <= 4,
+            _has_short_noise_tokens(tokens),
             alpha_count <= 4 and punctuation_count >= 2,
             alpha_count <= 6 and digit_count >= 2,
         )
     )
 
 
+def _line_character_counts(compact: str) -> tuple[int, int, int]:
+    alpha_count = sum(1 for char in compact if char.isalpha())
+    digit_count = sum(1 for char in compact if char.isdigit())
+    punctuation_count = sum(1 for char in compact if not char.isalnum() and not char.isspace())
+    return alpha_count, digit_count, punctuation_count
+
+
+def _has_short_noise_tokens(tokens: list[str]) -> bool:
+    return bool(tokens) and all(len(token) == 1 for token in tokens) and len(tokens) <= 4
+
+
 def _trim_title_page_stamp_prelude(lines: list[str]) -> list[str]:
-    visible = [(index, line) for index, line in enumerate(lines) if line.strip()]
+    visible = _visible_lines(lines)
     if len(visible) < 3:
         return lines
-    title_pos = -1
+    title_location = _title_line_location(visible)
+    if title_location is None:
+        return lines
+    title_pos, title_line_index = title_location
+    prelude = visible[:title_pos]
+    if not _should_trim_title_prelude(prelude):
+        return lines
+    return lines[title_line_index:]
+
+
+def _visible_lines(lines: list[str]) -> list[tuple[int, str]]:
+    return [(index, line) for index, line in enumerate(lines) if line.strip()]
+
+
+def _title_line_location(visible: list[tuple[int, str]]) -> tuple[int, int] | None:
     for visible_index, (index, line) in enumerate(visible[:8]):
         if _is_probable_title_line(line):
-            title_pos = visible_index
-            title_line_index = index
-            break
-    if title_pos <= 0:
-        return lines
-    prelude = visible[:title_pos]
+            return visible_index, index
+    return None
+
+
+def _should_trim_title_prelude(prelude: list[tuple[int, str]]) -> bool:
     removable_count = sum(
         1 for _index, line in prelude if _is_probable_noise_line(line) or _has_probable_stamp_hint(line)
     )
-    if removable_count < max(1, int(len(prelude) * 0.75)):
-        return lines
-    return lines[title_line_index:]
+    return removable_count >= max(1, int(len(prelude) * 0.75))
 
 
 def _has_probable_stamp_hint(line: str) -> bool:
@@ -964,20 +988,23 @@ def _infer_mixed_alnum_word_corrections(
     counts = _extract_token_counts(text)
     corrections: dict[str, str] = {}
     for source in counts:
-        if source.isalpha() or source.isdigit():
+        candidate = _mixed_alnum_candidate(source)
+        if candidate is None:
             continue
-        if not any(char.isalpha() for char in source) or not any(char.isdigit() for char in source):
-            continue
-        candidate = "".join(_MIXED_ALNUM_SUBSTITUTIONS.get(char, char) for char in source)
-        if candidate == source or not candidate.isalpha():
-            continue
-        if (
-            candidate in external_lexicon_words
-            or candidate in _BUILTIN_LEXICON
-            or candidate in lexicon_words
-        ):
+        if candidate in external_lexicon_words or candidate in _BUILTIN_LEXICON or candidate in lexicon_words:
             corrections[source] = candidate
     return corrections
+
+
+def _mixed_alnum_candidate(source: str) -> str | None:
+    if source.isalpha() or source.isdigit():
+        return None
+    if not any(char.isalpha() for char in source) or not any(char.isdigit() for char in source):
+        return None
+    candidate = "".join(_MIXED_ALNUM_SUBSTITUTIONS.get(char, char) for char in source)
+    if candidate == source or not candidate.isalpha():
+        return None
+    return candidate
 
 
 def _is_known_lexicon_word(word: str, counts: Counter[str], lexicon_words: set[str]) -> bool:
@@ -1084,46 +1111,68 @@ def _infer_join_word_corrections(
 ) -> dict[tuple[str, str], str]:
     counts = _extract_token_counts(text)
     pair_counts = Counter(_adjacent_word_pairs(text))
-    candidates: list[tuple[tuple[str, str], str, float]] = []
-    # Apply curated known joins first — these bypass the occurrence threshold because
-    # systematic OCR splits (e.g. 59× "can not") would otherwise be filtered out.
-    for source_pair, target in _KNOWN_JOIN_PAIRS.items():
-        if source_pair in pair_counts:
-            candidates.append((source_pair, target, 2000.0))
+    candidates = _known_join_candidates(pair_counts)
     for source_pair, pair_count in pair_counts.items():
-        if source_pair in _KNOWN_JOIN_PAIRS:
-            continue  # already handled above
-        if pair_count > _MAX_ERROR_OCCURRENCES:
-            continue
-        merged_source = "".join(source_pair)
-        if len(merged_source) < _MIN_JOIN_WORD_LENGTH:
-            continue
-        # Reject edit-distance joins of two already-valid component words when
-        # the merged form is not directly in the lexicon. "to"+"his"→"this"
-        # and "we"+"are"→"were" are false positives — the OCR got both tokens
-        # right. If the merged form IS in the lexicon ("be"+"fore"→"before"),
-        # the join is an exact match and clearly correct.
-        left_word, right_word = source_pair
-        if (
-            merged_source not in lexicon_words
-            and left_word in lexicon_words
-            and right_word in lexicon_words
-        ):
-            continue
-        best_target = _best_join_word_target(
-            merged_source,
-            counts,
-            lexicon_words,
-            external_lexicon_words,
+        candidate = _join_word_candidate(
+            source_pair,
+            pair_count=pair_count,
+            counts=counts,
+            lexicon_words=lexicon_words,
+            external_lexicon_words=external_lexicon_words,
         )
-        if best_target is None:
-            continue
-        target, score = best_target
-        score -= float(pair_count * 20)
-        candidates.append((source_pair, target, score))
+        if candidate is not None:
+            candidates.append(candidate)
     candidates.sort(key=lambda item: item[2], reverse=True)
     selected = candidates[:_MAX_TOTAL_JOIN_CORRECTIONS]
     return {source_pair: target for source_pair, target, _score in selected}
+
+
+def _known_join_candidates(
+    pair_counts: Counter[tuple[str, str]]
+) -> list[tuple[tuple[str, str], str, float]]:
+    return [
+        (source_pair, target, 2000.0)
+        for source_pair, target in _KNOWN_JOIN_PAIRS.items()
+        if source_pair in pair_counts
+    ]
+
+
+def _join_word_candidate(
+    source_pair: tuple[str, str],
+    *,
+    pair_count: int,
+    counts: Counter[str],
+    lexicon_words: set[str],
+    external_lexicon_words: set[str],
+) -> tuple[tuple[str, str], str, float] | None:
+    if source_pair in _KNOWN_JOIN_PAIRS or pair_count > _MAX_ERROR_OCCURRENCES:
+        return None
+    merged_source = "".join(source_pair)
+    if len(merged_source) < _MIN_JOIN_WORD_LENGTH or _should_skip_join_pair(source_pair, merged_source, lexicon_words):
+        return None
+    best_target = _best_join_word_target(
+        merged_source,
+        counts,
+        lexicon_words,
+        external_lexicon_words,
+    )
+    if best_target is None:
+        return None
+    target, score = best_target
+    return source_pair, target, score - float(pair_count * 20)
+
+
+def _should_skip_join_pair(
+    source_pair: tuple[str, str],
+    merged_source: str,
+    lexicon_words: set[str],
+) -> bool:
+    left_word, right_word = source_pair
+    return (
+        merged_source not in lexicon_words
+        and left_word in lexicon_words
+        and right_word in lexicon_words
+    )
 
 
 def _apply_join_word_corrections(text: str, corrections: dict[tuple[str, str], str]) -> str:
@@ -1457,35 +1506,19 @@ def _infer_contextual_confusable_corrections(
     candidate_pool = _confusable_candidate_pool(lexicon_words, external_lexicon_words)
     corrections: list[tuple[str, str, float]] = []
     for source, source_count in counts.items():
-        if not source.isalpha():
-            continue
-        if len(source) < 3:
-            continue
-        if source in _BUILTIN_LEXICON or source in external_lexicon_words:
+        if not _is_contextual_confusable_source(source, external_lexicon_words):
             continue
         best_target = ""
         best_score = float("-inf")
         for candidate, rewrite_cost in _weighted_confusable_rewrite_candidates(source, candidate_pool):
-            target_count = counts.get(candidate, 0)
-            if candidate in external_lexicon_words:
-                target_count = max(target_count, _MIN_CONTEXTUAL_CONFUSABLE_TARGET_OCCURRENCES)
-            if target_count < _MIN_CONTEXTUAL_CONFUSABLE_TARGET_OCCURRENCES:
-                continue
-            if candidate not in external_lexicon_words and not _ratio_at_least(
-                target_count,
-                source_count,
-                _MIN_CONTEXTUAL_CONFUSABLE_RATIO,
-            ):
-                continue
-            score = (
-                float(target_count * 40)
-                - float(source_count * 10)
-                + float(len(candidate) * 3)
-                + (50.0 if candidate in _BUILTIN_LEXICON else 0.0)
-                + (80.0 if candidate in external_lexicon_words else 0.0)
-                - float(rewrite_cost * 15.0)
+            score = _contextual_confusable_score(
+                candidate,
+                counts=counts,
+                source_count=source_count,
+                external_lexicon_words=external_lexicon_words,
+                rewrite_cost=rewrite_cost,
             )
-            if score > best_score:
+            if score is not None and score > best_score:
                 best_target = candidate
                 best_score = score
         if best_target:
@@ -1493,6 +1526,47 @@ def _infer_contextual_confusable_corrections(
     corrections.sort(key=lambda item: item[2], reverse=True)
     selected = corrections[:_MAX_TOTAL_DOMINANT_CONFUSABLE_CORRECTIONS]
     return {source: target for source, target, _score in selected}
+
+
+def _is_contextual_confusable_source(
+    source: str,
+    external_lexicon_words: set[str],
+) -> bool:
+    return (
+        source.isalpha()
+        and len(source) >= 3
+        and source not in _BUILTIN_LEXICON
+        and source not in external_lexicon_words
+    )
+
+
+def _contextual_confusable_score(
+    candidate: str,
+    *,
+    counts: Counter[str],
+    source_count: int,
+    external_lexicon_words: set[str],
+    rewrite_cost: float,
+) -> float | None:
+    target_count = counts.get(candidate, 0)
+    if candidate in external_lexicon_words:
+        target_count = max(target_count, _MIN_CONTEXTUAL_CONFUSABLE_TARGET_OCCURRENCES)
+    if target_count < _MIN_CONTEXTUAL_CONFUSABLE_TARGET_OCCURRENCES:
+        return None
+    if candidate not in external_lexicon_words and not _ratio_at_least(
+        target_count,
+        source_count,
+        _MIN_CONTEXTUAL_CONFUSABLE_RATIO,
+    ):
+        return None
+    return (
+        float(target_count * 40)
+        - float(source_count * 10)
+        + float(len(candidate) * 3)
+        + (50.0 if candidate in _BUILTIN_LEXICON else 0.0)
+        + (80.0 if candidate in external_lexicon_words else 0.0)
+        - float(rewrite_cost * 15.0)
+    )
 
 
 def _infer_dominant_confusable_corrections(
@@ -1643,21 +1717,27 @@ def _apply_word_corrections(text: str, corrections: dict[str, str]) -> str:
 def _match_phrase_case(source: str, replacement: str) -> str:
     if source.isupper():
         return replacement.upper()
-    if source[:1].isupper() and source[1:].islower():
-        words = replacement.split()
-        if not words:
-            return replacement
-        return " ".join([words[0].capitalize(), *words[1:]])
-    remainder = source[1:]
-    if source[:1].isupper() and any(char.islower() for char in remainder):
-        uppercase_count = sum(1 for char in remainder if char.isupper())
-        lowercase_count = sum(1 for char in remainder if char.islower())
-        if lowercase_count > uppercase_count:
-            words = replacement.split()
-            if not words:
-                return replacement
-            return " ".join([words[0].capitalize(), *words[1:]])
+    if _should_titlecase_phrase(source):
+        return _titlecase_phrase(replacement)
     return replacement
+
+
+def _should_titlecase_phrase(source: str) -> bool:
+    if source[:1].isupper() and source[1:].islower():
+        return True
+    remainder = source[1:]
+    if not source[:1].isupper() or not any(char.islower() for char in remainder):
+        return False
+    uppercase_count = sum(1 for char in remainder if char.isupper())
+    lowercase_count = sum(1 for char in remainder if char.islower())
+    return lowercase_count > uppercase_count
+
+
+def _titlecase_phrase(replacement: str) -> str:
+    words = replacement.split()
+    if not words:
+        return replacement
+    return " ".join([words[0].capitalize(), *words[1:]])
 
 
 def _apply_direct_word_corrections(text: str, corrections: dict[str, str]) -> str:

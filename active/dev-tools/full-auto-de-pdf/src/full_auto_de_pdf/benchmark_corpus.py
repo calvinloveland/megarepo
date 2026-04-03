@@ -329,51 +329,47 @@ def _speckle_mask(size: tuple[int, int], rng: random.Random, intensity: int) -> 
     )
 
 
-def _apply_scan_artifacts(page_image: Any, artifact_profile: str, seed: int) -> Any:
-    if Image is None or ImageChops is None or ImageFilter is None:
-        raise _missing_pillow_runtime_error("corpus rendering")
-    if artifact_profile == "clean":
-        return _ocr_ready_image(page_image)
-
-    if artifact_profile == "scan-photocopy":
-        rng = random.Random(seed)
-        processed = page_image.convert("L")
-        width, height = processed.size
-        processed = processed.rotate(
-            rng.uniform(-0.45, 0.45),
-            resample=_resampling_filter("BICUBIC"),
-            fillcolor=255,
-        )
-        processed = processed.filter(ImageFilter.GaussianBlur(radius=0.9))
-        processed = ImageChops.multiply(processed, _paper_texture((width, height), rng, 2))
-        processed = ImageChops.multiply(processed, _edge_shadow_mask((width, height), rng, 3))
-        processed = ImageChops.lighter(processed, _speckle_mask((width, height), rng, 4))
-        processed = ImageChops.add(
-            processed,
-            _noise_texture((width, height), rng, amplitude=10),
-            scale=2.0,
-            offset=12,
-        )
-        processed = processed.point(lambda value: 255 if value >= 120 else 0)
-        processed = processed.filter(ImageFilter.MedianFilter(3))
-        return processed.convert("L")
-
-    intensity_map = {
+def _artifact_intensity(artifact_profile: str) -> int:
+    return {
         "scan-light": 1,
         "scan-moderate": 2,
         "scan-heavy": 3,
         "scan-extreme": 4,
-    }
-    intensity = intensity_map[artifact_profile]
+    }[artifact_profile]
+
+
+def _apply_photocopy_artifacts(page_image: Any, seed: int) -> Any:
     rng = random.Random(seed)
     processed = page_image.convert("L")
     width, height = processed.size
-    rotation = rng.uniform(-0.35, 0.35) * float(intensity)
     processed = processed.rotate(
-        rotation,
+        rng.uniform(-0.45, 0.45),
         resample=_resampling_filter("BICUBIC"),
         fillcolor=255,
     )
+    processed = processed.filter(ImageFilter.GaussianBlur(radius=0.9))
+    processed = ImageChops.multiply(processed, _paper_texture((width, height), rng, 2))
+    processed = ImageChops.multiply(processed, _edge_shadow_mask((width, height), rng, 3))
+    processed = ImageChops.lighter(processed, _speckle_mask((width, height), rng, 4))
+    processed = ImageChops.add(
+        processed,
+        _noise_texture((width, height), rng, amplitude=10),
+        scale=2.0,
+        offset=12,
+    )
+    processed = processed.point(lambda value: 255 if value >= 120 else 0)
+    processed = processed.filter(ImageFilter.MedianFilter(3))
+    return processed.convert("L")
+
+
+def _resize_with_scan_intensity(
+    processed: Any,
+    *,
+    width: int,
+    height: int,
+    rng: random.Random,
+    intensity: int,
+) -> Any:
     shrink_floor = 0.62 if intensity >= 4 else 0.70
     shrink_factor = max(shrink_floor, 1.0 - (0.06 * intensity) - rng.uniform(0.0, 0.02 * intensity))
     downsampled = processed.resize(
@@ -383,7 +379,48 @@ def _apply_scan_artifacts(page_image: Any, artifact_profile: str, seed: int) -> 
         ),
         _resampling_filter("BILINEAR"),
     )
-    processed = downsampled.resize((width, height), _resampling_filter("BICUBIC"))
+    return downsampled.resize((width, height), _resampling_filter("BICUBIC"))
+
+
+def _scan_intensity_bleed(processed: Any, intensity: int) -> Any:
+    transpose_namespace = getattr(Image, "Transpose", Image)
+    bleed = processed.transpose(getattr(transpose_namespace, "FLIP_LEFT_RIGHT")).filter(
+        ImageFilter.GaussianBlur(radius=2.0 + intensity)
+    )
+    return bleed.point(lambda value: 255 if value > 245 else min(255, value + 55))
+
+
+def _apply_extreme_scan_artifacts(
+    processed: Any,
+    *,
+    size: tuple[int, int],
+    rng: random.Random,
+    intensity: int,
+) -> Any:
+    width, height = size
+    processed = ImageChops.multiply(processed, _edge_shadow_mask((width, height), rng, intensity))
+    processed = ImageChops.lighter(processed, _speckle_mask((width, height), rng, intensity))
+    return processed.filter(ImageFilter.GaussianBlur(radius=0.4))
+
+
+def _apply_intensity_scan_artifacts(page_image: Any, artifact_profile: str, seed: int) -> Any:
+    intensity = _artifact_intensity(artifact_profile)
+    rng = random.Random(seed)
+    processed = page_image.convert("L")
+    width, height = processed.size
+    rotation = rng.uniform(-0.35, 0.35) * float(intensity)
+    processed = processed.rotate(
+        rotation,
+        resample=_resampling_filter("BICUBIC"),
+        fillcolor=255,
+    )
+    processed = _resize_with_scan_intensity(
+        processed,
+        width=width,
+        height=height,
+        rng=rng,
+        intensity=intensity,
+    )
     processed = processed.filter(ImageFilter.GaussianBlur(radius=0.35 * intensity))
     ink_floor = 8 * intensity
     background_ceiling = 255 - (4 * intensity)
@@ -392,20 +429,27 @@ def _apply_scan_artifacts(page_image: Any, artifact_profile: str, seed: int) -> 
             round(ink_floor + ((value / 255.0) * (background_ceiling - ink_floor)))
         )
     )
-    texture = _paper_texture((width, height), rng, intensity)
-    processed = ImageChops.multiply(processed, texture)
+    processed = ImageChops.multiply(processed, _paper_texture((width, height), rng, intensity))
     if intensity >= 2:
-        transpose_namespace = getattr(Image, "Transpose", Image)
-        bleed = processed.transpose(getattr(transpose_namespace, "FLIP_LEFT_RIGHT")).filter(
-            ImageFilter.GaussianBlur(radius=2.0 + intensity)
-        )
-        bleed = bleed.point(lambda value: 255 if value > 245 else min(255, value + 55))
-        processed = ImageChops.multiply(processed, bleed)
+        processed = ImageChops.multiply(processed, _scan_intensity_bleed(processed, intensity))
     if artifact_profile == "scan-extreme":
-        processed = ImageChops.multiply(processed, _edge_shadow_mask((width, height), rng, intensity))
-        processed = ImageChops.lighter(processed, _speckle_mask((width, height), rng, intensity))
-        processed = processed.filter(ImageFilter.GaussianBlur(radius=0.4))
+        processed = _apply_extreme_scan_artifacts(
+            processed,
+            size=(width, height),
+            rng=rng,
+            intensity=intensity,
+        )
     return processed
+
+
+def _apply_scan_artifacts(page_image: Any, artifact_profile: str, seed: int) -> Any:
+    if Image is None or ImageChops is None or ImageFilter is None:
+        raise _missing_pillow_runtime_error("corpus rendering")
+    if artifact_profile == "clean":
+        return _ocr_ready_image(page_image)
+    if artifact_profile == "scan-photocopy":
+        return _apply_photocopy_artifacts(page_image, seed)
+    return _apply_intensity_scan_artifacts(page_image, artifact_profile, seed)
 
 
 def _variant_identifier(identifier: str, artifact_profile: str) -> str:

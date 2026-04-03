@@ -8,7 +8,6 @@ import shutil
 import subprocess
 import sys
 import time
-import tomllib
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from types import SimpleNamespace
@@ -1524,7 +1523,6 @@ class Lizard(Tool):
     def _run_via_cli_per_file(self, repo_path: str) -> Dict[str, Any]:
         start_time = time.perf_counter()
         files = self._discover_python_files(repo_path)
-        max_ccn = self._configured_max_ccn(repo_path)
         functions: List[Dict[str, Any]] = []
         timed_out: List[str] = []
         failed: List[str] = []
@@ -1585,7 +1583,7 @@ class Lizard(Tool):
                 )
 
         duration = time.perf_counter() - start_time
-        result = self._build_result(functions, duration, max_ccn=max_ccn)
+        result = self._build_result(functions, duration)
         if timed_out:
             result["timed_out_files"] = timed_out
         if failed:
@@ -1618,7 +1616,6 @@ class Lizard(Tool):
 
     def _run_via_cli(self, repo_path: str) -> Dict[str, Any]:
         start_time = time.perf_counter()
-        max_ccn = self._configured_max_ccn(repo_path)
         try:
             process = subprocess.run(
                 ["lizard", "--xml", "."],
@@ -1681,7 +1678,7 @@ class Lizard(Tool):
                 "duration": duration,
             }
 
-        return self._build_result(functions, duration, max_ccn=max_ccn)
+        return self._build_result(functions, duration)
 
     def _collect_module_functions(
         self, repo_path: str, file_infos: List[Any]
@@ -1785,17 +1782,14 @@ class Lizard(Tool):
         }
 
     def _build_result(
-        self, functions: List[Dict[str, Any]], duration: float, *, max_ccn: Optional[int] = None
+        self, functions: List[Dict[str, Any]], duration: float
     ) -> Dict[str, Any]:
-        effective_max_ccn = self.max_ccn if max_ccn is None else max_ccn
         ccn_values = self._ccn_values(functions)
-        offenders = self._lizard_offenders(functions, max_ccn=effective_max_ccn)
+        offenders = self._lizard_offenders(functions)
 
         result: Dict[str, Any] = {
             "status": "success",
-            "summary": self._lizard_summary(
-                functions, ccn_values, offenders, max_ccn=effective_max_ccn
-            ),
+            "summary": self._lizard_summary(functions, ccn_values, offenders),
             "duration": duration,
         }
 
@@ -1812,13 +1806,12 @@ class Lizard(Tool):
         ]
 
     def _lizard_offenders(
-        self, functions: List[Dict[str, Any]], *, max_ccn: Optional[int] = None
+        self, functions: List[Dict[str, Any]]
     ) -> List[Dict[str, Any]]:
-        threshold = self.max_ccn if max_ccn is None else max_ccn
         offenders = [
             entry
             for entry in functions
-            if entry.get("ccn") is not None and float(entry["ccn"]) > threshold
+            if entry.get("ccn") is not None and float(entry["ccn"]) > self.max_ccn
         ]
         offenders.sort(key=lambda item: item.get("ccn") or 0.0, reverse=True)
         return offenders
@@ -1828,10 +1821,7 @@ class Lizard(Tool):
         functions: List[Dict[str, Any]],
         ccn_values: List[float],
         offenders: List[Dict[str, Any]],
-        *,
-        max_ccn: Optional[int] = None,
     ) -> Dict[str, Any]:
-        threshold = self.max_ccn if max_ccn is None else max_ccn
         average_ccn = float(sum(ccn_values) / len(ccn_values)) if ccn_values else 0.0
         max_ccn = max(ccn_values) if ccn_values else 0.0
 
@@ -1842,7 +1832,7 @@ class Lizard(Tool):
             ),
             "average_ccn": average_ccn,
             "max_ccn": max_ccn,
-            "threshold": threshold,
+            "threshold": self.max_ccn,
             "above_threshold": len(offenders),
         }
 
@@ -1882,43 +1872,6 @@ class Lizard(Tool):
             func_name = cli_name or None
 
         return func_name, filename, line_number
-
-    def _configured_max_ccn(self, repo_path: str) -> int:
-        project_config = self._project_lizard_config(repo_path)
-        configured = project_config.get("max_ccn") if isinstance(project_config, dict) else None
-        if isinstance(configured, int):
-            return configured
-        if isinstance(configured, float):
-            return int(configured)
-        return self.max_ccn
-
-    @classmethod
-    def _project_lizard_config(cls, repo_path: str) -> Dict[str, Any]:
-        config = cls._load_pyproject_tool_config(repo_path)
-        for key in ("full-auto-ci", "full_auto_ci"):
-            tool_config = config.get(key)
-            if not isinstance(tool_config, dict):
-                continue
-            lizard_config = tool_config.get("lizard")
-            if isinstance(lizard_config, dict):
-                return lizard_config
-            tools_config = tool_config.get("tools")
-            if isinstance(tools_config, dict) and isinstance(tools_config.get("lizard"), dict):
-                return tools_config["lizard"]
-        return {}
-
-    @staticmethod
-    def _load_pyproject_tool_config(repo_path: str) -> Dict[str, Any]:
-        pyproject_path = os.path.join(repo_path, "pyproject.toml")
-        if not os.path.exists(pyproject_path):
-            return {}
-        try:
-            with open(pyproject_path, "rb") as pyproject_file:
-                payload = tomllib.load(pyproject_file)
-        except (OSError, tomllib.TOMLDecodeError):
-            return {}
-        tool_config = payload.get("tool")
-        return tool_config if isinstance(tool_config, dict) else {}
 
     @staticmethod
     def _normalize_path(repo_path: str, filename: str) -> str:

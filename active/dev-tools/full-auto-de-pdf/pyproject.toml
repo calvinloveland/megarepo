@@ -46,6 +46,3 @@ max-args = 14
 max-attributes = 12
 max-locals = 30
 max-positional-arguments = 8
-
-[tool.full-auto-ci.lizard]
-max_ccn = 26

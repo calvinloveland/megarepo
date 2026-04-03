@@ -20,6 +20,92 @@ def _write_test_image(path: Path) -> None:
     Image.new("L", (24, 24), color=255).save(path)
 
 
+def _streaming_sample_identifier(kwargs: dict[str, object]) -> str:
+    output_path = kwargs["output_text_path"]
+    assert isinstance(output_path, Path)
+    return output_path.stem
+
+
+def _write_streaming_sample_text(output_path: Path, sample_identifier: str) -> None:
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    sample_text = (
+        "Alpha beta gamma delta epsilon zeta eta theta iota kappa lambda mu."
+        if sample_identifier.endswith("sample-001")
+        else "Alpha beta gamma delta epsilon zeta eta theta iota kappa lambda net."
+    )
+    output_path.write_text(sample_text, encoding="utf-8")
+
+
+def _write_streaming_failure_artifacts(work_dir: Path) -> None:
+    page_ocr_dir = work_dir / "page_ocr"
+    page_ocr_dir.mkdir(parents=True, exist_ok=True)
+    (page_ocr_dir / "page-0001.txt").write_text("failure page text", encoding="utf-8")
+    (page_ocr_dir / "manifest.json").write_text(
+        json.dumps({"pages": [{"page_index": 1}], "progress": {"status": "complete"}}),
+        encoding="utf-8",
+    )
+
+
+def _streaming_page_analysis(sample_identifier: str) -> dict[str, object]:
+    if sample_identifier.endswith("sample-001"):
+        return _streaming_success_page_analysis()
+    return _streaming_failure_page_analysis()
+
+
+def _streaming_success_page_analysis() -> dict[str, object]:
+    return {
+        "page_type_counts": {"front-matter": 1},
+        "page_quality_tier_counts": {"high": 1},
+        "page_route_counts": {"front-matter": 1},
+        "front_matter_page_count": 1,
+        "front_matter_page_indices": [1],
+        "low_quality_page_count": 0,
+        "low_quality_page_indices": [],
+        "targeted_page_retry_count": 0,
+        "targeted_page_retry_page_indices": [],
+        "targeted_page_retry_reason_counts": {},
+    }
+
+
+def _streaming_failure_page_analysis() -> dict[str, object]:
+    return {
+        "page_type_counts": {"body": 1},
+        "page_quality_tier_counts": {"low": 1},
+        "page_route_counts": {"body-low-quality": 1},
+        "front_matter_page_count": 0,
+        "front_matter_page_indices": [],
+        "low_quality_page_count": 1,
+        "low_quality_page_indices": [1],
+        "targeted_page_retry_count": 1,
+        "targeted_page_retry_page_indices": [1],
+        "targeted_page_retry_reason_counts": {"low-quality": 1},
+    }
+
+
+def _fake_streaming_ocr_page_images(
+    kwargs: dict[str, object],
+    seen_identifiers: list[str],
+) -> dict[str, object]:
+    output_path = kwargs["output_text_path"]
+    work_dir = kwargs["work_dir"]
+    assert isinstance(output_path, Path)
+    assert isinstance(work_dir, Path)
+    sample_identifier = _streaming_sample_identifier(kwargs)
+    seen_identifiers.append(sample_identifier)
+    _write_streaming_sample_text(output_path, sample_identifier)
+    if not sample_identifier.endswith("sample-001"):
+        _write_streaming_failure_artifacts(work_dir)
+    sample_text = output_path.read_text(encoding="utf-8")
+    return {
+        "page_count": 1,
+        "word_count": len(sample_text.split()),
+        "character_count": len(sample_text),
+        "mode_usage": {"scan-local-threshold": 1},
+        "tesseract_psm_usage": {"6": 1},
+        "page_analysis": _streaming_page_analysis(sample_identifier),
+    }
+
+
 def test_build_benchmark_corpus_creates_manifest_and_assets(monkeypatch, tmp_path) -> None:
     book = BenchmarkBook("demo-book", "Demo Book", 123)
     source_text = (
@@ -505,58 +591,10 @@ def test_run_streaming_benchmark_corpus_records_only_failures(monkeypatch, tmp_p
     )
 
     seen_identifiers: list[str] = []
-
-    def _fake_ocr_page_images(**kwargs):  # noqa: ANN003
-        output_path = kwargs["output_text_path"]
-        sample_identifier = output_path.stem
-        seen_identifiers.append(sample_identifier)
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        if sample_identifier.endswith("sample-001"):
-            output_path.write_text(
-                "Alpha beta gamma delta epsilon zeta eta theta iota kappa lambda mu.",
-                encoding="utf-8",
-            )
-        else:
-            output_path.write_text(
-                "Alpha beta gamma delta epsilon zeta eta theta iota kappa lambda net.",
-                encoding="utf-8",
-            )
-            page_ocr_dir = kwargs["work_dir"] / "page_ocr"
-            page_ocr_dir.mkdir(parents=True, exist_ok=True)
-            (page_ocr_dir / "page-0001.txt").write_text("failure page text", encoding="utf-8")
-            (page_ocr_dir / "manifest.json").write_text(
-                json.dumps({"pages": [{"page_index": 1}], "progress": {"status": "complete"}}),
-                encoding="utf-8",
-            )
-        return {
-            "page_count": 1,
-            "word_count": len(output_path.read_text(encoding="utf-8").split()),
-            "character_count": len(output_path.read_text(encoding="utf-8")),
-            "mode_usage": {"scan-local-threshold": 1},
-            "tesseract_psm_usage": {"6": 1},
-            "page_analysis": {
-                "page_type_counts": {"front-matter": 1}
-                if sample_identifier.endswith("sample-001")
-                else {"body": 1},
-                "page_quality_tier_counts": {"high": 1}
-                if sample_identifier.endswith("sample-001")
-                else {"low": 1},
-                "page_route_counts": {"front-matter": 1}
-                if sample_identifier.endswith("sample-001")
-                else {"body-low-quality": 1},
-                "front_matter_page_count": 1 if sample_identifier.endswith("sample-001") else 0,
-                "front_matter_page_indices": [1] if sample_identifier.endswith("sample-001") else [],
-                "low_quality_page_count": 0 if sample_identifier.endswith("sample-001") else 1,
-                "low_quality_page_indices": [] if sample_identifier.endswith("sample-001") else [1],
-                "targeted_page_retry_count": 1 if sample_identifier.endswith("sample-002") else 0,
-                "targeted_page_retry_page_indices": [] if sample_identifier.endswith("sample-001") else [1],
-                "targeted_page_retry_reason_counts": {}
-                if sample_identifier.endswith("sample-001")
-                else {"low-quality": 1},
-            },
-        }
-
-    monkeypatch.setattr("full_auto_de_pdf.benchmark_corpus.ocr_page_images", _fake_ocr_page_images)
+    monkeypatch.setattr(
+        "full_auto_de_pdf.benchmark_corpus.ocr_page_images",
+        lambda **kwargs: _fake_streaming_ocr_page_images(kwargs, seen_identifiers),
+    )
     monotonic_values = iter([0.0, 0.0, 1.0, 2.0, 2.5, 3.0, 5.0, 5.5, 6.0])
     monkeypatch.setattr(
         "full_auto_de_pdf.benchmark_corpus.time.monotonic",
