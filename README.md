@@ -51,6 +51,7 @@ A consolidated monorepo for active projects, archived experiments, shared toolin
 | Project | Description | Language |
 |---------|-------------|----------|
 | [**OpenClaw**](active/bots/openclaw/README.md) | Cluster-hosted OpenClaw gateway with Telegram, Gmail triage, and model fallback routing | Shell / YAML |
+| [**prediction-market-agent**](active/bots/prediction-market-agent/README.md) | TCI framework testbed for live Manifold prediction markets with replay and shadow mode | Python |
 | [**CryptoRoleBot**](active/bots/CryptoRoleBot/README.md) | Discord bot for crypto-related role management | Python |
 | [**broomsweeper_solver**](active/bots/broomsweeper_solver/README.md) | Screenshot annotation and solver tooling for Broomsweeper | TypeScript |
 

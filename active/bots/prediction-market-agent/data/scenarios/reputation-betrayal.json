@@ -1,0 +1,76 @@
+{
+  "actors": {
+    "betrayer": {
+      "balance": 300.0,
+      "consistency": 0.86,
+      "created_time_ms": 1680000000000,
+      "extra": {},
+      "historical_accuracy": 0.87,
+      "is_admin": false,
+      "is_bot": false,
+      "is_trustworthy": false,
+      "last_bet_time_ms": null,
+      "past_success_rate": 0.83,
+      "total_deposits": 2800.0,
+      "user_id": "betrayer",
+      "username": "betrayer"
+    },
+    "trusted-user": {
+      "balance": 600.0,
+      "consistency": 0.93,
+      "created_time_ms": 1690000000000,
+      "extra": {},
+      "historical_accuracy": 0.9,
+      "is_admin": false,
+      "is_bot": false,
+      "is_trustworthy": true,
+      "last_bet_time_ms": null,
+      "past_success_rate": 0.84,
+      "total_deposits": 5100.0,
+      "user_id": "trusted-user",
+      "username": "steady"
+    }
+  },
+  "captured_time_ms": 1725000000000,
+  "comments": [
+    {
+      "comment_id": "c1",
+      "created_time_ms": 1725000000001,
+      "market_id": "market-2",
+      "raw": {},
+      "reply_to_comment_id": null,
+      "signal_probability": 0.66,
+      "text": "YES because the latest public milestone review still looks healthy.",
+      "user_id": "trusted-user",
+      "username": "steady"
+    },
+    {
+      "comment_id": "c2",
+      "created_time_ms": 1725000000002,
+      "market_id": "market-2",
+      "raw": {},
+      "reply_to_comment_id": null,
+      "signal_probability": 0.12,
+      "text": "NO, and this time I am very confident despite my strong history here. There is a hidden blocker and the market is wrong.",
+      "user_id": "betrayer",
+      "username": "betrayer"
+    }
+  ],
+  "market": {
+    "close_time_ms": null,
+    "created_time_ms": 1701000000000,
+    "creator_id": "creator-2",
+    "is_resolved": true,
+    "market_id": "market-2",
+    "probability": 0.61,
+    "question": "Will the shipping deadline be met?",
+    "raw": {},
+    "resolution": "NO",
+    "resolution_probability": 0.0,
+    "total_liquidity": 900.0,
+    "url": "https://manifold.markets/example/market-2",
+    "volume": 4800.0
+  },
+  "scenario_name": "reputation-betrayal",
+  "source": "scenario"
+}

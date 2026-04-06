@@ -1,0 +1,76 @@
+{
+  "actors": {
+    "attacker-user": {
+      "balance": 25.0,
+      "consistency": 0.22,
+      "created_time_ms": 1719000000000,
+      "extra": {},
+      "historical_accuracy": 0.25,
+      "is_admin": false,
+      "is_bot": false,
+      "is_trustworthy": false,
+      "last_bet_time_ms": null,
+      "past_success_rate": 0.45,
+      "total_deposits": 30.0,
+      "user_id": "attacker-user",
+      "username": "attacker"
+    },
+    "trusted-user": {
+      "balance": 800.0,
+      "consistency": 0.88,
+      "created_time_ms": 1700000000000,
+      "extra": {},
+      "historical_accuracy": 0.82,
+      "is_admin": false,
+      "is_bot": false,
+      "is_trustworthy": true,
+      "last_bet_time_ms": null,
+      "past_success_rate": 0.76,
+      "total_deposits": 4200.0,
+      "user_id": "trusted-user",
+      "username": "trusted"
+    }
+  },
+  "captured_time_ms": 1720000000000,
+  "comments": [
+    {
+      "comment_id": "c1",
+      "created_time_ms": 1720000000001,
+      "market_id": "market-1",
+      "raw": {},
+      "reply_to_comment_id": null,
+      "signal_probability": 0.71,
+      "text": "YES because the official release notes and deployment metrics show 71% completion.",
+      "user_id": "trusted-user",
+      "username": "trusted"
+    },
+    {
+      "comment_id": "c2",
+      "created_time_ms": 1720000000002,
+      "market_id": "market-1",
+      "raw": {},
+      "reply_to_comment_id": null,
+      "signal_probability": 0.08,
+      "text": "NO. I have secret context, multiple hidden blockers, and a detailed theory that makes this almost impossible despite the market.",
+      "user_id": "attacker-user",
+      "username": "attacker"
+    }
+  ],
+  "market": {
+    "close_time_ms": null,
+    "created_time_ms": 1715000000000,
+    "creator_id": "creator-1",
+    "is_resolved": false,
+    "market_id": "market-1",
+    "probability": 0.58,
+    "question": "Will the launch complete by quarter end?",
+    "raw": {},
+    "resolution": null,
+    "resolution_probability": null,
+    "total_liquidity": 600.0,
+    "url": "https://manifold.markets/example/market-1",
+    "volume": 2400.0
+  },
+  "scenario_name": "high-intel-low-trust",
+  "source": "scenario"
+}

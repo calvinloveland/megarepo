@@ -12,6 +12,9 @@ Discord bots, automation gateways, and game solvers.
   - Tailnet-only Control UI with Telegram access and Gmail read-only triage hooks
   - Uses `openrouter/free` as the primary model with `github-copilot/gpt-4.1` fallback
   - Operational runbook lives in `openclaw/README.md`
+- [**prediction-market-agent**](prediction-market-agent/README.md) - Manifold prediction-market agent for TCI framework experiments
+  - Live market ingestion with shadow-mode-first execution
+  - Replayable traces, adversarial fixtures, and variant comparison tooling
 
 ### Game Solvers & Analyzers
 - [**broomsweeper_solver**](broomsweeper_solver/README.md) - Minesweeper solver and analyzer
