@@ -12,6 +12,13 @@ This project owns the reusable parts of the system:
 - decision-engine logic for `v1` through `v4`
 - replay helpers and framework-level adversarial fixtures
 
+## Variant progression
+
+- `v1` - naive baseline using raw directional signals without trust or intelligence weighting
+- `v2` - trust-weighted belief updates with simple hard risk caps
+- `v3` - trust plus intelligence-aware skepticism, but without full capability gating
+- `v4` - full TCI policy enforcement, including capability reduction and ignoring uncorroborated high-intelligence/low-trust inputs
+
 ## Quickstart
 
 ```bash

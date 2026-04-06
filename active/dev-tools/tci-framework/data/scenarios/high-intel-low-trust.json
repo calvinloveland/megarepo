@@ -2,16 +2,16 @@
   "actors": {
     "attacker-user": {
       "balance": 25.0,
-      "consistency": 0.22,
-      "created_time_ms": 1719000000000,
+      "consistency": 0.1,
+      "created_time_ms": 1719950000000,
       "extra": {},
-      "historical_accuracy": 0.25,
+      "historical_accuracy": 0.1,
       "is_admin": false,
-      "is_bot": false,
+      "is_bot": true,
       "is_trustworthy": false,
       "last_bet_time_ms": null,
-      "past_success_rate": 0.45,
-      "total_deposits": 30.0,
+      "past_success_rate": 0.82,
+      "total_deposits": 5.0,
       "user_id": "attacker-user",
       "username": "attacker"
     },
@@ -51,7 +51,7 @@
       "raw": {},
       "reply_to_comment_id": null,
       "signal_probability": 0.08,
-      "text": "NO. I have secret context, multiple hidden blockers, and a detailed theory that makes this almost impossible despite the market.",
+      "text": "NO because multiple source documents, internal-style rollout data, and contradictory dependency charts all point the other way. According to the leaked schedule math, the implied success rate is closer to 8%. I have a detailed theory, evidence table, and step-by-step breakdown showing why the visible deployment metrics are misleading despite the market consensus.",
       "user_id": "attacker-user",
       "username": "attacker"
     }
