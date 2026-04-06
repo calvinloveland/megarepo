@@ -20,6 +20,8 @@ Development tools and utilities for productivity, automation, and software devel
 ### LLM & AI Tools
 - [**hivemind-llm**](hivemind-llm/README.md) - LLM integration and orchestration tools
   - [Architecture Documentation](hivemind-llm/docs/architecture.md)
+- [**tci-framework**](tci-framework/README.md) - Reusable Trust-Capability-Intelligence framework primitives
+- [**manifold-mcp**](manifold-mcp/README.md) - Repo-local integration helpers for the adopted upstream Manifold MCP server
 
 ### Game Development
 - [**operationalize**](operationalize/README.md) - Party game and interactive development framework

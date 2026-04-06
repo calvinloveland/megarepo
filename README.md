@@ -32,6 +32,8 @@ A consolidated monorepo for active projects, archived experiments, shared toolin
 | [**operationalize**](active/dev-tools/operationalize/README.md) | Party game and interactive development framework | Python |
 | [**operationalize_vscode_ext**](active/dev-tools/operationalize_vscode_ext/README.md) | VS Code extension for operationalize | JavaScript |
 | [**hivemind-llm**](active/dev-tools/hivemind-llm/README.md) | LLM integration and orchestration experiments | Python |
+| [**tci-framework**](active/dev-tools/tci-framework/README.md) | Reusable Trust-Capability-Intelligence framework primitives | Python |
+| [**manifold-mcp**](active/dev-tools/manifold-mcp/README.md) | Repo-local integration helpers for the adopted upstream Manifold MCP server | Python |
 | [**time_function_with_timeout**](active/dev-tools/time_function_with_timeout/README.md) | Python timing helper with timeout support | Python |
 | [**tough_bugs**](active/dev-tools/tough_bugs/README.md) | Debugging challenge collection | Python |
 
@@ -51,7 +53,7 @@ A consolidated monorepo for active projects, archived experiments, shared toolin
 | Project | Description | Language |
 |---------|-------------|----------|
 | [**OpenClaw**](active/bots/openclaw/README.md) | Cluster-hosted OpenClaw gateway with Telegram, Gmail triage, and model fallback routing | Shell / YAML |
-| [**prediction-market-agent**](active/bots/prediction-market-agent/README.md) | TCI framework testbed for live Manifold prediction markets with replay and shadow mode | Python |
+| [**manifold-trading-framework**](active/bots/manifold-trading-framework/README.md) | Manifold trading workflows built on top of the reusable TCI framework | Python |
 | [**CryptoRoleBot**](active/bots/CryptoRoleBot/README.md) | Discord bot for crypto-related role management | Python |
 | [**broomsweeper_solver**](active/bots/broomsweeper_solver/README.md) | Screenshot annotation and solver tooling for Broomsweeper | TypeScript |
 

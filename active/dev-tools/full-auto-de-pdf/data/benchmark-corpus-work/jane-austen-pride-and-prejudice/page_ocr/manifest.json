@@ -1,0 +1,13 @@
+{
+  "pages": [],
+  "progress": {
+    "completed_pages": 0,
+    "current_page_index": 1,
+    "elapsed_seconds": 0.008,
+    "estimated_remaining_seconds": null,
+    "estimated_total_seconds": null,
+    "seconds_per_page": null,
+    "status": "running",
+    "total_pages": 3
+  }
+}
