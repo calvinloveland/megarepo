@@ -1,2 +1,0 @@
-[console_scripts]
-prediction-market-agent = prediction_market_agent.cli:main
