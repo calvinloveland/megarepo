@@ -1215,6 +1215,10 @@ a.gilded-card:hover {
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.15);
 }
 
+.feedback-widget__toggle-label {
+  white-space: nowrap;
+}
+
 .feedback-widget__panel {
   width: min(28rem, calc(100vw - 2rem));
   padding: 1rem;
@@ -1343,28 +1347,43 @@ a.gilded-card:hover {
 
 @media (max-width: 767px) {
   .feedback-widget {
-    left: 0.55rem;
-    right: 0.55rem;
-    bottom: 0.55rem;
-    gap: 0.55rem;
+    left: auto;
+    right: 0.45rem;
+    bottom: 0.45rem;
+    gap: 0.4rem;
     justify-items: end;
   }
 
   .feedback-widget__toggle {
-    gap: 0.5rem;
-    padding: 0.65rem 0.85rem;
-    font-size: 0.68rem;
+    gap: 0;
+    padding: 0.45rem;
+    min-width: 0;
+    font-size: 0.62rem;
+    box-shadow: 0 10px 24px rgba(28, 28, 19, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.16), 0 0 0 1px rgba(123, 88, 0, 0.38);
   }
 
   .feedback-widget__crest {
-    width: 1.7rem;
-    height: 1.7rem;
+    width: 1.55rem;
+    height: 1.55rem;
+    font-size: 0.82rem;
+  }
+
+  .feedback-widget__toggle-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
   }
 
   .feedback-widget__panel {
-    width: min(21rem, calc(100vw - 1.1rem));
-    padding: 0.85rem;
-    border-radius: 1.1rem;
+    width: min(18.75rem, calc(100vw - 0.9rem));
+    padding: 0.72rem;
+    border-radius: 1rem;
   }
 
   .feedback-widget__header {
@@ -1373,19 +1392,20 @@ a.gilded-card:hover {
   }
 
   .feedback-widget__header {
-    margin-bottom: 0.65rem;
+    margin-bottom: 0.45rem;
   }
 
   .feedback-widget__header h2 {
-    font-size: 1.3rem;
+    font-size: 1.12rem;
   }
 
   .feedback-widget__form {
-    gap: 0.75rem;
+    gap: 0.6rem;
   }
 
   .feedback-widget__textarea {
-    min-height: 6.3rem;
+    min-height: 5.1rem;
+    font-size: 0.94rem;
   }
 
   .feedback-widget__selection,
@@ -1397,6 +1417,13 @@ a.gilded-card:hover {
   .feedback-widget__clear,
   .feedback-widget__cancel,
   .feedback-widget__submit {
-    flex: 1 1 8rem;
+    flex: 1 1 7rem;
+    padding: 0.68rem 0.82rem;
+    font-size: 0.65rem;
+  }
+
+  .feedback-widget__hint,
+  .feedback-widget__label {
+    font-size: 0.66rem;
   }
 }

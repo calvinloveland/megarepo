@@ -255,7 +255,7 @@ export function FeedbackWidget() {
           aria-haspopup="dialog"
         >
           <span className="feedback-widget__crest">✶</span>
-          <span>Feedback</span>
+          <span className="feedback-widget__toggle-label">Feedback</span>
       </button>
 
       {open ? (
