@@ -17,12 +17,12 @@ export function AuthStatus() {
   }
 
   if (!session?.user) {
-    return (
+      return (
       <div className="floating-nav__action button-row">
         <EnamelButton href="/signin" variant="secondary">
           Sign in
         </EnamelButton>
-        <EnamelButton href="/join">Join Vernissage</EnamelButton>
+        <EnamelButton href="/join">Join</EnamelButton>
       </div>
     );
   }
@@ -32,7 +32,7 @@ export function AuthStatus() {
       <Link href={session.user.handle ? `/members/${session.user.handle}` : '/reviews/new'} className="floating-nav__link">
         {session.user.name ?? session.user.email ?? 'Account'}
       </Link>
-      <EnamelButton href="/reviews/new">Compose a review</EnamelButton>
+      <EnamelButton href="/reviews/new">Write</EnamelButton>
       <button type="button" className="enamel-button enamel-button--secondary" onClick={() => signOut({ callbackUrl: '/' })}>
         Sign out
       </button>
