@@ -38,7 +38,7 @@ test('search page links into the artwork detail page', async ({ page }) => {
 });
 
 test('member and exhibition routes render without falling into not-found', async ({ page }) => {
-  await page.goto('/members/aurelia-vale', { waitUntil: 'domcontentloaded' });
+  await page.goto('/members/vernissage-notebook', { waitUntil: 'domcontentloaded' });
 
   await expect(page).toHaveURL(/\/feed$/);
   await expect(page.getByRole('heading', { level: 1, name: 'The launch notebook' })).toBeVisible();

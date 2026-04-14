@@ -1,4 +1,4 @@
-const editorialMemberHandles = new Set(['aurelia-vale', 'jonah-ivey', 'lucien-march']);
+const editorialMemberHandles = new Set(['vernissage-notebook', 'jonah-ivey', 'lucien-march']);
 
 export const NOTEBOOK_LABEL = 'Vernissage Notebook';
 

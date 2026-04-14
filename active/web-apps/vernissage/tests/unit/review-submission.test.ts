@@ -16,7 +16,7 @@ const allowedTargets = {
 };
 
 test('normalizeHandle creates stable lowercase handles', () => {
-  assert.equal(normalizeHandle('  Aurelia Vale  '), 'aurelia-vale');
+  assert.equal(normalizeHandle('  Vernissage Notebook  '), 'vernissage-notebook');
   assert.equal(normalizeHandle('Mucha__Fan!!'), 'mucha-fan');
 });
 

@@ -19,7 +19,7 @@
         "beyond-the-dot"
       ],
       "featuredListSlug": "impressionist-light",
-      "featuredMemberHandle": "aurelia-vale"
+      "featuredMemberHandle": "jonah-ivey"
     }
   },
   "movements": [
@@ -345,7 +345,7 @@
     {
       "slug": "saturday-at-the-aic",
       "title": "Saturday at the Art Institute",
-      "memberHandle": "aurelia-vale",
+      "memberHandle": "vernissage-notebook",
       "venueSlug": "art-institute-of-chicago",
       "visitedOn": "2024-11-09",
       "notes": "Spent the afternoon with Seurat's Grande Jatte. The scale overwhelms in person — the pointillist dots dissolve into atmosphere at the right distance."
@@ -361,12 +361,12 @@
   ],
   "members": [
     {
-      "handle": "aurelia-vale",
-      "displayName": "Aurelia Vale",
-      "location": "Paris",
-      "favoriteMovement": "Art Nouveau",
-      "bio": "Interior-design historian chasing every peacock staircase and winter garden I can find.",
-      "initials": "AV",
+        "handle": "vernissage-notebook",
+        "displayName": "Vernissage Notebook",
+        "location": "Editorial desk",
+        "favoriteMovement": "Launch notes",
+        "bio": "The house notebook for launch-era reviews, lists, and museum visits while member libraries are still taking shape.",
+        "initials": "VN",
       "stats": {
         "reviews": 148,
         "lists": 19,
@@ -395,7 +395,7 @@
         "following": 201
       },
       "followingHandles": [
-        "aurelia-vale",
+        "vernissage-notebook",
         "lucien-march"
       ],
       "featuredListSlug": "gardens-of-motion",
@@ -417,7 +417,7 @@
         "following": 154
       },
       "followingHandles": [
-        "aurelia-vale"
+        "vernissage-notebook"
       ],
       "featuredListSlug": "after-hours-atria",
       "currentlyViewingSlugs": [
@@ -431,7 +431,7 @@
       "slug": "review-water-lilies-aurelia",
       "targetType": "artwork",
       "targetSlug": "water-lilies-1906",
-      "memberHandle": "aurelia-vale",
+      "memberHandle": "vernissage-notebook",
       "title": "Monet's liquid meditation",
       "excerpt": "Standing before the water lilies, you realise Monet wasn't painting flowers — he was painting the act of seeing itself. The surface dissolves into pure color and reflection.",
       "rating": 5,
@@ -473,10 +473,10 @@
       ]
     },
     {
-      "slug": "review-impressionist-revolution-aurelia",
+      "slug": "review-impressionist-revolution-notebook",
       "targetType": "exhibition",
       "targetSlug": "light-and-color-revolution",
-      "memberHandle": "aurelia-vale",
+      "memberHandle": "vernissage-notebook",
       "title": "Light itself is the subject",
       "excerpt": "The Musée d'Orsay exhibition makes a convincing case that Impressionism's real revolution wasn't subject matter but perception. Cassatt's domestic scenes hang beside Monet's landscapes with equal authority.",
       "rating": 4,
@@ -488,10 +488,10 @@
       ]
     },
     {
-      "slug": "review-saturday-aic-aurelia",
+      "slug": "review-saturday-aic-notebook",
       "targetType": "visit",
       "targetSlug": "saturday-at-the-aic",
-      "memberHandle": "aurelia-vale",
+      "memberHandle": "vernissage-notebook",
       "title": "An afternoon with the Grande Jatte",
       "excerpt": "Nothing prepares you for the scale. The study panels nearby show Seurat's process — but the final canvas has a presence that no reproduction captures.",
       "rating": 5,
@@ -521,7 +521,7 @@
   "lists": [
     {
       "slug": "impressionist-light",
-      "memberHandle": "aurelia-vale",
+      "memberHandle": "vernissage-notebook",
       "title": "Impressionist Light",
       "visibility": "public",
       "description": "Works that capture the fleeting magic of natural light — from Monet's haystacks to Cassatt's sunlit interiors.",
@@ -586,8 +586,8 @@
   "feed": [
     {
       "type": "review",
-      "memberHandle": "aurelia-vale",
-      "headline": "aurelia-vale reviewed Water Lilies",
+      "memberHandle": "vernissage-notebook",
+      "headline": "Vernissage Notebook reviewed Water Lilies",
       "detail": "★★★★★ — \"Monet wasn't painting flowers — he was painting the act of seeing itself.\"",
       "href": "/artworks/water-lilies-1906",
       "publishedOn": "2024-11-15"
@@ -610,8 +610,8 @@
     },
     {
       "type": "visit",
-      "memberHandle": "aurelia-vale",
-      "headline": "aurelia-vale visited Art Institute of Chicago",
+      "memberHandle": "vernissage-notebook",
+      "headline": "Vernissage Notebook visited Art Institute of Chicago",
       "detail": "\"Spent the afternoon with Seurat's Grande Jatte. The scale overwhelms in person.\"",
       "href": "/venues/art-institute-of-chicago",
       "publishedOn": "2024-11-09"

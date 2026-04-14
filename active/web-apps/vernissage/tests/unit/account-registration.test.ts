@@ -22,15 +22,15 @@ test('parseRegistrationSubmission defaults the display name to the normalized ha
 
 test('parseRegistrationSubmission accepts an explicit display name and callback', () => {
   const formData = new FormData();
-  formData.set('name', 'Aurelia Vale');
-  formData.set('handle', 'aurelia-vale');
+  formData.set('name', 'Mucha Fan');
+  formData.set('handle', 'mucha-fan');
   formData.set('password', 'ornamented-secret');
   formData.set('callbackUrl', '/artworks/water-lilies-1906');
 
   const parsed = parseRegistrationSubmission(formData);
   assert.equal(parsed.ok, true);
   if (parsed.ok) {
-    assert.equal(parsed.value.name, 'Aurelia Vale');
+    assert.equal(parsed.value.name, 'Mucha Fan');
     assert.equal(parsed.value.callbackUrl, '/artworks/water-lilies-1906');
   }
 });
