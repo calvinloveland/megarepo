@@ -186,10 +186,10 @@ class ConfigValidator:
     def validate_copilot_overlay(self):
         """Check that github-copilot-cli overlay and home-manager global pkgs are configured.
 
-        The copilot v1.0.4 pre-built binary requires its filename to remain
-        exactly 'copilot' for internal self-referencing. wrapProgram renames it
-        to '.copilot-wrapped', which breaks the CLI. The overlay switches to
-        makeBinaryWrapper via libexec to preserve the name.
+        Calnix tracks an explicit GitHub Copilot CLI release when nixpkgs lags
+        upstream, while still preserving the executable filename as exactly
+        'copilot' for internal self-referencing. The overlay uses a libexec
+        wrapper so the binary keeps that name.
 
         home-manager.useGlobalPkgs = true ensures the overlay also applies to
         user packages installed via home-manager (otherwise home-manager
@@ -203,9 +203,18 @@ class ConfigValidator:
         flake_content = flake_nix.read_text()
 
         if "githubCopilotCliOverlay" in flake_content:
-            self.success("flake.nix defines githubCopilotCliOverlay for copilot v1.0.4 fix")
+            self.success("flake.nix defines githubCopilotCliOverlay for Copilot CLI pinning")
         else:
-            self.error("flake.nix missing githubCopilotCliOverlay (required for copilot v1.0.4)")
+            self.error("flake.nix missing githubCopilotCliOverlay")
+
+        if (
+            "githubCopilotCliVersion =" in flake_content
+            and "version = githubCopilotCliVersion;" in flake_content
+            and "releases/download/v${githubCopilotCliVersion}" in flake_content
+        ):
+            self.success("copilot overlay pins an explicit upstream GitHub release")
+        else:
+            self.error("copilot overlay should pin github-copilot-cli to an explicit release")
 
         if "makeBinaryWrapper" in flake_content and "libexec" in flake_content:
             self.success("copilot overlay uses makeBinaryWrapper via libexec (preserves binary name)")

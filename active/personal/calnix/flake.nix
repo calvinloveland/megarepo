@@ -70,23 +70,44 @@
           ;
       };
 
-      # Fix github-copilot-cli: v1.0.4 requires the binary filename to be exactly
-      # "copilot" for internal self-referencing. wrapProgram renames it to
-      # ".copilot-wrapped", breaking the CLI. Use makeBinaryWrapper via libexec
-      # instead. Mirrors nixpkgs PR #501183 (fixes nixpkgs issue #500198).
-      githubCopilotCliOverlay = final: prev: {
-        github-copilot-cli = prev.github-copilot-cli.overrideAttrs (oldAttrs: {
-          installPhase = ''
-            runHook preInstall
-            install -Dm755 copilot $out/libexec/copilot
-            runHook postInstall
-          '';
-          postInstall = ''
-            makeBinaryWrapper $out/libexec/copilot $out/bin/copilot \
-              --add-flags "--no-auto-update"
-          '';
-        });
+      githubCopilotCliVersion = "1.0.26";
+      githubCopilotCliSources = {
+        x86_64-linux = {
+          name = "copilot-linux-x64";
+          hash = "sha256-i77fn0DOW/VjCzXY4mQbmtADQ2pFsju4zPM9iZNmmG8=";
+        };
       };
+
+      # Track github-copilot-cli ahead of nixpkgs while nixos-unstable lags.
+      # Preserve the binary filename as "copilot" because the CLI
+      # self-references that exact name internally.
+      githubCopilotCliOverlay = final: prev:
+        let
+          srcConfig =
+            githubCopilotCliSources.${prev.stdenv.hostPlatform.system}
+              or (throw "Unsupported github-copilot-cli system: ${prev.stdenv.hostPlatform.system}");
+        in
+        {
+          github-copilot-cli = prev.github-copilot-cli.overrideAttrs (oldAttrs: {
+            version = githubCopilotCliVersion;
+            src = prev.fetchurl {
+              url = "https://github.com/github/copilot-cli/releases/download/v${githubCopilotCliVersion}/${srcConfig.name}.tar.gz";
+              inherit (srcConfig) hash;
+            };
+            installPhase = ''
+              runHook preInstall
+              install -Dm755 copilot $out/libexec/copilot
+              runHook postInstall
+            '';
+            postInstall = ''
+              makeBinaryWrapper $out/libexec/copilot $out/bin/copilot \
+                --add-flags "--no-auto-update"
+            '';
+            meta = oldAttrs.meta // {
+              changelog = "https://github.com/github/copilot-cli/releases/tag/v${githubCopilotCliVersion}";
+            };
+          });
+        };
 
       supportedSystems = [ "x86_64-linux" ];
 
