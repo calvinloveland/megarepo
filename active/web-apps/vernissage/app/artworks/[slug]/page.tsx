@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation';
 import { ArtworkFigure } from '@/src/components/ArtworkFigure';
+import { ArtworkQuickActions } from '@/src/components/ArtworkQuickActions';
 import { BotanicalDivider } from '@/src/components/BotanicalDivider';
 import { CatalogRequestCard } from '@/src/components/CatalogRequestCard';
 import { EnamelChip } from '@/src/components/EnamelChip';
@@ -45,6 +46,7 @@ export default async function ArtworkPage({ params }: { params: Promise<{ slug: 
           <h1>{artwork.title}</h1>
           <p className="lead">{artwork.summary}</p>
           <RatingStars rating={artwork.rating} />
+          <ArtworkQuickActions artworkSlug={artwork.slug} artworkTitle={artwork.title} />
           <dl className="meta-grid">
             <div>
               <dt>Year</dt>

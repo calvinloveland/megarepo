@@ -9,6 +9,7 @@ Art review web app in the megarepo's `active/web-apps/` collection.
 - Art Nouveau visual system with parchment texture, emerald-and-gold palette, botanical ornaments, asymmetrical layouts, and serif-led typography
 - Browse and detail surfaces for artworks, artists, and exhibitions
 - A review composer for artworks, artists, exhibitions, and museum visits
+- Artwork-page quick saves for favoriting pieces and jotting private notes on the current device
 - Member profiles, lists, and an activity feed
 - Prisma schema covering the planned social/domain model
 - Museum API ingestion scripts for the Met, Art Institute of Chicago, and Rijksmuseum
@@ -91,6 +92,8 @@ Vernissage now includes:
 These routes require `DATABASE_URL` to be configured. When the database URL is absent, the site stays readable but account creation and publishing are intentionally disabled.
 
 Launch abuse protections now include a one-review-per-user-per-target guard plus basic in-memory rate limiting on review publication and feedback/admin write paths.
+
+The artwork-page `+` quick-save control stores favorites and private notes in browser local storage for now, so it works even before full member libraries are online.
 
 ## Feedback system
 

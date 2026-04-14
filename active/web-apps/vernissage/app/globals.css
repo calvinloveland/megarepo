@@ -160,6 +160,7 @@ img {
 .floating-nav__brand:focus-visible,
 .floating-nav__link:focus-visible,
 .enamel-button:focus-visible,
+.artwork-quick-actions__toggle:focus-visible,
 .feedback-widget__toggle:focus-visible,
 .feedback-widget__submit:focus-visible,
 .feedback-widget__cancel:focus-visible,
@@ -871,6 +872,111 @@ a.gilded-card:hover {
   margin: 0;
 }
 
+.artwork-quick-actions {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.artwork-quick-actions__header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.7rem 1rem;
+  align-items: center;
+}
+
+.artwork-quick-actions__toggle {
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-radius: 999px;
+  color: var(--emerald);
+  background: rgba(255, 255, 255, 0.68);
+  box-shadow: inset 0 0 0 1px rgba(123, 88, 0, 0.26), inset 0 0 0 5px rgba(123, 88, 0, 0.05);
+  font: inherit;
+  font-family: var(--font-label), sans-serif;
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  transition: transform 160ms ease, box-shadow 160ms ease, color 160ms ease;
+}
+
+.artwork-quick-actions__toggle:hover {
+  transform: translateY(-1px);
+  color: var(--emerald-soft);
+}
+
+.artwork-quick-actions__toggle.is-active {
+  color: var(--gold);
+  background: rgba(255, 255, 255, 0.82);
+}
+
+.artwork-quick-actions__plus {
+  width: 1.9rem;
+  height: 1.9rem;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--parchment);
+  background: linear-gradient(180deg, var(--emerald-soft), var(--emerald));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 0 0 1px rgba(123, 88, 0, 0.4);
+  font-size: 1rem;
+}
+
+.artwork-quick-actions__summary {
+  margin-top: 0;
+}
+
+.artwork-quick-actions__panel {
+  display: grid;
+  gap: 1rem;
+  padding: 1.1rem 1.2rem;
+  border-radius: 1.2rem;
+  background: rgba(252, 250, 234, 0.86);
+  box-shadow: inset 0 0 0 1px rgba(123, 88, 0, 0.16), inset 0 0 0 6px rgba(123, 88, 0, 0.04);
+}
+
+.artwork-quick-actions__panel h2 {
+  margin: 0;
+  font-family: var(--font-display), serif;
+  color: var(--emerald);
+  font-size: 1.6rem;
+}
+
+.artwork-quick-actions__copy {
+  margin: 0;
+  line-height: 1.7;
+}
+
+.artwork-quick-actions__form {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.artwork-quick-actions__textarea {
+  min-height: 6.8rem;
+  resize: vertical;
+}
+
+.artwork-quick-actions__status {
+  margin: 0;
+  padding: 0.75rem 0.9rem;
+  border-radius: 1rem;
+  font-size: 0.95rem;
+}
+
+.artwork-quick-actions__status--success {
+  background: rgba(74, 124, 111, 0.14);
+  color: #0f3128;
+}
+
+.artwork-quick-actions__status--error {
+  background: rgba(92, 26, 51, 0.12);
+  color: #5c1a33;
+}
+
 .text-link {
   font-family: var(--font-label), sans-serif;
   letter-spacing: 0.08em;
@@ -1047,6 +1153,19 @@ a.gilded-card:hover {
 
   .meta-grid {
     grid-template-columns: 1fr;
+  }
+
+  .artwork-quick-actions__toggle {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .artwork-quick-actions__panel {
+    padding: 1rem;
+  }
+
+  .artwork-quick-actions__panel h2 {
+    font-size: 1.35rem;
   }
 }
 
