@@ -358,6 +358,7 @@ def build_and_switch_flake(
     extra_args: list[str],
     build_as_owner: str | None,
     non_interactive: bool,
+    dry_run: bool = False,
     verbose: bool = False,
     phase_timings: dict[str, int] | None = None,
     build_details: dict[str, object] | None = None,
@@ -419,6 +420,11 @@ def build_and_switch_flake(
         return False
 
     print(f"Build output: {build_out}")
+
+    if dry_run:
+        print("Dry run requested; build completed without activation.")
+        build_details["activation_mode"] = "dry-run"
+        return True
 
     def report_switch_failure(output: str) -> None:
         print("Activation failed while switching to the new configuration.")
@@ -581,11 +587,15 @@ def main(argv: list[str] | None = None):
             args.extra or [],
             build_as_owner,
             non_interactive,
+            dry_run=args.dry_run,
             verbose=args.verbose,
             phase_timings=phase_timings,
             build_details=build_details,
         )
         if success:
+            if args.dry_run:
+                print("Done!")
+                sys.exit(0)
             phase_banner(5, 5, "Record generation metadata", estimate_seconds=5)
             generation = current_generation_number()
             if generation is None:

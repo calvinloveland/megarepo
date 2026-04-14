@@ -33,7 +33,7 @@ echo "=========================================="
 echo "PYTHON TESTS"
 echo "=========================================="
 cd /home/calvin/code/megarepo/active/personal/calnix/tests
-python3 -m pytest test_rebuild_py.py -v 2>&1 | grep -E '(test_|PASSED|FAILED|passed|failed)'
+python3 -m pytest test_rebuild_py.py test_build_switch_fallback.py -v 2>&1 | grep -E '(test_|PASSED|FAILED|passed|failed)'
 echo ""
 
 echo "=========================================="

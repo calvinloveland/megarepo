@@ -42,9 +42,10 @@ def test_build_and_switch_fallback(monkeypatch, tmp_path):
         non_interactive=True,
     )
     assert ok is True
-    assert seen_switch_cmd[:5] == [
+    assert seen_switch_cmd[:6] == [
         "sudo",
         "env",
+        "CALNIX_STATE_FILE=/var/lib/calnix/state.json",
         "GIT_CONFIG_COUNT=1",
         "GIT_CONFIG_KEY_0=safe.directory",
         "GIT_CONFIG_VALUE_0=/repo",
@@ -84,8 +85,9 @@ def test_build_and_switch_new_style_uses_absolute_flake_ref(monkeypatch):
     assert ok is True
     assert seen_switch_cmd is not None
     assert seen_switch_cmd[0] == "sudo"
-    assert seen_switch_cmd[1:5] == [
+    assert seen_switch_cmd[1:6] == [
         "env",
+        "CALNIX_STATE_FILE=/var/lib/calnix/state.json",
         "GIT_CONFIG_COUNT=1",
         "GIT_CONFIG_KEY_0=safe.directory",
         "GIT_CONFIG_VALUE_0=/repo",
