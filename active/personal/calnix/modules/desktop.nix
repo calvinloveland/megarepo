@@ -13,6 +13,11 @@ let
       wrapProgram "$out/bin/orca-slicer" --unset LD_LIBRARY_PATH
     '';
   };
+  epkowaBackend = pkgs.epkowa.override {
+    # The default plugin set currently pulls in a broken gt-x820 bundle.
+    # Keep the backend available while the separate ET-2850 detection issue is unresolved.
+    plugins = { };
+  };
 in
 {
   # Desktop environment configuration shared by all desktop hosts
@@ -167,12 +172,12 @@ in
   hardware.sane = {
     enable = true;
     extraBackends = with pkgs; [
-      epkowa # Legacy Epson backend covering ET-2850 USB
+      epkowaBackend # Legacy Epson backend kept build-safe while ET-2850 support is investigated
       epsonscan2 # Epson Scan 2 for newer multifunction devices
       sane-airscan # AirScan/eSCL for network discovery
     ];
   };
-  services.udev.packages = with pkgs; [ epkowa epsonscan2 ];
+  services.udev.packages = with pkgs; [ epkowaBackend epsonscan2 ];
   environment.etc."sane.d/dll.conf".text =
     let
       baseDllConf = builtins.readFile "${pkgs.sane-backends}/etc/sane.d/dll.conf";

@@ -18,11 +18,11 @@ CURL_STATUS=$?
 log_debug "Curl status: $CURL_STATUS, Response: $WEATHER_INFO"
 
 # Parse the output (format: icon|temperature|condition)
-if [[ $? -eq 0 && -n "$WEATHER_INFO" ]]; then
+if [[ $CURL_STATUS -eq 0 && -n "$WEATHER_INFO" ]]; then
   IFS='|' read -r ICON TEMP CONDITION <<< "$WEATHER_INFO"
   # Format as JSON for waybar's custom module
-  echo "{\"text\": \"$TEMP\", \"alt\": \"$CONDITION\", \"tooltip\": \"Condition: $CONDITION\\nTemperature: $TEMP\"}"
+  printf '{"text": "%s", "alt": "%s", "tooltip": "%s %s\\nTemperature: %s"}\n' "$TEMP" "$CONDITION" "$ICON" "$CONDITION" "$TEMP"
 else
   # If curl fails or returns empty, show error message
-  echo "{\"text\": \"Weather Unavailable\", \"alt\": \"Error\", \"tooltip\": \"Weather service is currently unavailable\"}"
+  printf '{"text": "Weather Unavailable", "alt": "Error", "tooltip": "Weather service is currently unavailable"}\n'
 fi

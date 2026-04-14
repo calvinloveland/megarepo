@@ -7,6 +7,25 @@ let
         exit 0
       fi
 
+      wallpaper=""
+      cursor=""
+      color0=""
+      color1=""
+      color2=""
+      color3=""
+      color4=""
+      color5=""
+      color6=""
+      color7=""
+      color8=""
+      color9=""
+      color10=""
+      color11=""
+      color12=""
+      color13=""
+      color14=""
+      color15=""
+      # shellcheck source=/dev/null
       . "$HOME/.cache/wal/colors.sh"
       mkdir -p "$HOME/.cache/wal"
 
@@ -86,7 +105,7 @@ let
       pkgs.sway
     ];
     text = ''
-      wall=$(find "$HOME/Pictures" -type f \\( -name "*.jpg" -o -name "*.jpeg" -o -name "*.png" \\) | rofi -dmenu -p "Choose wallpaper:")
+      wall=$(find "$HOME/Pictures" -type f \( -name "*.jpg" -o -name "*.jpeg" -o -name "*.png" \) | rofi -dmenu -p "Choose wallpaper:")
       if [ -n "$wall" ]; then
         wal -i "$wall"
         calnix-sway-apply-colors
@@ -98,17 +117,7 @@ let
   calnixWaybarWeather = pkgs.writeShellApplication {
     name = "calnix-waybar-weather";
     runtimeInputs = [ pkgs.curl ];
-    text = ''
-      weather_info=$(curl -s "https://wttr.in/?format=%c|%t|%C")
-      if [ -n "$weather_info" ]; then
-        IFS='|' read -r icon temp condition <<EOF
-$weather_info
-EOF
-        printf '{"text": "%s", "alt": "%s", "tooltip": "Condition: %s\\nTemperature: %s"}\n' "$temp" "$condition" "$condition" "$temp"
-      else
-        printf '{"text": "Weather Unavailable", "alt": "Error", "tooltip": "Weather service is currently unavailable"}\n'
-      fi
-    '';
+    text = builtins.readFile ./waybar-weather.sh;
   };
 
   calnixWaybarTemperature = pkgs.writeShellApplication {
