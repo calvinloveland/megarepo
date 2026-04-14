@@ -845,11 +845,34 @@ a.gilded-card:hover {
 }
 
 .detail-hero--artwork {
+  grid-template-columns: minmax(0, 1.45fr) minmax(300px, 0.75fr);
+  padding: 0;
+  gap: 0;
   align-items: start;
 }
 
 .detail-hero__artwork {
   min-width: 0;
+}
+
+.detail-hero--artwork .detail-hero__copy {
+  padding: 1.6rem 1.6rem 1.6rem 1.35rem;
+}
+
+.detail-hero--artwork .artwork-figure--immersive .artwork-figure__frame {
+  padding: 0;
+  border-radius: var(--radius-lg) 0 0 var(--radius-lg);
+  background: transparent;
+  box-shadow: none;
+}
+
+.detail-hero--artwork .artwork-figure--immersive .artwork-figure__image {
+  border-radius: var(--radius-lg) 0 0 var(--radius-lg);
+}
+
+.detail-hero--artwork .artwork-figure__caption {
+  margin-top: 0.75rem;
+  padding: 0 1.6rem 1.35rem 1.6rem;
 }
 
 .meta-grid {
