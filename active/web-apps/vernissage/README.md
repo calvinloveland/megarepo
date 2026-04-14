@@ -211,7 +211,7 @@ curl -u admin:secret http://127.0.0.1:3002/feedback
 
 ## Accessibility and quality bar
 
-- preserve artwork aspect ratios; never crop paintings into square thumbnails
+- preserve artwork aspect ratios; never crop paintings into square thumbnails, and let single-artwork pages use the highest-resolution source available
 - ensure decorative SVGs are `aria-hidden` unless they carry meaning
 - maintain AA contrast for text against parchment and emerald surfaces
 - simplify ornament density on tablet/mobile while preserving palette, texture, and typography

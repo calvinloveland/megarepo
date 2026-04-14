@@ -1,4 +1,5 @@
 import type { Artwork } from '@/src/lib/catalog';
+import { getArtworkDetailImage } from '@/src/lib/catalog';
 
 type ArtworkFigureProps = {
   artwork: Artwork;
@@ -8,7 +9,7 @@ type ArtworkFigureProps = {
 };
 
 export function ArtworkFigure({ artwork, src, priority = false, variant = 'default' }: ArtworkFigureProps) {
-  const imageSrc = src || artwork.image;
+  const imageSrc = src || getArtworkDetailImage(artwork);
   return (
     <figure className={`artwork-figure${variant === 'immersive' ? ' artwork-figure--immersive' : ''}`}>
       <div className="artwork-figure__frame">

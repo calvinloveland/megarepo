@@ -1,7 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { searchArtistsInCatalog, searchArtworksInCatalog, searchExhibitionsInCatalog } from '../../src/lib/catalog-helpers.ts';
+import {
+  maximizeArticImageUrl,
+  resizeArticImageUrl,
+  searchArtistsInCatalog,
+  searchArtworksInCatalog,
+  searchExhibitionsInCatalog
+} from '../../src/lib/catalog-helpers.ts';
 
 const movements = [
   { slug: 'impressionism', name: 'Impressionism' },
@@ -107,4 +113,12 @@ test('searchArtists and searchExhibitions surface related launch catalog entitie
 
   assert.ok(artistMatches.some((artist) => artist.slug === 'mary-cassatt'));
   assert.ok(exhibitionMatches.some((exhibition) => exhibition.slug === 'light-and-color-revolution'));
+});
+
+test('Art Institute IIIF helpers keep thumbnails resized and artwork pages at max resolution', () => {
+  const iiifImage = 'https://www.artic.edu/iiif/2/example-id/full/1400,/0/default.jpg';
+
+  assert.equal(resizeArticImageUrl(iiifImage, 400), 'https://www.artic.edu/iiif/2/example-id/full/400,/0/default.jpg');
+  assert.equal(maximizeArticImageUrl(iiifImage), 'https://www.artic.edu/iiif/2/example-id/full/max/0/default.jpg');
+  assert.equal(maximizeArticImageUrl('/art/local-piece.jpg'), '/art/local-piece.jpg');
 });

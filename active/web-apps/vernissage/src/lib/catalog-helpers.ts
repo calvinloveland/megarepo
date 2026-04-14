@@ -102,12 +102,20 @@ export function selectMosaicArtworks<T extends ArtworkLike>(items: T[], excludeS
   return result;
 }
 
-export function resizeArticImageUrl(image: string, width: number = 400) {
+function rewriteArticImageUrl(image: string, size: string) {
   if (/^https:\/\/www\.artic\.edu\/iiif\/2\//.test(image)) {
-    return image.replace(/\/full\/\d+,\//, `/full/${width},/`);
+    return image.replace(/\/full\/[^/]+\//, `/full/${size}/`);
   }
 
   return image;
+}
+
+export function resizeArticImageUrl(image: string, width: number = 400) {
+  return rewriteArticImageUrl(image, `${width},`);
+}
+
+export function maximizeArticImageUrl(image: string) {
+  return rewriteArticImageUrl(image, 'max');
 }
 
 export function resolveReviewThumbnail<TArtwork extends ArtworkLike, TReview extends ReviewLike>(

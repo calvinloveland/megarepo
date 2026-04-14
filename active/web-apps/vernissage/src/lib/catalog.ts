@@ -1,5 +1,6 @@
 import rawCatalog from '../content/demo-content.json';
 import {
+  maximizeArticImageUrl,
   resolveReviewThumbnail,
   resizeArticImageUrl,
   searchArtistsInCatalog,
@@ -270,6 +271,11 @@ export function searchExhibitions(filters: Pick<CatalogSearchFilters, 'query' | 
 /** Return a IIIF image URL resized to the given width, or the original for local assets. */
 export function getArtworkThumbnail(artwork: Artwork, width: number = 400): string {
   return resizeArticImageUrl(artwork.image, width);
+}
+
+/** Return the highest-resolution artwork image available from the current catalog source. */
+export function getArtworkDetailImage(artwork: Artwork): string {
+  return maximizeArticImageUrl(artwork.image);
 }
 
 /** Resolve a thumbnail image for any review, regardless of target type. */
