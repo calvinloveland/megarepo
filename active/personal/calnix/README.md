@@ -158,6 +158,9 @@ Common commands:
 calnix package list
 calnix package status
 
+# Run the host-aware rebuild helper through the installed CLI
+calnix rebuild
+
 # Bless the package source currently selected by the flake as working
 calnix package confirm darktable --repo /etc/nixos --notes "worked for a full editing session"
 

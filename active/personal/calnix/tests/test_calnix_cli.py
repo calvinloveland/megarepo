@@ -6,6 +6,7 @@ import importlib.util
 import io
 import json
 import os
+import sys
 import tempfile
 import unittest
 from contextlib import redirect_stdout
@@ -155,6 +156,26 @@ class CalnixCliTests(unittest.TestCase):
         rc, output = self.run_cli(["generation", "list", "--limit", "1"])
         self.assertEqual(rc, 0)
         self.assertIn("generation 42: 123s degraded", output)
+
+    def test_rebuild_delegates_to_rebuild_script(self) -> None:
+        with patch.object(CLI.subprocess, "run") as run_mock:
+            run_mock.return_value.returncode = 0
+            rc = CLI.main(["rebuild", "--dry-run", "thinker"])
+
+        self.assertEqual(rc, 0)
+        run_mock.assert_called_once()
+        command = run_mock.call_args.args[0]
+        self.assertEqual(command, [sys.executable, str(ROOT / "rebuild.py"), "--dry-run", "thinker"])
+        self.assertFalse(run_mock.call_args.kwargs["check"])
+
+    def test_rebuild_forwards_state_dir_via_env(self) -> None:
+        with patch.object(CLI.subprocess, "run") as run_mock:
+            run_mock.return_value.returncode = 0
+            rc = CLI.main(["--state-dir", str(self.state_dir), "rebuild", "--dry-run"])
+
+        self.assertEqual(rc, 0)
+        env = run_mock.call_args.kwargs["env"]
+        self.assertEqual(env["CALNIX_STATE_DIR"], str(self.state_dir))
 
 
 if __name__ == "__main__":

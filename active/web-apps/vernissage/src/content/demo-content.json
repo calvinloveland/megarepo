@@ -1,0 +1,636 @@
+{
+  "site": {
+    "name": "Vernissage",
+    "tagline": "A salon for tracking visual art with the ceremony of a gilded opening night.",
+    "intro": "Catalog artworks, artists, exhibitions, and museum visits in a social review space shaped like a hand-bound exhibition catalogue.",
+    "highlights": {
+      "featuredArtworkSlugs": [
+        "stacks-of-wheat-end-of-summer",
+        "sunday-on-la-grande-jatte",
+        "the-childs-bath"
+      ],
+      "featuredArtistSlugs": [
+        "claude-monet",
+        "vincent-van-gogh",
+        "mary-cassatt"
+      ],
+      "featuredExhibitionSlugs": [
+        "light-and-color-revolution",
+        "beyond-the-dot"
+      ],
+      "featuredListSlug": "impressionist-light",
+      "featuredMemberHandle": "aurelia-vale"
+    }
+  },
+  "movements": [
+    {
+      "slug": "impressionism",
+      "name": "Impressionism",
+      "description": "Painting centered on changing light, atmosphere, season, and the sensation of seeing a scene in time."
+    },
+    {
+      "slug": "post-impressionism",
+      "name": "Post-Impressionism",
+      "description": "Building on Impressionism with bolder color, geometric structure, and personal vision — from pointillism to expressive brushwork."
+    },
+    {
+      "slug": "art-nouveau",
+      "name": "Art Nouveau",
+      "description": "Botanical linework, feminine silhouettes, and whiplash curves threaded through print and interior design."
+    },
+    {
+      "slug": "symbolism",
+      "name": "Symbolism",
+      "description": "Dreamlike, emotionally charged imagery rooted in allegory and atmosphere."
+    }
+  ],
+  "venues": [
+    {
+      "slug": "art-institute-of-chicago",
+      "name": "Art Institute of Chicago",
+      "city": "Chicago",
+      "country": "United States",
+      "description": "One of the oldest and largest art museums in the United States, home to an encyclopedic collection spanning 5,000 years."
+    },
+    {
+      "slug": "musee-dorsay",
+      "name": "Musée d'Orsay",
+      "city": "Paris",
+      "country": "France",
+      "description": "Housed in a former railway station, the Musée d'Orsay contains the world's finest collection of Impressionist and Post-Impressionist masterpieces."
+    }
+  ],
+  "artists": [
+    {
+      "slug": "claude-monet",
+      "name": "Claude Monet",
+      "years": "1840–1926",
+      "movementSlug": "impressionism",
+      "country": "France",
+      "portraitLabel": "Serial views of water, weather, and changing light",
+      "bio": "Claude Monet returned to the same ponds, grain stacks, riverbanks, and coastal paths again and again so that weather and time of day could become the true subject of the painting. His late works flatten space into atmosphere, while the earlier landscapes keep one foot in observation and the other in sensation.",
+      "signatureMotifs": [
+        "water lilies",
+        "haystacks",
+        "coastal light"
+      ]
+    },
+    {
+      "slug": "vincent-van-gogh",
+      "name": "Vincent van Gogh",
+      "years": "1853–1890",
+      "movementSlug": "post-impressionism",
+      "country": "Netherlands",
+      "portraitLabel": "Post-Impressionist visionary",
+      "bio": "A Dutch painter whose bold colors and emotional brushwork transformed landscapes, still lifes, and portraits into deeply personal expressions. His prolific output during a decade of painting produced some of the most recognized works in Western art.",
+      "signatureMotifs": [
+        "swirling skies",
+        "cypress trees",
+        "sunflowers",
+        "bold impasto"
+      ]
+    },
+    {
+      "slug": "georges-seurat",
+      "name": "Georges Seurat",
+      "years": "1859–1891",
+      "movementSlug": "post-impressionism",
+      "country": "France",
+      "portraitLabel": "Pioneer of pointillism",
+      "bio": "A French artist who pioneered chromoluminarism and pointillism — building images from tiny dots of pure color that optically blend at a distance. His monumental canvases brought scientific rigor to Impressionist color theory.",
+      "signatureMotifs": [
+        "pointillist dots",
+        "promenading figures",
+        "riverbanks",
+        "Sunday leisure"
+      ]
+    },
+    {
+      "slug": "mary-cassatt",
+      "name": "Mary Cassatt",
+      "years": "1844–1926",
+      "movementSlug": "impressionism",
+      "country": "United States",
+      "portraitLabel": "Chronicler of intimate life",
+      "bio": "An American painter and printmaker who became a central figure in French Impressionism. Known for tender depictions of mothers and children, domestic interiors, and Japanese-influenced compositions.",
+      "signatureMotifs": [
+        "mother and child",
+        "domestic interiors",
+        "Japanese prints",
+        "pastel portraits"
+      ]
+    }
+  ],
+  "artworks": [
+    {
+      "slug": "water-lilies-1906",
+      "title": "Water Lilies",
+      "artistSlug": "claude-monet",
+      "movementSlug": "impressionism",
+      "year": "1906",
+      "medium": "Oil on canvas",
+      "dimensions": "89.9 × 94.1 cm",
+      "image": "https://www.artic.edu/iiif/2/3c27b499-af56-f0d5-93b5-a7f2f1ad5813/full/1400,/0/default.jpg",
+      "width": 1400,
+      "height": 1345,
+      "rating": 4.9,
+      "reviewCount": 214,
+      "tags": [
+        "water lilies",
+        "Giverny",
+        "pond",
+        "public domain"
+      ],
+      "summary": "Monet presses the lily pond close to the picture plane so reflections, blossoms, and drifting shadow read less like a vista and more like weather suspended on water."
+    },
+    {
+      "slug": "stacks-of-wheat-end-of-summer",
+      "title": "Stacks of Wheat (End of Summer)",
+      "artistSlug": "claude-monet",
+      "movementSlug": "impressionism",
+      "year": "1890–91",
+      "medium": "Oil on canvas",
+      "dimensions": "60 × 100.5 cm",
+      "image": "https://www.artic.edu/iiif/2/a38e2828-ec6f-ece1-a30f-70243449197b/full/1400,/0/default.jpg",
+      "width": 1400,
+      "height": 827,
+      "rating": 4.8,
+      "reviewCount": 176,
+      "tags": [
+        "haystacks",
+        "serial painting",
+        "sunlight",
+        "public domain"
+      ],
+      "summary": "Long shadows and low-angle light turn a pair of wheatstacks into a study of heat leaving the field, with color doing the work of narrative."
+    },
+    {
+      "slug": "cliff-walk-at-pourville",
+      "title": "Cliff Walk at Pourville",
+      "artistSlug": "claude-monet",
+      "movementSlug": "impressionism",
+      "year": "1882",
+      "medium": "Oil on canvas",
+      "dimensions": "66.5 × 82.3 cm",
+      "image": "https://www.artic.edu/iiif/2/b0effb1c-ff23-bbaa-f809-9fd94e31c1a0/full/1400,/0/default.jpg",
+      "width": 1400,
+      "height": 1121,
+      "rating": 4.7,
+      "reviewCount": 132,
+      "tags": [
+        "coast",
+        "wind",
+        "figure",
+        "public domain"
+      ],
+      "summary": "Two figures and a parasol skim the edge of the bluff while sea, grass, and sky break into brisk strokes that make the whole scene feel wind-struck."
+    },
+    {
+      "slug": "the-bedroom",
+      "title": "The Bedroom",
+      "artistSlug": "vincent-van-gogh",
+      "movementSlug": "post-impressionism",
+      "year": "1889",
+      "medium": "Oil on canvas",
+      "dimensions": "73.6 × 92.3 cm",
+      "image": "https://www.artic.edu/iiif/2/6644829f-f292-c5c4-a73c-0356a6fdbf0d/full/1400,/0/default.jpg",
+      "width": 1400,
+      "height": 1116,
+      "rating": 4.8,
+      "reviewCount": 387,
+      "tags": [
+        "bedroom",
+        "Arles",
+        "interior",
+        "public domain"
+      ],
+      "summary": "Van Gogh painted his bedroom in the Yellow House at Arles three times. This version, created at the Saint-Rémy asylum, radiates a deceptive calm through flattened perspective and saturated color."
+    },
+    {
+      "slug": "the-poets-garden",
+      "title": "The Poet's Garden",
+      "artistSlug": "vincent-van-gogh",
+      "movementSlug": "post-impressionism",
+      "year": "1888",
+      "medium": "Oil on canvas",
+      "dimensions": "73 × 92.1 cm",
+      "image": "https://www.artic.edu/iiif/2/d4bc1723-7cbc-d36d-a9cb-f84553f2a6f6/full/1400,/0/default.jpg",
+      "width": 1400,
+      "height": 1110,
+      "rating": 4.5,
+      "reviewCount": 142,
+      "tags": [
+        "garden",
+        "Arles",
+        "landscape",
+        "public domain"
+      ],
+      "summary": "Painted at Arles, this lush garden scene was part of a decorative scheme Van Gogh planned for Paul Gauguin's room. The dense foliage and radiant greens embody his intoxication with the Provençal landscape."
+    },
+    {
+      "slug": "sunday-on-la-grande-jatte",
+      "title": "A Sunday on La Grande Jatte — 1884",
+      "artistSlug": "georges-seurat",
+      "movementSlug": "post-impressionism",
+      "year": "1884–86",
+      "medium": "Oil on canvas",
+      "dimensions": "207.5 × 308.1 cm",
+      "image": "https://www.artic.edu/iiif/2/2d484387-2509-5e8e-2c43-22f9981972eb/full/1400,/0/default.jpg",
+      "width": 1400,
+      "height": 942,
+      "rating": 4.9,
+      "reviewCount": 521,
+      "tags": [
+        "pointillism",
+        "Seine",
+        "leisure",
+        "public domain"
+      ],
+      "summary": "Seurat's monumental masterpiece depicts Parisians at leisure on an island in the Seine. Composed entirely of tiny dots of pure pigment, it took two years of meticulous work and redefined how color could be applied to canvas."
+    },
+    {
+      "slug": "study-for-bathers-at-asnieres",
+      "title": "Final Study for Bathers at Asnières",
+      "artistSlug": "georges-seurat",
+      "movementSlug": "post-impressionism",
+      "year": "1883",
+      "medium": "Oil on panel",
+      "dimensions": "15.8 × 25.1 cm",
+      "image": "https://www.artic.edu/iiif/2/1db67905-d421-95bf-1e91-4b60dd776886/full/1400,/0/default.jpg",
+      "width": 1400,
+      "height": 882,
+      "rating": 4.4,
+      "reviewCount": 98,
+      "tags": [
+        "bathers",
+        "Seine",
+        "study",
+        "public domain"
+      ],
+      "summary": "This intimate oil sketch captures the final compositional arrangement for Seurat's first large-scale canvas. Workers rest along the Seine at Asnières, rendered with the divided brushwork that would evolve into full pointillism."
+    },
+    {
+      "slug": "the-childs-bath",
+      "title": "The Child's Bath",
+      "artistSlug": "mary-cassatt",
+      "movementSlug": "impressionism",
+      "year": "1893",
+      "medium": "Oil on canvas",
+      "dimensions": "101.3 × 67.3 cm",
+      "image": "https://www.artic.edu/iiif/2/3b885ae0-4d46-5fe4-d70a-00474827f02c/full/1400,/0/default.jpg",
+      "width": 1400,
+      "height": 2101,
+      "rating": 4.7,
+      "reviewCount": 263,
+      "tags": [
+        "mother and child",
+        "domestic",
+        "intimacy",
+        "public domain"
+      ],
+      "summary": "Cassatt's most celebrated painting shows a mother bathing her child, viewed from above in a composition influenced by Japanese woodblock prints. The bold patterns and elevated viewpoint create a tender, monumental intimacy."
+    },
+    {
+      "slug": "on-a-balcony",
+      "title": "On a Balcony",
+      "artistSlug": "mary-cassatt",
+      "movementSlug": "impressionism",
+      "year": "1878–79",
+      "medium": "Oil on canvas",
+      "dimensions": "85.2 × 65.5 cm",
+      "image": "https://www.artic.edu/iiif/2/f0150d21-33ab-f6ea-0d4d-32d459f091fe/full/1400,/0/default.jpg",
+      "width": 1400,
+      "height": 1822,
+      "rating": 4.3,
+      "reviewCount": 87,
+      "tags": [
+        "balcony",
+        "reading",
+        "plein air",
+        "public domain"
+      ],
+      "summary": "A woman reads on a sunlit balcony in this early Impressionist work by Cassatt. The cropped composition and casual pose reveal her growing confidence in the radical informality championed by Degas and Manet."
+    }
+  ],
+  "exhibitions": [
+    {
+      "slug": "light-and-color-revolution",
+      "title": "Light & Color: The Impressionist Revolution",
+      "venueSlug": "musee-dorsay",
+      "dateLabel": "15 Sep 2024 – 12 Jan 2025",
+      "heroArtworkSlug": "cliff-walk-at-pourville",
+      "artworkSlugs": [
+        "cliff-walk-at-pourville",
+        "the-childs-bath",
+        "on-a-balcony"
+      ],
+      "description": "A sweeping survey of how Impressionist painters dismantled academic convention through plein-air technique, broken color, and radical subject matter drawn from modern life."
+    },
+    {
+      "slug": "beyond-the-dot",
+      "title": "Beyond the Dot: Seurat, Van Gogh, and Post-Impressionism",
+      "venueSlug": "art-institute-of-chicago",
+      "dateLabel": "3 Nov 2024 – 23 Mar 2025",
+      "heroArtworkSlug": "sunday-on-la-grande-jatte",
+      "artworkSlugs": [
+        "sunday-on-la-grande-jatte",
+        "study-for-bathers-at-asnieres",
+        "the-bedroom",
+        "the-poets-garden"
+      ],
+      "description": "From Seurat's optical science to Van Gogh's emotional intensity, this exhibition traces how Post-Impressionism transformed Impressionist light into something deeply personal and structurally inventive."
+    }
+  ],
+  "visits": [
+    {
+      "slug": "saturday-at-the-aic",
+      "title": "Saturday at the Art Institute",
+      "memberHandle": "aurelia-vale",
+      "venueSlug": "art-institute-of-chicago",
+      "visitedOn": "2024-11-09",
+      "notes": "Spent the afternoon with Seurat's Grande Jatte. The scale overwhelms in person — the pointillist dots dissolve into atmosphere at the right distance."
+    },
+    {
+      "slug": "morning-at-dorsay",
+      "title": "Morning at the Musée d'Orsay",
+      "memberHandle": "jonah-ivey",
+      "venueSlug": "musee-dorsay",
+      "visitedOn": "2024-12-03",
+      "notes": "The Impressionist galleries on the top floor catch the morning light through the glass ceiling. Monet's water lilies practically shimmer."
+    }
+  ],
+  "members": [
+    {
+      "handle": "aurelia-vale",
+      "displayName": "Aurelia Vale",
+      "location": "Paris",
+      "favoriteMovement": "Art Nouveau",
+      "bio": "Interior-design historian chasing every peacock staircase and winter garden I can find.",
+      "initials": "AV",
+      "stats": {
+        "reviews": 148,
+        "lists": 19,
+        "following": 312
+      },
+      "followingHandles": [
+        "jonah-ivey",
+        "lucien-march"
+      ],
+      "featuredListSlug": "impressionist-light",
+      "currentlyViewingSlugs": [
+        "water-lilies-1906",
+        "the-childs-bath"
+      ]
+    },
+    {
+      "handle": "jonah-ivey",
+      "displayName": "Jonah Ivey",
+      "location": "Chicago",
+      "favoriteMovement": "Symbolism",
+      "bio": "Looking for paintings that feel like stage directions for dreams.",
+      "initials": "JI",
+      "stats": {
+        "reviews": 82,
+        "lists": 11,
+        "following": 201
+      },
+      "followingHandles": [
+        "aurelia-vale",
+        "lucien-march"
+      ],
+      "featuredListSlug": "gardens-of-motion",
+      "currentlyViewingSlugs": [
+        "sunday-on-la-grande-jatte",
+        "the-bedroom"
+      ]
+    },
+    {
+      "handle": "lucien-march",
+      "displayName": "Lucien March",
+      "location": "Brussels",
+      "favoriteMovement": "Decorative Modernism",
+      "bio": "Collecting exhibition layouts, lighting notes, and every improbable glass panel in town.",
+      "initials": "LM",
+      "stats": {
+        "reviews": 64,
+        "lists": 8,
+        "following": 154
+      },
+      "followingHandles": [
+        "aurelia-vale"
+      ],
+      "featuredListSlug": "after-hours-atria",
+      "currentlyViewingSlugs": [
+        "the-poets-garden",
+        "on-a-balcony"
+      ]
+    }
+  ],
+  "reviews": [
+    {
+      "slug": "review-water-lilies-aurelia",
+      "targetType": "artwork",
+      "targetSlug": "water-lilies-1906",
+      "memberHandle": "aurelia-vale",
+      "title": "Monet's liquid meditation",
+      "excerpt": "Standing before the water lilies, you realise Monet wasn't painting flowers — he was painting the act of seeing itself. The surface dissolves into pure color and reflection.",
+      "rating": 5,
+      "publishedOn": "2024-11-15",
+      "tags": [
+        "Monet",
+        "Impressionism",
+        "masterpiece"
+      ]
+    },
+    {
+      "slug": "review-grande-jatte-jonah",
+      "targetType": "artwork",
+      "targetSlug": "sunday-on-la-grande-jatte",
+      "memberHandle": "jonah-ivey",
+      "title": "A cathedral of colored dots",
+      "excerpt": "The Grande Jatte rewards patience. Stand close and you see method — tiny strokes of complementary color. Step back and a whole Sunday afternoon materialises, stiff with bourgeois composure.",
+      "rating": 5,
+      "publishedOn": "2024-12-01",
+      "tags": [
+        "Seurat",
+        "pointillism",
+        "monumental"
+      ]
+    },
+    {
+      "slug": "review-van-gogh-lucien",
+      "targetType": "artist",
+      "targetSlug": "vincent-van-gogh",
+      "memberHandle": "lucien-march",
+      "title": "Painting as autobiography",
+      "excerpt": "Every Van Gogh canvas is a self-portrait in disguise. The bedroom, the wheat field, the night sky — each one pulses with an intensity that makes other paintings feel anemic.",
+      "rating": 5,
+      "publishedOn": "2024-11-28",
+      "tags": [
+        "Van Gogh",
+        "Post-Impressionism",
+        "expression"
+      ]
+    },
+    {
+      "slug": "review-impressionist-revolution-aurelia",
+      "targetType": "exhibition",
+      "targetSlug": "light-and-color-revolution",
+      "memberHandle": "aurelia-vale",
+      "title": "Light itself is the subject",
+      "excerpt": "The Musée d'Orsay exhibition makes a convincing case that Impressionism's real revolution wasn't subject matter but perception. Cassatt's domestic scenes hang beside Monet's landscapes with equal authority.",
+      "rating": 4,
+      "publishedOn": "2024-12-10",
+      "tags": [
+        "exhibition",
+        "Impressionism",
+        "Paris"
+      ]
+    },
+    {
+      "slug": "review-saturday-aic-aurelia",
+      "targetType": "visit",
+      "targetSlug": "saturday-at-the-aic",
+      "memberHandle": "aurelia-vale",
+      "title": "An afternoon with the Grande Jatte",
+      "excerpt": "Nothing prepares you for the scale. The study panels nearby show Seurat's process — but the final canvas has a presence that no reproduction captures.",
+      "rating": 5,
+      "publishedOn": "2024-11-10",
+      "tags": [
+        "museum visit",
+        "Chicago",
+        "Seurat"
+      ]
+    },
+    {
+      "slug": "review-beyond-the-dot-lucien",
+      "targetType": "exhibition",
+      "targetSlug": "beyond-the-dot",
+      "memberHandle": "lucien-march",
+      "title": "Where method meets feeling",
+      "excerpt": "Placing Seurat's analytical pointillism next to Van Gogh's emotional impasto reveals Post-Impressionism as a dialogue between reason and passion. The AIC curators understand this tension perfectly.",
+      "rating": 5,
+      "publishedOn": "2024-12-15",
+      "tags": [
+        "exhibition",
+        "Post-Impressionism",
+        "Chicago"
+      ]
+    }
+  ],
+  "lists": [
+    {
+      "slug": "impressionist-light",
+      "memberHandle": "aurelia-vale",
+      "title": "Impressionist Light",
+      "visibility": "public",
+      "description": "Works that capture the fleeting magic of natural light — from Monet's haystacks to Cassatt's sunlit interiors.",
+      "items": [
+        {
+          "artworkSlug": "water-lilies-1906",
+          "note": "The ultimate meditation on reflected light."
+        },
+        {
+          "artworkSlug": "stacks-of-wheat-end-of-summer",
+          "note": "Late summer gold dissolving into atmosphere."
+        },
+        {
+          "artworkSlug": "the-childs-bath",
+          "note": "Cassatt uses light to structure tenderness."
+        }
+      ]
+    },
+    {
+      "slug": "post-impressionist-visions",
+      "memberHandle": "jonah-ivey",
+      "title": "Post-Impressionist Visions",
+      "visibility": "public",
+      "description": "The artists who took Impressionism's broken color and turned it into something more structural, more personal, more strange.",
+      "items": [
+        {
+          "artworkSlug": "sunday-on-la-grande-jatte",
+          "note": "Pointillism at its most monumental and strange."
+        },
+        {
+          "artworkSlug": "the-bedroom",
+          "note": "Intimacy through flattened perspective and pure color."
+        },
+        {
+          "artworkSlug": "the-poets-garden",
+          "note": "Van Gogh's Provençal paradise."
+        }
+      ]
+    },
+    {
+      "slug": "intimate-spaces",
+      "memberHandle": "lucien-march",
+      "title": "Intimate Spaces",
+      "visibility": "public",
+      "description": "Interiors, bedrooms, balconies — art that draws you into private worlds.",
+      "items": [
+        {
+          "artworkSlug": "the-bedroom",
+          "note": "A room that contains an entire emotional state."
+        },
+        {
+          "artworkSlug": "on-a-balcony",
+          "note": "Cassatt's quiet observation of a private moment."
+        },
+        {
+          "artworkSlug": "study-for-bathers-at-asnieres",
+          "note": "Workers at rest — intimacy on a riverbank."
+        }
+      ]
+    }
+  ],
+  "feed": [
+    {
+      "type": "review",
+      "memberHandle": "aurelia-vale",
+      "headline": "aurelia-vale reviewed Water Lilies",
+      "detail": "★★★★★ — \"Monet wasn't painting flowers — he was painting the act of seeing itself.\"",
+      "href": "/artworks/water-lilies-1906",
+      "publishedOn": "2024-11-15"
+    },
+    {
+      "type": "review",
+      "memberHandle": "jonah-ivey",
+      "headline": "jonah-ivey reviewed A Sunday on La Grande Jatte",
+      "detail": "★★★★★ — \"The Grande Jatte rewards patience. A whole Sunday afternoon materialises.\"",
+      "href": "/artworks/sunday-on-la-grande-jatte",
+      "publishedOn": "2024-12-01"
+    },
+    {
+      "type": "list",
+      "memberHandle": "jonah-ivey",
+      "headline": "jonah-ivey created Post-Impressionist Visions",
+      "detail": "3 works from Seurat and Van Gogh exploring the evolution beyond Impressionism.",
+      "href": "/lists/post-impressionist-visions",
+      "publishedOn": "2024-12-05"
+    },
+    {
+      "type": "visit",
+      "memberHandle": "aurelia-vale",
+      "headline": "aurelia-vale visited Art Institute of Chicago",
+      "detail": "\"Spent the afternoon with Seurat's Grande Jatte. The scale overwhelms in person.\"",
+      "href": "/venues/art-institute-of-chicago",
+      "publishedOn": "2024-11-09"
+    },
+    {
+      "type": "review",
+      "memberHandle": "lucien-march",
+      "headline": "lucien-march reviewed Vincent van Gogh",
+      "detail": "★★★★★ — \"Every Van Gogh canvas is a self-portrait in disguise.\"",
+      "href": "/artists/vincent-van-gogh",
+      "publishedOn": "2024-11-28"
+    },
+    {
+      "type": "list",
+      "memberHandle": "lucien-march",
+      "headline": "lucien-march created Intimate Spaces",
+      "detail": "A collection of interiors and private moments from Van Gogh, Cassatt, and Seurat.",
+      "href": "/lists/intimate-spaces",
+      "publishedOn": "2024-12-08"
+    }
+  ]
+}

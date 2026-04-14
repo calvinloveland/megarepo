@@ -23,6 +23,9 @@ Standalone web applications for various use cases.
 - [**Cozi (momos)**](momos/README.md) - Prototype family command center for school emails, schedules, pantry tracking, reminders, and kid profiles
   - [Deployment Guide](momos/DEPLOYMENT.md)
 
+### Arts & Culture
+- [**vernissage**](vernissage/README.md) - Next.js + TypeScript prototype for reviewing artworks, artists, exhibitions, and museum visits with an Art Nouveau visual system
+
 ## Shared Web Systems
 
 - [**shared**](shared/README.md) - Reusable web feedback system (`/feedback`, `/feedback/mark-addressed`, shared floating widget template)

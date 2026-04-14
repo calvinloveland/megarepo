@@ -64,6 +64,7 @@ A consolidated monorepo for active projects, archived experiments, shared toolin
 | [**parambulator**](active/web-apps/parambulator/README.md) | Seating-chart builder for classroom constraints | Python |
 | [**sub-day-generator**](active/web-apps/sub-day-generator/README.md) | Substitute-ready classroom day plan prototype | Python |
 | [**momos**](active/web-apps/momos/README.md) | Family command center prototype | Python |
+| [**vernissage**](active/web-apps/vernissage/README.md) | Art Nouveau visual-art review salon for artworks, artists, exhibitions, and museum visits | TypeScript |
 | [**shared**](active/web-apps/shared/README.md) | Shared web feedback components used by multiple apps | Python |
 
 ### 👤 Personal Configuration

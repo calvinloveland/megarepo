@@ -1,0 +1,279 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ReviewTargetType {
+  ARTWORK
+  ARTIST
+  EXHIBITION
+  VISIT
+}
+
+enum Visibility {
+  PRIVATE
+  FOLLOWERS
+  PUBLIC
+}
+
+model User {
+  id               String        @id @default(cuid())
+  name             String?
+  email            String?       @unique
+  emailVerified    DateTime?
+  image            String?
+  handle           String        @unique
+  passwordHash     String?       @db.Text
+  bio              String?
+  location         String?
+  favoriteMovement String?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  accounts         Account[]
+  sessions         Session[]
+  authoredReviews  Review[]      @relation("AuthoredReviews")
+  authoredRatings  Rating[]      @relation("AuthoredRatings")
+  lists            List[]
+  museumVisits     MuseumVisit[]
+  following        Follow[]      @relation("Following")
+  followers        Follow[]      @relation("Followers")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Artist {
+  id          String           @id @default(cuid())
+  slug        String           @unique
+  name        String
+  years       String?
+  bio         String           @db.Text
+  movementId  String?
+  portrait    String?
+  country     String?
+  artworks    Artwork[]
+  reviews     Review[]         @relation("ArtistReviews")
+  ratings     Rating[]         @relation("ArtistRatings")
+  movement    ArtMovement?     @relation(fields: [movementId], references: [id])
+}
+
+model ArtMovement {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  name        String   @unique
+  description String?  @db.Text
+  artists     Artist[]
+  artworks    Artwork[]
+}
+
+model Artwork {
+  id            String             @id @default(cuid())
+  slug          String             @unique
+  title         String
+  yearLabel     String?
+  medium        String?
+  dimensions    String?
+  summary       String             @db.Text
+  image         String?
+  imageWidth    Int?
+  imageHeight   Int?
+  artistId      String
+  movementId    String?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  artist        Artist             @relation(fields: [artistId], references: [id], onDelete: Cascade)
+  movement      ArtMovement?       @relation(fields: [movementId], references: [id])
+  exhibitionMap ExhibitionArtwork[]
+  listItems     ListItem[]
+  reviews       Review[]           @relation("ArtworkReviews")
+  ratings       Rating[]           @relation("ArtworkRatings")
+  artworkTags   ArtworkTag[]
+}
+
+model Venue {
+  id          String        @id @default(cuid())
+  slug        String        @unique
+  name        String
+  city        String?
+  country     String?
+  description String?       @db.Text
+  exhibitions Exhibition[]
+  museumVisits MuseumVisit[]
+}
+
+model Exhibition {
+  id           String             @id @default(cuid())
+  slug         String             @unique
+  title        String
+  description  String             @db.Text
+  dateLabel    String?
+  venueId      String
+  heroImage    String?
+  venue        Venue              @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  featuredWorks ExhibitionArtwork[]
+  reviews      Review[]           @relation("ExhibitionReviews")
+  ratings      Rating[]           @relation("ExhibitionRatings")
+}
+
+model ExhibitionArtwork {
+  exhibitionId String
+  artworkId    String
+  position     Int
+  exhibition   Exhibition @relation(fields: [exhibitionId], references: [id], onDelete: Cascade)
+  artwork      Artwork    @relation(fields: [artworkId], references: [id], onDelete: Cascade)
+
+  @@id([exhibitionId, artworkId])
+}
+
+model MuseumVisit {
+  id          String    @id @default(cuid())
+  slug        String    @unique
+  title       String
+  visitDate   DateTime
+  notes       String?   @db.Text
+  userId      String
+  venueId     String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  venue       Venue     @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  reviews     Review[]  @relation("VisitReviews")
+  ratings     Rating[]  @relation("VisitRatings")
+}
+
+model Review {
+  id             String           @id @default(cuid())
+  slug           String           @unique
+  title          String
+  body           String           @db.Text
+  excerpt        String?
+  spoiler        Boolean          @default(false)
+  ratingValue    Float?
+  targetType     ReviewTargetType
+  targetSlug     String
+  userId         String
+  artworkId      String?
+  artistId       String?
+  exhibitionId   String?
+  museumVisitId  String?
+  publishedAt    DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  user           User             @relation("AuthoredReviews", fields: [userId], references: [id], onDelete: Cascade)
+  artwork        Artwork?         @relation("ArtworkReviews", fields: [artworkId], references: [id], onDelete: Cascade)
+  artist         Artist?          @relation("ArtistReviews", fields: [artistId], references: [id], onDelete: Cascade)
+  exhibition     Exhibition?      @relation("ExhibitionReviews", fields: [exhibitionId], references: [id], onDelete: Cascade)
+  museumVisit    MuseumVisit?     @relation("VisitReviews", fields: [museumVisitId], references: [id], onDelete: Cascade)
+  reviewTags     ReviewTag[]
+}
+
+model Rating {
+  id             String           @id @default(cuid())
+  value          Float
+  targetType     ReviewTargetType
+  targetSlug     String
+  userId         String
+  artworkId      String?
+  artistId       String?
+  exhibitionId   String?
+  museumVisitId  String?
+  createdAt      DateTime         @default(now())
+  user           User             @relation("AuthoredRatings", fields: [userId], references: [id], onDelete: Cascade)
+  artwork        Artwork?         @relation("ArtworkRatings", fields: [artworkId], references: [id], onDelete: Cascade)
+  artist         Artist?          @relation("ArtistRatings", fields: [artistId], references: [id], onDelete: Cascade)
+  exhibition     Exhibition?      @relation("ExhibitionRatings", fields: [exhibitionId], references: [id], onDelete: Cascade)
+  museumVisit    MuseumVisit?     @relation("VisitRatings", fields: [museumVisitId], references: [id], onDelete: Cascade)
+}
+
+model List {
+  id          String      @id @default(cuid())
+  slug        String      @unique
+  title       String
+  description String      @db.Text
+  visibility  Visibility  @default(PUBLIC)
+  userId      String
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items       ListItem[]
+}
+
+model ListItem {
+  id          String   @id @default(cuid())
+  listId      String
+  artworkId   String
+  position    Int
+  note        String?  @db.Text
+  list        List     @relation(fields: [listId], references: [id], onDelete: Cascade)
+  artwork     Artwork  @relation(fields: [artworkId], references: [id], onDelete: Cascade)
+
+  @@unique([listId, position])
+}
+
+model Follow {
+  followerId  String
+  followingId String
+  createdAt   DateTime @default(now())
+  follower    User     @relation("Following", fields: [followerId], references: [id], onDelete: Cascade)
+  following   User     @relation("Followers", fields: [followingId], references: [id], onDelete: Cascade)
+
+  @@id([followerId, followingId])
+}
+
+model Tag {
+  id          String       @id @default(cuid())
+  slug        String       @unique
+  name        String       @unique
+  artworkTags ArtworkTag[]
+  reviewTags  ReviewTag[]
+}
+
+model ArtworkTag {
+  artworkId String
+  tagId     String
+  artwork   Artwork @relation(fields: [artworkId], references: [id], onDelete: Cascade)
+  tag       Tag     @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([artworkId, tagId])
+}
+
+model ReviewTag {
+  reviewId String
+  tagId    String
+  review   Review @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  tag      Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([reviewId, tagId])
+}

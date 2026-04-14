@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any
@@ -77,6 +79,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     generation_list = generation_subparsers.add_parser("list", help="List recorded generation metadata")
     generation_list.add_argument("--limit", type=int, default=10, help="Maximum number of generations to show")
+
+    subparsers.add_parser("rebuild", help="Run the calnix rebuild helper")
 
     export_parser = subparsers.add_parser("export", help="Export the full calnix machine-local state")
     export_parser.add_argument("--pretty", action="store_true", help="Pretty-print the exported state")
@@ -345,13 +349,63 @@ def command_export(state_dir: Path, args: argparse.Namespace) -> int:
     return 0
 
 
+def build_global_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument("--state-dir", default=None, help=argparse.SUPPRESS)
+    parser.add_argument("--json", action="store_true", help=argparse.SUPPRESS)
+    return parser
+
+
+def resolve_rebuild_script() -> Path:
+    env_path = os.environ.get("CALNIX_REBUILD_SCRIPT")
+    if env_path:
+        candidate = Path(env_path)
+        if candidate.exists():
+            return candidate
+        raise CalnixStateError(f"Configured rebuild script not found: {candidate}")
+
+    candidate = Path(__file__).resolve().with_name("rebuild.py")
+    if candidate.exists():
+        return candidate
+
+    repo_root = find_repo_root()
+    candidate = repo_root / "rebuild.py"
+    if candidate.exists():
+        return candidate
+
+    raise CalnixStateError("Unable to locate rebuild.py for `calnix rebuild`.")
+
+
+def command_rebuild(state_dir: str | None, rebuild_args: list[str], json_requested: bool) -> int:
+    if json_requested:
+        raise CalnixStateError("`calnix rebuild` does not support --json.")
+
+    script = resolve_rebuild_script()
+    env = os.environ.copy()
+    if state_dir is not None:
+        env["CALNIX_STATE_DIR"] = str(state_dir)
+
+    result = subprocess.run([sys.executable, str(script), *rebuild_args], check=False, env=env)
+    return result.returncode
+
+
 def main(argv: list[str] | None = None) -> int:
+    raw_argv = list(argv) if argv is not None else sys.argv[1:]
+    global_args, remaining = build_global_parser().parse_known_args(raw_argv)
+
+    if remaining and remaining[0] == "rebuild":
+        try:
+            return command_rebuild(global_args.state_dir, remaining[1:], global_args.json)
+        except CalnixStateError as exc:
+            print(f"calnix: {exc}", file=sys.stderr)
+            return 1
+
     parser = build_parser()
-    args = parser.parse_args(argv)
-    registry = load_registry()
+    args = parser.parse_args(raw_argv)
     state_dir = resolve_state_dir(args.state_dir)
 
     try:
+        registry = load_registry()
         if args.command == "package":
             state = load_state(state_dir)
             if args.package_command == "list":

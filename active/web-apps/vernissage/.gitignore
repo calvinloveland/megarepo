@@ -1,0 +1,6 @@
+.next/
+data/feedback/*.json
+data/feedback/addressed/*.json
+data/*.db
+playwright-report/
+test-results/
