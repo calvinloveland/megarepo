@@ -51,11 +51,12 @@ test('member and exhibition routes render without falling into not-found', async
   await expect(page.getByText('This page has slipped behind the curtain')).toHaveCount(0);
 });
 
-test('search page exposes catalog request feedback flow', async ({ page }) => {
+test('search page links to the artist request flow', async ({ page }) => {
   await page.goto('/search', { waitUntil: 'domcontentloaded' });
 
-  await page.getByText('Request an artist or artwork').click();
+  await page.getByRole('link', { name: 'Suggest an artist' }).first().click();
 
-  await expect(page.getByRole('dialog', { name: 'Send feedback' })).toBeVisible();
-  await expect(page.getByLabel('Your feedback')).toHaveValue(/I'd love to request an artist or artwork/);
+  await expect(page).toHaveURL(/\/artists\/new$/);
+  await expect(page.getByRole('heading', { level: 1, name: 'Suggest an artist for Vernissage' })).toBeVisible();
+  await expect(page.getByLabel('Artist name')).toBeVisible();
 });

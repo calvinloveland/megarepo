@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation';
 import { BotanicalDivider } from '@/src/components/BotanicalDivider';
+import { EnamelButton } from '@/src/components/EnamelButton';
 import { EnamelChip } from '@/src/components/EnamelChip';
 import { GildedCard } from '@/src/components/GildedCard';
 import { RatingStars } from '@/src/components/RatingStars';
@@ -59,6 +60,17 @@ export default async function ArtistPage({ params }: { params: Promise<{ slug: s
           <p>
             Readers respond most strongly to {artist.signatureMotifs[0]} and the way {artist.name.split(' ')[0]} sequences ornament like choreography.
           </p>
+        </GildedCard>
+        <GildedCard title="Missing another artist?" eyebrow="Catalog expansion">
+          <p>
+            If the next artist you want to compare or review is not catalogued yet, send a direct
+            artist request so the collection team knows who should enter the room next.
+          </p>
+          <div className="button-row">
+            <EnamelButton href="/artists/new" variant="secondary">
+              Suggest an artist
+            </EnamelButton>
+          </div>
         </GildedCard>
       </section>
 

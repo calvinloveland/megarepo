@@ -90,11 +90,14 @@ export default async function SearchPage({
             : 'You are viewing the full launch catalog. Add a keyword or filter to narrow the room.'}
         </p>
         <div className="button-row">
+          <EnamelButton href="/artists/new" variant="secondary">
+            Suggest an artist
+          </EnamelButton>
           <OpenFeedbackButton
             variant="secondary"
-            initialText="I'd love to request an artist or artwork that is missing from the Vernissage catalog."
+            initialText="I'd love to request an artwork that is missing from the Vernissage catalog."
           >
-            Request an artist or artwork
+            Request an artwork
           </OpenFeedbackButton>
         </div>
         <div className="chip-row">
@@ -158,6 +161,18 @@ export default async function SearchPage({
           </section>
         </>
       ) : null}
+
+      <section className="hero-shell hero-shell--compact">
+        <p className="eyebrow">Missing someone important?</p>
+        <h2>Suggest the next artist we should catalog</h2>
+        <p>
+          If the current search still leaves out the artist you want to write about, send a direct
+          artist request instead of burying it in a generic feedback note.
+        </p>
+        <div className="button-row">
+          <EnamelButton href="/artists/new">Open artist request form</EnamelButton>
+        </div>
+      </section>
 
       {(query || movement) && exhibitionResults.length ? (
         <>

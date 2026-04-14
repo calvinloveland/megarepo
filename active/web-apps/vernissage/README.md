@@ -86,6 +86,7 @@ Vernissage now includes:
 
 - `/join` for account creation
 - `/signin` for account access
+- `/artists/new` for direct artist suggestion requests
 - `/api/reviews` for persisted review submission
 - `/api/health` and `/api/ready` for app/runtime checks
 
