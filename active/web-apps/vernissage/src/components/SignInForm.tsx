@@ -34,7 +34,7 @@ export function SignInForm({ callbackUrl, databaseReady, initialError }: SignInF
 
     if (!result || result.error) {
       setPending(false);
-      setErrorMessage('The handle/email and password did not match a Vernissage account.');
+      setErrorMessage('The handle and password did not match a Vernissage account.');
       return;
     }
 
@@ -43,7 +43,7 @@ export function SignInForm({ callbackUrl, databaseReady, initialError }: SignInF
 
   return (
     <form className="ornate-form ornate-form--stacked" onSubmit={handleSubmit}>
-      <OrnateInput label="Email or handle" name="identifier" placeholder="you@example.com or atelier-name" />
+      <OrnateInput label="Handle" name="identifier" placeholder="atelier-name" hint="Older launch accounts can still use their email if needed." />
       <OrnateInput label="Password" name="password" type="password" placeholder="Your Vernissage password" />
       {errorMessage ? <p className="meta-note">{errorMessage}</p> : null}
       {!databaseReady ? <p className="meta-note">Account sign-in will become available once the shared application database is configured.</p> : null}

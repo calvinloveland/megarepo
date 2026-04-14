@@ -24,9 +24,9 @@ export default function PrivacyPage() {
         <div className="gilded-card__body trust-copy">
           <h2>Account data</h2>
           <p>
-            If you create an account, Vernissage stores your handle, email address, password hash,
-            optional profile fields, and the reviews or ratings you publish. Passwords are not stored
-            in plain text.
+            If you create an account, Vernissage stores your handle, password hash, and anything you
+            later choose to publish or add to your profile. Some older launch accounts may also carry
+            an email address from earlier signup flows. Passwords are not stored in plain text.
           </p>
 
           <h2>Catalogue and review data</h2>

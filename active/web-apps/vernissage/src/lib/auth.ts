@@ -16,7 +16,7 @@ export const authOptions: NextAuthOptions = {
     CredentialsProvider({
       name: 'Vernissage account',
       credentials: {
-        identifier: { label: 'Email or handle', type: 'text' },
+        identifier: { label: 'Handle', type: 'text' },
         password: { label: 'Password', type: 'password' }
       },
       async authorize(credentials) {

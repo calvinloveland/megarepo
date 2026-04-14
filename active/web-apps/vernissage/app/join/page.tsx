@@ -13,10 +13,6 @@ function errorMessageFor(code?: string) {
     return 'Account creation is blocked until the shared application database is configured.';
   }
 
-  if (code === 'email-in-use') {
-    return 'That email address already belongs to an existing Vernissage account.';
-  }
-
   if (code === 'handle-in-use') {
     return 'That handle is already claimed. Try another signature for the salon.';
   }
@@ -26,7 +22,7 @@ function errorMessageFor(code?: string) {
   }
 
   if (code === 'invalid') {
-    return 'Please fill every field correctly before creating the account.';
+    return 'Choose a valid handle and a password with at least 10 characters.';
   }
 
   return '';
@@ -51,7 +47,7 @@ export default async function JoinPage({
       <section className="hero-shell hero-shell--compact">
         <p className="eyebrow">New member</p>
         <h1>Take your place in the salon</h1>
-        <p>Create a real Vernissage account so your reviews, ratings, and future lists belong to you rather than a demo curator.</p>
+        <p>Start with a handle and password, then fill in the rest of your profile later once you are inside the salon.</p>
       </section>
 
       <BotanicalDivider label="Create account" />
@@ -64,21 +60,21 @@ export default async function JoinPage({
       <form className="ornate-form ornate-form--stacked" method="post" action="/api/auth/register">
         <input type="hidden" name="callbackUrl" value={callbackUrl} />
         <div className="two-up-grid two-up-grid--tight">
-          <OrnateInput label="Display name" name="name" placeholder="Aurelia Vale" />
-          <OrnateInput label="Handle" name="handle" placeholder="aurelia-vale" />
-        </div>
-        <OrnateInput label="Email" name="email" type="email" placeholder="you@example.com" />
-        <div className="two-up-grid two-up-grid--tight">
+          <OrnateInput
+            label="Handle"
+            name="handle"
+            placeholder="atelier-name"
+            hint="This becomes your public signature and your default display name."
+          />
           <OrnateInput label="Password" name="password" type="password" placeholder="At least 10 characters" />
-          <OrnateInput label="Location" name="location" placeholder="Paris, London, Chicago…" />
         </div>
-        <OrnateInput label="Bio" name="bio" multiline placeholder="A few lines about your taste, obsessions, or favorite rooms to wander." />
         <div className="button-row">
           <EnamelButton type="submit">Create account</EnamelButton>
           <EnamelButton href="/signin" variant="secondary">
             Already have an account?
           </EnamelButton>
         </div>
+        <p className="meta-note">No email confirmation loop, location survey, or bio essay at signup.</p>
       </form>
 
       <p className="meta-note">
