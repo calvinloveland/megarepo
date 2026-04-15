@@ -142,6 +142,46 @@
       "slug": "mexican-modernism",
       "name": "Mexican Modernism",
       "description": "Modern art shaped by revolutionary politics, indigenous memory, folk symbolism, and a forceful national visual language."
+    },
+    {
+      "slug": "neoclassicism",
+      "name": "Neoclassicism",
+      "description": "Art built from antique models, civic gravity, idealized bodies, and moral clarity sharpened by line."
+    },
+    {
+      "slug": "pre-raphaelite",
+      "name": "Pre-Raphaelite",
+      "description": "Victorian medievalism and literary painting rendered with jewel-tone color, botanical detail, and devotional intensity."
+    },
+    {
+      "slug": "expressionism",
+      "name": "Expressionism",
+      "description": "Art that distorts color, line, and figure to make inner states hit harder than outward accuracy."
+    },
+    {
+      "slug": "dada",
+      "name": "Dada",
+      "description": "Anti-rational modernism built from collage, provocation, readymades, and sabotage of cultural certainty."
+    },
+    {
+      "slug": "abstract-expressionism",
+      "name": "Abstract Expressionism",
+      "description": "Postwar painting that treats the canvas as an arena for gesture, fields of color, and large-scale psychic weather."
+    },
+    {
+      "slug": "minimalism",
+      "name": "Minimalism",
+      "description": "Reduction of form to repeated units, measured intervals, and stripped-down structure that changes how space is felt."
+    },
+    {
+      "slug": "american-modernism",
+      "name": "American Modernism",
+      "description": "Modern art in the United States shaped by landscape scale, urban change, vernacular form, and new pictorial compression."
+    },
+    {
+      "slug": "mexican-muralism",
+      "name": "Mexican Muralism",
+      "description": "Large-scale public painting rooted in revolutionary politics, labor, indigenous history, and social narrative."
     }
   ],
   "venues": [
@@ -778,6 +818,300 @@
         "migrant workers",
         "documentary witness",
         "Depression-era roads"
+      ]
+    },
+    {
+      "slug": "jacques-louis-david",
+      "name": "Jacques-Louis David",
+      "years": "1748–1825",
+      "movementSlug": "neoclassicism",
+      "country": "France",
+      "portraitLabel": "Civic virtue staged with marble severity",
+      "bio": "David turns Roman precedent into revolutionary theater, using sharpened contours and stage-clear gestures to make history painting feel like public argument.",
+      "signatureMotifs": [
+        "Roman virtue",
+        "heroic sacrifice",
+        "hard contour"
+      ]
+    },
+    {
+      "slug": "jean-auguste-dominique-ingres",
+      "name": "Jean-Auguste-Dominique Ingres",
+      "years": "1780–1867",
+      "movementSlug": "neoclassicism",
+      "country": "France",
+      "portraitLabel": "Line-driven classicism stretched toward sensuality",
+      "bio": "Ingres keeps worshipping line even when bodies, fabrics, and odalisques start to bend beyond strict anatomy, making polish and distortion strangely compatible.",
+      "signatureMotifs": [
+        "precise contour",
+        "odalisques",
+        "classical finish"
+      ]
+    },
+    {
+      "slug": "dante-gabriel-rossetti",
+      "name": "Dante Gabriel Rossetti",
+      "years": "1828–1882",
+      "movementSlug": "pre-raphaelite",
+      "country": "United Kingdom",
+      "portraitLabel": "Poetic medievalism thick with hair, flowers, and longing",
+      "bio": "Rossetti turns literary painting into a heavy-breathed dream of saints, lovers, and symbolic objects where color and desire refuse to stay separate.",
+      "signatureMotifs": [
+        "luxuriant hair",
+        "symbolic flowers",
+        "medieval reverie"
+      ]
+    },
+    {
+      "slug": "john-william-waterhouse",
+      "name": "John William Waterhouse",
+      "years": "1849–1917",
+      "movementSlug": "pre-raphaelite",
+      "country": "United Kingdom",
+      "portraitLabel": "Myth and literature carried by reflective water and fatal pauses",
+      "bio": "Waterhouse paints scenes from myth and poetry with theatrical hush, lingering over lakes, garlands, and moments when enchantment is about to turn dangerous.",
+      "signatureMotifs": [
+        "mythic heroines",
+        "water surfaces",
+        "fatal enchantment"
+      ]
+    },
+    {
+      "slug": "edvard-munch",
+      "name": "Edvard Munch",
+      "years": "1863–1944",
+      "movementSlug": "expressionism",
+      "country": "Norway",
+      "portraitLabel": "Anxiety, desire, and memory pushed into vibrating line",
+      "bio": "Munch lets paint tremble around jealousy, illness, and psychic dread until figures and landscape seem to share the same pulse.",
+      "signatureMotifs": [
+        "existential anxiety",
+        "vibrating line",
+        "moonlit dread"
+      ]
+    },
+    {
+      "slug": "egon-schiele",
+      "name": "Egon Schiele",
+      "years": "1890–1918",
+      "movementSlug": "expressionism",
+      "country": "Austria",
+      "portraitLabel": "Angular bodies and unsheltered self-display",
+      "bio": "Schiele pares flesh down to bone, outline, and exposed nerve, making portraiture feel less like likeness than like a stripped emotional condition.",
+      "signatureMotifs": [
+        "angular bodies",
+        "raw self-portraiture",
+        "charged contour"
+      ]
+    },
+    {
+      "slug": "ernst-ludwig-kirchner",
+      "name": "Ernst Ludwig Kirchner",
+      "years": "1880–1938",
+      "movementSlug": "expressionism",
+      "country": "Germany",
+      "portraitLabel": "Street life cut into shards of color and nerves",
+      "bio": "Kirchner paints the modern city as a high-pressure zone of angled figures, acidic color, and unstable movement.",
+      "signatureMotifs": [
+        "street scenes",
+        "acid color",
+        "urban tension"
+      ]
+    },
+    {
+      "slug": "marcel-duchamp",
+      "name": "Marcel Duchamp",
+      "years": "1887–1968",
+      "movementSlug": "dada",
+      "country": "France / United States",
+      "portraitLabel": "Readymades and conceptual traps for the eye",
+      "bio": "Duchamp keeps asking whether choosing, naming, or repositioning an object might matter more than making it with your hands.",
+      "signatureMotifs": [
+        "readymades",
+        "chess logic",
+        "anti-retinal art"
+      ]
+    },
+    {
+      "slug": "hannah-hoch",
+      "name": "Hannah Höch",
+      "years": "1889–1978",
+      "movementSlug": "dada",
+      "country": "Germany",
+      "portraitLabel": "Photomontage as cultural surgery",
+      "bio": "Höch cuts magazines, faces, machines, and fashion into unstable new bodies, using collage to expose how modern identity is manufactured.",
+      "signatureMotifs": [
+        "photomontage",
+        "gender collage",
+        "machine fragments"
+      ]
+    },
+    {
+      "slug": "rene-magritte",
+      "name": "René Magritte",
+      "years": "1898–1967",
+      "movementSlug": "surrealism",
+      "country": "Belgium",
+      "portraitLabel": "Ordinary objects turned into philosophical traps",
+      "bio": "Magritte keeps everything painted clearly enough to trust until language, scale, or substitution makes the scene suddenly impossible to inhabit.",
+      "signatureMotifs": [
+        "bowler hats",
+        "clouded skies",
+        "word-image games"
+      ]
+    },
+    {
+      "slug": "salvador-dali",
+      "name": "Salvador Dalí",
+      "years": "1904–1989",
+      "movementSlug": "surrealism",
+      "country": "Spain",
+      "portraitLabel": "Dreams polished to hallucinatory finish",
+      "bio": "Dalí renders impossible bodies, melting forms, and desert theaters with such precision that delirium starts to feel like fact.",
+      "signatureMotifs": [
+        "melting clocks",
+        "dream deserts",
+        "paranoid precision"
+      ]
+    },
+    {
+      "slug": "leonora-carrington",
+      "name": "Leonora Carrington",
+      "years": "1917–2011",
+      "movementSlug": "surrealism",
+      "country": "United Kingdom / Mexico",
+      "portraitLabel": "Occult surrealism with beasts, kitchens, and ritual",
+      "bio": "Carrington populates her paintings with horses, witches, hybrid beings, and domestic alchemy, making surrealism feel both mythic and habitable.",
+      "signatureMotifs": [
+        "occult rituals",
+        "hybrid animals",
+        "feminine mythmaking"
+      ]
+    },
+    {
+      "slug": "remedios-varo",
+      "name": "Remedios Varo",
+      "years": "1908–1963",
+      "movementSlug": "surrealism",
+      "country": "Spain / Mexico",
+      "portraitLabel": "Hermetic machines for visionary wandering",
+      "bio": "Varo builds impossible laboratories, towers, and journeys where science, magic, and private symbolism all work from the same blueprint.",
+      "signatureMotifs": [
+        "alchemical interiors",
+        "wandering figures",
+        "esoteric machines"
+      ]
+    },
+    {
+      "slug": "georgia-okeeffe",
+      "name": "Georgia O’Keeffe",
+      "years": "1887–1986",
+      "movementSlug": "american-modernism",
+      "country": "United States",
+      "portraitLabel": "Bones, flowers, and desert air enlarged into monument",
+      "bio": "O’Keeffe makes flowers, cliffs, and bleached bones feel both intimate and monumental by pushing form toward compression and scale at once.",
+      "signatureMotifs": [
+        "desert bones",
+        "enlarged flowers",
+        "New Mexico light"
+      ]
+    },
+    {
+      "slug": "jacob-lawrence",
+      "name": "Jacob Lawrence",
+      "years": "1917–2000",
+      "movementSlug": "american-modernism",
+      "country": "United States",
+      "portraitLabel": "Migration, labor, and history in bold panels",
+      "bio": "Lawrence condenses collective history into rhythmic sequences of flat color and urgent geometry, making narrative move panel by panel like music.",
+      "signatureMotifs": [
+        "migration stories",
+        "flat color",
+        "serial narrative"
+      ]
+    },
+    {
+      "slug": "diego-rivera",
+      "name": "Diego Rivera",
+      "years": "1886–1957",
+      "movementSlug": "mexican-muralism",
+      "country": "Mexico",
+      "portraitLabel": "Public history painted at architectural scale",
+      "bio": "Rivera treats walls as civic textbooks, filling them with workers, machines, crops, and revolutionary struggle organized for collective reading.",
+      "signatureMotifs": [
+        "workers and labor",
+        "murals",
+        "revolutionary history"
+      ]
+    },
+    {
+      "slug": "jackson-pollock",
+      "name": "Jackson Pollock",
+      "years": "1912–1956",
+      "movementSlug": "abstract-expressionism",
+      "country": "United States",
+      "portraitLabel": "Drip painting as event and field",
+      "bio": "Pollock turns the act of painting into a visible trace network, making the surface feel less composed than accumulated under pressure.",
+      "signatureMotifs": [
+        "drip fields",
+        "all-over composition",
+        "gestural webs"
+      ]
+    },
+    {
+      "slug": "mark-rothko",
+      "name": "Mark Rothko",
+      "years": "1903–1970",
+      "movementSlug": "abstract-expressionism",
+      "country": "Latvia / United States",
+      "portraitLabel": "Color fields tuned toward hush and dread",
+      "bio": "Rothko uses hovering rectangles and softened edges to make paintings feel less seen than absorbed, as if color were a climate you step into.",
+      "signatureMotifs": [
+        "hovering rectangles",
+        "soft edges",
+        "immersive color"
+      ]
+    },
+    {
+      "slug": "joan-mitchell",
+      "name": "Joan Mitchell",
+      "years": "1925–1992",
+      "movementSlug": "abstract-expressionism",
+      "country": "United States",
+      "portraitLabel": "Memory landscapes built from charged brushwork",
+      "bio": "Mitchell turns recollected places into swarms of color and stroke, keeping abstraction tied to weather, gardens, and remembered motion.",
+      "signatureMotifs": [
+        "brushwork cascades",
+        "memory landscape",
+        "color surges"
+      ]
+    },
+    {
+      "slug": "agnes-martin",
+      "name": "Agnes Martin",
+      "years": "1912–2004",
+      "movementSlug": "minimalism",
+      "country": "Canada / United States",
+      "portraitLabel": "Quiet grids and hand-drawn intervals",
+      "bio": "Martin makes almost nothing happen on the canvas and then lets the faintest grid, stripe, or tonal shift become emotionally enormous.",
+      "signatureMotifs": [
+        "hand-drawn grids",
+        "pale bands",
+        "quiet repetition"
+      ]
+    },
+    {
+      "slug": "donald-judd",
+      "name": "Donald Judd",
+      "years": "1928–1994",
+      "movementSlug": "minimalism",
+      "country": "United States",
+      "portraitLabel": "Specific objects that change the room around them",
+      "bio": "Judd strips art down to repeated units, industrial surfaces, and exact intervals, making the surrounding space part of the work’s meaning.",
+      "signatureMotifs": [
+        "stack units",
+        "industrial finish",
+        "serial form"
       ]
     }
   ],
