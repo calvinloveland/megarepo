@@ -32,8 +32,12 @@ test('featured highlights resolve to real entities', () => {
   for (const slug of content.site.highlights.featuredExhibitionSlugs) {
     assert.ok(exhibitionSlugs.has(slug), `Missing featured exhibition: ${slug}`);
   }
-  assert.ok(listSlugs.has(content.site.highlights.featuredListSlug));
-  assert.ok(memberHandles.has(content.site.highlights.featuredMemberHandle));
+  if (content.site.highlights.featuredListSlug) {
+    assert.ok(listSlugs.has(content.site.highlights.featuredListSlug));
+  }
+  if (content.site.highlights.featuredMemberHandle) {
+    assert.ok(memberHandles.has(content.site.highlights.featuredMemberHandle));
+  }
 });
 
 test('artworks, exhibitions, lists, and reviews reference valid related records', () => {

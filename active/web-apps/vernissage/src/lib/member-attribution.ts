@@ -1,9 +1,7 @@
-const editorialMemberHandles = new Set(['vernissage-notebook', 'jonah-ivey', 'lucien-march']);
-
 export const NOTEBOOK_LABEL = 'Vernissage Notebook';
 
 export function isEditorialMemberHandle(handle: string) {
-  return editorialMemberHandles.has(handle);
+  return false;
 }
 
 export function getMemberAttributionLabel(handle: string) {

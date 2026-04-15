@@ -4,6 +4,7 @@ import { EnamelButton } from '@/src/components/EnamelButton';
 import { EnamelChip } from '@/src/components/EnamelChip';
 import { GildedCard } from '@/src/components/GildedCard';
 import { RatingStars } from '@/src/components/RatingStars';
+import { getAverageRating } from '@/src/lib/artist-profile';
 import {
   formatMemberAttribution,
   artists,
@@ -12,7 +13,6 @@ import {
   getMovement,
   getReviewsForTarget
 } from '@/src/lib/catalog';
-import { getArtistAverageRating } from '@/src/lib/artist-profile';
 import { getPersistedReviewsForTarget, mergeReviews } from '@/src/lib/live-data';
 
 export const dynamic = 'force-dynamic';
@@ -31,7 +31,7 @@ export default async function ArtistPage({ params }: { params: Promise<{ slug: s
   const works = getArtworksByArtist(artist.slug);
   const movement = getMovement(artist.movementSlug);
   const reviews = mergeReviews(getReviewsForTarget('artist', artist.slug), await getPersistedReviewsForTarget('artist', artist.slug));
-  const averageRating = getArtistAverageRating(works);
+  const averageRating = getAverageRating(reviews);
 
   return (
     <div className="page-stack">
@@ -54,15 +54,14 @@ export default async function ArtistPage({ params }: { params: Promise<{ slug: s
           <ul className="plain-list">
             <li>Movement: {movement?.name}</li>
             <li>{works.length} catalogued works in the current launch collection</li>
-            <li>{reviews.length} long-form artist reviews</li>
+            <li>{reviews.length} published artist reviews</li>
           </ul>
         </GildedCard>
         <GildedCard title="House appraisal" eyebrow="Aggregate response">
           {averageRating === null ? (
             <p>
-              This dossier is live before the first safely licensed artwork image has joined the catalog.
-              The collection team can still index the artist, link reviews, and fill in works once the
-              right source arrives.
+              No published reader ratings yet. This dossier can still stand on artist records and artwork metadata
+              until members begin responding in public.
             </p>
           ) : (
             <>
@@ -108,12 +107,18 @@ export default async function ArtistPage({ params }: { params: Promise<{ slug: s
       <BotanicalDivider label="Artist reviews" />
 
       <section className="review-grid">
-        {reviews.map((review) => (
-          <GildedCard key={review.slug} title={review.title} eyebrow={formatMemberAttribution(review.memberHandle, review.publishedOn)}>
-            <RatingStars rating={review.rating} />
-            <p>{review.excerpt}</p>
+        {reviews.length ? (
+          reviews.map((review) => (
+            <GildedCard key={review.slug} title={review.title} eyebrow={formatMemberAttribution(review.memberHandle, review.publishedOn)}>
+              <RatingStars rating={review.rating} />
+              <p>{review.excerpt}</p>
+            </GildedCard>
+          ))
+        ) : (
+          <GildedCard title="No published artist reviews yet" eyebrow="Waiting for real criticism">
+            <p>There are no seeded artist blurbs here anymore. The first real member review will appear once someone writes one.</p>
           </GildedCard>
-        ))}
+        )}
       </section>
     </div>
   );

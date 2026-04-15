@@ -6,6 +6,7 @@ import { CatalogRequestCard } from '@/src/components/CatalogRequestCard';
 import { EnamelChip } from '@/src/components/EnamelChip';
 import { GildedCard } from '@/src/components/GildedCard';
 import { RatingStars } from '@/src/components/RatingStars';
+import { getAverageRating } from '@/src/lib/artist-profile';
 import {
   artworks,
   formatMemberAttribution,
@@ -34,6 +35,7 @@ export default async function ArtworkPage({ params }: { params: Promise<{ slug: 
   const movement = getMovement(artwork.movementSlug);
   const reviews = mergeReviews(getReviewsForTarget('artwork', artwork.slug), await getPersistedReviewsForTarget('artwork', artwork.slug));
   const relatedWorks = getArtworksByArtist(artwork.artistSlug).filter((candidate) => candidate.slug !== artwork.slug);
+  const averageRating = getAverageRating(reviews);
 
   return (
     <div className="page-stack">
@@ -45,7 +47,14 @@ export default async function ArtworkPage({ params }: { params: Promise<{ slug: 
           <p className="eyebrow">{artist?.name}</p>
           <h1>{artwork.title}</h1>
           <p className="lead">{artwork.summary}</p>
-          <RatingStars rating={artwork.rating} />
+          {averageRating === null ? (
+            <p className="meta-note">No published reader ratings yet.</p>
+          ) : (
+            <>
+              <RatingStars rating={averageRating} />
+              <p className="meta-note">{reviews.length} published review{reviews.length === 1 ? '' : 's'} so far.</p>
+            </>
+          )}
           <ArtworkQuickActions artworkSlug={artwork.slug} artworkTitle={artwork.title} />
           <dl className="meta-grid">
             <div>
@@ -78,12 +87,18 @@ export default async function ArtworkPage({ params }: { params: Promise<{ slug: 
       <BotanicalDivider label="Reader responses" />
 
       <section className="review-grid">
-        {reviews.map((review) => (
-          <GildedCard key={review.slug} title={review.title} eyebrow={formatMemberAttribution(review.memberHandle, review.publishedOn)}>
-            <RatingStars rating={review.rating} />
-            <p>{review.excerpt}</p>
+        {reviews.length ? (
+          reviews.map((review) => (
+            <GildedCard key={review.slug} title={review.title} eyebrow={formatMemberAttribution(review.memberHandle, review.publishedOn)}>
+              <RatingStars rating={review.rating} />
+              <p>{review.excerpt}</p>
+            </GildedCard>
+          ))
+        ) : (
+          <GildedCard title="No published responses yet" eyebrow="Waiting for the first review">
+            <p>This artwork has no seeded ratings or quotes anymore. The first real member response will appear here.</p>
           </GildedCard>
-        ))}
+        )}
       </section>
 
       <BotanicalDivider label="More from this artist" />

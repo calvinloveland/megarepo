@@ -1,11 +1,11 @@
-export type RatedArtworkLike = {
+export type RatedLike = {
   rating: number;
 };
 
-export function getArtistAverageRating<TArtwork extends RatedArtworkLike>(works: TArtwork[]) {
-  if (works.length === 0) {
+export function getAverageRating<TItem extends RatedLike>(items: TItem[]) {
+  if (items.length === 0) {
     return null;
   }
 
-  return works.reduce((sum, work) => sum + work.rating, 0) / works.length;
+  return items.reduce((sum, item) => sum + item.rating, 0) / items.length;
 }

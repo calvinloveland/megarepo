@@ -37,17 +37,17 @@ test('search page links into the artwork detail page', async ({ page }) => {
   await expect(page.getByText('Reader responses')).toBeVisible();
 });
 
-test('member and exhibition routes render without falling into not-found', async ({ page }) => {
-  await page.goto('/members/vernissage-notebook', { waitUntil: 'domcontentloaded' });
+test('member redirect and dossier-only artist route render without filler content', async ({ page }) => {
+  await page.goto('/members/nonexistent-member', { waitUntil: 'domcontentloaded' });
 
   await expect(page).toHaveURL(/\/feed$/);
-  await expect(page.getByRole('heading', { level: 1, name: 'The launch notebook' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: 'Recent writing' })).toBeVisible();
   await expect(page.getByText('This page has slipped behind the curtain')).toHaveCount(0);
 
-  await page.goto('/exhibitions/light-and-color-revolution', { waitUntil: 'domcontentloaded' });
+  await page.goto('/artists/ken-rockwell', { waitUntil: 'domcontentloaded' });
 
-  await expect(page.getByRole('heading', { level: 1, name: 'Light & Color: The Impressionist Revolution' })).toBeVisible();
-  await expect(page.getByText('Featured works')).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: 'Ken Rockwell' })).toBeVisible();
+  await expect(page.getByText('Works forthcoming')).toBeVisible();
   await expect(page.getByText('This page has slipped behind the curtain')).toHaveCount(0);
 });
 

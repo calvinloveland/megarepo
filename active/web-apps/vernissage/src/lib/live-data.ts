@@ -84,6 +84,30 @@ export async function getPersistedReviewsByMember(handle: string) {
   return reviews.map(toCatalogReview);
 }
 
+export async function getPersistedRecentReviews(limit: number = 10) {
+  if (!isDatabaseConfigured()) {
+    return [] as CatalogReview[];
+  }
+
+  const prisma = getPrisma();
+  const reviews = await prisma.review.findMany({
+    take: limit,
+    include: {
+      user: true,
+      reviewTags: {
+        include: {
+          tag: true
+        }
+      }
+    },
+    orderBy: {
+      publishedAt: 'desc'
+    }
+  });
+
+  return reviews.map(toCatalogReview);
+}
+
 export async function getPersistedMemberProfile(handle: string) {
   if (!isDatabaseConfigured()) {
     return null;
@@ -110,9 +134,9 @@ export async function getPersistedMemberProfile(handle: string) {
   return {
     handle: user.handle,
     displayName: user.name?.trim() || user.handle,
-    bio: user.bio?.trim() || 'A new critic has arrived in the salon. Their public profile will deepen with each saved review.',
-    location: user.location?.trim() || 'Location forthcoming',
-    favoriteMovement: user.favoriteMovement?.trim() || 'Still selecting a movement',
+    bio: user.bio?.trim() || '',
+    location: user.location?.trim() || '',
+    favoriteMovement: user.favoriteMovement?.trim() || '',
     stats: {
       reviews: user._count.authoredReviews,
       lists: user._count.lists,

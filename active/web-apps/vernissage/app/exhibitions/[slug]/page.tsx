@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import { BotanicalDivider } from '@/src/components/BotanicalDivider';
 import { GildedCard } from '@/src/components/GildedCard';
 import { RatingStars } from '@/src/components/RatingStars';
+import { getAverageRating } from '@/src/lib/artist-profile';
 import {
   exhibitions,
   formatMemberAttribution,
@@ -27,6 +28,7 @@ export default async function ExhibitionPage({ params }: { params: Promise<{ slu
 
   const venue = getVenue(exhibition.venueSlug);
   const reviews = mergeReviews(getReviewsForTarget('exhibition', exhibition.slug), await getPersistedReviewsForTarget('exhibition', exhibition.slug));
+  const averageRating = getAverageRating(reviews);
 
   return (
     <div className="page-stack">
@@ -42,8 +44,14 @@ export default async function ExhibitionPage({ params }: { params: Promise<{ slu
           <p>{venue?.description}</p>
         </GildedCard>
         <GildedCard title="Exhibition reading" eyebrow="Critical response">
-          <RatingStars rating={reviews.length ? reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length : 4.5} />
-          <p>{reviews.length} detailed exhibition reviews are attached to this show in the current launch catalog.</p>
+          {averageRating === null ? (
+            <p>No published exhibition ratings yet.</p>
+          ) : (
+            <>
+              <RatingStars rating={averageRating} />
+              <p>{reviews.length} published exhibition review{reviews.length === 1 ? '' : 's'} are attached to this show.</p>
+            </>
+          )}
         </GildedCard>
       </section>
 
@@ -64,12 +72,18 @@ export default async function ExhibitionPage({ params }: { params: Promise<{ slu
       <BotanicalDivider label="Exhibition reviews" />
 
       <section className="review-grid">
-        {reviews.map((review) => (
-          <GildedCard key={review.slug} title={review.title} eyebrow={formatMemberAttribution(review.memberHandle, review.publishedOn)}>
-            <RatingStars rating={review.rating} />
-            <p>{review.excerpt}</p>
+        {reviews.length ? (
+          reviews.map((review) => (
+            <GildedCard key={review.slug} title={review.title} eyebrow={formatMemberAttribution(review.memberHandle, review.publishedOn)}>
+              <RatingStars rating={review.rating} />
+              <p>{review.excerpt}</p>
+            </GildedCard>
+          ))
+        ) : (
+          <GildedCard title="No published exhibition reviews yet" eyebrow="Waiting for real responses">
+            <p>This exhibition record has no seeded criticism attached. Published member reviews will appear here when they exist.</p>
           </GildedCard>
-        ))}
+        )}
       </section>
     </div>
   );

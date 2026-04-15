@@ -18,13 +18,14 @@ export default async function MemberPage({ params }: { params: Promise<{ handle:
   }
 
   const reviews = await getPersistedReviewsByMember(persistedMember.handle);
+  const eyebrowParts = [persistedMember.location, persistedMember.favoriteMovement].filter(Boolean);
 
   return (
     <div className="page-stack">
       <section className="hero-shell hero-shell--compact">
-        <p className="eyebrow">{persistedMember.location} · {persistedMember.favoriteMovement}</p>
+        {eyebrowParts.length ? <p className="eyebrow">{eyebrowParts.join(' · ')}</p> : null}
         <h1>{persistedMember.displayName}</h1>
-        <p className="lead">{persistedMember.bio}</p>
+        {persistedMember.bio ? <p className="lead">{persistedMember.bio}</p> : <p className="lead">This member has an account, but they have not added a public bio yet.</p>}
         <div className="chip-row">
           <EnamelChip>{persistedMember.stats.reviews} reviews</EnamelChip>
           <EnamelChip tone="moss">{persistedMember.stats.lists} lists</EnamelChip>

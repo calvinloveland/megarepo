@@ -96,6 +96,8 @@ Launch abuse protections now include a one-review-per-user-per-target guard plus
 
 The artwork-page `+` quick-save control stores favorites and private notes in browser local storage for now, so it works even before full member libraries are online.
 
+The static catalog now ships without seeded reviews, feed entries, lists, members, exhibition activity, or artwork star aggregates. Homepage/community surfaces pull from persisted user reviews when they exist and otherwise render honest empty states instead of filler content.
+
 ## Feedback system
 
 Vernissage now includes a floating, Art Nouveau-styled feedback widget wired to the shared web-app feedback contract:

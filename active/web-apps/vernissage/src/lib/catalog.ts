@@ -54,8 +54,6 @@ export type Artwork = {
   image: string;
   width: number;
   height: number;
-  rating: number;
-  reviewCount: number;
   tags: string[];
   summary: string;
 };
@@ -92,7 +90,7 @@ export type Member = {
     following: number;
   };
   followingHandles: string[];
-  featuredListSlug: string;
+  featuredListSlug?: string;
   currentlyViewingSlugs: string[];
 };
 
@@ -138,8 +136,8 @@ export type Catalog = {
       featuredArtworkSlugs: string[];
       featuredArtistSlugs: string[];
       featuredExhibitionSlugs: string[];
-      featuredListSlug: string;
-      featuredMemberHandle: string;
+      featuredListSlug?: string;
+      featuredMemberHandle?: string;
     };
   };
   movements: Movement[];
@@ -249,11 +247,11 @@ export function getFeaturedExhibitions() {
 }
 
 export function getFeaturedList() {
-  return getList(site.highlights.featuredListSlug);
+  return site.highlights.featuredListSlug ? getList(site.highlights.featuredListSlug) : undefined;
 }
 
 export function getFeaturedMember() {
-  return getMember(site.highlights.featuredMemberHandle);
+  return site.highlights.featuredMemberHandle ? getMember(site.highlights.featuredMemberHandle) : undefined;
 }
 
 export function searchArtworks(filters: CatalogSearchFilters) {
@@ -289,4 +287,20 @@ export function getReviewThumbnail(review: Review, width: number = 700): { src: 
     },
     width
   );
+}
+
+export function getReviewTargetHref(review: Pick<Review, 'targetType' | 'targetSlug'>) {
+  if (review.targetType === 'artwork') {
+    return `/artworks/${review.targetSlug}`;
+  }
+
+  if (review.targetType === 'artist') {
+    return `/artists/${review.targetSlug}`;
+  }
+
+  if (review.targetType === 'exhibition') {
+    return `/exhibitions/${review.targetSlug}`;
+  }
+
+  return '/feed';
 }

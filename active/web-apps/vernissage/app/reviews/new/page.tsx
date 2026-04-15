@@ -7,19 +7,17 @@ import { authOptions } from '@/src/lib/auth';
 import { artworks, artists, exhibitions, visits } from '@/src/lib/catalog';
 import { isDatabaseConfigured } from '@/src/lib/prisma';
 
-const targetOptions = [
-  { value: 'artwork', label: 'Artwork' },
-  { value: 'artist', label: 'Artist' },
-  { value: 'exhibition', label: 'Exhibition' },
-  { value: 'visit', label: 'Museum visit' }
-];
+const targetCollections = [
+  { value: 'artwork', label: 'Artwork', items: artworks.map((artwork) => ({ value: artwork.slug, label: artwork.title })) },
+  { value: 'artist', label: 'Artist', items: artists.map((artist) => ({ value: artist.slug, label: artist.name })) },
+  { value: 'exhibition', label: 'Exhibition', items: exhibitions.map((exhibition) => ({ value: exhibition.slug, label: exhibition.title })) },
+  { value: 'visit', label: 'Museum visit', items: visits.map((visit) => ({ value: visit.slug, label: visit.title })) }
+].filter((group) => group.items.length > 0);
 
-const targetChoices = [
-  ...artworks.map((artwork) => ({ value: artwork.slug, label: artwork.title })),
-  ...artists.map((artist) => ({ value: artist.slug, label: artist.name })),
-  ...exhibitions.map((exhibition) => ({ value: exhibition.slug, label: exhibition.title })),
-  ...visits.map((visit) => ({ value: visit.slug, label: visit.title }))
-];
+const targetOptions = targetCollections.map(({ value, label }) => ({ value, label }));
+const targetChoices = targetCollections.flatMap((group) => group.items);
+const defaultTargetType = targetOptions[0]?.value ?? 'artwork';
+const defaultTargetSlug = targetChoices[0]?.value ?? '';
 
 function messageFor(code?: string) {
   if (!code) {
@@ -84,8 +82,8 @@ export default async function ReviewComposerPage({
           {!databaseReady ? <p className="meta-note">Your account is signed in, but publishing remains disabled until `DATABASE_URL` is configured for the app runtime.</p> : null}
           <form className="ornate-form ornate-form--stacked" method="post" action="/api/reviews">
             <div className="two-up-grid two-up-grid--tight">
-              <OrnateInput label="Target type" name="targetType" options={targetOptions} defaultValue="artwork" />
-              <OrnateInput label="Catalogue entry" name="targetSlug" options={targetChoices} defaultValue={artworks[0]?.slug} />
+              <OrnateInput label="Target type" name="targetType" options={targetOptions} defaultValue={defaultTargetType} />
+              <OrnateInput label="Catalogue entry" name="targetSlug" options={targetChoices} defaultValue={defaultTargetSlug} />
             </div>
             <div className="two-up-grid two-up-grid--tight">
               <OrnateInput label="Review title" name="title" placeholder="What lingers after the frame?" />

@@ -14,16 +14,18 @@ import {
   getFeaturedArtists,
   getFeaturedArtworks,
   getFeaturedExhibitions,
-  getFeaturedList,
   getMosaicArtworks,
   getRepresentativeArtwork,
+  getReviewTargetHref,
   getReviewThumbnail,
   getVenue,
-  reviews,
   site
 } from '@/src/lib/catalog';
+import { getPersistedRecentReviews } from '@/src/lib/live-data';
 
-export default function HomePage() {
+export const dynamic = 'force-dynamic';
+
+export default async function HomePage() {
   const featuredArtworks = getFeaturedArtworks();
   const heroArtwork = featuredArtworks[0];
   const heroArtist = getArtist(heroArtwork.artistSlug);
@@ -31,8 +33,7 @@ export default function HomePage() {
   const mosaicArtworks = getMosaicArtworks([heroArtwork.slug]);
   const featuredExhibitions = getFeaturedExhibitions();
   const featuredArtists = getFeaturedArtists();
-  const featuredList = getFeaturedList();
-  const recentReviews = reviews.slice(0, 4);
+  const recentReviews = await getPersistedRecentReviews(4);
 
   return (
     <div className="page-stack">
@@ -60,7 +61,7 @@ export default function HomePage() {
             <ArtworkFigure artwork={heroArtwork} src={heroImageUrl} priority />
             <div className="stat-ribbon">
               <p>{heroArtist?.name}</p>
-              <RatingStars rating={heroArtwork.rating} />
+              <span>{heroArtwork.year} · {heroArtwork.medium}</span>
             </div>
           </div>
         </div>
@@ -119,22 +120,16 @@ export default function HomePage() {
           </ul>
         </GildedCard>
 
-        <GildedCard
-          title={featuredList?.title ?? 'Featured list'}
-          eyebrow="Curated sequence"
-          href={`/lists/${featuredList?.slug ?? ''}`}
-          thumbnail={(() => {
-            const firstArtwork = featuredList?.items[0] ? getArtwork(featuredList.items[0].artworkSlug) : undefined;
-            return firstArtwork ? { src: getArtworkThumbnail(firstArtwork, 400), alt: firstArtwork.title, width: 400, height: 267 } : undefined;
-          })()}
-        >
-          <p>{featuredList?.description}</p>
-          <ol className="ordered-mini-list">
-            {featuredList?.items.slice(0, 3).map((item) => {
-              const artwork = getArtwork(item.artworkSlug);
-              return <li key={item.artworkSlug}>{artwork?.title ?? item.artworkSlug.replaceAll('-', ' ')}</li>;
-            })}
-          </ol>
+        <GildedCard title="Community writing" eyebrow="Published activity" href="/feed">
+          {recentReviews.length ? (
+            <ol className="ordered-mini-list">
+              {recentReviews.slice(0, 3).map((review: (typeof recentReviews)[number]) => (
+                <li key={review.slug}>{review.title}</li>
+              ))}
+            </ol>
+          ) : (
+            <p>No member reviews have been published yet. The first real response will appear here once someone writes it.</p>
+          )}
         </GildedCard>
 
         <CatalogRequestCard
@@ -148,49 +143,62 @@ export default function HomePage() {
       <BotanicalDivider label="Current exhibitions" />
 
       <section className="two-up-grid">
-        {featuredExhibitions.map((exhibition) => {
-          const venue = getVenue(exhibition.venueSlug);
-          const heroArt = getArtwork(exhibition.heroArtworkSlug);
-          return (
-            <GildedCard
-              key={exhibition.slug}
-              title={exhibition.title}
-              eyebrow={venue ? `${venue.name} · ${venue.city}` : 'Venue'}
-              subtitle={exhibition.dateLabel}
-              href={`/exhibitions/${exhibition.slug}`}
-              thumbnail={heroArt ? { src: getArtworkThumbnail(heroArt, 500), alt: heroArt.title, width: 500, height: 250 } : undefined}
-            >
-              <p>{exhibition.description}</p>
-              <p className="meta-note">Includes {exhibition.artworkSlugs.length} featured works and exhibition reviews.</p>
-            </GildedCard>
-          );
-        })}
+        {featuredExhibitions.length ? (
+          featuredExhibitions.map((exhibition) => {
+            const venue = getVenue(exhibition.venueSlug);
+            const heroArt = getArtwork(exhibition.heroArtworkSlug);
+            return (
+              <GildedCard
+                key={exhibition.slug}
+                title={exhibition.title}
+                eyebrow={venue ? `${venue.name} · ${venue.city}` : 'Venue'}
+                subtitle={exhibition.dateLabel}
+                href={`/exhibitions/${exhibition.slug}`}
+                thumbnail={heroArt ? { src: getArtworkThumbnail(heroArt, 500), alt: heroArt.title, width: 500, height: 250 } : undefined}
+              >
+                <p>{exhibition.description}</p>
+                <p className="meta-note">{exhibition.artworkSlugs.length} catalogued works are currently attached to this exhibition record.</p>
+              </GildedCard>
+            );
+          })
+        ) : (
+          <GildedCard title="Exhibitions forthcoming" eyebrow="No verified show records yet">
+            <p>Vernissage has venues ready, but no exhibition records are published yet because we are not seeding synthetic show history.</p>
+          </GildedCard>
+        )}
       </section>
 
       <BotanicalDivider label="Featured criticism" />
 
       <section className="review-grid">
-        {recentReviews.map((review) => {
-          const thumb = getReviewThumbnail(review, 400);
-          return (
-            <GildedCard
-              key={review.slug}
-              title={review.title}
-              eyebrow={formatMemberAttribution(review.memberHandle, review.publishedOn)}
-              thumbnail={thumb ? { src: thumb.src, alt: thumb.alt, width: 400, height: 200 } : undefined}
-            >
-              <RatingStars rating={review.rating} />
-              <p>{review.excerpt}</p>
-              <div className="chip-row chip-row--compact">
-                {review.tags.map((tag, index) => (
-                  <EnamelChip key={tag} tone={index % 2 === 0 ? 'gold' : 'rose'}>
-                    {tag}
-                  </EnamelChip>
-                ))}
-              </div>
-            </GildedCard>
-          );
-        })}
+        {recentReviews.length ? (
+          recentReviews.map((review: (typeof recentReviews)[number]) => {
+            const thumb = getReviewThumbnail(review, 400);
+            return (
+              <GildedCard
+                key={review.slug}
+                title={review.title}
+                eyebrow={formatMemberAttribution(review.memberHandle, review.publishedOn)}
+                href={getReviewTargetHref(review)}
+                thumbnail={thumb ? { src: thumb.src, alt: thumb.alt, width: 400, height: 200 } : undefined}
+              >
+                <RatingStars rating={review.rating} />
+                <p>{review.excerpt}</p>
+                <div className="chip-row chip-row--compact">
+                  {review.tags.map((tag: string, index: number) => (
+                    <EnamelChip key={tag} tone={index % 2 === 0 ? 'gold' : 'rose'}>
+                      {tag}
+                    </EnamelChip>
+                  ))}
+                </div>
+              </GildedCard>
+            );
+          })
+        ) : (
+          <GildedCard title="No published criticism yet" eyebrow="Waiting for the first review">
+            <p>There are no seeded salon reviews anymore. This section will stay empty until a real member publishes one.</p>
+          </GildedCard>
+        )}
       </section>
     </div>
   );
