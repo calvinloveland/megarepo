@@ -43,9 +43,10 @@ export default function TermsPage() {
 
           <h2>Catalogue imagery</h2>
           <p>
-            Vernissage links to museum-hosted public-domain artwork imagery and related metadata. Those
-            materials remain subject to the source institution&apos;s stated usage terms and attribution
-            practices.
+            Vernissage uses museum-hosted public-domain artwork imagery when possible and may also
+            display clearly reusable open-license documentation or locally stored derivative files when
+            the source terms permit it. Those materials remain subject to the source institution&apos;s or
+            photographer&apos;s stated usage terms and attribution practices.
           </p>
 
           <h2>Moderation and availability</h2>

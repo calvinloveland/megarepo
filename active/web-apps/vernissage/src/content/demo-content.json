@@ -42,6 +42,66 @@
       "slug": "symbolism",
       "name": "Symbolism",
       "description": "Dreamlike, emotionally charged imagery rooted in allegory and atmosphere."
+    },
+    {
+      "slug": "contemporary-photography",
+      "name": "Contemporary Photography",
+      "description": "Camera-based work centered on travel, documentary attention, landscape light, and the visual argument of the photograph."
+    },
+    {
+      "slug": "pop-art",
+      "name": "Pop Art",
+      "description": "Bright, graphic art shaped by advertising, leisure culture, bold flat color, and the visual speed of modern life."
+    },
+    {
+      "slug": "abstract-art",
+      "name": "Abstract Art",
+      "description": "Painting that leaves literal depiction behind in favor of geometry, rhythm, color fields, and spiritual or perceptual structure."
+    },
+    {
+      "slug": "performance-art",
+      "name": "Performance Art",
+      "description": "Live, durational, or participatory art where the body, audience, and event become the medium."
+    },
+    {
+      "slug": "architecture",
+      "name": "Architecture",
+      "description": "Built form treated as cultural authorship, where structure, circulation, ornament, and public space carry the work's meaning."
+    },
+    {
+      "slug": "romanticism",
+      "name": "Romanticism",
+      "description": "Art shaped by drama, feeling, sublime nature, and heightened narrative tension."
+    },
+    {
+      "slug": "contemporary-digital",
+      "name": "Contemporary Digital Art",
+      "description": "Born-digital images that use software, concept-art workflows, and contemporary screen culture to build new pictorial worlds."
+    },
+    {
+      "slug": "contemporary-realism",
+      "name": "Contemporary Realism",
+      "description": "Recent painting that keeps representational surfaces intact while pushing atmosphere, allegory, or social commentary through recognizable scenes."
+    },
+    {
+      "slug": "contemporary-impressionism",
+      "name": "Contemporary Impressionism",
+      "description": "Modern painting that revisits broken color, shifting light, and tactile brushwork through present-day subjects and palettes."
+    },
+    {
+      "slug": "surrealism",
+      "name": "Surrealism",
+      "description": "Dream logic, psychic intensity, and unstable symbolic images staged with eerie conviction."
+    },
+    {
+      "slug": "northern-renaissance",
+      "name": "Northern Renaissance",
+      "description": "Detailed, symbol-heavy painting from northern Europe, often charged with moral allegory, devotional drama, and imaginative invention."
+    },
+    {
+      "slug": "rococo",
+      "name": "Rococo",
+      "description": "Elegant 18th-century art of ornament, surface pleasure, decorative wit, and refined domestic spectacle."
     }
   ],
   "venues": [
@@ -118,6 +178,286 @@
         "domestic interiors",
         "Japanese prints",
         "pastel portraits"
+      ]
+    },
+    {
+      "slug": "ken-rockwell",
+      "name": "Ken Rockwell",
+      "years": "1956–",
+      "movementSlug": "contemporary-photography",
+      "country": "United States",
+      "portraitLabel": "Technical evangelist of travel and landscape photography",
+      "bio": "Ken Rockwell turns road trips, desert light, and camera lore into cheerful photographic essays that hover between gear obsession and plein-air seeing.",
+      "signatureMotifs": [
+        "Route 66 neon",
+        "Yosemite light",
+        "camera geekery"
+      ]
+    },
+    {
+      "slug": "matthew-t-rader",
+      "name": "Matthew T. Rader",
+      "years": "Contemporary",
+      "movementSlug": "contemporary-photography",
+      "country": "United States",
+      "portraitLabel": "Open-license travel and documentary photographer",
+      "bio": "Matthew T. Rader publishes wide-ranging travel and documentary photographs under open licenses, moving from desert plants to weather damage and beach scenes with an eye for place.",
+      "signatureMotifs": [
+        "travel documentary",
+        "open-license fieldwork",
+        "nature studies"
+      ]
+    },
+    {
+      "slug": "hiroshi-nagai",
+      "name": "Hiroshi Nagai",
+      "years": "1947–",
+      "movementSlug": "pop-art",
+      "country": "Japan",
+      "portraitLabel": "City Pop dreamscapes in tropical flat color",
+      "bio": "Hiroshi Nagai distilled palm trees, hotel pools, and coastal highways into the languid visual grammar of City Pop, turning leisure architecture into a neon daydream.",
+      "signatureMotifs": [
+        "palm shadows",
+        "poolside geometry",
+        "city pop skies"
+      ]
+    },
+    {
+      "slug": "david-hockney",
+      "name": "David Hockney",
+      "years": "1937–",
+      "movementSlug": "pop-art",
+      "country": "United Kingdom / United States",
+      "portraitLabel": "Pop scenes of pools, patios, and graphic flatness",
+      "bio": "David Hockney made California pools and domestic interiors feel as crisp as signage, flattening space into bright theatrical planes without losing the wit of observation.",
+      "signatureMotifs": [
+        "swimming pools",
+        "domestic patterns",
+        "electric color"
+      ]
+    },
+    {
+      "slug": "max-cole",
+      "name": "Max Cole",
+      "years": "1937–",
+      "movementSlug": "abstract-art",
+      "country": "United States",
+      "portraitLabel": "Minimalist fields of hand-drawn, meditative line",
+      "bio": "Max Cole builds paintings out of repeated, nearly breathing bands of line, letting tiny variations in touch turn restraint into a contemplative event.",
+      "signatureMotifs": [
+        "repetitive linework",
+        "gray tonal fields",
+        "contemplative minimalism"
+      ]
+    },
+    {
+      "slug": "marina-abramovic",
+      "name": "Marina Abramović",
+      "years": "1946–",
+      "movementSlug": "performance-art",
+      "country": "Serbia / United States",
+      "portraitLabel": "Durational performance built from endurance and attention",
+      "bio": "Marina Abramović uses stillness, repetition, and bodily risk to make presence itself feel sculptural, turning documentation into the public residue of performance.",
+      "signatureMotifs": [
+        "durational presence",
+        "body as medium",
+        "audience tension"
+      ]
+    },
+    {
+      "slug": "richard-rogers",
+      "name": "Richard Rogers",
+      "years": "1933–2021",
+      "movementSlug": "architecture",
+      "country": "Italy / United Kingdom",
+      "portraitLabel": "High-tech architecture with services turned outside out",
+      "bio": "Richard Rogers exposed lifts, ducts, and structure until buildings read like public diagrams, making infrastructure part of the spectacle.",
+      "signatureMotifs": [
+        "inside-out services",
+        "glass lifts",
+        "civic engineering"
+      ]
+    },
+    {
+      "slug": "edwin-landseer",
+      "name": "Edwin Landseer",
+      "years": "1802–1873",
+      "movementSlug": "romanticism",
+      "country": "United Kingdom",
+      "portraitLabel": "Victorian animal portraitist of nobility, grief, and fur",
+      "bio": "Sir Edwin Landseer painted stags, hounds, and game birds with the psychological specificity Victorian portraiture usually reserved for humans.",
+      "signatureMotifs": [
+        "deer and dogs",
+        "sporting drama",
+        "animal character"
+      ]
+    },
+    {
+      "slug": "jakub-rozalski",
+      "name": "Jakub Różalski",
+      "years": "1981–",
+      "movementSlug": "contemporary-digital",
+      "country": "Poland",
+      "portraitLabel": "Dieselpunk tableaux where mechs haunt rural fields",
+      "bio": "Jakub Różalski overlays mud, uniforms, and harvest-time villages with looming machines, giving alternate history the surface of a 19th-century painting.",
+      "signatureMotifs": [
+        "rural mechs",
+        "dieselpunk fog",
+        "alternate history"
+      ]
+    },
+    {
+      "slug": "simon-stalenhag",
+      "name": "Simon Stålenhag",
+      "years": "1984–",
+      "movementSlug": "contemporary-digital",
+      "country": "Sweden",
+      "portraitLabel": "Retrofuturist melancholy in suburbs and fields",
+      "bio": "Simon Stålenhag stages rusting robots and impossible machinery against ordinary roads, lakes, and housing blocks, making sci-fi feel remembered instead of predicted.",
+      "signatureMotifs": [
+        "rusting machines",
+        "suburban sci-fi",
+        "cold Nordic dusk"
+      ]
+    },
+    {
+      "slug": "bo-bartlett",
+      "name": "Bo Bartlett",
+      "years": "1955–",
+      "movementSlug": "contemporary-realism",
+      "country": "United States",
+      "portraitLabel": "American realism stretched toward allegory",
+      "bio": "Bo Bartlett paints family, ritual, and national myth at a cinematic scale, keeping realist surfaces while bending the scenes toward fable.",
+      "signatureMotifs": [
+        "American tableaux",
+        "ritual scenes",
+        "quiet unease"
+      ]
+    },
+    {
+      "slug": "zdzislaw-beksinski",
+      "name": "Zdzisław Beksiński",
+      "years": "1929–2005",
+      "movementSlug": "surrealism",
+      "country": "Poland",
+      "portraitLabel": "Nightmare architecture and bone-dry apocalypse",
+      "bio": "Zdzisław Beksiński filled wastelands and interiors with eroded flesh, brittle arches, and funereal heat, making horror feel ceremonial rather than explosive.",
+      "signatureMotifs": [
+        "skeletal ruins",
+        "funereal skies",
+        "dystopian decay"
+      ]
+    },
+    {
+      "slug": "thomas-kinkade",
+      "name": "Thomas Kinkade",
+      "years": "1958–2012",
+      "movementSlug": "contemporary-realism",
+      "country": "United States",
+      "portraitLabel": "Luminous cottages and branded comfort-scapes",
+      "bio": "Thomas Kinkade turned cottages, chapels, and garden paths into engineered warmth, bathing every surface in a glow designed to feel instantly hospitable.",
+      "signatureMotifs": [
+        "cottage windows",
+        "storybook light",
+        "ornamental coziness"
+      ]
+    },
+    {
+      "slug": "hilma-af-klint",
+      "name": "Hilma af Klint",
+      "years": "1862–1944",
+      "movementSlug": "abstract-art",
+      "country": "Sweden",
+      "portraitLabel": "Mystical abstractions built from diagrams, petals, and force fields",
+      "bio": "Hilma af Klint treated painting like spiritual notation, layering spirals, petals, letters, and color systems into abstractions decades ahead of the canonical modernists.",
+      "signatureMotifs": [
+        "spirals",
+        "occult geometry",
+        "petal diagrams"
+      ]
+    },
+    {
+      "slug": "alex-schaefer",
+      "name": "Alex Schaefer",
+      "years": "1969–",
+      "movementSlug": "contemporary-realism",
+      "country": "United States",
+      "portraitLabel": "Activist plein-air scenes with burning financial facades",
+      "bio": "Alex Schaefer folds protest into landscape painting, using brushy architecture and flames to turn banks and storefronts into arguments about power, debt, and spectacle.",
+      "signatureMotifs": [
+        "burning banks",
+        "plein-air protest",
+        "urban firelight"
+      ]
+    },
+    {
+      "slug": "hieronymus-bosch",
+      "name": "Hieronymus Bosch",
+      "years": "c. 1450–1516",
+      "movementSlug": "northern-renaissance",
+      "country": "Netherlands",
+      "portraitLabel": "Renaissance triptychs crowded with punishments and delights",
+      "bio": "Hieronymus Bosch packed paradise, temptation, and damnation into panoramic inventions where every hybrid creature seems to invent a new moral panic.",
+      "signatureMotifs": [
+        "hybrid monsters",
+        "hell panels",
+        "allegorical swarms"
+      ]
+    },
+    {
+      "slug": "jean-jacques-bachelier",
+      "name": "Jean-Jacques Bachelier",
+      "years": "1724–1805",
+      "movementSlug": "rococo",
+      "country": "France",
+      "portraitLabel": "Rococo painter of animals, flowers, and ornamental grace",
+      "bio": "Jean-Jacques Bachelier moved between pet portraiture, flowers, and decorative design, treating fur, petals, and porcelain surfaces as occasions for elegant display.",
+      "signatureMotifs": [
+        "cats and pets",
+        "floral ornament",
+        "rococo polish"
+      ]
+    },
+    {
+      "slug": "paul-signac",
+      "name": "Paul Signac",
+      "years": "1863–1935",
+      "movementSlug": "post-impressionism",
+      "country": "France",
+      "portraitLabel": "Pointillist harbors, rivers, and chromatic drift",
+      "bio": "Paul Signac translated rivers, ports, and coastal air into patient divisions of color, letting geometry and atmosphere arrive through dots and prismatic touches.",
+      "signatureMotifs": [
+        "divided color",
+        "harbor light",
+        "riverbanks"
+      ]
+    },
+    {
+      "slug": "alena-aenami",
+      "name": "Alena Aenami",
+      "years": "Contemporary",
+      "movementSlug": "contemporary-digital",
+      "country": "Russia",
+      "portraitLabel": "Color-saturated digital worlds of mist and neon weather",
+      "bio": "Alena Aenami builds luminous fantasy and sci-fi environments from mist, reflections, and giant color chords, pushing digital landscape painting toward dream architecture.",
+      "signatureMotifs": [
+        "neon fog",
+        "fantasy skylines",
+        "digital atmosphere"
+      ]
+    },
+    {
+      "slug": "jason-anderson",
+      "name": "Jason Anderson",
+      "years": "Contemporary",
+      "movementSlug": "contemporary-impressionism",
+      "country": "United Kingdom",
+      "portraitLabel": "Palette-knife mosaics that push landscape toward abstraction",
+      "bio": "Jason Anderson treats coasts, skylines, and bridges as stained-glass weather systems, stacking thick shards of oil color until the scene flickers like reflected light.",
+      "signatureMotifs": [
+        "palette-knife shards",
+        "stained-glass color",
+        "impressionist motion"
       ]
     }
   ],
@@ -310,6 +650,216 @@
         "public domain"
       ],
       "summary": "A woman reads on a sunlit balcony in this early Impressionist work by Cassatt. The cropped composition and casual pose reveal her growing confidence in the radical informality championed by Degas and Manet."
+    },
+    {
+      "slug": "camel-on-the-beach-puducherry",
+      "title": "A Camel on the Beach in Puducherry, Tamil Nadu, India",
+      "artistSlug": "matthew-t-rader",
+      "movementSlug": "contemporary-photography",
+      "year": "2010",
+      "medium": "Digital photograph",
+      "dimensions": "2932 × 2000 px",
+      "image": "/artworks/matthew-t-rader-camel-puducherry.jpg",
+      "width": 2932,
+      "height": 2000,
+      "rating": 4.1,
+      "reviewCount": 0,
+      "tags": [
+        "camel",
+        "Tamil Nadu",
+        "travel photography",
+        "open license"
+      ],
+      "summary": "Rader frames a camel and rider against a washed shoreline, making travel documentation feel lightly theatrical without losing the ordinary heat of the beach."
+    },
+    {
+      "slug": "water-pouring-into-a-swimming-pool",
+      "title": "Water Pouring into a Swimming Pool",
+      "artistSlug": "david-hockney",
+      "movementSlug": "pop-art",
+      "year": "1964",
+      "medium": "Color lithograph on white wove paper",
+      "dimensions": "Image: 47.5 × 62.1 cm (18 3/4 × 24 1/2 in.); Sheet: 51.5 × 66.5 cm (20 5/16 × 26 3/16 in.)",
+      "image": "https://www.artic.edu/iiif/2/d211dbaa-70ea-44ff-99af-145fbeb6f122/full/1400,/0/default.jpg",
+      "width": 2930,
+      "height": 2250,
+      "rating": 4.6,
+      "reviewCount": 0,
+      "tags": [
+        "swimming pool",
+        "California",
+        "pop art",
+        "public domain"
+      ],
+      "summary": "A single stream of water and a hard-edged pool become a miniature manifesto for Hockney's belief that leisure could be as graphically arresting as any billboard."
+    },
+    {
+      "slug": "cushions",
+      "title": "Cushions",
+      "artistSlug": "david-hockney",
+      "movementSlug": "pop-art",
+      "year": "1968",
+      "medium": "Etching and aquatint on white wove paper",
+      "dimensions": "Plate: 38.5 × 35 cm (15 3/16 × 13 13/16 in.); Sheet: 56.8 × 50.6 cm (22 3/8 × 19 15/16 in.)",
+      "image": "https://www.artic.edu/iiif/2/a4738237-ed2c-6535-f6f2-a4558a9f3fb2/full/1400,/0/default.jpg",
+      "width": 2676,
+      "height": 3000,
+      "rating": 4.3,
+      "reviewCount": 0,
+      "tags": [
+        "domestic interior",
+        "pattern",
+        "pop art",
+        "public domain"
+      ],
+      "summary": "Hockney turns a pile of pillows into an argument for flat color, surface pleasure, and the sly theatricality of domestic things."
+    },
+    {
+      "slug": "the-artist-is-present",
+      "title": "The Artist Is Present",
+      "artistSlug": "marina-abramovic",
+      "movementSlug": "performance-art",
+      "year": "2010",
+      "medium": "Performance documentation photograph",
+      "dimensions": "3008 × 2000 px",
+      "image": "/artworks/marina-abramovic-artist-is-present.jpg",
+      "width": 3008,
+      "height": 2000,
+      "rating": 4.7,
+      "reviewCount": 0,
+      "tags": [
+        "performance art",
+        "MoMA",
+        "audience participation",
+        "open license"
+      ],
+      "summary": "A seated encounter stripped of almost everything but looking becomes emblematic through its documentary still: attention held long enough to feel architectural."
+    },
+    {
+      "slug": "head-of-a-roebuck-and-two-ptarmigan",
+      "title": "Head of a Roebuck and Two Ptarmigan",
+      "artistSlug": "edwin-landseer",
+      "movementSlug": "romanticism",
+      "year": "c. 1830",
+      "medium": "Oil on panel",
+      "dimensions": "22.5 × 30.4 cm (8 7/8 × 12 in.); Framed: 37.5 × 45.5 × 7.7 cm (14 3/4 × 17 7/8 × 3 in.)",
+      "image": "https://www.artic.edu/iiif/2/e1826a0c-e20a-0e5e-a9e3-abf4fe123884/full/1400,/0/default.jpg",
+      "width": 3000,
+      "height": 2205,
+      "rating": 4.4,
+      "reviewCount": 0,
+      "tags": [
+        "animal study",
+        "game birds",
+        "romanticism",
+        "public domain"
+      ],
+      "summary": "Landseer makes a hunting still life feel startlingly intimate, turning fur and feather into a lesson in attention rather than trophy display."
+    },
+    {
+      "slug": "wounded-stag-and-dog",
+      "title": "Wounded Stag and Dog",
+      "artistSlug": "edwin-landseer",
+      "movementSlug": "romanticism",
+      "year": "c. 1825",
+      "medium": "Oil on canvas",
+      "dimensions": "50.5 × 68.8 cm (19 7/8 × 27 1/16 in.); Framed: 62.3 × 80.4 × 6.4 cm (24 1/2 × 31 5/8 × 2 1/2 in.)",
+      "image": "https://www.artic.edu/iiif/2/d51d6837-5331-4b12-6e97-ca0bd1021940/full/1400,/0/default.jpg",
+      "width": 3000,
+      "height": 2117,
+      "rating": 4.5,
+      "reviewCount": 0,
+      "tags": [
+        "stag",
+        "dog",
+        "animal drama",
+        "public domain"
+      ],
+      "summary": "The scene stages sympathy, pursuit, and exhaustion all at once, showing how Landseer could make sporting art read like melodrama."
+    },
+    {
+      "slug": "before-the-storm-1920",
+      "title": "1920 - Before the Storm",
+      "artistSlug": "jakub-rozalski",
+      "movementSlug": "contemporary-digital",
+      "year": "2014",
+      "medium": "Digital painting",
+      "dimensions": "2244 × 1183 px",
+      "image": "/artworks/jakub-rozalski-before-the-storm.jpg",
+      "width": 2244,
+      "height": 1183,
+      "rating": 4.5,
+      "reviewCount": 0,
+      "tags": [
+        "dieselpunk",
+        "mechs",
+        "alternate history",
+        "CC BY-SA"
+      ],
+      "summary": "Rozalski lets mist, uniforms, and a hulking machine share the same weather, so the alternate history arrives as atmosphere before it arrives as plot."
+    },
+    {
+      "slug": "chaos-no-2",
+      "title": "Chaos, No. 2",
+      "artistSlug": "hilma-af-klint",
+      "movementSlug": "abstract-art",
+      "year": "1906",
+      "medium": "Oil on canvas",
+      "dimensions": "462 × 560 px scan",
+      "image": "/artworks/hilma-af-klint-chaos-no-2.jpg",
+      "width": 462,
+      "height": 560,
+      "rating": 4.8,
+      "reviewCount": 0,
+      "tags": [
+        "abstraction",
+        "mysticism",
+        "color field",
+        "public domain"
+      ],
+      "summary": "Hilma af Klint turns abstract painting into a charged diagram, where curving forms and disciplined color feel half botanical, half occult."
+    },
+    {
+      "slug": "the-garden-of-earthly-delights",
+      "title": "The Garden of Earthly Delights",
+      "artistSlug": "hieronymus-bosch",
+      "movementSlug": "northern-renaissance",
+      "year": "c. 1495–1505",
+      "medium": "Oil on oak panels",
+      "dimensions": "2400 × 1366 px scan",
+      "image": "/artworks/hieronymus-bosch-garden-of-earthly-delights.jpg",
+      "width": 2400,
+      "height": 1366,
+      "rating": 5,
+      "reviewCount": 0,
+      "tags": [
+        "triptych",
+        "hellscape",
+        "fantasy",
+        "public domain"
+      ],
+      "summary": "Bosch packs paradise, appetite, and punishment into one impossible panorama, making every corner of the triptych feel like a fresh outbreak of invention."
+    },
+    {
+      "slug": "les-andelys-cote-daval",
+      "title": "Les Andelys, Côte d'Aval",
+      "artistSlug": "paul-signac",
+      "movementSlug": "post-impressionism",
+      "year": "1886",
+      "medium": "Oil on canvas",
+      "dimensions": "60 × 92 cm (23 5/8 × 36 1/4 in.); Framed: 77.5 × 109.6 × 6.4 cm (30 1/2 × 43 1/8 × 2 1/2 in.)",
+      "image": "https://www.artic.edu/iiif/2/43fcfad0-8256-4923-9f9c-03ca90417907/full/1400,/0/default.jpg",
+      "width": 3000,
+      "height": 1960,
+      "rating": 4.7,
+      "reviewCount": 0,
+      "tags": [
+        "pointillism",
+        "landscape",
+        "riverbank",
+        "public domain"
+      ],
+      "summary": "Signac turns a riverside bluff into a slow shimmer of divided color, making geology and atmosphere feel equally provisional."
     }
   ],
   "exhibitions": [
@@ -361,12 +911,12 @@
   ],
   "members": [
     {
-        "handle": "vernissage-notebook",
-        "displayName": "Vernissage Notebook",
-        "location": "Editorial desk",
-        "favoriteMovement": "Launch notes",
-        "bio": "The house notebook for launch-era reviews, lists, and museum visits while member libraries are still taking shape.",
-        "initials": "VN",
+      "handle": "vernissage-notebook",
+      "displayName": "Vernissage Notebook",
+      "location": "Editorial desk",
+      "favoriteMovement": "Launch notes",
+      "bio": "The house notebook for launch-era reviews, lists, and museum visits while member libraries are still taking shape.",
+      "initials": "VN",
       "stats": {
         "reviews": 148,
         "lists": 19,
