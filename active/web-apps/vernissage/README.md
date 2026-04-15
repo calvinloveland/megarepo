@@ -108,6 +108,14 @@ Feedback is stored in `data/vernissage-feedback.db`. On startup, Vernissage impo
 
 For local feedback development, make sure `sqlite3` is installed on the machine running the Next.js server.
 
+The feedback admin endpoints are rate limited. If you are triaging a long batch of production feedback and hit that limit, inspect the live SQLite queue directly:
+
+```bash
+kubectl --kubeconfig ~/.kube/thinker-k3s.yaml --server=https://100.99.147.74:6443 --insecure-skip-tls-verify=true \
+  -n vernissage exec deploy/vernissage -- \
+  sqlite3 /data/vernissage-feedback.db 'SELECT id, addressed, server_timestamp, feedback_text FROM feedback_records ORDER BY server_timestamp DESC;'
+```
+
 ## Kubernetes
 
 A cluster manifest is provided at `k8s/vernissage.yaml`, and the app now has a container build at `Dockerfile`.
@@ -139,7 +147,15 @@ Container validation is defined in `.github/workflows/vernissage-container.yml`.
 
 For the live thinker deployment, Vernissage now uses a private registry running on the thinker host at `127.0.0.1:5000`. The registry stays private to the machine, and k3s pulls the image from that loopback address.
 
-Use:
+For a normal production release, use:
+
+```bash
+./scripts/deploy-to-thinker.sh
+```
+
+The deploy helper already calls `./scripts/publish-to-thinker-registry.sh` for you. Use the publish script separately only when you want to pre-stage images without rolling the live deployment.
+
+Manual two-step usage remains available:
 
 ```bash
 ./scripts/publish-to-thinker-registry.sh
@@ -152,6 +168,12 @@ The deploy helper:
 - streams the current source tree to thinker and builds the image there from `active/web-apps/vernissage/Dockerfile`
 - pushes both an immutable timestamp tag and `latest` into the thinker-local registry
 - applies the non-secret resources from `k8s/vernissage.yaml`, updates `APP_VERSION`, and rolls the deployment
+
+If you are running kubectl from an off-LAN machine over Tailscale, the kubeconfig may still point at thinker's LAN IP. In that case, override the API server to the Tailscale address and skip TLS hostname verification for the session:
+
+```bash
+kubectl --kubeconfig ~/.kube/thinker-k3s.yaml --server=https://100.99.147.74:6443 --insecure-skip-tls-verify=true -n vernissage get pods
+```
 
 The placeholder `Secret` objects in `k8s/vernissage.yaml` are bootstrap examples only. The deploy helper intentionally preserves the live cluster secrets so real database and auth credentials are not overwritten by placeholder values.
 
