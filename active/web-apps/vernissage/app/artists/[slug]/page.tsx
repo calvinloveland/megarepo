@@ -12,6 +12,7 @@ import {
   getMovement,
   getReviewsForTarget
 } from '@/src/lib/catalog';
+import { getArtistAverageRating } from '@/src/lib/artist-profile';
 import { getPersistedReviewsForTarget, mergeReviews } from '@/src/lib/live-data';
 
 export const dynamic = 'force-dynamic';
@@ -30,6 +31,7 @@ export default async function ArtistPage({ params }: { params: Promise<{ slug: s
   const works = getArtworksByArtist(artist.slug);
   const movement = getMovement(artist.movementSlug);
   const reviews = mergeReviews(getReviewsForTarget('artist', artist.slug), await getPersistedReviewsForTarget('artist', artist.slug));
+  const averageRating = getArtistAverageRating(works);
 
   return (
     <div className="page-stack">
@@ -56,10 +58,20 @@ export default async function ArtistPage({ params }: { params: Promise<{ slug: s
           </ul>
         </GildedCard>
         <GildedCard title="House appraisal" eyebrow="Aggregate response">
-          <RatingStars rating={works.reduce((sum, work) => sum + work.rating, 0) / works.length} />
-          <p>
-            Readers respond most strongly to {artist.signatureMotifs[0]} and the way {artist.name.split(' ')[0]} sequences ornament like choreography.
-          </p>
+          {averageRating === null ? (
+            <p>
+              This dossier is live before the first safely licensed artwork image has joined the catalog.
+              The collection team can still index the artist, link reviews, and fill in works once the
+              right source arrives.
+            </p>
+          ) : (
+            <>
+              <RatingStars rating={averageRating} />
+              <p>
+                Readers respond most strongly to {artist.signatureMotifs[0]} and the way {artist.name.split(' ')[0]} sequences ornament like choreography.
+              </p>
+            </>
+          )}
         </GildedCard>
         <GildedCard title="Missing another artist?" eyebrow="Catalog expansion">
           <p>
@@ -77,11 +89,20 @@ export default async function ArtistPage({ params }: { params: Promise<{ slug: s
       <BotanicalDivider label="Works by this artist" />
 
       <section className="mosaic-grid">
-        {works.map((work) => (
-          <GildedCard key={work.slug} title={work.title} eyebrow={work.year} subtitle={work.medium} href={`/artworks/${work.slug}`}>
-            <p>{work.summary}</p>
+        {works.length > 0 ? (
+          works.map((work) => (
+            <GildedCard key={work.slug} title={work.title} eyebrow={work.year} subtitle={work.medium} href={`/artworks/${work.slug}`}>
+              <p>{work.summary}</p>
+            </GildedCard>
+          ))
+        ) : (
+          <GildedCard title="Works forthcoming" eyebrow="Cataloging in progress">
+            <p>
+              Vernissage has the artist dossier in place, but the first artwork entry is still waiting on a
+              reusable image source or sharper provenance notes.
+            </p>
           </GildedCard>
-        ))}
+        )}
       </section>
 
       <BotanicalDivider label="Artist reviews" />
