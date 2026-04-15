@@ -102,6 +102,46 @@
       "slug": "rococo",
       "name": "Rococo",
       "description": "Elegant 18th-century art of ornament, surface pleasure, decorative wit, and refined domestic spectacle."
+    },
+    {
+      "slug": "renaissance",
+      "name": "Renaissance",
+      "description": "Painting shaped by reborn classicism, perspective, devotional intensity, and the new prestige of observation."
+    },
+    {
+      "slug": "baroque",
+      "name": "Baroque",
+      "description": "Art of theatrical light, bodily drama, and high emotional stakes staged with force and immediacy."
+    },
+    {
+      "slug": "ukiyo-e",
+      "name": "Ukiyo-e",
+      "description": "Japanese woodblock print culture centered on seasons, travel, actors, courtesans, and the fleeting theater of daily life."
+    },
+    {
+      "slug": "fauvism",
+      "name": "Fauvism",
+      "description": "Color-first modernism that uses bold, liberated hues to make structure and sensation arrive at once."
+    },
+    {
+      "slug": "cubism",
+      "name": "Cubism",
+      "description": "Modernist fracture of form into shifting facets, planes, and simultaneous viewpoints."
+    },
+    {
+      "slug": "realism",
+      "name": "Realism",
+      "description": "Art that keeps ordinary places, people, and objects legible while pressing hard on mood, labor, or social fact."
+    },
+    {
+      "slug": "photography",
+      "name": "Photography",
+      "description": "Lens-based images treated as authored works of witness, sequence, framing, and tonal decision."
+    },
+    {
+      "slug": "mexican-modernism",
+      "name": "Mexican Modernism",
+      "description": "Modern art shaped by revolutionary politics, indigenous memory, folk symbolism, and a forceful national visual language."
     }
   ],
   "venues": [
@@ -458,6 +498,286 @@
         "palette-knife shards",
         "stained-glass color",
         "impressionist motion"
+      ]
+    },
+    {
+      "slug": "jan-van-eyck",
+      "name": "Jan van Eyck",
+      "years": "c. 1390–1441",
+      "movementSlug": "renaissance",
+      "country": "Netherlands",
+      "portraitLabel": "Northern precision in oil, fur, glass, and prayer",
+      "bio": "Jan van Eyck made oil painting feel microscopically alert, turning jewels, reflections, and skin into arguments for painting as a technology of attention.",
+      "signatureMotifs": [
+        "jewel-like surfaces",
+        "reflections in glass",
+        "devotional detail"
+      ]
+    },
+    {
+      "slug": "sandro-botticelli",
+      "name": "Sandro Botticelli",
+      "years": "c. 1445–1510",
+      "movementSlug": "renaissance",
+      "country": "Italy",
+      "portraitLabel": "Renaissance line, grace, and myth made airy",
+      "bio": "Botticelli lets line do nearly everything: hair, drapery, shells, and bodies drift with a decorative lightness that keeps mythology poised between dream and design.",
+      "signatureMotifs": [
+        "flowing hair",
+        "mythic pageantry",
+        "elegant contour"
+      ]
+    },
+    {
+      "slug": "caravaggio",
+      "name": "Caravaggio",
+      "years": "1571–1610",
+      "movementSlug": "baroque",
+      "country": "Italy",
+      "portraitLabel": "Sacred drama lit like an ambush",
+      "bio": "Caravaggio pushed holiness and violence into the same beam of light, making revelation feel sudden, physical, and a little dangerous.",
+      "signatureMotifs": [
+        "tenebrism",
+        "street-cast saints",
+        "violent revelation"
+      ]
+    },
+    {
+      "slug": "artemisia-gentileschi",
+      "name": "Artemisia Gentileschi",
+      "years": "1593–c. 1656",
+      "movementSlug": "baroque",
+      "country": "Italy",
+      "portraitLabel": "Baroque heroines with real force behind the gesture",
+      "bio": "Artemisia Gentileschi paints biblical and classical women as agents rather than ornaments, giving their resolve and strain a muscular weight.",
+      "signatureMotifs": [
+        "heroic women",
+        "baroque chiaroscuro",
+        "decisive action"
+      ]
+    },
+    {
+      "slug": "rembrandt",
+      "name": "Rembrandt",
+      "years": "1606–1669",
+      "movementSlug": "baroque",
+      "country": "Netherlands",
+      "portraitLabel": "Light used as memory, psychology, and weather",
+      "bio": "Rembrandt can make a face, sleeve, or shadow feel newly discovered mid-painting, using light less as spotlight than as a slow form of thinking.",
+      "signatureMotifs": [
+        "self-scrutiny",
+        "golden shadow",
+        "thick paint"
+      ]
+    },
+    {
+      "slug": "johannes-vermeer",
+      "name": "Johannes Vermeer",
+      "years": "1632–1675",
+      "movementSlug": "baroque",
+      "country": "Netherlands",
+      "portraitLabel": "Room-scale quiet built from light and delay",
+      "bio": "Vermeer turns domestic interiors into chambers of suspended attention, where a glance, letter, or instrument is enough to organize the entire room.",
+      "signatureMotifs": [
+        "window light",
+        "domestic stillness",
+        "letter scenes"
+      ]
+    },
+    {
+      "slug": "francisco-goya",
+      "name": "Francisco Goya",
+      "years": "1746–1828",
+      "movementSlug": "romanticism",
+      "country": "Spain",
+      "portraitLabel": "Court elegance cracked open by nightmare and war",
+      "bio": "Goya can move from aristocratic polish to psychic ruin without changing painters, making satire, violence, and dread feel like parts of the same historical record.",
+      "signatureMotifs": [
+        "dark visions",
+        "war witness",
+        "biting satire"
+      ]
+    },
+    {
+      "slug": "jmw-turner",
+      "name": "J. M. W. Turner",
+      "years": "1775–1851",
+      "movementSlug": "romanticism",
+      "country": "United Kingdom",
+      "portraitLabel": "Storm, steam, and light dissolved to atmosphere",
+      "bio": "Turner paints weather as if it were the true subject of history, letting ships, cities, and mountains nearly disappear into radiant turbulence.",
+      "signatureMotifs": [
+        "storms at sea",
+        "burning sunsets",
+        "steam and speed"
+      ]
+    },
+    {
+      "slug": "caspar-david-friedrich",
+      "name": "Caspar David Friedrich",
+      "years": "1774–1840",
+      "movementSlug": "romanticism",
+      "country": "Germany",
+      "portraitLabel": "The sublime staged as solitude and horizon",
+      "bio": "Friedrich makes cliffs, fog, crosses, and winter trees feel like spiritual instruments, asking landscape to carry the full burden of thought.",
+      "signatureMotifs": [
+        "figures from behind",
+        "fog horizons",
+        "sublime solitude"
+      ]
+    },
+    {
+      "slug": "katsushika-hokusai",
+      "name": "Katsushika Hokusai",
+      "years": "1760–1849",
+      "movementSlug": "ukiyo-e",
+      "country": "Japan",
+      "portraitLabel": "Woodblock movement from wave-crash to mountaintop",
+      "bio": "Hokusai made line feel weather-fast and restless, moving from towering surf to compressed views of Mount Fuji with unmatched graphic economy.",
+      "signatureMotifs": [
+        "great waves",
+        "Mount Fuji",
+        "graphic contour"
+      ]
+    },
+    {
+      "slug": "utagawa-hiroshige",
+      "name": "Utagawa Hiroshige",
+      "years": "1797–1858",
+      "movementSlug": "ukiyo-e",
+      "country": "Japan",
+      "portraitLabel": "Travel print poetry in rain, snow, and season",
+      "bio": "Hiroshige turns roads, bridges, and showers of rain into compositional events, making travel itself feel like a shifting register of weather and mood.",
+      "signatureMotifs": [
+        "rain showers",
+        "bridges",
+        "seasonal travel"
+      ]
+    },
+    {
+      "slug": "gustav-klimt",
+      "name": "Gustav Klimt",
+      "years": "1862–1918",
+      "movementSlug": "symbolism",
+      "country": "Austria",
+      "portraitLabel": "Gold-ground intimacy between ornament and desire",
+      "bio": "Klimt lets bodies emerge from fields of mosaic pattern, turning portraiture and allegory into luxurious tests of surface, eros, and symbolism.",
+      "signatureMotifs": [
+        "gold leaf",
+        "ornamental bodies",
+        "Byzantine pattern"
+      ]
+    },
+    {
+      "slug": "alphonse-mucha",
+      "name": "Alphonse Mucha",
+      "years": "1860–1939",
+      "movementSlug": "art-nouveau",
+      "country": "Czech Republic",
+      "portraitLabel": "Art Nouveau posters woven from halos and vines",
+      "bio": "Mucha made commercial posters feel liturgical, framing actresses and allegorical women with halos, tendrils, and curving decorative scripts.",
+      "signatureMotifs": [
+        "whiplash curves",
+        "poster halos",
+        "ornamental vines"
+      ]
+    },
+    {
+      "slug": "henri-matisse",
+      "name": "Henri Matisse",
+      "years": "1869–1954",
+      "movementSlug": "fauvism",
+      "country": "France",
+      "portraitLabel": "Color as structure, joy, and compression",
+      "bio": "Matisse uses color not as garnish but as architecture, flattening rooms, fabrics, and bodies until the entire painting pulses like a single decision.",
+      "signatureMotifs": [
+        "patterned rooms",
+        "cut-color energy",
+        "Mediterranean interiors"
+      ]
+    },
+    {
+      "slug": "pablo-picasso",
+      "name": "Pablo Picasso",
+      "years": "1881–1973",
+      "movementSlug": "cubism",
+      "country": "Spain / France",
+      "portraitLabel": "Form broken apart and reassembled mid-look",
+      "bio": "Picasso keeps treating painting like an argument with its own limits, especially when faces, guitars, and tables splinter into overlapping viewpoints.",
+      "signatureMotifs": [
+        "fractured faces",
+        "multiple viewpoints",
+        "guitars and studios"
+      ]
+    },
+    {
+      "slug": "wassily-kandinsky",
+      "name": "Wassily Kandinsky",
+      "years": "1866–1944",
+      "movementSlug": "abstract-art",
+      "country": "Russia / Germany",
+      "portraitLabel": "Abstraction as rhythm, pressure, and inner sound",
+      "bio": "Kandinsky treats line, color, and shape like a score, asking painting to carry emotional and spiritual resonance without depiction.",
+      "signatureMotifs": [
+        "lyrical geometry",
+        "color chords",
+        "improvisation"
+      ]
+    },
+    {
+      "slug": "piet-mondrian",
+      "name": "Piet Mondrian",
+      "years": "1872–1944",
+      "movementSlug": "abstract-art",
+      "country": "Netherlands",
+      "portraitLabel": "Grids reduced to primary color and balance",
+      "bio": "Mondrian pares painting down to black lines and primary rectangles, making equilibrium feel vivid rather than austere.",
+      "signatureMotifs": [
+        "black grids",
+        "primary colors",
+        "dynamic balance"
+      ]
+    },
+    {
+      "slug": "frida-kahlo",
+      "name": "Frida Kahlo",
+      "years": "1907–1954",
+      "movementSlug": "mexican-modernism",
+      "country": "Mexico",
+      "portraitLabel": "Self-portrait turned into myth, pain, and emblem",
+      "bio": "Kahlo turns autobiography into a dense symbolic language of bodies, plants, costumes, wounds, and stubborn frontal gaze.",
+      "signatureMotifs": [
+        "self-portraiture",
+        "botanical symbolism",
+        "bodily pain"
+      ]
+    },
+    {
+      "slug": "edward-hopper",
+      "name": "Edward Hopper",
+      "years": "1882–1967",
+      "movementSlug": "realism",
+      "country": "United States",
+      "portraitLabel": "American rooms and streets held in uneasy pause",
+      "bio": "Hopper uses diners, windows, gas stations, and morning light to make ordinary American space feel psychically charged and faintly unreachable.",
+      "signatureMotifs": [
+        "lonely interiors",
+        "city windows",
+        "hard morning light"
+      ]
+    },
+    {
+      "slug": "dorothea-lange",
+      "name": "Dorothea Lange",
+      "years": "1895–1965",
+      "movementSlug": "photography",
+      "country": "United States",
+      "portraitLabel": "Documentary witness shaped by migration and labor",
+      "bio": "Lange frames economic crisis and displacement with an ethic of clarity, making documentary photography feel both socially exact and emotionally near.",
+      "signatureMotifs": [
+        "migrant workers",
+        "documentary witness",
+        "Depression-era roads"
       ]
     }
   ],
