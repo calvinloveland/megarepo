@@ -105,6 +105,8 @@ Catalog policy: Vernissage should only include artists and works that can be rea
 
 Browse and artist pages should stay image-first as the catalog grows: if someone clicks into an artist, the currently catalogued works should be visually obvious rather than buried under long text summaries.
 
+For catalog additions, prefer Art Institute of Chicago public-domain works first because the app already supports `artic.edu` IIIF URLs directly. If a work has to come from another museum, keep it local under `public/artworks/` and only use clearly open/public-domain assets.
+
 `APP_VERSION` is surfaced in the site footer, health endpoint, and feedback records so users and operators can see which deployment is live.
 
 ## Feedback system

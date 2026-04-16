@@ -31,7 +31,10 @@ test('search page links into the artwork detail page', async ({ page }) => {
   expect(searchUrl.searchParams.get('year')).toBe('1906');
   await expect(page.getByText('1 matching artworks')).toBeVisible();
 
-  await page.locator('a[href="/artworks/water-lilies-1906"]').first().click();
+  const waterLiliesCard = page.locator('.artwork-preview-card').filter({
+    has: page.getByRole('heading', { level: 3, name: 'Water Lilies' })
+  });
+  await waterLiliesCard.getByRole('link', { name: 'View artwork' }).click();
 
   await expect(page).toHaveURL(/\/artworks\/water-lilies-1906(\?.*)?$/);
   await expect(page.getByRole('heading', { level: 1, name: 'Water Lilies' })).toBeVisible();

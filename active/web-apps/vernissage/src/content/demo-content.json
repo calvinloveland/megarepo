@@ -1089,6 +1089,76 @@
         "industrial finish",
         "serial form"
       ]
+    },
+    {
+      "slug": "gustave-caillebotte",
+      "name": "Gustave Caillebotte",
+      "years": "1848–1894",
+      "movementSlug": "impressionism",
+      "country": "France",
+      "portraitLabel": "Urban Impressionism built from wet streets and exact perspective",
+      "bio": "Caillebotte brings an engineer's clarity to Impressionism, locking Paris boulevards, bridges, and domestic still lifes into compositions that feel both immediate and uncannily controlled.",
+      "signatureMotifs": [
+        "Paris boulevards",
+        "wet pavement",
+        "bourgeois leisure"
+      ]
+    },
+    {
+      "slug": "paul-cezanne",
+      "name": "Paul Cézanne",
+      "years": "1839–1906",
+      "movementSlug": "post-impressionism",
+      "country": "France",
+      "portraitLabel": "Still life and landscape rebuilt into weight and structure",
+      "bio": "Cézanne treats apples, hillsides, and tabletops like problems in construction, pushing every patch of color toward the deeper architecture of the painting.",
+      "signatureMotifs": [
+        "tilting tabletops",
+        "Mont Sainte-Victoire",
+        "structured still lifes"
+      ]
+    },
+    {
+      "slug": "edgar-degas",
+      "name": "Edgar Degas",
+      "years": "1834–1917",
+      "movementSlug": "impressionism",
+      "country": "France",
+      "portraitLabel": "Cropped interiors where rehearsal, labor, and looking stay unsettled",
+      "bio": "Degas uses off-center framing and backstage vantage points to turn dancers, milliners, and bathers into studies of repetition, fatigue, and modern spectatorship.",
+      "signatureMotifs": [
+        "ballet rehearsals",
+        "milliners",
+        "cropped interiors"
+      ]
+    },
+    {
+      "slug": "henri-de-toulouse-lautrec",
+      "name": "Henri de Toulouse-Lautrec",
+      "years": "1864–1901",
+      "movementSlug": "post-impressionism",
+      "country": "France",
+      "portraitLabel": "Cabaret modernity painted with acid color and nocturnal fatigue",
+      "bio": "Toulouse-Lautrec turns dance halls, performers, and drinkers into an anatomy of nightlife, letting compression, distortion, and sharp contour make the room itself feel unstable.",
+      "signatureMotifs": [
+        "cabaret interiors",
+        "performers",
+        "nightlife"
+      ]
+    },
+    {
+      "slug": "gustave-moreau",
+      "name": "Gustave Moreau",
+      "years": "1826–1898",
+      "movementSlug": "symbolism",
+      "country": "France",
+      "portraitLabel": "Mythic allegory loaded with jewel-tone violence and omen",
+      "bio": "Moreau loads classical and biblical subjects with encrusted detail, turning heroes, monsters, and sacred visions into ecstatic symbolic theater.",
+      "signatureMotifs": [
+        "mythic violence",
+        "jewel-toned allegory",
+        "hybrid beasts"
+      ]
     }
   ],
   "artworks": [
@@ -1433,6 +1503,158 @@
         "public domain"
       ],
       "summary": "Signac turns a riverside bluff into a slow shimmer of divided color, making geology and atmosphere feel equally provisional."
+    },
+    {
+      "slug": "paris-street-rainy-day",
+      "title": "Paris Street; Rainy Day",
+      "artistSlug": "gustave-caillebotte",
+      "movementSlug": "impressionism",
+      "year": "1877",
+      "medium": "Oil on canvas",
+      "dimensions": "212 × 276 cm",
+      "image": "https://www.artic.edu/iiif/2/f8fd76e9-c396-5678-36ed-6a348c904d27/full/1400,/0/default.jpg",
+      "width": 1400,
+      "height": 1075,
+      "tags": [
+        "Paris",
+        "rain",
+        "boulevard",
+        "public domain"
+      ],
+      "summary": "Caillebotte makes a broad Paris intersection feel both cinematic and clinical, with wet pavement, umbrellas, and vanishing lines tightening the whole crowd into modern choreography."
+    },
+    {
+      "slug": "the-basket-of-apples",
+      "title": "The Basket of Apples",
+      "artistSlug": "paul-cezanne",
+      "movementSlug": "post-impressionism",
+      "year": "c. 1893",
+      "medium": "Oil on canvas",
+      "dimensions": "65 × 80 cm",
+      "image": "https://www.artic.edu/iiif/2/52ac8996-3460-cf71-cb42-5c4d0aa29b74/full/1400,/0/default.jpg",
+      "width": 1400,
+      "height": 1138,
+      "tags": [
+        "still life",
+        "tilted table",
+        "apples",
+        "public domain"
+      ],
+      "summary": "Nothing in Cézanne's tabletop fully agrees with ordinary perspective, but that friction is the point: fruit, cloth, and bottle all lock together as if vision itself were being rebuilt."
+    },
+    {
+      "slug": "the-millinery-shop",
+      "title": "The Millinery Shop",
+      "artistSlug": "edgar-degas",
+      "movementSlug": "impressionism",
+      "year": "1879–86",
+      "medium": "Oil on canvas",
+      "dimensions": "100 × 110 cm",
+      "image": "https://www.artic.edu/iiif/2/6f513908-03cc-b974-633b-adfce56b7936/full/1400,/0/default.jpg",
+      "width": 1400,
+      "height": 1273,
+      "tags": [
+        "milliner",
+        "hat shop",
+        "interior",
+        "public domain"
+      ],
+      "summary": "Degas turns a hat shop into a study of concentration and display, compressing fabric, mirrors, and workroom labor into a quietly tense interior."
+    },
+    {
+      "slug": "at-the-moulin-rouge",
+      "title": "At the Moulin Rouge",
+      "artistSlug": "henri-de-toulouse-lautrec",
+      "movementSlug": "post-impressionism",
+      "year": "1892–95",
+      "medium": "Oil on canvas",
+      "dimensions": "123 × 141 cm",
+      "image": "https://www.artic.edu/iiif/2/defb4004-b500-218d-3d9b-9a02423f097d/full/1400,/0/default.jpg",
+      "width": 1400,
+      "height": 1221,
+      "tags": [
+        "cabaret",
+        "nightlife",
+        "Paris",
+        "public domain"
+      ],
+      "summary": "Electric greens, rouge faces, and oblique glances make the famous nightclub feel more exhausted than glamorous, as if the spectacle has already tipped into aftermath."
+    },
+    {
+      "slug": "woman-before-an-aquarium",
+      "title": "Woman before an Aquarium",
+      "artistSlug": "henri-matisse",
+      "movementSlug": "fauvism",
+      "year": "1921–23",
+      "medium": "Oil on canvas",
+      "dimensions": "81 × 100 cm",
+      "image": "https://www.artic.edu/iiif/2/d0e36029-27fc-bf4e-357a-55cfbaf7bdfd/full/1400,/0/default.jpg",
+      "width": 1400,
+      "height": 1134,
+      "tags": [
+        "interior",
+        "aquarium",
+        "pattern",
+        "public domain"
+      ],
+      "summary": "Matisse turns a domestic interior into a chamber of suspended color, where the fish tank, curtains, and seated figure all feel like separate pools of rhythm."
+    },
+    {
+      "slug": "improvisation-no-30-cannons",
+      "title": "Improvisation No. 30 (Cannons)",
+      "artistSlug": "wassily-kandinsky",
+      "movementSlug": "abstract-art",
+      "year": "1913",
+      "medium": "Oil on canvas",
+      "dimensions": "111 × 111 cm",
+      "image": "https://www.artic.edu/iiif/2/b5bc6b66-9e6e-fe57-dcec-fc49e820e904/full/1400,/0/default.jpg",
+      "width": 1400,
+      "height": 1400,
+      "tags": [
+        "abstraction",
+        "color chords",
+        "cannons",
+        "public domain"
+      ],
+      "summary": "Kandinsky lets apocalypse arrive as rhythm first and subject second, with arcs, bursts, and shards of color colliding like a score played at battle volume."
+    },
+    {
+      "slug": "lozenge-composition-with-yellow-black-blue-red-and-gray",
+      "title": "Lozenge Composition with Yellow, Black, Blue, Red, and Gray",
+      "artistSlug": "piet-mondrian",
+      "movementSlug": "abstract-art",
+      "year": "1921",
+      "medium": "Oil on canvas",
+      "dimensions": "60 × 60 cm",
+      "image": "https://www.artic.edu/iiif/2/25f660ee-f1db-d13b-42a5-56df97c98ba7/full/1400,/0/default.jpg",
+      "width": 1400,
+      "height": 1400,
+      "tags": [
+        "grid",
+        "primary colors",
+        "geometry",
+        "public domain"
+      ],
+      "summary": "Mondrian rotates equilibrium onto a diamond and makes a handful of lines and color blocks feel suddenly taut, bright, and unstable."
+    },
+    {
+      "slug": "hercules-and-the-lernaean-hydra",
+      "title": "Hercules and the Lernaean Hydra",
+      "artistSlug": "gustave-moreau",
+      "movementSlug": "symbolism",
+      "year": "1875–76",
+      "medium": "Oil on canvas",
+      "dimensions": "179 × 154 cm",
+      "image": "https://www.artic.edu/iiif/2/2ae64c8a-266d-470a-a25a-c83127564636/full/1400,/0/default.jpg",
+      "width": 1400,
+      "height": 1627,
+      "tags": [
+        "mythology",
+        "Hydra",
+        "allegory",
+        "public domain"
+      ],
+      "summary": "Moreau stages the hero and monster as a feverish jewel-box of threat, where every scale, weapon, and patch of color feels charged with symbolic consequence."
     }
   ],
   "exhibitions": [],
