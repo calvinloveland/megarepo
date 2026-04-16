@@ -54,11 +54,6 @@
       "description": "Painting that leaves literal depiction behind in favor of geometry, rhythm, color fields, and spiritual or perceptual structure."
     },
     {
-      "slug": "performance-art",
-      "name": "Performance Art",
-      "description": "Live, durational, or participatory art where the body, audience, and event become the medium."
-    },
-    {
       "slug": "architecture",
       "name": "Architecture",
       "description": "Built form treated as cultural authorship, where structure, circulation, ornament, and public space carry the work's meaning."
@@ -323,20 +318,6 @@
         "repetitive linework",
         "gray tonal fields",
         "contemplative minimalism"
-      ]
-    },
-    {
-      "slug": "marina-abramovic",
-      "name": "Marina Abramović",
-      "years": "1946–",
-      "movementSlug": "performance-art",
-      "country": "Serbia / United States",
-      "portraitLabel": "Durational performance built from endurance and attention",
-      "bio": "Marina Abramović uses stillness, repetition, and bodily risk to make presence itself feel sculptural, turning documentation into the public residue of performance.",
-      "signatureMotifs": [
-        "durational presence",
-        "body as medium",
-        "audience tension"
       ]
     },
     {
@@ -1338,25 +1319,6 @@
         "public domain"
       ],
       "summary": "Hockney turns a pile of pillows into an argument for flat color, surface pleasure, and the sly theatricality of domestic things."
-    },
-    {
-      "slug": "the-artist-is-present",
-      "title": "The Artist Is Present",
-      "artistSlug": "marina-abramovic",
-      "movementSlug": "performance-art",
-      "year": "2010",
-      "medium": "Performance documentation photograph",
-      "dimensions": "3008 × 2000 px",
-      "image": "/artworks/marina-abramovic-artist-is-present.jpg",
-      "width": 3008,
-      "height": 2000,
-      "tags": [
-        "performance art",
-        "MoMA",
-        "audience participation",
-        "open license"
-      ],
-      "summary": "A seated encounter stripped of almost everything but looking becomes emblematic through its documentary still: attention held long enough to feel architectural."
     },
     {
       "slug": "head-of-a-roebuck-and-two-ptarmigan",

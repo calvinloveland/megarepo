@@ -101,6 +101,8 @@ The artwork-page `+` quick-save control stores favorites and private notes in br
 
 The static catalog now ships without seeded reviews, feed entries, lists, members, exhibition activity, or artwork star aggregates. Homepage/community surfaces pull from persisted user reviews when they exist and otherwise render honest empty states instead of filler content.
 
+Catalog policy: Vernissage should only include artists and works that can be reasonably represented on image-first catalog pages. Pure performance art and similar work that mainly survives as documentation rather than a stable visual object should stay out of the catalog.
+
 `APP_VERSION` is surfaced in the site footer, health endpoint, and feedback records so users and operators can see which deployment is live.
 
 ## Feedback system
