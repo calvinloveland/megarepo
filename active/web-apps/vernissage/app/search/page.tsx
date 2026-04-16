@@ -1,6 +1,7 @@
 import { EnamelButton } from '@/src/components/EnamelButton';
 import { BotanicalDivider } from '@/src/components/BotanicalDivider';
 import { OpenFeedbackButton } from '@/src/components/OpenFeedbackButton';
+import { ArtworkPreviewCard } from '@/src/components/ArtworkPreviewCard';
 import { EnamelChip } from '@/src/components/EnamelChip';
 import { GildedCard } from '@/src/components/GildedCard';
 import { OrnateInput } from '@/src/components/OrnateInput';
@@ -86,8 +87,8 @@ export default async function SearchPage({
         <h2>{hasFilters ? 'Filtered results' : 'Full launch catalog'}</h2>
         <p>
           {hasFilters
-            ? 'These results come directly from the published launch catalog rather than a placeholder search UI.'
-            : 'You are viewing the full launch catalog. Add a keyword or filter to narrow the room.'}
+            ? 'These results come directly from the published launch catalog, with artwork images leading and artist dossiers one click away.'
+            : 'You are viewing the full launch catalog in an image-first layout. Add a keyword or filter to narrow the room.'}
         </p>
         <div className="button-row">
           <EnamelButton href="/artists/new" variant="secondary">
@@ -112,28 +113,7 @@ export default async function SearchPage({
 
       <section className="mosaic-grid">
         {artworkResults.length ? (
-          artworkResults.map((artwork) => {
-            const artist = getArtist(artwork.artistSlug);
-            return (
-              <GildedCard
-                key={artwork.slug}
-                title={artwork.title}
-                eyebrow={artist?.name ?? artwork.year}
-                subtitle={`${artwork.year} · ${artwork.medium}`}
-                href={`/artworks/${artwork.slug}`}
-                thumbnail={{ src: getArtworkThumbnail(artwork, 400), alt: artwork.title, width: 400, height: 267 }}
-              >
-                <p>{artwork.summary}</p>
-                <div className="chip-row chip-row--compact">
-                  {artwork.tags.slice(0, 3).map((tag, index) => (
-                    <EnamelChip key={tag} tone={index === 1 ? 'moss' : 'gold'}>
-                      {tag}
-                    </EnamelChip>
-                  ))}
-                </div>
-              </GildedCard>
-            );
-          })
+          artworkResults.map((artwork) => <ArtworkPreviewCard key={artwork.slug} artwork={artwork} />)
         ) : (
           <GildedCard title="No matching artworks" eyebrow="Adjust the current filters">
             <p>Try broadening the keyword, clearing one of the exact filters, or browsing the full launch catalog again.</p>

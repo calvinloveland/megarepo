@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useSession } from 'next-auth/react';
 
 type SubmissionState =
   | { kind: 'idle'; message: string }
@@ -47,6 +48,7 @@ function getElementDescription(element: HTMLElement) {
 }
 
 export function FeedbackWidget() {
+  const { data: session, status } = useSession();
   const [open, setOpen] = useState(false);
   const [selecting, setSelecting] = useState(false);
   const [feedbackText, setFeedbackText] = useState('');
@@ -297,6 +299,11 @@ export function FeedbackWidget() {
             </label>
             <p id="feedback-text-hint" className="feedback-widget__hint">
               Up to 5000 characters.
+            </p>
+            <p className="feedback-widget__hint">
+              {status === 'authenticated' && session?.user?.handle
+                ? `Signed in as ${session.user.handle}. Your account details will be attached to this note for follow-up.`
+                : 'If you are not signed in, this note is stored without account attribution.'}
             </p>
 
             <div className="feedback-widget__field">

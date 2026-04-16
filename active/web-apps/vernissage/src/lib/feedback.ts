@@ -21,6 +21,8 @@ export type FeedbackEntry = {
   server_timestamp: string;
   version: string;
   git_commit: string;
+  submitted_by_handle: string | null;
+  submitted_by_name: string | null;
   addressed_by_commit: string | null;
   addressed: boolean;
   addressed_timestamp?: string;
@@ -37,6 +39,8 @@ export type FeedbackSubmission = {
   server_timestamp: string;
   version: string;
   git_commit: string;
+  submitted_by_handle: string | null;
+  submitted_by_name: string | null;
 };
 
 type SqliteFeedbackRow = Omit<FeedbackEntry, 'filename' | 'id' | 'addressed_timestamp'> & {
@@ -70,8 +74,8 @@ function sqliteString(value: string) {
   return `'${value.replace(/\u0000/g, '').replace(/'/g, "''")}'`;
 }
 
-function sqliteNullableString(value: string | null) {
-  return value === null ? 'NULL' : sqliteString(value);
+function sqliteNullableString(value: string | null | undefined) {
+  return value == null ? 'NULL' : sqliteString(value);
 }
 
 function sqliteBoolean(value: boolean) {
@@ -120,6 +124,8 @@ function insertFeedbackSql(entry: FeedbackEntry) {
       server_timestamp,
       version,
       git_commit,
+      submitted_by_handle,
+      submitted_by_name,
       addressed_by_commit,
       addressed,
       addressed_timestamp
@@ -135,6 +141,8 @@ function insertFeedbackSql(entry: FeedbackEntry) {
       ${sqliteString(entry.server_timestamp)},
       ${sqliteString(entry.version)},
       ${sqliteString(entry.git_commit)},
+      ${sqliteNullableString(entry.submitted_by_handle)},
+      ${sqliteNullableString(entry.submitted_by_name)},
       ${sqliteNullableString(entry.addressed_by_commit)},
       ${sqliteBoolean(entry.addressed)},
       ${sqliteNullableString(entry.addressed_timestamp ?? null)}
@@ -178,10 +186,25 @@ async function migrateLegacyFeedback(projectRoot: string) {
         insertFeedbackSql({
           ...payload,
           id,
+          submitted_by_handle: payload.submitted_by_handle ?? null,
+          submitted_by_name: payload.submitted_by_name ?? null,
           addressed: payload.addressed ?? addressed
         })
       );
     }
+  }
+}
+
+async function ensureFeedbackColumns(databasePath: string) {
+  const columns = await queryJson<{ name: string }>(databasePath, 'PRAGMA table_info(feedback_records);');
+  const columnNames = new Set(columns.map((column) => column.name));
+
+  if (!columnNames.has('submitted_by_handle')) {
+    await runSql(databasePath, 'ALTER TABLE feedback_records ADD COLUMN submitted_by_handle TEXT;');
+  }
+
+  if (!columnNames.has('submitted_by_name')) {
+    await runSql(databasePath, 'ALTER TABLE feedback_records ADD COLUMN submitted_by_name TEXT;');
   }
 }
 
@@ -215,6 +238,8 @@ export async function ensureFeedbackStorage(projectRoot = process.cwd()) {
           server_timestamp TEXT NOT NULL,
           version TEXT NOT NULL,
           git_commit TEXT NOT NULL,
+          submitted_by_handle TEXT,
+          submitted_by_name TEXT,
           addressed_by_commit TEXT,
           addressed INTEGER NOT NULL DEFAULT 0,
           addressed_timestamp TEXT
@@ -223,6 +248,7 @@ export async function ensureFeedbackStorage(projectRoot = process.cwd()) {
         ON feedback_records (addressed, server_timestamp DESC);
       `
     );
+    await ensureFeedbackColumns(databasePath);
     await migrateLegacyFeedback(projectRoot);
   })();
 
@@ -254,6 +280,8 @@ export async function readFeedbackEntries(addressed: boolean, projectRoot = proc
         server_timestamp,
         version,
         git_commit,
+        submitted_by_handle,
+        submitted_by_name,
         addressed_by_commit,
         addressed,
         addressed_timestamp
@@ -392,6 +420,8 @@ export async function moveFeedbackToAddressed(
         server_timestamp,
         version,
         git_commit,
+        submitted_by_handle,
+        submitted_by_name,
         addressed_by_commit,
         addressed,
         addressed_timestamp

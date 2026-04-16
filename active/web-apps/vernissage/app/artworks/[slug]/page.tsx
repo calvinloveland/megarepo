@@ -1,8 +1,10 @@
 import { notFound } from 'next/navigation';
 import { ArtworkFigure } from '@/src/components/ArtworkFigure';
+import { ArtworkPreviewCard } from '@/src/components/ArtworkPreviewCard';
 import { ArtworkQuickActions } from '@/src/components/ArtworkQuickActions';
 import { BotanicalDivider } from '@/src/components/BotanicalDivider';
 import { CatalogRequestCard } from '@/src/components/CatalogRequestCard';
+import { EnamelButton } from '@/src/components/EnamelButton';
 import { EnamelChip } from '@/src/components/EnamelChip';
 import { GildedCard } from '@/src/components/GildedCard';
 import { RatingStars } from '@/src/components/RatingStars';
@@ -55,6 +57,13 @@ export default async function ArtworkPage({ params }: { params: Promise<{ slug: 
               <p className="meta-note">{reviews.length} published review{reviews.length === 1 ? '' : 's'} so far.</p>
             </>
           )}
+          {artist ? (
+            <div className="button-row">
+              <EnamelButton href={`/artists/${artist.slug}`} variant="secondary">
+                View artist dossier
+              </EnamelButton>
+            </div>
+          ) : null}
           <ArtworkQuickActions artworkSlug={artwork.slug} artworkTitle={artwork.title} />
           <dl className="meta-grid">
             <div>
@@ -105,9 +114,7 @@ export default async function ArtworkPage({ params }: { params: Promise<{ slug: 
 
       <section className="mosaic-grid">
         {relatedWorks.map((related) => (
-          <GildedCard key={related.slug} title={related.title} eyebrow={related.year} subtitle={related.medium} href={`/artworks/${related.slug}`}>
-            <p>{related.summary}</p>
-          </GildedCard>
+          <ArtworkPreviewCard key={related.slug} artwork={related} showArtistLink={false} />
         ))}
         <CatalogRequestCard
           title="Looking for another artist or work?"

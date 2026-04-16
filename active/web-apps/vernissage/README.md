@@ -103,6 +103,8 @@ The static catalog now ships without seeded reviews, feed entries, lists, member
 
 Catalog policy: Vernissage should only include artists and works that can be reasonably represented on image-first catalog pages. Pure performance art and similar work that mainly survives as documentation rather than a stable visual object should stay out of the catalog.
 
+Browse and artist pages should stay image-first as the catalog grows: if someone clicks into an artist, the currently catalogued works should be visually obvious rather than buried under long text summaries.
+
 `APP_VERSION` is surfaced in the site footer, health endpoint, and feedback records so users and operators can see which deployment is live.
 
 ## Feedback system

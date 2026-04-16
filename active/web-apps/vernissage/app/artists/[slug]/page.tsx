@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 import { BotanicalDivider } from '@/src/components/BotanicalDivider';
 import { EnamelButton } from '@/src/components/EnamelButton';
+import { ArtworkPreviewCard } from '@/src/components/ArtworkPreviewCard';
 import { EnamelChip } from '@/src/components/EnamelChip';
 import { GildedCard } from '@/src/components/GildedCard';
 import { RatingStars } from '@/src/components/RatingStars';
@@ -89,11 +90,7 @@ export default async function ArtistPage({ params }: { params: Promise<{ slug: s
 
       <section className="mosaic-grid">
         {works.length > 0 ? (
-          works.map((work) => (
-            <GildedCard key={work.slug} title={work.title} eyebrow={work.year} subtitle={work.medium} href={`/artworks/${work.slug}`}>
-              <p>{work.summary}</p>
-            </GildedCard>
-          ))
+          works.map((work) => <ArtworkPreviewCard key={work.slug} artwork={work} showArtistLink={false} />)
         ) : (
           <GildedCard title="Works forthcoming" eyebrow="Cataloging in progress">
             <p>

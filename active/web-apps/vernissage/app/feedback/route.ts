@@ -1,3 +1,4 @@
+import { getServerSession } from 'next-auth';
 import { NextRequest, NextResponse } from 'next/server';
 import {
   createFeedbackEntry,
@@ -7,6 +8,7 @@ import {
   resolveGitCommit
 } from '@/src/lib/feedback';
 import { getAppVersion } from '@/src/lib/app-version';
+import { authOptions } from '@/src/lib/auth';
 import { getClientIp, rateLimitHeaders, takeRateLimitHit } from '@/src/lib/rate-limit';
 
 export const runtime = 'nodejs';
@@ -96,6 +98,8 @@ export async function POST(request: NextRequest) {
     return new Response('Timestamp must be < 120 characters', { status: 400 });
   }
 
+  const session = await getServerSession(authOptions);
+
   const payload = {
     feedback_text: feedbackText,
     selected_element: selectedElement || null,
@@ -106,7 +110,9 @@ export async function POST(request: NextRequest) {
     timestamp,
     server_timestamp: new Date().toISOString(),
     version: getAppVersion(),
-    git_commit: await resolveGitCommit()
+    git_commit: await resolveGitCommit(),
+    submitted_by_handle: session?.user?.handle?.trim() || null,
+    submitted_by_name: session?.user?.name?.trim() || null
   };
 
   const created = await createFeedbackEntry(payload, null);

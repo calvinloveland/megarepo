@@ -36,6 +36,9 @@ test('search page links into the artwork detail page', async ({ page }) => {
   await expect(page).toHaveURL(/\/artworks\/water-lilies-1906(\?.*)?$/);
   await expect(page.getByRole('heading', { level: 1, name: 'Water Lilies' })).toBeVisible();
   await expect(page.getByText('Reader responses')).toBeVisible();
+  await page.getByRole('link', { name: 'View artist dossier' }).click();
+  await expect(page).toHaveURL(/\/artists\/claude-monet$/);
+  await expect(page.getByText('Works by this artist')).toBeVisible();
 });
 
 test('member redirect and dossier-only artist route render without filler content', async ({ page }) => {

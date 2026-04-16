@@ -625,6 +625,14 @@ a.gilded-card:hover {
   color: transparent; /* hide alt text during loading */
 }
 
+.artwork-preview-card__thumbnail {
+  height: 240px;
+}
+
+.artwork-preview-card__actions {
+  margin-top: auto;
+}
+
 /* Cards with thumbnails: only show the bottom-right ornament to avoid clashing with the image */
 .gilded-card:has(.gilded-card__thumbnail)::before {
   background: url('/ornaments/corner-iris.svg') bottom right / 7rem no-repeat;
