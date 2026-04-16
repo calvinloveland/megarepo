@@ -20,7 +20,7 @@ test('parseRegistrationSubmission defaults the display name to the normalized ha
   }
 });
 
-test('parseRegistrationSubmission accepts an explicit display name and callback', () => {
+test('parseRegistrationSubmission ignores a supplied display name and keeps the handle as the public name', () => {
   const formData = new FormData();
   formData.set('name', 'Mucha Fan');
   formData.set('handle', 'mucha-fan');
@@ -30,7 +30,7 @@ test('parseRegistrationSubmission accepts an explicit display name and callback'
   const parsed = parseRegistrationSubmission(formData);
   assert.equal(parsed.ok, true);
   if (parsed.ok) {
-    assert.equal(parsed.value.name, 'Mucha Fan');
+    assert.equal(parsed.value.name, 'mucha-fan');
     assert.equal(parsed.value.callbackUrl, '/artworks/water-lilies-1906');
   }
 });

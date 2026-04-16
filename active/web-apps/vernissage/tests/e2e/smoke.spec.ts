@@ -7,6 +7,7 @@ test('homepage renders the salon shell and navigates to an artist page', async (
   await expect(page.getByText('An art review salon in emerald, gold, and parchment')).toBeVisible();
   await expect(page.getByRole('link', { name: 'Write a review' })).toBeVisible();
   await expect(page.getByText('Current exhibitions')).toBeVisible();
+  await expect(page.getByText(/Version\s+(0\.1\.0|20\d{6,}|development|dev)/)).toBeVisible();
 
   await page.locator('a[href="/artists/claude-monet"]').click();
 
@@ -59,4 +60,16 @@ test('search page links to the artist request flow', async ({ page }) => {
   await expect(page).toHaveURL(/\/artists\/new$/);
   await expect(page.getByRole('heading', { level: 1, name: 'Suggest an artist for Vernissage' })).toBeVisible();
   await expect(page.getByLabel('Artist name')).toBeVisible();
+});
+
+test('join page only asks for a handle and password', async ({ page }) => {
+  await page.goto('/join', { waitUntil: 'domcontentloaded' });
+
+  await expect(page.getByRole('heading', { level: 1, name: 'Take your place in the salon' })).toBeVisible();
+  await expect(page.getByLabel('Handle')).toBeVisible();
+  await expect(page.getByLabel('Password')).toBeVisible();
+  await expect(page.getByText('No email confirmation loop, display-name prompt, location survey, or bio essay at signup.')).toBeVisible();
+  await expect(page.getByLabel('Display name')).toHaveCount(0);
+  await expect(page.getByLabel('Location')).toHaveCount(0);
+  await expect(page.getByLabel('Bio')).toHaveCount(0);
 });

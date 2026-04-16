@@ -58,7 +58,7 @@ export default async function HomePage() {
             </div>
           </div>
           <div className="hero-artwork">
-            <ArtworkFigure artwork={heroArtwork} src={heroImageUrl} priority />
+            <ArtworkFigure artwork={heroArtwork} src={heroImageUrl} priority variant="immersive" />
             <div className="stat-ribbon">
               <p>{heroArtist?.name}</p>
               <span>{heroArtwork.year} · {heroArtwork.medium}</span>

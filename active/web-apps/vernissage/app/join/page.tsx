@@ -47,7 +47,7 @@ export default async function JoinPage({
       <section className="hero-shell hero-shell--compact">
         <p className="eyebrow">New member</p>
         <h1>Take your place in the salon</h1>
-        <p>Start with a handle and password, then fill in the rest of your profile later once you are inside the salon.</p>
+        <p>Start with a handle and password. Nothing else is required to get inside the salon.</p>
       </section>
 
       <BotanicalDivider label="Create account" />
@@ -64,7 +64,7 @@ export default async function JoinPage({
             label="Handle"
             name="handle"
             placeholder="atelier-name"
-            hint="This becomes your public signature and your default display name."
+            hint="Use 3-32 lowercase letters, numbers, or hyphens."
           />
           <OrnateInput label="Password" name="password" type="password" placeholder="At least 10 characters" />
         </div>
@@ -74,7 +74,7 @@ export default async function JoinPage({
             Already have an account?
           </EnamelButton>
         </div>
-        <p className="meta-note">No email confirmation loop, location survey, or bio essay at signup.</p>
+        <p className="meta-note">No email confirmation loop, display-name prompt, location survey, or bio essay at signup.</p>
       </form>
 
       <p className="meta-note">

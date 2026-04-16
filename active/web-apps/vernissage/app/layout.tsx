@@ -6,6 +6,7 @@ import './globals.css';
 import { FeedbackWidget } from '@/src/components/FeedbackWidget';
 import { FloatingNav } from '@/src/components/FloatingNav';
 import { Providers } from '@/src/components/Providers';
+import { getAppVersion } from '@/src/lib/app-version';
 
 const bodyFont = Noto_Serif({
   subsets: ['latin'],
@@ -52,6 +53,8 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
+  const appVersion = getAppVersion();
+
   return (
     <html lang="en">
       <body className={`${bodyFont.variable} ${displayFont.variable} ${labelFont.variable}`}>
@@ -73,7 +76,10 @@ export default function RootLayout({ children }: { children: ReactNode }) {
               <Link href="/terms">Terms</Link>
               <Link href="/contact">Contact</Link>
             </nav>
-            <p className="footer-shell__meta">Artworks by Monet, Van Gogh, Seurat, and Cassatt courtesy of the Art Institute of Chicago via IIIF.</p>
+            <div className="footer-shell__meta">
+              <span>Version {appVersion}</span>
+              <span>Artworks by Monet, Van Gogh, Seurat, and Cassatt courtesy of the Art Institute of Chicago via IIIF.</span>
+            </div>
           </footer>
         </Providers>
       </body>

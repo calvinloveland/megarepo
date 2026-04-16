@@ -44,6 +44,7 @@ NEXTAUTH_SECRET="replace-me"
 RIJKSMUSEUM_API_KEY="replace-me-if-using-import:rijks"
 FEEDBACK_ADMIN_USERNAME="admin"
 FEEDBACK_ADMIN_PASSWORD="replace-me"
+APP_VERSION="dev"
 ```
 
 ## Scripts
@@ -92,11 +93,15 @@ Vernissage now includes:
 
 These routes require `DATABASE_URL` to be configured. When the database URL is absent, the site stays readable but account creation and publishing are intentionally disabled.
 
+Signup is intentionally minimal: the live `/join` form only asks for a handle and password, and the handle becomes the initial public display name until a richer profile-editing flow exists.
+
 Launch abuse protections now include a one-review-per-user-per-target guard plus basic in-memory rate limiting on review publication and feedback/admin write paths.
 
 The artwork-page `+` quick-save control stores favorites and private notes in browser local storage for now, so it works even before full member libraries are online.
 
 The static catalog now ships without seeded reviews, feed entries, lists, members, exhibition activity, or artwork star aggregates. Homepage/community surfaces pull from persisted user reviews when they exist and otherwise render honest empty states instead of filler content.
+
+`APP_VERSION` is surfaced in the site footer, health endpoint, and feedback records so users and operators can see which deployment is live.
 
 ## Feedback system
 

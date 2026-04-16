@@ -6,6 +6,7 @@ import {
   requireFeedbackAuth,
   resolveGitCommit
 } from '@/src/lib/feedback';
+import { getAppVersion } from '@/src/lib/app-version';
 import { getClientIp, rateLimitHeaders, takeRateLimitHit } from '@/src/lib/rate-limit';
 
 export const runtime = 'nodejs';
@@ -104,7 +105,7 @@ export async function POST(request: NextRequest) {
     design,
     timestamp,
     server_timestamp: new Date().toISOString(),
-    version: process.env.APP_VERSION ?? 'dev',
+    version: getAppVersion(),
     git_commit: await resolveGitCommit()
   };
 

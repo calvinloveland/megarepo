@@ -10,17 +10,12 @@ function normalizeRegistrationHandle(value: string) {
 }
 
 export function parseRegistrationSubmission(formData: FormData): { ok: true; value: RegistrationSubmission } | { ok: false; error: string } {
-  const rawName = `${formData.get('name') ?? ''}`.trim();
   const handle = normalizeRegistrationHandle(`${formData.get('handle') ?? ''}`);
   const password = `${formData.get('password') ?? ''}`;
   const callbackUrl = `${formData.get('callbackUrl') ?? '/reviews/new'}` || '/reviews/new';
-  const name = rawName || handle;
+  const name = handle;
 
   if (!handle || password.length < 10 || handle.length < 3 || handle.length > 32) {
-    return { ok: false, error: 'invalid' };
-  }
-
-  if (name.length > 80) {
     return { ok: false, error: 'invalid' };
   }
 
