@@ -97,7 +97,7 @@ Signup is intentionally minimal: the live `/join` form only asks for a handle an
 
 Launch abuse protections now include a one-review-per-user-per-target guard plus basic in-memory rate limiting on review publication and feedback/admin write paths.
 
-The artwork-page `+` quick-save control stores favorites and private notes in browser local storage for now, and artist pages now offer a local-device favorite toggle as well, so both flows work even before full member libraries are online.
+Favorite artworks and favorite artists are meant to be public, database-backed member-page signals rather than browser-only state. The artwork-page `+` control now stays focused on private notes stored in browser local storage for now.
 
 The static catalog now ships without seeded reviews, feed entries, lists, members, exhibition activity, or artwork star aggregates. Homepage/community surfaces pull from persisted user reviews when they exist and otherwise render honest empty states instead of filler content.
 

@@ -14,9 +14,7 @@ test('homepage renders the salon shell and navigates to an artist page', async (
   await expect(page).toHaveURL(/\/artists\/claude-monet$/);
   await expect(page.getByRole('heading', { level: 1, name: 'Claude Monet' })).toBeVisible();
   await expect(page.getByText('Artist dossier')).toBeVisible();
-  await page.getByRole('button', { name: 'Mark as favorite artist' }).click();
-  await expect(page.getByRole('button', { name: 'Remove from favorite artists' })).toBeVisible();
-  await expect(page.getByText('Saved to your favorite artists on this device.')).toBeVisible();
+  await expect(page.getByText('Public favorite artists will appear on member pages once the shared application database is connected.')).toBeVisible();
 });
 
 test('search page links into the artwork detail page', async ({ page }) => {
@@ -42,6 +40,7 @@ test('search page links into the artwork detail page', async ({ page }) => {
   await expect(page).toHaveURL(/\/artworks\/water-lilies-1906(\?.*)?$/);
   await expect(page.getByRole('heading', { level: 1, name: 'Water Lilies' })).toBeVisible();
   await expect(page.getByText('Reader responses')).toBeVisible();
+  await expect(page.getByText('Public favorite artworks will appear on member pages once the shared application database is connected.')).toBeVisible();
   await page.getByRole('link', { name: 'View artist dossier' }).click();
   await expect(page).toHaveURL(/\/artists\/claude-monet$/);
   await expect(page.getByText('Works by this artist')).toBeVisible();

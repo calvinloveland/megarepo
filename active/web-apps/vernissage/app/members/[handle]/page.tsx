@@ -1,8 +1,11 @@
 import { permanentRedirect } from 'next/navigation';
+import { ArtworkPreviewCard } from '@/src/components/ArtworkPreviewCard';
 import { BotanicalDivider } from '@/src/components/BotanicalDivider';
 import { EnamelChip } from '@/src/components/EnamelChip';
+import { EnamelButton } from '@/src/components/EnamelButton';
 import { GildedCard } from '@/src/components/GildedCard';
-import { getPersistedMemberProfile, getPersistedReviewsByMember } from '@/src/lib/live-data';
+import { getMovement } from '@/src/lib/catalog';
+import { getPersistedMemberFavorites, getPersistedMemberProfile, getPersistedReviewsByMember } from '@/src/lib/live-data';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,6 +21,7 @@ export default async function MemberPage({ params }: { params: Promise<{ handle:
   }
 
   const reviews = await getPersistedReviewsByMember(persistedMember.handle);
+  const favorites = await getPersistedMemberFavorites(persistedMember.handle);
   const eyebrowParts = [persistedMember.location, persistedMember.favoriteMovement].filter(Boolean);
 
   return (
@@ -33,7 +37,41 @@ export default async function MemberPage({ params }: { params: Promise<{ handle:
         </div>
       </section>
 
+      <BotanicalDivider label="Favorite artworks" />
+
+      <section className="mosaic-grid">
+        {favorites.artworks.length ? (
+          favorites.artworks.map((artwork: (typeof favorites.artworks)[number]) => <ArtworkPreviewCard key={artwork.slug} artwork={artwork} />)
+        ) : (
+          <GildedCard title="No favorite artworks yet" eyebrow="Public shelf">
+            <p>This member has not marked any artworks as public favorites yet.</p>
+          </GildedCard>
+        )}
+      </section>
+
+      <BotanicalDivider label="Favorite artists" />
+
+      <section className="three-up-grid">
+        {favorites.artists.length ? (
+          favorites.artists.map((artist: (typeof favorites.artists)[number]) => (
+            <GildedCard key={artist.slug} title={artist.name} eyebrow={getMovement(artist.movementSlug)?.name}>
+              <p>{artist.portraitLabel}</p>
+              <div className="button-row">
+                <EnamelButton href={`/artists/${artist.slug}`} variant="secondary">
+                  View artist
+                </EnamelButton>
+              </div>
+            </GildedCard>
+          ))
+        ) : (
+          <GildedCard title="No favorite artists yet" eyebrow="Public shelf">
+            <p>This member has not marked any artists as public favorites yet.</p>
+          </GildedCard>
+        )}
+      </section>
+
       <BotanicalDivider label="Recent reviews" />
+
 
       <section className="review-grid">
         {reviews.length ? (

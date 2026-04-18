@@ -1,11 +1,13 @@
 import { notFound } from 'next/navigation';
-import { ArtistFavoriteButton } from '@/src/components/ArtistFavoriteButton';
+import { getServerSession } from 'next-auth';
 import { BotanicalDivider } from '@/src/components/BotanicalDivider';
 import { EnamelButton } from '@/src/components/EnamelButton';
+import { FavoriteToggleButton } from '@/src/components/FavoriteToggleButton';
 import { ArtworkPreviewCard } from '@/src/components/ArtworkPreviewCard';
 import { EnamelChip } from '@/src/components/EnamelChip';
 import { GildedCard } from '@/src/components/GildedCard';
 import { RatingStars } from '@/src/components/RatingStars';
+import { authOptions } from '@/src/lib/auth';
 import { getAverageRating } from '@/src/lib/artist-profile';
 import {
   formatMemberAttribution,
@@ -15,7 +17,8 @@ import {
   getMovement,
   getReviewsForTarget
 } from '@/src/lib/catalog';
-import { getPersistedReviewsForTarget, mergeReviews } from '@/src/lib/live-data';
+import { getIsFavoritedByUser, getPersistedReviewsForTarget, mergeReviews } from '@/src/lib/live-data';
+import { isDatabaseConfigured } from '@/src/lib/prisma';
 
 export const dynamic = 'force-dynamic';
 
@@ -32,7 +35,10 @@ export default async function ArtistPage({ params }: { params: Promise<{ slug: s
 
   const works = getArtworksByArtist(artist.slug);
   const movement = getMovement(artist.movementSlug);
+  const session = await getServerSession(authOptions);
+  const databaseReady = isDatabaseConfigured();
   const reviews = mergeReviews(getReviewsForTarget('artist', artist.slug), await getPersistedReviewsForTarget('artist', artist.slug));
+  const isFavorited = await getIsFavoritedByUser(session?.user?.id, 'artist', artist.slug);
   const averageRating = getAverageRating(reviews);
 
   return (
@@ -48,7 +54,14 @@ export default async function ArtistPage({ params }: { params: Promise<{ slug: s
             </EnamelChip>
           ))}
         </div>
-        <ArtistFavoriteButton artistSlug={artist.slug} artistName={artist.name} />
+        <FavoriteToggleButton
+          targetType="artist"
+          targetSlug={artist.slug}
+          targetName={artist.name}
+          initialFavorited={isFavorited}
+          databaseReady={databaseReady}
+          signInHref={databaseReady && !session?.user ? `/signin?callbackUrl=/artists/${artist.slug}` : undefined}
+        />
       </section>
 
       <section className="two-up-grid">

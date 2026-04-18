@@ -9,11 +9,10 @@ import {
 } from '../../src/lib/artwork-journal.ts';
 
 test('normalizeArtworkJournalEntry trims notes and drops empty entries', () => {
-  assert.equal(normalizeArtworkJournalEntry({ favorited: false, note: '   ' }, '2026-04-14T00:00:00.000Z'), null);
+  assert.equal(normalizeArtworkJournalEntry({ note: '   ' }, '2026-04-14T00:00:00.000Z'), null);
   assert.deepEqual(
-    normalizeArtworkJournalEntry({ favorited: true, note: '  luminous fog  ' }, '2026-04-14T00:00:00.000Z'),
+    normalizeArtworkJournalEntry({ note: '  luminous fog  ' }, '2026-04-14T00:00:00.000Z'),
     {
-      favorited: true,
       note: 'luminous fog',
       updatedAt: '2026-04-14T00:00:00.000Z'
     }
@@ -25,13 +24,12 @@ test('parseArtworkJournalState ignores invalid payloads and keeps valid entries'
   assert.deepEqual(
     parseArtworkJournalState(
       JSON.stringify({
-        'water-lilies-1906': { favorited: true, note: '  mist and lilies  ', updatedAt: '2026-04-14T00:00:00.000Z' },
-        'empty-work': { favorited: false, note: '   ' }
+        'water-lilies-1906': { note: '  mist and lilies  ', updatedAt: '2026-04-14T00:00:00.000Z' },
+        'empty-work': { note: '   ' }
       })
     ),
     {
       'water-lilies-1906': {
-        favorited: true,
         note: 'mist and lilies',
         updatedAt: '2026-04-14T00:00:00.000Z'
       }
@@ -40,11 +38,10 @@ test('parseArtworkJournalState ignores invalid payloads and keeps valid entries'
 });
 
 test('updateArtworkJournalState adds, updates, and removes artwork entries', () => {
-  const firstState = updateArtworkJournalState({}, 'water-lilies-1906', { favorited: true, note: '' }, '2026-04-14T00:00:00.000Z');
+  const firstState = updateArtworkJournalState({}, 'water-lilies-1906', { note: '  first thoughts  ' }, '2026-04-14T00:00:00.000Z');
   assert.deepEqual(firstState, {
     'water-lilies-1906': {
-      favorited: true,
-      note: '',
+      note: 'first thoughts',
       updatedAt: '2026-04-14T00:00:00.000Z'
     }
   });
@@ -52,12 +49,11 @@ test('updateArtworkJournalState adds, updates, and removes artwork entries', () 
   const secondState = updateArtworkJournalState(
     firstState,
     'water-lilies-1906',
-    { favorited: false, note: '  still thinking about the reflections  ' },
+    { note: '  still thinking about the reflections  ' },
     '2026-04-14T00:05:00.000Z'
   );
   assert.deepEqual(secondState, {
     'water-lilies-1906': {
-      favorited: false,
       note: 'still thinking about the reflections',
       updatedAt: '2026-04-14T00:05:00.000Z'
     }
@@ -66,7 +62,7 @@ test('updateArtworkJournalState adds, updates, and removes artwork entries', () 
   const clearedState = updateArtworkJournalState(
     secondState,
     'water-lilies-1906',
-    { favorited: false, note: '' },
+    { note: '' },
     '2026-04-14T00:10:00.000Z'
   );
   assert.deepEqual(clearedState, {});

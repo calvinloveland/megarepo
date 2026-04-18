@@ -1,5 +1,7 @@
 import { notFound } from 'next/navigation';
+import { getServerSession } from 'next-auth';
 import { ArtworkFigure } from '@/src/components/ArtworkFigure';
+import { FavoriteToggleButton } from '@/src/components/FavoriteToggleButton';
 import { ArtworkPreviewCard } from '@/src/components/ArtworkPreviewCard';
 import { ArtworkQuickActions } from '@/src/components/ArtworkQuickActions';
 import { BotanicalDivider } from '@/src/components/BotanicalDivider';
@@ -8,6 +10,7 @@ import { EnamelButton } from '@/src/components/EnamelButton';
 import { EnamelChip } from '@/src/components/EnamelChip';
 import { GildedCard } from '@/src/components/GildedCard';
 import { RatingStars } from '@/src/components/RatingStars';
+import { authOptions } from '@/src/lib/auth';
 import { getAverageRating } from '@/src/lib/artist-profile';
 import {
   artworks,
@@ -18,7 +21,8 @@ import {
   getMovement,
   getReviewsForTarget
 } from '@/src/lib/catalog';
-import { getPersistedReviewsForTarget, mergeReviews } from '@/src/lib/live-data';
+import { getIsFavoritedByUser, getPersistedReviewsForTarget, mergeReviews } from '@/src/lib/live-data';
+import { isDatabaseConfigured } from '@/src/lib/prisma';
 
 export const dynamic = 'force-dynamic';
 
@@ -35,8 +39,11 @@ export default async function ArtworkPage({ params }: { params: Promise<{ slug: 
 
   const artist = getArtist(artwork.artistSlug);
   const movement = getMovement(artwork.movementSlug);
+  const session = await getServerSession(authOptions);
+  const databaseReady = isDatabaseConfigured();
   const reviews = mergeReviews(getReviewsForTarget('artwork', artwork.slug), await getPersistedReviewsForTarget('artwork', artwork.slug));
   const relatedWorks = getArtworksByArtist(artwork.artistSlug).filter((candidate) => candidate.slug !== artwork.slug);
+  const isFavorited = await getIsFavoritedByUser(session?.user?.id, 'artwork', artwork.slug);
   const averageRating = getAverageRating(reviews);
 
   return (
@@ -64,6 +71,14 @@ export default async function ArtworkPage({ params }: { params: Promise<{ slug: 
               </EnamelButton>
             </div>
           ) : null}
+          <FavoriteToggleButton
+            targetType="artwork"
+            targetSlug={artwork.slug}
+            targetName={artwork.title}
+            initialFavorited={isFavorited}
+            databaseReady={databaseReady}
+            signInHref={databaseReady && !session?.user ? `/signin?callbackUrl=/artworks/${artwork.slug}` : undefined}
+          />
           <ArtworkQuickActions artworkSlug={artwork.slug} artworkTitle={artwork.title} />
           <dl className="meta-grid">
             <div>

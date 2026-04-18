@@ -2,13 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 
-import {
-  artworkJournalStorageKey,
-  parseArtworkJournalState,
-  serializeArtworkJournalState,
-  updateArtworkJournalState,
-  type ArtworkJournalEntry
-} from '@/src/lib/artwork-journal';
+import { artworkJournalStorageKey, parseArtworkJournalState, serializeArtworkJournalState, updateArtworkJournalState, type ArtworkJournalEntry } from '@/src/lib/artwork-journal';
 
 type ArtworkQuickActionsProps = {
   artworkSlug: string;
@@ -21,23 +15,7 @@ type ArtworkQuickActionStatus = {
 };
 
 function summaryFor(entry: ArtworkJournalEntry | null) {
-  if (!entry) {
-    return '';
-  }
-
-  if (entry.favorited && entry.note) {
-    return 'Favorited and noted';
-  }
-
-  if (entry.favorited) {
-    return 'Favorited';
-  }
-
-  if (entry.note) {
-    return 'Private note saved';
-  }
-
-  return '';
+  return entry?.note ? 'Private note saved' : '';
 }
 
 function loadJournalState() {
@@ -95,7 +73,6 @@ export function ArtworkQuickActions({ artworkSlug, artworkTitle }: ArtworkQuickA
     }
   }
 
-  const isFavorited = entry?.favorited ?? false;
   const hasSavedNote = Boolean(entry?.note);
   const hasDraftNote = Boolean(noteDraft.trim());
 
@@ -119,31 +96,11 @@ export function ArtworkQuickActions({ artworkSlug, artworkTitle }: ArtworkQuickA
       {isOpen ? (
         <div className="artwork-quick-actions__panel">
           <p className="eyebrow">Personal notebook</p>
-          <h2>Keep this work close</h2>
+          <h2>Keep a private note</h2>
           <p className="artwork-quick-actions__copy">
-            Add it to favorites or leave yourself a private note. These quick saves stay on this
-            device so the flow works even before account libraries fully arrive.
+            Jot a private note that stays on this device for now. Public favorite artworks now live on
+            member pages instead of inside browser-only quick saves.
           </p>
-
-          <div className="button-row">
-            <button
-              type="button"
-              className={`enamel-button ${isFavorited ? 'enamel-button--secondary' : 'enamel-button--primary'}`}
-              onClick={() =>
-                commitEntry(
-                  {
-                    favorited: !isFavorited,
-                    note: entry?.note ?? ''
-                  },
-                  !isFavorited
-                    ? `${artworkTitle} is now in your favorites on this device.`
-                    : `${artworkTitle} was removed from your favorites.`
-                )
-              }
-            >
-              {isFavorited ? 'Remove favorite' : 'Add to favorites'}
-            </button>
-          </div>
 
           <form
             className="artwork-quick-actions__form"
@@ -152,7 +109,6 @@ export function ArtworkQuickActions({ artworkSlug, artworkTitle }: ArtworkQuickA
               const trimmedNote = noteDraft.trim();
               commitEntry(
                 {
-                  favorited: isFavorited,
                   note: trimmedNote
                 },
                 trimmedNote
@@ -182,7 +138,6 @@ export function ArtworkQuickActions({ artworkSlug, artworkTitle }: ArtworkQuickA
                   onClick={() =>
                     commitEntry(
                       {
-                        favorited: isFavorited,
                         note: ''
                       },
                       `Your saved note for ${artworkTitle} was cleared.`

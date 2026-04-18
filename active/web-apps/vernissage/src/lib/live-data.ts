@@ -1,4 +1,6 @@
-import type { Review as CatalogReview } from '@/src/lib/catalog';
+import type { Artist, Artwork, Review as CatalogReview } from '@/src/lib/catalog';
+import { getArtist, getArtwork } from '@/src/lib/catalog';
+import { getFavoriteSlugsByMemberHandle, getIsFavoritedByUser as getFavoriteStatus } from '@/src/lib/favorites-storage';
 import { getPrisma, isDatabaseConfigured } from '@/src/lib/prisma';
 import { reviewTargetTypeMap, type ReviewTargetType } from '@/src/lib/review-submission';
 
@@ -13,6 +15,11 @@ export type DatabaseMemberProfile = {
     lists: number;
     following: number;
   };
+};
+
+export type DatabaseMemberFavorites = {
+  artists: Artist[];
+  artworks: Artwork[];
 };
 
 function toCatalogReview(review: any): CatalogReview {
@@ -143,6 +150,21 @@ export async function getPersistedMemberProfile(handle: string) {
       following: user._count.following
     }
   } satisfies DatabaseMemberProfile;
+}
+
+export async function getPersistedMemberFavorites(handle: string) {
+  return {
+    artists: (await getFavoriteSlugsByMemberHandle(handle, 'artist'))
+      .map((slug) => getArtist(slug))
+      .filter((artist): artist is Artist => Boolean(artist)),
+    artworks: (await getFavoriteSlugsByMemberHandle(handle, 'artwork'))
+      .map((slug) => getArtwork(slug))
+      .filter((artwork): artwork is Artwork => Boolean(artwork))
+  } satisfies DatabaseMemberFavorites;
+}
+
+export async function getIsFavoritedByUser(userId: string | undefined, targetType: 'artist' | 'artwork', targetSlug: string) {
+  return getFavoriteStatus(userId, targetType, targetSlug);
 }
 
 export function mergeReviews(staticReviews: CatalogReview[], liveReviews: CatalogReview[]) {

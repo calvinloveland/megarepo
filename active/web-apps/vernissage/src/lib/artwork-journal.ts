@@ -1,7 +1,6 @@
 export const artworkJournalStorageKey = 'vernissage.artwork-journal';
 
 export type ArtworkJournalEntry = {
-  favorited: boolean;
   note: string;
   updatedAt: string;
 };
@@ -12,19 +11,17 @@ export function normalizeArtworkJournalEntry(
   entry: Partial<ArtworkJournalEntry> | null | undefined,
   fallbackTimestamp: string
 ) {
-  const favorited = entry?.favorited === true;
   const note = typeof entry?.note === 'string' ? entry.note.trim() : '';
   const updatedAt =
     typeof entry?.updatedAt === 'string' && entry.updatedAt.trim()
       ? entry.updatedAt
       : fallbackTimestamp;
 
-  if (!favorited && !note) {
+  if (!note) {
     return null;
   }
 
   return {
-    favorited,
     note,
     updatedAt
   } satisfies ArtworkJournalEntry;

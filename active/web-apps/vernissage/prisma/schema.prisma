@@ -37,6 +37,8 @@ model User {
   sessions         Session[]
   authoredReviews  Review[]      @relation("AuthoredReviews")
   authoredRatings  Rating[]      @relation("AuthoredRatings")
+  favoriteArtists  FavoriteArtist[]
+  favoriteArtworks FavoriteArtwork[]
   lists            List[]
   museumVisits     MuseumVisit[]
   following        Follow[]      @relation("Following")
@@ -215,6 +217,24 @@ model Rating {
   artist         Artist?          @relation("ArtistRatings", fields: [artistId], references: [id], onDelete: Cascade)
   exhibition     Exhibition?      @relation("ExhibitionRatings", fields: [exhibitionId], references: [id], onDelete: Cascade)
   museumVisit    MuseumVisit?     @relation("VisitRatings", fields: [museumVisitId], references: [id], onDelete: Cascade)
+}
+
+model FavoriteArtist {
+  userId      String
+  artistSlug  String
+  createdAt   DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, artistSlug])
+}
+
+model FavoriteArtwork {
+  userId       String
+  artworkSlug  String
+  createdAt    DateTime @default(now())
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, artworkSlug])
 }
 
 model List {
