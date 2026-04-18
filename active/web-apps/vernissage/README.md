@@ -99,6 +99,8 @@ Launch abuse protections now include a one-review-per-user-per-target guard plus
 
 Favorite artworks and favorite artists are meant to be public, database-backed member-page signals rather than browser-only state. The artwork-page `+` control now stays focused on private notes stored in browser local storage for now.
 
+Member pages are also the home for public social graph signals: once the shared application database is connected, signed-in users can follow other members directly from profile pages.
+
 The static catalog now ships without seeded reviews, feed entries, lists, members, exhibition activity, or artwork star aggregates. Homepage/community surfaces pull from persisted user reviews when they exist and otherwise render honest empty states instead of filler content.
 
 Catalog policy: Vernissage should only include artists and works that can be reasonably represented on image-first catalog pages. Pure performance art and similar work that mainly survives as documentation rather than a stable visual object should stay out of the catalog.

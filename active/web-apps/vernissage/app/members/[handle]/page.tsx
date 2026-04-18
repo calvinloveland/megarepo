@@ -1,11 +1,15 @@
 import { permanentRedirect } from 'next/navigation';
+import { getServerSession } from 'next-auth';
 import { ArtworkPreviewCard } from '@/src/components/ArtworkPreviewCard';
 import { BotanicalDivider } from '@/src/components/BotanicalDivider';
 import { EnamelChip } from '@/src/components/EnamelChip';
 import { EnamelButton } from '@/src/components/EnamelButton';
+import { FollowMemberButton } from '@/src/components/FollowMemberButton';
 import { GildedCard } from '@/src/components/GildedCard';
+import { authOptions } from '@/src/lib/auth';
 import { getMovement } from '@/src/lib/catalog';
-import { getPersistedMemberFavorites, getPersistedMemberProfile, getPersistedReviewsByMember } from '@/src/lib/live-data';
+import { getIsFollowingMemberByUser, getPersistedMemberFavorites, getPersistedMemberProfile, getPersistedReviewsByMember } from '@/src/lib/live-data';
+import { isDatabaseConfigured } from '@/src/lib/prisma';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,8 +24,12 @@ export default async function MemberPage({ params }: { params: Promise<{ handle:
     permanentRedirect('/feed');
   }
 
+  const session = await getServerSession(authOptions);
+  const databaseReady = isDatabaseConfigured();
   const reviews = await getPersistedReviewsByMember(persistedMember.handle);
   const favorites = await getPersistedMemberFavorites(persistedMember.handle);
+  const isOwnProfile = session?.user?.id === persistedMember.id;
+  const isFollowing = await getIsFollowingMemberByUser(session?.user?.id, persistedMember.id);
   const eyebrowParts = [persistedMember.location, persistedMember.favoriteMovement].filter(Boolean);
 
   return (
@@ -34,7 +42,17 @@ export default async function MemberPage({ params }: { params: Promise<{ handle:
           <EnamelChip>{persistedMember.stats.reviews} reviews</EnamelChip>
           <EnamelChip tone="moss">{persistedMember.stats.lists} lists</EnamelChip>
           <EnamelChip tone="rose">{persistedMember.stats.following} following</EnamelChip>
+          <EnamelChip tone="burgundy">{persistedMember.stats.followers} followers</EnamelChip>
         </div>
+        {!isOwnProfile ? (
+          <FollowMemberButton
+            memberHandle={persistedMember.handle}
+            memberName={persistedMember.displayName}
+            initialFollowing={isFollowing}
+            databaseReady={databaseReady}
+            signInHref={databaseReady && !session?.user ? `/signin?callbackUrl=/members/${persistedMember.handle}` : undefined}
+          />
+        ) : null}
       </section>
 
       <BotanicalDivider label="Favorite artworks" />

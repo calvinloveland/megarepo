@@ -5,6 +5,7 @@ import { getPrisma, isDatabaseConfigured } from '@/src/lib/prisma';
 import { reviewTargetTypeMap, type ReviewTargetType } from '@/src/lib/review-submission';
 
 export type DatabaseMemberProfile = {
+  id: string;
   handle: string;
   displayName: string;
   bio: string;
@@ -14,6 +15,7 @@ export type DatabaseMemberProfile = {
     reviews: number;
     lists: number;
     following: number;
+    followers: number;
   };
 };
 
@@ -128,7 +130,8 @@ export async function getPersistedMemberProfile(handle: string) {
         select: {
           authoredReviews: true,
           lists: true,
-          following: true
+          following: true,
+          followers: true
         }
       }
     }
@@ -139,6 +142,7 @@ export async function getPersistedMemberProfile(handle: string) {
   }
 
   return {
+    id: user.id,
     handle: user.handle,
     displayName: user.name?.trim() || user.handle,
     bio: user.bio?.trim() || '',
@@ -147,7 +151,8 @@ export async function getPersistedMemberProfile(handle: string) {
     stats: {
       reviews: user._count.authoredReviews,
       lists: user._count.lists,
-      following: user._count.following
+      following: user._count.following,
+      followers: user._count.followers
     }
   } satisfies DatabaseMemberProfile;
 }
@@ -165,6 +170,27 @@ export async function getPersistedMemberFavorites(handle: string) {
 
 export async function getIsFavoritedByUser(userId: string | undefined, targetType: 'artist' | 'artwork', targetSlug: string) {
   return getFavoriteStatus(userId, targetType, targetSlug);
+}
+
+export async function getIsFollowingMemberByUser(userId: string | undefined, memberId: string) {
+  if (!userId || !isDatabaseConfigured()) {
+    return false;
+  }
+
+  const prisma = getPrisma();
+  return Boolean(
+    await prisma.follow.findUnique({
+      where: {
+        followerId_followingId: {
+          followerId: userId,
+          followingId: memberId
+        }
+      },
+      select: {
+        followerId: true
+      }
+    })
+  );
 }
 
 export function mergeReviews(staticReviews: CatalogReview[], liveReviews: CatalogReview[]) {
