@@ -10,27 +10,31 @@ type ArtworkPreviewCardProps = {
 
 export function ArtworkPreviewCard({ artwork, showArtistLink = true }: ArtworkPreviewCardProps) {
   const artist = getArtist(artwork.artistSlug);
+  const thumbnail = getArtworkThumbnail(artwork, 500);
 
   return (
     <section className="gilded-card artwork-preview-card">
-      <div className="gilded-card__thumbnail artwork-preview-card__thumbnail">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={getArtworkThumbnail(artwork, 500)}
-          alt={artwork.title}
-          width={500}
-          height={334}
-          loading="eager"
-          decoding="async"
-          fetchPriority="high"
-          className="gilded-card__thumbnail-img"
-        />
-      </div>
+      {thumbnail ? (
+        <div className="gilded-card__thumbnail artwork-preview-card__thumbnail">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={thumbnail}
+            alt={artwork.title}
+            width={500}
+            height={334}
+            loading="eager"
+            decoding="async"
+            fetchPriority="high"
+            className="gilded-card__thumbnail-img"
+          />
+        </div>
+      ) : null}
       <header className="gilded-card__header">
         {artist ? <p className="eyebrow">{artist.name}</p> : null}
         <h3>{artwork.title}</h3>
         <p className="gilded-card__subtitle">{artwork.year} · {artwork.medium}</p>
       </header>
+      {!thumbnail ? <p>{artwork.summary}</p> : null}
       <div className="chip-row chip-row--compact">
         {artwork.tags.slice(0, 3).map((tag, index) => (
           <EnamelChip key={tag} tone={index === 1 ? 'moss' : 'gold'}>

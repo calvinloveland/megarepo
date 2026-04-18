@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { EnamelButton } from '@/src/components/EnamelButton';
 import { BotanicalDivider } from '@/src/components/BotanicalDivider';
 import { OpenFeedbackButton } from '@/src/components/OpenFeedbackButton';
@@ -7,17 +8,17 @@ import { GildedCard } from '@/src/components/GildedCard';
 import { OrnateInput } from '@/src/components/OrnateInput';
 import {
   artworks,
-  getArtist,
-  getArtworkThumbnail,
   getMovement,
+  hasArtworkImage,
   movements,
   searchArtists,
   searchArtworks,
   searchExhibitions
 } from '@/src/lib/catalog';
+import { groupCatalogWorksByDecade } from '@/src/lib/catalog-records';
 
-const mediums = Array.from(new Set(artworks.map((artwork) => artwork.medium)));
-const years = Array.from(new Set(artworks.map((artwork) => artwork.year)));
+const mediums = Array.from(new Set(artworks.map((artwork) => artwork.medium))).sort((left, right) => left.localeCompare(right));
+const years = Array.from(new Set(artworks.map((artwork) => artwork.year))).sort((left, right) => left.localeCompare(right));
 
 function firstValue(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] ?? '' : value ?? '';
@@ -35,6 +36,10 @@ export default async function SearchPage({
   const year = firstValue(params.year).trim();
   const hasFilters = Boolean(query || movement || medium || year);
   const artworkResults = searchArtworks({ query, movement, medium, year });
+  const illustratedArtworkResults = artworkResults.filter(hasArtworkImage);
+  const catalogOnlyArtworkResults = artworkResults.filter((artwork) => !hasArtworkImage(artwork));
+  const visibleCatalogOnlyResults = hasFilters ? catalogOnlyArtworkResults : catalogOnlyArtworkResults.slice(0, 120);
+  const catalogOnlyGroups = groupCatalogWorksByDecade(visibleCatalogOnlyResults);
   const artistResults = searchArtists({ query, movement });
   const exhibitionResults = searchExhibitions({ query, movement });
   const movementLabel = movement ? getMovement(movement)?.name ?? movement : '';
@@ -45,7 +50,7 @@ export default async function SearchPage({
         <p className="eyebrow">Launch catalog</p>
         <h1>Search the current curated collection</h1>
         <p>
-          Filter the artworks we have actually published for launch by movement, medium, year, or keyword. Community reviews
+          Filter the artworks we have actually catalogued by movement, medium, year, or keyword. Community reviews
           appear on detail pages as they are published.
         </p>
       </section>
@@ -87,8 +92,8 @@ export default async function SearchPage({
         <h2>{hasFilters ? 'Filtered results' : 'Full launch catalog'}</h2>
         <p>
           {hasFilters
-            ? 'These results come directly from the published launch catalog, with artwork images leading and artist dossiers one click away.'
-            : 'You are viewing the full launch catalog in an image-first layout. Add a keyword or filter to narrow the room.'}
+            ? 'These results come directly from the published catalog. Illustrated works stay image-first, while deeper title-only records still remain searchable and linkable.'
+            : 'You are viewing the full catalog with illustrated works first and deeper title-only records below. Add a keyword or filter to narrow the room.'}
         </p>
         <div className="button-row">
           <EnamelButton href="/artists/new" variant="secondary">
@@ -109,17 +114,51 @@ export default async function SearchPage({
         </div>
       </section>
 
-      <BotanicalDivider label={hasFilters ? 'Matching artworks' : 'Browse constellations'} />
+      <BotanicalDivider label={hasFilters ? 'Illustrated matches' : 'Browse illustrated works'} />
 
       <section className="mosaic-grid">
-        {artworkResults.length ? (
-          artworkResults.map((artwork) => <ArtworkPreviewCard key={artwork.slug} artwork={artwork} />)
+        {illustratedArtworkResults.length ? (
+          illustratedArtworkResults.map((artwork) => <ArtworkPreviewCard key={artwork.slug} artwork={artwork} />)
         ) : (
-          <GildedCard title="No matching artworks" eyebrow="Adjust the current filters">
-            <p>Try broadening the keyword, clearing one of the exact filters, or browsing the full launch catalog again.</p>
+          <GildedCard title="No illustrated matches" eyebrow="Catalog records may still exist">
+            <p>
+              Try broadening the keyword, clearing an exact filter, or looking below for text-only catalog records that
+              have not yet been paired with a reusable image.
+            </p>
           </GildedCard>
         )}
       </section>
+
+      {catalogOnlyArtworkResults.length ? (
+        <>
+          <BotanicalDivider label="Catalog records without published images" />
+
+          <section className="three-up-grid">
+            {catalogOnlyGroups.map((group) => (
+              <GildedCard key={group.label} title={group.label} eyebrow={`${group.works.length} record${group.works.length === 1 ? '' : 's'}`}>
+                <ul className="plain-list">
+                  {group.works.map((artwork) => (
+                    <li key={artwork.slug}>
+                      <Link href={`/artworks/${artwork.slug}`}>
+                        {artwork.title}
+                      </Link>{' '}
+                      <span>({artwork.year})</span>
+                    </li>
+                  ))}
+                </ul>
+              </GildedCard>
+            ))}
+            {!hasFilters && catalogOnlyArtworkResults.length > visibleCatalogOnlyResults.length ? (
+              <GildedCard
+                title="More text-only records available"
+                eyebrow={`${catalogOnlyArtworkResults.length - visibleCatalogOnlyResults.length} additional records hidden by default`}
+              >
+                <p>Add a keyword, year, or medium filter to narrow the deeper catalog and bring more of those records into view.</p>
+              </GildedCard>
+            ) : null}
+          </section>
+        </>
+      ) : null}
 
       {(query || movement) && artistResults.length ? (
         <>

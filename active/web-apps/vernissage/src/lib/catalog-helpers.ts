@@ -1,7 +1,7 @@
 export type ArtworkLike = {
   slug: string;
   artistSlug: string;
-  image: string;
+  image?: string;
   title: string;
 };
 
@@ -129,19 +129,19 @@ export function resolveReviewThumbnail<TArtwork extends ArtworkLike, TReview ext
 ) {
   if (review.targetType === 'artwork') {
     const artwork = helpers.getArtwork(review.targetSlug);
-    if (artwork) {
+    if (artwork?.image) {
       return { src: resizeArticImageUrl(artwork.image, width), alt: artwork.title };
     }
   } else if (review.targetType === 'artist') {
-    const artistWorks = helpers.getArtworksByArtist(review.targetSlug);
-    if (artistWorks.length > 0) {
-      return { src: resizeArticImageUrl(artistWorks[0].image, width), alt: artistWorks[0].title };
+    const artistWork = helpers.getArtworksByArtist(review.targetSlug).find((artwork) => Boolean(artwork.image));
+    if (artistWork?.image) {
+      return { src: resizeArticImageUrl(artistWork.image, width), alt: artistWork.title };
     }
   } else if (review.targetType === 'exhibition') {
     const exhibition = helpers.getExhibition(review.targetSlug);
     if (exhibition) {
       const heroArt = helpers.getArtwork(exhibition.heroArtworkSlug);
-      if (heroArt) {
+      if (heroArt?.image) {
         return { src: resizeArticImageUrl(heroArt.image, width), alt: heroArt.title };
       }
     }

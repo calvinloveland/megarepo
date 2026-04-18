@@ -13,17 +13,27 @@ export function ArtworkFigure({ artwork, src, priority = false, variant = 'defau
   return (
     <figure className={`artwork-figure${variant === 'immersive' ? ' artwork-figure--immersive' : ''}`}>
       <div className="artwork-figure__frame">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={imageSrc}
-          alt={artwork.title}
-          width={artwork.width}
-          height={artwork.height}
-          loading={priority ? 'eager' : 'lazy'}
-          fetchPriority={priority ? 'high' : 'auto'}
-          decoding="async"
-          className="artwork-figure__image"
-        />
+        {imageSrc && artwork.width && artwork.height ? (
+          <>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={imageSrc}
+              alt={artwork.title}
+              width={artwork.width}
+              height={artwork.height}
+              loading={priority ? 'eager' : 'lazy'}
+              fetchPriority={priority ? 'high' : 'auto'}
+              decoding="async"
+              className="artwork-figure__image"
+            />
+          </>
+        ) : (
+          <div className="artwork-figure__placeholder">
+            <p className="eyebrow">Catalog record</p>
+            <strong>Image not yet published</strong>
+            <p>Vernissage has the title and metadata in place while a reusable image source and fuller curatorial notes are still being prepared.</p>
+          </div>
+        )}
       </div>
       <figcaption className="artwork-figure__caption">
         <strong>{artwork.title}</strong>

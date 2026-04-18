@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getServerSession } from 'next-auth';
 import { BotanicalDivider } from '@/src/components/BotanicalDivider';
@@ -9,13 +10,15 @@ import { GildedCard } from '@/src/components/GildedCard';
 import { RatingStars } from '@/src/components/RatingStars';
 import { authOptions } from '@/src/lib/auth';
 import { getAverageRating } from '@/src/lib/artist-profile';
+import { groupCatalogWorksByDecade } from '@/src/lib/catalog-records';
 import {
   formatMemberAttribution,
   artists,
   getArtist,
   getArtworksByArtist,
   getMovement,
-  getReviewsForTarget
+  getReviewsForTarget,
+  hasArtworkImage
 } from '@/src/lib/catalog';
 import { getIsFavoritedByUser, getPersistedReviewsForTarget, mergeReviews } from '@/src/lib/live-data';
 import { isDatabaseConfigured } from '@/src/lib/prisma';
@@ -34,6 +37,9 @@ export default async function ArtistPage({ params }: { params: Promise<{ slug: s
   }
 
   const works = getArtworksByArtist(artist.slug);
+  const illustratedWorks = works.filter(hasArtworkImage);
+  const catalogOnlyWorks = works.filter((work) => !hasArtworkImage(work));
+  const catalogOnlyGroups = groupCatalogWorksByDecade(catalogOnlyWorks);
   const movement = getMovement(artist.movementSlug);
   const session = await getServerSession(authOptions);
   const databaseReady = isDatabaseConfigured();
@@ -69,7 +75,8 @@ export default async function ArtistPage({ params }: { params: Promise<{ slug: s
           <p>{artist.portraitLabel}</p>
           <ul className="plain-list">
             <li>Movement: {movement?.name}</li>
-            <li>{works.length} catalogued works in the current launch collection</li>
+            <li>{works.length} catalogued works in the current collection</li>
+            <li>{illustratedWorks.length} works currently published with images</li>
             <li>{reviews.length} published artist reviews</li>
           </ul>
         </GildedCard>
@@ -104,17 +111,44 @@ export default async function ArtistPage({ params }: { params: Promise<{ slug: s
       <BotanicalDivider label="Works by this artist" />
 
       <section className="mosaic-grid">
-        {works.length > 0 ? (
-          works.map((work) => <ArtworkPreviewCard key={work.slug} artwork={work} showArtistLink={false} />)
+        {illustratedWorks.length > 0 ? (
+          illustratedWorks.map((work) => <ArtworkPreviewCard key={work.slug} artwork={work} showArtistLink={false} />)
         ) : (
           <GildedCard title="Works forthcoming" eyebrow="Cataloging in progress">
             <p>
-              Vernissage has the artist dossier in place, but the first artwork entry is still waiting on a
-              reusable image source or sharper provenance notes.
+              Vernissage has the artist dossier in place, but illustrated works for this artist are still waiting on
+              reusable image sources or sharper provenance notes.
             </p>
           </GildedCard>
         )}
       </section>
+
+      {catalogOnlyGroups.length ? (
+        <>
+          <BotanicalDivider label="Deep catalog records" />
+
+          <section className="three-up-grid">
+            {catalogOnlyGroups.map((group) => (
+              <GildedCard
+                key={group.label}
+                title={group.label}
+                eyebrow={`${group.works.length} catalog record${group.works.length === 1 ? '' : 's'}`}
+              >
+                <ul className="plain-list">
+                  {group.works.map((work) => (
+                    <li key={work.slug}>
+                      <Link href={`/artworks/${work.slug}`}>
+                        {work.title}
+                      </Link>{' '}
+                      <span>({work.year})</span>
+                    </li>
+                  ))}
+                </ul>
+              </GildedCard>
+            ))}
+          </section>
+        </>
+      ) : null}
 
       <BotanicalDivider label="Artist reviews" />
 

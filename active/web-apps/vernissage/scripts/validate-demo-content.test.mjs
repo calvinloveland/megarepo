@@ -5,7 +5,13 @@ import path from 'node:path';
 
 const projectRoot = process.cwd();
 const contentPath = path.join(projectRoot, 'src', 'content', 'demo-content.json');
-const content = JSON.parse(await readFile(contentPath, 'utf8'));
+const monetCatalogPath = path.join(projectRoot, 'src', 'content', 'artist-catalogs', 'claude-monet.json');
+const baseContent = JSON.parse(await readFile(contentPath, 'utf8'));
+const monetCatalog = JSON.parse(await readFile(monetCatalogPath, 'utf8'));
+const content = {
+  ...baseContent,
+  artworks: [...baseContent.artworks, ...monetCatalog]
+};
 
 const artistSlugs = new Set(content.artists.map((artist) => artist.slug));
 const artworkSlugs = new Set(content.artworks.map((artwork) => artwork.slug));
@@ -79,6 +85,10 @@ test('artworks, exhibitions, lists, and reviews reference valid related records'
 
 test('assets referenced by artworks and ornaments exist', async () => {
   for (const artwork of content.artworks) {
+    if (!artwork.image) {
+      continue;
+    }
+
     if (/^https:\/\//.test(artwork.image)) {
       const parsed = new URL(artwork.image);
       assert.equal(parsed.hostname, 'www.artic.edu', `Unexpected remote artwork host for ${artwork.slug}`);

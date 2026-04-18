@@ -16,7 +16,8 @@
     "test:all": "npm test && npm run test:e2e",
     "import:met": "node scripts/import-met-open-access.mjs",
     "import:aic": "node scripts/import-aic.mjs",
-    "import:rijks": "node scripts/import-rijksmuseum.mjs"
+    "import:rijks": "node scripts/import-rijksmuseum.mjs",
+    "import:monet": "node scripts/import-monet-catalog.mjs"
   },
   "dependencies": {
     "@prisma/client": "^6.6.0",

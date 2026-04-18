@@ -37,7 +37,7 @@ export default async function HomePage() {
 
   return (
     <div className="page-stack">
-      <link rel="preload" as="image" href={heroImageUrl} />
+      {heroImageUrl ? <link rel="preload" as="image" href={heroImageUrl} /> : null}
       <section className="hero-shell">
         <div className="hero-grid">
           <div className="hero-copy">
@@ -72,6 +72,7 @@ export default async function HomePage() {
       <section className="mosaic-grid">
         {mosaicArtworks.map((artwork) => {
           const artist = getArtist(artwork.artistSlug);
+          const thumbnail = getArtworkThumbnail(artwork, 400);
           return (
             <GildedCard
               key={artwork.slug}
@@ -79,7 +80,7 @@ export default async function HomePage() {
               eyebrow={artist?.name}
               subtitle={`${artwork.year} · ${artwork.medium}`}
               href={`/artworks/${artwork.slug}`}
-              thumbnail={{ src: getArtworkThumbnail(artwork, 400), alt: artwork.title, width: 400, height: 267 }}
+              thumbnail={thumbnail ? { src: thumbnail, alt: artwork.title, width: 400, height: 267 } : undefined}
             >
               <p>{artwork.summary}</p>
               <div className="chip-row chip-row--compact">
@@ -104,7 +105,7 @@ export default async function HomePage() {
                   {repArtwork && (
                     <span className="artist-row__thumb">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={getArtworkThumbnail(repArtwork, 120)} alt={`${repArtwork.title} by ${artist.name}`} width={48} height={48} />
+                      <img src={getArtworkThumbnail(repArtwork, 120)!} alt={`${repArtwork.title} by ${artist.name}`} width={48} height={48} />
                     </span>
                   )}
                   <div className="artist-row__info">
@@ -154,7 +155,7 @@ export default async function HomePage() {
                 eyebrow={venue ? `${venue.name} · ${venue.city}` : 'Venue'}
                 subtitle={exhibition.dateLabel}
                 href={`/exhibitions/${exhibition.slug}`}
-                thumbnail={heroArt ? { src: getArtworkThumbnail(heroArt, 500), alt: heroArt.title, width: 500, height: 250 } : undefined}
+                thumbnail={heroArt ? { src: getArtworkThumbnail(heroArt, 500)!, alt: heroArt.title, width: 500, height: 250 } : undefined}
               >
                 <p>{exhibition.description}</p>
                 <p className="meta-note">{exhibition.artworkSlugs.length} catalogued works are currently attached to this exhibition record.</p>

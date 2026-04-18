@@ -19,7 +19,8 @@ import {
   getArtworksByArtist,
   getArtwork,
   getMovement,
-  getReviewsForTarget
+  getReviewsForTarget,
+  hasArtworkImage
 } from '@/src/lib/catalog';
 import { getIsFavoritedByUser, getPersistedReviewsForTarget, mergeReviews } from '@/src/lib/live-data';
 import { isDatabaseConfigured } from '@/src/lib/prisma';
@@ -43,6 +44,8 @@ export default async function ArtworkPage({ params }: { params: Promise<{ slug: 
   const databaseReady = isDatabaseConfigured();
   const reviews = mergeReviews(getReviewsForTarget('artwork', artwork.slug), await getPersistedReviewsForTarget('artwork', artwork.slug));
   const relatedWorks = getArtworksByArtist(artwork.artistSlug).filter((candidate) => candidate.slug !== artwork.slug);
+  const illustratedRelatedWorks = relatedWorks.filter(hasArtworkImage).slice(0, 6);
+  const catalogOnlyRelatedCount = relatedWorks.length - illustratedRelatedWorks.length;
   const isFavorited = await getIsFavoritedByUser(session?.user?.id, 'artwork', artwork.slug);
   const averageRating = getAverageRating(reviews);
 
@@ -128,9 +131,27 @@ export default async function ArtworkPage({ params }: { params: Promise<{ slug: 
       <BotanicalDivider label="More from this artist" />
 
       <section className="mosaic-grid">
-        {relatedWorks.map((related) => (
+        {illustratedRelatedWorks.map((related) => (
           <ArtworkPreviewCard key={related.slug} artwork={related} showArtistLink={false} />
         ))}
+        {catalogOnlyRelatedCount > 0 ? (
+          <GildedCard
+            title={`${catalogOnlyRelatedCount} more catalog record${catalogOnlyRelatedCount === 1 ? '' : 's'}`}
+            eyebrow="Deep artist dossier"
+          >
+            <p>
+              This artist dossier also includes text-only catalog entries that have not yet been matched with reusable
+              images.
+            </p>
+            {artist ? (
+              <div className="button-row">
+                <EnamelButton href={`/artists/${artist.slug}`} variant="secondary">
+                  Browse full artist catalog
+                </EnamelButton>
+              </div>
+            ) : null}
+          </GildedCard>
+        ) : null}
         <CatalogRequestCard
           title="Looking for another artist or work?"
           eyebrow="Catalog requests"

@@ -1,4 +1,5 @@
 import rawCatalog from '../content/demo-content.json';
+import monetCatalog from '../content/artist-catalogs/claude-monet.json';
 import {
   maximizeArticImageUrl,
   resolveReviewThumbnail,
@@ -51,9 +52,9 @@ export type Artwork = {
   year: string;
   medium: string;
   dimensions: string;
-  image: string;
-  width: number;
-  height: number;
+  image?: string;
+  width?: number;
+  height?: number;
   tags: string[];
   summary: string;
 };
@@ -152,7 +153,13 @@ export type Catalog = {
   feed: FeedItem[];
 };
 
-export const catalog = rawCatalog as Catalog;
+const baseCatalog = rawCatalog as Catalog;
+const supplementalArtworks = monetCatalog as Artwork[];
+
+export const catalog: Catalog = {
+  ...baseCatalog,
+  artworks: [...baseCatalog.artworks, ...supplementalArtworks]
+};
 export const site = catalog.site;
 export const movements = catalog.movements;
 export const venues = catalog.venues;
@@ -214,6 +221,10 @@ export function getArtworksByArtist(artistSlug: string) {
   return artworks.filter((artwork) => artwork.artistSlug === artistSlug);
 }
 
+export function hasArtworkImage(artwork: Artwork): artwork is Artwork & { image: string; width: number; height: number } {
+  return Boolean(artwork.image && typeof artwork.width === 'number' && typeof artwork.height === 'number');
+}
+
 export function getExhibitionsByVenue(venueSlug: string) {
   return exhibitions.filter((exhibition) => exhibition.venueSlug === venueSlug);
 }
@@ -226,12 +237,12 @@ export function getFeaturedArtworks() {
 
 /** Get a diverse mosaic of artworks excluding specific slugs, preferring one per artist. */
 export function getMosaicArtworks(excludeSlugs: string[] = [], count: number = 6) {
-  return selectMosaicArtworks(artworks, excludeSlugs, count);
+  return selectMosaicArtworks(artworks.filter(hasArtworkImage), excludeSlugs, count);
 }
 
 /** Get a representative artwork for an artist (first available). */
 export function getRepresentativeArtwork(artistSlug: string): Artwork | undefined {
-  return artworks.find((artwork) => artwork.artistSlug === artistSlug);
+  return artworks.find((artwork) => artwork.artistSlug === artistSlug && hasArtworkImage(artwork));
 }
 
 export function getFeaturedArtists() {
@@ -267,12 +278,20 @@ export function searchExhibitions(filters: Pick<CatalogSearchFilters, 'query' | 
 }
 
 /** Return a IIIF image URL resized to the given width, or the original for local assets. */
-export function getArtworkThumbnail(artwork: Artwork, width: number = 400): string {
+export function getArtworkThumbnail(artwork: Artwork, width: number = 400): string | undefined {
+  if (!hasArtworkImage(artwork)) {
+    return undefined;
+  }
+
   return resizeArticImageUrl(artwork.image, width);
 }
 
 /** Return the highest-resolution artwork image available from the current catalog source. */
-export function getArtworkDetailImage(artwork: Artwork): string {
+export function getArtworkDetailImage(artwork: Artwork): string | undefined {
+  if (!hasArtworkImage(artwork)) {
+    return undefined;
+  }
+
   return maximizeArticImageUrl(artwork.image);
 }
 

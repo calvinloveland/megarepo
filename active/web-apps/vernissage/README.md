@@ -59,6 +59,7 @@ npm run test:all
 npm run import:met
 npm run import:aic
 npm run import:rijks
+npm run import:monet
 ./scripts/verify-live.sh
 ```
 
@@ -105,9 +106,13 @@ The static catalog now ships without seeded reviews, feed entries, lists, member
 
 Catalog policy: Vernissage should only include artists and works that can be reasonably represented on image-first catalog pages. Pure performance art and similar work that mainly survives as documentation rather than a stable visual object should stay out of the catalog.
 
-Browse and artist pages should stay image-first as the catalog grows: if someone clicks into an artist, the currently catalogued works should be visually obvious rather than buried under long text summaries.
+Browse and artist pages should stay image-first as the catalog grows: if someone clicks into an artist, the illustrated works should still be visually obvious rather than buried under long text summaries.
+
+That image-first rule does **not** mean every catalog record needs an image before it can exist. Deep artist dossiers can include text-only catalog records with honest "image not yet published" states so the work list can grow toward a real catalogue raisonne without pretending missing media exists.
 
 For catalog additions, prefer Art Institute of Chicago public-domain works first because the app already supports `artic.edu` IIIF URLs directly. If a work has to come from another museum, keep it local under `public/artworks/` and only use clearly open/public-domain assets.
+
+For very deep dossier expansions such as Claude Monet, use `npm run import:monet` to refresh the supplemental title-only catalog from Wikidata. The generated records intentionally keep public-domain factual metadata (title/year/medium when available) separate from image publication, so browse surfaces stay honest while the catalog grows.
 
 `APP_VERSION` is surfaced in the site footer, health endpoint, and feedback records so users and operators can see which deployment is live.
 

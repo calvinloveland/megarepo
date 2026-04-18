@@ -59,6 +59,16 @@ const artworks = [
     medium: 'Oil on canvas',
     summary: 'A quiet domestic interior.',
     tags: ['interior']
+  },
+  {
+    slug: 'garden-at-giverny-catalog-record',
+    artistSlug: 'claude-monet',
+    title: 'Garden at Giverny',
+    movementSlug: 'impressionism',
+    year: '1900',
+    medium: 'Medium not yet catalogued',
+    summary: 'Catalog record awaiting a reusable image.',
+    tags: ['catalog record', 'giverny']
   }
 ];
 
@@ -105,6 +115,13 @@ test('searchArtworks applies exact movement, medium, and year filters together',
 
   assert.equal(filtered.length, 1);
   assert.equal(filtered[0]?.slug, 'water-lilies-1906');
+});
+
+test('searchArtworks still finds image-less catalog records', () => {
+  const filtered = searchArtworksInCatalog(artworks, { query: 'giverny', medium: 'Medium not yet catalogued' }, helpers);
+
+  assert.equal(filtered.length, 1);
+  assert.equal(filtered[0]?.slug, 'garden-at-giverny-catalog-record');
 });
 
 test('searchArtists and searchExhibitions surface related launch catalog entities', () => {
