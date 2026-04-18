@@ -14,6 +14,9 @@ test('homepage renders the salon shell and navigates to an artist page', async (
   await expect(page).toHaveURL(/\/artists\/claude-monet$/);
   await expect(page.getByRole('heading', { level: 1, name: 'Claude Monet' })).toBeVisible();
   await expect(page.getByText('Artist dossier')).toBeVisible();
+  await page.getByRole('button', { name: 'Mark as favorite artist' }).click();
+  await expect(page.getByRole('button', { name: 'Remove from favorite artists' })).toBeVisible();
+  await expect(page.getByText('Saved to your favorite artists on this device.')).toBeVisible();
 });
 
 test('search page links into the artwork detail page', async ({ page }) => {

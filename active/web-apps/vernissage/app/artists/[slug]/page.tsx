@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation';
+import { ArtistFavoriteButton } from '@/src/components/ArtistFavoriteButton';
 import { BotanicalDivider } from '@/src/components/BotanicalDivider';
 import { EnamelButton } from '@/src/components/EnamelButton';
 import { ArtworkPreviewCard } from '@/src/components/ArtworkPreviewCard';
@@ -47,6 +48,7 @@ export default async function ArtistPage({ params }: { params: Promise<{ slug: s
             </EnamelChip>
           ))}
         </div>
+        <ArtistFavoriteButton artistSlug={artist.slug} artistName={artist.name} />
       </section>
 
       <section className="two-up-grid">
