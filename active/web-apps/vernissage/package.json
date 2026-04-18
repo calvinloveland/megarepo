@@ -17,7 +17,8 @@
     "import:met": "node scripts/import-met-open-access.mjs",
     "import:aic": "node scripts/import-aic.mjs",
     "import:rijks": "node scripts/import-rijksmuseum.mjs",
-    "import:monet": "node scripts/import-monet-catalog.mjs"
+    "import:monet": "node scripts/import-monet-catalog.mjs",
+    "import:catalogs": "node scripts/import-deep-artist-catalogs.mjs"
   },
   "dependencies": {
     "@prisma/client": "^6.6.0",

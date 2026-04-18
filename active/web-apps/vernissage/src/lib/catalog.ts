@@ -1,5 +1,5 @@
 import rawCatalog from '../content/demo-content.json';
-import monetCatalog from '../content/artist-catalogs/claude-monet.json';
+import { supplementalArtworks } from '../content/artist-catalogs';
 import {
   maximizeArticImageUrl,
   resolveReviewThumbnail,
@@ -154,8 +154,6 @@ export type Catalog = {
 };
 
 const baseCatalog = rawCatalog as Catalog;
-const supplementalArtworks = monetCatalog as Artwork[];
-
 export const catalog: Catalog = {
   ...baseCatalog,
   artworks: [...baseCatalog.artworks, ...supplementalArtworks]

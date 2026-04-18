@@ -1,16 +1,22 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { access, readFile } from 'node:fs/promises';
+import { access, readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 
 const projectRoot = process.cwd();
 const contentPath = path.join(projectRoot, 'src', 'content', 'demo-content.json');
-const monetCatalogPath = path.join(projectRoot, 'src', 'content', 'artist-catalogs', 'claude-monet.json');
 const baseContent = JSON.parse(await readFile(contentPath, 'utf8'));
-const monetCatalog = JSON.parse(await readFile(monetCatalogPath, 'utf8'));
+const supplementalCatalogDir = path.join(projectRoot, 'src', 'content', 'artist-catalogs');
+const supplementalCatalog = (
+  await Promise.all(
+    (await readdir(supplementalCatalogDir))
+      .filter((fileName) => fileName.endsWith('.json'))
+      .map(async (fileName) => JSON.parse(await readFile(path.join(supplementalCatalogDir, fileName), 'utf8')))
+  )
+).flat();
 const content = {
   ...baseContent,
-  artworks: [...baseContent.artworks, ...monetCatalog]
+  artworks: [...baseContent.artworks, ...supplementalCatalog]
 };
 
 const artistSlugs = new Set(content.artists.map((artist) => artist.slug));

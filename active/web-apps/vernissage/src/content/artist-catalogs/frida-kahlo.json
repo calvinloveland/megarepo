@@ -1,0 +1,485 @@
+[
+  {
+    "slug": "diego-and-me",
+    "title": "Diego and Me",
+    "artistSlug": "frida-kahlo",
+    "movementSlug": "mexican-modernism",
+    "year": "Date not yet catalogued",
+    "medium": "Medium not yet catalogued",
+    "dimensions": "Not yet catalogued",
+    "tags": [
+      "catalog record",
+      "public domain"
+    ],
+    "summary": "Catalog record for Frida Kahlo's Diego and Me. Vernissage has added the piece to the dossier while a reusable image source and fuller curatorial notes are still being prepared."
+  },
+  {
+    "slug": "arbol-de-la-esperanza-mantente-firme",
+    "title": "Árbol de la esperanza, mantente firme",
+    "artistSlug": "frida-kahlo",
+    "movementSlug": "mexican-modernism",
+    "year": "Date not yet catalogued",
+    "medium": "Medium not yet catalogued",
+    "dimensions": "Not yet catalogued",
+    "tags": [
+      "catalog record",
+      "public domain",
+      "self-portrait"
+    ],
+    "summary": "Catalog record for Frida Kahlo's self-portrait work Árbol de la esperanza, mantente firme. Vernissage has added the piece to the dossier while a reusable image source and fuller curatorial notes are still being prepared."
+  },
+  {
+    "slug": "girl-with-death-mask",
+    "title": "Girl with Death Mask",
+    "artistSlug": "frida-kahlo",
+    "movementSlug": "mexican-modernism",
+    "year": "Date not yet catalogued",
+    "medium": "Medium not yet catalogued",
+    "dimensions": "Not yet catalogued",
+    "tags": [
+      "catalog record",
+      "public domain"
+    ],
+    "summary": "Catalog record for Frida Kahlo's Girl with Death Mask. Vernissage has added the piece to the dossier while a reusable image source and fuller curatorial notes are still being prepared."
+  },
+  {
+    "slug": "portrait-of-cristina-my-sister",
+    "title": "Portrait of Cristina, My Sister",
+    "artistSlug": "frida-kahlo",
+    "movementSlug": "mexican-modernism",
+    "year": "1928",
+    "medium": "Oil on panel",
+    "dimensions": "Not yet catalogued",
+    "tags": [
+      "catalog record",
+      "public domain",
+      "portrait"
+    ],
+    "summary": "Catalog record for Frida Kahlo's 1928 portrait work Portrait of Cristina, My Sister. Vernissage has added the piece to the dossier while a reusable image source and fuller curatorial notes are still being prepared."
+  },
+  {
+    "slug": "self-portrait-along-the-border-line-between-mexico-and-the-united-states",
+    "title": "Self Portrait Along the Border Line Between Mexico and the United States",
+    "artistSlug": "frida-kahlo",
+    "movementSlug": "mexican-modernism",
+    "year": "1932",
+    "medium": "Sheet Metal, Oil Paint",
+    "dimensions": "Not yet catalogued",
+    "tags": [
+      "catalog record",
+      "public domain",
+      "self-portrait"
+    ],
+    "summary": "Catalog record for Frida Kahlo's 1932 self-portrait work Self Portrait Along the Border Line Between Mexico and the United States. Vernissage has added the piece to the dossier while a reusable image source and fuller curatorial notes are still being prepared."
+  },
+  {
+    "slug": "henry-ford-hospital",
+    "title": "Henry Ford Hospital",
+    "artistSlug": "frida-kahlo",
+    "movementSlug": "mexican-modernism",
+    "year": "1932",
+    "medium": "Oil Paint, Metal",
+    "dimensions": "Not yet catalogued",
+    "tags": [
+      "catalog record",
+      "public domain",
+      "nude self-portrait"
+    ],
+    "summary": "Catalog record for Frida Kahlo's 1932 nude self-portrait work Henry Ford Hospital. Vernissage has added the piece to the dossier while a reusable image source and fuller curatorial notes are still being prepared."
+  },
+  {
+    "slug": "my-dress-hangs-there",
+    "title": "My Dress Hangs There",
+    "artistSlug": "frida-kahlo",
+    "movementSlug": "mexican-modernism",
+    "year": "1933",
+    "medium": "Masonite, Oil Paint",
+    "dimensions": "Not yet catalogued",
+    "tags": [
+      "catalog record",
+      "public domain"
+    ],
+    "summary": "Catalog record for Frida Kahlo's 1933 work My Dress Hangs There. Vernissage has added the piece to the dossier while a reusable image source and fuller curatorial notes are still being prepared."
+  },
+  {
+    "slug": "a-few-small-nips",
+    "title": "A Few Small Nips",
+    "artistSlug": "frida-kahlo",
+    "movementSlug": "mexican-modernism",
+    "year": "1935",
+    "medium": "Oil Paint, Metal",
+    "dimensions": "Not yet catalogued",
+    "tags": [
+      "catalog record",
+      "public domain",
+      "history painting"
+    ],
+    "summary": "Catalog record for Frida Kahlo's 1935 history painting work A Few Small Nips. Vernissage has added the piece to the dossier while a reusable image source and fuller curatorial notes are still being prepared."
+  },
+  {
+    "slug": "fulang-chang-and-i",
+    "title": "Fulang-Chang and I",
+    "artistSlug": "frida-kahlo",
+    "movementSlug": "mexican-modernism",
+    "year": "1937",
+    "medium": "Cardboard, Mirror, Oil Paint",
+    "dimensions": "Not yet catalogued",
+    "tags": [
+      "catalog record",
+      "public domain",
+      "self-portrait"
+    ],
+    "summary": "Catalog record for Frida Kahlo's 1937 self-portrait work Fulang-Chang and I. Vernissage has added the piece to the dossier while a reusable image source and fuller curatorial notes are still being prepared."
+  },
+  {
+    "slug": "the-frame",
+    "title": "The Frame",
+    "artistSlug": "frida-kahlo",
+    "movementSlug": "mexican-modernism",
+    "year": "1937",
+    "medium": "Oil Paint, Aluminium",
+    "dimensions": "Not yet catalogued",
+    "tags": [
+      "catalog record",
+      "public domain",
+      "portrait"
+    ],
+    "summary": "Catalog record for Frida Kahlo's 1937 portrait work The Frame. Vernissage has added the piece to the dossier while a reusable image source and fuller curatorial notes are still being prepared."
+  },
+  {
+    "slug": "memory-or-the-heart",
+    "title": "Memory or the Heart",
+    "artistSlug": "frida-kahlo",
+    "movementSlug": "mexican-modernism",
+    "year": "1937",
+    "medium": "Oil Paint",
+    "dimensions": "Not yet catalogued",
+    "tags": [
+      "catalog record",
+      "public domain",
+      "naïve art"
+    ],
+    "summary": "Catalog record for Frida Kahlo's 1937 naïve art work Memory or the Heart. Vernissage has added the piece to the dossier while a reusable image source and fuller curatorial notes are still being prepared."
+  },
+  {
+    "slug": "self-portrait-dedicated-to-leon-trotsky",
+    "title": "Self-Portrait Dedicated to Leon Trotsky",
+    "artistSlug": "frida-kahlo",
+    "movementSlug": "mexican-modernism",
+    "year": "1937",
+    "medium": "Masonite, Oil Paint",
+    "dimensions": "Not yet catalogued",
+    "tags": [
+      "catalog record",
+      "public domain",
+      "self-portrait"
+    ],
+    "summary": "Catalog record for Frida Kahlo's 1937 self-portrait work Self-Portrait Dedicated to Leon Trotsky. Vernissage has added the piece to the dossier while a reusable image source and fuller curatorial notes are still being prepared."
+  },
+  {
+    "slug": "still-life-pitahayas",
+    "title": "Still Life: Pitahayas",
+    "artistSlug": "frida-kahlo",
+    "movementSlug": "mexican-modernism",
+    "year": "1938",
+    "medium": "Oil Paint, Aluminium",
+    "dimensions": "Not yet catalogued",
+    "tags": [
+      "catalog record",
+      "public domain",
+      "still life"
+    ],
+    "summary": "Catalog record for Frida Kahlo's 1938 still life work Still Life: Pitahayas. Vernissage has added the piece to the dossier while a reusable image source and fuller curatorial notes are still being prepared."
+  },
+  {
+    "slug": "what-the-water-gave-me",
+    "title": "What the Water Gave Me",
+    "artistSlug": "frida-kahlo",
+    "movementSlug": "mexican-modernism",
+    "year": "1938",
+    "medium": "Oil Paint",
+    "dimensions": "Not yet catalogued",
+    "tags": [
+      "catalog record",
+      "public domain"
+    ],
+    "summary": "Catalog record for Frida Kahlo's 1938 work What the Water Gave Me. Vernissage has added the piece to the dossier while a reusable image source and fuller curatorial notes are still being prepared."
+  },
+  {
+    "slug": "self-portrait-with-monkey",
+    "title": "Self-Portrait with Monkey",
+    "artistSlug": "frida-kahlo",
+    "movementSlug": "mexican-modernism",
+    "year": "1938",
+    "medium": "Masonite, Oil Paint",
+    "dimensions": "Not yet catalogued",
+    "tags": [
+      "catalog record",
+      "public domain",
+      "self-portrait"
+    ],
+    "summary": "Catalog record for Frida Kahlo's 1938 self-portrait work Self-Portrait with Monkey. Vernissage has added the piece to the dossier while a reusable image source and fuller curatorial notes are still being prepared."
+  },
+  {
+    "slug": "the-suicide-of-dorothy-hale",
+    "title": "The Suicide of Dorothy Hale",
+    "artistSlug": "frida-kahlo",
+    "movementSlug": "mexican-modernism",
+    "year": "1939",
+    "medium": "Masonite, Oil Paint",
+    "dimensions": "Not yet catalogued",
+    "tags": [
+      "catalog record",
+      "public domain",
+      "history painting"
+    ],
+    "summary": "Catalog record for Frida Kahlo's 1939 history painting work The Suicide of Dorothy Hale. Vernissage has added the piece to the dossier while a reusable image source and fuller curatorial notes are still being prepared."
+  },
+  {
+    "slug": "the-two-fridas",
+    "title": "The Two Fridas",
+    "artistSlug": "frida-kahlo",
+    "movementSlug": "mexican-modernism",
+    "year": "1939",
+    "medium": "Oil on canvas",
+    "dimensions": "Not yet catalogued",
+    "tags": [
+      "catalog record",
+      "public domain",
+      "self-portrait"
+    ],
+    "summary": "Catalog record for Frida Kahlo's 1939 self-portrait work The Two Fridas. Vernissage has added the piece to the dossier while a reusable image source and fuller curatorial notes are still being prepared."
+  },
+  {
+    "slug": "two-nudes-in-a-forest",
+    "title": "Two Nudes in a Forest",
+    "artistSlug": "frida-kahlo",
+    "movementSlug": "mexican-modernism",
+    "year": "1939",
+    "medium": "Oil Paint, Metal",
+    "dimensions": "Not yet catalogued",
+    "tags": [
+      "catalog record",
+      "public domain"
+    ],
+    "summary": "Catalog record for Frida Kahlo's 1939 work Two Nudes in a Forest. Vernissage has added the piece to the dossier while a reusable image source and fuller curatorial notes are still being prepared."
+  },
+  {
+    "slug": "le-reve",
+    "title": "Le Rêve",
+    "artistSlug": "frida-kahlo",
+    "movementSlug": "mexican-modernism",
+    "year": "1940",
+    "medium": "Oil on canvas",
+    "dimensions": "Not yet catalogued",
+    "tags": [
+      "catalog record",
+      "public domain",
+      "self-portrait"
+    ],
+    "summary": "Catalog record for Frida Kahlo's 1940 self-portrait work Le Rêve. Vernissage has added the piece to the dossier while a reusable image source and fuller curatorial notes are still being prepared."
+  },
+  {
+    "slug": "the-dream-the-bed",
+    "title": "The Dream (The Bed)",
+    "artistSlug": "frida-kahlo",
+    "movementSlug": "mexican-modernism",
+    "year": "1940",
+    "medium": "Oil Paint",
+    "dimensions": "Not yet catalogued",
+    "tags": [
+      "catalog record",
+      "public domain"
+    ],
+    "summary": "Catalog record for Frida Kahlo's 1940 work The Dream (The Bed). Vernissage has added the piece to the dossier while a reusable image source and fuller curatorial notes are still being prepared."
+  },
+  {
+    "slug": "self-portrait-with-cropped-hair",
+    "title": "Self-Portrait with Cropped Hair",
+    "artistSlug": "frida-kahlo",
+    "movementSlug": "mexican-modernism",
+    "year": "1940",
+    "medium": "Oil on canvas",
+    "dimensions": "Not yet catalogued",
+    "tags": [
+      "catalog record",
+      "public domain",
+      "self-portrait"
+    ],
+    "summary": "Catalog record for Frida Kahlo's 1940 self-portrait work Self-Portrait with Cropped Hair. Vernissage has added the piece to the dossier while a reusable image source and fuller curatorial notes are still being prepared."
+  },
+  {
+    "slug": "the-wounded-table",
+    "title": "The Wounded Table",
+    "artistSlug": "frida-kahlo",
+    "movementSlug": "mexican-modernism",
+    "year": "1940",
+    "medium": "Oil Paint",
+    "dimensions": "Not yet catalogued",
+    "tags": [
+      "catalog record",
+      "public domain"
+    ],
+    "summary": "Catalog record for Frida Kahlo's 1940 work The Wounded Table. Vernissage has added the piece to the dossier while a reusable image source and fuller curatorial notes are still being prepared."
+  },
+  {
+    "slug": "self-portrait-with-thorn-necklace-and-hummingbird",
+    "title": "Self-Portrait with Thorn Necklace and Hummingbird",
+    "artistSlug": "frida-kahlo",
+    "movementSlug": "mexican-modernism",
+    "year": "1940",
+    "medium": "Canvas, Whitewash",
+    "dimensions": "Not yet catalogued",
+    "tags": [
+      "catalog record",
+      "public domain",
+      "self-portrait"
+    ],
+    "summary": "Catalog record for Frida Kahlo's 1940 self-portrait work Self-Portrait with Thorn Necklace and Hummingbird. Vernissage has added the piece to the dossier while a reusable image source and fuller curatorial notes are still being prepared."
+  },
+  {
+    "slug": "the-broken-column",
+    "title": "The Broken Column",
+    "artistSlug": "frida-kahlo",
+    "movementSlug": "mexican-modernism",
+    "year": "1944",
+    "medium": "Masonite, Oil Paint",
+    "dimensions": "Not yet catalogued",
+    "tags": [
+      "catalog record",
+      "public domain",
+      "self-portrait"
+    ],
+    "summary": "Catalog record for Frida Kahlo's 1944 self-portrait work The Broken Column. Vernissage has added the piece to the dossier while a reusable image source and fuller curatorial notes are still being prepared."
+  },
+  {
+    "slug": "the-wounded-deer",
+    "title": "The Wounded Deer",
+    "artistSlug": "frida-kahlo",
+    "movementSlug": "mexican-modernism",
+    "year": "1946",
+    "medium": "Oil on panel",
+    "dimensions": "Not yet catalogued",
+    "tags": [
+      "catalog record",
+      "public domain"
+    ],
+    "summary": "Catalog record for Frida Kahlo's 1946 work The Wounded Deer. Vernissage has added the piece to the dossier while a reusable image source and fuller curatorial notes are still being prepared."
+  },
+  {
+    "slug": "arbol-de-la-esperanza-mantente-firme-1946",
+    "title": "Arbol de la Esperanza, Mantente Firme",
+    "artistSlug": "frida-kahlo",
+    "movementSlug": "mexican-modernism",
+    "year": "1946",
+    "medium": "Masonite, Oil Paint",
+    "dimensions": "Not yet catalogued",
+    "tags": [
+      "catalog record",
+      "public domain"
+    ],
+    "summary": "Catalog record for Frida Kahlo's 1946 work Arbol de la Esperanza, Mantente Firme. Vernissage has added the piece to the dossier while a reusable image source and fuller curatorial notes are still being prepared."
+  },
+  {
+    "slug": "self-portrait-with-loose-hair",
+    "title": "Self Portrait with Loose Hair",
+    "artistSlug": "frida-kahlo",
+    "movementSlug": "mexican-modernism",
+    "year": "1947",
+    "medium": "Medium not yet catalogued",
+    "dimensions": "Not yet catalogued",
+    "tags": [
+      "catalog record",
+      "public domain",
+      "self-portrait"
+    ],
+    "summary": "Catalog record for Frida Kahlo's 1947 self-portrait work Self Portrait with Loose Hair. Vernissage has added the piece to the dossier while a reusable image source and fuller curatorial notes are still being prepared."
+  },
+  {
+    "slug": "the-love-embrace-of-the-universe-the-earth-mexico-myself-diego-and-senor-xolotl",
+    "title": "The Love Embrace of the Universe, the Earth (Mexico), Myself, Diego, and Señor Xolotl",
+    "artistSlug": "frida-kahlo",
+    "movementSlug": "mexican-modernism",
+    "year": "1949",
+    "medium": "Oil Paint",
+    "dimensions": "Not yet catalogued",
+    "tags": [
+      "catalog record",
+      "public domain"
+    ],
+    "summary": "Catalog record for Frida Kahlo's 1949 work The Love Embrace of the Universe, the Earth (Mexico), Myself, Diego, and Señor Xolotl. Vernissage has added the piece to the dossier while a reusable image source and fuller curatorial notes are still being prepared."
+  },
+  {
+    "slug": "diego-and-i",
+    "title": "Diego and I",
+    "artistSlug": "frida-kahlo",
+    "movementSlug": "mexican-modernism",
+    "year": "1949",
+    "medium": "Masonite, Oil Paint",
+    "dimensions": "Not yet catalogued",
+    "tags": [
+      "catalog record",
+      "public domain"
+    ],
+    "summary": "Catalog record for Frida Kahlo's 1949 work Diego and I. Vernissage has added the piece to the dossier while a reusable image source and fuller curatorial notes are still being prepared."
+  },
+  {
+    "slug": "weeping-coconuts",
+    "title": "Weeping Coconuts",
+    "artistSlug": "frida-kahlo",
+    "movementSlug": "mexican-modernism",
+    "year": "1951",
+    "medium": "Oil Paint",
+    "dimensions": "Not yet catalogued",
+    "tags": [
+      "catalog record",
+      "public domain"
+    ],
+    "summary": "Catalog record for Frida Kahlo's 1951 work Weeping Coconuts. Vernissage has added the piece to the dossier while a reusable image source and fuller curatorial notes are still being prepared."
+  },
+  {
+    "slug": "self-portrait-with-stalin",
+    "title": "Self portrait with Stalin",
+    "artistSlug": "frida-kahlo",
+    "movementSlug": "mexican-modernism",
+    "year": "1954",
+    "medium": "Medium not yet catalogued",
+    "dimensions": "Not yet catalogued",
+    "tags": [
+      "catalog record",
+      "public domain",
+      "self-portrait"
+    ],
+    "summary": "Catalog record for Frida Kahlo's 1954 self-portrait work Self portrait with Stalin. Vernissage has added the piece to the dossier while a reusable image source and fuller curatorial notes are still being prepared."
+  },
+  {
+    "slug": "viva-la-vida-watermelons",
+    "title": "Viva la Vida, Watermelons",
+    "artistSlug": "frida-kahlo",
+    "movementSlug": "mexican-modernism",
+    "year": "1954",
+    "medium": "Masonite, Oil Paint",
+    "dimensions": "Not yet catalogued",
+    "tags": [
+      "catalog record",
+      "public domain",
+      "still life"
+    ],
+    "summary": "Catalog record for Frida Kahlo's 1954 still life work Viva la Vida, Watermelons. Vernissage has added the piece to the dossier while a reusable image source and fuller curatorial notes are still being prepared."
+  },
+  {
+    "slug": "marxism-will-give-health-to-the-sick",
+    "title": "Marxism Will Give Health to the Sick",
+    "artistSlug": "frida-kahlo",
+    "movementSlug": "mexican-modernism",
+    "year": "1954",
+    "medium": "Masonite, Oil Paint",
+    "dimensions": "Not yet catalogued",
+    "tags": [
+      "catalog record",
+      "public domain",
+      "self-portrait"
+    ],
+    "summary": "Catalog record for Frida Kahlo's 1954 self-portrait work Marxism Will Give Health to the Sick. Vernissage has added the piece to the dossier while a reusable image source and fuller curatorial notes are still being prepared."
+  }
+]

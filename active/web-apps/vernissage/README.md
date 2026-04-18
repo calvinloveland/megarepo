@@ -60,6 +60,7 @@ npm run import:met
 npm run import:aic
 npm run import:rijks
 npm run import:monet
+npm run import:catalogs
 ./scripts/verify-live.sh
 ```
 
@@ -112,7 +113,7 @@ That image-first rule does **not** mean every catalog record needs an image befo
 
 For catalog additions, prefer Art Institute of Chicago public-domain works first because the app already supports `artic.edu` IIIF URLs directly. If a work has to come from another museum, keep it local under `public/artworks/` and only use clearly open/public-domain assets.
 
-For very deep dossier expansions such as Claude Monet, use `npm run import:monet` to refresh the supplemental title-only catalog from Wikidata. The generated records intentionally keep public-domain factual metadata (title/year/medium when available) separate from image publication, so browse surfaces stay honest while the catalog grows.
+For very deep dossier expansions such as Claude Monet, use `npm run import:monet` to refresh the dedicated Monet supplement from Wikidata. To fan that same pattern out across the rest of the roster, use `npm run import:catalogs`, which builds per-artist supplemental files for the current catalog artists when Wikidata has reliable work records for them. The generated records intentionally keep public-domain factual metadata (title/year/medium when available) separate from image publication, so browse surfaces stay honest while the catalog grows.
 
 `APP_VERSION` is surfaced in the site footer, health endpoint, and feedback records so users and operators can see which deployment is live.
 
