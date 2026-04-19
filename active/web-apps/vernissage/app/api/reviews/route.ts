@@ -23,13 +23,8 @@ const REVIEW_WINDOW_MS = 15 * 60 * 1000;
 const REVIEW_POST_LIMIT = 5;
 
 function redirectTo(request: Request, path: string, params: Record<string, string>) {
-  const host = request.headers.get('x-forwarded-host') ?? request.headers.get('host');
-  const forwardedProto = request.headers.get('x-forwarded-proto');
   const requestUrl = new URL(request.url);
-  const protocol =
-    forwardedProto ??
-    (host && /^(localhost|127\.0\.0\.1)(:\d+)?$/i.test(host) ? 'http' : requestUrl.protocol.replace(':', ''));
-  const url = new URL(path, host ? `${protocol}://${host}` : requestUrl);
+  const url = new URL(path, requestUrl);
   for (const [key, value] of Object.entries(params)) {
     if (value) {
       url.searchParams.set(key, value);

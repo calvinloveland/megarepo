@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 
 import { BotanicalDivider } from '@/src/components/BotanicalDivider';
 import { SignInForm } from '@/src/components/SignInForm';
+import { normalizeCallbackUrl } from '@/src/lib/account-registration';
 import { authOptions } from '@/src/lib/auth';
 import { isDatabaseConfigured } from '@/src/lib/prisma';
 
@@ -14,6 +15,10 @@ function errorMessageFor(code?: string) {
 
   if (code === 'database-unavailable') {
     return 'The shared account database is not configured yet, so sign-in is temporarily unavailable.';
+  }
+
+  if (code === 'rate-limited') {
+    return 'Too many sign-in attempts came from this address. Please wait a little before trying again.';
   }
 
   return '';
@@ -30,7 +35,7 @@ export default async function SignInPage({
   }
 
   const params = await searchParams;
-  const callbackUrl = typeof params.callbackUrl === 'string' ? params.callbackUrl : '/reviews/new';
+  const callbackUrl = normalizeCallbackUrl(typeof params.callbackUrl === 'string' ? params.callbackUrl : undefined);
   const errorCode = typeof params.error === 'string' ? params.error : undefined;
   const registered = params.registered === '1';
   const identifier = typeof params.identifier === 'string' ? params.identifier : undefined;

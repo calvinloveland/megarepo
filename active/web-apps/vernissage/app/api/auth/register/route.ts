@@ -1,18 +1,17 @@
 import { NextResponse } from 'next/server';
 
 import { members } from '@/src/lib/catalog';
-import { parseRegistrationSubmission } from '@/src/lib/account-registration';
+import { normalizeCallbackUrl, parseRegistrationSubmission } from '@/src/lib/account-registration';
 import { hashPassword } from '@/src/lib/passwords';
 import { getPrisma, isDatabaseConfigured } from '@/src/lib/prisma';
+import { getClientIp, rateLimitHeaders, takeRateLimitHit } from '@/src/lib/rate-limit';
+
+const REGISTER_WINDOW_MS = 15 * 60 * 1000;
+const REGISTER_POST_LIMIT = 5;
 
 function redirectTo(request: Request, path: string, params: Record<string, string>) {
-  const host = request.headers.get('x-forwarded-host') ?? request.headers.get('host');
-  const forwardedProto = request.headers.get('x-forwarded-proto');
   const requestUrl = new URL(request.url);
-  const protocol =
-    forwardedProto ??
-    (host && /^(localhost|127\.0\.0\.1)(:\d+)?$/i.test(host) ? 'http' : requestUrl.protocol.replace(':', ''));
-  const url = new URL(path, host ? `${protocol}://${host}` : requestUrl);
+  const url = new URL(path, requestUrl);
   for (const [key, value] of Object.entries(params)) {
     if (value) {
       url.searchParams.set(key, value);
@@ -23,6 +22,15 @@ function redirectTo(request: Request, path: string, params: Record<string, strin
 }
 
 export async function POST(request: Request) {
+  const rateLimit = takeRateLimitHit(`register:${getClientIp(request)}`, REGISTER_POST_LIMIT, REGISTER_WINDOW_MS);
+  if (!rateLimit.ok) {
+    const response = redirectTo(request, '/join', { error: 'rate-limited' });
+    for (const [name, value] of Object.entries(rateLimitHeaders(rateLimit))) {
+      response.headers.set(name, value);
+    }
+    return response;
+  }
+
   if (!isDatabaseConfigured()) {
     return redirectTo(request, '/join', { error: 'database-unavailable' });
   }
@@ -30,13 +38,13 @@ export async function POST(request: Request) {
   const formData = await request.formData();
   const parsed = parseRegistrationSubmission(formData);
   if (!parsed.ok) {
-    const callbackUrl = `${formData.get('callbackUrl') ?? '/reviews/new'}` || '/reviews/new';
+    const callbackUrl = normalizeCallbackUrl(`${formData.get('callbackUrl') ?? ''}`);
     return redirectTo(request, '/join', { error: parsed.error, callbackUrl });
   }
   const { callbackUrl, name, handle, password } = parsed.value;
 
   if (members.some((member) => member.handle === handle)) {
-    return redirectTo(request, '/join', { error: 'reserved-handle', callbackUrl });
+    return redirectTo(request, '/join', { error: 'handle-unavailable', callbackUrl });
   }
 
   const prisma = getPrisma();
@@ -50,7 +58,7 @@ export async function POST(request: Request) {
   });
 
   if (existingUser?.handle === handle) {
-    return redirectTo(request, '/join', { error: 'handle-in-use', callbackUrl });
+    return redirectTo(request, '/join', { error: 'handle-unavailable', callbackUrl });
   }
 
   await prisma.user.create({

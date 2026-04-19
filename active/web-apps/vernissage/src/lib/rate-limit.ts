@@ -12,6 +12,11 @@ function pruneExpired(entries: number[], windowMs: number, now: number) {
 }
 
 export function getClientIp(request: Pick<Request, 'headers'>) {
+  const directIp = request.headers.get('cf-connecting-ip') ?? request.headers.get('x-real-ip');
+  if (directIp?.trim()) {
+    return directIp.trim();
+  }
+
   const forwardedFor = request.headers.get('x-forwarded-for');
   if (forwardedFor) {
     const first = forwardedFor
@@ -23,8 +28,27 @@ export function getClientIp(request: Pick<Request, 'headers'>) {
     }
   }
 
-  const directIp = request.headers.get('cf-connecting-ip') ?? request.headers.get('x-real-ip');
-  return directIp?.trim() || 'unknown';
+  return 'unknown';
+}
+
+export function peekRateLimit(key: string, maxHits: number, windowMs: number, now = Date.now()): RateLimitResult {
+  const activeEntries = pruneExpired(buckets.get(key) ?? [], windowMs, now);
+  buckets.set(key, activeEntries);
+
+  if (activeEntries.length >= maxHits) {
+    const retryAfterSeconds = Math.max(1, Math.ceil(((activeEntries[0] ?? now) + windowMs - now) / 1000));
+    return {
+      ok: false,
+      remaining: 0,
+      retryAfterSeconds
+    };
+  }
+
+  return {
+    ok: true,
+    remaining: Math.max(0, maxHits - activeEntries.length),
+    retryAfterSeconds: 0
+  };
 }
 
 export function takeRateLimitHit(key: string, maxHits: number, windowMs: number, now = Date.now()): RateLimitResult {
@@ -59,4 +83,8 @@ export function rateLimitHeaders(result: RateLimitResult) {
 
 export function resetRateLimitStore() {
   buckets.clear();
+}
+
+export function clearRateLimitKey(key: string) {
+  buckets.delete(key);
 }

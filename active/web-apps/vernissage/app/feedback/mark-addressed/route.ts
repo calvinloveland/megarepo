@@ -1,14 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
 import {
   feedbackIdFromFilename,
   moveFeedbackToAddressed,
-  requireFeedbackAuth
+  requireFeedbackAdminHandle
 } from '@/src/lib/feedback';
+import { authOptions } from '@/src/lib/auth';
 import { getClientIp, rateLimitHeaders, takeRateLimitHit } from '@/src/lib/rate-limit';
 
 export const runtime = 'nodejs';
 
-const APP_NAME = 'Vernissage';
 const FEEDBACK_ADMIN_WINDOW_MS = 15 * 60 * 1000;
 const FEEDBACK_ADMIN_LIMIT = 30;
 
@@ -21,7 +22,8 @@ export async function POST(request: NextRequest) {
     });
   }
 
-  const authError = requireFeedbackAuth(request, APP_NAME);
+  const session = await getServerSession(authOptions);
+  const authError = requireFeedbackAdminHandle(session?.user?.handle);
   if (authError) {
     return authError;
   }

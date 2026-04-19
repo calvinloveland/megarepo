@@ -42,8 +42,7 @@ FEEDBACK_DATABASE_URL="file:./data/vernissage-feedback.db"
 NEXTAUTH_URL="http://127.0.0.1:3000"
 NEXTAUTH_SECRET="replace-me"
 RIJKSMUSEUM_API_KEY="replace-me-if-using-import:rijks"
-FEEDBACK_ADMIN_USERNAME="admin"
-FEEDBACK_ADMIN_PASSWORD="replace-me"
+FEEDBACK_ADMIN_HANDLES="curatorbot"
 APP_VERSION="dev"
 ```
 
@@ -97,6 +96,8 @@ These routes require `DATABASE_URL` to be configured. When the database URL is a
 
 Signup is intentionally minimal: the live `/join` form only asks for a handle and password, and the handle becomes the initial public display name until a richer profile-editing flow exists.
 
+Password security: user passwords are stored as salted `scrypt` hashes, and environments that enable auth must set a real `NEXTAUTH_SECRET`. The current join flow enforces a minimum password length of 12 characters.
+
 Launch abuse protections now include a one-review-per-user-per-target guard plus basic in-memory rate limiting on review publication and feedback/admin write paths.
 
 Favorite artworks and favorite artists are meant to be public, database-backed member-page signals rather than browser-only state. The artwork-page `+` control now stays focused on private notes stored in browser local storage for now.
@@ -115,17 +116,19 @@ For catalog additions, prefer Art Institute of Chicago public-domain works first
 
 For very deep dossier expansions such as Claude Monet, use `npm run import:monet` to refresh the dedicated Monet supplement from Wikidata. To fan that same pattern out across the rest of the roster, use `npm run import:catalogs`, which builds per-artist supplemental files for the current catalog artists when Wikidata has reliable work records for them. The generated records intentionally keep public-domain factual metadata (title/year/medium when available) separate from image publication, so browse surfaces stay honest while the catalog grows.
 
-`APP_VERSION` is surfaced in the site footer, health endpoint, and feedback records so users and operators can see which deployment is live.
+`APP_VERSION` is surfaced in the site footer and feedback records so users and operators can see which deployment is live.
 
 ## Feedback system
 
 Vernissage now includes a floating, Art Nouveau-styled feedback widget wired to the shared web-app feedback contract:
 
 - `POST /feedback`
-- `GET /feedback` with basic auth
-- `POST /feedback/mark-addressed` with basic auth
+- `GET /feedback` for signed-in admin handles
+- `POST /feedback/mark-addressed` for signed-in admin handles
 
 Feedback is stored in `data/vernissage-feedback.db`. On startup, Vernissage imports any legacy JSON feedback from `data/feedback/*.json` and `data/feedback/addressed/*.json` so older submissions remain visible.
+
+Feedback admin access now uses the normal Vernissage session plus the comma-separated `FEEDBACK_ADMIN_HANDLES` allowlist instead of HTTP Basic Auth credentials.
 
 For local feedback development, make sure `sqlite3` is installed on the machine running the Next.js server.
 

@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { BotanicalDivider } from '@/src/components/BotanicalDivider';
 import { EnamelButton } from '@/src/components/EnamelButton';
 import { OrnateInput } from '@/src/components/OrnateInput';
+import { MIN_PASSWORD_LENGTH, normalizeCallbackUrl } from '@/src/lib/account-registration';
 import { authOptions } from '@/src/lib/auth';
 import { isDatabaseConfigured } from '@/src/lib/prisma';
 
@@ -13,16 +14,16 @@ function errorMessageFor(code?: string) {
     return 'Account creation is blocked until the shared application database is configured.';
   }
 
-  if (code === 'handle-in-use') {
-    return 'That handle is already claimed. Try another signature for the salon.';
-  }
-
-  if (code === 'reserved-handle') {
-    return 'That handle is reserved for an editorial profile already present in the catalogue.';
+  if (code === 'handle-unavailable') {
+    return 'That handle is unavailable. Try another signature for the salon.';
   }
 
   if (code === 'invalid') {
-    return 'Choose a valid handle and a password with at least 10 characters.';
+    return `Choose a valid handle and a password with at least ${MIN_PASSWORD_LENGTH} characters.`;
+  }
+
+  if (code === 'rate-limited') {
+    return 'Too many signup attempts came from this address. Please wait a little before trying again.';
   }
 
   return '';
@@ -39,7 +40,7 @@ export default async function JoinPage({
   }
 
   const params = await searchParams;
-  const callbackUrl = typeof params.callbackUrl === 'string' ? params.callbackUrl : '/reviews/new';
+  const callbackUrl = normalizeCallbackUrl(typeof params.callbackUrl === 'string' ? params.callbackUrl : undefined);
   const errorCode = typeof params.error === 'string' ? params.error : undefined;
 
   return (
@@ -66,7 +67,7 @@ export default async function JoinPage({
             placeholder="atelier-name"
             hint="Use 3-32 lowercase letters, numbers, or hyphens."
           />
-          <OrnateInput label="Password" name="password" type="password" placeholder="At least 10 characters" />
+          <OrnateInput label="Password" name="password" type="password" placeholder={`At least ${MIN_PASSWORD_LENGTH} characters`} />
         </div>
         <div className="button-row">
           <EnamelButton type="submit">Create account</EnamelButton>

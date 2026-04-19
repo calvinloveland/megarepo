@@ -4,7 +4,7 @@ import {
   createFeedbackEntry,
   normalizePagePath,
   readFeedbackEntries,
-  requireFeedbackAuth,
+  requireFeedbackAdminHandle,
   resolveGitCommit
 } from '@/src/lib/feedback';
 import { getAppVersion } from '@/src/lib/app-version';
@@ -31,7 +31,8 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  const authError = requireFeedbackAuth(request, APP_NAME);
+  const session = await getServerSession(authOptions);
+  const authError = requireFeedbackAdminHandle(session?.user?.handle);
   if (authError) {
     return authError;
   }

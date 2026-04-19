@@ -1,9 +1,7 @@
-import { timingSafeEqual } from 'node:crypto';
 import { execFile } from 'node:child_process';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { promisify } from 'node:util';
-import type { NextRequest } from 'next/server';
 
 const execFileAsync = promisify(execFile);
 const initializationPromises = new Map<string, Promise<void>>();
@@ -308,41 +306,21 @@ export function normalizePagePath(rawValue: string) {
   }
 }
 
-function safeCompare(expected: string, provided: string) {
-  const expectedBuffer = Buffer.from(expected);
-  const providedBuffer = Buffer.from(provided);
-  if (expectedBuffer.length !== providedBuffer.length) {
-    return false;
-  }
-  return timingSafeEqual(expectedBuffer, providedBuffer);
-}
+export function requireFeedbackAdminHandle(handle: string | undefined | null) {
+  const allowedHandles = new Set(
+    (process.env.FEEDBACK_ADMIN_HANDLES ?? '')
+      .split(',')
+      .map((value) => value.trim().toLowerCase())
+      .filter(Boolean)
+  );
 
-export function requireFeedbackAuth(request: NextRequest, appName: string) {
-  const username = process.env.FEEDBACK_ADMIN_USERNAME?.trim() ?? '';
-  const password = process.env.FEEDBACK_ADMIN_PASSWORD ?? '';
-
-  if (!username || !password) {
-    return new Response('Feedback auth is not configured', { status: 503 });
+  if (!allowedHandles.size) {
+    return new Response('Feedback admin is not configured', { status: 503 });
   }
 
-  const header = request.headers.get('authorization') ?? '';
-  if (!header.startsWith('Basic ')) {
-    return new Response('Authentication required', {
-      status: 401,
-      headers: { 'WWW-Authenticate': `Basic realm="${appName} Feedback"` }
-    });
-  }
-
-  const decoded = Buffer.from(header.slice('Basic '.length), 'base64').toString('utf8');
-  const separatorIndex = decoded.indexOf(':');
-  const providedUsername = separatorIndex >= 0 ? decoded.slice(0, separatorIndex) : decoded;
-  const providedPassword = separatorIndex >= 0 ? decoded.slice(separatorIndex + 1) : '';
-
-  if (!safeCompare(username, providedUsername) || !safeCompare(password, providedPassword)) {
-    return new Response('Authentication required', {
-      status: 401,
-      headers: { 'WWW-Authenticate': `Basic realm="${appName} Feedback"` }
-    });
+  const normalizedHandle = handle?.trim().toLowerCase() ?? '';
+  if (!normalizedHandle || !allowedHandles.has(normalizedHandle)) {
+    return new Response('Forbidden', { status: 403 });
   }
 
   return null;

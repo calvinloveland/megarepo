@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { parseRegistrationSubmission } from '../../src/lib/account-registration.ts';
+import { DEFAULT_CALLBACK_URL, MIN_PASSWORD_LENGTH, normalizeCallbackUrl, parseRegistrationSubmission } from '../../src/lib/account-registration.ts';
 
 test('parseRegistrationSubmission defaults the display name to the normalized handle', () => {
   const formData = new FormData();
@@ -15,7 +15,7 @@ test('parseRegistrationSubmission defaults the display name to the normalized ha
       name: 'mucha-fan',
       handle: 'mucha-fan',
       password: 'ornamented-secret',
-      callbackUrl: '/reviews/new'
+      callbackUrl: DEFAULT_CALLBACK_URL
     });
   }
 });
@@ -39,6 +39,20 @@ test('parseRegistrationSubmission rejects short passwords and invalid handles', 
   const formData = new FormData();
   formData.set('handle', '??');
   formData.set('password', 'short');
+
+  assert.deepEqual(parseRegistrationSubmission(formData), { ok: false, error: 'invalid' });
+});
+
+test('normalizeCallbackUrl only allows local paths', () => {
+  assert.equal(normalizeCallbackUrl('/artworks/water-lilies-1906'), '/artworks/water-lilies-1906');
+  assert.equal(normalizeCallbackUrl('https://evil.example/phish'), DEFAULT_CALLBACK_URL);
+  assert.equal(normalizeCallbackUrl('//evil.example/phish'), DEFAULT_CALLBACK_URL);
+});
+
+test(`parseRegistrationSubmission requires passwords with at least ${MIN_PASSWORD_LENGTH} characters`, () => {
+  const formData = new FormData();
+  formData.set('handle', 'mucha-fan');
+  formData.set('password', '12345678901');
 
   assert.deepEqual(parseRegistrationSubmission(formData), { ok: false, error: 'invalid' });
 });
