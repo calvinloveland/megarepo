@@ -47,6 +47,14 @@ export default function PrivacyPage() {
             hosting platform and reverse proxy while the service is operated.
           </p>
 
+          <h2>First-party analytics</h2>
+          <p>
+            Vernissage records first-party product analytics such as page views, search usage, joins,
+            sign-ins, favorites, follows, review publication, and feedback submission. These events are
+            used to understand which artist dossiers, artworks, and social features are actually helping
+            people return and write.
+          </p>
+
           <h2>How to request help</h2>
           <p>
             At launch, privacy, moderation, and account questions should be sent through the in-app

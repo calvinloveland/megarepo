@@ -39,6 +39,7 @@ Open `http://127.0.0.1:3000`.
 ```bash
 DATABASE_URL="postgresql://USER:PASSWORD@HOST:5432/vernissage"
 FEEDBACK_DATABASE_URL="file:./data/vernissage-feedback.db"
+ANALYTICS_DATABASE_URL="file:./data/vernissage-analytics.db"
 NEXTAUTH_URL="http://127.0.0.1:3000"
 NEXTAUTH_SECRET="replace-me"
 RIJKSMUSEUM_API_KEY="replace-me-if-using-import:rijks"
@@ -90,6 +91,8 @@ Vernissage now includes:
 - `/signin` for account access
 - `/artists/new` for direct artist suggestion requests
 - `/api/reviews` for persisted review submission
+- `/api/analytics` for first-party event collection
+- `/api/analytics/summary` for admin-only analytics summaries
 - `/api/health` and `/api/ready` for app/runtime checks
 
 These routes require `DATABASE_URL` to be configured. When the database URL is absent, the site stays readable but account creation and publishing are intentionally disabled.
@@ -103,6 +106,8 @@ Launch abuse protections now include a one-review-per-user-per-target guard plus
 Favorite artworks and favorite artists are meant to be public, database-backed member-page signals rather than browser-only state. The artwork-page `+` control now stays focused on private notes stored in browser local storage for now.
 
 Member pages are also the home for public social graph signals: once the shared application database is connected, signed-in users can follow other members directly from profile pages.
+
+Vernissage now includes privacy-light, first-party analytics for page views, search usage, joins, sign-ins, favorites, follows, review publishing, and feedback submission. Event collection writes to the local analytics SQLite database, while the summary endpoint is restricted to signed-in admin handles.
 
 The static catalog now ships without seeded reviews, feed entries, lists, members, exhibition activity, or artwork star aggregates. Homepage/community surfaces pull from persisted user reviews when they exist and otherwise render honest empty states instead of filler content.
 

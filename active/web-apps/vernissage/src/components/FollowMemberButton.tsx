@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
+import { trackAnalyticsEvent } from '@/src/lib/analytics-client';
 
 type FollowMemberButtonProps = {
   memberHandle: string;
@@ -50,6 +51,15 @@ export function FollowMemberButton({
       const payload = (await response.json()) as { following?: boolean };
       const resolvedFollowing = payload.following === true;
       setIsFollowing(resolvedFollowing);
+      if (resolvedFollowing) {
+        trackAnalyticsEvent({
+          eventType: 'follow_member',
+          pageType: 'member',
+          path: window.location.pathname + window.location.search,
+          targetType: 'member',
+          targetSlug: memberHandle
+        });
+      }
       setStatus({
         tone: 'success',
         text: resolvedFollowing ? `You are now following ${memberName}.` : `You unfollowed ${memberName}.`

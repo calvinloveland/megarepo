@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 
 import { members } from '@/src/lib/catalog';
+import { recordAnalyticsEvent } from '@/src/lib/analytics';
 import { normalizeCallbackUrl, parseRegistrationSubmission } from '@/src/lib/account-registration';
 import { hashPassword } from '@/src/lib/passwords';
 import { getPrisma, isDatabaseConfigured } from '@/src/lib/prisma';
@@ -67,6 +68,13 @@ export async function POST(request: Request) {
       handle,
       passwordHash: await hashPassword(password)
     }
+  });
+
+  await recordAnalyticsEvent({
+    eventType: 'join_completed',
+    pageType: 'join',
+    path: '/join',
+    memberHandle: handle
   });
 
   return redirectTo(request, '/signin', {

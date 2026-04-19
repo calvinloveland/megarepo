@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 
 import { artists, artworks, exhibitions, visits } from '@/src/lib/catalog';
+import { recordAnalyticsEvent } from '@/src/lib/analytics';
 import { authOptions } from '@/src/lib/auth';
 import { getPrisma, isDatabaseConfigured } from '@/src/lib/prisma';
 import { rateLimitHeaders, takeRateLimitHit } from '@/src/lib/rate-limit';
@@ -112,6 +113,15 @@ export async function POST(request: Request) {
       targetSlug: submission.targetSlug,
       userId: session.user.id
     }
+  });
+
+  await recordAnalyticsEvent({
+    eventType: 'review_submitted',
+    pageType: 'review-compose',
+    path: '/reviews/new',
+    targetType: submission.targetType,
+    targetSlug: submission.targetSlug,
+    memberHandle: session.user.handle
   });
 
   return redirectTo(request, getReviewTargetHref(submission.targetType, submission.targetSlug), {

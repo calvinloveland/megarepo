@@ -1,8 +1,9 @@
 import type { Metadata } from 'next';
-import type { ReactNode } from 'react';
+import { Suspense, type ReactNode } from 'react';
 import { Noto_Serif, Playfair_Display, Work_Sans } from 'next/font/google';
 import Link from 'next/link';
 import './globals.css';
+import { AnalyticsTracker } from '@/src/components/AnalyticsTracker';
 import { FeedbackWidget } from '@/src/components/FeedbackWidget';
 import { FloatingNav } from '@/src/components/FloatingNav';
 import { Providers } from '@/src/components/Providers';
@@ -59,6 +60,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     <html lang="en">
       <body className={`${bodyFont.variable} ${displayFont.variable} ${labelFont.variable}`}>
         <Providers>
+          <Suspense fallback={null}>
+            <AnalyticsTracker />
+          </Suspense>
           <a href="#main-content" className="skip-link">
             Skip to main content
           </a>

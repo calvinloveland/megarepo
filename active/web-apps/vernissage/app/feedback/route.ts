@@ -1,5 +1,6 @@
 import { getServerSession } from 'next-auth';
 import { NextRequest, NextResponse } from 'next/server';
+import { recordAnalyticsEvent } from '@/src/lib/analytics';
 import {
   createFeedbackEntry,
   normalizePagePath,
@@ -117,5 +118,11 @@ export async function POST(request: NextRequest) {
   };
 
   const created = await createFeedbackEntry(payload, null);
+  await recordAnalyticsEvent({
+    eventType: 'feedback_submitted',
+    pageType: 'other',
+    path: payload.page_path ?? '/',
+    memberHandle: session?.user?.handle
+  });
   return NextResponse.json({ status: 'success', message: 'Feedback saved', id: created.id });
 }

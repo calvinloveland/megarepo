@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
+import { trackAnalyticsEvent } from '@/src/lib/analytics-client';
 
 type FavoriteToggleButtonProps = {
   targetType: 'artist' | 'artwork';
@@ -58,6 +59,15 @@ export function FavoriteToggleButton({
       const payload = (await response.json()) as { favorited?: boolean };
       const resolvedFavorited = payload.favorited === true;
       setIsFavorited(resolvedFavorited);
+      if (resolvedFavorited) {
+        trackAnalyticsEvent({
+          eventType: targetType === 'artist' ? 'favorite_artist' : 'favorite_artwork',
+          pageType: targetType,
+          path: window.location.pathname + window.location.search,
+          targetType,
+          targetSlug
+        });
+      }
       setStatus({
         tone: 'success',
         text: resolvedFavorited

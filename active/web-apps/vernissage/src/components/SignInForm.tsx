@@ -3,6 +3,7 @@
 import { FormEvent, useState } from 'react';
 import { signIn } from 'next-auth/react';
 
+import { trackAnalyticsEvent } from '@/src/lib/analytics-client';
 import { EnamelButton } from '@/src/components/EnamelButton';
 import { OrnateInput } from '@/src/components/OrnateInput';
 
@@ -38,6 +39,11 @@ export function SignInForm({ callbackUrl, databaseReady, initialError }: SignInF
       return;
     }
 
+    trackAnalyticsEvent({
+      eventType: 'signin_completed',
+      pageType: 'signin',
+      path: window.location.pathname + window.location.search
+    });
     window.location.assign(result.url ?? callbackUrl);
   }
 
