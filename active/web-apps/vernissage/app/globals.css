@@ -1345,6 +1345,19 @@ a.gilded-card:hover {
   font-size: 0.75rem;
 }
 
+.feedback-widget__checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  color: rgba(28, 28, 19, 0.82);
+  font-family: var(--font-label), sans-serif;
+  font-size: 0.78rem;
+}
+
+.feedback-widget__checkbox input {
+  accent-color: var(--emerald);
+}
+
 .feedback-widget__textarea,
 .feedback-widget__selector {
   width: 100%;
@@ -1390,6 +1403,14 @@ a.gilded-card:hover {
   font-size: 0.95rem;
 }
 
+.feedback-widget__status p {
+  margin: 0;
+}
+
+.feedback-widget__status p + p {
+  margin-top: 0.45rem;
+}
+
 .feedback-widget__status--success {
   background: rgba(74, 124, 111, 0.14);
   color: #0f3128;
@@ -1398,6 +1419,86 @@ a.gilded-card:hover {
 .feedback-widget__status--error {
   background: rgba(92, 26, 51, 0.12);
   color: #5c1a33;
+}
+
+.feedback-updates__card {
+  display: grid;
+  gap: 1rem;
+}
+
+.feedback-updates__card > p {
+  margin: 0;
+}
+
+.feedback-updates__meta {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: 0.75rem;
+}
+
+.feedback-updates__meta div,
+.feedback-updates__note {
+  padding: 0.85rem 0.95rem;
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.52);
+  box-shadow: inset 0 0 0 1px rgba(123, 88, 0, 0.12);
+}
+
+.feedback-updates__meta dt {
+  color: var(--gold);
+  font-family: var(--font-label), sans-serif;
+  font-size: 0.7rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.feedback-updates__meta dd {
+  margin: 0.35rem 0 0;
+}
+
+.feedback-updates__note p {
+  margin: 0;
+}
+
+.feedback-updates__note p + p {
+  margin-top: 0.4rem;
+}
+
+.feedback-updates__form {
+  display: grid;
+  gap: 1rem;
+}
+
+.feedback-status {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.3rem 0.6rem;
+  border-radius: 999px;
+  font-family: var(--font-label), sans-serif;
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.feedback-status--open {
+  background: rgba(92, 26, 51, 0.12);
+  color: #5c1a33;
+}
+
+.feedback-status--planned {
+  background: rgba(185, 139, 27, 0.16);
+  color: #6c4a00;
+}
+
+.feedback-status--in_progress {
+  background: rgba(50, 82, 114, 0.14);
+  color: #23415d;
+}
+
+.feedback-status--shipped {
+  background: rgba(74, 124, 111, 0.14);
+  color: #0f3128;
 }
 
 @media (max-width: 767px) {
@@ -1478,7 +1579,12 @@ a.gilded-card:hover {
   }
 
   .feedback-widget__hint,
-  .feedback-widget__label {
+  .feedback-widget__label,
+  .feedback-widget__checkbox {
     font-size: 0.66rem;
+  }
+
+  .feedback-updates__meta {
+    grid-template-columns: 1fr;
   }
 }

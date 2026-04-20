@@ -81,3 +81,11 @@ test('join page only asks for a handle and password', async ({ page }) => {
   await expect(page.getByLabel('Location')).toHaveCount(0);
   await expect(page.getByLabel('Bio')).toHaveCount(0);
 });
+
+test('feedback updates page explains signed-in and anonymous tracking', async ({ page }) => {
+  await page.goto('/feedback/updates', { waitUntil: 'domcontentloaded' });
+
+  await expect(page.getByRole('heading', { level: 1, name: 'Track requests, progress, and responsibility' })).toBeVisible();
+  await expect(page.getByText('Anonymous feedback can be tracked with the private link returned after submission.')).toBeVisible();
+  await expect(page.getByText('Signed-in members can come back here to see every non-anonymous note tied to their handle.')).toBeVisible();
+});

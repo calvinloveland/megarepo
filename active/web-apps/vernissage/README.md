@@ -130,10 +130,16 @@ Vernissage now includes a floating, Art Nouveau-styled feedback widget wired to 
 - `POST /feedback`
 - `GET /feedback` for signed-in admin handles
 - `POST /feedback/mark-addressed` for signed-in admin handles
+- `POST /feedback/update` for signed-in admin handles
+- `/feedback/updates` for member-facing progress tracking
 
 Feedback is stored in `data/vernissage-feedback.db`. On startup, Vernissage imports any legacy JSON feedback from `data/feedback/*.json` and `data/feedback/addressed/*.json` so older submissions remain visible.
 
 Feedback admin access now uses the normal Vernissage session plus the comma-separated `FEEDBACK_ADMIN_HANDLES` allowlist instead of HTTP Basic Auth credentials.
+
+Feedback progress is now explicit instead of binary. Each note can move through `open`, `planned`, `in_progress`, and `shipped`, can carry a progress note, and can be assigned to the member handle responsible for the fix.
+
+Signed-in members can track their attributed notes at `/feedback/updates`. Anonymous submissions are still supported; they return a private tracking link that resolves to the same updates page with a secure token.
 
 For local feedback development, make sure `sqlite3` is installed on the machine running the Next.js server.
 

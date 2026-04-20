@@ -1,18 +1,36 @@
 'use client';
 
+import Link from 'next/link';
 import { useState } from 'react';
+import { useSession } from 'next-auth/react';
 
 import { EnamelButton } from '@/src/components/EnamelButton';
 import { buildArtistRequestFeedbackText } from '@/src/lib/artist-requests';
 
 type SubmissionState =
-  | { kind: 'idle'; message: string }
-  | { kind: 'success'; message: string }
-  | { kind: 'error'; message: string };
+  | { kind: 'idle'; message: string; linkHref?: undefined; linkLabel?: undefined }
+  | { kind: 'success'; message: string; linkHref?: string; linkLabel?: string }
+  | { kind: 'error'; message: string; linkHref?: undefined; linkLabel?: undefined };
 
 export function ArtistRequestForm() {
+  const { data: session, status } = useSession();
   const [submission, setSubmission] = useState<SubmissionState>({ kind: 'idle', message: '' });
   const [pending, setPending] = useState(false);
+  const [submitAnonymously, setSubmitAnonymously] = useState(false);
+
+  async function readResponseMessage(response: Response) {
+    const text = await response.text();
+    if (!text) {
+      return 'Failed to submit artist request.';
+    }
+
+    try {
+      const payload = JSON.parse(text) as { message?: string };
+      return payload.message || text;
+    } catch {
+      return text;
+    }
+  }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -49,18 +67,29 @@ export function ArtistRequestForm() {
           design: 'gilded-manuscript',
           page_path: '/artists/new',
           page_title: 'Suggest an artist',
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
+          submit_anonymously: submitAnonymously
         })
       });
 
       if (!response.ok) {
-        throw new Error((await response.text()) || 'Failed to submit artist request.');
+        throw new Error(await readResponseMessage(response));
       }
 
+      const result = (await response.json()) as {
+        tracking_path?: string;
+        dashboard_path?: string | null;
+        submitted_with_account?: boolean;
+      };
       form.reset();
+      setSubmitAnonymously(false);
       setSubmission({
         kind: 'success',
-        message: 'Artist request sent. We will review it as the catalog expands.'
+        message: result.submitted_with_account
+          ? 'Artist request sent. You can follow it from your feedback updates page.'
+          : 'Artist request sent. Save the private tracking link so you can check progress later.',
+        linkHref: result.submitted_with_account ? result.dashboard_path ?? result.tracking_path : result.tracking_path,
+        linkLabel: result.submitted_with_account ? 'Open feedback updates' : 'Open private tracking link'
       });
     } catch (error) {
       setSubmission({
@@ -119,6 +148,25 @@ export function ArtistRequestForm() {
         />
       </label>
 
+      <p className="feedback-widget__hint">
+        {status === 'authenticated' && session?.user?.handle
+          ? submitAnonymously
+            ? `Signed in as ${session.user.handle}, but this request will be stored anonymously.`
+            : `Signed in as ${session.user.handle}. This request will also appear on your feedback updates page.`
+          : 'Not signed in? The request is still allowed, but you will need the private tracking link to follow progress.'}
+      </p>
+
+      {status === 'authenticated' && session?.user?.handle ? (
+        <label className="feedback-widget__checkbox">
+          <input
+            type="checkbox"
+            checked={submitAnonymously}
+            onChange={(event) => setSubmitAnonymously(event.target.checked)}
+          />
+          <span>Submit anonymously instead</span>
+        </label>
+      ) : null}
+
       <div className="button-row">
         <button type="submit" className="enamel-button enamel-button--primary" disabled={pending}>
           {pending ? 'Sending request…' : 'Suggest this artist'}
@@ -129,9 +177,16 @@ export function ArtistRequestForm() {
       </div>
 
       {submission.kind !== 'idle' ? (
-        <p className={`feedback-widget__status feedback-widget__status--${submission.kind}`} role={submission.kind === 'error' ? 'alert' : 'status'}>
-          {submission.message}
-        </p>
+        <div className={`feedback-widget__status feedback-widget__status--${submission.kind}`} role={submission.kind === 'error' ? 'alert' : 'status'}>
+          <p>{submission.message}</p>
+          {submission.linkHref && submission.linkLabel ? (
+            <p>
+              <Link href={submission.linkHref} className="text-link">
+                {submission.linkLabel}
+              </Link>
+            </p>
+          ) : null}
+        </div>
       ) : null}
     </form>
   );

@@ -1,12 +1,13 @@
 'use client';
 
+import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSession } from 'next-auth/react';
 
 type SubmissionState =
-  | { kind: 'idle'; message: string }
-  | { kind: 'success'; message: string }
-  | { kind: 'error'; message: string };
+  | { kind: 'idle'; message: string; linkHref?: undefined; linkLabel?: undefined }
+  | { kind: 'success'; message: string; linkHref?: string; linkLabel?: string }
+  | { kind: 'error'; message: string; linkHref?: undefined; linkLabel?: undefined };
 
 const defaultCatalogRequestText = "I'd love to request an artist or artwork that is missing from the Vernissage catalog.";
 
@@ -52,6 +53,7 @@ export function FeedbackWidget() {
   const [open, setOpen] = useState(false);
   const [selecting, setSelecting] = useState(false);
   const [feedbackText, setFeedbackText] = useState('');
+  const [submitAnonymously, setSubmitAnonymously] = useState(false);
   const [selectedElement, setSelectedElement] = useState('');
   const [selectionLabel, setSelectionLabel] = useState('Click to select element');
   const [submission, setSubmission] = useState<SubmissionState>({ kind: 'idle', message: '' });
@@ -67,6 +69,7 @@ export function FeedbackWidget() {
     setSubmission({ kind: 'idle', message: '' });
     setSelectedElement('');
     setSelectionLabel('Click to select element');
+    setSubmitAnonymously(false);
     if (initialText) {
       setFeedbackText((current) => current.trim() || initialText);
     }
@@ -194,6 +197,20 @@ export function FeedbackWidget() {
 
   const canSubmit = useMemo(() => feedbackText.trim().length > 0, [feedbackText]);
 
+  async function readResponseMessage(response: Response) {
+    const text = await response.text();
+    if (!text) {
+      return 'Failed to submit feedback.';
+    }
+
+    try {
+      const payload = JSON.parse(text) as { message?: string };
+      return payload.message || text;
+    } catch {
+      return text;
+    }
+  }
+
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSubmission({ kind: 'idle', message: '' });
@@ -210,23 +227,32 @@ export function FeedbackWidget() {
           design: 'gilded-manuscript',
           page_path: `${window.location.pathname}${window.location.search}`,
           page_title: document.title,
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
+          submit_anonymously: submitAnonymously
         })
       });
 
       if (!response.ok) {
-        throw new Error((await response.text()) || 'Failed to submit feedback.');
+        throw new Error(await readResponseMessage(response));
       }
 
+      const result = (await response.json()) as {
+        tracking_path?: string;
+        dashboard_path?: string | null;
+        submitted_with_account?: boolean;
+      };
       setFeedbackText('');
       setSelectedElement('');
       setSelectionLabel('Click to select element');
-      setSubmission({ kind: 'success', message: 'Feedback submitted successfully.' });
-
-      window.setTimeout(() => {
-        setOpen(false);
-        setSubmission({ kind: 'idle', message: '' });
-      }, 1800);
+      setSubmitAnonymously(false);
+      setSubmission({
+        kind: 'success',
+        message: result.submitted_with_account
+          ? 'Feedback submitted. You can track it from your feedback updates page.'
+          : 'Feedback submitted. Save your private tracking link so you can follow progress later.',
+        linkHref: result.submitted_with_account ? result.dashboard_path ?? result.tracking_path : result.tracking_path,
+        linkLabel: result.submitted_with_account ? 'Open feedback updates' : 'Open private tracking link'
+      });
     } catch (error) {
       setSubmission({
         kind: 'error',
@@ -302,9 +328,22 @@ export function FeedbackWidget() {
             </p>
             <p className="feedback-widget__hint">
               {status === 'authenticated' && session?.user?.handle
-                ? `Signed in as ${session.user.handle}. Your account details will be attached to this note for follow-up.`
+                ? submitAnonymously
+                  ? `Signed in as ${session.user.handle}, but this note will be stored anonymously. Save the private tracking link after submitting.`
+                  : `Signed in as ${session.user.handle}. This note will appear on your feedback updates page for follow-up.`
                 : 'If you are not signed in, this note is stored without account attribution.'}
             </p>
+
+            {status === 'authenticated' && session?.user?.handle ? (
+              <label className="feedback-widget__checkbox">
+                <input
+                  type="checkbox"
+                  checked={submitAnonymously}
+                  onChange={(event) => setSubmitAnonymously(event.target.checked)}
+                />
+                <span>Submit anonymously instead</span>
+              </label>
+            ) : null}
 
             <div className="feedback-widget__field">
               <span className="feedback-widget__label">Selected element</span>
@@ -340,13 +379,20 @@ export function FeedbackWidget() {
           </form>
 
           {submission.kind !== 'idle' ? (
-            <p
+            <div
               className={`feedback-widget__status feedback-widget__status--${submission.kind}`}
               role={submission.kind === 'error' ? 'alert' : 'status'}
               aria-live="polite"
             >
-              {submission.message}
-            </p>
+              <p>{submission.message}</p>
+              {submission.linkHref && submission.linkLabel ? (
+                <p>
+                  <Link href={submission.linkHref} className="text-link">
+                    {submission.linkLabel}
+                  </Link>
+                </p>
+              ) : null}
+            </div>
           ) : null}
         </div>
       ) : null}

@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { recordAnalyticsEvent } from '@/src/lib/analytics';
 import {
   createFeedbackEntry,
+  feedbackTrackingPath,
   normalizePagePath,
   readFeedbackEntries,
   requireFeedbackAdminHandle,
@@ -21,6 +22,10 @@ const FEEDBACK_ADMIN_LIMIT = 30;
 
 function asTrimmedString(value: unknown) {
   return typeof value === 'string' ? value.trim() : '';
+}
+
+function asBoolean(value: unknown) {
+  return value === true || value === 'true' || value === 'on' || value === 1 || value === '1';
 }
 
 export async function GET(request: NextRequest) {
@@ -77,6 +82,7 @@ export async function POST(request: NextRequest) {
   const pageTitle = asTrimmedString(record.page_title);
   const design = asTrimmedString(record.design) || 'gilded-manuscript';
   const timestamp = asTrimmedString(record.timestamp) || new Date().toISOString();
+  const submitAnonymously = asBoolean(record.submit_anonymously);
 
   if (!feedbackText) {
     return new Response('Feedback text is required', { status: 400 });
@@ -101,6 +107,7 @@ export async function POST(request: NextRequest) {
   }
 
   const session = await getServerSession(authOptions);
+  const shouldAttachSubmitter = Boolean(session?.user?.handle) && !submitAnonymously;
 
   const payload = {
     feedback_text: feedbackText,
@@ -113,8 +120,8 @@ export async function POST(request: NextRequest) {
     server_timestamp: new Date().toISOString(),
     version: getAppVersion(),
     git_commit: await resolveGitCommit(),
-    submitted_by_handle: session?.user?.handle?.trim() || null,
-    submitted_by_name: session?.user?.name?.trim() || null
+    submitted_by_handle: shouldAttachSubmitter ? session?.user?.handle?.trim() || null : null,
+    submitted_by_name: shouldAttachSubmitter ? session?.user?.name?.trim() || null : null
   };
 
   const created = await createFeedbackEntry(payload, null);
@@ -122,7 +129,14 @@ export async function POST(request: NextRequest) {
     eventType: 'feedback_submitted',
     pageType: 'other',
     path: payload.page_path ?? '/',
-    memberHandle: session?.user?.handle
+    memberHandle: shouldAttachSubmitter ? session?.user?.handle : undefined
   });
-  return NextResponse.json({ status: 'success', message: 'Feedback saved', id: created.id });
+  return NextResponse.json({
+    status: 'success',
+    message: 'Feedback saved',
+    id: created.id,
+    tracking_path: feedbackTrackingPath(created.tracking_token ?? ''),
+    dashboard_path: payload.submitted_by_handle ? '/feedback/updates' : null,
+    submitted_with_account: Boolean(payload.submitted_by_handle)
+  });
 }
