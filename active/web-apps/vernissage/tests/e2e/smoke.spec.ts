@@ -8,8 +8,25 @@ test('homepage renders the salon shell and navigates to an artist page', async (
   await expect(page.getByRole('link', { name: 'Write a review' })).toBeVisible();
   await expect(page.getByText('Current exhibitions')).toBeVisible();
   await expect(page.getByText(/Version\s+(0\.1\.0|20\d{6,}|development|dev)/)).toBeVisible();
+  await expect(page.getByRole('link', { name: 'View Stacks of Wheat (End of Summer)' })).toHaveAttribute('href', '/artworks/stacks-of-wheat-end-of-summer');
+  await expect(page.getByRole('link', { name: 'Claude Monet' }).first()).toHaveAttribute('href', '/artists/claude-monet');
+  await expect(page.locator('.artist-row').filter({ has: page.getByRole('link', { name: 'Claude Monet' }) }).getByRole('link', { name: 'View Claude Monet' })).toHaveAttribute('href', '/artists/claude-monet');
+  await expect(page.getByRole('link', { name: 'Visit the full writing feed' })).toHaveAttribute('href', '/feed');
 
-  await page.locator('a[href="/artists/claude-monet"]').click();
+  const recentWritingLinks = page.locator('.ordered-mini-list a');
+  if (await recentWritingLinks.count()) {
+    await expect(recentWritingLinks.first()).toHaveAttribute('href', /\/((artworks|artists|exhibitions)\/|feed$)/);
+  } else {
+    await expect(page.getByText('No member reviews have been published yet. The first real response will appear here once someone writes it.')).toBeVisible();
+  }
+
+  await page.getByRole('link', { name: 'View Stacks of Wheat (End of Summer)' }).click();
+  await expect(page).toHaveURL(/\/artworks\/stacks-of-wheat-end-of-summer$/);
+  await expect(page.getByRole('heading', { level: 1, name: 'Stacks of Wheat (End of Summer)' })).toBeVisible();
+
+  await page.goto('/', { waitUntil: 'domcontentloaded' });
+
+  await page.getByRole('link', { name: 'Claude Monet' }).first().click();
 
   await expect(page).toHaveURL(/\/artists\/claude-monet$/);
   await expect(page.getByRole('heading', { level: 1, name: 'Claude Monet' })).toBeVisible();

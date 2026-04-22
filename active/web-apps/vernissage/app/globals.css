@@ -168,7 +168,12 @@ img {
 .feedback-widget__clear:focus-visible,
 .feedback-widget__close:focus-visible,
 .feedback-widget__textarea:focus-visible,
-.text-link:focus-visible {
+.text-link:focus-visible,
+.hero-artwork__link:focus-visible,
+.hero-meta-link:focus-visible,
+.artist-row__thumb-link:focus-visible,
+.artist-row__name-link:focus-visible,
+.home-review-link:focus-visible {
   outline: 3px solid rgba(185, 139, 27, 0.9);
   outline-offset: 3px;
 }
@@ -504,6 +509,11 @@ img {
   gap: 1rem;
 }
 
+.hero-artwork__link {
+  display: block;
+  border-radius: var(--radius-lg);
+}
+
 .artwork-figure {
   margin: 0;
 }
@@ -572,6 +582,18 @@ img {
   letter-spacing: 0.1em;
   text-transform: uppercase;
   font-size: 0.74rem;
+}
+
+.hero-meta-link,
+.artist-row__name-link,
+.home-review-link {
+  transition: color 180ms ease;
+}
+
+.hero-meta-link:hover,
+.artist-row__name-link:hover,
+.home-review-link:hover {
+  color: var(--emerald-soft);
 }
 
 .rating-stars {
@@ -765,6 +787,10 @@ a.gilded-card:hover {
   box-shadow: 0 0 0 2px rgba(123, 88, 0, 0.18), 0 0 0 4px rgba(252, 250, 234, 0.5);
 }
 
+.artist-row__thumb-link {
+  display: block;
+}
+
 .artist-row__thumb img {
   width: 100%;
   height: 100%;
@@ -780,6 +806,10 @@ a.gilded-card:hover {
 .artist-row__info strong {
   display: block;
   font-size: 0.92rem;
+}
+
+.artist-row__name-link {
+  display: inline-block;
 }
 
 .artist-row__info p {
@@ -1032,6 +1062,10 @@ a.gilded-card:hover {
   text-transform: uppercase;
   font-size: 0.74rem;
   color: var(--emerald-soft);
+}
+
+.home-review-link {
+  font-weight: 600;
 }
 
 @media (max-width: 1023px) {

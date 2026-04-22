@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { ArtworkFigure } from '@/src/components/ArtworkFigure';
 import { BotanicalDivider } from '@/src/components/BotanicalDivider';
 import { CatalogRequestCard } from '@/src/components/CatalogRequestCard';
@@ -29,6 +30,7 @@ export default async function HomePage() {
   const featuredArtworks = getFeaturedArtworks();
   const heroArtwork = featuredArtworks[0];
   const heroArtist = getArtist(heroArtwork.artistSlug);
+  const heroArtworkHref = `/artworks/${heroArtwork.slug}`;
   const heroImageUrl = getArtworkThumbnail(heroArtwork, 700);
   const mosaicArtworks = getMosaicArtworks([heroArtwork.slug]);
   const featuredExhibitions = getFeaturedExhibitions();
@@ -58,10 +60,20 @@ export default async function HomePage() {
             </div>
           </div>
           <div className="hero-artwork">
-            <ArtworkFigure artwork={heroArtwork} src={heroImageUrl} priority variant="immersive" />
+            <Link href={heroArtworkHref} className="hero-artwork__link" aria-label={`View ${heroArtwork.title}`}>
+              <ArtworkFigure artwork={heroArtwork} src={heroImageUrl} priority variant="immersive" />
+            </Link>
             <div className="stat-ribbon">
-              <p>{heroArtist?.name}</p>
-              <span>{heroArtwork.year} · {heroArtwork.medium}</span>
+              {heroArtist ? (
+                <Link href={`/artists/${heroArtist.slug}`} className="hero-meta-link">
+                  {heroArtist.name}
+                </Link>
+              ) : (
+                <p>Artist forthcoming</p>
+              )}
+              <Link href={heroArtworkHref} className="hero-meta-link">
+                {heroArtwork.year} · {heroArtwork.medium}
+              </Link>
             </div>
           </div>
         </div>
@@ -100,19 +112,24 @@ export default async function HomePage() {
           <ul className="plain-list artist-list">
             {featuredArtists.map((artist) => {
               const repArtwork = getRepresentativeArtwork(artist.slug);
+              const artistHref = `/artists/${artist.slug}`;
               return (
                 <li key={artist.slug} className="artist-row">
                   {repArtwork && (
-                    <span className="artist-row__thumb">
+                    <Link href={artistHref} className="artist-row__thumb artist-row__thumb-link" aria-label={`View ${artist.name}`}>
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img src={getArtworkThumbnail(repArtwork, 120)!} alt={`${repArtwork.title} by ${artist.name}`} width={48} height={48} />
-                    </span>
+                    </Link>
                   )}
                   <div className="artist-row__info">
-                    <strong>{artist.name}</strong>
+                    <strong>
+                      <Link href={artistHref} className="artist-row__name-link">
+                        {artist.name}
+                      </Link>
+                    </strong>
                     <p>{artist.portraitLabel}</p>
                   </div>
-                  <EnamelButton href={`/artists/${artist.slug}`} variant="secondary">
+                  <EnamelButton href={artistHref} variant="secondary">
                     View
                   </EnamelButton>
                 </li>
@@ -121,16 +138,23 @@ export default async function HomePage() {
           </ul>
         </GildedCard>
 
-        <GildedCard title="Community writing" eyebrow="Published activity" href="/feed">
+        <GildedCard title="Community writing" eyebrow="Published activity">
           {recentReviews.length ? (
             <ol className="ordered-mini-list">
               {recentReviews.slice(0, 3).map((review: (typeof recentReviews)[number]) => (
-                <li key={review.slug}>{review.title}</li>
+                <li key={review.slug}>
+                  <Link href={getReviewTargetHref(review)} className="home-review-link">
+                    {review.title}
+                  </Link>
+                </li>
               ))}
             </ol>
           ) : (
             <p>No member reviews have been published yet. The first real response will appear here once someone writes it.</p>
           )}
+          <Link href="/feed" className="text-link">
+            Visit the full writing feed
+          </Link>
         </GildedCard>
 
         <CatalogRequestCard
