@@ -440,6 +440,12 @@ img {
   transform: translateY(-1px);
 }
 
+.enamel-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
 .enamel-button--primary {
   color: var(--parchment);
   background: linear-gradient(180deg, var(--emerald-soft), var(--emerald));
