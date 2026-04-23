@@ -11,7 +11,7 @@ type OpenFeedbackButtonProps = {
 export function OpenFeedbackButton({
   children,
   variant = 'primary',
-  initialText = "I'd love to see an artist or artwork added to the Vernissage catalog."
+  initialText = 'I found a gap in the Vernissage catalog and want to point it out.'
 }: OpenFeedbackButtonProps) {
   return (
     <a

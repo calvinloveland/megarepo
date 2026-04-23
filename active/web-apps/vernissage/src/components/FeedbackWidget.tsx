@@ -55,7 +55,7 @@ export function FeedbackWidget() {
   const [feedbackText, setFeedbackText] = useState('');
   const [submitAnonymously, setSubmitAnonymously] = useState(false);
   const [selectedElement, setSelectedElement] = useState('');
-  const [selectionLabel, setSelectionLabel] = useState('Click to select element');
+  const [selectionLabel, setSelectionLabel] = useState('Optional: point to the exact spot');
   const [submission, setSubmission] = useState<SubmissionState>({ kind: 'idle', message: '' });
   const rootRef = useRef<HTMLDivElement | null>(null);
   const toggleButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -68,7 +68,7 @@ export function FeedbackWidget() {
     setSelecting(false);
     setSubmission({ kind: 'idle', message: '' });
     setSelectedElement('');
-    setSelectionLabel('Click to select element');
+    setSelectionLabel('Optional: point to the exact spot');
     setSubmitAnonymously(false);
     if (initialText) {
       setFeedbackText((current) => current.trim() || initialText);
@@ -243,13 +243,13 @@ export function FeedbackWidget() {
       };
       setFeedbackText('');
       setSelectedElement('');
-      setSelectionLabel('Click to select element');
+      setSelectionLabel('Optional: point to the exact spot');
       setSubmitAnonymously(false);
       setSubmission({
         kind: 'success',
         message: result.submitted_with_account
-          ? 'Feedback submitted. You can track it from your feedback updates page.'
-          : 'Feedback submitted. Save your private tracking link so you can follow progress later.',
+          ? 'Feedback received. Watch your feedback updates page for status changes, assignment, and follow-up notes.'
+          : 'Feedback received. Save this private tracking link now. It is the only way to check status later for an anonymous note.',
         linkHref: result.submitted_with_account ? result.dashboard_path ?? result.tracking_path : result.tracking_path,
         linkLabel: result.submitted_with_account ? 'Open feedback updates' : 'Open private tracking link'
       });
@@ -263,27 +263,27 @@ export function FeedbackWidget() {
 
   function clearSelection() {
     setSelectedElement('');
-    setSelectionLabel('Click to select element');
+    setSelectionLabel('Optional: point to the exact spot');
     setSelecting(false);
   }
 
   return (
     <div ref={rootRef} className="feedback-widget" id="vernissage-feedback-request">
-        <button
-          ref={toggleButtonRef}
-          type="button"
-          className="feedback-widget__toggle"
-          onClick={() => {
+      <button
+        ref={toggleButtonRef}
+        type="button"
+        className="feedback-widget__toggle"
+        onClick={() => {
           setOpen((current) => !current);
           setSelecting(false);
           setSubmission({ kind: 'idle', message: '' });
-          }}
-          aria-expanded={open}
-          aria-controls="vernissage-feedback-panel"
-          aria-haspopup="dialog"
-        >
-          <span className="feedback-widget__crest">✶</span>
-          <span className="feedback-widget__toggle-label">Feedback</span>
+        }}
+        aria-expanded={open}
+        aria-controls="vernissage-feedback-panel"
+        aria-haspopup="dialog"
+      >
+        <span className="feedback-widget__crest">✶</span>
+        <span className="feedback-widget__toggle-label">Feedback</span>
       </button>
 
       {open ? (
@@ -297,13 +297,14 @@ export function FeedbackWidget() {
         >
           <div className="feedback-widget__header">
             <div>
-              <p className="eyebrow">House notes</p>
-              <h2 id="vernissage-feedback-title">Send feedback</h2>
+              <p className="eyebrow">Help shape Vernissage</p>
+              <h2 id="vernissage-feedback-title">Send a note</h2>
               <p id="vernissage-feedback-description" className="feedback-widget__hint">
-                 Share bugs, rough edges, catalog requests, or launch notes. Press Escape to close this panel.
-               </p>
-             </div>
-             <button type="button" className="feedback-widget__close" onClick={() => setOpen(false)}>
+                Flag something confusing, missing, or worth adding. If you point to a specific page element, we keep
+                that context with the note. Press Escape to close this panel.
+              </p>
+            </div>
+            <button type="button" className="feedback-widget__close" onClick={() => setOpen(false)}>
               Close
             </button>
           </div>
@@ -316,7 +317,7 @@ export function FeedbackWidget() {
                 rows={5}
                 value={feedbackText}
                 onChange={(event) => setFeedbackText(event.target.value)}
-                placeholder="Describe the issue, suggestion, or moment that felt awkward."
+                placeholder="What happened, where did it happen, and what should change?"
                 className="feedback-widget__textarea"
                 maxLength={5000}
                 aria-describedby="feedback-text-hint"
@@ -324,14 +325,14 @@ export function FeedbackWidget() {
               />
             </label>
             <p id="feedback-text-hint" className="feedback-widget__hint">
-              Up to 5000 characters.
+              Say what you expected, what you got instead, and why it matters.
             </p>
             <p className="feedback-widget__hint">
               {status === 'authenticated' && session?.user?.handle
                 ? submitAnonymously
-                  ? `Signed in as ${session.user.handle}, but this note will be stored anonymously. Save the private tracking link after submitting.`
-                  : `Signed in as ${session.user.handle}. This note will appear on your feedback updates page for follow-up.`
-                : 'If you are not signed in, this note is stored without account attribution.'}
+                  ? `Signed in as ${session.user.handle}, but this note will be stripped of your handle before it reaches the queue. Save the private tracking link after you send it if you want to check back later.`
+                  : `Signed in as ${session.user.handle}. This note will appear on your feedback updates page, where you can watch status changes and team notes.`
+                : 'Not signed in? That is fine. Your note goes in without your handle, and the private tracking link after submission is the only way back to it.'}
             </p>
 
             {status === 'authenticated' && session?.user?.handle ? (
@@ -341,7 +342,7 @@ export function FeedbackWidget() {
                   checked={submitAnonymously}
                   onChange={(event) => setSubmitAnonymously(event.target.checked)}
                 />
-                <span>Submit anonymously instead</span>
+                <span>Send this note anonymously instead</span>
               </label>
             ) : null}
 
@@ -355,7 +356,7 @@ export function FeedbackWidget() {
                   aria-pressed={selecting}
                   aria-describedby="feedback-selection-hint"
                 >
-                  {selecting ? 'Selecting… click any page element' : selectionLabel}
+                  {selecting ? 'Selecting… click the part you mean' : selectionLabel}
                 </button>
                 {selectedElement ? (
                   <button type="button" className="feedback-widget__clear" onClick={clearSelection}>
@@ -364,13 +365,13 @@ export function FeedbackWidget() {
                 ) : null}
               </div>
               <p id="feedback-selection-hint" className="feedback-widget__hint">
-                Choose a specific heading, card, or button if the feedback is location-specific.
+                Optional, but helpful when the note is about a specific heading, card, or button.
               </p>
             </div>
 
             <div className="feedback-widget__actions">
               <button type="submit" className="feedback-widget__submit" disabled={!canSubmit}>
-                Submit
+                Send note
               </button>
               <button type="button" className="feedback-widget__cancel" onClick={() => setOpen(false)}>
                 Cancel

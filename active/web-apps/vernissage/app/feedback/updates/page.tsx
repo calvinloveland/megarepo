@@ -36,6 +36,13 @@ function getFeedbackTitle(entry: FeedbackEntry) {
   return entry.page_title?.trim() || entry.page_path?.trim() || `Feedback ${entry.id}`;
 }
 
+const statusDescriptions: Record<(typeof feedbackStatuses)[number], string> = {
+  open: 'We have the note and it is waiting to be picked up.',
+  planned: 'The request is accepted and work is being scoped.',
+  in_progress: 'Someone is actively working on it or preparing the fix.',
+  shipped: 'The change is live, with a note or reference left behind.'
+};
+
 function FeedbackEntryCard({
   entry,
   returnTo,
@@ -74,7 +81,7 @@ function FeedbackEntryCard({
             </dd>
           </div>
           <div>
-            <dt>Responsible</dt>
+            <dt>Working on it</dt>
             <dd>
               {entry.assigned_to_handle ? (
                 <Link href={`/members/${entry.assigned_to_handle}`} className="text-link">
@@ -93,7 +100,7 @@ function FeedbackEntryCard({
           </div>
           {entry.addressed_by_commit ? (
             <div>
-              <dt>Fix commit</dt>
+              <dt>Fix reference</dt>
               <dd>{entry.addressed_by_commit}</dd>
             </div>
           ) : null}
@@ -107,14 +114,14 @@ function FeedbackEntryCard({
 
         {entry.status_note ? (
           <div className="feedback-updates__note">
-            <p className="eyebrow">Latest note</p>
+            <p className="eyebrow">Latest update</p>
             <p>{entry.status_note}</p>
           </div>
         ) : null}
 
         {entry.tracking_token ? (
           <p className="meta-note">
-            Private tracking link:{' '}
+            This private link is unique to this note. Anyone with it can see the status, so keep it somewhere you trust:{' '}
             <Link href={feedbackTrackingPath(entry.tracking_token)} className="text-link">
               {feedbackTrackingPath(entry.tracking_token)}
             </Link>
@@ -137,12 +144,12 @@ function FeedbackEntryCard({
                 </select>
               </label>
               <label className="ornate-field">
-                <span className="ornate-field__label">Responsible handle</span>
+                <span className="ornate-field__label">Assigned to</span>
                 <input
                   name="assigned_to_handle"
                   className="ornate-field__control"
                   defaultValue={entry.assigned_to_handle ?? ''}
-                  placeholder="curatorbot"
+                  placeholder="alex"
                   maxLength={80}
                 />
               </label>
@@ -150,25 +157,25 @@ function FeedbackEntryCard({
 
             <div className="two-up-grid two-up-grid--tight">
               <label className="ornate-field">
-                <span className="ornate-field__label">Fix commit</span>
+                <span className="ornate-field__label">Fix reference</span>
                 <input
                   name="addressed_by_commit"
                   className="ornate-field__control"
                   defaultValue={entry.addressed_by_commit ?? ''}
-                  placeholder="fc9757aa"
+                  placeholder="PR #583"
                   maxLength={200}
                 />
               </label>
             </div>
 
             <label className="ornate-field">
-              <span className="ornate-field__label">Progress note</span>
+              <span className="ornate-field__label">Update</span>
               <textarea
                 name="status_note"
                 rows={4}
                 className="ornate-field__control ornate-field__control--textarea"
                 defaultValue={entry.status_note ?? ''}
-                placeholder="What is happening, what is blocked, or what shipped?"
+                placeholder="Assigned, blocked, waiting on content, or shipped with a link to the live change."
                 maxLength={1000}
               />
             </label>
@@ -212,11 +219,11 @@ export default async function FeedbackUpdatesPage({
   return (
     <div className="page-stack">
       <section className="hero-shell hero-shell--compact">
-        <p className="eyebrow">Feedback updates</p>
-        <h1>Track requests, progress, and responsibility</h1>
+        <p className="eyebrow">Feedback follow-up</p>
+        <h1>See what happened after you sent a note</h1>
         <p>
-          Signed-in members can follow the progress of their own notes here. Anonymous notes stay trackable through the private
-          link returned at submission time.
+          Signed-in members can follow every note tied to their handle here. Anonymous notes stay private and trackable
+          through the one-off link returned at submission time.
         </p>
       </section>
 
@@ -224,10 +231,31 @@ export default async function FeedbackUpdatesPage({
 
       {updated ? <p className="meta-note">Saved feedback update for {updated}.</p> : null}
 
+      <GildedCard title="How to read this page" eyebrow="Tracking guide">
+        <p>
+          <strong>Signed in:</strong> notes submitted under your handle appear automatically below.
+        </p>
+        <p>
+          <strong>Anonymous:</strong> only the private tracking link can reopen a note later.
+        </p>
+        <p>
+          <strong>Status changes:</strong> the first visible sign of movement is usually a new status, an assignee, or
+          a short update from the team.
+        </p>
+      </GildedCard>
+
+      <GildedCard title="What the status means" eyebrow="Status guide">
+        {feedbackStatuses.map((status) => (
+          <p key={status}>
+            <strong>{formatFeedbackStatusLabel(status)}.</strong> {statusDescriptions[status]}
+          </p>
+        ))}
+      </GildedCard>
+
       {token ? (
         tokenEntry ? (
           <section className="page-stack page-stack--narrow">
-            <p className="eyebrow">Private tracking link</p>
+            <p className="eyebrow">Private tracking view</p>
             <FeedbackEntryCard entry={tokenEntry} returnTo={returnTo} editable={isAdmin} />
           </section>
         ) : (
@@ -239,24 +267,24 @@ export default async function FeedbackUpdatesPage({
 
       {viewerHandle ? (
         <section className="page-stack page-stack--narrow">
-          <p className="eyebrow">Your feedback</p>
+          <p className="eyebrow">Notes tied to your handle</p>
           {visibleOwnEntries.length ? (
             visibleOwnEntries.map((entry) => (
               <FeedbackEntryCard key={entry.id} entry={entry} returnTo={returnTo} editable={false} />
             ))
           ) : (
-            <GildedCard title="No attributed feedback yet" eyebrow="Your queue">
-              <p>Submit feedback while signed in to see it collected here automatically.</p>
+            <GildedCard title="No signed notes yet" eyebrow="Your queue">
+              <p>Submit feedback while signed in and it will collect here automatically, along with any future status notes.</p>
             </GildedCard>
           )}
         </section>
       ) : null}
 
       {!viewerHandle && !token ? (
-        <GildedCard title="Bring a tracking link or sign in" eyebrow="How tracking works">
+        <GildedCard title="Bring a private link or sign in" eyebrow="How tracking works">
           <p>
-            Anonymous feedback can be tracked with the private link returned after submission. Signed-in members can come back here to
-            see every non-anonymous note tied to their handle.
+            Have a private link from an anonymous submission? Open it here to see the latest status and team notes.
+            Signed-in members can also come back here to see every note tied to their handle in one place.
           </p>
         </GildedCard>
       ) : null}
@@ -265,7 +293,7 @@ export default async function FeedbackUpdatesPage({
         <>
           <BotanicalDivider label="Admin board" />
           <section className="page-stack page-stack--narrow">
-            <p className="eyebrow">Open work</p>
+            <p className="eyebrow">Still open</p>
             {openEntries.length ? (
               openEntries.map((entry) => (
                 <FeedbackEntryCard key={entry.id} entry={entry} returnTo={returnTo} editable />
@@ -278,7 +306,7 @@ export default async function FeedbackUpdatesPage({
           </section>
 
           <section className="page-stack page-stack--narrow">
-            <p className="eyebrow">Shipped feedback</p>
+            <p className="eyebrow">Shipped work</p>
             {shippedEntries.length ? (
               shippedEntries.map((entry) => (
                 <FeedbackEntryCard key={entry.id} entry={entry} returnTo={returnTo} editable />

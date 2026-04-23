@@ -46,7 +46,7 @@ export function ArtistRequestForm() {
       setPending(false);
       setSubmission({
         kind: 'error',
-        message: 'Add the artist name and a quick note on why they belong in the catalog.'
+        message: 'Add the artist name and a quick note on why Vernissage should make room for them.'
       });
       return;
     }
@@ -86,8 +86,8 @@ export function ArtistRequestForm() {
       setSubmission({
         kind: 'success',
         message: result.submitted_with_account
-          ? 'Artist request sent. You can follow it from your feedback updates page.'
-          : 'Artist request sent. Save the private tracking link so you can check progress later.',
+          ? 'Request received. We will use it to judge catalog fit and priority, and you can follow the status from your feedback updates page.'
+          : 'Request received. Save this private tracking link now. It is the only way to follow an anonymous request later.',
         linkHref: result.submitted_with_account ? result.dashboard_path ?? result.tracking_path : result.tracking_path,
         linkLabel: result.submitted_with_account ? 'Open feedback updates' : 'Open private tracking link'
       });
@@ -115,45 +115,47 @@ export function ArtistRequestForm() {
           />
         </label>
         <label className="ornate-field">
-          <span className="ornate-field__label">Movement or scene</span>
+          <span className="ornate-field__label">Movement, scene, or lineage</span>
           <input
             name="movement"
             className="ornate-field__control"
             placeholder="Symbolism, early abstraction, ukiyo-e..."
             maxLength={160}
           />
+          <span className="ornate-field__hint">Optional, but it helps place the request inside the catalog.</span>
         </label>
       </div>
 
       <label className="ornate-field">
-        <span className="ornate-field__label">Works to start with</span>
+        <span className="ornate-field__label">A few works to start with</span>
         <input
           name="starterWorks"
           className="ornate-field__control"
           placeholder="The Ten Largest, The Swan, Altarpieces..."
           maxLength={240}
         />
-        <span className="ornate-field__hint">Optional, but helpful if there is a clear entry point.</span>
+        <span className="ornate-field__hint">Optional, but named entry points help us judge whether the first artist page can be strong.</span>
       </label>
 
       <label className="ornate-field">
-        <span className="ornate-field__label">Why this artist belongs here</span>
+        <span className="ornate-field__label">Why Vernissage should make room for this artist</span>
         <textarea
           name="rationale"
           rows={5}
           className="ornate-field__control ornate-field__control--textarea"
-          placeholder="Tell us why this artist matters, what conversations they open up, or what works people will want to review."
+          placeholder="What role do they play, what gap would they fill, and what works or conversations would give members something real to review?"
           maxLength={5000}
           required
         />
+        <span className="ornate-field__hint">The sharper the case, the easier it is to prioritize.</span>
       </label>
 
       <p className="feedback-widget__hint">
         {status === 'authenticated' && session?.user?.handle
           ? submitAnonymously
-            ? `Signed in as ${session.user.handle}, but this request will be stored anonymously.`
-            : `Signed in as ${session.user.handle}. This request will also appear on your feedback updates page.`
-          : 'Not signed in? The request is still allowed, but you will need the private tracking link to follow progress.'}
+            ? `Signed in as ${session.user.handle}, but this request will be stripped of your handle before it reaches the queue. Save the private tracking link if you want to check back later.`
+            : `Signed in as ${session.user.handle}. This request will also appear on your feedback updates page, along with any status notes we leave behind.`
+          : 'Not signed in? That is fine. The request is still allowed, but the private tracking link is the only way to follow progress later.'}
       </p>
 
       {status === 'authenticated' && session?.user?.handle ? (
@@ -163,13 +165,13 @@ export function ArtistRequestForm() {
             checked={submitAnonymously}
             onChange={(event) => setSubmitAnonymously(event.target.checked)}
           />
-          <span>Submit anonymously instead</span>
+          <span>Send this request anonymously instead</span>
         </label>
       ) : null}
 
       <div className="button-row">
         <button type="submit" className="enamel-button enamel-button--primary" disabled={pending}>
-          {pending ? 'Sending request…' : 'Suggest this artist'}
+          {pending ? 'Sending request…' : 'Send request'}
         </button>
         <EnamelButton href="/search" variant="secondary">
           Back to search
