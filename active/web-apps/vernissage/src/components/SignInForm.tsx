@@ -35,7 +35,7 @@ export function SignInForm({ callbackUrl, databaseReady, initialError }: SignInF
 
     if (!result || result.error) {
       setPending(false);
-      setErrorMessage('The handle and password did not match a Vernissage account.');
+      setErrorMessage('We could not match that handle or password. Check for typos and try again.');
       return;
     }
 
@@ -49,10 +49,21 @@ export function SignInForm({ callbackUrl, databaseReady, initialError }: SignInF
 
   return (
     <form className="ornate-form ornate-form--stacked" onSubmit={handleSubmit}>
-      <OrnateInput label="Handle" name="identifier" placeholder="atelier-name" hint="Older launch accounts can still use their email if needed." />
-      <OrnateInput label="Password" name="password" type="password" placeholder="Your Vernissage password" />
+      <OrnateInput
+        label="Handle"
+        name="identifier"
+        placeholder="atelier-name"
+        hint="Use the handle on your reviews. If you joined early with an email, that still works too."
+      />
+      <OrnateInput
+        label="Password"
+        name="password"
+        type="password"
+        placeholder="Your Vernissage password"
+        hint="Use the password you set when you joined. If it keeps failing, double-check the handle above or try your email for older accounts."
+      />
       {errorMessage ? <p className="meta-note">{errorMessage}</p> : null}
-      {!databaseReady ? <p className="meta-note">Account sign-in will become available once the shared application database is configured.</p> : null}
+      {!databaseReady ? <p className="meta-note">Sign-in is taking a brief pause right now. Please try again in a little while.</p> : null}
       <div className="button-row">
         <EnamelButton type="submit">{pending ? 'Signing in…' : 'Sign in'}</EnamelButton>
         <EnamelButton href="/join" variant="secondary">

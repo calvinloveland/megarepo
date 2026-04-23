@@ -11,19 +11,19 @@ import { isDatabaseConfigured } from '@/src/lib/prisma';
 
 function errorMessageFor(code?: string) {
   if (code === 'database-unavailable') {
-    return 'Account creation is blocked until the shared application database is configured.';
+    return 'New accounts are taking a brief pause right now. Please try again in a little while.';
   }
 
   if (code === 'handle-unavailable') {
-    return 'That handle is unavailable. Try another signature for the salon.';
+    return 'That handle is already spoken for. Try another name for your reviews.';
   }
 
   if (code === 'invalid') {
-    return `Choose a valid handle and a password with at least ${MIN_PASSWORD_LENGTH} characters.`;
+    return `Choose a handle with 3-32 lowercase letters, numbers, or hyphens, and a password with at least ${MIN_PASSWORD_LENGTH} characters.`;
   }
 
   if (code === 'rate-limited') {
-    return 'Too many signup attempts came from this address. Please wait a little before trying again.';
+    return 'You have tried a few times already. Please wait a little before trying again.';
   }
 
   return '';
@@ -48,14 +48,14 @@ export default async function JoinPage({
       <section className="hero-shell hero-shell--compact">
         <p className="eyebrow">New member</p>
         <h1>Take your place in the salon</h1>
-        <p>Start with a handle and password. Nothing else is required to get inside the salon.</p>
+        <p>Claim your handle, set a password, and start publishing reviews and lists in a minute.</p>
       </section>
 
       <BotanicalDivider label="Create account" />
 
       {errorCode ? <p className="meta-note">{errorMessageFor(errorCode)}</p> : null}
       {!isDatabaseConfigured() ? (
-        <p className="meta-note">Account creation is ready in code, but publishing is paused until the shared application database is connected.</p>
+        <p className="meta-note">New accounts are on a brief pause right now. If you already belong here, you can still sign in.</p>
       ) : null}
 
       <form className="ornate-form ornate-form--stacked" method="post" action="/api/auth/register">
@@ -65,9 +65,15 @@ export default async function JoinPage({
             label="Handle"
             name="handle"
             placeholder="atelier-name"
-            hint="Use 3-32 lowercase letters, numbers, or hyphens."
+            hint="This is the name people will see on your reviews. Use 3-32 lowercase letters, numbers, or hyphens."
           />
-          <OrnateInput label="Password" name="password" type="password" placeholder={`At least ${MIN_PASSWORD_LENGTH} characters`} />
+          <OrnateInput
+            label="Password"
+            name="password"
+            type="password"
+            placeholder={`At least ${MIN_PASSWORD_LENGTH} characters`}
+            hint={`Use at least ${MIN_PASSWORD_LENGTH} characters so your account is easy to keep and hard to guess.`}
+          />
         </div>
         <div className="button-row">
           <EnamelButton type="submit">Create account</EnamelButton>
@@ -75,7 +81,7 @@ export default async function JoinPage({
             Already have an account?
           </EnamelButton>
         </div>
-        <p className="meta-note">No email confirmation loop, display-name prompt, location survey, or bio essay at signup.</p>
+        <p className="meta-note">Start writing first. You can shape the rest of your profile after you are inside.</p>
       </form>
 
       <p className="meta-note">

@@ -10,15 +10,15 @@ import { isDatabaseConfigured } from '@/src/lib/prisma';
 
 function errorMessageFor(code?: string) {
   if (code === 'CredentialsSignin') {
-    return 'That sign-in attempt did not match a saved account.';
+    return 'We could not match that handle or password. Check for typos and try again.';
   }
 
   if (code === 'database-unavailable') {
-    return 'The shared account database is not configured yet, so sign-in is temporarily unavailable.';
+    return 'Sign-in is taking a brief pause right now. Please try again in a little while.';
   }
 
   if (code === 'rate-limited') {
-    return 'Too many sign-in attempts came from this address. Please wait a little before trying again.';
+    return 'You have tried a few times already. Please wait a little before trying again.';
   }
 
   return '';
@@ -43,16 +43,16 @@ export default async function SignInPage({
   return (
     <div className="page-stack page-stack--narrow">
       <section className="hero-shell hero-shell--compact">
-        <p className="eyebrow">House access</p>
+        <p className="eyebrow">Welcome back</p>
         <h1>Return to the salon</h1>
-        <p>Sign in with the account you use to publish criticism, collect lists, and leave a public trace in the gallery ledger.</p>
+        <p>Sign in to pick up your latest criticism, saved lists, and the conversations waiting around your desk.</p>
       </section>
 
       <BotanicalDivider label="Sign in" />
 
       {registered ? (
         <p className="meta-note">
-          Your account has been created. Sign in{identifier ? ` as ${identifier}` : ''} to start publishing.
+          Your account is ready. Sign in{identifier ? ` as ${identifier}` : ''} and start your first review.
         </p>
       ) : null}
 
