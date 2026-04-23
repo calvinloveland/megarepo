@@ -1,4 +1,5 @@
 import Link from 'next/link';
+
 import { BotanicalDivider } from '@/src/components/BotanicalDivider';
 import { GildedCard } from '@/src/components/GildedCard';
 import { formatMemberAttribution, getReviewTargetHref, getReviewThumbnail } from '@/src/lib/catalog';
@@ -6,16 +7,33 @@ import { getPersistedRecentReviews } from '@/src/lib/live-data';
 
 export const dynamic = 'force-dynamic';
 
+function getFeedReviewLabel(targetType: string) {
+  if (targetType === 'artist') {
+    return 'Artist review';
+  }
+
+  if (targetType === 'exhibition') {
+    return 'Exhibition review';
+  }
+
+  if (targetType === 'visit') {
+    return 'Museum visit';
+  }
+
+  return 'Artwork review';
+}
+
 export default async function FeedPage() {
   const reviews = await getPersistedRecentReviews(24);
 
   return (
     <div className="page-stack page-stack--narrow">
       <section className="hero-shell hero-shell--compact">
-        <p className="eyebrow">Community activity</p>
-        <h1>Recent writing</h1>
+        <p className="eyebrow">Member reviews & responses</p>
+        <h1>What Vernissage members are writing</h1>
         <p>
-          Only published member reviews appear here now. There is no seeded notebook or fake launch activity left in the feed.
+          Every piece here is written by a real member of Vernissage. Follow the newest arguments, discoveries, and
+          reactions as the collection gets read in public.
         </p>
       </section>
 
@@ -30,20 +48,20 @@ export default async function FeedPage() {
               <GildedCard
                 key={review.slug}
                 title={review.title}
-                eyebrow={formatMemberAttribution(review.memberHandle, review.publishedOn)}
+                eyebrow={`${formatMemberAttribution(review.memberHandle, review.publishedOn)} · ${getFeedReviewLabel(review.targetType)}`}
                 href={href}
                 thumbnail={thumb ? { src: thumb.src, alt: thumb.alt, width: 400, height: 200 } : undefined}
               >
                 <p>{review.excerpt}</p>
-                <p className="meta-note">Open the linked artwork, artist, or exhibition page to read this published response in context.</p>
+                <p className="meta-note">Open the linked page to read the full response in context and follow the conversation there.</p>
               </GildedCard>
             );
           })
         ) : (
-          <GildedCard title="No published reviews yet" eyebrow="A quiet feed">
-            <p>There is no seeded notebook anymore. This page stays empty until a real member publishes criticism.</p>
+          <GildedCard title="Be the first voice" eyebrow="Empty, not abandoned">
+            <p>Vernissage starts with real people writing about art they care about. Your first published review helps set the tone.</p>
             <Link href="/reviews/new" className="text-link">
-              Go to the review composer
+              Publish your first review
             </Link>
           </GildedCard>
         )}
