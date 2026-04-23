@@ -5,15 +5,15 @@ export default function NewArtistRequestPage() {
   return (
     <div className="page-stack page-stack--narrow">
       <section className="hero-shell hero-shell--compact">
-        <p className="eyebrow">Catalog expansion</p>
-        <h1>Suggest an artist for Vernissage</h1>
+        <p className="eyebrow">Shape what gets catalogued</p>
+        <h1>Nominate an artist Vernissage should focus on</h1>
         <p>
-          Use this request form when the painter, printmaker, photographer, or sculptor you want to
-          discuss is not in the room yet. We route these notes straight into the launch feedback queue.
+          If an artist you want to write about is still missing, tell us why they matter here and what conversations
+          they open. We use requests like this to judge catalog fit, starting points, and where the biggest gaps still are.
         </p>
       </section>
 
-      <BotanicalDivider label="Artist request" />
+      <BotanicalDivider label="Make the case" />
 
       <ArtistRequestForm />
     </div>

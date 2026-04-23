@@ -47,37 +47,46 @@ export default async function SearchPage({
   return (
     <div className="page-stack">
       <section className="hero-shell hero-shell--compact">
-        <p className="eyebrow">Launch catalog</p>
-        <h1>Search the current curated collection</h1>
+        <p className="eyebrow">Explore what we&apos;ve catalogued</p>
+        <h1>Search by movement, medium, or keyword</h1>
         <p>
-          Filter the artworks we have actually catalogued by movement, medium, year, or keyword. Community reviews
-          appear on detail pages as they are published.
+          Start with a movement or a year when you want to narrow the room quickly. Keyword search reaches both
+          illustrated works and deeper title-only records, so you can keep moving even when an image has not arrived yet.
         </p>
       </section>
 
       <section className="search-shell">
         <form className="ornate-form" method="GET">
-          <OrnateInput label="Search term" name="query" placeholder="water, garden, seurat, gilded..." defaultValue={query} />
+          <OrnateInput
+            label="Search term"
+            name="query"
+            placeholder="water, garden, seurat, gilded..."
+            hint="Try an artist, title, motif, or place."
+            defaultValue={query}
+          />
           <OrnateInput
             label="Movement"
             name="movement"
             options={[{ value: '', label: 'Any movement' }, ...movements.map((movement) => ({ value: movement.slug, label: movement.name }))]}
+            hint="The fastest way to narrow the room by style or period."
             defaultValue={movement}
           />
           <OrnateInput
             label="Medium"
             name="medium"
             options={[{ value: '', label: 'Any medium' }, ...mediums.map((medium) => ({ value: medium, label: medium }))]}
+            hint="Painting, print, sculpture, or photography."
             defaultValue={medium}
           />
           <OrnateInput
             label="Year"
             name="year"
             options={[{ value: '', label: 'Any year' }, ...years.map((year) => ({ value: year, label: year }))]}
+            hint="Useful when you know the exact work or phase."
             defaultValue={year}
           />
           <div className="button-row">
-            <EnamelButton type="submit">Apply filters</EnamelButton>
+            <EnamelButton type="submit">Search catalog</EnamelButton>
             {hasFilters ? (
               <EnamelButton href="/search" variant="secondary">
                 Clear filters
@@ -88,12 +97,14 @@ export default async function SearchPage({
       </section>
 
       <section className="hero-shell hero-shell--compact">
-        <p className="eyebrow">{artworkResults.length} matching artworks</p>
-        <h2>{hasFilters ? 'Filtered results' : 'Full launch catalog'}</h2>
+        <p className="eyebrow">
+          {artworkResults.length} artwork match{artworkResults.length === 1 ? '' : 'es'}
+        </p>
+        <h2>{hasFilters ? 'Illustrated works first, deeper records below' : 'Start with the image wall, then go deeper'}</h2>
         <p>
           {hasFilters
-            ? 'These results come directly from the published catalog. Illustrated works stay image-first, while deeper title-only records still remain searchable and linkable.'
-            : 'You are viewing the full catalog with illustrated works first and deeper title-only records below. Add a keyword or filter to narrow the room.'}
+            ? 'These results mix illustrated works with title-only research records. If the image wall looks thin, keep scrolling: the deeper catalog may still hold the page you need.'
+            : 'This is the public catalog as it stands now. Begin with the illustrated works, then use filters whenever you want the deeper research records to do more of the work.'}
         </p>
         <div className="button-row">
           <EnamelButton href="/artists/new" variant="secondary">
@@ -101,7 +112,7 @@ export default async function SearchPage({
           </EnamelButton>
           <OpenFeedbackButton
             variant="secondary"
-            initialText="I'd love to request an artwork that is missing from the Vernissage catalog."
+            initialText="I found an artwork missing from the Vernissage catalog and want to request it."
           >
             Request an artwork
           </OpenFeedbackButton>
@@ -120,10 +131,26 @@ export default async function SearchPage({
         {illustratedArtworkResults.length ? (
           illustratedArtworkResults.map((artwork) => <ArtworkPreviewCard key={artwork.slug} artwork={artwork} />)
         ) : (
-          <GildedCard title="No illustrated matches" eyebrow="Catalog records may still exist">
+          <GildedCard title="No illustrated works match" eyebrow="Check the deeper records below">
             <p>
-              Try broadening the keyword, clearing an exact filter, or looking below for text-only catalog records that
-              have not yet been paired with a reusable image.
+              {catalogOnlyArtworkResults.length ? (
+                <>
+                  We still found <strong>{catalogOnlyArtworkResults.length} deeper catalog record{catalogOnlyArtworkResults.length === 1 ? '' : 's'}</strong> for
+                  this search below. If you were hoping for a fully illustrated page, keep scrolling or{' '}
+                  <Link href="/artists/new" className="text-link">
+                    suggest the missing artist directly
+                  </Link>
+                  .
+                </>
+              ) : (
+                <>
+                  This search did not turn up an illustrated work yet. Try a broader keyword, or{' '}
+                  <Link href="/artists/new" className="text-link">
+                    suggest the artist directly
+                  </Link>{' '}
+                  if the gap matters.
+                </>
+              )}
             </p>
           </GildedCard>
         )}
@@ -131,7 +158,7 @@ export default async function SearchPage({
 
       {catalogOnlyArtworkResults.length ? (
         <>
-          <BotanicalDivider label="Catalog records without published images" />
+          <BotanicalDivider label="Deeper catalog records" />
 
           <section className="three-up-grid">
             {catalogOnlyGroups.map((group) => (
@@ -150,10 +177,10 @@ export default async function SearchPage({
             ))}
             {!hasFilters && catalogOnlyArtworkResults.length > visibleCatalogOnlyResults.length ? (
               <GildedCard
-                title="More text-only records available"
+                title="More research records are waiting"
                 eyebrow={`${catalogOnlyArtworkResults.length - visibleCatalogOnlyResults.length} additional records hidden by default`}
               >
-                <p>Add a keyword, year, or medium filter to narrow the deeper catalog and bring more of those records into view.</p>
+                <p>Add a keyword, year, or medium filter to bring more of the deeper catalog into view.</p>
               </GildedCard>
             ) : null}
           </section>
@@ -162,7 +189,7 @@ export default async function SearchPage({
 
       {(query || movement) && artistResults.length ? (
         <>
-          <BotanicalDivider label="Related artists" />
+          <BotanicalDivider label="Artists to keep exploring" />
 
           <section className="three-up-grid">
             {artistResults.slice(0, 6).map((artist, index) => (
@@ -182,20 +209,20 @@ export default async function SearchPage({
       ) : null}
 
       <section className="hero-shell hero-shell--compact">
-        <p className="eyebrow">Missing someone important?</p>
-        <h2>Suggest the next artist we should catalog</h2>
+        <p className="eyebrow">Still missing the name you need?</p>
+        <h2>Nominate the next artist Vernissage should catalog</h2>
         <p>
-          If the current search still leaves out the artist you want to write about, send a direct
-          artist request instead of burying it in a generic feedback note.
+          If search still leaves out the artist you want to write about, make the case directly. Strong requests tell us
+          what gap they fill and which works would give members something real to discuss.
         </p>
         <div className="button-row">
-          <EnamelButton href="/artists/new">Open artist request form</EnamelButton>
+          <EnamelButton href="/artists/new">Nominate an artist</EnamelButton>
         </div>
       </section>
 
       {(query || movement) && exhibitionResults.length ? (
         <>
-          <BotanicalDivider label="Related exhibitions" />
+          <BotanicalDivider label="Exhibitions for context" />
 
           <section className="two-up-grid">
             {exhibitionResults.slice(0, 4).map((exhibition) => (
