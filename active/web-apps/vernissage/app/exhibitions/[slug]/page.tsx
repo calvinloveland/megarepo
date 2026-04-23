@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 import { BotanicalDivider } from '@/src/components/BotanicalDivider';
 import { GildedCard } from '@/src/components/GildedCard';
+import { PageIntro } from '@/src/components/PageIntro';
 import { RatingStars } from '@/src/components/RatingStars';
 import { getAverageRating } from '@/src/lib/artist-profile';
 import {
@@ -32,12 +33,10 @@ export default async function ExhibitionPage({ params }: { params: Promise<{ slu
 
   return (
     <div className="page-stack">
-      <section className="hero-shell hero-shell--compact">
-        <p className="eyebrow">{venue ? `${venue.name} · ${venue.city}` : 'Venue'}</p>
-        <h1>{exhibition.title}</h1>
+      <PageIntro eyebrow={venue ? `${venue.name} · ${venue.city}` : 'Venue'} title={exhibition.title}>
         <p className="lead">{exhibition.description}</p>
         <p className="meta-note">{exhibition.dateLabel}</p>
-      </section>
+      </PageIntro>
 
       <section className="two-up-grid">
         <GildedCard title="Venue atmosphere" eyebrow="Architecture notes">

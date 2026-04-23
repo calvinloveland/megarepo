@@ -2,6 +2,7 @@ import { getServerSession } from 'next-auth';
 
 import { BotanicalDivider } from '@/src/components/BotanicalDivider';
 import { EnamelButton } from '@/src/components/EnamelButton';
+import { PageIntro } from '@/src/components/PageIntro';
 import { authOptions } from '@/src/lib/auth';
 import { artworks, artists, exhibitions, visits } from '@/src/lib/catalog';
 import { isDatabaseConfigured } from '@/src/lib/prisma';
@@ -57,9 +58,7 @@ export default async function ReviewComposerPage({
 
   return (
     <div className="page-stack page-stack--narrow">
-      <section className="hero-shell hero-shell--compact">
-        <p className="eyebrow">Review composer</p>
-        <h1>Choose the page, then make the case.</h1>
+      <PageIntro eyebrow="Review composer" title="Choose the page, then make the case.">
         <p>
           A Vernissage review belongs to a specific catalogue entry. First decide whether your judgment is about one
           artwork, an artist&apos;s body of work, an exhibition, or the experience of a museum visit.
@@ -68,7 +67,7 @@ export default async function ReviewComposerPage({
           Then write the claim, the evidence, and the rating together. Publishing makes the review public under your
           handle and ties the rating to the entry you chose.
         </p>
-      </section>
+      </PageIntro>
 
       <BotanicalDivider label="Start the review" />
 

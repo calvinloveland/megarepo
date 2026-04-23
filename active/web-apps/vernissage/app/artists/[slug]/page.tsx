@@ -7,6 +7,7 @@ import { FavoriteToggleButton } from '@/src/components/FavoriteToggleButton';
 import { ArtworkPreviewCard } from '@/src/components/ArtworkPreviewCard';
 import { EnamelChip } from '@/src/components/EnamelChip';
 import { GildedCard } from '@/src/components/GildedCard';
+import { PageIntro } from '@/src/components/PageIntro';
 import { RatingStars } from '@/src/components/RatingStars';
 import { authOptions } from '@/src/lib/auth';
 import { getAverageRating } from '@/src/lib/artist-profile';
@@ -49,9 +50,7 @@ export default async function ArtistPage({ params }: { params: Promise<{ slug: s
 
   return (
     <div className="page-stack">
-      <section className="hero-shell hero-shell--compact">
-        <p className="eyebrow">{movement?.name}</p>
-        <h1>{artist.name}</h1>
+      <PageIntro eyebrow={movement?.name} title={artist.name}>
         <p className="lead">{artist.bio}</p>
         <div className="chip-row">
           {artist.signatureMotifs.map((motif, index) => (
@@ -68,7 +67,7 @@ export default async function ArtistPage({ params }: { params: Promise<{ slug: s
           databaseReady={databaseReady}
           signInHref={databaseReady && !session?.user ? `/signin?callbackUrl=/artists/${artist.slug}` : undefined}
         />
-      </section>
+      </PageIntro>
 
       <section className="two-up-grid">
         <GildedCard title="Artist dossier" eyebrow={`${artist.years} · ${artist.country}`}>

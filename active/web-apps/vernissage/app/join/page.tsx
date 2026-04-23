@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { BotanicalDivider } from '@/src/components/BotanicalDivider';
 import { EnamelButton } from '@/src/components/EnamelButton';
 import { OrnateInput } from '@/src/components/OrnateInput';
+import { PageIntro } from '@/src/components/PageIntro';
 import { MIN_PASSWORD_LENGTH, normalizeCallbackUrl } from '@/src/lib/account-registration';
 import { authOptions } from '@/src/lib/auth';
 import { isDatabaseConfigured } from '@/src/lib/prisma';
@@ -45,11 +46,9 @@ export default async function JoinPage({
 
   return (
     <div className="page-stack page-stack--narrow">
-      <section className="hero-shell hero-shell--compact">
-        <p className="eyebrow">New member</p>
-        <h1>Take your place in the salon</h1>
+      <PageIntro eyebrow="New member" title="Take your place in the salon">
         <p>Claim your handle, set a password, and start publishing reviews and lists in a minute.</p>
-      </section>
+      </PageIntro>
 
       <BotanicalDivider label="Create account" />
 

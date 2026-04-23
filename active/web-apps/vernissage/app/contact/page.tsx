@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { BotanicalDivider } from '@/src/components/BotanicalDivider';
+import { PageIntro } from '@/src/components/PageIntro';
 
 export const metadata: Metadata = {
   title: 'Contact',
@@ -10,14 +11,12 @@ export const metadata: Metadata = {
 export default function ContactPage() {
   return (
     <div className="page-stack page-stack--narrow">
-      <section className="hero-shell hero-shell--compact">
-        <p className="eyebrow">Contact</p>
-        <h1>How to reach the launch operator</h1>
+      <PageIntro eyebrow="Contact" title="How to reach the launch operator">
         <p>
           Vernissage does not yet publish a separate support inbox. During launch, the built-in feedback
           channel is the supported path for bug reports, account issues, and moderation questions.
         </p>
-      </section>
+      </PageIntro>
 
       <BotanicalDivider label="Support path" />
 

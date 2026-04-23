@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { BotanicalDivider } from '@/src/components/BotanicalDivider';
+import { PageIntro } from '@/src/components/PageIntro';
 
 export const metadata: Metadata = {
   title: 'Privacy',
@@ -9,14 +10,12 @@ export const metadata: Metadata = {
 export default function PrivacyPage() {
   return (
     <div className="page-stack page-stack--narrow">
-      <section className="hero-shell hero-shell--compact">
-        <p className="eyebrow">Privacy</p>
-        <h1>What Vernissage stores at launch</h1>
+      <PageIntro eyebrow="Privacy" title="What Vernissage stores at launch">
         <p>
           Vernissage keeps only the account and publishing data it needs to run the public art-review
           site. This page describes the launch-era baseline rather than an inflated legal fiction.
         </p>
-      </section>
+      </PageIntro>
 
       <BotanicalDivider label="Launch policy" />
 

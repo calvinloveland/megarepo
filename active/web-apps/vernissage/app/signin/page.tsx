@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { redirect } from 'next/navigation';
 
 import { BotanicalDivider } from '@/src/components/BotanicalDivider';
+import { PageIntro } from '@/src/components/PageIntro';
 import { SignInForm } from '@/src/components/SignInForm';
 import { normalizeCallbackUrl } from '@/src/lib/account-registration';
 import { authOptions } from '@/src/lib/auth';
@@ -42,11 +43,9 @@ export default async function SignInPage({
 
   return (
     <div className="page-stack page-stack--narrow">
-      <section className="hero-shell hero-shell--compact">
-        <p className="eyebrow">Welcome back</p>
-        <h1>Return to the salon</h1>
+      <PageIntro eyebrow="Welcome back" title="Return to the salon">
         <p>Sign in to pick up your latest criticism, saved lists, and the conversations waiting around your desk.</p>
-      </section>
+      </PageIntro>
 
       <BotanicalDivider label="Sign in" />
 

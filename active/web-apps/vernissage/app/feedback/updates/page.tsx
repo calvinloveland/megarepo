@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 
 import { BotanicalDivider } from '@/src/components/BotanicalDivider';
 import { GildedCard } from '@/src/components/GildedCard';
+import { PageIntro } from '@/src/components/PageIntro';
 import { authOptions } from '@/src/lib/auth';
 import {
   feedbackStatuses,
@@ -218,14 +219,12 @@ export default async function FeedbackUpdatesPage({
 
   return (
     <div className="page-stack">
-      <section className="hero-shell hero-shell--compact">
-        <p className="eyebrow">Feedback follow-up</p>
-        <h1>See what happened after you sent a note</h1>
+      <PageIntro eyebrow="Feedback follow-up" title="See what happened after you sent a note">
         <p>
           Signed-in members can follow every note tied to their handle here. Anonymous notes stay private and trackable
           through the one-off link returned at submission time.
         </p>
-      </section>
+      </PageIntro>
 
       <BotanicalDivider label="Current status" />
 
@@ -254,7 +253,7 @@ export default async function FeedbackUpdatesPage({
 
       {token ? (
         tokenEntry ? (
-          <section className="page-stack page-stack--narrow">
+          <section className="section-stack page-stack--narrow">
             <p className="eyebrow">Private tracking view</p>
             <FeedbackEntryCard entry={tokenEntry} returnTo={returnTo} editable={isAdmin} />
           </section>
@@ -266,7 +265,7 @@ export default async function FeedbackUpdatesPage({
       ) : null}
 
       {viewerHandle ? (
-        <section className="page-stack page-stack--narrow">
+        <section className="section-stack page-stack--narrow">
           <p className="eyebrow">Notes tied to your handle</p>
           {visibleOwnEntries.length ? (
             visibleOwnEntries.map((entry) => (
@@ -292,7 +291,7 @@ export default async function FeedbackUpdatesPage({
       {isAdmin ? (
         <>
           <BotanicalDivider label="Admin board" />
-          <section className="page-stack page-stack--narrow">
+          <section className="section-stack page-stack--narrow">
             <p className="eyebrow">Still open</p>
             {openEntries.length ? (
               openEntries.map((entry) => (
@@ -305,7 +304,7 @@ export default async function FeedbackUpdatesPage({
             )}
           </section>
 
-          <section className="page-stack page-stack--narrow">
+          <section className="section-stack page-stack--narrow">
             <p className="eyebrow">Shipped work</p>
             {shippedEntries.length ? (
               shippedEntries.map((entry) => (

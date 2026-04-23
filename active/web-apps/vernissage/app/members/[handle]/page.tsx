@@ -6,6 +6,7 @@ import { EnamelChip } from '@/src/components/EnamelChip';
 import { EnamelButton } from '@/src/components/EnamelButton';
 import { FollowMemberButton } from '@/src/components/FollowMemberButton';
 import { GildedCard } from '@/src/components/GildedCard';
+import { PageIntro } from '@/src/components/PageIntro';
 import { authOptions } from '@/src/lib/auth';
 import { getArtist, getArtwork, getExhibition, getMovement, getReviewTargetHref, type Review as CatalogReview } from '@/src/lib/catalog';
 import { getIsFollowingMemberByUser, getPersistedMemberFavorites, getPersistedMemberProfile, getPersistedReviewsByMember } from '@/src/lib/live-data';
@@ -111,9 +112,7 @@ export default async function MemberPage({ params }: { params: Promise<{ handle:
 
   return (
     <div className="page-stack">
-      <section className="hero-shell hero-shell--compact">
-        {eyebrowParts.length ? <p className="eyebrow">{eyebrowParts.join(' · ')}</p> : null}
-        <h1>{persistedMember.displayName}</h1>
+      <PageIntro eyebrow={eyebrowParts.length ? eyebrowParts.join(' · ') : undefined} title={persistedMember.displayName}>
         <p className="meta-note">@{persistedMember.handle}</p>
         <p className="lead">{lead}</p>
         <p>
@@ -147,7 +146,7 @@ export default async function MemberPage({ params }: { params: Promise<{ handle:
             </EnamelButton>
           </div>
         )}
-      </section>
+      </PageIntro>
 
       <GildedCard
         title={isOwnProfile ? 'What visitors can read here' : `Why ${persistedMember.displayName} matters here`}

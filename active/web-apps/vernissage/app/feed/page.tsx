@@ -2,6 +2,7 @@ import Link from 'next/link';
 
 import { BotanicalDivider } from '@/src/components/BotanicalDivider';
 import { GildedCard } from '@/src/components/GildedCard';
+import { PageIntro } from '@/src/components/PageIntro';
 import { formatMemberAttribution, getReviewTargetHref, getReviewThumbnail } from '@/src/lib/catalog';
 import { getPersistedRecentReviews } from '@/src/lib/live-data';
 
@@ -28,14 +29,12 @@ export default async function FeedPage() {
 
   return (
     <div className="page-stack page-stack--narrow">
-      <section className="hero-shell hero-shell--compact">
-        <p className="eyebrow">Member reviews & responses</p>
-        <h1>What Vernissage members are writing</h1>
+      <PageIntro eyebrow="Member reviews & responses" title="What Vernissage members are writing">
         <p>
           Every piece here is written by a real member of Vernissage. Follow the newest arguments, discoveries, and
           reactions as the collection gets read in public.
         </p>
-      </section>
+      </PageIntro>
 
       <BotanicalDivider label="Published reviews" />
 

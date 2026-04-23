@@ -6,6 +6,7 @@ import { ArtworkPreviewCard } from '@/src/components/ArtworkPreviewCard';
 import { EnamelChip } from '@/src/components/EnamelChip';
 import { GildedCard } from '@/src/components/GildedCard';
 import { OrnateInput } from '@/src/components/OrnateInput';
+import { PageIntro } from '@/src/components/PageIntro';
 import {
   artworks,
   getMovement,
@@ -46,14 +47,12 @@ export default async function SearchPage({
 
   return (
     <div className="page-stack">
-      <section className="hero-shell hero-shell--compact">
-        <p className="eyebrow">Explore what we&apos;ve catalogued</p>
-        <h1>Search by movement, medium, or keyword</h1>
+      <PageIntro eyebrow="Explore what we&apos;ve catalogued" title="Search by movement, medium, or keyword">
         <p>
           Start with a movement or a year when you want to narrow the room quickly. Keyword search reaches both
           illustrated works and deeper title-only records, so you can keep moving even when an image has not arrived yet.
         </p>
-      </section>
+      </PageIntro>
 
       <section className="search-shell">
         <form className="ornate-form" method="GET">
@@ -96,11 +95,11 @@ export default async function SearchPage({
         </form>
       </section>
 
-      <section className="hero-shell hero-shell--compact">
-        <p className="eyebrow">
-          {artworkResults.length} artwork match{artworkResults.length === 1 ? '' : 'es'}
-        </p>
-        <h2>{hasFilters ? 'Illustrated works first, deeper records below' : 'Start with the image wall, then go deeper'}</h2>
+      <PageIntro
+        eyebrow={`${artworkResults.length} artwork match${artworkResults.length === 1 ? '' : 'es'}`}
+        title={hasFilters ? 'Illustrated works first, deeper records below' : 'Start with the image wall, then go deeper'}
+        titleAs="h2"
+      >
         <p>
           {hasFilters
             ? 'These results mix illustrated works with title-only research records. If the image wall looks thin, keep scrolling: the deeper catalog may still hold the page you need.'
@@ -123,7 +122,7 @@ export default async function SearchPage({
           {medium ? <EnamelChip tone="rose">Medium: {medium}</EnamelChip> : null}
           {year ? <EnamelChip tone="burgundy">Year: {year}</EnamelChip> : null}
         </div>
-      </section>
+      </PageIntro>
 
       <BotanicalDivider label={hasFilters ? 'Illustrated matches' : 'Browse illustrated works'} />
 
@@ -208,9 +207,7 @@ export default async function SearchPage({
         </>
       ) : null}
 
-      <section className="hero-shell hero-shell--compact">
-        <p className="eyebrow">Still missing the name you need?</p>
-        <h2>Nominate the next artist Vernissage should catalog</h2>
+      <PageIntro eyebrow="Still missing the name you need?" title="Nominate the next artist Vernissage should catalog" titleAs="h2">
         <p>
           If search still leaves out the artist you want to write about, make the case directly. Strong requests tell us
           what gap they fill and which works would give members something real to discuss.
@@ -218,7 +215,7 @@ export default async function SearchPage({
         <div className="button-row">
           <EnamelButton href="/artists/new">Nominate an artist</EnamelButton>
         </div>
-      </section>
+      </PageIntro>
 
       {(query || movement) && exhibitionResults.length ? (
         <>

@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { BotanicalDivider } from '@/src/components/BotanicalDivider';
+import { PageIntro } from '@/src/components/PageIntro';
 
 export const metadata: Metadata = {
   title: 'Terms',
@@ -9,14 +10,12 @@ export const metadata: Metadata = {
 export default function TermsPage() {
   return (
     <div className="page-stack page-stack--narrow">
-      <section className="hero-shell hero-shell--compact">
-        <p className="eyebrow">Terms</p>
-        <h1>Launch terms for the salon</h1>
+      <PageIntro eyebrow="Terms" title="Launch terms for the salon">
         <p>
           Vernissage is a public review site for visual art. These terms set the launch baseline for
           participation, publication, and site operations.
         </p>
-      </section>
+      </PageIntro>
 
       <BotanicalDivider label="Use of service" />
 

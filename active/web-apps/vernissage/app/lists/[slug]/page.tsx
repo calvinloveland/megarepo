@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 import { BotanicalDivider } from '@/src/components/BotanicalDivider';
 import { GildedCard } from '@/src/components/GildedCard';
+import { PageIntro } from '@/src/components/PageIntro';
 import { artworkLists, formatMemberAttribution, getArtwork, getList } from '@/src/lib/catalog';
 
 export function generateStaticParams() {
@@ -16,11 +17,9 @@ export default async function ListPage({ params }: { params: Promise<{ slug: str
 
   return (
     <div className="page-stack page-stack--narrow">
-      <section className="hero-shell hero-shell--compact">
-        <p className="eyebrow">{formatMemberAttribution(list.memberHandle, list.visibility)}</p>
-        <h1>{list.title}</h1>
+      <PageIntro eyebrow={formatMemberAttribution(list.memberHandle, list.visibility)} title={list.title}>
         <p className="lead">{list.description}</p>
-      </section>
+      </PageIntro>
 
       <BotanicalDivider label="Ordered sequence" />
 

@@ -318,6 +318,11 @@ img {
   margin: 0 auto;
 }
 
+.section-stack {
+  display: grid;
+  gap: 1rem;
+}
+
 .hero-shell,
 .detail-hero,
 .search-shell,

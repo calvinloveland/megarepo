@@ -1,11 +1,10 @@
 import { EnamelButton } from '@/src/components/EnamelButton';
+import { PageIntro } from '@/src/components/PageIntro';
 
 export default function NotFound() {
   return (
     <section className="page-stack page-stack--narrow">
-      <div className="hero-shell hero-shell--compact">
-        <p className="eyebrow">Lost in the winter garden</p>
-        <h1>This page has slipped behind the curtain.</h1>
+      <PageIntro eyebrow="Lost in the winter garden" title="This page has slipped behind the curtain.">
         <p>
           The requested catalogue entry could not be found. Try returning to the salon or browse the current exhibition surfaces.
         </p>
@@ -15,7 +14,7 @@ export default function NotFound() {
             Browse the collection
           </EnamelButton>
         </div>
-      </div>
+      </PageIntro>
     </section>
   );
 }
