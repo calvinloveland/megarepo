@@ -6,6 +6,7 @@ Custom skills and capabilities for GitHub Copilot in this repository.
 
 ### Development Workflow Skills
 - [**addressing-feedback**](adressing-feedback/SKILL.md) - Techniques for addressing code review feedback effectively
+- [**avoid-ai-ux**](avoid-ai-ux/SKILL.md) - Review heuristics for removing generic, low-effort, AI-feeling UX
 - [**cluster-access**](cluster-access/SKILL.md) - Guidelines for accessing and working with compute clusters
 - [**profile-readme-design**](profile-readme-design/SKILL.md) - Bold GitHub profile README design patterns using markdown + HTML
 - [**subagent-experiments**](subagent-experiments/SKILL.md) - Coordinate multiple bounded subagents and synthesize their findings efficiently
