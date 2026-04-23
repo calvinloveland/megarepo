@@ -8,6 +8,7 @@ KUBECONFIG_PATH="${KUBECONFIG_PATH:-${HOME}/.kube/thinker-k3s.yaml}"
 NAMESPACE="${NAMESPACE:-vernissage}"
 IMAGE_TAG="${1:-${IMAGE_TAG:-$(date -u +%Y%m%d-%H%M%S)}}"
 REMOTE_IMAGE="${REMOTE_IMAGE:-127.0.0.1:5000/vernissage:latest}"
+PUBLIC_URL="${PUBLIC_URL:-https://thevernissage.art}"
 APP_VERSION="thinker-registry-${IMAGE_TAG}"
 
 "${SCRIPT_DIR}/publish-to-thinker-registry.sh" "${IMAGE_TAG}"
@@ -26,7 +27,7 @@ PY
 
 echo "==> Updating deployed image and app version"
 kubectl --kubeconfig "${KUBECONFIG_PATH}" -n "${NAMESPACE}" set image deployment/vernissage vernissage="${REMOTE_IMAGE}"
-kubectl --kubeconfig "${KUBECONFIG_PATH}" -n "${NAMESPACE}" patch secret vernissage-env --type merge -p "{\"stringData\":{\"APP_VERSION\":\"${APP_VERSION}\"}}"
+kubectl --kubeconfig "${KUBECONFIG_PATH}" -n "${NAMESPACE}" patch secret vernissage-env --type merge -p "{\"stringData\":{\"APP_VERSION\":\"${APP_VERSION}\",\"NEXTAUTH_URL\":\"${PUBLIC_URL}\"}}"
 
 echo "==> Restarting rollout"
 kubectl --kubeconfig "${KUBECONFIG_PATH}" -n "${NAMESPACE}" rollout restart deployment/vernissage

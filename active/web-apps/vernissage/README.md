@@ -167,7 +167,7 @@ It deploys the app with:
 Public hostname:
 
 ```text
-https://vernissage.shsw.dev
+https://thevernissage.art
 ```
 
 Create the tunnel token secret with:
@@ -177,6 +177,8 @@ kubectl -n vernissage create secret generic vernissage-cloudflared-token \
   --from-literal=token='<cloudflared-tunnel-token>' \
   --dry-run=client -o yaml | kubectl apply -f -
 ```
+
+The `cloudflared` sidecar only keeps the tunnel process connected to the cluster. The public hostname itself still has to be attached to that tunnel in Cloudflare Zero Trust/DNS. For the current production hostname, make sure the tunnel has a public hostname for `thevernissage.art` before rolling the app.
 
 Container validation is defined in `.github/workflows/vernissage-container.yml`.
 
@@ -202,7 +204,7 @@ The deploy helper:
 - ensures the private registry container is running on thinker
 - streams the current source tree to thinker and builds the image there from `active/web-apps/vernissage/Dockerfile`
 - pushes both an immutable timestamp tag and `latest` into the thinker-local registry
-- applies the non-secret resources from `k8s/vernissage.yaml`, updates `APP_VERSION`, and rolls the deployment
+- applies the non-secret resources from `k8s/vernissage.yaml`, updates `APP_VERSION` plus `NEXTAUTH_URL` from `PUBLIC_URL`, and rolls the deployment
 
 If you are running kubectl from an off-LAN machine over Tailscale, the kubeconfig may still point at thinker's LAN IP. In that case, override the API server to the Tailscale address and skip TLS hostname verification for the session:
 

@@ -8,6 +8,7 @@ import { FeedbackWidget } from '@/src/components/FeedbackWidget';
 import { FloatingNav } from '@/src/components/FloatingNav';
 import { Providers } from '@/src/components/Providers';
 import { getAppVersion } from '@/src/lib/app-version';
+import { resolveSiteUrl } from '@/src/lib/site-url';
 
 const bodyFont = Noto_Serif({
   subsets: ['latin'],
@@ -28,7 +29,7 @@ const labelFont = Work_Sans({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://vernissage.shsw.dev'),
+  metadataBase: new URL(resolveSiteUrl(process.env.NEXTAUTH_URL)),
   title: {
     default: 'Vernissage',
     template: '%s · Vernissage'
@@ -41,7 +42,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'Vernissage',
     description: 'Art Nouveau social catalog for artworks, artists, exhibitions, and museum visits.',
-    url: 'https://vernissage.shsw.dev',
+    url: resolveSiteUrl(process.env.NEXTAUTH_URL),
     siteName: 'Vernissage',
     locale: 'en_US',
     type: 'website'

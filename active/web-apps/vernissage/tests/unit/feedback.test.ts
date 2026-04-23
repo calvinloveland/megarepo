@@ -15,7 +15,7 @@ import {
 } from '../../src/lib/feedback.ts';
 
 test('normalizePagePath strips origin while preserving path and query', () => {
-  assert.equal(normalizePagePath('https://vernissage.shsw.dev/artworks/water-lilies-1906?ref=feed'), '/artworks/water-lilies-1906?ref=feed');
+  assert.equal(normalizePagePath('https://thevernissage.art/artworks/water-lilies-1906?ref=feed'), '/artworks/water-lilies-1906?ref=feed');
   assert.equal(normalizePagePath('/artists/claude-monet'), '/artists/claude-monet');
   assert.equal(normalizePagePath('   '), '');
   assert.equal(normalizePagePath('not a valid url'), 'not a valid url');

@@ -1,8 +1,9 @@
 import type { MetadataRoute } from 'next';
 
 import { artists, artworks, artworkLists, exhibitions } from '@/src/lib/catalog';
+import { resolveSiteUrl } from '@/src/lib/site-url';
 
-const baseUrl = 'https://vernissage.shsw.dev';
+const baseUrl = resolveSiteUrl(process.env.NEXTAUTH_URL);
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const staticRoutes = ['', '/feed', '/search', '/reviews/new', '/join', '/signin', '/privacy', '/terms', '/contact', '/artists/new'];

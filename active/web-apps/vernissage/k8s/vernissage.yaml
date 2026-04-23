@@ -12,7 +12,7 @@ type: Opaque
 stringData:
   HOST: "0.0.0.0"
   PORT: "3000"
-  NEXTAUTH_URL: "https://vernissage.shsw.dev"
+  NEXTAUTH_URL: "https://thevernissage.art"
   NEXTAUTH_SECRET: "replace-with-a-long-random-secret"
   FEEDBACK_DATABASE_URL: "file:/data/vernissage-feedback.db"
   APP_VERSION: "release-20260407-sqlite-feedback"

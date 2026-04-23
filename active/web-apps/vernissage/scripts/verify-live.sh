@@ -3,7 +3,7 @@ set -euo pipefail
 
 KUBECONFIG_PATH="${KUBECONFIG_PATH:-${HOME}/.kube/thinker-k3s.yaml}"
 NAMESPACE="${NAMESPACE:-vernissage}"
-PUBLIC_URL="${PUBLIC_URL:-https://vernissage.shsw.dev}"
+PUBLIC_URL="${PUBLIC_URL:-https://thevernissage.art}"
 THINKER_HOST="${THINKER_HOST:-thinker}"
 
 echo '==> Deployment status'
