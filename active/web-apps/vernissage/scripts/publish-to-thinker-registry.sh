@@ -9,6 +9,7 @@ REMOTE_REGISTRY_NAME="${REMOTE_REGISTRY_NAME:-thinker-registry}"
 REMOTE_REGISTRY_DATA_DIR="${REMOTE_REGISTRY_DATA_DIR:-/home/calvin/.local/share/thinker-registry}"
 REMOTE_REGISTRY_VOLUME_NAME="${REMOTE_REGISTRY_VOLUME_NAME:-thinker-registry-data}"
 REMOTE_REGISTRY_ADDR="${REMOTE_REGISTRY_ADDR:-127.0.0.1:5000}"
+REMOTE_REGISTRY_DOCKER_HOST="${REMOTE_REGISTRY_DOCKER_HOST:-}"
 REMOTE_REGISTRY_NFS_ADDR="${REMOTE_REGISTRY_NFS_ADDR:-}"
 REMOTE_REGISTRY_NFS_DEVICE="${REMOTE_REGISTRY_NFS_DEVICE:-}"
 REMOTE_REGISTRY_NFS_OPTS="${REMOTE_REGISTRY_NFS_OPTS:-nfsvers=4,rw}"
@@ -50,7 +51,7 @@ ensure_remote_registry() {
     use_nfs_volume="true"
     desired_mount_ref="${REMOTE_REGISTRY_VOLUME_NAME}"
     prepare_storage="
-      docker volume create \
+      registry_docker volume create \
         --driver local \
         --opt type=nfs \
         --opt o='addr=${REMOTE_REGISTRY_NFS_ADDR},${REMOTE_REGISTRY_NFS_OPTS}' \
@@ -64,26 +65,33 @@ ensure_remote_registry() {
   fi
 
   remote_bash "
+    registry_docker() {
+      if [[ -n '${REMOTE_REGISTRY_DOCKER_HOST}' ]]; then
+        DOCKER_HOST='${REMOTE_REGISTRY_DOCKER_HOST}' docker \"\$@\"
+      else
+        docker \"\$@\"
+      fi
+    }
     ${prepare_storage}
-    if docker ps -a --format '{{.Names}}' | grep -qx '${REMOTE_REGISTRY_NAME}'; then
-      mount_type=\$(docker inspect --format '{{range .Mounts}}{{if eq .Destination \"/var/lib/registry\"}}{{.Type}}{{end}}{{end}}' '${REMOTE_REGISTRY_NAME}')
-      mount_source=\$(docker inspect --format '{{range .Mounts}}{{if eq .Destination \"/var/lib/registry\"}}{{if eq .Type \"volume\"}}{{.Name}}{{else}}{{.Source}}{{end}}{{end}}{{end}}' '${REMOTE_REGISTRY_NAME}')
+    if registry_docker ps -a --format '{{.Names}}' | grep -qx '${REMOTE_REGISTRY_NAME}'; then
+      mount_type=\$(registry_docker inspect --format '{{range .Mounts}}{{if eq .Destination \"/var/lib/registry\"}}{{.Type}}{{end}}{{end}}' '${REMOTE_REGISTRY_NAME}')
+      mount_source=\$(registry_docker inspect --format '{{range .Mounts}}{{if eq .Destination \"/var/lib/registry\"}}{{if eq .Type \"volume\"}}{{.Name}}{{else}}{{.Source}}{{end}}{{end}}{{end}}' '${REMOTE_REGISTRY_NAME}')
       if [[ \"${use_nfs_volume}\" == 'true' ]]; then
         if [[ \"\${mount_type}\" != 'volume' || \"\${mount_source}\" != '${desired_mount_ref}' ]]; then
-          docker rm -f '${REMOTE_REGISTRY_NAME}' >/dev/null
+          registry_docker rm -f '${REMOTE_REGISTRY_NAME}' >/dev/null
         else
-          docker start '${REMOTE_REGISTRY_NAME}' >/dev/null || true
+          registry_docker start '${REMOTE_REGISTRY_NAME}' >/dev/null || true
         fi
       else
         if [[ \"\${mount_type}\" != 'bind' || \"\${mount_source}\" != '${desired_mount_ref}' ]]; then
-          docker rm -f '${REMOTE_REGISTRY_NAME}' >/dev/null
+          registry_docker rm -f '${REMOTE_REGISTRY_NAME}' >/dev/null
         else
-          docker start '${REMOTE_REGISTRY_NAME}' >/dev/null || true
+          registry_docker start '${REMOTE_REGISTRY_NAME}' >/dev/null || true
         fi
       fi
     fi
-    if ! docker ps -a --format '{{.Names}}' | grep -qx '${REMOTE_REGISTRY_NAME}'; then
-      docker run -d --restart unless-stopped \
+    if ! registry_docker ps -a --format '{{.Names}}' | grep -qx '${REMOTE_REGISTRY_NAME}'; then
+      registry_docker run -d --restart unless-stopped \
         -p 127.0.0.1:5000:5000 \
         ${create_container_storage_args} \
         --name '${REMOTE_REGISTRY_NAME}' \

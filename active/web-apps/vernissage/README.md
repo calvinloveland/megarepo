@@ -189,15 +189,18 @@ To reduce thinker disk pressure, you can move the registry's backing data off th
 Example with a Synology export:
 
 ```bash
+REMOTE_REGISTRY_DOCKER_HOST=unix:///var/run/docker.sock \
 REMOTE_REGISTRY_NFS_ADDR=192.168.1.247 \
 REMOTE_REGISTRY_NFS_DEVICE=/volume1/best-shared-folder/vernissage-registry \
+REMOTE_REGISTRY_NFS_OPTS=nfsvers=3,proto=tcp,mountproto=tcp,port=2049,mountport=892,nolock,rw \
 ./scripts/deploy-to-thinker.sh
 ```
 
 Notes:
 
+- On the current thinker host, the app image build runs through rootless Docker, but NFS-backed registry storage must use the rootful Docker daemon. Set `REMOTE_REGISTRY_DOCKER_HOST=unix:///var/run/docker.sock` for the registry helper when using NFS on thinker.
 - `REMOTE_REGISTRY_NFS_ADDR` and `REMOTE_REGISTRY_NFS_DEVICE` switch the helper to a Docker-managed NFS volume instead of the default local bind mount at `/home/calvin/.local/share/thinker-registry`.
-- On Synology, export the target path to thinker only (for example `192.168.1.191/32`) and map client writes to a writable account such as `calvin` if the registry will be written by Docker as root on the thinker side.
+- On Synology, export the target path to thinker only (for example `192.168.1.191/32`) and allow the thinker root client to write (`no_root_squash`) because the rootful registry daemon writes as root.
 - If you prefer a pre-mounted NAS path on thinker, the older `REMOTE_REGISTRY_DATA_DIR=/mounted/path` bind-mount approach still works.
 - Keep the registry private on thinker (`127.0.0.1:5000`) unless there is a clear reason to redesign the cluster image-pull path.
 - If thinker is already close to disk pressure, `ssh thinker "docker builder prune -af && docker image prune -af"` is the fastest emergency cleanup before the next build.
