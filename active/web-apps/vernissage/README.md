@@ -184,6 +184,21 @@ Container validation is defined in `.github/workflows/vernissage-container.yml`.
 
 For the live thinker deployment, Vernissage now uses a private registry running on the thinker host at `127.0.0.1:5000`. The registry stays private to the machine, and k3s pulls the image from that loopback address.
 
+To reduce thinker disk pressure, you can move the registry's backing data off the laptop root filesystem onto a Synology/NAS share that is mounted locally on thinker. The publish helper already supports this through `REMOTE_REGISTRY_DATA_DIR`, which defaults to `/home/calvin/.local/share/thinker-registry`.
+
+Example with a NAS-backed mount that already exists on thinker:
+
+```bash
+REMOTE_REGISTRY_DATA_DIR=/mnt/synology/thinker-registry ./scripts/deploy-to-thinker.sh
+```
+
+Notes:
+
+- Prefer a stable local mount path on thinker, ideally backed by NFS from the NAS.
+- Do not point `REMOTE_REGISTRY_DATA_DIR` at a path that is not mounted yet; the helper will happily create a normal local directory there, which defeats the offload.
+- Keep the registry private on thinker (`127.0.0.1:5000`) unless there is a clear reason to redesign the cluster image-pull path.
+- If thinker is already close to disk pressure, `ssh thinker "docker builder prune -af && docker image prune -af"` is the fastest emergency cleanup before the next build.
+
 For a normal production release, use:
 
 ```bash
