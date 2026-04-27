@@ -189,6 +189,7 @@ To reduce thinker disk pressure, you can move the registry's backing data off th
 Example with a Synology export:
 
 ```bash
+REMOTE_BUILD_DOCKER_HOST=unix:///var/run/docker.sock \
 REMOTE_REGISTRY_DOCKER_HOST=unix:///var/run/docker.sock \
 REMOTE_REGISTRY_BIND_ADDR=0.0.0.0 \
 REMOTE_REGISTRY_ADDR=192.168.1.191:5000 \
@@ -201,6 +202,7 @@ REMOTE_REGISTRY_NFS_OPTS=nfsvers=3,proto=tcp,mountproto=tcp,port=2049,mountport=
 Notes:
 
 - On the current thinker host, the app image build runs through rootless Docker, but NFS-backed registry storage must use the rootful Docker daemon. Set `REMOTE_REGISTRY_DOCKER_HOST=unix:///var/run/docker.sock` for the registry helper when using NFS on thinker.
+- If you want the whole publish path to stay inside thinker's rootful Docker daemon, set `REMOTE_BUILD_DOCKER_HOST=unix:///var/run/docker.sock` too. This is the simplest option when the rootless daemon is not configured to trust a LAN-exposed insecure registry.
 - Rootless Docker on thinker cannot push to a registry bound only on host loopback, so pair `REMOTE_REGISTRY_BIND_ADDR=0.0.0.0` with a LAN-reachable `REMOTE_REGISTRY_ADDR` such as `192.168.1.191:5000` for the publish step. The live Kubernetes deployment can still keep using `127.0.0.1:5000/vernissage:latest`.
 - `REMOTE_REGISTRY_NFS_ADDR` and `REMOTE_REGISTRY_NFS_DEVICE` switch the helper to a Docker-managed NFS volume instead of the default local bind mount at `/home/calvin/.local/share/thinker-registry`.
 - On Synology, export the target path to thinker only (for example `192.168.1.191/32`) and allow the thinker root client to write (`no_root_squash`) because the rootful registry daemon writes as root.

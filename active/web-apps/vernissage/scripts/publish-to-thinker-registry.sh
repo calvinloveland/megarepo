@@ -10,6 +10,7 @@ REMOTE_REGISTRY_DATA_DIR="${REMOTE_REGISTRY_DATA_DIR:-/home/calvin/.local/share/
 REMOTE_REGISTRY_VOLUME_NAME="${REMOTE_REGISTRY_VOLUME_NAME:-thinker-registry-data}"
 REMOTE_REGISTRY_ADDR="${REMOTE_REGISTRY_ADDR:-127.0.0.1:5000}"
 REMOTE_REGISTRY_BIND_ADDR="${REMOTE_REGISTRY_BIND_ADDR:-127.0.0.1}"
+REMOTE_BUILD_DOCKER_HOST="${REMOTE_BUILD_DOCKER_HOST:-}"
 REMOTE_REGISTRY_DOCKER_HOST="${REMOTE_REGISTRY_DOCKER_HOST:-}"
 REMOTE_REGISTRY_NFS_ADDR="${REMOTE_REGISTRY_NFS_ADDR:-}"
 REMOTE_REGISTRY_NFS_DEVICE="${REMOTE_REGISTRY_NFS_DEVICE:-}"
@@ -135,9 +136,16 @@ stream_source_to_remote
 
 echo "==> Pushing ${REMOTE_IMAGE_TAGGED} and ${REMOTE_IMAGE_LATEST}"
 remote_bash "
-  docker build -t '${REMOTE_IMAGE_TAGGED}' -t '${REMOTE_IMAGE_LATEST}' '${REMOTE_BUILD_DIR}'
-  docker push '${REMOTE_IMAGE_TAGGED}' >/tmp/vernissage-push-tagged.log
-  docker push '${REMOTE_IMAGE_LATEST}' >/tmp/vernissage-push-latest.log
+  build_docker() {
+    if [[ -n '${REMOTE_BUILD_DOCKER_HOST}' ]]; then
+      DOCKER_HOST='${REMOTE_BUILD_DOCKER_HOST}' docker \"\$@\"
+    else
+      docker \"\$@\"
+    fi
+  }
+  build_docker build -t '${REMOTE_IMAGE_TAGGED}' -t '${REMOTE_IMAGE_LATEST}' '${REMOTE_BUILD_DIR}'
+  build_docker push '${REMOTE_IMAGE_TAGGED}' >/tmp/vernissage-push-tagged.log
+  build_docker push '${REMOTE_IMAGE_LATEST}' >/tmp/vernissage-push-latest.log
   tail -n 3 /tmp/vernissage-push-tagged.log
   tail -n 3 /tmp/vernissage-push-latest.log
 "
