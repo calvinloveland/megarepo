@@ -7,7 +7,11 @@ APP_DIR="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
 THINKER_HOST="${THINKER_HOST:-thinker}"
 REMOTE_REGISTRY_NAME="${REMOTE_REGISTRY_NAME:-thinker-registry}"
 REMOTE_REGISTRY_DATA_DIR="${REMOTE_REGISTRY_DATA_DIR:-/home/calvin/.local/share/thinker-registry}"
+REMOTE_REGISTRY_VOLUME_NAME="${REMOTE_REGISTRY_VOLUME_NAME:-thinker-registry-data}"
 REMOTE_REGISTRY_ADDR="${REMOTE_REGISTRY_ADDR:-127.0.0.1:5000}"
+REMOTE_REGISTRY_NFS_ADDR="${REMOTE_REGISTRY_NFS_ADDR:-}"
+REMOTE_REGISTRY_NFS_DEVICE="${REMOTE_REGISTRY_NFS_DEVICE:-}"
+REMOTE_REGISTRY_NFS_OPTS="${REMOTE_REGISTRY_NFS_OPTS:-nfsvers=4,rw}"
 IMAGE_REPOSITORY="${IMAGE_REPOSITORY:-vernissage}"
 LOCAL_IMAGE="${LOCAL_IMAGE:-vernissage:thinker-build}"
 IMAGE_TAG="${1:-${IMAGE_TAG:-$(date -u +%Y%m%d-%H%M%S)}}"
@@ -15,6 +19,13 @@ REMOTE_IMAGE_BASE="${REMOTE_REGISTRY_ADDR}/${IMAGE_REPOSITORY}"
 REMOTE_IMAGE_TAGGED="${REMOTE_IMAGE_BASE}:${IMAGE_TAG}"
 REMOTE_IMAGE_LATEST="${REMOTE_IMAGE_BASE}:latest"
 REMOTE_BUILD_DIR=""
+
+if [[ -n "${REMOTE_REGISTRY_NFS_ADDR}" || -n "${REMOTE_REGISTRY_NFS_DEVICE}" ]]; then
+  if [[ -z "${REMOTE_REGISTRY_NFS_ADDR}" || -z "${REMOTE_REGISTRY_NFS_DEVICE}" ]]; then
+    echo "REMOTE_REGISTRY_NFS_ADDR and REMOTE_REGISTRY_NFS_DEVICE must be set together." >&2
+    exit 1
+  fi
+fi
 
 remote_bash() {
   local script="$1"
@@ -30,14 +41,51 @@ cleanup_remote_build_dir() {
 trap cleanup_remote_build_dir EXIT
 
 ensure_remote_registry() {
+  local use_nfs_volume="false"
+  local desired_mount_ref="${REMOTE_REGISTRY_DATA_DIR}"
+  local prepare_storage=""
+  local create_container_storage_args=""
+
+  if [[ -n "${REMOTE_REGISTRY_NFS_ADDR}" ]]; then
+    use_nfs_volume="true"
+    desired_mount_ref="${REMOTE_REGISTRY_VOLUME_NAME}"
+    prepare_storage="
+      docker volume create \
+        --driver local \
+        --opt type=nfs \
+        --opt o='addr=${REMOTE_REGISTRY_NFS_ADDR},${REMOTE_REGISTRY_NFS_OPTS}' \
+        --opt device=':${REMOTE_REGISTRY_NFS_DEVICE}' \
+        '${REMOTE_REGISTRY_VOLUME_NAME}' >/dev/null
+    "
+    create_container_storage_args="-v '${REMOTE_REGISTRY_VOLUME_NAME}:/var/lib/registry'"
+  else
+    prepare_storage="mkdir -p '${REMOTE_REGISTRY_DATA_DIR}'"
+    create_container_storage_args="-v '${REMOTE_REGISTRY_DATA_DIR}:/var/lib/registry'"
+  fi
+
   remote_bash "
-    mkdir -p '${REMOTE_REGISTRY_DATA_DIR}'
+    ${prepare_storage}
     if docker ps -a --format '{{.Names}}' | grep -qx '${REMOTE_REGISTRY_NAME}'; then
-      docker start '${REMOTE_REGISTRY_NAME}' >/dev/null || true
-    else
+      mount_type=\$(docker inspect --format '{{range .Mounts}}{{if eq .Destination \"/var/lib/registry\"}}{{.Type}}{{end}}{{end}}' '${REMOTE_REGISTRY_NAME}')
+      mount_source=\$(docker inspect --format '{{range .Mounts}}{{if eq .Destination \"/var/lib/registry\"}}{{if eq .Type \"volume\"}}{{.Name}}{{else}}{{.Source}}{{end}}{{end}}{{end}}' '${REMOTE_REGISTRY_NAME}')
+      if [[ \"${use_nfs_volume}\" == 'true' ]]; then
+        if [[ \"\${mount_type}\" != 'volume' || \"\${mount_source}\" != '${desired_mount_ref}' ]]; then
+          docker rm -f '${REMOTE_REGISTRY_NAME}' >/dev/null
+        else
+          docker start '${REMOTE_REGISTRY_NAME}' >/dev/null || true
+        fi
+      else
+        if [[ \"\${mount_type}\" != 'bind' || \"\${mount_source}\" != '${desired_mount_ref}' ]]; then
+          docker rm -f '${REMOTE_REGISTRY_NAME}' >/dev/null
+        else
+          docker start '${REMOTE_REGISTRY_NAME}' >/dev/null || true
+        fi
+      fi
+    fi
+    if ! docker ps -a --format '{{.Names}}' | grep -qx '${REMOTE_REGISTRY_NAME}'; then
       docker run -d --restart unless-stopped \
         -p 127.0.0.1:5000:5000 \
-        -v '${REMOTE_REGISTRY_DATA_DIR}:/var/lib/registry' \
+        ${create_container_storage_args} \
         --name '${REMOTE_REGISTRY_NAME}' \
         registry:2 >/dev/null
     fi
