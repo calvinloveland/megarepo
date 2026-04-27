@@ -97,6 +97,12 @@ ensure_remote_registry() {
         --name '${REMOTE_REGISTRY_NAME}' \
         registry:2 >/dev/null
     fi
+    for attempt in {1..20}; do
+      if curl -fsS http://${REMOTE_REGISTRY_ADDR}/v2/ >/dev/null; then
+        break
+      fi
+      sleep 1
+    done
     curl -fsS http://${REMOTE_REGISTRY_ADDR}/v2/ >/dev/null
   "
 }
