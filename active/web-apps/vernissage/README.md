@@ -210,6 +210,15 @@ Notes:
 - Keep the registry private on thinker (`127.0.0.1:5000`) unless there is a clear reason to redesign the cluster image-pull path.
 - If thinker is already close to disk pressure, `ssh thinker "docker builder prune -af && docker image prune -af"` is the fastest emergency cleanup before the next build.
 
+Synology access notes and lessons learned:
+
+- In the current environment the NAS is reachable at `192.168.1.247` over SSH as user `calvin`. Keep any password or key material in untracked local files; do not bake NAS credentials into repo scripts.
+- Plain `ssh` worked reliably, but standard `scp`/`sftp` flows were flaky on this DSM host. If you need file copy from automation, prefer `ssh ... 'cat > file'` or fall back to legacy `scp -O`.
+- Enabling the Synology NFS service by itself is not enough; the shared folder also needs an explicit export rule before `showmount -e` returns anything useful to thinker.
+- For Docker-backed registry storage, the Synology export needs to allow thinker only and permit root writes on that path (`no_root_squash`). The server-side `insecure` export flag was also required so Docker's NFS client ports were accepted.
+- Rootless Docker on thinker could not mount NFS volumes directly, which is why the working setup uses the rootful Docker daemon for both registry storage and, when desired, the image build/push path.
+- SSHFS/`sshfs` was not a reliable fallback here even after SSH key auth worked; `ssh` command execution succeeded, but SFTP subsystem requests still failed. Prefer NFS over SSHFS on this NAS for Vernissage.
+
 For a normal production release, use:
 
 ```bash
