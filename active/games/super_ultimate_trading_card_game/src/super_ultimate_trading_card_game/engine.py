@@ -647,6 +647,7 @@ def _build_view(context: MatchContext, player_id: str, round_number: int) -> Pla
             name=card.definition.name,
             track=card.track,
             position=round(_global_position(card, context.left.player_id), 2),
+            entered_round=card.entered_round,
             attack=card.definition.attack,
             max_hp=card.definition.hp,
             current_hp=card.current_hp,

@@ -136,6 +136,7 @@ class PublicCardSummary:
     name: str
     track: TrackName
     position: float
+    entered_round: int
     attack: int
     max_hp: int
     current_hp: int
