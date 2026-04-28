@@ -79,10 +79,17 @@ def _can_attack(card: CardInPlay, round_number: int) -> bool:
     return card.is_alive and (card.entered_round < round_number or card.has_keyword("Charge"))
 
 
+def _berserk_bonus(card: CardInPlay) -> int:
+    if card.definition.passive.type != "berserk":
+        return 0
+    if card.current_hp > max(1, card.definition.hp // 2):
+        return 0
+    return max(1, card.definition.passive.magnitude)
+
+
 def _effective_attack(card: CardInPlay) -> int:
     attack = card.definition.attack
-    if card.definition.passive.type == "berserk" and card.current_hp <= max(1, card.definition.hp // 2):
-        attack += max(1, card.definition.passive.magnitude)
+    attack += _berserk_bonus(card)
     return attack
 
 
@@ -118,21 +125,42 @@ def _draw_cards(player: PlayerState, rng: random.Random, count: int) -> None:
 
 def _apply_round_income_and_healing(context: MatchContext) -> None:
     for player in (context.left_state, context.right_state):
-        income = player.base_card.income
+        base_income = player.base_card.income
+        bonus_income = 0
         if player.base_card.passive.type == "income_boost":
-            income += max(1, player.base_card.passive.magnitude)
+            granted = max(1, player.base_card.passive.magnitude)
+            bonus_income += granted
+            context.log.append(f"{player.display_name}'s base passive granted +{granted} card points.")
         if player.base_card.passive.type == "heal_base":
+            before = player.base_hp
             player.base_hp = min(player.base_card.hp, player.base_hp + max(1, player.base_card.passive.magnitude))
+            healed = player.base_hp - before
+            if healed > 0:
+                context.log.append(f"{player.display_name}'s base passive healed the base for {healed}.")
         for card in context.board:
             if card.owner_id != player.player_id or not card.is_alive:
                 continue
             if card.definition.passive.type == "income_boost":
-                income += max(1, card.definition.passive.magnitude)
+                granted = max(1, card.definition.passive.magnitude)
+                bonus_income += granted
+                context.log.append(f"{_card_label(card)} triggered Income Boost for +{granted} card points.")
             if card.definition.passive.type == "heal_base":
+                before = player.base_hp
                 player.base_hp = min(player.base_card.hp, player.base_hp + max(1, card.definition.passive.magnitude))
+                healed = player.base_hp - before
+                if healed > 0:
+                    context.log.append(f"{_card_label(card)} healed {player.display_name}'s base for {healed}.")
             if card.definition.passive.type == "heal_self":
+                before = card.current_hp
                 card.current_hp = min(card.definition.hp, card.current_hp + max(1, card.definition.passive.magnitude))
-        player.card_points += income
+                healed = card.current_hp - before
+                if healed > 0:
+                    context.log.append(f"{_card_label(card)} healed itself for {healed}.")
+        total_income = base_income + bonus_income
+        player.card_points += total_income
+        context.log.append(
+            f"{player.display_name} gained {total_income} card points ({base_income} base + {bonus_income} bonus)."
+        )
 
 
 def _build_view(context: MatchContext, player_id: str, round_number: int) -> PlayerView:
@@ -231,23 +259,23 @@ def _play_card(context: MatchContext, player: PlayerState, play: PlannedPlay, ro
     context.log.append(f"{player.display_name} played {_card_label(in_play)} {mode}.")
 
 
-def _nearest_enemy(context: MatchContext, mover: CardInPlay, target_global: float) -> CardInPlay | None:
+def _enemies_in_path(context: MatchContext, mover: CardInPlay, target_global: float) -> list[CardInPlay]:
     enemies = [card for card in context.board if card.owner_id != mover.owner_id and card.track == mover.track and card.is_alive and card.engaged_with is None]
     if not enemies:
-        return None
+        return []
     mover_position = _global_position(mover, context.left.player_id)
     candidates: list[CardInPlay] = []
     if mover.owner_id == context.left.player_id:
         for enemy in enemies:
             enemy_pos = _global_position(enemy, context.left.player_id)
-            if mover_position < enemy_pos <= target_global and _can_block(mover, enemy):
+            if mover_position < enemy_pos <= target_global:
                 candidates.append(enemy)
-        return min(candidates, key=lambda card: _global_position(card, context.left.player_id), default=None)
+        return sorted(candidates, key=lambda card: _global_position(card, context.left.player_id))
     for enemy in enemies:
         enemy_pos = _global_position(enemy, context.left.player_id)
-        if target_global <= enemy_pos < mover_position and _can_block(mover, enemy):
+        if target_global <= enemy_pos < mover_position:
             candidates.append(enemy)
-    return max(candidates, key=lambda card: _global_position(card, context.left.player_id), default=None)
+    return sorted(candidates, key=lambda card: _global_position(card, context.left.player_id), reverse=True)
 
 
 def _move_cards(context: MatchContext, round_number: int) -> None:
@@ -257,14 +285,25 @@ def _move_cards(context: MatchContext, round_number: int) -> None:
         step = (FAST_TRACK_STEP if card.track is TrackName.FAST else SLOW_TRACK_STEP) * max(1, card.definition.speed)
         current = _global_position(card, context.left.player_id)
         target = min(TRACK_LENGTH, current + step) if card.owner_id == context.left.player_id else max(0.0, current - step)
-        enemy = _nearest_enemy(context, card, target)
+        enemies_in_path = _enemies_in_path(context, card, target)
+        enemy = next((candidate for candidate in enemies_in_path if _can_block(card, candidate)), None)
         if enemy is not None:
             enemy_position = _global_position(enemy, context.left.player_id)
             _set_global_position(card, context.left.player_id, enemy_position)
             card.engaged_with = enemy.instance_id
             enemy.engaged_with = card.instance_id
+            if card.has_keyword("Flying") and not enemy.has_keyword("Flying"):
+                context.log.append(f"{_card_label(enemy)} intercepted flying attacker {_card_label(card)}.")
             context.log.append(f"{_card_label(card)} engaged {_card_label(enemy)} on the {card.track.value} track.")
             continue
+        if card.has_keyword("Flying"):
+            bypassed = [candidate for candidate in enemies_in_path if not _can_block(card, candidate)]
+            if bypassed:
+                context.log.append(
+                    f"{_card_label(card)} flew past "
+                    + ", ".join(_card_label(candidate) for candidate in bypassed)
+                    + f" on the {card.track.value} track."
+                )
         _set_global_position(card, context.left.player_id, target)
         if (card.owner_id == context.left.player_id and target >= TRACK_LENGTH) or (
             card.owner_id != context.left.player_id and target <= 0.0
@@ -304,18 +343,39 @@ def _resolve_engagements(context: MatchContext, round_number: int) -> None:
         left_damage = 0
         right_damage = 0
         if _can_attack(card, round_number):
+            if card.entered_round == round_number and card.has_keyword("Charge"):
+                context.log.append(f"{_card_label(card)} used Charge to attack immediately.")
+            if _berserk_bonus(card) > 0:
+                context.log.append(f"{_card_label(card)} triggered Berserk for +{_berserk_bonus(card)} attack.")
             left_damage += _effective_attack(card)
         if _can_attack(enemy, round_number):
+            if enemy.entered_round == round_number and enemy.has_keyword("Charge"):
+                context.log.append(f"{_card_label(enemy)} used Charge to attack immediately.")
+            if _berserk_bonus(enemy) > 0:
+                context.log.append(f"{_card_label(enemy)} triggered Berserk for +{_berserk_bonus(enemy)} attack.")
             right_damage += _effective_attack(enemy)
         for supporter in _ranged_supporters(context, card):
             if _can_attack(supporter, round_number):
-                left_damage += _effective_attack(supporter)
+                support_damage = _effective_attack(supporter)
+                left_damage += support_damage
+                context.log.append(f"{_card_label(supporter)} used Ranged to support {_card_label(card)} for {support_damage} damage.")
         for supporter in _ranged_supporters(context, enemy):
             if _can_attack(supporter, round_number):
-                right_damage += _effective_attack(supporter)
-        enemy.current_hp -= _mitigated_damage(enemy, left_damage)
-        card.current_hp -= _mitigated_damage(card, right_damage)
-        context.log.append(f"{_card_label(card)} and {_card_label(enemy)} traded {left_damage}/{right_damage} damage.")
+                support_damage = _effective_attack(supporter)
+                right_damage += support_damage
+                context.log.append(f"{_card_label(supporter)} used Ranged to support {_card_label(enemy)} for {support_damage} damage.")
+        enemy_taken = _mitigated_damage(enemy, left_damage)
+        card_taken = _mitigated_damage(card, right_damage)
+        if enemy_taken < left_damage:
+            context.log.append(f"{_card_label(enemy)} reduced damage by {left_damage - enemy_taken} with Fortify.")
+        if card_taken < right_damage:
+            context.log.append(f"{_card_label(card)} reduced damage by {right_damage - card_taken} with Fortify.")
+        enemy.current_hp -= enemy_taken
+        card.current_hp -= card_taken
+        context.log.append(
+            f"{_card_label(card)} and {_card_label(enemy)} traded {left_damage}/{right_damage} damage "
+            f"({enemy_taken}/{card_taken} after mitigation)."
+        )
 
 
 def _attackers_at_base(context: MatchContext, defender_id: str, track: TrackName) -> list[CardInPlay]:
