@@ -68,7 +68,7 @@
               <div class="battlefield-track__line"></div>
               {% for item in track.cards %}
                 <div
-                  class="battlefield-track__card battlefield-track__card--{{ item.owner_side }}{% if item.card.entered_round == match.round_number %} battlefield-track__card--played{% endif %}{% if item.card.engaged %} battlefield-track__card--engaged{% endif %}"
+                  class="battlefield-track__card battlefield-track__card--{{ item.owner_side }}{% if item.card.entered_round >= (match.round_number - 1) %} battlefield-track__card--played{% endif %}{% if item.card.engaged %} battlefield-track__card--engaged{% endif %}"
                   style="left: {{ item.progress_percent }}%;"
                 >
                   <span class="battlefield-track__position">{{ item.progress_label }}</span>
