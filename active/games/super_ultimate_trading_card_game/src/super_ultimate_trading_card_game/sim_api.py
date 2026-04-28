@@ -19,7 +19,7 @@ from .engine import (
     serialize_context,
 )
 from .generation import get_generator
-from .models import DECK_SIZE, CardDefinition, CardKind, MatchResult, PlannedPlay, RoundDecision, TrackName
+from .models import DECK_SIZE, TRACK_LENGTH, CardDefinition, CardKind, MatchResult, PlannedPlay, RoundDecision, TrackName
 from .storage import (
     StoredDeck,
     StoredLiveMatch,
@@ -131,6 +131,17 @@ def _base_view_for_player(player) -> dict[str, Any]:
         "attack_range": player.base_card.attack_range,
         "keywords": player.base_card.keywords,
         "ability_summary": player.base_card.ability_summary,
+    }
+
+
+def _track_card_view(card, *, left_owner_id: str) -> dict[str, Any]:
+    global_position = float(card.position) if card.owner_id == left_owner_id else float(TRACK_LENGTH - card.position)
+    clamped_position = max(0.0, min(TRACK_LENGTH, global_position))
+    return {
+        "card": card,
+        "owner_side": "left" if card.owner_id == left_owner_id else "right",
+        "progress_percent": round((clamped_position / TRACK_LENGTH) * 100.0, 2),
+        "progress_label": f"{clamped_position:.1f}/{TRACK_LENGTH:.0f}",
     }
 
 
@@ -768,14 +779,19 @@ def live_match_result(
         if state[seat]["controller"] == "human":
             viewer_view = left_view if seat == "left" else right_view
     tracks = {
-        TrackName.FAST.value: {
-            "left": [card for card in left_view.board if card.track == TrackName.FAST and card.owner_id == state["left"]["owner_id"]],
-            "right": [card for card in left_view.board if card.track == TrackName.FAST and card.owner_id == state["right"]["owner_id"]],
-        },
-        TrackName.SLOW.value: {
-            "left": [card for card in left_view.board if card.track == TrackName.SLOW and card.owner_id == state["left"]["owner_id"]],
-            "right": [card for card in left_view.board if card.track == TrackName.SLOW and card.owner_id == state["right"]["owner_id"]],
-        },
+        track.value: {
+            "cards": [
+                _track_card_view(card, left_owner_id=state["left"]["owner_id"])
+                for card in sorted(
+                    [board_card for board_card in left_view.board if board_card.track == track],
+                    key=lambda board_card: (
+                        0.0 if board_card.owner_id == state["left"]["owner_id"] else 1.0,
+                        _track_card_view(board_card, left_owner_id=state["left"]["owner_id"])["progress_percent"],
+                    ),
+                )
+            ],
+        }
+        for track in (TrackName.FAST, TrackName.SLOW)
     }
     return {
         "match_id": record.match_id,

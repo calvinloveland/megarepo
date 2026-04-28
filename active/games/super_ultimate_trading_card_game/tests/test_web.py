@@ -68,12 +68,14 @@ def test_web_can_create_and_advance_live_ai_match(tmp_path: Path):
     assert detail_response.status_code == 200
     assert b"Advance one AI round" in detail_response.data
     assert b"Spectator view is active" in detail_response.data
+    assert b"Battlefield" in detail_response.data
     assert b"Fast Track" in detail_response.data
     assert b"Slow Track" in detail_response.data
-    assert b"Base Card" in detail_response.data
     assert b"ownership-card--flipped" in detail_response.data
     assert b"Alpha Atelier Hand" in detail_response.data
     assert b"Beta Bastion Hand" in detail_response.data
+    assert b"hand-fan__card" in detail_response.data
+    assert b"battlefield-track__marker" in detail_response.data
 
     advance_response = client.post(
         create_response.headers["Location"].replace("?viewer_id=alpha", "/advance"),

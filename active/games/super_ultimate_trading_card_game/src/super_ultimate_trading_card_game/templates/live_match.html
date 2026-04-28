@@ -27,82 +27,75 @@
     {% endif %}
   </section>
 
-  <div class="match-seat-grid">
-    <section class="panel match-seat">
-      <h2>{{ match.left.display_name }}</h2>
-      <p>
-        Seat left · {{ match.left.controller }}
-        · base {{ match.left_view.own_base_hp }}
-        · card points {{ match.left_view.card_points }}
-        · deck {{ match.left_view.own_draw_count }}
-        · discard {{ match.left_view.own_discard_count }}
-      </p>
-      <h3>Base Card</h3>
-      <div class="ownership-card">
-        {{ render_card(match.left_base, 'base') }}
-      </div>
-    </section>
-
-    <section class="panel match-seat match-seat--right">
-      <h2>{{ match.right.display_name }}</h2>
-      <p>
-        Seat right · {{ match.right.controller }}
-        · base {{ match.right_view.own_base_hp }}
-        · card points {{ match.right_view.card_points }}
-        · deck {{ match.right_view.own_draw_count }}
-        · discard {{ match.right_view.own_discard_count }}
-      </p>
-      <h3>Base Card</h3>
-      <div class="ownership-card ownership-card--flipped">
-        {{ render_card(match.right_base, 'base') }}
-      </div>
-    </section>
-  </div>
-
-  <section class="panel">
+  <section class="panel battlefield-panel">
     <h2>Battlefield</h2>
-    <div class="track-board">
-      {% for track_name in ("fast", "slow") %}
-        {% set track = match.tracks[track_name] %}
-        <section class="track-section">
-          <header class="track-section__header">
-            <h3>{{ track_name|capitalize }} Track</h3>
-            <p>
-              {% if track_name == "fast" %}
-                Fast pressure lane with the quickest path to the enemy base.
+    <div class="battlefield">
+      <section class="battlefield__base">
+        <h3>{{ match.left.display_name }} Base</h3>
+        <p>
+          HP {{ match.left_view.own_base_hp }}
+          · card points {{ match.left_view.card_points }}
+          · deck {{ match.left_view.own_draw_count }}
+          · discard {{ match.left_view.own_discard_count }}
+        </p>
+        <div class="ownership-card battlefield__base-card">
+          {{ render_card(match.left_base, 'base') }}
+        </div>
+      </section>
+
+      <div class="battlefield__tracks">
+        {% for track_name in ("fast", "slow") %}
+          {% set track = match.tracks[track_name] %}
+          <section class="battlefield-track battlefield-track--{{ track_name }}">
+            <header class="battlefield-track__header">
+              <div>
+                <h3>{{ track_name|capitalize }} Track</h3>
+                <p>
+                  {% if track_name == "fast" %}
+                    Fast pressure lane with the shortest route to the opposing base.
+                  {% else %}
+                    Slow lane for defenses, ranged support, and longer pushes.
+                  {% endif %}
+                </p>
+              </div>
+              <div class="battlefield-track__markers" aria-hidden="true">
+                {% for marker in range(0, 11) %}
+                  <span class="battlefield-track__marker" style="left: {{ marker * 10 }}%">{{ marker }}</span>
+                {% endfor %}
+              </div>
+            </header>
+            <div class="battlefield-track__lane">
+              <div class="battlefield-track__line"></div>
+              {% for item in track.cards %}
+                <div
+                  class="battlefield-track__card battlefield-track__card--{{ item.owner_side }}"
+                  style="left: {{ item.progress_percent }}%;"
+                >
+                  <span class="battlefield-track__position">{{ item.progress_label }}</span>
+                  <div class="ownership-card{% if item.owner_side == 'right' %} ownership-card--flipped{% endif %}">
+                    {{ render_card(item.card, 'unit') }}
+                  </div>
+                </div>
               {% else %}
-                Slow lane for longer defensive setups and gradual pushes.
-              {% endif %}
-            </p>
-          </header>
-          <div class="track-section__lanes">
-            <article class="track-lane">
-              <h4>{{ match.left.display_name }}</h4>
-              <div class="track-lane__cards">
-                {% for card in track.left %}
-                  <div class="ownership-card">
-                    {{ render_card(card, 'unit') }}
-                  </div>
-                {% else %}
-                  <p>No units on this track.</p>
-                {% endfor %}
-              </div>
-            </article>
-            <article class="track-lane track-lane--right">
-              <h4>{{ match.right.display_name }}</h4>
-              <div class="track-lane__cards">
-                {% for card in track.right %}
-                  <div class="ownership-card ownership-card--flipped">
-                    {{ render_card(card, 'unit') }}
-                  </div>
-                {% else %}
-                  <p>No units on this track.</p>
-                {% endfor %}
-              </div>
-            </article>
-          </div>
-        </section>
-      {% endfor %}
+                <p class="battlefield-track__empty">No units on this track.</p>
+              {% endfor %}
+            </div>
+          </section>
+        {% endfor %}
+      </div>
+
+      <section class="battlefield__base battlefield__base--right">
+        <h3>{{ match.right.display_name }} Base</h3>
+        <p>
+          HP {{ match.right_view.own_base_hp }}
+          · card points {{ match.right_view.card_points }}
+          · deck {{ match.right_view.own_draw_count }}
+          · discard {{ match.right_view.own_discard_count }}
+        </p>
+        <div class="ownership-card ownership-card--flipped battlefield__base-card">
+          {{ render_card(match.right_base, 'base') }}
+        </div>
+      </section>
     </div>
   </section>
 
@@ -110,9 +103,11 @@
     <div class="match-seat-grid">
       <section class="panel">
         <h2>{{ match.left.display_name }} Hand</h2>
-        <div class="collection-list">
+        <div class="hand-fan">
+          {% set left_count = match.left_view.own_hand|length %}
           {% for card in match.left_view.own_hand %}
-            <div class="ownership-card">
+            {% set angle = (loop.index0 - ((left_count - 1) / 2)) * 7 %}
+            <div class="hand-fan__card" style="--fan-angle: {{ angle }}deg;">
               {{ render_card(card, 'unit') }}
             </div>
           {% else %}
@@ -122,9 +117,11 @@
       </section>
       <section class="panel">
         <h2>{{ match.right.display_name }} Hand</h2>
-        <div class="collection-list">
+        <div class="hand-fan hand-fan--right">
+          {% set right_count = match.right_view.own_hand|length %}
           {% for card in match.right_view.own_hand %}
-            <div class="ownership-card ownership-card--flipped">
+            {% set angle = (((right_count - 1) / 2) - loop.index0) * 7 %}
+            <div class="hand-fan__card hand-fan__card--flipped" style="--fan-angle: {{ angle }}deg;">
               {{ render_card(card, 'unit') }}
             </div>
           {% else %}
@@ -143,9 +140,11 @@
         · deck {{ match.viewer_view.own_draw_count }}
         · discard {{ match.viewer_view.own_discard_count }}
       </p>
-      <div class="collection-list">
+      <div class="hand-fan">
+        {% set viewer_count = match.viewer_view.own_hand|length %}
         {% for card in match.viewer_view.own_hand %}
-          <div class="ownership-card">
+          {% set angle = (loop.index0 - ((viewer_count - 1) / 2)) * 7 %}
+          <div class="hand-fan__card" style="--fan-angle: {{ angle }}deg;">
             {{ render_card(card, 'unit') }}
           </div>
         {% else %}
