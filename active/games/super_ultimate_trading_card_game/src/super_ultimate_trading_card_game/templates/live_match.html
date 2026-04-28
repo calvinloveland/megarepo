@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_card.html" import render_card %}
 {% block title %}Live Match {{ match.match_id }}{% endblock %}
 {% block content %}
   <section class="panel">
@@ -28,11 +29,7 @@
       <h2>Public Board</h2>
       <div class="board-list">
         {% for card in match.board %}
-          <article class="card-block">
-            <h3>{{ card.name }}</h3>
-            <p>{{ card.owner_id }} · {{ card.track.value }} · pos {{ card.position }} · hp {{ card.current_hp }}</p>
-            <p>{% if card.stationary %}stationary{% else %}moving{% endif %}{% if card.engaged %} · engaged{% endif %}</p>
-          </article>
+          {{ render_card(card, 'unit') }}
         {% else %}
           <p>No units on the board yet.</p>
         {% endfor %}
@@ -51,14 +48,7 @@
         </p>
         <div class="collection-list">
           {% for card in match.viewer_view.own_hand %}
-            <article class="card-block">
-              <h3>{{ card.name }}</h3>
-              <p>hp {{ card.hp }} · atk {{ card.attack }} · cpc {{ card.cpc }}</p>
-              {% if card.keywords %}
-                <p>{{ card.keywords | join(", ") }}</p>
-              {% endif %}
-              <p>{{ card.ability_summary }}</p>
-            </article>
+            {{ render_card(card, 'unit') }}
           {% else %}
             <p>No cards in hand.</p>
           {% endfor %}

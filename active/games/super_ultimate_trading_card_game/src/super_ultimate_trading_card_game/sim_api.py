@@ -195,10 +195,17 @@ def load_collection_result(
         "bases": [
             {
                 "card_id": base.card_id,
+                "kind": base.kind.value,
+                "owner_id": base.owner_id,
                 "name": base.name,
+                "theme": base.theme,
                 "hp": base.hp,
                 "attack": base.attack,
+                "current_hp": base.hp,
                 "income": base.income,
+                "speed": base.speed,
+                "attack_range": base.attack_range,
+                "keywords": list(base.keywords),
                 "ability_summary": base.ability_summary,
             }
             for base in owned_bases.values()
@@ -206,10 +213,16 @@ def load_collection_result(
         "cards": [
             {
                 "card_id": card.card_id,
+                "kind": card.kind.value,
+                "owner_id": card.owner_id,
                 "name": card.name,
+                "theme": card.theme,
                 "cpc": card.cpc,
                 "hp": card.hp,
+                "current_hp": card.hp,
                 "attack": card.attack,
+                "speed": card.speed,
+                "attack_range": card.attack_range,
                 "keywords": list(card.keywords),
                 "ability_summary": card.ability_summary,
             }

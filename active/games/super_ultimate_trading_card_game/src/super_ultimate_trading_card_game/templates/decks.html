@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_card.html" import render_card %}
 {% block title %}{{ deck_data.display_name }} Deck Builder{% endblock %}
 {% block content %}
   <div class="grid two">
@@ -40,11 +41,6 @@
         <article class="card-block">
           <h3>{{ deck.name }}{% if deck.is_active %} · Active{% endif %}</h3>
           <p>Base: {{ deck.base.name if deck.base else deck.base_card_id }}</p>
-          <p>
-            {% for card in deck.cards %}
-              {{ card.name }}{% if not loop.last %}, {% endif %}
-            {% endfor %}
-          </p>
           <form method="post" action="{{ url_for('activate_deck_route', owner_id=deck_data.owner_id) }}">
             <input type="hidden" name="deck_id" value="{{ deck.deck_id }}" />
             <button type="submit">Set active</button>
@@ -58,14 +54,7 @@
     <h2>Collection Reference</h2>
     <div class="collection-list wide">
       {% for card in deck_data.owned_cards %}
-        <article class="card-block">
-          <h3>{{ card.name }}</h3>
-          <p>hp {{ card.hp }} · atk {{ card.attack }} · cpc {{ card.cpc }}</p>
-          {% if card.keywords %}
-            <p>{{ card.keywords | join(", ") }}</p>
-          {% endif %}
-          <p>{{ card.ability_summary }}</p>
-        </article>
+        {{ render_card(card, 'unit') }}
       {% endfor %}
     </div>
   </section>

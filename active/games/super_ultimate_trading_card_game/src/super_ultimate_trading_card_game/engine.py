@@ -647,10 +647,14 @@ def _build_view(context: MatchContext, player_id: str, round_number: int) -> Pla
             name=card.definition.name,
             track=card.track,
             position=round(_global_position(card, context.left.player_id), 2),
+            attack=card.definition.attack,
+            max_hp=card.definition.hp,
             current_hp=card.current_hp,
+            cpc=card.definition.cpc,
             stationary=card.stationary,
             engaged=card.engaged_with is not None,
             keywords=card.definition.keywords,
+            ability_summary=card.definition.ability_summary,
         )
         for card in context.board
         if card.is_alive

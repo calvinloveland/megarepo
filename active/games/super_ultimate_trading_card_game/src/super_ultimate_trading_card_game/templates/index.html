@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_card.html" import render_card %}
 {% block title %}SUTCG Dashboard{% endblock %}
 {% block content %}
   <div class="grid two">
@@ -57,18 +58,10 @@
       </p>
       <div class="collection-list">
         {% for base in collection.bases[:1] %}
-          <article class="card-block">
-            <h3>{{ base.name }}</h3>
-            <p>Base · hp {{ base.hp }} · atk {{ base.attack }} · income {{ base.income }}</p>
-            <p>{{ base.ability_summary }}</p>
-          </article>
+          {{ render_card(base, 'base') }}
         {% endfor %}
         {% for card in collection.cards[:6] %}
-          <article class="card-block">
-            <h3>{{ card.name }}</h3>
-            <p>Unit · hp {{ card.hp }} · atk {{ card.attack }} · cpc {{ card.cpc }}</p>
-            <p>{{ card.ability_summary }}</p>
-          </article>
+          {{ render_card(card, 'unit') }}
         {% endfor %}
       </div>
     </section>
@@ -100,9 +93,7 @@
       </form>
       {% if generated_card %}
         <div class="output">
-          <h3>{{ generated_card.name }}</h3>
-          <p><strong>{{ generated_card.kind.value }}</strong> · hp {{ generated_card.hp }} · atk {{ generated_card.attack }}{% if generated_card.cpc is not none %} · cpc {{ generated_card.cpc }}{% endif %}</p>
-          <p>{{ generated_card.ability_summary }}</p>
+          {{ render_card(generated_card, generated_card.kind.value) }}
           <pre>{{ generated_card.ability_script }}</pre>
         </div>
       {% endif %}

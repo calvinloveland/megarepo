@@ -15,6 +15,8 @@ def test_web_index_renders_live_client(tmp_path: Path):
     assert response.status_code == 200
     assert b"Create Live Game" in response.data
     assert b"Deck Builder" in response.data
+    assert b"game-card" in response.data
+    assert b"data:image/svg+xml" in response.data
 
 
 def test_web_can_create_and_advance_live_ai_match(tmp_path: Path):

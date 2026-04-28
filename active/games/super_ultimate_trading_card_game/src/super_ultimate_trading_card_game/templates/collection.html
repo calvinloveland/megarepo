@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_card.html" import render_card %}
 {% block title %}{{ collection.display_name }} Collection{% endblock %}
 {% block content %}
   <section class="panel">
@@ -15,11 +16,7 @@
       <h2>Bases</h2>
       <div class="collection-list">
         {% for base in collection.bases %}
-          <article class="card-block">
-            <h3>{{ base.name }}</h3>
-            <p>hp {{ base.hp }} · atk {{ base.attack }} · income {{ base.income }}</p>
-            <p>{{ base.ability_summary }}</p>
-          </article>
+          {{ render_card(base, 'base') }}
         {% endfor %}
       </div>
     </section>
@@ -42,14 +39,7 @@
     <h2>Owned Cards</h2>
     <div class="collection-list wide">
       {% for card in collection.cards %}
-        <article class="card-block">
-          <h3>{{ card.name }}</h3>
-          <p>hp {{ card.hp }} · atk {{ card.attack }} · cpc {{ card.cpc }}</p>
-          {% if card.keywords %}
-            <p>{{ card.keywords | join(", ") }}</p>
-          {% endif %}
-          <p>{{ card.ability_summary }}</p>
-        </article>
+        {{ render_card(card, 'unit') }}
       {% endfor %}
     </div>
   </section>

@@ -136,10 +136,14 @@ class PublicCardSummary:
     name: str
     track: TrackName
     position: float
+    attack: int
+    max_hp: int
     current_hp: int
+    cpc: Optional[int]
     stationary: bool
     engaged: bool
     keywords: tuple[str, ...]
+    ability_summary: str
 
 
 @dataclass(frozen=True)

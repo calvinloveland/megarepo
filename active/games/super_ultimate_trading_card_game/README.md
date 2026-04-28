@@ -15,6 +15,7 @@ Python prototype of **Super Ultimate Trading Card Game** focused on deterministi
 - Flask web UI that drives the same backend simulation engine
 - live matches for AI vs AI, AI vs Player, and Player vs Player
 - backend-managed collection browsing and six-card deck building
+- shared card-frame rendering with deterministic generated SVG artwork per card
 
 ## Quick start
 
@@ -42,6 +43,7 @@ Live web features:
 - step AI matches round by round or autoplay them to completion
 - submit human turns through the browser while the backend resolves combat
 - browse collections and build active six-card decks for each owner
+- render cards in a consistent card layout with backend-generated artwork
 - inspect finished battle logs and active live-match logs
 
 ## OpenRouter generation
