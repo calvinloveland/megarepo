@@ -153,7 +153,7 @@ def test_web_player_vs_player_waits_for_both_turns(tmp_path: Path):
     assert b"Waiting for the other seat" in first_submit.data
 
     second_submit = client_two.post(
-        f"/live/1/submit-turn",
+        "/live/1/submit-turn",
         data={
             "viewer_id": player_two_id,
             "generate_prompt": "",

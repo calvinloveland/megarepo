@@ -115,7 +115,7 @@ def _background_svg(backdrop: str, seed: str, colors: dict[str, str]) -> str:
     sun_y = 52 + int(seed[4:6], 16) % 54
     moon = '<circle cx="182" cy="58" r="16" fill="rgba(255,255,255,0.35)"/>' if backdrop in {"arcane", "ruins"} else ""
     extras = {
-        "sky": f'<path d="M34 84c18-16 42-14 56 0M122 74c16-12 36-10 50 0" stroke="rgba(255,255,255,0.45)" stroke-width="8" stroke-linecap="round"/>',
+        "sky": '<path d="M34 84c18-16 42-14 56 0M122 74c16-12 36-10 50 0" stroke="rgba(255,255,255,0.45)" stroke-width="8" stroke-linecap="round"/>',
         "garden": (
             '<path d="M24 240c20-22 30-52 34-78M214 240c-20-22-30-52-34-78" stroke="rgba(36,85,46,0.46)" '
             'stroke-width="10" stroke-linecap="round"/>'
