@@ -64,6 +64,17 @@ def _set_global_position(card: CardInPlay, left_id: str, value: float) -> None:
         card.position = max(0.0, min(TRACK_LENGTH, TRACK_LENGTH - value))
 
 
+def _card_label(card: CardInPlay) -> str:
+    suffix = card.instance_id.split("-")[-1]
+    return f"{card.definition.name}#{suffix}"
+
+
+def _definition_label(card: CardDefinition) -> str:
+    parts = card.card_id.split("-")
+    token = parts[1] if len(parts) > 2 else card.card_id[:6]
+    return f"{card.name}<{token}>"
+
+
 def _can_attack(card: CardInPlay, round_number: int) -> bool:
     return card.is_alive and (card.entered_round < round_number or card.has_keyword("Charge"))
 
@@ -176,7 +187,7 @@ def _handle_generation(context: MatchContext, decisions: dict[str, RoundDecision
         player.discard_pile.append(card)
         bot.register_generated_card(card)
         context.generated_cards += 1
-        context.log.append(f"{player.display_name} generated {card.name} from prompt '{prompt}'.")
+        context.log.append(f"{player.display_name} generated {_definition_label(card)} from prompt '{prompt}'.")
 
 
 def _remove_from_hand(player: PlayerState, card_id: str) -> CardDefinition | None:
@@ -217,7 +228,7 @@ def _play_card(context: MatchContext, player: PlayerState, play: PlannedPlay, ro
     )
     context.board.append(in_play)
     mode = "as a defender" if in_play.stationary else f"onto the {play.track.value} track"
-    context.log.append(f"{player.display_name} played {card.name} {mode}.")
+    context.log.append(f"{player.display_name} played {_card_label(in_play)} {mode}.")
 
 
 def _nearest_enemy(context: MatchContext, mover: CardInPlay, target_global: float) -> CardInPlay | None:
@@ -252,13 +263,13 @@ def _move_cards(context: MatchContext, round_number: int) -> None:
             _set_global_position(card, context.left.player_id, enemy_position)
             card.engaged_with = enemy.instance_id
             enemy.engaged_with = card.instance_id
-            context.log.append(f"{card.definition.name} engaged {enemy.definition.name} on the {card.track.value} track.")
+            context.log.append(f"{_card_label(card)} engaged {_card_label(enemy)} on the {card.track.value} track.")
             continue
         _set_global_position(card, context.left.player_id, target)
         if (card.owner_id == context.left.player_id and target >= TRACK_LENGTH) or (
             card.owner_id != context.left.player_id and target <= 0.0
         ):
-            context.log.append(f"{card.definition.name} reached the enemy base on the {card.track.value} track.")
+            context.log.append(f"{_card_label(card)} reached the enemy base on the {card.track.value} track.")
 
 
 def _ranged_supporters(context: MatchContext, frontline: CardInPlay) -> list[CardInPlay]:
@@ -304,7 +315,7 @@ def _resolve_engagements(context: MatchContext, round_number: int) -> None:
                 right_damage += _effective_attack(supporter)
         enemy.current_hp -= _mitigated_damage(enemy, left_damage)
         card.current_hp -= _mitigated_damage(card, right_damage)
-        context.log.append(f"{card.definition.name} and {enemy.definition.name} traded {left_damage}/{right_damage} damage.")
+        context.log.append(f"{_card_label(card)} and {_card_label(enemy)} traded {left_damage}/{right_damage} damage.")
 
 
 def _attackers_at_base(context: MatchContext, defender_id: str, track: TrackName) -> list[CardInPlay]:
@@ -330,7 +341,7 @@ def _resolve_base_attacks(context: MatchContext, round_number: int) -> None:
             target = max(attackers, key=_effective_attack)
             target.current_hp -= defender_state.base_card.attack
             context.log.append(
-                f"{defender_state.display_name}'s base took {total_damage} damage on the {track.value} track and counterattacked {target.definition.name}."
+                f"{defender_state.display_name}'s base took {total_damage} damage on the {track.value} track and counterattacked {_card_label(target)}."
             )
 
 
@@ -343,8 +354,19 @@ def _cleanup_destroyed(context: MatchContext) -> None:
             card.engaged_with = None
     for card in context.board:
         if card.instance_id in destroyed_ids:
-            context.log.append(f"{card.definition.name} was destroyed.")
+            context.log.append(f"{_card_label(card)} was destroyed.")
     context.board = [card for card in context.board if card.current_hp > 0]
+
+
+def _round_status_line(context: MatchContext) -> str:
+    left = context.left_state
+    right = context.right_state
+    return (
+        f"Status | {left.display_name}: base={left.base_hp}/{left.base_card.hp} cp={left.card_points} "
+        f"hand={len(left.hand)} deck={len(left.draw_pile)} discard={len(left.discard_pile)} "
+        f"| {right.display_name}: base={right.base_hp}/{right.base_card.hp} cp={right.card_points} "
+        f"hand={len(right.hand)} deck={len(right.draw_pile)} discard={len(right.discard_pile)}"
+    )
 
 
 def _winner(context: MatchContext) -> tuple[str | None, str] | None:
@@ -404,6 +426,7 @@ def run_match(
         _apply_round_income_and_healing(context)
         _draw_cards(context.left_state, rng, DRAW_COUNT)
         _draw_cards(context.right_state, rng, DRAW_COUNT)
+        context.log.append(_round_status_line(context))
         decisions = _decide_rounds(context, round_number)
         _handle_generation(context, decisions)
         _apply_plays(context, decisions, round_number)
