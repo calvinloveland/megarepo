@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}SUTCG Matches{% endblock %}
+{% block content %}
+  <section class="panel">
+    <h1>Saved Matches</h1>
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Seed</th>
+          <th>Players</th>
+          <th>Winner</th>
+          <th>Rounds</th>
+          <th>Generated</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for match in recent_matches %}
+          <tr>
+            <td>{{ match.match_id }}</td>
+            <td>{{ match.seed }}</td>
+            <td>{{ match.left_player }} vs {{ match.right_player }}</td>
+            <td>{{ match.winner_id or "draw" }}</td>
+            <td>{{ match.rounds_played }}</td>
+            <td>{{ match.generated_cards }}</td>
+            <td><a href="{{ url_for('match_detail', match_id=match.match_id) }}">Detail</a></td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+{% endblock %}

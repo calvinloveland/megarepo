@@ -12,6 +12,7 @@ Python-only prototype of **Super Ultimate Trading Card Game** focused on determi
 - deterministic fallback generation for offline testing
 - simple AI deckbuilding and playtesting bots
 - SQLite-backed persistence for owned cards, bases, and saved match logs
+- Flask web UI that drives the same backend simulation engine
 
 ## Quick start
 
@@ -22,6 +23,16 @@ python -m venv .venv
 pip install -e .[dev]
 sutcg-sim playtest --matches 25 --generator deterministic
 ```
+
+## Web UI
+
+```bash
+cd active/games/super_ultimate_trading_card_game
+. .venv/bin/activate
+sutcg-web --host 127.0.0.1 --port 5000
+```
+
+The web app is a backend-rendered interface over the same simulation code used by the CLI. Match execution, playtests, persistence, and card generation all still happen on the backend.
 
 ## OpenRouter generation
 

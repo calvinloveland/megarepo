@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+{% block title %}SUTCG Dashboard{% endblock %}
+{% block content %}
+  <div class="grid two">
+    <section class="panel">
+      <h1>Run Match</h1>
+      <form method="post" action="{{ url_for('run_match_route') }}" class="stack">
+        <label>Left player
+          <select name="left_id">
+            {% for bot_id in bot_ids %}
+              <option value="{{ bot_id }}">{{ bot_id }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>Right player
+          <select name="right_id">
+            {% for bot_id in bot_ids %}
+              <option value="{{ bot_id }}" {% if bot_id == 'beta' %}selected{% endif %}>{{ bot_id }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>Generator
+          <select name="generator">
+            <option value="auto">auto</option>
+            <option value="deterministic">deterministic</option>
+            <option value="openrouter">openrouter</option>
+          </select>
+        </label>
+        <label>Seed <input type="number" name="seed" value="1" /></label>
+        <button type="submit">Run backend match</button>
+      </form>
+    </section>
+
+    <section class="panel">
+      <h1>Run Playtest</h1>
+      <form method="post" action="{{ url_for('run_playtest_route') }}" class="stack">
+        <label>Generator
+          <select name="generator">
+            <option value="deterministic">deterministic</option>
+            <option value="auto">auto</option>
+            <option value="openrouter">openrouter</option>
+          </select>
+        </label>
+        <label>Matches <input type="number" name="matches" value="20" min="1" /></label>
+        <label>Seed <input type="number" name="seed" value="1" /></label>
+        <button type="submit">Run backend playtest</button>
+      </form>
+      {% if playtest_summary %}
+        <div class="output">
+          <pre>{{ playtest_summary | tojson(indent=2) }}</pre>
+        </div>
+      {% endif %}
+    </section>
+  </div>
+
+  <div class="grid two">
+    <section class="panel">
+      <h2>Generate Card</h2>
+      <form method="post" action="{{ url_for('generate_card_route') }}" class="stack">
+        <label>Owner <input type="text" name="owner_id" value="{{ owner_id }}" /></label>
+        <label>Kind
+          <select name="kind">
+            <option value="unit">unit</option>
+            <option value="base">base</option>
+          </select>
+        </label>
+        <label>Generator
+          <select name="generator">
+            <option value="auto">auto</option>
+            <option value="deterministic">deterministic</option>
+            <option value="openrouter">openrouter</option>
+          </select>
+        </label>
+        <label>Prompt
+          <textarea name="prompt" rows="4" placeholder="A weird card that does one damage for every e in the enemy name"></textarea>
+        </label>
+        <label class="inline"><input type="checkbox" name="save" checked /> Save to collection</label>
+        <button type="submit">Generate on backend</button>
+      </form>
+      {% if generated_card %}
+        <div class="output">
+          <h3>{{ generated_card.name }}</h3>
+          <p><strong>{{ generated_card.kind.value }}</strong> · hp {{ generated_card.hp }} · atk {{ generated_card.attack }}{% if generated_card.cpc is not none %} · cpc {{ generated_card.cpc }}{% endif %}</p>
+          <p>{{ generated_card.ability_summary }}</p>
+          <pre>{{ generated_card.ability_script }}</pre>
+        </div>
+      {% endif %}
+    </section>
+
+    <section class="panel">
+      <h2>{{ owner_id }} Collection</h2>
+      <p><a href="{{ url_for('collection_detail', owner_id=owner_id) }}">Open full collection</a></p>
+      <div class="collection-list">
+        {% for base in collection.bases %}
+          <article class="card-block">
+            <h3>{{ base.name }}</h3>
+            <p>Base · hp {{ base.hp }} · atk {{ base.attack }} · income {{ base.income }}</p>
+            <p>{{ base.ability_summary }}</p>
+          </article>
+        {% endfor %}
+        {% for card in collection.cards[:6] %}
+          <article class="card-block">
+            <h3>{{ card.name }}</h3>
+            <p>Unit · hp {{ card.hp }} · atk {{ card.attack }} · cpc {{ card.cpc }}</p>
+            <p>{{ card.ability_summary }}</p>
+          </article>
+        {% endfor %}
+      </div>
+    </section>
+  </div>
+
+  <section class="panel">
+    <h2>Recent Matches</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Players</th>
+          <th>Winner</th>
+          <th>Rounds</th>
+          <th>Generator</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for match in recent_matches %}
+          <tr>
+            <td>{{ match.match_id }}</td>
+            <td>{{ match.left_player }} vs {{ match.right_player }}</td>
+            <td>{{ match.winner_id or "draw" }}</td>
+            <td>{{ match.rounds_played }}</td>
+            <td>{{ match.generator }}</td>
+            <td><a href="{{ url_for('match_detail', match_id=match.match_id) }}">View log</a></td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+{% endblock %}

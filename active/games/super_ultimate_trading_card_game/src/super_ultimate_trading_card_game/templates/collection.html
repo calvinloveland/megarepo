@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}{{ owner_id }} Collection{% endblock %}
+{% block content %}
+  <section class="panel">
+    <h1>{{ owner_id }} Collection</h1>
+    <h2>Bases</h2>
+    <div class="collection-list">
+      {% for base in collection.bases %}
+        <article class="card-block">
+          <h3>{{ base.name }}</h3>
+          <p>hp {{ base.hp }} · atk {{ base.attack }} · income {{ base.income }}</p>
+          <p>{{ base.ability_summary }}</p>
+        </article>
+      {% else %}
+        <p>No bases saved yet.</p>
+      {% endfor %}
+    </div>
+    <h2>Cards</h2>
+    <div class="collection-list">
+      {% for card in collection.cards %}
+        <article class="card-block">
+          <h3>{{ card.name }}</h3>
+          <p>hp {{ card.hp }} · atk {{ card.attack }} · cpc {{ card.cpc }}</p>
+          <p>{{ card.ability_summary }}</p>
+        </article>
+      {% else %}
+        <p>No saved cards yet.</p>
+      {% endfor %}
+    </div>
+  </section>
+{% endblock %}

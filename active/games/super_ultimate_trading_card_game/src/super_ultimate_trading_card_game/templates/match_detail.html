@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Match {{ match.match_id }}{% endblock %}
+{% block content %}
+  <section class="panel">
+    <h1>Match {{ match.match_id }}</h1>
+    <p>{{ match.left_player }} vs {{ match.right_player }}</p>
+    <p>Winner: <strong>{{ match.winner_id or "draw" }}</strong> · Rounds: {{ match.rounds_played }} · Generator: {{ match.generator }}</p>
+    <p>Reason: {{ match.reason }} · Generated cards: {{ match.generated_cards }}</p>
+  </section>
+  <section class="panel">
+    <h2>Battle Log</h2>
+    <pre class="log">{% for line in match.event_log %}{{ line }}
+{% endfor %}</pre>
+  </section>
+{% endblock %}

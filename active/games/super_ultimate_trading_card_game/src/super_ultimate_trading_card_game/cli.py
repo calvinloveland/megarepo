@@ -2,24 +2,19 @@ from __future__ import annotations
 
 import argparse
 import json
-import itertools
 from pathlib import Path
-from statistics import mean
 
-from .bots import create_bot_roster, create_default_bots
-from .generation import get_generator
 from .models import CardKind
-from .engine import run_match
-from .storage import (
-    default_db_path,
-    hydrate_bot_collection,
-    init_db,
-    list_matches,
-    load_match,
-    save_bot_collection,
-    save_card,
-    save_match,
+from .sim_api import (
+    DEFAULT_BOT_IDS,
+    generate_card_result,
+    load_collection_result,
+    recent_matches,
+    run_playtest_batch,
+    run_saved_match,
+    stored_match,
 )
+from .storage import default_db_path
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -31,6 +26,8 @@ def _build_parser() -> argparse.ArgumentParser:
     match_parser.add_argument("--generator", default="auto", choices=["auto", "deterministic", "openrouter"])
     match_parser.add_argument("--db", default=str(default_db_path()))
     match_parser.add_argument("--full-log", action="store_true")
+    match_parser.add_argument("--left-id", default="alpha", choices=list(DEFAULT_BOT_IDS))
+    match_parser.add_argument("--right-id", default="beta", choices=list(DEFAULT_BOT_IDS))
 
     playtest_parser = subparsers.add_parser("playtest", help="Run many AI-vs-AI matches")
     playtest_parser.add_argument("--matches", type=int, default=20)
@@ -60,22 +57,20 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _run_single_match(seed: int, generator_name: str, db_path: Path, full_log: bool) -> int:
-    init_db(db_path)
-    generator = get_generator(generator_name, seed=seed)
-    left, right = create_default_bots(seed)
-    hydrate_bot_collection(left, path=db_path)
-    hydrate_bot_collection(right, path=db_path)
-    result = run_match(left, right, generator, seed=seed)
-    save_bot_collection(left, path=db_path)
-    save_bot_collection(right, path=db_path)
-    match_id = save_match(
+def _run_single_match(
+    seed: int,
+    generator_name: str,
+    db_path: Path,
+    full_log: bool,
+    left_id: str,
+    right_id: str,
+) -> int:
+    match_id, result = run_saved_match(
         seed=seed,
-        generator=generator_name,
-        left_player=left.player_id,
-        right_player=right.player_id,
-        result=result,
-        path=db_path,
+        generator_name=generator_name,
+        left_id=left_id,
+        right_id=right_id,
+        db_path=db_path,
     )
     print(
         f"match_id={match_id} winner={result.winner_id or 'draw'} "
@@ -90,58 +85,20 @@ def _run_single_match(seed: int, generator_name: str, db_path: Path, full_log: b
 
 
 def _run_playtest(matches: int, seed: int, generator_name: str, db_path: Path) -> int:
-    init_db(db_path)
-    generator = get_generator(generator_name, seed=seed)
-    roster = create_bot_roster(seed)
-    for bot in roster:
-        hydrate_bot_collection(bot, path=db_path)
-    pairings = list(itertools.combinations(range(len(roster)), 2))
-    results = []
-    pairing_results: dict[str, dict[str, int]] = {}
-    for index in range(matches):
-        left_index, right_index = pairings[index % len(pairings)]
-        left = roster[left_index]
-        right = roster[right_index]
-        result = run_match(left, right, generator, seed=seed + index)
-        save_bot_collection(left, path=db_path)
-        save_bot_collection(right, path=db_path)
-        save_match(
-            seed=seed + index,
-            generator=generator_name,
-            left_player=left.player_id,
-            right_player=right.player_id,
-            result=result,
-            path=db_path,
-        )
-        results.append(result)
-        pairing_key = f"{left.player_id}-vs-{right.player_id}"
-        pairing_results.setdefault(pairing_key, {"draw": 0, left.player_id: 0, right.player_id: 0})
-        pairing_results[pairing_key][result.winner_id or "draw"] += 1
-    wins = {"draw": 0}
-    for bot in roster:
-        wins[bot.player_id] = 0
-    for result in results:
-        wins[result.winner_id or "draw"] += 1
-    print(json.dumps(
-        {
-            "matches": matches,
-            "generator": generator_name,
-            "average_rounds": round(mean(result.rounds_played for result in results), 2),
-            "average_generated_cards": round(mean(result.generated_cards for result in results), 2),
-            "wins": wins,
-            "pairings": pairing_results,
-        },
-        indent=2,
-    ))
+    summary = run_playtest_batch(matches=matches, seed=seed, generator_name=generator_name, db_path=db_path)
+    print(json.dumps(summary, indent=2))
     return 0
 
 
 def _run_generate(prompt: str, kind: str, generator_name: str, owner_id: str, db_path: Path, save: bool) -> int:
-    init_db(db_path)
-    generator = get_generator(generator_name, seed=1)
-    card = generator.generate_card(owner_id, prompt, kind=CardKind(kind))
-    if save:
-        save_card(card, path=db_path)
+    card = generate_card_result(
+        prompt=prompt,
+        kind=CardKind(kind),
+        generator_name=generator_name,
+        owner_id=owner_id,
+        db_path=db_path,
+        save=save,
+    )
     print(
         json.dumps(
             {
@@ -172,46 +129,12 @@ def _run_generate(prompt: str, kind: str, generator_name: str, owner_id: str, db
 
 
 def _run_collection(owner_id: str, db_path: Path) -> int:
-    from .storage import load_owned_cards
-
-    init_db(db_path)
-    owned_cards, owned_bases = load_owned_cards(owner_id, path=db_path)
-    print(
-        json.dumps(
-            {
-                "owner_id": owner_id,
-                "bases": [
-                    {
-                        "card_id": base.card_id,
-                        "name": base.name,
-                        "hp": base.hp,
-                        "attack": base.attack,
-                        "income": base.income,
-                        "ability_summary": base.ability_summary,
-                    }
-                    for base in owned_bases.values()
-                ],
-                "cards": [
-                    {
-                        "card_id": card.card_id,
-                        "name": card.name,
-                        "cpc": card.cpc,
-                        "hp": card.hp,
-                        "attack": card.attack,
-                        "keywords": list(card.keywords),
-                        "ability_summary": card.ability_summary,
-                    }
-                    for card in owned_cards.values()
-                ],
-            },
-            indent=2,
-        )
-    )
+    print(json.dumps(load_collection_result(owner_id=owner_id, db_path=db_path), indent=2))
     return 0
 
 
 def _run_show_match(match_id: int, db_path: Path) -> int:
-    stored = load_match(match_id, path=db_path)
+    stored = stored_match(match_id, db_path=db_path)
     if stored is None:
         raise ValueError(f"Match {match_id} not found in {db_path}")
     print(
@@ -224,7 +147,7 @@ def _run_show_match(match_id: int, db_path: Path) -> int:
 
 
 def _run_match_history(limit: int, db_path: Path) -> int:
-    matches = list_matches(limit=limit, path=db_path)
+    matches = recent_matches(limit=limit, db_path=db_path)
     print(
         json.dumps(
             [
@@ -251,7 +174,7 @@ def main() -> int:
     parser = _build_parser()
     args = parser.parse_args()
     if args.command == "match":
-        return _run_single_match(args.seed, args.generator, Path(args.db), args.full_log)
+        return _run_single_match(args.seed, args.generator, Path(args.db), args.full_log, args.left_id, args.right_id)
     if args.command == "playtest":
         return _run_playtest(args.matches, args.seed, args.generator, Path(args.db))
     if args.command == "generate-card":
