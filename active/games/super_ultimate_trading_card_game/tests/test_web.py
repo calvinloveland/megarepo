@@ -67,6 +67,13 @@ def test_web_can_create_and_advance_live_ai_match(tmp_path: Path):
     detail_response = client.get(create_response.headers["Location"])
     assert detail_response.status_code == 200
     assert b"Advance one AI round" in detail_response.data
+    assert b"Spectator view is active" in detail_response.data
+    assert b"Fast Track" in detail_response.data
+    assert b"Slow Track" in detail_response.data
+    assert b"Base Card" in detail_response.data
+    assert b"ownership-card--flipped" in detail_response.data
+    assert b"Alpha Atelier Hand" in detail_response.data
+    assert b"Beta Bastion Hand" in detail_response.data
 
     advance_response = client.post(
         create_response.headers["Location"].replace("?viewer_id=alpha", "/advance"),
@@ -93,7 +100,7 @@ def test_web_can_submit_human_turn(tmp_path: Path):
     assert create_response.status_code == 302
     detail_response = client.get(create_response.headers["Location"])
     assert detail_response.status_code == 200
-    assert b"Viewer Hand" in detail_response.data
+    assert b"Your Hand" in detail_response.data
     assert b"Lock in turn" in detail_response.data
 
     submit_response = client.post(

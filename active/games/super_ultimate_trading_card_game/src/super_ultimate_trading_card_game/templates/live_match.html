@@ -22,42 +22,138 @@
         <p><a href="{{ url_for('match_detail', match_id=match.result.saved_match_id) }}">Open saved battle log</a></p>
       {% endif %}
     {% endif %}
+    {% if match.is_spectator %}
+      <p>Spectator view is active: both hands, both base cards, and both tracks are fully visible.</p>
+    {% endif %}
   </section>
 
-  <div class="grid two">
-    <section class="panel">
-      <h2>Public Board</h2>
-      <div class="board-list">
-        {% for card in match.board %}
-          {{ render_card(card, 'unit') }}
-        {% else %}
-          <p>No units on the board yet.</p>
-        {% endfor %}
+  <div class="match-seat-grid">
+    <section class="panel match-seat">
+      <h2>{{ match.left.display_name }}</h2>
+      <p>
+        Seat left · {{ match.left.controller }}
+        · base {{ match.left_view.own_base_hp }}
+        · card points {{ match.left_view.card_points }}
+        · deck {{ match.left_view.own_draw_count }}
+        · discard {{ match.left_view.own_discard_count }}
+      </p>
+      <h3>Base Card</h3>
+      <div class="ownership-card">
+        {{ render_card(match.left_base, 'base') }}
       </div>
     </section>
 
-    <section class="panel">
-      <h2>Viewer Hand</h2>
-      {% if match.viewer_view %}
-        <p>
-          Card points {{ match.viewer_view.card_points }}
-          · own base {{ match.viewer_view.own_base_hp }}
-          · enemy base {{ match.viewer_view.opponent_base_hp }}
-          · deck {{ match.viewer_view.own_draw_count }}
-          · discard {{ match.viewer_view.own_discard_count }}
-        </p>
+    <section class="panel match-seat match-seat--right">
+      <h2>{{ match.right.display_name }}</h2>
+      <p>
+        Seat right · {{ match.right.controller }}
+        · base {{ match.right_view.own_base_hp }}
+        · card points {{ match.right_view.card_points }}
+        · deck {{ match.right_view.own_draw_count }}
+        · discard {{ match.right_view.own_discard_count }}
+      </p>
+      <h3>Base Card</h3>
+      <div class="ownership-card ownership-card--flipped">
+        {{ render_card(match.right_base, 'base') }}
+      </div>
+    </section>
+  </div>
+
+  <section class="panel">
+    <h2>Battlefield</h2>
+    <div class="track-board">
+      {% for track_name in ("fast", "slow") %}
+        {% set track = match.tracks[track_name] %}
+        <section class="track-section">
+          <header class="track-section__header">
+            <h3>{{ track_name|capitalize }} Track</h3>
+            <p>
+              {% if track_name == "fast" %}
+                Fast pressure lane with the quickest path to the enemy base.
+              {% else %}
+                Slow lane for longer defensive setups and gradual pushes.
+              {% endif %}
+            </p>
+          </header>
+          <div class="track-section__lanes">
+            <article class="track-lane">
+              <h4>{{ match.left.display_name }}</h4>
+              <div class="track-lane__cards">
+                {% for card in track.left %}
+                  <div class="ownership-card">
+                    {{ render_card(card, 'unit') }}
+                  </div>
+                {% else %}
+                  <p>No units on this track.</p>
+                {% endfor %}
+              </div>
+            </article>
+            <article class="track-lane track-lane--right">
+              <h4>{{ match.right.display_name }}</h4>
+              <div class="track-lane__cards">
+                {% for card in track.right %}
+                  <div class="ownership-card ownership-card--flipped">
+                    {{ render_card(card, 'unit') }}
+                  </div>
+                {% else %}
+                  <p>No units on this track.</p>
+                {% endfor %}
+              </div>
+            </article>
+          </div>
+        </section>
+      {% endfor %}
+    </div>
+  </section>
+
+  {% if match.is_spectator %}
+    <div class="match-seat-grid">
+      <section class="panel">
+        <h2>{{ match.left.display_name }} Hand</h2>
         <div class="collection-list">
-          {% for card in match.viewer_view.own_hand %}
-            {{ render_card(card, 'unit') }}
+          {% for card in match.left_view.own_hand %}
+            <div class="ownership-card">
+              {{ render_card(card, 'unit') }}
+            </div>
           {% else %}
             <p>No cards in hand.</p>
           {% endfor %}
         </div>
-      {% else %}
-        <p>This viewer is spectating or controlling an AI seat, so no private hand is shown.</p>
-      {% endif %}
+      </section>
+      <section class="panel">
+        <h2>{{ match.right.display_name }} Hand</h2>
+        <div class="collection-list">
+          {% for card in match.right_view.own_hand %}
+            <div class="ownership-card ownership-card--flipped">
+              {{ render_card(card, 'unit') }}
+            </div>
+          {% else %}
+            <p>No cards in hand.</p>
+          {% endfor %}
+        </div>
+      </section>
+    </div>
+  {% elif match.viewer_view %}
+    <section class="panel">
+      <h2>Your Hand</h2>
+      <p>
+        Card points {{ match.viewer_view.card_points }}
+        · own base {{ match.viewer_view.own_base_hp }}
+        · enemy base {{ match.viewer_view.opponent_base_hp }}
+        · deck {{ match.viewer_view.own_draw_count }}
+        · discard {{ match.viewer_view.own_discard_count }}
+      </p>
+      <div class="collection-list">
+        {% for card in match.viewer_view.own_hand %}
+          <div class="ownership-card">
+            {{ render_card(card, 'unit') }}
+          </div>
+        {% else %}
+          <p>No cards in hand.</p>
+        {% endfor %}
+      </div>
     </section>
-  </div>
+  {% endif %}
 
   <div class="grid two">
     <section class="panel">

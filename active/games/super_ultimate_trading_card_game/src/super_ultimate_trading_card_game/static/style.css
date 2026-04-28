@@ -136,6 +136,78 @@ pre {
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
 }
 
+.match-seat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.match-seat,
+.track-lane {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.track-board {
+  display: grid;
+  gap: 1rem;
+}
+
+.track-section {
+  display: grid;
+  gap: 0.9rem;
+  padding: 1rem;
+  border: 1px solid #2d3752;
+  border-radius: 14px;
+  background: #101726;
+}
+
+.track-section__header {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.track-section__header h3,
+.track-lane h4,
+.match-seat h2,
+.match-seat h3 {
+  margin: 0;
+}
+
+.track-section__header p,
+.track-lane p,
+.match-seat p {
+  margin: 0;
+}
+
+.track-section__lanes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1rem;
+}
+
+.track-lane {
+  padding: 0.9rem;
+  border-radius: 12px;
+  background: #171d2d;
+  border: 1px solid #32405d;
+}
+
+.track-lane__cards {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.ownership-card {
+  display: block;
+}
+
+.ownership-card--flipped {
+  transform: rotate(180deg);
+}
+
 .card-block {
   background: #0f1422;
   border: 1px solid #2d3752;

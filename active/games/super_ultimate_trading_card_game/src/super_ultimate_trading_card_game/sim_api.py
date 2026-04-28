@@ -115,6 +115,25 @@ def preferred_generator_for_player(player_id: str | None, *, db_path: Path | Non
     return profile.preferred_generator or "openrouter"
 
 
+def _base_view_for_player(player) -> dict[str, Any]:
+    return {
+        "card_id": player.base_card.card_id,
+        "owner_id": player.player_id,
+        "name": player.base_card.name,
+        "theme": player.base_card.theme,
+        "kind": player.base_card.kind,
+        "attack": player.base_card.attack,
+        "hp": player.base_card.hp,
+        "current_hp": player.base_hp,
+        "cpc": player.base_card.cpc,
+        "income": player.base_card.income,
+        "speed": player.base_card.speed,
+        "attack_range": player.base_card.attack_range,
+        "keywords": player.base_card.keywords,
+        "ability_summary": player.base_card.ability_summary,
+    }
+
+
 def _display_name(owner_id: str, db_path: Path | None = None) -> str:
     profile = load_profile(owner_id, path=db_path) if db_path is not None else None
     if profile is not None:
@@ -742,10 +761,22 @@ def live_match_result(
     context = deserialize_context(state["context"])
     pending_ids = set(state["pending_decisions"])
     viewer_view = None
+    left_view = build_view(context, state["left"]["owner_id"], state["round_number"])
+    right_view = build_view(context, state["right"]["owner_id"], state["round_number"])
     if viewer in {state["left"]["owner_id"], state["right"]["owner_id"]}:
         seat = "left" if state["left"]["owner_id"] == viewer else "right"
         if state[seat]["controller"] == "human":
-            viewer_view = build_view(context, viewer, state["round_number"])
+            viewer_view = left_view if seat == "left" else right_view
+    tracks = {
+        TrackName.FAST.value: {
+            "left": [card for card in left_view.board if card.track == TrackName.FAST and card.owner_id == state["left"]["owner_id"]],
+            "right": [card for card in left_view.board if card.track == TrackName.FAST and card.owner_id == state["right"]["owner_id"]],
+        },
+        TrackName.SLOW.value: {
+            "left": [card for card in left_view.board if card.track == TrackName.SLOW and card.owner_id == state["left"]["owner_id"]],
+            "right": [card for card in left_view.board if card.track == TrackName.SLOW and card.owner_id == state["right"]["owner_id"]],
+        },
+    }
     return {
         "match_id": record.match_id,
         "mode": record.mode,
@@ -763,7 +794,13 @@ def live_match_result(
         "can_autoplay": state["status"] == "active" and state["left"]["controller"] == "ai" and state["right"]["controller"] == "ai",
         "result": state["result"],
         "event_log": list(context.log),
-        "board": build_view(context, state["left"]["owner_id"], state["round_number"]).board,
+        "board": left_view.board,
+        "left_view": left_view,
+        "right_view": right_view,
+        "left_base": _base_view_for_player(context.left_state),
+        "right_base": _base_view_for_player(context.right_state),
+        "tracks": tracks,
+        "is_spectator": viewer_view is None,
     }
 
 
