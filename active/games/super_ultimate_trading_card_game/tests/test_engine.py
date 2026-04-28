@@ -326,3 +326,62 @@ def test_name_aware_scripted_ability_counts_enemy_name_letters():
     log_text = "\n".join(context.log)
     assert eel_keeper.current_hp == 1
     assert "Letter Curse#8 used Spelling Punisher for +5 attack from 'e' in Eel Keeper." in log_text
+
+
+def test_weird_helpers_scale_from_name_length_allies_and_round():
+    swarm_oracle = CardInPlay(
+        instance_id="instance-10",
+        definition=_make_unit(
+            owner_id="alpha",
+            card_id="alpha-swarm",
+            name="Swarm Oracle",
+            attack=1,
+            hp=4,
+            ability_summary="Choir of Timing",
+            ability_script=(
+                'if api.event == "combat":\n'
+                '    api.add_attack_if_enemy_name_even_length()\n'
+                '    api.add_attack_per_allies_on_board()\n'
+                '    api.add_attack_per_round_tier(4)'
+            ),
+        ),
+        owner_id="alpha",
+        track=TrackName.FAST,
+        position=5.0,
+        stationary=False,
+        entered_round=1,
+        current_hp=4,
+        engaged_with="instance-12",
+    )
+    ally = CardInPlay(
+        instance_id="instance-11",
+        definition=_make_unit(owner_id="alpha", card_id="alpha-ally2", name="Choir Mate", attack=1, hp=3),
+        owner_id="alpha",
+        track=TrackName.SLOW,
+        position=1.0,
+        stationary=False,
+        entered_round=1,
+        current_hp=3,
+    )
+    noon = CardInPlay(
+        instance_id="instance-12",
+        definition=_make_unit(owner_id="beta", card_id="beta-noon", name="Noon", attack=1, hp=10),
+        owner_id="beta",
+        track=TrackName.FAST,
+        position=5.0,
+        stationary=False,
+        entered_round=1,
+        current_hp=10,
+        engaged_with="instance-10",
+    )
+    left_state = _make_state("alpha", "Alpha", _make_base("alpha", "Alpha Base"))
+    right_state = _make_state("beta", "Beta", _make_base("beta", "Beta Base"))
+    context = _make_context([swarm_oracle, ally, noon], left_state, right_state)
+
+    _resolve_engagements(context, round_number=8)
+
+    log_text = "\n".join(context.log)
+    assert noon.current_hp == 3
+    assert "Swarm Oracle#10 used Choir of Timing for +2 attack because Noon has even length." in log_text
+    assert "Swarm Oracle#10 used Choir of Timing for +2 attack from allied board presence." in log_text
+    assert "Swarm Oracle#10 used Choir of Timing for +2 attack from round scaling." in log_text

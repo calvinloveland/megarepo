@@ -181,6 +181,7 @@ class AbilityAPI:
         event: str,
         runtime: AbilityRuntime,
         enemy_name: str | None = None,
+        round_number: int | None = None,
     ):
         self._context = context
         self._player = player
@@ -188,6 +189,7 @@ class AbilityAPI:
         self.event = event
         self._runtime = runtime
         self._enemy_name = enemy_name
+        self._round_number = round_number
 
     def _clamp(self, amount: int) -> int:
         return max(0, min(3, int(amount)))
@@ -197,6 +199,12 @@ class AbilityAPI:
             return 0
         target = char.lower()
         return min(8, self._enemy_name.lower().count(target))
+
+    def _allies_on_board(self) -> int:
+        return sum(1 for board_card in self._context.board if board_card.owner_id == self._player.player_id and board_card.is_alive)
+
+    def _enemies_on_board(self) -> int:
+        return sum(1 for board_card in self._context.board if board_card.owner_id != self._player.player_id and board_card.is_alive)
 
     def heal_self(self, amount: int) -> None:
         healed = _heal_card(self._card, self._clamp(amount))
@@ -229,6 +237,51 @@ class AbilityAPI:
             return
         self._runtime.attack_bonus += granted
         self._context.log.append(f"{_card_label(self._card)} used {_ability_name(self._card)} for +{granted} attack.")
+
+    def add_attack_if_enemy_name_equals(self, name: str) -> None:
+        if not self._enemy_name or self._enemy_name != name:
+            return
+        self._runtime.attack_bonus += 3
+        self._context.log.append(
+            f"{_card_label(self._card)} used {_ability_name(self._card)} for +3 attack because the enemy name matched exactly."
+        )
+
+    def add_attack_if_enemy_name_even_length(self) -> None:
+        if not self._enemy_name or len(self._enemy_name.replace(" ", "")) % 2 != 0:
+            return
+        self._runtime.attack_bonus += 2
+        self._context.log.append(
+            f"{_card_label(self._card)} used {_ability_name(self._card)} for +2 attack because {self._enemy_name} has even length."
+        )
+
+    def add_attack_if_enemy_name_is_palindrome(self) -> None:
+        if not self._enemy_name:
+            return
+        normalized = "".join(ch.lower() for ch in self._enemy_name if ch.isalnum())
+        if not normalized or normalized != normalized[::-1]:
+            return
+        self._runtime.attack_bonus += 3
+        self._context.log.append(
+            f"{_card_label(self._card)} used {_ability_name(self._card)} for +3 attack because {self._enemy_name} is a palindrome."
+        )
+
+    def add_attack_per_allies_on_board(self) -> None:
+        granted = min(6, self._allies_on_board())
+        if granted <= 0:
+            return
+        self._runtime.attack_bonus += granted
+        self._context.log.append(f"{_card_label(self._card)} used {_ability_name(self._card)} for +{granted} attack from allied board presence.")
+
+    def add_attack_per_round_tier(self, divisor: int) -> None:
+        if not self._round_number or divisor <= 0:
+            return
+        granted = min(6, self._round_number // divisor)
+        if granted <= 0:
+            return
+        self._runtime.attack_bonus += granted
+        self._context.log.append(
+            f"{_card_label(self._card)} used {_ability_name(self._card)} for +{granted} attack from round scaling."
+        )
 
     def add_attack_per_enemy_name_char(self, char: str) -> None:
         granted = self._enemy_name_count(char)
@@ -269,6 +322,15 @@ class AbilityAPI:
         self._runtime.reflect_damage += granted
         self._context.log.append(f"{_card_label(self._card)} primed {_ability_name(self._card)} to reflect {granted} damage.")
 
+    def reflect_damage_per_enemies_on_board(self) -> None:
+        granted = min(6, self._enemies_on_board())
+        if granted <= 0:
+            return
+        self._runtime.reflect_damage += granted
+        self._context.log.append(
+            f"{_card_label(self._card)} primed {_ability_name(self._card)} to reflect {granted} damage from enemy board count."
+        )
+
     def reflect_damage_per_enemy_name_char(self, char: str) -> None:
         granted = self._enemy_name_count(char)
         if granted <= 0:
@@ -290,13 +352,22 @@ def _trigger_scripted_ability(
     event: str,
     *,
     enemy_name: str | None = None,
+    round_number: int | None = None,
 ) -> AbilityRuntime:
     runtime = AbilityRuntime()
     if not card.definition.has_scripted_ability or not card.is_alive:
         return runtime
     execute_ability_script(
         card.definition.ability_script,
-        AbilityAPI(context, player, card, event=event, runtime=runtime, enemy_name=enemy_name),
+        AbilityAPI(
+            context,
+            player,
+            card,
+            event=event,
+            runtime=runtime,
+            enemy_name=enemy_name,
+            round_number=round_number,
+        ),
     )
     return runtime
 
@@ -310,12 +381,14 @@ class BaseAbilityAPI:
         event: str,
         runtime: AbilityRuntime,
         enemy_name: str | None = None,
+        round_number: int | None = None,
     ):
         self._context = context
         self._player = player
         self.event = event
         self._runtime = runtime
         self._enemy_name = enemy_name
+        self._round_number = round_number
 
     def _clamp(self, amount: int) -> int:
         return max(0, min(3, int(amount)))
@@ -325,6 +398,12 @@ class BaseAbilityAPI:
             return 0
         target = char.lower()
         return min(8, self._enemy_name.lower().count(target))
+
+    def _allies_on_board(self) -> int:
+        return sum(1 for board_card in self._context.board if board_card.owner_id == self._player.player_id and board_card.is_alive)
+
+    def _enemies_on_board(self) -> int:
+        return sum(1 for board_card in self._context.board if board_card.owner_id != self._player.player_id and board_card.is_alive)
 
     def heal_self(self, amount: int) -> None:
         self.heal_base(amount)
@@ -374,6 +453,53 @@ class BaseAbilityAPI:
             f"{self._player.display_name}'s base used {_base_ability_name(self._player.base_card)} for +{granted} counterattack."
         )
 
+    def add_attack_if_enemy_name_equals(self, name: str) -> None:
+        if not self._enemy_name or self._enemy_name != name:
+            return
+        self._runtime.attack_bonus += 3
+        self._context.log.append(
+            f"{self._player.display_name}'s base used {_base_ability_name(self._player.base_card)} for +3 counterattack because the enemy name matched exactly."
+        )
+
+    def add_attack_if_enemy_name_even_length(self) -> None:
+        if not self._enemy_name or len(self._enemy_name.replace(" ", "")) % 2 != 0:
+            return
+        self._runtime.attack_bonus += 2
+        self._context.log.append(
+            f"{self._player.display_name}'s base used {_base_ability_name(self._player.base_card)} for +2 counterattack because {self._enemy_name} has even length."
+        )
+
+    def add_attack_if_enemy_name_is_palindrome(self) -> None:
+        if not self._enemy_name:
+            return
+        normalized = "".join(ch.lower() for ch in self._enemy_name if ch.isalnum())
+        if not normalized or normalized != normalized[::-1]:
+            return
+        self._runtime.attack_bonus += 3
+        self._context.log.append(
+            f"{self._player.display_name}'s base used {_base_ability_name(self._player.base_card)} for +3 counterattack because {self._enemy_name} is a palindrome."
+        )
+
+    def add_attack_per_allies_on_board(self) -> None:
+        granted = min(6, self._allies_on_board())
+        if granted <= 0:
+            return
+        self._runtime.attack_bonus += granted
+        self._context.log.append(
+            f"{self._player.display_name}'s base used {_base_ability_name(self._player.base_card)} for +{granted} counterattack from allied board presence."
+        )
+
+    def add_attack_per_round_tier(self, divisor: int) -> None:
+        if not self._round_number or divisor <= 0:
+            return
+        granted = min(6, self._round_number // divisor)
+        if granted <= 0:
+            return
+        self._runtime.attack_bonus += granted
+        self._context.log.append(
+            f"{self._player.display_name}'s base used {_base_ability_name(self._player.base_card)} for +{granted} counterattack from round scaling."
+        )
+
     def add_attack_per_enemy_name_char(self, char: str) -> None:
         granted = self._enemy_name_count(char)
         if granted <= 0:
@@ -413,6 +539,15 @@ class BaseAbilityAPI:
             f"{self._player.display_name}'s base primed {_base_ability_name(self._player.base_card)} to reflect {granted} damage."
         )
 
+    def reflect_damage_per_enemies_on_board(self) -> None:
+        granted = min(6, self._enemies_on_board())
+        if granted <= 0:
+            return
+        self._runtime.reflect_damage += granted
+        self._context.log.append(
+            f"{self._player.display_name}'s base primed {_base_ability_name(self._player.base_card)} to reflect {granted} damage from enemy board count."
+        )
+
     def reflect_damage_per_enemy_name_char(self, char: str) -> None:
         granted = self._enemy_name_count(char)
         if granted <= 0:
@@ -433,13 +568,21 @@ def _trigger_base_scripted_ability(
     event: str,
     *,
     enemy_name: str | None = None,
+    round_number: int | None = None,
 ) -> AbilityRuntime:
     runtime = AbilityRuntime()
     if not player.base_card.has_scripted_ability:
         return runtime
     execute_ability_script(
         player.base_card.ability_script,
-        BaseAbilityAPI(context, player, event=event, runtime=runtime, enemy_name=enemy_name),
+        BaseAbilityAPI(
+            context,
+            player,
+            event=event,
+            runtime=runtime,
+            enemy_name=enemy_name,
+            round_number=round_number,
+        ),
     )
     return runtime
 
@@ -678,6 +821,7 @@ def _resolve_engagements(context: MatchContext, round_number: int) -> None:
                 card,
                 "combat",
                 enemy_name=enemy.definition.name,
+                round_number=round_number,
             )
             left_damage += _effective_attack(card) + card_runtime.attack_bonus
         if _can_attack(enemy, round_number):
@@ -691,6 +835,7 @@ def _resolve_engagements(context: MatchContext, round_number: int) -> None:
                 enemy,
                 "combat",
                 enemy_name=card.definition.name,
+                round_number=round_number,
             )
             right_damage += _effective_attack(enemy) + enemy_runtime.attack_bonus
         for supporter in _ranged_supporters(context, card):
@@ -747,6 +892,7 @@ def _resolve_base_attacks(context: MatchContext, round_number: int) -> None:
                 defender_state,
                 "base_attacked",
                 enemy_name=target.definition.name,
+                round_number=round_number,
             )
             total_damage = 0
             for attacker in attackers:
@@ -756,6 +902,7 @@ def _resolve_base_attacks(context: MatchContext, round_number: int) -> None:
                     attacker,
                     "attack_base",
                     enemy_name=defender_state.base_card.name,
+                    round_number=round_number,
                 )
                 total_damage += _effective_attack(attacker) + runtime.attack_bonus + runtime.base_damage_bonus
             total_damage = max(0, total_damage - base_runtime.incoming_damage_reduction)

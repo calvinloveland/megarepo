@@ -125,3 +125,30 @@ def test_validation_accepts_name_aware_ability_method():
         kind=CardKind.UNIT,
     )
     assert "add_attack_per_enemy_name_char" in card.ability_script
+
+
+def test_validation_accepts_weird_helper_methods():
+    card = validate_and_balance_card(
+        {
+            "name": "Swarm Oracle",
+            "theme": "choir tempo beast",
+            "attack": 2,
+            "hp": 4,
+            "cpc": 2,
+            "speed": 1,
+            "range": 0,
+            "ability_summary": "Gets stronger from allies and time.",
+            "ability_script": (
+                'if api.event == "combat":\n'
+                '    api.add_attack_if_enemy_name_even_length()\n'
+                '    api.add_attack_per_allies_on_board()\n'
+                '    api.add_attack_per_round_tier(4)'
+            ),
+        },
+        owner_id="tester",
+        prompt="swarm oracle",
+        kind=CardKind.UNIT,
+    )
+    assert "add_attack_if_enemy_name_even_length" in card.ability_script
+    assert "add_attack_per_allies_on_board" in card.ability_script
+    assert "add_attack_per_round_tier" in card.ability_script

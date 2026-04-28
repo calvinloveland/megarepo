@@ -39,8 +39,14 @@ PASSIVE_WEIGHTS = {
 
 SCRIPT_METHOD_WEIGHTS = {
     "gain_card_points": 5,
+    "add_attack_if_enemy_name_equals": 4,
+    "add_attack_if_enemy_name_even_length": 3,
+    "add_attack_if_enemy_name_is_palindrome": 4,
+    "add_attack_per_allies_on_board": 4,
+    "add_attack_per_round_tier": 4,
     "add_attack_per_enemy_name_char": 4,
     "add_base_damage_per_enemy_name_char": 4,
+    "reflect_damage_per_enemies_on_board": 4,
     "reflect_damage_per_enemy_name_char": 4,
 }
 

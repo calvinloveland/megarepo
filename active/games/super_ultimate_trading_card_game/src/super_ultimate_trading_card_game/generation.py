@@ -218,6 +218,30 @@ class DeterministicCardGenerator(CardGenerator):
                     'if api.event == "combat":\n'
                     f'    api.add_attack_per_enemy_name_char("{chosen_letter}")'
                 )
+        elif any(word in tokens for word in ("palindrome", "mirrorword", "radar", "level", "civic")):
+            role_tags.append("attacker")
+            ability_summary = "Hits harder against enemies whose names are palindromes."
+            ability_script = 'if api.event == "combat":\n    api.add_attack_if_enemy_name_is_palindrome()'
+        elif any(word in tokens for word in ("even", "parity", "numerology", "length")):
+            role_tags.append("attacker")
+            ability_summary = "Hits harder when the enemy name has even length."
+            ability_script = 'if api.event == "combat":\n    api.add_attack_if_enemy_name_even_length()'
+        elif any(word in tokens for word in ("copy", "duplicate", "twin", "nemesis")):
+            role_tags.append("attacker")
+            generated_name = f"{adjective.title()} {focus.title()} {noun.title()}"
+            ability_summary = "Hits harder against enemies with the exact same name."
+            ability_script = (
+                'if api.event == "combat":\n'
+                f'    api.add_attack_if_enemy_name_equals("{generated_name}")'
+            )
+        elif any(word in tokens for word in ("swarm", "choir", "pack", "legion", "crowd", "lord")):
+            role_tags.append("attacker")
+            ability_summary = "Gains power from allied board presence."
+            ability_script = 'if api.event == "combat":\n    api.add_attack_per_allies_on_board()'
+        elif any(word in tokens for word in ("time", "temporal", "late", "momentum", "hourglass", "round")):
+            role_tags.append("attacker")
+            ability_summary = "Scales its attack as the match goes longer."
+            ability_script = 'if api.event == "combat":\n    api.add_attack_per_round_tier(4)'
         elif any(word in tokens for word in ("economy", "gold", "engine", "forge")):
             role_tags.append("economy")
             ability_summary = "Generates extra card points each round."
@@ -294,8 +318,10 @@ class OpenRouterCardGenerator(CardGenerator):
             "Scripts may only use if api.event == supported_event and these methods: "
             "api.heal_self(n), api.heal_ally(n), api.heal_base(n), api.gain_card_points(n), "
             "api.add_attack(n), api.add_attack_per_enemy_name_char('e'), "
+            "api.add_attack_if_enemy_name_equals('Radar'), api.add_attack_if_enemy_name_even_length(), "
+            "api.add_attack_if_enemy_name_is_palindrome(), api.add_attack_per_allies_on_board(), api.add_attack_per_round_tier(4), "
             "api.add_base_damage(n), api.add_base_damage_per_enemy_name_char('e'), "
-            "api.reduce_incoming_damage(n), api.reflect_damage(n), api.reflect_damage_per_enemy_name_char('e'), "
+            "api.reduce_incoming_damage(n), api.reflect_damage(n), api.reflect_damage_per_enemies_on_board(), api.reflect_damage_per_enemy_name_char('e'), "
             "api.log(\"text\"). "
             "Supported events are unit: round_start, combat, attack_base. "
             "Supported events are base: round_start, base_attacked. "

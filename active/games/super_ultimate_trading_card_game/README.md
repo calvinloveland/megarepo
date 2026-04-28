@@ -48,7 +48,13 @@ Optional environment variables:
 
 By default, the OpenRouter generator prefers a live free-model list and retries across several candidates before falling back to deterministic generation. This makes free-tier playtesting much more resilient to temporary provider 404/429 failures.
 
-Generated cards now include `ability_summary` plus `ability_script`. Unit scripts can react to `round_start`, `combat`, and `attack_base`; base scripts can react to `round_start` and `base_attacked`. Both run through a restricted sandbox with whitelisted helper calls like `api.heal_ally(2)`, `api.gain_card_points(1)`, `api.reduce_incoming_damage(2)`, `api.add_base_damage(1)`, and name-aware tricks like `api.add_attack_per_enemy_name_char("e")`.
+Generated cards now include `ability_summary` plus `ability_script`. Unit scripts can react to `round_start`, `combat`, and `attack_base`; base scripts can react to `round_start` and `base_attacked`. Both run through a restricted sandbox with whitelisted helper calls like `api.heal_ally(2)`, `api.gain_card_points(1)`, `api.reduce_incoming_damage(2)`, `api.add_base_damage(1)`, and weirder deterministic tricks like:
+
+- `api.add_attack_per_enemy_name_char("e")`
+- `api.add_attack_if_enemy_name_is_palindrome()`
+- `api.add_attack_if_enemy_name_even_length()`
+- `api.add_attack_per_allies_on_board()`
+- `api.add_attack_per_round_tier(4)`
 
 ## Commands
 

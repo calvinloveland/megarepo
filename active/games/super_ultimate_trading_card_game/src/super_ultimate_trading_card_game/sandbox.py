@@ -12,11 +12,17 @@ ALLOWED_API_METHODS = {
     "heal_base",
     "gain_card_points",
     "add_attack",
+    "add_attack_if_enemy_name_equals",
+    "add_attack_if_enemy_name_even_length",
+    "add_attack_if_enemy_name_is_palindrome",
+    "add_attack_per_allies_on_board",
+    "add_attack_per_round_tier",
     "add_attack_per_enemy_name_char",
     "add_base_damage",
     "add_base_damage_per_enemy_name_char",
     "reduce_incoming_damage",
     "reflect_damage",
+    "reflect_damage_per_enemies_on_board",
     "reflect_damage_per_enemy_name_char",
     "log",
 }
@@ -25,21 +31,44 @@ EVENT_ALLOWED_METHODS = {
     "combat": {
         "heal_self",
         "add_attack",
+        "add_attack_if_enemy_name_equals",
+        "add_attack_if_enemy_name_even_length",
+        "add_attack_if_enemy_name_is_palindrome",
+        "add_attack_per_allies_on_board",
+        "add_attack_per_round_tier",
         "add_attack_per_enemy_name_char",
         "reduce_incoming_damage",
         "reflect_damage",
+        "reflect_damage_per_enemies_on_board",
         "reflect_damage_per_enemy_name_char",
         "log",
     },
-    "attack_base": {"add_attack", "add_attack_per_enemy_name_char", "add_base_damage", "add_base_damage_per_enemy_name_char", "log"},
+    "attack_base": {
+        "add_attack",
+        "add_attack_if_enemy_name_equals",
+        "add_attack_if_enemy_name_even_length",
+        "add_attack_if_enemy_name_is_palindrome",
+        "add_attack_per_allies_on_board",
+        "add_attack_per_round_tier",
+        "add_attack_per_enemy_name_char",
+        "add_base_damage",
+        "add_base_damage_per_enemy_name_char",
+        "log",
+    },
     "base_attacked": {
         "heal_base",
         "heal_ally",
         "gain_card_points",
         "add_attack",
+        "add_attack_if_enemy_name_equals",
+        "add_attack_if_enemy_name_even_length",
+        "add_attack_if_enemy_name_is_palindrome",
+        "add_attack_per_allies_on_board",
+        "add_attack_per_round_tier",
         "add_attack_per_enemy_name_char",
         "reduce_incoming_damage",
         "reflect_damage",
+        "reflect_damage_per_enemies_on_board",
         "reflect_damage_per_enemy_name_char",
         "log",
     },
@@ -50,11 +79,17 @@ ABILITY_METHOD_WEIGHTS = {
     "heal_base": 3,
     "gain_card_points": 3,
     "add_attack": 3,
+    "add_attack_if_enemy_name_equals": 4,
+    "add_attack_if_enemy_name_even_length": 3,
+    "add_attack_if_enemy_name_is_palindrome": 4,
+    "add_attack_per_allies_on_board": 4,
+    "add_attack_per_round_tier": 4,
     "add_attack_per_enemy_name_char": 4,
     "add_base_damage": 3,
     "add_base_damage_per_enemy_name_char": 4,
     "reduce_incoming_damage": 3,
     "reflect_damage": 3,
+    "reflect_damage_per_enemies_on_board": 4,
     "reflect_damage_per_enemy_name_char": 4,
     "log": 0,
 }
@@ -109,13 +144,29 @@ def _validate_call(node: ast.Call, methods: list[str], current_event: str | None
             raise AbilityScriptError("api.log requires exactly one argument.")
         _validate_literal_str(node.args[0])
     elif method in {
+        "add_attack_if_enemy_name_equals",
         "add_attack_per_enemy_name_char",
         "add_base_damage_per_enemy_name_char",
         "reflect_damage_per_enemy_name_char",
     }:
         if len(node.args) != 1:
             raise AbilityScriptError(f"api.{method} requires exactly one argument.")
-        _validate_literal_char(node.args[0])
+        if method == "add_attack_if_enemy_name_equals":
+            _validate_literal_str(node.args[0])
+        else:
+            _validate_literal_char(node.args[0])
+    elif method in {
+        "add_attack_if_enemy_name_even_length",
+        "add_attack_if_enemy_name_is_palindrome",
+        "add_attack_per_allies_on_board",
+        "reflect_damage_per_enemies_on_board",
+    }:
+        if node.args:
+            raise AbilityScriptError(f"api.{method} does not take arguments.")
+    elif method in {"add_attack_per_round_tier"}:
+        if len(node.args) != 1:
+            raise AbilityScriptError(f"api.{method} requires exactly one argument.")
+        _validate_literal_int(node.args[0])
     else:
         if len(node.args) != 1:
             raise AbilityScriptError(f"api.{method} requires exactly one argument.")

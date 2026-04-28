@@ -113,3 +113,11 @@ def test_deterministic_generator_can_create_name_aware_ability():
     )
     assert "add_attack_per_enemy_name_char" in card.ability_script
     assert '"e"' in card.ability_script
+
+
+def test_deterministic_generator_can_create_swarm_and_round_scaling_abilities():
+    generator = DeterministicCardGenerator(seed=91)
+    swarm = generator.generate_card("alpha", "A choir lord of the swarm", kind=CardKind.UNIT)
+    temporal = generator.generate_card("alpha", "A temporal hourglass attacker", kind=CardKind.UNIT)
+    assert "add_attack_per_allies_on_board" in swarm.ability_script
+    assert "add_attack_per_round_tier" in temporal.ability_script
