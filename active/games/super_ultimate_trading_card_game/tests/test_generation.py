@@ -1,10 +1,12 @@
 import json
 
+from pathlib import Path
 from urllib.error import HTTPError
 
 from super_ultimate_trading_card_game.generation import DeterministicCardGenerator
 from super_ultimate_trading_card_game.generation import OpenRouterCardGenerator
 from super_ultimate_trading_card_game.models import CardKind
+from super_ultimate_trading_card_game.storage import load_owned_cards, save_card
 
 
 def test_deterministic_generator_returns_valid_unit_card():
@@ -71,3 +73,13 @@ def test_openrouter_generator_retries_candidate_models_before_fallback():
     assert generator.last_model == "openai/gpt-oss-20b:free"
     assert card.name == "Live Test Flier"
     assert transport.calls[0] == "broken-model"
+
+
+def test_generated_card_can_be_persisted(tmp_path: Path):
+    generator = DeterministicCardGenerator(seed=99)
+    card = generator.generate_card("persist-user", "A persistent flying medic", kind=CardKind.UNIT)
+    db_path = tmp_path / "sutcg.sqlite3"
+    save_card(card, path=db_path)
+    owned_cards, owned_bases = load_owned_cards("persist-user", path=db_path)
+    assert card.card_id in owned_cards
+    assert owned_bases == {}
