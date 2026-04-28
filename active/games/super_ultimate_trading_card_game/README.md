@@ -1,6 +1,6 @@
 # Super Ultimate Trading Card Game
 
-Python-only prototype of **Super Ultimate Trading Card Game** focused on deterministic simulation, AI playtesting, and LLM-backed card generation.
+Python prototype of **Super Ultimate Trading Card Game** focused on deterministic simulation, live backend-driven web play, AI playtesting, and LLM-backed card generation.
 
 ## What this prototype includes
 
@@ -13,6 +13,8 @@ Python-only prototype of **Super Ultimate Trading Card Game** focused on determi
 - simple AI deckbuilding and playtesting bots
 - SQLite-backed persistence for owned cards, bases, and saved match logs
 - Flask web UI that drives the same backend simulation engine
+- live matches for AI vs AI, AI vs Player, and Player vs Player
+- backend-managed collection browsing and six-card deck building
 
 ## Quick start
 
@@ -32,7 +34,15 @@ cd active/games/super_ultimate_trading_card_game
 sutcg-web --host 127.0.0.1 --port 5000
 ```
 
-The web app is a backend-rendered interface over the same simulation code used by the CLI. Match execution, playtests, persistence, and card generation all still happen on the backend.
+The web app is a backend-rendered interface over the same simulation code used by the CLI. Match execution, live turn resolution, playtests, persistence, and card generation all still happen on the backend.
+
+Live web features:
+
+- create AI vs AI, AI vs Player, and Player vs Player matches
+- step AI matches round by round or autoplay them to completion
+- submit human turns through the browser while the backend resolves combat
+- browse collections and build active six-card decks for each owner
+- inspect finished battle logs and active live-match logs
 
 ## OpenRouter generation
 
@@ -91,5 +101,5 @@ By default, data is stored in `active/games/super_ultimate_trading_card_game/dat
 ```bash
 cd active/games/super_ultimate_trading_card_game
 . .venv/bin/activate
-pytest
+python -m pytest -q
 ```

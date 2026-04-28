@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}{{ deck_data.display_name }} Deck Builder{% endblock %}
+{% block content %}
+  <div class="grid two">
+    <section class="panel">
+      <h1>{{ deck_data.display_name }} Deck Builder</h1>
+      <p>Build a six-card deck from the collection below.</p>
+      <form method="post" action="{{ url_for('save_deck_route', owner_id=deck_data.owner_id) }}" class="stack">
+        {% if deck_data.active_deck %}
+          <input type="hidden" name="deck_id" value="{{ deck_data.active_deck.deck_id }}" />
+        {% endif %}
+        <label>Name
+          <input type="text" name="name" value="{{ deck_data.active_deck.name if deck_data.active_deck else 'Custom Deck' }}" />
+        </label>
+        <label>Base
+          <select name="base_card_id">
+            {% for base in deck_data.owned_bases %}
+              <option value="{{ base.card_id }}" {% if deck_data.active_deck and deck_data.active_deck.base and deck_data.active_deck.base.card_id == base.card_id %}selected{% endif %}>{{ base.name }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        {% for slot in range(1, deck_data.deck_size + 1) %}
+          <label>Slot {{ slot }}
+            <select name="slot_{{ slot }}">
+              {% set selected_card_id = deck_data.active_deck.cards[slot - 1].card_id if deck_data.active_deck and deck_data.active_deck.cards|length >= slot else '' %}
+              {% for card in deck_data.owned_cards %}
+                <option value="{{ card.card_id }}" {% if card.card_id == selected_card_id %}selected{% endif %}>{{ card.name }}</option>
+              {% endfor %}
+            </select>
+          </label>
+        {% endfor %}
+        <label class="inline"><input type="checkbox" name="activate" checked /> Set as active deck</label>
+        <button type="submit">Save deck</button>
+      </form>
+    </section>
+
+    <section class="panel">
+      <h2>Saved Decks</h2>
+      {% for deck in deck_data.decks %}
+        <article class="card-block">
+          <h3>{{ deck.name }}{% if deck.is_active %} · Active{% endif %}</h3>
+          <p>Base: {{ deck.base.name if deck.base else deck.base_card_id }}</p>
+          <p>
+            {% for card in deck.cards %}
+              {{ card.name }}{% if not loop.last %}, {% endif %}
+            {% endfor %}
+          </p>
+          <form method="post" action="{{ url_for('activate_deck_route', owner_id=deck_data.owner_id) }}">
+            <input type="hidden" name="deck_id" value="{{ deck.deck_id }}" />
+            <button type="submit">Set active</button>
+          </form>
+        </article>
+      {% endfor %}
+    </section>
+  </div>
+
+  <section class="panel">
+    <h2>Collection Reference</h2>
+    <div class="collection-list wide">
+      {% for card in deck_data.owned_cards %}
+        <article class="card-block">
+          <h3>{{ card.name }}</h3>
+          <p>hp {{ card.hp }} · atk {{ card.attack }} · cpc {{ card.cpc }}</p>
+          {% if card.keywords %}
+            <p>{{ card.keywords | join(", ") }}</p>
+          {% endif %}
+          <p>{{ card.ability_summary }}</p>
+        </article>
+      {% endfor %}
+    </div>
+  </section>
+{% endblock %}

@@ -1,30 +1,55 @@
 {% extends "base.html" %}
-{% block title %}{{ owner_id }} Collection{% endblock %}
+{% block title %}{{ collection.display_name }} Collection{% endblock %}
 {% block content %}
   <section class="panel">
-    <h1>{{ owner_id }} Collection</h1>
-    <h2>Bases</h2>
-    <div class="collection-list">
-      {% for base in collection.bases %}
+    <h1>{{ collection.display_name }} Collection</h1>
+    <p>
+      Owner id: <strong>{{ owner_id }}</strong>
+      ·
+      <a href="{{ url_for('decks_detail', owner_id=owner_id) }}">Open deck builder</a>
+    </p>
+  </section>
+
+  <div class="grid two">
+    <section class="panel">
+      <h2>Bases</h2>
+      <div class="collection-list">
+        {% for base in collection.bases %}
+          <article class="card-block">
+            <h3>{{ base.name }}</h3>
+            <p>hp {{ base.hp }} · atk {{ base.attack }} · income {{ base.income }}</p>
+            <p>{{ base.ability_summary }}</p>
+          </article>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Decks</h2>
+      {% for deck in collection.decks %}
         <article class="card-block">
-          <h3>{{ base.name }}</h3>
-          <p>hp {{ base.hp }} · atk {{ base.attack }} · income {{ base.income }}</p>
-          <p>{{ base.ability_summary }}</p>
+          <h3>{{ deck.name }}{% if deck.is_active %} · Active{% endif %}</h3>
+          <p>Base: {{ deck.base_card_id }}</p>
+          <p>{{ deck.card_ids | join(", ") }}</p>
         </article>
       {% else %}
-        <p>No bases saved yet.</p>
+        <p>No saved decks yet.</p>
       {% endfor %}
-    </div>
-    <h2>Cards</h2>
-    <div class="collection-list">
+    </section>
+  </div>
+
+  <section class="panel">
+    <h2>Owned Cards</h2>
+    <div class="collection-list wide">
       {% for card in collection.cards %}
         <article class="card-block">
           <h3>{{ card.name }}</h3>
           <p>hp {{ card.hp }} · atk {{ card.attack }} · cpc {{ card.cpc }}</p>
+          {% if card.keywords %}
+            <p>{{ card.keywords | join(", ") }}</p>
+          {% endif %}
           <p>{{ card.ability_summary }}</p>
         </article>
-      {% else %}
-        <p>No saved cards yet.</p>
       {% endfor %}
     </div>
   </section>

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import itertools
+import ast
 import random
 from dataclasses import dataclass
 
@@ -25,19 +25,27 @@ from .models import (
     TrackName,
 )
 from .sandbox import execute_ability_script
+from .storage import card_from_payload, card_to_payload
+
+
+@dataclass(frozen=True)
+class MatchSide:
+    player_id: str
+    display_name: str
 
 
 @dataclass
 class MatchContext:
-    left: PrototypeBot
-    right: PrototypeBot
+    left: MatchSide
+    right: MatchSide
     left_state: PlayerState
     right_state: PlayerState
     board: list[CardInPlay]
     rng: random.Random
     log: list[str]
     generated_cards: int = 0
-    instance_counter: itertools.count = itertools.count(1)
+    next_instance_number: int = 1
+    instance_counter: object | None = None
 
 
 @dataclass
@@ -663,23 +671,47 @@ def _build_view(context: MatchContext, player_id: str, round_number: int) -> Pla
     )
 
 
-def _decide_rounds(context: MatchContext, round_number: int) -> dict[str, RoundDecision]:
+def build_view(context: MatchContext, player_id: str, round_number: int) -> PlayerView:
+    return _build_view(context, player_id, round_number)
+
+
+def prepare_round(context: MatchContext, round_number: int) -> None:
+    context.log.append(f"=== Round {round_number} ===")
+    _apply_round_income_and_healing(context)
+    _draw_cards(context.left_state, context.rng, DRAW_COUNT)
+    _draw_cards(context.right_state, context.rng, DRAW_COUNT)
+    context.log.append(_round_status_line(context))
+
+
+def _decide_rounds(
+    context: MatchContext,
+    round_number: int,
+    left_controller,
+    right_controller,
+) -> dict[str, RoundDecision]:
     return {
-        context.left.player_id: context.left.decide_round(_build_view(context, context.left.player_id, round_number)),
-        context.right.player_id: context.right.decide_round(_build_view(context, context.right.player_id, round_number)),
+        context.left.player_id: left_controller.decide_round(_build_view(context, context.left.player_id, round_number)),
+        context.right.player_id: right_controller.decide_round(_build_view(context, context.right.player_id, round_number)),
     }
 
 
-def _handle_generation(context: MatchContext, decisions: dict[str, RoundDecision]) -> None:
-    for bot, player in ((context.left, context.left_state), (context.right, context.right_state)):
+def _handle_generation(
+    context: MatchContext,
+    decisions: dict[str, RoundDecision],
+    generator,
+    registrars: dict[str, object] | None = None,
+) -> None:
+    for player in (context.left_state, context.right_state):
         prompt = decisions[player.player_id].generate_prompt
         if not prompt:
             continue
-        card = context.generator.generate_card(player.player_id, prompt, kind=CardKind.UNIT)  # type: ignore[attr-defined]
+        card = generator.generate_card(player.player_id, prompt, kind=CardKind.UNIT)
         player.owned_cards[card.card_id] = card
         player.generated_cards.append(card)
         player.discard_pile.append(card)
-        bot.register_generated_card(card)
+        registrar = (registrars or {}).get(player.player_id)
+        if registrar is not None:
+            registrar.register_generated_card(card)
         context.generated_cards += 1
         context.log.append(f"{player.display_name} generated {_definition_label(card)} from prompt '{prompt}'.")
 
@@ -709,7 +741,11 @@ def _play_card(context: MatchContext, player: PlayerState, play: PlannedPlay, ro
     if card is None or card.cpc is None or card.cpc > player.card_points:
         return
     player.card_points -= card.cpc
-    instance_id = f"instance-{next(context.instance_counter)}"
+    if context.instance_counter is not None:
+        instance_id = f"instance-{next(context.instance_counter)}"
+    else:
+        instance_id = f"instance-{context.next_instance_number}"
+        context.next_instance_number += 1
     in_play = CardInPlay(
         instance_id=instance_id,
         definition=card,
@@ -971,6 +1007,184 @@ def _create_player_state(bot: PrototypeBot, deck: list[CardDefinition], base: Ca
     )
 
 
+def create_match_context(
+    *,
+    seed: int,
+    left_id: str,
+    left_name: str,
+    left_deck: list[CardDefinition],
+    left_base: CardDefinition,
+    left_owned_cards: dict[str, CardDefinition],
+    left_owned_bases: dict[str, CardDefinition],
+    right_id: str,
+    right_name: str,
+    right_deck: list[CardDefinition],
+    right_base: CardDefinition,
+    right_owned_cards: dict[str, CardDefinition],
+    right_owned_bases: dict[str, CardDefinition],
+) -> MatchContext:
+    rng = random.Random(seed)
+    left_state = PlayerState(
+        player_id=left_id,
+        display_name=left_name,
+        base_card=left_base,
+        base_hp=left_base.hp,
+        card_points=STARTING_CARD_POINTS,
+        draw_pile=list(left_deck),
+        discard_pile=[],
+        owned_cards=dict(left_owned_cards),
+        owned_bases=dict(left_owned_bases),
+    )
+    right_state = PlayerState(
+        player_id=right_id,
+        display_name=right_name,
+        base_card=right_base,
+        base_hp=right_base.hp,
+        card_points=STARTING_CARD_POINTS,
+        draw_pile=list(right_deck),
+        discard_pile=[],
+        owned_cards=dict(right_owned_cards),
+        owned_bases=dict(right_owned_bases),
+    )
+    rng.shuffle(left_state.draw_pile)
+    rng.shuffle(right_state.draw_pile)
+    return MatchContext(
+        left=MatchSide(left_id, left_name),
+        right=MatchSide(right_id, right_name),
+        left_state=left_state,
+        right_state=right_state,
+        board=[],
+        rng=rng,
+        log=[],
+    )
+
+
+def resolve_round(
+    context: MatchContext,
+    decisions: dict[str, RoundDecision],
+    *,
+    round_number: int,
+    generator,
+    registrars: dict[str, object] | None = None,
+) -> None:
+    _handle_generation(context, decisions, generator, registrars)
+    _apply_plays(context, decisions, round_number)
+    _move_cards(context, round_number)
+    _resolve_engagements(context, round_number)
+    _resolve_base_attacks(context, round_number)
+    _cleanup_destroyed(context)
+
+
+def outcome_for_round(context: MatchContext, round_number: int, max_rounds: int) -> MatchResult | None:
+    outcome = _winner(context)
+    if outcome is not None:
+        winner_id, reason = outcome
+        return MatchResult(
+            winner_id=winner_id,
+            rounds_played=round_number,
+            reason=reason,
+            event_log=context.log,
+            generated_cards=context.generated_cards,
+        )
+    if round_number < max_rounds:
+        return None
+    left_score = context.left_state.base_hp - context.right_state.base_hp
+    winner_id = context.left.player_id if left_score > 0 else context.right.player_id if left_score < 0 else None
+    return MatchResult(
+        winner_id=winner_id,
+        rounds_played=max_rounds,
+        reason="round limit reached",
+        event_log=context.log,
+        generated_cards=context.generated_cards,
+    )
+
+
+def serialize_context(context: MatchContext) -> dict:
+    def serialize_player(player: PlayerState) -> dict:
+        return {
+            "player_id": player.player_id,
+            "display_name": player.display_name,
+            "base_card": card_to_payload(player.base_card),
+            "base_hp": player.base_hp,
+            "card_points": player.card_points,
+            "draw_pile": [card_to_payload(card) for card in player.draw_pile],
+            "discard_pile": [card_to_payload(card) for card in player.discard_pile],
+            "hand": [card_to_payload(card) for card in player.hand],
+            "owned_cards": {card_id: card_to_payload(card) for card_id, card in player.owned_cards.items()},
+            "owned_bases": {card_id: card_to_payload(card) for card_id, card in player.owned_bases.items()},
+            "generated_cards": [card_to_payload(card) for card in player.generated_cards],
+        }
+
+    return {
+        "left": {"player_id": context.left.player_id, "display_name": context.left.display_name},
+        "right": {"player_id": context.right.player_id, "display_name": context.right.display_name},
+        "left_state": serialize_player(context.left_state),
+        "right_state": serialize_player(context.right_state),
+        "board": [
+            {
+                "instance_id": card.instance_id,
+                "definition": card_to_payload(card.definition),
+                "owner_id": card.owner_id,
+                "track": card.track.value,
+                "position": card.position,
+                "stationary": card.stationary,
+                "entered_round": card.entered_round,
+                "current_hp": card.current_hp,
+                "engaged_with": card.engaged_with,
+            }
+            for card in context.board
+        ],
+        "rng_state": repr(context.rng.getstate()),
+        "log": list(context.log),
+        "generated_cards": context.generated_cards,
+        "next_instance_number": context.next_instance_number,
+    }
+
+
+def deserialize_context(payload: dict) -> MatchContext:
+    def deserialize_player(player_payload: dict) -> PlayerState:
+        return PlayerState(
+            player_id=str(player_payload["player_id"]),
+            display_name=str(player_payload["display_name"]),
+            base_card=card_from_payload(player_payload["base_card"]),
+            base_hp=int(player_payload["base_hp"]),
+            card_points=int(player_payload["card_points"]),
+            draw_pile=[card_from_payload(card) for card in player_payload["draw_pile"]],
+            discard_pile=[card_from_payload(card) for card in player_payload["discard_pile"]],
+            hand=[card_from_payload(card) for card in player_payload["hand"]],
+            owned_cards={card_id: card_from_payload(card) for card_id, card in player_payload["owned_cards"].items()},
+            owned_bases={card_id: card_from_payload(card) for card_id, card in player_payload["owned_bases"].items()},
+            generated_cards=[card_from_payload(card) for card in player_payload.get("generated_cards", [])],
+        )
+
+    rng = random.Random()
+    rng.setstate(ast.literal_eval(str(payload["rng_state"])))
+    return MatchContext(
+        left=MatchSide(str(payload["left"]["player_id"]), str(payload["left"]["display_name"])),
+        right=MatchSide(str(payload["right"]["player_id"]), str(payload["right"]["display_name"])),
+        left_state=deserialize_player(payload["left_state"]),
+        right_state=deserialize_player(payload["right_state"]),
+        board=[
+            CardInPlay(
+                instance_id=str(card["instance_id"]),
+                definition=card_from_payload(card["definition"]),
+                owner_id=str(card["owner_id"]),
+                track=TrackName(str(card["track"])),
+                position=float(card["position"]),
+                stationary=bool(card["stationary"]),
+                entered_round=int(card["entered_round"]),
+                current_hp=int(card["current_hp"]),
+                engaged_with=None if card["engaged_with"] is None else str(card["engaged_with"]),
+            )
+            for card in payload["board"]
+        ],
+        rng=rng,
+        log=[str(line) for line in payload["log"]],
+        generated_cards=int(payload["generated_cards"]),
+        next_instance_number=int(payload.get("next_instance_number", 1)),
+    )
+
+
 def run_match(
     left: PrototypeBot,
     right: PrototypeBot,
@@ -985,46 +1199,23 @@ def run_match(
     left_deck = left.build_deck()
     right_deck = right.build_deck()
     context = MatchContext(
-        left=left,
-        right=right,
+        left=MatchSide(left.player_id, left.display_name),
+        right=MatchSide(right.player_id, right.display_name),
         left_state=_create_player_state(left, left_deck, left.choose_base(), rng),
         right_state=_create_player_state(right, right_deck, right.choose_base(), rng),
         board=[],
         rng=rng,
         log=[],
     )
-    context.generator = generator  # type: ignore[attr-defined]
 
     for round_number in range(1, max_rounds + 1):
-        context.log.append(f"=== Round {round_number} ===")
-        _apply_round_income_and_healing(context)
-        _draw_cards(context.left_state, rng, DRAW_COUNT)
-        _draw_cards(context.right_state, rng, DRAW_COUNT)
-        context.log.append(_round_status_line(context))
-        decisions = _decide_rounds(context, round_number)
-        _handle_generation(context, decisions)
-        _apply_plays(context, decisions, round_number)
-        _move_cards(context, round_number)
-        _resolve_engagements(context, round_number)
-        _resolve_base_attacks(context, round_number)
-        _cleanup_destroyed(context)
-        outcome = _winner(context)
+        prepare_round(context, round_number)
+        decisions = _decide_rounds(context, round_number, left, right)
+        resolve_round(context, decisions, round_number=round_number, generator=generator, registrars={
+            left.player_id: left,
+            right.player_id: right,
+        })
+        outcome = outcome_for_round(context, round_number, max_rounds)
         if outcome is not None:
-            winner_id, reason = outcome
-            return MatchResult(
-                winner_id=winner_id,
-                rounds_played=round_number,
-                reason=reason,
-                event_log=context.log,
-                generated_cards=context.generated_cards,
-            )
-    left_score = context.left_state.base_hp - context.right_state.base_hp
-    winner_id = context.left.player_id if left_score > 0 else context.right.player_id if left_score < 0 else None
-    reason = "round limit reached"
-    return MatchResult(
-        winner_id=winner_id,
-        rounds_played=max_rounds,
-        reason=reason,
-        event_log=context.log,
-        generated_cards=context.generated_cards,
-    )
+            return outcome
+    raise RuntimeError("run_match exhausted rounds without returning")

@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Live Matches{% endblock %}
+{% block content %}
+  <section class="panel">
+    <h1>Live Matches</h1>
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Mode</th>
+          <th>Seats</th>
+          <th>Status</th>
+          <th>Round</th>
+          <th>Generator</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for match in recent_live_matches %}
+          <tr>
+            <td>{{ match.match_id }}</td>
+            <td>{{ match.mode }}</td>
+            <td>{{ match.left_player }} vs {{ match.right_player }}</td>
+            <td>{{ match.status }}</td>
+            <td>{{ match.round_number }}</td>
+            <td>{{ match.generator }}</td>
+            <td><a href="{{ url_for('live_match_detail', match_id=match.match_id, viewer_id=match.left_player) }}">Open</a></td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+{% endblock %}

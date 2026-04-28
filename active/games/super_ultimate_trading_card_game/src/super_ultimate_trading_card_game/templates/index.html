@@ -3,53 +3,74 @@
 {% block content %}
   <div class="grid two">
     <section class="panel">
-      <h1>Run Match</h1>
-      <form method="post" action="{{ url_for('run_match_route') }}" class="stack">
-        <label>Left player
-          <select name="left_id">
-            {% for bot_id in bot_ids %}
-              <option value="{{ bot_id }}">{{ bot_id }}</option>
+      <h1>Create Live Game</h1>
+      <form method="post" action="{{ url_for('create_live_match_route') }}" class="stack">
+        <label>Mode
+          <select name="mode">
+            <option value="ai-vs-player">AI vs Player</option>
+            <option value="ai-vs-ai">AI vs AI</option>
+            <option value="player-vs-player">Player vs Player</option>
+          </select>
+        </label>
+        <label>Left seat
+          <select name="left_owner_id">
+            {% for owner in owner_ids %}
+              <option value="{{ owner }}" {% if owner == 'player-one' %}selected{% endif %}>{{ owner }}</option>
             {% endfor %}
           </select>
         </label>
-        <label>Right player
-          <select name="right_id">
-            {% for bot_id in bot_ids %}
-              <option value="{{ bot_id }}" {% if bot_id == 'beta' %}selected{% endif %}>{{ bot_id }}</option>
+        <label>Right seat
+          <select name="right_owner_id">
+            {% for owner in owner_ids %}
+              <option value="{{ owner }}" {% if owner == 'alpha' %}selected{% endif %}>{{ owner }}</option>
             {% endfor %}
           </select>
         </label>
         <label>Generator
           <select name="generator">
-            <option value="auto">auto</option>
             <option value="deterministic">deterministic</option>
+            <option value="auto">auto</option>
             <option value="openrouter">openrouter</option>
           </select>
         </label>
         <label>Seed <input type="number" name="seed" value="1" /></label>
-        <button type="submit">Run backend match</button>
+        <button type="submit">Create live match</button>
       </form>
     </section>
 
     <section class="panel">
-      <h1>Run Playtest</h1>
-      <form method="post" action="{{ url_for('run_playtest_route') }}" class="stack">
-        <label>Generator
-          <select name="generator">
-            <option value="deterministic">deterministic</option>
-            <option value="auto">auto</option>
-            <option value="openrouter">openrouter</option>
+      <h1>Collection & Decks</h1>
+      <form method="get" action="{{ url_for('index') }}" class="stack">
+        <label>Owner
+          <select name="owner_id">
+            {% for owner in owner_ids %}
+              <option value="{{ owner }}" {% if owner == owner_id %}selected{% endif %}>{{ owner }}</option>
+            {% endfor %}
           </select>
         </label>
-        <label>Matches <input type="number" name="matches" value="20" min="1" /></label>
-        <label>Seed <input type="number" name="seed" value="1" /></label>
-        <button type="submit">Run backend playtest</button>
+        <button type="submit">Switch preview owner</button>
       </form>
-      {% if playtest_summary %}
-        <div class="output">
-          <pre>{{ playtest_summary | tojson(indent=2) }}</pre>
-        </div>
-      {% endif %}
+      <p>
+        <a href="{{ url_for('collection_detail', owner_id=owner_id) }}">Open collection</a>
+        ·
+        <a href="{{ url_for('decks_detail', owner_id=owner_id) }}">Open Deck Builder</a>
+      </p>
+      <div class="collection-list">
+        {% for base in collection.bases[:1] %}
+          <article class="card-block">
+            <h3>{{ base.name }}</h3>
+            <p>Base · hp {{ base.hp }} · atk {{ base.attack }} · income {{ base.income }}</p>
+            <p>{{ base.ability_summary }}</p>
+          </article>
+        {% endfor %}
+        {% for card in collection.cards[:6] %}
+          <article class="card-block">
+            <h3>{{ card.name }}</h3>
+            <p>Unit · hp {{ card.hp }} · atk {{ card.attack }} · cpc {{ card.cpc }}</p>
+            <p>{{ card.ability_summary }}</p>
+          </article>
+        {% endfor %}
+      </div>
     </section>
   </div>
 
@@ -66,8 +87,8 @@
         </label>
         <label>Generator
           <select name="generator">
-            <option value="auto">auto</option>
             <option value="deterministic">deterministic</option>
+            <option value="auto">auto</option>
             <option value="openrouter">openrouter</option>
           </select>
         </label>
@@ -88,52 +109,106 @@
     </section>
 
     <section class="panel">
-      <h2>{{ owner_id }} Collection</h2>
-      <p><a href="{{ url_for('collection_detail', owner_id=owner_id) }}">Open full collection</a></p>
-      <div class="collection-list">
-        {% for base in collection.bases %}
-          <article class="card-block">
-            <h3>{{ base.name }}</h3>
-            <p>Base · hp {{ base.hp }} · atk {{ base.attack }} · income {{ base.income }}</p>
-            <p>{{ base.ability_summary }}</p>
-          </article>
-        {% endfor %}
-        {% for card in collection.cards[:6] %}
-          <article class="card-block">
-            <h3>{{ card.name }}</h3>
-            <p>Unit · hp {{ card.hp }} · atk {{ card.attack }} · cpc {{ card.cpc }}</p>
-            <p>{{ card.ability_summary }}</p>
-          </article>
-        {% endfor %}
-      </div>
+      <h2>Backend Batch Tools</h2>
+      <form method="post" action="{{ url_for('run_match_route') }}" class="stack">
+        <label>Left AI
+          <select name="left_id">
+            {% for bot_id in bot_ids %}
+              <option value="{{ bot_id }}">{{ bot_id }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>Right AI
+          <select name="right_id">
+            {% for bot_id in bot_ids %}
+              <option value="{{ bot_id }}" {% if bot_id == 'beta' %}selected{% endif %}>{{ bot_id }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>Generator
+          <select name="generator">
+            <option value="deterministic">deterministic</option>
+            <option value="auto">auto</option>
+            <option value="openrouter">openrouter</option>
+          </select>
+        </label>
+        <label>Seed <input type="number" name="seed" value="1" /></label>
+        <button type="submit">Run saved AI match</button>
+      </form>
+      <hr />
+      <form method="post" action="{{ url_for('run_playtest_route') }}" class="stack">
+        <label>Generator
+          <select name="generator">
+            <option value="deterministic">deterministic</option>
+            <option value="auto">auto</option>
+            <option value="openrouter">openrouter</option>
+          </select>
+        </label>
+        <label>Matches <input type="number" name="matches" value="20" min="1" /></label>
+        <label>Seed <input type="number" name="seed" value="1" /></label>
+        <button type="submit">Run playtest batch</button>
+      </form>
+      {% if playtest_summary %}
+        <div class="output">
+          <pre>{{ playtest_summary | tojson(indent=2) }}</pre>
+        </div>
+      {% endif %}
     </section>
   </div>
 
-  <section class="panel">
-    <h2>Recent Matches</h2>
-    <table>
-      <thead>
-        <tr>
-          <th>ID</th>
-          <th>Players</th>
-          <th>Winner</th>
-          <th>Rounds</th>
-          <th>Generator</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for match in recent_matches %}
+  <div class="grid two">
+    <section class="panel">
+      <h2>Live Matches</h2>
+      <table>
+        <thead>
           <tr>
-            <td>{{ match.match_id }}</td>
-            <td>{{ match.left_player }} vs {{ match.right_player }}</td>
-            <td>{{ match.winner_id or "draw" }}</td>
-            <td>{{ match.rounds_played }}</td>
-            <td>{{ match.generator }}</td>
-            <td><a href="{{ url_for('match_detail', match_id=match.match_id) }}">View log</a></td>
+            <th>ID</th>
+            <th>Mode</th>
+            <th>Seats</th>
+            <th>Status</th>
+            <th>Round</th>
+            <th></th>
           </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </section>
+        </thead>
+        <tbody>
+          {% for match in recent_live_matches %}
+            <tr>
+              <td>{{ match.match_id }}</td>
+              <td>{{ match.mode }}</td>
+              <td>{{ match.left_player }} vs {{ match.right_player }}</td>
+              <td>{{ match.status }}</td>
+              <td>{{ match.round_number }}</td>
+              <td><a href="{{ url_for('live_match_detail', match_id=match.match_id, viewer_id=match.left_player) }}">Open</a></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </section>
+
+    <section class="panel">
+      <h2>Recent Saved Matches</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Players</th>
+            <th>Winner</th>
+            <th>Rounds</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for match in recent_matches %}
+            <tr>
+              <td>{{ match.match_id }}</td>
+              <td>{{ match.left_player }} vs {{ match.right_player }}</td>
+              <td>{{ match.winner_id or "draw" }}</td>
+              <td>{{ match.rounds_played }}</td>
+              <td><a href="{{ url_for('match_detail', match_id=match.match_id) }}">View log</a></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </section>
+  </div>
 {% endblock %}

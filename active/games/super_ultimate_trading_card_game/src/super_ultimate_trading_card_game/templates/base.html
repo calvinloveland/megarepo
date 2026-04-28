@@ -12,10 +12,11 @@
         <a class="brand" href="{{ url_for('index') }}">Super Ultimate Trading Card Game</a>
         <nav class="nav">
           <a href="{{ url_for('index') }}">Dashboard</a>
+          <a href="{{ url_for('live_matches_index') }}">Live Games</a>
           <a href="{{ url_for('matches_index') }}">Matches</a>
-          <a href="{{ url_for('collection_detail', owner_id='alpha') }}">Alpha Collection</a>
-          <a href="{{ url_for('collection_detail', owner_id='beta') }}">Beta Collection</a>
-          <a href="{{ url_for('collection_detail', owner_id='gamma') }}">Gamma Collection</a>
+          <a href="{{ url_for('collection_detail', owner_id='player-one') }}">Player One</a>
+          <a href="{{ url_for('collection_detail', owner_id='player-two') }}">Player Two</a>
+          <a href="{{ url_for('collection_detail', owner_id='alpha') }}">Alpha AI</a>
         </nav>
       </div>
     </header>

@@ -24,6 +24,28 @@ class StoredMatch:
     event_log: list[str]
 
 
+@dataclass(frozen=True)
+class StoredDeck:
+    deck_id: int
+    owner_id: str
+    name: str
+    base_card_id: str
+    card_ids: list[str]
+    is_active: bool
+
+
+@dataclass(frozen=True)
+class StoredLiveMatch:
+    match_id: int
+    mode: str
+    status: str
+    seed: int
+    generator: str
+    left_player: str
+    right_player: str
+    state: dict[str, Any]
+
+
 def default_db_path() -> Path:
     return Path(__file__).resolve().parents[2] / "data" / "sutcg.sqlite3"
 
@@ -60,10 +82,36 @@ def init_db(path: Path | None = None) -> None:
             )
             """
         )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS decks (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                owner_id TEXT NOT NULL,
+                name TEXT NOT NULL,
+                base_card_id TEXT NOT NULL,
+                card_ids_json TEXT NOT NULL,
+                is_active INTEGER NOT NULL DEFAULT 0
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS live_matches (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                mode TEXT NOT NULL,
+                status TEXT NOT NULL,
+                seed INTEGER NOT NULL,
+                generator TEXT NOT NULL,
+                left_player TEXT NOT NULL,
+                right_player TEXT NOT NULL,
+                state_json TEXT NOT NULL
+            )
+            """
+        )
         conn.commit()
 
 
-def _card_to_payload(card: CardDefinition) -> dict[str, Any]:
+def card_to_payload(card: CardDefinition) -> dict[str, Any]:
     return {
         "card_id": card.card_id,
         "name": card.name,
@@ -89,7 +137,7 @@ def _card_to_payload(card: CardDefinition) -> dict[str, Any]:
     }
 
 
-def _card_from_payload(payload: dict[str, Any]) -> CardDefinition:
+def card_from_payload(payload: dict[str, Any]) -> CardDefinition:
     passive_payload = payload["passive"]
     return CardDefinition(
         card_id=str(payload["card_id"]),
@@ -119,7 +167,7 @@ def _card_from_payload(payload: dict[str, Any]) -> CardDefinition:
 def save_card(card: CardDefinition, path: Path | None = None) -> None:
     db_path = path or default_db_path()
     init_db(db_path)
-    payload = _card_to_payload(card)
+    payload = card_to_payload(card)
     with sqlite3.connect(db_path) as conn:
         conn.execute(
             """
@@ -145,6 +193,15 @@ def save_bot_collection(bot: PrototypeBot, path: Path | None = None) -> None:
         save_card(base, path=path)
 
 
+def owner_ids(path: Path | None = None) -> list[str]:
+    db_path = path or default_db_path()
+    if not db_path.exists():
+        return []
+    with sqlite3.connect(db_path) as conn:
+        rows = conn.execute("SELECT DISTINCT owner_id FROM cards ORDER BY owner_id").fetchall()
+    return [str(row[0]) for row in rows]
+
+
 def load_owned_cards(owner_id: str, path: Path | None = None) -> tuple[dict[str, CardDefinition], dict[str, CardDefinition]]:
     db_path = path or default_db_path()
     if not db_path.exists():
@@ -158,7 +215,7 @@ def load_owned_cards(owner_id: str, path: Path | None = None) -> tuple[dict[str,
     owned_bases: dict[str, CardDefinition] = {}
     for (raw_json,) in rows:
         payload = json.loads(raw_json)
-        card = _card_from_payload(payload)
+        card = card_from_payload(payload)
         if card.kind is CardKind.BASE:
             owned_bases[card.card_id] = card
         else:
@@ -264,6 +321,202 @@ def list_matches(limit: int = 10, path: Path | None = None) -> list[StoredMatch]
             reason=str(row[7]),
             generated_cards=int(row[8]),
             event_log=list(json.loads(row[9])),
+        )
+        for row in rows
+    ]
+
+
+def save_deck(
+    *,
+    owner_id: str,
+    name: str,
+    base_card_id: str,
+    card_ids: list[str],
+    path: Path | None = None,
+    deck_id: int | None = None,
+    active: bool = True,
+) -> int:
+    db_path = path or default_db_path()
+    init_db(db_path)
+    card_ids_json = json.dumps(card_ids)
+    with sqlite3.connect(db_path) as conn:
+        if active:
+            conn.execute("UPDATE decks SET is_active = 0 WHERE owner_id = ?", (owner_id,))
+        if deck_id is None:
+            cursor = conn.execute(
+                """
+                INSERT INTO decks (owner_id, name, base_card_id, card_ids_json, is_active)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (owner_id, name, base_card_id, card_ids_json, 1 if active else 0),
+            )
+            saved_id = int(cursor.lastrowid)
+        else:
+            conn.execute(
+                """
+                UPDATE decks
+                SET owner_id = ?, name = ?, base_card_id = ?, card_ids_json = ?, is_active = ?
+                WHERE id = ?
+                """,
+                (owner_id, name, base_card_id, card_ids_json, 1 if active else 0, deck_id),
+            )
+            saved_id = deck_id
+        conn.commit()
+    return saved_id
+
+
+def set_active_deck(owner_id: str, deck_id: int, path: Path | None = None) -> None:
+    db_path = path or default_db_path()
+    init_db(db_path)
+    with sqlite3.connect(db_path) as conn:
+        conn.execute("UPDATE decks SET is_active = 0 WHERE owner_id = ?", (owner_id,))
+        conn.execute("UPDATE decks SET is_active = 1 WHERE id = ? AND owner_id = ?", (deck_id, owner_id))
+        conn.commit()
+
+
+def load_deck(deck_id: int, path: Path | None = None) -> StoredDeck | None:
+    db_path = path or default_db_path()
+    if not db_path.exists():
+        return None
+    with sqlite3.connect(db_path) as conn:
+        row = conn.execute(
+            "SELECT id, owner_id, name, base_card_id, card_ids_json, is_active FROM decks WHERE id = ?",
+            (deck_id,),
+        ).fetchone()
+    if row is None:
+        return None
+    return StoredDeck(
+        deck_id=int(row[0]),
+        owner_id=str(row[1]),
+        name=str(row[2]),
+        base_card_id=str(row[3]),
+        card_ids=list(json.loads(row[4])),
+        is_active=bool(row[5]),
+    )
+
+
+def list_decks(owner_id: str, path: Path | None = None) -> list[StoredDeck]:
+    db_path = path or default_db_path()
+    if not db_path.exists():
+        return []
+    with sqlite3.connect(db_path) as conn:
+        rows = conn.execute(
+            """
+            SELECT id, owner_id, name, base_card_id, card_ids_json, is_active
+            FROM decks
+            WHERE owner_id = ?
+            ORDER BY is_active DESC, id ASC
+            """,
+            (owner_id,),
+        ).fetchall()
+    return [
+        StoredDeck(
+            deck_id=int(row[0]),
+            owner_id=str(row[1]),
+            name=str(row[2]),
+            base_card_id=str(row[3]),
+            card_ids=list(json.loads(row[4])),
+            is_active=bool(row[5]),
+        )
+        for row in rows
+    ]
+
+
+def active_deck(owner_id: str, path: Path | None = None) -> StoredDeck | None:
+    decks = list_decks(owner_id, path=path)
+    return decks[0] if decks and decks[0].is_active else None
+
+
+def save_live_match(
+    *,
+    mode: str,
+    status: str,
+    seed: int,
+    generator: str,
+    left_player: str,
+    right_player: str,
+    state: dict[str, Any],
+    path: Path | None = None,
+    match_id: int | None = None,
+) -> int:
+    db_path = path or default_db_path()
+    init_db(db_path)
+    state_json = json.dumps(state)
+    with sqlite3.connect(db_path) as conn:
+        if match_id is None:
+            cursor = conn.execute(
+                """
+                INSERT INTO live_matches (mode, status, seed, generator, left_player, right_player, state_json)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (mode, status, seed, generator, left_player, right_player, state_json),
+            )
+            saved_id = int(cursor.lastrowid)
+        else:
+            conn.execute(
+                """
+                UPDATE live_matches
+                SET mode = ?, status = ?, seed = ?, generator = ?, left_player = ?, right_player = ?, state_json = ?
+                WHERE id = ?
+                """,
+                (mode, status, seed, generator, left_player, right_player, state_json, match_id),
+            )
+            saved_id = match_id
+        conn.commit()
+    return saved_id
+
+
+def load_live_match(match_id: int, path: Path | None = None) -> StoredLiveMatch | None:
+    db_path = path or default_db_path()
+    if not db_path.exists():
+        return None
+    with sqlite3.connect(db_path) as conn:
+        row = conn.execute(
+            """
+            SELECT id, mode, status, seed, generator, left_player, right_player, state_json
+            FROM live_matches
+            WHERE id = ?
+            """,
+            (match_id,),
+        ).fetchone()
+    if row is None:
+        return None
+    return StoredLiveMatch(
+        match_id=int(row[0]),
+        mode=str(row[1]),
+        status=str(row[2]),
+        seed=int(row[3]),
+        generator=str(row[4]),
+        left_player=str(row[5]),
+        right_player=str(row[6]),
+        state=dict(json.loads(row[7])),
+    )
+
+
+def list_live_matches(limit: int = 20, path: Path | None = None) -> list[StoredLiveMatch]:
+    db_path = path or default_db_path()
+    if not db_path.exists():
+        return []
+    with sqlite3.connect(db_path) as conn:
+        rows = conn.execute(
+            """
+            SELECT id, mode, status, seed, generator, left_player, right_player, state_json
+            FROM live_matches
+            ORDER BY id DESC
+            LIMIT ?
+            """,
+            (limit,),
+        ).fetchall()
+    return [
+        StoredLiveMatch(
+            match_id=int(row[0]),
+            mode=str(row[1]),
+            status=str(row[2]),
+            seed=int(row[3]),
+            generator=str(row[4]),
+            left_player=str(row[5]),
+            right_player=str(row[6]),
+            state=dict(json.loads(row[7])),
         )
         for row in rows
     ]

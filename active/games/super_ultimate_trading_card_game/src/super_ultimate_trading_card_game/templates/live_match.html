@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% block title %}Live Match {{ match.match_id }}{% endblock %}
+{% block content %}
+  <section class="panel">
+    <h1>Live Match {{ match.match_id }}</h1>
+    <p>
+      {{ match.left.display_name }} ({{ match.left.controller }}) vs {{ match.right.display_name }} ({{ match.right.controller }})
+      · mode {{ match.mode }}
+      · round {{ match.round_number }}/{{ match.max_rounds }}
+      · status <strong>{{ match.status }}</strong>
+    </p>
+    <p>
+      Viewer:
+      <a href="{{ url_for('live_match_detail', match_id=match.match_id, viewer_id=match.left.owner_id) }}">{{ match.left.owner_id }}</a>
+      ·
+      <a href="{{ url_for('live_match_detail', match_id=match.match_id, viewer_id=match.right.owner_id) }}">{{ match.right.owner_id }}</a>
+    </p>
+    {% if match.result %}
+      <p>Winner: <strong>{{ match.result.winner_id or "draw" }}</strong> · {{ match.result.reason }}</p>
+      {% if match.result.saved_match_id %}
+        <p><a href="{{ url_for('match_detail', match_id=match.result.saved_match_id) }}">Open saved battle log</a></p>
+      {% endif %}
+    {% endif %}
+  </section>
+
+  <div class="grid two">
+    <section class="panel">
+      <h2>Public Board</h2>
+      <div class="board-list">
+        {% for card in match.board %}
+          <article class="card-block">
+            <h3>{{ card.name }}</h3>
+            <p>{{ card.owner_id }} · {{ card.track.value }} · pos {{ card.position }} · hp {{ card.current_hp }}</p>
+            <p>{% if card.stationary %}stationary{% else %}moving{% endif %}{% if card.engaged %} · engaged{% endif %}</p>
+          </article>
+        {% else %}
+          <p>No units on the board yet.</p>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Viewer Hand</h2>
+      {% if match.viewer_view %}
+        <p>
+          Card points {{ match.viewer_view.card_points }}
+          · own base {{ match.viewer_view.own_base_hp }}
+          · enemy base {{ match.viewer_view.opponent_base_hp }}
+          · deck {{ match.viewer_view.own_draw_count }}
+          · discard {{ match.viewer_view.own_discard_count }}
+        </p>
+        <div class="collection-list">
+          {% for card in match.viewer_view.own_hand %}
+            <article class="card-block">
+              <h3>{{ card.name }}</h3>
+              <p>hp {{ card.hp }} · atk {{ card.attack }} · cpc {{ card.cpc }}</p>
+              {% if card.keywords %}
+                <p>{{ card.keywords | join(", ") }}</p>
+              {% endif %}
+              <p>{{ card.ability_summary }}</p>
+            </article>
+          {% else %}
+            <p>No cards in hand.</p>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p>This viewer is spectating or controlling an AI seat, so no private hand is shown.</p>
+      {% endif %}
+    </section>
+  </div>
+
+  <div class="grid two">
+    <section class="panel">
+      <h2>Turn Controls</h2>
+      {% if match.can_advance %}
+        <form method="post" action="{{ url_for('advance_live_match_route', match_id=match.match_id) }}" class="inline-form">
+          <input type="hidden" name="viewer_id" value="{{ match.viewer_id }}" />
+          <button type="submit">Advance one AI round</button>
+        </form>
+      {% endif %}
+      {% if match.can_autoplay %}
+        <form method="post" action="{{ url_for('autoplay_live_match_route', match_id=match.match_id) }}" class="inline-form">
+          <input type="hidden" name="viewer_id" value="{{ match.viewer_id }}" />
+          <button type="submit">Autoplay AI match to end</button>
+        </form>
+      {% endif %}
+      {% if match.viewer_view and match.status == 'active' and match.viewer_id not in match.pending_players %}
+        <form method="post" action="{{ url_for('submit_live_turn_route', match_id=match.match_id) }}" class="stack">
+          <input type="hidden" name="viewer_id" value="{{ match.viewer_id }}" />
+          <label>Generate prompt
+            <textarea name="generate_prompt" rows="3" placeholder="Optional prompt for a new card"></textarea>
+          </label>
+          {% for slot in range(1, 3) %}
+            <fieldset class="stack compact">
+              <legend>Play {{ slot }}</legend>
+              <label>Card
+                <select name="play_{{ slot }}_card_id">
+                  <option value="">Pass</option>
+                  {% for card in match.viewer_view.own_hand %}
+                    <option value="{{ card.card_id }}">{{ card.name }}</option>
+                  {% endfor %}
+                </select>
+              </label>
+              <label>Track
+                <select name="play_{{ slot }}_track">
+                  <option value="fast">fast</option>
+                  <option value="slow">slow</option>
+                </select>
+              </label>
+              <label class="inline"><input type="checkbox" name="play_{{ slot }}_stationary" /> Stationary defender</label>
+            </fieldset>
+          {% endfor %}
+          <button type="submit">Lock in turn</button>
+        </form>
+      {% elif match.viewer_id in match.pending_players %}
+        <p>Your turn is locked in. Waiting for the other seat or AI resolution.</p>
+      {% endif %}
+    </section>
+
+    <section class="panel">
+      <h2>Battle Log</h2>
+      <pre class="log">{% for line in match.event_log %}{{ line }}
+{% endfor %}</pre>
+    </section>
+  </div>
+{% endblock %}
