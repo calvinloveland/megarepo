@@ -44,6 +44,8 @@ Optional environment variables:
 - `SUTCG_OPENROUTER_REFERER` - optional referer header
 - `SUTCG_OPENROUTER_TITLE` - optional client title header
 
+By default, the OpenRouter generator prefers a live free-model list and retries across several candidates before falling back to deterministic generation. This makes free-tier playtesting much more resilient to temporary provider 404/429 failures.
+
 ## Commands
 
 ```bash

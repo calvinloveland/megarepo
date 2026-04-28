@@ -11,7 +11,14 @@ from .models import CardDefinition, CardKind
 from .validation import validate_and_balance_card
 
 DEFAULT_OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
-DEFAULT_OPENROUTER_MODEL = "meta-llama/llama-3.3-8b-instruct:free"
+DEFAULT_OPENROUTER_MODEL = "openai/gpt-oss-20b:free"
+DEFAULT_OPENROUTER_MODEL_CANDIDATES = (
+    "openai/gpt-oss-20b:free",
+    "google/gemma-3-27b-it:free",
+    "meta-llama/llama-3.2-3b-instruct:free",
+    "qwen/qwen3-coder:free",
+    "meta-llama/llama-3.3-70b-instruct:free",
+)
 
 
 class ChatTransport(Protocol):
@@ -68,6 +75,7 @@ class DeterministicCardGenerator(CardGenerator):
 
     def __init__(self, seed: int = 0):
         self._seed = seed
+        self.last_backend = "deterministic"
 
     def generate_card(self, owner_id: str, prompt: str, *, kind: CardKind) -> CardDefinition:
         seed_value = hash((self._seed, owner_id, prompt, kind.value)) & 0xFFFFFFFF
@@ -170,6 +178,8 @@ class OpenRouterCardGenerator(CardGenerator):
         self.endpoint = endpoint or os.getenv("SUTCG_OPENROUTER_URL", DEFAULT_OPENROUTER_URL)
         self.transport = transport or UrllibChatTransport()
         self.fallback = fallback or DeterministicCardGenerator()
+        self.last_backend = "uninitialized"
+        self.last_model = ""
         if not self.api_key:
             raise RuntimeError("OpenRouter API key not available.")
 
@@ -198,14 +208,6 @@ class OpenRouterCardGenerator(CardGenerator):
                 f"Prompt: {prompt}"
             )
 
-        payload = {
-            "model": self.model,
-            "messages": [
-                {"role": "system", "content": system},
-                {"role": "user", "content": user},
-            ],
-            "temperature": 0.9,
-        }
         headers = {
             "Content-Type": "application/json",
             "Authorization": f"Bearer {self.api_key}",
@@ -217,17 +219,45 @@ class OpenRouterCardGenerator(CardGenerator):
         if title:
             headers["X-Title"] = title
 
-        for _ in range(3):
-            try:
-                raw_body = self.transport.post_json(self.endpoint, headers, payload, timeout=30)
-                body = json.loads(raw_body)
-                content = str(body["choices"][0]["message"]["content"])
-                parsed = _extract_json_object(content)
-                if parsed is not None:
-                    return validate_and_balance_card(parsed, owner_id=owner_id, prompt=prompt, kind=kind)
-            except (OSError, ValueError, KeyError, TypeError, json.JSONDecodeError):
-                continue
+        models = self._candidate_models()
+        for model in models:
+            payload = {
+                "model": model,
+                "messages": [
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": user},
+                ],
+                "response_format": {"type": "json_object"},
+                "plugins": [{"id": "response-healing"}],
+                "temperature": 0.9,
+                "max_tokens": 300,
+                "user": owner_id,
+            }
+            for _ in range(2):
+                try:
+                    raw_body = self.transport.post_json(self.endpoint, headers, payload, timeout=30)
+                    body = json.loads(raw_body)
+                    content = str(body["choices"][0]["message"]["content"])
+                    parsed = _extract_json_object(content)
+                    if parsed is not None:
+                        self.last_backend = "openrouter"
+                        self.last_model = model
+                        return validate_and_balance_card(parsed, owner_id=owner_id, prompt=prompt, kind=kind)
+                except (OSError, ValueError, KeyError, TypeError, json.JSONDecodeError):
+                    continue
+        self.last_backend = "fallback"
+        self.last_model = ""
         return self.fallback.generate_card(owner_id, prompt, kind=kind)
+
+    def _candidate_models(self) -> tuple[str, ...]:
+        explicit = os.getenv("SUTCG_OPENROUTER_MODEL")
+        if explicit:
+            return (explicit,)
+        ordered = [self.model]
+        for model in DEFAULT_OPENROUTER_MODEL_CANDIDATES:
+            if model not in ordered:
+                ordered.append(model)
+        return tuple(ordered)
 
 
 def get_generator(generator_name: str, *, seed: int = 0) -> CardGenerator:
