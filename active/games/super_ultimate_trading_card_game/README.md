@@ -17,6 +17,7 @@ Python prototype of **Super Ultimate Trading Card Game** focused on deterministi
 - backend-managed collection browsing and six-card deck building
 - shared card-frame rendering with deterministic generated SVG artwork per card
 - prompt-driven theme preservation across arbitrary genres and aesthetics
+- cookie-backed human player profiles created from a first-visit name prompt
 
 ## Quick start
 
@@ -41,6 +42,7 @@ The web app is a backend-rendered interface over the same simulation code used b
 Live web features:
 
 - create AI vs AI, AI vs Player, and Player vs Player matches
+- prompt first-time visitors for a player name and remember the resulting player key in a browser cookie
 - step AI matches round by round or autoplay them to completion
 - submit human turns through the browser while the backend resolves combat
 - browse collections and build active six-card decks for each owner

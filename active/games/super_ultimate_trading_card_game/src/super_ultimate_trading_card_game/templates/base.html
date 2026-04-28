@@ -14,8 +14,10 @@
           <a href="{{ url_for('index') }}">Dashboard</a>
           <a href="{{ url_for('live_matches_index') }}">Live Games</a>
           <a href="{{ url_for('matches_index') }}">Matches</a>
-          <a href="{{ url_for('collection_detail', owner_id='player-one') }}">Player One</a>
-          <a href="{{ url_for('collection_detail', owner_id='player-two') }}">Player Two</a>
+          {% if current_player %}
+            <a href="{{ url_for('collection_detail', owner_id=current_player.player_id) }}">{{ current_player.display_name }}</a>
+            <a href="{{ url_for('decks_detail', owner_id=current_player.player_id) }}">My Decks</a>
+          {% endif %}
           <a href="{{ url_for('collection_detail', owner_id='alpha') }}">Alpha AI</a>
         </nav>
       </div>

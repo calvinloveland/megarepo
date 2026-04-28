@@ -46,6 +46,13 @@ class StoredLiveMatch:
     state: dict[str, Any]
 
 
+@dataclass(frozen=True)
+class StoredProfile:
+    player_id: str
+    display_name: str
+    persona: str
+
+
 def default_db_path() -> Path:
     return Path(__file__).resolve().parents[2] / "data" / "sutcg.sqlite3"
 
@@ -105,6 +112,15 @@ def init_db(path: Path | None = None) -> None:
                 left_player TEXT NOT NULL,
                 right_player TEXT NOT NULL,
                 state_json TEXT NOT NULL
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS profiles (
+                player_id TEXT PRIMARY KEY,
+                display_name TEXT NOT NULL,
+                persona TEXT NOT NULL
             )
             """
         )
@@ -200,6 +216,45 @@ def owner_ids(path: Path | None = None) -> list[str]:
     with sqlite3.connect(db_path) as conn:
         rows = conn.execute("SELECT DISTINCT owner_id FROM cards ORDER BY owner_id").fetchall()
     return [str(row[0]) for row in rows]
+
+
+def save_profile(player_id: str, display_name: str, persona: str, path: Path | None = None) -> None:
+    db_path = path or default_db_path()
+    init_db(db_path)
+    with sqlite3.connect(db_path) as conn:
+        conn.execute(
+            """
+            INSERT OR REPLACE INTO profiles (player_id, display_name, persona)
+            VALUES (?, ?, ?)
+            """,
+            (player_id, display_name, persona),
+        )
+        conn.commit()
+
+
+def load_profile(player_id: str, path: Path | None = None) -> StoredProfile | None:
+    db_path = path or default_db_path()
+    if not db_path.exists():
+        return None
+    with sqlite3.connect(db_path) as conn:
+        row = conn.execute(
+            "SELECT player_id, display_name, persona FROM profiles WHERE player_id = ?",
+            (player_id,),
+        ).fetchone()
+    if row is None:
+        return None
+    return StoredProfile(player_id=str(row[0]), display_name=str(row[1]), persona=str(row[2]))
+
+
+def list_profiles(path: Path | None = None) -> list[StoredProfile]:
+    db_path = path or default_db_path()
+    if not db_path.exists():
+        return []
+    with sqlite3.connect(db_path) as conn:
+        rows = conn.execute(
+            "SELECT player_id, display_name, persona FROM profiles ORDER BY display_name",
+        ).fetchall()
+    return [StoredProfile(player_id=str(row[0]), display_name=str(row[1]), persona=str(row[2])) for row in rows]
 
 
 def load_owned_cards(owner_id: str, path: Path | None = None) -> tuple[dict[str, CardDefinition], dict[str, CardDefinition]]:

@@ -9,12 +9,14 @@ from .card_ui import card_art_data_uri, normalize_card
 from .models import CardKind
 from .sim_api import (
     DEFAULT_BOT_IDS,
-    DEFAULT_HUMAN_IDS,
     activate_deck_result,
     autoplay_live_match,
+    create_player_profile,
     create_live_match,
+    current_player_profile,
     deck_builder_result,
     generate_card_result,
+    human_profiles_result,
     known_owner_ids,
     live_match_result,
     load_collection_result,
@@ -28,6 +30,8 @@ from .sim_api import (
     advance_live_match,
 )
 from .storage import default_db_path, init_db
+
+PLAYER_COOKIE = "sutcg_player_key"
 
 
 def create_app(config_overrides: dict | None = None) -> Flask:
@@ -46,9 +50,17 @@ def create_app(config_overrides: dict | None = None) -> Flask:
         init_db(db_path)
         return db_path
 
+    def _current_player():
+        return current_player_profile(request.cookies.get(PLAYER_COOKIE), db_path=_db_path())
+
+    @app.context_processor
+    def _inject_current_player():
+        return {"current_player": _current_player()}
+
     def _dashboard_context(owner_id: str, *, generated_card=None, playtest_summary=None):
         db_path = _db_path()
         collection = load_collection_result(owner_id=owner_id, db_path=db_path)
+        current_player = _current_player()
         return {
             "owner_id": owner_id,
             "collection": collection,
@@ -56,15 +68,26 @@ def create_app(config_overrides: dict | None = None) -> Flask:
             "recent_live_matches": recent_live_matches_result(limit=12, db_path=db_path),
             "owner_ids": known_owner_ids(db_path=db_path),
             "bot_ids": DEFAULT_BOT_IDS,
-            "human_ids": DEFAULT_HUMAN_IDS,
+            "human_profiles": human_profiles_result(db_path=db_path),
+            "current_player": current_player,
             "generated_card": generated_card,
             "playtest_summary": playtest_summary,
         }
 
     @app.get("/")
     def index():
-        owner_id = request.args.get("owner_id", "player-one")
+        current_player = _current_player()
+        if current_player is None:
+            return render_template("welcome.html")
+        owner_id = request.args.get("owner_id", current_player.player_id)
         return render_template("index.html", **_dashboard_context(owner_id))
+
+    @app.post("/players/register")
+    def register_player_route():
+        profile = create_player_profile(request.form.get("display_name", ""), db_path=_db_path())
+        response = redirect(url_for("index"))
+        response.set_cookie(PLAYER_COOKIE, profile.player_id, max_age=60 * 60 * 24 * 365, samesite="Lax")
+        return response
 
     @app.post("/run-match")
     def run_match_route():
@@ -83,6 +106,9 @@ def create_app(config_overrides: dict | None = None) -> Flask:
 
     @app.post("/run-playtest")
     def run_playtest_route():
+        current_player = _current_player()
+        if current_player is None:
+            return redirect(url_for("index"))
         matches_count = int(request.form.get("matches", "20") or 20)
         seed = int(request.form.get("seed", "1") or 1)
         generator = request.form.get("generator", "auto")
@@ -92,12 +118,15 @@ def create_app(config_overrides: dict | None = None) -> Flask:
             generator_name=generator,
             db_path=_db_path(),
         )
-        return render_template("index.html", **_dashboard_context("player-one", playtest_summary=summary))
+        return render_template("index.html", **_dashboard_context(current_player.player_id, playtest_summary=summary))
 
     @app.post("/generate-card")
     def generate_card_route():
+        current_player = _current_player()
+        if current_player is None:
+            return redirect(url_for("index"))
         prompt = (request.form.get("prompt") or "").strip()
-        owner_id = (request.form.get("owner_id") or "player-one").strip()
+        owner_id = (request.form.get("owner_id") or current_player.player_id).strip()
         kind = CardKind(request.form.get("kind", "unit"))
         generator = request.form.get("generator", "auto")
         save = request.form.get("save") == "on"
@@ -113,18 +142,27 @@ def create_app(config_overrides: dict | None = None) -> Flask:
 
     @app.post("/live/create")
     def create_live_match_route():
+        current_player = _current_player()
         mode = request.form.get("mode", "ai-vs-player")
         seed = int(request.form.get("seed", "1") or 1)
         generator = request.form.get("generator", "deterministic")
-        left_owner_id = request.form.get("left_owner_id", "player-one")
-        right_owner_id = request.form.get("right_owner_id", "alpha")
         if mode == "ai-vs-ai":
+            left_owner_id = request.form.get("left_owner_id", "alpha")
+            right_owner_id = request.form.get("right_owner_id", "beta")
             left_controller = "ai"
             right_controller = "ai"
         elif mode == "player-vs-player":
+            if current_player is None:
+                return redirect(url_for("index"))
+            left_owner_id = current_player.player_id
+            right_owner_id = request.form.get("right_owner_id", "")
             left_controller = "human"
             right_controller = "human"
         else:
+            if current_player is None:
+                return redirect(url_for("index"))
+            left_owner_id = current_player.player_id
+            right_owner_id = request.form.get("right_owner_id", "alpha")
             left_controller = "human"
             right_controller = "ai"
         match_id = create_live_match(
@@ -146,24 +184,28 @@ def create_app(config_overrides: dict | None = None) -> Flask:
 
     @app.get("/live/<int:match_id>")
     def live_match_detail(match_id: int):
-        viewer_id = request.args.get("viewer_id")
+        current_player = _current_player()
+        viewer_id = request.args.get("viewer_id") or (current_player.player_id if current_player is not None else None)
         return render_template("live_match.html", match=live_match_result(match_id=match_id, viewer_id=viewer_id, db_path=_db_path()))
 
     @app.post("/live/<int:match_id>/advance")
     def advance_live_match_route(match_id: int):
+        current_player = _current_player()
         state = advance_live_match(match_id=match_id, db_path=_db_path())
-        viewer_id = request.form.get("viewer_id") or state["left"]["owner_id"]
+        viewer_id = request.form.get("viewer_id") or (current_player.player_id if current_player is not None else state["left"]["owner_id"])
         return redirect(url_for("live_match_detail", match_id=match_id, viewer_id=viewer_id))
 
     @app.post("/live/<int:match_id>/autoplay")
     def autoplay_live_match_route(match_id: int):
+        current_player = _current_player()
         state = autoplay_live_match(match_id=match_id, db_path=_db_path())
-        viewer_id = request.form.get("viewer_id") or state["left"]["owner_id"]
+        viewer_id = request.form.get("viewer_id") or (current_player.player_id if current_player is not None else state["left"]["owner_id"])
         return redirect(url_for("live_match_detail", match_id=match_id, viewer_id=viewer_id))
 
     @app.post("/live/<int:match_id>/submit-turn")
     def submit_live_turn_route(match_id: int):
-        viewer_id = (request.form.get("viewer_id") or "").strip()
+        current_player = _current_player()
+        viewer_id = (request.form.get("viewer_id") or (current_player.player_id if current_player is not None else "")).strip()
         plays = []
         for index in range(1, 3):
             plays.append(

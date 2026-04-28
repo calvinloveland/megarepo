@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}Welcome to SUTCG{% endblock %}
+{% block content %}
+  <section class="panel narrow">
+    <h1>Choose your player name</h1>
+    <p>This name creates your player profile and collection. The game stores your player key in a cookie so future visits keep using the same account on this browser.</p>
+    <form method="post" action="{{ url_for('register_player_route') }}" class="stack">
+      <label>Your name
+        <input type="text" name="display_name" placeholder="Calvin" required />
+      </label>
+      <button type="submit">Start playing</button>
+    </form>
+  </section>
+{% endblock %}

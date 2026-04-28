@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import itertools
+import re
+import secrets
 from pathlib import Path
 from statistics import mean
 from typing import Any
@@ -21,6 +23,7 @@ from .models import DECK_SIZE, CardDefinition, CardKind, MatchResult, PlannedPla
 from .storage import (
     StoredDeck,
     StoredLiveMatch,
+    StoredProfile,
     active_deck,
     default_db_path,
     hydrate_bot_collection,
@@ -28,53 +31,81 @@ from .storage import (
     list_decks,
     list_live_matches,
     list_matches,
+    list_profiles,
     load_deck,
     load_live_match,
     load_match,
     load_owned_cards,
+    load_profile,
     owner_ids,
     save_bot_collection,
     save_card,
     save_deck,
     save_live_match,
     save_match,
+    save_profile,
     set_active_deck,
 )
 
 DEFAULT_BOT_IDS = ("alpha", "beta", "gamma")
-DEFAULT_HUMAN_IDS = ("player-one", "player-two")
-DEFAULT_OWNER_IDS = DEFAULT_BOT_IDS + DEFAULT_HUMAN_IDS
+DEFAULT_OWNER_IDS = DEFAULT_BOT_IDS
 
 _DISPLAY_NAMES = {
     "alpha": "Alpha Atelier",
     "beta": "Beta Bastion",
     "gamma": "Gamma Blitz",
-    "player-one": "Player One",
-    "player-two": "Player Two",
 }
 _PERSONAS = {
     "alpha": "inventor",
     "beta": "guardian",
     "gamma": "aggressive",
-    "player-one": "inventor",
-    "player-two": "guardian",
 }
 
 
-def _display_name(owner_id: str) -> str:
+def _slugify_name(display_name: str) -> str:
+    slug = re.sub(r"[^a-z0-9]+", "-", display_name.lower()).strip("-")
+    return slug or "player"
+
+
+def create_player_profile(display_name: str, *, db_path: Path | None = None) -> StoredProfile:
+    resolved_db = db_path or default_db_path()
+    clean_name = display_name.strip()
+    if not clean_name:
+        raise ValueError("Choose a display name.")
+    player_id = f"player-{_slugify_name(clean_name)}-{secrets.token_hex(4)}"
+    profile = StoredProfile(player_id=player_id, display_name=clean_name, persona="inventor")
+    save_profile(profile.player_id, profile.display_name, profile.persona, path=resolved_db)
+    ensure_builtin_collection(profile.player_id, seed=1, generator_name="deterministic", db_path=resolved_db)
+    ensure_default_deck(profile.player_id, db_path=resolved_db)
+    return profile
+
+
+def current_player_profile(player_id: str | None, *, db_path: Path | None = None) -> StoredProfile | None:
+    if not player_id:
+        return None
+    return load_profile(player_id, path=db_path or default_db_path())
+
+
+def _display_name(owner_id: str, db_path: Path | None = None) -> str:
+    profile = load_profile(owner_id, path=db_path) if db_path is not None else None
+    if profile is not None:
+        return profile.display_name
     return _DISPLAY_NAMES.get(owner_id, owner_id.replace("-", " ").title())
 
 
-def _persona(owner_id: str) -> str:
+def _persona(owner_id: str, db_path: Path | None = None) -> str:
+    profile = load_profile(owner_id, path=db_path) if db_path is not None else None
+    if profile is not None:
+        return profile.persona
     return _PERSONAS.get(owner_id, "inventor")
 
 
-def _make_profile(owner_id: str, *, seed: int) -> PrototypeBot:
-    return PrototypeBot(owner_id, _display_name(owner_id), _persona(owner_id), seed=seed)
+def _make_profile(owner_id: str, *, seed: int, db_path: Path | None = None) -> PrototypeBot:
+    return PrototypeBot(owner_id, _display_name(owner_id, db_path), _persona(owner_id, db_path), seed=seed)
 
 
 def _hydrated_profile(owner_id: str, *, seed: int, db_path: Path) -> PrototypeBot:
-    bot = _make_profile(owner_id, seed=seed)
+    bot = _make_profile(owner_id, seed=seed, db_path=db_path)
     hydrate_bot_collection(bot, path=db_path)
     return bot
 
@@ -191,7 +222,7 @@ def load_collection_result(
     decks = list_decks(owner_id, path=resolved_db)
     return {
         "owner_id": owner_id,
-        "display_name": _display_name(owner_id),
+        "display_name": _display_name(owner_id, resolved_db),
         "bases": [
             {
                 "card_id": base.card_id,
@@ -252,7 +283,7 @@ def deck_builder_result(
     decks = list_decks(owner_id, path=resolved_db)
     return {
         "owner_id": owner_id,
-        "display_name": _display_name(owner_id),
+        "display_name": _display_name(owner_id, resolved_db),
         "owned_cards": list(collection[0].values()),
         "owned_bases": list(collection[1].values()),
         "decks": [_deck_summary(deck, collection) for deck in decks],
@@ -302,7 +333,8 @@ def known_owner_ids(*, db_path: Path | None = None) -> list[str]:
     resolved_db = db_path or default_db_path()
     init_db(resolved_db)
     discovered = owner_ids(path=resolved_db)
-    merged = list(dict.fromkeys([*DEFAULT_OWNER_IDS, *discovered]))
+    profile_ids = [profile.player_id for profile in list_profiles(path=resolved_db)]
+    merged = list(dict.fromkeys([*DEFAULT_OWNER_IDS, *profile_ids, *discovered]))
     for owner_id in merged:
         ensure_builtin_collection(owner_id, seed=1, generator_name="deterministic", db_path=resolved_db)
     return merged
@@ -432,9 +464,9 @@ def _player_spec(owner_id: str, controller: str, *, deck_id: int | None, seed: i
     owned_cards, owned_bases = load_owned_cards(owner_id, path=db_path)
     return {
         "owner_id": owner_id,
-        "display_name": _display_name(owner_id),
+        "display_name": _display_name(owner_id, db_path),
         "controller": controller,
-        "persona": _persona(owner_id),
+        "persona": _persona(owner_id, db_path),
         "deck_id": deck.deck_id,
         "deck_name": deck.name,
         "deck_cards": cards,
@@ -722,3 +754,7 @@ def recent_live_matches_result(limit: int = 20, db_path: Path | None = None) -> 
         }
         for record in list_live_matches(limit=limit, path=resolved_db)
     ]
+
+
+def human_profiles_result(*, db_path: Path | None = None) -> list[StoredProfile]:
+    return list_profiles(path=db_path or default_db_path())

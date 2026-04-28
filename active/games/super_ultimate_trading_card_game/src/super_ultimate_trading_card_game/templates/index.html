@@ -4,39 +4,84 @@
 {% block content %}
   <div class="grid two">
     <section class="panel">
-      <h1>Create Live Game</h1>
-      <form method="post" action="{{ url_for('create_live_match_route') }}" class="stack">
-        <label>Mode
-          <select name="mode">
-            <option value="ai-vs-player">AI vs Player</option>
-            <option value="ai-vs-ai">AI vs AI</option>
-            <option value="player-vs-player">Player vs Player</option>
-          </select>
-        </label>
-        <label>Left seat
-          <select name="left_owner_id">
-            {% for owner in owner_ids %}
-              <option value="{{ owner }}" {% if owner == 'player-one' %}selected{% endif %}>{{ owner }}</option>
-            {% endfor %}
-          </select>
-        </label>
-        <label>Right seat
-          <select name="right_owner_id">
-            {% for owner in owner_ids %}
-              <option value="{{ owner }}" {% if owner == 'alpha' %}selected{% endif %}>{{ owner }}</option>
-            {% endfor %}
-          </select>
-        </label>
-        <label>Generator
-          <select name="generator">
-            <option value="deterministic">deterministic</option>
-            <option value="auto">auto</option>
-            <option value="openrouter">openrouter</option>
-          </select>
-        </label>
-        <label>Seed <input type="number" name="seed" value="1" /></label>
-        <button type="submit">Create live match</button>
-      </form>
+      <h1>Welcome, {{ current_player.display_name }}</h1>
+      <p>Your player key is stored in a cookie, so this browser keeps using <strong>{{ current_player.player_id }}</strong>.</p>
+      <div class="stack">
+        <form method="post" action="{{ url_for('create_live_match_route') }}" class="stack">
+          <input type="hidden" name="mode" value="ai-vs-player" />
+          <h2>Play vs AI</h2>
+          <label>Opponent AI
+            <select name="right_owner_id">
+              {% for bot_id in bot_ids %}
+                <option value="{{ bot_id }}" {% if bot_id == 'alpha' %}selected{% endif %}>{{ bot_id }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <label>Generator
+            <select name="generator">
+              <option value="deterministic">deterministic</option>
+              <option value="auto">auto</option>
+              <option value="openrouter">openrouter</option>
+            </select>
+          </label>
+          <label>Seed <input type="number" name="seed" value="1" /></label>
+          <button type="submit">Start AI match</button>
+        </form>
+        <hr />
+        <form method="post" action="{{ url_for('create_live_match_route') }}" class="stack">
+          <input type="hidden" name="mode" value="player-vs-player" />
+          <h2>Play vs Another Player</h2>
+          {% set other_profiles = human_profiles | rejectattr('player_id', 'equalto', current_player.player_id) | list %}
+          {% if other_profiles %}
+            <label>Opponent
+              <select name="right_owner_id">
+                {% for profile in other_profiles %}
+                  <option value="{{ profile.player_id }}">{{ profile.display_name }}</option>
+                {% endfor %}
+              </select>
+            </label>
+          {% else %}
+            <p>Create another profile from a different browser or clear the cookie there first, then come back for PvP.</p>
+          {% endif %}
+          <label>Generator
+            <select name="generator">
+              <option value="deterministic">deterministic</option>
+              <option value="auto">auto</option>
+              <option value="openrouter">openrouter</option>
+            </select>
+          </label>
+          <label>Seed <input type="number" name="seed" value="1" /></label>
+          <button type="submit" {% if not other_profiles %}disabled{% endif %}>Start PvP match</button>
+        </form>
+        <hr />
+        <form method="post" action="{{ url_for('create_live_match_route') }}" class="stack">
+          <input type="hidden" name="mode" value="ai-vs-ai" />
+          <h2>Spectate AI vs AI</h2>
+          <label>Left AI
+            <select name="left_owner_id">
+              {% for bot_id in bot_ids %}
+                <option value="{{ bot_id }}">{{ bot_id }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <label>Right AI
+            <select name="right_owner_id">
+              {% for bot_id in bot_ids %}
+                <option value="{{ bot_id }}" {% if bot_id == 'beta' %}selected{% endif %}>{{ bot_id }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <label>Generator
+            <select name="generator">
+              <option value="deterministic">deterministic</option>
+              <option value="auto">auto</option>
+              <option value="openrouter">openrouter</option>
+            </select>
+          </label>
+          <label>Seed <input type="number" name="seed" value="1" /></label>
+          <button type="submit">Create spectator match</button>
+        </form>
+      </div>
     </section>
 
     <section class="panel">

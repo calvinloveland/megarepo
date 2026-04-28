@@ -50,6 +50,11 @@ body {
   margin-bottom: 1rem;
 }
 
+.panel.narrow {
+  max-width: 34rem;
+  margin: 2rem auto;
+}
+
 .stack {
   display: grid;
   gap: 0.75rem;
@@ -77,6 +82,11 @@ button {
   border-color: #5668f6;
   font-weight: 600;
   cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .inline {

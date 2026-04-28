@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from super_ultimate_trading_card_game.sim_api import deck_builder_result
+from super_ultimate_trading_card_game.sim_api import deck_builder_result, human_profiles_result
 from super_ultimate_trading_card_game.web import create_app
 
 
@@ -8,13 +8,30 @@ def _app(tmp_path: Path):
     return create_app({"TESTING": True, "SUTCG_DB_PATH": str(tmp_path / "sutcg.sqlite3")})
 
 
-def test_web_index_renders_live_client(tmp_path: Path):
+def _register(client, tmp_path: Path, name: str = "Calvin Player") -> str:
+    response = client.post("/players/register", data={"display_name": name}, follow_redirects=True)
+    assert response.status_code == 200
+    profiles = human_profiles_result(db_path=tmp_path / "sutcg.sqlite3")
+    profile = next(profile for profile in profiles if profile.display_name == name)
+    return profile.player_id
+
+
+def test_web_index_prompts_for_player_name_without_cookie(tmp_path: Path):
     app = _app(tmp_path)
     client = app.test_client()
     response = client.get("/")
     assert response.status_code == 200
-    assert b"Create Live Game" in response.data
-    assert b"Deck Builder" in response.data
+    assert b"Choose your player name" in response.data
+
+
+def test_web_index_uses_cookie_backed_player_after_registration(tmp_path: Path):
+    app = _app(tmp_path)
+    client = app.test_client()
+    _register(client, tmp_path, "Calvin Player")
+    response = client.get("/")
+    assert response.status_code == 200
+    assert b"Welcome, Calvin Player" in response.data
+    assert b"Create Live Game" not in response.data
     assert b"game-card" in response.data
     assert b"data:image/svg+xml" in response.data
 
@@ -22,6 +39,7 @@ def test_web_index_renders_live_client(tmp_path: Path):
 def test_web_can_create_and_advance_live_ai_match(tmp_path: Path):
     app = _app(tmp_path)
     client = app.test_client()
+    _register(client, tmp_path)
     create_response = client.post(
         "/live/create",
         data={
@@ -49,11 +67,11 @@ def test_web_can_create_and_advance_live_ai_match(tmp_path: Path):
 def test_web_can_submit_human_turn(tmp_path: Path):
     app = _app(tmp_path)
     client = app.test_client()
+    player_id = _register(client, tmp_path)
     create_response = client.post(
         "/live/create",
         data={
             "mode": "ai-vs-player",
-            "left_owner_id": "player-one",
             "right_owner_id": "alpha",
             "generator": "deterministic",
             "seed": "11",
@@ -66,9 +84,9 @@ def test_web_can_submit_human_turn(tmp_path: Path):
     assert b"Lock in turn" in detail_response.data
 
     submit_response = client.post(
-        create_response.headers["Location"].replace("?viewer_id=player-one", "/submit-turn"),
+        create_response.headers["Location"].replace(f"?viewer_id={player_id}", "/submit-turn"),
         data={
-            "viewer_id": "player-one",
+            "viewer_id": player_id,
             "generate_prompt": "",
             "play_1_card_id": "",
             "play_1_track": "fast",
@@ -83,22 +101,24 @@ def test_web_can_submit_human_turn(tmp_path: Path):
 
 def test_web_player_vs_player_waits_for_both_turns(tmp_path: Path):
     app = _app(tmp_path)
-    client = app.test_client()
-    create_response = client.post(
+    client_one = app.test_client()
+    player_one_id = _register(client_one, tmp_path, "Player One")
+    client_two = app.test_client()
+    player_two_id = _register(client_two, tmp_path, "Player Two")
+    create_response = client_one.post(
         "/live/create",
         data={
             "mode": "player-vs-player",
-            "left_owner_id": "player-one",
-            "right_owner_id": "player-two",
+            "right_owner_id": player_two_id,
             "generator": "deterministic",
             "seed": "12",
         },
     )
     assert create_response.status_code == 302
-    first_submit = client.post(
-        create_response.headers["Location"].replace("?viewer_id=player-one", "/submit-turn"),
+    first_submit = client_one.post(
+        create_response.headers["Location"].replace(f"?viewer_id={player_one_id}", "/submit-turn"),
         data={
-            "viewer_id": "player-one",
+            "viewer_id": player_one_id,
             "generate_prompt": "",
             "play_1_card_id": "",
             "play_1_track": "fast",
@@ -110,10 +130,10 @@ def test_web_player_vs_player_waits_for_both_turns(tmp_path: Path):
     assert first_submit.status_code == 200
     assert b"Waiting for the other seat" in first_submit.data
 
-    second_submit = client.post(
+    second_submit = client_two.post(
         f"/live/1/submit-turn",
         data={
-            "viewer_id": "player-two",
+            "viewer_id": player_two_id,
             "generate_prompt": "",
             "play_1_card_id": "",
             "play_1_track": "fast",
@@ -129,15 +149,16 @@ def test_web_player_vs_player_waits_for_both_turns(tmp_path: Path):
 def test_web_can_save_deck(tmp_path: Path):
     app = _app(tmp_path)
     client = app.test_client()
-    deck_page = client.get("/decks/player-one")
+    player_id = _register(client, tmp_path)
+    deck_page = client.get(f"/decks/{player_id}")
     assert deck_page.status_code == 200
     assert b"Starter Deck" in deck_page.data
-    deck_data = deck_builder_result(owner_id="player-one", db_path=tmp_path / "sutcg.sqlite3")
+    deck_data = deck_builder_result(owner_id=player_id, db_path=tmp_path / "sutcg.sqlite3")
     base_card_id = deck_data["owned_bases"][0].card_id
     cards = deck_data["owned_cards"][:6]
 
     response = client.post(
-        "/decks/player-one/save",
+        f"/decks/{player_id}/save",
         data={
             "name": "Aggro Deck",
             "base_card_id": base_card_id,
@@ -158,10 +179,11 @@ def test_web_can_save_deck(tmp_path: Path):
 def test_web_can_generate_card(tmp_path: Path):
     app = _app(tmp_path)
     client = app.test_client()
+    player_id = _register(client, tmp_path)
     response = client.post(
         "/generate-card",
         data={
-            "owner_id": "player-one",
+            "owner_id": player_id,
             "kind": "unit",
             "generator": "deterministic",
             "prompt": "A weird card that does one damage for every e in the enemy name",
