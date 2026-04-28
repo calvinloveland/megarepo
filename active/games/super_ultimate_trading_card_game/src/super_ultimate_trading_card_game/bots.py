@@ -97,12 +97,18 @@ class PrototypeBot:
         return self.rng.random() < 0.7
 
     def _board_need(self, view: PlayerView) -> str:
+        if any(card.owner_id != view.player_id and "Flying" in card.keywords for card in view.board):
+            return "anti_air"
         if view.own_base_hp < view.opponent_base_hp:
+            return "support"
+        if view.own_base_hp <= 10:
             return "defense"
         if view.opponent_base_hp <= 8:
             return "finisher"
         if not any("Defender" in card.keywords for card in view.own_hand):
             return "defender"
+        if self.profile.persona == "inventor" and view.card_points <= 3:
+            return "economy"
         return "pressure"
 
     def _generation_prompt(self, needs: str | None) -> str:
@@ -113,26 +119,46 @@ class PrototypeBot:
         }
         themes = persona_themes.get(self.profile.persona, ["strange knight", "moon beast"])
         theme = self.rng.choice(themes)
+        if needs == "anti_air":
+            return f"An intercept hunter {theme} that can catch flying attackers"
+        if needs == "support":
+            return f"A healing medic repair {theme} that restores allies and stabilizes the board"
         if needs == "defense":
-            return f"A sturdy {theme} that buys time and protects the base"
+            return f"A sturdy shield wall bramble {theme} that buys time and protects the base"
         if needs == "finisher":
-            return f"A dramatic {theme} that can break through for lethal pressure"
+            return f"A dramatic flying charge siege {theme} that can break through for lethal pressure"
         if needs == "pressure":
-            return f"A creative but dangerous {theme} for aggressive track pressure"
+            return f"A creative ranged blitz {theme} for aggressive track pressure"
         if needs == "defender":
-            return f"A weird but useful {theme} that can anchor a lane"
-        return f"A surprising {theme} that feels fun and flavorful"
+            return f"A weird shield guard {theme} that can anchor a lane"
+        if needs == "economy":
+            return f"A clever engine forge {theme} that generates extra card points"
+        return f"A surprising {theme} with a fun passive ability"
 
     def _deck_score(self, card: CardDefinition) -> float:
         score = float(card.attack * 2 + card.hp + card.speed + (card.income * 3))
+        if "gain_card_points" in card.ability_script:
+            score += 4.0
+        if "heal_base" in card.ability_script or "heal_ally" in card.ability_script:
+            score += 2.5
+        if "reduce_incoming_damage" in card.ability_script or "reflect_damage" in card.ability_script:
+            score += 2.5
+        if "add_base_damage" in card.ability_script:
+            score += 2.5
         if self.profile.persona == "aggressive":
             score += 2.0 * card.attack
             if "Charge" in card.keywords or "Flying" in card.keywords:
                 score += 3.0
+            if "add_attack" in card.ability_script or "add_base_damage" in card.ability_script:
+                score += 2.5
         elif self.profile.persona == "guardian":
             if "Defender" in card.keywords:
                 score += 4.0
             if card.passive.type in ("heal_base", "fortify"):
+                score += 3.0
+            if "heal_base" in card.ability_script or "heal_ally" in card.ability_script:
+                score += 3.0
+            if "reduce_incoming_damage" in card.ability_script or "reflect_damage" in card.ability_script:
                 score += 3.0
         else:
             if card.passive.type == "income_boost":
@@ -147,8 +173,12 @@ class PrototypeBot:
         score = self._deck_score(card)
         if view.own_base_hp < 12 and "Defender" in card.keywords:
             score += 4.0
+        if view.own_base_hp < 12 and ("heal_base" in card.ability_script or "heal_ally" in card.ability_script):
+            score += 3.0
         if view.opponent_base_hp < 12 and ("Flying" in card.keywords or "Charge" in card.keywords):
             score += 4.0
+        if view.opponent_base_hp < 12 and "add_base_damage" in card.ability_script:
+            score += 3.0
         return score
 
     def _wants_defender(self, view: PlayerView) -> bool:

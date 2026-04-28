@@ -84,51 +84,70 @@ class DeterministicCardGenerator(CardGenerator):
         focus = tokens[-1] if tokens else "mystery"
         adjective = rng.choice(["glimmering", "stubborn", "feral", "clockwork", "solar", "stormbound"])
         noun = rng.choice(["guardian", "raider", "beast", "angel", "medic", "corsair", "engine"])
-        role_tags = []
+        role_tags: list[str] = []
         keywords: list[str] = []
         passive_type = "none"
         passive_text = "No passive ability."
         passive_magnitude = 0
+        ability_summary = "No scripted ability."
+        ability_script = ""
         attack = 2 + rng.randint(0, 3)
         hp = 3 + rng.randint(0, 4)
         speed = 1 + (1 if "fast" in tokens or "charge" in tokens else 0)
         attack_range = 0
 
-        if any(word in tokens for word in ("defend", "wall", "shield", "guard")):
+        if any(word in tokens for word in ("thorn", "thorns", "bramble", "spike", "spiked")):
             role_tags.append("defender")
             keywords.append("Defender")
-            passive_type = "fortify"
-            passive_magnitude = 1
-            passive_text = "Takes less damage while holding the line."
+            ability_summary = "Reflects damage back at attackers in combat."
+            ability_script = 'if api.event == "combat":\n    api.reflect_damage(1)'
             hp += 3
             attack = max(1, attack - 1)
-        elif any(word in tokens for word in ("heal", "medic", "restore", "angel")):
+        elif any(word in tokens for word in ("medic", "repair", "mend", "mender")):
             role_tags.append("support")
             keywords.append("Healing")
-            passive_type = "heal_base"
-            passive_magnitude = 1
-            passive_text = "Restores health to its base every round."
+            ability_summary = "Repairs wounded allies at the start of each round."
+            ability_script = 'if api.event == "round_start":\n    api.heal_ally(2)'
             attack = max(1, attack - 1)
+        elif any(word in tokens for word in ("heal", "restore", "angel", "sanctuary")):
+            role_tags.append("support")
+            keywords.append("Healing")
+            ability_summary = "Heals its base at the start of each round."
+            ability_script = 'if api.event == "round_start":\n    api.heal_base(1)'
+            attack = max(1, attack - 1)
+        elif any(word in tokens for word in ("siege", "breaker", "demolish", "hammer")):
+            role_tags.append("attacker")
+            ability_summary = "Deals bonus damage when striking an enemy base."
+            ability_script = 'if api.event == "attack_base":\n    api.add_base_damage(2)'
+            attack += 1
         elif any(word in tokens for word in ("fly", "wing", "sky", "phoenix")):
             role_tags.append("attacker")
             keywords.append("Flying")
-            passive_type = "berserk"
-            passive_magnitude = 1
-            passive_text = "Hits harder after taking damage."
+            ability_summary = "Fights harder when it enters combat."
+            ability_script = 'if api.event == "combat":\n    api.add_attack(1)'
             speed += 1
         elif any(word in tokens for word in ("range", "sniper", "archer", "beam")):
             role_tags.append("ranged")
             keywords.append("Ranged")
             attack_range = 1
-            passive_type = "none"
+            ability_summary = "Adds extra pressure while firing from range."
+            ability_script = 'if api.event == "combat":\n    api.add_attack(1)'
         elif any(word in tokens for word in ("economy", "gold", "engine", "forge")):
             role_tags.append("economy")
-            passive_type = "income_boost"
-            passive_magnitude = 1
-            passive_text = "Provides extra card points every round."
+            ability_summary = "Generates extra card points each round."
+            ability_script = 'if api.event == "round_start":\n    api.gain_card_points(1)'
+            attack = max(1, attack - 1)
+        elif any(word in tokens for word in ("defend", "wall", "shield", "guard")):
+            role_tags.append("defender")
+            keywords.append("Defender")
+            ability_summary = "Reduces incoming combat damage."
+            ability_script = 'if api.event == "combat":\n    api.reduce_incoming_damage(1)'
+            hp += 3
             attack = max(1, attack - 1)
         else:
             role_tags.append("attacker")
+            ability_summary = "Pushes harder in combat."
+            ability_script = 'if api.event == "combat":\n    api.add_attack(1)'
 
         if "charge" in tokens or "blitz" in tokens:
             keywords.append("Charge")
@@ -144,12 +163,14 @@ class DeterministicCardGenerator(CardGenerator):
             "attack": attack,
             "hp": hp,
             "keywords": sorted(set(keywords)),
-            "role_tags": role_tags,
+            "role_tags": sorted(set(role_tags)),
             "passive": {
                 "type": passive_type,
                 "magnitude": passive_magnitude,
                 "text": passive_text,
             },
+            "ability_summary": ability_summary,
+            "ability_script": ability_script,
         }
         if kind is CardKind.BASE:
             payload["attack"] = 2 + rng.randint(0, 2)
@@ -188,8 +209,11 @@ class OpenRouterCardGenerator(CardGenerator):
             "You design balanced JSON cards for a deterministic card game prototype. "
             "Output JSON only. Use ONLY these standardized keywords when useful: "
             "Defender, Ranged, Healing, Charge, Flying, Intercept. "
-            "Use ONLY these passive types: none, income_boost, heal_base, heal_self, "
-            "fortify, berserk, intercept_flying."
+            "For unit cards, the special ability must be written as a short Python script using ONLY "
+            "if api.event == \"round_start\" / \"combat\" / \"attack_base\" and these methods: "
+            "api.heal_self(n), api.heal_ally(n), api.heal_base(n), api.gain_card_points(n), "
+            "api.add_attack(n), api.add_base_damage(n), api.reduce_incoming_damage(n), api.reflect_damage(n), "
+            "api.log(\"text\"). No imports, loops, variables, function definitions, or attribute access besides api.event."
         )
         if kind is CardKind.BASE:
             user = (
@@ -203,8 +227,9 @@ class OpenRouterCardGenerator(CardGenerator):
             user = (
                 "Generate a unit card as JSON with fields: "
                 "name, theme, attack, hp, cpc, speed, range, keywords, role_tags, "
-                "passive:{type,magnitude,text}. "
-                "Balance stronger cards with higher cpc. "
+                "ability_summary, ability_script, passive:{type,magnitude,text}. "
+                "For units, set passive to none unless you need intercept_flying for an Intercept unit. "
+                "Make ability_script valid for the restricted sandbox API. "
                 f"Prompt: {prompt}"
             )
 

@@ -24,6 +24,7 @@ from .models import (
     RoundDecision,
     TrackName,
 )
+from .sandbox import execute_ability_script
 
 
 @dataclass
@@ -37,6 +38,14 @@ class MatchContext:
     log: list[str]
     generated_cards: int = 0
     instance_counter: itertools.count = itertools.count(1)
+
+
+@dataclass
+class AbilityRuntime:
+    attack_bonus: int = 0
+    base_damage_bonus: int = 0
+    incoming_damage_reduction: int = 0
+    reflect_damage: int = 0
 
 
 def _opponent_id(player_id: str, left_id: str, right_id: str) -> str:
@@ -93,9 +102,10 @@ def _effective_attack(card: CardInPlay) -> int:
     return attack
 
 
-def _mitigated_damage(target: CardInPlay, raw_damage: int) -> int:
+def _mitigated_damage(target: CardInPlay, raw_damage: int, scripted_reduction: int = 0) -> int:
     if target.definition.passive.type == "fortify":
         raw_damage -= max(1, target.definition.passive.magnitude)
+    raw_damage -= scripted_reduction
     return max(0, raw_damage)
 
 
@@ -121,6 +131,128 @@ def _draw_cards(player: PlayerState, rng: random.Random, count: int) -> None:
         if not player.draw_pile:
             return
         player.hand.append(player.draw_pile.pop(0))
+
+
+def _ability_name(card: CardInPlay) -> str:
+    return card.definition.ability_summary if card.definition.ability_summary != "No scripted ability." else "its scripted ability"
+
+
+def _heal_card(card: CardInPlay, amount: int) -> int:
+    before = card.current_hp
+    card.current_hp = min(card.definition.hp, card.current_hp + amount)
+    return card.current_hp - before
+
+
+def _heal_best_ally(context: MatchContext, player: PlayerState, source_card: CardInPlay, amount: int) -> tuple[str, int] | None:
+    damaged_allies = [
+        card
+        for card in context.board
+        if card.owner_id == player.player_id
+        and card.is_alive
+        and card.instance_id != source_card.instance_id
+        and card.current_hp < card.definition.hp
+    ]
+    if damaged_allies:
+        target = max(damaged_allies, key=lambda card: (card.definition.hp - card.current_hp, card.definition.hp))
+        healed = _heal_card(target, amount)
+        if healed > 0:
+            return _card_label(target), healed
+        return None
+    if player.base_hp < player.base_card.hp:
+        before = player.base_hp
+        player.base_hp = min(player.base_card.hp, player.base_hp + amount)
+        healed = player.base_hp - before
+        if healed > 0:
+            return f"{player.display_name}'s base", healed
+    return None
+
+
+class AbilityAPI:
+    def __init__(
+        self,
+        context: MatchContext,
+        player: PlayerState,
+        card: CardInPlay,
+        *,
+        event: str,
+        runtime: AbilityRuntime,
+    ):
+        self._context = context
+        self._player = player
+        self._card = card
+        self.event = event
+        self._runtime = runtime
+
+    def _clamp(self, amount: int) -> int:
+        return max(0, min(3, int(amount)))
+
+    def heal_self(self, amount: int) -> None:
+        healed = _heal_card(self._card, self._clamp(amount))
+        if healed > 0:
+            self._context.log.append(f"{_card_label(self._card)} used {_ability_name(self._card)} to heal itself for {healed}.")
+
+    def heal_ally(self, amount: int) -> None:
+        result = _heal_best_ally(self._context, self._player, self._card, self._clamp(amount))
+        if result is not None:
+            target_label, healed = result
+            self._context.log.append(f"{_card_label(self._card)} used {_ability_name(self._card)} to heal {target_label} for {healed}.")
+
+    def heal_base(self, amount: int) -> None:
+        before = self._player.base_hp
+        self._player.base_hp = min(self._player.base_card.hp, self._player.base_hp + self._clamp(amount))
+        healed = self._player.base_hp - before
+        if healed > 0:
+            self._context.log.append(f"{_card_label(self._card)} used {_ability_name(self._card)} to heal {self._player.display_name}'s base for {healed}.")
+
+    def gain_card_points(self, amount: int) -> None:
+        granted = self._clamp(amount)
+        if granted <= 0:
+            return
+        self._player.card_points += granted
+        self._context.log.append(f"{_card_label(self._card)} used {_ability_name(self._card)} to gain +{granted} card points.")
+
+    def add_attack(self, amount: int) -> None:
+        granted = self._clamp(amount)
+        if granted <= 0:
+            return
+        self._runtime.attack_bonus += granted
+        self._context.log.append(f"{_card_label(self._card)} used {_ability_name(self._card)} for +{granted} attack.")
+
+    def add_base_damage(self, amount: int) -> None:
+        granted = self._clamp(amount)
+        if granted <= 0:
+            return
+        self._runtime.base_damage_bonus += granted
+        self._context.log.append(f"{_card_label(self._card)} used {_ability_name(self._card)} for +{granted} base damage.")
+
+    def reduce_incoming_damage(self, amount: int) -> None:
+        granted = self._clamp(amount)
+        if granted <= 0:
+            return
+        self._runtime.incoming_damage_reduction += granted
+        self._context.log.append(f"{_card_label(self._card)} used {_ability_name(self._card)} to reduce incoming damage by {granted}.")
+
+    def reflect_damage(self, amount: int) -> None:
+        granted = self._clamp(amount)
+        if granted <= 0:
+            return
+        self._runtime.reflect_damage += granted
+        self._context.log.append(f"{_card_label(self._card)} primed {_ability_name(self._card)} to reflect {granted} damage.")
+
+    def log(self, message: str) -> None:
+        if message:
+            self._context.log.append(f"{_card_label(self._card)} ability note: {message}")
+
+
+def _trigger_scripted_ability(context: MatchContext, player: PlayerState, card: CardInPlay, event: str) -> AbilityRuntime:
+    runtime = AbilityRuntime()
+    if not card.definition.has_scripted_ability or not card.is_alive:
+        return runtime
+    execute_ability_script(
+        card.definition.ability_script,
+        AbilityAPI(context, player, card, event=event, runtime=runtime),
+    )
+    return runtime
 
 
 def _apply_round_income_and_healing(context: MatchContext) -> None:
@@ -156,6 +288,7 @@ def _apply_round_income_and_healing(context: MatchContext) -> None:
                 healed = card.current_hp - before
                 if healed > 0:
                     context.log.append(f"{_card_label(card)} healed itself for {healed}.")
+            _trigger_scripted_ability(context, player, card, "round_start")
         total_income = base_income + bonus_income
         player.card_points += total_income
         context.log.append(
@@ -342,18 +475,22 @@ def _resolve_engagements(context: MatchContext, round_number: int) -> None:
         processed.add(enemy.instance_id)
         left_damage = 0
         right_damage = 0
+        card_runtime = AbilityRuntime()
+        enemy_runtime = AbilityRuntime()
         if _can_attack(card, round_number):
             if card.entered_round == round_number and card.has_keyword("Charge"):
                 context.log.append(f"{_card_label(card)} used Charge to attack immediately.")
             if _berserk_bonus(card) > 0:
                 context.log.append(f"{_card_label(card)} triggered Berserk for +{_berserk_bonus(card)} attack.")
-            left_damage += _effective_attack(card)
+            card_runtime = _trigger_scripted_ability(context, _player_state(context, card.owner_id), card, "combat")
+            left_damage += _effective_attack(card) + card_runtime.attack_bonus
         if _can_attack(enemy, round_number):
             if enemy.entered_round == round_number and enemy.has_keyword("Charge"):
                 context.log.append(f"{_card_label(enemy)} used Charge to attack immediately.")
             if _berserk_bonus(enemy) > 0:
                 context.log.append(f"{_card_label(enemy)} triggered Berserk for +{_berserk_bonus(enemy)} attack.")
-            right_damage += _effective_attack(enemy)
+            enemy_runtime = _trigger_scripted_ability(context, _player_state(context, enemy.owner_id), enemy, "combat")
+            right_damage += _effective_attack(enemy) + enemy_runtime.attack_bonus
         for supporter in _ranged_supporters(context, card):
             if _can_attack(supporter, round_number):
                 support_damage = _effective_attack(supporter)
@@ -364,14 +501,20 @@ def _resolve_engagements(context: MatchContext, round_number: int) -> None:
                 support_damage = _effective_attack(supporter)
                 right_damage += support_damage
                 context.log.append(f"{_card_label(supporter)} used Ranged to support {_card_label(enemy)} for {support_damage} damage.")
-        enemy_taken = _mitigated_damage(enemy, left_damage)
-        card_taken = _mitigated_damage(card, right_damage)
+        enemy_taken = _mitigated_damage(enemy, left_damage, enemy_runtime.incoming_damage_reduction)
+        card_taken = _mitigated_damage(card, right_damage, card_runtime.incoming_damage_reduction)
         if enemy_taken < left_damage:
             context.log.append(f"{_card_label(enemy)} reduced damage by {left_damage - enemy_taken} with Fortify.")
         if card_taken < right_damage:
             context.log.append(f"{_card_label(card)} reduced damage by {right_damage - card_taken} with Fortify.")
         enemy.current_hp -= enemy_taken
         card.current_hp -= card_taken
+        if card_runtime.reflect_damage > 0 and card_taken > 0 and enemy.is_alive:
+            enemy.current_hp -= card_runtime.reflect_damage
+            context.log.append(f"{_card_label(card)} reflected {card_runtime.reflect_damage} damage back to {_card_label(enemy)}.")
+        if enemy_runtime.reflect_damage > 0 and enemy_taken > 0 and card.is_alive:
+            card.current_hp -= enemy_runtime.reflect_damage
+            context.log.append(f"{_card_label(enemy)} reflected {enemy_runtime.reflect_damage} damage back to {_card_label(card)}.")
         context.log.append(
             f"{_card_label(card)} and {_card_label(enemy)} traded {left_damage}/{right_damage} damage "
             f"({enemy_taken}/{card_taken} after mitigation)."
@@ -396,7 +539,10 @@ def _resolve_base_attacks(context: MatchContext, round_number: int) -> None:
             attackers = [card for card in _attackers_at_base(context, defender_state.player_id, track) if _can_attack(card, round_number)]
             if not attackers:
                 continue
-            total_damage = sum(_effective_attack(card) for card in attackers)
+            total_damage = 0
+            for attacker in attackers:
+                runtime = _trigger_scripted_ability(context, _player_state(context, attacker.owner_id), attacker, "attack_base")
+                total_damage += _effective_attack(attacker) + runtime.attack_bonus + runtime.base_damage_bonus
             defender_state.base_hp -= total_damage
             target = max(attackers, key=_effective_attack)
             target.current_hp -= defender_state.base_card.attack

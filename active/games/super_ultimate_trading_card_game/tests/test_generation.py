@@ -16,6 +16,8 @@ def test_deterministic_generator_returns_valid_unit_card():
     assert card.name
     assert card.hp > 0
     assert card.cpc is not None
+    assert card.ability_script
+    assert card.ability_summary
 
 
 def test_deterministic_generator_returns_valid_base_card():
@@ -24,6 +26,7 @@ def test_deterministic_generator_returns_valid_base_card():
     assert base.kind is CardKind.BASE
     assert base.cpc is None
     assert base.income >= 1
+    assert not base.ability_script
 
 
 class FakeTransport:
@@ -51,6 +54,8 @@ class FakeTransport:
                                     "keywords": ["Flying", "Ranged"],
                                     "role_tags": ["attacker"],
                                     "passive": {"type": "none", "magnitude": 0, "text": "No passive ability."},
+                                    "ability_summary": "Deals bonus damage when it reaches base.",
+                                    "ability_script": 'if api.event == "attack_base":\n    api.add_base_damage(1)',
                                 }
                             )
                         }
@@ -72,6 +77,7 @@ def test_openrouter_generator_retries_candidate_models_before_fallback():
     assert generator.last_backend == "openrouter"
     assert generator.last_model == "openai/gpt-oss-20b:free"
     assert card.name == "Live Test Flier"
+    assert "add_base_damage" in card.ability_script
     assert transport.calls[0] == "broken-model"
 
 
@@ -82,4 +88,5 @@ def test_generated_card_can_be_persisted(tmp_path: Path):
     save_card(card, path=db_path)
     owned_cards, owned_bases = load_owned_cards("persist-user", path=db_path)
     assert card.card_id in owned_cards
+    assert owned_cards[card.card_id].ability_script == card.ability_script
     assert owned_bases == {}

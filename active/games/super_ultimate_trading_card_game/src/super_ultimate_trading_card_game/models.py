@@ -66,9 +66,15 @@ class CardDefinition:
     keywords: tuple[str, ...] = ()
     role_tags: tuple[str, ...] = ()
     passive: PassiveAbility = PassiveAbility()
+    ability_summary: str = "No scripted ability."
+    ability_script: str = ""
 
     def has_keyword(self, keyword: str) -> bool:
         return keyword in self.keywords
+
+    @property
+    def has_scripted_ability(self) -> bool:
+        return bool(self.ability_script.strip())
 
 
 @dataclass
@@ -158,4 +164,3 @@ class MatchResult:
     reason: str
     event_log: list[str]
     generated_cards: int
-

@@ -162,6 +162,8 @@ def _run_generate(prompt: str, kind: str, generator_name: str, owner_id: str, db
                     "magnitude": card.passive.magnitude,
                     "text": card.passive.text,
                 },
+                "ability_summary": card.ability_summary,
+                "ability_script": card.ability_script,
             },
             indent=2,
         )
@@ -190,6 +192,7 @@ def _run_collection(owner_id: str, db_path: Path) -> int:
                         "hp": card.hp,
                         "attack": card.attack,
                         "keywords": list(card.keywords),
+                        "ability_summary": card.ability_summary,
                     }
                     for card in owned_cards.values()
                 ],

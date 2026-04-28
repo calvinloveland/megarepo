@@ -8,6 +8,7 @@ Python-only prototype of **Super Ultimate Trading Card Game** focused on determi
 - persistent owned-card collections across matches
 - custom reusable base cards
 - OpenRouter-backed structured card generation with validation and balancing
+- sandboxed scripted unit abilities with a restricted Python event API
 - deterministic fallback generation for offline testing
 - simple AI deckbuilding and playtesting bots
 - SQLite-backed persistence for owned cards, bases, and saved match logs
@@ -46,6 +47,8 @@ Optional environment variables:
 - `SUTCG_OPENROUTER_TITLE` - optional client title header
 
 By default, the OpenRouter generator prefers a live free-model list and retries across several candidates before falling back to deterministic generation. This makes free-tier playtesting much more resilient to temporary provider 404/429 failures.
+
+Generated **unit** cards now include `ability_summary` plus `ability_script`. The script runs through a restricted sandbox that only exposes a small event API (`round_start`, `combat`, `attack_base`) and whitelisted helper calls like `api.heal_ally(2)` or `api.add_base_damage(1)`.
 
 ## Commands
 

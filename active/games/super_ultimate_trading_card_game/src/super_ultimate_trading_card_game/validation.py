@@ -6,6 +6,7 @@ import re
 from typing import Any
 
 from .models import CardDefinition, CardKind, KEYWORDS, PASSIVE_TYPES, PassiveAbility, ROLE_TAGS
+from .sandbox import AbilityScriptError, normalize_ability_script, scripted_ability_weight
 
 MAX_UNIT_HP = 12
 MAX_UNIT_ATTACK = 8
@@ -82,7 +83,29 @@ def _normalize_passive(raw: Any, keywords: tuple[str, ...]) -> PassiveAbility:
     return PassiveAbility(type=passive_type, magnitude=max(0, min(3, magnitude)), text=text)
 
 
-def _unit_budget(card_attack: int, card_hp: int, speed: int, attack_range: int, keywords: tuple[str, ...], passive: PassiveAbility) -> int:
+def _normalize_scripted_ability(raw_payload: dict[str, Any], kind: CardKind) -> tuple[str, str]:
+    if kind is not CardKind.UNIT:
+        return "No scripted ability.", ""
+    summary = str(raw_payload.get("ability_summary", "") or "").strip()
+    raw_script = str(raw_payload.get("ability_script", "") or "")
+    if not raw_script.strip():
+        return (summary or "No scripted ability."), ""
+    try:
+        normalized = normalize_ability_script(raw_script)
+    except AbilityScriptError:
+        return (summary or "No scripted ability."), ""
+    return (summary or "Scripted ability."), normalized
+
+
+def _unit_budget(
+    card_attack: int,
+    card_hp: int,
+    speed: int,
+    attack_range: int,
+    keywords: tuple[str, ...],
+    passive: PassiveAbility,
+    ability_script: str,
+) -> int:
     return (
         card_attack * 2
         + card_hp
@@ -91,6 +114,7 @@ def _unit_budget(card_attack: int, card_hp: int, speed: int, attack_range: int, 
         + sum(KEYWORD_WEIGHTS.get(keyword, 0) for keyword in keywords)
         + PASSIVE_WEIGHTS.get(passive.type, 0)
         + passive.magnitude
+        + scripted_ability_weight(ability_script)
     )
 
 
@@ -113,6 +137,7 @@ def _rebalance_unit(
     attack_range: int,
     keywords: tuple[str, ...],
     passive: PassiveAbility,
+    ability_script: str,
 ) -> tuple[int, int, int, int, int]:
     card_attack = max(0, min(MAX_UNIT_ATTACK, card_attack))
     card_hp = max(1, min(MAX_UNIT_HP, card_hp))
@@ -120,7 +145,7 @@ def _rebalance_unit(
     attack_range = max(0, min(MAX_UNIT_RANGE, attack_range))
     cpc = max(1, min(MAX_UNIT_CPC, cpc))
 
-    required_cpc = max(1, math.ceil(_unit_budget(card_attack, card_hp, speed, attack_range, keywords, passive) / 5))
+    required_cpc = max(1, math.ceil(_unit_budget(card_attack, card_hp, speed, attack_range, keywords, passive, ability_script) / 5))
     cpc = max(cpc, required_cpc)
     while cpc > MAX_UNIT_CPC:
         if card_attack > 1:
@@ -133,7 +158,7 @@ def _rebalance_unit(
             attack_range -= 1
         else:
             break
-        required_cpc = max(1, math.ceil(_unit_budget(card_attack, card_hp, speed, attack_range, keywords, passive) / 5))
+        required_cpc = max(1, math.ceil(_unit_budget(card_attack, card_hp, speed, attack_range, keywords, passive, ability_script) / 5))
         cpc = max(1, min(MAX_UNIT_CPC, required_cpc))
 
     return card_attack, card_hp, cpc, speed, attack_range
@@ -173,6 +198,7 @@ def validate_and_balance_card(
     keywords = _normalize_keywords(raw_payload.get("keywords"))
     role_tags = _normalize_role_tags(raw_payload.get("role_tags"))
     passive = _normalize_passive(raw_payload.get("passive"), keywords)
+    ability_summary, ability_script = _normalize_scripted_ability(raw_payload, kind)
 
     if kind is CardKind.BASE:
         raw_attack = int(raw_payload.get("attack", 2) or 2)
@@ -196,6 +222,8 @@ def validate_and_balance_card(
             keywords=keywords,
             role_tags=role_tags,
             passive=passive,
+            ability_summary="No scripted ability.",
+            ability_script="",
         )
 
     raw_attack = int(raw_payload.get("attack", 2) or 2)
@@ -211,6 +239,7 @@ def validate_and_balance_card(
         raw_range,
         keywords,
         passive,
+        ability_script,
     )
     digest = hashlib.sha1(f"{owner_id}|unit|{prompt}|{name}|{theme}".encode("utf-8")).hexdigest()[:12]
     return CardDefinition(
@@ -229,4 +258,6 @@ def validate_and_balance_card(
         keywords=keywords,
         role_tags=role_tags,
         passive=passive,
+        ability_summary=ability_summary,
+        ability_script=ability_script,
     )

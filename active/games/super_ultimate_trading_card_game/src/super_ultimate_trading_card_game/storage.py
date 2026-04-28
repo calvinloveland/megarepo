@@ -84,6 +84,8 @@ def _card_to_payload(card: CardDefinition) -> dict[str, Any]:
             "magnitude": card.passive.magnitude,
             "text": card.passive.text,
         },
+        "ability_summary": card.ability_summary,
+        "ability_script": card.ability_script,
     }
 
 
@@ -109,6 +111,8 @@ def _card_from_payload(payload: dict[str, Any]) -> CardDefinition:
             magnitude=int(passive_payload.get("magnitude", 0)),
             text=str(passive_payload.get("text", "No passive ability.")),
         ),
+        ability_summary=str(payload.get("ability_summary", "No scripted ability.")),
+        ability_script=str(payload.get("ability_script", "")),
     )
 
 
