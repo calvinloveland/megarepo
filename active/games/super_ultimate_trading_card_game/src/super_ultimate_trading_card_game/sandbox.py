@@ -12,22 +12,35 @@ ALLOWED_API_METHODS = {
     "heal_base",
     "gain_card_points",
     "add_attack",
+    "add_attack_per_enemy_name_char",
     "add_base_damage",
+    "add_base_damage_per_enemy_name_char",
     "reduce_incoming_damage",
     "reflect_damage",
+    "reflect_damage_per_enemy_name_char",
     "log",
 }
 EVENT_ALLOWED_METHODS = {
     "round_start": {"heal_self", "heal_ally", "heal_base", "gain_card_points", "log"},
-    "combat": {"heal_self", "add_attack", "reduce_incoming_damage", "reflect_damage", "log"},
-    "attack_base": {"add_attack", "add_base_damage", "log"},
+    "combat": {
+        "heal_self",
+        "add_attack",
+        "add_attack_per_enemy_name_char",
+        "reduce_incoming_damage",
+        "reflect_damage",
+        "reflect_damage_per_enemy_name_char",
+        "log",
+    },
+    "attack_base": {"add_attack", "add_attack_per_enemy_name_char", "add_base_damage", "add_base_damage_per_enemy_name_char", "log"},
     "base_attacked": {
         "heal_base",
         "heal_ally",
         "gain_card_points",
         "add_attack",
+        "add_attack_per_enemy_name_char",
         "reduce_incoming_damage",
         "reflect_damage",
+        "reflect_damage_per_enemy_name_char",
         "log",
     },
 }
@@ -37,9 +50,12 @@ ABILITY_METHOD_WEIGHTS = {
     "heal_base": 3,
     "gain_card_points": 3,
     "add_attack": 3,
+    "add_attack_per_enemy_name_char": 4,
     "add_base_damage": 3,
+    "add_base_damage_per_enemy_name_char": 4,
     "reduce_incoming_damage": 3,
     "reflect_damage": 3,
+    "reflect_damage_per_enemy_name_char": 4,
     "log": 0,
 }
 
@@ -69,6 +85,13 @@ def _validate_literal_str(node: ast.AST) -> None:
         raise AbilityScriptError("Ability script string arguments must be literal strings.")
 
 
+def _validate_literal_char(node: ast.AST) -> None:
+    _validate_literal_str(node)
+    value = node.value
+    if len(value) != 1 or value.isspace():
+        raise AbilityScriptError("Name-aware ability helpers require a single non-space character.")
+
+
 def _validate_call(node: ast.Call, methods: list[str], current_event: str | None) -> None:
     if node.keywords:
         raise AbilityScriptError("Ability scripts cannot use keyword arguments.")
@@ -85,6 +108,14 @@ def _validate_call(node: ast.Call, methods: list[str], current_event: str | None
         if len(node.args) != 1:
             raise AbilityScriptError("api.log requires exactly one argument.")
         _validate_literal_str(node.args[0])
+    elif method in {
+        "add_attack_per_enemy_name_char",
+        "add_base_damage_per_enemy_name_char",
+        "reflect_damage_per_enemy_name_char",
+    }:
+        if len(node.args) != 1:
+            raise AbilityScriptError(f"api.{method} requires exactly one argument.")
+        _validate_literal_char(node.args[0])
     else:
         if len(node.args) != 1:
             raise AbilityScriptError(f"api.{method} requires exactly one argument.")

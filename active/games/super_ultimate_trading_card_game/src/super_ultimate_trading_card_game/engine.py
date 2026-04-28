@@ -180,15 +180,23 @@ class AbilityAPI:
         *,
         event: str,
         runtime: AbilityRuntime,
+        enemy_name: str | None = None,
     ):
         self._context = context
         self._player = player
         self._card = card
         self.event = event
         self._runtime = runtime
+        self._enemy_name = enemy_name
 
     def _clamp(self, amount: int) -> int:
         return max(0, min(3, int(amount)))
+
+    def _enemy_name_count(self, char: str) -> int:
+        if not self._enemy_name:
+            return 0
+        target = char.lower()
+        return min(8, self._enemy_name.lower().count(target))
 
     def heal_self(self, amount: int) -> None:
         healed = _heal_card(self._card, self._clamp(amount))
@@ -222,12 +230,30 @@ class AbilityAPI:
         self._runtime.attack_bonus += granted
         self._context.log.append(f"{_card_label(self._card)} used {_ability_name(self._card)} for +{granted} attack.")
 
+    def add_attack_per_enemy_name_char(self, char: str) -> None:
+        granted = self._enemy_name_count(char)
+        if granted <= 0:
+            return
+        self._runtime.attack_bonus += granted
+        self._context.log.append(
+            f"{_card_label(self._card)} used {_ability_name(self._card)} for +{granted} attack from '{char}' in {self._enemy_name}."
+        )
+
     def add_base_damage(self, amount: int) -> None:
         granted = self._clamp(amount)
         if granted <= 0:
             return
         self._runtime.base_damage_bonus += granted
         self._context.log.append(f"{_card_label(self._card)} used {_ability_name(self._card)} for +{granted} base damage.")
+
+    def add_base_damage_per_enemy_name_char(self, char: str) -> None:
+        granted = self._enemy_name_count(char)
+        if granted <= 0:
+            return
+        self._runtime.base_damage_bonus += granted
+        self._context.log.append(
+            f"{_card_label(self._card)} used {_ability_name(self._card)} for +{granted} base damage from '{char}' in {self._enemy_name}."
+        )
 
     def reduce_incoming_damage(self, amount: int) -> None:
         granted = self._clamp(amount)
@@ -243,18 +269,34 @@ class AbilityAPI:
         self._runtime.reflect_damage += granted
         self._context.log.append(f"{_card_label(self._card)} primed {_ability_name(self._card)} to reflect {granted} damage.")
 
+    def reflect_damage_per_enemy_name_char(self, char: str) -> None:
+        granted = self._enemy_name_count(char)
+        if granted <= 0:
+            return
+        self._runtime.reflect_damage += granted
+        self._context.log.append(
+            f"{_card_label(self._card)} primed {_ability_name(self._card)} to reflect {granted} damage from '{char}' in {self._enemy_name}."
+        )
+
     def log(self, message: str) -> None:
         if message:
             self._context.log.append(f"{_card_label(self._card)} ability note: {message}")
 
 
-def _trigger_scripted_ability(context: MatchContext, player: PlayerState, card: CardInPlay, event: str) -> AbilityRuntime:
+def _trigger_scripted_ability(
+    context: MatchContext,
+    player: PlayerState,
+    card: CardInPlay,
+    event: str,
+    *,
+    enemy_name: str | None = None,
+) -> AbilityRuntime:
     runtime = AbilityRuntime()
     if not card.definition.has_scripted_ability or not card.is_alive:
         return runtime
     execute_ability_script(
         card.definition.ability_script,
-        AbilityAPI(context, player, card, event=event, runtime=runtime),
+        AbilityAPI(context, player, card, event=event, runtime=runtime, enemy_name=enemy_name),
     )
     return runtime
 
@@ -267,14 +309,22 @@ class BaseAbilityAPI:
         *,
         event: str,
         runtime: AbilityRuntime,
+        enemy_name: str | None = None,
     ):
         self._context = context
         self._player = player
         self.event = event
         self._runtime = runtime
+        self._enemy_name = enemy_name
 
     def _clamp(self, amount: int) -> int:
         return max(0, min(3, int(amount)))
+
+    def _enemy_name_count(self, char: str) -> int:
+        if not self._enemy_name:
+            return 0
+        target = char.lower()
+        return min(8, self._enemy_name.lower().count(target))
 
     def heal_self(self, amount: int) -> None:
         self.heal_base(amount)
@@ -324,8 +374,23 @@ class BaseAbilityAPI:
             f"{self._player.display_name}'s base used {_base_ability_name(self._player.base_card)} for +{granted} counterattack."
         )
 
+    def add_attack_per_enemy_name_char(self, char: str) -> None:
+        granted = self._enemy_name_count(char)
+        if granted <= 0:
+            return
+        self._runtime.attack_bonus += granted
+        self._context.log.append(
+            f"{self._player.display_name}'s base used {_base_ability_name(self._player.base_card)} for +{granted} counterattack from '{char}' in {self._enemy_name}."
+        )
+
     def add_base_damage(self, amount: int) -> None:
         granted = self._clamp(amount)
+        if granted <= 0:
+            return
+        self._runtime.base_damage_bonus += granted
+
+    def add_base_damage_per_enemy_name_char(self, char: str) -> None:
+        granted = self._enemy_name_count(char)
         if granted <= 0:
             return
         self._runtime.base_damage_bonus += granted
@@ -348,18 +413,33 @@ class BaseAbilityAPI:
             f"{self._player.display_name}'s base primed {_base_ability_name(self._player.base_card)} to reflect {granted} damage."
         )
 
+    def reflect_damage_per_enemy_name_char(self, char: str) -> None:
+        granted = self._enemy_name_count(char)
+        if granted <= 0:
+            return
+        self._runtime.reflect_damage += granted
+        self._context.log.append(
+            f"{self._player.display_name}'s base primed {_base_ability_name(self._player.base_card)} to reflect {granted} damage from '{char}' in {self._enemy_name}."
+        )
+
     def log(self, message: str) -> None:
         if message:
             self._context.log.append(f"{self._player.display_name}'s base ability note: {message}")
 
 
-def _trigger_base_scripted_ability(context: MatchContext, player: PlayerState, event: str) -> AbilityRuntime:
+def _trigger_base_scripted_ability(
+    context: MatchContext,
+    player: PlayerState,
+    event: str,
+    *,
+    enemy_name: str | None = None,
+) -> AbilityRuntime:
     runtime = AbilityRuntime()
     if not player.base_card.has_scripted_ability:
         return runtime
     execute_ability_script(
         player.base_card.ability_script,
-        BaseAbilityAPI(context, player, event=event, runtime=runtime),
+        BaseAbilityAPI(context, player, event=event, runtime=runtime, enemy_name=enemy_name),
     )
     return runtime
 
@@ -592,14 +672,26 @@ def _resolve_engagements(context: MatchContext, round_number: int) -> None:
                 context.log.append(f"{_card_label(card)} used Charge to attack immediately.")
             if _berserk_bonus(card) > 0:
                 context.log.append(f"{_card_label(card)} triggered Berserk for +{_berserk_bonus(card)} attack.")
-            card_runtime = _trigger_scripted_ability(context, _player_state(context, card.owner_id), card, "combat")
+            card_runtime = _trigger_scripted_ability(
+                context,
+                _player_state(context, card.owner_id),
+                card,
+                "combat",
+                enemy_name=enemy.definition.name,
+            )
             left_damage += _effective_attack(card) + card_runtime.attack_bonus
         if _can_attack(enemy, round_number):
             if enemy.entered_round == round_number and enemy.has_keyword("Charge"):
                 context.log.append(f"{_card_label(enemy)} used Charge to attack immediately.")
             if _berserk_bonus(enemy) > 0:
                 context.log.append(f"{_card_label(enemy)} triggered Berserk for +{_berserk_bonus(enemy)} attack.")
-            enemy_runtime = _trigger_scripted_ability(context, _player_state(context, enemy.owner_id), enemy, "combat")
+            enemy_runtime = _trigger_scripted_ability(
+                context,
+                _player_state(context, enemy.owner_id),
+                enemy,
+                "combat",
+                enemy_name=card.definition.name,
+            )
             right_damage += _effective_attack(enemy) + enemy_runtime.attack_bonus
         for supporter in _ranged_supporters(context, card):
             if _can_attack(supporter, round_number):
@@ -649,14 +741,25 @@ def _resolve_base_attacks(context: MatchContext, round_number: int) -> None:
             attackers = [card for card in _attackers_at_base(context, defender_state.player_id, track) if _can_attack(card, round_number)]
             if not attackers:
                 continue
-            base_runtime = _trigger_base_scripted_ability(context, defender_state, "base_attacked")
+            target = max(attackers, key=_effective_attack)
+            base_runtime = _trigger_base_scripted_ability(
+                context,
+                defender_state,
+                "base_attacked",
+                enemy_name=target.definition.name,
+            )
             total_damage = 0
             for attacker in attackers:
-                runtime = _trigger_scripted_ability(context, _player_state(context, attacker.owner_id), attacker, "attack_base")
+                runtime = _trigger_scripted_ability(
+                    context,
+                    _player_state(context, attacker.owner_id),
+                    attacker,
+                    "attack_base",
+                    enemy_name=defender_state.base_card.name,
+                )
                 total_damage += _effective_attack(attacker) + runtime.attack_bonus + runtime.base_damage_bonus
             total_damage = max(0, total_damage - base_runtime.incoming_damage_reduction)
             defender_state.base_hp -= total_damage
-            target = max(attackers, key=_effective_attack)
             counterattack = defender_state.base_card.attack + base_runtime.attack_bonus
             target.current_hp -= counterattack
             if base_runtime.reflect_damage > 0:

@@ -39,6 +39,9 @@ PASSIVE_WEIGHTS = {
 
 SCRIPT_METHOD_WEIGHTS = {
     "gain_card_points": 5,
+    "add_attack_per_enemy_name_char": 4,
+    "add_base_damage_per_enemy_name_char": 4,
+    "reflect_damage_per_enemy_name_char": 4,
 }
 
 

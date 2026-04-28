@@ -77,6 +77,20 @@ class DeterministicCardGenerator(CardGenerator):
         self._seed = seed
         self.last_backend = "deterministic"
 
+    def _letter_token(self, tokens: list[str], rng: random.Random) -> str:
+        for index, token in enumerate(tokens[:-1]):
+            if token in {"every", "letter", "letters", "character", "characters"}:
+                next_token = tokens[index + 1]
+                if len(next_token) == 1 and next_token.isalpha():
+                    return next_token.lower()
+        for token in reversed(tokens):
+            if len(token) == 1 and token.isalpha():
+                return token.lower()
+        for token in tokens:
+            if token in {"vowel", "vowels"}:
+                return "a"
+        return rng.choice(["a", "e", "i", "o", "u"])
+
     def generate_card(self, owner_id: str, prompt: str, *, kind: CardKind) -> CardDefinition:
         seed_value = hash((self._seed, owner_id, prompt, kind.value)) & 0xFFFFFFFF
         rng = random.Random(seed_value)
@@ -190,6 +204,20 @@ class DeterministicCardGenerator(CardGenerator):
             attack_range = 1
             ability_summary = "Adds extra pressure while firing from range."
             ability_script = 'if api.event == "combat":\n    api.add_attack(1)'
+        elif any(word in tokens for word in ("name", "letter", "letters", "character", "characters", "vowel", "vowels")):
+            role_tags.append("attacker")
+            chosen_letter = self._letter_token(tokens, rng)
+            ability_summary = f"Deals bonus damage for every '{chosen_letter}' in the enemy name."
+            if any(word in tokens for word in ("siege", "finisher", "base")):
+                ability_script = (
+                    'if api.event == "attack_base":\n'
+                    f'    api.add_base_damage_per_enemy_name_char("{chosen_letter}")'
+                )
+            else:
+                ability_script = (
+                    'if api.event == "combat":\n'
+                    f'    api.add_attack_per_enemy_name_char("{chosen_letter}")'
+                )
         elif any(word in tokens for word in ("economy", "gold", "engine", "forge")):
             role_tags.append("economy")
             ability_summary = "Generates extra card points each round."
@@ -265,7 +293,9 @@ class OpenRouterCardGenerator(CardGenerator):
             "Special abilities should be expressed primarily through short Python scripts. "
             "Scripts may only use if api.event == supported_event and these methods: "
             "api.heal_self(n), api.heal_ally(n), api.heal_base(n), api.gain_card_points(n), "
-            "api.add_attack(n), api.add_base_damage(n), api.reduce_incoming_damage(n), api.reflect_damage(n), "
+            "api.add_attack(n), api.add_attack_per_enemy_name_char('e'), "
+            "api.add_base_damage(n), api.add_base_damage_per_enemy_name_char('e'), "
+            "api.reduce_incoming_damage(n), api.reflect_damage(n), api.reflect_damage_per_enemy_name_char('e'), "
             "api.log(\"text\"). "
             "Supported events are unit: round_start, combat, attack_base. "
             "Supported events are base: round_start, base_attacked. "

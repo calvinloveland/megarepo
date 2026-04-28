@@ -105,3 +105,23 @@ def test_validation_rejects_event_method_mismatch_and_nested_branches():
         kind=CardKind.BASE,
     )
     assert base.ability_script == ""
+
+
+def test_validation_accepts_name_aware_ability_method():
+    card = validate_and_balance_card(
+        {
+            "name": "Letter Gremlin",
+            "theme": "spelling curse",
+            "attack": 2,
+            "hp": 4,
+            "cpc": 2,
+            "speed": 1,
+            "range": 0,
+            "ability_summary": "Hurts enemies with lots of e's.",
+            "ability_script": 'if api.event == "combat":\n    api.add_attack_per_enemy_name_char("e")',
+        },
+        owner_id="tester",
+        prompt="letter gremlin",
+        kind=CardKind.UNIT,
+    )
+    assert "add_attack_per_enemy_name_char" in card.ability_script

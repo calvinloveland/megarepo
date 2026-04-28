@@ -102,3 +102,14 @@ def test_generated_base_can_be_persisted(tmp_path: Path):
     assert owned_cards == {}
     assert base.card_id in owned_bases
     assert owned_bases[base.card_id].ability_script == base.ability_script
+
+
+def test_deterministic_generator_can_create_name_aware_ability():
+    generator = DeterministicCardGenerator(seed=71)
+    card = generator.generate_card(
+        "alpha",
+        "A weird unit that does one damage for every e in the enemy name",
+        kind=CardKind.UNIT,
+    )
+    assert "add_attack_per_enemy_name_char" in card.ability_script
+    assert '"e"' in card.ability_script

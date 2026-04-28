@@ -284,3 +284,45 @@ def test_base_scripted_abilities_execute_for_round_start_and_base_attacked():
     assert "Beta's base used Garden Bulwark to gain +1 card points." in log_text
     assert "Beta's base used Garden Bulwark to reduce incoming damage by 2." in log_text
     assert "Beta's base reflected 1 damage back to Siege Beast#7." in log_text
+
+
+def test_name_aware_scripted_ability_counts_enemy_name_letters():
+    letter_curse = CardInPlay(
+        instance_id="instance-8",
+        definition=_make_unit(
+            owner_id="alpha",
+            card_id="alpha-letter",
+            name="Letter Curse",
+            attack=1,
+            hp=4,
+            ability_summary="Spelling Punisher",
+            ability_script='if api.event == "combat":\n    api.add_attack_per_enemy_name_char("e")',
+        ),
+        owner_id="alpha",
+        track=TrackName.FAST,
+        position=5.0,
+        stationary=False,
+        entered_round=1,
+        current_hp=4,
+        engaged_with="instance-9",
+    )
+    eel_keeper = CardInPlay(
+        instance_id="instance-9",
+        definition=_make_unit(owner_id="beta", card_id="beta-eel", name="Eel Keeper", attack=1, hp=7),
+        owner_id="beta",
+        track=TrackName.FAST,
+        position=5.0,
+        stationary=False,
+        entered_round=1,
+        current_hp=7,
+        engaged_with="instance-8",
+    )
+    left_state = _make_state("alpha", "Alpha", _make_base("alpha", "Alpha Base"))
+    right_state = _make_state("beta", "Beta", _make_base("beta", "Beta Base"))
+    context = _make_context([letter_curse, eel_keeper], left_state, right_state)
+
+    _resolve_engagements(context, round_number=2)
+
+    log_text = "\n".join(context.log)
+    assert eel_keeper.current_hp == 1
+    assert "Letter Curse#8 used Spelling Punisher for +5 attack from 'e' in Eel Keeper." in log_text
