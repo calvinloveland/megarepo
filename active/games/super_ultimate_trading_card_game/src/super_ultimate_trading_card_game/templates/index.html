@@ -6,6 +6,7 @@
     <section class="panel">
       <h1>Welcome, {{ current_player.display_name }}</h1>
       <p>Your player key is stored in a cookie, so this browser keeps using <strong>{{ current_player.player_id }}</strong>.</p>
+      <p>Generator preference: <strong>{{ preferred_generator }}</strong> · <a href="{{ url_for('preferences_detail') }}">Change in preferences</a></p>
       <div class="stack">
         <form method="post" action="{{ url_for('create_live_match_route') }}" class="stack">
           <input type="hidden" name="mode" value="ai-vs-player" />
@@ -17,42 +18,26 @@
               {% endfor %}
             </select>
           </label>
-          <label>Generator
-            <select name="generator">
-              <option value="deterministic">deterministic</option>
-              <option value="auto">auto</option>
-              <option value="openrouter">openrouter</option>
-            </select>
-          </label>
           <label>Seed <input type="number" name="seed" value="1" /></label>
           <button type="submit">Start AI match</button>
         </form>
         <hr />
-        <form method="post" action="{{ url_for('create_live_match_route') }}" class="stack">
-          <input type="hidden" name="mode" value="player-vs-player" />
-          <h2>Play vs Another Player</h2>
-          {% set other_profiles = human_profiles | rejectattr('player_id', 'equalto', current_player.player_id) | list %}
-          {% if other_profiles %}
-            <label>Opponent
-              <select name="right_owner_id">
-                {% for profile in other_profiles %}
-                  <option value="{{ profile.player_id }}">{{ profile.display_name }}</option>
-                {% endfor %}
-              </select>
-            </label>
+        <section class="stack compact-section">
+          <h2>Search for PvP Match</h2>
+          {% if active_pvp_match %}
+            <p>A PvP match is ready.</p>
+            <p><a href="{{ url_for('live_match_detail', match_id=active_pvp_match.match_id, viewer_id=current_player.player_id) }}">Open match {{ active_pvp_match.match_id }}</a></p>
+          {% elif pvp_searching %}
+            <p>Searching for another player. Leave this page open or refresh until someone else searches too.</p>
+            <form method="post" action="{{ url_for('pvp_cancel_route') }}">
+              <button type="submit">Cancel PvP search</button>
+            </form>
           {% else %}
-            <p>Create another profile from a different browser or clear the cookie there first, then come back for PvP.</p>
+            <form method="post" action="{{ url_for('pvp_search_route') }}">
+              <button type="submit">Search for PvP match</button>
+            </form>
           {% endif %}
-          <label>Generator
-            <select name="generator">
-              <option value="deterministic">deterministic</option>
-              <option value="auto">auto</option>
-              <option value="openrouter">openrouter</option>
-            </select>
-          </label>
-          <label>Seed <input type="number" name="seed" value="1" /></label>
-          <button type="submit" {% if not other_profiles %}disabled{% endif %}>Start PvP match</button>
-        </form>
+        </section>
         <hr />
         <form method="post" action="{{ url_for('create_live_match_route') }}" class="stack">
           <input type="hidden" name="mode" value="ai-vs-ai" />
@@ -69,13 +54,6 @@
               {% for bot_id in bot_ids %}
                 <option value="{{ bot_id }}" {% if bot_id == 'beta' %}selected{% endif %}>{{ bot_id }}</option>
               {% endfor %}
-            </select>
-          </label>
-          <label>Generator
-            <select name="generator">
-              <option value="deterministic">deterministic</option>
-              <option value="auto">auto</option>
-              <option value="openrouter">openrouter</option>
             </select>
           </label>
           <label>Seed <input type="number" name="seed" value="1" /></label>
@@ -123,13 +101,6 @@
             <option value="base">base</option>
           </select>
         </label>
-        <label>Generator
-          <select name="generator">
-            <option value="deterministic">deterministic</option>
-            <option value="auto">auto</option>
-            <option value="openrouter">openrouter</option>
-          </select>
-        </label>
         <label>Prompt
           <textarea name="prompt" rows="4" placeholder="A weird card that does one damage for every e in the enemy name"></textarea>
         </label>
@@ -158,28 +129,14 @@
           <select name="right_id">
             {% for bot_id in bot_ids %}
               <option value="{{ bot_id }}" {% if bot_id == 'beta' %}selected{% endif %}>{{ bot_id }}</option>
-            {% endfor %}
-          </select>
-        </label>
-        <label>Generator
-          <select name="generator">
-            <option value="deterministic">deterministic</option>
-            <option value="auto">auto</option>
-            <option value="openrouter">openrouter</option>
-          </select>
-        </label>
+              {% endfor %}
+            </select>
+          </label>
         <label>Seed <input type="number" name="seed" value="1" /></label>
         <button type="submit">Run saved AI match</button>
       </form>
       <hr />
       <form method="post" action="{{ url_for('run_playtest_route') }}" class="stack">
-        <label>Generator
-          <select name="generator">
-            <option value="deterministic">deterministic</option>
-            <option value="auto">auto</option>
-            <option value="openrouter">openrouter</option>
-          </select>
-        </label>
         <label>Matches <input type="number" name="matches" value="20" min="1" /></label>
         <label>Seed <input type="number" name="seed" value="1" /></label>
         <button type="submit">Run playtest batch</button>

@@ -23,6 +23,7 @@ from .models import DECK_SIZE, CardDefinition, CardKind, MatchResult, PlannedPla
 from .storage import (
     StoredDeck,
     StoredLiveMatch,
+    StoredMatchmakingEntry,
     StoredProfile,
     active_deck,
     default_db_path,
@@ -30,18 +31,22 @@ from .storage import (
     init_db,
     list_decks,
     list_live_matches,
+    list_matchmaking_entries,
     list_matches,
     list_profiles,
     load_deck,
     load_live_match,
     load_match,
+    load_matchmaking_entry,
     load_owned_cards,
     load_profile,
     owner_ids,
+    remove_matchmaking_entry,
     save_bot_collection,
     save_card,
     save_deck,
     save_live_match,
+    save_matchmaking_entry,
     save_match,
     save_profile,
     set_active_deck,
@@ -73,8 +78,8 @@ def create_player_profile(display_name: str, *, db_path: Path | None = None) -> 
     if not clean_name:
         raise ValueError("Choose a display name.")
     player_id = f"player-{_slugify_name(clean_name)}-{secrets.token_hex(4)}"
-    profile = StoredProfile(player_id=player_id, display_name=clean_name, persona="inventor")
-    save_profile(profile.player_id, profile.display_name, profile.persona, path=resolved_db)
+    profile = StoredProfile(player_id=player_id, display_name=clean_name, persona="inventor", preferred_generator="openrouter")
+    save_profile(profile.player_id, profile.display_name, profile.persona, profile.preferred_generator, path=resolved_db)
     ensure_builtin_collection(profile.player_id, seed=1, generator_name="deterministic", db_path=resolved_db)
     ensure_default_deck(profile.player_id, db_path=resolved_db)
     return profile
@@ -84,6 +89,30 @@ def current_player_profile(player_id: str | None, *, db_path: Path | None = None
     if not player_id:
         return None
     return load_profile(player_id, path=db_path or default_db_path())
+
+
+def update_player_preferences(
+    player_id: str,
+    *,
+    preferred_generator: str,
+    db_path: Path | None = None,
+) -> StoredProfile:
+    resolved_db = db_path or default_db_path()
+    profile = load_profile(player_id, path=resolved_db)
+    if profile is None:
+        raise ValueError("Unknown player profile.")
+    save_profile(profile.player_id, profile.display_name, profile.persona, preferred_generator, path=resolved_db)
+    updated = load_profile(player_id, path=resolved_db)
+    if updated is None:
+        raise RuntimeError("Failed to reload updated profile.")
+    return updated
+
+
+def preferred_generator_for_player(player_id: str | None, *, db_path: Path | None = None) -> str:
+    profile = current_player_profile(player_id, db_path=db_path)
+    if profile is None:
+        return "openrouter"
+    return profile.preferred_generator or "openrouter"
 
 
 def _display_name(owner_id: str, db_path: Path | None = None) -> str:
@@ -758,3 +787,59 @@ def recent_live_matches_result(limit: int = 20, db_path: Path | None = None) -> 
 
 def human_profiles_result(*, db_path: Path | None = None) -> list[StoredProfile]:
     return list_profiles(path=db_path or default_db_path())
+
+
+def active_match_for_player(player_id: str, *, mode: str | None = None, db_path: Path | None = None) -> dict[str, Any] | None:
+    resolved_db = db_path or default_db_path()
+    for match in recent_live_matches_result(limit=100, db_path=resolved_db):
+        if player_id not in (match["left_player"], match["right_player"]):
+            continue
+        if match["status"] != "active":
+            continue
+        if mode is not None and match["mode"] != mode:
+            continue
+        return match
+    return None
+
+
+def pvp_queue_status(player_id: str, *, db_path: Path | None = None) -> StoredMatchmakingEntry | None:
+    return load_matchmaking_entry(player_id, path=db_path or default_db_path())
+
+
+def cancel_pvp_search(player_id: str, *, db_path: Path | None = None) -> None:
+    remove_matchmaking_entry(player_id, path=db_path or default_db_path())
+
+
+def search_pvp_match(player_id: str, *, seed: int | None = None, db_path: Path | None = None) -> dict[str, Any]:
+    resolved_db = db_path or default_db_path()
+    profile = current_player_profile(player_id, db_path=resolved_db)
+    if profile is None:
+        raise ValueError("Unknown player profile.")
+    match_seed = seed if seed is not None else secrets.randbelow(1_000_000) + 1
+    existing_match = active_match_for_player(player_id, mode="player-vs-player", db_path=resolved_db)
+    if existing_match is not None:
+        return {"status": "matched", "match_id": existing_match["match_id"]}
+    waiting = [entry for entry in list_matchmaking_entries(path=resolved_db) if entry.player_id != player_id]
+    if waiting:
+        opponent = waiting[0]
+        remove_matchmaking_entry(opponent.player_id, path=resolved_db)
+        remove_matchmaking_entry(player_id, path=resolved_db)
+        opponent_profile = current_player_profile(opponent.player_id, db_path=resolved_db)
+        shared_generator = (
+            profile.preferred_generator
+            if opponent_profile is None or opponent_profile.preferred_generator == profile.preferred_generator
+            else "openrouter"
+        )
+        match_id = create_live_match(
+            mode="player-vs-player",
+            left_owner_id=opponent.player_id,
+            right_owner_id=player_id,
+            left_controller="human",
+            right_controller="human",
+            generator_name=shared_generator,
+            seed=match_seed,
+            db_path=resolved_db,
+        )
+        return {"status": "matched", "match_id": match_id}
+    save_matchmaking_entry(player_id, profile.preferred_generator, path=resolved_db)
+    return {"status": "waiting"}

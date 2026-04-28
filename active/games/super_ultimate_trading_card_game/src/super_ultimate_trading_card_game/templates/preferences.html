@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Preferences{% endblock %}
+{% block content %}
+  <section class="panel narrow">
+    <h1>Preferences</h1>
+    <p>These settings apply across the web app for card generation and new match creation.</p>
+    <form method="post" action="{{ url_for('preferences_update') }}" class="stack">
+      <label>Preferred generator
+        <select name="preferred_generator">
+          <option value="openrouter" {% if current_player.preferred_generator == 'openrouter' %}selected{% endif %}>openrouter</option>
+          <option value="auto" {% if current_player.preferred_generator == 'auto' %}selected{% endif %}>auto</option>
+          <option value="deterministic" {% if current_player.preferred_generator == 'deterministic' %}selected{% endif %}>deterministic</option>
+        </select>
+      </label>
+      <button type="submit">Save preferences</button>
+    </form>
+  </section>
+{% endblock %}

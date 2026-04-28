@@ -36,6 +36,19 @@ def test_web_index_uses_cookie_backed_player_after_registration(tmp_path: Path):
     assert b"data:image/svg+xml" in response.data
 
 
+def test_web_can_update_generator_preference(tmp_path: Path):
+    app = _app(tmp_path)
+    client = app.test_client()
+    _register(client, tmp_path, "Preference Player")
+    response = client.post(
+        "/preferences",
+        data={"preferred_generator": "deterministic"},
+        follow_redirects=True,
+    )
+    assert response.status_code == 200
+    assert b"deterministic" in response.data
+
+
 def test_web_can_create_and_advance_live_ai_match(tmp_path: Path):
     app = _app(tmp_path)
     client = app.test_client()
@@ -144,6 +157,25 @@ def test_web_player_vs_player_waits_for_both_turns(tmp_path: Path):
     )
     assert second_submit.status_code == 200
     assert b"Battle Log" in second_submit.data
+
+
+def test_web_pvp_search_waits_then_matches(tmp_path: Path):
+    app = _app(tmp_path)
+    client_one = app.test_client()
+    _register(client_one, tmp_path, "Queue One")
+    waiting = client_one.post("/pvp/search", follow_redirects=True)
+    assert waiting.status_code == 200
+    assert b"Searching for another player" in waiting.data
+
+    client_two = app.test_client()
+    player_two_id = _register(client_two, tmp_path, "Queue Two")
+    matched = client_two.post("/pvp/search", follow_redirects=False)
+    assert matched.status_code == 302
+    assert f"viewer_id={player_two_id}".encode() in matched.headers["Location"].encode()
+
+    refresh = client_one.get("/", follow_redirects=True)
+    assert refresh.status_code == 200
+    assert b"Open match" in refresh.data
 
 
 def test_web_can_save_deck(tmp_path: Path):

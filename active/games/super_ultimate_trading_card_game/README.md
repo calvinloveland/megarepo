@@ -46,6 +46,8 @@ Live web features:
 - step AI matches round by round or autoplay them to completion
 - submit human turns through the browser while the backend resolves combat
 - browse collections and build active six-card decks for each owner
+- search for a PvP match instead of manually choosing another player
+- save a per-player generator preference and use it as the default for new web actions
 - render cards in a consistent card layout with backend-generated artwork
 - inspect finished battle logs and active live-match logs
 

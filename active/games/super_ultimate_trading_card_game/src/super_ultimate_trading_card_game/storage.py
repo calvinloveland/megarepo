@@ -51,6 +51,13 @@ class StoredProfile:
     player_id: str
     display_name: str
     persona: str
+    preferred_generator: str
+
+
+@dataclass(frozen=True)
+class StoredMatchmakingEntry:
+    player_id: str
+    preferred_generator: str
 
 
 def default_db_path() -> Path:
@@ -120,10 +127,22 @@ def init_db(path: Path | None = None) -> None:
             CREATE TABLE IF NOT EXISTS profiles (
                 player_id TEXT PRIMARY KEY,
                 display_name TEXT NOT NULL,
-                persona TEXT NOT NULL
+                persona TEXT NOT NULL,
+                preferred_generator TEXT NOT NULL DEFAULT 'openrouter'
             )
             """
         )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS matchmaking_queue (
+                player_id TEXT PRIMARY KEY,
+                preferred_generator TEXT NOT NULL
+            )
+            """
+        )
+        profile_columns = {row[1] for row in conn.execute("PRAGMA table_info(profiles)").fetchall()}
+        if "preferred_generator" not in profile_columns:
+            conn.execute("ALTER TABLE profiles ADD COLUMN preferred_generator TEXT NOT NULL DEFAULT 'openrouter'")
         conn.commit()
 
 
@@ -218,16 +237,22 @@ def owner_ids(path: Path | None = None) -> list[str]:
     return [str(row[0]) for row in rows]
 
 
-def save_profile(player_id: str, display_name: str, persona: str, path: Path | None = None) -> None:
+def save_profile(
+    player_id: str,
+    display_name: str,
+    persona: str,
+    preferred_generator: str = "openrouter",
+    path: Path | None = None,
+) -> None:
     db_path = path or default_db_path()
     init_db(db_path)
     with sqlite3.connect(db_path) as conn:
         conn.execute(
             """
-            INSERT OR REPLACE INTO profiles (player_id, display_name, persona)
-            VALUES (?, ?, ?)
+            INSERT OR REPLACE INTO profiles (player_id, display_name, persona, preferred_generator)
+            VALUES (?, ?, ?, ?)
             """,
-            (player_id, display_name, persona),
+            (player_id, display_name, persona, preferred_generator),
         )
         conn.commit()
 
@@ -238,12 +263,12 @@ def load_profile(player_id: str, path: Path | None = None) -> StoredProfile | No
         return None
     with sqlite3.connect(db_path) as conn:
         row = conn.execute(
-            "SELECT player_id, display_name, persona FROM profiles WHERE player_id = ?",
+            "SELECT player_id, display_name, persona, preferred_generator FROM profiles WHERE player_id = ?",
             (player_id,),
         ).fetchone()
     if row is None:
         return None
-    return StoredProfile(player_id=str(row[0]), display_name=str(row[1]), persona=str(row[2]))
+    return StoredProfile(player_id=str(row[0]), display_name=str(row[1]), persona=str(row[2]), preferred_generator=str(row[3]))
 
 
 def list_profiles(path: Path | None = None) -> list[StoredProfile]:
@@ -252,9 +277,64 @@ def list_profiles(path: Path | None = None) -> list[StoredProfile]:
         return []
     with sqlite3.connect(db_path) as conn:
         rows = conn.execute(
-            "SELECT player_id, display_name, persona FROM profiles ORDER BY display_name",
+            "SELECT player_id, display_name, persona, preferred_generator FROM profiles ORDER BY display_name",
         ).fetchall()
-    return [StoredProfile(player_id=str(row[0]), display_name=str(row[1]), persona=str(row[2])) for row in rows]
+    return [
+        StoredProfile(
+            player_id=str(row[0]),
+            display_name=str(row[1]),
+            persona=str(row[2]),
+            preferred_generator=str(row[3]),
+        )
+        for row in rows
+    ]
+
+
+def save_matchmaking_entry(player_id: str, preferred_generator: str, path: Path | None = None) -> None:
+    db_path = path or default_db_path()
+    init_db(db_path)
+    with sqlite3.connect(db_path) as conn:
+        conn.execute(
+            """
+            INSERT OR REPLACE INTO matchmaking_queue (player_id, preferred_generator)
+            VALUES (?, ?)
+            """,
+            (player_id, preferred_generator),
+        )
+        conn.commit()
+
+
+def load_matchmaking_entry(player_id: str, path: Path | None = None) -> StoredMatchmakingEntry | None:
+    db_path = path or default_db_path()
+    if not db_path.exists():
+        return None
+    with sqlite3.connect(db_path) as conn:
+        row = conn.execute(
+            "SELECT player_id, preferred_generator FROM matchmaking_queue WHERE player_id = ?",
+            (player_id,),
+        ).fetchone()
+    if row is None:
+        return None
+    return StoredMatchmakingEntry(player_id=str(row[0]), preferred_generator=str(row[1]))
+
+
+def list_matchmaking_entries(path: Path | None = None) -> list[StoredMatchmakingEntry]:
+    db_path = path or default_db_path()
+    if not db_path.exists():
+        return []
+    with sqlite3.connect(db_path) as conn:
+        rows = conn.execute(
+            "SELECT player_id, preferred_generator FROM matchmaking_queue ORDER BY rowid ASC",
+        ).fetchall()
+    return [StoredMatchmakingEntry(player_id=str(row[0]), preferred_generator=str(row[1])) for row in rows]
+
+
+def remove_matchmaking_entry(player_id: str, path: Path | None = None) -> None:
+    db_path = path or default_db_path()
+    init_db(db_path)
+    with sqlite3.connect(db_path) as conn:
+        conn.execute("DELETE FROM matchmaking_queue WHERE player_id = ?", (player_id,))
+        conn.commit()
 
 
 def load_owned_cards(owner_id: str, path: Path | None = None) -> tuple[dict[str, CardDefinition], dict[str, CardDefinition]]:

@@ -17,6 +17,7 @@
           {% if current_player %}
             <a href="{{ url_for('collection_detail', owner_id=current_player.player_id) }}">{{ current_player.display_name }}</a>
             <a href="{{ url_for('decks_detail', owner_id=current_player.player_id) }}">My Decks</a>
+            <a href="{{ url_for('preferences_detail') }}">Preferences</a>
           {% endif %}
           <a href="{{ url_for('collection_detail', owner_id='alpha') }}">Alpha AI</a>
         </nav>

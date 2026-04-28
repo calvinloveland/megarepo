@@ -9,8 +9,10 @@ from .card_ui import card_art_data_uri, normalize_card
 from .models import CardKind
 from .sim_api import (
     DEFAULT_BOT_IDS,
+    active_match_for_player,
     activate_deck_result,
     autoplay_live_match,
+    cancel_pvp_search,
     create_player_profile,
     create_live_match,
     current_player_profile,
@@ -20,13 +22,17 @@ from .sim_api import (
     known_owner_ids,
     live_match_result,
     load_collection_result,
+    preferred_generator_for_player,
+    pvp_queue_status,
     recent_live_matches_result,
     recent_matches,
     run_playtest_batch,
     run_saved_match,
+    search_pvp_match,
     save_deck_result,
     stored_match,
     submit_live_turn,
+    update_player_preferences,
     advance_live_match,
 )
 from .storage import default_db_path, init_db
@@ -61,6 +67,7 @@ def create_app(config_overrides: dict | None = None) -> Flask:
         db_path = _db_path()
         collection = load_collection_result(owner_id=owner_id, db_path=db_path)
         current_player = _current_player()
+        active_pvp_match = active_match_for_player(current_player.player_id, mode="player-vs-player", db_path=db_path) if current_player else None
         return {
             "owner_id": owner_id,
             "collection": collection,
@@ -70,6 +77,9 @@ def create_app(config_overrides: dict | None = None) -> Flask:
             "bot_ids": DEFAULT_BOT_IDS,
             "human_profiles": human_profiles_result(db_path=db_path),
             "current_player": current_player,
+            "preferred_generator": preferred_generator_for_player(current_player.player_id if current_player else None, db_path=db_path),
+            "pvp_searching": bool(current_player and pvp_queue_status(current_player.player_id, db_path=db_path)),
+            "active_pvp_match": active_pvp_match,
             "generated_card": generated_card,
             "playtest_summary": playtest_summary,
         }
@@ -91,8 +101,9 @@ def create_app(config_overrides: dict | None = None) -> Flask:
 
     @app.post("/run-match")
     def run_match_route():
+        current_player = _current_player()
         seed = int(request.form.get("seed", "1") or 1)
-        generator = request.form.get("generator", "auto")
+        generator = preferred_generator_for_player(current_player.player_id if current_player else None, db_path=_db_path())
         left_id = request.form.get("left_id", "alpha")
         right_id = request.form.get("right_id", "beta")
         match_id, _result = run_saved_match(
@@ -111,7 +122,7 @@ def create_app(config_overrides: dict | None = None) -> Flask:
             return redirect(url_for("index"))
         matches_count = int(request.form.get("matches", "20") or 20)
         seed = int(request.form.get("seed", "1") or 1)
-        generator = request.form.get("generator", "auto")
+        generator = preferred_generator_for_player(current_player.player_id, db_path=_db_path())
         summary = run_playtest_batch(
             matches=matches_count,
             seed=seed,
@@ -128,7 +139,7 @@ def create_app(config_overrides: dict | None = None) -> Flask:
         prompt = (request.form.get("prompt") or "").strip()
         owner_id = (request.form.get("owner_id") or current_player.player_id).strip()
         kind = CardKind(request.form.get("kind", "unit"))
-        generator = request.form.get("generator", "auto")
+        generator = preferred_generator_for_player(current_player.player_id, db_path=_db_path())
         save = request.form.get("save") == "on"
         card = generate_card_result(
             prompt=prompt,
@@ -145,7 +156,7 @@ def create_app(config_overrides: dict | None = None) -> Flask:
         current_player = _current_player()
         mode = request.form.get("mode", "ai-vs-player")
         seed = int(request.form.get("seed", "1") or 1)
-        generator = request.form.get("generator", "deterministic")
+        generator = preferred_generator_for_player(current_player.player_id if current_player else None, db_path=_db_path())
         if mode == "ai-vs-ai":
             left_owner_id = request.form.get("left_owner_id", "alpha")
             right_owner_id = request.form.get("right_owner_id", "beta")
@@ -177,6 +188,43 @@ def create_app(config_overrides: dict | None = None) -> Flask:
         )
         viewer_id = left_owner_id if left_controller == "human" else left_owner_id
         return redirect(url_for("live_match_detail", match_id=match_id, viewer_id=viewer_id))
+
+    @app.post("/pvp/search")
+    def pvp_search_route():
+        current_player = _current_player()
+        if current_player is None:
+            return redirect(url_for("index"))
+        result = search_pvp_match(current_player.player_id, db_path=_db_path())
+        if result["status"] == "matched":
+            return redirect(url_for("live_match_detail", match_id=result["match_id"], viewer_id=current_player.player_id))
+        return redirect(url_for("index"))
+
+    @app.post("/pvp/cancel")
+    def pvp_cancel_route():
+        current_player = _current_player()
+        if current_player is None:
+            return redirect(url_for("index"))
+        cancel_pvp_search(current_player.player_id, db_path=_db_path())
+        return redirect(url_for("index"))
+
+    @app.get("/preferences")
+    def preferences_detail():
+        current_player = _current_player()
+        if current_player is None:
+            return redirect(url_for("index"))
+        return render_template("preferences.html", current_player=current_player)
+
+    @app.post("/preferences")
+    def preferences_update():
+        current_player = _current_player()
+        if current_player is None:
+            return redirect(url_for("index"))
+        update_player_preferences(
+            current_player.player_id,
+            preferred_generator=request.form.get("preferred_generator", "openrouter"),
+            db_path=_db_path(),
+        )
+        return redirect(url_for("preferences_detail"))
 
     @app.get("/live")
     def live_matches_index():
