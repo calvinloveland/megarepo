@@ -64,3 +64,44 @@ def test_validation_rejects_unsafe_ability_script():
         kind=CardKind.UNIT,
     )
     assert card.ability_script == ""
+
+
+def test_validation_preserves_safe_base_ability_script():
+    base = validate_and_balance_card(
+        {
+            "name": "Clock Shrine",
+            "theme": "combo engine fortress",
+            "attack": 3,
+            "hp": 28,
+            "income": 2,
+            "ability_summary": "Generates extra resources.",
+            "ability_script": 'if api.event == "round_start":\n    api.gain_card_points(1)',
+        },
+        owner_id="tester",
+        prompt="clock shrine",
+        kind=CardKind.BASE,
+    )
+    assert "gain_card_points" in base.ability_script
+
+
+def test_validation_rejects_event_method_mismatch_and_nested_branches():
+    base = validate_and_balance_card(
+        {
+            "name": "Broken Fortress",
+            "theme": "bad script",
+            "attack": 2,
+            "hp": 24,
+            "income": 2,
+            "ability_summary": "Should be stripped.",
+            "ability_script": (
+                'if api.event == "round_start":\n'
+                '    api.add_attack(1)\n'
+                '    if api.event == "base_attacked":\n'
+                '        api.reflect_damage(1)'
+            ),
+        },
+        owner_id="tester",
+        prompt="broken fortress",
+        kind=CardKind.BASE,
+    )
+    assert base.ability_script == ""

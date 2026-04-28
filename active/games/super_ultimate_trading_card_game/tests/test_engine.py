@@ -68,7 +68,13 @@ def _make_bot(player_id: str, display_name: str) -> PrototypeBot:
     return PrototypeBot(player_id, display_name, "inventor", seed=1)
 
 
-def _make_base(owner_id: str, name: str) -> CardDefinition:
+def _make_base(
+    owner_id: str,
+    name: str,
+    *,
+    ability_summary: str = "No scripted ability.",
+    ability_script: str = "",
+) -> CardDefinition:
     return CardDefinition(
         card_id=f"base-{owner_id}",
         name=name,
@@ -85,6 +91,8 @@ def _make_base(owner_id: str, name: str) -> CardDefinition:
         keywords=(),
         role_tags=(),
         passive=PassiveAbility("none", 0, "No passive ability."),
+        ability_summary=ability_summary,
+        ability_script=ability_script,
     )
 
 
@@ -243,3 +251,36 @@ def test_scripted_abilities_execute_for_round_start_combat_and_base_attack():
     assert "Repair Medic#1 used Repair Pulse to heal Wounded Ally#2 for 2." in log_text
     assert "Mirror Shield#3 reflected 2 damage back to Raider#4." in log_text
     assert "Siege Beast#5 used Battering Run for +2 base damage." in log_text
+
+
+def test_base_scripted_abilities_execute_for_round_start_and_base_attacked():
+    defender_base = _make_base(
+        "beta",
+        "Beta Base",
+        ability_summary="Garden Bulwark",
+        ability_script='if api.event == "round_start":\n    api.gain_card_points(1)\nif api.event == "base_attacked":\n    api.reduce_incoming_damage(2)\n    api.reflect_damage(1)\n    api.add_attack(2)',
+    )
+    left_state = _make_state("alpha", "Alpha", _make_base("alpha", "Alpha Base"))
+    right_state = _make_state("beta", "Beta", defender_base)
+    siege_beast = CardInPlay(
+        instance_id="instance-7",
+        definition=_make_unit(owner_id="alpha", card_id="alpha-siege", name="Siege Beast", attack=4, hp=5),
+        owner_id="alpha",
+        track=TrackName.FAST,
+        position=10.0,
+        stationary=False,
+        entered_round=1,
+        current_hp=5,
+    )
+    context = _make_context([siege_beast], left_state, right_state)
+
+    _apply_round_income_and_healing(context)
+    _resolve_base_attacks(context, round_number=2)
+
+    log_text = "\n".join(context.log)
+    assert right_state.card_points == 3
+    assert right_state.base_hp == 18
+    assert siege_beast.current_hp == 2
+    assert "Beta's base used Garden Bulwark to gain +1 card points." in log_text
+    assert "Beta's base used Garden Bulwark to reduce incoming damage by 2." in log_text
+    assert "Beta's base reflected 1 damage back to Siege Beast#7." in log_text

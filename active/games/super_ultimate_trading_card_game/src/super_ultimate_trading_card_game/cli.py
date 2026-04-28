@@ -181,7 +181,14 @@ def _run_collection(owner_id: str, db_path: Path) -> int:
             {
                 "owner_id": owner_id,
                 "bases": [
-                    {"card_id": base.card_id, "name": base.name, "hp": base.hp, "attack": base.attack, "income": base.income}
+                    {
+                        "card_id": base.card_id,
+                        "name": base.name,
+                        "hp": base.hp,
+                        "attack": base.attack,
+                        "income": base.income,
+                        "ability_summary": base.ability_summary,
+                    }
                     for base in owned_bases.values()
                 ],
                 "cards": [

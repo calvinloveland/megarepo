@@ -44,7 +44,10 @@ class PrototypeBot:
                 self.profile.owned_cards[card.card_id] = card
 
     def choose_base(self) -> CardDefinition:
-        return max(self.profile.owned_bases.values(), key=lambda card: card.hp + card.income * 4 + card.attack)
+        return max(
+            self.profile.owned_bases.values(),
+            key=lambda card: card.hp + card.income * 4 + card.attack + self._script_score(card.ability_script),
+        )
 
     def build_deck(self) -> list[CardDefinition]:
         cards = list(self.profile.owned_cards.values())
@@ -83,9 +86,9 @@ class PrototypeBot:
 
     def _base_prompt(self) -> str:
         prompts = {
-            "aggressive": "A blazing war citadel that rewards all-out attacks",
-            "guardian": "A patient living fortress that protects and heals",
-            "inventor": "A strange clockwork shrine that fuels creative combos",
+            "aggressive": "A blazing war citadel with a scripted counterattack and mirror retaliation plan",
+            "guardian": "A patient living fortress with a scripted protection and healing plan",
+            "inventor": "A strange clockwork fortress with a scripted protection and combo engine",
         }
         return prompts.get(self.profile.persona, "A surprising magical fortress")
 
@@ -107,8 +110,6 @@ class PrototypeBot:
             return "finisher"
         if not any("Defender" in card.keywords for card in view.own_hand):
             return "defender"
-        if self.profile.persona == "inventor" and view.card_points <= 3:
-            return "economy"
         return "pressure"
 
     def _generation_prompt(self, needs: str | None) -> str:
@@ -137,14 +138,7 @@ class PrototypeBot:
 
     def _deck_score(self, card: CardDefinition) -> float:
         score = float(card.attack * 2 + card.hp + card.speed + (card.income * 3))
-        if "gain_card_points" in card.ability_script:
-            score += 4.0
-        if "heal_base" in card.ability_script or "heal_ally" in card.ability_script:
-            score += 2.5
-        if "reduce_incoming_damage" in card.ability_script or "reflect_damage" in card.ability_script:
-            score += 2.5
-        if "add_base_damage" in card.ability_script:
-            score += 2.5
+        score += self._script_score(card.ability_script)
         if self.profile.persona == "aggressive":
             score += 2.0 * card.attack
             if "Charge" in card.keywords or "Flying" in card.keywords:
@@ -167,6 +161,18 @@ class PrototypeBot:
                 score += 2.0
         if card.cpc:
             score -= card.cpc * 0.8
+        return score
+
+    def _script_score(self, script: str) -> float:
+        score = 0.0
+        if "gain_card_points" in script:
+            score += 2.0
+        if "heal_base" in script or "heal_ally" in script:
+            score += 2.5
+        if "reduce_incoming_damage" in script or "reflect_damage" in script:
+            score += 2.5
+        if "add_base_damage" in script or "add_attack" in script:
+            score += 2.5
         return score
 
     def _play_score(self, card: CardDefinition, view: PlayerView) -> float:

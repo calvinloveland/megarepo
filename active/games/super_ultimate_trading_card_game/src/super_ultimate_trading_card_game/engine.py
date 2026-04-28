@@ -137,6 +137,10 @@ def _ability_name(card: CardInPlay) -> str:
     return card.definition.ability_summary if card.definition.ability_summary != "No scripted ability." else "its scripted ability"
 
 
+def _base_ability_name(base_card: CardDefinition) -> str:
+    return base_card.ability_summary if base_card.ability_summary != "No scripted ability." else "its scripted ability"
+
+
 def _heal_card(card: CardInPlay, amount: int) -> int:
     before = card.current_hp
     card.current_hp = min(card.definition.hp, card.current_hp + amount)
@@ -255,10 +259,116 @@ def _trigger_scripted_ability(context: MatchContext, player: PlayerState, card: 
     return runtime
 
 
+class BaseAbilityAPI:
+    def __init__(
+        self,
+        context: MatchContext,
+        player: PlayerState,
+        *,
+        event: str,
+        runtime: AbilityRuntime,
+    ):
+        self._context = context
+        self._player = player
+        self.event = event
+        self._runtime = runtime
+
+    def _clamp(self, amount: int) -> int:
+        return max(0, min(3, int(amount)))
+
+    def heal_self(self, amount: int) -> None:
+        self.heal_base(amount)
+
+    def heal_ally(self, amount: int) -> None:
+        pseudo_source = CardInPlay(
+            instance_id=f"{self._player.player_id}-base",
+            definition=self._player.base_card,
+            owner_id=self._player.player_id,
+            track=TrackName.FAST,
+            position=0.0,
+            stationary=True,
+            entered_round=0,
+            current_hp=self._player.base_hp,
+        )
+        result = _heal_best_ally(self._context, self._player, pseudo_source, self._clamp(amount))
+        if result is not None:
+            target_label, healed = result
+            self._context.log.append(
+                f"{self._player.display_name}'s base used {_base_ability_name(self._player.base_card)} to heal {target_label} for {healed}."
+            )
+
+    def heal_base(self, amount: int) -> None:
+        before = self._player.base_hp
+        self._player.base_hp = min(self._player.base_card.hp, self._player.base_hp + self._clamp(amount))
+        healed = self._player.base_hp - before
+        if healed > 0:
+            self._context.log.append(
+                f"{self._player.display_name}'s base used {_base_ability_name(self._player.base_card)} to heal itself for {healed}."
+            )
+
+    def gain_card_points(self, amount: int) -> None:
+        granted = self._clamp(amount)
+        if granted <= 0:
+            return
+        self._player.card_points += granted
+        self._context.log.append(
+            f"{self._player.display_name}'s base used {_base_ability_name(self._player.base_card)} to gain +{granted} card points."
+        )
+
+    def add_attack(self, amount: int) -> None:
+        granted = self._clamp(amount)
+        if granted <= 0:
+            return
+        self._runtime.attack_bonus += granted
+        self._context.log.append(
+            f"{self._player.display_name}'s base used {_base_ability_name(self._player.base_card)} for +{granted} counterattack."
+        )
+
+    def add_base_damage(self, amount: int) -> None:
+        granted = self._clamp(amount)
+        if granted <= 0:
+            return
+        self._runtime.base_damage_bonus += granted
+
+    def reduce_incoming_damage(self, amount: int) -> None:
+        granted = self._clamp(amount)
+        if granted <= 0:
+            return
+        self._runtime.incoming_damage_reduction += granted
+        self._context.log.append(
+            f"{self._player.display_name}'s base used {_base_ability_name(self._player.base_card)} to reduce incoming damage by {granted}."
+        )
+
+    def reflect_damage(self, amount: int) -> None:
+        granted = self._clamp(amount)
+        if granted <= 0:
+            return
+        self._runtime.reflect_damage += granted
+        self._context.log.append(
+            f"{self._player.display_name}'s base primed {_base_ability_name(self._player.base_card)} to reflect {granted} damage."
+        )
+
+    def log(self, message: str) -> None:
+        if message:
+            self._context.log.append(f"{self._player.display_name}'s base ability note: {message}")
+
+
+def _trigger_base_scripted_ability(context: MatchContext, player: PlayerState, event: str) -> AbilityRuntime:
+    runtime = AbilityRuntime()
+    if not player.base_card.has_scripted_ability:
+        return runtime
+    execute_ability_script(
+        player.base_card.ability_script,
+        BaseAbilityAPI(context, player, event=event, runtime=runtime),
+    )
+    return runtime
+
+
 def _apply_round_income_and_healing(context: MatchContext) -> None:
     for player in (context.left_state, context.right_state):
         base_income = player.base_card.income
         bonus_income = 0
+        _trigger_base_scripted_ability(context, player, "round_start")
         if player.base_card.passive.type == "income_boost":
             granted = max(1, player.base_card.passive.magnitude)
             bonus_income += granted
@@ -539,13 +649,21 @@ def _resolve_base_attacks(context: MatchContext, round_number: int) -> None:
             attackers = [card for card in _attackers_at_base(context, defender_state.player_id, track) if _can_attack(card, round_number)]
             if not attackers:
                 continue
+            base_runtime = _trigger_base_scripted_ability(context, defender_state, "base_attacked")
             total_damage = 0
             for attacker in attackers:
                 runtime = _trigger_scripted_ability(context, _player_state(context, attacker.owner_id), attacker, "attack_base")
                 total_damage += _effective_attack(attacker) + runtime.attack_bonus + runtime.base_damage_bonus
+            total_damage = max(0, total_damage - base_runtime.incoming_damage_reduction)
             defender_state.base_hp -= total_damage
             target = max(attackers, key=_effective_attack)
-            target.current_hp -= defender_state.base_card.attack
+            counterattack = defender_state.base_card.attack + base_runtime.attack_bonus
+            target.current_hp -= counterattack
+            if base_runtime.reflect_damage > 0:
+                target.current_hp -= base_runtime.reflect_damage
+                context.log.append(
+                    f"{defender_state.display_name}'s base reflected {base_runtime.reflect_damage} damage back to {_card_label(target)}."
+                )
             context.log.append(
                 f"{defender_state.display_name}'s base took {total_damage} damage on the {track.value} track and counterattacked {_card_label(target)}."
             )

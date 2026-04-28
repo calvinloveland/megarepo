@@ -26,7 +26,8 @@ def test_deterministic_generator_returns_valid_base_card():
     assert base.kind is CardKind.BASE
     assert base.cpc is None
     assert base.income >= 1
-    assert not base.ability_script
+    assert base.ability_script
+    assert base.ability_summary
 
 
 class FakeTransport:
@@ -90,3 +91,14 @@ def test_generated_card_can_be_persisted(tmp_path: Path):
     assert card.card_id in owned_cards
     assert owned_cards[card.card_id].ability_script == card.ability_script
     assert owned_bases == {}
+
+
+def test_generated_base_can_be_persisted(tmp_path: Path):
+    generator = DeterministicCardGenerator(seed=33)
+    base = generator.generate_card("persist-user", "A clockwork combo shrine", kind=CardKind.BASE)
+    db_path = tmp_path / "sutcg.sqlite3"
+    save_card(base, path=db_path)
+    owned_cards, owned_bases = load_owned_cards("persist-user", path=db_path)
+    assert owned_cards == {}
+    assert base.card_id in owned_bases
+    assert owned_bases[base.card_id].ability_script == base.ability_script

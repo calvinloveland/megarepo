@@ -96,6 +96,64 @@ class DeterministicCardGenerator(CardGenerator):
         speed = 1 + (1 if "fast" in tokens or "charge" in tokens else 0)
         attack_range = 0
 
+        if kind is CardKind.BASE:
+            attack = 2 + rng.randint(0, 2)
+            hp = 24 + rng.randint(0, 10)
+            income = 2 + rng.randint(0, 1)
+            base_keywords: list[str] = []
+            base_role_tags: list[str] = ["support"]
+            summary_parts: list[str] = []
+            round_start_lines: list[str] = []
+            base_attacked_lines: list[str] = []
+            if any(word in tokens for word in ("heal", "garden", "living", "restore")):
+                round_start_lines.append("api.heal_base(2)")
+                summary_parts.append("heals itself each round")
+            if any(word in tokens for word in ("clockwork", "engine", "combo", "fuel", "creative", "shrine")):
+                round_start_lines.append("api.gain_card_points(1)")
+                summary_parts.append("generates extra card points each round")
+                base_role_tags.append("economy")
+            if any(word in tokens for word in ("protect", "fortress", "shield", "wall", "patient")):
+                base_attacked_lines.append("api.reduce_incoming_damage(2)")
+                summary_parts.append("reduces incoming base damage when attacked")
+                base_role_tags.append("defender")
+            if any(word in tokens for word in ("blazing", "war", "attack", "assault", "citadel")):
+                base_attacked_lines.append("api.add_attack(2)")
+                summary_parts.append("counterattacks harder when struck")
+                base_role_tags.append("attacker")
+            if any(word in tokens for word in ("thorn", "spike", "mirror", "vengeful", "retaliation")):
+                base_attacked_lines.append("api.reflect_damage(2)")
+                summary_parts.append("reflects damage back to attackers")
+                base_role_tags.append("defender")
+            if not round_start_lines and not base_attacked_lines:
+                round_start_lines.extend(["api.heal_ally(1)", "api.heal_base(1)"])
+                summary_parts.append("bolsters itself and its defenders each round")
+            script_lines: list[str] = []
+            if round_start_lines:
+                script_lines.append('if api.event == "round_start":')
+                script_lines.extend(f"    {line}" for line in round_start_lines)
+            if base_attacked_lines:
+                script_lines.append('if api.event == "base_attacked":')
+                script_lines.extend(f"    {line}" for line in base_attacked_lines)
+            ability_summary = ", ".join(summary_parts).capitalize() + "."
+            ability_script = "\n".join(script_lines)
+            payload = {
+                "name": f"{adjective.title()} {focus.title()} {noun.title()}",
+                "theme": f"{adjective} {focus} {noun}",
+                "attack": attack,
+                "hp": hp,
+                "income": income,
+                "keywords": sorted(set(base_keywords)),
+                "role_tags": sorted(set(base_role_tags)),
+                "passive": {
+                    "type": passive_type,
+                    "magnitude": passive_magnitude,
+                    "text": passive_text,
+                },
+                "ability_summary": ability_summary,
+                "ability_script": ability_script,
+            }
+            return validate_and_balance_card(payload, owner_id=owner_id, prompt=prompt, kind=kind)
+
         if any(word in tokens for word in ("thorn", "thorns", "bramble", "spike", "spiked")):
             role_tags.append("defender")
             keywords.append("Defender")
@@ -172,14 +230,9 @@ class DeterministicCardGenerator(CardGenerator):
             "ability_summary": ability_summary,
             "ability_script": ability_script,
         }
-        if kind is CardKind.BASE:
-            payload["attack"] = 2 + rng.randint(0, 2)
-            payload["hp"] = 24 + rng.randint(0, 10)
-            payload["income"] = 2 + rng.randint(0, 1)
-        else:
-            payload["cpc"] = 2 + rng.randint(0, 3)
-            payload["speed"] = max(1, min(3, speed))
-            payload["range"] = attack_range
+        payload["cpc"] = 2 + rng.randint(0, 3)
+        payload["speed"] = max(1, min(3, speed))
+        payload["range"] = attack_range
 
         return validate_and_balance_card(payload, owner_id=owner_id, prompt=prompt, kind=kind)
 
@@ -207,20 +260,25 @@ class OpenRouterCardGenerator(CardGenerator):
     def generate_card(self, owner_id: str, prompt: str, *, kind: CardKind) -> CardDefinition:
         system = (
             "You design balanced JSON cards for a deterministic card game prototype. "
-            "Output JSON only. Use ONLY these standardized keywords when useful: "
+            "Output JSON only. Tactical keywords are optional and limited to these traits when useful: "
             "Defender, Ranged, Healing, Charge, Flying, Intercept. "
-            "For unit cards, the special ability must be written as a short Python script using ONLY "
-            "if api.event == \"round_start\" / \"combat\" / \"attack_base\" and these methods: "
+            "Special abilities should be expressed primarily through short Python scripts. "
+            "Scripts may only use if api.event == supported_event and these methods: "
             "api.heal_self(n), api.heal_ally(n), api.heal_base(n), api.gain_card_points(n), "
             "api.add_attack(n), api.add_base_damage(n), api.reduce_incoming_damage(n), api.reflect_damage(n), "
-            "api.log(\"text\"). No imports, loops, variables, function definitions, or attribute access besides api.event."
+            "api.log(\"text\"). "
+            "Supported events are unit: round_start, combat, attack_base. "
+            "Supported events are base: round_start, base_attacked. "
+            "No imports, loops, variables, function definitions, or attribute access besides api.event."
         )
         if kind is CardKind.BASE:
             user = (
                 "Generate a base card as JSON with fields: "
-                "name, theme, hp, attack, income, keywords, role_tags, "
+                "name, theme, hp, attack, income, keywords, role_tags, ability_summary, ability_script, "
                 "passive:{type,magnitude,text}. "
                 "The base starts in play, does not use CPC, and should feel creative but fair. "
+                "For bases, set passive to none unless you intentionally need a simple fixed passive; prefer ability_script. "
+                "Base ability_script may only react to round_start or base_attacked. "
                 f"Prompt: {prompt}"
             )
         else:
@@ -265,9 +323,12 @@ class OpenRouterCardGenerator(CardGenerator):
                     content = str(body["choices"][0]["message"]["content"])
                     parsed = _extract_json_object(content)
                     if parsed is not None:
+                        card = validate_and_balance_card(parsed, owner_id=owner_id, prompt=prompt, kind=kind)
+                        if kind in (CardKind.UNIT, CardKind.BASE) and not card.ability_script:
+                            continue
                         self.last_backend = "openrouter"
                         self.last_model = model
-                        return validate_and_balance_card(parsed, owner_id=owner_id, prompt=prompt, kind=kind)
+                        return card
                 except (OSError, ValueError, KeyError, TypeError, json.JSONDecodeError):
                     continue
         self.last_backend = "fallback"

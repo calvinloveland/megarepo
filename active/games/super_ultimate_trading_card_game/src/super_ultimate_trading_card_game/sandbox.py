@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from functools import lru_cache
 from textwrap import dedent
 
-ALLOWED_EVENTS = {"round_start", "combat", "attack_base"}
+ALLOWED_EVENTS = {"round_start", "combat", "attack_base", "base_attacked"}
 ALLOWED_API_METHODS = {
     "heal_self",
     "heal_ally",
@@ -16,6 +16,20 @@ ALLOWED_API_METHODS = {
     "reduce_incoming_damage",
     "reflect_damage",
     "log",
+}
+EVENT_ALLOWED_METHODS = {
+    "round_start": {"heal_self", "heal_ally", "heal_base", "gain_card_points", "log"},
+    "combat": {"heal_self", "add_attack", "reduce_incoming_damage", "reflect_damage", "log"},
+    "attack_base": {"add_attack", "add_base_damage", "log"},
+    "base_attacked": {
+        "heal_base",
+        "heal_ally",
+        "gain_card_points",
+        "add_attack",
+        "reduce_incoming_damage",
+        "reflect_damage",
+        "log",
+    },
 }
 ABILITY_METHOD_WEIGHTS = {
     "heal_self": 2,
@@ -55,7 +69,7 @@ def _validate_literal_str(node: ast.AST) -> None:
         raise AbilityScriptError("Ability script string arguments must be literal strings.")
 
 
-def _validate_call(node: ast.Call, methods: list[str]) -> None:
+def _validate_call(node: ast.Call, methods: list[str], current_event: str | None) -> None:
     if node.keywords:
         raise AbilityScriptError("Ability scripts cannot use keyword arguments.")
     if not isinstance(node.func, ast.Attribute) or not isinstance(node.func.value, ast.Name) or node.func.value.id != "api":
@@ -63,6 +77,10 @@ def _validate_call(node: ast.Call, methods: list[str]) -> None:
     method = node.func.attr
     if method not in ALLOWED_API_METHODS:
         raise AbilityScriptError(f"Ability method {method!r} is not allowed.")
+    if current_event is None:
+        raise AbilityScriptError("Ability scripts may only call api methods inside an event branch.")
+    if method not in EVENT_ALLOWED_METHODS[current_event]:
+        raise AbilityScriptError(f"api.{method} is not allowed during {current_event}.")
     if method == "log":
         if len(node.args) != 1:
             raise AbilityScriptError("api.log requires exactly one argument.")
@@ -75,6 +93,8 @@ def _validate_call(node: ast.Call, methods: list[str]) -> None:
 
 
 def _validate_compare(node: ast.Compare) -> None:
+    if not isinstance(node, ast.Compare):
+        raise AbilityScriptError("Ability scripts may only compare api.event with ==.")
     if len(node.ops) != 1 or len(node.comparators) != 1 or not isinstance(node.ops[0], ast.Eq):
         raise AbilityScriptError("Ability scripts may only compare api.event with ==.")
     left = node.left
@@ -85,16 +105,19 @@ def _validate_compare(node: ast.Compare) -> None:
         raise AbilityScriptError("Ability scripts must compare against a supported event name.")
 
 
-def _validate_stmt(node: ast.stmt, methods: list[str]) -> None:
+def _validate_stmt(node: ast.stmt, methods: list[str], current_event: str | None = None) -> None:
     if isinstance(node, ast.If):
+        if current_event is not None:
+            raise AbilityScriptError("Ability scripts cannot nest event branches.")
         _validate_compare(node.test)
+        event_name = node.test.comparators[0].value
         for child in node.body:
-            _validate_stmt(child, methods)
+            _validate_stmt(child, methods, event_name)
         for child in node.orelse:
-            _validate_stmt(child, methods)
+            _validate_stmt(child, methods, current_event)
         return
     if isinstance(node, ast.Expr) and isinstance(node.value, ast.Call):
-        _validate_call(node.value, methods)
+        _validate_call(node.value, methods, current_event)
         return
     if isinstance(node, ast.Pass):
         return
@@ -106,7 +129,10 @@ def compile_ability_script(script: str) -> CompiledAbilityScript:
     source = _normalize_source(script)
     if not source:
         return CompiledAbilityScript(source="", code=None, methods=())
-    tree = ast.parse(source, mode="exec")
+    try:
+        tree = ast.parse(source, mode="exec")
+    except SyntaxError as exc:
+        raise AbilityScriptError("Ability script is not valid Python.") from exc
     methods: list[str] = []
     for stmt in tree.body:
         _validate_stmt(stmt, methods)
