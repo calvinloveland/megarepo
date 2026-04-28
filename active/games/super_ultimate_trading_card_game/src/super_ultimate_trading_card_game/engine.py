@@ -1,0 +1,433 @@
+from __future__ import annotations
+
+import itertools
+import random
+from dataclasses import dataclass
+
+from .bots import PrototypeBot
+from .models import (
+    DRAW_COUNT,
+    FAST_TRACK_STEP,
+    MAX_MATCH_ROUNDS,
+    PLAYS_PER_ROUND,
+    SLOW_TRACK_STEP,
+    STARTING_CARD_POINTS,
+    TRACK_LENGTH,
+    CardDefinition,
+    CardInPlay,
+    CardKind,
+    MatchResult,
+    PlannedPlay,
+    PlayerState,
+    PlayerView,
+    PublicCardSummary,
+    RoundDecision,
+    TrackName,
+)
+
+
+@dataclass
+class MatchContext:
+    left: PrototypeBot
+    right: PrototypeBot
+    left_state: PlayerState
+    right_state: PlayerState
+    board: list[CardInPlay]
+    rng: random.Random
+    log: list[str]
+    generated_cards: int = 0
+    instance_counter: itertools.count = itertools.count(1)
+
+
+def _opponent_id(player_id: str, left_id: str, right_id: str) -> str:
+    return right_id if player_id == left_id else left_id
+
+
+def _player_state(context: MatchContext, player_id: str) -> PlayerState:
+    return context.left_state if player_id == context.left.player_id else context.right_state
+
+
+def _opponent_state(context: MatchContext, player_id: str) -> PlayerState:
+    return context.right_state if player_id == context.left.player_id else context.left_state
+
+
+def _global_position(card: CardInPlay, left_id: str) -> float:
+    if card.owner_id == left_id:
+        return card.position
+    return TRACK_LENGTH - card.position
+
+
+def _set_global_position(card: CardInPlay, left_id: str, value: float) -> None:
+    if card.owner_id == left_id:
+        card.position = max(0.0, min(TRACK_LENGTH, value))
+    else:
+        card.position = max(0.0, min(TRACK_LENGTH, TRACK_LENGTH - value))
+
+
+def _can_attack(card: CardInPlay, round_number: int) -> bool:
+    return card.is_alive and (card.entered_round < round_number or card.has_keyword("Charge"))
+
+
+def _effective_attack(card: CardInPlay) -> int:
+    attack = card.definition.attack
+    if card.definition.passive.type == "berserk" and card.current_hp <= max(1, card.definition.hp // 2):
+        attack += max(1, card.definition.passive.magnitude)
+    return attack
+
+
+def _mitigated_damage(target: CardInPlay, raw_damage: int) -> int:
+    if target.definition.passive.type == "fortify":
+        raw_damage -= max(1, target.definition.passive.magnitude)
+    return max(0, raw_damage)
+
+
+def _can_block(attacker: CardInPlay, blocker: CardInPlay) -> bool:
+    if attacker.has_keyword("Flying"):
+        return blocker.has_keyword("Flying") or blocker.has_keyword("Intercept") or blocker.definition.passive.type == "intercept_flying"
+    return True
+
+
+def _reshuffle_if_needed(player: PlayerState, rng: random.Random) -> None:
+    if player.draw_pile:
+        return
+    if not player.discard_pile:
+        return
+    rng.shuffle(player.discard_pile)
+    player.draw_pile = list(player.discard_pile)
+    player.discard_pile.clear()
+
+
+def _draw_cards(player: PlayerState, rng: random.Random, count: int) -> None:
+    for _ in range(count):
+        _reshuffle_if_needed(player, rng)
+        if not player.draw_pile:
+            return
+        player.hand.append(player.draw_pile.pop(0))
+
+
+def _apply_round_income_and_healing(context: MatchContext) -> None:
+    for player in (context.left_state, context.right_state):
+        income = player.base_card.income
+        if player.base_card.passive.type == "income_boost":
+            income += max(1, player.base_card.passive.magnitude)
+        if player.base_card.passive.type == "heal_base":
+            player.base_hp = min(player.base_card.hp, player.base_hp + max(1, player.base_card.passive.magnitude))
+        for card in context.board:
+            if card.owner_id != player.player_id or not card.is_alive:
+                continue
+            if card.definition.passive.type == "income_boost":
+                income += max(1, card.definition.passive.magnitude)
+            if card.definition.passive.type == "heal_base":
+                player.base_hp = min(player.base_card.hp, player.base_hp + max(1, card.definition.passive.magnitude))
+            if card.definition.passive.type == "heal_self":
+                card.current_hp = min(card.definition.hp, card.current_hp + max(1, card.definition.passive.magnitude))
+        player.card_points += income
+
+
+def _build_view(context: MatchContext, player_id: str, round_number: int) -> PlayerView:
+    player = _player_state(context, player_id)
+    opponent = _opponent_state(context, player_id)
+    board = tuple(
+        PublicCardSummary(
+            instance_id=card.instance_id,
+            owner_id=card.owner_id,
+            name=card.definition.name,
+            track=card.track,
+            position=round(_global_position(card, context.left.player_id), 2),
+            current_hp=card.current_hp,
+            stationary=card.stationary,
+            engaged=card.engaged_with is not None,
+            keywords=card.definition.keywords,
+        )
+        for card in context.board
+        if card.is_alive
+    )
+    return PlayerView(
+        player_id=player_id,
+        round_number=round_number,
+        card_points=player.card_points,
+        own_base_hp=player.base_hp,
+        opponent_base_hp=opponent.base_hp,
+        own_hand=tuple(player.hand),
+        own_draw_count=len(player.draw_pile),
+        own_discard_count=len(player.discard_pile),
+        opponent_draw_count=len(opponent.draw_pile),
+        board=board,
+        owned_cards=tuple(player.all_owned_units()),
+        owned_bases=tuple(player.owned_bases.values()),
+    )
+
+
+def _decide_rounds(context: MatchContext, round_number: int) -> dict[str, RoundDecision]:
+    return {
+        context.left.player_id: context.left.decide_round(_build_view(context, context.left.player_id, round_number)),
+        context.right.player_id: context.right.decide_round(_build_view(context, context.right.player_id, round_number)),
+    }
+
+
+def _handle_generation(context: MatchContext, decisions: dict[str, RoundDecision]) -> None:
+    for bot, player in ((context.left, context.left_state), (context.right, context.right_state)):
+        prompt = decisions[player.player_id].generate_prompt
+        if not prompt:
+            continue
+        card = context.generator.generate_card(player.player_id, prompt, kind=CardKind.UNIT)  # type: ignore[attr-defined]
+        player.owned_cards[card.card_id] = card
+        player.generated_cards.append(card)
+        player.discard_pile.append(card)
+        bot.register_generated_card(card)
+        context.generated_cards += 1
+        context.log.append(f"{player.display_name} generated {card.name} from prompt '{prompt}'.")
+
+
+def _remove_from_hand(player: PlayerState, card_id: str) -> CardDefinition | None:
+    for index, card in enumerate(player.hand):
+        if card.card_id == card_id:
+            return player.hand.pop(index)
+    return None
+
+
+def _apply_plays(context: MatchContext, decisions: dict[str, RoundDecision], round_number: int) -> None:
+    for player in (context.left_state, context.right_state):
+        for card in list(player.hand):
+            if card not in player.hand:
+                continue
+        selected = decisions[player.player_id].plays[:PLAYS_PER_ROUND]
+        for play in selected:
+            _play_card(context, player, play, round_number)
+        for card in list(player.hand):
+            player.discard_pile.append(card)
+        player.hand.clear()
+
+
+def _play_card(context: MatchContext, player: PlayerState, play: PlannedPlay, round_number: int) -> None:
+    card = _remove_from_hand(player, play.card_id)
+    if card is None or card.cpc is None or card.cpc > player.card_points:
+        return
+    player.card_points -= card.cpc
+    instance_id = f"instance-{next(context.instance_counter)}"
+    in_play = CardInPlay(
+        instance_id=instance_id,
+        definition=card,
+        owner_id=player.player_id,
+        track=play.track,
+        position=0.0,
+        stationary=play.stationary and card.has_keyword("Defender"),
+        entered_round=round_number,
+        current_hp=card.hp,
+    )
+    context.board.append(in_play)
+    mode = "as a defender" if in_play.stationary else f"onto the {play.track.value} track"
+    context.log.append(f"{player.display_name} played {card.name} {mode}.")
+
+
+def _nearest_enemy(context: MatchContext, mover: CardInPlay, target_global: float) -> CardInPlay | None:
+    enemies = [card for card in context.board if card.owner_id != mover.owner_id and card.track == mover.track and card.is_alive and card.engaged_with is None]
+    if not enemies:
+        return None
+    mover_position = _global_position(mover, context.left.player_id)
+    candidates: list[CardInPlay] = []
+    if mover.owner_id == context.left.player_id:
+        for enemy in enemies:
+            enemy_pos = _global_position(enemy, context.left.player_id)
+            if mover_position < enemy_pos <= target_global and _can_block(mover, enemy):
+                candidates.append(enemy)
+        return min(candidates, key=lambda card: _global_position(card, context.left.player_id), default=None)
+    for enemy in enemies:
+        enemy_pos = _global_position(enemy, context.left.player_id)
+        if target_global <= enemy_pos < mover_position and _can_block(mover, enemy):
+            candidates.append(enemy)
+    return max(candidates, key=lambda card: _global_position(card, context.left.player_id), default=None)
+
+
+def _move_cards(context: MatchContext, round_number: int) -> None:
+    for card in sorted(context.board, key=lambda item: (item.track.value, _global_position(item, context.left.player_id))):
+        if not card.is_alive or card.stationary or card.engaged_with is not None:
+            continue
+        step = (FAST_TRACK_STEP if card.track is TrackName.FAST else SLOW_TRACK_STEP) * max(1, card.definition.speed)
+        current = _global_position(card, context.left.player_id)
+        target = min(TRACK_LENGTH, current + step) if card.owner_id == context.left.player_id else max(0.0, current - step)
+        enemy = _nearest_enemy(context, card, target)
+        if enemy is not None:
+            enemy_position = _global_position(enemy, context.left.player_id)
+            _set_global_position(card, context.left.player_id, enemy_position)
+            card.engaged_with = enemy.instance_id
+            enemy.engaged_with = card.instance_id
+            context.log.append(f"{card.definition.name} engaged {enemy.definition.name} on the {card.track.value} track.")
+            continue
+        _set_global_position(card, context.left.player_id, target)
+        if (card.owner_id == context.left.player_id and target >= TRACK_LENGTH) or (
+            card.owner_id != context.left.player_id and target <= 0.0
+        ):
+            context.log.append(f"{card.definition.name} reached the enemy base on the {card.track.value} track.")
+
+
+def _ranged_supporters(context: MatchContext, frontline: CardInPlay) -> list[CardInPlay]:
+    frontline_global = _global_position(frontline, context.left.player_id)
+    supporters: list[CardInPlay] = []
+    for card in context.board:
+        if not card.is_alive or card.owner_id != frontline.owner_id or card.track != frontline.track:
+            continue
+        if card.instance_id == frontline.instance_id or card.engaged_with is not None:
+            continue
+        if not card.has_keyword("Ranged"):
+            continue
+        position = _global_position(card, context.left.player_id)
+        if frontline.owner_id == context.left.player_id and position < frontline_global:
+            supporters.append(card)
+        elif frontline.owner_id != context.left.player_id and position > frontline_global:
+            supporters.append(card)
+    return supporters
+
+
+def _resolve_engagements(context: MatchContext, round_number: int) -> None:
+    processed: set[str] = set()
+    for card in context.board:
+        if not card.is_alive or not card.engaged_with or card.instance_id in processed:
+            continue
+        enemy = next((item for item in context.board if item.instance_id == card.engaged_with), None)
+        if enemy is None or not enemy.is_alive:
+            card.engaged_with = None
+            continue
+        processed.add(card.instance_id)
+        processed.add(enemy.instance_id)
+        left_damage = 0
+        right_damage = 0
+        if _can_attack(card, round_number):
+            left_damage += _effective_attack(card)
+        if _can_attack(enemy, round_number):
+            right_damage += _effective_attack(enemy)
+        for supporter in _ranged_supporters(context, card):
+            if _can_attack(supporter, round_number):
+                left_damage += _effective_attack(supporter)
+        for supporter in _ranged_supporters(context, enemy):
+            if _can_attack(supporter, round_number):
+                right_damage += _effective_attack(supporter)
+        enemy.current_hp -= _mitigated_damage(enemy, left_damage)
+        card.current_hp -= _mitigated_damage(card, right_damage)
+        context.log.append(f"{card.definition.name} and {enemy.definition.name} traded {left_damage}/{right_damage} damage.")
+
+
+def _attackers_at_base(context: MatchContext, defender_id: str, track: TrackName) -> list[CardInPlay]:
+    attackers: list[CardInPlay] = []
+    for card in context.board:
+        if not card.is_alive or card.track is not track or card.engaged_with is not None:
+            continue
+        if defender_id == context.right.player_id and card.owner_id == context.left.player_id and _global_position(card, context.left.player_id) >= TRACK_LENGTH:
+            attackers.append(card)
+        if defender_id == context.left.player_id and card.owner_id == context.right.player_id and _global_position(card, context.left.player_id) <= 0.0:
+            attackers.append(card)
+    return attackers
+
+
+def _resolve_base_attacks(context: MatchContext, round_number: int) -> None:
+    for defender_state in (context.left_state, context.right_state):
+        for track in (TrackName.FAST, TrackName.SLOW):
+            attackers = [card for card in _attackers_at_base(context, defender_state.player_id, track) if _can_attack(card, round_number)]
+            if not attackers:
+                continue
+            total_damage = sum(_effective_attack(card) for card in attackers)
+            defender_state.base_hp -= total_damage
+            target = max(attackers, key=_effective_attack)
+            target.current_hp -= defender_state.base_card.attack
+            context.log.append(
+                f"{defender_state.display_name}'s base took {total_damage} damage on the {track.value} track and counterattacked {target.definition.name}."
+            )
+
+
+def _cleanup_destroyed(context: MatchContext) -> None:
+    destroyed_ids = {card.instance_id for card in context.board if card.current_hp <= 0}
+    if not destroyed_ids:
+        return
+    for card in context.board:
+        if card.engaged_with in destroyed_ids:
+            card.engaged_with = None
+    for card in context.board:
+        if card.instance_id in destroyed_ids:
+            context.log.append(f"{card.definition.name} was destroyed.")
+    context.board = [card for card in context.board if card.current_hp > 0]
+
+
+def _winner(context: MatchContext) -> tuple[str | None, str] | None:
+    left_dead = context.left_state.base_hp <= 0
+    right_dead = context.right_state.base_hp <= 0
+    if left_dead and right_dead:
+        return None, "both bases destroyed"
+    if left_dead:
+        return context.right.player_id, "left base destroyed"
+    if right_dead:
+        return context.left.player_id, "right base destroyed"
+    return None
+
+
+def _create_player_state(bot: PrototypeBot, deck: list[CardDefinition], base: CardDefinition, rng: random.Random) -> PlayerState:
+    shuffled_deck = list(deck)
+    rng.shuffle(shuffled_deck)
+    return PlayerState(
+        player_id=bot.profile.player_id,
+        display_name=bot.profile.display_name,
+        base_card=base,
+        base_hp=base.hp,
+        card_points=STARTING_CARD_POINTS,
+        draw_pile=shuffled_deck,
+        discard_pile=[],
+        owned_cards=dict(bot.profile.owned_cards),
+        owned_bases=dict(bot.profile.owned_bases),
+    )
+
+
+def run_match(
+    left: PrototypeBot,
+    right: PrototypeBot,
+    generator,
+    *,
+    seed: int,
+    max_rounds: int = MAX_MATCH_ROUNDS,
+) -> MatchResult:
+    rng = random.Random(seed)
+    left.ensure_collection(generator)
+    right.ensure_collection(generator)
+    left_deck = left.build_deck()
+    right_deck = right.build_deck()
+    context = MatchContext(
+        left=left,
+        right=right,
+        left_state=_create_player_state(left, left_deck, left.choose_base(), rng),
+        right_state=_create_player_state(right, right_deck, right.choose_base(), rng),
+        board=[],
+        rng=rng,
+        log=[],
+    )
+    context.generator = generator  # type: ignore[attr-defined]
+
+    for round_number in range(1, max_rounds + 1):
+        context.log.append(f"=== Round {round_number} ===")
+        _apply_round_income_and_healing(context)
+        _draw_cards(context.left_state, rng, DRAW_COUNT)
+        _draw_cards(context.right_state, rng, DRAW_COUNT)
+        decisions = _decide_rounds(context, round_number)
+        _handle_generation(context, decisions)
+        _apply_plays(context, decisions, round_number)
+        _move_cards(context, round_number)
+        _resolve_engagements(context, round_number)
+        _resolve_base_attacks(context, round_number)
+        _cleanup_destroyed(context)
+        outcome = _winner(context)
+        if outcome is not None:
+            winner_id, reason = outcome
+            return MatchResult(
+                winner_id=winner_id,
+                rounds_played=round_number,
+                reason=reason,
+                event_log=context.log,
+                generated_cards=context.generated_cards,
+            )
+    left_score = context.left_state.base_hp - context.right_state.base_hp
+    winner_id = context.left.player_id if left_score > 0 else context.right.player_id if left_score < 0 else None
+    reason = "round limit reached"
+    return MatchResult(
+        winner_id=winner_id,
+        rounds_played=max_rounds,
+        reason=reason,
+        event_log=context.log,
+        generated_cards=context.generated_cards,
+    )

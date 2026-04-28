@@ -7,6 +7,7 @@ Interactive games, simulations, and AI experiments.
 ### Multiplayer & Online Games
 - [**lets-holdem-together**](lets-holdem-together/README.md) - Multiplayer poker game with AI players (⭐1 star)
   - [Development Plan](lets-holdem-together/PLAN.md)
+- [**super_ultimate_trading_card_game**](super_ultimate_trading_card_game/README.md) - Python simulation prototype for an LLM-driven collectible lane-battler
 - [**wizard_fight**](wizard_fight/README.md) - Turn-based wizard battle game
   - [Development Plan](wizard_fight/DEVELOPMENT_PLAN.md)
   - [DSL Specification v1](wizard_fight/docs/dsl_v1.md)
