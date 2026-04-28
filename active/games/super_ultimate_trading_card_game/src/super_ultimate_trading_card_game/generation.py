@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import random
+import re
 from pathlib import Path
 from typing import Any, Protocol
 from urllib import request
@@ -73,9 +74,92 @@ class CardGenerator:
 class DeterministicCardGenerator(CardGenerator):
     """Offline generator used for tests and fallback behavior."""
 
+    _stopwords = {
+        "a",
+        "an",
+        "the",
+        "and",
+        "or",
+        "of",
+        "for",
+        "with",
+        "that",
+        "this",
+        "into",
+        "from",
+        "in",
+        "on",
+        "at",
+        "to",
+        "your",
+        "their",
+        "its",
+        "any",
+        "all",
+        "very",
+        "really",
+        "card",
+    }
+    _mechanic_noise = {
+        "unit",
+        "base",
+        "damage",
+        "attack",
+        "enemy",
+        "enemies",
+        "name",
+        "combat",
+        "round",
+        "rounds",
+        "card",
+        "cards",
+        "points",
+        "point",
+        "base",
+        "ally",
+        "allies",
+        "play",
+        "played",
+        "draw",
+        "drawn",
+        "generate",
+        "generated",
+        "does",
+        "deal",
+        "deals",
+        "every",
+        "when",
+        "while",
+        "gets",
+        "gain",
+        "gains",
+        "stronger",
+        "harder",
+        "bonus",
+        "hits",
+        "longer",
+        "match",
+    }
+
     def __init__(self, seed: int = 0):
         self._seed = seed
         self.last_backend = "deterministic"
+
+    def _prompt_tokens(self, prompt: str) -> list[str]:
+        return [token for token in re.findall(r"[a-z0-9']+", prompt.lower()) if token]
+
+    def _theme_tokens(self, tokens: list[str], fallback: list[str]) -> list[str]:
+        themed = [
+            token
+            for token in tokens
+            if token not in self._stopwords and token not in self._mechanic_noise and len(token) > 1
+        ]
+        return themed[:6] or fallback
+
+    def _title_tokens(self, tokens: list[str], *, limit: int) -> str:
+        if not tokens:
+            return "Nameless Wonder"
+        return " ".join(token.capitalize() for token in tokens[:limit])
 
     def _letter_token(self, tokens: list[str], rng: random.Random) -> str:
         for index, token in enumerate(tokens[:-1]):
@@ -94,10 +178,8 @@ class DeterministicCardGenerator(CardGenerator):
     def generate_card(self, owner_id: str, prompt: str, *, kind: CardKind) -> CardDefinition:
         seed_value = hash((self._seed, owner_id, prompt, kind.value)) & 0xFFFFFFFF
         rng = random.Random(seed_value)
-        tokens = [token for token in prompt.lower().replace("-", " ").split() if token]
+        tokens = self._prompt_tokens(prompt)
         focus = tokens[-1] if tokens else "mystery"
-        adjective = rng.choice(["glimmering", "stubborn", "feral", "clockwork", "solar", "stormbound"])
-        noun = rng.choice(["guardian", "raider", "beast", "angel", "medic", "corsair", "engine"])
         role_tags: list[str] = []
         keywords: list[str] = []
         passive_type = "none"
@@ -109,6 +191,7 @@ class DeterministicCardGenerator(CardGenerator):
         hp = 3 + rng.randint(0, 4)
         speed = 1 + (1 if "fast" in tokens or "charge" in tokens else 0)
         attack_range = 0
+        fallback_theme_tokens = [focus]
 
         if kind is CardKind.BASE:
             attack = 2 + rng.randint(0, 2)
@@ -122,25 +205,31 @@ class DeterministicCardGenerator(CardGenerator):
             if any(word in tokens for word in ("heal", "garden", "living", "restore")):
                 round_start_lines.append("api.heal_base(2)")
                 summary_parts.append("heals itself each round")
+                fallback_theme_tokens = ["garden", "sanctum"]
             if any(word in tokens for word in ("clockwork", "engine", "combo", "fuel", "creative", "shrine")):
                 round_start_lines.append("api.gain_card_points(1)")
                 summary_parts.append("generates extra card points each round")
                 base_role_tags.append("economy")
+                fallback_theme_tokens = ["clockwork", "shrine"]
             if any(word in tokens for word in ("protect", "fortress", "shield", "wall", "patient")):
                 base_attacked_lines.append("api.reduce_incoming_damage(2)")
                 summary_parts.append("reduces incoming base damage when attacked")
                 base_role_tags.append("defender")
+                fallback_theme_tokens = ["iron", "fortress"]
             if any(word in tokens for word in ("blazing", "war", "attack", "assault", "citadel")):
                 base_attacked_lines.append("api.add_attack(2)")
                 summary_parts.append("counterattacks harder when struck")
                 base_role_tags.append("attacker")
+                fallback_theme_tokens = ["war", "citadel"]
             if any(word in tokens for word in ("thorn", "spike", "mirror", "vengeful", "retaliation")):
                 base_attacked_lines.append("api.reflect_damage(2)")
                 summary_parts.append("reflects damage back to attackers")
                 base_role_tags.append("defender")
+                fallback_theme_tokens = ["mirror", "bastion"]
             if not round_start_lines and not base_attacked_lines:
                 round_start_lines.extend(["api.heal_ally(1)", "api.heal_base(1)"])
                 summary_parts.append("bolsters itself and its defenders each round")
+                fallback_theme_tokens = ["living", "sanctuary"]
             script_lines: list[str] = []
             if round_start_lines:
                 script_lines.append('if api.event == "round_start":')
@@ -150,9 +239,10 @@ class DeterministicCardGenerator(CardGenerator):
                 script_lines.extend(f"    {line}" for line in base_attacked_lines)
             ability_summary = ", ".join(summary_parts).capitalize() + "."
             ability_script = "\n".join(script_lines)
+            theme_tokens = self._theme_tokens(tokens, fallback_theme_tokens)
             payload = {
-                "name": f"{adjective.title()} {focus.title()} {noun.title()}",
-                "theme": f"{adjective} {focus} {noun}",
+                "name": self._title_tokens(theme_tokens, limit=4),
+                "theme": " ".join(theme_tokens[:8]),
                 "attack": attack,
                 "hp": hp,
                 "income": income,
@@ -175,35 +265,41 @@ class DeterministicCardGenerator(CardGenerator):
             ability_script = 'if api.event == "combat":\n    api.reflect_damage(1)'
             hp += 3
             attack = max(1, attack - 1)
+            fallback_theme_tokens = ["thorn", "sentinel"]
         elif any(word in tokens for word in ("medic", "repair", "mend", "mender")):
             role_tags.append("support")
             keywords.append("Healing")
             ability_summary = "Repairs wounded allies at the start of each round."
             ability_script = 'if api.event == "round_start":\n    api.heal_ally(2)'
             attack = max(1, attack - 1)
+            fallback_theme_tokens = ["field", "medic"]
         elif any(word in tokens for word in ("heal", "restore", "angel", "sanctuary")):
             role_tags.append("support")
             keywords.append("Healing")
             ability_summary = "Heals its base at the start of each round."
             ability_script = 'if api.event == "round_start":\n    api.heal_base(1)'
             attack = max(1, attack - 1)
+            fallback_theme_tokens = ["healing", "angel"]
         elif any(word in tokens for word in ("siege", "breaker", "demolish", "hammer")):
             role_tags.append("attacker")
             ability_summary = "Deals bonus damage when striking an enemy base."
             ability_script = 'if api.event == "attack_base":\n    api.add_base_damage(2)'
             attack += 1
+            fallback_theme_tokens = ["siege", "breaker"]
         elif any(word in tokens for word in ("fly", "wing", "sky", "phoenix")):
             role_tags.append("attacker")
             keywords.append("Flying")
             ability_summary = "Fights harder when it enters combat."
             ability_script = 'if api.event == "combat":\n    api.add_attack(1)'
             speed += 1
+            fallback_theme_tokens = ["sky", "raider"]
         elif any(word in tokens for word in ("range", "sniper", "archer", "beam")):
             role_tags.append("ranged")
             keywords.append("Ranged")
             attack_range = 1
             ability_summary = "Adds extra pressure while firing from range."
             ability_script = 'if api.event == "combat":\n    api.add_attack(1)'
+            fallback_theme_tokens = ["ranged", "sniper"]
         elif any(word in tokens for word in ("name", "letter", "letters", "character", "characters", "vowel", "vowels")):
             role_tags.append("attacker")
             chosen_letter = self._letter_token(tokens, rng)
@@ -218,35 +314,42 @@ class DeterministicCardGenerator(CardGenerator):
                     'if api.event == "combat":\n'
                     f'    api.add_attack_per_enemy_name_char("{chosen_letter}")'
                 )
+            fallback_theme_tokens = ["letter", "oracle", chosen_letter]
         elif any(word in tokens for word in ("palindrome", "mirrorword", "radar", "level", "civic")):
             role_tags.append("attacker")
             ability_summary = "Hits harder against enemies whose names are palindromes."
             ability_script = 'if api.event == "combat":\n    api.add_attack_if_enemy_name_is_palindrome()'
+            fallback_theme_tokens = ["mirror", "oracle"]
         elif any(word in tokens for word in ("even", "parity", "numerology", "length")):
             role_tags.append("attacker")
             ability_summary = "Hits harder when the enemy name has even length."
             ability_script = 'if api.event == "combat":\n    api.add_attack_if_enemy_name_even_length()'
+            fallback_theme_tokens = ["parity", "duelist"]
         elif any(word in tokens for word in ("copy", "duplicate", "twin", "nemesis")):
             role_tags.append("attacker")
-            generated_name = f"{adjective.title()} {focus.title()} {noun.title()}"
+            mirrored_name = self._title_tokens(self._theme_tokens(tokens, ["mirror", "nemesis"]), limit=3)
             ability_summary = "Hits harder against enemies with the exact same name."
             ability_script = (
                 'if api.event == "combat":\n'
-                f'    api.add_attack_if_enemy_name_equals("{generated_name}")'
+                f'    api.add_attack_if_enemy_name_equals("{mirrored_name}")'
             )
+            fallback_theme_tokens = ["mirror", "nemesis"]
         elif any(word in tokens for word in ("swarm", "choir", "pack", "legion", "crowd", "lord")):
             role_tags.append("attacker")
             ability_summary = "Gains power from allied board presence."
             ability_script = 'if api.event == "combat":\n    api.add_attack_per_allies_on_board()'
+            fallback_theme_tokens = ["swarm", "captain"]
         elif any(word in tokens for word in ("time", "temporal", "late", "momentum", "hourglass", "round")):
             role_tags.append("attacker")
             ability_summary = "Scales its attack as the match goes longer."
             ability_script = 'if api.event == "combat":\n    api.add_attack_per_round_tier(4)'
+            fallback_theme_tokens = ["temporal", "duelist"]
         elif any(word in tokens for word in ("economy", "gold", "engine", "forge")):
             role_tags.append("economy")
             ability_summary = "Generates extra card points each round."
             ability_script = 'if api.event == "round_start":\n    api.gain_card_points(1)'
             attack = max(1, attack - 1)
+            fallback_theme_tokens = ["forge", "broker"]
         elif any(word in tokens for word in ("defend", "wall", "shield", "guard")):
             role_tags.append("defender")
             keywords.append("Defender")
@@ -254,10 +357,12 @@ class DeterministicCardGenerator(CardGenerator):
             ability_script = 'if api.event == "combat":\n    api.reduce_incoming_damage(1)'
             hp += 3
             attack = max(1, attack - 1)
+            fallback_theme_tokens = ["shield", "guard"]
         else:
             role_tags.append("attacker")
             ability_summary = "Pushes harder in combat."
             ability_script = 'if api.event == "combat":\n    api.add_attack(1)'
+            fallback_theme_tokens = [focus, "vanguard"]
 
         if "charge" in tokens or "blitz" in tokens:
             keywords.append("Charge")
@@ -267,9 +372,10 @@ class DeterministicCardGenerator(CardGenerator):
             passive_magnitude = 1
             passive_text = "Can catch flying enemies."
 
+        theme_tokens = self._theme_tokens(tokens, fallback_theme_tokens)
         payload: dict[str, Any] = {
-            "name": f"{adjective.title()} {focus.title()} {noun.title()}",
-            "theme": f"{adjective} {focus} {noun}",
+            "name": self._title_tokens(theme_tokens, limit=4),
+            "theme": " ".join(theme_tokens[:8]),
             "attack": attack,
             "hp": hp,
             "keywords": sorted(set(keywords)),
@@ -314,6 +420,9 @@ class OpenRouterCardGenerator(CardGenerator):
             "You design balanced JSON cards for a deterministic card game prototype. "
             "Output JSON only. Tactical keywords are optional and limited to these traits when useful: "
             "Defender, Ranged, Healing, Charge, Flying, Intercept. "
+            "The player's requested theme, genre, and aesthetic should be preserved literally when possible; "
+            "do not default everything into whimsical fantasy unless the prompt explicitly asks for it. "
+            "Futuristic, classical, realistic, sci-fi, historical, industrial, mundane, surreal, corporate, or mixed themes are all valid. "
             "Special abilities should be expressed primarily through short Python scripts. "
             "Scripts may only use if api.event == supported_event and these methods: "
             "api.heal_self(n), api.heal_ally(n), api.heal_base(n), api.gain_card_points(n), "

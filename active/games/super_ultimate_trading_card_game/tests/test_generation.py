@@ -121,3 +121,21 @@ def test_deterministic_generator_can_create_swarm_and_round_scaling_abilities():
     temporal = generator.generate_card("alpha", "A temporal hourglass attacker", kind=CardKind.UNIT)
     assert "add_attack_per_allies_on_board" in swarm.ability_script
     assert "add_attack_per_round_tier" in temporal.ability_script
+
+
+def test_deterministic_generator_preserves_non_fantasy_prompt_themes():
+    generator = DeterministicCardGenerator(seed=123)
+    cyberpunk = generator.generate_card(
+        "alpha",
+        "A futuristic cyberpunk hologram detective drone with neon glass panels",
+        kind=CardKind.UNIT,
+    )
+    classical = generator.generate_card(
+        "alpha",
+        "A classical marble senate guardian statue with realistic cracks",
+        kind=CardKind.BASE,
+    )
+    assert any(token in cyberpunk.theme for token in ("futuristic", "cyberpunk", "hologram", "drone", "neon"))
+    assert any(token in cyberpunk.name.lower() for token in ("cyberpunk", "hologram", "detective", "drone", "neon"))
+    assert any(token in classical.theme for token in ("classical", "marble", "senate", "realistic", "guardian", "statue"))
+    assert any(token in classical.name.lower() for token in ("classical", "marble", "senate", "guardian", "statue"))

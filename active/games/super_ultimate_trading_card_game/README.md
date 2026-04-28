@@ -16,6 +16,7 @@ Python prototype of **Super Ultimate Trading Card Game** focused on deterministi
 - live matches for AI vs AI, AI vs Player, and Player vs Player
 - backend-managed collection browsing and six-card deck building
 - shared card-frame rendering with deterministic generated SVG artwork per card
+- prompt-driven theme preservation across arbitrary genres and aesthetics
 
 ## Quick start
 
@@ -70,6 +71,8 @@ Optional environment variables:
 - `SUTCG_OPENROUTER_TITLE` - optional client title header
 
 By default, the OpenRouter generator prefers a live free-model list and retries across several candidates before falling back to deterministic generation. This makes free-tier playtesting much more resilient to temporary provider 404/429 failures.
+
+Both the live-model and deterministic paths are now pushed to preserve the player's requested **theme and genre** instead of collapsing everything into one narrow fantasy style. Prompts like futuristic, classical, realistic, industrial, historical, corporate, or mixed-aesthetic concepts should stay visible in generated names and themes.
 
 Generated cards now include `ability_summary` plus `ability_script`. Unit scripts can react to `round_start`, `combat`, and `attack_base`; base scripts can react to `round_start` and `base_attacked`. Both run through a restricted sandbox with whitelisted helper calls like `api.heal_ally(2)`, `api.gain_card_points(1)`, `api.reduce_incoming_damage(2)`, `api.add_base_damage(1)`, and weirder deterministic tricks like:
 
