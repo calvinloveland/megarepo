@@ -246,6 +246,18 @@ def test_web_can_save_deck(tmp_path: Path):
     assert b"Aggro Deck" in response.data
 
 
+def test_stylesheet_keeps_deck_builder_cards_full_size_and_flat(tmp_path: Path):
+    app = _app(tmp_path)
+    client = app.test_client()
+    response = client.get("/static/style.css")
+    assert response.status_code == 200
+    assert b".deck-assigned-card,\n.deck-pool-card {\n  width: min(100%, 14rem);" in response.data
+    assert b".deck-dropzone {\n  min-height: 22rem;" in response.data
+    assert b".game-card {\n  display: grid;" in response.data
+    assert b"background: #ead5a1;" in response.data
+    assert b".game-card--base {\n  background: #dbe5f5;" in response.data
+
+
 def test_web_can_generate_card(tmp_path: Path):
     app = _app(tmp_path)
     client = app.test_client()

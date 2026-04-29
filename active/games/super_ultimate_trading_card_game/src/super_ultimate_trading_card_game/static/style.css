@@ -518,8 +518,7 @@ pre {
   aspect-ratio: 5 / 7;
   border-radius: 24px;
   overflow: hidden;
-  background:
-    linear-gradient(180deg, #f8f1d8 0%, #e7d3a0 100%);
+  background: #ead5a1;
   border: 4px solid #9d7d3a;
   box-shadow:
     inset 0 0 0 2px rgba(255, 247, 223, 0.45),
@@ -528,7 +527,7 @@ pre {
 }
 
 .game-card--base {
-  background: linear-gradient(180deg, #edf3ff 0%, #d7e2f6 100%);
+  background: #dbe5f5;
   border-color: #6f87b3;
 }
 
@@ -546,7 +545,7 @@ pre {
   gap: 0.1rem;
   padding: 0.44rem 0.72rem 0.46rem;
   border-radius: 14px;
-  background: linear-gradient(180deg, rgba(255, 249, 232, 0.96), rgba(239, 224, 184, 0.96));
+  background: rgba(246, 236, 209, 0.97);
   border: 1px solid rgba(122, 96, 40, 0.28);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
 }
@@ -574,7 +573,7 @@ pre {
   justify-items: center;
   padding: 0.4rem 0.35rem 0.42rem;
   border-radius: 999px;
-  background: radial-gradient(circle at 30% 30%, #fff8e5 0%, #f1ddb0 62%, #ddbe76 100%);
+  background: #f0ddb0;
   border: 1px solid rgba(122, 96, 40, 0.3);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.76),
@@ -607,7 +606,7 @@ pre {
   height: 100%;
   min-height: 13.2rem;
   padding: 0.34rem;
-  background: linear-gradient(180deg, #6c5223 0%, #4f3b17 100%);
+  background: #5b4319;
   border: 1px solid rgba(75, 53, 16, 0.48);
   border-radius: 16px;
   box-shadow:
@@ -725,7 +724,7 @@ pre {
 
 .game-card__ability {
   min-height: 3.5rem;
-  background: linear-gradient(180deg, rgba(255, 252, 242, 0.98), rgba(245, 236, 210, 0.96));
+  background: rgba(245, 236, 210, 0.97);
   border: 1px solid rgba(117, 90, 39, 0.16);
   border-radius: 12px;
   padding: 0.55rem 0.6rem;
@@ -787,7 +786,7 @@ hr {
 
 .deck-slot-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: 1rem;
 }
 
@@ -812,7 +811,7 @@ hr {
 }
 
 .deck-dropzone {
-  min-height: 13rem;
+  min-height: 22rem;
   padding: 0.75rem;
   border: 2px dashed #42567f;
   border-radius: 16px;
@@ -821,7 +820,7 @@ hr {
 }
 
 .deck-dropzone--base {
-  min-height: 16rem;
+  min-height: 24rem;
 }
 
 .deck-dropzone--active {
@@ -833,7 +832,7 @@ hr {
 .deck-dropzone__content {
   min-height: 100%;
   display: grid;
-  place-items: center;
+  place-items: start center;
 }
 
 .deck-dropzone__placeholder {
@@ -844,19 +843,16 @@ hr {
 
 .deck-assigned-card,
 .deck-pool-card {
-  width: min(100%, 12rem);
+  width: min(100%, 14rem);
+  max-width: 14rem;
   cursor: grab;
-}
-
-.deck-assigned-card .game-card,
-.deck-pool-card .game-card {
-  border-width: 2px;
 }
 
 .deck-pool {
   display: flex;
   flex-wrap: wrap;
   gap: 0.9rem;
+  justify-content: center;
 }
 
 .deck-browser {
@@ -888,14 +884,15 @@ hr {
 }
 
 .deck-browser__pool {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  display: flex;
+  flex-wrap: wrap;
   gap: 1rem;
+  justify-content: center;
+  align-items: flex-start;
 }
 
 .deck-pool-card {
-  width: 100%;
-  justify-self: center;
+  flex: 0 0 14rem;
 }
 
 @media (max-width: 980px) {
