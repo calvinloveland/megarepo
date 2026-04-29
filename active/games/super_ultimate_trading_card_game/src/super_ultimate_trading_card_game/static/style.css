@@ -755,3 +755,151 @@ hr {
   border-top: 1px solid #2d3752;
   margin: 1rem 0;
 }
+
+.deck-builder-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr);
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.deck-builder-panel {
+  display: grid;
+  gap: 1rem;
+  align-content: start;
+}
+
+.deck-builder-section {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.deck-builder-section__header {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.deck-builder-section__header h2,
+.deck-builder-section__header p,
+.deck-slot__header h3 {
+  margin: 0;
+}
+
+.deck-slot-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+}
+
+.deck-slot {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.deck-slot__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.deck-slot__clear,
+.deck-dropzone__clear {
+  width: fit-content;
+  padding: 0.4rem 0.65rem;
+  background: #26324d;
+  border-color: #344666;
+}
+
+.deck-dropzone {
+  min-height: 13rem;
+  padding: 0.75rem;
+  border: 2px dashed #42567f;
+  border-radius: 16px;
+  background: #101726;
+  transition: border-color 120ms ease, background 120ms ease, box-shadow 120ms ease;
+}
+
+.deck-dropzone--base {
+  min-height: 16rem;
+}
+
+.deck-dropzone--active {
+  border-color: #9cc5ff;
+  background: #162033;
+  box-shadow: 0 0 0 3px rgba(156, 197, 255, 0.16);
+}
+
+.deck-dropzone__content {
+  min-height: 100%;
+  display: grid;
+  place-items: center;
+}
+
+.deck-dropzone__placeholder {
+  margin: 0;
+  color: #9ab1dc;
+  text-align: center;
+}
+
+.deck-assigned-card,
+.deck-pool-card {
+  width: min(100%, 12rem);
+  cursor: grab;
+}
+
+.deck-assigned-card .game-card,
+.deck-pool-card .game-card {
+  border-width: 2px;
+}
+
+.deck-pool {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.9rem;
+}
+
+.deck-browser {
+  display: grid;
+  gap: 1rem;
+}
+
+.deck-browser__header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.deck-browser__header h2,
+.deck-browser__header p {
+  margin: 0;
+}
+
+.deck-filter-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: end;
+}
+
+.deck-filter-controls label {
+  min-width: 12rem;
+}
+
+.deck-browser__pool {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1rem;
+}
+
+.deck-pool-card {
+  width: 100%;
+  justify-self: center;
+}
+
+@media (max-width: 980px) {
+  .deck-builder-layout {
+    grid-template-columns: 1fr;
+  }
+}

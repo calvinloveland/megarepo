@@ -219,6 +219,10 @@ def test_web_can_save_deck(tmp_path: Path):
     deck_page = client.get(f"/decks/{player_id}")
     assert deck_page.status_code == 200
     assert b"Starter Deck" in deck_page.data
+    assert b"data-deck-builder" in deck_page.data
+    assert b"data-card-search" in deck_page.data
+    assert b"deck_builder.js" in deck_page.data
+    assert b"data-slot-drop" in deck_page.data
     deck_data = deck_builder_result(owner_id=player_id, db_path=tmp_path / "sutcg.sqlite3")
     base_card_id = deck_data["owned_bases"][0].card_id
     cards = deck_data["owned_cards"][:6]
