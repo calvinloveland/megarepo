@@ -139,7 +139,7 @@ pre {
 .print-grid {
   display: grid;
   gap: 1rem;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
 }
 
 .print-card {
@@ -163,6 +163,11 @@ pre {
 
 .print-card__header p {
   color: #b9c7e8;
+}
+
+.print-card .game-card {
+  width: min(100%, 22rem);
+  margin: 0 auto;
 }
 
 .match-seat-grid {
@@ -508,26 +513,106 @@ pre {
 
 .game-card {
   display: grid;
-  grid-template-rows: 0.98fr 1.02fr;
+  grid-template-rows: auto auto 1fr;
   width: 100%;
   aspect-ratio: 5 / 7;
-  border-radius: 22px;
+  border-radius: 24px;
   overflow: hidden;
-  background: linear-gradient(180deg, #f5edd9 0%, #ddd0a9 100%);
-  border: 3px solid #a98d53;
-  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.28);
-  color: #261d11;
+  background:
+    linear-gradient(180deg, #f8f1d8 0%, #e7d3a0 100%);
+  border: 4px solid #9d7d3a;
+  box-shadow:
+    inset 0 0 0 2px rgba(255, 247, 223, 0.45),
+    0 16px 28px rgba(0, 0, 0, 0.32);
+  color: #2b1e0f;
 }
 
 .game-card--base {
-  background: linear-gradient(180deg, #e7edf8 0%, #ced8f0 100%);
-  border-color: #7b8eb6;
+  background: linear-gradient(180deg, #edf3ff 0%, #d7e2f6 100%);
+  border-color: #6f87b3;
+}
+
+.game-card__titlebar {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: stretch;
+  gap: 0.5rem;
+  padding: 0.65rem 0.75rem 0.38rem;
+}
+
+.game-card__nameplate {
+  min-width: 0;
+  display: grid;
+  gap: 0.1rem;
+  padding: 0.44rem 0.72rem 0.46rem;
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(255, 249, 232, 0.96), rgba(239, 224, 184, 0.96));
+  border: 1px solid rgba(122, 96, 40, 0.28);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
+}
+
+.game-card__nameplate h3 {
+  margin: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.08rem;
+  line-height: 1.05;
+}
+
+.game-card__nameplate p {
+  margin: 0;
+  color: #695634;
+  font-size: 0.73rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.game-card__vital {
+  min-width: 3.45rem;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  padding: 0.4rem 0.35rem 0.42rem;
+  border-radius: 999px;
+  background: radial-gradient(circle at 30% 30%, #fff8e5 0%, #f1ddb0 62%, #ddbe76 100%);
+  border: 1px solid rgba(122, 96, 40, 0.3);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.76),
+    0 2px 6px rgba(70, 48, 13, 0.18);
+}
+
+.game-card__vital dt,
+.game-card__vital dd {
+  margin: 0;
+}
+
+.game-card__vital dt {
+  font-size: 0.58rem;
+  letter-spacing: 0.1em;
+  color: #7a6336;
+}
+
+.game-card__vital dd {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.game-card__art-shell {
+  padding: 0 0.75rem;
 }
 
 .game-card__art {
   position: relative;
-  background: #151b2a;
-  border-bottom: 2px solid rgba(45, 55, 82, 0.28);
+  height: 100%;
+  min-height: 13.2rem;
+  padding: 0.34rem;
+  background: linear-gradient(180deg, #6c5223 0%, #4f3b17 100%);
+  border: 1px solid rgba(75, 53, 16, 0.48);
+  border-radius: 16px;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 241, 203, 0.28),
+    0 4px 10px rgba(0, 0, 0, 0.2);
 }
 
 .game-card__art img {
@@ -536,12 +621,14 @@ pre {
   height: 100%;
   min-height: 0;
   object-fit: cover;
+  border-radius: 12px;
+  border: 2px solid rgba(255, 245, 221, 0.72);
 }
 
 .game-card__type {
   position: absolute;
-  top: 0.7rem;
-  right: 0.7rem;
+  top: 0.65rem;
+  right: 0.65rem;
   background: rgba(16, 20, 31, 0.82);
   color: #eef2ff;
   border-radius: 999px;
@@ -554,7 +641,7 @@ pre {
 .game-card__rarity,
 .game-card__variant {
   position: absolute;
-  left: 0.7rem;
+  left: 0.65rem;
   background: rgba(247, 233, 181, 0.94);
   color: #3c2d08;
   border-radius: 999px;
@@ -566,12 +653,12 @@ pre {
 }
 
 .game-card__rarity {
-  top: 0.7rem;
+  top: 0.65rem;
 }
 
 .game-card__variant {
-  bottom: 0.7rem;
-  max-width: calc(100% - 1.4rem);
+  bottom: 0.65rem;
+  max-width: calc(100% - 1.3rem);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -579,45 +666,37 @@ pre {
 
 .game-card__body {
   display: grid;
-  gap: 0.55rem;
-  padding: 0.9rem;
-}
-
-.game-card__header h3 {
-  margin: 0;
-  font-size: 1rem;
-  line-height: 1.15;
-}
-
-.game-card__header p {
-  margin: 0.2rem 0 0;
-  color: #5e5135;
-  font-size: 0.86rem;
+  gap: 0.48rem;
+  align-content: start;
+  padding: 0.62rem 0.75rem 0.8rem;
+  border-top: 1px solid rgba(121, 91, 38, 0.16);
 }
 
 .game-card__stats {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.45rem;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.32rem;
   margin: 0;
 }
 
 .game-card__stats div {
-  background: rgba(255, 255, 255, 0.46);
-  border: 1px solid rgba(93, 77, 42, 0.18);
-  border-radius: 12px;
-  padding: 0.38rem 0.45rem;
+  background: rgba(255, 251, 238, 0.96);
+  border: 1px solid rgba(117, 90, 39, 0.2);
+  border-radius: 10px;
+  padding: 0.3rem 0.34rem 0.34rem;
+  text-align: center;
 }
 
 .game-card__stats dt {
   margin: 0;
-  font-size: 0.66rem;
+  font-size: 0.55rem;
   letter-spacing: 0.08em;
   color: #6c5a36;
 }
 
 .game-card__stats dd {
-  margin: 0.15rem 0 0;
+  margin: 0.1rem 0 0;
+  font-size: 0.76rem;
   font-weight: 700;
 }
 
@@ -628,21 +707,31 @@ pre {
 }
 
 .game-card__keywords {
-  font-size: 0.82rem;
+  min-height: 1.55rem;
+  padding: 0.34rem 0.52rem;
+  border-radius: 10px;
+  background: rgba(255, 251, 238, 0.88);
+  border: 1px solid rgba(117, 90, 39, 0.14);
+  font-size: 0.71rem;
   color: #6f5532;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .game-card__meta {
-  font-size: 0.8rem;
+  font-size: 0.68rem;
   color: #6f5532;
 }
 
 .game-card__ability {
-  background: rgba(255, 255, 255, 0.4);
+  min-height: 3.5rem;
+  background: linear-gradient(180deg, rgba(255, 252, 242, 0.98), rgba(245, 236, 210, 0.96));
+  border: 1px solid rgba(117, 90, 39, 0.16);
   border-radius: 12px;
-  padding: 0.6rem 0.7rem;
-  line-height: 1.35;
-  font-size: 0.9rem;
+  padding: 0.55rem 0.6rem;
+  line-height: 1.28;
+  font-size: 0.76rem;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
 }
 
 .inline-form {
