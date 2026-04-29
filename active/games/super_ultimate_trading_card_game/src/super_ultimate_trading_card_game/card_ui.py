@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+from flask import has_request_context, url_for
 from hashlib import sha256
 from urllib.parse import quote
+
+from .art_registry import card_art_variant, card_art_variant_path
 
 
 def _lookup(card, key: str, default=None):
@@ -18,6 +21,7 @@ def normalize_card(card, fallback_kind: str = "unit") -> dict[str, object]:
     kind = str(_lookup(card, "kind", fallback_kind) or fallback_kind)
     hp = int(_lookup(card, "max_hp", _lookup(card, "hp", 0)) or 0)
     current_hp = int(_lookup(card, "current_hp", hp) or hp)
+    variant = card_art_variant(card)
     return {
         "card_id": str(_lookup(card, "card_id", _lookup(card, "instance_id", "card"))),
         "name": str(_lookup(card, "name", "Unknown Card")),
@@ -37,6 +41,9 @@ def normalize_card(card, fallback_kind: str = "unit") -> dict[str, object]:
         "engaged": bool(_lookup(card, "engaged", False)),
         "keywords": keywords,
         "ability_summary": str(_lookup(card, "ability_summary", "No scripted ability.")),
+        "art_variant_id": _lookup(card, "art_variant_id"),
+        "art_variant_label": variant.label if variant else None,
+        "art_variant_rarity": variant.rarity if variant else None,
     }
 
 
@@ -269,3 +276,14 @@ def card_art_svg(card, fallback_kind: str = "unit") -> str:
 
 def card_art_data_uri(card, fallback_kind: str = "unit") -> str:
     return "data:image/svg+xml;utf8," + quote(card_art_svg(card, fallback_kind))
+
+
+def card_art_uri(card, fallback_kind: str = "unit") -> str:
+    asset_path = card_art_variant_path(card)
+    if asset_path is None:
+        return card_art_data_uri(card, fallback_kind)
+    variant = card_art_variant(card)
+    static_path = variant.static_path if variant is not None else asset_path.name
+    if has_request_context():
+        return url_for("static", filename=static_path)
+    return f"/static/{static_path}"

@@ -3,7 +3,13 @@
   <article class="game-card game-card--{{ card.kind }}">
     <div class="game-card__art">
       <img src="{{ card_art_uri(raw_card, fallback_kind) }}" alt="{{ card.name }} artwork" />
+      {% if card.art_variant_rarity %}
+        <span class="game-card__rarity">{{ card.art_variant_rarity }}</span>
+      {% endif %}
       <span class="game-card__type">{{ card.kind|upper }}</span>
+      {% if card.art_variant_label %}
+        <span class="game-card__variant">{{ card.art_variant_label }}</span>
+      {% endif %}
     </div>
     <div class="game-card__body">
       <header class="game-card__header">

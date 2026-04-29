@@ -5,7 +5,7 @@ from pathlib import Path
 
 from flask import Flask, redirect, render_template, request, url_for
 
-from .card_ui import card_art_data_uri, normalize_card
+from .card_ui import card_art_uri, normalize_card
 from .models import CardKind
 from .sim_api import (
     DEFAULT_BOT_IDS,
@@ -49,7 +49,7 @@ def create_app(config_overrides: dict | None = None) -> Flask:
     if config_overrides:
         app.config.update(config_overrides)
     app.jinja_env.globals["normalize_card"] = normalize_card
-    app.jinja_env.globals["card_art_uri"] = card_art_data_uri
+    app.jinja_env.globals["card_art_uri"] = card_art_uri
 
     def _db_path() -> Path:
         db_path = Path(app.config["SUTCG_DB_PATH"])

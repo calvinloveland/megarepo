@@ -69,6 +69,7 @@ class CardDefinition:
     passive: PassiveAbility = PassiveAbility()
     ability_summary: str = "No scripted ability."
     ability_script: str = ""
+    art_variant_id: str | None = None
 
     def has_keyword(self, keyword: str) -> bool:
         return keyword in self.keywords

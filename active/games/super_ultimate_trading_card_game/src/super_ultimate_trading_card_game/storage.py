@@ -169,6 +169,7 @@ def card_to_payload(card: CardDefinition) -> dict[str, Any]:
         },
         "ability_summary": card.ability_summary,
         "ability_script": card.ability_script,
+        "art_variant_id": card.art_variant_id,
     }
 
 
@@ -196,6 +197,11 @@ def card_from_payload(payload: dict[str, Any]) -> CardDefinition:
         ),
         ability_summary=str(payload.get("ability_summary", "No scripted ability.")),
         ability_script=str(payload.get("ability_script", "")),
+        art_variant_id=(
+            None
+            if payload.get("art_variant_id") in (None, "")
+            else str(payload.get("art_variant_id"))
+        ),
     )
 
 

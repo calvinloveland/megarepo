@@ -522,6 +522,32 @@ pre {
   font-weight: 700;
 }
 
+.game-card__rarity,
+.game-card__variant {
+  position: absolute;
+  left: 0.7rem;
+  background: rgba(247, 233, 181, 0.94);
+  color: #3c2d08;
+  border-radius: 999px;
+  padding: 0.18rem 0.55rem;
+  font-size: 0.68rem;
+  letter-spacing: 0.05em;
+  font-weight: 800;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.22);
+}
+
+.game-card__rarity {
+  top: 0.7rem;
+}
+
+.game-card__variant {
+  bottom: 0.7rem;
+  max-width: calc(100% - 1.4rem);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .game-card__body {
   display: grid;
   gap: 0.55rem;

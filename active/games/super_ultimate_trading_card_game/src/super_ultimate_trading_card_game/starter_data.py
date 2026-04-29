@@ -72,6 +72,7 @@ def starter_pool(owner_id: str) -> list[CardDefinition]:
             keywords=(),
             role_tags=("attacker",),
             passive=PassiveAbility("none", 0, "No passive ability."),
+            art_variant_id="track-lancer-velocity-rare",
         ),
         CardDefinition(
             card_id=f"{owner_id}-starter-archer",
@@ -108,4 +109,3 @@ def starter_pool(owner_id: str) -> list[CardDefinition]:
             passive=PassiveAbility("none", 0, "No passive ability."),
         ),
     ]
-

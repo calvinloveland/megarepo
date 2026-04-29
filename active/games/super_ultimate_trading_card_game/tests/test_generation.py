@@ -1,4 +1,5 @@
 import json
+from dataclasses import replace
 
 from pathlib import Path
 from urllib.error import HTTPError
@@ -85,11 +86,13 @@ def test_openrouter_generator_retries_candidate_models_before_fallback():
 def test_generated_card_can_be_persisted(tmp_path: Path):
     generator = DeterministicCardGenerator(seed=99)
     card = generator.generate_card("persist-user", "A persistent flying medic", kind=CardKind.UNIT)
+    card = replace(card, art_variant_id="track-lancer-velocity-rare")
     db_path = tmp_path / "sutcg.sqlite3"
     save_card(card, path=db_path)
     owned_cards, owned_bases = load_owned_cards("persist-user", path=db_path)
     assert card.card_id in owned_cards
     assert owned_cards[card.card_id].ability_script == card.ability_script
+    assert owned_cards[card.card_id].art_variant_id == "track-lancer-velocity-rare"
     assert owned_bases == {}
 
 

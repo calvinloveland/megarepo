@@ -34,6 +34,9 @@ def test_web_index_uses_cookie_backed_player_after_registration(tmp_path: Path):
     assert b"Create Live Game" not in response.data
     assert b"game-card" in response.data
     assert b"data:image/svg+xml" in response.data
+    assert b"/static/card_art/track-lancer-velocity-rare.png" in response.data
+    assert b"Rare Alt Art" in response.data
+    assert b"Velocity Charge" in response.data
 
 
 def test_web_can_update_generator_preference(tmp_path: Path):
