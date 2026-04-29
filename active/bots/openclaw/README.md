@@ -122,7 +122,9 @@ The deployment installs Debian `chromium` inside the pod and configures the Open
 
 On startup, the pod also removes stale Chromium `Singleton*` lock files from the persistent OpenClaw browser profile. That matters on this PVC-backed deployment because crashed or replaced pods can otherwise leave the shared profile in a permanently "already running" state.
 
-Fresh pod starts can take a couple of minutes before readiness goes green because the container installs `chromium` into the ephemeral filesystem before launching the gateway.
+Fresh pod starts can take significantly longer than a couple of minutes before readiness goes green because the container installs `chromium` into the ephemeral filesystem before launching the gateway. The deployment therefore uses a long startup probe window and disables rollout surge so only one expensive startup runs on the single thinker node at a time.
+
+The startup script now writes the full `openclaw.json` in one shot instead of chaining many `openclaw config set ...` mutations at boot. That keeps the pod from stalling in `openclaw-config` before the gateway ever binds its health port.
 
 ## Model fallback
 
