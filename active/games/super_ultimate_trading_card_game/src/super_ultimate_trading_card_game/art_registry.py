@@ -49,13 +49,19 @@ ART_VARIANTS = {
 
 
 def card_art_variant(card) -> CardArtVariant | None:
-    explicit_variant_id = _lookup(card, "art_variant_id")
-    if explicit_variant_id:
+    explicit_variant_id = _lookup(card, "art_variant_id", "__missing__")
+    if explicit_variant_id != "__missing__":
+        if explicit_variant_id in (None, ""):
+            return None
         return ART_VARIANTS.get(str(explicit_variant_id))
     for variant in ART_VARIANTS.values():
         if variant.matches_card(card):
             return variant
     return None
+
+
+def card_art_variants_for_card(card) -> list[CardArtVariant]:
+    return [variant for variant in ART_VARIANTS.values() if variant.matches_card(card)]
 
 
 def card_art_variant_path(card) -> Path | None:

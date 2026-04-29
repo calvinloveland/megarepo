@@ -3,6 +3,7 @@ from __future__ import annotations
 import itertools
 import re
 import secrets
+from dataclasses import replace
 from pathlib import Path
 from statistics import mean
 from typing import Any
@@ -20,6 +21,7 @@ from .engine import (
 )
 from .generation import get_generator
 from .models import DECK_SIZE, TRACK_LENGTH, CardDefinition, CardKind, MatchResult, PlannedPlay, RoundDecision, TrackName
+from .starter_data import starter_pool
 from .storage import (
     StoredDeck,
     StoredLiveMatch,
@@ -229,10 +231,22 @@ def ensure_builtin_collection(
     init_db(resolved_db)
     bot = _hydrated_profile(owner_id, seed=seed, db_path=resolved_db)
     if bot.profile.owned_cards and bot.profile.owned_bases:
+        _backfill_builtin_art_variants(bot, db_path=resolved_db)
         return
     generator = get_generator(generator_name, seed=seed)
     bot.ensure_collection(generator)
     save_bot_collection(bot, path=resolved_db)
+
+
+def _backfill_builtin_art_variants(bot: PrototypeBot, *, db_path: Path) -> None:
+    starter_art_ids = {card.card_id: card.art_variant_id for card in starter_pool(bot.player_id) if card.art_variant_id}
+    for card_id, art_variant_id in starter_art_ids.items():
+        existing = bot.profile.owned_cards.get(card_id)
+        if existing is None or existing.art_variant_id == art_variant_id:
+            continue
+        updated = replace(existing, art_variant_id=art_variant_id)
+        bot.profile.owned_cards[card_id] = updated
+        save_card(updated, path=db_path)
 
 
 def ensure_default_deck(

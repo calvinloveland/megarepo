@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% from "_card.html" import render_card %}
+{% block title %}{{ card.name }} Prints{% endblock %}
+{% block content %}
+  <section class="panel">
+    <h1>{{ card.name }}</h1>
+    <p>
+      {{ display_name }} · {{ card.theme }}
+      ·
+      <a href="{{ url_for('cards_index', owner_id=owner_id) }}">Back to card gallery</a>
+    </p>
+    <p>{{ prints|length }} print{% if prints|length != 1 %}s{% endif %}: the standard fallback art plus any registered alternate artworks.</p>
+  </section>
+
+  <section class="panel">
+    <div class="print-grid">
+      {% for print in prints %}
+        <article class="print-card">
+          <header class="print-card__header">
+            <h2>{{ print.label }}</h2>
+            <p>{{ print.note }}</p>
+          </header>
+          {{ render_card(print.card, 'unit') }}
+        </article>
+      {% endfor %}
+    </div>
+  </section>
+{% endblock %}

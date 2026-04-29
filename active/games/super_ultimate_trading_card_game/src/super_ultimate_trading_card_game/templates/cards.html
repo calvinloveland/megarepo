@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% from "_card.html" import render_card %}
+{% block title %}Card Gallery{% endblock %}
+{% block content %}
+  <section class="panel">
+    <h1>{{ display_name }} Card Gallery</h1>
+    <form method="get" action="{{ url_for('cards_index') }}" class="stack">
+      <label>Owner
+        <select name="owner_id">
+          {% for candidate in owner_ids %}
+            <option value="{{ candidate }}" {% if candidate == owner_id %}selected{% endif %}>{{ candidate }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <button type="submit">Switch gallery owner</button>
+    </form>
+    <p>Browse individual cards and open a dedicated print page for alternate art variants.</p>
+  </section>
+
+  <section class="panel">
+    <div class="collection-list wide">
+      {% for entry in entries %}
+        <article class="card-block stack">
+          {{ render_card(entry.card, 'unit') }}
+          <p>
+            {{ entry.variant_count }} alternate art{% if entry.variant_count != 1 %}s{% endif %}
+            ·
+            <a href="{{ url_for('card_detail', slug=entry.slug, owner_id=owner_id) }}">View prints</a>
+          </p>
+        </article>
+      {% else %}
+        <p>No cards available for this owner yet.</p>
+      {% endfor %}
+    </div>
+  </section>
+{% endblock %}

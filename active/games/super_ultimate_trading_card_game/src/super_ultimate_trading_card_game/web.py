@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import argparse
+import re
+from dataclasses import replace
 from pathlib import Path
 
 from flask import Flask, redirect, render_template, request, url_for
 
+from .art_registry import card_art_variants_for_card
 from .card_ui import card_art_uri, normalize_card
 from .models import CardKind
 from .sim_api import (
@@ -35,7 +38,7 @@ from .sim_api import (
     update_player_preferences,
     advance_live_match,
 )
-from .storage import default_db_path, init_db
+from .storage import default_db_path, init_db, load_owned_cards
 
 PLAYER_COOKIE = "sutcg_player_key"
 
@@ -55,6 +58,51 @@ def create_app(config_overrides: dict | None = None) -> Flask:
         db_path = Path(app.config["SUTCG_DB_PATH"])
         init_db(db_path)
         return db_path
+
+    def _card_slug(name: str) -> str:
+        slug = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
+        return slug or "card"
+
+    def _owner_cards(owner_id: str) -> list:
+        load_collection_result(owner_id=owner_id, db_path=_db_path())
+        owned_cards, _owned_bases = load_owned_cards(owner_id, path=_db_path())
+        return list(owned_cards.values())
+
+    def _gallery_entries(owner_id: str) -> list[dict]:
+        cards = sorted(_owner_cards(owner_id), key=lambda card: (card.name.lower(), card.card_id))
+        return [
+            {
+                "card": card,
+                "slug": _card_slug(card.name),
+                "variant_count": len(card_art_variants_for_card(card)),
+            }
+            for card in cards
+        ]
+
+    def _card_prints(card) -> list[dict]:
+        prints = [
+            {
+                "label": "Standard Art",
+                "note": "Generated SVG fallback art",
+                "card": replace(card, art_variant_id="__standard__"),
+            }
+        ]
+        for variant in card_art_variants_for_card(card):
+            prints.append(
+                {
+                    "label": variant.label,
+                    "note": variant.rarity or "Alternate art",
+                    "card": replace(card, art_variant_id=variant.variant_id),
+                }
+            )
+        return prints
+
+    def _find_owner_card(owner_id: str, slug: str):
+        normalized_slug = slug.strip().lower()
+        for card in _owner_cards(owner_id):
+            if _card_slug(card.name) == normalized_slug:
+                return card
+        return None
 
     def _current_player():
         return current_player_profile(request.cookies.get(PLAYER_COOKIE), db_path=_db_path())
@@ -287,6 +335,36 @@ def create_app(config_overrides: dict | None = None) -> Flask:
     def collection_detail(owner_id: str):
         collection = load_collection_result(owner_id=owner_id, db_path=_db_path())
         return render_template("collection.html", collection=collection, owner_id=owner_id)
+
+    @app.get("/cards")
+    def cards_index():
+        current_player = _current_player()
+        owner_id = request.args.get("owner_id") or (current_player.player_id if current_player is not None else "alpha")
+        collection = load_collection_result(owner_id=owner_id, db_path=_db_path())
+        return render_template(
+            "cards.html",
+            owner_id=owner_id,
+            display_name=collection["display_name"],
+            owner_ids=known_owner_ids(db_path=_db_path()),
+            entries=_gallery_entries(owner_id),
+        )
+
+    @app.get("/cards/<slug>")
+    def card_detail(slug: str):
+        current_player = _current_player()
+        owner_id = request.args.get("owner_id") or (current_player.player_id if current_player is not None else "alpha")
+        card = _find_owner_card(owner_id, slug)
+        if card is None:
+            return redirect(url_for("cards_index", owner_id=owner_id))
+        collection = load_collection_result(owner_id=owner_id, db_path=_db_path())
+        return render_template(
+            "card_detail.html",
+            owner_id=owner_id,
+            display_name=collection["display_name"],
+            card=card,
+            prints=_card_prints(card),
+            card_slug=_card_slug(card.name),
+        )
 
     @app.get("/decks/<owner_id>")
     def decks_detail(owner_id: str):

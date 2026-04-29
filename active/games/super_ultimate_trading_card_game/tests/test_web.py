@@ -39,6 +39,28 @@ def test_web_index_uses_cookie_backed_player_after_registration(tmp_path: Path):
     assert b"Velocity Charge" in response.data
 
 
+def test_card_gallery_lists_owner_cards(tmp_path: Path):
+    app = _app(tmp_path)
+    client = app.test_client()
+    response = client.get("/cards?owner_id=alpha")
+    assert response.status_code == 200
+    assert b"Alpha Atelier Card Gallery" in response.data
+    assert b"Track Lancer" in response.data
+    assert b"View prints" in response.data
+
+
+def test_card_detail_shows_standard_and_alternate_art(tmp_path: Path):
+    app = _app(tmp_path)
+    client = app.test_client()
+    response = client.get("/cards/track-lancer?owner_id=alpha")
+    assert response.status_code == 200
+    assert b"Track Lancer" in response.data
+    assert b"Standard Art" in response.data
+    assert b"Velocity Charge" in response.data
+    assert b"/static/card_art/track-lancer-velocity-rare.png" in response.data
+    assert b"data:image/svg+xml" in response.data
+
+
 def test_web_can_update_generator_preference(tmp_path: Path):
     app = _app(tmp_path)
     client = app.test_client()
