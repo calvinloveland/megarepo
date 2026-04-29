@@ -99,6 +99,7 @@ in
     gh # github cli w/ copilot
     codex # OpenAI Codex CLI
     github-copilot-cli # github copilot cli
+    pi-agent-harness # Pi coding agent CLI
     wl-clipboard # wl-copy and wl-paste for copy/paste from stdin / stdout
     xdg-utils # xdg-open for opening URLs/files with default applications
 

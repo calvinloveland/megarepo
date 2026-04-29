@@ -77,6 +77,9 @@
           hash = "sha256-i77fn0DOW/VjCzXY4mQbmtADQ2pFsju4zPM9iZNmmG8=";
         };
       };
+      piAgentHarnessVersion = "0.70.6";
+      piAgentHarnessSrcHash = "sha256-6ycYjAKqPbXkyzyGL+ZaJKfZGmZEDJxNA3WuGoK43qc=";
+      piAgentHarnessNpmDepsHash = "sha256-mEnM4xYMQDn2Xk5joOyacoLVVoKpHoBdAvLKtFcFRI4=";
 
       # Track github-copilot-cli ahead of nixpkgs while nixos-unstable lags.
       # Preserve the binary filename as "copilot" because the CLI
@@ -108,6 +111,29 @@
             };
           });
         };
+
+      piAgentHarnessOverlay = final: prev: {
+        pi-agent-harness = prev.buildNpmPackage {
+          pname = "pi-agent-harness";
+          version = piAgentHarnessVersion;
+          src = prev.fetchurl {
+            url = "https://registry.npmjs.org/@mariozechner/pi-coding-agent/-/pi-coding-agent-${piAgentHarnessVersion}.tgz";
+            hash = piAgentHarnessSrcHash;
+          };
+          postPatch = ''
+            cp ${./pi-agent-harness-package-lock.json} package-lock.json
+          '';
+          npmDepsHash = piAgentHarnessNpmDepsHash;
+          dontNpmBuild = true;
+          meta = with prev.lib; {
+            description = "Pi coding agent CLI";
+            homepage = "https://github.com/badlogic/pi-mono";
+            license = licenses.mit;
+            mainProgram = "pi";
+            platforms = platforms.linux;
+          };
+        };
+      };
 
       supportedSystems = [ "x86_64-linux" ];
 
@@ -241,6 +267,7 @@ PY
       commonOverlays = [
         kickstart-nix-nvim.overlays.default
         githubCopilotCliOverlay
+        piAgentHarnessOverlay
       ];
     in
     {
