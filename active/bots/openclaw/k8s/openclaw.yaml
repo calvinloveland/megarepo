@@ -99,13 +99,21 @@ spec:
                 "agents": {
                   "defaults": {
                     "model": {
-                      "primary": "openrouter/auto",
+                      "primary": "mistralai/mistral-nemo",
                       "fallbacks": [
+                        "meta-llama/llama-3.1-8b-instruct",
+                        "meta-llama/llama-3-8b-instruct",
+                        "qwen/qwen-2.5-7b-instruct",
+                        "qwen/qwen-turbo",
                         "openrouter/free"
                       ]
                     },
                     "models": {
-                      "openrouter/auto": {},
+                      "mistralai/mistral-nemo": {},
+                      "meta-llama/llama-3.1-8b-instruct": {},
+                      "meta-llama/llama-3-8b-instruct": {},
+                      "qwen/qwen-2.5-7b-instruct": {},
+                      "qwen/qwen-turbo": {},
                       "openrouter/free": {}
                     }
                   }

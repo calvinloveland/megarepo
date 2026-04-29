@@ -128,7 +128,7 @@ The startup script now writes the full `openclaw.json` in one shot instead of ch
 
 ## Model fallback
 
-The deployment uses the paid OpenRouter key as the default provider and keeps `openrouter/auto` as the primary default model with `openrouter/free` as the first fallback for quota or daily-limit exhaustion.
+The deployment uses the paid OpenRouter key with an explicit cheap-first text model list instead of `openrouter/auto`. It starts on `mistralai/mistral-nemo`, then falls back through a few other low-cost tool-capable models before finally using `openrouter/free` for quota or daily-limit exhaustion.
 
 Refresh the Kubernetes secret from the thinker host with:
 
