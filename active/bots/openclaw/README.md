@@ -5,6 +5,7 @@ Cluster-internal OpenClaw gateway deployment for the thinker k3s cluster.
 ## Files
 
 - `k8s/openclaw.yaml` - Namespace, PVC, Deployment, and Service for the OpenClaw gateway.
+- `scripts/manage_thinker_proxy.py` - Starts and inspects the thinker-side `kubectl port-forward` plus the userspace Tailscale Serve proxy.
 
 ## Secrets
 
@@ -54,7 +55,27 @@ TOKEN=$(kubectl -n openclaw get secret openclaw-env -o go-template='{{index .dat
 
 Open the printed URL once in your browser. After that, the Control UI keeps the token in session storage for that browser tab session.
 
-If the user-level Tailscale Serve proxy on `thinker` ever starts returning TLS errors or a blank/404-ish failure before the OpenClaw UI loads, make sure the userspace daemon was started with a writable `--statedir` in addition to `--state`. HTTPS cert issuance for Serve fails without it and logs `no TailscaleVarRoot`.
+The preferred way to keep that proxy healthy on `thinker` is:
+
+```bash
+python3 active/bots/openclaw/scripts/manage_thinker_proxy.py start
+```
+
+That helper starts two local processes on `thinker`:
+
+1. `kubectl -n openclaw port-forward --address 127.0.0.1 svc/openclaw 18789:18789`
+2. `tailscaled --tun=userspace-networking` with both a persistent `--state` file and a writable `--statedir`, then `tailscale serve --bg --https 8443 http://127.0.0.1:18789`
+
+If the tailnet URL ever starts returning TLS errors or a blank/404-ish failure before the OpenClaw UI loads, run the helper again. The root cause is usually a userspace Tailscale daemon that was launched with `--state` but without a writable `--statedir`, which breaks certificate issuance for Serve and logs `no TailscaleVarRoot`.
+
+Useful helper commands:
+
+```bash
+python3 active/bots/openclaw/scripts/manage_thinker_proxy.py status
+python3 active/bots/openclaw/scripts/manage_thinker_proxy.py stop
+```
+
+The helper keeps logs, pid files, and Tailscale userspace state under `~/.local/state/openclaw-proxy/`.
 
 ## Telegram
 
