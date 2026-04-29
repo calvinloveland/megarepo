@@ -99,9 +99,13 @@ spec:
                 "agents": {
                   "defaults": {
                     "model": {
-                      "primary": "openrouter/free"
+                      "primary": "openrouter/auto",
+                      "fallbacks": [
+                        "openrouter/free"
+                      ]
                     },
                     "models": {
+                      "openrouter/auto": {},
                       "openrouter/free": {}
                     }
                   }

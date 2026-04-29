@@ -128,9 +128,21 @@ The startup script now writes the full `openclaw.json` in one shot instead of ch
 
 ## Model fallback
 
-The deployment keeps `openrouter/free` as the primary default model and configures `github-copilot/gpt-4.1` as the first fallback.
+The deployment uses the paid OpenRouter key as the default provider and keeps `openrouter/auto` as the primary default model with `openrouter/free` as the first fallback for quota or daily-limit exhaustion.
 
-The GitHub Copilot provider requires an interactive device login (`openclaw models auth login-github-copilot`) and stores the resulting auth profile in the persistent OpenClaw state. Once that profile exists on the PVC, restarts keep the fallback available.
+Refresh the Kubernetes secret from the thinker host with:
+
+```bash
+kubectl -n openclaw patch secret openclaw-env --type merge \
+  --patch "$(python3 - <<'PY'
+import base64
+from pathlib import Path
+
+key = Path.home().joinpath('.openrouter_claw_key').read_text().strip().encode()
+print('{"data":{"openrouter-api-key":"%s"}}' % base64.b64encode(key).decode())
+PY
+)"
+```
 
 ## Web search providers
 
