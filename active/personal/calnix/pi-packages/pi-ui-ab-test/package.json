@@ -1,0 +1,40 @@
+{
+  "name": "pi-ui-ab-test",
+  "version": "0.1.0",
+  "description": "Pi extension that lets the model present two visual variants and collect a user preference through an interactive A/B picker",
+  "keywords": [
+    "pi-package",
+    "pi-extension",
+    "ui",
+    "design",
+    "ab-test"
+  ],
+  "license": "MIT",
+  "author": "Calvin Loveland <calvin@loveland.dev>",
+  "private": false,
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/calvinloveland/megarepo.git",
+    "directory": "active/personal/calnix/pi-packages/pi-ui-ab-test"
+  },
+  "homepage": "https://github.com/calvinloveland/megarepo/tree/main/active/personal/calnix/pi-packages/pi-ui-ab-test#readme",
+  "bugs": {
+    "url": "https://github.com/calvinloveland/megarepo/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "extensions",
+    "README.md",
+    "LICENSE"
+  ],
+  "peerDependencies": {
+    "@mariozechner/pi-coding-agent": "*",
+    "@mariozechner/pi-tui": "*",
+    "typebox": "*"
+  },
+  "pi": {
+    "extensions": ["./extensions"]
+  }
+}
