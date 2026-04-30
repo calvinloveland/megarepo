@@ -6,7 +6,7 @@
  *   shows the models you care about.
  * - On HTTP 403, immediately switches to openrouter/free and re-sends the
  *   last prompt as a follow-up.
- * - Shows the per-token cost rate in the footer for OpenRouter models.
+ * - Shows the model pricing rate in the footer for OpenRouter models.
  * - No custom slash commands.
  */
 
@@ -36,11 +36,10 @@ function formatCost(model: any): string {
 	if (!model?.cost) return "";
 	const c = model.cost;
 	const parts: string[] = [];
-	const fmt = (dollars: number): string => {
-		if (dollars === 0) return "$0";
-		const perM = dollars * 1_000_000;
-		if (perM >= 0.01) return `$${perM.toFixed(2)}/M`;
-		return `$${perM.toFixed(4)}/M`;
+	const fmt = (dollarsPerM: number): string => {
+		if (dollarsPerM === 0) return "$0";
+		if (Math.abs(dollarsPerM) >= 0.01) return `$${dollarsPerM.toFixed(2)}/M`;
+		return `$${dollarsPerM.toFixed(4)}/M`;
 	};
 	if (c.input > 0) parts.push(`in ${fmt(c.input)}`);
 	else if (c.input < 0) parts.push(`in -${fmt(-c.input)}`);

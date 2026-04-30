@@ -1,6 +1,6 @@
 {
   "name": "pi-openrouter-fallback",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Pi extension for OpenRouter model scoping and automatic switch to openrouter/free on HTTP 403 with auto-resubmit",
   "keywords": [
     "pi-package",
