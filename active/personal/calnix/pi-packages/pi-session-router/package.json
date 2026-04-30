@@ -1,0 +1,39 @@
+{
+  "name": "pi-session-router",
+  "version": "0.1.1",
+  "description": "Pi extension that uses an LLM to route new prompts into the most relevant existing session before continuing",
+  "keywords": [
+    "pi-package",
+    "pi-extension",
+    "session",
+    "routing",
+    "workflow"
+  ],
+  "license": "MIT",
+  "author": "Calvin Loveland <calvin@loveland.dev>",
+  "private": false,
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/calvinloveland/megarepo.git",
+    "directory": "active/personal/calnix/pi-packages/pi-session-router"
+  },
+  "homepage": "https://github.com/calvinloveland/megarepo/tree/main/active/personal/calnix/pi-packages/pi-session-router#readme",
+  "bugs": {
+    "url": "https://github.com/calvinloveland/megarepo/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "extensions",
+    "README.md",
+    "LICENSE"
+  ],
+  "peerDependencies": {
+    "@mariozechner/pi-coding-agent": "*",
+    "@mariozechner/pi-ai": "*"
+  },
+  "pi": {
+    "extensions": ["./extensions"]
+  }
+}

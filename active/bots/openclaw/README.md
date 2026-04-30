@@ -167,6 +167,16 @@ Replace `brave` with `duckduckgo` as needed. Because the deployment rewrites its
 
 Although newer upstream OpenClaw docs mention SearXNG, the pinned deployment version here (`openclaw@2026.3.24`) does not ship a bundled `searxng` plugin, so this deployment intentionally exposes only the free providers that are actually available in that build.
 
+## Time zone
+
+The deployment sets:
+
+```yaml
+TZ: America/Denver
+```
+
+so OpenClaw and the container runtime use Mountain Time instead of UTC.
+
 ## Notes
 
 - The container installs `openclaw` onto the mounted PVC on first boot to avoid pulling the much larger all-in-one image on a disk-pressured node.

@@ -263,7 +263,7 @@ spec:
                   name: openclaw-env
                   key: hooks-token
             - name: TZ
-              value: UTC
+              value: America/Denver
           resources:
             requests:
               cpu: 100m
