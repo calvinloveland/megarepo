@@ -1,0 +1,38 @@
+{
+  "name": "pi-openrouter-fallback",
+  "version": "0.1.0",
+  "description": "Pi extension for OpenRouter model scoping and automatic switch to openrouter/free on HTTP 403 with auto-resubmit",
+  "keywords": [
+    "pi-package",
+    "pi-extension",
+    "openrouter",
+    "model-filter",
+    "fallback"
+  ],
+  "license": "MIT",
+  "author": "Calvin Loveland <calvin@loveland.dev>",
+  "private": false,
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/calvinloveland/megarepo.git",
+    "directory": "active/personal/calnix/pi-packages/pi-openrouter-fallback"
+  },
+  "homepage": "https://github.com/calvinloveland/megarepo/tree/main/active/personal/calnix/pi-packages/pi-openrouter-fallback#readme",
+  "bugs": {
+    "url": "https://github.com/calvinloveland/megarepo/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "extensions",
+    "README.md",
+    "LICENSE"
+  ],
+  "peerDependencies": {
+    "@mariozechner/pi-coding-agent": "*"
+  },
+  "pi": {
+    "extensions": ["./extensions"]
+  }
+}

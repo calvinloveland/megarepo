@@ -47,10 +47,12 @@ venv/
 # Environment files
 .env
 .env.*
+.npm_token.txt
 
 # IDE/editor folders
 .vscode/
 .idea/
+.codex
 
 # OS files
 .DS_Store
