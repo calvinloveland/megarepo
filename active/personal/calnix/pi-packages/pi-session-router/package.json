@@ -1,6 +1,6 @@
 {
   "name": "pi-session-router",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Pi extension that uses an LLM to route new prompts into the most relevant existing session before continuing",
   "keywords": [
     "pi-package",

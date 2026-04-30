@@ -24,14 +24,22 @@ Pi extension that automatically decides whether a new prompt belongs in another 
 ## Notes
 
 - this is an opinionated workflow extension
-- it uses a hidden internal command to perform session switching, because Pi only exposes session replacement APIs from command handlers
+- it uses an unsupported internal `AgentSession` hook to switch sessions invisibly during prompt interception
 - it can stay in the current session, switch to another local session, or start a new session when no good match exists
 - it keeps a lightweight cache at `~/.pi/agent/session-router-cache.json`
+- routing heuristics now use exact informative-token overlap instead of loose substring matching, which avoids false `CURRENT` decisions on unrelated prompts
 
 ## Local test
 
 ```bash
 pi -e ./pi-packages/pi-session-router
+```
+
+## Logic tests
+
+```bash
+cd pi-packages/pi-session-router
+node --test tests/router-logic.test.mjs
 ```
 
 ## Install from local path

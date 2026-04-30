@@ -20,17 +20,14 @@
  */
 
 import { complete, type Message, type Model } from "@mariozechner/pi-ai";
-import { AgentSession, SessionManager, type ExtensionAPI, type SessionInfo } from "@mariozechner/pi-coding-agent";
+import { AgentSession, SessionManager, type ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { homedir } from "node:os";
+import { buildCandidates, getHeuristicDecision, makeSnippet } from "./router-logic.mjs";
 
 const STATE_TYPE = "session-router-state";
-const MAX_RECENT_SESSIONS = 20;
-const MAX_LLM_CANDIDATES = 8;
-const MAX_SNIPPET_CHARS = 700;
 const SUMMARY_CACHE_PATH = join(homedir(), ".pi", "agent", "session-router-cache.json");
-const CONTINUATION_WINDOW_MS = 1000 * 60 * 60 * 6;
 
 interface RoutedPromptPayload {
 	text: string;
@@ -90,26 +87,6 @@ function installAgentSessionCapture(): void {
 	};
 }
 
-function tokenize(text: string): string[] {
-	return (text.toLowerCase().match(/[a-z0-9_./-]{3,}/g) ?? []).slice(0, 64);
-}
-
-function scoreSession(promptTokens: string[], info: SessionInfo, cachedSummary?: string): number {
-	const hay = `${info.name ?? ""}\n${info.firstMessage}\n${cachedSummary ?? ""}\n${info.allMessagesText}`.toLowerCase();
-	let score = 0;
-	for (const token of promptTokens) {
-		if (hay.includes(token)) score += 1;
-	}
-	return score;
-}
-
-function makeSnippet(text: string, maxChars = MAX_SNIPPET_CHARS): string {
-	const cleaned = text.replace(/\s+/g, " ").trim();
-	if (cleaned.length <= maxChars) return cleaned;
-	const head = cleaned.slice(0, Math.floor(maxChars / 2));
-	const tail = cleaned.slice(-Math.floor(maxChars / 2));
-	return `${head} … ${tail}`;
-}
 
 async function readSummaryCache(): Promise<SessionSummaryCache> {
 	try {
@@ -188,40 +165,6 @@ function notifyRoutingDecision(ctx: any, message: string, level: "info" | "warni
 	ctx.ui.notify(message, level);
 }
 
-function buildCandidates(
-	sessions: SessionInfo[],
-	currentSessionFile: string | undefined,
-	prompt: string,
-	cache: SessionSummaryCache,
-): Candidate[] {
-	const promptTokens = tokenize(prompt);
-	const recent = [...sessions]
-		.sort((a, b) => b.modified.getTime() - a.modified.getTime())
-		.slice(0, MAX_RECENT_SESSIONS);
-
-	const ranked = recent
-		.map((info) => ({
-			info,
-			score: scoreSession(promptTokens, info, cache[info.path]?.summary),
-		}))
-		.sort((a, b) => {
-			if (b.score !== a.score) return b.score - a.score;
-			return b.info.modified.getTime() - a.info.modified.getTime();
-		})
-		.slice(0, MAX_LLM_CANDIDATES)
-		.map(({ info, score }, idx) => ({
-			key: `S${idx + 1}`,
-			path: info.path,
-			name: info.name,
-			modified: info.modified.toISOString(),
-			firstMessage: info.firstMessage,
-			snippet: makeSnippet(cache[info.path]?.summary ?? info.allMessagesText),
-			current: currentSessionFile === info.path,
-			score,
-		}));
-
-	return ranked;
-}
 
 function buildPromptContent(payload: RoutedPromptPayload): string | Array<{ type: "text" } | Record<string, unknown>> {
 	if (payload.images && payload.images.length > 0) {
@@ -230,25 +173,6 @@ function buildPromptContent(payload: RoutedPromptPayload): string | Array<{ type
 	return payload.text;
 }
 
-function isLikelyContinuation(prompt: string, currentCandidate: Candidate | undefined): boolean {
-	if (!currentCandidate) return false;
-	const lower = prompt.trim().toLowerCase();
-	const continuationPrefixes = [
-		"continue",
-		"also",
-		"now",
-		"next",
-		"fix that",
-		"do that",
-		"go ahead",
-		"and ",
-		"what about",
-		"can you also",
-	];
-	const looksLikeContinuation = continuationPrefixes.some((prefix) => lower.startsWith(prefix));
-	const recentlyActive = Date.now() - new Date(currentCandidate.modified).getTime() < CONTINUATION_WINDOW_MS;
-	return looksLikeContinuation || (recentlyActive && currentCandidate.score >= 2);
-}
 
 async function selectRoutingModel(ctx: any): Promise<Model<any> | null> {
 	const free = ctx.modelRegistry.find?.("openrouter", "openrouter/free");
@@ -272,20 +196,8 @@ async function routePrompt(payload: RoutedPromptPayload, ctx: any): Promise<Rout
 	const candidates = buildCandidates(sessions, currentSessionFile, payload.text, cache);
 	if (candidates.length === 0) return null;
 
-	const promptTokens = tokenize(payload.text);
-	const topScore = candidates[0]?.score ?? 0;
-	if (promptTokens.length >= 3 && topScore <= 1) {
-		return {
-			choice: "NEW",
-			confidence: 0.99,
-			reason: "Prompt has almost no overlap with any recent local session, so it should start a new session.",
-		};
-	}
-
-	const currentCandidate = candidates.find((c) => c.current);
-	if (isLikelyContinuation(payload.text, currentCandidate)) {
-		return { choice: "CURRENT", confidence: 0.98, reason: "Prompt looks like a continuation of the current session." };
-	}
+	const heuristicDecision = getHeuristicDecision(payload.text, candidates);
+	if (heuristicDecision) return heuristicDecision;
 
 	const routingModel = await selectRoutingModel(ctx);
 	if (!routingModel) return null;
