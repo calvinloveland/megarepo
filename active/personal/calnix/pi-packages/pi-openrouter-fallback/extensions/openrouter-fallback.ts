@@ -1,11 +1,12 @@
 /**
- * OpenRouter model scoping + 403 -> openrouter/free auto-resubmit
+ * OpenRouter model scoping + 403 -> openrouter/free auto-resubmit + cost display
  *
  * Behavior:
  * - Replaces the OpenRouter model list with a curated subset so /model only
  *   shows the models you care about.
  * - On HTTP 403, immediately switches to openrouter/free and re-sends the
  *   last prompt as a follow-up.
+ * - Shows the per-token cost rate in the footer for OpenRouter models.
  * - No custom slash commands.
  */
 
@@ -31,7 +32,30 @@ let lastPrompt: string | null = null;
 let retryQueued = false;
 let providerScoped = false;
 
+function formatCost(model: any): string {
+	if (!model?.cost) return "";
+	const c = model.cost;
+	const parts: string[] = [];
+	const fmt = (dollars: number): string => {
+		if (dollars === 0) return "$0";
+		const perM = dollars * 1_000_000;
+		if (perM >= 0.01) return `$${perM.toFixed(2)}/M`;
+		return `$${perM.toFixed(4)}/M`;
+	};
+	if (c.input > 0) parts.push(`in ${fmt(c.input)}`);
+	else if (c.input < 0) parts.push(`in -${fmt(-c.input)}`);
+	if (c.output > 0) parts.push(`out ${fmt(c.output)}`);
+	else if (c.output < 0) parts.push(`out -${fmt(-c.output)}`);
+	return parts.length > 0 ? ` (${parts.join(", ")})` : "";
+}
+
 export default function (pi: ExtensionAPI) {
+	function updateCostFooter(ctx: any): void {
+		if (!ctx.model || ctx.model.provider !== PROVIDER) return;
+		const costText = formatCost(ctx.model);
+		ctx.ui.setStatus("openrouter-cost", costText);
+	}
+
 	pi.on("session_start", async (_event, ctx) => {
 		lastPrompt = null;
 		retryQueued = false;
@@ -67,6 +91,7 @@ export default function (pi: ExtensionAPI) {
 		}
 
 		ctx.ui.setStatus("models", "🔒 OpenRouter scoped");
+		updateCostFooter(ctx);
 	});
 
 	pi.on("before_agent_start", async (event, _ctx) => {
@@ -98,6 +123,7 @@ export default function (pi: ExtensionAPI) {
 
 		retryQueued = true;
 		ctx.ui.setStatus("models", "⚠️ Using openrouter/free");
+		updateCostFooter(ctx);
 		ctx.ui.notify("403 hit — switched to openrouter/free and retrying.", "warning");
 
 		if (lastPrompt) {
@@ -107,10 +133,19 @@ export default function (pi: ExtensionAPI) {
 
 	pi.on("model_select", async (event, ctx) => {
 		const id = `${event.model.provider}/${event.model.id}`;
-		if (id === `${PROVIDER}/${FREE_MODEL_ID}` || event.model.id === FREE_MODEL_ID) {
-			ctx.ui.setStatus("models", "⚠️ Using openrouter/free");
+		if (event.model.provider === PROVIDER) {
+			if (id === `${PROVIDER}/${FREE_MODEL_ID}` || event.model.id === FREE_MODEL_ID) {
+				ctx.ui.setStatus("models", "⚠️ Using openrouter/free");
+			} else {
+				ctx.ui.setStatus("models", "🔒 OpenRouter scoped");
+			}
+			updateCostFooter(ctx);
 		} else {
-			ctx.ui.setStatus("models", "🔒 OpenRouter scoped");
+			ctx.ui.setStatus("openrouter-cost", undefined);
 		}
+	});
+
+	pi.on("agent_end", async (_event, ctx) => {
+		updateCostFooter(ctx);
 	});
 }
