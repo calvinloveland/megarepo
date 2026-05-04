@@ -29,64 +29,12 @@ spec:
       labels:
         app: sub-day-generator
     spec:
+      securityContext:
+        fsGroup: 1001
       containers:
         - name: sub-day-generator
-          image: python:3.12-slim
-          imagePullPolicy: IfNotPresent
-          command: ["/bin/sh", "-ec"]
-          args:
-            - |
-              APP_DIR=/tmp/megarepo-main/active/web-apps/sub-day-generator
-
-              fetch_remote_sha() {
-                python - <<'PY'
-              import json
-              from urllib.request import Request, urlopen
-
-              req = Request(
-                  "https://api.github.com/repos/calvinloveland/megarepo/commits/main",
-                  headers={
-                      "Accept": "application/vnd.github+json",
-                      "User-Agent": "sub-day-generator-git-sync",
-                  },
-              )
-              with urlopen(req, timeout=10) as response:
-                  payload = json.load(response)
-              print(payload.get("sha", ""))
-              PY
-              }
-
-              install_app() {
-                rm -rf /tmp/megarepo-main /tmp/megarepo-main.tar.gz
-                python -c 'from urllib.request import urlretrieve; urlretrieve("https://github.com/calvinloveland/megarepo/archive/refs/heads/main.tar.gz", "/tmp/megarepo-main.tar.gz")'
-                tar -xzf /tmp/megarepo-main.tar.gz -C /tmp
-                cd "$APP_DIR"
-                pip install --no-cache-dir "Flask>=2.3" "gunicorn>=21.2,<22"
-                pip install --no-cache-dir --no-deps -e .
-              }
-
-              CURRENT_SHA="$(fetch_remote_sha || true)"
-              install_app
-              printf '%s\n' "${CURRENT_SHA:-}" > /tmp/sub-day-generator-source-sha
-
-              cd "$APP_DIR"
-              gunicorn -w 2 -b 0.0.0.0:5000 "sub_day_generator.app:create_app()" &
-              APP_PID=$!
-
-              (
-                while true; do
-                  sleep "${GIT_SYNC_INTERVAL_SECONDS:-900}"
-                  NEW_SHA="$(fetch_remote_sha || true)"
-                  [ -z "$NEW_SHA" ] && continue
-                  OLD_SHA="$(cat /tmp/sub-day-generator-source-sha 2>/dev/null || true)"
-                  [ "$NEW_SHA" = "$OLD_SHA" ] && continue
-                  echo "New main commit detected ($OLD_SHA -> $NEW_SHA); restarting pod to refresh code."
-                  kill "$APP_PID" >/dev/null 2>&1 || true
-                  break
-                done
-              ) &
-
-              wait "$APP_PID"
+          image: 127.0.0.1:5000/sub-day-generator:latest
+          imagePullPolicy: Always
           env:
             - name: FLASK_DEBUG
               valueFrom:
@@ -103,11 +51,16 @@ spec:
                 secretKeyRef:
                   name: sub-day-generator-env
                   key: PORT
-            - name: GIT_SYNC_INTERVAL_SECONDS
-              value: "900"
           ports:
             - name: http
               containerPort: 5000
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            runAsNonRoot: true
+            runAsUser: 1001
         - name: cloudflared
           image: cloudflare/cloudflared:latest
           imagePullPolicy: IfNotPresent

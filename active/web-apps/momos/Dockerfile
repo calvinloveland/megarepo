@@ -1,19 +1,23 @@
 FROM python:3.12-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
+    PYTHONUNBUFFERED=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
 
 WORKDIR /app
 
-RUN addgroup --system app && adduser --system --ingroup app app
+RUN addgroup --system --gid 1001 app \
+  && adduser --system --uid 1001 --ingroup app app
 
 COPY momos/pyproject.toml /app/pyproject.toml
+COPY momos/requirements.lock /app/requirements.lock
 COPY momos/src /app/src
 COPY momos/templates /app/templates
 COPY shared/src /app/shared/src
 COPY shared/templates /app/shared/templates
 
-RUN pip install --no-cache-dir .
+RUN pip install --no-cache-dir --require-hashes -r /app/requirements.lock \
+  && pip install --no-cache-dir --no-deps /app
 
 USER app
 

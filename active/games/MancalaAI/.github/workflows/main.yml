@@ -7,7 +7,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
       - run: python3 -m pip install -e .
-      - run: python3 -m pip install git+https://github.com/calvinloveland/full-auto-ci.git
+      - run: python3 -m pip install git+https://github.com/calvinloveland/full-auto-ci.git@c05a1a7173e8ff7943ba451eebb81080449df85d
       - run: full-auto-ci

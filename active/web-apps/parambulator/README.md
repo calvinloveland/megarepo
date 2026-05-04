@@ -49,7 +49,7 @@ parambulator/
 cd active/web-apps/parambulator
 python -m venv .venv
 source .venv/bin/activate
-pip install -e .
+pip install -e '.[dev]'
 
 # Development mode (debug enabled)
 export FLASK_DEBUG=true
@@ -76,7 +76,7 @@ docker-compose logs -f
 ### Using Gunicorn Directly
 
 ```bash
-# Install dependencies
+# Install runtime dependencies
 pip install -e .
 
 # Set environment variables
@@ -168,7 +168,7 @@ SECRET_KEY=test-key .venv/bin/pytest -v
   - Header row parsing
   - Integration scenarios
 
-**Note**: Use the project virtualenv (`.venv`) so Playwright and pytest dependencies match the project setup.
+**Note**: Use the project virtualenv (`.venv`) and install `.[dev]` so Playwright and pytest dependencies match the project setup.
 
 ## Usage
 

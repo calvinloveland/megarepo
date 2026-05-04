@@ -5,7 +5,8 @@ This directory contains build scripts, automation utilities, and tooling for the
 ## Contents
 
 - **build_pages.py** - Generates the static documentation site from project READMEs and documentation
-- **requirements.txt** - Python dependencies for scripts in this directory
+- **check_supply_chain.py** - Fails on common supply-chain regressions such as unpinned CI actions and runtime install patterns
+- **requirements.in** / **requirements.txt** - Source and locked Python dependencies for scripts in this directory
 
 ## Usage
 
@@ -37,10 +38,11 @@ python <script_name>.py
 
 When adding new scripts:
 
-1. Add Python dependencies to `requirements.txt`
-2. Keep scripts simple and focused on a single task
-3. Add documentation comments at the top of the script
-4. Update this README if the script is user-facing
+1. Add top-level Python dependencies to `requirements.in`
+2. Regenerate the locked `requirements.txt`
+3. Keep scripts simple and focused on a single task
+4. Add documentation comments at the top of the script
+5. Update this README if the script is user-facing
 
 ## See Also
 

@@ -39,6 +39,8 @@ export CF_CONFIG=/path/to/config.yml
 
 Manifest: `k8s/cozi.yaml`
 
+The cluster manifest now expects a prebuilt image from the thinker-local registry instead of downloading source from GitHub at pod startup.
+
 Create tunnel token secret:
 
 ```bash
@@ -55,6 +57,18 @@ kubectl -n cozi get pods
 kubectl -n cozi get svc cozi
 ```
 
+Build and roll a new image with:
+
+```bash
+./scripts/deploy-to-thinker.sh
+```
+
+Or publish without rolling the deployment:
+
+```bash
+./scripts/publish-to-thinker-registry.sh
+```
+
 Point ArgoCD at this directory path:
 - Repo: `https://github.com/calvinloveland/megarepo.git`
 - Revision: `main`
@@ -62,6 +76,6 @@ Point ArgoCD at this directory path:
 
 ## Notes
 
-- The Kubernetes deployment uses the same git-sync-on-restart pattern as Parambulator.
+- The Kubernetes deployment now uses prebuilt images rather than runtime git sync.
 - The cloudflared sidecar explicitly sets `--url http://localhost:5000` to avoid 503 origin routing failures.
 - For local development, use the project venv + `python -m momos.app`.

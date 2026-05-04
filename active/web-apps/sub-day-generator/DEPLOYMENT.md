@@ -39,12 +39,26 @@ export CF_CONFIG=/path/to/config.yml
 
 Manifest: `k8s/sub-day-generator.yaml`
 
+The cluster manifest now expects a prebuilt image from the thinker-local registry instead of downloading source from GitHub at pod startup.
+
 Create tunnel token secret:
 
 ```bash
 kubectl -n sub-day-generator create secret generic sub-day-generator-cloudflared-token \
   --from-literal=token='<cloudflared-tunnel-token>' \
   --dry-run=client -o yaml | kubectl apply -f -
+```
+
+Build and roll a new image with:
+
+```bash
+./scripts/deploy-to-thinker.sh
+```
+
+Or publish without rolling the deployment:
+
+```bash
+./scripts/publish-to-thinker-registry.sh
 ```
 
 Apply resources:
@@ -57,5 +71,5 @@ kubectl -n sub-day-generator get svc sub-day-generator
 
 ## Notes
 
-- The Kubernetes deployment uses the same git-sync-on-restart pattern as Parambulator.
+- The Kubernetes deployment now uses prebuilt images rather than runtime git sync.
 - For local development, use the project venv + `python -m sub_day_generator.app`.

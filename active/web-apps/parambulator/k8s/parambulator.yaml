@@ -39,69 +39,27 @@ spec:
       labels:
         app: parambulator
     spec:
-      containers:
-        - name: parambulator
-          image: python:3.12-slim
+      securityContext:
+        fsGroup: 1001
+      initContainers:
+        - name: prepare-app-data
+          image: busybox:1.36
           imagePullPolicy: IfNotPresent
           command: ["/bin/sh", "-ec"]
           args:
             - |
-              APP_DIR=/tmp/megarepo-main/active/web-apps/parambulator
-
-              fetch_remote_sha() {
-                python - <<'PY'
-              import json
-              from urllib.request import Request, urlopen
-
-              req = Request(
-                  "https://api.github.com/repos/calvinloveland/megarepo/commits/main",
-                  headers={
-                      "Accept": "application/vnd.github+json",
-                      "User-Agent": "parambulator-git-sync",
-                  },
-              )
-              with urlopen(req, timeout=10) as response:
-                  payload = json.load(response)
-              print(payload.get("sha", ""))
-              PY
-              }
-
-              install_app() {
-                rm -rf /tmp/megarepo-main /tmp/megarepo-main.tar.gz
-                python -c 'from urllib.request import urlretrieve; urlretrieve("https://github.com/calvinloveland/megarepo/archive/refs/heads/main.tar.gz", "/tmp/megarepo-main.tar.gz")'
-                tar -xzf /tmp/megarepo-main.tar.gz -C /tmp
-                mkdir -p /data/feedback/addressed /data/saves
-                if [ ! -L "$APP_DIR/data" ]; then
-                  rm -rf "$APP_DIR/data"
-                  ln -s /data "$APP_DIR/data"
-                fi
-                cd "$APP_DIR"
-                pip install --no-cache-dir "Flask>=2.3" "Flask-WTF>=1.1.1,<2.0" "gunicorn>=21.2,<22"
-                pip install --no-cache-dir --no-deps -e .
-              }
-
-              CURRENT_SHA="$(fetch_remote_sha || true)"
-              install_app
-              printf '%s\n' "${CURRENT_SHA:-}" > /tmp/parambulator-source-sha
-
-              cd "$APP_DIR"
-              gunicorn -w 2 -b 0.0.0.0:5000 "parambulator.app:create_app()" &
-              APP_PID=$!
-
-              (
-                while true; do
-                  sleep "${GIT_SYNC_INTERVAL_SECONDS:-900}"
-                  NEW_SHA="$(fetch_remote_sha || true)"
-                  [ -z "$NEW_SHA" ] && continue
-                  OLD_SHA="$(cat /tmp/parambulator-source-sha 2>/dev/null || true)"
-                  [ "$NEW_SHA" = "$OLD_SHA" ] && continue
-                  echo "New main commit detected ($OLD_SHA -> $NEW_SHA); restarting pod to refresh code."
-                  kill "$APP_PID" >/dev/null 2>&1 || true
-                  break
-                done
-              ) &
-
-              wait "$APP_PID"
+              mkdir -p /app/data/feedback/addressed /app/data/saves
+              chown -R 1001:1001 /app/data
+              chmod -R ug+rwX /app/data
+          securityContext:
+            runAsUser: 0
+          volumeMounts:
+            - name: parambulator-data
+              mountPath: /app/data
+      containers:
+        - name: parambulator
+          image: 127.0.0.1:5000/parambulator:latest
+          imagePullPolicy: Always
           env:
             - name: SECRET_KEY
               valueFrom:
@@ -116,8 +74,6 @@ spec:
               value: "5000"
             - name: APP_VERSION
               value: "release-20260222-git-sync"
-            - name: GIT_SYNC_INTERVAL_SECONDS
-              value: "900"
             - name: FEEDBACK_ADMIN_USERNAME
               valueFrom:
                 secretKeyRef:
@@ -133,9 +89,16 @@ spec:
           ports:
             - name: http
               containerPort: 5000
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            runAsNonRoot: true
+            runAsUser: 1001
           volumeMounts:
             - name: parambulator-data
-              mountPath: /data
+              mountPath: /app/data
         - name: cloudflared
           image: cloudflare/cloudflared:latest
           imagePullPolicy: IfNotPresent

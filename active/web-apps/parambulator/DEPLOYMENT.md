@@ -41,7 +41,7 @@ Use the provided script for easy management:
 ArgoCD now watches `active/web-apps/parambulator/k8s/` and applies:
 - `k8s/parambulator.yaml` (Parambulator Deployment + Service + cloudflared sidecar)
 - `PersistentVolumeClaim/parambulator-data` for durable feedback/save storage across pod restarts
-- Pod-level Git polling: the app container checks `main` periodically (default every 900s via `GIT_SYNC_INTERVAL_SECONDS`) and restarts itself when a new commit is detected.
+- an immutable app image from the thinker-local registry instead of downloading source from GitHub at pod boot
 
 Create the cloudflared tunnel token secret in the `parambulator` namespace (never commit or log this token):
 
@@ -58,6 +58,18 @@ kubectl -n parambulator create secret generic parambulator-feedback-auth \
   --from-literal=username='<feedback-admin-username>' \
   --from-literal=password='<feedback-admin-password>' \
   --dry-run=client -o yaml | kubectl apply -f -
+```
+
+Build and roll a new image with:
+
+```bash
+./scripts/deploy-to-thinker.sh
+```
+
+Or publish without rolling the deployment:
+
+```bash
+./scripts/publish-to-thinker-registry.sh
 ```
 
 Then verify:

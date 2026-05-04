@@ -21,7 +21,7 @@ dependencies = ["distro",
 "GitPython",
 "prospector",
 "black",
-"lazy_ci @ git+https://github.com/calvinloveland/lazy_ci.git"]
+"lazy_ci @ git+https://github.com/calvinloveland/lazy_ci.git@8652ef003c3d0a3714957eba0c676db7f487c58c"]
 dynamic = ["version"]
 
 [project.scripts]

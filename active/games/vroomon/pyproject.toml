@@ -18,7 +18,7 @@ dependencies = [
 "loguru",
 "pymunk",
 "pygame",
-"full_auto_ci @ git+https://github.com/calvinloveland/full-auto-ci.git"
+"full_auto_ci @ git+https://github.com/calvinloveland/full-auto-ci.git@c05a1a7173e8ff7943ba451eebb81080449df85d"
 ]
 dynamic = ["version"]
 

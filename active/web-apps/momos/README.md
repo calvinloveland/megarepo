@@ -21,7 +21,7 @@ Prototype Flask app for a family command center that consolidates household logi
 cd active/web-apps/momos
 python -m venv .venv
 source .venv/bin/activate
-pip install -e .
+pip install -e .[dev]
 python -m momos.app
 ```
 
@@ -33,6 +33,7 @@ Use `/` to browse landing concepts and `/workspace` for the working Cozi dashboa
 
 ```bash
 cd active/web-apps/momos
+pip install -e .[dev]
 python -m pytest -q
 ```
 

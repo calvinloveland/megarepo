@@ -57,7 +57,11 @@ fi
 if [ -f "active/dev-tools/operationalize_vscode_ext/package.json" ]; then
     echo "📦 Installing VS Code extension dependencies..."
     cd active/dev-tools/operationalize_vscode_ext
-    npm install 2>/dev/null || true
+    if [ -f package-lock.json ]; then
+        npm ci 2>/dev/null || true
+    else
+        npm install 2>/dev/null || true
+    fi
     cd - > /dev/null
 fi
 

@@ -15,7 +15,7 @@ Prototype Flask app that helps teachers quickly create a substitute-ready day pl
 cd active/web-apps/sub-day-generator
 python -m venv .venv
 source .venv/bin/activate
-pip install -e .
+pip install -e .[dev]
 python -m sub_day_generator.app
 ```
 
@@ -25,6 +25,7 @@ Open: http://127.0.0.1:5000
 
 ```bash
 cd active/web-apps/sub-day-generator
+pip install -e .[dev]
 python -m pytest -q
 ```
 

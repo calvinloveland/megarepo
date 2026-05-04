@@ -37,6 +37,16 @@ Current example:
 - [Parambulator](../parambulator/README.md) uses this feedback system
 - [Parambulator feedback data notes](../parambulator/data/feedback/README.md) describe the runtime storage directory
 
+## Deployment helpers
+
+Shared deployment scripts now live in `scripts/` for the Flask web apps that publish immutable images to the thinker-local registry instead of downloading source at pod startup.
+
+App wrappers:
+
+- `../parambulator/scripts/`
+- `../momos/scripts/`
+- `../sub-day-generator/scripts/`
+
 ## Related Documentation
 
 - [Web Apps index](../README.md)
