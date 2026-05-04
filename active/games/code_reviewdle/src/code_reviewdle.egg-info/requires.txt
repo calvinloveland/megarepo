@@ -1,5 +1,0 @@
-Flask>=2.3
-gunicorn<22.0,>=21.2
-
-[dev]
-pytest>=7.4
