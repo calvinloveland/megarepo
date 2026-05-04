@@ -56,7 +56,8 @@ def test_index_renders_selected_daily_puzzle(client, play_date: date) -> None:
     assert puzzle.title in page
     assert puzzle.language in page
     assert "Send Feedback" in page
-    assert "Selectable lines:" in page
+    assert "lines left" in page
+    assert "tok-keyword" in page
 
 
 def test_wrong_guess_narrows_selectable_lines_and_issue_types(play_date: date) -> None:

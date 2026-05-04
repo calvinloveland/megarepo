@@ -21,6 +21,7 @@ from .game import (
     selectable_issue_types,
     selectable_line_numbers,
 )
+from .highlight import render_code_lines
 
 SHARED_SRC_ROOT_CANDIDATES = (
     PROJECT_ROOT.parent.parent / "web-apps" / "shared" / "src",
@@ -165,7 +166,7 @@ def _render_game_page(
         "index.html",
         play_date=play_date.isoformat(),
         puzzle=puzzle,
-        line_entries=list(enumerate(puzzle.code, start=1)),
+        line_entries=render_code_lines(puzzle.language, puzzle.code),
         issue_types=issue_types,
         selectable_line_numbers=allowed_line_numbers,
         selectable_issue_types=allowed_issue_types,

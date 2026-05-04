@@ -9,111 +9,166 @@
   </head>
   <body>
     <main class="page-shell">
-      <header class="hero card">
-        <p class="eyebrow">Daily code review puzzle</p>
-        <h1>Code Reviewdle</h1>
-        <p class="hero-copy">
-          Find the one flawed line and name the issue type. Wrong guesses now narrow
-          the remaining candidate lines and issue types automatically.
-        </p>
-        <div class="meta-row">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Daily code review puzzle</p>
+          <h1>Code Reviewdle</h1>
+        </div>
+        <div class="topbar-meta">
           <span class="meta-pill">{{ puzzle.language }}</span>
-          <span class="meta-pill">{{ guesses_remaining }} of {{ max_guesses }} guesses left</span>
-          <span class="meta-pill">Puzzle date {{ play_date }}</span>
+          <span class="meta-pill">{{ guesses_remaining }}/{{ max_guesses }} guesses</span>
+          <span class="meta-pill">{{ play_date }}</span>
         </div>
       </header>
 
-      <section class="card puzzle-summary">
-        <h2>{{ puzzle.title }}</h2>
-        <p>{{ puzzle.summary }}</p>
-        <p class="source-note">{{ puzzle.source_note }}</p>
-      </section>
-
       {% if error_message %}
-        <section class="card notice error-notice">
+        <section class="notice notice-error">
           <strong>Guess not submitted.</strong>
           <span>{{ error_message }}</span>
         </section>
       {% endif %}
 
       {% if progress.solved %}
-        <section class="card notice success-notice">
+        <section class="notice notice-success">
           <strong>Solved.</strong>
           <span>You found the flawed line and the right issue type.</span>
         </section>
       {% elif puzzle_finished %}
-        <section class="card notice loss-notice">
+        <section class="notice notice-warning">
           <strong>Round over.</strong>
-          <span>You used all {{ max_guesses }} guesses. Review the explanation and share your result.</span>
+          <span>You used all {{ max_guesses }} guesses. The explanation and share block are below.</span>
         </section>
       {% endif %}
 
-      <section class="card layout-grid">
-        <div class="code-panel">
-          <div class="panel-header">
-            <h2>Snippet</h2>
-            <p>Only selectable lines can be guessed. Misses shrink the candidate pool.</p>
+      <section class="ide-shell" aria-label="Gameplay">
+        <div class="ide-titlebar">
+          <div class="window-controls" aria-hidden="true">
+            <span class="window-dot dot-close"></span>
+            <span class="window-dot dot-minimize"></span>
+            <span class="window-dot dot-expand"></span>
           </div>
-          <div class="code-frame" role="region" aria-label="Code snippet">
-            <table class="code-table">
-              <tbody>
-                {% for line_number, line_text in line_entries %}
-                  {% set line_is_selectable = puzzle_finished or line_number in selectable_line_numbers %}
-                  <tr class="{% if selected_line_number|int == line_number %}selected-row{% endif %} {% if puzzle_finished and line_number == puzzle.answer_line %}answer-row{% endif %} {% if not line_is_selectable %}disabled-row{% endif %}">
-                    <td class="line-number-cell">
-                      <button
-                        type="button"
-                        class="line-select"
-                        data-line-number="{{ line_number }}"
-                        aria-label="Select line {{ line_number }}"
-                        {% if not line_is_selectable %}disabled{% endif %}
-                      >{{ line_number }}</button>
-                    </td>
-                    <td class="code-cell"><code>{{ line_text if line_text else ' ' }}</code></td>
-                  </tr>
-                {% endfor %}
-              </tbody>
-            </table>
+          <div class="tab-strip">
+            <span class="tab active-tab">{{ puzzle.title }}</span>
+            <span class="tab muted-tab">reviewdle/{{ puzzle.language|lower }}</span>
+          </div>
+          <div class="titlebar-stats">
+            <span>{{ selectable_line_count }} lines left</span>
+            <span>{{ selectable_issue_count }} issue types left</span>
           </div>
         </div>
 
-        <div class="sidebar-stack">
-          <section class="card nested-card">
-            <h2>Make a guess</h2>
-            <form method="post" action="{{ url_for('guess') }}" class="guess-form">
-              <input type="hidden" name="day" value="{{ play_date }}">
+        <div class="workspace-grid">
+          <section class="editor-pane">
+            <div class="pane-header">
+              <div>
+                <h2>{{ puzzle.title }}</h2>
+                <p>Play first. Context and review notes live below the fold.</p>
+              </div>
+              <div class="editor-status">Only active lines are selectable.</div>
+            </div>
 
-              <label class="field-label" for="line_number">Selectable line</label>
-              <select id="line_number" name="line_number" {% if puzzle_finished %}disabled{% endif %} required>
-                <option value="">Choose a remaining line</option>
-                {% for line_number in selectable_line_numbers %}
-                  <option value="{{ line_number }}" {% if selected_line_number|int == line_number %}selected{% endif %}>Line {{ line_number }}</option>
-                {% endfor %}
-              </select>
-
-              <label class="field-label" for="issue_type">Selectable issue type</label>
-              <select id="issue_type" name="issue_type" {% if puzzle_finished %}disabled{% endif %} required>
-                <option value="">Choose a remaining issue type</option>
-                {% for issue_type in selectable_issue_types %}
-                  <option value="{{ issue_type }}" {% if selected_issue_type == issue_type %}selected{% endif %}>{{ issue_type }}</option>
-                {% endfor %}
-              </select>
-
-              <button class="primary-button" type="submit" {% if puzzle_finished %}disabled{% endif %}>Submit guess</button>
-            </form>
+            <div class="code-frame" role="region" aria-label="Code snippet">
+              <table class="code-table">
+                <tbody>
+                  {% for line in line_entries %}
+                    {% set line_is_selectable = puzzle_finished or line.number in selectable_line_numbers %}
+                    <tr class="code-row {% if selected_line_number|int == line.number %}selected-row{% endif %} {% if puzzle_finished and line.number == puzzle.answer_line %}answer-row{% endif %} {% if not line_is_selectable %}disabled-row{% endif %}">
+                      <td class="line-number-cell">
+                        <button
+                          type="button"
+                          class="line-select"
+                          data-line-number="{{ line.number }}"
+                          aria-label="Select line {{ line.number }}"
+                          {% if not line_is_selectable %}disabled{% endif %}
+                        >{{ "%02d"|format(line.number) }}</button>
+                      </td>
+                      <td class="code-cell"><code>{{ line.html }}</code></td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
           </section>
 
-          <section class="card nested-card">
-            <h2>Review assists</h2>
-            <p class="muted">Each wrong guess tightens the possible answer space instead of showing a manual clue.</p>
-            <ul class="assist-list">
-              <li><strong>Selectable lines:</strong> {{ selectable_line_count }} of {{ puzzle.code_line_count }}</li>
-              <li><strong>Selectable issue types:</strong> {{ selectable_issue_count }} of {{ issue_types|length }}</li>
-            </ul>
-          </section>
+          <aside class="inspector-pane">
+            <section class="inspector-block">
+              <div class="inspector-label">Current review</div>
+              <form method="post" action="{{ url_for('guess') }}" class="guess-form">
+                <input type="hidden" name="day" value="{{ play_date }}">
 
-          <section class="card nested-card">
-            <h2>Guess history</h2>
+                <label class="field-label" for="line_number">Remaining line</label>
+                <select id="line_number" name="line_number" {% if puzzle_finished %}disabled{% endif %} required>
+                  <option value="">Choose a remaining line</option>
+                  {% for line_number in selectable_line_numbers %}
+                    <option value="{{ line_number }}" {% if selected_line_number|int == line_number %}selected{% endif %}>Line {{ line_number }}</option>
+                  {% endfor %}
+                </select>
+
+                <label class="field-label" for="issue_type">Remaining issue type</label>
+                <select id="issue_type" name="issue_type" {% if puzzle_finished %}disabled{% endif %} required>
+                  <option value="">Choose a remaining issue type</option>
+                  {% for issue_type in selectable_issue_types %}
+                    <option value="{{ issue_type }}" {% if selected_issue_type == issue_type %}selected{% endif %}>{{ issue_type }}</option>
+                  {% endfor %}
+                </select>
+
+                <button class="primary-button" type="submit" {% if puzzle_finished %}disabled{% endif %}>Submit guess</button>
+              </form>
+            </section>
+
+            <section class="inspector-block compact-block">
+              <div class="inspector-label">Automatic narrowing</div>
+              <dl class="metric-list">
+                <div>
+                  <dt>Selectable lines</dt>
+                  <dd>{{ selectable_line_count }} / {{ puzzle.code_line_count }}</dd>
+                </div>
+                <div>
+                  <dt>Issue types</dt>
+                  <dd>{{ selectable_issue_count }} / {{ issue_types|length }}</dd>
+                </div>
+              </dl>
+            </section>
+
+            <section class="inspector-block compact-block">
+              <div class="inspector-label">Recent guesses</div>
+              {% if progress.guesses %}
+                <ul class="guess-list">
+                  {% for guess in progress.guesses[-4:]|reverse %}
+                    <li>
+                      <span class="guess-line">L{{ guess.line_number }}</span>
+                      <span class="status-pill status-{{ guess.line_status }}">{{ guess.line_status }}</span>
+                      <span class="guess-issue">{{ guess.issue_type }}</span>
+                      <span class="status-pill status-{{ guess.issue_status }}">{{ guess.issue_status }}</span>
+                    </li>
+                  {% endfor %}
+                </ul>
+              {% else %}
+                <p class="muted small-copy">No guesses yet.</p>
+              {% endif %}
+            </section>
+          </aside>
+        </div>
+
+        <div class="statusbar">
+          <span>review loop active</span>
+          <span>misses shrink the answer space</span>
+          <span>share result on completion</span>
+        </div>
+      </section>
+
+      <section class="below-fold">
+        <details class="fold-section">
+          <summary>Context</summary>
+          <div class="fold-content">
+            <p>{{ puzzle.summary }}</p>
+            <p class="muted">{{ puzzle.source_note }}</p>
+          </div>
+        </details>
+
+        <details class="fold-section">
+          <summary>Full guess history</summary>
+          <div class="fold-content">
             {% if progress.guesses %}
               <table class="history-table">
                 <thead>
@@ -138,28 +193,32 @@
             {% else %}
               <p class="muted">No guesses yet.</p>
             {% endif %}
-          </section>
-        </div>
-      </section>
-
-      {% if puzzle_finished %}
-        <section class="card explanation-card">
-          <h2>Review outcome</h2>
-          <p><strong>Correct line:</strong> {{ puzzle.answer_line }}</p>
-          <p><strong>Issue type:</strong> {{ puzzle.issue_type }}</p>
-          <p>{{ puzzle.explanation }}</p>
-        </section>
-
-        <section class="card share-card">
-          <h2>Share your result</h2>
-          <p class="muted">Copy this spoiler-light result and invite people to try the same puzzle.</p>
-          <textarea id="share_text" class="share-box" readonly>{{ share_text }}</textarea>
-          <div class="share-actions">
-            <button id="copy_share_button" class="primary-button" type="button">Copy result</button>
-            <span id="copy_share_status" class="muted" aria-live="polite"></span>
           </div>
-        </section>
-      {% endif %}
+        </details>
+
+        {% if puzzle_finished %}
+          <details class="fold-section" open>
+            <summary>Outcome + share</summary>
+            <div class="fold-content result-stack">
+              <div>
+                <h2>Review outcome</h2>
+                <p><strong>Correct line:</strong> {{ puzzle.answer_line }}</p>
+                <p><strong>Issue type:</strong> {{ puzzle.issue_type }}</p>
+                <p>{{ puzzle.explanation }}</p>
+              </div>
+              <div>
+                <h2>Share your result</h2>
+                <p class="muted">Copy this spoiler-light result and invite people to try the same puzzle.</p>
+                <textarea id="share_text" class="share-box" readonly>{{ share_text }}</textarea>
+                <div class="share-actions">
+                  <button id="copy_share_button" class="primary-button" type="button">Copy result</button>
+                  <span id="copy_share_status" class="muted" aria-live="polite"></span>
+                </div>
+              </div>
+            </div>
+          </details>
+        {% endif %}
+      </section>
     </main>
     {% include "_shared_feedback.html" %}
 
