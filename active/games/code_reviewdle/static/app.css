@@ -147,6 +147,10 @@ p {
   background: rgba(56, 189, 248, 0.08);
 }
 
+.disabled-row {
+  opacity: 0.42;
+}
+
 .selected-row {
   background: rgba(56, 189, 248, 0.14);
 }
@@ -176,6 +180,11 @@ p {
   padding: 0.3rem 0.75rem;
   font: inherit;
   cursor: pointer;
+}
+
+.line-select:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
 }
 
 .code-cell code {
@@ -218,11 +227,11 @@ select:disabled {
   cursor: not-allowed;
 }
 
-.hint-list {
+.assist-list {
   margin: 0;
   padding-left: 1.25rem;
   display: grid;
-  gap: 0.6rem;
+  gap: 0.5rem;
 }
 
 .history-table {
@@ -253,8 +262,24 @@ select:disabled {
   background: rgba(248, 113, 113, 0.12);
 }
 
-.explanation-card {
+.explanation-card,
+.share-card {
   margin-top: 1rem;
+}
+
+.share-box {
+  width: 100%;
+  min-height: 10rem;
+  resize: vertical;
+  white-space: pre;
+  font-family: "JetBrains Mono", "Fira Code", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.share-actions {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  margin-top: 0.75rem;
 }
 
 @media (max-width: 980px) {

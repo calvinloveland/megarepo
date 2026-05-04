@@ -8,7 +8,14 @@ from html import unescape
 import pytest
 
 from code_reviewdle.app import ADDRESSED_DIR, FEEDBACK_DIR, create_app
-from code_reviewdle.content import puzzle_for_day
+from code_reviewdle.content import available_issue_types, puzzle_for_day
+from code_reviewdle.game import (
+    apply_guess,
+    build_empty_progress,
+    build_share_text,
+    selectable_issue_types,
+    selectable_line_numbers,
+)
 
 
 @pytest.fixture()
@@ -30,6 +37,14 @@ def _auth_headers(username: str, password: str) -> dict[str, str]:
     return {"Authorization": f"Basic {token}"}
 
 
+def _wrong_issue_type(correct_issue_type: str) -> str:
+    return next(
+        issue
+        for issue in ["Security check bypass", "Reentrancy", "Numeric overflow / underflow"]
+        if issue != correct_issue_type
+    )
+
+
 def test_index_renders_selected_daily_puzzle(client, play_date: date) -> None:
     response = client.get(f"/?day={play_date.isoformat()}")
 
@@ -41,27 +56,32 @@ def test_index_renders_selected_daily_puzzle(client, play_date: date) -> None:
     assert puzzle.title in page
     assert puzzle.language in page
     assert "Send Feedback" in page
+    assert "Selectable lines:" in page
 
 
-def test_wrong_guess_unlocks_first_hint(client, play_date: date) -> None:
+def test_wrong_guess_narrows_selectable_lines_and_issue_types(play_date: date) -> None:
     puzzle = puzzle_for_day(play_date)
-    response = client.post(
-        "/guess",
-        data={
-            "day": play_date.isoformat(),
-            "line_number": "1",
-            "issue_type": next(issue for issue in ["Security check bypass", "Reentrancy", "Numeric overflow / underflow"] if issue != puzzle.issue_type),
-        },
+    issue_types = available_issue_types()
+    initial_progress = build_empty_progress()
+
+    progress_after_wrong_guess = apply_guess(
+        initial_progress,
+        puzzle,
+        line_number=1,
+        issue_type=_wrong_issue_type(puzzle.issue_type),
     )
 
-    page = response.get_data(as_text=True)
+    assert len(selectable_line_numbers(puzzle, progress_after_wrong_guess)) < len(
+        selectable_line_numbers(puzzle, initial_progress)
+    )
+    assert len(selectable_issue_types(puzzle, issue_types, progress_after_wrong_guess)) < len(
+        selectable_issue_types(puzzle, issue_types, initial_progress)
+    )
 
-    assert response.status_code == 200
-    assert puzzle.hints[0] in page
-    assert "status-wrong" in page
 
-
-def test_correct_guess_solves_round_and_reveals_explanation(client, play_date: date) -> None:
+def test_correct_guess_solves_round_and_reveals_explanation_and_share_text(
+    client, play_date: date
+) -> None:
     puzzle = puzzle_for_day(play_date)
     response = client.post(
         "/guess",
@@ -78,25 +98,47 @@ def test_correct_guess_solves_round_and_reveals_explanation(client, play_date: d
     assert "Solved." in page
     assert puzzle.explanation in page
     assert f"Correct line:</strong> {puzzle.answer_line}" in page
+    assert "Share your result" in page
+    assert f"Code Reviewdle {play_date.isoformat()} 1/6" in page
+    assert f"Try it: http://localhost/?day={play_date.isoformat()}" in page
 
 
 def test_round_ends_after_six_wrong_guesses(client, play_date: date) -> None:
     puzzle = puzzle_for_day(play_date)
-    wrong_issue = next(
-        issue
-        for issue in ["Security check bypass", "Reentrancy", "Numeric overflow / underflow"]
-        if issue != puzzle.issue_type
-    )
 
     response = None
+    simulated_progress = build_empty_progress()
     for _ in range(6):
+        wrong_line = next(
+            line_number
+            for line_number in selectable_line_numbers(puzzle, simulated_progress)
+            if line_number != puzzle.answer_line
+        )
+        guessed_issue_type = next(
+            (
+                issue_type
+                for issue_type in selectable_issue_types(
+                    puzzle,
+                    available_issue_types(),
+                    simulated_progress,
+                )
+                if issue_type != puzzle.issue_type
+            ),
+            puzzle.issue_type,
+        )
         response = client.post(
             "/guess",
             data={
                 "day": play_date.isoformat(),
-                "line_number": "1",
-                "issue_type": wrong_issue,
+                "line_number": str(wrong_line),
+                "issue_type": guessed_issue_type,
             },
+        )
+        simulated_progress = apply_guess(
+            simulated_progress,
+            puzzle,
+            wrong_line,
+            guessed_issue_type,
         )
 
     assert response is not None
@@ -105,6 +147,25 @@ def test_round_ends_after_six_wrong_guesses(client, play_date: date) -> None:
     assert "Round over." in page
     assert puzzle.explanation in page
     assert puzzle.issue_type in page
+    assert f"Code Reviewdle {play_date.isoformat()} X/6" in page
+
+
+def test_build_share_text_formats_guess_rows(play_date: date) -> None:
+    puzzle = puzzle_for_day(play_date)
+    progress = build_empty_progress()
+    progress = apply_guess(progress, puzzle, 1, _wrong_issue_type(puzzle.issue_type))
+    progress = apply_guess(progress, puzzle, puzzle.answer_line, puzzle.issue_type)
+
+    share_text = build_share_text(
+        play_date.isoformat(),
+        progress,
+        f"https://codereviewdle.shsw.dev/?day={play_date.isoformat()}",
+    )
+
+    assert share_text.startswith(f"Code Reviewdle {play_date.isoformat()} 2/6")
+    assert "⬛⬛" in share_text
+    assert "🟩🟩" in share_text
+    assert share_text.endswith(f"https://codereviewdle.shsw.dev/?day={play_date.isoformat()}")
 
 
 def test_feedback_submission_creates_file(client) -> None:

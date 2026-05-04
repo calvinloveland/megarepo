@@ -11,7 +11,16 @@ from typing import Any
 from flask import Flask, render_template, request, session
 
 from .content import PROJECT_ROOT, available_issue_types, puzzle_for_day
-from .game import MAX_GUESSES, apply_guess, build_empty_progress, guesses_remaining, is_over
+from .game import (
+    MAX_GUESSES,
+    apply_guess,
+    build_empty_progress,
+    build_share_text,
+    guesses_remaining,
+    is_over,
+    selectable_issue_types,
+    selectable_line_numbers,
+)
 
 SHARED_SRC_ROOT_CANDIDATES = (
     PROJECT_ROOT.parent.parent / "web-apps" / "shared" / "src",
@@ -61,9 +70,16 @@ def create_app() -> Flask:
         if is_over(progress):
             return _render_game_page(play_date)
 
+        allowed_line_numbers = selectable_line_numbers(puzzle, progress)
+        allowed_issue_types = selectable_issue_types(puzzle, issue_types, progress)
         line_number_text = str(request.form.get("line_number", "")).strip()
         issue_type = str(request.form.get("issue_type", "")).strip()
-        error_message = _validate_guess(line_number_text, issue_type, puzzle.code_line_count, issue_types)
+        error_message = _validate_guess(
+            line_number_text,
+            issue_type,
+            allowed_line_numbers,
+            allowed_issue_types,
+        )
         if error_message is not None:
             return _render_game_page(
                 play_date,
@@ -107,20 +123,20 @@ def _store_progress(puzzle_id: str, progress: dict[str, Any]) -> None:
 def _validate_guess(
     line_number_text: str,
     issue_type: str,
-    max_line_number: int,
-    issue_types: tuple[str, ...],
+    allowed_line_numbers: tuple[int, ...],
+    allowed_issue_types: tuple[str, ...],
 ) -> str | None:
     if not line_number_text:
-        return "Enter a line number before submitting a guess."
+        return "Choose one of the currently selectable lines before submitting a guess."
     try:
         line_number = int(line_number_text)
     except ValueError:
         return "Line number must be an integer."
 
-    if line_number < 1 or line_number > max_line_number:
-        return f"Line number must be between 1 and {max_line_number}."
-    if issue_type not in issue_types:
-        return "Pick one of the listed issue types."
+    if line_number not in allowed_line_numbers:
+        return "Pick one of the currently selectable line numbers."
+    if issue_type not in allowed_issue_types:
+        return "Pick one of the currently selectable issue types."
     return None
 
 
@@ -134,8 +150,16 @@ def _render_game_page(
     puzzle = puzzle_for_day(play_date)
     progress = _progress_for_puzzle(puzzle.id)
     issue_types = available_issue_types()
-    revealed_hints = puzzle.hints[: progress["unlocked_hints"]]
+    allowed_line_numbers = selectable_line_numbers(puzzle, progress)
+    allowed_issue_types = selectable_issue_types(puzzle, issue_types, progress)
     puzzle_finished = is_over(progress)
+    share_text = ""
+    if puzzle_finished:
+        share_text = build_share_text(
+            play_date.isoformat(),
+            progress,
+            f"{request.url_root.rstrip('/')}/?day={play_date.isoformat()}",
+        )
 
     return render_template(
         "index.html",
@@ -143,15 +167,19 @@ def _render_game_page(
         puzzle=puzzle,
         line_entries=list(enumerate(puzzle.code, start=1)),
         issue_types=issue_types,
+        selectable_line_numbers=allowed_line_numbers,
+        selectable_issue_types=allowed_issue_types,
         feedback_design="code-reviewdle",
         progress=progress,
         guesses_remaining=guesses_remaining(progress),
         max_guesses=MAX_GUESSES,
-        revealed_hints=revealed_hints,
         puzzle_finished=puzzle_finished,
         error_message=error_message,
         selected_line_number=selected_line_number,
         selected_issue_type=selected_issue_type,
+        selectable_line_count=len(allowed_line_numbers),
+        selectable_issue_count=len(allowed_issue_types),
+        share_text=share_text,
     )
 
 
