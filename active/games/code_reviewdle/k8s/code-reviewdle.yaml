@@ -127,24 +127,30 @@ spec:
         - name: cloudflared
           image: cloudflare/cloudflared:latest
           imagePullPolicy: IfNotPresent
-          env:
-            - name: TUNNEL_TOKEN
-              valueFrom:
-                secretKeyRef:
-                  name: codereviewdle-cloudflared-token
-                  key: token
           args:
             - tunnel
             - --no-autoupdate
-            - --url
-            - http://127.0.0.1:5000
+            - --config
+            - /etc/cloudflared/config.yml
             - run
-            - --token
-            - $(TUNNEL_TOKEN)
+          volumeMounts:
+            - name: codereviewdle-cloudflared-config
+              mountPath: /etc/cloudflared/config.yml
+              subPath: config.yml
+              readOnly: true
+            - name: codereviewdle-cloudflared-credentials
+              mountPath: /etc/cloudflared/credentials
+              readOnly: true
       volumes:
         - name: codereviewdle-data
           persistentVolumeClaim:
             claimName: codereviewdle-data
+        - name: codereviewdle-cloudflared-config
+          secret:
+            secretName: codereviewdle-cloudflared-config
+        - name: codereviewdle-cloudflared-credentials
+          secret:
+            secretName: codereviewdle-cloudflared-credentials
 ---
 apiVersion: v1
 kind: Service

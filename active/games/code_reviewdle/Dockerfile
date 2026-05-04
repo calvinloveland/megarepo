@@ -17,13 +17,14 @@ COPY games/code_reviewdle/data /app/data
 COPY web-apps/shared/src /app/shared/src
 COPY web-apps/shared/templates /app/shared/templates
 
-RUN pip install --no-cache-dir /app
+RUN pip install --no-cache-dir Flask gunicorn
 
 USER app
 
 EXPOSE 5000
 
-ENV FLASK_DEBUG=false \
+ENV PYTHONPATH=/app/src:/app/shared/src \
+    FLASK_DEBUG=false \
     HOST=0.0.0.0 \
     PORT=5000
 

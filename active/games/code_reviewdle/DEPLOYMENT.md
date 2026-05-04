@@ -7,6 +7,7 @@ This app deploys to thinker using:
 - a prebuilt image pushed to the thinker-local registry
 - a Kubernetes deployment in the `codereviewdle` namespace
 - a Cloudflare Tunnel sidecar for public access
+- local cloudflared config + credentials secrets for the tunnel connector
 - a persistent volume for feedback submissions
 
 ## Required secrets
@@ -26,11 +27,17 @@ kubectl -n codereviewdle create secret generic codereviewdle-feedback-auth \
   --dry-run=client -o yaml | kubectl apply -f -
 ```
 
-### Cloudflared tunnel token secret
+### Cloudflared local tunnel secrets
+
+Create a local-source Cloudflare tunnel, then store both the config file and the credentials JSON used by `cloudflared tunnel run`.
 
 ```bash
-kubectl -n codereviewdle create secret generic codereviewdle-cloudflared-token \
-  --from-literal=token='<cloudflared-tunnel-token>' \
+kubectl -n codereviewdle create secret generic codereviewdle-cloudflared-config \
+  --from-file=config.yml=./cloudflared-config.yml \
+  --dry-run=client -o yaml | kubectl apply -f -
+
+kubectl -n codereviewdle create secret generic codereviewdle-cloudflared-credentials \
+  --from-file=credentials.json=./cloudflared-credentials.json \
   --dry-run=client -o yaml | kubectl apply -f -
 ```
 
