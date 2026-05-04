@@ -13,6 +13,7 @@ Players inspect a larger code snippet, identify the flawed line, and classify th
 - one new hint unlocked after each wrong guess
 - curated puzzle bank rather than generated puzzles
 - multi-language support from the start
+- shared in-app feedback widget with persisted submissions
 
 ## Current Status
 
@@ -25,6 +26,7 @@ This project now has an initial Flask vertical slice with:
 - progressive hints
 - win / loss reveal state
 - Flask test coverage for the core game loop
+- feedback submission and review endpoints via the shared feedback system
 
 ## Quickstart
 
@@ -45,6 +47,19 @@ cd active/games/code_reviewdle
 .venv/bin/pytest
 ```
 
+## Feedback Admin Access
+
+The shared feedback system exposes:
+
+- `POST /feedback`
+- `GET /feedback`
+- `POST /feedback/mark-addressed`
+
+Admin review routes require:
+
+- `FEEDBACK_ADMIN_USERNAME`
+- `FEEDBACK_ADMIN_PASSWORD`
+
 ## Project Structure
 
 ```text
@@ -56,8 +71,19 @@ code_reviewdle/
 │   └── game.py
 ├── static/app.css
 ├── templates/index.html
-└── tests/test_app.py
+├── tests/test_app.py
+└── Dockerfile
 ```
+
+## Deployment
+
+This project now includes thinker deployment assets:
+
+- `Dockerfile`
+- `k8s/code-reviewdle.yaml`
+- `scripts/publish-to-thinker-registry.sh`
+- `scripts/deploy-to-thinker.sh`
+- `DEPLOYMENT.md`
 
 ## Next Implementation Steps
 

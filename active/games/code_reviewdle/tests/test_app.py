@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import json
+from base64 import b64encode
 from datetime import date
 from html import unescape
 
 import pytest
 
-from code_reviewdle.app import create_app
+from code_reviewdle.app import ADDRESSED_DIR, FEEDBACK_DIR, create_app
 from code_reviewdle.content import puzzle_for_day
 
 
@@ -23,6 +25,11 @@ def play_date() -> date:
     return date(2026, 5, 4)
 
 
+def _auth_headers(username: str, password: str) -> dict[str, str]:
+    token = b64encode(f"{username}:{password}".encode()).decode()
+    return {"Authorization": f"Basic {token}"}
+
+
 def test_index_renders_selected_daily_puzzle(client, play_date: date) -> None:
     response = client.get(f"/?day={play_date.isoformat()}")
 
@@ -33,6 +40,7 @@ def test_index_renders_selected_daily_puzzle(client, play_date: date) -> None:
     assert "Code Reviewdle" in page
     assert puzzle.title in page
     assert puzzle.language in page
+    assert "Send Feedback" in page
 
 
 def test_wrong_guess_unlocks_first_hint(client, play_date: date) -> None:
@@ -97,3 +105,54 @@ def test_round_ends_after_six_wrong_guesses(client, play_date: date) -> None:
     assert "Round over." in page
     assert puzzle.explanation in page
     assert puzzle.issue_type in page
+
+
+def test_feedback_submission_creates_file(client) -> None:
+    response = client.post(
+        "/feedback",
+        json={
+            "feedback_text": "The line picker feels good.",
+            "design": "code-reviewdle",
+            "page_path": "/",
+            "page_title": "Code Reviewdle",
+        },
+        content_type="application/json",
+    )
+
+    assert response.status_code == 200
+    payload = response.get_json()
+    assert payload is not None
+    feedback_id = payload["id"]
+    path = FEEDBACK_DIR / f"feedback_{feedback_id}.json"
+    assert path.exists()
+
+    with open(path, encoding="utf-8") as file_handle:
+        data = json.load(file_handle)
+
+    assert data["feedback_text"] == "The line picker feels good."
+    assert data["app"] == "Code Reviewdle"
+    path.unlink(missing_ok=True)
+
+
+def test_feedback_list_requires_admin_auth(client, monkeypatch) -> None:
+    monkeypatch.setenv("FEEDBACK_ADMIN_USERNAME", "admin")
+    monkeypatch.setenv("FEEDBACK_ADMIN_PASSWORD", "secret")
+    response = client.post(
+        "/feedback",
+        json={"feedback_text": "Needs a practice mode."},
+        content_type="application/json",
+    )
+    feedback_id = response.get_json()["id"]
+
+    unauthorized = client.get("/feedback")
+    assert unauthorized.status_code == 401
+
+    authorized = client.get("/feedback", headers=_auth_headers("admin", "secret"))
+    assert authorized.status_code == 200
+    payload = authorized.get_json()
+    assert payload is not None
+    open_ids = {entry["id"] for entry in payload["open"]}
+    assert feedback_id in open_ids
+
+    (FEEDBACK_DIR / f"feedback_{feedback_id}.json").unlink(missing_ok=True)
+    (ADDRESSED_DIR / f"feedback_{feedback_id}.json").unlink(missing_ok=True)

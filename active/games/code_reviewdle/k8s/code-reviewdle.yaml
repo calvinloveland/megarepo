@@ -1,0 +1,160 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: codereviewdle
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: codereviewdle-env
+  namespace: codereviewdle
+type: Opaque
+stringData:
+  SECRET_KEY: "replace-with-a-random-secret-key"
+  APP_VERSION: "release-20260504-feedback"
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: codereviewdle-data
+  namespace: codereviewdle
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: codereviewdle
+  namespace: codereviewdle
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: codereviewdle
+  template:
+    metadata:
+      labels:
+        app: codereviewdle
+    spec:
+      securityContext:
+        fsGroup: 1001
+      initContainers:
+        - name: prepare-app-data
+          image: busybox:1.36
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/sh", "-ec"]
+          args:
+            - |
+              mkdir -p /app/data/feedback/addressed
+              chown -R 1001:1001 /app/data
+              chmod -R ug+rwX /app/data
+          securityContext:
+            runAsUser: 0
+          volumeMounts:
+            - name: codereviewdle-data
+              mountPath: /app/data/feedback
+      containers:
+        - name: codereviewdle
+          image: 127.0.0.1:5000/codereviewdle:latest
+          imagePullPolicy: Always
+          env:
+            - name: SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: codereviewdle-env
+                  key: SECRET_KEY
+            - name: FLASK_DEBUG
+              value: "false"
+            - name: HOST
+              value: "0.0.0.0"
+            - name: PORT
+              value: "5000"
+            - name: APP_VERSION
+              valueFrom:
+                secretKeyRef:
+                  name: codereviewdle-env
+                  key: APP_VERSION
+            - name: FEEDBACK_ADMIN_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: codereviewdle-feedback-auth
+                  key: username
+                  optional: true
+            - name: FEEDBACK_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: codereviewdle-feedback-auth
+                  key: password
+                  optional: true
+          ports:
+            - name: http
+              containerPort: 5000
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            runAsNonRoot: true
+            runAsUser: 1001
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+              ephemeral-storage: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+              ephemeral-storage: 1Gi
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 3
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            periodSeconds: 30
+            timeoutSeconds: 3
+          volumeMounts:
+            - name: codereviewdle-data
+              mountPath: /app/data/feedback
+        - name: cloudflared
+          image: cloudflare/cloudflared:latest
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: TUNNEL_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: codereviewdle-cloudflared-token
+                  key: token
+          args:
+            - tunnel
+            - --no-autoupdate
+            - --url
+            - http://127.0.0.1:5000
+            - run
+            - --token
+            - $(TUNNEL_TOKEN)
+      volumes:
+        - name: codereviewdle-data
+          persistentVolumeClaim:
+            claimName: codereviewdle-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: codereviewdle
+  namespace: codereviewdle
+spec:
+  selector:
+    app: codereviewdle
+  ports:
+    - name: http
+      port: 5000
+      targetPort: http

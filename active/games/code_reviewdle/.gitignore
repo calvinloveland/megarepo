@@ -1,3 +1,5 @@
 .venv/
 .pytest_cache/
 src/*.egg-info/
+data/feedback/*.json
+data/feedback/addressed/*.json

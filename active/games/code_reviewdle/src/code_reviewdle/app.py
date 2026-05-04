@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import importlib
 import os
+import sys
 from datetime import date
 from typing import Any
 
@@ -10,6 +12,23 @@ from flask import Flask, render_template, request, session
 
 from .content import PROJECT_ROOT, available_issue_types, puzzle_for_day
 from .game import MAX_GUESSES, apply_guess, build_empty_progress, guesses_remaining, is_over
+
+SHARED_SRC_ROOT_CANDIDATES = (
+    PROJECT_ROOT.parent.parent / "web-apps" / "shared" / "src",
+    PROJECT_ROOT.parent / "shared" / "src",
+    PROJECT_ROOT / "shared" / "src",
+)
+for shared_src_root in SHARED_SRC_ROOT_CANDIDATES:
+    if shared_src_root.exists():
+        if str(shared_src_root) not in sys.path:
+            sys.path.insert(0, str(shared_src_root))
+        break
+
+web_feedback = importlib.import_module("web_feedback")
+
+enable_shared_feedback = web_feedback.enable_shared_feedback
+feedback_storage_paths = web_feedback.feedback_storage_paths
+FEEDBACK_DIR, ADDRESSED_DIR = feedback_storage_paths(PROJECT_ROOT)
 
 
 def create_app() -> Flask:
@@ -20,6 +39,13 @@ def create_app() -> Flask:
         static_folder=str(PROJECT_ROOT / "static"),
     )
     app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "dev-secret-key")
+    enable_shared_feedback(
+        app,
+        project_root=PROJECT_ROOT,
+        app_name="Code Reviewdle",
+        feedback_dir=FEEDBACK_DIR,
+        addressed_dir=ADDRESSED_DIR,
+    )
 
     @app.get("/")
     def index() -> str:
@@ -117,6 +143,7 @@ def _render_game_page(
         puzzle=puzzle,
         line_entries=list(enumerate(puzzle.code, start=1)),
         issue_types=issue_types,
+        feedback_design="code-reviewdle",
         progress=progress,
         guesses_remaining=guesses_remaining(progress),
         max_guesses=MAX_GUESSES,
