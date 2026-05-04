@@ -5,6 +5,7 @@ This directory contains brainstorming documents, project ideas, and future plans
 ## Contents
 
 - **wizard_fight.txt** - Notes and ideas for a wizard fight game concept
+- **code_reviewdle_mvp.md** - MVP plan for a daily code review puzzle game
 - **artists_i_like.txt** - Personal artist inspiration list
 - **calvinloveland_profile_designs.md** - Three artist-inspired GitHub profile README design drafts
 - **calvinloveland_profile_design_1_clean_coastal.md** - Renderable profile draft (Clean Coastal Poster)

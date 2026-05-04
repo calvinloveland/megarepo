@@ -15,6 +15,7 @@ Interactive games, simulations, and AI experiments.
   - [VPS Deployment Guide](wizard_fight/docs/deploy_vps.md)
 
 ### Browser Games
+- [**code_reviewdle**](code_reviewdle/README.md) - Daily code review puzzle game with multi-language, famous-bug-inspired snippets
 - [**conway_game_of_war**](conway_game_of_war/README.md) - Browser-based variant of Conway's Game of Life with competitive elements
 - [**powder_play**](powder_play/README.md) - Particle physics sandbox game with falling sand mechanics
   - [Local LLM Integration](powder_play/docs/local-llm.md)

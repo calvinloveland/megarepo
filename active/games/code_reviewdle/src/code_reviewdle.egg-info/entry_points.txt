@@ -1,0 +1,2 @@
+[console_scripts]
+code-reviewdle = code_reviewdle.app:main

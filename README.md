@@ -44,6 +44,7 @@ A consolidated monorepo for active projects, archived experiments, shared toolin
 | [**lets-holdem-together**](active/games/lets-holdem-together/README.md) | Multiplayer poker game with AI players | Python |
 | [**super_ultimate_trading_card_game**](active/games/super_ultimate_trading_card_game/README.md) | LLM-driven trading card game simulation prototype with AI playtesting | Python |
 | [**wizard_fight**](active/games/wizard_fight/README.md) | Turn-based wizard battle game | Python |
+| [**code_reviewdle**](active/games/code_reviewdle/README.md) | Daily code review puzzle game with multi-language, famous-bug-inspired snippets | Python |
 | [**conway_game_of_war**](active/games/conway_game_of_war/README.md) | Browser-based Conway variant with competitive rules | Python |
 | [**powder_play**](active/games/powder_play/README.md) | Falling-sand style particle sandbox | Python |
 | [**MancalaAI**](active/games/MancalaAI/README.md) | Mancala AI experiments | Python |

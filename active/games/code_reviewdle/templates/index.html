@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Code Reviewdle</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+  </head>
+  <body>
+    <main class="page-shell">
+      <header class="hero card">
+        <p class="eyebrow">Daily code review puzzle</p>
+        <h1>Code Reviewdle</h1>
+        <p class="hero-copy">
+          Find the one flawed line and name the issue type. Today's puzzle uses a
+          larger, real-review-style snippet rather than a toy example.
+        </p>
+        <div class="meta-row">
+          <span class="meta-pill">{{ puzzle.language }}</span>
+          <span class="meta-pill">{{ guesses_remaining }} of {{ max_guesses }} guesses left</span>
+          <span class="meta-pill">Puzzle date {{ play_date }}</span>
+        </div>
+      </header>
+
+      <section class="card puzzle-summary">
+        <h2>{{ puzzle.title }}</h2>
+        <p>{{ puzzle.summary }}</p>
+        <p class="source-note">{{ puzzle.source_note }}</p>
+      </section>
+
+      {% if error_message %}
+        <section class="card notice error-notice">
+          <strong>Guess not submitted.</strong>
+          <span>{{ error_message }}</span>
+        </section>
+      {% endif %}
+
+      {% if progress.solved %}
+        <section class="card notice success-notice">
+          <strong>Solved.</strong>
+          <span>You found the flawed line and the right issue type.</span>
+        </section>
+      {% elif puzzle_finished %}
+        <section class="card notice loss-notice">
+          <strong>Round over.</strong>
+          <span>You used all {{ max_guesses }} guesses. Review the explanation below.</span>
+        </section>
+      {% endif %}
+
+      <section class="card layout-grid">
+        <div class="code-panel">
+          <div class="panel-header">
+            <h2>Snippet</h2>
+            <p>Click a line number to load it into the guess form.</p>
+          </div>
+          <div class="code-frame" role="region" aria-label="Code snippet">
+            <table class="code-table">
+              <tbody>
+                {% for line_number, line_text in line_entries %}
+                  <tr class="{% if selected_line_number|int == line_number %}selected-row{% endif %} {% if puzzle_finished and line_number == puzzle.answer_line %}answer-row{% endif %}">
+                    <td class="line-number-cell">
+                      <button
+                        type="button"
+                        class="line-select"
+                        data-line-number="{{ line_number }}"
+                        aria-label="Select line {{ line_number }}"
+                      >{{ line_number }}</button>
+                    </td>
+                    <td class="code-cell"><code>{{ line_text if line_text else ' ' }}</code></td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="sidebar-stack">
+          <section class="card nested-card">
+            <h2>Make a guess</h2>
+            <form method="post" action="{{ url_for('guess') }}" class="guess-form">
+              <input type="hidden" name="day" value="{{ play_date }}">
+
+              <label class="field-label" for="line_number">Line number</label>
+              <input
+                id="line_number"
+                name="line_number"
+                type="number"
+                min="1"
+                max="{{ puzzle.code_line_count }}"
+                value="{{ selected_line_number }}"
+                {% if puzzle_finished %}disabled{% endif %}
+                required
+              >
+
+              <label class="field-label" for="issue_type">Issue type</label>
+              <select id="issue_type" name="issue_type" {% if puzzle_finished %}disabled{% endif %} required>
+                <option value="">Choose an issue type</option>
+                {% for issue_type in issue_types %}
+                  <option value="{{ issue_type }}" {% if selected_issue_type == issue_type %}selected{% endif %}>{{ issue_type }}</option>
+                {% endfor %}
+              </select>
+
+              <button class="primary-button" type="submit" {% if puzzle_finished %}disabled{% endif %}>Submit guess</button>
+            </form>
+          </section>
+
+          <section class="card nested-card">
+            <h2>Hints</h2>
+            {% if revealed_hints %}
+              <ol class="hint-list">
+                {% for hint in revealed_hints %}
+                  <li>{{ hint }}</li>
+                {% endfor %}
+              </ol>
+            {% else %}
+              <p class="muted">Miss a guess to unlock your first hint.</p>
+            {% endif %}
+          </section>
+
+          <section class="card nested-card">
+            <h2>Guess history</h2>
+            {% if progress.guesses %}
+              <table class="history-table">
+                <thead>
+                  <tr>
+                    <th>Line</th>
+                    <th>Line result</th>
+                    <th>Issue type</th>
+                    <th>Issue result</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for guess in progress.guesses %}
+                    <tr>
+                      <td>{{ guess.line_number }}</td>
+                      <td><span class="status-pill status-{{ guess.line_status }}">{{ guess.line_status }}</span></td>
+                      <td>{{ guess.issue_type }}</td>
+                      <td><span class="status-pill status-{{ guess.issue_status }}">{{ guess.issue_status }}</span></td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            {% else %}
+              <p class="muted">No guesses yet.</p>
+            {% endif %}
+          </section>
+        </div>
+      </section>
+
+      {% if puzzle_finished %}
+        <section class="card explanation-card">
+          <h2>Review outcome</h2>
+          <p><strong>Correct line:</strong> {{ puzzle.answer_line }}</p>
+          <p><strong>Issue type:</strong> {{ puzzle.issue_type }}</p>
+          <p>{{ puzzle.explanation }}</p>
+        </section>
+      {% endif %}
+    </main>
+
+    <script>
+      const lineInput = document.getElementById("line_number");
+      const lineButtons = document.querySelectorAll(".line-select");
+      lineButtons.forEach((button) => {
+        button.addEventListener("click", () => {
+          if (lineInput && !lineInput.disabled) {
+            lineInput.value = button.dataset.lineNumber;
+          }
+        });
+      });
+    </script>
+  </body>
+</html>
