@@ -2,17 +2,23 @@
 set -euo pipefail
 
 KUBECONFIG_PATH="${KUBECONFIG_PATH:-${HOME}/.kube/thinker-k3s.yaml}"
+KUBECTL_SERVER="${KUBECTL_SERVER:-}"
 NAMESPACE="${NAMESPACE:-vernissage}"
 PUBLIC_URL="${PUBLIC_URL:-https://thevernissage.art}"
 THINKER_HOST="${THINKER_HOST:-thinker}"
 
+KUBECTL_ARGS=(--kubeconfig "${KUBECONFIG_PATH}")
+if [[ -n "${KUBECTL_SERVER}" ]]; then
+  KUBECTL_ARGS+=(--server "${KUBECTL_SERVER}" --insecure-skip-tls-verify=true)
+fi
+
 echo '==> Deployment status'
-kubectl --kubeconfig "${KUBECONFIG_PATH}" -n "${NAMESPACE}" get deploy vernissage
-kubectl --kubeconfig "${KUBECONFIG_PATH}" -n "${NAMESPACE}" rollout status deployment/vernissage --timeout=180s
+kubectl "${KUBECTL_ARGS[@]}" -n "${NAMESPACE}" get deploy vernissage
+kubectl "${KUBECTL_ARGS[@]}" -n "${NAMESPACE}" rollout status deployment/vernissage --timeout=180s
 
 echo
 echo '==> Pod status'
-kubectl --kubeconfig "${KUBECONFIG_PATH}" -n "${NAMESPACE}" get pods -o wide
+kubectl "${KUBECTL_ARGS[@]}" -n "${NAMESPACE}" get pods -o wide
 
 echo
 echo '==> Public checks'

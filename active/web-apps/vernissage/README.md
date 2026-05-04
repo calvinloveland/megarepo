@@ -241,7 +241,38 @@ The deploy helper:
 - pushes both an immutable timestamp tag and `latest` into the thinker-local registry
 - applies the non-secret resources from `k8s/vernissage.yaml`, updates `APP_VERSION` plus `NEXTAUTH_URL` from `PUBLIC_URL`, and rolls the deployment
 
-If you are running kubectl from an off-LAN machine over Tailscale, the kubeconfig may still point at thinker's LAN IP. In that case, override the API server to the Tailscale address and skip TLS hostname verification for the session:
+If you are running the deploy from an off-LAN machine over Tailscale, first bring Tailscale up locally:
+
+```bash
+tailscale up
+```
+
+If the short SSH host `thinker` does not resolve in that environment, use the current thinker Tailscale IP directly and tell the deploy/verify helpers to talk to the Kubernetes API through Tailscale too:
+
+```bash
+THINKER_HOST=100.99.147.74 \
+KUBECTL_SERVER=https://100.99.147.74:6443 \
+./scripts/deploy-to-thinker.sh
+```
+
+The same override works for verification:
+
+```bash
+THINKER_HOST=100.99.147.74 \
+KUBECTL_SERVER=https://100.99.147.74:6443 \
+./scripts/verify-live.sh
+```
+
+On the current thinker host, Tailscale publishing also needed the rootful Docker daemon so the remote build/push path could still reach the localhost registry cleanly:
+
+```bash
+THINKER_HOST=100.99.147.74 \
+REMOTE_BUILD_DOCKER_HOST=unix:///var/run/docker.sock \
+REMOTE_REGISTRY_DOCKER_HOST=unix:///var/run/docker.sock \
+./scripts/publish-to-thinker-registry.sh
+```
+
+If you are only troubleshooting kubectl connectivity from an off-LAN machine, the equivalent one-off command remains:
 
 ```bash
 kubectl --kubeconfig ~/.kube/thinker-k3s.yaml --server=https://100.99.147.74:6443 --insecure-skip-tls-verify=true -n vernissage get pods
