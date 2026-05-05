@@ -1,6 +1,8 @@
 const MAX_RECENT_SESSIONS = 20;
-const MAX_LLM_CANDIDATES = 8;
+const MAX_SEARCH_CANDIDATES = 8;
 const MAX_SNIPPET_CHARS = 700;
+const MAX_HANDOFF_SUMMARY_CHARS = 1200;
+const MAX_HANDOFF_RECENT_CHARS = 700;
 
 const STOPWORDS = new Set([
 	"about",
@@ -14,6 +16,7 @@ const STOPWORDS = new Set([
 	"are",
 	"around",
 	"because",
+	"best",
 	"been",
 	"before",
 	"being",
@@ -28,6 +31,7 @@ const STOPWORDS = new Set([
 	"ever",
 	"file",
 	"files",
+	"find",
 	"fix",
 	"for",
 	"from",
@@ -48,17 +52,17 @@ const STOPWORDS = new Set([
 	"over",
 	"please",
 	"problem",
-	"prompt",
 	"project",
 	"really",
 	"same",
+	"search",
 	"session",
 	"sessions",
 	"should",
 	"still",
+	"switch",
 	"system",
 	"test",
-	"time",
 	"that",
 	"the",
 	"their",
@@ -69,22 +73,24 @@ const STOPWORDS = new Set([
 	"they",
 	"this",
 	"through",
-	"tool",
-	"tools",
-	"turn",
-	"update",
+	"time",
+	"topic",
 	"use",
-	"uses",
 	"using",
 	"want",
-	"when",
 	"with",
 	"work",
 	"would",
 	"your",
 ]);
 
-export { MAX_LLM_CANDIDATES, MAX_RECENT_SESSIONS, MAX_SNIPPET_CHARS };
+export {
+	MAX_HANDOFF_RECENT_CHARS,
+	MAX_HANDOFF_SUMMARY_CHARS,
+	MAX_SEARCH_CANDIDATES,
+	MAX_RECENT_SESSIONS,
+	MAX_SNIPPET_CHARS,
+};
 
 export function tokenize(text) {
 	const raw = text.toLowerCase().match(/[a-z0-9_./-]{3,}/g) ?? [];
@@ -104,9 +110,7 @@ export function makeSnippet(text, maxChars = MAX_SNIPPET_CHARS) {
 }
 
 export function buildSessionTokenSet(info, cachedSummary) {
-	return new Set(
-		unique(tokenize(`${info.name ?? ""}\n${info.firstMessage}\n${cachedSummary ?? ""}\n${info.allMessagesText}`)),
-	);
+	return new Set(unique(tokenize(`${info.name ?? ""}\n${info.firstMessage}\n${cachedSummary ?? ""}\n${info.allMessagesText}`)));
 }
 
 export function scoreSession(promptTokens, info, cachedSummary) {
@@ -133,7 +137,7 @@ export function buildCandidates(sessions, currentSessionFile, prompt, cache) {
 			if (b.score !== a.score) return b.score - a.score;
 			return b.info.modified.getTime() - a.info.modified.getTime();
 		})
-		.slice(0, MAX_LLM_CANDIDATES)
+		.slice(0, MAX_SEARCH_CANDIDATES)
 		.map(({ info, score, sharedTokens }, idx) => ({
 			key: `S${idx + 1}`,
 			path: info.path,
@@ -147,46 +151,46 @@ export function buildCandidates(sessions, currentSessionFile, prompt, cache) {
 		}));
 }
 
-export function isLikelyContinuation(prompt) {
-	const lower = prompt.trim().toLowerCase();
-	const continuationPrefixes = [
-		"continue",
-		"also",
-		"now",
-		"next",
-		"fix that",
-		"do that",
-		"go ahead",
-		"and ",
-		"what about",
-		"can you also",
-		"please continue",
-		"retry",
-		"try again",
-	];
-	return continuationPrefixes.some((prefix) => lower.startsWith(prefix));
+export function chooseBestCandidate(candidates, options = {}) {
+	const { minScore = 1, preferNonCurrentOnTie = true } = options;
+	const viable = candidates.filter((candidate) => (candidate.score ?? 0) >= minScore);
+	if (viable.length === 0) return null;
+	const top = viable[0];
+	if (!top.current || !preferNonCurrentOnTie) return top;
+	const tiedNonCurrent = viable.find((candidate) => !candidate.current && candidate.score === top.score);
+	return tiedNonCurrent ?? top;
 }
 
-export function getHeuristicDecision(prompt, candidates) {
-	const promptTokens = unique(tokenize(prompt));
-	if (promptTokens.length === 0) return null;
+export function formatTokenCount(count = 0) {
+	if (count >= 1_000_000) return `${(count / 1_000_000).toFixed(1)}M`;
+	if (count >= 10_000) return `${Math.round(count / 1000)}k`;
+	if (count >= 1000) return `${(count / 1000).toFixed(1)}k`;
+	return `${count}`;
+}
 
-	if (isLikelyContinuation(prompt)) {
-		return {
-			choice: "CURRENT",
-			confidence: 0.98,
-			reason: "Prompt uses explicit continuation language, so it likely belongs in the current session.",
-		};
+export function buildHandoffPrompt({ sessionLabel = "current session", summary = "", recentMessages = "", goal = "" } = {}) {
+	const cleanedSummary = makeSnippet(summary, MAX_HANDOFF_SUMMARY_CHARS);
+	const cleanedRecent = makeSnippet(recentMessages, MAX_HANDOFF_RECENT_CHARS);
+	const cleanedGoal = goal.trim();
+	const sections = [
+		"## Context",
+		`Continue from: ${sessionLabel}`,
+	];
+
+	if (cleanedSummary) {
+		sections.push("", "Working summary:", cleanedSummary);
 	}
 
-	const topScore = candidates[0]?.score ?? 0;
-	if (promptTokens.length >= 3 && topScore === 0) {
-		return {
-			choice: "NEW",
-			confidence: 0.99,
-			reason: "Prompt has no meaningful token overlap with any recent local session, so it should start a new session.",
-		};
+	if (cleanedRecent && cleanedRecent !== cleanedSummary) {
+		sections.push("", "Most recent exchange:", cleanedRecent);
 	}
 
-	return null;
+	sections.push(
+		"",
+		"## Task",
+		cleanedGoal || "Continue the work in a fresh session.",
+		"",
+		"Treat this prompt as the handoff source of truth. Re-open files or rerun commands as needed instead of relying on the old session context.",
+	);
+	return sections.join("\n");
 }

@@ -1,13 +1,14 @@
 {
-  "name": "pi-session-router",
-  "version": "0.1.2",
-  "description": "Pi extension that uses an LLM to route new prompts into the most relevant existing session before continuing",
+  "name": "pi-find-session",
+  "version": "0.3.0",
+  "description": "Pi extension that adds find-session and handoff commands for recovering from oversized or scattered sessions",
   "keywords": [
     "pi-package",
     "pi-extension",
     "session",
-    "routing",
-    "workflow"
+    "search",
+    "workflow",
+    "handoff"
   ],
   "license": "MIT",
   "author": "Calvin Loveland <calvin@loveland.dev>",
@@ -30,8 +31,7 @@
     "LICENSE"
   ],
   "peerDependencies": {
-    "@mariozechner/pi-coding-agent": "*",
-    "@mariozechner/pi-ai": "*"
+    "@mariozechner/pi-coding-agent": "*"
   },
   "pi": {
     "extensions": ["./extensions"]

@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { buildCandidates, getHeuristicDecision, tokenize } from "../extensions/router-logic.mjs";
+import { buildCandidates, buildHandoffPrompt, chooseBestCandidate, formatTokenCount, tokenize } from "../extensions/router-logic.mjs";
 
 function makeSession(path, name, firstMessage, allMessagesText, modified = "2026-04-30T12:00:00.000Z") {
 	return {
@@ -17,50 +17,11 @@ function makeSession(path, name, firstMessage, allMessagesText, modified = "2026
 	};
 }
 
-test("tokenize removes generic stopwords that caused false overlap", () => {
-	assert.deepEqual(tokenize("This is a test prompt about the session router system"), ["router"]);
+test("tokenize removes generic search terms and stopwords", () => {
+	assert.deepEqual(tokenize("Please find the best session for the router system"), ["router"]);
 });
 
-test("explicit continuation language stays in the current session", () => {
-	const sessions = [
-		makeSession(
-			"/sessions/router.jsonl",
-			"router work",
-			"Investigate the session router",
-			"We are debugging the pi session router and adjusting confidence thresholds.",
-		),
-	];
-	const candidates = buildCandidates(sessions, "/sessions/router.jsonl", "Can you also tighten the threshold logic?", {});
-	const decision = getHeuristicDecision("Can you also tighten the threshold logic?", candidates);
-	assert.equal(decision?.choice, "CURRENT");
-	assert.equal(decision?.confidence, 0.98);
-});
-
-test("unrelated prompt starts a new session instead of reporting false 98 percent similarity", () => {
-	const sessions = [
-		makeSession(
-			"/sessions/router.jsonl",
-			"router work",
-			"Investigate the session router",
-			"We are debugging the pi session router and adjusting confidence thresholds.",
-		),
-		makeSession(
-			"/sessions/nix.jsonl",
-			"nix config",
-			"Update a NixOS module",
-			"This session changes host modules, home-manager config, and flake validation.",
-			"2026-04-29T12:00:00.000Z",
-		),
-	];
-	const prompt = "My openclaw install needs to be updated to use mountain time instead of utc time it currently uses.";
-	const candidates = buildCandidates(sessions, "/sessions/router.jsonl", prompt, {});
-	const decision = getHeuristicDecision(prompt, candidates);
-	assert.equal(candidates[0]?.score ?? 0, 0);
-	assert.equal(decision?.choice, "NEW");
-	assert.equal(decision?.confidence, 0.99);
-});
-
-test("topic-specific prompt ranks the matching session ahead of unrelated sessions", () => {
+test("topic-specific search ranks the matching session ahead of unrelated sessions", () => {
 	const sessions = [
 		makeSession(
 			"/sessions/router.jsonl",
@@ -77,9 +38,70 @@ test("topic-specific prompt ranks the matching session ahead of unrelated sessio
 			"2026-04-29T12:00:00.000Z",
 		),
 	];
-	const prompt = "Please fix the openclaw timezone so it uses mountain time.";
-	const candidates = buildCandidates(sessions, "/sessions/router.jsonl", prompt, {});
+	const candidates = buildCandidates(sessions, "/sessions/router.jsonl", "openclaw timezone mountain time", {});
 	assert.equal(candidates[0]?.path, "/sessions/openclaw.jsonl");
 	assert.ok((candidates[0]?.score ?? 0) > (candidates[1]?.score ?? 0));
 	assert.deepEqual(candidates[0]?.sharedTokens, ["openclaw", "timezone"]);
+});
+
+test("chooseBestCandidate returns null when nothing meaningfully matches", () => {
+	const sessions = [
+		makeSession(
+			"/sessions/router.jsonl",
+			"router work",
+			"Investigate the session router",
+			"We are debugging the pi session router and adjusting confidence thresholds.",
+		),
+		makeSession(
+			"/sessions/nix.jsonl",
+			"nix config",
+			"Update a NixOS module",
+			"This session changes host modules, home-manager config, and flake validation.",
+			"2026-04-29T12:00:00.000Z",
+		),
+	];
+	const candidates = buildCandidates(sessions, "/sessions/router.jsonl", "mountain time utc offset for openclaw", {});
+	assert.equal(chooseBestCandidate(candidates), null);
+});
+
+test("chooseBestCandidate prefers another session when current session only ties on score", () => {
+	const sessions = [
+		makeSession(
+			"/sessions/current.jsonl",
+			"current work",
+			"OpenClaw timezone debug",
+			"Notes about openclaw timezone handling.",
+			"2026-04-30T12:00:00.000Z",
+		),
+		makeSession(
+			"/sessions/older.jsonl",
+			"older openclaw work",
+			"OpenClaw timezone deploy",
+			"Deployment changes for openclaw timezone and clocks.",
+			"2026-04-29T12:00:00.000Z",
+		),
+	];
+	const candidates = buildCandidates(sessions, "/sessions/current.jsonl", "openclaw timezone", {});
+	const best = chooseBestCandidate(candidates, { preferNonCurrentOnTie: true });
+	assert.equal(best?.path, "/sessions/older.jsonl");
+});
+
+test("buildHandoffPrompt keeps the new-session prompt compact and actionable", () => {
+	const prompt = buildHandoffPrompt({
+		sessionLabel: "router work",
+		summary: "We replaced automatic routing with explicit local search to avoid oversized routing prompts.",
+		recentMessages: "user: the last session hit 413\nassistant: switch to a fresh session with a compact handoff",
+		goal: "Finish the 413 fix and verify the tests.",
+	});
+	assert.match(prompt, /## Context/);
+	assert.match(prompt, /Continue from: router work/);
+	assert.match(prompt, /## Task/);
+	assert.match(prompt, /Finish the 413 fix and verify the tests/);
+	assert.match(prompt, /Treat this prompt as the handoff source of truth/);
+});
+
+test("formatTokenCount keeps session-size warnings readable", () => {
+	assert.equal(formatTokenCount(950), "950");
+	assert.equal(formatTokenCount(12_300), "12k");
+	assert.equal(formatTokenCount(185_000), "185k");
 });

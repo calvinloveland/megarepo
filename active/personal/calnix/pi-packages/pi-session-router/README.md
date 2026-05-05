@@ -1,33 +1,31 @@
-# pi-session-router
+# pi-find-session
 
-Pi extension that automatically decides whether a new prompt belongs in another existing session.
+Pi extension that adds fast session-finder and handoff commands for staying productive when Pi sessions get unwieldy.
 
 ## Behavior
 
-- intercepts a newly submitted user prompt
-- gathers recent project sessions
-- asks an LLM to choose the most relevant existing session, if any
-- switches to that session before continuing
-- if no better session exists, keeps the current one
+- adds `/fs <search terms>` to find the best matching local session
+- adds `/handoff <goal>` to continue in a fresh session with a compact summary of the current one
+- scores recent sessions using informative token overlap from session names, first prompts, cached summaries, and conversation text
+- switches directly to the best match
+- warns in the status line when the current session looks large enough to risk provider-side 413 request failures
+- if no session matches well enough, it stays put and tells you no match was found
+- leaves fully manual new-session creation to pi's built-in `/new session`
 
 ## Commands
 
 ```text
-/session-router on
-/session-router off
-/session-router toggle
-/session-router status
-/session-router threshold 0.80
-/session-router notices off
+/fs <search terms>
+/find-session <search terms>
+/handoff <goal for the new session>
 ```
 
 ## Notes
 
-- this is an opinionated workflow extension
-- it uses an unsupported internal `AgentSession` hook to switch sessions invisibly during prompt interception
-- it can stay in the current session, switch to another local session, or start a new session when no good match exists
-- it keeps a lightweight cache at `~/.pi/agent/session-router-cache.json`
-- routing heuristics now use exact informative-token overlap instead of loose substring matching, which avoids false `CURRENT` decisions on unrelated prompts
+- this replaces the older automatic routing workflow with explicit commands so it does not build oversized routing prompts on every turn
+- `/handoff` is intended for exactly the "my last session got huge and started throwing 413s" failure mode
+- it uses the supported `ctx.switchSession()` / `ctx.newSession()` command APIs instead of unsupported internal session hooks
+- it keeps a lightweight cache at `~/.pi/agent/find-session-cache.json`
 
 ## Local test
 
