@@ -5,6 +5,7 @@ This directory contains meta-information about the repository itself, including 
 ## Contents
 
 - **DUPLICATES.txt** - Analysis and tracking of duplicate files or projects across the repository
+- **SUPPLY_CHAIN_REVIEW_2026-05-04.md** - Static assessment of repo-level supply-chain risks and prioritized mitigations
 
 ## Purpose
 
