@@ -73,6 +73,12 @@ Before deploying changes, run the comprehensive test suite:
 nix flake check --no-build
 ```
 
+### UI Automation Demo
+
+To demo the screenshot diff, heuristic scoring, and bounded autopolish workflow, see:
+
+- [`docs/ui-automation-demo.md`](docs/ui-automation-demo.md)
+
 ## Architecture
 
 ```
