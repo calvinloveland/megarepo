@@ -28,6 +28,7 @@ import { type ExtensionAPI, getMarkdownTheme, withFileMutationQueue } from "@mar
 import { Container, Markdown, Spacer, Text } from "@mariozechner/pi-tui";
 import { Type } from "typebox";
 import { type AgentConfig, type AgentScope, discoverAgents } from "./agents.ts";
+import { buildChildPiArgs, SUBAGENT_IMAGE_SAFETY_PROMPT } from "./subagent-runner-config.mjs";
 
 const MAX_PARALLEL_TASKS = 8;
 const MAX_CONCURRENCY = 4;
@@ -267,10 +268,6 @@ async function runSingleAgent(
 		};
 	}
 
-	const args: string[] = ["--mode", "json", "-p", "--no-session"];
-	if (agent.model) args.push("--model", agent.model);
-	if (agent.tools && agent.tools.length > 0) args.push("--tools", agent.tools.join(","));
-
 	let tmpPromptDir: string | null = null;
 	let tmpPromptPath: string | null = null;
 
@@ -296,13 +293,18 @@ async function runSingleAgent(
 	};
 
 	try {
-		if (agent.systemPrompt.trim()) {
-			const tmp = await writePromptToTempFile(agent.name, agent.systemPrompt);
+		const combinedSystemPrompt = [agent.systemPrompt.trim(), SUBAGENT_IMAGE_SAFETY_PROMPT].filter(Boolean).join("\n\n");
+		if (combinedSystemPrompt) {
+			const tmp = await writePromptToTempFile(agent.name, combinedSystemPrompt);
 			tmpPromptDir = tmp.dir;
 			tmpPromptPath = tmp.filePath;
-			args.push("--append-system-prompt", tmpPromptPath);
 		}
 
+		const args = buildChildPiArgs({
+			model: agent.model,
+			tools: agent.tools ?? [],
+			appendSystemPromptPath: tmpPromptPath ?? undefined,
+		});
 		args.push(`Task: ${task}`);
 		let wasAborted = false;
 

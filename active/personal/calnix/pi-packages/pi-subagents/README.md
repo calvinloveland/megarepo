@@ -37,12 +37,14 @@ This package makes the pattern reusable by:
 ## Behavior
 
 - each subagent runs in a separate `pi` subprocess
+- child runs stay isolated with `--no-session --no-extensions --no-skills` so unrelated global workflow prompts do not bloat subagent context
 - output is captured through JSON mode for structured updates
 - supports:
   - single mode
   - parallel mode
   - chain mode
 - bundled agents are always available
+- bundled agents inherit your active/default model unless you override them in user/project agent files
 - user agents in `~/.pi/agent/agents` can override bundled agents with the same name
 - project agents in `.pi/agents` can override bundled or user agents when `agentScope` is `project` or `both`
 - interactive confirmation is still required before running project-local agents unless disabled explicitly
@@ -55,6 +57,7 @@ Default behavior remains conservative:
 - project-local agents are opt-in
 - project-local agents should only be enabled for trusted repositories
 - role-specific tool lists should stay narrow when possible
+- subagents include a guardrail that tells them to prefer diff metadata/OCR/text artifacts over reading multiple large images into one conversation, which helps avoid provider-side 413 request failures during screenshot-heavy work
 
 ## Install from local path
 

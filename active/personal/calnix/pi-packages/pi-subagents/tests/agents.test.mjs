@@ -2,9 +2,13 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { mkdtemp, mkdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
 
 import { discoverAgents, formatAgentList } from "../extensions/agents.ts";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const packageDir = join(__dirname, "..");
 
 async function writeAgent(dir, name, description, sourceText = "You are helpful.") {
   await mkdir(dir, { recursive: true });
@@ -81,4 +85,17 @@ test("formatAgentList includes source labels and overflow count", () => {
 
   assert.match(summary.text, /scout \(bundled\): Fast recon/);
   assert.equal(summary.remaining, 1);
+});
+
+test("bundled agents inherit the active model instead of pinning a provider", () => {
+  const result = discoverAgents(packageDir, "user", {
+    bundledAgentsDir: join(packageDir, "agents"),
+    userAgentsDir: join(packageDir, "missing-user"),
+    projectAgentsDir: null,
+  });
+
+  assert.ok(result.agents.length > 0);
+  for (const agent of result.agents) {
+    assert.equal(agent.model, undefined, `${agent.name} should not hardcode a model`);
+  }
 });
