@@ -3,3 +3,4 @@
 result*
 .git-hooks.nas-credentials
 /hardware-configuration.nix
+/artifacts/ui-regression/

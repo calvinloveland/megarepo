@@ -68,6 +68,18 @@ Capture a specific Pi debug window by title fragment:
 ./pi-skills/pi-extension-testing/scripts/capture_pi_window.py --title pi-debug artifacts/pi-debug-window.png
 ```
 
+Compare a baseline and current screenshot and write `diff.png` + `diff.json`:
+
+```bash
+./pi-skills/pi-extension-testing/scripts/compare_pi_screenshots.py artifacts/ui-regression/baseline.png artifacts/ui-regression/current.png
+```
+
+Run the screenshot regression loop that captures, diffs, and writes `report.md`:
+
+```bash
+./pi-skills/pi-extension-testing/scripts/ui_regression_loop.py --output-dir artifacts/ui-regression --skip-judge
+```
+
 ## Recommended workflow
 
 1. Read the target package `README.md` and `package.json`.
@@ -79,7 +91,8 @@ Capture a specific Pi debug window by title fragment:
    - `/reload` in an already-running Pi session
 6. If the bug involved the TUI or a specific command/tool flow, capture a real screenshot with `capture_pi_window.py` and, when useful, pair it with a raw ANSI log via `PI_TUI_WRITE_LOG=/tmp/pi-tui.log pi ...`.
 7. If there are two plausible visual directions, save both screenshots and use `ab_test_visuals`; when the winner's explanation will matter later, set `captureRationale: true`.
-8. Manually verify the exact interaction that changed.
+8. If you need a repeatable no-user-input artifact bundle, run `ui_regression_loop.py` so baseline/current/diff/report files land under one directory.
+9. Manually verify the exact interaction that changed.
 
 ## Testing design principles
 

@@ -32,6 +32,11 @@ Good defaults:
 - `artifacts/ui-variant-b.png`
 - `artifacts/ui-final.png`
 - `artifacts/pi-tui.log`
+- `artifacts/ui-regression/baseline.png`
+- `artifacts/ui-regression/current.png`
+- `artifacts/ui-regression/diff.png`
+- `artifacts/ui-regression/diff.json`
+- `artifacts/ui-regression/report.md`
 
 ## Capture commands
 
@@ -51,6 +56,18 @@ Capture a raw ANSI log alongside the screenshot when rendering behavior matters:
 
 ```bash
 PI_TUI_WRITE_LOG=artifacts/pi-tui.log pi -e ./pi-packages/<name>
+```
+
+Compare two screenshots directly:
+
+```bash
+./pi-skills/pi-extension-testing/scripts/compare_pi_screenshots.py artifacts/ui-regression/baseline.png artifacts/ui-regression/current.png
+```
+
+Create or update a no-user-input regression artifact bundle:
+
+```bash
+./pi-skills/pi-extension-testing/scripts/ui_regression_loop.py --output-dir artifacts/ui-regression --skip-judge
 ```
 
 ## Workflow
@@ -73,6 +90,9 @@ PI_TUI_WRITE_LOG=artifacts/pi-tui.log pi -e ./pi-packages/<name>
    - use the selected variant and any captured rationale to guide final refinement
 7. **Capture the final state**
    - save a final screenshot after the winning polish pass
+8. **When you want a repeatable automated artifact set, use the regression loop**
+   - baseline/current/diff/report stay together under `artifacts/ui-regression/`
+   - this is the best starting point for later machine judging or subagent-driven polish
 
 ## A/B comparison notes
 
