@@ -1,0 +1,23 @@
+{
+  "baseline_path": "/home/calvin/Downloads/vernissage_homepage.png",
+  "current_path": "/home/calvin/code/megarepo/active/web-apps/vernissage/artifacts/reference-homepage/render.png",
+  "diff_path": "/home/calvin/code/megarepo/active/web-apps/vernissage/artifacts/reference-homepage/diff.png",
+  "width": 1024,
+  "height": 1536,
+  "changed_pixels": 1572864,
+  "changed_ratio": 1.0,
+  "bbox": {
+    "left": 0,
+    "top": 0,
+    "right": 1024,
+    "bottom": 1536
+  },
+  "baseline_size": {
+    "width": 1024,
+    "height": 1536
+  },
+  "current_size": {
+    "width": 1024,
+    "height": 1536
+  }
+}
