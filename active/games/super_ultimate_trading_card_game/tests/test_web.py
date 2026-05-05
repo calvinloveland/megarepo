@@ -33,8 +33,8 @@ def test_web_index_uses_cookie_backed_player_after_registration(tmp_path: Path):
     assert b"Welcome, Calvin Player" in response.data
     assert b"Create Live Game" not in response.data
     assert b"game-card" in response.data
+    assert b"game-card__image" in response.data
     assert b"data:image/svg+xml" in response.data
-    assert b"/static/card_art/track-lancer-velocity-rare.png" in response.data
     assert b"Rare Alt Art" in response.data
     assert b"Velocity Charge" in response.data
 
@@ -57,7 +57,7 @@ def test_card_detail_shows_standard_and_alternate_art(tmp_path: Path):
     assert b"Track Lancer" in response.data
     assert b"Standard Art" in response.data
     assert b"Velocity Charge" in response.data
-    assert b"/static/card_art/track-lancer-velocity-rare.png" in response.data
+    assert b"game-card__image" in response.data
     assert b"data:image/svg+xml" in response.data
 
 

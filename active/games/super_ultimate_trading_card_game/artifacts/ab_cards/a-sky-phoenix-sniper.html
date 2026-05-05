@@ -1,4 +1,11 @@
-body {
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sky Phoenix Sniper</title>
+  <style>body {
   margin: 0;
   font-family: Inter, system-ui, sans-serif;
   background: #10141f;
@@ -531,13 +538,6 @@ pre {
   border-color: #6f87b3;
 }
 
-.game-card__image {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
 .game-card__titlebar {
   display: grid;
   grid-template-columns: auto 1fr auto;
@@ -907,3 +907,91 @@ hr {
     grid-template-columns: 1fr;
   }
 }
+</style>
+  <style>
+    body {
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      background:
+        radial-gradient(circle at top, rgba(86, 104, 246, 0.22), transparent 35%),
+        #10141f;
+    }
+    .preview-shell {
+      width: 430px;
+      padding: 28px;
+    }
+    .preview-stack {
+      display: grid;
+      gap: 14px;
+      justify-items: center;
+    }
+    .preview-stack .game-card {
+      width: 340px;
+    }
+    .preview-caption {
+      margin: 0;
+      text-align: center;
+      color: #c6d5ff;
+      font-size: 14px;
+      line-height: 1.45;
+    }
+    .preview-prompt {
+      color: #8ea6d8;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+  </style>
+</head>
+<body>
+  <main class="preview-shell">
+    <section class="panel preview-stack">
+      
+  <article class="game-card game-card--unit">
+    <header class="game-card__titlebar">
+      <div class="game-card__vital game-card__vital--left">
+        <dt>HP</dt>
+        <dd>4/4</dd>
+      </div>
+      <div class="game-card__nameplate">
+        <h3>Sky Phoenix Sniper</h3>
+        
+          <p>sky phoenix sniper</p>
+        
+      </div>
+      <div class="game-card__vital game-card__vital--right">
+        <dt>ATK</dt>
+        <dd>5</dd>
+      </div>
+    </header>
+    <div class="game-card__art-shell">
+      <div class="game-card__art">
+        <img src="data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%22240%22%20height%3D%22336%22%20viewBox%3D%220%200%20240%20336%22%20fill%3D%22none%22%20role%3D%22img%22%20aria-label%3D%22Sky%20Phoenix%20Sniper%20artwork%22%3E%0A%20%20%3Cdefs%3E%0A%20%20%20%20%3ClinearGradient%20id%3D%22sky%22%20x1%3D%220%22%20y1%3D%220%22%20x2%3D%220%22%20y2%3D%221%22%3E%0A%20%20%20%20%20%20%3Cstop%20offset%3D%220%25%22%20stop-color%3D%22%2377bdfb%22/%3E%0A%20%20%20%20%20%20%3Cstop%20offset%3D%2255%25%22%20stop-color%3D%22%23b8dfff%22/%3E%0A%20%20%20%20%20%20%3Cstop%20offset%3D%22100%25%22%20stop-color%3D%22%23f7d9a8%22/%3E%0A%20%20%20%20%3C/linearGradient%3E%0A%20%20%3C/defs%3E%0A%20%20%3Crect%20width%3D%22240%22%20height%3D%22336%22%20rx%3D%2226%22%20fill%3D%22url%28%23sky%29%22/%3E%0A%20%20%3Ccircle%20cx%3D%2268%22%20cy%3D%2252%22%20r%3D%2232%22%20fill%3D%22%23ffe07c%22%20opacity%3D%220.75%22/%3E%0A%20%20%0A%20%20%3Cpath%20d%3D%22M34%2084c18-16%2042-14%2056%200M122%2074c16-12%2036-10%2050%200%22%20stroke%3D%22rgba%28255%2C255%2C255%2C0.45%29%22%20stroke-width%3D%228%22%20stroke-linecap%3D%22round%22/%3E%0A%20%20%3Cpath%20d%3D%22M0%20213C58%20193%20114%20225%20180%20195C212%20187%20228%20203%20240%20207V336H0Z%22%20fill%3D%22%2342536a%22/%3E%0A%20%20%3Cg%20transform%3D%22translate%2824%2078%29%22%3E%0A%20%20%20%20%3Cpath%20d%3D%22M44%20138c12-60%2048-102%2096-112-18%2024-24%2048-18%2070%2018-2%2036%206%2054%2026-42%206-74%2010-92%2016-24%208-44%2010-58%200%2018-2%2028-2%2030%200-6-10-10-24-12-40Z%22%20fill%3D%22%23f5f7fb%22/%3E%0A%20%20%20%20%3Cpath%20d%3D%22M88%2070c18-20%2042-32%2070-36-18%2014-28%2030-30%2048%22%20stroke%3D%22%23ffe07c%22%20stroke-width%3D%2210%22%20stroke-linecap%3D%22round%22/%3E%0A%20%20%20%20%3Cpath%20d%3D%22M56%20136c16-4%2034-10%2058-14%22%20stroke%3D%22%236d5563%22%20stroke-width%3D%228%22%20stroke-linecap%3D%22round%22/%3E%0A%20%20%3C/g%3E%0A%20%20%3Crect%20x%3D%2214%22%20y%3D%2214%22%20width%3D%22212%22%20height%3D%22308%22%20rx%3D%2222%22%20fill%3D%22none%22%20stroke%3D%22rgba%28255%2C255%2C255%2C0.24%29%22%20/%3E%0A%3C/svg%3E" alt="Sky Phoenix Sniper artwork" />
+        
+        <span class="game-card__type">UNIT</span>
+        
+      </div>
+    </div>
+    <div class="game-card__body">
+      <dl class="game-card__stats">
+        <div><dt>CPC</dt><dd>5</dd></div>
+        <div><dt>INC</dt><dd>0</dd></div>
+        <div><dt>SPD</dt><dd>2</dd></div>
+        <div><dt>RNG</dt><dd>0</dd></div>
+      </dl>
+      
+      
+        <p class="game-card__keywords">Flying</p>
+      
+      <p class="game-card__ability">Fights harder when it enters combat.</p>
+    </div>
+  </article>
+      <p class="preview-caption"><strong>Sky Phoenix Sniper</strong> · sky phoenix sniper</p>
+      <p class="preview-caption">ATK 5 · HP 4 · CPC 5 · SPD 2 · RNG 0</p>
+      <p class="preview-caption">Fights harder when it enters combat.</p>
+      <p class="preview-caption preview-prompt">prompt: Sky Phoenix Sniper</p>
+    </section>
+  </main>
+</body>
+</html>

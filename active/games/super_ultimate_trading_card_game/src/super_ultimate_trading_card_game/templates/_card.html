@@ -1,54 +1,16 @@
 {% macro render_card(raw_card, fallback_kind='unit') -%}
   {% set card = normalize_card(raw_card, fallback_kind) %}
-  <article class="game-card game-card--{{ card.kind }}">
-    <header class="game-card__titlebar">
-      <div class="game-card__vital game-card__vital--left">
-        <dt>HP</dt>
-        <dd>{{ card.current_hp }}/{{ card.hp }}</dd>
-      </div>
-      <div class="game-card__nameplate">
-        <h3>{{ card.name }}</h3>
-        {% if card.theme %}
-          <p>{{ card.theme }}</p>
-        {% elif card.owner_id %}
-          <p>{{ card.owner_id }}</p>
-        {% endif %}
-      </div>
-      <div class="game-card__vital game-card__vital--right">
-        <dt>ATK</dt>
-        <dd>{{ card.attack }}</dd>
-      </div>
-    </header>
-    <div class="game-card__art-shell">
-      <div class="game-card__art">
-        <img src="{{ card_art_uri(raw_card, fallback_kind) }}" alt="{{ card.name }} artwork" />
-        {% if card.art_variant_rarity %}
-          <span class="game-card__rarity">{{ card.art_variant_rarity }}</span>
-        {% endif %}
-        <span class="game-card__type">{{ card.kind|upper }}</span>
-        {% if card.art_variant_label %}
-          <span class="game-card__variant">{{ card.art_variant_label }}</span>
-        {% endif %}
-      </div>
-    </div>
-    <div class="game-card__body">
-      <dl class="game-card__stats">
-        <div><dt>CPC</dt><dd>{{ card.cpc if card.cpc is not none else "—" }}</dd></div>
-        <div><dt>INC</dt><dd>{{ card.income if card.income is not none else "—" }}</dd></div>
-        <div><dt>SPD</dt><dd>{{ card.speed if card.speed is not none else "—" }}</dd></div>
-        <div><dt>RNG</dt><dd>{{ card.attack_range if card.attack_range is not none else "—" }}</dd></div>
-      </dl>
-      {% if card.track %}
-        <p class="game-card__meta">
-          {{ card.track }} track{% if card.position is not none %} · pos {{ card.position }}{% endif %}
-          {% if card.stationary %} · stationary{% endif %}
-          {% if card.engaged %} · engaged{% endif %}
-        </p>
-      {% endif %}
-      {% if card.keywords %}
-        <p class="game-card__keywords">{{ card.keywords | join(" · ") }}</p>
-      {% endif %}
-      <p class="game-card__ability">{{ card.ability_summary }}</p>
-    </div>
+  <article
+    class="game-card game-card--{{ card.kind }}"
+    {% if card.art_variant_label %}data-card-variant="{{ card.art_variant_label }}"{% endif %}
+    {% if card.art_variant_rarity %}data-card-rarity="{{ card.art_variant_rarity }}"{% endif %}
+  >
+    <img
+      class="game-card__image"
+      src="{{ card_image_uri(raw_card, fallback_kind) }}"
+      alt="{{ card.name }} card"
+      loading="lazy"
+      decoding="async"
+    />
   </article>
 {%- endmacro %}

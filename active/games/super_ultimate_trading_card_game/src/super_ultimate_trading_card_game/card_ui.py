@@ -1,8 +1,12 @@
 from __future__ import annotations
 
-from flask import has_request_context, url_for
+from base64 import b64encode
 from hashlib import sha256
+from html import escape
+from mimetypes import guess_type
 from urllib.parse import quote
+
+from flask import has_request_context, url_for
 
 from .art_registry import card_art_variant, card_art_variant_path
 
@@ -18,7 +22,8 @@ def _lookup(card, key: str, default=None):
 
 def normalize_card(card, fallback_kind: str = "unit") -> dict[str, object]:
     keywords = tuple(_lookup(card, "keywords", ()) or ())
-    kind = str(_lookup(card, "kind", fallback_kind) or fallback_kind)
+    raw_kind = _lookup(card, "kind", fallback_kind) or fallback_kind
+    kind = raw_kind.value if hasattr(raw_kind, "value") else str(raw_kind)
     hp = int(_lookup(card, "max_hp", _lookup(card, "hp", 0)) or 0)
     current_hp = int(_lookup(card, "current_hp", hp) or hp)
     variant = card_art_variant(card)
@@ -266,7 +271,7 @@ def card_art_svg(card, fallback_kind: str = "unit") -> str:
     backdrop, subject = _pick_scene(tokens, normalized)
     colors = _palette(backdrop)
     return f"""
-<svg xmlns="http://www.w3.org/2000/svg" width="240" height="336" viewBox="0 0 240 336" fill="none" role="img" aria-label="{normalized['name']} artwork">
+<svg xmlns="http://www.w3.org/2000/svg" width="240" height="336" viewBox="0 0 240 336" fill="none" role="img" aria-label="{escape(str(normalized['name']), quote=True)} artwork">
   {_background_svg(backdrop, seed, colors)}
   {_subject_svg(subject, colors, seed)}
   <rect x="14" y="14" width="212" height="308" rx="22" fill="none" stroke="rgba(255,255,255,0.24)" />
@@ -274,8 +279,18 @@ def card_art_svg(card, fallback_kind: str = "unit") -> str:
 """.strip()
 
 
+def _string_data_uri(payload: str, mime_type: str) -> str:
+    encoded = b64encode(payload.encode("utf-8")).decode("ascii")
+    return f"data:{mime_type};base64,{encoded}"
+
+
+def _bytes_data_uri(payload: bytes, mime_type: str) -> str:
+    encoded = b64encode(payload).decode("ascii")
+    return f"data:{mime_type};base64,{encoded}"
+
+
 def card_art_data_uri(card, fallback_kind: str = "unit") -> str:
-    return "data:image/svg+xml;utf8," + quote(card_art_svg(card, fallback_kind))
+    return _string_data_uri(card_art_svg(card, fallback_kind), "image/svg+xml")
 
 
 def card_art_uri(card, fallback_kind: str = "unit") -> str:
@@ -286,4 +301,194 @@ def card_art_uri(card, fallback_kind: str = "unit") -> str:
     static_path = variant.static_path if variant is not None else asset_path.name
     if has_request_context():
         return url_for("static", filename=static_path)
-    return f"/static/{static_path}"
+    return f"/static/{quote(static_path)}"
+
+
+def _embedded_art_href(card, fallback_kind: str = "unit") -> str:
+    asset_path = card_art_variant_path(card)
+    if asset_path is None:
+        return card_art_data_uri(card, fallback_kind)
+    mime_type = guess_type(asset_path.name)[0] or "application/octet-stream"
+    return _bytes_data_uri(asset_path.read_bytes(), mime_type)
+
+
+def _wrap_text(text: str, max_chars: int) -> list[str]:
+    cleaned = " ".join(text.split())
+    if not cleaned:
+        return []
+    words = cleaned.split(" ")
+    lines: list[str] = []
+    current = ""
+    for word in words:
+        candidate = f"{current} {word}".strip()
+        if current and len(candidate) > max_chars:
+            lines.append(current)
+            current = word
+        else:
+            current = candidate
+    if current:
+        lines.append(current)
+    return lines
+
+
+def _text_block(lines: list[str], *, x: int, y: int, line_height: int, size: int, fill: str, weight: str = "400") -> str:
+    return "".join(
+        f'<text x="{x}" y="{y + (index * line_height)}" fill="{fill}" font-family="Verdana, Arial, sans-serif" '
+        f'font-size="{size}" font-weight="{weight}">{escape(line)}</text>'
+        for index, line in enumerate(lines)
+    )
+
+
+def _badge(label: str, *, x: int, y: int, width: int, fill: str, text_fill: str) -> str:
+    safe_label = escape(label)
+    return (
+        f'<rect x="{x}" y="{y}" width="{width}" height="28" rx="14" fill="{fill}" opacity="0.96"/>'
+        f'<text x="{x + width / 2}" y="{y + 18}" text-anchor="middle" fill="{text_fill}" '
+        'font-family="Verdana, Arial, sans-serif" font-size="12" font-weight="700">'
+        f"{safe_label}</text>"
+    )
+
+
+def _stat_box(label: str, value: object, *, x: int, y: int) -> str:
+    return f"""
+  <g transform="translate({x} {y})">
+    <rect width="92" height="52" rx="12" fill="#fff8ea" stroke="rgba(117,90,39,0.18)"/>
+    <text x="46" y="17" text-anchor="middle" fill="#7b6238" font-family="Verdana, Arial, sans-serif" font-size="11" font-weight="700">{escape(label)}</text>
+    <text x="46" y="37" text-anchor="middle" fill="#2d2213" font-family="Verdana, Arial, sans-serif" font-size="18" font-weight="700">{escape(str(value))}</text>
+  </g>
+""".strip()
+
+
+def _meta_text(card: dict[str, object]) -> str:
+    segments: list[str] = []
+    track = card.get("track")
+    if track:
+        segments.append(f"{track} track")
+    position = card.get("position")
+    if position is not None:
+        if isinstance(position, float):
+            segments.append(f"pos {position:g}")
+        else:
+            segments.append(f"pos {position}")
+    if card.get("stationary"):
+        segments.append("stationary")
+    if card.get("engaged"):
+        segments.append("engaged")
+    if not segments:
+        fallback = str(card.get("theme") or card.get("owner_id") or "")
+        return fallback
+    return " · ".join(segments)
+
+
+def card_image_svg(card, fallback_kind: str = "unit") -> str:
+    normalized = normalize_card(card, fallback_kind)
+    art_href = _embedded_art_href(card, fallback_kind)
+    keywords = " · ".join(str(keyword) for keyword in normalized["keywords"]) or "No keywords"
+    theme_or_owner = str(normalized["theme"] or normalized["owner_id"])
+    name_lines = _wrap_text(str(normalized["name"]), 20)[:2]
+    theme_lines = _wrap_text(theme_or_owner, 34)[:2]
+    keyword_lines = _wrap_text(keywords, 38)[:2]
+    ability_lines = _wrap_text(str(normalized["ability_summary"]), 36)[:4]
+    meta_lines = _wrap_text(_meta_text(normalized), 36)[:2]
+
+    shell = {
+        "unit": {
+            "outer_fill": "#ead5a1",
+            "outer_stroke": "#9d7d3a",
+            "title_fill": "#f7ebcf",
+            "title_stroke": "rgba(122,96,40,0.26)",
+            "vital_fill": "#f0ddb0",
+            "body_fill": "#f8edd1",
+            "badge_fill": "rgba(18,22,32,0.88)",
+            "badge_text": "#f3f5fc",
+        },
+        "base": {
+            "outer_fill": "#dbe5f5",
+            "outer_stroke": "#6f87b3",
+            "title_fill": "#edf3fc",
+            "title_stroke": "rgba(81,104,148,0.24)",
+            "vital_fill": "#d4e2f7",
+            "body_fill": "#edf3fc",
+            "badge_fill": "rgba(32,54,89,0.88)",
+            "badge_text": "#f4f8ff",
+        },
+    }[str(normalized["kind"])]
+
+    rarity_badge = ""
+    if normalized["art_variant_rarity"]:
+        rarity_badge = _badge(
+            str(normalized["art_variant_rarity"]),
+            x=48,
+            y=150,
+            width=118,
+            fill="rgba(247,233,181,0.96)",
+            text_fill="#3c2d08",
+        )
+
+    variant_badge = ""
+    if normalized["art_variant_label"]:
+        variant_badge = _badge(
+            str(normalized["art_variant_label"]),
+            x=48,
+            y=372,
+            width=168,
+            fill="rgba(247,233,181,0.96)",
+            text_fill="#3c2d08",
+        )
+
+    return f"""
+<svg xmlns="http://www.w3.org/2000/svg" width="500" height="700" viewBox="0 0 500 700" fill="none" role="img" aria-label="{escape(str(normalized['name']), quote=True)} card">
+  <defs>
+    <clipPath id="art-clip">
+      <rect x="40" y="142" width="420" height="250" rx="20"/>
+    </clipPath>
+  </defs>
+  <rect x="8" y="8" width="484" height="684" rx="34" fill="{shell['outer_fill']}" stroke="{shell['outer_stroke']}" stroke-width="8"/>
+  <rect x="22" y="22" width="456" height="656" rx="28" fill="rgba(255,255,255,0.22)"/>
+
+  <g transform="translate(28 28)">
+    <rect x="0" y="0" width="92" height="78" rx="28" fill="{shell['vital_fill']}" stroke="{shell['title_stroke']}"/>
+    <text x="46" y="24" text-anchor="middle" fill="#7a6336" font-family="Verdana, Arial, sans-serif" font-size="12" font-weight="700">HP</text>
+    <text x="46" y="54" text-anchor="middle" fill="#2a1f10" font-family="Georgia, serif" font-size="28" font-weight="700">{escape(f"{normalized['current_hp']}/{normalized['hp']}")}</text>
+
+    <rect x="104" y="0" width="236" height="78" rx="22" fill="{shell['title_fill']}" stroke="{shell['title_stroke']}"/>
+    {_text_block(name_lines, x=122, y=28, line_height=22, size=22, fill="#2b1e0f", weight="700")}
+    {_text_block(theme_lines or [str(normalized['owner_id'])], x=122, y=58, line_height=18, size=12, fill="#6b5632")}
+
+    <rect x="352" y="0" width="92" height="78" rx="28" fill="{shell['vital_fill']}" stroke="{shell['title_stroke']}"/>
+    <text x="398" y="24" text-anchor="middle" fill="#7a6336" font-family="Verdana, Arial, sans-serif" font-size="12" font-weight="700">ATK</text>
+    <text x="398" y="54" text-anchor="middle" fill="#2a1f10" font-family="Georgia, serif" font-size="30" font-weight="700">{escape(str(normalized['attack']))}</text>
+  </g>
+
+  <rect x="34" y="136" width="432" height="262" rx="24" fill="#5b4319" stroke="rgba(75,53,16,0.48)" stroke-width="2"/>
+  <rect x="40" y="142" width="420" height="250" rx="20" fill="#23180d"/>
+  <image href="{escape(art_href, quote=True)}" x="40" y="142" width="420" height="250" preserveAspectRatio="xMidYMid slice" clip-path="url(#art-clip)"/>
+  {rarity_badge}
+  {_badge(str(normalized['kind']).upper(), x=358, y=150, width=90, fill=shell['badge_fill'], text_fill=shell['badge_text'])}
+  {variant_badge}
+
+  <g transform="translate(44 416)">
+    {_stat_box('CPC', normalized['cpc'] if normalized['cpc'] is not None else '—', x=0, y=0)}
+    {_stat_box('INC', normalized['income'] if normalized['income'] is not None else '—', x=102, y=0)}
+    {_stat_box('SPD', normalized['speed'] if normalized['speed'] is not None else '—', x=204, y=0)}
+    {_stat_box('RNG', normalized['attack_range'] if normalized['attack_range'] is not None else '—', x=306, y=0)}
+  </g>
+
+  <rect x="40" y="480" width="420" height="56" rx="14" fill="#fff8ea" stroke="rgba(117,90,39,0.16)"/>
+  {_text_block(keyword_lines, x=56, y=503, line_height=16, size=12, fill="#6f5532", weight="700")}
+
+  <rect x="40" y="544" width="420" height="42" rx="12" fill="#f8efdb" stroke="rgba(117,90,39,0.14)"/>
+  {_text_block(meta_lines or ['Ready for play'], x=56, y=569, line_height=16, size=12, fill="#6b5632")}
+
+  <rect x="40" y="594" width="420" height="72" rx="16" fill="{shell['body_fill']}" stroke="rgba(117,90,39,0.16)"/>
+  {_text_block(ability_lines, x=56, y=620, line_height=16, size=13, fill="#2b1e0f")}
+</svg>
+""".strip()
+
+
+def card_image_data_uri(card, fallback_kind: str = "unit") -> str:
+    return _string_data_uri(card_image_svg(card, fallback_kind), "image/svg+xml")
+
+
+def card_image_uri(card, fallback_kind: str = "unit") -> str:
+    return card_image_data_uri(card, fallback_kind)

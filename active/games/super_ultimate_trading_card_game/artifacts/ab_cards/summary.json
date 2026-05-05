@@ -1,0 +1,16 @@
+[
+  {
+    "label": "A",
+    "prompt": "Sky Phoenix Sniper",
+    "name": "Sky Phoenix Sniper",
+    "html": "/home/calvin/code/megarepo/active/games/super_ultimate_trading_card_game/artifacts/ab_cards/a-sky-phoenix-sniper.html",
+    "json": "/home/calvin/code/megarepo/active/games/super_ultimate_trading_card_game/artifacts/ab_cards/a-sky-phoenix-sniper.json"
+  },
+  {
+    "label": "B",
+    "prompt": "Clockwork Field Medic",
+    "name": "Clockwork Field Medic",
+    "html": "/home/calvin/code/megarepo/active/games/super_ultimate_trading_card_game/artifacts/ab_cards/b-clockwork-field-medic.html",
+    "json": "/home/calvin/code/megarepo/active/games/super_ultimate_trading_card_game/artifacts/ab_cards/b-clockwork-field-medic.json"
+  }
+]

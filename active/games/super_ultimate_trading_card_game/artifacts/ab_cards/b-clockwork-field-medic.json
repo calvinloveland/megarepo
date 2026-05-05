@@ -1,0 +1,21 @@
+{
+  "card_id": "card-d13a0afea6e2-clockwork-field-medic",
+  "name": "Clockwork Field Medic",
+  "theme": "clockwork field medic",
+  "kind": "unit",
+  "hp": 5,
+  "attack": 3,
+  "cpc": 4,
+  "speed": 1,
+  "attack_range": 0,
+  "income": 0,
+  "keywords": [
+    "Healing"
+  ],
+  "role_tags": [
+    "support"
+  ],
+  "ability_summary": "Repairs wounded allies at the start of each round.",
+  "ability_script": "if api.event == \"round_start\":\n    api.heal_ally(2)",
+  "prompt": "Clockwork Field Medic"
+}

@@ -4,6 +4,7 @@ from dataclasses import replace
 from pathlib import Path
 from urllib.error import HTTPError
 
+from super_ultimate_trading_card_game.card_ui import card_image_svg
 from super_ultimate_trading_card_game.generation import DeterministicCardGenerator
 from super_ultimate_trading_card_game.generation import OpenRouterCardGenerator
 from super_ultimate_trading_card_game.models import CardKind
@@ -142,3 +143,20 @@ def test_deterministic_generator_preserves_non_fantasy_prompt_themes():
     assert any(token in cyberpunk.name.lower() for token in ("cyberpunk", "hologram", "detective", "drone", "neon"))
     assert any(token in classical.theme for token in ("classical", "marble", "senate", "realistic", "guardian", "statue"))
     assert any(token in classical.name.lower() for token in ("classical", "marble", "senate", "guardian", "statue"))
+
+
+def test_card_image_svg_contains_full_card_information():
+    generator = DeterministicCardGenerator(seed=17)
+    card = generator.generate_card("alpha", "A flying phoenix sniper", kind=CardKind.UNIT)
+    svg = card_image_svg(card)
+    assert card.name in svg
+    assert card.theme in svg
+    assert f">{card.attack}<" in svg
+    assert f">{card.hp}/{card.hp}<" in svg
+    assert f">{card.cpc}<" in svg
+    assert f">{card.speed}<" in svg
+    assert f">{card.attack_range}<" in svg
+    assert card.ability_summary in svg
+    assert "UNIT" in svg
+    for keyword in card.keywords:
+        assert keyword in svg

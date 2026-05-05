@@ -1,0 +1,21 @@
+{
+  "card_id": "card-1e07e67583b0-sky-phoenix-sniper",
+  "name": "Sky Phoenix Sniper",
+  "theme": "sky phoenix sniper",
+  "kind": "unit",
+  "hp": 4,
+  "attack": 5,
+  "cpc": 5,
+  "speed": 2,
+  "attack_range": 0,
+  "income": 0,
+  "keywords": [
+    "Flying"
+  ],
+  "role_tags": [
+    "attacker"
+  ],
+  "ability_summary": "Fights harder when it enters combat.",
+  "ability_script": "if api.event == \"combat\":\n    api.add_attack(1)",
+  "prompt": "Sky Phoenix Sniper"
+}
