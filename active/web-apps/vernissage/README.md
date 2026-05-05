@@ -83,6 +83,22 @@ npm run test:e2e
 
 `npm run test:e2e` runs Playwright smoke coverage against a local Next.js server, including homepage rendering and key navigation flows into artwork, artist, exhibition, and member pages.
 
+## Reference-match system
+
+Vernissage now also includes a reference-driven homepage matching harness aimed at recreating `/home/calvin/Downloads/vernissage_homepage.png` without simply displaying the screenshot itself.
+
+Pieces:
+
+- `/reference-homepage` — a semantic HTML/CSS scaffold for the target composition
+- `scripts/reference-homepage-match.mjs` — captures the route at `1024x1536` with Playwright and diffs it against the reference image
+- `artifacts/reference-homepage/` — output directory for `render.png`, `diff.png`, `diff.json`, and a short markdown summary
+
+Example usage while `npm run dev` is running:
+
+```bash
+node scripts/reference-homepage-match.mjs http://127.0.0.1:3000/reference-homepage
+```
+
 ## Accounts and review persistence
 
 Vernissage now includes:

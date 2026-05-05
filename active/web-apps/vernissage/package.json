@@ -11,7 +11,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test": "node --experimental-strip-types --test tests/unit/*.test.ts scripts/validate-demo-content.test.mjs",
+    "test": "node --experimental-strip-types --test tests/unit/*.test.ts tests/unit/reference-homepage-match.test.mjs scripts/validate-demo-content.test.mjs",
     "test:e2e": "playwright test",
     "test:all": "npm test && npm run test:e2e",
     "import:met": "node scripts/import-met-open-access.mjs",
