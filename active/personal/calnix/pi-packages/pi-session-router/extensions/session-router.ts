@@ -2,10 +2,10 @@ import { SessionManager, type ExtensionAPI } from "@mariozechner/pi-coding-agent
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { homedir } from "node:os";
-import { buildCandidates, buildHandoffPrompt, chooseBestCandidate, formatTokenCount, makeSnippet } from "./router-logic.mjs";
+import { buildCandidates, buildHandoffPrompt, chooseBestCandidate, describeSessionHealth, formatTokenCount, makeSnippet } from "./router-logic.mjs";
 
 const SUMMARY_CACHE_PATH = join(homedir(), ".pi", "agent", "find-session-cache.json");
-const LARGE_SESSION_TOKEN_WARNING = 180_000;
+const AUTO_COMPACT_REARM_TOKENS = 20_000;
 
 type Candidate = {
 	key: string;
@@ -107,24 +107,36 @@ function candidateDetail(candidate: Candidate): string {
 	return `${candidateLabel(candidate)} (score ${candidate.score}${shared})`;
 }
 
-function estimateSessionTokens(ctx: any): number {
-	let total = 0;
-	for (const entry of ctx.sessionManager.getBranch()) {
-		if (entry.type !== "message" || entry.message.role !== "assistant") continue;
-		const usage = entry.message.usage ?? {};
-		total += Number(usage.input ?? 0) + Number(usage.cacheRead ?? 0);
-	}
-	return total;
+function getSessionHealth(ctx: any) {
+	return describeSessionHealth(ctx.getContextUsage?.());
 }
 
 function setSessionHealthStatus(ctx: any): void {
 	if (!ctx.hasUI) return;
-	const totalTokens = estimateSessionTokens(ctx);
-	if (totalTokens >= LARGE_SESSION_TOKEN_WARNING) {
-		ctx.ui.setStatus("session-health", `⚠️ large session ${formatTokenCount(totalTokens)} · use /handoff`);
-		return;
-	}
-	ctx.ui.setStatus("session-health", undefined);
+	ctx.ui.setStatus("session-health", getSessionHealth(ctx)?.statusText);
+}
+
+const lastAutoCompactTokensBySession = new Map<string, number>();
+
+function maybeAutoCompact(ctx: any): void {
+	const health = getSessionHealth(ctx);
+	if (!health?.shouldAutoCompact) return;
+	const sessionKey = ctx.sessionManager.getSessionFile() ?? ctx.cwd;
+	const lastAutoCompactTokens = lastAutoCompactTokensBySession.get(sessionKey) ?? 0;
+	if (health.tokens <= lastAutoCompactTokens + AUTO_COMPACT_REARM_TOKENS) return;
+	lastAutoCompactTokensBySession.set(sessionKey, health.tokens);
+	notify(ctx, `Session reached ${formatTokenCount(health.tokens)} context tokens. Compacting now to avoid another 413.`, "warning");
+	ctx.compact({
+		customInstructions:
+			"Keep the active task, concrete findings, changed files, pending tests, and blockers. Drop verbose tool output so the next turn stays well below provider request limits.",
+		onComplete: () => {
+			setSessionHealthStatus(ctx);
+			notify(ctx, "Compaction completed. Use /handoff if the session still feels too heavy.", "success");
+		},
+		onError: (error: Error) => {
+			notify(ctx, `Compaction failed: ${error.message}. Use /handoff to continue in a fresh session.`, "error");
+		},
+	});
 }
 
 async function findBestSession(query: string, ctx: any): Promise<Candidate | null> {
@@ -141,9 +153,10 @@ export default function findSessionExtension(pi: ExtensionAPI) {
 		setSessionHealthStatus(ctx);
 	});
 
-	pi.on("agent_end", async (_event, ctx) => {
+	pi.on("turn_end", async (_event, ctx) => {
 		await updateCurrentSessionSummary(ctx).catch(() => {});
 		setSessionHealthStatus(ctx);
+		maybeAutoCompact(ctx);
 	});
 
 	const runFindSession = async (args: string, ctx: any) => {
@@ -198,7 +211,9 @@ export default function findSessionExtension(pi: ExtensionAPI) {
 			parentSession: sessionFile,
 			withSession: async (replacementCtx: any) => {
 				if (replacementCtx.hasUI) {
-					replacementCtx.ui.notify("Created a fresh handoff session.", "success");
+					replacementCtx.ui.setEditorText(prompt);
+					replacementCtx.ui.notify("Created a fresh handoff session. Review the draft prompt, then send it when ready.", "success");
+					return;
 				}
 				await replacementCtx.sendUserMessage(prompt);
 			},

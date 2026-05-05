@@ -3,6 +3,10 @@ const MAX_SEARCH_CANDIDATES = 8;
 const MAX_SNIPPET_CHARS = 700;
 const MAX_HANDOFF_SUMMARY_CHARS = 1200;
 const MAX_HANDOFF_RECENT_CHARS = 700;
+const SESSION_WARNING_TOKENS = 100_000;
+const SESSION_CRITICAL_TOKENS = 140_000;
+const SESSION_WARNING_PERCENT = 70;
+const SESSION_CRITICAL_PERCENT = 85;
 
 const STOPWORDS = new Set([
 	"about",
@@ -90,6 +94,10 @@ export {
 	MAX_SEARCH_CANDIDATES,
 	MAX_RECENT_SESSIONS,
 	MAX_SNIPPET_CHARS,
+	SESSION_CRITICAL_PERCENT,
+	SESSION_CRITICAL_TOKENS,
+	SESSION_WARNING_PERCENT,
+	SESSION_WARNING_TOKENS,
 };
 
 export function tokenize(text) {
@@ -166,6 +174,26 @@ export function formatTokenCount(count = 0) {
 	if (count >= 10_000) return `${Math.round(count / 1000)}k`;
 	if (count >= 1000) return `${(count / 1000).toFixed(1)}k`;
 	return `${count}`;
+}
+
+export function describeSessionHealth(usage = {}) {
+	const tokens = Number(usage?.tokens ?? 0);
+	const rawPercent = usage?.percent;
+	const percent = Number.isFinite(rawPercent) ? Math.round(rawPercent) : null;
+	const warning = tokens >= SESSION_WARNING_TOKENS || (percent !== null && percent >= SESSION_WARNING_PERCENT);
+	if (!warning) return null;
+	const critical = tokens >= SESSION_CRITICAL_TOKENS || (percent !== null && percent >= SESSION_CRITICAL_PERCENT);
+	const summaryParts = [];
+	if (tokens > 0) summaryParts.push(formatTokenCount(tokens));
+	if (percent !== null) summaryParts.push(`${percent}% ctx`);
+	const summary = summaryParts.join(" · ") || "high context usage";
+	return {
+		severity: critical ? "critical" : "warning",
+		tokens,
+		percent,
+		shouldAutoCompact: critical,
+		statusText: critical ? `🚨 413 risk ${summary} · use /handoff` : `⚠️ large session ${summary} · consider /handoff`,
+	};
 }
 
 export function buildHandoffPrompt({ sessionLabel = "current session", summary = "", recentMessages = "", goal = "" } = {}) {

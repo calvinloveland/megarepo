@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { buildCandidates, buildHandoffPrompt, chooseBestCandidate, formatTokenCount, tokenize } from "../extensions/router-logic.mjs";
+import { buildCandidates, buildHandoffPrompt, chooseBestCandidate, describeSessionHealth, formatTokenCount, tokenize } from "../extensions/router-logic.mjs";
 
 function makeSession(path, name, firstMessage, allMessagesText, modified = "2026-04-30T12:00:00.000Z") {
 	return {
@@ -98,6 +98,30 @@ test("buildHandoffPrompt keeps the new-session prompt compact and actionable", (
 	assert.match(prompt, /## Task/);
 	assert.match(prompt, /Finish the 413 fix and verify the tests/);
 	assert.match(prompt, /Treat this prompt as the handoff source of truth/);
+});
+
+test("buildHandoffPrompt aggressively trims oversized summaries", () => {
+	const prompt = buildHandoffPrompt({
+		sessionLabel: "huge session",
+		summary: "A".repeat(5000),
+		recentMessages: "B".repeat(4000),
+		goal: "Keep going.",
+	});
+	assert.ok(prompt.length < 2500);
+});
+
+test("describeSessionHealth warns before a provider request gets too risky", () => {
+	const health = describeSessionHealth({ tokens: 110_000, percent: 72 });
+	assert.equal(health?.severity, "warning");
+	assert.equal(health?.shouldAutoCompact, false);
+	assert.match(health?.statusText ?? "", /72% ctx/);
+});
+
+test("describeSessionHealth marks critical sessions for auto-compaction", () => {
+	const health = describeSessionHealth({ tokens: 150_000, percent: 78 });
+	assert.equal(health?.severity, "critical");
+	assert.equal(health?.shouldAutoCompact, true);
+	assert.match(health?.statusText ?? "", /413 risk/);
 });
 
 test("formatTokenCount keeps session-size warnings readable", () => {
