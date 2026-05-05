@@ -1,0 +1,23 @@
+{
+  "baseline_path": "/home/calvin/code/megarepo/active/personal/calnix/artifacts/ui-automation-demo/baseline.png",
+  "current_path": "/home/calvin/code/megarepo/active/personal/calnix/artifacts/ui-automation-demo/current.png",
+  "diff_path": "/home/calvin/code/megarepo/active/personal/calnix/artifacts/ui-automation-demo/regression-diff.png",
+  "width": 960,
+  "height": 600,
+  "changed_pixels": 94806,
+  "changed_ratio": 0.16459375,
+  "bbox": {
+    "left": 24,
+    "top": 20,
+    "right": 937,
+    "bottom": 563
+  },
+  "baseline_size": {
+    "width": 960,
+    "height": 600
+  },
+  "current_size": {
+    "width": 960,
+    "height": 600
+  }
+}

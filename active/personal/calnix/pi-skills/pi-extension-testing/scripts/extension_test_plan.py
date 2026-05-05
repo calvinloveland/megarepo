@@ -12,6 +12,7 @@ from typing import Iterable
 IMPORT_RE = re.compile(r"(?:import|export)\s+(?:[^;]*?from\s+)?[\"'](\.[^\"']+)[\"']")
 SUPPORTED_EXTENSION_FILES = (".ts", ".js")
 NODE_TEST_SUFFIXES = (".test.mjs", ".test.js", ".test.cjs", ".test.ts")
+IMPORT_SUFFIXES = ("", ".ts", ".js", ".mjs", ".cjs", "/index.ts", "/index.js", "/index.mjs", "/index.cjs")
 
 
 @dataclass(frozen=True)
@@ -108,35 +109,89 @@ def _relative_paths(paths: Iterable[Path], package_root: Path) -> list[str]:
     return [path.relative_to(package_root).as_posix() for path in paths]
 
 
-def _import_issues(extension_paths: Iterable[Path], package_root: Path) -> list[str]:
+def _relative_label(path: Path, package_root: Path) -> str:
+    try:
+        return path.relative_to(package_root).as_posix()
+    except ValueError:
+        return str(path)
+
+
+def _resolve_relative_import(importer: Path, relative_import: str) -> Path | None:
+    imported = (importer.parent / relative_import).resolve()
+    for suffix in IMPORT_SUFFIXES:
+        candidate = imported if suffix == "" else Path(f"{imported}{suffix}")
+        if candidate.exists():
+            return candidate.resolve()
+    return None
+
+
+def _collect_local_modules(entry_paths: Iterable[Path], package_root: Path) -> tuple[list[Path], list[str]]:
     issues: list[str] = []
-    for extension_path in extension_paths:
-        content = extension_path.read_text(encoding="utf-8")
+    discovered: dict[Path, None] = {}
+    queue = list(entry_paths)
+
+    while queue:
+        module_path = queue.pop(0).resolve()
+        if module_path in discovered or not module_path.exists() or not module_path.is_file():
+            continue
+        discovered[module_path] = None
+        content = module_path.read_text(encoding="utf-8")
         for relative_import in IMPORT_RE.findall(content):
-            imported = (extension_path.parent / relative_import).resolve()
-            if imported.exists():
+            resolved = _resolve_relative_import(module_path, relative_import)
+            if resolved is None:
+                issues.append(f"{_relative_label(module_path, package_root)} -> {relative_import}")
                 continue
-            for suffix in (".ts", ".js", ".mjs", ".cjs", "/index.ts", "/index.js", "/index.mjs", "/index.cjs"):
-                if Path(f"{imported}{suffix}").exists():
-                    break
-            else:
-                issues.append(f"{extension_path.relative_to(package_root).as_posix()} -> {relative_import}")
-    return issues
+            if resolved not in discovered:
+                queue.append(resolved)
+
+    return sorted(discovered), sorted(dict.fromkeys(issues))
 
 
-def _link_issues(extension_paths: Iterable[Path], global_extensions_dir: Path | None) -> list[str]:
+def _link_issue_message(link_name: str, target: str) -> str:
+    return f"{link_name} -> {target}"
+
+
+def _link_issues(extension_paths: Iterable[Path], local_module_paths: Iterable[Path], global_extensions_dir: Path | None) -> list[str]:
     if global_extensions_dir is None or not global_extensions_dir.exists():
         return []
 
+    extension_paths = [path.resolve() for path in extension_paths]
+    local_module_paths = [path.resolve() for path in local_module_paths]
     issues: list[str] = []
+    active_linked_entries: list[Path] = []
+
     for extension_path in extension_paths:
         link_path = global_extensions_dir / extension_path.name
-        if not link_path.exists() or not link_path.is_symlink():
+        if not link_path.exists() and not link_path.is_symlink():
+            continue
+        if not link_path.is_symlink():
+            issues.append(_link_issue_message(extension_path.name, "missing symlink"))
             continue
         resolved_target = link_path.resolve()
-        if resolved_target != extension_path.resolve():
-            issues.append(f"{link_path.name} -> {resolved_target}")
-    return issues
+        if resolved_target != extension_path:
+            issues.append(_link_issue_message(extension_path.name, str(resolved_target)))
+            continue
+        active_linked_entries.append(extension_path)
+
+    if not active_linked_entries:
+        return sorted(dict.fromkeys(issues))
+
+    extension_set = set(extension_paths)
+    for module_path in local_module_paths:
+        if module_path in extension_set:
+            continue
+        link_path = global_extensions_dir / module_path.name
+        if not link_path.exists() and not link_path.is_symlink():
+            issues.append(_link_issue_message(module_path.name, "missing"))
+            continue
+        if not link_path.is_symlink():
+            issues.append(_link_issue_message(module_path.name, "missing symlink"))
+            continue
+        resolved_target = link_path.resolve()
+        if resolved_target != module_path:
+            issues.append(_link_issue_message(module_path.name, str(resolved_target)))
+
+    return sorted(dict.fromkeys(issues))
 
 
 def build_test_plan(target: str | Path, global_extensions_dir: str | Path | None = Path("~/.pi/agent/extensions")) -> TestPlan:
@@ -145,9 +200,9 @@ def build_test_plan(target: str | Path, global_extensions_dir: str | Path | None
     extension_paths = [resolved_target] if target_type == "extension_file" else _discover_extension_paths(package_root, manifest)
     node_tests = _discover_node_tests(package_root)
     python_tests = _discover_python_tests(package_root)
-    import_issues = _import_issues(extension_paths, package_root)
+    local_module_paths, import_issues = _collect_local_modules(extension_paths, package_root)
     extensions_dir = Path(global_extensions_dir).expanduser().resolve() if global_extensions_dir is not None else None
-    link_issues = _link_issues(extension_paths, extensions_dir)
+    link_issues = _link_issues(extension_paths, local_module_paths, extensions_dir)
     coverage_warnings: list[str] = []
     if extension_paths and not node_tests and not python_tests:
         coverage_warnings.append("No automated Node or Python tests were discovered for this extension package.")

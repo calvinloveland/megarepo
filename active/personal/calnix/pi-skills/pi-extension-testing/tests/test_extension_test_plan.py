@@ -100,3 +100,46 @@ def test_build_test_plan_reports_link_mismatches(tmp_path: Path) -> None:
     plan = build_test_plan(package_dir, global_extensions_dir=extensions_dir)
 
     assert plan.link_issues == [f"mismatch.ts -> {other_file}"]
+
+
+def test_build_test_plan_audits_linked_helper_modules(tmp_path: Path) -> None:
+    package_dir = tmp_path / "helper-package"
+    extensions_dir = tmp_path / "pi-extensions"
+    (package_dir / "extensions").mkdir(parents=True)
+    extensions_dir.mkdir(parents=True)
+
+    entry_file = package_dir / "extensions" / "entry.ts"
+    helper_file = package_dir / "extensions" / "helper.mjs"
+    entry_file.write_text(
+        'import helper from "./helper.mjs";\nexport default function () { return helper; }\n',
+        encoding="utf-8",
+    )
+    helper_file.write_text("export default 1;\n", encoding="utf-8")
+    (extensions_dir / "entry.ts").symlink_to(entry_file)
+
+    plan = build_test_plan(package_dir, global_extensions_dir=extensions_dir)
+
+    assert plan.link_issues == ["helper.mjs -> missing"]
+
+
+def test_build_test_plan_reports_helper_link_conflicts(tmp_path: Path) -> None:
+    package_dir = tmp_path / "conflict-package"
+    extensions_dir = tmp_path / "pi-extensions"
+    (package_dir / "extensions").mkdir(parents=True)
+    extensions_dir.mkdir(parents=True)
+
+    entry_file = package_dir / "extensions" / "entry.ts"
+    helper_file = package_dir / "extensions" / "mode-state.mjs"
+    entry_file.write_text(
+        'import helper from "./mode-state.mjs";\nexport default function () { return helper; }\n',
+        encoding="utf-8",
+    )
+    helper_file.write_text("export default 1;\n", encoding="utf-8")
+    other_helper = tmp_path / "other-mode-state.mjs"
+    other_helper.write_text("export default 2;\n", encoding="utf-8")
+    (extensions_dir / "entry.ts").symlink_to(entry_file)
+    (extensions_dir / "mode-state.mjs").symlink_to(other_helper)
+
+    plan = build_test_plan(package_dir, global_extensions_dir=extensions_dir)
+
+    assert plan.link_issues == [f"mode-state.mjs -> {other_helper}"]

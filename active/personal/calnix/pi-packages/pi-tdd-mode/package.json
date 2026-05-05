@@ -1,0 +1,41 @@
+{
+  "name": "pi-tdd-mode",
+  "version": "0.1.0",
+  "description": "Pi extension that adds a TDD-focused execution mode with enforced test verification before completion",
+  "keywords": [
+    "pi-package",
+    "pi-extension",
+    "tdd",
+    "testing",
+    "workflow"
+  ],
+  "license": "MIT",
+  "author": "Calvin Loveland <calvin@loveland.dev>",
+  "private": false,
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/calvinloveland/megarepo.git",
+    "directory": "active/personal/calnix/pi-packages/pi-tdd-mode"
+  },
+  "homepage": "https://github.com/calvinloveland/megarepo/tree/main/active/personal/calnix/pi-packages/pi-tdd-mode#readme",
+  "bugs": {
+    "url": "https://github.com/calvinloveland/megarepo/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "extensions",
+    "README.md",
+    "LICENSE"
+  ],
+  "peerDependencies": {
+    "@mariozechner/pi-coding-agent": "*",
+    "typebox": "*"
+  },
+  "pi": {
+    "extensions": [
+      "./extensions"
+    ]
+  }
+}

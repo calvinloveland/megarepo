@@ -6,6 +6,7 @@ Pi extension that:
 - nudges the model to keep working until it calls `complete`
 - supports `/autopilot on|off|toggle|status`
 - persists autopilot state in the session
+- automatically stays off while TDD mode is active
 
 ## Local test
 

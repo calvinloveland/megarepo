@@ -15,37 +15,44 @@
 
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { Type } from "typebox";
+import { AUTOPILOT_STATE_TYPE, getAutopilotEnabled, isTddModeEnabled } from "./autopilot-mode-state.mjs";
 
-const AUTOPILOT_STATE_TYPE = "autopilot-state";
 const MAX_NUDGES = 2;
 
 let autopilotEnabled = true;
+let autopilotSuppressedByTdd = false;
 let sawCompleteThisRun = false;
 let autopilotNudges = 0;
 
+function refreshAutopilotState(ctx: { sessionManager: { getEntries: () => any[] } }) {
+	const entries = ctx.sessionManager.getEntries();
+	autopilotSuppressedByTdd = isTddModeEnabled(entries);
+	autopilotEnabled = getAutopilotEnabled(entries);
+}
+
 function setAutopilotStatus(ctx: { hasUI: boolean; ui: { setStatus: (key: string, value?: string) => void } }) {
 	if (!ctx.hasUI) return;
-	ctx.ui.setStatus("autopilot", autopilotEnabled ? "🤖 autopilot active" : "🤖 autopilot off");
+	ctx.ui.setStatus(
+		"autopilot",
+		autopilotSuppressedByTdd ? "🤖 autopilot off (TDD)" : autopilotEnabled ? "🤖 autopilot active" : "🤖 autopilot off",
+	);
 }
 
 export default function (pi: ExtensionAPI) {
 	pi.on("session_start", async (_event, ctx) => {
 		autopilotEnabled = true;
+		autopilotSuppressedByTdd = false;
 		sawCompleteThisRun = false;
 		autopilotNudges = 0;
 
-		for (const entry of ctx.sessionManager.getEntries()) {
-			if (entry.type === "custom" && entry.customType === AUTOPILOT_STATE_TYPE) {
-				autopilotEnabled = Boolean((entry.data as { enabled?: boolean } | undefined)?.enabled);
-			}
-		}
-
+		refreshAutopilotState(ctx);
 		setAutopilotStatus(ctx);
 	});
 
-	pi.on("before_agent_start", async (event, _ctx) => {
+	pi.on("before_agent_start", async (event, ctx) => {
 		sawCompleteThisRun = false;
 		autopilotNudges = 0;
+		refreshAutopilotState(ctx);
 
 		if (!autopilotEnabled) return;
 
@@ -68,11 +75,7 @@ export default function (pi: ExtensionAPI) {
 			"Do not stop with a plain assistant message when you can still make progress; keep working until complete is appropriate.",
 		],
 		parameters: Type.Object({
-			status: Type.Union([
-				Type.Literal("done"),
-				Type.Literal("blocked"),
-				Type.Literal("needs_input"),
-			]),
+			status: Type.Union([Type.Literal("done"), Type.Literal("blocked"), Type.Literal("needs_input")]),
 			summary: Type.String({ description: "Concise summary of what was accomplished or what is blocking progress" }),
 			nextSteps: Type.Optional(
 				Type.Array(Type.String(), { description: "Optional next steps or required user actions" }),
@@ -93,6 +96,7 @@ export default function (pi: ExtensionAPI) {
 	});
 
 	pi.on("agent_end", async (_event, ctx) => {
+		refreshAutopilotState(ctx);
 		if (!autopilotEnabled) return;
 		if (sawCompleteThisRun) return;
 		if (autopilotNudges >= MAX_NUDGES) return;
@@ -117,24 +121,40 @@ export default function (pi: ExtensionAPI) {
 		description: "Control autopilot mode: on, off, toggle, status",
 		handler: async (args, ctx) => {
 			const action = args.trim().toLowerCase();
+			refreshAutopilotState(ctx);
 
 			if (action === "" || action === "status") {
-				ctx.ui.notify(`Autopilot is ${autopilotEnabled ? "ON" : "OFF"}.`, "info");
+				const status = autopilotSuppressedByTdd
+					? "OFF because TDD mode is active."
+					: autopilotEnabled
+						? "ON."
+						: "OFF.";
+				ctx.ui.notify(`Autopilot is ${status}`, "info");
 				setAutopilotStatus(ctx);
 				return;
 			}
 
+			let nextEnabled = autopilotEnabled;
 			if (action === "on") {
-				autopilotEnabled = true;
+				nextEnabled = true;
 			} else if (action === "off") {
-				autopilotEnabled = false;
+				nextEnabled = false;
 			} else if (action === "toggle") {
-				autopilotEnabled = !autopilotEnabled;
+				nextEnabled = !autopilotEnabled;
 			} else {
 				ctx.ui.notify("Usage: /autopilot [on|off|toggle|status]", "error");
 				return;
 			}
 
+			if (nextEnabled && autopilotSuppressedByTdd) {
+				autopilotEnabled = false;
+				pi.appendEntry(AUTOPILOT_STATE_TYPE, { enabled: false });
+				setAutopilotStatus(ctx);
+				ctx.ui.notify("Autopilot cannot be enabled while TDD mode is active.", "warning");
+				return;
+			}
+
+			autopilotEnabled = nextEnabled;
 			pi.appendEntry(AUTOPILOT_STATE_TYPE, { enabled: autopilotEnabled });
 			setAutopilotStatus(ctx);
 			ctx.ui.notify(`Autopilot ${autopilotEnabled ? "enabled" : "disabled"}.`, "success");

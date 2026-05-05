@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Calnix UI Automation Demo — Rich View</title>
+  <style>
+    :root {
+      --bg: #020617;
+      --panel: rgba(15, 23, 42, 0.92);
+      --panel-2: #111827;
+      --panel-3: #1e293b;
+      --text: #e5e7eb;
+      --muted: #94a3b8;
+      --accent: #60a5fa;
+      --good: #34d399;
+      --warn: #f59e0b;
+      --bad: #f87171;
+      --border: #334155;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, system-ui, sans-serif;
+      color: var(--text);
+      background: radial-gradient(circle at top, #0f172a 0, var(--bg) 60%);
+      line-height: 1.5;
+    }
+    .wrap { max-width: 1320px; margin: 0 auto; padding: 32px 20px 72px; }
+    .hero, .panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 22px;
+      box-shadow: 0 24px 80px rgba(0,0,0,.35);
+    }
+    .hero { padding: 28px; margin-bottom: 24px; }
+    h1, h2, h3 { margin: 0 0 10px; }
+    p { margin: 0 0 12px; }
+    .sub { color: var(--muted); max-width: 84ch; }
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 14px;
+      margin-top: 22px;
+    }
+    .metric {
+      background: linear-gradient(180deg, rgba(30,41,59,.85), rgba(15,23,42,.95));
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 14px 16px;
+    }
+    .metric .label {
+      color: var(--muted);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+    }
+    .metric .value {
+      font-size: 32px;
+      font-weight: 700;
+      margin-top: 6px;
+    }
+    .metric.good .value { color: var(--good); }
+    .metric.bad .value { color: var(--bad); }
+    .metric.warn .value { color: var(--warn); }
+    .grid { display: grid; gap: 20px; }
+    .two { grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
+    .panel { padding: 20px; }
+    .compare {
+      position: relative;
+      overflow: hidden;
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      background: #0f172a;
+      aspect-ratio: 16 / 10;
+      margin: 14px 0 10px;
+    }
+    .compare img {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
+      background: #020617;
+    }
+    .compare .after {
+      clip-path: inset(0 0 0 50%);
+    }
+    .divider {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 3px;
+      background: white;
+      left: 50%;
+      transform: translateX(-50%);
+      box-shadow: 0 0 0 1px rgba(0,0,0,.25);
+      pointer-events: none;
+    }
+    .range { width: 100%; }
+    .legend { display: flex; justify-content: space-between; color: var(--muted); font-size: 13px; }
+    .scorecards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 16px;
+      margin-top: 10px;
+    }
+    .score {
+      border-radius: 16px;
+      padding: 16px;
+      border: 1px solid var(--border);
+      background: var(--panel-2);
+    }
+    .score .headline { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 10px; }
+    .score .big { font-size: 32px; font-weight: 700; }
+    .score.bad .big { color: var(--bad); }
+    .score.good .big { color: var(--good); }
+    .pill {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: .03em;
+    }
+    .pill.bad { background: rgba(248,113,113,.16); color: #fca5a5; }
+    .pill.good { background: rgba(52,211,153,.16); color: #86efac; }
+    .pill.warn { background: rgba(245,158,11,.16); color: #fcd34d; }
+    pre {
+      margin: 0;
+      white-space: pre-wrap;
+      background: #020617;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 16px;
+      overflow: auto;
+      font-family: ui-monospace, SFMono-Regular, monospace;
+      font-size: 13px;
+    }
+    ul { margin: 0; padding-left: 18px; }
+    .tiny { color: var(--muted); font-size: 13px; }
+    a { color: var(--accent); }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="hero">
+      <h1>Calnix UI Automation Demo — Rich View</h1>
+      <p class="sub">This upgraded page shows the same automation stack in a more compelling way: a visible regression, a polished follow-up pass, actual heuristic scoring output, diff metrics, and the bounded subagent workflow you can run next. It’s all generated from the demo artifacts in <code>artifacts/ui-automation-demo/</code>.</p>
+      <div class="metrics">
+        <div class="metric bad"><div class="label">Regression score</div><div class="value">76</div></div>
+        <div class="metric good"><div class="label">Polished score</div><div class="value">86</div></div>
+        <div class="metric good"><div class="label">Score improvement</div><div class="value">+10</div></div>
+        <div class="metric warn"><div class="label">Changed pixels (regression)</div><div class="value">94,806</div></div>
+        <div class="metric good"><div class="label">Changed pixels (polished)</div><div class="value">84,012</div></div>
+        <div class="metric good"><div class="label">Pixel delta reduced</div><div class="value">11.39%</div></div>
+      </div>
+    </section>
+
+    <section class="grid two" style="margin-bottom:20px;">
+      <article class="panel">
+        <h2>Regression pass</h2>
+        <p class="sub">Slide to compare the baseline against the regressed version. The green CTA and red status chip compete for attention, which the scoring prompt correctly calls out.</p>
+        <div class="compare" data-compare>
+          <img src="baseline.png" alt="Baseline dashboard">
+          <img class="after" src="current.png" alt="Regressed dashboard">
+          <div class="divider"></div>
+        </div>
+        <input class="range" type="range" min="0" max="100" value="50" data-range>
+        <div class="legend"><span>Baseline</span><span>Regression</span></div>
+      </article>
+      <article class="panel">
+        <h2>Polished pass</h2>
+        <p class="sub">Here the CTA label becomes specific, the alert state is toned down, and the score improves. It’s still not perfect, but it demonstrates a bounded automated improvement step.</p>
+        <div class="compare" data-compare>
+          <img src="baseline.png" alt="Baseline dashboard">
+          <img class="after" src="polished.png" alt="Polished dashboard">
+          <div class="divider"></div>
+        </div>
+        <input class="range" type="range" min="0" max="100" value="50" data-range>
+        <div class="legend"><span>Baseline</span><span>Polished</span></div>
+      </article>
+    </section>
+
+    <section class="panel" style="margin-bottom:20px;">
+      <h2>Actual heuristic score output</h2>
+      <div class="scorecards">
+        <div class="score bad">
+          <div class="headline">
+            <div>
+              <div class="tiny">Regression</div>
+              <div class="big">76/100</div>
+            </div>
+            <span class="pill bad">Needs revision</span>
+          </div>
+          <ul>
+            <li><strong>2 major</strong> issues: semantic color conflict and weak alert context</li>
+            <li><strong>2 minor</strong> issues: split hierarchy and color-only alert communication</li>
+            <li><strong>1 nit</strong>: CTA color feels like a success state</li>
+          </ul>
+          <p class="tiny" style="margin-top:10px;">Saved full output: <a href="current-score.md">current-score.md</a></p>
+        </div>
+        <div class="score good">
+          <div class="headline">
+            <div>
+              <div class="tiny">Polished pass</div>
+              <div class="big">86/100</div>
+            </div>
+            <span class="pill good">Ready with nits</span>
+          </div>
+          <ul>
+            <li><strong>1 major</strong> issue remains: recent activity still looks like a skeleton</li>
+            <li><strong>3 minor</strong> issues: ambiguous underline, low-contrast secondary text, subtle card separation</li>
+            <li><strong>1 nit</strong>: state labels could be more consistent</li>
+          </ul>
+          <p class="tiny" style="margin-top:10px;">Saved full output: <a href="polished-score.md">polished-score.md</a></p>
+        </div>
+      </div>
+    </section>
+
+    <section class="grid two" style="margin-bottom:20px;">
+      <article class="panel">
+        <h2>What the automation is proving</h2>
+        <ul>
+          <li>The diff tooling can produce concrete visual evidence instead of hand-wavy “it feels off.”</li>
+          <li><code>/ui-heuristic-score</code> can turn that evidence into a structured ship decision.</li>
+          <li>A bounded polish pass can improve the score without pretending the UI is magically perfect.</li>
+          <li>The next step is clear: either do one more polish pass or escalate to <code>ab_test_visuals</code>.</li>
+        </ul>
+      </article>
+      <article class="panel">
+        <h2>Bounded subagent follow-up</h2>
+        <p class="sub">The demo stops short of an uncontrolled self-improvement loop. Instead it hands off to the new bounded worker/reviewer chain:</p>
+        <pre>pi -e ./pi-packages/pi-subagents
+# then in Pi:
+/ui-autopolish tighten the demo dashboard layout using \
+  artifacts/ui-automation-demo/regression-diff.json and \
+  artifacts/ui-automation-demo/current-score.md as context</pre>
+      </article>
+    </section>
+
+    <section class="panel">
+      <h2>Files and raw data</h2>
+      <p class="sub">Everything on this page comes from the local demo artifacts. You can inspect or reuse them directly.</p>
+      <pre>artifacts/ui-automation-demo/
+├── baseline.png
+├── current.png
+├── polished.png
+├── regression-diff.png
+├── regression-diff.json
+├── polished-diff.png
+├── polished-diff.json
+├── current-score.md
+├── polished-score.md
+└── README.md</pre>
+      <p class="tiny" style="margin-top:10px;">Walkthrough: <a href="../../docs/ui-automation-demo.md">docs/ui-automation-demo.md</a></p>
+    </section>
+  </div>
+
+  <script>
+    const compares = document.querySelectorAll('[data-compare]');
+    const ranges = document.querySelectorAll('[data-range]');
+    ranges.forEach((range, index) => {
+      const compare = compares[index];
+      const after = compare.querySelector('.after');
+      const divider = compare.querySelector('.divider');
+      const update = () => {
+        const value = Number(range.value);
+        after.style.clipPath = `inset(0 0 0 ${value}%)`;
+        divider.style.left = `${value}%`;
+      };
+      range.addEventListener('input', update);
+      update();
+    });
+  </script>
+</body>
+</html>

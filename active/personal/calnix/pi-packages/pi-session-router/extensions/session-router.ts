@@ -2,10 +2,18 @@ import { SessionManager, type ExtensionAPI } from "@mariozechner/pi-coding-agent
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { homedir } from "node:os";
-import { buildCandidates, buildHandoffPrompt, chooseBestCandidate, describeSessionHealth, formatTokenCount, makeSnippet } from "./router-logic.mjs";
+import * as routerLogic from "./router-logic.mjs";
 
 const SUMMARY_CACHE_PATH = join(homedir(), ".pi", "agent", "find-session-cache.json");
 const AUTO_COMPACT_REARM_TOKENS = 20_000;
+
+const {
+	buildCandidates,
+	buildHandoffPrompt,
+	chooseBestCandidate,
+	formatTokenCount,
+	makeSnippet,
+} = routerLogic;
 
 type Candidate = {
 	key: string;
@@ -107,7 +115,31 @@ function candidateDetail(candidate: Candidate): string {
 	return `${candidateLabel(candidate)} (score ${candidate.score}${shared})`;
 }
 
+function fallbackDescribeSessionHealth(usage: any = {}) {
+	const tokens = Number(usage?.tokens ?? 0);
+	const rawPercent = usage?.percent;
+	const percent = Number.isFinite(rawPercent) ? Math.round(rawPercent) : null;
+	const warning = tokens >= 100_000 || (percent !== null && percent >= 70);
+	if (!warning) return null;
+	const critical = tokens >= 140_000 || (percent !== null && percent >= 85);
+	const summaryParts: string[] = [];
+	if (tokens > 0) summaryParts.push(formatTokenCount(tokens));
+	if (percent !== null) summaryParts.push(`${percent}% ctx`);
+	const summary = summaryParts.join(" · ") || "high context usage";
+	return {
+		severity: critical ? "critical" : "warning",
+		tokens,
+		percent,
+		shouldAutoCompact: critical,
+		statusText: critical ? `🚨 413 risk ${summary} · use /handoff` : `⚠️ large session ${summary} · consider /handoff`,
+	};
+}
+
 function getSessionHealth(ctx: any) {
+	const describeSessionHealth =
+		typeof routerLogic.describeSessionHealth === "function"
+			? routerLogic.describeSessionHealth
+			: fallbackDescribeSessionHealth;
 	return describeSessionHealth(ctx.getContextUsage?.());
 }
 
@@ -178,17 +210,13 @@ export default function findSessionExtension(pi: ExtensionAPI) {
 			return;
 		}
 
-		const switchResult = await ctx.switchSession(best.path, {
+		await ctx.switchSession(best.path, {
 			withSession: async (replacementCtx: any) => {
 				if (replacementCtx.hasUI) {
 					replacementCtx.ui.notify(`Switched to: ${candidateDetail(best)}`, "success");
 				}
 			},
 		});
-
-		if (switchResult.cancelled) {
-			notify(ctx, "Session switch cancelled.", "warning");
-		}
 	};
 
 	const runHandoff = async (args: string, ctx: any) => {
@@ -207,7 +235,7 @@ export default function findSessionExtension(pi: ExtensionAPI) {
 			goal,
 		});
 
-		const newSessionResult = await ctx.newSession({
+		await ctx.newSession({
 			parentSession: sessionFile,
 			withSession: async (replacementCtx: any) => {
 				if (replacementCtx.hasUI) {
@@ -218,10 +246,6 @@ export default function findSessionExtension(pi: ExtensionAPI) {
 				await replacementCtx.sendUserMessage(prompt);
 			},
 		});
-
-		if (newSessionResult.cancelled) {
-			notify(ctx, "Handoff cancelled.", "warning");
-		}
 	};
 
 	pi.registerCommand("fs", {
