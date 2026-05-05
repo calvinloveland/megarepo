@@ -5,12 +5,11 @@ from __future__ import annotations
 import math
 from typing import Any
 
-from .content import Puzzle
+from .content import Puzzle, issue_catalog, issue_categories, issue_type_to_category
 
 MAX_GUESSES = 6
 NEAR_LINE_DISTANCE = 1
-LINE_POOL_FRACTIONS = (1.0, 0.6, 0.4, 0.25, 0.16, 0.08, 0.04)
-ISSUE_POOL_FRACTIONS = (1.0, 0.6, 0.4, 0.25, 0.16, 0.08, 0.04)
+LINE_POOL_FRACTIONS = (1.0, 0.72, 0.56, 0.42, 0.3, 0.18, 0.08)
 LINE_STATUS_EMOJI = {
     "correct": "🟩",
     "near": "🟨",
@@ -27,6 +26,7 @@ def build_empty_progress() -> dict[str, Any]:
         "guesses": [],
         "solved": False,
         "wrong_guesses": 0,
+        "eliminated_issue_categories": [],
     }
 
 
@@ -65,6 +65,7 @@ def apply_guess(
         "guesses": list(progress.get("guesses", [])),
         "solved": bool(progress.get("solved")),
         "wrong_guesses": int(progress.get("wrong_guesses", 0)),
+        "eliminated_issue_categories": list(progress.get("eliminated_issue_categories", [])),
     }
     guess_feedback = feedback_for_guess(puzzle, line_number, issue_type)
     updated_progress["guesses"].append(guess_feedback)
@@ -73,6 +74,11 @@ def apply_guess(
         updated_progress["solved"] = True
     else:
         updated_progress["wrong_guesses"] += 1
+        updated_progress["eliminated_issue_categories"] = _updated_eliminated_categories(
+            puzzle,
+            issue_type,
+            updated_progress["eliminated_issue_categories"],
+        )
 
     return updated_progress
 
@@ -97,6 +103,18 @@ def selectable_line_numbers(puzzle: Puzzle, progress: dict[str, Any]) -> tuple[i
     )
 
 
+def selectable_issue_categories(puzzle: Puzzle, progress: dict[str, Any]) -> tuple[str, ...]:
+    if is_over(progress):
+        return issue_categories()
+
+    eliminated_categories = set(progress.get("eliminated_issue_categories", []))
+    return tuple(
+        category_name
+        for category_name in issue_categories()
+        if category_name not in eliminated_categories
+    )
+
+
 def selectable_issue_types(
     puzzle: Puzzle,
     issue_types: tuple[str, ...],
@@ -105,18 +123,11 @@ def selectable_issue_types(
     if is_over(progress):
         return issue_types
 
-    target_count = _target_pool_size(
-        len(issue_types),
-        int(progress.get("wrong_guesses", 0)),
-        ISSUE_POOL_FRACTIONS,
+    allowed_categories = set(selectable_issue_categories(puzzle, progress))
+    type_to_category = issue_type_to_category()
+    return tuple(
+        issue_type for issue_type in issue_types if type_to_category[issue_type] in allowed_categories
     )
-    answer_index = issue_types.index(puzzle.issue_type)
-    start_index, end_index = _centered_window_bounds(
-        total_count=len(issue_types),
-        answer_index=answer_index,
-        target_count=target_count,
-    )
-    return issue_types[start_index:end_index]
 
 
 def build_share_text(
@@ -133,6 +144,31 @@ def build_share_text(
     share_lines.extend(rows)
     share_lines.extend(["", f"Try it: {puzzle_url}"])
     return "\n".join(share_lines)
+
+
+def _updated_eliminated_categories(
+    puzzle: Puzzle,
+    guessed_issue_type: str,
+    existing_eliminated_categories: list[str],
+) -> list[str]:
+    eliminated_categories = list(existing_eliminated_categories)
+    allowed_categories = [
+        category_name
+        for category_name in issue_categories()
+        if category_name != puzzle.issue_category and category_name not in eliminated_categories
+    ]
+    if not allowed_categories:
+        return eliminated_categories
+
+    guessed_category = issue_type_to_category()[guessed_issue_type]
+    if guessed_category != puzzle.issue_category and guessed_category not in eliminated_categories:
+        eliminated_categories.append(guessed_category)
+        return eliminated_categories
+
+    fallback_category = allowed_categories[0]
+    if fallback_category not in eliminated_categories:
+        eliminated_categories.append(fallback_category)
+    return eliminated_categories
 
 
 def _target_pool_size(

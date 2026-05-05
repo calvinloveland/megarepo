@@ -10,7 +10,7 @@ Players inspect a larger code snippet, identify the flawed line, and classify th
 - snippets are typically **25 to 60 lines**
 - exactly one intended flaw per puzzle
 - line-number guess + issue-type guess
-- each wrong guess narrows the remaining selectable lines and issue types
+- each wrong guess narrows the remaining selectable lines and removes whole issue categories
 - curated puzzle bank rather than generated puzzles
 - multi-language support from the start
 - shared in-app feedback widget with persisted submissions
@@ -23,7 +23,7 @@ This project now has an initial Flask vertical slice with:
 - multi-language puzzle metadata
 - clickable line-number review UI
 - issue-type guessing
-- automatic narrowing of selectable lines and issue types after misses
+- automatic narrowing of selectable lines and issue categories after misses
 - win / loss reveal state
 - shareable spoiler-light result text with puzzle link
 - Flask test coverage for the core game loop

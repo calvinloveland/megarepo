@@ -10,7 +10,7 @@ from typing import Any
 
 from flask import Flask, render_template, request, session
 
-from .content import PROJECT_ROOT, available_issue_types, puzzle_for_day
+from .content import PROJECT_ROOT, available_issue_types, issue_catalog, puzzle_for_day
 from .game import (
     MAX_GUESSES,
     apply_guess,
@@ -18,6 +18,7 @@ from .game import (
     build_share_text,
     guesses_remaining,
     is_over,
+    selectable_issue_categories,
     selectable_issue_types,
     selectable_line_numbers,
 )
@@ -153,6 +154,7 @@ def _render_game_page(
     issue_types = available_issue_types()
     allowed_line_numbers = selectable_line_numbers(puzzle, progress)
     allowed_issue_types = selectable_issue_types(puzzle, issue_types, progress)
+    allowed_issue_categories = selectable_issue_categories(puzzle, progress)
     puzzle_finished = is_over(progress)
     share_text = ""
     if puzzle_finished:
@@ -171,6 +173,8 @@ def _render_game_page(
         selectable_line_numbers=allowed_line_numbers,
         selectable_issue_types=allowed_issue_types,
         feedback_design="code-reviewdle",
+        issue_catalog=issue_catalog(),
+        selectable_issue_categories=allowed_issue_categories,
         progress=progress,
         guesses_remaining=guesses_remaining(progress),
         max_guesses=MAX_GUESSES,
@@ -180,6 +184,7 @@ def _render_game_page(
         selected_issue_type=selected_issue_type,
         selectable_line_count=len(allowed_line_numbers),
         selectable_issue_count=len(allowed_issue_types),
+        selectable_issue_category_count=len(allowed_issue_categories),
         share_text=share_text,
     )
 

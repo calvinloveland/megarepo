@@ -52,6 +52,7 @@
       "}"
     ],
     "answer_line": 31,
+    "issue_category": "Security and trust",
     "issue_type": "Security check bypass",
     "explanation": "The unconditional 'goto fail;' exits the verification path even when hashing succeeded, so the later signature verification never meaningfully protects the handshake.",
     "hints": [
@@ -101,6 +102,7 @@
       "}"
     ],
     "answer_line": 22,
+    "issue_category": "State and ordering",
     "issue_type": "Reentrancy",
     "explanation": "The contract sends value to the caller before updating their stored balance. A malicious receiver can re-enter withdraw while the old balance is still intact.",
     "hints": [
@@ -156,6 +158,7 @@
       "}"
     ],
     "answer_line": 27,
+    "issue_category": "Numeric correctness",
     "issue_type": "Numeric overflow / underflow",
     "explanation": "Casting an arbitrary scaled double straight to short can overflow or truncate catastrophically when the measured value exceeds the destination range.",
     "hints": [

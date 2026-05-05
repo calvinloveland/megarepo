@@ -53,6 +53,7 @@
           </div>
           <div class="titlebar-stats">
             <span>{{ selectable_line_count }} lines left</span>
+            <span>{{ selectable_issue_category_count }} issue categories left</span>
             <span>{{ selectable_issue_count }} issue types left</span>
           </div>
         </div>
@@ -107,8 +108,16 @@
                 <label class="field-label" for="issue_type">Remaining issue type</label>
                 <select id="issue_type" name="issue_type" {% if puzzle_finished %}disabled{% endif %} required>
                   <option value="">Choose a remaining issue type</option>
-                  {% for issue_type in selectable_issue_types %}
-                    <option value="{{ issue_type }}" {% if selected_issue_type == issue_type %}selected{% endif %}>{{ issue_type }}</option>
+                  {% for category_name, category_issue_types in issue_catalog.items() %}
+                    {% if category_name in selectable_issue_categories %}
+                      <optgroup label="{{ category_name }}">
+                        {% for issue_type in category_issue_types %}
+                          {% if issue_type in selectable_issue_types %}
+                            <option value="{{ issue_type }}" {% if selected_issue_type == issue_type %}selected{% endif %}>{{ issue_type }}</option>
+                          {% endif %}
+                        {% endfor %}
+                      </optgroup>
+                    {% endif %}
                   {% endfor %}
                 </select>
 
@@ -122,6 +131,10 @@
                 <div>
                   <dt>Selectable lines</dt>
                   <dd>{{ selectable_line_count }} / {{ puzzle.code_line_count }}</dd>
+                </div>
+                <div>
+                  <dt>Issue categories</dt>
+                  <dd>{{ selectable_issue_category_count }} / {{ issue_catalog|length }}</dd>
                 </div>
                 <div>
                   <dt>Issue types</dt>
@@ -152,7 +165,7 @@
 
         <div class="statusbar">
           <span>review loop active</span>
-          <span>misses shrink the answer space</span>
+          <span>misses remove whole issue categories</span>
           <span>share result on completion</span>
         </div>
       </section>

@@ -8,11 +8,12 @@ from html import unescape
 import pytest
 
 from code_reviewdle.app import ADDRESSED_DIR, FEEDBACK_DIR, create_app
-from code_reviewdle.content import available_issue_types, puzzle_for_day
+from code_reviewdle.content import available_issue_types, issue_type_to_category, puzzle_for_day
 from code_reviewdle.game import (
     apply_guess,
     build_empty_progress,
     build_share_text,
+    selectable_issue_categories,
     selectable_issue_types,
     selectable_line_numbers,
 )
@@ -40,8 +41,17 @@ def _auth_headers(username: str, password: str) -> dict[str, str]:
 def _wrong_issue_type(correct_issue_type: str) -> str:
     return next(
         issue
-        for issue in ["Security check bypass", "Reentrancy", "Numeric overflow / underflow"]
+        for issue in available_issue_types()
         if issue != correct_issue_type
+    )
+
+
+def _wrong_issue_type_from_other_category(puzzle) -> str:
+    type_to_category = issue_type_to_category()
+    return next(
+        issue
+        for issue in available_issue_types()
+        if type_to_category[issue] != puzzle.issue_category
     )
 
 
@@ -57,10 +67,12 @@ def test_index_renders_selected_daily_puzzle(client, play_date: date) -> None:
     assert puzzle.language in page
     assert "Send Feedback" in page
     assert "lines left" in page
+    assert "issue categories left" in page
     assert "tok-keyword" in page
+    assert "optgroup label=" in page
 
 
-def test_wrong_guess_narrows_selectable_lines_and_issue_types(play_date: date) -> None:
+def test_wrong_guess_narrows_lines_and_removes_a_whole_issue_category(play_date: date) -> None:
     puzzle = puzzle_for_day(play_date)
     issue_types = available_issue_types()
     initial_progress = build_empty_progress()
@@ -69,7 +81,7 @@ def test_wrong_guess_narrows_selectable_lines_and_issue_types(play_date: date) -
         initial_progress,
         puzzle,
         line_number=1,
-        issue_type=_wrong_issue_type(puzzle.issue_type),
+        issue_type=_wrong_issue_type_from_other_category(puzzle),
     )
 
     assert len(selectable_line_numbers(puzzle, progress_after_wrong_guess)) < len(
@@ -78,6 +90,13 @@ def test_wrong_guess_narrows_selectable_lines_and_issue_types(play_date: date) -
     assert len(selectable_issue_types(puzzle, issue_types, progress_after_wrong_guess)) < len(
         selectable_issue_types(puzzle, issue_types, initial_progress)
     )
+    assert len(selectable_issue_categories(puzzle, progress_after_wrong_guess)) == len(
+        selectable_issue_categories(puzzle, initial_progress)
+    ) - 1
+    remaining_categories = set(selectable_issue_categories(puzzle, progress_after_wrong_guess))
+    wrong_category = issue_type_to_category()[_wrong_issue_type_from_other_category(puzzle)]
+    assert puzzle.issue_category in remaining_categories
+    assert wrong_category not in remaining_categories
 
 
 def test_correct_guess_solves_round_and_reveals_explanation_and_share_text(
@@ -154,7 +173,8 @@ def test_round_ends_after_six_wrong_guesses(client, play_date: date) -> None:
 def test_build_share_text_formats_guess_rows(play_date: date) -> None:
     puzzle = puzzle_for_day(play_date)
     progress = build_empty_progress()
-    progress = apply_guess(progress, puzzle, 1, _wrong_issue_type(puzzle.issue_type))
+    progress = apply_guess(progress, puzzle, 1, _wrong_issue_type_from_other_category(puzzle))
+    first_guess_category = issue_type_to_category()[progress["guesses"][0]["issue_type"]]
     progress = apply_guess(progress, puzzle, puzzle.answer_line, puzzle.issue_type)
 
     share_text = build_share_text(
@@ -164,6 +184,7 @@ def test_build_share_text_formats_guess_rows(play_date: date) -> None:
     )
 
     assert share_text.startswith(f"Code Reviewdle {play_date.isoformat()} 2/6")
+    assert first_guess_category != puzzle.issue_category
     assert "⬛⬛" in share_text
     assert "🟩🟩" in share_text
     assert share_text.endswith(f"https://codereviewdle.shsw.dev/?day={play_date.isoformat()}")
