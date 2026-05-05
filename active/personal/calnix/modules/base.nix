@@ -90,7 +90,8 @@ let
               exit 1
             fi
 
-            response=$(curl --fail --silent --show-error --get \
+            response=$(curl --fail --silent --show-error \
+              --request POST \
               http://127.0.0.1:8888/search \
               --data-urlencode "q=$*" \
               --data-urlencode "format=json") || {
@@ -162,6 +163,10 @@ in
         base_url = "http://127.0.0.1:8888/";
         secret_key = "calnix-local-searxng-only";
       };
+      search.formats = [
+        "html"
+        "json"
+      ];
     };
   };
 
