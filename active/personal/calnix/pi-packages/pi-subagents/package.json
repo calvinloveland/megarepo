@@ -1,0 +1,47 @@
+{
+  "name": "pi-subagents",
+  "version": "0.1.0",
+  "description": "Pi extension package for isolated scout/planner/reviewer/worker subagents with bundled default agents and workflow prompts",
+  "keywords": [
+    "pi-package",
+    "pi-extension",
+    "subagents",
+    "workflow",
+    "delegation"
+  ],
+  "license": "MIT",
+  "type": "module",
+  "author": "Calvin Loveland <calvin@loveland.dev>",
+  "private": false,
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/calvinloveland/megarepo.git",
+    "directory": "active/personal/calnix/pi-packages/pi-subagents"
+  },
+  "homepage": "https://github.com/calvinloveland/megarepo/tree/main/active/personal/calnix/pi-packages/pi-subagents#readme",
+  "bugs": {
+    "url": "https://github.com/calvinloveland/megarepo/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "extensions",
+    "agents",
+    "prompts",
+    "README.md",
+    "NOTICE.md",
+    "LICENSE"
+  ],
+  "peerDependencies": {
+    "@mariozechner/pi-agent-core": "*",
+    "@mariozechner/pi-ai": "*",
+    "@mariozechner/pi-coding-agent": "*",
+    "@mariozechner/pi-tui": "*",
+    "typebox": "*"
+  },
+  "pi": {
+    "extensions": ["./extensions/subagent.ts"],
+    "prompts": ["./prompts"]
+  }
+}
