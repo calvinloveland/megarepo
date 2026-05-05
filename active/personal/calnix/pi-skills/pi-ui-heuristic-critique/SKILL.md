@@ -20,16 +20,18 @@ This skill works best when the user can provide a screenshot, image path, or oth
 
 ## How to use it
 
-1. Prefer the companion prompt template when it is available:
+1. Prefer the companion prompt templates when they are available:
    ```text
    /ui-heuristic-critique [screen-or-focus-area]
+   /ui-heuristic-score [screen-or-focus-area]
    ```
-2. Ask for or inspect screenshots first before giving code-level advice.
-3. Ground every major issue in visible evidence from the UI.
-4. Prioritize issues by user impact and clarity, not by personal style preferences.
-5. If the critique suggests two credible remedies, convert them into `ab_test_visuals` options instead of pretending there is only one obvious answer.
-6. When the explanation behind the winning remedy will matter later, set `captureRationale: true` in `ab_test_visuals`.
-7. End with concrete fixes and any missing states or screenshots needed for a sharper critique.
+2. Use `/ui-heuristic-critique` for human-facing review and `/ui-heuristic-score` when you want a more machine-friendly scorecard, severity counts, and ship decision.
+3. Ask for or inspect screenshots first before giving code-level advice.
+4. Ground every major issue in visible evidence from the UI.
+5. Prioritize issues by user impact and clarity, not by personal style preferences.
+6. If the critique suggests two credible remedies, convert them into `ab_test_visuals` options instead of pretending there is only one obvious answer.
+7. When the explanation behind the winning remedy will matter later, set `captureRationale: true` in `ab_test_visuals`.
+8. End with concrete fixes and any missing states or screenshots needed for a sharper critique.
 
 If no screenshot is available, say that confidence is lower, explain what is missing, and give the best critique you can from the available description.
 
@@ -42,6 +44,7 @@ A strong critique should include:
 - prioritized issues with severity, heuristic, evidence, impact, and recommendation
 - quick wins
 - open questions or missing states to review next
+- when needed, a score, severity counts, and ship decision that another automated step can consume
 
 ## Reference
 

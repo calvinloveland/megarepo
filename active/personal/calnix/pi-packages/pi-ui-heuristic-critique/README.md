@@ -5,6 +5,7 @@ Prompt-only Pi package for screenshot-first heuristic UI critiques.
 ## What it does
 
 - adds a `/ui-heuristic-critique` prompt template
+- adds a `/ui-heuristic-score` prompt template for machine-friendly scoring and ship decisions
 - pushes the review to start from screenshots or visual artifacts before code-level advice
 - critiques UI using practical heuristics instead of vague taste-based comments
 - returns prioritized issues, concrete evidence, and actionable recommendations
@@ -37,6 +38,12 @@ Then run:
 /ui-heuristic-critique dashboard filters and empty state
 ```
 
+or, for a more structured scorecard:
+
+```text
+/ui-heuristic-score dashboard filters and empty state
+```
+
 Attach or reference screenshots when possible for the strongest critique.
 
 If the critique reveals two credible fixes, turn them into an `ab_test_visuals` comparison and set `captureRationale: true` when the winner's explanation will matter in the next pass.
@@ -50,5 +57,5 @@ For when to use this prompt and how to structure screenshot-first reviews, see t
 ## Local test
 
 ```bash
-node --test ./pi-packages/pi-ui-heuristic-critique/tests/package.test.mjs
+node --test ./pi-packages/pi-ui-heuristic-critique/tests/package.test.mjs ./pi-packages/pi-ui-heuristic-critique/tests/score-prompt.test.mjs
 ```

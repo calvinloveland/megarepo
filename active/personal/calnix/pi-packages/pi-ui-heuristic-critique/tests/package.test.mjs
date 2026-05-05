@@ -21,6 +21,7 @@ test('package manifest exposes only prompts for Pi', () => {
 test('readme describes prompt-only screenshot-first workflow', () => {
   assert.match(readme, /Prompt-only Pi package/i);
   assert.match(readme, /\/ui-heuristic-critique/);
+  assert.match(readme, /\/ui-heuristic-score/);
   assert.match(readme, /screenshot/i);
 });
 
@@ -31,4 +32,11 @@ test('prompt enforces screenshot-first heuristic critique structure', () => {
   assert.match(prompt, /Key issues/);
   assert.match(prompt, /Severity/);
   assert.match(prompt, /Recommended change/);
+});
+
+test('score prompt exists for machine-friendly severity scoring', () => {
+  const scorePrompt = fs.readFileSync(path.join(packageDir, 'prompts', 'ui-heuristic-score.md'), 'utf8');
+  assert.match(scorePrompt, /Overall score: `0-100`/);
+  assert.match(scorePrompt, /Ship decision/);
+  assert.match(scorePrompt, /blocker \| major \| minor \| nit/);
 });

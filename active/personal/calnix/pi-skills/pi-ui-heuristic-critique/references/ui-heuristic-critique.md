@@ -66,4 +66,11 @@ Prefer this order:
 If two remedies are both plausible, recommend turning them into `ab_test_visuals` options.
 When later polish depends on why the winner was chosen, recommend `captureRationale: true`.
 
+For machine-friendly judging, also emit:
+
+- overall score (`0-100`)
+- confidence (`high | medium | low`)
+- severity counts (`blocker | major | minor | nit`)
+- ship decision (`ready`, `ready with nits`, `needs revision`, `blocked`)
+
 Avoid generic advice like "make it cleaner" or "improve UX" without screenshot evidence and a concrete change.
