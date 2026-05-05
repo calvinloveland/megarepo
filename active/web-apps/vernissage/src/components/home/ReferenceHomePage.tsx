@@ -1,4 +1,24 @@
+import Image from 'next/image';
 import Link from 'next/link';
+import { RatingStars } from '@/src/components/RatingStars';
+
+const topbarItems = [
+  { label: 'Discover', href: '/search' },
+  { label: 'Diary', href: '/feed' },
+  { label: 'Lists', href: '/search?view=lists' },
+  { label: 'Artists', href: '/search?view=artists' },
+  { label: 'Exhibitions', href: '/search?view=exhibitions' }
+];
+
+const heroArtwork = {
+  title: 'Chaos No. 2',
+  artist: 'Hilma af Klint',
+  imageSrc: '/artworks/hilma-af-klint-chaos-no-2.jpg',
+  imageAlt: 'Chaos No. 2 by Hilma af Klint',
+  seenAt: 'Moderna Museet',
+  date: 'May 2',
+  status: 'Logged'
+};
 
 const featureItems = [
   {
@@ -93,61 +113,95 @@ export function ReferenceHomePage() {
       />
 
       <section className="reference-home__hero">
-        <div className="reference-home__hero-copy">
-          <header className="reference-home__topbar">
-            <div>
-              <p className="reference-home__brand">The Vernissage</p>
-              <p className="reference-home__tagline">A social cataloguing platform for art lovers</p>
-            </div>
-            <nav className="reference-home__nav" aria-label="Reference homepage navigation">
-              <Link href="#">Discover</Link>
-              <Link href="#">Reviews</Link>
-              <Link href="#">Lists</Link>
-              <Link href="#">Artists</Link>
-              <Link href="#">Exhibitions</Link>
-            </nav>
-            <div className="reference-home__auth">
-              <Link href="#" className="reference-home__auth-link reference-home__auth-link--ghost">
-                Log in
+        <header className="reference-home__topbar">
+          <div className="reference-home__brand-lockup">
+            <p className="reference-home__brand">The Vernissage</p>
+            <p className="reference-home__tagline">A social catalog for art</p>
+          </div>
+          <nav className="reference-home__nav" aria-label="Reference homepage navigation">
+            {topbarItems.map((item) => (
+              <Link key={item.label} href={item.href}>
+                {item.label}
               </Link>
-              <Link href="#" className="reference-home__auth-link reference-home__auth-link--solid">
-                Sign up
-              </Link>
-            </div>
-          </header>
+            ))}
+          </nav>
+          <div className="reference-home__auth">
+            <Link href="/signin" className="reference-home__auth-link reference-home__auth-link--ghost">
+              Log in
+            </Link>
+            <Link href="/join" className="reference-home__auth-link reference-home__auth-link--solid">
+              Sign up
+            </Link>
+          </div>
+        </header>
 
+        <div className="reference-home__hero-copy">
           <div className="reference-home__hero-body">
-            <h1>
-              Your world
-              <br />
-              of art.
-              <br />
-              <span>Curated by you.</span>
-            </h1>
+            <p className="reference-home__hero-kicker">Art diary · reviews · lists</p>
+            <h1>Track the art you love.</h1>
             <div className="reference-home__divider" aria-hidden="true" />
-            <p className="reference-home__intro">
-              Discover, track, and share the art that inspires you. Join a global community of art lovers and see art differently.
-            </p>
+            <p className="reference-home__intro">Discover, rate, and catalog artworks, exhibitions, and artists.</p>
             <div className="reference-home__cta-row">
-              <Link href="#" className="reference-home__cta reference-home__cta--solid">
+              <Link href="/join" className="reference-home__cta reference-home__cta--solid">
                 Sign up for free
               </Link>
-              <Link href="#" className="reference-home__cta reference-home__cta--ghost">
+              <Link href="/feed" className="reference-home__cta reference-home__cta--ghost">
                 Explore the community
               </Link>
             </div>
           </div>
         </div>
 
-        <div className="reference-home__hero-visual" aria-hidden="true">
-          <div className="reference-home__gallery-wall" />
-          <div className="reference-home__frame reference-home__frame--large" />
-          <div className="reference-home__frame reference-home__frame--top" />
-          <div className="reference-home__frame reference-home__frame--small" />
-          <div className="reference-home__figure">
-            <div className="reference-home__figure-head" />
-            <div className="reference-home__figure-bun" />
-            <div className="reference-home__figure-body" />
+        <div className="reference-home__hero-visual">
+          <div className="reference-home__hero-stage">
+            <div className="reference-home__hero-orbit reference-home__hero-orbit--outer" aria-hidden="true" />
+            <div className="reference-home__hero-orbit reference-home__hero-orbit--inner" aria-hidden="true" />
+            <div className="reference-home__hero-note" aria-hidden="true">
+              <span>Recently saved</span>
+              <strong>Build a diary of paintings, artists, and museum visits.</strong>
+            </div>
+            <div className="reference-home__hero-artwork-frame">
+              <div className="reference-home__hero-artwork-matte">
+                <Image
+                  src={heroArtwork.imageSrc}
+                  alt={heroArtwork.imageAlt}
+                  className="reference-home__hero-artwork-image"
+                  width={462}
+                  height={560}
+                  priority
+                />
+              </div>
+            </div>
+            <article className="reference-home__log-card">
+              <div className="reference-home__log-card-header">
+                <div className="reference-home__log-thumb">
+                  <Image src={heroArtwork.imageSrc} alt="" width={92} height={112} aria-hidden="true" />
+                </div>
+                <div>
+                  <p className="reference-home__card-label">Logged artwork</p>
+                  <h2>{heroArtwork.title}</h2>
+                  <p>{heroArtwork.artist}</p>
+                </div>
+              </div>
+              <dl className="reference-home__log-meta reference-home__log-meta--detailed">
+                <div>
+                  <span>Seen at</span>
+                  <strong>{heroArtwork.seenAt}</strong>
+                </div>
+                <div>
+                  <span>Date</span>
+                  <strong>{heroArtwork.date}</strong>
+                </div>
+                <div>
+                  <span>Rating</span>
+                  <RatingStars rating={4} />
+                </div>
+                <div>
+                  <span>Status</span>
+                  <strong>{heroArtwork.status}</strong>
+                </div>
+              </dl>
+            </article>
           </div>
         </div>
       </section>

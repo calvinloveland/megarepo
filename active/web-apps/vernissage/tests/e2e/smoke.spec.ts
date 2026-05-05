@@ -100,10 +100,11 @@ test('search page links to the artist request flow', async ({ page }) => {
 test('reference homepage scaffold renders the target hero copy', async ({ page }) => {
   await page.goto('/reference-homepage', { waitUntil: 'domcontentloaded' });
 
-  await expect(page.getByRole('heading', { level: 1, name: /Your world of art\. curated by you\./i })).toBeVisible();
-  await expect(page.getByText('Track what you love')).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: 'Track the art you love.' })).toBeVisible();
+  await expect(page.getByText('Discover, rate, and catalog artworks, exhibitions, and artists.')).toBeVisible();
   await expect(page.getByText('Explore The Vernissage')).toBeVisible();
-  await expect(page.getByText(/Join a community/i)).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Sign up for free' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Explore the community' })).toBeVisible();
 });
 
 test('join page only asks for a handle and password', async ({ page }) => {
