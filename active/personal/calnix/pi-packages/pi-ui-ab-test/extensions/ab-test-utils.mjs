@@ -37,10 +37,37 @@ export async function loadImagePreviews(paths = [], cwd = process.cwd()) {
 	return await Promise.all(resolved.map((path) => loadImagePreview(path, cwd)));
 }
 
+export function describePreviewImageSelection(variant, previewIndex = 0) {
+	if (!variant?.images?.length) return null;
+	const boundedIndex = Math.max(0, Math.min(previewIndex, variant.images.length - 1));
+	const preview = variant.images[boundedIndex];
+	return `${preview.name} (${boundedIndex + 1}/${variant.images.length})`;
+}
+
 export function summarizeVariant(variant) {
 	const lines = [];
 	if (variant.summary) lines.push(variant.summary);
 	if (variant.artifactPaths?.length) lines.push(`Artifacts: ${variant.artifactPaths.join(", ")}`);
 	if (variant.imagePaths?.length) lines.push(`Preview images: ${variant.imagePaths.join(", ")}`);
 	return lines.join("\n").trim();
+}
+
+export function normalizeRationaleInput(value) {
+	if (value === undefined || value === null) return null;
+	const trimmed = `${value}`.trim();
+	return trimmed ? trimmed : null;
+}
+
+export function buildChoiceEntry({ title, choice, selected, rationale, timestamp = new Date().toISOString() }) {
+	const normalizedRationale = normalizeRationaleInput(rationale);
+	return {
+		title,
+		choice,
+		label: selected.label,
+		summary: selected.summary,
+		artifactPaths: selected.artifactPaths ?? [],
+		imagePaths: selected.imagePaths ?? [],
+		rationale: normalizedRationale,
+		timestamp,
+	};
 }
