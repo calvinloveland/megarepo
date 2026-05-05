@@ -17,16 +17,37 @@ def draw_demo_screen(path: Path, *, variant: str) -> None:
     image = Image.new("RGBA", (width, height), "#0f172a")
     draw = ImageDraw.Draw(image)
 
-    header_color = "#1e293b" if variant == "baseline" else "#111827"
-    header_accent = "#60a5fa" if variant == "baseline" else "#34d399"
-    button_color = "#2563eb" if variant == "baseline" else "#10b981"
-    warning_color = "#f59e0b" if variant == "baseline" else "#ef4444"
+    header_color = {
+        "baseline": "#1e293b",
+        "current": "#111827",
+        "polished": "#172554",
+    }[variant]
+    header_accent = {
+        "baseline": "#60a5fa",
+        "current": "#34d399",
+        "polished": "#60a5fa",
+    }[variant]
+    button_color = {
+        "baseline": "#2563eb",
+        "current": "#10b981",
+        "polished": "#2563eb",
+    }[variant]
+    button_label = {
+        "baseline": "Primary action",
+        "current": "Primary action",
+        "polished": "Review alerts",
+    }[variant]
+    warning_color = {
+        "baseline": "#1f2937",
+        "current": "#ef4444",
+        "polished": "#b45309",
+    }[variant]
 
     draw.rounded_rectangle((24, 20, width - 24, 110), radius=20, fill=header_color)
-    draw.text((54, 42), "Project dashboard", fill="white")
-    draw.text((54, 72), "Overview of builds, alerts, and deployment health", fill="#cbd5e1")
+    draw.text((54, 40 if variant == "polished" else 42), "Project dashboard", fill="white")
+    draw.text((54, 70), "Overview of builds, alerts, and deployment health", fill="#cbd5e1")
     draw.rounded_rectangle((width - 220, 38, width - 54, 88), radius=16, fill=button_color)
-    draw.text((width - 185, 56), "Primary action", fill="white")
+    draw.text((width - 190, 56), button_label, fill="white")
     draw.rounded_rectangle((width - 250, 98, width - 54, 102), radius=2, fill=header_accent)
 
     card_top = 150
@@ -36,9 +57,13 @@ def draw_demo_screen(path: Path, *, variant: str) -> None:
         draw.rounded_rectangle((left, card_top, right, 330), radius=18, fill="#111827")
         draw.text((left + 24, card_top + 24), f"Metric {index + 1}", fill="#e5e7eb")
         draw.text((left + 24, card_top + 72), ["12 builds", "3 alerts", "97% pass"][index], fill="white")
-        if variant == "current" and index == 1:
-            draw.rounded_rectangle((left + 18, card_top + 126, right - 18, card_top + 170), radius=12, fill=warning_color)
-            draw.text((left + 34, card_top + 142), "Needs attention", fill="white")
+        if index == 1 and variant in {"current", "polished"}:
+            pill_left = left + (18 if variant == "current" else 24)
+            pill_right = right - (18 if variant == "current" else 24)
+            draw.rounded_rectangle((pill_left, card_top + 126, pill_right, card_top + 170), radius=12, fill=warning_color)
+            label = "Needs attention" if variant == "current" else "Review soon"
+            label_x = left + (34 if variant == "current" else 48)
+            draw.text((label_x, card_top + 142), label, fill="white")
         else:
             draw.rounded_rectangle((left + 24, card_top + 126, right - 24, card_top + 170), radius=12, fill="#1f2937")
             draw.text((left + 40, card_top + 142), "Healthy", fill="#cbd5e1")
@@ -47,15 +72,29 @@ def draw_demo_screen(path: Path, *, variant: str) -> None:
     draw.text((68, 400), "Recent activity", fill="#e5e7eb")
     row_y = 448
     for idx in range(4):
-        left_pad = 68 if variant == "baseline" else 80
-        right_pad = width - (92 if variant == "baseline" else 76)
+        if variant == "baseline":
+            left_pad, right_pad = 68, width - 92
+        elif variant == "current":
+            left_pad, right_pad = 80, width - 76
+        else:
+            left_pad, right_pad = 72, width - 86
         draw.rounded_rectangle((left_pad, row_y + idx * 32, right_pad, row_y + 18 + idx * 32), radius=8, fill="#1f2937")
 
     path.parent.mkdir(parents=True, exist_ok=True)
     image.save(path)
 
 
-def write_demo_readme(output_dir: Path, *, baseline: Path, current: Path, diff: Path, diff_json: Path) -> None:
+def write_demo_readme(
+    output_dir: Path,
+    *,
+    baseline: Path,
+    current: Path,
+    polished: Path,
+    regression_diff: Path,
+    regression_diff_json: Path,
+    polished_diff: Path,
+    polished_diff_json: Path,
+) -> None:
     readme = output_dir / "README.md"
     readme.write_text(
         f"""# UI Automation Demo Artifacts
@@ -66,21 +105,32 @@ Artifacts:
 
 - `baseline.png`
 - `current.png`
-- `diff.png`
-- `diff.json`
+- `polished.png`
+- `regression-diff.png`
+- `regression-diff.json`
+- `polished-diff.png`
+- `polished-diff.json`
 
 Suggested next commands:
 
 ```bash
-python3 ./pi-skills/pi-extension-testing/scripts/compare_pi_screenshots.py {baseline} {current} --output-dir {output_dir}
+python3 ./pi-skills/pi-extension-testing/scripts/compare_pi_screenshots.py {baseline} {current} --output-dir {output_dir / 'regression-pass'}
 ```
 
 ```bash
-pi -p --no-extensions -e ./pi-packages/pi-ui-heuristic-critique @{baseline} @{current} @{diff} "/ui-heuristic-score demo dashboard regression\n\nDiff metadata:\n$(cat {diff_json})"
+python3 ./pi-skills/pi-extension-testing/scripts/compare_pi_screenshots.py {baseline} {polished} --output-dir {output_dir / 'polished-pass'}
 ```
 
 ```bash
-pi -e ./pi-packages/pi-subagents "/ui-autopolish tighten the demo dashboard layout using {output_dir / 'README.md'} and {output_dir / 'diff.json'}"
+pi -p --no-extensions -e ./pi-packages/pi-ui-heuristic-critique @{baseline} @{current} @{regression_diff} "/ui-heuristic-score demo dashboard regression\n\nDiff metadata:\n$(cat {regression_diff_json})"
+```
+
+```bash
+pi -p --no-extensions -e ./pi-packages/pi-ui-heuristic-critique @{baseline} @{polished} @{polished_diff} "/ui-heuristic-score demo dashboard polished pass\n\nDiff metadata:\n$(cat {polished_diff_json})"
+```
+
+```bash
+pi -e ./pi-packages/pi-subagents "/ui-autopolish tighten the demo dashboard layout using {output_dir / 'README.md'} and {output_dir / 'regression-diff.json'} as context"
 ```
 """,
         encoding="utf-8",
@@ -91,14 +141,27 @@ def build_demo(output_dir: Path) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
     baseline = output_dir / "baseline.png"
     current = output_dir / "current.png"
-    diff = output_dir / "diff.png"
-    diff_json = output_dir / "diff.json"
+    polished = output_dir / "polished.png"
+    regression_diff = output_dir / "regression-diff.png"
+    regression_diff_json = output_dir / "regression-diff.json"
+    polished_diff = output_dir / "polished-diff.png"
+    polished_diff_json = output_dir / "polished-diff.json"
 
     draw_demo_screen(baseline, variant="baseline")
     draw_demo_screen(current, variant="current")
-    stats = compare_images(baseline, current, diff)
-    save_diff_report(stats, diff_json)
-    write_demo_readme(output_dir, baseline=baseline, current=current, diff=diff, diff_json=diff_json)
+    draw_demo_screen(polished, variant="polished")
+    save_diff_report(compare_images(baseline, current, regression_diff), regression_diff_json)
+    save_diff_report(compare_images(baseline, polished, polished_diff), polished_diff_json)
+    write_demo_readme(
+        output_dir,
+        baseline=baseline,
+        current=current,
+        polished=polished,
+        regression_diff=regression_diff,
+        regression_diff_json=regression_diff_json,
+        polished_diff=polished_diff,
+        polished_diff_json=polished_diff_json,
+    )
 
 
 def main() -> int:
