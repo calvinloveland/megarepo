@@ -165,21 +165,26 @@ export function buildExecutionPrompt({ job, selectedApplication }) {
   ].join("\n");
 }
 
-export function buildReviewPrompt({ job, selectedApplication, executionOutput }) {
+export function buildReviewPrompt({ job, selectedApplication, executionOutput, employeeAuditSummary }) {
   return [
     "You are reviewing a worker deliverable for a CEO-managed agent framework.",
-    "Do not delegate. Assess whether the deliverable appears to satisfy the contract.",
+    "Assess whether the deliverable appears to satisfy the contract and whether the worker's resume estimates were honest and accurate.",
+    "Do not delegate.",
     "",
     `Job id: ${job.id}`,
     `Objective: ${job.objective}`,
     `Acceptance criteria: ${job.acceptanceCriteria ?? "not provided"}`,
     `Selected worker plan: ${selectedApplication.planSummary}`,
     "",
+    "Employee review audit:",
+    employeeAuditSummary || "No audit summary available.",
+    "",
     "Worker deliverable:",
     executionOutput || "(empty output)",
     "",
     "Return these sections:",
     "Verdict",
+    "Resume Accuracy",
     "Blockers",
     "Risks",
     "Recommended Next Step",

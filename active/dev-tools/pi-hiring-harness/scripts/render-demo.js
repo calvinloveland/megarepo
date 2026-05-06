@@ -201,6 +201,11 @@ async function renderArtifactPreview(baseDir, artifactPath) {
   `;
 }
 
+function renderPercent(value) {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) return '—';
+  return `${Math.round(Number(value) * 100)}%`;
+}
+
 function renderHistoryTable(workerHistory) {
   if (!workerHistory?.length) {
     return '<p class="muted">No shared review history was found yet.</p>';
@@ -216,6 +221,9 @@ function renderHistoryTable(workerHistory) {
           <th>Executions</th>
           <th>Validation pass rate</th>
           <th>Review pass rate</th>
+          <th>Avg input token error</th>
+          <th>Avg output token error</th>
+          <th>Avg cost error</th>
           <th>Recent review artifact</th>
         </tr>
       </thead>
@@ -226,9 +234,12 @@ function renderHistoryTable(workerHistory) {
             <td>${history.applications}</td>
             <td>${history.selections}</td>
             <td>${history.executions}</td>
-            <td>${history.validationPassRate === null ? '—' : `${Math.round(history.validationPassRate * 100)}%`}</td>
-            <td>${history.reviewPassRate === null ? '—' : `${Math.round(history.reviewPassRate * 100)}%`}</td>
-            <td>${escapeHtml(history.recentReviews?.[0]?.excerpt || 'No review excerpt yet')}</td>
+            <td>${renderPercent(history.validationPassRate)}</td>
+            <td>${renderPercent(history.reviewPassRate)}</td>
+            <td>${renderPercent(history.averageInputTokenRelativeError)}</td>
+            <td>${renderPercent(history.averageOutputTokenRelativeError)}</td>
+            <td>${renderPercent(history.averageCostRelativeError)}</td>
+            <td>${escapeHtml(history.recentReviews?.[0]?.auditSummary || history.recentReviews?.[0]?.excerpt || 'No review excerpt yet')}</td>
           </tr>
         `).join('')}
       </tbody>
@@ -510,7 +521,11 @@ function buildHtml({ title, ledgerPath, workspaceDir, payload, artifactPreviews,
         ['Executions', String(selectedWorkerHistory.executions)],
         ['Validation passes', String(selectedWorkerHistory.validationsPassed)],
         ['Validation failures', String(selectedWorkerHistory.validationsFailed)],
-        ['Review pass rate', selectedWorkerHistory.reviewPassRate === null ? '—' : `${Math.round(selectedWorkerHistory.reviewPassRate * 100)}%`],
+        ['Review pass rate', renderPercent(selectedWorkerHistory.reviewPassRate)],
+        ['Avg input token error', renderPercent(selectedWorkerHistory.averageInputTokenRelativeError)],
+        ['Avg output token error', renderPercent(selectedWorkerHistory.averageOutputTokenRelativeError)],
+        ['Avg cost error', renderPercent(selectedWorkerHistory.averageCostRelativeError)],
+        ['Avg success calibration gap', renderPercent(selectedWorkerHistory.averageSuccessCalibrationGap)],
       ]) : '<p class="muted">No historical record found for the selected worker.</p>'}
       <h3>Selected worker review artifacts</h3>
       ${renderRecentReviewArtifacts(selectedWorkerHistory?.recentReviews ?? [])}
@@ -584,6 +599,24 @@ function buildHtml({ title, ledgerPath, workspaceDir, payload, artifactPreviews,
       ]) : '<p class="muted">No execution output was captured.</p>'}
       <h3>Captured execution output</h3>
       <pre>${escapeHtml(job.execution?.output || "(The selected worker changed files but returned no text deliverable.)")}</pre>
+      <h3>Employee review audit</h3>
+      ${job.employeeReviewAudit ? `
+        ${renderKeyValueList([
+          ['Predicted input tokens', formatNumber(job.employeeReviewAudit.predicted.inputTokens)],
+          ['Actual input tokens', formatNumber(job.employeeReviewAudit.actual.inputTokens)],
+          ['Predicted output tokens', formatNumber(job.employeeReviewAudit.predicted.outputTokens)],
+          ['Actual output tokens', formatNumber(job.employeeReviewAudit.actual.outputTokens)],
+          ['Predicted latency (s)', formatNumber(job.employeeReviewAudit.predicted.latencySeconds)],
+          ['Actual latency (s)', formatNumber(job.employeeReviewAudit.actual.latencySeconds)],
+          ['Predicted cost', formatUsd(job.employeeReviewAudit.predicted.costUsd)],
+          ['Actual cost', formatUsd(job.employeeReviewAudit.actual.costUsd)],
+          ['Input token error', renderPercent(job.employeeReviewAudit.errors.inputTokensRelative)],
+          ['Output token error', renderPercent(job.employeeReviewAudit.errors.outputTokensRelative)],
+          ['Cost error', renderPercent(job.employeeReviewAudit.errors.costRelative)],
+          ['Success calibration gap', renderPercent(job.employeeReviewAudit.successCalibrationGap)],
+        ])}
+        <pre>${escapeHtml(job.employeeReviewAudit.summary || '')}</pre>
+      ` : '<p class="muted">No employee audit was recorded.</p>'}
       <h3>Deterministic validation</h3>
       ${job.validation ? `
         ${renderKeyValueList([
@@ -622,7 +655,8 @@ function buildHtml({ title, ledgerPath, workspaceDir, payload, artifactPreviews,
         <li><strong>${validApplications.length}</strong> resumes parsed successfully and <strong>${invalidApplications.length}</strong> failed JSON-format validation.</li>
         <li>The selected worker created <code>pig_latin_dataset.jsonl</code>, <code>train_pig_latin.py</code>, and updated <code>README.md</code>.</li>
         <li>${validationRan ? `Deterministic validation ${job.validation.ok ? "passed" : "failed"}, including file checks and scripted validation commands.` : "No deterministic validation ran in this test."}</li>
-        <li>${reviewRan ? `A reviewer stage ran using ${escapeHtml(job.review.workerName)} and produced a textual review of the deliverable.` : "No employee-review stage ran in this test."}</li>
+        <li>${reviewRan ? `A reviewer stage ran using ${escapeHtml(job.review.workerName)} and produced a textual review of the deliverable and resume accuracy.` : "No employee-review stage ran in this test."}</li>
+        <li>${job.employeeReviewAudit ? `Token estimate audit: input error ${renderPercent(job.employeeReviewAudit.errors.inputTokensRelative)}, output error ${renderPercent(job.employeeReviewAudit.errors.outputTokensRelative)}, cost error ${renderPercent(job.employeeReviewAudit.errors.costRelative)}.` : 'No token estimate audit was recorded.'}</li>
         <li>The generated Python training script passed <code>python -m py_compile</code>.</li>
         <li>The resulting starter kit is useful as a demo, but the dataset quality is mixed: many rows are plain Pig Latin strings instead of explicit source-target training pairs.</li>
       </ul>

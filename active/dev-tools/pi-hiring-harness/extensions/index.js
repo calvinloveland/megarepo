@@ -4,6 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { Type } from "typebox";
 import { buildApplicationPrompt, buildExecutionPrompt, buildReviewPrompt, parseApplicationResponse } from "../lib/application.js";
+import { buildEmployeeReviewAudit } from "../lib/audit.js";
 import { launchWebpage } from "../lib/browser.js";
 import { computeActualSpend, computeRemainingBudgetUsd, shouldSkipExecutionForBudget } from "../lib/budget.js";
 import { aggregateWorkerHistory, buildWorkerHistoryKey } from "../lib/history.js";
@@ -389,6 +390,7 @@ export default function registerHiringHarness(pi) {
           execution: null,
           review: null,
           validation: null,
+          employeeReviewAudit: null,
         };
         details.jobs.push(jobResult);
         emitUpdate();
@@ -514,11 +516,23 @@ export default function registerHiringHarness(pi) {
             emitUpdate();
           }
 
-          if (reviewWorker && (executionRun.finalOutput || jobResult.validation)) {
+          jobResult.employeeReviewAudit = buildEmployeeReviewAudit({
+            selectedApplication: jobResult.selectedApplication,
+            execution: {
+              ...jobResult.execution,
+              durationSeconds: executionRun.durationSeconds,
+            },
+            validation: jobResult.validation,
+            review: jobResult.review,
+          });
+          emitUpdate();
+
+          if (reviewWorker && (executionRun.finalOutput || jobResult.validation || jobResult.employeeReviewAudit)) {
             const reviewPrompt = buildReviewPrompt({
               job: jobResult.job,
               selectedApplication: jobResult.selectedApplication.application,
               executionOutput: `${executionRun.finalOutput || "(no execution text returned)"}\n\nValidation summary: ${jobResult.validation ? JSON.stringify(jobResult.validation.summary) : "no validation run"}`,
+              employeeAuditSummary: jobResult.employeeReviewAudit?.summary,
             });
             const reviewRun = await runWorkerPrompt({
               defaultCwd,
@@ -539,6 +553,15 @@ export default function registerHiringHarness(pi) {
               errorMessage: reviewRun.errorMessage,
               stderr: reviewRun.stderr,
             };
+            jobResult.employeeReviewAudit = buildEmployeeReviewAudit({
+              selectedApplication: jobResult.selectedApplication,
+              execution: {
+                ...jobResult.execution,
+                durationSeconds: executionRun.durationSeconds,
+              },
+              validation: jobResult.validation,
+              review: jobResult.review,
+            });
             emitUpdate();
           }
         }

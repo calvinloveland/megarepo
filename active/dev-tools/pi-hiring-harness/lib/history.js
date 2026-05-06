@@ -16,6 +16,11 @@ function defaultHistory(workerName, workerModel, workerRole) {
     reviewFailures: 0,
     reviewUnknown: 0,
     performedReviews: 0,
+    auditedExecutions: 0,
+    totalInputTokenRelativeError: 0,
+    totalOutputTokenRelativeError: 0,
+    totalCostRelativeError: 0,
+    totalSuccessCalibrationGap: 0,
     recentReviews: [],
   };
 }
@@ -38,6 +43,10 @@ function excerpt(text, maxLength = 240) {
   return `${value.slice(0, maxLength)}…`;
 }
 
+function round(value) {
+  return Math.round(Number(value) * 10000) / 10000;
+}
+
 function pushRecentReview(history, entry, limit = 5) {
   history.recentReviews.unshift(entry);
   if (history.recentReviews.length > limit) {
@@ -52,11 +61,27 @@ export function summarizeWorkerHistory(history) {
   const reviewRate = history.reviewedExecutions > 0
     ? history.reviewPasses / history.reviewedExecutions
     : null;
+  const averageInputTokenRelativeError = history.auditedExecutions > 0
+    ? round(history.totalInputTokenRelativeError / history.auditedExecutions)
+    : null;
+  const averageOutputTokenRelativeError = history.auditedExecutions > 0
+    ? round(history.totalOutputTokenRelativeError / history.auditedExecutions)
+    : null;
+  const averageCostRelativeError = history.auditedExecutions > 0
+    ? round(history.totalCostRelativeError / history.auditedExecutions)
+    : null;
+  const averageSuccessCalibrationGap = history.auditedExecutions > 0
+    ? round(history.totalSuccessCalibrationGap / history.auditedExecutions)
+    : null;
 
   return {
     ...history,
     validationPassRate: validationRate,
     reviewPassRate: reviewRate,
+    averageInputTokenRelativeError,
+    averageOutputTokenRelativeError,
+    averageCostRelativeError,
+    averageSuccessCalibrationGap,
   };
 }
 
@@ -114,6 +139,14 @@ export async function aggregateWorkerHistory({ cwd, ledgerDir } = {}) {
         history.executions += 1;
         if (job.validation?.ok === true) history.validationsPassed += 1;
         if (job.validation?.ok === false) history.validationsFailed += 1;
+        const audit = job.employeeReviewAudit;
+        if (audit) {
+          history.auditedExecutions += 1;
+          history.totalInputTokenRelativeError += Number(audit.errors?.inputTokensRelative ?? 0);
+          history.totalOutputTokenRelativeError += Number(audit.errors?.outputTokensRelative ?? 0);
+          history.totalCostRelativeError += Number(audit.errors?.costRelative ?? 0);
+          history.totalSuccessCalibrationGap += Number(audit.successCalibrationGap ?? 0);
+        }
         if (job.review) {
           const verdict = extractVerdict(job.review.output);
           history.reviewedExecutions += 1;
@@ -128,6 +161,10 @@ export async function aggregateWorkerHistory({ cwd, ledgerDir } = {}) {
             verdict,
             validationOk: job.validation?.ok ?? null,
             excerpt: excerpt(job.review.output),
+            auditSummary: audit?.summary ?? null,
+            tokenEstimate: audit?.errors?.inputTokensRelative ?? null,
+            outputEstimate: audit?.errors?.outputTokensRelative ?? null,
+            costEstimate: audit?.errors?.costRelative ?? null,
           });
         }
         histories.set(key, history);

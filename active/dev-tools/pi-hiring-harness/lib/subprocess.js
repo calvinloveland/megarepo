@@ -69,6 +69,8 @@ export async function runWorkerPrompt({ defaultCwd, worker, prompt, cwd, signal,
   const result = {
     workerName: worker.name,
     model: worker.model,
+    startedAt: new Date().toISOString(),
+    durationSeconds: undefined,
     exitCode: 0,
     stderr: "",
     stopReason: undefined,
@@ -153,6 +155,7 @@ export async function runWorkerPrompt({ defaultCwd, worker, prompt, cwd, signal,
       proc.on("close", (code) => {
         if (stdoutBuffer.trim()) processLine(stdoutBuffer);
         result.exitCode = code ?? 0;
+        result.durationSeconds = Math.round(((Date.now() - Date.parse(result.startedAt)) / 1000) * 1000) / 1000;
         if (wasAborted) {
           reject(new Error("Worker subprocess aborted."));
           return;

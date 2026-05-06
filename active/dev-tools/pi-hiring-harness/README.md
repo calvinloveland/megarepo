@@ -24,6 +24,7 @@ Current implementation includes:
 - structured application generation through isolated Pi subprocesses
 - simple budget-aware scoring and auto-selection
 - shared cross-run employee review history aggregated from persisted ledgers
+- employee-review audits that compare resume estimates against actual token usage, latency, cost, validation outcomes, and review outcomes
 - optional execution of the selected worker
 - optional deterministic validation after execution using required files and bash checks
 - optional reviewer pass after execution
@@ -237,6 +238,7 @@ The report includes:
 - selected-worker reasoning
 - execution summary
 - explicit validation and employee-review artifacts
+- resume-vs-reality audits for token estimates, cost, latency, and success calibration
 - shared cross-run employee review history per worker/model
 - final artifact previews
 

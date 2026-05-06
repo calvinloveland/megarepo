@@ -24,9 +24,10 @@ test("aggregateWorkerHistory combines validation and review outcomes across runs
             { workerName: "reviewer-a", workerModel: "openrouter/reviewer", workerRole: "reviewer" },
           ],
           selectedApplication: { workerName: "implementer-a", workerModel: "openrouter/foo-a", workerRole: "implementer" },
-          execution: { workerName: "implementer-a" },
+          execution: { workerName: "implementer-a", usage: { input: 120, output: 50, cost: 0.08 } },
           validation: { ok: true },
           review: { workerName: "reviewer-a", workerModel: "openrouter/reviewer", output: "PASS - meets the contract" },
+          employeeReviewAudit: { errors: { inputTokensRelative: 0.2, outputTokensRelative: 0.1, costRelative: 0.2 }, successCalibrationGap: 0.1, summary: "audit one" },
           job: { id: "job-1" },
         },
       ],
@@ -42,9 +43,10 @@ test("aggregateWorkerHistory combines validation and review outcomes across runs
             { workerName: "implementer-a", workerModel: "openrouter/foo-a", workerRole: "implementer" },
           ],
           selectedApplication: { workerName: "implementer-a", workerModel: "openrouter/foo-a", workerRole: "implementer" },
-          execution: { workerName: "implementer-a" },
+          execution: { workerName: "implementer-a", usage: { input: 100, output: 40, cost: 0.05 } },
           validation: { ok: false },
           review: { workerName: "reviewer-a", workerModel: "openrouter/reviewer", output: "FAIL - blocker found" },
+          employeeReviewAudit: { errors: { inputTokensRelative: 0.4, outputTokensRelative: 0.3, costRelative: 0.1 }, successCalibrationGap: 0.4, summary: "audit two" },
           job: { id: "job-2" },
         },
       ],
@@ -64,4 +66,9 @@ test("aggregateWorkerHistory combines validation and review outcomes across runs
   assert.equal(implementer.reviewFailures, 1);
   assert.equal(reviewer.performedReviews, 2);
   assert.equal(implementer.recentReviews.length, 2);
+  assert.equal(implementer.averageInputTokenRelativeError, 0.3);
+  assert.equal(implementer.averageOutputTokenRelativeError, 0.2);
+  assert.equal(implementer.averageCostRelativeError, 0.15);
+  assert.equal(implementer.averageSuccessCalibrationGap, 0.25);
+  assert.equal(implementer.recentReviews[0].auditSummary, "audit two");
 });
