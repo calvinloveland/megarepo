@@ -23,6 +23,7 @@ Current implementation includes:
 - worker discovery from builtin, user, and project worker profiles
 - structured application generation through isolated Pi subprocesses
 - simple budget-aware scoring and auto-selection
+- shared cross-run employee review history aggregated from persisted ledgers
 - optional execution of the selected worker
 - optional deterministic validation after execution using required files and bash checks
 - optional reviewer pass after execution
@@ -30,7 +31,7 @@ Current implementation includes:
 - persisted run ledgers under `.pi/hiring-runs/`
 - project scaffolding command for worker profile templates
 - helper commands for listing workers and inspecting the last run
-- automated tests for parsing, discovery, budget normalization, validation, scoring, and ledger persistence helpers
+- automated tests for parsing, discovery, budget normalization, validation, scoring, history aggregation, and ledger persistence helpers
 
 Current implementation does **not** yet include:
 - recursive delegation
@@ -171,6 +172,8 @@ For validation and review:
 - set `requiredFiles` on a job to check that artifacts exist
 - set `validationCommands` on a job to run deterministic checks like `pytest`, `python -m py_compile`, or schema checks
 - set `reviewMode` to `selected` and choose `reviewerWorkerName` to force an employee-review stage after execution
+- every persisted run contributes to a shared employee-review history aggregated from `.pi/hiring-runs/`
+- future CEO runs can use that history when ranking hires
 
 Each persisted ledger contains:
 - a compact summary
@@ -233,6 +236,8 @@ The report includes:
 - expandable resumes/applications
 - selected-worker reasoning
 - execution summary
+- explicit validation and employee-review artifacts
+- shared cross-run employee review history per worker/model
 - final artifact previews
 
 ## Development

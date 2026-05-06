@@ -2,6 +2,7 @@
 
 import fs from "node:fs/promises";
 import path from "node:path";
+import { aggregateWorkerHistory } from "../lib/history.js";
 
 function usage() {
   console.error("Usage: node scripts/render-demo.js --ledger <ledger.json> --workspace <dir> --output <demo.html> [--title <title>]");
@@ -200,7 +201,62 @@ async function renderArtifactPreview(baseDir, artifactPath) {
   `;
 }
 
-function buildHtml({ title, ledgerPath, workspaceDir, payload, artifactPreviews }) {
+function renderHistoryTable(workerHistory) {
+  if (!workerHistory?.length) {
+    return '<p class="muted">No shared review history was found yet.</p>';
+  }
+
+  return `
+    <table>
+      <thead>
+        <tr>
+          <th>Worker</th>
+          <th>Applications</th>
+          <th>Selections</th>
+          <th>Executions</th>
+          <th>Validation pass rate</th>
+          <th>Review pass rate</th>
+          <th>Recent review artifact</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${workerHistory.map((history) => `
+          <tr>
+            <td>${escapeHtml(history.workerName)}</td>
+            <td>${history.applications}</td>
+            <td>${history.selections}</td>
+            <td>${history.executions}</td>
+            <td>${history.validationPassRate === null ? '—' : `${Math.round(history.validationPassRate * 100)}%`}</td>
+            <td>${history.reviewPassRate === null ? '—' : `${Math.round(history.reviewPassRate * 100)}%`}</td>
+            <td>${escapeHtml(history.recentReviews?.[0]?.excerpt || 'No review excerpt yet')}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+function renderRecentReviewArtifacts(recentReviews) {
+  if (!recentReviews?.length) {
+    return '<p class="muted">No prior employee reviews are available for this worker.</p>';
+  }
+  return recentReviews.map((review, index) => `
+    <details class="artifact-card" ${index === 0 ? 'open' : ''}>
+      <summary><strong>${escapeHtml(review.savedAt || 'unknown time')}</strong> · verdict=${escapeHtml(review.verdict)} · reviewer=${escapeHtml(review.reviewerWorker || 'unknown')}</summary>
+      <div class="card-body">
+        ${renderKeyValueList([
+          ['Ledger', review.ledgerFile || 'unknown'],
+          ['Job id', review.jobId || 'unknown'],
+          ['Validation ok', review.validationOk === null ? 'unknown' : String(review.validationOk)],
+          ['Verdict', review.verdict || 'unknown'],
+        ])}
+        <pre>${escapeHtml(review.excerpt || '')}</pre>
+      </div>
+    </details>
+  `).join('\n');
+}
+
+function buildHtml({ title, ledgerPath, workspaceDir, payload, artifactPreviews, sharedHistory }) {
   const details = payload.details;
   const summary = payload.summary;
   const job = details.jobs[0];
@@ -214,6 +270,7 @@ function buildHtml({ title, ledgerPath, workspaceDir, payload, artifactPreviews 
   });
   const reviewRan = Boolean(job.review);
   const validationRan = Boolean(job.validation);
+  const selectedWorkerHistory = sharedHistory?.workerHistory?.find((history) => history.workerName === selectedApplication?.workerName && history.workerModel === selectedApplication?.workerModel) ?? null;
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -437,6 +494,28 @@ function buildHtml({ title, ledgerPath, workspaceDir, payload, artifactPreviews 
       </div>
     </section>
 
+    <section class="section">
+      <div class="section-header">
+        <div>
+          <h2>Shared employee review history</h2>
+          <p class="muted">These review records are aggregated across all persisted hiring runs in this workspace so future CEOs can make better hiring decisions.</p>
+        </div>
+      </div>
+      ${renderHistoryTable(sharedHistory?.workerHistory ?? [])}
+      <h3>Selected worker employee record</h3>
+      ${selectedWorkerHistory ? renderKeyValueList([
+        ['Worker', selectedWorkerHistory.workerName],
+        ['Applications', String(selectedWorkerHistory.applications)],
+        ['Selections', String(selectedWorkerHistory.selections)],
+        ['Executions', String(selectedWorkerHistory.executions)],
+        ['Validation passes', String(selectedWorkerHistory.validationsPassed)],
+        ['Validation failures', String(selectedWorkerHistory.validationsFailed)],
+        ['Review pass rate', selectedWorkerHistory.reviewPassRate === null ? '—' : `${Math.round(selectedWorkerHistory.reviewPassRate * 100)}%`],
+      ]) : '<p class="muted">No historical record found for the selected worker.</p>'}
+      <h3>Selected worker review artifacts</h3>
+      ${renderRecentReviewArtifacts(selectedWorkerHistory?.recentReviews ?? [])}
+    </section>
+
     <section class="section two-col">
       <div>
         <h2>Selection summary</h2>
@@ -566,6 +645,7 @@ async function main() {
   const title = options.title || "Pi Hiring Harness Demo";
 
   const payload = JSON.parse(await fs.readFile(ledgerPath, "utf-8"));
+  const sharedHistory = await aggregateWorkerHistory({ cwd: workspaceDir });
   const artifactPaths = await listArtifacts(workspaceDir);
   const artifactPreviews = [];
   for (const artifactPath of artifactPaths) {
@@ -578,6 +658,7 @@ async function main() {
     workspaceDir,
     payload,
     artifactPreviews,
+    sharedHistory,
   });
 
   await fs.mkdir(path.dirname(outputPath), { recursive: true });

@@ -6,6 +6,7 @@ import { Type } from "typebox";
 import { buildApplicationPrompt, buildExecutionPrompt, buildReviewPrompt, parseApplicationResponse } from "../lib/application.js";
 import { launchWebpage } from "../lib/browser.js";
 import { computeActualSpend, computeRemainingBudgetUsd, shouldSkipExecutionForBudget } from "../lib/budget.js";
+import { aggregateWorkerHistory, buildWorkerHistoryKey } from "../lib/history.js";
 import { persistRunLedger, readLatestRunLedger } from "../lib/ledger.js";
 import { buildJobs } from "../lib/planning.js";
 import { estimateApplicationCostUsd, scoreApplication } from "../lib/scoring.js";
@@ -44,6 +45,15 @@ function scoreWorkerMetadata(worker, job) {
   if (typeof worker.maxBudgetUsd !== "number" || worker.maxBudgetUsd >= job.maxBudgetUsd) score += 0.25;
   if (worker.source === "user") score += 0.1;
   if (worker.source === "project") score += 0.2;
+  if (worker.history?.executions > 0 && typeof worker.history.validationPassRate === "number") {
+    score += (worker.history.validationPassRate - 0.5) * 0.8;
+  }
+  if (worker.history?.reviewedExecutions > 0 && typeof worker.history.reviewPassRate === "number") {
+    score += (worker.history.reviewPassRate - 0.5) * 0.4;
+  }
+  if (worker.history?.validationsFailed > 0) {
+    score -= Math.min(worker.history.validationsFailed * 0.1, 0.4);
+  }
   return score;
 }
 
@@ -264,7 +274,14 @@ export default function registerHiringHarness(pi) {
       }
 
       const discovery = discoverWorkers({ cwd: defaultCwd, scope: workerScope, builtinDir: builtinWorkersDir });
-      let workerPool = discovery.workers;
+      const historySnapshot = await aggregateWorkerHistory({ cwd: defaultCwd, ledgerDir: params.ledgerDir });
+      const historyByWorkerKey = new Map(
+        historySnapshot.workerHistory.map((history) => [buildWorkerHistoryKey(history.workerName, history.workerModel), history]),
+      );
+      let workerPool = discovery.workers.map((worker) => ({
+        ...worker,
+        history: historyByWorkerKey.get(buildWorkerHistoryKey(worker.name, worker.model)),
+      }));
 
       if (Array.isArray(params.workerNames) && params.workerNames.length > 0) {
         const allowedNames = new Set(params.workerNames);
@@ -326,6 +343,7 @@ export default function registerHiringHarness(pi) {
           filePath: worker.filePath,
           inputPricePerMillion: worker.inputPricePerMillion,
           outputPricePerMillion: worker.outputPricePerMillion,
+          history: worker.history ?? null,
         })),
         workerSummary: formatWorkerSummary(workerPool),
         jobs: [],
@@ -338,6 +356,7 @@ export default function registerHiringHarness(pi) {
         },
         warnings: [],
         ledgerPath: null,
+        sharedWorkerHistory: historySnapshot,
       };
 
       if (workerPool.every((worker) => worker.source === "builtin")) {
@@ -473,6 +492,7 @@ export default function registerHiringHarness(pi) {
           details.totals.executionRoundUsd += executionRun.usage.cost;
           jobResult.execution = {
             workerName: worker.name,
+            workerModel: worker.model,
             workerSource: worker.source,
             output: executionRun.finalOutput,
             usage: executionRun.usage,
@@ -510,6 +530,7 @@ export default function registerHiringHarness(pi) {
             details.totals.reviewRoundUsd += reviewRun.usage.cost;
             jobResult.review = {
               workerName: reviewWorker.name,
+              workerModel: reviewWorker.model,
               workerSource: reviewWorker.source,
               output: reviewRun.finalOutput,
               usage: reviewRun.usage,
