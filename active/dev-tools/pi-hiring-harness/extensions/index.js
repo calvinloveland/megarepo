@@ -176,7 +176,7 @@ const HireWorkersParams = Type.Object({
   ),
   workerNames: Type.Optional(Type.Array(Type.String({ description: "Optional allowlist of worker names." }))),
   maxCandidatesPerJob: Type.Optional(
-    Type.Integer({ description: "Maximum number of workers to solicit per job after metadata prefiltering.", default: DEFAULT_MAX_CANDIDATES_PER_JOB, minimum: 1, maximum: 12 }),
+    Type.Integer({ description: "Maximum number of workers to solicit per job after metadata prefiltering.", default: DEFAULT_MAX_CANDIDATES_PER_JOB, minimum: 1, maximum: 64 }),
   ),
   enforceBudget: Type.Optional(
     Type.Boolean({ description: "When true, skip execution if the predicted selected hire would exceed the remaining budget.", default: true }),
