@@ -33,6 +33,7 @@ export function summarizeLedger(details) {
       selectedScore: jobResult.selectedApplication?.scoreBreakdown?.score ?? null,
       executionWorker: jobResult.execution?.workerName ?? null,
       reviewWorker: jobResult.review?.workerName ?? null,
+      validationOk: jobResult.validation?.ok ?? null,
     })),
   };
 }

@@ -7,6 +7,8 @@ test("buildJobs uses objective as a single bounded job", () => {
   assert.equal(jobs.length, 1);
   assert.equal(jobs[0].id, "job-1");
   assert.equal(jobs[0].maxBudgetUsd, 0.8);
+  assert.deepEqual(jobs[0].requiredFiles, []);
+  assert.deepEqual(jobs[0].validationCommands, []);
 });
 
 test("buildJobs splits remaining budget across unspecified jobs", () => {
@@ -14,7 +16,7 @@ test("buildJobs splits remaining budget across unspecified jobs", () => {
     totalBudgetUsd: 1.0,
     jobs: [
       { id: "a", objective: "Research", maxBudgetUsd: 0.2 },
-      { id: "b", objective: "Implement" },
+      { id: "b", objective: "Implement", requiredFiles: ["artifact.txt"], validationCommands: ["test -f artifact.txt"] },
       { id: "c", objective: "Review" },
     ],
   });
@@ -22,4 +24,6 @@ test("buildJobs splits remaining budget across unspecified jobs", () => {
   assert.equal(jobs[0].maxBudgetUsd, 0.2);
   assert.equal(jobs[1].maxBudgetUsd, 0.4);
   assert.equal(jobs[2].maxBudgetUsd, 0.4);
+  assert.deepEqual(jobs[1].requiredFiles, ["artifact.txt"]);
+  assert.deepEqual(jobs[1].validationCommands, ["test -f artifact.txt"]);
 });

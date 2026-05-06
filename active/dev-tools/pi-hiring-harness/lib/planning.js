@@ -10,10 +10,12 @@ export function buildJobs({ objective, jobs, totalBudgetUsd }) {
         acceptanceCriteria: job.acceptanceCriteria,
         preferredRole: job.preferredRole,
         cwd: job.cwd,
+        requiredFiles: Array.isArray(job.requiredFiles) ? job.requiredFiles : [],
+        validationCommands: Array.isArray(job.validationCommands) ? job.validationCommands : [],
         maxBudgetUsd: typeof job.maxBudgetUsd === "number" ? job.maxBudgetUsd : undefined,
       }))
     : objective
-      ? [{ id: "job-1", objective, maxBudgetUsd: totalBudgetUsd }]
+      ? [{ id: "job-1", objective, requiredFiles: [], validationCommands: [], maxBudgetUsd: totalBudgetUsd }]
       : [];
 
   const explicitBudget = normalizedJobs.reduce((sum, job) => sum + (job.maxBudgetUsd ?? 0), 0);

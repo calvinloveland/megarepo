@@ -15,7 +15,7 @@ test("summarizeLedger extracts compact job info", () => {
     mode: "run",
     budgetUsd: 1,
     workerScope: "both",
-    totals: { applicationRoundUsd: 0.1, executionRoundUsd: 0.2, reviewRoundUsd: 0.05, predictedSelectedSpendUsd: 0.25 },
+    totals: { applicationRoundUsd: 0.1, executionRoundUsd: 0.2, reviewRoundUsd: 0.05, validationRoundUsd: 0.01, predictedSelectedSpendUsd: 0.25 },
     warnings: ["one"],
     jobs: [
       {
@@ -23,12 +23,14 @@ test("summarizeLedger extracts compact job info", () => {
         selectedApplication: { workerName: "implementer", scoreBreakdown: { score: 0.8 } },
         execution: { workerName: "implementer" },
         review: { workerName: "reviewer" },
+        validation: { ok: true },
       },
     ],
   });
 
   assert.equal(summary.jobs[0].selectedWorker, "implementer");
   assert.equal(summary.jobs[0].reviewWorker, "reviewer");
+  assert.equal(summary.jobs[0].validationOk, true);
 });
 
 test("persistRunLedger writes a readable JSON artifact and readLatestRunLedger finds it", async () => {
@@ -37,7 +39,7 @@ test("persistRunLedger writes a readable JSON artifact and readLatestRunLedger f
     mode: "plan",
     budgetUsd: 0.8,
     workerScope: "user",
-    totals: { applicationRoundUsd: 0.1, executionRoundUsd: 0, reviewRoundUsd: 0, predictedSelectedSpendUsd: 0.2 },
+    totals: { applicationRoundUsd: 0.1, executionRoundUsd: 0, reviewRoundUsd: 0, validationRoundUsd: 0, predictedSelectedSpendUsd: 0.2 },
     warnings: [],
     jobs: [],
   };

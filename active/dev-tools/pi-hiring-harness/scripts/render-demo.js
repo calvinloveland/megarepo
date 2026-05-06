@@ -212,6 +212,8 @@ function buildHtml({ title, ledgerPath, workspaceDir, payload, artifactPreviews 
     const rightScore = right.scoreBreakdown?.score ?? -Infinity;
     return rightScore - leftScore;
   });
+  const reviewRan = Boolean(job.review);
+  const validationRan = Boolean(job.validation);
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -409,6 +411,8 @@ function buildHtml({ title, ledgerPath, workspaceDir, payload, artifactPreviews 
         <div class="metric"><div class="label">Valid resumes</div><div class="value">${validApplications.length}</div></div>
         <div class="metric"><div class="label">Invalid resumes</div><div class="value">${invalidApplications.length}</div></div>
         <div class="metric"><div class="label">Selected hire</div><div class="value">${escapeHtml(selectedApplication?.workerName ?? "none")}</div></div>
+        <div class="metric"><div class="label">Review stage</div><div class="value">${reviewRan ? escapeHtml(job.review.workerName) : "Not run"}</div></div>
+        <div class="metric"><div class="label">Validation stage</div><div class="value">${validationRan ? (job.validation.ok ? "Passed" : "Failed") : "Not run"}</div></div>
         <div class="metric"><div class="label">Budget</div><div class="value">${formatUsd(summary.budgetUsd)}</div></div>
         <div class="metric"><div class="label">Ledger</div><div class="value">${escapeHtml(relativePath(workspaceDir, ledgerPath))}</div></div>
       </div>
@@ -427,7 +431,9 @@ function buildHtml({ title, ledgerPath, workspaceDir, payload, artifactPreviews 
         <div class="stage"><div class="label">Stage 3</div><div class="value">Each candidate submitted a structured resume/application for the same bounded job.</div></div>
         <div class="stage"><div class="label">Stage 4</div><div class="value">The harness parsed and scored resumes using predicted success, confidence, cost, and risk.</div></div>
         <div class="stage"><div class="label">Stage 5</div><div class="value">${escapeHtml(summarizeSelectionReason(selectedApplication))}</div></div>
-        <div class="stage"><div class="label">Stage 6</div><div class="value">The selected worker produced final files in the workspace and the run ledger was persisted.</div></div>
+        <div class="stage"><div class="label">Stage 6</div><div class="value">The selected worker executed the job and produced final workspace files.</div></div>
+        <div class="stage"><div class="label">Stage 7</div><div class="value">${validationRan ? `Deterministic validation ${job.validation.ok ? "passed" : "failed"} after checking files and running commands.` : "No deterministic validation was configured for this run."}</div></div>
+        <div class="stage"><div class="label">Stage 8</div><div class="value">${reviewRan ? `A reviewer worker (${job.review.workerName}) performed an employee-review pass on the deliverable.` : "No reviewer pass was configured for this run."}</div></div>
       </div>
     </section>
 
@@ -444,6 +450,7 @@ function buildHtml({ title, ledgerPath, workspaceDir, payload, artifactPreviews 
           ["Predicted selected cost", formatUsd(selectedApplication?.scoreBreakdown?.predictedCostUsd)],
           ["Actual application spend", formatUsd(summary.totals.applicationRoundUsd)],
           ["Actual execution spend", formatUsd(summary.totals.executionRoundUsd)],
+          ["Actual validation spend", formatUsd(summary.totals.validationRoundUsd)],
           ["Actual review spend", formatUsd(summary.totals.reviewRoundUsd)],
         ])}
         <h3>Why this worker won</h3>
@@ -498,6 +505,27 @@ function buildHtml({ title, ledgerPath, workspaceDir, payload, artifactPreviews 
       ]) : '<p class="muted">No execution output was captured.</p>'}
       <h3>Captured execution output</h3>
       <pre>${escapeHtml(job.execution?.output || "(The selected worker changed files but returned no text deliverable.)")}</pre>
+      <h3>Deterministic validation</h3>
+      ${job.validation ? `
+        ${renderKeyValueList([
+          ["Validation status", job.validation.ok ? "passed" : "failed"],
+          ["Required files checked", String(job.validation.summary.requiredFilesChecked)],
+          ["Validation commands run", String(job.validation.summary.commandsRun)],
+          ["Missing files", String(job.validation.summary.missingFiles)],
+          ["Failed commands", String(job.validation.summary.failedCommands)],
+        ])}
+        ${job.validation.fileChecks?.length ? `<details open><summary><strong>Required file checks</strong></summary><div class="card-body"><pre>${escapeHtml(JSON.stringify(job.validation.fileChecks, null, 2))}</pre></div></details>` : ""}
+        ${job.validation.commandResults?.length ? `<details open><summary><strong>Validation commands</strong></summary><div class="card-body"><pre>${escapeHtml(JSON.stringify(job.validation.commandResults, null, 2))}</pre></div></details>` : ""}
+      ` : '<p class="muted">No validation was configured for this run.</p>'}
+      <h3>Employee review stage</h3>
+      ${job.review ? `
+        ${renderKeyValueList([
+          ["Reviewer", job.review.workerName],
+          ["Review exit code", String(job.review.exitCode ?? "0")],
+          ["Review stop reason", job.review.stopReason ?? "unknown"],
+        ])}
+        <pre>${escapeHtml(job.review.output || "")}</pre>
+      ` : '<p class="muted">No reviewer stage was run.</p>'}
       <h3>Workspace artifacts</h3>
       ${artifactPreviews.join("\n")}
     </section>
@@ -514,6 +542,8 @@ function buildHtml({ title, ledgerPath, workspaceDir, payload, artifactPreviews 
         <li>The candidate pool consisted of <strong>all 19 currently available OpenRouter free models</strong> visible to Pi at test time.</li>
         <li><strong>${validApplications.length}</strong> resumes parsed successfully and <strong>${invalidApplications.length}</strong> failed JSON-format validation.</li>
         <li>The selected worker created <code>pig_latin_dataset.jsonl</code>, <code>train_pig_latin.py</code>, and updated <code>README.md</code>.</li>
+        <li>${validationRan ? `Deterministic validation ${job.validation.ok ? "passed" : "failed"}, including file checks and scripted validation commands.` : "No deterministic validation ran in this test."}</li>
+        <li>${reviewRan ? `A reviewer stage ran using ${escapeHtml(job.review.workerName)} and produced a textual review of the deliverable.` : "No employee-review stage ran in this test."}</li>
         <li>The generated Python training script passed <code>python -m py_compile</code>.</li>
         <li>The resulting starter kit is useful as a demo, but the dataset quality is mixed: many rows are plain Pig Latin strings instead of explicit source-target training pairs.</li>
       </ul>

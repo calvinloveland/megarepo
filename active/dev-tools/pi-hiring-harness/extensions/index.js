@@ -9,6 +9,7 @@ import { persistRunLedger, readLatestRunLedger } from "../lib/ledger.js";
 import { buildJobs } from "../lib/planning.js";
 import { estimateApplicationCostUsd, scoreApplication } from "../lib/scoring.js";
 import { runWorkerPrompt } from "../lib/subprocess.js";
+import { runValidationSuite } from "../lib/validation.js";
 import { DEFAULT_WORKER_SCOPE, discoverWorkers, formatWorkerSummary } from "../lib/workers.js";
 
 const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -60,6 +61,7 @@ function buildSummary(details, maxShownApplications = 3) {
   if (details.mode === "run") {
     lines.push(`- Execution spend (actual): ${formatUsd(details.totals.executionRoundUsd)}`);
     lines.push(`- Review spend (actual): ${formatUsd(details.totals.reviewRoundUsd)}`);
+    lines.push(`- Validation spend (actual): ${formatUsd(details.totals.validationRoundUsd)}`);
   }
   lines.push(`- Predicted selected execution spend: ${formatUsd(details.totals.predictedSelectedSpendUsd)}`);
   lines.push(`- Remaining budget: ${formatUsd(computeRemainingBudgetUsd(details.budgetUsd, details.totals))}`);
@@ -116,6 +118,12 @@ function buildSummary(details, maxShownApplications = 3) {
         lines.push(`- Review output preview: ${jobResult.review.output.slice(0, 240).replace(/\n+/g, " ")}`);
       }
     }
+
+    if (jobResult.validation) {
+      lines.push(`- Validation result: ${jobResult.validation.ok ? "passed" : "failed"}`);
+      lines.push(`- Required files checked: ${jobResult.validation.summary.requiredFilesChecked}`);
+      lines.push(`- Validation commands run: ${jobResult.validation.summary.commandsRun}`);
+    }
   }
 
   return lines.join("\n");
@@ -148,6 +156,8 @@ const JobSchema = Type.Object({
   objective: Type.String({ description: "The bounded objective for the worker." }),
   acceptanceCriteria: Type.Optional(Type.String({ description: "How the CEO will judge success." })),
   preferredRole: Type.Optional(Type.String({ description: "Preferred worker role, such as researcher or implementer." })),
+  requiredFiles: Type.Optional(Type.Array(Type.String({ description: "Files or directories that must exist after execution." }))),
+  validationCommands: Type.Optional(Type.Array(Type.String({ description: "Deterministic bash checks run after execution, such as tests or py_compile." }))),
   maxBudgetUsd: Type.Optional(Type.Number({ description: "Optional explicit budget cap for this job." })),
   cwd: Type.Optional(Type.String({ description: "Optional working directory for this job." })),
 });
@@ -226,7 +236,7 @@ export default function registerHiringHarness(pi) {
             workerScope,
             workerPool: [],
             jobs: [],
-            totals: { applicationRoundUsd: 0, executionRoundUsd: 0, reviewRoundUsd: 0, predictedSelectedSpendUsd: 0 },
+            totals: { applicationRoundUsd: 0, executionRoundUsd: 0, reviewRoundUsd: 0, validationRoundUsd: 0, predictedSelectedSpendUsd: 0 },
             warnings: ["No jobs were provided."],
             ledgerPath: null,
           },
@@ -250,7 +260,7 @@ export default function registerHiringHarness(pi) {
             workerScope,
             workerPool: [],
             jobs: [],
-            totals: { applicationRoundUsd: 0, executionRoundUsd: 0, reviewRoundUsd: 0, predictedSelectedSpendUsd: 0 },
+            totals: { applicationRoundUsd: 0, executionRoundUsd: 0, reviewRoundUsd: 0, validationRoundUsd: 0, predictedSelectedSpendUsd: 0 },
             warnings: ["No worker profiles were available."],
             ledgerPath: null,
           },
@@ -273,7 +283,7 @@ export default function registerHiringHarness(pi) {
                 workerScope,
                 workerPool,
                 jobs: [],
-                totals: { applicationRoundUsd: 0, executionRoundUsd: 0, reviewRoundUsd: 0, predictedSelectedSpendUsd: 0 },
+                totals: { applicationRoundUsd: 0, executionRoundUsd: 0, reviewRoundUsd: 0, validationRoundUsd: 0, predictedSelectedSpendUsd: 0 },
                 warnings: ["Project-local workers were not approved."],
                 ledgerPath: null,
               },
@@ -303,6 +313,7 @@ export default function registerHiringHarness(pi) {
           applicationRoundUsd: 0,
           executionRoundUsd: 0,
           reviewRoundUsd: 0,
+          validationRoundUsd: 0,
           predictedSelectedSpendUsd: 0,
         },
         warnings: [],
@@ -338,6 +349,7 @@ export default function registerHiringHarness(pi) {
           executionSkipReason: null,
           execution: null,
           review: null,
+          validation: null,
         };
         details.jobs.push(jobResult);
         emitUpdate();
@@ -451,11 +463,22 @@ export default function registerHiringHarness(pi) {
           };
           emitUpdate();
 
-          if (reviewWorker && executionRun.finalOutput) {
+          if ((jobResult.job.requiredFiles?.length ?? 0) > 0 || (jobResult.job.validationCommands?.length ?? 0) > 0) {
+            jobResult.validation = await runValidationSuite({
+              requiredFiles: jobResult.job.requiredFiles,
+              validationCommands: jobResult.job.validationCommands,
+              cwd: jobResult.job.cwd,
+              fallbackCwd: defaultCwd,
+              signal,
+            });
+            emitUpdate();
+          }
+
+          if (reviewWorker && (executionRun.finalOutput || jobResult.validation)) {
             const reviewPrompt = buildReviewPrompt({
               job: jobResult.job,
               selectedApplication: jobResult.selectedApplication.application,
-              executionOutput: executionRun.finalOutput,
+              executionOutput: `${executionRun.finalOutput || "(no execution text returned)"}\n\nValidation summary: ${jobResult.validation ? JSON.stringify(jobResult.validation.summary) : "no validation run"}`,
             });
             const reviewRun = await runWorkerPrompt({
               defaultCwd,

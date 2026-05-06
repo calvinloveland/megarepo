@@ -3,7 +3,12 @@ function roundUsd(value) {
 }
 
 export function computeActualSpend(totals) {
-  return roundUsd((totals?.applicationRoundUsd ?? 0) + (totals?.executionRoundUsd ?? 0) + (totals?.reviewRoundUsd ?? 0));
+  return roundUsd(
+    (totals?.applicationRoundUsd ?? 0)
+    + (totals?.executionRoundUsd ?? 0)
+    + (totals?.reviewRoundUsd ?? 0)
+    + (totals?.validationRoundUsd ?? 0),
+  );
 }
 
 export function computeRemainingBudgetUsd(totalBudgetUsd, totals) {

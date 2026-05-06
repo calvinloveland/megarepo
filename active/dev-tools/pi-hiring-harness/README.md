@@ -24,12 +24,13 @@ Current implementation includes:
 - structured application generation through isolated Pi subprocesses
 - simple budget-aware scoring and auto-selection
 - optional execution of the selected worker
+- optional deterministic validation after execution using required files and bash checks
 - optional reviewer pass after execution
 - budget enforcement that can skip execution when remaining budget is too low
 - persisted run ledgers under `.pi/hiring-runs/`
 - project scaffolding command for worker profile templates
 - helper commands for listing workers and inspecting the last run
-- automated tests for parsing, discovery, budget normalization, scoring, and ledger persistence helpers
+- automated tests for parsing, discovery, budget normalization, validation, scoring, and ledger persistence helpers
 
 Current implementation does **not** yet include:
 - recursive delegation
@@ -148,6 +149,8 @@ Use hire_workers in run mode for this goal with a $0.80 budget:
       "objective": "Implement the smallest safe fix for the parser bug.",
       "acceptanceCriteria": "Change as little code as possible and describe remaining risks.",
       "preferredRole": "implementer",
+      "requiredFiles": ["src/parser.py", "tests/test_parser.py"],
+      "validationCommands": ["pytest tests/test_parser.py -q"],
       "maxBudgetUsd": 0.35
     }
   ]
@@ -163,6 +166,11 @@ By default:
 - `reviewMode` is `none`
 
 When budget enforcement is enabled, the harness can still spend budget on the application round, but it will skip executing a selected worker if the predicted execution spend exceeds the remaining budget.
+
+For validation and review:
+- set `requiredFiles` on a job to check that artifacts exist
+- set `validationCommands` on a job to run deterministic checks like `pytest`, `python -m py_compile`, or schema checks
+- set `reviewMode` to `selected` and choose `reviewerWorkerName` to force an employee-review stage after execution
 
 Each persisted ledger contains:
 - a compact summary
