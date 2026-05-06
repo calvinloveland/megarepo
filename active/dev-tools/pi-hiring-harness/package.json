@@ -1,0 +1,25 @@
+{
+  "name": "pi-hiring-harness",
+  "version": "0.1.0",
+  "description": "Budget-aware CEO/worker orchestration for Pi",
+  "type": "module",
+  "private": true,
+  "keywords": [
+    "pi-package",
+    "pi",
+    "agents",
+    "orchestration",
+    "budgeting"
+  ],
+  "scripts": {
+    "test": "node --test tests/*.test.js"
+  },
+  "peerDependencies": {
+    "typebox": "*"
+  },
+  "pi": {
+    "extensions": [
+      "./extensions/index.js"
+    ]
+  }
+}

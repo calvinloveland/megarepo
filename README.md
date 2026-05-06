@@ -34,6 +34,7 @@ A consolidated monorepo for active projects, archived experiments, shared toolin
 | [**hivemind-llm**](active/dev-tools/hivemind-llm/README.md) | LLM integration and orchestration experiments | Python |
 | [**tci-framework**](active/dev-tools/tci-framework/README.md) | Reusable Trust-Capability-Intelligence framework primitives | Python |
 | [**manifold-mcp**](active/dev-tools/manifold-mcp/README.md) | Repo-local integration helpers for the adopted upstream Manifold MCP server | Python |
+| [**pi-hiring-harness**](active/dev-tools/pi-hiring-harness/README.md) | Budget-aware CEO/worker orchestration package built on Pi | JavaScript |
 | [**time_function_with_timeout**](active/dev-tools/time_function_with_timeout/README.md) | Python timing helper with timeout support | Python |
 | [**tough_bugs**](active/dev-tools/tough_bugs/README.md) | Debugging challenge collection | Python |
 

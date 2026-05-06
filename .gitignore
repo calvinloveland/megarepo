@@ -49,6 +49,10 @@ venv/
 .env.*
 .npm_token.txt
 
+# Pi runtime artifacts
+.pi/hiring-runs/
+**/.pi/hiring-runs/
+
 # IDE/editor folders
 .vscode/
 .idea/
