@@ -199,6 +199,22 @@ Lists the worker profiles visible from the current cwd, including builtin, user,
 
 Shows the latest persisted hiring ledger summary from `.pi/hiring-runs/`.
 
+### `/open-url <url>`
+
+Opens a URL directly in Chrome on this machine.
+
+## Browser Tool
+
+The package also adds an `open_in_chrome` tool so Pi can directly open a webpage for you.
+
+Example tool payload:
+
+```json
+{
+  "url": "http://127.0.0.1:51873/hiring-demo.html"
+}
+```
+
 ## Demo / Report Generation
 
 Render a standalone HTML report from a persisted hiring ledger:
@@ -226,6 +242,8 @@ npm test
 node --check extensions/index.js
 node --check scripts/render-demo.js
 pi -e .
+# then inside Pi:
+/open-url http://127.0.0.1:51873/hiring-demo.html
 ```
 
 ## Design Notes

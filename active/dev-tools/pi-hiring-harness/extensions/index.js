@@ -4,6 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { Type } from "typebox";
 import { buildApplicationPrompt, buildExecutionPrompt, buildReviewPrompt, parseApplicationResponse } from "../lib/application.js";
+import { launchWebpage } from "../lib/browser.js";
 import { computeActualSpend, computeRemainingBudgetUsd, shouldSkipExecutionForBudget } from "../lib/budget.js";
 import { persistRunLedger, readLatestRunLedger } from "../lib/ledger.js";
 import { buildJobs } from "../lib/planning.js";
@@ -16,6 +17,11 @@ const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "
 const builtinWorkersDir = path.join(packageRoot, "workers");
 const DEFAULT_MAX_CANDIDATES_PER_JOB = 4;
 const DEFAULT_REVIEW_MODE = "none";
+
+const OpenInChromeParams = Type.Object({
+  url: Type.String({ description: "The URL to open in Chrome." }),
+  newWindow: Type.Optional(Type.Boolean({ description: "Open in a new window instead of a new tab.", default: false })),
+});
 
 function enumSchema(values, description, defaultValue) {
   return Type.Union(values.map((value) => Type.Literal(value)), {
@@ -203,6 +209,20 @@ const HireWorkersParams = Type.Object({
 });
 
 export default function registerHiringHarness(pi) {
+  pi.registerTool({
+    name: "open_in_chrome",
+    label: "Open in Chrome",
+    description: "Open a URL directly in Google Chrome or a Chrome-compatible browser on this machine.",
+    parameters: OpenInChromeParams,
+    async execute(_toolCallId, params) {
+      const launch = launchWebpage(params.url, { newWindow: params.newWindow ?? false });
+      return {
+        content: [{ type: "text", text: `Opened ${launch.url} with ${launch.executable}.` }],
+        details: launch,
+      };
+    },
+  });
+
   pi.registerTool({
     name: "hire_workers",
     label: "Hire Workers",
@@ -585,6 +605,18 @@ export default function registerHiringHarness(pi) {
         ...((summary?.jobs ?? []).map((job) => `- ${job.id}: selected=${job.selectedWorker ?? "none"} execution=${job.executionWorker ?? "none"} review=${job.reviewWorker ?? "none"}`)),
       ];
       ctx.ui.notify(lines.join("\n"), "info");
+    },
+  });
+
+  pi.registerCommand("open-url", {
+    description: "Open a URL in Chrome",
+    handler: async (args, ctx) => {
+      if (!args?.trim()) {
+        ctx.ui.notify("Usage: /open-url <url>", "warning");
+        return;
+      }
+      const launch = launchWebpage(args.trim());
+      ctx.ui.notify(`Opened ${launch.url} with ${launch.executable}`, "info");
     },
   });
 }
