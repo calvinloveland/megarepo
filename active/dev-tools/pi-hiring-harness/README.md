@@ -191,11 +191,32 @@ Lists the worker profiles visible from the current cwd, including builtin, user,
 
 Shows the latest persisted hiring ledger summary from `.pi/hiring-runs/`.
 
+## Demo / Report Generation
+
+Render a standalone HTML report from a persisted hiring ledger:
+
+```bash
+node scripts/render-demo.js \
+  --ledger /path/to/.pi/hiring-runs/20260506-213936.json \
+  --workspace /path/to/workspace \
+  --output /path/to/hiring-demo.html \
+  --title "Hiring Run Demo"
+```
+
+The report includes:
+- stage-by-stage narrative
+- candidate rankings
+- expandable resumes/applications
+- selected-worker reasoning
+- execution summary
+- final artifact previews
+
 ## Development
 
 ```bash
 npm test
 node --check extensions/index.js
+node --check scripts/render-demo.js
 pi -e .
 ```
 
