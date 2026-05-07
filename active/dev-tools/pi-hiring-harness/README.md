@@ -174,7 +174,7 @@ For validation and review:
 - set `validationCommands` on a job to run deterministic checks like `pytest`, `python -m py_compile`, or schema checks
 - set `reviewMode` to `selected` and choose `reviewerWorkerName` to force an employee-review stage after execution
 - every persisted run contributes to a shared employee-review history aggregated from `.pi/hiring-runs/`
-- future CEO runs can use that history when ranking hires
+- future CEO runs use that history twice: once when building the candidate pool and again as a direct score adjustment on each application based on validation rate, review rate, and resume-vs-reality accuracy
 
 Each persisted ledger contains:
 - a compact summary
