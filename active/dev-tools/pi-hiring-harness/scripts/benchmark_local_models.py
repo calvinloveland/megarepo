@@ -219,6 +219,8 @@ def parse_latest_ledger(workspace: Path) -> Path | None:
 
 def score_result(result: dict[str, Any]) -> float:
     score = 0.0
+    if result.get("selectedWorker") is None:
+        score -= 250.0
     if result.get("validationOk") is True:
         score += 1000.0
     if result.get("reviewVerdict") == "pass":
@@ -233,6 +235,7 @@ def score_result(result: dict[str, Any]) -> float:
     score -= float(errors.get("inputTokensRelative") or 0.0)
     score -= float(errors.get("outputTokensRelative") or 0.0)
     score -= float(errors.get("costRelative") or 0.0)
+    score -= 25.0 * len(result.get("applicationErrors") or [])
     return round(score, 4)
 
 
@@ -248,22 +251,26 @@ def collect_result(model: str, slug: str, workspace: Path, ledger: Path, elapsed
     if (workspace / "sample_generations.json").exists():
         samples = json.loads((workspace / "sample_generations.json").read_text())
 
+    selected_application = job.get("selectedApplication") or {}
+    review = job.get("review") or {}
+    validation = job.get("validation") or {}
     result = {
         "model": model,
         "slug": slug,
         "workspace": str(workspace),
         "ledger": str(ledger),
-        "selectedWorker": job.get("selectedApplication", {}).get("workerName"),
-        "validationOk": job.get("validation", {}).get("ok"),
-        "validationSummary": job.get("validation", {}).get("summary"),
+        "selectedWorker": selected_application.get("workerName"),
+        "validationOk": validation.get("ok"),
+        "validationSummary": validation.get("summary"),
         "reviewVerdict": (job.get("employeeReviewAudit") or {}).get("actual", {}).get("reviewVerdict"),
-        "reviewer": job.get("review", {}).get("workerName"),
+        "reviewer": review.get("workerName"),
         "finalLoss": metrics.get("final_loss") if metrics else None,
         "initialLoss": metrics.get("initial_loss") if metrics else None,
         "trainedExamples": metrics.get("trained_examples") if metrics else None,
         "samples": samples,
         "employeeReviewAudit": job.get("employeeReviewAudit"),
-        "reviewExcerpt": (job.get("review", {}).get("output") or "")[:1500],
+        "reviewExcerpt": (review.get("output") or "")[:1500],
+        "applicationErrors": [entry.get("error") for entry in job.get("applications", []) if entry.get("error")],
         "elapsedSeconds": elapsed,
         "artifacts": sorted(str(p.relative_to(workspace)) for p in workspace.glob("*") if p.is_file()),
     }
@@ -275,7 +282,10 @@ def run_one(model: str, root: Path) -> dict[str, Any]:
     workspace, slug = write_workspace(root, model)
     result_path = workspace / "benchmark-result.json"
     if result_path.exists():
-        return json.loads(result_path.read_text())
+        cached = json.loads(result_path.read_text())
+        cached["score"] = score_result(cached)
+        result_path.write_text(json.dumps(cached, indent=2), encoding="utf-8")
+        return cached
 
     payload = build_payload(workspace, slug)
     prompt = (
@@ -331,15 +341,26 @@ def render_html(root: Path, results: list[dict[str, Any]], runtime_info: dict[st
     html_path = root / "benchmark-report.html"
     rows = []
     for index, result in enumerate(results, 1):
+        app_errors = result.get('applicationErrors') or []
+        note_value = app_errors if app_errors else result.get('validationSummary')
+        if isinstance(note_value, (dict, list)):
+            note = json.dumps(note_value)
+        elif note_value is None:
+            note = ""
+        else:
+            note = str(note_value)
+        note = note.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\n", "<br>")
         rows.append(
             f"<tr>"
             f"<td>{index}</td>"
             f"<td>{result.get('model','')}</td>"
+            f"<td>{result.get('selectedWorker')}</td>"
             f"<td>{result.get('validationOk')}</td>"
             f"<td>{result.get('reviewVerdict')}</td>"
             f"<td>{result.get('score')}</td>"
             f"<td>{result.get('finalLoss')}</td>"
             f"<td>{result.get('elapsedSeconds')}</td>"
+            f"<td>{note}</td>"
             f"<td><a href='file://{result.get('workspace','')}'>{result.get('workspace','')}</a></td>"
             f"</tr>"
         )
@@ -368,11 +389,13 @@ def render_html(root: Path, results: list[dict[str, Any]], runtime_info: dict[st
       <tr>
         <th>Rank</th>
         <th>Model</th>
+        <th>Selected worker</th>
         <th>Validation</th>
         <th>Review verdict</th>
         <th>Score</th>
         <th>Final loss</th>
         <th>Elapsed (s)</th>
+        <th>Notes</th>
         <th>Workspace</th>
       </tr>
     </thead>
