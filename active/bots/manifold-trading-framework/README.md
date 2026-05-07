@@ -8,6 +8,7 @@ This project owns:
 - live market ingestion
 - shadow/live execution controls
 - trading CLI workflows
+- project-local worker profiles and planning notes for CEO/specialist trading workflows via `pi-hiring-harness`
 
 The TCI core logic now lives in `active/dev-tools/tci-framework/`.
 
@@ -61,6 +62,18 @@ manifold-trading-framework compare-agents ../../dev-tools/tci-framework/data/sce
 - the default execution mode is `shadow`
 - `live` mode requires an API key and still enforces hard risk caps
 - replay and authored scenarios remain first-class for regression testing
+
+## Multi-agent planning
+
+For the CEO/specialist design built around the Pi hiring tool, see:
+
+- [`docs/multi-agent-hiring-plan.md`](docs/multi-agent-hiring-plan.md)
+- project-local workers under [`.pi/workers/README.md`](.pi/workers/README.md)
+
+The intended split is:
+
+- use hired specialists for research, arbitrage scans, risk critique, narrative analysis, and execution planning
+- keep hard risk caps and actual trade execution deterministic in the Python framework
 
 ## Data
 
