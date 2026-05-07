@@ -5,23 +5,9 @@ import json
 import sys
 from pathlib import Path
 
-from .adapters.manifold import ManifoldAdapter
 from .config import RuntimeConfig
-from .execution import execute_decision
+from .dashboard import run_dashboard
 from .logging_utils import timestamp_slug
-from .manifold_api import ManifoldClient
-from tci_framework.config import TCIConfig
-from tci_framework.decision import run_agent_variant
-from tci_framework.models import AgentVariant, ExecutionMode, to_jsonable
-from tci_framework.replay import compare_variants, rerun_trace, save_bundle, save_run_result
-
-
-def _variant(value: str) -> AgentVariant:
-    return AgentVariant(value)
-
-
-def _mode(value: str) -> ExecutionMode:
-    return ExecutionMode(value)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -34,16 +20,16 @@ def build_parser() -> argparse.ArgumentParser:
 
     run_agent = subparsers.add_parser("run-agent", help="Run a variant against live market data")
     run_agent.add_argument("market_id")
-    run_agent.add_argument("--variant", type=_variant, default=AgentVariant.V4)
-    run_agent.add_argument("--mode", type=_mode, default=ExecutionMode.SHADOW)
+    run_agent.add_argument("--variant", choices=["v1", "v2", "v3", "v4"], default="v4")
+    run_agent.add_argument("--mode", choices=["shadow", "live"], default="shadow")
     run_agent.add_argument("--capital", type=float, default=100.0)
     run_agent.add_argument("--exposure", type=float, default=0.0)
     run_agent.add_argument("--output", type=Path)
 
     replay = subparsers.add_parser("replay", help="Replay a stored trace or scenario")
     replay.add_argument("trace_path", type=Path)
-    replay.add_argument("--variant", type=_variant, default=AgentVariant.V4)
-    replay.add_argument("--mode", type=_mode, default=ExecutionMode.SHADOW)
+    replay.add_argument("--variant", choices=["v1", "v2", "v3", "v4"], default="v4")
+    replay.add_argument("--mode", choices=["shadow", "live"], default="shadow")
     replay.add_argument("--capital", type=float, default=100.0)
     replay.add_argument("--exposure", type=float, default=0.0)
     replay.add_argument("--output", type=Path)
@@ -53,6 +39,13 @@ def build_parser() -> argparse.ArgumentParser:
     compare.add_argument("--capital", type=float, default=100.0)
     compare.add_argument("--exposure", type=float, default=0.0)
 
+    dashboard = subparsers.add_parser("dashboard", help="Serve a local web dashboard for run artifacts and worker roles")
+    dashboard.add_argument("--host", default="127.0.0.1")
+    dashboard.add_argument("--port", type=int, default=5050)
+    dashboard.add_argument("--run-dir", type=Path)
+    dashboard.add_argument("--project-root", type=Path, default=Path.cwd())
+    dashboard.add_argument("--debug", action="store_true")
+
     return parser
 
 
@@ -61,6 +54,8 @@ def _default_output_path(runtime: RuntimeConfig, prefix: str, suffix: str = ".js
 
 
 def _print(payload: object) -> None:
+    from tci_framework.models import to_jsonable
+
     sys.stdout.write(json.dumps(to_jsonable(payload), indent=2, sort_keys=True))
     sys.stdout.write("\n")
 
@@ -69,6 +64,25 @@ def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
     runtime = RuntimeConfig.from_env()
+
+    if args.command == "dashboard":
+        run_dashboard(
+            run_dir=args.run_dir or runtime.default_run_dir,
+            project_root=args.project_root,
+            host=args.host,
+            port=args.port,
+            debug=args.debug,
+        )
+        return 0
+
+    from .adapters.manifold import ManifoldAdapter
+    from .execution import execute_decision
+    from .manifold_api import ManifoldClient
+    from tci_framework.config import TCIConfig
+    from tci_framework.decision import run_agent_variant
+    from tci_framework.models import AgentVariant, ExecutionMode
+    from tci_framework.replay import compare_variants, rerun_trace, save_bundle, save_run_result
+
     config = TCIConfig()
     client = ManifoldClient(
         base_url=runtime.api_base_url,
@@ -85,12 +99,14 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.command == "run-agent":
+        variant = AgentVariant(args.variant)
+        mode = ExecutionMode(args.mode)
         bundle = adapter.load_market_bundle(args.market_id)
         result = run_agent_variant(
             bundle,
-            args.variant,
+            variant,
             config,
-            mode=args.mode,
+            mode=mode,
             available_capital=args.capital,
             current_exposure=args.exposure,
         )
@@ -101,21 +117,23 @@ def main(argv: list[str] | None = None) -> int:
             metrics=result.metrics,
             execution_result=execution_result,
         )
-        output = args.output or _default_output_path(runtime, f"run-{args.variant.value}-{args.market_id}")
+        output = args.output or _default_output_path(runtime, f"run-{variant.value}-{args.market_id}")
         save_run_result(result, output)
         _print({"saved": str(output), "decision": result.decision, "metrics": result.metrics, "execution": execution_result})
         return 0
 
     if args.command == "replay":
+        variant = AgentVariant(args.variant)
+        mode = ExecutionMode(args.mode)
         result = rerun_trace(
             args.trace_path,
-            args.variant,
+            variant,
             config,
-            mode=args.mode,
+            mode=mode,
             available_capital=args.capital,
             current_exposure=args.exposure,
         )
-        output = args.output or _default_output_path(runtime, f"replay-{args.variant.value}-{args.trace_path.stem}")
+        output = args.output or _default_output_path(runtime, f"replay-{variant.value}-{args.trace_path.stem}")
         save_run_result(result, output)
         _print({"saved": str(output), "decision": result.decision, "metrics": result.metrics})
         return 0

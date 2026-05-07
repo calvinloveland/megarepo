@@ -56,6 +56,12 @@ Compare all variants on the same trace:
 manifold-trading-framework compare-agents ../../dev-tools/tci-framework/data/scenarios/reputation-betrayal.json
 ```
 
+Start the local web dashboard:
+
+```bash
+manifold-trading-framework dashboard --port 5050
+```
+
 ## Safety model
 
 - live data is used from day one
@@ -74,6 +80,27 @@ The intended split is:
 
 - use hired specialists for research, arbitrage scans, risk critique, narrative analysis, and execution planning
 - keep hard risk caps and actual trade execution deterministic in the Python framework
+
+## Dashboard
+
+The local dashboard shows:
+
+- captured traces and agent run artifacts from `data/runs/`
+- decision, confidence, edge, and evaluated-input details for each run
+- the project-local worker organization under `.pi/workers/`
+
+By default it serves from `http://127.0.0.1:5050` and reads:
+
+- run artifacts from `data/runs/`
+- worker profiles from `.pi/workers/`
+- the CEO/specialist planning note from `docs/multi-agent-hiring-plan.md`
+
+Useful flags:
+
+```bash
+manifold-trading-framework dashboard --host 0.0.0.0 --port 5050
+manifold-trading-framework dashboard --run-dir /path/to/runs --project-root /path/to/project
+```
 
 ## Data
 
