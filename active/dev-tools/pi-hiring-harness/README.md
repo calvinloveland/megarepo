@@ -242,6 +242,13 @@ The report includes:
 - shared cross-run employee review history per worker/model
 - final artifact previews
 
+There are also reusable benchmark runners:
+
+```bash
+python scripts/benchmark_free_models.py
+python scripts/benchmark_local_models.py
+```
+
 ## Development
 
 ```bash
