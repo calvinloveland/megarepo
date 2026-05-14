@@ -1,0 +1,744 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Calnix Bootstrap Installer Plan</title>
+  <style>
+    :root {
+      --bg: #020617;
+      --bg-2: #0f172a;
+      --panel: rgba(15, 23, 42, 0.9);
+      --panel-2: rgba(17, 24, 39, 0.92);
+      --panel-3: #1e293b;
+      --text: #e5e7eb;
+      --muted: #94a3b8;
+      --accent: #60a5fa;
+      --accent-2: #22c55e;
+      --warn: #f59e0b;
+      --danger: #f87171;
+      --border: #334155;
+      --shadow: 0 24px 80px rgba(0, 0, 0, 0.35);
+      --radius: 22px;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: Inter, system-ui, sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at top, rgba(37, 99, 235, 0.18), transparent 28%),
+        linear-gradient(180deg, var(--bg-2), var(--bg));
+      line-height: 1.55;
+    }
+
+    a { color: var(--accent); }
+    code {
+      font-family: ui-monospace, SFMono-Regular, monospace;
+      background: rgba(148, 163, 184, 0.12);
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      border-radius: 10px;
+      padding: 0.12rem 0.4rem;
+    }
+    pre {
+      margin: 0;
+      padding: 16px 18px;
+      overflow: auto;
+      border-radius: 16px;
+      background: #020617;
+      border: 1px solid var(--border);
+      font-family: ui-monospace, SFMono-Regular, monospace;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .wrap {
+      max-width: 1240px;
+      margin: 0 auto;
+      padding: 28px 20px 80px;
+    }
+
+    .hero,
+    .panel,
+    .nav {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(16px);
+    }
+
+    .nav {
+      position: sticky;
+      top: 14px;
+      z-index: 10;
+      padding: 12px 16px;
+      margin-bottom: 20px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .nav .links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: rgba(96, 165, 250, 0.1);
+      border: 1px solid rgba(96, 165, 250, 0.22);
+      color: #bfdbfe;
+      text-decoration: none;
+      font-size: 14px;
+      white-space: nowrap;
+    }
+
+    .hero {
+      padding: 30px;
+      margin-bottom: 20px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .hero::after {
+      content: "";
+      position: absolute;
+      inset: auto -80px -80px auto;
+      width: 260px;
+      height: 260px;
+      background: radial-gradient(circle, rgba(34, 197, 94, 0.14), transparent 70%);
+      pointer-events: none;
+    }
+
+    h1, h2, h3, h4 {
+      margin: 0 0 10px;
+      line-height: 1.15;
+    }
+
+    h1 { font-size: clamp(2rem, 4vw, 3.6rem); }
+    h2 { font-size: clamp(1.4rem, 2vw, 2rem); }
+    h3 { font-size: 1.08rem; }
+    p { margin: 0 0 12px; }
+    ul, ol { margin: 0; padding-left: 20px; }
+    li + li { margin-top: 7px; }
+    .sub { color: var(--muted); max-width: 82ch; }
+    .eyebrow {
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      font-size: 12px;
+      color: #93c5fd;
+      font-weight: 700;
+      margin-bottom: 12px;
+    }
+
+    .metrics,
+    .grid,
+    .two,
+    .three,
+    .four {
+      display: grid;
+      gap: 16px;
+    }
+
+    .metrics { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); margin-top: 24px; }
+    .two { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+    .three { grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); }
+    .four { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+
+    .metric,
+    .card,
+    .tier,
+    .step,
+    .decision,
+    .phase {
+      border-radius: 18px;
+      border: 1px solid var(--border);
+      background: linear-gradient(180deg, rgba(30, 41, 59, 0.72), rgba(15, 23, 42, 0.95));
+      padding: 16px;
+    }
+
+    .metric .label {
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-size: 12px;
+      margin-bottom: 8px;
+    }
+
+    .metric .value {
+      font-size: 1.85rem;
+      font-weight: 700;
+    }
+
+    .metric.accent .value { color: #bfdbfe; }
+    .metric.good .value { color: #86efac; }
+    .metric.warn .value { color: #fcd34d; }
+    .metric.danger .value { color: #fca5a5; }
+
+    section.panel {
+      padding: 22px;
+      margin-bottom: 20px;
+    }
+
+    .section-head {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: baseline;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+
+    .card p:last-child,
+    .tier p:last-child,
+    .step p:last-child,
+    .decision p:last-child,
+    .phase p:last-child { margin-bottom: 0; }
+
+    .badge-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      background: rgba(15, 23, 42, 0.7);
+      color: var(--text);
+      font-size: 14px;
+    }
+
+    .stack { display: grid; gap: 14px; }
+
+    .timeline {
+      position: relative;
+      display: grid;
+      gap: 14px;
+      margin-top: 14px;
+    }
+
+    .tier {
+      position: relative;
+      padding-left: 18px;
+    }
+
+    .tier::before {
+      content: "";
+      position: absolute;
+      left: -1px;
+      top: 18px;
+      bottom: 18px;
+      width: 3px;
+      border-radius: 999px;
+      background: linear-gradient(180deg, var(--accent), var(--accent-2));
+    }
+
+    .tier .tier-name {
+      color: #bfdbfe;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    .priority {
+      display: inline-block;
+      margin-bottom: 10px;
+      padding: 5px 9px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+    }
+
+    .priority.primary { background: rgba(34, 197, 94, 0.16); color: #86efac; }
+    .priority.secondary { background: rgba(96, 165, 250, 0.16); color: #bfdbfe; }
+    .priority.fallback { background: rgba(245, 158, 11, 0.16); color: #fcd34d; }
+
+    .console {
+      display: grid;
+      gap: 14px;
+      grid-template-columns: 1.1fr 0.9fr;
+      align-items: start;
+    }
+
+    .console .terminal {
+      background: #020617;
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 18px;
+      font-family: ui-monospace, SFMono-Regular, monospace;
+      color: #dbeafe;
+      white-space: pre-wrap;
+    }
+
+    .decision strong,
+    .phase strong,
+    .step strong,
+    .card strong {
+      color: #f8fafc;
+    }
+
+    .footer-note {
+      color: var(--muted);
+      font-size: 14px;
+      margin-top: 16px;
+    }
+
+    @media (max-width: 900px) {
+      .console { grid-template-columns: 1fr; }
+      .nav { position: static; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <nav class="nav" aria-label="Page navigation">
+      <div><strong>Calnix Bootstrap Installer Plan</strong></div>
+      <div class="links">
+        <a class="chip" href="#goal">Goal</a>
+        <a class="chip" href="#connectivity">Connectivity</a>
+        <a class="chip" href="#workflow">Agent workflow</a>
+        <a class="chip" href="#repo-shape">Repo shape</a>
+        <a class="chip" href="#roadmap">Roadmap</a>
+        <a class="chip" href="bootstrap-installer-plan.md">Markdown source</a>
+      </div>
+    </nav>
+
+    <header class="hero" id="goal">
+      <div class="eyebrow">Connectivity-first provisioning</div>
+      <h1>Bootable NixOS bootstrap image for remote-smart setup</h1>
+      <p class="sub">The image should do one job exceptionally well: get a brand-new machine online quickly and safely so an already-configured Calnix machine can connect, inspect the hardware, choose the right host profile, and drive the install remotely.</p>
+      <div class="badge-row">
+        <span class="badge">Outbound-first reachability</span>
+        <span class="badge">Temporary bootstrap trust</span>
+        <span class="badge">Tiny local TUI, not a full desktop</span>
+        <span class="badge">Controller machine does the smart work</span>
+      </div>
+      <div class="metrics">
+        <div class="metric accent">
+          <div class="label">Primary objective</div>
+          <div class="value">Reachable fast</div>
+        </div>
+        <div class="metric good">
+          <div class="label">Preferred remote path</div>
+          <div class="value">Tailscale + SSH</div>
+        </div>
+        <div class="metric warn">
+          <div class="label">Local fallback</div>
+          <div class="value">Ethernet / Wi-Fi TUI</div>
+        </div>
+        <div class="metric danger">
+          <div class="label">Hard rule</div>
+          <div class="value">No baked secrets</div>
+        </div>
+      </div>
+    </header>
+
+    <section class="panel" id="fit">
+      <div class="section-head">
+        <div>
+          <h2>Why this fits Calnix</h2>
+          <p class="sub">The repo already has useful building blocks. The bootstrap image can reuse them in a thinner installer-focused profile.</p>
+        </div>
+      </div>
+      <div class="three">
+        <article class="card">
+          <h3>Remote access</h3>
+          <p><code>modules/remote-access.nix</code> already enables SSH, Tailscale, and mosh-friendly firewall rules.</p>
+        </article>
+        <article class="card">
+          <h3>Networking</h3>
+          <p><code>modules/desktop.nix</code> already uses NetworkManager, which is a good base for Wi-Fi and Ethernet onboarding.</p>
+        </article>
+        <article class="card">
+          <h3>Host-aware flake</h3>
+          <p>The repo is already organized around host-specific NixOS configurations, which makes a controller-driven install workflow natural.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="panel" id="principles">
+      <div class="section-head">
+        <div>
+          <h2>Core design principles</h2>
+          <p class="sub">The image should optimize for successful handoff rather than a polished local environment.</p>
+        </div>
+      </div>
+      <div class="three">
+        <article class="card">
+          <h3>Outbound-first connectivity</h3>
+          <p>New machines often sit behind NAT or unknown Wi-Fi. Prefer connectivity patterns where the machine dials out and becomes reachable.</p>
+        </article>
+        <article class="card">
+          <h3>No reusable secrets</h3>
+          <p>The ISO may be copied widely, so it must not contain reusable Tailscale auth keys, private SSH keys, or long-lived host credentials.</p>
+        </article>
+        <article class="card">
+          <h3>Fast path for common cases</h3>
+          <p>Wired DHCP should be zero-touch. Wi-Fi should be available through a small TUI flow without requiring a graphical desktop.</p>
+        </article>
+        <article class="card">
+          <h3>Remote-control friendly</h3>
+          <p>The live image should expose enough machine state for the controller agent to understand disks, NICs, firmware mode, GPU, RAM, and other install-relevant facts.</p>
+        </article>
+        <article class="card">
+          <h3>Recoverable when fancy paths fail</h3>
+          <p>There should always be a manual fallback for bad Wi-Fi, captive portals, or overlay-network trouble.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="panel" id="architecture">
+      <div class="section-head">
+        <div>
+          <h2>Proposed architecture</h2>
+          <p class="sub">Keep intelligence centralized on the controller and keep the new machine thin.</p>
+        </div>
+      </div>
+      <div class="three">
+        <article class="card">
+          <h3>1. Controller machine</h3>
+          <ul>
+            <li>Create one-time bootstrap credentials</li>
+            <li>Wait for the new machine to appear</li>
+            <li>Collect hardware facts remotely</li>
+            <li>Choose the host profile and install plan</li>
+            <li>Run the install and verify cutover</li>
+          </ul>
+        </article>
+        <article class="card">
+          <h3>2. Bootstrap image</h3>
+          <ul>
+            <li>Bring up networking</li>
+            <li>Offer temporary authenticated remote access</li>
+            <li>Collect machine inventory</li>
+            <li>Hand off to remote install orchestration</li>
+          </ul>
+        </article>
+        <article class="card">
+          <h3>3. Optional rendezvous layer</h3>
+          <p>Prefer Tailscale or another outbound enrollment path. If that fails, support a reverse-tunnel fallback.</p>
+        </article>
+      </div>
+      <div style="margin-top:16px;">
+        <pre>calnix bootstrap prepare
+calnix bootstrap wait
+calnix bootstrap install --target &lt;bootstrap-host&gt;</pre>
+      </div>
+    </section>
+
+    <section class="panel" id="connectivity">
+      <div class="section-head">
+        <div>
+          <h2>Connectivity plan</h2>
+          <p class="sub">Layer the options from lowest friction to most defensive fallback.</p>
+        </div>
+      </div>
+      <div class="timeline">
+        <article class="tier">
+          <div class="priority primary">Tier 0 · easiest path</div>
+          <div class="tier-name">Wired auto-connect</div>
+          <ul>
+            <li>Start DHCP on Ethernet immediately</li>
+            <li>Advertise hostname on mDNS if available</li>
+            <li>Show current IPs on the console</li>
+            <li>Start the bootstrap agent automatically</li>
+          </ul>
+        </article>
+        <article class="tier">
+          <div class="priority secondary">Tier 1 · local onboarding</div>
+          <div class="tier-name">Wi-Fi via TUI</div>
+          <ul>
+            <li>Use NetworkManager with <code>nmtui</code> or a small <code>nmcli</code> wrapper</li>
+            <li>Keep interaction local and minimal</li>
+            <li>Persist Wi-Fi only for the live session unless explicitly requested</li>
+          </ul>
+        </article>
+        <article class="tier">
+          <div class="priority primary">Tier 2 · preferred remote path</div>
+          <div class="tier-name">Tailscale enrollment</div>
+          <ul>
+            <li>Controller creates a single-use or short-lived auth key</li>
+            <li>User transfers the key by short code, QR, or removable media</li>
+            <li>Bootstrap image runs <code>tailscale up</code> with temporary or ephemeral enrollment</li>
+            <li>Controller waits for the node to appear and then SSHes into it</li>
+          </ul>
+        </article>
+        <article class="tier">
+          <div class="priority fallback">Tier 3 · outbound fallback</div>
+          <div class="tier-name">Reverse SSH tunnel</div>
+          <p>If overlay networking fails but general internet access works, the new machine can establish a reverse tunnel back to the controller.</p>
+        </article>
+        <article class="tier">
+          <div class="priority fallback">Tier 4 · emergency local path</div>
+          <div class="tier-name">Same-LAN discovery</div>
+          <ul>
+            <li>Printed IP on the console</li>
+            <li>mDNS announcement</li>
+            <li>Optional <code>avahi</code> support</li>
+          </ul>
+        </article>
+      </div>
+      <p class="footer-note">Security rule: do <strong>not</strong> hardcode reusable Tailnet auth keys into the image.</p>
+    </section>
+
+    <section class="panel" id="auth">
+      <div class="section-head">
+        <div>
+          <h2>Bootstrap authentication model</h2>
+          <p class="sub">Treat the live image as semi-public media and keep the trust boundary temporary.</p>
+        </div>
+      </div>
+      <div class="two">
+        <article class="card">
+          <h3>Recommended approach</h3>
+          <ul>
+            <li>Create a dedicated temporary <code>bootstrap</code> user</li>
+            <li>Authorize only controller-provided public keys</li>
+            <li>Disable password login</li>
+            <li>Rotate or discard temporary credentials after install</li>
+            <li>Do not reuse the everyday host user as the installer entry point</li>
+          </ul>
+        </article>
+        <article class="card">
+          <h3>Avoid</h3>
+          <ul>
+            <li>Default passwords</li>
+            <li>Shared persistent private keys on installer media</li>
+            <li>Root SSH login unless there is a compelling reason</li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <section class="panel" id="workflow">
+      <div class="section-head">
+        <div>
+          <h2>Remote agent workflow</h2>
+          <p class="sub">Once reachable, the controller machine should do the adaptive work remotely.</p>
+        </div>
+      </div>
+      <div class="stack">
+        <article class="step">
+          <h3>1. Collect facts</h3>
+          <p><strong>Gather:</strong> <code>lsblk</code>, NVMe/SATA layout, removable devices, <code>lspci</code>, <code>lsusb</code>, <code>dmidecode</code>, <code>ip link</code>, firmware mode, secure boot state, RAM, CPU, GPU, and Wi-Fi chipset.</p>
+        </article>
+        <article class="step">
+          <h3>2. Pick an install strategy</h3>
+          <p><strong>Choose:</strong> known host profile vs new-host scaffold, laptop vs desktop defaults, and the disk layout policy.</p>
+        </article>
+        <article class="step">
+          <h3>3. Generate or update hardware-specific config</h3>
+          <p><strong>Derive on target:</strong> build hardware config from the new machine, copy facts back to the controller repo, and let the controller synthesize or review the host config.</p>
+        </article>
+        <article class="step">
+          <h3>4. Install remotely</h3>
+          <p><strong>Perform:</strong> partitioning, formatting, flake deployment, bootloader install, and system provisioning from the controller.</p>
+        </article>
+        <article class="step">
+          <h3>5. Cut over to normal Calnix access</h3>
+          <p><strong>Verify:</strong> the host comes back online under its real hostname using the permanent remote-access configuration.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="panel" id="repo-shape">
+      <div class="section-head">
+        <div>
+          <h2>Recommended implementation shape in this repo</h2>
+          <p class="sub">Add a small live-image profile and keep the responsibilities separated into focused modules.</p>
+        </div>
+      </div>
+      <div class="three">
+        <article class="card">
+          <h3><code>modules/bootstrap-connectivity.nix</code></h3>
+          <ul>
+            <li>DHCP / NetworkManager</li>
+            <li>Console status output</li>
+            <li>mDNS or local discovery helpers</li>
+            <li>Tailscale bootstrap support</li>
+          </ul>
+        </article>
+        <article class="card">
+          <h3><code>modules/bootstrap-agent.nix</code></h3>
+          <ul>
+            <li>Wait for network</li>
+            <li>Report machine facts</li>
+            <li>Enroll into the remote-control path</li>
+            <li>Write status to logs and console</li>
+          </ul>
+        </article>
+        <article class="card">
+          <h3><code>modules/bootstrap-ssh.nix</code></h3>
+          <ul>
+            <li>Temporary SSH hardening</li>
+            <li>Controller public-key injection</li>
+            <li>Dedicated temporary bootstrap user</li>
+          </ul>
+        </article>
+      </div>
+      <div class="two" style="margin-top:16px;">
+        <article class="card">
+          <h3>Host/profile</h3>
+          <p><code>hosts/bootstrap-image/configuration.nix</code> should be a thin live-image profile that imports the bootstrap modules and avoids the full desktop stack.</p>
+        </article>
+        <article class="card">
+          <h3>Flake outputs</h3>
+          <p>Add <code>nixosConfigurations.bootstrap-image</code> and/or a package output such as <code>packages.x86_64-linux.bootstrap-iso</code>.</p>
+          <pre>nix build .#bootstrap-iso</pre>
+        </article>
+      </div>
+    </section>
+
+    <section class="panel" id="transport">
+      <div class="section-head">
+        <div>
+          <h2>Installation transport options</h2>
+          <p class="sub">The simplest mental model is still controller-to-target SSH once the live environment is reachable.</p>
+        </div>
+      </div>
+      <div class="two">
+        <article class="card">
+          <h3>Best likely path</h3>
+          <p>Boot the live image, make it reachable over Tailscale or LAN SSH, then let the controller machine run the install remotely.</p>
+        </article>
+        <article class="card">
+          <h3>Tooling worth evaluating</h3>
+          <ul>
+            <li><code>nixos-anywhere</code> for remote install orchestration</li>
+            <li><code>disko</code> for declarative partitioning</li>
+            <li><code>nixos-facter</code> for more structured hardware inventory</li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <section class="panel" id="console-ux">
+      <div class="section-head">
+        <div>
+          <h2>Console UX</h2>
+          <p class="sub">A compact, high-signal boot screen can remove a surprising amount of setup friction.</p>
+        </div>
+      </div>
+      <div class="console">
+        <div class="terminal">Calnix Bootstrap
+----------------
+Ethernet: connected (192.168.1.44)
+Wi-Fi: not configured
+Tailnet: waiting for auth token
+SSH: bootstrap@192.168.1.44
+Fingerprint: SHA256:...
+Next step: enter bootstrap token or connect via local LAN</div>
+        <article class="card">
+          <h3>What should be visible immediately</h3>
+          <ul>
+            <li>Temporary machine name or bootstrap ID</li>
+            <li>Ethernet and Wi-Fi state</li>
+            <li>Tailscale status</li>
+            <li>Reachable addresses</li>
+            <li>SSH fingerprint</li>
+            <li>Next local action if not connected</li>
+            <li>Short controller-side instructions</li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <section class="panel" id="security">
+      <div class="section-head">
+        <div>
+          <h2>Security boundaries</h2>
+          <p class="sub">The bootstrap image should be considered semi-public media.</p>
+        </div>
+      </div>
+      <div class="four">
+        <article class="card"><h3>No baked-in secrets</h3><p>Use only short-lived or one-time enrollment material.</p></article>
+        <article class="card"><h3>Minimal exposed surface</h3><p>Do not expose extra services before authentication succeeds.</p></article>
+        <article class="card"><h3>Clear audit trail</h3><p>Record who connected and when during the bootstrap window.</p></article>
+        <article class="card"><h3>Automatic cleanup</h3><p>Discard temporary credentials after install or reboot.</p></article>
+      </div>
+      <p class="footer-note">If unattended flows come later, prefer age-encrypted controller metadata, signed bootstrap manifests, and limited Tailnet tags/ACLs.</p>
+    </section>
+
+    <section class="panel" id="roadmap">
+      <div class="section-head">
+        <div>
+          <h2>Suggested phased roadmap</h2>
+          <p class="sub">Build the smallest useful loop first, then add intelligence and polish.</p>
+        </div>
+      </div>
+      <div class="two">
+        <article class="phase">
+          <h3>Phase 1 · Minimal viable connectivity</h3>
+          <p><strong>Build:</strong> Ethernet DHCP, <code>nmtui</code> Wi-Fi, temporary SSH with injected controller key, optional Tailscale enrollment, and visible console status.</p>
+          <p><strong>Success:</strong> boot a new machine, get it online, and SSH into it from the controller machine.</p>
+        </article>
+        <article class="phase">
+          <h3>Phase 2 · Controller-driven install</h3>
+          <p><strong>Add:</strong> controller CLI helpers, fact collection, remote install orchestration or <code>nixos-anywhere</code>, and generated hardware-config copy-back.</p>
+          <p><strong>Success:</strong> controller installs a reachable bootstrap machine end-to-end.</p>
+        </article>
+        <article class="phase">
+          <h3>Phase 3 · Smart host selection</h3>
+          <p><strong>Add:</strong> hardware classification heuristics, host-template generation, disk-layout policy choice, and post-install validation.</p>
+          <p><strong>Success:</strong> controller proposes the right configuration with minimal human input.</p>
+        </article>
+        <article class="phase">
+          <h3>Phase 4 · Polished onboarding</h3>
+          <p><strong>Add:</strong> QR/file-based one-time enrollment, richer console UX, same-LAN discovery helpers, and optional remote progress UI.</p>
+          <p><strong>Success:</strong> the setup path feels smooth without sacrificing the security model.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="panel" id="decisions">
+      <div class="section-head">
+        <div>
+          <h2>Key decisions still to make</h2>
+          <p class="sub">These choices shape implementation order and complexity.</p>
+        </div>
+      </div>
+      <div class="stack">
+        <article class="decision"><strong>1. Primary reachability path:</strong> should Tailscale be the default, or only a fallback to LAN SSH?</article>
+        <article class="decision"><strong>2. Local onboarding UX:</strong> pure TUI now, or design for a tiny graphical flow later?</article>
+        <article class="decision"><strong>3. Install orchestration:</strong> adopt <code>nixos-anywhere</code> early, or keep phase 1 custom?</article>
+        <article class="decision"><strong>4. Disk layout policy:</strong> what should the controller assume on unknown hardware?</article>
+        <article class="decision"><strong>5. Automation boundary:</strong> should the controller generate a new host directory automatically, or only assist a human-reviewed flow?</article>
+      </div>
+    </section>
+
+    <section class="panel" id="recommendation">
+      <div class="section-head">
+        <div>
+          <h2>Recommended next move</h2>
+          <p class="sub">Keep the first slice narrow so connectivity can be validated in isolation.</p>
+        </div>
+      </div>
+      <div class="card">
+        <ol>
+          <li>Create a bootstrap ISO profile in this flake.</li>
+          <li>Give it Ethernet, Wi-Fi, temporary SSH, and optional Tailscale.</li>
+          <li>Make the controller machine detect it and SSH into it.</li>
+          <li>Only then layer on remote install automation.</li>
+        </ol>
+      </div>
+      <p class="footer-note">Source of truth: <a href="bootstrap-installer-plan.md">docs/bootstrap-installer-plan.md</a></p>
+    </section>
+  </div>
+</body>
+</html>
