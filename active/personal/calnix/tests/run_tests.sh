@@ -74,7 +74,43 @@ discover_hosts() {
     fi
 }
 
-# Main test execution
+# Smoke test for nixpkgs issue #500198: copilot must not fail with --no-warnings.
+# Builds the patched github-copilot-cli package from the flake and checks that:
+#   1. The bin/copilot wrapper is an ELF binary (makeBinaryWrapper, not wrapProgram).
+#   2. Running "copilot" with no arguments does not produce the --no-warnings error.
+#      (--help bypasses the re-exec path that triggers the bug; no-args exercises it.)
+test_copilot_no_warnings() {
+    local out
+    out=$(nix build .#packages.x86_64-linux.github-copilot-cli --no-link --print-out-paths 2>/dev/null)
+    local bin="$out/bin/copilot"
+
+    if [ ! -x "$bin" ]; then
+        log_error "copilot binary not found at $bin"
+        return 1
+    fi
+
+    # makeBinaryWrapper produces an ELF binary; wrapProgram produces a shell script.
+    # Using a shell script renames the real binary to .copilot-wrapped, breaking v1.0.4.
+    if ! file "$bin" | grep -q "ELF"; then
+        log_error "copilot wrapper is a shell script (wrapProgram used) – this renames the binary to .copilot-wrapped, breaking v1.0.4 self-referencing"
+        return 1
+    fi
+    log_success "copilot wrapper is an ELF binary (makeBinaryWrapper used)"
+
+    # Run copilot with NO arguments (not --help) to exercise the re-exec code path
+    # that triggers the --no-warnings bug. A non-zero exit is expected/acceptable;
+    # what must be absent is the specific "unknown option '--no-warnings'" error.
+    local output exit_code
+    output=$("$bin" 2>&1) && exit_code=0 || exit_code=$?
+    if echo "$output" | grep -q "unknown option '--no-warnings'"; then
+        log_error "copilot (no args) still produces --no-warnings error (nixpkgs issue #500198 not fixed)"
+        echo "  Output was: $output"
+        return 1
+    fi
+    log_success "copilot (no args) does not produce --no-warnings error (exit code: $exit_code)"
+}
+
+
 main() {
     echo -e "${BLUE}🚀 Calvin's NixOS Configuration Test Suite${NC}"
     echo "=========================================="
@@ -108,6 +144,13 @@ main() {
                 run_test_suite "${host} Build Check" "nix build path:$PROJECT_ROOT#nixosConfigurations.${host}.config.system.build.toplevel --dry-run" ""
             done
         fi
+
+        # 4. Copilot overlay build+smoke test (nixpkgs issue #500198)
+        # Build the patched github-copilot-cli package and verify it does NOT
+        # error with "unknown option '--no-warnings'" on invocation.
+        run_test_suite "Copilot Package Build" \
+            "nix build .#packages.x86_64-linux.github-copilot-cli --no-link" ""
+        run_test_suite "Copilot --no-warnings Smoke Test" "test_copilot_no_warnings" ""
     else
         log_warning "Nix command not available, skipping flake checks"
     fi
