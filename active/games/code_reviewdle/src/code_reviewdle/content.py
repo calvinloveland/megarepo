@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass
 from datetime import date
 from functools import lru_cache
@@ -11,6 +12,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 PUZZLE_BANK_PATH = PROJECT_ROOT / "data" / "puzzles.json"
 MINIMUM_CODE_LINES = 25
+NON_ACTIONABLE_ANSWER_LINE_PATTERN = re.compile(r"^[{}()\[\];,]+$")
 ISSUE_CATALOG: dict[str, tuple[str, ...]] = {
     "Security and trust": (
         "Security check bypass",
@@ -114,6 +116,10 @@ def _validate_puzzles(puzzles: tuple[Puzzle, ...]) -> None:
             raise ValueError(
                 f"Puzzle {puzzle.id} answer line {puzzle.answer_line} is out of range."
             )
+        if not _is_actionable_answer_line(puzzle.code[puzzle.answer_line - 1]):
+            raise ValueError(
+                f"Puzzle {puzzle.id} answer line {puzzle.answer_line} must point at actionable code."
+            )
         if puzzle.issue_category not in ISSUE_CATALOG:
             raise ValueError(
                 f"Puzzle {puzzle.id} category {puzzle.issue_category!r} is not in the issue catalog."
@@ -126,6 +132,13 @@ def _validate_puzzles(puzzles: tuple[Puzzle, ...]) -> None:
             raise ValueError(f"Puzzle {puzzle.id} must declare an issue type.")
         if not puzzle.hints:
             raise ValueError(f"Puzzle {puzzle.id} must include at least one hint.")
+
+
+def _is_actionable_answer_line(line: str) -> bool:
+    stripped_line = line.strip()
+    if not stripped_line:
+        return False
+    return NON_ACTIONABLE_ANSWER_LINE_PATTERN.fullmatch(stripped_line) is None
 
 
 def issue_catalog() -> dict[str, tuple[str, ...]]:

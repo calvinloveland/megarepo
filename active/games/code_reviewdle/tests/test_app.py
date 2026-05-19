@@ -8,7 +8,13 @@ from html import unescape
 import pytest
 
 from code_reviewdle.app import ADDRESSED_DIR, FEEDBACK_DIR, create_app
-from code_reviewdle.content import available_issue_types, issue_type_to_category, puzzle_for_day
+from code_reviewdle.content import (
+    Puzzle,
+    _validate_puzzles,
+    available_issue_types,
+    issue_type_to_category,
+    puzzle_for_day,
+)
 from code_reviewdle.game import (
     apply_guess,
     build_empty_progress,
@@ -215,6 +221,58 @@ def test_feedback_submission_creates_file(client) -> None:
     assert data["feedback_text"] == "The line picker feels good."
     assert data["app"] == "Code Reviewdle"
     path.unlink(missing_ok=True)
+
+
+def test_validate_puzzles_rejects_blank_or_delimiter_only_answer_lines() -> None:
+    blank_line_puzzle = Puzzle(
+        id="blank-line-answer",
+        title="Blank line answer",
+        language="Python",
+        source_note="Test fixture",
+        summary="Blank answer line should be rejected.",
+        code=tuple(
+            [
+                "def sample():",
+                "    value = 1",
+                "    result = value + 1",
+                "    return result",
+            ]
+            + [""] * 21
+        ),
+        answer_line=5,
+        issue_category="Control flow",
+        issue_type="Wrong conditional logic",
+        explanation="Test explanation.",
+        hints=("hint 1", "hint 2", "hint 3", "hint 4"),
+    )
+    delimiter_only_line_puzzle = Puzzle(
+        id="delimiter-answer",
+        title="Delimiter answer",
+        language="Java",
+        source_note="Test fixture",
+        summary="Delimiter-only answer line should be rejected.",
+        code=tuple(
+            [
+                "public final class Sample {",
+                "    public int value() {",
+                "        int result = 1;",
+                "        return result;",
+                "    }",
+                "}",
+            ]
+            + ["int filler = 0;"] * 19
+        ),
+        answer_line=6,
+        issue_category="Control flow",
+        issue_type="Premature exit",
+        explanation="Test explanation.",
+        hints=("hint 1", "hint 2", "hint 3", "hint 4"),
+    )
+
+    with pytest.raises(ValueError, match="actionable code"):
+        _validate_puzzles((blank_line_puzzle,))
+    with pytest.raises(ValueError, match="actionable code"):
+        _validate_puzzles((delimiter_only_line_puzzle,))
 
 
 def test_feedback_list_requires_admin_auth(client, monkeypatch) -> None:
