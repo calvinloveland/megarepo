@@ -2,6 +2,7 @@
 name: arbitrage-analyst
 description: Worker that looks for linked-market inconsistencies and structural edge on Manifold
 role: arbitrage
+model: openrouter/free
 tools: read,bash
 input_price_per_million: 0
 output_price_per_million: 0

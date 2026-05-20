@@ -2,6 +2,7 @@
 name: execution-planner
 description: Worker that converts a surviving thesis into a bounded shadow or live execution recommendation
 role: execution-planner
+model: openrouter/free
 tools: read,bash
 input_price_per_million: 0
 output_price_per_million: 0

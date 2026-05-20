@@ -1,0 +1,3 @@
+[console_scripts]
+pokemon-binder-scanner = pokemon_binder_scanner.cli:main
+pokemon-binder-scanner-web = pokemon_binder_scanner.webapp:main

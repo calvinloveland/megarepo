@@ -138,12 +138,15 @@ function renderDetail(detail) {
   const summary = detail.summary || {};
   const payload = detail.payload || {};
   const decision = payload.decision || {};
+  const recommendation = payload.recommendation || {};
   const metrics = payload.metrics || {};
   const execution = payload.execution_result || {};
   const bundle = payload.bundle || payload;
   const policy = decision.policy || {};
   const inputs = decision.evaluated_inputs || [];
-  const rationale = decision.rationale || [];
+  const rationale = decision.rationale || recommendation.reasons || [];
+  const phaseOneOutputs = (payload.phaseOne && payload.phaseOne.outputs) || {};
+  const phaseTwoOutputs = (payload.phaseTwo && payload.phaseTwo.outputs) || {};
 
   artifactDetailEl.classList.remove("empty-state");
   artifactDetailEl.innerHTML = `
@@ -197,6 +200,21 @@ function renderDetail(detail) {
       <h3>Rationale</h3>
       ${rationale.length ? `<ul class="list">${rationale.map((item) => `<li>${item}</li>`).join("")}</ul>` : `<p class="muted">No rationale recorded.</p>`}
     </section>
+
+    ${Object.keys(phaseOneOutputs).length || Object.keys(phaseTwoOutputs).length ? `
+      <section class="block">
+        <h3>Agent review rounds</h3>
+        <div class="table-wrap">
+          <table class="table">
+            <thead><tr><th>Phase</th><th>Job</th><th>Worker</th><th>Parsed output</th></tr></thead>
+            <tbody>
+              ${Object.entries(phaseOneOutputs).map(([jobId, output]) => `<tr><td>Phase 1</td><td>${jobId}</td><td>${output.selectedWorker || "—"}</td><td><pre>${JSON.stringify(output.parsed || {}, null, 2)}</pre></td></tr>`).join("")}
+              ${Object.entries(phaseTwoOutputs).map(([jobId, output]) => `<tr><td>Phase 2</td><td>${jobId}</td><td>${output.selectedWorker || "—"}</td><td><pre>${JSON.stringify(output.parsed || {}, null, 2)}</pre></td></tr>`).join("")}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    ` : ""}
 
     <section class="block">
       <h3>Metrics</h3>

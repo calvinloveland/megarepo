@@ -11,6 +11,8 @@ def _load_json(path: Path) -> dict[str, Any]:
 
 
 def _artifact_kind(payload: dict[str, Any]) -> str:
+    if payload.get("kind") == "agent-run" or "recommendation" in payload:
+        return "agent-run"
     if "decision" in payload and "bundle" in payload:
         return "run"
     if "market" in payload and "comments" in payload:
@@ -19,24 +21,39 @@ def _artifact_kind(payload: dict[str, Any]) -> str:
 
 
 def _market_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    if payload.get("kind") == "agent-run":
+        recommendation = payload.get("recommendation", {})
+        return {
+            "market_id": payload.get("marketId") or recommendation.get("marketId"),
+            "question": payload.get("question") or payload.get("marketQuestion"),
+            "probability": payload.get("marketProbability"),
+            "volume": None,
+            "total_liquidity": None,
+        }
     if "bundle" in payload:
         return payload.get("bundle", {}).get("market", {})
     return payload.get("market", {})
 
 
 def _captured_time_ms(payload: dict[str, Any]) -> int | None:
+    if payload.get("kind") == "agent-run":
+        return None
     if "bundle" in payload:
         return payload.get("bundle", {}).get("captured_time_ms")
     return payload.get("captured_time_ms")
 
 
 def _comments(payload: dict[str, Any]) -> list[dict[str, Any]]:
+    if payload.get("kind") == "agent-run":
+        return []
     if "bundle" in payload:
         return list(payload.get("bundle", {}).get("comments", []))
     return list(payload.get("comments", []))
 
 
 def _actors(payload: dict[str, Any]) -> dict[str, Any]:
+    if payload.get("kind") == "agent-run":
+        return {}
     if "bundle" in payload:
         return dict(payload.get("bundle", {}).get("actors", {}))
     return dict(payload.get("actors", {}))
@@ -64,6 +81,7 @@ def summarize_artifact(path: Path) -> dict[str, Any]:
     kind = _artifact_kind(payload)
     market = _market_payload(payload)
     decision = payload.get("decision", {}) if isinstance(payload.get("decision"), dict) else {}
+    recommendation = payload.get("recommendation", {}) if isinstance(payload.get("recommendation"), dict) else {}
     metrics = payload.get("metrics", {}) if isinstance(payload.get("metrics"), dict) else {}
     comments = _comments(payload)
     actors = _actors(payload)
@@ -74,23 +92,23 @@ def summarize_artifact(path: Path) -> dict[str, Any]:
         "kind": kind,
         "capturedTimeMs": _captured_time_ms(payload),
         "marketId": market.get("market_id"),
-        "question": market.get("question") or decision.get("market_question") or path.stem,
-        "marketProbability": _coerce_float(market.get("probability") or decision.get("market_probability")),
+        "question": market.get("question") or decision.get("market_question") or payload.get("marketQuestion") or path.stem,
+        "marketProbability": _coerce_float(market.get("probability") or decision.get("market_probability") or payload.get("marketProbability")),
         "volume": _coerce_float(market.get("volume")),
         "liquidity": _coerce_float(market.get("total_liquidity")),
         "commentCount": len(comments),
         "actorCount": len(actors),
-        "variant": decision.get("variant"),
-        "action": decision.get("action"),
-        "mode": decision.get("mode"),
-        "betAmount": _coerce_float(decision.get("bet_amount")),
-        "targetProbability": _coerce_float(decision.get("target_probability")),
+        "variant": decision.get("variant") or payload.get("kind"),
+        "action": decision.get("action") or recommendation.get("action"),
+        "mode": decision.get("mode") or recommendation.get("finalMode"),
+        "betAmount": _coerce_float(decision.get("bet_amount") or recommendation.get("betAmount")),
+        "targetProbability": _coerce_float(decision.get("target_probability") or recommendation.get("targetProbability")),
         "confidence": _coerce_float(decision.get("confidence")),
         "expectedEdge": _coerce_float(metrics.get("expected_edge")),
         "exploitability": _coerce_float(metrics.get("exploitability")),
         "brierScore": _coerce_float(metrics.get("brier_score")),
         "executionStatus": _execution_status(payload),
-        "source": payload.get("source") or payload.get("bundle", {}).get("source") or "local",
+        "source": payload.get("source") or payload.get("bundle", {}).get("source") or ("agent" if kind == "agent-run" else "local"),
     }
     return summary
 

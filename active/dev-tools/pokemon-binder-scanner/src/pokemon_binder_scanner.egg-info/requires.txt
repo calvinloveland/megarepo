@@ -1,0 +1,8 @@
+Flask>=3.0
+numpy>=1.26
+opencv-contrib-python>=4.10.0.84
+Pillow>=10.0
+scikit-image>=0.22
+tqdm>=4.66
+
+[dev]
