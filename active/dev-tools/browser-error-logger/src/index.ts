@@ -268,6 +268,29 @@ export function createErrorLogger(config: ErrorLoggerConfig): ErrorLogger {
     }
   }
 
+  // --- Helpers to extract event info ---
+
+  function windowErrorMessage(event: Event | string, error?: Error): string {
+    if (error?.message) return error.message;
+    if (typeof event === 'string') return event;
+    return 'Unknown error';
+  }
+
+  function rejectionMessage(reason: unknown): string {
+    if (reason instanceof Error) return reason.message;
+    if (typeof reason === 'string') return reason;
+    return 'Unhandled promise rejection';
+  }
+
+  function rejectionStack(reason: unknown): string | undefined {
+    return reason instanceof Error ? reason.stack : undefined;
+  }
+
+  function rejectionType(reason: unknown): string {
+    if (reason instanceof Error) return reason.name;
+    return 'UnhandledRejection';
+  }
+
   // Handler for window.onerror
   function handleWindowError(
     event: Event | string,
@@ -276,39 +299,29 @@ export function createErrorLogger(config: ErrorLoggerConfig): ErrorLogger {
     colno?: number,
     error?: Error
   ): void {
-    const message = error?.message || (typeof event === 'string' ? event : 'Unknown error');
-    const stack = error?.stack;
-    
     const report = createErrorReport({
-      message,
-      stack,
+      message: windowErrorMessage(event, error),
+      stack: error?.stack,
       type: error?.name || 'Error',
       filename: source,
       lineno,
       colno,
       source: 'unhandled',
     }, config);
-    
+
     addToBuffer(report);
   }
 
   // Handler for unhandled promise rejections
   function handleUnhandledRejection(event: PromiseRejectionEvent): void {
     const reason = event.reason;
-    const message = reason instanceof Error 
-      ? reason.message 
-      : typeof reason === 'string' 
-        ? reason 
-        : 'Unhandled promise rejection';
-    const stack = reason instanceof Error ? reason.stack : undefined;
-    
     const report = createErrorReport({
-      message,
-      stack,
-      type: reason instanceof Error ? reason.name : 'UnhandledRejection',
+      message: rejectionMessage(reason),
+      stack: rejectionStack(reason),
+      type: rejectionType(reason),
       source: 'promise',
     }, config);
-    
+
     addToBuffer(report);
   }
 

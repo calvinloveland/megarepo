@@ -11,132 +11,144 @@ declare global {
   }
 }
 
+/** Coerce adapter info fields to non-null GPUAdapterInfoCustom. */
+function toAdapterInfoCustom(info: GPUAdapterInfo): GPUAdapterInfoCustom {
+  const or = (v: string | undefined | null, fb: string) => (v ? v : fb);
+  return {
+    vendor: or(info.vendor, 'Unknown'),
+    architecture: or(info.architecture, 'Unknown'),
+    device: or(info.device, 'Unknown'),
+    description: or(info.description, 'Unknown GPU'),
+  };
+}
+
 /**
  * Detect WebGPU capabilities and estimate available VRAM
  */
 export async function detectWebGPU(): Promise<WebGPUInfo> {
-  // Check if WebGPU is supported
   if (!navigator.gpu) {
-    return {
-      supported: false,
-      adapter: null,
-      limits: null,
-      estimatedVRAM: 0,
-    };
+    return { supported: false, adapter: null, limits: null, estimatedVRAM: 0 };
   }
 
   try {
-    // Request adapter
     const adapter = await navigator.gpu.requestAdapter({
       powerPreference: 'high-performance',
     });
 
     if (!adapter) {
-      return {
-        supported: false,
-        adapter: null,
-        limits: null,
-        estimatedVRAM: 0,
-      };
+      return { supported: false, adapter: null, limits: null, estimatedVRAM: 0 };
     }
 
-    // Get adapter info - use 'info' property (standard) which is sync
     const adapterInfo = adapter.info;
     const limits = adapter.limits;
-
-    // Estimate VRAM based on max buffer size
-    // This is a rough estimate - WebGPU doesn't expose actual VRAM
-    const maxBufferSize = limits.maxBufferSize;
-    const estimatedVRAM = estimateVRAM(maxBufferSize, {
-      vendor: adapterInfo.vendor || 'Unknown',
-      architecture: adapterInfo.architecture || 'Unknown',
-      device: adapterInfo.device || 'Unknown',
-      description: adapterInfo.description || 'Unknown GPU',
-    });
+    const customInfo = toAdapterInfoCustom(adapterInfo);
+    const estimatedVRAM = estimateVRAM(limits.maxBufferSize, customInfo);
 
     return {
       supported: true,
-      adapter: {
-        vendor: adapterInfo.vendor || 'Unknown',
-        architecture: adapterInfo.architecture || 'Unknown',
-        device: adapterInfo.device || 'Unknown',
-        description: adapterInfo.description || 'Unknown GPU',
-      },
-      limits: null, // Skip limits to avoid type issues
+      adapter: customInfo,
+      limits: null,
       estimatedVRAM,
     };
   } catch (error) {
     console.error('WebGPU detection error:', error);
-    return {
-      supported: false,
-      adapter: null,
-      limits: null,
-      estimatedVRAM: 0,
-    };
+    return { supported: false, adapter: null, limits: null, estimatedVRAM: 0 };
   }
 }
 
+// ---------------------------------------------------------------------------
+// VRAM estimation via vendor/model lookup table
+// ---------------------------------------------------------------------------
+
+interface VramRule {
+  modelPattern: string;
+  vramGb: number;
+}
+
+interface VendorVramConfig {
+  /** Substrings that identify this vendor (matched against vendor/description). */
+  keywords: string[];
+  /** Ordered model rules; first matching pattern wins. */
+  models: VramRule[];
+  /** Fallback cap when no model pattern matches. Omit for no cap. */
+  fallbackGb?: number;
+}
+
+const VRAM_TABLE: VendorVramConfig[] = [
+  {
+    keywords: ['nvidia'],
+    models: [
+      { modelPattern: '4090', vramGb: 24 },
+      { modelPattern: '4080', vramGb: 16 },
+      { modelPattern: '4070', vramGb: 12 },
+      { modelPattern: '3090', vramGb: 24 },
+      { modelPattern: '3080', vramGb: 12 },
+      { modelPattern: '3070', vramGb: 8 },
+    ],
+  },
+  {
+    keywords: ['amd', 'radeon'],
+    models: [
+      { modelPattern: '7900', vramGb: 20 },
+      { modelPattern: '7800', vramGb: 16 },
+      { modelPattern: '6900', vramGb: 16 },
+    ],
+  },
+  {
+    keywords: ['apple'],
+    models: [
+      { modelPattern: 'm3 max', vramGb: 32 },
+      { modelPattern: 'm3 pro', vramGb: 24 },
+      { modelPattern: 'm2 max', vramGb: 24 },
+      { modelPattern: 'm3', vramGb: 12 },
+      { modelPattern: 'm2 pro', vramGb: 12 },
+      { modelPattern: 'm2', vramGb: 8 },
+      { modelPattern: 'm1 pro', vramGb: 8 },
+    ],
+    fallbackGb: 4,
+  },
+  {
+    keywords: ['intel'],
+    models: [],
+    fallbackGb: 2,
+  },
+];
+
+/** Find the VRAM cap for a given vendor/model in the lookup table. */
+function lookupVramCap(haystack: string): number | undefined {
+  for (const vendor of VRAM_TABLE) {
+    if (!vendor.keywords.some((kw) => haystack.includes(kw))) continue;
+
+    for (const model of vendor.models) {
+      if (haystack.includes(model.modelPattern)) {
+        return model.vramGb;
+      }
+    }
+
+    return vendor.fallbackGb;
+  }
+  return undefined;
+}
+
 /**
- * Estimate available VRAM based on adapter info and limits
+ * Estimate available VRAM based on adapter info and limits.
  */
 function estimateVRAM(maxBufferSize: number, adapterInfo: GPUAdapterInfoCustom): number {
   // Base estimate from max buffer size (usually 1/4 to 1/2 of VRAM)
-  let estimate = maxBufferSize / (1024 * 1024 * 1024) * 2; // Convert to GB and multiply
+  const base = (maxBufferSize / (1024 * 1024 * 1024)) * 2;
 
-  // Adjust based on known GPU vendors/devices
-  const vendor = adapterInfo.vendor?.toLowerCase() || '';
-  const device = adapterInfo.device?.toLowerCase() || '';
-  const description = adapterInfo.description?.toLowerCase() || '';
+  // Build a single haystack string for matching
+  const haystack = [
+    adapterInfo.vendor,
+    adapterInfo.device,
+    adapterInfo.description,
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
 
-  // NVIDIA GPUs
-  if (vendor.includes('nvidia') || description.includes('nvidia')) {
-    if (device.includes('4090') || description.includes('4090')) {
-      estimate = Math.min(estimate, 24);
-    } else if (device.includes('4080') || description.includes('4080')) {
-      estimate = Math.min(estimate, 16);
-    } else if (device.includes('4070') || description.includes('4070')) {
-      estimate = Math.min(estimate, 12);
-    } else if (device.includes('3090') || description.includes('3090')) {
-      estimate = Math.min(estimate, 24);
-    } else if (device.includes('3080') || description.includes('3080')) {
-      estimate = Math.min(estimate, 12);
-    } else if (device.includes('3070') || description.includes('3070')) {
-      estimate = Math.min(estimate, 8);
-    }
-  }
-
-  // AMD GPUs
-  if (vendor.includes('amd') || description.includes('amd') || description.includes('radeon')) {
-    if (device.includes('7900') || description.includes('7900')) {
-      estimate = Math.min(estimate, 20);
-    } else if (device.includes('7800') || description.includes('7800')) {
-      estimate = Math.min(estimate, 16);
-    } else if (device.includes('6900') || description.includes('6900')) {
-      estimate = Math.min(estimate, 16);
-    }
-  }
-
-  // Apple Silicon
-  if (vendor.includes('apple') || description.includes('apple')) {
-    // M1/M2/M3 share memory with system
-    // Conservatively estimate 1/4 of typical unified memory
-    if (description.includes('m3 max')) {
-      estimate = Math.min(estimate, 32);
-    } else if (description.includes('m3 pro') || description.includes('m2 max')) {
-      estimate = Math.min(estimate, 24);
-    } else if (description.includes('m3') || description.includes('m2 pro')) {
-      estimate = Math.min(estimate, 12);
-    } else if (description.includes('m2') || description.includes('m1 pro')) {
-      estimate = Math.min(estimate, 8);
-    } else {
-      estimate = Math.min(estimate, 4);
-    }
-  }
-
-  // Intel GPUs (integrated)
-  if (vendor.includes('intel')) {
-    estimate = Math.min(estimate, 2);
-  }
+  const cap = lookupVramCap(haystack);
+  const estimate = cap !== undefined ? Math.min(base, cap) : base;
 
   // Clamp to reasonable bounds
   return Math.max(0.5, Math.min(estimate, 48));
