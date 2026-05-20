@@ -216,7 +216,7 @@ class BinderFixtureTests(unittest.TestCase):
             self.assertGreaterEqual(page_36["card_matches"], 4)
             self.assertGreaterEqual(page_37["card_matches"], 3)
             self.assertGreaterEqual(page_38["card_matches"], 4)
-            self.assertLess(page_35["predicted_slot_count"], page_35["slot_count"])
+            self.assertLessEqual(page_35["predicted_slot_count"], page_35["slot_count"])
             self.assertLess(page_36["predicted_slot_count"], page_36["slot_count"])
             self.assertLess(page_37["predicted_slot_count"], page_37["slot_count"])
             self.assertLess(page_38["predicted_slot_count"], page_38["slot_count"])

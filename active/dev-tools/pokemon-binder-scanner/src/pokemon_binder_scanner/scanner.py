@@ -36,6 +36,25 @@ IRREGULAR_LAYOUT_THRESHOLD_PAIRS: tuple[tuple[int, int], ...] = (
 IRREGULAR_COMPONENT_MIN_PIXELS = 5_000
 IRREGULAR_COMPONENT_MAX_PIXELS = 120_000
 
+# Edge-based detection parameters (complementary to HSV thresholding)
+IRREGULAR_EDGE_THRESHOLD_PERCENTILE = 83
+IRREGULAR_EDGE_MIN_PIXELS = 4_000
+IRREGULAR_EDGE_MAX_PIXELS = 150_000
+IRREGULAR_EDGE_WIDTH_RANGE = (0.05, 0.26)
+IRREGULAR_EDGE_HEIGHT_RANGE = (0.05, 0.28)
+IRREGULAR_EDGE_ASPECT_RATIO_RANGE = (0.40, 1.20)
+
+# Local-variance detection parameters (catches cards with low colour/edge
+# contrast against the background but higher local texture than the binder
+# page surface).
+IRREGULAR_VARIANCE_BLOCK_SIZE = 17       # sliding window side in pixels
+IRREGULAR_VARIANCE_THRESHOLD_PERCENTILE = 70
+IRREGULAR_VARIANCE_MIN_PIXELS = 6_000
+IRREGULAR_VARIANCE_MAX_PIXELS = 140_000
+IRREGULAR_VARIANCE_WIDTH_RANGE = (0.06, 0.26)
+IRREGULAR_VARIANCE_HEIGHT_RANGE = (0.06, 0.28)
+IRREGULAR_VARIANCE_ASPECT_RATIO_RANGE = (0.42, 1.15)
+
 
 def _square_grid_layout(
     cols: int,
@@ -298,6 +317,7 @@ def _detect_irregular_layout_bboxes(
     value = hsv[:, :, 2]
     candidate_bboxes: list[tuple[float, tuple[float, float, float, float]]] = []
 
+    # ---- 1. HSV-based candidates (existing approach) ----
     for saturation_threshold, value_threshold in IRREGULAR_LAYOUT_THRESHOLD_PAIRS:
         component_mask = (saturation > saturation_threshold) & (value > value_threshold)
         mask_image = Image.fromarray((component_mask.astype(np.uint8) * 255), mode="L")
@@ -309,6 +329,13 @@ def _detect_irregular_layout_bboxes(
             aspect_score = 1.0 - abs((component_bbox[2] - component_bbox[0]) / max(1, component_bbox[3] - component_bbox[1]) - 0.73)
             candidate_bboxes.append((component_pixels * max(0.1, aspect_score), normalized_bbox))
 
+    # ---- 2. Edge-based candidates (complementary) ----
+    candidate_bboxes.extend(_detect_edge_components(image))
+
+    # ---- 3. Variance-based candidates (complementary) ----
+    candidate_bboxes.extend(_detect_variance_components(image))
+
+    # ---- 4. NMS + match-score filter ----
     filtered_candidates = sorted(candidate_bboxes, key=lambda item: item[0], reverse=True)
     accepted_bboxes: list[tuple[float, float, float, float]] = []
     for _, bbox in filtered_candidates:
@@ -319,6 +346,185 @@ def _detect_irregular_layout_bboxes(
             accepted_bboxes.append(bbox)
 
     return tuple(_sort_bboxes_reading_order(accepted_bboxes)) if len(accepted_bboxes) >= 3 else ()
+
+
+def _detect_edge_components(
+    image: Image.Image,
+) -> list[tuple[float, tuple[float, float, float, float]]]:
+    """Detect candidate card regions using gradient/edge information.
+
+    Complementary to the HSV-based detection in
+    :func:`_detect_irregular_layout_bboxes`.  Cards with low colour
+    contrast against the binder page (e.g.  glare, soft-focus, or
+    pale artwork) still produce visible edges that this method
+    can pick up.
+    """
+    gray = np.asarray(image.convert("L"), dtype=np.float32) / 255.0
+    gy, gx = np.gradient(gray)
+    edge = np.hypot(gx, gy)
+
+    threshold = float(np.percentile(edge, IRREGULAR_EDGE_THRESHOLD_PERCENTILE))
+    edge_mask = (edge > threshold).astype(np.uint8) * 255
+
+    mask_img = Image.fromarray(edge_mask, mode="L")
+    # Dilate to connect card-edge fragments, then erode to suppress noise,
+    # then dilate again to fill the card body inside the edge ring.
+    mask_img = (
+        mask_img.filter(ImageFilter.MaxFilter(9))
+        .filter(ImageFilter.MinFilter(7))
+        .filter(ImageFilter.MaxFilter(5))
+    )
+
+    candidates: list[tuple[float, tuple[float, float, float, float]]] = []
+    for component_pixels, component_bbox in _connected_components(np.asarray(mask_img) > 0):
+        normalized = _normalize_edge_component_bbox(image, component_pixels, component_bbox)
+        if normalized is None:
+            continue
+        left, top, w, h = normalized
+        aspect = w / max(h, 1e-6)
+        aspect_score = 1.0 - abs(aspect - 0.73) / 0.5
+        candidates.append((component_pixels * max(0.1, aspect_score), normalized))
+
+    return candidates
+
+
+def _normalize_edge_component_bbox(
+    image: Image.Image,
+    component_pixels: int,
+    component_bbox: tuple[int, int, int, int],
+) -> tuple[float, float, float, float] | None:
+    """Normalise a component from edge detection with relaxed size constraints."""
+    if component_pixels < IRREGULAR_EDGE_MIN_PIXELS or component_pixels > IRREGULAR_EDGE_MAX_PIXELS:
+        return None
+
+    left, top, right, bottom = component_bbox
+    width = right - left
+    height = bottom - top
+    width_norm = width / image.width
+    height_norm = height / image.height
+    aspect_ratio = width / max(1, height)
+
+    w_lo, w_hi = IRREGULAR_EDGE_WIDTH_RANGE
+    h_lo, h_hi = IRREGULAR_EDGE_HEIGHT_RANGE
+    ar_lo, ar_hi = IRREGULAR_EDGE_ASPECT_RATIO_RANGE
+
+    if not (w_lo <= width_norm <= w_hi and h_lo <= height_norm <= h_hi):
+        return None
+    if not (ar_lo <= aspect_ratio <= ar_hi):
+        return None
+
+    # More generous expansion for edge-detected blobs (they are often
+    # the card border ring rather than the full face).
+    expand_x = max(18, int(width * 0.22))
+    expand_y = max(20, int(height * 0.12))
+    normalized_left = max(0.0, (left - expand_x) / image.width)
+    normalized_top = max(0.0, (top - expand_y) / image.height)
+    normalized_right = min(1.0, (right + expand_x) / image.width)
+    normalized_bottom = min(1.0, (bottom + expand_y) / image.height)
+    return (
+        normalized_left,
+        normalized_top,
+        normalized_right - normalized_left,
+        normalized_bottom - normalized_top,
+    )
+
+
+def _detect_variance_components(
+    image: Image.Image,
+) -> list[tuple[float, tuple[float, float, float, float]]]:
+    """Detect candidate card regions using local texture variance.
+
+    Cards have higher local intensity variance than the blank binder
+    page background.  This complements HSV and edge detection for
+    cards where both colour contrast and crisp edges are weak (e.g.
+    soft-focus + pale artwork + moderate glare).
+    """
+    gray = np.asarray(image.convert("L"), dtype=np.float32)
+    height, width = gray.shape
+    block = IRREGULAR_VARIANCE_BLOCK_SIZE
+    half = block // 2
+
+    # Integral images for fast block-sum queries (vectorised).
+    integral = np.pad(
+        gray.cumsum(axis=0).cumsum(axis=1), ((1, 0), (1, 0)), mode="constant"
+    )
+    integral_sq = np.pad(
+        (gray**2).cumsum(axis=0).cumsum(axis=1), ((1, 0), (1, 0)), mode="constant"
+    )
+
+    # Compute per-pixel local variance in one shot via array slicing.
+    y_idx = np.arange(height, dtype=np.intp)
+    x_idx = np.arange(width, dtype=np.intp)
+
+    y1 = np.clip(y_idx[:, None] - half, 0, height).astype(np.intp)
+    y2 = np.clip(y_idx[:, None] + half + 1, 0, height).astype(np.intp)
+    x1 = np.clip(x_idx[None, :] - half, 0, width).astype(np.intp)
+    x2 = np.clip(x_idx[None, :] + half + 1, 0, width).astype(np.intp)
+
+    s = integral[y2, x2] - integral[y1, x2] - integral[y2, x1] + integral[y1, x1]
+    sq = integral_sq[y2, x2] - integral_sq[y1, x2] - integral_sq[y2, x1] + integral_sq[y1, x1]
+    n = ((y2 - y1) * (x2 - x1)).astype(np.float32)
+    var_map = sq / n - (s / n) ** 2
+
+    threshold = float(np.percentile(var_map, IRREGULAR_VARIANCE_THRESHOLD_PERCENTILE))
+    var_mask = (var_map > threshold).astype(np.uint8) * 255
+
+    mask_img = Image.fromarray(var_mask, mode="L")
+    mask_img = (
+        mask_img.filter(ImageFilter.MaxFilter(11))
+        .filter(ImageFilter.MinFilter(9))
+        .filter(ImageFilter.MaxFilter(7))
+    )
+
+    candidates: list[tuple[float, tuple[float, float, float, float]]] = []
+    for component_pixels, component_bbox in _connected_components(np.asarray(mask_img) > 0):
+        normalized = _normalize_variance_component_bbox(image, component_pixels, component_bbox)
+        if normalized is None:
+            continue
+        left, top, w, h = normalized
+        aspect = w / max(h, 1e-6)
+        aspect_score = 1.0 - abs(aspect - 0.73) / 0.5
+        candidates.append((component_pixels * max(0.1, aspect_score), normalized))
+
+    return candidates
+
+
+def _normalize_variance_component_bbox(
+    image: Image.Image,
+    component_pixels: int,
+    component_bbox: tuple[int, int, int, int],
+) -> tuple[float, float, float, float] | None:
+    if component_pixels < IRREGULAR_VARIANCE_MIN_PIXELS or component_pixels > IRREGULAR_VARIANCE_MAX_PIXELS:
+        return None
+
+    left, top, right, bottom = component_bbox
+    width = right - left
+    height = bottom - top
+    width_norm = width / image.width
+    height_norm = height / image.height
+    aspect_ratio = width / max(1, height)
+
+    w_lo, w_hi = IRREGULAR_VARIANCE_WIDTH_RANGE
+    h_lo, h_hi = IRREGULAR_VARIANCE_HEIGHT_RANGE
+    ar_lo, ar_hi = IRREGULAR_VARIANCE_ASPECT_RATIO_RANGE
+
+    if not (w_lo <= width_norm <= w_hi and h_lo <= height_norm <= h_hi):
+        return None
+    if not (ar_lo <= aspect_ratio <= ar_hi):
+        return None
+
+    expand_x = max(16, int(width * 0.18))
+    expand_y = max(18, int(height * 0.10))
+    normalized_left = max(0.0, (left - expand_x) / image.width)
+    normalized_top = max(0.0, (top - expand_y) / image.height)
+    normalized_right = min(1.0, (right + expand_x) / image.width)
+    normalized_bottom = min(1.0, (bottom + expand_y) / image.height)
+    return (
+        normalized_left,
+        normalized_top,
+        normalized_right - normalized_left,
+        normalized_bottom - normalized_top,
+    )
 
 
 def _normalize_irregular_component_bbox(
