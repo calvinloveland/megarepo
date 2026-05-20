@@ -1,6 +1,6 @@
 # Spell DSL v1
 
-This document defines the Wizard Fight spell specification for LLM-generated spells. The engine will only execute spells that validate against the JSON schema in [docs/dsl_v1.json](docs/dsl_v1.json).
+This document defines the Wizard Fight spell specification for LLM-generated spells. The engine will only execute spells that validate against the JSON schema in [dsl_v1.json](dsl_v1.json).
 
 ## Core Fields
 - `name`: Spell name (3–40 chars)
@@ -47,4 +47,4 @@ The battlefield has three lanes. Units can spawn in any lane; spell effects and 
 - Totals (combined unit counts, DPS budgets) will be enforced by a clamping layer in the engine.
 
 ## Examples
-See [docs/spells](docs/spells) for example spell JSON.
+See [spells](spells) for example spell JSON.

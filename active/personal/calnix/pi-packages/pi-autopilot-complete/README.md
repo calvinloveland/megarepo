@@ -1,21 +1,9 @@
 # pi-autopilot-complete
 
-Pi extension that:
+This directory now uses the web documentation site as its canonical documentation.
 
-- adds a `complete` tool
-- nudges the model to keep working until it calls `complete`
-- supports `/autopilot on|off|toggle|status`
-- persists autopilot state in the session
-- automatically stays off while TDD mode is active
+Canonical docs live at:
+- https://calvinloveland.github.io/megarepo/projects/active/personal/calnix/pi-packages/pi-autopilot-complete/
 
-## Local test
-
-```bash
-pi -e ./pi-packages/pi-autopilot-complete
-```
-
-## Install from local path
-
-```bash
-pi install ./pi-packages/pi-autopilot-complete
-```
+Local source docs live in:
+- `docs/`

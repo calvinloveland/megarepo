@@ -1,14 +1,9 @@
 # Code Reviewdle Feedback Data
 
-This directory stores runtime feedback submissions captured by the shared feedback widget.
+This directory now uses the web documentation site as its canonical documentation.
 
-## Status
+Canonical docs live at:
+- https://calvinloveland.github.io/megarepo/projects/active/games/code_reviewdle/data/feedback/
 
-- Created on demand during development or production use
-- Gitignored because it contains user-generated runtime data
-- Reviewed items are moved into the `addressed/` subdirectory
-
-## Related Documentation
-
-- [Code Reviewdle README](../../README.md)
-- [Shared feedback system](../../../web-apps/shared/README.md)
+Local source docs live in:
+- `docs/`

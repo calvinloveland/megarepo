@@ -1,25 +1,9 @@
 # GitHub Copilot Skills
 
-Custom skills and capabilities for GitHub Copilot in this repository.
+This directory now uses the web documentation site as its canonical documentation.
 
-## Available Skills
+Canonical docs live at:
+- https://calvinloveland.github.io/megarepo/projects/.github/skills/
 
-### Development Workflow Skills
-- [**addressing-feedback**](adressing-feedback/SKILL.md) - Techniques for addressing code review feedback effectively
-- [**avoid-ai-ux**](avoid-ai-ux/SKILL.md) - Review heuristics for removing generic, low-effort, AI-feeling UX
-- [**cluster-access**](cluster-access/SKILL.md) - Guidelines for accessing and working with compute clusters
-- [**profile-readme-design**](profile-readme-design/SKILL.md) - Bold GitHub profile README design patterns using markdown + HTML
-- [**subagent-experiments**](subagent-experiments/SKILL.md) - Coordinate multiple bounded subagents and synthesize their findings efficiently
-
-## Related Documentation
-
-- [Repository Copilot Instructions](../copilot-instructions.md) - Main Copilot configuration for the entire repository
-- [Development Philosophy](../../PHILOSOPHY.md) - Core principles that inform these skills
-- [Repository Root](../../README.md) - Back to repository overview
-
-## Project-Specific Copilot Instructions
-
-Many projects have their own Copilot instructions tailored to their specific needs:
-- [full-auto-ci](../../active/dev-tools/full-auto-ci/.github/copilot-instructions.md)
-- [calnix](../../active/personal/calnix/.github/copilot-instructions.md)
-- [conway_game_of_war](../../active/games/conway_game_of_war/.github/copilot-instructions.md)
+Local source docs live in:
+- `docs/`

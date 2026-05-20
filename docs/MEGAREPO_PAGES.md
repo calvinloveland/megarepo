@@ -1,46 +1,49 @@
-# Megarepo GitHub Pages
+# Megarepo Web Docs and Pages
 
-This repository contains an automated static site generator that produces simple, per-subrepo pages and publishes them to the `gh-pages` branch.
+The megarepo documentation site is built from repository markdown and published to GitHub Pages.
 
-## What it does
+## Current setup
 
-- Discovers subprojects (subrepos) and generates a page for each using either `docs/index.md` or `README.md`.
-- Produces `site/<subrepo>/index.html` and a top-level `site/index.html` with links.
-- Deploys `site/` to the `gh-pages` branch via GitHub Actions on pushes to `main`/`master` or weekly.
+- `scripts/migrate_readmes_to_docs.py` migrates in-scope `README.md` files into per-directory `docs/index.md` pages and rewrites the original README files into short pointer stubs.
+- `scripts/build_docs_site.py` stages repository docs into `.docs-site/` for publishing.
+- `mkdocs.yml` configures MkDocs Material to render the staged markdown into the final static site.
+- `.github/workflows/publish-pages.yml` builds the site and deploys `site/` to GitHub Pages.
 
-## How to add custom docs for a subrepo
+## Canonical documentation rules
 
-- Add or edit `docs/index.md` in the subrepo — the generator prefers `docs/index.md` over `README.md`.
+- The repository root `README.md` stays as a short landing page.
+- Non-root `README.md` files are convenience pointers for GitHub folder browsing, not the canonical docs.
+- Canonical project docs live in per-project `docs/` directories.
+- Root-level repository docs live in `docs/`.
 
 ## Preview locally
 
-1. Install Python requirements:
+Install the docs tooling:
 
 ```bash
-python -m pip install -r scripts/requirements.txt
+python -m pip install -r docs/requirements.txt
 ```
 
-2. Run the builder:
+Build the staged docs tree and render the site:
 
 ```bash
-python scripts/build_pages.py
+python scripts/build_docs_site.py
+mkdocs build
 ```
 
-3. Serve locally (from the repo root):
+Serve locally:
 
 ```bash
-python -m http.server --directory site 8000
-# then open http://localhost:8000
+mkdocs serve
 ```
+
+## Output directories
+
+- `.docs-site/` is generated staging input for MkDocs.
+- `site/` is generated static output for GitHub Pages.
+
+Both are generated artifacts and should not be edited by hand.
 
 ## Notes
 
-- The generator uses simple heuristics to find subrepos. It looks for directories containing a `README.md` and common project markers like `pyproject.toml`, `package.json`, an explicit `src/` or `tests/` directory, or `docs/`.
-- The top-level `site/` is ignored by the repository (added to `.gitignore`) to prevent accidental commits of generated output.
-
-## Related Documentation
-
-- [Scripts Documentation](../scripts/README.md) - Build scripts including the page generator
-- [Site Output Directory](../site/README.md) - Generated static site (git-ignored)
-- [Docs Directory](README.md) - Back to docs index
-- [Repository Root](../README.md) - Main repository overview
+The older `scripts/build_pages.py` README-driven static-site flow remains in the repository as legacy tooling, but the MkDocs-based GitHub Pages site is now the primary documentation path.

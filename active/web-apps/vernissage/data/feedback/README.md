@@ -1,15 +1,9 @@
 # Vernissage Feedback Data
 
-This directory stores runtime feedback submissions captured by the in-app floating feedback widget.
+This directory now uses the web documentation site as its canonical documentation.
 
-## Status
+Canonical docs live at:
+- https://calvinloveland.github.io/megarepo/projects/active/web-apps/vernissage/data/feedback/
 
-- Created on demand during development or production use
-- Gitignored because it contains user-generated runtime data
-- Reviewed items are moved into the `addressed/` subdirectory
-
-## Related Documentation
-
-- [Vernissage README](../../README.md)
-- [Shared feedback system](../../../shared/README.md)
-
+Local source docs live in:
+- `docs/`

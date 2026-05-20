@@ -1,21 +1,9 @@
 # pi-openrouter-fallback
 
-Pi extension that:
+This directory now uses the web documentation site as its canonical documentation.
 
-- scopes the OpenRouter model list to a curated subset so `/model` stays focused
-- watches for HTTP 403 responses from OpenRouter
-- switches to `openrouter/free`
-- auto-resubmits the last prompt as a follow-up
-- shows OpenRouter model pricing in the footer status area as input/output cost per 1M tokens
+Canonical docs live at:
+- https://calvinloveland.github.io/megarepo/projects/active/personal/calnix/pi-packages/pi-openrouter-fallback/
 
-## Local test
-
-```bash
-pi -e ./pi-packages/pi-openrouter-fallback
-```
-
-## Install from local path
-
-```bash
-pi install ./pi-packages/pi-openrouter-fallback
-```
+Local source docs live in:
+- `docs/`

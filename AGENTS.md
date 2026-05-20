@@ -4,10 +4,16 @@ This file translates the repository's Copilot-era guidance into Codex-friendly i
 
 ## Start Here
 
-- Read [README.md](README.md) for the monorepo layout.
+- Read [README.md](README.md) for the monorepo landing page and docs-site link.
 - Read [PHILOSOPHY.md](PHILOSOPHY.md) for the durable engineering principles used across the repo.
-- When working inside a subproject, prefer the nearest `README.md` and nearest `AGENTS.md` over this root file.
+- When working inside a subproject, prefer the nearest `docs/index.md` and nearest `AGENTS.md` over this root file.
 - If a subproject does not yet have `AGENTS.md` but does have `.github/copilot-instructions.md`, treat that file as reference context.
+
+## Documentation Policy
+
+- The repository root `README.md` is a short landing page.
+- Canonical project docs live in per-project `docs/` directories.
+- Non-root `README.md` files should stay short and point to the web docs.
 
 ## Monorepo Scope
 

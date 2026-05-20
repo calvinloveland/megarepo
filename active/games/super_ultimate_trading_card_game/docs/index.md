@@ -1,0 +1,114 @@
+# Super Ultimate Trading Card Game
+
+Python prototype of **Super Ultimate Trading Card Game** focused on deterministic simulation, live backend-driven web play, AI playtesting, and LLM-backed card generation.
+
+## What this prototype includes
+
+- deterministic 1v1 simulation with two tracks
+- persistent owned-card collections across matches
+- custom reusable base cards
+- OpenRouter-backed structured card generation with validation and balancing
+- sandboxed scripted unit and base abilities with a restricted Python event API
+- deterministic fallback generation for offline testing
+- simple AI deckbuilding and playtesting bots
+- SQLite-backed persistence for owned cards, bases, and saved match logs
+- Flask web UI that drives the same backend simulation engine
+- live matches for AI vs AI, AI vs Player, and Player vs Player
+- backend-managed collection browsing and six-card deck building
+- shared card-frame rendering with deterministic generated SVG artwork per card
+- prompt-driven theme preservation across arbitrary genres and aesthetics
+- cookie-backed human player profiles created from a first-visit name prompt
+
+## Quick start
+
+```bash
+cd active/games/super_ultimate_trading_card_game
+python -m venv .venv
+. .venv/bin/activate
+pip install -e .[dev]
+sutcg-sim playtest --matches 25 --generator deterministic
+```
+
+## Web UI
+
+```bash
+cd active/games/super_ultimate_trading_card_game
+. .venv/bin/activate
+sutcg-web --host 127.0.0.1 --port 5000
+```
+
+The web app is a backend-rendered interface over the same simulation code used by the CLI. Match execution, live turn resolution, playtests, persistence, and card generation all still happen on the backend.
+
+Live web features:
+
+- create AI vs AI, AI vs Player, and Player vs Player matches
+- prompt first-time visitors for a player name and remember the resulting player key in a browser cookie
+- step AI matches round by round or autoplay them to completion
+- submit human turns through the browser while the backend resolves combat
+- browse collections and build active six-card decks for each owner
+- search for a PvP match instead of manually choosing another player
+- save a per-player generator preference and use it as the default for new web actions
+- render cards in a consistent card layout with backend-generated artwork
+- inspect finished battle logs and active live-match logs
+
+## OpenRouter generation
+
+The prototype can read an API key from `~/.openrouter_free_key`.
+
+```bash
+cd active/games/super_ultimate_trading_card_game
+. .venv/bin/activate
+sutcg-sim playtest --matches 10 --generator auto
+```
+
+Generator modes:
+
+- `deterministic` - offline fallback generator
+- `openrouter` - force OpenRouter generation
+- `auto` - use OpenRouter when a key is available, otherwise fall back
+
+Optional environment variables:
+
+- `SUTCG_OPENROUTER_MODEL` - override the default OpenRouter model
+- `SUTCG_OPENROUTER_URL` - override the OpenRouter endpoint
+- `SUTCG_OPENROUTER_REFERER` - optional referer header
+- `SUTCG_OPENROUTER_TITLE` - optional client title header
+
+By default, the OpenRouter generator prefers a live free-model list and retries across several candidates before falling back to deterministic generation. This makes free-tier playtesting much more resilient to temporary provider 404/429 failures.
+
+Both the live-model and deterministic paths are now pushed to preserve the player's requested **theme and genre** instead of collapsing everything into one narrow fantasy style. Prompts like futuristic, classical, realistic, industrial, historical, corporate, or mixed-aesthetic concepts should stay visible in generated names and themes.
+
+Generated cards now include `ability_summary` plus `ability_script`. Unit scripts can react to `round_start`, `combat`, and `attack_base`; base scripts can react to `round_start` and `base_attacked`. Both run through a restricted sandbox with whitelisted helper calls like `api.heal_ally(2)`, `api.gain_card_points(1)`, `api.reduce_incoming_damage(2)`, `api.add_base_damage(1)`, and weirder deterministic tricks like:
+
+- `api.add_attack_per_enemy_name_char("e")`
+- `api.add_attack_if_enemy_name_is_palindrome()`
+- `api.add_attack_if_enemy_name_even_length()`
+- `api.add_attack_per_allies_on_board()`
+- `api.add_attack_per_round_tier(4)`
+
+## Commands
+
+```bash
+sutcg-sim playtest --matches 50 --generator deterministic
+sutcg-sim match --generator deterministic --seed 123
+sutcg-sim generate-card --prompt "A glass-cannon phoenix sniper" --generator deterministic
+sutcg-sim collection --owner-id alpha
+sutcg-sim match-history --limit 5
+sutcg-sim show-match --id 1
+```
+
+Generated cards can be saved to the SQLite collection store with:
+
+```bash
+sutcg-sim generate-card --prompt "A flying medic" --owner-id alpha --save
+```
+
+By default, data is stored in `active/games/super_ultimate_trading_card_game/data/sutcg.sqlite3`.
+
+## Tests
+
+```bash
+cd active/games/super_ultimate_trading_card_game
+. .venv/bin/activate
+python -m pytest -q
+```

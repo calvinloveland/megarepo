@@ -1,11 +1,11 @@
 # Paper Prototype v1
 
 ## Inputs
-- Sample spells in [docs/spells](docs/spells)
-- DSL caps in [docs/dsl_v1.json](docs/dsl_v1.json)
+- Sample spells in [spells](spells)
+- DSL caps in [dsl_v1.json](dsl_v1.json)
 
 ## Timing Decisions
-See [docs/timing_v1.json](docs/timing_v1.json).
+See [timing_v1.json](timing_v1.json).
 
 - Tick rate: 30 Hz
 - Cast time: 0.6 s

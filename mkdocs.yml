@@ -1,0 +1,32 @@
+site_name: Megarepo Documentation
+site_url: https://calvinloveland.github.io/megarepo/
+repo_url: https://github.com/calvinloveland/megarepo
+repo_name: calvinloveland/megarepo
+docs_dir: .docs-site
+site_dir: site
+use_directory_urls: true
+strict: true
+theme:
+  name: material
+  features:
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+markdown_extensions:
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.highlight
+  - pymdownx.superfences
+  - pymdownx.inlinehilite
+  - pymdownx.tabbed:
+      alternate_style: true
+plugins:
+  - search

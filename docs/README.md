@@ -1,28 +1,9 @@
 # Documentation
 
-This directory contains documentation for the megarepo as a whole, including guides and reference materials.
+This directory now uses the web documentation site as its canonical documentation.
 
-## Contents
+Canonical docs live at:
+- https://calvinloveland.github.io/megarepo/
 
-- [**MEGAREPO_PAGES.md**](MEGAREPO_PAGES.md) - Index of all generated documentation pages and static site content
-
-## Related Documents
-
-The root directory also contains important documentation:
-
-- [../PHILOSOPHY.md](../PHILOSOPHY.md) - Development principles and philosophy for the entire repository
-- [../PLAN.md](../PLAN.md) - Overall roadmap and planning document
-- [../ISSUES.md](../ISSUES.md) - Known issues and tracking
-
-Project-specific operational runbooks stay with each project. For example:
-
-- [../active/bots/openclaw/README.md](../active/bots/openclaw/README.md) - OpenClaw deployment, access, Gmail, browser, and model fallback operations
-
-## Adding Documentation
-
-When adding new documentation:
-
-1. Keep files in plain markdown format for portability
-2. Add cross-references to related documentation
-3. Update `MEGAREPO_PAGES.md` if the documentation should be included in the generated site
-4. See [../scripts/](../scripts/README.md) for information about documentation generation
+Local source docs live in:
+- `index.md` and sibling markdown files in this directory

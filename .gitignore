@@ -79,3 +79,4 @@ devserver.pid
 /active/games/wizard_fight/.wizard_fight_ollama.pid
 /active/games/wizard_fight/ollama.log
 site/
+.docs-site/

@@ -1,0 +1,98 @@
+# Wizard Fight
+
+A web-based wizard duel game where players research spells via LLMs and battle in real time. Spells are generated as constrained JSON specs, validated, and executed by a deterministic server-side engine.
+
+## What’s Included
+- Deterministic simulation engine (server authoritative).
+- Spell research pipeline with safe JSON schema validation.
+- Real-time multiplayer server (Flask + Socket.IO).
+- Vanilla HTML/CSS/JS frontend with casting, research, spellbook, and leaderboard.
+
+## Quick Start
+
+### One Command (Backend + Frontend)
+From [`active/games/wizard_fight/`](..):
+
+- `./scripts/dev.sh`
+
+### One Command (Backend + Frontend + Ollama)
+From [`active/games/wizard_fight/`](..):
+
+- `./scripts/start_all.sh`
+
+Defaults:
+- Backend: `5055`
+- Frontend: `5175`
+
+Override with env vars:
+- `WIZARD_FIGHT_PORT=6060 WIZARD_FIGHT_FRONTEND_PORT=6061 ./scripts/dev.sh`
+
+### Backend
+From [`active/games/wizard_fight/`](..):
+
+1. Create a virtual environment and install dependencies:
+	- `python -m venv .venv`
+	- `. .venv/bin/activate`
+	- `pip install .`
+
+2. Run the server:
+	- `WIZARD_FIGHT_PORT=5055 python -m wizard_fight.server`
+
+The backend listens on port `5055` by default.
+
+### Frontend
+From [`active/games/wizard_fight/frontend/`](../frontend):
+
+Serve the static files:
+- `python -m http.server 5175`
+
+Open http://localhost:5175 in a browser.
+
+## Tests
+
+### Backend
+From [`active/games/wizard_fight/`](..):
+- `python -m pytest`
+
+### Frontend
+No frontend test runner is required for the vanilla setup.
+
+## Useful Docs
+- Development plan: [DEVELOPMENT_PLAN.md](../DEVELOPMENT_PLAN.md)
+- Spell DSL schema: [docs/dsl_v1.md](dsl_v1.md)
+- VPS deployment: [docs/deploy_vps.md](deploy_vps.md)
+
+## Notes
+- The spell system never executes arbitrary code. All spells are validated against the JSON schema before use.
+- Research has a built-in delay (see [`docs/timing_v1.json`](timing_v1.json)).
+- To point the frontend at a different backend URL, edit `frontend/app.js` (defaults to `http://localhost:5055`).
+- The frontend is plain HTML/CSS/JS and can be served by any static file server.
+- The Spell Lab on the game page lets you generate and save spells without starting a match.
+
+## Local LLM (Ollama)
+Set `WIZARD_FIGHT_LLM_MODE=local` and run a local model with Ollama:
+- `WIZARD_FIGHT_LOCAL_BACKEND=ollama`
+- `WIZARD_FIGHT_OLLAMA_URL=http://localhost:11434/api/generate`
+- `WIZARD_FIGHT_OLLAMA_MODEL=llama3.2`
+### Copilot backend (optional)
+You can enable GitHub Copilot as a spell-generation backend. This is optional and requires the Copilot CLI plus the Python SDK (module name `copilot`) or a running Copilot CLI server.
+
+Environment variables:
+- `WIZARD_FIGHT_SPELL_BACKEND=copilot` — select Copilot as the backend
+- `WIZARD_FIGHT_COPILOT_MODEL=raptor-mini` — preferred default non-premium model (`raptor-mini`)
+- `WIZARD_FIGHT_COPILOT_CLI_URL=localhost:4321` — (optional) connect to a running `copilot --server` instance
+- `WIZARD_FIGHT_ALLOW_PREMIUM=false` — set to `true` to allow premium models (disabled by default)
+
+Demo recording:
+- `python ui_tests/demo_record.py --output demo.gif` will start a local backend and frontend (dev environment), run a short Playwright-driven scenario that generates a spell via the Spell Lab (with the Copilot backend highlighted), and produce `demo.gif`.
+- Requirements: `playwright` and `ffmpeg` installed. Install browsers with `playwright install chromium`.
+
+Notes:
+- The integration enforces non-premium models by default (to avoid using paid/premium requests). `raptor-mini` is used as the default safe model.
+- Install the Python client for best experience: `pip install .[copilot]` from the `active/games/wizard_fight` directory to enable the Copilot adapter.
+- If you have the `copilot` CLI installed, you can start it as a server: `copilot --server --port 4321` and set `WIZARD_FIGHT_COPILOT_CLI_URL` to that address.
+Start the Ollama server and pull the model:
+- `ollama serve`
+- `ollama pull llama3.2`
+
+If Ollama is unavailable, the pipeline falls back to a lightweight transformers model (if installed) or a deterministic generator.
