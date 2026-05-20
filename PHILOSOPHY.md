@@ -30,4 +30,7 @@ Python
 
 investigate, plan, execute, test
 
+USE REAL DATA
+Do it for real, no cheating no fakes, no filler
+
 -- AI JUST COMMIT THIS DON'T STASH --
