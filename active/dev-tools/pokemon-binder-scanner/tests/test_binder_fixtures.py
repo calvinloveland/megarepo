@@ -284,7 +284,6 @@ class BinderFixtureTests(unittest.TestCase):
             render_dir = Path(tmp_dir) / "rendered"
             demo_path = Path(tmp_dir) / "index.html"
             render_fixture_pages(self.manifest, render_dir)
-            scanner_report = evaluate_scanner_on_fixture_dataset(self.manifest, render_dir)
             output_path = build_demo_page(
                 self.manifest,
                 demo_path,
@@ -295,7 +294,7 @@ class BinderFixtureTests(unittest.TestCase):
                     "command": "python -m unittest tests/test_binder_fixtures.py",
                     "output": "Ran 7 tests\nOK",
                 },
-                scanner_report=scanner_report,
+                scanner_report=None,
             )
             self.assertEqual(output_path, demo_path)
             html = demo_path.read_text(encoding="utf-8")

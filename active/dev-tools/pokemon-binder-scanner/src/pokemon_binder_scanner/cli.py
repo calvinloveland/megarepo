@@ -56,6 +56,11 @@ def _build_parser() -> argparse.ArgumentParser:
     audit_parser.add_argument("--render-dir", type=Path, default=DEFAULT_RENDER_DIR)
 
     subparsers.add_parser("web", help="Run the local Flask scanner web app")
+
+    scan_parser = subparsers.add_parser("scan-image", help="Scan a single user-provided binder page image and print detected cards")
+    scan_parser.add_argument("image", type=Path, help="Path to a .jpg, .png, or .webp binder page image")
+    scan_parser.add_argument("--manifest", type=Path, default=DEFAULT_MANIFEST_PATH)
+
     return parser
 
 
@@ -112,6 +117,27 @@ def main() -> int:
             mismatch_text = "; ".join(page["mismatches"]) if page["mismatches"] else "none"
             print(
                 f"- {page['page_id']}: cards {page['card_matches']}/{page['slot_count']}, mismatches={mismatch_text}"
+            )
+        return 0
+
+    if args.command == "scan-image":
+        from .scanner import scan_fixture_image
+
+        image_path = args.image
+        if not image_path.exists():
+            print(f"ERROR: image not found: {image_path}")
+            return 1
+        result = scan_fixture_image(image_path)
+        print(f"Page: {result['page_id']}")
+        print(f"Detected slots: {result['slot_count']}")
+        print(f"Predicted total: ${result['predicted_total_usd']:.2f}")
+        for slot in result["slots"]:
+            card = slot["card"]
+            print(
+                f"  {slot['slot_id']}: {card.get('name', 'Unknown')} "
+                f"({card.get('canonical_card_id', '?')}) — "
+                f"${float(card.get('fixture_price_usd', 0.0)):.2f} "
+                f"[score {slot['match_score']}]"
             )
         return 0
 

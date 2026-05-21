@@ -560,6 +560,10 @@ class TestCliParser(unittest.TestCase):
         sp = self._get_subparser("sync-real-assets")
         self.assertIsNotNone(sp)
 
+    def test_scan_image_subcommand(self) -> None:
+        sp = self._get_subparser("scan-image")
+        self.assertIsNotNone(sp)
+
 
 # ---------------------------------------------------------------------------
 # _cards_match integrated with scan output schema
