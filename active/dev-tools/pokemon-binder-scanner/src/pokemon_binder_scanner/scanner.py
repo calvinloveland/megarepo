@@ -358,12 +358,45 @@ def _detect_edge_components(
     contrast against the binder page (e.g.  glare, soft-focus, or
     pale artwork) still produce visible edges that this method
     can pick up.
+
+    Uses Otsu thresholding (adaptive per image) instead of a fixed
+    percentile, so that images with weak overall edges still isolate
+    card boundaries cleanly.
     """
     gray = np.asarray(image.convert("L"), dtype=np.float32) / 255.0
     gy, gx = np.gradient(gray)
     edge = np.hypot(gx, gy)
 
-    threshold = float(np.percentile(edge, IRREGULAR_EDGE_THRESHOLD_PERCENTILE))
+    # Convert to 8-bit for Otsu thresholding
+    edge_max = float(edge.max())
+    if edge_max > 1e-6:
+        edge_8bit = (edge / edge_max * 255).astype(np.uint8)
+        # Otsu's method — maximise between-class variance
+        hist = np.bincount(edge_8bit.ravel(), minlength=256)[:256]
+        total = edge_8bit.size
+        sum_total = np.dot(np.arange(256, dtype=np.float64), hist)
+        sum_bg = 0.0
+        w_bg = 0
+        best_thresh = int(np.percentile(edge_8bit, 83))  # fallback
+        best_var = 0.0
+        for t in range(256):
+            w_bg += hist[t]
+            if w_bg == 0:
+                continue
+            w_fg = total - w_bg
+            if w_fg == 0:
+                break
+            sum_bg += t * hist[t]
+            mu_bg = sum_bg / w_bg
+            mu_fg = (sum_total - sum_bg) / w_fg
+            between_var = w_bg * w_fg * (mu_bg - mu_fg) ** 2
+            if between_var > best_var:
+                best_var = between_var
+                best_thresh = t
+        threshold = best_thresh / 255.0 * edge_max
+    else:
+        threshold = float(np.percentile(edge, IRREGULAR_EDGE_THRESHOLD_PERCENTILE))
+
     edge_mask = (edge > threshold).astype(np.uint8) * 255
 
     mask_img = Image.fromarray(edge_mask, mode="L")

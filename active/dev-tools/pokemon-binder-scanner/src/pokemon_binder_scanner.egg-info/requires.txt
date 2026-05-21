@@ -6,3 +6,4 @@ scikit-image>=0.22
 tqdm>=4.66
 
 [dev]
+pytest>=7.4

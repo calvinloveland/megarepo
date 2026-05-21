@@ -274,9 +274,25 @@ PY
       inherit devShells;
       packages = lib.genAttrs supportedSystems (system: {
         openvino-runtime = openvinoContexts.${system}.openvinoRuntime;
+        # Bootstrap ISO image (derived from bootstrap-image nixosConfig)
+        bootstrap-iso = self.nixosConfigurations.bootstrap-image.config.system.build.isoImage;
       });
 
       nixosConfigurations = {
+        # Bootable live USB image for enrolling new machines
+        # Build: nix build .#bootstrap-iso
+        # Write: dd if=result/iso/*.iso of=/dev/sdX status=progress
+        bootstrap-image = nixpkgs.lib.nixosSystem {
+          system = "x86_64-linux";
+          specialArgs = {
+            inherit inputs;
+            packageHealth = { };
+          };
+          modules = [
+            "${nixpkgs}/nixos/modules/installer/cd-dvd/iso-image.nix"
+            ./hosts/bootstrap-image/configuration.nix
+          ];
+        };
         # ThinkPad configuration with gaming
         thinker = nixpkgs.lib.nixosSystem {
           system = "x86_64-linux";
