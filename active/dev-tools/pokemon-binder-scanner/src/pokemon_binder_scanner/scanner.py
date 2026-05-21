@@ -26,7 +26,7 @@ DEFAULT_LAYOUT_BBOXES: tuple[tuple[float, float, float, float], ...] = (
 )
 LAYOUT_TEMPLATE_CONFIDENCE_THRESHOLD = 0.16
 IRREGULAR_LAYOUT_NMS_IOU_THRESHOLD = 0.35
-IRREGULAR_LAYOUT_MATCH_SCORE_THRESHOLD = 0.09
+IRREGULAR_LAYOUT_MATCH_SCORE_THRESHOLD = 0.12
 IRREGULAR_LAYOUT_THRESHOLD_PAIRS: tuple[tuple[int, int], ...] = (
     (50, 80),
     (70, 80),
@@ -336,15 +336,31 @@ def _detect_irregular_layout_bboxes(
     # ---- 3. Variance-based candidates (complementary) ----
     candidate_bboxes.extend(_detect_variance_components(image))
 
-    # ---- 4. NMS + match-score filter ----
-    filtered_candidates = sorted(candidate_bboxes, key=lambda item: item[0], reverse=True)
+    # ---- 4. Deduplicate, score, then NMS by match quality ----
+    deduped: list[tuple[float, tuple[float, float, float, float]]] = []
+    for score, bbox in candidate_bboxes:
+        if any(_bbox_iou(bbox, existing_bbox) > 0.8 for _, existing_bbox in deduped):
+            continue
+        deduped.append((score, bbox))
+
+    # Limit to top 25 by component score to keep scoring fast
+    top_candidates = sorted(deduped, key=lambda item: item[0], reverse=True)[:25]
+
+    # Score each candidate with the matcher
+    scored: list[tuple[float, tuple[float, float, float, float]]] = []
+    for _, bbox in top_candidates:
+        best_match = _predict_slot_match(_crop_bbox(image, bbox), reference_index)
+        scored.append((best_match["score"], bbox))
+
+    # Sort by match score (lower is better), then NMS
+    scored.sort(key=lambda item: item[0])
     accepted_bboxes: list[tuple[float, float, float, float]] = []
-    for _, bbox in filtered_candidates:
+    for match_score, bbox in scored:
+        if match_score > IRREGULAR_LAYOUT_MATCH_SCORE_THRESHOLD:
+            continue
         if any(_bbox_iou(bbox, existing_bbox) > IRREGULAR_LAYOUT_NMS_IOU_THRESHOLD for existing_bbox in accepted_bboxes):
             continue
-        best_match = _predict_slot_match(_crop_bbox(image, bbox), reference_index)
-        if best_match["score"] <= IRREGULAR_LAYOUT_MATCH_SCORE_THRESHOLD:
-            accepted_bboxes.append(bbox)
+        accepted_bboxes.append(bbox)
 
     return tuple(_sort_bboxes_reading_order(accepted_bboxes)) if len(accepted_bboxes) >= 3 else ()
 
