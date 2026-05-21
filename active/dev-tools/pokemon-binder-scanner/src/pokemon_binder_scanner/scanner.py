@@ -8,6 +8,7 @@ from typing import Any
 
 import numpy as np
 from PIL import Image, ImageFilter, ImageOps
+from skimage.measure import label, regionprops
 
 from .binder_fixtures import DEFAULT_MANIFEST_PATH, _apply_card_transform, build_reference_catalog, load_manifest
 
@@ -595,36 +596,14 @@ def _normalize_irregular_component_bbox(
 
 
 def _connected_components(mask: np.ndarray) -> list[tuple[int, tuple[int, int, int, int]]]:
-    height, width = mask.shape
-    seen = np.zeros_like(mask, dtype=bool)
-    components: list[tuple[int, tuple[int, int, int, int]]] = []
-    for y in range(height):
-        for x in range(width):
-            if not mask[y, x] or seen[y, x]:
-                continue
-            stack = [(x, y)]
-            seen[y, x] = True
-            min_x = max_x = x
-            min_y = max_y = y
-            pixel_count = 0
-            while stack:
-                current_x, current_y = stack.pop()
-                pixel_count += 1
-                min_x = min(min_x, current_x)
-                min_y = min(min_y, current_y)
-                max_x = max(max_x, current_x)
-                max_y = max(max_y, current_y)
-                for next_x, next_y in (
-                    (current_x + 1, current_y),
-                    (current_x - 1, current_y),
-                    (current_x, current_y + 1),
-                    (current_x, current_y - 1),
-                ):
-                    if 0 <= next_x < width and 0 <= next_y < height and mask[next_y, next_x] and not seen[next_y, next_x]:
-                        seen[next_y, next_x] = True
-                        stack.append((next_x, next_y))
-            components.append((pixel_count, (min_x, min_y, max_x + 1, max_y + 1)))
-    return components
+    labeled = label(mask, connectivity=1)
+    if labeled.max() == 0:
+        return []
+    props = regionprops(labeled)
+    return [
+        (int(prop.area), (prop.bbox[1], prop.bbox[0], prop.bbox[3], prop.bbox[2]))
+        for prop in props
+    ]
 
 
 def _score_layout_template(
@@ -966,18 +945,23 @@ def _score(left: dict[str, Any], right: dict[str, Any]) -> float:
 
 def _masked_mse(left: np.ndarray, right: np.ndarray, left_mask: np.ndarray, right_mask: np.ndarray) -> float:
     mask = (left_mask > 0.2) & (right_mask > 0.2)
-    if int(mask.sum()) < max(24, mask.size // 12):
+    count = int(mask.sum())
+    threshold = max(24, mask.size // 12)
+    if count < threshold:
         return float(np.mean((left - right) ** 2))
-    return float(np.mean((left[mask] - right[mask]) ** 2))
+    diff_sq = np.where(mask, (left - right) ** 2, 0.0)
+    return float(diff_sq.sum() / count)
 
 
 def _masked_mae(left: np.ndarray, right: np.ndarray, left_mask: np.ndarray, right_mask: np.ndarray) -> float:
     mask = (left_mask > 0.2) & (right_mask > 0.2)
-    if int(mask.sum()) < max(18, mask.shape[0] * mask.shape[1] // 10):
+    count = int(mask.sum())
+    threshold = max(18, mask.shape[0] * mask.shape[1] // 10)
+    if count < threshold:
         return float(np.mean(np.abs(left - right)))
-    expanded_mask = mask[..., None]
     diff = np.abs(left - right)
-    return float(diff[expanded_mask.repeat(diff.shape[2], axis=2)].mean())
+    masked_diff = np.where(mask[..., None], diff, 0.0)
+    return float(masked_diff.sum() / count)
 
 
 def _cards_match(expected_card: dict[str, Any], predicted_card: dict[str, Any]) -> bool:

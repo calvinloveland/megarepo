@@ -8,3 +8,4 @@ presets/
 .tmp/
 *.egg-info/
 *.pyc
+*.pt
