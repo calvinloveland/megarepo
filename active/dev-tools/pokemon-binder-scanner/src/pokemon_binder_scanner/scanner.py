@@ -27,6 +27,9 @@ DEFAULT_LAYOUT_BBOXES: tuple[tuple[float, float, float, float], ...] = (
 LAYOUT_TEMPLATE_CONFIDENCE_THRESHOLD = 0.16
 IRREGULAR_LAYOUT_NMS_IOU_THRESHOLD = 0.35
 IRREGULAR_LAYOUT_MATCH_SCORE_THRESHOLD = 0.12
+IRREGULAR_REFINE_AREA_THRESHOLD = 0.048
+IRREGULAR_REFINE_SHIFTS = (-0.05, 0.0, 0.05)
+IRREGULAR_REFINE_SCALES = (0.85,)
 IRREGULAR_LAYOUT_THRESHOLD_PAIRS: tuple[tuple[int, int], ...] = (
     (50, 80),
     (70, 80),
@@ -308,6 +311,29 @@ def _detect_layout_bboxes(
     return irregular_bboxes if irregular_bboxes else best_template_bboxes
 
 
+def _refine_irregular_bbox(
+    image: Image.Image,
+    bbox: tuple[float, float, float, float],
+    reference_index: list[dict[str, Any]],
+) -> tuple[float, tuple[float, float, float, float], str]:
+    """Run a small local search around *bbox* and return the best sub-box."""
+    left, top, w, h = bbox
+    best_match = _predict_slot_match(_crop_bbox(image, bbox), reference_index)
+    best = (best_match["score"], bbox, best_match["card"]["canonical_card_id"])
+    for dx in IRREGULAR_REFINE_SHIFTS:
+        for dy in IRREGULAR_REFINE_SHIFTS:
+            for scale in IRREGULAR_REFINE_SCALES:
+                cx = left + w / 2 + dx
+                cy = top + h / 2 + dy
+                sw = w * scale
+                sh = h * scale
+                sub = (max(0.0, cx - sw / 2), max(0.0, cy - sh / 2), sw, sh)
+                match = _predict_slot_match(_crop_bbox(image, sub), reference_index)
+                if match["score"] < best[0]:
+                    best = (match["score"], sub, match["card"]["canonical_card_id"])
+    return best
+
+
 def _detect_irregular_layout_bboxes(
     image: Image.Image,
     *,
@@ -352,10 +378,27 @@ def _detect_irregular_layout_bboxes(
         best_match = _predict_slot_match(_crop_bbox(image, bbox), reference_index)
         scored.append((best_match["score"], bbox))
 
-    # Sort by match score (lower is better), then NMS
-    scored.sort(key=lambda item: item[0])
-    accepted_bboxes: list[tuple[float, float, float, float]] = []
+    # Refine large accepted candidates with a local grid search
+    refined: list[tuple[float, tuple[float, float, float, float]]] = []
     for match_score, bbox in scored:
+        area = bbox[2] * bbox[3]
+        if area > IRREGULAR_REFINE_AREA_THRESHOLD and match_score <= IRREGULAR_LAYOUT_MATCH_SCORE_THRESHOLD:
+            refined_match = _refine_irregular_bbox(image, bbox, reference_index)
+            refined.append((refined_match[0], refined_match[1]))
+        else:
+            refined.append((match_score, bbox))
+
+    # Deduplicate refined candidates
+    deduped_refined: list[tuple[float, tuple[float, float, float, float]]] = []
+    for score, bbox in refined:
+        if any(_bbox_iou(bbox, existing_bbox) > 0.8 for _, existing_bbox in deduped_refined):
+            continue
+        deduped_refined.append((score, bbox))
+
+    # Sort by match score (lower is better), then NMS
+    deduped_refined.sort(key=lambda item: item[0])
+    accepted_bboxes: list[tuple[float, float, float, float]] = []
+    for match_score, bbox in deduped_refined:
         if match_score > IRREGULAR_LAYOUT_MATCH_SCORE_THRESHOLD:
             continue
         if any(_bbox_iou(bbox, existing_bbox) > IRREGULAR_LAYOUT_NMS_IOU_THRESHOLD for existing_bbox in accepted_bboxes):
