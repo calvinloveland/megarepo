@@ -41,6 +41,12 @@ IRREGULAR_LAYOUT_THRESHOLD_PAIRS: tuple[tuple[int, int], ...] = (
 IRREGULAR_COMPONENT_MIN_PIXELS = 5_000
 IRREGULAR_COMPONENT_MAX_PIXELS = 120_000
 
+# Cascade-matching threshold: when the reference index has more than this
+# many unique cards, the scanner uses a fast HSV-histogram pre-filter to
+# narrow down to the top candidates before running the full match.
+CASCADE_THRESHOLD = 200
+CASCADE_TOP_K = 60
+
 # Edge-based detection parameters (complementary to HSV thresholding)
 IRREGULAR_EDGE_THRESHOLD_PERCENTILE = 83
 IRREGULAR_EDGE_MIN_PIXELS = 4_000
@@ -88,6 +94,13 @@ AUTO_LAYOUT_TEMPLATES: tuple[tuple[str, tuple[tuple[float, float, float, float],
     ("grid-4x3", _square_grid_layout(4, 3, left=0.05, top=0.07, size=0.18, gap_x=0.05, gap_y=0.12)),
     ("grid-3x4", _square_grid_layout(3, 4, left=0.07, top=0.05, size=0.18, gap_x=0.12, gap_y=0.05)),
 )
+def _variant_configs_for_corpus_size(corpus_size: int) -> tuple[dict[str, Any], ...]:
+    """Return the appropriate variant configs based on corpus size."""
+    if corpus_size <= CASCADE_THRESHOLD:
+        return REFERENCE_VARIANT_CONFIGS
+    return LIGHTWEIGHT_VARIANT_CONFIGS
+
+
 REFERENCE_VARIANT_CONFIGS: tuple[dict[str, Any], ...] = (
     {"visibility": "clear", "tilt_degrees": 0.0, "render_effects": []},
     {"visibility": "glare", "tilt_degrees": 4.0, "render_effects": []},
@@ -112,6 +125,14 @@ REFERENCE_VARIANT_CONFIGS: tuple[dict[str, Any], ...] = (
         "render_effects": ["motion_blur", "blue_cast", "bottom_occlusion"],
     },
     {"visibility": "tilted", "tilt_degrees": 9.0, "render_effects": ["zoom_crop", "corner_occlusion"]},
+)
+
+LIGHTWEIGHT_VARIANT_CONFIGS: tuple[dict[str, Any], ...] = (
+    {"visibility": "clear", "tilt_degrees": 0.0, "render_effects": []},
+    {"visibility": "glare", "tilt_degrees": 3.0, "render_effects": []},
+    {"visibility": "glare", "tilt_degrees": -3.0, "render_effects": []},
+    {"visibility": "soft_focus", "tilt_degrees": 0.0, "render_effects": []},
+    {"visibility": "tilted", "tilt_degrees": 6.0, "render_effects": []},
 )
 
 
@@ -140,11 +161,19 @@ def _build_reference_index_cached(manifest_json: str, root_key: str) -> list[dic
     manifest = json.loads(manifest_json)
     catalog = build_reference_catalog(manifest)
     index: list[dict[str, Any]] = []
+    # Pre-computed HSV fingerprints for cascade matching (one per card, not
+    # per variant — we pick the "clear" variant as the canonical fingerprint).
+    cascade_fingerprints: list[np.ndarray] | None = None
+    cascade_card_ids: list[str] | None = None
+    if len(catalog) > CASCADE_THRESHOLD:
+        cascade_fingerprints = []
+        cascade_card_ids = []
     for canonical_card_id, card in sorted(catalog.items()):
         reference_path = manifest_root / str(card["reference_image_path"])
         with Image.open(reference_path) as source_image:
             source = ImageOps.exif_transpose(source_image).convert("RGBA")
-        variants = [_signature(_prepare_reference_variant(source, config)) for config in REFERENCE_VARIANT_CONFIGS]
+        variant_configs = _variant_configs_for_corpus_size(len(catalog))
+        variants = [_signature(_prepare_reference_variant(source, config)) for config in variant_configs]
         index.append(
             {
                 "canonical_card_id": canonical_card_id,
@@ -152,6 +181,10 @@ def _build_reference_index_cached(manifest_json: str, root_key: str) -> list[dic
                 "variants": variants,
             }
         )
+        # Store the HSV fingerprint of the "clear" variant for cascade pre-filter.
+        if cascade_fingerprints is not None and cascade_card_ids is not None:
+            cascade_fingerprints.append(_fingerprint_from_hsv(variants[0]["hsv"]))
+            cascade_card_ids.append(canonical_card_id)
     # Add empty-slot reference so the matcher can recognise blank pockets
     empty_ref_path = manifest_root / "reference_cards" / "empty.jpg"
     if empty_ref_path.exists():
@@ -172,7 +205,24 @@ def _build_reference_index_cached(manifest_json: str, root_key: str) -> list[dic
             "variants": blank_variants,
         }
     )
+    # Attach cascade metadata to the index (first entry carries it).
+    if cascade_fingerprints is not None and len(index) > 0:
+        index[0]["_cascade_fingerprints"] = np.stack(cascade_fingerprints, axis=0)
+        index[0]["_cascade_card_ids"] = cascade_card_ids
     return index
+
+
+def _fingerprint_from_hsv(hsv: np.ndarray) -> np.ndarray:
+    """Compute a compact fingerprint from an HSV image patch.
+
+    Returns a 1-D float32 array of normalised 2D histogram bin counts.
+    """
+    h_bins, s_bins = 12, 8
+    hs = hsv[:, :, :2].reshape(-1, 2)
+    hist, _ = np.histogramdd(hs, bins=(h_bins, s_bins), range=((0, 1), (0, 1)))
+    hist_f = hist.astype(np.float32).ravel()
+    total = hist_f.sum()
+    return hist_f / max(1.0, total)
 
 
 def scan_fixture_image(
@@ -872,14 +922,92 @@ def _crop_bbox(image: Image.Image, bbox: tuple[float, float, float, float]) -> I
 
 
 def _predict_slot_match(slot_image: Image.Image, reference_index: list[dict[str, Any]]) -> dict[str, Any]:
+    # Check whether cascade matching is available (pre-computed fingerprints
+    # are stored on the first index entry when the corpus is large).
+    cascade_prints: np.ndarray | None = reference_index[0].get("_cascade_fingerprints")  # type: ignore[assignment]
+    cascade_ids: list[str] | None = reference_index[0].get("_cascade_card_ids")  # type: ignore[assignment]
+
     best_match: dict[str, Any] | None = None
     for card_crop in _extract_card_candidates(slot_image):
         slot_signature = _signature(_prepare_slot_image(card_crop))
-        candidate_match = _best_match(slot_signature, reference_index)
+        if cascade_prints is not None and cascade_ids is not None:
+            candidate_match = _cascade_match(slot_signature, reference_index, cascade_prints, cascade_ids)
+        else:
+            candidate_match = _best_match(slot_signature, reference_index)
         if best_match is None or candidate_match["score"] < best_match["score"]:
             best_match = candidate_match
     assert best_match is not None
     return best_match
+
+
+def _find_top_k_candidates(
+    query_hsv: np.ndarray,
+    cascade_prints: np.ndarray,
+    cascade_ids: list[str],
+    k: int,
+) -> list[str]:
+    """Find the top-K card IDs whose HSV fingerprints are closest to the query.
+
+    Uses vectorised Bhattacharyya distance over the pre-computed fingerprint
+    matrix.  Returns the K most-similar unique card IDs.
+    """
+    query_fp = _fingerprint_from_hsv(query_hsv).astype(np.float64)
+    prints_f64 = cascade_prints.astype(np.float64)
+
+    # Bhattacharyya distance:  1 - sum(sqrt(q * r))
+    bc = np.sum(np.sqrt(query_fp[None, :] * prints_f64), axis=1)
+    distances = 1.0 - bc
+
+    # Get indices of K smallest distances.
+    if k >= len(distances):
+        top_indices = np.arange(len(distances))
+    else:
+        # Use argpartition for O(N) partial sort.
+        top_indices = np.argpartition(distances, k)[:k]
+        top_indices = top_indices[np.argsort(distances[top_indices])]
+
+    # Deduplicate card IDs while preserving distance order.
+    seen: set[str] = set()
+    candidates: list[str] = []
+    for idx in top_indices:
+        cid = cascade_ids[idx]
+        if cid not in seen:
+            seen.add(cid)
+            candidates.append(cid)
+    return candidates
+
+
+def _cascade_match(
+    slot_signature: dict[str, Any],
+    reference_index: list[dict[str, Any]],
+    cascade_prints: np.ndarray,
+    cascade_ids: list[str],
+) -> dict[str, Any]:
+    """Two-stage match: fast HSV pre-filter, then full comparison on top-K."""
+    query_hsv = slot_signature.get("hsv")
+    if query_hsv is None:
+        return _best_match(slot_signature, reference_index)
+
+    # Stage 1: find top-K candidates via HSV fingerprint distance.
+    candidates = _find_top_k_candidates(query_hsv, cascade_prints, cascade_ids, CASCADE_TOP_K)
+
+    # Build a candidate set for fast lookup.  Always include "empty".
+    candidate_set = set(candidates)
+    candidate_set.add("empty")
+
+    # Stage 2: run full signature matching only on the shortlisted cards.
+    best: dict[str, Any] | None = None
+    for entry in reference_index:
+        if entry["canonical_card_id"] not in candidate_set:
+            continue
+        best_variant_score = min(_score(slot_signature, variant) for variant in entry["variants"])
+        if best is None or best_variant_score < best["score"]:
+            best = {
+                "card": dict(entry["card"], canonical_card_id=entry["canonical_card_id"]),
+                "score": best_variant_score,
+            }
+    assert best is not None
+    return best
 
 
 def _extract_card_candidates(slot_image: Image.Image) -> list[Image.Image]:

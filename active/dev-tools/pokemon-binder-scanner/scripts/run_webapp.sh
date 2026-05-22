@@ -21,7 +21,12 @@ mkdir -p "$LOG_DIR"
 EXPANDED_MANIFEST="$DATA_ROOT/expanded_binder_manifest.json"
 FIXTURE_MANIFEST="$PROJECT_DIR/tests/fixtures/pokemon_binder/manifest.json"
 
-if [ -f "$EXPANDED_MANIFEST" ]; then
+# Default to the lean fixture manifest for fast interactive scanning.
+# Set POKEMON_BINDER_MANIFEST_PATH to the expanded manifest for bulk testing.
+if [ -n "${POKEMON_BINDER_MANIFEST_PATH:-}" ]; then
+    MANIFEST_PATH="$POKEMON_BINDER_MANIFEST_PATH"
+    echo "Using manifest from env: $MANIFEST_PATH"
+elif [ -f "$EXPANDED_MANIFEST" ] && [ "${USE_EXPANDED:-0}" = "1" ]; then
     MANIFEST_PATH="$EXPANDED_MANIFEST"
     echo "Using expanded manifest: $MANIFEST_PATH"
 else
