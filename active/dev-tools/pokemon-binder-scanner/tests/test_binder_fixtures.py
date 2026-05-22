@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import io
+import json
+import os
+import random
 import sys
 import tempfile
 import unittest
@@ -19,8 +22,15 @@ from pokemon_binder_scanner.binder_fixtures import (  # noqa: E402
     summarize_manifest,
     validate_manifest,
 )
-from pokemon_binder_scanner.scanner import evaluate_scanner_on_fixture_dataset, scan_fixture_image  # noqa: E402
+from pokemon_binder_scanner.scanner import (  # noqa: E402
+    evaluate_scanner_on_fixture_dataset,
+    scan_fixture_image,
+    build_reference_index,
+)
 from pokemon_binder_scanner.webapp import app as web_app  # noqa: E402
+
+# Path to the expanded card corpus on /data — used by anti-overfitting tests.
+_EXPANDED_CORPUS = Path("/data/home/calvin/pokemon-binder-scanner/cards_manifest.json")
 
 
 class BinderFixtureTests(unittest.TestCase):
@@ -311,6 +321,333 @@ class BinderFixtureTests(unittest.TestCase):
             self.assertIn("Picture-only audit", html)
             self.assertIn("adversarial scanner breakage cases", html)
             self.assertIn("twelve-up layout probe", html)
+
+
+# ---------------------------------------------------------------------------
+# Anti-overfitting: randomised held-out card tests
+# ---------------------------------------------------------------------------
+
+class RandomCorpusRegressionTests(unittest.TestCase):
+    """Scanner evaluations against randomly-sampled cards from the expanded
+    /data corpus to guard against overfitting to the fixed fixture manifest.
+
+    Each run picks a fresh random subset of cards, builds a temporary
+    binder manifest, renders JPEG page photos, and measures scanner
+    accuracy.  Because the seed is fixed per-test the results are
+    reproducible, but the card pool is large enough (20k cards) that
+    no single card set can be memorised across CI runs.
+    """
+
+    # Number of unique cards to use in the random corpus test.
+    # Kept moderate so the test runs in a reasonable time.
+    RANDOM_CORPUS_CARD_COUNT = 200
+
+    # Cards-per-page for generated binder pages.
+    CARDS_PER_PAGE = 9
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        if not _EXPANDED_CORPUS.exists():
+            raise unittest.SkipTest(
+                f"Expanded corpus not found at {_EXPANDED_CORPUS}. "
+                "Run scripts/bulk_download_cards.py first."
+            )
+
+    def _load_random_cards(self, seed: int, count: int) -> list[dict]:
+        """Load *count* random cards from the expanded corpus.
+
+        Uses a deterministic seed so the test is reproducible within a
+        single commit but still draws from a pool of 20k cards.
+        """
+        with _EXPANDED_CORPUS.open("r", encoding="utf-8") as handle:
+            corpus = json.load(handle)
+        all_cards = corpus.get("cards", [])
+        if len(all_cards) < count:
+            raise unittest.SkipTest(
+                f"Corpus has only {len(all_cards)} cards, need at least {count}"
+            )
+        rng = random.Random(seed)
+        # Shuffle a copy so we don't mutate the original list reference.
+        pool = list(all_cards)
+        rng.shuffle(pool)
+        return pool[:count]
+
+    def _build_random_manifest(
+        self, cards: list[dict], seed: int
+    ) -> dict:
+        """Build a minimal binder manifest from a random card list."""
+        rng = random.Random(seed)
+        pages: list[dict] = []
+        page_num = 0
+        remaining = list(cards)
+        rng.shuffle(remaining)
+
+        # Standard 3×3 grid bboxes.
+        bboxes_3x3 = [
+            (0.05, 0.05, 0.25, 0.25),
+            (0.365, 0.05, 0.25, 0.25),
+            (0.68, 0.05, 0.25, 0.25),
+            (0.05, 0.365, 0.25, 0.25),
+            (0.365, 0.365, 0.25, 0.25),
+            (0.68, 0.365, 0.25, 0.25),
+            (0.05, 0.68, 0.25, 0.25),
+            (0.365, 0.68, 0.25, 0.25),
+            (0.68, 0.68, 0.25, 0.25),
+        ]
+
+        while remaining:
+            page_cards = remaining[:self.CARDS_PER_PAGE]
+            remaining = remaining[self.CARDS_PER_PAGE:]
+            if not page_cards:
+                break
+
+            page_num += 1
+            page_id = f"random-page-{page_num:03d}"
+            slots = []
+            page_total = 0.0
+            for slot_idx, card in enumerate(page_cards):
+                slot_id = f"{page_id}-slot-{slot_idx + 1:02d}"
+                bbox = bboxes_3x3[slot_idx] if slot_idx < len(bboxes_3x3) else bboxes_3x3[-1]
+                price = float(card.get("fixture_price_usd", 0.0))
+                page_total += price
+                slots.append({
+                    "slot_id": slot_id,
+                    "bbox_norm": list(bbox),
+                    "visibility": "clear",
+                    "tilt_degrees": 0.0,
+                    "render_effects": [],
+                    "card": {
+                        "canonical_card_id": card["canonical_card_id"],
+                        "name": card.get("name", "Unknown"),
+                        "collector_number": card.get("collector_number", ""),
+                        "set_code": card.get("set_code", ""),
+                        "variant": card.get("variant", "unknown"),
+                        "condition": card.get("condition", "near_mint"),
+                        "reference_image_path": f"reference_cards/{card['canonical_card_id']}.png",
+                        "fixture_price_usd": round(price, 2),
+                    },
+                })
+
+            pages.append({
+                "page_id": page_id,
+                "label": f"Random page {page_num}",
+                "notes": [],
+                "slots": slots,
+                "expected_total_usd": round(page_total, 2),
+            })
+
+        all_slots = [slot for page in pages for slot in page["slots"]]
+        priced_count = len(all_slots)
+        binder_total = round(sum(float(s["card"]["fixture_price_usd"]) for s in all_slots), 2)
+
+        # Duplicate groups (cards that appear more than once).
+        counts: dict[str, int] = {}
+        totals: dict[str, float] = {}
+        for slot in all_slots:
+            cid = slot["card"]["canonical_card_id"]
+            counts[cid] = counts.get(cid, 0) + 1
+            totals[cid] = round(totals.get(cid, 0.0) + float(slot["card"]["fixture_price_usd"]), 2)
+        duplicate_groups = [
+            {"canonical_card_id": cid, "count": cnt, "total_price_usd": totals[cid]}
+            for cid, cnt in sorted(counts.items()) if cnt > 1
+        ]
+
+        return {
+            "fixture_name": "random-corpus-regression",
+            "version": 1,
+            "description": (
+                f"Randomly-sampled {len(cards)}-card corpus for anti-overfitting regression."
+            ),
+            "pricing_reference": {
+                "type": "api-market",
+                "currency": "USD",
+                "snapshot_date": "2026-05-22",
+                "notes": "Prices from pokemontcg.io API",
+            },
+            "expected_page_count": len(pages),
+            "expected_priced_card_count": priced_count,
+            "expected_binder_total_usd": binder_total,
+            "expected_duplicate_groups": duplicate_groups,
+            "pages": pages,
+        }
+
+    def _copy_reference_images(self, cards: list[dict], dest_dir: Path) -> None:
+        """Copy the reference card images from /data into *dest_dir*
+        so the rendered pages have the card images available."""
+        dest_dir.mkdir(parents=True, exist_ok=True)
+        source_dir = _EXPANDED_CORPUS.parent / "reference_cards"
+        copied = 0
+        for card in cards:
+            src = source_dir / f"{card['canonical_card_id']}.png"
+            dst = dest_dir / f"{card['canonical_card_id']}.png"
+            if src.exists() and not dst.exists():
+                dst.write_bytes(src.read_bytes())
+                copied += 1
+        if copied == 0:
+            raise unittest.SkipTest(
+                "No reference card images available in "
+                f"{source_dir}. Run scripts/bulk_download_cards.py first."
+            )
+
+    # ------------------------------------------------------------------
+    # Test: random subset achieves reasonable accuracy
+    # ------------------------------------------------------------------
+
+    def test_random_corpus_accuracy_above_threshold(self) -> None:
+        """Scanner accuracy on a random 200-card subset must stay above 85%.
+
+        This is the main anti-overfitting guardrail: if the scanner
+        overfits to the old 88-card fixture corpus, a fresh random set
+        will expose the gap immediately.
+        """
+        seed = int(os.environ.get("RANDOM_CORPUS_SEED", "20260522"))
+        cards = self._load_random_cards(seed, self.RANDOM_CORPUS_CARD_COUNT)
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            base = Path(tmp_dir)
+            fixture_root = base / "random_fixture"
+            ref_dir = fixture_root / "reference_cards"
+            render_dir = fixture_root / "rendered"
+
+            self._copy_reference_images(cards, ref_dir)
+            manifest = self._build_random_manifest(cards, seed)
+
+            # Write manifest inside fixture_root so relative paths work.
+            manifest_path = fixture_root / "manifest.json"
+            manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+
+            # Render JPEG pages.
+            render_fixture_pages(manifest, render_dir, manifest_root=fixture_root)
+
+            # Evaluate scanner using the manifest's own reference index.
+            report = evaluate_scanner_on_fixture_dataset(
+                manifest, render_dir, manifest_root=fixture_root
+            )
+
+            total_slots = report["total_slots"]
+            matched = report["matched_cards"]
+            accuracy = report["card_accuracy"]
+
+            # The scanner should identify clean, clear, untilted cards
+            # with high accuracy.  85% is a generous lower bound
+            # (the fixture adversarial pages drag the old test down to
+            # ~80%, but random clean cards should be much easier).
+            self.assertGreaterEqual(
+                accuracy, 0.85,
+                f"Random-corpus accuracy {accuracy:.2%} below 85% threshold "
+                f"({matched}/{total_slots} cards matched). "
+                "Possible overfitting to the fixed fixture manifest."
+            )
+
+    # ------------------------------------------------------------------
+    # Test: two different random seeds produce different manifest
+    # ------------------------------------------------------------------
+
+    def test_different_seeds_yield_different_cards(self) -> None:
+        """Sanity-check that the random card loader actually produces
+        different subsets for different seeds."""
+        cards_a = self._load_random_cards(42, 100)
+        cards_b = self._load_random_cards(99, 100)
+
+        ids_a = {c["canonical_card_id"] for c in cards_a}
+        ids_b = {c["canonical_card_id"] for c in cards_b}
+
+        # With 100 cards drawn from 20k, the overlap should be tiny.
+        overlap = ids_a & ids_b
+        self.assertLessEqual(
+            len(overlap), 5,
+            f"Seeds 42 and 99 share {len(overlap)} cards — "
+            "randomisation may be broken."
+        )
+        # Each set should have the expected number.
+        self.assertEqual(len(cards_a), 100)
+        self.assertEqual(len(cards_b), 100)
+
+    # ------------------------------------------------------------------
+    # Test: reference index built from random cards is internally
+    #        consistent (every card in the index matches itself).
+    # ------------------------------------------------------------------
+
+    def test_random_cards_self_match(self) -> None:
+        """Every card in a random reference index should match itself
+        with a low (good) score when scanned in isolation."""
+        seed = 777
+        cards = self._load_random_cards(seed, 20)
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            base = Path(tmp_dir)
+            fixture_root = base / "self_match_fixture"
+            ref_dir = fixture_root / "reference_cards"
+            self._copy_reference_images(cards, ref_dir)
+            manifest = self._build_random_manifest(cards, seed)
+
+            manifest_path = fixture_root / "manifest.json"
+            manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+
+            # Build the index directly so we can inspect match scores.
+            index = build_reference_index(manifest, manifest_root=fixture_root)
+
+            # For each card, render a single-card page and scan it.
+            for card in cards[:20]:
+                single_manifest = self._build_single_card_manifest(card, seed)
+                render_dir = fixture_root / f"single_{card['canonical_card_id']}"
+                render_fixture_pages(single_manifest, render_dir, manifest_root=fixture_root)
+
+                rendered = render_dir / f"{single_manifest['pages'][0]['page_id']}.jpg"
+                self.assertTrue(rendered.exists(), f"No render for {card['canonical_card_id']}")
+
+                result = scan_fixture_image(rendered, reference_index=index)
+                self.assertEqual(result["slot_count"], 1)
+                predicted_id = result["slots"][0]["card"].get("canonical_card_id")
+                match_score = result["slots"][0].get("match_score", 1.0)
+
+                self.assertEqual(
+                    predicted_id, card["canonical_card_id"],
+                    f"Self-match failed for {card['canonical_card_id']}: "
+                    f"predicted {predicted_id} (score {match_score})"
+                )
+                # A self-match score should be very low (good).
+                self.assertLess(
+                    match_score, 0.20,
+                    f"Self-match score {match_score} too high for {card['canonical_card_id']} — "
+                    "reference variant pipeline may be broken."
+                )
+
+    def _build_single_card_manifest(self, card: dict, seed: int) -> dict:
+        """Create a 1-page 1-card manifest for a single card."""
+        return {
+            "fixture_name": f"self-match-{card['canonical_card_id']}",
+            "version": 1,
+            "description": f"Single-card self-match test for {card['canonical_card_id']}",
+            "pricing_reference": {"type": "fixture", "currency": "USD", "snapshot_date": "2026-05-22"},
+            "expected_page_count": 1,
+            "expected_priced_card_count": 1,
+            "expected_binder_total_usd": float(card.get("fixture_price_usd", 0.0)),
+            "expected_duplicate_groups": [],
+            "pages": [{
+                "page_id": f"single-{card['canonical_card_id']}",
+                "label": f"Single: {card.get('name', 'Unknown')}",
+                "notes": [],
+                "slots": [{
+                    "slot_id": "s01",
+                    "bbox_norm": [0.25, 0.25, 0.50, 0.50],
+                    "visibility": "clear",
+                    "tilt_degrees": 0.0,
+                    "render_effects": [],
+                    "card": {
+                        "canonical_card_id": card["canonical_card_id"],
+                        "name": card.get("name", "Unknown"),
+                        "collector_number": card.get("collector_number", ""),
+                        "set_code": card.get("set_code", ""),
+                        "variant": card.get("variant", "unknown"),
+                        "condition": "near_mint",
+                        "reference_image_path": f"reference_cards/{card['canonical_card_id']}.png",
+                        "fixture_price_usd": float(card.get("fixture_price_usd", 0.0)),
+                    },
+                }],
+                "expected_total_usd": float(card.get("fixture_price_usd", 0.0)),
+            }],
+        }
 
 
 if __name__ == "__main__":

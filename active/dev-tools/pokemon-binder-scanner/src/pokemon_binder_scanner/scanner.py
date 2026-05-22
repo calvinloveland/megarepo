@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import random
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
@@ -122,22 +121,22 @@ def _default_reference_index() -> list[dict[str, Any]]:
     return build_reference_index(manifest)
 
 
-def build_reference_index(manifest: dict[str, Any]) -> list[dict[str, Any]]:
+def build_reference_index(
+    manifest: dict[str, Any],
+    *,
+    manifest_root: str | Path | None = None,
+) -> list[dict[str, Any]]:
+    root_key = str(manifest_root) if manifest_root is not None else ""
     manifest_json = json.dumps(manifest, sort_keys=True)
-    return _build_reference_index_cached(manifest_json)
-
-
-def _stack_variant_array(variants: list[dict[str, Any]], key: str) -> np.ndarray:
-    """Stack the *key* field from each variant signature into a single array.
-
-    The first dimension indexes the variant (0..N-1).
-    """
-    return np.stack([v[key] for v in variants], axis=0)
+    return _build_reference_index_cached(manifest_json, root_key)
 
 
 @lru_cache(maxsize=4)
-def _build_reference_index_cached(manifest_json: str) -> list[dict[str, Any]]:
-    manifest_root = DEFAULT_MANIFEST_PATH.parent
+def _build_reference_index_cached(manifest_json: str, root_key: str) -> list[dict[str, Any]]:
+    if root_key:
+        manifest_root = Path(root_key)
+    else:
+        manifest_root = DEFAULT_MANIFEST_PATH.parent
     manifest = json.loads(manifest_json)
     catalog = build_reference_catalog(manifest)
     index: list[dict[str, Any]] = []
@@ -151,18 +150,6 @@ def _build_reference_index_cached(manifest_json: str) -> list[dict[str, Any]]:
                 "canonical_card_id": canonical_card_id,
                 "card": dict(card),
                 "variants": variants,
-                # Pre-stacked arrays for vectorised scoring
-                "vs_gray": _stack_variant_array(variants, "gray"),
-                "vs_edge": _stack_variant_array(variants, "edge"),
-                "vs_art": _stack_variant_array(variants, "art_patch"),
-                "vs_edition": _stack_variant_array(variants, "edition_patch"),
-                "vs_bottom": _stack_variant_array(variants, "bottom_patch"),
-                "vs_color": _stack_variant_array(variants, "color"),
-                "vs_valid": _stack_variant_array(variants, "valid"),
-                "vs_art_valid": _stack_variant_array(variants, "art_valid"),
-                "vs_edition_valid": _stack_variant_array(variants, "edition_valid"),
-                "vs_bottom_valid": _stack_variant_array(variants, "bottom_valid"),
-                "vs_color_valid": _stack_variant_array(variants, "color_valid"),
             }
         )
     # Add empty-slot reference so the matcher can recognise blank pockets
@@ -183,17 +170,6 @@ def _build_reference_index_cached(manifest_json: str) -> list[dict[str, Any]]:
                 "fixture_price_usd": 0.0,
             },
             "variants": blank_variants,
-            "vs_gray": _stack_variant_array(blank_variants, "gray"),
-            "vs_edge": _stack_variant_array(blank_variants, "edge"),
-            "vs_art": _stack_variant_array(blank_variants, "art_patch"),
-            "vs_edition": _stack_variant_array(blank_variants, "edition_patch"),
-            "vs_bottom": _stack_variant_array(blank_variants, "bottom_patch"),
-            "vs_color": _stack_variant_array(blank_variants, "color"),
-            "vs_valid": _stack_variant_array(blank_variants, "valid"),
-            "vs_art_valid": _stack_variant_array(blank_variants, "art_valid"),
-            "vs_edition_valid": _stack_variant_array(blank_variants, "edition_valid"),
-            "vs_bottom_valid": _stack_variant_array(blank_variants, "bottom_valid"),
-            "vs_color_valid": _stack_variant_array(blank_variants, "color_valid"),
         }
     )
     return index
@@ -236,147 +212,97 @@ def scan_fixture_image(
     }
 
 
-def _evaluate_page_results(
-    expected_page: dict[str, Any],
-    scanned_page: dict[str, Any],
-) -> tuple[dict[str, Any], int, int, float]:
-    """Compare expected and scanned results for one page.
-
-    Returns (page_report_dict, total_slots_in_page, matched_cards_in_page, predicted_total).
-    """
-    expected_slots = _sort_slots_reading_order(list(expected_page["slots"]))
-    scanned_slots = _sort_slots_reading_order(list(scanned_page["slots"]))
-    expected_to_scanned, unmatched_scanned_indices = _match_slots_by_position(expected_slots, scanned_slots)
-    page_mismatches: list[str] = []
-    page_card_matches = 0
-    identified_slots: list[dict[str, Any]] = []
-    total_slots = 0
-
-    for expected_index, expected_slot in enumerate(expected_slots):
-        total_slots += 1
-        scanned_index = expected_to_scanned.get(expected_index)
-        if scanned_index is None:
-            page_mismatches.append(f"{expected_slot['slot_id']}: missing detection")
-            identified_slots.append(
-                {
-                    "slot_id": expected_slot["slot_id"],
-                    "matched": False,
-                    "reference_image_path": None,
-                    "predicted_card": None,
-                    "expected_card": expected_slot["card"],
-                }
-            )
-            continue
-
-        scanned_slot = scanned_slots[scanned_index]
-        expected_card = expected_slot.get("card")
-        predicted_card = scanned_slot["card"]
-        is_match = _cards_match(expected_card, predicted_card)
-        if is_match:
-            page_card_matches += 1
-        else:
-            expected_label = expected_card.get("canonical_card_id", "empty") if expected_card else "empty"
-            predicted_label = predicted_card.get("canonical_card_id", "empty") if predicted_card else "empty"
-            page_mismatches.append(
-                f"{expected_slot['slot_id']}: expected {expected_label} got {predicted_label}"
-            )
-        identified_slots.append(
-            {
-                "slot_id": expected_slot["slot_id"],
-                "matched": is_match,
-                "reference_image_path": (predicted_card or {}).get("reference_image_path"),
-                "predicted_card": predicted_card,
-                "expected_card": expected_card,
-            }
-        )
-
-    for scanned_index in unmatched_scanned_indices:
-        scanned_slot = scanned_slots[scanned_index]
-        page_mismatches.append(
-            f"unexpected detected slot {scanned_slot['slot_id']}: got {scanned_slot['card'].get('canonical_card_id')}"
-        )
-        identified_slots.append(
-            {
-                "slot_id": scanned_slot["slot_id"],
-                "matched": False,
-                "reference_image_path": scanned_slot["card"].get("reference_image_path"),
-                "predicted_card": scanned_slot["card"],
-                "expected_card": None,
-            }
-        )
-
-    predicted_total = scanned_page["predicted_total_usd"]
-    report = {
-        "page_id": expected_page["page_id"],
-        "label": expected_page["label"],
-        "expected_total_usd": round(float(expected_page["expected_total_usd"]), 2),
-        "predicted_total_usd": predicted_total,
-        "slot_count": len(expected_slots),
-        "predicted_slot_count": len(scanned_slots),
-        "card_matches": page_card_matches,
-        "mismatches": page_mismatches,
-        "identified_slots": identified_slots,
-    }
-    return report, total_slots, page_card_matches, predicted_total
-
-
 def evaluate_scanner_on_fixture_dataset(
     manifest: dict[str, Any],
     render_dir: str | Path,
     *,
-    parallel: bool = False,
-    max_workers: int = 4,
+    manifest_root: str | Path | None = None,
 ) -> dict[str, Any]:
     render_path = Path(render_dir)
-    reference_index = build_reference_index(manifest)
+    reference_index = build_reference_index(manifest, manifest_root=manifest_root)
     page_reports: list[dict[str, Any]] = []
     total_slots = 0
     matched_cards = 0
     predicted_total = 0.0
 
-    expected_pages = list(manifest.get("pages", []))
+    for expected_page in manifest.get("pages", []):
+        page_path = render_path / f"{expected_page['page_id']}.jpg"
+        scanned_page = scan_fixture_image(page_path, reference_index=reference_index)
+        expected_slots = _sort_slots_reading_order(list(expected_page["slots"]))
+        scanned_slots = _sort_slots_reading_order(list(scanned_page["slots"]))
+        expected_to_scanned, unmatched_scanned_indices = _match_slots_by_position(expected_slots, scanned_slots)
+        page_mismatches: list[str] = []
+        page_card_matches = 0
+        identified_slots: list[dict[str, Any]] = []
 
-    if parallel and len(expected_pages) > 1:
-        # Parallel scanning phase
-        page_paths = [render_path / f"{p['page_id']}.jpg" for p in expected_pages]
-        scanned_pages: list[dict[str, Any] | None] = [None] * len(expected_pages)
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            future_to_idx = {
-                executor.submit(scan_fixture_image, page_paths[i], reference_index=reference_index): i
-                for i in range(len(expected_pages))
-            }
-            for future in as_completed(future_to_idx):
-                idx = future_to_idx[future]
-                try:
-                    scanned_pages[idx] = future.result()
-                except Exception as exc:
-                    scanned_pages[idx] = None
-                    print(f"ERROR scanning page {expected_pages[idx]['page_id']}: {exc}")
-
-        # Sequential result aggregation — fast and keeps assertions deterministic
-        for idx, expected_page in enumerate(expected_pages):
-            scanned_page = scanned_pages[idx]
-            if scanned_page is None:
+        for expected_index, expected_slot in enumerate(expected_slots):
+            total_slots += 1
+            scanned_index = expected_to_scanned.get(expected_index)
+            if scanned_index is None:
+                page_mismatches.append(f"{expected_slot['slot_id']}: missing detection")
+                identified_slots.append(
+                    {
+                        "slot_id": expected_slot["slot_id"],
+                        "matched": False,
+                        "reference_image_path": None,
+                        "predicted_card": None,
+                        "expected_card": expected_slot["card"],
+                    }
+                )
                 continue
-            report, page_slots, page_matches, page_pred = _evaluate_page_results(
-                expected_page, scanned_page
+
+            scanned_slot = scanned_slots[scanned_index]
+            expected_card = expected_slot.get("card")
+            predicted_card = scanned_slot["card"]
+            is_match = _cards_match(expected_card, predicted_card)
+            if is_match:
+                matched_cards += 1
+                page_card_matches += 1
+            else:
+                expected_label = expected_card.get("canonical_card_id", "empty") if expected_card else "empty"
+                predicted_label = predicted_card.get("canonical_card_id", "empty") if predicted_card else "empty"
+                page_mismatches.append(
+                    f"{expected_slot['slot_id']}: expected {expected_label} got {predicted_label}"
+                )
+            identified_slots.append(
+                {
+                    "slot_id": expected_slot["slot_id"],
+                    "matched": is_match,
+                    "reference_image_path": (predicted_card or {}).get("reference_image_path"),
+                    "predicted_card": predicted_card,
+                    "expected_card": expected_card,
+                }
             )
-            total_slots += page_slots
-            matched_cards += page_matches
-            predicted_total += page_pred
-            page_reports.append(report)
-    else:
-        # Sequential (original behaviour)
-        for expected_page in expected_pages:
-            page_path = render_path / f"{expected_page['page_id']}.jpg"
-            scanned_page = scan_fixture_image(page_path, reference_index=reference_index)
-            report, page_slots, page_matches, page_pred = _evaluate_page_results(
-                expected_page, scanned_page
+
+        for scanned_index in unmatched_scanned_indices:
+            scanned_slot = scanned_slots[scanned_index]
+            page_mismatches.append(
+                f"unexpected detected slot {scanned_slot['slot_id']}: got {scanned_slot['card'].get('canonical_card_id')}"
             )
-            total_slots += page_slots
-            matched_cards += page_matches
-            predicted_total += page_pred
-            page_reports.append(report)
+            identified_slots.append(
+                {
+                    "slot_id": scanned_slot["slot_id"],
+                    "matched": False,
+                    "reference_image_path": scanned_slot["card"].get("reference_image_path"),
+                    "predicted_card": scanned_slot["card"],
+                    "expected_card": None,
+                }
+            )
+
+        predicted_total += scanned_page["predicted_total_usd"]
+        page_reports.append(
+            {
+                "page_id": expected_page["page_id"],
+                "label": expected_page["label"],
+                "expected_total_usd": round(float(expected_page["expected_total_usd"]), 2),
+                "predicted_total_usd": scanned_page["predicted_total_usd"],
+                "slot_count": len(expected_slots),
+                "predicted_slot_count": len(scanned_slots),
+                "card_matches": page_card_matches,
+                "mismatches": page_mismatches,
+                "identified_slots": identified_slots,
+            }
+        )
 
     return {
         "pages_evaluated": len(page_reports),
@@ -1084,54 +1010,13 @@ def _edge_map(gray: np.ndarray) -> np.ndarray:
 
 
 def _best_match(slot_signature: dict[str, Any], reference_index: list[dict[str, Any]]) -> dict[str, Any]:
-    """Find the best-matching reference card for *slot_signature*.
-
-    Uses per-entry stacked arrays (*vs_* keys) for vectorised scoring
-    across all 15 reference variants when available, falling back to
-    the per-variant loop for legacy index entries.
-    """
     best: dict[str, Any] | None = None
-    W = np.array([0.028, 0.225, 0.603, 0.016, 0.073, 0.055], dtype=np.float32)
-
     for entry in reference_index:
-        if "vs_gray" in entry:
-            # ---- vectorised path (15 variants at once) ----
-            slot = slot_signature
-            vs = entry  # alias for brevity
-
-            # 2D features: gray, edge, art, edition, bottom
-            mse_list = []
-            for key, vstack_key in [("gray", "vs_gray"), ("edge", "vs_edge")]:
-                diff = slot[key] - vs[vstack_key]
-                m = (slot["valid"] > 0.2) & (vs["vs_valid"] > 0.2)
-                sq = diff * diff
-                mse_list.append(((sq * m).sum(axis=(1, 2)) / np.maximum(m.sum(axis=(1, 2)), 1)).min())
-            for key, vstack_key, vmask_key in [
-                ("art_patch", "vs_art", "vs_art_valid"),
-                ("edition_patch", "vs_edition", "vs_edition_valid"),
-                ("bottom_patch", "vs_bottom", "vs_bottom_valid"),
-            ]:
-                diff = slot[key] - vs[vstack_key]
-                m = (slot[key.replace("patch", "valid")] > 0.2) & (vs[vmask_key] > 0.2)
-                sq = diff * diff
-                mse_list.append(((sq * m).sum(axis=(1, 2)) / np.maximum(m.sum(axis=(1, 2)), 1)).min())
-
-            # 3D colour feature (MAE)
-            diff_c = np.abs(slot["color"] - vs["vs_color"])
-            m_c = (slot["color_valid"] > 0.2) & (vs["vs_color_valid"] > 0.2)
-            m_c = m_c[..., None]  # broadcast over RGB
-            mae = (diff_c * m_c).sum(axis=(1, 2, 3)) / np.maximum(m_c.sum(axis=(1, 2, 3)), 1)
-            mae = mae.min()
-
-            score = float(np.dot(W, np.array(mse_list + [mae], dtype=np.float32)))
-        else:
-            # ---- fallback: per-variant loop ----
-            score = min(_score(slot_signature, variant) for variant in entry["variants"])
-
-        if best is None or score < best["score"]:
+        best_variant_score = min(_score(slot_signature, variant) for variant in entry["variants"])
+        if best is None or best_variant_score < best["score"]:
             best = {
                 "card": dict(entry["card"], canonical_card_id=entry["canonical_card_id"]),
-                "score": score,
+                "score": best_variant_score,
             }
     assert best is not None
     return best
@@ -1149,7 +1034,7 @@ def _score(left: dict[str, Any], right: dict[str, Any]) -> float:
     )
     bottom_mse = _masked_mse(left["bottom_patch"], right["bottom_patch"], left["bottom_valid"], right["bottom_valid"])
     color_mae = _masked_mae(left["color"], right["color"], left["color_valid"], right["color_valid"])
-    return gray_mse * 0.028 + edge_mse * 0.225 + art_mse * 0.603 + edition_mse * 0.016 + bottom_mse * 0.073 + color_mae * 0.055
+    return gray_mse * 0.10 + edge_mse * 0.28 + art_mse * 0.34 + edition_mse * 0.14 + bottom_mse * 0.08 + color_mae * 0.06
 
 
 def _masked_mse(left: np.ndarray, right: np.ndarray, left_mask: np.ndarray, right_mask: np.ndarray) -> float:
@@ -1158,8 +1043,8 @@ def _masked_mse(left: np.ndarray, right: np.ndarray, left_mask: np.ndarray, righ
     threshold = max(24, mask.size // 12)
     if count < threshold:
         return float(np.mean((left - right) ** 2))
-    diff_sq = (left - right) ** 2
-    return float(diff_sq[mask].sum() / count)
+    diff_sq = np.where(mask, (left - right) ** 2, 0.0)
+    return float(diff_sq.sum() / count)
 
 
 def _masked_mae(left: np.ndarray, right: np.ndarray, left_mask: np.ndarray, right_mask: np.ndarray) -> float:
@@ -1169,7 +1054,8 @@ def _masked_mae(left: np.ndarray, right: np.ndarray, left_mask: np.ndarray, righ
     if count < threshold:
         return float(np.mean(np.abs(left - right)))
     diff = np.abs(left - right)
-    return float(diff[mask].sum() / count)
+    masked_diff = np.where(mask[..., None], diff, 0.0)
+    return float(masked_diff.sum() / count)
 
 
 def _cards_match(expected_card: dict[str, Any] | None, predicted_card: dict[str, Any] | None) -> bool:

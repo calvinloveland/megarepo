@@ -793,6 +793,9 @@ def _ensure_dir(path: Path) -> None:
 
 
 def _cache_root() -> Path:
+    data_root = os.environ.get("POKEMON_BINDER_DATA_ROOT", "")
+    if data_root:
+        return Path(data_root) / "cache" / "webapp"
     return Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "pokemon_binder_scanner" / "webapp"
 
 

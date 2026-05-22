@@ -14,7 +14,10 @@ from typing import Any
 import numpy as np
 from PIL import Image, ImageChops, ImageDraw, ImageEnhance, ImageFilter, ImageOps
 
-DEFAULT_MANIFEST_PATH = Path(__file__).resolve().parents[2] / "tests" / "fixtures" / "pokemon_binder" / "manifest.json"
+import os as _os
+_DEFAULT = Path(__file__).resolve().parents[2] / "tests" / "fixtures" / "pokemon_binder" / "manifest.json"
+_ENV_OVERRIDE = _os.environ.get("POKEMON_BINDER_MANIFEST_PATH", "").strip()
+DEFAULT_MANIFEST_PATH = Path(_ENV_OVERRIDE) if _ENV_OVERRIDE else _DEFAULT
 DEFAULT_RENDER_DIR = DEFAULT_MANIFEST_PATH.parent / "rendered"
 DEFAULT_DEMO_PAGE_PATH = DEFAULT_MANIFEST_PATH.parent / "index.html"
 DEFAULT_TEST_COMMAND = [sys.executable, "-m", "unittest", "tests/test_binder_fixtures.py"]
@@ -314,11 +317,15 @@ def render_fixture_pages(
     *,
     width: int = DEFAULT_PAGE_WIDTH,
     height: int = DEFAULT_PAGE_HEIGHT,
+    manifest_root: str | Path | None = None,
 ) -> list[Path]:
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
     rendered_paths: list[Path] = []
-    manifest_root = DEFAULT_MANIFEST_PATH.parent
+    if manifest_root is None:
+        manifest_root = DEFAULT_MANIFEST_PATH.parent
+    else:
+        manifest_root = Path(manifest_root)
     for page in manifest["pages"]:
         page_path = output_path / f"{page['page_id']}.jpg"
         page_image = _render_page_photo(page, manifest_root=manifest_root, width=width, height=height)
