@@ -35,6 +35,10 @@
   documentation.info.enable = false;
   documentation.man.enable = false;
 
+  # Networking — wired NIC auto-configure
+  networking.networkmanager.enable = true;
+  networking.useDHCP = lib.mkDefault true;
+
   # Auto-mount the old HDD for file access
   services.udisks2.enable = true;
   services.devmon.enable = true;
