@@ -32,10 +32,11 @@
     options = [ "fmask=0022" "dmask=0022" ];
   };
 
-  # Mount the old HDD as /data
+  # Mount the old HDD as /data — nofail so slow spin-up doesn't halt boot
   fileSystems."/data" = {
     device = "/dev/disk/by-uuid/d80dfe13-ed28-494e-9fe0-4624cddd6944";
     fsType = "ext4";
+    options = [ "nofail" "defaults" ];
   };
 
   swapDevices = [

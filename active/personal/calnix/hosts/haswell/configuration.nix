@@ -47,4 +47,10 @@
   users.users.calvin.openssh.authorizedKeys.keys = [
     "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDwix44A6TqqGOokU/gIpaf3shN0Pad+S08M36flhBZv calvin@loveland.dev"
   ];
+
+  # Root password for emergency console access (local only — SSH blocks root)
+  users.users.root.hashedPassword = "";
+
+  # Allow emergency shell if boot fails
+  boot.initrd.systemd.emergencyAccess = true;
 }
