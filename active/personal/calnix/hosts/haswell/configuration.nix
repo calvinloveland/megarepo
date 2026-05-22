@@ -46,6 +46,7 @@
   # The calvin user is created by base.nix; ensure the SSH key works
   users.users.calvin.openssh.authorizedKeys.keys = [
     "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDwix44A6TqqGOokU/gIpaf3shN0Pad+S08M36flhBZv calvin@loveland.dev"
+    "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDHrIxasJfr0Lb2OoL/WFiQ/1DAeKxOtY4KDiVBCBswL u0_a513@localhost"
   ];
 
   # Root password for emergency console access (local only — SSH blocks root)
