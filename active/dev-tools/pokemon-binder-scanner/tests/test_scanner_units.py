@@ -564,6 +564,13 @@ class TestCliParser(unittest.TestCase):
         sp = self._get_subparser("scan-image")
         self.assertIsNotNone(sp)
 
+    def test_scan_image_format_option(self) -> None:
+        sp = self._get_subparser("scan-image")
+        format_action = next((a for a in sp._actions if a.dest == "format"), None)
+        self.assertIsNotNone(format_action)
+        self.assertEqual(format_action.default, "text")
+        self.assertIn("json", format_action.choices)
+
 
 # ---------------------------------------------------------------------------
 # _cards_match integrated with scan output schema

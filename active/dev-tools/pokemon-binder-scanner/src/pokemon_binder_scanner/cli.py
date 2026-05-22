@@ -60,6 +60,7 @@ def _build_parser() -> argparse.ArgumentParser:
     scan_parser = subparsers.add_parser("scan-image", help="Scan a single user-provided binder page image and print detected cards")
     scan_parser.add_argument("image", type=Path, help="Path to a .jpg, .png, or .webp binder page image")
     scan_parser.add_argument("--manifest", type=Path, default=DEFAULT_MANIFEST_PATH)
+    scan_parser.add_argument("--format", choices=["text", "json"], default="text", help="Output format")
 
     return parser
 
@@ -121,6 +122,7 @@ def main() -> int:
         return 0
 
     if args.command == "scan-image":
+        import json as jsonlib
         from .scanner import scan_fixture_image
 
         image_path = args.image
@@ -128,17 +130,37 @@ def main() -> int:
             print(f"ERROR: image not found: {image_path}")
             return 1
         result = scan_fixture_image(image_path)
-        print(f"Page: {result['page_id']}")
-        print(f"Detected slots: {result['slot_count']}")
-        print(f"Predicted total: ${result['predicted_total_usd']:.2f}")
-        for slot in result["slots"]:
-            card = slot["card"]
-            print(
-                f"  {slot['slot_id']}: {card.get('name', 'Unknown')} "
-                f"({card.get('canonical_card_id', '?')}) — "
-                f"${float(card.get('fixture_price_usd', 0.0)):.2f} "
-                f"[score {slot['match_score']}]"
-            )
+        if args.format == "json":
+            # Make result JSON-serializable
+            output = {
+                "page_id": result["page_id"],
+                "slot_count": result["slot_count"],
+                "predicted_total_usd": result["predicted_total_usd"],
+                "slots": [
+                    {
+                        "slot_id": slot["slot_id"],
+                        "canonical_card_id": slot["card"].get("canonical_card_id"),
+                        "name": slot["card"].get("name"),
+                        "price_usd": round(float(slot["card"].get("fixture_price_usd", 0.0)), 2),
+                        "match_score": slot["match_score"],
+                        "bbox_norm": slot["bbox_norm"],
+                    }
+                    for slot in result["slots"]
+                ],
+            }
+            print(jsonlib.dumps(output, indent=2))
+        else:
+            print(f"Page: {result['page_id']}")
+            print(f"Detected slots: {result['slot_count']}")
+            print(f"Predicted total: ${result['predicted_total_usd']:.2f}")
+            for slot in result["slots"]:
+                card = slot["card"]
+                print(
+                    f"  {slot['slot_id']}: {card.get('name', 'Unknown')} "
+                    f"({card.get('canonical_card_id', '?')}) — "
+                    f"${float(card.get('fixture_price_usd', 0.0)):.2f} "
+                    f"[score {slot['match_score']}]"
+                )
         return 0
 
     if args.command == "audit-picture-only":
