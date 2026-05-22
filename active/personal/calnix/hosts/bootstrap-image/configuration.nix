@@ -21,6 +21,13 @@
   # ISO label used when burning to USB
   image.baseName = lib.mkForce "calnix-bootstrap";
 
+  # Make the ISO bootable from USB (both BIOS and UEFI)
+  isoImage.makeUsbBootable = true;
+  isoImage.makeEfiBootable = true;
+
+  # Make volume ID shorter/cleaner for USB
+  isoImage.volumeID = "CALNIX_BOOT";
+
   # Minimal but functional
   system.stateVersion = "25.05";
 
