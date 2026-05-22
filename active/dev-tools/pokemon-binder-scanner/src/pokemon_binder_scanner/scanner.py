@@ -127,6 +127,14 @@ def build_reference_index(manifest: dict[str, Any]) -> list[dict[str, Any]]:
     return _build_reference_index_cached(manifest_json)
 
 
+def _stack_variant_array(variants: list[dict[str, Any]], key: str) -> np.ndarray:
+    """Stack the *key* field from each variant signature into a single array.
+
+    The first dimension indexes the variant (0..N-1).
+    """
+    return np.stack([v[key] for v in variants], axis=0)
+
+
 @lru_cache(maxsize=4)
 def _build_reference_index_cached(manifest_json: str) -> list[dict[str, Any]]:
     manifest_root = DEFAULT_MANIFEST_PATH.parent
@@ -143,6 +151,18 @@ def _build_reference_index_cached(manifest_json: str) -> list[dict[str, Any]]:
                 "canonical_card_id": canonical_card_id,
                 "card": dict(card),
                 "variants": variants,
+                # Pre-stacked arrays for vectorised scoring
+                "vs_gray": _stack_variant_array(variants, "gray"),
+                "vs_edge": _stack_variant_array(variants, "edge"),
+                "vs_art": _stack_variant_array(variants, "art_patch"),
+                "vs_edition": _stack_variant_array(variants, "edition_patch"),
+                "vs_bottom": _stack_variant_array(variants, "bottom_patch"),
+                "vs_color": _stack_variant_array(variants, "color"),
+                "vs_valid": _stack_variant_array(variants, "valid"),
+                "vs_art_valid": _stack_variant_array(variants, "art_valid"),
+                "vs_edition_valid": _stack_variant_array(variants, "edition_valid"),
+                "vs_bottom_valid": _stack_variant_array(variants, "bottom_valid"),
+                "vs_color_valid": _stack_variant_array(variants, "color_valid"),
             }
         )
     # Add empty-slot reference so the matcher can recognise blank pockets
@@ -163,6 +183,17 @@ def _build_reference_index_cached(manifest_json: str) -> list[dict[str, Any]]:
                 "fixture_price_usd": 0.0,
             },
             "variants": blank_variants,
+            "vs_gray": _stack_variant_array(blank_variants, "gray"),
+            "vs_edge": _stack_variant_array(blank_variants, "edge"),
+            "vs_art": _stack_variant_array(blank_variants, "art_patch"),
+            "vs_edition": _stack_variant_array(blank_variants, "edition_patch"),
+            "vs_bottom": _stack_variant_array(blank_variants, "bottom_patch"),
+            "vs_color": _stack_variant_array(blank_variants, "color"),
+            "vs_valid": _stack_variant_array(blank_variants, "valid"),
+            "vs_art_valid": _stack_variant_array(blank_variants, "art_valid"),
+            "vs_edition_valid": _stack_variant_array(blank_variants, "edition_valid"),
+            "vs_bottom_valid": _stack_variant_array(blank_variants, "bottom_valid"),
+            "vs_color_valid": _stack_variant_array(blank_variants, "color_valid"),
         }
     )
     return index
@@ -1053,13 +1084,54 @@ def _edge_map(gray: np.ndarray) -> np.ndarray:
 
 
 def _best_match(slot_signature: dict[str, Any], reference_index: list[dict[str, Any]]) -> dict[str, Any]:
+    """Find the best-matching reference card for *slot_signature*.
+
+    Uses per-entry stacked arrays (*vs_* keys) for vectorised scoring
+    across all 15 reference variants when available, falling back to
+    the per-variant loop for legacy index entries.
+    """
     best: dict[str, Any] | None = None
+    W = np.array([0.028, 0.225, 0.603, 0.016, 0.073, 0.055], dtype=np.float32)
+
     for entry in reference_index:
-        best_variant_score = min(_score(slot_signature, variant) for variant in entry["variants"])
-        if best is None or best_variant_score < best["score"]:
+        if "vs_gray" in entry:
+            # ---- vectorised path (15 variants at once) ----
+            slot = slot_signature
+            vs = entry  # alias for brevity
+
+            # 2D features: gray, edge, art, edition, bottom
+            mse_list = []
+            for key, vstack_key in [("gray", "vs_gray"), ("edge", "vs_edge")]:
+                diff = slot[key] - vs[vstack_key]
+                m = (slot["valid"] > 0.2) & (vs["vs_valid"] > 0.2)
+                sq = diff * diff
+                mse_list.append(((sq * m).sum(axis=(1, 2)) / np.maximum(m.sum(axis=(1, 2)), 1)).min())
+            for key, vstack_key, vmask_key in [
+                ("art_patch", "vs_art", "vs_art_valid"),
+                ("edition_patch", "vs_edition", "vs_edition_valid"),
+                ("bottom_patch", "vs_bottom", "vs_bottom_valid"),
+            ]:
+                diff = slot[key] - vs[vstack_key]
+                m = (slot[key.replace("patch", "valid")] > 0.2) & (vs[vmask_key] > 0.2)
+                sq = diff * diff
+                mse_list.append(((sq * m).sum(axis=(1, 2)) / np.maximum(m.sum(axis=(1, 2)), 1)).min())
+
+            # 3D colour feature (MAE)
+            diff_c = np.abs(slot["color"] - vs["vs_color"])
+            m_c = (slot["color_valid"] > 0.2) & (vs["vs_color_valid"] > 0.2)
+            m_c = m_c[..., None]  # broadcast over RGB
+            mae = (diff_c * m_c).sum(axis=(1, 2, 3)) / np.maximum(m_c.sum(axis=(1, 2, 3)), 1)
+            mae = mae.min()
+
+            score = float(np.dot(W, np.array(mse_list + [mae], dtype=np.float32)))
+        else:
+            # ---- fallback: per-variant loop ----
+            score = min(_score(slot_signature, variant) for variant in entry["variants"])
+
+        if best is None or score < best["score"]:
             best = {
                 "card": dict(entry["card"], canonical_card_id=entry["canonical_card_id"]),
-                "score": best_variant_score,
+                "score": score,
             }
     assert best is not None
     return best
@@ -1086,8 +1158,8 @@ def _masked_mse(left: np.ndarray, right: np.ndarray, left_mask: np.ndarray, righ
     threshold = max(24, mask.size // 12)
     if count < threshold:
         return float(np.mean((left - right) ** 2))
-    diff_sq = np.where(mask, (left - right) ** 2, 0.0)
-    return float(diff_sq.sum() / count)
+    diff_sq = (left - right) ** 2
+    return float(diff_sq[mask].sum() / count)
 
 
 def _masked_mae(left: np.ndarray, right: np.ndarray, left_mask: np.ndarray, right_mask: np.ndarray) -> float:
@@ -1097,8 +1169,7 @@ def _masked_mae(left: np.ndarray, right: np.ndarray, left_mask: np.ndarray, righ
     if count < threshold:
         return float(np.mean(np.abs(left - right)))
     diff = np.abs(left - right)
-    masked_diff = np.where(mask[..., None], diff, 0.0)
-    return float(masked_diff.sum() / count)
+    return float(diff[mask].sum() / count)
 
 
 def _cards_match(expected_card: dict[str, Any] | None, predicted_card: dict[str, Any] | None) -> bool:
