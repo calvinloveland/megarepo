@@ -220,16 +220,21 @@ APPRAISER_TEMPLATE = """
       .cards-table {
         width: 100%;
         border-collapse: collapse;
-        font-size: 0.95rem;
+        font-size: 0.92rem;
       }
       .cards-table th,
       .cards-table td {
-        padding: 10px 8px;
+        padding: 8px 6px;
         border-bottom: 1px solid rgba(148, 163, 184, 0.12);
         text-align: left;
-        vertical-align: top;
+        vertical-align: middle;
       }
       .cards-table th { color: var(--muted); font-weight: 600; }
+      .card-preview { width: 42px; height: 58px; border-radius: 6px; object-fit: cover; background: #0b1120; display: block; border: 1px solid rgba(148,163,184,.2); }
+      .score-badge { display: inline-block; padding: 3px 8px; border-radius: 999px; font-size: 0.82rem; font-weight: 700; }
+      .score-badge.good { background: rgba(34,197,94,.18); color: #86efac; }
+      .score-badge.ok  { background: rgba(234,179,8,.18); color: #fde68a; }
+      .score-badge.poor { background: rgba(239,68,68,.18); color: #fca5a5; }
       .feedback-form {
         display: grid;
         gap: 8px;
@@ -426,22 +431,35 @@ APPRAISER_TEMPLATE = """
                   <table class="cards-table">
                     <thead>
                       <tr>
-                        <th>#</th>
+                        <th></th>
                         <th>Predicted card</th>
-                        <th>Variant</th>
+                        <th>Score</th>
                         <th>Price</th>
                         <th>Feedback</th>
                       </tr>
                     </thead>
                     <tbody>
                       {% for slot in result.slots %}
+                        {% set score = slot.match_score | float %}
+                        {% if score < 0.08 %}
+                          {% set badge_class = 'good' %}
+                        {% elif score < 0.12 %}
+                          {% set badge_class = 'ok' %}
+                        {% else %}
+                          {% set badge_class = 'poor' %}
+                        {% endif %}
                         <tr>
                           <td>{{ loop.index }}</td>
-                          <td>
-                            <strong>{{ slot.card.name }}</strong><br />
-                            <span class="muted">{{ slot.card.canonical_card_id }}</span>
+                          <td style="display:flex; gap:10px; align-items:center">
+                            {% if slot.card._ref_url %}
+                              <img class="card-preview" src="{{ slot.card._ref_url }}" alt="" loading="lazy" />
+                            {% endif %}
+                            <div>
+                              <strong>{{ slot.card.name }}</strong><br />
+                              <span class="muted">{{ slot.card.canonical_card_id }}</span>
+                            </div>
                           </td>
-                          <td>{{ slot.card.variant }}</td>
+                          <td><span class="score-badge {{ badge_class }}">{{ '%.4f' % score }}</span></td>
                           <td>${{ '%.2f' % slot.card.fixture_price_usd }}</td>
                           <td>
                             <form class="feedback-form" data-feedback-form action="{{ url_for('submit_feedback') }}" method="post">
@@ -815,6 +833,15 @@ def _save_image_upload(storage) -> tuple[Path, str]:
     return path, safe_name
 
 
+def _score_color(score: float) -> tuple:
+    """Return (background_rgba, text_color_rgba) for a match score."""
+    if score < 0.08:
+        return (34, 197, 94, 210), (255, 255, 255, 255)   # green
+    if score < 0.12:
+        return (234, 179, 8, 210), (255, 255, 255, 255)    # amber
+    return (239, 68, 68, 210), (255, 255, 255, 255)        # red
+
+
 def _annotate_scan(image_path: Path, scan_report: dict[str, Any]) -> Path:
     root = _appraiser_root()
     out_path = root / "annotated" / f"annotated_{image_path.stem}.jpg"
@@ -830,11 +857,20 @@ def _annotate_scan(image_path: Path, scan_report: dict[str, Any]) -> Path:
             int(round((x + w) * width)),
             int(round((y + h) * height)),
         )
-        draw.rounded_rectangle(box, radius=18, outline=(96, 165, 250, 255), width=6)
-        label_box = (box[0] + 8, box[1] + 8, min(box[2] - 8, box[0] + 248), min(box[1] + 52, box[3] - 8))
-        draw.rounded_rectangle(label_box, radius=12, fill=(15, 23, 42, 225))
-        label = f"{index}. {slot['card']['name']}"
-        draw.text((label_box[0] + 10, label_box[1] + 10), label, fill=(226, 232, 240, 255))
+        score = float(slot.get("match_score", 1.0))
+        bg, fg = _score_color(score)
+        # Translucent fill + solid border
+        draw.rounded_rectangle(box, radius=18, outline=(*bg[:3], 255), width=5, fill=(*bg[:3], 55))
+        # Multi-line label: index + name + score
+        lines = [
+            f"#{index} {slot['card'].get('name', '?')}",
+            f"{slot['card'].get('canonical_card_id', '?')}  Δ{score:.4f}",
+        ]
+        label_h = len(lines) * 24 + 16
+        label_box = (box[0] + 8, box[1] + 8, min(box[2] - 8, box[0] + 320), min(box[1] + label_h, box[3] - 8))
+        draw.rounded_rectangle(label_box, radius=12, fill=(0, 0, 0, 195))
+        for li, txt in enumerate(lines):
+            draw.text((label_box[0] + 10, label_box[1] + 10 + li * 24), txt, fill=(226, 232, 240, 255), font_size=14)
     image.save(out_path, format="JPEG", quality=92, optimize=True, progressive=True)
     return out_path
 
@@ -843,6 +879,26 @@ def _image_result(scan_report: dict[str, Any], image_path: Path, original_name: 
     annotated_path = _annotate_scan(image_path, scan_report)
     with Image.open(image_path) as source_image:
         dimensions = ImageOps.exif_transpose(source_image).size
+    # Attach reference image URL to each slot
+    manifest = load_manifest(DEFAULT_MANIFEST_PATH)
+    ref_map: dict[str, str] = {}
+    for page in manifest.get("pages", []):
+        for slot in page.get("slots", []):
+            card = slot.get("card") or {}
+            cid = str(card.get("canonical_card_id", "")).strip()
+            rp = str(card.get("reference_image_path", "")).strip()
+            if cid and rp and cid not in ref_map:
+                ref_map[cid] = rp
+    slots = []
+    for slot in scan_report.get("slots", []):
+        card = dict(slot["card"])
+        cid = card.get("canonical_card_id", "")
+        if cid in ref_map:
+            card["_ref_url"] = url_for("serve_reference_card", path=ref_map[cid])
+        elif cid == "empty":
+            card["_ref_url"] = url_for("serve_reference_card", path="empty.jpg")
+        slot["card"] = card
+        slots.append(slot)
     return {
         "image_filename": image_path.name,
         "original_name": original_name,
@@ -850,7 +906,7 @@ def _image_result(scan_report: dict[str, Any], image_path: Path, original_name: 
         "dimensions": dimensions,
         "slot_count": int(scan_report.get("slot_count", 0)),
         "predicted_total_usd": float(scan_report.get("predicted_total_usd", 0.0)),
-        "slots": scan_report.get("slots", []),
+        "slots": slots,
         "layout_name": _classify_layout(int(scan_report.get("slot_count", 0))),
         "original_url": url_for("serve_appraiser_file", kind="uploads", filename=image_path.name),
         "annotated_url": url_for("serve_appraiser_file", kind="annotated", filename=annotated_path.name),
@@ -1009,6 +1065,21 @@ def serve_appraiser_file(kind: str, filename: str):
     if not path.exists():
         return "Not found", 404
     return send_file(str(path))
+
+
+from flask import send_from_directory
+
+MANIFEST_ROOT = DEFAULT_MANIFEST_PATH.parent
+
+
+@app.route("/reference-cards/<path:path>")
+def serve_reference_card(path: str):
+    """Serve reference card images from the fixture reference_cards directory."""
+    ref_dir = MANIFEST_ROOT / "reference_cards"
+    full_path = ref_dir / path
+    if not full_path.exists() or not full_path.is_file():
+        return "Not found", 404
+    return send_file(str(full_path))
 
 
 @app.route("/feedback", methods=["POST"])
