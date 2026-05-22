@@ -8,9 +8,9 @@
     "snapshot_date": "2026-05-14",
     "notes": "Prices are intentionally synthetic-but-plausible so regression tests stay stable even when live market prices move."
   },
-  "expected_page_count": 39,
-  "expected_priced_card_count": 320,
-  "expected_binder_total_usd": 15772.76,
+  "expected_page_count": 41,
+  "expected_priced_card_count": 324,
+  "expected_binder_total_usd": 16889.63,
   "expected_duplicate_groups": [
     {
       "canonical_card_id": "basep-1",
@@ -84,13 +84,13 @@
     },
     {
       "canonical_card_id": "ex6-105",
-      "count": 7,
-      "total_price_usd": 3500.0
+      "count": 8,
+      "total_price_usd": 4000.0
     },
     {
       "canonical_card_id": "ex6-112",
-      "count": 6,
-      "total_price_usd": 3600.0
+      "count": 7,
+      "total_price_usd": 4200.0
     },
     {
       "canonical_card_id": "gym1-1",
@@ -269,8 +269,8 @@
     },
     {
       "canonical_card_id": "sv8-57",
-      "count": 8,
-      "total_price_usd": 36.08
+      "count": 9,
+      "total_price_usd": 40.59
     },
     {
       "canonical_card_id": "svp-54",
@@ -319,8 +319,8 @@
     },
     {
       "canonical_card_id": "swsh7-111",
-      "count": 4,
-      "total_price_usd": 49.44
+      "count": 5,
+      "total_price_usd": 61.8
     },
     {
       "canonical_card_id": "swsh7-31",
@@ -9936,6 +9936,244 @@
         }
       ],
       "expected_total_usd": 100.97
+    },
+    {
+      "page_id": "page-40",
+      "label": "All empty pockets",
+      "notes": [
+        "Full 3x3 grid where every pocket is empty."
+      ],
+      "slots": [
+        {
+          "slot_id": "p40-s1",
+          "bbox_norm": [
+            0.05,
+            0.05,
+            0.25,
+            0.25
+          ],
+          "visibility": "clear",
+          "tilt_degrees": 0.0
+        },
+        {
+          "slot_id": "p40-s2",
+          "bbox_norm": [
+            0.365,
+            0.05,
+            0.25,
+            0.25
+          ],
+          "visibility": "clear",
+          "tilt_degrees": 0.0
+        },
+        {
+          "slot_id": "p40-s3",
+          "bbox_norm": [
+            0.68,
+            0.05,
+            0.25,
+            0.25
+          ],
+          "visibility": "clear",
+          "tilt_degrees": 0.0
+        },
+        {
+          "slot_id": "p40-s4",
+          "bbox_norm": [
+            0.05,
+            0.365,
+            0.25,
+            0.25
+          ],
+          "visibility": "clear",
+          "tilt_degrees": 0.0
+        },
+        {
+          "slot_id": "p40-s5",
+          "bbox_norm": [
+            0.365,
+            0.365,
+            0.25,
+            0.25
+          ],
+          "visibility": "clear",
+          "tilt_degrees": 0.0
+        },
+        {
+          "slot_id": "p40-s6",
+          "bbox_norm": [
+            0.68,
+            0.365,
+            0.25,
+            0.25
+          ],
+          "visibility": "clear",
+          "tilt_degrees": 0.0
+        },
+        {
+          "slot_id": "p40-s7",
+          "bbox_norm": [
+            0.05,
+            0.68,
+            0.25,
+            0.25
+          ],
+          "visibility": "clear",
+          "tilt_degrees": 0.0
+        },
+        {
+          "slot_id": "p40-s8",
+          "bbox_norm": [
+            0.365,
+            0.68,
+            0.25,
+            0.25
+          ],
+          "visibility": "clear",
+          "tilt_degrees": 0.0
+        },
+        {
+          "slot_id": "p40-s9",
+          "bbox_norm": [
+            0.68,
+            0.68,
+            0.25,
+            0.25
+          ],
+          "visibility": "clear",
+          "tilt_degrees": 0.0
+        }
+      ],
+      "expected_total_usd": 0.0
+    },
+    {
+      "page_id": "page-41",
+      "label": "Extreme occlusion and lighting",
+      "notes": [
+        "Four cards with extreme corner+bottom occlusion and heavy blue cast / low light."
+      ],
+      "slots": [
+        {
+          "slot_id": "p41-s1",
+          "bbox_norm": [
+            0.1,
+            0.12,
+            0.35,
+            0.35
+          ],
+          "visibility": "glare",
+          "tilt_degrees": -8.0,
+          "render_effects": [
+            "corner_occlusion",
+            "bottom_occlusion",
+            "motion_blur",
+            "low_light",
+            "desaturate"
+          ],
+          "card": {
+            "canonical_card_id": "sv8-57",
+            "name": "Pikachu ex",
+            "set_code": "sv8",
+            "collector_number": "57",
+            "variant": "double rare · basic",
+            "condition": "near_mint",
+            "fixture_price_usd": 4.51,
+            "api_card_id": "sv8-57",
+            "api_set_id": "sv8",
+            "reference_image_url": "https://images.pokemontcg.io/sv8/57.png",
+            "reference_image_path": "reference_cards/sv8-57.png"
+          }
+        },
+        {
+          "slot_id": "p41-s2",
+          "bbox_norm": [
+            0.55,
+            0.12,
+            0.35,
+            0.35
+          ],
+          "visibility": "tilted",
+          "tilt_degrees": 10.0,
+          "render_effects": [
+            "heavy_glare",
+            "blue_cast",
+            "center_band",
+            "extreme_shear"
+          ],
+          "card": {
+            "canonical_card_id": "swsh7-111",
+            "name": "Rayquaza VMAX",
+            "set_code": "swsh7",
+            "collector_number": "111",
+            "variant": "rare holo vmax · vmax",
+            "condition": "near_mint",
+            "fixture_price_usd": 12.36,
+            "api_card_id": "swsh7-111",
+            "api_set_id": "swsh7",
+            "reference_image_url": "https://images.pokemontcg.io/swsh7/111.png",
+            "reference_image_path": "reference_cards/swsh7-111.png"
+          }
+        },
+        {
+          "slot_id": "p41-s3",
+          "bbox_norm": [
+            0.1,
+            0.53,
+            0.35,
+            0.35
+          ],
+          "visibility": "sleeve_glare",
+          "tilt_degrees": -6.0,
+          "render_effects": [
+            "corner_occlusion",
+            "zoom_crop",
+            "low_light"
+          ],
+          "card": {
+            "canonical_card_id": "ex6-105",
+            "name": "Charizard ex",
+            "set_code": "ex6",
+            "collector_number": "105",
+            "variant": "rare holo ex · stage 2",
+            "condition": "near_mint",
+            "fixture_price_usd": 500.0,
+            "api_card_id": "ex6-105",
+            "api_set_id": "ex6",
+            "reference_image_url": "https://images.pokemontcg.io/ex6/105.png",
+            "reference_image_path": "reference_cards/ex6-105.png"
+          }
+        },
+        {
+          "slot_id": "p41-s4",
+          "bbox_norm": [
+            0.55,
+            0.53,
+            0.35,
+            0.35
+          ],
+          "visibility": "soft_focus",
+          "tilt_degrees": 7.0,
+          "render_effects": [
+            "motion_blur",
+            "blue_cast",
+            "desaturate"
+          ],
+          "card": {
+            "canonical_card_id": "ex6-112",
+            "name": "Venusaur ex",
+            "set_code": "ex6",
+            "collector_number": "112",
+            "variant": "rare holo ex · stage 2",
+            "condition": "near_mint",
+            "fixture_price_usd": 600.0,
+            "api_card_id": "ex6-112",
+            "api_set_id": "ex6",
+            "reference_image_url": "https://images.pokemontcg.io/ex6/112.png",
+            "reference_image_path": "reference_cards/ex6-112.png"
+          }
+        }
+      ],
+      "expected_total_usd": 1116.87
     }
   ]
 }
