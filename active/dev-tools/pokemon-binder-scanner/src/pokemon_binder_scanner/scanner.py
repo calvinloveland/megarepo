@@ -1024,7 +1024,7 @@ def _score(left: dict[str, Any], right: dict[str, Any]) -> float:
     )
     bottom_mse = _masked_mse(left["bottom_patch"], right["bottom_patch"], left["bottom_valid"], right["bottom_valid"])
     color_mae = _masked_mae(left["color"], right["color"], left["color_valid"], right["color_valid"])
-    return gray_mse * 0.10 + edge_mse * 0.28 + art_mse * 0.34 + edition_mse * 0.14 + bottom_mse * 0.08 + color_mae * 0.06
+    return gray_mse * 0.028 + edge_mse * 0.225 + art_mse * 0.603 + edition_mse * 0.016 + bottom_mse * 0.073 + color_mae * 0.055
 
 
 def _masked_mse(left: np.ndarray, right: np.ndarray, left_mask: np.ndarray, right_mask: np.ndarray) -> float:
