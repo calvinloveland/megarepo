@@ -594,5 +594,160 @@ class TestCardsMatchSchema(unittest.TestCase):
             tmp.parent.rmdir()
 
 
+class TestCardsMatchEmpty(unittest.TestCase):
+    """_cards_match must handle None expected/predicted cards (empty slots)."""
+
+    def test_expected_none_predicted_empty(self) -> None:
+        """Expected slot has no card, scanner detects 'empty' -> match."""
+        self.assertTrue(
+            _cards_match(None, {"canonical_card_id": "empty", "name": "Empty slot"})
+        )
+
+    def test_expected_real_predicted_empty(self) -> None:
+        """Expected slot has a card, scanner detects 'empty' -> mismatch."""
+        self.assertFalse(
+            _cards_match({"canonical_card_id": "basep-1"}, {"canonical_card_id": "empty"})
+        )
+
+    def test_expected_empty_predicted_real(self) -> None:
+        """Expected slot empty, scanner detects a card -> mismatch."""
+        self.assertFalse(
+            _cards_match(None, {"canonical_card_id": "basep-1"})
+        )
+
+    def test_expected_none_predicted_none(self) -> None:
+        """Both None -> treat as 'empty' match."""
+        self.assertTrue(_cards_match(None, None))
+
+
+class TestEvaluatePageResults(unittest.TestCase):
+    """The _evaluate_page_results helper used by evaluate_scanner_on_fixture_dataset."""
+
+    def test_perfect_match(self) -> None:
+        from pokemon_binder_scanner.scanner import _evaluate_page_results
+        expected = {
+            "page_id": "test", "label": "Test", "expected_total_usd": 10.0,
+            "slots": [
+                {"slot_id": "s1", "bbox_norm": [0.0, 0.0, 0.3, 0.3],
+                 "visibility": "clear", "tilt_degrees": 0.0,
+                 "card": {"canonical_card_id": "basep-1", "name": "Pikachu",
+                           "collector_number": "1", "reference_image_path": "dummy.png",
+                           "fixture_price_usd": 5.0}}
+            ]}
+        scanned = {
+            "page_id": "test", "slot_count": 1, "predicted_total_usd": 5.0,
+            "slots": [
+                {"slot_id": "slot-01", "bbox_norm": [0.0, 0.0, 0.3, 0.3],
+                 "card": {"canonical_card_id": "basep-1", "name": "Pikachu"},
+                 "match_score": 0.05}
+            ]}
+        report, total, matched, pred = _evaluate_page_results(expected, scanned)
+        self.assertEqual(matched, 1)
+        self.assertEqual(total, 1)
+        self.assertEqual(pred, 5.0)
+        self.assertAlmostEqual(report["expected_total_usd"], 10.0)
+        self.assertEqual(report["card_matches"], 1)
+        self.assertEqual(report["mismatches"], [])
+
+    def test_empty_expected_slot(self) -> None:
+        from pokemon_binder_scanner.scanner import _evaluate_page_results
+        expected = {
+            "page_id": "test", "label": "Test", "expected_total_usd": 0.0,
+            "slots": [
+                {"slot_id": "s1", "bbox_norm": [0.0, 0.0, 0.3, 0.3],
+                 "visibility": "clear", "tilt_degrees": 0.0}
+                # no card key → empty slot
+            ]}
+        scanned = {
+            "page_id": "test", "slot_count": 1, "predicted_total_usd": 0.0,
+            "slots": [
+                {"slot_id": "slot-01", "bbox_norm": [0.0, 0.0, 0.3, 0.3],
+                 "card": {"canonical_card_id": "empty", "name": "Empty slot"},
+                 "match_score": 0.12}
+            ]}
+        report, total, matched, pred = _evaluate_page_results(expected, scanned)
+        self.assertEqual(matched, 1)  # empty matched to empty
+        self.assertEqual(report["card_matches"], 1)
+        self.assertEqual(report["mismatches"], [])
+
+    def test_empty_mismatch(self) -> None:
+        from pokemon_binder_scanner.scanner import _evaluate_page_results
+        expected = {
+            "page_id": "test", "label": "Test", "expected_total_usd": 0.0,
+            "slots": [
+                {"slot_id": "s1", "bbox_norm": [0.0, 0.0, 0.3, 0.3],
+                 "visibility": "clear", "tilt_degrees": 0.0}
+            ]}
+        scanned = {
+            "page_id": "test", "slot_count": 1, "predicted_total_usd": 5.0,
+            "slots": [
+                {"slot_id": "slot-01", "bbox_norm": [0.0, 0.0, 0.3, 0.3],
+                 "card": {"canonical_card_id": "basep-1", "name": "Pikachu"},
+                 "match_score": 0.05}
+            ]}
+        report, total, matched, pred = _evaluate_page_results(expected, scanned)
+        self.assertEqual(matched, 0)  # empty vs card → mismatch
+        self.assertEqual(len(report["mismatches"]), 1)
+        self.assertIn("expected empty got basep-1", report["mismatches"][0])
+
+
+class TestCliJsonFormat(unittest.TestCase):
+    """The scan-image subcommand with --format json must produce valid JSON."""
+
+    def test_json_output_syntax(self) -> None:
+        import json as jsonlib
+        import subprocess
+        # Create a tiny test image and run the CLI
+        img = Image.new("RGB", (300, 400), color=(120, 100, 80))
+        tmpdir = Path(tempfile.mkdtemp())
+        img_path = tmpdir / "test_page.png"
+        img.save(img_path, format="PNG")
+        result = subprocess.run(
+            [sys.executable, "-m", "pokemon_binder_scanner.cli", "scan-image",
+             str(img_path), "--format", "json"],
+            capture_output=True, text=True, cwd=str(ROOT)
+        )
+        try:
+            parsed = jsonlib.loads(result.stdout)
+            self.assertIn("page_id", parsed)
+            self.assertIn("slot_count", parsed)
+            self.assertIn("slots", parsed)
+            if parsed["slots"]:
+                self.assertIn("canonical_card_id", parsed["slots"][0])
+        except jsonlib.JSONDecodeError as exc:
+            self.fail(f"JSON parse failed: {exc}\nstdout={result.stdout[:200]}")
+        finally:
+            import shutil
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
+
+class TestIrregularLayoutMinArea(unittest.TestCase):
+    """The IRREGULAR_LAYOUT_MIN_ACCEPTED_AREA filter rejects tiny bboxes."""
+
+    def test_tiny_bbox_rejected(self) -> None:
+        from pokemon_binder_scanner.scanner import IRREGULAR_LAYOUT_MIN_ACCEPTED_AREA
+        self.assertGreater(IRREGULAR_LAYOUT_MIN_ACCEPTED_AREA, 0.01)
+
+    def test_page37_no_false_empty(self) -> None:
+        """Page-37 (irregular, 4 slots) must not hallucinate tiny empty slots."""
+        from pokemon_binder_scanner.scanner import IRREGULAR_LAYOUT_MIN_ACCEPTED_AREA as _AREA_MIN
+        from pokemon_binder_scanner.binder_fixtures import load_manifest as _lm, render_fixture_pages
+        _manifest = _lm()
+        _page = next(p for p in _manifest["pages"] if p["page_id"] == "page-37")
+        with tempfile.TemporaryDirectory() as td:
+            render_fixture_pages(
+                {"pages": [_page], "expected_page_count": 1,
+                 "expected_priced_card_count": len(_page["slots"]),
+                 "expected_binder_total_usd": _page["expected_total_usd"],
+                 "expected_duplicate_groups": []},
+                td
+            )
+            from pokemon_binder_scanner.scanner import _detect_irregular_layout_bboxes, _default_reference_index
+            _img = Image.open(Path(td) / f"{_page['page_id']}.jpg").convert("RGB")
+            _bboxes = _detect_irregular_layout_bboxes(_img, reference_index=_default_reference_index())
+            for _b in _bboxes:
+                self.assertGreaterEqual(_b[2] * _b[3], _AREA_MIN)
+
+
 if __name__ == "__main__":
     unittest.main()
