@@ -325,6 +325,21 @@ PY
           ];
         };
 
+        # Haswell desktop — repurposed server, Samsung SSD + 8TB HDD
+        haswell = nixpkgs.lib.nixosSystem {
+          system = "x86_64-linux";
+          specialArgs = {
+            inherit inputs packageHealth;
+          };
+          modules = [
+            {
+              nixpkgs.overlays = commonOverlays;
+            }
+            home-manager.nixosModules.home-manager
+            ./hosts/haswell/configuration.nix
+          ];
+        };
+
         # Legacy configuration names for backward compatibility
         nixos = nixpkgs.lib.nixosSystem {
           system = "x86_64-linux";
