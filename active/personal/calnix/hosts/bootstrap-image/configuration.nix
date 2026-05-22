@@ -13,6 +13,7 @@
 
   calnix.bootstrap.connectivity.enable = true;
   calnix.bootstrap.ssh.enable = true;
+  calnix.bootstrap.ssh.controllerPubkey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDwix44A6TqqGOokU/gIpaf3shN0Pad+S08M36flhBZv calvin@loveland.dev";
   calnix.bootstrap.agent.enable = true;
 
   # Hostname for the live image
