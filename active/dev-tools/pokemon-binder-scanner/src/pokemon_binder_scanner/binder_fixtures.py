@@ -88,8 +88,11 @@ def validate_manifest(manifest: dict[str, Any]) -> list[str]:
                 errors.append(f"page {page_id} slot {slot_id} tilt_degrees must be numeric")
 
             card = slot.get("card")
+            if card is None:
+                # empty slot - nothing more to validate for this slot
+                continue
             if not isinstance(card, dict):
-                errors.append(f"page {page_id} slot {slot_id} must contain a card object")
+                errors.append(f"page {page_id} slot {slot_id} card must be an object or null")
                 continue
 
             canonical_card_id = str(card.get("canonical_card_id", "")).strip()
@@ -199,6 +202,7 @@ def summarize_manifest(manifest: dict[str, Any]) -> dict[str, Any]:
     set_counter: Counter[str] = Counter()
     unique_card_ids: set[str] = set()
     slot_count = 0
+    empty_slot_count = 0
     image_backed_card_count = 0
     max_card: dict[str, Any] | None = None
     page_summaries: list[dict[str, Any]] = []
@@ -206,12 +210,17 @@ def summarize_manifest(manifest: dict[str, Any]) -> dict[str, Any]:
     for page in pages:
         slots = page.get("slots", [])
         page_priced_cards = 0
+        page_empty_slots = 0
         page_max_card: dict[str, Any] | None = None
         for slot in slots:
             slot_count += 1
             visibility = str(slot.get("visibility", "unknown")).strip() or "unknown"
             visibility_counter[visibility] += 1
             card = slot.get("card")
+            if card is None:
+                empty_slot_count += 1
+                page_empty_slots += 1
+                continue
             if not isinstance(card, dict):
                 continue
             page_priced_cards += 1
@@ -247,7 +256,7 @@ def summarize_manifest(manifest: dict[str, Any]) -> dict[str, Any]:
                 "expected_total_usd": round(float(page.get("expected_total_usd", 0.0)), 2),
                 "slot_count": len(slots),
                 "priced_card_count": page_priced_cards,
-                "empty_slot_count": 0,
+                "empty_slot_count": page_empty_slots,
                 "top_card": page_max_card,
             }
         )
@@ -262,7 +271,7 @@ def summarize_manifest(manifest: dict[str, Any]) -> dict[str, Any]:
         "page_count": len(pages),
         "slot_count": slot_count,
         "priced_card_count": manifest.get("expected_priced_card_count", 0),
-        "empty_slot_count": 0,
+        "empty_slot_count": empty_slot_count,
         "image_backed_card_count": image_backed_card_count,
         "binder_total_usd": round(float(manifest.get("expected_binder_total_usd", 0.0)), 2),
         "unique_card_count": len(unique_card_ids),

@@ -30,6 +30,7 @@ IRREGULAR_LAYOUT_MATCH_SCORE_THRESHOLD = 0.12
 IRREGULAR_REFINE_AREA_THRESHOLD = 0.048
 IRREGULAR_REFINE_SHIFTS = (-0.05, 0.0, 0.05)
 IRREGULAR_REFINE_SCALES = (0.85,)
+IRREGULAR_LAYOUT_MIN_ACCEPTED_AREA = 0.02
 IRREGULAR_LAYOUT_THRESHOLD_PAIRS: tuple[tuple[int, int], ...] = (
     (50, 80),
     (70, 80),
@@ -143,6 +144,26 @@ def _build_reference_index_cached(manifest_json: str) -> list[dict[str, Any]]:
                 "variants": variants,
             }
         )
+    # Add empty-slot reference so the matcher can recognise blank pockets
+    empty_ref_path = manifest_root / "reference_cards" / "empty.jpg"
+    if empty_ref_path.exists():
+        with Image.open(empty_ref_path) as empty_source:
+            empty = ImageOps.exif_transpose(empty_source).convert("RGBA")
+    else:
+        empty = Image.new("RGBA", MATCH_SIZE, (12, 24, 40, 255))
+    blank_variants = [_signature(_prepare_reference_variant(empty, config)) for config in REFERENCE_VARIANT_CONFIGS]
+    index.append(
+        {
+            "canonical_card_id": "empty",
+            "card": {
+                "canonical_card_id": "empty",
+                "name": "Empty slot",
+                "reference_image_path": "",
+                "fixture_price_usd": 0.0,
+            },
+            "variants": blank_variants,
+        }
+    )
     return index
 
 
@@ -221,15 +242,17 @@ def evaluate_scanner_on_fixture_dataset(
                 continue
 
             scanned_slot = scanned_slots[scanned_index]
-            expected_card = expected_slot["card"]
+            expected_card = expected_slot.get("card")
             predicted_card = scanned_slot["card"]
             is_match = _cards_match(expected_card, predicted_card)
             if is_match:
                 matched_cards += 1
                 page_card_matches += 1
             else:
+                expected_label = expected_card.get("canonical_card_id", "empty") if expected_card else "empty"
+                predicted_label = predicted_card.get("canonical_card_id", "empty") if predicted_card else "empty"
                 page_mismatches.append(
-                    f"{expected_slot['slot_id']}: expected {expected_card.get('canonical_card_id')} got {predicted_card.get('canonical_card_id')}"
+                    f"{expected_slot['slot_id']}: expected {expected_label} got {predicted_label}"
                 )
             identified_slots.append(
                 {
@@ -400,6 +423,8 @@ def _detect_irregular_layout_bboxes(
     accepted_bboxes: list[tuple[float, float, float, float]] = []
     for match_score, bbox in deduped_refined:
         if match_score > IRREGULAR_LAYOUT_MATCH_SCORE_THRESHOLD:
+            continue
+        if bbox[2] * bbox[3] < IRREGULAR_LAYOUT_MIN_ACCEPTED_AREA:
             continue
         if any(_bbox_iou(bbox, existing_bbox) > IRREGULAR_LAYOUT_NMS_IOU_THRESHOLD for existing_bbox in accepted_bboxes):
             continue
@@ -1023,5 +1048,7 @@ def _masked_mae(left: np.ndarray, right: np.ndarray, left_mask: np.ndarray, righ
     return float(masked_diff.sum() / count)
 
 
-def _cards_match(expected_card: dict[str, Any], predicted_card: dict[str, Any]) -> bool:
-    return str(expected_card.get("canonical_card_id", "")) == str(predicted_card.get("canonical_card_id", ""))
+def _cards_match(expected_card: dict[str, Any] | None, predicted_card: dict[str, Any] | None) -> bool:
+    expected_id = str(expected_card.get("canonical_card_id", "")) if expected_card else "empty"
+    predicted_id = str(predicted_card.get("canonical_card_id", "")) if predicted_card else "empty"
+    return expected_id == predicted_id

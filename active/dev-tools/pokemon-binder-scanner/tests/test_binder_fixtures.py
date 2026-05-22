@@ -33,7 +33,9 @@ class BinderFixtureTests(unittest.TestCase):
         catalog: dict[str, dict[str, object]] = {}
         for page in self.manifest["pages"]:
             for slot in page["slots"]:
-                card = slot["card"]
+                card = slot.get("card")
+                if not isinstance(card, dict):
+                    continue
                 catalog[str(card["canonical_card_id"])] = dict(card)
         return catalog
 
@@ -140,11 +142,13 @@ class BinderFixtureTests(unittest.TestCase):
 
     def test_summary_reports_expanded_fixture_shape(self) -> None:
         summary = summarize_manifest(self.manifest)
+        total_slots = sum(len(page["slots"]) for page in self.manifest["pages"])
+        empty_slots = total_slots - self.manifest["expected_priced_card_count"]
         self.assertEqual(summary["page_count"], self.manifest["expected_page_count"])
-        self.assertEqual(summary["slot_count"], self.manifest["expected_priced_card_count"])
+        self.assertEqual(summary["slot_count"], total_slots)
         self.assertEqual(summary["priced_card_count"], self.manifest["expected_priced_card_count"])
         self.assertEqual(summary["image_backed_card_count"], self.manifest["expected_priced_card_count"])
-        self.assertEqual(summary["empty_slot_count"], 0)
+        self.assertEqual(summary["empty_slot_count"], empty_slots)
         self.assertEqual(summary["duplicate_group_count"], len(self.manifest["expected_duplicate_groups"]))
         self.assertEqual(summary["unique_card_count"], 88)
         self.assertEqual(summary["highest_value_card"]["name"], "Venusaur ex")
