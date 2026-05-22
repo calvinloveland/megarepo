@@ -494,11 +494,12 @@ class RandomCorpusRegressionTests(unittest.TestCase):
     # ------------------------------------------------------------------
 
     def test_random_corpus_accuracy_above_threshold(self) -> None:
-        """Scanner accuracy on a random 200-card subset must stay above 85%.
+        """Scanner accuracy on a random 200-card subset must stay above 95%.
 
         This is the main anti-overfitting guardrail: if the scanner
         overfits to the old 88-card fixture corpus, a fresh random set
-        will expose the gap immediately.
+        will expose the gap immediately.  Clean, untilted cards should
+        be identified near-perfectly.
         """
         seed = int(os.environ.get("RANDOM_CORPUS_SEED", "20260522"))
         cards = self._load_random_cards(seed, self.RANDOM_CORPUS_CARD_COUNT)
@@ -533,8 +534,8 @@ class RandomCorpusRegressionTests(unittest.TestCase):
             # (the fixture adversarial pages drag the old test down to
             # ~80%, but random clean cards should be much easier).
             self.assertGreaterEqual(
-                accuracy, 0.85,
-                f"Random-corpus accuracy {accuracy:.2%} below 85% threshold "
+                accuracy, 0.95,
+                f"Random-corpus accuracy {accuracy:.2%} below 95% threshold "
                 f"({matched}/{total_slots} cards matched). "
                 "Possible overfitting to the fixed fixture manifest."
             )

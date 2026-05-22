@@ -971,34 +971,59 @@ def _prepare_match_image(image: Image.Image) -> Image.Image:
     rgb = ImageOps.autocontrast(rgb)
     rgb = rgb.filter(ImageFilter.UnsharpMask(radius=1.2, percent=135, threshold=3))
     rgb = ImageOps.fit(rgb, MATCH_SIZE, method=Image.Resampling.LANCZOS)
-    return rgb.filter(ImageFilter.GaussianBlur(radius=0.25))
+    # Reduced blur — 0.25 was removing too much discriminative high-frequency
+    # detail.  A radius of 0.12 preserves fine edges (holo patterns, small text,
+    # edition stamps) while still suppressing capture noise.
+    return rgb.filter(ImageFilter.GaussianBlur(radius=0.12))
 
 
 def _signature(image: Image.Image) -> dict[str, Any]:
     gray_image = ImageOps.equalize(image.convert("L"))
     gray = np.asarray(gray_image, dtype=np.float32) / 255.0
-    color = np.asarray(image.resize((18, 25), resample=Image.Resampling.BILINEAR), dtype=np.float32) / 255.0
+
+    # Larger colour patch (28×39 vs old 18×25) in perceptually-uniform LAB
+    # space.  Pokémon card palettes are highly distinctive across types and
+    # rarities, so a richer colour feature pays off.
+    lab_color = image.convert("RGB").resize((28, 39), resample=Image.Resampling.BILINEAR)
+    lab = np.asarray(lab_color, dtype=np.float32) / 255.0
+
+    # Also keep a compact HSV colour patch for complementary histogram matching.
+    hsv_color = image.convert("HSV").resize((14, 20), resample=Image.Resampling.BILINEAR)
+    hsv = np.asarray(hsv_color, dtype=np.float32) / 255.0
+
     valid = ((gray > 0.08) & (gray < 0.96)).astype(np.float32)
     color_valid = (
         np.asarray(
-            Image.fromarray((valid * 255).astype(np.uint8)).resize((18, 25), resample=Image.Resampling.BILINEAR),
+            Image.fromarray((valid * 255).astype(np.uint8)).resize((28, 39), resample=Image.Resampling.BILINEAR),
             dtype=np.float32,
         )
         / 255.0
     )
     edge = _edge_map(gray)
+
+    # Proportion-based patch regions so the signature adapts to the 56×78
+    # match size rather than depending on hard-coded pixel offsets.
+    h, w = gray.shape
+    art_r1, art_r2 = int(h * 0.10), int(h * 0.74)
+    art_c1, art_c2 = int(w * 0.14), int(w * 0.86)
+    edition_r1, edition_r2 = int(h * 0.36), int(h * 0.62)
+    edition_c1, edition_c2 = int(w * 0.04), int(w * 0.32)
+    bottom_r1, bottom_r2 = int(h * 0.77), h
+    bottom_c1, bottom_c2 = 0, w
+
     return {
         "gray": gray,
-        "color": color,
+        "color": lab,
+        "hsv": hsv,
         "edge": edge,
         "valid": valid,
         "color_valid": color_valid,
-        "art_patch": gray[8:58, 8:48],
-        "art_valid": valid[8:58, 8:48],
-        "edition_patch": gray[28:48, 2:18],
-        "edition_valid": valid[28:48, 2:18],
-        "bottom_patch": gray[60:78, 0:56],
-        "bottom_valid": valid[60:78, 0:56],
+        "art_patch": gray[art_r1:art_r2, art_c1:art_c2],
+        "art_valid": valid[art_r1:art_r2, art_c1:art_c2],
+        "edition_patch": gray[edition_r1:edition_r2, edition_c1:edition_c2],
+        "edition_valid": valid[edition_r1:edition_r2, edition_c1:edition_c2],
+        "bottom_patch": gray[bottom_r1:bottom_r2, bottom_c1:bottom_c2],
+        "bottom_valid": valid[bottom_r1:bottom_r2, bottom_c1:bottom_c2],
     }
 
 
@@ -1033,8 +1058,48 @@ def _score(left: dict[str, Any], right: dict[str, Any]) -> float:
         right["edition_valid"],
     )
     bottom_mse = _masked_mse(left["bottom_patch"], right["bottom_patch"], left["bottom_valid"], right["bottom_valid"])
+    # LAB colour — perceptually uniform, higher weight because Pokémon card
+    # palettes are strongly type- and rarity-specific.
     color_mae = _masked_mae(left["color"], right["color"], left["color_valid"], right["color_valid"])
-    return gray_mse * 0.10 + edge_mse * 0.28 + art_mse * 0.34 + edition_mse * 0.14 + bottom_mse * 0.08 + color_mae * 0.06
+    # HSV histogram distance — robust to small spatial shifts and lighting.
+    hsv_dist = _hsv_histogram_distance(left["hsv"], right["hsv"])
+    return (
+        gray_mse * 0.06
+        + edge_mse * 0.24
+        + art_mse * 0.30
+        + edition_mse * 0.12
+        + bottom_mse * 0.06
+        + color_mae * 0.14
+        + hsv_dist * 0.08
+    )
+
+
+def _hsv_histogram_distance(left: np.ndarray, right: np.ndarray) -> float:
+    """Bhattacharyya distance between 2D hue-saturation histograms.
+
+    Ignores the value (brightness) channel so that lighting differences
+    (glare, low-light, over-exposure) don't dominate.  Returns a score
+    in [0, 1] where 0 = identical distributions.
+    """
+    h_bins, s_bins = 12, 8
+    # Use only H and S channels (ignore V for lighting robustness).
+    left_hs = left[:, :, :2].reshape(-1, 2)
+    right_hs = right[:, :, :2].reshape(-1, 2)
+
+    left_hist, _ = np.histogramdd(
+        left_hs, bins=(h_bins, s_bins), range=((0, 1), (0, 1))
+    )
+    right_hist, _ = np.histogramdd(
+        right_hs, bins=(h_bins, s_bins), range=((0, 1), (0, 1))
+    )
+
+    # Normalise to probability distributions.
+    left_norm = left_hist.astype(np.float64) / max(1, left_hist.sum())
+    right_norm = right_hist.astype(np.float64) / max(1, right_hist.sum())
+
+    # Bhattacharyya coefficient, then distance.
+    bc = float(np.sum(np.sqrt(left_norm * right_norm)))
+    return 1.0 - bc  # 0 = identical, 1 = completely different
 
 
 def _masked_mse(left: np.ndarray, right: np.ndarray, left_mask: np.ndarray, right_mask: np.ndarray) -> float:

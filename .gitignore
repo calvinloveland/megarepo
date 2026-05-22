@@ -80,3 +80,4 @@ devserver.pid
 /active/games/wizard_fight/ollama.log
 site/
 .docs-site/
+/data/

@@ -322,7 +322,7 @@ class TestSignature(unittest.TestCase):
     def test_signature_keys(self) -> None:
         img = Image.new("RGB", MATCH_SIZE, color="gray")
         sig = _signature(img)
-        expected_keys = {"gray", "color", "edge", "valid", "color_valid",
+        expected_keys = {"gray", "color", "hsv", "edge", "valid", "color_valid",
                          "art_patch", "art_valid", "edition_patch",
                          "edition_valid", "bottom_patch", "bottom_valid"}
         self.assertEqual(set(sig.keys()), expected_keys)
@@ -331,8 +331,8 @@ class TestSignature(unittest.TestCase):
         img = Image.new("RGB", MATCH_SIZE, color="gray")
         sig = _signature(img)
         self.assertEqual(sig["gray"].shape, (78, 56))
-        self.assertEqual(sig["color"].shape, (25, 18, 3))
-        self.assertEqual(sig["art_patch"].shape, (50, 40))
+        self.assertEqual(sig["color"].shape, (39, 28, 3))
+        self.assertEqual(sig["art_patch"].shape, (50, 41))
 
 
 class TestScore(unittest.TestCase):
