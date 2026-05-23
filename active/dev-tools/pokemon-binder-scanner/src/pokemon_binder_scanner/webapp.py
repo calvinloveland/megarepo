@@ -254,22 +254,6 @@ APPRAISER_TEMPLATE = """
         gap: 8px;
         flex-wrap: wrap;
       }
-      .feedback-correction {
-        display: grid;
-        gap: 8px;
-      }
-      .feedback-correction[hidden] { display: none; }
-      .feedback-correction input {
-        width: 100%;
-        max-width: 160px;
-        padding: 10px 12px;
-        border-radius: 12px;
-        border: 1px solid rgba(148, 163, 184, 0.22);
-        background: rgba(15, 23, 42, 0.84);
-        color: var(--text);
-        font: inherit;
-        font-size: 0.88rem;
-      }
       .feedback-status {
         font-size: 0.82rem;
         color: var(--muted);
@@ -500,11 +484,7 @@ APPRAISER_TEMPLATE = """
                                 <button type="button" class="button secondary small" data-feedback-positive>👍</button>
                                 <button type="button" class="button secondary small" data-feedback-negative>👎</button>
                               </div>
-                              <div class="feedback-correction" data-feedback-correction hidden>
-                                <input type="text" name="actual_card" placeholder="Enter the actual card name or ID" />
-                                <button type="submit" class="small">Save correction</button>
-                              </div>
-                              <div class="feedback-status" data-feedback-status>Was this prediction correct?</div>
+                              <div class="feedback-status" data-feedback-status></div>
                             </form>
                           </td>
                         </tr>
@@ -576,48 +556,25 @@ APPRAISER_TEMPLATE = """
 
       document.querySelectorAll('[data-feedback-form]').forEach((form) => {
         const feedbackValue = form.querySelector('[data-feedback-value]');
-        const correction = form.querySelector('[data-feedback-correction]');
         const status = form.querySelector('[data-feedback-status]');
-        const actualCardInput = form.querySelector('input[name="actual_card"]');
 
-        async function sendFeedback() {
+        async function sendFeedback(label) {
           const body = new FormData(form);
           const response = await fetch(form.action, { method: 'POST', body });
           const payload = await response.json();
-          status.textContent = payload.message || 'Saved.';
+          status.textContent = payload.message || label;
           status.classList.toggle('success', Boolean(payload.ok));
           status.classList.toggle('danger', !payload.ok);
         }
 
         form.querySelector('[data-feedback-positive]').addEventListener('click', async () => {
           feedbackValue.value = 'up';
-          correction.hidden = true;
-          if (actualCardInput) {
-            actualCardInput.value = '';
-          }
-          await sendFeedback();
+          await sendFeedback('👍 Thanks');
         });
 
-        form.querySelector('[data-feedback-negative]').addEventListener('click', () => {
+        form.querySelector('[data-feedback-negative]').addEventListener('click', async () => {
           feedbackValue.value = 'down';
-          correction.hidden = false;
-          if (actualCardInput) {
-            actualCardInput.focus();
-          }
-          status.textContent = 'Enter the actual card, then save the correction.';
-          status.classList.remove('success', 'danger');
-        });
-
-        form.addEventListener('submit', async (event) => {
-          event.preventDefault();
-          feedbackValue.value = 'down';
-          if (!actualCardInput?.value.trim()) {
-            status.textContent = 'Please enter the actual card before saving.';
-            status.classList.remove('success');
-            status.classList.add('danger');
-            return;
-          }
-          await sendFeedback();
+          await sendFeedback('👎 Marked incorrect');
         });
       });
     </script>
@@ -1143,11 +1100,8 @@ def serve_reference_card(path: str):
 @app.route("/feedback", methods=["POST"])
 def submit_feedback():
     feedback = str(request.form.get("feedback", "")).strip().lower()
-    actual_card = str(request.form.get("actual_card", "")).strip()
     if feedback not in {"up", "down"}:
         return jsonify({"ok": False, "message": "Unknown feedback action."}), 400
-    if feedback == "down" and not actual_card:
-        return jsonify({"ok": False, "message": "Please enter the actual card."}), 400
 
     entry = {
         "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -1157,10 +1111,9 @@ def submit_feedback():
         "predicted_card_id": str(request.form.get("predicted_card_id", "")).strip(),
         "predicted_card_name": str(request.form.get("predicted_card_name", "")).strip(),
         "feedback": feedback,
-        "actual_card": actual_card,
     }
     _append_feedback(entry)
-    message = "Thanks — feedback saved." if feedback == "up" else "Correction saved."
+    message = "👍 Thanks" if feedback == "up" else "👎 Marked incorrect"
     return jsonify({"ok": True, "message": message})
 
 

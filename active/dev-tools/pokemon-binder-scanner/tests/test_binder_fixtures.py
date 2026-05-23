@@ -276,7 +276,7 @@ class BinderFixtureTests(unittest.TestCase):
             self.assertIn(b"Predicted total", post_response.data)
             self.assertIn(b"results-section", post_response.data)
             self.assertIn("👍".encode("utf-8"), post_response.data)
-            self.assertIn(b"Enter the actual card name or ID", post_response.data)
+            self.assertIn(b"feedback-buttons", post_response.data)
 
             feedback_response = client.post(
                 "/feedback",
@@ -287,11 +287,10 @@ class BinderFixtureTests(unittest.TestCase):
                     "predicted_card_id": "basep-1",
                     "predicted_card_name": "Pikachu",
                     "feedback": "down",
-                    "actual_card": "basep-3",
                 },
             )
             self.assertEqual(feedback_response.status_code, 200)
-            self.assertIn("Correction saved", feedback_response.get_data(as_text=True))
+            self.assertIn("Marked incorrect", feedback_response.get_data(as_text=True))
 
     def test_build_demo_page_writes_html_with_summary_and_tests(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
