@@ -24,7 +24,6 @@ DEFAULT_LAYOUT_BBOXES: tuple[tuple[float, float, float, float], ...] = (
     (0.365, 0.68, 0.25, 0.25),
     (0.68, 0.68, 0.25, 0.25),
 )
-LAYOUT_TEMPLATE_CONFIDENCE_THRESHOLD = 0.16
 IRREGULAR_LAYOUT_NMS_IOU_THRESHOLD = 0.35
 IRREGULAR_LAYOUT_MATCH_SCORE_THRESHOLD = 0.12
 IRREGULAR_REFINE_AREA_THRESHOLD = 0.048
@@ -373,62 +372,157 @@ def _detect_layout_bboxes(
     *,
     reference_index: list[dict[str, Any]] | None = None,
 ) -> tuple[tuple[float, float, float, float], ...]:
-    # Preprocess: for low-contrast real-world photos, normalise lighting
-    # via CLAHE so that card edges become visible in the irregular detector.
-    # Template scoring uses the raw image (it works well on synthetic pages).
-    gray_pil = image.convert("L")
-    gray_arr = np.asarray(gray_pil, dtype=np.uint8)
-    gray = np.asarray(gray_pil, dtype=np.float32) / 255.0
-    gradient_y, gradient_x = np.gradient(gray)
-    edge = np.hypot(gradient_x, gradient_y)
-    edge_scale = max(1e-6, float(np.percentile(edge, 99)))
-    edge = np.clip(edge / edge_scale, 0.0, 1.0)
-    edge_integral = _integral_image(edge)
-    scored_templates = sorted(
-        (
-            (_score_layout_template(edge_integral, layout_bboxes, gray.shape[1], gray.shape[0]), layout_bboxes)
-            for _, layout_bboxes in AUTO_LAYOUT_TEMPLATES
-        ),
-        key=lambda item: item[0],
-        reverse=True,
-    )
-    if not scored_templates:
-        return DEFAULT_LAYOUT_BBOXES
-    best_template_score, best_template_bboxes = scored_templates[0]
+    """Detect card bounding boxes in a binder-page image.
 
-    # When multiple templates score similarly (within 15% of best) AND the
-    # best score is reasonably high (≥ 0.12), prefer the 9-slot (3×3) layout
-    # if it's among them.  Standard binder pages almost always have 9 pockets.
-    # For very low-confidence images (single card, scattered cards), don't
-    # force extra slots.
-    candidates = [
-        (score, bboxes)
-        for score, bboxes in scored_templates
-        if score >= best_template_score * 0.85
-    ]
-    if best_template_score >= 0.12:
-        nine_slot = [(s, b) for s, b in candidates if len(b) == 9]
-        if nine_slot:
-            best_template_score, best_template_bboxes = max(nine_slot, key=lambda x: x[0])
-        else:
-            candidates.sort(key=lambda x: (-len(x[1]), -x[0]))
-            best_template_score, best_template_bboxes = candidates[0]
-
-    if best_template_score >= LAYOUT_TEMPLATE_CONFIDENCE_THRESHOLD:
-        return best_template_bboxes
-
-    # Template confidence is low — try the irregular detector.  Run it
-    # twice: once on the original image, and once on a CLAHE-normalised
-    # version to catch cards that are washed out in the original.
+    Uses contour detection on edge maps to find rectangular card-like
+    regions.  Works on any number of pockets — no template assumptions.
+    """
+    bboxes = _detect_card_bboxes(image)
+    if bboxes:
+        return bboxes
+    # Fallback: try the old irregular detector.
     for candidate_image in (image, ImageOps.equalize(image)):
-        irregular_bboxes = _detect_irregular_layout_bboxes(
-            candidate_image, reference_index=reference_index or _default_reference_index()
+        irregular = _detect_irregular_layout_bboxes(
+            candidate_image,
+            reference_index=reference_index or _default_reference_index(),
         )
-        if irregular_bboxes:
-            return irregular_bboxes
+        if irregular:
+            return irregular
+    # Last resort: assume a 3×3 grid.
+    return DEFAULT_LAYOUT_BBOXES
 
-    # Still nothing — return the best high-slot-count template.
-    return best_template_bboxes
+
+def _detect_card_bboxes(
+    image: Image.Image,
+) -> tuple[tuple[float, float, float, float], ...]:
+    """Find card rectangles using multi-scale region detection.
+
+    Strategy: cards are bright rectangular regions separated by dark
+    binder gaps.  We threshold at multiple levels, find contours at
+    each level, merge overlapping detections, and filter by shape.
+    No template assumptions — works on any pocket count.
+    """
+    import cv2
+
+    img_w, img_h = image.size
+    gray = np.asarray(image.convert("L"), dtype=np.uint8)
+
+    # CLAHE for even lighting.
+    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+    gray = clahe.apply(gray)
+
+    # Multi-level thresholding to find card regions at different
+    # brightness levels (handles mixed card colors).
+    all_bboxes: list[tuple[float, float, float, float]] = []
+
+    for thresh_ratio in (0.35, 0.50, 0.65):
+        thresh_val = int(gray.max() * thresh_ratio)
+        _, binary = cv2.threshold(gray, thresh_val, 255, cv2.THRESH_BINARY)
+
+        # Close small gaps inside cards (artwork creates holes).
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
+        closed = cv2.morphologyEx(binary, cv2.MORPH_CLOSE, kernel, iterations=2)
+
+        # Find contours of bright regions (the cards).
+        contours, _ = cv2.findContours(closed, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+        for c in contours:
+            area = cv2.contourArea(c)
+            area_f = area / (img_w * img_h)
+            if area_f < 0.008 or area_f > 0.14:
+                continue
+
+            x, y, cw, ch = cv2.boundingRect(c)
+            ar = cw / max(1, ch)
+            # Allow wider aspect range since perspective distorts cards.
+            if ar < 0.45 or ar > 1.05:
+                continue
+
+            # Solidity check: cards are mostly solid rectangles.
+            hull = cv2.convexHull(c)
+            hull_area = cv2.contourArea(hull)
+            solidity = area / max(1.0, hull_area)
+            if solidity < 0.65:
+                continue
+
+            # Small inward margin so the crop doesn't catch pocket edges.
+            margin = 0.02
+            nx = max(0.0, x / img_w + margin)
+            ny = max(0.0, y / img_h + margin)
+            nw = min(1.0 - margin, (x + cw) / img_w - margin) - nx
+            nh = min(1.0 - margin, (y + ch) / img_h - margin) - ny
+            if nw > 0.04 and nh > 0.06:
+                all_bboxes.append((nx, ny, nw, nh))
+
+    if not all_bboxes:
+        return _detect_card_bboxes_contour(image, gray,
+            cv2.Canny(gray, 30, 100))
+
+    # Merge overlapping detections from multiple threshold levels.
+    merged = list(_merge_overlapping_bboxes(all_bboxes, iou_threshold=0.6))
+
+    if len(merged) < 2:
+        return _detect_card_bboxes_contour(image, gray,
+            cv2.Canny(gray, 30, 100))
+
+    return _sort_bboxes_reading_order(merged)
+
+def _detect_card_bboxes_contour(
+    image: Image.Image,
+    gray: np.ndarray,
+    edges: np.ndarray,
+) -> tuple[tuple[float, float, float, float], ...]:
+    """Fallback: contour-based card detection when thresholding fails."""
+    import cv2
+
+    img_w, img_h = image.size
+
+    _, binary = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (7, 7))
+    closed = cv2.morphologyEx(cv2.bitwise_or(binary, edges), cv2.MORPH_CLOSE, kernel, iterations=2)
+
+    contours, _ = cv2.findContours(closed, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+    raw: list[tuple[float, float, float, float]] = []
+    for c in contours:
+        area = cv2.contourArea(c)
+        area_f = area / (img_w * img_h)
+        if area_f < 0.006 or area_f > 0.14:
+            continue
+        x, y, cw, ch = cv2.boundingRect(c)
+        ar = cw / max(1, ch)
+        if ar < 0.50 or ar > 1.0:
+            continue
+        pad = 0.02
+        nx = max(0.0, x / img_w - pad)
+        ny = max(0.0, y / img_h - pad)
+        nw = min(1.0, (x + cw) / img_w + pad) - nx
+        nh = min(1.0, (y + ch) / img_h + pad) - ny
+        raw.append((nx, ny, nw, nh))
+
+    if len(raw) <= 1:
+        return tuple(raw)
+    return _sort_bboxes_reading_order(list(_merge_overlapping_bboxes(raw)))
+
+
+def _merge_overlapping_bboxes(
+    bboxes: list[tuple[float, float, float, float]],
+    iou_threshold: float = 0.5,
+) -> tuple[tuple[float, float, float, float], ...]:
+    """Merge bounding boxes with high overlap, keeping the larger one."""
+    if len(bboxes) <= 1:
+        return tuple(bboxes)
+
+    # Sort by area descending so larger boxes survive.
+    sorted_boxes = sorted(bboxes, key=lambda b: -b[2] * b[3])
+    kept: list[tuple[float, float, float, float]] = []
+
+    for box in sorted_boxes:
+        if any(_bbox_iou(box, existing) > iou_threshold for existing in kept):
+            continue
+        kept.append(box)
+
+    return tuple(kept)
 
 
 def _refine_irregular_bbox(
