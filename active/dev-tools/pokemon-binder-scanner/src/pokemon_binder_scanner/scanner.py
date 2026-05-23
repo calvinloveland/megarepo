@@ -30,7 +30,10 @@ IRREGULAR_LAYOUT_MATCH_SCORE_THRESHOLD = 0.12
 IRREGULAR_REFINE_AREA_THRESHOLD = 0.048
 IRREGULAR_REFINE_SHIFTS = (-0.05, 0.0, 0.05)
 IRREGULAR_REFINE_SCALES = (0.85,)
-IRREGULAR_LAYOUT_MIN_ACCEPTED_AREA = 0.02
+IRREGULAR_LAYOUT_MIN_ACCEPTED_AREA = 0.015
+# Lower bar for real-world photos: accept layouts with just 1 candidate
+# when the template confidence is also low.
+IRREGULAR_LAYOUT_MIN_CANDIDATES = 2
 IRREGULAR_LAYOUT_THRESHOLD_PAIRS: tuple[tuple[int, int], ...] = (
     (50, 80),
     (70, 80),
@@ -370,7 +373,12 @@ def _detect_layout_bboxes(
     *,
     reference_index: list[dict[str, Any]] | None = None,
 ) -> tuple[tuple[float, float, float, float], ...]:
-    gray = np.asarray(image.convert("L"), dtype=np.float32) / 255.0
+    # Preprocess: for low-contrast real-world photos, normalise lighting
+    # via CLAHE so that card edges become visible in the irregular detector.
+    # Template scoring uses the raw image (it works well on synthetic pages).
+    gray_pil = image.convert("L")
+    gray_arr = np.asarray(gray_pil, dtype=np.uint8)
+    gray = np.asarray(gray_pil, dtype=np.float32) / 255.0
     gradient_y, gradient_x = np.gradient(gray)
     edge = np.hypot(gradient_x, gradient_y)
     edge_scale = max(1e-6, float(np.percentile(edge, 99)))
@@ -387,11 +395,40 @@ def _detect_layout_bboxes(
     if not scored_templates:
         return DEFAULT_LAYOUT_BBOXES
     best_template_score, best_template_bboxes = scored_templates[0]
+
+    # When multiple templates score similarly (within 15% of best) AND the
+    # best score is reasonably high (≥ 0.12), prefer the 9-slot (3×3) layout
+    # if it's among them.  Standard binder pages almost always have 9 pockets.
+    # For very low-confidence images (single card, scattered cards), don't
+    # force extra slots.
+    candidates = [
+        (score, bboxes)
+        for score, bboxes in scored_templates
+        if score >= best_template_score * 0.85
+    ]
+    if best_template_score >= 0.12:
+        nine_slot = [(s, b) for s, b in candidates if len(b) == 9]
+        if nine_slot:
+            best_template_score, best_template_bboxes = max(nine_slot, key=lambda x: x[0])
+        else:
+            candidates.sort(key=lambda x: (-len(x[1]), -x[0]))
+            best_template_score, best_template_bboxes = candidates[0]
+
     if best_template_score >= LAYOUT_TEMPLATE_CONFIDENCE_THRESHOLD:
         return best_template_bboxes
 
-    irregular_bboxes = _detect_irregular_layout_bboxes(image, reference_index=reference_index or _default_reference_index())
-    return irregular_bboxes if irregular_bboxes else best_template_bboxes
+    # Template confidence is low — try the irregular detector.  Run it
+    # twice: once on the original image, and once on a CLAHE-normalised
+    # version to catch cards that are washed out in the original.
+    for candidate_image in (image, ImageOps.equalize(image)):
+        irregular_bboxes = _detect_irregular_layout_bboxes(
+            candidate_image, reference_index=reference_index or _default_reference_index()
+        )
+        if irregular_bboxes:
+            return irregular_bboxes
+
+    # Still nothing — return the best high-slot-count template.
+    return best_template_bboxes
 
 
 def _refine_irregular_bbox(
@@ -427,9 +464,17 @@ def _detect_irregular_layout_bboxes(
     value = hsv[:, :, 2]
     candidate_bboxes: list[tuple[float, tuple[float, float, float, float]]] = []
 
-    # ---- 1. HSV-based candidates (existing approach) ----
+    # ---- 0. Adapt thresholds based on image statistics ----
+    # Real-world photos often have lower saturation and value ranges
+    # than synthetic fixtures.  Scale thresholds down for washed-out images.
+    mean_sat = float(np.percentile(saturation, 50))
+    threshold_scale = max(0.55, min(1.0, mean_sat / 80.0))
+
+    # ---- 1. HSV-based candidates ----
     for saturation_threshold, value_threshold in IRREGULAR_LAYOUT_THRESHOLD_PAIRS:
-        component_mask = (saturation > saturation_threshold) & (value > value_threshold)
+        sat_t = saturation_threshold * threshold_scale
+        val_t = value_threshold * threshold_scale
+        component_mask = (saturation > sat_t) & (value > val_t)
         mask_image = Image.fromarray((component_mask.astype(np.uint8) * 255), mode="L")
         mask_image = mask_image.filter(ImageFilter.MaxFilter(7)).filter(ImageFilter.MinFilter(5))
         for component_pixels, component_bbox in _connected_components(np.asarray(mask_image) > 0):
@@ -444,6 +489,44 @@ def _detect_irregular_layout_bboxes(
 
     # ---- 3. Variance-based candidates (complementary) ----
     candidate_bboxes.extend(_detect_variance_components(image))
+
+    # ---- 3b. Canny-edge candidates (complementary, robust to real photos) ----
+    import cv2
+
+    gray_img = image.convert("L")
+    gray_arr = np.asarray(gray_img, dtype=np.uint8)
+    # Use a low threshold for Canny to pick up faint card edges.
+    edges_canny = cv2.Canny(gray_arr, 30, 90)
+    # Dilate to connect edge fragments.
+    kernel = np.ones((5, 5), np.uint8)
+    edges_dilated = cv2.dilate(edges_canny, kernel, iterations=2)
+    # Close small gaps, then erode to trim bloat.
+    edges_closed = cv2.morphologyEx(edges_dilated, cv2.MORPH_CLOSE, np.ones((9, 9), np.uint8))
+    edges_final = cv2.erode(edges_closed, np.ones((7, 7), np.uint8), iterations=1)
+
+    canny_candidates: list[tuple[float, tuple[float, float, float, float]]] = []
+    for component_pixels, component_bbox in _connected_components(edges_final > 0):
+        if component_pixels < 1500 or component_pixels > 90000:
+            continue
+        left, top, right, bottom = component_bbox
+        cw = right - left
+        ch = bottom - top
+        cw_norm = cw / image.width
+        ch_norm = ch / image.height
+        aspect = cw / max(1, ch)
+        if not (0.04 <= cw_norm <= 0.30 and 0.05 <= ch_norm <= 0.32):
+            continue
+        if not (0.38 <= aspect <= 1.15):
+            continue
+        expand_x = max(10, int(cw * 0.20))
+        expand_y = max(12, int(ch * 0.10))
+        nx = max(0.0, (left - expand_x) / image.width)
+        ny = max(0.0, (top - expand_y) / image.height)
+        nw = min(1.0, (right + expand_x) / image.width) - nx
+        nh = min(1.0, (bottom + expand_y) / image.height) - ny
+        aspect_score = 1.0 - abs(aspect - 0.73) / 0.5
+        canny_candidates.append((component_pixels * max(0.1, aspect_score), (nx, ny, nw, nh)))
+    candidate_bboxes.extend(canny_candidates)
 
     # ---- 4. Deduplicate, score, then NMS by match quality ----
     deduped: list[tuple[float, tuple[float, float, float, float]]] = []
@@ -490,7 +573,7 @@ def _detect_irregular_layout_bboxes(
             continue
         accepted_bboxes.append(bbox)
 
-    return tuple(_sort_bboxes_reading_order(accepted_bboxes)) if len(accepted_bboxes) >= 3 else ()
+    return tuple(_sort_bboxes_reading_order(accepted_bboxes)) if len(accepted_bboxes) >= IRREGULAR_LAYOUT_MIN_CANDIDATES else ()
 
 
 def _detect_edge_components(
