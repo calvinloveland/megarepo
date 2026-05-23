@@ -203,22 +203,32 @@ APPRAISER_TEMPLATE = """
         grid-template-columns: 1.1fr 0.9fr;
         gap: 18px;
         padding: 20px;
+        min-width: 0;
       }
+      .result-body > * { min-width: 0; }
       .image-grid {
         display: grid;
         grid-template-columns: 1fr 1fr;
         gap: 12px;
+        min-width: 0;
       }
       .figure {
         background: rgba(15, 23, 42, 0.74);
         border: 1px solid rgba(148, 163, 184, 0.16);
         border-radius: 16px;
         padding: 12px;
+        min-width: 0;
       }
       .figure strong { display: block; margin-bottom: 8px; }
-      .figure img { width: 100%; height: auto; border-radius: 12px; display: block; }
+      .figure img { width: 100%; height: auto; max-width: 100%; border-radius: 12px; display: block; }
+      .table-wrap {
+        width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+      }
       .cards-table {
         width: 100%;
+        min-width: 480px;
         border-collapse: collapse;
         font-size: 0.92rem;
       }
@@ -238,7 +248,6 @@ APPRAISER_TEMPLATE = """
       .feedback-form {
         display: grid;
         gap: 8px;
-        min-width: 210px;
       }
       .feedback-buttons {
         display: flex;
@@ -252,16 +261,19 @@ APPRAISER_TEMPLATE = """
       .feedback-correction[hidden] { display: none; }
       .feedback-correction input {
         width: 100%;
+        max-width: 160px;
         padding: 10px 12px;
         border-radius: 12px;
         border: 1px solid rgba(148, 163, 184, 0.22);
         background: rgba(15, 23, 42, 0.84);
         color: var(--text);
         font: inherit;
+        font-size: 0.88rem;
       }
       .feedback-status {
-        font-size: 0.88rem;
+        font-size: 0.82rem;
         color: var(--muted);
+        max-width: 160px;
       }
       .loading-overlay {
         position: fixed;
@@ -306,6 +318,20 @@ APPRAISER_TEMPLATE = """
       @media (max-width: 700px) {
         .summary-grid, .stats, .image-grid { grid-template-columns: 1fr; }
         .result-head { flex-direction: column; }
+        .shell { padding: 20px 12px 40px; }
+      }
+      @media (max-width: 480px) {
+        .shell { padding: 14px 10px 32px; }
+        .panel { padding: 14px; }
+        .hero h1 { font-size: 1.5rem; }
+        .result-body { padding: 12px; }
+        .result-head { padding: 12px 14px; }
+        .figure { padding: 8px; }
+        .figure img { border-radius: 8px; }
+        .cards-table { font-size: 0.82rem; }
+        .cards-table th, .cards-table td { padding: 6px 5px; }
+        .pill { font-size: 0.8rem; padding: 6px 10px; }
+        .button.small, button.small { padding: 7px 10px; font-size: 0.82rem; }
       }
     </style>
   </head>
@@ -428,6 +454,7 @@ APPRAISER_TEMPLATE = """
               </div>
               <div>
                 {% if result.slots %}
+                  <div class="table-wrap">
                   <table class="cards-table">
                     <thead>
                       <tr>
@@ -484,6 +511,7 @@ APPRAISER_TEMPLATE = """
                       {% endfor %}
                     </tbody>
                   </table>
+                  </div>
                 {% else %}
                   <div class="empty">No cards were detected in this image.</div>
                 {% endif %}
