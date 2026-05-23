@@ -1251,6 +1251,218 @@ def _masked_mae(left: np.ndarray, right: np.ndarray, left_mask: np.ndarray, righ
     return float(masked_diff.sum() / count)
 
 
+# ---------------------------------------------------------------------------
+# FAISS-powered full-corpus scanner (handles 20k+ cards at sub-second speed)
+# ---------------------------------------------------------------------------
+
+_FAISS_INDEX: Any = None
+_FAISS_CARDS: list[dict[str, Any]] = []
+_FAISS_FINGERPRINTS: Any = None
+
+
+def load_faiss_index(index_dir: str | Path) -> tuple[Any, list[dict[str, Any]], Any]:
+    """Load a pre-built FAISS index + card metadata + fingerprint matrix.
+
+    Returns (faiss_index, cards_list, fingerprints_matrix).
+    Call once at startup; the result is cached globally.
+    """
+    global _FAISS_INDEX, _FAISS_CARDS, _FAISS_FINGERPRINTS
+    import faiss
+
+    index_path = Path(index_dir)
+    _FAISS_INDEX = faiss.read_index(str(index_path / "combined.index"))
+    _FAISS_CARDS = json.loads((index_path / "cards.json").read_text())
+    _FAISS_FINGERPRINTS = np.load(index_path / "combined_fingerprints.npy")
+    return _FAISS_INDEX, _FAISS_CARDS, _FAISS_FINGERPRINTS
+
+
+def _faiss_lookup(
+    query_fingerprint: np.ndarray,
+    k: int = 60,
+) -> list[tuple[str, float]]:
+    """Find top-K card IDs by cosine similarity via FAISS.
+
+    Returns list of (card_id, similarity_score) sorted best-first.
+    """
+    import faiss
+
+    if _FAISS_INDEX is None:
+        return []
+
+    query = query_fingerprint.astype(np.float32).reshape(1, -1)
+    faiss.normalize_L2(query)
+    distances, indices = _FAISS_INDEX.search(query, k)  # type: ignore[union-attr]
+
+    results: list[tuple[str, float]] = []
+    seen: set[str] = set()
+    for idx, dist in zip(indices[0], distances[0]):
+        if idx < 0 or idx >= len(_FAISS_CARDS):
+            continue
+        cid = _FAISS_CARDS[idx]["canonical_card_id"]
+        if cid not in seen:
+            seen.add(cid)
+            # Convert inner-product similarity back to a distance-like score.
+            # IP ∈ [-1, 1]; we map to [0, 1] where 0 = perfect match.
+            score = 1.0 - max(0.0, float(dist))
+            results.append((cid, score))
+    return results
+
+
+def faiss_scan_image(
+    image_path: str | Path,
+    *,
+    index_dir: str | Path | None = None,
+    reference_manifest: dict[str, Any] | None = None,
+    manifest_root: str | Path | None = None,
+) -> dict[str, Any]:
+    """Identify cards in a binder-page image using the FAISS full-corpus index.
+
+    This is the production path: FAISS pre-filter → full signature verification
+    on the top candidates.  Handles 20k+ cards in under a second per slot.
+
+    If *reference_manifest* is provided, falls back to building a traditional
+    reference index for fine verification.  Otherwise uses only FAISS results.
+    """
+    path = Path(image_path)
+
+    # Ensure FAISS index is loaded.
+    if _FAISS_INDEX is None and index_dir is not None:
+        load_faiss_index(index_dir)
+
+    with Image.open(path) as source_image:
+        image = ImageOps.exif_transpose(source_image).convert("RGB")
+
+    # Detect layout bboxes.
+    if reference_manifest is not None:
+        ref_index = build_reference_index(reference_manifest, manifest_root=manifest_root)
+    else:
+        # Without a reference manifest, use a minimal index just for layout
+        # detection.  Build it on the fly from the FAISS card store.
+        ref_index = _build_minimal_faiss_index()
+
+    inferred_layout_bboxes = tuple(_detect_layout_bboxes(image, reference_index=ref_index))
+    slots: list[dict[str, Any]] = []
+    predicted_total = 0.0
+
+    for position, bbox in enumerate(inferred_layout_bboxes, start=1):
+        slot_image = _crop_bbox(image, bbox)
+        best: dict[str, Any] | None = None
+
+        for card_crop in _extract_card_candidates(slot_image):
+            slot_sig = _signature(_prepare_slot_image(card_crop))
+
+            # Stage 1: FAISS lookup.
+            query_fp = _fingerprint_from_hsv(slot_sig["hsv"])
+            # Add edge-profile to match combined index structure.
+            edge = slot_sig["edge"]
+            col_edge = edge.mean(axis=0).astype(np.float32)
+            row_edge = edge.mean(axis=1).astype(np.float32)
+            edge_fp = np.concatenate([col_edge, row_edge]).astype(np.float32)
+            combined_fp = np.concatenate([query_fp * 0.7, edge_fp * 0.3]).astype(np.float32)
+
+            faiss_candidates = _faiss_lookup(combined_fp, k=60)
+
+            # Stage 2: fine verification on FAISS candidates.
+            if reference_manifest is not None and faiss_candidates:
+                candidate_set = {cid for cid, _ in faiss_candidates}
+                candidate_set.add("empty")
+                for entry in ref_index:
+                    if entry["canonical_card_id"] not in candidate_set:
+                        continue
+                    best_variant = min(
+                        _score(slot_sig, variant) for variant in entry["variants"]
+                    )
+                    if best is None or best_variant < best["score"]:
+                        best = {
+                            "card": dict(entry["card"], canonical_card_id=entry["canonical_card_id"]),
+                            "score": best_variant,
+                        }
+            else:
+                # No reference manifest: use FAISS results directly.
+                for cid, faiss_score in faiss_candidates:
+                    if best is None or faiss_score < best["score"]:
+                        card_info = next(
+                            (c for c in _FAISS_CARDS if c["canonical_card_id"] == cid),
+                            None,
+                        )
+                        if card_info:
+                            best = {
+                                "card": {
+                                    "canonical_card_id": cid,
+                                    "name": card_info.get("name", cid),
+                                    "fixture_price_usd": card_info.get("fixture_price_usd", 0.0),
+                                    "set_code": card_info.get("set_code", ""),
+                                    "rarity": card_info.get("rarity", ""),
+                                },
+                                "score": faiss_score,
+                            }
+
+            if best is not None:
+                break  # Use first crop candidate that matched.
+
+        if best is None:
+            # Fallback: use the traditional pipeline.
+            best = _predict_slot_match(slot_image, ref_index)
+
+        slot_id = f"slot-{position:02d}"
+        predicted_card = dict(best["card"])
+        predicted_total += float(predicted_card.get("fixture_price_usd", 0.0))
+        slots.append({
+            "slot_id": slot_id,
+            "bbox_norm": [round(value, 4) for value in bbox],
+            "card": predicted_card,
+            "match_score": round(float(best["score"]), 6),
+        })
+
+    return {
+        "page_id": path.stem,
+        "slot_count": len(slots),
+        "predicted_total_usd": round(predicted_total, 2),
+        "slots": slots,
+    }
+
+
+def _build_minimal_faiss_index() -> list[dict[str, Any]]:
+    """Build a minimal reference index for layout detection when using FAISS.
+
+    Only includes the first 10 cards from the FAISS store — enough for the
+    layout detector to work, without loading thousands of reference images.
+    """
+    import random as _random
+
+    index: list[dict[str, Any]] = []
+    cards_to_use = _FAISS_CARDS[:10] if _FAISS_CARDS else []
+
+    for card_meta in cards_to_use:
+        cid = card_meta["canonical_card_id"]
+        ref_path = Path("/data/home/calvin/pokemon-binder-scanner/reference_cards") / f"{cid}.png"
+        if not ref_path.exists():
+            continue
+        try:
+            with Image.open(ref_path) as source_img:
+                source = ImageOps.exif_transpose(source_img).convert("RGBA")
+        except Exception:
+            continue
+        rng = _random.Random(cid)
+        config = {"visibility": "clear", "tilt_degrees": 0.0, "render_effects": []}
+        variant = _signature(_prepare_reference_variant(source, config))
+        index.append({
+            "canonical_card_id": cid,
+            "card": dict(card_meta),
+            "variants": [variant],
+        })
+    # Add empty slot.
+    empty_img = Image.new("RGBA", MATCH_SIZE, (12, 24, 40, 255))
+    empty_sig = _signature(_prepare_match_image(empty_img.convert("RGB")))
+    index.append({
+        "canonical_card_id": "empty",
+        "card": {"canonical_card_id": "empty", "name": "Empty slot",
+                  "reference_image_path": "", "fixture_price_usd": 0.0},
+        "variants": [empty_sig],
+    })
+    return index
+
+
 def _cards_match(expected_card: dict[str, Any] | None, predicted_card: dict[str, Any] | None) -> bool:
     expected_id = str(expected_card.get("canonical_card_id", "")) if expected_card else "empty"
     predicted_id = str(predicted_card.get("canonical_card_id", "")) if predicted_card else "empty"

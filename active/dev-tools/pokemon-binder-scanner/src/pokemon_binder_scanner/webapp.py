@@ -11,7 +11,7 @@ from flask import Flask, flash, jsonify, redirect, render_template_string, reque
 from PIL import Image, ImageDraw, ImageOps
 
 from .binder_fixtures import DEFAULT_MANIFEST_PATH, load_manifest
-from .scanner import scan_fixture_image
+from .scanner import scan_fixture_image, faiss_scan_image, load_faiss_index
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", secrets.token_hex(16))
@@ -806,7 +806,24 @@ def _appraiser_root() -> Path:
     return root
 
 
+_FAISS_INDEX_DIR: Path | None = None
+_FAISS_LOADED = False
+
+
+def _ensure_faiss_loaded() -> None:
+    global _FAISS_LOADED
+    if _FAISS_LOADED:
+        return
+    index_dir = os.environ.get("POKEMON_BINDER_FAISS_INDEX", "")
+    if index_dir:
+        p = Path(index_dir)
+        if (p / "combined.index").exists():
+            load_faiss_index(p)
+            _FAISS_LOADED = True
+
+
 def _catalog_summary() -> dict[str, Any]:
+    _ensure_faiss_loaded()
     manifest = load_manifest(DEFAULT_MANIFEST_PATH)
     unique_cards: set[str] = set()
     for page in manifest.get("pages", []):
@@ -815,8 +832,13 @@ def _catalog_summary() -> dict[str, Any]:
             card_id = str(card.get("canonical_card_id", "")).strip()
             if card_id:
                 unique_cards.add(card_id)
+    # When FAISS is loaded, override the unique card count with the full corpus.
+    display_count = len(unique_cards)
+    if _FAISS_LOADED:
+        from .scanner import _FAISS_CARDS
+        display_count = len(_FAISS_CARDS)
     return {
-        "unique_cards": len(unique_cards),
+        "unique_cards": display_count,
         "pages": int(manifest.get("expected_page_count", 0)),
         "fixture_total": float(manifest.get("expected_binder_total_usd", 0.0)),
     }
@@ -1047,7 +1069,12 @@ def appraise_images():
             flash(f"Unsupported file type for {storage.filename}.")
             return redirect(url_for("index"))
         image_path, original_name = _save_image_upload(storage)
-        scan_report = scan_fixture_image(image_path)
+        _ensure_faiss_loaded()
+        # Use FAISS-powered scanner when the full index is loaded.
+        if _FAISS_LOADED:
+            scan_report = faiss_scan_image(image_path)
+        else:
+            scan_report = scan_fixture_image(image_path)
         results.append(_image_result(scan_report, image_path, original_name, storage.content_type))
         original_uploads.append({"original_name": original_name})
 
