@@ -1821,7 +1821,7 @@ def clip_scan_image(
     embeddings = _clip_embed_slots(crops)
 
     # Batch FAISS search.
-    distances, indices = _FAISS_INDEX.search(embeddings, 10)  # type: ignore[union-attr]
+    distances, indices = _FAISS_INDEX.search(embeddings, 40)  # type: ignore[union-attr]
 
     slots: list[dict[str, Any]] = []
     predicted_total = 0.0
@@ -1834,10 +1834,15 @@ def clip_scan_image(
         best_price = 0.0
         best_score = 1.0
 
-        for j in range(min(10, len(dists))):
+        seen_ids: set[str] = set()
+        for j in range(min(40, len(dists))):
             idx = idxs[j]
             if idx < 0 or idx >= len(_FAISS_CARDS):
                 continue
+            cid = _FAISS_CARDS[idx]["canonical_card_id"]
+            if cid in seen_ids:
+                continue
+            seen_ids.add(cid)
             score = 1.0 - max(0.0, float(dists[j]))
             if score < best_score:
                 best_score = score

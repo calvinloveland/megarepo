@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import random
 import sys
 import time
 from pathlib import Path
@@ -84,6 +85,22 @@ def build_index(output_dir: Path) -> dict[str, Any]:
 
         batch_images.append(img)
         batch_cids.append(cid)
+
+        # Also generate phone-photo variants to bridge the domain gap.
+        for variant_cfg in [
+            {"visibility": "clear", "tilt_degrees": 0.0, "render_effects": ["low_light", "desaturate"]},
+            {"visibility": "glare", "tilt_degrees": 4.0, "render_effects": ["heavy_glare"]},
+            {"visibility": "clear", "tilt_degrees": 0.0, "render_effects": ["blue_cast"]},
+        ]:
+            try:
+                rng = random.Random(f"{cid}-{variant_cfg['visibility']}")
+                from pokemon_binder_scanner.binder_fixtures import _apply_card_transform
+                variant_img = _apply_card_transform(img.copy().convert("RGBA"), variant_cfg, rng)
+                batch_images.append(variant_img.convert("RGB"))
+                batch_cids.append(cid)
+            except Exception:
+                pass
+
         price = float(card.get("fixture_price_usd", 0.0))
         batch_meta.append({
             "canonical_card_id": cid,
