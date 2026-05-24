@@ -1959,33 +1959,21 @@ def clip_scan_image(
             if len(clip_candidates) >= 15:
                 break
 
-        # Stage 2: fine verification on top CLIP candidates using
-        # the full multi-patch scoring (much more discriminative than
-        # CLIP embeddings alone, especially for near-identical cards).
+        # Use CLIP-only scoring — pixel-level verification hurts accuracy
+        # on degraded real-world photos (CLIP embeddings are more robust
+        # to lighting/color shifts than multi-patch MSE).
         best_cid = None
         best_name = "Unknown"
         best_price = 0.0
         best_score = 1.0
-        if clip_candidates:
-            verified = _verify_faiss_candidates(
-                slot_sig, clip_candidates, k=15, query_image=crop
-            )
-            if verified is not None:
-                best_cid = verified["card"]["canonical_card_id"]
-                best_name = verified["card"].get("name", best_cid)
-                best_price = float(verified["card"].get("fixture_price_usd", 0.0))
-                best_score = verified["score"]
-
-        # Fallback to pure CLIP if verification fails.
-        if best_cid is None:
-            for cid, clip_score in clip_candidates:
-                if clip_score < best_score:
-                    best_score = clip_score
-                    card = next((c for c in _FAISS_CARDS if c["canonical_card_id"] == cid), None)
-                    if card:
-                        best_cid = cid
-                        best_name = card.get("name", cid)
-                        best_price = float(card.get("fixture_price_usd", 0.0))
+        for cid, clip_score in clip_candidates:
+            if clip_score < best_score:
+                best_score = clip_score
+                card = next((c for c in _FAISS_CARDS if c["canonical_card_id"] == cid), None)
+                if card:
+                    best_cid = cid
+                    best_name = card.get("name", cid)
+                    best_price = float(card.get("fixture_price_usd", 0.0))
 
         slot_id = f"slot-{position:02d}"
         predicted_total += best_price
