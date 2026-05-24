@@ -63,6 +63,8 @@ LEVELS = {
         ["low_light_desat"],
         ["motion_blur"],
         ["tilted_occluded"],
+        ["blue_cast_soft"],
+        ["sleeve_glare"],
     ],
     "hard": [
         ["jpeg10", "heavy_glare"],
@@ -70,6 +72,8 @@ LEVELS = {
         ["jpeg20", "motion_blur", "blue_cast_soft"],
         ["heavy_glare", "blue_cast_soft"],
         ["sleeve_glare", "low_light_desat"],
+        ["jpeg15", "tilted_occluded"],
+        ["jpeg20", "glare_band"],
     ],
     "extreme": [
         ["jpeg5", "heavy_glare", "low_light_desat"],
@@ -77,6 +81,8 @@ LEVELS = {
         ["jpeg10", "glare_band", "low_light_desat"],
         ["jpeg10", "heavy_glare", "blue_cast_soft", "motion_blur"],
         ["jpeg5", "tilted_occluded", "low_light_desat"],
+        ["jpeg5", "heavy_glare", "low_light_desat", "blue_cast_soft"],
+        ["jpeg8", "sleeve_glare", "motion_blur", "low_light_desat"],
     ],
 }
 
@@ -98,7 +104,7 @@ def _apply_degradation(
     return result
 
 
-def generate_test_cases(num_pairs: int = 30, seed: int = 42) -> dict[str, Any]:
+def generate_test_cases(num_pairs: int = 50, seed: int = 42) -> dict[str, Any]:
     """Generate adversarial test cases at all difficulty levels."""
     confusable = load_confusable_pairs(min_printings=4)
     rng = random.Random(seed)

@@ -696,8 +696,10 @@ class AdversarialCorpusTests(unittest.TestCase):
             )
 
     def _run_level(self, level: str, expected_accuracy: float) -> None:
-        """Run adversarial test at a given difficulty level."""
+        """Run adversarial test using the full clip_scan_image pipeline
+        (CLIP retrieval + pixel-level re-ranking)."""
         import json
+        import tempfile
         from io import BytesIO
 
         import pokemon_binder_scanner.scanner as s
@@ -781,16 +783,16 @@ class AdversarialCorpusTests(unittest.TestCase):
         )
 
     def test_adversarial_moderate_accuracy(self) -> None:
-        """Moderate degradation: single effect, should be >85%."""
-        self._run_level("moderate", 0.85)
+        """Moderate degradation: single effect, should be >92%."""
+        self._run_level("moderate", 0.92)
 
     def test_adversarial_hard_accuracy(self) -> None:
-        """Hard degradation: two stacked effects, should be >60%."""
-        self._run_level("hard", 0.60)
+        """Hard degradation: two stacked effects, should be >72%."""
+        self._run_level("hard", 0.72)
 
     def test_adversarial_extreme_accuracy(self) -> None:
-        """Extreme degradation: three+ stacked effects + JPEG 5, should be >15%."""
-        self._run_level("extreme", 0.15)
+        """Extreme degradation: three+ stacked effects + JPEG 5, should be >25%."""
+        self._run_level("extreme", 0.25)
 
 
 if __name__ == "__main__":
