@@ -11,7 +11,7 @@ from flask import Flask, flash, jsonify, redirect, render_template_string, reque
 from PIL import Image, ImageDraw, ImageOps
 
 from .binder_fixtures import DEFAULT_MANIFEST_PATH, load_manifest
-from .scanner import scan_fixture_image, faiss_scan_image, load_faiss_index, load_clip_index, clip_scan_image
+from .scanner import scan_fixture_image, faiss_scan_image, load_faiss_index, load_clip_index, clip_scan_image, load_clip_adapter
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", secrets.token_hex(16))
@@ -805,6 +805,10 @@ def _ensure_faiss_loaded() -> None:
         # Prefer CLIP index if available.
         if (p / "clip.index").exists():
             load_clip_index(p)
+            # Also load adapter if available.
+            adapter_path = p / "adapter.pt"
+            if adapter_path.exists():
+                load_clip_adapter(str(adapter_path))
             _FAISS_LOADED = True
         elif (p / "combined.index").exists():
             load_faiss_index(p)

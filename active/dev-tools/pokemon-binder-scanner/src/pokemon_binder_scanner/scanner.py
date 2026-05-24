@@ -1512,6 +1512,18 @@ def _ensure_clip_loaded() -> None:
     _CLIP_MODEL.eval()
 
 
+
+_ADAPTER: Any = None
+
+def load_clip_adapter(adapter_path: str | Path) -> None:
+    """Load a trained CLIP adapter for inference."""
+    global _ADAPTER
+    import torch
+    from scripts.train_clip_adapter import CLIPAdapter
+    _ADAPTER = CLIPAdapter()
+    _ADAPTER.load_state_dict(torch.load(str(adapter_path), weights_only=True))
+    _ADAPTER.eval()
+
 def _clip_embed_slots(images: list[Image.Image]) -> np.ndarray:
     """Compute CLIP embeddings for a batch of card-crop images."""
     import torch
@@ -1521,6 +1533,9 @@ def _clip_embed_slots(images: list[Image.Image]) -> np.ndarray:
         outputs = _CLIP_MODEL.get_image_features(**inputs)
         feats = outputs.pooler_output
         feats = feats / feats.norm(dim=-1, keepdim=True)
+        if _ADAPTER is not None:
+            feats = _ADAPTER(feats)
+            feats = feats / feats.norm(dim=-1, keepdim=True)
     return feats.cpu().numpy().astype(np.float32)
 
 
@@ -1810,12 +1825,15 @@ def clip_scan_image(
     if not bboxes:
         bboxes = DEFAULT_LAYOUT_BBOXES
 
-    # Extract all card crops.
+    # Extract all card crops and compute signatures for re-ranking.
     crops: list[Image.Image] = []
+    slot_sigs: list[dict[str, Any]] = []
     for bbox in bboxes:
         slot_img = _crop_bbox(image, bbox)
         candidates = _extract_card_candidates(slot_img)
-        crops.append(candidates[0])
+        crop = candidates[0]
+        crops.append(crop)
+        slot_sigs.append(_signature(_prepare_slot_image(crop)))
 
     # Batch CLIP embedding.
     embeddings = _clip_embed_slots(crops)
@@ -1826,14 +1844,16 @@ def clip_scan_image(
     slots: list[dict[str, Any]] = []
     predicted_total = 0.0
 
-    for position, (bbox, dists, idxs) in enumerate(
-        zip(bboxes, distances, indices), start=1
+    for position, (bbox, dists, idxs, slot_sig, crop) in enumerate(
+        zip(bboxes, distances, indices, slot_sigs, crops), start=1
     ):
         best_cid = None
         best_name = "Unknown"
         best_price = 0.0
         best_score = 1.0
 
+        # Stage 1: collect top unique CLIP candidates.
+        clip_candidates: list[tuple[str, float]] = []
         seen_ids: set[str] = set()
         for j in range(min(40, len(dists))):
             idx = idxs[j]
@@ -1843,13 +1863,38 @@ def clip_scan_image(
             if cid in seen_ids:
                 continue
             seen_ids.add(cid)
-            score = 1.0 - max(0.0, float(dists[j]))
-            if score < best_score:
-                best_score = score
-                card = _FAISS_CARDS[idx]
-                best_cid = card["canonical_card_id"]
-                best_name = card.get("name", best_cid)
-                best_price = float(card.get("fixture_price_usd", 0.0))
+            clip_score = 1.0 - max(0.0, float(dists[j]))
+            clip_candidates.append((cid, clip_score))
+            if len(clip_candidates) >= 15:
+                break
+
+        # Stage 2: fine verification on top CLIP candidates using
+        # the full multi-patch scoring (much more discriminative than
+        # CLIP embeddings alone, especially for near-identical cards).
+        best_cid = None
+        best_name = "Unknown"
+        best_price = 0.0
+        best_score = 1.0
+        if clip_candidates:
+            verified = _verify_faiss_candidates(
+                slot_sig, clip_candidates, k=15, query_image=crop
+            )
+            if verified is not None:
+                best_cid = verified["card"]["canonical_card_id"]
+                best_name = verified["card"].get("name", best_cid)
+                best_price = float(verified["card"].get("fixture_price_usd", 0.0))
+                best_score = verified["score"]
+
+        # Fallback to pure CLIP if verification fails.
+        if best_cid is None:
+            for cid, clip_score in clip_candidates:
+                if clip_score < best_score:
+                    best_score = clip_score
+                    card = next((c for c in _FAISS_CARDS if c["canonical_card_id"] == cid), None)
+                    if card:
+                        best_cid = cid
+                        best_name = card.get("name", cid)
+                        best_price = float(card.get("fixture_price_usd", 0.0))
 
         slot_id = f"slot-{position:02d}"
         predicted_total += best_price
