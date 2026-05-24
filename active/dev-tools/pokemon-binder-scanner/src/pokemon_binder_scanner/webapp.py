@@ -805,10 +805,14 @@ def _ensure_faiss_loaded() -> None:
         # Prefer CLIP index if available.
         if (p / "clip.index").exists():
             load_clip_index(p)
-            # Also load adapter if available.
-            adapter_path = p / "adapter.pt"
+            # Load adapter if configured and available.
+            adapter_env = os.environ.get("POKEMON_BINDER_CLIP_ADAPTER", "")
+            adapter_path = Path(adapter_env) if adapter_env else p / "adapter.pt"
             if adapter_path.exists():
-                load_clip_adapter(str(adapter_path))
+                try:
+                    load_clip_adapter(str(adapter_path))
+                except Exception:
+                    pass  # Adapter loading is best-effort.
             _FAISS_LOADED = True
         elif (p / "combined.index").exists():
             load_faiss_index(p)
