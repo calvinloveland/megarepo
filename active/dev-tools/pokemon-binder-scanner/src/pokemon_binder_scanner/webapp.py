@@ -23,560 +23,505 @@ APPRAISER_TEMPLATE = """
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Pokémon Binder Scanner</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+    <title>Pokemon Binder Scanner</title>
     <style>
       :root {
         color-scheme: dark;
-        --bg: #07111f;
-        --panel: rgba(15, 23, 42, 0.92);
-        --panel-2: rgba(30, 41, 59, 0.92);
-        --border: rgba(148, 163, 184, 0.28);
+        --bg: #0b1120;
+        --surface: #111827;
+        --border: rgba(148, 163, 184, 0.18);
         --text: #e2e8f0;
         --muted: #94a3b8;
         --accent: #60a5fa;
-        --accent-2: #22c55e;
-        --danger: #f59e0b;
+        --good: #34d399;
+        --bad: #f87171;
       }
-      * { box-sizing: border-box; }
+      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
       body {
-        margin: 0;
-        font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-        background:
-          radial-gradient(circle at top, rgba(96, 165, 250, 0.16), transparent 32%),
-          linear-gradient(180deg, #081120 0%, #050b15 100%);
+        font-family: system-ui, -apple-system, sans-serif;
+        background: var(--bg);
         color: var(--text);
+        min-height: 100vh;
       }
-      a { color: var(--accent); }
-      .shell { max-width: 1240px; margin: 0 auto; padding: 32px 20px 56px; }
-      .nav {
+      .app {
+        max-width: 900px;
+        margin: 0 auto;
+        padding: 20px 16px 40px;
+      }
+      header {
         display: flex;
-        gap: 10px;
+        align-items: center;
+        justify-content: space-between;
         flex-wrap: wrap;
-        margin-bottom: 22px;
-      }
-      .nav a {
-        text-decoration: none;
-        color: var(--text);
-        background: rgba(15, 23, 42, 0.75);
-        border: 1px solid var(--border);
-        border-radius: 999px;
-        padding: 10px 14px;
-      }
-      .nav a.active {
-        background: rgba(96, 165, 250, 0.18);
-        border-color: rgba(96, 165, 250, 0.45);
-      }
-      .hero {
-        display: grid;
-        grid-template-columns: 1.4fr 0.9fr;
-        gap: 18px;
-        margin-bottom: 22px;
-      }
-      .panel {
-        background: var(--panel);
-        border: 1px solid var(--border);
-        border-radius: 20px;
-        padding: 22px;
-        box-shadow: 0 24px 80px rgba(0, 0, 0, 0.28);
-      }
-      .hero h1 { margin: 0 0 10px; font-size: clamp(2rem, 4vw, 3.2rem); line-height: 1.05; }
-      .hero p { margin: 0; color: var(--muted); max-width: 58ch; }
-      .stats {
-        display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
         gap: 12px;
+        margin-bottom: 20px;
       }
-      .stat {
-        padding: 14px;
-        background: rgba(15, 23, 42, 0.72);
-        border: 1px solid rgba(148, 163, 184, 0.18);
-        border-radius: 16px;
+      header h1 {
+        font-size: 1.25rem;
+        font-weight: 700;
+        letter-spacing: -0.01em;
       }
-      .stat .label { font-size: 0.82rem; color: var(--muted); margin-bottom: 6px; }
-      .stat .value { font-size: 1.45rem; font-weight: 700; }
-      .flash {
-        margin-bottom: 18px;
-        background: rgba(245, 158, 11, 0.14);
-        border: 1px solid rgba(245, 158, 11, 0.36);
-        color: #fde68a;
-        border-radius: 14px;
-        padding: 14px 16px;
-      }
-      .upload-panel {
-        display: grid;
-        grid-template-columns: 1.1fr 0.9fr;
-        gap: 18px;
-        align-items: start;
-        margin-bottom: 22px;
+      header .badge {
+        font-size: 0.78rem;
+        color: var(--muted);
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 99px;
+        padding: 4px 12px;
       }
       .dropzone {
-        border: 2px dashed rgba(96, 165, 250, 0.45);
-        border-radius: 20px;
-        padding: 26px;
-        text-align: center;
-        background: linear-gradient(180deg, rgba(96, 165, 250, 0.10), rgba(96, 165, 250, 0.04));
-        transition: 160ms ease;
-      }
-      .dropzone.dragover {
-        border-color: rgba(34, 197, 94, 0.72);
-        background: linear-gradient(180deg, rgba(34, 197, 94, 0.18), rgba(34, 197, 94, 0.07));
-        transform: translateY(-1px);
-      }
-      .dropzone h2 { margin: 0 0 10px; font-size: 1.35rem; }
-      .dropzone p { color: var(--muted); margin: 0 auto 16px; max-width: 42ch; }
-      .upload-actions {
-        display: flex;
-        justify-content: center;
-        gap: 12px;
-        flex-wrap: wrap;
-      }
-      .button, button {
-        border: 0;
-        border-radius: 999px;
-        background: linear-gradient(135deg, #3b82f6, #2563eb);
-        color: white;
-        padding: 12px 18px;
-        font: inherit;
-        font-weight: 700;
-        cursor: pointer;
-        text-decoration: none;
-      }
-      .button.small, button.small {
-        padding: 9px 12px;
-        font-size: 0.9rem;
-      }
-      .button.secondary {
-        background: rgba(30, 41, 59, 0.88);
-        border: 1px solid var(--border);
-        color: var(--text);
-      }
-      input[type=file] { display: none; }
-      .selected-files {
-        margin-top: 16px;
-        display: grid;
-        gap: 8px;
-      }
-      .selected-files .file {
-        padding: 10px 12px;
-        border-radius: 12px;
-        background: rgba(15, 23, 42, 0.76);
-        border: 1px solid rgba(148, 163, 184, 0.15);
-        color: var(--muted);
-      }
-      .help-list { margin: 0; padding-left: 18px; color: var(--muted); }
-      .summary-grid {
-        display: grid;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
-        gap: 12px;
-        margin-bottom: 22px;
-      }
-      .result-card {
-        margin-bottom: 18px;
-        background: var(--panel);
-        border: 1px solid var(--border);
-        border-radius: 20px;
-        overflow: hidden;
-      }
-      .result-head {
-        display: flex;
-        justify-content: space-between;
-        gap: 14px;
-        padding: 18px 20px;
-        background: rgba(15, 23, 42, 0.88);
-        border-bottom: 1px solid rgba(148, 163, 184, 0.16);
-      }
-      .result-head h3 { margin: 0 0 6px; font-size: 1.15rem; }
-      .result-head p { margin: 0; color: var(--muted); }
-      .pill-row { display: flex; gap: 8px; flex-wrap: wrap; }
-      .pill {
-        background: rgba(96, 165, 250, 0.15);
-        border: 1px solid rgba(96, 165, 250, 0.28);
-        color: #bfdbfe;
-        border-radius: 999px;
-        padding: 8px 12px;
-        font-size: 0.92rem;
-        white-space: nowrap;
-      }
-      .result-body {
-        display: grid;
-        grid-template-columns: 1.1fr 0.9fr;
-        gap: 18px;
-        padding: 20px;
-        min-width: 0;
-      }
-      .result-body > * { min-width: 0; }
-      .image-grid {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 12px;
-        min-width: 0;
-      }
-      .figure {
-        background: rgba(15, 23, 42, 0.74);
-        border: 1px solid rgba(148, 163, 184, 0.16);
+        border: 2px dashed rgba(96, 165, 250, 0.35);
         border-radius: 16px;
-        padding: 12px;
-        min-width: 0;
+        padding: 40px 20px;
+        text-align: center;
+        cursor: pointer;
+        transition: 160ms ease;
+        background: rgba(96, 165, 250, 0.04);
+        margin-bottom: 20px;
       }
-      .figure strong { display: block; margin-bottom: 8px; }
-      .figure img { width: 100%; height: auto; max-width: 100%; border-radius: 12px; display: block; }
-      .table-wrap {
-        width: 100%;
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
+      .dropzone:hover, .dropzone.dragover {
+        border-color: var(--accent);
+        background: rgba(96, 165, 250, 0.10);
       }
-      .cards-table {
-        width: 100%;
-        min-width: 480px;
-        border-collapse: collapse;
-        font-size: 0.92rem;
-      }
-      .cards-table th,
-      .cards-table td {
-        padding: 8px 6px;
-        border-bottom: 1px solid rgba(148, 163, 184, 0.12);
-        text-align: left;
-        vertical-align: middle;
-      }
-      .cards-table th { color: var(--muted); font-weight: 600; }
-      .card-preview { width: 42px; height: 58px; border-radius: 6px; object-fit: cover; background: #0b1120; display: block; border: 1px solid rgba(148,163,184,.2); }
-      .score-badge { display: inline-block; padding: 3px 8px; border-radius: 999px; font-size: 0.82rem; font-weight: 700; }
-      .score-badge.good { background: rgba(34,197,94,.18); color: #86efac; }
-      .score-badge.ok  { background: rgba(234,179,8,.18); color: #fde68a; }
-      .score-badge.poor { background: rgba(239,68,68,.18); color: #fca5a5; }
-      .feedback-form {
-        display: grid;
-        gap: 8px;
-      }
-      .feedback-buttons {
-        display: flex;
-        gap: 8px;
-        flex-wrap: wrap;
-      }
-      .feedback-status {
-        font-size: 0.82rem;
-        color: var(--muted);
-        max-width: 160px;
-      }
-      .loading-overlay {
-        position: fixed;
-        inset: 0;
+      .dropzone.dragover { transform: translateY(-1px); }
+      .dropzone p { color: var(--muted); font-size: 0.95rem; }
+      .dropzone .icon { font-size: 2rem; margin-bottom: 8px; display: block; }
+      input[type=file] { display: none; }
+
+      .loading {
         display: none;
         align-items: center;
         justify-content: center;
-        background: rgba(2, 6, 23, 0.76);
-        backdrop-filter: blur(6px);
-        z-index: 1000;
+        gap: 12px;
+        padding: 16px;
+        color: var(--muted);
       }
-      .loading-overlay.visible { display: flex; }
-      .loading-card {
+      .loading.visible { display: flex; }
+      .spinner {
+        width: 20px; height: 20px;
+        border-radius: 50%;
+        border: 2.5px solid rgba(148,163,184,0.25);
+        border-top-color: var(--accent);
+        animation: spin 0.7s linear infinite;
+      }
+      @keyframes spin { to { transform: rotate(360deg); } }
+
+      .result { display: none; }
+      .result.visible { display: block; }
+
+      .image-stage {
+        position: relative;
+        border-radius: 16px;
+        overflow: hidden;
+        background: #000;
+        margin-bottom: 16px;
+      }
+      .image-stage img {
+        display: block;
+        width: 100%;
+        height: auto;
+        max-height: 70vh;
+        object-fit: contain;
+      }
+      .image-stage canvas {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+      }
+      .toggle-bar {
         display: flex;
         align-items: center;
-        gap: 14px;
-        padding: 18px 22px;
-        border-radius: 18px;
-        background: rgba(15, 23, 42, 0.96);
-        border: 1px solid rgba(148, 163, 184, 0.25);
-        box-shadow: 0 24px 80px rgba(0, 0, 0, 0.32);
+        gap: 12px;
+        flex-wrap: wrap;
+        padding: 10px 14px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        margin-bottom: 16px;
       }
-      .spinner {
-        width: 24px;
-        height: 24px;
-        border-radius: 50%;
-        border: 3px solid rgba(148, 163, 184, 0.25);
-        border-top-color: var(--accent);
-        animation: spin 0.8s linear infinite;
+      .toggle-bar button {
+        border: 0;
+        border-radius: 99px;
+        padding: 7px 16px;
+        font: inherit;
+        font-size: 0.85rem;
+        font-weight: 600;
+        cursor: pointer;
+        background: rgba(96,165,250,0.15);
+        color: var(--accent);
+        transition: 120ms ease;
       }
-      @keyframes spin {
-        to { transform: rotate(360deg); }
+      .toggle-bar button.active {
+        background: var(--accent);
+        color: #000;
       }
-      .empty { color: var(--muted); }
-      .muted { color: var(--muted); }
-      .danger { color: #fca5a5; }
-      .success { color: #86efac; }
-      @media (max-width: 980px) {
-        .hero, .upload-panel, .result-body { grid-template-columns: 1fr; }
-        .summary-grid, .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .toggle-bar .meta {
+        color: var(--muted);
+        font-size: 0.88rem;
+        margin-left: auto;
       }
-      @media (max-width: 700px) {
-        .summary-grid, .stats, .image-grid { grid-template-columns: 1fr; }
-        .result-head { flex-direction: column; }
-        .shell { padding: 20px 12px 40px; }
+
+      .cards-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.9rem;
       }
-      @media (max-width: 480px) {
-        .shell { padding: 14px 10px 32px; }
-        .panel { padding: 14px; }
-        .hero h1 { font-size: 1.5rem; }
-        .result-body { padding: 12px; }
-        .result-head { padding: 12px 14px; }
-        .figure { padding: 8px; }
-        .figure img { border-radius: 8px; }
+      .cards-table th {
+        text-align: left;
+        padding: 10px 12px;
+        border-bottom: 1px solid var(--border);
+        color: var(--muted);
+        font-weight: 600;
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+      .cards-table td {
+        padding: 10px 12px;
+        border-bottom: 1px solid rgba(148,163,184,0.08);
+        vertical-align: middle;
+      }
+      .cards-table .name { font-weight: 600; }
+      .cards-table .id { color: var(--muted); font-size: 0.82rem; }
+      .cards-table .price { font-variant-numeric: tabular-nums; }
+      .feedback-buttons { display: flex; gap: 6px; }
+      .feedback-buttons button {
+        border: 1px solid var(--border);
+        border-radius: 99px;
+        padding: 5px 10px;
+        font-size: 0.85rem;
+        cursor: pointer;
+        background: transparent;
+        color: var(--muted);
+      }
+      .feedback-buttons button:hover { background: rgba(96,165,250,0.12); }
+      .feedback-status { font-size: 0.75rem; color: var(--muted); margin-top: 4px; }
+
+      .empty-state { text-align: center; color: var(--muted); padding: 40px 20px; }
+
+      @media (max-width: 600px) {
+        .app { padding: 12px 10px 32px; }
+        .cards-table th, .cards-table td { padding: 8px 6px; }
         .cards-table { font-size: 0.82rem; }
-        .cards-table th, .cards-table td { padding: 6px 5px; }
-        .pill { font-size: 0.8rem; padding: 6px 10px; }
-        .button.small, button.small { padding: 7px 10px; font-size: 0.82rem; }
       }
     </style>
   </head>
   <body>
-    <div class="loading-overlay" id="loading-overlay" aria-live="polite" aria-hidden="true">
-      <div class="loading-card">
-        <div class="spinner" aria-hidden="true"></div>
-        <div>
-          <strong>Appraising image…</strong><br />
-          <span class="muted">The scanner is detecting cards and estimating the total.</span>
-        </div>
+    <div class="app">
+      <header>
+        <h1>Pokemon Binder Scanner</h1>
+        <span class="badge">{{ catalog_summary.unique_cards }} reference cards</span>
+      </header>
+
+      <div class="dropzone" id="dropzone">
+        <span class="icon">📷</span>
+        <p>Drop a binder page photo here or click to upload</p>
+        <input id="file-input" type="file" name="images" accept=".jpg,.jpeg,.png,.webp,image/*" />
       </div>
-    </div>
-    <div class="shell">
-      <nav class="nav">
-        <a href="{{ url_for('index') }}" class="active">Appraiser</a>
-        <a href="{{ url_for('pipeline_page') }}">Pipeline</a>
-        <a href="{{ url_for('benchmark_page') }}">Benchmark</a>
-      </nav>
 
-      <section class="hero">
-        <div class="panel">
-          <h1>Drag page images in and appraise the whole image.</h1>
-          <p>
-            Upload one or more binder-page photos or card-group images. The appraiser detects a supported layout from the pixels,
-            identifies each visible card against the local reference corpus, and estimates the total value for the whole image.
-          </p>
+      <div class="loading" id="loading">
+        <div class="spinner"></div>
+        <span>Scanning cards…</span>
+      </div>
+
+      <div class="result" id="result">
+        <div class="image-stage" id="image-stage">
+          <img id="source-image" src="" alt="binder page" />
+          <canvas id="overlay-canvas"></canvas>
         </div>
-        <div class="panel">
-          <div class="stats">
-            <div class="stat">
-              <div class="label">Reference cards</div>
-              <div class="value">{{ catalog_summary.unique_cards }}</div>
-            </div>
-            <div class="stat">
-              <div class="label">Fixture images</div>
-              <div class="value">{{ catalog_summary.pages }}</div>
-            </div>
-            <div class="stat">
-              <div class="label">Known corpus total</div>
-              <div class="value">${{ '%.2f' % catalog_summary.fixture_total }}</div>
-            </div>
-          </div>
+
+        <div class="toggle-bar">
+          <button id="btn-overlay" class="active" onclick="toggleOverlay()">Show overlay</button>
+          <button id="btn-names" class="active" onclick="toggleNames()">Names</button>
+          <button id="btn-prices" class="active" onclick="togglePrices()">Prices</button>
+          <span class="meta" id="scan-meta">{% if results %}{% for result in results %}<span id="scan-meta-text">{{ result.slot_count }} cards &middot; ${{ '%.2f' % result.predicted_total_usd }}</span>{% endfor %}{% endif %}</span>
         </div>
-      </section>
 
-      {% with messages = get_flashed_messages() %}
-        {% if messages %}
-          <div class="flash">{{ messages[0] }}</div>
-        {% endif %}
-      {% endwith %}
+        <table class="cards-table" id="cards-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Card</th>
+              <th>Price</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="cards-tbody">
+            {% if results %}
+              {% for result in results %}
+                {% for slot in result.slots %}
+                  <tr>
+                    <td>{{ loop.index }}</td>
+                    <td>
+                      <div class="name"><strong>{{ slot.card.name }}</strong></div>
+                      <div class="id"><span class="muted">{{ slot.card.canonical_card_id }}</span></div>
+                    </td>
+                    <td>${{ '%.2f' % slot.card.fixture_price_usd }}</td>
+                    <td>
+                      <form class="feedback-form" data-feedback-form action="{{ url_for('submit_feedback') }}" method="post">
+                        <input type="hidden" name="image_filename" value="{{ result.image_filename }}" />
+                        <input type="hidden" name="original_name" value="{{ result.original_name }}" />
+                        <input type="hidden" name="slot_id" value="{{ slot.slot_id }}" />
+                        <input type="hidden" name="predicted_card_id" value="{{ slot.card.canonical_card_id }}" />
+                        <input type="hidden" name="predicted_card_name" value="{{ slot.card.name }}" />
+                        <input type="hidden" name="slot_bbox" value="{{ slot.bbox_norm | tojson }}" />
+                        <input type="hidden" name="feedback" value="up" data-feedback-value />
+                        <div class="feedback-buttons">
+                          <button type="button" class="button secondary small" data-feedback-positive>👍</button>
+                          <button type="button" class="button secondary small" data-feedback-negative>👎</button>
+                        </div>
+                        <div class="feedback-status" data-feedback-status></div>
+                      </form>
+                    </td>
+                  </tr>
+                {% endfor %}
+              {% endfor %}
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
 
-      <section class="upload-panel">
-        <div class="panel">
-          <form action="{{ url_for('appraise_images') }}" method="post" enctype="multipart/form-data" id="appraise-form">
-            <div class="dropzone" id="dropzone">
-              <h2>Drop image files here</h2>
-              <p>Supports JPG, PNG, and WebP. You can drop a single card, a binder page, or multiple images at once.</p>
-              <div class="upload-actions">
-                <label class="button" for="images-input">Choose images</label>
-                <button type="submit">Appraise uploaded images</button>
-              </div>
-              <input id="images-input" type="file" name="images" accept=".jpg,.jpeg,.png,.webp,image/*" multiple required />
-              <div class="selected-files" id="selected-files">
-                {% if uploads %}
-                  {% for upload in uploads %}
-                    <div class="file">{{ upload.original_name }}</div>
-                  {% endfor %}
-                {% else %}
-                  <div class="file">No files selected yet.</div>
-                {% endif %}
-              </div>
-            </div>
-          </form>
-        </div>
-        <div class="panel">
-          <h2 style="margin-top:0">Current limitations</h2>
-          <ul class="help-list">
-            <li>The scanner currently works best on layouts similar to the fixture corpus.</li>
-            <li>Irregular scattered layouts are now in the benchmark set and currently fail badly.</li>
-            <li>Prices come from stable fixture values, not live market fetches.</li>
-            <li>Image appraisal is picture-only: the scanner does not read SVG tags or hidden labels.</li>
-          </ul>
-        </div>
-      </section>
-
-      {% if batch_summary %}
-        <section class="summary-grid" id="results-section" tabindex="-1">
-          <div class="stat"><div class="label">Uploaded images</div><div class="value">{{ batch_summary.image_count }}</div></div>
-          <div class="stat"><div class="label">Detected cards</div><div class="value">{{ batch_summary.detected_slots }}</div></div>
-          <div class="stat"><div class="label">Predicted batch total</div><div class="value">${{ '%.2f' % batch_summary.predicted_total }}</div></div>
-          <div class="stat"><div class="label">Top prediction</div><div class="value">{{ batch_summary.top_card or '—' }}</div></div>
-        </section>
-      {% endif %}
-
-      {% if results %}
-        {% for result in results %}
-          <section class="result-card">
-            <div class="result-head">
-              <div>
-                <h3>{{ result.original_name }}</h3>
-                <p>{{ result.dimensions[0] }} × {{ result.dimensions[1] }} · {{ result.content_type or 'image' }}</p>
-              </div>
-              <div class="pill-row">
-                <div class="pill">Detected {{ result.slot_count }} card{{ '' if result.slot_count == 1 else 's' }}</div>
-                <div class="pill">Predicted total ${{ '%.2f' % result.predicted_total_usd }}</div>
-                <div class="pill">Layout {{ result.layout_name }}</div>
-              </div>
-            </div>
-            <div class="result-body">
-              <div class="image-grid">
-                <div class="figure">
-                  <strong>Uploaded image</strong>
-                  <img src="{{ result.original_url }}" alt="uploaded image" />
-                </div>
-                <div class="figure">
-                  <strong>Detected cards overlay</strong>
-                  <img src="{{ result.annotated_url }}" alt="annotated appraisal" />
-                </div>
-              </div>
-              <div>
-                {% if result.slots %}
-                  <div class="table-wrap">
-                  <table class="cards-table">
-                    <thead>
-                      <tr>
-                        <th></th>
-                        <th>Predicted card</th>
-                        <th>Score</th>
-                        <th>Price</th>
-                        <th>Feedback</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {% for slot in result.slots %}
-                        {% set score = slot.match_score | float %}
-                        {% if score < 0.08 %}
-                          {% set badge_class = 'good' %}
-                        {% elif score < 0.12 %}
-                          {% set badge_class = 'ok' %}
-                        {% else %}
-                          {% set badge_class = 'poor' %}
-                        {% endif %}
-                        <tr>
-                          <td>{{ loop.index }}</td>
-                          <td style="display:flex; gap:10px; align-items:center">
-                            {% if slot.card._ref_url %}
-                              <img class="card-preview" src="{{ slot.card._ref_url }}" alt="" loading="lazy" />
-                            {% endif %}
-                            <div>
-                              <strong>{{ slot.card.name }}</strong><br />
-                              <span class="muted">{{ slot.card.canonical_card_id }}</span>
-                            </div>
-                          </td>
-                          <td><span class="score-badge {{ badge_class }}">{{ '%.4f' % score }}</span></td>
-                          <td>${{ '%.2f' % slot.card.fixture_price_usd }}</td>
-                          <td>
-                            <form class="feedback-form" data-feedback-form action="{{ url_for('submit_feedback') }}" method="post">
-                              <input type="hidden" name="image_filename" value="{{ result.image_filename }}" />
-                              <input type="hidden" name="original_name" value="{{ result.original_name }}" />
-                              <input type="hidden" name="slot_id" value="{{ slot.slot_id }}" />
-                              <input type="hidden" name="predicted_card_id" value="{{ slot.card.canonical_card_id }}" />
-                              <input type="hidden" name="predicted_card_name" value="{{ slot.card.name }}" />
-                              <input type="hidden" name="feedback" value="up" data-feedback-value />
-                              <div class="feedback-buttons">
-                                <button type="button" class="button secondary small" data-feedback-positive>👍</button>
-                                <button type="button" class="button secondary small" data-feedback-negative>👎</button>
-                              </div>
-                              <div class="feedback-status" data-feedback-status></div>
-                            </form>
-                          </td>
-                        </tr>
-                      {% endfor %}
-                    </tbody>
-                  </table>
-                  </div>
-                {% else %}
-                  <div class="empty">No cards were detected in this image.</div>
-                {% endif %}
-              </div>
-            </div>
-          </section>
-        {% endfor %}
-      {% endif %}
+      <div class="empty-state" id="empty-state">
+        Drop a photo of your binder page above to identify all visible cards.
+      </div>
     </div>
 
     <script>
       const dropzone = document.getElementById('dropzone');
-      const input = document.getElementById('images-input');
-      const selectedFiles = document.getElementById('selected-files');
-      const appraiseForm = document.getElementById('appraise-form');
-      const loadingOverlay = document.getElementById('loading-overlay');
+      const fileInput = document.getElementById('file-input');
+      const loading = document.getElementById('loading');
+      const result = document.getElementById('result');
+      const emptyState = document.getElementById('empty-state');
+      const sourceImage = document.getElementById('source-image');
+      const overlayCanvas = document.getElementById('overlay-canvas');
+      const cardsTbody = document.getElementById('cards-tbody');
+      const scanMeta = document.getElementById('scan-meta');
 
-      function renderSelectedFiles(files) {
-        if (!files || !files.length) {
-          selectedFiles.innerHTML = '<div class="file">No files selected yet.</div>';
-          return;
+      let slots = [];
+      let showOverlay = true;
+      let showNames = true;
+      let showPrices = true;
+
+      dropzone.addEventListener('click', () => fileInput.click());
+      dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('dragover'); });
+      dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+      dropzone.addEventListener('drop', e => {
+        e.preventDefault();
+        dropzone.classList.remove('dragover');
+        if (e.dataTransfer?.files?.length) {
+          fileInput.files = e.dataTransfer.files;
+          uploadAndScan();
         }
-        selectedFiles.innerHTML = Array.from(files)
-          .map((file) => `<div class="file">${file.name}</div>`)
-          .join('');
+      });
+      fileInput.addEventListener('change', () => { if (fileInput.files?.length) uploadAndScan(); });
+
+      async function uploadAndScan() {
+        const file = fileInput.files[0];
+        if (!file) return;
+
+        emptyState.style.display = 'none';
+        result.classList.remove('visible');
+        loading.classList.add('visible');
+
+        const formData = new FormData();
+        formData.append('images', file);
+
+        try {
+          const resp = await fetch('/appraise', { method: 'POST', body: formData });
+          const html = await resp.text();
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(html, 'text/html');
+
+          // Extract slots from hidden inputs in the response.
+          const slotCards = [];
+          const rows = doc.querySelectorAll('.cards-table tbody tr');
+          rows.forEach(row => {
+            const nameEl = row.querySelector('strong');
+            const idEl = row.querySelector('.muted');
+            const priceCell = row.querySelectorAll('td')[2];
+            const bboxInput = row.querySelector('input[name="slot_bbox"]');
+            const imgName = row.querySelector('input[name="image_filename"]')?.value || '';
+            const slotId = row.querySelector('input[name="slot_id"]')?.value || '';
+            const cardId = row.querySelector('input[name="predicted_card_id"]')?.value || '';
+            const cardName = row.querySelector('input[name="predicted_card_name"]')?.value || '';
+            const price = priceCell ? priceCell.textContent.trim() : '$0.00';
+
+            let bbox = null;
+            if (bboxInput) {
+              try { bbox = JSON.parse(bboxInput.value); } catch(e) {}
+            }
+
+            slotCards.push({
+              name: nameEl ? nameEl.textContent.trim() : (cardName || 'Unknown'),
+              id: idEl ? idEl.textContent.trim() : (cardId || ''),
+              price: price,
+              bbox: bbox,
+              imageFilename: imgName,
+              slotId: slotId,
+              cardId: cardId,
+              cardName: cardName,
+            });
+          });
+
+          // Also look for the annotated image URL
+          const annotatedImg = doc.querySelector('img[id="annotated-image"]');
+          const metaText = doc.querySelector('#scan-meta-text')?.textContent || '';
+
+          slots = slotCards;
+
+          // Show the uploaded image.
+          sourceImage.src = URL.createObjectURL(file);
+          sourceImage.onload = () => {
+            drawOverlay();
+          };
+
+          // Render table.
+          renderTable();
+
+          // Update meta.
+          if (metaText) scanMeta.textContent = metaText;
+          else scanMeta.textContent = slots.length + ' card' + (slots.length !== 1 ? 's' : '') + ' detected';
+
+          result.classList.add('visible');
+        } catch (err) {
+          console.error('Scan failed:', err);
+        } finally {
+          loading.classList.remove('visible');
+        }
       }
 
-      input.addEventListener('change', () => renderSelectedFiles(input.files));
+      function renderTable() {
+        cardsTbody.innerHTML = slots.map((s, i) => `
+          <tr>
+            <td>${i + 1}</td>
+            <td>
+              <div class="name">${escHtml(s.name)}</div>
+              <div class="id">${escHtml(s.id)}</div>
+            </td>
+            <td class="price">${escHtml(s.price)}</td>
+            <td>
+              <form class="feedback-form" onsubmit="return sendFeedback(event, ${i})">
+                <input type="hidden" name="image_filename" value="${escHtml(s.imageFilename)}" />
+                <input type="hidden" name="original_name" value="${escHtml(fileInput.files[0]?.name || '')}" />
+                <input type="hidden" name="slot_id" value="${escHtml(s.slotId)}" />
+                <input type="hidden" name="predicted_card_id" value="${escHtml(s.cardId)}" />
+                <input type="hidden" name="predicted_card_name" value="${escHtml(s.cardName)}" />
+                <input type="hidden" name="feedback" value="up" />
+                <div class="feedback-buttons">
+                  <button type="button" onclick="submitFeedback(this, 'up', ${i})">👍</button>
+                  <button type="button" onclick="submitFeedback(this, 'down', ${i})">👎</button>
+                </div>
+                <div class="feedback-status"></div>
+              </form>
+            </td>
+          </tr>
+        `).join('');
+      }
 
-      ['dragenter', 'dragover'].forEach((eventName) => {
-        dropzone.addEventListener(eventName, (event) => {
-          event.preventDefault();
-          dropzone.classList.add('dragover');
-        });
-      });
-      ['dragleave', 'drop'].forEach((eventName) => {
-        dropzone.addEventListener(eventName, (event) => {
-          event.preventDefault();
-          dropzone.classList.remove('dragover');
-        });
-      });
-      dropzone.addEventListener('drop', (event) => {
-        if (event.dataTransfer?.files?.length) {
-          input.files = event.dataTransfer.files;
-          renderSelectedFiles(input.files);
-        }
-      });
+      function drawOverlay() {
+        const canvas = overlayCanvas;
+        const img = sourceImage;
+        if (!img.naturalWidth || !img.naturalHeight) return;
 
-      appraiseForm.addEventListener('submit', () => {
-        if (input.files?.length) {
-          loadingOverlay.classList.add('visible');
-          loadingOverlay.setAttribute('aria-hidden', 'false');
-        }
-      });
+        const rect = img.getBoundingClientRect();
+        canvas.width = rect.width;
+        canvas.height = rect.height;
 
-      const resultsSection = document.getElementById('results-section');
-      if (resultsSection) {
-        requestAnimationFrame(() => {
-          resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        if (!showOverlay) return;
+
+        const scaleX = canvas.width / img.naturalWidth;
+        const scaleY = canvas.height / img.naturalHeight;
+
+        // Use the display size ratio to match bbox_norm coordinates.
+        // bbox_norm is in [0,1] of original image dimensions.
+        const displayW = img.naturalWidth;
+        const displayH = img.naturalHeight;
+
+        slots.forEach((s, i) => {
+          if (!s.bbox) return;
+          const [bx, by, bw, bh] = s.bbox;
+          const x = bx * canvas.width;
+          const y = by * canvas.height;
+          const w = bw * canvas.width;
+          const h = bh * canvas.height;
+
+          // Draw bounding box.
+          ctx.strokeStyle = 'rgba(96, 165, 250, 0.85)';
+          ctx.lineWidth = 2.5;
+          ctx.strokeRect(x, y, w, h);
+
+          // Label background.
+          const label = (showNames ? (i+1) + '. ' + s.name : '') + (showPrices ? '  ' + s.price : '');
+          if (label.trim()) {
+            ctx.font = '600 12px system-ui, sans-serif';
+            const metrics = ctx.measureText(label);
+            const lw = metrics.width + 16;
+            const lh = 28;
+            const lx = Math.max(x + 2, Math.min(x + w - lw - 2, x + 4));
+            const ly = Math.max(y + 2, Math.min(y + h - lh - 2, y + 4));
+
+            ctx.fillStyle = 'rgba(15, 23, 42, 0.90)';
+            ctx.beginPath();
+            ctx.roundRect(lx, ly, lw, lh, 8);
+            ctx.fill();
+            ctx.strokeStyle = 'rgba(96, 165, 250, 0.3)';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+
+            ctx.fillStyle = '#e2e8f0';
+            ctx.fillText(label, lx + 8, ly + 19);
+          }
         });
       }
 
-      document.querySelectorAll('[data-feedback-form]').forEach((form) => {
-        const feedbackValue = form.querySelector('[data-feedback-value]');
-        const status = form.querySelector('[data-feedback-status]');
+      function toggleOverlay() {
+        showOverlay = !showOverlay;
+        document.getElementById('btn-overlay').classList.toggle('active', showOverlay);
+        drawOverlay();
+      }
 
-        async function sendFeedback(label) {
-          const body = new FormData(form);
-          const response = await fetch(form.action, { method: 'POST', body });
-          const payload = await response.json();
-          status.textContent = payload.message || label;
-          status.classList.toggle('success', Boolean(payload.ok));
-          status.classList.toggle('danger', !payload.ok);
+      function toggleNames() {
+        showNames = !showNames;
+        document.getElementById('btn-names').classList.toggle('active', showNames);
+        drawOverlay();
+      }
+
+      function togglePrices() {
+        showPrices = !showPrices;
+        document.getElementById('btn-prices').classList.toggle('active', showPrices);
+        drawOverlay();
+      }
+
+      async function submitFeedback(btn, value, idx) {
+        const form = btn.closest('form');
+        form.querySelector('input[name="feedback"]').value = value;
+        const status = form.querySelector('.feedback-status');
+        const body = new FormData(form);
+        try {
+          const resp = await fetch('/feedback', { method: 'POST', body });
+          const payload = await resp.json();
+          status.textContent = payload.message || (value === 'up' ? '👍' : '👎');
+          status.style.color = payload.ok ? 'var(--good)' : 'var(--bad)';
+        } catch(e) {
+          status.textContent = 'Error';
+          status.style.color = 'var(--bad)';
         }
+      }
 
-        form.querySelector('[data-feedback-positive]').addEventListener('click', async () => {
-          feedbackValue.value = 'up';
-          await sendFeedback('👍 Thanks');
-        });
+      function escHtml(s) {
+        const div = document.createElement('div');
+        div.textContent = s;
+        return div.innerHTML;
+      }
 
-        form.querySelector('[data-feedback-negative]').addEventListener('click', async () => {
-          feedbackValue.value = 'down';
-          await sendFeedback('👎 Marked incorrect');
-        });
-      });
+      // Resize observer to redraw overlay when image resizes.
+      new ResizeObserver(() => { if (result.classList.contains('visible')) drawOverlay(); }).observe(sourceImage);
     </script>
   </body>
 </html>
@@ -855,15 +800,6 @@ def _save_image_upload(storage) -> tuple[Path, str]:
     return path, safe_name
 
 
-def _score_color(score: float) -> tuple:
-    """Return (background_rgba, text_color_rgba) for a match score."""
-    if score < 0.08:
-        return (34, 197, 94, 210), (255, 255, 255, 255)   # green
-    if score < 0.12:
-        return (234, 179, 8, 210), (255, 255, 255, 255)    # amber
-    return (239, 68, 68, 210), (255, 255, 255, 255)        # red
-
-
 def _annotate_scan(image_path: Path, scan_report: dict[str, Any]) -> Path:
     root = _appraiser_root()
     out_path = root / "annotated" / f"annotated_{image_path.stem}.jpg"
@@ -879,20 +815,11 @@ def _annotate_scan(image_path: Path, scan_report: dict[str, Any]) -> Path:
             int(round((x + w) * width)),
             int(round((y + h) * height)),
         )
-        score = float(slot.get("match_score", 1.0))
-        bg, fg = _score_color(score)
-        # Translucent fill + solid border
-        draw.rounded_rectangle(box, radius=18, outline=(*bg[:3], 255), width=5, fill=(*bg[:3], 55))
-        # Multi-line label: index + name + score
-        lines = [
-            f"#{index} {slot['card'].get('name', '?')}",
-            f"{slot['card'].get('canonical_card_id', '?')}  Δ{score:.4f}",
-        ]
-        label_h = len(lines) * 24 + 16
-        label_box = (box[0] + 8, box[1] + 8, min(box[2] - 8, box[0] + 320), min(box[1] + label_h, box[3] - 8))
-        draw.rounded_rectangle(label_box, radius=12, fill=(0, 0, 0, 195))
-        for li, txt in enumerate(lines):
-            draw.text((label_box[0] + 10, label_box[1] + 10 + li * 24), txt, fill=(226, 232, 240, 255), font_size=14)
+        draw.rounded_rectangle(box, radius=18, outline=(96, 165, 250, 255), width=6)
+        label_box = (box[0] + 8, box[1] + 8, min(box[2] - 8, box[0] + 248), min(box[1] + 52, box[3] - 8))
+        draw.rounded_rectangle(label_box, radius=12, fill=(15, 23, 42, 225))
+        label = f"{index}. {slot['card']['name']}"
+        draw.text((label_box[0] + 10, label_box[1] + 10), label, fill=(226, 232, 240, 255))
     image.save(out_path, format="JPEG", quality=92, optimize=True, progressive=True)
     return out_path
 
@@ -901,26 +828,6 @@ def _image_result(scan_report: dict[str, Any], image_path: Path, original_name: 
     annotated_path = _annotate_scan(image_path, scan_report)
     with Image.open(image_path) as source_image:
         dimensions = ImageOps.exif_transpose(source_image).size
-    # Attach reference image URL to each slot
-    manifest = load_manifest(DEFAULT_MANIFEST_PATH)
-    ref_map: dict[str, str] = {}
-    for page in manifest.get("pages", []):
-        for slot in page.get("slots", []):
-            card = slot.get("card") or {}
-            cid = str(card.get("canonical_card_id", "")).strip()
-            rp = str(card.get("reference_image_path", "")).strip()
-            if cid and rp and cid not in ref_map:
-                ref_map[cid] = rp
-    slots = []
-    for slot in scan_report.get("slots", []):
-        card = dict(slot["card"])
-        cid = card.get("canonical_card_id", "")
-        if cid in ref_map:
-            card["_ref_url"] = url_for("serve_reference_card", path=ref_map[cid])
-        elif cid == "empty":
-            card["_ref_url"] = url_for("serve_reference_card", path="empty.jpg")
-        slot["card"] = card
-        slots.append(slot)
     return {
         "image_filename": image_path.name,
         "original_name": original_name,
@@ -928,10 +835,11 @@ def _image_result(scan_report: dict[str, Any], image_path: Path, original_name: 
         "dimensions": dimensions,
         "slot_count": int(scan_report.get("slot_count", 0)),
         "predicted_total_usd": float(scan_report.get("predicted_total_usd", 0.0)),
-        "slots": slots,
+        "slots": scan_report.get("slots", []),
         "layout_name": _classify_layout(int(scan_report.get("slot_count", 0))),
         "original_url": url_for("serve_appraiser_file", kind="uploads", filename=image_path.name),
         "annotated_url": url_for("serve_appraiser_file", kind="annotated", filename=annotated_path.name),
+        "scan_meta": f"{int(scan_report.get('slot_count', 0))} cards · ${float(scan_report.get('predicted_total_usd', 0.0)):.2f}",
     }
 
 
@@ -1092,21 +1000,6 @@ def serve_appraiser_file(kind: str, filename: str):
     if not path.exists():
         return "Not found", 404
     return send_file(str(path))
-
-
-from flask import send_from_directory
-
-MANIFEST_ROOT = DEFAULT_MANIFEST_PATH.parent
-
-
-@app.route("/reference-cards/<path:path>")
-def serve_reference_card(path: str):
-    """Serve reference card images from the fixture reference_cards directory."""
-    ref_dir = MANIFEST_ROOT / "reference_cards"
-    full_path = ref_dir / path
-    if not full_path.exists() or not full_path.is_file():
-        return "Not found", 404
-    return send_file(str(full_path))
 
 
 @app.route("/feedback", methods=["POST"])
