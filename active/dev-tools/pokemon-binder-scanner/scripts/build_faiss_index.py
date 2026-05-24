@@ -75,36 +75,43 @@ def build_index(
         except Exception:
             continue
 
-        # Generate the "clear" reference variant for fingerprinting.
-        prepared = _prepare_reference_variant(
-            source_img,
+        # Generate multiple reference variants including phone-photo
+        # simulations so the index covers the domain gap between clean
+        # digital scans and real-world phone photos.
+        variant_configs = [
             {"visibility": "clear", "tilt_degrees": 0.0, "render_effects": []},
-        )
-        match_img = _prepare_match_image(prepared.convert("RGB"))
-        sig = _signature(match_img)
+            {"visibility": "clear", "tilt_degrees": 0.0, "render_effects": ["low_light", "desaturate"]},
+            {"visibility": "clear", "tilt_degrees": 0.0, "render_effects": ["low_light", "blue_cast"]},
+            {"visibility": "soft_focus", "tilt_degrees": 3.0, "render_effects": ["desaturate"]},
+        ]
 
-        # HSV fingerprint (96 dims).
-        hsv_fp = _fingerprint_from_hsv(sig["hsv"]).astype(np.float32)
-        fingerprints.append(hsv_fp)
+        for vcfg in variant_configs:
+            prepared = _prepare_reference_variant(source_img, vcfg)
+            match_img = _prepare_match_image(prepared.convert("RGB"))
+            sig = _signature(match_img)
 
-        # Edge-density fingerprint (56 dims — column-wise edge energy).
-        edge = sig["edge"]
-        col_edge = edge.mean(axis=0).astype(np.float32)
-        row_edge = edge.mean(axis=1).astype(np.float32)
-        edge_fp = np.concatenate([col_edge, row_edge]).astype(np.float32)
-        edge_fingerprints.append(edge_fp)
+            # HSV fingerprint (96 dims).
+            hsv_fp = _fingerprint_from_hsv(sig["hsv"]).astype(np.float32)
+            fingerprints.append(hsv_fp)
 
-        # Card metadata for the reference store.
-        price = float(card.get("fixture_price_usd", 0.0))
-        card_meta.append({
-            "canonical_card_id": cid,
-            "name": card.get("name", "Unknown"),
-            "set_code": card.get("set_code", ""),
-            "set_name": card.get("set_name", ""),
-            "rarity": card.get("rarity", ""),
-            "collector_number": str(card.get("collector_number", "")),
-            "fixture_price_usd": round(price, 2),
-        })
+            # Edge-density fingerprint (56 dims).
+            edge = sig["edge"]
+            col_edge = edge.mean(axis=0).astype(np.float32)
+            row_edge = edge.mean(axis=1).astype(np.float32)
+            edge_fp = np.concatenate([col_edge, row_edge]).astype(np.float32)
+            edge_fingerprints.append(edge_fp)
+
+            # Card metadata — each variant gets its own entry.
+            price = float(card.get("fixture_price_usd", 0.0))
+            card_meta.append({
+                "canonical_card_id": cid,
+                "name": card.get("name", "Unknown"),
+                "set_code": card.get("set_code", ""),
+                "set_name": card.get("set_name", ""),
+                "rarity": card.get("rarity", ""),
+                "collector_number": str(card.get("collector_number", "")),
+                "fixture_price_usd": round(price, 2),
+            })
 
         if (i + 1) % 1000 == 0:
             print(f"  Processed {i + 1}/{len(cards)} cards...")

@@ -135,7 +135,12 @@ LIGHTWEIGHT_VARIANT_CONFIGS: tuple[dict[str, Any], ...] = (
     {"visibility": "glare", "tilt_degrees": -3.0, "render_effects": []},
     {"visibility": "soft_focus", "tilt_degrees": 0.0, "render_effects": []},
     {"visibility": "tilted", "tilt_degrees": 6.0, "render_effects": []},
+    # Phone-photo variants: low-light, warm cast, desaturated
+    {"visibility": "clear", "tilt_degrees": 0.0, "render_effects": ["low_light", "desaturate"]},
+    {"visibility": "clear", "tilt_degrees": 0.0, "render_effects": ["low_light", "blue_cast"]},
+    {"visibility": "soft_focus", "tilt_degrees": 3.0, "render_effects": ["desaturate"]},
 )
+
 
 
 @lru_cache(maxsize=1)
@@ -1261,7 +1266,36 @@ def _prepare_reference_variant(image: Image.Image, config: dict[str, Any]) -> Im
 
 
 def _prepare_slot_image(image: Image.Image) -> Image.Image:
-    return _prepare_match_image(image.convert("RGB"))
+    """Prepare a query card crop for matching.
+
+    Applies stronger normalisation than _prepare_match_image because
+    real-world photos need white-balance correction and contrast
+    stretching to match the clean reference domain.
+    """
+    from PIL import ImageEnhance
+
+    rgb = image.convert("RGB")
+    # Auto white balance via gray-world assumption.
+    rgb = _auto_white_balance(rgb)
+    # Boost contrast aggressively — phone photos are often washed out.
+    rgb = ImageOps.autocontrast(rgb, cutoff=3)
+    rgb = ImageEnhance.Sharpness(rgb).enhance(1.3)
+    rgb = ImageEnhance.Color(rgb).enhance(1.15)
+    rgb = rgb.filter(ImageFilter.UnsharpMask(radius=1.0, percent=110, threshold=3))
+    rgb = ImageOps.fit(rgb, MATCH_SIZE, method=Image.Resampling.LANCZOS)
+    return rgb.filter(ImageFilter.GaussianBlur(radius=0.12))
+
+
+def _auto_white_balance(image: Image.Image) -> Image.Image:
+    """Simple gray-world white balance correction."""
+    import numpy as np
+    arr = np.asarray(image, dtype=np.float32)
+    # Scale each channel so its mean equals the overall mean.
+    means = arr.mean(axis=(0, 1))
+    overall = means.mean()
+    scale = np.where(means > 0, overall / (means + 1e-6), 1.0)
+    balanced = np.clip(arr * scale[None, None, :], 0, 255).astype(np.uint8)
+    return Image.fromarray(balanced, mode="RGB")
 
 
 def _trim_transparent_border(image: Image.Image) -> Image.Image:
@@ -1543,11 +1577,11 @@ def faiss_scan_image(
         import faiss
         fp_matrix = np.stack(slot_fps, axis=0).astype(np.float32)
         faiss.normalize_L2(fp_matrix)
-        distances, indices = _FAISS_INDEX.search(fp_matrix, 60)  # type: ignore[union-attr]
+        distances, indices = _FAISS_INDEX.search(fp_matrix, 100)  # type: ignore[union-attr]
         for slot_idx in range(len(slot_fps)):
             cands: list[tuple[str, float]] = []
             seen: set[str] = set()
-            for j in range(60):
+            for j in range(100):
                 idx = indices[slot_idx, j]
                 if idx < 0 or idx >= len(_FAISS_CARDS):
                     continue
@@ -1566,7 +1600,7 @@ def faiss_scan_image(
 
         # Stage 2: fine verification on FAISS top candidates.
         if faiss_candidates:
-            best = _verify_faiss_candidates(slot_sig, faiss_candidates, k=15)
+            best = _verify_faiss_candidates(slot_sig, faiss_candidates, k=50, query_image=_crop_bbox(image, bbox))
 
         if best is None:
             # Fallback: traditional pipeline on the slot image.
@@ -1600,53 +1634,63 @@ def _verify_faiss_candidates(
     query_sig: dict[str, Any],
     faiss_candidates: list[tuple[str, float]],
     k: int = 30,
+    *,
+    query_image: Image.Image | None = None,
 ) -> dict[str, Any] | None:
-    """Fine verification: load reference images for the top-K FAISS
-    candidates, compute signatures, and run full multi-patch scoring.
+    """Fine verification using signature scoring on FAISS top candidates.
 
-    Returns the best match dict or None if no reference images are available.
+    The query crop is aggressively normalised (white balance, contrast
+    stretch) to bridge the domain gap between phone photos and clean
+    reference scans.  Reference variants include phone-photo simulations.
     """
     import random as _random
 
     ref_dir = Path("/data/home/calvin/pokemon-binder-scanner/reference_cards")
     best: dict[str, Any] | None = None
 
+    # Use the normalised query signature if available, otherwise the raw one.
+    if query_image is not None:
+        norm_query = _prepare_slot_image(query_image)
+        q_sig = _signature(norm_query)
+    else:
+        q_sig = query_sig
+
     for cid, faiss_score in faiss_candidates[:k]:
-        # Check cache first.
+        img_path = ref_dir / f"{cid}.png"
+        if not img_path.exists():
+            continue
+
+        # Check cache.
         if cid in _VERIFY_CACHE:
             variants = _VERIFY_CACHE[cid]
         else:
-            img_path = ref_dir / f"{cid}.png"
-            if not img_path.exists():
-                continue
             try:
                 with Image.open(img_path) as src:
                     source = ImageOps.exif_transpose(src).convert("RGBA")
             except Exception:
                 continue
-            # Generate a small set of variants for verification.
+
             rng = _random.Random(cid)
-            # Single clear variant — FAISS already narrowed to the right
-            # card, we just need confirmatory pixel-level scoring.
             configs: list[dict[str, Any]] = [
                 {"visibility": "clear", "tilt_degrees": 0.0, "render_effects": []},
+                {"visibility": "clear", "tilt_degrees": 0.0, "render_effects": ["low_light", "desaturate"]},
+                {"visibility": "soft_focus", "tilt_degrees": 2.0, "render_effects": []},
+                {"visibility": "clear", "tilt_degrees": 0.0, "render_effects": ["blue_cast"]},
             ]
             variants = [
                 _signature(_prepare_reference_variant(source, cfg))
                 for cfg in configs
             ]
-            # Evict oldest if cache is full.
             if len(_VERIFY_CACHE) >= _VERIFY_CACHE_MAX:
                 oldest = next(iter(_VERIFY_CACHE))
                 del _VERIFY_CACHE[oldest]
             _VERIFY_CACHE[cid] = variants
 
-        # Score against all variants, take best.
         best_variant_score = min(
-            _score(query_sig, variant) for variant in variants
+            _score(q_sig, variant) for variant in variants
         )
-        # Combine FAISS similarity with fine-verification score.
         combined = best_variant_score * 0.7 + faiss_score * 0.3
+
         if best is None or combined < best["score"]:
             card_info = next(
                 (c for c in _FAISS_CARDS if c["canonical_card_id"] == cid),
@@ -1666,8 +1710,6 @@ def _verify_faiss_candidates(
                     "score": combined,
                 }
     return best
-
-
 def _build_minimal_faiss_index() -> list[dict[str, Any]]:
     """Build a minimal reference index for layout detection when using FAISS.
 
