@@ -44,7 +44,9 @@ def load_confusable_pairs(min_printings: int = 4) -> list[list[dict[str, Any]]]:
 
 DEGRADATIONS = {
     "jpeg5": lambda img: _jpeg_compress(img, 5),
+    "jpeg8": lambda img: _jpeg_compress(img, 8),
     "jpeg10": lambda img: _jpeg_compress(img, 10),
+    "jpeg15": lambda img: _jpeg_compress(img, 15),
     "jpeg20": lambda img: _jpeg_compress(img, 20),
     "heavy_glare": lambda img: _apply_degradation(img, "glare", 7, ["heavy_glare"]),
     "glare_band": lambda img: _apply_degradation(img, "glare", 4, ["heavy_glare", "center_band"]),
