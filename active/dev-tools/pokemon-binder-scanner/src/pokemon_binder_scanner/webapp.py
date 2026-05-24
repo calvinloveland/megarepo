@@ -11,7 +11,7 @@ from flask import Flask, flash, jsonify, redirect, render_template_string, reque
 from PIL import Image, ImageDraw, ImageOps
 
 from .binder_fixtures import DEFAULT_MANIFEST_PATH, load_manifest
-from .scanner import scan_fixture_image, faiss_scan_image, load_faiss_index
+from .scanner import scan_fixture_image, faiss_scan_image, load_faiss_index, load_clip_index, clip_scan_image
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", secrets.token_hex(16))
@@ -802,7 +802,11 @@ def _ensure_faiss_loaded() -> None:
     index_dir = os.environ.get("POKEMON_BINDER_FAISS_INDEX", "")
     if index_dir:
         p = Path(index_dir)
-        if (p / "combined.index").exists():
+        # Prefer CLIP index if available.
+        if (p / "clip.index").exists():
+            load_clip_index(p)
+            _FAISS_LOADED = True
+        elif (p / "combined.index").exists():
             load_faiss_index(p)
             _FAISS_LOADED = True
 
@@ -1055,9 +1059,9 @@ def appraise_images():
             return redirect(url_for("index"))
         image_path, original_name = _save_image_upload(storage)
         _ensure_faiss_loaded()
-        # Use FAISS-powered scanner when the full index is loaded.
+        # Use CLIP-powered scanner when available, fall back to FAISS.
         if _FAISS_LOADED:
-            scan_report = faiss_scan_image(image_path)
+            scan_report = clip_scan_image(image_path)
         else:
             scan_report = scan_fixture_image(image_path)
         results.append(_image_result(scan_report, image_path, original_name, storage.content_type))

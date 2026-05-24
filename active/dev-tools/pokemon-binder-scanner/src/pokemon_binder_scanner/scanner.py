@@ -1469,6 +1469,8 @@ def _masked_mae(left: np.ndarray, right: np.ndarray, left_mask: np.ndarray, righ
 _FAISS_INDEX: Any = None
 _FAISS_CARDS: list[dict[str, Any]] = []
 _FAISS_FINGERPRINTS: Any = None
+_CLIP_MODEL: Any = None
+_CLIP_PROCESSOR: Any = None
 
 
 def load_faiss_index(index_dir: str | Path) -> tuple[Any, list[dict[str, Any]], Any]:
@@ -1485,6 +1487,41 @@ def load_faiss_index(index_dir: str | Path) -> tuple[Any, list[dict[str, Any]], 
     _FAISS_CARDS = json.loads((index_path / "cards.json").read_text())
     _FAISS_FINGERPRINTS = np.load(index_path / "combined_fingerprints.npy")
     return _FAISS_INDEX, _FAISS_CARDS, _FAISS_FINGERPRINTS
+
+
+def load_clip_index(index_dir: str | Path) -> None:
+    """Load the CLIP FAISS index (replaces fingerprint index)."""
+    global _FAISS_INDEX, _FAISS_CARDS
+    import faiss
+    index_path = Path(index_dir)
+    _FAISS_INDEX = faiss.read_index(str(index_path / "clip.index"))
+    _FAISS_CARDS = json.loads((index_path / "cards.json").read_text())
+
+
+def _ensure_clip_loaded() -> None:
+    """Lazy-load CLIP model on first use."""
+    global _CLIP_MODEL, _CLIP_PROCESSOR
+    if _CLIP_MODEL is not None:
+        return
+    from transformers import CLIPModel, CLIPProcessor
+    import warnings
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        _CLIP_MODEL = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
+        _CLIP_PROCESSOR = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
+    _CLIP_MODEL.eval()
+
+
+def _clip_embed_slots(images: list[Image.Image]) -> np.ndarray:
+    """Compute CLIP embeddings for a batch of card-crop images."""
+    import torch
+    _ensure_clip_loaded()
+    inputs = _CLIP_PROCESSOR(images=images, return_tensors="pt")
+    with torch.no_grad():
+        outputs = _CLIP_MODEL.get_image_features(**inputs)
+        feats = outputs.pooler_output
+        feats = feats / feats.norm(dim=-1, keepdim=True)
+    return feats.cpu().numpy().astype(np.float32)
 
 
 def _faiss_lookup(
@@ -1749,6 +1786,86 @@ def _build_minimal_faiss_index() -> list[dict[str, Any]]:
         "variants": [empty_sig],
     })
     return index
+
+
+def clip_scan_image(
+    image_path: str | Path,
+) -> dict[str, Any]:
+    """Identify cards using CLIP embeddings + FAISS.
+
+    This is the recommended path for real-world photos.  CLIP embeddings
+    are robust to lighting, colour shifts, and photographic artifacts.
+    """
+    import faiss
+
+    path = Path(image_path)
+    _ensure_clip_loaded()
+
+    with Image.open(path) as source_image:
+        image = ImageOps.exif_transpose(source_image).convert("RGB")
+
+    # Layout detection (same as before).
+    ref_index = _build_minimal_faiss_index()
+    bboxes = _detect_layout_bboxes(image, reference_index=ref_index)
+    if not bboxes:
+        bboxes = DEFAULT_LAYOUT_BBOXES
+
+    # Extract all card crops.
+    crops: list[Image.Image] = []
+    for bbox in bboxes:
+        slot_img = _crop_bbox(image, bbox)
+        candidates = _extract_card_candidates(slot_img)
+        crops.append(candidates[0])
+
+    # Batch CLIP embedding.
+    embeddings = _clip_embed_slots(crops)
+
+    # Batch FAISS search.
+    distances, indices = _FAISS_INDEX.search(embeddings, 10)  # type: ignore[union-attr]
+
+    slots: list[dict[str, Any]] = []
+    predicted_total = 0.0
+
+    for position, (bbox, dists, idxs) in enumerate(
+        zip(bboxes, distances, indices), start=1
+    ):
+        best_cid = None
+        best_name = "Unknown"
+        best_price = 0.0
+        best_score = 1.0
+
+        for j in range(min(10, len(dists))):
+            idx = idxs[j]
+            if idx < 0 or idx >= len(_FAISS_CARDS):
+                continue
+            score = 1.0 - max(0.0, float(dists[j]))
+            if score < best_score:
+                best_score = score
+                card = _FAISS_CARDS[idx]
+                best_cid = card["canonical_card_id"]
+                best_name = card.get("name", best_cid)
+                best_price = float(card.get("fixture_price_usd", 0.0))
+
+        slot_id = f"slot-{position:02d}"
+        predicted_total += best_price
+        slots.append({
+            "slot_id": slot_id,
+            "bbox_norm": [round(v, 4) for v in bbox],
+            "card": {
+                "canonical_card_id": best_cid or "unknown",
+                "name": best_name,
+                "fixture_price_usd": round(best_price, 2),
+            },
+            "match_score": round(best_score, 6),
+        })
+
+    return {
+        "page_id": path.stem,
+        "slot_count": len(slots),
+        "predicted_total_usd": round(predicted_total, 2),
+        "slots": slots,
+    }
+
 
 
 def _cards_match(expected_card: dict[str, Any] | None, predicted_card: dict[str, Any] | None) -> bool:
