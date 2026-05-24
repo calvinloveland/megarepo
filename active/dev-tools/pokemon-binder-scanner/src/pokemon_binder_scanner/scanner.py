@@ -400,62 +400,47 @@ def _detect_layout_bboxes(
 def _detect_card_bboxes(
     image: Image.Image,
 ) -> tuple[tuple[float, float, float, float], ...]:
-    """Find card rectangles using multi-scale region detection.
+    """Find cards via multi-level thresholding + contour detection.
 
-    Strategy: cards are bright rectangular regions separated by dark
-    binder gaps.  We threshold at multiple levels, find contours at
-    each level, merge overlapping detections, and filter by shape.
-    No template assumptions — works on any pocket count.
+    After finding initial candidates, infers missing grid positions
+    by analysing row/column alignment of found boxes.
     """
     import cv2
 
     img_w, img_h = image.size
     gray = np.asarray(image.convert("L"), dtype=np.uint8)
 
-    # CLAHE for even lighting.
-    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+    clahe = cv2.createCLAHE(clipLimit=2.5, tileGridSize=(8, 8))
     gray = clahe.apply(gray)
 
-    # Multi-level thresholding to find card regions at different
-    # brightness levels (handles mixed card colors).
     all_bboxes: list[tuple[float, float, float, float]] = []
 
-    for thresh_ratio in (0.35, 0.50, 0.65):
+    for thresh_ratio in (0.28, 0.38, 0.48, 0.58, 0.68):
         thresh_val = int(gray.max() * thresh_ratio)
         _, binary = cv2.threshold(gray, thresh_val, 255, cv2.THRESH_BINARY)
-
-        # Close small gaps inside cards (artwork creates holes).
         kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
         closed = cv2.morphologyEx(binary, cv2.MORPH_CLOSE, kernel, iterations=2)
-
-        # Find contours of bright regions (the cards).
         contours, _ = cv2.findContours(closed, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
         for c in contours:
             area = cv2.contourArea(c)
             area_f = area / (img_w * img_h)
-            if area_f < 0.008 or area_f > 0.14:
+            if area_f < 0.004 or area_f > 0.30:
                 continue
-
             x, y, cw, ch = cv2.boundingRect(c)
             ar = cw / max(1, ch)
-            # Allow wider aspect range since perspective distorts cards.
-            if ar < 0.45 or ar > 1.05:
+            if ar < 0.40 or ar > 1.15:
                 continue
-
-            # Solidity check: cards are mostly solid rectangles.
             hull = cv2.convexHull(c)
             hull_area = cv2.contourArea(hull)
-            solidity = area / max(1.0, hull_area)
-            if solidity < 0.65:
+            if area / max(1.0, hull_area) < 0.55:
                 continue
-
-            # Small inward margin so the crop doesn't catch pocket edges.
-            margin = 0.02
-            nx = max(0.0, x / img_w + margin)
-            ny = max(0.0, y / img_h + margin)
-            nw = min(1.0 - margin, (x + cw) / img_w - margin) - nx
-            nh = min(1.0 - margin, (y + ch) / img_h - margin) - ny
+            # Expand outward to capture full card borders.
+            pad = 0.04
+            nx = max(0.0, x / img_w - pad)
+            ny = max(0.0, y / img_h - pad)
+            nw = min(1.0, (x + cw) / img_w + pad) - nx
+            nh = min(1.0, (y + ch) / img_h + pad) - ny
             if nw > 0.04 and nh > 0.06:
                 all_bboxes.append((nx, ny, nw, nh))
 
@@ -463,48 +448,154 @@ def _detect_card_bboxes(
         return _detect_card_bboxes_contour(image, gray,
             cv2.Canny(gray, 30, 100))
 
-    # Merge overlapping detections from multiple threshold levels.
-    merged = list(_merge_overlapping_bboxes(all_bboxes, iou_threshold=0.6))
+    merged = list(_merge_overlapping_bboxes(all_bboxes, iou_threshold=0.5))
 
     if len(merged) < 2:
         return _detect_card_bboxes_contour(image, gray,
             cv2.Canny(gray, 30, 100))
 
+    # Filter out oversized boxes (merged blobs spanning multiple cards).
+    if len(merged) >= 3:
+        median_w = float(np.median([b[2] for b in merged]))
+        median_h = float(np.median([b[3] for b in merged]))
+        merged = [
+            b for b in merged
+            if b[2] <= median_w * 1.6 and b[3] <= median_h * 1.6
+        ]
+
+    # Infer missing grid positions from the found boxes.
+    merged = _fill_grid_gaps(merged, img_w, img_h)
+
     return _sort_bboxes_reading_order(merged)
+
+
+def _fill_grid_gaps(
+    bboxes: list[tuple[float, float, float, float]],
+    img_w: int, img_h: int,
+) -> list[tuple[float, float, float, float]]:
+    """Infer missing cards by analysing the grid formed by detected boxes.
+
+    Looks at the row and column alignment of existing boxes, identifies
+    gaps, and inserts estimated boxes for missing positions.
+    """
+    if len(bboxes) < 3:
+        return bboxes
+
+    # Extract centers and sizes.
+    centers = [(b[0] + b[2]/2, b[1] + b[3]/2) for b in bboxes]
+    avg_w = np.median([b[2] for b in bboxes])
+    avg_h = np.median([b[3] for b in bboxes])
+
+    # Cluster centers into rows and columns.
+    xs = sorted(set(round(cx, 2) for cx, _ in centers))
+    ys = sorted(set(round(cy, 2) for cy, _ in centers))
+
+    # Merge nearby x/y positions (within half a card width).
+    def merge_nearby(vals: list[float], threshold: float) -> list[float]:
+        if not vals:
+            return []
+        vals = sorted(vals)
+        merged = [vals[0]]
+        for v in vals[1:]:
+            if v - merged[-1] > threshold:
+                merged.append(v)
+        return merged
+
+    cols = merge_nearby(xs, avg_w * 0.5)
+    rows = merge_nearby(ys, avg_h * 0.5)
+
+    if len(cols) < 2 or len(rows) < 2:
+        return bboxes
+
+    # Build expected grid.
+    expected: set[tuple[int, int]] = set()
+    for ri in range(len(rows)):
+        for ci in range(len(cols)):
+            expected.add((ri, ci))
+
+    # Mark which positions already have boxes.
+    found: set[tuple[int, int]] = set()
+    for bx, by, bw, bh in bboxes:
+        cx = bx + bw / 2
+        cy = by + bh / 2
+        best_ci = min(range(len(cols)), key=lambda i: abs(cx - cols[i]))
+        best_ri = min(range(len(rows)), key=lambda i: abs(cy - rows[i]))
+        if abs(cx - cols[best_ci]) < avg_w * 0.6 and abs(cy - rows[best_ri]) < avg_h * 0.6:
+            found.add((best_ri, best_ci))
+
+    # Fill missing positions.
+    result = list(bboxes)
+    for ri, ci in expected - found:
+        nx = max(0.0, cols[ci] - avg_w / 2)
+        ny = max(0.0, rows[ri] - avg_h / 2)
+        nw = min(1.0 - nx, avg_w)
+        nh = min(1.0 - ny, avg_h)
+        if nw > 0.04 and nh > 0.06:
+            result.append((nx, ny, nw, nh))
+
+    return result
+
+def _find_projection_peaks(
+    proj: np.ndarray,
+    threshold: float,
+    min_gap: int = 20,
+) -> list[int]:
+    """Find peaks in a 1-D projection above threshold."""
+    above = np.where(proj > threshold)[0]
+    if len(above) == 0:
+        return []
+    clusters: list[list[int]] = []
+    current: list[int] = [int(above[0])]
+    for i in range(1, len(above)):
+        if above[i] - above[i - 1] <= 2:
+            current.append(int(above[i]))
+        else:
+            clusters.append(current)
+            current = [int(above[i])]
+    clusters.append(current)
+    peaks: list[tuple[int, float]] = []
+    for cluster in clusters:
+        positions = np.array(cluster, dtype=np.float64)
+        values = proj[cluster].astype(np.float64)
+        centroid = int(round(float(np.average(positions, weights=values + 1e-6))))
+        peaks.append((centroid, float(proj[centroid])))
+    peaks.sort(key=lambda x: -x[1])
+    kept: list[int] = []
+    for pos, _ in peaks:
+        if not any(abs(pos - k) < min_gap for k in kept):
+            kept.append(pos)
+    kept.sort()
+    return kept
+
 
 def _detect_card_bboxes_contour(
     image: Image.Image,
     gray: np.ndarray,
     edges: np.ndarray,
 ) -> tuple[tuple[float, float, float, float], ...]:
-    """Fallback: contour-based card detection when thresholding fails."""
+    """Fallback: contour-based card detection."""
     import cv2
-
     img_w, img_h = image.size
-
     _, binary = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
     kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (7, 7))
     closed = cv2.morphologyEx(cv2.bitwise_or(binary, edges), cv2.MORPH_CLOSE, kernel, iterations=2)
-
     contours, _ = cv2.findContours(closed, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-
     raw: list[tuple[float, float, float, float]] = []
     for c in contours:
         area = cv2.contourArea(c)
         area_f = area / (img_w * img_h)
-        if area_f < 0.006 or area_f > 0.14:
+        if area_f < 0.004 or area_f > 0.30:
             continue
         x, y, cw, ch = cv2.boundingRect(c)
         ar = cw / max(1, ch)
         if ar < 0.50 or ar > 1.0:
             continue
-        pad = 0.02
+        pad = 0.04
         nx = max(0.0, x / img_w - pad)
         ny = max(0.0, y / img_h - pad)
         nw = min(1.0, (x + cw) / img_w + pad) - nx
         nh = min(1.0, (y + ch) / img_h + pad) - ny
         raw.append((nx, ny, nw, nh))
-
     if len(raw) <= 1:
         return tuple(raw)
     return _sort_bboxes_reading_order(list(_merge_overlapping_bboxes(raw)))
