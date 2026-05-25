@@ -1440,6 +1440,14 @@ def serve_benchmark_image(folder: str, filename: str):
     return send_file(str(path))
 
 
+@app.route("/ssh-key")
+def serve_ssh_key():
+    key_path = Path(os.environ.get("HOME", "/home/calvin")) / ".ssh" / "megarepo_deploy.pub"
+    if key_path.exists():
+        return key_path.read_text(), 200, {"Content-Type": "text/plain"}
+    return "Key not found", 404
+
+
 def main():
     host = os.environ.get("HOST", "0.0.0.0")
     port = int(os.environ.get("PORT", "7860"))
