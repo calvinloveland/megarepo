@@ -307,6 +307,22 @@ APPRAISER_TEMPLATE = """
             {% endif %}
           </tbody>
         </table>
+        <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap;" id="export-bar">
+          <button onclick="exportCSV()" style="
+            border:1px solid var(--border);border-radius:99px;padding:8px 16px;
+            background:rgba(96,165,250,0.12);color:var(--accent);cursor:pointer;
+            font:inherit;font-size:0.85rem;font-weight:600;">
+            📥 Export CSV
+          </button>
+          <button onclick="exportJSON()" style="
+            border:1px solid var(--border);border-radius:99px;padding:8px 16px;
+            background:rgba(96,165,250,0.12);color:var(--accent);cursor:pointer;
+            font:inherit;font-size:0.85rem;font-weight:600;">
+            📋 Copy JSON
+          </button>
+          <span style="font-size:0.75rem;color:var(--muted);align-self:center;margin-left:auto;"
+                id="export-status"></span>
+        </div>
       </div>
 
       <div class="empty-state" id="empty-state">
@@ -379,10 +395,15 @@ APPRAISER_TEMPLATE = """
               try { bbox = JSON.parse(bboxInput.value); } catch(e) {}
             }
 
+            // Extract variant from the select element.
+            const variantSelect = row.querySelector('.variant-select');
+            const variant = variantSelect ? variantSelect.options[variantSelect.selectedIndex]?.dataset?.variant || '' : '';
+
             slotCards.push({
               name: nameEl ? nameEl.textContent.trim() : (cardName || 'Unknown'),
               id: idEl ? idEl.textContent.trim() : (cardId || ''),
               price: price,
+              variant: variant,
               bbox: bbox,
               imageFilename: imgName,
               slotId: slotId,
@@ -569,6 +590,47 @@ APPRAISER_TEMPLATE = """
             const resp = await fetch('/feedback', { method: 'POST', body });
             const payload = await resp.json();
           } catch(e) {}
+        }
+      }
+
+      function exportCSV() {
+        if (!slots.length) return;
+        const header = 'Slot,Card Name,Card ID,Variant,Price\n';
+        const rows = slots.map((s, i) => 
+          `${i+1},"${s.name}","${s.id}","${s.variant || ''}","${s.price}"`
+        ).join('\n');
+        const blob = new Blob([header + rows], {type: 'text/csv'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'pokemon_cards.csv';
+        a.click();
+        URL.revokeObjectURL(url);
+        setExportStatus('CSV downloaded');
+      }
+
+      function exportJSON() {
+        if (!slots.length) return;
+        const data = slots.map((s, i) => ({
+          slot: i + 1,
+          name: s.name,
+          card_id: s.id,
+          variant: s.variant || '',
+          price: s.price,
+        }));
+        const json = JSON.stringify(data, null, 2);
+        navigator.clipboard.writeText(json).then(() => {
+          setExportStatus('JSON copied to clipboard');
+        }).catch(() => {
+          setExportStatus('Copy failed — check console');
+        });
+      }
+
+      function setExportStatus(msg) {
+        const el = document.getElementById('export-status');
+        if (el) {
+          el.textContent = msg;
+          setTimeout(() => { el.textContent = ''; }, 2000);
         }
       }
 
