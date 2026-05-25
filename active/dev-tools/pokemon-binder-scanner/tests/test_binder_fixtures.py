@@ -781,12 +781,12 @@ class AdversarialCorpusTests(unittest.TestCase):
         self._run_level("moderate", 0.95)
 
     def test_adversarial_hard_accuracy(self) -> None:
-        """Hard degradation: two stacked effects, should be >85%."""
-        self._run_level("hard", 0.85)
+        """Hard degradation: two stacked effects, should be >90%."""
+        self._run_level("hard", 0.90)
 
     def test_adversarial_extreme_accuracy(self) -> None:
-        """Extreme degradation: three+ stacked effects + JPEG 5, should be >35%."""
-        self._run_level("extreme", 0.35)
+        """Extreme degradation: three+ stacked effects + JPEG 5, should be >38%."""
+        self._run_level("extreme", 0.38)
 
 
 if __name__ == "__main__":
