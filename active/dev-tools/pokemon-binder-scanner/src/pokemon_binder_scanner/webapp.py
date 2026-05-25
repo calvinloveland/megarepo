@@ -259,7 +259,13 @@ APPRAISER_TEMPLATE = """
                       <div class="name"><strong>{{ slot.card.name }}</strong></div>
                       <div class="id"><span class="muted">{{ slot.card.canonical_card_id }}</span></div>
                     </td>
-                    <td>${{ '%.2f' % slot.card.fixture_price_usd }}</td>
+                    <td>${{ '%.2f' % slot.card.fixture_price_usd }}<br>
+                        <a href="https://prices.pokemontcg.io/tcgplayer/{{ slot.card.canonical_card_id }}" 
+                           target="_blank" rel="noopener" 
+                           style="font-size:0.75rem;color:var(--muted);text-decoration:none;">
+                          Buy on TCGPlayer ↗
+                        </a>
+                      </td>
                     <td>
                       <form class="feedback-form" data-feedback-form action="{{ url_for('submit_feedback') }}" method="post">
                         <input type="hidden" name="image_filename" value="{{ result.image_filename }}" />
