@@ -45,6 +45,11 @@ VARIANT_CONFIGS = [
     {"visibility": "clear", "tilt_degrees": 0.0, "render_effects": ["heavy_glare", "center_band"]},
     {"visibility": "glare", "tilt_degrees": 6.0, "render_effects": ["blue_cast"]},
     {"visibility": "soft_focus", "tilt_degrees": -3.0, "render_effects": ["low_light", "desaturate"]},
+    # JPEG compression variants (simulates phone photo compression artifacts).
+    {"visibility": "clear", "tilt_degrees": 0.0, "render_effects": ["jpeg30"]},
+    {"visibility": "clear", "tilt_degrees": 0.0, "render_effects": ["jpeg50"]},
+    {"visibility": "glare", "tilt_degrees": 3.0, "render_effects": ["jpeg40"]},
+    {"visibility": "soft_focus", "tilt_degrees": 0.0, "render_effects": ["jpeg30", "desaturate"]},
 ]
 
 
@@ -82,13 +87,26 @@ def main() -> int:
         for cfg in configs[1:]:  # skip clean (already added)
             try:
                 rng = random.Random(f"{cid}-{cfg['visibility']}-{cfg['tilt_degrees']}")
+                # Handle JPEG compression effects (not native to _apply_card_transform).
+                effects = list(cfg["render_effects"])
+                jpeg_effects = [e for e in effects if e.startswith("jpeg")]
+                other_effects = [e for e in effects if not e.startswith("jpeg")]
                 slot = {
                     "visibility": cfg["visibility"],
                     "tilt_degrees": cfg["tilt_degrees"],
-                    "render_effects": list(cfg["render_effects"]),
+                    "render_effects": other_effects,
                 }
                 variant = _apply_card_transform(img.copy(), slot, rng)
-                variant_imgs.append(variant.convert("RGB"))
+                variant = variant.convert("RGB")
+                # Apply JPEG compression if specified.
+                for je in jpeg_effects:
+                    q = int(je.replace("jpeg", ""))
+                    from io import BytesIO
+                    buf = BytesIO()
+                    variant.save(buf, format="JPEG", quality=q)
+                    buf.seek(0)
+                    variant = Image.open(buf).convert("RGB")
+                variant_imgs.append(variant)
             except Exception:
                 variant_imgs.append(img.convert("RGB"))
 

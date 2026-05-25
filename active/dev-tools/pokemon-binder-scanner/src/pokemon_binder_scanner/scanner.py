@@ -1966,18 +1966,33 @@ def clip_scan_image(
     if not bboxes:
         bboxes = DEFAULT_LAYOUT_BBOXES
 
-    # Extract all card crops and compute signatures for re-ranking.
+    # Extract all card crops — use multi-crop ensemble for better
+    # CLIP embeddings (average across multiple candidate crops).
+    all_crops: list[list[Image.Image]] = []
     crops: list[Image.Image] = []
     slot_sigs: list[dict[str, Any]] = []
     for bbox in bboxes:
         slot_img = _crop_bbox(image, bbox)
         candidates = _extract_card_candidates(slot_img)
-        crop = candidates[0]
-        crops.append(crop)
-        slot_sigs.append(_signature(_prepare_slot_image(crop)))
+        all_crops.append(candidates)
+        # Primary crop for signature.
+        crops.append(candidates[0])
+        slot_sigs.append(_signature(_prepare_slot_image(candidates[0])))
 
-    # Batch CLIP embedding.
-    embeddings = _clip_embed_slots(crops)
+    # Batch CLIP embedding with multi-crop ensemble.
+    # Embed all crops and average per slot.
+    flat_crops = [c for cands in all_crops for c in cands]
+    flat_embs = _clip_embed_slots(flat_crops)
+    # Average embeddings per slot.
+    embeddings = []
+    idx = 0
+    for cands in all_crops:
+        n = len(cands)
+        slot_emb = flat_embs[idx:idx+n].mean(axis=0, keepdims=True)
+        slot_emb = slot_emb / np.linalg.norm(slot_emb)
+        embeddings.append(slot_emb.flatten())
+        idx += n
+    embeddings = np.stack(embeddings, axis=0)
 
     # Batch FAISS search.
     distances, indices = _FAISS_INDEX.search(embeddings, 40)  # type: ignore[union-attr]
