@@ -245,6 +245,7 @@ APPRAISER_TEMPLATE = """
             <tr>
               <th>#</th>
               <th>Card</th>
+              <th>Variant</th>
               <th>Price</th>
               <th></th>
             </tr>
@@ -259,7 +260,25 @@ APPRAISER_TEMPLATE = """
                       <div class="name"><strong>{{ slot.card.name }}</strong></div>
                       <div class="id"><span class="muted">{{ slot.card.canonical_card_id }}</span></div>
                     </td>
-                    <td>${{ '%.2f' % slot.card.fixture_price_usd }}<br>
+                    <td>
+                        <select class="variant-select" data-slot-id="{{ slot.slot_id }}" 
+                                onchange="onVariantChange(this)" style="
+                                  background:rgba(15,23,42,0.84);color:#e2e8f0;
+                                  border:1px solid rgba(148,163,184,0.22);
+                                  border-radius:8px;padding:4px 6px;font:inherit;
+                                  font-size:0.82rem;max-width:130px;">
+                          {% set var_opts = result.variant_options.get(slot.slot_id, []) %}
+                          {% for vo in var_opts %}
+                            <option value="{{ vo.canonical_card_id }}" 
+                                    data-variant="{{ vo.variant }}"
+                                    data-price="{{ '%.2f' % vo.price }}"
+                                    {% if vo.canonical_card_id == slot.card.canonical_card_id %}selected{% endif %}>
+                              {{ vo.variant }}
+                            </option>
+                          {% endfor %}
+                        </select>
+                      </td>
+                      <td>${{ '%.2f' % slot.card.fixture_price_usd }}<br>
                         <a href="https://prices.pokemontcg.io/tcgplayer/{{ slot.card.canonical_card_id }}" 
                            target="_blank" rel="noopener" 
                            style="font-size:0.75rem;color:var(--muted);text-decoration:none;">
@@ -524,6 +543,33 @@ APPRAISER_TEMPLATE = """
         const div = document.createElement('div');
         div.textContent = s;
         return div.innerHTML;
+      }
+
+      async function onVariantChange(select) {
+        const cid = select.value;
+        const option = select.options[select.selectedIndex];
+        const price = option.dataset.price;
+        const variant = option.dataset.variant;
+        const slotId = select.dataset.slotId;
+        
+        // Update the price in the table row.
+        const row = select.closest('tr');
+        const priceCell = row.querySelector('.price');
+        if (priceCell && price) {
+          priceCell.textContent = '$' + parseFloat(price).toFixed(2);
+        }
+        
+        // Send feedback with the selected variant.
+        const form = row.querySelector('.feedback-form');
+        if (form) {
+          form.querySelector('input[name="predicted_card_id"]').value = cid;
+          const body = new FormData(form);
+          body.set('feedback', 'variant_change');
+          try {
+            const resp = await fetch('/feedback', { method: 'POST', body });
+            const payload = await resp.json();
+          } catch(e) {}
+        }
       }
 
       // Resize observer to redraw overlay when image resizes.
@@ -806,6 +852,45 @@ def _save_image_upload(storage) -> tuple[Path, str]:
     return path, safe_name
 
 
+def _variant_options_for_card(scan_report: dict[str, Any]) -> dict[str, list[dict[str, Any]]]:
+    """For each slot, find all variant options from the FAISS card store.
+    Returns {slot_id: [{canonical_card_id, name, variant, price}, ...]}.
+    """
+    from .scanner import _FAISS_CARDS
+    if not _FAISS_CARDS:
+        return {}
+    options: dict[str, list[dict[str, Any]]] = {}
+    for slot in scan_report.get("slots", []):
+        card = slot.get("card", {})
+        card_id = card.get("canonical_card_id", "")
+        name = card.get("name", "")
+        # Find all cards with the same name.
+        variants = [
+            {
+                "canonical_card_id": c["canonical_card_id"],
+                "variant": c.get("variant", "unknown"),
+                "price": c.get("fixture_price_usd", 0),
+            }
+            for c in _FAISS_CARDS
+            if c.get("name") == name and c["canonical_card_id"] != card_id
+        ]
+        # Deduplicate by variant.
+        seen = set()
+        unique = []
+        for v in variants:
+            if v["variant"] not in seen:
+                seen.add(v["variant"])
+                unique.append(v)
+        # Always include the current selection.
+        current = {
+            "canonical_card_id": card_id,
+            "variant": card.get("variant", "unknown"),
+            "price": card.get("fixture_price_usd", 0),
+        }
+        options[slot["slot_id"]] = [current] + unique
+    return options
+
+
 def _annotate_scan(image_path: Path, scan_report: dict[str, Any]) -> Path:
     root = _appraiser_root()
     out_path = root / "annotated" / f"annotated_{image_path.stem}.jpg"
@@ -842,6 +927,7 @@ def _image_result(scan_report: dict[str, Any], image_path: Path, original_name: 
         "slot_count": int(scan_report.get("slot_count", 0)),
         "predicted_total_usd": float(scan_report.get("predicted_total_usd", 0.0)),
         "slots": scan_report.get("slots", []),
+        "variant_options": _variant_options_for_card(scan_report),
         "layout_name": _classify_layout(int(scan_report.get("slot_count", 0))),
         "original_url": url_for("serve_appraiser_file", kind="uploads", filename=image_path.name),
         "annotated_url": url_for("serve_appraiser_file", kind="annotated", filename=annotated_path.name),
@@ -1011,7 +1097,7 @@ def serve_appraiser_file(kind: str, filename: str):
 @app.route("/feedback", methods=["POST"])
 def submit_feedback():
     feedback = str(request.form.get("feedback", "")).strip().lower()
-    if feedback not in {"up", "down"}:
+    if feedback not in {"up", "down", "variant_change"}:
         return jsonify({"ok": False, "message": "Unknown feedback action."}), 400
 
     entry = {
@@ -1024,7 +1110,12 @@ def submit_feedback():
         "feedback": feedback,
     }
     _append_feedback(entry)
-    message = "👍 Thanks" if feedback == "up" else "👎 Marked incorrect"
+    if feedback == "variant_change":
+        message = "Variant updated"
+    elif feedback == "up":
+        message = "👍 Thanks"
+    else:
+        message = "👎 Marked incorrect"
     return jsonify({"ok": True, "message": message})
 
 
