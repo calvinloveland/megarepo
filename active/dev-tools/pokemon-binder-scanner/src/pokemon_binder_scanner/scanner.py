@@ -1594,7 +1594,10 @@ def _build_edition_stamp_template() -> None:
     templates = []
     ref_dir = Path('/data/home/calvin/pokemon-binder-scanner/reference_cards')
     for c in edition_cards[:50]:
-        ip = ref_dir / f"{c['canonical_card_id']}.png"
+        # Use stamped variant if available, otherwise original.
+        ip = ref_dir / f"{c['canonical_card_id']}_1st.png"
+        if not ip.exists():
+            ip = ref_dir / f"{c['canonical_card_id']}.png"
         if not ip.exists(): continue
         with Image.open(ip) as src:
             img = ImageOps.exif_transpose(src).convert('L')
