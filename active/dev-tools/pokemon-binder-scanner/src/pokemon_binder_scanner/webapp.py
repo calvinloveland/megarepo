@@ -28,8 +28,8 @@ APPRAISER_TEMPLATE = """
     <style>
       :root {
         color-scheme: dark;
-        --bg: #0b1120;
-        --surface: #111827;
+        --bg: #0a1628;
+        --surface: #0f1d33;
         --border: rgba(148, 163, 184, 0.18);
         --text: #e2e8f0;
         --muted: #94a3b8;
@@ -40,7 +40,7 @@ APPRAISER_TEMPLATE = """
       *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
       body {
         font-family: system-ui, -apple-system, sans-serif;
-        background: var(--bg);
+        background: linear-gradient(180deg, #0a1628 0%, #060e1a 100%);
         color: var(--text);
         min-height: 100vh;
       }
@@ -202,6 +202,42 @@ APPRAISER_TEMPLATE = """
 
       .empty-state { text-align: center; color: var(--muted); padding: 40px 20px; }
 
+      .scanning-overlay {
+        position: absolute;
+        inset: 0;
+        background: rgba(10, 22, 40, 0.6);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        backdrop-filter: blur(2px);
+        transition: opacity 0.3s ease;
+        z-index: 2;
+      }
+      .scanning-overlay.hidden { opacity: 0; pointer-events: none; }
+      .scanning-pulse {
+        width: 60px; height: 60px;
+        border-radius: 50%;
+        border: 3px solid rgba(96, 165, 250, 0.2);
+        border-top-color: var(--accent);
+        animation: spin 0.8s linear infinite;
+        box-shadow: 0 0 30px rgba(96, 165, 250, 0.15);
+      }
+      .scanning-text {
+        position: absolute;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        color: var(--accent);
+        font-size: 0.9rem;
+        font-weight: 600;
+        text-shadow: 0 0 20px rgba(96, 165, 250, 0.5);
+        animation: pulse-text 1.5s ease-in-out infinite;
+      }
+      @keyframes pulse-text {
+        0%, 100% { opacity: 0.6; }
+        50% { opacity: 1; }
+      }
+
       @media (max-width: 600px) {
         .app { padding: 12px 10px 32px; }
         .cards-table th, .cards-table td { padding: 8px 6px; }
@@ -229,8 +265,12 @@ APPRAISER_TEMPLATE = """
 
       <div class="result" id="result">
         <div class="image-stage" id="image-stage">
-          <img id="source-image" src="" alt="binder page" />
+          <img id="source-image" src="" alt="binder page" style="display:none;" />
           <canvas id="overlay-canvas"></canvas>
+          <div class="scanning-overlay hidden" id="scanning-overlay">
+            <div class="scanning-pulse"></div>
+            <div class="scanning-text">Identifying cards…</div>
+          </div>
         </div>
 
         <div class="toggle-bar">
@@ -364,7 +404,19 @@ APPRAISER_TEMPLATE = """
         if (!file) return;
 
         emptyState.style.display = 'none';
-        result.classList.remove('visible');
+        result.classList.add('visible');
+        
+        // Show image immediately.
+        const img = document.getElementById('source-image');
+        img.src = URL.createObjectURL(file);
+        img.style.display = 'block';
+        img.onload = () => { drawOverlay(); };
+        
+        // Show scanning overlay.
+        const scanOverlay = document.getElementById('scanning-overlay');
+        scanOverlay.classList.remove('hidden');
+        
+        // Also show loading text.
         loading.classList.add('visible');
 
         const formData = new FormData();
@@ -432,6 +484,7 @@ APPRAISER_TEMPLATE = """
           else scanMeta.textContent = slots.length + ' card' + (slots.length !== 1 ? 's' : '') + ' detected';
 
           result.classList.add('visible');
+          scanOverlay.classList.add('hidden');
         } catch (err) {
           console.error('Scan failed:', err);
         } finally {
