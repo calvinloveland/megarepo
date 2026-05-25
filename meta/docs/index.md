@@ -22,7 +22,6 @@ For high-level repository information and philosophy, see:
 - [../README.md](../../README.md) - Main repository index
 - [../PHILOSOPHY.md](../../PHILOSOPHY.md) - Development philosophy and principles
 - [../PLAN.md](../../PLAN.md) - Repository planning and roadmap
-- [../ISSUES.md](../../ISSUES.md) - Known issues and improvements
 
 ## Submitting Analysis
 

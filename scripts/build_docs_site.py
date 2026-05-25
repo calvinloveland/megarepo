@@ -166,7 +166,14 @@ def rewrite_markdown_links(markdown_text: str, source_path: Path, output_path: P
             rewritten = github_url_for(target_path, is_image=is_image) + query + fragment + title_part
             return f"{prefix}{rewritten}{suffix}"
 
-        return match.group(0)
+        # Target doesn't exist – convert broken link to plain text to avoid
+        # mkdocs --strict failures on internal-link warnings.
+        # prefix is e.g. "[text](" or "![alt]("; strip the trailing "](".
+        inner = prefix[:-2]
+        if inner.startswith("!["):
+            return inner[2:-1]  # "![alt]" → "alt"
+        else:
+            return inner[1:-1]  # "[text]" → "text"
 
     return LINK_PATTERN.sub(replace, markdown_text)
 
