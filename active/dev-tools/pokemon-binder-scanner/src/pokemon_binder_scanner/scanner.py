@@ -1562,6 +1562,9 @@ _FAISS_CARDS: list[dict[str, Any]] = []
 _FAISS_FINGERPRINTS: Any = None
 _CLIP_MODEL: Any = None
 _CLIP_PROCESSOR: Any = None
+_EDITION_STAMP_TEMPLATE: np.ndarray | None = None
+_EDITION_CARD_IDS: set[str] = set()
+_STAMP_REGION = (0.03, 0.35, 0.22, 0.55)  # left, top, right, bottom fractions
 
 
 def load_faiss_index(index_dir: str | Path) -> tuple[Any, list[dict[str, Any]], Any]:
@@ -1578,6 +1581,50 @@ def load_faiss_index(index_dir: str | Path) -> tuple[Any, list[dict[str, Any]], 
     _FAISS_CARDS = json.loads((index_path / "cards.json").read_text())
     _FAISS_FINGERPRINTS = np.load(index_path / "combined_fingerprints.npy")
     return _FAISS_INDEX, _FAISS_CARDS, _FAISS_FINGERPRINTS
+
+
+def _build_edition_stamp_template() -> None:
+    """Build a 1st-edition stamp template from reference images."""
+    global _EDITION_STAMP_TEMPLATE, _EDITION_CARD_IDS
+    import cv2, json as _json
+    corpus = _json.loads(open('/data/home/calvin/pokemon-binder-scanner/cards_manifest.json').read())
+    edition_cards = [c for c in corpus['cards'] if '1stEdition' in c.get('variant', '')]
+    _EDITION_CARD_IDS = {c['canonical_card_id'] for c in edition_cards}
+    
+    templates = []
+    ref_dir = Path('/data/home/calvin/pokemon-binder-scanner/reference_cards')
+    for c in edition_cards[:50]:
+        ip = ref_dir / f"{c['canonical_card_id']}.png"
+        if not ip.exists(): continue
+        with Image.open(ip) as src:
+            img = ImageOps.exif_transpose(src).convert('L')
+        w, h = img.size
+        stamp = np.asarray(img.crop((
+            int(w*_STAMP_REGION[0]), int(h*_STAMP_REGION[1]),
+            int(w*_STAMP_REGION[2]), int(h*_STAMP_REGION[3])
+        )), dtype=np.uint8)
+        stamp = cv2.resize(stamp, (80, 80))
+        templates.append(stamp)
+    if templates:
+        _EDITION_STAMP_TEMPLATE = np.mean(np.stack(templates, axis=0), axis=0).astype(np.uint8)
+
+
+def _check_edition_stamp(query_image: Image.Image) -> float:
+    """Return edition stamp match score (higher = more likely 1st edition)."""
+    import cv2
+    if _EDITION_STAMP_TEMPLATE is None:
+        _build_edition_stamp_template()
+    if _EDITION_STAMP_TEMPLATE is None:
+        return 0.0
+    gray = np.asarray(query_image.convert('L'), dtype=np.uint8)
+    w, h = query_image.size
+    stamp = gray[int(h*_STAMP_REGION[1]):int(h*_STAMP_REGION[3]),
+                 int(w*_STAMP_REGION[0]):int(w*_STAMP_REGION[2])]
+    if stamp.size == 0:
+        return 0.0
+    stamp = cv2.resize(stamp, (80, 80))
+    result = cv2.matchTemplate(stamp, _EDITION_STAMP_TEMPLATE, cv2.TM_CCOEFF_NORMED)
+    return float(result[0, 0])
 
 
 def load_clip_index(index_dir: str | Path) -> None:
@@ -1966,9 +2013,18 @@ def clip_scan_image(
         best_name = "Unknown"
         best_price = 0.0
         best_score = 1.0
+        # Check for edition-stamp signal if query has one.
+        edition_score = _check_edition_stamp(crop)
+        has_edition = edition_score > 0.80  # threshold from training
+
         for cid, clip_score in clip_candidates:
-            if clip_score < best_score:
-                best_score = clip_score
+            # Boost 1st edition candidates if the query has a stamp,
+            # penalize them if it doesn't.
+            adjusted = clip_score
+            if cid in _EDITION_CARD_IDS:
+                adjusted += (0.05 if not has_edition else -0.02)
+            if adjusted < best_score:
+                best_score = adjusted
                 card = next((c for c in _FAISS_CARDS if c["canonical_card_id"] == cid), None)
                 if card:
                     best_cid = cid
