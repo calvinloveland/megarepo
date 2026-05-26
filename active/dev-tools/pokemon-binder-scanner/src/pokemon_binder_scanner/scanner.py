@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import random
+import threading
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
@@ -1600,6 +1601,7 @@ _FAISS_CARDS: list[dict[str, Any]] = []
 _FAISS_FINGERPRINTS: Any = None
 _CLIP_MODEL: Any = None
 _CLIP_PROCESSOR: Any = None
+_CLIP_LOCK = threading.Lock()
 _EDITION_STAMP_TEMPLATE: np.ndarray | None = None
 _EDITION_CARD_IDS: set[str] = set()
 _STAMP_REGION = (0.03, 0.35, 0.22, 0.55)  # left, top, right, bottom fractions
@@ -1681,17 +1683,20 @@ def load_clip_index(index_dir: str | Path) -> None:
 
 
 def _ensure_clip_loaded() -> None:
-    """Lazy-load CLIP model on first use."""
+    """Lazy-load CLIP model on first use (thread-safe)."""
     global _CLIP_MODEL, _CLIP_PROCESSOR
     if _CLIP_MODEL is not None:
         return
-    from transformers import CLIPModel, CLIPProcessor
-    import warnings
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore")
-        _CLIP_MODEL = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
-        _CLIP_PROCESSOR = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
-    _CLIP_MODEL.eval()
+    with _CLIP_LOCK:
+        if _CLIP_MODEL is not None:
+            return  # Another thread loaded it while we waited.
+        from transformers import CLIPModel, CLIPProcessor
+        import warnings
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            _CLIP_MODEL = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
+            _CLIP_PROCESSOR = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
+        _CLIP_MODEL.eval()
 
 
 
