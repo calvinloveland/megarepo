@@ -456,6 +456,12 @@ APPRAISER_TEMPLATE = """
               id: idEl ? idEl.textContent.trim() : (cardId || ''),
               price: price,
               variant: variant,
+              variantOptions: Array.from(variantSelect?.options || []).map(opt => ({
+                cardId: opt.value,
+                variant: opt.dataset?.variant || '',
+                price: opt.dataset?.price || '0.00',
+              })),
+              selectedVariant: variantSelect?.value || cardId,
               bbox: bbox,
               imageFilename: imgName,
               slotId: slotId,
@@ -493,12 +499,19 @@ APPRAISER_TEMPLATE = """
       }
 
       function renderTable() {
-        cardsTbody.innerHTML = slots.map((s, i) => `
+        cardsTbody.innerHTML = slots.map((s, i) => {
+          const variantOpts = (s.variantOptions || []).map(vo =>
+            `<option value="${escHtml(vo.cardId)}" data-variant="${escHtml(vo.variant)}" data-price="${escHtml(vo.price)}" ${vo.cardId === s.selectedVariant ? 'selected' : ''}>${escHtml(vo.variant)}</option>`
+          ).join('');
+          return `
           <tr>
             <td>${i + 1}</td>
             <td>
               <div class="name">${escHtml(s.name)}</div>
               <div class="id">${escHtml(s.id)}</div>
+            </td>
+            <td>
+              ${variantOpts ? `<select class="variant-select" data-slot-id="${escHtml(s.slotId)}" onchange="onVariantChange(this)" style="background:rgba(15,23,42,0.84);color:#e2e8f0;border:1px solid rgba(148,163,184,0.22);border-radius:8px;padding:4px 6px;font:inherit;font-size:0.82rem;max-width:130px;">${variantOpts}</select>` : `<span class="muted">—</span>`}
             </td>
             <td class="price">${escHtml(s.price)}</td>
             <td>
@@ -517,7 +530,7 @@ APPRAISER_TEMPLATE = """
               </form>
             </td>
           </tr>
-        `).join('');
+        `}).join('');
       }
 
       function drawOverlay() {
@@ -631,6 +644,15 @@ APPRAISER_TEMPLATE = """
         const priceCell = row.querySelector('.price');
         if (priceCell && price) {
           priceCell.textContent = '$' + parseFloat(price).toFixed(2);
+        }
+        
+        // Update the slots array so exports use the selected variant.
+        const idx = Array.from(row.parentElement.children).indexOf(row);
+        if (idx >= 0 && idx < slots.length) {
+          slots[idx].cardId = cid;
+          slots[idx].price = '$' + parseFloat(price).toFixed(2);
+          slots[idx].variant = variant;
+          slots[idx].selectedVariant = cid;
         }
         
         // Send feedback with the selected variant.
