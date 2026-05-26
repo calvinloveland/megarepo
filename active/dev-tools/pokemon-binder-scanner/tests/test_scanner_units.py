@@ -785,22 +785,23 @@ class TestMergeOverlappingBboxes(unittest.TestCase):
         self.assertAlmostEqual(result[0][1], 0.1)
 
     def test_nested_box_larger_survives(self) -> None:
-        # Small box fully inside larger box.
+        # Small box fully inside larger box; small covers >50% of large
+        # so IoU > 0.5 and the smaller one is discarded.
         boxes = [
-            (0.3, 0.3, 0.15, 0.15),  # smaller area = 0.0225
-            (0.2, 0.2, 0.4, 0.4),     # larger area = 0.16
+            (0.25, 0.25, 0.30, 0.30),  # area = 0.09
+            (0.20, 0.20, 0.40, 0.40),  # area = 0.16, IoU = 0.09/0.16 = 0.5625 > 0.5
         ]
         result = _merge_overlapping_bboxes(boxes)
         self.assertEqual(len(result), 1)
         # The larger box should survive.
-        self.assertAlmostEqual(result[0][2], 0.4)
-        self.assertAlmostEqual(result[0][3], 0.4)
+        self.assertAlmostEqual(result[0][2], 0.40)
+        self.assertAlmostEqual(result[0][3], 0.40)
 
     def test_partial_overlap_merge(self) -> None:
-        # Two boxes with 50% overlap.
+        # Two boxes with 60% overlap (IoU > 0.5).
         boxes = [
             (0.0, 0.0, 0.2, 0.2),
-            (0.1, 0.0, 0.2, 0.2),  # overlaps first horizontally
+            (0.05, 0.0, 0.2, 0.2),  # IoU = 0.03/0.05 = 0.6
         ]
         result = _merge_overlapping_bboxes(boxes)
         self.assertEqual(len(result), 1)
