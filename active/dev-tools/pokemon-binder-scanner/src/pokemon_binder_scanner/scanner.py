@@ -2000,6 +2000,11 @@ def clip_scan_image(
     """
     import faiss
 
+    if _FAISS_INDEX is None:
+        raise RuntimeError(
+            "FAISS index not loaded. Call load_clip_index() or load_faiss_index() first."
+        )
+
     path = Path(image_path)
     _ensure_clip_loaded()
 
