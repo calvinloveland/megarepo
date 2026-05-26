@@ -1,0 +1,44 @@
+{
+  "name": "pi-warden",
+  "version": "0.1.0",
+  "description": "Pi extension for the Warden per-host monitoring agent — query host health, run checks, communicate with peer wardens, and manage backups from inside Pi",
+  "keywords": [
+    "pi-package",
+    "pi-extension",
+    "warden",
+    "monitoring",
+    "system-health",
+    "backup",
+    "devops"
+  ],
+  "license": "MIT",
+  "type": "module",
+  "author": "Calvin Loveland <calvin@loveland.dev>",
+  "private": false,
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/calvinloveland/megarepo.git",
+    "directory": "active/personal/calnix/pi-packages/pi-warden"
+  },
+  "homepage": "https://github.com/calvinloveland/megarepo/tree/main/active/personal/calnix/pi-packages/pi-warden#readme",
+  "bugs": {
+    "url": "https://github.com/calvinloveland/megarepo/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "extensions",
+    "README.md",
+    "LICENSE",
+    "docs"
+  ],
+  "peerDependencies": {
+    "@mariozechner/pi-coding-agent": "*",
+    "@mariozechner/pi-tui": "*",
+    "typebox": "*"
+  },
+  "pi": {
+    "extensions": ["./extensions/warden.ts"]
+  }
+}

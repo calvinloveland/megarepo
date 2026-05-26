@@ -140,6 +140,7 @@ in
   imports = [
     ./calnix.nix
     ./remote-access.nix
+    ./warden/warden.nix
   ];
 
   # Enable parallel building for faster compilation

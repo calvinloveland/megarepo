@@ -1,4 +1,5 @@
 #!/bin/bash
+# shellcheck disable=SC2034,SC2028
 # Weather script for waybar with better error handling and diagnostics
 
 # Use curl from PATH - NixOS will handle making it available
