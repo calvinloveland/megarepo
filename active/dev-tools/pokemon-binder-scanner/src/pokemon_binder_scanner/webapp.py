@@ -927,12 +927,14 @@ def _appraiser_root() -> Path:
 
 _FAISS_INDEX_DIR: Path | None = None
 _FAISS_LOADED = False
+_FAISS_PROBED = False
 
 
 def _ensure_faiss_loaded() -> None:
-    global _FAISS_LOADED
-    if _FAISS_LOADED:
+    global _FAISS_LOADED, _FAISS_PROBED
+    if _FAISS_PROBED:
         return
+    _FAISS_PROBED = True
     index_dir = os.environ.get("POKEMON_BINDER_FAISS_INDEX", "")
     if index_dir:
         p = Path(index_dir)
@@ -951,6 +953,9 @@ def _ensure_faiss_loaded() -> None:
         elif (p / "combined.index").exists():
             load_faiss_index(p)
             _FAISS_LOADED = True
+    # Mark as resolved even when no index was found — prevents repeated
+    # filesystem probes on every request.
+    _FAISS_LOADED = True
 
 
 def _catalog_summary() -> dict[str, Any]:
