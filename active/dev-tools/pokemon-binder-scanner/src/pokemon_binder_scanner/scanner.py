@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import random
 from functools import lru_cache
 from pathlib import Path
@@ -11,6 +12,31 @@ from PIL import Image, ImageFilter, ImageOps
 from skimage.measure import label, regionprops
 
 from .binder_fixtures import DEFAULT_MANIFEST_PATH, _apply_card_transform, build_reference_catalog, load_manifest
+
+# ---------------------------------------------------------------------------
+# Centralised data-root configuration.
+# Set POKEMON_BINDER_DATA_ROOT to relocate the reference card images,
+# manifest, and index files.  Falls back to the original hardcoded path
+# for backward compatibility with existing deployments.
+# ---------------------------------------------------------------------------
+
+_DEFAULT_DATA_ROOT = Path("/data/home/calvin/pokemon-binder-scanner")
+
+
+def _data_root() -> Path:
+    env = os.environ.get("POKEMON_BINDER_DATA_ROOT", "")
+    return Path(env) if env else _DEFAULT_DATA_ROOT
+
+
+def _cards_manifest_path() -> Path:
+    """Path to the full cards corpus JSON (cards_manifest.json)."""
+    return _data_root() / "cards_manifest.json"
+
+
+def _reference_cards_dir() -> Path:
+    """Directory containing per-card reference PNG images."""
+    return _data_root() / "reference_cards"
+
 
 MATCH_SIZE = (56, 78)
 DEFAULT_LAYOUT_BBOXES: tuple[tuple[float, float, float, float], ...] = (
@@ -1587,12 +1613,15 @@ def _build_edition_stamp_template() -> None:
     """Build a 1st-edition stamp template from reference images."""
     global _EDITION_STAMP_TEMPLATE, _EDITION_CARD_IDS
     import cv2, json as _json
-    corpus = _json.loads(open('/data/home/calvin/pokemon-binder-scanner/cards_manifest.json').read())
+    manifest_path = _cards_manifest_path()
+    if not manifest_path.exists():
+        return
+    corpus = _json.loads(manifest_path.read_text())
     edition_cards = [c for c in corpus['cards'] if '1stEdition' in c.get('variant', '')]
     _EDITION_CARD_IDS = {c['canonical_card_id'] for c in edition_cards}
     
     templates = []
-    ref_dir = Path('/data/home/calvin/pokemon-binder-scanner/reference_cards')
+    ref_dir = _reference_cards_dir()
     for c in edition_cards[:50]:
         # Use stamped variant if available, otherwise original.
         ip = ref_dir / f"{c['canonical_card_id']}_1st.png"
@@ -1838,7 +1867,7 @@ def _verify_faiss_candidates(
     """
     import random as _random
 
-    ref_dir = Path("/data/home/calvin/pokemon-binder-scanner/reference_cards")
+    ref_dir = _reference_cards_dir()
     best: dict[str, Any] | None = None
 
     # Use the normalised query signature if available, otherwise the raw one.
@@ -1916,7 +1945,7 @@ def _build_minimal_faiss_index() -> list[dict[str, Any]]:
 
     for card_meta in cards_to_use:
         cid = card_meta["canonical_card_id"]
-        ref_path = Path("/data/home/calvin/pokemon-binder-scanner/reference_cards") / f"{cid}.png"
+        ref_path = _reference_cards_dir() / f"{cid}.png"
         if not ref_path.exists():
             continue
         try:
