@@ -295,6 +295,86 @@ def scan_fixture_image(
     }
 
 
+def _evaluate_page_results(
+    expected_page: dict[str, Any],
+    scanned_page: dict[str, Any],
+) -> tuple[dict[str, Any], int, int, float]:
+    """Evaluate a single page: compare expected slots against scanned results.
+
+    Returns (page_report, total_slots, matched_cards, predicted_total).
+    """
+    expected_slots = _sort_slots_reading_order(list(expected_page.get("slots", [])))
+    scanned_slots = _sort_slots_reading_order(list(scanned_page.get("slots", [])))
+    expected_to_scanned, unmatched_scanned_indices = _match_slots_by_position(expected_slots, scanned_slots)
+
+    page_mismatches: list[str] = []
+    page_card_matches = 0
+    total_slots = 0
+    identified_slots: list[dict[str, Any]] = []
+
+    for expected_index, expected_slot in enumerate(expected_slots):
+        total_slots += 1
+        scanned_index = expected_to_scanned.get(expected_index)
+        if scanned_index is None:
+            page_mismatches.append(f"{expected_slot['slot_id']}: missing detection")
+            identified_slots.append({
+                "slot_id": expected_slot["slot_id"],
+                "matched": False,
+                "reference_image_path": None,
+                "predicted_card": None,
+                "expected_card": expected_slot.get("card"),
+            })
+            continue
+
+        scanned_slot = scanned_slots[scanned_index]
+        expected_card = expected_slot.get("card")
+        predicted_card = scanned_slot["card"]
+        is_match = _cards_match(expected_card, predicted_card)
+        if is_match:
+            page_card_matches += 1
+        else:
+            expected_label = expected_card.get("canonical_card_id", "empty") if expected_card else "empty"
+            predicted_label = predicted_card.get("canonical_card_id", "empty") if predicted_card else "empty"
+            page_mismatches.append(
+                f"{expected_slot['slot_id']}: expected {expected_label} got {predicted_label}"
+            )
+        identified_slots.append({
+            "slot_id": expected_slot["slot_id"],
+            "matched": is_match,
+            "reference_image_path": (predicted_card or {}).get("reference_image_path"),
+            "predicted_card": predicted_card,
+            "expected_card": expected_card,
+        })
+
+    for scanned_index in unmatched_scanned_indices:
+        scanned_slot = scanned_slots[scanned_index]
+        page_mismatches.append(
+            f"unexpected detected slot {scanned_slot['slot_id']}: "
+            f"got {scanned_slot['card'].get('canonical_card_id')}"
+        )
+        identified_slots.append({
+            "slot_id": scanned_slot["slot_id"],
+            "matched": False,
+            "reference_image_path": scanned_slot["card"].get("reference_image_path"),
+            "predicted_card": scanned_slot["card"],
+            "expected_card": None,
+        })
+
+    predicted_total = float(scanned_page.get("predicted_total_usd", 0.0))
+    page_report: dict[str, Any] = {
+        "page_id": expected_page["page_id"],
+        "label": expected_page.get("label", ""),
+        "expected_total_usd": round(float(expected_page.get("expected_total_usd", 0.0)), 2),
+        "predicted_total_usd": scanned_page["predicted_total_usd"],
+        "slot_count": len(expected_slots),
+        "predicted_slot_count": len(scanned_slots),
+        "card_matches": page_card_matches,
+        "mismatches": page_mismatches,
+        "identified_slots": identified_slots,
+    }
+    return page_report, total_slots, page_card_matches, predicted_total
+
+
 def evaluate_scanner_on_fixture_dataset(
     manifest: dict[str, Any],
     render_dir: str | Path,
@@ -311,81 +391,13 @@ def evaluate_scanner_on_fixture_dataset(
     for expected_page in manifest.get("pages", []):
         page_path = render_path / f"{expected_page['page_id']}.jpg"
         scanned_page = scan_fixture_image(page_path, reference_index=reference_index)
-        expected_slots = _sort_slots_reading_order(list(expected_page["slots"]))
-        scanned_slots = _sort_slots_reading_order(list(scanned_page["slots"]))
-        expected_to_scanned, unmatched_scanned_indices = _match_slots_by_position(expected_slots, scanned_slots)
-        page_mismatches: list[str] = []
-        page_card_matches = 0
-        identified_slots: list[dict[str, Any]] = []
-
-        for expected_index, expected_slot in enumerate(expected_slots):
-            total_slots += 1
-            scanned_index = expected_to_scanned.get(expected_index)
-            if scanned_index is None:
-                page_mismatches.append(f"{expected_slot['slot_id']}: missing detection")
-                identified_slots.append(
-                    {
-                        "slot_id": expected_slot["slot_id"],
-                        "matched": False,
-                        "reference_image_path": None,
-                        "predicted_card": None,
-                        "expected_card": expected_slot["card"],
-                    }
-                )
-                continue
-
-            scanned_slot = scanned_slots[scanned_index]
-            expected_card = expected_slot.get("card")
-            predicted_card = scanned_slot["card"]
-            is_match = _cards_match(expected_card, predicted_card)
-            if is_match:
-                matched_cards += 1
-                page_card_matches += 1
-            else:
-                expected_label = expected_card.get("canonical_card_id", "empty") if expected_card else "empty"
-                predicted_label = predicted_card.get("canonical_card_id", "empty") if predicted_card else "empty"
-                page_mismatches.append(
-                    f"{expected_slot['slot_id']}: expected {expected_label} got {predicted_label}"
-                )
-            identified_slots.append(
-                {
-                    "slot_id": expected_slot["slot_id"],
-                    "matched": is_match,
-                    "reference_image_path": (predicted_card or {}).get("reference_image_path"),
-                    "predicted_card": predicted_card,
-                    "expected_card": expected_card,
-                }
-            )
-
-        for scanned_index in unmatched_scanned_indices:
-            scanned_slot = scanned_slots[scanned_index]
-            page_mismatches.append(
-                f"unexpected detected slot {scanned_slot['slot_id']}: got {scanned_slot['card'].get('canonical_card_id')}"
-            )
-            identified_slots.append(
-                {
-                    "slot_id": scanned_slot["slot_id"],
-                    "matched": False,
-                    "reference_image_path": scanned_slot["card"].get("reference_image_path"),
-                    "predicted_card": scanned_slot["card"],
-                    "expected_card": None,
-                }
-            )
-
-        predicted_total += scanned_page["predicted_total_usd"]
-        page_reports.append(
-            {
-                "page_id": expected_page["page_id"],
-                "label": expected_page["label"],
-                "expected_total_usd": round(float(expected_page["expected_total_usd"]), 2),
-                "predicted_total_usd": scanned_page["predicted_total_usd"],
-                "slot_count": len(expected_slots),
-                "predicted_slot_count": len(scanned_slots),
-                "card_matches": page_card_matches,
-                "mismatches": page_mismatches,
-                "identified_slots": identified_slots,
-            }
+        page_report, page_total_slots, page_matches, page_pred_total = _evaluate_page_results(
+            expected_page, scanned_page
         )
+        total_slots += page_total_slots
+        matched_cards += page_matches
+        predicted_total += page_pred_total
+        page_reports.append(page_report)
 
     return {
         "pages_evaluated": len(page_reports),
