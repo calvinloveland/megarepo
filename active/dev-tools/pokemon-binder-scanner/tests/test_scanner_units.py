@@ -21,7 +21,10 @@ from pokemon_binder_scanner.scanner import (  # noqa: E402
     _crop_bbox,
     _detect_edge_components,
     _detect_variance_components,
+    _fill_grid_gaps,
+    _find_projection_peaks,
     _integral_image,
+    _merge_overlapping_bboxes,
     _normalize_edge_component_bbox,
     _normalize_variance_component_bbox,
     _prepare_match_image,
@@ -747,6 +750,237 @@ class TestIrregularLayoutMinArea(unittest.TestCase):
             _bboxes = _detect_irregular_layout_bboxes(_img, reference_index=_default_reference_index())
             for _b in _bboxes:
                 self.assertGreaterEqual(_b[2] * _b[3], _AREA_MIN)
+
+
+# ---------------------------------------------------------------------------
+# _merge_overlapping_bboxes
+# ---------------------------------------------------------------------------
+
+class TestMergeOverlappingBboxes(unittest.TestCase):
+    def test_empty_list(self) -> None:
+        result = _merge_overlapping_bboxes([])
+        self.assertEqual(result, ())
+
+    def test_single_box(self) -> None:
+        result = _merge_overlapping_bboxes([(0.1, 0.1, 0.3, 0.3)])
+        self.assertEqual(result, ((0.1, 0.1, 0.3, 0.3),))
+
+    def test_distant_boxes_no_merge(self) -> None:
+        boxes = [
+            (0.1, 0.1, 0.2, 0.2),
+            (0.6, 0.6, 0.2, 0.2),
+        ]
+        result = _merge_overlapping_bboxes(boxes)
+        self.assertEqual(len(result), 2)
+
+    def test_identical_boxes_merge(self) -> None:
+        boxes = [
+            (0.1, 0.1, 0.3, 0.3),
+            (0.1, 0.1, 0.3, 0.3),
+        ]
+        result = _merge_overlapping_bboxes(boxes)
+        # Larger (by area) box should survive; both equal area here.
+        self.assertEqual(len(result), 1)
+        self.assertAlmostEqual(result[0][0], 0.1)
+        self.assertAlmostEqual(result[0][1], 0.1)
+
+    def test_nested_box_larger_survives(self) -> None:
+        # Small box fully inside larger box.
+        boxes = [
+            (0.3, 0.3, 0.15, 0.15),  # smaller area = 0.0225
+            (0.2, 0.2, 0.4, 0.4),     # larger area = 0.16
+        ]
+        result = _merge_overlapping_bboxes(boxes)
+        self.assertEqual(len(result), 1)
+        # The larger box should survive.
+        self.assertAlmostEqual(result[0][2], 0.4)
+        self.assertAlmostEqual(result[0][3], 0.4)
+
+    def test_partial_overlap_merge(self) -> None:
+        # Two boxes with 50% overlap.
+        boxes = [
+            (0.0, 0.0, 0.2, 0.2),
+            (0.1, 0.0, 0.2, 0.2),  # overlaps first horizontally
+        ]
+        result = _merge_overlapping_bboxes(boxes)
+        self.assertEqual(len(result), 1)
+
+    def test_three_boxes_chain_merge(self) -> None:
+        # A overlaps B, B overlaps C, but A doesn't overlap C directly.
+        boxes = [
+            (0.0, 0.0, 0.25, 0.25),
+            (0.15, 0.0, 0.25, 0.25),
+            (0.30, 0.0, 0.25, 0.25),
+        ]
+        result = _merge_overlapping_bboxes(boxes)
+        # B overlaps both A and C; IoU threshold decides.
+        # Default IoU threshold is 0.5, so A-B: 0.25/(0.0625+0.0625-0.015) ≈ 0.227
+        # B-C: ~0.227 as well.  So none merge purely by IoU.
+        # But A→C iou=0 so definitely 3 survive.
+        self.assertEqual(len(result), 3)
+
+    def test_four_boxes_grid_with_partial_overlap(self) -> None:
+        # 2x2 grid of boxes with slight overlaps at edges.
+        boxes = [
+            (0.0, 0.0, 0.25, 0.25),
+            (0.2, 0.0, 0.25, 0.25),
+            (0.0, 0.2, 0.25, 0.25),
+            (0.2, 0.2, 0.25, 0.25),
+        ]
+        result = _merge_overlapping_bboxes(boxes)
+        # Edge overlaps: each pair shares 0.05/0.25 overlap → IoU < 0.5.
+        # So all survive.
+        self.assertEqual(len(result), 4)
+
+
+# ---------------------------------------------------------------------------
+# _fill_grid_gaps
+# ---------------------------------------------------------------------------
+
+class TestFillGridGaps(unittest.TestCase):
+    def test_fewer_than_three_bboxes_passthrough(self) -> None:
+        """With fewer than 3 boxes, no grid inference is attempted."""
+        boxes = [(0.1, 0.1, 0.2, 0.2), (0.5, 0.1, 0.2, 0.2)]
+        result = _fill_grid_gaps(boxes, 1000, 1000)
+        self.assertEqual(len(result), 2)
+
+    def test_complete_3x3_grid_no_gaps(self) -> None:
+        """A fully-detected 3x3 grid should produce no new boxes."""
+        boxes = [
+            (0.05, 0.05, 0.25, 0.25),
+            (0.35, 0.05, 0.25, 0.25),
+            (0.65, 0.05, 0.25, 0.25),
+            (0.05, 0.35, 0.25, 0.25),
+            (0.35, 0.35, 0.25, 0.25),
+            (0.65, 0.35, 0.25, 0.25),
+            (0.05, 0.65, 0.25, 0.25),
+            (0.35, 0.65, 0.25, 0.25),
+            (0.65, 0.65, 0.25, 0.25),
+        ]
+        result = _fill_grid_gaps(boxes, 1000, 1000)
+        self.assertEqual(len(result), 9)
+
+    def test_gap_in_3x3_grid_fills_missing(self) -> None:
+        """With one missing box in a 3×3, the gap should be filled."""
+        boxes = [
+            (0.05, 0.05, 0.25, 0.25),  # row 0, col 0
+            (0.35, 0.05, 0.25, 0.25),  # row 0, col 1
+            (0.65, 0.05, 0.25, 0.25),  # row 0, col 2
+            (0.05, 0.35, 0.25, 0.25),  # row 1, col 0
+            # (0.35, 0.35, ...)  MISSING row 1, col 1
+            (0.65, 0.35, 0.25, 0.25),  # row 1, col 2
+            (0.05, 0.65, 0.25, 0.25),  # row 2, col 0
+            (0.35, 0.65, 0.25, 0.25),  # row 2, col 1
+            (0.65, 0.65, 0.25, 0.25),  # row 2, col 2
+        ]
+        result = _fill_grid_gaps(boxes, 1000, 1000)
+        self.assertEqual(len(result), 9, "Should infer the missing middle box")
+
+    def test_gap_in_2x3_grid(self) -> None:
+        """2 rows × 3 columns with one missing corner."""
+        boxes = [
+            (0.07, 0.14, 0.22, 0.22),  # row 0, col 0
+            (0.35, 0.14, 0.22, 0.22),  # row 0, col 1
+            (0.63, 0.14, 0.22, 0.22),  # row 0, col 2
+            (0.07, 0.50, 0.22, 0.22),  # row 1, col 0
+            (0.35, 0.50, 0.22, 0.22),  # row 1, col 1
+            # (0.63, 0.50, ...)  MISSING row 1, col 2
+        ]
+        result = _fill_grid_gaps(boxes, 1000, 1000)
+        self.assertEqual(len(result), 6, "Should fill missing bottom-right corner")
+
+    def test_single_row_of_boxes_no_grid(self) -> None:
+        """Boxes all on the same row should not form a 2D grid."""
+        boxes = [
+            (0.05, 0.40, 0.25, 0.25),
+            (0.35, 0.40, 0.25, 0.25),
+            (0.65, 0.40, 0.25, 0.25),
+        ]
+        result = _fill_grid_gaps(boxes, 1000, 1000)
+        # All on same row → only 1 row → len(rows) < 2 → passthrough.
+        self.assertEqual(len(result), 3)
+
+    def test_two_rows_one_col_no_grid(self) -> None:
+        """Boxes in one column should not form a 2D grid."""
+        boxes = [
+            (0.40, 0.05, 0.25, 0.25),
+            (0.40, 0.35, 0.25, 0.25),
+            (0.40, 0.65, 0.25, 0.25),
+        ]
+        result = _fill_grid_gaps(boxes, 1000, 1000)
+        # One column → len(cols) < 2 → passthrough.
+        self.assertEqual(len(result), 3)
+
+    def test_gap_in_3x2_grid(self) -> None:
+        """3 rows × 2 columns with one missing box."""
+        boxes = [
+            (0.18, 0.07, 0.22, 0.22),  # row 0, col 0
+            (0.44, 0.07, 0.22, 0.22),  # row 0, col 1
+            (0.18, 0.35, 0.22, 0.22),  # row 1, col 0
+            # (0.44, 0.35, ...)  MISSING row 1, col 1
+            (0.18, 0.63, 0.22, 0.22),  # row 2, col 0
+            (0.44, 0.63, 0.22, 0.22),  # row 2, col 1
+        ]
+        result = _fill_grid_gaps(boxes, 1000, 1000)
+        self.assertEqual(len(result), 6, "Should fill middle-right gap")
+
+
+# ---------------------------------------------------------------------------
+# _find_projection_peaks
+# ---------------------------------------------------------------------------
+
+class TestFindProjectionPeaks(unittest.TestCase):
+    def test_flat_projection_returns_empty(self) -> None:
+        """A projection below the threshold should yield no peaks."""
+        proj = np.zeros(100, dtype=np.float64)
+        peaks = _find_projection_peaks(proj, 0.5)
+        self.assertEqual(peaks, [])
+
+    def test_single_peak_above_threshold(self) -> None:
+        """One clear peak above threshold."""
+        proj = np.zeros(100, dtype=np.float64)
+        proj[40:60] = 1.0
+        peaks = _find_projection_peaks(proj, 0.5)
+        self.assertEqual(len(peaks), 1)
+        self.assertAlmostEqual(peaks[0], 50, delta=3)
+
+    def test_multiple_peaks(self) -> None:
+        """Three well-separated peaks."""
+        proj = np.zeros(300, dtype=np.float64)
+        proj[30:50] = 1.0
+        proj[130:150] = 1.0
+        proj[230:250] = 1.0
+        peaks = _find_projection_peaks(proj, 0.5, min_gap=30)
+        self.assertEqual(len(peaks), 3)
+
+    def test_nearby_peaks_are_merged_by_min_gap(self) -> None:
+        """Two peaks within min_gap should be merged into one."""
+        proj = np.zeros(100, dtype=np.float64)
+        proj[30:38] = 1.0
+        proj[45:55] = 1.0
+        peaks = _find_projection_peaks(proj, 0.5, min_gap=30)
+        # 30-38 centroid ~34, 45-55 centroid ~50, gap=16 < 30 → merged.
+        self.assertEqual(len(peaks), 1)
+
+    def test_wide_peaks_kept_separate(self) -> None:
+        """Two peaks far apart should both be returned."""
+        proj = np.zeros(200, dtype=np.float64)
+        proj[20:40] = 1.0
+        proj[120:140] = 1.0
+        peaks = _find_projection_peaks(proj, 0.5, min_gap=30)
+        self.assertEqual(len(peaks), 2)
+
+    def test_peaks_sorted_by_position(self) -> None:
+        """Returned peaks should be in ascending position order."""
+        proj = np.zeros(400, dtype=np.float64)
+        proj[250:270] = 1.0
+        proj[50:70] = 1.0
+        proj[150:170] = 1.0
+        peaks = _find_projection_peaks(proj, 0.5, min_gap=30)
+        self.assertTrue(
+            all(peaks[i] < peaks[i + 1] for i in range(len(peaks) - 1)),
+            "Peaks should be sorted by position",
+        )
 
 
 if __name__ == "__main__":
