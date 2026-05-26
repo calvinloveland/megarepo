@@ -75,7 +75,6 @@
 
     # Pi integration — loads pi-warden extension automatically
     pi.enable = true;
-    pi.autopilot.enable = true;  # Persistent headless Warden agent
 
     # Peer API — enables other wardens to query this host
     peerApi.enable = true;
