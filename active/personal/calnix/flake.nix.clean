@@ -1,6 +1,9 @@
 {
   description = "Calvin's Multi-Host NixOS Configuration";
   inputs = {
+    kickstart-nix-nvim = {
+      url = "github:nix-community/kickstart-nix.nvim";
+    };
     # User's nixpkgs - for user packages
     nixpkgs = {
       url = "github:nixos/nixpkgs/nixos-unstable";
@@ -23,7 +26,7 @@
       self,
       nixpkgs,
       home-manager,
-      
+      kickstart-nix-nvim,
       nixos-hardware,
       ...
     }@inputs:
@@ -262,6 +265,7 @@ PY
       );
 
       commonOverlays = [
+        kickstart-nix-nvim.overlays.default
         githubCopilotCliOverlay
         piAgentHarnessOverlay
       ];

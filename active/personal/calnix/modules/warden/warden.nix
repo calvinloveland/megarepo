@@ -40,12 +40,12 @@ let
 
   # Format state dir as tmpfiles rules
   stateDirs = [
-    "d ${cfg.stateDir} 0755 warden warden - -"
-    "d ${cfg.stateDir}/checks 0755 warden warden - -"
-    "d ${cfg.stateDir}/peers 0755 warden warden - -"
-    "Z ${cfg.stateDir} 0755 warden warden - -"
-    "Z ${cfg.stateDir}/checks 0755 warden warden - -"
-    "Z ${cfg.stateDir}/peers 0755 warden warden - -"
+    "d ${cfg.stateDir} 0775 warden warden - -"
+    "d ${cfg.stateDir}/checks 0775 warden warden - -"
+    "d ${cfg.stateDir}/peers 0775 warden warden - -"
+    "Z ${cfg.stateDir} 0775 warden warden - -"
+    "Z ${cfg.stateDir}/checks 0775 warden warden - -"
+    "Z ${cfg.stateDir}/peers 0775 warden warden - -"
   ];
 
   # Build the check timer list
