@@ -515,7 +515,7 @@ APPRAISER_TEMPLATE = """
             </td>
             <td class="price">${escHtml(s.price)}</td>
             <td>
-              <form class="feedback-form" onsubmit="return sendFeedback(event, ${i})">
+              <form class="feedback-form" onsubmit="event.preventDefault(); return false">
                 <input type="hidden" name="image_filename" value="${escHtml(s.imageFilename)}" />
                 <input type="hidden" name="original_name" value="${escHtml(fileInput.files[0]?.name || '')}" />
                 <input type="hidden" name="slot_id" value="${escHtml(s.slotId)}" />
