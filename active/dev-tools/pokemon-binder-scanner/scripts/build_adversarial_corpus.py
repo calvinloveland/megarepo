@@ -3,7 +3,11 @@
 Build a genuinely hard adversarial test corpus for anti-overfitting validation.
 
 Generates test cases at three difficulty levels using confusable card pairs
-(same Pokémon name, different printings) with extreme photographic degradation.
+(same Pokémon name, different printings) with photographic degradation.
+
+New in v2: every individual degradation is also tested solo, so the test
+suite can report per-effect accuracy and isolate which effects/combinations
+cause the most confusion.
 
 Usage:
   python scripts/build_adversarial_corpus.py
@@ -42,22 +46,79 @@ def load_confusable_pairs(min_printings: int = 4) -> list[list[dict[str, Any]]]:
     return [entries for entries in by_name.values() if len(entries) >= min_printings]
 
 
-DEGRADATIONS = {
-    "jpeg5": lambda img: _jpeg_compress(img, 5),
-    "jpeg8": lambda img: _jpeg_compress(img, 8),
-    "jpeg10": lambda img: _jpeg_compress(img, 10),
-    "jpeg15": lambda img: _jpeg_compress(img, 15),
-    "jpeg20": lambda img: _jpeg_compress(img, 20),
-    "heavy_glare": lambda img: _apply_degradation(img, "glare", 7, ["heavy_glare"]),
-    "glare_band": lambda img: _apply_degradation(img, "glare", 4, ["heavy_glare", "center_band"]),
-    "motion_blur": lambda img: _apply_degradation(img, "clear", 0, ["motion_blur"]),
+def _jpeg_compress(img: Image.Image, quality: int) -> Image.Image:
+    buf = BytesIO()
+    img.save(buf, format="JPEG", quality=quality)
+    buf.seek(0)
+    return Image.open(buf).convert("RGB")
+
+
+def _apply_degradation(
+    img: Image.Image, visibility: str, tilt: float, effects: list[str]
+) -> Image.Image:
+    rng = random.Random(f"{visibility}-{tilt}-{effects}")
+    slot = {"visibility": visibility, "tilt_degrees": tilt, "render_effects": effects}
+    transformed = _apply_card_transform(img.convert("RGBA"), slot, rng)
+    result = transformed.convert("RGB")
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Degradation definitions
+# ---------------------------------------------------------------------------
+
+DEGRADATIONS: dict[str, Any] = {
+    "jpeg5":           lambda img: _jpeg_compress(img, 5),
+    "jpeg8":           lambda img: _jpeg_compress(img, 8),
+    "jpeg10":          lambda img: _jpeg_compress(img, 10),
+    "jpeg15":          lambda img: _jpeg_compress(img, 15),
+    "jpeg20":          lambda img: _jpeg_compress(img, 20),
+    "heavy_glare":     lambda img: _apply_degradation(img, "glare", 7, ["heavy_glare"]),
+    "glare_band":      lambda img: _apply_degradation(img, "glare", 4, ["heavy_glare", "center_band"]),
+    "motion_blur":     lambda img: _apply_degradation(img, "clear", 0, ["motion_blur"]),
     "low_light_desat": lambda img: _apply_degradation(img, "clear", 0, ["low_light", "desaturate"]),
-    "blue_cast_soft": lambda img: _apply_degradation(img, "soft_focus", 0, ["blue_cast"]),
+    "blue_cast_soft":  lambda img: _apply_degradation(img, "soft_focus", 0, ["blue_cast"]),
     "tilted_occluded": lambda img: _apply_degradation(img, "tilted", 8, ["corner_occlusion"]),
-    "sleeve_glare": lambda img: _apply_degradation(img, "sleeve_glare", 6, []),
+    "sleeve_glare":    lambda img: _apply_degradation(img, "sleeve_glare", 6, []),
 }
 
-# Difficulty levels: which degradations to apply (can stack)
+# Human-readable descriptions for each degradation (used in test reports).
+DEGRADATION_LABELS: dict[str, str] = {
+    "jpeg5":           "JPEG quality 5",
+    "jpeg8":           "JPEG quality 8",
+    "jpeg10":          "JPEG quality 10",
+    "jpeg15":          "JPEG quality 15",
+    "jpeg20":          "JPEG quality 20",
+    "heavy_glare":     "Heavy glare",
+    "glare_band":      "Glare + center band",
+    "motion_blur":     "Motion blur",
+    "low_light_desat": "Low light + desaturation",
+    "blue_cast_soft":  "Blue cast + soft focus",
+    "tilted_occluded": "Tilt 8° + corner occlusion",
+    "sleeve_glare":    "Sleeve glare",
+}
+
+# ---------------------------------------------------------------------------
+# Test case groupings
+# ---------------------------------------------------------------------------
+
+# Every individual degradation applied in isolation — one case per card pair.
+ALL_SINGLE_DEGRADATIONS = [
+    ["jpeg5"],
+    ["jpeg8"],
+    ["jpeg10"],
+    ["jpeg15"],
+    ["jpeg20"],
+    ["heavy_glare"],
+    ["glare_band"],
+    ["motion_blur"],
+    ["low_light_desat"],
+    ["blue_cast_soft"],
+    ["tilted_occluded"],
+    ["sleeve_glare"],
+]
+
+# Classic difficulty levels (kept for backward compatibility).
 LEVELS = {
     "moderate": [
         ["jpeg20"],
@@ -88,44 +149,40 @@ LEVELS = {
     ],
 }
 
+# ---------------------------------------------------------------------------
+# Generate
+# ---------------------------------------------------------------------------
 
-def _jpeg_compress(img: Image.Image, quality: int) -> Image.Image:
-    buf = BytesIO()
-    img.save(buf, format="JPEG", quality=quality)
-    buf.seek(0)
-    return Image.open(buf).convert("RGB")
-
-
-def _apply_degradation(
-    img: Image.Image, visibility: str, tilt: float, effects: list[str]
-) -> Image.Image:
-    rng = random.Random(f"{visibility}-{tilt}-{effects}")
-    slot = {"visibility": visibility, "tilt_degrees": tilt, "render_effects": effects}
-    transformed = _apply_card_transform(img.convert("RGBA"), slot, rng)
-    result = transformed.convert("RGB")
-    return result
+def _make_degradation_key(deg_list: list[str]) -> str:
+    """Stable sort-join so 'jpeg5+glare' and 'glare+jpeg5' map to the same key."""
+    return "+".join(sorted(deg_list))
 
 
 def generate_test_cases(num_pairs: int = 50, seed: int = 42) -> dict[str, Any]:
-    """Generate adversarial test cases at all difficulty levels."""
+    """Generate adversarial test cases for every degradation (single + stacked)."""
     confusable = load_confusable_pairs(min_printings=4)
     rng = random.Random(seed)
     rng.shuffle(confusable)
 
-    test_cases: dict[str, list[dict[str, Any]]] = {}
+    # cases_by_level:  "moderate" / "hard" / "extreme" -> list of test cases
+    # cases_by_degradation: composite key -> list of test cases
+    cases_by_level: dict[str, list[dict[str, Any]]] = {}
+    cases_by_degradation: dict[str, list[dict[str, Any]]] = {}
+
+    # Also maintain a "single" pseudo-level with every individual degradation.
+    cases_by_level["single"] = []
+
     pairs_used = 0
 
     for group in confusable:
         if pairs_used >= num_pairs:
             break
-        # Pick two cards from the same group as confusable pair.
         if len(group) < 2:
             continue
         rng.shuffle(group)
         anchor = group[0]
         distractor = group[1]
 
-        # Only use cards where both reference images exist.
         anchor_path = REF_DIR / f"{anchor['canonical_card_id']}.png"
         dist_path = REF_DIR / f"{distractor['canonical_card_id']}.png"
         if not anchor_path.exists() or not dist_path.exists():
@@ -133,39 +190,60 @@ def generate_test_cases(num_pairs: int = 50, seed: int = 42) -> dict[str, Any]:
 
         pairs_used += 1
 
-        # Load reference images.
-        with Image.open(anchor_path) as src:
-            anchor_img = ImageOps.exif_transpose(src).convert("RGBA")
-        with Image.open(dist_path) as src:
-            distractor_img = ImageOps.exif_transpose(src).convert("RGBA")
+        # ------ individual degradations (one case per) ------
+        for deg_list in ALL_SINGLE_DEGRADATIONS:
+            case = {
+                "anchor_id": anchor["canonical_card_id"],
+                "anchor_name": anchor.get("name", "?"),
+                "distractor_id": distractor["canonical_card_id"],
+                "distractor_name": distractor.get("name", "?"),
+                "degradations": list(deg_list),
+                "level": "single",
+            }
+            cases_by_level["single"].append(case)
 
+            key = _make_degradation_key(deg_list)
+            cases_by_degradation.setdefault(key, []).append(case)
+
+        # ------ classic stacked levels ------
         for level_name, degradation_sets in LEVELS.items():
-            if level_name not in test_cases:
-                test_cases[level_name] = []
+            cases_by_level.setdefault(level_name, [])
 
             for deg_list in degradation_sets:
-                # Apply stacked degradations to the anchor.
-                degraded = anchor_img.convert("RGB")
-                for deg_name in deg_list:
-                    degraded = DEGRADATIONS[deg_name](degraded)
-
-                test_cases[level_name].append({
+                case = {
                     "anchor_id": anchor["canonical_card_id"],
                     "anchor_name": anchor.get("name", "?"),
                     "distractor_id": distractor["canonical_card_id"],
                     "distractor_name": distractor.get("name", "?"),
-                    "degradations": deg_list,
+                    "degradations": list(deg_list),
                     "level": level_name,
-                })
+                }
+                cases_by_level[level_name].append(case)
 
-    # Count and report.
-    for level_name in ["moderate", "hard", "extreme"]:
-        count = len(test_cases.get(level_name, []))
+                key = _make_degradation_key(deg_list)
+                cases_by_degradation.setdefault(key, []).append(case)
+
+    # Report.
+    print("Cases by level:")
+    for level_name in ["single", "moderate", "hard", "extreme"]:
+        count = len(cases_by_level.get(level_name, []))
         print(f"  {level_name}: {count} test cases")
 
-    OUTPUT.write_text(json.dumps(test_cases, indent=2, ensure_ascii=False))
-    print(f"\nWrote {sum(len(v) for v in test_cases.values())} total test cases to {OUTPUT}")
-    return test_cases
+    print("\nCases by degradation:")
+    for key in sorted(cases_by_degradation.keys()):
+        count = len(cases_by_degradation[key])
+        labels = [DEGRADATION_LABELS.get(d, d) for d in key.split("+")]
+        print(f"  {key} ({', '.join(labels)}): {count} cases")
+
+    total = sum(len(v) for v in cases_by_level.values())
+    # Build output.
+    output = {
+        "cases": cases_by_level,
+        "by_degradation": cases_by_degradation,
+    }
+    OUTPUT.write_text(json.dumps(output, indent=2, ensure_ascii=False))
+    print(f"\nWrote {total} total test cases to {OUTPUT}")
+    return output
 
 
 if __name__ == "__main__":
