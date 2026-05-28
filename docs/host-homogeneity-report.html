@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Host Homogeneity — Gap Report (megarepo)</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #181b24;
+    --border: #2a2e3a;
+    --fg: #e2e4ea;
+    --fg-dim: #8b8fa3;
+    --green: #3fb950;
+    --yellow: #d29922;
+    --red: #f85149;
+    --blue: #58a6ff;
+    --magenta: #bc8cff;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--fg);
+    line-height: 1.6;
+    padding: 2rem;
+    max-width: 1000px;
+    margin: 0 auto;
+  }
+  h1 { font-size: 1.75rem; margin-bottom: .25rem; }
+  .subtitle { color: var(--fg-dim); font-size: .95rem; margin-bottom: 1rem; }
+  h2 {
+    font-size: 1.2rem;
+    margin: 2rem 0 1rem;
+    padding-bottom: .4rem;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+  }
+  .tag {
+    display: inline-block;
+    font-size: .7rem;
+    font-weight: 600;
+    padding: .15em .6em;
+    border-radius: 3px;
+    text-transform: uppercase;
+    letter-spacing: .03em;
+  }
+  .tag-high { background: #3a1214; color: var(--red); }
+  .tag-med  { background: #2a2010; color: var(--yellow); }
+  .tag-low  { background: #11242e; color: var(--blue); }
+  .tag-ok   { background: #0d2816; color: var(--green); }
+
+  .callout {
+    background: #1e1d10;
+    border: 1px solid #3d3520;
+    border-left: 4px solid var(--yellow);
+    border-radius: 8px;
+    padding: .9rem 1rem;
+    margin-bottom: 1.5rem;
+    font-size: .9rem;
+  }
+
+  .gap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--yellow);
+    border-radius: 8px;
+    padding: 1rem 1.15rem;
+    margin-bottom: .75rem;
+  }
+  .gap.high   { border-left-color: var(--red); }
+  .gap.medium { border-left-color: var(--yellow); }
+  .gap.low    { border-left-color: var(--blue); }
+  .gap.ok     { border-left-color: var(--green); }
+
+  .gap h3 {
+    font-size: 1rem;
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    margin-bottom: .35rem;
+  }
+  .gap .why   { font-size: .85rem; color: var(--fg-dim); margin-bottom: .5rem; }
+  .gap .files { font-size: .82rem; margin-bottom: .5rem; }
+  .gap .files code {
+    display: inline-block;
+    background: #1c1e2a;
+    padding: .1em .5em;
+    border-radius: 3px;
+    font-size: .8rem;
+    margin-bottom: .2rem;
+  }
+  .gap .action { font-size: .88rem; color: var(--green); }
+  .gap .action strong { color: var(--fg); }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: .88rem;
+    margin: 1rem 0 .5rem;
+  }
+  th {
+    text-align: left;
+    padding: .5rem .6rem;
+    border-bottom: 2px solid var(--border);
+    color: var(--fg-dim);
+    font-size: .75rem;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+  }
+  td {
+    padding: .5rem .6rem;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  td:first-child { white-space: nowrap; }
+  .check-y { color: var(--green); }
+  .check-n { color: var(--red); }
+  .check-p { color: var(--yellow); }
+  .file-path {
+    font-family: SFMono-Regular, Consolas, monospace;
+    font-size: .82rem;
+    background: #1c1e2a;
+    padding: .05em .35em;
+    border-radius: 3px;
+  }
+
+  footer {
+    margin-top: 3rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border);
+    font-size: .8rem;
+    color: var(--fg-dim);
+  }
+  .correction {
+    background: #1a1d2e;
+    border: 1px solid #2a3050;
+    border-left: 4px solid var(--magenta);
+    border-radius: 8px;
+    padding: .9rem 1rem;
+    margin-bottom: 1rem;
+    font-size: .88rem;
+  }
+</style>
+</head>
+<body>
+
+<h1>🔧 Host Homogeneity — Gap Report</h1>
+<p class="subtitle">
+  Comparing <code>haswell</code>, <code>thinker</code>, and <code>1337book</code> configurations<br>
+  Source: <code>active/personal/calnix/hosts/</code> in the megarepo (working tree)
+</p>
+
+<div class="callout" style="background:#0d2816; border-color:var(--green);">
+<strong>✅ Fixes applied in this session:</strong>
+<ul style="margin:.3rem 0 0 1.2rem; font-size:.88rem;">
+  <li>Added Warden config (checks, autopilot, peers, backups) to <strong>1337book</strong></li>
+  <li>Added docs disable + Warden config (checks, autopilot, peers, backups) to <strong>thinker</strong></li>
+  <li>Added missing checks (peer-health, cross-host-disks, system-config) + autopilot to <strong>haswell</strong></li>
+  <li>Moved SSH authorized keys from haswell into <code>base.nix</code> (all hosts get them)</li>
+  <li>Removed duplicate <code>stateVersion</code> and <code>allowUnfree</code> from haswell</li>
+  <li>Standardized docs disable style to blanket+mkForce on all three hosts</li>
+  <li>Deleted the nested <code>hosts/hosts/</code> directory (sync bug artifact)</li>
+</ul>
+</div>
+
+<div class="correction">
+⚠️ <strong>Correction from earlier analysis:</strong> I was reading a stale copy at
+<code>/home/calvin/calnix/</code> which is out of sync with the real source.
+The actual calnix lives inside the megarepo at
+<code>active/personal/calnix/</code>. This report is based on the <strong>correct</strong>
+source (git HEAD). The stale copy contains uncommitted work that should be
+copied back into the megarepo and committed — see "Stale copy sync" below.
+</div>
+
+<div class="callout">
+<strong>Nested directory bug:</strong> There's a duplicate
+<code>hosts/hosts/</code> directory inside
+<code>active/personal/calnix/hosts/</code> — created by the
+"warden: full calnix sync from 1337book" commit (341a05da) which
+copied the <code>hosts/</code> directory into itself. These nested
+files are stale and should be deleted.
+</div>
+
+<!-- ── Summary cards ── -->
+<div class="summary-grid">
+  <div class="stat-card">
+    <div class="num">3</div>
+    <div class="label">Total hosts</div>
+  </div>
+  <div class="stat-card">
+    <div class="num">7</div>
+    <div class="label">Gaps fixed (this session)</div>
+  </div>
+  <div class="stat-card">
+    <div class="num">4</div>
+    <div class="label">Intentional diffs</div>
+  </div>
+  <div class="stat-card">
+    <div class="num">0</div>
+    <div class="label">Remaining gaps</div>
+  </div>
+</div>
+
+<h2>🔴 HIGH — will cause operational failures</h2>
+
+<div class="gap ok">
+  <h3><span class="tag tag-ok" style="background:#0d2816;color:var(--green)">fixed</span> Laptops now have Warden config</h3>
+  <div class="why">
+    ✅ Warden config added to both 1337book and thinker, matching haswell's feature set:
+    disk-usage, memory, temperature, systemd-health, peer-health, system-config checks,
+    autoRemediate, pi.autopilot, peerApi, peers, and SFTP backups to haswell.
+  </div>
+</div>
+
+<div class="gap ok">
+  <h3><span class="tag tag-ok" style="background:#0d2816;color:var(--green)">fixed</span> SSH authorized keys moved to base.nix</h3>
+  <div class="why">
+    ✅ Keys moved from haswell's host config into <code>base.nix</code>'s
+    <code>users.users.calvin</code> block. All three hosts now inherit them
+    automatically via the shared module.
+  </div>
+</div>
+
+<h2>🟡 MEDIUM — inconsistent but fixable</h2>
+
+<div class="gap ok">
+  <h3><span class="tag tag-ok" style="background:#0d2816;color:var(--green)">fixed</span> Extra checks added to haswell</h3>
+  <div class="why">
+    ✅ Added peer-health, cross-host-disks, and system-config checks to haswell.
+    Temperature interval standardized to <code>*:0/10</code> format.
+    pi.autopilot enabled.
+  </div>
+</div>
+
+<div class="gap ok">
+  <h3><span class="tag tag-ok" style="background:#0d2816;color:var(--green)">fixed</span> Duplicates removed from haswell</h3>
+  <div class="why">
+    ✅ Removed duplicate <code>stateVersion</code> and <code>allowUnfree</code>
+    from haswell (both already in base.nix).
+  </div>
+</div>
+
+<div class="gap ok">
+  <h3><span class="tag tag-ok" style="background:#0d2816;color:var(--green)">fixed</span> Documentation disable standardized</h3>
+  <div class="why">
+    ✅ All three hosts now use the same defensive pattern
+    (<code>documentation.enable = false</code> + per-field <code>mkForce</code>).
+    Added to thinker (was missing entirely), converted haswell from per-field style.
+  </div>
+</div>
+
+<div class="gap ok">
+  <h3><span class="tag tag-ok" style="background:#0d2816;color:var(--green)">fixed</span> Temperature interval + pi.autopilot</h3>
+  <div class="why">
+    ✅ haswell temperature interval standardized to <code>*:0/10</code> format.<br>
+    ✅ pi.autopilot enabled on all three hosts (was missing from haswell's committed config).
+  </div>
+</div>
+
+<div class="gap ok">
+  <h3><span class="tag tag-ok" style="background:#0d2816;color:var(--green)">fixed</span> thinker hardware-configuration.nix created</h3>
+  <div class="why">
+    ✅ Generated via remote SSH probe (NVMe/partition/UUID data).
+    ThinkPad NVMe SSD with ext4 root, swap, and vfat /boot ESP.
+    Fallback filesystem definition removed from configuration.nix.
+  </div>
+</div>
+
+<h2>🟢 Already consistent (no action needed)</h2>
+<ul style="list-style:none; font-size:.88rem;">
+  <li>✅ All hosts import <code>base.nix</code> (shared foundation)</li>
+  <li>✅ <code>base.nix</code> provides Docker, fish, neovim, SearXNG, common packages</li>
+  <li>✅ haswell has proper hardware-configuration.nix</li>
+  <li>✅ SSH authorized keys in <code>base.nix</code> — all three hosts inherit them automatically</li>
+  <li>✅ Laptop-specific modules (desktop, gaming, home-manager, python-dev, openvino) are appropriate — no server-bloat on laptops</li>
+  <li>✅ haswell is properly lean (no desktop, gaming, home-manager, python-dev) — correct for a server role</li>
+</ul>
+
+<h2>🧹 Repo-level issues</h2>
+
+<div class="gap ok">
+  <h3><span class="tag tag-ok" style="background:#0d2816;color:var(--green)">fixed</span> Stale copy ported, nested dir deleted</h3>
+  <div class="why">
+    ✅ All config changes from the stale <code>/home/calvin/calnix/</code> copy have been
+    ported into the megarepo: Warden on laptops, extra checks on haswell, autopilot, etc.<br>
+    ✅ Deleted the nested <code>hosts/hosts/</code> directory (sync bug artifact).<br>
+    ✅ The stale copy can now be archived or removed.
+  </div>
+</div>
+
+<footer>
+  Generated from megarepo git HEAD at <code>active/personal/calnix/</code>
+  — last analysis 2026-05-28.
+</footer>
+
+</body>
+</html>

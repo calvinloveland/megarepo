@@ -358,6 +358,8 @@ in
             serviceConfig = {
               Type = "simple";
               ExecStart = ''${pkgs.python3}/bin/python3 ${wardenSource}/wardend.py --port ${toString cfg.peerApi.port}'';
+              # Ensure sudo + tailscale are in PATH for Tailscale IP detection
+              Environment = [ "PATH=/run/wrappers/bin:/run/current-system/sw/bin" ];
               User = "warden";
               Group = "warden";
               Restart = "on-failure";

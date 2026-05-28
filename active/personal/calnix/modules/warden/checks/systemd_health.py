@@ -75,10 +75,26 @@ def check_systemd_health(config: dict[str, Any]) -> dict[str, Any]:
                 continue
             parts = line.split()
             if len(parts) >= 4:
+                # systemctl emits a Unicode bullet (\u25cf) before each unit name.
+                # parts[0] is the bullet, parts[1] is the actual unit name.
                 unit_name = parts[0]
                 load_state = parts[1]
                 active_state = parts[2]
                 sub_state = parts[3]
+
+                # Skip non-unit-name entries (bullet character, empty markers)
+                if not unit_name or not unit_name[0].isalnum():
+                    if len(parts) >= 5:
+                        unit_name = parts[1]
+                        load_state = parts[2]
+                        active_state = parts[3]
+                        sub_state = parts[4]
+                    else:
+                        continue
+
+                # Skip the check's own service to avoid circular failure detection
+                if unit_name == "warden-check-systemd_health.service":
+                    continue
 
                 failed_units.append({
                     "unit": unit_name,

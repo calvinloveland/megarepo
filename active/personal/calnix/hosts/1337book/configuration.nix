@@ -56,4 +56,70 @@
 
   calnix.openvino.enable = true;
 
+  # Warden per-host monitoring agent
+  calnix.warden = {
+    enable = true;
+
+    checks = {
+      disk-usage = {
+        enable = true;
+        interval = "hourly";
+        thresholds = { warn = 80; fail = 95; };
+      };
+      memory = {
+        enable = true;
+        interval = "hourly";
+        thresholds = { warn = 80; fail = 95; };
+      };
+      temperature = {
+        enable = true;
+        interval = "*:0/10";
+        thresholds = { warn = 75; fail = 90; };
+      };
+      systemd-health = {
+        enable = true;
+        interval = "hourly";
+      };
+      peer-health = {
+        enable = true;
+        interval = "*:0/5";
+      };
+      system-config = {
+        enable = true;
+        interval = "daily";
+        thresholds = { warn_days = 1; fail_days = 7; };
+      };
+    };
+
+    autoRemediate.enable = true;
+    pi.enable = true;
+    pi.autopilot.enable = true;
+    peerApi.enable = true;
+
+    peers = {
+      haswell = { host = "haswell"; enabled = true; };
+      thinker = { host = "thinker"; enabled = true; };
+    };
+
+    # Backups — back up to haswell server via restic/SFTP
+    backups = {
+      enable = true;
+      repositories = {
+        haswell = {
+          enable = true;
+          type = "sftp";
+          host = "haswell";
+          path = "/data/backups/warden/1337book";
+          schedule = "daily";
+          paths = [
+            "/home/calvin"
+            "/etc/nixos"
+            "/var/lib/calnix"
+            "/var/lib/warden"
+          ];
+          exclude = [ "*.cache" "node_modules" ".venv" "__pycache__" "Downloads" "go" ".rustup" ];
+        };
+      };
+    };
+  };
 }

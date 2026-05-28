@@ -15,7 +15,28 @@
 
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { Type } from "typebox";
-import { AUTOPILOT_STATE_TYPE, getAutopilotEnabled, isTddModeEnabled } from "./autopilot-mode-state.mjs";
+// Inlined from autopilot-mode-state.mjs to avoid ESM import resolution issues
+const AUTOPILOT_STATE_TYPE = "autopilot-state";
+const TDD_STATE_TYPE = "tdd-mode-state";
+
+function latestEnabled(entries = [], customType: string, defaultValue: boolean): boolean {
+	let value = defaultValue;
+	for (const entry of entries) {
+		if (entry?.type === "custom" && entry.customType === customType) {
+			value = Boolean(entry.data?.enabled);
+		}
+	}
+	return value;
+}
+
+function isTddModeEnabled(entries = []): boolean {
+	return latestEnabled(entries, TDD_STATE_TYPE, false);
+}
+
+function getAutopilotEnabled(entries = []): boolean {
+	if (isTddModeEnabled(entries)) return false;
+	return latestEnabled(entries, AUTOPILOT_STATE_TYPE, true);
+}
 
 const MAX_NUDGES = 2;
 

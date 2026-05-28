@@ -297,6 +297,10 @@ in
       "scanner" # Access to SANE scanner devices
     ];
     shell = pkgs.fish;
+    openssh.authorizedKeys.keys = [
+      "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDwix44A6TqqGOokU/gIpaf3shN0Pad+S08M36flhBZv calvin@loveland.dev"
+      "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDHrIxasJfr0Lb2OoL/WFiQ/1DAeKxOtY4KDiVBCBswL u0_a513@localhost"
+    ];
   };
 
   # Docker (common for development)

@@ -18,9 +18,6 @@
     haswell = [ "192.168.1.168" ];
   };
 
-  # Allow unfree firmware
-  nixpkgs.config.allowUnfree = true;
-
   # Enable all firmware for broad hardware support
   hardware.enableAllFirmware = true;
 
@@ -28,12 +25,11 @@
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
 
-  system.stateVersion = "25.05";
-
-  # Keep the install lean — server doesn't need docs
+  # Disable documentation to work around Python 3.12 doc build issue
+  documentation.enable = false;
+  documentation.man.enable = lib.mkForce false;
   documentation.doc.enable = false;
   documentation.info.enable = false;
-  documentation.man.enable = false;
 
   # Networking — wired NIC auto-configure
   networking.networkmanager.enable = true;
@@ -61,12 +57,27 @@
       };
       temperature = {
         enable = true;
-        interval = "10min";
+        interval = "*:0/10";
         thresholds = { warn = 70; fail = 85; };
       };
       systemd-health = {
         enable = true;
         interval = "hourly";
+      };
+      peer-health = {
+        enable = true;
+        interval = "*:0/5";
+      };
+      cross-host-disks = {
+        enable = true;
+        interval = "*:0/15";
+        thresholds = { warn = 80; fail = 90; };
+        extraConfig = { migration_root = "/data/migrated"; };
+      };
+      system-config = {
+        enable = true;
+        interval = "daily";
+        thresholds = { warn_days = 1; fail_days = 7; };
       };
     };
 
@@ -75,6 +86,7 @@
 
     # Pi integration — loads pi-warden extension automatically
     pi.enable = true;
+    pi.autopilot.enable = true;  # Persistent headless Warden agent
 
     # Peer API — enables other wardens to query this host
     peerApi.enable = true;
@@ -108,12 +120,6 @@
       "1337book" = { host = "1337book"; enabled = true; };
     };
   };
-
-  # The calvin user is created by base.nix; ensure the SSH key works
-  users.users.calvin.openssh.authorizedKeys.keys = [
-    "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDwix44A6TqqGOokU/gIpaf3shN0Pad+S08M36flhBZv calvin@loveland.dev"
-    "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDHrIxasJfr0Lb2OoL/WFiQ/1DAeKxOtY4KDiVBCBswL u0_a513@localhost"
-  ];
 
   # Root password for emergency console access (local only — SSH blocks root)
   users.users.root.hashedPassword = "";

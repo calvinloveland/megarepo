@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NixOS Pipeline Robustness — Brainstorm</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #181b24;
+    --border: #2a2e3a;
+    --fg: #e2e4ea;
+    --fg-dim: #8b8fa3;
+    --green: #3fb950;
+    --yellow: #d29922;
+    --red: #f85149;
+    --blue: #58a6ff;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--fg);
+    line-height: 1.6;
+    padding: 2rem;
+    max-width: 900px;
+    margin: 0 auto;
+  }
+  h1 { font-size: 1.6rem; margin-bottom: .25rem; }
+  .subtitle { color: var(--fg-dim); font-size: .95rem; margin-bottom: 2rem; }
+  h2 {
+    font-size: 1.15rem;
+    margin: 1.8rem 0 1rem;
+    padding-bottom: .4rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--blue);
+    border-radius: 8px;
+    padding: 1rem 1.15rem;
+    margin-bottom: .75rem;
+  }
+  .card h3 { font-size: 1rem; margin-bottom: .35rem; }
+  .card .detail { font-size: .88rem; color: var(--fg-dim); margin-bottom: .4rem; }
+  .card .fix { font-size: .9rem; }
+  .badge {
+    display: inline-block;
+    font-size: .68rem;
+    font-weight: 600;
+    padding: .15em .55em;
+    border-radius: 3px;
+    text-transform: uppercase;
+    letter-spacing: .03em;
+    margin-right: .4rem;
+  }
+  .badge-easy { background: #0d2816; color: var(--green); }
+  .badge-med  { background: #2a2010; color: var(--yellow); }
+  .badge-hard { background: #3a1214; color: var(--red); }
+</style>
+</head>
+<body>
+
+<h1>🔧 NixOS Pipeline Robustness — Brainstorm</h1>
+<p class="subtitle">
+  Ideas to prevent another thinker-like outage.<br>
+  Based on: SSH-triggered rebuild timed out, machine went offline, no remote recovery path.
+</p>
+
+<h2>📡 Deployment resilience</h2>
+
+<div class="card">
+  <h3><span class="badge badge-easy">easy</span> Use <code>nixos-rebuild boot</code> instead of <code>switch</code></h3>
+  <div class="detail">
+    <code>switch</code> activates the new config immediately. If the activation breaks networking,
+    you lose your SSH session mid-flight.  <code>boot</code> only installs the new config to the
+    bootloader entry — the next cold boot uses it, but the current session stays untouched.
+  </div>
+  <div class="fix">
+    <strong>Change:</strong> Remote deploys default to <code>nix build .#host + nixos-rebuild boot</code>
+    instead of <code>nixos-rebuild switch</code>.  A Warden check on the next boot confirms success.
+    For switch, only use it when you have console/out-of-band access.
+  </div>
+</div>
+
+<div class="card">
+  <h3><span class="badge badge-med">medium</span> Keep the SSH session alive during long rebuilds</h3>
+  <div class="detail">
+    The rebuild timed out after 10 minutes.  SSH dropped, and the activation was left partially
+    complete.  If the session had stayed alive, it would have finished the switch safely.
+  </div>
+  <div class="fix">
+    <strong>Options:</strong><br>
+    a) Use <code>tmux</code> or <code>screen</code> on the remote host — detach before the rebuild,
+    re-attach after to check status.  This survives SSH drops.<br>
+    b) Use <code>nix copy</code> to send the built derivation to the remote, then run the
+    activation script locally as a Warden auto-remediation step — no long-lived SSH needed.<br>
+    c) Warden deploys: the remote Warden agent pulls the new config and activates it locally,
+    never relying on an SSH session staying open.
+  </div>
+</div>
+
+<div class="card">
+  <h3><span class="badge badge-med">medium</span> Pre-flight validation before remote deploy</h3>
+  <div class="detail">
+    The new <code>hardware-configuration.nix</code> was generated remotely via sysfs probes.
+    It might have had an incorrect boot partition definition.  No dry-run was performed.
+  </div>
+  <div class="fix">
+    <strong>Change:</strong> Before any remote <code>nixos-rebuild switch</code>, run:
+    <pre style="background:#1c1e2a;border-radius:4px;padding:.4rem .6rem;font-size:.8rem;margin-top:.3rem;">nix build .#host.config.system.build.toplevel          # build locally first
+nix copy --to ssh://remote-host .#host                 # push the derivation
+ssh remote "nix-store --realise /nix/store/...-system" # verify it's valid</pre>
+    If any step fails, don't proceed.  Also consider running <code>nix eval</code> to check
+    key options on the remote before deploying.
+  </div>
+</div>
+
+<h2>🔁 Self-healing and rollback</h2>
+
+<div class="card">
+  <h3><span class="badge badge-easy">easy</span> Warden rollback remediation</h3>
+  <div class="detail">
+    After a rebuild, the Warden's <code>system-config</code> check detects when the config is
+    stale (hasn't been rebuilt in N days).  But there's no check for the inverse: a bad deployment.
+  </div>
+  <div class="fix">
+    <strong>Change:</strong> Add a <code>health-after-rebuild</code> check that runs 5 minutes
+    after a rebuild and verifies:
+    <ul style="margin:.3rem 0 0 1.2rem;font-size:.85rem;">
+      <li>SSH is still reachable</li>
+      <li>Tailscale is connected</li>
+      <li>Key services are running</li>
+      <li>All Warden checks pass</li>
+    </ul>
+    If the check fails, auto-trigger <code>nixos-rebuild switch --rollback</code>.
+  </div>
+</div>
+
+<div class="card">
+  <h3><span class="badge badge-med">medium</span> Atomic deployment via boot entries</h3>
+  <div class="detail">
+    NixOS already supports boot entries (generations).  The current generation is always safe.
+    The failure scenario is: new generation is activated, it breaks networking, you're locked out.
+  </div>
+  <div class="fix">
+    <strong>Change:</strong> Use a "two-stage activate" pattern:
+    <ol style="margin:.3rem 0 0 1.2rem;font-size:.85rem;">
+      <li><code>nixos-rebuild boot</code> — sets the new config as default for next boot, but
+        doesn't activate it now</li>
+      <li>Reboot the machine (or let the Warden do it at 3am)</li>
+      <li>If the machine doesn't check in via Tailscale within 10 minutes, the bootloader
+        auto-selects the previous generation (set <code>boot.loader.grub.fallbackBoot</code>)</li>
+    </ol>
+    This is similar to how firmware updates work on routers (dual-image + watchdog).
+  </div>
+</div>
+
+<div class="card">
+  <h3><span class="badge badge-hard">hard</span> Watchdog-triggered rollback</h3>
+  <div class="detail">
+    If the machine locks up during activation, nobody can SSH in to fix it.
+    A hardware watchdog can auto-reboot after a timeout.
+  </div>
+  <div class="fix">
+    <strong>Change:</strong> Enable the NixOS hardware watchdog:
+    <pre style="background:#1c1e2a;border-radius:4px;padding:.4rem .6rem;font-size:.8rem;margin-top:.3rem;">boot.kernelParams = [ "watchdog_thresh=60" ];
+hardwarewatchdog.enable = true;</pre>
+    If the system hangs during activation, the watchdog triggers a reboot after 60 seconds.
+    On reboot, NixOS's bootloader can fall back to the previous generation if the new one
+    fails to boot (GRUB has <code>boot.loader.grub.fallbackBoot</code>).  systemd-boot also
+    has a similar mechanism with <code>boot.loader.systemd-boot.default</code>.
+  </div>
+</div>
+
+<h2>🔐 Infrastructure hardening</h2>
+
+<div class="card">
+  <h3><span class="badge badge-easy">easy</span> Out-of-band access via Tailscale SSH</h3>
+  <div class="detail">
+    Tailscale has a built-in SSH server that's separate from the system SSH daemon.
+    It keeps running even if OpenSSH is reconfigured or down.
+  </div>
+  <div class="fix">
+    <strong>Change:</strong> Enable Tailscale SSH on all hosts:
+    <pre style="background:#1c1e2a;border-radius:4px;padding:.4rem .6rem;font-size:.8rem;margin-top:.3rem;">services.tailscale.enable = true;
+services.tailscale.extraUpFlags = [ "--ssh" ];</pre>
+    This gives a fallback SSH path if <code>nixos-rebuild switch</code> breaks OpenSSH config.
+    Haswell already has Tailscale — just needs <code>--ssh</code> flag.
+  </div>
+</div>
+
+<div class="card">
+  <h3><span class="badge badge-easy">easy</span> Standardize sudo passwords across hosts</h3>
+  <div class="detail">
+    Three different passwords on three hosts (haswell=12345, thinker=Tiber1909!, 1337book=TemporaryPassword1776!).
+    During an incident, you don't want to guess which password works where.
+  </div>
+  <div class="fix">
+    <strong>Status:</strong> Already done — the <code>warden</code> user has <code>NOPASSWD: ALL</code>.
+    The problem was deploying via <code>calvin</code> (who needs a password).  The fix is to use
+    the Warden's existing passwordless sudo by having Wardens self-deploy.
+  </div>
+</div>
+
+<div class="card">
+  <h3><span class="badge badge-med">medium</span> Warden-to-Warden deployment pipeline</h3>
+  <div class="detail">
+    Currently, the deploy process is: build on haswell → SSH into host as calvin → type password →
+    run nixos-rebuild.  The Warden <code>warden</code> user already has passwordless sudo
+    (<code>NOPASSWD: ALL</code> at warden.nix:258), but the deploy path doesn't use it.
+    If SSH fails mid-deploy, the host is stranded.
+  </div>
+  <div class="fix">
+    <strong>Change:</strong> Let the remote Warden agents pull and deploy their own configs:
+    <ol style="margin:.3rem 0 0 1.2rem;font-size:.85rem;">
+      <li>haswell builds all three configurations</li>
+      <li>haswell pushes the built derivations to peer Wardens via <code>nix copy --to</code></li>
+      <li>The peer Warden runs <code>sudo nixos-rebuild switch</code> locally (passwordless, as warden)</li>
+      <li>If activation fails, the peer Warden auto-rolls back</li>
+    </ol>
+    No SSH-as-calvin session needed — the activation runs on the target host as warden directly.
+  </div>
+</div>
+
+<div class="card">
+  <h3><span class="badge badge-med">medium</span> Deploy script with pre-flight + timeout + fallback</h3>
+  <div class="detail">
+    The ad-hoc <code>ssh host 'echo password | sudo nixos-rebuild switch'</code> pattern is fragile.
+    A deploy script should handle all edge cases.
+  </div>
+  <div class="fix">
+    <strong>Script:</strong> <code>pi-deploy.sh</code> that:
+    <ol style="margin:.3rem 0 0 1.2rem;font-size:.85rem;">
+      <li>Builds the config locally first</li>
+      <li>Runs pre-flight checks (eval, dry-build)</li>
+      <li>Copies the derivation to the target via <code>nix copy</code></li>
+      <li>Activates via SSH with tmux (so it survives disconnection)</li>
+      <li>Waits for the target to check back in via Tailscale/Warden heartbeat</li>
+      <li>If no heartbeat within N minutes, auto-triggers rollback via Warden peer API</li>
+    </ol>
+  </div>
+</div>
+
+<h2>📋 Concrete next steps (ordered by impact)</h2>
+
+<ol style="font-size:.9rem;line-height:1.8;">
+  <li><strong>Immediately:</strong> Get thinker back — hard power cycle, then <code>nixos-rebuild switch --rollback</code></li>
+  <li><strong>This week:</strong> Enable Tailscale SSH (<code>--ssh</code> flag) on all three hosts as a fallback SSH channel</li>
+  <li><strong>This week:</strong> Change remote deploy pattern to <code>nix build + nixos-rebuild boot</code> (not <code>switch</code>)</li>
+  <li><strong>This week:</strong> Standardize sudo passwords in base.nix (or rely on SSH keys + Tailscale SSH)</li>
+  <li><strong>This month:</strong> Add a Warden "post-rebuild health check" that auto-rolls back on failure</li>
+  <li><strong>This month:</strong> Build a <code>pi-deploy.sh</code> script with pre-flight, tmux, and heartbeat verification</li>
+  <li><strong>Future:</strong> Implement Warden-to-Warden deployment pipeline (push derivation → peer activates locally)</li>
+</ol>
+
+<footer style="margin-top:2rem;padding-top:1rem;border-top:1px solid var(--border);font-size:.8rem;color:var(--fg-dim);">
+  Generated after thinker outage on 2026-05-28.  Root cause: SSH-triggered nixos-rebuild switch timed out.
+</footer>
+
+</body>
+</html>

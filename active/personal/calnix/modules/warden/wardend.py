@@ -221,18 +221,29 @@ class WardenHTTPHandler(http.server.BaseHTTPRequestHandler):
 def find_tailscale_ip() -> str | None:
     """Get the first Tailscale IP address for binding."""
     try:
-        result = subprocess.run(
+        # Try with sudo first (warden user needs sudo to access tailscale socket)
+        # Use absolute path — the service PATH doesn't include /run/wrappers/bin
+        import shutil
+        sudo_path = shutil.which("sudo") or "/run/wrappers/bin/sudo"
+        for cmd in [
+            [sudo_path, "tailscale", "status", "--json"],
             ["tailscale", "status", "--json"],
-            capture_output=True,
-            text=True,
-            timeout=10,
-        )
-        if result.returncode == 0:
-            data = json.loads(result.stdout)
-            self_info = data.get("Self", {})
-            ips = self_info.get("TailscaleIPs", [])
-            if ips:
-                return ips[0]
+        ]:
+            try:
+                result = subprocess.run(
+                    cmd,
+                    capture_output=True,
+                    text=True,
+                    timeout=10,
+                )
+                if result.returncode == 0:
+                    data = json.loads(result.stdout)
+                    self_info = data.get("Self", {})
+                    ips = self_info.get("TailscaleIPs", [])
+                    if ips:
+                        return ips[0]
+            except Exception:
+                continue
     except Exception:
         pass
     return None
