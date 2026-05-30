@@ -184,7 +184,7 @@ def remediate_systemd_health(check_data: dict[str, Any]) -> dict[str, Any]:
 
         try:
             result = subprocess.run(
-                ["systemctl", "restart", unit_name],
+                ["sudo", "systemctl", "restart", unit_name],
                 capture_output=True,
                 text=True,
                 timeout=30,
@@ -232,7 +232,7 @@ def remediate_tailscale(check_data: dict[str, Any]) -> dict[str, Any]:
     # Attempt restart
     try:
         result = subprocess.run(
-            ["systemctl", "restart", "tailscaled"],
+            ["sudo", "systemctl", "restart", "tailscaled"],
             capture_output=True,
             text=True,
             timeout=30,
@@ -360,7 +360,7 @@ def remediate_system_config(check_data: dict[str, Any]) -> dict[str, Any]:
     actions_taken: list[str] = []
     try:
         result = subprocess.run(
-            ["systemctl", "start", "warden-rebuild"],
+            ["sudo", "systemctl", "start", "warden-rebuild"],
             capture_output=True, text=True, timeout=600,
         )
         if result.returncode == 0:

@@ -358,7 +358,7 @@ def main():
                     msg = res.get("message", res.get("output", ""))[:120]
                     print(f"  {name}: {status} — {msg}")
         sys.exit(0 if all(
-            r.get("status") == "success" or r.get("status") == "ok"
+            isinstance(r, dict) and (r.get("status") == "success" or r.get("status") == "ok")
             for r in (result.values() if isinstance(result, dict) else result)
         ) else 1)
 

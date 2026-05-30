@@ -13,6 +13,10 @@ let
     cp -r ${./.}/*.py "$out/"
     mkdir -p "$out/checks"
     cp ${./.}/checks/*.py "$out/checks/"
+    if [ -d ${./.}/dashboard ]; then
+      mkdir -p "$out/dashboard"
+      cp -r ${./.}/dashboard/*.py "$out/dashboard/"
+    fi
   '';
 
   # wardenctl CLI entry point
@@ -85,6 +89,11 @@ in
             type = lib.types.listOf lib.types.str;
             default = [ ];
             description = "Check-specific exclusions (e.g., filesystem paths)";
+          };
+          protectHome = lib.mkOption {
+            type = lib.types.either lib.types.bool lib.types.str;
+            default = true;
+            description = "ProtectHome setting for this check's systemd service (true, false, 'read-only', 'tmpfs')";
           };
           extraConfig = lib.mkOption {
             type = lib.types.attrsOf lib.types.anything;
@@ -277,6 +286,9 @@ in
           value = {
             description = "Warden check: ${checkName}";
             after = [ "network.target" ];
+            environment = {
+              WARDEN_AUTO_REMEDIATE = "0";
+            };
             serviceConfig = {
               Type = "oneshot";
               ExecStart = "${runChecks} --check ${checkName}";
@@ -284,7 +296,7 @@ in
               Group = "warden";
               NoNewPrivileges = true;
               ProtectSystem = "strict";
-              ProtectHome = true;
+              ProtectHome = checkCfg.protectHome;
               PrivateTmp = true;
               ProtectProc = "default";
               ReadWritePaths = [ cfg.stateDir ];
@@ -434,7 +446,7 @@ in
             after = [ "network.target" ];
             serviceConfig = {
               Type = "oneshot";
-              ExecStart = "${pkgs.nixos-rebuild}/bin/nixos-rebuild switch --flake /home/calvin/megarepo/active/personal/calnix";
+              ExecStart = "${pkgs.sudo}/bin/sudo ${pkgs.nixos-rebuild}/bin/nixos-rebuild switch --flake /home/calvin/megarepo/active/personal/calnix";
               User = "warden";
               Group = "warden";
               MemoryMax = "2G";
@@ -444,14 +456,16 @@ in
             };
           };
         };
-        dashboardApp = lib.optionalAttrs cfg.dashboard.enable {
+        dashboardApp = lib.optionalAttrs cfg.dashboard.enable (let
+          pythonWithFlask = pkgs.python3.withPackages (ps: [ ps.flask ]);
+        in {
           warden-dashboard = {
             description = "Warden web dashboard (Flask)";
             after = [ "network.target" ];
             wantedBy = [ "multi-user.target" ];
             serviceConfig = {
               Type = "simple";
-              ExecStart = ''${pkgs.python3}/bin/python3 ${wardenSource}/dashboard/app.py --port ${toString cfg.dashboard.port}'';
+              ExecStart = ''${pythonWithFlask}/bin/python3 ${wardenSource}/dashboard/app.py --port ${toString cfg.dashboard.port}'';
               User = "warden";
               Group = "warden";
               Restart = "on-failure";
@@ -463,7 +477,7 @@ in
               TimeoutStartSec = "30";
             };
           };
-        };
+        });
 
         dashboardServices = {
           warden-banner = {

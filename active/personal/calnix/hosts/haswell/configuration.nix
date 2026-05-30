@@ -65,12 +65,13 @@
         enable = true;
         interval = "hourly";
       };
+      # peer-health and cross-host-disks disabled: check scripts don't exist yet
       peer-health = {
-        enable = true;
+        enable = false;
         interval = "*:0/5";
       };
       cross-host-disks = {
-        enable = true;
+        enable = false;
         interval = "*:0/15";
         thresholds = { warn = 80; fail = 90; };
         extraConfig = { migration_root = "/data/migrated"; };
@@ -79,6 +80,8 @@
         enable = true;
         interval = "daily";
         thresholds = { warn_days = 1; fail_days = 7; };
+        # Needs read access to /home/calvin/calnix for flake change detection
+        protectHome = "read-only";
       };
     };
 
