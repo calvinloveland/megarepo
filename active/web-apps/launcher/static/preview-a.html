@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Preview A — Portside Industrial</title>
+<style>
+  /* ── Reset & base ── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Courier New', 'SF Mono', monospace;
+    background: #0a0e17; min-height: 100vh; overflow-x: hidden;
+    color: #e2e8f0;
+  }
+  .scene-wrap {
+    position: relative; min-height: 100vh; overflow: hidden;
+  }
+
+  /* ── Scene: SHIP ── */
+  .scene-ship {
+    background:
+      /* ship hull */
+      linear-gradient(to bottom, transparent 55%, #2a2a3a 55%, #2a2a3a 62%, #1a1a2a 62%),
+      /* ocean */
+      linear-gradient(to bottom, #0a1628 30%, #0d2b4e 50%, #0f3b5e 65%, #0a2a45 80%, #051525 100%);
+    position: relative;
+  }
+  .scene-ship::before {
+    content: ''; position: absolute; inset: 0;
+    background:
+      /* deck railing */
+      repeating-linear-gradient(90deg, transparent 0, transparent 40px, #3a3a4a 40px, #3a3a4a 42px),
+      linear-gradient(to top, transparent calc(100% - 180px), #1a1a2a calc(100% - 180px), #2a2a3a calc(100% - 155px));
+    opacity: 0.5;
+  }
+  .scene-ship .waves {
+    position: absolute; bottom: 0; left: 0; right: 0; height: 35%;
+    background:
+      repeating-linear-gradient(100deg,
+        transparent 0, transparent 80px,
+        rgba(255,255,255,0.03) 80px, rgba(255,255,255,0.03) 82px,
+        transparent 82px, transparent 160px);
+    animation: waveMove 8s linear infinite;
+  }
+  .scene-ship .waves::before {
+    content: ''; position: absolute; inset: 0;
+    background: repeating-linear-gradient(120deg,
+      transparent 0, transparent 120px,
+      rgba(255,255,255,0.02) 120px, rgba(255,255,255,0.02) 122px,
+      transparent 122px, transparent 240px);
+    animation: waveMove 12s linear infinite reverse;
+  }
+  @keyframes waveMove { 0%{transform:translateX(0)} 100%{transform:translateX(160px)} }
+
+  /* ── Scene: TRAIN ── */
+  .scene-train {
+    background:
+      /* sky */
+      linear-gradient(to bottom, #1a1a3a 0%, #2a2040 30%, #3a2a40 50%, #4a3a30 70%, #2a2a20 100%);
+    position: relative;
+  }
+  .scene-train::before {
+    content: ''; position: absolute; bottom: 80px; left: 0; right: 0; height: 4px;
+    background: repeating-linear-gradient(90deg, #555 0, #555 30px, #777 30px, #777 32px, transparent 32px, transparent 40px);
+  }
+  .scene-train::after {
+    content: '🚂'; position: absolute; bottom: 90px; left: 5%; font-size: 48px;
+    animation: trainChug 2s ease-in-out infinite;
+  }
+  @keyframes trainChug { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-3px)} }
+
+  /* ── Scene: CRANE ── */
+  .scene-crane {
+    background: linear-gradient(to bottom, #0d1b2a 0%, #1b2838 40%, #4a3a30 70%, #2a2a20 100%);
+    position: relative;
+  }
+  .scene-crane::before {
+    content: ''; position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+    width: 6px; height: 45%; background: linear-gradient(to bottom, #888, #555);
+    box-shadow: 60px 0 0 #888, -60px 0 0 #888, 120px 0 0 #666, -120px 0 0 #666;
+  }
+  .scene-crane .crane-arm {
+    position: absolute; top: 0; left: 10%; right: 10%; height: 4px;
+    background: #888; box-shadow: 0 8px 0 #888, 0 16px 0 #666;
+  }
+  .scene-crane .crane-line {
+    position: absolute; top: 20px; left: 50%; width: 2px; height: 30%;
+    background: rgba(200,200,200,0.3);
+    animation: sway 4s ease-in-out infinite;
+    transform-origin: top center;
+  }
+  .scene-crane .crane-line::after {
+    content: '📦'; position: absolute; bottom: -20px; left: -12px; font-size: 24px;
+  }
+  @keyframes sway {
+    0%,100% { transform: rotate(-2deg); }
+    50% { transform: rotate(2deg); }
+  }
+
+  /* ── Scene: DEPOT ── */
+  .scene-depot {
+    background: linear-gradient(to bottom, #1a1a2e 0%, #16213e 30%, #0f3460 50%, #1a1a2e 100%);
+    position: relative;
+  }
+  .scene-depot::before {
+    content: ''; position: absolute; top: 10%; left: 0; right: 0; height: 60%;
+    background: repeating-linear-gradient(90deg,
+      transparent 0, transparent 80px,
+      rgba(255,255,255,0.03) 80px, rgba(255,255,255,0.03) 82px,
+      transparent 82px, transparent 160px);
+    border-top: 3px solid rgba(255,255,255,0.05);
+    border-bottom: 3px solid rgba(255,255,255,0.05);
+  }
+
+  /* ── Container Card ── */
+  .container-grid {
+    display: grid; gap: 16px; padding: 30px;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    position: relative; z-index: 10; max-width: 1400px; margin: 0 auto;
+  }
+
+  .container-card {
+    position: relative;
+    /* Corrugated metal texture */
+    background-image:
+      repeating-linear-gradient(0deg,
+        transparent 0, transparent 3px,
+        rgba(0,0,0,0.06) 3px, rgba(0,0,0,0.06) 4px);
+    background-color: var(--container-color, #2c5282);
+    border: 2px solid rgba(0,0,0,0.3);
+    border-radius: 4px;
+    padding: 20px;
+    min-height: 160px;
+    display: flex; flex-direction: column;
+    transition: transform 0.2s, box-shadow 0.2s;
+    cursor: default;
+    /* Container frame details */
+    box-shadow:
+      inset 0 0 0 1px rgba(255,255,255,0.1),
+      inset 0 1px 0 rgba(255,255,255,0.15),
+      0 4px 12px rgba(0,0,0,0.4);
+  }
+  .container-card::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 4px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 2px 2px 0 0;
+  }
+  /* Corner castings */
+  .container-card::after {
+    content: ''; position: absolute;
+    top: -2px; left: -2px; right: -2px; bottom: -2px;
+    border: 2px solid rgba(255,255,255,0.08);
+    border-radius: 4px;
+    pointer-events: none;
+  }
+  .container-card:hover {
+    transform: translateY(-2px);
+    box-shadow:
+      inset 0 0 0 1px rgba(255,255,255,0.15),
+      inset 0 1px 0 rgba(255,255,255,0.2),
+      0 8px 24px rgba(0,0,0,0.5);
+  }
+
+  /* Container ID badge */
+  .container-id {
+    font-family: 'Courier New', monospace;
+    font-size: 11px; font-weight: 700;
+    color: rgba(255,255,255,0.9);
+    background: rgba(0,0,0,0.25);
+    padding: 2px 8px; border-radius: 2px;
+    display: inline-block; margin-bottom: 8px;
+    letter-spacing: 1px;
+    align-self: flex-start;
+  }
+
+  /* Container door area */
+  .container-door {
+    position: absolute; top: 0; right: 0; bottom: 0; width: 35%;
+    background: rgba(0,0,0,0.12);
+    border-left: 2px solid rgba(0,0,0,0.15);
+    border-radius: 0 4px 4px 0;
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column;
+  }
+  .container-door .door-handle {
+    width: 20px; height: 4px; background: rgba(255,255,255,0.2);
+    margin: 2px 0; border-radius: 2px;
+  }
+  .container-door .door-status {
+    font-size: 10px; color: rgba(255,255,255,0.6);
+    writing-mode: vertical-rl; text-orientation: mixed;
+    margin-top: 8px;
+    letter-spacing: 2px;
+  }
+
+  /* App info inside container */
+  .container-content {
+    position: relative; z-index: 2;
+    padding-right: 38%; flex: 1; display: flex; flex-direction: column;
+  }
+  .container-content h2 {
+    font-size: 14px; font-weight: 700;
+    color: rgba(255,255,255,0.95);
+    margin-bottom: 4px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-family: 'Courier New', monospace;
+  }
+  .container-content p {
+    font-size: 11px; color: rgba(255,255,255,0.7);
+    line-height: 1.4; flex: 1;
+  }
+
+  /* Action buttons on container */
+  .container-actions {
+    display: flex; gap: 6px; margin-top: 10px;
+  }
+  .container-actions a, .container-actions button {
+    font-family: 'Courier New', monospace;
+    font-size: 10px; font-weight: 600; letter-spacing: 1px;
+    padding: 6px 12px; border-radius: 2px;
+    border: 1px solid rgba(255,255,255,0.15);
+    cursor: pointer; transition: all 0.15s;
+    text-decoration: none; text-transform: uppercase;
+    flex: 1; text-align: center;
+  }
+  .container-actions .btn-open {
+    background: rgba(255,255,255,0.15);
+    color: white;
+  }
+  .container-actions .btn-open:hover {
+    background: rgba(255,255,255,0.25);
+  }
+  .container-actions .btn-start {
+    background: rgba(34,197,94,0.3);
+    color: #4ade80; border-color: rgba(34,197,94,0.3);
+  }
+  .container-actions .btn-start:hover {
+    background: rgba(34,197,94,0.5);
+  }
+
+  /* Running/stopped indicator */
+  .status-flag {
+    position: absolute; top: 8px; right: 8px; z-index: 5;
+    width: 10px; height: 10px; border-radius: 50%;
+    border: 1px solid rgba(255,255,255,0.2);
+  }
+  .status-flag.running { background: #4ade80; box-shadow: 0 0 8px rgba(74,222,128,0.5); }
+  .status-flag.stopped { background: #64748b; }
+
+  /* Container color themes */
+  .container-color-blue   { --container-color: #1a4a7a; }
+  .container-color-orange { --container-color: #8b4513; }
+  .container-color-green  { --container-color: #2d5016; }
+  .container-color-teal   { --container-color: #1a5a5a; }
+  .container-color-red    { --container-color: #6b2020; }
+  .container-color-gray   { --container-color: #3a3a4a; }
+
+  /* Header bar */
+  .scene-header {
+    position: relative; z-index: 20;
+    padding: 20px 30px 10px;
+    display: flex; align-items: center; gap: 16px;
+  }
+  .scene-header h1 {
+    font-size: 24px; font-weight: 700; color: rgba(255,255,255,0.9);
+    font-family: 'Courier New', monospace;
+    letter-spacing: 3px; text-transform: uppercase;
+  }
+  .scene-header .scene-tag {
+    font-size: 10px; color: rgba(255,255,255,0.4);
+    background: rgba(255,255,255,0.05);
+    padding: 4px 10px; border-radius: 2px;
+    font-family: 'Courier New', monospace;
+    letter-spacing: 1px;
+  }
+  .scene-header .scene-refresh {
+    margin-left: auto;
+    font-size: 10px; color: rgba(255,255,255,0.4);
+    cursor: pointer; transition: color 0.15s;
+    font-family: 'Courier New', monospace;
+    letter-spacing: 1px;
+    background: rgba(255,255,255,0.05);
+    padding: 4px 10px; border-radius: 2px;
+    border: 1px solid rgba(255,255,255,0.1);
+  }
+  .scene-header .scene-refresh:hover { color: rgba(255,255,255,0.8); }
+
+  /* Running count */
+  .running-count {
+    position: relative; z-index: 20;
+    padding: 0 30px 10px;
+    font-size: 11px; color: rgba(255,255,255,0.4);
+    font-family: 'Courier New', monospace;
+  }
+
+  /* Responsive */
+  @media (max-width: 640px) {
+    .container-grid { grid-template-columns: 1fr; padding: 16px; gap: 12px; }
+    .scene-header { padding: 16px; flex-wrap: wrap; }
+    .scene-header h1 { font-size: 18px; }
+  }
+
+  /* ── Scene-specific container adjustments ── */
+  .scene-ship .container-grid { padding-top: 60px; }
+  .scene-train .container-grid { padding-top: 40px; }
+  .scene-crane .container-grid { padding-top: 80px; }
+  .scene-depot .container-grid { padding-top: 40px; }
+</style>
+</head>
+<body>
+
+<div class="scene-wrap" id="sceneWrap">
+  <div class="scene-header">
+    <h1>🚢 shsw.dev</h1>
+    <span class="scene-tag" id="sceneTag">TERMINAL</span>
+    <span class="scene-refresh" onclick="randomScene()">⟳ RELOAD</span>
+  </div>
+  <div class="running-count"><span id="runningCount">0</span> / <span id="totalCount">15</span> CONTAINERS ACTIVE</div>
+
+  <div id="sceneContent" class="scene-ship">
+    <div class="waves"></div>
+    <div class="container-grid" id="containerGrid">
+      <!-- Cards injected by JS -->
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Sample app data ──
+const apps = [
+  {id:'momos',name:'Momos (Cozi)',desc:'Family command center — school, pantry, calendar',icon:'🏠',color:'blue',running:true,url:'https://cozi.shsw.dev',type:'flask'},
+  {id:'parambulator',name:'Parambulator',desc:'Seating chart planner with constraint scoring',icon:'💺',color:'blue',running:true,url:'https://parambulator.shsw.dev',type:'flask'},
+  {id:'vernissage',name:'Vernissage',desc:'Art gallery browser — MET, AIC, Rijksmuseum',icon:'🎨',color:'teal',running:false,url:null,type:'nextjs'},
+  {id:'holdem',name:"Let's Hold 'em Together",desc:'Multiplayer poker game with AI opponents',icon:'🃏',color:'blue',running:true,url:'https://holdem.shsw.dev',type:'flask'},
+  {id:'wizard-fight',name:'Wizard Fight',desc:'Real-time wizard dueling game',icon:'🧙',color:'blue',running:true,url:'https://wizard.shsw.dev',type:'flask'},
+  {id:'powder-play',name:'Powder Play',desc:'Alchemist powder mix material server',icon:'⚗️',color:'orange',running:true,url:'https://powder-api.shsw.dev',type:'node'},
+  {id:'hivemind',name:'Hivemind LLM',desc:'Distributed LLM inference coordinator',icon:'🧠',color:'blue',running:true,url:'https://hivemind-api.shsw.dev',type:'flask'},
+  {id:'operationalize',name:'Operationalize',desc:'Project management and workflow tool',icon:'⚙️',color:'blue',running:true,url:'https://ops.shsw.dev',type:'flask'},
+  {id:'trading-cards',name:'Ultimate TCG',desc:'TCG deck builder and simulator',icon:'⚔️',color:'blue',running:true,url:'https://tcg.shsw.dev',type:'flask'},
+  {id:'conway-war',name:"Conway's Game of War",desc:"Conway's Game of Life meets battle",icon:'🧬',color:'blue',running:true,url:'https://conway.shsw.dev',type:'flask'},
+  {id:'code-reviewdle',name:'Code Reviewdle',desc:'Daily code review puzzle game',icon:'🔍',color:'blue',running:true,url:'https://codereviewdle.shsw.dev',type:'flask'},
+  {id:'sub-day',name:'Sub Day Generator',desc:'Generate substitute teacher plans',icon:'🍎',color:'blue',running:false,url:null,type:'flask'},
+  {id:'hivemind-ui',name:'Hivemind LLM UI',desc:'LLM inference coordinator frontend',icon:'💬',color:'green',running:true,url:'https://hivemind.shsw.dev',type:'vite'},
+  {id:'wizard-ui',name:'Wizard Fight UI',desc:'React frontend for Wizard Fight',icon:'🪄',color:'green',running:true,url:'https://wizard-app.shsw.dev',type:'static'},
+  {id:'powder-ui',name:'Powder Play UI',desc:'Game frontend',icon:'✨',color:'green',running:false,url:null,type:'vite'},
+];
+
+// ── Scenes ──
+const scenes = [
+  { id:'ship', name:'TERMINAL', icon:'🚢', cls:'scene-ship', extra: '<div class="waves"></div>' },
+  { id:'train', name:'RAIL YARD', icon:'🚂', cls:'scene-train', extra: '' },
+  { id:'crane', name:'PORT CRANE', icon:'🏗️', cls:'scene-crane', extra: '<div class="crane-arm"></div><div class="crane-line"></div>' },
+  { id:'depot', name:'CONTAINER DEPOT', icon:'📦', cls:'scene-depot', extra: '' },
+];
+
+function randomScene() {
+  const scene = scenes[Math.floor(Math.random() * scenes.length)];
+  const content = document.getElementById('sceneContent');
+  content.className = scene.cls;
+  // Remove old extras
+  content.querySelectorAll('.waves, .crane-arm, .crane-line').forEach(e => e.remove());
+  if (scene.extra) content.insertAdjacentHTML('afterbegin', scene.extra);
+  document.getElementById('sceneTag').textContent = scene.icon + ' ' + scene.name;
+}
+
+function renderContainers() {
+  const grid = document.getElementById('containerGrid');
+  let runningCount = 0;
+  grid.innerHTML = apps.map(a => {
+    if (a.running) runningCount++;
+    const typeColors = { flask:'blue', node:'orange', vite:'green', nextjs:'teal', static:'gray' };
+    const color = a.color || typeColors[a.type] || 'gray';
+    const containerId = a.id.slice(0,4).toUpperCase().padEnd(4,'U') + ' ' +
+      Math.floor(100000 + Math.random() * 900000);
+    const statusClass = a.running ? 'running' : 'stopped';
+    const actions = a.running
+      ? `<a href="${a.url}" target="_blank" class="btn-open">OPEN →</a>`
+      : `<button class="btn-start">▶ START</button>`;
+    return `
+      <div class="container-card container-color-${color}">
+        <div class="status-flag ${statusClass}"></div>
+        <div class="container-id">${containerId}</div>
+        <div class="container-content">
+          <h2>${a.icon} ${a.name}</h2>
+          <p>${a.desc}</p>
+          <div class="container-actions">${actions}</div>
+        </div>
+        <div class="container-door">
+          <div class="door-handle"></div>
+          <div class="door-handle"></div>
+          <div class="door-status">${a.running ? 'OPEN' : 'SEALED'}</div>
+        </div>
+      </div>
+    `;
+  }).join('');
+  document.getElementById('runningCount').textContent = runningCount;
+  document.getElementById('totalCount').textContent = apps.length;
+}
+
+// Init
+renderContainers();
+randomScene();
+</script>
+</body>
+</html>

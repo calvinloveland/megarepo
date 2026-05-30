@@ -3,256 +3,1004 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Megarepo Apps</title>
+  <title>shsw.dev — Megarepo Terminal</title>
   <link rel="icon" type="image/svg+xml" href="/static/favicon.svg" />
-  <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    @keyframes pulse-dot { 0%,100%{opacity:1} 50%{opacity:.4} }
-    .status-dot-loading { animation:pulse-dot 1s ease-in-out infinite }
-    .card-enter { animation:fade-in .3s ease-out }
-    @keyframes fade-in { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
-    body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif }
-    .icon-glow { filter:drop-shadow(0 0 6px rgba(255,255,255,.15)) }
-    .tab-btn { transition:all .15s ease }
-    .tab-btn.active { border-bottom:2px solid #10b981; color:#10b981 }
-    pre { white-space:pre-wrap;word-wrap:break-word }
+    /* ═══════════════════════════════════
+       RESET & BASE
+       ═══════════════════════════════════ */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Courier New', 'SF Mono', 'Consolas', monospace;
+      background: #0a0e17; min-height: 100vh; overflow-x: hidden;
+      color: #e2e8f0;
+    }
+
+    /* ═══════════════════════════════════
+       TABS
+       ═══════════════════════════════════ */
+    .top-bar {
+      display: flex; align-items: center; gap: 16px;
+      padding: 16px 24px 8px;
+      flex-wrap: wrap;
+      position: relative; z-index: 100;
+    }
+    .top-bar h1 {
+      font-size: 22px; font-weight: 700; letter-spacing: 3px;
+      text-transform: uppercase; color: rgba(255,255,255,0.9);
+    }
+    .top-bar .docs-link {
+      font-size: 11px; color: rgba(255,255,255,0.4);
+      text-decoration: none; letter-spacing: 1px;
+      transition: color 0.15s;
+    }
+    .top-bar .docs-link:hover { color: #4ade80; }
+
+    .tab-bar {
+      display: flex; gap: 24px;
+      padding: 0 24px;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      position: relative; z-index: 100;
+    }
+    .tab-btn {
+      font-family: 'Courier New', monospace;
+      font-size: 11px; font-weight: 600; letter-spacing: 2px;
+      text-transform: uppercase;
+      padding: 10px 4px 8px;
+      background: none; border: none;
+      color: rgba(255,255,255,0.3);
+      cursor: pointer;
+      transition: color 0.15s, border-color 0.15s;
+      border-bottom: 2px solid transparent;
+    }
+    .tab-btn:hover { color: rgba(255,255,255,0.6); }
+    .tab-btn.active { color: #4ade80; border-bottom-color: #4ade80; }
+
+    .tab-content { display: block; }
+    .tab-content.hidden { display: none; }
+
+    /* ═══════════════════════════════════
+       SCENE BASE
+       ═══════════════════════════════════ */
+    .scene-wrap {
+      position: relative;
+      min-height: calc(100vh - 100px);
+      overflow: hidden;
+      transition: background 1s ease;
+    }
+    .scene-bg {
+      position: absolute; inset: 0;
+      pointer-events: none;
+      overflow: hidden;
+      transition: all 0.8s ease;
+    }
+
+    /* Scene disturbance (physics!) */
+    .scene-wrap.disturbed .scene-bg { transition: all 0.3s ease; }
+    .scene-wrap.disturbing { pointer-events: none; }
+
+    /* ── Scene: SHIP ── */
+    .scene-ship .scene-bg {
+      background:
+        linear-gradient(to bottom, #0a1628 0%, #0d2b4e 25%, #0f3b5e 45%, #0a2a45 65%, #061828 100%);
+    }
+    .scene-ship .scene-bg::before {
+      content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 40%;
+      background:
+        repeating-linear-gradient(100deg, transparent 0, transparent 60px,
+          rgba(255,255,255,0.025) 60px, rgba(255,255,255,0.025) 62px,
+          transparent 62px, transparent 120px);
+      animation: waveMove 8s linear infinite;
+    }
+    .scene-ship .scene-bg::after {
+      content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 40%;
+      background: repeating-linear-gradient(130deg, transparent 0, transparent 90px,
+        rgba(255,255,255,0.015) 90px, rgba(255,255,255,0.015) 92px,
+        transparent 92px, transparent 180px);
+      animation: waveMove 12s linear infinite reverse;
+    }
+    @keyframes waveMove { 0%{transform:translateX(0)} 100%{transform:translateX(120px)} }
+
+    .scene-ship .ship-deck {
+      position: absolute; bottom: 0; left: 0; right: 0; height: 30%;
+      background: linear-gradient(to top, #1a1a2a 0%, #2a2a3a 40%, transparent 100%);
+    }
+    .scene-ship .ship-deck::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+      background: repeating-linear-gradient(90deg, #3a3a4a 0, #3a3a4a 30px, transparent 30px, transparent 32px);
+    }
+    .scene-ship .scene-icon { content: '🚢'; position: absolute; top: 8%; right: 8%; font-size: 80px; opacity: 0.08; }
+
+    /* Ship rock animation */
+    .scene-ship.disturbed .scene-wrap { animation: shipRock 0.6s ease-in-out 3; }
+    .scene-ship.disturbed .container-grid { animation: containersShift 0.6s ease-in-out 3; }
+    @keyframes shipRock {
+      0%,100% { transform: rotate(0deg); }
+      25% { transform: rotate(-1.5deg); }
+      75% { transform: rotate(1.5deg); }
+    }
+    @keyframes containersShift {
+      0%,100% { transform: translateX(0) rotate(0deg); }
+      25% { transform: translateX(-8px) rotate(-1deg); }
+      75% { transform: translateX(8px) rotate(1deg); }
+    }
+
+    /* ── Scene: TRAIN ── */
+    .scene-train .scene-bg {
+      background: linear-gradient(to bottom, #1a1a3a 0%, #2a2040 20%, #3a2a35 35%, #4a3a30 55%, #3a2a25 75%, #1a1a15 100%);
+    }
+    .scene-train .scene-bg::before {
+      content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 15%;
+      background: linear-gradient(to top, #2a2a20, transparent);
+    }
+    .scene-train .train-tracks {
+      position: absolute; bottom: 12%; left: 0; right: 0; height: 4px;
+      background: repeating-linear-gradient(90deg, #555 0, #555 25px, #777 25px, #777 27px, transparent 27px, transparent 35px);
+      box-shadow: 0 6px 0 #444;
+    }
+    .scene-train .train-tracks::before {
+      content: ''; position: absolute; bottom: 8px; left: 0; right: 0; height: 3px;
+      background: repeating-linear-gradient(90deg, #555 0, #555 25px, #777 25px, #777 27px, transparent 27px, transparent 35px);
+    }
+    .scene-train .train-engine {
+      position: absolute; bottom: calc(12% + 10px); left: 2%; font-size: 56px; opacity: 0.12;
+      animation: trainChug 1.5s ease-in-out infinite;
+    }
+    @keyframes trainChug { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-2px)} }
+    .scene-train .scene-icon { position: absolute; top: 8%; right: 8%; font-size: 80px; opacity: 0.06; content: '🚂'; }
+
+    /* Train derail animation */
+    .scene-train.disturbed .container-grid {
+      animation: derail 1.2s cubic-bezier(0.36, 0.07, 0.19, 0.97) forwards;
+    }
+    .scene-train.disturbed .train-tracks { animation: tracksBreak 0.3s ease-out forwards; }
+    @keyframes derail {
+      0% { transform: translateX(0) rotate(0deg); }
+      20% { transform: translateX(40px) rotate(2deg); }
+      40% { transform: translateX(80px) rotate(5deg); }
+      60% { transform: translateX(120px) rotate(-3deg) translateY(20px); }
+      80% { transform: translateX(160px) rotate(-8deg) translateY(40px); }
+      100% { transform: translateX(200px) rotate(-12deg) translateY(60px); opacity: 0.6; }
+    }
+    @keyframes tracksBreak {
+      0% { opacity: 1; }
+      100% { opacity: 0.3; transform: scaleX(0.8); }
+    }
+
+    /* ── Scene: CRANE ── */
+    .scene-crane .scene-bg {
+      background: linear-gradient(to bottom, #0d1b2a 0%, #1b2838 30%, #3a3020 55%, #2a2a1a 75%, #1a1a10 100%);
+    }
+    .scene-crane .crane-structure {
+      position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+      width: 8px; height: 50%;
+      background: linear-gradient(to bottom, rgba(150,150,160,0.3), rgba(100,100,110,0.1));
+    }
+    .scene-crane .crane-structure::before {
+      content: ''; position: absolute; top: 0; width: 100px; height: 3px;
+      left: -46px; background: rgba(150,150,160,0.25);
+      box-shadow: 0 10px 0 rgba(150,150,160,0.15), 0 20px 0 rgba(150,150,160,0.1);
+    }
+    .scene-crane .crane-structure::after {
+      content: ''; position: absolute; bottom: 0; width: 120px; height: 3px;
+      left: -56px; background: rgba(150,150,160,0.1);
+    }
+    .scene-crane .crane-cable {
+      position: absolute; top: 5%; left: 50%; width: 2px; height: 45%;
+      background: rgba(200,200,200,0.08);
+      transform-origin: top center;
+      animation: cableSway 6s ease-in-out infinite;
+    }
+    @keyframes cableSway { 0%,100%{transform:rotate(-1deg)} 50%{transform:rotate(1deg)} }
+    .scene-crane .crane-cable::after {
+      content: '📦'; position: absolute; bottom: -16px; left: -13px; font-size: 24px; opacity: 0.2;
+    }
+    .scene-crane .scene-icon { position: absolute; top: 8%; left: 15%; font-size: 80px; opacity: 0.06; content: '🏗️'; }
+
+    /* Crane swing animation */
+    .scene-crane.disturbed .crane-cable {
+      animation: cableWhip 2s ease-in-out 2;
+    }
+    .scene-crane.disturbed .container-grid {
+      animation: containersSwing 2s ease-in-out 2;
+    }
+    @keyframes cableWhip {
+      0%,100% { transform: rotate(-1deg); }
+      20% { transform: rotate(-25deg); }
+      40% { transform: rotate(20deg); }
+      60% { transform: rotate(-15deg); }
+      80% { transform: rotate(10deg); }
+    }
+    @keyframes containersSwing {
+      0%,100% { transform: translateX(0) rotate(0deg); }
+      25% { transform: translateX(-15px) rotate(-2deg); }
+      75% { transform: translateX(15px) rotate(2deg); }
+    }
+
+    /* ── Scene: DEPOT ── */
+    .scene-depot .scene-bg {
+      background: linear-gradient(to bottom, #0a0e1a 0%, #121625 25%, #1a1a2e 50%, #161a2a 75%, #121625 100%);
+    }
+    .scene-depot .scene-bg::before {
+      content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 50%;
+      background: repeating-linear-gradient(90deg, transparent 0, transparent 50px,
+        rgba(255,200,50,0.02) 50px, rgba(255,200,50,0.02) 52px, transparent 52px, transparent 100px),
+        repeating-linear-gradient(0deg, transparent 0, transparent 25px,
+          rgba(255,255,255,0.015) 25px, rgba(255,255,255,0.015) 26px);
+    }
+    .scene-depot .scene-bg::after {
+      content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 3px;
+      background: repeating-linear-gradient(90deg, rgba(255,200,50,0.15) 0, rgba(255,200,50,0.15) 4px, transparent 4px, transparent 16px);
+    }
+    .scene-depot .scene-icon { position: absolute; top: 12%; right: 12%; font-size: 80px; opacity: 0.06; content: '📦'; }
+
+    /* Depot topple animation */
+    .scene-depot.disturbed .container-grid {
+      animation: topple 1.5s cubic-bezier(0.68, -0.55, 0.27, 1.55) forwards;
+    }
+    .scene-depot.disturbed .scene-bg::before {
+      animation: flicker 0.15s ease-in-out 6;
+    }
+    @keyframes topple {
+      0% { transform: perspective(800px) rotateX(0deg) rotateY(0deg); }
+      30% { transform: perspective(800px) rotateX(-10deg) rotateY(15deg); }
+      60% { transform: perspective(800px) rotateX(-20deg) rotateY(30deg); }
+      100% { transform: perspective(800px) rotateX(-30deg) rotateY(45deg) translateZ(-50px); opacity: 0.7; }
+    }
+    @keyframes flicker { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+    /* ═══════════════════════════════════
+       CONTAINER CARDS
+       ═══════════════════════════════════ */
+    .container-grid {
+      display: grid; gap: 14px; padding: 20px 24px 30px;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      position: relative; z-index: 10; max-width: 1400px; margin: 0 auto;
+      transition: transform 0.3s ease;
+    }
+
+    .container-card {
+      position: relative;
+      background-image:
+        repeating-linear-gradient(0deg, transparent 0, transparent 3px,
+          rgba(0,0,0,0.07) 3px, rgba(0,0,0,0.07) 4px);
+      background-color: var(--container-color, #2c5282);
+      border: 2px solid rgba(0,0,0,0.3);
+      border-radius: 4px;
+      padding: 18px;
+      min-height: 155px;
+      display: flex; flex-direction: column;
+      transition: transform 0.2s, box-shadow 0.2s;
+      cursor: default;
+      box-shadow:
+        inset 0 0 0 1px rgba(255,255,255,0.08),
+        inset 0 1px 0 rgba(255,255,255,0.12),
+        0 4px 16px rgba(0,0,0,0.5);
+      overflow: hidden;
+    }
+    .container-card::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+      background: rgba(255,255,255,0.06);
+    }
+    .container-card::after {
+      content: ''; position: absolute;
+      top: -2px; left: -2px; right: -2px; bottom: -2px;
+      border: 2px solid rgba(255,255,255,0.06);
+      border-radius: 4px;
+      pointer-events: none;
+    }
+    .container-card:hover {
+      transform: translateY(-3px);
+      box-shadow:
+        inset 0 0 0 1px rgba(255,255,255,0.12),
+        inset 0 1px 0 rgba(255,255,255,0.18),
+        0 8px 28px rgba(0,0,0,0.6);
+    }
+
+    /* Corner casting marks */
+    .container-card .corner-tl,
+    .container-card .corner-tr,
+    .container-card .corner-bl,
+    .container-card .corner-br {
+      position: absolute; width: 6px; height: 6px;
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 1px;
+    }
+    .container-card .corner-tl { top: 2px; left: 2px; border-right: none; border-bottom: none; }
+    .container-card .corner-tr { top: 2px; right: 2px; border-left: none; border-bottom: none; }
+    .container-card .corner-bl { bottom: 2px; left: 2px; border-right: none; border-top: none; }
+    .container-card .corner-br { bottom: 2px; right: 2px; border-left: none; border-top: none; }
+
+    .container-id {
+      font-size: 10px; font-weight: 700; letter-spacing: 1.5px;
+      color: rgba(255,255,255,0.8);
+      background: rgba(0,0,0,0.2);
+      padding: 2px 8px; border-radius: 2px;
+      display: inline-block; margin-bottom: 6px;
+      align-self: flex-start;
+      font-family: 'Courier New', monospace;
+    }
+
+    /* Door area (right side) */
+    .container-door {
+      position: absolute; top: 0; right: 0; bottom: 0; width: 32%;
+      background: rgba(0,0,0,0.1);
+      border-left: 2px solid rgba(0,0,0,0.12);
+      border-radius: 0 4px 4px 0;
+      display: flex; align-items: center; justify-content: center;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .container-door .door-bar {
+      width: 24px; height: 3px; background: rgba(255,255,255,0.1);
+      border-radius: 1px;
+    }
+    .container-door .door-bar.lock {
+      width: 14px;
+      background: rgba(255,255,255,0.06);
+    }
+    .container-door .door-status-text {
+      font-size: 8px; color: rgba(255,255,255,0.35);
+      writing-mode: vertical-rl; text-orientation: mixed;
+      margin-top: 6px; letter-spacing: 3px;
+      font-weight: 600;
+    }
+
+    .container-content {
+      position: relative; z-index: 2;
+      padding-right: 35%; flex: 1; display: flex; flex-direction: column;
+    }
+    .container-content .app-icon { font-size: 20px; margin-bottom: 4px; }
+    .container-content h2 {
+      font-size: 12px; font-weight: 700; color: rgba(255,255,255,0.95);
+      margin-bottom: 2px;
+      text-transform: uppercase; letter-spacing: 0.5px;
+      font-family: 'Courier New', monospace;
+      line-height: 1.3;
+    }
+    .container-content .app-type {
+      font-size: 9px; color: rgba(255,255,255,0.35);
+      letter-spacing: 1px; text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+    .container-content .app-desc {
+      font-size: 10px; color: rgba(255,255,255,0.55);
+      line-height: 1.4; flex: 1;
+    }
+
+    .container-actions {
+      display: flex; gap: 5px; margin-top: 8px;
+    }
+    .container-actions a, .container-actions button {
+      font-family: 'Courier New', monospace;
+      font-size: 9px; font-weight: 600; letter-spacing: 1px;
+      padding: 5px 10px; border-radius: 2px;
+      border: 1px solid rgba(255,255,255,0.12);
+      cursor: pointer; transition: all 0.15s;
+      text-decoration: none; text-transform: uppercase;
+      flex: 1; text-align: center;
+      background: none; color: white;
+    }
+    .container-actions .btn-open {
+      background: rgba(255,255,255,0.12);
+    }
+    .container-actions .btn-open:hover { background: rgba(255,255,255,0.2); }
+    .container-actions .btn-start {
+      background: rgba(34,197,94,0.2);
+      color: #4ade80; border-color: rgba(34,197,94,0.25);
+    }
+    .container-actions .btn-start:hover { background: rgba(34,197,94,0.35); }
+    .container-actions .btn-start.loading {
+      background: rgba(251,191,36,0.2); color: #fbbf24;
+      border-color: rgba(251,191,36,0.25);
+      animation: pulse 1s ease-in-out infinite;
+    }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+
+    .status-dot-card {
+      position: absolute; top: 8px; right: 8px; z-index: 5;
+      width: 8px; height: 8px; border-radius: 50%;
+      border: 1px solid rgba(255,255,255,0.15);
+    }
+    .status-dot-card.running {
+      background: #4ade80;
+      box-shadow: 0 0 6px rgba(74,222,128,0.4);
+    }
+    .status-dot-card.stopped { background: #475569; }
+    .status-dot-card.loading {
+      background: #fbbf24;
+      animation: pulse 1s ease-in-out infinite;
+    }
+
+    /* Container color themes */
+    .container-color-blue   { --container-color: #1a4a7a; }
+    .container-color-orange { --container-color: #8b4513; }
+    .container-color-green  { --container-color: #2d5016; }
+    .container-color-teal   { --container-color: #1a5a5a; }
+    .container-color-red    { --container-color: #6b2020; }
+    .container-color-gray   { --container-color: #3a3a4a; }
+    .container-color-purple { --container-color: #4a2a6a; }
+
+    /* ═══════════════════════════════════
+       SCENE CONTROLS
+       ═══════════════════════════════════ */
+    .scene-controls {
+      position: relative; z-index: 20;
+      display: flex; align-items: center; gap: 12px;
+      padding: 8px 24px 4px;
+      flex-wrap: wrap;
+    }
+    .scene-controls .scene-label {
+      font-size: 10px; color: rgba(255,255,255,0.3);
+      letter-spacing: 2px; text-transform: uppercase;
+    }
+    .scene-controls .scene-name {
+      font-size: 12px; font-weight: 600; color: rgba(255,255,255,0.6);
+    }
+    .scene-controls .disturb-btn {
+      font-family: 'Courier New', monospace;
+      font-size: 10px; font-weight: 600; letter-spacing: 1px;
+      text-transform: uppercase;
+      padding: 6px 16px; border-radius: 2px;
+      border: 1px solid rgba(255,100,50,0.3);
+      background: rgba(255,100,50,0.1);
+      color: rgba(255,150,100,0.8);
+      cursor: pointer; transition: all 0.15s;
+    }
+    .scene-controls .disturb-btn:hover {
+      background: rgba(255,100,50,0.2);
+      border-color: rgba(255,100,50,0.5);
+      color: rgba(255,150,100,1);
+    }
+    .scene-controls .disturb-btn:disabled {
+      opacity: 0.3; cursor: not-allowed;
+    }
+    .scene-controls .reroll-btn {
+      font-family: 'Courier New', monospace;
+      font-size: 10px; letter-spacing: 1px;
+      padding: 6px 12px; border-radius: 2px;
+      border: 1px solid rgba(255,255,255,0.1);
+      background: rgba(255,255,255,0.04);
+      color: rgba(255,255,255,0.35);
+      cursor: pointer; transition: all 0.15s;
+      margin-left: auto;
+    }
+    .scene-controls .reroll-btn:hover {
+      background: rgba(255,255,255,0.08);
+      color: rgba(255,255,255,0.6);
+    }
+
+    .running-ticker {
+      position: relative; z-index: 20;
+      font-size: 10px; color: rgba(255,255,255,0.25);
+      padding: 0 24px 6px;
+      letter-spacing: 1px;
+    }
+    .running-ticker strong { color: #4ade80; font-weight: 600; }
+
+    /* ═══════════════════════════════════
+       PROJECTS & DOCS TABS (Slate style)
+       ═══════════════════════════════════ */
+    .content-slate {
+      background: #0a0e17;
+      min-height: calc(100vh - 100px);
+    }
+    .content-slate .inner {
+      max-width: 1200px; margin: 0 auto; padding: 24px;
+    }
+    .project-card {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 4px;
+      padding: 20px;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .project-card:hover {
+      background: rgba(255,255,255,0.05);
+      border-color: rgba(255,255,255,0.1);
+    }
+    .project-card h3 {
+      font-size: 13px; font-weight: 600; color: rgba(255,255,255,0.9);
+      margin-bottom: 4px;
+    }
+    .project-card p {
+      font-size: 11px; color: rgba(255,255,255,0.5);
+    }
+    .project-card .meta {
+      font-size: 10px; color: rgba(255,255,255,0.3);
+      margin-top: 8px;
+      display: flex; gap: 8px; flex-wrap: wrap;
+    }
+    .project-card .meta span {
+      padding: 2px 8px; border-radius: 2px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.06);
+    }
+    .project-card .meta .has-tests {
+      background: rgba(74,222,128,0.08);
+      border-color: rgba(74,222,128,0.15);
+      color: #4ade80;
+    }
+    .project-card .actions {
+      margin-top: 12px;
+      display: flex; gap: 6px;
+    }
+    .project-card .actions button,
+    .project-card .actions a {
+      font-family: 'Courier New', monospace;
+      font-size: 10px; letter-spacing: 1px;
+      padding: 6px 14px; border-radius: 2px;
+      border: 1px solid rgba(255,255,255,0.1);
+      background: rgba(255,255,255,0.04);
+      color: rgba(255,255,255,0.5);
+      cursor: pointer; transition: all 0.15s;
+      text-decoration: none;
+    }
+    .project-card .actions button:hover,
+    .project-card .actions a:hover {
+      background: rgba(255,255,255,0.08);
+      color: rgba(255,255,255,0.8);
+    }
+
+    .doc-viewer {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 4px;
+      padding: 24px;
+      max-width: 800px; margin: 0 auto;
+    }
+    .doc-viewer h2 {
+      font-size: 16px; color: rgba(255,255,255,0.9);
+      margin-bottom: 16px;
+    }
+    .doc-viewer pre {
+      font-size: 11px; color: rgba(255,255,255,0.6);
+      line-height: 1.6;
+      white-space: pre-wrap; word-wrap: break-word;
+      font-family: 'Courier New', monospace;
+    }
+    .doc-list-btn {
+      display: block; width: 100%; text-align: left;
+      padding: 12px 16px; border-radius: 2px;
+      border: 1px solid rgba(255,255,255,0.06);
+      background: rgba(255,255,255,0.02);
+      color: rgba(255,255,255,0.6);
+      cursor: pointer; transition: all 0.15s;
+      font-family: 'Courier New', monospace;
+    }
+    .doc-list-btn:hover {
+      background: rgba(255,255,255,0.05);
+      border-color: rgba(255,255,255,0.1);
+      color: rgba(255,255,255,0.8);
+    }
+    .doc-list-btn .name {
+      font-size: 12px; font-weight: 600; color: rgba(255,255,255,0.8);
+    }
+    .doc-list-btn .desc {
+      font-size: 10px; color: rgba(255,255,255,0.4);
+      margin-top: 2px;
+    }
+
+    /* Footer */
+    .site-footer {
+      position: relative; z-index: 20;
+      text-align: center;
+      padding: 16px 24px;
+      font-size: 10px; color: rgba(255,255,255,0.2);
+      letter-spacing: 1px;
+    }
+    .site-footer a {
+      color: rgba(255,255,255,0.3);
+      text-decoration: none;
+    }
+    .site-footer a:hover { color: rgba(255,255,255,0.6); }
+
+    /* Responsive */
+    @media (max-width: 640px) {
+      .container-grid { grid-template-columns: 1fr; padding: 12px; gap: 10px; }
+      .top-bar { padding: 12px 16px; }
+      .tab-bar { padding: 0 16px; gap: 16px; }
+      .scene-controls { padding: 8px 16px; }
+      .running-ticker { padding: 0 16px; }
+      .container-card { min-height: 140px; padding: 14px; }
+    }
+
+    /* Card entrance animation */
+    .card-enter { animation: fadeSlide 0.4s ease-out both; }
+    @keyframes fadeSlide {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
   </style>
 </head>
-<body class="bg-slate-950 text-slate-200 min-h-screen">
-  <div class="max-w-6xl mx-auto px-4 py-8">
-    <!-- Header -->
-    <header class="mb-6">
-      <div class="flex items-center gap-3 mb-2">
-        <span class="text-2xl">🚀</span>
-        <h1 class="text-2xl font-bold text-slate-100">shsw.dev</h1>
-      </div>
-      <p class="text-slate-400 text-sm ml-11">All projects in the megarepo. <a href="https://calvinloveland.github.io/megarepo/" target="_blank" class="text-emerald-400 hover:text-emerald-300 underline">📖 Full documentation site →</a></p>
-    </header>
+<body>
 
-    <!-- Tabs -->
-    <div class="flex gap-6 mb-8 border-b border-slate-800 pb-2" id="tabs">
-      <button class="tab-btn active text-sm font-medium text-emerald-400" data-tab="apps">Web Apps</button>
-      <button class="tab-btn text-sm font-medium text-slate-500 hover:text-slate-300" data-tab="projects">All Projects</button>
-      <button class="tab-btn text-sm font-medium text-slate-500 hover:text-slate-300" data-tab="docs">Docs</button>
+<!-- ═══ TOP BAR ═══ -->
+<div class="top-bar">
+  <h1>🚢 shsw.dev</h1>
+  <a href="https://calvinloveland.github.io/megarepo/" target="_blank" class="docs-link">📖 DOCS</a>
+</div>
+
+<!-- ═══ TABS ═══ -->
+<div class="tab-bar" id="tabs">
+  <button class="tab-btn active" data-tab="apps">Web Apps</button>
+  <button class="tab-btn" data-tab="projects">All Projects</button>
+  <button class="tab-btn" data-tab="docs">Docs</button>
+</div>
+
+<!-- ═══ TAB: WEB APPS (SCENE) ═══ -->
+<div id="tab-apps" class="tab-content">
+  <div class="scene-wrap" id="sceneWrap">
+    <div class="scene-bg" id="sceneBg"></div>
+    <!-- Scene-specific elements injected by JS -->
+
+    <!-- Scene controls -->
+    <div class="scene-controls">
+      <span class="scene-label">◈ SCENE</span>
+      <span class="scene-name" id="sceneName">PORT TERMINAL</span>
+      <button class="disturb-btn" id="disturbBtn" onclick="disturbScene()">⚠ DISTURB</button>
+      <button class="reroll-btn" onclick="changeScene()">⟳ REROLL</button>
     </div>
 
-    <!-- Tab: Web Apps -->
-    <div id="tab-apps" class="tab-content">
-      <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3" id="app-grid">
-        {% for app in apps %}
-        {% if app.id != 'launcher' %}
-        <div class="app-card card-enter bg-slate-900 border border-slate-800 rounded-xl p-5 flex flex-col relative overflow-hidden"
-             data-app-id="{{ app.id }}" data-icon="{{ app.icon }}"
-             data-running="{{ 'true' if app.running else 'false' }}">
-          <div class="absolute -top-3 -right-3 text-6xl opacity-[0.06] pointer-events-none select-none icon-glow">{{ app.icon or '🌐' }}</div>
-          <div class="flex items-start justify-between mb-3 relative z-10">
-            <div class="flex items-start gap-3 min-w-0">
-              <span class="text-3xl shrink-0 mt-0.5 icon-glow">{{ app.icon or '🌐' }}</span>
-              <div class="min-w-0">
-                <h2 class="text-base font-semibold text-slate-100 truncate">{{ app.name }}</h2>
-                <p class="text-xs text-slate-400 mt-0.5">{{ app.description }}</p>
-              </div>
-            </div>
-            <div class="flex items-center gap-2 ml-3 shrink-0">
-              <span class="status-dot w-2.5 h-2.5 rounded-full inline-block" data-state="{{ 'running' if app.running else 'stopped' }}"></span>
-              <span class="status-label text-xs font-medium" data-state="{{ 'running' if app.running else 'stopped' }}">{{ 'Running' if app.running else 'Stopped' }}</span>
-            </div>
-          </div>
-          <div class="text-xs text-slate-500 font-mono mb-4 relative z-10">
-            {% if app.subdomain %}{{ app.subdomain }}.shsw.dev{% else %}port {{ app.port }}{% endif %}
-            {% if app.type %}<span class="ml-2 px-1.5 py-0.5 rounded bg-slate-800 text-slate-400">{{ app.type }}</span>{% endif %}
-          </div>
-          <div class="mt-auto flex gap-2 relative z-10">
+    <div class="running-ticker">
+      <strong id="runningCount">0</strong> / <span id="totalCount">0</span> containers active
+    </div>
+
+    <!-- Container grid -->
+    <div class="container-grid" id="app-grid">
+      {% set type_colors = {"flask":"blue","node":"orange","vite":"green","nextjs":"teal","static":"gray"} %}
+      {% for app in apps %}
+      {% if app.id != 'launcher' %}
+      {% set ccolor = type_colors.get(app.type, "gray") %}
+      <div class="container-card card-enter container-color-{{ ccolor }}"
+           data-app-id="{{ app.id }}"
+           data-app-type="{{ app.type }}"
+           data-running="{{ 'true' if app.running else 'false' }}"
+           style="animation-delay: {{ loop.index0 * 0.04 }}s">
+        <div class="corner-tl"></div><div class="corner-tr"></div>
+        <div class="corner-bl"></div><div class="corner-br"></div>
+        <div class="status-dot-card {{ 'running' if app.running else 'stopped' }}" id="dot-{{ app.id }}"></div>
+        <div class="container-id" id="cid-{{ app.id }}"></div>
+        <div class="container-content">
+          <div class="app-icon">{{ app.icon or '📦' }}</div>
+          <h2>{{ app.name }}</h2>
+          <div class="app-type">{{ app.type|upper }} · {% if app.subdomain %}{{ app.subdomain }}.shsw.dev{% else %}PORT {{ app.port }}{% endif %}</div>
+          <div class="app-desc">{{ app.description }}</div>
+          <div class="container-actions" id="actions-{{ app.id }}">
             {% if app.running %}
-            <a href="{{ app.url }}" target="_blank" class="flex-1 text-center px-3 py-2 rounded-lg text-sm font-medium bg-emerald-600 hover:bg-emerald-500 text-white transition-colors">Open →</a>
+            <a href="{{ app.url }}" target="_blank" class="btn-open">OPEN →</a>
             {% else %}
-            <button onclick="startApp('{{ app.id }}')" class="flex-1 px-3 py-2 rounded-lg text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white transition-colors flex items-center justify-center gap-2">
-              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 3l14 9-14 9V3z"/></svg> Start
-            </button>
+            <button class="btn-start" onclick="startApp('{{ app.id }}')">▶ START</button>
             {% endif %}
           </div>
         </div>
-        {% endif %}{% endfor %}
+        <div class="container-door">
+          <div class="door-bar"></div>
+          <div class="door-bar lock"></div>
+          <div class="door-bar"></div>
+          <div class="door-status-text">{{ 'OPEN' if app.running else 'SEALED' }}</div>
+        </div>
       </div>
+      {% endif %}
+      {% endfor %}
     </div>
 
-    <!-- Tab: All Projects -->
-    <div id="tab-projects" class="tab-content hidden">
-      <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3" id="project-grid">
-        <div class="col-span-full text-center py-12 text-slate-500">Loading projects…</div>
-      </div>
+    <div class="site-footer">
+      <a href="https://calvinloveland.github.io/megarepo/" target="_blank">📖 DOCS SITE</a>
+      · shsw.dev ·
+      <a href="#" onclick="event.preventDefault();refreshAll()">REFRESH</a>
+      <br>
+      <span style="font-size:9px;color:rgba(255,255,255,0.12)">🚀 The launcher is the starting point for all megarepo web-based work.</span>
     </div>
-
-    <!-- Tab: Docs -->
-    <div id="tab-docs" class="tab-content hidden">
-      <div class="max-w-3xl mx-auto" id="doc-viewer">
-        <div class="text-center py-12 text-slate-500">Select a project to view its README.</div>
-      </div>
-    </div>
-
-    <!-- Footer -->
-    <footer class="mt-12 text-center text-xs text-slate-600">
-      <a href="https://calvinloveland.github.io/megarepo/" target="_blank" class="text-slate-500 hover:text-slate-300 underline">📖 Docs Site</a>
-      · shsw.dev
-      · <a href="#" onclick="refreshAll()" class="text-slate-500 hover:text-slate-300 underline">Refresh</a>
-      · <span id="running-count" class="text-slate-500"></span>
-      <p class="mt-2 text-slate-700">🚀 The launcher is the starting point for all megarepo web-based work.</p>
-    </footer>
   </div>
+</div>
 
-  <script>
-    // ── Tab switching ──
-    document.querySelectorAll('.tab-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        document.querySelectorAll('.tab-content').forEach(t => t.classList.add('hidden'));
-        document.getElementById('tab-' + btn.dataset.tab).classList.remove('hidden');
-        if (btn.dataset.tab === 'projects') loadProjects();
-        if (btn.dataset.tab === 'docs') loadDocList();
-      });
+<!-- ═══ TAB: ALL PROJECTS ═══ -->
+<div id="tab-projects" class="tab-content hidden">
+  <div class="content-slate">
+    <div class="inner">
+      <div style="margin-bottom:20px">
+        <h2 style="font-size:14px;font-weight:600;color:rgba(255,255,255,0.6);letter-spacing:2px;text-transform:uppercase">ALL PROJECTS</h2>
+      </div>
+      <div style="display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(300px,1fr))" id="project-grid">
+        <div style="text-align:center;padding:40px;color:rgba(255,255,255,0.3);grid-column:1/-1">LOADING PROJECTS…</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ TAB: DOCS ═══ -->
+<div id="tab-docs" class="tab-content hidden">
+  <div class="content-slate">
+    <div class="inner">
+      <div style="margin-bottom:20px">
+        <h2 style="font-size:14px;font-weight:600;color:rgba(255,255,255,0.6);letter-spacing:2px;text-transform:uppercase">PROJECT DOCS</h2>
+      </div>
+      <div class="doc-viewer" id="doc-viewer">
+        <div style="text-align:center;padding:40px;color:rgba(255,255,255,0.3)">Select a project to view its README.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════
+// Container ID generator (deterministic from app ID)
+// ═══════════════════════════════════════════
+function containerId(appId) {
+  const owner = appId.slice(0,4).toUpperCase().padEnd(4,'U');
+  let hash = 0x1234;
+  for (let i = 0; i < appId.length; i++) {
+    hash = ((hash * 31) + appId.charCodeAt(i)) & 0xffff;
+  }
+  return owner + ' ' + String(Math.abs(hash)).padStart(7,'0');
+}
+
+// Generate container IDs for all cards
+document.querySelectorAll('.container-card').forEach(card => {
+  const id = card.dataset.appId;
+  const el = document.getElementById('cid-' + id);
+  if (el) el.textContent = containerId(id);
+});
+
+// ═══════════════════════════════════════════
+// SCENES
+// ═══════════════════════════════════════════
+const SCENES = [
+  { id:'ship',  name:'CARGO SHIP',    icon:'🚢', disturb:'ROCK THE BOAT!',  msg:'🌊 Ship rocking! Hold on!' },
+  { id:'train', name:'RAIL YARD',     icon:'🚂', disturb:'DERAIL!',         msg:'💥 Train derailed! Cargo scattered!' },
+  { id:'crane', name:'PORT CRANE',    icon:'🏗️', disturb:'SWING LOAD!',     msg:'🏗️ Load swinging! Watch out below!' },
+  { id:'depot', name:'CONTAINER DEPOT', icon:'📦', disturb:'TOPPLE!',       msg:'📦 Containers toppling! Crash!' },
+];
+
+let currentScene = null;
+let disturbing = false;
+
+function changeScene() {
+  const scene = SCENES[Math.floor(Math.random() * SCENES.length)];
+  currentScene = scene;
+  const wrap = document.getElementById('sceneWrap');
+  const bg = document.getElementById('sceneBg');
+
+  // Remove all scene classes and re-add
+  wrap.className = 'scene-wrap scene-' + scene.id;
+  if (scene.id === 'ship') {
+    // Ensure ship deck is present
+    if (!bg.querySelector('.ship-deck')) {
+      const deck = document.createElement('div'); deck.className = 'ship-deck';
+      bg.innerHTML = ''; bg.appendChild(deck);
+    }
+  } else {
+    bg.innerHTML = '';
+  }
+
+  document.getElementById('sceneName').textContent = scene.icon + ' ' + scene.name;
+  document.getElementById('disturbBtn').textContent = '⚠ ' + scene.disturb;
+}
+
+function disturbScene() {
+  if (disturbing || !currentScene) return;
+  disturbing = true;
+  const btn = document.getElementById('disturbBtn');
+  const wrap = document.getElementById('sceneWrap');
+  btn.disabled = true;
+
+  // Add disturbed class
+  wrap.classList.add('disturbed');
+
+  // Show toast message
+  const toast = document.createElement('div');
+  toast.style.cssText = `
+    position:fixed;top:20px;left:50%;transform:translateX(-50%);
+    z-index:9999;padding:10px 24px;border-radius:4px;
+    background:rgba(255,100,50,0.15);border:1px solid rgba(255,100,50,0.3);
+    color:rgba(255,150,100,0.9);font-size:13px;font-weight:600;
+    letter-spacing:1px;font-family:'Courier New',monospace;
+    animation: fadeSlide 0.3s ease-out;
+    pointer-events:none;
+  `;
+  toast.textContent = currentScene.msg;
+  document.body.appendChild(toast);
+  setTimeout(() => { toast.style.opacity = '0'; toast.style.transition = 'opacity 0.5s'; }, 2000);
+  setTimeout(() => toast.remove(), 2500);
+
+  // Reset after animation
+  const duration = currentScene.id === 'crane' ? 4000 : (currentScene.id === 'depot' ? 3000 : 2500);
+  setTimeout(() => {
+    wrap.classList.remove('disturbed');
+    btn.disabled = false;
+    disturbing = false;
+  }, duration);
+}
+
+// ═══════════════════════════════════════════
+// TAB SWITCHING
+// ═══════════════════════════════════════════
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.add('hidden'));
+    document.getElementById('tab-' + btn.dataset.tab).classList.remove('hidden');
+    if (btn.dataset.tab === 'projects') loadProjects();
+    if (btn.dataset.tab === 'docs') loadDocList();
+  });
+});
+
+// ═══════════════════════════════════════════
+// WEB APPS (Container updates)
+// ═══════════════════════════════════════════
+function updateCard(appId, state, url) {
+  const card = document.querySelector(`[data-app-id="${appId}"]`);
+  if (!card) return;
+  const dot = card.querySelector('.status-dot-card');
+  const doorText = card.querySelector('.door-status-text');
+  const actions = card.querySelector('.container-actions');
+
+  dot.className = 'status-dot-card ' + state;
+  card.dataset.running = state === 'running' ? 'true' : 'false';
+  doorText.textContent = state === 'running' ? 'OPEN' : 'SEALED';
+
+  if (state === 'running') {
+    actions.innerHTML = `<a href="${url}" target="_blank" class="btn-open">OPEN →</a>`;
+  } else if (state === 'loading') {
+    actions.innerHTML = `<button class="btn-start loading">⟳ STARTING</button>`;
+  } else {
+    actions.innerHTML = `<button class="btn-start" onclick="startApp('${appId}')">▶ START</button>`;
+  }
+  updateRunningCount();
+}
+
+function updateRunningCount() {
+  const n = document.querySelectorAll('[data-running="true"]').length;
+  const el = document.getElementById('runningCount');
+  if (el) el.textContent = n;
+}
+
+async function startApp(appId) {
+  updateCard(appId, 'loading', null);
+  try {
+    const res = await fetch(`/api/start/${appId}`, {method:'POST'});
+    const data = await res.json();
+    if (data.ok && data.url) {
+      updateCard(appId, 'running', data.url);
+    } else {
+      updateCard(appId, 'stopped');
+      if (data.error) alert('FAILED: ' + data.error);
+    }
+  } catch(e) {
+    updateCard(appId, 'stopped');
+    alert('NETWORK ERROR');
+  }
+}
+
+async function refreshAll() {
+  try {
+    const res = await fetch('/api/apps');
+    const apps = await res.json();
+    apps.forEach(a => {
+      if (a.id !== 'launcher') {
+        updateCard(a.id, a.running ? 'running' : 'stopped', a.url);
+      }
     });
+  } catch(e) {}
+}
 
-    // ── Web Apps status ──
-    function statusClass(s) { return s === 'running' ? 'bg-emerald-400' : s === 'loading' ? 'bg-amber-400 status-dot-loading' : 'bg-slate-600'; }
-    function statusLabel(s) { return s === 'running' ? 'Running' : s === 'loading' ? 'Starting…' : 'Stopped'; }
+setInterval(refreshAll, 10000);
+updateRunningCount();
 
-    function updateCard(appId, state, url) {
-      const card = document.querySelector(`[data-app-id="${appId}"]`);
-      if (!card) return;
-      const dot = card.querySelector('.status-dot');
-      const label = card.querySelector('.status-label');
-      const actions = card.querySelector('.mt-auto');
-      dot.className = `status-dot w-2.5 h-2.5 rounded-full inline-block ${statusClass(state)}`;
-      dot.dataset.state = state;
-      label.textContent = statusLabel(state);
-      label.dataset.state = state;
-      card.dataset.running = state === 'running' ? 'true' : 'false';
-      if (state === 'running') {
-        actions.innerHTML = `<a href="${url}" target="_blank" class="flex-1 text-center px-3 py-2 rounded-lg text-sm font-medium bg-emerald-600 hover:bg-emerald-500 text-white transition-colors">Open →</a>`;
-      } else {
-        actions.innerHTML = `<button onclick="startApp('${appId}')" class="flex-1 px-3 py-2 rounded-lg text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white transition-colors flex items-center justify-center gap-2"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 3l14 9-14 9V3z"/></svg> Start</button>`;
-      }
-      updateRunningCount();
-    }
+// ═══════════════════════════════════════════
+// PROJECTS TAB
+// ═══════════════════════════════════════════
+let projectsCache = null;
 
-    function updateRunningCount() {
-      const n = document.querySelectorAll('[data-running="true"]').length;
-      const el = document.getElementById('running-count');
-      if (el) el.textContent = n + ' running';
-    }
+async function loadProjects() {
+  const grid = document.getElementById('project-grid');
+  if (projectsCache) { renderProjects(projectsCache); return; }
+  try {
+    const res = await fetch('/api/projects');
+    projectsCache = await res.json();
+    renderProjects(projectsCache);
+  } catch(e) {
+    grid.innerHTML = '<div style="text-align:center;padding:40px;color:#ef4444;grid-column:1/-1">FAILED TO LOAD PROJECTS</div>';
+  }
+}
 
-    async function startApp(appId) {
-      updateCard(appId, 'loading', null);
-      try {
-        const res = await fetch(`/api/start/${appId}`,{method:'POST'});
-        const data = await res.json();
-        data.ok && data.url ? updateCard(appId,'running',data.url) : (updateCard(appId,'stopped'), alert(data.error||'Failed'));
-      } catch(e) { updateCard(appId,'stopped'); alert('Network error'); }
-    }
-
-    async function refreshAll() {
-      try {
-        const res = await fetch('/api/apps');
-        const apps = await res.json();
-        apps.forEach(a => { if(a.id!=='launcher') updateCard(a.id,a.running?'running':'stopped',a.url); });
-      } catch(e) {}
-    }
-    setInterval(refreshAll, 10000);
-    updateRunningCount();
-
-    // ── Projects tab ──
-    let projectsCache = null;
-
-    async function loadProjects() {
-      const grid = document.getElementById('project-grid');
-      if (projectsCache) { renderProjects(projectsCache); return; }
-      try {
-        const res = await fetch('/api/projects');
-        projectsCache = await res.json();
-        renderProjects(projectsCache);
-      } catch(e) { grid.innerHTML = '<div class="col-span-full text-center py-12 text-red-400">Failed to load projects.</div>'; }
-    }
-
-    function renderProjects(projects) {
-      const grid = document.getElementById('project-grid');
-      if (!projects.length) { grid.innerHTML = '<div class="col-span-full text-center py-12 text-slate-500">No projects found.</div>'; return; }
-      const typeIcons = { game:'🎮', bot:'🤖', devtool:'🔧', config:'❄️', docs:'📖' };
-      grid.innerHTML = projects.map(p => `
-        <div class="card-enter bg-slate-900 border border-slate-800 rounded-xl p-5 flex flex-col relative overflow-hidden">
-          <div class="flex items-start gap-3 mb-3">
-            <span class="text-3xl shrink-0 mt-0.5">${p.icon || typeIcons[p.type] || '📦'}</span>
-            <div class="min-w-0">
-              <h2 class="text-base font-semibold text-slate-100 truncate">${p.name}</h2>
-              <p class="text-xs text-slate-400 mt-0.5">${p.description||''}</p>
-            </div>
+function renderProjects(projects) {
+  const grid = document.getElementById('project-grid');
+  if (!projects.length) {
+    grid.innerHTML = '<div style="text-align:center;padding:40px;color:rgba(255,255,255,0.3);grid-column:1/-1">NO PROJECTS FOUND</div>';
+    return;
+  }
+  const typeIcons = { game:'🎮', bot:'🤖', devtool:'🔧', config:'❄️', docs:'📖' };
+  grid.innerHTML = projects.map((p, i) => `
+    <div class="project-card card-enter" style="animation-delay:${i*0.03}s">
+      <div style="display:flex;align-items:flex-start;gap:10px">
+        <span style="font-size:24px">${p.icon || typeIcons[p.type] || '📦'}</span>
+        <div style="min-width:0">
+          <h3>${p.name}</h3>
+          <p>${p.description || ''}</p>
+          <div class="meta">
+            <span>${p.type || 'project'}</span>
+            ${p.has_tests ? '<span class="has-tests">✓ TESTS</span>' : ''}
           </div>
-          <div class="text-xs text-slate-500 font-mono mb-3">
-            <span class="px-1.5 py-0.5 rounded bg-slate-800 text-slate-400">${p.type||'project'}</span>
-            ${p.has_tests ? '<span class="ml-1 px-1.5 py-0.5 rounded bg-green-900 text-green-300">has tests</span>' : ''}
-          </div>
-          <div class="mt-auto flex gap-2">
-            <button onclick="showReadme('${p.id}')" class="flex-1 px-3 py-2 rounded-lg text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white transition-colors">📖 README</button>
-            ${p.url ? `<a href="${p.url}" target="_blank" class="flex-1 text-center px-3 py-2 rounded-lg text-sm font-medium bg-slate-700 hover:bg-slate-600 text-slate-200 transition-colors">Open</a>` : ''}
+          <div class="actions">
+            <button onclick="showReadme('${p.id}')">📖 README</button>
+            ${p.url ? `<a href="${p.url}" target="_blank">OPEN</a>` : ''}
           </div>
         </div>
-      `).join('');
-    }
+      </div>
+    </div>
+  `).join('');
+}
 
-    // ── Docs / README viewer ──
-    async function showReadme(projectId) {
-      const viewer = document.getElementById('doc-viewer');
-      viewer.innerHTML = '<div class="text-center py-12 text-slate-500">Loading README…</div>';
-      // Switch to docs tab
-      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-      document.querySelector('[data-tab="docs"]').classList.add('active');
-      document.querySelectorAll('.tab-content').forEach(t => t.classList.add('hidden'));
-      document.getElementById('tab-docs').classList.remove('hidden');
+// ═══════════════════════════════════════════
+// DOCS / README VIEWER
+// ═══════════════════════════════════════════
+async function showReadme(projectId) {
+  const viewer = document.getElementById('doc-viewer');
+  viewer.innerHTML = '<div style="text-align:center;padding:40px;color:rgba(255,255,255,0.3)">LOADING README…</div>';
+  // Switch to docs tab
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelector('[data-tab="docs"]').classList.add('active');
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.add('hidden'));
+  document.getElementById('tab-docs').classList.remove('hidden');
 
-      try {
-        const res = await fetch(`/api/projects/${projectId}/readme`);
-        const data = await res.json();
-        if (data.ok) {
-          viewer.innerHTML = `<div class="bg-slate-900 border border-slate-800 rounded-xl p-6">
-            <h2 class="text-lg font-semibold text-slate-100 mb-4">${data.name}</h2>
-            <pre class="text-sm text-slate-300 leading-relaxed">${escapeHtml(data.content)}</pre>
-          </div>`;
-        } else {
-          viewer.innerHTML = `<div class="text-center py-12 text-yellow-400">${data.error||'Could not load README.'}</div>`;
-        }
-      } catch(e) {
-        viewer.innerHTML = '<div class="text-center py-12 text-red-400">Failed to load README.</div>';
-      }
-    }
+  // Load doc list if not loaded
+  if (!projectsCache) {
+    try { const r = await fetch('/api/projects'); projectsCache = await r.json(); } catch(e) { return; }
+  }
 
-    async function loadDocList() {
-      const viewer = document.getElementById('doc-viewer');
-      if (!projectsCache) {
-        try {
-          const res = await fetch('/api/projects');
-          projectsCache = await res.json();
-        } catch(e) { return; }
-      }
-      const withReadme = projectsCache.filter(p => p.has_readme);
-      viewer.innerHTML = `<div class="bg-slate-900 border border-slate-800 rounded-xl p-6">
-        <h2 class="text-lg font-semibold text-slate-100 mb-4">📖 Project READMEs</h2>
-        <div class="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
-          ${withReadme.map(p => `
-            <button onclick="showReadme('${p.id}')" class="text-left px-4 py-3 rounded-lg bg-slate-800 hover:bg-slate-700 transition-colors">
-              <span class="text-lg mr-2">${p.icon||'📄'}</span>
-              <span class="text-sm text-slate-200">${p.name}</span>
-              <span class="text-xs text-slate-500 block mt-0.5">${p.description||''}</span>
-            </button>
-          `).join('')}
-        </div>
-      </div>`;
+  try {
+    const res = await fetch(`/api/projects/${projectId}/readme`);
+    const data = await res.json();
+    if (data.ok) {
+      viewer.innerHTML = `
+        <h2>${data.name}</h2>
+        <pre>${escapeHtml(data.content)}</pre>
+      `;
+    } else {
+      viewer.innerHTML = `<div style="text-align:center;padding:40px;color:#eab308">${data.error || 'COULD NOT LOAD README.'}</div>`;
     }
+  } catch(e) {
+    viewer.innerHTML = '<div style="text-align:center;padding:40px;color:#ef4444">FAILED TO LOAD README.</div>';
+  }
+}
 
-    function escapeHtml(text) {
-      const div = document.createElement('div');
-      div.textContent = text;
-      return div.innerHTML;
-    }
-  </script>
+async function loadDocList() {
+  const viewer = document.getElementById('doc-viewer');
+  if (!projectsCache) {
+    try { const r = await fetch('/api/projects'); projectsCache = await r.json(); } catch(e) { return; }
+  }
+  const withReadme = projectsCache.filter(p => p.has_readme);
+  if (!withReadme.length) {
+    viewer.innerHTML = '<div style="text-align:center;padding:40px;color:rgba(255,255,255,0.3)">NO PROJECTS WITH READMES FOUND.</div>';
+    return;
+  }
+  viewer.innerHTML = `
+    <h2>📖 PROJECT READMES</h2>
+    <div style="display:grid;gap:8px;grid-template-columns:repeat(auto-fill,minmax(250px,1fr))">
+      ${withReadme.map(p => `
+        <button class="doc-list-btn" onclick="showReadme('${p.id}')">
+          <div class="name">${p.icon || '📄'} ${p.name}</div>
+          <div class="desc">${p.description || ''}</div>
+        </button>
+      `).join('')}
+    </div>
+  `;
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+// ═══════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════
+document.getElementById('totalCount').textContent = document.querySelectorAll('.container-card').length;
+changeScene();
+</script>
 </body>
 </html>

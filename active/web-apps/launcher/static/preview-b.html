@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Preview B — Cargo Playful</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: #0f172a; min-height: 100vh; overflow-x: hidden;
+    color: #e2e8f0;
+  }
+
+  /* ── Scene base ── */
+  .scene {
+    position: relative; min-height: 100vh; overflow: hidden;
+    display: flex; flex-direction: column;
+  }
+  .scene-bg {
+    position: absolute; inset: 0; overflow: hidden;
+    pointer-events: none;
+  }
+
+  /* ── Scene: SHIP (pastel ocean) ── */
+  .scene-ship .scene-bg {
+    background: linear-gradient(180deg,
+      #1e3a5f 0%, #2a5298 25%, #4a7ab5 45%, #6b9ac9 55%, #3a7a9a 65%, #1a4a6a 100%);
+  }
+  .scene-ship .scene-bg::before {
+    content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 35%;
+    background: radial-gradient(ellipse at 30% 100%, rgba(255,255,255,0.06) 0%, transparent 60%),
+                radial-gradient(ellipse at 70% 100%, rgba(255,255,255,0.04) 0%, transparent 50%);
+    animation: swell 6s ease-in-out infinite;
+  }
+  .scene-ship .scene-bg::after {
+    content: '🚢'; position: absolute; bottom: 25%; right: 15%; font-size: 120px;
+    opacity: 0.15; transform: rotate(-3deg);
+    animation: float 4s ease-in-out infinite;
+  }
+  @keyframes swell { 0%,100%{transform:scaleY(1) translateY(0)} 50%{transform:scaleY(1.05) translateY(-5px)} }
+  @keyframes float { 0%,100%{transform:rotate(-3deg) translateY(0)} 50%{transform:rotate(-3deg) translateY(-8px)} }
+
+  /* ── Scene: TRAIN (sunset landscape) ── */
+  .scene-train .scene-bg {
+    background: linear-gradient(180deg,
+      #2d1b4e 0%, #5a3d5c 20%, #c4845a 40%, #e8b86a 50%, #7a8a4a 55%, #4a5a3a 100%);
+  }
+  .scene-train .scene-bg::before {
+    content: ''; position: absolute; bottom: 80px; left: 0; right: 0; height: 6px;
+    background: repeating-linear-gradient(90deg, #8a7a5a 0, #8a7a5a 20px, #a09070 20px, #a09070 22px, transparent 22px, transparent 30px);
+    opacity: 0.5;
+  }
+  .scene-train .scene-bg::after {
+    content: '🚂'; position: absolute; bottom: 85px; left: 5%; font-size: 72px;
+    opacity: 0.2; animation: chug 1s steps(2) infinite;
+  }
+  @keyframes chug { 0%{transform:translateX(0)} 100%{transform:translateX(10px)} }
+
+  /* ── Scene: CRANE (bright port) ── */
+  .scene-crane .scene-bg {
+    background: linear-gradient(180deg,
+      #4a90d9 0%, #6ab0f0 30%, #87ceeb 50%, #b0d4e0 60%, #8a9a7a 65%, #6a7a5a 100%);
+  }
+  .scene-crane .scene-bg::before {
+    content: '🏗️'; position: absolute; top: 5%; left: 50%; font-size: 160px;
+    opacity: 0.12; transform: translateX(-50%);
+  }
+  .scene-crane .scene-bg::after {
+    content: ''; position: absolute; top: 15%; left: 50%; width: 4px; height: 40%;
+    background: linear-gradient(to bottom, rgba(200,200,200,0.2), transparent);
+    transform-origin: top center;
+    animation: craneSwing 5s ease-in-out infinite;
+  }
+  @keyframes craneSwing { 0%,100%{transform:rotate(-3deg)} 50%{transform:rotate(3deg)} }
+
+  /* ── Scene: DEPOT (night city) ── */
+  .scene-depot .scene-bg {
+    background: linear-gradient(180deg, #0a0e1a 0%, #1a1a2e 30%, #2a2a3e 50%, #1a1a2a 100%);
+  }
+  .scene-depot .scene-bg::before {
+    content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 60%;
+    background:
+      repeating-linear-gradient(90deg, transparent 0, transparent 60px, rgba(255,200,50,0.03) 60px, rgba(255,200,50,0.03) 62px, transparent 62px, transparent 120px),
+      repeating-linear-gradient(0deg, transparent 0, transparent 30px, rgba(255,255,255,0.02) 30px, rgba(255,255,255,0.02) 31px);
+  }
+  .scene-depot .scene-bg::after {
+    content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 3px;
+    background: repeating-linear-gradient(90deg, #ffcc00 0, #ffcc00 4px, transparent 4px, transparent 20px);
+    opacity: 0.15;
+  }
+
+  /* ── Container card (playful style) ── */
+  .container-grid {
+    display: grid; gap: 16px; padding: 24px;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    position: relative; z-index: 10; max-width: 1400px; margin: 0 auto;
+    width: 100%;
+  }
+
+  .container-card {
+    position: relative;
+    border-radius: 12px;
+    padding: 20px;
+    min-height: 140px;
+    display: flex; flex-direction: column;
+    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    cursor: default;
+    overflow: hidden;
+    border: 2px solid rgba(255,255,255,0.1);
+  }
+  .container-card:hover {
+    transform: translateY(-4px) scale(1.02);
+    border-color: rgba(255,255,255,0.2);
+  }
+
+  /* Color variants with glass-like backgrounds */
+  .card-blue {
+    background: linear-gradient(135deg, rgba(59,130,246,0.25), rgba(37,99,235,0.15));
+    backdrop-filter: blur(8px);
+    border-color: rgba(59,130,246,0.3);
+  }
+  .card-blue:hover { background: linear-gradient(135deg, rgba(59,130,246,0.35), rgba(37,99,235,0.25)); }
+
+  .card-orange {
+    background: linear-gradient(135deg, rgba(251,146,60,0.25), rgba(234,88,12,0.15));
+    backdrop-filter: blur(8px);
+    border-color: rgba(251,146,60,0.3);
+  }
+  .card-orange:hover { background: linear-gradient(135deg, rgba(251,146,60,0.35), rgba(234,88,12,0.25)); }
+
+  .card-green {
+    background: linear-gradient(135deg, rgba(74,222,128,0.2), rgba(34,197,94,0.12));
+    backdrop-filter: blur(8px);
+    border-color: rgba(74,222,128,0.25);
+  }
+  .card-green:hover { background: linear-gradient(135deg, rgba(74,222,128,0.3), rgba(34,197,94,0.2)); }
+
+  .card-teal {
+    background: linear-gradient(135deg, rgba(45,212,191,0.2), rgba(20,184,166,0.12));
+    backdrop-filter: blur(8px);
+    border-color: rgba(45,212,191,0.25);
+  }
+  .card-teal:hover { background: linear-gradient(135deg, rgba(45,212,191,0.3), rgba(20,184,166,0.2)); }
+
+  .card-gray {
+    background: linear-gradient(135deg, rgba(148,163,184,0.2), rgba(100,116,139,0.12));
+    backdrop-filter: blur(8px);
+    border-color: rgba(148,163,184,0.25);
+  }
+  .card-gray:hover { background: linear-gradient(135deg, rgba(148,163,184,0.3), rgba(100,116,139,0.2)); }
+
+  /* Container icon badge */
+  .card-icon-badge {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 13px; font-weight: 600; margin-bottom: 8px;
+  }
+  .card-icon-badge .icon-bg {
+    width: 36px; height: 36px; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+    background: rgba(255,255,255,0.1);
+  }
+  .card-icon-badge .card-id {
+    font-size: 10px; color: rgba(255,255,255,0.4);
+    font-family: 'Courier New', monospace;
+    letter-spacing: 0.5px;
+    background: rgba(0,0,0,0.2); padding: 2px 6px; border-radius: 4px;
+  }
+
+  .card-content {
+    flex: 1; display: flex; flex-direction: column;
+  }
+  .card-content h3 {
+    font-size: 15px; font-weight: 600; color: rgba(255,255,255,0.95);
+    margin-bottom: 2px;
+  }
+  .card-content .card-type {
+    font-size: 10px; color: rgba(255,255,255,0.4);
+    font-family: 'Courier New', monospace;
+    text-transform: uppercase; letter-spacing: 1px;
+    margin-bottom: 6px;
+  }
+  .card-content p {
+    font-size: 12px; color: rgba(255,255,255,0.6);
+    line-height: 1.4; flex: 1;
+  }
+
+  .card-actions {
+    display: flex; gap: 6px; margin-top: 12px;
+  }
+  .card-actions a, .card-actions button {
+    font-size: 11px; font-weight: 500;
+    padding: 8px 14px; border-radius: 8px;
+    border: none; cursor: pointer; transition: all 0.15s;
+    text-decoration: none; flex: 1; text-align: center;
+    font-family: inherit;
+  }
+  .card-actions .btn-open {
+    background: rgba(255,255,255,0.12);
+    color: white;
+  }
+  .card-actions .btn-open:hover { background: rgba(255,255,255,0.2); }
+  .card-actions .btn-start {
+    background: rgba(34,197,94,0.25);
+    color: #4ade80;
+  }
+  .card-actions .btn-start:hover { background: rgba(34,197,94,0.35); }
+
+  /* Status chip */
+  .status-chip {
+    position: absolute; top: 12px; right: 12px;
+    font-size: 10px; font-weight: 600; letter-spacing: 0.5px;
+    padding: 3px 10px; border-radius: 20px;
+    text-transform: uppercase;
+  }
+  .status-chip.running {
+    background: rgba(74,222,128,0.2); color: #4ade80;
+    border: 1px solid rgba(74,222,128,0.3);
+  }
+  .status-chip.stopped {
+    background: rgba(148,163,184,0.15); color: #94a3b8;
+    border: 1px solid rgba(148,163,184,0.2);
+  }
+
+  /* Decorative container lines */
+  .container-card .deco-lines {
+    position: absolute; bottom: 0; left: 0; right: 0; height: 3px;
+    background: repeating-linear-gradient(90deg,
+      rgba(255,255,255,0.08) 0, rgba(255,255,255,0.08) 8px,
+      transparent 8px, transparent 16px);
+  }
+
+  /* Header */
+  .scene-header {
+    position: relative; z-index: 20;
+    padding: 20px 24px 8px;
+    display: flex; align-items: center; gap: 12px;
+    flex-wrap: wrap;
+  }
+  .scene-header h1 {
+    font-size: 22px; font-weight: 700;
+    background: linear-gradient(135deg, #fbbf24, #f59e0b);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .scene-header .scene-badge {
+    font-size: 11px; padding: 3px 12px; border-radius: 20px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.08);
+    color: rgba(255,255,255,0.5);
+  }
+  .scene-header .refresh-btn {
+    margin-left: auto;
+    font-size: 11px; padding: 6px 14px; border-radius: 8px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.08);
+    color: rgba(255,255,255,0.5); cursor: pointer;
+    transition: all 0.15s;
+    font-family: inherit;
+  }
+  .scene-header .refresh-btn:hover {
+    background: rgba(255,255,255,0.1);
+    color: rgba(255,255,255,0.8);
+  }
+
+  .running-bar {
+    position: relative; z-index: 20;
+    padding: 0 24px 12px;
+    font-size: 11px; color: rgba(255,255,255,0.35);
+  }
+  .running-bar .count-highlight { color: #4ade80; }
+
+  /* Responsive */
+  @media (max-width: 640px) {
+    .container-grid { grid-template-columns: 1fr; padding: 16px; gap: 12px; }
+    .scene-header { padding: 16px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="scene" id="sceneWrap">
+  <div class="scene-bg" id="sceneBg"></div>
+  
+  <div class="scene-header">
+    <h1>shsw.dev</h1>
+    <span class="scene-badge" id="sceneBadge">🚂 Rail Yard</span>
+    <button class="refresh-btn" onclick="randomScene()">⟳ Change Scene</button>
+  </div>
+  <div class="running-bar">
+    <span class="count-highlight" id="runningCount">0</span> of <span id="totalCount">15</span> containers in transit
+  </div>
+
+  <div class="container-grid" id="containerGrid">
+    <!-- Cards injected -->
+  </div>
+</div>
+
+<script>
+const apps = [
+  {id:'momos',name:'Momos (Cozi)',desc:'Family command center',icon:'🏠',color:'blue',running:true,url:'https://cozi.shsw.dev',type:'flask'},
+  {id:'parambulator',name:'Parambulator',desc:'Seating chart planner',icon:'💺',color:'blue',running:true,url:'https://parambulator.shsw.dev',type:'flask'},
+  {id:'vernissage',name:'Vernissage',desc:'Art gallery browser',icon:'🎨',color:'teal',running:false,url:null,type:'nextjs'},
+  {id:'holdem',name:"Let's Hold 'em Together",desc:'Multiplayer poker',icon:'🃏',color:'blue',running:true,url:'https://holdem.shsw.dev',type:'flask'},
+  {id:'wizard-fight',name:'Wizard Fight',desc:'Wizard dueling game',icon:'🧙',color:'blue',running:true,url:'https://wizard.shsw.dev',type:'flask'},
+  {id:'powder-play',name:'Powder Play',desc:'Material server',icon:'⚗️',color:'orange',running:true,url:'https://powder-api.shsw.dev',type:'node'},
+  {id:'hivemind',name:'Hivemind LLM',desc:'LLM coordinator',icon:'🧠',color:'blue',running:true,url:'https://hivemind-api.shsw.dev',type:'flask'},
+  {id:'operationalize',name:'Operationalize',desc:'Workflow tool',icon:'⚙️',color:'blue',running:true,url:'https://ops.shsw.dev',type:'flask'},
+  {id:'trading-cards',name:'Ultimate TCG',desc:'Deck builder',icon:'⚔️',color:'blue',running:true,url:'https://tcg.shsw.dev',type:'flask'},
+  {id:'conway-war',name:"Conway's Game of War",desc:'Life meets battle',icon:'🧬',color:'blue',running:true,url:'https://conway.shsw.dev',type:'flask'},
+  {id:'code-reviewdle',name:'Code Reviewdle',desc:'Code review puzzle',icon:'🔍',color:'blue',running:true,url:'https://codereviewdle.shsw.dev',type:'flask'},
+  {id:'sub-day',name:'Sub Day Generator',desc:'Substitute plans',icon:'🍎',color:'blue',running:false,url:null,type:'flask'},
+  {id:'hivemind-ui',name:'Hivemind LLM UI',desc:'Frontend',icon:'💬',color:'green',running:true,url:'https://hivemind.shsw.dev',type:'vite'},
+  {id:'wizard-ui',name:'Wizard Fight UI',desc:'React frontend',icon:'🪄',color:'green',running:true,url:'https://wizard-app.shsw.dev',type:'static'},
+  {id:'powder-ui',name:'Powder Play UI',desc:'Game frontend',icon:'✨',color:'green',running:false,url:null,type:'vite'},
+];
+
+const scenes = [
+  { id:'ship', name:'🚢 Port Terminal', cls:'scene-ship' },
+  { id:'train', name:'🚂 Rail Yard', cls:'scene-train' },
+  { id:'crane', name:'🏗️ Container Crane', cls:'scene-crane' },
+  { id:'depot', name:'🌙 Night Depot', cls:'scene-depot' },
+];
+
+function randomScene() {
+  const scene = scenes[Math.floor(Math.random() * scenes.length)];
+  const wrap = document.getElementById('sceneWrap');
+  wrap.className = 'scene ' + scene.cls;
+  document.getElementById('sceneBadge').textContent = scene.name;
+}
+
+function renderContainers() {
+  const grid = document.getElementById('containerGrid');
+  let runningCount = 0;
+  grid.innerHTML = apps.map(a => {
+    if (a.running) runningCount++;
+    const typeColors = { flask:'blue', node:'orange', vite:'green', nextjs:'teal', static:'gray' };
+    const color = a.color || typeColors[a.type] || 'gray';
+    const containerId = 'CXR-' + Math.floor(10000 + Math.random() * 90000);
+    const statusClass = a.running ? 'running' : 'stopped';
+    const statusLabel = a.running ? 'In Transit' : 'Docked';
+    const actions = a.running
+      ? `<a href="${a.url}" target="_blank" class="btn-open">Open →</a>`
+      : `<button class="btn-start">▶ Dispatch</button>`;
+    return `
+      <div class="container-card card-${color}">
+        <div class="deco-lines"></div>
+        <div class="status-chip ${statusClass}">${statusLabel}</div>
+        <div class="card-icon-badge">
+          <span class="icon-bg">${a.icon}</span>
+          <span class="card-id">${containerId}</span>
+        </div>
+        <div class="card-content">
+          <h3>${a.name}</h3>
+          <div class="card-type">${a.type.toUpperCase()} · ${a.subdomain || 'port ' + a.port}</div>
+          <p>${a.desc}</p>
+          <div class="card-actions">${actions}</div>
+        </div>
+      </div>
+    `;
+  }).join('');
+  document.getElementById('runningCount').textContent = runningCount;
+  document.getElementById('totalCount').textContent = apps.length;
+}
+
+renderContainers();
+randomScene();
+</script>
+</body>
+</html>
