@@ -29,6 +29,10 @@ EXCLUDED_PARTS = {
     ".cache",
     ".vscode-test",
     "archive",
+    # Runtime data dirs and generated artifacts — not project docs
+    "data",
+    "artifacts",
+    "tests",
 }
 LINK_PATTERN = re.compile(r"(!?\[[^\]]*\]\()([^\)]+)(\))")
 
@@ -127,9 +131,9 @@ def relative_site_link(from_output_path: Path, to_output_path: Path) -> str:
     if relative_file == "index.md":
         return "./"
     if relative_file.endswith("/index.md"):
-        return relative_file[: -len("index.md")]
+        return relative_file
     if relative_file.endswith(".md"):
-        return relative_file[: -len(".md")] + "/"
+        return relative_file
     return relative_file
 
 

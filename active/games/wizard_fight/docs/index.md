@@ -11,14 +11,12 @@ A web-based wizard duel game where players research spells via LLMs and battle i
 ## Quick Start
 
 ### One Command (Backend + Frontend)
-From [`active/games/wizard_fight/`](..):
 
-- `./scripts/dev.sh`
+- `./scripts/dev.sh` (from the project root)
 
 ### One Command (Backend + Frontend + Ollama)
-From [`active/games/wizard_fight/`](..):
 
-- `./scripts/start_all.sh`
+- `./scripts/start_all.sh` (from the project root)
 
 Defaults:
 - Backend: `5055`
@@ -28,7 +26,6 @@ Override with env vars:
 - `WIZARD_FIGHT_PORT=6060 WIZARD_FIGHT_FRONTEND_PORT=6061 ./scripts/dev.sh`
 
 ### Backend
-From [`active/games/wizard_fight/`](..):
 
 1. Create a virtual environment and install dependencies:
 	- `python -m venv .venv`
@@ -41,9 +38,8 @@ From [`active/games/wizard_fight/`](..):
 The backend listens on port `5055` by default.
 
 ### Frontend
-From [`active/games/wizard_fight/frontend/`](../frontend):
 
-Serve the static files:
+Serve the static files (from the `frontend/` directory):
 - `python -m http.server 5175`
 
 Open http://localhost:5175 in a browser.
@@ -51,8 +47,7 @@ Open http://localhost:5175 in a browser.
 ## Tests
 
 ### Backend
-From [`active/games/wizard_fight/`](..):
-- `python -m pytest`
+- `python -m pytest` (from the project root)
 
 ### Frontend
 No frontend test runner is required for the vanilla setup.

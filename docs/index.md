@@ -11,6 +11,16 @@ This site is now the canonical place for repository and project documentation. L
 - [Web Docs Migration Plan](repository/WEB_DOCS_MIGRATION_PLAN/) — the plan behind the migration
 - [GitHub Repository](https://github.com/calvinloveland/megarepo) — source code and pull requests
 
+## Launcher Dashboard
+
+The [Megarepo Launcher](https://shsw.dev) is the starting point for all web-based work in the megarepo. It provides:
+
+- **Web Apps dashboard** — start, stop, and open live web applications
+- **All Projects index** — browse every active project in the repo
+- **Live README viewer** — read project docs without leaving the browser
+
+All web apps are publicly accessible at `*.shsw.dev` subdomains via Cloudflare Tunnels.
+
 ## Repository Shape
 
 - `active/` — maintained projects grouped by area
