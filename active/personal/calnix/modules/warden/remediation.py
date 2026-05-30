@@ -351,6 +351,33 @@ def remediate_backup_freshness(check_data: dict[str, Any]) -> dict[str, Any]:
         }
 
 
+# ── Remediation: system-config (nixos-rebuild) ──────────────────────
+
+
+@remediates("system-config")
+def remediate_system_config(check_data: dict[str, Any]) -> dict[str, Any]:
+    """Trigger a nixos-rebuild switch when the system config is stale."""
+    actions_taken: list[str] = []
+    try:
+        result = subprocess.run(
+            ["systemctl", "start", "warden-rebuild"],
+            capture_output=True, text=True, timeout=600,
+        )
+        if result.returncode == 0:
+            actions_taken.append("nixos-rebuild switch completed")
+            status = "success"
+        else:
+            actions_taken.append(f"rebuild failed: {result.stderr.strip()[:200]}")
+            status = "failed"
+    except subprocess.TimeoutExpired:
+        actions_taken.append("rebuild timed out after 10 min")
+        status = "failed"
+    except Exception as e:
+        actions_taken.append(f"rebuild error: {e}")
+        status = "failed"
+    return {"status": status, "message": "; ".join(actions_taken), "actions": actions_taken}
+
+
 # ── Orchestrator ────────────────────────────────────────────────────
 
 

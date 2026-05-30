@@ -1,13 +1,13 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: cozi
+  name: hivemind
 ---
 apiVersion: v1
 kind: Secret
 metadata:
-  name: cozi-env
-  namespace: cozi
+  name: hivemind-env
+  namespace: hivemind
 type: Opaque
 stringData:
   FLASK_DEBUG: "false"
@@ -17,45 +17,45 @@ stringData:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: cozi
-  namespace: cozi
+  name: hivemind-coordinator
+  namespace: hivemind
   labels:
-    app.kubernetes.io/name: cozi
+    app.kubernetes.io/name: hivemind
     app.kubernetes.io/part-of: shsw-dev
-    app.kubernetes.io/component: web-app
+    app.kubernetes.io/component: ai
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: cozi
+      app: hivemind-coordinator
   template:
     metadata:
       labels:
-        app: cozi
-        app.kubernetes.io/name: cozi
+        app: hivemind-coordinator
+        app.kubernetes.io/name: hivemind
         app.kubernetes.io/part-of: shsw-dev
     spec:
       securityContext:
         fsGroup: 1001
       containers:
-        - name: cozi
-          image: 127.0.0.1:5000/cozi:latest
+        - name: coordinator
+          image: 127.0.0.1:5000/hivemind-coordinator:latest
           imagePullPolicy: Always
           env:
             - name: FLASK_DEBUG
               valueFrom:
                 secretKeyRef:
-                  name: cozi-env
+                  name: hivemind-env
                   key: FLASK_DEBUG
             - name: HOST
               valueFrom:
                 secretKeyRef:
-                  name: cozi-env
+                  name: hivemind-env
                   key: HOST
             - name: PORT
               valueFrom:
                 secretKeyRef:
-                  name: cozi-env
+                  name: hivemind-env
                   key: PORT
           ports:
             - name: http
@@ -74,7 +74,7 @@ spec:
             - name: TUNNEL_TOKEN
               valueFrom:
                 secretKeyRef:
-                  name: cozi-cloudflared-token
+                  name: hivemind-cloudflared-token
                   key: token
           args:
             - tunnel
@@ -88,14 +88,14 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: cozi
-  namespace: cozi
+  name: hivemind-coordinator
+  namespace: hivemind
   labels:
-    app.kubernetes.io/name: cozi
+    app.kubernetes.io/name: hivemind
     app.kubernetes.io/part-of: shsw-dev
 spec:
   selector:
-    app: cozi
+    app: hivemind-coordinator
   ports:
     - name: http
       port: 5000

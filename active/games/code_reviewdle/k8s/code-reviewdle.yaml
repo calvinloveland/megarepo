@@ -30,6 +30,10 @@ kind: Deployment
 metadata:
   name: codereviewdle
   namespace: codereviewdle
+  labels:
+    app.kubernetes.io/name: codereviewdle
+    app.kubernetes.io/part-of: shsw-dev
+    app.kubernetes.io/component: game
 spec:
   replicas: 1
   selector:
@@ -39,6 +43,8 @@ spec:
     metadata:
       labels:
         app: codereviewdle
+        app.kubernetes.io/name: codereviewdle
+        app.kubernetes.io/part-of: shsw-dev
     spec:
       securityContext:
         fsGroup: 1001
@@ -157,6 +163,9 @@ kind: Service
 metadata:
   name: codereviewdle
   namespace: codereviewdle
+  labels:
+    app.kubernetes.io/name: codereviewdle
+    app.kubernetes.io/part-of: shsw-dev
 spec:
   selector:
     app: codereviewdle

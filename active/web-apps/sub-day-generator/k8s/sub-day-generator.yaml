@@ -19,6 +19,10 @@ kind: Deployment
 metadata:
   name: sub-day-generator
   namespace: sub-day-generator
+  labels:
+    app.kubernetes.io/name: sub-day-generator
+    app.kubernetes.io/part-of: shsw-dev
+    app.kubernetes.io/component: web-app
 spec:
   replicas: 1
   selector:
@@ -28,6 +32,8 @@ spec:
     metadata:
       labels:
         app: sub-day-generator
+        app.kubernetes.io/name: sub-day-generator
+        app.kubernetes.io/part-of: shsw-dev
     spec:
       securityContext:
         fsGroup: 1001
@@ -84,6 +90,9 @@ kind: Service
 metadata:
   name: sub-day-generator
   namespace: sub-day-generator
+  labels:
+    app.kubernetes.io/name: sub-day-generator
+    app.kubernetes.io/part-of: shsw-dev
 spec:
   selector:
     app: sub-day-generator

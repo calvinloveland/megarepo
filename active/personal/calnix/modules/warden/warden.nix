@@ -244,6 +244,7 @@ in
     users.users.warden = {
       isSystemUser = true;
       group = "warden";
+      extraGroups = [ "users" ];
       description = "Warden per-host monitoring agent";
       home = cfg.stateDir;
       createHome = false;
@@ -425,6 +426,24 @@ in
             };
           };
         };
+
+        # Service: rebuild NixOS system (invoked by Warden remediation)
+        wardenRebuild = lib.optionalAttrs cfg.enable {
+          warden-rebuild = {
+            description = "Rebuild NixOS system configuration from flake";
+            after = [ "network.target" ];
+            serviceConfig = {
+              Type = "oneshot";
+              ExecStart = "${pkgs.nixos-rebuild}/bin/nixos-rebuild switch --flake /home/calvin/megarepo/active/personal/calnix";
+              User = "warden";
+              Group = "warden";
+              MemoryMax = "2G";
+              TimeoutStartSec = "600";
+              StandardOutput = "journal";
+              StandardError = "journal";
+            };
+          };
+        };
         dashboardApp = lib.optionalAttrs cfg.dashboard.enable {
           warden-dashboard = {
             description = "Warden web dashboard (Flask)";
@@ -516,6 +535,7 @@ in
       in
         checkServices // wardenInit // recordGeneration // wardend
         // backupServices // backupCheckServices // autoRemediateService
+        // wardenRebuild
         // dashboardServices // dashboardApp // autopilotService;
 
     # Timers for each check

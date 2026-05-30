@@ -122,24 +122,48 @@
     };
   };
 
-  # === Web Apps ===
-  # Run select megarepo web apps as systemd services on this host
-  calnix.webApps = {
-    momos.enable = true;
-    parambulator.enable = true;
-    sub-day-generator.enable = true;
-    code-reviewdle.enable = true;
-    conway.enable = true;
-    holdem.enable = false;
-    tcg.enable = false;
-    ops.enable = false;
-  };
-
   # Root password for emergency console access (local only — SSH blocks root)
   users.users.root.hashedPassword = "";
 
   # Allow emergency shell if boot fails
   boot.initrd.systemd.emergencyAccess = true;
+
+  # === Web Apps ===
+  # Run select megarepo web apps as systemd services on this host
+  calnix.webApps = {
+    momos = {
+      enable = true;
+      tunnel = false;  # no tunnel until cloudflared token is configured
+    };
+    parambulator = {
+      enable = true;
+      tunnel = false;
+    };
+    sub-day-generator = {
+      enable = true;
+      tunnel = false;
+    };
+    holdem = {
+      enable = false;
+      tunnel = false;
+    };
+    code-reviewdle = {
+      enable = true;
+      tunnel = false;
+    };
+    conway = {
+      enable = true;
+      tunnel = false;
+    };
+    tcg = {
+      enable = false;
+      tunnel = false;
+    };
+    ops = {
+      enable = false;
+      tunnel = false;
+    };
+  };
 
   # Create backup root directory for local and peer backups
   systemd.tmpfiles.rules = [

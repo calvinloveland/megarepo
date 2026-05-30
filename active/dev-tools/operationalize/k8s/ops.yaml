@@ -1,22 +1,24 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: parambulator
+  name: ops
 ---
 apiVersion: v1
 kind: Secret
 metadata:
-  name: parambulator-env
-  namespace: parambulator
+  name: ops-env
+  namespace: ops
 type: Opaque
 stringData:
-  SECRET_KEY: "replace-this-secret-key-before-public-use"
+  FLASK_DEBUG: "false"
+  HOST: "0.0.0.0"
+  PORT: "5000"
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: parambulator-data
-  namespace: parambulator
+  name: ops-data
+  namespace: ops
 spec:
   accessModes:
     - ReadWriteOnce
@@ -27,22 +29,22 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: parambulator
-  namespace: parambulator
+  name: ops
+  namespace: ops
   labels:
-    app.kubernetes.io/name: parambulator
+    app.kubernetes.io/name: ops
     app.kubernetes.io/part-of: shsw-dev
-    app.kubernetes.io/component: web-app
+    app.kubernetes.io/component: devtools
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: parambulator
+      app: ops
   template:
     metadata:
       labels:
-        app: parambulator
-        app.kubernetes.io/name: parambulator
+        app: ops
+        app.kubernetes.io/name: ops
         app.kubernetes.io/part-of: shsw-dev
     spec:
       securityContext:
@@ -54,44 +56,34 @@ spec:
           command: ["/bin/sh", "-ec"]
           args:
             - |
-              mkdir -p /app/data/feedback/addressed /app/data/saves
+              mkdir -p /app/data
               chown -R 1001:1001 /app/data
               chmod -R ug+rwX /app/data
           securityContext:
             runAsUser: 0
           volumeMounts:
-            - name: parambulator-data
+            - name: ops-data
               mountPath: /app/data
       containers:
-        - name: parambulator
-          image: 127.0.0.1:5000/parambulator:latest
+        - name: ops
+          image: 127.0.0.1:5000/ops:latest
           imagePullPolicy: Always
           env:
-            - name: SECRET_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: parambulator-env
-                  key: SECRET_KEY
             - name: FLASK_DEBUG
-              value: "false"
+              valueFrom:
+                secretKeyRef:
+                  name: ops-env
+                  key: FLASK_DEBUG
             - name: HOST
-              value: "0.0.0.0"
+              valueFrom:
+                secretKeyRef:
+                  name: ops-env
+                  key: HOST
             - name: PORT
-              value: "5000"
-            - name: APP_VERSION
-              value: "release-20260222-git-sync"
-            - name: FEEDBACK_ADMIN_USERNAME
               valueFrom:
                 secretKeyRef:
-                  name: parambulator-feedback-auth
-                  key: username
-                  optional: true
-            - name: FEEDBACK_ADMIN_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: parambulator-feedback-auth
-                  key: password
-                  optional: true
+                  name: ops-env
+                  key: PORT
           ports:
             - name: http
               containerPort: 5000
@@ -103,7 +95,7 @@ spec:
             runAsNonRoot: true
             runAsUser: 1001
           volumeMounts:
-            - name: parambulator-data
+            - name: ops-data
               mountPath: /app/data
         - name: cloudflared
           image: cloudflare/cloudflared:latest
@@ -112,30 +104,32 @@ spec:
             - name: TUNNEL_TOKEN
               valueFrom:
                 secretKeyRef:
-                  name: parambulator-cloudflared-token
+                  name: ops-cloudflared-token
                   key: token
           args:
             - tunnel
             - --no-autoupdate
+            - --url
+            - http://localhost:5000
             - run
             - --token
             - $(TUNNEL_TOKEN)
       volumes:
-        - name: parambulator-data
+        - name: ops-data
           persistentVolumeClaim:
-            claimName: parambulator-data
+            claimName: ops-data
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: parambulator
-  namespace: parambulator
+  name: ops
+  namespace: ops
   labels:
-    app.kubernetes.io/name: parambulator
+    app.kubernetes.io/name: ops
     app.kubernetes.io/part-of: shsw-dev
 spec:
   selector:
-    app: parambulator
+    app: ops
   ports:
     - name: http
       port: 5000

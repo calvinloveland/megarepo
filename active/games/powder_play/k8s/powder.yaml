@@ -1,0 +1,145 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: powder
+---
+# --- Mix Server ---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: powder-mix-env
+  namespace: powder
+type: Opaque
+stringData:
+  PORT: "8787"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: powder-mix
+  namespace: powder
+  labels:
+    app.kubernetes.io/name: powder-mix
+    app.kubernetes.io/part-of: shsw-dev
+    app.kubernetes.io/component: game
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: powder-mix
+  template:
+    metadata:
+      labels:
+        app: powder-mix
+        app.kubernetes.io/name: powder-mix
+        app.kubernetes.io/part-of: shsw-dev
+    spec:
+      containers:
+        - name: mix-server
+          image: 127.0.0.1:5000/powder-mix:latest
+          imagePullPolicy: Always
+          env:
+            - name: PORT
+              valueFrom:
+                secretKeyRef:
+                  name: powder-mix-env
+                  key: PORT
+          ports:
+            - name: http
+              containerPort: 8787
+        - name: cloudflared
+          image: cloudflare/cloudflared:latest
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: TUNNEL_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: powder-mix-cloudflared-token
+                  key: token
+          args:
+            - tunnel
+            - --no-autoupdate
+            - --url
+            - http://localhost:8787
+            - run
+            - --token
+            - $(TUNNEL_TOKEN)
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: powder-mix
+  namespace: powder
+  labels:
+    app.kubernetes.io/name: powder-mix
+    app.kubernetes.io/part-of: shsw-dev
+spec:
+  selector:
+    app: powder-mix
+  ports:
+    - name: http
+      port: 8787
+      targetPort: http
+---
+# --- Frontend ---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: powder-frontend
+  namespace: powder
+  labels:
+    app.kubernetes.io/name: powder-frontend
+    app.kubernetes.io/part-of: shsw-dev
+    app.kubernetes.io/component: game
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: powder-frontend
+  template:
+    metadata:
+      labels:
+        app: powder-frontend
+        app.kubernetes.io/name: powder-frontend
+        app.kubernetes.io/part-of: shsw-dev
+    spec:
+      containers:
+        - name: frontend
+          image: 127.0.0.1:5000/powder-frontend:latest
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 80
+        - name: cloudflared
+          image: cloudflare/cloudflared:latest
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: TUNNEL_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: powder-frontend-cloudflared-token
+                  key: token
+          args:
+            - tunnel
+            - --no-autoupdate
+            - --url
+            - http://localhost:80
+            - run
+            - --token
+            - $(TUNNEL_TOKEN)
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: powder-frontend
+  namespace: powder
+  labels:
+    app.kubernetes.io/name: powder-frontend
+    app.kubernetes.io/part-of: shsw-dev
+spec:
+  selector:
+    app: powder-frontend
+  ports:
+    - name: http
+      port: 80
+      targetPort: http

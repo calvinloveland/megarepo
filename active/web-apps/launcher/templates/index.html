@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Megarepo Launcher</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+    .status-dot-loading { animation: pulse-dot 1s ease-in-out infinite; }
+    .card-enter { animation: fade-in 0.3s ease-out; }
+    @keyframes fade-in {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; }
+    .icon-glow {
+      filter: drop-shadow(0 0 6px rgba(255,255,255,0.15));
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-200 min-h-screen">
+  <div class="max-w-6xl mx-auto px-4 py-8">
+    <!-- Header -->
+    <header class="mb-10">
+      <div class="flex items-center gap-3 mb-2">
+        <span class="text-2xl">🚀</span>
+        <h1 class="text-2xl font-bold text-slate-100">Megarepo Launcher</h1>
+      </div>
+      <p class="text-slate-400 text-sm ml-11">
+        Start, stop, and browse every web app in the monorepo.
+      </p>
+    </header>
+
+    <!-- App grid -->
+    <div id="app-grid" class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      {% for app in apps %}
+      <div class="app-card card-enter bg-slate-900 border border-slate-800 rounded-xl p-5 flex flex-col relative overflow-hidden"
+           data-app-id="{{ app.id }}"
+           data-icon="{{ app.icon }}"
+           data-running="{{ 'true' if app.running else 'false' }}">
+
+        <!-- Big background icon (watermark) -->
+        <div class="absolute -top-3 -right-3 text-6xl opacity-[0.06] pointer-events-none select-none icon-glow">
+          {{ app.icon or '🌐' }}
+        </div>
+
+        <!-- Header row -->
+        <div class="flex items-start justify-between mb-3 relative z-10">
+          <div class="flex items-start gap-3 min-w-0">
+            <!-- Foreground icon -->
+            <span class="text-3xl shrink-0 mt-0.5 icon-glow">{{ app.icon or '🌐' }}</span>
+            <div class="min-w-0">
+              <h2 class="text-base font-semibold text-slate-100 truncate">{{ app.name }}</h2>
+              <p class="text-xs text-slate-400 mt-0.5">{{ app.description }}</p>
+            </div>
+          </div>
+          <div class="flex items-center gap-2 ml-3 shrink-0">
+            <span class="status-dot w-2.5 h-2.5 rounded-full inline-block"
+                  data-state="{{ 'running' if app.running else 'stopped' }}"></span>
+            <span class="status-label text-xs font-medium"
+                  data-state="{{ 'running' if app.running else 'stopped' }}">
+              {{ 'Running' if app.running else 'Stopped' }}
+            </span>
+          </div>
+        </div>
+
+        <!-- Port badge -->
+        <div class="text-xs text-slate-500 font-mono mb-4 relative z-10">
+          port {{ app.port }}
+          {% if app.type %}
+          <span class="ml-2 px-1.5 py-0.5 rounded bg-slate-800 text-slate-400">{{ app.type }}</span>
+          {% endif %}
+        </div>
+
+        <!-- Action buttons -->
+        <div class="mt-auto flex gap-2 relative z-10">
+          {% if app.running %}
+          <a href="{{ app.url }}" target="_blank"
+             class="flex-1 text-center px-3 py-2 rounded-lg text-sm font-medium bg-emerald-600 hover:bg-emerald-500 text-white transition-colors">
+            Open →
+          </a>
+          <button onclick="stopApp('{{ app.id }}')"
+                  class="px-3 py-2 rounded-lg text-sm font-medium bg-slate-700 hover:bg-red-700 text-slate-200 transition-colors">
+            Stop
+          </button>
+          {% else %}
+          <button onclick="startApp('{{ app.id }}')"
+                  class="flex-1 px-3 py-2 rounded-lg text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white transition-colors flex items-center justify-center gap-2">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M5 3l14 9-14 9V3z"/>
+            </svg>
+            Start
+          </button>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <!-- Footer -->
+    <footer class="mt-12 text-center text-xs text-slate-600">
+      Megarepo Launcher ·
+      <a href="#" onclick="refreshAll()" class="text-slate-500 hover:text-slate-300 underline">Refresh</a>
+      ·
+      <span id="running-count" class="text-slate-500"></span>
+    </footer>
+  </div>
+
+  <script>
+    // --- Status polling ---
+
+    function statusClass(state) {
+      return state === 'running'
+        ? 'bg-emerald-400'
+        : state === 'loading'
+        ? 'bg-amber-400 status-dot-loading'
+        : 'bg-slate-600';
+    }
+
+    function statusLabel(state) {
+      return state === 'running' ? 'Running'
+           : state === 'loading' ? 'Starting…'
+           : 'Stopped';
+    }
+
+    function updateCard(appId, state, url) {
+      const card = document.querySelector(`[data-app-id="${appId}"]`);
+      if (!card) return;
+
+      const dot = card.querySelector('.status-dot');
+      const label = card.querySelector('.status-label');
+      const actions = card.querySelector('.mt-auto');
+
+      dot.className = `status-dot w-2.5 h-2.5 rounded-full inline-block ${statusClass(state)}`;
+      dot.dataset.state = state;
+      label.textContent = statusLabel(state);
+      label.dataset.state = state;
+      card.dataset.running = state === 'running' ? 'true' : 'false';
+
+      if (state === 'running') {
+        actions.innerHTML = `
+          <a href="${url}" target="_blank"
+             class="flex-1 text-center px-3 py-2 rounded-lg text-sm font-medium bg-emerald-600 hover:bg-emerald-500 text-white transition-colors">
+            Open →
+          </a>
+          <button onclick="stopApp('${appId}')"
+                  class="px-3 py-2 rounded-lg text-sm font-medium bg-slate-700 hover:bg-red-700 text-slate-200 transition-colors">
+            Stop
+          </button>
+        `;
+      } else {
+        actions.innerHTML = `
+          <button onclick="startApp('${appId}')"
+                  class="flex-1 px-3 py-2 rounded-lg text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white transition-colors flex items-center justify-center gap-2">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M5 3l14 9-14 9V3z"/>
+            </svg>
+            Start
+          </button>
+        `;
+      }
+
+      updateRunningCount();
+    }
+
+    function updateRunningCount() {
+      const running = document.querySelectorAll('[data-running="true"]').length;
+      const el = document.getElementById('running-count');
+      if (el) el.textContent = running + ' running';
+    }
+
+    async function startApp(appId) {
+      updateCard(appId, 'loading', null);
+      try {
+        const res = await fetch(`/api/start/${appId}`, { method: 'POST' });
+        const data = await res.json();
+        if (data.ok && data.url) {
+          updateCard(appId, 'running', data.url);
+        } else {
+          updateCard(appId, 'stopped', null);
+          alert(data.error || 'Failed to start');
+        }
+      } catch (e) {
+        updateCard(appId, 'stopped', null);
+        alert('Network error starting app');
+      }
+    }
+
+    async function stopApp(appId) {
+      updateCard(appId, 'loading', null);
+      try {
+        const res = await fetch(`/api/stop/${appId}`, { method: 'POST' });
+        const data = await res.json();
+        if (data.ok) {
+          updateCard(appId, 'stopped', null);
+        } else {
+          updateCard(appId, 'running', null);
+        }
+      } catch (e) {
+        updateCard(appId, 'running', null);
+      }
+    }
+
+    async function refreshAll() {
+      try {
+        const res = await fetch('/api/apps');
+        const apps = await res.json();
+        apps.forEach(app => {
+          // Also update icon if it came back (survives refresh)
+          const card = document.querySelector(`[data-app-id="${app.id}"]`);
+          if (card && app.icon) card.dataset.icon = app.icon;
+          updateCard(app.id, app.running ? 'running' : 'stopped', app.url);
+        });
+      } catch (e) {
+        // silent
+      }
+    }
+
+    // Periodic refresh every 10s
+    setInterval(refreshAll, 10000);
+
+    // Initial count
+    updateRunningCount();
+  </script>
+</body>
+</html>

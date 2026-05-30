@@ -1,65 +1,65 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: cozi
+  name: wizard
 ---
 apiVersion: v1
 kind: Secret
 metadata:
-  name: cozi-env
-  namespace: cozi
+  name: wizard-env
+  namespace: wizard
 type: Opaque
 stringData:
   FLASK_DEBUG: "false"
-  HOST: "0.0.0.0"
-  PORT: "5000"
+  WIZARD_FIGHT_HOST: "0.0.0.0"
+  WIZARD_FIGHT_PORT: "5055"
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: cozi
-  namespace: cozi
+  name: wizard
+  namespace: wizard
   labels:
-    app.kubernetes.io/name: cozi
+    app.kubernetes.io/name: wizard
     app.kubernetes.io/part-of: shsw-dev
-    app.kubernetes.io/component: web-app
+    app.kubernetes.io/component: game
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: cozi
+      app: wizard
   template:
     metadata:
       labels:
-        app: cozi
-        app.kubernetes.io/name: cozi
+        app: wizard
+        app.kubernetes.io/name: wizard
         app.kubernetes.io/part-of: shsw-dev
     spec:
       securityContext:
         fsGroup: 1001
       containers:
-        - name: cozi
-          image: 127.0.0.1:5000/cozi:latest
+        - name: wizard
+          image: 127.0.0.1:5000/wizard:latest
           imagePullPolicy: Always
           env:
             - name: FLASK_DEBUG
               valueFrom:
                 secretKeyRef:
-                  name: cozi-env
+                  name: wizard-env
                   key: FLASK_DEBUG
-            - name: HOST
+            - name: WIZARD_FIGHT_HOST
               valueFrom:
                 secretKeyRef:
-                  name: cozi-env
-                  key: HOST
-            - name: PORT
+                  name: wizard-env
+                  key: WIZARD_FIGHT_HOST
+            - name: WIZARD_FIGHT_PORT
               valueFrom:
                 secretKeyRef:
-                  name: cozi-env
-                  key: PORT
+                  name: wizard-env
+                  key: WIZARD_FIGHT_PORT
           ports:
             - name: http
-              containerPort: 5000
+              containerPort: 5055
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
@@ -74,13 +74,13 @@ spec:
             - name: TUNNEL_TOKEN
               valueFrom:
                 secretKeyRef:
-                  name: cozi-cloudflared-token
+                  name: wizard-cloudflared-token
                   key: token
           args:
             - tunnel
             - --no-autoupdate
             - --url
-            - http://localhost:5000
+            - http://localhost:5055
             - run
             - --token
             - $(TUNNEL_TOKEN)
@@ -88,15 +88,15 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: cozi
-  namespace: cozi
+  name: wizard
+  namespace: wizard
   labels:
-    app.kubernetes.io/name: cozi
+    app.kubernetes.io/name: wizard
     app.kubernetes.io/part-of: shsw-dev
 spec:
   selector:
-    app: cozi
+    app: wizard
   ports:
     - name: http
-      port: 5000
+      port: 5055
       targetPort: http

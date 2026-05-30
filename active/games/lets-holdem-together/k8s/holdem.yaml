@@ -1,62 +1,68 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: cozi
+  name: holdem
 ---
 apiVersion: v1
 kind: Secret
 metadata:
-  name: cozi-env
-  namespace: cozi
+  name: holdem-env
+  namespace: holdem
 type: Opaque
 stringData:
   FLASK_DEBUG: "false"
   HOST: "0.0.0.0"
   PORT: "5000"
+  SECRET_KEY: "replace-this-secret-key-before-public-use"
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: cozi
-  namespace: cozi
+  name: holdem
+  namespace: holdem
   labels:
-    app.kubernetes.io/name: cozi
+    app.kubernetes.io/name: holdem
     app.kubernetes.io/part-of: shsw-dev
-    app.kubernetes.io/component: web-app
+    app.kubernetes.io/component: game
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: cozi
+      app: holdem
   template:
     metadata:
       labels:
-        app: cozi
-        app.kubernetes.io/name: cozi
+        app: holdem
+        app.kubernetes.io/name: holdem
         app.kubernetes.io/part-of: shsw-dev
     spec:
       securityContext:
         fsGroup: 1001
       containers:
-        - name: cozi
-          image: 127.0.0.1:5000/cozi:latest
+        - name: holdem
+          image: 127.0.0.1:5000/holdem:latest
           imagePullPolicy: Always
           env:
             - name: FLASK_DEBUG
               valueFrom:
                 secretKeyRef:
-                  name: cozi-env
+                  name: holdem-env
                   key: FLASK_DEBUG
             - name: HOST
               valueFrom:
                 secretKeyRef:
-                  name: cozi-env
+                  name: holdem-env
                   key: HOST
             - name: PORT
               valueFrom:
                 secretKeyRef:
-                  name: cozi-env
+                  name: holdem-env
                   key: PORT
+            - name: SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: holdem-env
+                  key: SECRET_KEY
           ports:
             - name: http
               containerPort: 5000
@@ -74,7 +80,7 @@ spec:
             - name: TUNNEL_TOKEN
               valueFrom:
                 secretKeyRef:
-                  name: cozi-cloudflared-token
+                  name: holdem-cloudflared-token
                   key: token
           args:
             - tunnel
@@ -88,14 +94,14 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: cozi
-  namespace: cozi
+  name: holdem
+  namespace: holdem
   labels:
-    app.kubernetes.io/name: cozi
+    app.kubernetes.io/name: holdem
     app.kubernetes.io/part-of: shsw-dev
 spec:
   selector:
-    app: cozi
+    app: holdem
   ports:
     - name: http
       port: 5000

@@ -1,0 +1,184 @@
+# Launcher app registry
+# Each entry describes a web app, how to start it, and on which port.
+# PYTHONPATH is auto-set to include src/ directories for Python apps.
+
+apps:
+  - id: momos
+    name: Momos (Cozi)
+    description: Family command center — school emails, pantry, calendar, reminders
+    icon: 🏠
+    subdomain: cozi
+    path: ../momos
+    type: flask
+    port: 5101
+    module: momos.app
+    env:
+      PORT: "5101"
+
+  - id: parambulator
+    name: Parambulator
+    description: Seating chart planner with constraint-based scoring
+    icon: 💺
+    subdomain: parambulator
+    path: ../parambulator
+    type: flask
+    port: 5102
+    module: parambulator.app
+    env:
+      PORT: "5102"
+
+  - id: sub-day-generator
+    name: Sub Day Generator
+    description: Generate substitute teacher day plans
+    icon: 🍎
+    subdomain: sub
+    path: ../sub-day-generator
+    type: flask
+    port: 5103
+    module: sub_day_generator.app
+    env:
+      PORT: "5103"
+
+  - id: vernissage
+    name: Vernissage
+    description: Art gallery browser — MET, AIC, Rijksmuseum collections
+    icon: 🎨
+    subdomain: gallery
+    path: ../vernissage
+    type: nextjs
+    port: 3000
+    start_cmd: "npm run dev 2>&1"
+    env:
+      PORT: "3000"
+
+  - id: holdem-together
+    name: Let's Hold 'em Together
+    description: Multiplayer poker game
+    icon: 🃏
+    subdomain: holdem
+    path: ../../games/lets-holdem-together
+    type: flask
+    port: 5104
+    module: holdem_together.app
+    env:
+      PORT: "5104"
+
+  - id: code-reviewdle
+    name: Code Reviewdle
+    description: Daily code review puzzle game
+    icon: 🔍
+    subdomain: codereviewdle
+    path: ../../games/code_reviewdle
+    type: flask
+    port: 5105
+    module: code_reviewdle.app
+    env:
+      PORT: "5105"
+
+  - id: conway-war
+    name: Conway's Game of War
+    description: Conway's Game of Life meets battle simulation
+    icon: 🧬
+    subdomain: conway
+    path: ../../games/conway_game_of_war
+    type: flask
+    port: 5106
+    module: conways_game_of_war.main
+    env:
+      PORT: "5106"
+
+  - id: wizard-fight
+    name: Wizard Fight
+    description: Real-time wizard dueling game (backend)
+    icon: 🧙
+    subdomain: wizard
+    path: ../../games/wizard_fight
+    type: flask
+    port: 5055
+    module: wizard_fight.server
+    env:
+      WIZARD_FIGHT_PORT: "5055"
+
+  - id: wizard-fight-ui
+    name: Wizard Fight (Frontend)
+    description: React frontend for Wizard Fight
+    icon: 🪄
+    subdomain: wizard-app
+    path: ../../games/wizard_fight/frontend
+    type: vite
+    port: 5175
+    start_cmd: "npm run dev"
+    env:
+      PORT: "5175"
+
+  - id: trading-cards
+    name: Super Ultimate Trading Card Game
+    description: TCG deck builder and simulator
+    icon: ⚔️
+    subdomain: tcg
+    path: ../../games/super_ultimate_trading_card_game
+    type: flask
+    port: 5107
+    module: super_ultimate_trading_card_game.web
+    env:
+      PORT: "5107"
+
+  - id: powder-play
+    name: Powder Play (Mix Server)
+    description: Alchemist powder mix material server
+    icon: ⚗️
+    subdomain: powder-api
+    path: ../../games/powder_play/mix_server
+    type: node
+    port: 8787
+    start_cmd: "node server.js"
+    env:
+      PORT: "8787"
+
+  - id: powder-play-frontend
+    name: Powder Play (Frontend)
+    description: Powder Play game frontend
+    icon: ✨
+    subdomain: powder
+    path: ../../games/powder_play/frontend
+    type: vite
+    port: 5173
+    start_cmd: "npm run dev"
+    env:
+      PORT: "5173"
+
+  - id: hivemind
+    name: Hivemind LLM
+    description: Distributed LLM inference coordinator
+    icon: 🧠
+    subdomain: hivemind-api
+    path: ../../dev-tools/hivemind-llm/coordinator
+    type: flask
+    port: 5108
+    module: app
+    env:
+      PORT: "5108"
+
+  - id: operationalize
+    name: Operationalize
+    description: Project management and workflow tool
+    icon: ⚙️
+    subdomain: ops
+    path: ../../dev-tools/operationalize
+    type: flask
+    port: 5109
+    start_cmd: "python3 -m operationalize"
+    env:
+      PORT: "5109"
+
+  - id: hivemind-frontend
+    name: Hivemind LLM (Frontend)
+    description: LLM inference coordinator UI
+    icon: 💬
+    subdomain: hivemind
+    path: ../../dev-tools/hivemind-llm/frontend
+    type: vite
+    port: 5176
+    start_cmd: "npm run dev"
+    env:
+      PORT: "5176"

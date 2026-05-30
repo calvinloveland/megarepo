@@ -56,6 +56,9 @@ kind: Deployment
 metadata:
   name: vernissage-postgres
   namespace: vernissage
+  labels:
+    app.kubernetes.io/name: vernissage-postgres
+    app.kubernetes.io/part-of: shsw-dev
 spec:
   replicas: 1
   selector:
@@ -65,6 +68,8 @@ spec:
     metadata:
       labels:
         app: vernissage-postgres
+        app.kubernetes.io/name: vernissage-postgres
+        app.kubernetes.io/part-of: shsw-dev
     spec:
       containers:
         - name: postgres
@@ -124,6 +129,9 @@ kind: Service
 metadata:
   name: vernissage-postgres
   namespace: vernissage
+  labels:
+    app.kubernetes.io/name: vernissage-postgres
+    app.kubernetes.io/part-of: shsw-dev
 spec:
   selector:
     app: vernissage-postgres
@@ -137,6 +145,10 @@ kind: Deployment
 metadata:
   name: vernissage
   namespace: vernissage
+  labels:
+    app.kubernetes.io/name: vernissage
+    app.kubernetes.io/part-of: shsw-dev
+    app.kubernetes.io/component: web-app
 spec:
   replicas: 1
   selector:
@@ -146,6 +158,8 @@ spec:
     metadata:
       labels:
         app: vernissage
+        app.kubernetes.io/name: vernissage
+        app.kubernetes.io/part-of: shsw-dev
     spec:
       securityContext:
         fsGroup: 1001
@@ -292,6 +306,9 @@ kind: Service
 metadata:
   name: vernissage
   namespace: vernissage
+  labels:
+    app.kubernetes.io/name: vernissage
+    app.kubernetes.io/part-of: shsw-dev
 spec:
   type: NodePort
   selector:

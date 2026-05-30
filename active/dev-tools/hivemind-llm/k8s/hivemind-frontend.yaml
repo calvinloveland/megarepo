@@ -1,0 +1,61 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hivemind-frontend
+  namespace: hivemind
+  labels:
+    app.kubernetes.io/name: hivemind-frontend
+    app.kubernetes.io/part-of: shsw-dev
+    app.kubernetes.io/component: ai
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hivemind-frontend
+  template:
+    metadata:
+      labels:
+        app: hivemind-frontend
+        app.kubernetes.io/name: hivemind-frontend
+        app.kubernetes.io/part-of: shsw-dev
+    spec:
+      containers:
+        - name: frontend
+          image: 127.0.0.1:5000/hivemind-frontend:latest
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 80
+        - name: cloudflared
+          image: cloudflare/cloudflared:latest
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: TUNNEL_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: hivemind-frontend-cloudflared-token
+                  key: token
+          args:
+            - tunnel
+            - --no-autoupdate
+            - --url
+            - http://localhost:80
+            - run
+            - --token
+            - $(TUNNEL_TOKEN)
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hivemind-frontend
+  namespace: hivemind
+  labels:
+    app.kubernetes.io/name: hivemind-frontend
+    app.kubernetes.io/part-of: shsw-dev
+spec:
+  selector:
+    app: hivemind-frontend
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
