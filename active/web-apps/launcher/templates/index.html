@@ -465,8 +465,9 @@ function containerId(appId) {
 // ══════════════════════════════════════════════════════
 const { Engine, World, Bodies, Body, Constraint, Events, Composite, Vector, Runner } = Matter;
 
-let engine, sceneName = 'ship', containerBodies = [], isDisturbed = false;
+let engine, sceneName = 'ship', containerBodies = [], containerBodyOrigins = [], isDisturbed = false;
 let physicsRunning = false, animFrame = null;
+let settleTimer = null;
 
 const CARD_W = 220, CARD_H = 130;
 const CARD_W_MOBILE = 160, CARD_H_MOBILE = 100;
@@ -512,9 +513,10 @@ function createScene(type) {
   }
 
   // Build physics world for this scene
+  // Use window.innerHeight as primary to ensure correct mobile sizing
   const rect = wrap.getBoundingClientRect();
   const W = rect.width || window.innerWidth;
-  const H = rect.height || 800;
+  const H = Math.max(rect.height, window.innerHeight - 100, 600);
   const sz = getCardSize();
   const gap = 10;
 
@@ -644,11 +646,23 @@ function createScene(type) {
     });
   }
 
+  // Store original positions for reset
+  containerBodyOrigins = containerBodies.map(b => ({ x: b.position.x, y: b.position.y, angle: b.angle }));
+
+  // Add a wide catcher floor below the visible area so bodies don't fall forever
+  const catcherFloor = Bodies.rectangle(W/2, H + 150, W * 3, 300, {
+    isStatic: true, friction: 0.8, label: 'catcher'
+  });
+  Composite.add(engine.world, catcherFloor);
+
   // Add all container bodies to world
   containerBodies.forEach(b => Composite.add(engine.world, b));
 
   // Create DOM elements for containers
   createContainerDOM();
+
+  // Hide catcher visually
+  document.getElementById('physics-container').dataset.caught = '0';
 
   // Update scene label
   const sceneNames = { ship:'CARGO SHIP', train:'RAIL YARD', crane:'PORT CRANE', depot:'CONTAINER DEPOT' };
@@ -740,26 +754,24 @@ function startPhysics() {
   }
   loop();
 
-  // Also keep containers within bounds
+  // Catcher floor catches bodies that fall off the main area
+  // No teleport needed — the catcher floor at H+150 handles this
   Events.on(engine, 'afterUpdate', () => {
     const wrap = document.getElementById('sceneWrap');
     const rect = wrap.getBoundingClientRect();
-    const H = rect.height || 800;
-    const W = rect.width || window.innerWidth;
+    const W = Math.max(rect.width, window.innerWidth, 360);
 
+    // Only clamp horizontal movement — vertical is handled by catcher floor
     containerBodies.forEach(body => {
-      // Remove bodies that fall off screen
-      if (body.position.y > H + 100) {
-        Body.setPosition(body, { x: body.position.x, y: -50 });
-        Body.setVelocity(body, { x: 0, y: 0 });
-      }
-      if (body.position.x < -100) {
+      // Teleport from one side to the other if it goes way off horizontally
+      // (keeps physics visible without losing bodies)
+      if (body.position.x < -300) {
         Body.setPosition(body, { x: W + 50, y: body.position.y });
-        Body.setVelocity(body, { x: 0, y: 0 });
+        Body.setVelocity(body, { x: 0, y: body.velocity.y });
       }
-      if (body.position.x > W + 100) {
+      if (body.position.x > W + 300) {
         Body.setPosition(body, { x: -50, y: body.position.y });
-        Body.setVelocity(body, { x: 0, y: 0 });
+        Body.setVelocity(body, { x: 0, y: body.velocity.y });
       }
     });
   });
@@ -768,6 +780,7 @@ function startPhysics() {
 function stopPhysics() {
   physicsRunning = false;
   if (animFrame) cancelAnimationFrame(animFrame);
+  if (settleTimer) clearTimeout(settleTimer);
 }
 
 // ── Disturb ──
@@ -831,18 +844,66 @@ function disturbScene() {
   setTimeout(() => { toast.style.opacity = '0'; }, 1500);
   setTimeout(() => toast.remove(), 2000);
 
-  // Let physics settle for a bit, then reset
-  setTimeout(() => {
-    resetPhysics();
-  }, 4000);
+  // Let physics settle, then smoothly reset bodies back to origins
+  settleTimer = setTimeout(() => {
+    smoothReset();
+  }, 5000);
 }
 
-function resetPhysics() {
+// ── Smoothly animate bodies back to starting positions ──
+function smoothReset() {
   isDisturbed = false;
   const btn = document.getElementById('disturbBtn');
   btn.disabled = false;
-  // Recreate scene to reset positions
-  createScene(sceneName);
+
+  // Make all container bodies static during animation to fight physics
+  containerBodies.forEach(body => { Body.setStatic(body, true); });
+
+  // Animate each body back to its origin over ~1s
+  const duration = 1000;
+  const startPositions = containerBodies.map(b => ({ x: b.position.x, y: b.position.y, angle: b.angle }));
+  const startTime = performance.now();
+
+  function animateReset(now) {
+    const elapsed = now - startTime;
+    const t = Math.min(elapsed / duration, 1);
+    // Ease-out cubic
+    const ease = 1 - Math.pow(1 - t, 3);
+
+    containerBodies.forEach((body, i) => {
+      if (containerBodyOrigins[i]) {
+        const start = startPositions[i];
+        const end = containerBodyOrigins[i];
+        Body.setPosition(body, {
+          x: start.x + (end.x - start.x) * ease,
+          y: start.y + (end.y - start.y) * ease
+        });
+        Body.setAngle(body, start.angle + (end.angle - start.angle) * ease);
+      }
+    });
+
+    syncPhysicsToDOM();
+
+    if (t < 1) {
+      requestAnimationFrame(animateReset);
+    } else {
+      // Final snap to exact origins
+      containerBodies.forEach((body, i) => {
+        if (containerBodyOrigins[i]) {
+          const o = containerBodyOrigins[i];
+          Body.setPosition(body, { x: o.x, y: o.y });
+          Body.setAngle(body, o.angle);
+        }
+      });
+      syncPhysicsToDOM();
+
+      // Make bodies dynamic again after a short pause so they settle at origin
+      setTimeout(() => {
+        containerBodies.forEach(body => { Body.setStatic(body, false); });
+      }, 200);
+    }
+  }
+  requestAnimationFrame(animateReset);
 }
 
 // ── Change scene ──
