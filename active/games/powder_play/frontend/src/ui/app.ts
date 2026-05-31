@@ -994,18 +994,6 @@ function addAutoMixReaction(aId: number, bId: number) {
     return;
   }
   console.log("[mix] consider", { a: aMat.name, b: bMat.name });
-  const aAncestors = getAncestors(aMat);
-  const bAncestors = getAncestors(bMat);
-  for (const anc of aAncestors) {
-    if (bAncestors.includes(anc)) {
-      console.log("[mix] skip shared ancestor", {
-        a: aMat.name,
-        b: bMat.name,
-        anc,
-      });
-      return;
-    }
-  }
   const key = pairKey(aId, bId);
   if (autoMixPairs.has(key)) {
     console.log("[mix] skip existing pair", key);
@@ -1112,18 +1100,6 @@ function maybeAutoGenerateMixes(buf: Uint16Array, w: number, h: number) {
       if (x + 1 < w) {
         const b = buf[idx + 1];
         if (b && b !== a) {
-          const aMat = materialById.get(a);
-          const bMat = materialById.get(b);
-          const aAncestors = getAncestors(aMat);
-          const bAncestors = getAncestors(bMat);
-          let sharesAncestor = false;
-          for (const anc of aAncestors) {
-            if (bAncestors.includes(anc)) {
-              sharesAncestor = true;
-              break;
-            }
-          }
-          if (sharesAncestor) continue;
           const key = pairKey(a, b);
           if (!autoMixPairs.has(key) && !hasExplicitReaction(a, b)) {
             pairs.push([a, b]);
@@ -1133,18 +1109,6 @@ function maybeAutoGenerateMixes(buf: Uint16Array, w: number, h: number) {
       if (y + 1 < h) {
         const b = buf[idx + w];
         if (b && b !== a) {
-          const aMat = materialById.get(a);
-          const bMat = materialById.get(b);
-          const aAncestors = getAncestors(aMat);
-          const bAncestors = getAncestors(bMat);
-          let sharesAncestor = false;
-          for (const anc of aAncestors) {
-            if (bAncestors.includes(anc)) {
-              sharesAncestor = true;
-              break;
-            }
-          }
-          if (sharesAncestor) continue;
           const key = pairKey(a, b);
           if (!autoMixPairs.has(key) && !hasExplicitReaction(a, b)) {
             pairs.push([a, b]);
