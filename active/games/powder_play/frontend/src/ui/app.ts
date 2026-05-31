@@ -92,6 +92,15 @@ let currentMaterialId = 0;
 const materialById = new Map<number, any>();
 const materialIdByName = new Map<string, number>();
 const autoMixPairs = new Set<string>();
+/**
+ * Maximum number of unique auto-mix discoveries allowed.
+ * Prevents infinite combinatorial explosion from a pile of random elements.
+ * Configurable via window.__maxAutoMixes for testing.
+ */
+const MAX_AUTO_MIXES = typeof (window as any).__maxAutoMixes === "number"
+  ? (window as any).__maxAutoMixes
+  : 100;
+let autoMixCount = 0;
 const mixCache = new Map<string, any>();
 const pendingMixes = new Set<string>();
 const mix404Logged = new Set<string>();
@@ -922,6 +931,10 @@ async function generateMixMaterial(aMat: any, bMat: any) {
 function applyMixMaterial(mixSource: any, aMat: any, bMat: any) {
   if (isNoReactionPayload(mixSource)) return false;
   const mixMat = tryNormalizeMixMaterial(mixSource, aMat, bMat);
+  if (mixMat) {
+    autoMixCount++;
+    try { (window as any).__autoMixCount = autoMixCount; } catch (e) {}
+  }
   if (!mixMat) {
     reportMixError("mix normalize failed", {
       stage: "apply",
@@ -991,6 +1004,13 @@ function addAutoMixReaction(aId: number, bId: number) {
   if (!aMat || !bMat || !aMat.name || !bMat.name) return;
   if (!mixCacheReady) {
     console.log("[mix] cache not ready, skip", { a: aMat.name, b: bMat.name });
+    return;
+  }
+  // Global auto-mix cap prevents infinite combinatorial explosion.
+  // Once we've discovered MAX_AUTO_MIXES compounds, auto-mix shuts down.
+  // Existing reactions still fire in the simulation for already-discovered pairs.
+  if (autoMixCount >= MAX_AUTO_MIXES) {
+    console.log("[mix] max auto-mixes reached (", MAX_AUTO_MIXES, ")");
     return;
   }
   console.log("[mix] consider", { a: aMat.name, b: bMat.name });
