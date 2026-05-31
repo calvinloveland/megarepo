@@ -1064,6 +1064,24 @@ function addAutoMixReaction(aId: number, bId: number) {
     console.log("[mix] max auto-mixes reached (", MAX_AUTO_MIXES, ")");
     return;
   }
+
+  // Ancestor check: prevent mixing a material with something it already
+  // helped create. This keeps each discovery fresh — you can't grind the
+  // same lineage deeper. Every mix is between distinct starter origins.
+  const aAncestors = getAncestors(aMat);
+  const bAncestors = getAncestors(bMat);
+  let sharesAncestor = false;
+  for (const anc of aAncestors) {
+    if (bAncestors.includes(anc)) {
+      sharesAncestor = true;
+      break;
+    }
+  }
+  if (sharesAncestor) {
+    console.log("[mix] skip — share ancestor", aMat.name, bMat.name);
+    return;
+  }
+
   console.log("[mix] consider", { a: aMat.name, b: bMat.name });
   const key = pairKey(aId, bId);
   if (autoMixPairs.has(key)) {
@@ -1173,6 +1191,16 @@ function maybeAutoGenerateMixes(buf: Uint16Array, w: number, h: number) {
         if (b && b !== a) {
           const key = pairKey(a, b);
           if (!autoMixPairs.has(key) && !hasExplicitReaction(a, b)) {
+            // Quick ancestor check: skip pairs that share ancestry
+            const aMat = materialById.get(a);
+            const bMat = materialById.get(b);
+            if (aMat && bMat) {
+              const aa = getAncestors(aMat);
+              const ba = getAncestors(bMat);
+              let shared = false;
+              for (const anc of aa) { if (ba.includes(anc)) { shared = true; break; } }
+              if (shared) continue;
+            }
             pairs.push([a, b]);
           }
         }
@@ -1182,6 +1210,16 @@ function maybeAutoGenerateMixes(buf: Uint16Array, w: number, h: number) {
         if (b && b !== a) {
           const key = pairKey(a, b);
           if (!autoMixPairs.has(key) && !hasExplicitReaction(a, b)) {
+            // Quick ancestor check: skip pairs that share ancestry
+            const aMat = materialById.get(a);
+            const bMat = materialById.get(b);
+            if (aMat && bMat) {
+              const aa = getAncestors(aMat);
+              const ba = getAncestors(bMat);
+              let shared = false;
+              for (const anc of aa) { if (ba.includes(anc)) { shared = true; break; } }
+              if (shared) continue;
+            }
             pairs.push([a, b]);
           }
         }
