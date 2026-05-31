@@ -18,8 +18,9 @@ describe("tag behaviors", () => {
 
     tagsById.set(sodiumId, ["sand", "reactive_water", "explosive"]);
     tagsById.set(waterId, ["flow", "water"]);
-    nameToId.set("Steam", steamId);
-    nameToId.set("Smoke", smokeId);
+    // Register tag-driven result materials
+    tagsById.set(steamId, ["float", "steam"]);
+    tagsById.set(smokeId, ["float", "smoke"]);
 
     const idx = 1 + 1 * width;
     const nidx = 2 + 1 * width;
@@ -54,7 +55,8 @@ describe("tag behaviors", () => {
     const fireId = 5;
     const smokeId = 6;
     tagsById.set(fireId, ["float", "fire", "burns_out"]);
-    nameToId.set("Smoke", smokeId);
+    // Register smoke material for tag-driven lookup
+    tagsById.set(smokeId, ["float", "smoke"]);
 
     const idx = 0;
     grid[idx] = fireId;
@@ -123,8 +125,9 @@ describe("tag behaviors", () => {
     const dirtId = 12;
     tagsById.set(seedId, ["sand", "seed"]);
     tagsById.set(mudId, ["flow", "mud"]);
-    nameToId.set("Plant", plantId);
-    nameToId.set("Dirt", dirtId);
+    // Register result materials for tag-driven lookup
+    tagsById.set(plantId, ["static", "plant", "grow"]);
+    tagsById.set(dirtId, ["sand", "dirt"]);
 
     const idx = 1 + 1 * width;
     const nidx = 1 + 2 * width;
@@ -158,7 +161,6 @@ describe("tag behaviors", () => {
 
     const plantId = 13;
     tagsById.set(plantId, ["static", "plant", "grow"]);
-    nameToId.set("Plant", plantId);
 
     const idx = 1 + 1 * width;
     grid[idx] = plantId;

@@ -1,6 +1,152 @@
-body { font-family: system-ui, sans-serif; }
-#left-panel, #right-panel { display:flex; flex-direction:column; gap:.5rem; }
-#playback-controls { display:flex; gap:.5rem; justify-content:center; }
-#tools-panel { display:flex; flex-direction:column; gap:.5rem; }
-#materials-list { max-height: 420px; overflow:auto; }
-#status { margin-top: 1rem }
+body {
+  font-family: 'Cinzel', 'Inter', system-ui, serif;
+  background: #0a0e17;
+  color: #e2e8f0;
+}
+
+#left-panel, #right-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+#playback-controls {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
+}
+
+#tools-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+#materials-list {
+  max-height: 420px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.1) transparent;
+}
+
+#status {
+  margin-top: 1rem;
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 0.875rem;
+  color: rgba(255,255,255,0.6);
+}
+
+.alchemy-panel {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 8px;
+  padding: 1rem;
+  backdrop-filter: blur(8px);
+}
+
+.alchemy-button {
+  font-family: 'Cinzel', serif;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.05);
+  color: rgba(255,255,255,0.7);
+  cursor: pointer;
+  transition: all 0.15s;
+  text-transform: uppercase;
+}
+
+.alchemy-button:hover {
+  background: rgba(255,255,255,0.1);
+  color: rgba(255,255,255,0.9);
+}
+
+.alchemy-label {
+  font-size: 0.75rem;
+  color: rgba(255,255,255,0.5);
+  letter-spacing: 0.5px;
+}
+
+.alchemy-select {
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 0.75rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(0,0,0,0.3);
+  color: rgba(255,255,255,0.7);
+}
+
+.alchemy-muted {
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 0.75rem;
+  color: rgba(255,255,255,0.35);
+}
+
+.mix-overlay {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 50;
+  text-align: center;
+  min-width: 250px;
+  background: rgba(10,14,23,0.95);
+  backdrop-filter: blur(12px);
+}
+
+.mix-title {
+  font-family: 'Cinzel', serif;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #d4a574;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin-bottom: 0.5rem;
+}
+
+.mix-name {
+  font-family: 'Cinzel', serif;
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: #fbbf24;
+  margin-bottom: 0.75rem;
+}
+
+.mix-progress-track {
+  width: 100%;
+  height: 4px;
+  background: rgba(255,255,255,0.08);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.mix-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #d4a574, #fbbf24);
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+.materials-row {
+  transition: all 0.15s;
+  cursor: pointer;
+}
+
+.materials-row:hover {
+  background: rgba(255,255,255,0.06);
+}
+
+.materials-row.selected {
+  background: rgba(251,191,36,0.1);
+  border-color: rgba(251,191,36,0.3);
+}
+
+.swatch {
+  display: inline-block;
+  border-radius: 2px;
+  flex-shrink: 0;
+}

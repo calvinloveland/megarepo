@@ -35,6 +35,17 @@ function hasTag(tagsById: Map<number, string[]>, id: number, tag: string) {
   return Array.isArray(tags) && tags.includes(tag);
 }
 
+/**
+ * Find the first registered material ID that has the given tag.
+ * This replaces hardcoded nameToId.get("Steam") lookups with tag-driven discovery.
+ */
+function findIdByTag(tagsById: Map<number, string[]>, tag: string): number | undefined {
+  for (const [id, tags] of tagsById.entries()) {
+    if (Array.isArray(tags) && tags.includes(tag)) return id;
+  }
+  return undefined;
+}
+
 function placeCell(nextGrid: Uint16Array, idx: number, id?: number) {
   if (!id) return false;
   if (nextGrid[idx] !== 0) return false;
@@ -51,7 +62,7 @@ export function applyTagBehaviors(
   ctx: TagBehaviorContext,
 ) {
   const rng = ctx.rng ?? Math.random;
-  const { width, height, grid, nextGrid, tagsById, nameToId, reacted } = ctx;
+  const { width, height, grid, nextGrid, tagsById, reacted } = ctx;
   let consumed = false;
 
   const isReactiveWater = tags.includes("reactive_water");
@@ -61,6 +72,12 @@ export function applyTagBehaviors(
   const isSeed = tags.includes("seed");
   const isPlant = tags.includes("plant");
   const canGrow = tags.includes("grow");
+
+  // Tag-driven material lookups (not hardcoded names)
+  const steamId = findIdByTag(tagsById, "steam");
+  const smokeId = findIdByTag(tagsById, "smoke");
+  const plantId = findIdByTag(tagsById, "plant");
+  const dirtId = findIdByTag(tagsById, "dirt");
 
   if (isReactiveWater) {
     for (const d of dirs) {
@@ -72,11 +89,10 @@ export function applyTagBehaviors(
       const ncell = grid[nidx];
       if (!ncell) continue;
       if (!hasTag(tagsById, ncell, "water")) continue;
-      const steamId = nameToId.get("Steam");
-      const smokeId = nameToId.get("Smoke");
-      placeCell(nextGrid, idx, steamId ?? smokeId);
+      const resultId = steamId ?? smokeId;
+      placeCell(nextGrid, idx, resultId);
       reacted[idx] = 1;
-      placeCell(nextGrid, nidx, steamId ?? smokeId);
+      placeCell(nextGrid, nidx, resultId);
       reacted[nidx] = 1;
       if (isExplosive) {
         for (const e of explosionOffsets) {
@@ -105,8 +121,6 @@ export function applyTagBehaviors(
       const ncell = grid[nidx];
       if (!ncell) continue;
       if (!hasTag(tagsById, ncell, "mud")) continue;
-      const plantId = nameToId.get("Plant");
-      const dirtId = nameToId.get("Dirt");
       placeCell(nextGrid, idx, plantId);
       reacted[idx] = 1;
       if (dirtId) placeCell(nextGrid, nidx, dirtId);
@@ -125,7 +139,6 @@ export function applyTagBehaviors(
       const ncell = grid[nidx];
       if (!ncell) continue;
       if (hasTag(tagsById, ncell, "water") && rng() < 0.5) {
-        const steamId = nameToId.get("Steam");
         if (steamId) {
           placeCell(nextGrid, idx, steamId);
           placeCell(nextGrid, nidx, steamId);
@@ -142,14 +155,12 @@ export function applyTagBehaviors(
   }
 
   if (burnsOut && rng() < 0.08) {
-    const smokeId = nameToId.get("Smoke");
     placeCell(nextGrid, idx, smokeId);
     reacted[idx] = 1;
     consumed = true;
   }
 
   if (isPlant && canGrow && rng() < 0.06) {
-    const plantId = nameToId.get("Plant");
     if (plantId) {
       const ny = y - 1;
       if (ny >= 0) {

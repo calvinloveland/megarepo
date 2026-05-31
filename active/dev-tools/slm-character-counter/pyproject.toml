@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "slm-character-counter"
+version = "0.1.0"
+description = "Fine-tune an SLM to be perfect at 'how many X in Y' character counting"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = []
+
+[tool.setuptools.packages.find]
+include = ["data", "training", "scripts", "tests"]
+namespaces = false
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-xdist>=3.0.0",
+]
+train = [
+    "torch>=2.0.0",
+    "transformers>=4.40.0",
+    "datasets>=2.14.0",
+    "trl>=0.9.0",
+    "peft>=0.8.0",
+    "accelerate>=0.27.0",
+    "bitsandbytes>=0.43.0",
+    "wandb>=0.16.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

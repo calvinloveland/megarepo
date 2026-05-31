@@ -1,4 +1,4 @@
-import { runLocalLLM, runLocalLLMText } from "../material_api";
+import { runLocalLLM } from "../material_api";
 import promptTemplates from "../../../material_gen/prompt_templates.json";
 
 export function initApp(root: HTMLElement) {
@@ -6,13 +6,13 @@ export function initApp(root: HTMLElement) {
   root.innerHTML = `
     <div class="flex flex-col lg:flex-row gap-4 items-start">
       <div id="left-panel" class="alchemy-panel min-w-[220px] w-full lg:w-64">
-        <h1 class="text-2xl">Alchemist Powder</h1>
+        <h1 style="font-family:'Cinzel',serif;font-size:1.4rem;font-weight:600;color:#d4a574;letter-spacing:2px;text-transform:uppercase;margin-bottom:0.5rem;">Alchemist<br>Powder</h1>
         <div id="materials-panel"></div>
-        <div id="status" class="alchemy-muted"></div>
-        <div id="mix-status" class="alchemy-muted text-xs"></div>
+        <div id="status"></div>
+        <div id="mix-status" style="font-family:'Inter',sans-serif;font-size:0.65rem;color:rgba(255,255,255,0.35);margin-top:0.25rem;"></div>
       </div>
       <div id="center-panel" class="flex flex-col items-center gap-2 w-full">
-        <div class="alchemy-panel w-full flex justify-center relative">
+        <div class="alchemy-panel w-full flex justify-center relative" style="padding:0.5rem;">
           <div id="mix-banner" class="mix-overlay alchemy-panel hidden">
             <div class="mix-title">New material discovered</div>
             <div id="mix-name" class="mix-name">Mixing...</div>
@@ -20,13 +20,13 @@ export function initApp(root: HTMLElement) {
               <div id="mix-progress" class="mix-progress-fill"></div>
             </div>
           </div>
-          <canvas id="sim-canvas" width="600" height="400" class="border border-amber-700/40 rounded-md"></canvas>
+          <canvas id="sim-canvas" width="600" height="400" style="border:1px solid rgba(255,255,255,0.08);border-radius:4px;"></canvas>
         </div>
         <div id="playback-controls" class="alchemy-panel"></div>
       </div>
       <div id="right-panel" class="alchemy-panel min-w-[220px] w-full lg:w-64">
-        <h3 class="text-lg">Tools</h3>
-        <div id="tools-panel" class="space-y-2"></div>
+        <h3 style="font-family:'Cinzel',serif;font-size:0.9rem;font-weight:600;color:#d4a574;letter-spacing:1px;text-transform:uppercase;margin-bottom:0.5rem;">Tools</h3>
+        <div id="tools-panel" style="display:flex;flex-direction:column;gap:0.5rem;"></div>
       </div>
     </div>
   `;
@@ -108,12 +108,8 @@ const mixApiBase = (() => {
   return "http://127.0.0.1:8787";
 })();
 // default LLM options for mix generation (tuned from experiments)
-const defaultMixNameOptions = { tokens: 16, temperature: 0.2 };
-const defaultMixPropertyOptions = { tokens: 20, temperature: 0.2 };
-const MIX_NAME_OPTIONS = Object.assign({}, defaultMixNameOptions, (window as any).__mixNameOptions || {});
-const MIX_PROPERTY_OPTIONS = Object.assign({}, defaultMixPropertyOptions, (window as any).__mixPropertyOptions || {});
-// cache for per-name property responses to avoid re-requesting LLM for same candidate
-const mixPropertyCache = new Map<string, any>();
+const defaultMixOptions = { tokens: 150, temperature: 0.3 };
+const MIX_OPTIONS = Object.assign({}, defaultMixOptions, (window as any).__mixOptions || {});
 
 let mixBlocked = false;
 let mixCacheReady = false;
@@ -461,64 +457,6 @@ const allowedTags = new Set([
   "dirt",
 ]);
 
-const mixTagExamples = [
-  "Sand => sand",
-  "Water => flow, water",
-  "Oil => flow, flammable",
-  "Steam => float, steam",
-  "Smoke => float, smoke",
-  "Salt => sand",
-  "Metal => static",
-  "Stone => sand",
-  "Wood => static, flammable",
-  "Glass => static",
-  "Fire => float, fire, burns_out",
-  "Sodium => sand, reactive_water, explosive",
-  "Mud => flow, mud",
-  "Seed => sand, seed",
-  "Plant => static, plant, grow",
-  "Dirt => sand, dirt",
-];
-
-const mixDensityExamples = [
-  "Sand => 1.6",
-  "Water => 1.0",
-  "Oil => 0.9",
-  "Steam => 0.2",
-  "Smoke => 0.1",
-  "Salt => 2.0",
-  "Metal => 3.5",
-  "Stone => 2.4",
-  "Wood => 0.7",
-  "Glass => 2.5",
-];
-
-const mixColorExamples = [
-  "Sand => 160,150,130",
-  "Water => 80,120,200",
-  "Oil => 90,80,60",
-  "Steam => 200,200,220",
-  "Smoke => 180,180,190",
-  "Salt => 220,220,220",
-  "Metal => 120,120,130",
-  "Stone => 180,170,160",
-  "Wood => 120,90,60",
-  "Glass => 190,200,210",
-];
-
-const mixDescriptionExamples = [
-  "Sand => Heavy granular sand.",
-  "Water => Clear flowing liquid.",
-  "Oil => Slick viscous liquid.",
-  "Steam => Light drifting vapor.",
-  "Smoke => Thin sooty haze.",
-  "Salt => Sharp crystalline grains.",
-  "Metal => Solid heavy metal.",
-  "Stone => Hard rough solid.",
-  "Wood => Dry fibrous solid.",
-  "Glass => Clear brittle solid.",
-];
-
 function getRecentMixLines(limit = 12) {
   const lines: string[] = [];
   for (const [key, value] of mixCache.entries()) {
@@ -533,137 +471,12 @@ function getRecentMixLines(limit = 12) {
   return lines.slice(lines.length - limit);
 }
 
-function buildMixNamePrompt(aName: string, bName: string) {
-  const template = String(
-    (promptTemplates as any).mix_name_prompt ||
-      "Mixes:\n{{recent}}\n{{a}}+{{b}}=",
-  );
-  const recentLines = getRecentMixLines();
-  const recentBlock = recentLines.length ? recentLines.join("\n") : "";
-  return template
-    .replace("{{recent}}", recentBlock)
-    .replace("{{a}}", aName)
-    .replace("{{b}}", bName);
-}
-
-function buildMixTagsPrompt(name: string) {
-  const lines = ["Tags:"];
-  lines.push(...mixTagExamples);
-  lines.push(`${name} =>`);
-  lines.push(
-    "Return only comma-separated tags from: sand, flow, float, static, water, fire, flammable, reactive_water, explosive, burns_out, smoke, steam, mud, seed, plant, grow, dirt.",
-  );
-  return lines.join("\n");
-}
-
-function buildMixDensityPrompt(name: string) {
-  const lines = ["Densities:"];
-  lines.push(...mixDensityExamples);
-  lines.push(`${name} =>`);
-  lines.push("Return only the numeric density.");
-  return lines.join("\n");
-}
-
-function buildMixColorPrompt(name: string) {
-  const lines = ["Colors (RGB):"];
-  lines.push(...mixColorExamples);
-  lines.push(`${name} =>`);
-  lines.push("Return only three comma-separated integers (r,g,b).");
-  return lines.join("\n");
-}
-
-function buildMixDescriptionPrompt(name: string) {
-  const lines = ["Descriptions:"];
-  lines.push(...mixDescriptionExamples);
-  lines.push(`${name} =>`);
-  lines.push("Return a short sentence only.");
-  return lines.join("\n");
-}
-
-function parseMixNameResponse(resp: string, aName: string, bName: string) {
-  if (!resp) return "";
-  const rawLines = resp
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean);
-  if (!rawLines.length) return "";
-  let line = rawLines[rawLines.length - 1];
-  if (line.includes("=")) {
-    line = line.slice(line.lastIndexOf("=") + 1).trim();
-  }
-  line = line.replace(/^[-–—\s]+/, "").trim();
-  line = line.replace(/^['"`]+|['"`]+$/g, "").trim();
-  const firstWordMatch = line.match(/[A-Za-z0-9_-]+/);
-  if (firstWordMatch) {
-    line = firstWordMatch[0].trim();
-  }
-  const lower = line.toLowerCase();
-  if (lower.includes("no reaction") || lower.includes("no_reaction"))
-    return null;
-  if (!line) return "";
-  if (isNoReactionName(line)) return null;
-  if (isGenericMixName(line, aName, bName)) return "";
-  return line;
-}
-
-function parseTagsResponse(resp: string) {
-  if (!resp) return [] as string[];
-  const tokens = resp
-    .toLowerCase()
-    .split(/[^a-z]+/)
-    .map((t) => t.trim())
-    .filter(Boolean);
-  const tags = tokens.filter((t) => allowedTags.has(t));
-  return normalizeTags(Array.from(new Set(tags)));
-}
-
 function normalizeTags(tags: string[]) {
   const mobility = ["static", "sand", "flow", "float"];
   const present = mobility.filter((tag) => tags.includes(tag));
   if (present.length <= 1) return tags;
   const preferred = present[0];
   return tags.filter((tag) => !mobility.includes(tag) || tag === preferred);
-}
-
-function parseDensityResponse(resp: string) {
-  if (!resp) return null as number | null;
-  const match = resp.match(/-?\d+(?:\.\d+)?/);
-  if (!match) return null;
-  const value = Number.parseFloat(match[0]);
-  if (!Number.isFinite(value)) return null;
-  return Math.max(0.05, Math.min(10, value));
-}
-
-function parseColorResponse(resp: string) {
-  if (!resp) return null as number[] | null;
-  const matches = resp.match(/-?\d+(?:\.\d+)?/g) || [];
-  if (matches.length < 3) return null;
-  const nums = matches.slice(0, 3).map((m) => Math.round(Number.parseFloat(m)));
-  if (nums.some((n) => !Number.isFinite(n))) return null;
-  return nums.map((n) => Math.max(0, Math.min(255, n)));
-}
-
-function parseDescriptionResponse(resp: string) {
-  if (!resp) return "";
-  const line =
-    resp
-      .split(/\r?\n/)
-      .map((l) => l.trim())
-      .filter(Boolean)[0] || "";
-  return line.replace(/^[-–—\s]+/, "").trim();
-}
-
-function fallbackTags(aMat: any, bMat: any) {
-  const aTags = Array.isArray(aMat?.tags) ? aMat.tags : [];
-  const bTags = Array.isArray(bMat?.tags) ? bMat.tags : [];
-  for (const tag of aTags) {
-    if (bTags.includes(tag) && allowedTags.has(tag)) return [tag];
-  }
-  const ordered = ["flow", "sand", "float", "static", "fire", "water"];
-  for (const tag of ordered) {
-    if (aTags.includes(tag) || bTags.includes(tag)) return [tag];
-  }
-  return ["static"];
 }
 
 function isNoReactionName(name: string) {
@@ -972,202 +785,86 @@ async function generateMixMaterial(aMat: any, bMat: any) {
   const aName = aMat?.name || "A";
   const bName = bMat?.name || "B";
   setMixProgress(20);
-  const namePrompt = buildMixNamePrompt(aName, bName);
-  const retryNamePrompt = `Mixes:\n${aName}+${bName}=\nReturn only the new material name on the final line.`;
-  async function getValidName(prompt: string) {
-    const nameResp = await runLocalLLMText(prompt, MIX_NAME_OPTIONS);
-    const candidate = parseMixNameResponse(nameResp, aName, bName);
-    if (candidate === null) return null;
-    if (!candidate) return "";
-    if (materialNameExists(candidate)) return "";
-    return candidate;
-  }
-  let candidateName = await getValidName(namePrompt);
-  if (candidateName === "") candidateName = await getValidName(retryNamePrompt);
-  if (candidateName === null) return null;
-  if (!candidateName) {
-    candidateName = fallbackMixName(aName, bName);
-  }
-  // Guard against short/invalid names returned by noisy LLM outputs (e.g., "Do", "They")
-  if (!/^[A-Za-z0-9][A-Za-z0-9 _-]{2,}$/.test(candidateName)) {
-    candidateName = fallbackMixName(aName, bName);
-  }
-  if (
-    materialNameExists(candidateName) ||
-    isGenericMixName(candidateName, aName, bName)
-  ) {
-    candidateName = `${fallbackMixName(aName, bName)}_${Date.now().toString(36).slice(-3)}`;
-  }
-  setMixName(candidateName);
-  setMixProgress(55);
-  const tagPrompt = buildMixTagsPrompt(candidateName);
-  const densityPrompt = buildMixDensityPrompt(candidateName);
-  const colorPrompt = buildMixColorPrompt(candidateName);
-  const descPrompt = buildMixDescriptionPrompt(candidateName);
 
-  // timing instrumentation for performance analysis
-  const timing: any = { name: candidateName, a: aName, b: bName, start: Date.now() };
+  // Build unified prompt: show recent mixes, then ask for A+B=
+  const template = String(
+    (promptTemplates as any).mix_material_prompt ||
+      "{{a}}+{{b}}=",
+  );
+  const recentLines = getRecentMixLines();
+  const recentBlock = recentLines.length ? recentLines.join("\n") : "";
+  const prompt = template
+    .replace("{{recent}}", recentBlock)
+    .replace("{{a}}", aName)
+    .replace("{{b}}", bName);
 
-  const t0 = Date.now();
-  // run property prompts in parallel with tuned tokens per prompt
-  const tagPromise = (async () => {
-    const s = Date.now();
-    const r = await runLocalLLMText(tagPrompt, { tokens: MIX_PROPERTY_OPTIONS.tokens, temperature: MIX_PROPERTY_OPTIONS.temperature });
-    return { resp: r, dur: Date.now() - s };
-  })();
-  const densityPromise = (async () => {
-    const s = Date.now();
-    const r = await runLocalLLMText(densityPrompt, { tokens: Math.max(8, Math.floor(MIX_PROPERTY_OPTIONS.tokens / 2)), temperature: MIX_PROPERTY_OPTIONS.temperature });
-    return { resp: r, dur: Date.now() - s };
-  })();
-  const colorPromise = (async () => {
-    const s = Date.now();
-    const r = await runLocalLLMText(colorPrompt, { tokens: Math.max(10, Math.floor(MIX_PROPERTY_OPTIONS.tokens * 0.6)), temperature: MIX_PROPERTY_OPTIONS.temperature });
-    return { resp: r, dur: Date.now() - s };
-  })();
-  const descPromise = (async () => {
-    const s = Date.now();
-    const r = await runLocalLLMText(descPrompt, { tokens: Math.max(12, Math.floor(MIX_PROPERTY_OPTIONS.tokens * 0.6)), temperature: MIX_PROPERTY_OPTIONS.temperature });
-    return { resp: r, dur: Date.now() - s };
-  })();
+  const system = String(
+    (promptTemplates as any).mix_material_system ||
+      "Generate a JSON material object."
+  );
 
-  // check cache first
-  const cached = mixPropertyCache.get(candidateName);
-  let tagResp: string, densityResp: string, colorResp: string, descResp: string;
-  if (cached) {
-    tagResp = cached.tagResp;
-    densityResp = cached.densityResp;
-    colorResp = cached.colorResp;
-    descResp = cached.descResp;
-    timing.tag = cached.timing?.tag || 0;
-    timing.density = cached.timing?.density || 0;
-    timing.color = cached.timing?.color || 0;
-    timing.desc = cached.timing?.desc || 0;
-  } else {
-    const [tagRes, densityRes, colorRes, descRes] = await Promise.all([tagPromise, densityPromise, colorPromise, descPromise]);
-    tagResp = tagRes?.resp || "";
-    densityResp = densityRes?.resp || "";
-    colorResp = colorRes?.resp || "";
-    descResp = descRes?.resp || "";
-
-    timing.tag = tagRes?.dur || 0;
-    timing.density = densityRes?.dur || 0;
-    timing.color = colorRes?.dur || 0;
-    timing.desc = descRes?.dur || 0;
-
-    mixPropertyCache.set(candidateName, { tagResp, densityResp, colorResp, descResp, timing: { tag: timing.tag, density: timing.density, color: timing.color, desc: timing.desc } });
-  }
-
-  setMixProgress(85);
-
-  timing.total = Date.now() - t0;
-  timing.elapsed = Date.now() - timing.start;
   try {
-    (window as any).__mixGenerationTimings = (window as any).__mixGenerationTimings || [];
-    (window as any).__mixGenerationTimings.push(timing);
-  } catch (e) {}
+    // Single LLM call for the complete material
+    const resp = await runLocalLLM(
+      prompt,
+      MIX_OPTIONS,
+    );
+    setMixProgress(70);
 
-  let tags = parseTagsResponse(tagResp);
-  if (!tags.length) {
-    await reportMixError("mix tags parse failed", {
-      a: aName,
-      b: bName,
-      name: candidateName,
-      response: tagResp,
-    });
-    tags = fallbackTags(aMat, bMat);
-  }
-  let density = parseDensityResponse(densityResp);
-  if (density === null) {
-    await reportMixError("mix density parse failed", {
-      a: aName,
-      b: bName,
-      name: candidateName,
-      response: densityResp,
-    });
-    const aDensity = typeof aMat?.density === "number" ? aMat.density : 1;
-    const bDensity = typeof bMat?.density === "number" ? bMat.density : 1;
-    density = Math.max(0.05, Math.min(10, (aDensity + bDensity) / 2));
-  }
-  let color = parseColorResponse(colorResp);
-  if (!color) {
-    await reportMixError("mix color parse failed", {
-      a: aName,
-      b: bName,
-      name: candidateName,
-      response: colorResp,
-    });
-    color = deriveColorFromName(candidateName);
-  }
-  let description = parseDescriptionResponse(descResp);
-  if (!description) {
-    await reportMixError("mix description parse failed", {
-      a: aName,
-      b: bName,
-      name: candidateName,
-      response: descResp,
-    });
-    description = `Auto-generated mix of ${aName} and ${bName}.`;
-  }
-
-  const draft = {
-    type: "material",
-    name: candidateName,
-    tags,
-    density,
-    color,
-    description,
-  };
-
-  let normalized = tryNormalizeMixMaterial(draft, aMat, bMat);
-  if (!normalized) {
-    await reportMixError("mix normalize failed", {
-      a: aName,
-      b: bName,
-      name: candidateName,
-      stage: "properties",
-      responses: { tagResp, densityResp, colorResp, descResp },
-    });
-
-    // Retry once: re-run property prompts to mitigate transient LLM noise
-    try {
-      const retryTag = await runLocalLLMText(tagPrompt, { tokens: MIX_PROPERTY_OPTIONS.tokens, temperature: MIX_PROPERTY_OPTIONS.temperature });
-      const retryDensity = await runLocalLLMText(densityPrompt, { tokens: Math.max(8, Math.floor(MIX_PROPERTY_OPTIONS.tokens / 2)), temperature: MIX_PROPERTY_OPTIONS.temperature });
-      const retryColor = await runLocalLLMText(colorPrompt, { tokens: Math.max(10, Math.floor(MIX_PROPERTY_OPTIONS.tokens * 0.6)), temperature: MIX_PROPERTY_OPTIONS.temperature });
-      const retryDesc = await runLocalLLMText(descPrompt, { tokens: Math.max(12, Math.floor(MIX_PROPERTY_OPTIONS.tokens * 0.6)), temperature: MIX_PROPERTY_OPTIONS.temperature });
-
-      // parse retry responses
-      const retryTags = parseTagsResponse(retryTag);
-      const retryDensityVal = parseDensityResponse(retryDensity);
-      const retryColorVal = parseColorResponse(retryColor);
-      const retryDescVal = parseDescriptionResponse(retryDesc);
-
-      const retryDraft = {
-        type: "material",
-        name: candidateName,
-        tags: retryTags.length ? retryTags : tags,
-        density: retryDensityVal === null ? density : retryDensityVal,
-        color: retryColorVal || color,
-        description: retryDescVal || description,
-      };
-      normalized = tryNormalizeMixMaterial(retryDraft, aMat, bMat);
-      if (!normalized) {
-        await reportMixError("mix normalize failed (retry)", {
-          a: aName,
-          b: bName,
-          name: candidateName,
-          stage: "properties-retry",
-          responses: { retryTag, retryDensity, retryColor, retryDesc },
-        });
-        return null;
-      }
-    } catch (err) {
-      await reportMixError("mix normalize retry failed", { error: String(err) });
+    if (resp === null || resp === undefined) {
+      console.warn("[mix] unified generation returned null");
       return null;
     }
-  }
 
-  return normalized;
+    // Check for no_reaction response
+    if (isNoReactionPayload(resp)) return null;
+
+    // Build final material object
+    let candidateName = typeof resp.name === "string" ? resp.name.trim() : "";
+    if (!candidateName) {
+      // If no name in response, make one
+      candidateName = fallbackMixName(aName, bName);
+    }
+    if (materialNameExists(candidateName)) {
+      candidateName = `${fallbackMixName(aName, bName)}_${Date.now().toString(36).slice(-3)}`;
+    }
+    if (isGenericMixName(candidateName, aName, bName)) {
+      candidateName = `${fallbackMixName(aName, bName)}_${Date.now().toString(36).slice(-3)}`;
+    }
+
+    setMixName(candidateName);
+
+    const draft = {
+      type: "material",
+      name: candidateName,
+      tags: Array.isArray(resp.tags) ? resp.tags : ["static"],
+      density: typeof resp.density === "number" ? resp.density : 1.0,
+      color: resp.color || deriveColorFromName(candidateName),
+      description: typeof resp.description === "string" ? resp.description : `Auto-generated mix of ${aName} and ${bName}.`,
+      reactions: Array.isArray(resp.reactions) ? resp.reactions : undefined,
+    };
+
+    const normalized = tryNormalizeMixMaterial(draft, aMat, bMat);
+    if (!normalized) {
+      await reportMixError("mix normalize failed (unified)", {
+        a: aName,
+        b: bName,
+        name: candidateName,
+        response: JSON.stringify(resp).slice(0, 500),
+      });
+      return null;
+    }
+
+    setMixProgress(100);
+    return normalized;
+  } catch (err) {
+    await reportMixError("mix generation failed (unified)", {
+      error: String(err),
+      a: aName,
+      b: bName,
+    });
+    return null;
+  }
 }
 
 function applyMixMaterial(mixSource: any, aMat: any, bMat: any) {
@@ -1428,6 +1125,28 @@ function drawGrid(buf: Uint16Array, w: number, h: number) {
   try {
     offCtx.imageSmoothingEnabled = false;
   } catch (e) {}
+
+  // Draw background (dark grid)
+  offCtx.fillStyle = "#0a0e17";
+  offCtx.fillRect(0, 0, w, h);
+
+  // Draw subtle grid lines (every 5 cells)
+  offCtx.strokeStyle = "rgba(255,255,255,0.04)";
+  offCtx.lineWidth = 0.5;
+  for (let x = 0; x <= w; x += 5) {
+    offCtx.beginPath();
+    offCtx.moveTo(x, 0);
+    offCtx.lineTo(x, h);
+    offCtx.stroke();
+  }
+  for (let y = 0; y <= h; y += 5) {
+    offCtx.beginPath();
+    offCtx.moveTo(0, y);
+    offCtx.lineTo(w, y);
+    offCtx.stroke();
+  }
+
+  // Draw material cells
   const img = offCtx.createImageData(w, h);
   const colorMap = (window as any).__materialColors as
     | Record<number, number[]>
@@ -1441,13 +1160,19 @@ function drawGrid(buf: Uint16Array, w: number, h: number) {
       img.data[i * 4 + 2] = c[2];
       img.data[i * 4 + 3] = 255;
     } else {
-      img.data[i * 4 + 0] = v;
-      img.data[i * 4 + 1] = v;
-      img.data[i * 4 + 2] = v;
+      img.data[i * 4 + 0] = 10;
+      img.data[i * 4 + 1] = 14;
+      img.data[i * 4 + 2] = 23;
       img.data[i * 4 + 3] = 255;
     }
   }
   offCtx.putImageData(img, 0, 0);
+
+  // Draw border around the simulation area
+  offCtx.strokeStyle = "rgba(255,255,255,0.05)";
+  offCtx.lineWidth = 1;
+  offCtx.strokeRect(0, 0, w, h);
+
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.drawImage(off, 0, 0, canvas.width, canvas.height);
 }

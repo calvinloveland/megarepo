@@ -119,7 +119,7 @@ describe("tag movement", () => {
     expect(nextGrid[idx]).toBe(heavy);
   });
 
-  it("fire does not move through static materials", () => {
+  it("fire does not move through static materials (but moves to empty cells)", () => {
     const width = 3;
     const height = 3;
     const grid = new Uint16Array(width * height);
@@ -133,6 +133,7 @@ describe("tag movement", () => {
     tagsById.set(wall, ["static"]);
     const idx = 1 + 1 * width;
     grid[idx] = fire;
+    // Wall directly above — fire should not move into it but can move to empty diagonal
     grid[1 + 0 * width] = wall;
 
     const moved = stepByTags(["float", "fire"], fire, 1, 1, idx, {
@@ -142,10 +143,13 @@ describe("tag movement", () => {
       nextGrid,
       densityById,
       tagsById,
-      rng: () => 0.2,
+      rng: () => 0.2, // 0.2 < 0.5 → dx1=-1, dx2=1
     });
 
-    expect(moved).toBe(false);
+    // Fire should move diagonally up-left (0,0) since that's empty
+    expect(moved).toBe(true);
+    expect(nextGrid[0 + 0 * width]).toBe(fire);
+    // The wall should stay untouched
     expect(nextGrid[1 + 0 * width]).toBe(0);
   });
 });
