@@ -296,6 +296,21 @@
     }
     .scene-controls .reroll-btn:hover { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.6); }
 
+    .gyro-indicator {
+      font-size: 9px; letter-spacing: 1px; padding: 3px 10px; border-radius: 2px;
+      border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.04);
+      color: rgba(255,255,255,0.3);
+    }
+    .gyro-indicator.gyro-on { color: #4ade80; border-color: rgba(74,222,128,0.3); background: rgba(74,222,128,0.08); }
+    .gyro-bar-bg {
+      width: 50px; height: 4px; border-radius: 2px;
+      background: rgba(255,255,255,0.08); overflow: hidden;
+    }
+    .gyro-bar {
+      width: 0%; height: 100%; border-radius: 2px;
+      transition: width 0.1s ease, background 0.2s ease;
+    }
+
     .running-ticker {
       position: relative; z-index: 20;
       font-size: 12px; color: rgba(255,255,255,0.5);
@@ -409,6 +424,11 @@
       <span class="scene-label">◈ SCENE</span>
       <span class="scene-name" id="sceneName">CARGO SHIP</span>
       <button class="disturb-btn" id="disturbBtn" onclick="disturbScene()" title="Temporarily scatter containers — they return in 5s">⚠ ROCK THE BOAT</button>
+      <div id="gyroControl" style="display:none;align-items:center;gap:8px">
+        <span class="gyro-indicator" id="gyroStatus">📱 WAITING</span>
+        <div class="gyro-bar-bg"><div class="gyro-bar" id="gyroLevel"></div></div>
+        <button class="reroll-btn" onclick="recalibrateGyro()" style="margin-left:0;font-size:9px">⟳ CAL</button>
+      </div>
       <button class="reroll-btn" onclick="changeScene()">⟳ REROLL</button>
     </div>
 
@@ -474,6 +494,70 @@ const { Engine, World, Bodies, Body, Constraint, Events, Composite, Vector, Runn
 let engine, sceneName = 'ship', containerBodies = [], containerBodyOrigins = [], isDisturbed = false;
 let physicsRunning = false, animFrame = null;
 let settleTimer = null;
+
+// ── Gyroscope state ──
+let gyroActive = false, gyroAvailable = false;
+let gyroBeta = 0, gyroGamma = 0;
+let gyroCalBeta = 0, gyroCalGamma = 0, gyroCalibrated = false;
+
+function initGyro() {
+  // Check if device supports orientation
+  if (typeof DeviceOrientationEvent === 'undefined') return;
+  gyroAvailable = true;
+
+  const handleOrientation = (e) => {
+    if (e.beta === null || e.gamma === null) return;
+    gyroBeta = e.beta;
+    gyroGamma = e.gamma;
+    if (!gyroCalibrated) {
+      gyroCalBeta = e.beta;
+      gyroCalGamma = e.gamma;
+      gyroCalibrated = true;
+      console.log('📱 Gyro calibrated:', gyroCalBeta, gyroCalGamma);
+    }
+  };
+
+  // iOS 13+ requires permission request
+  if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+    // Will be called on user gesture
+    document.addEventListener('click', function requestPerm() {
+      DeviceOrientationEvent.requestPermission().then(state => {
+        if (state === 'granted') {
+          window.addEventListener('deviceorientation', handleOrientation);
+          gyroActive = true;
+          document.getElementById('gyroStatus').textContent = '📱 ACTIVE';
+          document.getElementById('gyroStatus').className = 'gyro-indicator gyro-on';
+          // Hide disturb, show gyro
+          document.getElementById('disturbBtn').style.display = 'none';
+          document.getElementById('gyroControl').style.display = 'flex';
+        }
+      });
+      document.removeEventListener('click', requestPerm);
+    }, { once: true });
+  } else {
+    // Android / others — no permission needed
+    window.addEventListener('deviceorientation', handleOrientation);
+    gyroActive = true;
+    document.getElementById('gyroStatus').textContent = '📱 ACTIVE';
+    document.getElementById('gyroStatus').className = 'gyro-indicator gyro-on';
+    document.getElementById('disturbBtn').style.display = 'none';
+    document.getElementById('gyroControl').style.display = 'flex';
+  }
+}
+
+function recalibrateGyro() {
+  if (gyroBeta !== null && gyroGamma !== null) {
+    gyroCalBeta = gyroBeta;
+    gyroCalGamma = gyroGamma;
+    gyroCalibrated = true;
+    const toast = document.createElement('div');
+    toast.style.cssText = 'position:fixed;top:60px;left:50%;transform:translateX(-50%);z-index:9999;padding:8px 16px;border-radius:4px;background:rgba(74,222,128,0.15);border:1px solid rgba(74,222,128,0.3);color:#4ade80;font-size:12px;font-family:monospace;pointer-events:none;transition:opacity 0.5s;';
+    toast.textContent = '📱 Gyro recalibrated — hold phone still';
+    document.body.appendChild(toast);
+    setTimeout(() => { toast.style.opacity = '0'; }, 1200);
+    setTimeout(() => toast.remove(), 1700);
+  }
+}
 
 const CARD_W = 220, CARD_H = 130;
 const CARD_W_MOBILE = 160, CARD_H_MOBILE = 100;
@@ -693,6 +777,12 @@ function createScene(type) {
   const disturbTexts = { ship:'ROCK THE BOAT!', train:'DERAIL!', crane:'SWING LOAD!', depot:'TOPPLE!' };
   document.getElementById('disturbBtn').textContent = '⚠ ' + disturbTexts[type];
 
+  // Show/hide gyro vs disturb based on availability
+  if (gyroAvailable) {
+    document.getElementById('gyroControl').style.display = 'none';
+    document.getElementById('disturbBtn').style.display = '';
+  }
+
   // Start physics
   startPhysics();
 
@@ -775,16 +865,36 @@ function startPhysics() {
   loop();
 
   // Catcher floor catches bodies that fall off the main area
-  // No teleport needed — the catcher floor at H+150 handles this
   Events.on(engine, 'afterUpdate', () => {
     const wrap = document.getElementById('sceneWrap');
     const rect = wrap.getBoundingClientRect();
     const W = Math.max(rect.width, window.innerWidth, 360);
 
-    // Only clamp horizontal movement — vertical is handled by catcher floor
+    // Apply gyroscope forces if active
+    if (gyroActive && gyroCalibrated) {
+      const dBeta = Math.max(-1, Math.min(1, (gyroBeta - gyroCalBeta) / 45));
+      const dGamma = Math.max(-1, Math.min(1, (gyroGamma - gyroCalGamma) / 45));
+      const forceX = dGamma * 0.004;
+      const forceY = dBeta * 0.004;
+      const gyroForceMag = Math.sqrt(forceX*forceX + forceY*forceY);
+
+      containerBodies.forEach(body => {
+        if (!body.isStatic) {
+          Body.applyForce(body, body.position, { x: forceX, y: forceY });
+        }
+      });
+
+      // Update gyro indicator level
+      const el = document.getElementById('gyroLevel');
+      if (el) {
+        const pct = Math.min(100, gyroForceMag * 5000);
+        el.style.width = pct + '%';
+        el.style.background = pct > 50 ? 'rgba(255,100,50,0.6)' : 'rgba(74,222,128,0.6)';
+      }
+    }
+
+    // Clamp horizontal movement — vertical is handled by catcher floor
     containerBodies.forEach(body => {
-      // Teleport from one side to the other if it goes way off horizontally
-      // (keeps physics visible without losing bodies)
       if (body.position.x < -300) {
         Body.setPosition(body, { x: W + 50, y: body.position.y });
         Body.setVelocity(body, { x: 0, y: body.velocity.y });
@@ -1073,6 +1183,7 @@ function escapeHtml(text) { const d = document.createElement('div'); d.textConte
 // ══════════════════════════════════════════════════════
 window.addEventListener('load', () => {
   setTimeout(() => createScene('ship'), 100);
+  initGyro();
 });
 window.addEventListener('resize', () => {
   // Throttled: recreate scene on significant resize
