@@ -1240,12 +1240,24 @@ function addCatalyzedMixReaction(aId: number, bId: number, catalystId: number) {
       let candidateName = "";
       const catalystTag = catalystName.toLowerCase();
 
-      // Name with catalyst context
+      // Look up the uncatalyzed result to tell the LLM what NOT to repeat
+      const uncatalyzedKey = mixCacheKey(aMat.name, bMat.name);
+      const uncatalyzedResult = mixCache.get(uncatalyzedKey);
+      const uncatalyzedName = uncatalyzedResult?.name || "";
+
       for (let attempt = 0; attempt < 2; attempt++) {
-        const namePrompt = attempt === 0
-          ? `${aMat.name}+${bMat.name}+${catalystName}=`
-          : `${aMat.name}+${bMat.name}+${catalystName}=\n(Not "${candidateName}" — that name is taken. Suggest a different name.)`;
-        const nameResp = await runLocalLLMText(namePrompt, { tokens: 20, temperature: 0.3 });
+        let namePrompt: string;
+        if (uncatalyzedName) {
+          // Tell the LLM what the normal result is, so it suggests something different
+          namePrompt = attempt === 0
+            ? `${aMat.name}+${bMat.name} makes ${uncatalyzedName}.\nWhat different material is made when ${aMat.name}, ${bMat.name}, and ${catalystName} are combined?`
+            : `${aMat.name}+${bMat.name} makes ${uncatalyzedName}.\n(Not "${candidateName}" — that name is taken. Suggest a different name for ${aMat.name}+${bMat.name}+${catalystName}.)`;
+        } else {
+          namePrompt = attempt === 0
+            ? `${aMat.name}+${bMat.name}+${catalystName}=`
+            : `${aMat.name}+${bMat.name}+${catalystName}=\n(Not "${candidateName}" — that name is taken. Suggest a different name.)`;
+        }
+        const nameResp = await runLocalLLMText(namePrompt, { tokens: 25, temperature: 0.3 });
         const raw = (nameResp || "").trim();
         const lines = raw.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
         let lastLine = lines.length ? lines[lines.length - 1] : "";
@@ -1253,8 +1265,13 @@ function addCatalyzedMixReaction(aId: number, bId: number, catalystId: number) {
         const nameMatch = lastLine.match(/[A-Za-z][A-Za-z0-9_-]*/);
         const extracted = nameMatch ? nameMatch[0] : "";
         if (extracted && extracted.length >= 2 && !materialNameExists(extracted)) {
-          candidateName = extracted;
-          break;
+          // Extra check: don't register if it's the same as the uncatalyzed result
+          if (extracted.toLowerCase() !== uncatalyzedName.toLowerCase()) {
+            candidateName = extracted;
+            break;
+          }
+          // If same as uncatalyzed, retry
+          continue;
         }
         candidateName = extracted || fallbackMixName(aMat.name, bMat.name) + "_" + catalystTag;
       }
