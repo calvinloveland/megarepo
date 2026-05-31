@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Mercury",
+  "description": "Mercury (element 80)",
+  "color": [
+    129,
+    101,
+    85
+  ],
+  "density": 64,
+  "tags": [
+    "element",
+    "flow"
+  ],
+  "atomicNumber": 80
+}

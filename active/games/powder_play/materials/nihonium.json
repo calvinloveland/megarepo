@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Nihonium",
+  "description": "Nihonium (element 113)",
+  "color": [
+    137,
+    196,
+    225
+  ],
+  "density": 93.4,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 113
+}

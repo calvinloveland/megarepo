@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Flerovium",
+  "description": "Flerovium (element 114)",
+  "color": [
+    199,
+    113,
+    182
+  ],
+  "density": 95.2,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 114
+}

@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Bismuth",
+  "description": "Bismuth (element 83)",
+  "color": [
+    88,
+    65,
+    124
+  ],
+  "density": 69.4,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 83
+}

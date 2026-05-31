@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Meitnerium",
+  "description": "Meitnerium (element 109)",
+  "color": [
+    153,
+    115,
+    110
+  ],
+  "density": 91.2,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 109
+}

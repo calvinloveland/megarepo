@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Berkelium",
+  "description": "Berkelium (element 97)",
+  "color": [
+    130,
+    73,
+    157
+  ],
+  "density": 79.6,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 97
+}

@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Polonium",
+  "description": "Polonium (element 84)",
+  "color": [
+    105,
+    168,
+    120
+  ],
+  "density": 71.2,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 84
+}

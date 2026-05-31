@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Astatine",
+  "description": "Astatine (element 85)",
+  "color": [
+    81,
+    206,
+    67
+  ],
+  "density": 68,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 85
+}

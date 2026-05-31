@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Lead",
+  "description": "Lead (element 82)",
+  "color": [
+    224,
+    115,
+    96
+  ],
+  "density": 67.6,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 82
+}

@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Uranium",
+  "description": "Uranium (element 92)",
+  "color": [
+    179,
+    144,
+    220
+  ],
+  "density": 75.6,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 92
+}

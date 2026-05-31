@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Roentgenium",
+  "description": "Roentgenium (element 111)",
+  "color": [
+    223,
+    158,
+    167
+  ],
+  "density": 89.8,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 111
+}

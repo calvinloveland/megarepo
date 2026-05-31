@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Curium",
+  "description": "Curium (element 96)",
+  "color": [
+    209,
+    138,
+    70
+  ],
+  "density": 77.8,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 96
+}

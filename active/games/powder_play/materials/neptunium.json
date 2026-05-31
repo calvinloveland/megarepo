@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Neptunium",
+  "description": "Neptunium (element 93)",
+  "color": [
+    105,
+    178,
+    236
+  ],
+  "density": 77.4,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 93
+}

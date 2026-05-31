@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Mendelevium",
+  "description": "Mendelevium (element 101)",
+  "color": [
+    127,
+    176,
+    203
+  ],
+  "density": 81.8,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 101
+}

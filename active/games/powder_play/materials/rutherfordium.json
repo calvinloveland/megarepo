@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Rutherfordium",
+  "description": "Rutherfordium (element 104)",
+  "color": [
+    190,
+    178,
+    124
+  ],
+  "density": 87.2,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 104
+}

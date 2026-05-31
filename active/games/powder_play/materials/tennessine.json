@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Tennessine",
+  "description": "Tennessine (element 117)",
+  "color": [
+    148,
+    152,
+    216
+  ],
+  "density": 95.6,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 117
+}

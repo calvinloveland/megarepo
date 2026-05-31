@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Darmstadtium",
+  "description": "Darmstadtium (element 110)",
+  "color": [
+    215,
+    68,
+    145
+  ],
+  "density": 88,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 110
+}

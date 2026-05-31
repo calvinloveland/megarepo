@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Copernicium",
+  "description": "Copernicium (element 112)",
+  "color": [
+    70,
+    150,
+    139
+  ],
+  "density": 91.6,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 112
+}

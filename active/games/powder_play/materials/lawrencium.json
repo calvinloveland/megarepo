@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Lawrencium",
+  "description": "Lawrencium (element 103)",
+  "color": [
+    211,
+    116,
+    224
+  ],
+  "density": 85.4,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 103
+}

@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Francium",
+  "description": "Francium (element 87)",
+  "color": [
+    117,
+    124,
+    220
+  ],
+  "density": 71.6,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 87
+}

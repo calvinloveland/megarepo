@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Moscovium",
+  "description": "Moscovium (element 115)",
+  "color": [
+    236,
+    121,
+    87
+  ],
+  "density": 92,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 115
+}

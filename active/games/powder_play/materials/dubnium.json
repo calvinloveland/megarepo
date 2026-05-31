@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Dubnium",
+  "description": "Dubnium (element 105)",
+  "color": [
+    236,
+    133,
+    144
+  ],
+  "density": 84,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 105
+}

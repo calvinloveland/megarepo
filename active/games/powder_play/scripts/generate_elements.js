@@ -11,7 +11,15 @@ const elements = [
   "Niobium","Molybdenum","Technetium","Ruthenium","Rhodium","Palladium","Silver","Cadmium","Indium","Tin",
   "Antimony","Tellurium","Iodine","Xenon","Cesium","Barium","Lanthanum","Cerium","Praseodymium","Neodymium",
   "Promethium","Samarium","Europium","Gadolinium","Terbium","Dysprosium","Holmium","Erbium","Thulium","Ytterbium",
-  "Lutetium","Hafnium","Tantalum","Tungsten","Rhenium","Osmium","Iridium","Platinum","Gold"
+  "Lutetium","Hafnium","Tantalum","Tungsten","Rhenium","Osmium","Iridium","Platinum","Gold",
+  /* 80-118 */
+  "Mercury","Thallium","Lead","Bismuth","Polonium","Astatine","Radon",
+  "Francium","Radium","Actinium","Thorium","Protactinium","Uranium",
+  "Neptunium","Plutonium","Americium","Curium","Berkelium","Californium",
+  "Einsteinium","Fermium","Mendelevium","Nobelium","Lawrencium",
+  "Rutherfordium","Dubnium","Seaborgium","Bohrium","Hassium","Meitnerium",
+  "Darmstadtium","Roentgenium","Copernicium","Nihonium","Flerovium",
+  "Moscovium","Livermorium","Tennessine","Oganesson"
 ];
 
 const outDir = path.join(__dirname, '..', 'materials');
@@ -29,17 +37,15 @@ function colorForName(name) {
 }
 
 function tagForElement(atomic) {
-  // choose gas for noble gases and first elements
-  const gases = new Set([2,10,18,36,54]);
+  // Noble gases — float
+  const gases = new Set([2,10,18,36,54,86,118]);
   if (gases.has(atomic)) return ["element", "float"];
-  if (atomic === 35) return ["element", "flow"]; // Bromine is a liquid
-  if (atomic === 80) return ["element", "flow"]; // Mercury would be flow but is >79
-  // metal-ish heuristics: many elements after 11 are metals
-  if (atomic >= 11 && atomic !== 35 && atomic !== 14 && atomic !== 15 && atomic !== 16 && atomic !== 17)
-    return ["element", "static"];
-  // some nonmetals
-  const nonmetals = new Set([1,5,6,7,8,9,15,16,17,34,53]);
+  // Liquid at room temp — flow
+  if (atomic === 35 || atomic === 80) return ["element", "flow"]; // Bromine, Mercury
+  // Nonmetals and metalloids — static
+  const nonmetals = new Set([1,5,6,7,8,9,15,16,17,34,53,85]);
   if (nonmetals.has(atomic)) return ["element", "static"];
+  // Everything else is a metal — static
   return ["element", "static"];
 }
 

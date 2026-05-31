@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Americium",
+  "description": "Americium (element 95)",
+  "color": [
+    74,
+    192,
+    107
+  ],
+  "density": 76,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 95
+}

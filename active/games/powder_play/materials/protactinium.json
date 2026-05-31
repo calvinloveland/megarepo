@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Protactinium",
+  "description": "Protactinium (element 91)",
+  "color": [
+    201,
+    204,
+    189
+  ],
+  "density": 73.8,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 91
+}

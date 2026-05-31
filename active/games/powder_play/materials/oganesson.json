@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Oganesson",
+  "description": "Oganesson (element 118)",
+  "color": [
+    83,
+    157,
+    94
+  ],
+  "density": 97.4,
+  "tags": [
+    "element",
+    "float"
+  ],
+  "atomicNumber": 118
+}

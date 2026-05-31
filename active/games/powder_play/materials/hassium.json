@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Hassium",
+  "description": "Hassium (element 108)",
+  "color": [
+    96,
+    207,
+    206
+  ],
+  "density": 89.4,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 108
+}

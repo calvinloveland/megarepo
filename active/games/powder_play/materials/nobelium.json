@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Nobelium",
+  "description": "Nobelium (element 102)",
+  "color": [
+    109,
+    224,
+    220
+  ],
+  "density": 83.6,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 102
+}

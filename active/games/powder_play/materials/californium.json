@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Californium",
+  "description": "Californium (element 98)",
+  "color": [
+    131,
+    176,
+    119
+  ],
+  "density": 81.4,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 98
+}

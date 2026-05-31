@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Seaborgium",
+  "description": "Seaborgium (element 106)",
+  "color": [
+    80,
+    107,
+    100
+  ],
+  "density": 85.8,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 106
+}

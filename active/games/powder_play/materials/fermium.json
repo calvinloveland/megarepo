@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Fermium",
+  "description": "Fermium (element 100)",
+  "color": [
+    215,
+    71,
+    135
+  ],
+  "density": 80,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 100
+}

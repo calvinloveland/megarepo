@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Radium",
+  "description": "Radium (element 88)",
+  "color": [
+    156,
+    207,
+    100
+  ],
+  "density": 73.4,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 88
+}

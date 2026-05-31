@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Plutonium",
+  "description": "Plutonium (element 94)",
+  "color": [
+    75,
+    193,
+    88
+  ],
+  "density": 79.2,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 94
+}

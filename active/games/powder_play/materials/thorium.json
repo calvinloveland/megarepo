@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Thorium",
+  "description": "Thorium (element 90)",
+  "color": [
+    186,
+    177,
+    149
+  ],
+  "density": 72,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 90
+}

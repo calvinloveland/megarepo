@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Thallium",
+  "description": "Thallium (element 81)",
+  "color": [
+    152,
+    87,
+    189
+  ],
+  "density": 65.8,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 81
+}

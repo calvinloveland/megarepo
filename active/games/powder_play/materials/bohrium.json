@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Bohrium",
+  "description": "Bohrium (element 107)",
+  "color": [
+    142,
+    115,
+    72
+  ],
+  "density": 87.6,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 107
+}

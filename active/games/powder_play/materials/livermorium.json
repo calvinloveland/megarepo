@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Livermorium",
+  "description": "Livermorium (element 116)",
+  "color": [
+    147,
+    184,
+    190
+  ],
+  "density": 93.8,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 116
+}

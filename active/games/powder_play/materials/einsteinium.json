@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Einsteinium",
+  "description": "Einsteinium (element 99)",
+  "color": [
+    206,
+    204,
+    177
+  ],
+  "density": 83.2,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 99
+}

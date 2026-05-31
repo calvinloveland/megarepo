@@ -1,0 +1,16 @@
+{
+  "type": "material",
+  "name": "Actinium",
+  "description": "Actinium (element 89)",
+  "color": [
+    122,
+    75,
+    225
+  ],
+  "density": 75.2,
+  "tags": [
+    "element",
+    "static"
+  ],
+  "atomicNumber": 89
+}
