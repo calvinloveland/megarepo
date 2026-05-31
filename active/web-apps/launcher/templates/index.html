@@ -216,16 +216,18 @@
     }
     .container-actions a, .container-actions button {
       font-family: 'Courier New', monospace;
-      font-size: 9px; font-weight: 600; letter-spacing: 1px;
-      padding: 4px 8px; border-radius: 2px;
-      border: 1px solid rgba(255,255,255,0.12);
+      font-size: 11px; font-weight: 700; letter-spacing: 1px;
+      padding: 8px 12px; border-radius: 2px;
+      border: 1px solid rgba(255,255,255,0.15);
       cursor: pointer; transition: all 0.15s;
       text-decoration: none; text-transform: uppercase;
       flex: 1; text-align: center;
-      background: none; color: white;
+      background: rgba(255,255,255,0.1);
+      color: white;
+      min-height: 36px;
     }
-    .container-actions .btn-open { background: rgba(255,255,255,0.12); }
-    .container-actions .btn-open:hover { background: rgba(255,255,255,0.2); }
+    .container-actions .btn-open { background: rgba(255,255,255,0.15); }
+    .container-actions .btn-open:hover { background: rgba(255,255,255,0.25); }
     .container-actions .btn-start {
       background: rgba(34,197,94,0.2);
       color: #4ade80; border-color: rgba(34,197,94,0.25);
@@ -272,15 +274,14 @@
       font-size: 10px; font-weight: 600; letter-spacing: 1px;
       text-transform: uppercase;
       padding: 6px 16px; border-radius: 2px;
-      border: 1px solid rgba(255,100,50,0.3);
-      background: rgba(255,100,50,0.1);
-      color: rgba(255,150,100,0.8);
+      border: 1px solid rgba(255,255,255,0.15);
+      background: rgba(255,255,255,0.05);
+      color: rgba(255,255,255,0.4);
       cursor: pointer; transition: all 0.15s;
     }
     .scene-controls .disturb-btn:hover {
-      background: rgba(255,100,50,0.2);
-      border-color: rgba(255,100,50,0.5);
-      color: rgba(255,150,100,1);
+      background: rgba(255,255,255,0.1);
+      color: rgba(255,255,255,0.7);
     }
     .scene-controls .disturb-btn:disabled { opacity: 0.3; cursor: not-allowed; }
     .scene-controls .reroll-btn {
@@ -297,11 +298,14 @@
 
     .running-ticker {
       position: relative; z-index: 20;
-      font-size: 10px; color: rgba(255,255,255,0.25);
-      padding: 0 24px 6px;
+      font-size: 12px; color: rgba(255,255,255,0.5);
+      padding: 6px 24px;
       letter-spacing: 1px;
+      background: rgba(255,255,255,0.03);
+      border-top: 1px solid rgba(255,255,255,0.04);
+      border-bottom: 1px solid rgba(255,255,255,0.04);
     }
-    .running-ticker strong { color: #4ade80; font-weight: 600; }
+    .running-ticker strong { color: #4ade80; font-weight: 700; }
 
     /* ═══ PROJECTS & DOCS TABS ═══ */
     .content-slate {
@@ -369,11 +373,13 @@
     .site-footer a:hover { color: rgba(255,255,255,0.6); }
 
     @media (max-width: 640px) {
-      .container-card { width: 160px; min-height: 100px; padding: 8px; }
+      .container-card { width: 140px; min-height: 110px; padding: 8px; }
       .container-content .app-icon { font-size: 14px; }
-      .container-content h2 { font-size: 9px; }
-      .container-content .app-desc { font-size: 8px; }
-      .container-actions a, .container-actions button { font-size: 8px; padding: 3px 6px; }
+      .container-content h2 { font-size: 10px; }
+      .container-content .app-desc { font-size: 9px; }
+      .container-actions a, .container-actions button {
+        font-size: 10px; padding: 6px 8px; min-height: 44px;
+      }
     }
   </style>
 </head>
@@ -402,7 +408,7 @@
     <div class="scene-controls">
       <span class="scene-label">◈ SCENE</span>
       <span class="scene-name" id="sceneName">CARGO SHIP</span>
-      <button class="disturb-btn" id="disturbBtn" onclick="disturbScene()">⚠ ROCK THE BOAT</button>
+      <button class="disturb-btn" id="disturbBtn" onclick="disturbScene()" title="Temporarily scatter containers — they return in 5s">⚠ ROCK THE BOAT</button>
       <button class="reroll-btn" onclick="changeScene()">⟳ REROLL</button>
     </div>
 
@@ -478,6 +484,12 @@ function getCardSize() {
     : { w: CARD_W, h: CARD_H };
 }
 
+// ── Responsive column count based on viewport width ──
+function calcCols(W, sz) {
+  const maxCols = Math.floor((W - 40) / (sz.w + 10));
+  return Math.max(1, Math.min(maxCols, 5));
+}
+
 // ── Create scene physics ──
 function createScene(type) {
   if (engine) {
@@ -534,14 +546,16 @@ function createScene(type) {
     const rightWall = Bodies.rectangle(W-10, groundY - 100, 20, 200, { isStatic: true });
     Composite.add(engine.world, [deck, leftWall, rightWall]);
 
-    // Arrange containers on deck in 3 rows
-    const cols = Math.min(5, Math.ceil(APP_DATA.filter(a => a.id !== 'launcher').length / 3));
+    // Arrange containers on deck — responsive columns
+    const cols = calcCols(W, sz);
     let idx = 0;
+    const totalX = cols * sz.w + (cols - 1) * gap;
+    const startX = (W - totalX) / 2 + sz.w/2;
     APP_DATA.forEach(app => {
       if (app.id === 'launcher') return;
       const col = idx % cols;
       const row = Math.floor(idx / cols);
-      const x = W * 0.1 + col * (sz.w + gap) + sz.w/2;
+      const x = startX + col * (sz.w + gap);
       const y = groundY - 30 - row * (sz.h + gap) - sz.h/2;
       const body = Bodies.rectangle(x, y, sz.w - 4, sz.h - 4, {
         friction: 0.6, restitution: 0.1, density: 0.002,
@@ -555,10 +569,11 @@ function createScene(type) {
     const ground = Bodies.rectangle(W/2, groundY + 20, W * 2, 80, { isStatic: true, friction: 0.3 });
     Composite.add(engine.world, ground);
 
-    // Train flatbeds
-    const nCars = Math.min(5, Math.ceil(APP_DATA.filter(a => a.id !== 'launcher').length / 3));
+    // Train flatbeds — responsive car count
+    const nCars = calcCols(W, sz);
+    const trainStartX = Math.max(20, (W - nCars * (sz.w + 20)) / 2);
     for (let i = 0; i < nCars; i++) {
-      const cx = 60 + i * (sz.w + 20);
+      const cx = trainStartX + i * (sz.w + 20) + sz.w/2;
       const car = Bodies.rectangle(cx, groundY - 5, sz.w + 10, 12, {
         isStatic: true, friction: 0.5, label: 'car_' + i
       });
@@ -570,7 +585,7 @@ function createScene(type) {
       if (app.id === 'launcher') return;
       const carIdx = idx % nCars;
       const stackRow = Math.floor(idx / nCars);
-      const cx = 60 + carIdx * (sz.w + 20);
+      const cx = trainStartX + carIdx * (sz.w + 20) + sz.w/2;
       const y = groundY - 18 - stackRow * (sz.h + 5) - sz.h/2;
       const body = Bodies.rectangle(cx, y, sz.w - 4, sz.h - 4, {
         friction: 0.5, restitution: 0.05, density: 0.002,
@@ -589,11 +604,14 @@ function createScene(type) {
     // Most containers on ground, some suspended from crane
     APP_DATA.forEach((app, idx) => {
       if (app.id === 'launcher') return;
-      if (idx < APP_DATA.length * 0.7) {
-        // On ground
-        const col = idx % 4;
-        const row = Math.floor(idx / 4);
-        const x = 80 + col * (sz.w + 8);
+      if (idx < Math.ceil(APP_DATA.filter(a => a.id !== 'launcher').length * 0.7)) {
+        // On ground — responsive cols
+        const craneCols = calcCols(W, sz);
+        const craneTotalX = craneCols * sz.w + (craneCols - 1) * 8;
+        const craneStartX = Math.max(40, (W - craneTotalX) / 2) + sz.w/2;
+        const col = idx % craneCols;
+        const row = Math.floor(idx / craneCols);
+        const x = craneStartX + col * (sz.w + 8);
         const y = groundY - 10 - row * (sz.h + 5) - sz.h/2;
         const body = Bodies.rectangle(x, y, sz.w - 4, sz.h - 4, {
           friction: 0.6, restitution: 0.05, density: 0.002,
@@ -630,13 +648,15 @@ function createScene(type) {
     const rightWall = Bodies.rectangle(W-20, groundY - 80, 20, 200, { isStatic: true });
     Composite.add(engine.world, [ground, backWall, leftWall, rightWall]);
 
-    // Containers stacked tightly in a pyramid-ish arrangement
-    const cols = 4;
+    // Containers stacked tightly — responsive cols
+    const depotCols = calcCols(W, sz);
+    const depotTotalX = depotCols * sz.w + (depotCols - 1) * 8;
+    const depotStartX = Math.max(30, (W - depotTotalX) / 2) + sz.w/2;
     APP_DATA.forEach((app, idx) => {
       if (app.id === 'launcher') return;
-      const col = idx % cols;
-      const row = Math.floor(idx / cols);
-      const x = 60 + col * (sz.w + 8);
+      const col = idx % depotCols;
+      const row = Math.floor(idx / depotCols);
+      const x = depotStartX + col * (sz.w + 8);
       const y = groundY - 10 - row * (sz.h + 4) - sz.h/2;
       const body = Bodies.rectangle(x, y, sz.w - 4, sz.h - 4, {
         friction: 0.7, restitution: 0.02, density: 0.003,
