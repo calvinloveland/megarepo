@@ -1194,21 +1194,156 @@ function addAutoMixReaction(aId: number, bId: number) {
     });
 }
 
+/**
+ * A catalyzed mix: two materials with Heat or Pressure as a catalyst.
+ * The catalyst must be adjacent to one of the materials.
+ * Results are cached separately from uncatalyzed mixes (A|B|Heat vs A|B).
+ */
+function addCatalyzedMixReaction(aId: number, bId: number, catalystId: number) {
+  const aMat = materialById.get(aId);
+  const bMat = materialById.get(bId);
+  const catalystMat = materialById.get(catalystId);
+  if (!aMat || !bMat || !catalystMat || !aMat.name || !bMat.name) return;
+
+  const catalystName = catalystMat.name || "Heat";
+
+  // Check ancestry on the two materials (same as standard mix)
+  const aAncestors = getAncestors(aMat);
+  const bAncestors = getAncestors(bMat);
+  let sharesAncestor = false;
+  for (const anc of aAncestors) {
+    if (bAncestors.includes(anc)) { sharesAncestor = true; break; }
+  }
+  if (sharesAncestor) return;
+
+  const cacheKey = mixCacheKey(aMat.name, bMat.name) + "|" + catalystName;
+  const pairKeyVal = pairKey(aId, bId) + "|" + catalystId;
+  if (autoMixPairs.has(pairKeyVal)) return;
+  autoMixPairs.add(pairKeyVal);
+
+  if (autoMixCount >= MAX_AUTO_MIXES) return;
+
+  // Check cache
+  const cached = mixCache.get(cacheKey);
+  if (cached) {
+    if (isNoReactionPayload(cached)) return;
+    applyMixMaterial(cached, aMat, bMat);
+    return;
+  }
+
+  // Generate with catalyst-aware prompt
+  setMixBlocked(true, "Catalyzed reaction", `${aMat.name} + ${bMat.name} with ${catalystName}`);
+  setMixProgress(10);
+
+  (async () => {
+    try {
+      let candidateName = "";
+      const catalystTag = catalystName.toLowerCase();
+
+      // Name with catalyst context
+      for (let attempt = 0; attempt < 2; attempt++) {
+        const namePrompt = attempt === 0
+          ? `${aMat.name}+${bMat.name}+${catalystName}=`
+          : `${aMat.name}+${bMat.name}+${catalystName}=\n(Not "${candidateName}" — that name is taken. Suggest a different name.)`;
+        const nameResp = await runLocalLLMText(namePrompt, { tokens: 20, temperature: 0.3 });
+        const raw = (nameResp || "").trim();
+        const lines = raw.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+        let lastLine = lines.length ? lines[lines.length - 1] : "";
+        if (lastLine.includes("=")) lastLine = lastLine.split("=").pop()!.trim();
+        const nameMatch = lastLine.match(/[A-Za-z][A-Za-z0-9_-]*/);
+        const extracted = nameMatch ? nameMatch[0] : "";
+        if (extracted && extracted.length >= 2 && !materialNameExists(extracted)) {
+          candidateName = extracted;
+          break;
+        }
+        candidateName = extracted || fallbackMixName(aMat.name, bMat.name) + "_" + catalystTag;
+      }
+
+      if (!candidateName || materialNameExists(candidateName)) {
+        candidateName = fallbackMixName(aMat.name, bMat.name) + "_" + catalystTag;
+      }
+
+      setMixName(candidateName);
+      setMixProgress(60);
+
+      // Build material with parent-based tags and catalyst hint
+      const aTags = Array.isArray(aMat?.tags) ? aMat.tags : [];
+      const bTags = Array.isArray(bMat?.tags) ? bMat.tags : [];
+      const parentMovement = [...aTags, ...bTags].filter(
+        (t: string) => ["sand","flow","float","static"].includes(t)
+      );
+      const tags = parentMovement.length > 0 ? [parentMovement[0]] : ["static"];
+
+      const draft = {
+        type: "material",
+        name: candidateName,
+        tags,
+        density: 1.0,
+        color: deriveColorFromName(candidateName),
+        description: `${aMat.name} and ${bMat.name} with ${catalystName}.`,
+      };
+
+      const normalized = tryNormalizeMixMaterial(draft, aMat, bMat);
+      if (!normalized) {
+        console.warn("[mix] catalyzed normalize failed");
+        mixCache.set(cacheKey, { type: "no_reaction", no_reaction: true });
+        return;
+      }
+
+      setMixProgress(90);
+      mixCache.set(cacheKey, stripTransientFields(normalized));
+      saveMixCacheToLocal();
+      saveMixToServer(cacheKey, stripTransientFields(normalized));
+      applyMixMaterial(normalized, aMat, bMat);
+      setMixProgress(100);
+    } catch (err) {
+      console.warn("[mix] catalyzed generation failed", err);
+      mixCache.set(cacheKey, { type: "no_reaction", no_reaction: true });
+    }
+  })();
+}
+
 function maybeAutoGenerateMixes(buf: Uint16Array, w: number, h: number) {
   if (!buf || !w || !h) return;
   if (mixBlocked) return;
   console.log("[mix] scan grid for mixes");
+
+  // Look up catalyst IDs once
+  const heatId = materialIdByName.get("Heat");
+  const pressureId = materialIdByName.get("Pressure");
+
   const pairs: Array<[number, number]> = [];
+  const catalyzedPairs: Array<[number, number, number]> = []; // [a, b, catalystId]
+
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       const idx = y * w + x;
       const a = buf[idx];
       if (!a) continue;
+
+      // Check horizontal neighbor
       if (x + 1 < w) {
         const b = buf[idx + 1];
         if (b && b !== a) {
-          const key = pairKey(a, b);
-          if (!autoMixPairs.has(key) && !hasExplicitReaction(a, b)) {
+          // Detect if Heat or Pressure is adjacent to either material
+          // (checking the 4 cardinal neighbors of each material)
+          let catalyst: number | undefined;
+          for (const cx of [x-1, x+1, x, x]) {
+            for (const cy of [y, y, y-1, y+1]) {
+              if (cx < 0 || cx >= w || cy < 0 || cy >= h) continue;
+              const cidx = cy * w + cx;
+              const c = buf[cidx];
+              if (c === a || c === b || c === 0) continue;
+              if (c === heatId) { catalyst = heatId; break; }
+              if (c === pressureId) { catalyst = pressureId; break; }
+            }
+            if (catalyst) break;
+          }
+
+          const key = catalyst ? pairKey(a, b) + "|" + catalyst : pairKey(a, b);
+          if (catalyst && !autoMixPairs.has(key) && !hasExplicitReaction(a, b)) {
+            catalyzedPairs.push([a, b, catalyst]);
+          } else if (!catalyst && !autoMixPairs.has(key) && !hasExplicitReaction(a, b)) {
             // Quick ancestor check: skip pairs that share ancestry
             const aMat = materialById.get(a);
             const bMat = materialById.get(b);
@@ -1223,12 +1358,28 @@ function maybeAutoGenerateMixes(buf: Uint16Array, w: number, h: number) {
           }
         }
       }
+
+      // Check vertical neighbor
       if (y + 1 < h) {
         const b = buf[idx + w];
         if (b && b !== a) {
-          const key = pairKey(a, b);
-          if (!autoMixPairs.has(key) && !hasExplicitReaction(a, b)) {
-            // Quick ancestor check: skip pairs that share ancestry
+          let catalyst: number | undefined;
+          for (const cx of [x-1, x+1, x, x]) {
+            for (const cy of [y, y+1, y, y+1]) {
+              if (cx < 0 || cx >= w || cy < 0 || cy >= h) continue;
+              const cidx = cy * w + cx;
+              const c = buf[cidx];
+              if (c === a || c === b || c === 0) continue;
+              if (c === heatId) { catalyst = heatId; break; }
+              if (c === pressureId) { catalyst = pressureId; break; }
+            }
+            if (catalyst) break;
+          }
+
+          const key = catalyst ? pairKey(a, b) + "|" + catalyst : pairKey(a, b);
+          if (catalyst && !autoMixPairs.has(key) && !hasExplicitReaction(a, b)) {
+            catalyzedPairs.push([a, b, catalyst]);
+          } else if (!catalyst && !autoMixPairs.has(key) && !hasExplicitReaction(a, b)) {
             const aMat = materialById.get(a);
             const bMat = materialById.get(b);
             if (aMat && bMat) {
@@ -1244,14 +1395,31 @@ function maybeAutoGenerateMixes(buf: Uint16Array, w: number, h: number) {
       }
     }
   }
-  if (!pairs.length) return;
-  const uniquePairs = new Map<string, [number, number]>();
-  for (const [a, b] of pairs) {
-    const key = pairKey(a, b);
-    if (!uniquePairs.has(key)) uniquePairs.set(key, [a, b]);
+
+  // Process uncatalyzed pairs (standard two-material mixes)
+  if (pairs.length) {
+    const uniquePairs = new Map<string, [number, number]>();
+    for (const [a, b] of pairs) {
+      const key = pairKey(a, b);
+      if (!uniquePairs.has(key)) uniquePairs.set(key, [a, b]);
+    }
+    for (const [a, b] of uniquePairs.values()) {
+      addAutoMixReaction(a, b);
+    }
   }
-  for (const [a, b] of uniquePairs.values()) {
-    addAutoMixReaction(a, b);
+
+  // Process catalyzed pairs (two materials + Heat or Pressure)
+  if (catalyzedPairs.length) {
+    const uniqueCatalyzed = new Map<string, [number, number, number]>();
+    for (const [a, b, c] of catalyzedPairs) {
+      const key = pairKey(a, b) + "|" + c;
+      if (!uniqueCatalyzed.has(key)) uniqueCatalyzed.set(key, [a, b, c]);
+    }
+    for (const [a, b, c] of uniqueCatalyzed.values()) {
+      if (autoMixCount < MAX_AUTO_MIXES) {
+        addCatalyzedMixReaction(a, b, c);
+      }
+    }
   }
 }
 
