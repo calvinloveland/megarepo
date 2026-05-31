@@ -1,0 +1,8 @@
+{
+  "type": "material",
+  "name": "Heat",
+  "description": "Intense thermal energy — rises rapidly and ignites flammables on contact.",
+  "color": [255, 220, 80],
+  "density": 0.15,
+  "tags": ["float", "fire", "burns_out"]
+}

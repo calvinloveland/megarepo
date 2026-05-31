@@ -101,6 +101,41 @@ const MAX_AUTO_MIXES = typeof (window as any).__maxAutoMixes === "number"
   ? (window as any).__maxAutoMixes
   : 100;
 let autoMixCount = 0;
+
+/**
+ * Byproduct materials produced by energetic mixes.
+ * Registered lazily when first needed by applyMixMaterial.
+ */
+const BYPRODUCT_MATERIALS: Record<string, any> = {
+  Heat: {
+    type: "material",
+    name: "Heat",
+    description: "Intense thermal energy from an exothermic mix.",
+    color: [255, 220, 80],
+    density: 0.15,
+    tags: ["float", "fire", "burns_out"],
+  },
+  Pressure: {
+    type: "material",
+    name: "Pressure",
+    description: "Built-up compressive force from a reaction.",
+    color: [200, 220, 255],
+    density: 0.05,
+    tags: ["float"],
+  },
+};
+const byproductIds = new Set<string>();
+
+function ensureByproductMaterial(name: string) {
+  if (byproductIds.has(name) || !BYPRODUCT_MATERIALS[name]) return;
+  byproductIds.add(name);
+  if (!materialIdByName.has(name)) {
+    const mat = BYPRODUCT_MATERIALS[name];
+    const id = registerMaterial(mat, { select: false });
+    try { (window as any).__materialIdByName[name] = id; } catch (e) {}
+    console.log("[mix] registered byproduct material:", name);
+  }
+}
 const mixCache = new Map<string, any>();
 const pendingMixes = new Set<string>();
 const mix404Logged = new Set<string>();
@@ -951,16 +986,32 @@ function applyMixMaterial(mixSource: any, aMat: any, bMat: any) {
     b: bMat?.name,
   });
   const mixId = registerMaterial(mixMat, { select: false });
+
+  // Determine byproduct: energetic mixes produce Heat or Pressure
+  // rather than converting both cells to the same compound.
+  const aTags = Array.isArray(aMat?.tags) ? aMat.tags.map((t:string) => t.toLowerCase()) : [];
+  const bTags = Array.isArray(bMat?.tags) ? bMat.tags.map((t:string) => t.toLowerCase()) : [];
+  const allTags = [...aTags, ...bTags];
+
+  let byproduct: string | undefined;
+  if (allTags.includes("fire") || allTags.includes("explosive") || allTags.includes("reactive_water")) {
+    byproduct = "Heat";
+    ensureByproductMaterial("Heat");
+  } else if (allTags.includes("water") && (allTags.includes("flow") || allTags.includes("float"))) {
+    byproduct = Math.random() < 0.3 ? "Pressure" : undefined;
+    if (byproduct) ensureByproductMaterial("Pressure");
+  }
+
   const reactionForA = {
     with: bMat.name,
     result: mixMat.name,
-    byproduct: mixMat.name,
+    byproduct: byproduct || mixMat.name,
     priority: 3,
   };
   const reactionForB = {
     with: aMat.name,
     result: mixMat.name,
-    byproduct: mixMat.name,
+    byproduct: byproduct || mixMat.name,
     priority: 3,
   };
   const updatedA = {
