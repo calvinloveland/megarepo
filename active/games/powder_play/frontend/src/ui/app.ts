@@ -840,30 +840,48 @@ async function generateMixMaterial(aMat: any, bMat: any) {
   const recentBlock = recentLines.length ? recentLines.join("\n") + "\n" : "";
   const namePrompt = `${recentBlock}${aName}+${bName}=`;
 
+  // Try up to 2 times to get a unique, non-generic name from the LLM.
   let candidateName = "";
-  try {
-    const nameResp = await runLocalLLMText(namePrompt, MIX_NAME_OPTIONS);
-    const raw = (nameResp || "").trim();
-    // Extract the last word from the response (the name)
-    const lines = raw.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-    let lastLine = lines.length ? lines[lines.length - 1] : "";
-    if (lastLine.includes("=")) lastLine = lastLine.split("=").pop()!.trim();
-    const nameMatch = lastLine.match(/[A-Za-z][A-Za-z0-9_-]*/);
-    candidateName = nameMatch ? nameMatch[0] : "";
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const prompt = attempt === 0
+        ? namePrompt
+        : `${namePrompt}\n(Not "${candidateName}" — that name is already taken. Suggest a different but still appropriate name.)`;
+      const nameResp = await runLocalLLMText(prompt, MIX_NAME_OPTIONS);
+      const raw = (nameResp || "").trim();
+      const lines = raw.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+      let lastLine = lines.length ? lines[lines.length - 1] : "";
+      if (lastLine.includes("=")) lastLine = lastLine.split("=").pop()!.trim();
+      const nameMatch = lastLine.match(/[A-Za-z][A-Za-z0-9_-]*/);
+      const extracted = nameMatch ? nameMatch[0] : "";
 
-    // Validate: reject generic names and duplicates
-    const lowerName = candidateName.toLowerCase();
-    const isGeneric = !candidateName || candidateName.length < 2 ||
-      lowerName === "no reaction" || lowerName === "none" ||
-      isGenericMixName(candidateName, aName, bName) ||
-      /^[a-z]+$/.test(candidateName); // all-lowercase = generic
+      const lowerName = extracted.toLowerCase();
+      const isGeneric = !extracted || extracted.length < 2 ||
+        lowerName === "no reaction" || lowerName === "none" ||
+        isGenericMixName(extracted, aName, bName) ||
+        /^[a-z]+$/.test(extracted);
 
-    if (isGeneric || materialNameExists(candidateName)) {
-      candidateName = fallbackMixName(aName, bName);
+      if (!isGeneric && !materialNameExists(extracted)) {
+        candidateName = extracted;
+        break; // got a valid unique name
+      }
+      // If name collides with a starter, retry once with hint
+      if (materialNameExists(extracted)) {
+        candidateName = extracted; // remember for retry hint
+        continue;
+      }
+    } catch (err) {
+      console.warn("[mix] name attempt failed", err);
     }
-  } catch (err) {
-    console.warn("[mix] name generation failed", err);
+  }
+
+  // If both attempts failed, use deterministic fallback
+  if (!candidateName || materialNameExists(candidateName)) {
     candidateName = fallbackMixName(aName, bName);
+    // Ensure even the fallback isn't a duplicate by appending a counter
+    if (materialNameExists(candidateName)) {
+      candidateName = `${aName}${bName}${Date.now().toString(36).slice(-3)}`;
+    }
   }
 
   setMixName(candidateName);

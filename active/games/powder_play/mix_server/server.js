@@ -156,61 +156,86 @@ const server = http.createServer(async (req, res) => {
       const body = await readJson(req);
       const prompt = String(body?.prompt || "").trim();
       if (!prompt) return send(res, 400, { error: "missing prompt" });
-      const requestedFormat = String(body?.format || "").trim();
-      const format =
-        requestedFormat &&
-        requestedFormat !== "text" &&
-        requestedFormat !== "plain"
-          ? requestedFormat
-          : undefined;
       const system = String(body?.system || "").trim();
-      const ollamaUrl =
-        process.env.POWDER_PLAY_OLLAMA_URL ||
-        "http://localhost:11434/api/generate";
-      const model = process.env.POWDER_PLAY_OLLAMA_MODEL || "granite4:350m";
-      // allow per-request overrides from client body
-      const envTemperature = parseFloat(process.env.POWDER_PLAY_OLLAMA_TEMPERATURE || "0.2");
-      const envMaxTokens = parseInt(process.env.POWDER_PLAY_OLLAMA_MAX_TOKENS || "20", 10);
       const requestedOptions = body?.options || {};
-      const temperature = typeof requestedOptions.temperature === 'number' ? requestedOptions.temperature : envTemperature;
-      const maxTokens = parseInt(requestedOptions.num_predict || requestedOptions.maxTokens || envMaxTokens, 10);
-      console.log("[mix_server] llm request", {
-        model,
-        format,
-        temp: temperature,
-        maxTokens,
-        prompt: prompt.slice(0, 140),
-      });
-      const payload = {
-        model,
-        prompt: system ? `${system}\n${prompt}` : `${prompt}`,
-        stream: false,
-        options: { temperature, num_predict: maxTokens },
-      };
-      if (format) payload.format = format;
-      const ollamaRes = await fetch(ollamaUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      if (!ollamaRes.ok) {
-        const raw = await ollamaRes.text();
-        console.log(
-          "[mix_server] llm error",
-          ollamaRes.status,
-          raw.slice(0, 200),
-        );
-        return send(res, 502, {
-          error: "ollama request failed",
-          status: ollamaRes.status,
+      const temperature = typeof requestedOptions.temperature === 'number' ? requestedOptions.temperature : parseFloat(process.env.POWDER_PLAY_OLLAMA_TEMPERATURE || "0.2");
+      const maxTokens = parseInt(requestedOptions.num_predict || requestedOptions.maxTokens || process.env.POWDER_PLAY_OLLAMA_MAX_TOKENS || "20", 10);
+
+      console.log("[mix_server] llm request", { temp: temperature, maxTokens, prompt: prompt.slice(0, 140) });
+
+      const backend = process.env.POWDER_PLAY_LLM_BACKEND || "ollama";
+
+      if (backend === "deepseek") {
+        // ── DeepSeek / OpenAI-compatible backend ──
+        const apiKey = process.env.DEEPSEEK_API_KEY;
+        if (!apiKey) return send(res, 502, { error: "DEEPSEEK_API_KEY not set" });
+        const dsModel = process.env.DEEPSEEK_MODEL || "deepseek-chat";
+        const dsBase = process.env.DEEPSEEK_BASE_URL || "https://api.deepseek.com/v1";
+
+        const messages = [];
+        if (system) messages.push({ role: "system", content: system });
+        messages.push({ role: "user", content: prompt });
+
+        const payload = {
+          model: dsModel,
+          messages,
+          temperature,
+          max_tokens: maxTokens,
+          stream: false,
+        };
+
+        const dsRes = await fetch(`${dsBase}/chat/completions`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${apiKey}`,
+          },
+          body: JSON.stringify(payload),
         });
+
+        if (!dsRes.ok) {
+          const raw = await dsRes.text();
+          console.log("[mix_server] deepseek error", dsRes.status, raw.slice(0, 200));
+          return send(res, 502, { error: "deepseek request failed", status: dsRes.status });
+        }
+
+        const data = await dsRes.json();
+        const content = data?.choices?.[0]?.message?.content || "";
+        console.log("[mix_server] deepseek response", content.slice(0, 200));
+        return send(res, 200, { response: content });
+
+      } else {
+        // ── Ollama backend (default) ──
+        const requestedFormat = String(body?.format || "").trim();
+        const format = requestedFormat && requestedFormat !== "text" && requestedFormat !== "plain" ? requestedFormat : undefined;
+        const ollamaUrl = process.env.POWDER_PLAY_OLLAMA_URL || "http://localhost:11434/api/generate";
+        const model = process.env.POWDER_PLAY_OLLAMA_MODEL || "granite4:350m";
+
+        const payload = {
+          model,
+          prompt: system ? `${system}\n${prompt}` : `${prompt}`,
+          stream: false,
+          options: { temperature, num_predict: maxTokens },
+        };
+        if (format) payload.format = format;
+
+        const ollamaRes = await fetch(ollamaUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+
+        if (!ollamaRes.ok) {
+          const raw = await ollamaRes.text();
+          console.log("[mix_server] ollama error", ollamaRes.status, raw.slice(0, 200));
+          return send(res, 502, { error: "ollama request failed", status: ollamaRes.status });
+        }
+
+        const data = await ollamaRes.json();
+        const response = String(data?.response || "");
+        console.log("[mix_server] ollama response", response.slice(0, 200));
+        return send(res, 200, { response });
       }
-      const data = await ollamaRes.json();
-      console.log(
-        "[mix_server] llm response",
-        String(data?.response || "").slice(0, 200),
-      );
-      return send(res, 200, { response: data?.response || "" });
     } catch (err) {
       console.log("[mix_server] llm exception", err?.message || err);
       return send(res, 500, { error: "llm error" });
