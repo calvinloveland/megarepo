@@ -119,7 +119,8 @@ const BYPRODUCT_MATERIALS: Record<string, any> = {
     description: "Intense thermal energy from an exothermic mix.",
     color: [255, 220, 80],
     density: 0.15,
-    tags: ["float", "fire"],
+    tags: ["float", "fire", "burns_out"],
+    burnoutRate: 0.015,
   },
   Pressure: {
     type: "material",

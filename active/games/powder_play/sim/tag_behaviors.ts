@@ -7,6 +7,7 @@ export type TagBehaviorContext = {
   nameToId: Map<string, number>;
   reacted: Uint8Array;
   rng?: () => number;
+  burnoutRate?: number;
 };
 
 type Vec = { dx: number; dy: number };
@@ -154,7 +155,8 @@ export function applyTagBehaviors(
     }
   }
 
-  if (burnsOut && rng() < 0.08) {
+  const burnRate = ctx.burnoutRate ?? 0.08;
+  if (burnsOut && rng() < burnRate) {
     placeCell(nextGrid, idx, smokeId);
     reacted[idx] = 1;
     consumed = true;

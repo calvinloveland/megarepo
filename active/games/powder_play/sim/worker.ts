@@ -39,6 +39,7 @@ const condenseById = new Map<number, CondenseRule>();
 const nameToId = new Map<string, number>();
 const densityById = new Map<number, number>();
 const tagsById = new Map<number, string[]>();
+const burnoutRateById = new Map<number, number>();
 let reacted: Uint8Array;
 
 function resolveReactions() {
@@ -76,6 +77,9 @@ onmessage = (ev: MessageEvent) => {
     } else {
       tagsById.delete(msg.materialId);
     }
+    // Configurable burnout rate: how fast burns_out materials disappear
+    const burnoutRate = typeof msg.material?.burnoutRate === "number" ? msg.material.burnoutRate : 0.08;
+    burnoutRateById.set(msg.materialId, burnoutRate);
     if (Array.isArray(msg.material?.reactions)) {
       const rules = msg.material.reactions
         .slice()
@@ -167,6 +171,7 @@ function stepSimulation() {
           tagsById,
           nameToId,
           reacted,
+          burnoutRate: burnoutRateById.get(cell),
         });
         if (behavior.consumed) continue;
       }
