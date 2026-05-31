@@ -64,14 +64,27 @@ class MixGame:
             return False
 
         if catalyst:
-            prompt = f"{a}+{b}+{catalyst}="
-            system = f"What common material is produced by combining {a}, {b}, and {catalyst} together? Respond with a single word."
+            # Look up the uncatalyzed result and tell the LLM what NOT to repeat
+            uncat_key = tuple(sorted([a, b]))
+            uncat_name = game.mixes.get(uncat_key, None)
+            if uncat_name:
+                prompt = f"{a}+{b} makes {uncat_name}.\n\nWhat different material is made when {a}, {b}, and {catalyst} are combined?"
+                system = f"Respond with a single word name. Must be different from {uncat_name}."
+            else:
+                prompt = f"{a}+{b}+{catalyst}="
+                system = f"What common material is produced by combining {a}, {b}, and {catalyst} together? Respond with a single word."
         else:
             prompt = f"{a}+{b}="
             system = f"What is the common name for the material created by mixing {a} and {b}? Respond with a single word."
 
         name = llm(prompt, system)
-        if not name or name.lower() in (a.lower(), b.lower()):
+        # Don't register if it's the same as the uncatalyzed result
+        uncat_key = tuple(sorted([a, b])) if not catalyst else None
+        uncat_name = game.mixes.get(uncat_key, "")
+        
+        # Case-insensitive dedup against all existing names
+        all_existing_names = {v.lower() for v in game.mixes.values()}
+        if not name or name.lower() in all_existing_names or name.lower() in (a.lower(), b.lower()) or (uncat_name and name.lower() == uncat_name.lower()):
             name = f"{a}_{b}_mix"
             if catalyst:
                 name += f"_{catalyst.lower()}"

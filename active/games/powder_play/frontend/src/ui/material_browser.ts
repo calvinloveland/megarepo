@@ -58,6 +58,8 @@ export function mountMaterialBrowser(root: HTMLElement) {
     "Seed",
     "Iron",
     "Salt",
+    "Heat",
+    "Pressure",
   ]);
 
   let known = new Set<string>();

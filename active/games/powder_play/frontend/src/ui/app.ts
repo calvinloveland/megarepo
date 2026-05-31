@@ -83,6 +83,12 @@ export function initApp(root: HTMLElement) {
   ctx.fillStyle = "#000";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+  // Pre-register byproduct materials so auto-detect can find them
+  setTimeout(() => {
+    ensureByproductMaterial("Heat");
+    ensureByproductMaterial("Pressure");
+  }, 100);
+
   pingMixServer();
 }
 
@@ -113,7 +119,7 @@ const BYPRODUCT_MATERIALS: Record<string, any> = {
     description: "Intense thermal energy from an exothermic mix.",
     color: [255, 220, 80],
     density: 0.15,
-    tags: ["float", "fire", "burns_out"],
+    tags: ["float", "fire"],
   },
   Pressure: {
     type: "material",
@@ -567,9 +573,14 @@ try {
 
 function materialNameExists(name: string) {
   if (!name) return false;
-  if (materialIdByName.has(name)) return true;
+  const lower = name.toLowerCase();
+  for (const key of materialIdByName.keys()) {
+    if (key.toLowerCase() === lower) return true;
+  }
   for (const value of mixCache.values()) {
-    if (value && typeof value === "object" && value.name === name) return true;
+    if (value && typeof value === "object" && typeof value.name === "string") {
+      if (value.name.toLowerCase() === lower) return true;
+    }
   }
   return false;
 }
