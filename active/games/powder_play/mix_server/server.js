@@ -2,6 +2,23 @@ const http = require("http");
 const fs = require("fs");
 const path = require("path");
 
+// ── Load .env if present ──────────────────────────────────────────
+const envPath = path.join(__dirname, ".env");
+if (fs.existsSync(envPath)) {
+  const envContent = fs.readFileSync(envPath, "utf8");
+  for (const line of envContent.split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+    const eq = trimmed.indexOf("=");
+    if (eq === -1) continue;
+    const key = trimmed.slice(0, eq).trim();
+    const val = trimmed.slice(eq + 1).trim();
+    // Only set if not already in environment (env vars take precedence)
+    if (!process.env[key]) process.env[key] = val;
+  }
+  console.log("[mix_server] loaded .env from", envPath);
+}
+
 const PORT = parseInt(process.env.PORT || "8787", 10);
 const DATA_PATH =
   process.env.MIX_CACHE_PATH || path.join(__dirname, "mix_cache.json");

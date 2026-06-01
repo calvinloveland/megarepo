@@ -134,10 +134,8 @@ apps:
     start_cmd: "npm run dev:full"
     env:
       PORT: "5173"
-      POWDER_PLAY_LLM_BACKEND: "deepseek"
-      DEEPSEEK_MODEL: "deepseek/deepseek-chat"
-      DEEPSEEK_BASE_URL: "https://openrouter.ai/api/v1"
-      # DEEPSEEK_API_KEY must be set in the host environment before starting the launcher
+      # Mix server reads config from mix_server/.env (API key, backend, model)
+      # See mix_server/.env.example for the required variables
 
   - id: hivemind
     name: Hivemind LLM
