@@ -160,7 +160,7 @@ const BYPRODUCT_MATERIALS: Record<string, any> = {
     description: "Built-up compressive force from a reaction.",
     color: [200, 220, 255],
     density: 0.05,
-    tags: ["float"],
+    tags: ["gas"],
   },
 };
 const byproductIds = new Set<string>();
