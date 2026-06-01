@@ -16,6 +16,8 @@ const allowedTags = new Set([
   "plant",
   "grow",
   "dirt",
+  "source",
+  "drain",
 ]);
 
 // Lightweight validator to avoid heavy dependency during early prototyping.

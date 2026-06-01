@@ -42,7 +42,9 @@
           "plant",
           "grow",
           "dirt",
-          "element"
+          "element",
+          "source",
+          "drain"
         ]
       }
     },

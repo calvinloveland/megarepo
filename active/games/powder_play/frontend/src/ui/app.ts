@@ -542,6 +542,8 @@ const allowedTags = new Set([
   "plant",
   "grow",
   "dirt",
+  "source",
+  "drain",
 ]);
 
 function getRecentMixLines(limit = 12) {
