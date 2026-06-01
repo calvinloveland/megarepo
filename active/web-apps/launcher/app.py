@@ -253,7 +253,7 @@ def create_app() -> Flask:
             if subdomain and port:
                 resolved = str((launcher_dir / raw_path).resolve())
                 app_path_map[resolved] = {
-                    "url": f"http://{subdomain}.shsw.dev:{port}",
+                    "url": f"http://localhost:{port}",
                     "app_id": a["id"],
                     "app_name": a["name"],
                 }
