@@ -124,7 +124,7 @@ apps:
       PORT: "5107"
 
   - id: powder-play
-    name: Powder Play
+    name: Alchemist's Powder
     description: Alchemist powder mixing game — discover new materials by combining elements with Heat and Pressure
     icon: ✨
     subdomain: powder
