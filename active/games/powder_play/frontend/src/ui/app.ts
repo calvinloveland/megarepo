@@ -672,6 +672,8 @@ function ensureWorker() {
           (window as any).__materialColors,
         );
         drawGrid(buf, m.width, m.height);
+        // Scan for auto-mixes immediately on paint (before simulation moves things)
+        maybeAutoGenerateMixes(buf, m.width, m.height);
       } catch (e) {}
     }
     if (m.type === "reaction") {
