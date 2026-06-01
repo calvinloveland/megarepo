@@ -47,9 +47,7 @@ export function initApp(root: HTMLElement) {
   // attach play/step controls
   import("./controls").then((mod) => {
     mod.attachControls(playbackControls, (playingOrStep: boolean) => {
-      // playingOrStep true for a tick, false for pause action
       if (!worker) return;
-      if (mixBlocked) return;
       if (playingOrStep) worker.postMessage({ type: "step" });
       else worker.postMessage({ type: "step" });
     });
