@@ -1337,12 +1337,28 @@ function maybeAutoGenerateMixes(buf: Uint16Array, w: number, h: number) {
   if (mixBlocked) return;
   console.log("[mix] scan grid for mixes");
 
-  // Look up catalyst IDs once
   const heatId = materialIdByName.get("Heat");
   const pressureId = materialIdByName.get("Pressure");
+  const catalystIds = new Set<number>();
+  if (heatId) catalystIds.add(heatId);
+  if (pressureId) catalystIds.add(pressureId);
 
   const pairs: Array<[number, number]> = [];
-  const catalyzedPairs: Array<[number, number, number]> = []; // [a, b, catalystId]
+  const catalyzedPairs: Array<[number, number, number]> = [];
+
+  /** Check if any catalyst is adjacent to position (cx, cy), excluding cells occupied by a or b. */
+  function detectCatalyst(buf: Uint16Array, cx: number, cy: number, w: number, h: number, excludeA: number, excludeB: number): number | undefined {
+    if (!catalystIds.size) return undefined;
+    for (const dc of [{dx:-1,dy:0},{dx:1,dy:0},{dx:0,dy:-1},{dx:0,dy:1}]) {
+      const nx = cx + dc.dx;
+      const ny = cy + dc.dy;
+      if (nx < 0 || nx >= w || ny < 0 || ny >= h) continue;
+      const c = buf[ny * w + nx];
+      if (c === 0 || c === excludeA || c === excludeB) continue;
+      if (catalystIds.has(c)) return c;
+    }
+    return undefined;
+  }
 
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
@@ -1354,26 +1370,14 @@ function maybeAutoGenerateMixes(buf: Uint16Array, w: number, h: number) {
       if (x + 1 < w) {
         const b = buf[idx + 1];
         if (b && b !== a) {
-          // Detect if Heat or Pressure is adjacent to either material
-          // (checking the 4 cardinal neighbors of each material)
-          let catalyst: number | undefined;
-          for (const cx of [x-1, x+1, x, x]) {
-            for (const cy of [y, y, y-1, y+1]) {
-              if (cx < 0 || cx >= w || cy < 0 || cy >= h) continue;
-              const cidx = cy * w + cx;
-              const c = buf[cidx];
-              if (c === a || c === b || c === 0) continue;
-              if (c === heatId) { catalyst = heatId; break; }
-              if (c === pressureId) { catalyst = pressureId; break; }
-            }
-            if (catalyst) break;
-          }
+          // Check catalyst adjacent to EITHER material
+          const catalyst = detectCatalyst(buf, x, y, w, h, a, b)
+            || detectCatalyst(buf, x+1, y, w, h, a, b);
 
           const key = catalyst ? pairKey(a, b) + "|" + catalyst : pairKey(a, b);
           if (catalyst && !autoMixPairs.has(key) && !hasExplicitReaction(a, b)) {
             catalyzedPairs.push([a, b, catalyst]);
           } else if (!catalyst && !autoMixPairs.has(key) && !hasExplicitReaction(a, b)) {
-            // Quick ancestor check: skip pairs that share ancestry
             const aMat = materialById.get(a);
             const bMat = materialById.get(b);
             if (aMat && bMat) {
@@ -1381,9 +1385,8 @@ function maybeAutoGenerateMixes(buf: Uint16Array, w: number, h: number) {
               const ba = getAncestors(bMat);
               let shared = false;
               for (const anc of aa) { if (ba.includes(anc)) { shared = true; break; } }
-              if (shared) continue;
+              if (!shared) pairs.push([a, b]);
             }
-            pairs.push([a, b]);
           }
         }
       }
@@ -1392,18 +1395,8 @@ function maybeAutoGenerateMixes(buf: Uint16Array, w: number, h: number) {
       if (y + 1 < h) {
         const b = buf[idx + w];
         if (b && b !== a) {
-          let catalyst: number | undefined;
-          for (const cx of [x-1, x+1, x, x]) {
-            for (const cy of [y, y+1, y, y+1]) {
-              if (cx < 0 || cx >= w || cy < 0 || cy >= h) continue;
-              const cidx = cy * w + cx;
-              const c = buf[cidx];
-              if (c === a || c === b || c === 0) continue;
-              if (c === heatId) { catalyst = heatId; break; }
-              if (c === pressureId) { catalyst = pressureId; break; }
-            }
-            if (catalyst) break;
-          }
+          const catalyst = detectCatalyst(buf, x, y, w, h, a, b)
+            || detectCatalyst(buf, x, y+1, w, h, a, b);
 
           const key = catalyst ? pairKey(a, b) + "|" + catalyst : pairKey(a, b);
           if (catalyst && !autoMixPairs.has(key) && !hasExplicitReaction(a, b)) {
@@ -1416,9 +1409,8 @@ function maybeAutoGenerateMixes(buf: Uint16Array, w: number, h: number) {
               const ba = getAncestors(bMat);
               let shared = false;
               for (const anc of aa) { if (ba.includes(anc)) { shared = true; break; } }
-              if (shared) continue;
+              if (!shared) pairs.push([a, b]);
             }
-            pairs.push([a, b]);
           }
         }
       }
