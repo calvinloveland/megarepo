@@ -184,10 +184,20 @@ const mixCacheStorageKey = `alchemistPowder.mixCache.${mixCacheVersion}`;
 const mixApiBase = (() => {
   const override = (window as any).__mixApiBase;
   if (override) return override;
-  if (typeof window !== "undefined" && window.location?.hostname) {
-    return `${window.location.protocol}//${window.location.hostname}:8787`;
+  const hostname =
+    typeof window !== "undefined" && window.location?.hostname
+      ? window.location.hostname
+      : "localhost";
+  const protocol = window.location?.protocol || "http:";
+  // When served through Cloudflare Tunnel on shsw.dev, the mix server
+  // lives at the -api subdomain (e.g. powder-api.shsw.dev).
+  // Port is not needed — Cloudflare handles routing.
+  if (hostname.endsWith(".shsw.dev") || hostname === "shsw.dev") {
+    const subdomain = hostname.split(".")[0];
+    return `https://${subdomain}-api.shsw.dev`;
   }
-  return "http://127.0.0.1:8787";
+  // Local dev: same host with port 8787
+  return `${protocol}//${hostname}:8787`;
 })();
 // default LLM options for mix generation
 // The model (granite4:350m) is small — short, focused prompts work best.

@@ -107,6 +107,51 @@ export function attachCanvasTools(canvas: HTMLCanvasElement, worker: Worker | nu
   });
   canvas.addEventListener('mouseleave', ()=>{ octx.clearRect(0,0,overlay.width, overlay.height); });
 
+  // ── Touch event handlers (mobile) ──
+  function touchToClient(ev: TouchEvent) {
+    const t = ev.touches?.[0] || ev.changedTouches?.[0];
+    return t ? { clientX: t.clientX, clientY: t.clientY } : null;
+  }
+
+  canvas.addEventListener('touchstart', (ev: TouchEvent) => {
+    ev.preventDefault();
+    const c = touchToClient(ev);
+    if (!c) return;
+    drawing = true;
+    const p = toGridPosFromClient(c.clientX, c.clientY);
+    if (p.x >= 0 && p.x < gridW && p.y >= 0 && p.y < gridH) paintAt(p.x, p.y);
+  }, { passive: false });
+
+  canvas.addEventListener('touchmove', (ev: TouchEvent) => {
+    ev.preventDefault();
+    const c = touchToClient(ev);
+    if (!c) return;
+    // Update overlay cursor
+    const p = toGridPosFromClient(c.clientX, c.clientY);
+    const pxPerCell = overlay.width / gridW;
+    const cx = Math.floor((p.x + 0.5) * pxPerCell);
+    const cy = Math.floor((p.y + 0.5) * (overlay.height / gridH));
+    const rpx = Math.ceil(brushRadius * pxPerCell);
+    octx.clearRect(0, 0, overlay.width, overlay.height);
+    octx.beginPath();
+    octx.strokeStyle = 'rgba(255,255,255,0.9)';
+    octx.lineWidth = 1;
+    octx.arc(cx, cy, rpx, 0, Math.PI * 2);
+    octx.stroke();
+
+    if (!drawing) return;
+    if (p.x >= 0 && p.x < gridW && p.y >= 0 && p.y < gridH) paintAt(p.x, p.y);
+  }, { passive: false });
+
+  canvas.addEventListener('touchend', (ev: TouchEvent) => {
+    ev.preventDefault();
+    finishStroke();
+  }, { passive: false });
+
+  canvas.addEventListener('touchcancel', () => {
+    finishStroke();
+  });
+
   const pendingPaints: { materialId:number, points:{x:number,y:number}[] }[] = [];
   let currentWorker = worker;
   const flushPending = () => {
@@ -137,7 +182,7 @@ export function attachCanvasTools(canvas: HTMLCanvasElement, worker: Worker | nu
     try { octx.clearRect(0,0,overlay.width, overlay.height); } catch (e) {}
   }
 
-  window.addEventListener('mouseup', ()=>{
+  function finishStroke() {
     if (!drawing) return;
     drawing = false;
 
@@ -250,5 +295,12 @@ export function attachCanvasTools(canvas: HTMLCanvasElement, worker: Worker | nu
     } else {
       pendingPaints.push({ materialId: id, points });
     }
+  }
+
+  window.addEventListener('mouseup', finishStroke);
+  window.addEventListener('touchend', (ev: TouchEvent) => {
+    // touchend on the canvas itself triggers finishStroke via the canvas listener.
+    // This window listener handles the case where the finger leaves the canvas.
+    finishStroke();
   });
 }
