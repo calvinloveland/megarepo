@@ -253,7 +253,8 @@ def create_app() -> Flask:
             if subdomain and port:
                 resolved = str((launcher_dir / raw_path).resolve())
                 app_path_map[resolved] = {
-                    "url": f"http://localhost:{port}",
+                    "url": f"http://{subdomain}.shsw.dev",
+                    "local_url": f"http://localhost:{port}",
                     "app_id": a["id"],
                     "app_name": a["name"],
                 }
@@ -307,6 +308,7 @@ def create_app() -> Flask:
                     }
                     if match:
                         entry["url"] = match["url"]
+                        entry["local_url"] = match["local_url"]
                         entry["app_id"] = match["app_id"]
                         entry["app_name"] = match["app_name"]
                     projects.append(entry)

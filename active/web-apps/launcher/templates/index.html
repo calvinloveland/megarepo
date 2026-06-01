@@ -1160,6 +1160,7 @@ function renderProjects(projects) {
           <div class="actions">
             <button onclick="showReadme('${p.id}')">📖 README</button>
             ${p.url ? `<a href="${p.url}" target="_blank">OPEN</a>` : ''}
+            ${p.local_url ? `<a href="${p.local_url}" target="_blank" style="opacity:0.5">🔗</a>` : ''}
           </div>
         </div>
       </div>

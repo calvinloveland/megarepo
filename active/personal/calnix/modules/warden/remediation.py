@@ -351,6 +351,49 @@ def remediate_backup_freshness(check_data: dict[str, Any]) -> dict[str, Any]:
         }
 
 
+# ── Remediation: launcher-proxy ─────────────────────────────────────
+
+
+@remediates("launcher-proxy")
+def remediate_launcher_proxy(check_data: dict[str, Any]) -> dict[str, Any]:
+    """Start the launcher reverse proxy on port 80."""
+    actions_taken: list[str] = []
+    proxy_path = "/home/calvin/megarepo/active/web-apps/launcher/proxy.js"
+    log_path = "/tmp/launcher_proxy.log"
+
+    # Check if already running
+    try:
+        result = subprocess.run(
+            ["pgrep", "-f", "proxy.js"],
+            capture_output=True, text=True, timeout=5,
+        )
+        if result.returncode == 0:
+            return {"status": "skipped", "message": "Proxy already running", "actions": []}
+    except Exception:
+        pass
+
+    # Start the proxy on port 80
+    try:
+        result = subprocess.run(
+            ["sudo", "-u", "calvin", "node", proxy_path],
+            capture_output=True, text=True, timeout=10,
+        )
+        # Actually, run it in background with nohup
+        import subprocess as sp
+        with open(log_path, "w") as logf:
+            proc = sp.Popen(
+                ["sudo", "node", proxy_path],
+                stdout=logf, stderr=sp.STDOUT,
+            )
+        actions_taken.append(f"Proxy started (PID: {proc.pid})")
+        status = "success"
+    except Exception as e:
+        actions_taken.append(f"Failed to start proxy: {e}")
+        status = "failed"
+
+    return {"status": status, "message": "; ".join(actions_taken), "actions": actions_taken}
+
+
 # ── Remediation: system-config (nixos-rebuild) ──────────────────────
 
 
