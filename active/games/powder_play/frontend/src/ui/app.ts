@@ -87,9 +87,9 @@ export function initApp(root: HTMLElement) {
     ensureByproductMaterial("Pressure");
   }, 100);
 
-  // Set starter supplies to infinite
-  const starterNames = ["Fire","Sand","Water","Dirt","Seed","Iron","Salt"];
-  for (const s of starterNames) {
+  // Set starter and utility supplies to infinite
+  const infiniteSupply = ["Fire","Sand","Water","Dirt","Seed","Iron","Salt","Drain"];
+  for (const s of infiniteSupply) {
     materialSupply.set(s, INFINITE);
   }
   try { (window as any).__materialSupply = materialSupply; } catch (e) {}
@@ -659,8 +659,15 @@ function ensureWorker() {
       } catch (e) {}
     }
     if (m.type === "reaction") {
-      // Reaction happened in the simulation — log it, but no automatic supply refill.
-      // Supply is only recovered by using the drain tool on the grid.
+      // Reaction happened in the simulation — log it.
+    }
+    if (m.type === "drained") {
+      // A Drain block absorbed material — refill supply
+      const matName = m.materialName;
+      const amount = m.amount || 1;
+      if (matName && typeof matName === "string") {
+        refillSupply(matName, amount);
+      }
     }
     if (m.type === "stepped") {
       const buf = new Uint16Array(m.grid);
@@ -1049,6 +1056,27 @@ function applyMixMaterial(mixSource: any, aMat: any, bMat: any) {
     b: bMat?.name,
   });
   const mixId = registerMaterial(mixMat, { select: false });
+
+  // Auto-generate a Source block for this material so the player can
+  // automate production. The Source emits the material into adjacent cells.
+  const sourceName = mixMat.name + " Source";
+  if (!materialIdByName.has(sourceName)) {
+    const sourceMat = {
+      type: "material",
+      name: sourceName,
+      description: `Source emitting ${mixMat.name}.`,
+      color: mixMat.color || deriveColorFromName(mixMat.name),
+      density: 10,
+      tags: ["source"],
+      emits: mixMat.name,
+      burnoutRate: 0,
+    };
+    registerMaterial(sourceMat, { select: false });
+    try {
+      const cb = (window as any).__addDiscoveredMaterial;
+      if (typeof cb === "function") cb(sourceMat);
+    } catch (e) {}
+  }
 
   // Determine byproduct: energetic mixes produce Heat or Pressure
   // rather than converting both cells to the same compound.

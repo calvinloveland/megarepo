@@ -1,0 +1,8 @@
+{
+  "type": "material",
+  "name": "Drain",
+  "description": "Absorbs adjacent materials and recovers them to your supply.",
+  "color": [50, 80, 120],
+  "density": 10,
+  "tags": ["drain"]
+}

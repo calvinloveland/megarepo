@@ -1,0 +1,8 @@
+{
+  "type": "material",
+  "name": "Source",
+  "description": "Emits material into adjacent empty cells. Configure via emits property.",
+  "color": [100, 200, 255],
+  "density": 10,
+  "tags": ["source"]
+}
