@@ -208,19 +208,30 @@ export function mountMaterialBrowser(root: HTMLElement) {
     console.log("[material_browser] addDiscoveredMaterial", mat.name);
     discovered.add(mat.name);
 
-    // award discovery points only for elements
+    // Check if this is Gold — trigger celebration
+    const isGold = mat.name === "Gold";
+
+    // Award discovery points
     try {
       const isElement = Array.isArray(mat.tags) && mat.tags.includes("element");
+      let points = 0;
       if (isElement) {
-        // base points scale modestly with atomic number if provided
         const atomic = Number(mat.atomicNumber || 0);
-        let points = 10 + Math.floor(Math.max(0, atomic) * 2);
-        if (mat.name === "Gold") points += 10000; // big bonus for gold
-        if (points > 0) addScore(points);
+        points = 10 + Math.floor(Math.max(0, atomic) * 2);
+      }
+      if (isGold) {
+        points += 10000;
+        const status = document.getElementById("status");
+        if (status) {
+          status.textContent = `🏆 GOLD DISCOVERED! +${points} points!`;
+          status.style.color = "#fbbf24";
+          status.style.fontWeight = "bold";
+        }
+      } else if (points > 0) {
+        addScore(points);
         const status = document.getElementById("status");
         if (status) status.textContent = `Discovered ${mat.name} (+${points})`;
       } else {
-        // don't award points for non-elements; still show discovered status
         const status = document.getElementById("status");
         if (status) status.textContent = `Discovered ${mat.name}`;
       }
@@ -228,6 +239,16 @@ export function mountMaterialBrowser(root: HTMLElement) {
 
     const empty = discoveredList.querySelector("#discovered-empty");
     if (empty) empty.remove();
+
+    // Build readable tag badges
+    const tags = Array.isArray(mat.tags) ? mat.tags : [];
+    const tagBadges = tags
+      .filter((t: string) => ["sand","flow","float","static","fire","water","flammable","burns_out","smoke","steam","element"].includes(t))
+      .map((t: string) => `<span class="tag-badge tag-${t}">${t}</span>`)
+      .join("");
+
+    const densityStr = typeof mat.density === "number" ? mat.density.toFixed(1) : "?";
+
     const row = document.createElement("div");
     row.className =
       "materials-row flex items-center justify-between gap-2 rounded-md border border-amber-900/30 bg-midnight/60 px-2 py-1";
@@ -237,17 +258,15 @@ export function mountMaterialBrowser(root: HTMLElement) {
       <div class="flex flex-col">
         <div class="flex items-center gap-2">
           <span class="swatch" style="width:14px;height:14px;border:1px solid #222;background:transparent"></span>
-          <strong class="text-amber-100">${mat.name}</strong>
-          <small class="alchemy-muted">runtime</small>
+          <strong class="text-amber-100">${isGold ? "🥇 " : ""}${mat.name}</strong>
+          <small class="alchemy-muted">d:${densityStr}</small>
         </div>
-        <div class="materials-tags text-xs text-amber-200/70 hidden"></div>
+        <div class="materials-tags text-xs text-amber-200/70 flex flex-wrap gap-1 mt-1">${tagBadges || ""}</div>
       </div>
     `;
     const sw = row.querySelector(".swatch") as HTMLElement;
     if (Array.isArray(mat.color))
       sw.style.background = `rgb(${mat.color[0]},${mat.color[1]},${mat.color[2]})`;
-    const tagsEl = row.querySelector(".materials-tags") as HTMLElement | null;
-    if (tagsEl) tagsEl.textContent = "";
     row.onclick = () => {
       try {
         (window as any).__selectMaterialByName?.(mat.name);
