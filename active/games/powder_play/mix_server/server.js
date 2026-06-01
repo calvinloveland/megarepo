@@ -6,17 +6,72 @@ const PORT = parseInt(process.env.PORT || "8787", 10);
 const DATA_PATH =
   process.env.MIX_CACHE_PATH || path.join(__dirname, "mix_cache.json");
 
+// ── Security config ────────────────────────────────────────────────
+const ALLOWED_ORIGINS = new Set([
+  // Dev servers
+  "http://localhost:5173",
+  "http://127.0.0.1:5173",
+  "http://localhost:3001",
+  "http://127.0.0.1:3001",
+  // Production / public
+  "https://shsw.dev",
+  "http://shsw.dev",
+  // Allow no-origin for native/embedded contexts
+]);
+
+const RATE_LIMIT = {
+  windowMs: 60_000,         // 1 minute window
+  maxPerWindow: 30,         // max LLM calls per window per IP
+  maxTokensPerCall: 100,    // max tokens per LLM call
+  maxPromptLength: 500,     // max characters in prompt
+};
+
+// ── In-memory rate limiter (per-IP) ────────────────────────────────
+const ipRequests = new Map();  // ip -> { count, resetAt }
+
+function checkRateLimit(ip) {
+  const now = Date.now();
+  let entry = ipRequests.get(ip);
+  if (!entry || now > entry.resetAt) {
+    entry = { count: 0, resetAt: now + RATE_LIMIT.windowMs };
+    ipRequests.set(ip, entry);
+  }
+  entry.count++;
+  return {
+    allowed: entry.count <= RATE_LIMIT.maxPerWindow,
+    remaining: Math.max(0, RATE_LIMIT.maxPerWindow - entry.count),
+    resetAt: entry.resetAt,
+  };
+}
+
+// Clean up stale entries every 5 minutes
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, entry] of ipRequests) {
+    if (now > entry.resetAt) ipRequests.delete(ip);
+  }
+}, 300_000);
+
+// ── Origin validation ──────────────────────────────────────────────
+function isOriginAllowed(origin) {
+  if (!origin) return false;
+  // Allow localhost on any port during development
+  try {
+    const u = new URL(origin);
+    if (u.hostname === "localhost" || u.hostname === "127.0.0.1") return true;
+  } catch { /* not a valid URL */ }
+  return ALLOWED_ORIGINS.has(origin);
+}
+
+// ── Existing helpers ────────────────────────────────────────────────
 function sanitizeMixEntry(value, key) {
   if (!value || typeof value !== "object") return null;
   if (!value.name || String(value.type || "").toLowerCase() !== "material") return null;
-  // normalize tags
   if (!Array.isArray(value.tags)) value.tags = [];
   value.tags = value.tags.map((t) => String(t || "").toLowerCase()).filter(Boolean);
   if (value.tags.length === 0) value.tags = ["static"];
-  // density fallback/limit
   if (typeof value.density !== "number" || !Number.isFinite(value.density)) value.density = 1.0;
   value.density = Math.max(0.05, Math.min(10, value.density));
-  // sanitize color
   if (!Array.isArray(value.color) || value.color.length < 3) {
     value.color = [200, 200, 200];
   } else {
@@ -26,20 +81,20 @@ function sanitizeMixEntry(value, key) {
       return Math.max(0, Math.min(255, Math.floor(num)));
     });
   }
-  // sanitize description
   const desc = String(value.description || "").trim();
   const isListy = desc.split(/,|;/).length >= 3 && desc.split(/\s+/).length < 20;
   const badEcho = /do not include|only json|return only/i.test(desc);
   if (!desc || isListy || badEcho) {
     const parents = Array.isArray(value.__mixParents) && value.__mixParents.length === 2 ? value.__mixParents : ["A","B"];
     value.description = `Auto-generated mix of ${parents[0]} and ${parents[1]}.`;
-  }  // sanitize name: prefer readable parent-based name when it looks machine-generated
+  }
   const nameStr = String(value.name || '');
   const looksMachine = /_[a-z0-9]{3,}$/.test(nameStr) || /\d{2,}/.test(nameStr) || nameStr.length < 3;
   if (looksMachine) {
     const parents = Array.isArray(value.__mixParents) && value.__mixParents.length === 2 ? value.__mixParents : ['A','B'];
     value.name = `${parents[0]}_${parents[1]}_mix`;
-  }  return value;
+  }
+  return value;
 }
 
 function loadCache() {
@@ -59,9 +114,7 @@ function loadCache() {
       }
     }
     if (changed) {
-      try {
-        saveCache(out);
-      } catch (e) {}
+      try { saveCache(out); } catch (e) {}
     }
     return out;
   } catch (err) {
@@ -104,71 +157,109 @@ function readJson(req) {
     });
     req.on("end", () => {
       if (!data) return resolve({});
-      try {
-        resolve(JSON.parse(data));
-      } catch (err) {
-        reject(err);
-      }
+      try { resolve(JSON.parse(data)); } catch (err) { reject(err); }
     });
   });
 }
 
+// ── HTTP server ────────────────────────────────────────────────────
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url || "/", `http://${req.headers.host}`);
+
+  // ── CORS preflight ──────────────────────────────────────────────
   if (req.method === "OPTIONS") {
     return send(res, 204, "", { "Content-Length": "0" });
   }
 
+  // ── Health check (no rate limit, open) ──────────────────────────
   if (url.pathname === "/health") {
-    console.log("[mix_server] health check");
     return send(res, 200, { ok: true });
   }
 
+  // ── Client log (rate-limited but light) ─────────────────────────
   if (url.pathname === "/client-log" && req.method === "POST") {
+    const rl = checkRateLimit(req.socket.remoteAddress || "unknown");
+    if (!rl.allowed) return send(res, 429, { error: "too many requests" });
     try {
       const body = await readJson(req);
-      const level = String(body?.level || "error");
-      const message = String(body?.message || "unknown client error");
-      const meta = body?.meta || {};
-      console.log(`[mix_server] client-${level}`, message, meta);
+      console.log(`[mix_server] client-${body?.level || "error"}`, body?.message || "?", body?.meta || {});
       return send(res, 200, { ok: true });
     } catch (err) {
-      console.log("[mix_server] client-log invalid json", err?.message || err);
       return send(res, 400, { error: "invalid json" });
     }
   }
 
+  // ── Mix cache endpoints (rate-limited) ──────────────────────────
   const cache = loadCache();
 
   if (url.pathname === "/mixes" && req.method === "GET") {
-    console.log("[mix_server] list mixes", Object.keys(cache).length);
     return send(res, 200, cache);
   }
 
   if (url.pathname === "/mixes" && req.method === "DELETE") {
-    console.log("[mix_server] clear mixes");
+    const rl = checkRateLimit(req.socket.remoteAddress || "unknown");
+    if (!rl.allowed) return send(res, 429, { error: "too many requests" });
     saveCache({});
     return send(res, 200, { ok: true });
   }
 
+  // ── LLM endpoint (heavily guarded) ──────────────────────────────
   if (url.pathname === "/llm" && req.method === "POST") {
+    // 1. Rate limit check
+    const clientIp = req.socket.remoteAddress || "unknown";
+    const rl = checkRateLimit(clientIp);
+    if (!rl.allowed) {
+      console.warn("[mix_server] rate limit hit", clientIp);
+      return send(res, 429, {
+        error: "rate limit exceeded",
+        retryAfter: Math.ceil((rl.resetAt - Date.now()) / 1000),
+      });
+    }
+
+    // 2. Origin check
+    const origin = req.headers.origin || req.headers.referer || "";
+    if (origin && !isOriginAllowed(origin)) {
+      console.warn("[mix_server] blocked origin", origin);
+      return send(res, 403, { error: "origin not allowed" });
+    }
+
     try {
       const body = await readJson(req);
+
+      // 3. Validate prompt
       const prompt = String(body?.prompt || "").trim();
       if (!prompt) return send(res, 400, { error: "missing prompt" });
+      if (prompt.length > RATE_LIMIT.maxPromptLength) {
+        return send(res, 400, { error: "prompt too long", maxLength: RATE_LIMIT.maxPromptLength });
+      }
+
+      // 4. Validate prompt content — only allow material-name-like prompts
+      //    Block prompts that look like general chat or system manipulation.
+      const lower = prompt.toLowerCase();
+      if (lower.includes("ignore previous") || lower.includes("ignore all") ||
+          lower.includes("forget") || lower.includes("system prompt") ||
+          lower.includes("you are now") || lower.includes("act as") ||
+          lower.includes("dans") || lower.includes("ignore the")) {
+        console.warn("[mix_server] blocked prompt injection", prompt.slice(0, 100));
+        return send(res, 403, { error: "prompt rejected" });
+      }
+
       const system = String(body?.system || "").trim();
       const requestedOptions = body?.options || {};
-      const temperature = typeof requestedOptions.temperature === 'number' ? requestedOptions.temperature : parseFloat(process.env.POWDER_PLAY_OLLAMA_TEMPERATURE || "0.2");
-      const maxTokens = parseInt(requestedOptions.num_predict || requestedOptions.maxTokens || process.env.POWDER_PLAY_OLLAMA_MAX_TOKENS || "20", 10);
+      const temperature = typeof requestedOptions.temperature === 'number'
+        ? Math.max(0, Math.min(1, requestedOptions.temperature))
+        : parseFloat(process.env.POWDER_PLAY_OLLAMA_TEMPERATURE || "0.2");
+      const rawMaxTokens = parseInt(requestedOptions.num_predict || requestedOptions.maxTokens || process.env.POWDER_PLAY_OLLAMA_MAX_TOKENS || "20", 10);
+      const maxTokens = Math.min(rawMaxTokens, RATE_LIMIT.maxTokensPerCall);
 
-      console.log("[mix_server] llm request", { temp: temperature, maxTokens, prompt: prompt.slice(0, 140) });
+      console.log("[mix_server] llm request", { maxTokens, prompt: prompt.slice(0, 100), ip: clientIp });
 
       const backend = process.env.POWDER_PLAY_LLM_BACKEND || "ollama";
 
       if (backend === "deepseek") {
-        // ── DeepSeek / OpenAI-compatible backend ──
         const apiKey = process.env.DEEPSEEK_API_KEY;
-        if (!apiKey) return send(res, 502, { error: "DEEPSEEK_API_KEY not set" });
+        if (!apiKey) return send(res, 502, { error: "LLM not configured" });
+
         const dsModel = process.env.DEEPSEEK_MODEL || "deepseek-chat";
         const dsBase = process.env.DEEPSEEK_BASE_URL || "https://api.deepseek.com/v1";
 
@@ -176,88 +267,87 @@ const server = http.createServer(async (req, res) => {
         if (system) messages.push({ role: "system", content: system });
         messages.push({ role: "user", content: prompt });
 
-        const payload = {
-          model: dsModel,
-          messages,
-          temperature,
-          max_tokens: maxTokens,
-          stream: false,
-        };
-
         const dsRes = await fetch(`${dsBase}/chat/completions`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             "Authorization": `Bearer ${apiKey}`,
           },
-          body: JSON.stringify(payload),
+          body: JSON.stringify({
+            model: dsModel,
+            messages,
+            temperature,
+            max_tokens: maxTokens,
+            stream: false,
+          }),
         });
 
         if (!dsRes.ok) {
           const raw = await dsRes.text();
-          console.log("[mix_server] deepseek error", dsRes.status, raw.slice(0, 200));
-          return send(res, 502, { error: "deepseek request failed", status: dsRes.status });
+          console.error("[mix_server] deepseek error", dsRes.status, raw.slice(0, 200));
+          // Don't expose upstream error details to the client
+          return send(res, 502, { error: "LLM request failed" });
         }
 
         const data = await dsRes.json();
         const content = data?.choices?.[0]?.message?.content || "";
-        console.log("[mix_server] deepseek response", content.slice(0, 200));
         return send(res, 200, { response: content });
+      }
 
-      } else {
-        // ── Ollama backend (default) ──
-        const requestedFormat = String(body?.format || "").trim();
-        const format = requestedFormat && requestedFormat !== "text" && requestedFormat !== "plain" ? requestedFormat : undefined;
-        const ollamaUrl = process.env.POWDER_PLAY_OLLAMA_URL || "http://localhost:11434/api/generate";
-        const model = process.env.POWDER_PLAY_OLLAMA_MODEL || "granite4:350m";
+      // Ollama backend
+      const ollamaUrl = process.env.POWDER_PLAY_OLLAMA_URL || "http://localhost:11434/api/generate";
+      const model = process.env.POWDER_PLAY_OLLAMA_MODEL || "granite4:350m";
+      const format = (() => {
+        const f = String(body?.format || "").trim();
+        return f && f !== "text" && f !== "plain" ? f : undefined;
+      })();
 
-        const payload = {
+      const ollamaRes = await fetch(ollamaUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
           model,
           prompt: system ? `${system}\n${prompt}` : `${prompt}`,
           stream: false,
           options: { temperature, num_predict: maxTokens },
-        };
-        if (format) payload.format = format;
+          ...(format ? { format } : {}),
+        }),
+      });
 
-        const ollamaRes = await fetch(ollamaUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-
-        if (!ollamaRes.ok) {
-          const raw = await ollamaRes.text();
-          console.log("[mix_server] ollama error", ollamaRes.status, raw.slice(0, 200));
-          return send(res, 502, { error: "ollama request failed", status: ollamaRes.status });
-        }
-
-        const data = await ollamaRes.json();
-        const response = String(data?.response || "");
-        console.log("[mix_server] ollama response", response.slice(0, 200));
-        return send(res, 200, { response });
+      if (!ollamaRes.ok) {
+        const raw = await ollamaRes.text();
+        console.error("[mix_server] ollama error", ollamaRes.status, raw.slice(0, 200));
+        return send(res, 502, { error: "LLM request failed" });
       }
+
+      const data = await ollamaRes.json();
+      return send(res, 200, { response: String(data?.response || "") });
     } catch (err) {
-      console.log("[mix_server] llm exception", err?.message || err);
-      return send(res, 500, { error: "llm error" });
+      console.error("[mix_server] llm exception", err?.message || err);
+      return send(res, 500, { error: "internal error" });
     }
   }
 
-  if (
-    url.pathname.startsWith("/mixes/") &&
-    (req.method === "GET" || req.method === "POST" || req.method === "PUT")
-  ) {
+  // ── Mix cache GET/POST/PUT ─────────────────────────────────────
+  if (url.pathname.startsWith("/mixes/") &&
+      (req.method === "GET" || req.method === "POST" || req.method === "PUT")) {
+    const rl = checkRateLimit(req.socket.remoteAddress || "unknown");
+    if (!rl.allowed) return send(res, 429, { error: "too many requests" });
+
     const key = decodeURIComponent(url.pathname.replace("/mixes/", ""));
     if (!key) return send(res, 400, { error: "missing key" });
+    // Validate cache key format
+    if (!/^[A-Za-z0-9|_ -]+$/.test(key)) {
+      return send(res, 400, { error: "invalid cache key" });
+    }
 
     if (req.method === "GET") {
-      console.log("[mix_server] get mix", key, cache[key] ? "hit" : "miss");
       if (!cache[key]) return send(res, 404, { error: "not found" });
       return send(res, 200, cache[key]);
     }
 
     try {
       const body = await readJson(req);
-      console.log("[mix_server] set mix", key, Object.keys(body || {}).length);
       if (!body || typeof body !== "object")
         return send(res, 400, { error: "invalid body" });
       const san = sanitizeMixEntry(body, key);
@@ -268,7 +358,6 @@ const server = http.createServer(async (req, res) => {
       }
       return send(res, 200, cache[key]);
     } catch (err) {
-      console.log("[mix_server] invalid mix json", key, err?.message || err);
       return send(res, 400, { error: "invalid json" });
     }
   }
@@ -280,10 +369,11 @@ if (require.main === module) {
   server.listen(PORT, () => {
     console.log(`[mix_server] listening on http://127.0.0.1:${PORT}`);
     console.log(`[mix_server] data file: ${DATA_PATH}`);
+    console.log(`[mix_server] backend: ${process.env.POWDER_PLAY_LLM_BACKEND || "ollama"}`);
+    console.log(`[mix_server] rate limit: ${RATE_LIMIT.maxPerWindow} calls per ${RATE_LIMIT.windowMs/1000}s per IP`);
   });
 }
 
-// export helpers for testing
 if (typeof module !== 'undefined' && module.exports) {
   module.exports.sanitizeMixEntry = sanitizeMixEntry;
 }
