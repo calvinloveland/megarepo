@@ -659,11 +659,8 @@ function ensureWorker() {
       } catch (e) {}
     }
     if (m.type === "reaction") {
-      // Refill supply when a reaction produces a material in the simulation
-      const resultName = m.resultName;
-      if (resultName && typeof resultName === "string") {
-        refillSupply(resultName, 3); // +3 units per reaction tick
-      }
+      // Reaction happened in the simulation — log it, but no automatic supply refill.
+      // Supply is only recovered by using the drain tool on the grid.
     }
     if (m.type === "stepped") {
       const buf = new Uint16Array(m.grid);
