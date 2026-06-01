@@ -11,6 +11,7 @@
     "test:e2e": "playwright test --config=playwright.config.ts",
     "materials:sync": "node ../scripts/sync_materials.js",
     "materials:sync:watch": "node ../scripts/sync_materials.js --watch",
+    "dev:full": "concurrently \"node ../../mix_server/server.js\" \"npm run materials:sync:watch\" \"vite\"",
     "dev:all": "concurrently \"npm run materials:sync:watch\" \"vite\""
   },
   "vitest": {
