@@ -5,7 +5,7 @@ export function initApp(root: HTMLElement) {
   root.innerHTML = `
     <div class="flex flex-col lg:flex-row gap-4 items-start">
       <div id="left-panel" class="alchemy-panel min-w-[220px] w-full lg:w-64">
-        <h1 style="font-family:'Cinzel',serif;font-size:1.4rem;font-weight:600;color:#d4a574;letter-spacing:2px;text-transform:uppercase;margin-bottom:0.5rem;">Alchemist<br>Powder</h1>
+        <h1 style="font-family:'Cinzel',serif;font-size:1.4rem;font-weight:600;color:#d4a574;letter-spacing:2px;text-transform:uppercase;margin-bottom:0.5rem;">Alchemist's<br>Powder</h1>
         <div id="materials-panel"></div>
         <div id="status"></div>
         <div id="mix-status" style="font-family:'Inter',sans-serif;font-size:0.65rem;color:rgba(255,255,255,0.35);margin-top:0.25rem;"></div>

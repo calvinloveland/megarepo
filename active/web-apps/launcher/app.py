@@ -239,12 +239,26 @@ def create_app() -> Flask:
 
     @app.route("/api/projects")
     def api_projects():
-        """List all projects in the megarepo with metadata for the All Projects tab."""
+        """List all projects with metadata. Cross-references app registry for launch URLs."""
         launcher_dir = Path(__file__).resolve().parent
-        repo_root = launcher_dir.parent.parent.parent  # ../../ -> megarepo root
-        projects = []
+        repo_root = launcher_dir.parent.parent.parent
 
-        # Scan active/ subdirectories for projects
+        # Build app registry lookup
+        apps = load_apps()
+        app_path_map = {}
+        for a in apps:
+            raw_path = a.get("path", "")
+            subdomain = a.get("subdomain", "")
+            port = a.get("port", "")
+            if subdomain and port:
+                resolved = str((launcher_dir / raw_path).resolve())
+                app_path_map[resolved] = {
+                    "url": f"http://{subdomain}.shsw.dev:{port}",
+                    "app_id": a["id"],
+                    "app_name": a["name"],
+                }
+
+        projects = []
         active_dir = repo_root / "active"
         if active_dir.exists():
             for area_dir in sorted(active_dir.iterdir()):
@@ -253,54 +267,49 @@ def create_app() -> Flask:
                 for proj_dir in sorted(area_dir.iterdir()):
                     if not proj_dir.is_dir() or proj_dir.name.startswith("."):
                         continue
-                    # Determine type from path
-                    parent_name = area_dir.name  # e.g., "games", "web-apps", "dev-tools"
-                    type_map = {
-                        "games": "game",
-                        "web-apps": "webapp",
-                        "dev-tools": "devtool",
-                        "bots": "bot",
-                        "personal": "config",
-                    }
+
+                    parent_name = area_dir.name
+                    type_map = {"games": "game", "web-apps": "webapp", "dev-tools": "devtool", "bots": "bot", "personal": "config"}
                     ptype = type_map.get(parent_name, "project")
 
-                    # Check for README
                     readme_path = proj_dir / "README.md"
                     has_readme = readme_path.exists()
-
-                    # Check for tests directory
                     tests_dir = proj_dir / "tests"
                     has_tests = tests_dir.exists()
 
-                    # Try to find a description from README first line
                     description = ""
                     if has_readme:
                         try:
-                            first_line = readme_path.read_text(encoding="utf-8").strip().split("\n")[0]
-                            description = first_line.lstrip("# ").strip()
+                            fl = readme_path.read_text(encoding="utf-8").strip().split("\\n")[0]
+                            description = fl.lstrip("# ").strip()
                         except Exception:
                             pass
 
-                    # Map area icons
-                    icon_map = {
-                        "games": "🎮",
-                        "web-apps": "🌐",
-                        "dev-tools": "🔧",
-                        "bots": "🤖",
-                        "personal": "❄️",
-                    }
-                    icon = icon_map.get(parent_name, "📦")
-
+                    icon_map = {"games": "🎮", "web-apps": "🌐", "dev-tools": "🔧", "bots": "🤖", "personal": "❄️"}
                     proj_id = f"{parent_name}/{proj_dir.name}"
-                    projects.append({
+
+                    # Match to app registry by path prefix
+                    proj_path = str(proj_dir)
+                    match = None
+                    for rp, info in app_path_map.items():
+                        if proj_path in rp or rp.startswith(proj_path):
+                            match = info
+                            break
+
+                    entry = {
                         "id": proj_id,
                         "name": proj_dir.name,
                         "description": description,
                         "type": ptype,
-                        "icon": icon,
+                        "icon": icon_map.get(parent_name, "📦"),
                         "has_tests": has_tests,
                         "has_readme": has_readme,
-                    })
+                    }
+                    if match:
+                        entry["url"] = match["url"]
+                        entry["app_id"] = match["app_id"]
+                        entry["app_name"] = match["app_name"]
+                    projects.append(entry)
 
         return jsonify(projects)
 
