@@ -19,17 +19,36 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = 30000) {
 }
 
 // ── Security config ────────────────────────────────────────────────
+function originMatchesAllowed(origin) {
+  if (!origin) return false;
+  try {
+    const u = new URL(origin);
+    const host = u.hostname;
+    // Exact match
+    if (ALLOWED_ORIGINS.has(origin)) return true;
+    // Wildcard: any subdomain of shsw.dev via HTTPS
+    if (host.endsWith(".shsw.dev") && u.protocol === "https:") return true;
+    return false;
+  } catch (e) {
+    return false;
+  }
+}
+
 const ALLOWED_ORIGINS = new Set([
   // Dev servers
   "http://localhost:5173",
   "http://127.0.0.1:5173",
   "http://localhost:3001",
   "http://127.0.0.1:3001",
-  // Production / public
+  // Production / public (exact)
   "https://shsw.dev",
   "http://shsw.dev",
-  // Allow no-origin for native/embedded contexts
 ]);
+
+function isOriginAllowed(origin) {
+  if (!origin) return true;  // Allow no-origin (native/embedded contexts)
+  return originMatchesAllowed(origin);
+}
 
 const RATE_LIMIT = {
   windowMs: 60_000,         // 1 minute window
@@ -64,16 +83,7 @@ setInterval(() => {
   }
 }, 300_000);
 
-// ── Origin validation ──────────────────────────────────────────────
-function isOriginAllowed(origin) {
-  if (!origin) return false;
-  // Allow localhost on any port during development
-  try {
-    const u = new URL(origin);
-    if (u.hostname === "localhost" || u.hostname === "127.0.0.1") return true;
-  } catch { /* not a valid URL */ }
-  return ALLOWED_ORIGINS.has(origin);
-}
+
 
 // ── Existing helpers ────────────────────────────────────────────────
 function sanitizeMixEntry(value, key) {

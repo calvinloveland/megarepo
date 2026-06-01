@@ -504,14 +504,25 @@ function isGenericMixName(name: string, aName: string, bName: string) {
   const lower = name.toLowerCase();
   const aLower = aName.toLowerCase();
   const bLower = bName.toLowerCase();
-  if (lower.includes("+")) return true;
-  if (
-    lower.startsWith("mix ") ||
-    lower.startsWith("mixed ") ||
-    lower.includes(" mix ")
-  )
-    return true;
-  if (lower.includes(aLower) && lower.includes(bLower)) return true;
+  // Reject names that are just the two parents joined by common separators
+  const joinedByPlus = lower === `${aLower}+${bLower}` || lower === `${bLower}+${aLower}`;
+  if (joinedByPlus) return true;
+  // Reject names that are just "A and B" or "A with B"
+  if (lower === `${aLower} and ${bLower}` || lower === `${bLower} and ${aLower}`) return true;
+  if (lower === `${aLower} with ${bLower}` || lower === `${bLower} with ${aLower}`) return true;
+  // Reject names starting with "mix" or "mixed"
+  if (lower.startsWith("mix ") || lower.startsWith("mixed ") || lower.includes(" mix ")) return true;
+  // Reject names that are just the parent names concatenated without added content
+  // (check length is roughly just the two names + separator, no unique suffix)
+  const justNamesLength = aLower.length + bLower.length;
+  const separatorLength = 3; // e.g., "_" or "-" or " "
+  if (lower.length <= justNamesLength + separatorLength) {
+    // Short name that's mostly parent names — check if it's just concatenation
+    const stripped = lower.replace(/[_\-\s]+/g, "");
+    const aStripped = aLower.replace(/[_\-\s]+/g, "");
+    const bStripped = bLower.replace(/[_\-\s]+/g, "");
+    if (stripped === aStripped + bStripped || stripped === bStripped + aStripped) return true;
+  }
   return false;
 }
 
