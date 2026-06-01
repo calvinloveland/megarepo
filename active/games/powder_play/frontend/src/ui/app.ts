@@ -1086,27 +1086,6 @@ function applyMixMaterial(mixSource: any, aMat: any, bMat: any) {
   });
   const mixId = registerMaterial(mixMat, { select: false });
 
-  // Auto-generate a Source block for this material so the player can
-  // automate production. The Source emits the material into adjacent cells.
-  const sourceName = mixMat.name + " Source";
-  if (!materialIdByName.has(sourceName)) {
-    const sourceMat = {
-      type: "material",
-      name: sourceName,
-      description: `Source emitting ${mixMat.name}.`,
-      color: mixMat.color || deriveColorFromName(mixMat.name),
-      density: 10,
-      tags: ["source"],
-      emits: mixMat.name,
-      burnoutRate: 0,
-    };
-    registerMaterial(sourceMat, { select: false });
-    try {
-      const cb = (window as any).__addDiscoveredMaterial;
-      if (typeof cb === "function") cb(sourceMat);
-    } catch (e) {}
-  }
-
   // Determine byproduct: energetic mixes produce Heat or Pressure
   // rather than converting both cells to the same compound.
   const aTags = Array.isArray(aMat?.tags) ? aMat.tags.map((t:string) => t.toLowerCase()) : [];
