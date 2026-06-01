@@ -6,6 +6,18 @@ const PORT = parseInt(process.env.PORT || "8787", 10);
 const DATA_PATH =
   process.env.MIX_CACHE_PATH || path.join(__dirname, "mix_cache.json");
 
+// Helper: fetch with timeout
+async function fetchWithTimeout(url, options = {}, timeoutMs = 30000) {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { ...options, signal: controller.signal });
+    return res;
+  } finally {
+    clearTimeout(id);
+  }
+}
+
 // ── Security config ────────────────────────────────────────────────
 const ALLOWED_ORIGINS = new Set([
   // Dev servers
@@ -267,7 +279,7 @@ const server = http.createServer(async (req, res) => {
         if (system) messages.push({ role: "system", content: system });
         messages.push({ role: "user", content: prompt });
 
-        const dsRes = await fetch(`${dsBase}/chat/completions`, {
+        const dsRes = await fetchWithTimeout(`${dsBase}/chat/completions`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -280,7 +292,7 @@ const server = http.createServer(async (req, res) => {
             max_tokens: maxTokens,
             stream: false,
           }),
-        });
+        }, 30000);
 
         if (!dsRes.ok) {
           const raw = await dsRes.text();
@@ -302,7 +314,7 @@ const server = http.createServer(async (req, res) => {
         return f && f !== "text" && f !== "plain" ? f : undefined;
       })();
 
-      const ollamaRes = await fetch(ollamaUrl, {
+      const ollamaRes = await fetchWithTimeout(ollamaUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -312,7 +324,7 @@ const server = http.createServer(async (req, res) => {
           options: { temperature, num_predict: maxTokens },
           ...(format ? { format } : {}),
         }),
-      });
+      }, 30000);
 
       if (!ollamaRes.ok) {
         const raw = await ollamaRes.text();

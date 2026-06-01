@@ -199,6 +199,7 @@ const mixApiBase = (() => {
   // Local dev: same host with port 8787
   return `${protocol}//${hostname}:8787`;
 })();
+try { (window as any).__mixApiBase = mixApiBase; } catch (e) {}
 // default LLM options for mix generation
 // The model (granite4:350m) is small — short, focused prompts work best.
 // Two calls: (1) name, (2) combined properties (tags+density+color+desc).

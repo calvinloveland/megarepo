@@ -41,9 +41,17 @@ export async function runLocalLLM(
   const base =
     globalAny.__mixApiBase ||
     envBase ||
-    (typeof window !== "undefined" && window.location?.hostname
-      ? `${window.location.protocol}//${window.location.hostname}:8787`
-      : "http://127.0.0.1:8787");
+    (() => {
+      if (typeof window !== "undefined" && window.location?.hostname) {
+        const hostname = window.location.hostname;
+        const protocol = window.location.protocol;
+        if (hostname.endsWith(".shsw.dev") || hostname === "shsw.dev") {
+          return `https://${hostname.split(".")[0]}-api.shsw.dev`;
+        }
+        return `${protocol}//${hostname}:8787`;
+      }
+      return "http://127.0.0.1:8787";
+    })();
   onProgress && onProgress({ stage: "generating", message: "ollama" });
   const body: any = {
     prompt: intent,
@@ -53,11 +61,19 @@ export async function runLocalLLM(
   };
   if (options?.tokens || options?.temperature)
     body.options = { num_predict: options.tokens, temperature: options.temperature };
-  const res = await fetch(`${base}/llm`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15000);
+  let res;
+  try {
+    res = await fetch(`${base}/llm`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeoutId);
+  }
   if (!res.ok) {
     throw new Error(`llm request failed: ${res.status}`);
   }
@@ -81,9 +97,17 @@ export async function runLocalLLMText(
   const base =
     globalAny.__mixApiBase ||
     envBase ||
-    (typeof window !== "undefined" && window.location?.hostname
-      ? `${window.location.protocol}//${window.location.hostname}:8787`
-      : "http://127.0.0.1:8787");
+    (() => {
+      if (typeof window !== "undefined" && window.location?.hostname) {
+        const hostname = window.location.hostname;
+        const protocol = window.location.protocol;
+        if (hostname.endsWith(".shsw.dev") || hostname === "shsw.dev") {
+          return `https://${hostname.split(".")[0]}-api.shsw.dev`;
+        }
+        return `${protocol}//${hostname}:8787`;
+      }
+      return "http://127.0.0.1:8787";
+    })();
   onProgress && onProgress({ stage: "generating", message: "ollama" });
   const body: any = {
     prompt: intent,
@@ -93,11 +117,19 @@ export async function runLocalLLMText(
   };
   if (options?.tokens || options?.temperature)
     body.options = { num_predict: options.tokens, temperature: options.temperature };
-  const res = await fetch(`${base}/llm`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15000);
+  let res;
+  try {
+    res = await fetch(`${base}/llm`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeoutId);
+  }
   if (!res.ok) {
     throw new Error(`llm request failed: ${res.status}`);
   }
