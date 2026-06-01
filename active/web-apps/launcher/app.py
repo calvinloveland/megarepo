@@ -237,6 +237,92 @@ def create_app() -> Flask:
             return jsonify({"ok": False, "error": f"Unknown app: {app_id}"}), 404
         return jsonify(get_app_status(app))
 
+    @app.route("/api/projects")
+    def api_projects():
+        """List all projects in the megarepo with metadata for the All Projects tab."""
+        launcher_dir = Path(__file__).resolve().parent
+        repo_root = launcher_dir.parent.parent.parent  # ../../ -> megarepo root
+        projects = []
+
+        # Scan active/ subdirectories for projects
+        active_dir = repo_root / "active"
+        if active_dir.exists():
+            for area_dir in sorted(active_dir.iterdir()):
+                if not area_dir.is_dir() or area_dir.name.startswith("."):
+                    continue
+                for proj_dir in sorted(area_dir.iterdir()):
+                    if not proj_dir.is_dir() or proj_dir.name.startswith("."):
+                        continue
+                    # Determine type from path
+                    parent_name = area_dir.name  # e.g., "games", "web-apps", "dev-tools"
+                    type_map = {
+                        "games": "game",
+                        "web-apps": "webapp",
+                        "dev-tools": "devtool",
+                        "bots": "bot",
+                        "personal": "config",
+                    }
+                    ptype = type_map.get(parent_name, "project")
+
+                    # Check for README
+                    readme_path = proj_dir / "README.md"
+                    has_readme = readme_path.exists()
+
+                    # Check for tests directory
+                    tests_dir = proj_dir / "tests"
+                    has_tests = tests_dir.exists()
+
+                    # Try to find a description from README first line
+                    description = ""
+                    if has_readme:
+                        try:
+                            first_line = readme_path.read_text(encoding="utf-8").strip().split("\n")[0]
+                            description = first_line.lstrip("# ").strip()
+                        except Exception:
+                            pass
+
+                    # Map area icons
+                    icon_map = {
+                        "games": "🎮",
+                        "web-apps": "🌐",
+                        "dev-tools": "🔧",
+                        "bots": "🤖",
+                        "personal": "❄️",
+                    }
+                    icon = icon_map.get(parent_name, "📦")
+
+                    proj_id = f"{parent_name}/{proj_dir.name}"
+                    projects.append({
+                        "id": proj_id,
+                        "name": proj_dir.name,
+                        "description": description,
+                        "type": ptype,
+                        "icon": icon,
+                        "has_tests": has_tests,
+                        "has_readme": has_readme,
+                    })
+
+        return jsonify(projects)
+
+    @app.route("/api/projects/<path:project_id>/readme")
+    def api_project_readme(project_id: str):
+        """Return the README content for a project."""
+        launcher_dir = Path(__file__).resolve().parent
+        repo_root = launcher_dir.parent.parent.parent
+        proj_path = repo_root / "active" / project_id
+        readme_path = proj_path / "README.md"
+
+        if not readme_path.exists():
+            return jsonify({"ok": False, "error": "README not found"}), 404
+
+        try:
+            content = readme_path.read_text(encoding="utf-8")
+            # Only first 2000 chars to avoid huge responses
+            content = content[:2000]
+            return jsonify({"ok": True, "name": proj_path.name, "content": content})
+        except Exception as e:
+            return jsonify({"ok": False, "error": str(e)}), 500
+
     return app
 
 

@@ -60,6 +60,10 @@
       position: relative;
       min-height: calc(100vh - 100px);
       overflow: hidden;
+      max-width: 100vw;
+    }
+    body {
+      overflow-x: hidden;
     }
     .scene-canvas {
       position: absolute; inset: 0;
@@ -387,14 +391,29 @@
     .site-footer a { color: rgba(255,255,255,0.3); text-decoration: none; }
     .site-footer a:hover { color: rgba(255,255,255,0.6); }
 
-    @media (max-width: 640px) {
-      .container-card { width: 140px; min-height: 110px; padding: 8px; }
-      .container-content .app-icon { font-size: 14px; }
-      .container-content h2 { font-size: 10px; }
-      .container-content .app-desc { font-size: 9px; }
+    @media (max-width: 768px) {
+      .container-card { width: 120px; min-height: 100px; padding: 6px; }
+      .container-content .app-icon { font-size: 12px; }
+      .container-content h2 { font-size: 9px; }
+      .container-content .app-desc { font-size: 8px; }
       .container-actions a, .container-actions button {
-        font-size: 10px; padding: 6px 8px; min-height: 44px;
+        font-size: 9px; padding: 4px 6px; min-height: 40px;
       }
+      .container-id { font-size: 8px; }
+      .container-card .corner-tl,
+      .container-card .corner-tr,
+      .container-card .corner-bl,
+      .container-card .corner-br { width: 4px; height: 4px; }
+      .scene-controls { padding: 4px 8px; gap: 6px; }
+      .scene-controls .disturb-btn { font-size: 8px; padding: 4px 8px; }
+      .scene-controls .reroll-btn { font-size: 8px; padding: 4px 8px; }
+      .running-ticker { font-size: 10px; padding: 4px 8px; }
+      .top-bar { padding: 8px 8px 4px; gap: 8px; }
+      .top-bar h1 { font-size: 16px; }
+      .tab-bar { padding: 0 8px; gap: 12px; }
+      .tab-btn { font-size: 9px; padding: 6px 2px 4px; }
+      .scene-wrap { min-height: calc(100vh - 80px); }
+      #project-grid { grid-template-columns: 1fr !important; }
     }
   </style>
 </head>
@@ -560,7 +579,7 @@ function recalibrateGyro() {
 }
 
 const CARD_W = 220, CARD_H = 130;
-const CARD_W_MOBILE = 160, CARD_H_MOBILE = 100;
+const CARD_W_MOBILE = 130, CARD_H_MOBILE = 100;
 
 function getCardSize() {
   return window.innerWidth <= 640
