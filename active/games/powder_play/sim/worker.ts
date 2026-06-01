@@ -199,6 +199,8 @@ function stepSimulation() {
             reacted[idx] = 1;
             reacted[nidx] = 1;
             reactedHere = true;
+            // Notify frontend so it can refill supply
+            postMessage({ type: "reaction", resultId, resultName: r.result });
             break;
           }
           if (reactedHere) break;

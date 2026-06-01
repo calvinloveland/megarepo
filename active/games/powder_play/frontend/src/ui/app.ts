@@ -87,6 +87,13 @@ export function initApp(root: HTMLElement) {
     ensureByproductMaterial("Pressure");
   }, 100);
 
+  // Set starter supplies to infinite
+  const starterNames = ["Fire","Sand","Water","Dirt","Seed","Iron","Salt"];
+  for (const s of starterNames) {
+    materialSupply.set(s, INFINITE);
+  }
+  try { (window as any).__materialSupply = materialSupply; } catch (e) {}
+
   pingMixServer();
 }
 
@@ -96,6 +103,33 @@ let currentMaterialId = 0;
 const materialById = new Map<number, any>();
 const materialIdByName = new Map<string, number>();
 const autoMixPairs = new Set<string>();
+
+// ── Material supply system ────────────────────────────────────────
+// Starters have INFINITE supply. Discovered materials get a finite
+// amount. Each cell painted consumes 1 unit. Reactions that produce
+// the material in the simulation add to its supply.
+// Exposed on window for the UI to read.
+const INFINITE = Infinity;
+const INITIAL_SUPPLY = 100;
+const materialSupply = new Map<string, number>();
+function initSupply(name: string, amount: number) {
+  if (!materialSupply.has(name)) materialSupply.set(name, amount);
+  try { (window as any).__materialSupply = materialSupply; } catch (e) {}
+}
+function consumeSupply(name: string, amount: number): boolean {
+  const current = materialSupply.get(name);
+  if (current === undefined || current === INFINITE) return true;
+  if (current < amount) return false;
+  materialSupply.set(name, current - amount);
+  try { (window as any).__materialSupply = materialSupply; } catch (e) {}
+  return true;
+}
+function refillSupply(name: string, amount: number) {
+  const current = materialSupply.get(name);
+  if (current === undefined || current === INFINITE) return;
+  materialSupply.set(name, current + amount);
+  try { (window as any).__materialSupply = materialSupply; } catch (e) {}
+}
 /**
  * Maximum number of unique auto-mix discoveries allowed.
  * Prevents infinite combinatorial explosion from a pile of random elements.
@@ -625,10 +659,10 @@ function ensureWorker() {
       } catch (e) {}
     }
     if (m.type === "reaction") {
-      try {
-        console.log("reaction applied", JSON.stringify(m));
-      } catch (e) {
-        console.log("reaction applied", m);
+      // Refill supply when a reaction produces a material in the simulation
+      const resultName = m.resultName;
+      if (resultName && typeof resultName === "string") {
+        refillSupply(resultName, 3); // +3 units per reaction tick
       }
     }
     if (m.type === "stepped") {
@@ -702,6 +736,10 @@ function registerMaterial(mat: any, opts?: { select?: boolean }) {
   }
   if (mat?.name) {
     materialIdByName.set(mat.name, materialId);
+    // Initialize supply: starters get Infinity, discoveries get INITIAL_SUPPLY
+    if (!materialSupply.has(mat.name)) {
+      initSupply(mat.name, INITIAL_SUPPLY);
+    }
   }
   materialById.set(materialId, mat);
   try {

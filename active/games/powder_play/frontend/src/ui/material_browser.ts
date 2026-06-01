@@ -126,6 +126,7 @@ export function mountMaterialBrowser(root: HTMLElement) {
           <div class="flex items-center gap-2">
             <span class="swatch" style="width:14px;height:14px;border:1px solid #222;background:transparent"></span>
             <strong class="text-amber-100">${m.name}</strong>
+            <small class="alchemy-muted" style="color:rgba(255,200,50,0.5)">∞</small>
             <small class="alchemy-muted">${m.file}</small>
           </div>
           <div class="materials-tags text-xs text-amber-200/70 hidden"></div>
@@ -249,6 +250,17 @@ export function mountMaterialBrowser(root: HTMLElement) {
 
     const densityStr = typeof mat.density === "number" ? mat.density.toFixed(1) : "?";
 
+    // Show supply count
+    let supplyStr = "";
+    try {
+      const supplyMap: Map<string, number> | undefined = (window as any).__materialSupply;
+      if (supplyMap) {
+        const supply = supplyMap.get(mat.name);
+        if (supply === Infinity) supplyStr = "<small class=\"alchemy-muted\">∞</small>";
+        else if (supply !== undefined) supplyStr = `<small class=\"alchemy-muted\">×${supply}</small>`;
+      }
+    } catch (e) {}
+
     const row = document.createElement("div");
     row.className =
       "materials-row flex items-center justify-between gap-2 rounded-md border border-amber-900/30 bg-midnight/60 px-2 py-1";
@@ -259,6 +271,7 @@ export function mountMaterialBrowser(root: HTMLElement) {
         <div class="flex items-center gap-2">
           <span class="swatch" style="width:14px;height:14px;border:1px solid #222;background:transparent"></span>
           <strong class="text-amber-100">${isGold ? "🥇 " : ""}${mat.name}</strong>
+          ${supplyStr}
           <small class="alchemy-muted">d:${densityStr}</small>
         </div>
         <div class="materials-tags text-xs text-amber-200/70 flex flex-wrap gap-1 mt-1">${tagBadges || ""}</div>

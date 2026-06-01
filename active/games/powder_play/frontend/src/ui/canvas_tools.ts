@@ -140,16 +140,58 @@ export function attachCanvasTools(canvas: HTMLCanvasElement, worker: Worker | nu
   window.addEventListener('mouseup', ()=>{
     if (!drawing) return;
     drawing = false;
-    // send grid to worker (or queue if worker not available yet)
+
     const id = eraserToggle.checked ? 0 : ((window as any).__currentMaterialId || 1);
     const points = Array.from(strokePoints).map((s) => {
       const [x,y] = s.split(',').map(Number);
       return {x,y};
     });
     strokePoints.clear();
+
+    // Supply check: eraser has no supply cost, other materials do
+    if (!eraserToggle.checked && id !== 0) {
+      const supplyMap: Map<string, number> | undefined = (window as any).__materialSupply;
+      const nameById: Record<string, number> | undefined = (window as any).__materialIdByName;
+      // Find the material name for this ID (reverse lookup)
+      let matName: string | undefined;
+      if (nameById) {
+        for (const [name, mid] of Object.entries(nameById)) {
+          if (mid === id) { matName = name; break; }
+        }
+      }
+      if (matName && supplyMap) {
+        const supply = supplyMap.get(matName);
+        if (supply !== undefined && supply !== Infinity) {
+          const needed = points.length;
+          if (supply < needed) {
+            // Partial paint: only paint what we have supply for
+            if (supply <= 0) {
+              const status = document.getElementById('status');
+              if (status) status.textContent = `Out of ${matName}! Re-mix ${matName}'s parents to get more.`;
+              return; // Can't paint at all
+            }
+            // Paint partial
+            const partial = points.slice(0, supply);
+            if (currentWorker) {
+              currentWorker.postMessage({type:'paint_points', materialId: id, points: partial});
+              currentWorker.postMessage({type:'step'});
+            }
+            // Update supply map
+            supplyMap.set(matName, 0);
+            const status = document.getElementById('status');
+            if (status) status.textContent = `${matName} ran out! Re-mix to get more.`;
+            return;
+          }
+          // Deduct supply
+          supplyMap.set(matName, supply - needed);
+          (window as any).__materialSupply = supplyMap;
+        }
+      }
+    }
+
+    // Paint normally
     if (currentWorker) {
       currentWorker.postMessage({type:'paint_points', materialId: id, points});
-      // step so paint is visible without pressing Step
       currentWorker.postMessage({type:'step'});
     } else {
       pendingPaints.push({ materialId: id, points });
