@@ -40,6 +40,11 @@ function resolveState(tags: string[]): "solid" | "liquid" | "gas" | null {
   return null; // static — no movement
 }
 
+/** Tags that indicate a material is immovable (no state tag = static). */
+function isStatic(tags: string[] | undefined): boolean {
+  return !tags || resolveState(tags) === null;
+}
+
 export function stepByTags(
   tags: string[],
   cell: number,
@@ -49,45 +54,42 @@ export function stepByTags(
   ctx: MovementContext,
 ) {
   const state = resolveState(tags);
-  if (!state) return false; // solid with no movement = static
+  if (!state) return false; // static — no movement
 
   const rng = ctx.rng ?? Math.random;
-  const blockStatic = tags.includes("fire");
   const [dx1, dx2] = rng() < 0.5 ? [-1, 1] : [1, -1];
 
-  if (state === "gas") {
-    // Float upward, spread laterally
-    const candidates: MoveCandidate[] = [
-      { dx: 0, dy: -1 },
-      { dx: dx1, dy: -1 },
-      { dx: dx2, dy: -1 },
-      { dx: dx1, dy: 0 },
-      { dx: dx2, dy: 0 },
-    ];
-    return attemptMoves(cell, x, y, idx, candidates, ctx, { blockStatic });
-  }
+  const candidates: MoveCandidate[] =
+    state === "gas"
+      ? [ // Float upward, spread laterally
+          { dx: 0, dy: -1 },
+          { dx: dx1, dy: -1 },
+          { dx: dx2, dy: -1 },
+          { dx: dx1, dy: 0 },
+          { dx: dx2, dy: 0 },
+        ]
+      : state === "liquid"
+        ? [ // Fall down, spread laterally
+            { dx: 0, dy: 1 },
+            { dx: dx1, dy: 1 },
+            { dx: dx2, dy: 1 },
+            { dx: dx1, dy: 0 },
+            { dx: dx2, dy: 0 },
+          ]
+        : [ // Solid: fall down, slide diagonally to form piles
+            { dx: 0, dy: 1 },
+            { dx: dx1, dy: 1 },
+            { dx: dx2, dy: 1 },
+          ];
 
-  if (state === "liquid") {
-    // Fall down, spread laterally, find level
-    const candidates: MoveCandidate[] = [
-      { dx: 0, dy: 1 },
-      { dx: dx1, dy: 1 },
-      { dx: dx2, dy: 1 },
-      { dx: dx1, dy: 0 },
-      { dx: dx2, dy: 0 },
-    ];
-    return attemptMoves(cell, x, y, idx, candidates, ctx, { blockStatic });
-  }
-
-  // Solid (sand-like): fall down, slide diagonally to form piles
-  const candidates: MoveCandidate[] = [
-    { dx: 0, dy: 1 },
-    { dx: dx1, dy: 1 },
-    { dx: dx2, dy: 1 },
-  ];
-  return attemptMoves(cell, x, y, idx, candidates, ctx, { blockStatic });
+  return attemptMoves(cell, x, y, idx, candidates, ctx);
 }
 
+/**
+ * Core movement: try candidates in order. Handles density-based swapping
+ * so lighter materials rise and heavier materials sink.
+ * Always blocks movement through truly static materials (no state tag).
+ */
 export function attemptMoves(
   cell: number,
   x: number,
@@ -95,11 +97,9 @@ export function attemptMoves(
   idx: number,
   candidates: MoveCandidate[],
   ctx: MovementContext,
-  options?: { blockStatic?: boolean },
 ) {
   const { width, height, grid, nextGrid, densityById, tagsById } = ctx;
   const dSelf = densityById.get(cell) ?? 1;
-  const blockStatic = options?.blockStatic ?? false;
   for (const c of candidates) {
     const nx = x + c.dx;
     const ny = y + c.dy;
@@ -111,9 +111,10 @@ export function attemptMoves(
       nextGrid[nidx] = cell;
       return true;
     }
-    if (blockStatic && tagsById?.get(target)?.includes("static")) {
-      continue;
-    }
+    // Never move through truly static materials (no state tag)
+    const targetTags = tagsById?.get(target);
+    if (isStatic(targetTags)) continue;
+
     const dTarget = densityById.get(target) ?? 1;
     const shouldSwap =
       (c.dy > 0 && dSelf > dTarget) || (c.dy < 0 && dSelf < dTarget);
@@ -122,9 +123,6 @@ export function attemptMoves(
       nextGrid[idx] === 0 &&
       (nextGrid[nidx] === 0 || nextGrid[nidx] === target)
     ) {
-      if (blockStatic && tagsById?.get(target)?.includes("static")) {
-        continue;
-      }
       nextGrid[nidx] = cell;
       nextGrid[idx] = target;
       return true;
