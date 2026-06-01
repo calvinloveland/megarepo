@@ -223,18 +223,21 @@ export function mountMaterialBrowser(root: HTMLElement) {
       }
       if (isGold) {
         points += 10000;
-        const status = document.getElementById("status");
+      }
+
+      const status = document.getElementById("status");
+      if (isGold) {
+        addScore(points);
         if (status) {
-          status.textContent = `🏆 GOLD DISCOVERED! +${points} points!`;
+          status.textContent = `🏆 GOLD DISCOVERED! +${points} points! Total: ${discoveryScore}`;
           status.style.color = "#fbbf24";
           status.style.fontWeight = "bold";
+          status.style.fontSize = "1.1rem";
         }
       } else if (points > 0) {
         addScore(points);
-        const status = document.getElementById("status");
         if (status) status.textContent = `Discovered ${mat.name} (+${points})`;
       } else {
-        const status = document.getElementById("status");
         if (status) status.textContent = `Discovered ${mat.name}`;
       }
     } catch (e) {}
