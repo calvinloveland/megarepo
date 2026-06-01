@@ -1,3 +1,17 @@
+/**
+ * Movement system driven by state (solid/liquid/gas) and density.
+ *
+ * State determines movement direction and spread behavior:
+ *   solid  → falls down, slides diagonally to form piles
+ *   liquid → falls down, spreads laterally, finds level
+ *   gas    → floats up, spreads laterally
+ *
+ * Density determines buoyancy: higher density sinks below lower density.
+ *
+ * Backward compatibility: old tags (sand, flow, float, static) map to
+ * (solid, liquid, gas, solid) automatically.
+ */
+
 export type MoveCandidate = { dx: number; dy: number };
 
 export type MovementContext = {
@@ -10,6 +24,22 @@ export type MovementContext = {
   rng?: () => number;
 };
 
+/**
+ * Resolve physical state from tags.
+ * Returns null when no movement tag is present (material is static).
+ * Backward compatible with legacy sand/flow/float tags.
+ */
+function resolveState(tags: string[]): "solid" | "liquid" | "gas" | null {
+  if (tags.includes("gas")) return "gas";
+  if (tags.includes("liquid")) return "liquid";
+  if (tags.includes("solid")) return "solid";
+  // Legacy tags
+  if (tags.includes("float")) return "gas";
+  if (tags.includes("flow")) return "liquid";
+  if (tags.includes("sand")) return "solid";
+  return null; // static — no movement
+}
+
 export function stepByTags(
   tags: string[],
   cell: number,
@@ -18,14 +48,15 @@ export function stepByTags(
   idx: number,
   ctx: MovementContext,
 ) {
+  const state = resolveState(tags);
+  if (!state) return false; // solid with no movement = static
+
   const rng = ctx.rng ?? Math.random;
-  if (tags.includes("static")) return false;
-  const hasFloat = tags.includes("float");
-  const hasFlow = tags.includes("flow");
-  const hasSand = tags.includes("sand");
   const blockStatic = tags.includes("fire");
-  if (hasFloat) {
-    const [dx1, dx2] = rng() < 0.5 ? [-1, 1] : [1, -1];
+  const [dx1, dx2] = rng() < 0.5 ? [-1, 1] : [1, -1];
+
+  if (state === "gas") {
+    // Float upward, spread laterally
     const candidates: MoveCandidate[] = [
       { dx: 0, dy: -1 },
       { dx: dx1, dy: -1 },
@@ -35,8 +66,9 @@ export function stepByTags(
     ];
     return attemptMoves(cell, x, y, idx, candidates, ctx, { blockStatic });
   }
-  if (hasFlow) {
-    const [dx1, dx2] = rng() < 0.5 ? [-1, 1] : [1, -1];
+
+  if (state === "liquid") {
+    // Fall down, spread laterally, find level
     const candidates: MoveCandidate[] = [
       { dx: 0, dy: 1 },
       { dx: dx1, dy: 1 },
@@ -46,16 +78,14 @@ export function stepByTags(
     ];
     return attemptMoves(cell, x, y, idx, candidates, ctx, { blockStatic });
   }
-  if (hasSand) {
-    const [dx1, dx2] = rng() < 0.5 ? [-1, 1] : [1, -1];
-    const candidates: MoveCandidate[] = [
-      { dx: 0, dy: 1 },
-      { dx: dx1, dy: 1 },
-      { dx: dx2, dy: 1 },
-    ];
-    return attemptMoves(cell, x, y, idx, candidates, ctx, { blockStatic });
-  }
-  return false;
+
+  // Solid (sand-like): fall down, slide diagonally to form piles
+  const candidates: MoveCandidate[] = [
+    { dx: 0, dy: 1 },
+    { dx: dx1, dy: 1 },
+    { dx: dx2, dy: 1 },
+  ];
+  return attemptMoves(cell, x, y, idx, candidates, ctx, { blockStatic });
 }
 
 export function attemptMoves(

@@ -18,6 +18,9 @@ const allowedTags = new Set([
   "dirt",
   "source",
   "drain",
+  "solid",
+  "liquid",
+  "gas",
 ]);
 
 // Lightweight validator to avoid heavy dependency during early prototyping.

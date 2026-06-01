@@ -44,7 +44,10 @@
           "dirt",
           "element",
           "source",
-          "drain"
+          "drain",
+          "solid",
+          "liquid",
+          "gas"
         ]
       }
     },
