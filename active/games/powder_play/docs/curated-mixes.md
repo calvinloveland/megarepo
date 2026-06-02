@@ -49,19 +49,36 @@ These are the mixes many players will try first.
 - `Water + Fire -> Steam` should also **reliably create Heat as a byproduct** so Heat is discovered early.
 - These five recipes are enough to make the world feel coherent immediately.
 
-## Tier 1: reliable unlocks for the two special tools
+## Tier 1: tool philosophy — Heat is a discovery, Pressure is a system
 
-`Heat` and `Pressure` should be learnable, purposeful, and not purely random.
+`Heat` and `Pressure` should not work the same way.
+
+### Heat
+Heat can still have a few reliable discovery moments.
 
 | Mix | Result | Why |
 | --- | --- | --- |
-| Water + Fire | Steam + Heat | Guaranteed Heat discovery path. |
-| Steam + Iron | Pressure | Guaranteed Pressure discovery path. |
+| Water + Fire | Steam + Heat | Guaranteed early Heat discovery. |
+| Plant + Fire | Smoke + Heat | Reinforces that combustion creates Heat. |
 
-### Why `Steam + Iron -> Pressure` works well
-- It feels like a primitive boiler / pressure vessel idea.
-- It uses a discovered material (`Steam`) plus a starter (`Iron`), so it fits the ancestor rule.
-- It makes `Pressure` feel like an engineered phenomenon, not a random magical token.
+### Pressure
+Pressure should **not** be a single hard-coded recipe.
+Instead, it should be a **reliable byproduct class** produced by many reactions that:
+- rapidly create gas,
+- expand liquid into vapor,
+- combust violently,
+- or happen in crowded / compressed spaces.
+
+Good places for reliable Pressure byproducts:
+- `Water + Fire -> Steam` in dense or enclosed situations
+- `Plant + Fire -> Smoke` (small Pressure output)
+- `Oil + Fire -> Smoke` (strong Pressure output)
+- violent catalyzed reactions
+- any reaction that produces a lot of gas or pushes into crowded cells
+
+So the curated content for Pressure should mostly be:
+- **rules about when Pressure is emitted**, not
+- **one specific pair that creates Pressure**.
 
 ## Tier 2: stable branch anchors
 
@@ -70,48 +87,63 @@ These do not all need to be on the Gold path, but they make the world legible.
 | Mix | Result | Role |
 | --- | --- | --- |
 | Mud + Fire | Clay | Refinement branch: wet earth -> workable earth. |
-| Plant + Fire | Smoke | Obvious combustion result; supports atmosphere and further ideas. |
-| Plant + Pressure | Oil | Gives Pressure an economy/resource use. |
-| Brine + Pressure | Crystal | Defines the mineral refinement branch. |
-| Iron + Fire | Steel | Defines the metal refinement branch. |
+| Plant + Fire | Charcoal | Core metalworking ingredient. |
+| Water + Salt | Brine | Mineral branch anchor. |
+| Brine + Sand | Crystal | Clean salt/mineral refinement result. |
+| Charcoal + Iron | Steel | Harder and more satisfying than `Iron + Fire -> Steel`. |
+| Sand + Fire | Glass | Off-path but highly intuitive world logic. |
 
 ### Notes
-- `Plant + Pressure -> Oil` is a good way to make Pressure feel economically useful, not just a gate.
-- `Brine + Pressure -> Crystal` gives the salt branch a durable, high-value output.
-- `Iron + Fire -> Steel` is an intuitive refinement step and creates a clean metal branch.
+- `Charcoal + Iron -> Steel` makes the metal branch longer and more earned.
+- `Brine + Sand -> Crystal` creates a clean second branch that stays disjoint from the steel branch.
+- `Glass` can remain important for side discoveries without necessarily being on the Gold path.
 
-## Tier 3: deterministic Gold route
+## Tier 3: deterministic Gold route (hard mode)
 
-The endgame should be narrow, readable, and earned.
+Gold should be difficult, legible, and late.
+It should feel like the player mastered the whole system, not just guessed one lucky pair.
 
 Recommended route:
 
-1. `Water + Fire -> Steam` (+ `Heat`)
-2. `Steam + Iron -> Pressure`
-3. `Water + Salt -> Brine`
-4. `Brine + Pressure -> Crystal`
-5. `Iron + Fire -> Steel`
+### Metal branch
+1. `Seed + Dirt -> Plant`
+2. `Plant + Fire -> Charcoal`
+3. `Charcoal + Iron -> Steel`
+
+### Mineral branch
+4. `Water + Salt -> Brine`
+5. `Brine + Sand -> Crystal`
+
+### Final transmutation
 6. `Steel + Crystal + Pressure -> Gold`
 
-## Why this route is good
+### Optional extra gate
+If Gold still feels too easy, require **both Heat and Pressure adjacent** for the final transmutation.
+That would make Gold a true endgame reaction without making the recipe tree itself unreadable.
 
-### 1. It respects the ancestor rule
-- `Steel` comes from the **Fire + Iron** branch.
-- `Crystal` comes from the **Water + Salt** branch.
-- Those branches are disjoint, so they can still combine later.
-- `Pressure` can overlap ancestrally because it is used as a **catalyst**, not one of the pair materials.
+## Why this route is better
 
-### 2. It makes Pressure matter
-- Pressure is not just a visual byproduct.
-- It is required both to refine `Crystal` and to perform the final transmutation.
+### 1. It is meaningfully harder
+- The player has to build **two separate refinement branches**.
+- One branch is 3 steps deep.
+- The other branch is 2 steps deep.
+- Then the player still needs the correct energetic conditions for the final reaction.
 
-### 3. It creates a readable alchemy story
-- Heat makes vapor.
-- Vapor plus metal creates pressure.
-- Pressure refines brine into crystal.
-- Steel and crystal under pressure become gold.
+### 2. It uses all seven starters
+- `Plant/Steel` branch uses: **Seed, Dirt, Fire, Iron**
+- `Crystal` branch uses: **Water, Salt, Sand**
+- That means reaching Gold implies broad mastery, not narrow brute force.
 
-This is not literal chemistry, but it feels like internally consistent alchemy.
+### 3. It respects the ancestor rule cleanly
+- `Steel` ancestors: Seed, Dirt, Fire, Iron
+- `Crystal` ancestors: Water, Salt, Sand
+- The two final ingredients are fully disjoint, so the final transmutation remains legal.
+- `Pressure` is a catalyst/byproduct system, so it can overlap without breaking the pair logic.
+
+### 4. Pressure stays meaningful without becoming arbitrary
+- Pressure is not “the answer” to one special recipe.
+- It is a recurring energetic phenomenon the player learns to create and exploit.
+- That makes the world feel more physical and less puzzle-boxy.
 
 ## Recommended hard-coded set
 
@@ -120,18 +152,19 @@ If you want the **smallest useful curated set**, hard-code these first:
 1. `Water + Dirt -> Mud`
 2. `Water + Fire -> Steam` (+ Heat)
 3. `Seed + Dirt -> Plant`
-4. `Water + Salt -> Brine`
-5. `Sand + Fire -> Glass`
-6. `Steam + Iron -> Pressure`
-7. `Brine + Pressure -> Crystal`
-8. `Iron + Fire -> Steel`
-9. `Steel + Crystal + Pressure -> Gold`
+4. `Plant + Fire -> Charcoal`
+5. `Water + Salt -> Brine`
+6. `Brine + Sand -> Crystal`
+7. `Charcoal + Iron -> Steel`
+8. `Steel + Crystal + Pressure -> Gold`
+
+And separately, hard-code **Pressure emission rules** for classes of reactions rather than a single Pressure recipe.
 
 That gives you:
 - trustworthy onboarding,
-- deterministic Heat/Pressure unlocks,
-- a clear midgame,
-- and a reliable Gold win condition.
+- a longer and harder Gold path,
+- meaningful metalworking,
+- and Pressure as a real systemic force rather than a magic ingredient.
 
 ## Good candidates to leave to the LLM
 
