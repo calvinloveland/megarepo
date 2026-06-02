@@ -71,8 +71,8 @@ export function initApp(root: HTMLElement) {
     mod.attachCanvasTools(
       canvas,
       (window as any).__powderWorker || null,
-      150,
-      100,
+      GRID_WIDTH,
+      GRID_HEIGHT,
       toolsPanel,
     );
   });
@@ -88,11 +88,15 @@ export function initApp(root: HTMLElement) {
   }, 100);
 
   // Set starter and utility supplies to infinite
-  const infiniteSupply = ["Fire","Sand","Water","Dirt","Seed","Iron","Salt","Drain"];
+  const infiniteSupply = ["Fire","Sand","Water","Dirt","Seed","Iron","Salt","Drain","Air"];
   for (const s of infiniteSupply) {
     materialSupply.set(s, INFINITE);
   }
   try { (window as any).__materialSupply = materialSupply; } catch (e) {}
+
+  // Hidden utility/background materials
+  preloadHiddenMaterial("air.json", { infinite: true, seedBoard: true });
+  preloadHiddenMaterial("drain.json", { infinite: true });
 
   pingMixServer();
 }
@@ -111,7 +115,11 @@ const autoMixPairs = new Set<string>();
 // Exposed on window for the UI to read.
 const INFINITE = Infinity;
 const INITIAL_SUPPLY = 100;
+const GRID_WIDTH = 150;
+const GRID_HEIGHT = 100;
 const materialSupply = new Map<string, number>();
+let ambientAirId: number | null = null;
+let gridSeededWithAir = false;
 function initSupply(name: string, amount: number) {
   if (!materialSupply.has(name)) materialSupply.set(name, amount);
   try { (window as any).__materialSupply = materialSupply; } catch (e) {}
@@ -129,6 +137,44 @@ function refillSupply(name: string, amount: number) {
   if (current === undefined || current === INFINITE) return;
   materialSupply.set(name, current + amount);
   try { (window as any).__materialSupply = materialSupply; } catch (e) {}
+}
+
+function isAmbientMaterial(mat: any): boolean {
+  const tags = Array.isArray(mat?.tags) ? mat.tags.map((t: any) => String(t).toLowerCase()) : [];
+  return mat?.name === "Air" || tags.includes("ambient");
+}
+
+function seedGridWithAir() {
+  ensureWorker();
+  if (gridSeededWithAir || !ambientAirId) return;
+  const buf = new Uint16Array(GRID_WIDTH * GRID_HEIGHT);
+  buf.fill(ambientAirId);
+  worker!.postMessage({ type: "set_grid", buffer: buf.buffer });
+  worker!.postMessage({ type: "step" });
+  gridSeededWithAir = true;
+  try {
+    (window as any).__ambientMaterialId = ambientAirId;
+  } catch (e) {}
+}
+
+async function preloadHiddenMaterial(file: string, opts?: { infinite?: boolean; seedBoard?: boolean }) {
+  try {
+    const res = await fetch(`/materials/${file}`, { cache: "no-store" });
+    if (!res.ok) return;
+    const mat = await res.json();
+    if (!mat?.name) return;
+    if (opts?.infinite) materialSupply.set(mat.name, INFINITE);
+    const id = registerMaterial(mat, { select: false });
+    if (isAmbientMaterial(mat)) {
+      ambientAirId = id;
+      try {
+        (window as any).__ambientMaterialId = id;
+      } catch (e) {}
+      if (opts?.seedBoard) seedGridWithAir();
+    }
+  } catch (e) {
+    console.warn("hidden material preload failed", file, e);
+  }
 }
 /**
  * Maximum number of unique auto-mix discoveries allowed.
@@ -705,6 +751,7 @@ function ensureWorker() {
         (window as any).__lastGridWidth = m.width;
         const sampleIdx = 10 * m.width + 10;
         (window as any).__lastGridSample = buf[sampleIdx];
+        if (m.pressureStats) (window as any).__lastPressureStats = m.pressureStats;
         console.log(
           "drawGrid sample [10,10] =",
           buf[sampleIdx],
@@ -717,7 +764,7 @@ function ensureWorker() {
     }
     if (m.type === "error") console.warn("worker error", m.message);
   };
-  worker.postMessage({ type: "init", width: 150, height: 100 });
+  worker.postMessage({ type: "init", width: GRID_WIDTH, height: GRID_HEIGHT });
 }
 
 function getMaterialColor(mat: any) {
@@ -1434,11 +1481,14 @@ function maybeAutoGenerateMixes(buf: Uint16Array, w: number, h: number) {
       const idx = y * w + x;
       const a = buf[idx];
       if (!a) continue;
+      const aMat = materialById.get(a);
+      if (isAmbientMaterial(aMat)) continue;
 
       // Check horizontal neighbor
       if (x + 1 < w) {
         const b = buf[idx + 1];
-        if (b && b !== a) {
+        const bMat = materialById.get(b);
+        if (b && b !== a && !isAmbientMaterial(bMat)) {
           // Check catalyst adjacent to EITHER material
           const catalyst = detectCatalyst(buf, x, y, w, h, a, b)
             || detectCatalyst(buf, x+1, y, w, h, a, b);
@@ -1447,8 +1497,6 @@ function maybeAutoGenerateMixes(buf: Uint16Array, w: number, h: number) {
           if (catalyst && !autoMixPairs.has(key) && !hasExplicitReaction(a, b)) {
             catalyzedPairs.push([a, b, catalyst]);
           } else if (!catalyst && !autoMixPairs.has(key) && !hasExplicitReaction(a, b)) {
-            const aMat = materialById.get(a);
-            const bMat = materialById.get(b);
             if (aMat && bMat) {
               const aa = getAncestors(aMat);
               const ba = getAncestors(bMat);
@@ -1463,7 +1511,8 @@ function maybeAutoGenerateMixes(buf: Uint16Array, w: number, h: number) {
       // Check vertical neighbor
       if (y + 1 < h) {
         const b = buf[idx + w];
-        if (b && b !== a) {
+        const bMat = materialById.get(b);
+        if (b && b !== a && !isAmbientMaterial(bMat)) {
           const catalyst = detectCatalyst(buf, x, y, w, h, a, b)
             || detectCatalyst(buf, x, y+1, w, h, a, b);
 
@@ -1471,8 +1520,6 @@ function maybeAutoGenerateMixes(buf: Uint16Array, w: number, h: number) {
           if (catalyst && !autoMixPairs.has(key) && !hasExplicitReaction(a, b)) {
             catalyzedPairs.push([a, b, catalyst]);
           } else if (!catalyst && !autoMixPairs.has(key) && !hasExplicitReaction(a, b)) {
-            const aMat = materialById.get(a);
-            const bMat = materialById.get(b);
             if (aMat && bMat) {
               const aa = getAncestors(aMat);
               const ba = getAncestors(bMat);

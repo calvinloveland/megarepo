@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { validateMaterial } from "../../material_gen/validator";
+import { applyDrains } from "../../sim/drain";
 
 describe("source material validation", () => {
   it("accepts a source material with emits property", async () => {
@@ -52,6 +53,53 @@ describe("drain material validation", () => {
     } as any;
     const res = await validateMaterial(ast);
     expect(res.ok).toBe(true);
+  });
+});
+
+describe("drain simulation", () => {
+  it("removes ambient air from a board filled with air", () => {
+    const width = 5;
+    const height = 5;
+    const air = 1;
+    const drain = 2;
+    const grid = new Uint16Array(width * height).fill(air);
+    const nextGrid = new Uint16Array(width * height);
+    const reacted = new Uint8Array(width * height);
+    const tagsById = new Map<number, string[]>([
+      [air, ["gas", "ambient"]],
+      [drain, ["drain"]],
+    ]);
+    const nameById = new Map<number, string>([
+      [air, "Air"],
+      [drain, "Drain"],
+    ]);
+    const center = 2 + 2 * width;
+    grid[center] = drain;
+    const drained: string[] = [];
+
+    applyDrains({
+      width,
+      height,
+      grid,
+      nextGrid,
+      reacted,
+      tagsById,
+      nameById,
+      onDrain: (materialName) => drained.push(materialName),
+    });
+
+    // Finish a minimal step: untouched cells persist, drained neighbors stay empty.
+    for (let i = 0; i < grid.length; i++) {
+      if (!reacted[i] && nextGrid[i] === 0) nextGrid[i] = grid[i];
+    }
+
+    let airCount = 0;
+    for (let i = 0; i < nextGrid.length; i++) if (nextGrid[i] === air) airCount++;
+
+    expect(drained.length).toBe(4);
+    expect(drained.every((name) => name === "Air")).toBe(true);
+    expect(nextGrid[center]).toBe(drain);
+    expect(airCount).toBe(width * height - 1 - 4);
   });
 });
 

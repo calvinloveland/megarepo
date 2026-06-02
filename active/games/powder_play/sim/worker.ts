@@ -1,6 +1,7 @@
 import { stepByTags } from "./tag_movement";
 import { applyTagBehaviors } from "./tag_behaviors";
 import { applyPressureWind, simulatePressureField } from "./pressure_wind";
+import { applyDrains } from "./drain";
 
 export type WorkerMessage =
   | { type: "init"; width: number; height: number }
@@ -45,6 +46,23 @@ const emitsById = new Map<number, number>(); // source: what material it spawns
 let stepCount = 0; // global tick counter for periodic behaviors
 let pressure: Float32Array; // per-cell pressure field
 let reacted: Uint8Array;
+
+function summarizePressure(field: Float32Array) {
+  let min = Number.POSITIVE_INFINITY;
+  let max = Number.NEGATIVE_INFINITY;
+  let total = 0;
+  for (let i = 0; i < field.length; i++) {
+    const p = field[i] || 0;
+    if (p < min) min = p;
+    if (p > max) max = p;
+    total += p;
+  }
+  if (!field.length) {
+    min = 0;
+    max = 0;
+  }
+  return { min, max, total, avg: field.length ? total / field.length : 0 };
+}
 
 function resolveReactions() {
   for (const rules of reactionsById.values()) {
@@ -137,7 +155,13 @@ onmessage = (ev: MessageEvent) => {
     const t = grid;
     grid = nextGrid;
     nextGrid = t;
-    postMessage({ type: "stepped", grid: grid.buffer, width, height });
+    postMessage({
+      type: "stepped",
+      grid: grid.buffer,
+      width,
+      height,
+      pressureStats: summarizePressure(pressure),
+    });
   }
 };
 
@@ -206,38 +230,20 @@ function stepSimulation() {
   });
 
   // ── Phase 2: Process drains (absorb adjacent materials) ──
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-      const idx = y * width + x;
-      const cell = grid[idx];
-      if (cell === 0) continue;
-      const tags = tagsById.get(cell) || [];
-      if (!tags.includes("drain")) continue;
-      // Absorb non-drain adjacent materials
-      for (const d of dirs) {
-        const nx = x + d.dx;
-        const ny = y + d.dy;
-        if (nx < 0 || nx >= width || ny < 0 || ny >= height) continue;
-        const nidx = ny * width + nx;
-        if (reacted[nidx]) continue;
-        const target = grid[nidx];
-        if (target === 0) continue;
-        const targetTags = tagsById.get(target) || [];
-        if (targetTags.includes("drain") || targetTags.includes("source")) continue;
-        // Absorb: empty the cell and report to frontend
-        reacted[nidx] = 1;
-        if (nextGrid[nidx] === 0) {
-          // Leave the absorber cell in place, absorb the neighbor
-          nextGrid[idx] = cell; // drain stays
-          // Target cell becomes empty
-        }
-        const targetName = [...nameToId.entries()].find(([, id]) => id === target)?.[0];
-        if (targetName) {
-          postMessage({ type: "drained", materialName: targetName, amount: 1 });
-        }
-      }
-    }
-  }
+  const idToName = new Map<number, string>();
+  for (const [name, id] of nameToId.entries()) idToName.set(id, name);
+  applyDrains({
+    width,
+    height,
+    grid,
+    nextGrid,
+    reacted,
+    tagsById,
+    nameById: idToName,
+    onDrain: (materialName, amount) => {
+      postMessage({ type: "drained", materialName, amount });
+    },
+  });
 
   // ── Phase 3: Main simulation loop ──
   for (let y = height - 1; y >= 0; y--) {

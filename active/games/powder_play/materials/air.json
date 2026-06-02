@@ -1,0 +1,8 @@
+{
+  "type": "material",
+  "name": "Air",
+  "description": "Ambient air that fills empty space and carries pressure.",
+  "color": [10, 14, 23],
+  "density": 0.05,
+  "tags": ["gas", "ambient"]
+}

@@ -6,6 +6,31 @@ import {
 } from "../../sim/pressure_wind";
 
 describe("pressure-driven wind", () => {
+  it("keeps ambient air at stable pressure when the board starts full of air", () => {
+    const width = 4;
+    const height = 4;
+    const air = 1;
+    const grid = new Uint16Array(width * height).fill(air);
+    let pressure = new Float32Array(width * height);
+    const densityById = new Map<number, number>([[air, 0.05]]);
+    const tagsById = new Map<number, string[]>([[air, ["gas", "ambient"]]]);
+
+    for (let i = 0; i < 5; i++) {
+      pressure = simulatePressureField({
+        width,
+        height,
+        grid,
+        pressure,
+        densityById,
+        tagsById,
+      });
+    }
+
+    const unique = new Set(Array.from(pressure).map((p) => Number(p.toFixed(6))));
+    expect(unique.size).toBe(1);
+    expect(unique.has(0)).toBe(true);
+  });
+
   it("diffuses pressure into neighboring empty cells", () => {
     const width = 3;
     const height = 1;

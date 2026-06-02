@@ -72,7 +72,8 @@ export function simulatePressureField(ctx: PressureFieldContext) {
       const cell = grid[idx];
       const tags = cell ? tagsById.get(cell) || [] : [];
       const density = cell ? densityById.get(cell) ?? 1 : 1;
-      const isGas = tags.includes("gas") || tags.includes("float");
+      const isAmbient = tags.includes("ambient");
+      const isGas = (tags.includes("gas") || tags.includes("float")) && !isAmbient;
       const isFire = tags.includes("fire");
 
       let neighborSum = 0;
@@ -90,7 +91,7 @@ export function simulatePressureField(ctx: PressureFieldContext) {
       let source = 0;
       if (isFire) source += PRESSURE_FIRE;
       if (isGas && density < 0.35) source += PRESSURE_GAS;
-      if (cell !== 0 && (isGas || isFire || density < 0.6) && occupiedNeighbors >= 2) {
+      if (cell !== 0 && !isAmbient && (isGas || isFire || density < 0.6) && occupiedNeighbors >= 2) {
         source += (occupiedNeighbors - 1) * PRESSURE_COMPRESSION;
       }
 

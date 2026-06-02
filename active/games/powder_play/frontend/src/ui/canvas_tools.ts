@@ -159,6 +159,8 @@ export function attachCanvasTools(canvas: HTMLCanvasElement, worker: Worker | nu
   let currentWorker = worker;
   const sendClearGrid = () => {
     const buf = new Uint16Array(gridW * gridH);
+    const airId = (window as any).__ambientMaterialId || 0;
+    if (airId) buf.fill(airId);
     pendingPaints.length = 0;
     if (currentWorker) {
       currentWorker.postMessage({ type:'set_grid', buffer: buf.buffer });
