@@ -7,6 +7,7 @@ export function attachCanvasTools(canvas: HTMLCanvasElement, worker: Worker | nu
     <div class="flex flex-col gap-2">
       <div class="flex flex-wrap items-center gap-2">
         <button id="clear-grid" class="alchemy-button">Clear</button>
+        <button id="new-game" class="alchemy-button">New Game</button>
         <label class="alchemy-label flex items-center gap-2">Brush
           <select id="brush-size" class="alchemy-select">
             <option value="1">Small</option>
@@ -22,6 +23,7 @@ export function attachCanvasTools(canvas: HTMLCanvasElement, worker: Worker | nu
   toolsRoot.appendChild(info);
 
   const clearBtn = info.querySelector('#clear-grid') as HTMLButtonElement;
+  const newGameBtn = info.querySelector('#new-game') as HTMLButtonElement;
   const brushSel = info.querySelector('#brush-size') as HTMLSelectElement;
   const eraserToggle = info.querySelector('#eraser-toggle') as HTMLInputElement;
   const paintMode = info.querySelector('#paint-mode') as HTMLSpanElement;
@@ -182,6 +184,60 @@ export function attachCanvasTools(canvas: HTMLCanvasElement, worker: Worker | nu
     try { octx.clearRect(0,0,overlay.width, overlay.height); } catch (e) {}
   }
 
+  // New Game: clear grid AND recover all placed materials back to supply
+  newGameBtn.onclick = () => {
+    // Recover all materials currently on the grid
+    const lastGrid = (window as any).__lastGrid as Uint16Array | undefined;
+    const lastGridW = (window as any).__lastGridWidth as number | undefined;
+    const nameById = (window as any).__materialIdByName as Record<string, number> | undefined;
+    const supplyMap = (window as any).__materialSupply as Map<string, number> | undefined;
+
+    if (lastGrid && lastGridW && nameById && supplyMap) {
+      const idToName: Record<number, string> = {};
+      for (const [name, id] of Object.entries(nameById)) {
+        idToName[id as number] = name;
+      }
+
+      const recovered = new Map<string, number>();
+      for (let i = 0; i < lastGrid.length; i++) {
+        const cellId = lastGrid[i];
+        if (cellId > 0) {
+          const matName = idToName[cellId];
+          if (matName) {
+            const supply = supplyMap.get(matName);
+            if (supply !== undefined && supply !== Infinity && supply !== null) {
+              recovered.set(matName, (recovered.get(matName) || 0) + 1);
+            }
+          }
+        }
+      }
+
+      let totalRecovered = 0;
+      for (const [name, amount] of recovered) {
+        const current = supplyMap.get(name) || 0;
+        supplyMap.set(name, current + amount);
+        totalRecovered += amount;
+      }
+      (window as any).__materialSupply = supplyMap;
+
+      const status = document.getElementById('status');
+      if (status) status.textContent = `New game — recovered ${totalRecovered} units`;
+    }
+
+    // Reset auto-mix tracking so previous mixes can be re-generated
+    try {
+      (window as any).__refreshSupplyDisplay?.();
+    } catch (e) {}
+
+    // Clear the grid
+    const buf = new Uint16Array(gridW*gridH);
+    if (currentWorker) {
+      currentWorker.postMessage({type:'set_grid', buffer: buf.buffer});
+      currentWorker.postMessage({type:'step'});
+    }
+    try { octx.clearRect(0,0,overlay.width, overlay.height); } catch (e) {}
+  }
+
   function finishStroke() {
     if (!drawing) return;
     drawing = false;
@@ -295,6 +351,11 @@ export function attachCanvasTools(canvas: HTMLCanvasElement, worker: Worker | nu
     } else {
       pendingPaints.push({ materialId: id, points });
     }
+
+    // Refresh supply display in material list
+    try {
+      (window as any).__refreshSupplyDisplay?.();
+    } catch (e) {}
   }
 
   window.addEventListener('mouseup', finishStroke);

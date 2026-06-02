@@ -260,12 +260,13 @@ export function mountMaterialBrowser(root: HTMLElement) {
       "materials-row flex items-center justify-between gap-2 rounded-md border border-amber-900/30 bg-midnight/60 px-2 py-1";
     row.setAttribute("role", "button");
     row.tabIndex = 0;
+    row.setAttribute("data-material", mat.name);
     row.innerHTML = `
       <div class="flex flex-col">
         <div class="flex items-center gap-2">
           <span class="swatch" style="width:14px;height:14px;border:1px solid #222;background:transparent"></span>
           <strong class="text-amber-100">${isGold ? "🥇 " : ""}${mat.name}</strong>
-          ${supplyStr}
+          <small class="alchemy-supply">${supplyStr}</small>
           <small class="alchemy-muted">d:${densityStr}</small>
         </div>
         <div class="materials-tags text-xs text-amber-200/70 flex flex-wrap gap-1 mt-1">${tagBadges || ""}</div>
@@ -380,6 +381,33 @@ export function mountMaterialBrowser(root: HTMLElement) {
   refresh();
   // poll
   const iv = setInterval(refresh, 2000);
+
+  // ── Supply display refresh ──────────────────────────────────
+  // Refreshes the supply count shown next to each discovered material
+  // in the list. Called automatically after paint/drain operations.
+  function refreshSupplyDisplay() {
+    const supplyMap: Map<string, number> | undefined = (window as any).__materialSupply;
+    if (!supplyMap) return;
+    const rows = discoveredList.querySelectorAll('[data-material]');
+    for (const row of rows) {
+      const name = row.getAttribute('data-material');
+      if (!name) continue;
+      const supply = supplyMap.get(name);
+      let html = '';
+      if (supply === Infinity) html = '<small class="alchemy-muted">∞</small>';
+      else if (supply !== undefined && supply !== null) html = `<small class="alchemy-muted">×${supply}</small>`;
+      const el = row.querySelector('.alchemy-supply');
+      if (el) el.innerHTML = html;
+    }
+  }
+
+  // Expose so canvas_tools can call it after paint/drain strokes
+  try {
+    (window as any).__refreshSupplyDisplay = refreshSupplyDisplay;
+  } catch (e) {}
+
+  // Periodic refresh so counts stay in sync
+  setInterval(refreshSupplyDisplay, 1000);
 
   try {
     (window as any).__addDiscoveredMaterial = addDiscoveredMaterial;
