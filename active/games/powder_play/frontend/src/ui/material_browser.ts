@@ -1,17 +1,50 @@
+import {
+  buildPeriodicCells,
+  getHeaviestDiscoveredAtomic,
+} from "./periodic_progress";
+
 export function mountMaterialBrowser(root: HTMLElement) {
   const container = document.createElement("div");
   container.innerHTML = `
     <div class="space-y-2">
-      <h3 class="text-lg">Materials</h3>
-      <label class="alchemy-label flex items-center gap-2"><input type="checkbox" id="auto-load-materials" checked class="accent-amber-500"> Auto-load new materials</label>
-      <div id="materials-list" class="space-y-1 max-h-[420px] overflow-auto">(loading...)</div>
-      <div id="discovered-section" class="space-y-1">
-        <div class="flex items-center justify-between">
-          <h4 class="text-sm text-amber-200/90">Discovered</h4>
-          <div id="discovery-score" class="text-sm text-amber-200/90">Score: <strong id="discovery-score-value">0</strong></div>
+      <div class="alchemy-tabs" role="tablist" aria-label="Materials and codex tabs">
+        <button class="alchemy-tab active" data-tab-target="materials" role="tab" aria-selected="true">Materials</button>
+        <button class="alchemy-tab" data-tab-target="codex" role="tab" aria-selected="false">Score & Table</button>
+      </div>
+
+      <div id="tab-materials" class="alchemy-tab-panel space-y-2">
+        <h3 class="text-lg">Materials</h3>
+        <label class="alchemy-label flex items-center gap-2"><input type="checkbox" id="auto-load-materials" checked class="accent-amber-500"> Auto-load new materials</label>
+        <div id="materials-list" class="space-y-1 max-h-[420px] overflow-auto">(loading...)</div>
+        <div id="discovered-section" class="space-y-1">
+          <div class="flex items-center justify-between">
+            <h4 class="text-sm text-amber-200/90">Discovered</h4>
+          </div>
+          <div id="discovered-list" class="space-y-1">
+            <div id="discovered-empty" class="alchemy-muted">No discoveries yet.</div>
+          </div>
         </div>
-        <div id="discovered-list" class="space-y-1">
-          <div id="discovered-empty" class="alchemy-muted">No discoveries yet.</div>
+      </div>
+
+      <div id="tab-codex" class="alchemy-tab-panel space-y-3 hidden">
+        <div class="alchemy-stats-grid">
+          <div class="alchemy-stat-card">
+            <div class="alchemy-stat-label">Score</div>
+            <div id="discovery-score-value" class="alchemy-stat-value">0</div>
+          </div>
+          <div class="alchemy-stat-card">
+            <div class="alchemy-stat-label">Elements</div>
+            <div id="periodic-elements-known" class="alchemy-stat-value">0</div>
+          </div>
+          <div class="alchemy-stat-card">
+            <div class="alchemy-stat-label">Heaviest</div>
+            <div id="periodic-heaviest" class="alchemy-stat-value">?</div>
+          </div>
+        </div>
+        <div>
+          <h4 class="text-sm text-amber-200/90">Periodic Table</h4>
+          <div class="alchemy-muted" style="margin-bottom:0.5rem;">Only elements up to your heaviest discovery are shown. Unknown lighter elements remain hidden as ?.</div>
+          <div class="periodic-grid-wrap"><div id="periodic-table-grid" class="periodic-grid"></div></div>
         </div>
       </div>
     </div>
@@ -28,13 +61,36 @@ export function mountMaterialBrowser(root: HTMLElement) {
   const autoLoad = container.querySelector(
     "#auto-load-materials",
   ) as HTMLInputElement;
+  const periodicGrid = container.querySelector("#periodic-table-grid") as HTMLElement;
+  const elementsKnownEl = container.querySelector("#periodic-elements-known") as HTMLElement;
+  const heaviestEl = container.querySelector("#periodic-heaviest") as HTMLElement;
+  const tabButtons = Array.from(container.querySelectorAll(".alchemy-tab")) as HTMLButtonElement[];
+  const materialsTab = container.querySelector("#tab-materials") as HTMLElement;
+  const codexTab = container.querySelector("#tab-codex") as HTMLElement;
 
   const discovered = new Set<string>();
   let selectedName: string | null = null;
 
-  // discovery scoring
+  // discovery scoring + periodic progress
   const discoveryScoreKey = "alchemistPowder.discovery.score";
+  const discoveredElementsKey = "alchemistPowder.discovery.elements.v1";
+  const starterIronAwardKey = "alchemistPowder.discovery.starterIron.v1";
   let discoveryScore = Number(localStorage.getItem(discoveryScoreKey) || 0);
+  let storedElementAtomics: number[] = [];
+  try {
+    storedElementAtomics = JSON.parse(localStorage.getItem(discoveredElementsKey) || "[]") as number[];
+  } catch (e) {
+    storedElementAtomics = [];
+  }
+  const discoveredElementAtomics = new Set<number>(storedElementAtomics);
+
+  function saveDiscoveredElements() {
+    localStorage.setItem(
+      discoveredElementsKey,
+      JSON.stringify(Array.from(discoveredElementAtomics).sort((a, b) => a - b)),
+    );
+  }
+
   function updateScoreDisplay() {
     const el = container.querySelector("#discovery-score-value") as HTMLElement | null;
     if (el) el.textContent = String(discoveryScore);
@@ -44,7 +100,61 @@ export function mountMaterialBrowser(root: HTMLElement) {
     localStorage.setItem(discoveryScoreKey, String(discoveryScore));
     updateScoreDisplay();
   }
+  function pointsForElement(atomic: number) {
+    return 10 + Math.floor(Math.max(0, atomic) * 2);
+  }
+  function renderPeriodicTable() {
+    const cells = buildPeriodicCells(discoveredElementAtomics);
+    periodicGrid.innerHTML = "";
+    const maxRow = cells.reduce((m, c) => Math.max(m, c.row), 6);
+    periodicGrid.style.setProperty("--periodic-rows", String(maxRow));
+    for (const cell of cells) {
+      const el = document.createElement("div");
+      el.className = `periodic-cell ${cell.state}`;
+      el.style.gridColumn = String(cell.col);
+      el.style.gridRow = String(cell.row);
+      if (cell.state === "discovered") {
+        el.innerHTML = `<small>${cell.atomicNumber}</small><strong>${cell.symbol}</strong>`;
+      } else {
+        el.innerHTML = `<small>${cell.atomicNumber}</small><strong>?</strong>`;
+      }
+      periodicGrid.appendChild(el);
+    }
+    elementsKnownEl.textContent = String(discoveredElementAtomics.size);
+    const heaviest = getHeaviestDiscoveredAtomic(discoveredElementAtomics);
+    heaviestEl.textContent = heaviest ? String(heaviest) : "?";
+  }
+
+  function ensureStarterIronProgress() {
+    if (!discoveredElementAtomics.has(26)) {
+      discoveredElementAtomics.add(26);
+      saveDiscoveredElements();
+    }
+    if (!localStorage.getItem(starterIronAwardKey)) {
+      addScore(pointsForElement(26));
+      localStorage.setItem(starterIronAwardKey, "1");
+    }
+    renderPeriodicTable();
+  }
+
+  function setActiveTab(name: "materials" | "codex") {
+    const isMaterials = name === "materials";
+    materialsTab.classList.toggle("hidden", !isMaterials);
+    codexTab.classList.toggle("hidden", isMaterials);
+    for (const btn of tabButtons) {
+      const active = btn.dataset.tabTarget === name;
+      btn.classList.toggle("active", active);
+      btn.setAttribute("aria-selected", active ? "true" : "false");
+    }
+  }
+
+  for (const btn of tabButtons) {
+    btn.onclick = () => setActiveTab((btn.dataset.tabTarget as "materials" | "codex") || "materials");
+  }
+
   updateScoreDisplay();
+  ensureStarterIronProgress();
+  setActiveTab("materials");
 
   const starterNames = new Set([
     "Fire",
@@ -209,7 +319,12 @@ export function mountMaterialBrowser(root: HTMLElement) {
       let points = 0;
       if (isElement) {
         const atomic = Number(mat.atomicNumber || 0);
-        points = 10 + Math.floor(Math.max(0, atomic) * 2);
+        if (atomic > 0 && !discoveredElementAtomics.has(atomic)) {
+          discoveredElementAtomics.add(atomic);
+          saveDiscoveredElements();
+          renderPeriodicTable();
+          points = pointsForElement(atomic);
+        }
       }
       if (isGold) {
         points += 10000;

@@ -64,6 +64,114 @@ body {
   color: rgba(255,255,255,0.9);
 }
 
+.alchemy-tabs {
+  display: flex;
+  gap: 0.35rem;
+}
+
+.alchemy-tab {
+  flex: 1;
+  font-family: 'Cinzel', serif;
+  font-size: 0.72rem;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  padding: 0.45rem 0.75rem;
+  border-radius: 4px;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.03);
+  color: rgba(255,255,255,0.6);
+  cursor: pointer;
+}
+
+.alchemy-tab.active {
+  background: rgba(251,191,36,0.1);
+  border-color: rgba(251,191,36,0.35);
+  color: #fbbf24;
+}
+
+.alchemy-tab-panel.hidden {
+  display: none;
+}
+
+.alchemy-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.alchemy-stat-card {
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.03);
+  border-radius: 6px;
+  padding: 0.6rem;
+}
+
+.alchemy-stat-label {
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 0.68rem;
+  color: rgba(255,255,255,0.45);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.alchemy-stat-value {
+  font-family: 'Cinzel', serif;
+  font-size: 1rem;
+  color: #fbbf24;
+  margin-top: 0.2rem;
+}
+
+.periodic-grid-wrap {
+  overflow-x: auto;
+  padding-bottom: 0.25rem;
+}
+
+.periodic-grid {
+  --periodic-rows: 6;
+  min-width: 520px;
+  display: grid;
+  grid-template-columns: repeat(18, minmax(0, 1fr));
+  grid-template-rows: repeat(var(--periodic-rows), 44px);
+  gap: 0.18rem;
+}
+
+.periodic-cell {
+  min-width: 0;
+  border-radius: 4px;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.02);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  line-height: 1.05;
+}
+
+.periodic-cell small {
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 0.55rem;
+  color: rgba(255,255,255,0.35);
+}
+
+.periodic-cell strong {
+  font-family: 'Cinzel', serif;
+  font-size: 0.72rem;
+  color: rgba(255,255,255,0.8);
+}
+
+.periodic-cell.unknown strong {
+  color: rgba(255,255,255,0.45);
+}
+
+.periodic-cell.discovered {
+  border-color: rgba(251,191,36,0.28);
+  background: rgba(251,191,36,0.08);
+}
+
+.periodic-cell.discovered strong {
+  color: #fbbf24;
+}
+
 .alchemy-label {
   font-size: 0.75rem;
   color: rgba(255,255,255,0.5);
