@@ -253,115 +253,46 @@ export function attachCanvasTools(canvas: HTMLCanvasElement, worker: Worker | nu
       return {x,y};
     });
     strokePoints.clear();
+    if (!points.length) return;
+
+    const status = document.getElementById('status');
+    let materialId: number | null = null;
 
     if (eraserToggle.checked) {
-      // ── DRAIN MODE: remove cells AND recover supply ──
-      // Look up which materials were in the erased cells and refill supply
-      const lastGrid: Uint16Array | undefined = (window as any).__lastGrid;
-      const lastGridW: number | undefined = (window as any).__lastGridWidth;
+      materialId = (window as any).__drainMaterialId || (window as any).__materialIdByName?.Drain || null;
+      if (!materialId) {
+        if (status) status.textContent = 'Drain tool is not ready yet.';
+        return;
+      }
+      if (status) status.textContent = `Placed ${points.length} drain${points.length === 1 ? '' : 's'}`;
+    } else {
+      const selectedId = (window as any).__currentMaterialId || 1;
       const nameById: Record<string, number> | undefined = (window as any).__materialIdByName;
-      const supplyMap: Map<string, number> | undefined = (window as any).__materialSupply;
-
-      if (lastGrid && lastGridW && nameById && supplyMap) {
-        // Build reverse map: materialId -> name
-        const idToName: Record<number, string> = {};
-        for (const [name, id] of Object.entries(nameById)) {
-          idToName[id as number] = name;
-        }
-
-        const recovered = new Map<string, number>();
-        for (const p of points) {
-          const idx = p.y * lastGridW + p.x;
-          if (idx >= 0 && idx < lastGrid.length) {
-            const cellId = lastGrid[idx];
-            if (cellId > 0) {
-              const matName = idToName[cellId];
-              if (matName) {
-                const supply = supplyMap.get(matName);
-                // Only non-starters (finite supply) can be recovered
-                if (supply !== undefined && supply !== Infinity && supply !== null) {
-                  recovered.set(matName, (recovered.get(matName) || 0) + 1);
-                }
-              }
-            }
-          }
-        }
-
-        // Apply recovery
-        let totalRecovered = 0;
-        for (const [name, amount] of recovered) {
-          const current = supplyMap.get(name) || 0;
-          supplyMap.set(name, current + amount);
-          totalRecovered += amount;
-        }
-        (window as any).__materialSupply = supplyMap;
-
-        if (totalRecovered > 0) {
-          const status = document.getElementById('status');
-          if (status) status.textContent = `Drain: recovered ${totalRecovered} units`;
+      let matName: string | undefined;
+      if (nameById) {
+        for (const [name, mid] of Object.entries(nameById)) {
+          if (mid === selectedId) { matName = name; break; }
         }
       }
-
-      // Send erase command
-      if (currentWorker) {
-        currentWorker.postMessage({type:'paint_points', materialId: 0, points});
-        currentWorker.postMessage({type:'step'});
-      } else {
-        pendingPaints.push({ materialId: 0, points });
+      if (!matName) {
+        if (status) status.textContent = 'Select a material to configure the source.';
+        return;
       }
-      return;
-    }
-
-    // ── SOURCE MODE: paint material at supply cost ──
-    const id = (window as any).__currentMaterialId || 1;
-    const supplyMap: Map<string, number> | undefined = (window as any).__materialSupply;
-    const nameById: Record<string, number> | undefined = (window as any).__materialIdByName;
-
-    let matName: string | undefined;
-    if (nameById) {
-      for (const [name, mid] of Object.entries(nameById)) {
-        if (mid === id) { matName = name; break; }
+      const sourceId = (window as any).__ensureSourceToolMaterial?.(matName);
+      if (!sourceId) {
+        if (status) status.textContent = `Cannot create a source for ${matName}.`;
+        return;
       }
-    }
-
-    if (matName && supplyMap) {
-      const supply = supplyMap.get(matName);
-      if (supply !== undefined && supply !== Infinity) {
-        const needed = points.length;
-        if (supply <= 0) {
-          const status = document.getElementById('status');
-          if (status) status.textContent = `Out of ${matName}! Use the drain on existing ${matName} to recover it.`;
-          return;
-        }
-        if (supply < needed) {
-          const partial = points.slice(0, supply);
-          if (currentWorker) {
-            currentWorker.postMessage({type:'paint_points', materialId: id, points: partial});
-            currentWorker.postMessage({type:'step'});
-          }
-          supplyMap.set(matName, 0);
-          (window as any).__materialSupply = supplyMap;
-          const status = document.getElementById('status');
-          if (status) status.textContent = `${matName} ran out! Recover with drain.`;
-          return;
-        }
-        // Deduct supply
-        supplyMap.set(matName, supply - needed);
-        (window as any).__materialSupply = supplyMap;
-      }
+      materialId = sourceId;
+      if (status) status.textContent = `Placed ${matName} source${points.length === 1 ? '' : 's'}`;
     }
 
     if (currentWorker) {
-      currentWorker.postMessage({type:'paint_points', materialId: id, points});
+      currentWorker.postMessage({type:'paint_points', materialId, points});
       currentWorker.postMessage({type:'step'});
     } else {
-      pendingPaints.push({ materialId: id, points });
+      pendingPaints.push({ materialId, points });
     }
-
-    // Refresh supply display in material list
-    try {
-      (window as any).__refreshSupplyDisplay?.();
-    } catch (e) {}
   }
 
   window.addEventListener('mouseup', finishStroke);

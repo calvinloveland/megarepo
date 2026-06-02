@@ -1,4 +1,5 @@
 import { runLocalLLMText } from "../material_api";
+import { buildSourceToolMaterial, sourceToolName } from "./source_tools";
 
 export function initApp(root: HTMLElement) {
   root.className = "min-h-screen w-full p-4";
@@ -165,6 +166,11 @@ async function preloadHiddenMaterial(file: string, opts?: { infinite?: boolean; 
     if (!mat?.name) return;
     if (opts?.infinite) materialSupply.set(mat.name, INFINITE);
     const id = registerMaterial(mat, { select: false });
+    if (mat.name === "Drain") {
+      try {
+        (window as any).__drainMaterialId = id;
+      } catch (e) {}
+    }
     if (isAmbientMaterial(mat)) {
       ambientAirId = id;
       try {
@@ -816,9 +822,14 @@ function registerMaterial(mat: any, opts?: { select?: boolean }) {
   }
   if (mat?.name) {
     materialIdByName.set(mat.name, materialId);
-    // Initialize supply: starters get Infinity, discoveries get INITIAL_SUPPLY
+    const tags = Array.isArray(mat.tags) ? mat.tags.map((t: any) => String(t).toLowerCase()) : [];
+    // Utility/background materials should not consume finite supply.
     if (!materialSupply.has(mat.name)) {
-      initSupply(mat.name, INITIAL_SUPPLY);
+      if (tags.includes("source") || tags.includes("drain") || tags.includes("ambient")) {
+        initSupply(mat.name, INFINITE);
+      } else {
+        initSupply(mat.name, INITIAL_SUPPLY);
+      }
     }
   }
   materialById.set(materialId, mat);
@@ -864,6 +875,17 @@ function initWorkerWithMaterial(mat: any) {
 (window as any).__registerMaterial = (mat: any) => {
   if (!mat) return;
   return registerMaterial(mat, { select: false });
+};
+
+(window as any).__ensureSourceToolMaterial = (materialName: string) => {
+  const sourceName = sourceToolName(materialName);
+  const existing = materialIdByName.get(sourceName);
+  if (existing) return existing;
+  const baseMat = Array.from(materialById.values()).find((m: any) => m?.name === materialName);
+  const sourceMat = buildSourceToolMaterial(baseMat);
+  if (!sourceMat) return null;
+  const id = registerMaterial(sourceMat, { select: false });
+  return id;
 };
 
 (window as any).__selectMaterialByName = (name: string) => {
