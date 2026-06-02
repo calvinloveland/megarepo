@@ -1,5 +1,6 @@
 import { stepByTags } from "./tag_movement";
 import { applyTagBehaviors } from "./tag_behaviors";
+import { applyPressureWind, simulatePressureField } from "./pressure_wind";
 
 export type WorkerMessage =
   | { type: "init"; width: number; height: number }
@@ -181,107 +182,28 @@ function stepSimulation() {
   }
 
   // ── Phase 1.5: Pressure field simulation ──
-  // Every cell has a pressure value. Gases generate pressure, which
-  // diffuses and creates wind on lightweight materials.
-  const PRESSURE_DIFFUSE = 0.3;   // how fast pressure spreads
-  const PRESSURE_DECAY = 0.95;    // how fast pressure dissipates
-  const PRESSURE_GAS = 0.5;       // pressure added per gas cell per tick
-  const WIND_FORCE_DENSITY = 0.5; // max density that wind can push
+  // Pressure now diffuses through the whole grid (including open space).
+  // Wind emerges from changing pressure gradients, so light particles are
+  // pushed from high-pressure regions toward low-pressure regions.
+  pressure = simulatePressureField({
+    width,
+    height,
+    grid,
+    pressure,
+    densityById,
+    tagsById,
+  });
 
-  // Step A: Calculate pressure sources and diffuse
-  const nextPressure = new Float32Array(width * height);
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-      const idx = y * width + x;
-      const cell = grid[idx];
-      if (cell === 0) {
-        // Open cells: pressure dissipates to 0
-        nextPressure[idx] = 0;
-        continue;
-      }
-      const cellDensity = densityById.get(cell) ?? 1;
-      const tags = tagsById.get(cell) || [];
-      const isGas = tags.includes("gas") || tags.includes("float");
-      const isFire = tags.includes("fire");
-
-      // Gas and fire generate pressure
-      let source = 0;
-      if (isFire) source += 0.3;
-      if (isGas && cellDensity < 0.3) source += PRESSURE_GAS;
-
-      // Average neighbor pressure (diffusion)
-      let neighborSum = 0;
-      let neighborCount = 0;
-      for (const d of dirs) {
-        const nx = x + d.dx;
-        const ny = y + d.dy;
-        if (nx < 0 || nx >= width || ny < 0 || ny >= height) continue;
-        const nidx = ny * width + nx;
-        if (grid[nidx] !== 0) {
-          neighborSum += pressure[nidx];
-          neighborCount++;
-        }
-      }
-      const avgNeighbor = neighborCount > 0 ? neighborSum / neighborCount : 0;
-
-      // New pressure = (old * decay) + source + diffuse from neighbors
-      const oldP = pressure[idx] * PRESSURE_DECAY;
-      const diffused = (avgNeighbor - oldP) * PRESSURE_DIFFUSE;
-      nextPressure[idx] = Math.max(0, oldP + source + diffused);
-    }
-  }
-  pressure = nextPressure;
-
-  // Step B: Apply wind force from pressure gradients
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-      const idx = y * width + x;
-      const cell = grid[idx];
-      if (cell === 0 || reacted[idx]) continue;
-      const cellDensity = densityById.get(cell) ?? 1;
-      if (cellDensity > WIND_FORCE_DENSITY) continue;
-
-      // Calc gradient: which direction has the lowest pressure?
-      let minP = pressure[idx];
-      let bestDir = { dx: 0, dy: 0 };
-      for (const d of dirs) {
-        const nx = x + d.dx;
-        const ny = y + d.dy;
-        if (nx < 0 || nx >= width || ny < 0 || ny >= height) continue;
-        const nidx = ny * width + nx;
-        // Empty cells have 0 pressure — they're the most attractive
-        const pVal = grid[nidx] === 0 ? 0 : pressure[nidx];
-        if (pVal < minP) {
-          minP = pVal;
-          bestDir = d;
-        }
-      }
-
-      if (bestDir.dx === 0 && bestDir.dy === 0) continue;
-
-      // Try to move lightweight material toward lower pressure
-      const nx = x + bestDir.dx;
-      const ny = y + bestDir.dy;
-      if (nx < 0 || nx >= width || ny < 0 || ny >= height) continue;
-      const nidx = ny * width + nx;
-      if (nextGrid[nidx] !== 0) continue;
-
-      const target = grid[nidx];
-      if (target === 0) {
-        nextGrid[nidx] = cell;
-        nextGrid[idx] = 0;
-        reacted[idx] = 1;
-      } else {
-        // Try to swap with the target if we're lighter (we push through)
-        const targetDensity = densityById.get(target) ?? 1;
-        if (cellDensity < targetDensity && nextGrid[idx] === 0) {
-          nextGrid[nidx] = cell;
-          nextGrid[idx] = target;
-          reacted[idx] = 1;
-        }
-      }
-    }
-  }
+  applyPressureWind({
+    width,
+    height,
+    grid,
+    nextGrid,
+    pressure,
+    densityById,
+    tagsById,
+    reacted,
+  });
 
   // ── Phase 2: Process drains (absorb adjacent materials) ──
   for (let y = 0; y < height; y++) {
