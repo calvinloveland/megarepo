@@ -179,12 +179,108 @@ After the milestones above are fixed, these can stay generative:
 
 That preserves novelty without making the core experience arbitrary.
 
+## Extreme mode: The Great Work
+
+If you really want Gold to feel **absurdly** difficult, stop treating it as a normal discovery and treat it as a authored endgame quest.
+
+In that version, Gold is not just “one more mix.”
+It is the end of a long transmutation ladder.
+
+### Core idea
+
+1. The player still learns the normal curated early game.
+2. They then unlock a special transmutation reagent such as **Philosopher's Salt**.
+3. From there, they must climb a long authored ladder through **every other element** from Iron to Lead.
+4. Only then can Lead be turned into Gold.
+
+### Suggested supporting reagents
+
+These make the Great Work feel earned instead of arbitrary.
+
+| Mix | Result | Purpose |
+| --- | --- | --- |
+| Water + Salt | Brine | mineral branch anchor |
+| Brine + Sand | Crystal | refinement branch anchor |
+| Seed + Dirt | Plant | organic branch anchor |
+| Plant + Fire | Charcoal | metalworking / alchemy fuel |
+| Crystal + Charcoal | Philosopher's Salt | universal transmutation reagent |
+| Steel + Crystal + Heat + Pressure | Philosopher's Stone | final transmutation catalyst |
+
+## The Lead ladder
+
+A good “crazy hard” ladder is the **even-number chain** from Iron (26) to Lead (82):
+
+`Iron -> Nickel -> Zinc -> Germanium -> Selenium -> Krypton -> Strontium -> Zirconium -> Molybdenum -> Ruthenium -> Palladium -> Cadmium -> Tin -> Tellurium -> Xenon -> Barium -> Cerium -> Neodymium -> Samarium -> Gadolinium -> Dysprosium -> Erbium -> Ytterbium -> Hafnium -> Tungsten -> Osmium -> Platinum -> Mercury -> Lead`
+
+That is already an insane amount of authored progression while still having a clear structure.
+
+### Recommended rule for the ladder
+
+Do **not** hand-author 29 completely unrelated recipes.
+Instead, hard-code a **ritual transmutation pattern**:
+
+`Current Element + Philosopher's Salt + catalyst -> Next Element`
+
+Where the catalyst cycles by region or block:
+- **Heat** for most metal-to-metal upgrades
+- **Pressure** for gas / volatile / unstable jumps
+- **Crystal** for metalloid or structural jumps
+
+That way the player learns a real system instead of memorizing nonsense.
+
+### Example rhythm
+
+- `Iron + Philosopher's Salt + Heat -> Nickel`
+- `Nickel + Philosopher's Salt + Heat -> Zinc`
+- `Zinc + Philosopher's Salt + Pressure -> Germanium`
+- `Germanium + Philosopher's Salt + Pressure -> Selenium`
+- `Selenium + Philosopher's Salt + Pressure -> Krypton`
+- ...and so on until...
+- `Platinum + Philosopher's Salt + Pressure -> Mercury`
+- `Mercury + Philosopher's Salt + Heat -> Lead`
+
+You can then reserve a few especially memorable gates:
+- **Tin** as the first “you are really doing this” checkpoint
+- **Mercury** as the near-final alchemical triumph
+- **Lead** as the true penultimate state
+
+## Final victory condition
+
+Once the player reaches `Lead`, Gold should still not be immediate.
+
+Recommended final step:
+
+`Lead + Philosopher's Stone + Heat + Pressure -> Gold`
+
+That means Gold requires:
+- broad starter mastery,
+- a long element ladder,
+- a crafted reagent economy,
+- and the ability to generate the right energetic conditions on the board.
+
+That is genuinely wild.
+
+## Why this version works
+
+- It makes Gold feel like a **mythic achievement**, not a short craft tree.
+- It gives the periodic table a real purpose instead of being hidden flavor text.
+- It lets you keep the early game intuitive while making the late game almost obsessive.
+- It turns the endgame into “The Great Work,” which fits the title extremely well.
+
 ## Practical implementation suggestion
 
-A good rule of thumb:
+If you go this route, I would recommend a two-layer system:
 
-- **Hard-code milestone recipes first.**
-- **Check curated recipes before the LLM.**
-- **Only fall back to LLM for non-curated pairs.**
+1. **Curated early game**
+   - obvious recipes,
+   - branch anchors,
+   - consistent Heat behavior,
+   - systemic Pressure emission.
 
-That gives you consistency where it matters and surprise where it helps.
+2. **Authored Great Work endgame**
+   - Philosopher's Salt,
+   - the Iron-to-Lead ladder,
+   - Philosopher's Stone,
+   - Gold as the final transmutation.
+
+This keeps the game learnable at first and gloriously unreasonable later.
