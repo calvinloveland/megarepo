@@ -7,7 +7,7 @@ export function attachCanvasTools(canvas: HTMLCanvasElement, worker: Worker | nu
     <div class="flex flex-col gap-2">
       <div class="flex flex-wrap items-center gap-2">
         <button id="clear-grid" class="alchemy-button">Clear</button>
-        <button id="new-game" class="alchemy-button">New Game</button>
+        <button id="clear-recover" class="alchemy-button">Clear + Recover</button>
         <label class="alchemy-label flex items-center gap-2">Brush
           <select id="brush-size" class="alchemy-select">
             <option value="1">Small</option>
@@ -23,7 +23,7 @@ export function attachCanvasTools(canvas: HTMLCanvasElement, worker: Worker | nu
   toolsRoot.appendChild(info);
 
   const clearBtn = info.querySelector('#clear-grid') as HTMLButtonElement;
-  const newGameBtn = info.querySelector('#new-game') as HTMLButtonElement;
+  const clearRecoverBtn = info.querySelector('#clear-recover') as HTMLButtonElement;
   const brushSel = info.querySelector('#brush-size') as HTMLSelectElement;
   const eraserToggle = info.querySelector('#eraser-toggle') as HTMLInputElement;
   const paintMode = info.querySelector('#paint-mode') as HTMLSpanElement;
@@ -155,11 +155,27 @@ export function attachCanvasTools(canvas: HTMLCanvasElement, worker: Worker | nu
   });
 
   const pendingPaints: { materialId:number, points:{x:number,y:number}[] }[] = [];
+  let pendingClear = false;
   let currentWorker = worker;
+  const sendClearGrid = () => {
+    const buf = new Uint16Array(gridW * gridH);
+    pendingPaints.length = 0;
+    if (currentWorker) {
+      currentWorker.postMessage({ type:'set_grid', buffer: buf.buffer });
+      currentWorker.postMessage({ type:'step' });
+      pendingClear = false;
+    } else {
+      pendingClear = true;
+    }
+    try { octx.clearRect(0,0,overlay.width, overlay.height); } catch (e) {}
+  };
   const flushPending = () => {
     const w = (window as any).__powderWorker as Worker | undefined;
     if (w && !currentWorker) {
       currentWorker = w;
+    }
+    if (currentWorker && pendingClear) {
+      sendClearGrid();
     }
     if (currentWorker && pendingPaints.length) {
       for (const p of pendingPaints) {
@@ -173,19 +189,14 @@ export function attachCanvasTools(canvas: HTMLCanvasElement, worker: Worker | nu
 
   // wire clear button now that queueing is available
   clearBtn.onclick = () => {
-    const buf = new Uint16Array(gridW*gridH);
-    if (currentWorker) {
-      currentWorker.postMessage({type:'set_grid', buffer: buf.buffer});
-      currentWorker.postMessage({type:'step'});
-    } else {
-      pendingPaints.push({ materialId: 0, points: [] });
-    }
-    // also clear overlay
-    try { octx.clearRect(0,0,overlay.width, overlay.height); } catch (e) {}
+    sendClearGrid();
+    const status = document.getElementById('status');
+    if (status) status.textContent = 'Board cleared';
   }
 
-  // New Game: clear grid AND recover all placed materials back to supply
-  newGameBtn.onclick = () => {
+  // Clear + Recover: clear grid AND recover all placed materials back to supply.
+  // This does NOT reset discovered pairs or progression.
+  clearRecoverBtn.onclick = () => {
     // Recover all materials currently on the grid
     const lastGrid = (window as any).__lastGrid as Uint16Array | undefined;
     const lastGridW = (window as any).__lastGridWidth as number | undefined;
@@ -221,21 +232,14 @@ export function attachCanvasTools(canvas: HTMLCanvasElement, worker: Worker | nu
       (window as any).__materialSupply = supplyMap;
 
       const status = document.getElementById('status');
-      if (status) status.textContent = `New game — recovered ${totalRecovered} units`;
+      if (status) status.textContent = `Recovered ${totalRecovered} units and cleared the board`;
     }
 
-    // Reset auto-mix tracking so previous mixes can be re-generated
     try {
       (window as any).__refreshSupplyDisplay?.();
     } catch (e) {}
 
-    // Clear the grid
-    const buf = new Uint16Array(gridW*gridH);
-    if (currentWorker) {
-      currentWorker.postMessage({type:'set_grid', buffer: buf.buffer});
-      currentWorker.postMessage({type:'step'});
-    }
-    try { octx.clearRect(0,0,overlay.width, overlay.height); } catch (e) {}
+    sendClearGrid();
   }
 
   function finishStroke() {

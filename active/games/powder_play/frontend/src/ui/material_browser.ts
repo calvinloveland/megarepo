@@ -250,8 +250,8 @@ export function mountMaterialBrowser(root: HTMLElement) {
       const supplyMap: Map<string, number> | undefined = (window as any).__materialSupply;
       if (supplyMap) {
         const supply = supplyMap.get(mat.name);
-        if (supply === Infinity) supplyStr = "<small class=\"alchemy-muted\">∞</small>";
-        else if (supply !== undefined) supplyStr = `<small class=\"alchemy-muted\">×${supply}</small>`;
+        if (supply === Infinity) supplyStr = "∞";
+        else if (supply !== undefined) supplyStr = `×${supply}`;
       }
     } catch (e) {}
 
@@ -266,7 +266,7 @@ export function mountMaterialBrowser(root: HTMLElement) {
         <div class="flex items-center gap-2">
           <span class="swatch" style="width:14px;height:14px;border:1px solid #222;background:transparent"></span>
           <strong class="text-amber-100">${isGold ? "🥇 " : ""}${mat.name}</strong>
-          <small class="alchemy-supply">${supplyStr}</small>
+          <small class="alchemy-supply alchemy-muted">${supplyStr}</small>
           <small class="alchemy-muted">d:${densityStr}</small>
         </div>
         <div class="materials-tags text-xs text-amber-200/70 flex flex-wrap gap-1 mt-1">${tagBadges || ""}</div>
@@ -393,11 +393,11 @@ export function mountMaterialBrowser(root: HTMLElement) {
       const name = row.getAttribute('data-material');
       if (!name) continue;
       const supply = supplyMap.get(name);
-      let html = '';
-      if (supply === Infinity) html = '<small class="alchemy-muted">∞</small>';
-      else if (supply !== undefined && supply !== null) html = `<small class="alchemy-muted">×${supply}</small>`;
+      let text = '';
+      if (supply === Infinity) text = '∞';
+      else if (supply !== undefined && supply !== null) text = `×${supply}`;
       const el = row.querySelector('.alchemy-supply');
-      if (el) el.innerHTML = html;
+      if (el) el.textContent = text;
     }
   }
 
@@ -407,7 +407,7 @@ export function mountMaterialBrowser(root: HTMLElement) {
   } catch (e) {}
 
   // Periodic refresh so counts stay in sync
-  setInterval(refreshSupplyDisplay, 1000);
+  const supplyIv = setInterval(refreshSupplyDisplay, 1000);
 
   try {
     (window as any).__addDiscoveredMaterial = addDiscoveredMaterial;
@@ -420,5 +420,8 @@ export function mountMaterialBrowser(root: HTMLElement) {
   } catch (e) {}
 
   // expose cleanup (not used yet)
-  return () => clearInterval(iv);
+  return () => {
+    clearInterval(iv);
+    clearInterval(supplyIv);
+  };
 }
