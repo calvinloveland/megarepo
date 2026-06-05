@@ -1,1 +1,0 @@
-Be sure to run ```lazy_ci``` on lazy_ci before committing.

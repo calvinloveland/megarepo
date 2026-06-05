@@ -1,3 +1,0 @@
-apt install=pacman -S
-apt upgrade=pacman -Syu
-apt remove=pacman -R

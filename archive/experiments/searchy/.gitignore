@@ -1,6 +1,0 @@
-__pycache__/
-searchy-env/
-**.pyc
-backend/crawler/data
-backend/crawler/ToDo.link
-backend/crawler/Done.link
