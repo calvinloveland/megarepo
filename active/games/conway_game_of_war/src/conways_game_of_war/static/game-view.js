@@ -56,6 +56,7 @@
       this._touchMoveThreshold = 8; // px of movement before it's a drag
       this._lastTapTime = 0;
       this._canDoubleTap = false;
+      this._skipNextDoubleTap = false; // after zoom, skip one tap to debounce
 
       // ── minimap ──
       this._minimapCanvas = null;
@@ -254,9 +255,53 @@
       this._showZoomIndicator();
     }
 
+    /**
+     * Zoom out to the initial-fit view without touching _fitted or refresh().
+     * Used by double-tap zoom-out to avoid race conditions with HTMX swaps.
+     */
+    _zoomToInitialFit() {
+      const game = this.game;
+      if (!game) return;
+
+      const xmin = parseInt(game.getAttribute('data-bbox-xmin'));
+      const ymin = parseInt(game.getAttribute('data-bbox-ymin'));
+      const xmax = parseInt(game.getAttribute('data-bbox-xmax'));
+      const ymax = parseInt(game.getAttribute('data-bbox-ymax'));
+      const cellPx = parseInt(game.getAttribute('data-cell-px')) || 12;
+      const pad = 3;
+
+      const wCells = (xmax - xmin + 1) + pad * 2;
+      const hCells = (ymax - ymin + 1) + pad * 2;
+      const wPx = wCells * cellPx;
+      const hPx = hCells * cellPx;
+
+      const vw = this.viewport.clientWidth;
+      const vh = this.viewport.clientHeight;
+
+      const scale = Math.max(0.1, Math.min(vw / wPx, vh / hPx, 1));
+
+      const bboxCx = (xmin + xmax) / 2;
+      const bboxCy = (ymin + ymax) / 2;
+      const boardMidX = bboxCx * cellPx + cellPx / 2;
+      const boardMidY = bboxCy * cellPx + cellPx / 2;
+
+      this.state.x = vw / 2 - boardMidX * scale;
+      this.state.y = vh / 2 - boardMidY * scale;
+      this.state.scale = scale;
+      this.state.rotate = 0;
+
+      this._applyTransform();
+      this._scheduleMinimap();
+      this._showZoomIndicator();
+    }
+
     // ─── transform ────────────────────────────────────────────────────
 
     _applyTransform() {
+      if (!this.viewport) {
+        console.error('GameView: viewport is null, cannot apply transform');
+        return;
+      }
       let w = this.wrapper;
       if (!w) {
         // Re-query in case the DOM was manipulated outside of HTMX swaps
@@ -487,9 +532,20 @@
         if (this._canDoubleTap && now - this._lastTapTime < 350 && now - this._gesture.time < 350) {
           const vw = this.viewport.clientWidth;
           const vh = this.viewport.clientHeight;
-          this._zoomAt(vw / 2, vh / 2, 2);
+          if (this.state.scale > 1.5) {
+            this._zoomToInitialFit();
+          } else {
+            this._zoomAt(vw / 2, vh / 2, 2);
+          }
+          // Don't let the next line re-enable canDoubleTap — this pair
+          // is consumed.  The NEXT tap's touchend will set it to true.
+          this._canDoubleTap = false;
+          this._skipNextDoubleTap = true;
         }
-        this._canDoubleTap = !this._touchMoved;
+        if (!this._skipNextDoubleTap) {
+          this._canDoubleTap = !this._touchMoved;
+        }
+        this._skipNextDoubleTap = false;
       }
       this._gesture = null;
     }

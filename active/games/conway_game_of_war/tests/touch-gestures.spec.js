@@ -459,6 +459,33 @@ test.describe('Touch gestures – comprehensive', () => {
     expect(after.scale).toBeGreaterThan(before.scale);
   });
 
+  test('double-tap zooms out when already zoomed in', async ({ page }) => {
+    const box = await getViewportBox(page);
+    const cx = box.x + box.width / 2;
+    const cy = box.y + box.height / 2;
+
+    // First double-tap to zoom in
+    await touchDoubleTap(page, cx, cy);
+    await page.waitForTimeout(300);
+    const s1 = await page.evaluate(() => {
+      const gv = window.__gameView;
+      return gv ? { scale: gv.state.scale } : null;
+    });
+    console.log('After zoom-in:', JSON.stringify(s1));
+    expect(s1.scale).toBeGreaterThan(1);
+
+    // Double-tap again — should zoom out to initial-fit (scale <= 1)
+    await touchDoubleTap(page, cx, cy);
+    await page.waitForTimeout(300);
+    const s2 = await page.evaluate(() => {
+      const gv = window.__gameView;
+      return gv ? { scale: gv.state.scale } : null;
+    });
+    console.log('After zoom-out:', JSON.stringify(s2));
+    expect(s2.scale).toBeLessThanOrEqual(1);
+    expect(s2.scale).toBeGreaterThan(0);
+  });
+
   // ── 6. Minimap touch drag ───────────────────────────────────────
 
   test('dragging on the minimap pans the board', async ({ page }) => {
