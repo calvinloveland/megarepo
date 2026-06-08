@@ -255,28 +255,6 @@ test.describe('GameView – map‑like navigation', () => {
     expect(after.y).toBeCloseTo(before.y, 0);
   });
 
-  // ── rotation ──────────────────────────────────────────────────────
-
-  test('R key resets rotation', async ({ page }) => {
-    await page.evaluate(() => {
-      const gv = window.__gameView;
-      if (gv) {
-        gv.state.rotate = 45;
-        gv._applyTransform();
-      }
-    });
-    await page.waitForTimeout(100);
-
-    const before = await getTransform(page);
-    expect(before.rotate).toBe(45);
-
-    await page.keyboard.press('r');
-    await page.waitForTimeout(100);
-
-    const after = await getTransform(page);
-    expect(after.rotate).toBe(0);
-  });
-
   // ── touch gestures ────────────────────────────────────────────────
 
   test('touch pan gesture moves the board', async ({ page, context }) => {

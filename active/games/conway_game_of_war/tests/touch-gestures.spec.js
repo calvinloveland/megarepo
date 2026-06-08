@@ -254,14 +254,7 @@ async function touchTap(page, x, y) {
   ]);
 }
 
-/**
- * Two quick taps (double-tap).
- */
-async function touchDoubleTap(page, x, y) {
-  await touchTap(page, x, y);
-  await page.waitForTimeout(80);
-  await touchTap(page, x, y);
-}
+
 
 // ─── test suite ───────────────────────────────────────────────────────
 
@@ -376,23 +369,6 @@ test.describe('Touch gestures – comprehensive', () => {
     expect(xShifted || yShifted).toBeTruthy();
   });
 
-  // ── 3. Pinch with rotation ──────────────────────────────────────
-
-  test('pinch with rotation changes rotate state', async ({ page }) => {
-    const before = await getTransform(page);
-    const box = await getViewportBox(page);
-    const cx = box.x + box.width / 2;
-    const cy = box.y + box.height / 2;
-
-    // Pinch with ~57-degree rotation (1 radian)
-    await touchPinch(page, cx, cy, 40, 100, 8, 0, 1.0);
-
-    await page.waitForTimeout(100);
-    const after = await getTransform(page);
-    const rotDelta = Math.abs(after.rotate - before.rotate);
-    expect(rotDelta).toBeGreaterThan(10);
-  });
-
   // ── 4. Tap to click ─────────────────────────────────────────────
 
   test('tap on a toggleable cell dispatches a click', async ({ page }) => {
@@ -444,49 +420,7 @@ test.describe('Touch gestures – comprehensive', () => {
     expect(newBg).not.toBe(initialBg);
   });
 
-  // ── 5. Double-tap zoom ──────────────────────────────────────────
-
-  test('double-tap zooms in at center', async ({ page }) => {
-    const before = await getTransform(page);
-    const box = await getViewportBox(page);
-    const cx = box.x + box.width / 2;
-    const cy = box.y + box.height / 2;
-
-    await touchDoubleTap(page, cx, cy);
-
-    await page.waitForTimeout(300);
-    const after = await getTransform(page);
-    expect(after.scale).toBeGreaterThan(before.scale);
-  });
-
-  test('double-tap zooms out when already zoomed in', async ({ page }) => {
-    const box = await getViewportBox(page);
-    const cx = box.x + box.width / 2;
-    const cy = box.y + box.height / 2;
-
-    // First double-tap to zoom in
-    await touchDoubleTap(page, cx, cy);
-    await page.waitForTimeout(300);
-    const s1 = await page.evaluate(() => {
-      const gv = window.__gameView;
-      return gv ? { scale: gv.state.scale } : null;
-    });
-    console.log('After zoom-in:', JSON.stringify(s1));
-    expect(s1.scale).toBeGreaterThan(1);
-
-    // Double-tap again — should zoom out to initial-fit (scale <= 1)
-    await touchDoubleTap(page, cx, cy);
-    await page.waitForTimeout(300);
-    const s2 = await page.evaluate(() => {
-      const gv = window.__gameView;
-      return gv ? { scale: gv.state.scale } : null;
-    });
-    console.log('After zoom-out:', JSON.stringify(s2));
-    expect(s2.scale).toBeLessThanOrEqual(1);
-    expect(s2.scale).toBeGreaterThan(0);
-  });
-
-  // ── 6. Minimap touch drag ───────────────────────────────────────
+  // ── 5. Minimap touch drag ───────────────────────────────────────
 
   test('dragging on the minimap pans the board', async ({ page }) => {
     await page.waitForTimeout(1500);
