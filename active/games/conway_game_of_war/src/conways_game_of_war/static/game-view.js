@@ -257,8 +257,13 @@
     // ─── transform ────────────────────────────────────────────────────
 
     _applyTransform() {
-      const w = this.wrapper;
-      if (!w) return;
+      let w = this.wrapper;
+      if (!w) {
+        // Re-query in case the DOM was manipulated outside of HTMX swaps
+        w = this.viewport.querySelector('.game-wrapper');
+        this.wrapper = w;
+        if (!w) return;
+      }
 
       let { x, y, scale, rotate } = this.state;
 
@@ -565,12 +570,43 @@
       this._minimapCanvas = canvas;
       this._minimapCtx = canvas.getContext('2d');
 
-      // Use click for desktop mouse, and stop touch events from propagating
-      // to the viewport's pan/zoom gesture handler
+      // Click (desktop) — re-centre viewport on clicked position
       canvas.addEventListener('click', (e) => this._onMinimapClick(e));
-      canvas.addEventListener('touchstart', (e) => e.stopPropagation(), { passive: true });
-      canvas.addEventListener('touchmove', (e) => e.stopPropagation(), { passive: true });
-      canvas.addEventListener('touchend', (e) => e.stopPropagation(), { passive: true });
+
+      // Touch (mobile) — drag on the minimap to pan the playfield.
+      // We stop propagation so the viewport's gesture handler doesn't
+      // also interpret the minimap touch, but we handle it ourselves.
+      this._minimapTouchState = null;
+      canvas.addEventListener('touchstart', (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        const t = e.changedTouches[0];
+        this._minimapTouchState = {
+          startX: t.clientX,
+          startY: t.clientY,
+          stateAtStart: { ...this.state },
+        };
+      }, { passive: false });
+      canvas.addEventListener('touchmove', (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        if (!this._minimapTouchState) return;
+        const t = e.changedTouches[0];
+        const dx = (t.clientX - this._minimapTouchState.startX) / this._minimapScale;
+        const dy = (t.clientY - this._minimapTouchState.startY) / this._minimapScale;
+        // Convert minimap-pixel deltas to board-pixel deltas
+        this.state.x = this._minimapTouchState.stateAtStart.x + dx * this.state.scale;
+        this.state.y = this._minimapTouchState.stateAtStart.y + dy * this.state.scale;
+        this._applyTransform();
+        this._scheduleMinimap();
+      }, { passive: false });
+      canvas.addEventListener('touchend', (e) => {
+        e.stopPropagation();
+        this._minimapTouchState = null;
+      });
+      canvas.addEventListener('touchcancel', () => {
+        this._minimapTouchState = null;
+      });
     }
 
     _paintMinimap() {

@@ -459,9 +459,9 @@ test.describe('Touch gestures – comprehensive', () => {
     expect(after.scale).toBeGreaterThan(before.scale);
   });
 
-  // ── 6. Minimap touch isolation ──────────────────────────────────
+  // ── 6. Minimap touch drag ───────────────────────────────────────
 
-  test('touching the minimap does NOT pan the board', async ({ page }) => {
+  test('dragging on the minimap pans the board', async ({ page }) => {
     await page.waitForTimeout(1500);
     const minimapCanvas = page.locator('#minimap-canvas');
     await expect(minimapCanvas).toBeVisible({ timeout: 3000 });
@@ -470,13 +470,11 @@ test.describe('Touch gestures – comprehensive', () => {
     const box = await minimapCanvas.boundingBox();
     if (!box) throw new Error('minimap canvas not found');
 
-    // Drag on the minimap canvas — use the 'minimap' target so events
-    // dispatch on #minimap-canvas, not #viewport
+    // Drag on the minimap canvas
     const cx = box.x + box.width / 2;
     const cy = box.y + box.height / 2;
     const touchId = 500;
 
-    // Dispatch touch events directly on the minimap canvas (all in one evaluate call)
     const moves = 5;
     const mmEvents = [
       { type: 'touchstart', points: [{ x: cx, y: cy, id: touchId }] },
@@ -494,9 +492,18 @@ test.describe('Touch gestures – comprehensive', () => {
     await page.waitForTimeout(200);
     const after = await getTransform(page);
 
-    // Board position should NOT have changed
-    expect(after.x).toBeCloseTo(before.x, 0);
-    expect(after.y).toBeCloseTo(before.y, 0);
+    // Board position SHOULD have changed (minimap drag pans the playfield)
+    expect(after.x).not.toBeCloseTo(before.x, 0);
+    expect(after.y).not.toBeCloseTo(before.y, 0);
+
+    // Also verify that the viewport's gesture handler did NOT also fire
+    // (touching minimap should only affect playfield via minimap handler)
+    // Check that gesture state is clean
+    const gestureClean = await page.evaluate(() => {
+      const gv = window.__gameView;
+      return gv ? gv._gesture === null : null;
+    });
+    expect(gestureClean).toBe(true);
   });
 
   // ── 7. Pan → pinch transition ───────────────────────────────────
