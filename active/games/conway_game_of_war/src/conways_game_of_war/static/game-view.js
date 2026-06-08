@@ -35,6 +35,7 @@
 
       /** Track whether the board has been initially fitted. */
       this._fitted = false;
+      this._boardDimSig = '';
 
       /**
        * View state.
@@ -92,32 +93,33 @@
         return;
       }
 
-      // If the board dimensions or bbox changed (e.g. after Reset),
-      // re‑fit so the new board is centred and fully visible.
-      if (this._boardChanged()) {
+      // Only re-fit when the board *dimensions* change (e.g. after Reset),
+      // not when the bbox shifts (game updates, AI moves, cell toggles).
+      // Re-fitting on every bbox change would wipe out user zoom/pan.
+      if (this._boardDimensionsChanged()) {
         this._initialFit();
-        this._storeBoardSignature();
+        this._boardDimSig = this._readBoardDimSig();
       }
 
       this._applyTransform();
       this._scheduleMinimap();
     }
 
-    /** Snapshot the board's data attributes for change detection. */
-    _storeBoardSignature() {
+    /** Read board width/height signature. */
+    _readBoardDimSig() {
       const g = this.game;
-      this._boardSig = g
-        ? `${g.getAttribute('data-board-w')}x${g.getAttribute('data-board-h')}|` +
-          `${g.getAttribute('data-bbox-xmin')},${g.getAttribute('data-bbox-ymin')},` +
-          `${g.getAttribute('data-bbox-xmax')},${g.getAttribute('data-bbox-ymax')}`
+      return g
+        ? `${g.getAttribute('data-board-w')}x${g.getAttribute('data-board-h')}`
         : '';
     }
 
-    /** @returns {boolean} true if board data attributes differ from last snapshot. */
-    _boardChanged() {
-      const old = this._boardSig;
-      this._storeBoardSignature();
-      return old !== this._boardSig;
+    _storeBoardSignature() {
+      this._boardDimSig = this._readBoardDimSig();
+    }
+
+    /** @returns {boolean} true if board WIDTH or HEIGHT changed. */
+    _boardDimensionsChanged() {
+      return this._boardDimSig !== this._readBoardDimSig();
     }
 
     /** Reset view to initial fit (zero rotation, fit bbox). */
@@ -155,6 +157,12 @@
       // HTMX
       document.addEventListener('htmx:afterSwap', (evt) => {
         if (evt.detail && evt.detail.target && evt.detail.target.id === 'game') {
+          // When the board is fully replaced (Reset), clear the fitted flag
+          // so that the view re-fits to the new board.
+          const path = evt.detail.pathInfo?.requestPath || '';
+          if (path === '/reset') {
+            this._fitted = false;
+          }
           this.refresh();
         }
       });
@@ -351,12 +359,15 @@
       } else if (e.touches.length === 2) {
         const t1 = e.touches[0];
         const t2 = e.touches[1];
+        // Dist and angle helpers expect {x, y} — Touch objects use clientX/Y
+        const p1 = { x: t1.clientX, y: t1.clientY };
+        const p2 = { x: t2.clientX, y: t2.clientY };
         this._gesture = {
           type: 'pinch',
           cx: (t1.clientX + t2.clientX) / 2,
           cy: (t1.clientY + t2.clientY) / 2,
-          dist: dist(t1, t2),
-          angle: angle(t1, t2),
+          dist: dist(p1, p2),
+          angle: angle(p1, p2),
           stateAtStart: { ...this.state },
         };
       }
@@ -370,21 +381,23 @@
         const dx = t.clientX - this._gesture.startX;
         const dy = t.clientY - this._gesture.startY;
 
-        // Mark as moved if past threshold
+        // Only apply pan if movement exceeds the drag threshold.
+        // Below threshold = treat as stationary tap.
         if (Math.abs(dx) > this._touchMoveThreshold || Math.abs(dy) > this._touchMoveThreshold) {
           this._touchMoved = true;
+          this.state.x = this._gesture.stateAtStart.x + dx;
+          this.state.y = this._gesture.stateAtStart.y + dy;
+          this._applyTransform();
+          this._scheduleMinimap();
         }
-
-        this.state.x = this._gesture.stateAtStart.x + dx;
-        this.state.y = this._gesture.stateAtStart.y + dy;
-        this._applyTransform();
-        this._scheduleMinimap();
       } else if (this._gesture.type === 'pinch' && e.touches.length >= 2) {
         e.preventDefault();
         const t1 = e.touches[0];
         const t2 = e.touches[1];
-        const newDist = dist(t1, t2);
-        const newAngle = angle(t1, t2);
+        const p1 = { x: t1.clientX, y: t1.clientY };
+        const p2 = { x: t2.clientX, y: t2.clientY };
+        const newDist = dist(p1, p2);
+        const newAngle = angle(p1, p2);
         const s = this._gesture.stateAtStart;
 
         const factor = this._gesture.dist > 0 ? newDist / this._gesture.dist : 1;
@@ -430,7 +443,11 @@
 
         // Double‑tap detection for zoom
         const now = Date.now();
-        if (this._canDoubleTap && now - this._lastTapTime < 350 && now - this._gesture.time < 50) {
+        // Use 350ms for both the inter-tap gap and the gesture age.
+        // The gesture-time check is intentionally generous to handle
+        // async event dispatch where touchstart→touchend can be
+        // significantly longer than the sub-ms real finger lift.
+        if (this._canDoubleTap && now - this._lastTapTime < 350 && now - this._gesture.time < 350) {
           const vw = this.viewport.clientWidth;
           const vh = this.viewport.clientHeight;
           this._zoomAt(vw / 2, vh / 2, 2);
