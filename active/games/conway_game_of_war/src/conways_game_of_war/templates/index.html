@@ -69,6 +69,7 @@
         overflow: hidden;
         position: relative;
         cursor: grab;
+        touch-action: none;  /* prevent browser scroll/zoom on mobile */
         background: #1a1a1a;
         /* checkerboard pattern for empty areas */
         background-image:
@@ -205,6 +206,45 @@
         margin: 16px 0 0 0;
       }
 
+      /* ── mobile responsive ─────────────────────────────────────── */
+      @media (max-width: 640px) {
+        .game-header h1 {
+          font-size: 0.85rem;
+        }
+        .game-header .player-name {
+          font-size: 0.75rem;
+          margin: 0 6px;
+        }
+        .game-header .controls {
+          gap: 4px;
+        }
+        .game-header button,
+        .ctrl-btn {
+          padding: 8px 14px;
+          font-size: 0.9rem;
+          min-width: 36px;
+          min-height: 36px;
+        }
+        .ai-badge {
+          display: none;
+        }
+        #status-bar {
+          font-size: 0.7rem;
+          padding: 4px 8px;
+        }
+        .help-card {
+          padding: 16px 20px;
+        }
+        .help-card td {
+          font-size: 0.8rem;
+          padding: 5px 6px;
+        }
+        .minimap {
+          bottom: 40px;
+          right: 6px;
+          max-width: 120px;
+        }
+      }
     </style>
   </head>
   <body> 

@@ -50,6 +50,12 @@
       // ── gesture state ──
       this._gesture = null;
 
+      // ── touch state (track movement to distinguish tap vs drag) ──
+      this._touchMoved = false;
+      this._touchMoveThreshold = 8; // px of movement before it's a drag
+      this._lastTapTime = 0;
+      this._canDoubleTap = false;
+
       // ── minimap ──
       this._minimapCanvas = null;
       this._minimapCtx = null;
@@ -140,8 +146,8 @@
       // Context menu guard
       vp.addEventListener('contextmenu', (e) => { if (this._dragging) e.preventDefault(); });
 
-      // Touch
-      vp.addEventListener('touchstart', (e) => this._onTouchStart(e), { passive: true });
+      // Touch — non-passive so we can preventDefault to stop browser scroll
+      vp.addEventListener('touchstart', (e) => this._onTouchStart(e), { passive: false });
       vp.addEventListener('touchmove', (e) => this._onTouchMove(e), { passive: false });
       vp.addEventListener('touchend', (e) => this._onTouchEnd(e));
       vp.addEventListener('touchcancel', () => this._onTouchEnd());
@@ -324,6 +330,14 @@
     // ─── touch ────────────────────────────────────────────────────────
 
     _onTouchStart(e) {
+      // Don't start gesture if touch is on the minimap
+      if (e.target && e.target.closest && e.target.closest('#minimap')) return;
+
+      // Prevent browser scroll / zoom
+      e.preventDefault();
+
+      this._touchMoved = false;
+
       if (e.touches.length === 1) {
         const t = e.touches[0];
         this._gesture = {
@@ -331,9 +345,7 @@
           startX: t.clientX,
           startY: t.clientY,
           stateAtStart: { ...this.state },
-          // Track time for double‑tap detection
           time: Date.now(),
-          prevTap: this._lastTapTime,
         };
         this._lastTapTime = Date.now();
       } else if (e.touches.length === 2) {
@@ -357,6 +369,12 @@
         const t = e.touches[0];
         const dx = t.clientX - this._gesture.startX;
         const dy = t.clientY - this._gesture.startY;
+
+        // Mark as moved if past threshold
+        if (Math.abs(dx) > this._touchMoveThreshold || Math.abs(dy) > this._touchMoveThreshold) {
+          this._touchMoved = true;
+        }
+
         this.state.x = this._gesture.stateAtStart.x + dx;
         this.state.y = this._gesture.stateAtStart.y + dy;
         this._applyTransform();
@@ -396,16 +414,28 @@
       }
     }
 
-    _onTouchEnd() {
-      // Double‑tap detection for zoom
+    _onTouchEnd(e) {
       if (this._gesture && this._gesture.type === 'pan') {
+        // If the finger didn't move much, it's a tap — let the click through
+        if (!this._touchMoved) {
+          // Re-dispatch a click event on the touched element so HTMX fires
+          if (e && e.changedTouches && e.changedTouches.length > 0) {
+            const touch = e.changedTouches[0];
+            const target = document.elementFromPoint(touch.clientX, touch.clientY);
+            if (target) {
+              target.click();
+            }
+          }
+        }
+
+        // Double‑tap detection for zoom
         const now = Date.now();
-        if (now - this._lastTapTime < 350 && now - this._gesture.time < 50) {
-          // Double‑tap zoom in at centre
+        if (this._canDoubleTap && now - this._lastTapTime < 350 && now - this._gesture.time < 50) {
           const vw = this.viewport.clientWidth;
           const vh = this.viewport.clientHeight;
           this._zoomAt(vw / 2, vh / 2, 2);
         }
+        this._canDoubleTap = !this._touchMoved;
       }
       this._gesture = null;
     }
@@ -485,7 +515,13 @@
       this.viewport.appendChild(container);
       this._minimapCanvas = canvas;
       this._minimapCtx = canvas.getContext('2d');
+
+      // Use click for desktop mouse, and stop touch events from propagating
+      // to the viewport's pan/zoom gesture handler
       canvas.addEventListener('click', (e) => this._onMinimapClick(e));
+      canvas.addEventListener('touchstart', (e) => e.stopPropagation(), { passive: true });
+      canvas.addEventListener('touchmove', (e) => e.stopPropagation(), { passive: true });
+      canvas.addEventListener('touchend', (e) => e.stopPropagation(), { passive: true });
     }
 
     _paintMinimap() {
