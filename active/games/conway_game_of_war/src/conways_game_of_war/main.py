@@ -47,6 +47,20 @@ def _current_player() -> Tuple[game_state.Player, int]:
     return game.players[idx], idx
 
 
+def _player_display_name() -> str:
+    """Return a human-readable display name for the current player."""
+    player_key = flask.session.get("player")
+    return "Player 1" if player_key == "player1" else "Player 2"
+
+
+def _ai_display_name() -> str:
+    """Return a human-readable AI difficulty name, or None."""
+    diff = flask.session.get("ai_difficulty")
+    if not diff:
+        return None
+    return diff.capitalize()
+
+
 def _cell_can_toggle(
     game: game_state.GameState, x: int, y: int, player_obj: game_state.Player
 ) -> bool:
@@ -122,6 +136,8 @@ def index():
         window_width=window_width,
         window_height=window_height,
         zoom_level=zoom_level,
+        player_name=_player_display_name(),
+        ai_difficulty=_ai_display_name(),
     )
 
 
@@ -189,16 +205,34 @@ def zoom():
 
 @app.route("/player_energy")
 def player_energy():
-    """Return the player's energy level as HTML."""
+    """Return both players' energy levels and cell counts as HTML."""
     game = _get_game()
+    return _energy_html(game)
+
+
+def _energy_html(game) -> str:
+    """Build the status bar HTML with both players' info."""
+    p1 = game.players[0]
+    p2 = game.players[1]
+    p1_cells = sum(1 for row in game.board for c in row if c.owner == p1 and c.alive)
+    p2_cells = sum(1 for row in game.board for c in row if c.owner == p2 and c.alive)
+
+    p1_color = "#{:02x}{:02x}{:02x}".format(*p1.color)
+    p2_color = "#{:02x}{:02x}{:02x}".format(*p2.color)
+
     player_key = flask.session.get("player")
-    if player_key == "player1":
-        energy_level = game.players[0].get_energy_level()
-    elif player_key == "player2":
-        energy_level = game.players[1].get_energy_level()
-    else:
-        energy_level = "Unknown player"
-    return f"<div>{energy_level}</div>"
+    human_name = "Player 1" if player_key == "player1" else "Player 2"
+    diff = _ai_display_name()
+    ai_info = f" · AI: {diff}" if diff else ""
+
+    return (
+        f'<span style="color:{p1_color}">⬤ P1</span> '
+        f'⚡{p1.energy:.1f} 🏠{p1_cells} '
+        f'&nbsp;&nbsp; '
+        f'<span style="color:{p2_color}">⬤ P2</span> '
+        f'⚡{p2.energy:.1f} 🏠{p2_cells} '
+        f'&nbsp;&nbsp;· {human_name}{ai_info}'
+    )
 
 
 @app.route("/reset", methods=["POST"])

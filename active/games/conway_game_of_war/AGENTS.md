@@ -9,5 +9,20 @@ Project-local guidance for `active/games/conway_game_of_war`.
 
 ## Validation
 
-- Before finishing substantial changes, run the project's validation command. The historical Copilot workflow used `lazy_ci`.
-- During iteration, prefer the smallest targeted test command that covers the change.
+### Python unit tests
+```sh
+.venv/bin/python -m pytest src/conways_game_of_war/test_game_state.py -v
+```
+
+### Playwright browser tests (map UI, gestures, minimap)
+```sh
+PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/nix/store/r7ifk1v95jfl02775kgbrd61dyr1rfsx-chromium-148.0.7778.178/bin/chromium npm test
+```
+
+The Playwright tests start the Flask server automatically, so no separate server command is needed.
+
+### Reference
+- Use `npm test -- --list` to see all available tests.
+- Use `npm run test:headed` to visually observe tests in a browser window.
+- Use `npm run test:debug` to step through tests with the Playwright inspector.
+- For quick iteration, filter tests: `npm test -- -g "mouse drag"`

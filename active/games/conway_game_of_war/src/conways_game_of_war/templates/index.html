@@ -2,79 +2,261 @@
 <html>
   <head>
     <title>Conway's Game of War</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='game-view.css') }}">
     <style>
+      /* ── reset & layout ─────────────────────────────────────────── */
+      *, *::before, *::after { box-sizing: border-box; }
       body, html {
         height: 100%;
         margin: 0;
         overflow: hidden;
+        font-family: system-ui, -apple-system, sans-serif;
+        background: #111;
+        color: #eee;
+        user-select: none;
+        -webkit-user-select: none;
       }
       .container {
         display: flex;
         flex-direction: column;
-        align-items: center;
-        justify-content: flex-start;
         height: 100%;
       }
-      #game {
-        width: max-content;
-        height: max-content;
-        display: block;
-        transform-origin: 0 0;
-      }
-      #status-bar {
-        width: 100%;
-        text-align: center;
-        margin: 6px 0;
-      }
-      .controls {
+
+      /* ── header ─────────────────────────────────────────────────── */
+      .game-header {
         display: flex;
-        gap: 12px;
         align-items: center;
-        margin: 8px 0;
+        justify-content: space-between;
+        padding: 4px 16px;
+        background: #1a1a1a;
+        border-bottom: 1px solid #333;
+        flex-shrink: 0;
       }
+      .game-header h1 {
+        margin: 0;
+        font-size: 1.1rem;
+        font-weight: 600;
+      }
+      .game-header .player-name {
+        font-size: 0.9rem;
+        margin: 0 12px;
+      }
+      .game-header .controls {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+      .game-header button,
+      .ctrl-btn {
+        background: #333;
+        color: #eee;
+        border: 1px solid #555;
+        border-radius: 4px;
+        padding: 4px 12px;
+        cursor: pointer;
+        font-size: 0.85rem;
+        font-family: inherit;
+        transition: background 0.15s;
+      }
+      .game-header button:hover,
+      .ctrl-btn:hover {
+        background: #444;
+      }
+
+      /* ── viewport ───────────────────────────────────────────────── */
+      #viewport {
+        flex: 1;
+        overflow: hidden;
+        position: relative;
+        cursor: grab;
+        background: #1a1a1a;
+        /* checkerboard pattern for empty areas */
+        background-image:
+          linear-gradient(45deg, #222 25%, transparent 25%),
+          linear-gradient(-45deg, #222 25%, transparent 25%),
+          linear-gradient(45deg, transparent 75%, #222 75%),
+          linear-gradient(-45deg, transparent 75%, #222 75%);
+        background-size: 20px 20px;
+        background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+      }
+      #viewport:active {
+        cursor: grabbing;
+      }
+
+      /* ── game wrapper (transform target) ────────────────────────── */
+      .game-wrapper {
+        transform-origin: 0 0;
+        will-change: transform;
+        /* prevent text selection inside cells */
+        -webkit-user-select: none;
+        user-select: none;
+      }
+
+      /* ── board table ────────────────────────────────────────────── */
+      #game {
+        border-collapse: collapse;
+        table-layout: fixed;
+      }
+      #game td {
+        padding: 0;
+      }
+      #game td > div {
+        cursor: pointer;
+      }
+
+      /* ── status bar ─────────────────────────────────────────────── */
+      #status-bar {
+        flex-shrink: 0;
+        text-align: center;
+        font-size: 0.8rem;
+        padding: 2px 0;
+        background: #1a1a1a;
+        border-top: 1px solid #333;
+        color: #999;
+      }
+
+      /* ── zoom indicator ─────────────────────────────────────────── */
+      .zoom-indicator {
+        position: absolute;
+        bottom: 12px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(0, 0, 0, 0.65);
+        color: #ccc;
+        padding: 2px 10px;
+        border-radius: 10px;
+        font-size: 0.75rem;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.3s;
+      }
+      .zoom-indicator.show {
+        opacity: 1;
+      }
+
+      /* ── AI badge ───────────────────────────────────────────────── */
+      .ai-badge {
+        font-size: 0.75rem;
+        color: #aaa;
+        background: #2a2a2a;
+        padding: 2px 8px;
+        border-radius: 10px;
+        border: 1px solid #444;
+      }
+
+      /* ── help overlay ───────────────────────────────────────────── */
+      .help-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.65);
+        z-index: 1000;
+        align-items: center;
+        justify-content: center;
+      }
+      .help-overlay.open {
+        display: flex;
+      }
+      .help-card {
+        background: #1a1a1a;
+        border: 1px solid #444;
+        border-radius: 12px;
+        padding: 24px 32px;
+        max-width: 400px;
+        width: 90%;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.7);
+      }
+      .help-card h2 {
+        margin: 0 0 16px 0;
+        font-size: 1.0rem;
+        font-weight: 600;
+        color: #ddd;
+      }
+      .help-card table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+      .help-card td {
+        padding: 6px 8px;
+        font-size: 0.85rem;
+        border-bottom: 1px solid #2a2a2a;
+      }
+      .help-card td:first-child {
+        white-space: nowrap;
+        color: #aaa;
+        width: 40%;
+      }
+      .help-card td:last-child {
+        color: #ccc;
+      }
+      .help-card kbd {
+        background: #2a2a2a;
+        border: 1px solid #555;
+        border-radius: 3px;
+        padding: 1px 5px;
+        font-size: 0.8rem;
+        font-family: inherit;
+        color: #eee;
+      }
+      .help-hint {
+        text-align: center;
+        font-size: 0.75rem;
+        color: #666;
+        margin: 16px 0 0 0;
+      }
+
     </style>
   </head>
   <body> 
-    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
     <div class="container">
-      <h1>Conway's Game of War</h1>
-      <h2 class="player-name" style="color: {{ session['player1_color'] if session['player'] == 'player1' else session['player2_color'] }}">Player: {{ session['player'] }}</h2>
-      <div class="controls">
-        <button hx-post="/reset" hx-target="#game" hx-swap="outerHTML">Reset</button>
+      <div class="game-header">
+        <h1>⚔ Conway's Game of War</h1>
+        <span class="player-name" style="color: {{ session['player1_color'] if session['player'] == 'player1' else session['player2_color'] }}">
+          ⬤ {{ player_name }}
+        </span>
+        <div class="controls">
+          <span class="ai-badge" id="ai-badge">{% if ai_difficulty %}🤖 {{ ai_difficulty }}{% endif %}</span>
+          <button class="ctrl-btn" id="help-btn" type="button" title="Keyboard shortcuts">?</button>
+          <button class="ctrl-btn" id="minimap-toggle" type="button" title="Toggle minimap">🗺</button>
+          <button class="ctrl-btn" hx-post="/reset" hx-target="#game" hx-swap="outerHTML">⟳ Reset</button>
+        </div>
       </div>
-      <div id="viewport" style="width: 100vw; height: calc(100vh - 140px); overflow: hidden;">
-        <div id="game" hx-get="/game_state" hx-trigger="load, every 1s" hx-swap="outerHTML"></div>
+
+      <div id="viewport">
+        <div class="game-wrapper">
+          <div id="game"
+               hx-get="/game_state"
+               hx-trigger="load, every 1s"
+               hx-swap="outerHTML"
+          ></div>
+        </div>
+        <div id="zoom-indicator" class="zoom-indicator">100%</div>
       </div>
-      <div id="status-bar" hx-get="/player_energy" hx-trigger="load, every 5s"></div>
+
+      <div id="status-bar"
+           hx-get="/player_energy"
+           hx-trigger="load, every 2s"
+      ></div>
     </div>
-    <script>
-      function fitToControlledArea() {
-        const game = document.getElementById('game');
-        const viewport = document.getElementById('viewport');
-        if (!game || !viewport) return;
-        const xmin = parseInt(game.getAttribute('data-bbox-xmin'));
-        const ymin = parseInt(game.getAttribute('data-bbox-ymin'));
-        const xmax = parseInt(game.getAttribute('data-bbox-xmax'));
-        const ymax = parseInt(game.getAttribute('data-bbox-ymax'));
-        const cellPx = parseInt(game.getAttribute('data-cell-px')) || 12;
-        const padCells = 3;
-        const widthCells = (xmax - xmin + 1) + padCells * 2;
-        const heightCells = (ymax - ymin + 1) + padCells * 2;
-        const targetWidth = widthCells * cellPx;
-        const targetHeight = heightCells * cellPx;
-        const vw = viewport.clientWidth;
-        const vh = viewport.clientHeight;
-        const scale = Math.max(0.1, Math.min(vw / targetWidth, vh / targetHeight));
-        game.style.transform = `scale(${scale}) translate(${(-xmin + padCells) * cellPx}px, ${(-ymin + padCells) * cellPx}px)`;
-      }
 
-      document.addEventListener('htmx:afterSwap', (evt) => {
-        if (evt.target && evt.target.id === 'game') {
-          fitToControlledArea();
-        }
-      });
-
-      window.addEventListener('resize', fitToControlledArea);
-    </script>
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <script src="{{ url_for('static', filename='game-view.js') }}"></script>
+    <!-- Help overlay (hidden by default) -->
+    <div id="help-overlay" class="help-overlay">
+      <div class="help-card">
+        <h2>⌨ Keyboard &amp; Mouse</h2>
+        <table>
+          <tr><td><kbd>←</kbd> <kbd>↑</kbd> <kbd>↓</kbd> <kbd>→</kbd></td><td>Pan the board</td></tr>
+          <tr><td>Scroll wheel</td><td>Zoom in / out</td></tr>
+          <tr><td>Double-click</td><td>Zoom in</td></tr>
+          <tr><td>Mouse drag</td><td>Pan</td></tr>
+          <tr><td><kbd>+</kbd> / <kbd>-</kbd></td><td>Zoom in / out</td></tr>
+          <tr><td><kbd>0</kbd></td><td>Reset view</td></tr>
+          <tr><td><kbd>R</kbd></td><td>Reset rotation</td></tr>
+          <tr><td>Two-finger pinch</td><td>Pinch-zoom + rotate</td></tr>
+        </table>
+        <p class="help-hint">Click outside or press <kbd>Esc</kbd> to close</p>
+      </div>
+    </div>
   </body>
 </html>
