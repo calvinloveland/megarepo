@@ -254,7 +254,17 @@
       const w = this.wrapper;
       if (!w) return;
 
-      const { x, y, scale, rotate } = this.state;
+      let { x, y, scale, rotate } = this.state;
+
+      // NaN guard — if any state value is NaN the CSS transform would be
+      // silently ignored by the browser, making the board unresponsive.
+      // Fall back to a safe identity transform instead.
+      if (!Number.isFinite(x) || !Number.isFinite(y) ||
+          !Number.isFinite(scale) || !Number.isFinite(rotate)) {
+        console.error('GameView: NaN detected in state', { x, y, scale, rotate });
+        x = 0; y = 0; scale = 1; rotate = 0;
+      }
+
       const cx = this.viewport.clientWidth / 2;
       const cy = this.viewport.clientHeight / 2;
 
@@ -268,10 +278,13 @@
 
     _zoomAt(mx, my, factor) {
       const s = this.state;
-      const newScale = clamp(s.scale * factor, 0.05, 40);
+      const curScale = Number.isFinite(s.scale) && s.scale > 0 ? s.scale : 1;
+      const newScale = clamp(curScale * factor, 0.05, 40);
       // Approximate inverse: treat current transform as translate+scale.
-      const wx = (mx - s.x) / s.scale;
-      const wy = (my - s.y) / s.scale;
+      const curX = Number.isFinite(s.x) ? s.x : 0;
+      const curY = Number.isFinite(s.y) ? s.y : 0;
+      const wx = (mx - curX) / curScale;
+      const wy = (my - curY) / curScale;
       s.scale = newScale;
       s.x = mx - wx * newScale;
       s.y = my - wy * newScale;
@@ -385,8 +398,10 @@
         // Below threshold = treat as stationary tap.
         if (Math.abs(dx) > this._touchMoveThreshold || Math.abs(dy) > this._touchMoveThreshold) {
           this._touchMoved = true;
-          this.state.x = this._gesture.stateAtStart.x + dx;
-          this.state.y = this._gesture.stateAtStart.y + dy;
+          const sx = Number.isFinite(this._gesture.stateAtStart.x) ? this._gesture.stateAtStart.x : 0;
+          const sy = Number.isFinite(this._gesture.stateAtStart.y) ? this._gesture.stateAtStart.y : 0;
+          this.state.x = sx + dx;
+          this.state.y = sy + dy;
           this._applyTransform();
           this._scheduleMinimap();
         }
@@ -400,26 +415,37 @@
         const newAngle = angle(p1, p2);
         const s = this._gesture.stateAtStart;
 
-        const factor = this._gesture.dist > 0 ? newDist / this._gesture.dist : 1;
-        const newScale = clamp(s.scale * factor, 0.05, 40);
+        // NaN guards for pinch calculations
+        const baseDist = Number.isFinite(this._gesture.dist) && this._gesture.dist > 0
+          ? this._gesture.dist : 40;
+        const baseScale = Number.isFinite(s.scale) && s.scale > 0 ? s.scale : 1;
+        const baseX = Number.isFinite(s.x) ? s.x : 0;
+        const baseY = Number.isFinite(s.y) ? s.y : 0;
+        const baseRotate = Number.isFinite(s.rotate) ? s.rotate : 0;
+        const baseAngle = Number.isFinite(this._gesture.angle) ? this._gesture.angle : 0;
+        const curDist = Number.isFinite(newDist) ? newDist : baseDist;
+        const curAngle = Number.isFinite(newAngle) ? newAngle : baseAngle;
+
+        const factor = curDist / baseDist;
+        const newScale = clamp(baseScale * factor, 0.05, 40);
 
         const rect = this.viewport.getBoundingClientRect();
         const cx = (t1.clientX + t2.clientX) / 2 - rect.left;
         const cy = (t1.clientY + t2.clientY) / 2 - rect.top;
-        const wx = (cx - s.x) / s.scale;
-        const wy = (cy - s.y) / s.scale;
+        const wx = (cx - baseX) / baseScale;
+        const wy = (cy - baseY) / baseScale;
 
         this.state.scale = newScale;
         this.state.x = cx - wx * newScale;
         this.state.y = cy - wy * newScale;
 
-        const rotDelta = deg(newAngle - this._gesture.angle);
-        this.state.rotate = s.rotate + rotDelta;
+        const rotDelta = deg(curAngle - baseAngle);
+        this.state.rotate = baseRotate + rotDelta;
 
         this._gesture.cx = (t1.clientX + t2.clientX) / 2;
         this._gesture.cy = (t1.clientY + t2.clientY) / 2;
-        this._gesture.dist = newDist;
-        this._gesture.angle = newAngle;
+        this._gesture.dist = curDist;
+        this._gesture.angle = curAngle;
         this._gesture.stateAtStart = { ...this.state };
 
         this._applyTransform();

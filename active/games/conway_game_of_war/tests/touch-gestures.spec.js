@@ -5,8 +5,54 @@
  * Tests use page.evaluate to create proper Touch objects via
  * `new Touch(touchInit)` so that multi-touch (pinch, rotate)
  * works reliably in Chromium.
+ *
+ * Console errors, page errors, and failed requests are captured
+ * during each test and flushed to the Playwright output on failure.
  */
 import { test, expect } from '@playwright/test';
+
+// ─── console error reporter ───────────────────────────────────────────
+
+/**
+ * Capture page console errors, JS exceptions, and failed network requests
+ * during a test and flush them to stdout if the test fails.
+ *
+ * Usage:
+ *   test.beforeEach(({ page }) => { attachConsoleLogger(page, testInfo); });
+ */
+const consoleErrors = new Map();
+
+test.beforeEach(({ page }, testInfo) => {
+  const entries = [];
+  consoleErrors.set(testInfo.title, entries);
+
+  page.on('console', (msg) => {
+    if (msg.type() === 'error') {
+      entries.push(`CONSOLE ERROR: ${msg.text()}`);
+    }
+  });
+  page.on('pageerror', (err) => {
+    entries.push(`PAGE ERROR: ${err.message}\n${err.stack}`);
+  });
+  page.on('requestfailed', (req) => {
+    entries.push(
+      `REQUEST FAILED: ${req.url()} - ${req.failure()?.errorText ?? 'unknown'}`,
+    );
+  });
+});
+
+test.afterEach(({}, testInfo) => {
+  const entries = consoleErrors.get(testInfo.title);
+  if (entries && entries.length > 0) {
+    const failed = testInfo.status !== testInfo.expectedStatus;
+    if (failed) {
+      console.log(`\n── Console errors for "${testInfo.title}" ──`);
+      console.log(entries.join('\n'));
+      console.log('── End ──\n');
+    }
+  }
+  consoleErrors.delete(testInfo.title);
+});
 
 // ─── navigation ──────────────────────────────────────────────────────
 

@@ -1,6 +1,42 @@
 // @ts-check
 import { test, expect } from '@playwright/test';
 
+// ─── console error reporter ───────────────────────────────────────────
+
+const consoleErrors = new Map();
+
+test.beforeEach(({ page }, testInfo) => {
+  const entries = [];
+  consoleErrors.set(testInfo.title, entries);
+
+  page.on('console', (msg) => {
+    if (msg.type() === 'error') {
+      entries.push(`CONSOLE ERROR: ${msg.text()}`);
+    }
+  });
+  page.on('pageerror', (err) => {
+    entries.push(`PAGE ERROR: ${err.message}\n${err.stack}`);
+  });
+  page.on('requestfailed', (req) => {
+    entries.push(
+      `REQUEST FAILED: ${req.url()} - ${req.failure()?.errorText ?? 'unknown'}`,
+    );
+  });
+});
+
+test.afterEach(({}, testInfo) => {
+  const entries = consoleErrors.get(testInfo.title);
+  if (entries && entries.length > 0) {
+    const failed = testInfo.status !== testInfo.expectedStatus;
+    if (failed) {
+      console.log(`\n── Console errors for "${testInfo.title}" ──`);
+      console.log(entries.join('\n'));
+      console.log('── End ──\n');
+    }
+  }
+  consoleErrors.delete(testInfo.title);
+});
+
 /**
  * Navigate past the player-select screen to the actual game.
  */
