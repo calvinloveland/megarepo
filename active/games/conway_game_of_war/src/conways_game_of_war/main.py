@@ -7,7 +7,14 @@ import flask
 
 from . import game_state
 
-app = flask.Flask(__name__)
+# Point Flask at the package's templates/static dirs regardless of CWD
+_pkg_dir = os.path.dirname(os.path.abspath(__file__))
+app = flask.Flask(
+    __name__,
+    template_folder=os.path.join(_pkg_dir, "templates"),
+    static_folder=os.path.join(_pkg_dir, "static"),
+    static_url_path="/static",
+)
 # Prefer env var for production, fallback for dev
 app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-key")
 
@@ -119,7 +126,10 @@ def _apply_session_options_to_game():
 
 def main():
     """Run the Flask application."""
-    app.run(debug=True)
+    host = os.environ.get("HOST", "127.0.0.1")
+    port = int(os.environ.get("PORT", "5000"))
+    debug = os.environ.get("FLASK_DEBUG", "true").lower() == "true"
+    app.run(host=host, port=port, debug=debug)
 
 
 @app.route("/")

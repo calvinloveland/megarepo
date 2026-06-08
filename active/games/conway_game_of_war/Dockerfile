@@ -9,9 +9,9 @@ WORKDIR /app
 RUN addgroup --system --gid 1001 app \
   && adduser --system --uid 1001 --ingroup app app
 
+# Copy the entire package so Flask can find templates/static relative to the module
 COPY pyproject.toml /app/
 COPY src /app/src
-COPY templates /app/templates
 
 RUN pip install --no-cache-dir /app && rm -rf /root/.cache
 
