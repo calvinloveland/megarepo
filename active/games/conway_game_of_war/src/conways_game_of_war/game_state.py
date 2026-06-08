@@ -190,25 +190,34 @@ class GameState:
         cell.owner = self._pick_owner_from_counts(cell.owner, player_counts)
 
     def count_friendly_neighbors(self, x, y, player):
-        """Count neighbors and wrap around the board."""
+        """Count same-owner alive neighbours (used for click validation)."""
         count = 0
         for i, j in NEIGHBOR_OFFSETS:
-            if len(self.board) <= (x + i) % self.board_size_x:
-                logger.error(f"Index out of range: {(x + i) % self.board_size_x}")
-            if len(self.board[0]) <= (y + j) % self.board_size_y:
-                logger.error(f"Index out of range: {(y + j) % self.board_size_y}")
             cell = self.board[(x + i) % self.board_size_x][(y + j) % self.board_size_y]
             if cell.alive and cell.owner == player:
                 count += 1
         return count
 
+    def count_alive_neighbors(self, x, y):
+        """Count ALL alive neighbours regardless of owner (used for GoL rules)."""
+        count = 0
+        for i, j in NEIGHBOR_OFFSETS:
+            cell = self.board[(x + i) % self.board_size_x][(y + j) % self.board_size_y]
+            if cell.alive:
+                count += 1
+        return count
+
     def update_friend_counts(self):
-        """Update the number of friendly neighbors for each cell."""
+        """
+        Update per-cell neighbour counts for GoL rules.
+        
+        Uses *total* alive neighbours (not just friendly) so that unowned
+        cells next to player territory are born correctly.  The war mechanic
+        (friendly-only counting) applies to ownership changes instead.
+        """
         for x in range(self.board_size_x):
             for y in range(self.board_size_y):
-                self.board[x][y].friendly_neighbors = self.count_friendly_neighbors(
-                    x, y, self.board[x][y].owner
-                )
+                self.board[x][y].friendly_neighbors = self.count_alive_neighbors(x, y)
 
     def _has_unfriendly_neighbor(self, x, y, player):
         """Check if cell has any unfriendly neighbors (for combat)."""
