@@ -177,7 +177,14 @@ def set_player():
 
 @app.route("/game_state")
 def get_game_state():
-    """Advance the game one tick and return the current game state as HTML."""
+    """Return the current game state as HTML (no tick advance)."""
+    game = _get_game()
+    return game.board_to_html(current_player_index=_current_player_index())
+
+
+@app.route("/end_turn", methods=["POST"])
+def end_turn():
+    """Advance the game one tick (AI moves, cells update) and return the board."""
     game = _get_game()
     game.update()
     return game.board_to_html(current_player_index=_current_player_index())

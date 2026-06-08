@@ -4,12 +4,12 @@
  * Features:
  *   • Mouse‑drag panning (click‑and‑drag)
  *   • Scroll‑wheel zoom (toward cursor)
- *   • Double‑click / double‑tap to zoom in
+ *   • Double‑click zoom in
  *   • One‑finger touch pan
- *   • Two‑finger pinch‑zoom + rotate
+ *   • Two‑finger pinch‑zoom (no rotation)
  *   • Minimap overview (canvas) with red viewport rectangle + click‑to‑navigate
  *   • Zoom indicator overlay
- *   • Keyboard: ←↑↓→ pan, +/- zoom, 0 reset view, R reset rotation
+ *   • Keyboard: ←↑↓→ pan, +/- zoom, 0 reset view
  *   • HTMX integration: re‑applies transform after board swaps
  */
 (function () {
@@ -19,8 +19,6 @@
 
   const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
   const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
-  const angle = (a, b) => Math.atan2(b.y - a.y, b.x - a.x);
-  const deg = (rad) => (rad * 180) / Math.PI;
 
   // ─── GameView ───────────────────────────────────────────────────────
 
@@ -39,7 +37,7 @@
 
       /**
        * View state.
-       * @type {{ x:number, y:number, scale:number, rotate:number }}
+       * @type {{ x:number, y:number, scale:number }}
        */
       this.state = { x: 0, y: 0, scale: 1, rotate: 0 };
 
@@ -53,9 +51,7 @@
 
       // ── touch state (track movement to distinguish tap vs drag) ──
       this._touchMoved = false;
-      this._touchMoveThreshold = 8; // px of movement before it's a drag
-      this._canDoubleTap = false;
-      this._skipNextDoubleTap = false; // after zoom, skip one tap to debounce
+      this._touchMoveThreshold = 8;
 
       // ── minimap ──
       this._minimapCanvas = null;
@@ -81,10 +77,9 @@
       this.game = document.getElementById('game');
       if (!this.game) return;
 
-      // Only run initial fit once the board has real data attributes.
       if (!this._fitted) {
         const hasBbox = this.game.hasAttribute('data-bbox-xmin');
-        if (!hasBbox) return; // HTMX hasn't populated yet — wait for next swap.
+        if (!hasBbox) return;
         this._initialFit();
         this._fitted = true;
         this._storeBoardSignature();
@@ -93,9 +88,6 @@
         return;
       }
 
-      // Only re-fit when the board *dimensions* change (e.g. after Reset),
-      // not when the bbox shifts (game updates, AI moves, cell toggles).
-      // Re-fitting on every bbox change would wipe out user zoom/pan.
       if (this._boardDimensionsChanged()) {
         this._initialFit();
         this._boardDimSig = this._readBoardDimSig();
@@ -105,7 +97,6 @@
       this._scheduleMinimap();
     }
 
-    /** Read board width/height signature. */
     _readBoardDimSig() {
       const g = this.game;
       return g
@@ -122,7 +113,7 @@
       return this._boardDimSig !== this._readBoardDimSig();
     }
 
-    /** Reset view to initial fit (zero rotation, fit bbox). */
+    /** Reset view to initial fit. */
     resetView() {
       this._fitted = false;
       this.refresh();
@@ -134,37 +125,26 @@
     _bindEvents() {
       const vp = this.viewport;
 
-      // Wheel zoom
       vp.addEventListener('wheel', (e) => this._onWheel(e), { passive: false });
 
-      // Mouse drag
       vp.addEventListener('mousedown', (e) => this._onMouseDown(e));
       window.addEventListener('mousemove', (e) => this._onMouseMove(e));
       window.addEventListener('mouseup', () => this._onMouseUp());
 
-      // Double‑click zoom in
       vp.addEventListener('dblclick', (e) => this._onDblClick(e));
 
-      // Context menu guard
       vp.addEventListener('contextmenu', (e) => { if (this._dragging) e.preventDefault(); });
 
-      // Touch — non-passive so we can preventDefault to stop browser scroll
       vp.addEventListener('touchstart', (e) => this._onTouchStart(e), { passive: false });
       vp.addEventListener('touchmove', (e) => this._onTouchMove(e), { passive: false });
       vp.addEventListener('touchend', (e) => this._onTouchEnd(e));
       vp.addEventListener('touchcancel', () => this._onTouchEnd());
 
-      // iOS Safari fires gesture events (gesturestart/change/end) during
-      // multi-touch.  They trigger the browser's built-in pinch-zoom which
-      // fights our custom handler.  Prevent them outright.
       vp.addEventListener('gesturestart', (e) => e.preventDefault(), { passive: false });
       vp.addEventListener('gesturechange', (e) => e.preventDefault(), { passive: false });
 
-      // HTMX
       document.addEventListener('htmx:afterSwap', (evt) => {
         if (evt.detail && evt.detail.target && evt.detail.target.id === 'game') {
-          // When the board is fully replaced (Reset), clear the fitted flag
-          // so that the view re-fits to the new board.
           const path = evt.detail.pathInfo?.requestPath || '';
           if (path === '/reset') {
             this._fitted = false;
@@ -173,21 +153,16 @@
         }
       });
 
-      // Resize
       window.addEventListener('resize', () => this._scheduleMinimap());
 
-      // Keyboard
       document.addEventListener('keydown', (e) => this._onKey(e));
 
-      // ── help overlay ──
       document.addEventListener('keydown', (e) => this._onKeyGlobal(e));
       document.addEventListener('click', (e) => this._onClickGlobal(e));
 
-      // ── help button ──
       const helpBtn = document.getElementById('help-btn');
       if (helpBtn) helpBtn.addEventListener('click', () => this._toggleHelp());
 
-      // ── minimap toggle ──
       const mmBtn = document.getElementById('minimap-toggle');
       if (mmBtn) mmBtn.addEventListener('click', () => this._toggleMinimap());
     }
@@ -205,8 +180,7 @@
     _toggleMinimap() {
       const mm = document.getElementById('minimap');
       if (!mm) {
-        // If minimap hasn't been created yet, force creation by scheduling paint
-        this._minimapCanvas = null; // reset so _ensureMinimapDOM runs again
+        this._minimapCanvas = null;
         this._scheduleMinimap();
         return;
       }
@@ -263,7 +237,6 @@
       }
       let w = this.wrapper;
       if (!w) {
-        // Re-query in case the DOM was manipulated outside of HTMX swaps
         w = this.viewport.querySelector('.game-wrapper');
         this.wrapper = w;
         if (!w) return;
@@ -271,9 +244,6 @@
 
       let { x, y, scale, rotate } = this.state;
 
-      // NaN guard — if any state value is NaN the CSS transform would be
-      // silently ignored by the browser, making the board unresponsive.
-      // Fall back to a safe identity transform instead.
       if (!Number.isFinite(x) || !Number.isFinite(y) ||
           !Number.isFinite(scale) || !Number.isFinite(rotate)) {
         console.error('GameView: NaN detected in state', { x, y, scale, rotate });
@@ -295,7 +265,6 @@
       const s = this.state;
       const curScale = Number.isFinite(s.scale) && s.scale > 0 ? s.scale : 1;
       const newScale = clamp(curScale * factor, 0.05, 40);
-      // Approximate inverse: treat current transform as translate+scale.
       const curX = Number.isFinite(s.x) ? s.x : 0;
       const curY = Number.isFinite(s.y) ? s.y : 0;
       const wx = (mx - curX) / curScale;
@@ -366,12 +335,8 @@
     // ─── touch ────────────────────────────────────────────────────────
 
     _onTouchStart(e) {
-      // Don't start gesture if touch is on the minimap
       if (e.target && e.target.closest && e.target.closest('#minimap')) return;
-
-      // Prevent browser scroll / zoom
       e.preventDefault();
-
       this._touchMoved = false;
 
       if (e.touches.length === 1) {
@@ -381,12 +346,10 @@
           startX: t.clientX,
           startY: t.clientY,
           stateAtStart: { ...this.state },
-          time: Date.now(),
         };
       } else if (e.touches.length === 2) {
         const t1 = e.touches[0];
         const t2 = e.touches[1];
-        // Dist and angle helpers expect {x, y} — Touch objects use clientX/Y
         const p1 = { x: t1.clientX, y: t1.clientY };
         const p2 = { x: t2.clientX, y: t2.clientY };
         this._gesture = {
@@ -394,7 +357,6 @@
           cx: (t1.clientX + t2.clientX) / 2,
           cy: (t1.clientY + t2.clientY) / 2,
           dist: dist(p1, p2),
-          angle: angle(p1, p2),
           stateAtStart: { ...this.state },
         };
       }
@@ -408,8 +370,6 @@
         const dx = t.clientX - this._gesture.startX;
         const dy = t.clientY - this._gesture.startY;
 
-        // Only apply pan if movement exceeds the drag threshold.
-        // Below threshold = treat as stationary tap.
         if (Math.abs(dx) > this._touchMoveThreshold || Math.abs(dy) > this._touchMoveThreshold) {
           this._touchMoved = true;
           const sx = Number.isFinite(this._gesture.stateAtStart.x) ? this._gesture.stateAtStart.x : 0;
@@ -426,18 +386,14 @@
         const p1 = { x: t1.clientX, y: t1.clientY };
         const p2 = { x: t2.clientX, y: t2.clientY };
         const newDist = dist(p1, p2);
-        const newAngle = angle(p1, p2);
         const s = this._gesture.stateAtStart;
 
-        // NaN guards for pinch calculations
         const baseDist = Number.isFinite(this._gesture.dist) && this._gesture.dist > 0
           ? this._gesture.dist : 40;
         const baseScale = Number.isFinite(s.scale) && s.scale > 0 ? s.scale : 1;
         const baseX = Number.isFinite(s.x) ? s.x : 0;
         const baseY = Number.isFinite(s.y) ? s.y : 0;
-        const baseAngle = Number.isFinite(this._gesture.angle) ? this._gesture.angle : 0;
         const curDist = Number.isFinite(newDist) ? newDist : baseDist;
-        const curAngle = Number.isFinite(newAngle) ? newAngle : 0;
 
         const factor = curDist / baseDist;
         const newScale = clamp(baseScale * factor, 0.05, 40);
@@ -455,7 +411,6 @@
         this._gesture.cx = (t1.clientX + t2.clientX) / 2;
         this._gesture.cy = (t1.clientY + t2.clientY) / 2;
         this._gesture.dist = curDist;
-        this._gesture.angle = curAngle;
         this._gesture.stateAtStart = { ...this.state };
 
         this._applyTransform();
@@ -465,9 +420,8 @@
 
     _onTouchEnd(e) {
       if (this._gesture && this._gesture.type === 'pan') {
-        // If the finger didn't move much, it's a tap — let the click through
         if (!this._touchMoved) {
-          // Re-dispatch a click event on the touched element so HTMX fires
+          // Re-dispatch click for HTMX cell toggle on tap
           if (e && e.changedTouches && e.changedTouches.length > 0) {
             const touch = e.changedTouches[0];
             const target = document.elementFromPoint(touch.clientX, touch.clientY);
@@ -476,45 +430,19 @@
             }
           }
         }
-
-        // Double‑tap detection for zoom
-        const now = Date.now();
-        // Use 350ms for both the inter-tap gap and the gesture age.
-        // The gesture-time check is intentionally generous to handle
-        // async event dispatch where touchstart→touchend can be
-        // significantly longer than the sub-ms real finger lift.
-        if (this._canDoubleTap && now - this._lastTapTime < 350 && now - this._gesture.time < 350) {
-          const vw = this.viewport.clientWidth;
-          const vh = this.viewport.clientHeight;
-          if (this.state.scale > 1.5) {
-            this._zoomToInitialFit();
-          } else {
-            this._zoomAt(vw / 2, vh / 2, 2);
-          }
-          // Don't let the next line re-enable canDoubleTap — this pair
-          // is consumed.  The NEXT tap's touchend will set it to true.
-          this._canDoubleTap = false;
-          this._skipNextDoubleTap = true;
-        }
-        if (!this._skipNextDoubleTap) {
-          this._canDoubleTap = !this._touchMoved;
-        }
-        this._skipNextDoubleTap = false;
       }
       this._gesture = null;
     }
 
-    // ─── keyboard (game view only) ───────────────────────────────────
+    // ─── keyboard ─────────────────────────────────────────────────────
 
     _onKey(e) {
-      // Ignore when user is typing in an input.
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
 
-      const STEP = 40; // px per arrow key
+      const STEP = 40;
       const ZOOM_STEP = 1.15;
 
       switch (e.key) {
-        // Map‑like: arrow keys move the *view* (translate content opposite).
         case 'ArrowUp':    e.preventDefault(); this.state.y += STEP; break;
         case 'ArrowDown':  e.preventDefault(); this.state.y -= STEP; break;
         case 'ArrowLeft':  e.preventDefault(); this.state.x += STEP; break;
@@ -522,7 +450,6 @@
         case '+': case '=': e.preventDefault(); this._zoomAt(this.viewport.clientWidth / 2, this.viewport.clientHeight / 2, ZOOM_STEP); return;
         case '-': case '_': e.preventDefault(); this._zoomAt(this.viewport.clientWidth / 2, this.viewport.clientHeight / 2, 1 / ZOOM_STEP); return;
         case '0': e.preventDefault(); this.resetView(); return;
-        case 'r': case 'R': e.preventDefault(); this.state.rotate = 0; this._applyTransform(); this._scheduleMinimap(); this._showZoomIndicator(); return;
         default: return;
       }
       this._applyTransform();
@@ -540,7 +467,7 @@
       }
     }
 
-    /** Global click handler — close help when clicking outside the card. */
+    /** Global click handler — close help when clicking outside card. */
     _onClickGlobal(e) {
       const overlay = document.getElementById('help-overlay');
       if (!overlay || !overlay.classList.contains('open')) return;
@@ -580,12 +507,8 @@
       this._minimapCanvas = canvas;
       this._minimapCtx = canvas.getContext('2d');
 
-      // Click (desktop) — re-centre viewport on clicked position
       canvas.addEventListener('click', (e) => this._onMinimapClick(e));
 
-      // Touch (mobile) — drag on the minimap to pan the playfield.
-      // We stop propagation so the viewport's gesture handler doesn't
-      // also interpret the minimap touch, but we handle it ourselves.
       this._minimapTouchState = null;
       canvas.addEventListener('touchstart', (e) => {
         e.stopPropagation();
@@ -605,7 +528,6 @@
         const cellPx = this._readCellPx();
         const dx = (t.clientX - this._minimapTouchState.startX) / this._minimapScale;
         const dy = (t.clientY - this._minimapTouchState.startY) / this._minimapScale;
-        // dx/dy are in board cells — convert to screen pixels via cellPx * zoom
         this.state.x = this._minimapTouchState.stateAtStart.x + dx * cellPx * this.state.scale;
         this.state.y = this._minimapTouchState.stateAtStart.y + dy * cellPx * this.state.scale;
         this._applyTransform();
@@ -678,8 +600,6 @@
       const vw = this.viewport.clientWidth;
       const vh = this.viewport.clientHeight;
 
-      // inv() returns board PIXELS.  Convert to board CELLS (/ cellPx)
-      // before multiplying by minimap scale (pixels per cell).
       const cellPx = this._readCellPx();
 
       const inv = (px, py) => ({
@@ -696,7 +616,6 @@
       const rw = (br.bx - tl.bx) * sc;
       const rh = (br.by - tl.by) * sc;
 
-      // Clamp to minimap bounds
       ctx.save();
       ctx.beginPath();
       ctx.rect(0, 0, mw, mh);
@@ -706,7 +625,6 @@
       ctx.lineWidth = 1.5;
       ctx.strokeRect(rx, ry, rw, rh);
 
-      // Dim outside viewport
       ctx.fillStyle = 'rgba(0, 0, 0, 0.30)';
       ctx.fillRect(0, 0, mw, Math.max(0, ry));
       ctx.fillRect(0, ry + rh, mw, Math.max(0, mh - ry - rh));
@@ -733,7 +651,6 @@
       const s = this.state;
       const vw = this.viewport.clientWidth;
       const vh = this.viewport.clientHeight;
-      // bx/by are in board cells — convert to screen pixels via cellPx * zoom
       s.x = vw / 2 - bx * cellPx * s.scale;
       s.y = vh / 2 - by * cellPx * s.scale;
 
@@ -749,11 +666,8 @@
     if (!viewport) return;
 
     const gv = new GameView(viewport);
-    window.__gameView = gv; // for debugging
+    window.__gameView = gv;
 
-    // Attempt initial refresh — if the board hasn't been populated by
-    // HTMX yet (no data attributes), refresh() will return early and
-    // the htmx:afterSwap handler will retry.
     gv.refresh();
   }
 

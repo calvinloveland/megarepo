@@ -261,6 +261,7 @@
           <span class="ai-badge" id="ai-badge">{% if ai_difficulty %}🤖 {{ ai_difficulty }}{% endif %}</span>
           <button class="ctrl-btn" id="help-btn" type="button" title="Keyboard shortcuts">?</button>
           <button class="ctrl-btn" id="minimap-toggle" type="button" title="Toggle minimap">🗺</button>
+          <button class="ctrl-btn" hx-post="/end_turn" hx-target="#game" hx-swap="outerHTML">⏭ End Turn</button>
           <button class="ctrl-btn" hx-post="/reset" hx-target="#game" hx-swap="outerHTML">⟳ Reset</button>
         </div>
       </div>
@@ -269,7 +270,7 @@
         <div class="game-wrapper">
           <div id="game"
                hx-get="/game_state"
-               hx-trigger="load, every 1s"
+               hx-trigger="load"
                hx-swap="outerHTML"
           ></div>
         </div>
@@ -278,7 +279,7 @@
 
       <div id="status-bar"
            hx-get="/player_energy"
-           hx-trigger="load, every 2s"
+           hx-trigger="load, every 3s"
       ></div>
     </div>
 
