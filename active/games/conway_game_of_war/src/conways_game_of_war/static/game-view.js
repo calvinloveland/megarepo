@@ -648,11 +648,12 @@
         e.preventDefault();
         if (!this._minimapTouchState) return;
         const t = e.changedTouches[0];
+        const cellPx = this._readCellPx();
         const dx = (t.clientX - this._minimapTouchState.startX) / this._minimapScale;
         const dy = (t.clientY - this._minimapTouchState.startY) / this._minimapScale;
-        // Convert minimap-pixel deltas to board-pixel deltas
-        this.state.x = this._minimapTouchState.stateAtStart.x + dx * this.state.scale;
-        this.state.y = this._minimapTouchState.stateAtStart.y + dy * this.state.scale;
+        // dx/dy are in board cells — convert to screen pixels via cellPx * zoom
+        this.state.x = this._minimapTouchState.stateAtStart.x + dx * cellPx * this.state.scale;
+        this.state.y = this._minimapTouchState.stateAtStart.y + dy * cellPx * this.state.scale;
         this._applyTransform();
         this._scheduleMinimap();
       }, { passive: false });
@@ -723,9 +724,13 @@
       const vw = this.viewport.clientWidth;
       const vh = this.viewport.clientHeight;
 
+      // inv() returns board PIXELS.  Convert to board CELLS (/ cellPx)
+      // before multiplying by minimap scale (pixels per cell).
+      const cellPx = this._readCellPx();
+
       const inv = (px, py) => ({
-        bx: (px - s.x) / s.scale,
-        by: (py - s.y) / s.scale,
+        bx: (px - s.x) / s.scale / cellPx,
+        by: (py - s.y) / s.scale / cellPx,
       });
 
       const tl = inv(0, 0);
@@ -757,19 +762,26 @@
       ctx.restore();
     }
 
+    _readCellPx() {
+      const game = this.game;
+      return game ? parseInt(game.getAttribute('data-cell-px')) || 12 : 12;
+    }
+
     _onMinimapClick(e) {
       const rect = this._minimapCanvas.getBoundingClientRect();
       const mx = e.clientX - rect.left;
       const my = e.clientY - rect.top;
 
+      const cellPx = this._readCellPx();
       const bx = mx / this._minimapScale;
       const by = my / this._minimapScale;
 
       const s = this.state;
       const vw = this.viewport.clientWidth;
       const vh = this.viewport.clientHeight;
-      s.x = vw / 2 - bx * s.scale;
-      s.y = vh / 2 - by * s.scale;
+      // bx/by are in board cells — convert to screen pixels via cellPx * zoom
+      s.x = vw / 2 - bx * cellPx * s.scale;
+      s.y = vh / 2 - by * cellPx * s.scale;
 
       this._applyTransform();
       this._scheduleMinimap();
