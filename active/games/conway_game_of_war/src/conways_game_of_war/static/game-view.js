@@ -154,6 +154,12 @@
       vp.addEventListener('touchend', (e) => this._onTouchEnd(e));
       vp.addEventListener('touchcancel', () => this._onTouchEnd());
 
+      // iOS Safari fires gesture events (gesturestart/change/end) during
+      // multi-touch.  They trigger the browser's built-in pinch-zoom which
+      // fights our custom handler.  Prevent them outright.
+      vp.addEventListener('gesturestart', (e) => e.preventDefault(), { passive: false });
+      vp.addEventListener('gesturechange', (e) => e.preventDefault(), { passive: false });
+
       // HTMX
       document.addEventListener('htmx:afterSwap', (evt) => {
         if (evt.detail && evt.detail.target && evt.detail.target.id === 'game') {
