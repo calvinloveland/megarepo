@@ -203,9 +203,13 @@ def update_cell():
     cell = game.board[x][y]
     if _cell_can_toggle(game, x, y, player_obj):
         if cell.owner is None:
-            cell.owner = player_obj
-            cell.alive = True
+            # Claiming a new cell costs energy
+            if player_obj.energy >= game_state.ENERGY_PER_CELL:
+                player_obj.energy -= game_state.ENERGY_PER_CELL
+                cell.owner = player_obj
+                cell.alive = True
         elif cell.owner == player_obj:
+            # Toggling an owned cell is free
             cell.alive = not cell.alive
 
     return game.board_to_html(current_player_index=idx)

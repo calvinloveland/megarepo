@@ -21,6 +21,10 @@ PLAYER_2_COLOR = (0, 0, 255)
 PLAYER_1_START_POINT = (20, 20)
 PLAYER_2_START_POINT = (DEFAULT_BOARD_SIZE_X - 20, DEFAULT_BOARD_SIZE_Y - 20)
 
+# Energy
+ENERGY_PER_CELL = 1.0        # cost to claim a new cell
+STARTING_ENERGY = 5.0         # energy each player begins with
+
 NEIGHBOR_OFFSETS = [
     (-1, -1),
     (-1, 0),
@@ -111,8 +115,8 @@ class GameState:
         board_size_y=DEFAULT_BOARD_SIZE_Y,
     ):
         self.players = [
-            Player(PLAYER_1_COLOR, PLAYER_1_START_POINT),
-            Player(PLAYER_2_COLOR, PLAYER_2_START_POINT),
+            Player(PLAYER_1_COLOR, PLAYER_1_START_POINT, energy=STARTING_ENERGY),
+            Player(PLAYER_2_COLOR, PLAYER_2_START_POINT, energy=STARTING_ENERGY),
         ]
         self.ai_player: Optional[AIPlayer] = None
         self.ai_player_index: Optional[int] = None
