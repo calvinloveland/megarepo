@@ -294,16 +294,17 @@
 
       let animating = false;
 
-      /** Replace #game with outerHTML from a response, then notify GameView. */
+      /** Replace #game with outerHTML from a response, then dispatch events. */
       function swapBoard(html) {
-        const game = document.getElementById('game');
-        if (!game) return;
-        game.outerHTML = html;
-        // Notify GameView (minimap + transform refresh)
-        const gv = window.__gameView;
-        if (gv) {
-          gv.game = document.getElementById('game');
-          gv.refresh();
+        const oldGame = document.getElementById('game');
+        if (!oldGame) return;
+        oldGame.outerHTML = html;
+        // Dispatch htmx:afterSwap so GameView's listener fires
+        const newGame = document.getElementById('game');
+        if (newGame) {
+          document.dispatchEvent(new CustomEvent('htmx:afterSwap', {
+            detail: { target: newGame },
+          }));
         }
       }
 
