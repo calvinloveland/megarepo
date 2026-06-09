@@ -294,11 +294,17 @@
 
       let animating = false;
 
-      /** Replace #game with outerHTML from a response. */
+      /** Replace #game with outerHTML from a response, then notify GameView. */
       function swapBoard(html) {
         const game = document.getElementById('game');
         if (!game) return;
         game.outerHTML = html;
+        // Notify GameView (minimap + transform refresh)
+        const gv = window.__gameView;
+        if (gv) {
+          gv.game = document.getElementById('game');
+          gv.refresh();
+        }
       }
 
       /** Read data-fib-remaining from the current #game element. */
@@ -319,9 +325,15 @@
 
       function post(path, cb) {
         fetch(path, { method: 'POST' })
-          .then(r => r.text())
+          .then(function(r) {
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            return r.text();
+          })
           .then(cb)
-          .catch(function(err) { console.error('End Turn error:', err); finish(); });
+          .catch(function(err) {
+            console.error('End Turn error:', err);
+            finish();
+          });
       }
 
       var finishTimer = null;
@@ -334,11 +346,11 @@
 
         post('/end_turn', function(html) {
           swapBoard(html);
-          scheduleNext();
+          // Small delay before first auto-step so the board renders
+          setTimeout(scheduleNext, 80);
         });
 
-        // Safety timeout — if something goes wrong, reset after 10s
-        finishTimer = setTimeout(finish, 10000);
+        finishTimer = setTimeout(finish, 30000);
       }
 
       function scheduleNext() {
@@ -352,7 +364,7 @@
             swapBoard(html);
             scheduleNext();
           });
-        }, 60);  // 60ms between ticks
+        }, 80);
       }
 
       function finish() {
