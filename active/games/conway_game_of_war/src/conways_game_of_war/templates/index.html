@@ -331,36 +331,69 @@
       };
     })();
     </script>
-    <!-- Optimistic cell update — instant visual feedback + request dedup -->
+    <!-- Lightweight cell click handler — JSON instead of 4MB HTML swap -->
     <script>
     (function() {
       'use strict';
-      var pendingCellReq = null;
+      var pendingAbort = null;
 
-      document.addEventListener('htmx:beforeRequest', function(e) {
-        if (!e.detail) return;
-        var path = e.detail.requestConfig && e.detail.requestConfig.path;
-        if (!path || path.indexOf('/update_cell') !== 0) return;
+      document.addEventListener('click', function(e) {
+        var cell = e.target.closest('.cell');
+        if (!cell) return;
+        var x = cell.getAttribute('data-x');
+        var y = cell.getAttribute('data-y');
+        if (x === null || y === null) return;
 
-        // Cancel pending cell update to prevent 4MB response pileup
-        if (pendingCellReq) {
-          try { pendingCellReq.xhr.abort(); } catch(ex) { /* ignore */ }
+        e.preventDefault();
+
+        // Abort previous pending request
+        if (pendingAbort) {
+          try { pendingAbort.abort(); } catch(ex) {}
         }
-        pendingCellReq = e.detail;
 
-        // Optimistically pulse the cell
-        var elt = e.detail.elt;
-        if (elt && elt.parentElement) {
-          elt.parentElement.classList.add('cell-pending');
-        }
-      });
+        // Pulse animation on the td
+        var td = cell.parentElement;
+        if (td) td.classList.add('cell-pending');
 
-      document.addEventListener('htmx:afterRequest', function(e) {
-        if (!e.detail) return;
-        var path = e.detail.requestConfig && e.detail.requestConfig.path;
-        if (path && path.indexOf('/update_cell') === 0) {
-          if (pendingCellReq === e.detail) pendingCellReq = null;
-        }
+        var controller = new AbortController();
+        pendingAbort = controller;
+
+        fetch('/update_cell?x=' + x + '&y=' + y + '&json=1', {
+          method: 'POST',
+          signal: controller.signal,
+        })
+        .then(function(r) {
+          if (!r.ok) throw new Error('HTTP ' + r.status);
+          return r.json();
+        })
+        .then(function(data) {
+          pendingAbort = null;
+          // Update just this cell's visual state
+          var game = document.getElementById('game');
+          if (!game) return;
+          var rows = game.querySelectorAll('tr');
+          var row = rows[data.y];
+          if (!row) return;
+          var targetTd = row.children[data.x];
+          if (!targetTd) return;
+          targetTd.style.backgroundColor = data.bg;
+          targetTd.style.borderColor = data.border;
+          targetTd.classList.remove('cell-pending');
+          // If the cell became immortal (game reset), remove data attrs
+          if (!data.has_hx) {
+            var innerDiv = targetTd.querySelector('.cell');
+            if (innerDiv) {
+              innerDiv.removeAttribute('data-x');
+              innerDiv.removeAttribute('data-y');
+              innerDiv.classList.remove('cell');
+            }
+          }
+        })
+        .catch(function(err) {
+          if (err.name === 'AbortError') return;
+          console.error('Cell update failed:', err);
+          if (td) td.classList.remove('cell-pending');
+        });
       });
     })();
     </script>

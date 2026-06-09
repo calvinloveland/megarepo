@@ -459,9 +459,8 @@ class GameState:
         if self.board[x][y].immortal:
             return f"<div style='height:{CELL_PX}px;width:{CELL_PX}px'></div>"
         return (
-            f"<div hx-trigger='click' hx-post='/update_cell?x={x}&y={y}' "
-            "hx-target='#game' hx-swap='outerHTML' "
-            f"style='height:{CELL_PX}px;width:{CELL_PX}px'></div>"
+            f"<div class='cell' data-x='{x}' data-y='{y}'"
+            f" style='height:{CELL_PX}px;width:{CELL_PX}px'></div>"
         )
 
     def flip_cell(self, x, y):

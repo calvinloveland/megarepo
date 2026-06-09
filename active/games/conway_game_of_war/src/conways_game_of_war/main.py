@@ -217,7 +217,8 @@ def step():
 
 @app.route("/update_cell", methods=["POST"])
 def update_cell():
-    """Update the state of a cell and return the updated game state as HTML."""
+    """Update the state of a cell.
+    Returns full HTML by default, or JSON when ?json=1 is set."""
     game = _get_game()
     x = flask.request.args.get("x", type=int)
     y = flask.request.args.get("y", type=int)
@@ -236,7 +237,35 @@ def update_cell():
         elif cell.owner == player_obj:
             cell.alive = not cell.alive
 
+    # JSON response for partial updates
+    if flask.request.args.get("json") == "1":
+        return _cell_json(game, x, y)
+
     return game.board_to_html(current_player_index=idx)
+
+
+def _cell_json(game, x, y):
+    """Return a lightweight JSON response for a single cell update."""
+    cell = game.board[x][y]
+    r, g, b = (50, 50, 50)  # default dead background
+    br, bg, bb = (150, 150, 150)  # default border
+    if cell.owner is not None:
+        r, g, b = cell.owner.color
+        br, bg, bb = cell.owner.color
+    # Boost green for crop
+    g = int(g + (255 / 2) * cell.crop_level)
+    r = max(0, min(255, r))
+    g = max(0, min(255, g))
+    b = max(0, min(255, b))
+    return flask.jsonify({
+        "x": x,
+        "y": y,
+        "alive": cell.alive,
+        "immortal": cell.immortal,
+        "bg": f"rgb({r},{g},{b})",
+        "border": f"rgb({br},{bg},{bb})",
+        "has_hx": not cell.immortal,  # whether this cell has a click handler
+    })
 
 
 @app.route("/zoom", methods=["POST"])
