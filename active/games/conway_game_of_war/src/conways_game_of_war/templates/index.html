@@ -327,15 +327,14 @@
       var btn = document.getElementById('end-turn-btn');
       if (!btn) return;
       var animating = false;
-      var refreshTimer = null;
+      var stepPending = false;
 
       btn.addEventListener('click', function(e) {
         if (animating) return;
         animating = true;
         btn.disabled = true;
         btn.textContent = '⏳';
-
-        // Use htmx.ajax with the button as source so afterOnLoad matches
+        stepPending = false;
         htmx.ajax('POST', '/end_turn', {
           source: btn,
           target: '#game',
@@ -343,56 +342,63 @@
         });
       });
 
-      function getRemaining() {
+      function readRemaining() {
         var game = document.getElementById('game');
         if (!game) return 0;
         var r = game.getAttribute('data-fib-remaining');
-        return r ? parseInt(r, 10) : 0;
+        return (r ? parseInt(r, 10) : 0);
       }
 
       function finish() {
         animating = false;
         btn.disabled = false;
         btn.textContent = '⏭ End Turn';
-        // Refresh status bar
         var sb = document.getElementById('status-bar');
         if (sb && sb.hasAttribute('hx-get')) htmx.trigger(sb, 'load');
       }
 
-      function scheduleNext() {
-        var remaining = getRemaining();
+      function tryFireStep() {
+        if (!animating) return;
+        if (stepPending) return;  // wait for current response
+        var remaining = readRemaining();
         if (remaining <= 0) {
           finish();
           return;
         }
-        setTimeout(function() {
-          htmx.ajax('POST', '/step', {
-            source: btn,
-            target: '#game',
-            swap: 'outerHTML',
-          });
-        }, 80);
+        stepPending = true;
+        htmx.ajax('POST', '/step', {
+          source: btn,
+          target: '#game',
+          swap: 'outerHTML',
+        });
+        // Poll again after a delay
+        setTimeout(tryFireStep, 100);
       }
 
-      // After each request completes (/end_turn or /step), schedule next
-      document.addEventListener('htmx:afterOnLoad', function(e) {
-        if (!e.detail) return;
-        var elt = e.detail.elt;
-        if (!elt) return;
-        // Only handle requests from our button
-        if (elt.id === 'end-turn-btn' && animating) {
-          scheduleNext();
-        }
-      });
-
-      // Debounced status bar refresh after any #game swap
+      // Single afterSwap handler for animation + status bar
+      var refreshTimer = null;
       document.addEventListener('htmx:afterSwap', function(e) {
-        if (e.detail && e.detail.target && e.detail.target.id === 'game') {
-          if (refreshTimer) clearTimeout(refreshTimer);
-          refreshTimer = setTimeout(function() {
-            var sb = document.getElementById('status-bar');
-            if (sb && sb.hasAttribute('hx-get')) htmx.trigger(sb, 'load');
-          }, 500);
+        if (!e.detail || !e.detail.target) return;
+        if (e.detail.target.id !== 'game') return;
+
+        // Status bar refresh (debounced)
+        if (refreshTimer) clearTimeout(refreshTimer);
+        refreshTimer = setTimeout(function() {
+          var sb = document.getElementById('status-bar');
+          if (sb && sb.hasAttribute('hx-get')) htmx.trigger(sb, 'load');
+        }, 500);
+
+        if (!animating) return;
+
+        // A swap just occurred — a /step response arrived or /end_turn
+        stepPending = false;
+
+        // If remaining > 0, schedule the next step
+        if (readRemaining() > 0) {
+          setTimeout(tryFireStep, 80);
+        } else if (!stepPending) {
+          // remaining is 0 and no step pending — done
+          finish();
         }
       });
     })();

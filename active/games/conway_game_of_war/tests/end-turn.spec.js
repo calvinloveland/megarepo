@@ -117,11 +117,12 @@ test.describe('End Turn animation', () => {
   test('no JS errors during End Turn animation', async ({ page }) => {
     await clickEndTurn(page);
     const entries = consoleErrors.get(test.info().title) || [];
-    // Filter out benign 404 for favicon
     const errors = entries.filter(function(e) {
       return (e.startsWith('CONSOLE ERROR') || e.startsWith('PAGE ERROR'))
         && e.indexOf('404') === -1;
     });
     expect(errors.length).toBe(0);
   });
+
+
 });
