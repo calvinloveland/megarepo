@@ -208,6 +208,8 @@ def update_cell():
                 player_obj.energy -= game_state.ENERGY_PER_CELL
                 cell.owner = player_obj
                 cell.alive = True
+                # Territory expansion: neighbours become owned too
+                game._claim_neighbors(x, y, player_obj)
         elif cell.owner == player_obj:
             # Toggling an owned cell is free
             cell.alive = not cell.alive

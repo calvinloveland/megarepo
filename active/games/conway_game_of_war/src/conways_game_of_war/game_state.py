@@ -139,12 +139,25 @@ class GameState:
         for row in self.board:
             assert len(row) == self.board_size_y
 
+    def _claim_neighbors(self, x: int, y: int, player: Player) -> None:
+        """Claim the 8 neighbour cells for the given player (territory expansion)."""
+        for i, j in NEIGHBOR_OFFSETS:
+            nx = (x + i) % self.board_size_x
+            ny = (y + j) % self.board_size_y
+            cell = self.board[nx][ny]
+            if cell.owner is None and not cell.immortal:
+                cell.owner = player
+
     def init_players(self):
         """Initialize the players on the board."""
         for player in self.players:
-            self.board[player.start_point[0]][player.start_point[1]].owner = player
-            self.board[player.start_point[0]][player.start_point[1]].alive = True
-            self.board[player.start_point[0]][player.start_point[1]].immortal = True
+            sx, sy = player.start_point
+            cell = self.board[sx][sy]
+            cell.owner = player
+            cell.alive = True
+            cell.immortal = True
+            # Territory: neighbours of the start cell are also owned
+            self._claim_neighbors(sx, sy, player)
 
     def collect_frontier_cells(self, player_obj: Player) -> list[tuple[int, int]]:
         """Collect legal frontier cells for an AI move."""
