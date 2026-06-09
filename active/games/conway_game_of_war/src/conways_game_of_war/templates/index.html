@@ -261,7 +261,8 @@
           <span class="ai-badge" id="ai-badge">{% if ai_difficulty %}🤖 {{ ai_difficulty }}{% endif %}</span>
           <button class="ctrl-btn" id="help-btn" type="button" title="Keyboard shortcuts">?</button>
           <button class="ctrl-btn" id="minimap-toggle" type="button" title="Toggle minimap">🗺</button>
-          <button class="ctrl-btn" id="end-turn-btn" type="button">⏭ End Turn</button>
+          <button class="ctrl-btn" id="end-turn-btn"
+                  hx-post="/end_turn" hx-target="#game" hx-swap="outerHTML">⏭ End Turn</button>
           <button class="ctrl-btn" hx-post="/reset" hx-target="#game" hx-swap="outerHTML">⟳ Reset</button>
         </div>
       </div>
