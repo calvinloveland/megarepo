@@ -23,8 +23,7 @@ PLAYER_2_START_POINT = (DEFAULT_BOARD_SIZE_X - 20, DEFAULT_BOARD_SIZE_Y - 20)
 
 # Energy
 ENERGY_PER_CELL = 1.0        # cost to claim a new cell
-ENERGY_PER_TICK = 0.5        # energy per alive cell per tick
-STARTING_ENERGY = 15.0        # energy each player begins with
+STARTING_ENERGY = 5.0         # energy each player begins with
 
 NEIGHBOR_OFFSETS = [
     (-1, -1),
@@ -115,8 +114,22 @@ class MediumAIPlayer(AIPlayer):
 
 
 class HardAIPlayer(AIPlayer):
-    """Hard AI: claims frontier cells closest to the enemy's start point
-    (offensive — pushes into enemy territory)."""
+    """Hard AI: builds 2×2 block clusters near the enemy's start point.
+    Block clusters survive GoL (each cell has 3 neighbours inside the
+    block), letting the AI establish a beachhead."""
+
+    def _find_block_cells(self, game_state, player_obj, cx, cy):
+        """Find up to 4 cells forming a 2×2 block anchored at (cx,cy).
+        Returns a list of (x,y) that can be claimed."""
+        cells = []
+        block = [(cx, cy), (cx, cy + 1), (cx + 1, cy), (cx + 1, cy + 1)]
+        for x, y in block:
+            nx = x % game_state.board_size_x
+            ny = y % game_state.board_size_y
+            cell = game_state.board[nx][ny]
+            if not cell.alive and cell.owner in (None, player_obj) and not cell.immortal:
+                cells.append((nx, ny))
+        return cells
 
     def make_move(self, game_state):
         idx = (
@@ -132,15 +145,30 @@ class HardAIPlayer(AIPlayer):
             frontier = game_state.collect_fallback_frontier(player_obj)
         if not frontier:
             return
-        # Score each cell by inverse distance to opponent's start
-        scored = [
-            (abs(x - ox) + abs(y - oy), x, y) for x, y in frontier
-        ]
+
+        # Score frontier cells: closer to enemy = higher priority.
+        # Also prefer cells that can form a 2×2 block.
+        scored = []
+        for x, y in frontier:
+            dist = abs(x - ox) + abs(y - oy)
+            block = self._find_block_cells(game_state, player_obj, x, y)
+            # If we can form at least a 2×2 block, this is a great spot
+            bonus = -50 if len(block) >= 3 else (-20 if len(block) >= 2 else 0)
+            scored.append((dist + bonus, x, y))
         scored.sort(key=lambda t: t[0])
         best = scored[0]
         ties = [s for s in scored if s[0] == best[0]]
         _, x, y = random.choice(ties)
+
+        # Claim the primary cell
         game_state._claim_cell(x, y, player_obj)
+
+        # If we have energy, build a 2×2 block around the claim
+        block = self._find_block_cells(game_state, player_obj, x, y)
+        for bx, by in block:
+            cell = game_state.board[bx][by]
+            if cell.owner != player_obj or not cell.alive:
+                game_state._claim_cell(bx, by, player_obj)
 
 
 class GameState:
@@ -237,23 +265,7 @@ class GameState:
         target.owner = player_obj
         target.alive = True
         self._claim_neighbors(x, y, player_obj)
-        # Also activate one random already-owned neighbour so the new
-        # cell has company and doesn't die from GoL underpopulation.
-        self._activate_random_owned_neighbour(x, y, player_obj)
         return True
-
-    def _activate_random_owned_neighbour(self, x: int, y: int, player_obj: Player):
-        """Toggle one random owned-but-dead neighbour to alive (free)."""
-        dead_owned = []
-        for i, j in NEIGHBOR_OFFSETS:
-            nx = (x + i) % self.board_size_x
-            ny = (y + j) % self.board_size_y
-            cell = self.board[nx][ny]
-            if cell.owner == player_obj and not cell.alive and not cell.immortal:
-                dead_owned.append((nx, ny))
-        if dead_owned:
-            ax, ay = random.choice(dead_owned)
-            self.board[ax][ay].alive = True
 
     def _is_frontier_cell(self, x: int, y: int, player_obj: Player) -> bool:
         cell = self.board[x][y]
@@ -376,15 +388,10 @@ class GameState:
     def _resolve_alive_state(
         self, cell: CellState, friendly_neighbors: int, in_combat: bool
     ) -> bool:
-        """Determine if a cell survives based on GoL rules alone.
-        
-        Combat does NOT kill cells outright — it's handled by
-        _compute_new_owner which transfers ownership based on neighbour
-        counts.  This allows territory to be contested rather than
-        creating a permanent dead zone."""
         if cell.immortal:
             return cell.alive
-        # Standard GoL: birth if 3 neighbours, survive if 2-3
+        if in_combat and cell.alive:
+            return False
         if not cell.alive:
             return friendly_neighbors == 3
         return 2 <= friendly_neighbors <= 3
@@ -414,12 +421,6 @@ class GameState:
         self.update_friend_counts()
         changes = self._collect_changes()
         self._apply_changes(changes)
-        # Per-tick energy income from alive cells
-        for player in self.players:
-            for row in self.board:
-                for cell in row:
-                    if cell.alive and cell.owner == player:
-                        player.energy += ENERGY_PER_TICK
         if self.ai_player:
             self.ai_player.make_move(self)
         return self.board
