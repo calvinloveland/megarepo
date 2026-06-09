@@ -261,8 +261,7 @@
           <span class="ai-badge" id="ai-badge">{% if ai_difficulty %}🤖 {{ ai_difficulty }}{% endif %}</span>
           <button class="ctrl-btn" id="help-btn" type="button" title="Keyboard shortcuts">?</button>
           <button class="ctrl-btn" id="minimap-toggle" type="button" title="Toggle minimap">🗺</button>
-          <button class="ctrl-btn" id="end-turn-btn"
-                  hx-post="/end_turn" hx-target="#game" hx-swap="outerHTML">⏭ End Turn</button>
+          <button class="ctrl-btn" id="end-turn-btn" type="button">⏭ End Turn</button>
           <button class="ctrl-btn" hx-post="/reset" hx-target="#game" hx-swap="outerHTML">⟳ Reset</button>
         </div>
       </div>
@@ -327,17 +326,66 @@
       'use strict';
       var btn = document.getElementById('end-turn-btn');
       if (!btn) return;
-      var animating = 0;
+      var animating = false;
       var refreshTimer = null;
 
-      document.addEventListener('htmx:beforeRequest', function(e) {
-        if (e.detail && e.detail.elt && e.detail.elt.id === 'end-turn-btn') {
-          animating++;
-          btn.disabled = true;
-          btn.textContent = '⏳';
+      btn.addEventListener('click', function(e) {
+        if (animating) return;
+        animating = true;
+        btn.disabled = true;
+        btn.textContent = '⏳';
+
+        // Use htmx.ajax with the button as source so afterOnLoad matches
+        htmx.ajax('POST', '/end_turn', {
+          source: btn,
+          target: '#game',
+          swap: 'outerHTML',
+        });
+      });
+
+      function getRemaining() {
+        var game = document.getElementById('game');
+        if (!game) return 0;
+        var r = game.getAttribute('data-fib-remaining');
+        return r ? parseInt(r, 10) : 0;
+      }
+
+      function finish() {
+        animating = false;
+        btn.disabled = false;
+        btn.textContent = '⏭ End Turn';
+        // Refresh status bar
+        var sb = document.getElementById('status-bar');
+        if (sb && sb.hasAttribute('hx-get')) htmx.trigger(sb, 'load');
+      }
+
+      function scheduleNext() {
+        var remaining = getRemaining();
+        if (remaining <= 0) {
+          finish();
+          return;
+        }
+        setTimeout(function() {
+          htmx.ajax('POST', '/step', {
+            source: btn,
+            target: '#game',
+            swap: 'outerHTML',
+          });
+        }, 80);
+      }
+
+      // After each request completes (/end_turn or /step), schedule next
+      document.addEventListener('htmx:afterOnLoad', function(e) {
+        if (!e.detail) return;
+        var elt = e.detail.elt;
+        if (!elt) return;
+        // Only handle requests from our button
+        if (elt.id === 'end-turn-btn' && animating) {
+          scheduleNext();
         }
       });
 
+      // Debounced status bar refresh after any #game swap
       document.addEventListener('htmx:afterSwap', function(e) {
         if (e.detail && e.detail.target && e.detail.target.id === 'game') {
           if (refreshTimer) clearTimeout(refreshTimer);
@@ -345,17 +393,6 @@
             var sb = document.getElementById('status-bar');
             if (sb && sb.hasAttribute('hx-get')) htmx.trigger(sb, 'load');
           }, 500);
-        }
-      });
-
-      document.addEventListener('htmx:afterOnLoad', function(e) {
-        if (e.detail && e.detail.elt && e.detail.elt.id === 'end-turn-btn') {
-          animating--;
-          if (animating <= 0) {
-            animating = 0;
-            btn.disabled = false;
-            btn.textContent = '⏭ End Turn';
-          }
         }
       });
     })();

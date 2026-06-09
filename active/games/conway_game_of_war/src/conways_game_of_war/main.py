@@ -99,11 +99,9 @@ def _apply_session_options_to_game():
     if p2_rgb:
         game.players[game_state.PLAYER_2].color = p2_rgb
 
-    # Configure AI side/difficulty once per session change
     ai_diff = flask.session.get("ai_difficulty")
     player_choice = flask.session.get("player")
     if ai_diff:
-        # If the human is player1, AI is player2 and vice versa
         if player_choice == "player1":
             ai_index = game_state.PLAYER_2
         else:
@@ -188,43 +186,33 @@ def get_game_state():
 
 @app.route("/end_turn", methods=["POST"])
 def end_turn():
-    """Start a Fibonacci-sized turn: advance ONE tick and store remaining steps.
-    The client animates the remaining ticks by calling /step repeatedly."""
+    """Start a Fibonacci-sized turn: advance ONE tick.
+    The response includes hx-trigger on the table if more steps remain."""
     game = _get_game()
     prev = app.config["FIB_PREV"]
     curr = app.config["FIB_CURR"]  # total steps for this turn
-    # Move to next Fibonacci number for NEXT turn
     app.config["FIB_PREV"] = curr
     app.config["FIB_CURR"] = prev + curr
-    # Store remaining steps (total - 1, since we take one now)
-    app.config["FIB_REMAINING"] = curr - 1
+    remaining = curr - 1
+    app.config["FIB_REMAINING"] = remaining
     game.update()
-    html = game.board_to_html(current_player_index=_current_player_index())
-    return _append_step_trigger(html, curr - 1)
-
-
-def _append_step_trigger(html: str, remaining: int) -> str:
-    """Append a hidden HTMX trigger div for auto-advancing the next step.
-    When remaining <= 0 the trigger is omitted and animation stops."""
-    if remaining <= 0:
-        return html
-    return html + (
-        f'<div hx-post="/step" hx-target="#game" hx-swap="outerHTML"'
-        f' hx-trigger="load delay:100ms" style="display:none"></div>'
-    )
+    return game.board_to_html(current_player_index=_current_player_index(),
+                              fib_remaining=remaining)
 
 
 @app.route("/step", methods=["POST"])
 def step():
-    """Advance one tick and return the board; append auto-trigger if more steps remain."""
+    """Advance one tick and return the board.
+    Table includes hx-trigger for next step if more steps remain."""
     game = _get_game()
     remaining = app.config.get("FIB_REMAINING", 0)
+    next_remaining = 0
     if remaining > 0:
         app.config["FIB_REMAINING"] = remaining - 1
+        next_remaining = remaining - 1
     game.update()
-    next_remaining = remaining - 1 if remaining > 0 else 0
-    html = game.board_to_html(current_player_index=_current_player_index())
-    return _append_step_trigger(html, next_remaining)
+    return game.board_to_html(current_player_index=_current_player_index(),
+                              fib_remaining=next_remaining)
 
 
 @app.route("/update_cell", methods=["POST"])
@@ -240,15 +228,12 @@ def update_cell():
     cell = game.board[x][y]
     if _cell_can_toggle(game, x, y, player_obj):
         if cell.owner is None:
-            # Claiming a new cell costs energy
             if player_obj.energy >= game_state.ENERGY_PER_CELL:
                 player_obj.energy -= game_state.ENERGY_PER_CELL
                 cell.owner = player_obj
                 cell.alive = True
-                # Territory expansion: neighbours become owned too
                 game._claim_neighbors(x, y, player_obj)
         elif cell.owner == player_obj:
-            # Toggling an owned cell is free
             cell.alive = not cell.alive
 
     return game.board_to_html(current_player_index=idx)
@@ -284,8 +269,8 @@ def _energy_html(game) -> str:
     human_name = "Player 1" if player_key == "player1" else "Player 2"
     diff = _ai_display_name()
     ai_info = f" · AI: {diff}" if diff else ""
-
     fib_steps = app.config["FIB_CURR"]
+
     return (
         f'<span style="color:{p1_color}">⬤ P1</span> '
         f'⚡{p1.energy:.1f} 🏠{p1_cells} '

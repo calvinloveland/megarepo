@@ -400,10 +400,12 @@ class GameState:
             color = cell.owner.color
         return self._clamp_rgb(*color)
 
-    def board_to_html(self, current_player_index: Optional[int] = None):
-        """Convert the board to an html string, with data for client-side zoom."""
+    def board_to_html(self, current_player_index: Optional[int] = None,
+                       fib_remaining: int = 0):
+        """Convert the board to an html string, with data for client-side zoom.
+        If fib_remaining > 0 the table tag includes an auto-trigger for /step."""
         bbox = self._player_bbox(current_player_index)
-        html = [self._table_prefix(*bbox)]
+        html = [self._table_prefix(*bbox, fib_remaining)]
         for y in range(self.board_size_y):
             html.append("<tr>")
             for x in range(self.board_size_x):
@@ -431,13 +433,16 @@ class GameState:
             return sx, sy, sx, sy
         return xmin, ymin, xmax, ymax
 
-    def _table_prefix(self, xmin: int, ymin: int, xmax: int, ymax: int) -> str:
+    def _table_prefix(self, xmin: int, ymin: int, xmax: int, ymax: int,
+                       fib_remaining: int = 0) -> str:
+        fib_attr = f' data-fib-remaining="{fib_remaining}"'
         return (
             "<style>table {border-collapse: collapse;} "
             "td {padding: 0;} #game{transform-origin:0 0;}</style>"
             f"<table id='game' data-bbox-xmin='{xmin}' data-bbox-ymin='{ymin}' "
             f"data-bbox-xmax='{xmax}' data-bbox-ymax='{ymax}' data-cell-px='{CELL_PX}' "
-            f"data-board-w='{self.board_size_x}' data-board-h='{self.board_size_y}'>"
+            f"data-board-w='{self.board_size_x}' data-board-h='{self.board_size_y}'"
+            f"{fib_attr}>"
         )
 
     def _cell_html(self, x: int, y: int) -> str:
