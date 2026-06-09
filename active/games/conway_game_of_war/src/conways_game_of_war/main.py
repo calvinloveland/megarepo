@@ -20,8 +20,9 @@ app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-key")
 
 app.config["GAME"] = game_state.GameState()
 app.config["ZOOM_LEVEL"] = 1.0
-app.config["FIB_PREV"] = 0  # fib(n-1)
-app.config["FIB_CURR"] = 1  # fib(n) — starts at 1
+app.config["FIB_PREV"] = 0       # fib(n-1)
+app.config["FIB_CURR"] = 1       # fib(n)
+app.config["FIB_REMAINING"] = 0  # steps left in current turn animation
 
 
 def _hex_to_rgb(hex_color: str):
@@ -186,17 +187,43 @@ def get_game_state():
 
 @app.route("/end_turn", methods=["POST"])
 def end_turn():
-    """Advance the game by a Fibonacci-growing number of ticks."""
+    """Start a Fibonacci-sized turn: advance ONE tick and store remaining steps.
+    The client animates the remaining ticks by calling /step repeatedly."""
     game = _get_game()
-    prev = app.config["FIB_PREV"]  # fib(n-1)
-    curr = app.config["FIB_CURR"]  # fib(n)
-    steps = curr  # number of ticks this turn
-    # Move to next Fibonacci number
+    prev = app.config["FIB_PREV"]
+    curr = app.config["FIB_CURR"]  # total steps for this turn
+    # Move to next Fibonacci number for NEXT turn
     app.config["FIB_PREV"] = curr
     app.config["FIB_CURR"] = prev + curr
-    for _ in range(steps):
-        game.update()
-    return game.board_to_html(current_player_index=_current_player_index())
+    # Store remaining steps (total - 1, since we take one now)
+    app.config["FIB_REMAINING"] = curr - 1
+    game.update()
+    html = game.board_to_html(current_player_index=_current_player_index())
+    return _embed_remaining(html, curr - 1)
+
+
+def _embed_remaining(html: str, remaining: int) -> str:
+    """Embed the remaining step count in the #game element for the client."""
+    marker = 'data-board-w='
+    idx = html.find(marker)
+    if idx == -1:
+        return html
+    space = html.rfind(' ', 0, idx)
+    if space == -1:
+        space = html.find('>', idx)
+    return html[:space] + f' data-fib-remaining="{remaining}"' + html[space:]
+
+
+@app.route("/step", methods=["POST"])
+def step():
+    """Advance one tick and return the board with remaining count embedded."""
+    game = _get_game()
+    remaining = app.config.get("FIB_REMAINING", 0)
+    if remaining > 0:
+        app.config["FIB_REMAINING"] = remaining - 1
+    game.update()
+    html = game.board_to_html(current_player_index=_current_player_index())
+    return _embed_remaining(html, remaining - 1 if remaining > 0 else 0)
 
 
 @app.route("/update_cell", methods=["POST"])
@@ -277,6 +304,7 @@ def reset():
     _apply_session_options_to_game()
     app.config["FIB_PREV"] = 0
     app.config["FIB_CURR"] = 1
+    app.config["FIB_REMAINING"] = 0
     return game.board_to_html(current_player_index=_current_player_index())
 
 
