@@ -303,16 +303,13 @@ class GameState:
                 count += 1
         return count
 
-    def update_friend_counts(self):
-        """
-        Update per-cell neighbour counts for GoL rules.
-        Uses *total* alive neighbours so unowned cells adjacent to
-        player territory are born correctly.
-        """
+    def update_friend_counts(self, x0=0, y0=0, x1=None, y1=None):
+        """Update per-cell neighbour counts for cells in [x0..x1]×[y0..y1]."""
+        if x1 is None: x1 = self.board_size_x - 1
+        if y1 is None: y1 = self.board_size_y - 1
         board = self.board
-        sx, sy = self.board_size_x, self.board_size_y
-        for x in range(sx):
-            for y in range(sy):
+        for x in range(x0, x1 + 1):
+            for y in range(y0, y1 + 1):
                 board[x][y].friendly_neighbors = self.count_alive_neighbors(x, y)
 
     def _has_unfriendly_neighbor(self, x, y, player):
@@ -414,32 +411,62 @@ class GameState:
         return {}
 
     def update_cell(self, x, y):
-        """
-        Update the state of a cell following the rules of conway's game of life.
-        with the additional rules of war!
-        """
-        self.update_friend_counts()
+        """Update the state of a cell at (x,y)."""
+        margin = 1
+        x0 = max(0, x - margin)
+        y0 = max(0, y - margin)
+        x1 = min(self.board_size_x - 1, x + margin)
+        y1 = min(self.board_size_y - 1, y + margin)
+        self.update_friend_counts(x0, y0, x1, y1)
         change = self._compute_cell_update(x, y)
         if change:
             self._apply_change(change)
 
+    def _compute_active_bounds(self, margin: int = 2):
+        """Return (xmin, ymin, xmax, ymax) bounding box of all alive cells
+        plus margin.  If no alive cells, returns the full board."""
+        board = self.board
+        sx, sy = self.board_size_x, self.board_size_y
+        xmin, ymin = sx, sy
+        xmax, ymax = -1, -1
+        for x in range(sx):
+            row = board[x]
+            for y in range(sy):
+                if row[y].alive:
+                    if x < xmin: xmin = x
+                    if x > xmax: xmax = x
+                    if y < ymin: ymin = y
+                    if y > ymax: ymax = y
+        if xmax < xmin:
+            return 0, 0, sx - 1, sy - 1
+        return (
+            max(0, xmin - margin),
+            max(0, ymin - margin),
+            min(sx - 1, xmax + margin),
+            min(sy - 1, ymax + margin),
+        )
+
     def update(self):
         """Update the board.
-        
-        Uses a copy-based approach to avoid reading partially-updated state
-        when calculating cell transitions (fixes issue #24).
+        Only processes cells within the active bounding box (alive cells +
+        margin) instead of the full board, for a significant speedup when
+        activity is sparse.
         """
-        self.update_friend_counts()
-        changes = self._collect_changes()
+        bounds = self._compute_active_bounds(margin=2)
+        x0, y0, x1, y1 = bounds
+        self.update_friend_counts(x0, y0, x1, y1)
+        changes = self._collect_changes(x0, y0, x1, y1)
         self._apply_changes(changes)
         if self.ai_player:
             self.ai_player.make_move(self)
         return self.board
 
-    def _collect_changes(self) -> list[dict]:
+    def _collect_changes(self, x0=0, y0=0, x1=None, y1=None) -> list[dict]:
+        if x1 is None: x1 = self.board_size_x - 1
+        if y1 is None: y1 = self.board_size_y - 1
         changes = []
-        for x in range(self.board_size_x):
-            for y in range(self.board_size_y):
+        for x in range(x0, x1 + 1):
+            for y in range(y0, y1 + 1):
                 change = self._compute_cell_update(x, y)
                 if change:
                     changes.append(change)
