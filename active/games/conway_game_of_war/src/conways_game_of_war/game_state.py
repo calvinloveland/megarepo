@@ -283,18 +283,22 @@ class GameState:
 
     def count_friendly_neighbors(self, x, y, player):
         """Count same-owner alive neighbours (used for click validation)."""
+        board = self.board
+        sx, sy = self.board_size_x, self.board_size_y
         count = 0
         for i, j in NEIGHBOR_OFFSETS:
-            cell = self.board[(x + i) % self.board_size_x][(y + j) % self.board_size_y]
+            cell = board[(x + i) % sx][(y + j) % sy]
             if cell.alive and cell.owner == player:
                 count += 1
         return count
 
     def count_alive_neighbors(self, x, y):
         """Count ALL alive neighbours regardless of owner (used for GoL rules)."""
+        board = self.board
+        sx, sy = self.board_size_x, self.board_size_y
         count = 0
         for i, j in NEIGHBOR_OFFSETS:
-            cell = self.board[(x + i) % self.board_size_x][(y + j) % self.board_size_y]
+            cell = board[(x + i) % sx][(y + j) % sy]
             if cell.alive:
                 count += 1
         return count
@@ -302,31 +306,30 @@ class GameState:
     def update_friend_counts(self):
         """
         Update per-cell neighbour counts for GoL rules.
-        
-        Uses *total* alive neighbours (not just friendly) so that unowned
-        cells next to player territory are born correctly.  The war mechanic
-        (friendly-only counting) applies to ownership changes instead.
+        Uses *total* alive neighbours so unowned cells adjacent to
+        player territory are born correctly.
         """
-        for x in range(self.board_size_x):
-            for y in range(self.board_size_y):
-                self.board[x][y].friendly_neighbors = self.count_alive_neighbors(x, y)
+        board = self.board
+        sx, sy = self.board_size_x, self.board_size_y
+        for x in range(sx):
+            for y in range(sy):
+                board[x][y].friendly_neighbors = self.count_alive_neighbors(x, y)
 
     def _has_unfriendly_neighbor(self, x, y, player):
         """Check if cell has any unfriendly neighbors (for combat)."""
         if player is None:
             return False
-        for i in range(-1, 2):
-            for j in range(-1, 2):
-                if i == 0 and j == 0:
+        p0 = self.players[0]
+        p1 = self.players[1]
+        for i, j in NEIGHBOR_OFFSETS:
+            neighbor_cell = self.board[(x + i) % self.board_size_x][
+                (y + j) % self.board_size_y
+            ]
+            if neighbor_cell.alive and neighbor_cell.owner is not None:
+                # Identity check — avoid expensive dataclass ==
+                if neighbor_cell.owner is not p0 and neighbor_cell.owner is not p1:
                     continue
-                neighbor_cell = self.board[(x + i) % self.board_size_x][
-                    (y + j) % self.board_size_y
-                ]
-                if (
-                    neighbor_cell.alive
-                    and neighbor_cell.owner is not None
-                    and neighbor_cell.owner != player
-                ):
+                if neighbor_cell.owner is not player:
                     return True
         return False
 
@@ -336,21 +339,29 @@ class GameState:
         player_counts = self._count_neighbor_owners(x, y)
         return self._pick_owner_from_counts(cell.owner, player_counts)
 
+    def _player_idx(self, player) -> int:
+        """Fast identity-based player lookup (avoids dataclass __eq__)."""
+        return 0 if player is self.players[0] else 1
+
     def _count_neighbor_owners(self, x: int, y: int) -> list[int]:
-        player_counts = [0 for _ in range(len(self.players))]
+        player_counts = [0, 0]
+        p0 = self.players[0]
         for i, j in NEIGHBOR_OFFSETS:
             loop_cell = self.board[(x + i) % self.board_size_x][
                 (y + j) % self.board_size_y
             ]
             if loop_cell.alive and loop_cell.owner is not None:
-                player_counts[self.players.index(loop_cell.owner)] += 1
+                if loop_cell.owner is p0:
+                    player_counts[0] += 1
+                else:
+                    player_counts[1] += 1
         return player_counts
 
     def _pick_owner_from_counts(
         self, current_owner: Optional[Player], player_counts: list[int]
     ) -> Optional[Player]:
         current_owner_count = (
-            player_counts[self.players.index(current_owner)]
+            player_counts[self._player_idx(current_owner)]
             if current_owner is not None
             else 0
         )
