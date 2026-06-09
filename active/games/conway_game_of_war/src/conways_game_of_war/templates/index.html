@@ -248,6 +248,16 @@
           max-width: 120px;
         }
       }
+
+      /* cell click pulse feedback */
+      @keyframes cell-pulse {
+        0%   { filter: brightness(1); }
+        30%  { filter: brightness(1.8); }
+        100% { filter: brightness(1); }
+      }
+      td.cell-pending > div {
+        animation: cell-pulse 0.35s ease-out;
+      }
     </style>
   </head>
   <body> 
@@ -319,6 +329,39 @@
         logToServer('console.error', args.map(function(a) { return typeof a === 'string' ? a : JSON.stringify(a); }).join(' '));
         return origConsoleError.apply(console, args);
       };
+    })();
+    </script>
+    <!-- Optimistic cell update — instant visual feedback + request dedup -->
+    <script>
+    (function() {
+      'use strict';
+      var pendingCellReq = null;
+
+      document.addEventListener('htmx:beforeRequest', function(e) {
+        if (!e.detail) return;
+        var path = e.detail.requestConfig && e.detail.requestConfig.path;
+        if (!path || path.indexOf('/update_cell') !== 0) return;
+
+        // Cancel pending cell update to prevent 4MB response pileup
+        if (pendingCellReq) {
+          try { pendingCellReq.xhr.abort(); } catch(ex) { /* ignore */ }
+        }
+        pendingCellReq = e.detail;
+
+        // Optimistically pulse the cell
+        var elt = e.detail.elt;
+        if (elt && elt.parentElement) {
+          elt.parentElement.classList.add('cell-pending');
+        }
+      });
+
+      document.addEventListener('htmx:afterRequest', function(e) {
+        if (!e.detail) return;
+        var path = e.detail.requestConfig && e.detail.requestConfig.path;
+        if (path && path.indexOf('/update_cell') === 0) {
+          if (pendingCellReq === e.detail) pendingCellReq = null;
+        }
+      });
     })();
     </script>
     <script>
