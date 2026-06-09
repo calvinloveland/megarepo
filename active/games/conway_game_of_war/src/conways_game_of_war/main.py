@@ -4,6 +4,7 @@ import os
 from typing import Tuple
 
 import flask
+from loguru import logger
 
 from . import game_state
 
@@ -306,6 +307,19 @@ def reset():
     app.config["FIB_CURR"] = 1
     app.config["FIB_REMAINING"] = 0
     return game.board_to_html(current_player_index=_current_player_index())
+
+
+@app.route("/log_error", methods=["POST"])
+def log_error():
+    """Client-side error logger — logs JS errors to the server log."""
+    data = flask.request.get_json(silent=True) or {}
+    level = data.get("level", "unknown")
+    msg = data.get("message", "")
+    stack = data.get("stack", "")
+    logger.error(f"JS {level}: {msg}")
+    if stack:
+        logger.error(f"Stack:\n{stack}")
+    return ("", 204)
 
 
 if __name__ == "__main__":

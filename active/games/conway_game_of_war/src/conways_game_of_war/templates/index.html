@@ -286,6 +286,42 @@
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
     <script src="{{ url_for('static', filename='game-view.js') }}?v=2"></script>
     <script>
+    /* Remote error logger — POSTs uncaught errors to /log_error */
+    (function() {
+      var seen = new Set();
+      function logToServer(level, msg, stack) {
+        var key = level + ':' + msg;
+        if (seen.has(key)) return;
+        seen.add(key);
+        try {
+          var payload = JSON.stringify({ level: level, message: msg, stack: stack || null });
+          if (navigator.sendBeacon) {
+            navigator.sendBeacon('/log_error', payload);
+          } else {
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', '/log_error', true);
+            xhr.setRequestHeader('Content-Type', 'application/json');
+            xhr.send(payload);
+          }
+        } catch(e) { /* best-effort */ }
+      }
+      window.addEventListener('error', function(e) {
+        logToServer('error', e.message || String(e), e.error && e.error.stack ? e.error.stack : null);
+      });
+      window.addEventListener('unhandledrejection', function(e) {
+        var reason = e.reason || {};
+        logToServer('unhandledrejection', reason.message || String(reason), reason.stack || null);
+      });
+      // Also patch console.error so HTMX errors show up
+      var origConsoleError = console.error;
+      console.error = function() {
+        var args = Array.prototype.slice.call(arguments);
+        logToServer('console.error', args.map(function(a) { return typeof a === 'string' ? a : JSON.stringify(a); }).join(' '));
+        return origConsoleError.apply(console, args);
+      };
+    })();
+    </script>
+    <script>
     (function() {
       'use strict';
 
