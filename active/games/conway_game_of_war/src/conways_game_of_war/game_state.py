@@ -86,23 +86,60 @@ class EasyAIPlayer(AIPlayer):
 
 
 class MediumAIPlayer(AIPlayer):
-    """Represents a medium AI player in the game."""
+    """Medium AI: claims the frontier cell with the most friendly neighbours
+    (prefers denser clusters for better survival)."""
 
     def make_move(self, game_state):
-        """Make a move targeting specific areas of the board.
-        
-        TODO: Implement a more advanced strategy here.
-        """
+        idx = (
+            game_state.ai_player_index
+            if game_state.ai_player_index is not None
+            else PLAYER_2
+        )
+        player_obj = game_state.players[idx]
+        frontier = game_state.collect_frontier_cells(player_obj)
+        if not frontier:
+            frontier = game_state.collect_fallback_frontier(player_obj)
+        if not frontier:
+            return
+        # Score each cell by friendly neighbour count (prefer denser areas)
+        scored = [
+            (game_state.count_friendly_neighbors(x, y, player_obj), x, y)
+            for x, y in frontier
+        ]
+        scored.sort(key=lambda t: -t[0])
+        best = scored[0]
+        ties = [s for s in scored if s[0] == best[0]]
+        _, x, y = random.choice(ties)
+        game_state._claim_cell(x, y, player_obj)
 
 
 class HardAIPlayer(AIPlayer):
-    """Represents a hard AI player in the game."""
+    """Hard AI: claims frontier cells closest to the enemy's start point
+    (offensive — pushes into enemy territory)."""
 
     def make_move(self, game_state):
-        """Make a move targeting the opponent's weak spots.
-        
-        TODO: Implement a more advanced strategy here.
-        """
+        idx = (
+            game_state.ai_player_index
+            if game_state.ai_player_index is not None
+            else PLAYER_2
+        )
+        player_obj = game_state.players[idx]
+        opponent = game_state.players[1 - idx]
+        ox, oy = opponent.start_point
+        frontier = game_state.collect_frontier_cells(player_obj)
+        if not frontier:
+            frontier = game_state.collect_fallback_frontier(player_obj)
+        if not frontier:
+            return
+        # Score each cell by inverse distance to opponent's start
+        scored = [
+            (abs(x - ox) + abs(y - oy), x, y) for x, y in frontier
+        ]
+        scored.sort(key=lambda t: t[0])
+        best = scored[0]
+        ties = [s for s in scored if s[0] == best[0]]
+        _, x, y = random.choice(ties)
+        game_state._claim_cell(x, y, player_obj)
 
 
 class GameState:
@@ -188,9 +225,18 @@ class GameState:
         if not frontier:
             return
         x, y = random.choice(frontier)
+        self._claim_cell(x, y, player_obj)
+
+    def _claim_cell(self, x: int, y: int, player_obj: Player) -> bool:
+        """Claim a specific cell and its neighbours. Returns True if claimed."""
+        if player_obj.energy < ENERGY_PER_CELL:
+            return False
+        player_obj.energy -= ENERGY_PER_CELL
         target = self.board[x][y]
         target.owner = player_obj
         target.alive = True
+        self._claim_neighbors(x, y, player_obj)
+        return True
 
     def _is_frontier_cell(self, x: int, y: int, player_obj: Player) -> bool:
         cell = self.board[x][y]
