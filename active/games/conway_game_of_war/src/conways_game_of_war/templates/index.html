@@ -324,95 +324,39 @@
     <script>
     (function() {
       'use strict';
+      var btn = document.getElementById('end-turn-btn');
+      if (!btn) return;
+      var animating = 0;
+      var refreshTimer = null;
 
-      const endTurnBtn = document.getElementById('end-turn-btn');
-      if (!endTurnBtn) return;
-
-      let animating = false;
-
-      /** Replace #game with outerHTML from a response, then dispatch events. */
-      function swapBoard(html) {
-        const oldGame = document.getElementById('game');
-        if (!oldGame) return;
-        oldGame.outerHTML = html;
-        // Dispatch htmx:afterSwap so GameView's listener fires
-        const newGame = document.getElementById('game');
-        if (newGame) {
-          document.dispatchEvent(new CustomEvent('htmx:afterSwap', {
-            detail: { target: newGame },
-          }));
+      document.addEventListener('htmx:beforeRequest', function(e) {
+        if (e.detail && e.detail.elt && e.detail.elt.id === 'end-turn-btn') {
+          animating++;
+          btn.disabled = true;
+          btn.textContent = '⏳';
         }
-      }
+      });
 
-      /** Read data-fib-remaining from the current #game element. */
-      function getRemaining() {
-        const game = document.getElementById('game');
-        if (!game) return 0;
-        const r = game.getAttribute('data-fib-remaining');
-        return r ? parseInt(r, 10) : 0;
-      }
-
-      /** Refresh status bar after steps. */
-      function refreshUI() {
-        const statusBar = document.getElementById('status-bar');
-        if (statusBar && statusBar.hasAttribute('hx-get')) {
-          htmx.trigger(statusBar, 'load');
+      document.addEventListener('htmx:afterSwap', function(e) {
+        if (e.detail && e.detail.target && e.detail.target.id === 'game') {
+          if (refreshTimer) clearTimeout(refreshTimer);
+          refreshTimer = setTimeout(function() {
+            var sb = document.getElementById('status-bar');
+            if (sb && sb.hasAttribute('hx-get')) htmx.trigger(sb, 'load');
+          }, 500);
         }
-      }
+      });
 
-      function post(path, cb) {
-        fetch(path, { method: 'POST' })
-          .then(function(r) {
-            if (!r.ok) throw new Error('HTTP ' + r.status);
-            return r.text();
-          })
-          .then(cb)
-          .catch(function(err) {
-            console.error('End Turn error:', err);
-            finish();
-          });
-      }
-
-      var finishTimer = null;
-
-      function doEndTurn() {
-        if (animating) return;
-        animating = true;
-        endTurnBtn.disabled = true;
-        endTurnBtn.textContent = '⏳';
-
-        post('/end_turn', function(html) {
-          swapBoard(html);
-          // Small delay before first auto-step so the board renders
-          setTimeout(scheduleNext, 80);
-        });
-
-        finishTimer = setTimeout(finish, 30000);
-      }
-
-      function scheduleNext() {
-        var remaining = getRemaining();
-        if (remaining <= 0) {
-          finish();
-          return;
+      document.addEventListener('htmx:afterOnLoad', function(e) {
+        if (e.detail && e.detail.elt && e.detail.elt.id === 'end-turn-btn') {
+          animating--;
+          if (animating <= 0) {
+            animating = 0;
+            btn.disabled = false;
+            btn.textContent = '⏭ End Turn';
+          }
         }
-        setTimeout(function() {
-          post('/step', function(html) {
-            swapBoard(html);
-            scheduleNext();
-          });
-        }, 80);
-      }
-
-      function finish() {
-        if (finishTimer) { clearTimeout(finishTimer); finishTimer = null; }
-        animating = false;
-        endTurnBtn.disabled = false;
-        endTurnBtn.textContent = '⏭ End Turn';
-        refreshUI();
-      }
-
-      endTurnBtn.addEventListener('click', doEndTurn);
+      });
     })();
     </script>
     <!-- Help overlay (hidden by default) -->

@@ -200,31 +200,31 @@ def end_turn():
     app.config["FIB_REMAINING"] = curr - 1
     game.update()
     html = game.board_to_html(current_player_index=_current_player_index())
-    return _embed_remaining(html, curr - 1)
+    return _append_step_trigger(html, curr - 1)
 
 
-def _embed_remaining(html: str, remaining: int) -> str:
-    """Embed the remaining step count in the #game element for the client."""
-    marker = 'data-board-w='
-    idx = html.find(marker)
-    if idx == -1:
+def _append_step_trigger(html: str, remaining: int) -> str:
+    """Append a hidden HTMX trigger div for auto-advancing the next step.
+    When remaining <= 0 the trigger is omitted and animation stops."""
+    if remaining <= 0:
         return html
-    space = html.rfind(' ', 0, idx)
-    if space == -1:
-        space = html.find('>', idx)
-    return html[:space] + f' data-fib-remaining="{remaining}"' + html[space:]
+    return html + (
+        f'<div hx-post="/step" hx-target="#game" hx-swap="outerHTML"'
+        f' hx-trigger="load delay:100ms" style="display:none"></div>'
+    )
 
 
 @app.route("/step", methods=["POST"])
 def step():
-    """Advance one tick and return the board with remaining count embedded."""
+    """Advance one tick and return the board; append auto-trigger if more steps remain."""
     game = _get_game()
     remaining = app.config.get("FIB_REMAINING", 0)
     if remaining > 0:
         app.config["FIB_REMAINING"] = remaining - 1
     game.update()
+    next_remaining = remaining - 1 if remaining > 0 else 0
     html = game.board_to_html(current_player_index=_current_player_index())
-    return _embed_remaining(html, remaining - 1 if remaining > 0 else 0)
+    return _append_step_trigger(html, next_remaining)
 
 
 @app.route("/update_cell", methods=["POST"])
