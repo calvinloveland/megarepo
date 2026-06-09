@@ -20,6 +20,8 @@ app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-key")
 
 app.config["GAME"] = game_state.GameState()
 app.config["ZOOM_LEVEL"] = 1.0
+app.config["FIB_PREV"] = 0  # fib(n-1)
+app.config["FIB_CURR"] = 1  # fib(n) — starts at 1
 
 
 def _hex_to_rgb(hex_color: str):
@@ -184,9 +186,16 @@ def get_game_state():
 
 @app.route("/end_turn", methods=["POST"])
 def end_turn():
-    """Advance the game one tick (AI moves, cells update) and return the board."""
+    """Advance the game by a Fibonacci-growing number of ticks."""
     game = _get_game()
-    game.update()
+    prev = app.config["FIB_PREV"]  # fib(n-1)
+    curr = app.config["FIB_CURR"]  # fib(n)
+    steps = curr  # number of ticks this turn
+    # Move to next Fibonacci number
+    app.config["FIB_PREV"] = curr
+    app.config["FIB_CURR"] = prev + curr
+    for _ in range(steps):
+        game.update()
     return game.board_to_html(current_player_index=_current_player_index())
 
 
@@ -248,6 +257,7 @@ def _energy_html(game) -> str:
     diff = _ai_display_name()
     ai_info = f" · AI: {diff}" if diff else ""
 
+    fib_steps = app.config["FIB_CURR"]
     return (
         f'<span style="color:{p1_color}">⬤ P1</span> '
         f'⚡{p1.energy:.1f} 🏠{p1_cells} '
@@ -255,6 +265,7 @@ def _energy_html(game) -> str:
         f'<span style="color:{p2_color}">⬤ P2</span> '
         f'⚡{p2.energy:.1f} 🏠{p2_cells} '
         f'&nbsp;&nbsp;· {human_name}{ai_info}'
+        f' · ⏭ +{fib_steps}'
     )
 
 
@@ -264,6 +275,8 @@ def reset():
     game = game_state.GameState()
     _set_game(game)
     _apply_session_options_to_game()
+    app.config["FIB_PREV"] = 0
+    app.config["FIB_CURR"] = 1
     return game.board_to_html(current_player_index=_current_player_index())
 
 
