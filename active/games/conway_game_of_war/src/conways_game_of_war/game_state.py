@@ -23,7 +23,8 @@ PLAYER_2_START_POINT = (DEFAULT_BOARD_SIZE_X - 20, DEFAULT_BOARD_SIZE_Y - 20)
 
 # Energy
 ENERGY_PER_CELL = 1.0        # cost to claim a new cell
-STARTING_ENERGY = 5.0         # energy each player begins with
+ENERGY_PER_TICK = 0.5        # energy per alive cell per tick
+STARTING_ENERGY = 15.0        # energy each player begins with
 
 NEIGHBOR_OFFSETS = [
     (-1, -1),
@@ -236,7 +237,23 @@ class GameState:
         target.owner = player_obj
         target.alive = True
         self._claim_neighbors(x, y, player_obj)
+        # Also activate one random already-owned neighbour so the new
+        # cell has company and doesn't die from GoL underpopulation.
+        self._activate_random_owned_neighbour(x, y, player_obj)
         return True
+
+    def _activate_random_owned_neighbour(self, x: int, y: int, player_obj: Player):
+        """Toggle one random owned-but-dead neighbour to alive (free)."""
+        dead_owned = []
+        for i, j in NEIGHBOR_OFFSETS:
+            nx = (x + i) % self.board_size_x
+            ny = (y + j) % self.board_size_y
+            cell = self.board[nx][ny]
+            if cell.owner == player_obj and not cell.alive and not cell.immortal:
+                dead_owned.append((nx, ny))
+        if dead_owned:
+            ax, ay = random.choice(dead_owned)
+            self.board[ax][ay].alive = True
 
     def _is_frontier_cell(self, x: int, y: int, player_obj: Player) -> bool:
         cell = self.board[x][y]
@@ -359,10 +376,15 @@ class GameState:
     def _resolve_alive_state(
         self, cell: CellState, friendly_neighbors: int, in_combat: bool
     ) -> bool:
+        """Determine if a cell survives based on GoL rules alone.
+        
+        Combat does NOT kill cells outright — it's handled by
+        _compute_new_owner which transfers ownership based on neighbour
+        counts.  This allows territory to be contested rather than
+        creating a permanent dead zone."""
         if cell.immortal:
             return cell.alive
-        if in_combat and cell.alive:
-            return False
+        # Standard GoL: birth if 3 neighbours, survive if 2-3
         if not cell.alive:
             return friendly_neighbors == 3
         return 2 <= friendly_neighbors <= 3
@@ -392,6 +414,12 @@ class GameState:
         self.update_friend_counts()
         changes = self._collect_changes()
         self._apply_changes(changes)
+        # Per-tick energy income from alive cells
+        for player in self.players:
+            for row in self.board:
+                for cell in row:
+                    if cell.alive and cell.owner == player:
+                        player.energy += ENERGY_PER_TICK
         if self.ai_player:
             self.ai_player.make_move(self)
         return self.board
