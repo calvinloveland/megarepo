@@ -539,14 +539,22 @@
       var refreshTimer = null;
 
       var lastRem = -1;
-      document.addEventListener('htmx:afterSwap', function() {
+      document.addEventListener('htmx:afterSwap', function(e) {
         if (!animating) return;
+        if (!e.detail || !e.detail.xhr) return;
+
+        var path = '';
+        try {
+          path = new URL(e.detail.xhr.responseURL, window.location.origin).pathname;
+        } catch (err) {
+          path = '';
+        }
+        if (path !== '/end_turn' && path !== '/step') return;
+
         var game = document.getElementById('game');
         if (!game) return;
 
         var rem = readRemaining();
-        // Only act when data-fib-remaining actually changed (a real
-        // step/end_turn response, not a status bar update)
         if (rem === lastRem) return;
         lastRem = rem;
 

@@ -278,6 +278,40 @@ test.describe('End Turn animation', () => {
     await expect(page.locator('#end-turn-btn')).toHaveText('⏭ End Turn');
   });
 
+  test('frontend keeps stepping through 8 turns on a dense local setup', async ({ page }) => {
+    test.slow();
+    test.setTimeout(180000);
+
+    const coords = [
+      [21, 19], [21, 20], [21, 21], [22, 19], [22, 20], [22, 21],
+      [23, 19], [23, 20], [23, 21], [24, 20], [19, 21], [19, 22],
+      [20, 22], [21, 22], [22, 22],
+    ];
+
+    for (const [x, y] of coords) {
+      await toggleCell(page, x, y);
+    }
+
+    const btn = page.locator('#end-turn-btn');
+    for (let turn = 1; turn <= 8; turn++) {
+      const started = Date.now();
+      await clickEndTurn(page);
+      const elapsed = Date.now() - started;
+      const colored = await countNonDefaultCells(page);
+      console.log(`turn ${turn}: ${elapsed}ms, colored=${colored}`);
+      expect(await getFibRemaining(page)).toBe(0);
+      await expect(btn).toHaveText('⏭ End Turn');
+      expect(colored).toBeGreaterThan(0);
+    }
+
+    const entries = consoleErrors.get(test.info().title) || [];
+    const errors = entries.filter((entry) => {
+      return (entry.startsWith('CONSOLE ERROR') || entry.startsWith('PAGE ERROR'))
+        && !entry.includes('404');
+    });
+    expect(errors.length).toBe(0);
+  });
+
   test('Fibonacci turns fire the expected number of /step requests', async ({ page }) => {
     const observed = [];
 
