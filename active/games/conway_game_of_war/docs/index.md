@@ -30,6 +30,9 @@ A browser-based strategy game that combines **Conway's Game of Life** with **two
   - pinch zoom
 - **Minimap** with viewport rectangle and drag/click navigation
 - **Help overlay** and compact mobile-friendly HUD
+- **Toggleable board overlays**
+  - ⚡ Energy overlay for harvestable crop bars
+  - 🗺 Territory overlay for owned influence/claimed ground
 - **JSON partial cell updates** for fast click/tap response instead of full-board swaps
 
 ## Controls
@@ -38,6 +41,7 @@ A browser-based strategy game that combines **Conway's Game of Life** with **two
 - **Zoom:** mouse wheel, pinch, `+`, `-`
 - **Reset view:** `0`
 - **Help:** `?`, `Esc`
+- **Overlays:** toggle ⚡ Energy and 🗺 Territory buttons
 - **Minimap:** 🗺 toggle button
 - **Advance the game:** ⏭ End Turn
 

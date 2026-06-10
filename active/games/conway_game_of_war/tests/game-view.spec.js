@@ -93,6 +93,18 @@ async function readCellStyle(page, x, y) {
   }, { x, y });
 }
 
+async function readOverlayStyle(page, selector) {
+  return await page.evaluate((selector) => {
+    const node = document.querySelector(selector);
+    if (!node) return null;
+    const style = getComputedStyle(node);
+    return {
+      opacity: parseFloat(style.opacity || '0'),
+      height: style.height,
+    };
+  }, selector);
+}
+
 // ─── tests ───────────────────────────────────────────────────────────
 
 test.describe('GameView – map‑like navigation', () => {
@@ -129,6 +141,56 @@ test.describe('GameView – map‑like navigation', () => {
     const after = await getTransform(page);
     expect(after.x).toBeCloseTo(before.x + 100, -1);
     expect(after.y).toBeCloseTo(before.y + 50, -1);
+  });
+
+  test('energy overlay can be toggled on and off', async ({ page }) => {
+    const button = page.locator('#toggle-energy-overlay');
+    await expect(button).toHaveAttribute('aria-pressed', 'true');
+
+    const cell = await page.evaluate(() => {
+      const target = document.querySelector('#game td[data-owner="p1"] .cell-energy-bar');
+      if (!target) return null;
+      return '#game td[data-owner="p1"] .cell-energy-bar';
+    });
+    expect(cell).not.toBeNull();
+
+    const visible = await readOverlayStyle(page, cell);
+    expect(visible.opacity).toBeGreaterThan(0);
+
+    await button.click();
+    await expect(button).toHaveAttribute('aria-pressed', 'false');
+    await page.waitForTimeout(200);
+    const hidden = await readOverlayStyle(page, cell);
+    expect(hidden.opacity).toBeLessThan(0.05);
+
+    await button.click();
+    await expect(button).toHaveAttribute('aria-pressed', 'true');
+    await page.waitForTimeout(200);
+    const visibleAgain = await readOverlayStyle(page, cell);
+    expect(visibleAgain.opacity).toBeGreaterThan(0.5);
+  });
+
+  test('territory overlay can be toggled on and off', async ({ page }) => {
+    const button = page.locator('#toggle-territory-overlay');
+    await expect(button).toHaveAttribute('aria-pressed', 'true');
+
+    const cell = '#game td[data-owner="p1"][data-alive="0"] .cell-territory-overlay';
+    await expect(page.locator(cell).first()).toBeVisible();
+
+    const visible = await readOverlayStyle(page, cell);
+    expect(visible.opacity).toBeGreaterThan(0);
+
+    await button.click();
+    await expect(button).toHaveAttribute('aria-pressed', 'false');
+    await page.waitForTimeout(200);
+    const hidden = await readOverlayStyle(page, cell);
+    expect(hidden.opacity).toBeLessThan(0.05);
+
+    await button.click();
+    await expect(button).toHaveAttribute('aria-pressed', 'true');
+    await page.waitForTimeout(200);
+    const visibleAgain = await readOverlayStyle(page, cell);
+    expect(visibleAgain.opacity).toBeGreaterThan(0.1);
   });
 
   test('cell click shows optimistic state before delayed backend response', async ({ page }) => {

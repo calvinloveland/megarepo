@@ -30,6 +30,7 @@
         display: flex;
         align-items: center;
         justify-content: space-between;
+        gap: 8px;
         padding: 4px 16px;
         background: #1a1a1a;
         border-bottom: 1px solid #333;
@@ -48,6 +49,8 @@
         display: flex;
         gap: 8px;
         align-items: center;
+        justify-content: flex-end;
+        flex-wrap: wrap;
       }
       .game-header button,
       .ctrl-btn {
@@ -64,6 +67,23 @@
       .game-header button:hover,
       .ctrl-btn:hover {
         background: #444;
+      }
+      .overlay-controls {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-wrap: wrap;
+      }
+      .overlay-label {
+        font-size: 0.74rem;
+        color: #999;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+      .overlay-toggle[aria-pressed="true"] {
+        background: #264433;
+        border-color: #4d8d6a;
+        color: #dff6e9;
       }
 
       /* ── viewport ───────────────────────────────────────────────── */
@@ -221,6 +241,9 @@
         .game-header .controls {
           gap: 4px;
         }
+        .overlay-label {
+          display: none;
+        }
         .game-header button,
         .ctrl-btn {
           padding: 8px 14px;
@@ -254,6 +277,28 @@
         display: block;
         overflow: hidden;
       }
+      .cell-territory-overlay {
+        position: absolute;
+        inset: 1px;
+        border-radius: 1px;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.15s ease;
+      }
+      td[data-owner='p1'] .cell-territory-overlay {
+        background: var(--p1-color);
+      }
+      td[data-owner='p2'] .cell-territory-overlay {
+        background: var(--p2-color);
+      }
+      body.overlay-territory-active td[data-owner='p1'][data-alive='0'] .cell-territory-overlay,
+      body.overlay-territory-active td[data-owner='p2'][data-alive='0'] .cell-territory-overlay {
+        opacity: 0.24;
+      }
+      body.overlay-territory-active td[data-owner='p1'][data-alive='1'] .cell-territory-overlay,
+      body.overlay-territory-active td[data-owner='p2'][data-alive='1'] .cell-territory-overlay {
+        opacity: 0.1;
+      }
       .cell-energy-bar {
         position: absolute;
         left: 1px;
@@ -261,9 +306,14 @@
         bottom: 1px;
         min-height: 0;
         background: linear-gradient(to top, #2fbf55, #9dff8c);
-        opacity: 0.9;
+        opacity: 0;
         border-radius: 1px;
         pointer-events: none;
+        transition: opacity 0.15s ease, height 0.15s ease;
+      }
+      body.overlay-energy-active td[data-owner='p1'] .cell-energy-bar,
+      body.overlay-energy-active td[data-owner='p2'] .cell-energy-bar {
+        opacity: 0.9;
       }
       .immortal-star {
         position: absolute;
@@ -289,7 +339,7 @@
       }
     </style>
   </head>
-  <body> 
+  <body class="overlay-energy-active overlay-territory-active" style="--p1-color: {{ session['player1_color'] }}; --p2-color: {{ session['player2_color'] }};"> 
     <div class="container">
       <div class="game-header">
         <h1>⚔ Conway's Game of War</h1>
@@ -298,6 +348,11 @@
         </span>
         <div class="controls">
           <span class="ai-badge" id="ai-badge">{% if ai_difficulty %}🤖 {{ ai_difficulty }}{% endif %}</span>
+          <div class="overlay-controls" aria-label="Overlays">
+            <span class="overlay-label">Overlays</span>
+            <button class="ctrl-btn overlay-toggle" id="toggle-energy-overlay" type="button" aria-pressed="true" title="Toggle energy overlay">⚡ Energy</button>
+            <button class="ctrl-btn overlay-toggle" id="toggle-territory-overlay" type="button" aria-pressed="true" title="Toggle territory overlay">🗺 Territory</button>
+          </div>
           <button class="ctrl-btn" id="help-btn" type="button" title="Keyboard shortcuts">?</button>
           <button class="ctrl-btn" id="minimap-toggle" type="button" title="Toggle minimap">🗺</button>
           <button class="ctrl-btn" id="end-turn-btn" type="button">⏭ End Turn</button>
@@ -324,6 +379,58 @@
 
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
     <script src="{{ url_for('static', filename='game-view.js') }}?v=2"></script>
+    <script>
+    (function() {
+      var body = document.body;
+      if (!body) return;
+      var overlays = [
+        {
+          className: 'overlay-energy-active',
+          storageKey: 'conway-overlay-energy',
+          buttonId: 'toggle-energy-overlay',
+        },
+        {
+          className: 'overlay-territory-active',
+          storageKey: 'conway-overlay-territory',
+          buttonId: 'toggle-territory-overlay',
+        },
+      ];
+
+      function readStoredValue(key) {
+        try {
+          return window.localStorage.getItem(key);
+        } catch (err) {
+          return null;
+        }
+      }
+
+      function writeStoredValue(key, value) {
+        try {
+          window.localStorage.setItem(key, value);
+        } catch (err) {
+          /* best-effort */
+        }
+      }
+
+      function setOverlayState(button, className, enabled, storageKey) {
+        body.classList.toggle(className, enabled);
+        if (button) button.setAttribute('aria-pressed', enabled ? 'true' : 'false');
+        writeStoredValue(storageKey, enabled ? '1' : '0');
+      }
+
+      overlays.forEach(function(entry) {
+        var button = document.getElementById(entry.buttonId);
+        var stored = readStoredValue(entry.storageKey);
+        var enabled = stored !== '0';
+        setOverlayState(button, entry.className, enabled, entry.storageKey);
+        if (!button) return;
+        button.addEventListener('click', function() {
+          var next = button.getAttribute('aria-pressed') !== 'true';
+          setOverlayState(button, entry.className, next, entry.storageKey);
+        });
+      });
+    })();
+    </script>
     <script>
     /* Remote error logger — POSTs uncaught errors to /log_error */
     (function() {
@@ -591,13 +698,22 @@
       }
 
       function syncCellInterior(innerDiv, patch) {
+        var territory = innerDiv.querySelector('.cell-territory-overlay');
+        if (!territory) {
+          territory = document.createElement('span');
+          territory.className = 'cell-territory-overlay';
+          innerDiv.insertBefore(territory, innerDiv.firstChild || null);
+        }
+
         var bar = innerDiv.querySelector('.cell-energy-bar');
         if (!bar) {
           bar = document.createElement('span');
           bar.className = 'cell-energy-bar';
           innerDiv.appendChild(bar);
         }
-        var crop = Math.max(0, Math.min(1, patch.crop || 0));
+        var crop = patch.owner && patch.owner !== 'none'
+          ? Math.max(0, Math.min(1, patch.crop || 0))
+          : 0;
         var cellPx = innerDiv.offsetHeight || 12;
         bar.style.height = String(Math.round(Math.max(1, cellPx - 2) * crop)) + 'px';
 

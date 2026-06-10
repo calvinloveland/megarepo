@@ -626,7 +626,8 @@ class GameState:
 
     def _cell_inner_div(self, x: int, y: int) -> str:
         cell = self.board[x][y]
-        crop_px = self._crop_bar_px(cell.crop_level)
+        crop_px = self._crop_bar_px(cell.crop_level) if cell.owner is not None else 0
+        territory_html = "<span class='cell-territory-overlay'></span>"
         bar_html = (
             f"<span class='cell-energy-bar' style='height:{crop_px}px'></span>"
             if crop_px > 0
@@ -635,10 +636,10 @@ class GameState:
         star_html = "<span class='immortal-star'>★</span>" if cell.immortal else ""
         common = f"class='cell-shell{' cell' if not cell.immortal else ''}' style='height:{CELL_PX}px;width:{CELL_PX}px'"
         if cell.immortal:
-            return f"<div {common}>{bar_html}{star_html}</div>"
+            return f"<div {common}>{territory_html}{bar_html}{star_html}</div>"
         return (
             f"<div {common} data-x='{x}' data-y='{y}'>"
-            f"{bar_html}{star_html}</div>"
+            f"{territory_html}{bar_html}{star_html}</div>"
         )
 
     def _crop_bar_px(self, crop_level: float) -> int:
