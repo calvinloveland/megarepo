@@ -330,8 +330,8 @@
       var seen = new Set();
       function logToServer(level, msg, stack) {
         var key = level + ':' + msg;
-        if (seen.has(key)) return;
-        seen.add(key);
+        if (level !== 'warning' && seen.has(key)) return;
+        if (level !== 'warning') seen.add(key);
         try {
           var payload = JSON.stringify({ level: level, message: msg, stack: stack || null });
           var xhr = new XMLHttpRequest();
@@ -340,6 +340,7 @@
           xhr.send(payload);
         } catch(e) { /* best-effort */ }
       }
+      window.__conwayLogToServer = logToServer;
       window.addEventListener('error', function(e) {
         logToServer('error', e.message || String(e), e.error && e.error.stack ? e.error.stack : null);
       });
@@ -360,12 +361,23 @@
     <script>
     (function() {
       'use strict';
-      var pendingAbort = null;
-      var pendingTd = null;
-      var pendingSnapshot = null;
+      var pendingUpdates = new Map();
       var currentPlayerColor = '{{ session["player1_color"] if session["player"] == "player1" else session["player2_color"] }}';
       var currentPlayerOwner = '{{ "p1" if session["player"] == "player1" else "p2" }}';
       var deadBg = 'rgb(50,50,50)';
+      var optimisticSeq = 0;
+
+      function reportWarning(message) {
+        if (window.__conwayLogToServer) {
+          window.__conwayLogToServer('warning', message);
+        } else {
+          console.warn(message);
+        }
+      }
+
+      function pendingKey(x, y) {
+        return String(x) + ',' + String(y);
+      }
 
       function snapshotCell(td) {
         return {
@@ -388,6 +400,10 @@
       }
 
       function applyServerState(td, data) {
+        if (window.__conwayApplyCellPatch) {
+          window.__conwayApplyCellPatch(data);
+          return;
+        }
         if (!td) return;
         td.style.backgroundColor = data.bg;
         td.style.borderColor = data.border;
@@ -405,23 +421,52 @@
         }
       }
 
-      function applyOptimisticState(td) {
-        if (!td) return;
-        td.classList.add('cell-pending');
+      function optimisticStateFor(td) {
         var action = td.dataset.action || 'none';
         if (action === 'claim' || action === 'toggle-on') {
-          td.style.backgroundColor = currentPlayerColor;
-          td.style.borderColor = currentPlayerColor;
-          td.dataset.owner = currentPlayerOwner;
-          td.dataset.alive = '1';
-          td.dataset.action = 'toggle-off';
-        } else if (action === 'toggle-off') {
-          td.style.backgroundColor = deadBg;
-          td.style.borderColor = currentPlayerColor;
-          td.dataset.owner = currentPlayerOwner;
-          td.dataset.alive = '0';
-          td.dataset.action = 'toggle-on';
+          return {
+            bg: currentPlayerColor,
+            border: currentPlayerColor,
+            owner: currentPlayerOwner,
+            alive: '1',
+            action: 'toggle-off'
+          };
         }
+        if (action === 'toggle-off') {
+          return {
+            bg: deadBg,
+            border: currentPlayerColor,
+            owner: currentPlayerOwner,
+            alive: '0',
+            action: 'toggle-on'
+          };
+        }
+        return null;
+      }
+
+      function applyOptimisticState(td, optimistic) {
+        if (!td || !optimistic) return;
+        td.classList.add('cell-pending');
+        td.style.backgroundColor = optimistic.bg;
+        td.style.borderColor = optimistic.border;
+        td.dataset.owner = optimistic.owner;
+        td.dataset.alive = optimistic.alive;
+        td.dataset.action = optimistic.action;
+      }
+
+      function normalizeVisualValue(value) {
+        return String(value || '').replace(/\s+/g, '');
+      }
+
+      function optimisticWasReverted(expected, data) {
+        if (!expected || !data) return false;
+        return (
+          normalizeVisualValue(expected.bg) !== normalizeVisualValue(data.bg) ||
+          normalizeVisualValue(expected.border) !== normalizeVisualValue(data.border) ||
+          expected.owner !== (data.owner || 'none') ||
+          expected.alive !== (data.alive ? '1' : '0') ||
+          expected.action !== (data.action || 'none')
+        );
       }
 
       document.addEventListener('click', function(e) {
@@ -433,22 +478,26 @@
 
         e.preventDefault();
 
-        if (pendingAbort) {
-          restoreCell(pendingTd, pendingSnapshot);
-          try { pendingAbort.abort(); } catch(ex) {}
-          pendingAbort = null;
-          pendingTd = null;
-          pendingSnapshot = null;
-        }
+        var key = pendingKey(x, y);
+        if (pendingUpdates.has(key)) return;
 
         var td = cell.parentElement;
         if (!td) return;
-        pendingSnapshot = snapshotCell(td);
-        pendingTd = td;
-        applyOptimisticState(td);
+        var snapshot = snapshotCell(td);
+        var optimistic = optimisticStateFor(td);
+        if (!optimistic) return;
+        applyOptimisticState(td, optimistic);
+        var optimisticSnapshot = snapshotCell(td);
 
         var controller = new AbortController();
-        pendingAbort = controller;
+        var seq = ++optimisticSeq;
+        pendingUpdates.set(key, {
+          td: td,
+          snapshot: snapshot,
+          optimistic: optimisticSnapshot,
+          seq: seq,
+          controller: controller,
+        });
 
         fetch('/update_cell?x=' + x + '&y=' + y + '&json=1', {
           method: 'POST',
@@ -459,25 +508,26 @@
           return r.json();
         })
         .then(function(data) {
-          pendingAbort = null;
-          pendingTd = null;
-          pendingSnapshot = null;
-          var game = document.getElementById('game');
-          if (!game) return;
-          var rows = game.querySelectorAll('tr');
-          var row = rows[data.y];
-          if (!row) return;
-          var targetTd = row.children[data.x];
-          if (!targetTd) return;
-          applyServerState(targetTd, data);
+          var pending = pendingUpdates.get(key);
+          if (!pending || pending.seq !== seq) return;
+          pendingUpdates.delete(key);
+          if (optimisticWasReverted(pending.optimistic, data)) {
+            reportWarning('Optimistic render reverted at (' + x + ',' + y + ')');
+          }
+          applyServerState(pending.td, data);
         })
         .catch(function(err) {
-          if (err.name === 'AbortError') return;
+          var pending = pendingUpdates.get(key);
+          if (!pending || pending.seq !== seq) return;
+          pendingUpdates.delete(key);
+          if (err.name === 'AbortError') {
+            restoreCell(pending.td, pending.snapshot);
+            reportWarning('Optimistic render reverted at (' + x + ',' + y + ') due to request abort');
+            return;
+          }
           console.error('Cell update failed:', err);
-          restoreCell(td, pendingSnapshot);
-          pendingAbort = null;
-          pendingTd = null;
-          pendingSnapshot = null;
+          restoreCell(pending.td, pending.snapshot);
+          reportWarning('Optimistic render reverted at (' + x + ',' + y + ') due to request failure: ' + err.message);
         });
       });
     })();
@@ -493,6 +543,10 @@
       var refreshTimer = null;
 
       function warn(prefix) {
+        if (window.__conwayLogToServer) {
+          window.__conwayLogToServer('warning', prefix);
+          return;
+        }
         var xhr = new XMLHttpRequest();
         xhr.open('POST', '/log_error', true);
         xhr.setRequestHeader('Content-Type', 'application/json');
@@ -571,6 +625,7 @@
           innerDiv.setAttribute('data-y', String(patch.y));
         }
       }
+      window.__conwayApplyCellPatch = applyCellPatch;
 
       function applyBoardPatch(data) {
         var game = document.getElementById('game');

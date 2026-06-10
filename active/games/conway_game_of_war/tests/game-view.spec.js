@@ -172,6 +172,111 @@ test.describe('GameView – map‑like navigation', () => {
     expect(normalize(finalStyle.border)).toBe(normalize(payload.border));
   });
 
+  test('fast clicks on multiple cells keep each optimistic flip until its own response arrives', async ({ page }) => {
+    const normalize = (value) => (value || '').replace(/\s+/g, '');
+    const playerColor = normalize(await page.locator('.player-name').evaluate((el) => getComputedStyle(el).color));
+    const deadBg = 'rgb(50,50,50)';
+
+    const targets = await page.evaluate(() => {
+      return Array.from(document.querySelectorAll('#game td[data-action="claim"] .cell, #game td[data-action="toggle-on"] .cell, #game td[data-action="toggle-off"] .cell'))
+        .slice(0, 3)
+        .map((cell) => ({
+          x: Number(cell.getAttribute('data-x')),
+          y: Number(cell.getAttribute('data-y')),
+          action: cell.parentElement?.dataset.action || 'none',
+        }));
+    });
+    expect(targets).toHaveLength(3);
+
+    await page.route('**/update_cell?*json=1', async (route) => {
+      await new Promise((resolve) => setTimeout(resolve, 700));
+      await route.continue();
+    });
+
+    const responsePromises = targets.map(({ x, y }) => page.waitForResponse((resp) => {
+      const url = new URL(resp.url());
+      return resp.request().method() === 'POST'
+        && url.pathname === '/update_cell'
+        && url.searchParams.get('x') === String(x)
+        && url.searchParams.get('y') === String(y)
+        && url.searchParams.get('json') === '1';
+    }));
+
+    await page.evaluate((coords) => {
+      const game = document.getElementById('game');
+      if (!game) return;
+      const rows = game.querySelectorAll('tr');
+      coords.forEach(({ x, y }) => {
+        const div = rows[y]?.children[x]?.querySelector('.cell');
+        if (div) div.click();
+      });
+    }, targets);
+
+    await page.waitForTimeout(100);
+    for (const { x, y, action } of targets) {
+      const optimistic = await readCellStyle(page, x, y);
+      const expectedBg = action === 'toggle-off' ? deadBg : playerColor;
+      expect(normalize(optimistic.bg)).toBe(normalize(expectedBg));
+    }
+    await expect(page.locator('td.cell-pending')).toHaveCount(3);
+
+    const payloads = await Promise.all(responsePromises.map((promise) => promise.then((resp) => resp.json())));
+    await page.waitForTimeout(50);
+    for (let i = 0; i < targets.length; i += 1) {
+      const { x, y } = targets[i];
+      const finalStyle = await readCellStyle(page, x, y);
+      expect(normalize(finalStyle.bg)).toBe(normalize(payloads[i].bg));
+      expect(normalize(finalStyle.border)).toBe(normalize(payloads[i].border));
+    }
+  });
+
+  test('reverted optimistic render emits a warning', async ({ page }) => {
+    const normalize = (value) => (value || '').replace(/\s+/g, '');
+    const target = await page.evaluate(() => {
+      const cell = document.querySelector('#game td[data-action="claim"] .cell, #game td[data-action="toggle-on"] .cell, #game td[data-action="toggle-off"] .cell');
+      if (!cell) return null;
+      return {
+        x: Number(cell.getAttribute('data-x')),
+        y: Number(cell.getAttribute('data-y')),
+      };
+    });
+    expect(target).not.toBeNull();
+
+    const initial = await readCellStyle(page, target.x, target.y);
+    await page.route(`**/update_cell?x=${target.x}&y=${target.y}&json=1`, async (route) => {
+      await route.fulfill({ status: 500, body: 'boom' });
+    });
+
+    const warningPromise = page.waitForRequest((req) => {
+      if (!req.url().endsWith('/log_error') || req.method() !== 'POST') return false;
+      try {
+        const payload = JSON.parse(req.postData() || '{}');
+        return payload.level === 'warning' && payload.message.includes(`Optimistic render reverted at (${target.x},${target.y})`);
+      } catch {
+        return false;
+      }
+    });
+
+    await page.evaluate(({ x, y }) => {
+      const game = document.getElementById('game');
+      if (!game) return;
+      const row = game.querySelectorAll('tr')[y];
+      if (!row) return;
+      const div = row.children[x]?.querySelector('.cell');
+      if (div) div.click();
+    }, target);
+
+    const warningRequest = await warningPromise;
+    const warningPayload = JSON.parse(warningRequest.postData() || '{}');
+    expect(warningPayload.level).toBe('warning');
+    expect(warningPayload.message).toContain(`(${target.x},${target.y})`);
+
+    await page.waitForTimeout(100);
+    const finalStyle = await readCellStyle(page, target.x, target.y);
+    expect(normalize(finalStyle.bg)).toBe(normalize(initial.bg));
+    expect(normalize(finalStyle.border)).toBe(normalize(initial.border));
+  });
+
   // ── zoom via scroll wheel ─────────────────────────────────────────
 
   test('scroll wheel zooms in/out toward cursor', async ({ page }) => {

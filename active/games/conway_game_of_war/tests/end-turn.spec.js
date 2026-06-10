@@ -133,6 +133,18 @@ async function toggleCell(page, x, y) {
   return payload;
 }
 
+async function getToggleableCells(page, count) {
+  return await page.evaluate((count) => {
+    return Array.from(document.querySelectorAll('#game td[data-action="claim"] .cell, #game td[data-action="toggle-on"] .cell, #game td[data-action="toggle-off"] .cell'))
+      .slice(0, count)
+      .map((cell) => ({
+        x: Number(cell.getAttribute('data-x')),
+        y: Number(cell.getAttribute('data-y')),
+        action: cell.parentElement?.dataset.action || 'none',
+      }));
+  }, count);
+}
+
 async function countNonDefaultCells(page) {
   return await page.evaluate(() => {
     const game = document.getElementById('game');
@@ -249,10 +261,11 @@ test.describe('End Turn animation', () => {
   test('game progresses through many End Turns with placed cells', async ({ page }) => {
     test.slow();
 
-    await toggleCell(page, 21, 19);
-    await toggleCell(page, 21, 20);
-    await toggleCell(page, 22, 19);
-    await toggleCell(page, 22, 20);
+    const coords = await getToggleableCells(page, 4);
+    expect(coords).toHaveLength(4);
+    for (const { x, y } of coords) {
+      await toggleCell(page, x, y);
+    }
 
     const beforeAlive = await countNonDefaultCells(page);
     console.log('Non-default cells before:', beforeAlive);
@@ -283,13 +296,10 @@ test.describe('End Turn animation', () => {
     test.slow();
     test.setTimeout(180000);
 
-    const coords = [
-      [21, 19], [21, 20], [21, 21], [22, 19], [22, 20], [22, 21],
-      [23, 19], [23, 20], [23, 21], [24, 20], [19, 21], [19, 22],
-      [20, 22], [21, 22], [22, 22],
-    ];
+    const coords = await getToggleableCells(page, 15);
+    expect(coords.length).toBeGreaterThanOrEqual(8);
 
-    for (const [x, y] of coords) {
+    for (const { x, y } of coords) {
       await toggleCell(page, x, y);
     }
 

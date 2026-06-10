@@ -438,14 +438,15 @@ def seed_scenario():
 
 @app.route("/log_error", methods=["POST"])
 def log_error():
-    """Client-side error logger — logs JS errors to the server log."""
+    """Client-side error logger — logs JS errors/warnings to the server log."""
     data = flask.request.get_json(silent=True) or {}
     level = data.get("level", "unknown")
     msg = data.get("message", "")
     stack = data.get("stack", "")
-    logger.error(f"JS {level}: {msg}")
+    log = logger.warning if level == "warning" else logger.error
+    log(f"JS {level}: {msg}")
     if stack:
-        logger.error(f"Stack:\n{stack}")
+        log(f"Stack:\n{stack}")
     return ("", 204)
 
 
