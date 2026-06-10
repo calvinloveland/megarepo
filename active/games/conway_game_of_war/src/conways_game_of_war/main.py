@@ -140,6 +140,10 @@ def index():
     if "player" not in flask.session:
         return flask.redirect("/select_player")
     _apply_session_options_to_game()
+    # Reset Fibonacci progression on fresh page load
+    app.config["FIB_PREV"] = 0
+    app.config["FIB_CURR"] = 1
+    app.config["FIB_REMAINING"] = 0
     window_width = flask.request.args.get("width", type=int, default=800)
     window_height = flask.request.args.get("height", type=int, default=600)
     zoom_level = flask.request.args.get("zoom", type=float, default=1.0)

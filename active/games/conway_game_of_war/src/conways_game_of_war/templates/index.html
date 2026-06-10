@@ -403,14 +403,13 @@
       var btn = document.getElementById('end-turn-btn');
       if (!btn) return;
       var animating = false;
-      var stepPending = false;
+      var stepGuard = null;  // timeout to retry stuck steps
 
       btn.addEventListener('click', function(e) {
         if (animating) return;
         animating = true;
         btn.disabled = true;
         btn.textContent = '⏳';
-        stepPending = false;
         htmx.ajax('POST', '/end_turn', {
           source: btn,
           target: '#game',
@@ -427,6 +426,7 @@
 
       function finish() {
         animating = false;
+        if (stepGuard) { clearTimeout(stepGuard); stepGuard = null; }
         btn.disabled = false;
         btn.textContent = '⏭ End Turn';
         var sb = document.getElementById('status-bar');
@@ -435,29 +435,34 @@
 
       function tryFireStep() {
         if (!animating) return;
-        if (stepPending) return;  // wait for current response
         var remaining = readRemaining();
         if (remaining <= 0) {
           finish();
           return;
         }
-        stepPending = true;
         htmx.ajax('POST', '/step', {
           source: btn,
           target: '#game',
           swap: 'outerHTML',
         });
-        // Poll again after a delay
-        setTimeout(tryFireStep, 100);
+        // If no afterSwap within 15s, fire again (network drop recovery)
+        if (stepGuard) clearTimeout(stepGuard);
+        stepGuard = setTimeout(function() {
+          if (!animating) return;
+          // If still animating, the step got lost — retry
+          tryFireStep();
+        }, 15000);
       }
 
-      // Single afterSwap handler for animation + status bar
       var refreshTimer = null;
+
       document.addEventListener('htmx:afterSwap', function(e) {
         if (!e.detail || !e.detail.target) return;
         if (e.detail.target.id !== 'game') return;
 
-        // Status bar refresh (debounced)
+        // Step completed — clear the guard
+        if (stepGuard) { clearTimeout(stepGuard); stepGuard = null; }
+
         if (refreshTimer) clearTimeout(refreshTimer);
         refreshTimer = setTimeout(function() {
           var sb = document.getElementById('status-bar');
@@ -466,14 +471,9 @@
 
         if (!animating) return;
 
-        // A swap just occurred — a /step response arrived or /end_turn
-        stepPending = false;
-
-        // If remaining > 0, schedule the next step
         if (readRemaining() > 0) {
           setTimeout(tryFireStep, 80);
-        } else if (!stepPending) {
-          // remaining is 0 and no step pending — done
+        } else {
           finish();
         }
       });
