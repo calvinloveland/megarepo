@@ -548,8 +548,7 @@
 
       function applyServerState(td, data) {
         if (typeof data.current_energy === 'number') {
-          window.__conwayCurrentEnergy = data.current_energy;
-          currentPlayerEnergy = data.current_energy;
+          window.__conwayUpdateEnergy(data.current_energy);
         }
         if (window.__conwayApplyCellPatch) {
           window.__conwayApplyCellPatch(data);
@@ -851,13 +850,14 @@
           var cost = Number(td.dataset.cost || '0');
           td.dataset.action = cost <= energy ? baseAction : 'none';
         }
+        if (window.__conwayUpdateEnergy) window.__conwayUpdateEnergy(window.__conwayCurrentEnergy);
       }
 
       function applyBoardPatch(data) {
         var game = document.getElementById('game');
         if (!game) return;
         if (typeof data.current_energy === 'number') {
-          window.__conwayCurrentEnergy = data.current_energy;
+          window.__conwayUpdateEnergy(data.current_energy);
         }
         if (data.bbox) {
           game.setAttribute('data-bbox-xmin', String(data.bbox.xmin));
@@ -954,7 +954,7 @@
       if (resetBtn) {
         resetBtn.addEventListener('click', function() {
           winnerName = null;
-          window.__conwayCurrentEnergy = startingEnergy;
+          window.__conwayUpdateEnergy(startingEnergy);
           animating = false;
           btn.disabled = false;
           btn.textContent = '⏭ End Turn';
