@@ -372,19 +372,10 @@ test.describe('Touch gestures – comprehensive', () => {
   // ── 4. Tap to click ─────────────────────────────────────────────
 
   test('tap on a toggleable cell dispatches a click', async ({ page }) => {
-    // Find a toggleable cell near Player 1's start
-    // In the initial state, the bbox is around (20,20).
-    // Cells at (21,20) have friendly neighbors and are toggleable.
     const cellInfo = await page.evaluate(() => {
       const game = document.getElementById('game');
       if (!game) return null;
-      const cellPx = parseInt(game.getAttribute('data-cell-px')) || 12;
-      // Player 1 immortal is at (20,20). The viewport bbox initial-fit
-      // puts cells ~(17-23, 17-23) on screen.  Cell (21,20) should be
-      // toggleable.  We can find it by looking at the table rows.
       const rows = game.querySelectorAll('tr');
-      // The board starts at row 0, col 0.
-      // In the rendered table, row index = y, cell index = x.
       const row20 = rows[20];
       if (!row20) return null;
       const cell21_20 = row20.children[21];
@@ -393,31 +384,43 @@ test.describe('Touch gestures – comprehensive', () => {
       return {
         x: rect.left + rect.width / 2,
         y: rect.top + rect.height / 2,
-        initialBg: cell21_20.style.backgroundColor,
       };
     });
 
     expect(cellInfo).not.toBeNull();
-    const { x, y, initialBg } = cellInfo;
-    // The cell at (21,20) starts with background rgb(50,50,50) (dead, no owner)
-    // or rgb(50,65,50) (dead with slight crop level)
-    // After clicking, it should change (become owned by P1, alive).
+    const { x, y } = cellInfo;
 
-    await touchTap(page, x, y);
-    await page.waitForTimeout(500); // wait for HTMX swap
-
-    const newBg = await page.evaluate(() => {
-      const game = document.getElementById('game');
-      if (!game) return null;
-      const rows = game.querySelectorAll('tr');
-      const row = rows[20];
-      if (!row) return null;
-      return row.children[21]?.style.backgroundColor;
+    const responsePromise = page.waitForResponse((resp) => {
+      const url = new URL(resp.url());
+      return resp.request().method() === 'POST'
+        && url.pathname === '/update_cell'
+        && url.searchParams.get('x') === '21'
+        && url.searchParams.get('y') === '20'
+        && url.searchParams.get('json') === '1'
+        && resp.status() === 200;
     });
 
-    // The cell should have changed now that it's alive and owned by P1
-    // (from grey/green-ish to red-ish)
-    expect(newBg).not.toBe(initialBg);
+    await touchTap(page, x, y);
+    const response = await responsePromise;
+    const payload = await response.json();
+
+    expect(payload.x).toBe(21);
+    expect(payload.y).toBe(20);
+    expect(payload.immortal).toBe(false);
+    expect(payload.alive).toBe(true);
+
+    await page.waitForFunction(({ x, y, bg, border }) => {
+      const normalize = (value) => (value || '').replace(/\s+/g, '');
+      const game = document.getElementById('game');
+      if (!game) return false;
+      const rows = game.querySelectorAll('tr');
+      const row = rows[y];
+      if (!row) return false;
+      const cell = row.children[x];
+      if (!cell) return false;
+      return normalize(cell.style.backgroundColor) === normalize(bg)
+        && normalize(cell.style.borderColor) === normalize(border);
+    }, payload);
   });
 
   // ── 5. Minimap touch drag ───────────────────────────────────────

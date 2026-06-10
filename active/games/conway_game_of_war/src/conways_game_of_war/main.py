@@ -47,6 +47,16 @@ def _set_game(game: game_state.GameState) -> None:
     app.config["GAME"] = game
 
 
+def _reset_fib_progression() -> None:
+    app.config["FIB_PREV"] = 0
+    app.config["FIB_CURR"] = 1
+    app.config["FIB_REMAINING"] = 0
+
+
+def _test_routes_enabled() -> bool:
+    return os.environ.get("ENABLE_TEST_ROUTES") == "1"
+
+
 def _current_player_index() -> int:
     player_key = flask.session.get("player")
     return game_state.PLAYER_1 if player_key == "player1" else game_state.PLAYER_2
@@ -140,10 +150,7 @@ def index():
     if "player" not in flask.session:
         return flask.redirect("/select_player")
     _apply_session_options_to_game()
-    # Reset Fibonacci progression on fresh page load
-    app.config["FIB_PREV"] = 0
-    app.config["FIB_CURR"] = 1
-    app.config["FIB_REMAINING"] = 0
+    _reset_fib_progression()
     window_width = flask.request.args.get("width", type=int, default=800)
     window_height = flask.request.args.get("height", type=int, default=600)
     zoom_level = flask.request.args.get("zoom", type=float, default=1.0)
@@ -321,10 +328,53 @@ def reset():
     game = game_state.GameState()
     _set_game(game)
     _apply_session_options_to_game()
-    app.config["FIB_PREV"] = 0
-    app.config["FIB_CURR"] = 1
-    app.config["FIB_REMAINING"] = 0
+    _reset_fib_progression()
     return game.board_to_html(current_player_index=_current_player_index())
+
+
+def _build_territory_collision_scenario() -> game_state.GameState:
+    """Create a deterministic near-start collision scenario for browser tests."""
+    game = game_state.GameState()
+    p1 = game.players[game_state.PLAYER_1]
+    p2 = game.players[game_state.PLAYER_2]
+
+    p1_cells = [(22, 20), (22, 21), (23, 20), (23, 21)]
+    p2_cells = [(24, 20), (24, 21), (25, 20), (25, 21)]
+
+    for x, y in p1_cells:
+        game.board[x][y].owner = p1
+        game.board[x][y].alive = True
+        game._claim_neighbors(x, y, p1)
+
+    for x, y in p2_cells:
+        game.board[x][y].owner = p2
+        game.board[x][y].alive = True
+        game._claim_neighbors(x, y, p2)
+
+    return game
+
+
+@app.route("/__test__/seed_scenario", methods=["POST"])
+def seed_scenario():
+    """Seed deterministic scenarios for browser tests.
+
+    This route is disabled unless ENABLE_TEST_ROUTES=1 is set in the server env.
+    """
+    if not _test_routes_enabled():
+        flask.abort(404)
+
+    payload = flask.request.get_json(silent=True) or {}
+    name = flask.request.form.get("name") or payload.get("name")
+
+    if name == "territory_collision":
+        game = _build_territory_collision_scenario()
+    else:
+        return flask.jsonify({"ok": False, "error": f"unknown scenario: {name}"}), 400
+
+    _set_game(game)
+    _apply_session_options_to_game()
+    _reset_fib_progression()
+    return flask.jsonify({"ok": True, "scenario": name})
 
 
 @app.route("/log_error", methods=["POST"])

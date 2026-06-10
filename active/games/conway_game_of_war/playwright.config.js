@@ -23,7 +23,7 @@ module.exports = defineConfig({
   },
   // Start Flask before tests, kill after
   webServer: {
-    command: '.venv/bin/python -m conways_game_of_war.main',
+    command: 'ENABLE_TEST_ROUTES=1 .venv/bin/python -m conways_game_of_war.main',
     url: 'http://127.0.0.1:5000',
     reuseExistingServer: !process.env.CI,
     timeout: 10_000,
