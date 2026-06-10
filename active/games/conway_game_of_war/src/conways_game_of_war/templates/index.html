@@ -478,12 +478,9 @@
       var refreshTimer = null;
 
       document.addEventListener('htmx:afterSwap', function(e) {
-        // Use document.getElementById instead of e.detail.target because
-        // after outerHTML the event target might reference a detached element.
         var game = document.getElementById('game');
         if (!game) return;
 
-        // Step completed — clear guards
         stepInFlight = false;
         if (stepGuard) { clearTimeout(stepGuard); stepGuard = null; }
         if (hangTimer) { clearTimeout(hangTimer); hangTimer = null; }
@@ -496,12 +493,14 @@
 
         if (!animating) return;
 
-        if (readRemaining() > 0) {
+        var rem = readRemaining();
+        if (rem > 0) {
           setTimeout(tryFireStep, 80);
         } else {
           finish();
         }
       });
+
     })();
     </script>
     <!-- Help overlay (hidden by default) -->
