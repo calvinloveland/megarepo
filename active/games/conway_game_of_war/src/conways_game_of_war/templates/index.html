@@ -560,13 +560,6 @@
           finish();
         }
 
-        var rem = readRemaining();
-        if (rem > 0) {
-          setTimeout(tryFireStep, 80);
-        } else {
-          finish();
-        }
-
         // Status bar refresh (debounced)
         if (refreshTimer) clearTimeout(refreshTimer);
         refreshTimer = setTimeout(function() {
