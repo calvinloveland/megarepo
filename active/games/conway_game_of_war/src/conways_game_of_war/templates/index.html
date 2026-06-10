@@ -467,12 +467,11 @@
         hangTimer = setTimeout(function() {
           if (animating) finish();
         }, 60000);
-        // Per-step: retry after 15s if no response
+        // Per-step: if no response in 15s, reset — don't retry because
+        // a new htmx.ajax() would abort the in-flight request
         if (stepGuard) clearTimeout(stepGuard);
         stepGuard = setTimeout(function() {
-          stepInFlight = false;
-          if (!animating) return;
-          tryFireStep();
+          if (animating) finish();
         }, 15000);
       }
 
