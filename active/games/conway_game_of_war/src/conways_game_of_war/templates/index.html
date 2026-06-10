@@ -436,6 +436,7 @@
 
       function finish() {
         animating = false;
+        lastRem = -1;  // reset for next turn
         if (stepGuard) { clearTimeout(stepGuard); stepGuard = null; }
         if (hangTimer) { clearTimeout(hangTimer); hangTimer = null; }
         btn.disabled = false;
@@ -478,23 +479,31 @@
       var refreshTimer = null;
 
       var lastRem = -1;
-      document.addEventListener('htmx:afterSwap', function(e) {
+      document.addEventListener('htmx:afterSwap', function() {
         if (!animating) return;
         var game = document.getElementById('game');
         if (!game) return;
+
+        var rem = readRemaining();
+        // Only act when data-fib-remaining actually changed (a real
+        // step/end_turn response, not a status bar update)
+        if (rem === lastRem) return;
+        lastRem = rem;
 
         stepInFlight = false;
         if (stepGuard) { clearTimeout(stepGuard); stepGuard = null; }
         if (hangTimer) { clearTimeout(hangTimer); hangTimer = null; }
 
-        var rem = readRemaining();
-        // Only schedule next step if remaining actually changed (ignore
-        // status-bar swaps that don't touch #game)
-        if (rem !== lastRem && rem > 0) {
-          lastRem = rem;
+        if (rem > 0) {
           setTimeout(tryFireStep, 80);
-        } else if (rem <= 0) {
-          lastRem = rem;
+        } else {
+          finish();
+        }
+
+        var rem = readRemaining();
+        if (rem > 0) {
+          setTimeout(tryFireStep, 80);
+        } else {
           finish();
         }
 
