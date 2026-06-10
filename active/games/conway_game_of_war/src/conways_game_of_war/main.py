@@ -430,12 +430,15 @@ def _energy_html(game) -> str:
         else ""
     )
 
+    p1_energy = f'<span id="energy-val" data-player="p1">⚡{p1.energy:.1f}</span>' if player_key == "player1" else f'⚡{p1.energy:.1f}'
+    p2_energy = f'<span id="energy-val" data-player="p2">⚡{p2.energy:.1f}</span>' if player_key == "player2" else f'⚡{p2.energy:.1f}'
+
     return (
         f'<span style="color:{p1_color}">⬤ P1</span> '
-        f'⚡{p1.energy:.1f} 🏠{p1_cells} '
+        f'{p1_energy} 🏠{p1_cells} '
         f'&nbsp;&nbsp; '
         f'<span style="color:{p2_color}">⬤ P2</span> '
-        f'⚡{p2.energy:.1f} 🏠{p2_cells} '
+        f'{p2_energy} 🏠{p2_cells} '
         f'&nbsp;&nbsp;· {human_name}{ai_info}'
         f' · ⏭ +{fib_steps}'
         f'{victory_html}'

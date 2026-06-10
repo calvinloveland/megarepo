@@ -355,6 +355,14 @@
       td.cell-pending > div {
         animation: cell-pulse 0.35s ease-out;
       }
+
+      #energy-val.flash {
+        animation: energy-flash 0.4s ease-out;
+      }
+      @keyframes energy-flash {
+        0%, 100% { color: inherit; background-color: transparent; }
+        20% { color: #ff4444; background-color: rgba(255, 40, 40, 0.25); border-radius: 4px; }
+      }
     </style>
   </head>
   <body class="overlay-energy-active overlay-territory-active overlay-cost-active" style="--p1-color: {{ session['player1_color'] }}; --p2-color: {{ session['player2_color'] }};"> 
@@ -394,9 +402,6 @@
            hx-get="/player_energy"
            hx-trigger="load, every 3s"
       ></div>
-      <div id="energy-footer" style="flex-shrink:0;text-align:center;font-size:0.8rem;padding:2px 0;background:#1a1a1a;border-top:1px solid #333;color:#999">
-        ⚡<span id="energy-display">{{ current_energy|tojson }}</span>
-      </div>
     </div>
 
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
@@ -503,6 +508,23 @@
       var startingEnergy = {{ starting_energy|tojson }};
       var deadBg = 'rgb(50,50,50)';
       var optimisticSeq = 0;
+
+      function updateEnergyDisplay() {
+        var el = document.getElementById('energy-val');
+        if (el) el.textContent = '⚡' + String(Math.floor(window.__conwayCurrentEnergy * 10) / 10);
+      }
+      window.__conwayUpdateEnergy = function(e) {
+        window.__conwayCurrentEnergy = e;
+        currentPlayerEnergy = e;
+        updateEnergyDisplay();
+      };
+      function flashEnergyDisplay() {
+        var el = document.getElementById('energy-val');
+        if (!el) return;
+        el.classList.remove('flash');
+        void el.offsetWidth;
+        el.classList.add('flash');
+      }
 
       function reportWarning(message) {
         if (window.__conwayLogToServer) {
