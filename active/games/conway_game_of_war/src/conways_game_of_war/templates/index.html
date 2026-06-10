@@ -428,7 +428,7 @@
             console.error('End Turn request timed out (30s), resetting');
             finish();
           }
-        }, 30000);
+        }, 60000);
       });
 
       function finish() {
@@ -450,7 +450,7 @@
 
       function tryFireStep() {
         if (!animating) return;
-        if (stepInFlight) return;  // don't send duplicate requests
+        if (stepInFlight) return;
         var remaining = readRemaining();
         if (remaining <= 0) {
           finish();
@@ -462,7 +462,12 @@
           target: '#game',
           swap: 'outerHTML',
         });
-        // If no afterSwap within 15s, retry
+        // Overall safety: if animation stalls for 60s, reset
+        if (hangTimer) clearTimeout(hangTimer);
+        hangTimer = setTimeout(function() {
+          if (animating) finish();
+        }, 60000);
+        // Per-step: retry after 15s if no response
         if (stepGuard) clearTimeout(stepGuard);
         stepGuard = setTimeout(function() {
           stepInFlight = false;
