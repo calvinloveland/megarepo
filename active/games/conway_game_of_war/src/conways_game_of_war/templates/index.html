@@ -363,6 +363,21 @@
         0%, 100% { color: inherit; background-color: transparent; }
         20% { color: #ff4444; background-color: rgba(255, 40, 40, 0.25); border-radius: 4px; }
       }
+
+      .energy-float {
+        position: absolute;
+        pointer-events: none;
+        font-size: 9px;
+        font-weight: 700;
+        color: #ffcc66;
+        text-shadow: 0 0 3px rgba(0,0,0,0.95);
+        z-index: 10;
+        animation: float-up 1.0s ease-out forwards;
+      }
+      @keyframes float-up {
+        0% { opacity: 1; transform: translateY(0); }
+        100% { opacity: 0; transform: translateY(-28px); }
+      }
     </style>
   </head>
   <body class="overlay-energy-active overlay-territory-active overlay-cost-active" style="--p1-color: {{ session['player1_color'] }}; --p2-color: {{ session['player2_color'] }};"> 
@@ -381,6 +396,7 @@
             <button class="ctrl-btn overlay-toggle cost-toggle" id="toggle-cost-overlay" type="button" aria-pressed="true" title="Toggle action cost overlay">💸 Cost</button>
           </div>
           <button class="ctrl-btn" id="help-btn" type="button" title="Keyboard shortcuts">?</button>
+          <button class="ctrl-btn" id="undo-btn" type="button" disabled style="display:none">↩ Undo</button>
           <button class="ctrl-btn" id="minimap-toggle" type="button" title="Toggle minimap">🗺</button>
           <button class="ctrl-btn" id="end-turn-btn" type="button">⏭ End Turn</button>
           <button class="ctrl-btn" hx-post="/reset" hx-target="#game" hx-swap="outerHTML">⟳ Reset</button>
@@ -508,10 +524,48 @@
       var startingEnergy = {{ starting_energy|tojson }};
       var deadBg = 'rgb(50,50,50)';
       var optimisticSeq = 0;
+      var turnHistory = [];
+      window.__conwayTurnHistory = turnHistory;
+      var undoBtn = document.getElementById('undo-btn');
 
       function updateEnergyDisplay() {
         var el = document.getElementById('energy-val');
         if (el) el.textContent = '⚡' + String(Math.floor(window.__conwayCurrentEnergy * 10) / 10);
+      }
+
+      function updateUndoButton() {
+        window.__conwayTurnHistory = turnHistory;
+        if (!undoBtn) return;
+        if (turnHistory.length > 0) {
+          undoBtn.disabled = false;
+          undoBtn.style.display = '';
+          undoBtn.textContent = '↩ Undo (' + turnHistory.length + ')';
+        } else {
+          undoBtn.disabled = true;
+          undoBtn.style.display = 'none';
+        }
+      }
+
+      function showEnergyFloat(x, y, cost) {
+        if (!cost || cost <= 0) return;
+        var game = document.getElementById('game');
+        if (!game) return;
+        var rows = game.querySelectorAll('tr');
+        var row = rows[y];
+        if (!row) return;
+        var td = row.children[x];
+        if (!td) return;
+        var rect = td.getBoundingClientRect();
+        var viewport = document.getElementById('viewport');
+        if (!viewport) return;
+        var vpRect = viewport.getBoundingClientRect();
+        var el = document.createElement('div');
+        el.className = 'energy-float';
+        el.textContent = '-' + String(Math.round(cost));
+        el.style.left = String(rect.left - vpRect.left + rect.width / 2 - 6) + 'px';
+        el.style.top = String(rect.top - vpRect.top) + 'px';
+        viewport.appendChild(el);
+        setTimeout(function() { el.remove(); }, 1000);
       }
       window.__conwayUpdateEnergy = function(e) {
         window.__conwayCurrentEnergy = e;
@@ -712,6 +766,11 @@
             reportWarning('Optimistic render reverted at (' + x + ',' + y + ')');
           }
           applyServerState(pending.td, data);
+          showEnergyFloat(x, y, data.cost || 0);
+          if (data.cost > 0) {
+            turnHistory.push({x: data.x, y: data.y});
+            updateUndoButton();
+          }
         })
         .catch(function(err) {
           var pending = pendingUpdates.get(key);
@@ -775,6 +834,8 @@
 
       function finish() {
         animating = false;
+        window.__conwayTurnHistory = [];
+        if (typeof updateUndoButton === 'function') updateUndoButton();
         if (winnerName) {
           btn.disabled = true;
           btn.textContent = '🏆 ' + winnerName + ' Wins';
@@ -976,6 +1037,34 @@
         });
       });
 
+      if (document.getElementById('undo-btn')) {
+        document.getElementById('undo-btn').addEventListener('click', function() {
+          var hist = window.__conwayTurnHistory || [];
+          if (hist.length === 0) return;
+          var entry = hist.pop();
+          window.__conwayTurnHistory = hist;
+          if (typeof updateUndoButton === 'function') updateUndoButton();
+          fetch('/undo_cell?x=' + entry.x + '&y=' + entry.y + '&json=1', { method: 'POST' })
+            .then(function(r) {
+              if (!r.ok) throw new Error('undo HTTP ' + r.status);
+              return r.json();
+            })
+            .then(function(data) {
+              window.__conwayUpdateEnergy(data.current_energy);
+              if (window.__conwayApplyCellPatch) window.__conwayApplyCellPatch(data);
+              refreshAffordableActions();
+              scheduleStatusRefresh();
+            })
+            .catch(function(err) {
+              console.error('Undo failed:', err);
+              var h = window.__conwayTurnHistory || [];
+              h.push(entry);
+              window.__conwayTurnHistory = h;
+              if (typeof updateUndoButton === 'function') updateUndoButton();
+            });
+        });
+      }
+
       if (resetBtn) {
         resetBtn.addEventListener('click', function() {
           winnerName = null;
@@ -983,6 +1072,8 @@
           animating = false;
           btn.disabled = false;
           btn.textContent = '⏭ End Turn';
+          window.__conwayTurnHistory = [];
+          if (typeof updateUndoButton === 'function') updateUndoButton();
           setTimeout(refreshAffordableActions, 0);
         });
       }

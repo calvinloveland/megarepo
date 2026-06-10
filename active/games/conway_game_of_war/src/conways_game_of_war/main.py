@@ -24,6 +24,7 @@ app.config["ZOOM_LEVEL"] = 1.0
 app.config["FIB_PREV"] = 0       # fib(n-1)
 app.config["FIB_CURR"] = 1       # fib(n)
 app.config["FIB_REMAINING"] = 0  # steps left in current turn animation
+app.config["TURN_PLACED"] = {}    # (x,y) -> pre-state for undo within a turn
 
 
 def _hex_to_rgb(hex_color: str):
@@ -206,6 +207,7 @@ def get_game_state():
 def end_turn():
     """Start a Fibonacci-sized turn: advance ONE tick."""
     game = _get_game()
+    app.config["TURN_PLACED"] = {}  # clear undo history for new turn
     current_player_index = _current_player_index()
     before = None
     if flask.request.args.get("json") == "1":
@@ -292,7 +294,52 @@ def update_cell():
                 player_obj.energy -= cost
                 cell.alive = not cell.alive
 
+        # Track placed cells for undo within the turn
+        key = (x, y)
+        placed = app.config.get("TURN_PLACED", {})
+        if key not in placed:
+            placed[key] = {
+                "prev_alive": cell.alive,
+                "cost": cost,
+            }
+            app.config["TURN_PLACED"] = placed
+
     # JSON response for partial updates
+    if flask.request.args.get("json") == "1":
+        return _cell_json(game, x, y, idx)
+
+    return game.board_to_html(current_player_index=idx)
+
+
+@app.route("/undo_cell", methods=["POST"])
+def undo_cell():
+    """Undo a cell placed in the current turn and refund energy."""
+    game = _get_game()
+    x = flask.request.args.get("x", type=int)
+    y = flask.request.args.get("y", type=int)
+    if x is None or y is None:
+        return flask.jsonify({"ok": False, "error": "missing x,y"}), 400
+
+    placed = app.config.get("TURN_PLACED", {})
+    key = (x, y)
+    if key not in placed:
+        return flask.jsonify({"ok": False, "error": "not in turn history"}), 400
+
+    entry = placed[key]
+    cell = game.board[x][y]
+    player_obj, idx = _current_player()
+
+    # Refund energy
+    player_obj.energy += entry["cost"]
+
+    # Revert cell state
+    cell.alive = entry["prev_alive"]
+    if entry["prev_alive"] is False and cell.owner is not None:
+        cell.owner = None
+
+    del placed[key]
+    app.config["TURN_PLACED"] = placed
+
     if flask.request.args.get("json") == "1":
         return _cell_json(game, x, y, idx)
 
@@ -452,6 +499,7 @@ def reset():
     _set_game(game)
     _apply_session_options_to_game()
     _reset_fib_progression()
+    app.config["TURN_PLACED"] = {}
     return game.board_to_html(current_player_index=_current_player_index())
 
 
