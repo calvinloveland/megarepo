@@ -188,9 +188,13 @@ def get_game_state():
 
 @app.route("/end_turn", methods=["POST"])
 def end_turn():
-    """Start a Fibonacci-sized turn: advance ONE tick.
-    The response includes hx-trigger on the table if more steps remain."""
+    """Start a Fibonacci-sized turn: advance ONE tick."""
     game = _get_game()
+    current_player_index = _current_player_index()
+    before = None
+    if flask.request.args.get("json") == "1":
+        before = _board_visual_snapshot(game, current_player_index)
+
     prev = app.config["FIB_PREV"]
     curr = app.config["FIB_CURR"]  # total steps for this turn
     app.config["FIB_PREV"] = curr
@@ -198,22 +202,34 @@ def end_turn():
     remaining = curr - 1
     app.config["FIB_REMAINING"] = remaining
     game.update()
-    return game.board_to_html(current_player_index=_current_player_index(),
+
+    if before is not None:
+        return _board_patch_json(game, current_player_index, before, remaining)
+
+    return game.board_to_html(current_player_index=current_player_index,
                               fib_remaining=remaining)
 
 
 @app.route("/step", methods=["POST"])
 def step():
-    """Advance one tick and return the board.
-    Table includes hx-trigger for next step if more steps remain."""
+    """Advance one tick and return the board."""
     game = _get_game()
+    current_player_index = _current_player_index()
+    before = None
+    if flask.request.args.get("json") == "1":
+        before = _board_visual_snapshot(game, current_player_index)
+
     remaining = app.config.get("FIB_REMAINING", 0)
     next_remaining = 0
     if remaining > 0:
         app.config["FIB_REMAINING"] = remaining - 1
         next_remaining = remaining - 1
     game.update()
-    return game.board_to_html(current_player_index=_current_player_index(),
+
+    if before is not None:
+        return _board_patch_json(game, current_player_index, before, next_remaining)
+
+    return game.board_to_html(current_player_index=current_player_index,
                               fib_remaining=next_remaining)
 
 
@@ -246,31 +262,85 @@ def update_cell():
     return game.board_to_html(current_player_index=idx)
 
 
-def _cell_json(game, x, y, current_player_index: int):
-    """Return a lightweight JSON response for a single cell update."""
+def _cell_payload(game, x, y, current_player_index: int) -> dict:
+    """Return the client-facing visual payload for a single cell."""
     cell = game.board[x][y]
     r, g, b = (50, 50, 50)  # default dead background
     br, bg, bb = (150, 150, 150)  # default border
     if cell.owner is not None:
         r, g, b = cell.owner.color
         br, bg, bb = cell.owner.color
-    # Boost green for crop
     g = int(g + (255 / 2) * cell.crop_level)
     r = max(0, min(255, r))
     g = max(0, min(255, g))
     b = max(0, min(255, b))
-    owner = game._cell_owner_key(cell)
-    action = game.cell_interaction_hint(x, y, current_player_index)
-    return flask.jsonify({
+    return {
         "x": x,
         "y": y,
         "alive": cell.alive,
         "immortal": cell.immortal,
-        "owner": owner,
-        "action": action,
+        "owner": game._cell_owner_key(cell),
+        "action": game.cell_interaction_hint(x, y, current_player_index),
         "bg": f"rgb({r},{g},{b})",
         "border": f"rgb({br},{bg},{bb})",
-        "has_hx": not cell.immortal,  # whether this cell has a click handler
+        "has_hx": not cell.immortal,
+    }
+
+
+def _cell_json(game, x, y, current_player_index: int):
+    """Return a lightweight JSON response for a single cell update."""
+    return flask.jsonify(_cell_payload(game, x, y, current_player_index))
+
+
+def _board_visual_snapshot(game, current_player_index: int) -> dict:
+    """Capture the current visual state of all cells for diffing."""
+    snapshot = {}
+    for y in range(game.board_size_y):
+        for x in range(game.board_size_x):
+            payload = _cell_payload(game, x, y, current_player_index)
+            snapshot[(x, y)] = (
+                payload["bg"],
+                payload["border"],
+                payload["owner"],
+                payload["alive"],
+                payload["action"],
+                payload["has_hx"],
+            )
+    return snapshot
+
+
+def _board_patch_json(
+    game: game_state.GameState,
+    current_player_index: int,
+    before: dict,
+    fib_remaining: int,
+):
+    """Return a JSON patch with changed cells and updated board metadata."""
+    changed_cells = []
+    for y in range(game.board_size_y):
+        for x in range(game.board_size_x):
+            payload = _cell_payload(game, x, y, current_player_index)
+            current = (
+                payload["bg"],
+                payload["border"],
+                payload["owner"],
+                payload["alive"],
+                payload["action"],
+                payload["has_hx"],
+            )
+            if before.get((x, y)) != current:
+                changed_cells.append(payload)
+
+    xmin, ymin, xmax, ymax = game._player_bbox(current_player_index)
+    return flask.jsonify({
+        "fib_remaining": fib_remaining,
+        "bbox": {
+            "xmin": xmin,
+            "ymin": ymin,
+            "xmax": xmax,
+            "ymax": ymax,
+        },
+        "cells": changed_cells,
     })
 
 

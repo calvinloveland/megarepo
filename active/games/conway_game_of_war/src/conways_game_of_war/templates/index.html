@@ -458,10 +458,10 @@
       'use strict';
       var btn = document.getElementById('end-turn-btn');
       if (!btn) return;
+      var resetBtn = document.querySelector('button[hx-post="/reset"]');
       var animating = false;
-      var stepGuard = null;
-      var hangTimer = null;
-      var stepInFlight = false;
+      var requestSeq = 0;
+      var refreshTimer = null;
 
       function warn(prefix) {
         var xhr = new XMLHttpRequest();
@@ -470,112 +470,145 @@
         xhr.send(JSON.stringify({ level: 'warning', message: prefix }));
       }
 
-      btn.addEventListener('click', function(e) {
-        if (animating) return;
-        animating = true;
-        btn.disabled = true;
-        btn.textContent = '⏳';
-
-        if (typeof htmx === 'undefined') {
-          console.error('HTMX not loaded');
-          finish();
-          return;
-        }
-
-        htmx.ajax('POST', '/end_turn', {
-          source: btn,
-          target: '#game',
-          swap: 'outerHTML',
-        });
-
-        if (hangTimer) clearTimeout(hangTimer);
-        hangTimer = setTimeout(function() {
-          if (animating) { warn('end_turn timeout (5s)'); finish(); }
-        }, 5000);
-      });
-
-      function finish() {
-        animating = false;
-        lastRem = -1;  // reset for next turn
-        if (stepGuard) { clearTimeout(stepGuard); stepGuard = null; }
-        if (hangTimer) { clearTimeout(hangTimer); hangTimer = null; }
-        btn.disabled = false;
-        btn.textContent = '⏭ End Turn';
-        var sb = document.getElementById('status-bar');
-        if (sb && sb.hasAttribute('hx-get')) htmx.trigger(sb, 'load');
-      }
-
-      function readRemaining() {
-        var game = document.getElementById('game');
-        if (!game) return 0;
-        var r = game.getAttribute('data-fib-remaining');
-        return (r ? parseInt(r, 10) : 0);
-      }
-
-      function tryFireStep() {
-        if (!animating) return;
-        if (stepInFlight) return;
-        var remaining = readRemaining();
-        if (remaining <= 0) {
-          finish();
-          return;
-        }
-        stepInFlight = true;
-        htmx.ajax('POST', '/step', {
-          source: btn,
-          target: '#game',
-          swap: 'outerHTML',
-        });
-        if (hangTimer) clearTimeout(hangTimer);
-        hangTimer = setTimeout(function() {
-          if (animating) finish();
-        }, 5000);
-        if (stepGuard) clearTimeout(stepGuard);
-        stepGuard = setTimeout(function() {
-          if (animating) { warn('step timeout (3s)'); finish(); }
-        }, 3000);
-      }
-
-      var refreshTimer = null;
-
-      var lastRem = -1;
-      document.addEventListener('htmx:afterSwap', function(e) {
-        if (!animating) return;
-        if (!e.detail || !e.detail.xhr) return;
-
-        var path = '';
-        try {
-          path = new URL(e.detail.xhr.responseURL, window.location.origin).pathname;
-        } catch (err) {
-          path = '';
-        }
-        if (path !== '/end_turn' && path !== '/step') return;
-
-        var game = document.getElementById('game');
-        if (!game) return;
-
-        var rem = readRemaining();
-        if (rem === lastRem) return;
-        lastRem = rem;
-
-        stepInFlight = false;
-        if (stepGuard) { clearTimeout(stepGuard); stepGuard = null; }
-        if (hangTimer) { clearTimeout(hangTimer); hangTimer = null; }
-
-        if (rem > 0) {
-          setTimeout(tryFireStep, 80);
-        } else {
-          finish();
-        }
-
-        // Status bar refresh (debounced)
+      function scheduleStatusRefresh() {
         if (refreshTimer) clearTimeout(refreshTimer);
         refreshTimer = setTimeout(function() {
           var sb = document.getElementById('status-bar');
-          if (sb && sb.hasAttribute('hx-get')) htmx.trigger(sb, 'load');
+          if (sb && sb.hasAttribute('hx-get') && typeof htmx !== 'undefined') {
+            htmx.trigger(sb, 'load');
+          }
         }, 500);
-      });
+      }
 
+      function finish() {
+        animating = false;
+        btn.disabled = false;
+        btn.textContent = '⏭ End Turn';
+        if (resetBtn) resetBtn.disabled = false;
+        scheduleStatusRefresh();
+      }
+
+      function applyCellPatch(patch) {
+        var game = document.getElementById('game');
+        if (!game) return;
+        var rows = game.querySelectorAll('tr');
+        var row = rows[patch.y];
+        if (!row) return;
+        var td = row.children[patch.x];
+        if (!td) return;
+
+        td.style.backgroundColor = patch.bg;
+        td.style.borderColor = patch.border;
+        td.dataset.owner = patch.owner || 'none';
+        td.dataset.alive = patch.alive ? '1' : '0';
+        td.dataset.action = patch.action || 'none';
+        td.classList.remove('cell-pending');
+
+        var innerDiv = td.querySelector('div');
+        if (!innerDiv) return;
+        if (!patch.has_hx) {
+          innerDiv.removeAttribute('data-x');
+          innerDiv.removeAttribute('data-y');
+          innerDiv.classList.remove('cell');
+        } else if (!innerDiv.classList.contains('cell')) {
+          innerDiv.classList.add('cell');
+          innerDiv.setAttribute('data-x', String(patch.x));
+          innerDiv.setAttribute('data-y', String(patch.y));
+        }
+      }
+
+      function applyBoardPatch(data) {
+        var game = document.getElementById('game');
+        if (!game) return;
+        if (data.bbox) {
+          game.setAttribute('data-bbox-xmin', String(data.bbox.xmin));
+          game.setAttribute('data-bbox-ymin', String(data.bbox.ymin));
+          game.setAttribute('data-bbox-xmax', String(data.bbox.xmax));
+          game.setAttribute('data-bbox-ymax', String(data.bbox.ymax));
+        }
+        game.setAttribute('data-fib-remaining', String(data.fib_remaining || 0));
+        var cells = data.cells || [];
+        for (var i = 0; i < cells.length; i++) {
+          applyCellPatch(cells[i]);
+        }
+      }
+
+      function requestBoardPatch(url, label, seq) {
+        var controller = new AbortController();
+        var warned = false;
+        var slowTimer = setTimeout(function() {
+          warned = true;
+          warn(label + ' slow (>1s)');
+        }, 1000);
+        var hardTimer = setTimeout(function() {
+          controller.abort();
+        }, 10000);
+
+        return fetch(url, {
+          method: 'POST',
+          signal: controller.signal,
+        })
+        .then(function(r) {
+          if (!r.ok) throw new Error(label + ' HTTP ' + r.status);
+          return r.json();
+        })
+        .finally(function() {
+          clearTimeout(slowTimer);
+          clearTimeout(hardTimer);
+          if (warned) scheduleStatusRefresh();
+        })
+        .then(function(data) {
+          if (!animating || seq !== requestSeq) return null;
+          return data;
+        })
+        .catch(function(err) {
+          if (err.name === 'AbortError') {
+            throw new Error(label + ' timeout (10s)');
+          }
+          throw err;
+        });
+      }
+
+      function sleep(ms) {
+        return new Promise(function(resolve) {
+          setTimeout(resolve, ms);
+        });
+      }
+
+      async function runTurn(seq) {
+        var data = await requestBoardPatch('/end_turn?json=1', 'end_turn', seq);
+        if (!data) return;
+        applyBoardPatch(data);
+        scheduleStatusRefresh();
+
+        while (animating && seq === requestSeq && (data.fib_remaining || 0) > 0) {
+          await sleep(80);
+          data = await requestBoardPatch('/step?json=1', 'step', seq);
+          if (!data) return;
+          applyBoardPatch(data);
+          scheduleStatusRefresh();
+        }
+
+        if (seq === requestSeq) {
+          finish();
+        }
+      }
+
+      btn.addEventListener('click', function() {
+        if (animating) return;
+        animating = true;
+        requestSeq += 1;
+        var seq = requestSeq;
+        btn.disabled = true;
+        btn.textContent = '⏳';
+        if (resetBtn) resetBtn.disabled = true;
+
+        runTurn(seq).catch(function(err) {
+          console.error('End Turn failed:', err);
+          warn(err && err.message ? err.message : 'end_turn request failed');
+          if (seq === requestSeq) finish();
+        });
+      });
     })();
     </script>
     <!-- Help overlay (hidden by default) -->
