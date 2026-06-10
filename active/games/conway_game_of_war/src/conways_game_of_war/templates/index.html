@@ -477,7 +477,9 @@
 
       var refreshTimer = null;
 
+      var lastRem = -1;
       document.addEventListener('htmx:afterSwap', function(e) {
+        if (!animating) return;
         var game = document.getElementById('game');
         if (!game) return;
 
@@ -485,20 +487,23 @@
         if (stepGuard) { clearTimeout(stepGuard); stepGuard = null; }
         if (hangTimer) { clearTimeout(hangTimer); hangTimer = null; }
 
+        var rem = readRemaining();
+        // Only schedule next step if remaining actually changed (ignore
+        // status-bar swaps that don't touch #game)
+        if (rem !== lastRem && rem > 0) {
+          lastRem = rem;
+          setTimeout(tryFireStep, 80);
+        } else if (rem <= 0) {
+          lastRem = rem;
+          finish();
+        }
+
+        // Status bar refresh (debounced)
         if (refreshTimer) clearTimeout(refreshTimer);
         refreshTimer = setTimeout(function() {
           var sb = document.getElementById('status-bar');
           if (sb && sb.hasAttribute('hx-get')) htmx.trigger(sb, 'load');
         }, 500);
-
-        if (!animating) return;
-
-        var rem = readRemaining();
-        if (rem > 0) {
-          setTimeout(tryFireStep, 80);
-        } else {
-          finish();
-        }
       });
 
     })();
