@@ -402,6 +402,7 @@
       function applyServerState(td, data) {
         if (window.__conwayApplyCellPatch) {
           window.__conwayApplyCellPatch(data);
+          if (window.__conwaySyncWinner) window.__conwaySyncWinner(data);
           return;
         }
         if (!td) return;
@@ -419,6 +420,7 @@
             innerDiv.classList.remove('cell');
           }
         }
+        if (window.__conwaySyncWinner) window.__conwaySyncWinner(data);
       }
 
       function optimisticStateFor(td) {
@@ -541,6 +543,7 @@
       var animating = false;
       var requestSeq = 0;
       var refreshTimer = null;
+      var winnerName = {{ winner_name|tojson }};
 
       function warn(prefix) {
         if (window.__conwayLogToServer) {
@@ -563,10 +566,26 @@
         }, 500);
       }
 
+      function syncWinnerState(data) {
+        if (!data || !data.winner_name) return;
+        winnerName = data.winner_name;
+        animating = false;
+        btn.disabled = true;
+        btn.textContent = '🏆 ' + winnerName + ' Wins';
+        if (resetBtn) resetBtn.disabled = false;
+        scheduleStatusRefresh();
+      }
+      window.__conwaySyncWinner = syncWinnerState;
+
       function finish() {
         animating = false;
-        btn.disabled = false;
-        btn.textContent = '⏭ End Turn';
+        if (winnerName) {
+          btn.disabled = true;
+          btn.textContent = '🏆 ' + winnerName + ' Wins';
+        } else {
+          btn.disabled = false;
+          btn.textContent = '⏭ End Turn';
+        }
         if (resetBtn) resetBtn.disabled = false;
         scheduleStatusRefresh();
       }
@@ -641,6 +660,7 @@
         for (var i = 0; i < cells.length; i++) {
           applyCellPatch(cells[i]);
         }
+        syncWinnerState(data);
       }
 
       function requestBoardPatch(url, label, seq) {
@@ -705,7 +725,7 @@
       }
 
       btn.addEventListener('click', function() {
-        if (animating) return;
+        if (animating || winnerName) return;
         animating = true;
         requestSeq += 1;
         var seq = requestSeq;
@@ -719,6 +739,20 @@
           if (seq === requestSeq) finish();
         });
       });
+
+      if (resetBtn) {
+        resetBtn.addEventListener('click', function() {
+          winnerName = null;
+          animating = false;
+          btn.disabled = false;
+          btn.textContent = '⏭ End Turn';
+        });
+      }
+
+      if (winnerName) {
+        btn.disabled = true;
+        btn.textContent = '🏆 ' + winnerName + ' Wins';
+      }
     })();
     </script>
     <!-- Help overlay (hidden by default) -->

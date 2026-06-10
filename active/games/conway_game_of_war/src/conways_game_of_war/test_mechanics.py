@@ -171,6 +171,21 @@ def test_blinker_oscillates():
     assert game.board[12][11].alive
 
 
+def test_glider_wraps_across_horizontal_edge():
+    """A glider should continue across the toroidal left/right boundary."""
+    board = [[CellState() for _ in range(10)] for _ in range(10)]
+    game = GameState(board=board)
+    initial = {(8, 1), (9, 2), (7, 3), (8, 3), (9, 3)}
+    for x, y in initial:
+        game.board[x][y] = CellState(alive=True)
+
+    for _ in range(4):
+        game.update()
+
+    expected = {((x + 1) % 10, (y + 1) % 10) for x, y in initial}
+    assert alive_cells(game) == expected
+
+
 # ─── combat ──────────────────────────────────────────────────────────────
 
 def test_combat_kills_near_enemy():
@@ -260,6 +275,23 @@ def test_board_has_players():
     p2 = game.players[PLAYER_2]
     assert game.board[p1.start_point[0]][p1.start_point[1]].immortal
     assert game.board[p2.start_point[0]][p2.start_point[1]].immortal
+
+
+def test_player_wins_when_opponent_only_has_immortal_cell_left():
+    """Owning no non-immortal territory means that player has lost."""
+    game = GameState()
+    p2 = game.players[PLAYER_2]
+    assert game.winner_index() is None
+
+    for x in range(game.board_size_x):
+        for y in range(game.board_size_y):
+            cell = game.board[x][y]
+            if cell.owner == p2 and not cell.immortal:
+                cell.owner = None
+                cell.alive = False
+
+    assert game.count_owned_cells(p2, include_immortal=False) == 0
+    assert game.winner_index() == PLAYER_1
 
 
 # ─── frontier ────────────────────────────────────────────────────────────

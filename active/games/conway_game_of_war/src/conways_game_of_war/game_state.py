@@ -423,8 +423,12 @@ class GameState:
             self._apply_change(change)
 
     def _compute_active_bounds(self, margin: int = 2):
-        """Return (xmin, ymin, xmax, ymax) bounding box of all alive cells
-        plus margin.  If no alive cells, returns the full board."""
+        """Return active bounds for sparse updates.
+
+        The game board is toroidal, so patterns near an edge can affect the
+        opposite edge. When live cells approach any border, fall back to the
+        full board so wrap-around births/survivals remain correct.
+        """
         board = self.board
         sx, sy = self.board_size_x, self.board_size_y
         xmin, ymin = sx, sy
@@ -438,6 +442,13 @@ class GameState:
                     if y < ymin: ymin = y
                     if y > ymax: ymax = y
         if xmax < xmin:
+            return 0, 0, sx - 1, sy - 1
+        if (
+            xmin < margin
+            or ymin < margin
+            or xmax >= sx - margin
+            or ymax >= sy - margin
+        ):
             return 0, 0, sx - 1, sy - 1
         return (
             max(0, xmin - margin),
@@ -487,6 +498,43 @@ class GameState:
     def _apply_changes(self, changes: list[dict]) -> None:
         for change in changes:
             self._apply_change(change)
+
+    def count_owned_cells(
+        self,
+        player_obj: Player,
+        *,
+        alive_only: bool = False,
+        include_immortal: bool = True,
+    ) -> int:
+        """Count cells owned by a player, optionally filtering by state."""
+        count = 0
+        for x in range(self.board_size_x):
+            for y in range(self.board_size_y):
+                cell = self.board[x][y]
+                if cell.owner != player_obj:
+                    continue
+                if alive_only and not cell.alive:
+                    continue
+                if not include_immortal and cell.immortal:
+                    continue
+                count += 1
+        return count
+
+    def winner_index(self) -> Optional[int]:
+        """Return the winning player's index when only one side has territory left.
+
+        A player is defeated once they no longer control any non-immortal cells.
+        The immortal star/base may remain visible, but by itself it is not enough
+        to keep the player in the game.
+        """
+        surviving = [
+            index
+            for index, player in enumerate(self.players)
+            if self.count_owned_cells(player, include_immortal=False) > 0
+        ]
+        if len(surviving) == 1:
+            return surviving[0]
+        return None
 
     def _clamp_rgb(self, r, g, b):
         r = int(max(0, min(255, r)))

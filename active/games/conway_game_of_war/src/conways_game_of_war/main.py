@@ -88,6 +88,18 @@ def _cell_can_toggle(
     return game.can_toggle_for_player(x, y, player_obj)
 
 
+def _winner_payload(game: game_state.GameState) -> dict:
+    """Return the current winner payload for UI/JSON responses."""
+    winner_index = game.winner_index()
+    if winner_index is None:
+        return {"winner": None, "winner_name": None}
+    winner_name = f"Player {winner_index + 1}"
+    return {
+        "winner": "p1" if winner_index == game_state.PLAYER_1 else "p2",
+        "winner_name": winner_name,
+    }
+
+
 def _apply_session_options_to_game():
     """Apply player color and AI difficulty from session to the GAME instance."""
     game = _get_game()
@@ -152,6 +164,7 @@ def index():
         zoom_level=zoom_level,
         player_name=_player_display_name(),
         ai_difficulty=_ai_display_name(),
+        winner_name=_winner_payload(_get_game())["winner_name"],
     )
 
 
@@ -195,6 +208,12 @@ def end_turn():
     if flask.request.args.get("json") == "1":
         before = _board_visual_snapshot(game, current_player_index)
 
+    if game.winner_index() is not None:
+        app.config["FIB_REMAINING"] = 0
+        if before is not None:
+            return _board_patch_json(game, current_player_index, before, 0)
+        return game.board_to_html(current_player_index=current_player_index, fib_remaining=0)
+
     prev = app.config["FIB_PREV"]
     curr = app.config["FIB_CURR"]  # total steps for this turn
     app.config["FIB_PREV"] = curr
@@ -202,6 +221,9 @@ def end_turn():
     remaining = curr - 1
     app.config["FIB_REMAINING"] = remaining
     game.update()
+    if game.winner_index() is not None:
+        remaining = 0
+        app.config["FIB_REMAINING"] = 0
 
     if before is not None:
         return _board_patch_json(game, current_player_index, before, remaining)
@@ -219,12 +241,21 @@ def step():
     if flask.request.args.get("json") == "1":
         before = _board_visual_snapshot(game, current_player_index)
 
+    if game.winner_index() is not None:
+        app.config["FIB_REMAINING"] = 0
+        if before is not None:
+            return _board_patch_json(game, current_player_index, before, 0)
+        return game.board_to_html(current_player_index=current_player_index, fib_remaining=0)
+
     remaining = app.config.get("FIB_REMAINING", 0)
     next_remaining = 0
     if remaining > 0:
         app.config["FIB_REMAINING"] = remaining - 1
         next_remaining = remaining - 1
     game.update()
+    if game.winner_index() is not None:
+        next_remaining = 0
+        app.config["FIB_REMAINING"] = 0
 
     if before is not None:
         return _board_patch_json(game, current_player_index, before, next_remaining)
@@ -244,16 +275,17 @@ def update_cell():
         return game.board_to_html(current_player_index=_current_player_index())
 
     player_obj, idx = _current_player()
-    cell = game.board[x][y]
-    if _cell_can_toggle(game, x, y, player_obj):
-        if cell.owner is None:
-            if player_obj.energy >= game_state.ENERGY_PER_CELL:
-                player_obj.energy -= game_state.ENERGY_PER_CELL
-                cell.owner = player_obj
-                cell.alive = True
-                game._claim_neighbors(x, y, player_obj)
-        elif cell.owner == player_obj:
-            cell.alive = not cell.alive
+    if game.winner_index() is None:
+        cell = game.board[x][y]
+        if _cell_can_toggle(game, x, y, player_obj):
+            if cell.owner is None:
+                if player_obj.energy >= game_state.ENERGY_PER_CELL:
+                    player_obj.energy -= game_state.ENERGY_PER_CELL
+                    cell.owner = player_obj
+                    cell.alive = True
+                    game._claim_neighbors(x, y, player_obj)
+            elif cell.owner == player_obj:
+                cell.alive = not cell.alive
 
     # JSON response for partial updates
     if flask.request.args.get("json") == "1":
@@ -283,7 +315,9 @@ def _cell_payload(game, x, y, current_player_index: int) -> dict:
 
 def _cell_json(game, x, y, current_player_index: int):
     """Return a lightweight JSON response for a single cell update."""
-    return flask.jsonify(_cell_payload(game, x, y, current_player_index))
+    payload = _cell_payload(game, x, y, current_player_index)
+    payload.update(_winner_payload(game))
+    return flask.jsonify(payload)
 
 
 def _board_visual_snapshot(game, current_player_index: int) -> dict:
@@ -326,7 +360,7 @@ def _board_patch_json(
                 changed_cells.append(payload)
 
     xmin, ymin, xmax, ymax = game._player_bbox(current_player_index)
-    return flask.jsonify({
+    payload = {
         "fib_remaining": fib_remaining,
         "bbox": {
             "xmin": xmin,
@@ -335,7 +369,9 @@ def _board_patch_json(
             "ymax": ymax,
         },
         "cells": changed_cells,
-    })
+    }
+    payload.update(_winner_payload(game))
+    return flask.jsonify(payload)
 
 
 @app.route("/zoom", methods=["POST"])
@@ -358,8 +394,8 @@ def _energy_html(game) -> str:
     """Build the status bar HTML with both players' info."""
     p1 = game.players[0]
     p2 = game.players[1]
-    p1_cells = sum(1 for row in game.board for c in row if c.owner == p1 and c.alive)
-    p2_cells = sum(1 for row in game.board for c in row if c.owner == p2 and c.alive)
+    p1_cells = game.count_owned_cells(p1, alive_only=True)
+    p2_cells = game.count_owned_cells(p2, alive_only=True)
 
     p1_color = "#{:02x}{:02x}{:02x}".format(*p1.color)
     p2_color = "#{:02x}{:02x}{:02x}".format(*p2.color)
@@ -369,6 +405,12 @@ def _energy_html(game) -> str:
     diff = _ai_display_name()
     ai_info = f" · AI: {diff}" if diff else ""
     fib_steps = app.config["FIB_CURR"]
+    winner = _winner_payload(game)
+    victory_html = (
+        f' &nbsp;&nbsp;· <strong>🏆 {winner["winner_name"]} wins!</strong>'
+        if winner["winner_name"]
+        else ""
+    )
 
     return (
         f'<span style="color:{p1_color}">⬤ P1</span> '
@@ -378,6 +420,7 @@ def _energy_html(game) -> str:
         f'⚡{p2.energy:.1f} 🏠{p2_cells} '
         f'&nbsp;&nbsp;· {human_name}{ai_info}'
         f' · ⏭ +{fib_steps}'
+        f'{victory_html}'
     )
 
 

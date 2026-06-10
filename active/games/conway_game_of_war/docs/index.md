@@ -8,11 +8,12 @@ A browser-based strategy game that combines **Conway's Game of Life** with **two
 2. **Claim or toggle cells** — Expand from your owned territory and activate/deactivate your own cells.
 3. **End the turn** — The board evolves in a **Fibonacci-sized** burst: 1, 1, 2, 3, 5, 8...
 4. **Fight for space** — Conway birth/survival rules apply, but cells adjacent to enemies die from combat.
-5. **Manage energy** — Claiming a new cell costs energy. Energy is scarce and tied to crop-at-birth mechanics.
+5. **Break the enemy base** — Each side keeps an immortal star/base cell, but a player loses once all of their non-immortal territory is gone.
+6. **Manage energy** — Claiming a new cell costs energy. Energy is scarce and tied to crop-at-birth mechanics.
 
 ## Features
 
-- **Two-player Conway warfare** on a toroidal wrap-around board
+- **Two-player Conway warfare** on a toroidal wrap-around board, including edge-crossing gliders and other Life patterns
 - **Turn-based play** with animated End Turn progression
 - **Territory expansion** when a new cell is claimed
 - **Energy economy** shown in the status bar
