@@ -394,6 +394,9 @@
            hx-get="/player_energy"
            hx-trigger="load, every 3s"
       ></div>
+      <div id="energy-footer" style="flex-shrink:0;text-align:center;font-size:0.8rem;padding:2px 0;background:#1a1a1a;border-top:1px solid #333;color:#999">
+        ⚡<span id="energy-display">{{ current_energy|tojson }}</span>
+      </div>
     </div>
 
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
