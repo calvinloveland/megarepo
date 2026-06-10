@@ -457,8 +457,10 @@
       var refreshTimer = null;
 
       document.addEventListener('htmx:afterSwap', function(e) {
-        if (!e.detail || !e.detail.target) return;
-        if (e.detail.target.id !== 'game') return;
+        // Use document.getElementById instead of e.detail.target because
+        // after outerHTML the event target might reference a detached element.
+        var game = document.getElementById('game');
+        if (!game) return;
 
         // Step completed — clear the guard
         if (stepGuard) { clearTimeout(stepGuard); stepGuard = null; }
