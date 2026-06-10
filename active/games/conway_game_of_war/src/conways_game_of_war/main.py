@@ -85,16 +85,7 @@ def _ai_display_name() -> str:
 def _cell_can_toggle(
     game: game_state.GameState, x: int, y: int, player_obj: game_state.Player
 ) -> bool:
-    cell = game.board[x][y]
-    if cell.immortal:
-        return False
-    if cell.owner == player_obj:
-        return True
-    return (
-        (not cell.alive)
-        and (cell.owner in (None, player_obj))
-        and (game.count_friendly_neighbors(x, y, player_obj) > 0)
-    )
+    return game.can_toggle_for_player(x, y, player_obj)
 
 
 def _apply_session_options_to_game():
@@ -250,12 +241,12 @@ def update_cell():
 
     # JSON response for partial updates
     if flask.request.args.get("json") == "1":
-        return _cell_json(game, x, y)
+        return _cell_json(game, x, y, idx)
 
     return game.board_to_html(current_player_index=idx)
 
 
-def _cell_json(game, x, y):
+def _cell_json(game, x, y, current_player_index: int):
     """Return a lightweight JSON response for a single cell update."""
     cell = game.board[x][y]
     r, g, b = (50, 50, 50)  # default dead background
@@ -268,11 +259,15 @@ def _cell_json(game, x, y):
     r = max(0, min(255, r))
     g = max(0, min(255, g))
     b = max(0, min(255, b))
+    owner = game._cell_owner_key(cell)
+    action = game.cell_interaction_hint(x, y, current_player_index)
     return flask.jsonify({
         "x": x,
         "y": y,
         "alive": cell.alive,
         "immortal": cell.immortal,
+        "owner": owner,
+        "action": action,
         "bg": f"rgb({r},{g},{b})",
         "border": f"rgb({br},{bg},{bb})",
         "has_hx": not cell.immortal,  # whether this cell has a click handler

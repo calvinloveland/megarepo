@@ -48,6 +48,9 @@ async function goToGame(page) {
   await page.click('button[type="submit"][name="player"][value="player1"]');
   // Wait for game board to appear (the #game element with data attributes)
   await page.waitForSelector('#game[data-bbox-xmin]', { timeout: 8000 });
+  await page.request.post('/reset');
+  await page.reload();
+  await page.waitForSelector('#game[data-bbox-xmin]', { timeout: 8000 });
 }
 
 // ─── helper: get current transform values ────────────────────────────
@@ -72,6 +75,22 @@ async function getTransform(page) {
       rotate: rMatch ? parseFloat(rMatch[1]) : 0,
     };
   });
+}
+
+async function readCellStyle(page, x, y) {
+  return await page.evaluate(({ x, y }) => {
+    const game = document.getElementById('game');
+    if (!game) return null;
+    const rows = game.querySelectorAll('tr');
+    const row = rows[y];
+    if (!row) return null;
+    const cell = row.children[x];
+    if (!cell) return null;
+    return {
+      bg: cell.style.backgroundColor,
+      border: cell.style.borderColor,
+    };
+  }, { x, y });
 }
 
 // ─── tests ───────────────────────────────────────────────────────────
@@ -110,6 +129,47 @@ test.describe('GameView – map‑like navigation', () => {
     const after = await getTransform(page);
     expect(after.x).toBeCloseTo(before.x + 100, -1);
     expect(after.y).toBeCloseTo(before.y + 50, -1);
+  });
+
+  test('cell click shows optimistic state before delayed backend response', async ({ page }) => {
+    const normalize = (value) => (value || '').replace(/\s+/g, '');
+    const initial = await readCellStyle(page, 21, 20);
+    const playerColor = normalize(await page.locator('.player-name').evaluate((el) => getComputedStyle(el).color));
+
+    await page.route('**/update_cell?x=21&y=20&json=1', async (route) => {
+      await new Promise((resolve) => setTimeout(resolve, 700));
+      await route.continue();
+    });
+
+    const responsePromise = page.waitForResponse((resp) => {
+      const url = new URL(resp.url());
+      return resp.request().method() === 'POST'
+        && url.pathname === '/update_cell'
+        && url.searchParams.get('x') === '21'
+        && url.searchParams.get('y') === '20'
+        && url.searchParams.get('json') === '1';
+    });
+
+    await page.evaluate(() => {
+      const game = document.getElementById('game');
+      if (!game) return;
+      const row = game.querySelectorAll('tr')[20];
+      if (!row) return;
+      const div = row.children[21]?.querySelector('.cell');
+      if (div) div.click();
+    });
+
+    await page.waitForTimeout(100);
+    const optimistic = await readCellStyle(page, 21, 20);
+    expect(normalize(optimistic.bg)).toBe(playerColor);
+    expect(normalize(optimistic.bg)).not.toBe(normalize(initial.bg));
+
+    const response = await responsePromise;
+    const payload = await response.json();
+    await page.waitForTimeout(50);
+    const finalStyle = await readCellStyle(page, 21, 20);
+    expect(normalize(finalStyle.bg)).toBe(normalize(payload.bg));
+    expect(normalize(finalStyle.border)).toBe(normalize(payload.border));
   });
 
   // ── zoom via scroll wheel ─────────────────────────────────────────

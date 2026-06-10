@@ -522,7 +522,7 @@ class GameState:
         for y in range(self.board_size_y):
             html.append("<tr>")
             for x in range(self.board_size_x):
-                html.append(self._cell_html(x, y))
+                html.append(self._cell_html(x, y, current_player_index))
             html.append("</tr>")
         html.append("</table>")
         return "".join(html)
@@ -558,11 +558,16 @@ class GameState:
             f"{fib_attr}>"
         )
 
-    def _cell_html(self, x: int, y: int) -> str:
+    def _cell_html(self, x: int, y: int, current_player_index: Optional[int] = None) -> str:
         color = self.generate_cell_color(x, y)
         border_color = self.generate_cell_border_color(x, y)
+        cell = self.board[x][y]
+        owner_key = self._cell_owner_key(cell)
+        alive_attr = "1" if cell.alive else "0"
+        action = self.cell_interaction_hint(x, y, current_player_index)
         return (
-            f"<td style='width:{CELL_PX}px; height:{CELL_PX}px; background-color:rgb("
+            f"<td data-owner='{owner_key}' data-alive='{alive_attr}' data-action='{action}' "
+            f"style='width:{CELL_PX}px; height:{CELL_PX}px; background-color:rgb("
             f"{color[0]},{color[1]},{color[2]}); border: 1px solid rgb("
             f"{border_color[0]},{border_color[1]},{border_color[2]});'>"
             f"{self._cell_inner_div(x, y)}</td>"
@@ -575,6 +580,43 @@ class GameState:
             f"<div class='cell' data-x='{x}' data-y='{y}'"
             f" style='height:{CELL_PX}px;width:{CELL_PX}px'></div>"
         )
+
+    def can_toggle_for_player(self, x: int, y: int, player_obj: Player) -> bool:
+        """Return whether the given player can claim/toggle this cell."""
+        cell = self.board[x][y]
+        if cell.immortal:
+            return False
+        if cell.owner == player_obj:
+            return True
+        return (
+            (not cell.alive)
+            and (cell.owner in (None, player_obj))
+            and (self.count_friendly_neighbors(x, y, player_obj) > 0)
+        )
+
+    def cell_interaction_hint(
+        self, x: int, y: int, current_player_index: Optional[int]
+    ) -> str:
+        """Return the client-side action hint for the current player."""
+        if current_player_index is None:
+            return "none"
+        player_obj = self.players[current_player_index]
+        if not self.can_toggle_for_player(x, y, player_obj):
+            return "none"
+        cell = self.board[x][y]
+        if cell.owner is None:
+            return "claim"
+        if cell.alive:
+            return "toggle-off"
+        return "toggle-on"
+
+    def _cell_owner_key(self, cell: CellState) -> str:
+        """Return a stable owner label for DOM/data attributes."""
+        if cell.owner == self.players[PLAYER_1]:
+            return "p1"
+        if cell.owner == self.players[PLAYER_2]:
+            return "p2"
+        return "none"
 
     def flip_cell(self, x, y):
         """Flip the state of a cell."""

@@ -332,6 +332,68 @@
     (function() {
       'use strict';
       var pendingAbort = null;
+      var pendingTd = null;
+      var pendingSnapshot = null;
+      var currentPlayerColor = '{{ session["player1_color"] if session["player"] == "player1" else session["player2_color"] }}';
+      var currentPlayerOwner = '{{ "p1" if session["player"] == "player1" else "p2" }}';
+      var deadBg = 'rgb(50,50,50)';
+
+      function snapshotCell(td) {
+        return {
+          bg: td.style.backgroundColor,
+          border: td.style.borderColor,
+          owner: td.dataset.owner || 'none',
+          alive: td.dataset.alive || '0',
+          action: td.dataset.action || 'none'
+        };
+      }
+
+      function restoreCell(td, snapshot) {
+        if (!td || !snapshot) return;
+        td.style.backgroundColor = snapshot.bg;
+        td.style.borderColor = snapshot.border;
+        td.dataset.owner = snapshot.owner;
+        td.dataset.alive = snapshot.alive;
+        td.dataset.action = snapshot.action;
+        td.classList.remove('cell-pending');
+      }
+
+      function applyServerState(td, data) {
+        if (!td) return;
+        td.style.backgroundColor = data.bg;
+        td.style.borderColor = data.border;
+        td.dataset.owner = data.owner || 'none';
+        td.dataset.alive = data.alive ? '1' : '0';
+        td.dataset.action = data.action || 'none';
+        td.classList.remove('cell-pending');
+        if (!data.has_hx) {
+          var innerDiv = td.querySelector('.cell');
+          if (innerDiv) {
+            innerDiv.removeAttribute('data-x');
+            innerDiv.removeAttribute('data-y');
+            innerDiv.classList.remove('cell');
+          }
+        }
+      }
+
+      function applyOptimisticState(td) {
+        if (!td) return;
+        td.classList.add('cell-pending');
+        var action = td.dataset.action || 'none';
+        if (action === 'claim' || action === 'toggle-on') {
+          td.style.backgroundColor = currentPlayerColor;
+          td.style.borderColor = currentPlayerColor;
+          td.dataset.owner = currentPlayerOwner;
+          td.dataset.alive = '1';
+          td.dataset.action = 'toggle-off';
+        } else if (action === 'toggle-off') {
+          td.style.backgroundColor = deadBg;
+          td.style.borderColor = currentPlayerColor;
+          td.dataset.owner = currentPlayerOwner;
+          td.dataset.alive = '0';
+          td.dataset.action = 'toggle-on';
+        }
+      }
 
       document.addEventListener('click', function(e) {
         var cell = e.target.closest('.cell');
@@ -342,14 +404,19 @@
 
         e.preventDefault();
 
-        // Abort previous pending request
         if (pendingAbort) {
+          restoreCell(pendingTd, pendingSnapshot);
           try { pendingAbort.abort(); } catch(ex) {}
+          pendingAbort = null;
+          pendingTd = null;
+          pendingSnapshot = null;
         }
 
-        // Pulse animation on the td
         var td = cell.parentElement;
-        if (td) td.classList.add('cell-pending');
+        if (!td) return;
+        pendingSnapshot = snapshotCell(td);
+        pendingTd = td;
+        applyOptimisticState(td);
 
         var controller = new AbortController();
         pendingAbort = controller;
@@ -364,7 +431,8 @@
         })
         .then(function(data) {
           pendingAbort = null;
-          // Update just this cell's visual state
+          pendingTd = null;
+          pendingSnapshot = null;
           var game = document.getElementById('game');
           if (!game) return;
           var rows = game.querySelectorAll('tr');
@@ -372,23 +440,15 @@
           if (!row) return;
           var targetTd = row.children[data.x];
           if (!targetTd) return;
-          targetTd.style.backgroundColor = data.bg;
-          targetTd.style.borderColor = data.border;
-          targetTd.classList.remove('cell-pending');
-          // If the cell became immortal (game reset), remove data attrs
-          if (!data.has_hx) {
-            var innerDiv = targetTd.querySelector('.cell');
-            if (innerDiv) {
-              innerDiv.removeAttribute('data-x');
-              innerDiv.removeAttribute('data-y');
-              innerDiv.classList.remove('cell');
-            }
-          }
+          applyServerState(targetTd, data);
         })
         .catch(function(err) {
           if (err.name === 'AbortError') return;
           console.error('Cell update failed:', err);
-          if (td) td.classList.remove('cell-pending');
+          restoreCell(td, pendingSnapshot);
+          pendingAbort = null;
+          pendingTd = null;
+          pendingSnapshot = null;
         });
       });
     })();

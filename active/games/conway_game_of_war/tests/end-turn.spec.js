@@ -36,6 +36,9 @@ async function goToGame(page) {
   await expect(page.locator('.select-card')).toBeVisible({ timeout: 5000 });
   await page.click('button[type="submit"][name="player"][value="player1"]');
   await page.waitForSelector('#game[data-bbox-xmin]', { timeout: 8000 });
+  await page.request.post('/reset');
+  await page.reload();
+  await page.waitForSelector('#game[data-bbox-xmin]', { timeout: 8000 });
   await page.waitForTimeout(300);
 }
 
