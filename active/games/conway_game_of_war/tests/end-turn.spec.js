@@ -124,5 +124,40 @@ test.describe('End Turn animation', () => {
     expect(errors.length).toBe(0);
   });
 
+  test('#game element stays live in DOM after each swap', async ({ page }) => {
+    async function checkGameElement() {
+      return await page.evaluate(() => {
+        var game = document.getElementById('game');
+        if (!game) return { ok: false, reason: 'no #game element' };
+        if (!game.parentNode) return { ok: false, reason: 'detached from DOM' };
+        var w = game.getAttribute('data-board-w');
+        if (!w) return { ok: false, reason: 'missing data-board-w' };
+        var r = game.getAttribute('data-fib-remaining');
+        return {
+          ok: true,
+          boardW: parseInt(w, 10),
+          fibRemaining: r !== null ? parseInt(r, 10) : null,
+          parentTag: game.parentNode.tagName,
+        };
+      });
+    }
 
+    // Before any End Turns
+    var before = await checkGameElement();
+    expect(before.ok).toBe(true);
+    expect(before.fibRemaining).toBe(0);
+    expect(before.parentTag).toBe('DIV');
+    expect(before.boardW).toBeGreaterThan(0);
+
+    // 4 End Turns: fib(1)+fib(1)+fib(2)+fib(3) = 7 steps
+    for (var i = 0; i < 4; i++) {
+      await clickEndTurn(page);
+
+      var after = await checkGameElement();
+      expect(after.ok).toBe(true);
+      expect(after.fibRemaining).toBe(0);
+      expect(after.parentTag).toBe('DIV');
+      expect(after.boardW).toBeGreaterThan(0);
+    }
+  });
 });
