@@ -403,34 +403,52 @@
       var btn = document.getElementById('end-turn-btn');
       if (!btn) return;
       var animating = false;
-      var stepGuard = null;  // timeout to retry stuck steps
+      var stepGuard = null;
+      var hangTimer = null;
 
       btn.addEventListener('click', function(e) {
         if (animating) return;
         animating = true;
         btn.disabled = true;
         btn.textContent = '⏳';
+
+        if (typeof htmx === 'undefined') {
+          console.error('HTMX not loaded, cannot send End Turn');
+          finish();
+          return;
+        }
+
         htmx.ajax('POST', '/end_turn', {
           source: btn,
           target: '#game',
           swap: 'outerHTML',
         });
+
+        // If no swap happens within 30s, reset (request lost / server hung)
+        if (hangTimer) clearTimeout(hangTimer);
+        hangTimer = setTimeout(function() {
+          if (animating) {
+            console.error('End Turn request timed out (30s), resetting');
+            finish();
+          }
+        }, 30000);
       });
+
+      function finish() {
+        animating = false;
+        if (stepGuard) { clearTimeout(stepGuard); stepGuard = null; }
+        if (hangTimer) { clearTimeout(hangTimer); hangTimer = null; }
+        btn.disabled = false;
+        btn.textContent = '⏭ End Turn';
+        var sb = document.getElementById('status-bar');
+        if (sb && sb.hasAttribute('hx-get')) htmx.trigger(sb, 'load');
+      }
 
       function readRemaining() {
         var game = document.getElementById('game');
         if (!game) return 0;
         var r = game.getAttribute('data-fib-remaining');
         return (r ? parseInt(r, 10) : 0);
-      }
-
-      function finish() {
-        animating = false;
-        if (stepGuard) { clearTimeout(stepGuard); stepGuard = null; }
-        btn.disabled = false;
-        btn.textContent = '⏭ End Turn';
-        var sb = document.getElementById('status-bar');
-        if (sb && sb.hasAttribute('hx-get')) htmx.trigger(sb, 'load');
       }
 
       function tryFireStep() {
@@ -462,8 +480,9 @@
         var game = document.getElementById('game');
         if (!game) return;
 
-        // Step completed — clear the guard
+        // Step completed — clear guards
         if (stepGuard) { clearTimeout(stepGuard); stepGuard = null; }
+        if (hangTimer) { clearTimeout(hangTimer); hangTimer = null; }
 
         if (refreshTimer) clearTimeout(refreshTimer);
         refreshTimer = setTimeout(function() {
