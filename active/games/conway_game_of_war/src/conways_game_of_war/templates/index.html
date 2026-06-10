@@ -401,7 +401,14 @@
       var animating = false;
       var stepGuard = null;
       var hangTimer = null;
-      var stepInFlight = false;  // prevent duplicate /step requests
+      var stepInFlight = false;
+
+      function warn(prefix) {
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', '/log_error', true);
+        xhr.setRequestHeader('Content-Type', 'application/json');
+        xhr.send(JSON.stringify({ level: 'warning', message: prefix }));
+      }
 
       btn.addEventListener('click', function(e) {
         if (animating) return;
@@ -410,7 +417,7 @@
         btn.textContent = '⏳';
 
         if (typeof htmx === 'undefined') {
-          console.error('HTMX not loaded, cannot send End Turn');
+          console.error('HTMX not loaded');
           finish();
           return;
         }
@@ -421,14 +428,10 @@
           swap: 'outerHTML',
         });
 
-        // If no swap happens within 30s, reset (request lost / server hung)
         if (hangTimer) clearTimeout(hangTimer);
         hangTimer = setTimeout(function() {
-          if (animating) {
-            console.error('End Turn request timed out (30s), resetting');
-            finish();
-          }
-        }, 60000);
+          if (animating) { warn('end_turn timeout (5s)'); finish(); }
+        }, 5000);
       });
 
       function finish() {
@@ -462,17 +465,14 @@
           target: '#game',
           swap: 'outerHTML',
         });
-        // Overall safety: if animation stalls for 60s, reset
         if (hangTimer) clearTimeout(hangTimer);
         hangTimer = setTimeout(function() {
           if (animating) finish();
-        }, 60000);
-        // Per-step: if no response in 15s, reset — don't retry because
-        // a new htmx.ajax() would abort the in-flight request
+        }, 5000);
         if (stepGuard) clearTimeout(stepGuard);
         stepGuard = setTimeout(function() {
-          if (animating) finish();
-        }, 15000);
+          if (animating) { warn('step timeout (3s)'); finish(); }
+        }, 3000);
       }
 
       var refreshTimer = null;
