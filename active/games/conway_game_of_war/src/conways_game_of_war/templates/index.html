@@ -305,14 +305,10 @@
         seen.add(key);
         try {
           var payload = JSON.stringify({ level: level, message: msg, stack: stack || null });
-          if (navigator.sendBeacon) {
-            navigator.sendBeacon('/log_error', payload);
-          } else {
-            var xhr = new XMLHttpRequest();
-            xhr.open('POST', '/log_error', true);
-            xhr.setRequestHeader('Content-Type', 'application/json');
-            xhr.send(payload);
-          }
+          var xhr = new XMLHttpRequest();
+          xhr.open('POST', '/log_error', true);
+          xhr.setRequestHeader('Content-Type', 'application/json');
+          xhr.send(payload);
         } catch(e) { /* best-effort */ }
       }
       window.addEventListener('error', function(e) {
@@ -405,6 +401,7 @@
       var animating = false;
       var stepGuard = null;
       var hangTimer = null;
+      var stepInFlight = false;  // prevent duplicate /step requests
 
       btn.addEventListener('click', function(e) {
         if (animating) return;
@@ -453,21 +450,23 @@
 
       function tryFireStep() {
         if (!animating) return;
+        if (stepInFlight) return;  // don't send duplicate requests
         var remaining = readRemaining();
         if (remaining <= 0) {
           finish();
           return;
         }
+        stepInFlight = true;
         htmx.ajax('POST', '/step', {
           source: btn,
           target: '#game',
           swap: 'outerHTML',
         });
-        // If no afterSwap within 15s, fire again (network drop recovery)
+        // If no afterSwap within 15s, retry
         if (stepGuard) clearTimeout(stepGuard);
         stepGuard = setTimeout(function() {
+          stepInFlight = false;
           if (!animating) return;
-          // If still animating, the step got lost — retry
           tryFireStep();
         }, 15000);
       }
@@ -481,6 +480,7 @@
         if (!game) return;
 
         // Step completed — clear guards
+        stepInFlight = false;
         if (stepGuard) { clearTimeout(stepGuard); stepGuard = null; }
         if (hangTimer) { clearTimeout(hangTimer); hangTimer = null; }
 
