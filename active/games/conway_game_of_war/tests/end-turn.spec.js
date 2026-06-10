@@ -160,4 +160,79 @@ test.describe('End Turn animation', () => {
       expect(after.boardW).toBeGreaterThan(0);
     }
   });
+
+  test('game progresses through many End Turns with placed cells', async ({ page }) => {
+    // Place a 2x2 block (stable still-life in GoL) near the start area.
+    // Coordinates: start is at (20,20), territory covers (19,19)-(21,21).
+    // Cells at (23,23)-(24,24) are outside territory but can be claimed
+    // via clicking (they have friendly neighbours via territory chain).
+    // Actually, let's just click cells that are already owned territory
+    // to activate them — those are at (19,19)-(21,21) area.
+
+    async function clickCell(x, y) {
+      await page.evaluate(({x, y}) => {
+        var game = document.getElementById('game');
+        if (!game) return;
+        var rows = game.querySelectorAll('tr');
+        var row = rows[y];
+        if (!row) return;
+        var td = row.children[x];
+        if (!td) return;
+        var div = td.querySelector('.cell');
+        if (div) div.click();
+      }, {x, y});
+      // Wait for the JSON cell update to process
+      await page.waitForTimeout(400);
+    }
+
+    // Create a 2x2 block at (19,20), (19,21), (20,20), (20,21)
+    // where (20,20) is immortal already — let's place it elsewhere
+    // Use territory cells at (19,19), (19,20), (20,19), (20,20)
+    // Actually (20,20) is the immortal start, can't toggle it.
+    // Let's use (21,19), (21,20), (22,19), (22,20) — these are owned
+    // territory from the start cell's neighbour claim.
+
+    // Toggle them alive via click (free since they're owned)
+    await clickCell(21, 19);  // wait for response
+    await clickCell(21, 20);
+    await clickCell(22, 19);
+    await clickCell(22, 20);
+
+    await page.waitForTimeout(200);
+
+    async function countColored() {
+      return await page.evaluate(() => {
+        var game = document.getElementById('game');
+        if (!game) return 0;
+        var count = 0;
+        var rows = game.querySelectorAll('tr');
+        for (var r = 0; r < rows.length; r++) {
+          var cells = rows[r].querySelectorAll('td');
+          for (var c = 0; c < cells.length; c++) {
+            var bg = cells[c].style.backgroundColor;
+            if (bg && bg.indexOf('rgb(50, 65, 50)') === -1) count++;
+          }
+        }
+        return count;
+      });
+    }
+
+    var beforeAlive = await countColored();
+    console.log('Non-default cells before:', beforeAlive);
+    expect(beforeAlive).toBeGreaterThanOrEqual(5);
+
+    // 6 End Turns: fib(1)+fib(1)+fib(2)+fib(3)+fib(5)+fib(8) = 20 ticks
+    for (var i = 0; i < 6; i++) {
+      await clickEndTurn(page);
+    }
+
+    var afterAlive = await countColored();
+    console.log('Non-default cells after 6 End Turns:', afterAlive);
+
+    // Game should still have cells (didn't crash)
+    expect(afterAlive).toBeGreaterThan(0);
+    // The game should be in a different state than initial
+    // (either more cells from GoL expansion, or fewer from decay)
+    expect(afterAlive).not.toBe(beforeAlive);
+  }, 120000);  // 2 minute timeout for 8 turns with auto-steps
 });
