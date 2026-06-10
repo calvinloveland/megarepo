@@ -22,8 +22,10 @@ PLAYER_1_START_POINT = (20, 20)
 PLAYER_2_START_POINT = (DEFAULT_BOARD_SIZE_X - 20, DEFAULT_BOARD_SIZE_Y - 20)
 
 # Energy
-ENERGY_PER_CELL = 1.0        # cost to claim a new cell
+ENERGY_PER_CELL = 1.0        # legacy baseline cost scale
 STARTING_ENERGY = 5.0         # energy each player begins with
+FREE_BASE_RADIUS = 1          # cells within 1 of the immortal base are free
+DISTANCE_COST_POWER = 2       # farther actions become sharply more expensive
 
 NEIGHBOR_OFFSETS = [
     (-1, -1),
@@ -243,7 +245,11 @@ class GameState:
                 nx = (sx + i) % self.board_size_x
                 ny = (sy + j) % self.board_size_y
                 cell = self.board[nx][ny]
-                if (not cell.alive) and (cell.owner in (None, player_obj)):
+                if (
+                    (not cell.alive)
+                    and (cell.owner in (None, player_obj))
+                    and self.can_afford_action(nx, ny, player_obj)
+                ):
                     frontier.append((nx, ny))
         return frontier
 
@@ -258,9 +264,10 @@ class GameState:
 
     def _claim_cell(self, x: int, y: int, player_obj: Player) -> bool:
         """Claim a specific cell and its neighbours. Returns True if claimed."""
-        if player_obj.energy < ENERGY_PER_CELL:
+        cost = self.energy_cost_for_player(x, y, player_obj)
+        if player_obj.energy < cost:
             return False
-        player_obj.energy -= ENERGY_PER_CELL
+        player_obj.energy -= cost
         target = self.board[x][y]
         target.owner = player_obj
         target.alive = True
@@ -273,7 +280,10 @@ class GameState:
             return False
         if cell.owner is not None and cell.owner != player_obj:
             return False
-        return self.count_friendly_neighbors(x, y, player_obj) > 0
+        return (
+            self.count_friendly_neighbors(x, y, player_obj) > 0
+            and self.can_afford_action(x, y, player_obj)
+        )
 
     def update_ownership_around_cell(self, x, y):
         """Update the ownership of the cells around a cell."""
@@ -520,6 +530,47 @@ class GameState:
                 count += 1
         return count
 
+    def toroidal_distance_to_player_base(self, x: int, y: int, player_obj: Player) -> int:
+        """Return the toroidal Chebyshev distance from a cell to a player's base."""
+        sx, sy = player_obj.start_point
+        dx = abs(x - sx)
+        dy = abs(y - sy)
+        dx = min(dx, self.board_size_x - dx)
+        dy = min(dy, self.board_size_y - dy)
+        return max(dx, dy)
+
+    def energy_cost_for_player(self, x: int, y: int, player_obj: Player) -> float:
+        """Return the energy cost to interact with a cell for a player."""
+        distance = self.toroidal_distance_to_player_base(x, y, player_obj)
+        if distance <= FREE_BASE_RADIUS:
+            return 0.0
+        return float((distance - FREE_BASE_RADIUS) ** DISTANCE_COST_POWER)
+
+    def can_afford_action(self, x: int, y: int, player_obj: Player) -> bool:
+        """Return whether the player can currently afford this cell interaction."""
+        return player_obj.energy >= self.energy_cost_for_player(x, y, player_obj)
+
+    @staticmethod
+    def compact_cost_label(cost: float) -> str:
+        """Return a compact cost label suitable for tiny overlay cells."""
+        if cost <= 0:
+            return ""
+        if cost < 100:
+            return str(int(cost))
+        if cost < 1000:
+            return f"{int(cost / 10) * 10}+"
+        return "∞"
+
+    def cost_overlay_background(self, x: int, y: int, player_obj: Optional[Player]) -> str:
+        """Return a compact heatmap color for the cell-cost overlay."""
+        if player_obj is None:
+            return "rgba(0,0,0,0)"
+        distance = self.toroidal_distance_to_player_base(x, y, player_obj)
+        if distance <= FREE_BASE_RADIUS:
+            return "rgba(95, 205, 120, 0.26)"
+        intensity = min(0.18 + (distance - FREE_BASE_RADIUS) * 0.06, 0.82)
+        return f"rgba(255, 136, 74, {intensity:.2f})"
+
     def winner_index(self) -> Optional[int]:
         """Return the winning player's index when only one side has territory left.
 
@@ -616,17 +667,30 @@ class GameState:
         owner_key = self._cell_owner_key(cell)
         alive_attr = "1" if cell.alive else "0"
         action = self.cell_interaction_hint(x, y, current_player_index)
+        cost = self._cell_cost_for_player(x, y, current_player_index)
         return (
-            f"<td data-owner='{owner_key}' data-alive='{alive_attr}' data-action='{action}' "
+            f"<td data-owner='{owner_key}' data-alive='{alive_attr}' data-action='{action}' data-base-action='{action}' data-cost='{cost:.0f}' "
             f"style='width:{CELL_PX}px; height:{CELL_PX}px; background-color:rgb("
             f"{color[0]},{color[1]},{color[2]}); border: 1px solid rgb("
             f"{border_color[0]},{border_color[1]},{border_color[2]});'>"
-            f"{self._cell_inner_div(x, y)}</td>"
+            f"{self._cell_inner_div(x, y, current_player_index)}</td>"
         )
 
-    def _cell_inner_div(self, x: int, y: int) -> str:
+    def _cell_inner_div(self, x: int, y: int, current_player_index: Optional[int] = None) -> str:
         cell = self.board[x][y]
+        player_obj = (
+            self.players[current_player_index]
+            if current_player_index is not None
+            else None
+        )
         crop_px = self._crop_bar_px(cell.crop_level) if cell.owner is not None else 0
+        cost = self._cell_cost_for_player(x, y, current_player_index)
+        cost_label = self.compact_cost_label(cost)
+        cost_title = f"Cost {cost_label}" if cost_label else "Free"
+        cost_html = (
+            f"<span class='cell-cost-overlay' title='{cost_title}' "
+            f"style='background:{self.cost_overlay_background(x, y, player_obj)}'></span>"
+        )
         territory_html = "<span class='cell-territory-overlay'></span>"
         bar_html = (
             f"<span class='cell-energy-bar' style='height:{crop_px}px'></span>"
@@ -636,10 +700,10 @@ class GameState:
         star_html = "<span class='immortal-star'>★</span>" if cell.immortal else ""
         common = f"class='cell-shell{' cell' if not cell.immortal else ''}' style='height:{CELL_PX}px;width:{CELL_PX}px'"
         if cell.immortal:
-            return f"<div {common}>{territory_html}{bar_html}{star_html}</div>"
+            return f"<div {common}>{cost_html}{territory_html}{bar_html}{star_html}</div>"
         return (
             f"<div {common} data-x='{x}' data-y='{y}'>"
-            f"{territory_html}{bar_html}{star_html}</div>"
+            f"{cost_html}{territory_html}{bar_html}{star_html}</div>"
         )
 
     def _crop_bar_px(self, crop_level: float) -> int:
@@ -648,10 +712,17 @@ class GameState:
         clamped = max(0.0, min(1.0, crop_level))
         return int(round(usable_px * clamped))
 
+    def _cell_cost_for_player(
+        self, x: int, y: int, current_player_index: Optional[int]
+    ) -> float:
+        if current_player_index is None:
+            return 0.0
+        return self.energy_cost_for_player(x, y, self.players[current_player_index])
+
     def can_toggle_for_player(self, x: int, y: int, player_obj: Player) -> bool:
         """Return whether the given player can claim/toggle this cell."""
         cell = self.board[x][y]
-        if cell.immortal:
+        if cell.immortal or not self.can_afford_action(x, y, player_obj):
             return False
         if cell.owner == player_obj:
             return True

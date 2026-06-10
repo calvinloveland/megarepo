@@ -3,7 +3,7 @@
 from conways_game_of_war.game_state import (
     GameState, CellState, Player,
     PLAYER_1, PLAYER_2,
-    ENERGY_PER_CELL, STARTING_ENERGY,
+    STARTING_ENERGY,
     NEIGHBOR_OFFSETS,
 )
 
@@ -70,41 +70,45 @@ def test_starting_energy():
     assert game.players[PLAYER_2].energy == STARTING_ENERGY
 
 
-def test_claim_costs_energy():
-    """Claiming a new cell costs ENERGY_PER_CELL."""
+def test_claim_adjacent_to_base_is_free():
+    """Claiming within one cell of the immortal base should be free."""
     game = GameState()
     p1 = game.players[PLAYER_1]
     energy_before = p1.energy
-    # Claim a cell adjacent to start
     game._claim_cell(21, 20, p1)
-    assert p1.energy == energy_before - ENERGY_PER_CELL
+    assert p1.energy == energy_before
 
 
-def test_cannot_claim_without_energy():
-    """Claiming fails when energy < ENERGY_PER_CELL."""
+def test_claim_cost_rises_sharply_with_distance():
+    """Farther claims should become much more expensive."""
     game = GameState()
     p1 = game.players[PLAYER_1]
-    # Pick a cell FAR from any territory (not affected by neighbour claims)
-    far_x, far_y = 60, 60
+
+    assert game.energy_cost_for_player(21, 20, p1) == 0.0
+    assert game.energy_cost_for_player(22, 20, p1) == 1.0
+    assert game.energy_cost_for_player(23, 20, p1) == 4.0
+    assert game.energy_cost_for_player(24, 20, p1) == 9.0
+
+
+def test_cannot_claim_without_enough_energy_for_distance_cost():
+    """Claiming fails when energy is below the distance-based action cost."""
+    game = GameState()
+    p1 = game.players[PLAYER_1]
+    far_x, far_y = 24, 20
     assert game.board[far_x][far_y].owner is None, "Cell should start unowned"
-    p1.energy = 0.0
+    p1.energy = 8.0
     result = game._claim_cell(far_x, far_y, p1)
     assert not result
     assert game.board[far_x][far_y].owner is None, "Cell should not be claimed"
 
 
-def test_toggle_owned_cell_free():
-    """Toggling an already-owned cell does NOT cost energy."""
+def test_toggle_owned_cell_near_base_is_free():
+    """Toggling an owned cell near the base stays free."""
     game = GameState()
     p1 = game.players[PLAYER_1]
-    # First claim a cell
     game._claim_cell(21, 20, p1)
     energy_after_claim = p1.energy
-    # Toggle the claimed cell (should be free)
-    game.board[21][20].alive = False  # kill it
-    # In the actual game, toggling happens via update_cell which checks
-    # _cell_can_toggle. The energy check is only in _claim_cell.
-    # Toggling via the UI just flips cell.alive without calling _claim_cell.
+    game.board[21][20].alive = False
     assert p1.energy == energy_after_claim
 
 

@@ -85,6 +85,11 @@
         border-color: #4d8d6a;
         color: #dff6e9;
       }
+      .overlay-toggle.cost-toggle[aria-pressed="true"] {
+        background: #4a3120;
+        border-color: #d98a4a;
+        color: #ffe7cf;
+      }
 
       /* ── viewport ───────────────────────────────────────────────── */
       #viewport {
@@ -277,12 +282,23 @@
         display: block;
         overflow: hidden;
       }
+      .cell-cost-overlay {
+        position: absolute;
+        inset: 1px;
+        opacity: 0;
+        pointer-events: none;
+        z-index: 0;
+      }
+      body.overlay-cost-active .cell-cost-overlay {
+        opacity: 1;
+      }
       .cell-territory-overlay {
         position: absolute;
         inset: 1px;
         border-radius: 1px;
         opacity: 0;
         pointer-events: none;
+        z-index: 1;
         transition: opacity 0.15s ease;
       }
       td[data-owner='p1'] .cell-territory-overlay {
@@ -309,6 +325,7 @@
         opacity: 0;
         border-radius: 1px;
         pointer-events: none;
+        z-index: 2;
         transition: opacity 0.15s ease, height 0.15s ease;
       }
       body.overlay-energy-active td[data-owner='p1'] .cell-energy-bar,
@@ -324,6 +341,7 @@
         color: #fff4a8;
         font-size: 10px;
         line-height: 1;
+        z-index: 3;
         text-shadow: 0 0 2px rgba(0, 0, 0, 0.95), 0 0 4px rgba(0, 0, 0, 0.8);
         pointer-events: none;
       }
@@ -339,7 +357,7 @@
       }
     </style>
   </head>
-  <body class="overlay-energy-active overlay-territory-active" style="--p1-color: {{ session['player1_color'] }}; --p2-color: {{ session['player2_color'] }};"> 
+  <body class="overlay-energy-active overlay-territory-active overlay-cost-active" style="--p1-color: {{ session['player1_color'] }}; --p2-color: {{ session['player2_color'] }};"> 
     <div class="container">
       <div class="game-header">
         <h1>⚔ Conway's Game of War</h1>
@@ -352,6 +370,7 @@
             <span class="overlay-label">Overlays</span>
             <button class="ctrl-btn overlay-toggle" id="toggle-energy-overlay" type="button" aria-pressed="true" title="Toggle energy overlay">⚡ Energy</button>
             <button class="ctrl-btn overlay-toggle" id="toggle-territory-overlay" type="button" aria-pressed="true" title="Toggle territory overlay">🗺 Territory</button>
+            <button class="ctrl-btn overlay-toggle cost-toggle" id="toggle-cost-overlay" type="button" aria-pressed="true" title="Toggle action cost overlay">💸 Cost</button>
           </div>
           <button class="ctrl-btn" id="help-btn" type="button" title="Keyboard shortcuts">?</button>
           <button class="ctrl-btn" id="minimap-toggle" type="button" title="Toggle minimap">🗺</button>
@@ -393,6 +412,11 @@
           className: 'overlay-territory-active',
           storageKey: 'conway-overlay-territory',
           buttonId: 'toggle-territory-overlay',
+        },
+        {
+          className: 'overlay-cost-active',
+          storageKey: 'conway-overlay-cost',
+          buttonId: 'toggle-cost-overlay',
         },
       ];
 
@@ -471,6 +495,9 @@
       var pendingUpdates = new Map();
       var currentPlayerColor = '{{ session["player1_color"] if session["player"] == "player1" else session["player2_color"] }}';
       var currentPlayerOwner = '{{ "p1" if session["player"] == "player1" else "p2" }}';
+      window.__conwayCurrentEnergy = {{ current_energy|tojson }};
+      var currentPlayerEnergy = window.__conwayCurrentEnergy;
+      var startingEnergy = {{ starting_energy|tojson }};
       var deadBg = 'rgb(50,50,50)';
       var optimisticSeq = 0;
 
@@ -486,13 +513,25 @@
         return String(x) + ',' + String(y);
       }
 
+      function refreshAffordableActions() {
+        var game = document.getElementById('game');
+        if (!game) return;
+        var cells = game.querySelectorAll('td[data-cost]');
+        cells.forEach(function(td) {
+          var baseAction = td.dataset.baseAction || td.dataset.action || 'none';
+          var cost = Number(td.dataset.cost || '0');
+          td.dataset.action = cost <= currentPlayerEnergy ? baseAction : 'none';
+        });
+      }
+
       function snapshotCell(td) {
         return {
           bg: td.style.backgroundColor,
           border: td.style.borderColor,
           owner: td.dataset.owner || 'none',
           alive: td.dataset.alive || '0',
-          action: td.dataset.action || 'none'
+          action: td.dataset.action || 'none',
+          baseAction: td.dataset.baseAction || td.dataset.action || 'none'
         };
       }
 
@@ -502,14 +541,21 @@
         td.style.borderColor = snapshot.border;
         td.dataset.owner = snapshot.owner;
         td.dataset.alive = snapshot.alive;
+        td.dataset.baseAction = snapshot.baseAction;
         td.dataset.action = snapshot.action;
         td.classList.remove('cell-pending');
       }
 
       function applyServerState(td, data) {
+        if (typeof data.current_energy === 'number') {
+          window.__conwayCurrentEnergy = data.current_energy;
+          currentPlayerEnergy = data.current_energy;
+        }
         if (window.__conwayApplyCellPatch) {
           window.__conwayApplyCellPatch(data);
+          refreshAffordableActions();
           if (window.__conwaySyncWinner) window.__conwaySyncWinner(data);
+          if (window.__conwayScheduleStatusRefresh) window.__conwayScheduleStatusRefresh();
           return;
         }
         if (!td) return;
@@ -517,7 +563,9 @@
         td.style.borderColor = data.border;
         td.dataset.owner = data.owner || 'none';
         td.dataset.alive = data.alive ? '1' : '0';
+        td.dataset.baseAction = data.action || 'none';
         td.dataset.action = data.action || 'none';
+        td.dataset.cost = String(Math.round(data.cost || 0));
         td.classList.remove('cell-pending');
         if (!data.has_hx) {
           var innerDiv = td.querySelector('.cell');
@@ -527,7 +575,23 @@
             innerDiv.classList.remove('cell');
           }
         }
+        refreshAffordableActions();
         if (window.__conwaySyncWinner) window.__conwaySyncWinner(data);
+        if (window.__conwayScheduleStatusRefresh) window.__conwayScheduleStatusRefresh();
+      }
+
+      function refreshAffordableActions() {
+        var energy = window.__conwayCurrentEnergy;
+        var game = document.getElementById('game');
+        if (!game) return;
+        var cells = game.querySelectorAll('td[data-cost]');
+        for (var i = 0; i < cells.length; i++) {
+          var td = cells[i];
+          if (!td) continue;
+          var baseAction = td.dataset.baseAction || td.dataset.action || 'none';
+          var cost = Number(td.dataset.cost || '0');
+          td.dataset.action = cost <= energy ? baseAction : 'none';
+        }
       }
 
       function optimisticStateFor(td) {
@@ -672,6 +736,7 @@
           }
         }, 500);
       }
+      window.__conwayScheduleStatusRefresh = scheduleStatusRefresh;
 
       function syncWinnerState(data) {
         if (!data || !data.winner_name) return;
@@ -698,11 +763,21 @@
       }
 
       function syncCellInterior(innerDiv, patch) {
+        var costOverlay = innerDiv.querySelector('.cell-cost-overlay');
+        if (!costOverlay) {
+          costOverlay = document.createElement('span');
+          costOverlay.className = 'cell-cost-overlay';
+          innerDiv.insertBefore(costOverlay, innerDiv.firstChild || null);
+        }
+        costOverlay.textContent = '';
+        costOverlay.title = patch.cost_label ? ('Cost ' + patch.cost_label) : 'Free';
+        costOverlay.style.background = patch.cost_bg || 'rgba(0,0,0,0)';
+
         var territory = innerDiv.querySelector('.cell-territory-overlay');
         if (!territory) {
           territory = document.createElement('span');
           territory.className = 'cell-territory-overlay';
-          innerDiv.insertBefore(territory, innerDiv.firstChild || null);
+          innerDiv.insertBefore(territory, costOverlay.nextSibling || null);
         }
 
         var bar = innerDiv.querySelector('.cell-energy-bar');
@@ -743,7 +818,9 @@
         td.style.borderColor = patch.border;
         td.dataset.owner = patch.owner || 'none';
         td.dataset.alive = patch.alive ? '1' : '0';
+        td.dataset.baseAction = patch.action || 'none';
         td.dataset.action = patch.action || 'none';
+        td.dataset.cost = String(Math.round(patch.cost || 0));
         td.classList.remove('cell-pending');
 
         var innerDiv = td.querySelector('div');
@@ -762,9 +839,26 @@
       }
       window.__conwayApplyCellPatch = applyCellPatch;
 
+      function refreshAffordableActions() {
+        var energy = window.__conwayCurrentEnergy;
+        var game = document.getElementById('game');
+        if (!game) return;
+        var cells = game.querySelectorAll('td[data-cost]');
+        for (var i = 0; i < cells.length; i++) {
+          var td = cells[i];
+          if (!td) continue;
+          var baseAction = td.dataset.baseAction || td.dataset.action || 'none';
+          var cost = Number(td.dataset.cost || '0');
+          td.dataset.action = cost <= energy ? baseAction : 'none';
+        }
+      }
+
       function applyBoardPatch(data) {
         var game = document.getElementById('game');
         if (!game) return;
+        if (typeof data.current_energy === 'number') {
+          window.__conwayCurrentEnergy = data.current_energy;
+        }
         if (data.bbox) {
           game.setAttribute('data-bbox-xmin', String(data.bbox.xmin));
           game.setAttribute('data-bbox-ymin', String(data.bbox.ymin));
@@ -776,6 +870,7 @@
         for (var i = 0; i < cells.length; i++) {
           applyCellPatch(cells[i]);
         }
+        refreshAffordableActions();
         syncWinnerState(data);
       }
 
@@ -859,9 +954,11 @@
       if (resetBtn) {
         resetBtn.addEventListener('click', function() {
           winnerName = null;
+          window.__conwayCurrentEnergy = startingEnergy;
           animating = false;
           btn.disabled = false;
           btn.textContent = '⏭ End Turn';
+          setTimeout(refreshAffordableActions, 0);
         });
       }
 

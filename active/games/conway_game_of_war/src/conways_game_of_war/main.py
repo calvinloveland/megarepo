@@ -157,6 +157,7 @@ def index():
     window_width = flask.request.args.get("width", type=int, default=800)
     window_height = flask.request.args.get("height", type=int, default=600)
     zoom_level = flask.request.args.get("zoom", type=float, default=1.0)
+    current_player, _ = _current_player()
     return flask.render_template(
         "index.html",
         window_width=window_width,
@@ -164,6 +165,8 @@ def index():
         zoom_level=zoom_level,
         player_name=_player_display_name(),
         ai_difficulty=_ai_display_name(),
+        current_energy=current_player.energy,
+        starting_energy=game_state.STARTING_ENERGY,
         winner_name=_winner_payload(_get_game())["winner_name"],
     )
 
@@ -277,14 +280,16 @@ def update_cell():
     player_obj, idx = _current_player()
     if game.winner_index() is None:
         cell = game.board[x][y]
+        cost = game.energy_cost_for_player(x, y, player_obj)
         if _cell_can_toggle(game, x, y, player_obj):
             if cell.owner is None:
-                if player_obj.energy >= game_state.ENERGY_PER_CELL:
-                    player_obj.energy -= game_state.ENERGY_PER_CELL
+                if player_obj.energy >= cost:
+                    player_obj.energy -= cost
                     cell.owner = player_obj
                     cell.alive = True
                     game._claim_neighbors(x, y, player_obj)
-            elif cell.owner == player_obj:
+            elif cell.owner == player_obj and player_obj.energy >= cost:
+                player_obj.energy -= cost
                 cell.alive = not cell.alive
 
     # JSON response for partial updates
@@ -297,6 +302,8 @@ def update_cell():
 def _cell_payload(game, x, y, current_player_index: int) -> dict:
     """Return the client-facing visual payload for a single cell."""
     cell = game.board[x][y]
+    player_obj = game.players[current_player_index]
+    cost = game.energy_cost_for_player(x, y, player_obj)
     r, g, b = game.generate_cell_color(x, y)
     br, bg, bb = game.generate_cell_border_color(x, y)
     return {
@@ -305,6 +312,10 @@ def _cell_payload(game, x, y, current_player_index: int) -> dict:
         "alive": cell.alive,
         "immortal": cell.immortal,
         "crop": max(0.0, min(1.0, cell.crop_level)),
+        "cost": cost,
+        "cost_label": game.compact_cost_label(cost),
+        "cost_bg": game.cost_overlay_background(x, y, player_obj),
+        "current_energy": player_obj.energy,
         "owner": game._cell_owner_key(cell),
         "action": game.cell_interaction_hint(x, y, current_player_index),
         "bg": f"rgb({r},{g},{b})",
@@ -333,6 +344,9 @@ def _board_visual_snapshot(game, current_player_index: int) -> dict:
                 payload["alive"],
                 payload["action"],
                 payload["has_hx"],
+                payload["cost"],
+                payload["cost_label"],
+                payload["cost_bg"],
             )
     return snapshot
 
@@ -355,6 +369,9 @@ def _board_patch_json(
                 payload["alive"],
                 payload["action"],
                 payload["has_hx"],
+                payload["cost"],
+                payload["cost_label"],
+                payload["cost_bg"],
             )
             if before.get((x, y)) != current:
                 changed_cells.append(payload)
@@ -362,6 +379,7 @@ def _board_patch_json(
     xmin, ymin, xmax, ymax = game._player_bbox(current_player_index)
     payload = {
         "fib_remaining": fib_remaining,
+        "current_energy": game.players[current_player_index].energy,
         "bbox": {
             "xmin": xmin,
             "ymin": ymin,

@@ -193,6 +193,29 @@ test.describe('GameView – map‑like navigation', () => {
     expect(visibleAgain.opacity).toBeGreaterThan(0.1);
   });
 
+  test('cost overlay can be toggled on and off', async ({ page }) => {
+    const button = page.locator('#toggle-cost-overlay');
+    await expect(button).toHaveAttribute('aria-pressed', 'true');
+
+    const cell = '#game td[data-cost="9"] .cell-cost-overlay';
+    await expect(page.locator(cell).first()).toHaveAttribute('title');
+
+    const visible = await readOverlayStyle(page, cell);
+    expect(visible.opacity).toBeGreaterThan(0.5);
+
+    await page.evaluate(() => document.getElementById('toggle-cost-overlay')?.click());
+    await page.waitForTimeout(100);
+    await expect(button).toHaveAttribute('aria-pressed', 'false');
+    const hidden = await readOverlayStyle(page, cell);
+    expect(hidden.opacity).toBeLessThan(0.05);
+
+    await page.evaluate(() => document.getElementById('toggle-cost-overlay')?.click());
+    await page.waitForTimeout(100);
+    await expect(button).toHaveAttribute('aria-pressed', 'true');
+    const visibleAgain = await readOverlayStyle(page, cell);
+    expect(visibleAgain.opacity).toBeGreaterThan(0.5);
+  });
+
   test('cell click shows optimistic state before delayed backend response', async ({ page }) => {
     const normalize = (value) => (value || '').replace(/\s+/g, '');
     const initial = await readCellStyle(page, 21, 20);
@@ -250,7 +273,12 @@ test.describe('GameView – map‑like navigation', () => {
     });
     expect(targets).toHaveLength(3);
 
-    await page.route('**/update_cell?*json=1', async (route) => {
+    await page.route('**/update_cell**', async (route) => {
+      const url = new URL(route.request().url());
+      if (url.pathname !== '/update_cell' || url.searchParams.get('json') !== '1') {
+        await route.continue();
+        return;
+      }
       await new Promise((resolve) => setTimeout(resolve, 700));
       await route.continue();
     });
@@ -280,7 +308,7 @@ test.describe('GameView – map‑like navigation', () => {
       const expectedBg = action === 'toggle-off' ? deadBg : playerColor;
       expect(normalize(optimistic.bg)).toBe(normalize(expectedBg));
     }
-    await expect(page.locator('td.cell-pending')).toHaveCount(3);
+    await expect.poll(async () => page.locator('td.cell-pending').count()).toBe(3);
 
     const payloads = await Promise.all(responsePromises.map((promise) => promise.then((resp) => resp.json())));
     await page.waitForTimeout(50);

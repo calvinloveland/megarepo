@@ -51,3 +51,27 @@ class TestClientGameState:
         assert payload["winner_name"] == "Player 1"
         assert payload["fib_remaining"] == 0
         assert payload["cells"] == []
+
+    def test_update_cell_applies_distance_based_cost(self):
+        player = self.game.players[game_state.PLAYER_1]
+        player.energy = 10.0
+        self.game.board[24][20].owner = player
+        self.game.board[24][20].alive = False
+
+        response = self.client.post("/update_cell?x=24&y=20&json=1")
+        payload = response.get_json()
+
+        assert response.status_code == 200
+        assert payload["cost"] == 9.0
+        assert self.game.board[24][20].owner == player
+        assert self.game.board[24][20].alive is True
+        assert player.energy == 1.0
+
+    def test_cell_json_includes_cost_overlay_metadata(self):
+        response = self.client.post("/update_cell?x=21&y=20&json=1")
+        payload = response.get_json()
+
+        assert response.status_code == 200
+        assert payload["cost"] == 0.0
+        assert payload["cost_label"] == ""
+        assert payload["cost_bg"].startswith("rgba(")
