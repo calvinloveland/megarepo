@@ -142,8 +142,9 @@ async function countNonDefaultCells(page) {
     for (let r = 0; r < rows.length; r++) {
       const cells = rows[r].querySelectorAll('td');
       for (let c = 0; c < cells.length; c++) {
-        const bg = cells[c].style.backgroundColor;
-        if (bg && bg !== 'rgb(50, 65, 50)') count += 1;
+        if (cells[c].dataset.owner !== 'none' || cells[c].dataset.alive === '1') {
+          count += 1;
+        }
       }
     }
     return count;

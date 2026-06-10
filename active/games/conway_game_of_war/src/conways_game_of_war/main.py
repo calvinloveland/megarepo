@@ -265,20 +265,14 @@ def update_cell():
 def _cell_payload(game, x, y, current_player_index: int) -> dict:
     """Return the client-facing visual payload for a single cell."""
     cell = game.board[x][y]
-    r, g, b = (50, 50, 50)  # default dead background
-    br, bg, bb = (150, 150, 150)  # default border
-    if cell.owner is not None:
-        r, g, b = cell.owner.color
-        br, bg, bb = cell.owner.color
-    g = int(g + (255 / 2) * cell.crop_level)
-    r = max(0, min(255, r))
-    g = max(0, min(255, g))
-    b = max(0, min(255, b))
+    r, g, b = game.generate_cell_color(x, y)
+    br, bg, bb = game.generate_cell_border_color(x, y)
     return {
         "x": x,
         "y": y,
         "alive": cell.alive,
         "immortal": cell.immortal,
+        "crop": max(0.0, min(1.0, cell.crop_level)),
         "owner": game._cell_owner_key(cell),
         "action": game.cell_interaction_hint(x, y, current_player_index),
         "bg": f"rgb({r},{g},{b})",

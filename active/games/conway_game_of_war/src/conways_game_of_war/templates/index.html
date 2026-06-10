@@ -249,6 +249,35 @@
         }
       }
 
+      .cell-shell {
+        position: relative;
+        display: block;
+        overflow: hidden;
+      }
+      .cell-energy-bar {
+        position: absolute;
+        left: 1px;
+        right: 1px;
+        bottom: 1px;
+        min-height: 0;
+        background: linear-gradient(to top, #2fbf55, #9dff8c);
+        opacity: 0.9;
+        border-radius: 1px;
+        pointer-events: none;
+      }
+      .immortal-star {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #fff4a8;
+        font-size: 10px;
+        line-height: 1;
+        text-shadow: 0 0 2px rgba(0, 0, 0, 0.95), 0 0 4px rgba(0, 0, 0, 0.8);
+        pointer-events: none;
+      }
+
       /* cell click pulse feedback */
       @keyframes cell-pulse {
         0%   { filter: brightness(1); }
@@ -488,6 +517,30 @@
         scheduleStatusRefresh();
       }
 
+      function syncCellInterior(innerDiv, patch) {
+        var bar = innerDiv.querySelector('.cell-energy-bar');
+        if (!bar) {
+          bar = document.createElement('span');
+          bar.className = 'cell-energy-bar';
+          innerDiv.appendChild(bar);
+        }
+        var crop = Math.max(0, Math.min(1, patch.crop || 0));
+        var cellPx = innerDiv.offsetHeight || 12;
+        bar.style.height = String(Math.round(Math.max(1, cellPx - 2) * crop)) + 'px';
+
+        var star = innerDiv.querySelector('.immortal-star');
+        if (patch.immortal) {
+          if (!star) {
+            star = document.createElement('span');
+            star.className = 'immortal-star';
+            star.textContent = '★';
+            innerDiv.appendChild(star);
+          }
+        } else if (star) {
+          star.remove();
+        }
+      }
+
       function applyCellPatch(patch) {
         var game = document.getElementById('game');
         if (!game) return;
@@ -506,6 +559,8 @@
 
         var innerDiv = td.querySelector('div');
         if (!innerDiv) return;
+        innerDiv.classList.add('cell-shell');
+        syncCellInterior(innerDiv, patch);
         if (!patch.has_hx) {
           innerDiv.removeAttribute('data-x');
           innerDiv.removeAttribute('data-y');

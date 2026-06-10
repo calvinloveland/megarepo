@@ -495,15 +495,18 @@ class GameState:
         return (r, g, b)
 
     def generate_cell_color(self, x, y):
-        """Generate the color of a cell."""
-        base = (50, 50, 50)
+        """Generate the background color of a cell.
+
+        Alive cells are bright and owned-color coded.
+        Dead cells stay dark so alive/dead contrast remains obvious.
+        Harvestable energy is rendered separately as an in-cell bar.
+        """
         cell = self.board[x][y]
         if cell.alive and cell.owner is not None:
-            base = cell.owner.color
-        # Boost green channel by crop level for a subtle growth effect
-        r, g, b = base
-        g = g + (255 / 2) * cell.crop_level
-        return self._clamp_rgb(r, g, b)
+            return self._clamp_rgb(*cell.owner.color)
+        if cell.owner is not None:
+            return (34, 34, 34)
+        return (24, 24, 24)
 
     def generate_cell_border_color(self, x, y):
         """Generate the border color of a cell."""
@@ -574,12 +577,27 @@ class GameState:
         )
 
     def _cell_inner_div(self, x: int, y: int) -> str:
-        if self.board[x][y].immortal:
-            return f"<div style='height:{CELL_PX}px;width:{CELL_PX}px'></div>"
-        return (
-            f"<div class='cell' data-x='{x}' data-y='{y}'"
-            f" style='height:{CELL_PX}px;width:{CELL_PX}px'></div>"
+        cell = self.board[x][y]
+        crop_px = self._crop_bar_px(cell.crop_level)
+        bar_html = (
+            f"<span class='cell-energy-bar' style='height:{crop_px}px'></span>"
+            if crop_px > 0
+            else "<span class='cell-energy-bar' style='height:0'></span>"
         )
+        star_html = "<span class='immortal-star'>★</span>" if cell.immortal else ""
+        common = f"class='cell-shell{' cell' if not cell.immortal else ''}' style='height:{CELL_PX}px;width:{CELL_PX}px'"
+        if cell.immortal:
+            return f"<div {common}>{bar_html}{star_html}</div>"
+        return (
+            f"<div {common} data-x='{x}' data-y='{y}'>"
+            f"{bar_html}{star_html}</div>"
+        )
+
+    def _crop_bar_px(self, crop_level: float) -> int:
+        """Convert crop level to an in-cell energy bar height."""
+        usable_px = max(1, CELL_PX - 2)
+        clamped = max(0.0, min(1.0, crop_level))
+        return int(round(usable_px * clamped))
 
     def can_toggle_for_player(self, x: int, y: int, player_obj: Player) -> bool:
         """Return whether the given player can claim/toggle this cell."""
