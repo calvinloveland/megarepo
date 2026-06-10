@@ -236,3 +236,29 @@ test.describe('End Turn animation', () => {
     expect(afterAlive).not.toBe(beforeAlive);
   }, 120000);  // 2 minute timeout for 8 turns with auto-steps
 });
+
+  test('5 consecutive End Turns without stale lastRem', async ({ page }) => {
+    for (var i = 0; i < 5; i++) {
+      await clickEndTurn(page);
+    }
+    expect(await getFibRemaining(page)).toBe(0);
+  });
+
+  test('multi-step turn auto-steps complete', async ({ page }) => {
+    // Turns 1-2: fib=1 (0 auto-steps)
+    await clickEndTurn(page);
+    await clickEndTurn(page);
+
+    // Turn 3: fib=2 (1 auto-step)
+    await clickEndTurn(page);
+    expect(await getFibRemaining(page)).toBe(0);
+  });
+
+  test('End Turn then Reset then End Turn works', async ({ page }) => {
+    await clickEndTurn(page);
+    await page.click('button[hx-post="/reset"]');
+    await page.waitForTimeout(500);
+    expect(await getFibRemaining(page)).toBe(0);
+    await clickEndTurn(page);
+    expect(await getFibRemaining(page)).toBe(0);
+  });
