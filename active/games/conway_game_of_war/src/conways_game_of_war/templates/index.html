@@ -821,9 +821,35 @@
       }
       window.__conwayScheduleStatusRefresh = scheduleStatusRefresh;
 
+      var p1Name = {{ player1_name|tojson }};
+      var p2Name = {{ player2_name|tojson }};
+
+      function updateRankings(winnerName) {
+        var isP1 = winnerName === 'Player 1';
+        var winnerLabel = isP1 ? p1Name : p2Name;
+        var loserLabel = isP1 ? p2Name : p1Name;
+        if (!winnerLabel || !loserLabel) return;
+        var key = 'conway-war-rankings';
+        try {
+          var data = JSON.parse(localStorage.getItem(key)) || {};
+          if (!data[winnerLabel]) data[winnerLabel] = { rating: 1200, wins: 0, losses: 0 };
+          if (!data[loserLabel]) data[loserLabel] = { rating: 1200, wins: 0, losses: 0 };
+          var wr = data[winnerLabel];
+          var lr = data[loserLabel];
+          var expected = 1 / (1 + Math.pow(10, (lr.rating - wr.rating) / 400));
+          var K = 32;
+          wr.rating = Math.round(wr.rating + K * (1 - expected));
+          lr.rating = Math.round(lr.rating + K * (0 - (1 - expected)));
+          wr.wins += 1;
+          lr.losses += 1;
+          localStorage.setItem(key, JSON.stringify(data));
+        } catch(e) { /* best-effort */ }
+      }
+
       function syncWinnerState(data) {
         if (!data || !data.winner_name) return;
         winnerName = data.winner_name;
+        updateRankings(winnerName);
         animating = false;
         btn.disabled = true;
         btn.textContent = '🏆 ' + winnerName + ' Wins';

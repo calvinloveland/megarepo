@@ -165,6 +165,8 @@ def index():
         window_height=window_height,
         zoom_level=zoom_level,
         player_name=_player_display_name(),
+        player1_name=flask.session.get("player1_name", "Player 1"),
+        player2_name=flask.session.get("player2_name", "Player 2"),
         ai_difficulty=_ai_display_name(),
         current_energy=current_player.energy,
         starting_energy=game_state.STARTING_ENERGY,
@@ -193,6 +195,12 @@ def set_player():
         flask.session["player1_color"] = player1_color
     if player2_color:
         flask.session["player2_color"] = player2_color
+    p1_name = flask.request.form.get("player1_name", "").strip()
+    p2_name = flask.request.form.get("player2_name", "").strip()
+    if p1_name:
+        flask.session["player1_name"] = p1_name
+    if p2_name:
+        flask.session["player2_name"] = p2_name
     return flask.redirect("/")
 
 

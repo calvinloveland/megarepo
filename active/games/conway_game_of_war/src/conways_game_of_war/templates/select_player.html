@@ -8,14 +8,14 @@
       body, html {
         height: 100%;
         margin: 0;
-        overflow: hidden;
-        overscroll-behavior: none;
+        overflow: auto;
         font-family: system-ui, -apple-system, sans-serif;
         background: #111;
         color: #eee;
         display: flex;
-        align-items: center;
+        align-items: flex-start;
         justify-content: center;
+        padding: 24px 0;
         user-select: none;
         -webkit-user-select: none;
       }
@@ -24,7 +24,7 @@
         border: 1px solid #333;
         border-radius: 12px;
         padding: 32px 40px;
-        max-width: 480px;
+        max-width: 520px;
         width: 90%;
         box-shadow: 0 8px 32px rgba(0,0,0,0.6);
       }
@@ -51,10 +51,34 @@
         text-transform: uppercase;
         letter-spacing: 0.5px;
       }
-      .color-row {
+      .name-row, .color-row {
         display: flex;
-        gap: 16px;
+        gap: 12px;
         flex-wrap: wrap;
+      }
+      .name-field {
+        flex: 1;
+        min-width: 120px;
+      }
+      .name-field label {
+        display: block;
+        font-size: 0.75rem;
+        color: #999;
+        margin-bottom: 4px;
+      }
+      .name-field input {
+        width: 100%;
+        padding: 8px 10px;
+        border: 1px solid #444;
+        border-radius: 6px;
+        background: #222;
+        color: #eee;
+        font-size: 0.9rem;
+        font-family: inherit;
+      }
+      .name-field input:focus {
+        outline: none;
+        border-color: #2a6a9c;
       }
       .color-picker {
         display: flex;
@@ -68,21 +92,16 @@
         color: #ccc;
       }
       .color-picker input[type="color"] {
-        width: 40px;
-        height: 40px;
+        width: 36px;
+        height: 36px;
         border: 2px solid #444;
         border-radius: 6px;
         padding: 2px;
         background: #222;
         cursor: pointer;
       }
-      .color-picker input[type="color"]::-webkit-color-swatch-wrapper {
-        padding: 0;
-      }
-      .color-picker input[type="color"]::-webkit-color-swatch {
-        border: none;
-        border-radius: 3px;
-      }
+      .color-picker input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+      .color-picker input[type="color"]::-webkit-color-swatch { border: none; border-radius: 3px; }
       .btn-group {
         display: flex;
         gap: 8px;
@@ -101,21 +120,14 @@
         transition: background 0.15s, border-color 0.15s, transform 0.1s;
         text-align: center;
       }
-      .btn-group .btn:hover {
-        background: #3a3a3a;
-        border-color: #777;
-      }
-      .btn-group .btn:active {
-        transform: scale(0.97);
-      }
+      .btn-group .btn:hover { background: #3a3a3a; border-color: #777; }
+      .btn-group .btn:active { transform: scale(0.97); }
       .btn-group .btn.primary {
         background: #1a3a5c;
         border-color: #2a6a9c;
         font-weight: 600;
       }
-      .btn-group .btn.primary:hover {
-        background: #204a7c;
-      }
+      .btn-group .btn.primary:hover { background: #204a7c; }
       .btn-group .btn.ai-easy { border-left: 3px solid #4caf50; }
       .btn-group .btn.ai-medium { border-left: 3px solid #ff9800; }
       .btn-group .btn.ai-hard { border-left: 3px solid #f44336; }
@@ -125,18 +137,43 @@
         color: #666;
         margin: 12px 0 0 0;
       }
-      .footer-links {
+      .rankings-section {
+        margin-top: 16px;
+        padding-top: 16px;
+        border-top: 1px solid #333;
+      }
+      .rankings-section h2 {
+        margin-bottom: 8px;
+      }
+      #rankings-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.8rem;
+      }
+      #rankings-table th {
+        text-align: left;
+        color: #888;
+        font-weight: 400;
+        padding: 4px 8px;
+        border-bottom: 1px solid #333;
+      }
+      #rankings-table td {
+        padding: 4px 8px;
+        color: #ccc;
+      }
+      #rankings-table .rank-num {
+        color: #666;
+        width: 30px;
+      }
+      #rankings-table tr.me td {
+        color: #fff;
+        font-weight: 500;
+      }
+      .rank-empty {
         text-align: center;
-        margin-top: 20px;
-        font-size: 0.75rem;
         color: #555;
-      }
-      .footer-links a {
-        color: #777;
-        text-decoration: none;
-      }
-      .footer-links a:hover {
-        color: #aaa;
+        font-size: 0.8rem;
+        padding: 12px 0;
       }
     </style>
   </head>
@@ -146,14 +183,28 @@
       <p class="subtitle">Claim territory, grow your civilization, conquer the board</p>
       <form action="/set_player" method="post">
         <div class="form-section">
+          <h2>Players</h2>
+          <div class="name-row">
+            <div class="name-field">
+              <label for="player1_name" style="color:#ff6666">⬤ Player 1 name</label>
+              <input type="text" id="player1_name" name="player1_name" placeholder="Enter name" maxlength="20" autocomplete="off">
+            </div>
+            <div class="name-field">
+              <label for="player2_name" style="color:#6699ff">⬤ Player 2 name</label>
+              <input type="text" id="player2_name" name="player2_name" placeholder="Enter name" maxlength="20" autocomplete="off">
+            </div>
+          </div>
+        </div>
+
+        <div class="form-section">
           <h2>Colors</h2>
           <div class="color-row">
             <div class="color-picker">
-              <label for="player1_color">Player 1</label>
+              <label for="player1_color">P1</label>
               <input type="color" id="player1_color" name="player1_color" value="#ff0000">
             </div>
             <div class="color-picker">
-              <label for="player2_color">Player 2</label>
+              <label for="player2_color">P2</label>
               <input type="color" id="player2_color" name="player2_color" value="#2266ff">
             </div>
           </div>
@@ -174,12 +225,60 @@
             <button type="submit" class="btn ai-medium" name="ai_difficulty" value="medium">🧠 Medium</button>
             <button type="submit" class="btn ai-hard" name="ai_difficulty" value="hard">🔥 Hard</button>
           </div>
-          <p class="ai-note">The AI plays the opposite side. Select a difficulty or leave blank for local hot-seat.</p>
+          <p class="ai-note">AI plays the opposite side. Leave blank for hot-seat local play.</p>
         </div>
       </form>
-      <div class="footer-links">
-        <span>Pan: drag · Zoom: scroll / pinch · Double-click: zoom in · <kbd>0</kbd> reset</span>
+
+      <div class="rankings-section">
+        <h2>🏆 Rankings</h2>
+        <div id="rankings-container"><p class="rank-empty">Loading...</p></div>
+      </div>
+
+      <div class="footer-links" style="text-align:center;margin-top:16px;font-size:0.75rem;color:#555">
+        <span>Pan: drag · Zoom: scroll/pinch · 0: reset</span>
       </div>
     </div>
+
+    <script>
+    (function() {
+      var STORAGE_KEY = 'conway-war-rankings';
+      var DEFAULT_RATING = 1200;
+
+      function getRankings() {
+        try {
+          return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
+        } catch(e) { return {}; }
+      }
+
+      function renderRankings() {
+        var rankings = getRankings();
+        var container = document.getElementById('rankings-container');
+        var entries = Object.keys(rankings).map(function(name) {
+          return { name: name, rating: rankings[name].rating || DEFAULT_RATING, wins: rankings[name].wins || 0, losses: rankings[name].losses || 0 };
+        });
+        entries.sort(function(a, b) { return b.rating - a.rating; });
+
+        if (entries.length === 0) {
+          container.innerHTML = '<p class="rank-empty">No rankings yet — play a game to get ranked!</p>';
+          return;
+        }
+
+        // Try to pre-fill name fields from localStorage
+        var storedName = null;
+        try { storedName = localStorage.getItem('conway-war-username'); } catch(e) {}
+
+        var html = '<table id="rankings-table"><tr><th>#</th><th>Player</th><th>Rating</th><th>W</th><th>L</th></tr>';
+        for (var i = 0; i < entries.length; i++) {
+          var e = entries[i];
+          var cls = (storedName && e.name === storedName) ? ' class="me"' : '';
+          html += '<tr' + cls + '><td class="rank-num">' + (i + 1) + '</td><td>' + e.name + '</td><td>' + e.rating + '</td><td>' + e.wins + '</td><td>' + e.losses + '</td></tr>';
+        }
+        html += '</table>';
+        container.innerHTML = html;
+      }
+
+      renderRankings();
+    })();
+    </script>
   </body>
 </html>
