@@ -224,8 +224,12 @@
               var status = m.winner_name ? ('🏆 ' + m.winner_name + ' wins') : ('⏱ ' + m.turn_name + '\'s turn');
               html += '<div style="display:flex;align-items:center;justify-content:space-between;background:#222;border:1px solid #333;border-radius:6px;padding:8px 12px">';
               html += '<span style="font-size:0.85rem;color:#ccc">' + m.p1_name + ' vs ' + m.p2_name + '<br><span style="font-size:0.75rem;color:#888">' + status + '</span></span>';
+              html += '<span>';
               html += '<a href="/spectate/' + m.match_id + '" class="btn" style="padding:4px 12px;font-size:0.8rem;width:auto;text-decoration:none">👁 Watch</a>';
-              html += '</div>';
+              if (m.winner_name) {
+                html += ' <a href="/replay/' + m.match_id + '" class="btn" style="padding:4px 12px;font-size:0.8rem;width:auto;text-decoration:none">📜 Replay</a>';
+              }
+              html += '</span></div>';
             }
             html += '</div>';
             container.innerHTML = html;

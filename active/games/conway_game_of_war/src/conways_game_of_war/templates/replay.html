@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Conway's Game of War — Replay</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='game-view.css') }}">
+    <style>
+      *, *::before, *::after { box-sizing: border-box; }
+      body, html { height: 100%; margin: 0; overflow: hidden; font-family: system-ui, -apple-system, sans-serif; background: #111; color: #eee; user-select: none; }
+      .container { display: flex; flex-direction: column; height: 100%; }
+      .header { display: flex; align-items: center; justify-content: space-between; padding: 4px 16px; background: #1a1a1a; border-bottom: 1px solid #333; flex-shrink: 0; }
+      .header h1 { margin: 0; font-size: 1.0rem; font-weight: 600; }
+      .header .info { font-size: 0.85rem; color: #aaa; }
+      #viewport { flex: 1; overflow: hidden; position: relative; background: #1a1a1a; cursor: default; }
+      .game-wrapper { transform-origin: 0 0; }
+      #game { border-collapse: collapse; table-layout: fixed; }
+      #game td { padding: 0; }
+      .controls { display: flex; gap: 8px; align-items: center; flex-shrink: 0; padding: 8px 16px; background: #1a1a1a; border-top: 1px solid #333; justify-content: center; }
+      .ctrl-btn { background: #333; color: #eee; border: 1px solid #555; border-radius: 4px; padding: 6px 14px; cursor: pointer; font-size: 0.85rem; font-family: inherit; }
+      .ctrl-btn:hover { background: #444; }
+      .ctrl-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+      .ctrl-btn.active { background: #1a3a5c; border-color: #2a6a9c; }
+      #step-slider { flex: 1; max-width: 400px; accent-color: #2a6a9c; }
+      #step-label { font-size: 0.8rem; color: #999; min-width: 8ch; text-align: center; }
+      #game td > div { cursor: default; }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <h1>📜 Replay: {{ p1_name }} vs {{ p2_name }}</h1>
+        <span class="info" id="status-label">Step 0 of {{ log_length }}</span>
+      </div>
+      <div id="viewport">
+        <div class="game-wrapper">
+          <div id="game"></div>
+        </div>
+      </div>
+      <div class="controls">
+        <button class="ctrl-btn" id="btn-start" title="Jump to start">⏮</button>
+        <button class="ctrl-btn" id="btn-prev" title="Previous step">◀</button>
+        <button class="ctrl-btn active" id="btn-play" title="Auto play">▶</button>
+        <button class="ctrl-btn" id="btn-next" title="Next step">▶</button>
+        <button class="ctrl-btn" id="btn-end" title="Jump to end">⏭</button>
+        <input type="range" id="step-slider" min="0" max="{{ log_length }}" value="0">
+        <span id="step-label">0 / {{ log_length }}</span>
+      </div>
+    </div>
+    <script>
+    (function() {
+      var matchId = '{{ match_id }}';
+      var totalSteps = {{ log_length }};
+      var currentStep = 0;
+      var playing = false;
+      var playTimer = null;
+
+      var slider = document.getElementById('step-slider');
+      var label = document.getElementById('step-label');
+      var statusLabel = document.getElementById('status-label');
+
+      function loadStep(step) {
+        currentStep = Math.max(0, Math.min(step, totalSteps));
+        slider.value = currentStep;
+        label.textContent = currentStep + ' / ' + totalSteps;
+        statusLabel.textContent = 'Step ' + currentStep + ' of ' + totalSteps;
+        var game = document.getElementById('game');
+        game.innerHTML = '<div style="text-align:center;padding:20px;color:#666">Loading...</div>';
+        fetch('/replay_board/' + matchId + '/' + currentStep)
+          .then(function(r) { return r.text(); })
+          .then(function(html) { game.outerHTML = html; });
+      }
+
+      document.getElementById('btn-start').addEventListener('click', function() { loadStep(0); });
+      document.getElementById('btn-prev').addEventListener('click', function() { loadStep(currentStep - 1); });
+      document.getElementById('btn-next').addEventListener('click', function() { loadStep(currentStep + 1); });
+      document.getElementById('btn-end').addEventListener('click', function() { loadStep(totalSteps); });
+      slider.addEventListener('input', function() { loadStep(parseInt(slider.value)); });
+
+      document.getElementById('btn-play').addEventListener('click', function() {
+        playing = !playing;
+        this.textContent = playing ? '⏸' : '▶';
+        if (playing) {
+          if (currentStep >= totalSteps) loadStep(0);
+          playTimer = setInterval(function() {
+            if (currentStep >= totalSteps) {
+              clearInterval(playTimer);
+              playing = false;
+              document.getElementById('btn-play').textContent = '▶';
+              return;
+            }
+            loadStep(currentStep + 1);
+          }, 200);
+        } else {
+          clearInterval(playTimer);
+        }
+      });
+
+      loadStep(0);
+    })();
+    </script>
+  </body>
+</html>

@@ -30,6 +30,7 @@ ACTIVE_MATCHES = {}  # match_id -> {p1_pid, p2_pid, p1_name, p2_name, game, turn
 TURN_TIMEOUT = 60  # seconds per turn
 HEARTBEAT_TIMEOUT = 15  # seconds before a player is considered disconnected
 LAST_HEARTBEAT = {}  # pid -> timestamp of last heartbeat
+MATCH_LOGS = {}  # match_id -> list of {type, x, y, player_idx, action, cost, timestamp}
 
 app.config["GAME"] = game_state.GameState()
 app.config["ZOOM_LEVEL"] = 1.0
@@ -296,6 +297,7 @@ def join_queue():
             "game": game, "turn_idx": game_state.PLAYER_1,
             "started": True, "turn_deadline": time.time() + TURN_TIMEOUT,
         }
+        MATCH_LOGS[match_id] = []
         flask.session["match_id"] = match_id
         return flask.jsonify({"ok": True, "match_id": match_id, "matched": True, "player": 1})
 
@@ -532,6 +534,13 @@ def end_turn():
         match["turn_deadline"] = time.time() + TURN_TIMEOUT
         _bump_epoch()
 
+        # Log for replay
+        mid = flask.session.get("match_id")
+        if mid and mid in MATCH_LOGS:
+            MATCH_LOGS[mid].append({"type": "end_turn", "player_idx": idx, "timestamp": time.time()})
+            if game.winner_index() is not None:
+                MATCH_LOGS[mid].append({"type": "winner", "winner_idx": game.winner_index(), "timestamp": time.time()})
+
         if before:
             return _board_patch_json(game, idx, before, remaining)
         return game.board_to_html(current_player_index=idx, fib_remaining=remaining)
@@ -611,6 +620,16 @@ def update_cell():
                 placed[key] = {"prev_alive": cell.alive, "cost": cost}
                 app.config["TURN_PLACED"] = placed
 
+            # Log the move for replay
+            mid = flask.session.get("match_id")
+            if mid and mid in MATCH_LOGS:
+                action = "claim" if cell.owner is not None and cell.alive else ("toggle-on" if cell.alive else "toggle-off")
+                MATCH_LOGS[mid].append({
+                    "type": "cell", "x": x, "y": y,
+                    "player_idx": idx, "action": action,
+                    "cost": cost, "timestamp": time.time(),
+                })
+
         return _cell_json(game, x, y, idx)
 
     return flask.jsonify({"ok": False, "error": "no match"}), 404
@@ -662,6 +681,59 @@ def reset():
         _reset_fib_progression()
         return game.board_to_html(current_player_index=0)
     return flask.redirect("/lobby")
+
+
+@app.route("/match_log/<match_id>")
+def get_match_log(match_id):
+    """Return the full move log for a match."""
+    log = MATCH_LOGS.get(match_id, [])
+    match = ACTIVE_MATCHES.get(match_id)
+    if match:
+        return flask.jsonify({"ok": True, "p1_name": match["p1_name"], "p2_name": match["p2_name"], "log": log})
+    return flask.jsonify({"ok": False, "error": "match not found"}), 404
+
+
+@app.route("/replay/<match_id>")
+def replay(match_id):
+    """Render a replay page for a match."""
+    match = ACTIVE_MATCHES.get(match_id)
+    if not match:
+        return flask.redirect("/lobby")
+    return flask.render_template(
+        "replay.html", match_id=match_id,
+        p1_name=match["p1_name"], p2_name=match["p2_name"],
+        log_length=len(MATCH_LOGS.get(match_id, [])),
+    )
+
+
+@app.route("/replay_board/<match_id>/<int:step>")
+def replay_board(match_id, step):
+    """Return the board state at a given step index as HTML."""
+    match = ACTIVE_MATCHES.get(match_id)
+    if not match:
+        return flask.jsonify({"ok": False}), 404
+    log = MATCH_LOGS.get(match_id, [])
+    if step < 0 or step > len(log):
+        return flask.jsonify({"ok": False}), 400
+    game = game_state.GameState()
+    for entry in log[:step]:
+        if entry["type"] == "cell":
+            x, y = entry["x"], entry["y"]
+            cell = game.board[x][y]
+            player_obj = game.players[entry["player_idx"]]
+            if entry["action"] == "claim":
+                player_obj.energy -= entry.get("cost", 0)
+                cell.owner = player_obj
+                cell.alive = True
+                game._claim_neighbors(x, y, player_obj)
+            elif entry["action"] == "toggle-on":
+                cell.owner = player_obj
+                cell.alive = True
+            elif entry["action"] == "toggle-off":
+                cell.alive = False
+        elif entry["type"] == "end_turn":
+            game.update()
+    return game.board_to_html(current_player_index=None)
 
 
 @app.route("/log_error", methods=["POST"])
