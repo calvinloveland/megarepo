@@ -1156,6 +1156,14 @@
       var polling = true;
       var lastEpoch = -1;
       var refreshTimer = null;
+      var heartbeatTimer = null;
+
+      // Start heartbeat every 5s
+      function sendHeartbeat() {
+        fetch('/heartbeat', { method: 'POST' }).catch(function() {});
+      }
+      heartbeatTimer = setInterval(sendHeartbeat, 5000);
+      sendHeartbeat();
 
       function showWaiting(yourTurn) {
         if (waitingOverlay) waitingOverlay.style.display = yourTurn ? 'none' : 'flex';
@@ -1192,6 +1200,16 @@
               var secs = data.time_remaining !== undefined ? data.time_remaining : 0;
               timerEl.textContent = secs > 0 ? '⏱' + secs + 's' : '';
               timerEl.style.color = secs <= 10 ? '#ff6644' : (secs <= 30 ? '#ffcc44' : '#aaa');
+            }
+            // Show disconnection message
+            if (data.disconnected) {
+              var msg = data.disconnected + ' has disconnected. You win!';
+              if (window.__conwaySyncWinner && typeof window.__conwaySyncWinner === 'function') {
+                window.__conwaySyncWinner({ winner_name: 'Player ' + (playerIdx + 1), winner: playerIdx === 0 ? 'p1' : 'p2' });
+              }
+              var timerEl2 = document.getElementById('turn-timer');
+              if (timerEl2) timerEl2.textContent = '🏆 Win by forfeit';
+              return;
             }
             if (data.winner_name) {
               if (window.__conwaySyncWinner && typeof window.__conwaySyncWinner === 'function') {

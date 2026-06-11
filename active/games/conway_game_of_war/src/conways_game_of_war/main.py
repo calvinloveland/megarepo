@@ -28,6 +28,8 @@ app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-key")
 MATCH_QUEUE = []  # list of {pid, username, color}
 ACTIVE_MATCHES = {}  # match_id -> {p1_pid, p2_pid, p1_name, p2_name, game, turn_idx, started}
 TURN_TIMEOUT = 60  # seconds per turn
+HEARTBEAT_TIMEOUT = 15  # seconds before a player is considered disconnected
+LAST_HEARTBEAT = {}  # pid -> timestamp of last heartbeat
 
 app.config["GAME"] = game_state.GameState()
 app.config["ZOOM_LEVEL"] = 1.0
@@ -302,6 +304,15 @@ def join_queue():
     return flask.jsonify({"ok": True, "matched": False})
 
 
+@app.route("/heartbeat", methods=["POST"])
+def heartbeat():
+    """Client heartbeat to indicate the player is still connected."""
+    pid = flask.session.get("_pid")
+    if pid:
+        LAST_HEARTBEAT[pid] = time.time()
+    return flask.jsonify({"ok": True})
+
+
 @app.route("/leave_queue", methods=["POST"])
 def leave_queue():
     pid = flask.session.get("_pid")
@@ -355,6 +366,17 @@ def index():
     return flask.redirect("/lobby")
 
 
+def _check_match_disconnect(match) -> Optional[str]:
+    """Check if either player in a match has disconnected. Returns the pid of the disconnected player, or None."""
+    now = time.time()
+    for key in ("p1_pid", "p2_pid"):
+        pid = match[key]
+        last = LAST_HEARTBEAT.get(pid)
+        if last is not None and (now - last) > HEARTBEAT_TIMEOUT:
+            return pid
+    return None
+
+
 @app.route("/match_status")
 def match_status():
     """Return current game state for the match — used for polling."""
@@ -378,11 +400,22 @@ def match_status():
     turn_name = p1 if idx == 0 else p2
     winner = _winner_payload(game)
     time_remaining = max(0, int(deadline - now))
+
+    # Check for disconnection
+    disconnected = _check_match_disconnect(match)
+    disconnected_name = None
+    if disconnected:
+        if disconnected == match["p1_pid"]:
+            disconnected_name = match["p1_name"]
+        elif disconnected == match["p2_pid"]:
+            disconnected_name = match["p2_name"]
+
     return flask.jsonify({
         "ok": True,
         "turn_idx": idx,
         "turn_name": turn_name,
         "time_remaining": time_remaining,
+        "disconnected": disconnected_name,
         "winner": winner["winner"],
         "winner_name": winner["winner_name"],
         "p1_energy": game.players[0].energy,
