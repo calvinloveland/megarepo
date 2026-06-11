@@ -406,6 +406,7 @@
           <button class="ctrl-btn" id="minimap-toggle" type="button" title="Toggle minimap">🗺</button>
           <button class="ctrl-btn" id="end-turn-btn" type="button">⏭ End Turn</button>
           <button class="ctrl-btn" hx-post="/reset" hx-target="#game" hx-swap="outerHTML">⟳ Reset</button>
+          <button class="ctrl-btn" id="rematch-btn" type="button" style="display:none">🔄 Rematch</button>
         </div>
       </div>
 
@@ -860,6 +861,8 @@
         btn.disabled = true;
         btn.textContent = '🏆 ' + winnerName + ' Wins';
         if (resetBtn) resetBtn.disabled = false;
+        var rematchBtn = document.getElementById('rematch-btn');
+        if (rematchBtn) rematchBtn.style.display = '';
         scheduleStatusRefresh();
       }
       window.__conwaySyncWinner = syncWinnerState;
@@ -1106,6 +1109,8 @@
           btn.textContent = '⏭ End Turn';
           window.__conwayTurnHistory = [];
           if (typeof updateUndoButton === 'function') updateUndoButton();
+          var rematchBtn = document.getElementById('rematch-btn');
+          if (rematchBtn) rematchBtn.style.display = 'none';
           setTimeout(refreshAffordableActions, 0);
         });
       }
@@ -1141,11 +1146,24 @@
 
       var waitingOverlay = document.getElementById('waiting-overlay');
       var polling = true;
+      var lastEpoch = -1;
+      var refreshTimer = null;
 
       function showWaiting(yourTurn) {
         if (waitingOverlay) waitingOverlay.style.display = yourTurn ? 'none' : 'flex';
         var btn = document.getElementById('end-turn-btn');
         if (btn) btn.disabled = !yourTurn;
+      }
+
+      function scheduleBoardRefresh() {
+        if (refreshTimer) clearTimeout(refreshTimer);
+        refreshTimer = setTimeout(function() {
+          var game = document.getElementById('game');
+          if (game && typeof htmx !== 'undefined') {
+            htmx.trigger(game, 'load');
+          }
+          refreshTimer = null;
+        }, 100);
       }
 
       function pollMatch() {
@@ -1154,6 +1172,10 @@
           .then(function(r) { return r.json(); })
           .then(function(data) {
             if (!data.ok) return;
+            if (data.epoch !== undefined && data.epoch !== lastEpoch) {
+              lastEpoch = data.epoch;
+              scheduleBoardRefresh();
+            }
             var yourTurn = data.turn_idx === playerIdx;
             showWaiting(yourTurn);
             if (data.winner_name) {
@@ -1165,11 +1187,24 @@
           })
           .catch(function() {})
           .then(function() {
-            setTimeout(pollMatch, 3000);
+            setTimeout(pollMatch, 1000);
           });
       }
 
-      // Set initial state
+      // Rematch button
+      var rematchBtn = document.getElementById('rematch-btn');
+      if (rematchBtn) {
+        rematchBtn.addEventListener('click', function() {
+          fetch('/rematch', { method: 'POST' })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+              if (data.ok) {
+                window.location.reload();
+              }
+            });
+        });
+      }
+
       setTimeout(pollMatch, 500);
     })();
     </script>

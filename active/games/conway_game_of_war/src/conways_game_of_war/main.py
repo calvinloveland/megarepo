@@ -29,6 +29,17 @@ app.config["FIB_PREV"] = 0
 app.config["FIB_CURR"] = 1
 app.config["FIB_REMAINING"] = 0
 app.config["TURN_PLACED"] = {}
+MATCH_EPOCH = 0  # incremented on every turn switch for instant poll detection
+
+
+def _bump_epoch():
+    global MATCH_EPOCH
+    MATCH_EPOCH += 1
+
+
+def _current_epoch() -> int:
+    global MATCH_EPOCH
+    return MATCH_EPOCH
 
 
 def _hex_to_rgb(hex_color: str):
@@ -287,8 +298,31 @@ def match_status():
         "winner_name": winner["winner_name"],
         "p1_energy": game.players[0].energy,
         "p2_energy": game.players[1].energy,
+        "epoch": _current_epoch(),
         "your_turn": False,  # client determines this
     })
+
+
+@app.route("/rematch", methods=["POST"])
+def rematch():
+    """Reset the current match for a rematch."""
+    match = _get_match()
+    if not match:
+        return flask.jsonify({"ok": False, "error": "no match"}), 404
+
+    game = game_state.GameState()
+    p1_rgb = _hex_to_rgb("#ff0000")
+    p2_rgb = _hex_to_rgb("#2266ff")
+    if p1_rgb:
+        game.players[game_state.PLAYER_1].color = p1_rgb
+    if p2_rgb:
+        game.players[game_state.PLAYER_2].color = p2_rgb
+    match["game"] = game
+    match["turn_idx"] = game_state.PLAYER_1
+    app.config["TURN_PLACED"] = {}
+    _reset_fib_progression()
+    _bump_epoch()
+    return flask.jsonify({"ok": True})
 
 
 @app.route("/player_energy")
@@ -335,6 +369,7 @@ def end_turn():
 
         # Switch turn
         match["turn_idx"] = 1 - idx
+        _bump_epoch()
 
         if before:
             return _board_patch_json(game, idx, before, remaining)
