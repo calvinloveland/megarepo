@@ -11,6 +11,10 @@ from loguru import logger
 from . import game_state
 
 _pkg_dir = os.path.dirname(os.path.abspath(__file__))
+_DATA_DIR = os.path.join(_pkg_dir, "data")
+_RATINGS_FILE = os.path.join(_DATA_DIR, "ratings.json")
+os.makedirs(_DATA_DIR, exist_ok=True)
+
 app = flask.Flask(
     __name__,
     template_folder=os.path.join(_pkg_dir, "templates"),
@@ -56,6 +60,77 @@ def _hex_to_rgb(hex_color: str):
 
 def _get_game() -> game_state.GameState:
     return app.config["GAME"]
+
+
+# ─── Persistent rankings ────────────────────────────────────────────
+
+DEFAULT_RATING = 1200
+K_FACTOR = 32
+
+
+def _load_rankings() -> dict:
+    """Load rankings from the JSON file."""
+    if not os.path.exists(_RATINGS_FILE):
+        return {}
+    try:
+        with open(_RATINGS_FILE) as f:
+            return json.load(f)
+    except (json.JSONDecodeError, OSError):
+        return {}
+
+
+def _save_rankings(rankings: dict) -> None:
+    """Save rankings to the JSON file."""
+    try:
+        with open(_RATINGS_FILE, "w") as f:
+            json.dump(rankings, f, indent=2)
+    except OSError as e:
+        logger.error(f"Failed to save rankings: {e}")
+
+
+def _update_elo_rankings(winner_name: str, loser_name: str) -> dict:
+    """Update ELO rankings for a match result and persist."""
+    rankings = _load_rankings()
+    for name in (winner_name, loser_name):
+        if name not in rankings:
+            rankings[name] = {"rating": DEFAULT_RATING, "wins": 0, "losses": 0}
+    wr = rankings[winner_name]
+    lr = rankings[loser_name]
+    expected_winner = 1 / (1 + 10 ** ((lr["rating"] - wr["rating"]) / 400))
+    wr["rating"] = round(wr["rating"] + K_FACTOR * (1 - expected_winner))
+    lr["rating"] = round(lr["rating"] + K_FACTOR * (0 - (1 - expected_winner)))
+    wr["wins"] += 1
+    lr["losses"] += 1
+    _save_rankings(rankings)
+    return rankings
+
+
+@app.route("/rankings")
+def get_rankings():
+    """Return all rankings as JSON."""
+    rankings = _load_rankings()
+    entries = []
+    for name, data in sorted(rankings.items(), key=lambda x: -x[1]["rating"]):
+        entries.append({
+            "name": name,
+            "rating": data["rating"],
+            "wins": data["wins"],
+            "losses": data["losses"],
+        })
+    return flask.jsonify(entries)
+
+
+@app.route("/record_match", methods=["POST"])
+def record_match():
+    """Record a match result and update rankings."""
+    data = flask.request.get_json(silent=True) or {}
+    winner = data.get("winner", "").strip()
+    loser = data.get("loser", "").strip()
+    if not winner or not loser:
+        return flask.jsonify({"ok": False, "error": "winner and loser required"}), 400
+    _update_elo_rankings(winner, loser)
+    return flask.jsonify({"ok": True})
+
 
 
 def _set_game(game: game_state.GameState) -> None:

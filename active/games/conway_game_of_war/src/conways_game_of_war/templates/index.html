@@ -836,6 +836,13 @@
         var winnerLabel = isP1 ? p1Name : p2Name;
         var loserLabel = isP1 ? p2Name : p1Name;
         if (!winnerLabel || !loserLabel) return;
+        // Send to server for persistent storage
+        fetch('/record_match', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ winner: winnerLabel, loser: loserLabel }),
+        }).catch(function() {});
+        // Also update localStorage as fallback
         var key = 'conway-war-rankings';
         try {
           var data = JSON.parse(localStorage.getItem(key)) || {};

@@ -91,7 +91,6 @@
     (function() {
       var polling = false;
       var pollTimer = null;
-      var STORAGE_KEY = 'conway-war-rankings';
 
       // Restore saved username
       try {
@@ -178,28 +177,28 @@
       }
 
       function renderRankings() {
-        var rankings = {};
-        try { rankings = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; } catch(e) {}
-        var container = document.getElementById('rankings-container');
-        var entries = Object.keys(rankings).map(function(name) {
-          return { name: name, rating: rankings[name].rating || 1200, wins: rankings[name].wins || 0, losses: rankings[name].losses || 0 };
-        });
-        entries.sort(function(a, b) { return b.rating - a.rating; });
-
-        if (entries.length === 0) {
-          container.innerHTML = '<p class="rank-empty">No rankings yet — play games to get ranked!</p>';
-          return;
-        }
-        var storedName = null;
-        try { storedName = localStorage.getItem('conway-war-username'); } catch(e) {}
-        var html = '<table id="rankings-table"><tr><th>#</th><th>Player</th><th>Rating</th><th>W</th><th>L</th></tr>';
-        for (var i = 0; i < entries.length; i++) {
-          var e = entries[i];
-          var cls = (storedName && e.name === storedName) ? ' class="me"' : '';
-          html += '<tr' + cls + '><td class="rank-num">' + (i + 1) + '</td><td>' + e.name + '</td><td>' + e.rating + '</td><td>' + e.wins + '</td><td>' + e.losses + '</td></tr>';
-        }
-        html += '</table>';
-        container.innerHTML = html;
+        fetch('/rankings')
+          .then(function(r) { return r.json(); })
+          .then(function(entries) {
+            var container = document.getElementById('rankings-container');
+            if (entries.length === 0) {
+              container.innerHTML = '<p class="rank-empty">No rankings yet — play games to get ranked!</p>';
+              return;
+            }
+            var storedName = null;
+            try { storedName = localStorage.getItem('conway-war-username'); } catch(e) {}
+            var html = '<table id="rankings-table"><tr><th>#</th><th>Player</th><th>Rating</th><th>W</th><th>L</th></tr>';
+            for (var i = 0; i < entries.length; i++) {
+              var e = entries[i];
+              var cls = (storedName && e.name === storedName) ? ' class="me"' : '';
+              html += '<tr' + cls + '><td class="rank-num">' + (i + 1) + '</td><td>' + e.name + '</td><td>' + e.rating + '</td><td>' + e.wins + '</td><td>' + e.losses + '</td></tr>';
+            }
+            html += '</table>';
+            container.innerHTML = html;
+          })
+          .catch(function() {
+            document.getElementById('rankings-container').innerHTML = '<p class="rank-empty">Could not load rankings</p>';
+          });
       }
 
       renderRankings();
