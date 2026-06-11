@@ -366,7 +366,44 @@ def index():
     return flask.redirect("/lobby")
 
 
-def _check_match_disconnect(match) -> Optional[str]:
+@app.route("/spectate/<match_id>")
+def spectate(match_id):
+    """Render a read-only spectator view of a match."""
+    if match_id not in ACTIVE_MATCHES:
+        return flask.redirect("/lobby")
+    match = ACTIVE_MATCHES[match_id]
+    game = match["game"]
+    return flask.render_template(
+        "index.html",
+        window_width=800, window_height=600, zoom_level=1.0,
+        player_name="Spectator", player_index=None,
+        player1_name=match["p1_name"], player2_name=match["p2_name"],
+        ai_difficulty=None, spectator=True,
+        current_energy=0,
+        starting_energy=game_state.STARTING_ENERGY,
+        winner_name=_winner_payload(game)["winner_name"],
+        match_id=match_id,
+    )
+
+
+@app.route("/active_matches")
+def active_matches():
+    """Return a list of active matches for the lobby."""
+    matches = []
+    for mid, m in ACTIVE_MATCHES.items():
+        game = m["game"]
+        winner = _winner_payload(game)
+        matches.append({
+            "match_id": mid,
+            "p1_name": m["p1_name"],
+            "p2_name": m["p2_name"],
+            "turn_idx": m["turn_idx"],
+            "turn_name": m["p1_name"] if m["turn_idx"] == 0 else m["p2_name"],
+            "p1_energy": game.players[0].energy,
+            "p2_energy": game.players[1].energy,
+            "winner_name": winner["winner_name"],
+        })
+    return flask.jsonify(matches)
     """Check if either player in a match has disconnected. Returns the pid of the disconnected player, or None."""
     now = time.time()
     for key in ("p1_pid", "p2_pid"):

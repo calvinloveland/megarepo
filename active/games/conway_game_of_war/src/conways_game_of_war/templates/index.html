@@ -391,7 +391,7 @@
       <div class="game-header">
         <h1>⚔ Conway's Game of War</h1>
         <span class="player-name" id="header-player-name" style="color: {{ session['player1_color'] if session['player'] == 'player1' else session['player2_color'] }}">
-          ⬤ {{ player_name }}
+          {% if spectator %}👁 Spectating: {{ player1_name }} vs {{ player2_name }}{% else %}⬤ {{ player_name }}{% endif %}
         </span>
         <div class="controls">
           <span class="ai-badge" id="ai-badge">{% if ai_difficulty %}🤖 {{ ai_difficulty }}{% endif %}</span>
@@ -402,12 +402,16 @@
             <button class="ctrl-btn overlay-toggle cost-toggle" id="toggle-cost-overlay" type="button" aria-pressed="true" title="Toggle action cost overlay">💸 Cost</button>
           </div>
           <button class="ctrl-btn" id="help-btn" type="button" title="Keyboard shortcuts">?</button>
+          {% if not spectator %}
           <button class="ctrl-btn" id="undo-btn" type="button" disabled style="display:none">↩ Undo</button>
           <button class="ctrl-btn" id="minimap-toggle" type="button" title="Toggle minimap">🗺</button>
           <button class="ctrl-btn" id="end-turn-btn" type="button">⏭ End Turn</button>
+          {% endif %}
           <span id="turn-timer" style="font-size:0.8rem;color:#aaa;min-width:3ch;text-align:center"></span>
+          {% if not spectator %}
           <button class="ctrl-btn" hx-post="/reset" hx-target="#game" hx-swap="outerHTML">⟳ Reset</button>
           <button class="ctrl-btn" id="rematch-btn" type="button" style="display:none">🔄 Rematch</button>
+          {% endif %}
         </div>
       </div>
 
@@ -1157,13 +1161,16 @@
       var lastEpoch = -1;
       var refreshTimer = null;
       var heartbeatTimer = null;
+      var isSpectator = {{ 'true' if spectator else 'false' }};
 
-      // Start heartbeat every 5s
+      // Start heartbeat every 5s (skip for spectators)
       function sendHeartbeat() {
-        fetch('/heartbeat', { method: 'POST' }).catch(function() {});
+        if (!isSpectator) fetch('/heartbeat', { method: 'POST' }).catch(function() {});
       }
-      heartbeatTimer = setInterval(sendHeartbeat, 5000);
-      sendHeartbeat();
+      if (!isSpectator) {
+        heartbeatTimer = setInterval(sendHeartbeat, 5000);
+        sendHeartbeat();
+      }
 
       function showWaiting(yourTurn) {
         if (waitingOverlay) waitingOverlay.style.display = yourTurn ? 'none' : 'flex';

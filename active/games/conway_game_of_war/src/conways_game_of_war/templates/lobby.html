@@ -82,6 +82,11 @@
       <p id="queue-count"></p>
 
       <div class="section" style="margin-top:24px;padding-top:16px;border-top:1px solid #333">
+        <h2>👀 Live Matches</h2>
+        <div id="live-matches-container"><p class="rank-empty">Loading...</p></div>
+      </div>
+
+      <div class="section" style="padding-top:16px;border-top:1px solid #333">
         <h2>🏆 Rankings</h2>
         <div id="rankings-container"><p class="rank-empty">Loading...</p></div>
       </div>
@@ -202,7 +207,36 @@
       }
 
       renderRankings();
-    })();
+
+      // Live matches
+      function renderLiveMatches() {
+        fetch('/active_matches')
+          .then(function(r) { return r.json(); })
+          .then(function(matches) {
+            var container = document.getElementById('live-matches-container');
+            if (matches.length === 0) {
+              container.innerHTML = '<p class="rank-empty">No active matches right now</p>';
+              return;
+            }
+            var html = '<div style="display:flex;flex-direction:column;gap:8px">';
+            for (var i = 0; i < matches.length; i++) {
+              var m = matches[i];
+              var status = m.winner_name ? ('🏆 ' + m.winner_name + ' wins') : ('⏱ ' + m.turn_name + '\'s turn');
+              html += '<div style="display:flex;align-items:center;justify-content:space-between;background:#222;border:1px solid #333;border-radius:6px;padding:8px 12px">';
+              html += '<span style="font-size:0.85rem;color:#ccc">' + m.p1_name + ' vs ' + m.p2_name + '<br><span style="font-size:0.75rem;color:#888">' + status + '</span></span>';
+              html += '<a href="/spectate/' + m.match_id + '" class="btn" style="padding:4px 12px;font-size:0.8rem;width:auto;text-decoration:none">👁 Watch</a>';
+              html += '</div>';
+            }
+            html += '</div>';
+            container.innerHTML = html;
+          })
+          .catch(function() {
+            document.getElementById('live-matches-container').innerHTML = '<p class="rank-empty">Could not load matches</p>';
+          });
+      }
+
+      renderLiveMatches();
+      setInterval(renderLiveMatches, 5000);
     </script>
   </body>
 </html>
