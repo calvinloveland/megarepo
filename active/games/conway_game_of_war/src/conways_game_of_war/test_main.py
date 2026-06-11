@@ -100,3 +100,116 @@ class TestClientGameState:
         assert payload["cost"] == 0.0
         assert payload["cost_label"] == ""
         assert payload["cost_bg"].startswith("rgba(")
+
+    # ─── Matchmaking tests ────────────────────────────────────────────
+
+    def test_join_queue_adds_player(self):
+        main.MATCH_QUEUE = []
+        main.ACTIVE_MATCHES = {}
+
+        response = self.client.post("/join_queue", json={"username": "Alice", "color": "#ff0000"})
+        data = response.get_json()
+
+        assert response.status_code == 200
+        assert data["matched"] is False
+        assert len(main.MATCH_QUEUE) == 1
+        assert main.MATCH_QUEUE[0]["username"] == "Alice"
+
+    def test_join_queue_matches_two_players(self):
+        main.MATCH_QUEUE = []
+        main.ACTIVE_MATCHES = {}
+
+        c1 = main.app.test_client()
+        with c1.session_transaction() as s:
+            s["_pid"] = "alice-123"
+        r1 = c1.post("/join_queue", json={"username": "Alice", "color": "#ff0000"})
+        d1 = r1.get_json()
+        assert d1["matched"] is False
+
+        c2 = main.app.test_client()
+        with c2.session_transaction() as s:
+            s["_pid"] = "bob-456"
+        r2 = c2.post("/join_queue", json={"username": "Bob", "color": "#2266ff"})
+        d2 = r2.get_json()
+        assert d2["matched"] is True
+        assert d2["player"] == 1
+        assert len(main.ACTIVE_MATCHES) == 1
+
+        match_id = d2["match_id"]
+        match = main.ACTIVE_MATCHES[match_id]
+        assert match["p1_name"] == "Alice"
+        assert match["p2_name"] == "Bob"
+        assert match["turn_idx"] == game_state.PLAYER_1
+        assert match["started"] is True
+
+    def test_match_poll_detects_match(self):
+        main.MATCH_QUEUE = []
+        main.ACTIVE_MATCHES = {}
+
+        with self.client.session_transaction() as session:
+            session["_pid"] = "poll-player"
+            session["username"] = "PollP"
+
+        match_id = "poll-match"
+        main.ACTIVE_MATCHES[match_id] = {
+            "p1_pid": "poll-player",
+            "p2_pid": "other-player",
+            "p1_name": "PollP",
+            "p2_name": "Other",
+            "game": game_state.GameState(),
+            "turn_idx": game_state.PLAYER_1,
+            "started": True,
+        }
+
+        response = self.client.get("/poll_match")
+        data = response.get_json()
+
+        assert response.status_code == 200
+        assert data["matched"] is True
+        assert data["match_id"] == match_id
+        assert data["player"] == 0
+
+    # ─── Turn enforcement tests ───────────────────────────────────────
+
+    def test_opponent_cannot_move_on_your_turn(self):
+        client2 = main.app.test_client()
+        with client2.session_transaction() as session:
+            session["_pid"] = "test-player-2"
+            session["username"] = "TestP2"
+            session["match_id"] = "test-match-1"
+
+        response = client2.post("/update_cell?x=21&y=20&json=1")
+        assert response.status_code == 403
+        payload = response.get_json()
+        assert payload["error"] == "not your turn"
+
+    def test_end_turn_switches_to_other_player(self):
+        match = main.ACTIVE_MATCHES["test-match-1"]
+        assert match["turn_idx"] == game_state.PLAYER_1
+
+        response = self.client.post("/end_turn?json=1")
+        assert response.status_code == 200
+        assert match["turn_idx"] == game_state.PLAYER_2
+
+    def test_current_player_can_move_on_their_turn(self):
+        match = main.ACTIVE_MATCHES["test-match-1"]
+        assert match["turn_idx"] == game_state.PLAYER_1
+
+        response = self.client.post("/update_cell?x=21&y=20&json=1")
+        assert response.status_code == 200
+        payload = response.get_json()
+        assert payload["alive"] is True
+
+    def test_undo_works_within_match(self):
+        player = self.game.players[game_state.PLAYER_1]
+        # Toggle a free cell alive so neighbor becomes claimable
+        self.client.post("/update_cell?x=21&y=20&json=1")
+        # Claim cell at distance 2 (cost = 1)
+        energy_before = player.energy
+        self.client.post("/update_cell?x=22&y=20&json=1")
+        energy_after_place = player.energy
+        assert energy_after_place < energy_before
+
+        response = self.client.post("/undo_cell?x=22&y=20&json=1")
+        assert response.status_code == 200
+        assert player.energy == energy_before
