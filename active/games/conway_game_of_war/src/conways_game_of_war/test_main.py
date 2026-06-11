@@ -213,3 +213,66 @@ class TestClientGameState:
         response = self.client.post("/undo_cell?x=22&y=20&json=1")
         assert response.status_code == 200
         assert player.energy == energy_before
+
+    # ─── Additional coverage ───────────────────────────────────────────
+
+    def test_leave_queue_removes_player(self):
+        main.MATCH_QUEUE = [{"pid": "test-pid", "username": "Tester", "color": "#ff0000"}]
+        with self.client.session_transaction() as session:
+            session["_pid"] = "test-pid"
+        response = self.client.post("/leave_queue")
+        assert response.status_code == 200
+        assert len(main.MATCH_QUEUE) == 0
+
+    def test_undo_cell_missing_coords(self):
+        response = self.client.post("/undo_cell")
+        assert response.status_code == 400
+
+    def test_update_cell_missing_coords(self):
+        response = self.client.post("/update_cell")
+        assert response.status_code == 400
+
+    def test_match_status_without_match(self):
+        with self.client.session_transaction() as session:
+            del session["match_id"]
+        response = self.client.get("/match_status")
+        assert response.status_code == 404
+
+    def test_index_redirects_to_lobby_without_match(self):
+        with self.client.session_transaction() as session:
+            session.pop("match_id", None)
+            session.pop("_pid", None)
+        response = self.client.get("/")
+        assert response.status_code == 302
+        assert "/lobby" in response.location
+
+    def test_lobby_renders(self):
+        response = self.client.get("/lobby")
+        assert response.status_code == 200
+        assert b"Find Match" in response.data
+
+    def test_join_queue_requires_username(self):
+        response = self.client.post("/join_queue", json={"color": "#ff0000"})
+        assert response.status_code == 400
+
+    def test_cell_json_includes_current_energy(self):
+        response = self.client.post("/update_cell?x=21&y=20&json=1")
+        payload = response.get_json()
+        assert "current_energy" in payload
+        assert isinstance(payload["current_energy"], (int, float))
+
+    def test_match_poll_returns_not_matched_when_not_in_queue(self):
+        with self.client.session_transaction() as session:
+            session["_pid"] = "nobody"
+            session.pop("match_id", None)
+        response = self.client.get("/poll_match")
+        data = response.get_json()
+        assert data["matched"] is False
+
+    def test_log_error_warning_level(self):
+        response = self.client.post("/log_error", json={"level": "warning", "message": "test warn"})
+        assert response.status_code == 204
+
+    def test_log_error_error_level(self):
+        response = self.client.post("/log_error", json={"level": "error", "message": "test error"})
+        assert response.status_code == 204

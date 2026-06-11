@@ -311,3 +311,166 @@ def test_fallback_frontier_not_empty():
     p1 = game.players[PLAYER_1]
     fallback = game.collect_fallback_frontier(p1)
     assert len(fallback) > 0
+
+
+# ─── AI behavior ───────────────────────────────────────────────────
+
+
+def test_easy_ai_claims_cell():
+    """Easy AI claims a frontier cell adjacent to its start."""
+    from conways_game_of_war.game_state import EasyAIPlayer
+    game = GameState()
+    p1 = game.players[PLAYER_1]
+    ai = EasyAIPlayer(color=p1.color, start_point=p1.start_point)
+    game.ai_player = ai
+    game.ai_player_index = PLAYER_1
+    owned_before = game.count_owned_cells(p1, alive_only=True)
+    game.update()  # triggers AI move
+    owned_after = game.count_owned_cells(p1, alive_only=True)
+    assert owned_after >= owned_before
+
+
+def test_medium_ai_picks_best_frontier():
+    """Medium AI picks the frontier cell with the most friendly neighbours."""
+    from conways_game_of_war.game_state import MediumAIPlayer, NEIGHBOR_OFFSETS
+    game = GameState()
+    p1 = game.players[PLAYER_1]
+    p1.energy = 20.0
+    start_x, start_y = p1.start_point
+    for dx, dy in NEIGHBOR_OFFSETS:
+        nx = (start_x + dx) % game.board_size_x
+        ny = (start_y + dy) % game.board_size_y
+        if game.board[nx][ny].owner == p1:
+            game.board[nx][ny].alive = True
+    ai = MediumAIPlayer(color=p1.color, start_point=p1.start_point)
+    game.ai_player = ai
+    game.ai_player_index = PLAYER_1
+    game.update()
+    assert game.count_owned_cells(p1, alive_only=True) > 9
+
+
+def test_hard_ai_builds_block_near_enemy():
+    """Hard AI builds 2x2 blocks near the enemy start."""
+    from conways_game_of_war.game_state import HardAIPlayer
+    game = GameState()
+    p2 = game.players[PLAYER_2]
+    p2.energy = 30.0
+    ai = HardAIPlayer(color=p2.color, start_point=p2.start_point)
+    game.ai_player = ai
+    game.ai_player_index = PLAYER_2
+    for dx, dy in NEIGHBOR_OFFSETS:
+        nx = (p2.start_point[0] + dx) % game.board_size_x
+        ny = (p2.start_point[1] + dy) % game.board_size_y
+        if game.board[nx][ny].owner == p2:
+            game.board[nx][ny].alive = True
+    game.update()
+    alive = sum(1 for row in game.board for c in row if c.owner == p2 and c.alive)
+    assert alive >= 4, f"Hard AI should claim at least 4 cells, got {alive}"
+
+
+# ─── edge wrapping ───────────────────────────────────────────────────
+
+
+def test_compute_active_bounds_falls_back_for_edge_touch():
+    """When activity is near a border, bounds should return full board."""
+    game = GameState()
+    game.board[0][0] = CellState(alive=True)
+    bounds = game._compute_active_bounds(margin=2)
+    assert bounds == (0, 0, game.board_size_x - 1, game.board_size_y - 1)
+
+
+def test_compute_active_bounds_interior_uses_bounding_box():
+    """When activity is interior, bounds should be a tight box."""
+    game = GameState()
+    game.board[50][60] = CellState(alive=True)
+    bounds = game._compute_active_bounds(margin=2)
+    xmin, ymin, xmax, ymax = bounds
+    # Initial immortal cell at (20,20) is also alive, so xmin=18 and xmax=52
+    assert xmin <= 20, f"Expected xmin <= 20, got {xmin}"
+    assert xmax >= 50, f"Expected xmax >= 50, got {xmax}"
+    assert ymin <= 20, f"Expected ymin <= 20, got {ymin}"
+    assert ymax >= 60, f"Expected ymax >= 60, got {ymax}"
+    assert xmax < game.board_size_x, "Should not exceed board bounds"
+
+
+# ─── cost helpers ────────────────────────────────────────────────────
+
+
+def test_energy_cost_is_zero_near_base():
+    """Cells within FREE_BASE_RADIUS of the start point cost 0."""
+    game = GameState()
+    p1 = game.players[PLAYER_1]
+    sx, sy = p1.start_point
+    assert game.toroidal_distance_to_player_base(sx, sy, p1) == 0
+    assert game.energy_cost_for_player(sx, sy, p1) == 0.0
+    assert game.energy_cost_for_player(sx + 1, sy, p1) == 0.0
+
+
+def test_energy_cost_rises_with_distance():
+    """Cost increases quadratically with distance beyond the free radius."""
+    game = GameState()
+    p1 = game.players[PLAYER_1]
+    sx, sy = p1.start_point
+    assert game.energy_cost_for_player(sx + 2, sy, p1) == 1.0
+    assert game.energy_cost_for_player(sx + 3, sy, p1) == 4.0
+    assert game.energy_cost_for_player(sx + 4, sy, p1) == 9.0
+
+
+def test_can_afford_action_true_with_sufficient_energy():
+    """can_afford_action returns True when player has enough energy."""
+    game = GameState()
+    p1 = game.players[PLAYER_1]
+    p1.energy = 10.0
+    assert game.can_afford_action(22, 20, p1) is True
+
+
+def test_can_afford_action_false_with_insufficient_energy():
+    """can_afford_action returns False when player lacks energy."""
+    game = GameState()
+    p1 = game.players[PLAYER_1]
+    p1.energy = 0.0
+    assert game.can_afford_action(22, 20, p1) is False
+
+
+def test_compact_cost_label_free():
+    """Cost 0 returns empty string."""
+    assert GameState.compact_cost_label(0.0) == ""
+
+
+def test_compact_cost_label_small():
+    """Cost < 100 returns the integer as a string."""
+    assert GameState.compact_cost_label(1.0) == "1"
+    assert GameState.compact_cost_label(42.0) == "42"
+    assert GameState.compact_cost_label(99.9) == "99"
+
+
+def test_compact_cost_label_large():
+    """Cost >= 100 rounds down to nearest 10 and appends +."""
+    assert GameState.compact_cost_label(100.0) == "100+"
+    assert GameState.compact_cost_label(999.0) == "990+"
+
+
+def test_cost_overlay_background_free_zone():
+    """Free cells get a green-tinted background."""
+    game = GameState()
+    p1 = game.players[PLAYER_1]
+    bg = game.cost_overlay_background(21, 20, p1)
+    assert "rgba(" in bg
+    assert "120" in bg
+
+
+def test_cost_overlay_background_no_player():
+    """No player returns transparent."""
+    game = GameState()
+    bg = game.cost_overlay_background(21, 20, None)
+    assert bg == "rgba(0,0,0,0)"
+
+
+def test_toroidal_distance_wraps():
+    """Toroidal distance uses the shorter path around the board."""
+    game = GameState()
+    p1 = game.players[PLAYER_1]
+    far_x = game.board_size_x - 1
+    far_y = game.board_size_y - 1
+    dist = game.toroidal_distance_to_player_base(far_x, far_y, p1)
+    assert dist < game.board_size_x // 2
