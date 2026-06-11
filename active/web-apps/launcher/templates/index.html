@@ -360,6 +360,84 @@
     }
     .project-card .actions button:hover, .project-card .actions a:hover { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.8); }
 
+    /* Grouped project list */
+    .project-group {
+      margin-bottom: 6px;
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .group-header {
+      width: 100%; text-align: left;
+      padding: 10px 16px;
+      font-family: 'Courier New', monospace;
+      font-size: 12px; font-weight: 600;
+      background: rgba(255,255,255,0.03);
+      border: none; color: rgba(255,255,255,0.6);
+      cursor: pointer;
+      display: flex; align-items: center; gap: 10px;
+      transition: background 0.1s, color 0.1s;
+      letter-spacing: 0.5px;
+    }
+    .group-header:hover { background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.8); }
+    .group-header .group-count {
+      font-size: 10px; padding: 1px 8px;
+      border-radius: 8px; background: rgba(255,255,255,0.06);
+      color: rgba(255,255,255,0.4);
+    }
+    .group-header .group-arrow {
+      margin-left: auto; font-size: 10px;
+      transition: transform 0.2s ease;
+    }
+    .group-header.collapsed .group-arrow { transform: rotate(-90deg); }
+    .group-body {
+      display: block;
+    }
+    .group-body.hidden { display: none; }
+    .compact-project {
+      display: flex; align-items: center; gap: 10px;
+      padding: 7px 16px 7px 20px;
+      border-top: 1px solid rgba(255,255,255,0.04);
+      transition: background 0.1s;
+      font-size: 12px;
+    }
+    .compact-project:hover { background: rgba(255,255,255,0.03); }
+    .compact-project .cp-icon { font-size: 16px; flex-shrink: 0; width: 20px; text-align: center; }
+    .compact-project .cp-name {
+      font-weight: 600; color: rgba(255,255,255,0.8);
+      flex-shrink: 0; min-width: 140px;
+    }
+    .compact-project .cp-desc {
+      color: rgba(255,255,255,0.4); font-size: 11px;
+      flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .compact-project .cp-tag {
+      font-size: 9px; padding: 1px 6px; border-radius: 3px;
+      background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.3);
+      border: 1px solid rgba(255,255,255,0.06); flex-shrink: 0;
+    }
+    .compact-project .cp-tag.tests { background: rgba(74,222,128,0.08); border-color: rgba(74,222,128,0.1); color: #4ade80; }
+    .compact-project .cp-actions { flex-shrink: 0; display: flex; gap: 4px; }
+    .compact-project .cp-actions button,
+    .compact-project .cp-actions a {
+      font-family: 'Courier New', monospace;
+      font-size: 10px; letter-spacing: 0.5px;
+      padding: 3px 10px; border-radius: 2px;
+      border: 1px solid rgba(255,255,255,0.08);
+      background: rgba(255,255,255,0.04);
+      color: rgba(255,255,255,0.4);
+      cursor: pointer; transition: all 0.12s;
+      text-decoration: none;
+    }
+    .compact-project .cp-actions button:hover,
+    .compact-project .cp-actions a:hover { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.7); }
+
+    @media (max-width: 768px) {
+      .compact-project { flex-wrap: wrap; gap: 4px; padding: 6px 10px 6px 14px; }
+      .compact-project .cp-name { min-width: 0; width: auto; }
+      .compact-project .cp-desc { width: 100%; order: 10; white-space: normal; }
+    }
+
     .doc-viewer {
       background: rgba(255,255,255,0.03);
       border: 1px solid rgba(255,255,255,0.06);
@@ -413,7 +491,7 @@
       .tab-bar { padding: 0 8px; gap: 12px; }
       .tab-btn { font-size: 9px; padding: 6px 2px 4px; }
       .scene-wrap { min-height: calc(100vh - 80px); }
-      #project-grid { grid-template-columns: 1fr !important; }
+
     }
   </style>
 </head>
@@ -470,9 +548,12 @@
 <div id="tab-projects" class="tab-content hidden">
   <div class="content-slate">
     <div class="inner">
-      <div style="margin-bottom:20px"><h2 style="font-size:14px;font-weight:600;color:rgba(255,255,255,0.6);letter-spacing:2px;text-transform:uppercase">ALL PROJECTS</h2></div>
-      <div style="display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(300px,1fr))" id="project-grid">
-        <div style="text-align:center;padding:40px;color:rgba(255,255,255,0.3);grid-column:1/-1">LOADING PROJECTS…</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:16px">
+        <h2 style="font-size:14px;font-weight:600;color:rgba(255,255,255,0.6);letter-spacing:2px;text-transform:uppercase">ALL PROJECTS</h2>
+        <input id="project-search" type="text" placeholder="🔍 Search by name or description..." style="font-family:'Courier New',monospace;font-size:12px;padding:8px 14px;border-radius:2px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.04);color:rgba(255,255,255,0.6);width:220px;outline:none" oninput="filterProjects()">
+      </div>
+      <div id="project-groups">
+        <div style="text-align:center;padding:40px;color:rgba(255,255,255,0.3)">LOADING PROJECTS…</div>
       </div>
     </div>
   </div>
@@ -639,10 +720,10 @@ function createScene(type) {
   let groundY;
   if (type === 'ship') {
     groundY = H * 0.7;
-    // Ship deck — angled slightly
+    // Ship deck — flat for stable clicking
     const deck = Bodies.rectangle(W/2, groundY - 20, W * 0.9, 20, {
-      isStatic: true, label: 'deck', angle: 0.02,
-      friction: 0.8
+      isStatic: true, label: 'deck', angle: 0,
+      friction: 0.95
     });
     // Ship hull walls
     const leftWall = Bodies.rectangle(10, groundY - 100, 20, 200, { isStatic: true });
@@ -661,7 +742,7 @@ function createScene(type) {
       const x = startX + col * (sz.w + gap);
       const y = groundY - 30 - row * (sz.h + gap) - sz.h/2;
       const body = Bodies.rectangle(x, y, sz.w - 4, sz.h - 4, {
-        friction: 0.6, restitution: 0.1, density: 0.002,
+        friction: 0.95, restitution: 0.01, density: 0.004,
         label: app.id, chamfer: { radius: 2 }
       });
       containerBodies.push(body);
@@ -669,7 +750,7 @@ function createScene(type) {
     });
   } else if (type === 'train') {
     groundY = H * 0.82;
-    const ground = Bodies.rectangle(W/2, groundY + 20, W * 2, 80, { isStatic: true, friction: 0.3 });
+    const ground = Bodies.rectangle(W/2, groundY + 20, W * 2, 80, { isStatic: true, friction: 0.95 });
     Composite.add(engine.world, ground);
 
     // Train flatbeds — responsive car count
@@ -678,7 +759,7 @@ function createScene(type) {
     for (let i = 0; i < nCars; i++) {
       const cx = trainStartX + i * (sz.w + 20) + sz.w/2;
       const car = Bodies.rectangle(cx, groundY - 5, sz.w + 10, 12, {
-        isStatic: true, friction: 0.5, label: 'car_' + i
+        isStatic: true, friction: 0.95, label: 'car_' + i
       });
       Composite.add(engine.world, car);
     }
@@ -691,17 +772,17 @@ function createScene(type) {
       const cx = trainStartX + carIdx * (sz.w + 20) + sz.w/2;
       const y = groundY - 18 - stackRow * (sz.h + 5) - sz.h/2;
       const body = Bodies.rectangle(cx, y, sz.w - 4, sz.h - 4, {
-        friction: 0.5, restitution: 0.05, density: 0.002,
+        friction: 0.95, restitution: 0.01, density: 0.004,
         label: app.id, chamfer: { radius: 2 }
       });
       containerBodies.push(body);
     });
   } else if (type === 'crane') {
     groundY = H * 0.75;
-    const ground = Bodies.rectangle(W/2, groundY + 40, W * 2, 80, { isStatic: true, friction: 0.8 });
+    const ground = Bodies.rectangle(W/2, groundY + 40, W * 2, 80, { isStatic: true, friction: 0.95 });
     // Left and right walls for stacking area
-    const leftWall = Bodies.rectangle(30, groundY - 50, 20, 200, { isStatic: true });
-    const rightWall = Bodies.rectangle(W-30, groundY - 50, 20, 200, { isStatic: true });
+    const leftWall = Bodies.rectangle(30, groundY - 50, 20, 200, { isStatic: true, friction: 0.95 });
+    const rightWall = Bodies.rectangle(W-30, groundY - 50, 20, 200, { isStatic: true, friction: 0.95 });
     Composite.add(engine.world, [ground, leftWall, rightWall]);
 
     // Most containers on ground, some suspended from crane
@@ -717,7 +798,7 @@ function createScene(type) {
         const x = craneStartX + col * (sz.w + 8);
         const y = groundY - 10 - row * (sz.h + 5) - sz.h/2;
         const body = Bodies.rectangle(x, y, sz.w - 4, sz.h - 4, {
-          friction: 0.6, restitution: 0.05, density: 0.002,
+          friction: 0.95, restitution: 0.01, density: 0.004,
           label: app.id, chamfer: { radius: 2 }
         });
         containerBodies.push(body);
@@ -725,7 +806,7 @@ function createScene(type) {
         // Suspended — hanging from crane at top
         const x = W/2 + (idx % 2 === 0 ? -80 : 80);
         const body = Bodies.rectangle(x, H * 0.3, sz.w - 4, sz.h - 4, {
-          friction: 0.3, restitution: 0.2, density: 0.001,
+          friction: 0.95, restitution: 0.05, density: 0.002,
           label: app.id, chamfer: { radius: 2 }
         });
         // Crane cable constraint
@@ -744,11 +825,11 @@ function createScene(type) {
     });
   } else { // depot
     groundY = H * 0.78;
-    const ground = Bodies.rectangle(W/2, groundY + 40, W * 2, 80, { isStatic: true, friction: 0.8 });
+    const ground = Bodies.rectangle(W/2, groundY + 40, W * 2, 80, { isStatic: true, friction: 0.95 });
     // Back wall
-    const backWall = Bodies.rectangle(W/2, groundY - 150, W, 20, { isStatic: true });
-    const leftWall = Bodies.rectangle(20, groundY - 80, 20, 200, { isStatic: true });
-    const rightWall = Bodies.rectangle(W-20, groundY - 80, 20, 200, { isStatic: true });
+    const backWall = Bodies.rectangle(W/2, groundY - 150, W, 20, { isStatic: true, friction: 0.95 });
+    const leftWall = Bodies.rectangle(20, groundY - 80, 20, 200, { isStatic: true, friction: 0.95 });
+    const rightWall = Bodies.rectangle(W-20, groundY - 80, 20, 200, { isStatic: true, friction: 0.95 });
     Composite.add(engine.world, [ground, backWall, leftWall, rightWall]);
 
     // Containers stacked tightly — responsive cols
@@ -762,7 +843,7 @@ function createScene(type) {
       const x = depotStartX + col * (sz.w + 8);
       const y = groundY - 10 - row * (sz.h + 4) - sz.h/2;
       const body = Bodies.rectangle(x, y, sz.w - 4, sz.h - 4, {
-        friction: 0.7, restitution: 0.02, density: 0.003,
+        friction: 0.95, restitution: 0.01, density: 0.004,
         label: app.id, chamfer: { radius: 2 }
       });
       containerBodies.push(body);
@@ -774,7 +855,7 @@ function createScene(type) {
 
   // Add a wide catcher floor below the visible area so bodies don't fall forever
   const catcherFloor = Bodies.rectangle(W/2, H + 150, W * 3, 300, {
-    isStatic: true, friction: 0.8, label: 'catcher'
+    isStatic: true, friction: 0.95, label: 'catcher'
   });
   Composite.add(engine.world, catcherFloor);
 
@@ -804,6 +885,10 @@ function createScene(type) {
 
   // Start physics
   startPhysics();
+
+  // Auto-settle after physics simulation so containers are perfectly still for clicking
+  if (window._settleTimer) clearTimeout(window._settleTimer);
+  window._settleTimer = setTimeout(settleBodies, 3000);
 
   // Set initial positions of DOM elements
   syncPhysicsToDOM();
@@ -932,10 +1017,22 @@ function stopPhysics() {
   if (settleTimer) clearTimeout(settleTimer);
 }
 
+// ── Settle bodies: make all container bodies static so UI is perfectly clickable ──
+function settleBodies() {
+  if (!containerBodies.length) return;
+  containerBodies.forEach(body => { Body.setStatic(body, true); });
+  isDisturbed = false;
+  const btn = document.getElementById('disturbBtn');
+  if (btn) btn.disabled = false;
+}
+
 // ── Disturb ──
 function disturbScene() {
   if (isDisturbed || !engine) return;
   isDisturbed = true;
+
+  // Make all bodies dynamic again before applying forces
+  containerBodies.forEach(body => { Body.setStatic(body, false); });
 
   const btn = document.getElementById('disturbBtn');
   btn.disabled = true;
@@ -1046,10 +1143,7 @@ function smoothReset() {
       });
       syncPhysicsToDOM();
 
-      // Make bodies dynamic again after a short pause so they settle at origin
-      setTimeout(() => {
-        containerBodies.forEach(body => { Body.setStatic(body, false); });
-      }, 200);
+      // Keep bodies static so containers stay perfectly clickable until next disturb
     }
   }
   requestAnimationFrame(animateReset);
@@ -1136,37 +1230,98 @@ updateRunningCount();
 // PROJECTS TAB
 // ══════════════════════════════════════════════════════
 let projectsCache = null;
+const TYPE_LABELS = { game:'🎮 Games', webapp:'🌐 Web Apps', devtool:'🔧 Dev Tools', bot:'🤖 Bots', config:'❄️ Config', project:'📦 Other' };
+const TYPE_ORDER = ['game', 'webapp', 'devtool', 'bot', 'config', 'project'];
+
 async function loadProjects() {
-  const grid = document.getElementById('project-grid');
+  const container = document.getElementById('project-groups');
   if (projectsCache) { renderProjects(projectsCache); return; }
   try {
     const res = await fetch('/api/projects');
     projectsCache = await res.json();
     renderProjects(projectsCache);
-  } catch(e) { grid.innerHTML = '<div style="text-align:center;padding:40px;color:#ef4444;grid-column:1/-1">FAILED TO LOAD</div>'; }
+  } catch(e) { container.innerHTML = '<div style="text-align:center;padding:40px;color:#ef4444">FAILED TO LOAD</div>'; }
 }
+
+function filterProjects() {
+  if (!projectsCache) return;
+  renderProjects(projectsCache);
+}
+
+function toggleGroup(btn) {
+  btn.classList.toggle('collapsed');
+  const body = btn.nextElementSibling;
+  if (body) body.classList.toggle('hidden');
+}
+
+function groupMatch(p, query) {
+  if (!query) return true;
+  const q = query.toLowerCase();
+  return p.name.toLowerCase().includes(q) ||
+    (p.description || '').toLowerCase().includes(q) ||
+    (p.type || '').toLowerCase().includes(q);
+}
+
 function renderProjects(projects) {
-  const grid = document.getElementById('project-grid');
-  if (!projects.length) { grid.innerHTML = '<div style="text-align:center;padding:40px;color:rgba(255,255,255,0.3);grid-column:1/-1">NO PROJECTS</div>'; return; }
-  const typeIcons = { game:'🎮', bot:'🤖', devtool:'🔧', config:'❄️', docs:'📖' };
-  grid.innerHTML = projects.map((p, i) => `
-    <div class="project-card" style="animation-delay:${i*0.03}s">
-      <div style="display:flex;align-items:flex-start;gap:10px">
-        <span style="font-size:24px">${p.icon || typeIcons[p.type] || '📦'}</span>
-        <div style="min-width:0">
-          <h3>${p.name}</h3>
-          <p>${p.description || ''}</p>
-          <div class="meta"><span>${p.type || 'project'}</span>${p.has_tests ? '<span class="has-tests">✓ TESTS</span>' : ''}</div>
-          <div class="actions">
-            <button onclick="showReadme('${p.id}')">📖 README</button>
-            ${p.url ? `<a href="${p.url}" target="_blank">OPEN</a>` : ''}
-            ${p.local_url ? `<a href="${p.local_url}" target="_blank" style="opacity:0.5">🔗</a>` : ''}
-          </div>
-        </div>
+  const container = document.getElementById('project-groups');
+  if (!projects || !projects.length) {
+    container.innerHTML = '<div style="text-align:center;padding:40px;color:rgba(255,255,255,0.3)">NO PROJECTS</div>';
+    return;
+  }
+
+  const query = (document.getElementById('project-search')?.value || '').trim();
+
+  // Group by type, filtered
+  const groups = {};
+  projects.forEach(p => {
+    if (!groupMatch(p, query)) return;
+    const t = p.type || 'project';
+    if (!groups[t]) groups[t] = [];
+    groups[t].push(p);
+  });
+
+  // Check if search returned no results
+  const totalFiltered = Object.values(groups).reduce((s, a) => s + a.length, 0);
+  if (totalFiltered === 0) {
+    container.innerHTML = '<div style="text-align:center;padding:40px;color:rgba(255,255,255,0.3)">No projects match "' + escapeHtml(query) + '"</div>';
+    return;
+  }
+
+  let html = '';
+  TYPE_ORDER.forEach(t => {
+    if (!groups[t] || !groups[t].length) return;
+    const label = TYPE_LABELS[t] || '📦 Other';
+    const expand = query ? '' : ' collapsed';
+    html += `
+    <div class="project-group">
+      <button class="group-header${expand}" onclick="toggleGroup(this)">
+        <span>${label}</span>
+        <span class="group-count">${groups[t].length}</span>
+        <span class="group-arrow">▼</span>
+      </button>
+      <div class="group-body${query ? '' : ' hidden'}">
+        ${groups[t].map(p => {
+          const tags = [];
+          if (p.has_tests) tags.push('<span class="cp-tag tests">✓TESTS</span>');
+          return `<div class="compact-project">
+            <span class="cp-icon">${p.icon || '📦'}</span>
+            <span class="cp-name">${escapeHtml(p.name)}</span>
+            <span class="cp-desc">${escapeHtml((p.description || '').substring(0, 80))}</span>
+            ${tags.join('')}
+            <span class="cp-actions">
+              <button onclick="showReadme('${p.id}')" title="Read README">📖</button>
+              ${p.url ? `<a href="${p.url}" target="_blank" title="Open">OPEN</a>` : ''}
+              ${p.local_url ? `<a href="${p.local_url}" target="_blank" title="Local" style="opacity:0.5">🔗</a>` : ''}
+            </span>
+          </div>`;
+        }).join('')}
       </div>
-    </div>
-  `).join('');
+    </div>`;
+  });
+  container.innerHTML = html;
 }
+
+
 
 // ══════════════════════════════════════════════════════
 // DOCS / README VIEWER
