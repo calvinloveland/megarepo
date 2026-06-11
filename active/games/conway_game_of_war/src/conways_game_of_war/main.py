@@ -278,10 +278,33 @@ def _energy_html(game, p1_name="Player 1", p2_name="Player 2") -> str:
 
 
 def main():
+    """Run the Flask application."""
+    cleanup = threading.Thread(target=_cleanup_loop, daemon=True)
+    cleanup.start()
     host = os.environ.get("HOST", "127.0.0.1")
     port = int(os.environ.get("PORT", "5000"))
     debug = os.environ.get("FLASK_DEBUG", "true").lower() == "true"
     app.run(host=host, port=port, debug=debug)
+
+
+MATCH_TIMEOUT = 3600  # 1 hour
+
+
+def _cleanup_loop():
+    """Periodically remove stale matches and logs."""
+    while True:
+        time.sleep(600)  # every 10 minutes
+        now = time.time()
+        stale = [mid for mid, m in list(ACTIVE_MATCHES.items())
+                 if now - m.get("turn_deadline", now) > MATCH_TIMEOUT * 2]
+        for mid in stale:
+            ACTIVE_MATCHES.pop(mid, None)
+            MATCH_LOGS.pop(mid, None)
+            logger.info(f"Cleaned up stale match {mid}")
+        # Also clean up stale heartbeats
+        stale_hb = [pid for pid, ts in list(LAST_HEARTBEAT.items()) if now - ts > MATCH_TIMEOUT]
+        for pid in stale_hb:
+            LAST_HEARTBEAT.pop(pid, None)
 
 
 # ─── Lobby ───────────────────────────────────────────────────────────

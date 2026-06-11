@@ -558,6 +558,39 @@
         }
       }
 
+      // ─── Sound effects ────────────────────────────────────────
+      var _audioCtx = null;
+      function _ensureAudio() {
+        if (!_audioCtx) {
+          try { _audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e) {}
+        }
+      }
+      function _playTone(freq, duration, type, volume) {
+        _ensureAudio();
+        if (!_audioCtx) return;
+        try {
+          var osc = _audioCtx.createOscillator();
+          var gain = _audioCtx.createGain();
+          osc.type = type || 'sine';
+          osc.frequency.value = freq;
+          gain.gain.setValueAtTime(volume || 0.15, _audioCtx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, _audioCtx.currentTime + duration);
+          osc.connect(gain);
+          gain.connect(_audioCtx.destination);
+          osc.start();
+          osc.stop(_audioCtx.currentTime + duration);
+        } catch(e) {}
+      }
+      function soundPlace() { _playTone(880, 0.08, 'sine', 0.12); }
+      function soundUndo() { _playTone(440, 0.12, 'triangle', 0.1); }
+      function soundTurn() { _playTone(660, 0.15, 'sine', 0.1); setTimeout(function() { _playTone(880, 0.15, 'sine', 0.1); }, 100); }
+      function soundWin() {
+        [523, 659, 784, 1047].forEach(function(f, i) {
+          setTimeout(function() { _playTone(f, 0.3, 'sine', 0.12); }, i * 150);
+        });
+      }
+      function soundCantAfford() { _playTone(220, 0.15, 'square', 0.08); }
+
       function showEnergyFloat(x, y, cost) {
         if (!cost || cost <= 0) return;
         var game = document.getElementById('game');
@@ -867,6 +900,7 @@
 
       function syncWinnerState(data) {
         if (!data || !data.winner_name) return;
+        soundWin();
         winnerName = data.winner_name;
         updateRankings(winnerName);
         animating = false;
@@ -1097,6 +1131,7 @@
               return r.json();
             })
             .then(function(data) {
+              soundUndo();
               window.__conwayUpdateEnergy(data.current_energy);
               if (window.__conwayApplyCellPatch) window.__conwayApplyCellPatch(data);
               refreshAffordableActions();
@@ -1200,6 +1235,9 @@
               scheduleBoardRefresh();
             }
             var yourTurn = data.turn_idx === playerIdx;
+            if (yourTurn && lastEpoch !== -1 && data.epoch !== undefined && data.epoch !== lastEpoch) {
+              soundTurn();
+            }
             showWaiting(yourTurn);
             // Update turn timer
             var timerEl = document.getElementById('turn-timer');
