@@ -94,13 +94,14 @@ function hotReloadRoutes(source) {
 
 // Watch apps.yaml for changes and hot-reload routes
 let reloadTimer = null;
-fs.watchFile(APPS_FILE, (curr, prev) => {
+// Watch with 1s poll interval (default 5007ms is too slow on some platforms)
+fs.watchFile(APPS_FILE, { interval: 1000 }, (curr, prev) => {
   if (curr.mtimeMs === prev.mtimeMs) return;
   if (reloadTimer) clearTimeout(reloadTimer);
   reloadTimer = setTimeout(() => hotReloadRoutes('fs.watchFile'), 500);
 });
 
-// Periodic fallback poll (every 30s) — watchFile can miss on some FS
+// Periodic fallback poll — watchFile can miss on some FS
 let lastMtime = fs.statSync(APPS_FILE).mtimeMs;
 setInterval(() => {
   try {
@@ -110,7 +111,7 @@ setInterval(() => {
       hotReloadRoutes('periodic poll');
     }
   } catch (_) { /* file gone? ignore */ }
-}, 30_000);
+}, 5_000);
 
 // SIGHUP for manual reload (kill -HUP <pid>)
 process.on('SIGHUP', () => hotReloadRoutes('SIGHUP'));

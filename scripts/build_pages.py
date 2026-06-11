@@ -9,7 +9,6 @@ Heuristics:
 """
 import os
 import re
-import sys
 import shutil
 from pathlib import Path
 import markdown

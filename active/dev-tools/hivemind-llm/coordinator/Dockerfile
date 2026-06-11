@@ -3,8 +3,10 @@ FROM python:3.11-slim
 WORKDIR /app
 
 # Install dependencies
-COPY pyproject.toml .
-RUN pip install --no-cache-dir .
+COPY requirements.lock pyproject.toml .
+RUN pip install --require-hashes --no-deps -r requirements.lock && \
+    pip install --no-cache-dir --no-deps . && \
+    rm -rf /root/.cache
 
 # Copy application code
 COPY . .

@@ -9,6 +9,7 @@ on:
       - 'active/web-apps/parambulator/**'
       - 'active/web-apps/momos/**'
       - 'active/web-apps/sub-day-generator/**'
+      - 'active/web-apps/recursive-thermofluid-sandbox/**'
       - 'active/web-apps/shared/**'
       - '.github/workflows/web-app-images.yml'
   pull_request:
@@ -16,6 +17,7 @@ on:
       - 'active/web-apps/parambulator/**'
       - 'active/web-apps/momos/**'
       - 'active/web-apps/sub-day-generator/**'
+      - 'active/web-apps/recursive-thermofluid-sandbox/**'
       - 'active/web-apps/shared/**'
       - '.github/workflows/web-app-images.yml'
   workflow_dispatch:
@@ -36,6 +38,8 @@ jobs:
             dockerfile: active/web-apps/momos/Dockerfile
           - name: sub-day-generator
             dockerfile: active/web-apps/sub-day-generator/Dockerfile
+          - name: recursive-thermofluid-sandbox
+            dockerfile: active/web-apps/recursive-thermofluid-sandbox/Dockerfile
     steps:
       - name: Checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4

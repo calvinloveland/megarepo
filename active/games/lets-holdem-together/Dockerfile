@@ -9,8 +9,10 @@ WORKDIR /app
 RUN addgroup --system --gid 1001 app \
   && adduser --system --uid 1001 --ingroup app app
 
-COPY pyproject.toml /app/
-RUN pip install --no-cache-dir . && rm -rf /root/.cache
+COPY requirements.lock pyproject.toml /app/
+RUN pip install --require-hashes --no-deps -r requirements.lock && \
+    pip install --no-cache-dir --no-deps . && \
+    rm -rf /root/.cache
 
 COPY holdem_together /app/holdem_together
 

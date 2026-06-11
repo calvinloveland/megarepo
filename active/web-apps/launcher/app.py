@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import os
 import signal
 import subprocess
@@ -15,7 +14,7 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 import yaml
-from flask import Flask, jsonify, render_template, request
+from flask import Flask, jsonify, render_template
 
 LAUNCHER_DIR = Path(__file__).resolve().parent
 APPS_FILE = LAUNCHER_DIR / "apps.yaml"

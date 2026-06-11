@@ -12,6 +12,8 @@ This directory contains brainstorming documents, project ideas, and future plans
 - **calvinloveland_profile_design_2_quiet_studio.md** - Renderable profile draft (Quiet Studio Minimal)
 - **calvinloveland_profile_design_3_neon_narrative.md** - Renderable profile draft (Neon Narrative)
 - **agent_hiring_framework.md** - Planning note for a budget-aware CEO/worker agent framework
+- **homogenized_compute.md** - Concept for treating all personal devices as a single logical machine
+- **warden_hierarchy_design.md** - Parent / leaf Warden design for supporting homogenized compute without losing host-first defense
 
 ## Purpose
 

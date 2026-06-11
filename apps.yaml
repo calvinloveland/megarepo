@@ -1,0 +1,35 @@
+
+  - id: test-app
+    name: Test App
+    description: Testing proxy reload
+    icon: 🧪
+    subdomain: testapp
+    path: ../test-app
+    type: flask
+    port: 9999
+    module: test.app
+    env:
+      PORT: "9999"
+
+  - id: live-reload-test
+    name: Live Reload Test
+    description: Verifies proxy hot-reload
+    icon: 🧪
+    subdomain: livetest
+    path: ../live-reload-test
+    type: flask
+    port: 19999
+    module: test.app
+    env:
+      PORT: "19999"
+
+  - id: live-reload-e2e
+    name: Live Reload E2E
+    icon: ✅
+    subdomain: e2etest
+    path: ../e2etest
+    type: flask
+    port: 17999
+    module: e2e.app
+    env:
+      PORT: "17999"

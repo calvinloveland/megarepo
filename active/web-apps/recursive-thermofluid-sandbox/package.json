@@ -1,0 +1,17 @@
+{
+  "name": "recursive-thermofluid-sandbox",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Recursive thermofluid sandbox where wheels are the only active component.",
+  "type": "module",
+  "scripts": {
+    "start": "node server.mjs",
+    "check": "node --check app.js && node --check server.mjs && node --check sim-core.mjs && bash tests/smoke-test.sh && node --test --test-reporter=spec tests/*.test.mjs",
+    "test": "node --test --test-reporter=spec tests/*.test.mjs",
+    "test:e2e": "npx playwright test tests/e2e.spec.mjs",
+    "test:smoke": "bash tests/smoke-test.sh"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.60.0"
+  }
+}

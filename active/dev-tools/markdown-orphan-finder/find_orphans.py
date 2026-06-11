@@ -9,7 +9,7 @@ Islands: Groups of markdown files that only link to each other, with no incoming
 import argparse
 import re
 from pathlib import Path
-from typing import Dict, Set, List, Tuple
+from typing import Dict, Set, List
 from collections import defaultdict, deque
 
 

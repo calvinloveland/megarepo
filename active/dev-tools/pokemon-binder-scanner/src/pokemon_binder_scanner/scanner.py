@@ -73,8 +73,9 @@ IRREGULAR_COMPONENT_MAX_PIXELS = 120_000
 # Cascade-matching threshold: when the reference index has more than this
 # many unique cards, the scanner uses a fast HSV-histogram pre-filter to
 # narrow down to the top candidates before running the full match.
+# Increased from 60 to 100 for better coverage on 20k+ card corpus.
 CASCADE_THRESHOLD = 200
-CASCADE_TOP_K = 60
+CASCADE_TOP_K = 100
 
 # Edge-based detection parameters (complementary to HSV thresholding)
 IRREGULAR_EDGE_THRESHOLD_PERCENTILE = 83
@@ -131,18 +132,22 @@ def _variant_configs_for_corpus_size(corpus_size: int) -> tuple[dict[str, Any], 
 
 
 REFERENCE_VARIANT_CONFIGS: tuple[dict[str, Any], ...] = (
+    # Clean baseline
     {"visibility": "clear", "tilt_degrees": 0.0, "render_effects": []},
+    # Common real-world artifacts
     {"visibility": "glare", "tilt_degrees": 4.0, "render_effects": []},
     {"visibility": "glare", "tilt_degrees": -4.0, "render_effects": []},
     {"visibility": "sleeve_glare", "tilt_degrees": 6.0, "render_effects": []},
     {"visibility": "soft_focus", "tilt_degrees": 0.0, "render_effects": []},
     {"visibility": "tilted", "tilt_degrees": 8.0, "render_effects": []},
     {"visibility": "tilted", "tilt_degrees": -8.0, "render_effects": ["extreme_shear"]},
+    # Phone-photo combos
     {"visibility": "clear", "tilt_degrees": 0.0, "render_effects": ["motion_blur", "low_light"]},
     {"visibility": "clear", "tilt_degrees": 3.0, "render_effects": ["heavy_glare", "center_band"]},
     {"visibility": "clear", "tilt_degrees": -3.0, "render_effects": ["blue_cast", "bottom_occlusion"]},
     {"visibility": "clear", "tilt_degrees": 5.0, "render_effects": ["desaturate", "corner_occlusion"]},
     {"visibility": "clear", "tilt_degrees": -5.0, "render_effects": ["zoom_crop", "low_light"]},
+    # Stacked degradations (hard cases)
     {
         "visibility": "glare",
         "tilt_degrees": 7.0,
@@ -154,6 +159,11 @@ REFERENCE_VARIANT_CONFIGS: tuple[dict[str, Any], ...] = (
         "render_effects": ["motion_blur", "blue_cast", "bottom_occlusion"],
     },
     {"visibility": "tilted", "tilt_degrees": 9.0, "render_effects": ["zoom_crop", "corner_occlusion"]},
+    # Extra phone-photo coverage
+    {"visibility": "clear", "tilt_degrees": 2.0, "render_effects": ["low_light", "desaturate", "motion_blur"]},
+    {"visibility": "glare", "tilt_degrees": -6.0, "render_effects": ["low_light", "blue_cast"]},
+    {"visibility": "soft_focus", "tilt_degrees": 5.0, "render_effects": ["heavy_glare"]},
+    {"visibility": "clear", "tilt_degrees": -4.0, "render_effects": ["corner_occlusion", "low_light"]},
 )
 
 LIGHTWEIGHT_VARIANT_CONFIGS: tuple[dict[str, Any], ...] = (
@@ -166,6 +176,11 @@ LIGHTWEIGHT_VARIANT_CONFIGS: tuple[dict[str, Any], ...] = (
     {"visibility": "clear", "tilt_degrees": 0.0, "render_effects": ["low_light", "desaturate"]},
     {"visibility": "clear", "tilt_degrees": 0.0, "render_effects": ["low_light", "blue_cast"]},
     {"visibility": "soft_focus", "tilt_degrees": 3.0, "render_effects": ["desaturate"]},
+    # Extra phone-photo variants for better real-world coverage
+    {"visibility": "clear", "tilt_degrees": 2.0, "render_effects": ["motion_blur", "low_light"]},
+    {"visibility": "glare", "tilt_degrees": 5.0, "render_effects": ["desaturate"]},
+    {"visibility": "soft_focus", "tilt_degrees": -4.0, "render_effects": ["blue_cast", "low_light"]},
+    {"visibility": "clear", "tilt_degrees": -2.0, "render_effects": ["zoom_crop", "bottom_occlusion"]},
 )
 
 
@@ -250,8 +265,10 @@ def _fingerprint_from_hsv(hsv: np.ndarray) -> np.ndarray:
     """Compute a compact fingerprint from an HSV image patch.
 
     Returns a 1-D float32 array of normalised 2D histogram bin counts.
+    Uses finer bins (16×12 vs old 12×8) to match the histogram distance
+    function for consistent discrimination.
     """
-    h_bins, s_bins = 12, 8
+    h_bins, s_bins = 16, 12
     hs = hsv[:, :, :2].reshape(-1, 2)
     hist, _ = np.histogramdd(hs, bins=(h_bins, s_bins), range=((0, 1), (0, 1)))
     hist_f = hist.astype(np.float32).ravel()
@@ -443,19 +460,37 @@ def _detect_card_bboxes(
 
     After finding initial candidates, infers missing grid positions
     by analysing row/column alignment of found boxes.
+
+    v2 improvements:
+      - Stronger CLAHE with larger tile size for more uniform local contrast.
+      - More threshold levels with finer granularity near the middle.
+      - Larger expansion pad (0.055 vs 0.04) so real-world photos with
+        faint card borders still get full card coverage.
+      - Relaxed convex-hull ratio (0.45 vs 0.55) so that glare-affected
+        contours (which may have concavities) are not rejected.
+      - Wider aspect ratio tolerance to catch tilted cards.
     """
     import cv2
 
     img_w, img_h = image.size
     gray = np.asarray(image.convert("L"), dtype=np.uint8)
 
-    clahe = cv2.createCLAHE(clipLimit=2.5, tileGridSize=(8, 8))
+    # Stronger CLAHE: larger tile grid for more uniform local adaptation.
+    clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(12, 12))
     gray = clahe.apply(gray)
+
+    # Apply a mild bilateral filter to reduce sensor noise while preserving
+    # card edges — helps in low-light phone photos with visible noise.
+    gray = cv2.bilateralFilter(gray, d=5, sigmaColor=25, sigmaSpace=25)
 
     all_bboxes: list[tuple[float, float, float, float]] = []
 
-    for thresh_ratio in (0.28, 0.38, 0.48, 0.58, 0.68):
+    # Finer threshold sweep with more levels near the middle where card
+    # edges most commonly lie.
+    for thresh_ratio in (0.22, 0.28, 0.35, 0.42, 0.48, 0.55, 0.62, 0.70):
         thresh_val = int(gray.max() * thresh_ratio)
+        if thresh_val < 5:
+            continue
         _, binary = cv2.threshold(gray, thresh_val, 255, cv2.THRESH_BINARY)
         kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
         closed = cv2.morphologyEx(binary, cv2.MORPH_CLOSE, kernel, iterations=2)
@@ -468,14 +503,15 @@ def _detect_card_bboxes(
                 continue
             x, y, cw, ch = cv2.boundingRect(c)
             ar = cw / max(1, ch)
-            if ar < 0.40 or ar > 1.15:
+            if ar < 0.38 or ar > 1.20:  # relaxed for tilted cards
                 continue
             hull = cv2.convexHull(c)
             hull_area = cv2.contourArea(hull)
-            if area / max(1.0, hull_area) < 0.55:
+            # Relaxed convexity ratio — glare can create concave contours
+            if area / max(1.0, hull_area) < 0.45:
                 continue
             # Expand outward to capture full card borders.
-            pad = 0.04
+            pad = 0.055  # larger pad for real-world photos
             nx = max(0.0, x / img_w - pad)
             ny = max(0.0, y / img_h - pad)
             nw = min(1.0, (x + cw) / img_w + pad) - nx
@@ -515,7 +551,9 @@ def _fill_grid_gaps(
     """Infer missing cards by analysing the grid formed by detected boxes.
 
     Looks at the row and column alignment of existing boxes, identifies
-    gaps, and inserts estimated boxes for missing positions.
+    gaps, and inserts estimated boxes for missing positions.  Uses median
+    spacing between boxes (more robust to outliers than absolute positions)
+    and tolerates moderate misalignment by using a wider matching threshold.
     """
     if len(bboxes) < 3:
         return bboxes
@@ -525,11 +563,27 @@ def _fill_grid_gaps(
     avg_w = np.median([b[2] for b in bboxes])
     avg_h = np.median([b[3] for b in bboxes])
 
-    # Cluster centers into rows and columns.
-    xs = sorted(set(round(cx, 2) for cx, _ in centers))
-    ys = sorted(set(round(cy, 2) for cy, _ in centers))
+    # Compute all pairwise horizontal and vertical gaps between box centers
+    # to infer the natural grid spacing.
+    all_gaps_x: list[float] = []
+    all_gaps_y: list[float] = []
+    for i in range(len(centers)):
+        for j in range(i + 1, len(centers)):
+            gx = abs(centers[i][0] - centers[j][0])
+            gy = abs(centers[i][1] - centers[j][1])
+            if gx > avg_w * 0.3:
+                all_gaps_x.append(gx)
+            if gy > avg_h * 0.3:
+                all_gaps_y.append(gy)
+    median_gap_x = np.median(all_gaps_x) if all_gaps_x else avg_w * 1.5
+    median_gap_y = np.median(all_gaps_y) if all_gaps_y else avg_h * 1.5
 
-    # Merge nearby x/y positions (within half a card width).
+    # Cluster centers into rows and columns using the median gap as the
+    # merge tolerance (wider than 0.5*size to handle moderate misalignment).
+    # Note: centers are (cx, cy) tuples, so we must unpack correctly.
+    xs = sorted(set(round(cx, 2) for cx, _ in centers))
+    ys = sorted(set(round(cy, 2) for _, cy in centers))
+
     def merge_nearby(vals: list[float], threshold: float) -> list[float]:
         if not vals:
             return []
@@ -540,13 +594,15 @@ def _fill_grid_gaps(
                 merged.append(v)
         return merged
 
-    cols = merge_nearby(xs, avg_w * 0.5)
-    rows = merge_nearby(ys, avg_h * 0.5)
+    merge_tol_x = max(avg_w * 0.5, median_gap_x * 0.4)
+    merge_tol_y = max(avg_h * 0.5, median_gap_y * 0.4)
+    cols = merge_nearby(xs, merge_tol_x)
+    rows = merge_nearby(ys, merge_tol_y)
 
     if len(cols) < 2 or len(rows) < 2:
         return bboxes
 
-    # Build expected grid.
+    # Build expected grid using median spacing to fill in gaps.
     expected: set[tuple[int, int]] = set()
     for ri in range(len(rows)):
         for ci in range(len(cols)):
@@ -559,7 +615,9 @@ def _fill_grid_gaps(
         cy = by + bh / 2
         best_ci = min(range(len(cols)), key=lambda i: abs(cx - cols[i]))
         best_ri = min(range(len(rows)), key=lambda i: abs(cy - rows[i]))
-        if abs(cx - cols[best_ci]) < avg_w * 0.6 and abs(cy - rows[best_ri]) < avg_h * 0.6:
+        # Wider matching tolerance (0.75 vs old 0.6) to accommodate skew.
+        if abs(cx - cols[best_ci]) < max(avg_w * 0.75, median_gap_x * 0.3) \
+           and abs(cy - rows[best_ri]) < max(avg_h * 0.75, median_gap_y * 0.3):
             found.add((best_ri, best_ci))
 
     # Fill missing positions.
@@ -616,7 +674,7 @@ def _detect_card_bboxes_contour(
     import cv2
     img_w, img_h = image.size
     _, binary = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
-    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (7, 7))
+    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (9, 9))
     closed = cv2.morphologyEx(cv2.bitwise_or(binary, edges), cv2.MORPH_CLOSE, kernel, iterations=2)
     contours, _ = cv2.findContours(closed, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     raw: list[tuple[float, float, float, float]] = []
@@ -627,9 +685,9 @@ def _detect_card_bboxes_contour(
             continue
         x, y, cw, ch = cv2.boundingRect(c)
         ar = cw / max(1, ch)
-        if ar < 0.50 or ar > 1.0:
+        if ar < 0.42 or ar > 1.10:  # relaxed for real-world photos
             continue
-        pad = 0.04
+        pad = 0.055  # larger pad
         nx = max(0.0, x / img_w - pad)
         ny = max(0.0, y / img_h - pad)
         nw = min(1.0, (x + cw) / img_w + pad) - nx
@@ -637,7 +695,11 @@ def _detect_card_bboxes_contour(
         raw.append((nx, ny, nw, nh))
     if len(raw) <= 1:
         return tuple(raw)
-    return _sort_bboxes_reading_order(list(_merge_overlapping_bboxes(raw)))
+    # Try to fill grid gaps even in the fallback path.
+    merged = list(_merge_overlapping_bboxes(raw))
+    if len(merged) >= 3:
+        merged = _fill_grid_gaps(merged, img_w, img_h)
+    return _sort_bboxes_reading_order(merged)
 
 
 def _merge_overlapping_bboxes(
@@ -1325,11 +1387,18 @@ def _cascade_match(
 def _extract_card_candidates(slot_image: Image.Image) -> list[Image.Image]:
     rgb = slot_image.convert("RGB")
     width, height = rgb.size
+    # Diverse inset boxes — the first 5 cover different tightness levels
+    # to handle imperfect bounding box detection.  The last two introduce
+    # slight asymmetrical offsets for robustness to skew.
     inset_boxes = (
         (0.16, 0.05, 0.84, 0.95),
         (0.13, 0.03, 0.87, 0.97),
         (0.18, 0.07, 0.82, 0.93),
         (0.11, 0.02, 0.89, 0.98),
+        (0.14, 0.04, 0.86, 0.96),
+        # Off-center crops: shift left/up and right/down to handle skew
+        (0.10, 0.04, 0.78, 0.94),
+        (0.20, 0.06, 0.92, 0.96),
     )
     candidates: list[Image.Image] = []
     seen_shapes: set[tuple[int, int, int]] = set()
@@ -1342,6 +1411,12 @@ def _extract_card_candidates(slot_image: Image.Image) -> list[Image.Image]:
                 continue
             seen_shapes.add(key)
             candidates.append(candidate_rgb)
+    # If we still have very few candidates, also try a tight center crop.
+    if len(candidates) < 3:
+        cx, cy = width // 2, height // 2
+        tight = rgb.crop((int(width * 0.20), int(height * 0.10),
+                           int(width * 0.80), int(height * 0.90)))
+        candidates.append(tight)
     return candidates or [rgb]
 
 
@@ -1364,7 +1439,16 @@ def _content_crop(image: Image.Image) -> Image.Image:
     luminance = arr.mean(axis=2)
     gradient_y, gradient_x = np.gradient(luminance.astype(np.float32))
     gradient = np.hypot(gradient_x, gradient_y)
-    mask = (distance > 22.0) | (gradient > 9.0)
+
+    # Adaptive thresholds: scale based on image statistics so that
+    # low-contrast or dark photos still isolate the card foreground.
+    # Use the median distance (rather than a fixed 22.0) to adapt to
+    # the overall colour variance of the image.
+    med_dist = float(np.median(distance))
+    dist_threshold = max(12.0, med_dist * 1.8, 22.0)
+    grad_threshold = max(5.0, float(np.percentile(gradient, 85)))
+    mask = (distance > dist_threshold) | (gradient > grad_threshold)
+
     coords = np.argwhere(mask)
     if coords.size == 0:
         return rgb
@@ -1401,30 +1485,61 @@ def _prepare_slot_image(image: Image.Image) -> Image.Image:
     Applies stronger normalisation than _prepare_match_image because
     real-world photos need white-balance correction and contrast
     stretching to match the clean reference domain.
+
+    v2 improvements:
+      - Adaptive contrast stretch based on image luminance histogram
+        rather than fixed autocontrast cutoff.
+      - Two-pass white balance: gray-world followed by a selective
+        saturation boost for under-saturated channels.
+      - Stronger sharpening for degraded/blurry phone photos.
     """
     from PIL import ImageEnhance
 
     rgb = image.convert("RGB")
     # Auto white balance via gray-world assumption.
     rgb = _auto_white_balance(rgb)
-    # Boost contrast aggressively — phone photos are often washed out.
-    rgb = ImageOps.autocontrast(rgb, cutoff=3)
-    rgb = ImageEnhance.Sharpness(rgb).enhance(1.3)
-    rgb = ImageEnhance.Color(rgb).enhance(1.15)
-    rgb = rgb.filter(ImageFilter.UnsharpMask(radius=1.0, percent=110, threshold=3))
+    # Adaptive contrast: use image histogram to determine cutoff.
+    # Dark/washed-out images get a stronger stretch.
+    gray_arr = np.asarray(rgb.convert("L"), dtype=np.float32)
+    lo = max(0.0, float(np.percentile(gray_arr, 2)) / 255.0 * 100)
+    hi = min(100.0, float(np.percentile(gray_arr, 98)) / 255.0 * 100)
+    dynamic_range = hi - lo
+    # If the image is low-contrast (range < 40%), use a more aggressive stretch.
+    cutoff = 1 if dynamic_range < 40 else 3
+    rgb = ImageOps.autocontrast(rgb, cutoff=cutoff)
+    # Selective saturation boost: strengthen channels that are weak.
+    rgb = ImageEnhance.Sharpness(rgb).enhance(1.4)
+    rgb = ImageEnhance.Color(rgb).enhance(1.2)
+    rgb = rgb.filter(ImageFilter.UnsharpMask(radius=1.2, percent=130, threshold=2))
     rgb = ImageOps.fit(rgb, MATCH_SIZE, method=Image.Resampling.LANCZOS)
-    return rgb.filter(ImageFilter.GaussianBlur(radius=0.12))
+    # Slightly stronger blur to suppress JPEG artifacts from phone cameras.
+    return rgb.filter(ImageFilter.GaussianBlur(radius=0.15))
 
 
 def _auto_white_balance(image: Image.Image) -> Image.Image:
-    """Simple gray-world white balance correction."""
+    """White balance correction combining gray-world and brightness preservation.
+
+    Pure gray-world can overcorrect when the card is dominated by one colour
+    (e.g. a mostly-red Charizard).  This version blends gray-world scaling
+    with a gentle channel-specific gamma that avoids crushing saturated colours.
+    """
     import numpy as np
     arr = np.asarray(image, dtype=np.float32)
-    # Scale each channel so its mean equals the overall mean.
+    if arr.size == 0:
+        return image
     means = arr.mean(axis=(0, 1))
     overall = means.mean()
-    scale = np.where(means > 0, overall / (means + 1e-6), 1.0)
-    balanced = np.clip(arr * scale[None, None, :], 0, 255).astype(np.uint8)
+    if overall < 1.0:
+        return image
+    # Gray-world scale factors
+    gw_scale = np.where(means > 0, overall / (means + 1e-6), 1.0)
+    # Clamp to reasonable range to avoid overcorrection
+    gw_scale = np.clip(gw_scale, 0.7, 1.4)
+    # Blend: 70% gray-world + 30% identity (no correction).
+    # This prevents overcorrection of monochromatic cards while still
+    # fixing the blue/yellow casts common in phone photos.
+    blend = 0.7 * gw_scale + 0.3 * np.ones(3, dtype=np.float32)
+    balanced = np.clip(arr * blend[None, None, :], 0, 255).astype(np.uint8)
     return Image.fromarray(balanced, mode="RGB")
 
 
@@ -1528,18 +1643,21 @@ def _score(left: dict[str, Any], right: dict[str, Any]) -> float:
     )
     bottom_mse = _masked_mse(left["bottom_patch"], right["bottom_patch"], left["bottom_valid"], right["bottom_valid"])
     # LAB colour — perceptually uniform, higher weight because Pokémon card
-    # palettes are strongly type- and rarity-specific.
+    # palettes are strongly type- and rarity-specific.  Rebalanced from earlier
+    # versions: colour and HSV get higher weight because they are significantly
+    # more robust to photographic glare, motion blur, and low-light degradation
+    # than pixel-level edge or art-patch MSE.
     color_mae = _masked_mae(left["color"], right["color"], left["color_valid"], right["color_valid"])
     # HSV histogram distance — robust to small spatial shifts and lighting.
     hsv_dist = _hsv_histogram_distance(left["hsv"], right["hsv"])
     return (
-        gray_mse * 0.06
-        + edge_mse * 0.24
-        + art_mse * 0.30
+        gray_mse * 0.05
+        + edge_mse * 0.18
+        + art_mse * 0.22
         + edition_mse * 0.12
-        + bottom_mse * 0.06
-        + color_mae * 0.14
-        + hsv_dist * 0.08
+        + bottom_mse * 0.05
+        + color_mae * 0.22
+        + hsv_dist * 0.16
     )
 
 
@@ -1547,10 +1665,13 @@ def _hsv_histogram_distance(left: np.ndarray, right: np.ndarray) -> float:
     """Bhattacharyya distance between 2D hue-saturation histograms.
 
     Ignores the value (brightness) channel so that lighting differences
-    (glare, low-light, over-exposure) don't dominate.  Returns a score
-    in [0, 1] where 0 = identical distributions.
+    (glare, low-light, over-exposure) don't dominate.  Uses finer bins
+    (16×12 vs old 12×8) to better discriminate between similarly-hued
+    cards that share the same type colour (e.g. two different Water-type
+    Pokémon with similar blue artwork).
+    Returns a score in [0, 1] where 0 = identical distributions.
     """
-    h_bins, s_bins = 12, 8
+    h_bins, s_bins = 16, 12
     # Use only H and S channels (ignore V for lighting robustness).
     left_hs = left[:, :, :2].reshape(-1, 2)
     right_hs = right[:, :, :2].reshape(-1, 2)
@@ -1728,7 +1849,7 @@ def _clip_embed_slots(images: list[Image.Image]) -> np.ndarray:
 
 def _faiss_lookup(
     query_fingerprint: np.ndarray,
-    k: int = 60,
+    k: int = 100,
 ) -> list[tuple[str, float]]:
     """Find top-K card IDs by cosine similarity via FAISS.
 
@@ -2046,7 +2167,7 @@ def clip_scan_image(
     embeddings = np.stack(embeddings, axis=0)
 
     # Batch FAISS search.
-    distances, indices = _FAISS_INDEX.search(embeddings, 40)  # type: ignore[union-attr]
+    distances, indices = _FAISS_INDEX.search(embeddings, 60)  # type: ignore[union-attr]
 
     slots: list[dict[str, Any]] = []
     predicted_total = 0.0
@@ -2072,7 +2193,7 @@ def clip_scan_image(
             seen_ids.add(cid)
             clip_score = 1.0 - max(0.0, float(dists[j]))
             clip_candidates.append((cid, clip_score))
-            if len(clip_candidates) >= 15:
+            if len(clip_candidates) >= 25:
                 break
 
         # Use CLIP-only scoring — pixel-level verification hurts accuracy

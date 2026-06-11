@@ -4,10 +4,9 @@
 from __future__ import annotations
 
 import shutil
-import textwrap
 from collections import defaultdict
 from pathlib import Path
-from urllib.parse import urlsplit, urlunsplit
+from urllib.parse import urlsplit
 import re
 
 ROOT = Path(__file__).resolve().parents[1]

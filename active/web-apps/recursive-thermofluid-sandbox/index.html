@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Recursive Thermofluid Sandbox</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <main class="canvas-panel panel-surface">
+        <div class="canvas-header">
+          <div>
+            <p class="eyebrow">Emergent machine lab</p>
+            <h1>Recursive Thermofluid Sandbox</h1>
+            <p class="lede">
+              Build pumps, turbines, refrigerators, and engines from one active part: the wheel.
+            </p>
+          </div>
+          <div class="header-meta">
+            <div>
+              <p class="eyebrow">Current view</p>
+              <h2 id="viewTitle">Root 3×3 grid</h2>
+            </div>
+            <div class="legend">
+              <span><i class="swatch gas"></i> gas</span>
+              <span><i class="swatch liquid"></i> liquid</span>
+              <span><i class="swatch hot"></i> hot</span>
+              <span><i class="swatch wheel"></i> wheel</span>
+              <span><i class="swatch wall"></i> wall</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="canvas-wrapper">
+          <canvas id="sandboxCanvas" width="900" height="900" aria-label="Recursive thermofluid sandbox"></canvas>
+          <div class="canvas-toolbar" id="canvasToolbar">
+            <div class="toolbar-toggle-row">
+              <span class="toolbar-label">Tools</span>
+              <button id="toggleToolbarButton" class="toolbar-button small" title="Hide toolbar">✕</button>
+            </div>
+            <div class="toolbar-buttons" id="toolbarButtons">
+              <button data-tool="gas" title="Gas">G</button>
+              <button data-tool="liquid" title="Liquid" class="active">L</button>
+              <button data-tool="wall" title="Wall">W</button>
+              <button data-tool="heat" title="Heat">🔥</button>
+              <button data-tool="cool" title="Cool">❄</button>
+              <button data-tool="wheel-powered-cw" title="Powered wheel ↻">↻</button>
+              <button data-tool="wheel-powered-ccw" title="Powered wheel ↺">↺</button>
+              <button data-tool="wheel-free" title="Free wheel">⏣</button>
+              <button data-tool="erase" title="Erase">⌫</button>
+              <button data-tool="subdivide" title="Subdivide">⊞</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="canvas-footer">
+          <p id="statusLine">
+            Drag to paint. Click a subdivided cell, then “Enter nested grid” to drill in.
+          </p>
+        </div>
+      </main>
+
+      <section class="workspace-shell panel-surface">
+        <div class="workspace-tab-row" role="tablist" aria-label="Sandbox workspace tabs">
+          <button class="workspace-tab active" id="tabButtonSandbox" data-workspace-tab="sandbox" role="tab" aria-selected="true">
+            Controls
+          </button>
+          <button class="workspace-tab" id="tabButtonFeedback" data-workspace-tab="feedback" role="tab" aria-selected="false">
+            UI feedback
+          </button>
+        </div>
+
+        <section class="workspace-panel" id="workspaceSandbox" data-workspace-panel="sandbox">
+          <div class="dashboard-grid">
+            <section class="panel controls-panel">
+              <div class="section-block">
+                <div class="section-header compact">
+                  <h2>Simulation</h2>
+                  <span id="tickReadout">Tick 0</span>
+                </div>
+                <div class="button-row">
+                  <button id="playPauseButton" class="primary">Pause</button>
+                  <button id="stepButton">Step</button>
+                  <button id="resetButton">Reset</button>
+                </div>
+                <div class="control-grid">
+                  <label>
+                    <span>Ticks per frame</span>
+                    <input id="speedSlider" type="range" min="1" max="8" value="2" />
+                  </label>
+                  <label>
+                    <span>External grid power</span>
+                    <input id="powerSlider" type="range" min="0" max="40" value="8" />
+                    <strong id="powerValue">8 W</strong>
+                  </label>
+                  <label>
+                    <span>Gravity</span>
+                    <input id="gravitySlider" type="range" min="0" max="20" value="8" />
+                    <strong id="gravityValue">0.08</strong>
+                  </label>
+                  <div class="toggle-stack">
+                    <label class="checkbox-row">
+                      <input id="autoHierarchyToggle" type="checkbox" checked />
+                      <span>Auto-expand</span>
+                    </label>
+                    <label class="checkbox-row">
+                      <input id="autoCollapseToggle" type="checkbox" checked />
+                      <span>Auto-collapse</span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              <div class="section-block">
+                <div class="section-header compact">
+                  <h2>Blueprint</h2>
+                </div>
+                <div class="blueprint-row">
+                  <input id="blueprintName" type="text" value="My machine" placeholder="Blueprint name" />
+                  <button id="saveBlueprintButton" title="Save to server">💾 Save</button>
+                  <select id="loadBlueprintSelect" aria-label="Load a saved blueprint">
+                    <option value="">— Load —</option>
+                  </select>
+                  <button id="deleteBlueprintButton" title="Delete selected">🗑</button>
+                </div>
+              </div>
+
+              <div class="section-block">
+                <div class="section-header compact">
+                  <h2>Materials</h2>
+                  <span id="selectionLabel">Paint cells</span>
+                </div>
+                <div class="control-grid">
+                  <label>
+                    <span>Working fluid</span>
+                    <select id="fluidSelect">
+                      <option value="air">Air</option>
+                      <option value="water" selected>Water / Steam</option>
+                      <option value="refrigerant">Refrigerant</option>
+                    </select>
+                  </label>
+                  <label>
+                    <span>Solid material</span>
+                    <select id="materialSelect">
+                      <option value="steel" selected>Steel</option>
+                      <option value="copper">Copper</option>
+                      <option value="insulation">Insulation</option>
+                    </select>
+                  </label>
+                  <label>
+                    <span>Render layer</span>
+                    <select id="renderModeSelect">
+                      <option value="hybrid" selected>Hybrid</option>
+                      <option value="pressure">Pressure</option>
+                      <option value="temperature">Temperature</option>
+                      <option value="flow">Flow</option>
+                      <option value="hierarchy">Hierarchy</option>
+                    </select>
+                  </label>
+                </div>
+              </div>
+            </section>
+
+            <section class="panel info-panel">
+              <div class="section-block">
+                <div class="section-header compact">
+                  <h2>Telemetry</h2>
+                  <span id="hierarchyReadout">Depth 1</span>
+                  <button id="telemetryToggle" class="small toggle-telemetry-btn">Show</button>
+                </div>
+                <dl class="stats-grid hidden" id="globalStats"></dl>
+              </div>
+
+              <div class="section-block">
+                <div class="section-header compact">
+                  <h2>Inspector</h2>
+                  <span id="inspectorPath">root</span>
+                </div>
+                <div id="inspectorEmpty" class="muted">Click a cell to inspect its local state.</div>
+                <dl class="stats-grid" id="cellStats"></dl>
+                <div class="button-row inspector-actions">
+                  <button id="enterButton">Enter nested grid</button>
+                  <button id="backButton">Back out</button>
+                </div>
+              </div>
+
+              <div class="section-block rules-block">
+                <h2>World rules</h2>
+                <ul>
+                  <li>Only wheels are active. Everything else is passive physics.</li>
+                  <li>Each powered wheel asks the grid for exactly 1 watt.</li>
+                  <li>Free wheels can harvest flow and feed power back.</li>
+                  <li>Busy cells subdivide into smaller 3×3 grids.</li>
+                </ul>
+              </div>
+            </section>
+          </div>
+        </section>
+
+        <section class="workspace-panel hidden" id="workspaceFeedback" data-workspace-panel="feedback">
+          <div class="feedback-header">
+            <div>
+              <p class="eyebrow">UI review workspace</p>
+              <h2>Give feedback on each UI element</h2>
+              <p class="lede small">
+                Feedback is saved to the server so I can read it immediately.
+              </p>
+            </div>
+            <div class="feedback-actions">
+              <button id="submitAllFeedbackButton">Submit all to server</button>
+            </div>
+          </div>
+          <p id="feedbackStatus" class="muted feedback-status">No saved feedback yet.</p>
+          <div id="feedbackForms" class="feedback-grid"></div>
+        </section>
+      </section>
+    </div>
+
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>
