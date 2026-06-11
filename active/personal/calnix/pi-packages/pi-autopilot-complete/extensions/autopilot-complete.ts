@@ -135,7 +135,7 @@ export default function (pi: ExtensionAPI) {
 		let extraPrompt = "";
 
 		if (autopilotEnabled) {
-			extraPrompt += `\n\nAutopilot mode is active. Keep working until you can call the \`complete\` tool. Do not end with a normal assistant response when you can still inspect files, run commands, edit code, or verify results. If you are blocked or need user input, still call \`complete\` and clearly explain what is blocking you. The \`complete\` tool is your required final action for this task.`;
+			extraPrompt += `\n\nAutopilot mode is active. Keep working until you can call the \`complete\` tool. Do not end with a normal assistant response when you can still inspect files, run commands, edit code, or verify results. If you are blocked or need user input, still call \`complete\` with futureWork: [] and explain what is blocking you in the summary. The \`complete\` tool is your required final action for this task.`;
 		}
 
 		if (superAutopilotEnabled) {
@@ -168,7 +168,7 @@ Rules:
 
 REQUIRED: \`futureWork\` — array of remaining task descriptions.
 - Non-empty → items are queued as follow-up tasks; agent keeps working.
-- Empty ([]) → the task is complete (or blocked/needs_input — explain in summary).`,
+- Empty ([]) → the task is complete. Use summary to explain why (e.g., blocked, needs input, all done).`,
 		promptSnippet: "Signal task completion — futureWork items continue, empty array signals done",
 		promptGuidelines: [
 			"Use complete with futureWork when finishing a unit of work.",
