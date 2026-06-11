@@ -20,7 +20,31 @@
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
-import { AUTOPILOT_STATE_TYPE, getAutopilotEnabled, isTddModeEnabled } from "./autopilot-mode-state.mjs";
+
+// ── Helper state (inlined from autopilot-mode-state.mjs to avoid broken
+//    relative imports when the extension is loaded through a symlink) ──
+
+const AUTOPILOT_STATE_TYPE = "autopilot-state";
+const TDD_STATE_TYPE = "tdd-mode-state";
+
+function isTddModeEnabled(entries: any[] = []): boolean {
+	return latestEnabled(entries, TDD_STATE_TYPE, false);
+}
+
+function getAutopilotEnabled(entries: any[] = []): boolean {
+	if (isTddModeEnabled(entries)) return false;
+	return latestEnabled(entries, AUTOPILOT_STATE_TYPE, true);
+}
+
+function latestEnabled(entries: any[], customType: string, defaultValue: boolean): boolean {
+	let value = defaultValue;
+	for (const entry of entries) {
+		if (entry?.type === "custom" && entry.customType === customType) {
+			value = Boolean(entry.data?.enabled);
+		}
+	}
+	return value;
+}
 
 const MAX_NUDGES_DEFAULT = 2;
 const MAX_NUDGES_STATE_TYPE = "max-nudges-state";
@@ -41,16 +65,6 @@ let superAutopilotIterations = 0;
 
 function getSuperAutopilotEnabled(entries: any[] = []): boolean {
 	return latestEnabled(entries, SUPER_AUTOPILOT_STATE_TYPE, false);
-}
-
-function latestEnabled(entries: any[] = [], customType: string, defaultValue: boolean): boolean {
-	let value = defaultValue;
-	for (const entry of entries) {
-		if (entry?.type === "custom" && entry.customType === customType) {
-			value = Boolean(entry.data?.enabled);
-		}
-	}
-	return value;
 }
 
 function refreshAutopilotState(ctx: { sessionManager: { getEntries: () => any[] } }) {
