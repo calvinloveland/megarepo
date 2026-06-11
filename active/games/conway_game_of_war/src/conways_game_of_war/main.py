@@ -14,6 +14,7 @@ from . import game_state
 _pkg_dir = os.path.dirname(os.path.abspath(__file__))
 _DATA_DIR = os.path.join(_pkg_dir, "data")
 _RATINGS_FILE = os.path.join(_DATA_DIR, "ratings.json")
+_HISTORY_FILE = os.path.join(_DATA_DIR, "match_history.json")
 os.makedirs(_DATA_DIR, exist_ok=True)
 
 app = flask.Flask(
@@ -107,7 +108,39 @@ def _update_elo_rankings(winner_name: str, loser_name: str) -> dict:
     wr["wins"] += 1
     lr["losses"] += 1
     _save_rankings(rankings)
+    # Record match in history
+    _record_match_history(winner_name, loser_name)
     return rankings
+
+
+def _record_match_history(winner: str, loser: str) -> None:
+    """Append a match result to the history file."""
+    try:
+        history = []
+        if os.path.exists(_HISTORY_FILE):
+            with open(_HISTORY_FILE) as f:
+                history = json.load(f)
+        history.append({
+            "winner": winner, "loser": loser,
+            "timestamp": time.time(),
+        })
+        # Keep last 500 matches
+        history = history[-500:]
+        with open(_HISTORY_FILE, "w") as f:
+            json.dump(history, f, indent=2)
+    except (OSError, json.JSONDecodeError) as e:
+        logger.error(f"Failed to save match history: {e}")
+
+
+def _load_match_history() -> list:
+    """Load match history from the file."""
+    if not os.path.exists(_HISTORY_FILE):
+        return []
+    try:
+        with open(_HISTORY_FILE) as f:
+            return json.load(f)
+    except (json.JSONDecodeError, OSError):
+        return []
 
 
 @app.route("/rankings")
@@ -263,6 +296,26 @@ def lobby():
 def leaderboard():
     """Render the leaderboard page."""
     return flask.render_template("leaderboard.html")
+
+
+@app.route("/profile/<username>")
+def profile(username):
+    """Render a player profile page."""
+    rankings = _load_rankings()
+    info = rankings.get(username)
+    if not info:
+        return flask.redirect("/leaderboard")
+    history = _load_match_history()
+    matches = [m for m in history if m["winner"] == username or m["loser"] == username]
+    matches.reverse()  # newest first
+    return flask.render_template(
+        "profile.html",
+        username=username,
+        rating=info.get("rating", 1200),
+        wins=info.get("wins", 0),
+        losses=info.get("losses", 0),
+        matches=matches[:50],
+    )
 
 
 @app.route("/join_queue", methods=["POST"])

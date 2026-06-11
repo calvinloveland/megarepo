@@ -132,7 +132,7 @@
           var total = e.wins + e.losses;
           var winPct = total > 0 ? Math.round(e.wins / total * 100) : 0;
           var cls = isMe ? ' class="me"' : '';
-          html += '<tr' + cls + '><td class="rank-num ' + rankClass + '">' + rank + '</td><td class="name-cell">' + e.name + '</td><td class="rating-cell">' + e.rating + '</td><td>' + e.wins + '</td><td>' + e.losses + '</td><td>' + winPct + '%</td></tr>';
+          html += '<tr' + cls + '><td class="rank-num ' + rankClass + '">' + rank + '</td><td class="name-cell"><a href="/profile/' + encodeURIComponent(e.name) + '" style="color:inherit;text-decoration:none">' + e.name + '</a></td><td class="rating-cell">' + e.rating + '</td><td>' + e.wins + '</td><td>' + e.losses + '</td><td>' + winPct + '%</td></tr>';
         }
         html += '</table>';
         container.innerHTML = html;

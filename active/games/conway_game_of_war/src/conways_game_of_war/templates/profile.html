@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ username }} — Conway's Game of War</title>
+    <style>
+      *, *::before, *::after { box-sizing: border-box; }
+      body, html {
+        height: 100%; margin: 0; overflow: auto;
+        font-family: system-ui, -apple-system, sans-serif;
+        background: #111; color: #eee;
+        display: flex; align-items: flex-start; justify-content: center;
+        padding: 24px 0;
+      }
+      .page { max-width: 600px; width: 90%; }
+      .card { background: #1a1a1a; border: 1px solid #333; border-radius: 12px; padding: 24px 32px; margin-bottom: 16px; }
+      .name { font-size: 1.6rem; font-weight: 600; margin: 0; }
+      .stats { display: flex; gap: 20px; margin-top: 16px; flex-wrap: wrap; }
+      .stat { text-align: center; }
+      .stat .num { font-size: 1.5rem; font-weight: 600; color: #4fc; }
+      .stat .label { font-size: 0.7rem; color: #888; text-transform: uppercase; letter-spacing: 0.5px; }
+      .stat.win .num { color: #4caf50; }
+      .stat.loss .num { color: #f44336; }
+      .stat.pct .num { color: #ffcc44; }
+      h2 { font-size: 1rem; font-weight: 500; color: #aaa; margin: 0 0 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+      table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+      th { text-align: left; color: #888; font-weight: 400; padding: 6px 8px; border-bottom: 1px solid #333; }
+      td { padding: 6px 8px; border-bottom: 1px solid #222; color: #ccc; }
+      .win-tag { color: #4caf50; font-weight: 600; }
+      .loss-tag { color: #f44336; }
+      .back-link { display: block; margin-top: 16px; color: #777; text-decoration: none; font-size: 0.85rem; text-align: center; }
+      .back-link:hover { color: #aaa; }
+      .empty { text-align: center; color: #555; padding: 20px 0; }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <div class="card">
+        <div class="name">{{ username }}</div>
+        <div class="stats">
+          <div class="stat"><div class="num">{{ rating }}</div><div class="label">Rating</div></div>
+          <div class="stat win"><div class="num">{{ wins }}</div><div class="label">Wins</div></div>
+          <div class="stat loss"><div class="num">{{ losses }}</div><div class="label">Losses</div></div>
+          <div class="stat pct"><div class="num">{{ "%.0f"|format(wins/(wins+losses)*100) if (wins+losses) > 0 else 0 }}%</div><div class="label">Win Rate</div></div>
+        </div>
+      </div>
+      <div class="card">
+        <h2>📋 Recent Matches</h2>
+        {% if matches %}
+        <table>
+          <tr><th>#</th><th>Result</th><th>Opponent</th><th>Rating Δ</th></tr>
+          {% for m in matches %}
+          <tr>
+            <td style="color:#666">{{ loop.index }}</td>
+            <td class="{{ 'win-tag' if m.winner == username else 'loss-tag' }}">{{ 'W' if m.winner == username else 'L' }}</td>
+            <td><a href="/profile/{{ m.winner if m.loser == username else m.loser }}" style="color:#ccc;text-decoration:none">{{ m.winner if m.loser == username else m.loser }}</a></td>
+            <td style="color:#888">{{ m.timestamp|int }}</td>
+          </tr>
+          {% endfor %}
+        </table>
+        {% else %}
+        <p class="empty">No matches played yet</p>
+        {% endif %}
+      </div>
+      <a href="/leaderboard" class="back-link">← Back to Leaderboard</a>
+    </div>
+  </body>
+</html>
