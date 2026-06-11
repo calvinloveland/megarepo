@@ -1280,6 +1280,9 @@ function renderProjects(projects) {
     groups[t].push(p);
   });
 
+  // Sort projects alphabetically within each group
+  Object.values(groups).forEach(arr => arr.sort((a, b) => a.name.localeCompare(b.name)));
+
   // Check if search returned no results
   const totalFiltered = Object.values(groups).reduce((s, a) => s + a.length, 0);
   if (totalFiltered === 0) {
@@ -1352,6 +1355,40 @@ async function loadDocList() {
     </div>`;
 }
 function escapeHtml(text) { const d = document.createElement('div'); d.textContent = text; return d.innerHTML; }
+
+// ══════════════════════════════════════════════════════
+// KEYBOARD SHORTCUTS
+// ══════════════════════════════════════════════════════
+document.addEventListener('keydown', (e) => {
+  // Only if not typing in an input
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+  const appsActive = !document.getElementById('tab-apps').classList.contains('hidden');
+
+  // Space → disturb (on apps tab)
+  if (e.code === 'Space' && appsActive) {
+    e.preventDefault();
+    const btn = document.getElementById('disturbBtn');
+    if (btn && !btn.disabled) disturbScene();
+    return;
+  }
+
+  // R → reroll scene (on apps tab)
+  if ((e.key === 'r' || e.key === 'R') && appsActive) {
+    changeScene();
+    return;
+  }
+
+  // Left/Right → cycle scene (on apps tab)
+  if ((e.key === 'ArrowRight' || e.key === 'ArrowLeft') && appsActive) {
+    changeScene();
+    return;
+  }
+
+  // 1, 2, 3 → switch tabs
+  if (e.key === '1') { document.querySelector('[data-tab="apps"]')?.click(); return; }
+  if (e.key === '2') { document.querySelector('[data-tab="projects"]')?.click(); return; }
+  if (e.key === '3') { document.querySelector('[data-tab="docs"]')?.click(); return; }
+});
 
 // ══════════════════════════════════════════════════════
 // INIT
