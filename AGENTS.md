@@ -83,3 +83,15 @@ This file translates the repository's Copilot-era guidance into Codex-friendly i
 - Commit after each logical unit of work with a concise imperative message.
 - Do not batch unrelated changes into a single commit.
 - Keep staged changes tightly scoped so review is straightforward.
+
+## Complete Tool Convention
+
+When the autopilot extension is active, the `complete` tool uses a required `futureWork: string[]` field instead of a `status` enum:
+
+- `futureWork` with items → each item is queued as a follow-up task; agent keeps working.
+- `futureWork: []` → task is truly complete. Run terminates.
+- Use `summary` for a brief log of what was accomplished.
+
+Do NOT use the old `status` field. The extension overrides the built-in `complete` tool.
+
+See `active/personal/calnix/pi-packages/pi-autopilot-complete/docs/index.md` for details.
