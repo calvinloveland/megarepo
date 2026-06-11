@@ -172,3 +172,16 @@ apps:
     start_cmd: "npm run dev"
     env:
       PORT: "5176"
+
+  - id: recursive-thermofluid-sandbox
+    name: Recursive Thermofluid Sandbox
+    description: Emergent thermofluid lab where wheels are the only active component
+    icon: 🌀
+    subdomain: thermofluid
+    path: ../recursive-thermofluid-sandbox
+    type: node
+    port: 5192
+    start_cmd: "npm run start"
+    env:
+      PORT: "5192"
+
