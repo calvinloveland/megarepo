@@ -490,17 +490,15 @@ class GameState:
 
     def update(self):
         """Update the board.
-        Only processes cells within the active bounding box (alive cells +
-        margin) instead of the full board, for a significant speedup when
-        activity is sparse.
+        AI moves first (same timing as human), then GoL evolution processes everything.
         """
+        if self.ai_player:
+            self.ai_player.make_move(self)
         bounds = self._compute_active_bounds(margin=2)
         x0, y0, x1, y1 = bounds
         self.update_friend_counts(x0, y0, x1, y1)
         changes = self._collect_changes(x0, y0, x1, y1)
         self._apply_changes(changes)
-        if self.ai_player:
-            self.ai_player.make_move(self)
         return self.board
 
     def _collect_changes(self, x0=0, y0=0, x1=None, y1=None) -> list[dict]:

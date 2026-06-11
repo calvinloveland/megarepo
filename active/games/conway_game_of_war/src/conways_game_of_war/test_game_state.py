@@ -85,7 +85,9 @@ def test_easy_ai_player():
     game = GameState(board)
     game.ai_player = EasyAIPlayer(color=(0, 255, 0), start_point=(0, 0))
     game.update()
-    assert any(cell.alive for row in game.board for cell in row)
+    # AI should have claimed a cell (may be killed by GoL underpopulation, but owner should be set)
+    owned = any(game.board[x][y].owner is not None for x in range(game.board_size_x) for y in range(game.board_size_y))
+    assert owned, "AI should have claimed a cell"
 
 
 @logger.catch(reraise=True)

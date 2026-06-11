@@ -346,7 +346,8 @@ def test_medium_ai_picks_best_frontier():
     game.ai_player = ai
     game.ai_player_index = PLAYER_1
     game.update()
-    assert game.count_owned_cells(p1, alive_only=True) > 9
+    assert game.count_owned_cells(p1) > 9
+    assert game.count_owned_cells(p1, alive_only=True) >= 5
 
 
 def test_hard_ai_builds_block_near_enemy():
