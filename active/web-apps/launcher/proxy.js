@@ -76,28 +76,44 @@ let routes = loadRoutes();
 console.log(`\nRoutes: ${Object.keys(routes).length} apps registered`);
 console.log(`Launcher: localhost:${LAUNCHER_PORT}`);
 
+/** Try to replace routes with fresh data. Skips if parse returns empty (likely corrupt write). */
+function hotReloadRoutes(source) {
+  const fresh = loadRoutes();
+  const keys = Object.keys(fresh);
+  if (keys.length === 0) {
+    console.warn(`[${new Date().toLocaleTimeString()}] ⚠️  ${source}: parsed 0 routes — keeping current ${Object.keys(routes).length} routes (transient read?)`);
+    return;
+  }
+  // Capture old count before mutating
+  const oldCount = Object.keys(routes).length;
+  // Merge new routes, remove stale ones
+  Object.assign(routes, fresh);
+  Object.keys(routes).forEach(k => { if (!fresh[k]) delete routes[k]; });
+  console.log(`[${new Date().toLocaleTimeString()}] ♻️  ${source}: ${keys.length} routes (was ${oldCount})`);
+}
+
 // Watch apps.yaml for changes and hot-reload routes
 let reloadTimer = null;
 fs.watchFile(APPS_FILE, (curr, prev) => {
   if (curr.mtimeMs === prev.mtimeMs) return;
-  // Debounce — wait for writes to finish
   if (reloadTimer) clearTimeout(reloadTimer);
-  reloadTimer = setTimeout(() => {
-    const newRoutes = loadRoutes();
-    Object.assign(routes, newRoutes);
-    // Remove old routes that no longer exist
-    Object.keys(routes).forEach(k => { if (!newRoutes[k]) delete routes[k]; });
-    console.log(`[${new Date().toLocaleTimeString()}] ♻️  Routes reloaded (${Object.keys(routes).length} apps)`);
-  }, 500);
+  reloadTimer = setTimeout(() => hotReloadRoutes('fs.watchFile'), 500);
 });
 
-// Also handle SIGHUP for manual reload
-process.on('SIGHUP', () => {
-  const newRoutes = loadRoutes();
-  Object.assign(routes, newRoutes);
-  Object.keys(routes).forEach(k => { if (!newRoutes[k]) delete routes[k]; });
-  console.log(`[${new Date().toLocaleTimeString()}] ♻️  Routes reloaded via SIGHUP (${Object.keys(routes).length} apps)`);
-});
+// Periodic fallback poll (every 30s) — watchFile can miss on some FS
+let lastMtime = fs.statSync(APPS_FILE).mtimeMs;
+setInterval(() => {
+  try {
+    const mtime = fs.statSync(APPS_FILE).mtimeMs;
+    if (mtime > lastMtime) {
+      lastMtime = mtime;
+      hotReloadRoutes('periodic poll');
+    }
+  } catch (_) { /* file gone? ignore */ }
+}, 30_000);
+
+// SIGHUP for manual reload (kill -HUP <pid>)
+process.on('SIGHUP', () => hotReloadRoutes('SIGHUP'));
 
 const server = http.createServer((req, res) => {
   const host = (req.headers.host || "").toLowerCase();
