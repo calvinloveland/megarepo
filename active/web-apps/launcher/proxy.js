@@ -71,10 +71,33 @@ function proxyRequest(req, res, targetUrl) {
   req.pipe(proxyReq);
 }
 
-// ── HTTP server ──────────────────────────────────────────────────
-const routes = loadRoutes();
+// ── Live route reloading ────────────────────────────────────────
+let routes = loadRoutes();
 console.log(`\nRoutes: ${Object.keys(routes).length} apps registered`);
 console.log(`Launcher: localhost:${LAUNCHER_PORT}`);
+
+// Watch apps.yaml for changes and hot-reload routes
+let reloadTimer = null;
+fs.watchFile(APPS_FILE, (curr, prev) => {
+  if (curr.mtimeMs === prev.mtimeMs) return;
+  // Debounce — wait for writes to finish
+  if (reloadTimer) clearTimeout(reloadTimer);
+  reloadTimer = setTimeout(() => {
+    const newRoutes = loadRoutes();
+    Object.assign(routes, newRoutes);
+    // Remove old routes that no longer exist
+    Object.keys(routes).forEach(k => { if (!newRoutes[k]) delete routes[k]; });
+    console.log(`[${new Date().toLocaleTimeString()}] ♻️  Routes reloaded (${Object.keys(routes).length} apps)`);
+  }, 500);
+});
+
+// Also handle SIGHUP for manual reload
+process.on('SIGHUP', () => {
+  const newRoutes = loadRoutes();
+  Object.assign(routes, newRoutes);
+  Object.keys(routes).forEach(k => { if (!newRoutes[k]) delete routes[k]; });
+  console.log(`[${new Date().toLocaleTimeString()}] ♻️  Routes reloaded via SIGHUP (${Object.keys(routes).length} apps)`);
+});
 
 const server = http.createServer((req, res) => {
   const host = (req.headers.host || "").toLowerCase();
