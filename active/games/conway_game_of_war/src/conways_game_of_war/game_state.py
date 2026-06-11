@@ -71,25 +71,7 @@ class AIPlayer(Player):
 
 
 class EasyAIPlayer(AIPlayer):
-    """Represents an easy AI player in the game."""
-
-    def make_move(self, game_state):
-        """Make a random move for the AI player's side, only on frontier cells."""
-        idx = (
-            game_state.ai_player_index
-            if game_state.ai_player_index is not None
-            else PLAYER_2
-        )
-        player_obj = game_state.players[idx]
-        frontier = game_state.collect_frontier_cells(player_obj)
-        if not frontier:
-            frontier = game_state.collect_fallback_frontier(player_obj)
-        game_state.claim_random_cell(frontier, player_obj)
-
-
-class MediumAIPlayer(AIPlayer):
-    """Medium AI: claims the frontier cell with the most friendly neighbours
-    (prefers denser clusters for better survival)."""
+    """Easy AI: claims frontier cells but avoids combat zones."""
 
     def make_move(self, game_state):
         idx = (
@@ -103,26 +85,54 @@ class MediumAIPlayer(AIPlayer):
             frontier = game_state.collect_fallback_frontier(player_obj)
         if not frontier:
             return
-        # Score each cell by friendly neighbour count (prefer denser areas)
-        scored = [
-            (game_state.count_friendly_neighbors(x, y, player_obj), x, y)
-            for x, y in frontier
+        # Filter out cells that would immediately die from combat
+        safe = [
+            (x, y) for x, y in frontier
+            if not game_state._has_unfriendly_neighbor(x, y, player_obj)
         ]
-        scored.sort(key=lambda t: -t[0])
+        if safe:
+            x, y = random.choice(safe)
+        else:
+            x, y = random.choice(frontier)
+        game_state._claim_cell(x, y, player_obj)
+
+
+class MediumAIPlayer(AIPlayer):
+    """Medium AI: scores frontier cells by survival potential and cost efficiency."""
+
+    def make_move(self, game_state):
+        idx = (
+            game_state.ai_player_index
+            if game_state.ai_player_index is not None
+            else PLAYER_2
+        )
+        player_obj = game_state.players[idx]
+        frontier = game_state.collect_frontier_cells(player_obj)
+        if not frontier:
+            frontier = game_state.collect_fallback_frontier(player_obj)
+        if not frontier:
+            return
+        scored = []
+        for x, y in frontier:
+            friendly = game_state.count_friendly_neighbors(x, y, player_obj)
+            unfriendly = 1 if game_state._has_unfriendly_neighbor(x, y, player_obj) else 0
+            cost = game_state.energy_cost_for_player(x, y, player_obj)
+            # Survival score: friendly neighbors minus combat risk
+            survival = friendly - unfriendly * 3
+            # Energy efficiency: prefer cheaper cells
+            energy_penalty = cost * 0.5
+            scored.append((-(survival - energy_penalty), x, y))
+        scored.sort(key=lambda t: t[0])
         best = scored[0]
-        ties = [s for s in scored if s[0] == best[0]]
+        ties = [s for s in scored if abs(s[0] - best[0]) < 0.01]
         _, x, y = random.choice(ties)
         game_state._claim_cell(x, y, player_obj)
 
 
 class HardAIPlayer(AIPlayer):
-    """Hard AI: builds 2×2 block clusters near the enemy's start point.
-    Block clusters survive GoL (each cell has 3 neighbours inside the
-    block), letting the AI establish a beachhead."""
+    """Hard AI: aggressive multi-phase strategy with block building, energy harvesting, and combat avoidance."""
 
     def _find_block_cells(self, game_state, player_obj, cx, cy):
-        """Find up to 4 cells forming a 2×2 block anchored at (cx,cy).
-        Returns a list of (x,y) that can be claimed."""
         cells = []
         block = [(cx, cy), (cx, cy + 1), (cx + 1, cy), (cx + 1, cy + 1)]
         for x, y in block:
@@ -132,6 +142,13 @@ class HardAIPlayer(AIPlayer):
             if not cell.alive and cell.owner in (None, player_obj) and not cell.immortal:
                 cells.append((nx, ny))
         return cells
+
+    def _harvest_score(self, game_state, x, y) -> float:
+        """Score a cell by the energy it could generate from crop."""
+        cell = game_state.board[x][y]
+        if cell.owner is None:
+            return 0.0
+        return cell.crop_level * 3.0
 
     def make_move(self, game_state):
         idx = (
@@ -148,29 +165,33 @@ class HardAIPlayer(AIPlayer):
         if not frontier:
             return
 
-        # Score frontier cells: closer to enemy = higher priority.
-        # Also prefer cells that can form a 2×2 block.
         scored = []
         for x, y in frontier:
-            dist = abs(x - ox) + abs(y - oy)
+            friendly = game_state.count_friendly_neighbors(x, y, player_obj)
+            combat = 1 if game_state._has_unfriendly_neighbor(x, y, player_obj) else 0
+            cost = game_state.energy_cost_for_player(x, y, player_obj)
+            dist_to_enemy = abs(x - ox) + abs(y - oy)
             block = self._find_block_cells(game_state, player_obj, x, y)
-            # If we can form at least a 2×2 block, this is a great spot
-            bonus = -50 if len(block) >= 3 else (-20 if len(block) >= 2 else 0)
-            scored.append((dist + bonus, x, y))
+            block_bonus = -80 if len(block) >= 3 else (-30 if len(block) >= 2 else 0)
+            harvest = self._harvest_score(game_state, x, y)
+            # Score: prefer cheap, safe, block-forming cells near enemy with energy potential
+            score = friendly * 5 - combat * 10 - cost * 2 - dist_to_enemy * 0.3 + block_bonus + harvest
+            scored.append((-score, x, y))
         scored.sort(key=lambda t: t[0])
         best = scored[0]
-        ties = [s for s in scored if s[0] == best[0]]
+        ties = [s for s in scored if abs(s[0] - best[0]) < 0.1]
         _, x, y = random.choice(ties)
 
-        # Claim the primary cell
         game_state._claim_cell(x, y, player_obj)
 
-        # If we have energy, build a 2×2 block around the claim
+        # Claim additional block cells if affordable
         block = self._find_block_cells(game_state, player_obj, x, y)
         for bx, by in block:
             cell = game_state.board[bx][by]
             if cell.owner != player_obj or not cell.alive:
-                game_state._claim_cell(bx, by, player_obj)
+                cost = game_state.energy_cost_for_player(bx, by, player_obj)
+                if player_obj.energy >= cost:
+                    game_state._claim_cell(bx, by, player_obj)
 
 
 class GameState:
