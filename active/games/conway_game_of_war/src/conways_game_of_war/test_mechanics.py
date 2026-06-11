@@ -49,16 +49,12 @@ def test_immortal_cannot_be_claimed():
     """Immortal cells cannot be claimed by a player."""
     game = GameState()
     p1 = game.players[PLAYER_1]
-    from conways_game_of_war.main import _cell_can_toggle
-    # We can't import main easily, let's check the game_state logic directly
     p2 = game.players[PLAYER_2]
     p2_start = game.board[p2.start_point[0]][p2.start_point[1]]
     assert p2_start.immortal
     assert p2_start.owner == p2
     # P1 should not be able to toggle P2's immortal cell
-    cell = game.board[p2.start_point[0]][p2.start_point[1]]
-    from conways_game_of_war.main import _cell_can_toggle
-    assert not _cell_can_toggle(game, p2.start_point[0], p2.start_point[1], p1)
+    assert not game.can_toggle_for_player(p2.start_point[0], p2.start_point[1], p1)
 
 
 # ─── energy ──────────────────────────────────────────────────────────────

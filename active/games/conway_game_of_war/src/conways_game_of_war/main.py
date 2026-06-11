@@ -1,14 +1,15 @@
 """Main module for running the Conway's Game of War Flask application."""
 
 import os
-from typing import Tuple
+import uuid
+import json
+from typing import Tuple, Optional
 
 import flask
 from loguru import logger
 
 from . import game_state
 
-# Point Flask at the package's templates/static dirs regardless of CWD
 _pkg_dir = os.path.dirname(os.path.abspath(__file__))
 app = flask.Flask(
     __name__,
@@ -16,19 +17,21 @@ app = flask.Flask(
     static_folder=os.path.join(_pkg_dir, "static"),
     static_url_path="/static",
 )
-# Prefer env var for production, fallback for dev
 app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-key")
+
+# Matchmaking queue and active matches
+MATCH_QUEUE = []  # list of {pid, username, color}
+ACTIVE_MATCHES = {}  # match_id -> {p1_pid, p2_pid, p1_name, p2_name, game, turn_idx, started}
 
 app.config["GAME"] = game_state.GameState()
 app.config["ZOOM_LEVEL"] = 1.0
-app.config["FIB_PREV"] = 0       # fib(n-1)
-app.config["FIB_CURR"] = 1       # fib(n)
-app.config["FIB_REMAINING"] = 0  # steps left in current turn animation
-app.config["TURN_PLACED"] = {}    # (x,y) -> pre-state for undo within a turn
+app.config["FIB_PREV"] = 0
+app.config["FIB_CURR"] = 1
+app.config["FIB_REMAINING"] = 0
+app.config["TURN_PLACED"] = {}
 
 
 def _hex_to_rgb(hex_color: str):
-    """Convert a hex color like '#ff00aa' to an (r,g,b) tuple."""
     if not hex_color:
         return None
     hex_color = hex_color.lstrip("#")
@@ -58,39 +61,18 @@ def _test_routes_enabled() -> bool:
     return os.environ.get("ENABLE_TEST_ROUTES") == "1"
 
 
-def _current_player_index() -> int:
-    player_key = flask.session.get("player")
-    return game_state.PLAYER_1 if player_key == "player1" else game_state.PLAYER_2
-
-
-def _current_player() -> Tuple[game_state.Player, int]:
-    game = _get_game()
-    idx = _current_player_index()
-    return game.players[idx], idx
-
-
-def _player_display_name() -> str:
-    """Return a human-readable display name for the current player."""
-    player_key = flask.session.get("player")
-    return "Player 1" if player_key == "player1" else "Player 2"
-
-
-def _ai_display_name() -> str:
-    """Return a human-readable AI difficulty name, or None."""
-    diff = flask.session.get("ai_difficulty")
-    if not diff:
+def _get_match() -> Optional[dict]:
+    """Get the active match for the current session, if any."""
+    match_id = flask.session.get("match_id")
+    if not match_id or match_id not in ACTIVE_MATCHES:
         return None
-    return diff.capitalize()
+    return ACTIVE_MATCHES[match_id]
 
 
-def _cell_can_toggle(
-    game: game_state.GameState, x: int, y: int, player_obj: game_state.Player
-) -> bool:
-    return game.can_toggle_for_player(x, y, player_obj)
+
 
 
 def _winner_payload(game: game_state.GameState) -> dict:
-    """Return the current winner payload for UI/JSON responses."""
     winner_index = game.winner_index()
     if winner_index is None:
         return {"winner": None, "winner_name": None}
@@ -101,464 +83,393 @@ def _winner_payload(game: game_state.GameState) -> dict:
     }
 
 
-def _apply_session_options_to_game():
-    """Apply player color and AI difficulty from session to the GAME instance."""
-    game = _get_game()
-    p1_hex = flask.session.get("player1_color")
-    p2_hex = flask.session.get("player2_color")
-    p1_rgb = _hex_to_rgb(p1_hex)
-    p2_rgb = _hex_to_rgb(p2_hex)
-    if p1_rgb:
-        game.players[game_state.PLAYER_1].color = p1_rgb
-    if p2_rgb:
-        game.players[game_state.PLAYER_2].color = p2_rgb
-
-    ai_diff = flask.session.get("ai_difficulty")
-    player_choice = flask.session.get("player")
-    if ai_diff:
-        if player_choice == "player1":
-            ai_index = game_state.PLAYER_2
-        else:
-            ai_index = game_state.PLAYER_1
-        game.ai_player_index = ai_index
-        if ai_diff == "easy":
-            game.ai_player = game_state.EasyAIPlayer(
-                color=game.players[ai_index].color,
-                start_point=game.players[ai_index].start_point,
-            )
-        elif ai_diff == "medium":
-            game.ai_player = game_state.MediumAIPlayer(
-                color=game.players[ai_index].color,
-                start_point=game.players[ai_index].start_point,
-            )
-        elif ai_diff == "hard":
-            game.ai_player = game_state.HardAIPlayer(
-                color=game.players[ai_index].color,
-                start_point=game.players[ai_index].start_point,
-            )
-        else:
-            game.ai_player = None
-
-
-def main():
-    """Run the Flask application."""
-    host = os.environ.get("HOST", "127.0.0.1")
-    port = int(os.environ.get("PORT", "5000"))
-    debug = os.environ.get("FLASK_DEBUG", "true").lower() == "true"
-    app.run(host=host, port=port, debug=debug)
-
-
-@app.route("/")
-def index():
-    """Render the index page with window dimensions and zoom level."""
-    if "player" not in flask.session:
-        return flask.redirect("/select_player")
-    _apply_session_options_to_game()
-    _reset_fib_progression()
-    window_width = flask.request.args.get("width", type=int, default=800)
-    window_height = flask.request.args.get("height", type=int, default=600)
-    zoom_level = flask.request.args.get("zoom", type=float, default=1.0)
-    current_player, _ = _current_player()
-    return flask.render_template(
-        "index.html",
-        window_width=window_width,
-        window_height=window_height,
-        zoom_level=zoom_level,
-        player_name=_player_display_name(),
-        player1_name=flask.session.get("player1_name", "Player 1"),
-        player2_name=flask.session.get("player2_name", "Player 2"),
-        ai_difficulty=_ai_display_name(),
-        current_energy=current_player.energy,
-        starting_energy=game_state.STARTING_ENERGY,
-        winner_name=_winner_payload(_get_game())["winner_name"],
-    )
-
-
-@app.route("/select_player")
-def select_player():
-    """Render the player selection screen."""
-    return flask.render_template("select_player.html")
-
-
-@app.route("/set_player", methods=["POST"])
-def set_player():
-    """Set the selected player and options in the session."""
-    player = flask.request.form.get("player")
-    if player:
-        flask.session["player"] = player
-    ai_difficulty = flask.request.form.get("ai_difficulty")
-    if ai_difficulty:
-        flask.session["ai_difficulty"] = ai_difficulty
-    player1_color = flask.request.form.get("player1_color")
-    player2_color = flask.request.form.get("player2_color")
-    if player1_color:
-        flask.session["player1_color"] = player1_color
-    if player2_color:
-        flask.session["player2_color"] = player2_color
-    p1_name = flask.request.form.get("player1_name", "").strip()
-    p2_name = flask.request.form.get("player2_name", "").strip()
-    if p1_name:
-        flask.session["player1_name"] = p1_name
-    if p2_name:
-        flask.session["player2_name"] = p2_name
-    return flask.redirect("/")
-
-
-@app.route("/game_state")
-def get_game_state():
-    """Return the current game state as HTML (no tick advance)."""
-    game = _get_game()
-    return game.board_to_html(current_player_index=_current_player_index())
-
-
-@app.route("/end_turn", methods=["POST"])
-def end_turn():
-    """Start a Fibonacci-sized turn: advance ONE tick."""
-    game = _get_game()
-    app.config["TURN_PLACED"] = {}  # clear undo history for new turn
-    current_player_index = _current_player_index()
-    before = None
-    if flask.request.args.get("json") == "1":
-        before = _board_visual_snapshot(game, current_player_index)
-
-    if game.winner_index() is not None:
-        app.config["FIB_REMAINING"] = 0
-        if before is not None:
-            return _board_patch_json(game, current_player_index, before, 0)
-        return game.board_to_html(current_player_index=current_player_index, fib_remaining=0)
-
-    prev = app.config["FIB_PREV"]
-    curr = app.config["FIB_CURR"]  # total steps for this turn
-    app.config["FIB_PREV"] = curr
-    app.config["FIB_CURR"] = prev + curr
-    remaining = curr - 1
-    app.config["FIB_REMAINING"] = remaining
-    game.update()
-    if game.winner_index() is not None:
-        remaining = 0
-        app.config["FIB_REMAINING"] = 0
-
-    if before is not None:
-        return _board_patch_json(game, current_player_index, before, remaining)
-
-    return game.board_to_html(current_player_index=current_player_index,
-                              fib_remaining=remaining)
-
-
-@app.route("/step", methods=["POST"])
-def step():
-    """Advance one tick and return the board."""
-    game = _get_game()
-    current_player_index = _current_player_index()
-    before = None
-    if flask.request.args.get("json") == "1":
-        before = _board_visual_snapshot(game, current_player_index)
-
-    if game.winner_index() is not None:
-        app.config["FIB_REMAINING"] = 0
-        if before is not None:
-            return _board_patch_json(game, current_player_index, before, 0)
-        return game.board_to_html(current_player_index=current_player_index, fib_remaining=0)
-
-    remaining = app.config.get("FIB_REMAINING", 0)
-    next_remaining = 0
-    if remaining > 0:
-        app.config["FIB_REMAINING"] = remaining - 1
-        next_remaining = remaining - 1
-    game.update()
-    if game.winner_index() is not None:
-        next_remaining = 0
-        app.config["FIB_REMAINING"] = 0
-
-    if before is not None:
-        return _board_patch_json(game, current_player_index, before, next_remaining)
-
-    return game.board_to_html(current_player_index=current_player_index,
-                              fib_remaining=next_remaining)
-
-
-@app.route("/update_cell", methods=["POST"])
-def update_cell():
-    """Update the state of a cell.
-    Returns full HTML by default, or JSON when ?json=1 is set."""
-    game = _get_game()
-    x = flask.request.args.get("x", type=int)
-    y = flask.request.args.get("y", type=int)
-    if x is None or y is None:
-        return game.board_to_html(current_player_index=_current_player_index())
-
-    player_obj, idx = _current_player()
-    if game.winner_index() is None:
-        cell = game.board[x][y]
-        cost = game.energy_cost_for_player(x, y, player_obj)
-        if _cell_can_toggle(game, x, y, player_obj):
-            if cell.owner is None:
-                if player_obj.energy >= cost:
-                    player_obj.energy -= cost
-                    cell.owner = player_obj
-                    cell.alive = True
-                    game._claim_neighbors(x, y, player_obj)
-            elif cell.owner == player_obj and player_obj.energy >= cost:
-                player_obj.energy -= cost
-                cell.alive = not cell.alive
-
-        # Track placed cells for undo within the turn
-        key = (x, y)
-        placed = app.config.get("TURN_PLACED", {})
-        if key not in placed:
-            placed[key] = {
-                "prev_alive": cell.alive,
-                "cost": cost,
-            }
-            app.config["TURN_PLACED"] = placed
-
-    # JSON response for partial updates
-    if flask.request.args.get("json") == "1":
-        return _cell_json(game, x, y, idx)
-
-    return game.board_to_html(current_player_index=idx)
-
-
-@app.route("/undo_cell", methods=["POST"])
-def undo_cell():
-    """Undo a cell placed in the current turn and refund energy."""
-    game = _get_game()
-    x = flask.request.args.get("x", type=int)
-    y = flask.request.args.get("y", type=int)
-    if x is None or y is None:
-        return flask.jsonify({"ok": False, "error": "missing x,y"}), 400
-
-    placed = app.config.get("TURN_PLACED", {})
-    key = (x, y)
-    if key not in placed:
-        return flask.jsonify({"ok": False, "error": "not in turn history"}), 400
-
-    entry = placed[key]
-    cell = game.board[x][y]
-    player_obj, idx = _current_player()
-
-    # Refund energy
-    player_obj.energy += entry["cost"]
-
-    # Revert cell state
-    cell.alive = entry["prev_alive"]
-    if entry["prev_alive"] is False and cell.owner is not None:
-        cell.owner = None
-
-    del placed[key]
-    app.config["TURN_PLACED"] = placed
-
-    if flask.request.args.get("json") == "1":
-        return _cell_json(game, x, y, idx)
-
-    return game.board_to_html(current_player_index=idx)
-
-
 def _cell_payload(game, x, y, current_player_index: int) -> dict:
-    """Return the client-facing visual payload for a single cell."""
     cell = game.board[x][y]
     player_obj = game.players[current_player_index]
     cost = game.energy_cost_for_player(x, y, player_obj)
     r, g, b = game.generate_cell_color(x, y)
     br, bg, bb = game.generate_cell_border_color(x, y)
     return {
-        "x": x,
-        "y": y,
-        "alive": cell.alive,
-        "immortal": cell.immortal,
+        "x": x, "y": y, "alive": cell.alive, "immortal": cell.immortal,
         "crop": max(0.0, min(1.0, cell.crop_level)),
-        "cost": cost,
-        "cost_label": game.compact_cost_label(cost),
+        "cost": cost, "cost_label": game.compact_cost_label(cost),
         "cost_bg": game.cost_overlay_background(x, y, player_obj),
         "current_energy": player_obj.energy,
         "owner": game._cell_owner_key(cell),
         "action": game.cell_interaction_hint(x, y, current_player_index),
-        "bg": f"rgb({r},{g},{b})",
-        "border": f"rgb({br},{bg},{bb})",
-        "has_hx": not cell.immortal,
+        "bg": f"rgb({r},{g},{b})", "border": f"rgb({br},{bg},{bb})", "has_hx": not cell.immortal,
     }
 
 
 def _cell_json(game, x, y, current_player_index: int):
-    """Return a lightweight JSON response for a single cell update."""
     payload = _cell_payload(game, x, y, current_player_index)
     payload.update(_winner_payload(game))
     return flask.jsonify(payload)
 
 
 def _board_visual_snapshot(game, current_player_index: int) -> dict:
-    """Capture the current visual state of all cells for diffing."""
     snapshot = {}
     for y in range(game.board_size_y):
         for x in range(game.board_size_x):
-            payload = _cell_payload(game, x, y, current_player_index)
-            snapshot[(x, y)] = (
-                payload["bg"],
-                payload["border"],
-                payload["owner"],
-                payload["alive"],
-                payload["action"],
-                payload["has_hx"],
-                payload["cost"],
-                payload["cost_label"],
-                payload["cost_bg"],
-            )
+            p = _cell_payload(game, x, y, current_player_index)
+            snapshot[(x, y)] = (p["bg"], p["border"], p["owner"], p["alive"], p["action"], p["has_hx"], p["cost"], p["cost_label"], p["cost_bg"])
     return snapshot
 
 
-def _board_patch_json(
-    game: game_state.GameState,
-    current_player_index: int,
-    before: dict,
-    fib_remaining: int,
-):
-    """Return a JSON patch with changed cells and updated board metadata."""
-    changed_cells = []
+def _board_patch_json(game, current_player_index, before, fib_remaining):
+    changed = []
     for y in range(game.board_size_y):
         for x in range(game.board_size_x):
-            payload = _cell_payload(game, x, y, current_player_index)
-            current = (
-                payload["bg"],
-                payload["border"],
-                payload["owner"],
-                payload["alive"],
-                payload["action"],
-                payload["has_hx"],
-                payload["cost"],
-                payload["cost_label"],
-                payload["cost_bg"],
-            )
-            if before.get((x, y)) != current:
-                changed_cells.append(payload)
-
+            p = _cell_payload(game, x, y, current_player_index)
+            cur = (p["bg"], p["border"], p["owner"], p["alive"], p["action"], p["has_hx"], p["cost"], p["cost_label"], p["cost_bg"])
+            if before.get((x, y)) != cur:
+                changed.append(p)
     xmin, ymin, xmax, ymax = game._player_bbox(current_player_index)
     payload = {
         "fib_remaining": fib_remaining,
         "current_energy": game.players[current_player_index].energy,
-        "bbox": {
-            "xmin": xmin,
-            "ymin": ymin,
-            "xmax": xmax,
-            "ymax": ymax,
-        },
-        "cells": changed_cells,
+        "bbox": {"xmin": xmin, "ymin": ymin, "xmax": xmax, "ymax": ymax},
+        "cells": changed,
     }
     payload.update(_winner_payload(game))
     return flask.jsonify(payload)
 
 
-@app.route("/zoom", methods=["POST"])
-def zoom():
-    """Update the zoom level (client uses CSS scaling) and return the board."""
-    zoom_level = flask.request.args.get("zoom", type=float)
-    if zoom_level is not None:
-        app.config["ZOOM_LEVEL"] = zoom_level
-    return _get_game().board_to_html(current_player_index=_current_player_index())
-
-
-@app.route("/player_energy")
-def player_energy():
-    """Return both players' energy levels and cell counts as HTML."""
-    game = _get_game()
-    return _energy_html(game)
-
-
-def _energy_html(game) -> str:
-    """Build the status bar HTML with both players' info."""
+def _energy_html(game, p1_name="Player 1", p2_name="Player 2") -> str:
     p1 = game.players[0]
     p2 = game.players[1]
     p1_cells = game.count_owned_cells(p1, alive_only=True)
     p2_cells = game.count_owned_cells(p2, alive_only=True)
-
     p1_color = "#{:02x}{:02x}{:02x}".format(*p1.color)
     p2_color = "#{:02x}{:02x}{:02x}".format(*p2.color)
-
-    player_key = flask.session.get("player")
-    human_name = "Player 1" if player_key == "player1" else "Player 2"
-    diff = _ai_display_name()
-    ai_info = f" · AI: {diff}" if diff else ""
     fib_steps = app.config["FIB_CURR"]
     winner = _winner_payload(game)
-    victory_html = (
-        f' &nbsp;&nbsp;· <strong>🏆 {winner["winner_name"]} wins!</strong>'
-        if winner["winner_name"]
-        else ""
-    )
-
-    p1_energy = f'<span id="energy-val" data-player="p1">⚡{p1.energy:.1f}</span>' if player_key == "player1" else f'⚡{p1.energy:.1f}'
-    p2_energy = f'<span id="energy-val" data-player="p2">⚡{p2.energy:.1f}</span>' if player_key == "player2" else f'⚡{p2.energy:.1f}'
-
+    victory_html = f' &nbsp;&nbsp;· <strong>🏆 {winner["winner_name"]} wins!</strong>' if winner["winner_name"] else ""
     return (
-        f'<span style="color:{p1_color}">⬤ P1</span> '
-        f'{p1_energy} 🏠{p1_cells} '
-        f'&nbsp;&nbsp; '
-        f'<span style="color:{p2_color}">⬤ P2</span> '
-        f'{p2_energy} 🏠{p2_cells} '
-        f'&nbsp;&nbsp;· {human_name}{ai_info}'
-        f' · ⏭ +{fib_steps}'
-        f'{victory_html}'
+        f'<span style="color:{p1_color}">⬤ {p1_name}</span> '
+        f'<span id="energy-val" data-player="p1">⚡{p1.energy:.1f}</span> 🏠{p1_cells} &nbsp;&nbsp; '
+        f'<span style="color:{p2_color}">⬤ {p2_name}</span> ⚡{p2.energy:.1f} 🏠{p2_cells}'
+        f' · ⏭ +{fib_steps}{victory_html}'
     )
+
+
+def main():
+    host = os.environ.get("HOST", "127.0.0.1")
+    port = int(os.environ.get("PORT", "5000"))
+    debug = os.environ.get("FLASK_DEBUG", "true").lower() == "true"
+    app.run(host=host, port=port, debug=debug)
+
+
+# ─── Lobby ───────────────────────────────────────────────────────────
+
+@app.route("/lobby")
+def lobby():
+    """Render the matchmaking lobby."""
+    return flask.render_template("lobby.html")
+
+
+@app.route("/join_queue", methods=["POST"])
+def join_queue():
+    """Join the matchmaking queue."""
+    data = flask.request.get_json(silent=True) or {}
+    username = data.get("username", "").strip()
+    color = data.get("color", "#ff0000")
+    if not username:
+        return flask.jsonify({"ok": False, "error": "username required"}), 400
+
+    if "_pid" not in flask.session:
+        flask.session["_pid"] = str(uuid.uuid4())
+    pid = flask.session["_pid"]
+    flask.session["username"] = username
+    flask.session["player_color"] = color
+
+    # Remove any existing entry for this sid
+    global MATCH_QUEUE
+    MATCH_QUEUE = [e for e in MATCH_QUEUE if e["pid"] != pid]
+
+    # Check if there's someone waiting
+    if len(MATCH_QUEUE) > 0:
+        other = MATCH_QUEUE.pop(0)
+        match_id = str(uuid.uuid4())
+        p1, p2 = (other, {"pid": pid, "username": username, "color": color})
+        game = game_state.GameState()
+        p1_rgb = _hex_to_rgb(p1.get("color", "#ff0000"))
+        p2_rgb = _hex_to_rgb(p2.get("color", "#2266ff"))
+        if p1_rgb:
+            game.players[game_state.PLAYER_1].color = p1_rgb
+        if p2_rgb:
+            game.players[game_state.PLAYER_2].color = p2_rgb
+
+        ACTIVE_MATCHES[match_id] = {
+            "p1_pid": p1["pid"], "p2_pid": p2["pid"],
+            "p1_name": p1["username"], "p2_name": p2["username"],
+            "game": game, "turn_idx": game_state.PLAYER_1,
+            "started": True,
+        }
+        flask.session["match_id"] = match_id
+        return flask.jsonify({"ok": True, "match_id": match_id, "matched": True, "player": 1})
+
+    # No one waiting — join queue
+    MATCH_QUEUE.append({"pid": pid, "username": username, "color": color})
+    return flask.jsonify({"ok": True, "matched": False})
+
+
+@app.route("/leave_queue", methods=["POST"])
+def leave_queue():
+    pid = flask.session.get("_pid")
+    global MATCH_QUEUE
+    MATCH_QUEUE = [e for e in MATCH_QUEUE if e["pid"] != pid]
+    return flask.jsonify({"ok": True})
+
+
+@app.route("/poll_match")
+def poll_match():
+    """Check if the current session has been matched."""
+    match_id = flask.session.get("match_id")
+    pid = flask.session.get("_pid")
+    if match_id and match_id in ACTIVE_MATCHES:
+        match = ACTIVE_MATCHES[match_id]
+        player = 0 if match["p1_pid"] == pid else (1 if match["p2_pid"] == pid else None)
+        if player is not None:
+            return flask.jsonify({"matched": True, "match_id": match_id, "player": player})
+    for mid, m in list(ACTIVE_MATCHES.items()):
+        if m["p2_pid"] == pid or m["p1_pid"] == pid:
+            player = 0 if m["p1_pid"] == pid else 1
+            flask.session["match_id"] = mid
+            return flask.jsonify({"matched": True, "match_id": mid, "player": player})
+    return flask.jsonify({"matched": False})
+
+
+# ─── Game ─────────────────────────────────────────────────────────────
+
+@app.route("/")
+def index():
+    """Redirect to lobby or game."""
+    match_id = flask.session.get("match_id")
+    if match_id and match_id in ACTIVE_MATCHES:
+        match = ACTIVE_MATCHES[match_id]
+        pid = flask.session.get("_pid")
+        player = 0 if match["p1_pid"] == pid else (1 if match["p2_pid"] == pid else None)
+        if player is not None:
+            game = match["game"]
+            p_name = match["p1_name"] if player == 0 else match["p2_name"]
+            return flask.render_template(
+                "index.html",
+                window_width=800, window_height=600, zoom_level=1.0,
+                player_name=p_name, player_index=player,
+                player1_name=match["p1_name"], player2_name=match["p2_name"],
+                ai_difficulty=None,
+                current_energy=game.players[player].energy,
+                starting_energy=game_state.STARTING_ENERGY,
+                winner_name=_winner_payload(game)["winner_name"],
+                match_id=match_id,
+            )
+    return flask.redirect("/lobby")
+
+
+@app.route("/match_status")
+def match_status():
+    """Return current game state for the match — used for polling."""
+    match = _get_match()
+    if not match:
+        return flask.jsonify({"ok": False, "error": "no match"}), 404
+    game = match["game"]
+    idx = match["turn_idx"]
+    p1 = match["p1_name"]
+    p2 = match["p2_name"]
+    turn_name = p1 if idx == 0 else p2
+    winner = _winner_payload(game)
+    return flask.jsonify({
+        "ok": True,
+        "turn_idx": idx,
+        "turn_name": turn_name,
+        "winner": winner["winner"],
+        "winner_name": winner["winner_name"],
+        "p1_energy": game.players[0].energy,
+        "p2_energy": game.players[1].energy,
+        "your_turn": False,  # client determines this
+    })
+
+
+@app.route("/player_energy")
+def player_energy():
+    match = _get_match()
+    if match:
+        return _energy_html(match["game"], match["p1_name"], match["p2_name"])
+    return _energy_html(_get_game())
+
+
+@app.route("/game_state")
+def get_game_state():
+    """Return the current game board as HTML."""
+    match = _get_match()
+    if match:
+        return match["game"].board_to_html(current_player_index=match["turn_idx"])
+    return _get_game().board_to_html(current_player_index=0)
+
+
+@app.route("/end_turn", methods=["POST"])
+def end_turn():
+    match = _get_match()
+    if match:
+        game = match["game"]
+        idx = match["turn_idx"]
+        before = _board_visual_snapshot(game, idx) if flask.request.args.get("json") == "1" else None
+
+        if game.winner_index() is not None:
+            app.config["FIB_REMAINING"] = 0
+            if before:
+                return _board_patch_json(game, idx, before, 0)
+            return game.board_to_html(current_player_index=idx, fib_remaining=0)
+
+        prev = app.config["FIB_PREV"]
+        curr = app.config["FIB_CURR"]
+        app.config["FIB_PREV"] = curr
+        app.config["FIB_CURR"] = prev + curr
+        remaining = curr - 1
+        app.config["FIB_REMAINING"] = remaining
+        game.update()
+        if game.winner_index() is not None:
+            remaining = 0
+            app.config["FIB_REMAINING"] = 0
+
+        # Switch turn
+        match["turn_idx"] = 1 - idx
+
+        if before:
+            return _board_patch_json(game, idx, before, remaining)
+        return game.board_to_html(current_player_index=idx, fib_remaining=remaining)
+
+    # Fallback for legacy single-game mode
+    return flask.redirect("/lobby")
+
+
+@app.route("/step", methods=["POST"])
+def step():
+    match = _get_match()
+    if match:
+        game = match["game"]
+        idx = match["turn_idx"]
+        before = _board_visual_snapshot(game, idx) if flask.request.args.get("json") == "1" else None
+
+        if game.winner_index() is not None:
+            app.config["FIB_REMAINING"] = 0
+            if before:
+                return _board_patch_json(game, idx, before, 0)
+            return game.board_to_html(current_player_index=idx, fib_remaining=0)
+
+        remaining = app.config.get("FIB_REMAINING", 0)
+        next_remaining = 0
+        if remaining > 0:
+            app.config["FIB_REMAINING"] = remaining - 1
+            next_remaining = remaining - 1
+        game.update()
+        if game.winner_index() is not None:
+            next_remaining = 0
+            app.config["FIB_REMAINING"] = 0
+
+        if before:
+            return _board_patch_json(game, idx, before, next_remaining)
+        return game.board_to_html(current_player_index=idx, fib_remaining=next_remaining)
+
+    return flask.redirect("/lobby")
+
+
+@app.route("/update_cell", methods=["POST"])
+def update_cell():
+    x = flask.request.args.get("x", type=int)
+    y = flask.request.args.get("y", type=int)
+    if x is None or y is None:
+        return flask.jsonify({"ok": False, "error": "missing coords"}), 400
+
+    match = _get_match()
+    if match:
+        game = match["game"]
+        pid = flask.session.get("_pid")
+        idx = match["turn_idx"]
+        player_obj = game.players[idx]
+
+        # Verify it's this player's turn
+        my_idx = 0 if match["p1_pid"] == pid else (1 if match["p2_pid"] == pid else -1)
+        if my_idx != idx:
+            return flask.jsonify({"ok": False, "error": "not your turn"}), 403
+
+        if game.winner_index() is None:
+            cell = game.board[x][y]
+            cost = game.energy_cost_for_player(x, y, player_obj)
+            if game.can_toggle_for_player(x, y, player_obj):
+                if cell.owner is None:
+                    if player_obj.energy >= cost:
+                        player_obj.energy -= cost
+                        cell.owner = player_obj
+                        cell.alive = True
+                        game._claim_neighbors(x, y, player_obj)
+                elif cell.owner == player_obj and player_obj.energy >= cost:
+                    player_obj.energy -= cost
+                    cell.alive = not cell.alive
+
+            # Track placed cells for undo
+            key = (x, y)
+            placed = app.config.get("TURN_PLACED", {})
+            if key not in placed:
+                placed[key] = {"prev_alive": cell.alive, "cost": cost}
+                app.config["TURN_PLACED"] = placed
+
+        return _cell_json(game, x, y, idx)
+
+    return flask.jsonify({"ok": False, "error": "no match"}), 404
+
+
+@app.route("/undo_cell", methods=["POST"])
+def undo_cell():
+    x = flask.request.args.get("x", type=int)
+    y = flask.request.args.get("y", type=int)
+    if x is None or y is None:
+        return flask.jsonify({"ok": False}), 400
+
+    match = _get_match()
+    if match:
+        game = match["game"]
+        idx = match["turn_idx"]
+        placed = app.config.get("TURN_PLACED", {})
+        key = (x, y)
+        if key in placed:
+            entry = placed[key]
+            cell = game.board[x][y]
+            player_obj = game.players[idx]
+            player_obj.energy += entry["cost"]
+            cell.alive = entry["prev_alive"]
+            if entry["prev_alive"] is False and cell.owner is not None:
+                cell.owner = None
+            del placed[key]
+            app.config["TURN_PLACED"] = placed
+        return _cell_json(game, x, y, idx)
+    return flask.jsonify({"ok": False}), 404
 
 
 @app.route("/reset", methods=["POST"])
 def reset():
-    """Reset the game to a fresh state, preserving session options."""
-    game = game_state.GameState()
-    _set_game(game)
-    _apply_session_options_to_game()
-    _reset_fib_progression()
-    app.config["TURN_PLACED"] = {}
-    return game.board_to_html(current_player_index=_current_player_index())
-
-
-def _build_territory_collision_scenario() -> game_state.GameState:
-    """Create a deterministic near-start collision scenario for browser tests."""
-    game = game_state.GameState()
-    p1 = game.players[game_state.PLAYER_1]
-    p2 = game.players[game_state.PLAYER_2]
-
-    p1_cells = [(22, 20), (22, 21), (23, 20), (23, 21)]
-    p2_cells = [(24, 20), (24, 21), (25, 20), (25, 21)]
-
-    for x, y in p1_cells:
-        game.board[x][y].owner = p1
-        game.board[x][y].alive = True
-        game._claim_neighbors(x, y, p1)
-
-    for x, y in p2_cells:
-        game.board[x][y].owner = p2
-        game.board[x][y].alive = True
-        game._claim_neighbors(x, y, p2)
-
-    return game
-
-
-@app.route("/__test__/seed_scenario", methods=["POST"])
-def seed_scenario():
-    """Seed deterministic scenarios for browser tests.
-
-    This route is disabled unless ENABLE_TEST_ROUTES=1 is set in the server env.
-    """
-    if not _test_routes_enabled():
-        flask.abort(404)
-
-    payload = flask.request.get_json(silent=True) or {}
-    name = flask.request.form.get("name") or payload.get("name")
-
-    if name == "territory_collision":
-        game = _build_territory_collision_scenario()
-    else:
-        return flask.jsonify({"ok": False, "error": f"unknown scenario: {name}"}), 400
-
-    _set_game(game)
-    _apply_session_options_to_game()
-    _reset_fib_progression()
-    return flask.jsonify({"ok": True, "scenario": name})
+    """Reset the game for both players in the match."""
+    match = _get_match()
+    if match:
+        game = game_state.GameState()
+        # Preserve colors
+        p1_rgb = _hex_to_rgb(flask.session.get("player_color", "#ff0000"))
+        p2_rgb = _hex_to_rgb("#2266ff")
+        if p1_rgb:
+            game.players[game_state.PLAYER_1].color = p1_rgb
+        if p2_rgb:
+            game.players[game_state.PLAYER_2].color = p2_rgb
+        match["game"] = game
+        match["turn_idx"] = game_state.PLAYER_1
+        app.config["TURN_PLACED"] = {}
+        _reset_fib_progression()
+        return game.board_to_html(current_player_index=0)
+    return flask.redirect("/lobby")
 
 
 @app.route("/log_error", methods=["POST"])
 def log_error():
-    """Client-side error logger — logs JS errors/warnings to the server log."""
     data = flask.request.get_json(silent=True) or {}
     level = data.get("level", "unknown")
     msg = data.get("message", "")
@@ -568,6 +479,44 @@ def log_error():
     if stack:
         log(f"Stack:\n{stack}")
     return ("", 204)
+
+
+# ─── Test routes ─────────────────────────────────────────────────────
+
+@app.route("/__test__/seed_scenario", methods=["POST"])
+def seed_scenario():
+    if not _test_routes_enabled():
+        return flask.jsonify({"ok": False, "error": "test routes disabled"}), 403
+    name = flask.request.args.get("name", "territory_collision")
+    if name == "territory_collision":
+        game = _build_territory_collision_scenario()
+    else:
+        game = game_state.GameState()
+    _set_game(game)
+    _apply_session_options_to_game()
+    _reset_fib_progression()
+    return flask.jsonify({"ok": True, "scenario": name})
+
+
+def _build_territory_collision_scenario() -> game_state.GameState:
+    game = game_state.GameState()
+    p1 = game.players[game_state.PLAYER_1]
+    p2 = game.players[game_state.PLAYER_2]
+    p1_cells = [(22, 20), (22, 21), (23, 20), (23, 21)]
+    p2_cells = [(24, 20), (24, 21), (25, 20), (25, 21)]
+    for x, y in p1_cells:
+        game.board[x][y].owner = p1
+        game.board[x][y].alive = True
+        game._claim_neighbors(x, y, p1)
+    for x, y in p2_cells:
+        game.board[x][y].owner = p2
+        game.board[x][y].alive = True
+        game._claim_neighbors(x, y, p2)
+    return game
+
+
+def _apply_session_options_to_game():
+    pass  # Colors handled via match setup
 
 
 if __name__ == "__main__":

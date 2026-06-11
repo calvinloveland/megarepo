@@ -1,4 +1,4 @@
-"""Flask route tests for winner/victory behavior."""
+"""Flask route tests for match-based game."""
 
 from conways_game_of_war import game_state, main
 
@@ -9,19 +9,44 @@ class TestClientGameState:
         self.original_fib_prev = main.app.config["FIB_PREV"]
         self.original_fib_curr = main.app.config["FIB_CURR"]
         self.original_fib_remaining = main.app.config["FIB_REMAINING"]
+        self.original_queue = list(main.MATCH_QUEUE)
+        self.original_matches = dict(main.ACTIVE_MATCHES)
+
+        main.MATCH_QUEUE = []
+        main.ACTIVE_MATCHES = {}
+
         self.game = game_state.GameState()
-        main._set_game(self.game)
-        main._reset_fib_progression()
         main.app.config["TESTING"] = True
         self.client = main.app.test_client()
+
+        # Create a match
         with self.client.session_transaction() as session:
-            session["player"] = "player1"
+            session["_pid"] = "test-player-1"
+            session["username"] = "TestP1"
+            session["player_color"] = "#ff0000"
+
+        match_id = "test-match-1"
+        main.ACTIVE_MATCHES[match_id] = {
+            "p1_pid": "test-player-1",
+            "p2_pid": "test-player-2",
+            "p1_name": "TestP1",
+            "p2_name": "TestP2",
+            "game": self.game,
+            "turn_idx": game_state.PLAYER_1,
+            "started": True,
+        }
+        with self.client.session_transaction() as session:
+            session["match_id"] = match_id
+
+        main._reset_fib_progression()
 
     def teardown_method(self):
         main._set_game(self.original_game)
         main.app.config["FIB_PREV"] = self.original_fib_prev
         main.app.config["FIB_CURR"] = self.original_fib_curr
         main.app.config["FIB_REMAINING"] = self.original_fib_remaining
+        main.MATCH_QUEUE = self.original_queue
+        main.ACTIVE_MATCHES = self.original_matches
 
     def _eliminate_player_two_territory(self):
         loser = self.game.players[game_state.PLAYER_2]

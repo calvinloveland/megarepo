@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Conway's Game of War — Lobby</title>
+    <style>
+      *, *::before, *::after { box-sizing: border-box; }
+      body, html {
+        height: 100%; margin: 0; overflow: auto;
+        font-family: system-ui, -apple-system, sans-serif;
+        background: #111; color: #eee;
+        display: flex; align-items: flex-start; justify-content: center;
+        padding: 24px 0;
+      }
+      .lobby-card {
+        background: #1a1a1a; border: 1px solid #333; border-radius: 12px;
+        padding: 32px 40px; max-width: 480px; width: 90%;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+      }
+      .lobby-card h1 { margin: 0 0 4px; font-size: 1.4rem; font-weight: 600; text-align: center; }
+      .subtitle { text-align: center; color: #888; font-size: 0.85rem; margin: 0 0 20px; }
+      .section { margin-bottom: 20px; }
+      .section h2 { font-size: 0.9rem; font-weight: 500; color: #aaa; margin: 0 0 10px; text-transform: uppercase; letter-spacing: 0.5px; }
+      .name-field { margin-bottom: 12px; }
+      .name-field label { display: block; font-size: 0.75rem; color: #999; margin-bottom: 4px; }
+      .name-field input {
+        width: 100%; padding: 10px 12px; border: 1px solid #444; border-radius: 6px;
+        background: #222; color: #eee; font-size: 1rem; font-family: inherit;
+      }
+      .name-field input:focus { outline: none; border-color: #2a6a9c; }
+      .btn {
+        display: block; width: 100%; padding: 12px 16px;
+        border: 1px solid #555; border-radius: 6px; background: #2a2a2a;
+        color: #eee; font-size: 1rem; cursor: pointer; text-align: center;
+        transition: background 0.15s;
+      }
+      .btn:hover { background: #3a3a3a; }
+      .btn.primary { background: #1a3a5c; border-color: #2a6a9c; font-weight: 600; }
+      .btn.primary:hover { background: #204a7c; }
+      .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+      .btn.danger { background: #5c1a1a; border-color: #9c2a2a; }
+      .btn.danger:hover { background: #7c2020; }
+      .status-box {
+        text-align: center; padding: 16px; border-radius: 8px; margin: 12px 0;
+        font-size: 0.9rem;
+      }
+      .status-waiting { background: #2a2a1a; border: 1px solid #6a6a2a; color: #ddd; }
+      .status-matched { background: #1a2a1a; border: 1px solid #2a6a2a; color: #8f8; }
+      .status-error { background: #2a1a1a; border: 1px solid #6a2a2a; color: #f88; }
+      #rankings-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; margin-top: 8px; }
+      #rankings-table th { text-align: left; color: #888; font-weight: 400; padding: 4px 8px; border-bottom: 1px solid #333; }
+      #rankings-table td { padding: 4px 8px; color: #ccc; }
+      #rankings-table .rank-num { color: #666; width: 30px; }
+      #rankings-table tr.me td { color: #fff; font-weight: 500; }
+      .rank-empty { text-align: center; color: #555; font-size: 0.8rem; padding: 12px 0; }
+      .color-row { display: flex; gap: 12px; align-items: center; margin-bottom: 12px; }
+      .color-row label { font-size: 0.85rem; color: #ccc; }
+      .color-row input[type="color"] { width: 36px; height: 36px; border: 2px solid #444; border-radius: 6px; padding: 2px; background: #222; cursor: pointer; }
+      #queue-count { color: #aaa; font-size: 0.85rem; text-align: center; margin-top: 8px; }
+    </style>
+  </head>
+  <body>
+    <div class="lobby-card">
+      <h1>⚔ Conway's Game of War</h1>
+      <p class="subtitle">Enter your name and find a match</p>
+
+      <div class="section">
+        <h2>Your Name</h2>
+        <div class="name-field">
+          <input type="text" id="username-input" placeholder="Enter your username" maxlength="20" autocomplete="off">
+        </div>
+        <div class="color-row">
+          <label for="color-picker">Color</label>
+          <input type="color" id="color-picker" value="#ff0000">
+        </div>
+      </div>
+
+      <div id="status-area"></div>
+
+      <button class="btn primary" id="find-match-btn" onclick="joinQueue()">🔍 Find Match</button>
+      <button class="btn danger" id="leave-btn" style="display:none;margin-top:8px" onclick="leaveQueue()">✕ Leave Queue</button>
+      <p id="queue-count"></p>
+
+      <div class="section" style="margin-top:24px;padding-top:16px;border-top:1px solid #333">
+        <h2>🏆 Rankings</h2>
+        <div id="rankings-container"><p class="rank-empty">Loading...</p></div>
+      </div>
+    </div>
+
+    <script>
+    (function() {
+      var polling = false;
+      var pollTimer = null;
+      var STORAGE_KEY = 'conway-war-rankings';
+
+      // Restore saved username
+      try {
+        var saved = localStorage.getItem('conway-war-username');
+        if (saved) document.getElementById('username-input').value = saved;
+      } catch(e) {}
+
+      function setStatus(text, cls) {
+        var area = document.getElementById('status-area');
+        area.innerHTML = '<div class="status-box status-' + cls + '">' + text + '</div>';
+      }
+
+      window.joinQueue = function() {
+        var username = document.getElementById('username-input').value.trim();
+        if (!username) { setStatus('Please enter a username', 'error'); return; }
+        var color = document.getElementById('color-picker').value;
+        try { localStorage.setItem('conway-war-username', username); } catch(e) {}
+
+        document.getElementById('find-match-btn').disabled = true;
+        document.getElementById('find-match-btn').textContent = '⏳ Searching...';
+        document.getElementById('leave-btn').style.display = '';
+        setStatus('Searching for an opponent...', 'waiting');
+
+        fetch('/join_queue', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: username, color: color }),
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          if (data.matched) {
+            setStatus('✅ Match found! Loading game...', 'matched');
+            window.location.href = '/';
+          } else {
+            setStatus('In queue. Waiting for another player...', 'waiting');
+            startPolling();
+          }
+        })
+        .catch(function(err) {
+          setStatus('Error joining queue: ' + err.message, 'error');
+          document.getElementById('find-match-btn').disabled = false;
+          document.getElementById('find-match-btn').textContent = '🔍 Find Match';
+        });
+      };
+
+      window.leaveQueue = function() {
+        stopPolling();
+        fetch('/leave_queue', { method: 'POST' })
+          .then(function() {
+            document.getElementById('find-match-btn').disabled = false;
+            document.getElementById('find-match-btn').textContent = '🔍 Find Match';
+            document.getElementById('leave-btn').style.display = 'none';
+            setStatus('', '');
+            document.getElementById('queue-count').textContent = '';
+          });
+      };
+
+      function startPolling() {
+        polling = true;
+        poll();
+      }
+
+      function stopPolling() {
+        polling = false;
+        if (pollTimer) { clearTimeout(pollTimer); pollTimer = null; }
+      }
+
+      function poll() {
+        if (!polling) return;
+        fetch('/poll_match')
+          .then(function(r) { return r.json(); })
+          .then(function(data) {
+            if (data.matched) {
+              setStatus('✅ Match found! Loading game...', 'matched');
+              stopPolling();
+              window.location.href = '/';
+            } else {
+              pollTimer = setTimeout(poll, 2000);
+            }
+          })
+          .catch(function() {
+            pollTimer = setTimeout(poll, 2000);
+          });
+      }
+
+      function renderRankings() {
+        var rankings = {};
+        try { rankings = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; } catch(e) {}
+        var container = document.getElementById('rankings-container');
+        var entries = Object.keys(rankings).map(function(name) {
+          return { name: name, rating: rankings[name].rating || 1200, wins: rankings[name].wins || 0, losses: rankings[name].losses || 0 };
+        });
+        entries.sort(function(a, b) { return b.rating - a.rating; });
+
+        if (entries.length === 0) {
+          container.innerHTML = '<p class="rank-empty">No rankings yet — play games to get ranked!</p>';
+          return;
+        }
+        var storedName = null;
+        try { storedName = localStorage.getItem('conway-war-username'); } catch(e) {}
+        var html = '<table id="rankings-table"><tr><th>#</th><th>Player</th><th>Rating</th><th>W</th><th>L</th></tr>';
+        for (var i = 0; i < entries.length; i++) {
+          var e = entries[i];
+          var cls = (storedName && e.name === storedName) ? ' class="me"' : '';
+          html += '<tr' + cls + '><td class="rank-num">' + (i + 1) + '</td><td>' + e.name + '</td><td>' + e.rating + '</td><td>' + e.wins + '</td><td>' + e.losses + '</td></tr>';
+        }
+        html += '</table>';
+        container.innerHTML = html;
+      }
+
+      renderRankings();
+    })();
+    </script>
+  </body>
+</html>

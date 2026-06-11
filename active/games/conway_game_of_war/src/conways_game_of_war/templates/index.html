@@ -382,9 +382,15 @@
   </head>
   <body class="overlay-energy-active overlay-territory-active overlay-cost-active" style="--p1-color: {{ session['player1_color'] }}; --p2-color: {{ session['player2_color'] }};"> 
     <div class="container">
+      <div id="waiting-overlay" style="display:none;position:absolute;inset:0;background:rgba(0,0,0,0.7);z-index:999;align-items:center;justify-content:center;">
+        <div style="background:#1a1a1a;border:1px solid #444;border-radius:12px;padding:32px;text-align:center">
+          <div style="font-size:2rem;margin-bottom:8px">⏳</div>
+          <div style="font-size:1.1rem;color:#ccc">Waiting for opponent's turn...</div>
+        </div>
+      </div>
       <div class="game-header">
         <h1>⚔ Conway's Game of War</h1>
-        <span class="player-name" style="color: {{ session['player1_color'] if session['player'] == 'player1' else session['player2_color'] }}">
+        <span class="player-name" id="header-player-name" style="color: {{ session['player1_color'] if session['player'] == 'player1' else session['player2_color'] }}">
           ⬤ {{ player_name }}
         </span>
         <div class="controls">
@@ -1127,4 +1133,44 @@
       </div>
     </div>
   </body>
+    <script>
+    (function() {
+      var matchId = {{ match_id|tojson if match_id else 'null' }};
+      var playerIdx = {{ player_index|tojson if player_index is not none else 'null' }};
+      if (!matchId) return;
+
+      var waitingOverlay = document.getElementById('waiting-overlay');
+      var polling = true;
+
+      function showWaiting(yourTurn) {
+        if (waitingOverlay) waitingOverlay.style.display = yourTurn ? 'none' : 'flex';
+        var btn = document.getElementById('end-turn-btn');
+        if (btn) btn.disabled = !yourTurn;
+      }
+
+      function pollMatch() {
+        if (!polling) return;
+        fetch('/match_status')
+          .then(function(r) { return r.json(); })
+          .then(function(data) {
+            if (!data.ok) return;
+            var yourTurn = data.turn_idx === playerIdx;
+            showWaiting(yourTurn);
+            if (data.winner_name) {
+              if (window.__conwaySyncWinner && typeof window.__conwaySyncWinner === 'function') {
+                window.__conwaySyncWinner(data);
+              }
+              return;
+            }
+          })
+          .catch(function() {})
+          .then(function() {
+            setTimeout(pollMatch, 3000);
+          });
+      }
+
+      // Set initial state
+      setTimeout(pollMatch, 500);
+    })();
+    </script>
 </html>
