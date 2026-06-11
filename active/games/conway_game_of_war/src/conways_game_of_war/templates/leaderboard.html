@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Conway's Game of War — Leaderboard</title>
+    <style>
+      *, *::before, *::after { box-sizing: border-box; }
+      body, html {
+        height: 100%; margin: 0; overflow: auto;
+        font-family: system-ui, -apple-system, sans-serif;
+        background: #111; color: #eee;
+        display: flex; align-items: flex-start; justify-content: center;
+        padding: 24px 0;
+      }
+      .page {
+        max-width: 700px; width: 90%;
+      }
+      h1 { text-align: center; font-size: 1.5rem; font-weight: 600; margin: 0 0 4px; }
+      .subtitle { text-align: center; color: #888; font-size: 0.85rem; margin: 0 0 24px; }
+      .search-box {
+        width: 100%; padding: 10px 14px; border: 1px solid #444; border-radius: 8px;
+        background: #222; color: #eee; font-size: 1rem; font-family: inherit;
+        margin-bottom: 16px;
+      }
+      .search-box:focus { outline: none; border-color: #2a6a9c; }
+      table { width: 100%; border-collapse: collapse; }
+      th { text-align: left; color: #888; font-weight: 400; padding: 8px 12px; border-bottom: 1px solid #333; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.5px; }
+      td { padding: 8px 12px; color: #ccc; font-size: 0.9rem; border-bottom: 1px solid #222; }
+      .rank-num { color: #666; width: 40px; font-size: 0.85rem; }
+      .rank-1 { color: #ffd700; }
+      .rank-2 { color: #c0c0c0; }
+      .rank-3 { color: #cd7f32; }
+      .name-cell { font-weight: 500; }
+      .rating-cell { color: #4fc; font-weight: 600; }
+      tr.me td { background: rgba(42, 106, 156, 0.12); }
+      tr.me .name-cell { color: #8cf; }
+      .pagination { display: flex; justify-content: center; gap: 6px; margin-top: 20px; flex-wrap: wrap; }
+      .page-btn { background: #2a2a2a; border: 1px solid #444; border-radius: 4px; padding: 6px 12px; color: #ccc; cursor: pointer; font-size: 0.85rem; }
+      .page-btn:hover { background: #3a3a3a; }
+      .page-btn.active { background: #1a3a5c; border-color: #2a6a9c; color: #fff; }
+      .page-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+      .empty { text-align: center; color: #555; padding: 40px 0; }
+      .back-link { display: block; text-align: center; margin-top: 16px; color: #777; text-decoration: none; font-size: 0.85rem; }
+      .back-link:hover { color: #aaa; }
+      .stats-row { display: flex; gap: 16px; justify-content: center; margin-bottom: 20px; flex-wrap: wrap; }
+      .stat-card { background: #1a1a1a; border: 1px solid #333; border-radius: 8px; padding: 12px 20px; text-align: center; min-width: 100px; }
+      .stat-card .num { font-size: 1.3rem; font-weight: 600; color: #4fc; }
+      .stat-card .label { font-size: 0.7rem; color: #888; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px; }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <h1>🏆 Leaderboard</h1>
+      <p class="subtitle">Conway's Game of War — Player Rankings</p>
+
+      <div class="stats-row" id="stats-row"></div>
+
+      <input type="text" class="search-box" id="search-input" placeholder="Search by username..." autocomplete="off">
+
+      <div id="leaderboard-container"><p class="empty">Loading...</p></div>
+      <div class="pagination" id="pagination"></div>
+
+      <a href="/lobby" class="back-link">← Back to Lobby</a>
+    </div>
+
+    <script>
+    (function() {
+      var allEntries = [];
+      var filtered = [];
+      var pageSize = 20;
+      var currentPage = 1;
+      var storedName = null;
+      try { storedName = localStorage.getItem('conway-war-username'); } catch(e) {}
+
+      function fetchRankings() {
+        fetch('/rankings')
+          .then(function(r) { return r.json(); })
+          .then(function(entries) {
+            allEntries = entries;
+            filterAndRender();
+          })
+          .catch(function() {
+            document.getElementById('leaderboard-container').innerHTML = '<p class="empty">Failed to load rankings</p>';
+          });
+      }
+
+      function filterAndRender() {
+        var query = document.getElementById('search-input').value.toLowerCase().trim();
+        filtered = allEntries.filter(function(e) {
+          return e.name.toLowerCase().includes(query);
+        });
+        currentPage = 1;
+        renderPage();
+      }
+
+      function renderPage() {
+        var container = document.getElementById('leaderboard-container');
+        var pagination = document.getElementById('pagination');
+        var statsRow = document.getElementById('stats-row');
+
+        var totalPlayers = allEntries.length;
+        var totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+        var start = (currentPage - 1) * pageSize;
+        var page = filtered.slice(start, start + pageSize);
+
+        // Stats
+        if (totalPlayers > 0) {
+          var top3 = allEntries.slice(0, 3);
+          statsRow.innerHTML = '<div class="stat-card"><div class="num">' + totalPlayers + '</div><div class="label">Players</div></div>' +
+            top3.map(function(e, i) { return '<div class="stat-card"><div class="num">' + e.rating + '</div><div class="label">#' + (i+1) + ' ' + e.name + '</div></div>'; }).join('');
+        } else {
+          statsRow.innerHTML = '';
+        }
+
+        if (filtered.length === 0) {
+          container.innerHTML = '<p class="empty">' + (allEntries.length === 0 ? 'No players ranked yet' : 'No matches for that search') + '</p>';
+          pagination.innerHTML = '';
+          return;
+        }
+
+        var absStart = 0;
+        for (var i = 0; i < allEntries.length; i++) {
+          if (allEntries[i] === filtered[start]) { absStart = i; break; }
+        }
+
+        var html = '<table><tr><th>#</th><th>Player</th><th>Rating</th><th>W</th><th>L</th><th>Win%</th></tr>';
+        for (var i = 0; i < page.length; i++) {
+          var e = page[i];
+          var rank = absStart + i + 1;
+          var isMe = storedName && e.name === storedName;
+          var rankClass = rank === 1 ? 'rank-1' : rank === 2 ? 'rank-2' : rank === 3 ? 'rank-3' : '';
+          var total = e.wins + e.losses;
+          var winPct = total > 0 ? Math.round(e.wins / total * 100) : 0;
+          var cls = isMe ? ' class="me"' : '';
+          html += '<tr' + cls + '><td class="rank-num ' + rankClass + '">' + rank + '</td><td class="name-cell">' + e.name + '</td><td class="rating-cell">' + e.rating + '</td><td>' + e.wins + '</td><td>' + e.losses + '</td><td>' + winPct + '%</td></tr>';
+        }
+        html += '</table>';
+        container.innerHTML = html;
+
+        // Pagination
+        var phtml = '';
+        phtml += '<button class="page-btn" ' + (currentPage <= 1 ? 'disabled' : '') + ' onclick="window.goPage(' + (currentPage - 1) + ')">◀</button>';
+        for (var p = 1; p <= totalPages; p++) {
+          if (p === currentPage || p === 1 || p === totalPages || Math.abs(p - currentPage) <= 2) {
+            phtml += '<button class="page-btn' + (p === currentPage ? ' active' : '') + '" onclick="window.goPage(' + p + ')">' + p + '</button>';
+          } else if (p === currentPage - 3 || p === currentPage + 3) {
+            phtml += '<button class="page-btn" disabled>…</button>';
+          }
+        }
+        phtml += '<button class="page-btn" ' + (currentPage >= totalPages ? 'disabled' : '') + ' onclick="window.goPage(' + (currentPage + 1) + ')">▶</button>';
+        pagination.innerHTML = phtml;
+      }
+
+      window.goPage = function(n) {
+        currentPage = n;
+        renderPage();
+      };
+
+      document.getElementById('search-input').addEventListener('input', function() {
+        filterAndRender();
+      });
+
+      fetchRankings();
+    })();
+    </script>
+  </body>
+</html>

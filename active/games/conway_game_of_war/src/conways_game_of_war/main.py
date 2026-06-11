@@ -259,6 +259,12 @@ def lobby():
     return flask.render_template("lobby.html")
 
 
+@app.route("/leaderboard")
+def leaderboard():
+    """Render the leaderboard page."""
+    return flask.render_template("leaderboard.html")
+
+
 @app.route("/join_queue", methods=["POST"])
 def join_queue():
     """Join the matchmaking queue."""
