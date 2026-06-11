@@ -3,6 +3,7 @@
 import os
 import uuid
 import json
+import time
 from typing import Tuple, Optional
 
 import flask
@@ -26,6 +27,7 @@ app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-key")
 # Matchmaking queue and active matches
 MATCH_QUEUE = []  # list of {pid, username, color}
 ACTIVE_MATCHES = {}  # match_id -> {p1_pid, p2_pid, p1_name, p2_name, game, turn_idx, started}
+TURN_TIMEOUT = 60  # seconds per turn
 
 app.config["GAME"] = game_state.GameState()
 app.config["ZOOM_LEVEL"] = 1.0
@@ -290,7 +292,7 @@ def join_queue():
             "p1_pid": p1["pid"], "p2_pid": p2["pid"],
             "p1_name": p1["username"], "p2_name": p2["username"],
             "game": game, "turn_idx": game_state.PLAYER_1,
-            "started": True,
+            "started": True, "turn_deadline": time.time() + TURN_TIMEOUT,
         }
         flask.session["match_id"] = match_id
         return flask.jsonify({"ok": True, "match_id": match_id, "matched": True, "player": 1})
@@ -361,14 +363,26 @@ def match_status():
         return flask.jsonify({"ok": False, "error": "no match"}), 404
     game = match["game"]
     idx = match["turn_idx"]
+    deadline = match.get("turn_deadline", 0)
+    now = time.time()
+
+    # Auto-switch turn if deadline passed
+    if deadline > 0 and now >= deadline and game.winner_index() is None:
+        match["turn_idx"] = 1 - idx
+        match["turn_deadline"] = now + TURN_TIMEOUT
+        idx = match["turn_idx"]
+        _bump_epoch()
+
     p1 = match["p1_name"]
     p2 = match["p2_name"]
     turn_name = p1 if idx == 0 else p2
     winner = _winner_payload(game)
+    time_remaining = max(0, int(deadline - now))
     return flask.jsonify({
         "ok": True,
         "turn_idx": idx,
         "turn_name": turn_name,
+        "time_remaining": time_remaining,
         "winner": winner["winner"],
         "winner_name": winner["winner_name"],
         "p1_energy": game.players[0].energy,
@@ -394,6 +408,7 @@ def rematch():
         game.players[game_state.PLAYER_2].color = p2_rgb
     match["game"] = game
     match["turn_idx"] = game_state.PLAYER_1
+    match["turn_deadline"] = time.time() + TURN_TIMEOUT
     app.config["TURN_PLACED"] = {}
     _reset_fib_progression()
     _bump_epoch()
@@ -444,6 +459,7 @@ def end_turn():
 
         # Switch turn
         match["turn_idx"] = 1 - idx
+        match["turn_deadline"] = time.time() + TURN_TIMEOUT
         _bump_epoch()
 
         if before:
