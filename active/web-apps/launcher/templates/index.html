@@ -299,6 +299,16 @@
       margin-left: auto;
     }
     .scene-controls .reroll-btn:hover { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.6); }
+    .scene-controls .reset-btn {
+      font-family: 'Courier New', monospace;
+      font-size: 10px; letter-spacing: 1px;
+      padding: 6px 12px; border-radius: 2px;
+      border: 1px solid rgba(255,255,255,0.1);
+      background: rgba(255,255,255,0.04);
+      color: rgba(255,255,255,0.35);
+      cursor: pointer; transition: all 0.15s;
+    }
+    .scene-controls .reset-btn:hover { background: rgba(255,255,255,0.08); color: rgba(74,222,128,0.6); border-color: rgba(74,222,128,0.2); }
 
     .gyro-indicator {
       font-size: 9px; letter-spacing: 1px; padding: 3px 10px; border-radius: 2px;
@@ -485,6 +495,7 @@
       .scene-controls { padding: 4px 8px; gap: 6px; }
       .scene-controls .disturb-btn { font-size: 8px; padding: 4px 8px; }
       .scene-controls .reroll-btn { font-size: 8px; padding: 4px 8px; }
+      .scene-controls .reset-btn { font-size: 8px; padding: 4px 8px; }
       .running-ticker { font-size: 10px; padding: 4px 8px; }
       .top-bar { padding: 8px 8px 4px; gap: 8px; }
       .top-bar h1 { font-size: 16px; }
@@ -526,6 +537,7 @@
         <div class="gyro-bar-bg"><div class="gyro-bar" id="gyroLevel"></div></div>
         <button class="reroll-btn" onclick="recalibrateGyro()" style="margin-left:0;font-size:9px">⟳ CAL</button>
       </div>
+      <button class="reset-btn" id="resetBtn" onclick="resetScene()" title="Snap containers back to origin instantly">⟲ RESET</button>
       <button class="reroll-btn" onclick="changeScene()">⟳ REROLL</button>
     </div>
 
@@ -1147,6 +1159,26 @@ function smoothReset() {
     }
   }
   requestAnimationFrame(animateReset);
+}
+
+// ── Change scene ──
+const SCENES = ['ship', 'train', 'crane', 'depot'];
+// ── Reset: snap containers back to origin and settle ──
+function resetScene() {
+  if (!containerBodies.length || !containerBodyOrigins.length) return;
+  // Make static, snap to origins, sync DOM
+  containerBodies.forEach((body, i) => {
+    Body.setStatic(body, true);
+    if (containerBodyOrigins[i]) {
+      const o = containerBodyOrigins[i];
+      Body.setPosition(body, { x: o.x, y: o.y });
+      Body.setAngle(body, o.angle);
+    }
+  });
+  syncPhysicsToDOM();
+  isDisturbed = false;
+  const btn = document.getElementById('disturbBtn');
+  if (btn) btn.disabled = false;
 }
 
 // ── Change scene ──
