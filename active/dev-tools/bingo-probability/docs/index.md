@@ -1,4 +1,4 @@
-# Bingo Probability Solver
+# Bingo Probability Solver v0.1.1
 
 Calculate the probability of achieving at least one bingo (complete row, column, or diagonal) on an n×n board where each square has an independent probability of being marked.
 
@@ -53,14 +53,45 @@ print(f"Inclusion-Exclusion: {ie_prob:.6f}")
 ### Command Line
 
 ```bash
+# Show version
+bingo-probability --version
+
 # Uniform probability board
 bingo-probability --size 3 --prob 0.5 --samples 100000
+
+# Machine-readable JSON output
+bingo-probability --size 3 --prob 0.5 --samples 100000 --json
 
 # Compare both methods
 bingo-probability --size 3 --prob 0.5 --compare
 
 # Random probabilities per square
 bingo-probability --size 4 --random --samples 50000
+
+# JSON output with inclusion-exclusion
+bingo-probability --size 3 --prob 0.5 --method ie --json
+```
+
+### JSON Output
+
+The `--json` flag produces output like:
+
+```json
+{
+  "version": "0.1.1",
+  "board_size": 3,
+  "num_lines": 8,
+  "monte_carlo": {
+    "samples": 100000,
+    "probability": 0.497241,
+    "std_error": 0.001581,
+    "ci_95": [0.494142, 0.50034]
+  },
+  "inclusion_exclusion": {
+    "terms": 255,
+    "probability": 0.497154
+  }
+}
 ```
 
 ## Complexity Analysis

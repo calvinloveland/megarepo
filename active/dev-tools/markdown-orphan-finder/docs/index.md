@@ -1,4 +1,4 @@
-# Markdown Orphan Finder
+# Markdown Orphan Finder v0.2.0
 
 A tool to find orphaned markdown files and isolated islands in a repository.
 
@@ -19,8 +19,19 @@ python find_orphans.py /path/to/repo
 # Show what orphaned files link to
 python find_orphans.py --show-links
 
+# Machine-readable JSON output (includes islands)
+python find_orphans.py --json
+
+# Check version
+python find_orphans.py --version
+
 # Exclude patterns (can be used multiple times)
 python find_orphans.py --exclude "archive/.*" --exclude "node_modules/.*"
+
+# Install globally via pip
+pip install -e .
+find-orphans --version
+find-orphans /path/to/repo --json
 ```
 
 ## Examples
@@ -38,6 +49,30 @@ python active/dev-tools/markdown-orphan-finder/find_orphans.py --exclude "^archi
 
 # Show what orphaned files link to
 ./active/dev-tools/markdown-orphan-finder/run_on_megarepo.sh --show-links
+
+# Get JSON output for programmatic consumption
+python active/dev-tools/markdown-orphan-finder/find_orphans.py --json
+```
+
+## JSON Output Format
+
+When using `--json`, the output contains:
+
+```json
+{
+  "root": "/path/to/repo",
+  "total_files": 42,
+  "orphan_count": 5,
+  "orphans": [
+    "docs/unlinked_page.md",
+    "src/README.md"
+  ],
+  "island_count": 2,
+  "islands": [
+    ["docs/group_a/page1.md", "docs/group_a/page2.md"],
+    ["docs/group_b/page3.md", "docs/group_b/page4.md"]
+  ]
+}
 ```
 
 ## How it works
