@@ -67,6 +67,12 @@ venv/
 # Playwright / browser binaries (workspace-local cache)
 .playwright_browsers/
 
+# Runtime state files
+*.pid
+
+# Nix build result symlinks
+result
+
 devserver.log
 devserver.pid
 
@@ -81,3 +87,6 @@ devserver.pid
 site/
 .docs-site/
 /data/
+
+# egg-info build artifacts
+*.egg-info/
