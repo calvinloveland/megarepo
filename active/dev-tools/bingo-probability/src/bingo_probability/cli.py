@@ -4,6 +4,7 @@ import argparse
 
 import numpy as np
 
+from . import __version__
 from .board import BingoBoard
 from .solvers import (
     monte_carlo_solver,
@@ -25,6 +26,12 @@ Examples:
         """,
     )
     
+    parser.add_argument(
+        "--version",
+        action="store_true",
+        help="Show version and exit",
+    )
+
     parser.add_argument(
         "--size", "-n",
         type=int,
@@ -77,16 +84,32 @@ Examples:
         action="store_true",
         help="Show board probabilities",
     )
+
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Output results as JSON (machine-readable)",
+    )
     
     args = parser.parse_args()
-    
+
+    if args.version:
+        print(f"bingo-probability v{__version__}")
+        return
+
     # Create board
     if args.random:
         board = BingoBoard.random(args.size, low=0.2, high=0.8, seed=args.seed)
     else:
         prob = args.prob if args.prob is not None else 0.5
         board = BingoBoard.uniform(args.size, prob)
-    
+
+    if args.json:
+        import json
+        result = _collect_results(board, args)
+        print(json.dumps(result, indent=2))
+        return
+
     print(f"Bingo Board: {board.size}×{board.size}")
     print(f"Number of lines: {len(board.get_lines())} (rows + columns + diagonals)")
     
@@ -118,6 +141,38 @@ Examples:
                 print(f"  P(bingo) = {prob:.6f} (exact)")
             except ValueError as e:
                 print(f"\nInclusion-Exclusion: {e}")
+
+
+def _collect_results(board: BingoBoard, args) -> dict:
+    """Collect results into a dict for JSON output."""
+    result = {
+        "version": __version__,
+        "board_size": board.size,
+        "num_lines": len(board.get_lines()),
+    }
+
+    if args.method in ("mc", "both"):
+        prob, std = monte_carlo_solver(board, samples=args.samples, seed=args.seed)
+        result["monte_carlo"] = {
+            "samples": args.samples,
+            "probability": round(prob, 6),
+            "std_error": round(std, 6),
+            "ci_95": [round(prob - 1.96*std, 6), round(prob + 1.96*std, 6)],
+        }
+
+    if args.method in ("ie", "both"):
+        num_lines = len(board.get_lines())
+        if num_lines <= 18:
+            try:
+                prob = inclusion_exclusion_solver(board)
+                result["inclusion_exclusion"] = {
+                    "terms": 2**num_lines - 1,
+                    "probability": round(prob, 6),
+                }
+            except ValueError as e:
+                result["inclusion_exclusion"] = {"error": str(e)}
+
+    return result
 
 
 def _run_comparison(board: BingoBoard, samples: int, seed: int | None) -> None:
