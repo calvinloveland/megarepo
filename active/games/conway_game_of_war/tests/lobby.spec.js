@@ -161,4 +161,113 @@ test.describe('Lobby — Find Match', () => {
 
     await ctx.close();
   });
+
+  test('Both players can place cells simultaneously', async ({ browser }) => {
+    // Regression: with the turn system removed, both players should be
+    // able to act on their own territory cells in any order without
+    // waiting for an End Turn.
+    //
+    // We drive the test through the /update_cell HTTP API directly
+    // (with the same cookies a real click would use). This avoids
+    // the complexity of dispatching DOM click events on cells that
+    // are off-screen by default, and tests the same server behavior
+    // the JS click handler triggers.
+    const ctx = await browser.newContext();
+    const tab1 = await ctx.newPage();
+    const tab2 = await ctx.newPage();
+    tab1.on('pageerror', (e) => console.log('[A pageerror]', e.message));
+    tab2.on('pageerror', (e) => console.log('[B pageerror]', e.message));
+
+    await Promise.all([tab1.goto('/lobby'), tab2.goto('/lobby')]);
+    await tab1.fill('#username-input', 'Alice');
+    await tab2.fill('#username-input', 'Bob');
+    await Promise.all([tab1.click('#find-match-btn'), tab2.click('#find-match-btn')]);
+    await Promise.all([tab1.waitForURL('/'), tab2.waitForURL('/')]);
+
+    // End Turn button is now always enabled for both players (no turn
+    // system means no "not your turn" disabling).
+    const endBtn1 = tab1.locator('#end-turn-btn');
+    await expect(endBtn1).toBeEnabled();
+    const endBtn2 = tab2.locator('#end-turn-btn');
+    await expect(endBtn2).toBeEnabled();
+
+    // Both players place a cell on their own territory, in the same
+    // logical "turn" (no End Turn between them). Pre-fix the second
+    // call would 403 with "not your turn".
+    //
+    // We use page.evaluate(fetch, ...) rather than page.request.post()
+    // because page.request's APIRequestContext does not share the
+    // page's session cookies reliably across Playwright versions; using
+    // the in-page fetch keeps the cookies intact.
+    //
+    // Each tab reads its own per-tab pid from sessionStorage (the
+    // real client does the same \u2014 see lobby.html) so the server can
+    // tell the two tabs apart even though they share a session cookie.
+    const postUpdate = (page, x, y) =>
+      page.evaluate(
+        async ([x, y]) => {
+          const pid = sessionStorage.getItem('conway-war-pid');
+          const r = await fetch(
+            `/update_cell?x=${x}&y=${y}&json=1`,
+            {
+              method: 'POST',
+              credentials: 'same-origin',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ pid }),
+            },
+          );
+          return { status: r.status, body: await r.json() };
+        },
+        [x, y],
+      );
+
+    // Both players place a cell on their own territory, in the same
+    // logical "turn" (no End Turn between them). Pre-fix, one of the
+    // two requests would 403 with "not your turn".
+    //
+    // We read each tab's player index from the page (the index.html
+    // template sets `var playerIdx = ...` in a script tag), then
+    // claim the cell adjacent to that player's start.
+    const playerIdx = (page) =>
+      page.evaluate(() => {
+        // Find the script that declares playerIdx and read its value.
+        // We look for a `<script>` containing `var playerIdx` and
+        // extract the number after the `=`.
+        const scripts = Array.from(document.querySelectorAll('script'));
+        for (const s of scripts) {
+          const m = s.textContent.match(/var\s+playerIdx\s*=\s*(\d+)/);
+          if (m) return parseInt(m[1], 10);
+        }
+        return null;
+      });
+
+    const idx1 = await playerIdx(tab1);
+    const idx2 = await playerIdx(tab2);
+    // Player 0 (P1) starts at (20, 20); Player 1 (P2) starts at (107, 111).
+    const startFor = (idx) => (idx === 0 ? [20, 20] : [107, 111]);
+    const adjacent = (start) => [start[0] + 1, start[1]];
+    const [x1, y1] = adjacent(startFor(idx1));
+    const [x2, y2] = adjacent(startFor(idx2));
+
+    const [r1, r2] = await Promise.all([
+      postUpdate(tab1, x1, y1),
+      postUpdate(tab2, x2, y2),
+    ]);
+
+    // Both responses must be 200 (pre-fix, the inactive player would
+    // 403 "not your turn" since simultaneous turns weren't supported).
+    expect(r1.status).toBe(200);
+    expect(r2.status).toBe(200);
+    expect(r1.body.error).not.toBe('not your turn');
+    expect(r2.body.error).not.toBe('not your turn');
+
+    // Both claims should succeed because each tab is claiming a cell
+    // adjacent to its OWN player's start (the cheapest cell for them).
+    expect(r1.body.alive).toBe(true);
+    expect(r2.body.alive).toBe(true);
+    expect(r1.body.owner).toBe(idx1 === 0 ? 'p1' : 'p2');
+    expect(r2.body.owner).toBe(idx2 === 0 ? 'p1' : 'p2');
+
+    await ctx.close();
+  });
 });

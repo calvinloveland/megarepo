@@ -141,8 +141,9 @@ class TestClientGameState:
         match = main.ACTIVE_MATCHES[match_id]
         assert match["p1_name"] == "Alice"
         assert match["p2_name"] == "Bob"
-        assert match["turn_idx"] == game_state.PLAYER_1
         assert match["started"] is True
+        # No turn counter with simultaneous turns
+        assert "turn_idx" not in match
 
     def test_two_shared_session_joins_match_each_other(self):
         """Regression: two requests sharing a session (two tabs in the
@@ -213,36 +214,91 @@ class TestClientGameState:
         assert data["match_id"] == match_id
         assert data["player"] == 0
 
-    # ─── Turn enforcement tests ───────────────────────────────────────
+    # ─── Simultaneous-turn tests ───────────────────────────────────────
 
-    def test_opponent_cannot_move_on_your_turn(self):
+    def test_opponent_cannot_move_on_own_territory(self):
+        """Player 2 cannot toggle a cell that is owned by player 1.
+
+        With simultaneous turns, there is no 403 "not your turn"
+        response — the request simply returns 200 with the unchanged
+        cell because ``can_toggle_for_player`` rejects enemy-owned
+        cells.
+        """
         client2 = main.app.test_client()
         with client2.session_transaction() as session:
             session["_pid"] = "test-player-2"
             session["username"] = "TestP2"
             session["match_id"] = "test-match-1"
 
+        # Cell (21, 20) is adjacent to P1's start and owned by P1.
         response = client2.post("/update_cell?x=21&y=20&json=1")
-        assert response.status_code == 403
+        assert response.status_code == 200
         payload = response.get_json()
-        assert payload["error"] == "not your turn"
+        assert payload["alive"] is False
+        assert payload["owner"] == "p1"
 
-    def test_end_turn_switches_to_other_player(self):
+    def test_both_players_can_move_simultaneously(self):
+        """With simultaneous turns, both players can act in any order
+        without waiting for an End Turn.
+
+        Each action targets a cell that is directly adjacent to the
+        player's start base (so ``count_friendly_neighbors`` is 1 from
+        the immortal start cell, satisfying ``can_toggle_for_player``).
+        """
+        main.ACTIVE_MATCHES["test-match-1"]["p1_pid"] = "test-player-1"
+        main.ACTIVE_MATCHES["test-match-1"]["p2_pid"] = "test-player-2"
+
+        # Player 1 toggles a free cell adjacent to P1's start
+        r1 = self.client.post("/update_cell?x=21&y=20&json=1")
+        assert r1.status_code == 200
+        assert r1.get_json()["alive"] is True
+        assert r1.get_json()["owner"] == "p1"
+
+        # Player 2 toggles a free cell adjacent to P2's start, in the
+        # same "turn" (no End Turn between the two actions).
+        p2 = self.game.players[game_state.PLAYER_2]
+        p2x, p2y = p2.start_point
+        client2 = main.app.test_client()
+        with client2.session_transaction() as session:
+            session["_pid"] = "test-player-2"
+            session["username"] = "TestP2"
+            session["match_id"] = "test-match-1"
+        r2 = client2.post(f"/update_cell?x={p2x + 1}&y={p2y}&json=1")
+        assert r2.status_code == 200
+        payload2 = r2.get_json()
+        assert payload2["alive"] is True
+        assert payload2["owner"] == "p2"
+
+    def test_end_turn_does_not_switch_turns(self):
+        """End Turn now just steps the game; it does NOT switch the
+        acting player. With simultaneous turns there is no turn.
+
+        Pre-fix the server would set ``match["turn_idx"] = 1 - idx``;
+        with the turn system removed, the match dict has no
+        ``turn_idx`` after End Turn runs.
+        """
         match = main.ACTIVE_MATCHES["test-match-1"]
-        assert match["turn_idx"] == game_state.PLAYER_1
+        # Strip any turn_idx the setup put in (the cleanup loop in
+        # setup_method didn't, but we want the test to be robust).
+        match.pop("turn_idx", None)
+        assert "turn_idx" not in match
 
         response = self.client.post("/end_turn?json=1")
         assert response.status_code == 200
-        assert match["turn_idx"] == game_state.PLAYER_2
+        # End Turn must not introduce a new turn_idx either.
+        assert "turn_idx" not in match
+        # And it should not have toggled the acting player identity.
+        assert "p1_pid" in match and "p2_pid" in match
 
     def test_current_player_can_move_on_their_turn(self):
-        match = main.ACTIVE_MATCHES["test-match-1"]
-        assert match["turn_idx"] == game_state.PLAYER_1
-
+        # The acting player is determined by the session pid, not by a
+        # turn counter. The default test client is set up as P1 (pid
+        # "test-player-1"), so it can claim cells in P1's territory.
         response = self.client.post("/update_cell?x=21&y=20&json=1")
         assert response.status_code == 200
         payload = response.get_json()
         assert payload["alive"] is True
+        assert payload["owner"] == "p1"
 
     def test_undo_works_within_match(self):
         player = self.game.players[game_state.PLAYER_1]

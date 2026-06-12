@@ -430,6 +430,8 @@
         fetch('/update_cell?x=' + x + '&y=' + y + '&json=1', {
           method: 'POST',
           signal: controller.signal,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pid: myPid }),
         })
         .then(function(r) {
           if (!r.ok) throw new Error('HTTP ' + r.status);
@@ -553,6 +555,8 @@
           btn.disabled = true;
           btn.textContent = '🏆 ' + winnerName + ' Wins';
         } else {
+          // Both players act simultaneously, so the End Turn button
+          // (which now just steps the game) is always enabled.
           btn.disabled = false;
           btn.textContent = '⏭ End Turn';
         }
@@ -757,7 +761,11 @@
           var entry = hist.pop();
           window.__conwayTurnHistory = hist;
           if (typeof updateUndoButton === 'function') updateUndoButton();
-          fetch('/undo_cell?x=' + entry.x + '&y=' + entry.y + '&json=1', { method: 'POST' })
+          fetch('/undo_cell?x=' + entry.x + '&y=' + entry.y + '&json=1', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ pid: myPid }),
+          })
             .then(function(r) {
               if (!r.ok) throw new Error('undo HTTP ' + r.status);
               return r.json();
@@ -865,9 +873,12 @@
       }
 
       function showWaiting(yourTurn) {
-        if (waitingOverlay) waitingOverlay.style.display = yourTurn ? 'none' : 'flex';
+        // With simultaneous turns, the "waiting for opponent" overlay
+        // is no longer needed. We still call this for backwards
+        // compatibility but make it a no-op.
+        if (waitingOverlay) waitingOverlay.style.display = 'none';
         var btn = document.getElementById('end-turn-btn');
-        if (btn) btn.disabled = !yourTurn;
+        if (btn) btn.disabled = false;  // End Turn is now a shared action
       }
 
       function scheduleBoardRefresh() {
@@ -892,16 +903,21 @@
               scheduleBoardRefresh();
             }
             var yourTurn = data.turn_idx === playerIdx;
-            if (yourTurn && lastEpoch !== -1 && data.epoch !== undefined && data.epoch !== lastEpoch) {
+            // With simultaneous turns, the "your turn" sound is no
+            // longer relevant (turns never switch). We still play it
+            // on the first epoch so the user gets feedback that the
+            // match has started.
+            if (lastEpoch === -1 && data.epoch !== undefined) {
+              soundTurn();
+            } else if (yourTurn && lastEpoch !== -1 && data.epoch !== undefined && data.epoch !== lastEpoch) {
               soundTurn();
             }
             showWaiting(yourTurn);
-            // Update turn timer
+            // Turn timer removed (no turn system); keep the span
+            // hidden so the layout doesn't shift.
             var timerEl = document.getElementById('turn-timer');
             if (timerEl) {
-              var secs = data.time_remaining !== undefined ? data.time_remaining : 0;
-              timerEl.textContent = secs > 0 ? '⏱' + secs + 's' : '';
-              timerEl.style.color = secs <= 10 ? '#ff6644' : (secs <= 30 ? '#ffcc44' : '#aaa');
+              timerEl.textContent = '';
             }
             // Show disconnection message
             if (data.disconnected) {
@@ -910,7 +926,7 @@
                 window.__conwaySyncWinner({ winner_name: 'Player ' + (playerIdx + 1), winner: playerIdx === 0 ? 'p1' : 'p2' });
               }
               var timerEl2 = document.getElementById('turn-timer');
-              if (timerEl2) timerEl2.textContent = '🏆 Win by forfeit';
+              if (timerEl2) timerEl2.textContent = '';
               return;
             }
             if (data.winner_name) {

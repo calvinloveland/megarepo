@@ -29,8 +29,7 @@ app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-key")
 
 # Matchmaking queue and active matches
 MATCH_QUEUE = []  # list of {pid, username, color}
-ACTIVE_MATCHES = {}  # match_id -> {p1_pid, p2_pid, p1_name, p2_name, game, turn_idx, started}
-TURN_TIMEOUT = 60  # seconds per turn
+ACTIVE_MATCHES = {}  # match_id -> {p1_pid, p2_pid, p1_name, p2_name, game, started, last_activity}
 HEARTBEAT_TIMEOUT = 15  # seconds before a player is considered disconnected
 LAST_HEARTBEAT = {}  # pid -> timestamp of last heartbeat
 MATCH_LOGS = {}  # match_id -> list of {type, x, y, player_idx, action, cost, timestamp}
@@ -390,8 +389,11 @@ def _cleanup_loop():
     while True:
         time.sleep(600)  # every 10 minutes
         now = time.time()
+        # Matches with no recent activity (no heartbeat in 2*HEARTBEAT_TIMEOUT)
+        # are considered abandoned. We use a per-match "last activity" stamp
+        # updated whenever a player acts or polls.
         stale = [mid for mid, m in list(ACTIVE_MATCHES.items())
-                 if now - m.get("turn_deadline", now) > MATCH_TIMEOUT * 2]
+                 if now - m.get("last_activity", now) > MATCH_TIMEOUT * 2]
         for mid in stale:
             ACTIVE_MATCHES.pop(mid, None)
             MATCH_LOGS.pop(mid, None)
@@ -494,8 +496,8 @@ def join_queue():
         ACTIVE_MATCHES[match_id] = {
             "p1_pid": p1["pid"], "p2_pid": p2["pid"],
             "p1_name": p1["username"], "p2_name": p2["username"],
-            "game": game, "turn_idx": game_state.PLAYER_1,
-            "started": True, "turn_deadline": time.time() + TURN_TIMEOUT,
+            "game": game, "started": True,
+            "last_activity": time.time(),
         }
         MATCH_LOGS[match_id] = []
         flask.session["match_id"] = match_id
@@ -544,6 +546,33 @@ def poll_match():
 
 
 # ─── Game ─────────────────────────────────────────────────────────────
+
+def _touch_match(match: dict) -> None:
+    """Mark the match as recently active (used by the cleanup loop)."""
+    match["last_activity"] = time.time()
+
+
+def _player_idx_for_match(match: dict, candidate_pid: Optional[str] = None) -> int:
+    """Return the player slot (0 or 1) for the current session, or -1.
+
+    Since both players act simultaneously, every endpoint must look up
+    the acting player by the session's pid rather than by a turn
+    counter. Returns -1 if the session is not part of this match.
+
+    ``candidate_pid`` lets callers pass an explicit per-tab pid (stored
+    in ``sessionStorage`` in the browser) so that two tabs sharing
+    a Flask session can act independently. Falls back to the session's
+    ``_pid`` if not provided.
+    """
+    pid = (candidate_pid or "").strip() or flask.session.get("_pid")
+    if not pid:
+        return -1
+    if match.get("p1_pid") == pid:
+        return 0
+    if match.get("p2_pid") == pid:
+        return 1
+    return -1
+
 
 @app.route("/")
 def index():
@@ -601,8 +630,6 @@ def active_matches():
             "match_id": mid,
             "p1_name": m["p1_name"],
             "p2_name": m["p2_name"],
-            "turn_idx": m["turn_idx"],
-            "turn_name": m["p1_name"] if m["turn_idx"] == 0 else m["p2_name"],
             "p1_energy": game.players[0].energy,
             "p2_energy": game.players[1].energy,
             "winner_name": winner["winner_name"],
@@ -634,22 +661,9 @@ def match_status():
     if not match:
         return flask.jsonify({"ok": False, "error": "no match"}), 404
     game = match["game"]
-    idx = match["turn_idx"]
-    deadline = match.get("turn_deadline", 0)
-    now = time.time()
-
-    # Auto-switch turn if deadline passed
-    if deadline > 0 and now >= deadline and game.winner_index() is None:
-        match["turn_idx"] = 1 - idx
-        match["turn_deadline"] = now + TURN_TIMEOUT
-        idx = match["turn_idx"]
-        _bump_epoch()
-
-    p1 = match["p1_name"]
-    p2 = match["p2_name"]
-    turn_name = p1 if idx == 0 else p2
+    my_idx = _player_idx_for_match(match)
+    idx = my_idx if my_idx >= 0 else 0
     winner = _winner_payload(game)
-    time_remaining = max(0, int(deadline - now))
 
     # Check for disconnection
     disconnected = _check_match_disconnect(match)
@@ -663,15 +677,13 @@ def match_status():
     return flask.jsonify({
         "ok": True,
         "turn_idx": idx,
-        "turn_name": turn_name,
-        "time_remaining": time_remaining,
+        "p1_energy": game.players[0].energy,
+        "p2_energy": game.players[1].energy,
         "disconnected": disconnected_name,
         "winner": winner["winner"],
         "winner_name": winner["winner_name"],
-        "p1_energy": game.players[0].energy,
-        "p2_energy": game.players[1].energy,
         "epoch": _current_epoch(),
-        "your_turn": False,  # client determines this
+        "your_turn": True,  # both players always act simultaneously
     })
 
 
@@ -690,8 +702,6 @@ def rematch():
     if p2_rgb:
         game.players[game_state.PLAYER_2].color = p2_rgb
     match["game"] = game
-    match["turn_idx"] = game_state.PLAYER_1
-    match["turn_deadline"] = time.time() + TURN_TIMEOUT
     app.config["TURN_PLACED"] = {}
     _reset_fib_progression()
     _bump_epoch()
@@ -711,16 +721,24 @@ def get_game_state():
     """Return the current game board as HTML."""
     match = _get_match()
     if match:
-        return match["game"].board_to_html(current_player_index=match["turn_idx"])
+        my_idx = _player_idx_for_match(match)
+        return match["game"].board_to_html(current_player_index=my_idx if my_idx >= 0 else 0)
     return _get_game().board_to_html(current_player_index=0)
 
 
 @app.route("/end_turn", methods=["POST"])
 def end_turn():
+    """Advance the board one step (or one Fibonacci burst step).
+
+    With simultaneous turns, this is a shared action: either player
+    (or a spectator) can trigger it. It just calls ``game.update()``
+    and bumps the epoch so all clients refresh.
+    """
     match = _get_match()
     if match:
         game = match["game"]
-        idx = match["turn_idx"]
+        my_idx = _player_idx_for_match(match)
+        idx = my_idx if my_idx >= 0 else 0
         before = _board_visual_snapshot(game, idx) if flask.request.args.get("json") == "1" else None
 
         if game.winner_index() is not None:
@@ -740,11 +758,11 @@ def end_turn():
             remaining = 0
             app.config["FIB_REMAINING"] = 0
 
-        # Switch turn
+        # No turn switch — both players act simultaneously. Just bump
+        # the epoch so all clients refresh and log the step.
         game.turn_count += 1
-        match["turn_idx"] = 1 - idx
-        match["turn_deadline"] = time.time() + TURN_TIMEOUT
         _bump_epoch()
+        _touch_match(match)
 
         # Log for replay
         mid = flask.session.get("match_id")
@@ -766,7 +784,8 @@ def step():
     match = _get_match()
     if match:
         game = match["game"]
-        idx = match["turn_idx"]
+        my_idx = _player_idx_for_match(match)
+        idx = my_idx if my_idx >= 0 else 0
         before = _board_visual_snapshot(game, idx) if flask.request.args.get("json") == "1" else None
 
         if game.winner_index() is not None:
@@ -784,6 +803,7 @@ def step():
         if game.winner_index() is not None:
             next_remaining = 0
             app.config["FIB_REMAINING"] = 0
+        _touch_match(match)
 
         if before:
             return _board_patch_json(game, idx, before, next_remaining)
@@ -802,18 +822,20 @@ def update_cell():
     match = _get_match()
     if match:
         game = match["game"]
-        pid = flask.session.get("_pid")
-        idx = match["turn_idx"]
-        player_obj = game.players[idx]
-
-        # Verify it's this player's turn
-        my_idx = 0 if match["p1_pid"] == pid else (1 if match["p2_pid"] == pid else -1)
-        if my_idx != idx:
-            return flask.jsonify({"ok": False, "error": "not your turn"}), 403
+        # /update_cell accepts a per-tab pid from the request body so
+        # that two tabs sharing a session can act independently. Falls
+        # back to the session _pid if not provided.
+        update_data = flask.request.get_json(silent=True) or {}
+        my_idx = _player_idx_for_match(match, update_data.get("pid"))
+        if my_idx < 0:
+            return flask.jsonify({"ok": False, "error": "not in match"}), 403
+        idx = my_idx
+        player_obj = game.players[my_idx]
 
         if game.winner_index() is None:
             cell = game.board[x][y]
             cost = game.energy_cost_for_player(x, y, player_obj)
+            touched = False
             if game.can_toggle_for_player(x, y, player_obj):
                 if cell.owner is None:
                     if player_obj.energy >= cost:
@@ -831,6 +853,8 @@ def update_cell():
             if key not in placed:
                 placed[key] = {"prev_alive": cell.alive, "cost": cost}
                 app.config["TURN_PLACED"] = placed
+            if touched:
+                _touch_match(match)
 
             # Log the move for replay
             mid = flask.session.get("match_id")
@@ -857,13 +881,16 @@ def undo_cell():
     match = _get_match()
     if match:
         game = match["game"]
-        idx = match["turn_idx"]
+        my_idx = _player_idx_for_match(match)
+        if my_idx < 0:
+            return flask.jsonify({"ok": False, "error": "not in match"}), 403
+        idx = my_idx
         placed = app.config.get("TURN_PLACED", {})
         key = (x, y)
         if key in placed:
             entry = placed[key]
             cell = game.board[x][y]
-            player_obj = game.players[idx]
+            player_obj = game.players[my_idx]
             player_obj.energy += entry["cost"]
             cell.alive = entry["prev_alive"]
             if entry["prev_alive"] is False and cell.owner is not None:
@@ -888,7 +915,6 @@ def reset():
         if p2_rgb:
             game.players[game_state.PLAYER_2].color = p2_rgb
         match["game"] = game
-        match["turn_idx"] = game_state.PLAYER_1
         app.config["TURN_PLACED"] = {}
         _reset_fib_progression()
         return game.board_to_html(current_player_index=0)

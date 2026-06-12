@@ -71,7 +71,7 @@
         </div>
         <div class="color-row">
           <label for="color-picker">Color</label>
-          <input type="color" id="color-picker" value="#ff0000">
+          <input type="color" id="color-picker">
         </div>
       </div>
 
@@ -122,6 +122,21 @@
         var saved = localStorage.getItem('conway-war-username');
         if (saved) document.getElementById('username-input').value = saved;
       } catch(e) {}
+
+      // Pick a random initial color so two players opening the lobby in
+      // quick succession don't both end up with the same default.
+      // The palette is chosen for visual contrast (no two entries are
+      // trivially similar at a glance).
+      var COLOR_PALETTE = [
+        '#ff3344', '#3366ff', '#22aa66', '#ff8800',
+        '#aa44cc', '#00bbcc', '#ffcc00', '#ff66aa',
+      ];
+      (function pickRandomColor() {
+        var picker = document.getElementById('color-picker');
+        if (!picker) return;
+        var idx = Math.floor(Math.random() * COLOR_PALETTE.length);
+        picker.value = COLOR_PALETTE[idx];
+      })();
 
       function setStatus(text, cls) {
         var area = document.getElementById('status-area');
