@@ -1,0 +1,3 @@
+# Temp files created by smoke tests
+*.py
+__pycache__/
