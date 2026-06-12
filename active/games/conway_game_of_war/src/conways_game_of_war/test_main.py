@@ -1,5 +1,7 @@
 """Flask route tests for match-based game."""
 
+import time
+
 from conways_game_of_war import game_state, main
 
 
@@ -237,6 +239,35 @@ class TestClientGameState:
             del session["match_id"]
         response = self.client.get("/match_status")
         assert response.status_code == 404
+
+    def test_match_status_with_match_does_not_500(self):
+        """Regression: ``_check_match_disconnect`` was orphaned (its body
+        sat as dead code inside ``active_matches``) so calling
+        ``/match_status`` with an active match raised NameError → 500.
+        """
+        main.LAST_HEARTBEAT.clear()
+        match = main.ACTIVE_MATCHES["test-match-1"]
+        match["p1_pid"] = "p1-with-fresh-heartbeat"
+        match["p2_pid"] = "p2-with-no-heartbeat"
+        main.LAST_HEARTBEAT["p1-with-fresh-heartbeat"] = time.time()
+
+        response = self.client.get("/match_status")
+
+        assert response.status_code == 200
+        body = response.get_json()
+        assert body["ok"] is True
+        # p2 never sent a heartbeat, so they are not considered disconnected
+        assert body["disconnected"] is None
+
+    def test_check_match_disconnect_flags_stale_heartbeat(self):
+        """Player with a heartbeat older than HEARTBEAT_TIMEOUT is reported."""
+        match = main.ACTIVE_MATCHES["test-match-1"]
+        match["p1_pid"] = "fresh-pid"
+        match["p2_pid"] = "stale-pid"
+        main.LAST_HEARTBEAT["fresh-pid"] = time.time()
+        main.LAST_HEARTBEAT["stale-pid"] = time.time() - (main.HEARTBEAT_TIMEOUT + 5)
+
+        assert main._check_match_disconnect(match) == "stale-pid"
 
     def test_index_redirects_to_lobby_without_match(self):
         with self.client.session_transaction() as session:

@@ -583,7 +583,16 @@ def active_matches():
             "winner_name": winner["winner_name"],
         })
     return flask.jsonify(matches)
-    """Check if either player in a match has disconnected. Returns the pid of the disconnected player, or None."""
+
+
+def _check_match_disconnect(match: dict) -> Optional[str]:
+    """Return the pid of a disconnected player in ``match``, or None.
+
+    A player is considered disconnected if their last heartbeat is older
+    than ``HEARTBEAT_TIMEOUT`` seconds. Players who have never sent a
+    heartbeat (``LAST_HEARTBEAT.get(pid) is None``) are not considered
+    disconnected.
+    """
     now = time.time()
     for key in ("p1_pid", "p2_pid"):
         pid = match[key]
