@@ -18,7 +18,7 @@ The `complete` tool now has a single required field: `futureWork: string[]`.
 
 | `futureWork` | Behavior |
 |---|---|
-| `["Refactor auth", "Add tests"]` | Each item queued as a `followUp` user message. Agent continues working. |
+| `["Refactor auth", "Add tests"]` | Extension queues a `followUp` **custom message** during the `complete` tool call. Pi converts it to a user-role message for the next cycle before the run goes idle. |
 | `[]` | Task marked complete. Run terminates (`terminate: true`). |
 
 Optional `summary` field lets the agent log what was accomplished.
@@ -36,6 +36,45 @@ If the agent stops without calling `complete`, the extension nudges it to keep g
 After `maxNudges` (default 2) nudges within one user message, reminders stop.
 Each new user message resets the counter.
 
+## Debugging
+
+The extension writes a detailed execution log to `/tmp/pi-ext/autopilot-complete.log`.
+Each log line includes an ISO timestamp and the event name:
+
+```
+[00:48:10] refreshAutopilotState → autopilot: true tdd: false super: true
+[00:48:11] complete execute: futureWork has 2 items: ["Add feature X", "Write tests"] super: true
+[00:48:11] complete execute: queued follow-up message via sendMessage(deliverAs=followUp)
+[00:48:11] complete execute: incremented super iteration to 1
+[00:48:16] agent_end: futureWork empty — stopping super loop
+```
+
+### Why the old design failed
+
+The earlier implementation tried to wait until `agent_end` and then call
+`pi.sendMessage(..., { triggerTurn: true })`.
+
+That sounds right, but Pi core keeps the run in its awaited lifecycle until
+`agent_end` listeners settle. During that window the session is not yet truly
+idle, so `triggerTurn` does not behave like an immediate fresh user turn.
+That caused super autopilot to look like it was waiting for user input.
+
+The reliable pattern is:
+
+1. queue the next-cycle prompt **inside the `complete` tool execution**
+2. use `sendMessage(..., { deliverAs: "followUp" })` while the agent is still streaming
+3. return `terminate: true` so the current cycle ends cleanly
+4. let Pi's built-in follow-up queue start the next cycle before the run goes idle
+
+Watch the log live while testing:
+
+```bash
+tail -f /tmp/pi-ext/autopilot-complete.log
+```
+
+The log covers every decision point: state refreshes, system prompt modifications,
+tool executions, agent_end branching, and command handlers.
+
 ## Slash commands
 
 ### `/autopilot [on|off|toggle|status]`
@@ -47,13 +86,14 @@ Automatically suppresses when TDD mode is active.
 
 Super autopilot automates the "what's next? → implement → repeat" workflow:
 
-1. **Agent completes a task** and calls `complete({ futureWork: ["next task", ...] })`
-2. **Extension auto-triggers** the next cycle with a "What's next?" prompt
-3. **Agent proposes and implements** the next highest-value task
-4. **Cycle repeats** until the agent calls `complete({ futureWork: [] })`
+1. **Agent completes a cycle** and calls `complete({ futureWork: ["next task", ...] })`
+2. **Complete tool queues** a `followUp` `=== NEXT TASK ===` message from inside tool execution
+3. **Pi consumes that follow-up automatically** before the run goes idle or asks the user for input
+4. **Agent implements the next task** and calls `complete(...)` again
+5. **Cycle repeats** until the agent calls `complete({ futureWork: [] })`
 
 In super autopilot mode:
-- Non-empty futureWork → extension sends "what's next?" and continues
+- Non-empty futureWork → extension queues the next cycle mechanically via Pi's follow-up queue
 - Empty futureWork → loop stops, task is complete
 
 Max 50 iterations per session to prevent runaway loops.

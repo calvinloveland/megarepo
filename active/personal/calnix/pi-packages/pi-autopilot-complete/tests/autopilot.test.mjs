@@ -227,7 +227,7 @@ async function resetState() {
 
 // ── Complete tool behavior ──
 
-test("complete tool: non-empty futureWork queues messages and does not terminate", async () => {
+test("complete tool: non-empty futureWork returns NEXT TASK prompt without terminating", async () => {
 	await resetState();
 	const tool = pi._getTool("complete");
 	assert.ok(tool, "complete tool should be registered");
@@ -241,17 +241,10 @@ test("complete tool: non-empty futureWork queues messages and does not terminate
 		createMockCtx(),
 	);
 
-	// Should have queued 3 follow-up messages
-	assert.equal(sentUserMessages.length, 3);
-	assert.equal(sentUserMessages[0].content, "Fix bug");
-	assert.equal(sentUserMessages[1].content, "Add test");
-	assert.equal(sentUserMessages[2].content, "Deploy");
-	assert.equal(sentUserMessages[0].options?.deliverAs, "followUp");
-
-	// Should NOT terminate
-	assert.equal(result.terminate, undefined);
-	assert.ok(result.content[0].text.includes("Continuing"));
 	assert.deepEqual(result.details.futureWork, ["Fix bug", "Add test", "Deploy"]);
+	assert.ok(result.content[0].text.includes("NEXT TASK"), "should include NEXT TASK block");
+	assert.ok(result.content[0].text.includes("Fix bug"), "should include work items");
+	assert.equal(result.terminate, undefined, "non-empty should NOT terminate");
 });
 
 test("complete tool: empty futureWork terminates with done", async () => {
@@ -518,6 +511,35 @@ test("nudge: counter resets on user input, not on nudge-triggered turns", async 
 	assert.equal(sentMessages.length, 1, "nudge available again after user input");
 });
 
+test("turn_start resets complete state for queued follow-up cycles", async () => {
+	await resetState();
+	const tool = pi._getTool("complete");
+
+	await pi._triggerEvent(
+		"before_agent_start",
+		{ type: "before_agent_start", prompt: "test", systemPrompt: "base", systemPromptOptions: {} },
+		createMockCtx(),
+	);
+
+	await tool.execute(
+		"call_fw",
+		{ futureWork: ["Continue work"] },
+		undefined,
+		undefined,
+		createMockCtx(),
+	);
+
+	// Simulate the auto-queued follow-up turn starting. If per-turn state were still
+	// reset only in before_agent_start, agent_end would incorrectly think complete()
+	// had already been called for this follow-up cycle and suppress the nudge.
+	await pi._triggerEvent("turn_start", { type: "turn_start", turnIndex: 1, timestamp: Date.now() }, createMockCtx());
+
+	sentMessages.length = 0;
+	await pi._triggerEvent("agent_end", { type: "agent_end", messages: [] }, createMockCtx());
+	assert.equal(sentMessages.length, 1, "follow-up cycle should still be nudged if it stops without complete");
+	assert.equal(sentMessages[0].message.customType, "autopilot-reminder");
+});
+
 // ── /autopilot command ──
 
 test("/autopilot command: status shows ON by default", async () => {
@@ -632,7 +654,7 @@ test("/superautopilot command: error on unknown action", async () => {
 
 // ── Super autopilot loop ──
 
-test("super autopilot: non-empty futureWork triggers 'what's next?' in agent_end", async () => {
+test("super autopilot: non-empty futureWork returns NEXT TASK prompt", async () => {
 	await resetState();
 	const sc = pi._getCommand("superautopilot");
 	const tool = pi._getTool("complete");
@@ -645,8 +667,7 @@ test("super autopilot: non-empty futureWork triggers 'what's next?' in agent_end
 		createMockCtx(),
 	);
 
-	// Call complete with non-empty futureWork
-	await tool.execute(
+	const result = await tool.execute(
 		"call_1",
 		{ futureWork: ["Refactor module", "Add tests"] },
 		undefined,
@@ -654,12 +675,15 @@ test("super autopilot: non-empty futureWork triggers 'what's next?' in agent_end
 		createMockCtx(),
 	);
 
+	assert.equal(result.terminate, undefined, "non-empty futureWork should NOT terminate");
+	assert.ok(result.content[0].text.includes("NEXT TASK"), "tool output should contain task list");
+	assert.ok(result.content[0].text.includes("Refactor module"), "tool output should include items");
+	assert.equal(sentMessages.length, 0, "should NOT queue follow-up (same-turn approach)");
+
+	// agent_end should not add extra nudges when complete was called
 	sentMessages.length = 0;
 	await pi._triggerEvent("agent_end", { type: "agent_end", messages: [] }, createMockCtx());
-
-	assert.ok(sentMessages.length > 0, "should send message after non-empty futureWork");
-	assert.ok(sentMessages[0].message.content.includes("What's next?"), 'should ask "What\'s next?"');
-	assert.equal(sentMessages[0].options?.triggerTurn, true, "should trigger new turn");
+	assert.equal(sentMessages.length, 0, "agent_end should not send extra messages");
 });
 
 test("super autopilot: empty futureWork stops the loop", async () => {
@@ -709,8 +733,45 @@ test("super autopilot: system prompt includes loop instructions", async () => {
 
 	const sp = results[0]?.systemPrompt || "";
 	assert.ok(sp.includes("SUPER AUTOPILOT MODE"), "should include header");
-	assert.ok(sp.includes("NEVER call complete"), "should include NEVER warning");
+	assert.ok(sp.includes("NEXT TASK"), "should mention NEXT TASK block");
 	assert.ok(sp.includes("Original prompt."), "should include original");
+	assert.ok(!sp.includes("required final action for the current cycle"), "should not include regular autopilot wording in super mode");
+});
+
+test("super autopilot: stops queueing follow-ups at the 50-iteration safety limit", async () => {
+	await resetState();
+	const sc = pi._getCommand("superautopilot");
+	const tool = pi._getTool("complete");
+
+	await sc.handler("on", createMockCtx());
+	await pi._triggerEvent(
+		"before_agent_start",
+		{ type: "before_agent_start", prompt: "seed", systemPrompt: "", systemPromptOptions: {} },
+		createMockCtx(),
+	);
+
+	for (let i = 0; i < 50; i++) {
+		const result = await tool.execute(
+			`call_${i}`,
+			{ futureWork: [`Task ${i + 1}`] },
+			undefined,
+			undefined,
+			createMockCtx(),
+		);
+		assert.equal(result.terminate, undefined, `iteration ${i + 1} should NOT terminate (same-turn)`);
+		assert.equal(result.details.limitReached, undefined);
+		await pi._triggerEvent("turn_start", { type: "turn_start", turnIndex: i + 1, timestamp: Date.now() }, createMockCtx());
+	}
+
+	const capped = await tool.execute(
+		"call_limit",
+		{ futureWork: ["Task 51"] },
+		undefined,
+		undefined,
+		createMockCtx(),
+	);
+	assert.equal(capped.terminate, true, "limit-reached result should terminate");
+	assert.equal(capped.details.limitReached, true, "should flag safety limit in details");
 });
 
 // ── /max-nudges command ──
@@ -761,7 +822,7 @@ test("complete tool: multiple items all queued correctly", async () => {
 	const items = Array.from({ length: 20 }, (_, i) => `Task ${i + 1}`);
 
 	sentUserMessages.length = 0;
-	await tool.execute(
+	const result = await tool.execute(
 		"call_big",
 		{ futureWork: items },
 		undefined,
@@ -769,17 +830,18 @@ test("complete tool: multiple items all queued correctly", async () => {
 		createMockCtx(),
 	);
 
-	assert.equal(sentUserMessages.length, 20);
-	assert.equal(sentUserMessages[0].content, "Task 1");
-	assert.equal(sentUserMessages[19].content, "Task 20");
+	// All items should be in details.futureWork
+	assert.equal(result.details.futureWork.length, 20);
+	assert.equal(result.details.futureWork[0], "Task 1");
+	assert.equal(result.details.futureWork[19], "Task 20");
+	assert.equal(result.terminate, undefined, "non-empty should NOT terminate (same-turn)");
 });
 
 test("complete tool: single-item futureWork", async () => {
 	await resetState();
 	const tool = pi._getTool("complete");
 
-	sentUserMessages.length = 0;
-	await tool.execute(
+	const result = await tool.execute(
 		"call_single",
 		{ futureWork: ["Just one"] },
 		undefined,
@@ -787,8 +849,9 @@ test("complete tool: single-item futureWork", async () => {
 		createMockCtx(),
 	);
 
-	assert.equal(sentUserMessages.length, 1);
-	assert.equal(sentUserMessages[0].content, "Just one");
+	assert.equal(result.details.futureWork.length, 1);
+	assert.equal(result.details.futureWork[0], "Just one");
+	assert.equal(result.terminate, undefined, "non-empty should NOT terminate (same-turn)");
 });
 
 test("session_start: resets all per-session state", async () => {

@@ -3,12 +3,13 @@
  *
  * The agent provides `futureWork: string[]` — a list of remaining tasks.
  *
- * - Non-empty → each item is queued as a follow-up user message; agent keeps working.
+ * - Non-empty → the extension queues the next cycle mechanically via Pi's
+ *   follow-up queue; agent keeps working.
  * - Empty ([]) → the task is truly complete.
  *
  * Super autopilot mode automates the "what's next? → implement → repeat" loop:
- * - After each non-empty futureWork, the extension automatically sends a
- *   "what's next?" prompt and the agent proposes + implements the next task.
+ * - After each non-empty futureWork, the extension queues a follow-up
+ *   `=== NEXT TASK ===` message from inside the complete tool.
  * - Cycle repeats until the agent calls `complete({ futureWork: [] })`.
  * - Max 50 super-autopilot iterations to prevent runaway loops.
  *
@@ -20,6 +21,12 @@
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
+import { createLogger } from "../../shared-utils/logger.mjs";
+
+// ── Extension constants and logging ──
+const EXTENSION_VERSION = "0.4.0";
+const log = createLogger("autopilot-complete");
+log("=== Extension loaded v" + EXTENSION_VERSION + " ===");
 
 // ── Helper state (inlined from autopilot-mode-state.mjs to avoid broken
 //    relative imports when the extension is loaded through a symlink) ──
@@ -62,6 +69,7 @@ let autopilotNudges = 0;
 let superAutopilotEnabled = false;
 let lastFutureWork: string[] | null = null;
 let superAutopilotIterations = 0;
+let superAutopilotLimitReached = false;
 
 function getSuperAutopilotEnabled(entries: any[] = []): boolean {
 	return latestEnabled(entries, SUPER_AUTOPILOT_STATE_TYPE, false);
@@ -72,6 +80,7 @@ function refreshAutopilotState(ctx: { sessionManager: { getEntries: () => any[] 
 	autopilotSuppressedByTdd = isTddModeEnabled(entries);
 	autopilotEnabled = getAutopilotEnabled(entries);
 	superAutopilotEnabled = getSuperAutopilotEnabled(entries);
+	log("refreshAutopilotState → autopilot:", autopilotEnabled, "tdd:", autopilotSuppressedByTdd, "super:", superAutopilotEnabled);
 
 	// Read persisted max-nudges value
 	maxNudges = MAX_NUDGES_DEFAULT;
@@ -106,6 +115,7 @@ function setAutopilotStatus(ctx: { hasUI: boolean; ui: { setStatus: (key: string
 
 export default function (pi: ExtensionAPI) {
 	pi.on("session_start", async (_event, ctx) => {
+		log("=== session_start ===");
 		autopilotEnabled = true;
 		autopilotSuppressedByTdd = false;
 		completedWithFutureWork = false;
@@ -113,6 +123,7 @@ export default function (pi: ExtensionAPI) {
 		superAutopilotEnabled = false;
 		lastFutureWork = null;
 		superAutopilotIterations = 0;
+		superAutopilotLimitReached = false;
 
 		refreshAutopilotState(ctx);
 		setAutopilotStatus(ctx);
@@ -123,9 +134,20 @@ export default function (pi: ExtensionAPI) {
 		autopilotNudges = 0;
 	});
 
-	pi.on("before_agent_start", async (event, ctx) => {
+	// Reset per-turn completion tracking here, not in before_agent_start.
+	// Auto-follow-up turns queued from the complete tool do NOT pass through
+	// before_agent_start, but they do emit turn_start.
+	// We preserve lastFutureWork so agent_end can still detect empty futureWork
+	// and send the completion notification. Only completedWithFutureWork is reset
+	// so the nudge can fire if the agent stops without calling complete in this turn.
+	pi.on("turn_start", async (_event, _ctx) => {
 		completedWithFutureWork = false;
-		lastFutureWork = null;
+		superAutopilotLimitReached = false;
+		log("=== turn_start === reset per-turn complete state (preserved lastFutureWork)");
+	});
+
+	pi.on("before_agent_start", async (event, ctx) => {
+		log("=== before_agent_start ===", "super:", superAutopilotEnabled, "autopilot:", autopilotEnabled, "iter:", superAutopilotIterations);
 		// autopilotNudges intentionally NOT reset here — reset only in
 		// session_start and input event, so nudge-triggered turns don't
 		// defeat the limit.
@@ -134,31 +156,31 @@ export default function (pi: ExtensionAPI) {
 
 		let extraPrompt = "";
 
-		if (autopilotEnabled) {
-			extraPrompt += `\n\nAutopilot mode is active. Keep working until you can call the \`complete\` tool. Do not end with a normal assistant response when you can still inspect files, run commands, edit code, or verify results. If you are blocked or need user input, still call \`complete\` with futureWork: [] and explain what is blocking you in the summary. The \`complete\` tool is your required final action for this task.`;
+		if (autopilotEnabled && !superAutopilotEnabled) {
+			extraPrompt += `\n\nAutopilot mode is active. Keep working until you can call the \`complete\` tool. Do not end with a normal assistant response when you can still inspect files, run commands, edit code, or verify results. If you are blocked or need user input, still call \`complete\` with futureWork: [] and explain what is blocking you in the summary. The \`complete\` tool is your required final action for the current cycle. If \`futureWork\` is non-empty, the extension automatically queues the next turn for you.`;
+			log("before_agent_start: added autopilot prompt");
 		}
 
 		if (superAutopilotEnabled) {
+			log("before_agent_start: adding super autopilot prompt");
 			extraPrompt += `
 
 SUPER AUTOPILOT MODE IS ACTIVE (iteration ${superAutopilotIterations + 1}/${MAX_SUPER_AUTOPILOT_ITERATIONS}).
 
-You are operating in a continuous improvement loop. Each cycle works like this:
-1. **What's next?** Assess the current project state and identify the single next most valuable task.
-2. **Implement** that task fully — code, tests, and any needed documentation.
-3. **Call complete** with \`futureWork\` listing the next tasks when done — this triggers the next iteration.
+You are operating in a continuous improvement loop. Each cycle:
+1. Implement the current task fully — code, tests, docs.
+2. Call \`complete({ futureWork: ["<next task>", ...] })\` when that cycle is done.
+3. The extension automatically queues a follow-up \`=== NEXT TASK ===\` message when \`futureWork\` is non-empty.
+4. Continue immediately with the first task in that queued block.
 
-Rules:
-- After each feature, call \`complete({ futureWork: ["<next task>", ...] })\` to keep the loop going.
-- **NEVER call complete with futureWork [].** There is always more to do. Instead of deciding the project is "done", brainstorm what else could be improved, added, refactored, or documented. If you truly cannot think of a single thing, still call \`complete\` with futureWork listing what you considered — the user will decide when to stop.
-- If you are blocked or need user input, call \`complete({ futureWork: [] })\` to stop the loop and explain what you need in the summary.
-- Each cycle: propose what you'll do (1-2 sentences), then implement it, then call complete with the next futureWork items.
-- Before calling complete with [], pause and ask yourself: "Can I think of even one more thing to do?" If yes, do it and call complete with that item.`;
+**CRITICAL: Treat every queued \`=== NEXT TASK ===\` block as a direct instruction. Work on the first item, then find the next most valuable work and put it in \`futureWork\`. Do not stop, do not summarize to the user, and do not wait for user input unless you are actually blocked. Only call complete with futureWork: [] when you truly need to stop.**`;
 		}
 
 		if (extraPrompt) {
+			log("before_agent_start: returning enhanced system prompt (+" + extraPrompt.length + " chars)");
 			return { systemPrompt: event.systemPrompt + extraPrompt };
 		}
+		log("before_agent_start: no extra prompt added");
 	});
 
 	pi.registerTool({
@@ -167,7 +189,7 @@ Rules:
 		description: `Signal task completion with a list of remaining work items.
 
 REQUIRED: \`futureWork\` — array of remaining task descriptions.
-- Non-empty → items are queued as follow-up tasks; agent keeps working.
+- Non-empty → extension queues the next cycle automatically.
 - Empty ([]) → the task is complete. Use summary to explain why (e.g., blocked, needs input, all done).`,
 		promptSnippet: "Signal task completion — futureWork items continue, empty array signals done",
 		promptGuidelines: [
@@ -190,7 +212,7 @@ REQUIRED: \`futureWork\` — array of remaining task descriptions.
 			),
 		}),
 
-		execute(_toolCallId, params) {
+		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
 			const { futureWork, summary } = params;
 			const hasWork = futureWork.length > 0;
 
@@ -198,35 +220,63 @@ REQUIRED: \`futureWork\` — array of remaining task descriptions.
 			lastFutureWork = futureWork;
 			completedWithFutureWork = true;
 
-			if (hasWork) {
-				// Queue each work item as a follow-up user message
-				for (const item of futureWork) {
-					pi.sendUserMessage(item, { deliverAs: "followUp" });
-				}
+			log("complete execute: futureWork has", futureWork.length, "items:", futureWork, "super:", superAutopilotEnabled);
 
-				return {
-					content: [
-						{
+			if (hasWork) {
+				const itemsText = futureWork.map((item: string, i: number) => `${i + 1}. ${item}`).join("\n");
+
+				// Safety limit: super autopilot hard stop
+				if (superAutopilotEnabled && superAutopilotIterations >= MAX_SUPER_AUTOPILOT_ITERATIONS) {
+					superAutopilotLimitReached = true;
+					log("complete execute: max super iterations reached");
+					return {
+						content: [{
 							type: "text",
 							text: summary
-								? `${summary}\n\n→ Continuing with ${futureWork.length} future work item(s).`
-								: `→ Continuing with ${futureWork.length} future work item(s).`,
-						},
-					],
+								? `${summary}\n\nReached the super autopilot safety limit (${MAX_SUPER_AUTOPILOT_ITERATIONS}).`
+								: `Reached the super autopilot safety limit (${MAX_SUPER_AUTOPILOT_ITERATIONS}).`,
+						}],
+						details: { futureWork, summary: summary ?? null, limitReached: true },
+						terminate: true,
+					};
+				}
+
+				if (superAutopilotEnabled) {
+					superAutopilotIterations += 1;
+					log("complete execute: incremented super iteration to", superAutopilotIterations);
+					if (ctx?.hasUI) {
+						ctx.ui.setStatus(
+							"autopilot",
+							`🚀 super autopilot ${superAutopilotIterations}/${MAX_SUPER_AUTOPILOT_ITERATIONS}`,
+						);
+					}
+				}
+
+				// Same-turn approach: include the task prompt in the tool output
+				// and DON'T terminate. The model sees the result and continues
+				// working in the same agent turn.
+				const promptText = superAutopilotEnabled
+					? `=== NEXT TASK ===\n${itemsText}\n\nProceed immediately. The turn continues — work on the first task, then call complete again with more futureWork.`
+					: `=== NEXT TASK ===\n${itemsText}`;
+
+				const contentText = summary
+					? `${summary}\n\n${promptText}`
+					: promptText;
+
+				return {
+					content: [{ type: "text", text: contentText }],
 					details: { futureWork, summary: summary ?? null },
+					// NOT terminating — agent continues in the same turn
 				};
 			}
 
 			// Empty futureWork — true completion
+			const doneText = summary
+				? `${summary}\n\n✓ No remaining work. Task complete.`
+				: "✓ No remaining work. Task complete.";
+
 			return {
-				content: [
-					{
-						type: "text",
-						text: summary
-							? `${summary}\n\n✓ No remaining work. Task complete.`
-							: "✓ No remaining work. Task complete.",
-					},
-				],
+				content: [{ type: "text", text: doneText }],
 				details: { futureWork: [], summary: summary ?? null },
 				terminate: true,
 			};
@@ -234,15 +284,34 @@ REQUIRED: \`futureWork\` — array of remaining task descriptions.
 	});
 
 	pi.on("agent_end", async (_event, ctx) => {
+		log(
+			"=== agent_end ===",
+			"super:", superAutopilotEnabled,
+			"completed:", completedWithFutureWork,
+			"lastFW:", lastFutureWork,
+			"isIdle:", ctx.isIdle?.(),
+			"hasPending:", ctx.hasPendingMessages?.(),
+		);
 		refreshAutopilotState(ctx);
+		log("agent_end: after refresh — super:", superAutopilotEnabled, "completed:", completedWithFutureWork, "lastFW:", lastFutureWork);
 
-		// ── Super autopilot continuation loop ──
+		// ── Super autopilot: final run bookkeeping ──
+		// Auto-follow-up turns happen inside a single agent run, so agent_end only
+		// fires once the queue is exhausted (or the run truly stops).
 		if (superAutopilotEnabled && completedWithFutureWork && lastFutureWork !== null) {
 			const fw = lastFutureWork;
-			lastFutureWork = null; // prevent re-triggering
+
+			if (superAutopilotLimitReached) {
+				log("agent_end: super autopilot stopped at safety limit");
+				if (ctx.hasUI) {
+					ctx.ui.notify(`Super autopilot reached the ${MAX_SUPER_AUTOPILOT_ITERATIONS}-iteration safety limit.`, "warning");
+					setAutopilotStatus(ctx);
+				}
+				return;
+			}
 
 			if (fw.length === 0) {
-				// Empty futureWork = done/blocked — stop the loop
+				log("agent_end: futureWork empty — stopping super loop");
 				superAutopilotIterations = 0;
 				if (ctx.hasUI) {
 					ctx.ui.notify("Super autopilot completed — task is done! ✅", "info");
@@ -251,47 +320,31 @@ REQUIRED: \`futureWork\` — array of remaining task descriptions.
 				return;
 			}
 
-			// Non-empty futureWork — continue the loop
-			if (superAutopilotIterations >= MAX_SUPER_AUTOPILOT_ITERATIONS) {
-				if (ctx.hasUI) {
-					ctx.ui.notify("Super autopilot reached max iterations.", "warning");
-				}
-				return;
-			}
-
-			superAutopilotIterations++;
-
-			if (ctx.hasUI) {
-				ctx.ui.setStatus(
-					"autopilot",
-					`🚀 super autopilot ${superAutopilotIterations}/${MAX_SUPER_AUTOPILOT_ITERATIONS}`,
-				);
-			}
-
-			pi.sendMessage(
-				{
-					customType: "super-autopilot-prompt",
-					content:
-						"What's next? Propose and implement the next highest value task. " +
-						"Assess the current project state, pick the most impactful next step, and implement it fully. " +
-						"When done, call complete with futureWork listing the next tasks. " +
-						"Remember: NEVER call complete with futureWork []. There is always another task, improvement, " +
-						"refactoring, test, or documentation update to tackle. If you think there's nothing " +
-						"left, brainstorm harder — you can always find something. The user will stop the " +
-						"loop when ready.",
-					display: true,
-				},
-				{ triggerTurn: true },
-			);
+			log("agent_end: super autopilot run ended with pending futureWork but no follow-up queued", fw);
 			return;
 		}
 
 		// ── Regular autopilot nudge (when agent didn't call complete) ──
-		if (!autopilotEnabled) return;
-		if (completedWithFutureWork) return;
-		if (autopilotNudges >= maxNudges) return;
+		// When super autopilot is active, use a much higher nudge limit so the
+		// loop keeps prodding the agent until it completes properly, rather than
+		// hitting the default maxNudges (2) and going silent.
+		const effectiveMaxNudges = superAutopilotEnabled ? MAX_SUPER_AUTOPILOT_ITERATIONS : maxNudges;
+		log("agent_end: regular nudge path — autopilot:", autopilotEnabled, "completed:", completedWithFutureWork, "nudges:", autopilotNudges, "max:", effectiveMaxNudges);
+		if (!autopilotEnabled) {
+			log("agent_end: autopilot disabled, returning");
+			return;
+		}
+		if (completedWithFutureWork) {
+			log("agent_end: complete was called, returning (no nudge)");
+			return;
+		}
+		if (autopilotNudges >= effectiveMaxNudges) {
+			log("agent_end: max nudges reached, returning");
+			return;
+		}
 
 		autopilotNudges += 1;
+		log("agent_end: sending nudge", autopilotNudges);
 		pi.sendMessage(
 			{
 				customType: "autopilot-reminder",
@@ -305,7 +358,7 @@ REQUIRED: \`futureWork\` — array of remaining task descriptions.
 		);
 
 		if (ctx.hasUI) {
-			ctx.ui.setStatus("autopilot", `🤖 autopilot nudge ${autopilotNudges}/${maxNudges}`);
+			ctx.ui.setStatus("autopilot", `🤖 autopilot nudge ${autopilotNudges}/${effectiveMaxNudges}`);
 		}
 	});
 
@@ -353,7 +406,7 @@ REQUIRED: \`futureWork\` — array of remaining task descriptions.
 					: autopilotEnabled
 						? "ON."
 						: "OFF.";
-				ctx.ui.notify(`Autopilot is ${status}`, "info");
+				ctx.ui.notify(`Autopilot is ${status} [ext v${EXTENSION_VERSION}]`, "info");
 				setAutopilotStatus(ctx);
 				return;
 			}
@@ -390,14 +443,15 @@ REQUIRED: \`futureWork\` — array of remaining task descriptions.
 			"Control super autopilot mode: on, off, toggle, status. Super autopilot automates the 'what's next? → implement → repeat' loop.",
 		handler: async (args, ctx) => {
 			const action = args.trim().toLowerCase();
+			log("=== superautopilot command ===", action);
 			refreshAutopilotState(ctx);
 
 			if (action === "" || action === "status") {
-				ctx.ui.notify(
-					`Super autopilot is ${superAutopilotEnabled ? "ON" : "OFF"}. ` +
-						`(${superAutopilotIterations}/${MAX_SUPER_AUTOPILOT_ITERATIONS} iterations used)`,
-					"info",
-				);
+				const msg = `Super autopilot is ${superAutopilotEnabled ? "ON" : "OFF"}. ` +
+					`(${superAutopilotIterations}/${MAX_SUPER_AUTOPILOT_ITERATIONS} iterations used) ` +
+					`[ext v${EXTENSION_VERSION}]`;
+				log("superautopilot status:", msg);
+				ctx.ui.notify(msg, "info");
 				setAutopilotStatus(ctx);
 				return;
 			}
@@ -415,23 +469,29 @@ REQUIRED: \`futureWork\` — array of remaining task descriptions.
 			}
 
 			if (nextEnabled) {
+				log("superautopilot: enabling, resetting iterations");
 				superAutopilotIterations = 0;
 				lastFutureWork = null;
+				superAutopilotLimitReached = false;
 
 				// Super autopilot implies regular autopilot is on
 				if (!autopilotEnabled && !autopilotSuppressedByTdd) {
 					autopilotEnabled = true;
 					pi.appendEntry(AUTOPILOT_STATE_TYPE, { enabled: true });
+					log("superautopilot: also enabled regular autopilot");
 				}
 
 				superAutopilotEnabled = true;
 				pi.appendEntry(SUPER_AUTOPILOT_STATE_TYPE, { enabled: true });
 				setAutopilotStatus(ctx);
 				ctx.ui.notify("Super autopilot enabled. Send a message to start the loop!", "success");
+				log("superautopilot: enabled successfully");
 			} else {
+				log("superautopilot: disabling");
 				superAutopilotEnabled = false;
 				superAutopilotIterations = 0;
 				lastFutureWork = null;
+				superAutopilotLimitReached = false;
 				pi.appendEntry(SUPER_AUTOPILOT_STATE_TYPE, { enabled: false });
 				setAutopilotStatus(ctx);
 				ctx.ui.notify("Super autopilot disabled.", "info");
