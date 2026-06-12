@@ -1,9 +1,25 @@
 # Markdown Orphan Finder
 
-This directory now uses the web documentation site as its canonical documentation.
+Find orphaned markdown files and isolated islands in a repository.
 
-Canonical docs live at:
-- https://calvinloveland.github.io/megarepo/projects/active/dev-tools/markdown-orphan-finder/
+## Quick Start
 
-Local source docs live in:
-- `docs/`
+```bash
+# Scan current directory for orphaned markdown files
+python find_orphans.py
+
+# Scan a specific repo
+python find_orphans.py /path/to/repo --show-links
+
+# Get machine-readable JSON output
+python find_orphans.py --json
+
+# Check version
+python find_orphans.py --version
+```
+
+## Full Documentation
+
+Canonical docs: https://calvinloveland.github.io/megarepo/projects/active/dev-tools/markdown-orphan-finder/
+
+Local source: `docs/index.md`

@@ -12,6 +12,8 @@ from pathlib import Path
 from typing import Dict, Set, List
 from collections import defaultdict, deque
 
+VERSION = "0.2.0"
+
 
 def find_markdown_files(root: Path, exclude_patterns: List[str]) -> List[Path]:
     """Find all markdown files in the repository."""
@@ -192,6 +194,11 @@ def main():
         help='Root directory to search (default: current directory)'
     )
     parser.add_argument(
+        '--version',
+        action='store_true',
+        help='Show version and exit'
+    )
+    parser.add_argument(
         '--exclude',
         action='append',
         default=[],
@@ -202,8 +209,17 @@ def main():
         action='store_true',
         help='Show what each orphan links to'
     )
+    parser.add_argument(
+        '--json',
+        action='store_true',
+        help='Output results as JSON (machine-readable)'
+    )
     
     args = parser.parse_args()
+    
+    if args.version:
+        print(f"markdown-orphan-finder v{VERSION}")
+        return 0
     
     root = Path(args.root).resolve()
     
@@ -211,19 +227,38 @@ def main():
         print(f"Error: {root} is not a directory")
         return 1
     
-    print(f"Scanning markdown files in: {root}\n")
-    
     # Find all markdown files
     md_files = find_markdown_files(root, args.exclude)
-    print(f"Found {len(md_files)} markdown files\n")
     
     # Build link graph
     graph = build_link_graph(md_files, root)
     incoming = find_incoming_links(graph)
     
-    # Find orphans
+    # Find orphans and islands
     orphans = find_orphans(md_files, incoming)
     orphans.sort()
+    
+    islands = find_islands(graph, incoming, md_files)
+    islands.sort(key=lambda x: len(x), reverse=True)
+    
+    if args.json:
+        import json
+        result = {
+            "root": str(root),
+            "total_files": len(md_files),
+            "orphan_count": len(orphans),
+            "orphans": [format_path(p, root) for p in orphans],
+            "island_count": len(islands),
+            "islands": [
+                [format_path(p, root) for p in sorted(island)]
+                for island in islands
+            ],
+        }
+        print(json.dumps(result, indent=2))
+        return 0
+    
+    print(f"Scanning markdown files in: {root}\n")
+    print(f"Found {len(md_files)} markdown files\n")
     
     print(f"=== ORPHANED FILES ({len(orphans)}) ===")
     print("These files are not linked to by any other markdown file:\n")
@@ -239,10 +274,6 @@ def main():
         print("  (none found)")
     
     print()
-    
-    # Find islands
-    islands = find_islands(graph, incoming, md_files)
-    islands.sort(key=lambda x: len(x), reverse=True)
     
     print(f"=== ISOLATED ISLANDS ({len(islands)}) ===")
     print("These groups of files only link to each other:\n")
