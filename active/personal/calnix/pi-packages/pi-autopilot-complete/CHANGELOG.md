@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.5.0 (2026-06-12)
+
+### Added
+- **Turn and item counts in final "task is done!" message**: The `complete` tool now
+  reports the number of super-autopilot iterations and the count of future work items
+  completed in its completion message (e.g. "Task complete after 4 super-autopilot
+  iteration(s), completing 12 future work item(s).")
+- **Notification in agent_end**: The UI notification when super autopilot finishes
+  now includes the same iteration and item counts for quick visibility
+- `superAutopilotItemsCompleted` tracking: Tracks the net decrease in futureWork
+  size between consecutive complete calls for accurate per-cycle accounting
+
+### Changed
+- Extension version bumped to `0.5.0`
+
 ## 0.4.0 (2026-06-12)
 
 ### Fixed

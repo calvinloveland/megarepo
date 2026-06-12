@@ -1,6 +1,6 @@
 {
   "name": "pi-autopilot-complete",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Pi extension that adds a complete tool and autopilot loop so the model keeps working until it explicitly completes",
   "keywords": [
     "pi-package",

@@ -24,7 +24,7 @@ import { Type } from "typebox";
 import { createLogger } from "../../shared-utils/logger.mjs";
 
 // ── Extension constants and logging ──
-const EXTENSION_VERSION = "0.4.0";
+const EXTENSION_VERSION = "0.5.0";
 const log = createLogger("autopilot-complete");
 log("=== Extension loaded v" + EXTENSION_VERSION + " ===");
 
@@ -69,6 +69,7 @@ let autopilotNudges = 0;
 let superAutopilotEnabled = false;
 let lastFutureWork: string[] | null = null;
 let superAutopilotIterations = 0;
+let superAutopilotItemsCompleted = 0;
 let superAutopilotLimitReached = false;
 
 function getSuperAutopilotEnabled(entries: any[] = []): boolean {
@@ -123,6 +124,7 @@ export default function (pi: ExtensionAPI) {
 		superAutopilotEnabled = false;
 		lastFutureWork = null;
 		superAutopilotIterations = 0;
+		superAutopilotItemsCompleted = 0;
 		superAutopilotLimitReached = false;
 
 		refreshAutopilotState(ctx);
@@ -216,6 +218,16 @@ REQUIRED: \`futureWork\` — array of remaining task descriptions.
 			const { futureWork, summary } = params;
 			const hasWork = futureWork.length > 0;
 
+			// Count items completed for super autopilot metrics:
+			// items addressed = previous futureWork.length - current futureWork.length
+			if (superAutopilotEnabled && lastFutureWork !== null) {
+				const addressed = lastFutureWork.length - futureWork.length;
+				if (addressed > 0) {
+					superAutopilotItemsCompleted += addressed;
+					log("complete execute: items completed this cycle", addressed, "total:", superAutopilotItemsCompleted);
+				}
+			}
+
 			// Track what the agent last called complete with
 			lastFutureWork = futureWork;
 			completedWithFutureWork = true;
@@ -272,8 +284,8 @@ REQUIRED: \`futureWork\` — array of remaining task descriptions.
 
 			// Empty futureWork — true completion
 			const doneText = summary
-				? `${summary}\n\n✓ No remaining work. Task complete.`
-				: "✓ No remaining work. Task complete.";
+				? `${summary}\n\n✓ Task complete after ${superAutopilotIterations} super-autopilot iteration(s), completing ${superAutopilotItemsCompleted} future work item(s).`
+				: `✓ Task complete after ${superAutopilotIterations} super-autopilot iteration(s), completing ${superAutopilotItemsCompleted} future work item(s).`;
 
 			return {
 				content: [{ type: "text", text: doneText }],
@@ -312,9 +324,12 @@ REQUIRED: \`futureWork\` — array of remaining task descriptions.
 
 			if (fw.length === 0) {
 				log("agent_end: futureWork empty — stopping super loop");
+				const finalIterations = superAutopilotIterations;
+				const finalItems = superAutopilotItemsCompleted;
 				superAutopilotIterations = 0;
+				superAutopilotItemsCompleted = 0;
 				if (ctx.hasUI) {
-					ctx.ui.notify("Super autopilot completed — task is done! ✅", "info");
+					ctx.ui.notify(`Super autopilot completed — task is done! ✅ (${finalIterations} iteration(s), ${finalItems} item(s) completed)`, "info");
 					setAutopilotStatus(ctx);
 				}
 				return;
@@ -471,6 +486,7 @@ REQUIRED: \`futureWork\` — array of remaining task descriptions.
 			if (nextEnabled) {
 				log("superautopilot: enabling, resetting iterations");
 				superAutopilotIterations = 0;
+				superAutopilotItemsCompleted = 0;
 				lastFutureWork = null;
 				superAutopilotLimitReached = false;
 
@@ -490,6 +506,7 @@ REQUIRED: \`futureWork\` — array of remaining task descriptions.
 				log("superautopilot: disabling");
 				superAutopilotEnabled = false;
 				superAutopilotIterations = 0;
+				superAutopilotItemsCompleted = 0;
 				lastFutureWork = null;
 				superAutopilotLimitReached = false;
 				pi.appendEntry(SUPER_AUTOPILOT_STATE_TYPE, { enabled: false });
