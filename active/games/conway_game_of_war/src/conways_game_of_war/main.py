@@ -143,6 +143,24 @@ def _load_match_history() -> list:
         return []
 
 
+@app.route("/stats")
+def get_stats():
+    """Return JSON with game statistics."""
+    game = _get_game()
+    if game is None:
+        return {"error": "No game in progress"}, 404
+    return game.get_stats()
+
+
+@app.route("/stats_html")
+def stats_html():
+    """Return rendered HTML for the stats panel."""
+    game = _get_game()
+    if game is None:
+        return "<div>No game</div>"
+    return _stats_html(game)
+
+
 @app.route("/rankings")
 def get_rankings():
     """Return all rankings as JSON."""
@@ -257,6 +275,41 @@ def _board_patch_json(game, current_player_index, before, fib_remaining):
     }
     payload.update(_winner_payload(game))
     return flask.jsonify(payload)
+
+
+def _stats_html(game) -> str:
+    """Render game stats as HTML for the stats panel."""
+    stats = game.get_stats()
+    lines = []
+    for ps in stats["players"]:
+        color = f"#{ps['color'][0]:02x}{ps['color'][1]:02x}{ps['color'][2]:02x}"
+        # Win probability estimate: territory share + energy bonus
+        total_territory = max(sum(p["territory"] for p in stats["players"]), 1)
+        win_prob = round(ps["territory"] / total_territory * 100)
+        lines.append(
+            f'<div style="margin:2px 0">'
+            f'<span style="color:{color}">⬤</span> '
+            f'<strong>{win_prob}%</strong> win · '
+            f'🏠{ps["territory"]} · '
+            f'⚡{ps["energy"]}'
+            f'</div>'
+        )
+    # Check for winner
+    winner_idx = game.winner_index()
+    if winner_idx is not None:
+        winner_name = "Player 1" if winner_idx == 0 else "Player 2"
+        wc = stats["players"][winner_idx]["color"]
+        wc_hex = f"#{wc[0]:02x}{wc[1]:02x}{wc[2]:02x}"
+        lines.append(f'<div style="margin-top:6px;padding:4px 8px;background:rgba(0,200,0,0.15);border:1px solid #2a2;border-radius:6px;text-align:center">'
+                     f'🏆 <span style="color:{wc_hex}"><strong>{winner_name} Wins!</strong></span> 🏆</div>')
+
+    b = stats["board"]
+    lines.append(f'<div style="margin-top:4px;border-top:1px solid #444;padding-top:4px">'
+                 f'Board: {b["size_x"]}×{b["size_y"]} · '
+                 f'🟢{b["alive_total"]} alive · '
+                 f'💀{b["dead_total"]} dead · '
+                 f'🔄 Turn {stats.get("turn_count", 0)}')
+    return "\n".join(lines)
 
 
 def _energy_html(game, p1_name="Player 1", p2_name="Player 2") -> str:
@@ -612,6 +665,7 @@ def end_turn():
             app.config["FIB_REMAINING"] = 0
 
         # Switch turn
+        game.turn_count += 1
         match["turn_idx"] = 1 - idx
         match["turn_deadline"] = time.time() + TURN_TIMEOUT
         _bump_epoch()

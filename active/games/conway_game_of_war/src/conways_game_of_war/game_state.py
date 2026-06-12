@@ -220,10 +220,15 @@ class GameState:
             self.board_size_y = len(self.board)
             self.board_size_x = len(self.board[0])
             self.init_players()
+        # NOTE: board_size_x is used as the row index limit throughout the codebase,
+        # and board_size_y as the column index limit, matching the old swapped
+        # assignment that happened to align with board[x][y] access patterns.
+        # The names are misleading but the convention is consistent.
         self.board_size_x = len(self.board)
-        logger.debug(f"Board size x: {self.board_size_x}")
+        logger.debug(f"Board size x (rows): {self.board_size_x}")
         self.board_size_y = len(self.board[0])
-        logger.debug(f"Board size y: {self.board_size_y}")
+        logger.debug(f"Board size y (cols): {self.board_size_y}")
+        self.turn_count = 0
         # ensure that the board is a rectangle
         for row in self.board:
             assert len(row) == self.board_size_y
@@ -527,6 +532,53 @@ class GameState:
     def _apply_changes(self, changes: list[dict]) -> None:
         for change in changes:
             self._apply_change(change)
+
+    def get_stats(self) -> dict:
+        """Return comprehensive game statistics."""
+        alive_total = 0
+        dead_total = 0
+        immortal_total = 0
+        player_stats = []
+
+        for i, player in enumerate(self.players):
+            owned = self.count_owned_cells(player)
+            alive = self.count_owned_cells(player, alive_only=True)
+            non_immortal = self.count_owned_cells(player, include_immortal=False)
+            immortal_count = owned - non_immortal
+            frontier = len(self.collect_frontier_cells(player))
+
+            player_stats.append({
+                "index": i,
+                "color": player.color,
+                "territory": owned,
+                "alive_cells": alive,
+                "immortal_cells": immortal_count,
+                "energy": round(player.energy, 1),
+                "frontier_cells": frontier,
+                "eliminated": non_immortal == 0,
+            })
+
+        for row in self.board:
+            for cell in row:
+                if cell.alive:
+                    alive_total += 1
+                else:
+                    dead_total += 1
+                if cell.immortal:
+                    immortal_total += 1
+
+        return {
+            "players": player_stats,
+            "board": {
+                "size_x": self.board_size_x,
+                "size_y": self.board_size_y,
+                "alive_total": alive_total,
+                "dead_total": dead_total,
+                "immortal_total": immortal_total,
+                "total_cells": self.board_size_x * self.board_size_y,
+            },
+            "turn_count": self.turn_count,
+        }
 
     def count_owned_cells(
         self,

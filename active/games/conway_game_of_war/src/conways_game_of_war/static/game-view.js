@@ -465,6 +465,20 @@
           e.preventDefault();
         }
       }
+
+      // 'S' toggles stats panel
+      if (e.key === 's' || e.key === 'S') {
+        const btn = document.getElementById('toggle-stats-btn');
+        if (btn) btn.click();
+        e.preventDefault();
+      }
+
+      // 'K' toggles cell cost overlay
+      if (e.key === 'k' || e.key === 'K') {
+        const btn = document.getElementById('toggle-cost-overlay');
+        if (btn) btn.click();
+        e.preventDefault();
+      }
     }
 
     /** Global click handler — close help when clicking outside card. */
