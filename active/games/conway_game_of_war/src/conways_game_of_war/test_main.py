@@ -70,14 +70,21 @@ class TestClientGameState:
     def test_end_turn_json_stops_when_winner_exists(self):
         self._eliminate_player_two_territory()
 
+        # Pre-fix, /end_turn would return the board HTML with a
+        # "winner" key. Post-fix (simultaneous turns), /end_turn just
+        # marks the current player as ready. The world doesn't step
+        # when there's already a winner. The actual winner info is
+        # in /match_status, not /end_turn.
         response = self.client.post("/end_turn?json=1")
         payload = response.get_json()
-
         assert response.status_code == 200
-        assert payload["winner"] == "p1"
-        assert payload["winner_name"] == "Player 1"
-        assert payload["fib_remaining"] == 0
-        assert payload["cells"] == []
+        assert payload["ok"] is True
+        # The match has only one player in this test, so we're not
+        # "both ready" and the world does not step.
+        assert payload["world_stepped"] is False
+        # The winner is reported by /match_status.
+        status = self.client.get("/match_status").get_json()
+        assert status["winner_name"] == "Player 1"
 
     def test_update_cell_applies_distance_based_cost(self):
         player = self.game.players[game_state.PLAYER_1]
@@ -289,6 +296,120 @@ class TestClientGameState:
         assert "turn_idx" not in match
         # And it should not have toggled the acting player identity.
         assert "p1_pid" in match and "p2_pid" in match
+
+    # ─── Both-players-ready semantics ─────────────────────────────────────
+
+    def _client_for(self, pid: str):
+        """Return a test client set up as the given pid with the
+        match_id in its session, ready to make calls on behalf of
+        that player.
+        """
+        client = main.app.test_client()
+        with client.session_transaction() as s:
+            s["_pid"] = pid
+            s["username"] = f"User-{pid}"
+            s["match_id"] = "test-match-1"
+        return client
+
+    def test_end_turn_requires_both_players(self):
+        """One player clicking End Turn must NOT advance the world.
+
+        The world only steps once BOTH players have indicated they're
+        ready. Otherwise a fast player could race the board forward
+        before the opponent has finished their moves.
+        """
+        main.ACTIVE_MATCHES["test-match-1"]["ready_players"] = []
+        epoch_before = main._current_epoch()
+
+        # Only P1 is ready.
+        c1 = self._client_for("test-player-1")
+        r1 = c1.post("/end_turn")
+        body1 = r1.get_json()
+        assert r1.status_code == 200
+        assert body1["world_stepped"] is False
+        assert body1["you_are_ready"] is True
+        assert body1["ready_players"] == ["test-player-1"]
+        assert body1["waiting_for"] == "test-player-2"
+        # World did not step
+        assert main._current_epoch() == epoch_before
+
+    def test_end_turn_steps_world_when_both_ready(self):
+        """When BOTH players have clicked End Turn, the world steps
+        forward and the ready set clears for the next round.
+        """
+        main.ACTIVE_MATCHES["test-match-1"]["ready_players"] = []
+        epoch_before = main._current_epoch()
+        match = main.ACTIVE_MATCHES["test-match-1"]
+        turn_count_before = match["game"].turn_count
+
+        c1 = self._client_for("test-player-1")
+        c2 = self._client_for("test-player-2")
+
+        # First player ready.
+        r1 = c1.post("/end_turn").get_json()
+        assert r1["world_stepped"] is False
+        # Second player ready \u2014 world steps now.
+        r2 = c2.post("/end_turn").get_json()
+        assert r2["world_stepped"] is True
+        assert r2["you_are_ready"] is False
+        assert r2["ready_players"] == []
+        # Epoch advanced and turn count incremented
+        assert main._current_epoch() > epoch_before
+        assert match["game"].turn_count == turn_count_before + 1
+
+        # After the step, /match_status shows both unready for the
+        # next round.
+        status = self.client.get("/match_status").get_json()
+        assert status["p1_ready"] is False
+        assert status["p2_ready"] is False
+        assert status["both_ready"] is False
+
+    def test_end_turn_is_idempotent_for_same_player(self):
+        """Clicking End Turn twice as the same player doesn't
+        double-step the world; the second click is a no-op for the
+        ready set.
+        """
+        main.ACTIVE_MATCHES["test-match-1"]["ready_players"] = []
+        c1 = self._client_for("test-player-1")
+        c2 = self._client_for("test-player-2")
+
+        r1a = c1.post("/end_turn").get_json()
+        r1b = c1.post("/end_turn").get_json()
+        # Both clicks marked P1 ready, no double-step
+        assert r1a["you_are_ready"] is True
+        assert r1b["you_are_ready"] is True
+        assert r1a["world_stepped"] is False
+        assert r1b["world_stepped"] is False
+        # P1 is only in the ready set once
+        assert r1b["ready_players"] == ["test-player-1"]
+
+        # Then P2 \u2192 world steps, ready set clears
+        r2 = c2.post("/end_turn").get_json()
+        assert r2["world_stepped"] is True
+
+    def test_match_status_reports_ready_state(self):
+        """/match_status surfaces each player's ready state so the
+        client can render a \"Waiting for opponent\" indicator.
+        """
+        main.ACTIVE_MATCHES["test-match-1"]["ready_players"] = []
+        c1 = self._client_for("test-player-1")
+
+        # Before anyone is ready
+        status = self.client.get("/match_status").get_json()
+        assert status["p1_ready"] is False
+        assert status["p2_ready"] is False
+        assert status["you_are_ready"] is False
+        assert status["both_ready"] is False
+
+        # P1 marks themselves ready
+        c1.post("/end_turn")
+        status = self.client.get("/match_status").get_json()
+        # ``you_are_ready`` depends on the requesting session's pid,
+        # so from the test client (which is P1) we see ready.
+        assert status["p1_ready"] is True
+        assert status["p2_ready"] is False
+        assert status["you_are_ready"] is True
+        assert status["both_ready"] is False
 
     def test_current_player_can_move_on_their_turn(self):
         # The acting player is determined by the session pid, not by a

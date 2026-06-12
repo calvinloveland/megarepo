@@ -167,22 +167,29 @@ test.describe('Lobby — Find Match', () => {
     // able to act on their own territory cells in any order without
     // waiting for an End Turn.
     //
-    // We drive the test through the /update_cell HTTP API directly
-    // (with the same cookies a real click would use). This avoids
-    // the complexity of dispatching DOM click events on cells that
-    // are off-screen by default, and tests the same server behavior
-    // the JS click handler triggers.
-    const ctx = await browser.newContext();
-    const tab1 = await ctx.newPage();
-    const tab2 = await ctx.newPage();
+    // We use SEPARATE browser contexts for the two tabs (which is
+    // the realistic case: two different people on two different
+    // devices). The same-context case is covered by the previous
+    // "Two tabs in the same browser match each other" test, but
+    // a single shared session can't distinguish two tabs by the
+    // session _pid alone, so we exercise the realistic flow here.
+    const ctx1 = await browser.newContext();
+    const ctx2 = await browser.newContext();
+    const tab1 = await ctx1.newPage();
+    const tab2 = await ctx2.newPage();
     tab1.on('pageerror', (e) => console.log('[A pageerror]', e.message));
     tab2.on('pageerror', (e) => console.log('[B pageerror]', e.message));
 
     await Promise.all([tab1.goto('/lobby'), tab2.goto('/lobby')]);
     await tab1.fill('#username-input', 'Alice');
     await tab2.fill('#username-input', 'Bob');
-    await Promise.all([tab1.click('#find-match-btn'), tab2.click('#find-match-btn')]);
-    await Promise.all([tab1.waitForURL('/'), tab2.waitForURL('/')]);
+    // Sequential (not parallel) so the order is deterministic:
+    // Alice (tab1) joins first and becomes PLAYER_1.
+    await tab1.click('#find-match-btn');
+    await tab1.waitForURL((url) => url.pathname === '/' || url.pathname === '/lobby');
+    await tab2.click('#find-match-btn');
+    await tab2.waitForURL('/');
+    await tab1.waitForURL('/');
 
     // End Turn button is now always enabled for both players (no turn
     // system means no "not your turn" disabling).
@@ -243,11 +250,15 @@ test.describe('Lobby — Find Match', () => {
 
     const idx1 = await playerIdx(tab1);
     const idx2 = await playerIdx(tab2);
-    // Player 0 (P1) starts at (20, 20); Player 1 (P2) starts at (107, 111).
-    const startFor = (idx) => (idx === 0 ? [20, 20] : [107, 111]);
-    const adjacent = (start) => [start[0] + 1, start[1]];
-    const [x1, y1] = adjacent(startFor(idx1));
-    const [x2, y2] = adjacent(startFor(idx2));
+    // With sequential joins, tab1 (Alice) is P1 (idx=0) and
+    // tab2 (Bob) is P2 (idx=1).
+    expect(idx1).toBe(0);
+    expect(idx2).toBe(1);
+
+    // P1's start is (20, 20); P2's start is (107, 111).
+    const adjacentTo = (start) => [start[0] + 1, start[1]];
+    const [x1, y1] = adjacentTo([20, 20]);
+    const [x2, y2] = adjacentTo([107, 111]);
 
     const [r1, r2] = await Promise.all([
       postUpdate(tab1, x1, y1),
@@ -261,13 +272,94 @@ test.describe('Lobby — Find Match', () => {
     expect(r1.body.error).not.toBe('not your turn');
     expect(r2.body.error).not.toBe('not your turn');
 
-    // Both claims should succeed because each tab is claiming a cell
-    // adjacent to its OWN player's start (the cheapest cell for them).
+    // Both claims should succeed (each tab is claiming a cell
+    // adjacent to its OWN player's start, which is the cheapest
+    // cell for that player).
     expect(r1.body.alive).toBe(true);
+    expect(r1.body.owner).toBe('p1');
     expect(r2.body.alive).toBe(true);
-    expect(r1.body.owner).toBe(idx1 === 0 ? 'p1' : 'p2');
-    expect(r2.body.owner).toBe(idx2 === 0 ? 'p1' : 'p2');
+    expect(r2.body.owner).toBe('p2');
 
-    await ctx.close();
+    await ctx1.close();
+    await ctx2.close();
+  });
+
+  test('End Turn waits for both players before stepping the world', async ({ browser }) => {
+    // The user wanted the world to NOT advance until BOTH players
+    // are ready, so a fast player can't race the board forward
+    // before the opponent finishes their moves.
+    const ctx1 = await browser.newContext();
+    const ctx2 = await browser.newContext();
+    const tab1 = await ctx1.newPage();
+    const tab2 = await ctx2.newPage();
+    tab1.on('pageerror', (e) => console.log('[A pageerror]', e.message));
+    tab2.on('pageerror', (e) => console.log('[B pageerror]', e.message));
+
+    await Promise.all([tab1.goto('/lobby'), tab2.goto('/lobby')]);
+    await tab1.fill('#username-input', 'Alice');
+    await tab2.fill('#username-input', 'Bob');
+    await tab1.click('#find-match-btn');
+    await tab2.click('#find-match-btn');
+    await Promise.all([tab1.waitForURL('/'), tab2.waitForURL('/')]);
+
+    // Use in-page fetch so cookies and sessionStorage are intact.
+    const postEndTurn = (page) =>
+      page.evaluate(async () => {
+        const pid = sessionStorage.getItem('conway-war-pid');
+        const r = await fetch('/end_turn', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pid }),
+        });
+        return r.json();
+      });
+
+    // Read epoch from match_status so we can detect when the world
+    // has stepped.
+    const statusOf = (page) =>
+      page.evaluate(async () => {
+        const r = await fetch('/match_status');
+        return r.json();
+      });
+
+    // Get the starting epoch (server starts at 0).
+    const sBefore = await statusOf(tab1);
+    const epochBefore = sBefore.epoch;
+    expect(sBefore.you_are_ready).toBe(false);
+    expect(sBefore.p1_ready).toBe(false);
+    expect(sBefore.p2_ready).toBe(false);
+
+    // Only P1 is ready. World should NOT step.
+    const r1 = await postEndTurn(tab1);
+    expect(r1.world_stepped).toBe(false);
+    expect(r1.you_are_ready).toBe(true);
+    expect(r1.ready_players).toEqual([expect.any(String)]);
+    expect(r1.waiting_for).toBeTruthy();
+
+    // Verify server state matches.
+    const s1 = await statusOf(tab1);
+    expect(s1.p1_ready).toBe(true);
+    expect(s1.p2_ready).toBe(false);
+    expect(s1.you_are_ready).toBe(true);
+    expect(s1.both_ready).toBe(false);
+    expect(s1.epoch).toBe(epochBefore);  // not stepped yet
+
+    // Now P2 also clicks End Turn. World steps now.
+    const r2 = await postEndTurn(tab2);
+    expect(r2.world_stepped).toBe(true);
+    expect(r2.you_are_ready).toBe(false);
+    expect(r2.ready_players).toEqual([]);
+    expect(r2.waiting_for).toBe(null);
+
+    // Verify the world actually stepped.
+    const s2 = await statusOf(tab1);
+    expect(s2.epoch).toBeGreaterThan(epochBefore);
+    // And the ready set cleared for the next round.
+    expect(s2.p1_ready).toBe(false);
+    expect(s2.p2_ready).toBe(false);
+    expect(s2.both_ready).toBe(false);
+
+    await ctx1.close();
+    await ctx2.close();
   });
 });

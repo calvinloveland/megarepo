@@ -547,6 +547,29 @@
       }
       window.__conwaySyncWinner = syncWinnerState;
 
+      // Sync the End Turn button with the server's view of who is
+      // ready. Called by pollMatch() on every poll. The button text
+      // and enabled state change to reflect whether *we* are ready
+      // and whether the opponent is ready.
+      function syncReadyState(youReady, p1Ready, p2Ready, bothReady) {
+        // Don't fight a winner banner or an in-flight animation.
+        if (winnerName) return;
+        if (animating) return;
+        if (bothReady) {
+          // The world is stepping (or about to). The pollMatch
+          // callback's epoch-change handler will reset us.
+          return;
+        }
+        if (youReady) {
+          btn.disabled = false;
+          btn.textContent = '⏳ Waiting for opponent...';
+        } else {
+          btn.disabled = false;
+          btn.textContent = '⏭ End Turn';
+        }
+      }
+      window.__conwaySyncReady = syncReadyState;
+
       function finish() {
         animating = false;
         window.__conwayTurnHistory = [];
@@ -720,29 +743,68 @@
       }
 
       async function runTurn(seq) {
-        var data = await requestBoardPatch('/end_turn?json=1', 'end_turn', seq);
-        if (!data) return;
-        applyBoardPatch(data);
-        scheduleStatusRefresh();
-
-        while (animating && seq === requestSeq && (data.fib_remaining || 0) > 0) {
-          await sleep(80);
-          data = await requestBoardPatch('/step?json=1', 'step', seq);
-          if (!data) return;
-          applyBoardPatch(data);
-          scheduleStatusRefresh();
+        // /end_turn now requires BOTH players to be ready before the
+        // world steps. The response tells us whether this click was
+        // the one that triggered the world step (world_stepped: true)
+        // or just marked us as ready (world_stepped: false).
+        var resp;
+        try {
+          resp = await fetch('/end_turn', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ pid: myPid }),
+          });
+        } catch (err) {
+          throw new Error('network: ' + err.message);
+        }
+        if (!resp.ok) {
+          throw new Error('HTTP ' + resp.status);
+        }
+        var payload = await resp.json();
+        if (!payload || !payload.ok) {
+          throw new Error((payload && payload.error) || 'bad payload');
         }
 
-        if (seq === requestSeq) {
-          finish();
+        if (payload.world_stepped) {
+          // Both players were ready: the world just stepped. Pull
+          // the current board state and start the Fibonacci burst
+          // step loop (if any steps remain).
+          animating = true;
+          var data = await requestBoardPatch('/step?json=1', 'step', seq);
+          if (data) applyBoardPatch(data);
+          scheduleStatusRefresh();
+          while (animating && seq === requestSeq && (data && (data.fib_remaining || 0) > 0)) {
+            await sleep(80);
+            data = await requestBoardPatch('/step?json=1', 'step', seq);
+            if (!data) return;
+            applyBoardPatch(data);
+            scheduleStatusRefresh();
+          }
+          if (seq === requestSeq) finish();
+        } else {
+          // We just marked ourselves as ready. The world did NOT
+          // step — we're waiting for the opponent. Show a "waiting"
+          // label and re-enable the button (so the user can un-ready
+          // by clicking again if they change their mind).
+          animating = false;
+          btn.disabled = false;
+          btn.textContent = '⏳ Waiting for opponent...';
+          if (resetBtn) resetBtn.disabled = false;
+          if (window.__conwaySyncReady) {
+            window.__conwaySyncReady(true, true, !!payload.waiting_for && !payload.waiting_for, false);
+          }
         }
       }
 
       btn.addEventListener('click', function() {
-        if (animating || winnerName) return;
-        animating = true;
-        requestSeq += 1;
-        var seq = requestSeq;
+        if (winnerName) return;
+        // Allow the click to either mark us ready OR un-ready. If
+        // we're already ready, the next /end_turn is a no-op on the
+        // server, but we want to give the user a way to back out.
+        // We just send /end_turn either way; the server is idempotent
+        // (it won't add us twice to the ready set).
+        if (animating) return;
+        var seq = ++requestSeq;
         btn.disabled = true;
         btn.textContent = '⏳';
         if (resetBtn) resetBtn.disabled = true;
@@ -901,6 +963,8 @@
             if (data.epoch !== undefined && data.epoch !== lastEpoch) {
               lastEpoch = data.epoch;
               scheduleBoardRefresh();
+              // World just stepped — reset our local ready state.
+              if (window.__conwaySyncReady) window.__conwaySyncReady(false);
             }
             var yourTurn = data.turn_idx === playerIdx;
             // With simultaneous turns, the "your turn" sound is no
@@ -913,6 +977,15 @@
               soundTurn();
             }
             showWaiting(yourTurn);
+            // Sync the End Turn button with the server's ready state.
+            if (window.__conwaySyncReady) {
+              window.__conwaySyncReady(
+                data.you_are_ready === true,
+                data.p1_ready === true,
+                data.p2_ready === true,
+                data.both_ready === true,
+              );
+            }
             // Turn timer removed (no turn system); keep the span
             // hidden so the layout doesn't shift.
             var timerEl = document.getElementById('turn-timer');

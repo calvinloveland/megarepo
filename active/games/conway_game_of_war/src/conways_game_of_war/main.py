@@ -656,7 +656,12 @@ def _check_match_disconnect(match: dict) -> Optional[str]:
 
 @app.route("/match_status")
 def match_status():
-    """Return current game state for the match — used for polling."""
+    """Return current game state for the match — used for polling.
+
+    Includes ``ready_players`` so each tab can render whether they
+    themselves are ready, whether the opponent is ready, and the
+    world ``epoch`` so it can detect when the world has stepped.
+    """
     match = _get_match()
     if not match:
         return flask.jsonify({"ok": False, "error": "no match"}), 404
@@ -664,6 +669,12 @@ def match_status():
     my_idx = _player_idx_for_match(match)
     idx = my_idx if my_idx >= 0 else 0
     winner = _winner_payload(game)
+
+    ready = list(match.get("ready_players") or [])
+    my_pid = flask.session.get("_pid")
+    you_are_ready = bool(my_pid and my_pid in ready)
+    p1_ready = match.get("p1_pid") in ready
+    p2_ready = match.get("p2_pid") in ready
 
     # Check for disconnection
     disconnected = _check_match_disconnect(match)
@@ -684,6 +695,11 @@ def match_status():
         "winner_name": winner["winner_name"],
         "epoch": _current_epoch(),
         "your_turn": True,  # both players always act simultaneously
+        "ready_players": ready,
+        "p1_ready": p1_ready,
+        "p2_ready": p2_ready,
+        "you_are_ready": you_are_ready,
+        "both_ready": p1_ready and p2_ready,
     })
 
 
@@ -702,6 +718,7 @@ def rematch():
     if p2_rgb:
         game.players[game_state.PLAYER_2].color = p2_rgb
     match["game"] = game
+    match["ready_players"] = []
     app.config["TURN_PLACED"] = {}
     _reset_fib_progression()
     _bump_epoch()
@@ -728,25 +745,67 @@ def get_game_state():
 
 @app.route("/end_turn", methods=["POST"])
 def end_turn():
-    """Advance the board one step (or one Fibonacci burst step).
+    """Mark the current player as ready for the next world step.
 
-    With simultaneous turns, this is a shared action: either player
-    (or a spectator) can trigger it. It just calls ``game.update()``
-    and bumps the epoch so all clients refresh.
+    The board only advances (``game.update()`` runs) when BOTH players
+    have called ``/end_turn``. This is what makes the game "tick" on
+    a per-round basis even though players act simultaneously: the
+    round only resolves once both players have finished placing cells.
+
+    Returns a JSON payload describing the result:
+
+      - ``world_stepped``: true if both players were ready and the
+        game was stepped forward.
+      - ``ready_players``: list of pids currently in the ready set.
+      - ``you_are_ready``: whether the calling player is now in the
+        ready set.
+      - ``waiting_for``: the pid of the other player (or None if both
+        are ready).
     """
     match = _get_match()
-    if match:
-        game = match["game"]
-        my_idx = _player_idx_for_match(match)
-        idx = my_idx if my_idx >= 0 else 0
-        before = _board_visual_snapshot(game, idx) if flask.request.args.get("json") == "1" else None
+    if not match:
+        return flask.jsonify({"ok": False, "error": "no match"}), 404
 
-        if game.winner_index() is not None:
-            app.config["FIB_REMAINING"] = 0
-            if before:
-                return _board_patch_json(game, idx, before, 0)
-            return game.board_to_html(current_player_index=idx, fib_remaining=0)
+    # The acting player is determined by the per-tab pid (with
+    # session fallback) so two tabs sharing a browser each have
+    # their own ready state.
+    end_data = flask.request.get_json(silent=True) or {}
+    my_pid = (end_data.get("pid") or "").strip() or flask.session.get("_pid")
+    if not my_pid or my_pid not in (match.get("p1_pid"), match.get("p2_pid")):
+        return flask.jsonify({"ok": False, "error": "not in match"}), 403
 
+    # Initialize the ready set on first use. This is a list (not a
+    # set) so the order of readiness is observable for the log.
+    if "ready_players" not in match or not isinstance(match["ready_players"], list):
+        match["ready_players"] = []
+    if my_pid not in match["ready_players"]:
+        match["ready_players"].append(my_pid)
+
+    _touch_match(match)
+
+    both_ready = len(match["ready_players"]) >= 2
+    payload = {
+        "ok": True,
+        "you_are_ready": True,
+        "ready_players": list(match["ready_players"]),
+        "waiting_for": None if both_ready else (
+            match["p2_pid"] if my_pid == match["p1_pid"] else match["p1_pid"]
+        ),
+        "world_stepped": False,
+    }
+
+    if not both_ready:
+        # World does not advance until both players are ready.
+        return flask.jsonify(payload)
+
+    # Both players ready — actually step the game.
+    game = match["game"]
+    game.turn_count += 1
+
+    if game.winner_index() is None:
+        # Advance the Fibonacci burst and run game.update(). The
+        # ready set is reset on success so the next round starts
+        # fresh.
         prev = app.config["FIB_PREV"]
         curr = app.config["FIB_CURR"]
         app.config["FIB_PREV"] = curr
@@ -755,25 +814,34 @@ def end_turn():
         app.config["FIB_REMAINING"] = remaining
         game.update()
         if game.winner_index() is not None:
-            remaining = 0
             app.config["FIB_REMAINING"] = 0
+    else:
+        app.config["FIB_REMAINING"] = 0
 
-        # No turn switch — both players act simultaneously. Just bump
-        # the epoch so all clients refresh and log the step.
-        game.turn_count += 1
-        _bump_epoch()
-        _touch_match(match)
+    # Clear the ready set now that the round has resolved.
+    match["ready_players"] = []
+    _bump_epoch()
 
-        # Log for replay
-        mid = flask.session.get("match_id")
-        if mid and mid in MATCH_LOGS:
-            MATCH_LOGS[mid].append({"type": "end_turn", "player_idx": idx, "timestamp": time.time()})
-            if game.winner_index() is not None:
-                MATCH_LOGS[mid].append({"type": "winner", "winner_idx": game.winner_index(), "timestamp": time.time()})
+    # Log for replay
+    mid = flask.session.get("match_id")
+    if mid and mid in MATCH_LOGS:
+        MATCH_LOGS[mid].append({
+            "type": "end_turn",
+            "player_idx": 0 if my_pid == match["p1_pid"] else 1,
+            "timestamp": time.time(),
+        })
+        if game.winner_index() is not None:
+            MATCH_LOGS[mid].append({
+                "type": "winner",
+                "winner_idx": game.winner_index(),
+                "timestamp": time.time(),
+            })
 
-        if before:
-            return _board_patch_json(game, idx, before, remaining)
-        return game.board_to_html(current_player_index=idx, fib_remaining=remaining)
+    payload["world_stepped"] = True
+    payload["you_are_ready"] = False
+    payload["ready_players"] = []
+    payload["waiting_for"] = None
+    return flask.jsonify(payload)
 
     # Fallback for legacy single-game mode
     return flask.redirect("/lobby")
@@ -915,6 +983,7 @@ def reset():
         if p2_rgb:
             game.players[game_state.PLAYER_2].color = p2_rgb
         match["game"] = game
+        match["ready_players"] = []
         app.config["TURN_PLACED"] = {}
         _reset_fib_progression()
         return game.board_to_html(current_player_index=0)
