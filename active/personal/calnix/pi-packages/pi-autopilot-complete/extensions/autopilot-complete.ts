@@ -283,9 +283,13 @@ REQUIRED: \`futureWork\` — array of remaining task descriptions.
 			}
 
 			// Empty futureWork — true completion
-			const doneText = summary
-				? `${summary}\n\n✓ Task complete after ${superAutopilotIterations} super-autopilot iteration(s), completing ${superAutopilotItemsCompleted} future work item(s).`
-				: `✓ Task complete after ${superAutopilotIterations} super-autopilot iteration(s), completing ${superAutopilotItemsCompleted} future work item(s).`;
+			const doneText = superAutopilotEnabled
+				? summary
+					? `${summary}\n\n✓ Task complete after ${superAutopilotIterations} super-autopilot iteration(s), completing ${superAutopilotItemsCompleted} future work item(s).`
+					: `✓ Task complete after ${superAutopilotIterations} super-autopilot iteration(s), completing ${superAutopilotItemsCompleted} future work item(s).`
+				: summary
+					? `${summary}\n\n✓ No remaining work. Task complete.`
+					: "✓ No remaining work. Task complete.";
 
 			return {
 				content: [{ type: "text", text: doneText }],
