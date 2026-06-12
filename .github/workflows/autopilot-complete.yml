@@ -50,6 +50,6 @@ jobs:
 
       - name: Live super-autopilot smoke test
         run: |
-          bash tests/super-autopilot-smoke.sh opencode-go/kimi-k2.5 --min-cycles 3
+          bash tests/super-autopilot-smoke.sh opencode-go/deepseek-v4-flash --min-cycles 3
         env:
           SMOKE_TIMEOUT: 120
