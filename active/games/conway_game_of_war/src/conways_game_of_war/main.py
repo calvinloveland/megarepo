@@ -436,6 +436,30 @@ def profile(username):
     )
 
 
+def _resolve_pid(data: dict) -> str:
+    """Return the matchmaking pid for a request.
+
+    The client is expected to send a per-tab pid (stored in
+    ``sessionStorage`` in the browser, which is unique per tab) in the
+    request body or query string. If absent, a fresh pid is generated
+    server-side.
+
+    Two browser tabs share the same Flask session cookie but have
+    independent ``sessionStorage``, so sending a per-tab pid is the
+    only way to keep the matchmaking state of each tab separate.
+    """
+    raw = ""
+    if isinstance(data, dict):
+        raw = (data.get("pid") or "").strip()
+    if not raw:
+        raw = (flask.request.args.get("pid") or "").strip()
+    if not raw:
+        raw = (flask.session.get("_pid") or "").strip()
+    if not raw:
+        raw = str(uuid.uuid4())
+    return raw
+
+
 @app.route("/join_queue", methods=["POST"])
 def join_queue():
     """Join the matchmaking queue."""
@@ -445,13 +469,12 @@ def join_queue():
     if not username:
         return flask.jsonify({"ok": False, "error": "username required"}), 400
 
-    if "_pid" not in flask.session:
-        flask.session["_pid"] = str(uuid.uuid4())
-    pid = flask.session["_pid"]
+    pid = _resolve_pid(data)
+    flask.session["_pid"] = pid
     flask.session["username"] = username
     flask.session["player_color"] = color
 
-    # Remove any existing entry for this sid
+    # Remove any existing entry for this pid (so a tab can re-join)
     global MATCH_QUEUE
     MATCH_QUEUE = [e for e in MATCH_QUEUE if e["pid"] != pid]
 
@@ -486,7 +509,8 @@ def join_queue():
 @app.route("/heartbeat", methods=["POST"])
 def heartbeat():
     """Client heartbeat to indicate the player is still connected."""
-    pid = flask.session.get("_pid")
+    data = flask.request.get_json(silent=True) or {}
+    pid = _resolve_pid(data)
     if pid:
         LAST_HEARTBEAT[pid] = time.time()
     return flask.jsonify({"ok": True})
@@ -494,7 +518,8 @@ def heartbeat():
 
 @app.route("/leave_queue", methods=["POST"])
 def leave_queue():
-    pid = flask.session.get("_pid")
+    data = flask.request.get_json(silent=True) or {}
+    pid = _resolve_pid(data)
     global MATCH_QUEUE
     MATCH_QUEUE = [e for e in MATCH_QUEUE if e["pid"] != pid]
     return flask.jsonify({"ok": True})
@@ -504,7 +529,7 @@ def leave_queue():
 def poll_match():
     """Check if the current session has been matched."""
     match_id = flask.session.get("match_id")
-    pid = flask.session.get("_pid")
+    pid = _resolve_pid({})
     if match_id and match_id in ACTIVE_MATCHES:
         match = ACTIVE_MATCHES[match_id]
         player = 0 if match["p1_pid"] == pid else (1 if match["p2_pid"] == pid else None)

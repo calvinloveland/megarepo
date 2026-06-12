@@ -833,9 +833,31 @@
       var heartbeatTimer = null;
       var isSpectator = {{ 'true' if spectator else 'false' }};
 
+      // Per-tab matchmaking pid (carried over from the lobby so heartbeats
+      // and match lookups key to the right player when two tabs share a
+      // session).
+      function getPid() {
+        var pid = null;
+        try { pid = sessionStorage.getItem('conway-war-pid'); } catch(e) {}
+        if (!pid) {
+          pid = (typeof crypto !== 'undefined' && crypto.randomUUID)
+            ? crypto.randomUUID()
+            : ('pid-' + Math.random().toString(36).slice(2) + '-' + Date.now());
+          try { sessionStorage.setItem('conway-war-pid', pid); } catch(e) {}
+        }
+        return pid;
+      }
+      var myPid = getPid();
+
       // Start heartbeat every 5s (skip for spectators)
       function sendHeartbeat() {
-        if (!isSpectator) fetch('/heartbeat', { method: 'POST' }).catch(function() {});
+        if (!isSpectator) {
+          fetch('/heartbeat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ pid: myPid }),
+          }).catch(function() {});
+        }
       }
       if (!isSpectator) {
         heartbeatTimer = setInterval(sendHeartbeat, 5000);

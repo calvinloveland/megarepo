@@ -144,6 +144,48 @@ class TestClientGameState:
         assert match["turn_idx"] == game_state.PLAYER_1
         assert match["started"] is True
 
+    def test_two_shared_session_joins_match_each_other(self):
+        """Regression: two requests sharing a session (two tabs in the
+        same browser) must still match each other.
+
+        Before the fix, ``/join_queue`` reused ``_pid`` from the session,
+        so the second tab's request removed the first tab's queue entry
+        instead of being matched against it. Net effect: with two tabs
+        in the same browser, only one entry ever existed in
+        ``MATCH_QUEUE`` and no match was ever created.
+
+        The client now sends a per-tab pid (stored in ``sessionStorage``
+        in the browser, which is unique per tab). This test simulates
+        that by passing an explicit ``pid`` for each request.
+        """
+        main.MATCH_QUEUE = []
+        main.ACTIVE_MATCHES = {}
+
+        # First tab (or first browser) joins
+        r1 = self.client.post("/join_queue", json={
+            "username": "Alice", "color": "#ff0000", "pid": "tab-1-pid",
+        })
+        d1 = r1.get_json()
+        assert d1["matched"] is False
+
+        # Second tab in the SAME browser (same Flask session) joins with
+        # a DIFFERENT pid (mirroring the per-tab sessionStorage pid).
+        r2 = self.client.post("/join_queue", json={
+            "username": "Bob", "color": "#2266ff", "pid": "tab-2-pid",
+        })
+        d2 = r2.get_json()
+
+        assert d2["matched"] is True, (
+            f"Two requests sharing a session should match each other, "
+            f"got {d2!r}. queue={main.MATCH_QUEUE!r}"
+        )
+        assert d2["player"] == 1
+        assert len(main.ACTIVE_MATCHES) == 1
+
+        match = next(iter(main.ACTIVE_MATCHES.values()))
+        assert match["p1_pid"] == "tab-1-pid"
+        assert match["p2_pid"] == "tab-2-pid"
+
     def test_match_poll_detects_match(self):
         main.MATCH_QUEUE = []
         main.ACTIVE_MATCHES = {}

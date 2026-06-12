@@ -109,4 +109,56 @@ test.describe('Lobby — Find Match', () => {
     await expect(page.locator('#find-match-btn')).toBeEnabled();
     await expect(page.locator('#find-match-btn')).toHaveText(/Find Match/);
   });
+
+  test('Two tabs in the same browser match each other', async ({ browser }) => {
+    // Regression: two browser tabs share the same Flask session cookie,
+    // so the server used to see them as the same user. The fix uses a
+    // per-tab pid (sessionStorage) so each tab can be matched
+    // independently.
+    const ctx = await browser.newContext();
+    const tab1 = await ctx.newPage();
+    const tab2 = await ctx.newPage();
+
+    await Promise.all([
+      tab1.goto('/lobby'),
+      tab2.goto('/lobby'),
+    ]);
+
+    // Tab 1 joins
+    await tab1.fill('#username-input', 'Alice');
+    const t1Join = tab1.waitForResponse(
+      (r) => r.url().endsWith('/join_queue') && r.request().method() === 'POST',
+    );
+    await tab1.click('#find-match-btn');
+    const t1Resp = await t1Join;
+    expect(t1Resp.status()).toBe(200);
+    // Reading the body fails after the JS triggers navigation in some
+    // cases, so we only check status here. The body is asserted in the
+    // Python test suite.
+    expect(t1Resp.ok()).toBe(true);
+
+    // Tab 2 joins — this should match against tab 1
+    await tab2.fill('#username-input', 'Bob');
+    const t2Join = tab2.waitForResponse(
+      (r) => r.url().endsWith('/join_queue') && r.request().method() === 'POST',
+    );
+    await tab2.click('#find-match-btn');
+    const t2Resp = await t2Join;
+    expect(t2Resp.status()).toBe(200);
+    expect(t2Resp.ok()).toBe(true);
+
+    // Both tabs should be redirected to the game page
+    await tab1.waitForURL('/', { timeout: 5000 });
+    await tab2.waitForURL('/', { timeout: 5000 });
+
+    // The game page should show each player's name
+    await expect(tab1.locator('body')).toContainText('Alice');
+    await expect(tab2.locator('body')).toContainText('Bob');
+
+    // Each tab sees the other player as their opponent
+    await expect(tab1.locator('body')).toContainText('Bob');
+    await expect(tab2.locator('body')).toContainText('Alice');
+
+    await ctx.close();
+  });
 });

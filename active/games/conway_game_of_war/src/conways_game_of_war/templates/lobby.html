@@ -100,6 +100,23 @@
       var polling = false;
       var pollTimer = null;
 
+      // Per-tab matchmaking pid. sessionStorage is unique per tab
+      // (unlike localStorage or session cookies), so two tabs in the
+      // same browser can each have their own pid and be matched
+      // against each other.
+      function getPid() {
+        var pid = null;
+        try { pid = sessionStorage.getItem('conway-war-pid'); } catch(e) {}
+        if (!pid) {
+          pid = (typeof crypto !== 'undefined' && crypto.randomUUID)
+            ? crypto.randomUUID()
+            : ('pid-' + Math.random().toString(36).slice(2) + '-' + Date.now());
+          try { sessionStorage.setItem('conway-war-pid', pid); } catch(e) {}
+        }
+        return pid;
+      }
+      var myPid = getPid();
+
       // Restore saved username
       try {
         var saved = localStorage.getItem('conway-war-username');
@@ -125,7 +142,7 @@
         fetch('/join_queue', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username: username, color: color }),
+          body: JSON.stringify({ username: username, color: color, pid: myPid }),
         })
         .then(function(r) { return r.json(); })
         .then(function(data) {
@@ -146,7 +163,11 @@
 
       window.leaveQueue = function() {
         stopPolling();
-        fetch('/leave_queue', { method: 'POST' })
+        fetch('/leave_queue', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pid: myPid }),
+        })
           .then(function() {
             document.getElementById('find-match-btn').disabled = false;
             document.getElementById('find-match-btn').textContent = '🔍 Find Match';
@@ -168,7 +189,7 @@
 
       function poll() {
         if (!polling) return;
-        fetch('/poll_match')
+        fetch('/poll_match?pid=' + encodeURIComponent(myPid))
           .then(function(r) { return r.json(); })
           .then(function(data) {
             if (data.matched) {
