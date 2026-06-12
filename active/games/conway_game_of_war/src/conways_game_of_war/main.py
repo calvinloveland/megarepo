@@ -1,11 +1,12 @@
 """Main module for running the Conway's Game of War Flask application."""
 
+import argparse
 import os
 import uuid
 import json
 import threading
 import time
-from typing import Tuple, Optional
+from typing import Tuple, Optional, Sequence
 
 import flask
 from loguru import logger
@@ -331,14 +332,54 @@ def _energy_html(game, p1_name="Player 1", p2_name="Player 2") -> str:
     )
 
 
-def main():
-    """Run the Flask application."""
+def _build_arg_parser() -> argparse.ArgumentParser:
+    """Build the CLI argument parser for the server entry point."""
+    parser = argparse.ArgumentParser(
+        prog="conways_game_of_war",
+        description="Run the Conway's Game of War Flask server.",
+    )
+    parser.add_argument(
+        "--host", "--hosts",
+        dest="host",
+        default=os.environ.get("HOST", "127.0.0.1"),
+        help=(
+            "Network interface to bind to. Use 0.0.0.0 to listen on all "
+            "interfaces. (default: 127.0.0.1, or $HOST)"
+        ),
+    )
+    parser.add_argument(
+        "--port", "-p",
+        dest="port",
+        type=int,
+        default=int(os.environ.get("PORT", "5000")),
+        help="TCP port to listen on. (default: 5000, or $PORT)",
+    )
+    debug_env = os.environ.get("FLASK_DEBUG", "true").lower() == "true"
+    debug_group = parser.add_mutually_exclusive_group()
+    debug_group.add_argument(
+        "--debug",
+        dest="debug", action="store_true", default=debug_env,
+        help="Enable Flask debug mode. (default: from $FLASK_DEBUG, true)",
+    )
+    debug_group.add_argument(
+        "--no-debug",
+        dest="debug", action="store_false",
+        help="Disable Flask debug mode.",
+    )
+    return parser
+
+
+def main(argv: Optional[Sequence[str]] = None) -> None:
+    """Run the Flask application.
+
+    Args:
+        argv: Optional list of CLI arguments (for testing). When ``None``,
+            ``sys.argv[1:]`` is used.
+    """
     cleanup = threading.Thread(target=_cleanup_loop, daemon=True)
     cleanup.start()
-    host = os.environ.get("HOST", "127.0.0.1")
-    port = int(os.environ.get("PORT", "5000"))
-    debug = os.environ.get("FLASK_DEBUG", "true").lower() == "true"
-    app.run(host=host, port=port, debug=debug)
+    args = _build_arg_parser().parse_args(argv)
+    app.run(host=args.host, port=args.port, debug=args.debug)
 
 
 MATCH_TIMEOUT = 3600  # 1 hour

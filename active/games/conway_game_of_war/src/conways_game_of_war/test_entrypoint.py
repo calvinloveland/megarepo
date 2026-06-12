@@ -29,7 +29,9 @@ def test_main_starts_without_nameerror(monkeypatch):
     monkeypatch.setattr(main.app, "run", fake_run)
 
     # Should not raise NameError or any other exception.
-    main.main()
+    # Pass an explicit empty argv so pytest's own CLI args (e.g. -q, -v)
+    # don't leak into argparse.
+    main.main([])
 
     assert run_calls, "main() never reached app.run"
     host, port, debug = run_calls[0]
@@ -49,6 +51,70 @@ def test_main_honors_env_overrides(monkeypatch):
         main.app, "run", lambda host, port, debug: run_calls.append((host, port, debug))
     )
 
-    main.main()
+    # Pass an explicit empty argv so pytest's own CLI args (e.g. -q, -v)
+    # don't leak into argparse.
+    main.main([])
 
     assert run_calls == [("0.0.0.0", 8080, False)]
+
+
+def test_main_accepts_host_cli_flag(monkeypatch):
+    """--host CLI flag binds the server to the given interface."""
+    run_calls = []
+    monkeypatch.setattr(
+        main.app, "run", lambda host, port, debug: run_calls.append((host, port, debug))
+    )
+
+    main.main(["--host", "0.0.0.0"])
+
+    assert run_calls == [("0.0.0.0", 5000, True)]
+
+
+def test_main_accepts_hosts_alias(monkeypatch):
+    """--hosts is accepted as a typo-friendly alias for --host."""
+    run_calls = []
+    monkeypatch.setattr(
+        main.app, "run", lambda host, port, debug: run_calls.append((host, port, debug))
+    )
+
+    main.main(["--hosts", "0.0.0.0"])
+
+    assert run_calls == [("0.0.0.0", 5000, True)]
+
+
+def test_main_host_cli_overrides_env(monkeypatch):
+    """CLI flags win over the matching environment variables."""
+    monkeypatch.setenv("HOST", "127.0.0.1")
+    run_calls = []
+    monkeypatch.setattr(
+        main.app, "run", lambda host, port, debug: run_calls.append((host, port, debug))
+    )
+
+    main.main(["--host", "0.0.0.0"])
+
+    assert run_calls[0][0] == "0.0.0.0"
+
+
+def test_main_accepts_port_cli_flag(monkeypatch):
+    """--port CLI flag sets the listening port."""
+    run_calls = []
+    monkeypatch.setattr(
+        main.app, "run", lambda host, port, debug: run_calls.append((host, port, debug))
+    )
+
+    main.main(["--port", "8080"])
+
+    assert run_calls[0][1] == 8080
+
+
+def test_main_no_debug_flag(monkeypatch):
+    """--no-debug disables Flask debug mode even if FLASK_DEBUG=true."""
+    monkeypatch.setenv("FLASK_DEBUG", "true")
+    run_calls = []
+    monkeypatch.setattr(
+        main.app, "run", lambda host, port, debug: run_calls.append((host, port, debug))
+    )
+
+    main.main(["--no-debug"])
+
+    assert run_calls[0][2] is False
