@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>In Queue — Conway's Game of War</title>
+    <style>
+      *, *::before, *::after { box-sizing: border-box; }
+      body, html {
+        margin: 0;
+        font-family: system-ui, -apple-system, sans-serif;
+        background: #111;
+        color: #eee;
+        min-height: 100%;
+        user-select: none;
+        -webkit-user-select: none;
+      }
+
+      .queue-banner {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 14px 24px;
+        background: linear-gradient(90deg, #1a3a5c 0%, #1a2a3c 100%);
+        border-bottom: 2px solid #2a6a9c;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+      }
+      .queue-banner .pulse {
+        display: inline-block;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: #4caf50;
+        margin-right: 10px;
+        animation: pulse 1.5s ease-in-out infinite;
+        vertical-align: middle;
+      }
+      @keyframes pulse {
+        0%, 100% { opacity: 0.4; transform: scale(0.85); }
+        50% { opacity: 1; transform: scale(1.1); }
+      }
+      .queue-banner .text {
+        font-size: 1rem;
+        font-weight: 500;
+      }
+      .queue-banner .text strong { color: #8cf; }
+      .queue-banner .actions { display: flex; gap: 8px; }
+      .queue-banner .btn {
+        padding: 8px 14px;
+        border: 1px solid #555;
+        border-radius: 6px;
+        background: #2a2a2a;
+        color: #eee;
+        font-size: 0.9rem;
+        cursor: pointer;
+        transition: background 0.15s;
+      }
+      .queue-banner .btn:hover { background: #3a3a3a; }
+      .queue-banner .btn.danger { background: #5c1a1a; border-color: #9c2a2a; }
+      .queue-banner .btn.danger:hover { background: #7c2020; }
+
+      main {
+        max-width: 900px;
+        margin: 0 auto;
+        padding: 24px 16px;
+        text-align: center;
+      }
+      main h2 {
+        margin: 0 0 4px;
+        font-size: 1.2rem;
+        font-weight: 500;
+        color: #ccc;
+      }
+      main .subtitle {
+        margin: 0 0 18px;
+        font-size: 0.85rem;
+        color: #888;
+      }
+      main .subtitle .pill {
+        display: inline-block;
+        padding: 2px 8px;
+        border: 1px solid #444;
+        border-radius: 999px;
+        background: #1a1a1a;
+        font-size: 0.7rem;
+        color: #aaa;
+        margin-left: 8px;
+        vertical-align: middle;
+      }
+
+      .sandbox-wrap {
+        display: inline-block;
+        padding: 12px;
+        background: #0a0a0a;
+        border: 1px solid #2a2a2a;
+        border-radius: 8px;
+        box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
+      }
+      .sandbox-wrap table { border-collapse: collapse; }
+      .sandbox-wrap td {
+        padding: 0;
+        border: none;
+        background: #181818;
+      }
+      .sandbox-wrap .cell {
+        display: block;
+        width: 14px;
+        height: 14px;
+        cursor: pointer;
+        transition: outline 0.1s;
+      }
+      .sandbox-wrap .cell:hover {
+        outline: 1px solid rgba(140, 200, 255, 0.5);
+      }
+
+      .sandbox-controls {
+        margin-top: 16px;
+        display: flex;
+        justify-content: center;
+        gap: 12px;
+        font-size: 0.85rem;
+        color: #888;
+      }
+      .sandbox-controls .btn {
+        padding: 6px 12px;
+        border: 1px solid #444;
+        border-radius: 6px;
+        background: #1a1a1a;
+        color: #eee;
+        font-size: 0.85rem;
+        cursor: pointer;
+      }
+      .sandbox-controls .btn:hover { background: #2a2a2a; }
+
+      .status-box {
+        text-align: center;
+        padding: 8px 12px;
+        border-radius: 6px;
+        margin: 12px auto 0;
+        font-size: 0.85rem;
+        max-width: 480px;
+      }
+      .status-waiting { background: #2a2a1a; border: 1px solid #6a6a2a; color: #ddd; }
+      .status-matched { background: #1a2a1a; border: 1px solid #2a6a2a; color: #8f8; }
+    </style>
+  </head>
+  <body>
+    <header class="queue-banner">
+      <div class="text">
+        <span class="pulse"></span>
+        <strong>In Queue</strong> &mdash; waiting for an opponent
+        <span id="queue-detail" style="color:#9ab;font-weight:400"></span>
+      </div>
+      <div class="actions">
+        <button class="btn danger" id="leave-btn" type="button">✕ Leave Queue</button>
+      </div>
+    </header>
+
+    <main>
+      <h2>Sandbox &mdash; play while you wait</h2>
+      <p class="subtitle">
+        This is just for fun. Your moves here don't affect the real match.
+        <span class="pill">SANDBOX</span>
+      </p>
+
+      <div class="sandbox-wrap" id="sandbox-container">
+        {{ sandbox_html | safe }}
+      </div>
+
+      <div class="sandbox-controls">
+        <button class="btn" id="reset-sandbox-btn" type="button">↻ Reset Sandbox</button>
+        <span>Click any unowned cell adjacent to your territory to claim it. Click your own cells to toggle.</span>
+      </div>
+
+      <div id="status-area"></div>
+    </main>
+
+    <script>
+    (function() {
+      // Per-tab matchmaking pid (stored in sessionStorage, unique per
+      // tab so two tabs sharing a session can each queue independently).
+      function getPid() {
+        var pid = null;
+        try { pid = sessionStorage.getItem('conway-war-pid'); } catch(e) {}
+        if (!pid) {
+          pid = (typeof crypto !== 'undefined' && crypto.randomUUID)
+            ? crypto.randomUUID()
+            : ('pid-' + Math.random().toString(36).slice(2) + '-' + Date.now());
+          try { sessionStorage.setItem('conway-war-pid', pid); } catch(e) {}
+        }
+        return pid;
+      }
+      var myPid = getPid();
+
+      function setStatus(text, cls) {
+        var area = document.getElementById('status-area');
+        area.innerHTML = '<div class="status-box status-' + cls + '">' + text + '</div>';
+      }
+
+      // ─── Leave Queue ──────────────────────────────────────────────
+      var leaveBtn = document.getElementById('leave-btn');
+      leaveBtn.addEventListener('click', function() {
+        fetch('/leave_queue', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pid: myPid }),
+        })
+          .then(function() {
+            window.location.href = '/lobby';
+          });
+      });
+
+      // ─── Sandbox interactions ────────────────────────────────────
+      function applyCellPatch(p) {
+        var td = document.querySelector(
+          '.sandbox-wrap td[data-x="' + p.x + '"][data-y="' + p.y + '"]'
+        );
+        if (!td) return;
+        var inner = td.querySelector('.cell') || td.firstChild;
+        if (inner) {
+          inner.style.background = p.bg;
+          inner.style.borderColor = p.border;
+        }
+      }
+
+      function patchCell(x, y) {
+        fetch('/sandbox/update?x=' + x + '&y=' + y, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pid: myPid }),
+        })
+          .then(function(r) { return r.json(); })
+          .then(function(p) {
+            if (p && p.x !== undefined) applyCellPatch(p);
+          })
+          .catch(function() { /* swallow; the sandbox is best-effort */ });
+      }
+
+      var container = document.getElementById('sandbox-container');
+      container.addEventListener('click', function(e) {
+        var cell = e.target.closest('.cell');
+        if (!cell) return;
+        var td = cell.parentElement;
+        if (!td) return;
+        var x = td.getAttribute('data-x');
+        var y = td.getAttribute('data-y');
+        if (x === null || y === null) return;
+        patchCell(parseInt(x, 10), parseInt(y, 10));
+      });
+
+      document.getElementById('reset-sandbox-btn').addEventListener('click', function() {
+        fetch('/sandbox/reset', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pid: myPid }),
+        })
+          .then(function(r) { return r.json(); })
+          .then(function(data) {
+            if (data && data.html) {
+              container.innerHTML = data.html;
+            }
+          });
+      });
+
+      // ─── Polling for match ────────────────────────────────────────
+      var polling = true;
+      function poll() {
+        if (!polling) return;
+        fetch('/poll_match?pid=' + encodeURIComponent(myPid))
+          .then(function(r) { return r.json(); })
+          .then(function(data) {
+            if (data.matched) {
+              polling = false;
+              setStatus('✅ Match found! Loading game...', 'matched');
+              setTimeout(function() { window.location.href = '/'; }, 400);
+            } else {
+              setTimeout(poll, 1500);
+            }
+          })
+          .catch(function() {
+            setTimeout(poll, 1500);
+          });
+      }
+      poll();
+    })();
+    </script>
+  </body>
+</html>

@@ -165,8 +165,11 @@
             setStatus('✅ Match found! Loading game...', 'matched');
             window.location.href = '/';
           } else {
-            setStatus('In queue. Waiting for another player...', 'waiting');
-            startPolling();
+            // Match not found yet — go to the queue page which shows
+            // a sandbox game the player can play while they wait. The
+            // queue page polls /poll_match and redirects to / when an
+            // opponent shows up.
+            window.location.href = '/queue?pid=' + encodeURIComponent(myPid);
           }
         })
         .catch(function(err) {

@@ -202,10 +202,14 @@ class GameState:
         board=None,
         board_size_x=DEFAULT_BOARD_SIZE_X,
         board_size_y=DEFAULT_BOARD_SIZE_Y,
+        p1_start_point: Optional[tuple] = None,
+        p2_start_point: Optional[tuple] = None,
     ):
+        p1_sp = p1_start_point if p1_start_point is not None else PLAYER_1_START_POINT
+        p2_sp = p2_start_point if p2_start_point is not None else PLAYER_2_START_POINT
         self.players = [
-            Player(PLAYER_1_COLOR, PLAYER_1_START_POINT, energy=STARTING_ENERGY),
-            Player(PLAYER_2_COLOR, PLAYER_2_START_POINT, energy=STARTING_ENERGY),
+            Player(PLAYER_1_COLOR, p1_sp, energy=STARTING_ENERGY),
+            Player(PLAYER_2_COLOR, p2_sp, energy=STARTING_ENERGY),
         ]
         self.ai_player: Optional[AIPlayer] = None
         self.ai_player_index: Optional[int] = None

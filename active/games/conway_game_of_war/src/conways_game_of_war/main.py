@@ -33,6 +33,8 @@ ACTIVE_MATCHES = {}  # match_id -> {p1_pid, p2_pid, p1_name, p2_name, game, star
 HEARTBEAT_TIMEOUT = 15  # seconds before a player is considered disconnected
 LAST_HEARTBEAT = {}  # pid -> timestamp of last heartbeat
 MATCH_LOGS = {}  # match_id -> list of {type, x, y, player_idx, action, cost, timestamp}
+SANDBOX_STATES = {}  # per-tab pid -> GameState (small board, used while in queue)
+SANDBOX_BOARD_SIZE = 30  # sandbox uses a smaller board than the real game
 
 app.config["GAME"] = game_state.GameState()
 app.config["ZOOM_LEVEL"] = 1.0
@@ -410,6 +412,125 @@ def _cleanup_loop():
 def lobby():
     """Render the matchmaking lobby."""
     return flask.render_template("lobby.html")
+
+
+# ─── Queue-time sandbox ───────────────────────────────────────────
+
+SANDBOX_PLAYER_START = (15, 15)  # center of the 30x30 sandbox
+
+
+def _get_sandbox_state(pid: str) -> "game_state.GameState":
+    """Return the sandbox GameState for the given per-tab pid.
+
+    Creates a fresh state on first access. The sandbox has a single
+    player (the user) starting in the center of a 30x30 board, with
+    the 8 neighbor cells also owned (territory).
+    """
+    if pid not in SANDBOX_STATES:
+        # Center the start on the small sandbox board by passing
+        # custom start points to the constructor. Both players get
+        # the same pink color (matching the random lobby palette)
+        # so the sandbox is single-player.
+        game = game_state.GameState(
+            board_size_x=SANDBOX_BOARD_SIZE,
+            board_size_y=SANDBOX_BOARD_SIZE,
+            p1_start_point=SANDBOX_PLAYER_START,
+            p2_start_point=SANDBOX_PLAYER_START,
+        )
+        game.players[0].color = (255, 102, 170)
+        game.players[1].color = (255, 102, 170)
+        SANDBOX_STATES[pid] = game
+    return SANDBOX_STATES[pid]
+
+
+def _player_in_queue(pid: str) -> bool:
+    """True if ``pid`` is currently waiting in the matchmaking queue."""
+    return any(e["pid"] == pid for e in MATCH_QUEUE)
+
+
+def _player_in_match(pid: str) -> bool:
+    """True if ``pid`` is already part of an active match."""
+    for m in ACTIVE_MATCHES.values():
+        if m.get("p1_pid") == pid or m.get("p2_pid") == pid:
+            return True
+    return False
+
+
+@app.route("/queue")
+def queue_page():
+    """Render the queue page with a sandbox game the player can play.
+
+    Only accessible to a session that is currently in the matchmaking
+    queue (or already matched); otherwise redirect to the lobby.
+    """
+    sandbox_data = flask.request.args.get("pid", "").strip() or flask.session.get("_pid", "")
+    if not sandbox_data:
+        return flask.redirect("/lobby")
+    # Only show the sandbox to players who are still in the queue.
+    if not (_player_in_queue(sandbox_data) or _player_in_match(sandbox_data)):
+        return flask.redirect("/lobby")
+
+    game = _get_sandbox_state(sandbox_data)
+    board_html = game.board_to_html(current_player_index=0, fib_remaining=0)
+    return flask.render_template(
+        "queue.html",
+        sandbox_html=board_html,
+        board_size=SANDBOX_BOARD_SIZE,
+        username=flask.session.get("username", ""),
+        color=flask.session.get("player_color", "#ff66aa"),
+    )
+
+
+@app.route("/sandbox/update", methods=["POST"])
+def sandbox_update():
+    """Toggle a cell in the player's sandbox.
+
+    In the sandbox, the player is the only inhabitant, so cells
+    behave as: unowned + adjacent to your territory => claim; owned
+    by you => toggle alive. No energy is spent (the sandbox is
+    free-play while you wait for a real match).
+    """
+    data = flask.request.get_json(silent=True) or {}
+    pid = (data.get("pid") or flask.request.args.get("pid", "")).strip() or flask.session.get("_pid", "")
+    if not pid:
+        return flask.jsonify({"ok": False, "error": "no pid"}), 400
+    x = flask.request.args.get("x", type=int)
+    y = flask.request.args.get("y", type=int)
+    if x is None or y is None:
+        return flask.jsonify({"ok": False, "error": "missing coords"}), 400
+
+    game = _get_sandbox_state(pid)
+    if not (0 <= x < game.board_size_x and 0 <= y < game.board_size_y):
+        return flask.jsonify({"ok": False, "error": "out of bounds"}), 400
+
+    cell = game.board[x][y]
+    player = game.players[0]
+    action = "none"
+    if cell.owner is None and game.count_friendly_neighbors(x, y, player) > 0:
+        # Claim a free cell adjacent to your territory
+        cell.owner = player
+        cell.alive = True
+        game._claim_neighbors(x, y, player)
+        action = "claim"
+    elif cell.owner == player and not cell.immortal:
+        cell.alive = not cell.alive
+        action = "toggle-on" if cell.alive else "toggle-off"
+    else:
+        # Out of territory, owned by the start base, etc. — silently no-op
+        return _cell_json(game, x, y, 0)
+
+    return _cell_json(game, x, y, 0)
+
+
+@app.route("/sandbox/reset", methods=["POST"])
+def sandbox_reset():
+    """Reset the sandbox to its initial state."""
+    data = flask.request.get_json(silent=True) or {}
+    pid = (data.get("pid") or "").strip() or flask.session.get("_pid", "")
+    if not pid:
+        return flask.jsonify({"ok": False, "error": "no pid"}), 400
+    SANDBOX_STATES.pop(pid, None)
+    return flask.jsonify({"ok": True, "html": _get_sandbox_state(pid).board_to_html(current_player_index=0)})
 
 
 @app.route("/leaderboard")
@@ -1071,6 +1192,25 @@ def seed_scenario():
     _apply_session_options_to_game()
     _reset_fib_progression()
     return flask.jsonify({"ok": True, "scenario": name})
+
+
+@app.route("/__test__/reset_state", methods=["POST"])
+def test_reset_state():
+    """Wipe all in-memory matchmaking state.
+
+    Gated by ``ENABLE_TEST_ROUTES`` (Playwright tests set this in
+    their webServer command). Used by tests to start from a clean
+    slate so that leftover queue entries or matches from prior tests
+    don't pollute the matchmaking flow.
+    """
+    if not _test_routes_enabled():
+        return flask.jsonify({"ok": False, "error": "test routes disabled"}), 403
+    MATCH_QUEUE.clear()
+    ACTIVE_MATCHES.clear()
+    LAST_HEARTBEAT.clear()
+    MATCH_LOGS.clear()
+    SANDBOX_STATES.clear()
+    return flask.jsonify({"ok": True})
 
 
 def _build_territory_collision_scenario() -> game_state.GameState:

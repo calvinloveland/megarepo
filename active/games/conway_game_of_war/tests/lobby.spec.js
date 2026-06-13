@@ -38,6 +38,17 @@ test.afterEach(({}, testInfo) => {
 });
 
 test.describe('Lobby — Find Match', () => {
+  // Reset the server's matchmaking state before each test. The Flask
+  // server is shared across all tests in the run, so without this
+  // hook queue entries and matches from earlier tests pollute later
+  // tests (e.g. tab1 in the queue from test 1 unexpectedly matches
+  // with tab2 in test 8).
+  test.beforeEach(async () => {
+    await fetch('http://127.0.0.1:5000/__test__/reset_state', {
+      method: 'POST',
+    });
+  });
+
   test('lobby page loads with no JS errors', async ({ page }) => {
     await page.goto('/lobby');
     await expect(page.locator('#find-match-btn')).toBeVisible();
@@ -66,23 +77,19 @@ test.describe('Lobby — Find Match', () => {
     const response = await joinQueuePromise;
 
     expect(response.status()).toBe(200);
-    const body = await response.json();
-    expect(body.ok).toBe(true);
-    // matched will be false because there's no second player in the test
-    // environment, but the important regression guard is that the click
-    // *reached* /join_queue at all.
-    expect(typeof body.matched).toBe('boolean');
+    // Note: we deliberately don't read response.json() because the
+    // JS immediately navigates to /queue which can race the body
+    // read. The 200 status and subsequent URL change are sufficient
+    // signals that the endpoint was called successfully.
 
-    // UI should reflect the queued state
-    await expect(page.locator('#find-match-btn')).toBeDisabled();
-    await expect(page.locator('#find-match-btn')).toHaveText(/Searching/);
-    await expect(page.locator('#status-area')).toContainText(
-      /In queue|queue|searching/i,
-    );
+    // Since there's no opponent, the lobby now navigates to /queue
+    // (which has the sandbox). Verify the queue page loads.
+    await page.waitForURL(/\/queue/);
+    await expect(page.locator('.queue-banner')).toBeVisible();
+    await expect(page.locator('.queue-banner')).toContainText('In Queue');
 
     // Clean up: leave the queue so subsequent tests don't get matched
     // against this user (the Flask server is shared across tests).
-    await expect(page.locator('#leave-btn')).toBeVisible();
     const leavePromise = page.waitForResponse(
       (r) => r.url().endsWith('/leave_queue') && r.request().method() === 'POST',
     );
@@ -94,10 +101,10 @@ test.describe('Lobby — Find Match', () => {
     await page.goto('/lobby');
     await page.fill('#username-input', 'LobbyLeaver');
     await page.click('#find-match-btn');
-    await expect(page.locator('#find-match-btn')).toBeDisabled();
+    // We navigate to the /queue page when there's no opponent.
+    await page.waitForURL(/\/queue/);
 
-    // The leave button is unhidden by the joinQueue() handler; wait for
-    // it to be visible before clicking.
+    // The leave button is on the queue page, not the lobby.
     await expect(page.locator('#leave-btn')).toBeVisible();
 
     const leavePromise = page.waitForResponse(
@@ -105,7 +112,9 @@ test.describe('Lobby — Find Match', () => {
     );
     await page.click('#leave-btn');
     await leavePromise;
-
+    // After leaving, we navigate back to /lobby where the Find Match
+    // button is re-enabled.
+    await page.waitForURL(/\/lobby/);
     await expect(page.locator('#find-match-btn')).toBeEnabled();
     await expect(page.locator('#find-match-btn')).toHaveText(/Find Match/);
   });
@@ -358,6 +367,124 @@ test.describe('Lobby — Find Match', () => {
     expect(s2.p1_ready).toBe(false);
     expect(s2.p2_ready).toBe(false);
     expect(s2.both_ready).toBe(false);
+
+    await ctx1.close();
+    await ctx2.close();
+  });
+
+  test('Queue page shows a sandbox game and clearly indicates the player is still in the queue', async ({ browser }) => {
+    // The player should be able to play around on a sandbox while
+    // waiting for an opponent, with a clear banner indicating they're
+    // still in the queue.
+    const ctx = await browser.newContext();
+    const tab1 = await ctx.newPage();
+    tab1.on('pageerror', (e) => console.log('[A pageerror]', e.message));
+
+    await tab1.goto('/lobby');
+    await tab1.fill('#username-input', 'Alice');
+    await tab1.click('#find-match-btn');
+    // Joining the queue with no opponent should now take us to the
+    // /queue page (the lobby doesn't sit there showing an inline
+    // status anymore).
+    await tab1.waitForURL(/\/queue/);
+
+    // The "In Queue" banner should be visible and clearly say the
+    // player is still in the queue.
+    const banner = tab1.locator('.queue-banner');
+    await expect(banner).toBeVisible();
+    await expect(banner).toContainText('In Queue');
+    await expect(banner).toContainText('waiting for an opponent');
+
+    // A "SANDBOX" pill or label should make it clear this is just
+    // a playground, not the real game.
+    await expect(tab1.locator('body')).toContainText('SANDBOX');
+    await expect(tab1.locator('body')).toContainText("don't affect the real match");
+
+    // The sandbox board should be present with at least one cell
+    // (the start cell).
+    const sandboxCells = await tab1.locator('.sandbox-wrap .cell').count();
+    expect(sandboxCells).toBeGreaterThan(0);
+
+    // The Leave Queue button should be enabled.
+    const leaveBtn = tab1.locator('#leave-btn');
+    await expect(leaveBtn).toBeEnabled();
+
+    await ctx.close();
+  });
+
+  test('Sandbox moves are not visible in the real game', async ({ browser }) => {
+    // The sandbox is purely client-state on the server; it must not
+    // leak into the real match.
+    const ctx1 = await browser.newContext();
+    const ctx2 = await browser.newContext();
+    const tab1 = await ctx1.newPage();
+    const tab2 = await ctx2.newPage();
+
+    await Promise.all([tab1.goto('/lobby'), tab2.goto('/lobby')]);
+    await tab1.fill('#username-input', 'Alice');
+    await tab2.fill('#username-input', 'Bob');
+
+    // Alice joins first; the lobby should navigate her to /queue
+    await tab1.click('#find-match-btn');
+    await tab1.waitForURL(/\/queue/);
+
+    // While Alice is in the queue, she plays around in the sandbox.
+    // We click a cell adjacent to her start via in-page fetch.
+    await tab1.evaluate(async () => {
+      const pid = sessionStorage.getItem('conway-war-pid');
+      await fetch('/sandbox/update?x=16&y=15', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pid }),
+      });
+    });
+
+    // Now Bob joins, matching with Alice.
+    await tab2.click('#find-match-btn');
+    await tab2.waitForURL('/');
+    await tab1.waitForURL('/');
+    // Wait for the game board to actually render in tab1.
+    await tab1.waitForFunction(
+      () => document.querySelectorAll('.cell-shell').length > 100,
+      null,
+      { timeout: 10000 },
+    );
+
+    // Verify the real match is on the proper board (127x131) and the
+    // sandbox click did NOT leak into the real match. Both players
+    // see the same game board.
+    const boardInfo1 = await tab1.evaluate(() => {
+      const cells = document.querySelectorAll('.cell-shell');
+      return cells.length;
+    });
+    // A 127x131 board has 127*131 = 16637 cells
+    expect(boardInfo1).toBeGreaterThan(16000);
+    expect(boardInfo1).toBeLessThan(17000);
+
+    // Wait for the board to actually render before checking the cell.
+    await tab1.waitForFunction(
+      () => document.querySelectorAll('.cell-shell').length > 100,
+      null,
+      { timeout: 10000 },
+    );
+
+    // The cell at (16, 15) in the real game should be unowned (the
+    // sandbox mutation must not have leaked).
+    const cellOwner1 = await tab1.evaluate(() => {
+      const cell = document.querySelector(
+        '.cell-shell[data-x="16"][data-y="15"]',
+      );
+      if (!cell) return { found: false, owner: null };
+      return {
+        found: true,
+        owner: cell.dataset.owner || 'none',
+        alive: cell.dataset.alive || '0',
+      };
+    });
+    expect(cellOwner1.found).toBe(true);
+    // The cell should be unowned and not alive in the real game.
+    expect(cellOwner1.owner).toBe('none');
+    expect(cellOwner1.alive).toBe('0');
 
     await ctx1.close();
     await ctx2.close();

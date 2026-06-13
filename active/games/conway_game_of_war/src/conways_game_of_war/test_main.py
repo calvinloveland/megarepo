@@ -411,6 +411,152 @@ class TestClientGameState:
         assert status["you_are_ready"] is True
         assert status["both_ready"] is False
 
+    # ─── Queue-time sandbox ───────────────────────────────────
+
+    def _sandbox_client(self, pid: str):
+        """Return a test client that has ``pid`` in its session and
+        is in the matchmaking queue so it can access /queue.
+        """
+        c = main.app.test_client()
+        with c.session_transaction() as s:
+            s["_pid"] = pid
+            s["username"] = f"Sandbox-{pid}"
+        main.MATCH_QUEUE.append({"pid": pid, "username": f"Sandbox-{pid}", "color": "#ff66aa"})
+        return c
+
+    def test_queue_page_renders_sandbox(self):
+        """/queue is reachable while the player is in the queue, and
+        the response includes a sandbox board the player can play.
+        """
+        main.MATCH_QUEUE = []
+        main.SANDBOX_STATES = {}
+        c = self._sandbox_client("sandbox-pid-1")
+
+        response = c.get("/queue?pid=sandbox-pid-1")
+        assert response.status_code == 200
+        body = response.get_data(as_text=True)
+        assert "Sandbox" in body
+        assert "sandbox-wrap" in body
+        assert "In Queue" in body  # the banner
+        assert "waiting for an opponent" in body
+        # The sandbox state was created on this request
+        assert "sandbox-pid-1" in main.SANDBOX_STATES
+        # Start cell is owned and alive
+        state = main.SANDBOX_STATES["sandbox-pid-1"]
+        start = state.players[0].start_point
+        assert state.board[start[0]][start[1]].alive is True
+        assert state.board[start[0]][start[1]].immortal is True
+
+    def test_queue_page_redirects_when_not_in_queue(self):
+        """/queue is only for players currently in the queue or
+        already in a match. Anyone else is bounced back to /lobby.
+        """
+        main.MATCH_QUEUE = []
+        c = main.app.test_client()
+        response = c.get("/queue?pid=ghost-pid", follow_redirects=False)
+        assert response.status_code == 302
+        assert "/lobby" in response.headers["Location"]
+
+    def test_sandbox_update_claims_adjacent_cell(self):
+        """Clicking an unowned cell adjacent to the start claims it."""
+        main.MATCH_QUEUE = []
+        main.SANDBOX_STATES = {}
+        c = self._sandbox_client("sandbox-pid-2")
+        # Pre-create the sandbox state by visiting the page
+        c.get("/queue?pid=sandbox-pid-2")
+        state = main.SANDBOX_STATES["sandbox-pid-2"]
+        start = state.players[0].start_point
+        # Cell one step to the right of start
+        x, y = start[0] + 1, start[1]
+        cell_before = state.board[x][y]
+        assert cell_before.owner is not None  # already owned (from init)
+        assert cell_before.alive is False     # but not alive
+
+        response = c.post(f"/sandbox/update?x={x}&y={y}",
+                          json={"pid": "sandbox-pid-2"})
+        assert response.status_code == 200
+        body = response.get_json()
+        assert body["alive"] is True  # toggled to alive
+        # No energy is spent in the sandbox
+        assert state.players[0].energy == game_state.STARTING_ENERGY
+
+    def test_sandbox_update_rejects_far_cell(self):
+        """Clicking a cell too far from the territory is a silent no-op
+        (the sandbox is free-play, so we don't return an error — we
+        just return the unchanged cell).
+        """
+        main.MATCH_QUEUE = []
+        main.SANDBOX_STATES = {}
+        c = self._sandbox_client("sandbox-pid-3")
+        c.get("/queue?pid=sandbox-pid-3")
+        state = main.SANDBOX_STATES["sandbox-pid-3"]
+        # Cell (0, 0) is far from the start at (15, 15) and unowned
+        assert state.board[0][0].owner is None
+        response = c.post("/sandbox/update?x=0&y=0",
+                          json={"pid": "sandbox-pid-3"})
+        assert response.status_code == 200
+        # Cell is still unowned
+        assert state.board[0][0].owner is None
+        # The action hint is "none" (no action possible)
+        body = response.get_json()
+        assert body["action"] == "none"
+
+    def test_sandbox_state_isolated_per_pid(self):
+        """Two tabs in the same browser context (sharing a session
+        cookie) each have their own sandbox state, keyed by the
+        per-tab pid.
+        """
+        main.MATCH_QUEUE = []
+        main.SANDBOX_STATES = {}
+
+        c1 = self._sandbox_client("tab-1-pid")
+        c2 = self._sandbox_client("tab-2-pid")
+        c1.get("/queue?pid=tab-1-pid")
+        c2.get("/queue?pid=tab-2-pid")
+        assert "tab-1-pid" in main.SANDBOX_STATES
+        assert "tab-2-pid" in main.SANDBOX_STATES
+        # They are different GameState objects
+        assert (main.SANDBOX_STATES["tab-1-pid"]
+                is not main.SANDBOX_STATES["tab-2-pid"])
+        # A cell claimed in tab-1's sandbox is not in tab-2's
+        start = main.SANDBOX_STATES["tab-1-pid"].players[0].start_point
+        x, y = start[0] + 1, start[1]
+        c1.post(f"/sandbox/update?x={x}&y={y}", json={"pid": "tab-1-pid"})
+        # tab-1 owns and has the cell alive
+        assert main.SANDBOX_STATES["tab-1-pid"].board[x][y].alive is True
+        # tab-2's board is independent; that cell is just unowned (it
+        # was never claimed in tab-2's sandbox)
+        # (Note: the start is at (15, 15) on both; the adjacent
+        # cells of tab-2 are also unowned/alive=False initially)
+        tab2_cell = main.SANDBOX_STATES["tab-2-pid"].board[x][y]
+        assert tab2_cell.alive is False
+
+    def test_sandbox_reset_returns_fresh_board(self):
+        """/sandbox/reset wipes the per-pid sandbox and gives a fresh
+        one on the next interaction.
+        """
+        main.MATCH_QUEUE = []
+        main.SANDBOX_STATES = {}
+        c = self._sandbox_client("sandbox-pid-4")
+        c.get("/queue?pid=sandbox-pid-4")
+        state = main.SANDBOX_STATES["sandbox-pid-4"]
+        # Claim a cell to mutate the state
+        start = state.players[0].start_point
+        c.post(f"/sandbox/update?x={start[0] + 1}&y={start[1]}",
+               json={"pid": "sandbox-pid-4"})
+        # Old state had the cell alive
+        old_state = main.SANDBOX_STATES["sandbox-pid-4"]
+        assert old_state.board[start[0] + 1][start[1]].alive is True
+
+        # Reset
+        response = c.post("/sandbox/reset", json={"pid": "sandbox-pid-4"})
+        assert response.status_code == 200
+        # The old entry is gone, a new one was created (replaces the
+        # popped one). The new state has the cell NOT alive.
+        new_state = main.SANDBOX_STATES["sandbox-pid-4"]
+        assert new_state is not old_state
+        assert new_state.board[start[0] + 1][start[1]].alive is False
+
     def test_current_player_can_move_on_their_turn(self):
         # The acting player is determined by the session pid, not by a
         # turn counter. The default test client is set up as P1 (pid
