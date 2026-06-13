@@ -1,0 +1,18 @@
+[Unit]
+Description=SHSW.dev app health watchdog (single check)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# Run as the same user that owns the apps so the watchdog can
+# restart them.
+User=calvin
+WorkingDirectory=/home/calvin/megarepo
+ExecStart=/home/calvin/megarepo/active/web-apps/shared/scripts/.venv/bin/python3 /home/calvin/megarepo/active/web-apps/shared/scripts/watchdog.py --once
+StandardOutput=append:/tmp/watchdog.log
+StandardError=append:/tmp/watchdog.log
+
+# If a future iteration switches the watchdog to --watching, bump
+# TimeoutStartSec so the unit doesn't time out.
+TimeoutStartSec=120

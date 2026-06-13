@@ -1,0 +1,15 @@
+[Unit]
+Description=Run the SHSW.dev app health watchdog every 2 minutes
+
+[Timer]
+# 2 minutes after the last activation finished (so back-to-back runs
+# don't overlap) plus a small random delay to avoid thundering-herd
+# across multiple hosts.
+OnBootSec=2min
+OnUnitInactiveSec=2min
+RandomizedDelaySec=15s
+AccuracySec=10s
+Unit=watchdog.service
+
+[Install]
+WantedBy=timers.target
