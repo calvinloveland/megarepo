@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 import yaml
-from flask import Flask, jsonify, render_template
+from flask import Flask, jsonify, render_template, send_file
 
 LAUNCHER_DIR = Path(__file__).resolve().parent
 APPS_FILE = LAUNCHER_DIR / "apps.yaml"
@@ -332,6 +332,44 @@ def create_app() -> Flask:
             return jsonify({"ok": True, "name": proj_path.name, "content": content})
         except Exception as e:
             return jsonify({"ok": False, "error": str(e)}), 500
+
+    # ── Demo videos ─────────────────────────────────────────────────────
+    DEMOS_DIR = LAUNCHER_DIR / "demos"
+
+    @app.route("/demos/<app_id>.mp4")
+    def serve_demo(app_id: str):
+        """Serve a generated demo MP4 for the given app id."""
+        # Reject path traversal
+        if "/" in app_id or ".." in app_id or not app_id.replace("-", "").replace("_", "").isalnum():
+            return jsonify({"ok": False, "error": "Invalid app id"}), 400
+        path = (DEMOS_DIR / f"{app_id}.mp4").resolve()
+        if DEMOS_DIR.resolve() not in path.parents and path != DEMOS_DIR.resolve():
+            return jsonify({"ok": False, "error": "Path traversal blocked"}), 400
+        if not path.exists():
+            return jsonify({"ok": False, "error": f"Demo not found for {app_id}"}), 404
+        return send_file(path, mimetype="video/mp4", conditional=True, max_age=3600)
+
+    @app.route("/api/demos")
+    def api_demos():
+        """List available demo videos and their metadata."""
+        apps = load_apps()
+        app_by_id = {a["id"]: a for a in apps}
+        demos = []
+        if DEMOS_DIR.exists():
+            for mp4 in sorted(DEMOS_DIR.glob("*.mp4")):
+                app_id = mp4.stem
+                app = app_by_id.get(app_id, {})
+                demos.append({
+                    "app_id": app_id,
+                    "name": app.get("name", app_id),
+                    "icon": app.get("icon", "📦"),
+                    "description": app.get("description", ""),
+                    "url": f"/demos/{app_id}.mp4",
+                    "subdomain": app.get("subdomain", ""),
+                    "type": app.get("type", ""),
+                    "size_kb": mp4.stat().st_size // 1024,
+                })
+        return jsonify(demos)
 
     return app
 

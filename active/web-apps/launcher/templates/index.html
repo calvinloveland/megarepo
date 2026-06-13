@@ -242,6 +242,46 @@
       border-color: rgba(251,191,36,0.25);
       animation: pulse 1s ease-in-out infinite;
     }
+    .container-actions .btn-demo {
+      background: rgba(99, 102, 241, 0.18);
+      color: #a5b4fc; border-color: rgba(99, 102, 241, 0.3);
+    }
+    .container-actions .btn-demo:hover { background: rgba(99, 102, 241, 0.32); color: #c7d2fe; }
+
+    /* ═══ DEMO MODAL ═══ */
+    .demo-modal-backdrop {
+      position: fixed; inset: 0; z-index: 9000;
+      background: rgba(0,0,0,0.85);
+      display: none; align-items: center; justify-content: center;
+      backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+    }
+    .demo-modal-backdrop.open { display: flex; }
+    .demo-modal {
+      background: #0a0e17;
+      border: 1px solid rgba(74,222,128,0.25);
+      border-radius: 6px;
+      padding: 16px;
+      max-width: 92vw; max-height: 92vh;
+      box-shadow: 0 30px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.04);
+      display: flex; flex-direction: column; gap: 10px;
+    }
+    .demo-modal-header {
+      display: flex; align-items: center; justify-content: space-between;
+      font-family: 'Courier New', monospace; font-size: 11px;
+      color: rgba(255,255,255,0.5); letter-spacing: 1.5px; text-transform: uppercase;
+    }
+    .demo-modal-header .demo-title { color: #4ade80; font-weight: 700; }
+    .demo-modal-header button {
+      background: none; border: 1px solid rgba(255,255,255,0.15);
+      color: rgba(255,255,255,0.6); padding: 4px 10px; border-radius: 2px;
+      cursor: pointer; font-family: inherit; font-size: 10px; letter-spacing: 1px;
+    }
+    .demo-modal-header button:hover { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.9); }
+    .demo-modal video {
+      display: block; max-width: 90vw; max-height: 80vh;
+      width: 1280px; height: auto; aspect-ratio: 16 / 9;
+      background: #000; border-radius: 3px;
+    }
     @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
 
     .status-dot-card {
@@ -469,6 +509,67 @@
     .doc-list-btn .name { font-size: 12px; font-weight: 600; color: rgba(255,255,255,0.8); }
     .doc-list-btn .desc { font-size: 10px; color: rgba(255,255,255,0.4); margin-top: 2px; }
 
+    /* ═══ DEMOS GRID ═══ */
+    .demo-card {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 4px; overflow: hidden;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s, transform 0.15s;
+      display: flex; flex-direction: column;
+    }
+    .demo-card:hover {
+      background: rgba(255,255,255,0.05);
+      border-color: rgba(74,222,128,0.25);
+      transform: translateY(-2px);
+    }
+    .demo-card .demo-thumb {
+      position: relative; width: 100%; aspect-ratio: 16/9;
+      background: #000;
+      overflow: hidden;
+    }
+    .demo-card .demo-thumb img {
+      width: 100%; height: 100%; object-fit: cover; display: block;
+      transition: transform 0.3s;
+    }
+    .demo-card:hover .demo-thumb img { transform: scale(1.05); }
+    .demo-card .demo-thumb::after {
+      content: '▶';
+      position: absolute; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 36px; color: rgba(255,255,255,0.9);
+      background: rgba(0,0,0,0.0);
+      transition: background 0.15s;
+      text-shadow: 0 0 12px rgba(0,0,0,0.8);
+      pointer-events: none;
+    }
+    .demo-card:hover .demo-thumb::after { background: rgba(0,0,0,0.3); }
+    .demo-card .demo-info {
+      padding: 10px 14px;
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 8px;
+    }
+    .demo-card .demo-info .demo-name {
+      font-size: 12px; font-weight: 600;
+      color: rgba(255,255,255,0.85);
+      display: flex; align-items: center; gap: 6px;
+      min-width: 0;
+    }
+    .demo-card .demo-info .demo-icon { font-size: 14px; flex-shrink: 0; }
+    .demo-card .demo-info .demo-type {
+      font-family: 'Courier New', monospace;
+      font-size: 9px; letter-spacing: 1px;
+      color: rgba(255,255,255,0.4);
+      padding: 2px 6px; border-radius: 2px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.06);
+      flex-shrink: 0;
+    }
+    .demo-card .demo-info .demo-type.flask { color: #93c5fd; border-color: rgba(147,197,253,0.2); }
+    .demo-card .demo-info .demo-type.vite { color: #86efac; border-color: rgba(134,239,172,0.2); }
+    .demo-card .demo-info .demo-type.nextjs { color: #5eead4; border-color: rgba(94,234,212,0.2); }
+    .demo-card .demo-info .demo-type.node { color: #fdba74; border-color: rgba(253,186,116,0.2); }
+
     .site-footer {
       position: relative; z-index: 20;
       text-align: center;
@@ -518,6 +619,7 @@
 <div class="tab-bar" id="tabs">
   <button class="tab-btn active" data-tab="apps">Web Apps</button>
   <button class="tab-btn" data-tab="projects">All Projects</button>
+  <button class="tab-btn" data-tab="demos">Demos</button>
   <button class="tab-btn" data-tab="docs">Docs</button>
 </div>
 
@@ -578,6 +680,26 @@
       <div style="margin-bottom:20px"><h2 style="font-size:14px;font-weight:600;color:rgba(255,255,255,0.6);letter-spacing:2px;text-transform:uppercase">PROJECT DOCS</h2></div>
       <div class="doc-viewer" id="doc-viewer">
         <div style="text-align:center;padding:40px;color:rgba(255,255,255,0.3)">Select a project to view its README.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ TAB: DEMOS ═══ -->
+<div id="tab-demos" class="tab-content hidden">
+  <div class="content-slate">
+    <div class="inner">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:20px">
+        <h2 style="font-size:14px;font-weight:600;color:rgba(255,255,255,0.6);letter-spacing:2px;text-transform:uppercase">DEMO REELS</h2>
+        <div style="font-size:11px;color:rgba(255,255,255,0.4);font-family:'Courier New',monospace;letter-spacing:1px">
+          <span id="demosCount">0</span> GENERATED · 16s EACH · 1280×720
+        </div>
+      </div>
+      <div id="demo-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px">
+        <div style="grid-column:1/-1;text-align:center;padding:40px;color:rgba(255,255,255,0.3)">LOADING DEMOS…</div>
+      </div>
+      <div style="margin-top:24px;font-size:11px;color:rgba(255,255,255,0.3);font-family:'Courier New',monospace;letter-spacing:1px;text-align:center">
+        Regenerate with: <span style="color:#4ade80">python3 tools/generate_demos.py</span>
       </div>
     </div>
   </div>
@@ -917,9 +1039,10 @@ function createContainerDOM() {
     if (app.running) running++;
 
     const color = TYPE_COLORS[app.type] || 'gray';
+    const demoBtn = `<button class="btn-demo" onclick="playDemo('${app.id}', '${(app.name || app.id).replace(/'/g, "\\'")}')" title="Play generated demo video">▶ DEMO</button>`;
     const actions = app.running
-      ? `<a href="${app.url}" target="_blank" class="btn-open">OPEN →</a>`
-      : `<button class="btn-start" onclick="startApp('${app.id}')">▶ START</button>`;
+      ? `<a href="${app.url}" target="_blank" class="btn-open">OPEN →</a>${demoBtn}`
+      : `<button class="btn-start" onclick="startApp('${app.id}')">▶ START</button>${demoBtn}`;
 
     const div = document.createElement('div');
     div.className = `container-card container-color-${color}`;
@@ -1201,6 +1324,7 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     tab.classList.remove('hidden');
 
     if (btn.dataset.tab === 'projects') loadProjects();
+    if (btn.dataset.tab === 'demos') loadDemosGrid();
     if (btn.dataset.tab === 'docs') loadDocList();
     // Rebuild physics when switching back to apps tab
     if (btn.dataset.tab === 'apps') {
@@ -1217,16 +1341,18 @@ function updateCard(appId, state, url) {
   if (!card) return;
   const dot = card.querySelector('.status-dot-card');
   const actions = card.querySelector('.container-actions');
+  const app = APP_DATA.find(a => a.id === appId) || { name: appId };
+  const demoBtn = `<button class="btn-demo" onclick="playDemo('${appId}', '${(app.name || appId).replace(/'/g, "\\'")}')" title="Play generated demo video">▶ DEMO</button>`;
 
   dot.className = 'status-dot-card ' + state;
   card.dataset.running = state === 'running' ? 'true' : 'false';
 
   if (state === 'running') {
-    actions.innerHTML = `<a href="${url}" target="_blank" class="btn-open">OPEN →</a>`;
+    actions.innerHTML = `<a href="${url}" target="_blank" class="btn-open">OPEN →</a>${demoBtn}`;
   } else if (state === 'loading') {
-    actions.innerHTML = `<button class="btn-start loading">⟳ STARTING</button>`;
+    actions.innerHTML = `<button class="btn-start loading">⟳ STARTING</button>${demoBtn}`;
   } else {
-    actions.innerHTML = `<button class="btn-start" onclick="startApp('${appId}')">▶ START</button>`;
+    actions.innerHTML = `<button class="btn-start" onclick="startApp('${appId}')">▶ START</button>${demoBtn}`;
   }
   updateRunningCount();
 }
@@ -1257,6 +1383,55 @@ async function refreshAll() {
 }
 setInterval(refreshAll, 10000);
 updateRunningCount();
+
+// ══════════════════════════════════════════════════════
+// DEMOS TAB
+// ══════════════════════════════════════════════════════
+let demosCache = null;
+async function loadDemosGrid() {
+  const grid = document.getElementById('demo-grid');
+  const counter = document.getElementById('demosCount');
+  if (!grid) return;
+  if (demosCache) { renderDemosGrid(demosCache); return; }
+  try {
+    const res = await fetch('/api/demos');
+    demosCache = await res.json();
+    renderDemosGrid(demosCache);
+  } catch(e) {
+    grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:#ef4444">FAILED TO LOAD DEMOS</div>';
+  }
+}
+
+function renderDemosGrid(demos) {
+  const grid = document.getElementById('demo-grid');
+  const counter = document.getElementById('demosCount');
+  if (counter) counter.textContent = demos.length;
+  if (!demos.length) {
+    grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:rgba(255,255,255,0.3)">No demos generated yet. Run: <code style="color:#4ade80">python3 tools/generate_demos.py</code></div>';
+    return;
+  }
+  grid.innerHTML = '';
+  for (const d of demos) {
+    const card = document.createElement('div');
+    card.className = 'demo-card';
+    card.onclick = () => playDemo(d.app_id, d.name);
+    const typeClass = (d.type || '').toLowerCase();
+    card.innerHTML = `
+      <div class="demo-thumb">
+        <img src="/static/demos/${d.app_id}.jpg" alt="${d.name}" loading="lazy"
+             onerror="this.style.opacity=0.2">
+      </div>
+      <div class="demo-info">
+        <div class="demo-name">
+          <span class="demo-icon">${d.icon || '📦'}</span>
+          <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${d.name}</span>
+        </div>
+        <span class="demo-type ${typeClass}">${(d.type || 'app').toUpperCase()}</span>
+      </div>
+    `;
+    grid.appendChild(card);
+  }
+}
 
 // ══════════════════════════════════════════════════════
 // PROJECTS TAB
@@ -1438,6 +1613,59 @@ window.addEventListener('resize', () => {
     }
   }, 500);
 });
+
+// ══════════════════════════════════════════════════════
+// DEMO MODAL
+// ══════════════════════════════════════════════════════
+function playDemo(appId, displayName) {
+  const modal = document.getElementById('demoModal');
+  const video = document.getElementById('demoVideo');
+  const title = document.getElementById('demoTitle');
+  const errorEl = document.getElementById('demoError');
+  if (!modal || !video) return;
+  title.textContent = `▶ ${displayName || appId}`;
+  errorEl.style.display = 'none';
+  // Use cached poster (t=1 so the icon has appeared but text is still revealing)
+  video.poster = `/static/demos/${appId}.jpg?t=${Date.now()}`;
+  // Cache-bust so re-opening replays from start
+  video.src = `/demos/${appId}.mp4?t=${Date.now()}`;
+  modal.classList.add('open');
+  // Autoplay — some browsers may block; user gesture is from the click so usually OK
+  const playPromise = video.play();
+  if (playPromise && playPromise.catch) {
+    playPromise.catch(err => {
+      errorEl.textContent = 'Autoplay blocked — click the video to play.';
+      errorEl.style.display = 'block';
+    });
+  }
+  video.onerror = () => {
+    errorEl.textContent = `No demo available for ${displayName || appId} yet. Run tools/generate_demos.py to build it.`;
+    errorEl.style.display = 'block';
+  };
+}
+
+function closeDemo() {
+  const modal = document.getElementById('demoModal');
+  const video = document.getElementById('demoVideo');
+  if (video) { video.pause(); video.removeAttribute('src'); video.load(); }
+  if (modal) modal.classList.remove('open');
+}
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closeDemo();
+});
 </script>
+
+<!-- Demo video modal -->
+<div id="demoModal" class="demo-modal-backdrop" onclick="if (event.target === this) closeDemo()">
+  <div class="demo-modal" role="dialog" aria-label="Demo video player">
+    <div class="demo-modal-header">
+      <span class="demo-title" id="demoTitle">▶ Demo</span>
+      <button onclick="closeDemo()">✕ CLOSE  [ESC]</button>
+    </div>
+    <video id="demoVideo" controls preload="metadata" playsinline></video>
+    <div id="demoError" style="display:none;color:#ef4444;font-family:'Courier New',monospace;font-size:11px;letter-spacing:1px;text-align:center;padding:8px"></div>
+  </div>
+</div>
 </body>
 </html>

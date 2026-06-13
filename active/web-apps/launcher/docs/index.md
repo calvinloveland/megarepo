@@ -77,3 +77,37 @@ Edit `apps.yaml` to add or modify apps. Each entry specifies:
 - `POST /api/start/<id>` — Start an app
 - `POST /api/stop/<id>` — Stop an app (if managed by launcher)
 - `GET /api/status/<id>` — Status of a single app
+- `GET /api/projects` — JSON list of every active project
+- `GET /api/projects/<id>/readme` — README content for a project
+- `GET /api/demos` — JSON list of generated demo videos
+- `GET /demos/<id>.mp4` — Serve a generated demo MP4
+
+## Demo Videos
+
+The launcher ships with a 16-second MP4 demo for every app in `apps.yaml`. Each video is a branded title-card animation with the project name, icon, description, tech stack, and a mock terminal + browser window. Click **▶ DEMO** on any container card, or browse the **Demos** tab.
+
+### Regenerating
+
+The demos are generated from `apps.yaml` by [`tools/generate_demos.py`](../tools/generate_demos.py). Re-render after adding or editing an app:
+
+```bash
+cd active/web-apps/launcher
+nix-shell -p python3Packages.pillow ffmpeg --run \
+    "python3 tools/generate_demos.py"
+```
+
+Each demo is ~280 KB and renders in about 30 seconds (480 frames @ 30 fps). Use `--only <id>` to render a single demo and `--out <dir>` to change the output directory.
+
+### How the generator works
+
+1. Loads the launcher’s `apps.yaml`
+2. Composes each frame with Pillow (icon card, name, description, tags, terminal, browser)
+3. Encodes the PNG sequence to H.264 MP4 with ffmpeg
+
+The visual style mirrors the launcher UI: dark slate background, green accent (`#4ade80`), monospaced typography, and corrugated "container" cards with monogram letters.
+
+To extract a still poster for a demo (used as the modal preview image):
+
+```bash
+ffmpeg -i demos/momos.mp4 -ss 5 -vframes 1 static/demos/momos.jpg
+```
