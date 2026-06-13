@@ -121,6 +121,10 @@ The value persists in the session and survives reloads.
 
 Autopilot state (`autopilotNudges`, `maxNudges`, `autopilotEnabled`) is stored in module-level variables that survive `session_compact` events. The `input` event (user messages) resets the nudge counter — nudge-triggered auto-turns do not.
 
+## Studies and lessons
+
+- [Lessons from `Michaelliv/pi-goal`](lessons-pi-goal.md) — comparative analysis of the closest peer extension; convergence on the same v0.4.0 architecture, and a list of concrete features worth porting (token budget, audit prompt, custom-message renderer, versioned state, reload safety, CI/release workflow).
+
 ## Local test
 
 ```bash
