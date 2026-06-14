@@ -65,3 +65,21 @@ done
 Add a new entry to `apps.yaml`, then re-run the generator. The new
 demo will be picked up automatically and exposed via the **Demos** tab
 and the **▶ DEMO** button on the corresponding container card.
+
+## Smoke test
+
+`smoke_test.js` runs a headless Chromium against the dashboard and
+exercises every tab plus the demo modal. It catches regressions like
+the duplicate `const SCENES` SyntaxError that left the page inert for
+days.
+
+```bash
+# Local dev (launcher on http://localhost:3001)
+npm install --prefix tools
+nix-shell -p chromium --run "node tools/smoke_test.js"
+
+# Production
+URL=https://launcher.shsw.dev node tools/smoke_test.js
+```
+
+Exits 0 on success, 1 on any failed check, 2 on a fatal error.

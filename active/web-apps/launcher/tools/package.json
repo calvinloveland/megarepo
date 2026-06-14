@@ -1,0 +1,16 @@
+{
+  "name": "launcher-tools",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Smoke test for the Megarepo launcher dashboard",
+  "scripts": {
+    "smoke": "node smoke_test.js",
+    "smoke:prod": "URL=https://launcher.shsw.dev node smoke_test.js"
+  },
+  "dependencies": {
+    "puppeteer-core": "^23.0.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

@@ -1,0 +1,9 @@
+# Test deps — install with: npm install --prefix tools
+node_modules/
+
+# Python — auto-generated when generate_demos.py is imported
+__pycache__/
+*.pyc
+
+# Temporary intermediate frames when --keep-frames is passed
+frame_*.png
