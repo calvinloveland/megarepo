@@ -1,19 +1,43 @@
-# tools/generate_demos.py
+# tools/
 
-Generates 16-second MP4 demo videos for every project registered in
-`../apps.yaml`. Each video is a branded title-card animation:
+This directory holds the launcher's tooling: the demo-video generator,
+shared scene infrastructure, and a headless smoke test for the
+dashboard.
 
-- 1280×720 @ 30 fps, ~16 seconds, ~280 KB
-- Project name (typewriter reveal)
-- Monogram "container card" with type pill (`FLASK` / `NEXTJS` / `VITE` / `NODE`)
-- Project description (line-by-line reveal)
-- Tech badges: `TYPE`, `PORT`, `DOMAIN`
-- Mock terminal panel typing the start command
-- Mock browser panel showing the public URL
-- Fade to black
+## Architecture
 
-The visual language mirrors the launcher UI (dark slate, green accent,
-monospaced type).
+```
+constants.py      ← colors, fonts, dimensions
+animation.py      ← easings, lerps, frame progress helpers
+scene_lib.py      ← chrome (header/footer), panels, easings
+demo_scenes.py    ← one hand-crafted scene per project (15)
+generate_demos.py ← reads apps.yaml, dispatches to a scene, encodes MP4
+```
+
+Every project registered in `apps.yaml` has a dedicated scene function
+in `demo_scenes.py` keyed by app id. The fallback `scene_default`
+renders the original title-card template.
+
+Each scene is a 16-second composition that *shows* what the project
+does, instead of just describing it:
+
+| App | Scene concept |
+|-----|---------------|
+| **momos** | A "today" dashboard with 4 widget cards (calendar, inbox, pantry, reminders) |
+| **parambulator** | A 5×6 classroom grid with student names and a live fitness score |
+| **sub-day-generator** | A printed lesson plan paper that fills itself in section-by-section |
+| **vernissage** | A Mondrian composition in a gold museum frame with a metadata plaque |
+| **holdem-together** | A green felt poker table with 2 hole cards, 3 community, pot counter, "your turn" |
+| **code-reviewdle** | A code editor with a `debounce` function, a glowing BUG line, and 6 guess slots |
+| **conway-war** | A 30×14 cellular automaton with red/blue armies, a generation counter, territory bar |
+| **wizard-fight** | Two wizard character cards with HP bars and a spell impact in the middle |
+| **wizard-fight-ui** | Same duel from the React frontend's perspective |
+| **trading-cards** | A fan of 5 TCG cards with attack/health stats drawn from a shrinking deck |
+| **powder-play** | Three glass vials of colored powder mixing into a "Storm Salt" beaker |
+| **hivemind** | A 5-node network of LLMs with a request packet flowing through them |
+| **hivemind-frontend** | A chat interface with the user message and a streaming LLM haiku |
+| **operationalize** | A 3-column kanban board with cards (To Do / In Progress / Done) and a card mid-flight |
+| **recursive-thermofluid-sandbox** | A top-down simulation with a rotating wheel, orbital particles, and a temperature gradient |
 
 ## Run
 
@@ -48,23 +72,38 @@ served by the launcher at `/demos/<app-id>.mp4` and indexed by
 
 ## Re-rendering posters
 
-The Demos tab in the launcher uses a JPEG poster (a representative frame
-around t=5s) as the thumbnail. To regenerate them in bulk:
+The Demos tab in the launcher uses a JPEG poster (a representative
+frame from each scene) as the thumbnail.
 
 ```bash
 cd active/web-apps/launcher
-mkdir -p static/demos
 for mp4 in demos/*.mp4; do
   id=$(basename "$mp4" .mp4)
   ffmpeg -i "$mp4" -ss 5 -vframes 1 -q:v 5 -y "static/demos/${id}.jpg"
 done
 ```
 
-## Adding a new demo
+## Adding a new scene
 
-Add a new entry to `apps.yaml`, then re-run the generator. The new
-demo will be picked up automatically and exposed via the **Demos** tab
-and the **▶ DEMO** button on the corresponding container card.
+To add a custom scene for a new project, add a function to
+`demo_scenes.py`:
+
+```python
+def scene_my_project(app, img, t):
+    # Draw onto img at time t (0..16 seconds).
+    # Standard chrome (header, footer) is added automatically
+    # by render_frame() in generate_demos.py.
+    ...
+```
+
+Then register it:
+
+```python
+SCENE_REGISTRY["my-project"] = scene_my_project
+```
+
+Re-run the generator. The new scene will be picked up automatically
+and exposed via the **Demos** tab and the **▶ DEMO** button.
 
 ## Smoke test
 

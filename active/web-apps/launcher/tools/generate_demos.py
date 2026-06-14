@@ -30,6 +30,10 @@ from typing import List, Sequence
 import yaml
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
+# Imported for side effects in scene_lib; ensures draw_chrome_header /
+# draw_chrome_footer are available when render_frame is called.
+from scene_lib import draw_chrome_header, draw_chrome_footer  # noqa: F401
+
 # ════════════════════════════════════════════════════════════════════════
 # CONFIG
 # ════════════════════════════════════════════════════════════════════════
@@ -809,22 +813,28 @@ def draw_outro_overlay(img: Image.Image, t: float) -> None:
 
 
 def render_frame(app: App, t: float) -> Image.Image:
-    """Compose a single frame at time t (seconds)."""
+    """Compose a single frame at time t (seconds).
+
+    The frame is composed in three layers:
+    1. The animated background (grid + scanlines + vignette).
+    2. A scene function from demo_scenes.py — either a custom
+       hand-crafted scene for this app, or the default title-card.
+    3. The chrome (top header, bottom URL pill) drawn on top so it
+       stays consistent across every project.
+    """
+    # Lazy import to avoid a circular import at module load time
+    from demo_scenes import SCENE_REGISTRY, scene_default
+
     img = render_background(t)
+
+    # Layer 2: scene-specific content
+    scene_fn = SCENE_REGISTRY.get(app.id, scene_default)
+    scene_fn(app, img, t)
+
+    # Layer 3: chrome (header + footer) on top
     draw = ImageDraw.Draw(img)
-
-    draw_header_bar(draw, t)
-    draw_icon(img, app, t)
-    draw = ImageDraw.Draw(img)
-    draw_name(draw, app, t)
-    draw_description(draw, app, t)
-    draw_tags(draw, app, t)
-    draw_footer(draw, app, t)
-
-    # Panels (paste on top)
-    draw_terminal_panel(img, app, t)
-    draw_browser_panel(img, app, t)
-
+    draw_chrome_header(img, app.name, t)
+    draw_chrome_footer(img, app, t)
     draw_outro_overlay(img, t)
     return img
 
