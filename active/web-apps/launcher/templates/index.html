@@ -1284,8 +1284,6 @@ function smoothReset() {
   requestAnimationFrame(animateReset);
 }
 
-// ── Change scene ──
-const SCENES = ['ship', 'train', 'crane', 'depot'];
 // ── Reset: snap containers back to origin and settle ──
 function resetScene() {
   if (!containerBodies.length || !containerBodyOrigins.length) return;
