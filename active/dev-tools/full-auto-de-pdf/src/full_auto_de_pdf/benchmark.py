@@ -213,7 +213,12 @@ def _find_gutenberg_end(lines: list[str]) -> int:
 
 
 def _normalize_for_char_metric(text: str) -> str:
-    lower = text.lower()
+    # Normalise Unicode typographic apostrophes to ASCII before
+    # stripping all non-alphanumerics. Tesseract flips between
+    # ``'`` (U+0027) and ``'`` (U+2019) depending on the source
+    # font, so this prevents the char metric from unfairly
+    # penalising the apostrophe-form difference.
+    lower = text.lower().replace("\u2019", "'")
     return re.sub(r"[^a-z0-9]+", "", lower)
 
 
