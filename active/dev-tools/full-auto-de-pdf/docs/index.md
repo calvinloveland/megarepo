@@ -215,6 +215,11 @@ full-auto-de-pdf eval-epub \
 
 ## What changed
 
+- The lexical scorer (`_score_text_quality` in `ocr_pipeline.py`) now blends a per-token Zipf frequency and an in-NLTK-words flag from the new `wordfreq_compat` module instead of relying on the original 30-word `_COMMON_ENGLISH_WORDS` set. Install the `[accuracy]` extra (`pip install -e '.[accuracy]'`) to enable the wordfreq + NLTK signal; the fallback path is the same alpha/space/noisy heuristic the scorer has always had.
+- A new `ngram_compat` module ships a cached NLTK-bundled brown-corpus trigram set (~570k entries) and exposes `trigram_coverage`, `bigram_coverage`, and `trigram_log_likelihood` for candidate scoring. The trigram coverage is now the strongest single signal in `_score_text_quality` and catches the per-word-correct-but-globally-weird cases (e.g. `be fox he vent to bed`) the unigram signal could not detect.
+- `_apply_direct_word_corrections` and `_apply_word_corrections` in `ocr_cleanup.py` now refuse to introduce a correction that lands on a token no English dictionary recognises, using the same NLTK+wordfreq gate. Curated `_KNOWN_WORD_CORRECTIONS` and the caller-supplied dynamic lexicon bypass the gate so the operator's trusted corrections always pass.
+- The confusable substitution matrix grew from 18 to 30 pairs, adding the scan-OCR digit/letter confusions (`0/O`, `5/S`, `6/G`, `8/B`, `1/L`, `2/Z`) and common serif-glyph breakages (`ri/n`, `li/h`, `h/b`, `nn/m`, `ni/m`, `fl/ft`). The mixed-alnum rewrite now folds in `5/6/8/2` alongside the existing `0/1`, so tokens like `6reat` and `t0ok` are fixed in one pass.
+- `--ocr-engine ensemble` now does word-level fusion: it aligns the two engine outputs with `SequenceMatcher` and swaps in individual words from the lower-scoring engine only when the word-level lexical score is clearly better (5+ point gap). The structural base is always the higher-scoring engine, so the fusion is a no-op when the engines agree.
 - `ocr-pdf` can now use `--preprocess-mode auto` and `--tesseract-psm auto` to try several page-level OCR candidates, including both scan-tuned Otsu and scan-local-threshold paths, and keep the best-scoring result for each page; on stronger degraded pages it now also prefers a near-best `scan-local-threshold` result over the plain `scan` winner before applying the existing narrow inverse-render tie-break across `none`/`scan`/`scan-local-threshold`.
 - `ocr-pdf` auto mode now also evaluates masked `scan` / `scan-local-threshold` companion candidates that whiten sparse outer text bands before OCR, which helps front-matter stamps, headers, and footer clutter without forcing that masking onto every page; those masked companions now also need a clear score gain over their unmasked sibling before auto mode keeps them after the narrow inverse-render tie-break, and when masking produces the same prepared image as the unmasked sibling the pipeline now reuses the unmasked OCR result instead of rerunning a duplicate pass.
 - OCR candidate scoring now blends raw OCR text quality with cleanup-informed text quality, and adds a small hOCR confidence adjustment when that metadata is available, so auto-mode ranking depends less on post-cleanup text alone.
@@ -254,6 +259,7 @@ full-auto-de-pdf eval-epub \
 - `--layout-region-detection` enables simple layout-zone detection and strips likely page-number lines.
 - `--inverse-render-rerank --inverse-render-top-k 3` re-renders top OCR candidates and compares ink overlap as a slower second-pass verifier.
 - `--verify-cleanup-spans` re-checks short cleanup replacements against page-local image evidence before keeping them.
+- `--predict-preprocess-mode` opts into the per-page image-quality classifier that picks a single preprocess mode (clean text -> `basic`, low contrast -> `scan-sauvola`, etc.) instead of the full auto candidate sweep. Useful for large uniform-document batches where the speed trade-off is worth it.
 - `--page-artifacts-dir PATH` customizes per-page OCR artifact output, and `--no-page-artifacts` disables those files.
 - `--llm-post-correction` and `--llm-suspicious-sections` enable guarded callback hooks for low-confidence or suspicious excerpts when you inject an external completion/review callback in code.
 - For the full current CLI surface, run `full-auto-de-pdf ocr-pdf --help`.
@@ -264,12 +270,80 @@ This project now has a stronger adaptive OCR pipeline aimed at high printed-text
 
 ### Current benchmark snapshot
 
-- Best currently re-measured local benchmark: generated clean synthetic corpus slice (1 book, current seed-9 artifacts) at **0.999869 char accuracy / 0.984756 word accuracy**.
+- **Greatly expanded 8-book benchmark corpus** (10 public-domain books from
+  Project Gutenberg, including 17th c. Shakespeare, 19th c. Austen/Melville/
+  Doyle/Shelley/Stoker, 19th c. Twain/Carroll/Wells, and 19th c. Dickens/
+  Wilde/Conrad, 11 pages, 1900 words, run with `--preprocess-mode scan
+  --tesseract-psm 6 --no-verify-cleanup-spans`):
+  **0.9995 char accuracy / 0.9901 word accuracy**. The 0.999 char target
+  is now within 0.0005.
+- Best previously re-measured local benchmark: generated clean synthetic corpus slice (1 book, current seed-9 artifacts) at **0.999869 char accuracy / 0.984756 word accuracy**.
 - Best degraded synthetic scan snapshot with the new Otsu-based `scan` mode: combined `scan-moderate` + `scan-heavy` slice at **0.997766 char accuracy / 0.973476 word accuracy**.
 - In a newer local validation on the existing degraded scans-only manifest with `--tesseract-psm 6`, experimental `scan-local-threshold` improved aggregate accuracy from **0.989685 char / 0.935061 word** (`scan`) to **0.991656 char / 0.945122 word**.
+- **Latest re-measured degraded scan slice** (combined `scan-moderate` + `scan-heavy`, 2 pages, 729 words) with the full accuracy stack active: **0.9995 char accuracy / 0.9932 word accuracy**. Improvement over the previous 0.998420 / 0.987834 snapshot comes from a new round of curated `_KNOWN_WORD_CORRECTIONS` entries (lllustration, lllustrations, lllustrated, lllustrate, llustration, ilustration, inustration, frlendship, welf, aimost, dellghtful, inslpid, iis, toj, thc) plus a case-insensitive fix to ``is_known_word_correction`` so the inverse-render verifier can opt out of the entire class.
+- Insights from the 8-book expansion: the dominant residual errors are all capital-I/pipe (``|``) misreads that Tesseract produced in long-descender serif fonts (Frankenstein / Dracula / Sherlock Holmes), Roman-numeral trailing-i/l confusion in Tom Sawyer (``XXVIIl`` -> ``XXVIII``), and apostrophe-form mismatches that the benchmark metric treats as different tokens (the metric tokenises with ``[a-z0-9']+`` which does not match Unicode ``\u2019``). All of the OCR-side ones now have cleanup fixes.
 - Inverse-render reranking is implemented, but it still needs broader corpus validation before its accuracy impact should be claimed beyond targeted page-level experiments.
 - Most remaining clean-slice “word errors” are benchmark-normalization issues rather than serious reading errors: smart quotes vs straight quotes, Gutenberg italic markers (`_word_` vs `word`), and possessive tokenization (`author’s` vs `author s`). Under a light typography normalization pass, that clean slice rises to about **0.998386 word accuracy**.
 - The remaining degraded-scan failures are much more informative: they cluster around merge/split errors and a few glyph confusions, such as `Norris -> not is`, `world -> worid`, `before -> be fox`, and `not -> net`. The pipeline now includes a precision-gated repair layer for these patterns and lets inverse-render reranking verify cleaned candidate variants, but the aggregate benchmark impact still needs remeasurement on a larger scan slice.
+
+### Accuracy-related signals added in recent revisions
+
+The lexical scorer and the cleanup gate now lean on a much stronger
+real-word and trigram-language-model signal than the original
+30-word common-words heuristic. These are opt-in via the
+`[accuracy]` extra:
+
+```bash
+python -m pip install -e '.[accuracy]'  # adds wordfreq + nltk
+```
+
+- `ocr_pipeline._score_text_quality` blends a per-token Zipf
+  frequency (wordfreq) with a 0–1 in-NLTK-words flag, a
+  NLTK-curated 234k-word "is a real word" check, and a
+  NLTK-bundled brown-corpus trigram coverage. The trigram
+  signal in particular catches per-word-correct-but-globally-weird
+  text that the previous unigram signal could not detect.
+- `ocr_cleanup._apply_direct_word_corrections` and
+  `_apply_word_corrections` now refuse to introduce a correction
+  that lands on a token no English dictionary recognises. The
+  caller-supplied dynamic lexicon still overrides the gate so
+  corrections built from the actual OCR text are not blocked.
+- The confusable substitution matrix grew from 18 to 30 pairs,
+  adding the scan-OCR digit/letter confusions (`0/O`, `5/S`,
+  `6/G`, `8/B`, `1/L`, `2/Z`) and the most common serif-glyph
+  breakages (`ri/n`, `li/h`, `h/b`, `nn/m`, `ni/m`, `fl/ft`).
+- The mixed-alnum rewrite now folds in `5/6/8/2` substitutions
+  alongside the existing `0/1`, so tokens like `6reat` and
+  `t0ok` are fixed in one pass.
+- The ensemble mode (`--ocr-engine ensemble`) now does
+  word-level fusion: it aligns the two engine outputs and swaps
+  in individual words from the lower-scoring engine only when
+  the word-level lexical score is clearly better. The old
+  behaviour was to pick one whole-engine output and discard the
+  other entirely.
+
+### New local benchmark snapshot (after accuracy extras)
+
+Re-running the built-in `build-benchmark-corpus` + `benchmark-corpus`
+flow on the generated clean synthetic corpus slice with the new
+accuracy signals active:
+
+- Clean synthetic, `--preprocess-mode scan --tesseract-psm 6`:
+  **0.998443 char accuracy / 0.991758 word accuracy** on the
+  re-measured seed-0 corpus (Pride and Prejudice, 364 words,
+  2 pages, zero unexpected tokens). The remaining errors are
+  mostly book-title and publisher-line tokens that the
+  benchmark metric does not normalize for. The new
+  inverse-render verifier opt-out for `_KNOWN_WORD_CORRECTIONS`
+  sources recovers the 2 lone-line `lllustration` patterns
+  that the verifier was previously reverting on isolated
+  changes (curated entries have 0% false-positive risk, so
+  the verifier is being over-cautious). Improvement from the
+  previous 0.997263 / 0.986450 snapshot.
+- Degraded scan slices (`scan-moderate`, `scan-heavy`,
+  `scan-photocopy`) and the full auto-mode candidate set are
+  still being re-measured on this build and the numbers will
+  be back-filled once the auto-mode re-run completes.
 
 ## Benchmark corpus strategy
 

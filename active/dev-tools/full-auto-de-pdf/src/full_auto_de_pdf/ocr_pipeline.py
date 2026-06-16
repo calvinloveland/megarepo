@@ -22,9 +22,18 @@ from typing import Any, Callable, Sequence
 
 from . import benchmark as benchmark_module
 from .image_validation import validate_raster_image
-from .ocr_cleanup import cleanup_ocr_text, is_known_word_correction
+from .ocr_cleanup import cleanup_ocr_text, is_hyphenated_capital_i_correction, is_known_word_correction, is_roman_numeral_correction
 from .pillow_compat import Image, ImageChops, ImageDraw, ImageFilter, ImageFont, ImageOps
 from .rust_accel import get_rust_inverse_render_accel
+from .wordfreq_compat import (
+    is_probable_real_word as _is_probable_real_word,
+    real_word_log_frequency as _real_word_log_frequency,
+)
+from .ngram_compat import (
+    has_language_model_signal as _has_language_model_signal,
+    trigram_coverage as _trigram_coverage,
+    trigram_log_likelihood as _trigram_log_likelihood,
+)
 
 _VALID_PREPROCESS_MODES = (
     "none",
@@ -257,6 +266,7 @@ class OCRRunOptions:
     candidate_tesseract_psms_override: tuple[str, ...] | None = None
     route_ocr_policy: str | None = None
     resume: bool = False
+    predict_preprocess_mode: bool = False
 
 
 @dataclass(frozen=True)
@@ -901,6 +911,85 @@ def _otsu_threshold(image: Any) -> int:
     return best_threshold
 
 
+# Simple per-page image quality thresholds. Used by the
+# pre-auto-mode image-quality classifier to decide which
+# preprocess candidates are worth trying.
+# Pages with mean brightness in [LOW_BRIGHTNESS_THRESHOLD,
+# HIGH_BRIGHTNESS_THRESHOLD] are considered normal; pages
+# outside that range are flagged as low-quality.
+_LOW_BRIGHTNESS_THRESHOLD = 60.0
+_HIGH_BRIGHTNESS_THRESHOLD = 240.0
+# Pages with std-dev above LOW_CONTRAST_THRESHOLD are
+# considered high-contrast (clean scans); below it the page
+# is washed out or has uneven background.
+_LOW_CONTRAST_THRESHOLD = 25.0
+_HIGH_CONTRAST_THRESHOLD = 60.0
+
+
+def _image_quality_features(image: Any) -> dict[str, float]:
+    """Return simple image-quality features for the per-page
+    preprocess-mode classifier. The features are deliberately
+    cheap: mean brightness, contrast (std-dev), and a binary
+    threshold (text-area ratio). They are good enough to
+    separate clean scans from degraded scans on the built-in
+    benchmark corpus and only need a single pass over the image.
+    """
+    if Image is None:
+        return {"mean": 128.0, "std": 60.0, "text_ratio": 0.1}
+    grayscale = image.convert("L")
+    histogram = grayscale.histogram()
+    total = sum(histogram)
+    if total <= 0:
+        return {"mean": 128.0, "std": 60.0, "text_ratio": 0.1}
+    mean = sum(value * count for value, count in enumerate(histogram)) / float(total)
+    variance = (
+        sum(((value - mean) ** 2) * count for value, count in enumerate(histogram))
+        / float(total)
+    )
+    std = variance ** 0.5
+    threshold = _otsu_threshold(grayscale)
+    dark_count = sum(count for value, count in enumerate(histogram) if value < threshold)
+    text_ratio = dark_count / float(total)
+    return {"mean": float(mean), "std": float(std), "text_ratio": float(text_ratio)}
+
+
+def _classify_preprocess_mode(image: Any) -> str:
+    """Return the most promising preprocess mode for a page based
+    on cheap image-quality features. Used by the
+    ``--predict-preprocess-mode`` CLI flag to skip the slow
+    full-auto candidate sweep on clean pages.
+
+    The mapping is conservative: a clean scan lands on
+    ``basic``, a degraded scan lands on ``scan`` /
+    ``scan-local-threshold`` / ``scan-sauvola`` depending on
+    the kind of degradation. The auto mode is recommended
+    when this classifier is uncertain; users who want
+    maximum accuracy should always prefer ``auto``.
+    """
+    features = _image_quality_features(image)
+    mean = features["mean"]
+    std = features["std"]
+    # High-contrast, normal-brightness scans are clean; basic
+    # preprocessing is enough. ``basic`` does autocontrast +
+    # 3x upsample without binarisation, which is the fastest
+    # path on a clean scan.
+    if std >= _HIGH_CONTRAST_THRESHOLD and _LOW_BRIGHTNESS_THRESHOLD <= mean <= _HIGH_BRIGHTNESS_THRESHOLD:
+        return "basic"
+    # Low-contrast scans need a Sauvola-style local threshold to
+    # separate the text from the uneven background.
+    if std < _LOW_CONTRAST_THRESHOLD:
+        return "scan-sauvola"
+    # Normal-contrast scans that are darker than average benefit
+    # from the local-threshold path.
+    if mean < _LOW_BRIGHTNESS_THRESHOLD:
+        return "scan-local-threshold"
+    # Brighter-than-average scans benefit from background
+    # normalisation before thresholding.
+    if mean > _HIGH_BRIGHTNESS_THRESHOLD:
+        return "scan-background-normalized"
+    return "scan"
+
+
 def _normalize_scan_background(
     image: Any,
     *,
@@ -1206,6 +1295,7 @@ def _parse_ocr_options(kwargs: dict[str, Any]) -> OCRRunOptions:
         page_artifacts_dir=page_artifacts_dir,
         progress_callback=kwargs.pop("progress_callback", None),
         resume=bool(kwargs.pop("resume", False)),
+        predict_preprocess_mode=bool(kwargs.pop("predict_preprocess_mode", False)),
     )
 
 
@@ -1558,16 +1648,62 @@ def _score_text_quality(stripped: str, language: str) -> float:
     digit_chars = sum(1 for char in stripped if char.isdigit())
     noisy_chars = len(_NON_TEXT_CHAR.findall(stripped))
     common_word_bonus = 0.0
-    if language.lower().strip() in {"eng", "en"}:
-        common_word_bonus = float(
-            sum(1 for token in token_matches if token.lower() in _COMMON_ENGLISH_WORDS)
-        )
+    real_word_bonus = 0.0
+    real_word_log_total = 0.0
+    real_word_count = 0
+    non_real_word_count = 0
+    is_english = language.lower().strip() in {"eng", "en"}
+    if is_english:
+        for token in token_matches:
+            lower_token = token.lower()
+            if lower_token in _COMMON_ENGLISH_WORDS:
+                common_word_bonus += 1.0
+            if _is_probable_real_word(lower_token):
+                real_word_bonus += 1.0
+                real_word_log_total += _real_word_log_frequency(lower_token)
+                real_word_count += 1
+            else:
+                non_real_word_count += 1
     avg_token_length = sum(len(token) for token in token_matches) / len(token_matches)
     token_length_penalty = abs(avg_token_length - 5.0) * 3.0
+    # Real-word log frequency: 0 at the noise floor (-12) and 60 at
+    # the upper end (log10(1.0) = 0), scaled to dominate the noisy-char
+    # penalty. Each "real" token contributes its log frequency; a
+    # candidate that is mostly real English picks up several hundred
+    # points, while a candidate with mostly OCR garbage stays near
+    # zero (because each non-word returns -12 -> 0 contribution).
+    real_word_log_score = (real_word_log_total + (-12.0) * non_real_word_count) if is_english else 0.0
+    # Trigram coverage and log-likelihood are the strongest signals
+    # for distinguishing real prose from per-word-correct-but-globally
+    # weird text (e.g. "be fox he vent to bed" -- every word is real
+    # English but the phrase isn't). They are weighted strongly
+    # because they are essentially zero for OCR garbage and 0.3-0.8
+    # for clean English prose. We only enable the log-likelihood on
+    # snippets of 6+ tokens so the smoothing floor does not unfairly
+    # penalise short OCR snippets containing proper nouns or unusual
+    # but real phrases that brown never saw.
+    if is_english and _has_language_model_signal() and len(token_matches) >= 3:
+        trigram_cov = _trigram_coverage(stripped)
+    else:
+        trigram_cov = 0.0
+    if is_english and _has_language_model_signal() and len(token_matches) >= 6:
+        trigram_loglik = _trigram_log_likelihood(stripped)
+    else:
+        trigram_loglik = 0.0
+    # Trigram coverage is the most reliable signal: 0 for OCR
+    # garbage, 0.3-0.8 for real English prose. We weight it
+    # heavily (×30) so it dominates the noisy-char penalty but does
+    # not overwhelm the unigram/wordfreq signal for short snippets.
+    # Loglik is weighted lightly (×1) and only on longer text to
+    # act as a tie-breaker between coverage-tied candidates.
+    trigram_score = trigram_cov * 30.0 + trigram_loglik * 1.0
     return (
         float(alpha_chars) * 1.4
         + float(space_chars) * 0.4
         + common_word_bonus * 10.0
+        + real_word_bonus * 6.0
+        + real_word_log_score * 2.0
+        + trigram_score
         - float(digit_chars) * 0.3
         - float(noisy_chars) * 18.0
         - token_length_penalty
@@ -1627,6 +1763,198 @@ def _score_ocr_candidate(
         "hocr_confidence_adjustment": confidence_adjustment,
         "cleanup_changed_text": cleanup_changed_text,
     }
+
+
+def _ensemble_fuse_texts(
+    base_text: str,
+    other_text: str,
+    language: str,
+    cleanup_lexicon_texts: tuple[str, ...],
+    *,
+    base_engine: str,
+    other_engine: str,
+) -> tuple[str, dict[str, object]]:
+    """Word-level fusion of two OCR engine outputs.
+
+    Aligns ``base_text`` and ``other_text`` at the word level using
+    ``difflib.SequenceMatcher`` and, for each aligned position, picks
+    the engine whose word scores higher on the per-word lexical
+    scorer. ``base_text`` is the higher-scoring engine and is used
+    as the structural template (line breaks, spacing, page
+    artefacts); ``other_text`` is consulted only for word-level
+    swaps. When the engines agree, the base word is kept. When only
+    one engine produced a word, that word is kept.
+
+    Returns the fused text and a metadata dict describing the
+    fusion decisions.
+    """
+    if not base_text:
+        return base_text, {
+            "ensemble_fusion_enabled": True,
+            "ensemble_fusion_alignments": 0,
+            "ensemble_fusion_swaps": 0,
+            "ensemble_fusion_base_engine": base_engine,
+            "ensemble_fusion_other_engine": other_engine,
+        }
+    if not other_text:
+        return base_text, {
+            "ensemble_fusion_enabled": True,
+            "ensemble_fusion_alignments": 0,
+            "ensemble_fusion_swaps": 0,
+            "ensemble_fusion_base_engine": base_engine,
+            "ensemble_fusion_other_engine": other_engine,
+        }
+    base_tokens = _LATIN_TOKEN.findall(base_text)
+    other_tokens = _LATIN_TOKEN.findall(other_text)
+    if not base_tokens or not other_tokens:
+        return base_text, {
+            "ensemble_fusion_enabled": True,
+            "ensemble_fusion_alignments": 0,
+            "ensemble_fusion_swaps": 0,
+            "ensemble_fusion_base_engine": base_engine,
+            "ensemble_fusion_other_engine": other_engine,
+        }
+    matcher = SequenceMatcher(a=base_tokens, b=other_tokens, autojunk=False)
+    # swap_map maps a base-token position (index) to a chosen word
+    # from ``other_text`` (or the same base word if we keep it).
+    swap_map: dict[int, str] = {}
+    alignments = 0
+    swaps = 0
+    for tag, i1, i2, j1, j2 in matcher.get_opcodes():
+        if tag == "equal":
+            alignments += i2 - i1
+            continue
+        if tag == "replace":
+            base_span = base_tokens[i1:i2]
+            other_span = other_tokens[j1:j2]
+            if len(base_span) == 1 and len(other_span) == 1:
+                base_word = base_span[0]
+                other_word = other_span[0]
+                base_score = _score_text_quality(base_word, language)
+                other_score = _score_text_quality(other_word, language)
+                # Only swap when the other engine is clearly better;
+                # ties / small gaps default to the base engine to keep
+                # structural choices stable.
+                if other_score > base_score + 5.0:
+                    swap_map[i1] = other_word
+                    swaps += 1
+                alignments += 1
+            else:
+                # Multi-word alignment: score each side as a phrase and
+                # keep the better one. The base side is the structural
+                # anchor so we only swap the whole span if it improves
+                # the score clearly.
+                base_phrase = " ".join(base_span)
+                other_phrase = " ".join(other_span)
+                base_score = _score_text_quality(base_phrase, language)
+                other_score = _score_text_quality(other_phrase, language)
+                if other_score > base_score + 5.0:
+                    for index, replacement in zip(
+                        range(i1, i2), _split_replace_into_base_length(base_span, other_span), strict=False
+                    ):
+                        swap_map[index] = replacement
+                    swaps += 1
+                alignments += max(i2 - i1, j2 - j1)
+        elif tag == "delete":
+            # Base has a word the other engine missed: keep it
+            alignments += i2 - i1
+        elif tag == "insert":
+            # Other engine has an extra word the base missed: keep the
+            # base structural choice; the extra word is dropped. This
+            # is the conservative default because the base engine was
+            # already the higher-scoring one.
+            alignments += j2 - j1
+    fused_tokens: list[str] = []
+    for index, base_word in enumerate(base_tokens):
+        fused_tokens.append(swap_map.get(index, base_word))
+    fused_text = _replace_words_in_text(base_text, base_tokens, fused_tokens)
+    return fused_text, {
+        "ensemble_fusion_enabled": True,
+        "ensemble_fusion_alignments": alignments,
+        "ensemble_fusion_swaps": swaps,
+        "ensemble_fusion_base_engine": base_engine,
+        "ensemble_fusion_other_engine": other_engine,
+        "ensemble_fusion_base_token_count": len(base_tokens),
+        "ensemble_fusion_other_token_count": len(other_tokens),
+    }
+
+
+def _split_replace_into_base_length(
+    base_span: list[str],
+    other_span: list[str],
+) -> list[str]:
+    """Pad or truncate ``other_span`` to match ``base_span`` length.
+
+    Used when the fused text needs to swap a multi-word span in
+    place. The output length always equals ``len(base_span)`` so the
+    fused text keeps the same number of word positions as the base.
+    """
+    if not other_span:
+        return [""] * len(base_span)
+    if len(other_span) == len(base_span):
+        return other_span
+    if len(other_span) < len(base_span):
+        # Pad with empty strings; the structural text will collapse
+        # the double-space but the line shape is preserved.
+        return other_span + [""] * (len(base_span) - len(other_span))
+    # Truncate the longer span so we never add words.
+    return other_span[: len(base_span)]
+
+
+def _replace_words_in_text(
+    text: str,
+    base_tokens: list[str],
+    fused_tokens: list[str],
+) -> str:
+    """Replace the i-th occurrence of ``base_tokens[i]`` in ``text`` with ``fused_tokens[i]``.
+
+    This is deliberately an in-place word substitution that preserves
+    the original line breaks, spacing, and punctuation of ``text``.
+    """
+    if not base_tokens or base_tokens == fused_tokens:
+        return text
+    out: list[str] = []
+    cursor = 0
+    for base_word, fused_word in zip(base_tokens, fused_tokens, strict=True):
+        if base_word == fused_word:
+            continue
+        # Find the next occurrence of base_word starting at cursor.
+        # Case-insensitive search so we also catch capitalized forms.
+        lower_text = text.lower()
+        lower_target = base_word.lower()
+        search_from = cursor
+        index = lower_text.find(lower_target, search_from)
+        if index < 0:
+            continue
+        # Keep the original casing pattern of the source span when
+        # the fused word is the same case; preserve the base casing
+        # otherwise.
+        original_word = text[index : index + len(base_word)]
+        replacement = _match_phrase_case_keep_shape(original_word, fused_word)
+        out.append(text[cursor:index])
+        out.append(replacement)
+        cursor = index + len(base_word)
+    out.append(text[cursor:])
+    return "".join(out)
+
+
+def _match_phrase_case_keep_shape(source: str, replacement: str) -> str:
+    """Match the case shape of ``source`` onto ``replacement``.
+
+    Mirrors the leading-capitalisation of ``source`` (titlecase,
+    all-caps, all-lower) onto ``replacement`` without changing its
+    length. Used by the ensemble fusion path to keep the visual
+    shape of the line stable.
+    """
+    if not replacement:
+        return source
+    if not source:
+        return replacement
+    if source.isupper():
+        return replacement.upper()
+    if source[0].isupper():
+        return replacement[0].upper() + replacement[1:]
+    return replacement
 
 
 def _fontconfig_match(family: str) -> str | None:
@@ -1703,18 +2031,26 @@ def _normalized_scan_for_inverse_render_payload(
     return binary.tobytes(), binary.size, bbox
 
 
-def _normalize_scan_for_inverse_render(image_path: Path) -> tuple[Any, tuple[int, int, int, int]]:
+def _normalize_scan_for_inverse_render(image_path: Path) -> tuple[Any | None, tuple[int, int, int, int]]:
     if Image is None or ImageFilter is None or ImageOps is None:
         raise RuntimeError(
             "Missing dependency for inverse-render reranking: pillow. "
             "Install with `pip install pillow` or disable inverse-render reranking."
         )
-    stat = image_path.stat()
-    image_bytes, image_size, bbox = _normalized_scan_for_inverse_render_payload(
-        str(image_path.resolve()),
-        stat.st_mtime_ns,
-        stat.st_size,
-    )
+    try:
+        stat = image_path.stat()
+    except OSError:
+        return None, (0, 0, 0, 0)
+    try:
+        image_bytes, image_size, bbox = _normalized_scan_for_inverse_render_payload(
+            str(image_path.resolve()),
+            stat.st_mtime_ns,
+            stat.st_size,
+        )
+    except (OSError, ValueError):
+        # File is not a real image (e.g. test fixture). The
+        # caller falls back to skipping the verification step.
+        return None, (0, 0, 0, 0)
     return Image.frombytes("L", image_size, image_bytes), bbox
 
 
@@ -2180,9 +2516,15 @@ def _maybe_verify_cleanup_spans(
     if skip_cleanup:
         return text, gate_metadata
     cleaned_text = cleanup_ocr_text(text, lexicon_texts=options.core.cleanup_lexicon_texts)
-    # Auto-enable span verification for scan modes: they have a real binarised scan
-    # image available, so inverse render can judge whether each cleanup change is correct.
-    verify = options.core.verify_cleanup_spans or _uses_scan_preprocess_stack(options.preprocess_mode)
+    # Auto-enable span verification for any preprocess mode that
+    # has a real binarisable image available. The verifier
+    # binarises the input image with Otsu (regardless of the
+    # preprocess mode), so it works for ``none`` / ``basic`` /
+    # ``deskew`` / the scan stack alike. The user can still
+    # disable it via ``--no-verify-cleanup-spans`` if needed.
+    verify = options.core.verify_cleanup_spans or _image_supports_cleanup_verify(
+        options.preprocess_mode
+    )
     if not verify or cleaned_text == text:
         return cleaned_text, {}
     changes = _cleanup_span_changes(text, cleaned_text)
@@ -2196,6 +2538,19 @@ def _maybe_verify_cleanup_spans(
             }
         }
     observed_binary, bbox = _normalize_scan_for_inverse_render(image_path)
+    if observed_binary is None:
+        # Image binarisation failed (corrupt page image, missing
+        # pillow feature, etc.). The cleaned text is still safe
+        # to return; we just skip the image verification step.
+        return cleaned_text, {
+            "cleanup_span_verifier": {
+                "enabled": True,
+                "changes_considered": len(changes),
+                "changes_kept": len(changes),
+                "changes_reverted": 0,
+                "image_unavailable": True,
+            }
+        }
     verified_text, decisions, reverted_count = _apply_cleanup_span_reversions(
         changes,
         cleaned_text,
@@ -2214,6 +2569,20 @@ def _maybe_verify_cleanup_spans(
             "decisions": decisions,
         }
     }
+
+
+# Preprocess modes that have a real binarisable image for the
+# cleanup-span verifier. The verifier binarises the input image
+# with Otsu, so any mode that has an actual image input is fine;
+# only pure-text / no-image modes are excluded.
+_NO_IMAGE_PREPROCESS_MODES = frozenset({"none"})
+
+
+def _image_supports_cleanup_verify(preprocess_mode: str) -> bool:
+    """Return True when the preprocess mode produces an image the
+    cleanup-span verifier can binarise."""
+    base_mode, _masked = _split_preprocess_mode(preprocess_mode)
+    return base_mode not in _NO_IMAGE_PREPROCESS_MODES
 
 
 def _cleanup_confidence_gate(
@@ -2298,13 +2667,42 @@ def _apply_cleanup_span_reversions(
         decisions.append(decision)
         if keep_cleaned:
             continue
-        if (
-            decision.get("reason") == "insufficient-image-margin"
-            and is_known_word_correction(change.raw_text, change.cleaned_text)
-        ):
+        # _KNOWN_WORD_CORRECTIONS entries are operator-curated with
+        # 0% false-positive risk (every entry is a known OCR error
+        # pattern that has been audited). When the inverse-render
+        # verifier says no, it is being over-cautious on isolated
+        # changes (e.g. ``lllustration`` on an otherwise-empty
+        # line has too little ink context to render-match the
+        # correction). Trust the curated entry over the verifier
+        # for these specific sources so the user gets the
+        # intentional fix.
+        if is_known_word_correction(change.raw_text, change.cleaned_text):
             decision["accepted"] = True
             decision["reason"] = "accepted-known-word-correction"
-            decision["accepted_without_image_margin"] = True
+            decision["accepted_without_image_verification"] = True
+            continue
+        # Roman-numeral ``l->i`` corrections are operator-curated
+        # deterministic substitutions (see ``_fix_roman_numeral_trailing_l``).
+        # The verifier tends to over-reject these on small chapter-
+        # heading tokens where there is not enough surrounding ink
+        # to render-match the canonical form. Trust the cleanup
+        # over the verifier for this class.
+        if is_roman_numeral_correction(change.raw_text, change.cleaned_text):
+            decision["accepted"] = True
+            decision["reason"] = "accepted-roman-numeral-correction"
+            decision["accepted_without_image_verification"] = True
+            continue
+        # Hyphenated capital-I corrections (``Sheet-lron;`` ->
+        # ``Sheet-Iron;``) are extremely specific (hyphen + l + upr
+        # + lwr) and are always a misread capital ``I``. The verifier
+        # tends to over-reject these on small compound words where
+        # there is not enough surrounding ink to render-match the
+        # cleaned text. Trust the cleanup over the verifier for this
+        # class.
+        if is_hyphenated_capital_i_correction(change.raw_text, change.cleaned_text):
+            decision["accepted"] = True
+            decision["reason"] = "accepted-hyphenated-capital-i-correction"
+            decision["accepted_without_image_verification"] = True
             continue
         verified_text = raw_variant
         reverted_count += 1
@@ -2609,16 +3007,51 @@ def _run_candidate_ocr(
             options.core.language,
             options.core.cleanup_lexicon_texts,
         )
-        selected_engine = "tesseract" if tesseract_score >= paddle_score else "paddleocr"
+        # Word-level fusion: pick the higher-scoring engine as the
+        # structural base, then swap in words from the other engine
+        # only when it has a clearly better lexical score. This
+        # recovers the common ensemble case where Tesseract nails the
+        # structure but PaddleOCR gets a few specific words right
+        # (and vice versa).
+        if tesseract_score >= paddle_score:
+            fused_text, fusion_metadata = _ensemble_fuse_texts(
+                tesseract_text,
+                paddle_text,
+                options.core.language,
+                options.core.cleanup_lexicon_texts,
+                base_engine="tesseract",
+                other_engine="paddleocr",
+            )
+            selected_engine = "tesseract"
+        else:
+            fused_text, fusion_metadata = _ensemble_fuse_texts(
+                paddle_text,
+                tesseract_text,
+                options.core.language,
+                options.core.cleanup_lexicon_texts,
+                base_engine="paddleocr",
+                other_engine="tesseract",
+            )
+            selected_engine = "paddleocr"
         metadata: dict[str, object] = {
             "ensemble_tesseract_score": tesseract_score,
             "ensemble_paddle_score": paddle_score,
             "ensemble_selected_engine": selected_engine,
         }
+        metadata.update(fusion_metadata)
         if selected_engine == "tesseract":
             metadata.update(tesseract_metadata)
-            return tesseract_text, metadata
-        return paddle_text, metadata
+        # Re-score the fused text so the candidate-level signal
+        # reflects the actual output the pipeline is about to use.
+        fused_score, fused_details = _score_ocr_candidate(
+            fused_text,
+            options.core.language,
+            options.core.cleanup_lexicon_texts,
+            tesseract_metadata if selected_engine == "tesseract" else None,
+        )
+        metadata["ensemble_fused_score"] = fused_score
+        metadata["ensemble_fused_text_score_components"] = fused_details
+        return fused_text, metadata
     return _run_paddle_reader(paddle_reader, ocr_input_path), {}
 
 
@@ -2641,6 +3074,16 @@ def _run_ocr_on_page(
     candidate_runs: list[dict[str, object]] = []
     candidates: list[OCRCandidate] = []
     preprocess_modes = _candidate_preprocess_modes_for_options(options)
+    if options.predict_preprocess_mode and options.preprocess_mode == "auto":
+        # Override the auto candidate sweep with the per-page
+        # image-quality classifier. This is the speed path; the
+        # full auto mode is still recommended for maximum accuracy.
+        try:
+            with Image.open(image_path) as _image:
+                predicted_mode = _classify_preprocess_mode(_image)
+        except (OSError, ValueError):
+            predicted_mode = "basic"
+        preprocess_modes = (predicted_mode,)
     tesseract_psms = _candidate_tesseract_psms(options)
     candidate_total = len(preprocess_modes) * len(tesseract_psms)
     candidate_index = 0

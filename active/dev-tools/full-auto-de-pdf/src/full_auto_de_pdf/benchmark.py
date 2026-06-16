@@ -72,6 +72,17 @@ BENCHMARK_BOOKS: tuple[BenchmarkBook, ...] = (
         84,
     ),
     BenchmarkBook("dracu00stok", "Dracula", 345),
+    # Expanded diversity: 17th c. to early 20th c., mixed genres.
+    BenchmarkBook("shakespeare-complete", "The Complete Works of Shakespeare", 100),
+    BenchmarkBook("twain-tom-sawyer", "The Adventures of Tom Sawyer", 74),
+    BenchmarkBook("carroll-alice-wonderland", "Alice's Adventures in Wonderland", 11),
+    BenchmarkBook("wells-war-of-the-worlds", "The War of the Worlds", 36),
+    BenchmarkBook("darwin-origin-of-species", "On the Origin of Species", 2009),
+    BenchmarkBook("twain-huckleberry-finn", "Adventures of Huckleberry Finn", 76),
+    BenchmarkBook("conrad-heart-of-darkness", "Heart of Darkness", 219),
+    BenchmarkBook("dickens-tale-of-two-cities", "A Tale of Two Cities", 98),
+    BenchmarkBook("wilde-picture-of-dorian-gray", "The Picture of Dorian Gray", 174),
+    BenchmarkBook("poe-tales", "The Works of Edgar Allan Poe", 25525),
 )
 
 
