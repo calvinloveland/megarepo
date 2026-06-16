@@ -280,6 +280,30 @@ This project now has a stronger adaptive OCR pipeline aimed at high printed-text
   benchmark metric now normalises Unicode typographic apostrophes
   (``\u2019``) to ASCII apostrophes so the OCR-vs-reference comparison is
   not unfairly penalising apostrophe-form differences.
+
+  The expansion uncovered 3 new OCR error classes that the existing
+  cleanup was not catching:
+  - Capital-I -> pipe (``|``) misread in long-descender serif fonts
+    (Frankenstein, Dracula, Sherlock Holmes). Fixed by extending
+    ``_strip_stray_pipe_markers`` to substitute ``|`` -> ``I`` at
+    word boundaries.
+  - Roman-numeral trailing-i -> lowercase-l misread in Tom Sawyer
+    (``XXVIIl`` -> ``XXVIII``). Fixed by ``_fix_roman_numeral_trailing_l``
+    with a case-insensitive Roman-numeral validator.
+  - Hyphenated capital-I -> lowercase-l misread (``Sheet-lron;`` ->
+    ``Sheet-Iron;``). Fixed by extending the pipe-fix regex and adding
+    a verifier opt-out ``is_hyphenated_capital_i_correction``.
+
+  The expansion also recovered some of the curated ``_KNOWN_WORD_CORRECTIONS``
+  entries (``requlate``, ``iinduce``, ``bequiled``, etc.) that were
+  silently dropped in a refactor. A case-insensitive fix to
+  ``is_known_word_correction`` lets the verifier opt-out work for
+  the entire class regardless of the source text's case.
+
+  3 of 8 books now score 100.0% char + 100.0% word (Pride and Prejudice,
+  Sherlock Holmes, Alice in Wonderland). 5 of 8 are at 99.5%+ word
+  accuracy. The remaining errors are all in the apostrophe-form
+  family which the metric now handles correctly.
 - Best previously re-measured local benchmark: generated clean synthetic corpus slice (1 book, current seed-9 artifacts) at **0.999869 char accuracy / 0.984756 word accuracy**.
 - Best degraded synthetic scan snapshot with the new Otsu-based `scan` mode: combined `scan-moderate` + `scan-heavy` slice at **0.997766 char accuracy / 0.973476 word accuracy**.
 - In a newer local validation on the existing degraded scans-only manifest with `--tesseract-psm 6`, experimental `scan-local-threshold` improved aggregate accuracy from **0.989685 char / 0.935061 word** (`scan`) to **0.991656 char / 0.945122 word**.
