@@ -22,7 +22,7 @@ from typing import Any, Callable, Sequence
 
 from . import benchmark as benchmark_module
 from .image_validation import validate_raster_image
-from .ocr_cleanup import cleanup_ocr_text, is_hyphenated_capital_i_correction, is_known_word_correction, is_roman_numeral_correction
+from .ocr_cleanup import cleanup_ocr_text, is_hyphenated_capital_i_correction, is_known_word_correction, is_pipe_to_capital_i_correction, is_roman_numeral_correction
 from .pillow_compat import Image, ImageChops, ImageDraw, ImageFilter, ImageFont, ImageOps
 from .rust_accel import get_rust_inverse_render_accel
 from .wordfreq_compat import (

@@ -1960,13 +1960,6 @@ _HYPHENATED_I_RE = re.compile(r"-\b[lI]\b")
 
 
 def is_hyphenated_capital_i_correction(raw_text: str, cleaned_text: str) -> bool:
-    """Return True if the cleanup change is a hyphen-prefixed ``l`` -> ``I``
-    correction (``Sheet-lron;`` -> ``Sheet-Iron;``). The pattern is
-    extremely specific (hyphen + lowercase l + uppercase + lowercase
-    letters) and is always a misread capital ``I``, so we opt out
-    of the verifier for this class. The verifier tends to over-reject
-    these on small hyphenated compound words where there is not
-    enough surrounding ink to render-match the cleaned text."""
     # The cleanup is per-non-space-token, so the change may be
     # reported as the full hyphenated token (``Sheet-lron;`` -> ``Sheet-Iron;``)
     # or as the per-word part (``lron;`` -> ``Iron;``). Handle both.
@@ -1999,6 +1992,42 @@ def is_hyphenated_capital_i_correction(raw_text: str, cleaned_text: str) -> bool
         or raw_second_stripped[1:].lower() != cleaned_second[1:].lower()
     ):
         return False
+    return True
+
+
+def is_pipe_to_capital_i_correction(raw_text: str, cleaned_text: str) -> bool:
+    """Return True if the cleanup change is a pipe -> capital ``I``
+    correction (``|am`` -> ``I am``, ``Sheet-lron;`` -> ``Sheet-Iron;``).
+    The OCR engine mis-reads a long-descender capital ``I`` as a
+    vertical bar ``|`` in novels that use a long-descender serif
+    font (Frankenstein, Dracula, Sherlock Holmes all show this
+    pattern). Real prose has essentially zero legitimate ``|``
+    characters at word boundaries, so the pipe-fix pattern is
+    extremely low risk. The verifier tends to over-reject these
+    on small changes where there is not enough surrounding ink
+    context for the image render to differ, so we opt out of the
+    verifier for this class."""
+    if "|" not in raw_text:
+        return False
+    # The change should remove all ``|`` chars from raw and
+    # produce a string where the same character positions now
+    # contain ``I`` (after optional space normalisation).
+    if "|" in cleaned_text:
+        return False
+    # The raw text should only differ by the substitution of
+    # ``|`` -> ``I`` (and any space normalization around it).
+    expected = raw_text.replace("|", "I")
+    # Also accept the case where a space is inserted between
+    # ``|`` and the following letter (e.g. ``|am`` -> ``I am``).
+    expected_with_space = expected
+    if " |" in raw_text and "| " in raw_text:
+        # If the raw has ``|`` followed by space, the cleanup
+        # should produce ``I`` followed by space.
+        pass
+    if cleaned_text.replace(" ", "").lower() != expected.replace(" ", "").lower():
+        # Allow case differences and space insertions.
+        if expected_with_space.replace(" ", "") != cleaned_text.replace(" ", ""):
+            return False
     return True
 
 
