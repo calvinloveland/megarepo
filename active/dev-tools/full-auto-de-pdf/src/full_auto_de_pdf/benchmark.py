@@ -218,7 +218,14 @@ def _normalize_for_char_metric(text: str) -> str:
 
 
 def _normalize_for_word_metric(text: str) -> list[str]:
+    # Normalise Unicode typographic apostrophes to the ASCII form so
+    # that ``author's`` (U+2019) and ``author's`` (U+0027) are
+    # scored the same. Both forms are common in 19th-century
+    # Project Gutenberg texts and Tesseract sometimes flips between
+    # them; without this the metric would treat them as different
+    # words and unfairly penalise the OCR.
     lower = text.lower()
+    lower = lower.replace("\u2019", "'")
     return re.findall(r"[a-z0-9']+", lower)
 
 

@@ -275,12 +275,15 @@ This project now has a stronger adaptive OCR pipeline aimed at high printed-text
   Doyle/Shelley/Stoker, 19th c. Twain/Carroll/Wells, and 19th c. Dickens/
   Wilde/Conrad, 11 pages, 1900 words, run with `--preprocess-mode scan
   --tesseract-psm 6 --no-verify-cleanup-spans`):
-  **0.9995 char accuracy / 0.9901 word accuracy**. The 0.999 char target
-  is now within 0.0005.
+  **0.9995 char accuracy / 0.9934 word accuracy**. The 0.999 char target
+  is now within 0.0005 and 5 of 8 books are at 99.5%+ word accuracy. The
+  benchmark metric now normalises Unicode typographic apostrophes
+  (``\u2019``) to ASCII apostrophes so the OCR-vs-reference comparison is
+  not unfairly penalising apostrophe-form differences.
 - Best previously re-measured local benchmark: generated clean synthetic corpus slice (1 book, current seed-9 artifacts) at **0.999869 char accuracy / 0.984756 word accuracy**.
 - Best degraded synthetic scan snapshot with the new Otsu-based `scan` mode: combined `scan-moderate` + `scan-heavy` slice at **0.997766 char accuracy / 0.973476 word accuracy**.
 - In a newer local validation on the existing degraded scans-only manifest with `--tesseract-psm 6`, experimental `scan-local-threshold` improved aggregate accuracy from **0.989685 char / 0.935061 word** (`scan`) to **0.991656 char / 0.945122 word**.
-- **Latest re-measured degraded scan slice** (combined `scan-moderate` + `scan-heavy`, 2 pages, 729 words) with the full accuracy stack active: **0.9995 char accuracy / 0.9932 word accuracy**. Improvement over the previous 0.998420 / 0.987834 snapshot comes from a new round of curated `_KNOWN_WORD_CORRECTIONS` entries (lllustration, lllustrations, lllustrated, lllustrate, llustration, ilustration, inustration, frlendship, welf, aimost, dellghtful, inslpid, iis, toj, thc) plus a case-insensitive fix to ``is_known_word_correction`` so the inverse-render verifier can opt out of the entire class.
+- **Latest re-measured degraded scan slice** (combined `scan-moderate` + `scan-heavy`, 2 pages, 729 words) with the full accuracy stack active: **0.9995 char accuracy / 0.9959 word accuracy**. Improvement over the previous 0.998420 / 0.987834 snapshot comes from a new round of curated `_KNOWN_WORD_CORRECTIONS` entries (lllustration, lllustrations, lllustrated, lllustrate, llustration, ilustration, inustration, frlendship, welf, aimost, dellghtful, inslpid, iis, toj, thc) plus a case-insensitive fix to ``is_known_word_correction`` so the inverse-render verifier can opt out of the entire class, and the metric's Unicode-apostrophe normalisation so ``author's`` vs ``author's`` are scored the same.
 - Insights from the 8-book expansion: the dominant residual errors are all capital-I/pipe (``|``) misreads that Tesseract produced in long-descender serif fonts (Frankenstein / Dracula / Sherlock Holmes), Roman-numeral trailing-i/l confusion in Tom Sawyer (``XXVIIl`` -> ``XXVIII``), and apostrophe-form mismatches that the benchmark metric treats as different tokens (the metric tokenises with ``[a-z0-9']+`` which does not match Unicode ``\u2019``). All of the OCR-side ones now have cleanup fixes.
 - Inverse-render reranking is implemented, but it still needs broader corpus validation before its accuracy impact should be claimed beyond targeted page-level experiments.
 - Most remaining clean-slice “word errors” are benchmark-normalization issues rather than serious reading errors: smart quotes vs straight quotes, Gutenberg italic markers (`_word_` vs `word`), and possessive tokenization (`author’s` vs `author s`). Under a light typography normalization pass, that clean slice rises to about **0.998386 word accuracy**.
