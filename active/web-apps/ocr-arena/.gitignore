@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+.eggs/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Per-run output (EPUB, OCR text, metrics, work dirs)
+src/ocr_arena/runs/
+
+# Book manifest cache (regenerated from corpus at startup)
+src/ocr_arena/books_cache.json
+
+# Editor/OS noise
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+*.swo

@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ocr-arena"
+version = "0.1.0"
+description = "Web demo for the full-auto-de-pdf OCR -> EPUB3 pipeline"
+requires-python = ">=3.10"
+dependencies = [
+    "Flask>=3.0",
+    "full-auto-de-pdf",
+]
+
+[project.scripts]
+ocr-arena = "ocr_arena.app:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

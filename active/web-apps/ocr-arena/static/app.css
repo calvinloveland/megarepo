@@ -1,0 +1,232 @@
+/* OCR Arena — full-auto-de-pdf demo
+ * Compact, monospace, dark theme that matches the megarepo
+ * launcher's "terminal" aesthetic without copying its machinery.
+ */
+
+:root {
+  --bg: #0a0e17;
+  --bg-card: #131a2a;
+  --bg-soft: #1a2235;
+  --fg: #e2e8f0;
+  --fg-dim: #94a3b8;
+  --fg-faint: #64748b;
+  --accent: #38bdf8;
+  --accent-2: #a78bfa;
+  --good: #22c55e;
+  --warn: #f59e0b;
+  --bad: #ef4444;
+  --border: #1e293b;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  font-family: 'SF Mono', 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+  background: var(--bg);
+  color: var(--fg);
+  min-height: 100vh;
+  font-size: 14px;
+  line-height: 1.5;
+}
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+code {
+  font-family: inherit;
+  background: var(--bg-soft);
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 12px;
+  color: var(--accent-2);
+}
+
+header.top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 28px;
+  border-bottom: 1px solid var(--border);
+  background: linear-gradient(180deg, rgba(56, 189, 248, 0.05), transparent);
+}
+header.top .brand { display: flex; align-items: center; gap: 14px; }
+header.top h1 { font-size: 18px; margin: 0; letter-spacing: 1px; }
+header.top .sub { font-size: 11px; color: var(--fg-dim); margin: 2px 0 0; }
+header.top .logo { font-size: 32px; }
+header.top .back { font-size: 12px; color: var(--fg-dim); }
+
+main {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 28px;
+}
+.intro h2 { font-size: 16px; margin: 0 0 6px; letter-spacing: 1px; }
+.intro p { color: var(--fg-dim); margin: 0 0 24px; max-width: 720px; }
+
+/* ── Book grid ─────────────────────────────────────────────── */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+}
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transition: border-color 120ms ease, transform 120ms ease;
+}
+.card:hover { border-color: var(--accent); transform: translateY(-1px); }
+.card h3 { margin: 0; font-size: 14px; line-height: 1.35; color: var(--fg); }
+.card .meta {
+  display: flex;
+  gap: 12px;
+  color: var(--fg-faint);
+  font-size: 11px;
+}
+.card .meta b { color: var(--fg-dim); font-weight: 600; }
+.card .run-btn {
+  margin-top: auto;
+  background: transparent;
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  transition: background 120ms ease, color 120ms ease;
+}
+.card .run-btn:hover:not(:disabled) {
+  background: var(--accent);
+  color: var(--bg);
+}
+.card .run-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ── Run panel ─────────────────────────────────────────────── */
+.run-panel {
+  margin-top: 28px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 20px;
+}
+.run-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.run-header h3 { margin: 0; font-size: 15px; flex: 1; }
+.badge {
+  display: inline-block;
+  font-size: 10px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  border: 1px solid var(--border);
+  color: var(--fg-dim);
+  background: var(--bg-soft);
+}
+.badge.queued { color: var(--fg-dim); }
+.badge.running { color: var(--warn); border-color: var(--warn); }
+.badge.done { color: var(--good); border-color: var(--good); }
+.badge.error { color: var(--bad); border-color: var(--bad); }
+button.ghost {
+  background: transparent;
+  color: var(--fg-dim);
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0 4px;
+}
+button.ghost:hover { color: var(--fg); }
+
+.stages {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+.stages li {
+  padding: 8px 10px;
+  background: var(--bg-soft);
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.stages li.done { border-color: var(--good); }
+.stages li.running { border-color: var(--warn); }
+.stages li.error { border-color: var(--bad); }
+.stages .stage-name { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--fg-dim); }
+.stages .stage-detail { font-size: 11px; color: var(--fg); }
+
+.log {
+  font-size: 11px;
+  background: #050810;
+  color: #b0bac8;
+  padding: 10px 12px;
+  border-radius: 6px;
+  max-height: 180px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin: 0 0 12px;
+  border: 1px solid var(--border);
+}
+
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.metric {
+  padding: 10px 12px;
+  background: var(--bg-soft);
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+}
+.metric .label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--fg-faint); }
+.metric .value { font-size: 18px; color: var(--fg); }
+
+.downloads {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.btn {
+  display: inline-block;
+  padding: 8px 14px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-soft);
+  color: var(--fg);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  cursor: pointer;
+}
+.btn:hover { border-color: var(--accent); text-decoration: none; }
+.btn.primary { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+.btn.primary:hover { background: #67d3f9; }
+
+footer {
+  margin-top: 40px;
+  padding: 20px 28px;
+  border-top: 1px solid var(--border);
+  color: var(--fg-faint);
+  font-size: 11px;
+  text-align: center;
+}

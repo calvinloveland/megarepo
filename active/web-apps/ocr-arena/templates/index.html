@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OCR Arena — full-auto-de-pdf demo</title>
+  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg" />
+  <link rel="stylesheet" href="/static/app.css" />
+</head>
+<body>
+  <header class="top">
+    <div class="brand">
+      <span class="logo">📖</span>
+      <div>
+        <h1>OCR Arena</h1>
+        <p class="sub">Scan a page &rarr; Tesseract &rarr; cleanup &rarr; EPUB3</p>
+      </div>
+    </div>
+    <a class="back" href="https://shsw.dev">← shsw.dev</a>
+  </header>
+
+  <main>
+    <section class="intro">
+      <h2>Pick a book to OCR</h2>
+      <p>
+        Each book below lives in the <code>benchmark-corpus-v3</code> manifest
+        (8 Project Gutenberg titles, 11 synthetic pages, 1,902 reference words).
+        The pipeline runs Tesseract with the scan preprocess stack, then
+        packs the result into an EPUB3.
+      </p>
+    </section>
+
+    <section id="books" class="grid" aria-live="polite"></section>
+
+    <section id="run-panel" class="run-panel" hidden>
+      <div class="run-header">
+        <h3 id="run-title">Run</h3>
+        <span id="run-status" class="badge queued">queued</span>
+        <button id="run-close" class="ghost" type="button">×</button>
+      </div>
+
+      <ol class="stages" id="run-stages"></ol>
+
+      <pre id="run-log" class="log" aria-label="Pipeline log"></pre>
+
+      <div id="run-metrics" class="metrics" hidden>
+        <div class="metric">
+          <span class="label">Char accuracy</span>
+          <span class="value" id="m-char">–</span>
+        </div>
+        <div class="metric">
+          <span class="label">Word accuracy</span>
+          <span class="value" id="m-word">–</span>
+        </div>
+        <div class="metric">
+          <span class="label">Ref words</span>
+          <span class="value" id="m-words">–</span>
+        </div>
+        <div class="metric">
+          <span class="label">Output words</span>
+          <span class="value" id="m-outwords">–</span>
+        </div>
+      </div>
+
+      <div id="run-downloads" class="downloads" hidden>
+        <a id="dl-ocr" class="btn" href="#">⬇ OCR text</a>
+        <a id="dl-epub" class="btn primary" href="#">⬇ EPUB</a>
+        <a id="dl-metrics" class="btn" href="#">⬇ Metrics JSON</a>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <p>
+      <strong>full-auto-de-pdf</strong> — scanned PDF → EPUB3.
+      Code on
+      <a href="https://github.com/calvinloveland/megarepo/tree/main/active/dev-tools/full-auto-de-pdf">GitHub</a>.
+    </p>
+  </footer>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
