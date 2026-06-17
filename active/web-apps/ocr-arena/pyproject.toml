@@ -17,3 +17,20 @@ ocr-arena = "ocr_arena.app:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.pylint.main]
+ignore-paths = ["(^|.*/)tests/.*"]
+
+[tool.pylint.format]
+max-line-length = 160
+max-module-lines = 2200
+
+[tool.pylint.design]
+max-args = 14
+max-attributes = 14
+max-locals = 30
+max-positional-arguments = 8
+
+[tool.pylint.naming]
+# UPPERCASE module-level constants are conventional for path constants.
+good-names = ["REPO_ROOT", "ACTIVE_DIR", "APP_DIR", "PROJECT_ROOT", "RUNS_DIR", "BOOKS_CACHE", "DEFAULT_CORPUS", "RUN_LOCK", "RUN_THREADS"]

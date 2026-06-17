@@ -11,7 +11,7 @@ A small Flask app that:
 from __future__ import annotations
 
 import json
-import shutil
+import os
 import threading
 import time
 import uuid
@@ -25,8 +25,8 @@ from flask import (
     abort,
     jsonify,
     render_template,
+    request,
     send_file,
-    url_for,
 )
 
 # Pipeline library is the full-auto-de-pdf toolkit.
@@ -60,6 +60,8 @@ BOOKS_CACHE = APP_DIR / "books_cache.json"
 
 @dataclass
 class RunStage:
+    """Status of one pipeline stage (ocr, cleanup, metrics, epub)."""
+
     name: str
     status: str = "pending"  # pending | running | done | error
     started_at: float | None = None
@@ -68,7 +70,8 @@ class RunStage:
 
 
 @dataclass
-class RunState:
+class RunState:  # pylint: disable=too-many-instance-attributes
+    """Persisted state for a single OCR Arena run."""
     id: str
     book_id: str
     book_title: str
@@ -85,12 +88,13 @@ class RunState:
     log_lines: list[str] = field(default_factory=list)
 
     def append_log(self, line: str) -> None:
-        # Keep the last 200 lines to bound memory.
+        """Append a log line, keeping at most the last 200 entries."""
         self.log_lines.append(line)
         if len(self.log_lines) > 200:
             self.log_lines = self.log_lines[-200:]
 
     def to_dict(self) -> dict[str, Any]:
+        """Return a JSON-serializable snapshot of this state."""
         return asdict(self)
 
 
@@ -173,14 +177,31 @@ def _new_run_state(book: dict[str, Any]) -> RunState:
 def _save_state(state: RunState) -> None:
     state_path = RUNS_DIR / state.id / "state.json"
     state_path.parent.mkdir(parents=True, exist_ok=True)
-    state_path.write_text(json.dumps(state.to_dict(), indent=2), encoding="utf-8")
+    # Atomic write: write to a sibling temp file then rename. This
+    # prevents the API from reading a half-written state.json while
+    # the worker thread is still flushing.
+    tmp_path = state_path.with_suffix(".json.tmp")
+    tmp_path.write_text(json.dumps(state.to_dict(), indent=2), encoding="utf-8")
+    tmp_path.replace(state_path)
 
 
 def _load_state(run_id: str) -> RunState:
     state_path = RUNS_DIR / run_id / "state.json"
     if not state_path.exists():
         raise FileNotFoundError(run_id)
-    payload = json.loads(state_path.read_text(encoding="utf-8"))
+    # Read the tmp + real path so we never see a half-written file even
+    # if we lost the rename race by a few microseconds.
+    for candidate in (state_path, state_path.with_suffix(".json.tmp")):
+        try:
+            payload = json.loads(candidate.read_text(encoding="utf-8"))
+            break
+        except (FileNotFoundError, json.JSONDecodeError):
+            payload = None
+            continue
+    if payload is None:
+        # The writer is still flushing: treat as missing rather than
+        # crashing the API. The next poll will succeed.
+        raise FileNotFoundError(run_id)
     state = RunState(
         id=payload["id"],
         book_id=payload["book_id"],
@@ -237,7 +258,8 @@ def _run_pipeline(state: RunState, book: dict[str, Any]) -> None:
             tesseract_psm="6",
             predict_preprocess_mode=True,
             apply_cleanup=True,
-            verify_cleanup_spans=False,  # disable the inverse-render verifier (slow on a public demo)
+            # Inverse-render verifier is slow; skip it on the public demo.
+            verify_cleanup_spans=False,
             emit_page_artifacts=False,
         )
         ocr_elapsed = time.monotonic() - ocr_started
@@ -289,7 +311,7 @@ def _run_pipeline(state: RunState, book: dict[str, Any]) -> None:
             state.status = "done"
             state.finished_at = time.time()
             _save_state(state)
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001  pylint: disable=broad-exception-caught
         with _RUN_LOCK:
             state.status = "error"
             state.error = f"{type(exc).__name__}: {exc}"
@@ -303,6 +325,11 @@ def _run_pipeline(state: RunState, book: dict[str, Any]) -> None:
 
 # ── Flask app ─────────────────────────────────────────────────────
 def create_app() -> Flask:
+    """Build and return the OCR Arena Flask application.
+
+    Routes are registered in-place; the function is idempotent so
+    tests can construct a fresh app per case.
+    """
     app = Flask(
         __name__,
         template_folder=str(PROJECT_ROOT / "templates"),
@@ -388,17 +415,11 @@ def create_app() -> Flask:
     def healthz() -> Response:
         return jsonify({"ok": True, "books_loaded": len(_load_books())})
 
-    # Expose the `request` proxy at module level for the create_app
-    # closure to use. Keep it last so the route handlers above bind
-    # to the right request context.
-    from flask import request  # noqa: PLC0415
-
     return app
 
 
 def main() -> None:
-    import os
-
+    """Run the dev server (called by ``python -m ocr_arena.app``)."""
     port = int(os.getenv("PORT", "5110"))
     host = os.getenv("HOST", "127.0.0.1")
     app = create_app()

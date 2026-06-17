@@ -88,3 +88,27 @@ The launcher auto-discovers every directory under `active/`, but to expose the a
 ```
 
 Then add a Cloudflare Tunnel ingress rule for `ocr.shsw.dev` → `http://localhost:5110`.
+
+## Deploying under `ocr.shsw.dev`
+
+1. **Cloudflare Tunnel** — add an ingress rule to
+   `~/.cloudflared/config.yml` (or your shared tunnel config):
+   ```yaml
+   - hostname: ocr.shsw.dev
+     service: http://127.0.0.1:5110
+   ```
+   Reload the tunnel: `pkill -HUP -f cloudflared || (pkill cloudflared && nohup cloudflared tunnel --config ~/.cloudflared/config.yml run &)`.
+
+2. **Public hostname** — in the Cloudflare Zero Trust dashboard
+   (`Networks → Tunnels → <your tunnel> → Public Hostname`), add:
+   - Subdomain: `ocr`
+   - Domain: `shsw.dev`
+   - Service: `http://localhost:5110`
+
+   This is the step that actually creates the public DNS record; the
+   tunnel config alone won't make `ocr.shsw.dev` resolve until the
+   hostname is registered.
+
+3. **Verify** — once the tunnel is running and the public hostname
+   is in place, `curl https://ocr.shsw.dev/healthz` should return
+   `{"books_loaded":8,"ok":true}`.
