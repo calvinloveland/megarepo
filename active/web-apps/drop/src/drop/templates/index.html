@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0f172a">
+  <title>drop — file receiver</title>
+  <link rel="icon" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📥</text></svg>">
+  <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">📥</span>
+      <h1>drop</h1>
+      <span class="version">v{{ version }}</span>
+    </div>
+    <div class="status" id="status">
+      <span class="dot" id="status-dot"></span>
+      <span id="status-text">connecting…</span>
+    </div>
+  </header>
+
+  <main>
+    <!-- The drop zone is a <label> wrapping a hidden file input, which gives
+         us tap-to-select on mobile for free. We also accept drag/drop on top. -->
+    <label class="dropzone" id="dropzone" for="file-input">
+      <input type="file" id="file-input" multiple hidden>
+      <div class="dropzone-inner">
+        <div class="dropzone-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="56" height="56" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 3v12"/>
+            <path d="m7 8 5-5 5 5"/>
+            <path d="M5 21h14a2 2 0 0 0 2-2v-3H3v3a2 2 0 0 0 2 2Z"/>
+          </svg>
+        </div>
+        <div class="dropzone-title">Drop files here</div>
+        <div class="dropzone-sub">
+          or <span class="link">tap to choose</span> — works on mobile too
+        </div>
+        <div class="dropzone-meta">
+          up to <strong>{{ max_upload_mb }} MB</strong> per file &middot; {{ (max_total_mb / 1024)|round(1) }} GB total
+        </div>
+      </div>
+    </label>
+
+    <!-- In-flight upload progress, one row per file -->
+    <section class="progress" id="progress" hidden>
+      <h2>Uploading</h2>
+      <ul id="progress-list"></ul>
+    </section>
+
+    <!-- Stored files list -->
+    <section class="files">
+      <div class="files-header">
+        <h2>Files <span class="count" id="files-count">(0)</span></h2>
+        <button type="button" class="link-btn" id="refresh-btn" title="Refresh list">↻ refresh</button>
+      </div>
+      <ul class="file-list" id="file-list">
+        <li class="empty" id="empty">No files yet — drop something above.</li>
+      </ul>
+    </section>
+  </main>
+
+  <!-- Preview modal -->
+  <div class="modal" id="modal" hidden role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div class="modal-backdrop" data-close></div>
+    <div class="modal-body">
+      <header>
+        <h3 id="modal-title">Preview</h3>
+        <button type="button" class="icon-btn" data-close aria-label="Close">✕</button>
+      </header>
+      <div class="modal-content" id="modal-content"></div>
+      <footer>
+        <a class="btn" id="modal-download" href="#" download>Download</a>
+        <button type="button" class="btn danger" id="modal-delete">Delete</button>
+      </footer>
+    </div>
+  </div>
+
+  <footer class="footer">
+    Files persist in <code>data/uploads/</code> on the server.
+    Auto-refresh every 5s.
+  </footer>
+
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>

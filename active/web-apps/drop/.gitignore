@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+
+# Test / coverage
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# Uploaded files (the whole point of the app)
+data/
+*.local.json
+
+# Editor
+.idea/
+.vscode/
+*.swp
+.DS_Store

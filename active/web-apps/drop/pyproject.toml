@@ -1,0 +1,71 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "drop"
+version = "0.1.0"
+description = "Tiny drag-and-drop file receiver — drop files from your phone, get them on the homelab."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [
+  { name = "Calvin Loveland", email = "calvin@loveland.dev" },
+]
+keywords = ["upload", "drop", "file-receiver", "flask", "homelab"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Framework :: Flask",
+  "Intended Audience :: End Users/Desktop",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Topic :: Internet :: WWW/HTTP :: WSGI :: Application",
+  "Topic :: Utilities",
+]
+dependencies = [
+  "Flask>=3.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=7.0",
+  "pytest-cov>=4.0",
+  "responses>=0.23",
+]
+
+[project.scripts]
+drop = "drop.app:main"
+
+[project.urls]
+"Source" = "https://github.com/calvinloveland/megarepo/tree/main/active/web-apps/drop"
+"Issues" = "https://github.com/calvinloveland/megarepo/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/drop"]
+
+[tool.hatch.version]
+path = "src/drop/__init__.py"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "-v --tb=short"
+
+[tool.pylint.main]
+ignore-paths = ["(^|.*/)tests/.*"]
+
+[tool.pylint.format]
+max-line-length = 160
+max-module-lines = 2000
+
+[tool.pylint.design]
+max-args = 12
+max-attributes = 14
+max-locals = 25
+max-positional-arguments = 8
+max-statements = 60
+
+[tool.pylint.naming]
+# Module-level UPPER_CASE constants are conventional.
+good-names = ["APP_DIR", "PROJECT_ROOT", "DATA_DIR", "UPLOADS_DIR", "INDEX_FILE", "MAX_UPLOAD_MB", "MAX_PREVIEW_BYTES", "MAX_PREVIEW_ROWS"]
