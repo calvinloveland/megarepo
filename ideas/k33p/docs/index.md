@@ -8,7 +8,7 @@ A typed version-control system for the real shape of a modern project. A k33p pr
 
 The design doc is a long-form HTML document with diagrams, scenarios, and a comparison against git, OCI, package managers, and Nix.
 
-- [**Open the design doc →**](design.html)
+- [**Open the design doc →**](../design.html)
 
 ## Key design moves
 

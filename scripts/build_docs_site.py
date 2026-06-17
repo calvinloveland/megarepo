@@ -33,6 +33,11 @@ EXCLUDED_PARTS = {
     "artifacts",
     "tests",
 }
+# Directories (relative to ROOT) whose .html files are staged into the
+# published site as static assets. Markdown is the primary content type, but
+# long-form design docs (like ideas/k33p/design.html) live in HTML and need
+# to be reachable via GitHub Pages alongside the markdown.
+HTML_STAGE_ROOTS: tuple[str, ...] = ("ideas",)
 LINK_PATTERN = re.compile(r"(!?\[[^\]]*\]\()([^\)]+)(\))")
 
 
@@ -232,6 +237,19 @@ def collect_manifest() -> SiteManifest:
         if readme_path.exists():
             manifest.add_alias(readme_path, Path("projects") / project_root.relative_to(ROOT) / "index.md")
 
+    # Register aliases for staged HTML design docs so markdown link rewriting
+    # treats them as local served assets (relative_site_link), not GitHub URLs.
+    for root_name in HTML_STAGE_ROOTS:
+        root_path = ROOT / root_name
+        if not root_path.exists():
+            continue
+        for html_path in sorted(root_path.rglob("*.html")):
+            if not is_in_scope(html_path):
+                continue
+            relative = html_path.relative_to(root_path)
+            output_path = Path("projects") / root_name / relative
+            manifest.add_alias(html_path, output_path)
+
     return manifest
 
 
@@ -301,7 +319,7 @@ def stage_page(record: PageRecord, alias_map: dict[Path, Path]) -> None:
 # published site as static assets. Markdown is the primary content type, but
 # long-form design docs (like ideas/k33p/design.html) live in HTML and need
 # to be reachable via GitHub Pages.
-HTML_STAGE_ROOTS: tuple[str, ...] = ("ideas",)
+# (HTML_STAGE_ROOTS is defined at module top so collect_manifest can use it.)
 
 
 def stage_html_design_docs() -> int:
