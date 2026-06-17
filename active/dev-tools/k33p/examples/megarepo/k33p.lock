@@ -1,0 +1,26 @@
+# k33p.lock — example lock for the megarepo
+generated: 2026-06-17T19:00:00Z
+
+channels:
+  src:
+    ref: src@deadbeef1234567890abcdef
+  private:
+    ref: private@sha256:abc123def456
+  deps:
+    ref: deps@lockfile-2026-06-17
+  artifacts:
+    ref: artifacts@v1.2.3
+  live:
+    ref: live@pointer-update-42
+
+toolchain:
+  compiler: rustc 1.79.0
+  build_system: cargo 1.82.0
+  linker: mold 4.0.0
+  codegen_opts: --release --target x86_64-unknown-linux-gnu
+  env_hash: sha256:env789abc
+
+signature:
+  key: age1maintainerkey...
+  sig: sig1xyzabc...full-signature-would-go-here
+  algorithm: ed25519

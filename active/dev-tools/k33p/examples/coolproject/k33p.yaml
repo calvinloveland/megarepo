@@ -1,0 +1,71 @@
+# k33p.yaml — example single-project (degenerate monorepo) manifest
+
+project: coolproject
+description: A thing that does stuff
+
+channels:
+  src:
+    type: source
+    transport: git+https://github.com/coolproject/coolproject
+    visibility: public
+    history: full
+
+  private:
+    type: secrets
+    transport: k33p+https://secrets.coolproject.com/coolproject
+    encryption: age
+    recipients:
+      - "maintainers@coolproject.com"
+    history: none
+
+  deps:
+    type: dependencies
+    transport: oci+https://registry.coolproject.com/coolproject-deps
+    resolver: cargo
+    pinned: true
+    history: lockfile
+
+  artifacts:
+    type: artifacts
+    transport: oci+https://registry.coolproject.com/coolproject
+    content_addressed: true
+    signed: true
+    history: ring(10)
+
+  live:
+    type: live
+    transport: k33p+https://live.coolproject.com/coolproject
+    pointers:
+      latest-stable: artifacts@v1.2.3
+      canary: artifacts@ci-2026-06-17-101112
+      main: src@main
+    update_policy:
+      max_per_hour: 10
+      signed_by:
+        - release-key
+
+views:
+  default:
+    src: { at: "./" }
+    deps: { at: "./node_modules" }
+    artifacts: { at: "./build/" }
+  developer:
+    extends: default
+    src: { at: "./", history: shallow }
+  maintainer:
+    extends: default
+    src: { at: "./", history: full }
+    private: { at: "./.env" }
+
+roles:
+  end-user:    { view: default }
+  developer:   { view: developer }
+  maintainer:  { view: maintainer, publish: [src, private, artifacts, live] }
+  ci:          { view: developer, publish: [artifacts, live] }
+  auditor:     { view: default,   verify: strict }
+
+daemon:
+  auto_commit:
+    enabled: true
+    debounce: 5m
+    paths: [src/, docs/]

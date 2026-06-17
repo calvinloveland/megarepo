@@ -1,0 +1,116 @@
+# k33p.yaml — example monorepo manifest
+# This is the megarepo example from the design doc.
+
+project: megarepo
+type: monorepo
+org: calvinloveland
+description: A consolidated monorepo for active projects, shared tooling, and docs.
+
+# ── monorepo-wide channels ─────────────────────────────────
+channels:
+  src:
+    type: source
+    transport: git+https://github.com/calvinloveland/megarepo
+    visibility: public
+    history: full
+
+  private:
+    type: secrets
+    transport: k33p+https://secrets.calvinloveland.dev/megarepo
+    encryption: age
+    recipients:
+      - "maintainers@calvinloveland.dev"
+    history: none
+    scope: monorepo
+
+  live:
+    type: live
+    transport: k33p+https://live.calvinloveland.dev/megarepo
+    pointers:
+      latest-stable: artifacts@v1.2.3
+      main: src@main
+    update_policy:
+      max_per_hour: 10
+      signed_by:
+        - release-key
+
+# ── subprojects: path-scoped slices ────────────────────────
+subprojects:
+  powder_play:
+    path: active/games/powder_play/
+    description: A falling-sand game with LLM-generated materials.
+    channels:
+      private:
+        type: secrets
+        scope: active/games/powder_play/
+        recipients:
+          - "games-team@calvinloveland.dev"
+      deps:
+        type: dependencies
+        scope: active/games/powder_play/
+        transport: oci+https://registry.calvinloveland.dev/powder_play-deps
+        resolver: npm
+      artifacts:
+        type: artifacts
+        scope: active/games/powder_play/build/
+        transport: oci+https://registry.calvinloveland.dev/powder_play
+    daemon:
+      auto_commit:
+        debounce: 2m
+
+  full_auto_ci:
+    path: active/dev-tools/full-auto-ci/
+    description: Fully automatic continuous integration.
+    channels:
+      deps:
+        type: dependencies
+        scope: active/dev-tools/full-auto-ci/
+        resolver: pip
+      artifacts:
+        type: artifacts
+        scope: active/dev-tools/full-auto-ci/dist/
+
+  docs:
+    path: docs/
+    description: Repository-wide documentation site.
+    channels:
+      artifacts:
+        type: artifacts
+        scope: docs/site/
+        transport: oci+https://registry.calvinloveland.dev/megarepo-docs
+
+# ── views: per-role mapping of channels to disk paths ────────
+views:
+  default:
+    src: { at: "./" }
+  developer:
+    extends: default
+    src: { at: "./", history: shallow }
+    deps: { at: "./node_modules" }
+  maintainer:
+    extends: default
+    src: { at: "./", history: full }
+    private: { at: "./.env" }
+  ci:
+    extends: default
+    src: { at: "./", history: shallow }
+    deps: { at: "./.k33p/vendored/", vendored: true }
+    private: { mount: "env" }
+
+# ── roles ──────────────────────────────────────────────────
+roles:
+  end-user:    { view: default }
+  developer:   { view: developer }
+  maintainer:  { view: maintainer, publish: [src, private, artifacts, live] }
+  ci:          { view: ci,        publish: [artifacts, live] }
+  auditor:     { view: default,   verify: strict }
+
+# ── daemon ─────────────────────────────────────────────────
+daemon:
+  auto_commit:
+    enabled: true
+    debounce: 5m
+    paths: [src/, docs/]
+    ignore:
+      - "*.tmp"
+      - "*.swp"
