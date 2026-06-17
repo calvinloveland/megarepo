@@ -4,6 +4,7 @@ This directory contains brainstorming documents, project ideas, and future plans
 
 ## Contents
 
+- **k33p/design.html** - Design draft for a typed version-control system (channels + roles)
 - **wizard_fight.txt** - Notes and ideas for a wizard fight game concept
 - **code_reviewdle_mvp.md** - MVP plan for a daily code review puzzle game
 - **artists_i_like.txt** - Personal artist inspiration list

@@ -1,0 +1,1195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>k33p — A typed version control system (design)</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #181b24;
+    --surface-2: #1d2030;
+    --border: #2a2e3a;
+    --fg: #e2e4ea;
+    --fg-dim: #8b8fa3;
+
+    --green: #3fb950;
+    --yellow: #d29922;
+    --red: #f85149;
+    --blue: #58a6ff;
+    --magenta: #bc8cff;
+    --cyan: #56d4dd;
+    --orange: #f0883e;
+
+    /* Channel colors */
+    --ch-src: var(--blue);
+    --ch-private: var(--red);
+    --ch-deps: var(--magenta);
+    --ch-artifacts: var(--green);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--fg);
+    line-height: 1.65;
+    padding: 2rem 2rem 4rem;
+    max-width: 980px;
+    margin: 0 auto;
+  }
+
+  h1 { font-size: 1.85rem; margin-bottom: .25rem; letter-spacing: -.01em; }
+  .subtitle {
+    color: var(--fg-dim);
+    font-size: 1rem;
+    margin-bottom: .4rem;
+  }
+  .meta {
+    color: var(--fg-dim);
+    font-size: .8rem;
+    margin-bottom: 2.5rem;
+  }
+  .meta code { background: #1c1e2a; padding: .1em .4em; border-radius: 3px; }
+
+  h2 {
+    font-size: 1.25rem;
+    margin: 2.4rem 0 1rem;
+    padding-bottom: .5rem;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+  }
+  h3 {
+    font-size: 1.02rem;
+    margin: 1.4rem 0 .6rem;
+    color: var(--fg);
+  }
+  p { margin-bottom: .8rem; }
+  ul, ol { margin: .3rem 0 .9rem 1.4rem; }
+  li { margin-bottom: .3rem; }
+  code {
+    font-family: SFMono-Regular, Consolas, 'Liberation Mono', monospace;
+    font-size: .85em;
+    background: #1c1e2a;
+    padding: .12em .42em;
+    border-radius: 3px;
+  }
+  pre {
+    background: #0a0c12;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: .9rem 1rem;
+    overflow-x: auto;
+    font-size: .82rem;
+    line-height: 1.55;
+    margin: .6rem 0 1rem;
+  }
+  pre code { background: transparent; padding: 0; }
+  strong { color: var(--fg); }
+  em { color: var(--fg-dim); font-style: normal; }
+
+  /* thesis banner */
+  .thesis {
+    background: linear-gradient(180deg, #1a1d2e 0%, var(--surface) 100%);
+    border: 1px solid #303650;
+    border-left: 4px solid var(--cyan);
+    border-radius: 8px;
+    padding: 1.1rem 1.2rem;
+    margin: 1rem 0 2rem;
+    font-size: .98rem;
+  }
+  .thesis strong { color: var(--cyan); }
+
+  /* callout */
+  .callout {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--yellow);
+    border-radius: 8px;
+    padding: .9rem 1.05rem;
+    margin: 1rem 0 1.3rem;
+    font-size: .9rem;
+  }
+  .callout strong { color: var(--yellow); }
+
+  /* cards */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--blue);
+    border-radius: 8px;
+    padding: 1rem 1.15rem;
+    margin-bottom: .8rem;
+  }
+  .card h3 {
+    font-size: 1rem;
+    margin: 0 0 .35rem;
+  }
+  .card p { font-size: .9rem; margin-bottom: .4rem; }
+  .card p:last-child { margin-bottom: 0; }
+
+  /* channel sections (per-channel colors via data attribute) */
+  .channel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--blue);
+    border-radius: 8px;
+    padding: 1rem 1.2rem;
+    margin-bottom: 1rem;
+  }
+  .channel[data-ch="src"]      { border-left-color: var(--ch-src); }
+  .channel[data-ch="private"]  { border-left-color: var(--ch-private); }
+  .channel[data-ch="deps"]     { border-left-color: var(--ch-deps); }
+  .channel[data-ch="artifacts"]{ border-left-color: var(--ch-artifacts); }
+  .channel h3 { display: flex; align-items: center; gap: .5rem; margin-bottom: .3rem; }
+
+  /* channel badges */
+  .ch-badge {
+    display: inline-block;
+    font-size: .68rem;
+    font-weight: 700;
+    padding: .18em .6em;
+    border-radius: 3px;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+  }
+  .ch-src      { background: #11243a; color: var(--ch-src); }
+  .ch-private  { background: #3a1214; color: var(--ch-private); }
+  .ch-deps     { background: #2a1d3a; color: var(--ch-deps); }
+  .ch-artifacts{ background: #0d2816; color: var(--ch-artifacts); }
+
+  /* role cards */
+  .roles {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: .8rem;
+    margin: 1rem 0 1.2rem;
+  }
+  .role {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: .85rem 1rem;
+    font-size: .88rem;
+  }
+  .role h4 {
+    font-size: .9rem;
+    margin-bottom: .3rem;
+    color: var(--cyan);
+  }
+  .role .channels {
+    font-size: .78rem;
+    color: var(--fg-dim);
+    margin-bottom: .3rem;
+  }
+  .role .desc {
+    font-size: .82rem;
+    color: var(--fg);
+  }
+
+  /* tables */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: .85rem;
+    margin: 1rem 0 .5rem;
+  }
+  th {
+    text-align: left;
+    padding: .55rem .65rem;
+    border-bottom: 2px solid var(--border);
+    color: var(--fg-dim);
+    font-size: .72rem;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+  }
+  td {
+    padding: .55rem .65rem;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  td:first-child { white-space: nowrap; }
+  .y { color: var(--green); }
+  .n { color: var(--red); }
+  .p { color: var(--yellow); }
+
+  /* scenario list */
+  .scenario {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem 1.15rem;
+    margin-bottom: .9rem;
+  }
+  .scenario h3 { margin-top: 0; color: var(--cyan); font-size: 1rem; }
+  .scenario pre { background: #08090e; }
+
+  /* nav */
+  nav.toc {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem 1.2rem;
+    margin-bottom: 2rem;
+    font-size: .85rem;
+    column-count: 2;
+    column-gap: 2rem;
+  }
+  nav.toc a {
+    color: var(--fg-dim);
+    text-decoration: none;
+    display: block;
+    padding: .12rem 0;
+    break-inside: avoid;
+  }
+  nav.toc a:hover { color: var(--cyan); }
+
+  /* open questions */
+  .oq {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--magenta);
+    border-radius: 6px;
+    padding: .7rem .9rem;
+    margin-bottom: .5rem;
+    font-size: .9rem;
+  }
+  .oq strong { color: var(--magenta); }
+
+  /* roadmap */
+  .roadmap-step {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--cyan);
+    border-radius: 6px;
+    padding: .8rem 1rem;
+    margin-bottom: .6rem;
+  }
+  .roadmap-step .when {
+    color: var(--fg-dim);
+    font-size: .78rem;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    margin-bottom: .25rem;
+  }
+  .roadmap-step h4 { color: var(--cyan); font-size: .95rem; margin-bottom: .3rem; }
+
+  /* footer */
+  footer {
+    margin-top: 3.5rem;
+    padding-top: 1.2rem;
+    border-top: 1px solid var(--border);
+    font-size: .8rem;
+    color: var(--fg-dim);
+  }
+</style>
+</head>
+<body>
+
+<h1>k33p — typed version control for the real shape of a project</h1>
+<p class="subtitle">
+  One URL. Four content kinds. A role for whoever's looking.
+</p>
+<p class="meta">
+  Status: <strong>design draft</strong> · v0.1 · lives at
+  <code>ideas/k33p/design.html</code>
+</p>
+
+<div class="thesis">
+  <strong>Thesis.</strong> A modern project is not a git repository with some
+  bag of side channels bolted on. It is a <em>typed collection of content channels</em>
+  — public source, private source, third-party dependencies, and built artifacts —
+  each with its own transport, its own access rules, and its own definition of
+  "history." k33p makes those channels first-class, ties them together with a
+  signed manifest, and lets a user materialize exactly the channels their
+  <em>role</em> needs. Nothing more, nothing less.
+</div>
+
+<nav class="toc">
+  <a href="#problem">The problem</a>
+  <a href="#abstractions">Core abstractions</a>
+  <a href="#manifest">The manifest</a>
+  <a href="#channels">The four channels</a>
+  <a href="#history">History as an axis</a>
+  <a href="#roles">Roles &amp; views</a>
+  <a href="#provenance">Provenance &amp; signing</a>
+  <a href="#offline">Offline-first &amp; mirroring</a>
+  <a href="#git">Compatibility with git</a>
+  <a href="#commands">Command surface</a>
+  <a href="#layout">Project layout</a>
+  <a href="#security">Security model</a>
+  <a href="#scenarios">Concrete scenarios</a>
+  <a href="#compare">Compared to existing tools</a>
+  <a href="#open">Open questions</a>
+  <a href="#name">Why "k33p"</a>
+  <a href="#roadmap">Roadmap</a>
+</nav>
+
+<!-- ───────────────────────────── THE PROBLEM ───────────────────────────── -->
+<h2 id="problem">🧩 The problem</h2>
+
+<p>
+  An open source project has <strong>four</strong> distinct content kinds.
+  Git handles <strong>one</strong> of them well.
+</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Content kind</th>
+      <th>Example</th>
+      <th>What owns it today</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><span class="ch-badge ch-src">src</span></td>
+      <td>Application code, tests, docs</td>
+      <td>git on github/gitlab/sourcehut</td>
+    </tr>
+    <tr>
+      <td><span class="ch-badge ch-private">private</span></td>
+      <td><code>.env</code>, API keys, internal notes, sensitive code paths</td>
+      <td>…a prayer, plus a <code>.gitignore</code></td>
+    </tr>
+    <tr>
+      <td><span class="ch-badge ch-deps">deps</span></td>
+      <td>Third-party libraries, transitive lockfile</td>
+      <td>npm / cargo / pip / oci, separately</td>
+    </tr>
+    <tr>
+      <td><span class="ch-badge ch-artifacts">artifacts</span></td>
+      <td>Binaries, container images, generated PDFs</td>
+      <td>CI artifact store, ghcr.io, releases page</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>
+  And four kinds of <em>consumers</em>, each of whom wants a different slice:
+</p>
+
+<ul>
+  <li><strong>End user</strong> — wants the binary, doesn't want the source code on disk at all.</li>
+  <li><strong>Developer</strong> — wants source + dependencies, doesn't want 1.2 GB of git history.</li>
+  <li><strong>Maintainer</strong> — wants source + secrets + history + the ability to sign a release.</li>
+  <li><strong>Auditor / supply-chain reviewer</strong> — wants signed manifests and full history, not the source tree.</li>
+</ul>
+
+<div class="callout">
+  <strong>The current answer</strong> is a fragile glue job: <code>.env.example</code>
+  checked in, secrets stored in 1Password, a CI script that wires it all together,
+  a separate container registry for artifacts, a separate lockfile for deps, and
+  a strong cultural rule that nobody ever <em>accidentally</em> commits a credential.
+  This is not version control. It's an honor system.
+</div>
+
+<p>
+  k33p's answer is to <strong>type the channels</strong>. Make each of them a
+  first-class object with its own semantics, give the project one URL, and let
+  each consumer declare <em>what they need</em> via a role.
+</p>
+
+<!-- ─────────────────────────── CORE ABSTRACTIONS ────────────────────────── -->
+<h2 id="abstractions">🧱 Core abstractions</h2>
+
+<p>k33p has six concepts. Everything else is a combination of them.</p>
+
+<div class="card">
+  <h3>1. Project</h3>
+  <p>A name, a manifest (<code>k33p.yaml</code>), a set of channels, and an
+  optional cross-channel lock (<code>k33p.lock</code>). The thing a person
+  points at with one URL.</p>
+</div>
+
+<div class="card">
+  <h3>2. Channel</h3>
+  <p>A <em>typed</em> content stream — one of <code>source</code>,
+  <code>secrets</code>, <code>dependencies</code>, or <code>artifacts</code>.
+  Each channel has a transport (where its bytes live), an access policy, a
+  history policy, and a retention policy. Channels are independent: a secret
+  channel knows nothing about a source channel, except where the manifest
+  points them both at the same project.</p>
+</div>
+
+<div class="card">
+  <h3>3. Ref</h3>
+  <p>A pointer to a specific state in a channel. For source: a commit SHA, a
+  tag, a branch. For secrets: a content hash. For deps: a lockfile revision.
+  For artifacts: a signed manifest ID. Refs are typed per channel because the
+  <em>shape</em> of "a specific state" differs.</p>
+</div>
+
+<div class="card">
+  <h3>4. Role</h3>
+  <p>A named bundle of channel subscriptions + history settings. <em>The</em>
+  UX win: instead of a one-size-fits-all <code>git clone</code>, a user picks
+  a role and k33p materializes only what that role needs.</p>
+</div>
+
+<div class="card">
+  <h3>5. Lock</h3>
+  <p><code>k33p.lock</code> pins every channel to a specific ref at a specific
+  time. Reproducible across machines. The single file that turns a project
+  from "I have some code and maybe some artifacts" into "I have <em>this</em>
+  code and <em>those</em> artifacts, verifiably."</p>
+</div>
+
+<div class="card">
+  <h3>6. Materialized view</h3>
+  <p>What's actually on disk for a given project + role + lock. Switching
+  roles changes the view. A role can be re-applied at any time; k33p adds,
+  removes, and updates channels to match.</p>
+</div>
+
+<!-- ───────────────────────────── THE MANIFEST ──────────────────────────── -->
+<h2 id="manifest">📜 The manifest</h2>
+
+<p>Every project carries a <code>k33p.yaml</code> at its root, committed to
+the source channel like any other file. It declares the channels and the
+roles. A minimal real example:</p>
+
+<pre><code># k33p.yaml — committed to the src channel
+project: coolproject
+description: A thing that does stuff
+
+channels:
+  src:
+    type: source
+    transport: git+https://github.com/coolproject/coolproject
+    visibility: public
+    history: full
+
+  private:
+    type: secrets
+    transport: k33p+https://secrets.coolproject.com/coolproject
+    encryption: age
+    recipients: ["maintainers@coolproject.com"]
+    history: none                # secrets are point-in-time
+
+  deps:
+    type: dependencies
+    transport: oci+https://registry.coolproject.com/coolproject-deps
+    resolver: cargo
+    pinned: true
+    history: lockfile
+
+  artifacts:
+    type: artifacts
+    transport: oci+https://registry.coolproject.com/coolproject
+    content_addressed: true
+    signed: true
+    history: ring(10)            # last 10 signed manifests
+
+roles:
+  end-user:    { channels: [artifacts],                history: none    }
+  developer:   { channels: [src, deps],                history: shallow }
+  maintainer:  { channels: [src, private, artifacts],  history: full,   publish: [src, private, artifacts] }
+  ci:          { channels: [src, deps, private],       history: shallow, publish: [artifacts] }
+  auditor:     { channels: [src, artifacts],           history: full,   verify: strict }
+</code></pre>
+
+<p>Three properties to notice:</p>
+<ol>
+  <li><strong>Channels are declarative.</strong> A project doesn't tell you
+  <em>how</em> to fetch; it tells you <em>what</em> a channel is and where
+  its bytes come from. The role tells you which channels are interesting.</li>
+  <li><strong>History is per-channel.</strong> A <code>history:</code> key on
+  every channel. This is the central insight — see <a href="#history">below</a>.</li>
+  <li><strong>Roles are bundles, not permissions.</strong> A role says "give
+  me src@shallow + deps." It does <em>not</em> say "give me write access to
+  private." Authorization is a separate, transport-level concern.</li>
+</ol>
+
+<!-- ───────────────────────── THE FOUR CHANNELS ─────────────────────────── -->
+<h2 id="channels">📦 The four channels</h2>
+
+<p>Each channel type is a different <em>kind of thing</em> with different
+storage, transport, and rules. They're not just "labels" — they're distinct
+content domains with distinct semantics.</p>
+
+<!-- src -->
+<div class="channel" data-ch="src">
+  <h3><span class="ch-badge ch-src">src</span> Source</h3>
+  <p>The classic version-controlled code. Backed by <strong>git</strong>; k33p
+  is a thin wrapper, not a replacement. Visibility is public by default
+  (matches the user's stated mental model of "an open source project"), but
+  the <code>visibility: private</code> option exists for closed source.</p>
+  <p><strong>Why git:</strong> it's not perfect, but it's universal, well
+  understood, and battle-tested. The cost of replacing it is enormous and
+  the win is small.</p>
+  <p><strong>Default history:</strong> <code>full</code> for maintainers,
+  <code>shallow</code> for developers and CI, <code>none</code> for end
+  users (they don't have this channel at all).</p>
+</div>
+
+<!-- private -->
+<div class="channel" data-ch="private">
+  <h3><span class="ch-badge ch-private">private</span> Secrets</h3>
+  <p>Encrypted at rest, encrypted in transit, encrypted in any cache. Each
+  blob is its own ciphertext, content-addressed, and addressed by
+  <em>content</em> not by path — rotating a secret doesn't rewrite history
+  because there is no history.</p>
+  <p><strong>Why a separate channel:</strong> a <code>.env</code> file is
+  not a "file" in the source sense. Its lifetime is "now," not "v1.0.0."
+  Its access model is "decrypt with key X," not "clone over HTTPS." Putting
+  it in the source channel is what causes every secret leak in the wild.</p>
+  <p><strong>Decryption keys</strong> live in the OS keychain, on a hardware
+  token, or behind an SSH agent. They are never committed, never on disk in
+  plaintext, never in the source channel.</p>
+  <p><strong>On disk:</strong> encrypted blobs in <code>.k33p/private/</code>;
+  the working tree never contains plaintext. Commands that need secrets use
+  <code>k33p exec --</code> which mounts decrypted values into the
+  subprocess environment without writing them to disk.</p>
+  <p><strong>Default history:</strong> <code>none</code>. Always.</p>
+</div>
+
+<!-- deps -->
+<div class="channel" data-ch="deps">
+  <h3><span class="ch-badge ch-deps">deps</span> Dependencies</h3>
+  <p>Third-party code the project depends on, pinned by content hash. A
+  <strong>lockfile</strong> (the resolution) and a <strong>blob store</strong>
+  (the resolved bytes), treated as one channel.</p>
+  <p><strong>Transports:</strong> any package ecosystem is a valid transport.
+  Cargo, npm, pip, Go modules, OCI, Nix flakes. k33p doesn't replace them;
+  it wraps them. The transport field says "I use cargo"; k33p shells out to
+  cargo for resolution and re-uses its lockfile as the k33p ref.</p>
+  <p><strong>Vendoring is the default.</strong> <code>k33p fetch deps</code>
+  materializes the locked set as files in <code>.k33p/deps/</code> so the
+  build is reproducible offline. A developer without internet can still
+  build, because the deps are already on disk.</p>
+  <p><strong>Project-specific deps</strong> (a forked internal library, a
+  private package) live in their own channels. The deps channel is for
+  <em>third-party</em> dependencies; internal code is just more source
+  channels with different visibility.</p>
+  <p><strong>Default history:</strong> <code>lockfile</code> — the lock IS
+  the history. You don't need upstream's git history; you need the
+  resolution result with content hashes.</p>
+</div>
+
+<!-- artifacts -->
+<div class="channel" data-ch="artifacts">
+  <h3><span class="ch-badge ch-artifacts">artifacts</span> Artifacts</h3>
+  <p>Built outputs. Binaries, container images, WASM modules, generated
+  PDFs, signatured release tarballs. <strong>Content-addressed, signed,
+  immutable.</strong></p>
+  <p><strong>Why content-addressed:</strong> an artifact is a function of
+  its inputs (source + deps + environment). If the function is
+  deterministic, the same inputs always produce the same artifact, and the
+  hash <em>is</em> the identity. If the function isn't deterministic, you
+  still get a hash — it's just a less useful one for verification.</p>
+  <p><strong>Why signed:</strong> because pulling a binary from "the
+  internet" without provenance is the supply-chain attack. Every artifact
+  ships with a signed manifest that says "I was built from src@X +
+  deps@Y + env@Z by maintainer K."</p>
+  <p><strong>Why immutable:</strong> a v1.2.3 binary shouldn't change after
+  release. If you want a new binary, push a new artifact with a new ref.
+  This is the property that makes rollback trivial.</p>
+  <p><strong>Default history:</strong> <code>ring(10)</code> — the last 10
+  signed manifests are kept for rollback. You don't need a DAG of every
+  build ever; you need the last few in case the latest one is bad.</p>
+</div>
+
+<!-- ─────────────────────────── HISTORY AS AN AXIS ───────────────────────── -->
+<h2 id="history">⏳ History as an axis</h2>
+
+<p>The single biggest mental shift from git: <strong>history is a property
+of a channel, not of a project.</strong> Git treats history as a single
+immutable DAG that contains everything. k33p treats history as a per-channel
+configuration knob.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Channel</th>
+      <th>Default history</th>
+      <th>Why</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><span class="ch-badge ch-src">src</span></td>
+      <td><code>full</code></td>
+      <td>You want to bisect, blame, and see who broke what.</td>
+    </tr>
+    <tr>
+      <td><span class="ch-badge ch-private">private</span></td>
+      <td><code>none</code></td>
+      <td>Secrets shouldn't leave a history trail. Rotation replaces them.</td>
+    </tr>
+    <tr>
+      <td><span class="ch-badge ch-deps">deps</span></td>
+      <td><code>lockfile</code></td>
+      <td>The lock IS the history. You don't need upstream's git log.</td>
+    </tr>
+    <tr>
+      <td><span class="ch-badge ch-artifacts">artifacts</span></td>
+      <td><code>ring(N)</code></td>
+      <td>You need the last few for rollback, not the whole DAG.</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>And per role, you can change the default:</p>
+<ul>
+  <li>A developer doing PRs wants <code>src@shallow</code> — fast clone, just the tip of each branch.</li>
+  <li>A maintainer wants <code>src@full</code> — blame, signed tags, history search.</li>
+  <li>A user wants <code>src@none</code> — no source at all, just artifacts.</li>
+  <li>A CI runner wants <code>src@shallow</code> + <code>private@read-only</code> + <code>artifacts@latest</code>.</li>
+</ul>
+
+<p>History policy lives in <em>two</em> places: the channel default in
+<code>k33p.yaml</code>, and the role override. The role override wins. This
+makes the system configurable without per-machine fiddling.</p>
+
+<!-- ─────────────────────────── ROLES & VIEWS ───────────────────────────── -->
+<h2 id="roles">👥 Roles &amp; materialized views</h2>
+
+<p>Roles are the UX layer. They answer "what does a person (or an agent)
+with role X need on disk?" with a single line in the manifest.</p>
+
+<p>The five defaults a project gets for free, unless it overrides them:</p>
+
+<div class="roles">
+  <div class="role">
+    <h4>end-user</h4>
+    <div class="channels">channels: <span class="ch-badge ch-artifacts">artifacts</span></div>
+    <div class="desc">Just wants to run the thing. Pulls binaries, no source, no history.</div>
+  </div>
+  <div class="role">
+    <h4>developer</h4>
+    <div class="channels">channels: <span class="ch-badge ch-src">src</span> <span class="ch-badge ch-deps">deps</span></div>
+    <div class="desc">Wants to build and modify. Shallow src + vendored deps. No secrets.</div>
+  </div>
+  <div class="role">
+    <h4>maintainer</h4>
+    <div class="channels">channels: <span class="ch-badge ch-src">src</span> <span class="ch-badge ch-private">private</span> <span class="ch-badge ch-artifacts">artifacts</span></div>
+    <div class="desc">Owns the project. Full src, has secrets, signs builds, publishes.</div>
+  </div>
+  <div class="role">
+    <h4>ci</h4>
+    <div class="channels">channels: <span class="ch-badge ch-src">src</span> <span class="ch-badge ch-deps">deps</span> <span class="ch-badge ch-private">private</span></div>
+    <div class="desc">Builds and publishes. Reads secrets to sign artifacts, never writes them.</div>
+  </div>
+  <div class="role">
+    <h4>auditor</h4>
+    <div class="channels">channels: <span class="ch-badge ch-src">src</span> <span class="ch-badge ch-artifacts">artifacts</span></div>
+    <div class="desc">Verifies provenance. Full history, strict signature checks, no write access.</div>
+  </div>
+</div>
+
+<p>Custom roles are first-class: <code>release-engineer</code>,
+<code>docs-writer</code>, <code>intern</code>, <code>agent-bot</code>. A role
+is just a named bundle of channel subscriptions + history settings. Nothing
+magical.</p>
+
+<p>Switching roles is one command:</p>
+<pre><code>$ k33p role
+  current: developer
+$ k33p role use maintainer
+  → fetching private@latest
+  → fetching artifacts@latest
+  → upgrading src to history=full
+$ k33p role
+  current: maintainer
+</code></pre>
+
+<!-- ─────────────────────────── PROVENANCE ──────────────────────────────── -->
+<h2 id="provenance">🪪 Provenance &amp; signing</h2>
+
+<p>For every artifact, k33p produces a signed <strong>build manifest</strong>
+that links inputs to outputs. The manifest is the project's
+"software bill of materials," built into the system, not bolted on.</p>
+
+<pre><code># .k33p/artifacts/manifests/v1.2.3.manifest.yaml
+artifact:     sha256:abc123...           # the binary
+source:
+  channel:    src
+  ref:        v1.2.3
+  commit:     deadbeef...
+  signed_by:  age1maintainer...
+dependencies:
+  channel:    deps
+  lock:       sha256:def456...
+environment:
+  image:      ubuntu:24.04
+  rust:       1.79.0
+  env_hash:   sha256:789abc...
+build:
+  runner:     ci-runner-pool-1
+  started:    2026-06-17T10:11:12Z
+  finished:   2026-06-17T10:18:43Z
+signature:
+  key:        age1releasekey...
+  sig:        sig1xyz...
+</code></pre>
+
+<p>This makes several things possible that are currently heroic:</p>
+<ul>
+  <li><strong>Verify an artifact</strong> by checking the signature on its manifest, then checking the manifest's claimed inputs (src commit, dep lock) match what's in your lockfile.</li>
+  <li><strong>Reproduce a build</strong> by checking out the exact src commit, vendoring the exact dep lock, and running the same build in the same env.</li>
+  <li><strong>Track a binary back to a person</strong> via the signing key.</li>
+  <li><strong>Detect drift</strong> — if an artifact was rebuilt from different inputs than its manifest claims, the hash won't match.</li>
+</ul>
+
+<p>Multi-sig for sensitive channels (private, artifact publish) is a v1
+feature: a release can require N of M maintainer signatures to publish.</p>
+
+<!-- ─────────────────────────── OFFLINE-FIRST ───────────────────────────── -->
+<h2 id="offline">🛰️ Offline-first &amp; mirroring</h2>
+
+<p>Everything is content-addressed. That's not a stylistic choice; it's
+load-bearing for the offline story.</p>
+
+<ul>
+  <li><strong>A mirror is a subset of content-addressed objects.</strong>
+  No semantic difference from the primary. <code>k33p mirror ./offline k33p://coolproject@v1.0</code>
+  copies what fits on the drive.</li>
+  <li><strong>Partial mirrors are first-class.</strong> You can mirror just
+  the artifacts channel (a "binaries disk") or just the deps channel (a
+  "vendored deps disk") or just src (a "source backup").</li>
+  <li><strong>A USB stick with src + deps for coolproject@v1.0 = a buildable
+  snapshot</strong> you can take on a plane. <code>k33p clone /media/usb/offline</code>
+  works without internet.</li>
+  <li><strong>Determinism is rewarded.</strong> When src+deps+env is
+  deterministic, a mirrored artifact is byte-identical to a freshly-built
+  one. Mirror once, verify forever.</li>
+</ul>
+
+<!-- ─────────────────────────── COMPAT WITH GIT ──────────────────────────── -->
+<h2 id="git">🔌 Compatibility with git</h2>
+
+<p>k33p doesn't replace git for the source channel. It <em>wraps</em> it.
+This is the single most important decision in the design: <strong>migration
+cost has to be near-zero</strong> or no one will adopt it.</p>
+
+<ul>
+  <li><code>k33p init --from-git &lt;url&gt;</code> wraps an existing git repo in a k33p project. The <code>.git/</code> directory is unchanged.</li>
+  <li><code>k33p git &lt;args...&gt;</code> passes through to git for the source channel. All existing muscle memory works.</li>
+  <li><code>k33p.yaml</code> is just a file in the repo. Committed, reviewed, signed — like any other file.</li>
+  <li>Existing CI (GitHub Actions, GitLab CI, Buildkite) keeps working. The CI's role is <code>ci</code>; it does <code>k33p sync</code> instead of <code>git pull</code>, and the rest is unchanged.</li>
+  <li>Existing tooling that reads <code>.git/</code> directly (IDEs, blame tools, merge drivers) keeps working. k33p is a layer above, not a replacement.</li>
+</ul>
+
+<p>You adopt k33p one channel at a time:</p>
+<ol>
+  <li>Add <code>k33p.yaml</code> to your repo. <code>src</code> is git, just declared.</li>
+  <li>Add an <code>artifacts</code> channel. Push your release binaries as OCI objects with signed manifests.</li>
+  <li>Add a <code>deps</code> channel. Vendoring becomes a k33p concern, not a custom CI script.</li>
+  <li>Add a <code>private</code> channel. Secrets stop living in <code>.env</code> checked into a Slack thread.</li>
+</ol>
+
+<p>At every step, the project is more <em>k33p</em> and less of a glue job.
+You stop wherever you stop. There's no "v2 migration" cliff.</p>
+
+<!-- ─────────────────────────── COMMANDS ────────────────────────────────── -->
+<h2 id="commands">⌨️ Command surface</h2>
+
+<pre><code># project lifecycle
+k33p init [--from-git URL] [--template ROLE]
+k33p clone URL [DIR]                  # clone by default role
+k33p clone URL --role=end-user        # clone for end users
+k33p sync                             # update all subscribed channels
+k33p lock [--update]                  # regenerate k33p.lock
+
+# roles
+k33p role [show | use &lt;name&gt; | list] # switch role
+
+# channels
+k33p channel list | show | add | remove
+k33p channel get &lt;name&gt;[@&lt;ref&gt;]       # fetch a specific channel
+k33p channel push &lt;name&gt;              # publish a channel
+
+# trust &amp; provenance
+k33p sign &lt;channel&gt;                   # sign content
+k33p verify [--strict]                # verify signatures and provenance
+
+# execution
+k33p exec -- &lt;command&gt;                # run with secrets mounted
+
+# distribution
+k33p mirror [TARGET] [URL]            # create/apply a mirror
+k33p rollback &lt;ref&gt;                  # roll back to a locked state
+
+# pass-through
+k33p git &lt;args...&gt;                    # pass through to git for src
+</code></pre>
+
+<p>Every command works offline against a mirror. There is no "I need to
+phone home" state for the common cases.</p>
+
+<!-- ─────────────────────────── PROJECT LAYOUT ──────────────────────────── -->
+<h2 id="layout">🗂️ Project layout</h2>
+
+<pre><code>coolproject/                      # k33p project root
+├── k33p.yaml                     # project manifest (committed to src)
+├── k33p.lock                     # cross-channel lock (committed or not, by policy)
+├── README.md
+├── .git/                         # src channel — a real git repo
+├── .k33p/                        # k33p metadata (gitignored)
+│   ├── private/                  # encrypted secret blobs
+│   ├── deps/                     # vendored dependencies (when fetched)
+│   ├── artifacts/                # pulled artifacts (when fetched)
+│   ├── manifests/                # signed build manifests
+│   └── cache/                    # transfer state, partial mirrors
+└── src/                          # source code (managed by git)
+</code></pre>
+
+<p>The <code>.k33p/</code> directory is gitignored. Everything inside it is
+<em>materialized</em> by k33p based on the active role and lock. Deleting it
+is safe — it's a cache, not a source of truth.</p>
+
+<p>The lock file is committed by default for projects that care about
+reproducibility (binaries, builds, audits). For projects where the lock
+changes too often to commit, it can be marked <code>gitignored</code> in
+the manifest.</p>
+
+<!-- ─────────────────────────── SECURITY MODEL ──────────────────────────── -->
+<h2 id="security">🛡️ Security model</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Threat</th>
+      <th>Mitigation</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Secret leakage in public repo</td>
+      <td>Impossible by construction. Secrets live in an encrypted channel, not a file in the source tree.</td>
+    </tr>
+    <tr>
+      <td>Dependency confusion attack</td>
+      <td>Dependencies pinned by content hash; lockfile is signed; resolution is reproducible.</td>
+    </tr>
+    <tr>
+      <td>Backdoored artifact</td>
+      <td>Re-build from signed source + deps + env; the manifest claims specific inputs, the build can verify them.</td>
+    </tr>
+    <tr>
+      <td>Stolen credentials</td>
+      <td>Hardware-backed keys (age + YubiKey, SSH agent, OS keychain); audit log of every decryption.</td>
+    </tr>
+    <tr>
+      <td>Rogue maintainer</td>
+      <td>Multi-sig for sensitive channels (private rotation, artifact publish). Quorum + threshold.</td>
+    </tr>
+    <tr>
+      <td>Compromised mirror</td>
+      <td>Content addressing + signatures. A mirror is a subset of signed objects; partial corruption is detectable.</td>
+    </tr>
+    <tr>
+      <td>Replay of old manifest</td>
+      <td>Lockfile is signed; verifying a manifest against the current lock is a strict operation.</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The most important property: <strong>the secret channel is structurally
+incompatible with the public channel.</strong> You cannot accidentally put a
+secret in source, because secrets don't have paths in source. The most common
+class of breach in modern projects becomes a type error.</p>
+
+<!-- ─────────────────────────── SCENARIOS ───────────────────────────────── -->
+<h2 id="scenarios">🎬 Concrete scenarios</h2>
+
+<div class="scenario">
+  <h3>1. End user installs a CLI</h3>
+<pre><code>$ k33p get coolproject@latest --role=end-user
+  → fetches artifacts channel only
+  → verifies signature against known maintainer keys
+  → installs coolproject binary to ~/.local/bin
+$ # never touched src, deps, secrets, or git history
+$ du -sh .k33p/
+  12M
+</code></pre>
+</div>
+
+<div class="scenario">
+  <h3>2. Developer clones to fix a bug</h3>
+<pre><code>$ k33p clone coolproject --role=developer
+  → fetches src (shallow) + deps (vendored, locked)
+  → no history, no artifacts, no secrets
+$ du -sh .
+  48M    # vs 1.2G for a full git clone + unvendored deps
+</code></pre>
+</div>
+
+<div class="scenario">
+  <h3>3. CI builds and publishes</h3>
+<pre><code>$ k33p sync --role=ci
+  → src@shallow, deps@latest, private@RO
+$ cargo build --release
+$ k33p sign artifacts --inputs src@&lt;commit&gt;,deps@&lt;lock&gt;
+  → publishes signed build manifest + artifacts
+</code></pre>
+</div>
+
+<div class="scenario">
+  <h3>4. Auditor reviews a release</h3>
+<pre><code>$ k33p clone coolproject@v1.2.3 --role=auditor
+  → src@full, artifacts@full
+$ k33p verify --strict
+  ✓ src signature valid
+  ✓ deps lock matches signed lock
+  ✓ artifact signature valid
+  ✓ build manifest links to verified src commit
+</code></pre>
+</div>
+
+<div class="scenario">
+  <h3>5. Offline dev on a plane</h3>
+<pre><code># before the flight
+$ k33p mirror ./offline coolproject@v1.0 --role=developer
+  → copies src + deps + lockfile to ./offline
+$ cp -r offline/ /media/usb/
+
+# on the plane
+$ k33p clone /media/usb/offline
+  → full reproducible environment, zero internet
+$ cargo build --release
+  → builds, because deps are vendored
+</code></pre>
+</div>
+
+<div class="scenario">
+  <h3>6. Maintainer rotates a leaked API key</h3>
+<pre><code># leak happens; new key issued
+$ k33p private set STRIPE_API_KEY &lt;new-value&gt;
+  → encrypts with maintainer recipients
+  → publishes new content-hashed blob to the private channel
+  → old blob still exists (rotation doesn't rewrite history, by design)
+  → but apps reading from the channel see the new value, because refs point to the latest
+
+# verify the rotation worked
+$ k33p exec -- env | grep STRIPE
+  STRIPE_API_KEY=&lt;new-value&gt;
+</code></pre>
+</div>
+
+<!-- ─────────────────────────── COMPARISON ──────────────────────────────── -->
+<h2 id="compare">🆚 Compared to existing tools</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Need</th>
+      <th>git</th>
+      <th>OCI / containers</th>
+      <th>Package mgrs</th>
+      <th>Nix</th>
+      <th><strong>k33p</strong></th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Public source</td>
+      <td class="y">✓</td>
+      <td class="n">✗</td>
+      <td class="n">✗</td>
+      <td class="y">✓ (nixpkgs)</td>
+      <td class="y">✓</td>
+    </tr>
+    <tr>
+      <td>Private secrets</td>
+      <td class="n">✗</td>
+      <td class="p">partial</td>
+      <td class="n">✗</td>
+      <td class="p">partial</td>
+      <td class="y">✓</td>
+    </tr>
+    <tr>
+      <td>Dependencies</td>
+      <td class="n">✗</td>
+      <td class="y">✓ (layers)</td>
+      <td class="y">✓</td>
+      <td class="y">✓</td>
+      <td class="y">✓</td>
+    </tr>
+    <tr>
+      <td>Artifacts</td>
+      <td class="p">partial (LFS)</td>
+      <td class="y">✓</td>
+      <td class="y">✓ (publish)</td>
+      <td class="y">✓</td>
+      <td class="y">✓</td>
+    </tr>
+    <tr>
+      <td>History</td>
+      <td class="y">full</td>
+      <td class="n">none</td>
+      <td class="p">lockfile</td>
+      <td class="y">derivations</td>
+      <td class="y">per-channel</td>
+    </tr>
+    <tr>
+      <td>Signed provenance</td>
+      <td class="p">partial (tags)</td>
+      <td class="p">partial (cosign)</td>
+      <td class="p">partial</td>
+      <td class="y">✓</td>
+      <td class="y">✓</td>
+    </tr>
+    <tr>
+      <td>Offline-first</td>
+      <td class="y">✓</td>
+      <td class="n">✗</td>
+      <td class="n">✗</td>
+      <td class="y">✓</td>
+      <td class="y">✓</td>
+    </tr>
+    <tr>
+      <td>One URL for all</td>
+      <td class="n">✗</td>
+      <td class="n">✗</td>
+      <td class="n">✗</td>
+      <td class="n">✗</td>
+      <td class="y">✓</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The bottom-right cell is the point. k33p is what you get if you stop
+gluing these tools together with bash scripts and CI YAML, and ask:
+<em>"what if version control was typed?"</em></p>
+
+<!-- ─────────────────────────── OPEN QUESTIONS ─────────────────────────── -->
+<h2 id="open">❓ Open questions</h2>
+
+<p>These are the design decisions I haven't made yet. Calling them out
+honestly so the design can be critiqued on its weakest joints.</p>
+
+<div class="oq">
+  <strong>Mutable refs in artifacts.</strong> Some artifacts (a website, a
+  wiki page, a "latest" symlink) change in place. Model as a <code>live</code>
+  sub-channel with a TTL? Or treat as a separate <code>live</code> channel
+  type? Or punt to the consumer?
+</div>
+
+<div class="oq">
+  <strong>Derived content.</strong> Docs from source, schemas from source,
+  generated protobuf, type stubs. Build pipeline or its own channel? My
+  instinct: build pipeline. The artifact IS the derived content; the build
+  manifest records the derivation.
+</div>
+
+<div class="oq">
+  <strong>Federation.</strong> A project on multiple forges (github + gitlab
+  + self-hosted). Mirror? Multi-primary? Local views with promotion? My
+  instinct: <em>single source of truth per channel</em> + read-only mirrors.
+  Like git remotes, but for channels.
+</div>
+
+<div class="oq">
+  <strong>Migration from monorepos.</strong> How do you split a giant
+  existing repo into k33p channels? Tools, or convention? A
+  <code>k33p split</code> command that takes a path prefix and turns it
+  into a channel?
+</div>
+
+<div class="oq">
+  <strong>Multi-tenancy.</strong> Org-level k33p projects with per-team
+  channels and cross-team secrets. An "organization" is a project whose
+  channels are other projects?
+</div>
+
+<div class="oq">
+  <strong>Discovery.</strong> A <code>k33p search</code> over public project
+  channels (like crates.io for everything). Who runs the index? Decentralized
+  via signed manifests, or a central service?
+</div>
+
+<div class="oq">
+  <strong>Economics.</strong> Artifact storage is expensive. Who pays?
+  Built-in cost model? Paid transports? "Bring your own bucket"?
+</div>
+
+<div class="oq">
+  <strong>Legal / jurisdiction.</strong> Where does a k33p server live? GDPR
+  for the private channel? Compliance with export controls? This is the
+  unsexy part of the design but it's where many "obvious" architectures
+  fall over.
+</div>
+
+<div class="oq">
+  <strong>Lock vs. tag.</strong> When a maintainer says "v1.2.3," is that
+  a lock or a tag? My instinct: a tag points to a lock. The lock is
+  machine-readable and content-addressed; the tag is human-friendly and
+  signed. Same idea as git tags pointing to commits, but for the whole
+  project.
+</div>
+
+<!-- ─────────────────────────── WHY "k33p" ──────────────────────────────── -->
+<h2 id="name">🔤 Why "k33p"</h2>
+
+<ul>
+  <li><strong>keep</strong> — keep your code, keep your secrets, keep your builds. The verb says what the system does.</li>
+  <li><strong>33</strong> — three threes, or "eee" — keep <em>everything</em>. The digits are playful, not pretentious.</li>
+  <li><strong>Four characters</strong> — same shape as <code>git</code>, <code>hg</code>, <code>svn</code>. CLI-friendly. Stands out from a list of long names.</li>
+  <li><strong>Lowercased</strong> — like a tool, not a brand. A verb that happens to be a noun.</li>
+  <li><strong>Spellable on a phone</strong> — important for typing into a terminal over a remote shell.</li>
+</ul>
+
+<!-- ─────────────────────────── ROADMAP ────────────────────────────────── -->
+<h2 id="roadmap">🛣️ Roadmap</h2>
+
+<div class="roadmap-step">
+  <div class="when">MVP · ~3 months</div>
+  <h4>Source channel + manifests + roles, on top of git</h4>
+  <ul>
+    <li><code>k33p.yaml</code> parser + validator</li>
+    <li>Source channel wraps git (no replacement)</li>
+    <li>Artifacts channel on OCI transport</li>
+    <li>Five default roles (<code>end-user</code>, <code>developer</code>, <code>maintainer</code>, <code>ci</code>, <code>auditor</code>)</li>
+    <li><code>k33p init / clone / sync / role / verify</code></li>
+    <li>Compatible with existing git repos — <code>k33p init --from-git</code></li>
+    <li>Python reference implementation</li>
+  </ul>
+</div>
+
+<div class="roadmap-step">
+  <div class="when">v0.2 · ~6 months</div>
+  <h4>Private + deps channels, real provenance</h4>
+  <ul>
+    <li>Private channel with age encryption + recipient model</li>
+    <li>Deps channel with lockfile + OCI blob transport</li>
+    <li>Signed build manifests</li>
+    <li><code>k33p sign / mirror / rollback / exec</code></li>
+    <li>Rust core for performance-critical paths</li>
+    <li>Mirroring + offline workflows battle-tested</li>
+  </ul>
+</div>
+
+<div class="roadmap-step">
+  <div class="when">v1.0 · ~12 months</div>
+  <h4>Multi-sig, discovery, federation</h4>
+  <ul>
+    <li>Multi-sig for sensitive channels (private rotation, artifact publish)</li>
+    <li><code>k33p search</code> discovery over public channels</li>
+    <li>Federation model (single source of truth + read-only mirrors)</li>
+    <li>WASM bindings for UI integration</li>
+    <li>Audit log + replay protection</li>
+    <li>Stable protocol spec, multiple implementations</li>
+  </ul>
+</div>
+
+<!-- ─────────────────────────── FOOTER ──────────────────────────────────── -->
+<footer>
+  <p>
+    k33p design draft v0.1 — written as an HTML design doc to match the
+    convention used by <code>docs/pipeline-robustness-brainstorm.html</code>
+    and <code>docs/host-homogeneity-report.html</code> in this repo.
+  </p>
+  <p>
+    The most important property of this design is what it makes
+    <em>impossible</em>: accidentally committing a secret to a public repo,
+    publishing an unsigned artifact, or downloading 1.2 GB of git history
+    just to run a binary. The type system, not the honor system.
+  </p>
+</footer>
+
+</body>
+</html>
