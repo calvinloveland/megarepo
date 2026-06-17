@@ -275,7 +275,7 @@
   One URL. Content-addressed store. Channels, views, and a daemon that does the boring parts.
 </p>
 <p class="meta">
-  Status: <strong>design draft</strong> · v0.2 · lives at
+  Status: <strong>design draft</strong> · v0.3 · lives at
   <code>ideas/k33p/design.html</code>
 </p>
 
@@ -286,10 +286,12 @@
   with a daemon that handles the parts humans shouldn't have to. Public
   source, private content, third-party dependencies, and built artifacts are
   four different content kinds with four different rules; the only thing they
-  share is the project name. k33p makes that sharing explicit, content-
-  addressed, and trustable, and it lets every consumer — human, CI, mirror —
-  materialize exactly the slice they need, with mutable pointers where
-  they're useful and immutable history everywhere else.
+  share is the project name. Most real projects are <em>monorepos</em> with
+  many subprojects, each with its own secret keys, dependency set, build
+  outputs, and release cadence — and k33p treats subprojects as the unit of
+  consumption, so any consumer — human, CI, mirror — can pull exactly the
+  slice they need, with mutable pointers where they're useful and immutable
+  history everywhere else.
 </div>
 
 <nav class="toc">
@@ -300,6 +302,7 @@
   <a href="#mutable">Mutable references</a>
   <a href="#history">History as an axis</a>
   <a href="#views">Roles &amp; views</a>
+  <a href="#subprojects">Subprojects &amp; monorepos</a>
   <a href="#daemon">The k33p daemon</a>
   <a href="#addressing">Content addressing &amp; trust</a>
   <a href="#transport">Smart transport &amp; storage</a>
@@ -477,6 +480,21 @@
   down the tree. A team can have its own private channel that only that team
   can see. Orgs and teams are first-class addressable entities
   (<code>k33p://acme/backend/api/coolproject</code>).</p>
+</div>
+
+<div class="card">
+  <h3>11. Subproject</h3>
+  <p>The unit of consumption inside a monorepo. A <em>subproject</em> is a
+  path-scoped slice of a parent project with its own <code>k33p.yaml</code>
+  (or inherited from the parent), its own <em>view</em>, its own channel
+  subscriptions, and its own lockfile. <strong>A k33p "project" is just a
+  monorepo with one or more subprojects; a "single project" is a monorepo
+  with one subproject at the root path.</strong> Subprojects can declare
+  their own private, deps, and artifacts channels — all keyed to the
+  subproject's path — so a secret for <code>powder_play</code> is a
+  different secret than one for <code>full_auto_ci</code>, even though they
+  live in the same monorepo. The URL scheme is
+  <code>k33p://&lt;monorepo&gt;/&lt;subproject&gt;</code>.</p>
 </div>
 
 <!-- ───────────────────────────── THE MANIFEST ──────────────────────────── -->
@@ -899,6 +917,284 @@ $ k33p role
 not the working tree. Switching back to <code>developer</code> just
 unmounts <code>private</code> and re-shallowens <code>src</code>.</p>
 
+<!-- ─────────────────────────── SUBPROJECTS & MONOREPOS ────────────────── -->
+<h2 id="subprojects">🌳 Subprojects &amp; monorepos</h2>
+
+<p>Most real projects are not single repos. They are monorepos — a single
+git history that contains many subprojects, each with its own lifecycle,
+its own secret keys, its own dependency tree, and its own release cadence.
+<strong>k33p's first-class citizen is the monorepo.</strong> A "single
+project" is a degenerate case: a monorepo with exactly one subproject
+rooted at <code>/</code>. Every k33p concept (channels, views, roles,
+locks, the daemon) composes the same way whether a project has one
+subproject or fifty.</p>
+
+<div class="callout info">
+  <strong>Why this matters.</strong> Most version control systems treat
+  the monorepo as a worst case: huge, slow, full of unrelated code. The
+  monorepo owner is told to "split into separate repos." k33p flips that:
+  the monorepo is the <em>normal</em> case, and a subproject is a
+  <em>slice</em> you can pull, build, sign, and ship independently.
+  The git history stays unified. Permissions stay centralized. But
+  every consumer only pays for the slice they need.
+</div>
+
+<h3>The subproject model</h3>
+
+<p>A <em>subproject</em> is a path-scoped slice of a parent project with:</p>
+<ul>
+  <li>A <strong>path</strong> in the parent (e.g., <code>active/games/powder_play/</code>).</li>
+  <li>An optional <strong>own <code>k33p.yaml</code></strong> at that path. If absent, the subproject inherits the parent's manifest and behavior.</li>
+  <li>Its own <strong>view</strong> (where channels materialize on disk).</li>
+  <li>Its own <strong>channel subscriptions</strong> — <code>private</code>, <code>deps</code>, <code>artifacts</code>, <code>live</code> can all be <em>subproject-scoped</em>.</li>
+  <li>Its own <strong>lockfile</strong> — <code>k33p.lock</code> at the subproject path, pinning the subproject's refs and toolchain.</li>
+  <li>Its own <strong>daemon config</strong> — auto-commit rules can be different per subproject.</li>
+</ul>
+
+<p>A path-scoped channel works like this: a <code>private</code> blob
+encrypted for <code>powder_play</code> is a different blob than one
+encrypted for <code>full_auto_ci</code>, because the channel's
+<code>scope:</code> key namespaces the channel content by subproject
+path. The encryption recipients, the audit log, the signing key — all
+scoped to the subproject.</p>
+
+<h3>The manifest: single-project vs monorepo</h3>
+
+<p>The same <code>k33p.yaml</code> format works in both modes. A
+single-project k33p.yaml is just a monorepo manifest with one subproject
+implicit at the root path. A monorepo k33p.yaml adds a
+<code>subprojects:</code> block:</p>
+
+<pre><code># k33p.yaml at the monorepo root — megarepo/k33p.yaml
+project: megarepo
+type: monorepo
+org: calvinloveland
+description: A consolidated monorepo for active projects, shared tooling, and docs.
+
+# ── monorepo-wide channels ─────────────────────────────────
+channels:
+  src:
+    type: source
+    transport: git+https://github.com/calvinloveland/megarepo
+    visibility: public
+    history: full
+  private:
+    type: secrets
+    transport: k33p+https://secrets.calvinloveland.dev/megarepo
+    encryption: age
+    recipients: ["maintainers@calvinloveland.dev"]
+    history: none
+    scope: monorepo            # the monorepo-wide private channel
+
+# ── subprojects: path-scoped slices ────────────────────────
+subprojects:
+  powder_play:
+    path: active/games/powder_play/
+    description: A falling-sand game with LLM-generated materials.
+    channels:
+      private:
+        scope: active/games/powder_play/
+        transport: k33p+https://secrets.calvinloveland.dev/powder_play
+        recipients: ["games-team@calvinloveland.dev"]
+      deps:
+        scope: active/games/powder_play/
+        transport: oci+https://registry.calvinloveland.dev/powder_play-deps
+        resolver: npm
+      artifacts:
+        scope: active/games/powder_play/build/
+        transport: oci+https://registry.calvinloveland.dev/powder_play
+    daemon:
+      auto_commit:
+        debounce: 2m           # tighter debounce for fast iteration
+
+  full_auto_ci:
+    path: active/dev-tools/full-auto-ci/
+    description: Fully automatic continuous integration.
+    channels:
+      private:
+        scope: active/dev-tools/full-auto-ci/
+      deps:
+        scope: active/dev-tools/full-auto-ci/
+        resolver: pip
+      artifacts:
+        scope: active/dev-tools/full-auto-ci/dist/
+
+  docs:
+    path: docs/
+    description: Repository-wide documentation site.
+    channels:
+      artifacts:               # the published site is a build artifact
+        scope: docs/site/
+        transport: oci+https://registry.calvinloveland.dev/megarepo-docs
+</code></pre>
+
+<p>Each subproject's <code>k33p.yaml</code> can also live <em>at</em> the
+subproject path, augmenting the parent:</p>
+
+<pre><code># megarepo/active/games/powder_play/k33p.yaml
+# This augments (not replaces) the monorepo's k33p.yaml.
+subproject: powder_play
+extends: ../../../k33p.yaml      # explicit inheritance pointer
+
+views:
+  default:
+    src:       { at: "./" }
+    deps:      { at: "./node_modules" }
+    artifacts: { at: "./build/" }
+  ci:
+    extends: default
+    src:       { at: "./", history: shallow }
+    deps:      { at: "./.k33p/vendored/" }
+    private:   { mount: "env" }     # secrets via env, never on disk
+</code></pre>
+
+<p>The two-file layout (parent manifest + per-subdir manifest) is
+<em>optional</em>. A monorepo can put everything in the root manifest.
+The per-subdir manifest is for projects that want the configuration to
+live next to the code it configures.</p>
+
+<h3>The URL scheme</h3>
+
+<pre><code>k33p://megarepo/                              # the monorepo
+k33p://megarepo/powder_play                   # a subproject (slash form)
+k33p://megarepo/games/powder_play             # full path form
+k33p://megarepo/powder_play@v1.2.3            # at a tag
+k33p://megarepo/powder_play@deadbeef          # at a commit
+k33p://megarepo/powder_play@deadbeef#private  # a specific channel
+</code></pre>
+
+<p>Short names (<code>powder_play</code>) and full paths
+(<code>games/powder_play</code>) are interchangeable when unambiguous.
+Subprojects must have unique short names within a monorepo.</p>
+
+<h3>Pulling a subproject: the unit of consumption</h3>
+
+<pre><code>$ k33p clone megarepo/powder_play
+  → src: scope=active/games/powder_play/, materialized at ./
+  → deps: powder_play-scoped deps at ./node_modules
+  → private: powder_play-scoped secrets at ./.env (if you have rights)
+  → artifacts: powder_play-scoped artifacts at ./build/
+  → ignores the rest of the monorepo (47 other subprojects)
+$ du -sh .k33p/store/
+  48M    # the slice, not the whole monorepo
+</code></pre>
+
+<p>What just happened: the <code>src</code> channel was fetched with a
+path scope. The CAS contains the full monorepo's objects (so the
+subproject's view is consistent with the monorepo state), but the
+<em>working tree</em> only contains the
+<code>active/games/powder_play/</code> subtree. The <code>private</code>
+channel fetched only the powder_play-scoped secrets. The
+<code>deps</code> channel fetched only the powder_play-scoped deps. The
+other 47 subprojects' content is in the store (because git objects are
+immutable and shared), but it never materializes on disk.</p>
+
+<h3>Subproject commands</h3>
+
+<pre><code># discover
+k33p list &lt;monorepo&gt;                       # list all subprojects
+k33p show &lt;monorepo&gt;/&lt;subproject&gt;         # show subproject config + state
+
+# clone / sync
+k33p clone &lt;monorepo&gt;/&lt;subproject&gt;        # clone a subproject
+k33p clone &lt;monorepo&gt;                      # clone the whole monorepo
+k33p sync                                   # pull updates for the current subproject
+
+# create / move / delete
+k33p subproject add &lt;name&gt; --path &lt;path&gt;    # add a new subproject
+k33p subproject move &lt;name&gt; --to &lt;newpath&gt;  # move a subproject in the tree
+k33p subproject remove &lt;name&gt;              # remove a subproject (keeps history)
+k33p subproject rename &lt;old&gt; &lt;new&gt;          # rename a subproject
+
+# convert
+k33p split &lt;monorepo&gt;/&lt;subproject&gt;         # split a subproject into a standalone project
+k33p merge &lt;standalone&gt; --into &lt;monorepo&gt;  # merge a standalone project into a monorepo
+</code></pre>
+
+<h3>Cross-subproject references</h3>
+
+<p>Subprojects inside the same monorepo can reference each other. The
+most common case: a "library" subproject shared by several "app"
+subprojects. The reference goes through the <code>artifacts</code>
+channel, content-addressed:</p>
+
+<pre><code># in active/web-apps/cool-app/k33p.yaml
+subproject: cool-app
+channels:
+  deps:
+    # depend on a published artifact from another subproject in the
+    # same monorepo. content-addressed, so the build is reproducible.
+    from:
+      - subproject: shared-ui-library
+        artifact: shared-ui@v1.4.2
+        transport: oci+https://registry.acme.com/shared-ui
+</code></pre>
+
+<p>Why go through artifacts and not raw source? Because the artifact is
+<em>signed</em>, <em>content-addressed</em>, and <em>reproducible</em>.
+A library maintainer who publishes <code>shared-ui@v1.4.2</code> to the
+artifacts channel has produced a signed build manifest that says
+"this artifact was built from <code>shared-ui@commitX</code> with
+<code>toolchain Y</code>." The consuming app can verify the build
+before depending on it, and the dependency is pinned to a specific
+artifact hash, not a moving branch ref.</p>
+
+<h3>Shared deps across subprojects</h3>
+
+<p>Two flavors of dependency in a monorepo:</p>
+<ul>
+  <li><strong>Shared deps</strong> — common libraries used by many
+  subprojects. The monorepo can declare a <code>shared-deps</code>
+  subproject that owns them; other subprojects reference
+  <code>shared-deps</code>'s artifacts.</li>
+  <li><strong>Per-subproject deps</strong> — deps used by only one
+  subproject. These live in that subproject's <code>deps</code> channel
+  and don't leak to siblings.</li>
+</ul>
+
+<p>The split is declarative — the monorepo's manifest decides which
+deps are shared and which are per-subproject. There's no "I accidentally
+imported from another subproject" footgun, because cross-subproject
+imports go through signed artifacts, not raw source.</p>
+
+<h3>Per-subproject roles &amp; permissions</h3>
+
+<p>A team can be granted access to a subproject, not the whole
+monorepo:</p>
+
+<pre><code># at k33p://acme/backend/api/megarepo
+$ k33p org grant --to acme/games-team --subproject powder_play
+  → games-team can read+write src, private, deps, artifacts, live
+  → games-team cannot see other subprojects (sibling privacy)
+$ k33p org grant --to acme/sre --subproject '*' --read-only
+  → sre can read every subproject for ops purposes
+  → sre cannot write anywhere
+</code></pre>
+
+<p>The permissions cascade: a team with access to the monorepo can be
+allowed to see specific subprojects. A team with access to a subproject
+inherits the subproject's channel permissions, scoped to that
+subproject only.</p>
+
+<h3>The "single project" case</h3>
+
+<p>A standalone k33p project is just a monorepo with one subproject
+implicit at the root. The implicit subproject is named after the
+project and lives at the path <code>/</code>. Its <code>k33p.yaml</code>
+<em>is</em> the project's manifest — no extra file, no extra config.</p>
+
+<p>When you <code>k33p init --from-git &lt;url&gt;</code> on a
+non-monorepo git repo, k33p creates a single-subproject manifest with
+no <code>subprojects:</code> block. Everything works the same. If you
+later want to add a second subproject, you add it to the manifest and
+it just works.</p>
+
+<p>Conversely, a subproject can be <code>split</code> into a
+standalone project: <code>k33p split megarepo/powder_play</code> creates
+a new project with its own k33p.yaml, its own channels, and a history
+that's preserved from the monorepo. The monorepo loses the subproject;
+the new project gains it. Nothing about the git history is rewritten.</p>
+
 <!-- ─────────────────────────── THE DAEMON ─────────────────────────────── -->
 <h2 id="daemon">👁️ The k33p daemon</h2>
 
@@ -1069,11 +1365,13 @@ go as deep as you want.</p>
 
 <h3>The URL scheme</h3>
 
-<pre><code>k33p://acme/                           # the org
-k33p://acme/backend/                   # a team
-k33p://acme/backend/api/               # a sub-team
-k33p://acme/backend/api/coolproject    # a project owned by the sub-team
+<pre><code>k33p://acme/                              # the org
+k33p://acme/backend/                      # a team
+k33p://acme/backend/api/                  # a sub-team
+k33p://acme/backend/api/coolproject       # a project owned by the sub-team
 k33p://acme/backend/api/coolproject@v1.2.3  # a specific ref
+k33p://acme/backend/api/megarepo/powder_play   # a subproject of a monorepo
+k33p://acme/backend/api/megarepo/powder_play@v1.2.3  # at a tag
 </code></pre>
 
 <h3>Org manifest</h3>
@@ -1312,6 +1610,16 @@ k33p import --from-tarball PATH
 k33p import --from-oci IMAGE
 k33p split --from PROJECT --prefix PATH
 k33p convert --to FORMAT
+
+# subprojects (monorepo)
+k33p list &lt;monorepo&gt;                          # list subprojects
+k33p show &lt;monorepo&gt;/&lt;subproject&gt;            # show config + state
+k33p subproject add &lt;name&gt; --path &lt;path&gt;       # add a subproject
+k33p subproject move &lt;name&gt; --to &lt;newpath&gt;     # move a subproject
+k33p subproject remove &lt;name&gt;                 # remove a subproject
+k33p subproject rename &lt;old&gt; &lt;new&gt;             # rename a subproject
+k33p split &lt;monorepo&gt;/&lt;subproject&gt;            # subproject → standalone
+k33p merge &lt;standalone&gt; --into &lt;monorepo&gt;     # standalone → subproject
 </code></pre>
 
 <p>Every command works offline against a mirror. There is no "I need to
@@ -1555,6 +1863,94 @@ $ git -C active/games/powder_play commit -m "k33p: split from megarepo"
 </div>
 
 <!-- ─────────────────────────── COMPARISON ──────────────────────────────── -->
+<div class="scenario">
+  <h3>10. Pull a single subproject from a 50-subproject monorepo</h3>
+<pre><code>$ k33p list megarepo
+  powder_play              active/games/powder_play/
+  full_auto_ci             active/dev-tools/full-auto-ci/
+  docudy                   active/dev-tools/docudy/
+  cln                      active/personal/calnix/
+  ... (46 more)
+
+$ k33p clone megarepo/powder_play --role=developer
+  → src: scope=active/games/powder_play/, materialized at ./
+  → deps: powder_play-scoped at ./node_modules
+  → private: powder_play-scoped (you have rights, materialized at ./.env)
+  → artifacts: powder_play-scoped at ./build/
+  → ignores the other 49 subprojects
+  → fetches only the objects needed to materialize this view
+$ du -sh .k33p/store/
+  48M
+$ # the CAS may have more (because git objects are shared), but the
+$ # working tree contains only the subproject
+$ ls .
+  README.md   k33p.yaml   k33p.lock   frontend/   sim/   ...   .env
+</code></pre>
+</div>
+
+<div class="scenario">
+  <h3>11. CI builds just one subproject of a monorepo</h3>
+<pre><code># on the CI runner
+$ k33p clone megarepo/powder_play --role=ci
+  → shallow src, vendored deps at ./.k33p/vendored/, secrets via env-mount
+$ k33p sync
+  → fetches the powder_play-scoped deps lock
+  → mounts secrets as env vars (STRIPE_API_KEY, etc.)
+$ npm run build
+$ k33p sign artifacts --inputs src@&lt;commit&gt;,deps@&lt;lock&gt; \
+                      --scope active/games/powder_play/build/ \
+                      --sign-with release-key
+  → publishes a signed build manifest scoped to powder_play
+$ k33p live set latest-stable artifacts@powder_play@v1.2.4 \
+       --scope powder_play --sign-with release-key
+  → moves the powder_play-scoped latest-stable pointer
+</code></pre>
+</div>
+
+<div class="scenario">
+  <h3>12. Library subproject shared by 5 app subprojects</h3>
+<pre><code># in active/shared/ui-library/k33p.yaml
+subproject: ui-library
+channels:
+  artifacts:
+    transport: oci+https://registry.acme.com/ui-library
+    scope: active/shared/ui-library/
+
+# in any of the 5 consumer subprojects, e.g. active/web-apps/cool-app/k33p.yaml:
+subproject: cool-app
+channels:
+  deps:
+    from:
+      - subproject: ui-library
+        artifact: ui-lib@v1.4.2
+        transport: oci+https://registry.acme.com/ui-library
+
+$ k33p verify
+  ✓ ui-lib@v1.4.2 signature valid
+  ✓ ui-lib@v1.4.2 build manifest links to signed src commit
+  ✓ toolchain matches lockfile
+  ✓ cool-app's deps lock pinned to ui-lib@v1.4.2
+</code></pre>
+</div>
+
+<div class="scenario">
+  <h3>13. Splitting a subproject out of a monorepo</h3>
+<pre><code>$ k33p split megarepo/powder_play
+  → creates new standalone project: powder_play
+  → git history preserved (path-scope filter on the monorepo's history)
+  → powder_play-scoped private channel becomes the new project's private
+  → powder_play-scoped artifacts channel becomes the new project's artifacts
+  → new project's k33p.yaml is generated; you review
+  → a "moved-to" pointer is added to the monorepo's live channel:
+      "moved: powder_play → https://github.com/calvinloveland/powder_play"
+$ # clone the new standalone project
+$ k33p clone https://github.com/calvinloveland/powder_play
+  → src is now a standalone git repo (not a path-scoped slice)
+  → channels follow the subproject
+  → no breakage for existing consumers
+</code></pre>
+</div>
+
 <h2 id="compare">🆚 Compared to existing tools</h2>
 
 <table>
@@ -1696,13 +2092,40 @@ $ git -C active/games/powder_play commit -m "k33p: split from megarepo"
       <td class="n">✗</td>
       <td class="y">✓</td>
     </tr>
+    <tr>
+      <td>First-class monorepos</td>
+      <td class="n">worst case</td>
+      <td class="n">✗</td>
+      <td class="p">workspaces</td>
+      <td class="p">flake inputs</td>
+      <td class="n">✗</td>
+      <td class="y">subprojects</td>
+    </tr>
+    <tr>
+      <td>Path-scoped sub-clones</td>
+      <td class="p">sparse-checkout</td>
+      <td class="n">✗</td>
+      <td class="p">workspaces</td>
+      <td class="n">✗</td>
+      <td class="n">✗</td>
+      <td class="y">k33p clone monorepo/sub</td>
+    </tr>
+    <tr>
+      <td>Per-subproject secrets</td>
+      <td class="n">✗</td>
+      <td class="n">✗</td>
+      <td class="n">✗</td>
+      <td class="n">✗</td>
+      <td class="n">✗</td>
+      <td class="y">scoped channels</td>
+    </tr>
   </tbody>
 </table>
 
 <p>The bottom-right cell is the point. k33p is what you get if you stop
 gluing these tools together with bash scripts and CI YAML, add a content-
 addressed store underneath, and ask: <em>"what if version control was
-typed, multi-tenant, and view-based?"</em></p>
+typed, multi-tenant, view-based, and monorepo-first?"</em></p>
 
 <!-- ─────────────────────────── OPEN QUESTIONS ─────────────────────────── -->
 <h2 id="open">❓ Open questions</h2>
@@ -1774,6 +2197,57 @@ design can be critiqued on its weakest joints.</p>
   solve, but worth calling out.
 </div>
 
+<div class="oq">
+  <strong>How do nested subprojects work?</strong> Right now a
+  subproject lives at a path, but does it own its own sub-subprojects?
+  Probably not by default — a subproject is a leaf, and the path
+  hierarchy is a flat namespace. But a "monorepo of monorepos" pattern
+  (where <code>megarepo</code> is itself a subproject of
+  <code>calvinloveland/megarepo-of-megarepos</code>) would benefit from
+  one level of nesting. The right design here is unclear.
+</div>
+
+<div class="oq">
+  <strong>Subproject name vs path disambiguation.</strong> A subproject
+  can be addressed by short name (<code>powder_play</code>) or full
+  path (<code>active/games/powder_play</code>). When the short name
+  collides across nested paths, the resolver has to pick. My current
+  instinct: short names are unique within a monorepo (the manifest
+  enforces this); full paths are always unique. If you want to use the
+  same short name in two paths, you have to rename one.
+</div>
+
+<div class="oq">
+  <strong>Subproject renaming and history rewriting.</strong> Git
+  doesn't track renames (it tracks content similarity). When a
+  subproject moves or renames, do we expose that as a separate
+  <code>moved-to</code> pointer in the live channel? Or do we let
+  git's content-tracking do its thing? The pointer approach is more
+  explicit and auditable; the content-tracking approach is more
+  automatic. I lean toward the pointer approach for explicit moves,
+  with content-tracking as a fallback for unscripted renames.
+</div>
+
+<div class="oq">
+  <strong>How are subproject shared deps shared, exactly?</strong> The
+  shared-deps pattern is described above, but the actual mechanism
+  isn't pinned. Option A: a <code>shared-deps</code> subproject that
+  other subprojects reference through their artifacts channel. Option
+  B: a monorepo-level "shared deps cache" that's referenced by hash.
+  Option C: just dedup across the CAS and let consumers pick which
+  copy. Each has tradeoffs; a v0.2 design exercise will pick one.
+</div>
+
+<div class="oq">
+  <strong>Subproject visibility.</strong> A monorepo can have
+  <em>public</em> subprojects (e.g., a docs site) and
+  <em>private</em> subprojects (e.g., an internal admin tool) at the
+  same time. The visibility declaration lives in the subproject's
+  manifest entry. Open question: can a private subproject share a
+  channel with a public one? Probably not without explicit
+  <code>expose_to</code> declarations; the default is isolation.
+</div>
+
 <!-- ─────────────────────────── WHY "k33p" ──────────────────────────────── -->
 <h2 id="name">🔤 Why "k33p"</h2>
 
@@ -1790,30 +2264,32 @@ design can be critiqued on its weakest joints.</p>
 
 <div class="roadmap-step">
   <div class="when">MVP · ~3 months</div>
-  <h4>Store + manifest + roles + views, on top of git</h4>
+  <h4>Store + manifest + roles + views + subprojects, on top of git</h4>
   <ul>
     <li>Content-addressed store shared by all channels</li>
-    <li><code>k33p.yaml</code> parser + validator</li>
+    <li><code>k33p.yaml</code> parser + validator; subprojects block</li>
     <li>Source channel wraps git (no replacement); git objects referenced by hash from the CAS</li>
+    <li>Path-scoped sub-clones: <code>k33p clone monorepo/sub</code> materializes only the subpath</li>
     <li>Artifacts channel on OCI transport</li>
     <li>Five default roles + the view system (no fixed channel layout)</li>
-    <li><code>k33p init / clone / sync / role / view / verify</code></li>
-    <li>Compatible with existing git repos — <code>k33p init --from-git</code></li>
+    <li><code>k33p init / clone / sync / role / view / verify / list / show / subproject add</code></li>
+    <li>Compatible with existing git repos (single projects and monorepos)</li>
     <li>Python reference implementation</li>
   </ul>
 </div>
 
 <div class="roadmap-step">
   <div class="when">v0.2 · ~6 months</div>
-  <h4>Private + deps + live channels, daemon, migration</h4>
+  <h4>Private + deps + live channels, daemon, cross-subproject refs, migration</h4>
   <ul>
-    <li>Private channel with age encryption + per-recipient keys</li>
-    <li>Deps channel with lockfile + OCI blob transport + content-hash dedup</li>
-    <li>Live channel with signed pointer updates + rate limits + audit log</li>
+    <li>Private channel with age encryption + per-recipient keys, scoped to subproject</li>
+    <li>Deps channel with lockfile + OCI blob transport + content-hash dedup, scoped to subproject</li>
+    <li>Live channel with signed pointer updates + rate limits + audit log, per-subproject</li>
     <li>Build manifests with explicit <code>toolchain</code> block (compiler, build system, linker, codegen, env)</li>
-    <li>k33p daemon: auto-commit with debounce + pre-commit hooks + sign + push</li>
+    <li>k33p daemon: auto-commit with debounce + pre-commit hooks + sign + push, per subproject</li>
     <li>Trustless mirrors: content-addressed fetch from any peer</li>
-    <li>Migration tools: <code>k33p import</code> (git, tarball, OCI), <code>k33p split</code>, <code>k33p convert</code></li>
+    <li>Cross-subproject references via signed artifacts (<code>shared-ui-library</code> pattern)</li>
+    <li>Migration tools: <code>k33p import</code> (git, tarball, OCI), <code>k33p split</code>, <code>k33p convert</code>, <code>k33p merge</code></li>
     <li>Smart transport: rsync-style deltas, zstd compression, sparse materialization</li>
     <li>Rust core for performance-critical paths</li>
   </ul>
@@ -1821,11 +2297,12 @@ design can be critiqued on its weakest joints.</p>
 
 <div class="roadmap-step">
   <div class="when">v1.0 · ~12 months</div>
-  <h4>Multi-tenancy, signed provenance, federation</h4>
+  <h4>Multi-tenancy, signed provenance, federation, subproject governance</h4>
   <ul>
-    <li>Orgs → teams → sub-teams with cascading permissions</li>
+    <li>Orgs → teams → sub-teams with cascading permissions, scoped to subprojects</li>
     <li>Multi-sig for sensitive channels (private rotation, live pointer moves, artifact publish)</li>
     <li>Federation: single-primary, read-only mirrors, content-addressed fallback</li>
+    <li>Subproject governance: per-subproject release keys, audit log, retention policies</li>
     <li>WASM bindings for UI integration</li>
     <li>Stable protocol spec; multiple implementations interop-tested</li>
     <li>Audit log + replay protection</li>
@@ -1835,21 +2312,39 @@ design can be critiqued on its weakest joints.</p>
 <!-- ─────────────────────────── FOOTER ──────────────────────────────────── -->
 <footer>
   <p>
-    k33p design draft v0.2 — incorporates feedback from v0.1 review: content-
-    addressed store + per-role views replace the required on-disk layout; the
-    k33p daemon auto-commits with debounce; the <code>live</code> channel
-    formalizes mutable pointers with signed, rate-limited, auditable updates;
-    org/team multi-tenancy; IPFS-like trustless mirrors; toolchain pinned in
-    the lockfile; smart transport with compression and dedup; comprehensive
-    migration tools.
+    k33p design draft v0.3 — incorporates feedback from v0.2 review: <strong>monorepos
+    are now the first-class citizen</strong>. A k33p project is a monorepo with
+    one or more subprojects; a "single project" is a degenerate monorepo with
+    one subproject at the root path. Subprojects have their own
+    <code>k33p.yaml</code> (or inherit the parent's), their own view, their
+    own channel subscriptions, and their own lockfile. The other channels
+    (<code>private</code>, <code>deps</code>, <code>artifacts</code>) are
+    scoped to each subproject via a <code>scope:</code> key, so a secret
+    for <code>powder_play</code> is a different secret than one for
+    <code>full_auto_ci</code> — even though they live in the same monorepo.
+    Path-scoped sub-clones (<code>k33p clone monorepo/sub</code>) materialize
+    only the subproject's slice. Cross-subproject references go through signed
+    artifacts (the <code>shared-ui-library</code> pattern), not raw source.
+    <code>k33p split</code> and <code>k33p merge</code> convert between
+    subprojects and standalone projects without rewriting git history.
+  </p>
+  <p>
+    v0.2 additions: content-addressed store + per-role views replace the
+    required on-disk layout; the k33p daemon auto-commits with debounce; the
+    <code>live</code> channel formalizes mutable pointers with signed,
+    rate-limited, auditable updates; org/team multi-tenancy; IPFS-like
+    trustless mirrors; toolchain pinned in the lockfile; smart transport
+    with compression and dedup; comprehensive migration tools.
   </p>
   <p>
     The most important property of this design is what it makes
     <em>impossible</em>: accidentally committing a secret to a public repo,
     publishing an unsigned artifact, downloading 1.2 GB of git history
     just to run a binary, moving a <code>latest</code> pointer without an
-    audit trail, or rebuilding a project on a different compiler. The
-    type system, the content hash, and the daemon — not the honor system.
+    audit trail, rebuilding a project on a different compiler, or accidentally
+    pulling 49 subprojects' worth of code when you only wanted one. The
+    type system, the content hash, the path scope, and the daemon — not
+    the honor system.
   </p>
 </footer>
 
