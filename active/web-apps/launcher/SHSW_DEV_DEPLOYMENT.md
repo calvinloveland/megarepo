@@ -36,6 +36,7 @@ This is the single source of truth. Each app's `subdomain` field in [`apps.yaml`
 | Hivemind LLM (UI) | `hivemind` | https://hivemind.shsw.dev | Static (nginx) | 80 |
 | Operationalize | `ops` | https://ops.shsw.dev | Flask | 5000 |
 | Recursive Thermofluid Sandbox | `thermofluid` | https://thermofluid.shsw.dev | Node.js static server | 5192 |
+| OCR Arena | `ocr` | https://ocr.shsw.dev | Flask | 5110 |
 
 ## Prerequisites
 

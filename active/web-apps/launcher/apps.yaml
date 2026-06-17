@@ -185,4 +185,16 @@ apps:
     env:
       PORT: "5192"
 
+  - id: ocr-arena
+    name: OCR Arena
+    description: Pick a Project Gutenberg book, watch full-auto-de-pdf OCR it into an EPUB
+    icon: 📖
+    subdomain: ocr
+    path: ../ocr-arena
+    type: flask
+    port: 5110
+    module: ocr_arena.app
+    env:
+      PORT: "5110"
+
 
