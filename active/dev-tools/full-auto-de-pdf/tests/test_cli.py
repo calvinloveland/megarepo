@@ -831,6 +831,7 @@ def test_archive_epub_compare_page_command_writes_html(monkeypatch, tmp_path) ->
         apply_cleanup,
         emit_page_artifacts,
         page_artifacts_dir,
+        ocr_cache_dir,
         inverse_render_rerank,
         inverse_render_top_k,
         inverse_render_workers,

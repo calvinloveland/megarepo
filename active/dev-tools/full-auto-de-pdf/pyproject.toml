@@ -21,6 +21,10 @@ ocr = [
     "paddlepaddle>=3.2.0,<3.3.0",
     "opencv-python-headless>=4.10.0.84",
 ]
+accuracy = [
+    "wordfreq>=3.0.0",
+    "nltk>=3.8.0",
+]
 
 [tool.hatch.version]
 path = "src/full_auto_de_pdf/__about__.py"

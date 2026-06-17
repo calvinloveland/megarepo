@@ -646,6 +646,16 @@ def _add_benchmark_ocr_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--language", default="eng", help="Tesseract language code")
     parser.add_argument("--dpi", type=int, default=300, help="Rasterization DPI for pdftoppm")
     parser.add_argument(
+        "--ocr-cache-dir",
+        type=Path,
+        help="Optional on-disk cache directory for OCR results (speeds up re-runs)",
+    )
+    parser.add_argument(
+        "--cache-stats",
+        action="store_true",
+        help="Print OCR + inverse-render cache hit/miss counts at the end of the run",
+    )
+    parser.add_argument(
         "--ocr-engine",
         choices=["tesseract", "paddleocr", "ensemble"],
         default="tesseract",
@@ -836,8 +846,24 @@ def _add_llm_suspicious_section_args(parser: argparse.ArgumentParser) -> None:
 def _add_cleanup_verifier_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--verify-cleanup-spans",
+        dest="verify_cleanup_spans",
         action="store_true",
         help="Opt in to narrow image-verified cleanup checks for short cleanup replacements",
+    )
+    parser.add_argument(
+        "--no-verify-cleanup-spans",
+        dest="verify_cleanup_spans",
+        action="store_false",
+        help=argparse.SUPPRESS,
+    )
+    parser.add_argument(
+        "--predict-preprocess-mode",
+        action="store_true",
+        help=(
+            "Use the per-page image-quality classifier to pick a "
+            "single preprocess mode (fast) instead of the full "
+            "auto candidate sweep (slower but more accurate)"
+        ),
     )
 
 
@@ -1454,8 +1480,17 @@ def _add_archive_epub_compare_page_command(
         type=Path,
         help="Optional directory for local OCR page artifacts",
     )
+    parser.add_argument(
+        "--ocr-cache-dir",
+        type=Path,
+        help="Optional on-disk cache directory for OCR results (speeds up re-runs)",
+    )
     _add_llm_suspicious_section_args(parser)
-    parser.set_defaults(inverse_render_rerank=False, verify_cleanup_spans=False)
+    parser.set_defaults(
+        inverse_render_rerank=False,
+        verify_cleanup_spans=False,
+        predict_preprocess_mode=False,
+    )
     parser.add_argument(
         "--inverse-render-rerank",
         dest="inverse_render_rerank",
@@ -1580,6 +1615,9 @@ def _handle_build_image_text_corpus(args: argparse.Namespace) -> int:
 
 def _handle_benchmark_corpus(args: argparse.Namespace) -> int:
     progress_callback = _make_progress_reporter("Benchmark corpus")
+    if getattr(args, "cache_stats", False):
+        from .ocr_cache import reset_cache_stats
+        reset_cache_stats()
     report = run_benchmark_corpus(
         corpus_manifest_path=args.corpus_manifest,
         output_report_path=args.output,
@@ -1593,6 +1631,15 @@ def _handle_benchmark_corpus(args: argparse.Namespace) -> int:
         f"word_accuracy={float(summary['avg_word_accuracy']):.4f}, "
         f"char_accuracy={float(summary['avg_char_accuracy']):.4f} -> {args.output}"
     )
+    if getattr(args, "cache_stats", False):
+        from .ocr_cache import get_cache_stats
+        stats = get_cache_stats()
+        print(
+            "Cache stats: "
+            f"ocr={stats.ocr_hits}/{stats.ocr_calls} hits, "
+            f"inverse_render={stats.inverse_render_hits}/{stats.inverse_render_calls} mem-hits "
+            f"({stats.inverse_render_disk_hits} disk-hits)"
+        )
     return 0
 
 
@@ -1660,6 +1707,7 @@ def _benchmark_ocr_kwargs_from_args(args: argparse.Namespace) -> dict[str, objec
         "dpi": args.dpi,
         "apply_cleanup": not args.no_cleanup,
         "preprocess_mode": args.preprocess_mode,
+        "predict_preprocess_mode": args.predict_preprocess_mode,
         "binarize_threshold": args.binarize_threshold,
         "deskew_max_angle": args.deskew_max_angle,
         "deskew_angle_step": args.deskew_angle_step,
@@ -1679,6 +1727,7 @@ def _benchmark_ocr_kwargs_from_args(args: argparse.Namespace) -> dict[str, objec
         "llm_suspicious_max_sections": args.llm_suspicious_max_sections,
         "ocr_engine": args.ocr_engine,
         "emit_page_artifacts": not args.no_page_artifacts,
+        "ocr_cache_dir": getattr(args, "ocr_cache_dir", None),
         "inverse_render_rerank": args.inverse_render_rerank,
         "inverse_render_top_k": args.inverse_render_top_k,
         "inverse_render_workers": args.inverse_render_workers,
@@ -1717,6 +1766,7 @@ def _handle_ocr_pdf(args: argparse.Namespace) -> int:
         dpi=args.dpi,
         apply_cleanup=not args.no_cleanup,
         preprocess_mode=args.preprocess_mode,
+        predict_preprocess_mode=args.predict_preprocess_mode,
         binarize_threshold=args.binarize_threshold,
         deskew_max_angle=args.deskew_max_angle,
         deskew_angle_step=args.deskew_angle_step,
@@ -1738,6 +1788,7 @@ def _handle_ocr_pdf(args: argparse.Namespace) -> int:
         emit_page_artifacts=not args.no_page_artifacts,
         page_artifacts_dir=args.page_artifacts_dir,
         resume=args.resume,
+        ocr_cache_dir=getattr(args, 'ocr_cache_dir', None),
         inverse_render_rerank=args.inverse_render_rerank,
         inverse_render_top_k=args.inverse_render_top_k,
         inverse_render_workers=args.inverse_render_workers,
@@ -1918,6 +1969,7 @@ def _handle_archive_epub_compare_page(args: argparse.Namespace) -> int:
         apply_cleanup=not args.no_cleanup,
         emit_page_artifacts=not args.no_page_artifacts,
         page_artifacts_dir=args.page_artifacts_dir,
+        ocr_cache_dir=getattr(args, 'ocr_cache_dir', None),
         inverse_render_rerank=args.inverse_render_rerank,
         inverse_render_top_k=args.inverse_render_top_k,
         inverse_render_workers=args.inverse_render_workers,
