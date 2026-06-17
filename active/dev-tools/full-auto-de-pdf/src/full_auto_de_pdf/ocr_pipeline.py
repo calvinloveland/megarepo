@@ -918,12 +918,12 @@ def _otsu_threshold(image: Any) -> int:
 # HIGH_BRIGHTNESS_THRESHOLD] are considered normal; pages
 # outside that range are flagged as low-quality.
 _LOW_BRIGHTNESS_THRESHOLD = 60.0
-_HIGH_BRIGHTNESS_THRESHOLD = 240.0
+_HIGH_BRIGHTNESS_THRESHOLD = 250.0
 # Pages with std-dev above LOW_CONTRAST_THRESHOLD are
 # considered high-contrast (clean scans); below it the page
 # is washed out or has uneven background.
 _LOW_CONTRAST_THRESHOLD = 25.0
-_HIGH_CONTRAST_THRESHOLD = 60.0
+_HIGH_CONTRAST_THRESHOLD = 45.0
 
 
 def _image_quality_features(image: Any) -> dict[str, float]:
