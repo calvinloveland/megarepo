@@ -197,4 +197,17 @@ apps:
     env:
       PORT: "5110"
 
+  - id: drop
+    name: Drop
+    description: Tiny drag-and-drop file receiver — drop files from any device, get them on the homelab
+    icon: 📥
+    subdomain: drop
+    path: ../drop
+    type: flask
+    port: 5111
+    module: drop.app
+    env:
+      PORT: "5111"
+      HOST: "0.0.0.0"
+
 

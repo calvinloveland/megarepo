@@ -37,6 +37,7 @@ This is the single source of truth. Each app's `subdomain` field in [`apps.yaml`
 | Operationalize | `ops` | https://ops.shsw.dev | Flask | 5000 |
 | Recursive Thermofluid Sandbox | `thermofluid` | https://thermofluid.shsw.dev | Node.js static server | 5192 |
 | OCR Arena | `ocr` | https://ocr.shsw.dev | Flask | 5110 |
+| Drop | `drop` | https://drop.shsw.dev | Flask | 5111 |
 
 ## Prerequisites
 
@@ -175,3 +176,11 @@ dig <subdomain>.shsw.dev
 3. Create a `Dockerfile`
 4. Add a `DEPLOYMENT.md` with app-specific deployment steps
 5. Update this document's subdomain registry table
+
+## Apps that bind to 0.0.0.0
+
+`drop` is the only app currently configured with `HOST=0.0.0.0` in `apps.yaml`.
+The Cloudflare tunnel still reaches it via loopback (port forwarding handled
+by the tunnel), and the bind widens the surface only to the LAN, not the
+public internet. Other apps stay on `127.0.0.1` and are reachable from a
+phone only through the tunnel.
