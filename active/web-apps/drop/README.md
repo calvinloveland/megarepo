@@ -7,7 +7,11 @@ lands in `data/uploads/` on the server. CSV, JSON, and text files get
 an instant in-browser preview; images render directly. No accounts, no
 friction.
 
-- **Public demo**: <https://drop.shsw.dev> (when the Cloudflare tunnel is set up)
+**LAN-only by design** — there is no public URL. See
+[`docs/index.md#security`](docs/index.md#security) for why and how to
+add a public URL safely.
+
+- **LAN access**: <http://<host-lan-ip>:5111>
 - **Local dev**: <http://localhost:5111>
 - **Launcher's project page**: appears in the [Megarepo Launcher](https://shsw.dev) automatically
 

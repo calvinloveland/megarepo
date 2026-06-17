@@ -7,10 +7,9 @@ lands in `data/uploads/` on the server. CSV, JSON, and text files get
 an instant in-browser preview; images render directly. No accounts, no
 friction.
 
-- **Public demo**: <https://drop.shsw.dev> (when the Cloudflare tunnel is set up)
 - **LAN access**: <http://haswell.lan:5111> (or whatever the host's LAN IP is — see "Finding the URL" below)
 - **Local dev**: <http://localhost:5111>
-- **Launcher's project page**: appears in the [Megarepo Launcher](https://shsw.dev) automatically
+- **Public URL**: **none by design.** This app is LAN-only. See [Security](#security) below for why and how to add a public URL safely.
 
 ![drop UI](https://placehold.co/600x400/0f172a/38bdf8?text=📥+drop+UI)
 
@@ -43,13 +42,13 @@ Most "upload files to my server" tools are heavyweight (Nextcloud, Seafile,
 Syncthing). For a single user with a homelab, that's overkill. This is
 the minimal thing that works:
 
-- No login. The threat model is "trusted devices on my LAN / my own
-  Cloudflare tunnel," not "the open internet."
+- No login. The threat model is "trusted devices on my LAN," not "the
+  open internet."
 - No database. The whole index is a JSON file with atomic writes.
 - No JavaScript build step. The frontend is ~200 lines of vanilla JS
   that any developer can read in 5 minutes.
 - No Docker, no nginx, no certs. Flask's dev server is fine for a
-  single-user app, and the existing Cloudflare tunnel handles HTTPS.
+  single-user app on a trusted LAN.
 
 ## Architecture
 
@@ -151,20 +150,61 @@ http://<host-lan-ip>:5111
 ```
 
 Find the LAN IP with `hostname -I` or `ip -4 addr show | grep inet`.
-For a Cloudflare-tunneled public URL, set up the `drop` subdomain in the
-tunnel config (see `active/web-apps/launcher/SHSW_DEV_DEPLOYMENT.md`).
+On this host the LAN IP is currently `192.168.1.168` (it can change —
+check before you walk over to the phone).
 
-## Security notes
+## Security
 
-This app is intentionally unauthenticated. Do not expose it to the
-public internet without putting something in front of it:
+This app is **intentionally unauthenticated** and **LAN-only by design**.
+There is no `drop.shsw.dev` Cloudflare tunnel ingress rule, and the
+launcher's `apps.yaml` deliberately omits the `subdomain` field. The
+HTTP server binds to `0.0.0.0:5111` so any device on the local network
+can reach it, but the public internet cannot.
 
-- A Cloudflare tunnel with an Access policy is the easiest option.
-- A reverse proxy with basic auth is the second-easiest.
-- If you must expose it directly, the worst-case blast radius is
-  "someone fills your 5 GB quota with junk." Files are not executable
-  and the upload path is sandboxed by Flask's `MAX_CONTENT_LENGTH`.
+### Threat model
 
-The path-traversal guard in `storage.read_file_bytes` rejects any file
-ID that isn't a 32-char lowercase hex string, so a malicious client
-can't `GET /files/../../etc/passwd`.
+**In scope** (this is what the app defends against):
+- Path traversal via crafted file IDs (`storage.read_file_bytes` rejects
+  anything that isn't a 32-char lowercase hex string).
+- Per-file DoS via huge uploads (Flask's `MAX_CONTENT_LENGTH` rejects
+  anything over `MAX_UPLOAD_MB`).
+- Total-storage DoS (uploads are rejected once `MAX_TOTAL_STORAGE_MB`
+  is reached).
+- Concurrent index corruption (`_index_lock` + atomic write).
+- Crash mid-write (the index is written via tmp + `os.replace`).
+
+**Out of scope** (this is what LAN-only relies on):
+- Authentication. The app trusts whoever can reach the port.
+- Rate limiting. A misbehaving LAN client could fill the disk with
+  small files faster than you can delete them.
+- Audit log. There is no record of who uploaded what beyond the
+  `added_at` timestamp.
+- TLS. The HTTP server is plaintext. On a trusted Wi-Fi network this
+  is fine; on a public / open network, a snooper can see the bytes.
+
+### If you ever want to expose it publicly
+
+Do **both** of these — neither alone is sufficient:
+
+1. **Add a Cloudflare tunnel ingress rule** for `drop.shsw.dev` pointing
+   at `http://127.0.0.1:5111`. The Cloudflare edge handles TLS.
+2. **Put an auth layer in front of it.** The two reasonable options:
+   - **Cloudflare Access** (recommended) — email-OTP, SSO, or device
+     posturing via the Cloudflare Zero Trust dashboard. No app changes
+     needed.
+   - **A reverse proxy with basic auth** (e.g. Caddy or nginx) — simpler
+     but less ergonomic on phones.
+
+   Without step 2, the app becomes a free file-upload service for the
+   entire internet, which fills the 5 GB quota with junk and
+   potentially runs you out of disk faster than the periodic cleanup
+   can keep up.
+
+### On changing `HOST`
+
+`HOST=0.0.0.0` is required for the LAN-only mode to work. If you ever
+tighten the bind (e.g. to `192.168.1.168` to scope it to a single NIC),
+the app will only be reachable from that IP. Don't switch it to
+`127.0.0.1` unless you're sure you only need loopback access — the
+launcher's own `127.0.0.1` health check would still work, but your
+phone wouldn't be able to reach it without going through the tunnel.

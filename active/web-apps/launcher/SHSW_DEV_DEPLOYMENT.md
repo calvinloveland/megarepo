@@ -37,7 +37,7 @@ This is the single source of truth. Each app's `subdomain` field in [`apps.yaml`
 | Operationalize | `ops` | https://ops.shsw.dev | Flask | 5000 |
 | Recursive Thermofluid Sandbox | `thermofluid` | https://thermofluid.shsw.dev | Node.js static server | 5192 |
 | OCR Arena | `ocr` | https://ocr.shsw.dev | Flask | 5110 |
-| Drop | `drop` | https://drop.shsw.dev | Flask | 5111 |
+| Drop | _(none — LAN-only)_ | _not exposed_ | Flask | 5111 |
 
 ## Prerequisites
 
@@ -180,7 +180,15 @@ dig <subdomain>.shsw.dev
 ## Apps that bind to 0.0.0.0
 
 `drop` is the only app currently configured with `HOST=0.0.0.0` in `apps.yaml`.
-The Cloudflare tunnel still reaches it via loopback (port forwarding handled
-by the tunnel), and the bind widens the surface only to the LAN, not the
-public internet. Other apps stay on `127.0.0.1` and are reachable from a
+This widens the surface to the LAN only — there is intentionally no
+Cloudflare tunnel ingress rule for `drop.shsw.dev` because the app has no
+authentication. Other apps stay on `127.0.0.1` and are reachable from a
 phone only through the tunnel.
+
+If you ever decide to expose `drop` publicly, do **both** of these:
+
+1. Add a Cloudflare tunnel ingress rule: `drop.shsw.dev → http://127.0.0.1:5111`
+2. Put Cloudflare Access (or a reverse proxy with basic auth) in front of it.
+
+Without step 2, the app becomes a free file-upload service for the entire
+internet. See `active/web-apps/drop/docs/index.md#security` for details.

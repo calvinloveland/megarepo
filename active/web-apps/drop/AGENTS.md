@@ -14,8 +14,9 @@ reachable from any device on the LAN or via the shsw.dev Cloudflare tunnel.
   background workers. The whole app is a single Flask process plus a
   JSON index file on disk.
 - **Bound to 0.0.0.0** (not 127.0.0.1) so phones on the LAN can reach it
-  without going through the tunnel. The Cloudflare tunnel still works
-  because the tunnel talks to the loopback port.
+  without going through the tunnel. There is intentionally no
+  `drop.shsw.dev` Cloudflare tunnel ingress rule — see
+  `docs/index.md#security`.
 - **Manages itself**: the launcher's watchdog will restart the app if the
   port stops accepting connections, because the app ships a `.venv/bin/python3`.
 

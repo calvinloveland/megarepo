@@ -199,9 +199,12 @@ apps:
 
   - id: drop
     name: Drop
-    description: Tiny drag-and-drop file receiver — drop files from any device, get them on the homelab
+    description: Tiny drag-and-drop file receiver — drop files from any device, get them on the homelab (LAN-only by default; no public subdomain)
     icon: 📥
-    subdomain: drop
+    # No `subdomain` field: this app is LAN-only by design.
+    # To expose publicly, add a Cloudflare tunnel ingress rule AND consider
+    # adding Cloudflare Access / a reverse-proxy with auth in front.
+    # See active/web-apps/drop/docs/index.md for the security model.
     path: ../drop
     type: flask
     port: 5111
