@@ -297,6 +297,36 @@ def stage_page(record: PageRecord, alias_map: dict[Path, Path]) -> None:
     output_file.write_text(rewritten, encoding="utf-8")
 
 
+# Directories (relative to ROOT) whose .html files are staged into the
+# published site as static assets. Markdown is the primary content type, but
+# long-form design docs (like ideas/k33p/design.html) live in HTML and need
+# to be reachable via GitHub Pages.
+HTML_STAGE_ROOTS: tuple[str, ...] = ("ideas",)
+
+
+def stage_html_design_docs() -> int:
+    """Copy .html files from HTML_STAGE_ROOTS into projects/<root>/<path>.
+
+    Returns the number of HTML files staged. Excluded parts still apply so
+    node_modules-style junk under ideas/ is skipped.
+    """
+    count = 0
+    for root_name in HTML_STAGE_ROOTS:
+        root_path = ROOT / root_name
+        if not root_path.exists():
+            continue
+        for html_path in sorted(root_path.rglob("*.html")):
+            if not is_in_scope(html_path):
+                continue
+            relative = html_path.relative_to(root_path)
+            output_path = Path("projects") / root_name / relative
+            output_file = GENERATED_DOCS / output_path
+            output_file.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(html_path, output_file)
+            count += 1
+    return count
+
+
 def main() -> int:
     if GENERATED_DOCS.exists():
         shutil.rmtree(GENERATED_DOCS)
@@ -308,8 +338,10 @@ def main() -> int:
     for record in site_manifest.page_records:
         stage_page(record, site_manifest.alias_map)
 
+    html_count = stage_html_design_docs()
+
     generated_count = len(site_manifest.page_records)
-    print(f"Generated {generated_count} staged markdown pages in {GENERATED_DOCS}")
+    print(f"Generated {generated_count} staged markdown pages and {html_count} HTML files in {GENERATED_DOCS}")
     return 0
 
 
