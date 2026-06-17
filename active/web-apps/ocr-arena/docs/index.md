@@ -112,3 +112,23 @@ Then add a Cloudflare Tunnel ingress rule for `ocr.shsw.dev` → `http://localho
 3. **Verify** — once the tunnel is running and the public hostname
    is in place, `curl https://ocr.shsw.dev/healthz` should return
    `{"books_loaded":8,"ok":true}`.
+
+### Automating the public-hostname step
+
+If you have a Cloudflare API token with `Zone.DNS:Edit` scope for
+`shsw.dev`, the public hostname can be created without opening the
+dashboard:
+
+```bash
+# Requires: jq, curl, and $CF_API_TOKEN in the environment
+ZONE_ID=$(curl -sS -H "Authorization: Bearer $CF_API_TOKEN" \
+  https://api.cloudflare.com/client/v4/zones?name=shsw.dev \
+  | jq -r '.result[0].id')
+TUNNEL_ID=a0e187ad-b0c8-499b-882a-32c25ff2730c
+curl -sS -X POST -H "Authorization: Bearer $CF_API_TOKEN" \
+  -H "Content-Type: application/json" \
+  --data "{\"type\":\"CNAME\",\"name\":\"ocr\",\"content\":\"${TUNNEL_ID}.cfargotunnel.com\",\"proxied\":true}" \
+  https://api.cloudflare.com/client/v4/zones/$ZONE_ID/dns_records
+```
+
+Replace `TUNNEL_ID` with the value in `~/.cloudflared/tunnel.json`.
