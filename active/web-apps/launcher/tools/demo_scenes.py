@@ -2063,6 +2063,270 @@ def scene_recursive_thermofluid_sandbox(app: App, img: Image.Image, t: float) ->
 
 
 # ════════════════════════════════════════════════════════════════════════
+# 16. OCR ARENA — scanned page → EPUB3
+# ════════════════════════════════════════════════════════════════════════
+
+def scene_ocr_arena(app: App, img: Image.Image, t: float) -> None:
+    """Three-act composition:
+
+    - 0.0–1.0s: title + subtitle fade in
+    - 1.0–4.5s: scanned page on the left is highlighted line-by-line
+      (the OCR sweep) while stage chips (OCR / Cleanup / Metrics / EPUB)
+      light up on the right
+    - 4.5–8.0s: accuracy metrics materialize (char/word accuracy)
+    - 8.0–12s: the EPUB icon grows in, the page disappears
+    - 12–16s: a final "done" panel with metrics and download icons
+    """
+    draw = ImageDraw.Draw(img)
+    _draw_centered_title(draw, "OCR ARENA", 80, t, 0.0, 1.0)
+    _draw_centered_subtitle(
+        draw, "SCAN  •  TESSERACT  •  CLEANUP  •  EPUB3", 145, t, 0.4, 1.2
+    )
+
+    # Layout constants for the two columns
+    left_cx, right_cx = 280, W - 280
+    panel_y = 200
+    panel_h = 360
+    panel_w = 380
+
+    # ── ACT 1: Scanned page panel (left) with OCR highlight sweep ────
+    page_alpha = frame_progress(t, 0.6, 1.4)
+    if page_alpha > 0:
+        e = ease_out_cubic(page_alpha)
+        # Page background
+        px = left_cx - panel_w // 2
+        py = panel_y
+        page_color = (245, 240, 225)  # aged-paper
+        # Slight rotation in scale
+        scale_w = int(panel_w * e)
+        scale_h = int(panel_h * e)
+        sx = left_cx - scale_w // 2
+        sy = panel_y + (panel_h - scale_h) // 2
+        # Drop-shadow
+        draw.rectangle([(sx + 4, sy + 4), (sx + scale_w + 4, sy + scale_h + 4)], fill=(0, 0, 0, 80))
+        draw.rectangle([(sx, sy), (sx + scale_w, sy + scale_h)], fill=page_color, outline=(180, 170, 150))
+
+        # Faux text lines on the page (stagger in)
+        line_count = 14
+        line_x = sx + 30
+        line_x_end = sx + scale_w - 30
+        line_y_start = sy + 40
+        line_h = 18
+        for li in range(line_count):
+            line_p = frame_progress(t, 1.0 + li * 0.05, 1.3 + li * 0.05)
+            if line_p <= 0:
+                continue
+            alpha = clamp01(line_p)
+            # Each line has a slightly different length for realism
+            base_len = line_x_end - line_x
+            widths = [0.95, 0.80, 0.92, 0.65, 0.88, 0.72, 0.95, 0.85, 0.60, 0.90, 0.75, 0.88, 0.55, 0.82]
+            w = base_len * widths[li % len(widths)]
+            ly = line_y_start + li * line_h
+            draw.rectangle(
+                [(line_x, ly), (line_x + int(w), ly + 8)],
+                fill=(50, 40, 35),
+            )
+
+        # OCR sweep highlight (1.5s–4.5s)
+        if 1.5 < t < 5.0:
+            sweep_t = (t - 1.5) / 3.5
+            sweep_y = sy + int(scale_h * sweep_t)
+            band_h = 30
+            # Translucent green band
+            for bi in range(band_h):
+                alpha = 1.0 - abs(bi - band_h // 2) / (band_h / 2)
+                shade = int(255 * alpha * 0.4)
+                draw.rectangle(
+                    [(sx, sweep_y - band_h // 2 + bi), (sx + scale_w, sweep_y - band_h // 2 + bi + 1)],
+                    fill=(74, 222, 128, int(shade)),
+                )
+            # Bright line at the sweep head
+            draw.rectangle(
+                [(sx, sweep_y - 1), (sx + scale_w, sweep_y + 1)],
+                fill=(74, 222, 128),
+            )
+            # Detected text fragments (highlighted as "recognized")
+            for fi, frag_y in enumerate([
+                line_y_start + 2 * line_h,
+                line_y_start + 5 * line_h,
+                line_y_start + 8 * line_h,
+            ]):
+                if sweep_t > (frag_y - sy) / scale_h:
+                    fbox = [
+                        (line_x - 2, frag_y - 2),
+                        (line_x + int((line_x_end - line_x) * 0.7), frag_y + 10),
+                    ]
+                    draw.rectangle(fbox, outline=(74, 222, 128))
+
+    # ── ACT 2: Stage chips on the right (OCR → CLEANUP → METRICS → EPUB) ─
+    stages = [
+        ("OCR",     (96, 165, 250)),
+        ("CLEANUP", (251, 191, 36)),
+        ("METRICS", (160, 160, 160)),
+        ("EPUB",    (74, 222, 128)),
+    ]
+    chip_x0 = right_cx - 140
+    chip_y0 = panel_y + 30
+    chip_w = 280
+    chip_h = 50
+    chip_gap = 16
+    for i, (name, color) in enumerate(stages):
+        cy = chip_y0 + i * (chip_h + chip_gap)
+        # Stagger in
+        chip_p = frame_progress(t, 1.4 + i * 0.3, 1.7 + i * 0.3)
+        if chip_p <= 0:
+            continue
+        e = ease_out_cubic(chip_p)
+        # Slide in from right
+        x_offset = int(lerp(60, 0, e))
+        cx = chip_x0 + x_offset
+        alpha = clamp01(e)
+        # Background panel
+        draw.rounded_rectangle(
+            [(cx, cy), (cx + chip_w, cy + chip_h)],
+            radius=6, fill=(18, 24, 38), outline=(40, 50, 70), width=1,
+        )
+        # Status indicator
+        if 1.4 + i * 0.3 < t < 4.5 + i * 0.3:
+            ind_color = (251, 191, 36)  # running
+            ind_text = "◉"
+        elif t >= 4.5 + i * 0.3:
+            ind_color = (74, 222, 128)  # done
+            ind_text = "✓"
+        else:
+            ind_color = (100, 100, 100)
+            ind_text = "○"
+        ifc = load_font(20, bold=True)
+        draw.text((cx + 14, cy + 12), ind_text, fill=ind_color, font=ifc)
+        # Stage name
+        nf = load_font(16, bold=True)
+        draw.text((cx + 50, cy + 14), name, fill=WHITE, font=nf)
+        # Accent bar on left
+        draw.rectangle(
+            [(cx, cy), (cx + 4, cy + chip_h)],
+            fill=color,
+        )
+
+    # ── ACT 3: Accuracy metrics panel (5.0s–8.0s) ───────────────────
+    if t > 4.5:
+        met_p = frame_progress(t, 4.5, 5.5)
+        if met_p > 0:
+            me = ease_out_cubic(met_p)
+            mp_y = panel_y + panel_h + 30
+            mp_w = panel_w + 40
+            mp_h = 130
+            mp_x = left_cx - mp_w // 2
+            draw.rounded_rectangle(
+                [(mp_x, mp_y), (mp_x + mp_w, mp_y + mp_h)],
+                radius=8, fill=(18, 24, 38), outline=(40, 50, 70), width=1,
+            )
+            # Title
+            ttf = load_font(13, bold=True)
+            draw.text((mp_x + 20, mp_y + 14), "ACCURACY  •  PRIDE & PREJUDICE  •  PAGE 1", fill=DIM, font=ttf)
+            # Big metrics
+            label_f = load_font(11, bold=True)
+            value_f = load_font(36, bold=True)
+            metrics = [
+                ("CHAR",  "99.97%", GREEN),
+                ("WORD",  "99.40%", AMBER),
+                ("WORDS", "287",    WHITE),
+            ]
+            mw = (mp_w - 40) // len(metrics)
+            for i, (label, val, color) in enumerate(metrics):
+                mx = mp_x + 20 + i * mw
+                my = mp_y + 40
+                draw.text((mx, my), label, fill=DIM, font=label_f)
+                draw.text((mx, my + 18), val, fill=color, font=value_f)
+            # Subtitle bar
+            draw.rectangle(
+                [(mp_x, mp_y + mp_h - 8), (mp_x + int(mp_w * me), mp_y + mp_h - 5)],
+                fill=GREEN,
+            )
+
+    # ── ACT 4: EPUB icon (8.0s–12s) ─────────────────────────────────
+    if t > 8.0:
+        ep_p = frame_progress(t, 8.0, 9.0)
+        if ep_p > 0:
+            e = ease_out_back(ep_p, overshoot=1.05)
+            # Book cover on the right
+            book_w = int(220 * e)
+            book_h = int(300 * e)
+            bx = right_cx - book_w // 2
+            by = panel_y + 70
+            # Only draw interior details once the book is wide enough;
+            # otherwise the title/line/chapter rects can have x1 < x0.
+            if book_w >= 80:
+                # Drop shadow
+                draw.rectangle(
+                    [(bx + 6, by + 6), (bx + book_w + 6, by + book_h + 6)],
+                    fill=(0, 0, 0),
+                )
+                # Cover
+                draw.rectangle([(bx, by), (bx + book_w, by + book_h)], fill=(40, 30, 22))
+                # Spine
+                draw.rectangle([(bx, by), (bx + 8, by + book_h)], fill=(20, 15, 10))
+                # Title
+                tf = load_font(11, bold=True)
+                tw = draw.textbbox((0, 0), "PRIDE &", font=tf)
+                tw_w = tw[2] - tw[0]
+                draw.text((bx + 16 + (book_w - 32 - tw_w) // 2, by + 30), "PRIDE &", fill=AMBER, font=tf)
+                draw.text((bx + 16, by + 50), "PREJUDICE", fill=AMBER, font=tf)
+                # Author
+                af = load_font(9)
+                draw.text((bx + 16, by + 80), "J. AUSTEN", fill=DIM, font=af)
+                # Decorative line
+                draw.rectangle(
+                    [(bx + 16, by + 100), (bx + book_w - 16, by + 102)],
+                    fill=AMBER,
+                )
+                # Chapter list
+                cf = load_font(8)
+                for ci, ch in enumerate(["Chapter 1", "Chapter 2", "Chapter 3", "Chapter 4", "Chapter 5"]):
+                    draw.text((bx + 16, by + 120 + ci * 14), ch, fill=(180, 170, 150), font=cf)
+                # Label below
+                lf = load_font(12, bold=True)
+                lw = draw.textbbox((0, 0), "EPUB3", font=lf)
+                lw_w = lw[2] - lw[0]
+                draw.text((right_cx - lw_w // 2, by + book_h + 16), "EPUB3", fill=GREEN, font=lf)
+
+    # ── ACT 5: Final "DONE" panel + download chips (12s–16s) ───────
+    if t > 12.0:
+        done_p = frame_progress(t, 12.0, 13.0)
+        if done_p > 0:
+            e = ease_out_cubic(done_p)
+            dp_y = 640
+            dp_w = 760
+            dp_x = (W - dp_w) // 2
+            dp_h = 80
+            # Panel
+            draw.rounded_rectangle(
+                [(dp_x, dp_y), (dp_x + dp_w, dp_y + dp_h)],
+                radius=8, fill=(18, 24, 38), outline=GREEN, width=2,
+            )
+            # Big checkmark
+            check_f = load_font(40, bold=True)
+            draw.text((dp_x + 20, dp_y + 12), "✓", fill=GREEN, font=check_f)
+            # Status text
+            sf = load_font(18, bold=True)
+            draw.text((dp_x + 80, dp_y + 12), "DONE  •  book.epub (4 KB)", fill=WHITE, font=sf)
+            smf = load_font(11)
+            draw.text((dp_x + 80, dp_y + 40), "0:54 warm-cache run  •  0 warnings", fill=DIM, font=smf)
+            # Download chips on the right
+            chip_dl = ["⬇ OCR", "⬇ EPUB", "⬇ METRICS"]
+            dlc = load_font(11, bold=True)
+            for di, label in enumerate(chip_dl):
+                dcx = dp_x + dp_w - 280 + di * 95
+                dcy = dp_y + 24
+                draw.rounded_rectangle(
+                    [(dcx, dcy), (dcx + 86, dcy + 32)],
+                    radius=4, fill=(30, 50, 40), outline=GREEN_DIM, width=1,
+                )
+                bw = draw.textbbox((0, 0), label, font=dlc)
+                bw_w = bw[2] - bw[0]
+                draw.text((dcx + (86 - bw_w) // 2, dcy + 8), label, fill=GREEN, font=dlc)
+
+
+# ════════════════════════════════════════════════════════════════════════
 # SCENE REGISTRY
 # ════════════════════════════════════════════════════════════════════════
 
@@ -2082,4 +2346,5 @@ SCENE_REGISTRY = {
     "hivemind-frontend":              scene_hivemind_frontend,
     "operationalize":                 scene_operationalize,
     "recursive-thermofluid-sandbox":  scene_recursive_thermofluid_sandbox,
+    "ocr-arena":                      scene_ocr_arena,
 }
