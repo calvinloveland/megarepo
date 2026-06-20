@@ -6,6 +6,8 @@ npm-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
+logs/
+
 # hivemind-llm coordinator logs
 /active/dev-tools/hivemind-llm/coordinator/logs/*.log
 
@@ -90,3 +92,7 @@ site/
 
 # egg-info build artifacts
 *.egg-info/
+
+# vroomon local secrets (gitignored; never commit)
+.secrets/
+electron/.secrets/
