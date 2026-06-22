@@ -16,8 +16,10 @@ This is the implementation. The design lives at
 - A TUI viewer that browses the project structure
 - **Content-addressed store** — PUT, GET, HAS, DELETE by SHA-256 hash, zlib-compressed, sharded like git's `.git/objects/`
 - **`k33p init`** — create new projects with boilerplate manifests + store
+- **`k33p clone`** — clone a project from a local directory (file:// transport)
 - **`k33p info`** — print project summary
 - **`k33p store`** — CAS operations (put, get, stats, ls)
+- **Transport abstraction** — pluggable fetch backends (FileTransport MVP)
 - Example manifests under `examples/`
 
 ## What does not work yet
@@ -53,6 +55,7 @@ nix-shell -p python3Packages.python python3Packages.pyyaml python3Packages.textu
 | Command | Description |
 |---|---|
 | `k33p init <name>` | Create a new k33p project |
+| `k33p clone <source> [target]` | Clone a project from a local directory |
 | `k33p tui [path]` | Launch the TUI viewer (default) |
 | `k33p info [path]` | Show project summary |
 | `k33p store put <path> <file>` | Store a file in the CAS |

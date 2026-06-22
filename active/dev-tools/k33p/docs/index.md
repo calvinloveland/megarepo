@@ -15,7 +15,7 @@ project" is a degenerate monorepo with one subproject at the root path.
 ## Current status
 
 The implementation has a working TUI viewer, a content-addressed store,
-and a CLI with `init`, `info`, `store`, `tui`, and `version` subcommands.
+and a CLI with `init`, `clone`, `info`, `store`, `tui`, and `version` subcommands.
 
 | Component | Status |
 |---|---|
@@ -30,7 +30,8 @@ and a CLI with `init`, `info`, `store`, `tui`, and `version` subcommands.
 | `k33p info` | ✅ done |
 | `k33p store` subcommands | ✅ done (put, get, stats, ls) |
 | `k33p tui` | ✅ done |
-| `k33p clone / sync` | ❌ not yet |
+| `k33p clone` | ✅ done (file:// transport) |
+| `k33p sync` | ❌ not yet |
 | Actual git / OCI fetching | ❌ not yet |
 | Daemon (auto-commit, hooks) | ❌ not yet |
 | Migration tools (`import`, `split`, `convert`) | ❌ not yet |
@@ -51,6 +52,7 @@ src/k33p/
 ├── lock.py          # k33p.lock parser
 ├── project.py       # Project + ProjectView (the in-memory model)
 ├── store.py         # Content-addressed store (put, get, has, delete, stats, ls)
+├── transport.py     # Transport abstraction + FileTransport (clone)
 └── tui/
     ├── __init__.py
     └── app.py       # K33pApp (Textual)

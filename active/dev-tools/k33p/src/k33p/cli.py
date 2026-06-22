@@ -3,6 +3,7 @@
 Subcommands:
 
 - ``k33p init``   — create a new k33p project
+- ``k33p clone``  — clone a project from a local directory
 - ``k33p tui``    — launch the TUI viewer
 - ``k33p info``   — print project info and exit
 - ``k33p store``  — content-addressed store operations
@@ -18,7 +19,7 @@ import argparse
 import sys
 from pathlib import Path
 
-SUBCOMMANDS = frozenset({"init", "tui", "info", "store", "version"})
+SUBCOMMANDS = frozenset({"init", "clone", "tui", "info", "store", "version"})
 
 
 # ── subcommand handlers (defined here, dispatched from main) ──────────────
@@ -352,6 +353,7 @@ def main(argv: list[str] | None = None) -> int:
 
     dispatch = {
         "init": _cmd_init,
+        "clone": _cmd_clone,
         "tui": _cmd_tui,
         "info": _cmd_info,
         "store": _cmd_store,
@@ -363,6 +365,34 @@ def main(argv: list[str] | None = None) -> int:
         print(f"k33p: unknown command {cmd!r}", file=sys.stderr)
         return 2
     return handler(rest)
+
+
+def _cmd_clone(args: list[str]) -> int:
+    """``k33p clone`` — clone a project from a source directory."""
+    parser = argparse.ArgumentParser(
+        prog="k33p clone",
+        description="Clone a k33p project from a source directory",
+    )
+    parser.add_argument(
+        "source",
+        help="Source path or file:// URL",
+    )
+    parser.add_argument(
+        "target",
+        nargs="?",
+        default=None,
+        help="Target directory (default: <project-name> in current dir)",
+    )
+    parser.add_argument(
+        "--force", "-f",
+        action="store_true",
+        help="Overwrite existing k33p.yaml in target",
+    )
+    parsed = parser.parse_args(args)
+
+    from k33p.transport import clone as _clone_project
+
+    return _clone_project(parsed.source, parsed.target, force=parsed.force)
 
 
 def _cmd_version(args: list[str]) -> int:
