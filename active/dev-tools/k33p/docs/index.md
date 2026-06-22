@@ -38,8 +38,8 @@ and a CLI with `init`, `clone`, `sync`, `import`, `daemon`, `info`, `store`,
 | FileTransport | ✅ done |
 | GitTransport | ✅ done (git CLI) |
 | OCITransport | ✅ done (stdlib HTTP) |
+| Pointer updates | ✅ done (set, list, rate-limited, signed) |
 | Migration tools (`split`, `convert`) | ❌ not yet |
-| Live channel pointer updates | ❌ not yet |
 | Multi-tenancy primitives | ❌ not yet |
 
 ## Architecture

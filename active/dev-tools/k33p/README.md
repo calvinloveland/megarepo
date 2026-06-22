@@ -67,6 +67,8 @@ nix-shell -p python3Packages.python python3Packages.pyyaml python3Packages.textu
 | `k33p store get <path> <hash>` | Retrieve an object from the CAS |
 | `k33p store stats <path>` | Show CAS statistics |
 | `k33p store ls <path>` | List objects in the CAS |
+| `k33p pointer set <name> <target>` | Update a live channel pointer |
+| `k33p pointer list [path]` | List pointer update events |
 | `k33p version` | Print version |
 
 Backward-compatible: `k33p <path>` launches the TUI (same as `k33p tui <path>`).
