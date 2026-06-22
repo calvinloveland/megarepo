@@ -11,6 +11,7 @@ Subcommands:
 - ``k33p org``     — manage permissions and access
 - ``k33p split``   — split a subproject into a standalone project
 - ``k33p convert`` — convert project to another format (WIP)
+- ``k33p lock verify <path>`` — verify lockfile signature
 - ``k33p tui``    — launch the TUI viewer
 - ``k33p info``   — print project info and exit
 - ``k33p store``  — content-addressed store operations
@@ -429,6 +430,7 @@ def main(argv: list[str] | None = None) -> int:
         "org": _cmd_org,
         "split": _cmd_split,
         "convert": _cmd_convert,
+        "lock": _cmd_lock,
         "version": _cmd_version,
     }
 
@@ -674,6 +676,56 @@ def _cmd_convert(args: list[str]) -> int:
 
     from k33p.migrate import cmd_convert
     return cmd_convert(parsed.path, parsed.to, output=parsed.output)
+
+
+def _cmd_lock(args: list[str]) -> int:
+    """``k33p lock`` — lockfile operations."""
+    if not args:
+        print("k33p lock: expected a subcommand (verify)", file=sys.stderr)
+        return 2
+
+    sub = args[0]
+    rest = args[1:]
+
+    if sub == "verify":
+        parser = argparse.ArgumentParser(prog="k33p lock verify")
+        parser.add_argument(
+            "path",
+            nargs="?",
+            default=".",
+            help="Path to k33p.lock or project directory (default: .)",
+        )
+        parser.add_argument(
+            "--key", default=None,
+            help="Path to public key file",
+        )
+        parsed = parser.parse_args(rest)
+
+        # Resolve the lock file path
+        lock_path = Path(parsed.path)
+        if lock_path.is_dir():
+            lock_path = lock_path / "k33p.lock"
+        if not lock_path.exists():
+            print(f"k33p: lock file not found: {lock_path}", file=sys.stderr)
+            return 1
+
+        from k33p.sig import verify_lock_signature, VerifyError
+
+        try:
+            valid, msg = verify_lock_signature(lock_path, key_path=parsed.key)
+        except VerifyError as e:
+            print(f"k33p: {e}", file=sys.stderr)
+            return 1
+
+        if valid:
+            print(f"{lock_path}: {msg}")
+            return 0
+        else:
+            print(f"{lock_path}: {msg}", file=sys.stderr)
+            return 1
+
+    print(f"k33p lock: unknown subcommand {sub!r}", file=sys.stderr)
+    return 2
 
 
 def _cmd_daemon(args: list[str]) -> int:
