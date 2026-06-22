@@ -65,7 +65,7 @@ def create_pointer_update(
         raise PointerError(f"invalid target ref: {e}") from e
 
     now = datetime.now(timezone.utc)
-    timestamp = now.strftime("%Y-%m-%dT%H:%M:%SZ")
+    timestamp = now.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
 
     pointer = Pointer(
         name=pointer_name,
@@ -147,7 +147,11 @@ def check_rate_limit(
             ts = event.get("timestamp", "")
             if ts:
                 try:
-                    event_time = datetime.strptime(ts, "%Y-%m-%dT%H:%M:%SZ")
+                    # Try parsing with and without microseconds
+                    try:
+                        event_time = datetime.strptime(ts, "%Y-%m-%dT%H:%M:%S.%fZ")
+                    except ValueError:
+                        event_time = datetime.strptime(ts, "%Y-%m-%dT%H:%M:%SZ")
                     if event_time.timestamp() >= cutoff:
                         recent_count += 1
                 except (ValueError, OSError):

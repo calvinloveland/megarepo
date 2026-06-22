@@ -107,13 +107,14 @@ class TestListPointerEvents:
 
     def test_events_ordered_by_timestamp(self, store: ContentStore) -> None:
         import time
-        p1 = create_pointer_update(store, "first", "src@a")
-        time.sleep(0.01)
-        p2 = create_pointer_update(store, "second", "src@b")
+        create_pointer_update(store, "first", "src@a")
+        time.sleep(0.01)  # microsecond precision ensures different timestamps
+        create_pointer_update(store, "second", "src@b")
         events = list_pointer_events(store)
         assert len(events) == 2
         # Most recent first
-        assert events[0]["pointer"] == "second"
+        assert events[0]["pointer"] == "second", \
+            f"expected 'second' first, got {events[0]}"
 
     def test_event_has_hash(self, store: ContentStore) -> None:
         create_pointer_update(store, "test", "src@abc")
