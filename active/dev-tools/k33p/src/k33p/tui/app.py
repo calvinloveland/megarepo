@@ -25,6 +25,46 @@ from textual.widgets import Footer, Header, Static, Tree
 from k33p.project import Project
 from k33p.store import ContentStore
 
+_PANEL_ICONS = {
+    "overview": "●",
+    "channels": "📦",
+    "subprojects": "🌳",
+    "views": "🪟",
+    "roles": "👤",
+    "lock": "🔒",
+    "store": "🗄️",
+}
+
+
+def _format_size(size: int) -> str:
+    """Format a byte count for display."""
+    if size >= 1024 * 1024:
+        return f"{size / 1024 / 1024:.1f}MB"
+    if size >= 1024:
+        return f"{size / 1024:.1f}KB"
+    return f"{size}B"
+
+
+def _object_preview(store: ContentStore, hash_str: str) -> str:
+    """Return a short preview of an object's content.
+
+    For small objects (≤ 80 bytes) that look like text, show the content
+    inline.  For larger or binary objects, show a placeholder.
+    """
+    data = store.get(hash_str)
+    if data is None:
+        return "(unreadable)"
+    if len(data) > 80:
+        return f"({len(data)} bytes)"
+    # Check if it looks like printable text
+    try:
+        text = data.decode("utf-8")
+        if text.isprintable() or not text:
+            return text[:60]
+        return f"({len(data)} bytes, binary)"
+    except UnicodeDecodeError:
+        return f"({len(data)} bytes, binary)"
+
 # ── sidebar tree ───────────────────────────────────────────────────────
 
 
@@ -105,7 +145,7 @@ class ProjectTree(Tree[str]):
         if project.store_path:
             store = ContentStore(project.store_path)
             stats = store.stats()
-            s_node = root.add("🗄️  store", expand=False)
+            s_node = root.add("🗄️  store", expand=True)
             s_node.add_leaf(f"  objects: {stats.object_count}")
             mb = stats.total_bytes / 1024 / 1024
             s_node.add_leaf(f"  size: {mb:.1f} MB uncompressed")
@@ -113,6 +153,13 @@ class ProjectTree(Tree[str]):
                 mb_comp = stats.compressed_bytes / 1024 / 1024
                 s_node.add_leaf(f"  on disk: {mb_comp:.1f} MB")
             s_node.add_leaf(f"  shards: {stats.shard_count}")
+            # Show object kinds if there are objects
+            if stats.object_count > 0:
+                kinds: dict[str, int] = {}
+                for obj in store.iter_objects():
+                    kinds[obj.kind] = kinds.get(obj.kind, 0) + 1
+                kind_label = ", ".join(f"{k}: {c}" for k, c in sorted(kinds.items()))
+                s_node.add_leaf(f"  kinds: {kind_label}")
 
 
 # ── main panel ─────────────────────────────────────────────────────────
@@ -358,13 +405,14 @@ class DetailPanel(Static):
         self.update("\n".join(lines))
 
     def show_store(self) -> None:
-        """Show the content-addressed store stats."""
+        """Show the content-addressed store stats and object listing."""
         if not self.project.store_path:
             self.update("[dim]No CAS at .k33p/store/ (project not initialized).[/dim]")
             return
 
         store = ContentStore(self.project.store_path)
         stats = store.stats()
+
         lines: list[str] = []
         lines.append(f"[bold]🗄️  Content Store[/bold]  [dim]{store.path}[/dim]")
         lines.append("")
@@ -376,7 +424,28 @@ class DetailPanel(Static):
         lines.append(f"  [bold]Shards:[/bold]   {stats.shard_count}")
         if stats.object_count > 0:
             avg = stats.total_bytes / stats.object_count
-            lines.append(f"  [bold]Avg:[/bold]      {avg:.0f} bytes/object")
+            lines.append(f"  [bold]Avg size:[/bold] {avg:.0f} bytes/object")
+        lines.append("")
+
+        # ── object listing ────────────────────────────────────────────
+        if stats.object_count > 0:
+            lines.append(f"[bold]Objects ({stats.object_count}):[/bold]")
+            lines.append("")
+            lines.append(
+                f"  [dim]{'Hash':20}  {'Kind':12}  {'Size':>8}  Content[/dim]"
+            )
+            lines.append(f"  [dim]{'-'*20}  {'-'*12}  {'-'*8}  {'-'*30}[/dim]")
+
+            for obj in store.iter_objects():
+                h_short = obj.hash[:16]
+                size_str = _format_size(obj.size)
+                preview = _object_preview(store, obj.hash)
+                lines.append(
+                    f"  {h_short}  {obj.kind:<12}  {size_str:>8}  {preview}"
+                )
+        else:
+            lines.append("[dim]No objects in store.[/dim]")
+
         self.update("\n".join(lines))
 
 
@@ -401,6 +470,13 @@ class K33pApp(App):
     ProjectTree {
         padding: 0 1;
         height: 100%;
+    }
+    #panel-indicator {
+        width: 100%;
+        height: 1;
+        background: $accent;
+        text-style: bold;
+        text-align: center;
     }
     """
 
@@ -436,12 +512,25 @@ class K33pApp(App):
             yield DetailPanel(self.project, id="main")
         yield Footer()
 
-    def on_mount(self) -> None:
-        self.title = f"k33p · {self.project.name}"
+    def _update_sub_title(self) -> None:
+        """Update the header subtitle with role + active panel info."""
+        icon = _PANEL_ICONS.get(self.active_panel, "●")
+        panel_name = self.active_panel.replace("_", " ").title()
         self.sub_title = (
-            f"{'monorepo' if self.project.is_monorepo else 'project'} · "
+            f"{icon} {panel_name}  ·  "
+            f"{'monorepo' if self.project.is_monorepo else 'project'}  ·  "
             f"role: {self.project.active_role}"
         )
+
+    def on_mount(self) -> None:
+        self.title = f"k33p · {self.project.name}"
+        self._update_sub_title()
+        self._refresh_main()
+
+    def refresh_display(self) -> None:
+        """Refresh both sidebar and main panel after a state change."""
+        self._update_sub_title()
+        self._refresh_sidebar()
         self._refresh_main()
 
     def _refresh_main(self) -> None:
@@ -478,41 +567,43 @@ class K33pApp(App):
 
     def action_show_overview(self) -> None:
         self.active_panel = "overview"
+        self._update_sub_title()
         self._refresh_main()
 
     def action_show_channels(self) -> None:
         self.active_panel = "channels"
+        self._update_sub_title()
         self._refresh_main()
 
     def action_show_subprojects(self) -> None:
         self.active_panel = "subprojects"
+        self._update_sub_title()
         self._refresh_main()
 
     def action_show_views(self) -> None:
         self.active_panel = "views"
+        self._update_sub_title()
         self._refresh_main()
 
     def action_show_roles(self) -> None:
         self.active_panel = "roles"
+        self._update_sub_title()
         self._refresh_main()
 
     def action_show_lock(self) -> None:
         self.active_panel = "lock"
+        self._update_sub_title()
         self._refresh_main()
 
     def action_show_store(self) -> None:
         self.active_panel = "store"
+        self._update_sub_title()
         self._refresh_main()
 
     def action_set_role(self, role: str) -> None:
         if role in self.project.manifest.roles:
             self.project.set_role(role)
-            self.sub_title = (
-                f"{'monorepo' if self.project.is_monorepo else 'project'} · "
-                f"role: {self.project.active_role}"
-            )
-            self._refresh_sidebar()
-            self._refresh_main()
+            self.refresh_display()
             self.notify(f"role: {role}")
 
     def action_next_subproject(self) -> None:
@@ -530,6 +621,5 @@ class K33pApp(App):
             idx = names.index(current) if current in names else -1
             next_idx = (idx + 1) % len(names)
             self.project.set_subproject(names[next_idx])
-        self._refresh_sidebar()
-        self._refresh_main()
+        self.refresh_display()
         self.notify(f"subproject: {self.project.active_subproject or '(root)'}")
