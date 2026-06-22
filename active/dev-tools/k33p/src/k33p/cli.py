@@ -27,7 +27,7 @@ import argparse
 import sys
 from pathlib import Path
 
-SUBCOMMANDS = frozenset({"init", "clone", "sync", "import", "daemon", "tui", "info", "store", "pointer", "org", "split", "convert", "version"})
+SUBCOMMANDS = frozenset({"init", "clone", "sync", "import", "daemon", "tui", "info", "store", "pointer", "org", "split", "convert", "lock", "serve", "get", "version"})
 
 
 # ── subcommand handlers (defined here, dispatched from main) ──────────────
@@ -431,6 +431,8 @@ def main(argv: list[str] | None = None) -> int:
         "split": _cmd_split,
         "convert": _cmd_convert,
         "lock": _cmd_lock,
+        "serve": _cmd_serve,
+        "get": _cmd_get,
         "version": _cmd_version,
     }
 
@@ -726,6 +728,109 @@ def _cmd_lock(args: list[str]) -> int:
 
     print(f"k33p lock: unknown subcommand {sub!r}", file=sys.stderr)
     return 2
+
+
+def _cmd_serve(args: list[str]) -> int:
+    """``k33p serve`` — start HTTP server to share store objects."""
+    parser = argparse.ArgumentParser(
+        prog="k33p serve",
+        description="Start an HTTP server to share store objects with peers",
+    )
+    parser.add_argument(
+        "path",
+        nargs="?",
+        default=".",
+        help="Path to the project (default: .)",
+    )
+    parser.add_argument(
+        "--host", default="127.0.0.1",
+        help="Host to bind to (default: 127.0.0.1)",
+    )
+    parser.add_argument(
+        "--port", "-p", type=int, default=8734,
+        help="Port to listen on (default: 8734)",
+    )
+    parsed = parser.parse_args(args)
+
+    from k33p.project import load_project
+
+    try:
+        project = load_project(parsed.path)
+    except FileNotFoundError as e:
+        print(f"k33p: {e}", file=sys.stderr)
+        return 1
+    except Exception as e:
+        print(f"k33p: {e}", file=sys.stderr)
+        return 1
+
+    from k33p.transport_k33p import serve_store
+    store_path = project.store_path or (project.path / ".k33p" / "store")
+    serve_store(store_path, host=parsed.host, port=parsed.port)
+    return 0
+
+
+def _cmd_get(args: list[str]) -> int:
+    """``k33p get`` — fetch an object from a k33p:// peer."""
+    parser = argparse.ArgumentParser(
+        prog="k33p get",
+        description="Fetch an object from a k33p:// peer via HTTP",
+    )
+    parser.add_argument(
+        "url",
+        help="k33p://host:port/hash URL",
+    )
+    parser.add_argument(
+        "path",
+        nargs="?",
+        default=".",
+        help="Target project path (default: .)",
+    )
+    parsed = parser.parse_args(args)
+
+    from k33p.store import ContentStore
+    from k33p.project import load_project
+    from k33p.transport_k33p import K33pTransport
+
+    url = parsed.url
+    if not url.startswith("k33p://"):
+        print(f"k33p: invalid URL {url!r} (must start with k33p://)",
+              file=sys.stderr)
+        return 1
+
+    rest = url[7:]
+    if "/" not in rest:
+        print(f"k33p: URL must include a hash: {url}", file=sys.stderr)
+        return 1
+    host_port, hash_str = rest.split("/", 1)
+    source = f"k33p://{host_port}"
+
+    # Resolve store path
+    store_dir = Path(parsed.path)
+    from k33p.project import load_project as lp
+    try:
+        proj = lp(str(store_dir))
+        store_path = proj.store_path or (store_dir / ".k33p" / "store")
+    except Exception:
+        store_path = store_dir / ".k33p" / "store"
+
+    store = ContentStore(store_path)
+    store.ensure()
+
+    transport = K33pTransport(source)
+    from k33p.transport import TransportError
+    try:
+        data = transport.get_object(store, hash_str)
+    except TransportError as e:
+        print(f"k33p: {e}", file=sys.stderr)
+        return 1
+
+    if data is None:
+        print(f"k33p: object not found at {source}", file=sys.stderr)
+        return 1
+
+    kind = store.get_kind(hash_str)
+    print(f"✓ Fetched {hash_str[:16]} ({kind}, {len(data)} bytes) from {source}")
+    return 0
 
 
 def _cmd_daemon(args: list[str]) -> int:

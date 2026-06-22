@@ -62,12 +62,16 @@ class Transport(ABC):
             FileTransport,
             GitTransport,
         ]
-        # Lazy-import OCITransport to avoid circular imports
-        try:
-            from k33p.transport_oci import OCITransport  # noqa: E402
-            transports.append(OCITransport)
-        except ImportError:
-            pass
+        # Lazy-import optional transports to avoid circular imports
+        for _mod, _cls in [
+            ("k33p.transport_oci", "OCITransport"),
+            ("k33p.transport_k33p", "K33pTransport"),
+        ]:
+            try:
+                mod = __import__(_mod, fromlist=[_cls])
+                transports.append(getattr(mod, _cls))
+            except ImportError:
+                pass
 
         for transport_cls in transports:
             if transport_cls.supports(source):
