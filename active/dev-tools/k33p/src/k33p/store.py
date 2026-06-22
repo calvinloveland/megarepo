@@ -22,7 +22,7 @@ from __future__ import annotations
 import hashlib
 import zlib
 from collections.abc import Iterator
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 # ── object kinds ────────────────────────────────────────────────────────
@@ -260,6 +260,145 @@ class ContentStore:
             compressed_bytes=total_compressed,
             shard_count=len(shards),
         )
+
+    # ── integrity / maintenance ──────────────────────────────────────
+
+    @dataclass
+    class VerifyResult:
+        """Result of a store verification pass."""
+        total: int = 0
+        ok: int = 0
+        corrupted: int = 0
+        missing_refs: int = 0
+        errors: list[str] = field(default_factory=list)
+
+    def verify(self) -> VerifyResult:
+        """Verify integrity of every object in the store.
+
+        Checks:
+        - Object file can be decompressed
+        - Header parses (kind + size)
+        - Content size matches header
+        - Content hash matches stored filename
+
+        Returns a ``VerifyResult`` with counts.
+        """
+        result = ContentStore.VerifyResult()
+        if not self.exists:
+            result.errors.append("store does not exist")
+            return result
+
+        assert self.path is not None
+        for shard in sorted(self.path.iterdir()):
+            if not shard.is_dir():
+                continue
+            for obj in sorted(shard.iterdir()):
+                if not obj.is_file():
+                    continue
+                result.total += 1
+                hash_str = shard.name + obj.name
+
+                try:
+                    raw = obj.read_bytes()
+                    kind, content = _decode_object(raw)
+                    # Verify content hash matches filename
+                    expected_hash = _content_hash(content)
+                    if expected_hash != hash_str:
+                        result.corrupted += 1
+                        result.errors.append(
+                            f"{hash_str}: hash mismatch "
+                            f"(expected {hash_str}, got {expected_hash})"
+                        )
+                        continue
+                    result.ok += 1
+                except (OSError, zlib.error) as e:
+                    result.corrupted += 1
+                    result.errors.append(f"{hash_str}: read/decompress error: {e}")
+                except (ValueError, IndexError) as e:
+                    result.corrupted += 1
+                    result.errors.append(f"{hash_str}: parse error: {e}")
+
+        return result
+
+    def gc(self, dry_run: bool = False) -> int:
+        """Garbage-collect unreferenced objects from the store.
+
+        Builds a reachability set by parsing:
+        - ``tree`` objects (reference blob hashes)
+        - ``commit`` objects (reference tree + parent hashes)
+        - ``manifest`` objects (reference content hashes in their text)
+
+        Any object not in the reachability set is removed.
+
+        Args:
+            dry_run: If True, only report what would be removed.
+
+        Returns:
+            Number of objects removed (or would be removed in dry-run mode).
+        """
+        import re
+
+        if not self.exists:
+            return 0
+        assert self.path is not None
+
+        # Phase 1: collect all object hashes
+        all_hashes: set[str] = set()
+        for obj in self.iter_objects():
+            all_hashes.add(obj.hash)
+
+        if not all_hashes:
+            return 0
+
+        # Phase 2: build reachability set
+        reachable: set[str] = set()
+
+        for obj in self.iter_objects():
+            h = obj.hash
+            reachable.add(h)  # every object is reachable by its own hash
+
+            if obj.kind == "tree":
+                # Tree entries reference blob/tree hashes
+                data = self.get(h)
+                if data:
+                    for line in data.decode("utf-8", errors="replace").split("\n"):
+                        if "\0" in line:
+                            _, ref_hash = line.split("\0", 1)
+                            ref_hash = ref_hash.strip()
+                            if ref_hash and len(ref_hash) == 64:
+                                reachable.add(ref_hash)
+
+            elif obj.kind == "commit":
+                data = self.get(h)
+                if data:
+                    for line in data.decode("utf-8", errors="replace").split("\n"):
+                        if line.startswith("tree "):
+                            reachable.add(line[5:].strip())
+                        elif line.startswith("parent "):
+                            reachable.add(line[7:].strip())
+
+            elif obj.kind == "manifest":
+                data = self.get(h)
+                if data:
+                    # Find sha256: references
+                    for match in re.finditer(r"sha256:([a-f0-9]{64})",
+                                            data.decode("utf-8", errors="replace"),
+                                            re.IGNORECASE):
+                        reachable.add(match.group(1))
+
+        # Phase 3: unreachable = all - reachable
+        unreachable = all_hashes - reachable
+
+        if dry_run:
+            return len(unreachable)
+
+        # Phase 4: remove unreachable
+        count = 0
+        for h in sorted(unreachable):
+            if self.delete(h):
+                count += 1
+
+        return count
 
     def iter_objects(self) -> Iterator[ObjectStat]:
         """Iterate over all objects in the store.

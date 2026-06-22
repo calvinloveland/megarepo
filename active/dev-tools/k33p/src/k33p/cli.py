@@ -242,8 +242,25 @@ def _cmd_store(args: list[str]) -> int:
         parsed = parser.parse_args(rest)
         return _do_store_ls(parsed, ContentStore)
 
+    if store_cmd == "verify":
+        parser = argparse.ArgumentParser(prog="k33p store verify")
+        parser.add_argument("path", help="Path to the project")
+        parsed = parser.parse_args(rest)
+        return _do_store_verify(parsed, ContentStore)
+
+    if store_cmd == "gc":
+        parser = argparse.ArgumentParser(prog="k33p store gc")
+        parser.add_argument("path", help="Path to the project")
+        parser.add_argument(
+            "--dry-run", "-n",
+            action="store_true",
+            help="Only report what would be removed, do not delete",
+        )
+        parsed = parser.parse_args(rest)
+        return _do_store_gc(parsed, ContentStore)
+
     print(f"k33p store: unknown subcommand {store_cmd!r} "
-          f"(choose from put, get, stats, ls)",
+          f"(choose from put, get, stats, ls, verify, gc)",
           file=sys.stderr)
     return 2
 
@@ -337,6 +354,47 @@ def _do_store_ls(
     print("-" * 88)
     for obj in store.iter_objects():
         print(f"{obj.hash:64}  {obj.kind:12}  {obj.size:>8}")
+    return 0
+
+
+def _do_store_verify(
+    parsed: argparse.Namespace, ContentStore_cls: type,
+) -> int:
+    store, project = _get_store(parsed.path, ContentStore_cls)
+    if store is None:
+        return 2
+
+    result = store.verify()
+    print(f"Verification complete:")
+    print(f"  total:     {result.total}")
+    print(f"  ok:        {result.ok}")
+    print(f"  corrupted: {result.corrupted}")
+    if result.errors:
+        print(f"\nErrors ({len(result.errors)}):")
+        for err in result.errors[:10]:
+            print(f"  • {err}")
+        if len(result.errors) > 10:
+            print(f"  ... and {len(result.errors) - 10} more")
+        return 1
+    return 0
+
+
+def _do_store_gc(
+    parsed: argparse.Namespace, ContentStore_cls: type,
+) -> int:
+    store, project = _get_store(parsed.path, ContentStore_cls)
+    if store is None:
+        return 2
+
+    removed = store.gc(dry_run=parsed.dry_run)
+    if parsed.dry_run:
+        print(f"GC dry-run: {removed} object(s) would be removed")
+        if removed == 0:
+            print("Store is clean.")
+    else:
+        print(f"GC complete: {removed} object(s) removed")
+        if removed == 0:
+            print("Store is clean.")
     return 0
 
 
