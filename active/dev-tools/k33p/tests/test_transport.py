@@ -111,7 +111,7 @@ class TestTransportFactory:
 
     def test_for_source_unknown_scheme_raises(self) -> None:
         with pytest.raises(TransportError, match="no transport"):
-            Transport.for_source("oci+https://registry.example.com/repo")
+            Transport.for_source("ipfs://bafy...")
 
 
 # ── FileTransport ─────────────────────────────────────────────────────────

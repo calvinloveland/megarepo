@@ -62,13 +62,21 @@ class Transport(ABC):
             FileTransport,
             GitTransport,
         ]
+        # Lazy-import OCITransport to avoid circular imports
+        try:
+            from k33p.transport_oci import OCITransport  # noqa: E402
+            transports.append(OCITransport)
+        except ImportError:
+            pass
+
         for transport_cls in transports:
             if transport_cls.supports(source):
                 return transport_cls(source)
 
         raise TransportError(
             f"no transport available for {source!r} "
-            f"(supported: file://<path>, git+https://<url>, or a local path)"
+            f"(supported: file://<path>, git+https://<url>, "
+            f"oci+https://<url>, or a local path)"
         )
 
 
@@ -493,8 +501,8 @@ def sync(project_path: str | Path | None = None) -> int:
 
     if not channel_sources:
         print("k33p: no syncable sources found")
-        print("  Supported: file://<path>, git+https://<url>, or a local directory path.")
-        print("  Note: git+https:// sync uses the git CLI to fetch new objects.")
+        print("  Supported: file://<path>, git+https://<url>, oci+https://<url>")
+        print("  or a local directory path.")
         return 0
 
     # ── fetch from each source ──────────────────────────────────────
