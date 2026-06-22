@@ -1,0 +1,39 @@
+# k33p.yaml — megarepo project with auto-commit daemon for k33p source
+project: megarepo
+type: monorepo
+description: Consolidated monorepo for active projects, shared tooling, and docs
+
+channels:
+  src:
+    type: source
+    transport: git+https://github.com/calvinloveland/megarepo
+    visibility: public
+    history: full
+
+views:
+  default:
+    src: { at: "./" }
+  developer:
+    extends: default
+    src: { at: "./", history: shallow }
+
+roles:
+  developer:   { view: developer }
+  maintainer:  { view: default, publish: [src] }
+
+daemon:
+  auto_commit:
+    enabled: true
+    debounce: 30s
+    paths:
+      - active/dev-tools/k33p/
+    ignore:
+      - "*.tmp"
+      - "*.swp"
+      - "*.pyc"
+      - __pycache__/
+      - ".pytest_cache/"
+      - ".ruff_cache/"
+      - ".k33p/"
+    message: "k33p auto: changes in {files}"
+    push_after: 5m

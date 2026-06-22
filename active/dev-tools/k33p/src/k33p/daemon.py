@@ -101,10 +101,24 @@ class Daemon:
     # ── file scanning ─────────────────────────────────────────────────
 
     def _should_ignore(self, rel_path: str) -> bool:
-        """Check if *rel_path* matches any ignore pattern."""
+        """Check if *rel_path* matches any ignore pattern.
+
+        Supports patterns like:
+        - ``*.tmp`` (matches basename)
+        - ``.ruff_cache/`` (matches any path component)
+        - ``.pytest_cache/`` (matches any path component)
+        - ``.k33p/`` (matches any path component)
+        """
         for pattern in self.ignore_patterns:
+            # Check full path
             if fnmatch.fnmatch(rel_path, pattern):
                 return True
+            # Check if pattern matches any path component (e.g. ``.ruff_cache/``)
+            # Normalise: strip trailing slash and check each component
+            norm_pattern = pattern.rstrip("/")
+            for part in rel_path.split("/"):
+                if fnmatch.fnmatch(part, norm_pattern):
+                    return True
         return False
 
     def _scan_files(self) -> dict[str, float]:

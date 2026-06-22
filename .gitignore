@@ -11,6 +11,9 @@ logs/
 # hivemind-llm coordinator logs
 /active/dev-tools/hivemind-llm/coordinator/logs/*.log
 
+# k33p store (local CAS, not committed)
+/.k33p/
+
 # Python caches
 __pycache__/
 *.pyc
