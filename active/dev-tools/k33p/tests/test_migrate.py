@@ -7,7 +7,8 @@ from pathlib import Path
 
 import pytest
 
-from k33p.migrate import cmd_split
+from k33p.migrate import cmd_split, cmd_convert
+from k33p.store import ContentStore
 
 
 @pytest.fixture
@@ -134,3 +135,47 @@ roles:
             # With force, should succeed
             rc = cmd_split(str(monorepo), "sub-a", str(target), force=True)
             assert rc == 0
+
+
+class TestConvert:
+    def test_convert_unsupported_format(self, monorepo: Path) -> None:
+        rc = cmd_convert(str(monorepo), "oci-image")
+        assert rc == 1
+
+    def test_convert_flat_dir_no_store(self, monorepo: Path) -> None:
+        """Convert without any commits should fail gracefully."""
+        rc = cmd_convert(str(monorepo), "flat-dir")
+        assert rc == 1
+
+    def test_convert_flat_dir_with_commits(self, monorepo: Path) -> None:
+        """Create a commit in the store and convert to flat-dir."""
+        from k33p.daemon import Daemon
+        from k33p.project import load_project
+
+        proj = load_project(str(monorepo))
+
+        # Create a store with a commit
+        store_path = monorepo / ".k33p" / "store"
+        store = ContentStore(store_path)
+        store.ensure()
+
+        # Store some files as blobs and build a tree
+        h1 = store.put(b"content a", kind="blob")
+        h2 = store.put(b"content b", kind="blob")
+        tree_content = f"blob file_a.txt\0{h1}\nblob sub/file_b.txt\0{h2}".encode()
+        tree_h = store.put(tree_content, kind="tree")
+
+        # Create a commit pointing at the tree
+        commit_content = f"tree {tree_h}\nauthor test <test@test.com> 2026-01-01T00:00:00Z\n\ninitial commit".encode()
+        store.put(commit_content, kind="commit")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            target = Path(tmp) / "export"
+            rc = cmd_convert(str(monorepo), "flat-dir", str(target))
+            assert rc == 0
+            assert target.is_dir()
+            # Check files were written
+            assert (target / "file_a.txt").exists()
+            assert (target / "sub" / "file_b.txt").exists()
+            assert (target / "file_a.txt").read_bytes() == b"content a"
+            assert (target / "sub" / "file_b.txt").read_bytes() == b"content b"

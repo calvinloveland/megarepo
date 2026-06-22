@@ -183,7 +183,7 @@ def cmd_split(
     return 0
 
 
-# ── convert placeholder ─────────────────────────────────────────────────
+# ── convert ──────────────────────────────────────────────────────────────
 
 
 def cmd_convert(
@@ -193,21 +193,135 @@ def cmd_convert(
 ) -> int:
     """Convert a k33p project to another format.
 
-    Supported formats (future): oci-image, flat-dir.
+    Supported formats:
+    - ``flat-dir``: export the working tree as a flat directory of files.
+      Walks the latest commit's tree and writes blobs to disk.
+    - ``oci-image``: (not yet implemented)
 
     Args:
         project_path: Path to the project.
         target_format: Output format.
-        output: Output path (default: project name).
+        output: Output path (default: ``<project-name>-export`` in cwd).
 
     Returns:
         0 on success, 1 on error.
     """
     import sys
 
-    _ = project_path, target_format, output  # placeholder
+    if target_format == "flat-dir":
+        return _convert_to_flat_dir(project_path, output)
 
     print(f"k33p: convert to {target_format!r} is not yet implemented",
           file=sys.stderr)
-    print("  Planned formats: oci-image, flat-dir", file=sys.stderr)
+    print("  Supported formats: flat-dir", file=sys.stderr)
     return 1
+
+
+def _convert_to_flat_dir(
+    project_path: str,
+    output: str | None = None,
+) -> int:
+    """Export a project's latest commit as a flat directory of files."""
+    import sys
+    import os
+
+    from k33p.project import load_project
+    from k33p.store import ContentStore
+
+    try:
+        project = load_project(project_path)
+    except FileNotFoundError as e:
+        print(f"k33p: {e}", file=sys.stderr)
+        return 1
+    except Exception as e:
+        print(f"k33p: failed to load project: {e}", file=sys.stderr)
+        return 1
+
+    store_path = project.store_path or (project.path / ".k33p" / "store")
+    store = ContentStore(store_path)
+
+    if not store.exists:
+        print(f"k33p: store not found at {store_path}", file=sys.stderr)
+        print("  Run `k33p daemon --once` to create initial snapshots.")
+        return 1
+
+    # Determine output directory
+    if output is None:
+        output_dir = Path.cwd() / f"{project.name}-export"
+    else:
+        output_dir = Path(output).resolve()
+
+    # Find the latest commit
+    commits = sorted(
+        [o for o in store.iter_objects() if o.kind == "commit"],
+        key=lambda o: o.hash,
+        reverse=True,
+    )
+
+    if not commits:
+        print("k33p: no commits found in store", file=sys.stderr)
+        print("  Run `k33p daemon --once` to create a snapshot first.")
+        return 1
+
+    latest = commits[0]
+    commit_data = store.get(latest.hash)
+    if not commit_data:
+        print(f"k33p: failed to read commit {latest.hash[:16]}", file=sys.stderr)
+        return 1
+
+    commit_text = commit_data.decode("utf-8", errors="replace")
+    # Parse tree hash from commit
+    tree_hash = None
+    for line in commit_text.split("\n"):
+        if line.startswith("tree "):
+            tree_hash = line[5:].strip()
+            break
+
+    if not tree_hash:
+        print(f"k33p: commit {latest.hash[:16]} has no tree", file=sys.stderr)
+        return 1
+
+    # Walk the tree and write files
+    output_dir.mkdir(parents=True, exist_ok=True)
+    file_count = _write_tree(store, tree_hash, output_dir)
+
+    print(f"✓ Exported {project.name} to {output_dir}")
+    print(f"  commit: {latest.hash[:16]}")
+    print(f"  files:  {file_count}")
+    return 0
+
+
+def _write_tree(store: ContentStore, tree_hash: str, output_dir: Path) -> int:
+    """Walk a tree object and write blobs to *output_dir*.
+
+    Returns the number of files written.
+    """
+    tree_data = store.get(tree_hash)
+    if not tree_data:
+        return 0
+
+    tree_text = tree_data.decode("utf-8", errors="replace")
+    count = 0
+
+    for line in tree_text.split("\n"):
+        if not line or "\0" not in line:
+            continue
+        entry_type, rest = line.split(" ", 1)
+        if "\0" in rest:
+            rel_path, blob_hash = rest.split("\0", 1)
+            blob_hash = blob_hash.strip()
+        else:
+            continue
+
+        if entry_type == "blob":
+            blob_data = store.get(blob_hash)
+            if blob_data is not None:
+                file_path = output_dir / rel_path
+                file_path.parent.mkdir(parents=True, exist_ok=True)
+                file_path.write_bytes(blob_data)
+                count += 1
+        elif entry_type == "tree":
+            # Recursively write subtree
+            count += _write_tree(store, blob_hash, output_dir / rel_path)
+
+    return count
