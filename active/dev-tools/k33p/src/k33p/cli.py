@@ -9,6 +9,8 @@ Subcommands:
 - ``k33p daemon`` — run the auto-commit daemon
 - ``k33p pointer`` — manage live channel pointers
 - ``k33p org``     — manage permissions and access
+- ``k33p split``   — split a subproject into a standalone project
+- ``k33p convert`` — convert project to another format (WIP)
 - ``k33p tui``    — launch the TUI viewer
 - ``k33p info``   — print project info and exit
 - ``k33p store``  — content-addressed store operations
@@ -24,7 +26,7 @@ import argparse
 import sys
 from pathlib import Path
 
-SUBCOMMANDS = frozenset({"init", "clone", "sync", "import", "daemon", "tui", "info", "store", "pointer", "org", "version"})
+SUBCOMMANDS = frozenset({"init", "clone", "sync", "import", "daemon", "tui", "info", "store", "pointer", "org", "split", "convert", "version"})
 
 
 # ── subcommand handlers (defined here, dispatched from main) ──────────────
@@ -367,6 +369,8 @@ def main(argv: list[str] | None = None) -> int:
         "store": _cmd_store,
         "pointer": _cmd_pointer,
         "org": _cmd_org,
+        "split": _cmd_split,
+        "convert": _cmd_convert,
         "version": _cmd_version,
     }
 
@@ -551,6 +555,67 @@ def _cmd_org(args: list[str]) -> int:
 
     print(f"k33p org: unknown subcommand {sub!r}", file=sys.stderr)
     return 2
+
+
+def _cmd_split(args: list[str]) -> int:
+    """``k33p split`` — split a subproject into a standalone project."""
+    parser = argparse.ArgumentParser(
+        prog="k33p split",
+        description="Split a subproject from a monorepo into a standalone project",
+    )
+    parser.add_argument(
+        "subproject",
+        help="Name of the subproject to split out",
+    )
+    parser.add_argument(
+        "path",
+        nargs="?",
+        default=".",
+        help="Path to the monorepo (default: .)",
+    )
+    parser.add_argument(
+        "--target", "-t",
+        default=None,
+        help="Target directory (default: <subproject-name> in cwd)",
+    )
+    parser.add_argument(
+        "--force", "-f",
+        action="store_true",
+        help="Overwrite existing files",
+    )
+    parsed = parser.parse_args(args)
+
+    from k33p.migrate import cmd_split
+    return cmd_split(parsed.path, parsed.subproject, parsed.target, force=parsed.force)
+
+
+def _cmd_convert(args: list[str]) -> int:
+    """``k33p convert`` — convert project to another format."""
+    parser = argparse.ArgumentParser(
+        prog="k33p convert",
+        description="Convert a k33p project to another format",
+    )
+    parser.add_argument(
+        "--to",
+        required=True,
+        choices=("oci-image", "flat-dir"),
+        help="Target format",
+    )
+    parser.add_argument(
+        "path",
+        nargs="?",
+        default=".",
+        help="Path to the project (default: .)",
+    )
+    parser.add_argument(
+        "--output", "-o",
+        default=None,
+        help="Output path",
+    )
+    parsed = parser.parse_args(args)
+
+    from k33p.migrate import cmd_convert
+    return cmd_convert(parsed.path, parsed.to, output=parsed.output)
 
 
 def _cmd_daemon(args: list[str]) -> int:
