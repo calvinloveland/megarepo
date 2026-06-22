@@ -13,6 +13,10 @@ from __future__ import annotations
 import fnmatch
 import os
 import time
+from pathlib import Path
+
+from k33p.store import ContentStore
+from k33p.transport import FileTransport as _FileTransport
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -39,6 +43,8 @@ class DaemonState:
     pending_changes: list[FileChange] = field(default_factory=list)
     last_change_time: float = 0.0
     start_time: float = 0.0
+    last_commit_time: float = 0.0  # when the last commit was created
+    last_push_time: float = 0.0    # when the last push was attempted
 
 
 # ── daemon ───────────────────────────────────────────────────────────────
@@ -97,6 +103,14 @@ class Daemon:
         if ac is None:
             return "auto: changes in {files}"
         return ac.message
+
+    @property
+    def push_after_seconds(self) -> int | None:
+        """Return ``push_after`` duration in seconds, or ``None`` if not set."""
+        ac = self.auto_commit_config
+        if ac is None or not ac.push_after:
+            return None
+        return _parse_duration(ac.push_after)
 
     # ── file scanning ─────────────────────────────────────────────────
 
@@ -290,6 +304,14 @@ class Daemon:
                 if elapsed >= self.debounce_seconds or once:
                     self._do_commit()
 
+            # Check push timer
+            if not once and self.push_after_seconds is not None:
+                push_elapsed = time.time() - self.state.last_commit_time
+                if (self.state.last_commit_time > 0
+                        and push_elapsed >= self.push_after_seconds
+                        and time.time() - self.state.last_push_time >= self.push_after_seconds):
+                    self._do_push()
+
             if once:
                 self.state.running = False
                 break
@@ -315,8 +337,61 @@ class Daemon:
         commit_hash = self._create_commit(tree_hash, changed_files)
         if commit_hash:
             print(f"  ✔ committed {commit_hash[:16]} ({len(changed_files)} file(s))")
+            self.state.last_commit_time = time.time()
 
         self.state.pending_changes.clear()
+
+    def _do_push(self) -> None:
+        """Push new objects to all transport sources.
+
+        For each channel in the manifest that has a supported transport
+        URL, sync local objects to the remote store.
+        """
+        from k33p.transport import Transport, TransportError
+
+        store_path = self.project.store_path or (
+            self._project_root / ".k33p" / "store"
+        )
+        local_store = ContentStore(store_path)
+
+        m = self.project.manifest
+        pushed_any = False
+
+        for ch_name, ch in m.channels.items():
+            transport_url = ch.transport
+            if not transport_url:
+                continue
+            try:
+                transport = Transport.for_source(transport_url)
+            except TransportError:
+                continue
+
+            # For FileTransport, push = copy new objects to the source
+            if isinstance(transport, _FileTransport):
+                try:
+                    source_path = transport._resolve_path()
+                    remote_store_path = source_path / ".k33p" / "store"
+                    remote_store = ContentStore(remote_store_path)
+                    remote_store.ensure()
+
+                    count = 0
+                    for obj in local_store.iter_objects():
+                        if not remote_store.has(obj.hash):
+                            data = local_store.get(obj.hash)
+                            if data is not None:
+                                remote_store.put(data, kind=obj.kind)
+                                count += 1
+
+                    if count > 0:
+                        print(f"  ↑ pushed {count} object(s) to {transport_url}")
+                        pushed_any = True
+                except (TransportError, OSError) as e:
+                    print(f"  ⚠ push to {transport_url} failed: {e}")
+
+        if pushed_any:
+            self.state.last_push_time = time.time()
+        else:
+            print("  · nothing to push")
 
     def stop(self) -> None:
         """Signal the daemon to stop."""
