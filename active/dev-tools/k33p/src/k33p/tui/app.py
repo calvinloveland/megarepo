@@ -34,6 +34,7 @@ _PANEL_ICONS = {
     "lock": "🔒",
     "store": "🗄️",
     "graph": "🕸️",
+    "activity": "📋",
 }
 
 
@@ -519,6 +520,88 @@ class DetailPanel(Static):
 
         self.update("\n".join(lines))
 
+    def show_activity(self) -> None:
+        """Show recent activity log from store events."""
+        lines: list[str] = []
+        lines.append(f"[bold]📋  Activity Log[/bold]  [dim]{self.project.name}[/dim]")
+        lines.append("")
+
+        if not self.project.store_path:
+            lines.append("[dim]No store — no activity recorded yet.[/dim]")
+            self.update("\n".join(lines))
+            return
+
+        store_path = self.project.store_path or (
+            self.project.path / ".k33p" / "store"
+        )
+        from k33p.store import ContentStore
+        store = ContentStore(store_path)
+        stats = store.stats()
+
+        # Show store stats
+        lines.append(f"  [bold]Store:[/bold] {stats.object_count} objects, "
+                     f"{stats.total_bytes / 1024:.1f} KB")
+        lines.append("")
+
+        # Collect recent events from pointer and commit objects
+        events: list[tuple[str, str, str]] = []  # (timestamp, type, summary)
+        for obj in store.iter_objects():
+            data = store.get(obj.hash)
+            if data is None:
+                continue
+            # Pointer events
+            if obj.kind == "pointer":
+                try:
+                    import json
+                    ev = json.loads(data)
+                    ts = ev.get("timestamp", "?")
+                    ptr = ev.get("pointer", "?")
+                    tgt = ev.get("target", "?")
+                    events.append((ts, "pointer", f"{ptr} → {tgt}"))
+                except (json.JSONDecodeError, UnicodeDecodeError):
+                    pass
+            # Commit events
+            elif obj.kind == "commit":
+                try:
+                    text = data.decode("utf-8", errors="replace")
+                    lines_body = text.split("\n")
+                    ts = "?"
+                    msg = "(no message)"
+                    for line in lines_body:
+                        if line.startswith("author ") and " " in line:
+                            parts = line.rsplit(" ", 1)
+                            if len(parts) == 2:
+                                ts = parts[1]
+                        elif line and not line.startswith("tree ") \
+                                and not line.startswith("parent ") \
+                                and not line.startswith("author "):
+                            msg = line[:60]
+                    tree_line = [l for l in lines_body if l.startswith("tree ")]
+                    tree_h = tree_line[0][5:21] if tree_line else "?"
+                    events.append((ts, "commit", f"tree={tree_h}  {msg}"))
+                except UnicodeDecodeError:
+                    pass
+
+        # Sort by timestamp descending and show latest
+        events.sort(key=lambda e: e[0], reverse=True)
+        events = events[:20]  # show last 20 events
+
+        if not events:
+            lines.append("[dim]No activity events recorded yet.[/dim]")
+            lines.append("  Run `k33p pointer set` or `k33p daemon` to generate events.")
+        else:
+            lines.append(f"[bold]Recent events ({len(events)}):[/bold]")
+            lines.append("")
+            for ts, kind, summary in events:
+                kind_icon = {
+                    "pointer": "🟠",
+                    "commit": "💾",
+                }.get(kind, "•")
+                ts_short = ts[:19] if len(ts) > 19 else ts
+                lines.append(f"  {kind_icon} [{ts_short}] {summary}")
+
+        self.update("\n".join(lines))
+
     def show_store(self) -> None:
         """Show the content-addressed store stats and object listing."""
         if not self.project.store_path:
@@ -605,6 +688,7 @@ class K33pApp(App):
         Binding("l", "show_lock", "Lock"),
         Binding("t", "show_store", "Store"),
         Binding("g", "show_graph", "Graph"),
+        Binding("a", "show_activity", "Activity"),
         Binding("1", "set_role('end-user')", "end-user"),
         Binding("2", "set_role('developer')", "developer"),
         Binding("3", "set_role('maintainer')", "maintainer"),
@@ -668,6 +752,8 @@ class K33pApp(App):
             main.show_store()
         elif self.active_panel == "graph":
             main.show_graph()
+        elif self.active_panel == "activity":
+            main.show_activity()
 
     def _refresh_sidebar(self) -> None:
         """Rebuild the sidebar tree (e.g., after role change)."""
@@ -720,6 +806,11 @@ class K33pApp(App):
 
     def action_show_graph(self) -> None:
         self.active_panel = "graph"
+        self._update_sub_title()
+        self._refresh_main()
+
+    def action_show_activity(self) -> None:
+        self.active_panel = "activity"
         self._update_sub_title()
         self._refresh_main()
 
