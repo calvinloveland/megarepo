@@ -8,6 +8,7 @@ Subcommands:
 - ``k33p import``  — import an external project (git, etc.)
 - ``k33p daemon`` — run the auto-commit daemon
 - ``k33p pointer`` — manage live channel pointers
+- ``k33p org``     — manage permissions and access
 - ``k33p tui``    — launch the TUI viewer
 - ``k33p info``   — print project info and exit
 - ``k33p store``  — content-addressed store operations
@@ -23,7 +24,7 @@ import argparse
 import sys
 from pathlib import Path
 
-SUBCOMMANDS = frozenset({"init", "clone", "sync", "import", "daemon", "tui", "info", "store", "pointer", "version"})
+SUBCOMMANDS = frozenset({"init", "clone", "sync", "import", "daemon", "tui", "info", "store", "pointer", "org", "version"})
 
 
 # ── subcommand handlers (defined here, dispatched from main) ──────────────
@@ -365,6 +366,7 @@ def main(argv: list[str] | None = None) -> int:
         "info": _cmd_info,
         "store": _cmd_store,
         "pointer": _cmd_pointer,
+        "org": _cmd_org,
         "version": _cmd_version,
     }
 
@@ -479,6 +481,75 @@ def _cmd_pointer(args: list[str]) -> int:
         return cmd_pointer_list(parsed.path)
 
     print(f"k33p pointer: unknown subcommand {sub!r}", file=sys.stderr)
+    return 2
+
+
+def _cmd_org(args: list[str]) -> int:
+    """``k33p org`` — manage permissions and access."""
+    if not args:
+        print("k33p org: expected a subcommand (grant, revoke, list)",
+              file=sys.stderr)
+        return 2
+
+    sub = args[0]
+    rest = args[1:]
+
+    if sub == "grant":
+        parser = argparse.ArgumentParser(prog="k33p org grant")
+        parser.add_argument("subject", help="Team or user (e.g. games-team)")
+        parser.add_argument(
+            "--role", default="read",
+            choices=("read", "write", "admin"),
+            help="Access level (default: read)",
+        )
+        parser.add_argument(
+            "--subproject", "-s", default=None,
+            help="Subproject to scope the grant to",
+        )
+        parser.add_argument(
+            "path", nargs="?", default=".",
+            help="Project path (default: .)",
+        )
+        parsed = parser.parse_args(rest)
+        from k33p.access import cmd_grant
+        return cmd_grant(
+            parsed.path, parsed.subject,
+            role=parsed.role, subproject=parsed.subproject,
+        )
+
+    if sub == "revoke":
+        parser = argparse.ArgumentParser(prog="k33p org revoke")
+        parser.add_argument("subject", help="Team or user")
+        parser.add_argument(
+            "--role", default=None,
+            help="Access level to revoke (omit to revoke all)",
+        )
+        parser.add_argument(
+            "--subproject", "-s", default=None,
+            help="Subproject scope",
+        )
+        parser.add_argument(
+            "path", nargs="?", default=".",
+            help="Project path (default: .)",
+        )
+        parsed = parser.parse_args(rest)
+        from k33p.access import cmd_revoke
+        return cmd_revoke(
+            parsed.path, parsed.subject,
+            role=parsed.role, subproject=parsed.subproject,
+        )
+
+    if sub in ("list", "show", "permissions"):
+        parser = argparse.ArgumentParser(prog="k33p org list")
+        parser.add_argument(
+            "path", nargs="?", default=".",
+            help="Project path (default: .)",
+        )
+        parsed = parser.parse_args(rest)
+        from k33p.access import cmd_permissions
+        return cmd_permissions(parsed.path)
+
+    print(f"k33p org: unknown subcommand {sub!r}", file=sys.stderr)
     return 2
 
 
