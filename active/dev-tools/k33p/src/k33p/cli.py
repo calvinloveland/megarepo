@@ -7,6 +7,7 @@ Subcommands:
 - ``k33p sync``    — pull updates for the current project
 - ``k33p import``  — import an external project (git, etc.)
 - ``k33p daemon`` — run the auto-commit daemon
+- ``k33p pointer`` — manage live channel pointers
 - ``k33p tui``    — launch the TUI viewer
 - ``k33p info``   — print project info and exit
 - ``k33p store``  — content-addressed store operations
@@ -22,7 +23,7 @@ import argparse
 import sys
 from pathlib import Path
 
-SUBCOMMANDS = frozenset({"init", "clone", "sync", "import", "daemon", "tui", "info", "store", "version"})
+SUBCOMMANDS = frozenset({"init", "clone", "sync", "import", "daemon", "tui", "info", "store", "pointer", "version"})
 
 
 # ── subcommand handlers (defined here, dispatched from main) ──────────────
@@ -363,6 +364,7 @@ def main(argv: list[str] | None = None) -> int:
         "tui": _cmd_tui,
         "info": _cmd_info,
         "store": _cmd_store,
+        "pointer": _cmd_pointer,
         "version": _cmd_version,
     }
 
@@ -428,6 +430,56 @@ def _cmd_import(args: list[str]) -> int:
     from k33p.transport import import_from_git
 
     return import_from_git(parsed.from_git, parsed.target, force=parsed.force)
+
+
+def _cmd_pointer(args: list[str]) -> int:
+    """``k33p pointer`` — manage live channel pointers."""
+    if not args:
+        print("k33p pointer: expected a subcommand (set, list)", file=sys.stderr)
+        return 2
+
+    sub = args[0]
+    rest = args[1:]
+
+    if sub == "set":
+        parser = argparse.ArgumentParser(prog="k33p pointer set")
+        parser.add_argument("name", help="Pointer name")
+        parser.add_argument("target", help="Target ref (e.g. src@main)")
+        parser.add_argument(
+            "--reason", "-m", default=None, help="Reason for the update"
+        )
+        parser.add_argument(
+            "--sign-with", default=None, help="Key to sign with"
+        )
+        parser.add_argument(
+            "--force", "-f", action="store_true",
+            help="Skip rate-limit check"
+        )
+        parser.add_argument(
+            "path", nargs="?", default=".",
+            help="Project path (default: .)"
+        )
+        parsed = parser.parse_args(rest)
+        from k33p.pointer import cmd_pointer_set
+        return cmd_pointer_set(
+            parsed.path, parsed.name, parsed.target,
+            reason=parsed.reason,
+            sign_with=parsed.sign_with,
+            force=parsed.force,
+        )
+
+    if sub == "list":
+        parser = argparse.ArgumentParser(prog="k33p pointer list")
+        parser.add_argument(
+            "path", nargs="?", default=".",
+            help="Project path (default: .)"
+        )
+        parsed = parser.parse_args(rest)
+        from k33p.pointer import cmd_pointer_list
+        return cmd_pointer_list(parsed.path)
+
+    print(f"k33p pointer: unknown subcommand {sub!r}", file=sys.stderr)
+    return 2
 
 
 def _cmd_daemon(args: list[str]) -> int:
