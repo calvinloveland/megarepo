@@ -15,7 +15,8 @@ project" is a degenerate monorepo with one subproject at the root path.
 ## Current status
 
 The implementation has a working TUI viewer, a content-addressed store,
-and a CLI with `init`, `clone`, `info`, `store`, `tui`, and `version` subcommands.
+and a CLI with `init`, `clone`, `sync`, `import`, `daemon`, `info`, `store`,
+`tui`, and `version` subcommands.
 
 | Component | Status |
 |---|---|
@@ -27,14 +28,17 @@ and a CLI with `init`, `clone`, `info`, `store`, `tui`, and `version` subcommand
 | TUI (Textual) | ✅ done |
 | Content-addressed store (CAS) | ✅ done (put, get, has, delete, stats) |
 | `k33p init` | ✅ done |
+| `k33p clone` | ✅ done (file:// transport) |
+| `k33p sync` | ✅ done (file://, git+https://, oci+https://) |
+| `k33p import --from-git` | ✅ done (any git repo) |
+| `k33p daemon` | ✅ done (auto-commit with polling watcher) |
 | `k33p info` | ✅ done |
 | `k33p store` subcommands | ✅ done (put, get, stats, ls) |
 | `k33p tui` | ✅ done |
-| `k33p clone` | ✅ done (file:// transport) |
-| `k33p sync` | ❌ not yet |
-| Actual git / OCI fetching | ❌ not yet |
-| Daemon (auto-commit, hooks) | ❌ not yet |
-| Migration tools (`import`, `split`, `convert`) | ❌ not yet |
+| FileTransport | ✅ done |
+| GitTransport | ✅ done (git CLI) |
+| OCITransport | ✅ done (stdlib HTTP) |
+| Migration tools (`split`, `convert`) | ❌ not yet |
 | Live channel pointer updates | ❌ not yet |
 | Multi-tenancy primitives | ❌ not yet |
 
@@ -141,7 +145,7 @@ Those are v0.1+ of the implementation.
 ## Layout
 
 - `src/k33p/` — the package
-- `tests/` — pytest tests (115 tests, all passing)
+- `tests/` — pytest tests (202 tests, all passing)
 - `examples/` — example `k33p.yaml` files (single project and monorepo)
 - `docs/index.md` — this page
 - `scripts/snapshot_tui.py` — headless TUI snapshot tool

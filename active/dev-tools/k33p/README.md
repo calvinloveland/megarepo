@@ -16,19 +16,21 @@ This is the implementation. The design lives at
 - A TUI viewer that browses the project structure
 - **Content-addressed store** — PUT, GET, HAS, DELETE by SHA-256 hash, zlib-compressed, sharded like git's `.git/objects/`
 - **`k33p init`** — create new projects with boilerplate manifests + store
-- **`k33p clone`** — clone a project from a local directory (file:// transport)
+- **`k33p clone`** — clone from file:// transport
+- **`k33p sync`** — pull updates from upstream sources
+- **`k33p import --from-git`** — import any git repo as a k33p project
+- **`k33p daemon`** — auto-commit with file watching, debounce, and snapshot commits
 - **`k33p info`** — print project summary
 - **`k33p store`** — CAS operations (put, get, stats, ls)
-- **Transport abstraction** — pluggable fetch backends (FileTransport MVP)
+- **Transports**: FileTransport (local), GitTransport (git CLI), OCITransport (OCI registries via stdlib)
 - Example manifests under `examples/`
 
 ## What does not work yet
 
-- Actually fetching from transports (git, OCI, k33p://) — manifest is read-only
-- The k33p daemon (auto-commit, hooks)
-- Migration tools (`k33p import`, `k33p split`, `k33p convert`)
+- Migration tools (`k33p split`, `k33p convert`)
 - Live channel pointer updates
 - Multi-tenancy primitives
+- `k33p://` transport (peer-to-peer)
 
 ## Quick start
 
@@ -56,6 +58,9 @@ nix-shell -p python3Packages.python python3Packages.pyyaml python3Packages.textu
 |---|---|
 | `k33p init <name>` | Create a new k33p project |
 | `k33p clone <source> [target]` | Clone a project from a local directory |
+| `k33p sync [path]` | Pull updates from upstream sources |
+| `k33p import --from-git <url> [target]` | Import a git repository |
+| `k33p daemon [path]` | Run the auto-commit daemon |
 | `k33p tui [path]` | Launch the TUI viewer (default) |
 | `k33p info [path]` | Show project summary |
 | `k33p store put <path> <file>` | Store a file in the CAS |
@@ -101,4 +106,4 @@ src/k33p/
 ```
 
 See [`docs/index.md`](docs/index.md) for the published project page.
-115 tests, all passing.
+202 tests, all passing.
