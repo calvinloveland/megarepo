@@ -88,6 +88,18 @@ def _channel_type(manifest, channel_name: str) -> str:
                 return t.value
     return "unknown"
 
+
+def _count_tree_files(store, tree_hash: str) -> int:
+    """Count blob entries in a tree object (non-recursive)."""
+    tree_data = store.get(tree_hash)
+    if tree_data is None:
+        return 0
+    count = 0
+    for line in tree_data.decode("utf-8", errors="replace").split("\n"):
+        if line.startswith("blob "):
+            count += 1
+    return count
+
 # ── sidebar tree ───────────────────────────────────────────────────────
 
 
@@ -538,9 +550,10 @@ class DetailPanel(Static):
         store = ContentStore(store_path)
         stats = store.stats()
 
-        # Show store stats
+        # Show store stats summary
         lines.append(f"  [bold]Store:[/bold] {stats.object_count} objects, "
-                     f"{stats.total_bytes / 1024:.1f} KB")
+                     f"{stats.total_bytes / 1024:.1f} KB "
+                     f"[dim]({stats.shard_count} shards)[/dim]")
         lines.append("")
 
         # Collect recent events from pointer and commit objects
@@ -567,28 +580,36 @@ class DetailPanel(Static):
                     lines_body = text.split("\n")
                     ts = "?"
                     msg = "(no message)"
+                    tree_h = "?"
+                    parent_h = None
                     for line in lines_body:
                         if line.startswith("author ") and " " in line:
                             parts = line.rsplit(" ", 1)
                             if len(parts) == 2:
                                 ts = parts[1]
+                        elif line.startswith("tree "):
+                            tree_h = line[5:].strip()[:16]
+                        elif line.startswith("parent "):
+                            parent_h = line[7:].strip()[:16]
                         elif line and not line.startswith("tree ") \
                                 and not line.startswith("parent ") \
                                 and not line.startswith("author "):
                             msg = line[:60]
-                    tree_line = [l for l in lines_body if l.startswith("tree ")]
-                    tree_h = tree_line[0][5:21] if tree_line else "?"
-                    events.append((ts, "commit", f"tree={tree_h}  {msg}"))
+                    # Count files in the tree
+                    file_count = _count_tree_files(store, tree_h) if tree_h != "?" else 0
+                    parent_info = f" ← {parent_h}" if parent_h else ""
+                    summary = f"tree={tree_h}{parent_info}  {file_count} file(s)  {msg}"
+                    events.append((ts, "commit", summary))
                 except UnicodeDecodeError:
                     pass
 
         # Sort by timestamp descending and show latest
         events.sort(key=lambda e: e[0], reverse=True)
-        events = events[:20]  # show last 20 events
+        events = events[:15]  # show last 15 events
 
         if not events:
             lines.append("[dim]No activity events recorded yet.[/dim]")
-            lines.append("  Run `k33p pointer set` or `k33p daemon` to generate events.")
+            lines.append("  Run `k33p daemon` or `k33p pointer set` to generate events.")
         else:
             lines.append(f"[bold]Recent events ({len(events)}):[/bold]")
             lines.append("")
@@ -598,7 +619,14 @@ class DetailPanel(Static):
                     "commit": "💾",
                 }.get(kind, "•")
                 ts_short = ts[:19] if len(ts) > 19 else ts
-                lines.append(f"  {kind_icon} [{ts_short}] {summary}")
+                lines.append(f"  {kind_icon} [{ts_short}]  {summary}")
+
+        # Search/filter hint
+        lines.append("")
+        lines.append("[dim]Key bindings:[/dim]")
+        lines.append("  [dim]t[/dim]  store overview  [dim]g[/dim]  channel graph")
+        lines.append("  [dim]a[/dim]  activity log   [dim]c[/dim]  channels")
+        lines.append("  [dim]o[/dim]  overview       [dim]v[/dim]  views / roles")
 
         self.update("\n".join(lines))
 
