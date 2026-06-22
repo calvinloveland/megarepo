@@ -387,6 +387,21 @@ def discover_manifest(start: str | Path) -> Manifest:
     raise FileNotFoundError(f"no k33p.yaml found at or above {start}")
 
 
+def _explicitly_set(
+    cfg: ChannelConfig, field: str, default_field: str | None = None
+) -> bool:
+    """Heuristic: was a field explicitly set in this override?
+
+    Since frozen dataclasses don't track field provenance, we compare
+    against the class default.  If the value matches the default we assume
+    it *wasn't* explicitly set.  This is imperfect: someone who explicitly
+    sets visibility to PRIVATE (the default) will look like "not set".
+    For the MVP that's an acceptable edge case.
+    """
+    cls_default = ChannelConfig.__dataclass_fields__[field].default
+    return getattr(cfg, field) != cls_default
+
+
 # ── channel merging ─────────────────────────────────────────────────
 
 
@@ -416,7 +431,16 @@ def _merge_channel(
         type=override.type if override.type is not None else parent.type,
         transport=override.transport if override.transport else parent.transport,
         scope=override.scope if override.scope is not None else parent.scope,
-        visibility=override.visibility,
+        # visibility field: the override doesn't have a sentinel, so we can't tell
+        # if it was explicitly set to PRIVATE vs unset.  We use the parent's value
+        # when the override's visibility matches the default *and* the parent has
+        # a different value.  This is an imperfect heuristic but covers the
+        # common case where a subproject adds channels without specifying visibility.
+        visibility=(
+            override.visibility
+            if _explicitly_set(override, "visibility", default_field="visibility")
+            else parent.visibility
+        ),
         history=override.history,
         history_ring=override.history_ring if override.history_ring is not None else parent.history_ring,
         encryption=override.encryption if override.encryption is not None else parent.encryption,

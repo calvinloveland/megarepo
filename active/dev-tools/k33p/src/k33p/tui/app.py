@@ -108,7 +108,10 @@ class ProjectTree(Tree[str]):
             s_node = root.add("🗄️  store", expand=False)
             s_node.add_leaf(f"  objects: {stats.object_count}")
             mb = stats.total_bytes / 1024 / 1024
-            s_node.add_leaf(f"  size: {mb:.1f} MB")
+            s_node.add_leaf(f"  size: {mb:.1f} MB uncompressed")
+            if stats.compressed_bytes:
+                mb_comp = stats.compressed_bytes / 1024 / 1024
+                s_node.add_leaf(f"  on disk: {mb_comp:.1f} MB")
             s_node.add_leaf(f"  shards: {stats.shard_count}")
 
 
@@ -362,12 +365,14 @@ class DetailPanel(Static):
 
         store = ContentStore(self.project.store_path)
         stats = store.stats()
-        mb = stats.total_bytes / 1024 / 1024
         lines: list[str] = []
         lines.append(f"[bold]🗄️  Content Store[/bold]  [dim]{store.path}[/dim]")
         lines.append("")
         lines.append(f"  [bold]Objects:[/bold]  {stats.object_count}")
-        lines.append(f"  [bold]Size:[/bold]     {mb:.2f} MB")
+        lines.append(f"  [bold]Size:[/bold]     {stats.total_bytes / 1024 / 1024:.2f} MB uncompressed")
+        if stats.compressed_bytes:
+            ratio = (1 - stats.compressed_bytes / max(stats.total_bytes, 1)) * 100
+            lines.append(f"  [bold]On disk:[/bold]  {stats.compressed_bytes / 1024 / 1024:.2f} MB ({ratio:.0f}% saved)")
         lines.append(f"  [bold]Shards:[/bold]   {stats.shard_count}")
         if stats.object_count > 0:
             avg = stats.total_bytes / stats.object_count
