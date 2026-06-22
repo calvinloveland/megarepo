@@ -3,8 +3,9 @@
 Subcommands:
 
 - ``k33p init``   — create a new k33p project
-- ``k33p clone``  — clone a project from a local directory
-- ``k33p sync``   — pull updates for the current project
+- ``k33p clone``   — clone a project from a local directory
+- ``k33p sync``    — pull updates for the current project
+- ``k33p import``  — import an external project (git, etc.)
 - ``k33p tui``    — launch the TUI viewer
 - ``k33p info``   — print project info and exit
 - ``k33p store``  — content-addressed store operations
@@ -20,7 +21,7 @@ import argparse
 import sys
 from pathlib import Path
 
-SUBCOMMANDS = frozenset({"init", "clone", "sync", "tui", "info", "store", "version"})
+SUBCOMMANDS = frozenset({"init", "clone", "sync", "import", "tui", "info", "store", "version"})
 
 
 # ── subcommand handlers (defined here, dispatched from main) ──────────────
@@ -356,6 +357,7 @@ def main(argv: list[str] | None = None) -> int:
         "init": _cmd_init,
         "clone": _cmd_clone,
         "sync": _cmd_sync,
+        "import": _cmd_import,
         "tui": _cmd_tui,
         "info": _cmd_info,
         "store": _cmd_store,
@@ -395,6 +397,35 @@ def _cmd_clone(args: list[str]) -> int:
     from k33p.transport import clone as _clone_project
 
     return _clone_project(parsed.source, parsed.target, force=parsed.force)
+
+
+def _cmd_import(args: list[str]) -> int:
+    """``k33p import`` — import an external project."""
+    parser = argparse.ArgumentParser(
+        prog="k33p import",
+        description="Import an external project as a k33p project",
+    )
+    parser.add_argument(
+        "--from-git",
+        required=True,
+        help="Git repository URL to import from",
+    )
+    parser.add_argument(
+        "target",
+        nargs="?",
+        default=None,
+        help="Target directory (default: repo name in current dir)",
+    )
+    parser.add_argument(
+        "--force", "-f",
+        action="store_true",
+        help="Overwrite existing files",
+    )
+    parsed = parser.parse_args(args)
+
+    from k33p.transport import import_from_git
+
+    return import_from_git(parsed.from_git, parsed.target, force=parsed.force)
 
 
 def _cmd_sync(args: list[str]) -> int:

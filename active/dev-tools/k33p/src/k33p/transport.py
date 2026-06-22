@@ -58,13 +58,9 @@ class Transport(ABC):
 
         Raises TransportError if no transport can handle the source.
         """
-        for sub in cls.__subclasses__():
-            t = sub  # noqa: F841
-            # We use the concrete classes below, not dynamic subclass scan
-            pass
-        # Manual dispatch (more predictable than __subclasses__ scan)
         transports: list[type[Transport]] = [
             FileTransport,
+            GitTransport,
         ]
         for transport_cls in transports:
             if transport_cls.supports(source):
@@ -72,7 +68,7 @@ class Transport(ABC):
 
         raise TransportError(
             f"no transport available for {source!r} "
-            f"(supported: file://<path>, or a local path)"
+            f"(supported: file://<path>, git+https://<url>, or a local path)"
         )
 
 
@@ -127,7 +123,142 @@ class FileTransport(Transport):
         return count
 
 
+# ── git transport ─────────────────────────────────────────────────────────
+
+
+class GitTransport(Transport):
+    """Transport that fetches objects from a git repository.
+
+    Uses the ``git`` CLI to clone remote repositories and convert git
+    objects (blobs, trees, commits) into k33p content-addressed store
+    objects.
+
+    Supports URLs with the ``git+`` prefix (``git+https://``,
+    ``git+ssh://``) as well as bare git URLs.
+    """
+
+    @classmethod
+    def supports(cls, source: str) -> bool:
+        source_lower = source.lower()
+        # git+https://, git+ssh://, etc.
+        if source_lower.startswith("git+"):
+            return True
+        # Bare git-style URLs like git@github.com:org/repo.git
+        if source_lower.startswith("git@") or source_lower.endswith(".git"):
+            return True
+        # Plain https:// URLs that look like git repos
+        if "://" not in source:
+            return False
+        if any(
+            source_lower.startswith(prefix)
+            for prefix in ("https://", "http://", "ssh://")
+        ):
+            return True
+        return False
+
+    def _strip_prefix(self) -> str:
+        """Return the actual URL without the ``git+`` prefix."""
+        src = self.source
+        if src.lower().startswith("git+"):
+            return src[4:]
+        return src
+
+    def fetch(self, store: ContentStore) -> int:
+        """Clone the git repo and convert all objects into *store*."""
+        import subprocess
+        import tempfile
+
+        url = self._strip_prefix()
+        if not _git_available():
+            raise TransportError(
+                "git is not available on this system (install git and try again)"
+            )
+
+        # Clone bare into a temp directory
+        with tempfile.TemporaryDirectory(prefix="k33p-git-") as tmp:
+            bare_path = Path(tmp) / ".git"
+            try:
+                subprocess.run(
+                    ["git", "clone", "--bare", url, str(bare_path)],
+                    capture_output=True, text=True, timeout=120,
+                )
+            except subprocess.CalledProcessError as e:
+                raise TransportError(
+                    f"git clone failed: {e.stderr.strip() or e}"
+                ) from e
+            except FileNotFoundError as e:
+                raise TransportError(
+                    f"git not found: {e}"
+                ) from e
+
+            if not bare_path.is_dir():
+                raise TransportError(
+                    f"git clone did not produce a .git directory at {bare_path}"
+                )
+
+            # Walk git objects and store them
+            return _import_git_objects(bare_path, store)
+
+
 # ── helpers ──────────────────────────────────────────────────────────────
+
+
+def _git_available() -> bool:
+    """Check if the ``git`` CLI is available on PATH."""
+    import shutil
+    return shutil.which("git") is not None
+
+
+def _import_git_objects(git_dir: Path, store: ContentStore) -> int:
+    """Walk a bare git repo's object store and import into *store*.
+
+    Returns the number of objects imported.
+    """
+    import zlib
+
+    objects_dir = git_dir / "objects"
+    if not objects_dir.is_dir():
+        return 0
+
+    count = 0
+    # Walk shards (first 2 hex chars of SHA-1 hash)
+    for shard in sorted(objects_dir.iterdir()):
+        if not shard.is_dir() or len(shard.name) != 2:
+            continue
+        for obj_file in sorted(shard.iterdir()):
+            if not obj_file.is_file():
+                continue
+            git_hash = shard.name + obj_file.name
+            try:
+                raw = obj_file.read_bytes()
+                decompressed = zlib.decompress(raw)
+            except (OSError, zlib.error):
+                continue
+
+            # Parse the git object header: "<type> <size>\0<content>"
+            null_pos = decompressed.index(b"\0")
+            header = decompressed[:null_pos]
+            content = decompressed[null_pos + 1 :]
+
+            header_parts = header.split(b" ", 1)
+            if len(header_parts) != 2:
+                continue
+            git_type = header_parts[0].decode()
+
+            # Map git type to k33p kind
+            kind_map = {
+                "blob": "blob",
+                "tree": "tree",
+                "commit": "commit",
+                "tag": "manifest",
+            }
+            k33p_kind = kind_map.get(git_type, "blob")
+
+            k33p_hash = store.put(content, kind=k33p_kind)
+            if k33p_hash:
+                count += 1
+
+    return count
 
 
 def _looks_like_local_path(source: str) -> bool:
@@ -361,9 +492,9 @@ def sync(project_path: str | Path | None = None) -> int:
                 channel_sources.append((f"{sp_name}/{ch_name}", transport_url))
 
     if not channel_sources:
-        print("k33p: no syncable sources found (no file:// or local-path transports)")
-        print("  Supported: file://<path> or a local directory path.")
-        print("  Tip: git+https:// and other remote transports are not yet implemented.")
+        print("k33p: no syncable sources found")
+        print("  Supported: file://<path>, git+https://<url>, or a local directory path.")
+        print("  Note: git+https:// sync uses the git CLI to fetch new objects.")
         return 0
 
     # ── fetch from each source ──────────────────────────────────────
@@ -393,3 +524,187 @@ def sync(project_path: str | Path | None = None) -> int:
     if project.root_lock:
         print(f"  lock: {project.root_lock.path}")
     return 0
+
+
+def import_from_git(
+    git_url: str,
+    target: str | Path | None = None,
+    *,
+    force: bool = False,
+) -> int:
+    """Import a git repository as a new k33p project.
+
+    Clones the git repo, creates a ``k33p.yaml`` manifest pointing at the
+    git URL, imports all git objects into the content-addressed store, and
+    generates a ``k33p.lock`` with the HEAD ref.
+
+    Args:
+        git_url: Git remote URL (https://, git+https://, git@, etc.).
+        target: Target directory (default: repo name in current dir).
+        force: Overwrite existing files.
+
+    Returns:
+        0 on success, 1 on error.
+    """
+    import subprocess
+    import tempfile
+    import shutil
+    import sys
+    from datetime import datetime, timezone
+
+    if not _git_available():
+        print("k33p: git is not available on this system", file=sys.stderr)
+        print("  Install git and try again.", file=sys.stderr)
+        return 1
+
+    # Determine the project name from the URL
+    repo_name = _git_url_to_name(git_url)
+
+    # Determine target path
+    if target is None:
+        target_path = Path.cwd() / repo_name
+    else:
+        target_path = Path(target).resolve()
+
+    target_manifest = target_path / "k33p.yaml"
+    if target_manifest.exists() and not force:
+        print(
+            f"k33p: {target_manifest} already exists (use --force to overwrite)",
+            file=sys.stderr,
+        )
+        return 1
+
+    print(f"Cloning git repository {git_url} ...")
+
+    # Clone bare into a temp directory
+    try:
+        with tempfile.TemporaryDirectory(prefix="k33p-git-import-") as tmp:
+            bare_path = Path(tmp) / ".git"
+            result = subprocess.run(
+                ["git", "clone", "--bare", git_url, str(bare_path)],
+                capture_output=True, text=True, timeout=300,
+            )
+            if result.returncode != 0:
+                print(f"k33p: git clone failed: {result.stderr.strip()}",
+                      file=sys.stderr)
+                return 1
+
+            if not bare_path.is_dir():
+                print(f"k33p: git clone did not produce a .git directory",
+                      file=sys.stderr)
+                return 1
+
+            # ── create k33p.yaml ────────────────────────────────────
+            target_path.mkdir(parents=True, exist_ok=True)
+
+            # Get the default branch name
+            branch = "main"
+            try:
+                branch_result = subprocess.run(
+                    ["git", "-C", str(bare_path), "symbolic-ref", "--short", "HEAD"],
+                    capture_output=True, text=True, timeout=30,
+                )
+                if branch_result.returncode == 0:
+                    branch = branch_result.stdout.strip()
+            except (OSError, subprocess.TimeoutExpired):
+                pass
+
+            # Get HEAD commit
+            head_commit = ""
+            try:
+                rev_result = subprocess.run(
+                    ["git", "-C", str(bare_path), "rev-parse", "HEAD"],
+                    capture_output=True, text=True, timeout=30,
+                )
+                if rev_result.returncode == 0:
+                    head_commit = rev_result.stdout.strip()
+            except (OSError, subprocess.TimeoutExpired):
+                pass
+
+            yaml_content = f"""# k33p.yaml — imported from git
+project: {repo_name}
+type: single
+description: Imported from {git_url}
+
+channels:
+  src:
+    type: source
+    transport: {git_url}
+    visibility: public
+    history: full
+
+views:
+  default:
+    src: {{ at: "./" }}
+
+roles:
+  developer:   {{ view: default }}
+"""
+            target_manifest.write_text(yaml_content, encoding="utf-8")
+
+            # ── initialise store ────────────────────────────────────
+            store_path = target_path / ".k33p" / "store"
+            store = ContentStore(store_path)
+            store.ensure()
+
+            # ── import git objects ──────────────────────────────────
+            count = _import_git_objects(bare_path, store)
+
+            # ── create lockfile ─────────────────────────────────────
+            now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+            lock_content = f"""# k33p.lock — generated by `k33p import --from-git`
+generated: {now}
+
+channels:
+  src:
+    ref: src@{head_commit or branch}
+
+toolchain:
+  compiler: git
+"""
+            lock_path = target_path / "k33p.lock"
+            lock_path.write_text(lock_content, encoding="utf-8")
+
+            # ── report ──────────────────────────────────────────────
+            print(f"✓ Imported {repo_name} from git")
+            print(f"  url:    {git_url}")
+            print(f"  to:     {target_path}")
+            print(f"  branch: {branch}")
+            print(f"  head:   {head_commit[:16] if head_commit else '(unknown)'}")
+            print(f"  store:  {count} object(s) imported")
+            print(f"  manifest: {target_manifest}")
+            print(f"  lock:   {lock_path}")
+            print()
+            print("Next steps:")
+            print(f"  cd {target_path}")
+            print("  k33p             # launch the TUI viewer")
+            print("  k33p info        # show project info")
+            return 0
+
+    except (subprocess.TimeoutExpired, OSError) as e:
+        print(f"k33p: git operation failed: {e}", file=sys.stderr)
+        return 1
+
+
+def _git_url_to_name(git_url: str) -> str:
+    """Extract a project name from a git URL.
+
+    Examples:
+        https://github.com/org/my-project.git  → my-project
+        git@github.com:org/my-project.git      → my-project
+        git+https://github.com/org/my-project  → my-project
+    """
+    # Strip protocol prefix
+    url = git_url
+    if url.lower().startswith("git+"):
+        url = url[4:]
+    # Strip trailing .git
+    if url.endswith(".git"):
+        url = url[:-4]
+    # Get the last path component
+    if "/" in url:
+        url = url.rstrip("/").split("/")[-1]
+    # For git@ URLs, also strip the host part
+    if ":" in url:
+        url = url.split(":")[-1]
+    return url or "imported-project"

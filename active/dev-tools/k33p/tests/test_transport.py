@@ -10,10 +10,15 @@ import pytest
 from k33p.store import ContentStore
 from k33p.transport import (
     FileTransport,
+    GitTransport,
     Transport,
     TransportError,
+    _git_url_to_name,
     _looks_like_local_path,
+    _import_git_objects,
+    _git_available,
     clone,
+    import_from_git,
     sync,
 )
 
@@ -106,7 +111,7 @@ class TestTransportFactory:
 
     def test_for_source_unknown_scheme_raises(self) -> None:
         with pytest.raises(TransportError, match="no transport"):
-            Transport.for_source("git+https://example.com/repo")
+            Transport.for_source("oci+https://registry.example.com/repo")
 
 
 # ── FileTransport ─────────────────────────────────────────────────────────
@@ -349,6 +354,161 @@ roles:
 
 
 # ── helper tests ─────────────────────────────────────────────────────────
+
+
+# ── GitTransport tests ────────────────────────────────────────────────────
+
+
+class TestGitTransport:
+    def test_supports_git_https(self) -> None:
+        assert GitTransport.supports("https://github.com/org/repo")
+        assert GitTransport.supports("http://github.com/org/repo")
+
+    def test_supports_git_plus_https(self) -> None:
+        assert GitTransport.supports("git+https://github.com/org/repo")
+        assert GitTransport.supports("git+ssh://git@github.com/org/repo")
+
+    def test_supports_git_ssh_url(self) -> None:
+        assert GitTransport.supports("git@github.com:org/repo.git")
+
+    def test_supports_dot_git_suffix(self) -> None:
+        assert GitTransport.supports("/path/to/repo.git")
+
+    def test_does_not_support_file_url(self) -> None:
+        assert not GitTransport.supports("file:///path/to/project")
+
+    def test_does_not_support_k33p_url(self) -> None:
+        assert not GitTransport.supports("k33p://host/project")
+
+    def test_does_not_support_oci_url(self) -> None:
+        assert not GitTransport.supports("oci+https://registry.example.com/repo")
+
+    def test_strip_prefix_removes_git_plus(self) -> None:
+        t = GitTransport("git+https://github.com/org/repo")
+        assert t._strip_prefix() == "https://github.com/org/repo"
+
+    def test_strip_prefix_passthrough(self) -> None:
+        t = GitTransport("https://github.com/org/repo")
+        assert t._strip_prefix() == "https://github.com/org/repo"
+
+
+class TestGitURLToName:
+    def test_https_url(self) -> None:
+        assert _git_url_to_name("https://github.com/org/my-project.git") == "my-project"
+
+    def test_git_plus_url(self) -> None:
+        assert _git_url_to_name("git+https://github.com/org/my-project") == "my-project"
+
+    def test_git_ssh_url(self) -> None:
+        assert _git_url_to_name("git@github.com:org/my-repo.git") == "my-repo"
+
+    def test_trailing_slash(self) -> None:
+        assert _git_url_to_name("https://github.com/org/project/") == "project"
+
+    def test_no_slash(self) -> None:
+        name = _git_url_to_name("https://example.com/repo")
+        assert name == "repo"
+
+
+class TestGitAvailable:
+    def test_git_available_on_system(self) -> None:
+        """Most CI/dev systems have git installed."""
+        import shutil
+        expected = shutil.which("git") is not None
+        assert _git_available() == expected
+
+
+@pytest.fixture
+def git_test_repo() -> Path:
+    """Create a temporary git repo with a few commits for testing.
+
+    Yields the path to the git repo (which has a .git directory).
+    """
+    import subprocess
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmp:
+        repo = Path(tmp)
+        subprocess.run(["git", "init"], cwd=repo, capture_output=True, timeout=30)
+        subprocess.run(
+            ["git", "config", "user.email", "test@test.com"],
+            cwd=repo, capture_output=True, timeout=30,
+        )
+        subprocess.run(
+            ["git", "config", "user.name", "Test User"],
+            cwd=repo, capture_output=True, timeout=30,
+        )
+        # Create a few commits
+        for i in range(3):
+            (repo / f"file{i}.txt").write_text(f"content {i}")
+            subprocess.run(["git", "add", "."], cwd=repo, capture_output=True, timeout=30)
+            subprocess.run(
+                ["git", "commit", "-m", f"commit {i}"],
+                cwd=repo, capture_output=True, timeout=30,
+            )
+        yield repo
+
+
+@pytest.mark.skipif(not _git_available(), reason="git not available")
+class TestGitImportObjects:
+    """Tests that require git and clone a real (small) repo."""
+
+    @pytest.fixture
+    def cloned_bare_repo(self, git_test_repo: Path) -> Path:
+        """Create a bare clone of the test repo."""
+        import subprocess
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            bare_path = Path(tmp) / ".git"
+            subprocess.run(
+                ["git", "clone", "--bare", str(git_test_repo), str(bare_path)],
+                capture_output=True, text=True, timeout=30,
+            )
+            yield bare_path
+
+    def test_import_git_objects(self, cloned_bare_repo: Path) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            store = ContentStore(Path(tmp))
+            store.ensure()
+            count = _import_git_objects(cloned_bare_repo, store)
+            assert count > 0
+            stats = store.stats()
+            assert stats.object_count == count
+
+    def test_import_git_objects_kinds(self, cloned_bare_repo: Path) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            store = ContentStore(Path(tmp))
+            store.ensure()
+            _import_git_objects(cloned_bare_repo, store)
+            kinds = {obj.kind for obj in store.iter_objects()}
+            assert "blob" in kinds
+
+
+@pytest.mark.skipif(not _git_available(), reason="git not available")
+class TestImportFromGit:
+    """Integration tests for k33p import --from-git."""
+
+    def test_import_from_git_repo(self, git_test_repo: Path) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            target = Path(tmp) / "imported"
+            rc = import_from_git(str(git_test_repo), str(target))
+            assert rc == 0
+            assert (target / "k33p.yaml").exists()
+            assert (target / "k33p.lock").exists()
+            assert (target / ".k33p" / "store").is_dir()
+
+    def test_import_force_overwrite(self, git_test_repo: Path) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            target = Path(tmp) / "imported"
+            target.mkdir()
+            (target / "k33p.yaml").write_text("old: true")
+            # Without force, should fail
+            rc = import_from_git(str(git_test_repo), str(target))
+            assert rc == 1
+            # With force, should succeed
+            rc = import_from_git(str(git_test_repo), str(target), force=True)
+            assert rc == 0
 
 
 class TestHelpers:
