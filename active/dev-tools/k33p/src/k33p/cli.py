@@ -6,6 +6,7 @@ Subcommands:
 - ``k33p clone``   — clone a project from a local directory
 - ``k33p sync``    — pull updates for the current project
 - ``k33p import``  — import an external project (git, etc.)
+- ``k33p daemon`` — run the auto-commit daemon
 - ``k33p tui``    — launch the TUI viewer
 - ``k33p info``   — print project info and exit
 - ``k33p store``  — content-addressed store operations
@@ -21,7 +22,7 @@ import argparse
 import sys
 from pathlib import Path
 
-SUBCOMMANDS = frozenset({"init", "clone", "sync", "import", "tui", "info", "store", "version"})
+SUBCOMMANDS = frozenset({"init", "clone", "sync", "import", "daemon", "tui", "info", "store", "version"})
 
 
 # ── subcommand handlers (defined here, dispatched from main) ──────────────
@@ -358,6 +359,7 @@ def main(argv: list[str] | None = None) -> int:
         "clone": _cmd_clone,
         "sync": _cmd_sync,
         "import": _cmd_import,
+        "daemon": _cmd_daemon,
         "tui": _cmd_tui,
         "info": _cmd_info,
         "store": _cmd_store,
@@ -426,6 +428,30 @@ def _cmd_import(args: list[str]) -> int:
     from k33p.transport import import_from_git
 
     return import_from_git(parsed.from_git, parsed.target, force=parsed.force)
+
+
+def _cmd_daemon(args: list[str]) -> int:
+    """``k33p daemon`` — run the auto-commit daemon."""
+    parser = argparse.ArgumentParser(
+        prog="k33p daemon",
+        description="Run the k33p auto-commit daemon",
+    )
+    parser.add_argument(
+        "path",
+        nargs="?",
+        default=None,
+        help="Path to the project directory (default: current dir)",
+    )
+    parser.add_argument(
+        "--once",
+        action="store_true",
+        help="Run a single check and exit (for testing)",
+    )
+    parsed = parser.parse_args(args)
+
+    from k33p.daemon import run_daemon
+
+    return run_daemon(parsed.path, once=parsed.once)
 
 
 def _cmd_sync(args: list[str]) -> int:
