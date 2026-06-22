@@ -33,6 +33,7 @@ _PANEL_ICONS = {
     "roles": "👤",
     "lock": "🔒",
     "store": "🗄️",
+    "graph": "🕸️",
 }
 
 
@@ -64,6 +65,27 @@ def _object_preview(store: ContentStore, hash_str: str) -> str:
         return f"({len(data)} bytes, binary)"
     except UnicodeDecodeError:
         return f"({len(data)} bytes, binary)"
+
+
+def _shorten(text: str, max_len: int = 50) -> str:
+    """Truncate *text* to *max_len* characters with ellipsis."""
+    if len(text) <= max_len:
+        return text
+    return text[: max_len - 3] + "..."
+
+
+def _channel_type(manifest, channel_name: str) -> str:
+    """Look up the channel type from the manifest by name."""
+    ch = manifest.channels.get(channel_name)
+    if ch is not None:
+        return ch.type.value
+    # Check subproject channels
+    for sp in manifest.subprojects.values():
+        if channel_name in sp.channels:
+            t = sp.channels[channel_name].type
+            if t is not None:
+                return t.value
+    return "unknown"
 
 # ── sidebar tree ───────────────────────────────────────────────────────
 
@@ -404,6 +426,99 @@ class DetailPanel(Static):
 
         self.update("\n".join(lines))
 
+    _CH_COLORS = {
+        "source": "cyan",
+        "secrets": "red",
+        "dependencies": "magenta",
+        "artifacts": "green",
+        "live": "orange1",
+    }
+
+    def show_graph(self) -> None:
+        """Show the channel dependency / relationship graph."""
+        m = self.project.manifest
+
+        lines: list[str] = []
+        lines.append(f"[bold]🕸️  Channel Graph[/bold]  [dim]{m.project}[/dim]")
+        lines.append("")
+
+        # ── channels ────────────────────────────────────────────────
+        lines.append("[bold]Channels[/bold]")
+        for ch_name, ch in m.channels.items():
+            color = self._CH_COLORS.get(ch.type.value, "white")
+            lines.append(
+                f"  [{color}]■[/] [bold]{ch_name}[/bold]  "
+                f"[dim]{ch.type.value}[/dim]  →  {_shorten(ch.transport, 50)}"
+            )
+            # Show scope
+            if ch.scope:
+                lines.append(f"      [dim]scope:[/dim] {ch.scope}")
+            # Show subprojects that override this channel
+            overrides = [
+                sp_name for sp_name, sp in m.subprojects.items()
+                if ch_name in sp.channels
+            ]
+            if overrides:
+                lines.append(f"      [dim]overridden by:[/dim] {', '.join(overrides)}")
+        lines.append("")
+
+        # ── views → channels ────────────────────────────────────────
+        if m.views:
+            lines.append("[bold]Views → Channels[/bold]")
+            for v_name, v in m.views.items():
+                extends = f" [dim]← {v.extends}[/dim]" if v.extends else ""
+                lines.append(f"  [bold]{v_name}[/bold]{extends}")
+                for ch_name, mount in v.channels.items():
+                    at = mount.at or "(root)"
+                    extras = []
+                    if mount.history:
+                        extras.append(f"history={mount.history}")
+                    if mount.vendored:
+                        extras.append("vendored")
+                    if mount.install:
+                        extras.append("install")
+                    extra_str = f"  [dim][{', '.join(extras)}][/dim]" if extras else ""
+                    ch_color = self._CH_COLORS.get(
+                        _channel_type(m, ch_name), "white"
+                    )
+                    lines.append(f"    └─ [{ch_color}]■[/] {ch_name}  →  {at}{extra_str}")
+            lines.append("")
+
+        # ── roles → views ───────────────────────────────────────────
+        if m.roles:
+            lines.append("[bold]Roles → Views[/bold]")
+            for r_name, r in m.roles.items():
+                view = r.view or "default"
+                marker = "  ← [green]active[/green]" if r_name == self.project.active_role else ""
+                pub = f"  [dim]publish: {', '.join(r.publish)}[/dim]" if r.publish else ""
+                lines.append(f"  [bold]{r_name}[/bold]  →  {view}{marker}{pub}")
+            lines.append("")
+
+        # ── subproject channel overrides ────────────────────────────
+        if m.is_monorepo and m.subprojects:
+            lines.append("[bold]Subproject Overrides[/bold]")
+            for sp_name, sp in m.subprojects.items():
+                if sp.channels:
+                    lines.append(f"  [bold]{sp_name}[/bold]  [dim]{sp.path}[/dim]")
+                    for ch_name, ch in sp.channels.items():
+                        ch_color = self._CH_COLORS.get(
+                            ch.type.value if ch.type else "unknown", "white"
+                        )
+                        scope = ch.scope or sp.path
+                        lines.append(
+                            f"    └─ [{ch_color}]■[/] {ch_name}  "
+                            f"[dim]scope={scope}[/dim]"
+                        )
+            lines.append("")
+
+        # ── legend ──────────────────────────────────────────────────
+        lines.append("[bold]Legend[/bold]")
+        for ch_type, color in self._CH_COLORS.items():
+            lines.append(f"  [{color}]■[/] {ch_type}")
+        lines.append("  [dim]──▶[/dim]  maps to / extends")
+
+        self.update("\n".join(lines))
+
     def show_store(self) -> None:
         """Show the content-addressed store stats and object listing."""
         if not self.project.store_path:
@@ -489,6 +604,7 @@ class K33pApp(App):
         Binding("r", "show_roles", "Roles"),
         Binding("l", "show_lock", "Lock"),
         Binding("t", "show_store", "Store"),
+        Binding("g", "show_graph", "Graph"),
         Binding("1", "set_role('end-user')", "end-user"),
         Binding("2", "set_role('developer')", "developer"),
         Binding("3", "set_role('maintainer')", "maintainer"),
@@ -550,6 +666,8 @@ class K33pApp(App):
             main.show_lock()
         elif self.active_panel == "store":
             main.show_store()
+        elif self.active_panel == "graph":
+            main.show_graph()
 
     def _refresh_sidebar(self) -> None:
         """Rebuild the sidebar tree (e.g., after role change)."""
@@ -597,6 +715,11 @@ class K33pApp(App):
 
     def action_show_store(self) -> None:
         self.active_panel = "store"
+        self._update_sub_title()
+        self._refresh_main()
+
+    def action_show_graph(self) -> None:
+        self.active_panel = "graph"
         self._update_sub_title()
         self._refresh_main()
 

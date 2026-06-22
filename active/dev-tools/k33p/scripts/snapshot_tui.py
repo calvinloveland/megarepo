@@ -33,6 +33,7 @@ VIEWS = [
     ("views", "v", "Views"),
     ("roles", "r", "Roles"),
     ("lock", "l", "Lock"),
+    ("graph", "g", "Graph"),
 ]
 
 
