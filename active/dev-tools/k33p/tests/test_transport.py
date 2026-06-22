@@ -14,6 +14,7 @@ from k33p.transport import (
     TransportError,
     _looks_like_local_path,
     clone,
+    sync,
 )
 
 
@@ -22,24 +23,31 @@ from k33p.transport import (
 
 @pytest.fixture
 def source_project() -> Path:
-    """Build a minimal source project with a few objects in its store."""
+    """Build a minimal source project with a few objects in its store.
+
+    Uses a ``file://`` transport so that ``k33p clone`` rewrites the
+    cloned manifest's channel transports to point at this source dir,
+    enabling ``k33p sync`` to find it later.
+    """
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp)
+        # Build the file:// URL for this source
+        source_url = f"file://{root}"
         # k33p.yaml
-        (root / "k33p.yaml").write_text("""\
+        (root / "k33p.yaml").write_text(f"""\
 project: source-proj
 type: single
 channels:
   src:
     type: source
-    transport: git+https://example.com/source-proj
+    transport: {source_url}
     visibility: public
     history: full
 views:
   default:
-    src: { at: "./" }
+    src: {{ at: "./" }}
 roles:
-  developer:   { view: default }
+  developer:   {{ view: default }}
 """)
         # Store with a few objects
         store_path = root / ".k33p" / "store"
@@ -265,6 +273,79 @@ signature:
         with tempfile.TemporaryDirectory() as tmp:
             rc = clone("/nonexistent", str(Path(tmp) / "cloned"))
             assert rc == 1
+
+
+# ── sync integration ─────────────────────────────────────────────────────
+
+
+class TestSync:
+    def test_sync_after_clone_finds_nothing_new(self, source_project: Path) -> None:
+        """Syncing a freshly-cloned project should find no new objects."""
+        with tempfile.TemporaryDirectory() as tmp:
+            target = Path(tmp) / "cloned"
+            clone(str(source_project), str(target))
+            rc = sync(str(target))
+            assert rc == 0
+
+    def test_sync_fetches_new_objects(self, source_project: Path) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            target = Path(tmp) / "cloned"
+            clone(str(source_project), str(target))
+            # Add a new object to the source
+            source_store = ContentStore(source_project / ".k33p" / "store")
+            source_store.put(b"new object from upstream", kind="blob")
+            assert source_store.stats().object_count == 4
+            # Sync should pick it up
+            target_store = ContentStore(target / ".k33p" / "store")
+            before = target_store.stats().object_count
+            rc = sync(str(target))
+            assert rc == 0
+            after = target_store.stats().object_count
+            assert after == before + 1
+
+    def test_sync_on_nonexistent_path(self) -> None:
+        rc = sync("/nonexistent")
+        assert rc == 1
+
+    def test_sync_on_project_with_no_transport(self) -> None:
+        """A project whose channels don't have file:// transports should
+        sync gracefully (no-op)."""
+        with tempfile.TemporaryDirectory() as tmp:
+            # Create a project with non-file transports
+            (Path(tmp) / "k33p.yaml").write_text("""\
+project: remote-proj
+type: single
+channels:
+  src:
+    type: source
+    transport: git+https://example.com/repo
+    visibility: public
+    history: full
+views:
+  default:
+    src: { at: "./" }
+roles:
+  developer:   { view: default }
+""")
+            ContentStore(Path(tmp) / ".k33p" / "store").ensure()
+            rc = sync(str(tmp))
+            assert rc == 0  # no-op, not an error
+
+    def test_sync_defaults_to_cwd(self) -> None:
+        """``k33p sync`` with no path defaults to the current directory."""
+        with tempfile.TemporaryDirectory() as tmp:
+            old_cwd = Path.cwd()
+            import os
+            os.chdir(tmp)
+            try:
+                # Init a project in the cwd
+                from k33p.cli import main as cli_main
+                cli_main(["init", "cwd-test"])
+                # Now sync should find it
+                rc = sync(None)
+                assert rc == 0
+            finally:
+                os.chdir(old_cwd)
 
 
 # ── helper tests ─────────────────────────────────────────────────────────

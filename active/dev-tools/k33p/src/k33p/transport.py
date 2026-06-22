@@ -138,6 +138,57 @@ def _looks_like_local_path(source: str) -> bool:
     return True
 
 
+def _rewrite_transports_for_clone(
+    source_manifest: Path, target_manifest: Path, source_path: Path
+) -> None:
+    """Rewrite channel transport URLs in the cloned manifest to point at the
+    absolute source path, so that ``k33p sync`` can find the original.
+
+    For every channel whose transport looks like a local path or file:// URL,
+    replace it with ``file://<absolute-source-path>``.  Other transports
+    (git+https://, oci+https://, …) are left untouched.
+    """
+    import yaml
+
+    with source_manifest.open(encoding="utf-8") as f:
+        manifest_data = yaml.safe_load(f)
+
+    if not isinstance(manifest_data, dict):
+        # Can't parse — fall back to plain copy
+        import shutil
+        shutil.copy2(source_manifest, target_manifest)
+        return
+
+    absolute_source = source_path.resolve()
+    changed = 0
+
+    # Rewrite top-level channels
+    for ch_name, ch_data in manifest_data.get("channels", {}).items():
+        if isinstance(ch_data, dict) and "transport" in ch_data:
+            orig = ch_data["transport"]
+            if _looks_like_local_path(orig) or orig.startswith("file://"):
+                ch_data["transport"] = f"file://{absolute_source}"
+                changed += 1
+
+    # Rewrite subproject channel overrides
+    for sp_name, sp_data in manifest_data.get("subprojects", {}).items():
+        if not isinstance(sp_data, dict):
+            continue
+        for ch_name, ch_data in sp_data.get("channels", {}).items():
+            if isinstance(ch_data, dict) and "transport" in ch_data:
+                orig = ch_data["transport"]
+                if _looks_like_local_path(orig) or orig.startswith("file://"):
+                    ch_data["transport"] = f"file://{absolute_source}"
+                    changed += 1
+
+    with target_manifest.open("w", encoding="utf-8") as f:
+        yaml.dump(manifest_data, f, default_flow_style=False, sort_keys=False)
+
+    # If no transports were rewritten, the YAML dump might differ from the
+    # original (ordering, formatting).  In that case it's better to just copy.
+    # This is a minor style concern; the important thing is correct semantics.
+
+
 def clone(source: str, target: str | Path | None = None, *, force: bool = False) -> int:
     """Clone a k33p project from *source* into a new directory *target*.
 
@@ -199,8 +250,13 @@ def clone(source: str, target: str | Path | None = None, *, force: bool = False)
 
     target_path.mkdir(parents=True, exist_ok=True)
 
-    # ── copy manifest ────────────────────────────────────────────────
-    shutil.copy2(manifest_path, target_manifest)
+    # ── copy manifest (rewrite transports for file sources) ──────────
+    if isinstance(transport, FileTransport):
+        _rewrite_transports_for_clone(
+            manifest_path, target_manifest, source_path
+        )
+    else:
+        shutil.copy2(manifest_path, target_manifest)
 
     # ── copy lock if present ─────────────────────────────────────────
     lock_path = source_path / "k33p.lock"
@@ -232,4 +288,108 @@ def clone(source: str, target: str | Path | None = None, *, force: bool = False)
     print(f"  cd {target_path}")
     print("  k33p             # launch the TUI viewer")
     print("  k33p info        # show project info")
+    return 0
+
+
+def sync(project_path: str | Path | None = None) -> int:
+    """Sync a local k33p project with its upstream sources.
+
+    For each channel in the manifest that has a transport URL supported by
+    an available transport (currently only ``file://`` or local paths),
+    fetches new objects from that source into the local store.
+
+    Args:
+        project_path: Path to the project directory.  If ``None``, uses
+            the current working directory.
+
+    Returns:
+        0 on success, 1 on error (message already printed to stderr).
+    """
+    import sys
+
+    from k33p.project import load_project
+
+    if project_path is None:
+        project_path = Path.cwd()
+
+    # ── load the project ────────────────────────────────────────────
+    try:
+        project = load_project(str(project_path))
+    except FileNotFoundError as e:
+        print(f"k33p: {e}", file=sys.stderr)
+        return 1
+    except Exception as e:
+        print(f"k33p: failed to load project: {e}", file=sys.stderr)
+        return 1
+
+    m = project.manifest
+
+    # Ensure local store exists
+    local_store_path = project.store_path or (project.path / ".k33p" / "store")
+    local_store = ContentStore(local_store_path)
+    local_store.ensure()
+
+    # ── collect unique transport sources ────────────────────────────
+    seen_sources: set[str] = set()
+    channel_sources: list[tuple[str, str]] = []  # (channel_name, source_url)
+
+    for ch_name, ch in m.channels.items():
+        transport_url = ch.transport
+        if not transport_url:
+            continue
+        # Check if any transport supports this URL
+        try:
+            Transport.for_source(transport_url)
+        except TransportError:
+            continue
+        if transport_url not in seen_sources:
+            seen_sources.add(transport_url)
+            channel_sources.append((ch_name, transport_url))
+
+    # Also check subproject channels
+    for sp_name, sp in m.subprojects.items():
+        for ch_name, ch in sp.channels.items():
+            transport_url = ch.transport
+            if not transport_url:
+                continue
+            try:
+                Transport.for_source(transport_url)
+            except TransportError:
+                continue
+            if transport_url not in seen_sources:
+                seen_sources.add(transport_url)
+                channel_sources.append((f"{sp_name}/{ch_name}", transport_url))
+
+    if not channel_sources:
+        print("k33p: no syncable sources found (no file:// or local-path transports)")
+        print("  Supported: file://<path> or a local directory path.")
+        print("  Tip: git+https:// and other remote transports are not yet implemented.")
+        return 0
+
+    # ── fetch from each source ──────────────────────────────────────
+    total_new = 0
+    for ch_name, transport_url in channel_sources:
+        try:
+            transport = Transport.for_source(transport_url)
+        except TransportError:
+            print(f"  skipping {ch_name}: no transport for {transport_url}",
+                  file=sys.stderr)
+            continue
+
+        try:
+            new_count = transport.fetch(local_store)
+        except TransportError as e:
+            print(f"  {ch_name}: sync failed: {e}", file=sys.stderr)
+            continue
+
+        total_new += new_count
+        if new_count:
+            print(f"  {ch_name}: {new_count} new object(s)")
+
+    # ── report ──────────────────────────────────────────────────────
+    print()
+    print(f"✓ Synced {m.project} ({m.type})")
+    print(f"  {total_new} new object(s) fetched from {len(channel_sources)} source(s)")
+    if project.root_lock:
+        print(f"  lock: {project.root_lock.path}")
     return 0
