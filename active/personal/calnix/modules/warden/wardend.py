@@ -92,6 +92,8 @@ class WardenHTTPHandler(http.server.BaseHTTPRequestHandler):
             return self._handle_check(check_name)
         elif path == "/warden/peers":
             return self._handle_peers()
+        elif path == "/warden/storage":
+            return self._handle_storage()
         elif path == "/warden/events":
             return self._handle_events()
         elif path == "/warden/health":
@@ -157,6 +159,18 @@ class WardenHTTPHandler(http.server.BaseHTTPRequestHandler):
             status = load_peer_status(name)
             peers_detail[name] = status or {"status": "unknown", "last_seen": None}
         self._send_json({"peers": peers_detail, "count": len(peer_list)})
+
+    def _handle_storage(self) -> None:
+        """Return the HomeCluster storage report for this node."""
+        try:
+            from warden_state import get_storage_report
+            report = get_storage_report()
+            if report:
+                self._send_json({"storage": report})
+            else:
+                self._send_json({"storage": {}, "message": "HomeCluster not available"})
+        except Exception as e:
+            self._send_json({"error": str(e)}, 500)
 
     def _handle_events(self) -> None:
         try:
