@@ -121,5 +121,12 @@
         };
       };
     };
+
+    # HomeCluster — leaf node
+    homecluster = {
+      enable = true;
+      clusterRole = "leaf";
+      objectStore.enable = true;
+    };
   };
 }

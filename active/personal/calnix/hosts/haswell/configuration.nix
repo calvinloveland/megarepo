@@ -83,6 +83,28 @@
         # Needs read access to /home/calvin/calnix for flake change detection
         protectHome = "read-only";
       };
+      # HomeCluster checks
+      storage-report = {
+        enable = true;
+        interval = "hourly";
+        thresholds = { warn = 85; fail = 95; };
+      };
+      object-store-health = {
+        enable = true;
+        interval = "hourly";
+      };
+    };
+
+    # HomeCluster distributed storage
+    homecluster = {
+      enable = true;
+      clusterRole = "both";  # Coordinator: report + aggregate
+      objectStore.enable = true;
+      storageOverrides = {
+        "/data" = "hdd";
+      };
+      # Uncomment after creating the policy file:
+      # placementPolicyFile = "/etc/warden/placement-policy.yaml";
     };
 
     # Auto-remediate failing checks

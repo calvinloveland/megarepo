@@ -94,6 +94,8 @@ class WardenHTTPHandler(http.server.BaseHTTPRequestHandler):
             return self._handle_peers()
         elif path == "/warden/storage":
             return self._handle_storage()
+        elif path == "/warden/access":
+            return self._handle_access()
         elif path == "/warden/events":
             return self._handle_events()
         elif path == "/warden/health":
@@ -169,6 +171,31 @@ class WardenHTTPHandler(http.server.BaseHTTPRequestHandler):
                 self._send_json({"storage": report})
             else:
                 self._send_json({"storage": {}, "message": "HomeCluster not available"})
+        except Exception as e:
+            self._send_json({"error": str(e)}, 500)
+
+    def _handle_access(self) -> None:
+        """Return access tracking data from ClusterMetadata."""
+        try:
+            from homecluster.metadata import ClusterMetadata
+            config = load_config()
+            hc = config.get("homecluster", {})
+            db = hc.get("metadataDb", "/var/lib/homecluster/metadata.db")
+            meta = ClusterMetadata(db)
+            placements = meta.list_placements()
+            access_data = [
+                {
+                    "path": p["logical_path"],
+                    "reads": p.get("read_count", 0),
+                    "writes": p.get("write_count", 0),
+                    "temperature": p.get("temperature", "cold"),
+                    "last_access": p.get("last_access", ""),
+                }
+                for p in placements
+            ]
+            self._send_json({"access": access_data, "count": len(access_data)})
+        except ImportError:
+            self._send_json({"access": [], "message": "HomeCluster not available"})
         except Exception as e:
             self._send_json({"error": str(e)}, 500)
 
