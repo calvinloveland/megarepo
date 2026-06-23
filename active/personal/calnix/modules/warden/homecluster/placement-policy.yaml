@@ -1,0 +1,40 @@
+# HomeCluster Placement Policies
+#
+# Rules are matched in priority order (first match wins).
+# Path patterns use Unix glob matching (fnmatch).
+
+rules:
+  # Hot/active projects → SSD for performance
+  - path: "/projects/*"
+    preferred_storage: ssd
+    replicas: 2
+
+  # Photos → HDD (bulk storage, less latency-sensitive)
+  - path: "/photos/*"
+    preferred_storage: hdd
+    replicas: 2
+
+  # Music library → HDD, single copy sufficient
+  - path: "/music/*"
+    preferred_storage: hdd
+    replicas: 1
+
+  # Movies → HDD, single replica (can re-acquire)
+  - path: "/movies/*"
+    preferred_storage: hdd
+    replicas: 1
+
+  # Docker/build cache → SSD for speed, no replication
+  - path: "/cache/*"
+    preferred_storage: ssd
+    replicas: 1
+
+  # Archive data → HDD, minimal replication
+  - path: "/archive/*"
+    preferred_storage: hdd
+    replicas: 1
+
+  # Home directory default → any storage, 2 replicas
+  - path: "/home/*"
+    preferred_storage: any
+    replicas: 2
