@@ -252,6 +252,22 @@ in
         example = "/etc/warden/placement-policy.yaml";
         description = "Path to YAML placement policy file with rules";
       };
+
+      fuseMount = {
+        enable = lib.mkEnableOption "HomeCluster FUSE mount (/homecluster namespace)";
+
+        mountPoint = lib.mkOption {
+          type = lib.types.str;
+          default = "/homecluster";
+          description = "Mount point for the unified namespace";
+        };
+
+        readonly = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = "Mount the filesystem as read-only";
+        };
+      };
     };
 
     peers = lib.mkOption {
@@ -544,6 +560,44 @@ in
           };
         });
 
+        fuseMountService = lib.optionalAttrs (cfg.homecluster.enable && cfg.homecluster.fuseMount.enable) (let
+          pythonWithFuse = pkgs.python3.withPackages (ps: [ ps.fusepy ]);
+        in {
+          homecluster-fuse = {
+            description = "HomeCluster FUSE mount — unified /homecluster namespace";
+            after = [ "network.target" "warden-init.service" ];
+            wants = [ "warden-init.service" ];
+            wantedBy = [ "multi-user.target" ];
+            environment = {
+              HOME_CLUSTER_STORE = cfg.homecluster.objectStore.root;
+              HOME_CLUSTER_METADB = cfg.homecluster.metadataDb;
+              WARDEN_STATE_DIR = cfg.stateDir;
+            };
+            serviceConfig = {
+              Type = "simple";
+              ExecStart = ''${pythonWithFuse}/bin/python3 ${wardenSource}/homecluster/fuse_mount.py ${cfg.homecluster.fuseMount.mountPoint} --foreground'';
+              ExecStop = ''${pkgs.fuse3}/bin/fusermount3 -u ${cfg.homecluster.fuseMount.mountPoint} 2>/dev/null || true'';
+              ExecStopPost = ''${pkgs.fuse3}/bin/fusermount3 -u ${cfg.homecluster.fuseMount.mountPoint} 2>/dev/null || true'';
+              User = "warden";
+              Group = "warden";
+              Restart = "on-failure";
+              RestartSec = "5";
+              ReadWritePaths = [
+                cfg.stateDir
+                cfg.homecluster.fuseMount.mountPoint
+                cfg.homecluster.objectStore.root
+              ];
+              DeviceAllow = "/dev/fuse";
+              AmbientCapabilities = "";
+              CapabilityBoundingSet = "";
+              PrivateTmp = true;
+              MemoryMax = "256M";
+              TimeoutStartSec = "30";
+              TimeoutStopSec = "10";
+            };
+          };
+        });
+
         dashboardServices = {
           warden-banner = {
             description = "Show Warden health status on console";
@@ -615,7 +669,7 @@ in
         checkServices // wardenInit // recordGeneration // wardend
         // backupServices // backupCheckServices // autoRemediateService
         // wardenRebuild
-        // dashboardServices // dashboardApp // autopilotService;
+        // dashboardServices // dashboardApp // fuseMountService // autopilotService;
 
     # Timers for each check
     systemd.timers =
@@ -715,6 +769,11 @@ in
           metadataDb = cfg.homecluster.metadataDb;
           storageOverrides = cfg.homecluster.storageOverrides;
           placementPolicyFile = cfg.homecluster.placementPolicyFile;
+          fuseMount = {
+            enable = cfg.homecluster.fuseMount.enable;
+            mountPoint = cfg.homecluster.fuseMount.mountPoint;
+            readonly = cfg.homecluster.fuseMount.readonly;
+          };
         };
       };
 
@@ -737,7 +796,9 @@ in
         exec ${pkgs.bash}/bin/bash ${./warden-banner.sh}
       '') ]
       ++ lib.optionals (cfg.pi.enable && cfg.pi.autopilot.enable) [ pkgs.pi-agent-harness ]
-      ++ lib.optionals cfg.dashboard.enable [ pkgs.python3Packages.flask ];
+      ++ lib.optionals cfg.dashboard.enable [ pkgs.python3Packages.flask ]
+      ++ lib.optionals cfg.homecluster.enable [ pkgs.fuse3 ]
+      ++ lib.optionals (cfg.homecluster.enable && cfg.homecluster.fuseMount.enable) [ pkgs.python3Packages.fusepy ];
 
   };
 }
