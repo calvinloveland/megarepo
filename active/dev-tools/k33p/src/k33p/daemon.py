@@ -345,9 +345,10 @@ class Daemon:
         """Push new objects to all transport sources.
 
         For each channel in the manifest that has a supported transport
-        URL, sync local objects to the remote store.
+        URL, sync local objects to the remote store.  For git transports
+        this also creates git commits and pushes to the remote.
         """
-        from k33p.transport import Transport, TransportError
+        from k33p.transport import GitTransport, Transport, TransportError
 
         store_path = self.project.store_path or (
             self._project_root / ".k33p" / "store"
@@ -388,10 +389,126 @@ class Daemon:
                 except (TransportError, OSError) as e:
                     print(f"  ⚠ push to {transport_url} failed: {e}")
 
+            # For GitTransport, create git commits and push
+            elif isinstance(transport, GitTransport):
+                try:
+                    count = self._do_git_push(transport_url)
+                    if count > 0:
+                        pushed_any = True
+                except Exception as e:
+                    print(f"  ⚠ git push to {transport_url} failed: {e}")
+
         if pushed_any:
             self.state.last_push_time = time.time()
         else:
             print("  · nothing to push")
+
+    # ── git commit + push ────────────────────────────────────────
+
+    def _do_git_push(self, transport_url: str) -> int:
+        """Create a git commit from pending changes and push to remote.
+
+        Returns the number of files committed, or 0 if nothing changed.
+        """
+        ac = self.auto_commit_config
+        if ac is None:
+            return 0
+
+        import subprocess
+
+        # Build the list of changed files from pending changes and last scan
+        changed = set()
+        for change in self.state.pending_changes:
+            changed.add(change.path)
+
+        # Also check for any working-tree changes in watched paths
+        try:
+            result = subprocess.run(
+                ["git", "diff", "--name-only", "--relative"] + [str(p) for p in self.watched_paths],
+                capture_output=True, text=True, timeout=30,
+                cwd=str(self._project_root),
+            )
+            if result.returncode == 0:
+                for line in result.stdout.splitlines():
+                    line = line.strip()
+                    if line:
+                        changed.add(line)
+        except (OSError, subprocess.TimeoutExpired):
+            pass
+
+        if not changed:
+            return 0
+
+        # Stage all changes in watched paths
+        try:
+            subprocess.run(
+                ["git", "add", "--update"] + [str(p) for p in self.watched_paths],
+                capture_output=True, timeout=30,
+                cwd=str(self._project_root),
+            )
+        except (OSError, subprocess.TimeoutExpired) as e:
+            print(f"  ⚠ git add failed: {e}")
+            return 0
+
+        # Check if there's anything to commit
+        try:
+            result = subprocess.run(
+                ["git", "diff", "--cached", "--quiet"],
+                capture_output=True, timeout=30,
+                cwd=str(self._project_root),
+            )
+            if result.returncode == 0:
+                # No staged changes
+                return 0
+        except (OSError, subprocess.TimeoutExpired):
+            pass
+
+        # Generate commit message from template
+        file_list = ", ".join(sorted(changed)[:10])
+        if len(changed) > 10:
+            file_list += f" (+{len(changed) - 10} more)"
+        msg = self.message_template().format(files=file_list)
+
+        try:
+            subprocess.run(
+                ["git", "commit", "-m", msg],
+                capture_output=True, timeout=30,
+                cwd=str(self._project_root),
+            )
+        except (OSError, subprocess.TimeoutExpired) as e:
+            print(f"  ⚠ git commit failed: {e}")
+            return 0
+
+        # Push to the remote
+        remote = "origin"
+        branch = "main"
+        try:
+            # Detect current branch
+            br_result = subprocess.run(
+                ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+                capture_output=True, text=True, timeout=10,
+                cwd=str(self._project_root),
+            )
+            if br_result.returncode == 0:
+                branch = br_result.stdout.strip()
+        except (OSError, subprocess.TimeoutExpired):
+            pass
+
+        print(f"  ↑ git push {remote}/{branch}")
+        try:
+            result = subprocess.run(
+                ["git", "push", remote, branch],
+                capture_output=True, text=True, timeout=120,
+                cwd=str(self._project_root),
+            )
+            if result.returncode == 0:
+                print(f"    ✓ pushed {len(changed)} file(s) to {transport_url}")
+            else:
+                print(f"    ⚠ push stderr: {result.stderr.strip()}")
+        except (OSError, subprocess.TimeoutExpired) as e:
+            print(f"  ⚠ git push failed: {e}")
+
+        return len(changed)
 
     def stop(self) -> None:
         """Signal the daemon to stop."""

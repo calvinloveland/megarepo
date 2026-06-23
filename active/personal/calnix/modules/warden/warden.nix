@@ -321,8 +321,8 @@ in
 
         interval = lib.mkOption {
           type = lib.types.str;
-          default = "30min";
-          description = "How often the autopilot checks and remediates (OnCalendar format)";
+          default = "*:0/30";
+          description = "How often the autopilot checks and remediates (systemd OnCalendar format)";
         };
       };
     };
@@ -350,6 +350,9 @@ in
         options = [ "NOPASSWD" ];
       }];
     }];
+    security.sudo.extraConfig = ''
+      Defaults:warden !requiretty
+    '';
 
     # State directory + Pi extension symlink
     systemd.tmpfiles.rules = stateDirs

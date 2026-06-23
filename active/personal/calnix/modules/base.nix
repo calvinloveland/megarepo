@@ -139,6 +139,7 @@ in
 {
   imports = [
     ./calnix.nix
+    ./k33p-daemon.nix
     ./remote-access.nix
     ./warden/warden.nix
   ];

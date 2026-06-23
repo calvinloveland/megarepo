@@ -213,4 +213,42 @@ apps:
       PORT: "5111"
       HOST: "0.0.0.0"
 
+  - id: vroomon
+    name: Vroomon
+    description: Vehicle evolution simulator — evolve a population of DNA-encoded cars through physics-based races, save top performers to a Hall of Fame
+    icon: 🏎️
+    subdomain: vroomon
+    path: ../../games/vroomon/electron
+    type: node
+    port: 5112
+    start_cmd: "npm run build && node scripts/web-server.mjs"
+    env:
+      VROOMON_WEB_PORT: "5112"
+      VROOMON_WEB_HOST: "0.0.0.0"
+
+  - id: image-vae-demo
+    name: Image VAE Demo
+    description: Extreme image compression with variational autoencoders — compress any image to ~1 KB
+    icon: 🖼️
+    subdomain: vae
+    path: ../image-vae-demo
+    type: flask
+    port: 5114
+    module: image_vae_demo.app
+    env:
+      PORT: "5114"
+      HOST: "0.0.0.0"
+
+  - id: miyuki-practice
+    name: Miyuki Piano Practice
+    description: Practice Miraie &amp; Milkoi's ミユキ with a Synthesia-style falling-notes visualizer, clickable piano, and tempo control
+    icon: 🎹
+    subdomain: miyuki
+    path: ../miyuki-practice
+    type: flask
+    port: 5115
+    module: app
+    env:
+      PORT: "5115"
+
 

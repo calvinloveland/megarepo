@@ -147,6 +147,9 @@
     };
   };
 
+  # k33p daemon — auto-commit and push watched paths every 5 minutes
+  calnix.k33pDaemon.enable = true;
+
   # === Web Apps ===
   # Run select megarepo web apps as systemd services on this host
   calnix.webApps = {
