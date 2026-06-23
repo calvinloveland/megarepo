@@ -22,6 +22,13 @@ Usage:
   wardenctl config show         Show current config
   wardenctl config set key val  Set config override
 
+  wardenctl hc status           Show HomeCluster storage report
+  wardenctl hc store put <file> Store file in object store
+  wardenctl hc store get <oid>  Retrieve object by hash
+  wardenctl hc placements       Show directory placements
+  wardenctl hc policies add     Add placement policy
+  wardenctl hc policies list    List placement policies
+
   wardenctl help                Show this message
 """
 
@@ -31,7 +38,10 @@ import argparse
 import json
 import os
 import subprocess
+import sys
 import time
+from pathlib import Path
+from typing import Any
 
 WARDEN_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(WARDEN_DIR))
@@ -430,6 +440,324 @@ def cmd_backup(args: argparse.Namespace) -> None:
         print(result.stderr, file=sys.stderr)
 
 
+def cmd_hc(args: argparse.Namespace) -> None:
+    """HomeCluster storage operations."""
+    sub = args.hc_command
+    if not sub:
+        print("Usage: wardenctl hc [status|store|placements|policies]")
+        print()
+        print("  hc status              Show local storage report with SSD/HDD/ARCHIVE breakdown")
+        print("  hc store put <file>    Store a file in the object store")
+        print("  hc store get <oid>     Retrieve an object by hash")
+        print("  hc store list          List all stored objects")
+        print("  hc store verify [oid]  Verify object integrity")
+        print("  hc placements          Show directory placements across cluster")
+        print("  hc policies list       List placement policy rules")
+        print("  hc policies add ...    Add a placement policy")
+        print("  hc policies delete     Delete a policy")
+        return
+
+    dispatch = {
+        "status": _hc_status,
+        "store": _hc_store,
+        "placements": _hc_placements,
+        "policies": _hc_policies,
+    }
+    handler = dispatch.get(sub)
+    if handler:
+        handler(args)
+    else:
+        print(f"Unknown hc command: {sub}")
+
+
+def _fmt_size(n: int) -> str:
+    if n >= 1e12:
+        return f"{n / 1e12:.2f} TB"
+    elif n >= 1e9:
+        return f"{n / 1e9:.2f} GB"
+    elif n >= 1e6:
+        return f"{n / 1e6:.2f} MB"
+    else:
+        return f"{n} B"
+
+
+def _get_hc_config() -> dict[str, Any]:
+    """Get HomeCluster config from warden config."""
+    config = load_config()
+    return config.get("homecluster", {})
+
+
+def _get_store_root() -> str:
+    hc = _get_hc_config()
+    return hc.get("objectStoreRoot", os.environ.get("HOME_CLUSTER_STORE", "/var/lib/homecluster/objects"))
+
+
+def _get_metadata_db() -> str:
+    hc = _get_hc_config()
+    return hc.get("metadataDb", os.environ.get("HOME_CLUSTER_METADB", "/var/lib/homecluster/metadata.db"))
+
+
+def _hc_status(args: argparse.Namespace) -> None:
+    """Show local storage report."""
+    from homecluster.storage_class import classify_storage, format_storage_summary
+
+    hc_config = _get_hc_config()
+    overrides = hc_config.get("storageOverrides", {})
+
+    mounts = classify_storage(overrides)
+    summary = format_storage_summary(mounts)
+
+    if getattr(args, "json", False):
+        print(json.dumps(summary, indent=2))
+        return
+
+    print("📦 HomeCluster Storage Report")
+    print(f"{'=' * 50}")
+
+    by_class = summary.get("by_class", {})
+    for cls in ("ssd", "hdd", "archive", "unknown"):
+        if cls in by_class:
+            info = by_class[cls]
+            icon = {"ssd": "⚡", "hdd": "💿", "archive": "🗄️", "unknown": "💾"}.get(cls, "?")
+            free_gb = info["free_bytes"] / 1e9
+            total_gb = info["capacity_bytes"] / 1e9
+            print(f"  {icon} {cls.upper()}: {free_gb:.1f} GB free / {total_gb:.1f} GB total ({info['count']} mount(s))")
+
+    print()
+    print(f"  Total: {summary['total_capacity_bytes'] / 1e9:.1f} GB")
+    print(f"  Free:  {summary['total_free_bytes'] / 1e9:.1f} GB")
+    print(f"  Used:  {summary['total_used_pct']}%")
+    print()
+
+    print("Mounts:")
+    for m in summary["mounts"]:
+        icon = {"ssd": "⚡", "hdd": "💿", "archive": "🗄️", "unknown": "💾"}.get(m["storage_class"], "?")
+        print(f"  {icon} {m['mount']}: {m['storage_class']} — {m['free_bytes']/1e9:.1f}/{m['capacity_bytes']/1e9:.1f} GB ({m['used_pct']}% used)")
+
+
+def _hc_store(args: argparse.Namespace) -> None:
+    """Object store operations."""
+    cmd = getattr(args, "store_command", None)
+    if not cmd:
+        print("Usage: wardenctl hc store [put|get|list|verify]")
+        return
+
+    from homecluster.object_store import ObjectStore
+
+    store_root = _get_store_root()
+    store = ObjectStore(store_root)
+
+    if cmd == "put":
+        path = args.path
+        from pathlib import Path
+        p = Path(path)
+        if not p.exists():
+            print(f"File not found: {path}")
+            return
+        oid = store.put_file(
+            path,
+            content_type=getattr(args, "content_type", "application/octet-stream"),
+            logical_path=getattr(args, "logical_path", None),
+        )
+        size = p.stat().st_size
+        print(f"Stored: {oid}")
+        print(f"Size:   {_fmt_size(size)}")
+
+    elif cmd == "get":
+        oid = args.oid
+        output = getattr(args, "output", None)
+        if output:
+            store.get_file(oid, output)
+            meta = store.get_metadata(oid)
+            size = meta.size_bytes if meta else "?"
+            print(f"Retrieved {oid} → {output} ({_fmt_size(size)})")
+        else:
+            data = store.get(oid)
+            sys.stdout.buffer.write(data)
+            sys.stdout.buffer.flush()
+
+    elif cmd == "list":
+        oids = store.list_objects()
+        page_size = 20
+        total = len(oids)
+        if total == 0:
+            print("Object store is empty")
+            return
+        print(f"{total} object(s) in store:")
+        for oid in oids[:page_size]:
+            meta = store.get_metadata(oid)
+            size = _fmt_size(meta.size_bytes) if meta else "?"
+            logical = f" ({meta.logical_path})" if meta and meta.logical_path else ""
+            print(f"  {oid[:24]}...  {size}{logical}")
+        if total > page_size:
+            print(f"  ... and {total - page_size} more")
+
+    elif cmd == "verify":
+        oid = getattr(args, "oid", None)
+        sample = getattr(args, "sample", 10)
+        if oid:
+            ok = store.verify(oid)
+            print(f"{oid[:32]}... {'✓ verified' if ok else '✗ CORRUPTED'}")
+        else:
+            oids = store.list_objects()
+            if not oids:
+                print("No objects to verify")
+                return
+            import random
+            to_check = random.sample(oids, min(sample, len(oids)))
+            passed = 0
+            failed = 0
+            for o in to_check:
+                if store.verify(o):
+                    passed += 1
+                else:
+                    failed += 1
+                    print(f"  ✗ {o[:32]}... CORRUPTED")
+            if failed == 0:
+                print(f"✓ All {passed} sampled objects verified")
+            else:
+                print(f"✗ {failed}/{passed + failed} objects corrupted!")
+
+
+def _hc_placements(args: argparse.Namespace) -> None:
+    """Show directory placements."""
+    from homecluster.metadata import ClusterMetadata
+
+    db_path = _get_metadata_db()
+    meta = ClusterMetadata(db_path)
+
+    path_filter = getattr(args, "path", None)
+    placements = meta.list_placements()
+    if path_filter:
+        placements = [p for p in placements if path_filter in p["logical_path"]]
+
+    if getattr(args, "json", False):
+        print(json.dumps(placements, indent=2, default=str))
+        return
+
+    if not placements:
+        print("No directory placements. Set policies with: wardenctl hc policies add")
+        return
+
+    print(f"Directory Placements ({len(placements)}):")
+    for p in placements:
+        replicas = p.get("replicas", [])
+        print(f"  {p['logical_path']}")
+        print(f"    Temperature: {p.get('temperature', '?')}")
+        print(f"    Preferred:   {p.get('preferred_storage', 'any')}")
+        print(f"    Replicas:    {len(replicas)} (target: {p.get('replica_count', 1)})")
+        print(f"    Access:      {p.get('read_count', 0)} reads, {p.get('write_count', 0)} writes")
+        if replicas:
+            for r in replicas:
+                hostname = r.get("hostname", r.get("node_id", "?"))
+                print(f"      • {hostname} ({'online' if r.get('online', False) else 'offline'})")
+        print()
+
+
+def _hc_policies(args: argparse.Namespace) -> None:
+    """Manage placement policies."""
+    from homecluster.metadata import ClusterMetadata
+
+    db_path = _get_metadata_db()
+    meta = ClusterMetadata(db_path)
+
+    action = args.action
+
+    if action == "list":
+        policies = meta.list_policies()
+        if getattr(args, "json", False):
+            print(json.dumps(policies, indent=2))
+            return
+        if not policies:
+            print("No placement policies defined.")
+            print("Add one: wardenctl hc policies add --path '/photos/*' --preferred-storage hdd --replicas 2")
+            return
+        print(f"Placement Policies ({len(policies)}):")
+        for p in policies:
+            print(f"  #{p['id']}: {p['path_pattern']} → {p['preferred_storage']} ({p['replica_count']} replica(s))")
+
+    elif action == "add":
+        if getattr(args, "file", None):
+            # Load from file
+            file_path = args.file
+            if not os.path.exists(file_path):
+                print(f"File not found: {file_path}")
+                return
+            from homecluster.scheduler import PlacementScheduler
+            scheduler = PlacementScheduler(meta)
+            count = scheduler.load_policies_from_yaml(file_path)
+            print(f"Loaded {count} policies from {file_path}")
+            return
+
+        path_pattern = getattr(args, "path", None)
+        if not path_pattern:
+            print("Error: --path is required")
+            print("Usage: wardenctl hc policies add --path '/photos/*' --preferred-storage hdd --replicas 2")
+            return
+        preferred = getattr(args, "preferred_storage", "any")
+        replicas = getattr(args, "replicas", 1)
+        pid = meta.add_policy(path_pattern, preferred_storage=preferred, replica_count=replicas)
+        print(f"Added policy #{pid}: {path_pattern} → {preferred} ({replicas} replica(s))")
+
+    elif action == "delete":
+        policy_id = getattr(args, "id", None)
+        if policy_id is None:
+            print("Error: --id is required")
+            print("Usage: wardenctl hc policies delete --id 1")
+            return
+        if meta.delete_policy(policy_id):
+            print(f"Deleted policy #{policy_id}")
+        else:
+            print(f"Policy #{policy_id} not found")
+
+
+def cmd_backup(args: argparse.Namespace) -> None:
+    """Backup operations."""
+    cmd = args.backup_command
+    if not cmd:
+        print("Usage: wardenctl backup [run|status|snapshots|check|list-repos]")
+        return
+
+    runner_args = ["--json", cmd]
+    if hasattr(args, 'repository') and args.repository:
+        runner_args.extend(["--repository", args.repository])
+
+    import subprocess
+    warden_dir = Path(__file__).resolve().parent
+    result = subprocess.run(
+        [sys.executable, str(warden_dir / "backup_runner.py")] + runner_args,
+        capture_output=True,
+        text=True,
+        timeout=7200,
+    )
+
+    if result.stdout.strip():
+        try:
+            data = json.loads(result.stdout)
+            if isinstance(data, dict):
+                if "repositories" in data:
+                    print(f"Last backup run: {data.get('last_run', 'never')[:19]}")
+                    for name, repo in data["repositories"].items():
+                        last = (repo.get("last_success", "") or "never")[:19]
+                        print(f"  {name}: {repo.get('status', '?')} (last: {last})")
+                elif "message" in data:
+                    print(data["message"])
+                elif "error" in data:
+                    print(f"Error: {data['message']}")
+                else:
+                    for name, res in data.items():
+                        status = res.get("status", "?")
+                        msg = res.get("message", res.get("output", ""))[:120]
+                        print(f"  {name}: {status} \u2014 {msg}")
+            elif isinstance(data, list):
+                for r in data:
+                    print(f"  {r['name']}: {r['type']} at {r['path']} ({r['paths']} paths)")
+        except json.JSONDecodeError:
+            print(result.stdout)
+    if result.stderr.strip():
+        print(result.stderr, file=sys.stderr)
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Warden — per-host monitoring and management agent",
@@ -509,6 +837,47 @@ Examples:
 
     backup_subparsers.add_parser("list-repos", help="List configured repositories")
 
+    # homecluster
+    hc_parser = subparsers.add_parser("hc", help="HomeCluster storage operations")
+    hc_subparsers = hc_parser.add_subparsers(dest="hc_command")
+
+    hc_status = hc_subparsers.add_parser("status", help="Show local storage report with class breakdown")
+    hc_status.add_argument("--json", action="store_true", help="JSON output")
+
+    # hc store
+    hc_store = hc_subparsers.add_parser("store", help="Object store operations")
+    hc_store_sub = hc_store.add_subparsers(dest="store_command")
+
+    store_put = hc_store_sub.add_parser("put", help="Store a file")
+    store_put.add_argument("path", help="Path to file to store")
+    store_put.add_argument("--content-type", default="application/octet-stream", help="Content type")
+    store_put.add_argument("--logical-path", help="Logical path for directory mapping")
+
+    store_get = hc_store_sub.add_parser("get", help="Retrieve an object")
+    store_get.add_argument("oid", help="Object ID (SHA-256)")
+    store_get.add_argument("--output", "-o", help="Output path (default: stdout)")
+
+    hc_store_sub.add_parser("list", help="List all objects")
+
+    store_verify = hc_store_sub.add_parser("verify", help="Verify object integrity")
+    store_verify.add_argument("oid", nargs="?", help="Object ID (omit for random sample)")
+    store_verify.add_argument("--sample", type=int, default=10, help="Number of objects to sample")
+
+    # hc placements
+    hc_placements = hc_subparsers.add_parser("placements", help="List directory placements")
+    hc_placements.add_argument("--path", help="Filter by logical path")
+    hc_placements.add_argument("--json", action="store_true", help="JSON output")
+
+    # hc policies
+    hc_policies = hc_subparsers.add_parser("policies", help="Manage placement policies")
+    hc_policies.add_argument("action", choices=["list", "add", "delete"])
+    hc_policies.add_argument("--path", help="Path pattern (for add)")
+    hc_policies.add_argument("--preferred-storage", choices=["ssd", "hdd", "archive", "any"], default="any", help="Preferred storage class (for add)")
+    hc_policies.add_argument("--replicas", type=int, default=1, help="Replica count (for add)")
+    hc_policies.add_argument("--id", type=int, help="Policy ID (for delete)")
+    hc_policies.add_argument("--file", help="Load policies from YAML/JSON file")
+    hc_policies.add_argument("--json", action="store_true", help="JSON output")
+
     return parser
 
 
@@ -539,6 +908,7 @@ def main():
         "peer": cmd_peer,
         "remediate": cmd_remediate,
         "backup": cmd_backup,
+        "hc": cmd_hc,
     }
 
     handler = dispatch.get(args.command)

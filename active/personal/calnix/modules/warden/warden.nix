@@ -13,6 +13,10 @@ let
     cp -r ${./.}/*.py "$out/"
     mkdir -p "$out/checks"
     cp ${./.}/checks/*.py "$out/checks/"
+    if [ -d ${./.}/homecluster ]; then
+      mkdir -p "$out/homecluster"
+      cp ${./.}/homecluster/*.py "$out/homecluster/"
+    fi
     if [ -d ${./.}/dashboard ]; then
       mkdir -p "$out/dashboard"
       cp -r ${./.}/dashboard/*.py "$out/dashboard/"
@@ -47,9 +51,22 @@ let
     "d ${cfg.stateDir} 0775 warden warden - -"
     "d ${cfg.stateDir}/checks 0775 warden warden - -"
     "d ${cfg.stateDir}/peers 0775 warden warden - -"
+    "d ${cfg.stateDir}/homecluster 0775 warden warden - -"
     "Z ${cfg.stateDir} 0775 warden warden - -"
     "Z ${cfg.stateDir}/checks 0775 warden warden - -"
     "Z ${cfg.stateDir}/peers 0775 warden warden - -"
+  ]
+  # HomeCluster object store directory
+  ++ lib.optionals cfg.homecluster.enable [
+    "d ${cfg.homecluster.objectStore.root} 0775 warden warden - -"
+    "d ${cfg.homecluster.objectStore.root}/objects 0775 warden warden - -"
+    "d ${cfg.homecluster.objectStore.root}/metadata 0775 warden warden - -"
+    "d ${cfg.homecluster.objectStore.root}/staging 0775 warden warden - -"
+    "Z ${cfg.homecluster.objectStore.root} 0775 warden warden - -"
+  ]
+  # HomeCluster metadata database directory (parent role)
+  ++ lib.optionals (cfg.homecluster.enable && (cfg.homecluster.clusterRole == "parent" || cfg.homecluster.clusterRole == "both")) [
+    "d ${builtins.dirOf cfg.homecluster.metadataDb} 0775 warden warden - -"
   ];
 
   # Build the check timer list
@@ -186,6 +203,54 @@ in
         type = lib.types.port;
         default = 9090;
         description = "Port for the Warden HTTP API";
+      };
+    };
+
+    homecluster = {
+      enable = lib.mkEnableOption "HomeCluster distributed storage integration";
+
+      objectStore = {
+        enable = lib.mkEnableOption "local content-addressed object store";
+
+        root = lib.mkOption {
+          type = lib.types.str;
+          default = "/var/lib/homecluster/objects";
+          description = "Root directory for the content-addressed object store";
+        };
+      };
+
+      clusterRole = lib.mkOption {
+        type = lib.types.enum [ "leaf" "parent" "both" ];
+        default = "leaf";
+        description = ''
+          HomeCluster role for this node.
+          - leaf: Reports storage to parent, serves object requests.
+          - parent: Aggregates cluster metadata, runs placement scheduler.
+          - both: Acts as both leaf and parent (typical for a desktop/NAS).
+        '';
+      };
+
+      metadataDb = lib.mkOption {
+        type = lib.types.str;
+        default = "/var/lib/homecluster/metadata.db";
+        description = "Path to the SQLite database for cluster metadata (parent role only)";
+      };
+
+      storageOverrides = lib.mkOption {
+        type = lib.types.attrsOf lib.types.str;
+        default = { };
+        example = {
+          "/mnt/hdd" = "hdd";
+          "/mnt/cold" = "archive";
+        };
+        description = "Override storage class detection for specific mount points";
+      };
+
+      placementPolicyFile = lib.mkOption {
+        type = lib.types.nullOr lib.types.str;
+        default = null;
+        example = "/etc/warden/placement-policy.yaml";
+        description = "Path to YAML placement policy file with rules";
       };
     };
 
@@ -642,10 +707,22 @@ in
         }) (lib.filterAttrs (n: r: r.enable) cfg.backups.repositories);
       };
 
+      homeclusterConfig = lib.optionalAttrs cfg.homecluster.enable {
+        homecluster = {
+          enable = true;
+          clusterRole = cfg.homecluster.clusterRole;
+          objectStoreRoot = cfg.homecluster.objectStore.root;
+          metadataDb = cfg.homecluster.metadataDb;
+          storageOverrides = cfg.homecluster.storageOverrides;
+          placementPolicyFile = cfg.homecluster.placementPolicyFile;
+        };
+      };
+
       allConfig = {
         checks = checksConfig;
         peers = peersConfig;
-      } // (if cfg.backups.enable then { backups = backupsConfig; } else {});
+      } // (if cfg.backups.enable then { backups = backupsConfig; } else {})
+        // homeclusterConfig;
     in
       pkgs.writeText "warden-config.json" (builtins.toJSON allConfig);
 

@@ -37,6 +37,7 @@ except ImportError:
 from warden_state import (
     get_hostname,
     get_or_create_host_id,
+    get_storage_report,
     load_config,
     load_peer_status,
     load_state,
@@ -75,7 +76,7 @@ def fetch_peer_status(host: str, port: int = 9090, timeout: int = 5) -> dict[str
 
 
 def get_local_status() -> dict[str, Any]:
-    """Get local Warden status."""
+    """Get local Warden status, enriched with HomeCluster storage data."""
     state = load_state()
     state["_reachable"] = True
     state["_host"] = "localhost"
@@ -89,7 +90,80 @@ def get_local_status() -> dict[str, Any]:
         "warn_count": sum(1 for c in checks.values() if c.get("status") == "warn"),
         "fail_count": sum(1 for c in checks.values() if c.get("status") == "fail"),
     }
+    # Enrich with HomeCluster storage data
+    storage = get_storage_report()
+    if storage:
+        state["homecluster"] = storage
     return state
+
+
+def compute_storage_pool(hosts: list[dict[str, Any]]) -> dict[str, Any]:
+    """Aggregate storage across all hosts into a cluster pool view."""
+    pool = {
+        "total_capacity_bytes": 0,
+        "total_free_bytes": 0,
+        "total_used_bytes": 0,
+        "node_count": 0,
+        "online_count": 0,
+        "by_class": {},
+        "per_node": [],
+    }
+
+    for host in hosts:
+        if not host.get("_reachable"):
+            continue
+        pool["online_count"] += 1
+
+        hc = host.get("homecluster", {})
+        summary = hc.get("summary", {})
+        if not summary:
+            continue
+
+        pool["node_count"] += 1
+        cap = summary.get("total_capacity_bytes", 0)
+        free = summary.get("total_free_bytes", 0)
+        pool["total_capacity_bytes"] += cap
+        pool["total_free_bytes"] += free
+
+        # Per-class aggregation
+        by_class = summary.get("by_class", {})
+        for cls, info in by_class.items():
+            if cls not in pool["by_class"]:
+                pool["by_class"][cls] = {"capacity_bytes": 0, "free_bytes": 0, "node_count": 0, "mount_count": 0}
+            pool["by_class"][cls]["capacity_bytes"] += info.get("capacity_bytes", 0)
+            pool["by_class"][cls]["free_bytes"] += info.get("free_bytes", 0)
+            pool["by_class"][cls]["node_count"] += info.get("node_count", 0)
+            pool["by_class"][cls]["mount_count"] += info.get("mount_count", 0)
+
+        # Per-node summary
+        pool["per_node"].append({
+            "hostname": host.get("hostname", "?"),
+            "capacity_bytes": cap,
+            "free_bytes": free,
+            "used_bytes": cap - free,
+            "used_pct": round((cap - free) / cap * 100, 1) if cap else 0,
+            "by_class": by_class,
+        })
+
+    pool["total_used_bytes"] = pool["total_capacity_bytes"] - pool["total_free_bytes"]
+    if pool["total_capacity_bytes"]:
+        pool["total_used_pct"] = round(pool["total_used_bytes"] / pool["total_capacity_bytes"] * 100, 1)
+    else:
+        pool["total_used_pct"] = 0
+
+    return pool
+
+
+def format_bytes(n: int) -> str:
+    """Format byte count to human-readable string."""
+    if n >= 1e12:
+        return f"{n / 1e12:.1f} TB"
+    elif n >= 1e9:
+        return f"{n / 1e9:.1f} GB"
+    elif n >= 1e6:
+        return f"{n / 1e6:.1f} MB"
+    else:
+        return f"{n} B"
 
 
 def discover_peers() -> list[dict[str, Any]]:
@@ -209,8 +283,127 @@ INDEX_HTML = """
         .event-time { color: #8b949e; }
         .event-check { color: #c9d1d9; }
         .event-msg { color: #8b949e; }
+        /* ── Storage Pool Hero ─────────────────────────────── */
+        .storage-pool-hero {
+            background: linear-gradient(135deg, #161b22 0%, #1c2333 100%);
+            border: 1px solid #30363d;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .pool-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        .pool-title {
+            font-size: 1.15rem;
+            font-weight: 600;
+            color: #58a6ff;
+        }
+        .pool-nodes {
+            font-size: 0.8rem;
+            color: #8b949e;
+        }
+        .pool-bar-container {
+            margin-bottom: 12px;
+        }
+        .pool-bar {
+            background: #21262d;
+            border-radius: 6px;
+            height: 18px;
+            overflow: hidden;
+            margin-bottom: 4px;
+        }
+        .pool-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #3fb950 0%, #d29922 70%, #f85149 100%);
+            border-radius: 6px;
+            transition: width 0.5s ease;
+        }
+        .pool-bar-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.75rem;
+            color: #8b949e;
+        }
+        .pool-classes {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        .pool-class {
+            background: #21262d;
+            border-radius: 6px;
+            padding: 8px 12px;
+            font-size: 0.75rem;
+            flex: 1;
+            min-width: 120px;
+        }
+        .pool-class-label {
+            font-weight: 600;
+            color: #c9d1d9;
+            display: block;
+            margin-bottom: 2px;
+        }
+        .pool-class-free {
+            color: #3fb950;
+            display: block;
+        }
+        .pool-class-total {
+            color: #8b949e;
+            display: block;
+        }
+        /* ── Per-Node Storage ───────────────────────────────── */
+        .storage-row {
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px solid #21262d;
+        }
+        .storage-title {
+            font-size: 0.75rem;
+            color: #8b949e;
+            margin-bottom: 4px;
+        }
+        .storage-bar-container {
+            margin-bottom: 4px;
+        }
+        .storage-bar {
+            background: #21262d;
+            border-radius: 4px;
+            height: 8px;
+            overflow: hidden;
+        }
+        .storage-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #3fb950 0%, #d29922 80%, #f85149 100%);
+            border-radius: 4px;
+        }
+        .storage-bar-text {
+            font-size: 0.65rem;
+            color: #8b949e;
+            margin-top: 2px;
+        }
+        .storage-classes {
+            display: flex;
+            gap: 4px;
+            flex-wrap: wrap;
+            margin-top: 4px;
+        }
+        .storage-class-chip {
+            font-size: 0.6rem;
+            padding: 1px 6px;
+            border-radius: 8px;
+            background: #21262d;
+            color: #8b949e;
+        }
+        .chip-ssd { border-left: 2px solid #58a6ff; }
+        .chip-hdd { border-left: 2px solid #d29922; }
+        .chip-archive { border-left: 2px solid #8b949e; }
         @media (max-width: 600px) {
             .host-grid { grid-template-columns: 1fr; }
+            .pool-classes { flex-direction: column; }
         }
     </style>
 </head>
@@ -227,6 +420,38 @@ INDEX_HTML = """
         <span>Last updated: {{ now[:19] }}</span>
         <a href="/">⟳ Refresh</a>
     </div>
+
+    {% if storage_pool.node_count > 0 %}
+    <!-- HomeCluster Storage Pool -->
+    <div class="storage-pool-hero">
+        <div class="pool-header">
+            <span class="pool-title">📦 HomeCluster Storage Pool</span>
+            <span class="pool-nodes">{{ storage_pool.online_count }}/{{ storage_pool.node_count }} nodes online</span>
+        </div>
+        <div class="pool-bar-container">
+            <div class="pool-bar">
+                <div class="pool-bar-fill" style="width: {{ storage_pool.total_used_pct }}%"></div>
+            </div>
+            <div class="pool-bar-labels">
+                <span>{{ format_bytes(storage_pool.total_free_bytes) }} free</span>
+                <span>{{ storage_pool.total_used_pct }}% used</span>
+                <span>{{ format_bytes(storage_pool.total_capacity_bytes) }} total</span>
+            </div>
+        </div>
+        <div class="pool-classes">
+            {% for cls, info in storage_pool.by_class.items() %}
+            <div class="pool-class">
+                <span class="pool-class-label">
+                    {% if cls == 'ssd' %}⚡{% elif cls == 'hdd' %}💿{% elif cls == 'archive' %}🗄️{% else %}💾{% endif %}
+                    {{ cls.upper() }}
+                </span>
+                <span class="pool-class-free">{{ format_bytes(info.free_bytes) }} free</span>
+                <span class="pool-class-total">{{ format_bytes(info.capacity_bytes) }} total</span>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
 
     <div class="host-grid">
         {% for host in hosts %}
@@ -282,6 +507,29 @@ INDEX_HTML = """
             </div>
             {% endif %}
 
+            {% if host._reachable and host.homecluster %}
+            {% set hc = host.homecluster %}
+            {% set s = hc.summary %}
+            <div class="storage-row">
+                <div class="storage-title">💾 Storage</div>
+                <div class="storage-bar-container">
+                    <div class="storage-bar">
+                        <div class="storage-bar-fill" style="width: {{ s.total_used_pct }}%"></div>
+                    </div>
+                    <div class="storage-bar-text">{{ format_bytes(s.total_free_bytes) }} free / {{ format_bytes(s.total_capacity_bytes) }}</div>
+                </div>
+                {% if s.by_class %}
+                <div class="storage-classes">
+                    {% for cls, info in s.by_class.items() %}
+                    <span class="storage-class-chip chip-{{ cls }}" title="{{ info.mount_count }} mount(s), {{ format_bytes(info.capacity_bytes) }} total">
+                        {{ cls.upper() }} {{ format_bytes(info.free_bytes) }}
+                    </span>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+            {% endif %}
+
             {% if host._reachable and host.generation %}
             <div class="backup-row">
                 Generation: <span>{{ host.generation.current or '?' }}</span>
@@ -322,7 +570,7 @@ INDEX_HTML = """
 
 @app.route("/")
 def index():
-    """Main dashboard — shows all hosts."""
+    """Main dashboard — shows all hosts and aggregated storage pool."""
     local = get_local_status()
     peer_list = discover_peers()
 
@@ -332,16 +580,19 @@ def index():
         if status:
             hosts.append(status)
 
+    storage_pool = compute_storage_pool(hosts)
     events = read_events(tail=50)
 
     return render_template_string(
         INDEX_HTML,
         local=local,
         hosts=hosts,
+        storage_pool=storage_pool,
         events=events,
         now=utc_now(),
         status_icon=status_icon,
         time_ago=time_ago,
+        format_bytes=format_bytes,
     )
 
 
@@ -360,16 +611,19 @@ def host_detail(hostname: str):
         else:
             data = {"hostname": hostname, "_reachable": False, "_error": "Unknown host"}
 
+    storage_pool = compute_storage_pool([local, data] if data.get("_reachable") else [local])
     events = read_events(tail=50)
 
     return render_template_string(
         INDEX_HTML.replace("/host/{{ host.hostname }}", "/host/{{ host.hostname }}" if hostname != data.get("hostname", "") else ""),
         local=local,
         hosts=[data],
+        storage_pool=storage_pool,
         events=events,
         now=utc_now(),
         status_icon=status_icon,
         time_ago=time_ago,
+        format_bytes=format_bytes,
     )
 
 
@@ -415,7 +669,7 @@ def events_page():
 
 @app.route("/api/hosts")
 def api_hosts():
-    """JSON endpoint returning all hosts' status."""
+    """JSON endpoint returning all hosts' status with storage pool."""
     local = get_local_status()
     peer_list = discover_peers()
 
@@ -425,11 +679,30 @@ def api_hosts():
         if status:
             hosts.append(status)
 
+    storage_pool = compute_storage_pool(hosts)
+
     return jsonify({
         "timestamp": utc_now(),
         "host_count": len(hosts),
         "hosts": hosts,
+        "storage_pool": storage_pool,
     })
+
+
+@app.route("/api/storage/pool")
+def api_storage_pool():
+    """JSON endpoint for just the aggregated storage pool."""
+    local = get_local_status()
+    peer_list = discover_peers()
+
+    hosts = [local]
+    for peer in peer_list:
+        status = fetch_peer_status(peer["host"], peer["port"])
+        if status:
+            hosts.append(status)
+
+    storage_pool = compute_storage_pool(hosts)
+    return jsonify(storage_pool)
 
 
 @app.route("/api/host/<hostname>")

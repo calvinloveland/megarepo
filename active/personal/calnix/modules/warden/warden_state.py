@@ -25,6 +25,7 @@ CHECKS_DIR = "checks"
 PEERS_DIR = "peers"
 CONFIG_FILE = "config.json"
 IDENTITY_FILE = "identity.key"
+HOMECLUSTER_STATE_FILE = "homecluster.json"
 
 
 class WardenStateError(RuntimeError):
@@ -392,6 +393,62 @@ def save_config(
 
 
 # ── Last boot detection ──────────────────────────────────────────────
+
+
+# ── HomeCluster storage state ─────────────────────────────────────
+
+
+def get_storage_report(
+    state_dir: str | os.PathLike[str] | None = None,
+) -> dict[str, Any]:
+    """Get the HomeCluster storage report for this node.
+
+    Returns structured data about each mount with storage class
+    (SSD/HDD/ARCHIVE), capacity, free space, and totals.
+
+    Returns empty dict if homecluster module is not available.
+    """
+    try:
+        from homecluster.storage_class import classify_storage, format_storage_summary
+
+        overrides = {}
+        config = load_config(state_dir)
+        hc_config = config.get("homecluster", {})
+        overrides = hc_config.get("storage_overrides", {})
+
+        mounts = classify_storage(overrides)
+        summary = format_storage_summary(mounts)
+        return {
+            "node_id": get_or_create_host_id(state_dir),
+            "hostname": get_hostname(),
+            "summary": {
+                "total_capacity_bytes": summary["total_capacity_bytes"],
+                "total_free_bytes": summary["total_free_bytes"],
+                "total_used_bytes": summary["total_used_bytes"],
+                "total_used_pct": summary["total_used_pct"],
+                "by_class": summary["by_class"],
+            },
+            "mounts": summary["mounts"],
+        }
+    except ImportError:
+        return {}
+    except Exception as e:
+        return {"error": str(e)}
+
+
+def enrich_state_with_storage(
+    state: dict[str, Any],
+    state_dir: str | os.PathLike[str] | None = None,
+) -> dict[str, Any]:
+    """Add storage report to the Warden state dict.
+
+    Called by the runner after checks or by the dashboard
+    to include storage class information in the state.
+    """
+    storage = get_storage_report(state_dir)
+    if storage:
+        state["homecluster"] = storage
+    return state
 
 
 def detect_last_boot() -> str:
