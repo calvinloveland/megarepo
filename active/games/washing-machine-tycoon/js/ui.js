@@ -115,6 +115,21 @@ UI.renderTopBar = function() {
   // Check for pending random events
   UI.checkPendingEvent();
 
+  // Paused indicator
+  UI.renderPausedIndicator();
+
+  // Setup guide button visibility
+  const setupBtn = document.getElementById('setup-guide-btn');
+  if (setupBtn) {
+    setupBtn.style.display = (UI._setupState && UI._setupState.step < 99) ? 'inline-block' : 'none';
+  }
+
+  // Auto-update setup guide if it's visible
+  const setupGuide = document.getElementById('setup-guide');
+  if (setupGuide && setupGuide.style.display === 'flex') {
+    UI._updateSetupGuide();
+  }
+
   // Factory ambience management
   if (SOUND.enabled && SOUND._ctx) {
     const hasActiveProduction = G.company.productionLines.some(l => l.active);
@@ -185,6 +200,21 @@ UI.renderDashboard = function() {
       </div>
     </div>
 
+    ${G.paused && UI._setupState && UI._setupState.step < 99 ? `
+    <div class="card" style="margin-top:16px;border-color:var(--accent-cyan);background:#0a1a2a">
+      <div class="card-title" style="display:flex;justify-content:space-between;align-items:center">
+        <span>⏸ Game is Paused — Setup Incomplete</span>
+        <button class="btn btn-sm btn-accent" onclick="UI.showSetupGuide()">📋 Open Setup Guide</button>
+        <button class="btn btn-sm btn-secondary" onclick="G.paused=false;UI.render();UI.hideSetupGuide();UI._setupState.step=99;UI.showMessage('🚀 Game unpaused!');">▶ Start Anyway</button>
+      </div>
+      <div style="font-size:13px;color:var(--text-secondary);margin-top:4px">
+        Complete the setup steps to avoid going bankrupt from overhead costs.
+        ${!UI._setupState.designedMachine ? '🔴 <strong>Design a machine</strong> to start.' : '✅ Machine designed.'}
+        ${!UI._setupState.startedProduction ? '🔴 <strong>Start production</strong> to generate revenue.' : '✅ Production active.'}
+      </div>
+    </div>
+    ` : ''}
+
     <div class="card" style="margin-top:16px">
       <div class="card-title">Company Overview</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:8px">
@@ -220,6 +250,7 @@ UI.renderDashboard = function() {
         <button class="btn ${G.paused?'btn-primary':'btn-secondary'}" onclick="var g=window.gameState;g.paused=!g.paused;UI.render();">${G.paused?'▶ Resume':'⏸ Pause'}</button>
         <button class="btn btn-secondary" onclick="saveGame();UI.showMessage('✅ Game saved!');UI.render();">💾 Save</button>
         <button class="btn btn-secondary" onclick="if(loadGame()){UI.showMessage('📂 Game loaded!');UI.render();}else{UI.showMessage('No saved game found.');}">📂 Load</button>
+        <button class="btn btn-secondary" onclick="UI.showHelp()">❓ How to Play</button>
       </div>
     </div>
 
@@ -1122,9 +1153,15 @@ UI._startFreshGame = function(difficulty) {
     }
   }
 
-  SIM.addEvent('info', `🚀 Washing Machine Tycoon started on ${difficulty} difficulty! Design your first machine.`);
+  // Start PAUSED with a setup guide
+  G.paused = true;
+  UI._setupState = { step: 0, designedMachine: false, startedProduction: false };
+
+  SIM.addEvent('info', `🚀 Washing Machine Tycoon started on ${difficulty} difficulty!`);
   UI.init();
   UI.gameLoop();
+  // Show the setup overlay after the game loop starts
+  setTimeout(() => UI.showSetupGuide(), 200);
 };
 
 // ---- Audio Init (on first user click) ----
@@ -1266,31 +1303,118 @@ function formatY(v) {
   return v.toFixed(0);
 }
 
-// ---- Tutorial Overlay ----
+// ---- Setup Guide (Paused Start) ----
 
-UI.TUTORIAL_KEY = 'wmt_tutorial_done';
+UI._setupState = { step: 0, designedMachine: false, startedProduction: false };
 
-UI.showTutorial = function() {
-  // Check if already dismissed
-  if (localStorage.getItem(UI.TUTORIAL_KEY)) return;
+UI.showSetupGuide = function() {
+  const overlay = document.getElementById('setup-guide');
+  if (overlay) overlay.style.display = 'flex';
+  UI._updateSetupGuide();
+};
 
-  const overlay = document.getElementById('tutorial-overlay');
+UI.hideSetupGuide = function() {
+  const overlay = document.getElementById('setup-guide');
+  if (overlay) overlay.style.display = 'none';
+};
+
+UI._updateSetupGuide = function() {
+  // Auto-detect progress
+  if (G.company.models.length > 0) {
+    UI._setupState.designedMachine = true;
+  }
+  if (G.company.productionLines.some(l => l.active)) {
+    UI._setupState.startedProduction = true;
+  }
+
+  const state = UI._setupState;
+  const steps = [
+    { label: 'Design a washing machine', done: state.designedMachine, action: "UI.showScreen('design'); UI.hideSetupGuide();", screen: 'design' },
+    { label: 'Assign model & start production', done: state.startedProduction, action: "UI.showScreen('factory'); UI.hideSetupGuide();", screen: 'factory' },
+    { label: 'Unpause the game and start selling', done: false, action: "UI.unpauseAndStart();", screen: null, alwaysShow: true },
+  ];
+
+  const progress = steps.filter(s => s.done).length;
+  const total = steps.length - 1; // last step doesn't count as "done"
+
+  let html = '<div class="setup-progress">';
+  html += '<div class="setup-progress-bar"><div class="setup-progress-fill" style="width:' + (progress / total * 100) + '%"></div></div>';
+  html += '<div class="setup-progress-label">' + progress + ' of ' + total + ' setup steps complete</div></div>';
+  html += '<div class="setup-steps">';
+
+  for (let i = 0; i < steps.length; i++) {
+    const s = steps[i];
+    const isActive = i === state.step && !s.done;
+    const cls = s.done ? 'setup-step done' : isActive ? 'setup-step active' : 'setup-step';
+    html += '<div class="' + cls + '">';
+    html += '<div class="setup-step-indicator">' + (s.done ? '✓' : (i + 1)) + '</div>';
+    html += '<div class="setup-step-body">';
+    html += '<div class="setup-step-label">' + s.label + '</div>';
+    if (!s.done && s.action) {
+      html += '<button class="btn btn-sm ' + (isActive ? 'btn-primary' : 'btn-secondary') + '" onclick="' + s.action + '">' +
+        (i < 2 ? 'Go there →' : '▶ Unpause & Start') + '</button>';
+    }
+    if (s.done) {
+      html += '<div class="setup-step-done">✅ Done</div>';
+    }
+    html += '</div></div>';
+  }
+
+  html += '</div>';
+  html += '<div class="setup-tip" id="setup-tip">';
+  html += UI._getSetupTip(state);
+  html += '</div>';
+
+  const bodyEl = document.getElementById('setup-guide-body');
+  if (bodyEl) bodyEl.innerHTML = html;
+};
+
+UI._getSetupTip = function(state) {
+  if (!state.designedMachine) {
+    return '💡 <strong>Tip:</strong> Start in the <strong>Design Studio</strong>. Choose a stainless steel drum and a brushed motor for a solid mid-range machine. Set the price around $499.';
+  }
+  if (!state.startedProduction) {
+    return '💡 <strong>Tip:</strong> In the <strong>Factory</strong>, select your new model in the production line dropdown, then click <strong>Start</strong>. Balance speed vs quality control.';
+  }
+  return '💡 <strong>Tip:</strong> Your factory is running! Click <strong>Unpause</strong> to start selling machines. Watch the Dashboard for your first sales and reputation growth.';
+};
+
+UI.unpauseAndStart = function() {
+  G.paused = false;
+  UI.hideSetupGuide();
+  UI._setupState.step = 99;
+  UI.showMessage('🚀 Game started! Watch your Dashboard for sales.');
+  UI.render();
+};
+
+// ---- Help Overlay (How to Play) ----
+
+UI.showHelp = function() {
+  const overlay = document.getElementById('help-overlay');
   if (overlay) overlay.style.display = 'flex';
 };
 
-UI.dismissTutorial = function() {
-  const overlay = document.getElementById('tutorial-overlay');
+UI.dismissHelp = function() {
+  const overlay = document.getElementById('help-overlay');
   if (overlay) overlay.style.display = 'none';
-  localStorage.setItem(UI.TUTORIAL_KEY, '1');
 };
 
-UI.startGame = (function(original) {
-  return function() {
-    original.apply(this, arguments);
-    // Show tutorial after game is running (slightly delayed for DOM)
-    setTimeout(() => UI.showTutorial(), 300);
-  };
-})(UI.startGame);
+// ---- Paused Indicator (shown in topbar when paused) ----
+
+UI.renderPausedIndicator = function() {
+  // This is called from renderTopBar
+  const indicator = document.getElementById('paused-indicator');
+  if (!indicator) return;
+  if (G.paused && UI._setupState && UI._setupState.step < 99) {
+    indicator.style.display = 'flex';
+    indicator.innerHTML = '⏸ <span>PAUSED — Complete the setup steps above to start</span>';
+  } else if (G.paused) {
+    indicator.style.display = 'flex';
+    indicator.innerHTML = '⏸ <span>PAUSED — <a href="#" onclick="G.paused=false;UI.render();return false" style="color:var(--accent-cyan)">Click to resume</a></span>';
+  } else {
+    indicator.style.display = 'none';
+  }
+};
 
 // ---- Random Event UI ----
 

@@ -42,6 +42,10 @@
         <span class="topbar-label">Sound</span>
         <span class="topbar-value" id="topbar-sound" style="cursor:pointer" onclick="SOUND.enabled=!SOUND.enabled;if(SOUND.enabled){SOUND.init();SOUND.setVolume(0.3)}else{SOUND.stopAmbience()}UI.render();">🔊</span>
       </div>
+      <div class="topbar-item" id="setup-guide-btn" style="cursor:pointer;display:none" onclick="UI.showSetupGuide();">
+        <span class="topbar-label">Setup</span>
+        <span class="topbar-value" style="font-size:11px">📋 Guide</span>
+      </div>
     </div>
 
     <!-- Navigation -->
@@ -137,37 +141,57 @@
     </div>
   </div>
 
-  <!-- Tutorial Overlay -->
-  <div id="tutorial-overlay" class="tutorial-overlay">
-    <div class="tutorial-modal">
-      <div class="tutorial-header">🧺 Welcome to Washing Machine Tycoon</div>
-      <div class="tutorial-body">
+  <!-- Paused Indicator (fixed bar at top of screen) -->
+  <div id="paused-indicator" class="paused-indicator" style="display:none"></div>
+
+  <!-- How to Play Overlay (help, accessible anytime) -->
+  <div id="help-overlay" class="help-overlay" style="display:none">
+    <div class="help-modal">
+      <div class="help-header">🧺 How to Play Washing Machine Tycoon</div>
+      <div class="help-body">
         <p><strong>Your goal:</strong> Build the world's most trusted washing machine brand.</p>
-        <p>Here's how to get started:</p>
-        <div class="tutorial-step">
-          <span class="tutorial-num">1</span>
-          <span>Go to <strong>Design Studio</strong> and create your first washing machine model. Choose components that balance cost, durability, and customer appeal.</span>
+        <div class="help-section">
+          <div class="help-section-title">🎯 Core Loop</div>
+          <div class="help-step"><span class="help-num">1</span> <strong>Design Studio</strong> — Choose every component (drum, motor, bearings, etc.) to create a machine model.</div>
+          <div class="help-step"><span class="help-num">2</span> <strong>Factory</strong> — Assign your model to a production line. Balance speed vs quality control.</div>
+          <div class="help-step"><span class="help-num">3</span> <strong>Dashboard</strong> — Watch sales, cash, and reputation grow. Handle warranty claims as they arrive.</div>
+          <div class="help-step"><span class="help-num">4</span> <strong>Service</strong> — When machines fail, decide how to respond. Your choices affect your brand.</div>
         </div>
-        <div class="tutorial-step">
-          <span class="tutorial-num">2</span>
-          <span>Go to <strong>Factory</strong>, assign your model to the production line, configure speed and quality control, then start production.</span>
+        <div class="help-section">
+          <div class="help-section-title">💡 Key Tips</div>
+          <ul style="margin:4px 0 0 20px;font-size:13px;color:var(--text-secondary)">
+            <li><strong>Premium bearings</strong> are the single best investment — cheap bearings cause catastrophic failures</li>
+            <li><strong>Quality control</strong> slows production but reduces defects. A reputation takes years to build and days to lose</li>
+            <li><strong>Watch the regulations</strong> — new standards force redesigns. A 1995 machine might be illegal in 1998</li>
+            <li>Hire enough <strong>technicians</strong> for your machine base. Understaffed service = angry customers</li>
+            <li>Use the <strong>Clone</strong> button on existing models as a starting point for new designs</li>
+          </ul>
         </div>
-        <div class="tutorial-step">
-          <span class="tutorial-num">3</span>
-          <span>Machines are sold automatically. Watch the <strong>Dashboard</strong> for your cash, reputation, and event log.</span>
+        <div class="help-section">
+          <div class="help-section-title">📊 Key Metrics</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:12px;color:var(--text-secondary);margin-top:4px">
+            <div><strong>Reputation</strong> — Brand trust (0-100). Affects sales and customer patience.</div>
+            <div><strong>Customer Satisfaction</strong> — Average across all active machines.</div>
+            <div><strong>Market Share</strong> — Your portion of the total market. AI competitors want it too.</div>
+            <div><strong>Pending Claims</strong> — Open warranty cases needing resolution.</div>
+          </div>
         </div>
-        <div class="tutorial-step">
-          <span class="tutorial-num">4</span>
-          <span>When machines fail, handle <strong>warranty claims</strong> in the Service Department. Your response affects reputation and customer satisfaction.</span>
-        </div>
-        <div class="tutorial-step">
-          <span class="tutorial-num">5</span>
-          <span>Reinvest in <strong>R&D</strong> to unlock new components. Adapt to <strong>regulations</strong> and outpace <strong>competitors</strong>.</span>
-        </div>
-        <p style="margin-top:12px;font-size:12px;color:#888">Every machine you sell becomes a long-term responsibility. Choose your components wisely. 💪</p>
       </div>
-      <div class="tutorial-footer">
-        <button class="btn btn-primary" onclick="UI.dismissTutorial()">Got it! Let's build. 🚀</button>
+      <div class="help-footer">
+        <button class="btn btn-primary" onclick="UI.dismissHelp()">Got it!</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Setup Guide Overlay (shown on fresh game, paused) -->
+  <div id="setup-guide" class="setup-guide">
+    <div class="setup-guide-content">
+      <div class="setup-guide-header">🧺 Welcome! Let's set up your company.</div>
+      <div class="setup-guide-sub">The game is <strong>paused</strong>. Complete these steps before the simulation starts.</div>
+      <div id="setup-guide-body"></div>
+      <div class="setup-guide-footer">
+        <button class="btn btn-secondary" onclick="UI.hideSetupGuide();">Minimize this guide</button>
+        <button class="btn btn-accent" onclick="UI.showScreen('dashboard');UI.hideSetupGuide();">📊 Go to Dashboard</button>
       </div>
     </div>
   </div>
