@@ -32,6 +32,7 @@ SIM.tick = function() {
   SIM.systemCompetitors();
   SIM.systemRegulations();
   SIM.systemTechUnlocks();
+  SIM.systemRandomEvents();
 
   // Auto-save every 30 game days
   if (G.tickCount % 30 === 0) {
@@ -577,6 +578,134 @@ SIM.systemTechUnlocks = function() {
       SIM.addEvent('info', `🔬 TECH UNLOCKED: ${tech.name} — ${tech.description}`);
     }
   }
+};
+
+// ---- Random Events System ----
+
+SIM._usedEvents = {};         // event id -> year last triggered
+SIM._pendingEvent = null;     // event awaiting player choice
+
+SIM.systemRandomEvents = function() {
+  // Only check on day 1 of each month (roughly every 30 days)
+  if (G.day % 30 !== 1) return;
+
+  // Don't fire if already showing an event
+  if (SIM._pendingEvent) return;
+
+  // Don't fire too early — let the game establish itself
+  if (G.tickCount < 365) return;
+
+  const events = DATA.events.list;
+  const diff = DATA.difficulty[G.difficulty] || DATA.difficulty.medium;
+
+  // Filter eligible events
+  const eligible = events.filter(e => {
+    // Year gate
+    if (e.minYear && G.year < e.minYear) return false;
+    if (e.maxYear && G.year > e.maxYear) return false;
+    // Cooldown — don't repeat too often
+    if (SIM._usedEvents[e.id]) {
+      const yearsSince = G.year - SIM._usedEvents[e.id];
+      if (yearsSince < (e.cooldownYears || 3)) return false;
+    }
+    // Requires models
+    if (e.requiresModels && G.company.models.length === 0) return false;
+    // Requires minimum reputation
+    if (e.minRep !== undefined && G.company.reputation < e.minRep) return false;
+    // Max reputation
+    if (e.maxRep !== undefined && G.company.reputation > e.maxRep) return false;
+    return true;
+  });
+
+  if (eligible.length === 0) return;
+
+  // Weighted random selection
+  const totalWeight = eligible.reduce((s, e) => s + (e.weight || 5), 0);
+  let roll = Math.random() * totalWeight;
+
+  // Base chance scales with difficulty (more events on harder modes)
+  const chanceMultiplier = diff.aiAdaptSpeed || 0.6;
+  if (Math.random() > 0.04 * chanceMultiplier) return; // ~4% chance per check (~3-5 events/year)
+
+  let selected = eligible[0];
+  for (const e of eligible) {
+    roll -= e.weight || 5;
+    if (roll <= 0) { selected = e; break; }
+  }
+
+  if (!selected) return;
+
+  // Mark cooldown
+  SIM._usedEvents[selected.id] = G.year;
+
+  // For choice events, store them pending player decision
+  if (selected.type === 'choice') {
+    SIM._pendingEvent = selected;
+    SIM.addEvent('info', `📋 ${selected.name} — ${selected.narrative}`);
+  } else {
+    // Apply effects immediately
+    SIM._applyEventEffects(selected);
+  }
+};
+
+SIM._applyEventEffects = function(event) {
+  const effects = event.effects || {};
+  const msgParts = [];
+
+  if (effects.reputation) {
+    G.company.reputation = Math.max(0, Math.min(100, G.company.reputation + effects.reputation));
+    msgParts.push(`reputation ${effects.reputation >= 0 ? '+' : ''}${effects.reputation}`);
+  }
+  if (effects.cash) {
+    G.company.cash += effects.cash;
+    msgParts.push(`$${effects.cash >= 0 ? '+' : ''}${effects.cash.toLocaleString()}`);
+  }
+  if (effects.technicians) {
+    G.company.technicians = Math.max(0, G.company.technicians + effects.technicians);
+    msgParts.push(`technicians ${effects.technicians >= 0 ? '+' : ''}${effects.technicians}`);
+  }
+  if (effects.customerSatisfaction) {
+    G.company.customerSatisfactionAvg = Math.max(0, Math.min(1,
+      G.company.customerSatisfactionAvg + effects.customerSatisfaction));
+  }
+  if (effects.marketShare) {
+    // Small bonus to player's effective market presence
+    G.company.reputation = Math.min(100, G.company.reputation + effects.marketShare);
+  }
+
+  const icon = event.type === 'positive' ? '🌟' : '🌩️';
+  SIM.addEvent(event.type === 'positive' ? 'info' : 'warning',
+    `${icon} ${event.name}: ${msgParts.join(', ')}`);
+  SIM.addEvent(event.type === 'positive' ? 'info' : 'critical',
+    `  ${event.narrative || event.desc.slice(0, 80)}`);
+
+  // Play stronger sound for negative events
+  if (typeof SOUND !== 'undefined' && SOUND.enabled) {
+    SOUND.onEvent(event.type === 'negative' ? 'warning' : 'info');
+  }
+};
+
+SIM.resolveChoiceEvent = function(choiceIndex) {
+  const event = SIM._pendingEvent;
+  if (!event) return;
+
+  const choice = event.choices[choiceIndex];
+  if (!choice) {
+    SIM._pendingEvent = null;
+    return;
+  }
+
+  // Apply choice effects
+  const effects = choice.effects || {};
+  if (effects.reputation) {
+    G.company.reputation = Math.max(0, Math.min(100, G.company.reputation + effects.reputation));
+  }
+  if (effects.cash) {
+    G.company.cash += effects.cash;
+  }
+
+  SIM.addEvent('info', `📋 ${event.name} — ${choice.result || 'Decision made.'}`);
+  SIM._pendingEvent = null;
 };
 
 // ---- Event System ----

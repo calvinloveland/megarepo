@@ -435,6 +435,219 @@ const DATA = {
     { min: 90,  label: 'Legendary',    color: '#aa66cc' },
   ],
 
+  // ---- Random Events ----
+
+  events: {
+    // Positive events with weights; cooldownYears prevents repeats
+    list: [
+      // ===== POSITIVE EVENTS =====
+      {
+        id: 'viralMarketing', name: 'Viral Marketing Wave',
+        desc: 'A popular TikTok creator filmed their laundry room transformation featuring your washer. The video has millions of views — your brand is suddenly everywhere!',
+        type: 'positive', weight: 6, cooldownYears: 5, minYear: 2005,
+        effects: { reputation: 8, cash: 80000 },
+        narrative: 'Your social media team is ecstatic. Orders are flooding in.',
+      },
+      {
+        id: 'industryAward', name: 'Industry Excellence Award',
+        desc: 'Consumer Relativity Magazine has named your latest model the "Most Reliable Washing Machine" for the third year running!',
+        type: 'positive', weight: 5, cooldownYears: 4, minYear: 1975,
+        effects: { reputation: 6, cash: 30000 },
+        narrative: 'The award seal is already being added to your packaging.',
+        requiresModels: true,
+      },
+      {
+        id: 'governmentSubsidy', name: 'Manufacturing Tax Credit',
+        desc: 'The government has introduced a tax credit for domestic appliance manufacturers who meet energy efficiency targets.',
+        type: 'positive', weight: 4, cooldownYears: 6, minYear: 1980,
+        effects: { cash: 150000 },
+        narrative: 'Your finance department is already calculating the savings.',
+      },
+      {
+        id: 'partsWindfall', name: 'Supplier Overstock',
+        desc: 'Your bearing supplier has a massive overstock and is offering components at 40% off for a limited time!',
+        type: 'positive', weight: 4, cooldownYears: 5, minYear: 1970,
+        effects: { cash: 50000, reputation: 2 },
+        narrative: 'You lock in the discounted rate for the next quarter.',
+      },
+      {
+        id: 'skilledLabor', name: 'Tech School Partnership',
+        desc: 'A local technical college wants to partner with you to train appliance repair technicians. They will cover the salaries for the first year!',
+        type: 'positive', weight: 3, cooldownYears: 5, minYear: 1970,
+        effects: { technicians: 2, reputation: 3 },
+        narrative: 'The first batch of graduates starts next month.',
+      },
+      {
+        id: 'favorableReview', name: 'Glowing Review',
+        desc: 'An influential home appliance reviewer on YouTube gave your machine a 9.5/10, calling it "the best washer money can buy."',
+        type: 'positive', weight: 5, cooldownYears: 3, minYear: 2005,
+        effects: { reputation: 5, cash: 40000 },
+        narrative: 'The review link is being shared across forums.',
+        requiresModels: true,
+      },
+      {
+        id: 'exportDeal', name: 'International Distributor',
+        desc: 'A major European retail chain wants to carry your washing machines. This could open up a whole new market!',
+        type: 'positive', weight: 3, cooldownYears: 6, minYear: 1985,
+        effects: { cash: 200000, reputation: 4 },
+        narrative: 'Initial order is for 5,000 units.',
+      },
+      {
+        id: 'innovationGrant', name: 'Energy Innovation Grant',
+        desc: 'The Department of Energy has awarded you a research grant to develop ultra-efficient washing technology.',
+        type: 'positive', weight: 3, cooldownYears: 7, minYear: 1990,
+        effects: { cash: 120000, reputation: 3 },
+        narrative: 'The R&D team is already drafting proposals.',
+      },
+      {
+        id: 'longevityMilestone', name: 'Legendary Machine',
+        desc: 'A customer wrote in to say their 20-year-old washing machine — one of your earliest models — is still running perfectly after 8,000 loads!',
+        type: 'positive', weight: 3, cooldownYears: 8, minYear: 1990,
+        effects: { reputation: 7, customerSatisfaction: 0.05 },
+        narrative: 'Newspapers pick up the feel-good story about your washer.',
+        requiresModels: true,
+      },
+      {
+        id: 'bulkOrder', name: 'Apartment Complex Deal',
+        desc: 'A large property developer wants to equip 2,000 new apartments with your washing machines.',
+        type: 'positive', weight: 4, cooldownYears: 4, minYear: 1970,
+        effects: { cash: 250000, reputation: 2 },
+        narrative: 'The contract is signed. Your factory ramps up.',
+      },
+
+      // ===== NEGATIVE EVENTS =====
+      {
+        id: 'supplyDisruption', name: 'Supply Chain Disruption',
+        desc: 'A major fire at your motor supplier\'s factory has halted production of critical components. Prices for motors have tripled!',
+        type: 'negative', weight: 5, cooldownYears: 5, minYear: 1970,
+        effects: { cash: -80000, reputation: -3 },
+        narrative: 'Your procurement team is scrambling to find alternatives.',
+      },
+      {
+        id: 'classAction', name: 'Class Action Lawsuit',
+        desc: 'A law firm has filed a class action lawsuit alleging a design flaw in your machines causes premature drum failure.',
+        type: 'negative', weight: 3, cooldownYears: 8, minYear: 1980,
+        effects: { cash: -250000, reputation: -10 },
+        narrative: 'Legal fees are mounting. Your stock takes a hit.',
+        requiresModels: true,
+      },
+      {
+        id: 'counterfeitParts', name: 'Counterfeit Bearing Scandal',
+        desc: 'An investigation reveals that counterfeit bearings entered your supply chain. Affected machines are failing at triple the normal rate.',
+        type: 'negative', weight: 3, cooldownYears: 6, minYear: 1990,
+        effects: { cash: -120000, reputation: -8 },
+        narrative: 'Your service department is overwhelmed with warranty claims.',
+      },
+      {
+        id: 'technicianStrike', name: 'Technician Strike',
+        desc: 'Your service technicians have voted to strike over working conditions. Repair times will be severely impacted.',
+        type: 'negative', weight: 4, cooldownYears: 5, minYear: 1970,
+        effects: { reputation: -5, technicians: -1 },
+        narrative: 'Pickets are forming outside your service centres.',
+      },
+      {
+        id: 'productRecall', name: 'Mandatory Product Recall',
+        desc: 'The safety regulator has identified a fire risk in one of your models. A full recall is required.',
+        type: 'negative', weight: 2, cooldownYears: 8, minYear: 1970,
+        effects: { cash: -500000, reputation: -15 },
+        narrative: 'This will be a costly and embarrassing chapter.',
+        requiresModels: true,
+      },
+      {
+        id: 'factoryFlood', name: 'Factory Flood',
+        desc: 'Heavy rains have flooded your main manufacturing facility. Production is halted while cleanup crews work.',
+        type: 'negative', weight: 3, cooldownYears: 6, minYear: 1970,
+        effects: { cash: -100000, reputation: -3 },
+        narrative: 'Damage is extensive but insured. Downtime is the real cost.',
+      },
+      {
+        id: 'patentLawsuit', name: 'Patent Infringement Claim',
+        desc: 'A competitor claims your smart load-sensing technology infringes on their patent. Court proceedings have begun.',
+        type: 'negative', weight: 3, cooldownYears: 6, minYear: 2005,
+        effects: { cash: -150000, reputation: -4 },
+        narrative: 'Your legal team is confident but the process is expensive.',
+      },
+      {
+        id: 'cyberAttack', name: 'Ransomware Attack',
+        desc: 'Hackers have locked your factory control systems and demand payment. Production has ground to a halt.',
+        type: 'negative', weight: 2, cooldownYears: 5, minYear: 2000,
+        effects: { cash: -200000, reputation: -5 },
+        narrative: 'IT security is working on restoring from backups.',
+      },
+      {
+        id: 'componentShortage', name: 'Global Chip Shortage',
+        desc: 'A worldwide shortage of semiconductors is affecting your smart control board supply. Production capacity is slashed.',
+        type: 'negative', weight: 3, cooldownYears: 7, minYear: 2000,
+        effects: { cash: -50000, reputation: -3 },
+        narrative: 'Lead times for electronic components have stretched to 6 months.',
+      },
+      {
+        id: 'badPress', name: 'Negative Exposé',
+        desc: 'A news investigation has published a critical exposé claiming your company uses planned obsolescence in its designs.',
+        type: 'negative', weight: 4, cooldownYears: 4, minYear: 1975,
+        effects: { reputation: -7, cash: -40000 },
+        narrative: 'Social media is buzzing with outrage.',
+        requiresModels: true,
+      },
+
+      // ===== CHOICE EVENTS =====
+      {
+        id: 'qcWhistleblower', name: 'Quality Control Dilemma',
+        desc: 'A quality control engineer has discovered a batch of motors with slightly substandard windings. They work fine now but may fail 2-3 years early.',
+        type: 'choice', weight: 4, cooldownYears: 4, minYear: 1970,
+        narrative: 'What do you do?',
+        choices: [
+          { text: 'Replace all affected motors ($$)', effects: { cash: -80000, reputation: 4 }, result: 'Customers appreciate your integrity. The story gets positive press.' },
+          { text: 'Ship them anyway — the failure rate is low', effects: { cash: 0, reputation: -4 }, result: 'Most customers never notice, but those who do are furious.' },
+          { text: 'Install them with extended warranty coverage', effects: { cash: -20000, reputation: 0 }, result: 'A pragmatic middle ground. Some customers will eventually file claims.' },
+        ],
+      },
+      {
+        id: 'expansionOffer', name: 'Acquisition Opportunity',
+        desc: 'A struggling regional washer manufacturer is available for purchase. They have a loyal customer base but outdated technology.',
+        type: 'choice', weight: 3, cooldownYears: 7, minYear: 1985,
+        narrative: 'Do you acquire them?',
+        choices: [
+          { text: 'Acquire the company ($)', effects: { cash: -300000, reputation: 4, marketShare: 2 }, result: 'You absorb their customer base and retire their outdated product line.' },
+          { text: 'Decline — focus on organic growth', effects: { cash: 0 }, result: 'You stay the course. A rival later acquires them.' },
+          { text: 'Buy their customer list and R&D patents ($)', effects: { cash: -150000, reputation: 2 }, result: 'You cherry-pick the valuable assets without the baggage.' },
+        ],
+      },
+      {
+        id: 'environmentalAudit', name: 'Environmental Compliance Audit',
+        desc: 'Regulators are conducting an unannounced environmental audit of your factory. Your wastewater treatment system is outdated.',
+        type: 'choice', weight: 3, cooldownYears: 5, minYear: 1985,
+        narrative: 'How do you handle it?',
+        choices: [
+          { text: 'Upgrade the system proactively ($$)', effects: { cash: -100000, reputation: 5 }, result: 'The audit passes with flying colours. You get public recognition for environmental leadership.' },
+          { text: 'Do the bare minimum to pass', effects: { cash: -20000, reputation: -1 }, result: 'You pass, but barely. Environmental groups take notice.' },
+          { text: 'Lobby to delay the audit', effects: { cash: -30000, reputation: -5 }, result: 'You buy time, but the scandal leaks. Your reputation suffers.' },
+        ],
+      },
+      {
+        id: 'supplierDilemma', name: 'The Cheap Supplier Offer',
+        desc: 'A new supplier from overseas offers you bearings at 60% less than your current cost. Their samples test adequately, but their factory conditions are unknown.',
+        type: 'choice', weight: 4, cooldownYears: 4, minYear: 1990,
+        narrative: 'Your procurement team wants a decision.',
+        choices: [
+          { text: 'Sign the deal — lower costs!', effects: { cash: 120000, reputation: -3 }, result: 'Costs drop, but six months later a documentary exposes child labour at the factory. Your brand is tarnished.' },
+          { text: 'Stick with your current supplier', effects: { cash: 0 }, result: 'Reliability matters more than a quick saving. Your current supplier appreciates the loyalty.' },
+          { text: 'Negotiate a trial batch only', effects: { cash: 30000, reputation: -1 }, result: 'You test a small batch. Most pass, but the reputational risk is contained.' },
+        ],
+      },
+      {
+        id: 'interviewRequest', name: 'Magazine Interview',
+        desc: 'Industry Weekly magazine wants to profile your company for their "Visionaries of Manufacturing" issue. This is great PR, but the reporter is known for tough questions.',
+        type: 'choice', weight: 4, cooldownYears: 3, minYear: 1975,
+        narrative: 'Do you grant the interview?',
+        choices: [
+          { text: 'Accept — great exposure!', effects: { reputation: 6, cash: 20000 }, result: 'The article is glowing. Your brand is featured alongside industry legends.' },
+          { text: 'Politely decline', effects: { cash: 0 }, result: 'You stay under the radar. Safe, but a missed opportunity.' },
+        ],
+      },
+    ],
+  },
+
   // ---- Default Game Parameters ----
 
   defaults: {

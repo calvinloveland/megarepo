@@ -112,6 +112,9 @@ UI.renderTopBar = function() {
     soundEl.style.color = SOUND.enabled ? '#4ade80' : '#f87171';
   }
 
+  // Check for pending random events
+  UI.checkPendingEvent();
+
   // Factory ambience management
   if (SOUND.enabled && SOUND._ctx) {
     const hasActiveProduction = G.company.productionLines.some(l => l.active);
@@ -1288,6 +1291,88 @@ UI.startGame = (function(original) {
     setTimeout(() => UI.showTutorial(), 300);
   };
 })(UI.startGame);
+
+// ---- Random Event UI ----
+
+UI._lastEventCheck = 0;
+
+UI.checkPendingEvent = function() {
+  if (!SIM._pendingEvent) {
+    const modal = document.getElementById('event-modal');
+    if (modal && modal.style.display !== 'none') {
+      modal.style.display = 'none';
+      G.paused = false;
+    }
+    return;
+  }
+
+  // Only process one event at a time
+  const event = SIM._pendingEvent;
+  const modal = document.getElementById('event-modal');
+  if (!modal) return;
+
+  // Pause the game while event is showing
+  G.paused = true;
+  modal.style.display = 'flex';
+
+  const headerEl = document.getElementById('event-modal-header');
+  const titleEl = document.getElementById('event-modal-title');
+  const descEl = document.getElementById('event-modal-desc');
+  const narrEl = document.getElementById('event-modal-narrative');
+  const choicesEl = document.getElementById('event-modal-choices');
+  const footerEl = document.getElementById('event-modal-footer');
+
+  if (headerEl) {
+    const typeLabel = { positive: '🌟 GOOD NEWS', negative: '🌩️ TROUBLE', choice: '📋 DECISION REQUIRED' };
+    headerEl.textContent = typeLabel[event.type] || '📋 EVENT';
+    headerEl.className = 'event-modal-header ' + (event.type === 'positive' ? 'positive' : event.type === 'negative' ? 'negative' : 'choice');
+  }
+  if (titleEl) titleEl.textContent = event.name;
+  if (descEl) descEl.textContent = event.desc;
+  if (narrEl) narrEl.textContent = event.narrative || '';
+
+  if (choicesEl && footerEl) {
+    if (event.type === 'choice' && event.choices) {
+      choicesEl.style.display = 'flex';
+      footerEl.style.display = 'none';
+      choicesEl.innerHTML = event.choices.map((c, i) => `
+        <button class="event-choice-btn" onclick="UI.resolveEventChoice(${i})">
+          ${c.text}
+          ${c.effects ? '<span class="choice-cost">' + UI._formatChoiceEffects(c.effects) + '</span>' : ''}
+        </button>
+      `).join('');
+    } else {
+      choicesEl.style.display = 'none';
+      footerEl.style.display = 'block';
+    }
+  }
+};
+
+UI._formatChoiceEffects = function(effects) {
+  const parts = [];
+  if (effects.cash) parts.push(`Cash: ${effects.cash >= 0 ? '+' : ''}$${effects.cash.toLocaleString()}`);
+  if (effects.reputation) parts.push(`Rep: ${effects.reputation >= 0 ? '+' : ''}${effects.reputation}`);
+  return parts.join(' · ');
+};
+
+UI.resolveEventChoice = function(index) {
+  SIM.resolveChoiceEvent(index);
+  const modal = document.getElementById('event-modal');
+  if (modal) modal.style.display = 'none';
+  G.paused = false;
+  UI.render();
+};
+
+UI.dismissEvent = function() {
+  const modal = document.getElementById('event-modal');
+  if (modal) modal.style.display = 'none';
+  // If there's a pending non-choice event, clear it
+  if (SIM._pendingEvent && SIM._pendingEvent.type !== 'choice') {
+    SIM._pendingEvent = null;
+  }
+  G.paused = false;
+  UI.render();
+};
 
 // ---- Expose to HTML ----
 

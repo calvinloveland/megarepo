@@ -639,6 +639,102 @@ body {
   letter-spacing: 0.3px;
 }
 
+/* ---- Random Event Modal ---- */
+
+.event-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 2500;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  animation: fadeIn 0.25s ease;
+}
+
+.event-modal-content {
+  background: var(--bg-card);
+  border-radius: 12px;
+  max-width: 500px;
+  width: 100%;
+  border: 1px solid var(--border-bright);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+}
+
+.event-modal-header {
+  padding: 16px 20px 8px;
+  font-size: 14px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.event-modal-header.positive { color: var(--accent-green); }
+.event-modal-header.negative { color: var(--accent-red); }
+.event-modal-header.choice { color: var(--accent-amber); }
+
+.event-modal-title {
+  padding: 0 20px;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.3;
+}
+
+.event-modal-desc {
+  padding: 12px 20px;
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.event-modal-narrative {
+  padding: 0 20px 8px;
+  font-size: 13px;
+  font-style: italic;
+  color: var(--accent-cyan);
+}
+
+.event-modal-choices {
+  padding: 8px 20px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.event-choice-btn {
+  padding: 12px 16px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  cursor: pointer;
+  font-size: 13px;
+  text-align: left;
+  font-family: var(--font-sans);
+  transition: all 0.15s;
+  line-height: 1.4;
+}
+
+.event-choice-btn:hover {
+  border-color: var(--accent-cyan);
+  background: #0a1a2a;
+}
+
+.event-choice-btn .choice-cost {
+  display: block;
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.event-modal-footer {
+  padding: 0 20px 16px;
+  text-align: center;
+}
+
 /* ---- Difficulty Modal ---- */
 
 .difficulty-modal {
