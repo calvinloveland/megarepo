@@ -39,6 +39,7 @@ This is the single source of truth. Each app's `subdomain` field in [`apps.yaml`
 | OCR Arena | `ocr` | https://ocr.shsw.dev | Flask | 5110 |
 | Drop | _(none — LAN-only)_ | _not exposed_ | Flask | 5111 |
 | Vroomon | _(pending tunnel ingress)_ | _not yet exposed_ | Electron (Node) | 5112 |
+| Washing Machine Tycoon | `washer` | https://washer.shsw.dev | Node.js static server | 3002 |
 
 ## Prerequisites
 
