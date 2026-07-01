@@ -64,6 +64,9 @@ UI.render = function() {
   UI.renderMarketView();
   UI.renderResearchView();
 
+  // Setup guide auto-detection (runs every frame regardless of guide visibility)
+  UI._updateSetupGuide();
+
   // Show message if active
   if (UI.message && Date.now() < UI.messageTimer) {
     const el = document.getElementById('message-toast');
@@ -205,7 +208,7 @@ UI.renderDashboard = function() {
       <div class="card-title" style="display:flex;justify-content:space-between;align-items:center">
         <span>⏸ Game is Paused — Setup Incomplete</span>
         <button class="btn btn-sm btn-accent" onclick="UI.showSetupGuide()">📋 Open Setup Guide</button>
-        <button class="btn btn-sm btn-secondary" onclick="G.paused=false;UI.render();UI.hideSetupGuide();UI._setupState.step=99;UI.showMessage('🚀 Game unpaused!');">▶ Start Anyway</button>
+        <button class="btn btn-sm btn-secondary" onclick="UI.unpauseAndStart()">▶ Start Anyway</button>
       </div>
       <div style="font-size:13px;color:var(--text-secondary);margin-top:4px">
         Complete the setup steps to avoid going bankrupt from overhead costs.
@@ -253,6 +256,24 @@ UI.renderDashboard = function() {
         <button class="btn btn-secondary" onclick="UI.showHelp()">❓ How to Play</button>
       </div>
     </div>
+
+    <!-- Error Log Section (shown when errors exist) -->
+    ${typeof ErrorReporter !== 'undefined' && ErrorReporter.getCount() > 0 ? `
+    <div class="card" style="margin-top:16px;border-color:var(--accent-red)">
+      <div class="card-title" style="color:var(--accent-red);display:flex;justify-content:space-between">
+        <span>🛑 Script Errors (${ErrorReporter.getCount()})</span>
+        <button class="btn btn-sm btn-secondary" onclick="ErrorReporter.clear();UI.render();">Clear</button>
+      </div>
+      <div class="event-log" style="max-height:150px">
+        ${ErrorReporter.getRecent(8).map(e => `
+          <div class="event-item" style="color:var(--accent-red);font-size:11px">
+            <span class="event-date">${e.type}</span>
+            <span class="event-msg">${String(e.message).slice(0, 120)}</span>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+    ` : ''}
 
     <!-- Charts Section -->
     <div class="card" style="margin-top:16px">
@@ -1092,6 +1113,11 @@ UI.renderResearchView = function() {
 // ---- Game Loop Render ----
 
 UI.gameLoop = function() {
+  // _startLock keeps the game paused during initial setup
+  // Only explicit unpause (unpauseAndStart) clears it
+  if (G._startLock) {
+    G.paused = true;
+  }
   if (!G.paused) {
     SIM.tick();
   }
@@ -1158,9 +1184,16 @@ UI._startFreshGame = function(difficulty, companyName) {
     }
   }
 
-  // Start PAUSED with a setup guide
+  // Start PAUSED with a setup guide — use _startLock so nothing else can unpause
+  // Start PAUSED with a setup guide — use _startLock so nothing else can unpause
   G.paused = true;
+  G._startLock = true;
   UI._setupState = { step: 0, designedMachine: false, startedProduction: false };
+
+  // Initialise error reporter
+  if (typeof ErrorReporter !== 'undefined') {
+    ErrorReporter.init();
+  }
 
   SIM.addEvent('info', `🚀 Washing Machine Tycoon started on ${difficulty} difficulty!`);
   UI.init();
@@ -1184,6 +1217,7 @@ UI.startGame = function() {
   if (hasSavedGame()) {
     if (confirm('📂 Saved game found! Click OK to continue or Cancel to start fresh.')) {
       if (loadGame()) {
+        if (typeof ErrorReporter !== 'undefined') ErrorReporter.init();
         SIM.addEvent('info', '📂 Game loaded — continuing from ' + formatDate(G.year, G.day));
         UI.init();
         UI.gameLoop();
@@ -1324,6 +1358,9 @@ UI.hideSetupGuide = function() {
 };
 
 UI._updateSetupGuide = function() {
+  // Guard: don't run before G is fully initialized
+  if (!G || !G.company || !G.company.models || !UI._setupState) return;
+
   // Auto-detect progress
   if (G.company.models.length > 0) {
     UI._setupState.designedMachine = true;
@@ -1385,9 +1422,11 @@ UI._getSetupTip = function(state) {
 };
 
 UI.unpauseAndStart = function() {
+  G._startLock = false;
   G.paused = false;
   UI.hideSetupGuide();
   UI._setupState.step = 99;
+  ErrorReporter.clear();
   UI.showMessage('🚀 Game started! Watch your Dashboard for sales.');
   UI.render();
 };
