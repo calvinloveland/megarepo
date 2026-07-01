@@ -875,11 +875,11 @@ body {
   gap: 8px;
   animation: slideDown 0.3s ease;
   box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+  pointer-events: none;  /* Don't block clicks on underlying elements */
 }
 
-.paused-indicator a {
-  color: var(--accent-cyan);
-  text-decoration: underline;
+.paused-indicator a, .paused-indicator span {
+  pointer-events: auto;  /* Links and spans inside are still clickable */
 }
 
 @keyframes slideDown {

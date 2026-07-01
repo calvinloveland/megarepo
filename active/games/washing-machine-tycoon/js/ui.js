@@ -41,8 +41,9 @@ UI.showScreen = function(screenId) {
     el.classList.toggle('active', el.id === `screen-${screenId}`);
   });
   UI.render();
-  // Dismiss tutorial if open
-  UI.dismissTutorial();
+  // Close help overlay if open
+  const helpOverlay = document.getElementById('help-overlay');
+  if (helpOverlay) helpOverlay.style.display = 'none';
 };
 
 UI.showMessage = function(msg, duration = 3000) {
@@ -1457,6 +1458,7 @@ UI.renderPausedIndicator = function() {
     indicator.innerHTML = '⏸ <span>PAUSED — <a href="#" onclick="G.paused=false;UI.render();return false" style="color:var(--accent-cyan)">Click to resume</a></span>';
   } else {
     indicator.style.display = 'none';
+    indicator.innerHTML = '';
   }
 };
 
