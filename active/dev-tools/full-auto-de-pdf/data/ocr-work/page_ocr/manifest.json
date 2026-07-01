@@ -1,0 +1,226 @@
+{
+  "pages": [
+    {
+      "candidate_preprocess_mode": "scan",
+      "character_count": 1691,
+      "cleaned_text_score": 2847.0150301742215,
+      "cleanup_changed_text": true,
+      "cleanup_span_verifier": {
+        "changes_considered": 9,
+        "changes_kept": 0,
+        "changes_reverted": 9,
+        "decisions": [
+          {
+            "accepted": false,
+            "cleaned_inverse_render_score": 0.07193283592419818,
+            "cleaned_local_inverse_render_score": 0.15266707541385652,
+            "cleaned_text": "\"loving",
+            "cleaned_token_count": 1,
+            "local_area_ratio": 0.007885702024175666,
+            "local_bbox": [
+              1246,
+              146,
+              1435,
+              202
+            ],
+            "raw_inverse_render_score": 0.07179460562966039,
+            "raw_local_inverse_render_score": 0.12679425837320574,
+            "raw_text": "\u201cloving",
+            "raw_token_count": 1,
+            "reason": "insufficient-image-margin"
+          },
+          {
+            "accepted": false,
+            "cleaned_inverse_render_score": 0.07239698377637291,
+            "cleaned_local_inverse_render_score": 0.18554409672830727,
+            "cleaned_text": "allowance\"",
+            "cleaned_token_count": 1,
+            "local_area_ratio": 0.048273847841117705,
+            "local_bbox": [
+              303,
+              191,
+              1460,
+              247
+            ],
+            "raw_inverse_render_score": 0.07193283592419818,
+            "raw_local_inverse_render_score": 0.1724986812027431,
+            "raw_text": "allowance\u201d",
+            "raw_token_count": 1,
+            "reason": "insufficient-image-margin"
+          },
+          {
+            "accepted": false,
+            "cleaned_inverse_render_score": 0.07307415157352105,
+            "cleaned_local_inverse_render_score": 0.18534274388475297,
+            "cleaned_text": "\"loving",
+            "cleaned_token_count": 1,
+            "local_area_ratio": 0.044143242018930454,
+            "local_bbox": [
+              400,
+              191,
+              1458,
+              247
+            ],
+            "raw_inverse_render_score": 0.07239698377637291,
+            "raw_local_inverse_render_score": 0.1647829803400133,
+            "raw_text": "\u201cloving",
+            "raw_token_count": 1,
+            "reason": "insufficient-image-margin"
+          },
+          {
+            "accepted": false,
+            "cleaned_inverse_render_score": 0.07298890790303249,
+            "cleaned_local_inverse_render_score": 0.15663430420711974,
+            "cleaned_text": "love.\"",
+            "cleaned_token_count": 1,
+            "local_area_ratio": 0.025868440502586843,
+            "local_bbox": [
+              836,
+              191,
+              1456,
+              247
+            ],
+            "raw_inverse_render_score": 0.07307415157352105,
+            "raw_local_inverse_render_score": 0.16092887301071776,
+            "raw_text": "love.\u201d",
+            "raw_token_count": 1,
+            "reason": "insufficient-image-margin"
+          },
+          {
+            "accepted": false,
+            "cleaned_inverse_render_score": 0.07298139873220409,
+            "cleaned_local_inverse_render_score": 0.05454545454545454,
+            "cleaned_text": "these",
+            "cleaned_token_count": 1,
+            "local_area_ratio": 0.0013142836706959446,
+            "local_bbox": [
+              1252,
+              423,
+              1294,
+              465
+            ],
+            "raw_inverse_render_score": 0.07298890790303249,
+            "raw_local_inverse_render_score": 0.0589622641509434,
+            "raw_text": "those",
+            "raw_token_count": 1,
+            "reason": "insufficient-image-margin"
+          },
+          {
+            "accepted": false,
+            "cleaned_inverse_render_score": 0.07290089952789507,
+            "cleaned_local_inverse_render_score": 0.00447960905230089,
+            "cleaned_text": "\"by allowance\"",
+            "cleaned_token_count": 2,
+            "local_area_ratio": 0.04969243973964666,
+            "local_bbox": [
+              303,
+              506,
+              1494,
+              562
+            ],
+            "raw_inverse_render_score": 0.07298139873220409,
+            "raw_local_inverse_render_score": 0.005765199161425576,
+            "raw_text": "\u201cby allowance\u201d",
+            "raw_token_count": 2,
+            "reason": "insufficient-image-margin"
+          },
+          {
+            "accepted": false,
+            "cleaned_inverse_render_score": 0.07317225274915637,
+            "cleaned_local_inverse_render_score": 0.03672125612020935,
+            "cleaned_text": "everyone",
+            "cleaned_token_count": 1,
+            "local_area_ratio": 0.039386786829745134,
+            "local_bbox": [
+              539,
+              686,
+              1483,
+              742
+            ],
+            "raw_inverse_render_score": 0.07290089952789507,
+            "raw_local_inverse_render_score": 0.03037167547613055,
+            "raw_text": "every one",
+            "raw_token_count": 2,
+            "reason": "insufficient-image-margin"
+          },
+          {
+            "accepted": false,
+            "cleaned_inverse_render_score": 0.07336545794910906,
+            "cleaned_local_inverse_render_score": 0.12530791474777767,
+            "cleaned_text": "and",
+            "cleaned_token_count": 1,
+            "local_area_ratio": 0.03717545239968529,
+            "local_bbox": [
+              514,
+              821,
+              1405,
+              877
+            ],
+            "raw_inverse_render_score": 0.07317225274915637,
+            "raw_local_inverse_render_score": 0.11849437493428662,
+            "raw_text": "a kind",
+            "raw_token_count": 2,
+            "reason": "insufficient-image-margin"
+          },
+          {
+            "accepted": false,
+            "cleaned_inverse_render_score": 0.07336908480169721,
+            "cleaned_local_inverse_render_score": 0.1273100616016427,
+            "cleaned_text": "here",
+            "cleaned_token_count": 1,
+            "local_area_ratio": 0.0013142836706959446,
+            "local_bbox": [
+              950,
+              963,
+              992,
+              1005
+            ],
+            "raw_inverse_render_score": 0.07336545794910906,
+            "raw_local_inverse_render_score": 0.12658227848101267,
+            "raw_text": "hero",
+            "raw_token_count": 1,
+            "reason": "insufficient-image-margin"
+          }
+        ],
+        "enabled": true
+      },
+      "hocr_confidence_adjustment": 0.0,
+      "image_path": "data/ocr-work/pages/page-1.png",
+      "lexical_candidate_score": 2814.9534388685383,
+      "ocr_input_path": "data/ocr-work/preprocessed/scan/page-1.png",
+      "page_apostrophe_fragment_ratio": 0.0,
+      "page_avg_words_per_line": 13.381,
+      "page_dense_body_line_count": 21,
+      "page_index": 1,
+      "page_layout_region_counts": {
+        "body": 21
+      },
+      "page_line_count": 21,
+      "page_quality_tier": "high",
+      "page_route": "body",
+      "page_single_char_fragment_ratio": 0.0,
+      "page_text_noise_ratio": 0.0071,
+      "page_type": "body",
+      "preprocess_mode": "scan",
+      "raw_text_score": 2740.1430591552785,
+      "score": 2814.9534388685383,
+      "selected_preprocess_mode": "scan",
+      "selection_score": 2814.9534388685383,
+      "selection_strategy": "text-score",
+      "tesseract_output_format": "text",
+      "tesseract_psm": 6,
+      "text_path": "data/ocr-work/page_ocr/page-0001.txt",
+      "word_count": 281
+    }
+  ],
+  "progress": {
+    "completed_pages": 1,
+    "current_page_index": null,
+    "elapsed_seconds": 84.004,
+    "estimated_remaining_seconds": 0.0,
+    "estimated_total_seconds": 84.004,
+    "seconds_per_page": 84.004,
+    "status": "complete",
+    "total_pages": 1
+  }
+}

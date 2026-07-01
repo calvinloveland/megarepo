@@ -1,0 +1,48 @@
+{
+  "pages": [
+    {
+      "candidate_preprocess_mode": "none",
+      "character_count": 1148,
+      "cleaned_text_score": 1973.1729765602615,
+      "cleanup_changed_text": true,
+      "hocr_confidence_adjustment": 0.0,
+      "image_path": "data/benchmark-corpus-v3/theadventuresofsherlockholmes-english/pages/page-0001.png",
+      "lexical_candidate_score": 1949.8829261111678,
+      "ocr_input_path": "data/benchmark-corpus-v3/theadventuresofsherlockholmes-english/pages/page-0001.png",
+      "page_apostrophe_fragment_ratio": 0.0,
+      "page_avg_words_per_line": 13.733,
+      "page_dense_body_line_count": 14,
+      "page_index": 1,
+      "page_layout_region_counts": {
+        "body": 14,
+        "footer": 1
+      },
+      "page_line_count": 15,
+      "page_quality_tier": "high",
+      "page_route": "body",
+      "page_single_char_fragment_ratio": 0.0,
+      "page_text_noise_ratio": 0.0021,
+      "page_type": "body",
+      "preprocess_mode": "none",
+      "raw_text_score": 1895.5394750632822,
+      "score": 1949.8829261111678,
+      "selected_preprocess_mode": "none",
+      "selection_score": 1949.8829261111678,
+      "selection_strategy": "text-score",
+      "tesseract_output_format": "text",
+      "tesseract_psm": 6,
+      "text_path": "data/benchmark-corpus-v3-work-none/theadventuresofsherlockholmes-english/page_ocr/page-0001.txt",
+      "word_count": 206
+    }
+  ],
+  "progress": {
+    "completed_pages": 1,
+    "current_page_index": null,
+    "elapsed_seconds": 1.445,
+    "estimated_remaining_seconds": 0.0,
+    "estimated_total_seconds": 1.445,
+    "seconds_per_page": 1.445,
+    "status": "complete",
+    "total_pages": 1
+  }
+}

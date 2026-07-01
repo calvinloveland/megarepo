@@ -38,6 +38,7 @@ This is the single source of truth. Each app's `subdomain` field in [`apps.yaml`
 | Recursive Thermofluid Sandbox | `thermofluid` | https://thermofluid.shsw.dev | Node.js static server | 5192 |
 | OCR Arena | `ocr` | https://ocr.shsw.dev | Flask | 5110 |
 | Drop | _(none — LAN-only)_ | _not exposed_ | Flask | 5111 |
+| Vroomon | _(pending tunnel ingress)_ | _not yet exposed_ | Electron (Node) | 5112 |
 
 ## Prerequisites
 

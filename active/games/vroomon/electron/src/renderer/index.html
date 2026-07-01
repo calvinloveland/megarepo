@@ -2,10 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta
-      name="viewport"
-      content="width=device-width, initial-scale=1.0"
-    />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>vroomon rewrite</title>
     <style>
       :root {
@@ -23,550 +20,657 @@
         --accent-warm: #ffd166;
         --success: #49dcb1;
         --shadow: 0 28px 60px rgba(0, 0, 0, 0.34);
+        --overlay-bg: rgba(8, 17, 31, 0.88);
       }
 
-      * {
-        box-sizing: border-box;
-      }
+      * { box-sizing: border-box; }
+
+      html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; }
 
       body {
-        margin: 0;
-        min-height: 100vh;
         background:
           radial-gradient(circle at top, rgba(63, 130, 255, 0.22), transparent 28%),
           linear-gradient(180deg, #08111f 0%, #0d1727 100%);
         color: var(--text);
       }
 
-      button,
-      input,
-      select,
-      summary {
-        font: inherit;
+      button, input, select, summary { font: inherit; }
+
+      /* ============ FULL-VIEWPORT VIEWPORT ============ */
+      .viewport-stage {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
       }
 
-      button,
-      input,
-      select {
+      .viewport-stage__body {
+        flex: 1;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .race-viewport {
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
+
+      .overworld-canvas {
+        width: 100%;
+        height: 100%;
+        display: block;
+        background: #6f9d4a;
+        image-rendering: pixelated;
+      }
+
+      /* ============ FLOATING TOP BAR ============ */
+      .top-bar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 20;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.35rem 0.7rem;
+        background: var(--overlay-bg);
+        backdrop-filter: blur(6px);
+        -webkit-backdrop-filter: blur(6px);
+        font-size: 0.85rem;
+        color: var(--text);
+        pointer-events: none;
+      }
+      .top-bar > * { pointer-events: auto; }
+
+      .top-bar__tabs { display: flex; gap: 0.25rem; }
+
+      .top-bar__tab {
         border-radius: 12px;
         border: 1px solid rgba(125, 148, 186, 0.28);
         background: rgba(9, 16, 30, 0.92);
-        color: inherit;
-        padding: 0.8rem 1rem;
-      }
-
-      button {
+        color: var(--muted);
+        padding: 0.45rem 0.7rem;
         cursor: pointer;
-        background: linear-gradient(180deg, #3d7dff 0%, #2256c4 100%);
-        border-color: rgba(138, 180, 255, 0.48);
         font-weight: 600;
+        font-size: 0.82rem;
+        transition: background 0.15s, color 0.15s, border-color 0.15s;
       }
-
-      button:hover {
-        transform: translateY(-1px);
-        box-shadow: 0 12px 24px rgba(34, 86, 196, 0.3);
+      .top-bar__tab:hover {
+        background: rgba(20, 36, 60, 0.95);
+        color: var(--text);
       }
-
-      button.ghost {
-        background: rgba(17, 27, 43, 0.96);
-      }
-
-      button.secondary {
-        background: rgba(32, 46, 70, 0.98);
-      }
-
-      button.active {
+      .top-bar__tab.active {
         background: linear-gradient(180deg, #8ab4ff 0%, #5a90ff 100%);
         border-color: rgba(138, 180, 255, 0.85);
         color: #081120;
         box-shadow: 0 0 0 2px rgba(138, 180, 255, 0.16);
       }
 
-      pre {
-        margin: 0;
-        white-space: pre-wrap;
-        word-break: break-word;
-        background: #09111e;
-        border-radius: 14px;
-        border: 1px solid rgba(125, 148, 186, 0.18);
-        padding: 1rem;
-        min-height: 160px;
-        overflow: auto;
-        font-size: 0.88rem;
+      .top-bar__spacer { flex: 1; }
+
+      .top-bar__terrain select {
+        border-radius: 12px;
+        border: 1px solid rgba(125, 148, 186, 0.28);
+        background: rgba(9, 16, 30, 0.92);
+        color: var(--text);
+        padding: 0.4rem 0.5rem;
+        cursor: pointer;
+        font-size: 0.85rem;
       }
 
-      ul {
-        margin: 0;
-        padding-left: 1.1rem;
-        color: #cfdaea;
-      }
-
-      li + li {
-        margin-top: 0.65rem;
-      }
-
-      .app-shell {
-        display: grid;
-        gap: 1.25rem;
-        min-height: 100vh;
-        padding: 1.25rem;
-      }
-
-      .app-bar,
-      .card,
-      .viewport-card,
-      .leaderboard-card,
-      .sidebar,
-      .panel,
-      .diagnostics {
-        background: var(--panel);
-        border: 1px solid var(--border);
-        box-shadow: var(--shadow);
-      }
-
-      .app-bar {
-        display: grid;
-        grid-template-columns: minmax(220px, 1fr) 2fr;
-        gap: 1rem;
-        padding: 1.1rem 1.25rem;
-        border-radius: 22px;
-        align-items: center;
-      }
-
-      .brand {
-        display: grid;
-        gap: 0.25rem;
-      }
-
-      .brand h1,
-      .card h2,
-      .viewport-card h2,
-      .leaderboard-card h2,
-      .panel h2,
-      .panel h3,
-      .diagnostics h3 {
-        margin: 0;
-      }
-
-      .brand p,
-      .muted,
-      .section-copy,
-      .metric-value--muted {
-        color: var(--muted);
-      }
-
-      .app-bar__controls {
-        display: grid;
-        gap: 0.85rem;
-      }
-
-      .nav-row,
-      .button-row,
-      .toolbar-row,
-      .leaderboard-strip {
+      .top-bar__gen {
         display: flex;
-        flex-wrap: wrap;
-        gap: 0.75rem;
         align-items: center;
+        gap: 0.4rem;
+        background: rgba(9, 16, 30, 0.92);
+        border: 1px solid rgba(125, 148, 186, 0.28);
+        padding: 0.3rem 0.5rem;
+        border-radius: 12px;
+        font-size: 0.85rem;
       }
+      .top-bar__gen strong { color: var(--accent-warm); }
 
-      .compact-field {
-        display: grid;
+      /* ============ FLOATING OVERLAYS ============ */
+      .viewport-overlay {
+        position: absolute;
+        z-index: 10;
+        pointer-events: none;
+      }
+      .viewport-overlay > * { pointer-events: auto; }
+
+      .viewport-overlay--actions {
+        left: 0.6rem;
+        bottom: 0.6rem;
+        display: flex;
+        flex-direction: column;
         gap: 0.35rem;
-        min-width: 180px;
-        color: var(--muted);
-        font-size: 0.88rem;
+        max-width: 320px;
+      }
+      .viewport-overlay--actions .action-row {
+        display: flex;
+        gap: 0.35rem;
+        flex-wrap: wrap;
       }
 
-      .status {
-        border-radius: 14px;
-        border: 1px solid rgba(138, 180, 255, 0.26);
-        background: rgba(14, 24, 40, 0.92);
-        padding: 0.9rem 1rem;
-        min-height: 3.25rem;
+      .hud-btn {
+        border-radius: 12px;
+        border: 1px solid rgba(138, 180, 255, 0.48);
+        background: linear-gradient(180deg, #3d7dff 0%, #2256c4 100%);
+        color: #fff;
+        padding: 0.4rem 0.65rem;
+        cursor: pointer;
+        font-weight: 600;
+        font-size: 0.78rem;
+        white-space: nowrap;
+        transition: transform 0.06s, box-shadow 0.06s;
+      }
+      .hud-btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 8px 20px rgba(34, 86, 196, 0.3);
+      }
+      .hud-btn:active {
+        transform: translateY(1px);
+      }
+      .hud-btn--primary {
+        background: linear-gradient(180deg, #49dcb1 0%, #2a8a72 100%);
+        border-color: rgba(73, 220, 177, 0.6);
+      }
+      .hud-btn--secondary {
+        background: rgba(32, 46, 70, 0.98);
+        border-color: rgba(125, 148, 186, 0.28);
+        color: var(--text);
+      }
+
+      .hud-input {
+        border-radius: 12px;
+        border: 1px solid rgba(125, 148, 186, 0.28);
+        background: rgba(9, 16, 30, 0.92);
+        color: var(--text);
+        padding: 0.4rem 0.5rem;
+        font-family: monospace;
+        font-size: 0.85rem;
+        width: 100%;
+      }
+      .hud-input:focus {
+        outline: none;
+        border-color: var(--accent-strong);
+        box-shadow: 0 0 0 2px rgba(63, 130, 255, 0.25);
+      }
+
+      .hud-select {
+        border-radius: 12px;
+        border: 1px solid rgba(125, 148, 186, 0.28);
+        background: rgba(9, 16, 30, 0.92);
+        color: var(--text);
+        padding: 0.3rem 0.4rem;
+        cursor: pointer;
+        font-size: 0.78rem;
+      }
+
+      .hud-label {
+        font-size: 0.75rem;
+        color: var(--muted);
+        display: block;
+        margin-bottom: 0.1rem;
+      }
+
+      .hud-row { display: flex; flex-direction: column; gap: 0.15rem; }
+
+      .hud-checkbox {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+        font-size: 0.72rem;
+        color: var(--muted);
+        border: 1px solid rgba(125, 148, 186, 0.28);
+        border-radius: 12px;
+        background: rgba(9, 16, 30, 0.92);
+        padding: 0.2rem 0.4rem;
+        cursor: pointer;
+        user-select: none;
+        white-space: nowrap;
+      }
+
+      .viewport-overlay--status {
+        top: 3rem;
+        right: 0.6rem;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 0.35rem;
+      }
+
+      .status-pill {
+        background: var(--overlay-bg);
+        backdrop-filter: blur(4px);
+        -webkit-backdrop-filter: blur(4px);
+        color: var(--text);
+        border: 1px solid rgba(125, 148, 186, 0.28);
+        border-radius: 99px;
+        padding: 0.25rem 0.55rem;
+        font-size: 0.8rem;
         display: flex;
         align-items: center;
+        gap: 0.35rem;
       }
+      .status-pill .pill-value { color: var(--accent-warm); font-weight: 700; }
 
-      .app-content {
-        display: grid;
-        grid-template-columns: minmax(0, 2.1fr) minmax(320px, 0.95fr);
-        gap: 1.25rem;
-        min-height: 0;
-      }
-
-      .viewport-column,
-      .sidebar {
-        display: grid;
-        gap: 1rem;
-        min-height: 0;
-      }
-
-      .viewport-card {
-        border-radius: 24px;
-        padding: 1rem;
-        display: grid;
-        gap: 0.9rem;
-      }
-
-      .viewport-header {
+      .viewport-overlay--progress {
+        top: 0.5rem;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(0, 0, 0, 0.6);
+        color: var(--text);
+        padding: 0.3rem 0.7rem;
+        border-radius: 99px;
+        font-size: 0.78rem;
         display: flex;
-        justify-content: space-between;
-        gap: 1rem;
-        align-items: end;
+        align-items: center;
+        gap: 0.5rem;
+        min-width: 200px;
+        max-width: 50%;
       }
-
-      .viewport-header p {
-        margin: 0.35rem 0 0;
-      }
-
-      .viewport-meta {
-        color: var(--muted);
-        text-align: right;
-        font-size: 0.9rem;
-      }
-
-      .race-viewport {
-        width: 100%;
-        min-height: 420px;
-        border-radius: 20px;
-        border: 1px solid rgba(138, 180, 255, 0.16);
-        background: linear-gradient(180deg, #18304f 0%, #0b1626 62%, #08111f 100%);
+      .viewport-overlay--progress .progress-track {
+        flex: 1;
+        height: 6px;
+        background: rgba(125, 148, 186, 0.16);
+        border-radius: 99px;
         overflow: hidden;
       }
-
-      .summary-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-        gap: 1rem;
+      .viewport-overlay--progress .progress-fill {
+        height: 100%;
+        width: 0%;
+        background: linear-gradient(90deg, #3d7dff, #8ab4ff);
+        transition: width 0.3s ease;
       }
 
-      .card,
-      .leaderboard-card,
-      .panel,
-      .diagnostics {
-        border-radius: 20px;
-        padding: 1rem;
+      .viewport-overlay--hof {
+        right: 0.6rem;
+        bottom: 0.6rem;
+        max-width: 200px;
       }
-
-      .card,
-      .panel,
-      .diagnostics {
-        display: grid;
-        gap: 0.9rem;
+      .viewport-overlay--hof .hof-card {
+        background: var(--overlay-bg);
+        backdrop-filter: blur(4px);
+        -webkit-backdrop-filter: blur(4px);
+        color: var(--text);
+        border: 1px solid rgba(125, 148, 186, 0.28);
+        border-radius: 12px;
+        padding: 0.4rem 0.5rem;
+        font-size: 0.75rem;
+        line-height: 1.3;
       }
-
-      .leaderboard-card {
-        display: grid;
-        gap: 0.9rem;
+      .viewport-overlay--hof .hof-card h4 {
+        font-size: 0.8rem;
+        margin: 0 0 0.2rem 0;
+        color: var(--accent-warm);
       }
+      .viewport-overlay--hof .hof-card .hof-row { display: flex; justify-content: space-between; }
+      .viewport-overlay--hof .hof-card .hof-row strong { color: var(--accent-warm); }
 
-      .metric-list {
-        display: grid;
-        gap: 0.75rem;
-      }
-
-      .metric-row {
-        display: flex;
-        justify-content: space-between;
-        gap: 0.75rem;
-        padding-bottom: 0.6rem;
-        border-bottom: 1px solid rgba(125, 148, 186, 0.12);
-      }
-
-      .metric-row:last-child {
-        border-bottom: none;
-        padding-bottom: 0;
-      }
-
-      .metric-label {
-        color: var(--muted);
-        font-size: 0.9rem;
-      }
-
-      .metric-value {
-        font-weight: 600;
-        text-align: right;
-      }
-
-      .feature-grid {
-        display: grid;
-        gap: 0.8rem;
-      }
-
-      .feature-grid article {
-        padding: 0.9rem;
-        border-radius: 16px;
-        background: rgba(12, 21, 35, 0.72);
-        border: 1px solid rgba(125, 148, 186, 0.16);
-      }
-
-      .feature-grid p,
-      .leaderboard-card p,
-      .panel p {
-        margin: 0;
-      }
-
-      .panel {
-        display: none;
-      }
-
-      .panel[data-active="true"] {
-        display: grid;
-      }
-
-      .leaderboard-strip {
-        min-height: 3rem;
-      }
-
-      .leaderboard-strip button {
-        min-width: 5.75rem;
-      }
-
-      details summary {
+      .viewport-overlay--dpad { left: 0.6rem; bottom: 0.6rem; }
+      .dpad { display: grid; justify-items: center; gap: 0.25rem; }
+      .dpad-row { display: flex; gap: 0.25rem; }
+      .dpad-btn {
+        width: 38px; height: 38px; font-size: 1rem;
+        background: rgba(9, 16, 30, 0.92);
+        border: 1px solid rgba(125, 148, 186, 0.4);
+        color: var(--text);
         cursor: pointer;
-        color: var(--muted);
-        font-weight: 600;
+        border-radius: 12px;
+        display: flex; align-items: center; justify-content: center;
       }
-
-      .diagnostics-grid {
-        display: grid;
-        gap: 1rem;
-      }
-
-      .diagnostics-grid section {
-        display: grid;
-        gap: 0.55rem;
-      }
-
-      .viewport-label {
-        font-size: 22px;
+      .dpad-btn:active { transform: translateY(1px); }
+      .dpad-interact {
+        background: linear-gradient(180deg, #49dcb1, #2a8a72);
+        color: #08111f;
+        border-color: rgba(73, 220, 177, 0.8);
         font-weight: 700;
-        fill: #f8fbff;
-        paint-order: stroke;
-        stroke: rgba(8, 17, 31, 0.75);
-        stroke-width: 5px;
-        stroke-linejoin: round;
       }
 
+      .viewport-overlay--dialogue {
+        left: 50%;
+        bottom: 4rem;
+        transform: translateX(-50%);
+        width: min(480px, 80vw);
+      }
+      .overworld-dialogue {
+        background: var(--overlay-bg);
+        backdrop-filter: blur(6px);
+        -webkit-backdrop-filter: blur(6px);
+        border: 1px solid rgba(138, 180, 255, 0.5);
+        border-radius: 14px;
+        padding: 0.6rem 0.8rem;
+        display: grid;
+        gap: 0.35rem;
+      }
+      .overworld-dialogue[hidden] { display: none; }
+      .overworld-dialogue__name { font-weight: 700; color: var(--accent-warm); }
+      .overworld-dialogue__text { font-size: 0.92rem; line-height: 1.4; }
+      .overworld-dialogue__options { display: grid; gap: 0.25rem; }
+      .overworld-dialogue__options button {
+        background: rgba(20, 36, 60, 0.95);
+        border: 1px solid rgba(138, 180, 255, 0.3);
+        color: var(--text);
+        padding: 0.35rem 0.6rem;
+        text-align: left;
+        cursor: pointer;
+        border-radius: 8px;
+        font-size: 0.85rem;
+      }
+      .overworld-dialogue__options button:hover { background: rgba(40, 70, 110, 0.98); }
+      .overworld-dialogue__hint { font-size: 0.7rem; color: var(--muted); text-align: right; font-style: italic; }
+
+      .viewport-overlay--status-msg {
+        left: 50%;
+        bottom: 0.3rem;
+        transform: translateX(-50%);
+        font-size: 0.78rem;
+        color: var(--muted);
+        text-shadow: 0 1px 4px rgba(0,0,0,0.6);
+        white-space: nowrap;
+        max-width: 90%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      /* Menu */
+      .viewport-overlay--menu {
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        text-align: center;
+        max-width: 500px;
+      }
+      .menu-title {
+        font-size: 2rem;
+        font-weight: 800;
+        margin: 0 0 0.5rem;
+        color: var(--text);
+        letter-spacing: 0.02em;
+      }
+      .menu-tagline { font-size: 0.95rem; color: var(--muted); font-style: italic; }
+
+      /* Error toggle */
+      .error-toggle {
+        position: fixed; bottom: 0.5rem; right: 0.5rem; z-index: 50;
+        width: 32px; height: 32px; border-radius: 50%;
+        background: rgba(8, 17, 31, 0.7);
+        color: #ff6b4a;
+        border: 2px solid #ff6b4a;
+        font-size: 0.5rem; cursor: pointer;
+        display: flex; align-items: center; justify-content: center;
+      }
+      .error-toggle[data-has-errors="true"] {
+        background: #ff6b4a; color: #fff;
+        animation: error-pulse 2s ease-in-out infinite;
+      }
+      @keyframes error-pulse {
+        0%, 100% { box-shadow: 0 0 0 0 rgba(255, 107, 74, 0.6); }
+        50% { box-shadow: 0 0 0 8px rgba(255, 107, 74, 0); }
+      }
+      .error-panel {
+        position: fixed; bottom: 3rem; right: 0.5rem;
+        width: 360px; max-height: 50vh;
+        background: rgba(8, 11, 20, 0.95);
+        color: var(--text);
+        border: 2px solid #ff6b4a;
+        border-radius: 8px; padding: 0.5rem;
+        z-index: 49;
+        display: none; flex-direction: column; gap: 0.3rem;
+        font-size: 0.8rem;
+      }
+      .error-panel--open { display: flex; }
+      .error-panel__head {
+        display: flex; justify-content: space-between;
+        font-size: 0.75rem; color: #ff6b4a;
+        border-bottom: 1px solid rgba(255, 107, 74, 0.3);
+        padding-bottom: 0.25rem;
+      }
+      .error-panel__head button {
+        background: transparent; color: var(--accent-warm);
+        border: 1px solid var(--accent-warm); padding: 0.15rem 0.3rem;
+        cursor: pointer; border-radius: 4px; font-size: 0.7rem;
+      }
+      .error-list { overflow-y: auto; max-height: 40vh; display: grid; gap: 0.3rem; }
+      .error-entry {
+        background: rgba(255, 107, 74, 0.08);
+        border-left: 3px solid #ff6b4a;
+        padding: 0.3rem 0.4rem;
+        border-radius: 0 4px 4px 0;
+      }
+      .error-entry__msg { color: var(--text); word-break: break-word; }
+      .error-entry__time { color: var(--muted); font-size: 0.65rem; }
+
+      /* SVG labels */
+      .viewport-label {
+        font-size: 22px; font-weight: 700;
+        fill: #f8fbff; paint-order: stroke;
+        stroke: rgba(8, 17, 31, 0.75);
+        stroke-width: 5px; stroke-linejoin: round;
+      }
       .viewport-subtitle {
         font-size: 14px;
         fill: rgba(255, 255, 255, 0.78);
         paint-order: stroke;
         stroke: rgba(8, 17, 31, 0.6);
-        stroke-width: 4px;
-        stroke-linejoin: round;
+        stroke-width: 4px; stroke-linejoin: round;
       }
 
-      @media (max-width: 1120px) {
-        .app-bar,
-        .app-content {
-          grid-template-columns: 1fr;
-        }
+      @media (max-width: 600px) {
+        .top-bar { font-size: 0.75rem; padding: 0.2rem 0.4rem; flex-wrap: wrap; }
+        .top-bar__tab { font-size: 0.72rem; padding: 0.3rem 0.5rem; }
+        .viewport-overlay--actions { max-width: 220px; }
       }
     </style>
   </head>
   <body>
-    <main class="app-shell">
-      <header class="app-bar">
-        <div class="brand">
-          <h1>vroomon rewrite</h1>
-          <p>Viewport-first evolution lab for the Electron rewrite.</p>
-        </div>
+    <section class="viewport-stage">
+      <div class="viewport-stage__body">
+        <svg
+          class="race-viewport"
+          data-race-viewport
+          viewBox="0 0 1000 480"
+          preserveAspectRatio="xMidYMid meet"
+          aria-label="Race viewport"
+        ></svg>
 
-        <div class="app-bar__controls">
-          <div class="toolbar-row">
-            <div class="nav-row">
-              <button class="ghost" type="button" data-mode-button="menu">Menu</button>
-              <button class="ghost" type="button" data-mode-button="evolution">Evolution</button>
-              <button class="ghost" type="button" data-mode-button="test-drive">Test Drive</button>
-            </div>
+        <canvas
+          class="overworld-canvas"
+          data-overworld-canvas
+          style="display:none"
+          width="640"
+          height="480"
+          aria-label="Continent of Vroom overworld"
+        ></canvas>
 
-            <label class="compact-field">
-              Terrain preset
-              <select data-terrain-select></select>
-            </label>
-
-            <div class="button-row">
-              <button class="secondary" type="button" data-save-run>Save run</button>
-              <button class="ghost" type="button" data-load-run>Load run</button>
-            </div>
+        <!-- Top bar -->
+        <nav class="top-bar" data-top-bar>
+          <div class="top-bar__tabs">
+            <button class="top-bar__tab" type="button" data-mode-button="world">Overworld</button>
+            <button class="top-bar__tab" type="button" data-mode-button="evolution">Evolution</button>
+            <button class="top-bar__tab" type="button" data-mode-button="test-drive">Test Drive</button>
+            <button class="top-bar__tab" type="button" data-mode-button="menu">Menu</button>
           </div>
+          <div class="top-bar__spacer"></div>
+          <div class="top-bar__terrain">
+            <select data-terrain-select></select>
+          </div>
+          <div class="top-bar__gen" data-viewport-gen-pill>
+            <strong data-viewport-gen-value>0</strong>
+          </div>
+        </nav>
 
-          <div class="status" data-status-message></div>
+        <!-- Status pills (top-right) -->
+        <div class="viewport-overlay viewport-overlay--status">
+          <div class="status-pill" data-viewport-leader-pill hidden>
+            <span>🏆</span>
+            <span class="pill-value" data-viewport-leader-value>—</span>
+          </div>
         </div>
-      </header>
 
-      <div class="app-content">
-        <section class="viewport-column">
-          <article class="viewport-card">
-            <div class="viewport-header">
-              <div>
-                <h2 data-viewport-title>Race viewport</h2>
-                <p class="section-copy" data-viewport-subtitle>
-                  Watch the current mode play out instead of decoding raw JSON.
-                </p>
-              </div>
-              <div class="viewport-meta" data-viewport-caption></div>
+        <!-- Batch progress -->
+        <div class="viewport-overlay viewport-overlay--progress" data-viewport-progress-overlay hidden>
+          <span class="progress-text" data-viewport-progress-text>Batch 0/0</span>
+          <div class="progress-track">
+            <div class="progress-fill" data-viewport-progress-fill></div>
+          </div>
+        </div>
+
+        <!-- Evolution actions + collapsible config -->
+        <div class="viewport-overlay viewport-overlay--actions" data-viewport-actions-overlay data-mode="evolution" hidden>
+          <div class="action-row">
+            <button class="hud-btn hud-btn--primary" type="button" data-generate-population>Generate</button>
+            <button class="hud-btn" type="button" data-run-generation>Run Gen</button>
+            <button class="hud-btn" type="button" data-run-batch-generations>Batch</button>
+            <button class="hud-btn hud-btn--secondary" type="button" data-config-toggle style="font-size:0.8rem;line-height:1;padding:0.3rem 0.4rem;" title="Toggle config">⚙</button>
+          </div>
+          <div data-config-panel hidden style="display:flex;flex-wrap:wrap;gap:0.25rem;margin-top:0.1rem;">
+            <select data-population-size-select class="hud-select" style="min-width:60px;">
+              <option value="20">20</option>
+              <option value="50">50</option>
+              <option value="100" selected>100</option>
+              <option value="200">200</option>
+            </select>
+            <select data-dna-length-select class="hud-select" style="min-width:50px;">
+              <option value="6">6ch</option>
+              <option value="9">9ch</option>
+              <option value="12" selected>12ch</option>
+              <option value="16">16ch</option>
+              <option value="20">20ch</option>
+            </select>
+            <select data-mutation-rate-select class="hud-select" style="min-width:45px;">
+              <option value="0.05">5%</option>
+              <option value="0.1" selected>10%</option>
+              <option value="0.2">20%</option>
+              <option value="0.3">30%</option>
+            </select>
+            <select data-retain-ratio-select class="hud-select" style="min-width:45px;">
+              <option value="0.25">25%</option>
+              <option value="0.5" selected>50%</option>
+              <option value="0.75">75%</option>
+            </select>
+            <select data-batch-count-select class="hud-select" style="min-width:35px;"></select>
+            <label class="hud-checkbox" style="font-size:0.7rem;padding:0.2rem 0.35rem;">
+              <input type="checkbox" data-converge-toggle checked style="width:12px;height:12px;" />
+              Plateau
+            </label>
+          </div>
+          <div class="action-row" data-batch-progress hidden>
+            <div class="progress-track" style="flex:1;height:5px;background:rgba(125,148,186,0.16);border-radius:99px;overflow:hidden;">
+              <div data-batch-progress-fill style="height:100%;width:0%;background:linear-gradient(90deg,#3d7dff,#8ab4ff);transition:width 0.3s;"></div>
             </div>
-            <svg
-              class="race-viewport"
-              data-race-viewport
-              viewBox="0 0 1000 480"
-              preserveAspectRatio="xMidYMid meet"
-              aria-label="Race viewport"
-            ></svg>
-          </article>
+            <span data-batch-progress-text style="font-size:0.7rem;color:var(--muted);"></span>
+          </div>
+          <div class="action-row" hidden data-vehicle-strip data-selected-vehicle-buttons style="margin-top:0.15rem;display:flex;gap:0.2rem;flex-wrap:wrap;"></div>
+        </div>
 
-          <section class="summary-grid">
-            <article class="card">
-              <h2>Run snapshot</h2>
-              <div class="metric-list" data-run-summary></div>
-            </article>
-            <article class="card">
-              <h2>Selected focus</h2>
-              <div class="metric-list" data-selected-vehicle-summary></div>
-            </article>
-            <article class="card">
-              <h2>Track and camera</h2>
-              <div class="metric-list" data-track-summary></div>
-            </article>
-            <article class="card">
-              <h2>Latest event</h2>
-              <div class="metric-list" data-event-summary></div>
-            </article>
-          </section>
+        <!-- Test-drive actions -->
+        <div class="viewport-overlay viewport-overlay--actions" data-viewport-actions-overlay data-mode="test-drive" hidden>
+          <div class="hud-row">
+            <span class="hud-label">DNA (press <kbd style="padding:0.1rem 0.3rem;background:rgba(125,148,186,0.16);border-radius:4px;">d</kbd> to randomize)</span>
+            <input class="hud-input" type="text" data-dna-input value="A3x9K2m7P4zQ" />
+          </div>
+          <div class="action-row">
+            <button class="hud-btn hud-btn--secondary" type="button" data-watch-flat-track-regression>▶ Replay</button>
+            <button class="hud-btn hud-btn--secondary" type="button" data-randomize-dna>🎲 Random</button>
+            <button class="hud-btn" type="button" data-save-to-hall>🏅 Save</button>
+          </div>
+        </div>
 
-          <article class="leaderboard-card">
-            <div>
-              <h2>Race focus</h2>
-              <p class="muted" data-leaderboard-summary>
-                Run a generation to inspect a leader board of active racers.
-              </p>
+        <!-- Hall of Fame (test-drive) -->
+        <div class="viewport-overlay viewport-overlay--hof" data-viewport-hof-overlay data-mode="test-drive" hidden>
+          <div class="hof-card">
+            <h4>🏅 Hall of Fame</h4>
+            <div class="hof-row"><span>Top:</span><strong data-hof-top-score>—</strong></div>
+            <div class="hof-row"><span>Saved:</span><strong data-hof-count>0</strong></div>
+          </div>
+        </div>
+
+        <!-- D-pad (world) -->
+        <div class="viewport-overlay viewport-overlay--dpad" data-viewport-dpad-overlay data-mode="world" hidden>
+          <div class="dpad">
+            <button class="dpad-btn" type="button" data-dpad="up">▲</button>
+            <div class="dpad-row">
+              <button class="dpad-btn" type="button" data-dpad="left">◀</button>
+              <button class="dpad-btn" type="button" data-dpad="down">▼</button>
+              <button class="dpad-btn" type="button" data-dpad="right">▶</button>
             </div>
-            <div class="leaderboard-strip" data-selected-vehicle-buttons></div>
-          </article>
-        </section>
+            <button class="dpad-btn dpad-interact" type="button" data-dpad="interact">A</button>
+          </div>
+        </div>
 
-        <aside class="sidebar">
-          <section class="panel" data-panel="menu">
-            <article class="card">
-              <h2>Main menu</h2>
-              <p class="section-copy" data-menu-summary>
-                Choose between the evolution lab and the single-car test drive.
-              </p>
-            </article>
-            <section class="feature-grid">
-              <article>
-                <h3>Evolution mode</h3>
-                <p>
-                  Multi-car races stay visible in the main viewport while the sidebar
-                  focuses on progress, terrain, and lineage.
-                </p>
-              </article>
-              <article>
-                <h3>Test drive</h3>
-                <p>
-                  Tune one DNA string, reset instantly, and inspect the current build
-                  without leaving the shared viewport shell.
-                </p>
-              </article>
-            </section>
-            <article class="card">
-              <h2>Parity contract</h2>
-              <p class="muted" data-contract-summary></p>
-              <div class="feature-grid">
-                <article>
-                  <h3>Modes</h3>
-                  <ul data-mode-list></ul>
-                </article>
-                <article>
-                  <h3>Terrain presets</h3>
-                  <ul data-terrain-list></ul>
-                </article>
-              </div>
-            </article>
-          </section>
+        <!-- Dialogue (world) -->
+        <div class="viewport-overlay viewport-overlay--dialogue" data-overworld-dialogue hidden>
+          <div class="overworld-dialogue">
+            <div class="overworld-dialogue__name" data-overworld-dialogue-name></div>
+            <div class="overworld-dialogue__text" data-overworld-dialogue-text></div>
+            <div class="overworld-dialogue__options" data-overworld-dialogue-options></div>
+            <div class="overworld-dialogue__hint">Z or Enter</div>
+          </div>
+        </div>
 
-          <section class="panel" data-panel="evolution">
-            <article class="card">
-              <h2>Evolution controls</h2>
-              <p class="section-copy" data-evolution-summary>
-                Generate a field, race it in the viewport, then focus the leading cars.
-              </p>
-              <div class="button-row">
-                <button class="secondary" type="button" data-generate-population>
-                  Generate population
-                </button>
-                <button type="button" data-run-generation>Run generation</button>
-              </div>
-            </article>
-            <article class="card">
-              <h2>Selection</h2>
-              <p class="section-copy">
-                Use the race focus strip to pin a racer and inspect its lineage.
-              </p>
-            </article>
-          </section>
-
-          <section class="panel" data-panel="test-drive">
-            <article class="card">
-              <h2>Test-drive editor</h2>
-              <p class="section-copy" data-test-drive-summary>
-                Spawn a single machine and keep its chassis motion front and center.
-              </p>
-              <label class="compact-field">
-                DNA string
-                <input data-dna-input value="A3x9K2m7P4zQ" />
-              </label>
-              <div class="button-row">
-                <button type="button" data-randomize-dna>Generate random DNA</button>
-                <button class="secondary" type="button" data-watch-flat-track-regression>
-                  Watch flat-track regression
-                </button>
-              </div>
-            </article>
-            <article class="card">
-              <h2>Handling cues</h2>
-              <p class="section-copy">
-                The viewport tracks the active car and updates the build summary as you
-                change DNA or terrain.
-              </p>
-            </article>
-          </section>
-
-          <details class="diagnostics">
-            <summary>Diagnostics</summary>
-            <div class="diagnostics-grid">
-              <section>
-                <h3>Run state</h3>
-                <pre data-run-state-output></pre>
-              </section>
-              <section>
-                <h3>Evolution preview</h3>
-                <pre data-evolution-preview-output></pre>
-              </section>
-              <section>
-                <h3>Generation log</h3>
-                <pre data-generation-log-output></pre>
-              </section>
-              <section>
-                <h3>DNA decode</h3>
-                <pre data-dna-output></pre>
-              </section>
-              <section>
-                <h3>Physics snapshot</h3>
-                <pre data-physics-preview-output></pre>
-              </section>
-              <section>
-                <h3>Selected vehicle</h3>
-                <pre data-selected-vehicle-output></pre>
-              </section>
-            </div>
-          </details>
-        </aside>
+        <!-- Status message -->
+        <div class="viewport-overlay viewport-overlay--status-msg" data-status-message>Ready to begin.</div>
       </div>
-    </main>
+    </section>
+
+    <!-- Error toggle + panel -->
+    <button class="error-toggle" type="button" data-error-toggle data-has-errors="false" aria-label="Toggle error panel">
+      <span data-error-badge>0</span>
+    </button>
+    <div class="error-panel" data-error-panel aria-live="polite">
+      <div class="error-panel__head">
+        <span>⚠ Errors</span>
+        <button type="button" data-error-clear>Clear</button>
+      </div>
+      <div class="error-list" data-error-list></div>
+    </div>
+
+    <!-- Hidden stubs (renderer targets) -->
+    <div style="display:none" aria-hidden="true">
+      <div data-run-state-output></div>
+      <div data-dna-output></div>
+      <div data-physics-preview-output></div>
+      <div data-evolution-preview-output></div>
+      <div data-generation-log-output></div>
+      <div data-selected-vehicle-output></div>
+      <div data-run-summary></div>
+      <div data-selected-vehicle-summary></div>
+      <div data-selected-vehicle-buttons></div>
+      <div data-track-summary></div>
+      <div data-event-summary></div>
+      <div data-leaderboard-summary></div>
+      <div data-menu-summary></div>
+      <div data-evolution-summary></div>
+      <div data-test-drive-summary></div>
+      <div data-score-chart></div>
+      <div data-hall-of-fame></div>
+      <div data-hall-of-fame-test-drive></div>
+      <div data-mode-list></div>
+      <div data-terrain-list></div>
+      <div data-contract-summary></div>
+      <div data-world-summary></div>
+      <div data-overworld-badge-list></div>
+      <div data-overworld-vroomdex-count></div>
+      <div data-viewport-title></div>
+      <div data-viewport-subtitle></div>
+      <div data-viewport-caption></div>
+      <div data-overworld-save-now></div>
+      <div data-overworld-reset></div>
+      <div data-save-run></div>
+      <div data-load-run></div>
+      <button data-hall-remove=""></button>
+      <button data-hall-rename=""></button>
+      <button data-select-vehicle=""></button>
+      <button data-dialogue-option=""></button>
+      <div data-hall-entry=""></div>
+      <div data-overworld-badges></div>
+      <div data-dna-output-container></div>
+      <div data-race-viewport-container></div>
+    </div>
 
     <script type="module" src="./renderer.js"></script>
   </body>

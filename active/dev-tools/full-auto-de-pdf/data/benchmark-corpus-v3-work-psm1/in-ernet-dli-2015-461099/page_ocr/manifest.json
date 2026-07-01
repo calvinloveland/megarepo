@@ -1,0 +1,167 @@
+{
+  "pages": [
+    {
+      "candidate_preprocess_mode": "scan",
+      "character_count": 786,
+      "cleaned_text_score": 949.2035835465304,
+      "cleanup_changed_text": true,
+      "cleanup_span_verifier": {
+        "changes_considered": 5,
+        "changes_kept": 1,
+        "changes_reverted": 4,
+        "decisions": [
+          {
+            "accepted": true,
+            "accepted_without_image_verification": true,
+            "cleaned_inverse_render_score": 0.0,
+            "cleaned_local_inverse_render_score": 0.0,
+            "cleaned_text": "Sheet-Iron;",
+            "cleaned_token_count": 1,
+            "local_area_ratio": 0.012898253589760732,
+            "local_bbox": [
+              361,
+              602,
+              812,
+              679
+            ],
+            "raw_inverse_render_score": 0.0,
+            "raw_local_inverse_render_score": 0.0,
+            "raw_text": "Sheet-lron;",
+            "raw_token_count": 1,
+            "reason": "accepted-hyphenated-capital-i-correction"
+          },
+          {
+            "accepted": false,
+            "cleaned_inverse_render_score": 0.0,
+            "cleaned_local_inverse_render_score": 0.0,
+            "cleaned_text": "Stubb's",
+            "cleaned_token_count": 1,
+            "local_area_ratio": 0.00811178214070822,
+            "local_bbox": [
+              633,
+              1445,
+              913,
+              1523
+            ],
+            "raw_inverse_render_score": 0.0,
+            "raw_local_inverse_render_score": 0.0,
+            "raw_text": "Stubb\u2019s",
+            "raw_token_count": 1,
+            "reason": "insufficient-image-margin"
+          },
+          {
+            "accepted": false,
+            "cleaned_inverse_render_score": 0.0,
+            "cleaned_text": "Jeroboam's",
+            "cleaned_token_count": 1,
+            "raw_inverse_render_score": 0.0,
+            "raw_text": "Jeroboam\u2019s",
+            "raw_token_count": 1,
+            "reason": "no-local-image-difference"
+          },
+          {
+            "accepted": false,
+            "cleaned_inverse_render_score": 0.0,
+            "cleaned_text": "Whale''s Head-Contrasted",
+            "cleaned_token_count": 2,
+            "raw_inverse_render_score": 0.0,
+            "raw_text": "Whale\u2019's Head\u2014Contrasted",
+            "raw_token_count": 2,
+            "reason": "no-local-image-difference"
+          },
+          {
+            "accepted": false,
+            "cleaned_inverse_render_score": 0.0,
+            "cleaned_text": "Head-Contrasted",
+            "cleaned_token_count": 1,
+            "raw_inverse_render_score": 0.0,
+            "raw_text": "Head\u2014Contrasted",
+            "raw_token_count": 1,
+            "reason": "no-local-image-difference"
+          }
+        ],
+        "enabled": true
+      },
+      "hocr_confidence_adjustment": 0.0,
+      "image_path": "data/benchmark-corpus-v3/in-ernet-dli-2015-461099/pages/page-0001.png",
+      "lexical_candidate_score": 920.5346241092261,
+      "ocr_input_path": "data/benchmark-corpus-v3-work-psm1/in-ernet-dli-2015-461099/preprocessed/scan/page-0001.png",
+      "page_apostrophe_fragment_ratio": 0.0092,
+      "page_avg_words_per_line": 5.16,
+      "page_chapter_marker_count": 20,
+      "page_dense_body_line_count": 7,
+      "page_index": 1,
+      "page_layout_region_counts": {
+        "body": 24,
+        "header": 1
+      },
+      "page_line_count": 25,
+      "page_quality_tier": "high",
+      "page_route": "body",
+      "page_single_char_fragment_ratio": 0.0,
+      "page_text_noise_ratio": 0.0078,
+      "page_type": "body",
+      "preprocess_mode": "scan",
+      "raw_text_score": 853.640385422183,
+      "score": 920.5346241092261,
+      "selected_preprocess_mode": "scan",
+      "selection_score": 920.5346241092261,
+      "selection_strategy": "text-score",
+      "tesseract_output_format": "text",
+      "tesseract_psm": 1,
+      "text_path": "data/benchmark-corpus-v3-work-psm1/in-ernet-dli-2015-461099/page_ocr/page-0001.txt",
+      "word_count": 129
+    },
+    {
+      "candidate_preprocess_mode": "scan",
+      "character_count": 518,
+      "cleaned_text_score": 437.70655001353083,
+      "cleanup_changed_text": true,
+      "cleanup_span_verifier": {
+        "changes_considered": 0,
+        "changes_kept": 0,
+        "changes_reverted": 0,
+        "enabled": true
+      },
+      "hocr_confidence_adjustment": 0.0,
+      "image_path": "data/benchmark-corpus-v3/in-ernet-dli-2015-461099/pages/page-0002.png",
+      "lexical_candidate_score": 449.1454182535547,
+      "ocr_input_path": "data/benchmark-corpus-v3-work-psm1/in-ernet-dli-2015-461099/preprocessed/scan/page-0002.png",
+      "page_apostrophe_fragment_ratio": 0.0,
+      "page_avg_words_per_line": 2.76,
+      "page_chapter_marker_count": 10,
+      "page_dense_body_line_count": 2,
+      "page_index": 2,
+      "page_layout_region_counts": {
+        "body": 23,
+        "footer": 2
+      },
+      "page_line_count": 25,
+      "page_quality_tier": "high",
+      "page_route": "body",
+      "page_single_char_fragment_ratio": 0.0,
+      "page_text_noise_ratio": 0.0,
+      "page_type": "body",
+      "preprocess_mode": "scan",
+      "raw_text_score": 475.8361108136106,
+      "score": 449.1454182535547,
+      "selected_preprocess_mode": "scan",
+      "selection_score": 449.1454182535547,
+      "selection_strategy": "text-score",
+      "tesseract_output_format": "text",
+      "tesseract_psm": 1,
+      "text_path": "data/benchmark-corpus-v3-work-psm1/in-ernet-dli-2015-461099/page_ocr/page-0002.txt",
+      "word_count": 79
+    }
+  ],
+  "progress": {
+    "completed_pages": 2,
+    "current_page_index": null,
+    "elapsed_seconds": 73.378,
+    "estimated_remaining_seconds": 0.0,
+    "estimated_total_seconds": 73.378,
+    "seconds_per_page": 36.689,
+    "status": "complete",
+    "total_pages": 2
+  }
+}

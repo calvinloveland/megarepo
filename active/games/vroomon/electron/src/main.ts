@@ -5,11 +5,19 @@ import { dirname, join } from "node:path";
 import {
   appendGenerationLogToDisk,
   loadGenerationLogFromDisk,
+  loadHallOfFameFromDisk,
   loadRunStateFromDisk,
+  loadWorldStateFromDisk,
+  saveHallOfFameToDisk,
   saveRunStateToDisk,
+  saveWorldStateToDisk,
 } from "./main/file-store.js";
 import { type GenerationLogEntry } from "./core/persistence.js";
-import { type RunStateSnapshot } from "./shared/parity-contract.js";
+import {
+  type HallOfFame,
+  type RunStateSnapshot,
+} from "./shared/parity-contract.js";
+import { type PersistedWorldState } from "./renderer/world/types.js";
 
 const currentFile = fileURLToPath(import.meta.url);
 const currentDirectory = dirname(currentFile);
@@ -156,6 +164,20 @@ app.whenReady().then(() => {
   );
   ipcMain.handle("vroomon:load-generation-log", (_event, runId: string) =>
     loadGenerationLogFromDisk(app.getPath("userData"), runId),
+  );
+  ipcMain.handle("vroomon:load-hall-of-fame", () =>
+    loadHallOfFameFromDisk(app.getPath("userData")),
+  );
+  ipcMain.handle(
+    "vroomon:save-hall-of-fame",
+    (_event, hall: HallOfFame) => saveHallOfFameToDisk(app.getPath("userData"), hall),
+  );
+  ipcMain.handle("vroomon:load-world-state", () =>
+    loadWorldStateFromDisk(app.getPath("userData")),
+  );
+  ipcMain.handle(
+    "vroomon:save-world-state",
+    (_event, world: PersistedWorldState) => saveWorldStateToDisk(app.getPath("userData"), world),
   );
 
   createMainWindow();

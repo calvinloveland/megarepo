@@ -1,6 +1,6 @@
 import Matter, { type Body, type Constraint, type Engine, type IChamferableBodyDefinition } from "matter-js";
 
-import { decodeDnaV2, type DecodedDnaV2 } from "../shared/dna-v2.js";
+import { decodeDnaV2, type DecodedDnaV2, type WheelParams } from "../shared/dna-v2.js";
 import {
   getTerrainPreset,
   type TerrainPresetDefinition,
@@ -372,8 +372,16 @@ function buildVehicleBodies(
   const wheelBodies: Body[] = [];
   const constraints: Constraint[] = [];
   const wheelDriveBodies: Array<{ wheel: Body; motorPower: number; friction: number }> = [];
+  // Wheels that arrive in the module list before any chassis exist. These
+  // are emitted with no constraint, then anchored to the first chassis in
+  // a post-pass so they don't free-roll away.
+  const orphanWheels: Array<{ body: Body; wheel: WheelParams }> = [];
   let lastChassisBody: Body | undefined;
   let lastChassisAnchorX = originX;
+  // Track the most recent wheel's x-anchor so a wheel can still chain to
+  // the previous wheel (no real hinge needed, but the constraint rest
+  // length makes the layout sane).
+  let lastWheelAnchorX = originX;
 
   for (const [index, module] of decoded.modules.entries()) {
     const anchorX = originX + decoded.positions[index]!;
@@ -449,6 +457,27 @@ function buildVehicleBodies(
         MatterConstraint.create({
           bodyA: lastChassisBody,
           bodyB: wheelBody,
+          stiffness: 0.9,
+          damping: 0.15,
+          length: 48,
+        }),
+      );
+    } else {
+      // Defer: we'll attach to the first chassis once it's created.
+      orphanWheels.push({ body: wheelBody, wheel });
+    }
+
+    lastWheelAnchorX = anchorX;
+  }
+
+  // Post-pass: attach orphan wheels to the first chassis.
+  if (orphanWheels.length > 0 && chassisBodies[0]) {
+    const firstChassis = chassisBodies[0];
+    for (const orphan of orphanWheels) {
+      constraints.push(
+        MatterConstraint.create({
+          bodyA: firstChassis,
+          bodyB: orphan.body,
           stiffness: 0.9,
           damping: 0.15,
           length: 48,

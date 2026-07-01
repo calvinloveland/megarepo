@@ -1,0 +1,94 @@
+{
+  "pages": [
+    {
+      "candidate_preprocess_mode": "scan",
+      "character_count": 1146,
+      "cleaned_text_score": 2009.328332854088,
+      "cleanup_changed_text": true,
+      "cleanup_span_verifier": {
+        "changes_considered": 2,
+        "changes_kept": 0,
+        "changes_reverted": 2,
+        "decisions": [
+          {
+            "accepted": false,
+            "cleaned_inverse_render_score": 0.0,
+            "cleaned_local_inverse_render_score": 0.0,
+            "cleaned_text": "observer-excellent",
+            "cleaned_token_count": 1,
+            "local_area_ratio": 0.025149495984964975,
+            "local_bbox": [
+              513,
+              1446,
+              1249,
+              1538
+            ],
+            "raw_inverse_render_score": 0.0,
+            "raw_local_inverse_render_score": 0.0,
+            "raw_text": "observer\u2014excellent",
+            "raw_token_count": 1,
+            "reason": "insufficient-image-margin"
+          },
+          {
+            "accepted": false,
+            "cleaned_inverse_render_score": 0.0,
+            "cleaned_local_inverse_render_score": 0.0,
+            "cleaned_text": "men's",
+            "cleaned_token_count": 1,
+            "local_area_ratio": 0.021478394580259845,
+            "local_bbox": [
+              673,
+              1532,
+              1405,
+              1611
+            ],
+            "raw_inverse_render_score": 0.0,
+            "raw_local_inverse_render_score": 0.0,
+            "raw_text": "men\u2019s",
+            "raw_token_count": 1,
+            "reason": "insufficient-image-margin"
+          }
+        ],
+        "enabled": true
+      },
+      "hocr_confidence_adjustment": 0.0,
+      "image_path": "data/benchmark-corpus-v3/theadventuresofsherlockholmes-english/pages/page-0001.png",
+      "lexical_candidate_score": 1986.0393446446765,
+      "ocr_input_path": "data/benchmark-corpus-v3-work-predict/theadventuresofsherlockholmes-english/preprocessed/scan/page-0001.png",
+      "page_apostrophe_fragment_ratio": 0.0,
+      "page_avg_words_per_line": 13.733,
+      "page_dense_body_line_count": 14,
+      "page_index": 1,
+      "page_layout_region_counts": {
+        "body": 14,
+        "footer": 1
+      },
+      "page_line_count": 15,
+      "page_quality_tier": "high",
+      "page_route": "body",
+      "page_single_char_fragment_ratio": 0.0,
+      "page_text_noise_ratio": 0.0021,
+      "page_type": "body",
+      "preprocess_mode": "scan",
+      "raw_text_score": 1931.69837215605,
+      "score": 1986.0393446446765,
+      "selected_preprocess_mode": "scan",
+      "selection_score": 1986.0393446446765,
+      "selection_strategy": "text-score",
+      "tesseract_output_format": "text",
+      "tesseract_psm": 6,
+      "text_path": "data/benchmark-corpus-v3-work-predict/theadventuresofsherlockholmes-english/page_ocr/page-0001.txt",
+      "word_count": 206
+    }
+  ],
+  "progress": {
+    "completed_pages": 1,
+    "current_page_index": null,
+    "elapsed_seconds": 32.552,
+    "estimated_remaining_seconds": 0.0,
+    "estimated_total_seconds": 32.552,
+    "seconds_per_page": 32.552,
+    "status": "complete",
+    "total_pages": 1
+  }
+}

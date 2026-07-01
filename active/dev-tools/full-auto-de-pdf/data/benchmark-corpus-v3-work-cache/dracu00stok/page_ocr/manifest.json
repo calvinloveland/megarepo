@@ -1,0 +1,86 @@
+{
+  "pages": [
+    {
+      "candidate_preprocess_mode": "scan",
+      "character_count": 1156,
+      "cleaned_text_score": 1847.2220579056927,
+      "cleanup_changed_text": true,
+      "cleanup_span_verifier": {
+        "changes_considered": 2,
+        "changes_kept": 0,
+        "changes_reverted": 2,
+        "decisions": [
+          {
+            "accepted": false,
+            "cleaned_inverse_render_score": 0.0,
+            "cleaned_local_inverse_render_score": 0.0,
+            "cleaned_text": "I later-day",
+            "cleaned_token_count": 2,
+            "local_area_ratio": 0.08257823932728664,
+            "local_bbox": [
+              129,
+              531,
+              1493,
+              694
+            ],
+            "raw_inverse_render_score": 0.0,
+            "raw_local_inverse_render_score": 0.0,
+            "raw_text": "|later-day",
+            "raw_token_count": 1,
+            "reason": "insufficient-image-margin"
+          },
+          {
+            "accepted": false,
+            "cleaned_inverse_render_score": 0.0,
+            "cleaned_text": "I late",
+            "cleaned_token_count": 2,
+            "raw_inverse_render_score": 0.0,
+            "raw_text": "|late",
+            "raw_token_count": 1,
+            "reason": "no-local-image-difference"
+          }
+        ],
+        "enabled": true
+      },
+      "hocr_confidence_adjustment": 0.0,
+      "image_path": "data/benchmark-corpus-v3/dracu00stok/pages/page-0001.png",
+      "lexical_candidate_score": 1803.0333295833746,
+      "ocr_cache_hit": true,
+      "ocr_input_path": "data/benchmark-corpus-v3-work-cache/dracu00stok/preprocessed/scan/page-0001.png",
+      "page_apostrophe_fragment_ratio": 0.0,
+      "page_avg_words_per_line": 11.333,
+      "page_chapter_marker_count": 1,
+      "page_dense_body_line_count": 14,
+      "page_index": 1,
+      "page_layout_region_counts": {
+        "body": 18
+      },
+      "page_line_count": 18,
+      "page_quality_tier": "high",
+      "page_route": "body",
+      "page_single_char_fragment_ratio": 0.01,
+      "page_text_noise_ratio": 0.0042,
+      "page_type": "body",
+      "preprocess_mode": "scan",
+      "raw_text_score": 1699.9262968312987,
+      "score": 1803.0333295833746,
+      "selected_preprocess_mode": "scan",
+      "selection_score": 1803.0333295833746,
+      "selection_strategy": "text-score",
+      "tesseract_output_format": "text",
+      "tesseract_psm": 6,
+      "text_path": "data/benchmark-corpus-v3-work-cache/dracu00stok/page_ocr/page-0001.txt",
+      "word_count": 205
+    }
+  ],
+  "progress": {
+    "completed_pages": 1,
+    "current_page_index": null,
+    "elapsed_seconds": 22.952,
+    "estimated_remaining_seconds": 0.0,
+    "estimated_total_seconds": 22.952,
+    "seconds_per_page": 22.952,
+    "status": "complete",
+    "total_pages": 1
+  }
+}

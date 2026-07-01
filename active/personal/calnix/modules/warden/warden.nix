@@ -621,7 +621,7 @@ in
             serviceConfig = {
               Type = "oneshot";
               RemainAfterExit = true;
-              ExecStart = ''${pkgs.bash}/bin/bash -c '${./warden-banner.sh} > /run/warden-motd 2>/dev/null || true'';
+              ExecStart = ''${pkgs.bash}/bin/bash ${./warden-banner.sh} > /run/warden-motd 2>/dev/null || true'';
               StandardOutput = "null";
             };
           };

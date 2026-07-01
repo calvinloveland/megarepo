@@ -51,7 +51,12 @@ describe("matter physics spike", () => {
     const decoded = decodeDnaV2(dna);
     const flatTerrain = getTerrainPreset("Flat");
     const vehicle = createMatterVehicle(dna, "Flat");
-    const snapshot = stepMatterVehicle(vehicle, 11_000);
+    // Step count is high because the wheels are now properly attached to
+    // the chassis (see matter-simulation buildVehicleBodies for the
+    // post-pass that anchors orphan wheels). A correctly-constrained car
+    // moves more slowly than a free-rolling wheel pair, so the budget
+    // needs to be larger than the legacy 11_000 step run.
+    const snapshot = stepMatterVehicle(vehicle, 30_000);
 
     expect(decoded.wheelParams.filter(Boolean)).toHaveLength(2);
     expect(flatTerrain).toBeDefined();

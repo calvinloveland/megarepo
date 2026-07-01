@@ -21,8 +21,9 @@ SIM.tick = function() {
   }
 
   // Run systems (order matters)
+  SIM.systemAI();              // AI decisions before production/sales
   SIM.systemProduction();
-  SIM.systemSales();
+  SIM.systemSales();           // market-share-based now
   SIM.systemAging();
   SIM.systemFailures();
   SIM.systemWarrantyService();
@@ -142,59 +143,105 @@ SIM.systemProduction = function() {
   }
 };
 
-// ---- Sales System ----
+// ---- Market-Share-Based Sales System ----
+// Player and all active AI competitors compete for a share of daily demand
 
 SIM.systemSales = function() {
-  const available = Math.floor(G.company.productionQueue);
-  if (available <= 0) return;
+  // 1. Calculate total market demand for the day
+  const baseDemand = G.market.totalMarketSize * 0.0003; // 0.03% of market
+  const dailyDemand = Math.max(0.5, baseDemand);
 
-  // Calculate demand based on reputation, marketing, pricing
-  const repFactor = G.company.reputation / 100;
-  const marketingFactor = Math.min(1, G.company.marketingBudget / 5000);
+  // 2. Collect all market participants (player + active AI competitors)
+  const participants = [];
+
+  // Player
   const models = G.company.models.filter(m => m.isActive);
+  if (models.length > 0 && G.company.productionQueue >= 0.1) {
+    // Calculate player competitiveness
+    const repFactor = G.company.reputation / 100;
+    const marketingFactor = Math.min(1, G.company.marketingBudget / 5000);
+    const avgModelQuality = models.reduce((s, m) => s + m.qualityRating, 0) / models.length;
+    const avgPrice = models.reduce((s, m) => s + m.retailPrice, 0) / models.length;
 
-  if (models.length === 0) return;
+    const playerScore =
+      avgModelQuality * 50 * 0.3 +
+      Math.max(0, 100 - avgPrice / 10) * 0.2 +
+      repFactor * 100 * 0.25 +
+      marketingFactor * 50 * 0.1 +
+      G.company.customerSatisfactionAvg * 50 * 0.1 +
+      Math.random() * 5; // small randomness
 
-  // Calculate daily demand
-  const baseDemand = G.market.totalMarketSize * 0.0003; // 0.03% of market per day
-  const demandMultiplier = repFactor * (0.5 + marketingFactor * 0.5);
-  let dailyDemand = Math.max(0.1, baseDemand * demandMultiplier);
-
-  // Competitor pressure reduces demand
-  const activeCompetitors = G.market.competitors.filter(c => c.active).length;
-  dailyDemand *= Math.max(0.3, 1 - activeCompetitors * 0.1);
-
-  // Actually sell
-  const toSell = Math.min(available, Math.ceil(dailyDemand));
-  const modelIndex = Math.floor(Math.random() * models.length);
-  const model = models[modelIndex];
-
-  for (let i = 0; i < toSell; i++) {
-    // Pick a customer type
-    const customerType = SIM.pickCustomerType();
-    const customerId = nextCustomerId();
-
-    // Create the machine
-    const machine = createMachine(model.id, customerId, customerType.id);
-    if (!machine) continue;
-
-    // Determine sale price (retail - potential discount)
-    let salePrice = model.retailPrice;
-
-    // Early game market adjustment (inflation-ish)
-    salePrice *= (1 + (G.year - 1970) * 0.008);
-
-    // Add to active machines
-    G.company.activeMachines.push(machine);
-    G.company.totalMachinesSold++;
-    G.market.soldThisYear++;
-
-    // Revenue
-    G.company.cash += salePrice;
-    G.company.totalRevenue += salePrice;
+    participants.push({
+      id: 'player',
+      name: G.company.name,
+      score: Math.max(1, playerScore),
+      isPlayer: true,
+    });
   }
 
-  G.company.productionQueue -= toSell;
+  // AI competitors
+  for (const comp of G.market.competitors) {
+    if (!comp.active) continue;
+    const compScore = AI.calcCompetitiveness(comp);
+    if (compScore > 0) {
+      participants.push({
+        id: comp.id,
+        name: comp.name,
+        score: compScore,
+        isPlayer: false,
+        competitor: comp,
+      });
+    }
+  }
+
+  if (participants.length === 0) return;
+
+  // 3. Calculate total score and allocate market share
+  const totalScore = participants.reduce((s, p) => s + p.score, 0);
+
+  // 4. Sell to player's share
+  const player = participants.find(p => p.isPlayer);
+  if (player) {
+    const playerShare = player.score / totalScore;
+    const playerAllocation = Math.floor(dailyDemand * playerShare);
+    const toSell = Math.min(Math.floor(G.company.productionQueue), playerAllocation);
+
+    if (toSell > 0) {
+      const model = models[Math.floor(Math.random() * models.length)];
+
+      for (let i = 0; i < toSell; i++) {
+        const customerType = SIM.pickCustomerType();
+        const customerId = nextCustomerId();
+        const machine = createMachine(model.id, customerId, customerType.id);
+        if (!machine) continue;
+
+        let salePrice = model.retailPrice;
+        salePrice *= (1 + (G.year - 1970) * 0.008);
+
+        G.company.activeMachines.push(machine);
+        G.company.totalMachinesSold++;
+        G.market.soldThisYear++;
+        G.company.cash += salePrice;
+        G.company.totalRevenue += salePrice;
+      }
+
+      G.company.productionQueue -= toSell;
+    }
+  }
+
+  // 5. Update AI competitor market shares
+  for (const p of participants) {
+    if (p.isPlayer) continue;
+    const share = p.score / totalScore;
+    const aiAllocation = dailyDemand * share;
+    p.competitor.marketShare = share * 100;
+    if (p.competitor._ai) {
+      p.competitor._ai.marketShare = p.competitor.marketShare;
+    }
+  }
+
+  // Player market share (calc separately since it's based on active machines)
+  // This is calculated in UI.calcMarketShare for display
 };
 
 SIM.pickCustomerType = function() {
@@ -470,30 +517,32 @@ SIM.systemFinance = function() {
   }
 };
 
-// ---- Competitor System ----
+// ---- AI System ----
+// Runs AI competitor decisions every tick
 
-SIM.systemCompetitors = function() {
+SIM.systemAI = function() {
+  // Activate competitors based on year
   for (const comp of G.market.competitors) {
-    // Activate competitors based on year
     if (!comp.active && comp.startingYear <= G.year) {
       comp.active = true;
+      AI.initCompetitor(comp);
       SIM.addEvent('info', `🏭 Competitor enters market: ${comp.name}`);
     }
-
-    if (!comp.active) continue;
-
-    // Competitors sell machines too (eroding market share)
-    const compPower = (comp.qualityLevel * 0.5 + comp.aggressiveness * 0.5) * 0.001;
-    const randomFluctuation = 0.8 + Math.random() * 0.4;
-    comp.machinesSold += compPower * randomFluctuation * 10;
   }
 
-  // Calculate market shares
-  const totalSold = G.company.totalMachinesSold +
-    G.market.competitors.filter(c => c.active).reduce((sum, c) => sum + c.machinesSold, 0);
+  // Run AI decisions for all active competitors
+  AI.tick();
+};
 
+// ---- Competitor System (simplified — now market share is computed in sales) ----
+
+SIM.systemCompetitors = function() {
+  // Market share is now calculated per-tick in SIM.systemSales
+  // This function just tracks historical data
   for (const comp of G.market.competitors) {
-    comp.marketShare = totalSold > 0 ? (comp.machinesSold / totalSold) * 100 : 0;
+    if (!comp.active) continue;
+    // machinesSold is updated by AI._produceUnits
+    // marketShare is updated by sales allocation
   }
 };
 
@@ -546,6 +595,11 @@ SIM.addEvent = function(level, message) {
   G.customerEvents.push(event);
   if (G.customerEvents.length > G.maxEvents) {
     G.customerEvents.shift();
+  }
+
+  // Play sound for event
+  if (typeof SOUND !== 'undefined' && SOUND.enabled) {
+    SOUND.onEvent(level);
   }
 };
 

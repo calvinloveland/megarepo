@@ -128,6 +128,7 @@
           enable = true;
           type = "local";
           path = "/data/backups/warden/haswell";
+          passwordFile = "/var/lib/warden/restic-password";
           schedule = "daily";
           paths = [
             "/home/calvin"
@@ -135,7 +136,7 @@
             "/var/lib/calnix"
             "/var/lib/warden"
           ];
-          exclude = [ "*.cache" "node_modules" ".venv" "__pycache__" "Downloads" "go" ".rustup" ];
+          exclude = [ "*.cache" "node_modules" ".venv" "__pycache__" "Downloads" "go" ".rustup" ".local/share/docker" "tmp-nix-store" ];  
         };
       };
     };

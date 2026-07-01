@@ -1,0 +1,797 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>VROOMON — Riders of the Evolving Road</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=VT323&family=Press+Start+2P&family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      /* ============ THEME TOKENS ============ */
+      :root {
+        --sky-top: #6ec6f0;
+        --sky-mid: #b8e2f5;
+        --sky-bot: #fff4d1;
+        --grass: #6fb44d;
+        --grass-dark: #4d8f33;
+        --earth: #6c432a;
+        --earth-light: #b88758;
+        --gold: #ffd166;
+        --gold-deep: #c89b3f;
+        --fire: #ff6b4a;
+        --text: #2a1810;
+        --text-soft: #5a3e2a;
+        --paper: #f4e8c8;
+        --paper-dark: #ddc89e;
+        --card: #fff8e0;
+        --card-dark: #e8d7a8;
+        --shadow: rgba(80, 50, 20, 0.35);
+        --font-body: "Inter", system-ui, sans-serif;
+        --font-pixel: "Press Start 2P", monospace;
+        --font-screen: "VT323", monospace;
+        --overlay-bg: rgba(26, 14, 8, 0.82);
+      }
+
+      * { box-sizing: border-box; }
+
+      html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; }
+
+      body {
+        font-family: var(--font-body);
+        color: var(--text);
+        background: linear-gradient(
+          180deg, var(--sky-top) 0%, var(--sky-mid) 38%,
+          var(--sky-bot) 58%, var(--grass) 62%, var(--grass-dark) 100%
+        );
+        position: relative;
+      }
+
+      /* ============ FULL-VIEWPORT VIEWPORT ============ */
+      .viewport-stage {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        background: linear-gradient(180deg, #6ec6f0 0%, #b8e2f5 100%);
+      }
+
+      .viewport-stage__body {
+        flex: 1;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .race-viewport {
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
+
+      .overworld-canvas {
+        width: 100%;
+        height: 100%;
+        display: block;
+        background: #6f9d4a;
+        image-rendering: pixelated;
+      }
+
+      /* ============ FLOATING TOP BAR ============ */
+      .top-bar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 20;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.35rem 0.7rem;
+        background: var(--overlay-bg);
+        backdrop-filter: blur(6px);
+        -webkit-backdrop-filter: blur(6px);
+        font-family: var(--font-pixel);
+        font-size: 0.55rem;
+        color: #fff4d1;
+        pointer-events: none;
+      }
+      .top-bar > * { pointer-events: auto; }
+
+      .top-bar__tabs {
+        display: flex;
+        gap: 0.2rem;
+      }
+
+      .top-bar__tab {
+        font-family: var(--font-pixel);
+        font-size: 0.55rem;
+        background: rgba(255, 244, 209, 0.08);
+        border: 2px solid rgba(255, 244, 209, 0.2);
+        color: rgba(255, 244, 209, 0.7);
+        padding: 0.35rem 0.6rem;
+        cursor: pointer;
+        letter-spacing: 0.03em;
+        border-radius: 4px;
+        transition: background 0.15s, color 0.15s, border-color 0.15s;
+      }
+      .top-bar__tab:hover {
+        background: rgba(255, 244, 209, 0.15);
+        color: #fff4d1;
+      }
+      .top-bar__tab.active {
+        background: var(--gold);
+        color: #1a0e08;
+        border-color: var(--gold-deep);
+        box-shadow: 0 0 8px rgba(255, 209, 102, 0.4);
+      }
+
+      .top-bar__spacer { flex: 1; }
+
+      .top-bar__terrain select {
+        font-family: var(--font-pixel);
+        font-size: 0.52rem;
+        background: rgba(255, 244, 209, 0.12);
+        border: 2px solid rgba(255, 244, 209, 0.2);
+        color: rgba(255, 244, 209, 0.85);
+        padding: 0.3rem 0.4rem;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+
+      .top-bar__gen {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        background: rgba(255, 244, 209, 0.12);
+        border: 2px solid rgba(255, 244, 209, 0.2);
+        padding: 0.3rem 0.5rem;
+        border-radius: 4px;
+      }
+      .top-bar__gen[hidden] { display: none; }
+      .top-bar__gen strong { color: var(--gold); }
+
+      /* ============ FLOATING OVERLAYS INSIDE VIEWPORT ============ */
+      .viewport-overlay {
+        position: absolute;
+        z-index: 10;
+        pointer-events: none;
+      }
+      .viewport-overlay > * { pointer-events: auto; }
+
+      /* Bottom-left: action clusters */
+      .viewport-overlay--actions {
+        left: 0.6rem;
+        bottom: 0.6rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.35rem;
+        max-width: 280px;
+      }
+      .viewport-overlay--actions .action-row {
+        display: flex;
+        gap: 0.35rem;
+        flex-wrap: wrap;
+      }
+
+      .hud-btn {
+        background: linear-gradient(180deg, var(--gold) 0%, var(--gold-deep) 100%);
+        color: var(--text);
+        border: 3px solid var(--earth);
+        border-radius: 4px;
+        padding: 0.4rem 0.6rem;
+        font-family: var(--font-pixel);
+        font-size: 0.52rem;
+        letter-spacing: 0.04em;
+        cursor: pointer;
+        box-shadow: 0 3px 0 var(--shadow);
+        transition: transform 0.06s, box-shadow 0.06s;
+        text-shadow: 1px 1px 0 rgba(255, 255, 255, 0.35);
+        white-space: nowrap;
+      }
+      .hud-btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 0 var(--shadow);
+      }
+      .hud-btn:active {
+        transform: translateY(2px);
+        box-shadow: 0 1px 0 var(--shadow);
+      }
+      .hud-btn--primary {
+        background: linear-gradient(180deg, #6ab96e 0%, #2a7a32 100%);
+        color: #fff;
+        text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.3);
+      }
+      .hud-btn--secondary {
+        background: linear-gradient(180deg, #6ec6f0 0%, #1e7ea8 100%);
+        color: #fff;
+        text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.3);
+      }
+      .hud-btn--danger {
+        background: linear-gradient(180deg, #e05a3a 0%, #a23a2a 100%);
+        color: #fff;
+        text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.3);
+      }
+
+      .hud-input {
+        background: rgba(255, 244, 209, 0.95);
+        border: 2px solid var(--earth);
+        border-radius: 4px;
+        padding: 0.35rem 0.45rem;
+        font-family: var(--font-screen);
+        font-size: 0.75rem;
+        width: 100%;
+        color: var(--text);
+        box-shadow: 0 2px 0 var(--shadow);
+      }
+      .hud-input:focus {
+        outline: 2px solid var(--gold-deep);
+        outline-offset: 1px;
+      }
+
+      .hud-select {
+        background: rgba(255, 244, 209, 0.95);
+        border: 2px solid var(--earth);
+        border-radius: 4px;
+        padding: 0.3rem 0.4rem;
+        font-family: var(--font-pixel);
+        font-size: 0.52rem;
+        color: var(--text);
+        box-shadow: 0 2px 0 var(--shadow);
+        cursor: pointer;
+      }
+
+      .hud-label {
+        font-family: var(--font-pixel);
+        font-size: 0.48rem;
+        color: var(--text);
+        text-shadow: 1px 1px 0 rgba(255, 255, 255, 0.5);
+        display: block;
+        margin-bottom: 0.1rem;
+      }
+
+      .hud-row { display: flex; flex-direction: column; gap: 0.15rem; }
+
+      .hud-checkbox {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+        font-family: var(--font-pixel);
+        font-size: 0.48rem;
+        color: var(--text);
+        background: rgba(255, 244, 209, 0.85);
+        border: 2px solid var(--earth);
+        border-radius: 4px;
+        padding: 0.25rem 0.4rem;
+        cursor: pointer;
+        user-select: none;
+        white-space: nowrap;
+      }
+
+      /* Top-right: GEN pill + leader */
+      .viewport-overlay--status {
+        top: 3rem;
+        right: 0.6rem;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 0.35rem;
+      }
+      .status-pill {
+        background: var(--overlay-bg);
+        backdrop-filter: blur(4px);
+        -webkit-backdrop-filter: blur(4px);
+        color: #fff4d1;
+        border: 2px solid rgba(255, 244, 209, 0.25);
+        border-radius: 99px;
+        padding: 0.25rem 0.55rem;
+        font-family: var(--font-pixel);
+        font-size: 0.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+      }
+      .status-pill .pill-value { color: var(--gold); font-weight: bold; }
+
+      /* Top-center: batch progress */
+      .viewport-overlay--progress {
+        top: 0.5rem;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(0, 0, 0, 0.55);
+        color: #fff;
+        padding: 0.3rem 0.7rem;
+        border-radius: 99px;
+        font-family: var(--font-pixel);
+        font-size: 0.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        min-width: 200px;
+        max-width: 50%;
+      }
+      .viewport-overlay--progress .progress-track {
+        flex: 1;
+        height: 6px;
+        background: rgba(255, 255, 255, 0.18);
+        border-radius: 99px;
+        overflow: hidden;
+      }
+      .viewport-overlay--progress .progress-fill {
+        height: 100%;
+        width: 0%;
+        background: linear-gradient(90deg, var(--gold), var(--gold-deep));
+        transition: width 0.3s ease;
+      }
+      .viewport-overlay--progress .progress-text { white-space: nowrap; }
+
+      /* Bottom-right: hall-of-fame card (test-drive) */
+      .viewport-overlay--hof {
+        right: 0.6rem;
+        bottom: 0.6rem;
+        max-width: 200px;
+      }
+      .viewport-overlay--hof .hof-card {
+        background: var(--overlay-bg);
+        backdrop-filter: blur(4px);
+        -webkit-backdrop-filter: blur(4px);
+        color: #fff4d1;
+        border: 2px solid rgba(255, 244, 209, 0.25);
+        border-radius: 6px;
+        padding: 0.4rem 0.5rem;
+        font-size: 0.68rem;
+        line-height: 1.3;
+      }
+      .viewport-overlay--hof .hof-card h4 {
+        font-family: var(--font-pixel);
+        font-size: 0.5rem;
+        margin: 0 0 0.2rem 0;
+        color: var(--gold);
+      }
+      .viewport-overlay--hof .hof-card .hof-row {
+        display: flex;
+        justify-content: space-between;
+      }
+      .viewport-overlay--hof .hof-card .hof-row strong { color: var(--gold); }
+
+      /* D-Pad (world mode) */
+      .viewport-overlay--dpad {
+        left: 0.6rem;
+        bottom: 0.6rem;
+      }
+      .dpad { display: grid; justify-items: center; gap: 0.25rem; }
+      .dpad-row { display: flex; gap: 0.25rem; }
+      .dpad-btn {
+        width: 38px; height: 38px;
+        font-size: 1rem;
+        background: var(--overlay-bg);
+        backdrop-filter: blur(4px);
+        -webkit-backdrop-filter: blur(4px);
+        border: 2px solid rgba(255, 244, 209, 0.3);
+        color: #fff4d1;
+        cursor: pointer;
+        border-radius: 6px;
+        display: flex; align-items: center; justify-content: center;
+      }
+      .dpad-btn:active { transform: translateY(1px); }
+      .dpad-interact {
+        background: rgba(255, 209, 102, 0.25);
+        border-color: var(--gold);
+        color: var(--gold);
+      }
+
+      /* Dialogue overlay (world mode) */
+      .viewport-overlay--dialogue {
+        left: 50%;
+        bottom: 4rem;
+        transform: translateX(-50%);
+        width: min(480px, 80vw);
+      }
+      .overworld-dialogue {
+        background: var(--overlay-bg);
+        backdrop-filter: blur(6px);
+        -webkit-backdrop-filter: blur(6px);
+        border: 2px solid rgba(255, 244, 209, 0.3);
+        border-radius: 8px;
+        padding: 0.6rem 0.8rem;
+        display: grid;
+        gap: 0.35rem;
+      }
+      .overworld-dialogue[hidden] { display: none; }
+      .overworld-dialogue__name {
+        font-family: var(--font-pixel);
+        font-size: 0.6rem;
+        color: var(--gold);
+      }
+      .overworld-dialogue__text {
+        font-size: 0.85rem;
+        color: #fff4d1;
+        line-height: 1.4;
+      }
+      .overworld-dialogue__options {
+        display: grid;
+        gap: 0.25rem;
+      }
+      .overworld-dialogue__options button {
+        font-size: 0.8rem;
+        background: rgba(255, 244, 209, 0.1);
+        border: 2px solid rgba(255, 244, 209, 0.2);
+        color: #fff4d1;
+        padding: 0.35rem 0.6rem;
+        text-align: left;
+        cursor: pointer;
+        border-radius: 4px;
+      }
+      .overworld-dialogue__options button:hover { background: rgba(255, 244, 209, 0.2); }
+      .overworld-dialogue__hint {
+        font-size: 0.6rem;
+        color: rgba(255, 244, 209, 0.5);
+        text-align: right;
+        font-style: italic;
+      }
+
+      /* Status line at very bottom of viewport */
+      .viewport-overlay--status-msg {
+        left: 50%;
+        bottom: 0.3rem;
+        transform: translateX(-50%);
+        font-family: var(--font-pixel);
+        font-size: 0.5rem;
+        color: rgba(255, 244, 209, 0.75);
+        text-shadow: 1px 1px 4px rgba(0,0,0,0.6);
+        white-space: nowrap;
+        max-width: 90%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      /* ============ SVG LABELS ============ */
+      .viewport-label {
+        font-size: 22px;
+        font-weight: 700;
+        fill: #f8fbff;
+        paint-order: stroke;
+        stroke: rgba(8, 17, 31, 0.75);
+        stroke-width: 5px;
+        stroke-linejoin: round;
+      }
+      .viewport-subtitle {
+        font-size: 14px;
+        fill: rgba(255, 255, 255, 0.78);
+        paint-order: stroke;
+        stroke: rgba(8, 17, 31, 0.6);
+        stroke-width: 4px;
+        stroke-linejoin: round;
+      }
+
+      /* ============ MENU OVERLAY ============ */
+      .viewport-overlay--menu {
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        text-align: center;
+        max-width: 500px;
+      }
+      .menu-title {
+        font-family: var(--font-pixel);
+        font-size: 2.5rem;
+        color: var(--text);
+        text-shadow: 3px 3px 0 var(--earth), 0 0 20px rgba(255, 209, 102, 0.5);
+        letter-spacing: 0.04em;
+        line-height: 1.1;
+        margin: 0 0 0.5rem;
+      }
+      .menu-tagline {
+        font-size: 0.95rem;
+        color: var(--text-soft);
+        font-style: italic;
+      }
+
+      /* ============ ERROR TOGGLE ============ */
+      .error-toggle {
+        position: fixed;
+        bottom: 0.5rem;
+        right: 0.5rem;
+        z-index: 50;
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: rgba(26, 14, 8, 0.7);
+        color: #ff6b4a;
+        border: 2px solid #ff6b4a;
+        font-family: var(--font-pixel);
+        font-size: 0.5rem;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .error-toggle[data-has-errors="true"] {
+        background: #ff6b4a;
+        color: #fff;
+        animation: error-pulse 2s ease-in-out infinite;
+      }
+      @keyframes error-pulse {
+        0%, 100% { box-shadow: 0 0 0 0 rgba(255, 107, 74, 0.6); }
+        50% { box-shadow: 0 0 0 8px rgba(255, 107, 74, 0); }
+      }
+      .error-panel {
+        position: fixed;
+        bottom: 3rem;
+        right: 0.5rem;
+        width: 360px;
+        max-height: 50vh;
+        background: rgba(10, 6, 4, 0.95);
+        color: #fff4d1;
+        border: 2px solid #ff6b4a;
+        border-radius: 8px;
+        padding: 0.5rem;
+        z-index: 49;
+        display: none;
+        flex-direction: column;
+        gap: 0.3rem;
+        font-size: 0.8rem;
+      }
+      .error-panel--open { display: flex; }
+      .error-panel__head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-family: var(--font-pixel);
+        font-size: 0.5rem;
+        color: #ff6b4a;
+        border-bottom: 1px solid rgba(255, 107, 74, 0.3);
+        padding-bottom: 0.25rem;
+      }
+      .error-panel__head button {
+        font-size: 0.5rem;
+        background: transparent;
+        color: var(--gold);
+        border: 1px solid var(--gold);
+        padding: 0.15rem 0.3rem;
+        cursor: pointer;
+        border-radius: 3px;
+      }
+      .error-list {
+        overflow-y: auto;
+        max-height: 40vh;
+        display: grid;
+        gap: 0.3rem;
+      }
+      .error-entry {
+        background: rgba(255, 107, 74, 0.08);
+        border-left: 3px solid #ff6b4a;
+        padding: 0.3rem 0.4rem;
+        border-radius: 0 4px 4px 0;
+      }
+      .error-entry__msg { color: #fff4d1; word-break: break-word; }
+      .error-entry__time { color: #97abc7; font-size: 0.65rem; }
+
+      /* ============ RESPONSIVE ============ */
+      @media (max-width: 600px) {
+        .top-bar { font-size: 0.45rem; padding: 0.2rem 0.4rem; flex-wrap: wrap; }
+        .top-bar__tab { font-size: 0.45rem; padding: 0.25rem 0.4rem; }
+        .viewport-overlay--actions { max-width: 200px; }
+        .hud-btn { font-size: 0.45rem; padding: 0.3rem 0.45rem; }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- ============ FULL-VIEWPORT VIEWPORT ============ -->
+    <section class="viewport-stage">
+      <div class="viewport-stage__body">
+        <!-- Wireframe SVG viewport (visible in evolution / test-drive / menu) -->
+        <svg
+          class="race-viewport"
+          data-race-viewport
+          viewBox="0 0 1000 480"
+          preserveAspectRatio="xMidYMid meet"
+          aria-label="Race viewport"
+        ></svg>
+
+        <!-- Canvas (visible in world mode) -->
+        <canvas
+          class="overworld-canvas"
+          data-overworld-canvas
+          style="display:none"
+          width="640"
+          height="480"
+          aria-label="Continent of Vroom overworld"
+        ></canvas>
+
+        <!-- =========== FLOATING OVERLAYS =========== -->
+
+        <!-- Top bar: mode tabs + terrain + gen pill -->
+        <nav class="top-bar" data-top-bar>
+          <div class="top-bar__tabs">
+            <button class="top-bar__tab" type="button" data-mode-button="world">WORLD</button>
+            <button class="top-bar__tab" type="button" data-mode-button="evolution">LAB</button>
+            <button class="top-bar__tab" type="button" data-mode-button="test-drive">DRIVE</button>
+            <button class="top-bar__tab" type="button" data-mode-button="menu">MENU</button>
+          </div>
+          <div class="top-bar__spacer"></div>
+          <div class="top-bar__terrain">
+            <select data-terrain-select></select>
+          </div>
+          <div class="top-bar__gen" data-viewport-gen-pill>
+            <span>🧬</span>
+            <strong data-viewport-gen-value>0</strong>
+          </div>
+        </nav>
+
+        <!-- Top-right: leader pill (evolution mode) -->
+        <div class="viewport-overlay viewport-overlay--status">
+          <div class="status-pill" data-viewport-leader-pill hidden>
+            <span>🏆</span>
+            <span class="pill-value" data-viewport-leader-value>—</span>
+          </div>
+        </div>
+
+        <!-- Top-center: batch progress -->
+        <div class="viewport-overlay viewport-overlay--progress" data-viewport-progress-overlay hidden>
+          <span class="progress-text" data-viewport-progress-text>Batch 0/0</span>
+          <div class="progress-track">
+            <div class="progress-fill" data-viewport-progress-fill></div>
+          </div>
+        </div>
+
+        <!-- Bottom-left: evolution action buttons + collapsible config -->
+        <div class="viewport-overlay viewport-overlay--actions" data-viewport-actions-overlay data-mode="evolution" hidden>
+          <div class="action-row">
+            <button class="hud-btn hud-btn--primary" type="button" data-generate-population>GENERATE</button>
+            <button class="hud-btn hud-btn--secondary" type="button" data-run-generation>RUN GEN</button>
+            <button class="hud-btn" type="button" data-run-batch-generations>BATCH</button>
+            <button class="hud-btn" type="button" data-config-toggle style="font-size:0.8rem;line-height:1;padding:0.3rem 0.4rem;" title="Toggle run config">⚙</button>
+          </div>
+          
+          <!-- Collapsible run-config row -->
+          <div data-config-panel hidden style="display:flex;flex-wrap:wrap;gap:0.25rem;margin-top:0.1rem;">
+            <select data-population-size-select class="hud-select" style="min-width:65px;">
+              <option value="20">20</option>
+              <option value="50">50</option>
+              <option value="100" selected>100</option>
+              <option value="200">200</option>
+            </select>
+            <select data-dna-length-select class="hud-select" style="min-width:55px;">
+              <option value="6">6ch</option>
+              <option value="9">9ch</option>
+              <option value="12" selected>12ch</option>
+              <option value="16">16ch</option>
+              <option value="20">20ch</option>
+            </select>
+            <select data-mutation-rate-select class="hud-select" style="min-width:50px;">
+              <option value="0.05">5%</option>
+              <option value="0.1" selected>10%</option>
+              <option value="0.2">20%</option>
+              <option value="0.3">30%</option>
+            </select>
+            <select data-retain-ratio-select class="hud-select" style="min-width:50px;">
+              <option value="0.25">25%</option>
+              <option value="0.5" selected>50%</option>
+              <option value="0.75">75%</option>
+            </select>
+            <select data-batch-count-select class="hud-select" style="min-width:40px;">
+            </select>
+            <label class="hud-checkbox" style="font-size:0.45rem;padding:0.2rem 0.35rem;">
+              <input type="checkbox" data-converge-toggle checked style="width:12px;height:12px;" />
+              Plateau
+            </label>
+          </div>
+
+          <div class="action-row" data-batch-progress hidden>
+            <div class="progress-track" style="flex:1;height:5px;background:rgba(108,67,42,0.25);border-radius:99px;overflow:hidden;">
+              <div data-batch-progress-fill style="height:100%;width:0%;background:linear-gradient(90deg,var(--gold),var(--gold-deep));transition:width 0.3s;"></div>
+            </div>
+            <span data-batch-progress-text style="font-size:0.55rem;color:rgba(255,244,209,0.7);"></span>
+          </div>
+          <div class="action-row" hidden data-vehicle-strip data-selected-vehicle-buttons style="margin-top:0.15rem;display:flex;gap:0.2rem;flex-wrap:wrap;"></div>
+        </div>
+        <div class="viewport-overlay viewport-overlay--actions" data-viewport-actions-overlay data-mode="test-drive" hidden>
+          <div class="hud-row">
+            <span class="hud-label">DNA <span style="font-weight:normal;color:var(--text-soft);">(<kbd style="font-family:var(--font-pixel);font-size:0.48rem;padding:0.1rem 0.25rem;background:rgba(0,0,0,0.08);border-radius:2px;">d</kbd> randomize)</span></span>
+            <input class="hud-input" type="text" data-dna-input value="A3x9K2m7P4zQ" />
+          </div>
+          <div class="action-row">
+            <button class="hud-btn hud-btn--secondary" type="button" data-watch-flat-track-regression>▶ REPLAY</button>
+            <button class="hud-btn hud-btn--secondary" type="button" data-randomize-dna>🎲 RANDOM</button>
+            <button class="hud-btn" type="button" data-save-to-hall>🏅 SAVE</button>
+          </div>
+        </div>
+
+        <!-- Bottom-right: Hall of Fame summary (test-drive) -->
+        <div class="viewport-overlay viewport-overlay--hof" data-viewport-hof-overlay data-mode="test-drive" hidden>
+          <div class="hof-card">
+            <h4>🏅 HALL OF FAME</h4>
+            <div class="hof-row"><span>Top:</span><strong data-hof-top-score>—</strong></div>
+            <div class="hof-row"><span>Saved:</span><strong data-hof-count>0</strong></div>
+          </div>
+        </div>
+
+        <!-- Bottom-left: D-pad (world mode) -->
+        <div class="viewport-overlay viewport-overlay--dpad" data-viewport-dpad-overlay data-mode="world" hidden>
+          <div class="dpad">
+            <button class="dpad-btn" type="button" data-dpad="up">▲</button>
+            <div class="dpad-row">
+              <button class="dpad-btn" type="button" data-dpad="left">◀</button>
+              <button class="dpad-btn" type="button" data-dpad="down">▼</button>
+              <button class="dpad-btn" type="button" data-dpad="right">▶</button>
+            </div>
+            <button class="dpad-btn dpad-interact" type="button" data-dpad="interact">A</button>
+          </div>
+        </div>
+
+        <!-- Dialogue overlay (world mode) -->
+        <div class="viewport-overlay viewport-overlay--dialogue" data-overworld-dialogue hidden>
+          <div class="overworld-dialogue">
+            <div class="overworld-dialogue__name" data-overworld-dialogue-name></div>
+            <div class="overworld-dialogue__text" data-overworld-dialogue-text></div>
+            <div class="overworld-dialogue__options" data-overworld-dialogue-options></div>
+            <div class="overworld-dialogue__hint">Z or Enter</div>
+          </div>
+        </div>
+
+        <!-- Status message (thin line at very bottom) -->
+        <div class="viewport-overlay viewport-overlay--status-msg" data-status-message>Ready to begin.</div>
+      </div>
+    </section>
+
+    <!-- ============ ERROR TOGGLE + PANEL ============ -->
+    <button class="error-toggle" type="button" data-error-toggle data-has-errors="false" aria-label="Toggle error panel">
+      <span data-error-badge>0</span>
+    </button>
+    <div class="error-panel" data-error-panel aria-live="polite">
+      <div class="error-panel__head">
+        <span>⚠ ERRORS</span>
+        <button type="button" data-error-clear>Clear</button>
+      </div>
+      <div class="error-list" data-error-list></div>
+    </div>
+
+    <!-- ============ HIDDEN STUBS (renderer targets) ============ -->
+    <div style="display:none" aria-hidden="true">
+      <div data-run-state-output></div>
+      <div data-dna-output></div>
+      <div data-physics-preview-output></div>
+      <div data-evolution-preview-output></div>
+      <div data-generation-log-output></div>
+      <div data-selected-vehicle-output></div>
+      <div data-run-summary></div>
+      <div data-selected-vehicle-summary></div>
+      <div data-selected-vehicle-buttons></div>
+      <div data-track-summary></div>
+      <div data-event-summary></div>
+      <div data-leaderboard-summary></div>
+      <div data-menu-summary></div>
+      <div data-evolution-summary></div>
+      <div data-test-drive-summary></div>
+      <div data-score-chart></div>
+      <div data-hall-of-fame></div>
+      <div data-hall-of-fame-test-drive></div>
+      <div data-mode-list></div>
+      <div data-terrain-list></div>
+      <div data-contract-summary></div>
+      <div data-world-summary></div>
+      <div data-overworld-badge-list></div>
+      <div data-overworld-vroomdex-count></div>
+      <div data-viewport-title></div>
+      <div data-viewport-subtitle></div>
+      <div data-viewport-caption></div>
+      <div data-overworld-save-now></div>
+      <div data-overworld-reset></div>
+      <div data-save-run></div>
+      <div data-load-run></div>
+
+      <!-- stubs for generated elements (hall entry, vehicle focus buttons, hall remove/rename, dialogue option) -->
+      <button data-hall-remove=""></button>
+      <button data-hall-rename=""></button>
+      <button data-select-vehicle=""></button>
+      <button data-dialogue-option=""></button>
+      <div data-hall-entry=""></div>
+    </div>
+
+    <script src="./playwright-preload-shim.js"></script>
+    <script type="module" src="./renderer.js"></script>
+  </body>
+</html>

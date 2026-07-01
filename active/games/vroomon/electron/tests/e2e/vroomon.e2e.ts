@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-type ModeId = "menu" | "evolution" | "test-drive";
+type ModeId = "menu" | "world" | "evolution" | "test-drive";
 
 interface RunStateSnapshot {
   mode: "evolution" | "test-drive";
@@ -185,27 +185,96 @@ test.describe("vroomon Playwright harness", () => {
     });
   });
 
-  test("saves and reloads the current run state", async ({ page }) => {
+  test("walks through the overworld and triggers a wild encounter", async ({ page }) => {
+    await page.locator('[data-mode-button="world"]').click();
+    await expectModeState(page, "world");
+
+    await expect(page.locator("[data-overworld-canvas]")).toBeVisible();
+    await expect(page.locator("[data-overworld-vroomdex-count]")).toContainText("0 specimens");
+    await expect(page.locator("[data-overworld-badge-list]")).toContainText("No badges");
+
+    // Player starts at (7, 7). Professor Axle is at (4, 3), so we need
+    // to move left 3 tiles then up 3 tiles to stand at (4, 4) facing up.
+    await page.locator("[data-dpad=\"left\"]").click();
+    await page.locator("[data-dpad=\"left\"]").click();
+    await page.locator("[data-dpad=\"left\"]").click();
+    await page.locator("[data-dpad=\"up\"]").click();
+    await page.locator("[data-dpad=\"up\"]").click();
+    await page.locator("[data-dpad=\"up\"]").click();
+    await page.locator('[data-dpad="interact"]').click();
+
+    await expect(page.locator("[data-overworld-dialogue]")).toBeVisible();
+    await expect(page.locator("[data-overworld-dialogue-name]")).toContainText("Professor Axle");
+  });
+
+  test("saves and reloads the current run state via keyboard shortcuts", async ({ page }) => {
     await page.locator('[data-mode-button="test-drive"]').click();
     await page.locator("[data-terrain-select]").selectOption("Flat");
-    await page.locator("[data-save-run]").click();
+    await page.keyboard.press("s");
 
     await expect(page.locator("[data-status-message]")).toContainText("Saved run state");
 
     await page.locator('[data-mode-button="evolution"]').click();
     await page.locator("[data-terrain-select]").selectOption("Grassland");
-    await page.locator("[data-load-run]").click();
+    await page.keyboard.press("l");
 
     await expect(page.locator("[data-status-message]")).toContainText("Loaded run");
-    await expect(page.locator('[data-panel="test-drive"]')).toHaveAttribute(
-      "data-active",
-      "true",
-    );
+    await expect(page.locator('[data-mode-button="test-drive"]')).toHaveClass(/active/);
     await expect(page.locator("[data-terrain-select]")).toHaveValue("Flat");
 
     const loadedState = await readJson<RunStateSnapshot>(page, "[data-run-state-output]");
     expect(loadedState.mode).toBe("test-drive");
     expect(loadedState.terrainName).toBe("Flat");
+  });
+
+  test("runs a batch of generations from the evolution panel", async ({ page }) => {
+    await page.locator('[data-mode-button="evolution"]').click();
+    await page.locator("[data-terrain-select]").selectOption("Flat");
+    await page.locator("[data-generate-population]").click();
+    await expect(page.locator("[data-status-message]")).toContainText("Generated population");
+
+    await page.locator("[data-run-batch-generations]").click();
+
+    await expect(page.locator("[data-batch-progress]")).toBeVisible();
+    await expect(page.locator("[data-status-message]")).toContainText(
+      /Batch complete|Converged/,
+      { timeout: 60_000 },
+    );
+
+    const finalState = await readJson<RunStateSnapshot>(page, "[data-run-state-output]");
+    // Batch runs 10 generations with convergence detection on. The exact
+    // generation count depends on when the scores plateau.
+    expect(finalState.generation).toBeGreaterThanOrEqual(3);
+    expect(finalState.generation).toBeLessThanOrEqual(10);
+  });
+
+  test("saves a selected vehicle to the Hall of Fame and reloads it in test-drive", async ({
+    page,
+  }) => {
+    await page.locator('[data-mode-button="evolution"]').click();
+    await page.locator("[data-terrain-select]").selectOption("Flat");
+    await page.locator("[data-generate-population]").click();
+    await page.locator("[data-run-generation]").click();
+
+    await expect(page.locator("[data-status-message]")).toContainText("Completed generation 1");
+
+    const vehicleButtons = page.locator("[data-select-vehicle]");
+    await expect(vehicleButtons).not.toHaveCount(0);
+    await vehicleButtons.first().click();
+
+    await page.locator("[data-save-to-hall]").click();
+    await expect(page.locator("[data-status-message]")).toContainText("Saved");
+
+    await page.locator('[data-mode-button="test-drive"]').click();
+    const hallEntry = page.locator("[data-hall-of-fame-test-drive] [data-hall-entry]").first();
+    await expect(hallEntry).toHaveCount(1);
+
+    const entryDna = await hallEntry.locator(".hall-entry__dna").textContent();
+    // The HoF entries are in the hidden diagnostics section; dispatch a
+    // native click to trigger the load-in-test-drive handler anyway.
+    await hallEntry.dispatchEvent("click");
+
+    await expect(page.locator("[data-dna-input]")).toHaveValue(entryDna ?? "");
   });
 });
 
@@ -213,21 +282,16 @@ async function expectModeState(
   page: import("@playwright/test").Page,
   activeMode: ModeId,
 ): Promise<void> {
-  const modes: ModeId[] = ["menu", "evolution", "test-drive"];
+  const modes: ModeId[] = ["menu", "world", "evolution", "test-drive"];
 
   for (const mode of modes) {
     const button = page.locator(`[data-mode-button="${mode}"]`);
-    const panel = page.locator(`[data-panel="${mode}"]`);
     const isActive = mode === activeMode;
 
     if (isActive) {
       await expect(button).toHaveClass(/active/);
-      await expect(panel).toHaveAttribute("data-active", "true");
-      await expect(panel).toBeVisible();
     } else {
       await expect(button).not.toHaveClass(/active/);
-      await expect(panel).toHaveAttribute("data-active", "false");
-      await expect(panel).toBeHidden();
     }
   }
 }

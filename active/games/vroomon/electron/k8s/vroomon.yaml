@@ -1,0 +1,126 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: vroomon
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vroomon
+  namespace: vroomon
+  labels:
+    app.kubernetes.io/name: vroomon
+    app.kubernetes.io/part-of: shsw-dev
+    app.kubernetes.io/component: game
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: vroomon
+  template:
+    metadata:
+      labels:
+        app: vroomon
+        app.kubernetes.io/name: vroomon
+        app.kubernetes.io/part-of: shsw-dev
+    spec:
+      # Electron requires a writable /dev/shm and the no-sandbox switches
+      # added by VROOMON_DISABLE_SANDBOX. The runtime image's entrypoint
+      # wraps electron in xvfb-run so we don't need a privileged container.
+      containers:
+        - name: vroomon
+          image: 127.0.0.1:5000/vroomon:latest
+          imagePullPolicy: Always
+          env:
+            - name: VROOMON_USER_DATA_DIR
+              value: /data/vroomon
+            - name: VROOMON_DISABLE_HARDWARE_ACCELERATION
+              value: "1"
+            - name: VROOMON_DISABLE_SANDBOX
+              value: "1"
+            - name: VROOMON_DISABLE_DEV_SHM_USAGE
+              value: "1"
+            - name: VROOMON_SMOKE_TEST
+              value: "0"
+          ports:
+            - name: smoke
+              containerPort: 5112
+          # Electron itself does not serve HTTP; the readiness probe uses
+          # `tcp` so the kubelet considers the pod ready as soon as the
+          # xvfb + electron process is up. The actual user-facing reach
+          # check is the cloudflared tunnel hitting vroomon.shsw.dev.
+          readinessProbe:
+            tcpSocket:
+              port: smoke
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          livenessProbe:
+            tcpSocket:
+              port: smoke
+            initialDelaySeconds: 60
+            periodSeconds: 60
+          resources:
+            requests:
+              cpu: 200m
+              memory: 512Mi
+            limits:
+              cpu: 1000m
+              memory: 1.5Gi
+          volumeMounts:
+            - name: vroomon-data
+              mountPath: /data/vroomon
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            runAsNonRoot: true
+            runAsUser: 1001
+        - name: cloudflared
+          image: cloudflare/cloudflared:latest
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: TUNNEL_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: vroomon-cloudflared-token
+                  key: token
+          args:
+            - tunnel
+            - --no-autoupdate
+            - run
+            - --token
+            - $(TUNNEL_TOKEN)
+      volumes:
+        - name: vroomon-data
+          persistentVolumeClaim:
+            claimName: vroomon-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vroomon
+  namespace: vroomon
+  labels:
+    app.kubernetes.io/name: vroomon
+    app.kubernetes.io/part-of: shsw-dev
+spec:
+  selector:
+    app: vroomon
+  ports:
+    - name: smoke
+      port: 5112
+      targetPort: smoke
+---
+# Persistent storage for Hall of Fame + run state. Backed by the k3s
+# default StorageClass on the homelab; capacity is small because the
+# only state is the Hall of Fame JSON and the run-state JSON.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: vroomon-data
+  namespace: vroomon
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 256Mi

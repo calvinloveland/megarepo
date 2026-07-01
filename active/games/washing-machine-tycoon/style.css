@@ -639,6 +639,110 @@ body {
   letter-spacing: 0.3px;
 }
 
+/* ---- Difficulty Modal ---- */
+
+.difficulty-modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  background: rgba(0, 0, 0, 0.85);
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  animation: fadeIn 0.3s ease;
+}
+
+.difficulty-modal.active {
+  display: flex;
+}
+
+.difficulty-modal-content {
+  background: var(--bg-card);
+  border: 1px solid var(--border-bright);
+  border-radius: 12px;
+  max-width: 580px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6);
+}
+
+.difficulty-header {
+  font-size: 22px;
+  font-weight: 700;
+  padding: 24px 24px 8px;
+  text-align: center;
+  color: var(--accent-cyan);
+}
+
+.difficulty-subtitle {
+  text-align: center;
+  padding: 0 24px 16px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.difficulty-options {
+  padding: 16px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.difficulty-option {
+  padding: 14px 16px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s;
+  background: var(--bg-secondary);
+}
+
+.difficulty-option:hover {
+  border-color: var(--accent-cyan);
+  background: #0a1a2a;
+}
+
+.difficulty-option.selected {
+  border-color: var(--accent-cyan);
+  background: #0a1a2a;
+  box-shadow: 0 0 12px rgba(34, 211, 238, 0.15);
+}
+
+.diff-name {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.diff-desc {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+}
+
+.diff-stats {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+
+.difficulty-option.selected .diff-name {
+  color: var(--accent-cyan);
+}
+
+.difficulty-footer {
+  padding: 12px 24px 24px;
+  text-align: center;
+}
+
+.difficulty-footer .btn {
+  font-size: 16px;
+  padding: 10px 36px;
+}
+
 /* ---- Tutorial Overlay ---- */
 
 .tutorial-overlay {

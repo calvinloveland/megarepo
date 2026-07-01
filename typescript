@@ -1,0 +1,4 @@
+Script started on 2026-06-23 20:09:18+00:00 [COMMAND="nix run nixpkgs#util-linux" <not executed on terminal>]
+[0m[K[K[31;1merror:[0m unable to execute '[35;1m/nix/store/zca0hp2i6c5yxbaxpl6x76mxc2b0aiqm-util-linux-2.42-bin/bin/util-linux[0m': [35;1mNo such file or directory[0m
+
+Script done on 2026-06-23 20:09:19+00:00 [COMMAND_EXIT_CODE="1"]

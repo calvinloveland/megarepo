@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>image-vae — compress any image to ~1 KB</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+  <nav class="nav">
+    <div class="nav-inner">
+      <span class="nav-logo">◈ image-vae</span>
+      <span class="nav-tagline">extreme image compression</span>
+    </div>
+  </nav>
+
+  <!-- ═══ HERO ═══ -->
+  <header class="hero">
+    <div class="hero-bg"></div>
+    <div class="hero-content">
+      <div class="hero-badge">research preview</div>
+      <h1 class="hero-title">
+        Compress any image<br>
+        to <span class="accent">~1&nbsp;KB</span>
+      </h1>
+      <p class="hero-sub">
+        A Variational Autoencoder that smashes any photo down to roughly one kilobyte.
+        <span class="txt-muted">It's incredibly lossy. That's the point.</span>
+      </p>
+      <div class="hero-stats">
+        <div class="stat">
+          <span class="stat-num" id="heroRatio">—</span>
+          <span class="stat-label">compression ratio</span>
+        </div>
+        <div class="stat">
+          <span class="stat-num">1,028</span>
+          <span class="stat-label">bytes per image</span>
+        </div>
+        <div class="stat">
+          <span class="stat-num">1,000</span>
+          <span class="stat-label">latent dimensions</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- ═══ INTERACTIVE DEMO ═══ -->
+    <section class="section demo-section" id="demo">
+      <div class="section-header">
+        <h2>Try it</h2>
+        <p>Upload any image and see the VAE compress it to ~1 KB.</p>
+      </div>
+
+      <div class="demo-upload" id="dropZone">
+        <div class="upload-icon">⤴</div>
+        <p class="upload-text">Drop an image here or <a href="#" id="uploadLink">click to browse</a></p>
+        <p class="upload-hint">JPEG, PNG, WebP — up to 10 MB</p>
+        <input type="file" id="fileInput" accept="image/*" hidden>
+      </div>
+
+      <div class="demo-options">
+        <label class="opt">
+          <input type="checkbox" id="entropyCheck">
+          <span class="opt-label">Entropy coding <span class="opt-detail">(Huffman, may save ~10% more)</span></span>
+        </label>
+      </div>
+
+      <div class="demo-progress" id="progressBar" hidden>
+        <div class="progress-track"><div class="progress-fill"></div></div>
+        <span class="progress-text">Compressing…</span>
+      </div>
+
+      <!-- Results -->
+      <div class="demo-results" id="results" hidden>
+        <div class="compare">
+          <figure class="compare-fig">
+            <figcaption>Original</figcaption>
+            <div class="compare-img-wrap"><img id="origImg" alt="Original"></div>
+            <div class="compare-meta"><span id="origSize"></span></div>
+          </figure>
+          <figure class="compare-fig">
+            <figcaption>Reconstructed <span class="badge-lossy">lossy</span></figcaption>
+            <div class="compare-img-wrap"><img id="reconImg" alt="Reconstructed"></div>
+            <div class="compare-meta"><span id="reconSize"></span></div>
+          </figure>
+        </div>
+
+        <div class="stats-card" id="statsCard">
+          <h3>Compression stats</h3>
+          <table class="stats-table">
+            <tr><td>Original</td><td><strong id="statOrigSize"></strong></td></tr>
+            <tr><td>Compressed (.vae)</td><td><strong id="statCompSize" class="accent"></strong></td></tr>
+            <tr><td>Compression ratio</td><td><strong id="statRatio"></strong><span class="txt-muted">:1</span></td></tr>
+            <tr><td>Latent dimensions</td><td><strong id="statLatentDim"></strong></td></tr>
+            <tr><td>Quantization range</td><td><code id="statQuantRange"></code></td></tr>
+            <tr><td>Entropy coding</td><td><strong id="statEntropy"></strong></td></tr>
+          </table>
+          <div class="stats-actions">
+            <a class="btn" id="downloadBtn" download="compressed.vae">⬇ Download .vae ({{ "%.2f"|format(0) }} KB)</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══ HOW IT WORKS ═══ -->
+    <section class="section how-section">
+      <div class="section-header">
+        <h2>How it works</h2>
+        <p>The decoder is fixed — only the latent vector is stored per image.</p>
+      </div>
+      <div class="how-grid">
+        <div class="how-step">
+          <div class="step-num">1</div>
+          <h3>Train</h3>
+          <p>A VAE learns to encode images into a <strong>1,000-dimensional</strong> latent space and decode them back.</p>
+        </div>
+        <div class="how-arrow">→</div>
+        <div class="how-step">
+          <div class="step-num">2</div>
+          <h3>Encode</h3>
+          <p>Any image is fed through the encoder. Out comes a compact <strong>1,000-float</strong> latent vector.</p>
+        </div>
+        <div class="how-arrow">→</div>
+        <div class="how-step">
+          <div class="step-num">3</div>
+          <h3>Quantize</h3>
+          <p>Each float is rounded to <strong>8 bits</strong> using per-vector adaptive bounds — <span class="accent">79% less error</span> than fixed ranges.</p>
+        </div>
+        <div class="how-arrow">→</div>
+        <div class="how-step">
+          <div class="step-num">4</div>
+          <h3>Store</h3>
+          <p><strong>~1 KB</strong> per image: 28 bytes header + 1,000 bytes of quantized latent. That's it.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══ FILE FORMAT ANALYZER ═══ -->
+    <section class="section format-section" id="analyzer">
+      <div class="section-header">
+        <h2>File format analyzer</h2>
+        <p>Drop a <code>.vae</code> file to inspect its internals.</p>
+      </div>
+      <div class="analyzer-upload" id="analyzerDropZone">
+        <p>Drop a <code>.vae</code> file here</p>
+        <input type="file" id="vaeFileInput" accept=".vae" hidden>
+      </div>
+      <div class="analyzer-results" id="analyzerResults" hidden>
+        <table class="hex-table">
+          <thead><tr><th>Offset</th><th>Size</th><th>Field</th><th>Value</th></tr></thead>
+          <tbody id="analyzerBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ═══ ARCHITECTURE ═══ -->
+    <section class="section arch-section">
+      <div class="section-header">
+        <h2>Architecture</h2>
+      </div>
+      <div class="arch-diagram">
+        <div class="arch-block"><span>Image<br><small>3×H×W</small></span></div>
+        <div class="arch-arrow">→</div>
+        <div class="arch-block enc"><span>Encoder<br><small>5× Conv2d ↓</small></span></div>
+        <div class="arch-arrow">→</div>
+        <div class="arch-block latent"><span>Latent<br><small>1,000 floats</small></span></div>
+        <div class="arch-arrow">→</div>
+        <div class="arch-block dec"><span>Decoder<br><small>5× ConvT2d ↑</small></span></div>
+        <div class="arch-arrow">→</div>
+        <div class="arch-block"><span>Recon<br><small>3×H×W</small></span></div>
+      </div>
+      <div class="arch-meta">
+        <div><strong>30M parameters</strong> — 5 conv layers each in encoder &amp; decoder with channel progression 3→64→128→256→512→512.</div>
+        <div><strong>Training</strong> — VAE loss (BCE recon + KL divergence). Needs a GPU dataset like CelebA, FFHQ, or ImageNet for good results.</div>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+      <span>image-vae — part of the <a href="https://github.com/calvinloveland/megarepo">megarepo</a></span>
+      <span class="txt-muted">built with PyTorch + Huffman coding</span>
+    </div>
+  </footer>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

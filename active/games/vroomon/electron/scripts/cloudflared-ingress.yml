@@ -1,0 +1,21 @@
+# Local cloudflared ingress block for vroomon.
+#
+# This file does NOT contain any secrets. Paste this snippet ABOVE
+# the catch-all rule in your real ~/.cloudflared/config.yml, then run:
+#
+#   cloudflared tunnel ingress validate ~/.cloudflared/config.yml
+#   systemctl restart cloudflared
+#
+# The tunnel UUID is the public identifier visible in the Cloudflare
+# Zero Trust dashboard; it is not a secret. The TUNNEL TOKEN (a separate
+# secret) is what Kubernetes reads from the vroomon-cloudflared-token
+# secret, and that one must never be committed to the repo.
+
+ingress:
+  # ... other apps above this block ...
+
+  - hostname: vroomon.shsw.dev
+    service: http://127.0.0.1:5112
+
+  # catch-all (must be last)
+  - service: http_status:404

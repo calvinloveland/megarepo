@@ -1,0 +1,3207 @@
+{
+  "pages": [
+    {
+      "candidate_best_alt_score_gap": 1.892,
+      "candidate_best_alt_text_similarity": 0.9753,
+      "candidate_near_best_family_count": 4,
+      "candidate_preprocess_mode": "scan-local-threshold",
+      "candidate_runs": [
+        {
+          "candidate_preprocess_mode": "scan-background-normalized",
+          "character_count": 771,
+          "cleaned_text_score": 946.0506917782244,
+          "cleanup_changed_text": true,
+          "hocr_confidence_adjustment": 17.06589147286822,
+          "hocr_confidence_mean": 88.78294573643412,
+          "hocr_confidence_min": 16,
+          "hocr_line_entries_runtime": [
+            {
+              "bbox": [
+                456,
+                467,
+                4315,
+                553
+              ],
+              "text": "CHAPTER 56. Of the Less Erroneous Pictures of Whales, and the True Pictures of"
+            },
+            {
+              "bbox": [
+                452,
+                611,
+                1237,
+                706
+              ],
+              "text": "Whaling Scenes."
+            },
+            {
+              "bbox": [
+                456,
+                899,
+                4189,
+                985
+              ],
+              "text": "CHAPTER 57. Of Whales in Paint; in Teeth; in Wood; in Sheet-lron; in Stone; in"
+            },
+            {
+              "bbox": [
+                458,
+                1043,
+                1402,
+                1129
+              ],
+              "text": "Mountains; in Stars."
+            },
+            {
+              "bbox": [
+                456,
+                1331,
+                1300,
+                1405
+              ],
+              "text": "CHAPTER 58. Brit."
+            },
+            {
+              "bbox": [
+                456,
+                1619,
+                1396,
+                1714
+              ],
+              "text": "CHAPTER 59. Squid."
+            },
+            {
+              "bbox": [
+                456,
+                1907,
+                1540,
+                1981
+              ],
+              "text": "CHAPTER 60. The Line."
+            },
+            {
+              "bbox": [
+                456,
+                2195,
+                2056,
+                2269
+              ],
+              "text": "CHAPTER 61. Stubb Kills a Whale."
+            },
+            {
+              "bbox": [
+                456,
+                2483,
+                1552,
+                2557
+              ],
+              "text": "CHAPTER 62. The Dart."
+            },
+            {
+              "bbox": [
+                456,
+                2771,
+                1657,
+                2845
+              ],
+              "text": "CHAPTER 63. The Crotch."
+            },
+            {
+              "bbox": [
+                456,
+                3059,
+                1858,
+                3154
+              ],
+              "text": "CHAPTER 64. Stubb\u2019s Supper."
+            },
+            {
+              "bbox": [
+                456,
+                3347,
+                2116,
+                3421
+              ],
+              "text": "CHAPTER 65. The Whale as a Dish."
+            },
+            {
+              "bbox": [
+                456,
+                3635,
+                2104,
+                3709
+              ],
+              "text": "CHAPTER 66. The Shark Massacre."
+            },
+            {
+              "bbox": [
+                456,
+                3923,
+                1597,
+                4018
+              ],
+              "text": "CHAPTER 67. Cutting In."
+            },
+            {
+              "bbox": [
+                456,
+                4211,
+                1708,
+                4285
+              ],
+              "text": "CHAPTER 68. The Blanket."
+            },
+            {
+              "bbox": [
+                456,
+                4499,
+                1699,
+                4573
+              ],
+              "text": "CHAPTER 69. The Funeral."
+            },
+            {
+              "bbox": [
+                456,
+                4787,
+                1693,
+                4882
+              ],
+              "text": "CHAPTER 70. The Sphynx."
+            },
+            {
+              "bbox": [
+                456,
+                5075,
+                2164,
+                5170
+              ],
+              "text": "CHAPTER 71. The Jeroboam\u2019s Story."
+            },
+            {
+              "bbox": [
+                456,
+                5363,
+                1999,
+                5458
+              ],
+              "text": "CHAPTER 72. The Monkey-Rope."
+            },
+            {
+              "bbox": [
+                456,
+                5651,
+                4354,
+                5746
+              ],
+              "text": "CHAPTER 73. Stubb and Flask kill a Right Whale; and Then Have a Talk over Him."
+            },
+            {
+              "bbox": [
+                456,
+                5939,
+                3238,
+                6034
+              ],
+              "text": "CHAPTER 74. The Sperm Whale\u2019's Head\u2014Contrasted View."
+            },
+            {
+              "bbox": [
+                456,
+                6227,
+                3178,
+                6322
+              ],
+              "text": "CHAPTER 75. The Right Whale\u2018's Head\u2014Contrasted View."
+            }
+          ],
+          "hocr_low_confidence_ratio": 0.03875968992248062,
+          "hocr_low_confidence_word_count": 5,
+          "hocr_word_count": 129,
+          "lexical_candidate_score": 911.9832793609323,
+          "preprocess_mode": "scan-background-normalized",
+          "raw_text_score": 832.4926503872512,
+          "route_ocr_policy": "body-review",
+          "score": 929.0491708338005,
+          "tesseract_output_format": "hocr",
+          "tesseract_psm": 6,
+          "word_count": 129
+        },
+        {
+          "candidate_preprocess_mode": "scan-background-normalized",
+          "character_count": 771,
+          "cleaned_text_score": 946.0506917782244,
+          "cleanup_changed_text": true,
+          "hocr_confidence_adjustment": 16.841085271317827,
+          "hocr_confidence_mean": 88.33333333333333,
+          "hocr_confidence_min": 16,
+          "hocr_line_entries_runtime": [
+            {
+              "bbox": [
+                456,
+                467,
+                4315,
+                553
+              ],
+              "text": "CHAPTER 56. Of the Less Erroneous Pictures of Whales, and the True Pictures of"
+            },
+            {
+              "bbox": [
+                452,
+                611,
+                1237,
+                706
+              ],
+              "text": "Whaling Scenes."
+            },
+            {
+              "bbox": [
+                456,
+                899,
+                4189,
+                985
+              ],
+              "text": "CHAPTER 57. Of Whales in Paint; in Teeth; in Wood; in Sheet-lron; in Stone; in"
+            },
+            {
+              "bbox": [
+                458,
+                1043,
+                1402,
+                1129
+              ],
+              "text": "Mountains; in Stars."
+            },
+            {
+              "bbox": [
+                456,
+                1331,
+                1300,
+                1405
+              ],
+              "text": "CHAPTER 58. Brit."
+            },
+            {
+              "bbox": [
+                456,
+                1619,
+                1396,
+                1714
+              ],
+              "text": "CHAPTER 59. Squid."
+            },
+            {
+              "bbox": [
+                456,
+                1907,
+                1540,
+                1981
+              ],
+              "text": "CHAPTER 60. The Line."
+            },
+            {
+              "bbox": [
+                456,
+                2195,
+                2056,
+                2269
+              ],
+              "text": "CHAPTER 61. Stubb Kills a Whale."
+            },
+            {
+              "bbox": [
+                456,
+                2483,
+                1552,
+                2557
+              ],
+              "text": "CHAPTER 62. The Dart."
+            },
+            {
+              "bbox": [
+                456,
+                2771,
+                1657,
+                2845
+              ],
+              "text": "CHAPTER 63. The Crotch."
+            },
+            {
+              "bbox": [
+                456,
+                3059,
+                1858,
+                3154
+              ],
+              "text": "CHAPTER 64. Stubb's Supper."
+            },
+            {
+              "bbox": [
+                456,
+                3347,
+                2116,
+                3421
+              ],
+              "text": "CHAPTER 65. The Whale as a Dish."
+            },
+            {
+              "bbox": [
+                456,
+                3635,
+                2104,
+                3709
+              ],
+              "text": "CHAPTER 66. The Shark Massacre."
+            },
+            {
+              "bbox": [
+                456,
+                3923,
+                1597,
+                4018
+              ],
+              "text": "CHAPTER 67. Cutting In."
+            },
+            {
+              "bbox": [
+                456,
+                4211,
+                1708,
+                4285
+              ],
+              "text": "CHAPTER 68. The Blanket."
+            },
+            {
+              "bbox": [
+                456,
+                4499,
+                1699,
+                4573
+              ],
+              "text": "CHAPTER 69. The Funeral."
+            },
+            {
+              "bbox": [
+                456,
+                4787,
+                1693,
+                4882
+              ],
+              "text": "CHAPTER 70. The Sphynx."
+            },
+            {
+              "bbox": [
+                456,
+                5075,
+                2164,
+                5170
+              ],
+              "text": "CHAPTER 71. The Jeroboam's Story."
+            },
+            {
+              "bbox": [
+                456,
+                5363,
+                1999,
+                5458
+              ],
+              "text": "CHAPTER 72. The Monkey-Rope."
+            },
+            {
+              "bbox": [
+                456,
+                5651,
+                4354,
+                5746
+              ],
+              "text": "CHAPTER 73. Stubb and Flask kill a Right Whale; and Then Have a Talk over Him."
+            },
+            {
+              "bbox": [
+                456,
+                5939,
+                3238,
+                6034
+              ],
+              "text": "CHAPTER 74. The Sperm Whale\u2019's Head\u2014Contrasted View."
+            },
+            {
+              "bbox": [
+                456,
+                6227,
+                3178,
+                6322
+              ],
+              "text": "CHAPTER 75. The Right Whale\u2018's Head\u2014Contrasted View."
+            }
+          ],
+          "hocr_low_confidence_ratio": 0.03875968992248062,
+          "hocr_low_confidence_word_count": 5,
+          "hocr_word_count": 129,
+          "lexical_candidate_score": 918.0064741645277,
+          "preprocess_mode": "scan-background-normalized",
+          "raw_text_score": 852.5699663992359,
+          "route_ocr_policy": "body-review",
+          "score": 934.8475594358456,
+          "tesseract_output_format": "hocr",
+          "tesseract_psm": 4,
+          "word_count": 129
+        },
+        {
+          "candidate_preprocess_mode": "scan-background-normalized-masked",
+          "character_count": 771,
+          "cleaned_text_score": 946.0506917782244,
+          "cleanup_changed_text": true,
+          "hocr_confidence_adjustment": 17.06589147286822,
+          "hocr_confidence_mean": 88.78294573643412,
+          "hocr_confidence_min": 16,
+          "hocr_line_entries_runtime": [
+            {
+              "bbox": [
+                456,
+                467,
+                4315,
+                553
+              ],
+              "text": "CHAPTER 56. Of the Less Erroneous Pictures of Whales, and the True Pictures of"
+            },
+            {
+              "bbox": [
+                452,
+                611,
+                1237,
+                706
+              ],
+              "text": "Whaling Scenes."
+            },
+            {
+              "bbox": [
+                456,
+                899,
+                4189,
+                985
+              ],
+              "text": "CHAPTER 57. Of Whales in Paint; in Teeth; in Wood; in Sheet-lron; in Stone; in"
+            },
+            {
+              "bbox": [
+                458,
+                1043,
+                1402,
+                1129
+              ],
+              "text": "Mountains; in Stars."
+            },
+            {
+              "bbox": [
+                456,
+                1331,
+                1300,
+                1405
+              ],
+              "text": "CHAPTER 58. Brit."
+            },
+            {
+              "bbox": [
+                456,
+                1619,
+                1396,
+                1714
+              ],
+              "text": "CHAPTER 59. Squid."
+            },
+            {
+              "bbox": [
+                456,
+                1907,
+                1540,
+                1981
+              ],
+              "text": "CHAPTER 60. The Line."
+            },
+            {
+              "bbox": [
+                456,
+                2195,
+                2056,
+                2269
+              ],
+              "text": "CHAPTER 61. Stubb Kills a Whale."
+            },
+            {
+              "bbox": [
+                456,
+                2483,
+                1552,
+                2557
+              ],
+              "text": "CHAPTER 62. The Dart."
+            },
+            {
+              "bbox": [
+                456,
+                2771,
+                1657,
+                2845
+              ],
+              "text": "CHAPTER 63. The Crotch."
+            },
+            {
+              "bbox": [
+                456,
+                3059,
+                1858,
+                3154
+              ],
+              "text": "CHAPTER 64. Stubb\u2019s Supper."
+            },
+            {
+              "bbox": [
+                456,
+                3347,
+                2116,
+                3421
+              ],
+              "text": "CHAPTER 65. The Whale as a Dish."
+            },
+            {
+              "bbox": [
+                456,
+                3635,
+                2104,
+                3709
+              ],
+              "text": "CHAPTER 66. The Shark Massacre."
+            },
+            {
+              "bbox": [
+                456,
+                3923,
+                1597,
+                4018
+              ],
+              "text": "CHAPTER 67. Cutting In."
+            },
+            {
+              "bbox": [
+                456,
+                4211,
+                1708,
+                4285
+              ],
+              "text": "CHAPTER 68. The Blanket."
+            },
+            {
+              "bbox": [
+                456,
+                4499,
+                1699,
+                4573
+              ],
+              "text": "CHAPTER 69. The Funeral."
+            },
+            {
+              "bbox": [
+                456,
+                4787,
+                1693,
+                4882
+              ],
+              "text": "CHAPTER 70. The Sphynx."
+            },
+            {
+              "bbox": [
+                456,
+                5075,
+                2164,
+                5170
+              ],
+              "text": "CHAPTER 71. The Jeroboam\u2019s Story."
+            },
+            {
+              "bbox": [
+                456,
+                5363,
+                1999,
+                5458
+              ],
+              "text": "CHAPTER 72. The Monkey-Rope."
+            },
+            {
+              "bbox": [
+                456,
+                5651,
+                4354,
+                5746
+              ],
+              "text": "CHAPTER 73. Stubb and Flask kill a Right Whale; and Then Have a Talk over Him."
+            },
+            {
+              "bbox": [
+                456,
+                5939,
+                3238,
+                6034
+              ],
+              "text": "CHAPTER 74. The Sperm Whale\u2019's Head\u2014Contrasted View."
+            },
+            {
+              "bbox": [
+                456,
+                6227,
+                3178,
+                6322
+              ],
+              "text": "CHAPTER 75. The Right Whale\u2018's Head\u2014Contrasted View."
+            }
+          ],
+          "hocr_low_confidence_ratio": 0.03875968992248062,
+          "hocr_low_confidence_word_count": 5,
+          "hocr_word_count": 129,
+          "lexical_candidate_score": 911.9832793609323,
+          "pre_ocr_region_masked": true,
+          "preprocess_mode": "scan-background-normalized",
+          "raw_text_score": 832.4926503872512,
+          "route_ocr_policy": "body-review",
+          "score": 929.0491708338005,
+          "tesseract_output_format": "hocr",
+          "tesseract_psm": 6,
+          "word_count": 129
+        },
+        {
+          "candidate_preprocess_mode": "scan-background-normalized-masked",
+          "character_count": 771,
+          "cleaned_text_score": 946.0506917782244,
+          "cleanup_changed_text": true,
+          "hocr_confidence_adjustment": 16.841085271317827,
+          "hocr_confidence_mean": 88.33333333333333,
+          "hocr_confidence_min": 16,
+          "hocr_line_entries_runtime": [
+            {
+              "bbox": [
+                456,
+                467,
+                4315,
+                553
+              ],
+              "text": "CHAPTER 56. Of the Less Erroneous Pictures of Whales, and the True Pictures of"
+            },
+            {
+              "bbox": [
+                452,
+                611,
+                1237,
+                706
+              ],
+              "text": "Whaling Scenes."
+            },
+            {
+              "bbox": [
+                456,
+                899,
+                4189,
+                985
+              ],
+              "text": "CHAPTER 57. Of Whales in Paint; in Teeth; in Wood; in Sheet-lron; in Stone; in"
+            },
+            {
+              "bbox": [
+                458,
+                1043,
+                1402,
+                1129
+              ],
+              "text": "Mountains; in Stars."
+            },
+            {
+              "bbox": [
+                456,
+                1331,
+                1300,
+                1405
+              ],
+              "text": "CHAPTER 58. Brit."
+            },
+            {
+              "bbox": [
+                456,
+                1619,
+                1396,
+                1714
+              ],
+              "text": "CHAPTER 59. Squid."
+            },
+            {
+              "bbox": [
+                456,
+                1907,
+                1540,
+                1981
+              ],
+              "text": "CHAPTER 60. The Line."
+            },
+            {
+              "bbox": [
+                456,
+                2195,
+                2056,
+                2269
+              ],
+              "text": "CHAPTER 61. Stubb Kills a Whale."
+            },
+            {
+              "bbox": [
+                456,
+                2483,
+                1552,
+                2557
+              ],
+              "text": "CHAPTER 62. The Dart."
+            },
+            {
+              "bbox": [
+                456,
+                2771,
+                1657,
+                2845
+              ],
+              "text": "CHAPTER 63. The Crotch."
+            },
+            {
+              "bbox": [
+                456,
+                3059,
+                1858,
+                3154
+              ],
+              "text": "CHAPTER 64. Stubb's Supper."
+            },
+            {
+              "bbox": [
+                456,
+                3347,
+                2116,
+                3421
+              ],
+              "text": "CHAPTER 65. The Whale as a Dish."
+            },
+            {
+              "bbox": [
+                456,
+                3635,
+                2104,
+                3709
+              ],
+              "text": "CHAPTER 66. The Shark Massacre."
+            },
+            {
+              "bbox": [
+                456,
+                3923,
+                1597,
+                4018
+              ],
+              "text": "CHAPTER 67. Cutting In."
+            },
+            {
+              "bbox": [
+                456,
+                4211,
+                1708,
+                4285
+              ],
+              "text": "CHAPTER 68. The Blanket."
+            },
+            {
+              "bbox": [
+                456,
+                4499,
+                1699,
+                4573
+              ],
+              "text": "CHAPTER 69. The Funeral."
+            },
+            {
+              "bbox": [
+                456,
+                4787,
+                1693,
+                4882
+              ],
+              "text": "CHAPTER 70. The Sphynx."
+            },
+            {
+              "bbox": [
+                456,
+                5075,
+                2164,
+                5170
+              ],
+              "text": "CHAPTER 71. The Jeroboam's Story."
+            },
+            {
+              "bbox": [
+                456,
+                5363,
+                1999,
+                5458
+              ],
+              "text": "CHAPTER 72. The Monkey-Rope."
+            },
+            {
+              "bbox": [
+                456,
+                5651,
+                4354,
+                5746
+              ],
+              "text": "CHAPTER 73. Stubb and Flask kill a Right Whale; and Then Have a Talk over Him."
+            },
+            {
+              "bbox": [
+                456,
+                5939,
+                3238,
+                6034
+              ],
+              "text": "CHAPTER 74. The Sperm Whale\u2019's Head\u2014Contrasted View."
+            },
+            {
+              "bbox": [
+                456,
+                6227,
+                3178,
+                6322
+              ],
+              "text": "CHAPTER 75. The Right Whale\u2018's Head\u2014Contrasted View."
+            }
+          ],
+          "hocr_low_confidence_ratio": 0.03875968992248062,
+          "hocr_low_confidence_word_count": 5,
+          "hocr_word_count": 129,
+          "lexical_candidate_score": 918.0064741645277,
+          "pre_ocr_region_masked": true,
+          "preprocess_mode": "scan-background-normalized",
+          "raw_text_score": 852.5699663992359,
+          "route_ocr_policy": "body-review",
+          "score": 934.8475594358456,
+          "tesseract_output_format": "hocr",
+          "tesseract_psm": 4,
+          "word_count": 129
+        },
+        {
+          "candidate_preprocess_mode": "scan-local-threshold",
+          "character_count": 769,
+          "cleaned_text_score": 940.359156508008,
+          "cleanup_changed_text": true,
+          "hocr_confidence_adjustment": 17.751937984496127,
+          "hocr_confidence_mean": 89.2248062015504,
+          "hocr_confidence_min": 36,
+          "hocr_line_entries_runtime": [
+            {
+              "bbox": [
+                456,
+                467,
+                4315,
+                553
+              ],
+              "text": "CHAPTER 56. Of the Less Erroneous Pictures of Whales, and the True Pictures of"
+            },
+            {
+              "bbox": [
+                452,
+                611,
+                1237,
+                706
+              ],
+              "text": "Whaling Scenes."
+            },
+            {
+              "bbox": [
+                456,
+                899,
+                4189,
+                985
+              ],
+              "text": "CHAPTER 57. Of Whales in Paint; in Teeth; in Wood; in Sheet-Iron; in Stone; in"
+            },
+            {
+              "bbox": [
+                458,
+                1043,
+                1402,
+                1129
+              ],
+              "text": "Mountains; in Stars."
+            },
+            {
+              "bbox": [
+                456,
+                1331,
+                1300,
+                1405
+              ],
+              "text": "CHAPTER 58. Brit."
+            },
+            {
+              "bbox": [
+                456,
+                1619,
+                1396,
+                1714
+              ],
+              "text": "CHAPTER 59. Squid."
+            },
+            {
+              "bbox": [
+                456,
+                1907,
+                1540,
+                1981
+              ],
+              "text": "CHAPTER 60. The Line."
+            },
+            {
+              "bbox": [
+                456,
+                2195,
+                2056,
+                2269
+              ],
+              "text": "CHAPTER 61. Stubb Kills a Whale."
+            },
+            {
+              "bbox": [
+                456,
+                2483,
+                1552,
+                2557
+              ],
+              "text": "CHAPTER 62. The Dart."
+            },
+            {
+              "bbox": [
+                456,
+                2771,
+                1657,
+                2845
+              ],
+              "text": "CHAPTER 63. The Crotch."
+            },
+            {
+              "bbox": [
+                456,
+                3059,
+                1858,
+                3154
+              ],
+              "text": "CHAPTER 64. Stubb\u2019s Supper."
+            },
+            {
+              "bbox": [
+                456,
+                3347,
+                2116,
+                3421
+              ],
+              "text": "CHAPTER 65. The Whale as a Dish."
+            },
+            {
+              "bbox": [
+                456,
+                3635,
+                2104,
+                3709
+              ],
+              "text": "CHAPTER 66. The Shark Massacre."
+            },
+            {
+              "bbox": [
+                456,
+                3923,
+                1597,
+                4018
+              ],
+              "text": "CHAPTER 67. Cutting In."
+            },
+            {
+              "bbox": [
+                456,
+                4211,
+                1708,
+                4285
+              ],
+              "text": "CHAPTER 68. The Blanket."
+            },
+            {
+              "bbox": [
+                456,
+                4499,
+                1699,
+                4573
+              ],
+              "text": "CHAPTER 69. The Funeral."
+            },
+            {
+              "bbox": [
+                456,
+                4787,
+                1693,
+                4882
+              ],
+              "text": "CHAPTER 70. The Sphynx."
+            },
+            {
+              "bbox": [
+                456,
+                5075,
+                2164,
+                5170
+              ],
+              "text": "CHAPTER 71. The Jeroboam\u2019s Story."
+            },
+            {
+              "bbox": [
+                456,
+                5363,
+                1999,
+                5458
+              ],
+              "text": "CHAPTER 72. The Monkey-Rope."
+            },
+            {
+              "bbox": [
+                456,
+                5651,
+                4354,
+                5746
+              ],
+              "text": "CHAPTER 73. Stubb and Flask kill a Right Whale; and Then Have a Talk over Him."
+            },
+            {
+              "bbox": [
+                456,
+                5939,
+                3238,
+                6034
+              ],
+              "text": "CHAPTER 74. The Sperm Whale's Head\u2014Contrasted View."
+            },
+            {
+              "bbox": [
+                456,
+                6227,
+                3178,
+                6322
+              ],
+              "text": "CHAPTER 75. The Right Whale\u2019s Head\u2014Contrasted View."
+            }
+          ],
+          "hocr_low_confidence_ratio": 0.031007751937984496,
+          "hocr_low_confidence_word_count": 4,
+          "hocr_word_count": 129,
+          "lexical_candidate_score": 918.987742795957,
+          "preprocess_mode": "scan-local-threshold",
+          "raw_text_score": 869.1211108011714,
+          "route_ocr_policy": "body-review",
+          "score": 936.7396807804532,
+          "tesseract_output_format": "hocr",
+          "tesseract_psm": 6,
+          "word_count": 129
+        },
+        {
+          "candidate_preprocess_mode": "scan-local-threshold",
+          "character_count": 769,
+          "cleaned_text_score": 940.359156508008,
+          "cleanup_changed_text": true,
+          "hocr_confidence_adjustment": 17.112403100775193,
+          "hocr_confidence_mean": 88.87596899224806,
+          "hocr_confidence_min": 31,
+          "hocr_line_entries_runtime": [
+            {
+              "bbox": [
+                456,
+                467,
+                4315,
+                553
+              ],
+              "text": "CHAPTER 56. Of the Less Erroneous Pictures of Whales, and the True Pictures of"
+            },
+            {
+              "bbox": [
+                452,
+                611,
+                1237,
+                706
+              ],
+              "text": "Whaling Scenes."
+            },
+            {
+              "bbox": [
+                456,
+                899,
+                4189,
+                985
+              ],
+              "text": "CHAPTER 57. Of Whales in Paint; in Teeth; in Wood; in Sheet-lron; in Stone; in"
+            },
+            {
+              "bbox": [
+                458,
+                1043,
+                1402,
+                1129
+              ],
+              "text": "Mountains; in Stars."
+            },
+            {
+              "bbox": [
+                456,
+                1331,
+                1300,
+                1405
+              ],
+              "text": "CHAPTER 58. Brit."
+            },
+            {
+              "bbox": [
+                456,
+                1619,
+                1396,
+                1714
+              ],
+              "text": "CHAPTER 59. Squid."
+            },
+            {
+              "bbox": [
+                456,
+                1907,
+                1540,
+                1981
+              ],
+              "text": "CHAPTER 60. The Line."
+            },
+            {
+              "bbox": [
+                456,
+                2195,
+                2056,
+                2269
+              ],
+              "text": "CHAPTER 61. Stubb Kills a Whale."
+            },
+            {
+              "bbox": [
+                456,
+                2483,
+                1552,
+                2557
+              ],
+              "text": "CHAPTER 62. The Dart."
+            },
+            {
+              "bbox": [
+                456,
+                2771,
+                1657,
+                2845
+              ],
+              "text": "CHAPTER 63. The Crotch."
+            },
+            {
+              "bbox": [
+                456,
+                3059,
+                1858,
+                3154
+              ],
+              "text": "CHAPTER 64. Stubb\u2019s Supper."
+            },
+            {
+              "bbox": [
+                456,
+                3347,
+                2116,
+                3421
+              ],
+              "text": "CHAPTER 65. The Whale as a Dish."
+            },
+            {
+              "bbox": [
+                456,
+                3635,
+                2104,
+                3709
+              ],
+              "text": "CHAPTER 66. The Shark Massacre."
+            },
+            {
+              "bbox": [
+                456,
+                3923,
+                1597,
+                4018
+              ],
+              "text": "CHAPTER 67. Cutting In."
+            },
+            {
+              "bbox": [
+                456,
+                4211,
+                1708,
+                4285
+              ],
+              "text": "CHAPTER 68. The Blanket."
+            },
+            {
+              "bbox": [
+                456,
+                4499,
+                1699,
+                4573
+              ],
+              "text": "CHAPTER 69. The Funeral."
+            },
+            {
+              "bbox": [
+                456,
+                4787,
+                1693,
+                4882
+              ],
+              "text": "CHAPTER 70. The Sphynx."
+            },
+            {
+              "bbox": [
+                456,
+                5075,
+                2164,
+                5170
+              ],
+              "text": "CHAPTER 71. The Jeroboam\u2019s Story."
+            },
+            {
+              "bbox": [
+                456,
+                5363,
+                1999,
+                5458
+              ],
+              "text": "CHAPTER 72. The Monkey-Rope."
+            },
+            {
+              "bbox": [
+                456,
+                5651,
+                4354,
+                5746
+              ],
+              "text": "CHAPTER 73. Stubb and Flask kill a Right Whale; and Then Have a Talk over Him."
+            },
+            {
+              "bbox": [
+                456,
+                5939,
+                3238,
+                6034
+              ],
+              "text": "CHAPTER 74. The Sperm Whale's Head\u2014Contrasted View."
+            },
+            {
+              "bbox": [
+                456,
+                6227,
+                3178,
+                6322
+              ],
+              "text": "CHAPTER 75. The Right Whale\u2019s Head\u2014Contrasted View."
+            }
+          ],
+          "hocr_low_confidence_ratio": 0.03875968992248062,
+          "hocr_low_confidence_word_count": 5,
+          "hocr_word_count": 129,
+          "lexical_candidate_score": 912.5435251822605,
+          "preprocess_mode": "scan-local-threshold",
+          "raw_text_score": 847.640385422183,
+          "route_ocr_policy": "body-review",
+          "score": 929.6559282830357,
+          "tesseract_output_format": "hocr",
+          "tesseract_psm": 4,
+          "word_count": 129
+        },
+        {
+          "candidate_preprocess_mode": "scan-local-threshold-masked",
+          "character_count": 769,
+          "cleaned_text_score": 940.359156508008,
+          "cleanup_changed_text": true,
+          "hocr_confidence_adjustment": 17.751937984496127,
+          "hocr_confidence_mean": 89.2248062015504,
+          "hocr_confidence_min": 36,
+          "hocr_line_entries_runtime": [
+            {
+              "bbox": [
+                456,
+                467,
+                4315,
+                553
+              ],
+              "text": "CHAPTER 56. Of the Less Erroneous Pictures of Whales, and the True Pictures of"
+            },
+            {
+              "bbox": [
+                452,
+                611,
+                1237,
+                706
+              ],
+              "text": "Whaling Scenes."
+            },
+            {
+              "bbox": [
+                456,
+                899,
+                4189,
+                985
+              ],
+              "text": "CHAPTER 57. Of Whales in Paint; in Teeth; in Wood; in Sheet-Iron; in Stone; in"
+            },
+            {
+              "bbox": [
+                458,
+                1043,
+                1402,
+                1129
+              ],
+              "text": "Mountains; in Stars."
+            },
+            {
+              "bbox": [
+                456,
+                1331,
+                1300,
+                1405
+              ],
+              "text": "CHAPTER 58. Brit."
+            },
+            {
+              "bbox": [
+                456,
+                1619,
+                1396,
+                1714
+              ],
+              "text": "CHAPTER 59. Squid."
+            },
+            {
+              "bbox": [
+                456,
+                1907,
+                1540,
+                1981
+              ],
+              "text": "CHAPTER 60. The Line."
+            },
+            {
+              "bbox": [
+                456,
+                2195,
+                2056,
+                2269
+              ],
+              "text": "CHAPTER 61. Stubb Kills a Whale."
+            },
+            {
+              "bbox": [
+                456,
+                2483,
+                1552,
+                2557
+              ],
+              "text": "CHAPTER 62. The Dart."
+            },
+            {
+              "bbox": [
+                456,
+                2771,
+                1657,
+                2845
+              ],
+              "text": "CHAPTER 63. The Crotch."
+            },
+            {
+              "bbox": [
+                456,
+                3059,
+                1858,
+                3154
+              ],
+              "text": "CHAPTER 64. Stubb\u2019s Supper."
+            },
+            {
+              "bbox": [
+                456,
+                3347,
+                2116,
+                3421
+              ],
+              "text": "CHAPTER 65. The Whale as a Dish."
+            },
+            {
+              "bbox": [
+                456,
+                3635,
+                2104,
+                3709
+              ],
+              "text": "CHAPTER 66. The Shark Massacre."
+            },
+            {
+              "bbox": [
+                456,
+                3923,
+                1597,
+                4018
+              ],
+              "text": "CHAPTER 67. Cutting In."
+            },
+            {
+              "bbox": [
+                456,
+                4211,
+                1708,
+                4285
+              ],
+              "text": "CHAPTER 68. The Blanket."
+            },
+            {
+              "bbox": [
+                456,
+                4499,
+                1699,
+                4573
+              ],
+              "text": "CHAPTER 69. The Funeral."
+            },
+            {
+              "bbox": [
+                456,
+                4787,
+                1693,
+                4882
+              ],
+              "text": "CHAPTER 70. The Sphynx."
+            },
+            {
+              "bbox": [
+                456,
+                5075,
+                2164,
+                5170
+              ],
+              "text": "CHAPTER 71. The Jeroboam\u2019s Story."
+            },
+            {
+              "bbox": [
+                456,
+                5363,
+                1999,
+                5458
+              ],
+              "text": "CHAPTER 72. The Monkey-Rope."
+            },
+            {
+              "bbox": [
+                456,
+                5651,
+                4354,
+                5746
+              ],
+              "text": "CHAPTER 73. Stubb and Flask kill a Right Whale; and Then Have a Talk over Him."
+            },
+            {
+              "bbox": [
+                456,
+                5939,
+                3238,
+                6034
+              ],
+              "text": "CHAPTER 74. The Sperm Whale's Head\u2014Contrasted View."
+            },
+            {
+              "bbox": [
+                456,
+                6227,
+                3178,
+                6322
+              ],
+              "text": "CHAPTER 75. The Right Whale\u2019s Head\u2014Contrasted View."
+            }
+          ],
+          "hocr_low_confidence_ratio": 0.031007751937984496,
+          "hocr_low_confidence_word_count": 4,
+          "hocr_word_count": 129,
+          "lexical_candidate_score": 918.987742795957,
+          "pre_ocr_region_masked": true,
+          "preprocess_mode": "scan-local-threshold",
+          "raw_text_score": 869.1211108011714,
+          "route_ocr_policy": "body-review",
+          "score": 936.7396807804532,
+          "tesseract_output_format": "hocr",
+          "tesseract_psm": 6,
+          "word_count": 129
+        },
+        {
+          "candidate_preprocess_mode": "scan-local-threshold-masked",
+          "character_count": 769,
+          "cleaned_text_score": 940.359156508008,
+          "cleanup_changed_text": true,
+          "hocr_confidence_adjustment": 17.112403100775193,
+          "hocr_confidence_mean": 88.87596899224806,
+          "hocr_confidence_min": 31,
+          "hocr_line_entries_runtime": [
+            {
+              "bbox": [
+                456,
+                467,
+                4315,
+                553
+              ],
+              "text": "CHAPTER 56. Of the Less Erroneous Pictures of Whales, and the True Pictures of"
+            },
+            {
+              "bbox": [
+                452,
+                611,
+                1237,
+                706
+              ],
+              "text": "Whaling Scenes."
+            },
+            {
+              "bbox": [
+                456,
+                899,
+                4189,
+                985
+              ],
+              "text": "CHAPTER 57. Of Whales in Paint; in Teeth; in Wood; in Sheet-lron; in Stone; in"
+            },
+            {
+              "bbox": [
+                458,
+                1043,
+                1402,
+                1129
+              ],
+              "text": "Mountains; in Stars."
+            },
+            {
+              "bbox": [
+                456,
+                1331,
+                1300,
+                1405
+              ],
+              "text": "CHAPTER 58. Brit."
+            },
+            {
+              "bbox": [
+                456,
+                1619,
+                1396,
+                1714
+              ],
+              "text": "CHAPTER 59. Squid."
+            },
+            {
+              "bbox": [
+                456,
+                1907,
+                1540,
+                1981
+              ],
+              "text": "CHAPTER 60. The Line."
+            },
+            {
+              "bbox": [
+                456,
+                2195,
+                2056,
+                2269
+              ],
+              "text": "CHAPTER 61. Stubb Kills a Whale."
+            },
+            {
+              "bbox": [
+                456,
+                2483,
+                1552,
+                2557
+              ],
+              "text": "CHAPTER 62. The Dart."
+            },
+            {
+              "bbox": [
+                456,
+                2771,
+                1657,
+                2845
+              ],
+              "text": "CHAPTER 63. The Crotch."
+            },
+            {
+              "bbox": [
+                456,
+                3059,
+                1858,
+                3154
+              ],
+              "text": "CHAPTER 64. Stubb\u2019s Supper."
+            },
+            {
+              "bbox": [
+                456,
+                3347,
+                2116,
+                3421
+              ],
+              "text": "CHAPTER 65. The Whale as a Dish."
+            },
+            {
+              "bbox": [
+                456,
+                3635,
+                2104,
+                3709
+              ],
+              "text": "CHAPTER 66. The Shark Massacre."
+            },
+            {
+              "bbox": [
+                456,
+                3923,
+                1597,
+                4018
+              ],
+              "text": "CHAPTER 67. Cutting In."
+            },
+            {
+              "bbox": [
+                456,
+                4211,
+                1708,
+                4285
+              ],
+              "text": "CHAPTER 68. The Blanket."
+            },
+            {
+              "bbox": [
+                456,
+                4499,
+                1699,
+                4573
+              ],
+              "text": "CHAPTER 69. The Funeral."
+            },
+            {
+              "bbox": [
+                456,
+                4787,
+                1693,
+                4882
+              ],
+              "text": "CHAPTER 70. The Sphynx."
+            },
+            {
+              "bbox": [
+                456,
+                5075,
+                2164,
+                5170
+              ],
+              "text": "CHAPTER 71. The Jeroboam\u2019s Story."
+            },
+            {
+              "bbox": [
+                456,
+                5363,
+                1999,
+                5458
+              ],
+              "text": "CHAPTER 72. The Monkey-Rope."
+            },
+            {
+              "bbox": [
+                456,
+                5651,
+                4354,
+                5746
+              ],
+              "text": "CHAPTER 73. Stubb and Flask kill a Right Whale; and Then Have a Talk over Him."
+            },
+            {
+              "bbox": [
+                456,
+                5939,
+                3238,
+                6034
+              ],
+              "text": "CHAPTER 74. The Sperm Whale's Head\u2014Contrasted View."
+            },
+            {
+              "bbox": [
+                456,
+                6227,
+                3178,
+                6322
+              ],
+              "text": "CHAPTER 75. The Right Whale\u2019s Head\u2014Contrasted View."
+            }
+          ],
+          "hocr_low_confidence_ratio": 0.03875968992248062,
+          "hocr_low_confidence_word_count": 5,
+          "hocr_word_count": 129,
+          "lexical_candidate_score": 912.5435251822605,
+          "pre_ocr_region_masked": true,
+          "preprocess_mode": "scan-local-threshold",
+          "raw_text_score": 847.640385422183,
+          "route_ocr_policy": "body-review",
+          "score": 929.6559282830357,
+          "tesseract_output_format": "hocr",
+          "tesseract_psm": 4,
+          "word_count": 129
+        },
+        {
+          "candidate_preprocess_mode": "scan",
+          "character_count": 770,
+          "cleaned_text_score": 943.2035835465305,
+          "cleanup_changed_text": true,
+          "hocr_confidence_adjustment": 17.817829457364343,
+          "hocr_confidence_mean": 89.35658914728683,
+          "hocr_confidence_min": 19,
+          "hocr_line_entries_runtime": [
+            {
+              "bbox": [
+                456,
+                468,
+                4314,
+                552
+              ],
+              "text": "CHAPTER 56. Of the Less Erroneous Pictures of Whales, and the True Pictures of"
+            },
+            {
+              "bbox": [
+                453,
+                612,
+                1236,
+                705
+              ],
+              "text": "Whaling Scenes."
+            },
+            {
+              "bbox": [
+                456,
+                900,
+                4188,
+                984
+              ],
+              "text": "CHAPTER 57. Of Whales in Paint; in Teeth; in Wood; in Sheet-lron; in Stone; in"
+            },
+            {
+              "bbox": [
+                459,
+                1044,
+                1401,
+                1128
+              ],
+              "text": "Mountains; in Stars."
+            },
+            {
+              "bbox": [
+                456,
+                1332,
+                1299,
+                1404
+              ],
+              "text": "CHAPTER 58. Brit."
+            },
+            {
+              "bbox": [
+                456,
+                1620,
+                1395,
+                1713
+              ],
+              "text": "CHAPTER 59. Squid."
+            },
+            {
+              "bbox": [
+                456,
+                1908,
+                1539,
+                1980
+              ],
+              "text": "CHAPTER 60. The Line."
+            },
+            {
+              "bbox": [
+                456,
+                2196,
+                2055,
+                2268
+              ],
+              "text": "CHAPTER 61. Stubb Kills a Whale."
+            },
+            {
+              "bbox": [
+                456,
+                2484,
+                1551,
+                2556
+              ],
+              "text": "CHAPTER 62. The Dart."
+            },
+            {
+              "bbox": [
+                456,
+                2772,
+                1656,
+                2844
+              ],
+              "text": "CHAPTER 63. The Crotch."
+            },
+            {
+              "bbox": [
+                456,
+                3060,
+                1857,
+                3153
+              ],
+              "text": "CHAPTER 64. Stubb\u2019s Supper."
+            },
+            {
+              "bbox": [
+                456,
+                3348,
+                2115,
+                3420
+              ],
+              "text": "CHAPTER 65. The Whale as a Dish."
+            },
+            {
+              "bbox": [
+                456,
+                3636,
+                2103,
+                3708
+              ],
+              "text": "CHAPTER 66. The Shark Massacre."
+            },
+            {
+              "bbox": [
+                456,
+                3924,
+                1596,
+                4017
+              ],
+              "text": "CHAPTER 67. Cutting In."
+            },
+            {
+              "bbox": [
+                456,
+                4212,
+                1707,
+                4284
+              ],
+              "text": "CHAPTER 68. The Blanket."
+            },
+            {
+              "bbox": [
+                456,
+                4500,
+                1698,
+                4572
+              ],
+              "text": "CHAPTER 69. The Funeral."
+            },
+            {
+              "bbox": [
+                456,
+                4788,
+                1692,
+                4881
+              ],
+              "text": "CHAPTER 70. The Sphynx."
+            },
+            {
+              "bbox": [
+                456,
+                5076,
+                2163,
+                5169
+              ],
+              "text": "CHAPTER 71. The Jeroboam\u2019s Story."
+            },
+            {
+              "bbox": [
+                456,
+                5364,
+                1998,
+                5457
+              ],
+              "text": "CHAPTER 72. The Monkey-Rope."
+            },
+            {
+              "bbox": [
+                456,
+                5652,
+                4353,
+                5745
+              ],
+              "text": "CHAPTER 73. Stubb and Flask kill a Right Whale; and Then Have a Talk over Him."
+            },
+            {
+              "bbox": [
+                456,
+                5940,
+                3237,
+                6033
+              ],
+              "text": "CHAPTER 74. The Sperm Whale\u2019's Head\u2014Contrasted View."
+            },
+            {
+              "bbox": [
+                456,
+                6228,
+                3177,
+                6321
+              ],
+              "text": "CHAPTER 75. The Right Whale's Head\u2014Contrasted View."
+            }
+          ],
+          "hocr_low_confidence_ratio": 0.031007751937984496,
+          "hocr_low_confidence_word_count": 4,
+          "hocr_word_count": 129,
+          "lexical_candidate_score": 914.5346241092262,
+          "preprocess_mode": "scan",
+          "raw_text_score": 847.640385422183,
+          "route_ocr_policy": "body-review",
+          "score": 932.3524535665906,
+          "tesseract_output_format": "hocr",
+          "tesseract_psm": 6,
+          "word_count": 129
+        },
+        {
+          "candidate_preprocess_mode": "scan",
+          "character_count": 770,
+          "cleaned_text_score": 943.2035835465305,
+          "cleanup_changed_text": true,
+          "hocr_confidence_adjustment": 18.317829457364343,
+          "hocr_confidence_mean": 89.42635658914729,
+          "hocr_confidence_min": 19,
+          "hocr_line_entries_runtime": [
+            {
+              "bbox": [
+                456,
+                468,
+                4314,
+                552
+              ],
+              "text": "CHAPTER 56. Of the Less Erroneous Pictures of Whales, and the True Pictures of"
+            },
+            {
+              "bbox": [
+                453,
+                612,
+                1236,
+                705
+              ],
+              "text": "Whaling Scenes."
+            },
+            {
+              "bbox": [
+                456,
+                900,
+                4188,
+                984
+              ],
+              "text": "CHAPTER 57. Of Whales in Paint; in Teeth; in Wood; in Sheet-lron; in Stone; in"
+            },
+            {
+              "bbox": [
+                459,
+                1044,
+                1401,
+                1128
+              ],
+              "text": "Mountains; in Stars."
+            },
+            {
+              "bbox": [
+                456,
+                1332,
+                1299,
+                1404
+              ],
+              "text": "CHAPTER 58. Brit."
+            },
+            {
+              "bbox": [
+                456,
+                1620,
+                1395,
+                1713
+              ],
+              "text": "CHAPTER 59. Squid."
+            },
+            {
+              "bbox": [
+                456,
+                1908,
+                1539,
+                1980
+              ],
+              "text": "CHAPTER 60. The Line."
+            },
+            {
+              "bbox": [
+                456,
+                2196,
+                2055,
+                2268
+              ],
+              "text": "CHAPTER 61. Stubb Kills a Whale."
+            },
+            {
+              "bbox": [
+                456,
+                2484,
+                1551,
+                2556
+              ],
+              "text": "CHAPTER 62. The Dart."
+            },
+            {
+              "bbox": [
+                456,
+                2772,
+                1656,
+                2844
+              ],
+              "text": "CHAPTER 63. The Crotch."
+            },
+            {
+              "bbox": [
+                456,
+                3060,
+                1857,
+                3153
+              ],
+              "text": "CHAPTER 64. Stubb\u2019s Supper."
+            },
+            {
+              "bbox": [
+                456,
+                3348,
+                2115,
+                3420
+              ],
+              "text": "CHAPTER 65. The Whale as a Dish."
+            },
+            {
+              "bbox": [
+                456,
+                3636,
+                2103,
+                3708
+              ],
+              "text": "CHAPTER 66. The Shark Massacre."
+            },
+            {
+              "bbox": [
+                456,
+                3924,
+                1596,
+                4017
+              ],
+              "text": "CHAPTER 67. Cutting In."
+            },
+            {
+              "bbox": [
+                456,
+                4212,
+                1707,
+                4284
+              ],
+              "text": "CHAPTER 68. The Blanket."
+            },
+            {
+              "bbox": [
+                456,
+                4500,
+                1698,
+                4572
+              ],
+              "text": "CHAPTER 69. The Funeral."
+            },
+            {
+              "bbox": [
+                456,
+                4788,
+                1692,
+                4881
+              ],
+              "text": "CHAPTER 70. The Sphynx."
+            },
+            {
+              "bbox": [
+                456,
+                5076,
+                2163,
+                5169
+              ],
+              "text": "CHAPTER 71. The Jeroboam\u2019s Story."
+            },
+            {
+              "bbox": [
+                456,
+                5364,
+                1998,
+                5457
+              ],
+              "text": "CHAPTER 72. The Monkey-Rope."
+            },
+            {
+              "bbox": [
+                456,
+                5652,
+                4353,
+                5745
+              ],
+              "text": "CHAPTER 73. Stubb and Flask kill a Right Whale; and Then Have a Talk over Him."
+            },
+            {
+              "bbox": [
+                456,
+                5940,
+                3237,
+                6033
+              ],
+              "text": "CHAPTER 74. The Sperm Whale\u2019's Head\u2014Contrasted View."
+            },
+            {
+              "bbox": [
+                456,
+                6228,
+                3177,
+                6321
+              ],
+              "text": "CHAPTER 75. The Right Whale's Head\u2014Contrasted View."
+            }
+          ],
+          "hocr_low_confidence_ratio": 0.023255813953488372,
+          "hocr_low_confidence_word_count": 3,
+          "hocr_word_count": 129,
+          "lexical_candidate_score": 914.5346241092262,
+          "preprocess_mode": "scan",
+          "raw_text_score": 847.640385422183,
+          "route_ocr_policy": "body-review",
+          "score": 932.8524535665906,
+          "tesseract_output_format": "hocr",
+          "tesseract_psm": 4,
+          "word_count": 129
+        },
+        {
+          "candidate_preprocess_mode": "scan-sauvola",
+          "character_count": 769,
+          "cleaned_text_score": 940.359156508008,
+          "cleanup_changed_text": true,
+          "hocr_confidence_adjustment": 17.379844961240313,
+          "hocr_confidence_mean": 89.4108527131783,
+          "hocr_confidence_min": 45,
+          "hocr_line_entries_runtime": [
+            {
+              "bbox": [
+                455,
+                467,
+                4315,
+                553
+              ],
+              "text": "CHAPTER 56. Of the Less Erroneous Pictures of Whales, and the True Pictures of"
+            },
+            {
+              "bbox": [
+                452,
+                611,
+                1237,
+                706
+              ],
+              "text": "Whaling Scenes."
+            },
+            {
+              "bbox": [
+                455,
+                899,
+                4189,
+                985
+              ],
+              "text": "CHAPTER 57. Of Whales in Paint; in Teeth; in Wood; in Sheet-lron; in Stone; in"
+            },
+            {
+              "bbox": [
+                458,
+                1043,
+                1402,
+                1129
+              ],
+              "text": "Mountains; in Stars."
+            },
+            {
+              "bbox": [
+                455,
+                1331,
+                1300,
+                1405
+              ],
+              "text": "CHAPTER 58. Brit."
+            },
+            {
+              "bbox": [
+                455,
+                1619,
+                1396,
+                1714
+              ],
+              "text": "CHAPTER 59. Squid."
+            },
+            {
+              "bbox": [
+                455,
+                1907,
+                1540,
+                1981
+              ],
+              "text": "CHAPTER 60. The Line."
+            },
+            {
+              "bbox": [
+                455,
+                2195,
+                2056,
+                2269
+              ],
+              "text": "CHAPTER 61. Stubb Kills a Whale."
+            },
+            {
+              "bbox": [
+                455,
+                2483,
+                1552,
+                2557
+              ],
+              "text": "CHAPTER 62. The Dart."
+            },
+            {
+              "bbox": [
+                455,
+                2771,
+                1657,
+                2845
+              ],
+              "text": "CHAPTER 63. The Crotch."
+            },
+            {
+              "bbox": [
+                455,
+                3059,
+                1858,
+                3154
+              ],
+              "text": "CHAPTER 64. Stubb\u2019s Supper."
+            },
+            {
+              "bbox": [
+                455,
+                3347,
+                2116,
+                3421
+              ],
+              "text": "CHAPTER 65. The Whale as a Dish."
+            },
+            {
+              "bbox": [
+                455,
+                3635,
+                2104,
+                3709
+              ],
+              "text": "CHAPTER 66. The Shark Massacre."
+            },
+            {
+              "bbox": [
+                455,
+                3923,
+                1597,
+                4018
+              ],
+              "text": "CHAPTER 67. Cutting In."
+            },
+            {
+              "bbox": [
+                455,
+                4211,
+                1708,
+                4285
+              ],
+              "text": "CHAPTER 68. The Blanket."
+            },
+            {
+              "bbox": [
+                455,
+                4499,
+                1699,
+                4573
+              ],
+              "text": "CHAPTER 69. The Funeral."
+            },
+            {
+              "bbox": [
+                455,
+                4787,
+                1693,
+                4882
+              ],
+              "text": "CHAPTER 70. The Sphynx."
+            },
+            {
+              "bbox": [
+                455,
+                5075,
+                2164,
+                5170
+              ],
+              "text": "CHAPTER 71. The Jeroboam\u2019s Story."
+            },
+            {
+              "bbox": [
+                455,
+                5363,
+                1999,
+                5458
+              ],
+              "text": "CHAPTER 72. The Monkey-Rope."
+            },
+            {
+              "bbox": [
+                455,
+                5651,
+                4354,
+                5746
+              ],
+              "text": "CHAPTER 73. Stubb and Flask kill a Right Whale; and Then Have a Talk over Him."
+            },
+            {
+              "bbox": [
+                455,
+                5939,
+                3238,
+                6034
+              ],
+              "text": "CHAPTER 74. The Sperm Whale\u2019s Head\u2014Contrasted View."
+            },
+            {
+              "bbox": [
+                455,
+                6227,
+                3178,
+                6322
+              ],
+              "text": "CHAPTER 75. The Right Whale\u2019s Head\u2014Contrasted View."
+            }
+          ],
+          "hocr_low_confidence_ratio": 0.03875968992248062,
+          "hocr_low_confidence_word_count": 5,
+          "hocr_word_count": 129,
+          "lexical_candidate_score": 907.999204671781,
+          "preprocess_mode": "scan-sauvola",
+          "raw_text_score": 832.4926503872512,
+          "route_ocr_policy": "body-review",
+          "score": 925.3790496330213,
+          "tesseract_output_format": "hocr",
+          "tesseract_psm": 6,
+          "word_count": 129
+        },
+        {
+          "candidate_preprocess_mode": "scan-sauvola",
+          "character_count": 769,
+          "cleaned_text_score": 940.359156508008,
+          "cleanup_changed_text": true,
+          "hocr_confidence_adjustment": 17.282945736434105,
+          "hocr_confidence_mean": 89.21705426356588,
+          "hocr_confidence_min": 45,
+          "hocr_line_entries_runtime": [
+            {
+              "bbox": [
+                455,
+                467,
+                4315,
+                553
+              ],
+              "text": "CHAPTER 56. Of the Less Erroneous Pictures of Whales, and the True Pictures of"
+            },
+            {
+              "bbox": [
+                452,
+                611,
+                1237,
+                706
+              ],
+              "text": "Whaling Scenes."
+            },
+            {
+              "bbox": [
+                455,
+                899,
+                4189,
+                985
+              ],
+              "text": "CHAPTER 57. Of Whales in Paint; in Teeth; in Wood; in Sheet-lron; in Stone; in"
+            },
+            {
+              "bbox": [
+                458,
+                1043,
+                1402,
+                1129
+              ],
+              "text": "Mountains; in Stars."
+            },
+            {
+              "bbox": [
+                455,
+                1331,
+                1300,
+                1405
+              ],
+              "text": "CHAPTER 58. Brit."
+            },
+            {
+              "bbox": [
+                455,
+                1619,
+                1396,
+                1714
+              ],
+              "text": "CHAPTER 59. Squid."
+            },
+            {
+              "bbox": [
+                455,
+                1907,
+                1540,
+                1981
+              ],
+              "text": "CHAPTER 60. The Line."
+            },
+            {
+              "bbox": [
+                455,
+                2195,
+                2056,
+                2269
+              ],
+              "text": "CHAPTER 61. Stubb Kills a Whale."
+            },
+            {
+              "bbox": [
+                455,
+                2483,
+                1552,
+                2557
+              ],
+              "text": "CHAPTER 62. The Dart."
+            },
+            {
+              "bbox": [
+                455,
+                2771,
+                1657,
+                2845
+              ],
+              "text": "CHAPTER 63. The Crotch."
+            },
+            {
+              "bbox": [
+                455,
+                3059,
+                1858,
+                3154
+              ],
+              "text": "CHAPTER 64. Stubb\u2019s Supper."
+            },
+            {
+              "bbox": [
+                455,
+                3347,
+                2116,
+                3421
+              ],
+              "text": "CHAPTER 65. The Whale as a Dish."
+            },
+            {
+              "bbox": [
+                455,
+                3635,
+                2104,
+                3709
+              ],
+              "text": "CHAPTER 66. The Shark Massacre."
+            },
+            {
+              "bbox": [
+                455,
+                3923,
+                1597,
+                4018
+              ],
+              "text": "CHAPTER 67. Cutting In."
+            },
+            {
+              "bbox": [
+                455,
+                4211,
+                1708,
+                4285
+              ],
+              "text": "CHAPTER 68. The Blanket."
+            },
+            {
+              "bbox": [
+                455,
+                4499,
+                1699,
+                4573
+              ],
+              "text": "CHAPTER 69. The Funeral."
+            },
+            {
+              "bbox": [
+                455,
+                4787,
+                1693,
+                4882
+              ],
+              "text": "CHAPTER 70. The Sphynx."
+            },
+            {
+              "bbox": [
+                455,
+                5075,
+                2164,
+                5170
+              ],
+              "text": "CHAPTER 71. The Jeroboam\u2019s Story."
+            },
+            {
+              "bbox": [
+                455,
+                5363,
+                1999,
+                5458
+              ],
+              "text": "CHAPTER 72. The Monkey-Rope."
+            },
+            {
+              "bbox": [
+                455,
+                5651,
+                4354,
+                5746
+              ],
+              "text": "CHAPTER 73. Stubb and Flask kill a Right Whale; and Then Have a Talk over Him."
+            },
+            {
+              "bbox": [
+                455,
+                5939,
+                3238,
+                6034
+              ],
+              "text": "CHAPTER 74. The Sperm Whale\u2019s Head\u2014Contrasted View."
+            },
+            {
+              "bbox": [
+                455,
+                6227,
+                3178,
+                6322
+              ],
+              "text": "CHAPTER 75. The Right Whale\u2019s Head\u2014Contrasted View."
+            }
+          ],
+          "hocr_low_confidence_ratio": 0.03875968992248062,
+          "hocr_low_confidence_word_count": 5,
+          "hocr_word_count": 129,
+          "lexical_candidate_score": 907.999204671781,
+          "preprocess_mode": "scan-sauvola",
+          "raw_text_score": 832.4926503872512,
+          "route_ocr_policy": "body-review",
+          "score": 925.2821504082151,
+          "tesseract_output_format": "hocr",
+          "tesseract_psm": 4,
+          "word_count": 129
+        },
+        {
+          "candidate_preprocess_mode": "basic",
+          "character_count": 771,
+          "cleaned_text_score": 946.0506917782244,
+          "cleanup_changed_text": true,
+          "hocr_confidence_adjustment": 17.74031007751938,
+          "hocr_confidence_mean": 89.2015503875969,
+          "hocr_confidence_min": 22,
+          "hocr_line_entries_runtime": [
+            {
+              "bbox": [
+                304,
+                312,
+                2876,
+                368
+              ],
+              "text": "CHAPTER 56. Of the Less Erroneous Pictures of Whales, and the True Pictures of"
+            },
+            {
+              "bbox": [
+                302,
+                408,
+                824,
+                470
+              ],
+              "text": "Whaling Scenes."
+            },
+            {
+              "bbox": [
+                304,
+                600,
+                2792,
+                656
+              ],
+              "text": "CHAPTER 57. Of Whales in Paint; in Teeth; in Wood; in Sheet-lron; in Stone; in"
+            },
+            {
+              "bbox": [
+                306,
+                696,
+                934,
+                752
+              ],
+              "text": "Mountains; in Stars."
+            },
+            {
+              "bbox": [
+                304,
+                888,
+                866,
+                936
+              ],
+              "text": "CHAPTER 58. Brit."
+            },
+            {
+              "bbox": [
+                304,
+                1080,
+                930,
+                1142
+              ],
+              "text": "CHAPTER 59. Squid."
+            },
+            {
+              "bbox": [
+                304,
+                1272,
+                1026,
+                1320
+              ],
+              "text": "CHAPTER 60. The Line."
+            },
+            {
+              "bbox": [
+                304,
+                1464,
+                1370,
+                1512
+              ],
+              "text": "CHAPTER 61. Stubb Kills a Whale."
+            },
+            {
+              "bbox": [
+                304,
+                1656,
+                1034,
+                1704
+              ],
+              "text": "CHAPTER 62. The Dart."
+            },
+            {
+              "bbox": [
+                304,
+                1848,
+                1104,
+                1896
+              ],
+              "text": "CHAPTER 63. The Crotch."
+            },
+            {
+              "bbox": [
+                304,
+                2040,
+                1238,
+                2102
+              ],
+              "text": "CHAPTER 64. Stubb\u2019s Supper."
+            },
+            {
+              "bbox": [
+                304,
+                2232,
+                1410,
+                2280
+              ],
+              "text": "CHAPTER 65. The Whale as a Dish."
+            },
+            {
+              "bbox": [
+                304,
+                2424,
+                1402,
+                2472
+              ],
+              "text": "CHAPTER 66. The Shark Massacre."
+            },
+            {
+              "bbox": [
+                304,
+                2616,
+                1064,
+                2678
+              ],
+              "text": "CHAPTER 67. Cutting In."
+            },
+            {
+              "bbox": [
+                304,
+                2808,
+                1138,
+                2856
+              ],
+              "text": "CHAPTER 68. The Blanket."
+            },
+            {
+              "bbox": [
+                304,
+                3000,
+                1132,
+                3048
+              ],
+              "text": "CHAPTER 69. The Funeral."
+            },
+            {
+              "bbox": [
+                304,
+                3192,
+                1128,
+                3254
+              ],
+              "text": "CHAPTER 70. The Sphynx."
+            },
+            {
+              "bbox": [
+                304,
+                3384,
+                1442,
+                3446
+              ],
+              "text": "CHAPTER 71. The Jeroboam\u2019s Story."
+            },
+            {
+              "bbox": [
+                304,
+                3576,
+                1332,
+                3638
+              ],
+              "text": "CHAPTER 72. The Monkey-Rope."
+            },
+            {
+              "bbox": [
+                304,
+                3768,
+                2902,
+                3830
+              ],
+              "text": "CHAPTER 73. Stubb and Flask kill a Right Whale; and Then Have a Talk over Him."
+            },
+            {
+              "bbox": [
+                304,
+                3960,
+                2158,
+                4022
+              ],
+              "text": "CHAPTER 74. The Sperm Whale\u2019's Head\u2014Contrasted View."
+            },
+            {
+              "bbox": [
+                304,
+                4152,
+                2118,
+                4214
+              ],
+              "text": "CHAPTER 75. The Right Whale\u2019's Head\u2014Contrasted View."
+            }
+          ],
+          "hocr_low_confidence_ratio": 0.031007751937984496,
+          "hocr_low_confidence_word_count": 4,
+          "hocr_word_count": 129,
+          "lexical_candidate_score": 911.9832793609323,
+          "preprocess_mode": "basic",
+          "raw_text_score": 832.4926503872512,
+          "route_ocr_policy": "body-review",
+          "score": 929.7235894384517,
+          "tesseract_output_format": "hocr",
+          "tesseract_psm": 6,
+          "word_count": 129
+        },
+        {
+          "candidate_preprocess_mode": "basic",
+          "character_count": 771,
+          "cleaned_text_score": 946.0506917782244,
+          "cleanup_changed_text": true,
+          "hocr_confidence_adjustment": 17.852713178294575,
+          "hocr_confidence_mean": 89.42635658914729,
+          "hocr_confidence_min": 32,
+          "hocr_line_entries_runtime": [
+            {
+              "bbox": [
+                304,
+                312,
+                2876,
+                368
+              ],
+              "text": "CHAPTER 56. Of the Less Erroneous Pictures of Whales, and the True Pictures of"
+            },
+            {
+              "bbox": [
+                302,
+                408,
+                824,
+                470
+              ],
+              "text": "Whaling Scenes."
+            },
+            {
+              "bbox": [
+                304,
+                600,
+                2792,
+                656
+              ],
+              "text": "CHAPTER 57. Of Whales in Paint; in Teeth; in Wood; in Sheet-lron; in Stone; in"
+            },
+            {
+              "bbox": [
+                306,
+                696,
+                934,
+                752
+              ],
+              "text": "Mountains; in Stars."
+            },
+            {
+              "bbox": [
+                304,
+                888,
+                866,
+                936
+              ],
+              "text": "CHAPTER 58. Brit."
+            },
+            {
+              "bbox": [
+                304,
+                1080,
+                930,
+                1142
+              ],
+              "text": "CHAPTER 59. Squid."
+            },
+            {
+              "bbox": [
+                304,
+                1272,
+                1026,
+                1320
+              ],
+              "text": "CHAPTER 60. The Line."
+            },
+            {
+              "bbox": [
+                304,
+                1464,
+                1370,
+                1512
+              ],
+              "text": "CHAPTER 61. Stubb Kills a Whale."
+            },
+            {
+              "bbox": [
+                304,
+                1656,
+                1034,
+                1704
+              ],
+              "text": "CHAPTER 62. The Dart."
+            },
+            {
+              "bbox": [
+                304,
+                1848,
+                1104,
+                1896
+              ],
+              "text": "CHAPTER 63. The Crotch."
+            },
+            {
+              "bbox": [
+                304,
+                2040,
+                1238,
+                2102
+              ],
+              "text": "CHAPTER 64. Stubb\u2019s Supper."
+            },
+            {
+              "bbox": [
+                304,
+                2232,
+                1410,
+                2280
+              ],
+              "text": "CHAPTER 65. The Whale as a Dish."
+            },
+            {
+              "bbox": [
+                304,
+                2424,
+                1402,
+                2472
+              ],
+              "text": "CHAPTER 66. The Shark Massacre."
+            },
+            {
+              "bbox": [
+                304,
+                2616,
+                1064,
+                2678
+              ],
+              "text": "CHAPTER 67. Cutting In."
+            },
+            {
+              "bbox": [
+                304,
+                2808,
+                1138,
+                2856
+              ],
+              "text": "CHAPTER 68. The Blanket."
+            },
+            {
+              "bbox": [
+                304,
+                3000,
+                1132,
+                3048
+              ],
+              "text": "CHAPTER 69. The Funeral."
+            },
+            {
+              "bbox": [
+                304,
+                3192,
+                1128,
+                3254
+              ],
+              "text": "CHAPTER 70. The Sphynx."
+            },
+            {
+              "bbox": [
+                304,
+                3384,
+                1442,
+                3446
+              ],
+              "text": "CHAPTER 71. The Jeroboam\u2019s Story."
+            },
+            {
+              "bbox": [
+                304,
+                3576,
+                1332,
+                3638
+              ],
+              "text": "CHAPTER 72. The Monkey-Rope."
+            },
+            {
+              "bbox": [
+                304,
+                3768,
+                2902,
+                3830
+              ],
+              "text": "CHAPTER 73. Stubb and Flask kill a Right Whale; and Then Have a Talk over Him."
+            },
+            {
+              "bbox": [
+                304,
+                3960,
+                2158,
+                4022
+              ],
+              "text": "CHAPTER 74. The Sperm Whale\u2019's Head\u2014Contrasted View."
+            },
+            {
+              "bbox": [
+                304,
+                4152,
+                2118,
+                4214
+              ],
+              "text": "CHAPTER 75. The Right Whale\u2019's Head\u2014Contrasted View."
+            }
+          ],
+          "hocr_low_confidence_ratio": 0.031007751937984496,
+          "hocr_low_confidence_word_count": 4,
+          "hocr_word_count": 129,
+          "lexical_candidate_score": 911.9832793609323,
+          "preprocess_mode": "basic",
+          "raw_text_score": 832.4926503872512,
+          "route_ocr_policy": "body-review",
+          "score": 929.8359925392269,
+          "tesseract_output_format": "hocr",
+          "tesseract_psm": 4,
+          "word_count": 129
+        }
+      ],
+      "character_count": 769,
+      "cleaned_text_score": 940.359156508008,
+      "cleanup_changed_text": true,
+      "hocr_confidence_adjustment": 17.751937984496127,
+      "hocr_confidence_mean": 89.2248062015504,
+      "hocr_confidence_min": 36,
+      "hocr_low_confidence_ratio": 0.031007751937984496,
+      "hocr_low_confidence_word_count": 4,
+      "hocr_word_count": 129,
+      "image_path": "data/benchmark-corpus-v3/in-ernet-dli-2015-461099/pages/page-0001.png",
+      "inverse_render_bbox": [
+        137,
+        194,
+        1517,
+        2145
+      ],
+      "inverse_render_font_path": "/nix/store/s0v7cizdm8c5d3v1z9467lw33q1ksq44-dejavu-fonts-minimal-2.37/share/fonts/truetype/DejaVuSans.ttf",
+      "inverse_render_font_size": 59,
+      "inverse_render_offset_x": -4,
+      "inverse_render_offset_y": -4,
+      "inverse_render_rotation": -0.5,
+      "inverse_render_score": 0.0,
+      "inverse_render_text_variant": "cleaned",
+      "lexical_candidate_score": 918.987742795957,
+      "ocr_input_path": "data/benchmark-corpus-v3-work-basic/in-ernet-dli-2015-461099/preprocessed/scan-local-threshold/page-0001.png",
+      "page_apostrophe_fragment_ratio": 0.0,
+      "page_avg_words_per_line": 5.864,
+      "page_candidate_best_alt_score_gap": 1.892,
+      "page_candidate_best_alt_text_similarity": 0.9753,
+      "page_candidate_near_best_family_count": 4,
+      "page_chapter_marker_count": 20,
+      "page_dense_body_line_count": 7,
+      "page_index": 1,
+      "page_layout_region_counts": {
+        "body": 21,
+        "header": 1
+      },
+      "page_line_count": 22,
+      "page_quality_tier": "high",
+      "page_route": "body",
+      "page_single_char_fragment_ratio": 0.0,
+      "page_text_noise_ratio": 0.0,
+      "page_type": "body",
+      "preprocess_mode": "scan-local-threshold",
+      "raw_text_score": 869.1211108011714,
+      "route_ocr_policy": "body-review",
+      "score": 936.7396807804532,
+      "selected_preprocess_mode": "scan-local-threshold",
+      "selection_score": 936.7396807804532,
+      "selection_strategy": "targeted-page-retry",
+      "targeted_page_retry": "applied",
+      "targeted_page_retry_base_route": "body-review",
+      "targeted_page_retry_base_selection_score": 919.1832793609324,
+      "targeted_page_retry_policy": "body-review",
+      "targeted_page_retry_reason": "body-review",
+      "targeted_page_retry_retry_selection_score": 936.7396807804532,
+      "targeted_page_retry_selected_strategy": "auto-inverse-render-tiebreak",
+      "tesseract_output_format": "hocr",
+      "tesseract_psm": 6,
+      "text_path": "data/benchmark-corpus-v3-work-basic/in-ernet-dli-2015-461099/page_ocr/page-0001.txt",
+      "word_count": 129
+    },
+    {
+      "candidate_preprocess_mode": "basic",
+      "character_count": 490,
+      "cleaned_text_score": 465.3361108136109,
+      "cleanup_changed_text": false,
+      "cleanup_span_verifier": {
+        "changes_considered": 0,
+        "changes_kept": 0,
+        "changes_reverted": 0,
+        "enabled": true
+      },
+      "hocr_confidence_adjustment": 0.0,
+      "image_path": "data/benchmark-corpus-v3/in-ernet-dli-2015-461099/pages/page-0002.png",
+      "lexical_candidate_score": 465.3361108136109,
+      "ocr_input_path": "data/benchmark-corpus-v3-work-basic/in-ernet-dli-2015-461099/preprocessed/basic/page-0002.png",
+      "page_apostrophe_fragment_ratio": 0.0,
+      "page_avg_words_per_line": 4.933,
+      "page_chapter_marker_count": 15,
+      "page_dense_body_line_count": 3,
+      "page_index": 2,
+      "page_layout_region_counts": {
+        "body": 15
+      },
+      "page_line_count": 15,
+      "page_quality_tier": "high",
+      "page_route": "body",
+      "page_single_char_fragment_ratio": 0.0,
+      "page_text_noise_ratio": 0.0,
+      "page_type": "body",
+      "preprocess_mode": "basic",
+      "raw_text_score": 465.3361108136109,
+      "score": 465.3361108136109,
+      "selected_preprocess_mode": "basic",
+      "selection_score": 465.3361108136109,
+      "selection_strategy": "text-score",
+      "tesseract_output_format": "text",
+      "tesseract_psm": 6,
+      "text_path": "data/benchmark-corpus-v3-work-basic/in-ernet-dli-2015-461099/page_ocr/page-0002.txt",
+      "word_count": 74
+    }
+  ],
+  "progress": {
+    "completed_pages": 2,
+    "current_page_index": null,
+    "elapsed_seconds": 847.44,
+    "estimated_remaining_seconds": 0.0,
+    "estimated_total_seconds": 847.44,
+    "seconds_per_page": 423.72,
+    "status": "complete",
+    "total_pages": 2
+  }
+}

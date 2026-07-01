@@ -1,0 +1,58 @@
+name: build vroomon image
+
+on:
+  pull_request:
+    paths:
+      - 'electron/src/**'
+      - 'electron/package.json'
+      - 'electron/package-lock.json'
+      - 'electron/tsconfig.json'
+      - 'electron/Dockerfile'
+      - 'electron/k8s/**'
+      - 'electron/scripts/copy-static.mjs'
+  push:
+    branches: [main]
+    paths:
+      - 'electron/src/**'
+      - 'electron/package.json'
+      - 'electron/Dockerfile'
+      - 'electron/k8s/**'
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build (no push)
+        working-directory: active/games/vroomon/electron
+        run: docker build -t vroomon:ci -f Dockerfile .
+
+      - name: Validate k8s manifest
+        working-directory: active/games/vroomon/electron
+        run: |
+          set -euo pipefail
+          docs=$(node -e "const yaml=require('yaml');console.log(yaml.parseAllDocuments(require('fs').readFileSync('k8s/vroomon.yaml','utf8')).length)")
+          if [[ "${docs}" != "4" ]]; then
+            echo "Expected 4 k8s resources, got ${docs}" >&2
+            exit 1
+          fi
+          echo "k8s manifest validates with 4 resources"
+
+  lint:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install dependencies
+        working-directory: active/games/vroomon/electron
+        run: npm ci
+      - name: Run unit tests
+        working-directory: active/games/vroomon/electron
+        run: npm test

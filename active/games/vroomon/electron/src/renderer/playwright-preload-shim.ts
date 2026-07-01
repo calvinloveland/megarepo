@@ -8,10 +8,40 @@ import {
   createEmptyRunState,
   getTerrainPreset,
   VROOMON_PARITY_CONTRACT,
+  type HallOfFame,
   type RunStateSnapshot,
   type TerrainPresetDefinition,
   type VroomonParityContract,
 } from "../shared/parity-contract.js";
+import { type PersistedWorldState } from "./world/types.js";
+import { initializeErrorLogger, getErrorLogger } from "./error-logger.js";
+
+// Initialize error logger on the web so the floating error panel works
+// and the user can see what went wrong. Errors also get POSTed to the
+// server-side feedback endpoint at /api/feedback.
+const FEEDBACK_ENDPOINT =
+  (typeof window !== "undefined" && window.location
+    ? `${window.location.protocol}//${window.location.host}/api/feedback`
+    : "");
+initializeErrorLogger({
+  debug: false,
+  endpoint: FEEDBACK_ENDPOINT,
+});
+
+// Wrap any uncaught error from the renderer in our logger so the user
+// sees it instead of a blank page.
+window.addEventListener("error", (event) => {
+  getErrorLogger()?.logMessage(
+    `[global] ${event.message ?? "unknown error"}`,
+    { filename: event.filename, lineno: event.lineno, colno: event.colno },
+  );
+});
+window.addEventListener("unhandledrejection", (event) => {
+  const reason = event.reason;
+  getErrorLogger()?.logMessage(
+    `[promise] ${reason instanceof Error ? reason.message : String(reason)}`,
+  );
+});
 import {
   advanceRunState,
   computeScoreStats,
@@ -89,12 +119,26 @@ declare global {
       loadRunState: () => Promise<RunStateSnapshot | null>;
       appendGenerationLog: (entry: GenerationLogEntry) => Promise<string>;
       loadGenerationLog: (runId: string) => Promise<GenerationLogEntry[]>;
+      loadHallOfFame: () => Promise<HallOfFame>;
+      saveHallOfFame: (hall: HallOfFame) => Promise<string>;
+      loadWorldState: () => Promise<PersistedWorldState>;
+      saveWorldState: (world: PersistedWorldState) => Promise<string>;
+      runBatchGenerations: (
+        state: RunStateSnapshot,
+        count: number,
+      ) => Promise<{
+        generationResults: GenerationResult[];
+        finalState: RunStateSnapshot;
+        logEntries: GenerationLogEntry[];
+      }>;
     };
   }
 }
 
 let savedRunState: RunStateSnapshot | null = null;
 const generationLogs = new Map<string, GenerationLogEntry[]>();
+let savedHallOfFame: HallOfFame | null = null;
+let savedWorldState: PersistedWorldState | null = null;
 
 window.vroomon = {
   cleanDna,
@@ -177,4 +221,49 @@ window.vroomon = {
   },
   loadGenerationLog: async (runId: string): Promise<GenerationLogEntry[]> =>
     structuredClone(generationLogs.get(runId) ?? []),
+  loadHallOfFame: async (): Promise<HallOfFame> =>
+    savedHallOfFame ? structuredClone(savedHallOfFame) : { version: 1, entries: [] },
+  saveHallOfFame: async (hall: HallOfFame): Promise<string> => {
+    savedHallOfFame = structuredClone(hall);
+    return "memory://vroomon/hall-of-fame.json";
+  },
+  loadWorldState: async (): Promise<PersistedWorldState> =>
+    savedWorldState
+      ? structuredClone(savedWorldState)
+      : {
+          version: 1,
+          currentMapId: "starter_town",
+          playerX: 7,
+          playerY: 7,
+          playerFacing: "down",
+          badges: [],
+          vroomdex: [],
+          flags: {},
+          lastSavedAt: "",
+        },
+  saveWorldState: async (world: PersistedWorldState): Promise<string> => {
+    savedWorldState = structuredClone(world);
+    return "memory://vroomon/world-state.json";
+  },
+  runBatchGenerations: async (
+    state: RunStateSnapshot,
+    count: number,
+  ): Promise<{
+    generationResults: GenerationResult[];
+    finalState: RunStateSnapshot;
+    logEntries: GenerationLogEntry[];
+  }> => {
+    let currentState = state;
+    const generationResults: GenerationResult[] = [];
+    const logEntries: GenerationLogEntry[] = [];
+
+    for (let index = 0; index < count; index += 1) {
+      const result = runEvolutionGeneration(currentState);
+      currentState = advanceRunState(currentState, result);
+      generationResults.push(result);
+      logEntries.push(createGenerationLogEntry(currentState, result));
+    }
+
+    return { generationResults, finalState: currentState, logEntries };
+  },
 };

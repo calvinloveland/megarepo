@@ -1,0 +1,72 @@
+{
+  "pages": [
+    {
+      "candidate_preprocess_mode": "scan",
+      "character_count": 1698,
+      "cleaned_text_score": 2741.881542890467,
+      "cleanup_changed_text": true,
+      "cleanup_span_verifier": {
+        "changes_considered": 1,
+        "changes_kept": 0,
+        "changes_reverted": 1,
+        "decisions": [
+          {
+            "accepted": false,
+            "cleaned_inverse_render_score": 0.0,
+            "cleaned_local_inverse_render_score": 0.0,
+            "cleaned_text": "everyone",
+            "cleaned_token_count": 1,
+            "local_area_ratio": 0.01723753704900497,
+            "local_bbox": [
+              872,
+              1618,
+              1467,
+              1696
+            ],
+            "raw_inverse_render_score": 0.0,
+            "raw_local_inverse_render_score": 0.0,
+            "raw_text": "every one",
+            "raw_token_count": 2,
+            "reason": "insufficient-image-margin"
+          }
+        ],
+        "enabled": true
+      },
+      "hocr_confidence_adjustment": 0.0,
+      "image_path": "data/benchmark-corpus-v3/jane-austen-pride-and-prejudice/pages/page-0001.png",
+      "lexical_candidate_score": 2742.5865260809555,
+      "ocr_input_path": "data/benchmark-corpus-v3-work/jane-austen-pride-and-prejudice/preprocessed/scan/page-0001.png",
+      "page_apostrophe_fragment_ratio": 0.0,
+      "page_avg_words_per_line": 13.429,
+      "page_dense_body_line_count": 21,
+      "page_index": 1,
+      "page_layout_region_counts": {
+        "body": 21
+      },
+      "page_line_count": 21,
+      "page_quality_tier": "high",
+      "page_route": "body",
+      "page_single_char_fragment_ratio": 0.0,
+      "page_text_noise_ratio": 0.0071,
+      "page_type": "body",
+      "preprocess_mode": "scan",
+      "raw_text_score": 2744.2314868587637,
+      "score": 2742.5865260809555,
+      "selected_preprocess_mode": "scan",
+      "selection_score": 2742.5865260809555,
+      "selection_strategy": "text-score",
+      "text_path": "data/benchmark-corpus-v3-work/jane-austen-pride-and-prejudice/page_ocr/page-0001.txt",
+      "word_count": 282
+    }
+  ],
+  "progress": {
+    "completed_pages": 1,
+    "current_page_index": null,
+    "elapsed_seconds": 169.463,
+    "estimated_remaining_seconds": 0.0,
+    "estimated_total_seconds": 169.463,
+    "seconds_per_page": 169.463,
+    "status": "complete",
+    "total_pages": 1
+  }
+}

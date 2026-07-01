@@ -1,0 +1,597 @@
+{
+  "pages": [
+    {
+      "candidate_preprocess_mode": "scan",
+      "character_count": 1084,
+      "cleaned_text_score": 1380.923013953787,
+      "cleanup_changed_text": true,
+      "cleanup_span_verifier": {
+        "changes_considered": 26,
+        "changes_kept": 4,
+        "changes_reverted": 22,
+        "decisions": [
+          {
+            "accepted": false,
+            "cleaned_inverse_render_score": 0.0,
+            "cleaned_local_inverse_render_score": 0.0,
+            "cleaned_text": "Diamonds-Search",
+            "cleaned_token_count": 1,
+            "local_area_ratio": 0.07950400760665285,
+            "local_bbox": [
+              128,
+              189,
+              1509,
+              344
+            ],
+            "raw_inverse_render_score": 0.0,
+            "raw_local_inverse_render_score": 0.0,
+            "raw_text": "Diamonds\u2014Search",
+            "raw_token_count": 1,
+            "reason": "insufficient-image-margin"
+          },
+          {
+            "accepted": false,
+            "cleaned_inverse_render_score": 0.0,
+            "cleaned_local_inverse_render_score": 0.0,
+            "cleaned_text": "Treasure-Dead",
+            "cleaned_token_count": 1,
+            "local_area_ratio": 0.011974535541045469,
+            "local_bbox": [
+              577,
+              259,
+              980,
+              339
+            ],
+            "raw_inverse_render_score": 0.0,
+            "raw_local_inverse_render_score": 0.0,
+            "raw_text": "Treasure\u2014Dead",
+            "raw_token_count": 1,
+            "reason": "insufficient-image-margin"
+          },
+          {
+            "accepted": false,
+            "cleaned_inverse_render_score": 0.0,
+            "cleaned_local_inverse_render_score": 0.0,
+            "cleaned_text": "House-Sleepy Ghosts-A",
+            "cleaned_token_count": 2,
+            "local_area_ratio": 0.05367927261382123,
+            "local_bbox": [
+              326,
+              554,
+              1351,
+              695
+            ],
+            "raw_inverse_render_score": 0.0,
+            "raw_local_inverse_render_score": 0.0,
+            "raw_text": "House\u2014Sleepy Ghosts\u2014A",
+            "raw_token_count": 2,
+            "reason": "insufficient-image-margin"
+          },
+          {
+            "accepted": false,
+            "cleaned_inverse_render_score": 0.0,
+            "cleaned_local_inverse_render_score": 0.0,
+            "cleaned_text": "Gold-Bitter",
+            "cleaned_token_count": 1,
+            "local_area_ratio": 0.009414347157533483,
+            "local_bbox": [
+              711,
+              624,
+              1068,
+              695
+            ],
+            "raw_inverse_render_score": 0.0,
+            "raw_local_inverse_render_score": 0.0,
+            "raw_text": "Gold\u2014Bitter",
+            "raw_token_count": 1,
+            "reason": "insufficient-image-margin"
+          },
+          {
+            "accepted": false,
+            "cleaned_inverse_render_score": 0.0,
+            "cleaned_local_inverse_render_score": 0.0,
+            "cleaned_text": "Settled-The",
+            "cleaned_token_count": 1,
+            "local_area_ratio": 0.01040937757671651,
+            "local_bbox": [
+              1142,
+              701,
+              1488,
+              782
+            ],
+            "raw_inverse_render_score": 0.0,
+            "raw_local_inverse_render_score": 0.0,
+            "raw_text": "Settled\u2014The",
+            "raw_token_count": 1,
+            "reason": "insufficient-image-margin"
+          },
+          {
+            "accepted": true,
+            "accepted_without_image_verification": true,
+            "cleaned_inverse_render_score": 0.0,
+            "cleaned_local_inverse_render_score": 0.0,
+            "cleaned_text": "XXVIII.",
+            "cleaned_token_count": 1,
+            "local_area_ratio": 0.026679740601252423,
+            "local_bbox": [
+              540,
+              987,
+              1416,
+              1069
+            ],
+            "raw_inverse_render_score": 0.0,
+            "raw_local_inverse_render_score": 0.0,
+            "raw_text": "XXVIIl.",
+            "raw_token_count": 1,
+            "reason": "accepted-roman-numeral-correction"
+          },
+          {
+            "accepted": false,
+            "cleaned_inverse_render_score": 0.0,
+            "cleaned_local_inverse_render_score": 0.0,
+            "cleaned_text": "Two-Huck",
+            "cleaned_token_count": 1,
+            "local_area_ratio": 0.005176832393644285,
+            "local_bbox": [
+              1214,
+              994,
+              1416,
+              1063
+            ],
+            "raw_inverse_render_score": 0.0,
+            "raw_local_inverse_render_score": 0.0,
+            "raw_text": "Two\u2014Huck",
+            "raw_token_count": 1,
+            "reason": "insufficient-image-margin"
+          },
+          {
+            "accepted": false,
+            "cleaned_inverse_render_score": 0.0,
+            "cleaned_local_inverse_render_score": 0.0,
+            "cleaned_text": "Pic-nic-Huck",
+            "cleaned_token_count": 1,
+            "local_area_ratio": 0.01796923168349193,
+            "local_bbox": [
+              859,
+              1283,
+              1449,
+              1365
+            ],
+            "raw_inverse_render_score": 0.0,
+            "raw_local_inverse_render_score": 0.0,
+            "raw_text": "Pic-nic\u2014Huck",
+            "raw_token_count": 1,
+            "reason": "insufficient-image-margin"
+          },
+          {
+            "accepted": false,
+            "cleaned_inverse_render_score": 0.0,
+            "cleaned_local_inverse_render_score": 0.0,
+            "cleaned_text": "Reports-Huck",
+            "cleaned_token_count": 1,
+            "local_area_ratio": 0.07602641529056077,
+            "local_bbox": [
+              118,
+              1651,
+              1520,
+              1797
+            ],
+            "raw_inverse_render_score": 0.0,
+            "raw_local_inverse_render_score": 0.0,
+            "raw_text": "Reports\u2014Huck",
+            "raw_token_count": 1,
+            "reason": "insufficient-image-margin"
+          },
+          {
+            "accepted": false,
+            "cleaned_inverse_render_score": 0.0,
+            "cleaned_local_inverse_render_score": 0.0,
+            "cleaned_text": "Fire-The",
+            "cleaned_token_count": 1,
+            "local_area_ratio": 0.021751387248456756,
+            "local_bbox": [
+              232,
+              1715,
+              955,
+              1796
+            ],
+            "raw_inverse_render_score": 0.0,
+            "raw_local_inverse_render_score": 0.0,
+            "raw_text": "Fire\u2014The",
+            "raw_token_count": 1,
+            "reason": "insufficient-image-margin"
+          },
+          {
+            "accepted": false,
+            "cleaned_inverse_render_score": 0.0,
+            "cleaned_local_inverse_render_score": 0.0,
+            "cleaned_text": "-A",
+            "cleaned_token_count": 1,
+            "local_area_ratio": 0.0025003899895259954,
+            "local_bbox": [
+              818,
+              1722,
+              920,
+              1788
+            ],
+            "raw_inverse_render_score": 0.0,
+            "raw_local_inverse_render_score": 0.0,
+            "raw_text": "\u2014A",
+            "raw_token_count": 1,
+            "reason": "insufficient-image-margin"
+          },
+          {
+            "accepted": false,
+            "cleaned_inverse_render_score": 0.0,
+            "cleaned_local_inverse_render_score": 0.0,
+            "cleaned_text": "Sensation-Hope",
+            "cleaned_token_count": 1,
+            "local_area_ratio": 0.025463716117338563,
+            "local_bbox": [
+              529,
+              1792,
+              1355,
+              1875
+            ],
+            "raw_inverse_render_score": 0.0,
+            "raw_local_inverse_render_score": 0.0,
+            "raw_text": "Sensation\u2014Hope",
+            "raw_token_count": 1,
+            "reason": "insufficient-image-margin"
+          },
+          {
+            "accepted": false,
+            "cleaned_inverse_render_score": 0.0,
+            "cleaned_local_inverse_render_score": 0.0,
+            "cleaned_text": "Expedition-Trouble Commences-Lost",
+            "cleaned_token_count": 2,
+            "local_area_ratio": 0.051291422458939674,
+            "local_bbox": [
+              462,
+              2016,
+              1470,
+              2153
+            ],
+            "raw_inverse_render_score": 0.0,
+            "raw_local_inverse_render_score": 0.0,
+            "raw_text": "Expedition\u2014Trouble Commences\u2014Lost",
+            "raw_token_count": 2,
+            "reason": "insufficient-image-margin"
+          },
+          {
+            "accepted": false,
+            "cleaned_inverse_render_score": 0.0,
+            "cleaned_local_inverse_render_score": 0.0,
+            "cleaned_text": "Cave-Total Darkness-Found",
+            "cleaned_token_count": 2,
+            "local_area_ratio": 0.03082997199503785,
+            "local_bbox": [
+              263,
+              2154,
+              1341,
+              2231
+            ],
+            "raw_inverse_render_score": 0.0,
+            "raw_local_inverse_render_score": 0.0,
+            "raw_text": "Cave\u2014Total Darkness\u2014Found",
+            "raw_token_count": 2,
+            "reason": "insufficient-image-margin"
+          },
+          {
+            "accepted": true,
+            "accepted_without_image_verification": true,
+            "cleaned_inverse_render_score": 0.0,
+            "cleaned_text": "XXXII.",
+            "cleaned_token_count": 1,
+            "raw_inverse_render_score": 0.0,
+            "raw_text": "XXXIl.",
+            "raw_token_count": 1,
+            "reason": "accepted-roman-numeral-correction"
+          },
+          {
+            "accepted": false,
+            "cleaned_inverse_render_score": 0.0,
+            "cleaned_text": "Escape-Tom's",
+            "cleaned_token_count": 1,
+            "raw_inverse_render_score": 0.0,
+            "raw_text": "Escape\u2014Tom\u2019s",
+            "raw_token_count": 1,
+            "reason": "no-local-image-difference"
+          },
+          {
+            "accepted": true,
+            "accepted_without_image_verification": true,
+            "cleaned_inverse_render_score": 0.0,
+            "cleaned_text": "XXXIII.",
+            "cleaned_token_count": 1,
+            "raw_inverse_render_score": 0.0,
+            "raw_text": "XXXIll.",
+            "raw_token_count": 1,
+            "reason": "accepted-roman-numeral-correction"
+          },
+          {
+            "accepted": false,
+            "cleaned_inverse_render_score": 0.0,
+            "cleaned_text": "Joe-Huck",
+            "cleaned_token_count": 1,
+            "raw_inverse_render_score": 0.0,
+            "raw_text": "Joe\u2014Huck",
+            "raw_token_count": 1,
+            "reason": "no-local-image-difference"
+          },
+          {
+            "accepted": false,
+            "cleaned_inverse_render_score": 0.0,
+            "cleaned_text": "-An",
+            "cleaned_token_count": 1,
+            "raw_inverse_render_score": 0.0,
+            "raw_text": "\u2014An",
+            "raw_token_count": 1,
+            "reason": "no-local-image-difference"
+          },
+          {
+            "accepted": false,
+            "cleaned_inverse_render_score": 0.0,
+            "cleaned_text": "Cave-Protection",
+            "cleaned_token_count": 1,
+            "raw_inverse_render_score": 0.0,
+            "raw_text": "Cave\u2014Protection",
+            "raw_token_count": 1,
+            "reason": "no-local-image-difference"
+          },
+          {
+            "accepted": false,
+            "cleaned_inverse_render_score": 0.0,
+            "cleaned_text": "Ghosts-\"An",
+            "cleaned_token_count": 1,
+            "raw_inverse_render_score": 0.0,
+            "raw_text": "Ghosts\u2014\u201cAn",
+            "raw_token_count": 1,
+            "reason": "no-local-image-difference"
+          },
+          {
+            "accepted": false,
+            "cleaned_inverse_render_score": 0.0,
+            "cleaned_text": "Place\"\"-A",
+            "cleaned_token_count": 1,
+            "raw_inverse_render_score": 0.0,
+            "raw_text": "Place\u201d\"\u2014A",
+            "raw_token_count": 1,
+            "reason": "no-local-image-difference"
+          },
+          {
+            "accepted": false,
+            "cleaned_inverse_render_score": 0.0,
+            "cleaned_text": "Douglas's",
+            "cleaned_token_count": 1,
+            "raw_inverse_render_score": 0.0,
+            "raw_text": "Douglas\u2019s",
+            "raw_token_count": 1,
+            "reason": "no-local-image-difference"
+          },
+          {
+            "accepted": false,
+            "cleaned_inverse_render_score": 0.0,
+            "cleaned_text": "Secret-Mr. Jones'",
+            "cleaned_token_count": 2,
+            "raw_inverse_render_score": 0.0,
+            "raw_text": "Secret\u2014Mr. Jones\u2019",
+            "raw_token_count": 2,
+            "reason": "no-local-image-difference"
+          },
+          {
+            "accepted": false,
+            "cleaned_inverse_render_score": 0.0,
+            "cleaned_text": "Things-Poor Huck-New",
+            "cleaned_token_count": 2,
+            "raw_inverse_render_score": 0.0,
+            "raw_text": "Things\u2014Poor Huck\u2014New",
+            "raw_token_count": 2,
+            "reason": "no-local-image-difference"
+          },
+          {
+            "accepted": true,
+            "accepted_without_image_verification": true,
+            "cleaned_inverse_render_score": 0.0,
+            "cleaned_text": "Beguiled",
+            "cleaned_token_count": 1,
+            "raw_inverse_render_score": 0.0,
+            "raw_text": "Bequiled",
+            "raw_token_count": 1,
+            "reason": "accepted-known-word-correction"
+          }
+        ],
+        "enabled": true
+      },
+      "hocr_confidence_adjustment": 0.0,
+      "image_path": "data/benchmark-corpus-v3/twain-tom-sawyer/pages/page-0001.png",
+      "lexical_candidate_score": 1174.2868361450733,
+      "ocr_input_path": "data/benchmark-corpus-v3-work-predict3/twain-tom-sawyer/preprocessed/scan/page-0001.png",
+      "page_apostrophe_fragment_ratio": 0.0065,
+      "page_avg_words_per_line": 6.458,
+      "page_chapter_marker_count": 11,
+      "page_dense_body_line_count": 13,
+      "page_index": 1,
+      "page_layout_region_counts": {
+        "body": 21,
+        "footer": 2,
+        "header": 1
+      },
+      "page_line_count": 24,
+      "page_quality_tier": "high",
+      "page_route": "body",
+      "page_single_char_fragment_ratio": 0.0,
+      "page_text_noise_ratio": 0.0328,
+      "page_type": "body",
+      "preprocess_mode": "scan",
+      "raw_text_score": 692.1357545914078,
+      "score": 1174.2868361450733,
+      "selected_preprocess_mode": "scan",
+      "selection_score": 1174.2868361450733,
+      "selection_strategy": "text-score",
+      "tesseract_output_format": "text",
+      "tesseract_psm": 6,
+      "text_path": "data/benchmark-corpus-v3-work-predict3/twain-tom-sawyer/page_ocr/page-0001.txt",
+      "word_count": 155
+    },
+    {
+      "candidate_preprocess_mode": "scan",
+      "character_count": 284,
+      "cleaned_text_score": 326.8122241998243,
+      "cleanup_changed_text": true,
+      "cleanup_span_verifier": {
+        "changes_considered": 4,
+        "changes_kept": 0,
+        "changes_reverted": 4,
+        "decisions": [
+          {
+            "accepted": false,
+            "cleaned_inverse_render_score": 0.0,
+            "cleaned_local_inverse_render_score": 0.0,
+            "cleaned_text": "'Tendin'",
+            "cleaned_token_count": 1,
+            "local_area_ratio": 0.018866950430474153,
+            "local_bbox": [
+              131,
+              435,
+              774,
+              514
+            ],
+            "raw_inverse_render_score": 0.0,
+            "raw_local_inverse_render_score": 0.0,
+            "raw_text": "\u2018Tendin\u2019",
+            "raw_token_count": 1,
+            "reason": "insufficient-image-margin"
+          },
+          {
+            "accepted": false,
+            "cleaned_inverse_render_score": 0.0,
+            "cleaned_local_inverse_render_score": 0.0,
+            "cleaned_text": "Ain't",
+            "cleaned_token_count": 1,
+            "local_area_ratio": 0.012011677400664096,
+            "local_bbox": [
+              228,
+              519,
+              648,
+              596
+            ],
+            "raw_inverse_render_score": 0.0,
+            "raw_local_inverse_render_score": 0.0,
+            "raw_text": "Ain\u2018t",
+            "raw_token_count": 1,
+            "reason": "insufficient-image-margin"
+          },
+          {
+            "accepted": false,
+            "cleaned_inverse_render_score": 0.0,
+            "cleaned_local_inverse_render_score": 0.0,
+            "cleaned_text": "\"Showing Off\"",
+            "cleaned_token_count": 2,
+            "local_area_ratio": 0.015073652307623739,
+            "local_bbox": [
+              123,
+              1358,
+              579,
+              1447
+            ],
+            "raw_inverse_render_score": 0.0,
+            "raw_local_inverse_render_score": 0.0,
+            "raw_text": "\u201cShowing Off\u201d",
+            "raw_token_count": 2,
+            "reason": "insufficient-image-margin"
+          },
+          {
+            "accepted": false,
+            "cleaned_inverse_render_score": 0.0,
+            "cleaned_text": "\"Barlow\"",
+            "cleaned_token_count": 1,
+            "raw_inverse_render_score": 0.0,
+            "raw_text": "\u201cBarlow\u201d",
+            "raw_token_count": 1,
+            "reason": "no-local-image-difference"
+          }
+        ],
+        "enabled": true
+      },
+      "hocr_confidence_adjustment": 0.0,
+      "image_path": "data/benchmark-corpus-v3/twain-tom-sawyer/pages/page-0002.png",
+      "lexical_candidate_score": 287.70147903842224,
+      "ocr_input_path": "data/benchmark-corpus-v3-work-predict3/twain-tom-sawyer/preprocessed/scan/page-0002.png",
+      "page_apostrophe_fragment_ratio": 0.0,
+      "page_avg_words_per_line": 2.095,
+      "page_dense_body_line_count": 0,
+      "page_index": 2,
+      "page_layout_region_counts": {
+        "body": 17,
+        "footer": 2,
+        "header": 2
+      },
+      "page_line_count": 21,
+      "page_quality_tier": "high",
+      "page_route": "body",
+      "page_single_char_fragment_ratio": 0.0,
+      "page_text_noise_ratio": 0.0304,
+      "page_type": "body",
+      "preprocess_mode": "scan",
+      "raw_text_score": 196.4430736618175,
+      "score": 287.70147903842224,
+      "selected_preprocess_mode": "scan",
+      "selection_score": 287.70147903842224,
+      "selection_strategy": "text-score",
+      "tesseract_output_format": "text",
+      "tesseract_psm": 6,
+      "text_path": "data/benchmark-corpus-v3-work-predict3/twain-tom-sawyer/page_ocr/page-0002.txt",
+      "word_count": 44
+    },
+    {
+      "candidate_preprocess_mode": "scan",
+      "character_count": 14,
+      "cleaned_text_score": 22.26113953917904,
+      "cleanup_changed_text": false,
+      "cleanup_span_verifier": {
+        "changes_considered": 0,
+        "changes_kept": 0,
+        "changes_reverted": 0,
+        "enabled": true
+      },
+      "hocr_confidence_adjustment": 0.0,
+      "image_path": "data/benchmark-corpus-v3/twain-tom-sawyer/pages/page-0003.png",
+      "lexical_candidate_score": 22.26113953917904,
+      "ocr_input_path": "data/benchmark-corpus-v3-work-predict3/twain-tom-sawyer/preprocessed/scan/page-0003.png",
+      "page_apostrophe_fragment_ratio": 0.0,
+      "page_avg_words_per_line": 3.0,
+      "page_dense_body_line_count": 0,
+      "page_index": 3,
+      "page_layout_region_counts": {
+        "header": 1
+      },
+      "page_line_count": 1,
+      "page_quality_tier": "high",
+      "page_route": "body",
+      "page_single_char_fragment_ratio": 0.0,
+      "page_text_noise_ratio": 0.0,
+      "page_type": "sparse",
+      "preprocess_mode": "scan",
+      "raw_text_score": 22.26113953917904,
+      "score": 22.26113953917904,
+      "selected_preprocess_mode": "scan",
+      "selection_score": 22.26113953917904,
+      "selection_strategy": "text-score",
+      "tesseract_output_format": "text",
+      "tesseract_psm": 6,
+      "text_path": "data/benchmark-corpus-v3-work-predict3/twain-tom-sawyer/page_ocr/page-0003.txt",
+      "word_count": 3
+    }
+  ],
+  "progress": {
+    "completed_pages": 3,
+    "current_page_index": null,
+    "elapsed_seconds": 426.086,
+    "estimated_remaining_seconds": 0.0,
+    "estimated_total_seconds": 426.086,
+    "seconds_per_page": 142.029,
+    "status": "complete",
+    "total_pages": 3
+  }
+}

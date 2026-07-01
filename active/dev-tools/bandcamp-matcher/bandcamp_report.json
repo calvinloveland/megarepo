@@ -1,0 +1,121 @@
+{
+  "schema": "bandcamp-matcher/report@1",
+  "generated_at": "2026-06-18T00:59:04Z",
+  "total_tracks": 15,
+  "matched": 0,
+  "unmatched": 15,
+  "match_rate": "0.0%",
+  "artists_found": 3,
+  "artists_not_found": 12,
+  "total_artists": 15,
+  "matched_tracks": [],
+  "unmatched_tracks": [
+    {
+      "track_uri": "spotify:track:12WTvyOKxsWrVGVmjlcnHQ",
+      "track_name": "Out My Head",
+      "artist": "Fox Stevenson",
+      "album": "Killjoy"
+    },
+    {
+      "track_uri": "spotify:track:59WN2psjkt1tyaxjspN8fp",
+      "track_name": "Killing In The Name",
+      "artist": "Rage Against The Machine",
+      "album": "Rage Against The Machine - XX (20th Anniversary Special Edition)"
+    },
+    {
+      "track_uri": "spotify:track:1YhNljrEyPYaYNgBNsWap5",
+      "track_name": "Turn it up",
+      "artist": "PinkPantheress",
+      "album": "Turn it up"
+    },
+    {
+      "track_uri": "spotify:track:6IoDmKMOqGMYwny9MjQ6dg",
+      "track_name": "deep in it",
+      "artist": "berlioz, Ted Jasper",
+      "album": "deep in it"
+    },
+    {
+      "track_uri": "spotify:track:1Qg6ituoHnZsMEWGzr4TzP",
+      "track_name": "Although the Sky",
+      "artist": "Dorkus64",
+      "album": "Mindwave Demo Original Game Soundtrack"
+    },
+    {
+      "track_uri": "spotify:track:53IRnAWx13PYmoVYtemUBS",
+      "track_name": "Femininomenon",
+      "artist": "Chappell Roan",
+      "album": "The Rise and Fall of a Midwest Princess"
+    },
+    {
+      "track_uri": "spotify:track:62aP9fBQKYKxi7PDXwcUAS",
+      "track_name": "ily (i love you baby) (feat. Emilee)",
+      "artist": "Surf Mesa, Emilee",
+      "album": "ily (i love you baby) (feat. Emilee)"
+    },
+    {
+      "track_uri": "spotify:track:463r5bsN1VqGXtaMctn4Rr",
+      "track_name": "It's Been So Long",
+      "artist": "The Living Tombstone",
+      "album": "It's Been So Long"
+    },
+    {
+      "track_uri": "spotify:track:2zGxG2MFkeipJ4irmmi3f1",
+      "track_name": "Palette",
+      "artist": "Andora, Will Stetson",
+      "album": "Palette"
+    },
+    {
+      "track_uri": "spotify:track:1hBM2D1ULT3aeKuddSwPsK",
+      "track_name": "STARSTRUKK (feat. Katy Perry)",
+      "artist": "3OH!3, Katy Perry, Matt Squire",
+      "album": "WANT (Deluxe)"
+    },
+    {
+      "track_uri": "spotify:track:799f6Ih1Pu4AUApMyXhxUc",
+      "track_name": "Bonfire",
+      "artist": "Childish Gambino",
+      "album": "Camp"
+    },
+    {
+      "track_uri": "spotify:track:1R62WYOr9YiRCsjHAiiMun",
+      "track_name": "Already Gone",
+      "artist": "Slowpalace, FWLR, qwinn",
+      "album": "Already Gone"
+    },
+    {
+      "track_uri": "spotify:track:11OYIkthYlHX3zoTY8hIX3",
+      "track_name": "High Season",
+      "artist": "Tiggi Hawke",
+      "album": "High Season"
+    },
+    {
+      "track_uri": "spotify:track:5y4In7WNG50knStmctWMTB",
+      "track_name": "My Dear",
+      "artist": "Summer Was Fun",
+      "album": "My Dear"
+    },
+    {
+      "track_uri": "spotify:track:2c0rr5Pr4gKtx1z5T64kSs",
+      "track_name": "It'll Be Okay",
+      "artist": "smle, Helen Tess",
+      "album": "Reasons To"
+    }
+  ],
+  "unmatched_artists": [
+    "3OH!3, Katy Perry, Matt Squire",
+    "Andora, Will Stetson",
+    "Chappell Roan",
+    "Childish Gambino",
+    "Dorkus64",
+    "Fox Stevenson",
+    "PinkPantheress",
+    "Rage Against The Machine",
+    "Slowpalace, FWLR, qwinn",
+    "Summer Was Fun",
+    "Surf Mesa, Emilee",
+    "The Living Tombstone",
+    "Tiggi Hawke",
+    "berlioz, Ted Jasper",
+    "smle, Helen Tess"
+  ]
+}

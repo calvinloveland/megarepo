@@ -447,4 +447,62 @@ const DATA = {
     marketSize: 100000,  // total addressable market grows over time
     marketGrowthRate: 0.015, // per year
   },
+
+  // ---- Difficulty Settings ----
+
+  difficulty: {
+    easy: {
+      label: 'Easy',
+      description: 'AI competitors are slow to innovate and bad at pricing. You have a head start.',
+      playerBonusRep: 10,
+      playerBonusCash: 100000,
+      // AI modifiers (lower = weaker AI)
+      aiDesignFrequency: 1.5,      // multiplier on years between redesigns
+      aiQualityBias: -0.2,          // penalty to component quality picks
+      aiProductionScale: 0.4,       // how aggressively they produce
+      aiPricingAggressiveness: 0.3, // how aggressively they undercut
+      aiAdaptSpeed: 0.3,            // how fast they react to market
+      aiStartingRep: 15,
+      aiRepDecay: 1.2,
+    },
+    medium: {
+      label: 'Medium',
+      description: 'Balanced competition. AI keeps pace and responds to your moves.',
+      playerBonusRep: 0,
+      playerBonusCash: 0,
+      aiDesignFrequency: 1.0,
+      aiQualityBias: 0.0,
+      aiProductionScale: 0.7,
+      aiPricingAggressiveness: 0.5,
+      aiAdaptSpeed: 0.6,
+      aiStartingRep: 25,
+      aiRepDecay: 1.0,
+    },
+    hard: {
+      label: 'Hard',
+      description: 'AI competitors are sharp — they design great machines, price smartly, and adapt fast.',
+      playerBonusRep: -5,
+      playerBonusCash: 0,
+      aiDesignFrequency: 0.7,
+      aiQualityBias: 0.15,
+      aiProductionScale: 1.0,
+      aiPricingAggressiveness: 0.7,
+      aiAdaptSpeed: 0.85,
+      aiStartingRep: 35,
+      aiRepDecay: 0.8,
+    },
+    nightmare: {
+      label: 'Nightmare',
+      description: 'AI has cost advantages, innovates constantly, and aggressively undercuts you. Survive.',
+      playerBonusRep: -10,
+      playerBonusCash: -100000,
+      aiDesignFrequency: 0.4,
+      aiQualityBias: 0.3,
+      aiProductionScale: 1.5,
+      aiPricingAggressiveness: 0.9,
+      aiAdaptSpeed: 1.0,
+      aiStartingRep: 50,
+      aiRepDecay: 0.5,
+    },
+  },
 };

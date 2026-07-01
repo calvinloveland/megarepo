@@ -1,0 +1,3212 @@
+{
+  "pages": [
+    {
+      "candidate_preprocess_mode": "none",
+      "character_count": 1082,
+      "cleaned_text_score": 1378.617008055904,
+      "cleanup_changed_text": true,
+      "hocr_confidence_adjustment": 0.0,
+      "image_path": "data/benchmark-corpus-v3/twain-tom-sawyer/pages/page-0001.png",
+      "lexical_candidate_score": 1197.5819799151052,
+      "ocr_input_path": "data/benchmark-corpus-v3/twain-tom-sawyer/pages/page-0001.png",
+      "page_apostrophe_fragment_ratio": 0.0129,
+      "page_avg_words_per_line": 6.458,
+      "page_chapter_marker_count": 11,
+      "page_dense_body_line_count": 13,
+      "page_index": 1,
+      "page_layout_region_counts": {
+        "body": 21,
+        "footer": 2,
+        "header": 1
+      },
+      "page_line_count": 24,
+      "page_quality_tier": "high",
+      "page_route": "body",
+      "page_single_char_fragment_ratio": 0.0,
+      "page_text_noise_ratio": 0.0,
+      "page_type": "body",
+      "preprocess_mode": "none",
+      "raw_text_score": 775.1669142532415,
+      "score": 1197.5819799151052,
+      "selected_preprocess_mode": "none",
+      "selection_score": 1197.5819799151052,
+      "selection_strategy": "text-score",
+      "tesseract_output_format": "text",
+      "tesseract_psm": 6,
+      "text_path": "data/benchmark-corpus-v3-work-none/twain-tom-sawyer/page_ocr/page-0001.txt",
+      "word_count": 155
+    },
+    {
+      "adaptive_raster_retry": "applied",
+      "adaptive_raster_retry_crop_box": [
+        30,
+        58,
+        1624,
+        2281
+      ],
+      "adaptive_raster_retry_margin_ratio": {
+        "horizontal": 0.018,
+        "vertical": 0.025
+      },
+      "adaptive_raster_retry_variant": "cropped-resized",
+      "candidate_best_alt_score_gap": 1.136,
+      "candidate_best_alt_text_similarity": 0.9927,
+      "candidate_near_best_family_count": 4,
+      "candidate_preprocess_mode": "scan",
+      "candidate_runs": [
+        {
+          "candidate_preprocess_mode": "scan-background-normalized",
+          "character_count": 273,
+          "cleaned_text_score": 322.8122241998243,
+          "cleanup_changed_text": true,
+          "hocr_confidence_adjustment": 19.829545454545453,
+          "hocr_confidence_mean": 89.6590909090909,
+          "hocr_confidence_min": 73,
+          "hocr_line_entries_runtime": [
+            {
+              "bbox": [
+                365,
+                308,
+                522,
+                406
+              ],
+              "text": "Jim"
+            },
+            {
+              "bbox": [
+                381,
+                611,
+                1378,
+                690
+              ],
+              "text": "\u2018Tendin\u2019 to Business"
+            },
+            {
+              "bbox": [
+                372,
+                914,
+                1180,
+                994
+              ],
+              "text": "Ain\u2018t that Work?"
+            },
+            {
+              "bbox": [
+                378,
+                1217,
+                1026,
+                1318
+              ],
+              "text": "Cat and Toys"
+            },
+            {
+              "bbox": [
+                372,
+                1523,
+                976,
+                1600
+              ],
+              "text": "Amusement"
+            },
+            {
+              "bbox": [
+                381,
+                1823,
+                1162,
+                1924
+              ],
+              "text": "Becky Thatcher"
+            },
+            {
+              "bbox": [
+                381,
+                2126,
+                889,
+                2227
+              ],
+              "text": "Paying Off"
+            },
+            {
+              "bbox": [
+                372,
+                2429,
+                1144,
+                2509
+              ],
+              "text": "After the Battle"
+            },
+            {
+              "bbox": [
+                378,
+                2732,
+                1069,
+                2833
+              ],
+              "text": "\u201cShowing Off\u201d"
+            },
+            {
+              "bbox": [
+                381,
+                3035,
+                877,
+                3115
+              ],
+              "text": "Not Amiss"
+            },
+            {
+              "bbox": [
+                381,
+                3341,
+                621,
+                3439
+              ],
+              "text": "Mary"
+            },
+            {
+              "bbox": [
+                371,
+                3641,
+                1359,
+                3742
+              ],
+              "text": "Tom Contemplating"
+            },
+            {
+              "bbox": [
+                381,
+                3944,
+                1231,
+                4045
+              ],
+              "text": "Dampened Ardor"
+            },
+            {
+              "bbox": [
+                374,
+                4247,
+                658,
+                4327
+              ],
+              "text": "Youth"
+            },
+            {
+              "bbox": [
+                381,
+                4550,
+                808,
+                4651
+              ],
+              "text": "Boyhood"
+            },
+            {
+              "bbox": [
+                378,
+                4853,
+                1318,
+                4954
+              ],
+              "text": "Using the \u201cBarlow\u201d"
+            },
+            {
+              "bbox": [
+                371,
+                5156,
+                938,
+                5236
+              ],
+              "text": "The Church"
+            },
+            {
+              "bbox": [
+                381,
+                5459,
+                942,
+                5539
+              ],
+              "text": "Necessities"
+            },
+            {
+              "bbox": [
+                371,
+                5762,
+                1872,
+                5863
+              ],
+              "text": "Tom as a Sunday-School Hero"
+            },
+            {
+              "bbox": [
+                371,
+                6065,
+                829,
+                6145
+              ],
+              "text": "The Prize"
+            },
+            {
+              "bbox": [
+                373,
+                6368,
+                861,
+                6448
+              ],
+              "text": "At Church"
+            }
+          ],
+          "hocr_low_confidence_ratio": 0.0,
+          "hocr_low_confidence_word_count": 0,
+          "hocr_word_count": 44,
+          "lexical_candidate_score": 283.70147903842224,
+          "preprocess_mode": "scan-background-normalized",
+          "raw_text_score": 192.4430736618175,
+          "route_ocr_policy": "body-review",
+          "score": 303.5310244929677,
+          "tesseract_output_format": "hocr",
+          "tesseract_psm": 6,
+          "word_count": 44
+        },
+        {
+          "candidate_preprocess_mode": "scan-background-normalized",
+          "character_count": 273,
+          "cleaned_text_score": 322.8122241998243,
+          "cleanup_changed_text": true,
+          "hocr_confidence_adjustment": 19.897727272727273,
+          "hocr_confidence_mean": 89.79545454545455,
+          "hocr_confidence_min": 74,
+          "hocr_line_entries_runtime": [
+            {
+              "bbox": [
+                365,
+                308,
+                522,
+                406
+              ],
+              "text": "Jim"
+            },
+            {
+              "bbox": [
+                381,
+                611,
+                1378,
+                690
+              ],
+              "text": "\u2018Tendin\u2019 to Business"
+            },
+            {
+              "bbox": [
+                372,
+                914,
+                1180,
+                994
+              ],
+              "text": "Ain\u2018t that Work?"
+            },
+            {
+              "bbox": [
+                378,
+                1217,
+                1026,
+                1318
+              ],
+              "text": "Cat and Toys"
+            },
+            {
+              "bbox": [
+                372,
+                1523,
+                976,
+                1600
+              ],
+              "text": "Amusement"
+            },
+            {
+              "bbox": [
+                381,
+                1823,
+                1162,
+                1924
+              ],
+              "text": "Becky Thatcher"
+            },
+            {
+              "bbox": [
+                381,
+                2126,
+                889,
+                2227
+              ],
+              "text": "Paying Off"
+            },
+            {
+              "bbox": [
+                372,
+                2429,
+                1144,
+                2509
+              ],
+              "text": "After the Battle"
+            },
+            {
+              "bbox": [
+                378,
+                2732,
+                1069,
+                2833
+              ],
+              "text": "\u201cShowing Off\u201d"
+            },
+            {
+              "bbox": [
+                381,
+                3035,
+                877,
+                3115
+              ],
+              "text": "Not Amiss"
+            },
+            {
+              "bbox": [
+                381,
+                3341,
+                621,
+                3439
+              ],
+              "text": "Mary"
+            },
+            {
+              "bbox": [
+                371,
+                3641,
+                1359,
+                3742
+              ],
+              "text": "Tom Contemplating"
+            },
+            {
+              "bbox": [
+                381,
+                3944,
+                1231,
+                4045
+              ],
+              "text": "Dampened Ardor"
+            },
+            {
+              "bbox": [
+                374,
+                4247,
+                658,
+                4327
+              ],
+              "text": "Youth"
+            },
+            {
+              "bbox": [
+                381,
+                4550,
+                808,
+                4651
+              ],
+              "text": "Boyhood"
+            },
+            {
+              "bbox": [
+                378,
+                4853,
+                1318,
+                4954
+              ],
+              "text": "Using the \u201cBarlow\u201d"
+            },
+            {
+              "bbox": [
+                371,
+                5156,
+                938,
+                5236
+              ],
+              "text": "The Church"
+            },
+            {
+              "bbox": [
+                381,
+                5459,
+                942,
+                5539
+              ],
+              "text": "Necessities"
+            },
+            {
+              "bbox": [
+                371,
+                5762,
+                1872,
+                5863
+              ],
+              "text": "Tom as a Sunday-School Hero"
+            },
+            {
+              "bbox": [
+                371,
+                6065,
+                829,
+                6145
+              ],
+              "text": "The Prize"
+            },
+            {
+              "bbox": [
+                373,
+                6368,
+                861,
+                6448
+              ],
+              "text": "At Church"
+            }
+          ],
+          "hocr_low_confidence_ratio": 0.0,
+          "hocr_low_confidence_word_count": 0,
+          "hocr_word_count": 44,
+          "lexical_candidate_score": 283.70147903842224,
+          "preprocess_mode": "scan-background-normalized",
+          "raw_text_score": 192.4430736618175,
+          "route_ocr_policy": "body-review",
+          "score": 303.5992063111495,
+          "tesseract_output_format": "hocr",
+          "tesseract_psm": 4,
+          "word_count": 44
+        },
+        {
+          "candidate_preprocess_mode": "scan-background-normalized-masked",
+          "character_count": 273,
+          "cleaned_text_score": 322.8122241998243,
+          "cleanup_changed_text": true,
+          "hocr_confidence_adjustment": 19.829545454545453,
+          "hocr_confidence_mean": 89.6590909090909,
+          "hocr_confidence_min": 73,
+          "hocr_line_entries_runtime": [
+            {
+              "bbox": [
+                365,
+                308,
+                522,
+                406
+              ],
+              "text": "Jim"
+            },
+            {
+              "bbox": [
+                381,
+                611,
+                1378,
+                690
+              ],
+              "text": "\u2018Tendin\u2019 to Business"
+            },
+            {
+              "bbox": [
+                372,
+                914,
+                1180,
+                994
+              ],
+              "text": "Ain\u2018t that Work?"
+            },
+            {
+              "bbox": [
+                378,
+                1217,
+                1026,
+                1318
+              ],
+              "text": "Cat and Toys"
+            },
+            {
+              "bbox": [
+                372,
+                1523,
+                976,
+                1600
+              ],
+              "text": "Amusement"
+            },
+            {
+              "bbox": [
+                381,
+                1823,
+                1162,
+                1924
+              ],
+              "text": "Becky Thatcher"
+            },
+            {
+              "bbox": [
+                381,
+                2126,
+                889,
+                2227
+              ],
+              "text": "Paying Off"
+            },
+            {
+              "bbox": [
+                372,
+                2429,
+                1144,
+                2509
+              ],
+              "text": "After the Battle"
+            },
+            {
+              "bbox": [
+                378,
+                2732,
+                1069,
+                2833
+              ],
+              "text": "\u201cShowing Off\u201d"
+            },
+            {
+              "bbox": [
+                381,
+                3035,
+                877,
+                3115
+              ],
+              "text": "Not Amiss"
+            },
+            {
+              "bbox": [
+                381,
+                3341,
+                621,
+                3439
+              ],
+              "text": "Mary"
+            },
+            {
+              "bbox": [
+                371,
+                3641,
+                1359,
+                3742
+              ],
+              "text": "Tom Contemplating"
+            },
+            {
+              "bbox": [
+                381,
+                3944,
+                1231,
+                4045
+              ],
+              "text": "Dampened Ardor"
+            },
+            {
+              "bbox": [
+                374,
+                4247,
+                658,
+                4327
+              ],
+              "text": "Youth"
+            },
+            {
+              "bbox": [
+                381,
+                4550,
+                808,
+                4651
+              ],
+              "text": "Boyhood"
+            },
+            {
+              "bbox": [
+                378,
+                4853,
+                1318,
+                4954
+              ],
+              "text": "Using the \u201cBarlow\u201d"
+            },
+            {
+              "bbox": [
+                371,
+                5156,
+                938,
+                5236
+              ],
+              "text": "The Church"
+            },
+            {
+              "bbox": [
+                381,
+                5459,
+                942,
+                5539
+              ],
+              "text": "Necessities"
+            },
+            {
+              "bbox": [
+                371,
+                5762,
+                1872,
+                5863
+              ],
+              "text": "Tom as a Sunday-School Hero"
+            },
+            {
+              "bbox": [
+                371,
+                6065,
+                829,
+                6145
+              ],
+              "text": "The Prize"
+            },
+            {
+              "bbox": [
+                373,
+                6368,
+                861,
+                6448
+              ],
+              "text": "At Church"
+            }
+          ],
+          "hocr_low_confidence_ratio": 0.0,
+          "hocr_low_confidence_word_count": 0,
+          "hocr_word_count": 44,
+          "lexical_candidate_score": 283.70147903842224,
+          "pre_ocr_region_masked": true,
+          "preprocess_mode": "scan-background-normalized",
+          "raw_text_score": 192.4430736618175,
+          "route_ocr_policy": "body-review",
+          "score": 303.5310244929677,
+          "tesseract_output_format": "hocr",
+          "tesseract_psm": 6,
+          "word_count": 44
+        },
+        {
+          "candidate_preprocess_mode": "scan-background-normalized-masked",
+          "character_count": 273,
+          "cleaned_text_score": 322.8122241998243,
+          "cleanup_changed_text": true,
+          "hocr_confidence_adjustment": 19.897727272727273,
+          "hocr_confidence_mean": 89.79545454545455,
+          "hocr_confidence_min": 74,
+          "hocr_line_entries_runtime": [
+            {
+              "bbox": [
+                365,
+                308,
+                522,
+                406
+              ],
+              "text": "Jim"
+            },
+            {
+              "bbox": [
+                381,
+                611,
+                1378,
+                690
+              ],
+              "text": "\u2018Tendin\u2019 to Business"
+            },
+            {
+              "bbox": [
+                372,
+                914,
+                1180,
+                994
+              ],
+              "text": "Ain\u2018t that Work?"
+            },
+            {
+              "bbox": [
+                378,
+                1217,
+                1026,
+                1318
+              ],
+              "text": "Cat and Toys"
+            },
+            {
+              "bbox": [
+                372,
+                1523,
+                976,
+                1600
+              ],
+              "text": "Amusement"
+            },
+            {
+              "bbox": [
+                381,
+                1823,
+                1162,
+                1924
+              ],
+              "text": "Becky Thatcher"
+            },
+            {
+              "bbox": [
+                381,
+                2126,
+                889,
+                2227
+              ],
+              "text": "Paying Off"
+            },
+            {
+              "bbox": [
+                372,
+                2429,
+                1144,
+                2509
+              ],
+              "text": "After the Battle"
+            },
+            {
+              "bbox": [
+                378,
+                2732,
+                1069,
+                2833
+              ],
+              "text": "\u201cShowing Off\u201d"
+            },
+            {
+              "bbox": [
+                381,
+                3035,
+                877,
+                3115
+              ],
+              "text": "Not Amiss"
+            },
+            {
+              "bbox": [
+                381,
+                3341,
+                621,
+                3439
+              ],
+              "text": "Mary"
+            },
+            {
+              "bbox": [
+                371,
+                3641,
+                1359,
+                3742
+              ],
+              "text": "Tom Contemplating"
+            },
+            {
+              "bbox": [
+                381,
+                3944,
+                1231,
+                4045
+              ],
+              "text": "Dampened Ardor"
+            },
+            {
+              "bbox": [
+                374,
+                4247,
+                658,
+                4327
+              ],
+              "text": "Youth"
+            },
+            {
+              "bbox": [
+                381,
+                4550,
+                808,
+                4651
+              ],
+              "text": "Boyhood"
+            },
+            {
+              "bbox": [
+                378,
+                4853,
+                1318,
+                4954
+              ],
+              "text": "Using the \u201cBarlow\u201d"
+            },
+            {
+              "bbox": [
+                371,
+                5156,
+                938,
+                5236
+              ],
+              "text": "The Church"
+            },
+            {
+              "bbox": [
+                381,
+                5459,
+                942,
+                5539
+              ],
+              "text": "Necessities"
+            },
+            {
+              "bbox": [
+                371,
+                5762,
+                1872,
+                5863
+              ],
+              "text": "Tom as a Sunday-School Hero"
+            },
+            {
+              "bbox": [
+                371,
+                6065,
+                829,
+                6145
+              ],
+              "text": "The Prize"
+            },
+            {
+              "bbox": [
+                373,
+                6368,
+                861,
+                6448
+              ],
+              "text": "At Church"
+            }
+          ],
+          "hocr_low_confidence_ratio": 0.0,
+          "hocr_low_confidence_word_count": 0,
+          "hocr_word_count": 44,
+          "lexical_candidate_score": 283.70147903842224,
+          "pre_ocr_region_masked": true,
+          "preprocess_mode": "scan-background-normalized",
+          "raw_text_score": 192.4430736618175,
+          "route_ocr_policy": "body-review",
+          "score": 303.5992063111495,
+          "tesseract_output_format": "hocr",
+          "tesseract_psm": 4,
+          "word_count": 44
+        },
+        {
+          "candidate_preprocess_mode": "scan-local-threshold",
+          "character_count": 273,
+          "cleaned_text_score": 322.8122241998243,
+          "cleanup_changed_text": true,
+          "hocr_confidence_adjustment": 14.761363636363637,
+          "hocr_confidence_mean": 87.70454545454545,
+          "hocr_confidence_min": 25,
+          "hocr_line_entries_runtime": [
+            {
+              "bbox": [
+                365,
+                308,
+                520,
+                406
+              ],
+              "text": "Jim"
+            },
+            {
+              "bbox": [
+                381,
+                611,
+                1378,
+                690
+              ],
+              "text": "\u2018Tendin\u2019 to Business"
+            },
+            {
+              "bbox": [
+                372,
+                914,
+                1179,
+                993
+              ],
+              "text": "Ain\u2019t that Work?"
+            },
+            {
+              "bbox": [
+                379,
+                1217,
+                1026,
+                1318
+              ],
+              "text": "Cat and Toys"
+            },
+            {
+              "bbox": [
+                372,
+                1523,
+                976,
+                1599
+              ],
+              "text": "Amusement"
+            },
+            {
+              "bbox": [
+                381,
+                1823,
+                1162,
+                1923
+              ],
+              "text": "Becky Thatcher"
+            },
+            {
+              "bbox": [
+                381,
+                2126,
+                889,
+                2227
+              ],
+              "text": "Paying Off"
+            },
+            {
+              "bbox": [
+                372,
+                2429,
+                1144,
+                2508
+              ],
+              "text": "After the Battle"
+            },
+            {
+              "bbox": [
+                378,
+                2732,
+                1069,
+                2832
+              ],
+              "text": "\u201cShowing Off\u201d"
+            },
+            {
+              "bbox": [
+                381,
+                3035,
+                877,
+                3115
+              ],
+              "text": "Not Amiss"
+            },
+            {
+              "bbox": [
+                381,
+                3342,
+                620,
+                3439
+              ],
+              "text": "Mary"
+            },
+            {
+              "bbox": [
+                371,
+                3641,
+                1359,
+                3742
+              ],
+              "text": "Tom Contemplating"
+            },
+            {
+              "bbox": [
+                381,
+                3944,
+                1231,
+                4045
+              ],
+              "text": "Dampened Ardor"
+            },
+            {
+              "bbox": [
+                374,
+                4247,
+                657,
+                4327
+              ],
+              "text": "Youth"
+            },
+            {
+              "bbox": [
+                382,
+                4550,
+                807,
+                4651
+              ],
+              "text": "Boyhood"
+            },
+            {
+              "bbox": [
+                379,
+                4853,
+                1318,
+                4953
+              ],
+              "text": "Using the \u201cBarlow\u201d"
+            },
+            {
+              "bbox": [
+                371,
+                5156,
+                938,
+                5236
+              ],
+              "text": "The Church"
+            },
+            {
+              "bbox": [
+                382,
+                5459,
+                942,
+                5539
+              ],
+              "text": "Necessities"
+            },
+            {
+              "bbox": [
+                371,
+                5762,
+                1872,
+                5863
+              ],
+              "text": "Tom as a Sunday-School Hero"
+            },
+            {
+              "bbox": [
+                371,
+                6065,
+                829,
+                6145
+              ],
+              "text": "The Prize"
+            },
+            {
+              "bbox": [
+                373,
+                6368,
+                861,
+                6448
+              ],
+              "text": "At Church"
+            }
+          ],
+          "hocr_low_confidence_ratio": 0.06818181818181818,
+          "hocr_low_confidence_word_count": 3,
+          "hocr_word_count": 44,
+          "lexical_candidate_score": 283.70147903842224,
+          "preprocess_mode": "scan-local-threshold",
+          "raw_text_score": 192.4430736618175,
+          "route_ocr_policy": "body-review",
+          "score": 298.46284267478586,
+          "tesseract_output_format": "hocr",
+          "tesseract_psm": 6,
+          "word_count": 44
+        },
+        {
+          "candidate_preprocess_mode": "scan-local-threshold",
+          "character_count": 273,
+          "cleaned_text_score": 322.8122241998243,
+          "cleanup_changed_text": true,
+          "hocr_confidence_adjustment": 14.761363636363637,
+          "hocr_confidence_mean": 87.70454545454545,
+          "hocr_confidence_min": 25,
+          "hocr_line_entries_runtime": [
+            {
+              "bbox": [
+                365,
+                308,
+                520,
+                406
+              ],
+              "text": "Jim"
+            },
+            {
+              "bbox": [
+                381,
+                611,
+                1378,
+                690
+              ],
+              "text": "\u2018Tendin\u2019 to Business"
+            },
+            {
+              "bbox": [
+                372,
+                914,
+                1179,
+                993
+              ],
+              "text": "Ain\u2019t that Work?"
+            },
+            {
+              "bbox": [
+                379,
+                1217,
+                1026,
+                1318
+              ],
+              "text": "Cat and Toys"
+            },
+            {
+              "bbox": [
+                372,
+                1523,
+                976,
+                1599
+              ],
+              "text": "Amusement"
+            },
+            {
+              "bbox": [
+                381,
+                1823,
+                1162,
+                1923
+              ],
+              "text": "Becky Thatcher"
+            },
+            {
+              "bbox": [
+                381,
+                2126,
+                889,
+                2227
+              ],
+              "text": "Paying Off"
+            },
+            {
+              "bbox": [
+                372,
+                2429,
+                1144,
+                2508
+              ],
+              "text": "After the Battle"
+            },
+            {
+              "bbox": [
+                378,
+                2732,
+                1069,
+                2832
+              ],
+              "text": "\u201cShowing Off\u201d"
+            },
+            {
+              "bbox": [
+                381,
+                3035,
+                877,
+                3115
+              ],
+              "text": "Not Amiss"
+            },
+            {
+              "bbox": [
+                381,
+                3342,
+                620,
+                3439
+              ],
+              "text": "Mary"
+            },
+            {
+              "bbox": [
+                371,
+                3641,
+                1359,
+                3742
+              ],
+              "text": "Tom Contemplating"
+            },
+            {
+              "bbox": [
+                381,
+                3944,
+                1231,
+                4045
+              ],
+              "text": "Dampened Ardor"
+            },
+            {
+              "bbox": [
+                374,
+                4247,
+                657,
+                4327
+              ],
+              "text": "Youth"
+            },
+            {
+              "bbox": [
+                382,
+                4550,
+                807,
+                4651
+              ],
+              "text": "Boyhood"
+            },
+            {
+              "bbox": [
+                379,
+                4853,
+                1318,
+                4953
+              ],
+              "text": "Using the \u201cBarlow\u201d"
+            },
+            {
+              "bbox": [
+                371,
+                5156,
+                938,
+                5236
+              ],
+              "text": "The Church"
+            },
+            {
+              "bbox": [
+                382,
+                5459,
+                942,
+                5539
+              ],
+              "text": "Necessities"
+            },
+            {
+              "bbox": [
+                371,
+                5762,
+                1872,
+                5863
+              ],
+              "text": "Tom as a Sunday-School Hero"
+            },
+            {
+              "bbox": [
+                371,
+                6065,
+                829,
+                6145
+              ],
+              "text": "The Prize"
+            },
+            {
+              "bbox": [
+                373,
+                6368,
+                861,
+                6448
+              ],
+              "text": "At Church"
+            }
+          ],
+          "hocr_low_confidence_ratio": 0.06818181818181818,
+          "hocr_low_confidence_word_count": 3,
+          "hocr_word_count": 44,
+          "lexical_candidate_score": 283.70147903842224,
+          "preprocess_mode": "scan-local-threshold",
+          "raw_text_score": 192.4430736618175,
+          "route_ocr_policy": "body-review",
+          "score": 298.46284267478586,
+          "tesseract_output_format": "hocr",
+          "tesseract_psm": 4,
+          "word_count": 44
+        },
+        {
+          "candidate_preprocess_mode": "scan-local-threshold-masked",
+          "character_count": 273,
+          "cleaned_text_score": 322.8122241998243,
+          "cleanup_changed_text": true,
+          "hocr_confidence_adjustment": 14.761363636363637,
+          "hocr_confidence_mean": 87.70454545454545,
+          "hocr_confidence_min": 25,
+          "hocr_line_entries_runtime": [
+            {
+              "bbox": [
+                365,
+                308,
+                520,
+                406
+              ],
+              "text": "Jim"
+            },
+            {
+              "bbox": [
+                381,
+                611,
+                1378,
+                690
+              ],
+              "text": "\u2018Tendin\u2019 to Business"
+            },
+            {
+              "bbox": [
+                372,
+                914,
+                1179,
+                993
+              ],
+              "text": "Ain\u2019t that Work?"
+            },
+            {
+              "bbox": [
+                379,
+                1217,
+                1026,
+                1318
+              ],
+              "text": "Cat and Toys"
+            },
+            {
+              "bbox": [
+                372,
+                1523,
+                976,
+                1599
+              ],
+              "text": "Amusement"
+            },
+            {
+              "bbox": [
+                381,
+                1823,
+                1162,
+                1923
+              ],
+              "text": "Becky Thatcher"
+            },
+            {
+              "bbox": [
+                381,
+                2126,
+                889,
+                2227
+              ],
+              "text": "Paying Off"
+            },
+            {
+              "bbox": [
+                372,
+                2429,
+                1144,
+                2508
+              ],
+              "text": "After the Battle"
+            },
+            {
+              "bbox": [
+                378,
+                2732,
+                1069,
+                2832
+              ],
+              "text": "\u201cShowing Off\u201d"
+            },
+            {
+              "bbox": [
+                381,
+                3035,
+                877,
+                3115
+              ],
+              "text": "Not Amiss"
+            },
+            {
+              "bbox": [
+                381,
+                3342,
+                620,
+                3439
+              ],
+              "text": "Mary"
+            },
+            {
+              "bbox": [
+                371,
+                3641,
+                1359,
+                3742
+              ],
+              "text": "Tom Contemplating"
+            },
+            {
+              "bbox": [
+                381,
+                3944,
+                1231,
+                4045
+              ],
+              "text": "Dampened Ardor"
+            },
+            {
+              "bbox": [
+                374,
+                4247,
+                657,
+                4327
+              ],
+              "text": "Youth"
+            },
+            {
+              "bbox": [
+                382,
+                4550,
+                807,
+                4651
+              ],
+              "text": "Boyhood"
+            },
+            {
+              "bbox": [
+                379,
+                4853,
+                1318,
+                4953
+              ],
+              "text": "Using the \u201cBarlow\u201d"
+            },
+            {
+              "bbox": [
+                371,
+                5156,
+                938,
+                5236
+              ],
+              "text": "The Church"
+            },
+            {
+              "bbox": [
+                382,
+                5459,
+                942,
+                5539
+              ],
+              "text": "Necessities"
+            },
+            {
+              "bbox": [
+                371,
+                5762,
+                1872,
+                5863
+              ],
+              "text": "Tom as a Sunday-School Hero"
+            },
+            {
+              "bbox": [
+                371,
+                6065,
+                829,
+                6145
+              ],
+              "text": "The Prize"
+            },
+            {
+              "bbox": [
+                373,
+                6368,
+                861,
+                6448
+              ],
+              "text": "At Church"
+            }
+          ],
+          "hocr_low_confidence_ratio": 0.06818181818181818,
+          "hocr_low_confidence_word_count": 3,
+          "hocr_word_count": 44,
+          "lexical_candidate_score": 283.70147903842224,
+          "pre_ocr_region_masked": true,
+          "preprocess_mode": "scan-local-threshold",
+          "raw_text_score": 192.4430736618175,
+          "route_ocr_policy": "body-review",
+          "score": 298.46284267478586,
+          "tesseract_output_format": "hocr",
+          "tesseract_psm": 6,
+          "word_count": 44
+        },
+        {
+          "candidate_preprocess_mode": "scan-local-threshold-masked",
+          "character_count": 273,
+          "cleaned_text_score": 322.8122241998243,
+          "cleanup_changed_text": true,
+          "hocr_confidence_adjustment": 14.761363636363637,
+          "hocr_confidence_mean": 87.70454545454545,
+          "hocr_confidence_min": 25,
+          "hocr_line_entries_runtime": [
+            {
+              "bbox": [
+                365,
+                308,
+                520,
+                406
+              ],
+              "text": "Jim"
+            },
+            {
+              "bbox": [
+                381,
+                611,
+                1378,
+                690
+              ],
+              "text": "\u2018Tendin\u2019 to Business"
+            },
+            {
+              "bbox": [
+                372,
+                914,
+                1179,
+                993
+              ],
+              "text": "Ain\u2019t that Work?"
+            },
+            {
+              "bbox": [
+                379,
+                1217,
+                1026,
+                1318
+              ],
+              "text": "Cat and Toys"
+            },
+            {
+              "bbox": [
+                372,
+                1523,
+                976,
+                1599
+              ],
+              "text": "Amusement"
+            },
+            {
+              "bbox": [
+                381,
+                1823,
+                1162,
+                1923
+              ],
+              "text": "Becky Thatcher"
+            },
+            {
+              "bbox": [
+                381,
+                2126,
+                889,
+                2227
+              ],
+              "text": "Paying Off"
+            },
+            {
+              "bbox": [
+                372,
+                2429,
+                1144,
+                2508
+              ],
+              "text": "After the Battle"
+            },
+            {
+              "bbox": [
+                378,
+                2732,
+                1069,
+                2832
+              ],
+              "text": "\u201cShowing Off\u201d"
+            },
+            {
+              "bbox": [
+                381,
+                3035,
+                877,
+                3115
+              ],
+              "text": "Not Amiss"
+            },
+            {
+              "bbox": [
+                381,
+                3342,
+                620,
+                3439
+              ],
+              "text": "Mary"
+            },
+            {
+              "bbox": [
+                371,
+                3641,
+                1359,
+                3742
+              ],
+              "text": "Tom Contemplating"
+            },
+            {
+              "bbox": [
+                381,
+                3944,
+                1231,
+                4045
+              ],
+              "text": "Dampened Ardor"
+            },
+            {
+              "bbox": [
+                374,
+                4247,
+                657,
+                4327
+              ],
+              "text": "Youth"
+            },
+            {
+              "bbox": [
+                382,
+                4550,
+                807,
+                4651
+              ],
+              "text": "Boyhood"
+            },
+            {
+              "bbox": [
+                379,
+                4853,
+                1318,
+                4953
+              ],
+              "text": "Using the \u201cBarlow\u201d"
+            },
+            {
+              "bbox": [
+                371,
+                5156,
+                938,
+                5236
+              ],
+              "text": "The Church"
+            },
+            {
+              "bbox": [
+                382,
+                5459,
+                942,
+                5539
+              ],
+              "text": "Necessities"
+            },
+            {
+              "bbox": [
+                371,
+                5762,
+                1872,
+                5863
+              ],
+              "text": "Tom as a Sunday-School Hero"
+            },
+            {
+              "bbox": [
+                371,
+                6065,
+                829,
+                6145
+              ],
+              "text": "The Prize"
+            },
+            {
+              "bbox": [
+                373,
+                6368,
+                861,
+                6448
+              ],
+              "text": "At Church"
+            }
+          ],
+          "hocr_low_confidence_ratio": 0.06818181818181818,
+          "hocr_low_confidence_word_count": 3,
+          "hocr_word_count": 44,
+          "lexical_candidate_score": 283.70147903842224,
+          "pre_ocr_region_masked": true,
+          "preprocess_mode": "scan-local-threshold",
+          "raw_text_score": 192.4430736618175,
+          "route_ocr_policy": "body-review",
+          "score": 298.46284267478586,
+          "tesseract_output_format": "hocr",
+          "tesseract_psm": 4,
+          "word_count": 44
+        },
+        {
+          "candidate_preprocess_mode": "scan",
+          "character_count": 273,
+          "cleaned_text_score": 322.8122241998243,
+          "cleanup_changed_text": true,
+          "hocr_confidence_adjustment": 15.94318181818182,
+          "hocr_confidence_mean": 87.3409090909091,
+          "hocr_confidence_min": 21,
+          "hocr_line_entries_runtime": [
+            {
+              "bbox": [
+                366,
+                309,
+                519,
+                405
+              ],
+              "text": "Jim"
+            },
+            {
+              "bbox": [
+                383,
+                612,
+                1377,
+                689
+              ],
+              "text": "'Tendin\u2019 to Business"
+            },
+            {
+              "bbox": [
+                373,
+                915,
+                1179,
+                993
+              ],
+              "text": "Ain\u2019t that Work?"
+            },
+            {
+              "bbox": [
+                379,
+                1218,
+                1025,
+                1317
+              ],
+              "text": "Cat and Toys"
+            },
+            {
+              "bbox": [
+                373,
+                1524,
+                975,
+                1598
+              ],
+              "text": "Amusement"
+            },
+            {
+              "bbox": [
+                383,
+                1824,
+                1161,
+                1923
+              ],
+              "text": "Becky Thatcher"
+            },
+            {
+              "bbox": [
+                383,
+                2127,
+                888,
+                2226
+              ],
+              "text": "Paying Off"
+            },
+            {
+              "bbox": [
+                373,
+                2430,
+                1143,
+                2508
+              ],
+              "text": "After the Battle"
+            },
+            {
+              "bbox": [
+                379,
+                2733,
+                1068,
+                2832
+              ],
+              "text": "\u201cShowing Off\u201d"
+            },
+            {
+              "bbox": [
+                383,
+                3036,
+                876,
+                3114
+              ],
+              "text": "Not Amiss"
+            },
+            {
+              "bbox": [
+                383,
+                3342,
+                619,
+                3438
+              ],
+              "text": "Mary"
+            },
+            {
+              "bbox": [
+                372,
+                3642,
+                1358,
+                3741
+              ],
+              "text": "Tom Contemplating"
+            },
+            {
+              "bbox": [
+                383,
+                3945,
+                1230,
+                4044
+              ],
+              "text": "Dampened Ardor"
+            },
+            {
+              "bbox": [
+                374,
+                4248,
+                657,
+                4326
+              ],
+              "text": "Youth"
+            },
+            {
+              "bbox": [
+                383,
+                4551,
+                807,
+                4650
+              ],
+              "text": "Boyhood"
+            },
+            {
+              "bbox": [
+                379,
+                4854,
+                1317,
+                4953
+              ],
+              "text": "Using the \u201cBarlow\u201d"
+            },
+            {
+              "bbox": [
+                372,
+                5157,
+                937,
+                5235
+              ],
+              "text": "The Church"
+            },
+            {
+              "bbox": [
+                383,
+                5460,
+                941,
+                5538
+              ],
+              "text": "Necessities"
+            },
+            {
+              "bbox": [
+                372,
+                5763,
+                1872,
+                5862
+              ],
+              "text": "Tom as a Sunday-School Hero"
+            },
+            {
+              "bbox": [
+                372,
+                6066,
+                828,
+                6144
+              ],
+              "text": "The Prize"
+            },
+            {
+              "bbox": [
+                374,
+                6369,
+                860,
+                6447
+              ],
+              "text": "At Church"
+            }
+          ],
+          "hocr_low_confidence_ratio": 0.045454545454545456,
+          "hocr_low_confidence_word_count": 2,
+          "hocr_word_count": 44,
+          "lexical_candidate_score": 289.10147903842227,
+          "preprocess_mode": "scan",
+          "raw_text_score": 210.4430736618175,
+          "route_ocr_policy": "body-review",
+          "score": 305.0446608566041,
+          "tesseract_output_format": "hocr",
+          "tesseract_psm": 6,
+          "word_count": 44
+        },
+        {
+          "candidate_preprocess_mode": "scan",
+          "character_count": 273,
+          "cleaned_text_score": 322.8122241998243,
+          "cleanup_changed_text": true,
+          "hocr_confidence_adjustment": 16.670454545454547,
+          "hocr_confidence_mean": 88.79545454545455,
+          "hocr_confidence_min": 60,
+          "hocr_line_entries_runtime": [
+            {
+              "bbox": [
+                366,
+                309,
+                519,
+                405
+              ],
+              "text": "Jim"
+            },
+            {
+              "bbox": [
+                383,
+                612,
+                1377,
+                689
+              ],
+              "text": "\u2018Tendin\u2019 to Business"
+            },
+            {
+              "bbox": [
+                373,
+                915,
+                1179,
+                993
+              ],
+              "text": "Ain\u2018t that Work?"
+            },
+            {
+              "bbox": [
+                379,
+                1218,
+                1025,
+                1317
+              ],
+              "text": "Cat and Toys"
+            },
+            {
+              "bbox": [
+                373,
+                1524,
+                975,
+                1598
+              ],
+              "text": "Amusement"
+            },
+            {
+              "bbox": [
+                383,
+                1824,
+                1161,
+                1923
+              ],
+              "text": "Becky Thatcher"
+            },
+            {
+              "bbox": [
+                383,
+                2127,
+                888,
+                2226
+              ],
+              "text": "Paying Off"
+            },
+            {
+              "bbox": [
+                373,
+                2430,
+                1143,
+                2508
+              ],
+              "text": "After the Battle"
+            },
+            {
+              "bbox": [
+                379,
+                2733,
+                1068,
+                2832
+              ],
+              "text": "\u201cShowing Off\u201d"
+            },
+            {
+              "bbox": [
+                383,
+                3036,
+                876,
+                3114
+              ],
+              "text": "Not Amiss"
+            },
+            {
+              "bbox": [
+                383,
+                3342,
+                619,
+                3438
+              ],
+              "text": "Mary"
+            },
+            {
+              "bbox": [
+                372,
+                3642,
+                1358,
+                3741
+              ],
+              "text": "Tom Contemplating"
+            },
+            {
+              "bbox": [
+                383,
+                3945,
+                1230,
+                4044
+              ],
+              "text": "Dampened Ardor"
+            },
+            {
+              "bbox": [
+                374,
+                4248,
+                657,
+                4326
+              ],
+              "text": "Youth"
+            },
+            {
+              "bbox": [
+                383,
+                4551,
+                807,
+                4650
+              ],
+              "text": "Boyhood"
+            },
+            {
+              "bbox": [
+                379,
+                4854,
+                1317,
+                4953
+              ],
+              "text": "Using the \u201cBarlow\u201d"
+            },
+            {
+              "bbox": [
+                372,
+                5157,
+                937,
+                5235
+              ],
+              "text": "The Church"
+            },
+            {
+              "bbox": [
+                383,
+                5460,
+                941,
+                5538
+              ],
+              "text": "Necessities"
+            },
+            {
+              "bbox": [
+                372,
+                5763,
+                1872,
+                5862
+              ],
+              "text": "Tom as a Sunday-School Hero"
+            },
+            {
+              "bbox": [
+                372,
+                6066,
+                828,
+                6144
+              ],
+              "text": "The Prize"
+            },
+            {
+              "bbox": [
+                374,
+                6369,
+                860,
+                6447
+              ],
+              "text": "At Church"
+            }
+          ],
+          "hocr_low_confidence_ratio": 0.045454545454545456,
+          "hocr_low_confidence_word_count": 2,
+          "hocr_word_count": 44,
+          "lexical_candidate_score": 283.70147903842224,
+          "preprocess_mode": "scan",
+          "raw_text_score": 192.4430736618175,
+          "route_ocr_policy": "body-review",
+          "score": 300.3719335838768,
+          "tesseract_output_format": "hocr",
+          "tesseract_psm": 4,
+          "word_count": 44
+        },
+        {
+          "candidate_preprocess_mode": "scan-sauvola",
+          "character_count": 273,
+          "cleaned_text_score": 322.8122241998243,
+          "cleanup_changed_text": true,
+          "hocr_confidence_adjustment": 19.988636363636367,
+          "hocr_confidence_mean": 89.97727272727273,
+          "hocr_confidence_min": 77,
+          "hocr_line_entries_runtime": [
+            {
+              "bbox": [
+                365,
+                308,
+                521,
+                406
+              ],
+              "text": "Jim"
+            },
+            {
+              "bbox": [
+                381,
+                611,
+                1378,
+                690
+              ],
+              "text": "\u2018Tendin\u2019 to Business"
+            },
+            {
+              "bbox": [
+                372,
+                914,
+                1180,
+                993
+              ],
+              "text": "Ain\u2018t that Work?"
+            },
+            {
+              "bbox": [
+                378,
+                1217,
+                1026,
+                1318
+              ],
+              "text": "Cat and Toys"
+            },
+            {
+              "bbox": [
+                372,
+                1523,
+                976,
+                1599
+              ],
+              "text": "Amusement"
+            },
+            {
+              "bbox": [
+                381,
+                1823,
+                1162,
+                1924
+              ],
+              "text": "Becky Thatcher"
+            },
+            {
+              "bbox": [
+                381,
+                2126,
+                889,
+                2227
+              ],
+              "text": "Paying Off"
+            },
+            {
+              "bbox": [
+                372,
+                2429,
+                1144,
+                2509
+              ],
+              "text": "After the Battle"
+            },
+            {
+              "bbox": [
+                378,
+                2732,
+                1069,
+                2833
+              ],
+              "text": "\u201cShowing Off\u201d"
+            },
+            {
+              "bbox": [
+                381,
+                3035,
+                877,
+                3115
+              ],
+              "text": "Not Amiss"
+            },
+            {
+              "bbox": [
+                381,
+                3341,
+                620,
+                3439
+              ],
+              "text": "Mary"
+            },
+            {
+              "bbox": [
+                371,
+                3641,
+                1359,
+                3742
+              ],
+              "text": "Tom Contemplating"
+            },
+            {
+              "bbox": [
+                381,
+                3944,
+                1231,
+                4045
+              ],
+              "text": "Dampened Ardor"
+            },
+            {
+              "bbox": [
+                374,
+                4247,
+                658,
+                4327
+              ],
+              "text": "Youth"
+            },
+            {
+              "bbox": [
+                381,
+                4550,
+                808,
+                4651
+              ],
+              "text": "Boyhood"
+            },
+            {
+              "bbox": [
+                378,
+                4853,
+                1318,
+                4954
+              ],
+              "text": "Using the \u201cBarlow\u201d"
+            },
+            {
+              "bbox": [
+                371,
+                5156,
+                938,
+                5236
+              ],
+              "text": "The Church"
+            },
+            {
+              "bbox": [
+                381,
+                5459,
+                942,
+                5539
+              ],
+              "text": "Necessities"
+            },
+            {
+              "bbox": [
+                371,
+                5762,
+                1872,
+                5863
+              ],
+              "text": "Tom as a Sunday-School Hero"
+            },
+            {
+              "bbox": [
+                371,
+                6065,
+                829,
+                6145
+              ],
+              "text": "The Prize"
+            },
+            {
+              "bbox": [
+                373,
+                6368,
+                861,
+                6448
+              ],
+              "text": "At Church"
+            }
+          ],
+          "hocr_low_confidence_ratio": 0.0,
+          "hocr_low_confidence_word_count": 0,
+          "hocr_word_count": 44,
+          "lexical_candidate_score": 283.70147903842224,
+          "preprocess_mode": "scan-sauvola",
+          "raw_text_score": 192.4430736618175,
+          "route_ocr_policy": "body-review",
+          "score": 303.6901154020586,
+          "tesseract_output_format": "hocr",
+          "tesseract_psm": 6,
+          "word_count": 44
+        },
+        {
+          "candidate_preprocess_mode": "scan-sauvola",
+          "character_count": 273,
+          "cleaned_text_score": 322.8122241998243,
+          "cleanup_changed_text": true,
+          "hocr_confidence_adjustment": 19.988636363636367,
+          "hocr_confidence_mean": 89.97727272727273,
+          "hocr_confidence_min": 77,
+          "hocr_line_entries_runtime": [
+            {
+              "bbox": [
+                365,
+                308,
+                521,
+                406
+              ],
+              "text": "Jim"
+            },
+            {
+              "bbox": [
+                381,
+                611,
+                1378,
+                690
+              ],
+              "text": "\u2018Tendin\u2019 to Business"
+            },
+            {
+              "bbox": [
+                372,
+                914,
+                1180,
+                993
+              ],
+              "text": "Ain\u2018t that Work?"
+            },
+            {
+              "bbox": [
+                378,
+                1217,
+                1026,
+                1318
+              ],
+              "text": "Cat and Toys"
+            },
+            {
+              "bbox": [
+                372,
+                1523,
+                976,
+                1599
+              ],
+              "text": "Amusement"
+            },
+            {
+              "bbox": [
+                381,
+                1823,
+                1162,
+                1924
+              ],
+              "text": "Becky Thatcher"
+            },
+            {
+              "bbox": [
+                381,
+                2126,
+                889,
+                2227
+              ],
+              "text": "Paying Off"
+            },
+            {
+              "bbox": [
+                372,
+                2429,
+                1144,
+                2509
+              ],
+              "text": "After the Battle"
+            },
+            {
+              "bbox": [
+                378,
+                2732,
+                1069,
+                2833
+              ],
+              "text": "\u201cShowing Off\u201d"
+            },
+            {
+              "bbox": [
+                381,
+                3035,
+                877,
+                3115
+              ],
+              "text": "Not Amiss"
+            },
+            {
+              "bbox": [
+                381,
+                3341,
+                620,
+                3439
+              ],
+              "text": "Mary"
+            },
+            {
+              "bbox": [
+                371,
+                3641,
+                1359,
+                3742
+              ],
+              "text": "Tom Contemplating"
+            },
+            {
+              "bbox": [
+                381,
+                3944,
+                1231,
+                4045
+              ],
+              "text": "Dampened Ardor"
+            },
+            {
+              "bbox": [
+                374,
+                4247,
+                658,
+                4327
+              ],
+              "text": "Youth"
+            },
+            {
+              "bbox": [
+                381,
+                4550,
+                808,
+                4651
+              ],
+              "text": "Boyhood"
+            },
+            {
+              "bbox": [
+                378,
+                4853,
+                1318,
+                4954
+              ],
+              "text": "Using the \u201cBarlow\u201d"
+            },
+            {
+              "bbox": [
+                371,
+                5156,
+                938,
+                5236
+              ],
+              "text": "The Church"
+            },
+            {
+              "bbox": [
+                381,
+                5459,
+                942,
+                5539
+              ],
+              "text": "Necessities"
+            },
+            {
+              "bbox": [
+                371,
+                5762,
+                1872,
+                5863
+              ],
+              "text": "Tom as a Sunday-School Hero"
+            },
+            {
+              "bbox": [
+                371,
+                6065,
+                829,
+                6145
+              ],
+              "text": "The Prize"
+            },
+            {
+              "bbox": [
+                373,
+                6368,
+                861,
+                6448
+              ],
+              "text": "At Church"
+            }
+          ],
+          "hocr_low_confidence_ratio": 0.0,
+          "hocr_low_confidence_word_count": 0,
+          "hocr_word_count": 44,
+          "lexical_candidate_score": 283.70147903842224,
+          "preprocess_mode": "scan-sauvola",
+          "raw_text_score": 192.4430736618175,
+          "route_ocr_policy": "body-review",
+          "score": 303.6901154020586,
+          "tesseract_output_format": "hocr",
+          "tesseract_psm": 4,
+          "word_count": 44
+        },
+        {
+          "candidate_preprocess_mode": "basic",
+          "character_count": 273,
+          "cleaned_text_score": 322.8122241998243,
+          "cleanup_changed_text": true,
+          "hocr_confidence_adjustment": 16.284090909090907,
+          "hocr_confidence_mean": 88.02272727272727,
+          "hocr_confidence_min": 19,
+          "hocr_line_entries_runtime": [
+            {
+              "bbox": [
+                244,
+                206,
+                347,
+                270
+              ],
+              "text": "Jim"
+            },
+            {
+              "bbox": [
+                254,
+                408,
+                918,
+                460
+              ],
+              "text": "\u2018Tendin\u2019 to Business"
+            },
+            {
+              "bbox": [
+                248,
+                610,
+                787,
+                662
+              ],
+              "text": "Ain\u2018t that Work?"
+            },
+            {
+              "bbox": [
+                252,
+                812,
+                684,
+                878
+              ],
+              "text": "Cat and Toys"
+            },
+            {
+              "bbox": [
+                248,
+                1016,
+                650,
+                1066
+              ],
+              "text": "Amusement"
+            },
+            {
+              "bbox": [
+                254,
+                1216,
+                774,
+                1282
+              ],
+              "text": "Becky Thatcher"
+            },
+            {
+              "bbox": [
+                254,
+                1418,
+                592,
+                1484
+              ],
+              "text": "Paying Off"
+            },
+            {
+              "bbox": [
+                248,
+                1620,
+                762,
+                1672
+              ],
+              "text": "After the Battle"
+            },
+            {
+              "bbox": [
+                252,
+                1822,
+                712,
+                1888
+              ],
+              "text": "\u201cShowing Off\u201d"
+            },
+            {
+              "bbox": [
+                254,
+                2024,
+                584,
+                2076
+              ],
+              "text": "Not Amiss"
+            },
+            {
+              "bbox": [
+                254,
+                2228,
+                413,
+                2292
+              ],
+              "text": "Mary"
+            },
+            {
+              "bbox": [
+                248,
+                2428,
+                906,
+                2494
+              ],
+              "text": "Tom Contemplating"
+            },
+            {
+              "bbox": [
+                254,
+                2630,
+                820,
+                2696
+              ],
+              "text": "Dampened Ardor"
+            },
+            {
+              "bbox": [
+                249,
+                2832,
+                438,
+                2884
+              ],
+              "text": "Youth"
+            },
+            {
+              "bbox": [
+                254,
+                3034,
+                538,
+                3100
+              ],
+              "text": "Boyhood"
+            },
+            {
+              "bbox": [
+                252,
+                3236,
+                878,
+                3302
+              ],
+              "text": "Using the \u201cBarlow\u201d"
+            },
+            {
+              "bbox": [
+                248,
+                3438,
+                625,
+                3490
+              ],
+              "text": "The Church"
+            },
+            {
+              "bbox": [
+                254,
+                3640,
+                628,
+                3692
+              ],
+              "text": "Necessities"
+            },
+            {
+              "bbox": [
+                248,
+                3842,
+                1248,
+                3908
+              ],
+              "text": "Tom as a Sunday-School Hero"
+            },
+            {
+              "bbox": [
+                248,
+                4044,
+                552,
+                4096
+              ],
+              "text": "The Prize"
+            },
+            {
+              "bbox": [
+                249,
+                4246,
+                574,
+                4298
+              ],
+              "text": "At Church"
+            }
+          ],
+          "hocr_low_confidence_ratio": 0.045454545454545456,
+          "hocr_low_confidence_word_count": 2,
+          "hocr_word_count": 44,
+          "lexical_candidate_score": 283.70147903842224,
+          "preprocess_mode": "basic",
+          "raw_text_score": 192.4430736618175,
+          "route_ocr_policy": "body-review",
+          "score": 299.9855699475131,
+          "tesseract_output_format": "hocr",
+          "tesseract_psm": 6,
+          "word_count": 44
+        },
+        {
+          "candidate_preprocess_mode": "basic",
+          "character_count": 273,
+          "cleaned_text_score": 322.8122241998243,
+          "cleanup_changed_text": true,
+          "hocr_confidence_adjustment": 14.806818181818183,
+          "hocr_confidence_mean": 87.79545454545455,
+          "hocr_confidence_min": 29,
+          "hocr_line_entries_runtime": [
+            {
+              "bbox": [
+                244,
+                206,
+                347,
+                270
+              ],
+              "text": "Jim"
+            },
+            {
+              "bbox": [
+                254,
+                408,
+                918,
+                460
+              ],
+              "text": "'Tendin\u2019 to Business"
+            },
+            {
+              "bbox": [
+                248,
+                610,
+                787,
+                662
+              ],
+              "text": "Ain\u2018t that Work?"
+            },
+            {
+              "bbox": [
+                252,
+                812,
+                684,
+                878
+              ],
+              "text": "Cat and Toys"
+            },
+            {
+              "bbox": [
+                248,
+                1016,
+                650,
+                1066
+              ],
+              "text": "Amusement"
+            },
+            {
+              "bbox": [
+                254,
+                1216,
+                774,
+                1282
+              ],
+              "text": "Becky Thatcher"
+            },
+            {
+              "bbox": [
+                254,
+                1418,
+                592,
+                1484
+              ],
+              "text": "Paying Off"
+            },
+            {
+              "bbox": [
+                248,
+                1620,
+                762,
+                1672
+              ],
+              "text": "After the Battle"
+            },
+            {
+              "bbox": [
+                252,
+                1822,
+                712,
+                1888
+              ],
+              "text": "\u201cShowing Off\u201d"
+            },
+            {
+              "bbox": [
+                254,
+                2024,
+                584,
+                2076
+              ],
+              "text": "Not Amiss"
+            },
+            {
+              "bbox": [
+                254,
+                2228,
+                413,
+                2292
+              ],
+              "text": "Mary"
+            },
+            {
+              "bbox": [
+                248,
+                2428,
+                906,
+                2494
+              ],
+              "text": "Tom Contemplating"
+            },
+            {
+              "bbox": [
+                254,
+                2630,
+                820,
+                2696
+              ],
+              "text": "Dampened Ardor"
+            },
+            {
+              "bbox": [
+                249,
+                2832,
+                438,
+                2884
+              ],
+              "text": "Youth"
+            },
+            {
+              "bbox": [
+                254,
+                3034,
+                538,
+                3100
+              ],
+              "text": "Boyhood"
+            },
+            {
+              "bbox": [
+                252,
+                3236,
+                878,
+                3302
+              ],
+              "text": "Using the \u201cBarlow\u201d"
+            },
+            {
+              "bbox": [
+                248,
+                3438,
+                625,
+                3490
+              ],
+              "text": "The Church"
+            },
+            {
+              "bbox": [
+                254,
+                3640,
+                628,
+                3692
+              ],
+              "text": "Necessities"
+            },
+            {
+              "bbox": [
+                248,
+                3842,
+                1248,
+                3908
+              ],
+              "text": "Tom as a Sunday-School Hero"
+            },
+            {
+              "bbox": [
+                248,
+                4044,
+                552,
+                4096
+              ],
+              "text": "The Prize"
+            },
+            {
+              "bbox": [
+                249,
+                4246,
+                574,
+                4298
+              ],
+              "text": "At Church"
+            }
+          ],
+          "hocr_low_confidence_ratio": 0.06818181818181818,
+          "hocr_low_confidence_word_count": 3,
+          "hocr_word_count": 44,
+          "lexical_candidate_score": 289.10147903842227,
+          "preprocess_mode": "basic",
+          "raw_text_score": 210.4430736618175,
+          "route_ocr_policy": "body-review",
+          "score": 303.90829722024046,
+          "tesseract_output_format": "hocr",
+          "tesseract_psm": 4,
+          "word_count": 44
+        }
+      ],
+      "character_count": 273,
+      "cleaned_text_score": 322.8122241998243,
+      "cleanup_changed_text": true,
+      "cleanup_span_verifier": {
+        "changes_considered": 4,
+        "changes_kept": 0,
+        "changes_reverted": 4,
+        "decisions": [
+          {
+            "accepted": false,
+            "cleaned_inverse_render_score": 0.05184971392675846,
+            "cleaned_local_inverse_render_score": 0.01618366578848325,
+            "cleaned_text": "'Tendin'",
+            "cleaned_token_count": 1,
+            "hocr_hint_bbox": [
+              383,
+              612,
+              769,
+              689
+            ],
+            "local_area_ratio": 0.040317712532080864,
+            "local_bbox": [
+              371,
+              600,
+              781,
+              701
+            ],
+            "raw_inverse_render_score": 0.05194650817236256,
+            "raw_local_inverse_render_score": 0.01618366578848325,
+            "raw_text": "'Tendin\u2019",
+            "raw_token_count": 1,
+            "reason": "insufficient-image-margin"
+          },
+          {
+            "accepted": false,
+            "cleaned_inverse_render_score": 0.051860088102735596,
+            "cleaned_local_inverse_render_score": 0.0,
+            "cleaned_text": "Ain't",
+            "cleaned_token_count": 1,
+            "hocr_hint_bbox": [
+              373,
+              915,
+              601,
+              992
+            ],
+            "local_area_ratio": 0.024780642824596043,
+            "local_bbox": [
+              361,
+              903,
+              613,
+              1004
+            ],
+            "raw_inverse_render_score": 0.05184971392675846,
+            "raw_local_inverse_render_score": 0.0,
+            "raw_text": "Ain\u2019t",
+            "raw_token_count": 1,
+            "reason": "insufficient-image-margin"
+          },
+          {
+            "accepted": false,
+            "cleaned_inverse_render_score": 0.05194915398061877,
+            "cleaned_text": "\"Showing Off\"",
+            "cleaned_token_count": 2,
+            "hocr_hint_bbox": [
+              379,
+              2733,
+              1068,
+              2832
+            ],
+            "raw_inverse_render_score": 0.051860088102735596,
+            "raw_text": "\u201cShowing Off\u201d",
+            "raw_token_count": 2,
+            "reason": "invalid-local-bbox"
+          },
+          {
+            "accepted": false,
+            "cleaned_inverse_render_score": 0.051788334478342364,
+            "cleaned_text": "\"Barlow\"",
+            "cleaned_token_count": 1,
+            "hocr_hint_bbox": [
+              884,
+              4854,
+              1317,
+              4932
+            ],
+            "raw_inverse_render_score": 0.05194915398061877,
+            "raw_text": "\u201cBarlow\u201d",
+            "raw_token_count": 1,
+            "reason": "invalid-local-bbox"
+          }
+        ],
+        "enabled": true
+      },
+      "hocr_confidence_adjustment": 15.94318181818182,
+      "hocr_confidence_mean": 87.3409090909091,
+      "hocr_confidence_min": 21,
+      "hocr_low_confidence_ratio": 0.045454545454545456,
+      "hocr_low_confidence_word_count": 2,
+      "hocr_word_count": 44,
+      "image_path": "data/benchmark-corpus-v3/twain-tom-sawyer/pages/page-0002.png",
+      "inverse_render_bbox": [
+        122,
+        103,
+        624,
+        2149
+      ],
+      "inverse_render_font_path": "/nix/store/s0v7cizdm8c5d3v1z9467lw33q1ksq44-dejavu-fonts-minimal-2.37/share/fonts/truetype/DejaVuSans.ttf",
+      "inverse_render_font_size": 62,
+      "inverse_render_offset_x": 0,
+      "inverse_render_offset_y": 0,
+      "inverse_render_rotation": 0.0,
+      "inverse_render_score": 0.05194650817236256,
+      "inverse_render_text_variant": "raw",
+      "lexical_candidate_score": 289.10147903842227,
+      "ocr_input_path": "data/benchmark-corpus-v3-work-none/twain-tom-sawyer/preprocessed/scan/page-0002-body-review.png",
+      "page_apostrophe_fragment_ratio": 0.0227,
+      "page_avg_words_per_line": 2.095,
+      "page_candidate_best_alt_score_gap": 1.136,
+      "page_candidate_best_alt_text_similarity": 0.9927,
+      "page_candidate_near_best_family_count": 4,
+      "page_dense_body_line_count": 0,
+      "page_index": 2,
+      "page_layout_region_counts": {
+        "body": 17,
+        "footer": 2,
+        "header": 2
+      },
+      "page_line_count": 21,
+      "page_quality_tier": "low",
+      "page_route": "body-low-quality",
+      "page_single_char_fragment_ratio": 0.0,
+      "page_text_noise_ratio": 0.0261,
+      "page_type": "body",
+      "preprocess_mode": "scan",
+      "raw_text_score": 210.4430736618175,
+      "route_ocr_policy": "body-review",
+      "score": 305.0446608566041,
+      "selected_preprocess_mode": "scan",
+      "selection_score": 305.0446608566041,
+      "selection_strategy": "targeted-page-retry",
+      "targeted_page_retry": "applied",
+      "targeted_page_retry_base_route": "body-review",
+      "targeted_page_retry_base_selection_score": 299.8122241998243,
+      "targeted_page_retry_policy": "body-review",
+      "targeted_page_retry_reason": "body-review",
+      "targeted_page_retry_retry_selection_score": 305.0446608566041,
+      "targeted_page_retry_selected_strategy": "auto-inverse-render-tiebreak",
+      "tesseract_output_format": "hocr",
+      "tesseract_psm": 6,
+      "text_path": "data/benchmark-corpus-v3-work-none/twain-tom-sawyer/page_ocr/page-0002.txt",
+      "word_count": 44
+    },
+    {
+      "candidate_preprocess_mode": "none",
+      "character_count": 14,
+      "cleaned_text_score": 22.26113953917904,
+      "cleanup_changed_text": false,
+      "hocr_confidence_adjustment": 0.0,
+      "image_path": "data/benchmark-corpus-v3/twain-tom-sawyer/pages/page-0003.png",
+      "lexical_candidate_score": 22.26113953917904,
+      "ocr_input_path": "data/benchmark-corpus-v3/twain-tom-sawyer/pages/page-0003.png",
+      "page_apostrophe_fragment_ratio": 0.0,
+      "page_avg_words_per_line": 3.0,
+      "page_dense_body_line_count": 0,
+      "page_index": 3,
+      "page_layout_region_counts": {
+        "header": 1
+      },
+      "page_line_count": 1,
+      "page_quality_tier": "high",
+      "page_route": "body",
+      "page_single_char_fragment_ratio": 0.0,
+      "page_text_noise_ratio": 0.0,
+      "page_type": "sparse",
+      "preprocess_mode": "none",
+      "raw_text_score": 22.26113953917904,
+      "score": 22.26113953917904,
+      "selected_preprocess_mode": "none",
+      "selection_score": 22.26113953917904,
+      "selection_strategy": "text-score",
+      "tesseract_output_format": "text",
+      "tesseract_psm": 6,
+      "text_path": "data/benchmark-corpus-v3-work-none/twain-tom-sawyer/page_ocr/page-0003.txt",
+      "word_count": 3
+    }
+  ],
+  "progress": {
+    "completed_pages": 3,
+    "current_page_index": null,
+    "elapsed_seconds": 678.688,
+    "estimated_remaining_seconds": 0.0,
+    "estimated_total_seconds": 678.688,
+    "seconds_per_page": 226.229,
+    "status": "complete",
+    "total_pages": 3
+  }
+}

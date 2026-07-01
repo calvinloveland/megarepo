@@ -101,7 +101,7 @@ def get_backup_env(repo_config: dict[str, Any]) -> dict[str, str]:
 def ensure_repository(repo_config: dict[str, Any]) -> bool:
     """Initialize a restic repository if it doesn't exist."""
     env = get_backup_env(repo_config)
-    result = run_restic(["snapshots", "--limit", "1"], env=env, timeout=30)
+    result = run_restic(["snapshots"], env=env, timeout=30)
     if result.returncode == 0:
         return True
     # Try to init

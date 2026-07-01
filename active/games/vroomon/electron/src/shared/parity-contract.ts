@@ -1,4 +1,4 @@
-export type AppModeId = "menu" | "evolution" | "test-drive";
+export type AppModeId = "menu" | "world" | "evolution" | "test-drive";
 export type CapabilitySource = "python" | "godot";
 export type CapabilityStatus = "required" | "planned";
 
@@ -45,6 +45,28 @@ export interface PopulationEntry {
   score: number;
 }
 
+export interface HallOfFameEntry {
+  id: string;
+  runId: string;
+  dna: string;
+  name: string;
+  score: number;
+  terrainName: string;
+  generation: number;
+  savedAt: string;
+  notes: string;
+}
+
+export interface HallOfFame {
+  version: 1;
+  entries: HallOfFameEntry[];
+}
+
+export const EMPTY_HALL_OF_FAME: HallOfFame = {
+  version: 1,
+  entries: [],
+};
+
 export interface RunStateSnapshot {
   version: 1;
   runId: string;
@@ -72,6 +94,12 @@ export const APP_MODES: AppModeDefinition[] = [
     id: "menu",
     label: "Main Menu",
     description: "Entry screen for choosing evolution or test-drive mode.",
+  },
+  {
+    id: "world",
+    label: "Overworld",
+    description:
+      "Explore the Continent of Vroom, capture wild DNA, and challenge the Gym Leaders.",
   },
   {
     id: "evolution",
@@ -106,6 +134,50 @@ export const TERRAIN_PRESETS: TerrainPresetDefinition[] = [
     groundLength: 5000,
     groundHeight: 400,
     obstacleCount: 0,
+  },
+  {
+    name: "Sand",
+    friction: 0.35,
+    groundLength: 5000,
+    groundHeight: 400,
+    obstacleCount: 3,
+    obstacleWidth: 80,
+    obstacleHeightBase: 30,
+    obstacleHeightStep: 8,
+    colorGround: "#c2a670",
+    colorObstacle: "#a68b50",
+  },
+  {
+    name: "Hills",
+    friction: 0.9,
+    groundLength: 5000,
+    groundHeight: 400,
+    obstacleCount: 8,
+    obstacleWidth: 120,
+    obstacleHeightBase: 80,
+    obstacleHeightStep: 15,
+    colorGround: "#4a7c3f",
+    colorObstacle: "#6b5b3e",
+  },
+  {
+    name: "Rocky",
+    friction: 1.2,
+    groundLength: 5000,
+    groundHeight: 400,
+    obstacleCount: 12,
+    obstacleWidth: 60,
+    obstacleHeightBase: 40,
+    obstacleHeightStep: 12,
+    colorGround: "#5a5a5a",
+    colorObstacle: "#7a7a7a",
+  },
+  {
+    name: "Ice",
+    friction: 0.08,
+    groundLength: 5000,
+    groundHeight: 400,
+    obstacleCount: 0,
+    colorGround: "#d0e8f0",
   },
 ];
 

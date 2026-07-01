@@ -14,6 +14,7 @@ describe("parity contract", () => {
   it("freezes the required app modes from the Godot target", () => {
     expect(APP_MODES.map((mode) => mode.id)).toEqual([
       "menu",
+      "world",
       "evolution",
       "test-drive",
     ]);
@@ -23,6 +24,10 @@ describe("parity contract", () => {
     expect(TERRAIN_PRESETS.map((terrain) => terrain.name)).toEqual([
       "Grassland",
       "Flat",
+      "Sand",
+      "Hills",
+      "Rocky",
+      "Ice",
     ]);
     expect(getTerrainPreset("Grassland")).toMatchObject({
       obstacleCount: 5,

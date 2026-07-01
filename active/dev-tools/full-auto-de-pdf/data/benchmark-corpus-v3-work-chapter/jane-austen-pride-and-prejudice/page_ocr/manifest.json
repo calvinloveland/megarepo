@@ -1,0 +1,169 @@
+{
+  "pages": [
+    {
+      "candidate_preprocess_mode": "scan",
+      "character_count": 1691,
+      "cleaned_text_score": 2867.3146224780885,
+      "cleanup_changed_text": true,
+      "cleanup_span_verifier": {
+        "changes_considered": 6,
+        "changes_kept": 0,
+        "changes_reverted": 6,
+        "decisions": [
+          {
+            "accepted": false,
+            "cleaned_inverse_render_score": 0.0,
+            "cleaned_local_inverse_render_score": 0.0,
+            "cleaned_text": "\"loving",
+            "cleaned_token_count": 1,
+            "local_area_ratio": 0.011198270675016157,
+            "local_bbox": [
+              891,
+              272,
+              1226,
+              362
+            ],
+            "raw_inverse_render_score": 0.0,
+            "raw_local_inverse_render_score": 0.0,
+            "raw_text": "\u201cloving",
+            "raw_token_count": 1,
+            "reason": "insufficient-image-margin"
+          },
+          {
+            "accepted": false,
+            "cleaned_inverse_render_score": 0.0,
+            "cleaned_local_inverse_render_score": 0.0,
+            "cleaned_text": "allowance\"",
+            "cleaned_token_count": 1,
+            "local_area_ratio": 0.03553361709714082,
+            "local_bbox": [
+              441,
+              354,
+              1504,
+              444
+            ],
+            "raw_inverse_render_score": 0.0,
+            "raw_local_inverse_render_score": 0.0,
+            "raw_text": "allowance\u201d",
+            "raw_token_count": 1,
+            "reason": "insufficient-image-margin"
+          },
+          {
+            "accepted": false,
+            "cleaned_inverse_render_score": 0.0,
+            "cleaned_local_inverse_render_score": 0.0,
+            "cleaned_text": "\"loving",
+            "cleaned_token_count": 1,
+            "local_area_ratio": 0.029249214449669065,
+            "local_bbox": [
+              626,
+              354,
+              1501,
+              444
+            ],
+            "raw_inverse_render_score": 0.0,
+            "raw_local_inverse_render_score": 0.0,
+            "raw_text": "\u201cloving",
+            "raw_token_count": 1,
+            "reason": "insufficient-image-margin"
+          },
+          {
+            "accepted": false,
+            "cleaned_inverse_render_score": 0.0,
+            "cleaned_local_inverse_render_score": 0.0,
+            "cleaned_text": "love.\"",
+            "cleaned_token_count": 1,
+            "local_area_ratio": 0.0008007784933776064,
+            "local_bbox": [
+              1449,
+              363,
+              1498,
+              407
+            ],
+            "raw_inverse_render_score": 0.0,
+            "raw_local_inverse_render_score": 0.0,
+            "raw_text": "love.\u201d",
+            "raw_token_count": 1,
+            "reason": "insufficient-image-margin"
+          },
+          {
+            "accepted": false,
+            "cleaned_inverse_render_score": 0.0,
+            "cleaned_local_inverse_render_score": 0.0,
+            "cleaned_text": "\"by allowance\"",
+            "cleaned_token_count": 2,
+            "local_area_ratio": 0.032974542969417396,
+            "local_bbox": [
+              435,
+              1024,
+              1400,
+              1116
+            ],
+            "raw_inverse_render_score": 0.0,
+            "raw_local_inverse_render_score": 0.0,
+            "raw_text": "\u201cby allowance\u201d",
+            "raw_token_count": 2,
+            "reason": "insufficient-image-margin"
+          },
+          {
+            "accepted": false,
+            "cleaned_inverse_render_score": 0.0,
+            "cleaned_local_inverse_render_score": 0.0,
+            "cleaned_text": "everyone",
+            "cleaned_token_count": 1,
+            "local_area_ratio": 0.01723753704900497,
+            "local_bbox": [
+              872,
+              1618,
+              1467,
+              1696
+            ],
+            "raw_inverse_render_score": 0.0,
+            "raw_local_inverse_render_score": 0.0,
+            "raw_text": "every one",
+            "raw_token_count": 2,
+            "reason": "insufficient-image-margin"
+          }
+        ],
+        "enabled": true
+      },
+      "hocr_confidence_adjustment": 0.0,
+      "image_path": "data/benchmark-corpus-v3/jane-austen-pride-and-prejudice/pages/page-0001.png",
+      "lexical_candidate_score": 2829.163153481245,
+      "ocr_input_path": "data/benchmark-corpus-v3-work-chapter/jane-austen-pride-and-prejudice/preprocessed/scan/page-0001.png",
+      "page_apostrophe_fragment_ratio": 0.0,
+      "page_avg_words_per_line": 13.381,
+      "page_dense_body_line_count": 21,
+      "page_index": 1,
+      "page_layout_region_counts": {
+        "body": 21
+      },
+      "page_line_count": 21,
+      "page_quality_tier": "high",
+      "page_route": "body",
+      "page_single_char_fragment_ratio": 0.0,
+      "page_text_noise_ratio": 0.0064,
+      "page_type": "body",
+      "preprocess_mode": "scan",
+      "raw_text_score": 2740.1430591552785,
+      "score": 2829.163153481245,
+      "selected_preprocess_mode": "scan",
+      "selection_score": 2829.163153481245,
+      "selection_strategy": "text-score",
+      "tesseract_output_format": "text",
+      "tesseract_psm": 6,
+      "text_path": "data/benchmark-corpus-v3-work-chapter/jane-austen-pride-and-prejudice/page_ocr/page-0001.txt",
+      "word_count": 281
+    }
+  ],
+  "progress": {
+    "completed_pages": 1,
+    "current_page_index": null,
+    "elapsed_seconds": 99.583,
+    "estimated_remaining_seconds": 0.0,
+    "estimated_total_seconds": 99.583,
+    "seconds_per_page": 99.583,
+    "status": "complete",
+    "total_pages": 1
+  }
+}

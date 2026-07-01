@@ -1,0 +1,95 @@
+{
+  "pages": [
+    {
+      "candidate_preprocess_mode": "basic",
+      "character_count": 1158,
+      "cleaned_text_score": 1851.5122038273612,
+      "cleanup_changed_text": true,
+      "cleanup_span_verifier": {
+        "changes_considered": 3,
+        "changes_kept": 0,
+        "changes_reverted": 3,
+        "decisions": [
+          {
+            "accepted": false,
+            "cleaned_inverse_render_score": 0.0,
+            "cleaned_local_inverse_render_score": 0.0,
+            "cleaned_text": "I later-day",
+            "cleaned_token_count": 2,
+            "local_area_ratio": 0.08257823932728664,
+            "local_bbox": [
+              129,
+              531,
+              1493,
+              694
+            ],
+            "raw_inverse_render_score": 0.0,
+            "raw_local_inverse_render_score": 0.0,
+            "raw_text": "|later-day",
+            "raw_token_count": 1,
+            "reason": "insufficient-image-margin"
+          },
+          {
+            "accepted": false,
+            "cleaned_inverse_render_score": 0.0,
+            "cleaned_text": "I late.",
+            "cleaned_token_count": 2,
+            "raw_inverse_render_score": 0.0,
+            "raw_text": "|late.",
+            "raw_token_count": 1,
+            "reason": "no-local-image-difference"
+          },
+          {
+            "accepted": false,
+            "cleaned_inverse_render_score": 0.0,
+            "cleaned_text": "I leaving",
+            "cleaned_token_count": 2,
+            "raw_inverse_render_score": 0.0,
+            "raw_text": "|leaving",
+            "raw_token_count": 1,
+            "reason": "no-local-image-difference"
+          }
+        ],
+        "enabled": true
+      },
+      "hocr_confidence_adjustment": 0.0,
+      "image_path": "data/benchmark-corpus-v3/dracu00stok/pages/page-0001.png",
+      "lexical_candidate_score": 1800.6993683113,
+      "ocr_input_path": "data/benchmark-corpus-v3-work-basic/dracu00stok/preprocessed/basic/page-0001.png",
+      "page_apostrophe_fragment_ratio": 0.0,
+      "page_avg_words_per_line": 11.333,
+      "page_chapter_marker_count": 1,
+      "page_dense_body_line_count": 14,
+      "page_index": 1,
+      "page_layout_region_counts": {
+        "body": 18
+      },
+      "page_line_count": 18,
+      "page_quality_tier": "high",
+      "page_route": "body",
+      "page_single_char_fragment_ratio": 0.01,
+      "page_text_noise_ratio": 0.0053,
+      "page_type": "body",
+      "preprocess_mode": "basic",
+      "raw_text_score": 1682.1360854404916,
+      "score": 1800.6993683113,
+      "selected_preprocess_mode": "basic",
+      "selection_score": 1800.6993683113,
+      "selection_strategy": "text-score",
+      "tesseract_output_format": "text",
+      "tesseract_psm": 6,
+      "text_path": "data/benchmark-corpus-v3-work-basic/dracu00stok/page_ocr/page-0001.txt",
+      "word_count": 205
+    }
+  ],
+  "progress": {
+    "completed_pages": 1,
+    "current_page_index": null,
+    "elapsed_seconds": 45.833,
+    "estimated_remaining_seconds": 0.0,
+    "estimated_total_seconds": 45.833,
+    "seconds_per_page": 45.833,
+    "status": "complete",
+    "total_pages": 1
+  }
+}

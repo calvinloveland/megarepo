@@ -1,0 +1,139 @@
+{
+  "artifact_profiles": [
+    "clean"
+  ],
+  "artifact_seed": 0,
+  "book_count": 8,
+  "books": [
+    {
+      "artifact_profile": "clean",
+      "excerpt_text_path": "data/benchmark-corpus-v3/jane-austen-pride-and-prejudice/excerpt.txt",
+      "font_path": "/nix/store/s0v7cizdm8c5d3v1z9467lw33q1ksq44-dejavu-fonts-minimal-2.37/share/fonts/truetype/DejaVuSans.ttf",
+      "gutenberg_id": 1342,
+      "identifier": "jane-austen_pride-and-prejudice",
+      "page_count": 1,
+      "page_image_paths": [
+        "data/benchmark-corpus-v3/jane-austen-pride-and-prejudice/pages/page-0001.png"
+      ],
+      "pdf_path": "data/benchmark-corpus-v3/jane-austen-pride-and-prejudice/synthetic.pdf",
+      "reference_text_path": "data/benchmark-corpus-v3/jane-austen-pride-and-prejudice/reference.txt",
+      "reference_word_count": 282,
+      "title": "Pride and Prejudice"
+    },
+    {
+      "artifact_profile": "clean",
+      "excerpt_text_path": "data/benchmark-corpus-v3/in-ernet-dli-2015-461099/excerpt.txt",
+      "font_path": "/nix/store/s0v7cizdm8c5d3v1z9467lw33q1ksq44-dejavu-fonts-minimal-2.37/share/fonts/truetype/DejaVuSans.ttf",
+      "gutenberg_id": 2701,
+      "identifier": "in.ernet.dli.2015.461099",
+      "page_count": 2,
+      "page_image_paths": [
+        "data/benchmark-corpus-v3/in-ernet-dli-2015-461099/pages/page-0001.png",
+        "data/benchmark-corpus-v3/in-ernet-dli-2015-461099/pages/page-0002.png"
+      ],
+      "pdf_path": "data/benchmark-corpus-v3/in-ernet-dli-2015-461099/synthetic.pdf",
+      "reference_text_path": "data/benchmark-corpus-v3/in-ernet-dli-2015-461099/reference.txt",
+      "reference_word_count": 203,
+      "title": "Moby-Dick; or, The Whale"
+    },
+    {
+      "artifact_profile": "clean",
+      "excerpt_text_path": "data/benchmark-corpus-v3/theadventuresofsherlockholmes-english/excerpt.txt",
+      "font_path": "/nix/store/s0v7cizdm8c5d3v1z9467lw33q1ksq44-dejavu-fonts-minimal-2.37/share/fonts/truetype/DejaVuSans.ttf",
+      "gutenberg_id": 1661,
+      "identifier": "TheAdventuresOfSherlockHolmes-English",
+      "page_count": 1,
+      "page_image_paths": [
+        "data/benchmark-corpus-v3/theadventuresofsherlockholmes-english/pages/page-0001.png"
+      ],
+      "pdf_path": "data/benchmark-corpus-v3/theadventuresofsherlockholmes-english/synthetic.pdf",
+      "reference_text_path": "data/benchmark-corpus-v3/theadventuresofsherlockholmes-english/reference.txt",
+      "reference_word_count": 206,
+      "title": "The Adventures of Sherlock Holmes"
+    },
+    {
+      "artifact_profile": "clean",
+      "excerpt_text_path": "data/benchmark-corpus-v3/frankensteinormo00shel-10/excerpt.txt",
+      "font_path": "/nix/store/s0v7cizdm8c5d3v1z9467lw33q1ksq44-dejavu-fonts-minimal-2.37/share/fonts/truetype/DejaVuSans.ttf",
+      "gutenberg_id": 84,
+      "identifier": "frankensteinormo00shel_10",
+      "page_count": 1,
+      "page_image_paths": [
+        "data/benchmark-corpus-v3/frankensteinormo00shel-10/pages/page-0001.png"
+      ],
+      "pdf_path": "data/benchmark-corpus-v3/frankensteinormo00shel-10/synthetic.pdf",
+      "reference_text_path": "data/benchmark-corpus-v3/frankensteinormo00shel-10/reference.txt",
+      "reference_word_count": 384,
+      "title": "Frankenstein; or, The Modern Prometheus"
+    },
+    {
+      "artifact_profile": "clean",
+      "excerpt_text_path": "data/benchmark-corpus-v3/dracu00stok/excerpt.txt",
+      "font_path": "/nix/store/s0v7cizdm8c5d3v1z9467lw33q1ksq44-dejavu-fonts-minimal-2.37/share/fonts/truetype/DejaVuSans.ttf",
+      "gutenberg_id": 345,
+      "identifier": "dracu00stok",
+      "page_count": 1,
+      "page_image_paths": [
+        "data/benchmark-corpus-v3/dracu00stok/pages/page-0001.png"
+      ],
+      "pdf_path": "data/benchmark-corpus-v3/dracu00stok/synthetic.pdf",
+      "reference_text_path": "data/benchmark-corpus-v3/dracu00stok/reference.txt",
+      "reference_word_count": 203,
+      "title": "Dracula"
+    },
+    {
+      "artifact_profile": "clean",
+      "excerpt_text_path": "data/benchmark-corpus-v3/shakespeare-complete/excerpt.txt",
+      "font_path": "/nix/store/s0v7cizdm8c5d3v1z9467lw33q1ksq44-dejavu-fonts-minimal-2.37/share/fonts/truetype/DejaVuSans.ttf",
+      "gutenberg_id": 100,
+      "identifier": "shakespeare-complete",
+      "page_count": 1,
+      "page_image_paths": [
+        "data/benchmark-corpus-v3/shakespeare-complete/pages/page-0001.png"
+      ],
+      "pdf_path": "data/benchmark-corpus-v3/shakespeare-complete/synthetic.pdf",
+      "reference_text_path": "data/benchmark-corpus-v3/shakespeare-complete/reference.txt",
+      "reference_word_count": 221,
+      "title": "The Complete Works of Shakespeare"
+    },
+    {
+      "artifact_profile": "clean",
+      "excerpt_text_path": "data/benchmark-corpus-v3/twain-tom-sawyer/excerpt.txt",
+      "font_path": "/nix/store/s0v7cizdm8c5d3v1z9467lw33q1ksq44-dejavu-fonts-minimal-2.37/share/fonts/truetype/DejaVuSans.ttf",
+      "gutenberg_id": 74,
+      "identifier": "twain-tom-sawyer",
+      "page_count": 3,
+      "page_image_paths": [
+        "data/benchmark-corpus-v3/twain-tom-sawyer/pages/page-0001.png",
+        "data/benchmark-corpus-v3/twain-tom-sawyer/pages/page-0002.png",
+        "data/benchmark-corpus-v3/twain-tom-sawyer/pages/page-0003.png"
+      ],
+      "pdf_path": "data/benchmark-corpus-v3/twain-tom-sawyer/synthetic.pdf",
+      "reference_text_path": "data/benchmark-corpus-v3/twain-tom-sawyer/reference.txt",
+      "reference_word_count": 202,
+      "title": "The Adventures of Tom Sawyer"
+    },
+    {
+      "artifact_profile": "clean",
+      "excerpt_text_path": "data/benchmark-corpus-v3/carroll-alice-wonderland/excerpt.txt",
+      "font_path": "/nix/store/s0v7cizdm8c5d3v1z9467lw33q1ksq44-dejavu-fonts-minimal-2.37/share/fonts/truetype/DejaVuSans.ttf",
+      "gutenberg_id": 11,
+      "identifier": "carroll-alice-wonderland",
+      "page_count": 1,
+      "page_image_paths": [
+        "data/benchmark-corpus-v3/carroll-alice-wonderland/pages/page-0001.png"
+      ],
+      "pdf_path": "data/benchmark-corpus-v3/carroll-alice-wonderland/synthetic.pdf",
+      "reference_text_path": "data/benchmark-corpus-v3/carroll-alice-wonderland/reference.txt",
+      "reference_word_count": 201,
+      "title": "Alice's Adventures in Wonderland"
+    }
+  ],
+  "corpus_type": "generated-public-domain-printed-text",
+  "description": "Synthetic printed-text benchmark corpus generated from Project Gutenberg reference texts rendered into reproducible PDFs.",
+  "recommended_external_corpus": {
+    "description": "Large aligned OCR/proofread corpus described by the 2021 UIUC iConference poster; use it when you need a broader external benchmark beyond the built-in generated public-domain corpus.",
+    "name": "Gutenberg-HathiTrust Parallel Corpus",
+    "url": "https://hdl.handle.net/2142/109695"
+  }
+}

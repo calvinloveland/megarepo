@@ -1,0 +1,228 @@
+{
+  "pages": [
+    {
+      "candidate_preprocess_mode": "scan",
+      "character_count": 1246,
+      "cleaned_text_score": 1398.0875965444359,
+      "cleanup_changed_text": true,
+      "cleanup_span_verifier": {
+        "changes_considered": 11,
+        "changes_kept": 0,
+        "changes_reverted": 11,
+        "decisions": [
+          {
+            "accepted": false,
+            "cleaned_inverse_render_score": 0.0,
+            "cleaned_local_inverse_render_score": 0.0,
+            "cleaned_text": "beauty's",
+            "cleaned_token_count": 1,
+            "local_area_ratio": 0.02039533795378067,
+            "local_bbox": [
+              766,
+              273,
+              1390,
+              361
+            ],
+            "raw_inverse_render_score": 0.0,
+            "raw_local_inverse_render_score": 0.0,
+            "raw_text": "beauty\u2019s",
+            "raw_token_count": 1,
+            "reason": "insufficient-image-margin"
+          },
+          {
+            "accepted": false,
+            "cleaned_inverse_render_score": 0.0,
+            "cleaned_local_inverse_render_score": 0.0,
+            "cleaned_text": "Feed'st",
+            "cleaned_token_count": 1,
+            "local_area_ratio": 0.0203295968622557,
+            "local_bbox": [
+              668,
+              607,
+              1283,
+              696
+            ],
+            "raw_inverse_render_score": 0.0,
+            "raw_local_inverse_render_score": 0.0,
+            "raw_text": "Feed\u2019st",
+            "raw_token_count": 1,
+            "reason": "insufficient-image-margin"
+          },
+          {
+            "accepted": false,
+            "cleaned_inverse_render_score": 0.0,
+            "cleaned_local_inverse_render_score": 0.0,
+            "cleaned_text": "world's",
+            "cleaned_token_count": 1,
+            "local_area_ratio": 0.030723746276528574,
+            "local_bbox": [
+              565,
+              942,
+              1445,
+              1036
+            ],
+            "raw_inverse_render_score": 0.0,
+            "raw_local_inverse_render_score": 0.0,
+            "raw_text": "world\u2019s",
+            "raw_token_count": 1,
+            "reason": "insufficient-image-margin"
+          },
+          {
+            "accepted": false,
+            "cleaned_inverse_render_score": 0.0,
+            "cleaned_local_inverse_render_score": 0.0,
+            "cleaned_text": "mak''st",
+            "cleaned_token_count": 1,
+            "local_area_ratio": 0.03530185189312059,
+            "local_bbox": [
+              452,
+              1194,
+              1474,
+              1287
+            ],
+            "raw_inverse_render_score": 0.0,
+            "raw_local_inverse_render_score": 0.0,
+            "raw_text": "mak\u2019\u2018st",
+            "raw_token_count": 1,
+            "reason": "insufficient-image-margin"
+          },
+          {
+            "accepted": false,
+            "cleaned_inverse_render_score": 0.0,
+            "cleaned_local_inverse_render_score": 0.0,
+            "cleaned_text": "world's",
+            "cleaned_token_count": 1,
+            "local_area_ratio": 0.03182314532123994,
+            "local_bbox": [
+              293,
+              1360,
+              1245,
+              1450
+            ],
+            "raw_inverse_render_score": 0.0,
+            "raw_local_inverse_render_score": 0.0,
+            "raw_text": "world\u2019s",
+            "raw_token_count": 1,
+            "reason": "insufficient-image-margin"
+          },
+          {
+            "accepted": false,
+            "cleaned_inverse_render_score": 0.0,
+            "cleaned_local_inverse_render_score": 0.0,
+            "cleaned_text": "beauty's",
+            "cleaned_token_count": 1,
+            "local_area_ratio": 0.0019514333043626829,
+            "local_bbox": [
+              1249,
+              1705,
+              1320,
+              1779
+            ],
+            "raw_inverse_render_score": 0.0,
+            "raw_local_inverse_render_score": 0.0,
+            "raw_text": "beauty\u2019s",
+            "raw_token_count": 1,
+            "reason": "insufficient-image-margin"
+          },
+          {
+            "accepted": false,
+            "cleaned_inverse_render_score": 0.0,
+            "cleaned_local_inverse_render_score": 0.0,
+            "cleaned_text": "youth's",
+            "cleaned_token_count": 1,
+            "local_area_ratio": 0.028580660976533775,
+            "local_bbox": [
+              603,
+              1784,
+              1458,
+              1874
+            ],
+            "raw_inverse_render_score": 0.0,
+            "raw_local_inverse_render_score": 0.0,
+            "raw_text": "youth\u2019s",
+            "raw_token_count": 1,
+            "reason": "insufficient-image-margin"
+          },
+          {
+            "accepted": false,
+            "cleaned_inverse_render_score": 0.0,
+            "cleaned_text": "beauty's",
+            "cleaned_token_count": 1,
+            "raw_inverse_render_score": 0.0,
+            "raw_text": "beauty\u2019s",
+            "raw_token_count": 1,
+            "reason": "no-local-image-difference"
+          },
+          {
+            "accepted": false,
+            "cleaned_inverse_render_score": 0.0,
+            "cleaned_text": "'This",
+            "cleaned_token_count": 1,
+            "raw_inverse_render_score": 0.0,
+            "raw_text": "\u2018This",
+            "raw_token_count": 1,
+            "reason": "no-local-image-difference"
+          },
+          {
+            "accepted": false,
+            "cleaned_inverse_render_score": 0.0,
+            "cleaned_text": "excuse,'",
+            "cleaned_token_count": 1,
+            "raw_inverse_render_score": 0.0,
+            "raw_text": "excuse,\u2019",
+            "raw_token_count": 1,
+            "reason": "no-local-image-difference"
+          },
+          {
+            "accepted": false,
+            "cleaned_inverse_render_score": 0.0,
+            "cleaned_text": "feel''st",
+            "cleaned_token_count": 1,
+            "raw_inverse_render_score": 0.0,
+            "raw_text": "feel\u2019'st",
+            "raw_token_count": 1,
+            "reason": "no-local-image-difference"
+          }
+        ],
+        "enabled": true
+      },
+      "hocr_confidence_adjustment": 0.0,
+      "image_path": "data/benchmark-corpus-v3/shakespeare-complete/pages/page-0001.png",
+      "lexical_candidate_score": 1361.0218081615244,
+      "ocr_input_path": "data/benchmark-corpus-v3-work-chapter/shakespeare-complete/preprocessed/scan/page-0001.png",
+      "page_apostrophe_fragment_ratio": 0.0045,
+      "page_avg_words_per_line": 13.75,
+      "page_dense_body_line_count": 16,
+      "page_index": 1,
+      "page_layout_region_counts": {
+        "body": 16
+      },
+      "page_line_count": 16,
+      "page_quality_tier": "high",
+      "page_route": "body",
+      "page_single_char_fragment_ratio": 0.0,
+      "page_text_noise_ratio": 0.0117,
+      "page_type": "body",
+      "preprocess_mode": "scan",
+      "raw_text_score": 1274.5349686013978,
+      "score": 1361.0218081615244,
+      "selected_preprocess_mode": "scan",
+      "selection_score": 1361.0218081615244,
+      "selection_strategy": "text-score",
+      "tesseract_output_format": "text",
+      "tesseract_psm": 6,
+      "text_path": "data/benchmark-corpus-v3-work-chapter/shakespeare-complete/page_ocr/page-0001.txt",
+      "word_count": 221
+    }
+  ],
+  "progress": {
+    "completed_pages": 1,
+    "current_page_index": null,
+    "elapsed_seconds": 164.485,
+    "estimated_remaining_seconds": 0.0,
+    "estimated_total_seconds": 164.485,
+    "seconds_per_page": 164.485,
+    "status": "complete",
+    "total_pages": 1
+  }
+}

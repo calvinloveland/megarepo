@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[project]
+name = "image-vae"
+version = "0.1.0"
+description = "Extreme image compression with variational autoencoders (~1 KB/image)"
+readme = "README.md"
+authors = [
+    { name = "Megarepo" },
+]
+license = { text = "MIT" }
+requires-python = ">=3.10"
+dependencies = [
+    "torch>=2.0",
+    "torchvision>=0.15",
+    "numpy",
+    "Pillow",
+]
+
+[project.urls]
+homepage = "https://github.com/calvinloveland/megarepo/tree/main/active/dev-tools/image-vae"
+
+[tool.setuptools.packages.find]
+include = ["image_vae*"]

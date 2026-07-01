@@ -1,0 +1,142 @@
+{
+  "pages": [
+    {
+      "candidate_preprocess_mode": "basic",
+      "character_count": 2201,
+      "cleaned_text_score": 3707.438444246889,
+      "cleanup_changed_text": true,
+      "cleanup_span_verifier": {
+        "changes_considered": 5,
+        "changes_kept": 1,
+        "changes_reverted": 4,
+        "decisions": [
+          {
+            "accepted": false,
+            "cleaned_inverse_render_score": 0.0,
+            "cleaned_local_inverse_render_score": 0.0,
+            "cleaned_text": "forever",
+            "cleaned_token_count": 1,
+            "local_area_ratio": 0.021935610872165147,
+            "local_bbox": [
+              683,
+              1096,
+              1450,
+              1173
+            ],
+            "raw_inverse_render_score": 0.0,
+            "raw_local_inverse_render_score": 0.0,
+            "raw_text": "for ever",
+            "raw_token_count": 2,
+            "reason": "insufficient-image-margin"
+          },
+          {
+            "accepted": false,
+            "cleaned_inverse_render_score": 0.0,
+            "cleaned_local_inverse_render_score": 0.0,
+            "cleaned_text": "There-for",
+            "cleaned_token_count": 1,
+            "local_area_ratio": 0.010139727675885276,
+            "local_bbox": [
+              1050,
+              1228,
+              1414,
+              1303
+            ],
+            "raw_inverse_render_score": 0.0,
+            "raw_local_inverse_render_score": 0.0,
+            "raw_text": "There\u2014for",
+            "raw_token_count": 1,
+            "reason": "insufficient-image-margin"
+          },
+          {
+            "accepted": false,
+            "cleaned_inverse_render_score": 0.0,
+            "cleaned_local_inverse_render_score": 0.0,
+            "cleaned_text": "navigators-there",
+            "cleaned_token_count": 1,
+            "local_area_ratio": 0.07006774675194438,
+            "local_bbox": [
+              118,
+              1357,
+              1495,
+              1494
+            ],
+            "raw_inverse_render_score": 0.0,
+            "raw_local_inverse_render_score": 0.0,
+            "raw_text": "navigators\u2014there",
+            "raw_token_count": 1,
+            "reason": "insufficient-image-margin"
+          },
+          {
+            "accepted": true,
+            "accepted_without_image_verification": true,
+            "cleaned_inverse_render_score": 0.0,
+            "cleaned_local_inverse_render_score": 0.0,
+            "cleaned_text": "regulate",
+            "cleaned_token_count": 1,
+            "local_area_ratio": 0.001216767321106233,
+            "local_bbox": [
+              658,
+              2144,
+              710,
+              2207
+            ],
+            "raw_inverse_render_score": 0.0,
+            "raw_local_inverse_render_score": 0.0,
+            "raw_text": "requlate",
+            "raw_token_count": 1,
+            "reason": "accepted-known-word-correction"
+          },
+          {
+            "accepted": false,
+            "cleaned_inverse_render_score": 0.0,
+            "cleaned_text": "forever. I",
+            "cleaned_token_count": 2,
+            "raw_inverse_render_score": 0.0,
+            "raw_text": "for ever. |",
+            "raw_token_count": 3,
+            "reason": "no-local-image-difference"
+          }
+        ],
+        "enabled": true
+      },
+      "hocr_confidence_adjustment": 0.0,
+      "image_path": "data/benchmark-corpus-v3/frankensteinormo00shel-10/pages/page-0001.png",
+      "lexical_candidate_score": 3643.3271269444303,
+      "ocr_input_path": "data/benchmark-corpus-v3-work-basic/frankensteinormo00shel-10/preprocessed/basic/page-0001.png",
+      "page_apostrophe_fragment_ratio": 0.0,
+      "page_avg_words_per_line": 14.148,
+      "page_dense_body_line_count": 27,
+      "page_index": 1,
+      "page_layout_region_counts": {
+        "body": 27
+      },
+      "page_line_count": 27,
+      "page_quality_tier": "high",
+      "page_route": "body",
+      "page_single_char_fragment_ratio": 0.0,
+      "page_text_noise_ratio": 0.0017,
+      "page_type": "body",
+      "preprocess_mode": "basic",
+      "raw_text_score": 3493.7340532386934,
+      "score": 3643.3271269444303,
+      "selected_preprocess_mode": "basic",
+      "selection_score": 3643.3271269444303,
+      "selection_strategy": "text-score",
+      "tesseract_output_format": "text",
+      "tesseract_psm": 6,
+      "text_path": "data/benchmark-corpus-v3-work-basic/frankensteinormo00shel-10/page_ocr/page-0001.txt",
+      "word_count": 384
+    }
+  ],
+  "progress": {
+    "completed_pages": 1,
+    "current_page_index": null,
+    "elapsed_seconds": 84.867,
+    "estimated_remaining_seconds": 0.0,
+    "estimated_total_seconds": 84.867,
+    "seconds_per_page": 84.867,
+    "status": "complete",
+    "total_pages": 1
+  }
+}

@@ -97,6 +97,30 @@ UI.renderTopBar = function() {
     speedEl.textContent = `${G.speed}x`;
     speedEl.style.color = G.paused ? '#f87171' : G.speed > 1 ? '#fbbf24' : '#4ade80';
   }
+
+  const diffEl = document.getElementById('topbar-diff');
+  if (diffEl && G.difficulty) {
+    const diffLabel = DATA.difficulty[G.difficulty]?.label || G.difficulty;
+    const colors = { easy: '#4ade80', medium: '#fbbf24', hard: '#f87171', nightmare: '#ef4444' };
+    diffEl.textContent = diffLabel;
+    diffEl.style.color = colors[G.difficulty] || '#fbbf24';
+  }
+
+  const soundEl = document.getElementById('topbar-sound');
+  if (soundEl) {
+    soundEl.textContent = SOUND.enabled ? '🔊' : '🔇';
+    soundEl.style.color = SOUND.enabled ? '#4ade80' : '#f87171';
+  }
+
+  // Factory ambience management
+  if (SOUND.enabled && SOUND._ctx) {
+    const hasActiveProduction = G.company.productionLines.some(l => l.active);
+    if (hasActiveProduction && !G.paused) {
+      SOUND._startAmbience();
+    } else {
+      SOUND.stopAmbience();
+    }
+  }
 };
 
 // ---- Dashboard ----
@@ -902,40 +926,59 @@ UI.renderMarketView = function() {
     </div>
 
     <div class="card" style="margin-top:16px">
-      <div class="card-title">🏭 Competitors</div>
+      <div class="card-title">🏭 Competitors <span style="font-size:12px;color:var(--text-secondary);font-weight:400">(AI-driven — they design, produce, and compete)</span></div>
       <div class="machine-table">
         <div class="machine-table-header">
           <span>Company</span>
-          <span>Strategy</span>
           <span>Status</span>
-          <span>Est. Market Share</span>
-          <span>Est. Machines Sold</span>
+          <span>Market Share</span>
+          <span>Reputation</span>
+          <span>Last Model</span>
+          <span>Price</span>
+          <span>Production</span>
+          <span>Marketing</span>
         </div>
-        <div class="machine-table-row">
-          <span><strong>${G.company.name} (You)</strong></span>
-          <span>${G.company.marketingFocus || 'balanced'}</span>
-          <span>🟢 Active</span>
+        <div class="machine-table-row" style="color:var(--accent-cyan);font-weight:600">
+          <span>${G.company.name} (You)</span>
+          <span>🟢</span>
           <span>${playerShare}%</span>
-          <span>${G.company.totalMachinesSold.toLocaleString()}</span>
+          <span>${Math.round(G.company.reputation)}%</span>
+          <span>${G.company.models.length > 0 ? G.company.models[G.company.models.length-1].name : '—'}</span>
+          <span>${G.company.models.length > 0 ? '$'+G.company.models[G.company.models.length-1].retailPrice : '—'}</span>
+          <span>${G.company.productionLines.filter(l=>l.active).length} lines</span>
+          <span>$${G.company.marketingBudget.toLocaleString()}</span>
         </div>
-        ${G.market.competitors.filter(c => c.active).map(c => `
+        ${G.market.competitors.filter(c => c.active).map(c => {
+          const info = AI.getSummary(c);
+          const repColor = c._ai?.currentReputation > 60 ? 'var(--accent-green)' : c._ai?.currentReputation > 30 ? 'var(--accent-amber)' : 'var(--accent-red)';
+          return `
           <div class="machine-table-row">
-            <span>${c.name}</span>
-            <span style="font-size:12px">${c.description}</span>
-            <span>🟢 Active</span>
+            <span><strong>${c.name}</strong></span>
+            <span>🟢</span>
             <span>${c.marketShare.toFixed(1)}%</span>
-            <span>${Math.floor(c.machinesSold).toLocaleString()}</span>
+            <span style="color:${repColor}">${info.reputation}</span>
+            <span style="font-size:11px">${info.model}</span>
+            <span>${info.price}</span>
+            <span style="font-size:11px">${info.production}</span>
+            <span style="font-size:11px">${info.marketing}</span>
           </div>
-        `).join('')}
+        `}).join('')}
         ${G.market.competitors.filter(c => !c.active).map(c => `
           <div class="machine-table-row" style="color:#555">
             <span>${c.name}</span>
-            <span style="font-size:12px">${c.description}</span>
-            <span>⏳ Appears in ${c.startingYear}</span>
+            <span>⏳ ${c.startingYear}</span>
+            <span>—</span>
+            <span>—</span>
+            <span>—</span>
+            <span>—</span>
             <span>—</span>
             <span>—</span>
           </div>
         `).join('')}
+      </div>
+      <div style="font-size:11px;color:var(--text-muted);margin-top:6px">
+        AI competitors design machines from available components, set prices, adjust production, and compete for market share.
+        Their behaviour is influenced by their strategy and the ${(DATA.difficulty[G.difficulty] || {}).label || G.difficulty} difficulty setting.
       </div>
     </div>
   `;
@@ -1024,6 +1067,73 @@ UI.gameLoop = function() {
 
 // ---- Start Game ----
 
+// ---- Difficulty Selection ----
+
+UI.selectedDifficulty = 'medium';
+
+UI.selectDifficulty = function(diff) {
+  UI.selectedDifficulty = diff;
+  // Update visual selection
+  document.querySelectorAll('.difficulty-option').forEach(el => {
+    el.classList.toggle('selected', el.querySelector('.diff-name')?.textContent.toLowerCase().includes(diff) ||
+      el.getAttribute('onclick')?.includes(diff));
+  });
+};
+
+UI.confirmDifficulty = function() {
+  const modal = document.getElementById('difficulty-modal');
+  if (modal) modal.classList.remove('active');
+  UI._startFreshGame(UI.selectedDifficulty);
+};
+
+UI.showDifficultyPicker = function() {
+  const modal = document.getElementById('difficulty-modal');
+  if (modal) {
+    modal.classList.add('active');
+    // Default to medium selected
+    UI.selectedDifficulty = 'medium';
+  }
+};
+
+UI._startFreshGame = function(difficulty) {
+  initGame();
+  G.difficulty = difficulty;
+  // Re-apply difficulty bonuses after init
+  const diff = DATA.difficulty[difficulty] || DATA.difficulty.medium;
+  if (diff.playerBonusRep) G.company.reputation += diff.playerBonusRep;
+  if (diff.playerBonusCash) G.company.cash += diff.playerBonusCash;
+
+  // Add a default production line
+  G.company.productionLines.push({
+    id: 'line-1',
+    modelId: null,
+    speed: 1,
+    qualityControl: 0,
+    active: false,
+  });
+
+  // Initialise AI for any competitors active at start (1970)
+  for (const comp of G.market.competitors) {
+    if (comp.active) {
+      AI.initCompetitor(comp);
+    }
+  }
+
+  SIM.addEvent('info', `🚀 Washing Machine Tycoon started on ${difficulty} difficulty! Design your first machine.`);
+  UI.init();
+  UI.gameLoop();
+};
+
+// ---- Audio Init (on first user click) ----
+
+document.addEventListener('click', function _initAudio() {
+  SOUND.init();
+  SOUND.setVolume(0.3);
+  document.removeEventListener('click', _initAudio);
+}, { once: true });
+
+// ---- Start Game ----
+
 UI.startGame = function() {
   // Check for saved game
   if (hasSavedGame()) {
@@ -1037,20 +1147,8 @@ UI.startGame = function() {
     }
   }
 
-  // Fresh start
-  initGame();
-  // Add a default production line
-  G.company.productionLines.push({
-    id: 'line-1',
-    modelId: null,
-    speed: 1,
-    qualityControl: 0,
-    active: false,
-  });
-
-  SIM.addEvent('info', '🚀 Washing Machine Tycoon started! Design your first machine to begin.');
-  UI.init();
-  UI.gameLoop();
+  // Show difficulty picker for fresh start
+  UI.showDifficultyPicker();
 };
 
 // ---- Chart Drawing ----

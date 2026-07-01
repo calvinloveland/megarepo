@@ -1,0 +1,51 @@
+{
+  "pages": [
+    {
+      "candidate_preprocess_mode": "scan",
+      "character_count": 1160,
+      "cleaned_text_score": 1267.908510252247,
+      "cleanup_changed_text": true,
+      "cleanup_span_verifier": {
+        "changes_considered": 0,
+        "changes_kept": 0,
+        "changes_reverted": 0,
+        "enabled": true
+      },
+      "hocr_confidence_adjustment": 0.0,
+      "image_path": "data/benchmark-corpus-v3/shakespeare-complete/pages/page-0001.png",
+      "lexical_candidate_score": 1267.938510252247,
+      "ocr_input_path": "data/benchmark-corpus-v3-work/shakespeare-complete/preprocessed/scan/page-0001.png",
+      "page_apostrophe_fragment_ratio": 0.0049,
+      "page_avg_words_per_line": 13.6,
+      "page_dense_body_line_count": 15,
+      "page_index": 1,
+      "page_layout_region_counts": {
+        "body": 15
+      },
+      "page_line_count": 15,
+      "page_quality_tier": "high",
+      "page_route": "body",
+      "page_single_char_fragment_ratio": 0.0,
+      "page_text_noise_ratio": 0.0,
+      "page_type": "body",
+      "preprocess_mode": "scan",
+      "raw_text_score": 1268.008510252247,
+      "score": 1267.938510252247,
+      "selected_preprocess_mode": "scan",
+      "selection_score": 1267.938510252247,
+      "selection_strategy": "text-score",
+      "text_path": "data/benchmark-corpus-v3-work/shakespeare-complete/page_ocr/page-0001.txt",
+      "word_count": 205
+    }
+  ],
+  "progress": {
+    "completed_pages": 1,
+    "current_page_index": null,
+    "elapsed_seconds": 127.537,
+    "estimated_remaining_seconds": 0.0,
+    "estimated_total_seconds": 127.537,
+    "seconds_per_page": 127.537,
+    "status": "complete",
+    "total_pages": 1
+  }
+}

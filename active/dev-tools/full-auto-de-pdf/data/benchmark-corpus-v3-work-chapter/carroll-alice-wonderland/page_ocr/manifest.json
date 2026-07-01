@@ -1,0 +1,93 @@
+{
+  "pages": [
+    {
+      "candidate_preprocess_mode": "scan",
+      "character_count": 1069,
+      "cleaned_text_score": 1874.6429654688557,
+      "cleanup_changed_text": true,
+      "cleanup_span_verifier": {
+        "changes_considered": 2,
+        "changes_kept": 0,
+        "changes_reverted": 2,
+        "decisions": [
+          {
+            "accepted": false,
+            "cleaned_inverse_render_score": 0.0,
+            "cleaned_local_inverse_render_score": 0.0,
+            "cleaned_text": "\"Oh",
+            "cleaned_token_count": 1,
+            "local_area_ratio": 0.027867537271856126,
+            "local_bbox": [
+              403,
+              437,
+              1318,
+              519
+            ],
+            "raw_inverse_render_score": 0.0,
+            "raw_local_inverse_render_score": 0.0,
+            "raw_text": "\u201cOh",
+            "raw_token_count": 1,
+            "reason": "insufficient-image-margin"
+          },
+          {
+            "accepted": false,
+            "cleaned_inverse_render_score": 0.0,
+            "cleaned_local_inverse_render_score": 0.0,
+            "cleaned_text": "late!\"",
+            "cleaned_token_count": 1,
+            "local_area_ratio": 0.04240560396377926,
+            "local_bbox": [
+              272,
+              519,
+              1513,
+              611
+            ],
+            "raw_inverse_render_score": 0.0,
+            "raw_local_inverse_render_score": 0.0,
+            "raw_text": "late!\u201d",
+            "raw_token_count": 1,
+            "reason": "insufficient-image-margin"
+          }
+        ],
+        "enabled": true
+      },
+      "hocr_confidence_adjustment": 0.0,
+      "image_path": "data/benchmark-corpus-v3/carroll-alice-wonderland/pages/page-0001.png",
+      "lexical_candidate_score": 1857.3389559938707,
+      "ocr_input_path": "data/benchmark-corpus-v3-work-chapter/carroll-alice-wonderland/preprocessed/scan/page-0001.png",
+      "page_apostrophe_fragment_ratio": 0.0,
+      "page_avg_words_per_line": 14.429,
+      "page_dense_body_line_count": 14,
+      "page_index": 1,
+      "page_layout_region_counts": {
+        "body": 14
+      },
+      "page_line_count": 14,
+      "page_quality_tier": "high",
+      "page_route": "body",
+      "page_single_char_fragment_ratio": 0.0,
+      "page_text_noise_ratio": 0.0046,
+      "page_type": "body",
+      "preprocess_mode": "scan",
+      "raw_text_score": 1816.9629338855725,
+      "score": 1857.3389559938707,
+      "selected_preprocess_mode": "scan",
+      "selection_score": 1857.3389559938707,
+      "selection_strategy": "text-score",
+      "tesseract_output_format": "text",
+      "tesseract_psm": 6,
+      "text_path": "data/benchmark-corpus-v3-work-chapter/carroll-alice-wonderland/page_ocr/page-0001.txt",
+      "word_count": 202
+    }
+  ],
+  "progress": {
+    "completed_pages": 1,
+    "current_page_index": null,
+    "elapsed_seconds": 31.285,
+    "estimated_remaining_seconds": 0.0,
+    "estimated_total_seconds": 31.285,
+    "seconds_per_page": 31.285,
+    "status": "complete",
+    "total_pages": 1
+  }
+}

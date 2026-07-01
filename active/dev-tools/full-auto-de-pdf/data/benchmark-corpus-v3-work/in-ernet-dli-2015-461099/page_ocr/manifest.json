@@ -1,0 +1,125 @@
+{
+  "pages": [
+    {
+      "candidate_preprocess_mode": "scan",
+      "character_count": 769,
+      "cleaned_text_score": 940.359156508008,
+      "cleanup_changed_text": true,
+      "cleanup_span_verifier": {
+        "changes_considered": 2,
+        "changes_kept": 0,
+        "changes_reverted": 2,
+        "decisions": [
+          {
+            "accepted": false,
+            "cleaned_inverse_render_score": 0.0,
+            "cleaned_local_inverse_render_score": 0.0,
+            "cleaned_text": "Head-Contrasted",
+            "cleaned_token_count": 1,
+            "local_area_ratio": 0.01637213171989095,
+            "local_bbox": [
+              266,
+              2103,
+              846,
+              2179
+            ],
+            "raw_inverse_render_score": 0.0,
+            "raw_local_inverse_render_score": 0.0,
+            "raw_text": "Head\u2014Contrasted",
+            "raw_token_count": 1,
+            "reason": "insufficient-image-margin"
+          },
+          {
+            "accepted": false,
+            "cleaned_inverse_render_score": 0.0,
+            "cleaned_local_inverse_render_score": 0.0,
+            "cleaned_text": "Head-Contrasted",
+            "cleaned_token_count": 1,
+            "local_area_ratio": 0.016343903906580793,
+            "local_bbox": [
+              265,
+              2263,
+              844,
+              2339
+            ],
+            "raw_inverse_render_score": 0.0,
+            "raw_local_inverse_render_score": 0.0,
+            "raw_text": "Head\u2014Contrasted",
+            "raw_token_count": 1,
+            "reason": "insufficient-image-margin"
+          }
+        ],
+        "enabled": true
+      },
+      "hocr_confidence_adjustment": 0.0,
+      "image_path": "data/benchmark-corpus-v3/in-ernet-dli-2015-461099/pages/page-0001.png",
+      "lexical_candidate_score": 929.5591565080081,
+      "ocr_input_path": "data/benchmark-corpus-v3-work/in-ernet-dli-2015-461099/preprocessed/scan/page-0001.png",
+      "page_apostrophe_fragment_ratio": 0.0,
+      "page_avg_words_per_line": 5.864,
+      "page_chapter_marker_count": 20,
+      "page_dense_body_line_count": 7,
+      "page_index": 1,
+      "page_layout_region_counts": {
+        "body": 21,
+        "header": 1
+      },
+      "page_line_count": 22,
+      "page_quality_tier": "high",
+      "page_route": "body",
+      "page_single_char_fragment_ratio": 0.0,
+      "page_text_noise_ratio": 0.0031,
+      "page_type": "body",
+      "preprocess_mode": "scan",
+      "raw_text_score": 904.359156508008,
+      "score": 929.5591565080081,
+      "selected_preprocess_mode": "scan",
+      "selection_score": 929.5591565080081,
+      "selection_strategy": "text-score",
+      "text_path": "data/benchmark-corpus-v3-work/in-ernet-dli-2015-461099/page_ocr/page-0001.txt",
+      "word_count": 129
+    },
+    {
+      "candidate_preprocess_mode": "scan",
+      "character_count": 482,
+      "cleaned_text_score": 462.53611081361083,
+      "cleanup_changed_text": false,
+      "hocr_confidence_adjustment": 0.0,
+      "image_path": "data/benchmark-corpus-v3/in-ernet-dli-2015-461099/pages/page-0002.png",
+      "lexical_candidate_score": 462.53611081361083,
+      "ocr_input_path": "data/benchmark-corpus-v3-work/in-ernet-dli-2015-461099/preprocessed/scan/page-0002.png",
+      "page_apostrophe_fragment_ratio": 0.0,
+      "page_avg_words_per_line": 4.933,
+      "page_chapter_marker_count": 15,
+      "page_dense_body_line_count": 3,
+      "page_index": 2,
+      "page_layout_region_counts": {
+        "body": 15
+      },
+      "page_line_count": 15,
+      "page_quality_tier": "high",
+      "page_route": "body",
+      "page_single_char_fragment_ratio": 0.0,
+      "page_text_noise_ratio": 0.0,
+      "page_type": "body",
+      "preprocess_mode": "scan",
+      "raw_text_score": 462.53611081361083,
+      "score": 462.53611081361083,
+      "selected_preprocess_mode": "scan",
+      "selection_score": 462.53611081361083,
+      "selection_strategy": "text-score",
+      "text_path": "data/benchmark-corpus-v3-work/in-ernet-dli-2015-461099/page_ocr/page-0002.txt",
+      "word_count": 74
+    }
+  ],
+  "progress": {
+    "completed_pages": 2,
+    "current_page_index": null,
+    "elapsed_seconds": 264.041,
+    "estimated_remaining_seconds": 0.0,
+    "estimated_total_seconds": 264.041,
+    "seconds_per_page": 132.02,
+    "status": "complete",
+    "total_pages": 2
+  }
+}

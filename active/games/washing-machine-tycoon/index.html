@@ -31,8 +31,16 @@
         <span class="topbar-value" id="topbar-machines">0</span>
       </div>
       <div class="topbar-item">
+        <span class="topbar-label">Difficulty</span>
+        <span class="topbar-value" id="topbar-diff" style="color:var(--accent-amber);font-size:12px">—</span>
+      </div>
+      <div class="topbar-item">
         <span class="topbar-label">Speed</span>
         <span class="topbar-value" id="topbar-speed" onclick="var g=window.gameState;if(g&&!g.paused){if(g.speed===1){g.speed=5}else if(g.speed===5){g.speed=30}else if(g.speed===30){g.speed=1}}UI.render();">1x</span>
+      </div>
+      <div class="topbar-item">
+        <span class="topbar-label">Sound</span>
+        <span class="topbar-value" id="topbar-sound" style="cursor:pointer" onclick="SOUND.enabled=!SOUND.enabled;if(SOUND.enabled){SOUND.init();SOUND.setVolume(0.3)}else{SOUND.stopAmbience()}UI.render();">🔊</span>
       </div>
     </div>
 
@@ -78,8 +86,43 @@
   <!-- Scripts in dependency order -->
   <script src="js/data.js"></script>
   <script src="js/game.js"></script>
+  <script src="js/ai.js"></script>
+  <script src="js/sound.js"></script>
   <script src="js/simulation.js"></script>
   <script src="js/ui.js"></script>
+  <!-- Difficulty Selection Modal -->
+  <div id="difficulty-modal" class="difficulty-modal">
+    <div class="difficulty-modal-content">
+      <div class="difficulty-header">🧺 Choose Your Difficulty</div>
+      <div class="difficulty-subtitle">AI competitors will design, produce, and sell washing machines against you.</div>
+      <div class="difficulty-options">
+        <div class="difficulty-option" onclick="UI.selectDifficulty('easy')">
+          <div class="diff-name">🌱 Easy</div>
+          <div class="diff-desc">Slow AI innovation, cheaper machines, you get a head start.</div>
+          <div class="diff-stats">AI redesigns every ~9 years · Low production · You start with +10 reputation</div>
+        </div>
+        <div class="difficulty-option selected" onclick="UI.selectDifficulty('medium')">
+          <div class="diff-name">⚖️ Medium</div>
+          <div class="diff-desc">Balanced competition. AI keeps pace and responds to your moves.</div>
+          <div class="diff-stats">AI redesigns every ~6 years · Moderate production · Level playing field</div>
+        </div>
+        <div class="difficulty-option" onclick="UI.selectDifficulty('hard')">
+          <div class="diff-name">💀 Hard</div>
+          <div class="diff-desc">Sharp AI that designs great machines and prices smartly.</div>
+          <div class="diff-stats">AI redesigns every ~4 years · High production · You start with -5 reputation</div>
+        </div>
+        <div class="difficulty-option" onclick="UI.selectDifficulty('nightmare')">
+          <div class="diff-name">🔥 Nightmare</div>
+          <div class="diff-desc">AI has cost advantages, innovates constantly, aggressively undercuts you.</div>
+          <div class="diff-stats">AI redesigns every ~2 years · Very high production · You start with -$100K & -10 rep</div>
+        </div>
+      </div>
+      <div class="difficulty-footer">
+        <button class="btn btn-primary" onclick="UI.confirmDifficulty()">Start Game 🚀</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Tutorial Overlay -->
   <div id="tutorial-overlay" class="tutorial-overlay">
     <div class="tutorial-modal">

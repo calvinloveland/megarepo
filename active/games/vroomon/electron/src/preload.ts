@@ -10,10 +10,12 @@ import {
   createEmptyRunState,
   getTerrainPreset,
   VROOMON_PARITY_CONTRACT,
+  type HallOfFame,
   type RunStateSnapshot,
   type TerrainPresetDefinition,
   type VroomonParityContract,
 } from "./shared/parity-contract.js";
+import { type PersistedWorldState } from "./renderer/world/types.js";
 import {
   advanceRunState,
   evaluatePopulation,
@@ -118,7 +120,43 @@ const api = {
     ipcRenderer.invoke("vroomon:append-generation-log", entry),
   loadGenerationLog: (runId: string): Promise<GenerationLogEntry[]> =>
     ipcRenderer.invoke("vroomon:load-generation-log", runId),
+  loadHallOfFame: (): Promise<HallOfFame> =>
+    ipcRenderer.invoke("vroomon:load-hall-of-fame"),
+  saveHallOfFame: (hall: HallOfFame): Promise<string> =>
+    ipcRenderer.invoke("vroomon:save-hall-of-fame", hall),
+  loadWorldState: (): Promise<PersistedWorldState> =>
+    ipcRenderer.invoke("vroomon:load-world-state"),
+  saveWorldState: (world: PersistedWorldState): Promise<string> =>
+    ipcRenderer.invoke("vroomon:save-world-state", world),
+  runBatchGenerations: async (
+    state: RunStateSnapshot,
+    count: number,
+  ): Promise<{
+    generationResults: GenerationResult[];
+    finalState: RunStateSnapshot;
+    logEntries: GenerationLogEntry[];
+  }> => {
+    let currentState = state;
+    const generationResults: GenerationResult[] = [];
+    const logEntries: GenerationLogEntry[] = [];
+
+    for (let index = 0; index < count; index += 1) {
+      const result = runEvolutionGeneration(currentState);
+      currentState = advanceRunState(currentState, result);
+      generationResults.push(result);
+      logEntries.push(createGenerationLogEntry(currentState, result));
+    }
+
+    return { generationResults, finalState: currentState, logEntries };
+  },
 };
+
+export interface BatchState {
+  running: boolean;
+  completed: number;
+  total: number;
+  currentState: RunStateSnapshot | null;
+}
 
 declare global {
   interface Window {
@@ -169,6 +207,18 @@ declare global {
       loadRunState: () => Promise<RunStateSnapshot | null>;
       appendGenerationLog: (entry: GenerationLogEntry) => Promise<string>;
       loadGenerationLog: (runId: string) => Promise<GenerationLogEntry[]>;
+      loadHallOfFame: () => Promise<HallOfFame>;
+      saveHallOfFame: (hall: HallOfFame) => Promise<string>;
+      loadWorldState: () => Promise<PersistedWorldState>;
+      saveWorldState: (world: PersistedWorldState) => Promise<string>;
+      runBatchGenerations: (
+        state: RunStateSnapshot,
+        count: number,
+      ) => Promise<{
+        generationResults: GenerationResult[];
+        finalState: RunStateSnapshot;
+        logEntries: GenerationLogEntry[];
+      }>;
     };
   }
 }

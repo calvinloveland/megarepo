@@ -1,0 +1,129 @@
+{
+  "pages": [
+    {
+      "candidate_preprocess_mode": "scan",
+      "character_count": 2034,
+      "cleaned_text_score": 3461.504870729802,
+      "cleanup_changed_text": true,
+      "cleanup_span_verifier": {
+        "changes_considered": 4,
+        "changes_kept": 0,
+        "changes_reverted": 4,
+        "decisions": [
+          {
+            "accepted": false,
+            "cleaned_inverse_render_score": 0.0,
+            "cleaned_local_inverse_render_score": 0.0,
+            "cleaned_text": "forever",
+            "cleaned_token_count": 1,
+            "local_area_ratio": 0.020436936836553534,
+            "local_bbox": [
+              735,
+              886,
+              1459,
+              962
+            ],
+            "raw_inverse_render_score": 0.0,
+            "raw_local_inverse_render_score": 0.0,
+            "raw_text": "for ever",
+            "raw_token_count": 2,
+            "reason": "insufficient-image-margin"
+          },
+          {
+            "accepted": false,
+            "cleaned_inverse_render_score": 0.0,
+            "cleaned_local_inverse_render_score": 0.0,
+            "cleaned_text": "There-for",
+            "cleaned_token_count": 1,
+            "local_area_ratio": 0.07467073741448087,
+            "local_bbox": [
+              121,
+              1028,
+              1498,
+              1174
+            ],
+            "raw_inverse_render_score": 0.0,
+            "raw_local_inverse_render_score": 0.0,
+            "raw_text": "There\u2014for",
+            "raw_token_count": 1,
+            "reason": "insufficient-image-margin"
+          },
+          {
+            "accepted": false,
+            "cleaned_inverse_render_score": 0.0,
+            "cleaned_local_inverse_render_score": 0.0,
+            "cleaned_text": "navigators-there",
+            "cleaned_token_count": 1,
+            "local_area_ratio": 0.012236014232760606,
+            "local_bbox": [
+              1048,
+              1168,
+              1512,
+              1239
+            ],
+            "raw_inverse_render_score": 0.0,
+            "raw_local_inverse_render_score": 0.0,
+            "raw_text": "navigators\u2014there",
+            "raw_token_count": 1,
+            "reason": "insufficient-image-margin"
+          },
+          {
+            "accepted": false,
+            "cleaned_inverse_render_score": 0.0,
+            "cleaned_local_inverse_render_score": 0.0,
+            "cleaned_text": "forever.",
+            "cleaned_token_count": 1,
+            "local_area_ratio": 0.014134706096464838,
+            "local_bbox": [
+              467,
+              2214,
+              1003,
+              2285
+            ],
+            "raw_inverse_render_score": 0.0,
+            "raw_local_inverse_render_score": 0.0,
+            "raw_text": "for ever.",
+            "raw_token_count": 2,
+            "reason": "insufficient-image-margin"
+          }
+        ],
+        "enabled": true
+      },
+      "hocr_confidence_adjustment": 0.0,
+      "image_path": "data/benchmark-corpus-v3/frankensteinormo00shel-10/pages/page-0001.png",
+      "lexical_candidate_score": 3459.226014447862,
+      "ocr_input_path": "data/benchmark-corpus-v3-work/frankensteinormo00shel-10/preprocessed/scan/page-0001.png",
+      "page_apostrophe_fragment_ratio": 0.0,
+      "page_avg_words_per_line": 14.04,
+      "page_dense_body_line_count": 25,
+      "page_index": 1,
+      "page_layout_region_counts": {
+        "body": 25
+      },
+      "page_line_count": 25,
+      "page_quality_tier": "high",
+      "page_route": "body",
+      "page_single_char_fragment_ratio": 0.0,
+      "page_text_noise_ratio": 0.0012,
+      "page_type": "body",
+      "preprocess_mode": "scan",
+      "raw_text_score": 3453.9086831233367,
+      "score": 3459.226014447862,
+      "selected_preprocess_mode": "scan",
+      "selection_score": 3459.226014447862,
+      "selection_strategy": "text-score",
+      "text_path": "data/benchmark-corpus-v3-work/frankensteinormo00shel-10/page_ocr/page-0001.txt",
+      "word_count": 351
+    }
+  ],
+  "progress": {
+    "completed_pages": 1,
+    "current_page_index": null,
+    "elapsed_seconds": 210.949,
+    "estimated_remaining_seconds": 0.0,
+    "estimated_total_seconds": 210.949,
+    "seconds_per_page": 210.949,
+    "status": "complete",
+    "total_pages": 1
+  }
+}

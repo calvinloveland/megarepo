@@ -7,6 +7,7 @@ window.gameState = G; // Mirror for HTML onclick handlers
 
 function initGame() {
   G = window.gameState = {
+    difficulty: 'medium', // 'easy','medium','hard','nightmare'
     year: 1970,
     day: 0,          // 0–364
     tickCount: 0,
@@ -72,6 +73,7 @@ function initGame() {
         machinesSold: 0,
         reputation: 40,
         marketShare: 0,
+        _ai: null,  // populated by AI.initCompetitor when activated
       })),
       activeRegulations: [],  // regulations that have taken effect
     },
@@ -98,6 +100,11 @@ function initGame() {
   // Track per-year financials via deltas from previous year-end
   G._lastYearRevenue = 0;
   G._lastYearExpenses = 0;
+
+  // Apply difficulty bonuses/penalties to player
+  const _diff = DATA.difficulty[G.difficulty] || DATA.difficulty.medium;
+  if (_diff.playerBonusRep) G.company.reputation += _diff.playerBonusRep;
+  if (_diff.playerBonusCash) G.company.cash += _diff.playerBonusCash;
   return G;
 }
 
