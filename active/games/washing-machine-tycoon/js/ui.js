@@ -1,0 +1,1199 @@
+// ui.js — All UI rendering and interaction handlers
+// ====================================================================
+// Depends on: data.js, game.js, simulation.js
+
+const UI = {
+  currentScreen: 'dashboard',
+  selectedModelId: null,
+  selectedMachineSerial: null,
+  selectedClaimId: null,
+  designForm: {},
+  factoryForm: {},
+  message: '',
+  messageTimer: 0,
+};
+
+// ---- Initialization ----
+
+UI.init = function() {
+  UI.setupNavigation();
+  UI.render();
+  UI.showScreen('dashboard');
+};
+
+UI.setupNavigation = function() {
+  document.querySelectorAll('[data-screen]').forEach(el => {
+    el.addEventListener('click', (e) => {
+      const screen = el.dataset.screen;
+      UI.showScreen(screen);
+    });
+  });
+};
+
+UI.showScreen = function(screenId) {
+  UI.currentScreen = screenId;
+  // Update nav active state
+  document.querySelectorAll('.nav-item').forEach(el => {
+    el.classList.toggle('active', el.dataset.screen === screenId);
+  });
+  // Show/hide screens
+  document.querySelectorAll('.screen').forEach(el => {
+    el.classList.toggle('active', el.id === `screen-${screenId}`);
+  });
+  UI.render();
+  // Dismiss tutorial if open
+  UI.dismissTutorial();
+};
+
+UI.showMessage = function(msg, duration = 3000) {
+  UI.message = msg;
+  UI.messageTimer = Date.now() + duration;
+};
+
+// ---- Main Render ----
+
+UI.render = function() {
+  if (!G) return;
+
+  UI.renderTopBar();
+  UI.renderDashboard();
+  UI.renderDesignStudio();
+  UI.renderFactoryView();
+  UI.renderMachineBrowser();
+  UI.renderServiceDept();
+  UI.renderMarketView();
+  UI.renderResearchView();
+
+  // Show message if active
+  if (UI.message && Date.now() < UI.messageTimer) {
+    const el = document.getElementById('message-toast');
+    if (el) { el.textContent = UI.message; el.style.display = 'block'; }
+  } else {
+    const el = document.getElementById('message-toast');
+    if (el) el.style.display = 'none';
+  }
+};
+
+// ---- Top Bar ----
+
+UI.renderTopBar = function() {
+  const dateEl = document.getElementById('topbar-date');
+  const cashEl = document.getElementById('topbar-cash');
+  const repEl = document.getElementById('topbar-rep');
+  const machinesEl = document.getElementById('topbar-machines');
+  const speedEl = document.getElementById('topbar-speed');
+
+  if (dateEl) dateEl.textContent = formatDate(G.year, G.day);
+  if (cashEl) {
+    const color = G.company.cash >= 0 ? '#4ade80' : '#f87171';
+    cashEl.innerHTML = `<span style="color:${color}">$${Math.floor(G.company.cash).toLocaleString()}</span>`;
+  }
+  if (repEl) {
+    const tier = getReputationTier(G.company.reputation);
+    repEl.innerHTML = `<span style="color:${tier.color}">${tier.label} (${Math.floor(G.company.reputation)}%)</span>`;
+  }
+  if (machinesEl) machinesEl.textContent = G.company.totalMachinesSold.toLocaleString();
+  if (speedEl) {
+    speedEl.textContent = `${G.speed}x`;
+    speedEl.style.color = G.paused ? '#f87171' : G.speed > 1 ? '#fbbf24' : '#4ade80';
+  }
+};
+
+// ---- Dashboard ----
+
+UI.renderDashboard = function() {
+  const el = document.getElementById('screen-dashboard');
+  if (!el) return;
+
+  // Key metrics
+  const html = `
+    <div class="dash-grid">
+      <div class="card metric-card">
+        <div class="metric-label">Cash</div>
+        <div class="metric-value ${G.company.cash >= 0 ? 'positive' : 'negative'}">$${Math.floor(G.company.cash).toLocaleString()}</div>
+      </div>
+      <div class="card metric-card">
+        <div class="metric-label">Revenue (Total)</div>
+        <div class="metric-value">$${Math.floor(G.company.totalRevenue).toLocaleString()}</div>
+      </div>
+      <div class="card metric-card">
+        <div class="metric-label">Expenses (Total)</div>
+        <div class="metric-value">$${Math.floor(G.company.totalExpenses).toLocaleString()}</div>
+      </div>
+      <div class="card metric-card">
+        <div class="metric-label">Profit (Total)</div>
+        <div class="metric-value ${G.company.totalRevenue - G.company.totalExpenses >= 0 ? 'positive' : 'negative'}">$${Math.floor(G.company.totalRevenue - G.company.totalExpenses).toLocaleString()}</div>
+      </div>
+      <div class="card metric-card">
+        <div class="metric-label">Machines Sold</div>
+        <div class="metric-value">${G.company.totalMachinesSold.toLocaleString()}</div>
+      </div>
+      <div class="card metric-card">
+        <div class="metric-label">Active Machines</div>
+        <div class="metric-value">${G.company.activeMachines.filter(m => m.currentStatus !== 'disposed').length.toLocaleString()}</div>
+      </div>
+      <div class="card metric-card">
+        <div class="metric-label">Market Share</div>
+        <div class="metric-value">${UI.calcMarketShare()}%</div>
+      </div>
+      <div class="card metric-card">
+        <div class="metric-label">Customer Satisfaction</div>
+        <div class="metric-value">${(G.company.customerSatisfactionAvg * 100).toFixed(1)}%</div>
+      </div>
+      <div class="card metric-card">
+        <div class="metric-label">Pending Claims</div>
+        <div class="metric-value warning">${G.company.pendingClaims.length}</div>
+      </div>
+      <div class="card metric-card">
+        <div class="metric-label">Warranty Cost (Total)</div>
+        <div class="metric-value">$${Math.floor(G.company.totalWarrantyCost).toLocaleString()}</div>
+      </div>
+      <div class="card metric-card">
+        <div class="metric-label">Technicians</div>
+        <div class="metric-value">${G.company.technicians}</div>
+      </div>
+      <div class="card metric-card">
+        <div class="metric-label">Production Lines</div>
+        <div class="metric-value">${G.company.productionLines.filter(l => l.active).length} / ${DATA.defaults.maxProductionLines}</div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:16px">
+      <div class="card-title">Company Overview</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:8px">
+        <div><strong>Name:</strong> ${G.company.name}</div>
+        <div><strong>Year:</strong> ${G.year}</div>
+        <div><strong>Research Level:</strong> ${G.company.researchLevel.toFixed(1)}</div>
+        <div><strong>Models:</strong> ${G.company.models.length} designed</div>
+        <div><strong>Production Queue:</strong> ${Math.floor(G.company.productionQueue)} units</div>
+        <div><strong>Marketing Budget:</strong> $${G.company.marketingBudget}/mo</div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:16px">
+      <div class="card-title">Recent Events</div>
+      <div class="event-log">
+        ${G.customerEvents.slice(-8).reverse().map(e => `
+          <div class="event-item event-${e.level}">
+            <span class="event-date">${formatDate(e.year, e.day)}</span>
+            <span class="event-msg">${e.message}</span>
+          </div>
+        `).join('')}
+        ${G.customerEvents.length === 0 ? '<div class="event-item" style="color:#666">No events yet. Start by designing a machine!</div>' : ''}
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:16px">
+      <div class="card-title">Quick Actions</div>
+      <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+        <button class="btn btn-primary" onclick="UI.showScreen('design')">Design a Machine</button>
+        <button class="btn btn-secondary" onclick="UI.showScreen('factory')">Manage Factory</button>
+        <button class="btn btn-secondary" onclick="UI.showScreen('service')">Service Dept</button>
+        <button class="btn btn-accent" onclick="var g=window.gameState;if(g.speed===1){g.speed=5;g.paused=false}else if(g.speed===5){g.speed=30}else if(g.speed===30){g.speed=1} UI.render();">Toggle Speed</button>
+        <button class="btn ${G.paused?'btn-primary':'btn-secondary'}" onclick="var g=window.gameState;g.paused=!g.paused;UI.render();">${G.paused?'▶ Resume':'⏸ Pause'}</button>
+        <button class="btn btn-secondary" onclick="saveGame();UI.showMessage('✅ Game saved!');UI.render();">💾 Save</button>
+        <button class="btn btn-secondary" onclick="if(loadGame()){UI.showMessage('📂 Game loaded!');UI.render();}else{UI.showMessage('No saved game found.');}">📂 Load</button>
+      </div>
+    </div>
+
+    <!-- Charts Section -->
+    <div class="card" style="margin-top:16px">
+      <div class="card-title">📈 Trends</div>
+      <div class="charts-grid">
+        <div class="chart-container">
+          <canvas id="chart-reputation" width="320" height="160"></canvas>
+          <div class="chart-label">Reputation</div>
+        </div>
+        <div class="chart-container">
+          <canvas id="chart-financial" width="320" height="160"></canvas>
+          <div class="chart-label">Revenue vs Expenses</div>
+        </div>
+        <div class="chart-container">
+          <canvas id="chart-market" width="320" height="160"></canvas>
+          <div class="chart-label">Market Share</div>
+        </div>
+        <div class="chart-container">
+          <canvas id="chart-sales" width="320" height="160"></canvas>
+          <div class="chart-label">Units Sold per Year</div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  // Draw charts after DOM update
+  setTimeout(() => UI.drawCharts(), 50);
+
+  el.innerHTML = html;
+};
+
+UI.calcMarketShare = function() {
+  const total = G.company.totalMachinesSold +
+    G.market.competitors.filter(c => c.active).reduce((s, c) => s + c.machinesSold, 0);
+  return total > 0 ? ((G.company.totalMachinesSold / total) * 100).toFixed(1) : '0.0';
+};
+
+// ---- Design Studio ----
+
+UI.renderDesignStudio = function() {
+  const el = document.getElementById('screen-design');
+  if (!el) return;
+
+  const models = G.company.models;
+
+  let html = `
+    <div class="design-layout">
+      <div class="design-sidebar">
+        <div class="card">
+          <div class="card-title">Your Models</div>
+          <div style="margin-top:8px">
+            ${models.length === 0 ? '<div style="color:#666">No models designed yet.</div>' :
+              models.map(m => {
+                const isSelected = UI.selectedModelId === m.id;
+                const sales = G.company.activeMachines.filter(mach => mach.modelId === m.id).length;
+                return `
+                  <div class="model-list-item ${isSelected ? 'selected' : ''}" onclick="UI.selectedModelId='${m.id}';UI.render();">
+                    <div><strong>${m.name}</strong> <span class="badge">${m.yearIntroduced}</span></div>
+                    <div style="font-size:11px;color:#888">Cost: $${m.productionCost.toFixed(0)} | Price: $${m.retailPrice} | Sold: ${sales}</div>
+                  </div>
+                `;
+              }).join('')}
+          </div>
+        </div>
+      </div>
+      <div class="design-main">
+        ${UI.selectedModelId ? UI.renderModelDetail(models.find(m => m.id === UI.selectedModelId)) : UI.renderNewModelForm()}
+      </div>
+    </div>
+  `;
+
+  el.innerHTML = html;
+};
+
+UI.renderModelDetail = function(model) {
+  if (!model) return '<div class="card"><div class="card-title">Model not found</div></div>';
+
+  const failureCount = G.company.activeMachines.filter(m =>
+    m.modelId === model.id && m.failures.length > 0
+  ).length;
+  const activeCount = G.company.activeMachines.filter(m =>
+    m.modelId === model.id && m.currentStatus !== 'disposed'
+  ).length;
+
+  let compHtml = '';
+  for (const [key, val] of Object.entries(model.components)) {
+    const compDef = DATA.components[key];
+    if (!compDef) continue;
+    const opt = compDef.options.find(o => o.id === val);
+    compHtml += `<div><span class="comp-key">${compDef.label}:</span> ${opt ? opt.name : val}</div>`;
+  }
+
+  return `
+    <div class="card">
+      <div class="card-title" style="display:flex;justify-content:space-between;align-items:center">
+        <span>${model.name} (${model.yearIntroduced})</span>
+        <span>
+          <button class="btn btn-sm btn-secondary" onclick="UI.selectedModelId=null;UI.render();">← Back</button>
+          <button class="btn btn-sm btn-danger" onclick="UI.cloneModel('${model.id}')">Clone</button>
+        </span>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px">
+        <div>
+          <div class="stat-label">Production Cost</div>
+          <div class="stat-value">$${model.productionCost.toFixed(0)}</div>
+        </div>
+        <div>
+          <div class="stat-label">Retail Price</div>
+          <div class="stat-value">$${model.retailPrice}</div>
+        </div>
+        <div>
+          <div class="stat-label">Quality Rating</div>
+          <div class="stat-value">${(model.qualityRating * 100).toFixed(0)}%</div>
+        </div>
+        <div>
+          <div class="stat-label">Warranty</div>
+          <div class="stat-value">${model.warrantyYears} years</div>
+        </div>
+        <div>
+          <div class="stat-label">Active Units</div>
+          <div class="stat-value">${activeCount}</div>
+        </div>
+        <div>
+          <div class="stat-label">Failed Units</div>
+          <div class="stat-value warning">${failureCount}</div>
+        </div>
+        <div>
+          <div class="stat-label">Noise Level</div>
+          <div class="stat-value">${(computeModelNoise(model.components) * 100).toFixed(0)}%</div>
+        </div>
+        <div>
+          <div class="stat-label">Energy Efficiency</div>
+          <div class="stat-value">${(computeModelEnergyEfficiency(model.components) * 100).toFixed(0)}%</div>
+        </div>
+      </div>
+      <div style="margin-top:12px;border-top:1px solid #333;padding-top:12px">
+        <div class="card-subtitle">Components</div>
+        ${compHtml}
+      </div>
+    </div>
+  `;
+};
+
+UI.renderNewModelForm = function() {
+  let html = `
+    <div class="card">
+      <div class="card-title">Design New Washing Machine</div>
+      <div style="margin-top:12px">
+        <div class="form-group">
+          <label>Model Name</label>
+          <input type="text" id="design-name" class="form-input" value="Series ${G.company.models.length + 1}" placeholder="e.g., Cascade X200">
+        </div>
+      </div>
+  `;
+
+  // Component selectors — pick best available option for the current year
+  const componentKeys = ['drum', 'motor', 'pump', 'bearings', 'suspension', 'controlBoard', 'exterior'];
+  // Default picks per component (best value-for-money that's usually available)
+  const defaultPicks = {
+    drum: 'stainless', motor: 'brushed', pump: 'standard',
+    bearings: 'standard', suspension: 'standard',
+    controlBoard: 'mechanical', exterior: 'metalKnobs'
+  };
+  for (const key of componentKeys) {
+    const compDef = DATA.components[key];
+    if (!compDef) continue;
+    const options = getAvailableComponentOptions(key, G.year);
+    const defaultPick = options.find(o => o.id === defaultPicks[key]) || options[0];
+    html += `
+      <div class="form-group">
+        <label>${compDef.label}</label>
+        <select id="design-${key}" class="form-select" onchange="UI.updateDesignCost()">
+          ${options.map(o => `
+            <option value="${o.id}" ${o.id === (defaultPick ? defaultPick.id : options[0]?.id) ? 'selected' : ''}
+              data-cost="${o.cost}">
+              ${o.name} — $${o.cost} ${o.durability ? '| Durability: ' + (o.durability * 100).toFixed(0) + '%' : ''}${o.noise !== undefined ? ' | Noise: ' + (o.noise * 100).toFixed(0) + '%' : ''}
+            </option>
+          `).join('')}
+        </select>
+        <div class="comp-description" id="desc-${key}">
+          ${defaultPick ? defaultPick.description : ''}
+        </div>
+      </div>
+    `;
+  }
+
+  html += `
+      <div class="form-row">
+        <div class="form-group">
+          <label>Retail Price ($)</label>
+          <input type="number" id="design-price" class="form-input" value="499" min="100" max="5000">
+        </div>
+        <div class="form-group">
+          <label>Warranty (years)</label>
+          <input type="number" id="design-warranty" class="form-input" value="2" min="0" max="20">
+        </div>
+      </div>
+      <div class="form-group">
+        <div id="design-cost-display" class="cost-display">Estimated Production Cost: $<span id="design-cost-value">0</span></div>
+      </div>
+      <button class="btn btn-primary" onclick="UI.submitDesign()">💾 Create Model</button>
+    </div>
+  `;
+
+  return html;
+};
+
+UI.updateDesignCost = function() {
+  const components = {};
+  let totalCost = 30; // base
+  for (const key of Object.keys(DATA.components)) {
+    const sel = document.getElementById(`design-${key}`);
+    if (sel) {
+      const val = sel.value;
+      components[key] = val;
+      const opt = DATA.components[key].options.find(o => o.id === val);
+      if (opt) totalCost += opt.cost;
+    }
+  }
+  const costEl = document.getElementById('design-cost-value');
+  if (costEl) costEl.textContent = totalCost;
+
+  // Update descriptions
+  for (const key of Object.keys(DATA.components)) {
+    const sel = document.getElementById(`design-${key}`);
+    const desc = document.getElementById(`desc-${key}`);
+    if (sel && desc) {
+      const opt = DATA.components[key].options.find(o => o.id === sel.value);
+      desc.textContent = opt ? opt.description : '';
+    }
+  }
+};
+
+UI.submitDesign = function() {
+  const name = document.getElementById('design-name')?.value?.trim() || `Series ${G.company.models.length + 1}`;
+  const price = parseInt(document.getElementById('design-price')?.value) || 499;
+  const warranty = parseInt(document.getElementById('design-warranty')?.value) || 2;
+
+  const components = {};
+  for (const key of Object.keys(DATA.components)) {
+    const sel = document.getElementById(`design-${key}`);
+    if (sel) components[key] = sel.value;
+  }
+
+  const model = companyAddModel({
+    name: name,
+    components: components,
+    retailPrice: price,
+    warrantyYears: warranty,
+  });
+
+  UI.selectedModelId = model.id;
+  SIM.addEvent('info', `🏭 New model designed: ${model.name} (est. cost: $${model.productionCost.toFixed(0)}, price: $${price})`);
+  UI.showMessage(`✅ ${model.name} designed!`);
+  UI.render();
+};
+
+UI.cloneModel = function(modelId) {
+  const original = G.company.models.find(m => m.id === modelId);
+  if (!original) return;
+  const model = companyAddModel({
+    name: `${original.name} Rev.2`,
+    components: { ...original.components },
+    retailPrice: original.retailPrice,
+    warrantyYears: original.warrantyYears,
+  });
+  UI.selectedModelId = model.id;
+  UI.showMessage(`📋 Cloned ${original.name} as ${model.name}`);
+  UI.render();
+};
+
+// ---- Factory View ----
+
+UI.renderFactoryView = function() {
+  const el = document.getElementById('screen-factory');
+  if (!el) return;
+
+  const lines = G.company.productionLines;
+  const models = G.company.models;
+
+  let html = `
+    <div class="card">
+      <div class="card-title">Production Lines</div>
+      <div style="margin-top:8px;margin-bottom:12px">
+        Max lines: ${DATA.defaults.maxProductionLines} | Active: ${lines.filter(l => l.active).length}
+        ${lines.length < DATA.defaults.maxProductionLines ? `
+          <button class="btn btn-sm btn-primary" onclick="UI.addProductionLine()" style="margin-left:12px">+ Add Line</button>
+        ` : ''}
+      </div>
+  `;
+
+  if (lines.length === 0) {
+    html += '<div style="color:#666;padding:12px 0">No production lines. Add one to start manufacturing.</div>';
+  }
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const model = models.find(m => m.id === line.modelId);
+    html += `
+      <div class="production-line ${line.active ? 'active' : 'inactive'}">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <strong>Line ${i + 1}</strong>
+            ${line.active ? '🟢 Active' : '🔴 Inactive'}
+            ${model ? `— Producing: <strong>${model.name}</strong>` : '— No model assigned'}
+          </div>
+          <div>
+            <button class="btn btn-sm ${line.active ? 'btn-secondary' : 'btn-primary'}" onclick="UI.toggleLine(${i})">
+              ${line.active ? 'Stop' : 'Start'}
+            </button>
+            <button class="btn btn-sm btn-danger" onclick="UI.removeLine(${i})">✕</button>
+          </div>
+        </div>
+        <div class="line-controls" style="margin-top:8px;display:${line.active ? 'grid' : 'none'};grid-template-columns:1fr 1fr 1fr;gap:8px">
+          <div>
+            <label style="font-size:11px;color:#888">Production Speed</label>
+            <input type="range" min="0.5" max="5" step="0.5" value="${line.speed || 1}"
+              oninput="window.gameState.company.productionLines[${i}].speed=parseFloat(this.value);UI.render();">
+            <span style="font-size:11px">${line.speed || 1}x</span>
+          </div>
+          <div>
+            <label style="font-size:11px;color:#888">Quality Control</label>
+            <input type="range" min="0" max="1" step="0.05" value="${line.qualityControl || 0}"
+              oninput="window.gameState.company.productionLines[${i}].qualityControl=parseFloat(this.value);UI.render();">
+            <span style="font-size:11px">${((line.qualityControl || 0) * 100).toFixed(0)}%</span>
+          </div>
+          <div>
+            <label style="font-size:11px;color:#888">Model</label>
+            <select onchange="window.gameState.company.productionLines[${i}].modelId=this.value;UI.render();" class="form-select" style="font-size:12px">
+              <option value="">— Select —</option>
+              ${models.filter(m => m.isActive).map(m =>
+                `<option value="${m.id}" ${line.modelId === m.id ? 'selected' : ''}>${m.name}</option>`
+              ).join('')}
+            </select>
+          </div>
+        </div>
+        ${line.active ? `
+          <div style="margin-top:6px;font-size:11px;color:#888">
+            Daily output: ~${Math.max(0.5, (line.speed || 1) * (1 - (line.qualityControl || 0) * 0.3)).toFixed(1)} units
+            ${(line.qualityControl || 0) > 0 ? `| Defect rate: ${(0.05 * (1 - (line.qualityControl || 0) * 0.8) * 100).toFixed(1)}%` : ''}
+          </div>
+        ` : ''}
+      </div>
+    `;
+  }
+
+  html += '</div>';
+
+  // Component Sourcing Panel (my addition)
+  html += `
+    <div class="card" style="margin-top:16px">
+      <div class="card-title">🔗 Component Sourcing & Supply Chain</div>
+      <div style="font-size:12px;color:#888;margin-bottom:8px">Choose suppliers for each component. Better quality costs more but reduces failures.</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        ${Object.keys(DATA.components).map(key => {
+          const compDef = DATA.components[key];
+          const current = G.company.suppliers[key] || 'nationalSupplier';
+          const availableSuppliers = DATA.suppliers.filter(s =>
+            (s.minYear || 0) <= G.year && (!s.maxYear || s.maxYear >= G.year)
+          );
+          return `
+            <div class="form-group" style="margin:0">
+              <label style="font-size:12px">${compDef.label}</label>
+              <select class="form-select" onchange="window.gameState.company.suppliers['${key}']=this.value;UI.render();">
+                ${availableSuppliers.map(s => `
+                  <option value="${s.id}" ${current === s.id ? 'selected' : ''}>
+                    ${s.name} — ${s.costMultiplier < 1 ? '+' : ''}${((1 - s.costMultiplier) * 100).toFixed(0)}% cost | ${(s.qualityMultiplier * 100).toFixed(0)}% quality
+                  </option>
+                `).join('')}
+              </select>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    </div>
+  `;
+
+  // Production Queue
+  html += `
+    <div class="card" style="margin-top:16px">
+      <div class="card-title">Production Queue</div>
+      <div style="font-size:24px;font-weight:bold">${Math.floor(G.company.productionQueue).toLocaleString()} units</div>
+      <div style="font-size:12px;color:#888">Waiting to be sold</div>
+    </div>
+  `;
+
+  el.innerHTML = html;
+};
+
+UI.addProductionLine = function() {
+  if (G.company.productionLines.length >= DATA.defaults.maxProductionLines) return;
+  G.company.productionLines.push({
+    id: `line-${G.company.productionLines.length + 1}`,
+    modelId: G.company.models.length > 0 ? G.company.models[0].id : null,
+    speed: 1,
+    qualityControl: 0,
+    active: true,
+  });
+  const cost = 50000; // setup cost
+  G.company.cash -= cost;
+  G.company.totalExpenses += cost;
+  UI.showMessage(`🏭 Production line added ($${cost.toLocaleString()})`);
+  UI.render();
+};
+
+UI.toggleLine = function(index) {
+  const line = G.company.productionLines[index];
+  if (line) line.active = !line.active;
+  UI.render();
+};
+
+UI.removeLine = function(index) {
+  G.company.productionLines.splice(index, 1);
+  UI.render();
+};
+
+// ---- Machine Browser ----
+
+UI.renderMachineBrowser = function() {
+  const el = document.getElementById('screen-machines');
+  if (!el) return;
+
+  const machines = G.company.activeMachines;
+  const total = machines.length;
+  const active = machines.filter(m => m.currentStatus === 'active').length;
+  const broken = machines.filter(m => m.currentStatus === 'broken').length;
+
+  let html = `
+    <div class="card">
+      <div class="card-title">Machine Fleet — ${total.toLocaleString()} total</div>
+      <div style="display:flex;gap:16px;margin:8px 0;font-size:13px">
+        <span>🟢 Active: <strong>${active.toLocaleString()}</strong></span>
+        <span>🔴 Broken: <strong>${broken.toLocaleString()}</strong></span>
+        <span>⚫ Disposed: <strong>${machines.filter(m => m.currentStatus === 'disposed').length.toLocaleString()}</strong></span>
+      </div>
+
+      <div style="display:flex;gap:8px;margin:8px 0">
+        <input type="text" id="machine-search" class="form-input" placeholder="Search serial or model..." style="flex:1"
+          oninput="UI.render()">
+        <select id="machine-filter" class="form-select" onchange="UI.render()">
+          <option value="all">All Status</option>
+          <option value="active">Active</option>
+          <option value="broken">Broken</option>
+          <option value="disposed">Disposed</option>
+        </select>
+      </div>
+
+      <div class="machine-table">
+        <div class="machine-table-header">
+          <span>Serial</span>
+          <span>Model</span>
+          <span>Age</span>
+          <span>Loads</span>
+          <span>Status</span>
+          <span>Satisfaction</span>
+        </div>
+  `;
+
+  const search = (document.getElementById('machine-search')?.value || '').toLowerCase();
+  const filter = document.getElementById('machine-filter')?.value || 'all';
+
+  const displayMachines = machines
+    .filter(m => {
+      if (filter !== 'all' && m.currentStatus !== filter) return false;
+      if (search) {
+        const model = G.company.models.find(mod => mod.id === m.modelId);
+        return m.serial.toLowerCase().includes(search) ||
+               (model && model.name.toLowerCase().includes(search));
+      }
+      return true;
+    })
+    .slice(-100) // show most recent 100
+    .reverse();
+
+  for (const machine of displayMachines) {
+    const model = G.company.models.find(m => m.id === machine.modelId);
+    const ageYears = (machine.ageDays / 365).toFixed(1);
+    const statusIcon = machine.currentStatus === 'active' ? '🟢' : machine.currentStatus === 'broken' ? '🔴' : '⚫';
+    const satPct = (machine.satisfactionScore * 100).toFixed(0);
+
+    html += `
+      <div class="machine-table-row ${UI.selectedMachineSerial === machine.serial ? 'selected' : ''}"
+           onclick="UI.selectedMachineSerial='${machine.serial}';UI.render();">
+        <span class="mono">${machine.serial}</span>
+        <span>${model ? model.name : 'Unknown'}</span>
+        <span>${ageYears}y</span>
+        <span>${machine.loadsCompleted.toLocaleString()}</span>
+        <span>${statusIcon} ${machine.currentStatus}</span>
+        <span>${satPct}%</span>
+      </div>
+    `;
+  }
+
+  html += `
+      </div>
+    </div>
+  `;
+
+  // Detail view for selected machine
+  if (UI.selectedMachineSerial) {
+    const machine = G.company.activeMachines.find(m => m.serial === UI.selectedMachineSerial);
+    if (machine) {
+      const model = G.company.models.find(m => m.id === machine.modelId);
+      html += `
+        <div class="card" style="margin-top:16px">
+          <div class="card-title">Machine Detail — ${machine.serial}</div>
+          <button class="btn btn-sm btn-secondary" onclick="UI.selectedMachineSerial=null;UI.render();">← Close</button>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px">
+            <div><strong>Model:</strong> ${model ? model.name : 'Unknown'}</div>
+            <div><strong>Manufactured:</strong> ${formatDate(machine.manufactured.year, machine.manufactured.day)}</div>
+            <div><strong>Age:</strong> ${(machine.ageDays / 365).toFixed(2)} years</div>
+            <div><strong>Loads Completed:</strong> ${machine.loadsCompleted.toLocaleString()}</div>
+            <div><strong>Status:</strong> ${machine.currentStatus}</div>
+            <div><strong>Satisfaction:</strong> ${(machine.satisfactionScore * 100).toFixed(0)}%</div>
+            <div><strong>Customer:</strong> ${machine.customerId}</div>
+            <div><strong>Customer Type:</strong> ${(DATA.customerTypes.find(t => t.id === machine.customerType) || {}).name || machine.customerType}</div>
+            <div><strong>Total Repair Cost:</strong> $${machine.totalRepairCost.toFixed(0)}</div>
+            <div><strong>Failures:</strong> ${machine.failures.length}</div>
+          </div>
+          ${machine.failures.length > 0 ? `
+            <div style="margin-top:12px;border-top:1px solid #333;padding-top:12px">
+              <div class="card-subtitle">Failure History</div>
+              ${machine.failures.slice(-5).reverse().map(f => {
+                const fdef = DATA.failureTypes.find(d => d.id === f.failureType);
+                return `<div style="font-size:12px;padding:2px 0">⚠️ ${fdef ? fdef.name : f.failureType} — ${formatDate(f.year, f.day)} ${f.resolved ? '✅' : '⏳'}</div>`;
+              }).join('')}
+            </div>
+          ` : ''}
+        </div>
+      `;
+    }
+  }
+
+  if (total === 0) {
+    html += '<div class="card" style="margin-top:16px;color:#666;text-align:center;padding:40px">No machines yet. Design a model and start production!</div>';
+  }
+
+  el.innerHTML = html;
+};
+
+// ---- Service Department ----
+
+UI.renderServiceDept = function() {
+  const el = document.getElementById('screen-service');
+  if (!el) return;
+
+  const claims = G.company.pendingClaims;
+  const resolved = G.company.totalClaimsResolved;
+
+  let html = `
+    <div class="card">
+      <div class="card-title">🔧 Service Department</div>
+      <div style="display:flex;gap:16px;margin:8px 0;font-size:13px">
+        <span>📋 Open Claims: <strong class="warning">${claims.length}</strong></span>
+        <span>✅ Resolved: <strong>${resolved}</strong></span>
+        <span>👷 Technicians: <strong>${G.company.technicians}</strong></span>
+        <span>💰 Total Warranty Cost: <strong>$${Math.floor(G.company.totalWarrantyCost).toLocaleString()}</strong></span>
+      </div>
+      <button class="btn btn-sm btn-primary" onclick="window.gameState.company.technicians++;UI.render();">+ Hire Technician ($${DATA.defaults.baseTechnicianCost.toLocaleString()}/yr)</button>
+      <button class="btn btn-sm btn-secondary" onclick="var g=window.gameState;if(g.company.technicians>1){g.company.technicians--;UI.render();}">- Fire Technician</button>
+    </div>
+
+    <!-- Service Regions -->
+    <div class="card" style="margin-top:16px">
+      <div class="card-title">Service Regions</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
+        ${G.company.serviceRegions.map(r => `
+          <div class="region-card">
+            <div><strong>${r.name}</strong></div>
+            <div style="font-size:12px;color:#888">Techs: ${r.techCount} | Active Jobs: ${r.activeJobs.length}</div>
+            <div style="font-size:12px;color:#888">Population: ${(r.population * 100).toFixed(0)}% of market</div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `;
+
+  // Claims List
+  html += `
+    <div class="card" style="margin-top:16px">
+      <div class="card-title">Pending Claims (${claims.length})</div>
+  `;
+
+  if (claims.length === 0) {
+    html += '<div style="color:#666;padding:12px 0">No pending claims. Great job keeping your machines reliable!</div>';
+  } else {
+    html += `
+      <div class="claims-list">
+        ${claims.map(c => {
+          const machine = G.company.activeMachines.find(m => m.serial === c.machineSerial);
+          const ageDays = c.daysOpen;
+          return `
+            <div class="claim-item ${c.severity}" onclick="UI.selectedClaimId='${c.id}';UI.render();">
+              <div style="display:flex;justify-content:space-between">
+                <div>
+                  <strong>${c.failureName}</strong> — ${c.machineSerial}
+                  <span class="badge ${c.inWarranty ? 'badge-warranty' : 'badge-nowarranty'}">${c.inWarranty ? 'In Warranty' : 'Out of Warranty'}</span>
+                  <span class="badge badge-severity">${c.severity}</span>
+                </div>
+                <div style="font-size:12px;color:#888">${ageDays} day${ageDays !== 1 ? 's' : ''} open</div>
+              </div>
+              <div class="claim-desc">${c.description}</div>
+              <div style="font-size:11px;color:#888;margin-top:4px">
+                Customer: ${c.customerId} | Region: ${c.region || 'unassigned'}
+                ${c.assignedTech ? '| 👷 Tech assigned' : '| ⏳ Waiting for tech'}
+              </div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    `;
+  }
+
+  // Selected claim detail
+  if (UI.selectedClaimId) {
+    const claim = G.company.pendingClaims.find(c => c.id === UI.selectedClaimId);
+    if (claim) {
+      html += `
+        <div class="card" style="margin-top:16px">
+          <div class="card-title">Claim ${claim.id} — ${claim.failureName}</div>
+          <button class="btn btn-sm btn-secondary" onclick="UI.selectedClaimId=null;UI.render();">← Close</button>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px">
+            <div><strong>Machine:</strong> ${claim.machineSerial}</div>
+            <div><strong>Customer:</strong> ${claim.customerId}</div>
+            <div><strong>Reported:</strong> ${formatDate(claim.reportedYear, claim.reportedDay)}</div>
+            <div><strong>Days Open:</strong> ${claim.daysOpen}</div>
+            <div><strong>Warranty:</strong> ${claim.inWarranty ? '✅ Covered' : '❌ Expired'}</div>
+            <div><strong>Est. Repair Cost:</strong> $${claim.repairCost}</div>
+            <div><strong>Status:</strong> ${claim.status}</div>
+          </div>
+          ${claim.status === 'open' ? `
+            <div style="margin-top:12px;border-top:1px solid #333;padding-top:12px">
+              <div class="card-subtitle">Manual Resolution</div>
+              <div style="display:flex;gap:8px;margin-top:8px">
+                <button class="btn btn-sm btn-primary" onclick="SIM.resolveClaim(window.gameState.company.pendingClaims.find(c=>c.id==='${claim.id}'));UI.render();">🔧 Repair</button>
+                <button class="btn btn-sm btn-secondary" onclick="SIM.resolveClaim(window.gameState.company.pendingClaims.find(c=>c.id==='${claim.id}'));UI.render();">💰 Offer Discount</button>
+                <button class="btn btn-sm btn-accent" onclick="SIM.resolveClaim(window.gameState.company.pendingClaims.find(c=>c.id==='${claim.id}'));UI.render();">🔄 Replace Machine</button>
+                <button class="btn btn-sm btn-danger" onclick="SIM.resolveClaim(window.gameState.company.pendingClaims.find(c=>c.id==='${claim.id}'));UI.render();">❌ Decline</button>
+              </div>
+            </div>
+          ` : `
+            <div style="margin-top:12px;border-top:1px solid #333;padding-top:12px">
+              <div class="card-subtitle">Resolution: ${claim.resolution}</div>
+            </div>
+          `}
+        </div>
+      `;
+    }
+  }
+
+  el.innerHTML = html;
+};
+
+// ---- Market View ----
+
+UI.renderMarketView = function() {
+  const el = document.getElementById('screen-market');
+  if (!el) return;
+
+  const playerShare = UI.calcMarketShare();
+
+  let html = `
+    <div class="card">
+      <div class="card-title">📊 Market Overview — ${G.year}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:12px">
+        <div class="metric-card">
+          <div class="metric-label">Total Addressable Market</div>
+          <div class="metric-value">${G.market.totalMarketSize.toLocaleString()} households</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Your Market Share</div>
+          <div class="metric-value">${playerShare}%</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Your Machines Sold</div>
+          <div class="metric-value">${G.company.totalMachinesSold.toLocaleString()}</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Sales This Year</div>
+          <div class="metric-value">${G.market.soldThisYear.toLocaleString()}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:16px">
+      <div class="card-title">Marketing</div>
+      <div class="form-group">
+        <label>Monthly Marketing Budget ($)</label>
+        <input type="range" min="0" max="50000" step="1000" value="${G.company.marketingBudget}"
+          oninput="window.gameState.company.marketingBudget=parseInt(this.value);document.getElementById('mktg-val').textContent='$'+this.value;UI.render();"
+          style="width:100%">
+        <div style="text-align:center" id="mktg-val">$${G.company.marketingBudget.toLocaleString()}</div>
+      </div>
+      <div class="form-group" style="margin-top:8px">
+        <label>Marketing Focus</label>
+        <select class="form-select" onchange="window.gameState.company.marketingFocus=this.value;UI.render();">
+          <option value="balanced" ${G.company.marketingFocus === 'balanced' ? 'selected' : ''}>⚖️ Balanced</option>
+          <option value="price" ${G.company.marketingFocus === 'price' ? 'selected' : ''}>💰 Budget Champion</option>
+          <option value="quality" ${G.company.marketingFocus === 'quality' ? 'selected' : ''}>🏆 10-Year Warranty</option>
+          <option value="quiet" ${G.company.marketingFocus === 'quiet' ? 'selected' : ''}>🔇 Quietest Washer</option>
+          <option value="eco" ${G.company.marketingFocus === 'eco' ? 'selected' : ''}>🌿 Lowest Water Usage</option>
+          <option value="durability" ${G.company.marketingFocus === 'durability' ? 'selected' : ''}>💪 Built Like a Tank</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:16px">
+      <div class="card-title">🏭 Competitors</div>
+      <div class="machine-table">
+        <div class="machine-table-header">
+          <span>Company</span>
+          <span>Strategy</span>
+          <span>Status</span>
+          <span>Est. Market Share</span>
+          <span>Est. Machines Sold</span>
+        </div>
+        <div class="machine-table-row">
+          <span><strong>${G.company.name} (You)</strong></span>
+          <span>${G.company.marketingFocus || 'balanced'}</span>
+          <span>🟢 Active</span>
+          <span>${playerShare}%</span>
+          <span>${G.company.totalMachinesSold.toLocaleString()}</span>
+        </div>
+        ${G.market.competitors.filter(c => c.active).map(c => `
+          <div class="machine-table-row">
+            <span>${c.name}</span>
+            <span style="font-size:12px">${c.description}</span>
+            <span>🟢 Active</span>
+            <span>${c.marketShare.toFixed(1)}%</span>
+            <span>${Math.floor(c.machinesSold).toLocaleString()}</span>
+          </div>
+        `).join('')}
+        ${G.market.competitors.filter(c => !c.active).map(c => `
+          <div class="machine-table-row" style="color:#555">
+            <span>${c.name}</span>
+            <span style="font-size:12px">${c.description}</span>
+            <span>⏳ Appears in ${c.startingYear}</span>
+            <span>—</span>
+            <span>—</span>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `;
+
+  // Active Regulations (my addition)
+  if (G.market.activeRegulations.length > 0) {
+    html += `
+      <div class="card" style="margin-top:16px">
+        <div class="card-title">📋 Active Regulations</div>
+        ${G.market.activeRegulations.map(r => `
+          <div class="regulation-item">
+            <div><strong>${r.name}</strong> (${r.year})</div>
+            <div style="font-size:12px;color:#888">${r.description}</div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+
+  el.innerHTML = html;
+};
+
+// ---- Research View ----
+
+UI.renderResearchView = function() {
+  const el = document.getElementById('screen-research');
+  if (!el) return;
+
+  const allTechs = DATA.techUnlocks;
+  const unlocked = G.company.unlockedTechs;
+
+  let html = `
+    <div class="card">
+      <div class="card-title">🔬 Research & Development</div>
+      <div style="margin-top:8px">
+        <div class="form-group">
+          <label>Monthly R&D Budget ($)</label>
+          <input type="range" min="0" max="20000" step="500" value="${G.company.researchSpending}"
+            oninput="window.gameState.company.researchSpending=parseInt(this.value);document.getElementById('research-val').textContent='$'+this.value;UI.render();"
+            style="width:100%">
+          <div style="text-align:center" id="research-val">$${G.company.researchSpending.toLocaleString()}</div>
+        </div>
+        <div style="margin-top:8px">
+          <strong>Research Progress:</strong> ${G.company.researchLevel.toFixed(1)}
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:16px">
+      <div class="card-title">Technology Timeline</div>
+      <div style="margin-top:8px">
+        ${allTechs.map(t => {
+          const isUnlocked = unlocked.includes(t.name);
+          const isCurrentYear = t.year === G.year;
+          return `
+            <div class="tech-item ${isUnlocked ? 'unlocked' : isCurrentYear ? 'current' : 'locked'}">
+              <div style="display:flex;justify-content:space-between;align-items:center">
+                <div>
+                  <strong>${t.name}</strong>
+                  <span class="badge">${t.year}</span>
+                </div>
+                <div>
+                  ${isUnlocked ? '✅' : isCurrentYear ? '🔄' : '🔒'}
+                </div>
+              </div>
+              <div style="font-size:12px;color:#888">${t.description}</div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    </div>
+  `;
+
+  el.innerHTML = html;
+};
+
+// ---- Game Loop Render ----
+
+UI.gameLoop = function() {
+  if (!G.paused) {
+    SIM.tick();
+  }
+  UI.render();
+  requestAnimationFrame(UI.gameLoop);
+};
+
+// ---- Start Game ----
+
+UI.startGame = function() {
+  // Check for saved game
+  if (hasSavedGame()) {
+    if (confirm('📂 Saved game found! Click OK to continue or Cancel to start fresh.')) {
+      if (loadGame()) {
+        SIM.addEvent('info', '📂 Game loaded — continuing from ' + formatDate(G.year, G.day));
+        UI.init();
+        UI.gameLoop();
+        return;
+      }
+    }
+  }
+
+  // Fresh start
+  initGame();
+  // Add a default production line
+  G.company.productionLines.push({
+    id: 'line-1',
+    modelId: null,
+    speed: 1,
+    qualityControl: 0,
+    active: false,
+  });
+
+  SIM.addEvent('info', '🚀 Washing Machine Tycoon started! Design your first machine to begin.');
+  UI.init();
+  UI.gameLoop();
+};
+
+// ---- Chart Drawing ----
+
+UI.drawCharts = function() {
+  const h = G.history;
+  if (!h.years || h.years.length < 2) return;
+
+  UI.drawLineChart('chart-reputation', h.years, [h.reputation], ['Reputation'], ['#60a5fa'], 0, 100);
+  UI.drawLineChart('chart-financial', h.years, [h.revenue, h.expenses], ['Revenue', 'Expenses'], ['#4ade80', '#f87171'], null, null);
+  UI.drawLineChart('chart-market', h.years, [h.marketShare], ['Market Share %'], ['#a78bfa'], 0, null);
+  UI.drawLineChart('chart-sales', h.years, [h.machinesSold], ['Units Sold'], ['#fbbf24'], 0, null);
+};
+
+UI.drawLineChart = function(canvasId, labels, datasets, datasetNames, colors, yMin, yMax) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const w = canvas.width;
+  const h = canvas.height;
+  
+  ctx.clearRect(0, 0, w, h);
+
+  const pad = { top: 12, right: 12, bottom: 24, left: 40 };
+  const plotW = w - pad.left - pad.right;
+  const plotH = h - pad.top - pad.bottom;
+
+  if (labels.length < 2 || plotW < 10 || plotH < 10) return;
+
+  // Compute y range across all datasets
+  let minY = Infinity, maxY = -Infinity;
+  for (const data of datasets) {
+    for (const v of data) {
+      if (v < minY) minY = v;
+      if (v > maxY) maxY = v;
+    }
+  }
+  // Pad range
+  const range = maxY - minY;
+  if (range === 0) { minY -= 1; maxY += 1; }
+  const yPad = Math.max(1, range * 0.1);
+  const effectiveMin = yMin !== null ? yMin : minY - yPad;
+  const effectiveMax = yMax !== null ? yMax : maxY + yPad;
+
+  // Grid lines
+  ctx.strokeStyle = '#2d3550';
+  ctx.lineWidth = 1;
+  ctx.font = '9px monospace';
+  ctx.fillStyle = '#666';
+  const nGrid = 4;
+  for (let i = 0; i <= nGrid; i++) {
+    const y = pad.top + (plotH / nGrid) * i;
+    ctx.beginPath();
+    ctx.moveTo(pad.left, y);
+    ctx.lineTo(w - pad.right, y);
+    ctx.stroke();
+    const val = effectiveMax - (effectiveMax - effectiveMin) * (i / nGrid);
+    ctx.fillText(formatY(val), 2, y + 3);
+  }
+
+  // X labels
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#666';
+  const labelStep = Math.max(1, Math.floor(labels.length / 6));
+  for (let i = 0; i < labels.length; i += labelStep) {
+    const x = pad.left + (plotW * i) / (labels.length - 1);
+    ctx.fillText(labels[i], x, h - 4);
+  }
+
+  // Draw datasets
+  for (let d = 0; d < datasets.length; d++) {
+    const data = datasets[d];
+    ctx.strokeStyle = colors[d % colors.length];
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+
+    for (let i = 0; i < data.length; i++) {
+      const x = pad.left + (plotW * i) / (Math.max(1, data.length - 1));
+      const y = pad.top + plotH - ((data[i] - effectiveMin) / (effectiveMax - effectiveMin)) * plotH;
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+
+    // Dot on last value
+    if (data.length > 0) {
+      const lastX = pad.left + plotW;
+      const lastY = pad.top + plotH - ((data[data.length - 1] - effectiveMin) / (effectiveMax - effectiveMin)) * plotH;
+      ctx.fillStyle = colors[d % colors.length];
+      ctx.beginPath();
+      ctx.arc(lastX, lastY, 3, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  // Legend
+  ctx.font = '10px sans-serif';
+  let legendX = pad.left;
+  for (let d = 0; d < datasets.length; d++) {
+    ctx.fillStyle = colors[d % colors.length];
+    ctx.fillRect(legendX, 3, 8, 8);
+    ctx.fillText(datasetNames[d] || '', legendX + 12, 11);
+    legendX += ctx.measureText((datasetNames[d] || '') + '  ').width + 24;
+    if (legendX > w - pad.right) break;
+  }
+};
+
+function formatY(v) {
+  if (Math.abs(v) >= 1000000) return (v / 1000000).toFixed(1) + 'M';
+  if (Math.abs(v) >= 1000) return (v / 1000).toFixed(0) + 'K';
+  return v.toFixed(0);
+}
+
+// ---- Tutorial Overlay ----
+
+UI.TUTORIAL_KEY = 'wmt_tutorial_done';
+
+UI.showTutorial = function() {
+  // Check if already dismissed
+  if (localStorage.getItem(UI.TUTORIAL_KEY)) return;
+
+  const overlay = document.getElementById('tutorial-overlay');
+  if (overlay) overlay.style.display = 'flex';
+};
+
+UI.dismissTutorial = function() {
+  const overlay = document.getElementById('tutorial-overlay');
+  if (overlay) overlay.style.display = 'none';
+  localStorage.setItem(UI.TUTORIAL_KEY, '1');
+};
+
+UI.startGame = (function(original) {
+  return function() {
+    original.apply(this, arguments);
+    // Show tutorial after game is running (slightly delayed for DOM)
+    setTimeout(() => UI.showTutorial(), 300);
+  };
+})(UI.startGame);
+
+// ---- Expose to HTML ----
+
+// Make key functions accessible from HTML onclick
+// Note: G is a global variable (from game.js), not window.G
+window.UI = UI;
+window.SIM = SIM;

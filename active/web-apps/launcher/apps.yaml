@@ -251,4 +251,16 @@ apps:
     env:
       PORT: "5115"
 
+  - id: washing-machine-tycoon
+    name: Washing Machine Tycoon
+    description: Design, manufacture, sell, and support washing machines over decades. Build the world's most trusted brand.
+    icon: 🧺
+    subdomain: washer
+    path: ../../games/washing-machine-tycoon
+    type: node
+    port: 3002
+    start_cmd: "node server.mjs 2>&1"
+    env:
+      PORT: "3002"
+
 

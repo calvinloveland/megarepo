@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Washing Machine Tycoon</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app">
+    <!-- Top Bar -->
+    <div id="topbar">
+      <div class="brand">
+        🧺 Washing Machine Tycoon
+        <small>Build the world's most trusted brand</small>
+      </div>
+      <div class="topbar-item">
+        <span class="topbar-label">Date</span>
+        <span class="topbar-value" id="topbar-date">—</span>
+      </div>
+      <div class="topbar-item">
+        <span class="topbar-label">Cash</span>
+        <span class="topbar-value" id="topbar-cash">—</span>
+      </div>
+      <div class="topbar-item">
+        <span class="topbar-label">Reputation</span>
+        <span class="topbar-value" id="topbar-rep">—</span>
+      </div>
+      <div class="topbar-item">
+        <span class="topbar-label">Machines Sold</span>
+        <span class="topbar-value" id="topbar-machines">0</span>
+      </div>
+      <div class="topbar-item">
+        <span class="topbar-label">Speed</span>
+        <span class="topbar-value" id="topbar-speed" onclick="var g=window.gameState;if(g&&!g.paused){if(g.speed===1){g.speed=5}else if(g.speed===5){g.speed=30}else if(g.speed===30){g.speed=1}}UI.render();">1x</span>
+      </div>
+    </div>
+
+    <!-- Navigation -->
+    <div id="nav">
+      <span class="nav-item active" data-screen="dashboard">📊 Dashboard</span>
+      <span class="nav-item" data-screen="design">🔧 Design Studio</span>
+      <span class="nav-item" data-screen="factory">🏭 Factory</span>
+      <span class="nav-item" data-screen="machines">📦 Machines</span>
+      <span class="nav-item" data-screen="service">🔧 Service</span>
+      <span class="nav-item" data-screen="market">📈 Market</span>
+      <span class="nav-item" data-screen="research">🔬 R&D</span>
+    </div>
+
+    <!-- Main Content -->
+    <div id="main">
+      <!-- Dashboard -->
+      <div id="screen-dashboard" class="screen active"></div>
+
+      <!-- Design Studio -->
+      <div id="screen-design" class="screen"></div>
+
+      <!-- Factory View -->
+      <div id="screen-factory" class="screen"></div>
+
+      <!-- Machine Browser -->
+      <div id="screen-machines" class="screen"></div>
+
+      <!-- Service Department -->
+      <div id="screen-service" class="screen"></div>
+
+      <!-- Market View -->
+      <div id="screen-market" class="screen"></div>
+
+      <!-- Research & Development -->
+      <div id="screen-research" class="screen"></div>
+    </div>
+
+    <!-- Toast Message -->
+    <div id="message-toast"></div>
+  </div>
+
+  <!-- Scripts in dependency order -->
+  <script src="js/data.js"></script>
+  <script src="js/game.js"></script>
+  <script src="js/simulation.js"></script>
+  <script src="js/ui.js"></script>
+  <!-- Tutorial Overlay -->
+  <div id="tutorial-overlay" class="tutorial-overlay">
+    <div class="tutorial-modal">
+      <div class="tutorial-header">🧺 Welcome to Washing Machine Tycoon</div>
+      <div class="tutorial-body">
+        <p><strong>Your goal:</strong> Build the world's most trusted washing machine brand.</p>
+        <p>Here's how to get started:</p>
+        <div class="tutorial-step">
+          <span class="tutorial-num">1</span>
+          <span>Go to <strong>Design Studio</strong> and create your first washing machine model. Choose components that balance cost, durability, and customer appeal.</span>
+        </div>
+        <div class="tutorial-step">
+          <span class="tutorial-num">2</span>
+          <span>Go to <strong>Factory</strong>, assign your model to the production line, configure speed and quality control, then start production.</span>
+        </div>
+        <div class="tutorial-step">
+          <span class="tutorial-num">3</span>
+          <span>Machines are sold automatically. Watch the <strong>Dashboard</strong> for your cash, reputation, and event log.</span>
+        </div>
+        <div class="tutorial-step">
+          <span class="tutorial-num">4</span>
+          <span>When machines fail, handle <strong>warranty claims</strong> in the Service Department. Your response affects reputation and customer satisfaction.</span>
+        </div>
+        <div class="tutorial-step">
+          <span class="tutorial-num">5</span>
+          <span>Reinvest in <strong>R&D</strong> to unlock new components. Adapt to <strong>regulations</strong> and outpace <strong>competitors</strong>.</span>
+        </div>
+        <p style="margin-top:12px;font-size:12px;color:#888">Every machine you sell becomes a long-term responsibility. Choose your components wisely. 💪</p>
+      </div>
+      <div class="tutorial-footer">
+        <button class="btn btn-primary" onclick="UI.dismissTutorial()">Got it! Let's build. 🚀</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/main.js"></script>
+</body>
+</html>
