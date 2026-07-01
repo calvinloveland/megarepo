@@ -1115,9 +1115,13 @@ UI.selectDifficulty = function(diff) {
 };
 
 UI.confirmDifficulty = function() {
+  // Read company name from input
+  const nameInput = document.getElementById('company-name-input');
+  const companyName = nameInput ? nameInput.value.trim() : 'Your Brand';
+
   const modal = document.getElementById('difficulty-modal');
   if (modal) modal.classList.remove('active');
-  UI._startFreshGame(UI.selectedDifficulty);
+  UI._startFreshGame(UI.selectedDifficulty, companyName || 'Your Brand');
 };
 
 UI.showDifficultyPicker = function() {
@@ -1129,9 +1133,10 @@ UI.showDifficultyPicker = function() {
   }
 };
 
-UI._startFreshGame = function(difficulty) {
+UI._startFreshGame = function(difficulty, companyName) {
   initGame();
   G.difficulty = difficulty;
+  if (companyName) G.company.name = companyName;
   // Re-apply difficulty bonuses after init
   const diff = DATA.difficulty[difficulty] || DATA.difficulty.medium;
   if (diff.playerBonusRep) G.company.reputation += diff.playerBonusRep;

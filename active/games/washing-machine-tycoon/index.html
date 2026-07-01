@@ -97,8 +97,15 @@
   <!-- Difficulty Selection Modal -->
   <div id="difficulty-modal" class="difficulty-modal">
     <div class="difficulty-modal-content">
-      <div class="difficulty-header">🧺 Choose Your Difficulty</div>
-      <div class="difficulty-subtitle">AI competitors will design, produce, and sell washing machines against you.</div>
+      <div class="difficulty-header">🧺 Name Your Company</div>
+      <div class="difficulty-subtitle">What will your washing machine brand be called?</div>
+      <div class="difficulty-name-field">
+        <input type="text" id="company-name-input" class="form-input" value="Your Brand" placeholder="e.g., Cascade Appliances, Whirlpool, Miele..."
+          onfocus="this.select()"
+          onkeydown="if(event.key==='Enter')document.querySelector('.difficulty-footer .btn-primary').click()">
+      </div>
+      <div class="difficulty-header" style="padding-top:8px;font-size:16px">Choose Your Difficulty</div>
+      <div class="difficulty-subtitle" style="padding-bottom:8px">AI competitors will design, produce, and sell washing machines against you.</div>
       <div class="difficulty-options">
         <div class="difficulty-option" onclick="UI.selectDifficulty('easy')">
           <div class="diff-name">🌱 Easy</div>
