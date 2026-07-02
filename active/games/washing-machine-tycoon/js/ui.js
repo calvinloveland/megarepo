@@ -277,6 +277,7 @@ UI.renderDashboard = function() {
         <button class="btn btn-secondary" onclick="saveGame();UI.showMessage('✅ Game saved!');UI.render();">💾 Save</button>
         <button class="btn btn-secondary" onclick="if(loadGame()){UI.showMessage('📂 Game loaded!');UI.render();}else{UI.showMessage('No saved game found.');}">📂 Load</button>
         <button class="btn btn-secondary" onclick="UI.showHelp()">❓ How to Play</button>
+        <button class="btn btn-danger" onclick="if(confirm('Start a new game? All progress will be lost.')){UI.restartGame();}">🔄 New Game</button>
       </div>
     </div>
 
@@ -329,6 +330,14 @@ UI.renderDashboard = function() {
 };
 
 UI.calcMarketShare = function() {
+  // Use the authoritative value computed by SIM.systemSales (the same
+  // formula used for AI competitor shares). Falls back to cumulative
+  // machine count for backward compatibility with saved games that don't
+  // have _currentMarketShare.
+  const s = G.company._currentMarketShare;
+  if (s !== undefined && s !== 0) return s.toFixed(1);
+
+  // Legacy fallback
   const total = G.company.totalMachinesSold +
     G.market.competitors.filter(c => c.active).reduce((s, c) => s + c.machinesSold, 0);
   return total > 0 ? ((G.company.totalMachinesSold / total) * 100).toFixed(1) : '0.0';
@@ -352,10 +361,11 @@ UI.renderDesignStudio = function() {
               models.map(m => {
                 const isSelected = UI.selectedModelId === m.id;
                 const sales = G.company.activeMachines.filter(mach => mach.modelId === m.id).length;
+                const retiredStyle = m.isActive ? '' : 'opacity:0.5';
                 return `
-                  <div class="model-list-item ${isSelected ? 'selected' : ''}" onclick="UI.selectedModelId='${m.id}';UI.render();">
-                    <div><strong>${m.name}</strong> <span class="badge">${m.yearIntroduced}</span></div>
-                    <div style="font-size:11px;color:#888">Cost: $${m.productionCost.toFixed(0)} | Price: $${m.retailPrice} | Sold: ${sales}</div>
+                  <div class="model-list-item ${isSelected ? 'selected' : ''}" style="${retiredStyle}" onclick="UI.selectedModelId='${m.id}';UI.render();">
+                    <div><strong>${m.name}</strong> <span class="badge">${m.yearIntroduced}</span>${m.isActive ? '' : ' <span class="badge badge-warning" style="background:#444">Retired</span>'}</div>
+                    <div style="font-size:11px;color:#888">Cost: $${m.productionCost.toFixed(0)} | Price: $${m.currentPrice || m.retailPrice}${(m.currentPrice && m.currentPrice !== m.retailPrice) ? ' (was $'+m.retailPrice+')' : ''} | Sold: ${sales}</div>
                   </div>
                 `;
               }).join('')}
@@ -395,7 +405,8 @@ UI.renderModelDetail = function(model) {
         <span>${model.name} (${model.yearIntroduced})</span>
         <span>
           <button class="btn btn-sm btn-secondary" onclick="UI.selectedModelId=null;UI.render();">← Back</button>
-          <button class="btn btn-sm btn-danger" onclick="UI.cloneModel('${model.id}')">Clone</button>
+          <button class="btn btn-sm btn-default" onclick="UI.cloneModel('${model.id}')">Clone</button>
+          ${model.isActive ? `<button class="btn btn-sm btn-danger" onclick="var m=window.gameState.company.models.find(x=>x.id==='${model.id}');if(m&&confirm('Retire ${model.name}? It will stop being sold.')){m.isActive=false;UI.selectedModelId=null;UI.render();}">Retire</button>` : `<button class="btn btn-sm btn-primary" onclick="var m=window.gameState.company.models.find(x=>x.id==='${model.id}');if(m){m.isActive=true;UI.render();}">Reactivate</button>`}
         </span>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px">
@@ -404,8 +415,17 @@ UI.renderModelDetail = function(model) {
           <div class="stat-value">$${model.productionCost.toFixed(0)}</div>
         </div>
         <div>
-          <div class="stat-label">Retail Price</div>
-          <div class="stat-value">$${model.retailPrice}</div>
+          <div class="stat-label">Selling Price</div>
+          <div class="stat-value">
+            $<input type="number" id="price-${model.id}" class="form-input" value="${model.currentPrice || model.retailPrice}" min="50" max="9999"
+              style="width:70px;display:inline;font-size:14px"
+              onchange="var m=window.gameState.company.models.find(m=>m.id==='${model.id}');if(m){m.currentPrice=parseInt(this.value)||m.retailPrice;}">
+            <span style="font-size:11px;margin-left:4px">
+              (design: $${model.retailPrice}
+              <span style="color:${((model.currentPrice||model.retailPrice)-model.productionCost) > 0 ? '#4ade80' : '#f87171'}">
+                | margin: $${((model.currentPrice||model.retailPrice)-model.productionCost).toFixed(0)}</span>)
+            </span>
+          </div>
         </div>
         <div>
           <div class="stat-label">Quality Rating</div>
@@ -822,7 +842,10 @@ UI.renderMachineBrowser = function() {
   const search = (document.getElementById('machine-search')?.value || '').toLowerCase();
   const filter = document.getElementById('machine-filter')?.value || 'all';
 
-  const displayMachines = machines
+  // Paginated filter: show recent machines up to _machineMax limit.
+  if (UI._machineMax === undefined) UI._machineMax = 100;
+
+  const filteredMachines = machines
     .filter(m => {
       if (filter !== 'all' && m.currentStatus !== filter) return false;
       if (search) {
@@ -831,9 +854,11 @@ UI.renderMachineBrowser = function() {
                (model && model.name.toLowerCase().includes(search));
       }
       return true;
-    })
-    .slice(-100) // show most recent 100
+    });
+  const displayMachines = filteredMachines
+    .slice(-UI._machineMax)
     .reverse();
+  const totalFiltered = filteredMachines.length;
 
   for (const machine of displayMachines) {
     const model = G.company.models.find(m => m.id === machine.modelId);
@@ -858,6 +883,15 @@ UI.renderMachineBrowser = function() {
       </div>
     </div>
   `;
+
+  // Show more button if there are more filtered results
+  if (totalFiltered > UI._machineMax) {
+    html += `<div style="text-align:center;margin:8px 0">
+      <button class="btn btn-sm btn-secondary" onclick="UI._machineMax+=200;UI.render();">
+        Show ${Math.min(200, totalFiltered - UI._machineMax)} more (${totalFiltered - UI._machineMax} remaining)
+      </button>
+    </div>`;
+  }
 
   // Detail view for selected machine
   if (UI.selectedMachineSerial) {
@@ -1102,7 +1136,7 @@ UI.renderMarketView = function() {
           <span>${playerShare}%</span>
           <span>${Math.round(G.company.reputation)}%</span>
           <span>${G.company.models.length > 0 ? G.company.models[G.company.models.length-1].name : '—'}</span>
-          <span>${G.company.models.length > 0 ? '$'+G.company.models[G.company.models.length-1].retailPrice : '—'}</span>
+          <span>${G.company.models.length > 0 ? '$'+(G.company.models[G.company.models.length-1].currentPrice || G.company.models[G.company.models.length-1].retailPrice) : '—'}</span>
           <span>${G.company.productionLines.filter(l=>l.active).length} lines</span>
           <span>$${G.company.marketingBudget.toLocaleString()}</span>
         </div>
@@ -1319,6 +1353,41 @@ document.addEventListener('click', function _initAudio() {
   document.removeEventListener('click', _initAudio);
 }, { once: true });
 
+// ---- Keyboard Shortcuts ----
+// Space = pause/resume; ArrowUp = speed up; ArrowDown = speed down
+
+document.addEventListener('keydown', function(e) {
+  if (typeof G === 'undefined' || !G) return;
+  // Don't intercept when typing in an input/textarea/select
+  if (/^(INPUT|TEXTAREA|SELECT)$/i.test(e.target.tagName)) return;
+
+  switch (e.code) {
+    case 'Space':
+      e.preventDefault();
+      G.paused = !G.paused;
+      if (typeof UI !== 'undefined') UI.render();
+      break;
+    case 'ArrowUp':
+      e.preventDefault();
+      if (!G.paused) {
+        if (G.speed === 1) { G.speed = 5; }
+        else if (G.speed === 5) { G.speed = 30; }
+        else { G.speed = 30; }
+        if (typeof UI !== 'undefined') UI.render();
+      }
+      break;
+    case 'ArrowDown':
+      e.preventDefault();
+      if (!G.paused) {
+        if (G.speed === 30) { G.speed = 5; }
+        else if (G.speed === 5) { G.speed = 1; }
+        else { G.speed = 1; }
+        if (typeof UI !== 'undefined') UI.render();
+      }
+      break;
+  }
+});
+
 // ---- Start Game ----
 
 UI.startGame = function() {
@@ -1330,6 +1399,22 @@ UI.startGame = function() {
   }
 
   // Show difficulty picker for fresh start
+  UI.showDifficultyPicker();
+};
+
+UI.restartGame = function() {
+  deleteSavedGame();
+  // Reset event system
+  SIM._usedEvents = {};
+  SIM._pendingEvent = null;
+  // Hide any open modals
+  const cm = document.getElementById('continue-modal');
+  if (cm) cm.style.display = 'none';
+  const dm = document.getElementById('difficulty-modal');
+  if (dm) dm.classList.remove('active');
+  // Hide setup guide if visible
+  UI.hideSetupGuide();
+  // Show difficulty picker
   UI.showDifficultyPicker();
 };
 

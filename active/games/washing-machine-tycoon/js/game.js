@@ -138,12 +138,14 @@ function nextClaimId() {
 // ---- Company helpers ----
 
 function companyAddModel(modelDef) {
+  const basePrice = modelDef.retailPrice || DATA.defaults.machineBasePrice;
   const model = {
     id: nextModelId(),
     name: modelDef.name || `Model ${G.company.models.length + 1}`,
     yearIntroduced: G.year,
     components: { ...modelDef.components },
-    retailPrice: modelDef.retailPrice || DATA.defaults.machineBasePrice,
+    retailPrice: basePrice,
+    currentPrice: basePrice,   // adjustable post-design; starts matching retail
     warrantyYears: modelDef.warrantyYears || 2,
     qualityRating: computeModelQuality(modelDef.components),
     productionCost: computeModelCost(modelDef.components),
@@ -305,10 +307,12 @@ function formatYear(year) {
 
 const SAVE_KEY = 'wmt_save';
 
+const SAVE_VERSION = 2;  // bump when save schema changes; migration in loadGame
+
 function saveGame() {
   try {
     const data = {
-      version: 1,
+      version: SAVE_VERSION,
       timestamp: Date.now(),
       state: G,
       counters: {
@@ -318,6 +322,9 @@ function saveGame() {
         claimCounter,
       },
       events: SIM.events,
+      // Persist random-event cooldowns and pending choice so they survive reload
+      usedEvents: SIM._usedEvents,
+      pendingEvent: SIM._pendingEvent,
     };
     localStorage.setItem(SAVE_KEY, JSON.stringify(data));
     return true;
@@ -334,7 +341,30 @@ function loadGame() {
     const data = JSON.parse(raw);
     if (!data || !data.state) return false;
 
-    // Restore state
+    const savedVersion = data.version || 1;
+
+    // ---- Migration: version 1 -> version 2 ----
+    if (savedVersion < 2) {
+      // Version 1 saves didn't have currentPrice, marketShareBonus,
+      // _currentMarketShare, or researchLevel on tech unlocks.
+      // Add currentPrice to models if missing.
+      if (data.state.company && data.state.company.models) {
+        for (const m of data.state.company.models) {
+          if (m.currentPrice === undefined) m.currentPrice = m.retailPrice;
+          if (m.marketShareBonus === undefined) m.marketShareBonus = 0;
+        }
+      }
+      // Ensure researchLevel defaults
+      if (data.state.company && data.state.company.researchLevel === undefined) {
+        data.state.company.researchLevel = 0;
+      }
+      // Ensure unlockedTechs has Basic Manufacturing
+      if (data.state.company && (!data.state.company.unlockedTechs || data.state.company.unlockedTechs.length === 0)) {
+        data.state.company.unlockedTechs = ['Basic Manufacturing'];
+      }
+    }
+
+    // ---- Restore state ----
     G = window.gameState = data.state;
 
     // Restore counters
@@ -346,16 +376,22 @@ function loadGame() {
     // Restore events
     SIM.events = data.events || [];
 
+    // Restore random-event cooldowns and pending choice (bug fix)
+    if (data.usedEvents) SIM._usedEvents = data.usedEvents;
+    if (data.pendingEvent) SIM._pendingEvent = data.pendingEvent;
+
     // Rebuild customerEvents from events if missing
     if (!G.customerEvents || G.customerEvents.length === 0) {
       G.customerEvents = SIM.events.slice(-G.maxEvents);
     }
 
     // Ensure defaults for any missing properties (save compatibility)
-    if (!G.company.unlockedTechs) G.company.unlockedTechs = [];
+    if (!G.company.unlockedTechs) G.company.unlockedTechs = ['Basic Manufacturing'];
     if (!G.market.activeRegulations) G.market.activeRegulations = [];
     if (!G.market.competitors) G.market.competitors = [];
     if (!G.company.serviceRegions) G.company.serviceRegions = [];
+    if (G.company.marketShareBonus === undefined) G.company.marketShareBonus = 0;
+    if (G.company._currentMarketShare === undefined) G.company._currentMarketShare = 0;
 
     return true;
   } catch (e) {

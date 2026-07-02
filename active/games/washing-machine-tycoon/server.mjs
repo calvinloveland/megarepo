@@ -24,13 +24,15 @@ http.createServer((req, res) => {
   file = path.join(ROOT, file);
   // Basic path traversal guard
   if (!file.startsWith(ROOT)) {
-    res.writeHead(403); res.end('Forbidden');
+    const h403 = { 'Content-Type': 'text/plain', 'Cache-Control': 'no-cache, no-store, must-revalidate' };
+    res.writeHead(403, h403); res.end('Forbidden');
     return;
   }
   const ext = path.extname(file);
   fs.readFile(file, (err, data) => {
     if (err) {
-      res.writeHead(404, { 'Content-Type': 'text/plain' });
+      const h404 = { 'Content-Type': 'text/plain', 'Cache-Control': 'no-cache, no-store, must-revalidate' };
+      res.writeHead(404, h404);
       res.end('Not found');
       return;
     }

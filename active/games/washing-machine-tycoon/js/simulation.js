@@ -156,7 +156,7 @@ SIM.systemSales = function() {
     const repFactor = G.company.reputation / 100;
     const marketingFactor = Math.min(1, G.company.marketingBudget / 5000);
     const avgModelQuality = sellableModels.reduce((s, m) => s + m.qualityRating, 0) / sellableModels.length;
-    const avgPrice = sellableModels.reduce((s, m) => s + m.retailPrice, 0) / sellableModels.length;
+    const avgPrice = sellableModels.reduce((s, m) => s + (m.currentPrice || m.retailPrice), 0) / sellableModels.length;
 
     const playerScore =
       avgModelQuality * 50 * 0.3 +
@@ -206,10 +206,14 @@ SIM.systemSales = function() {
   // 3. Calculate total score and allocate market share
   const totalScore = participants.reduce((s, p) => s + p.score, 0);
 
+  // Record player share as the authoritative value (used by UI.calcMarketShare)
+  G.company._currentMarketShare = 0;
+
   // 4. Sell to player's share
   const player = participants.find(p => p.isPlayer);
   if (player) {
     const playerShare = player.score / totalScore;
+    G.company._currentMarketShare = playerShare * 100;
     const playerAllocation = Math.floor(dailyDemand * playerShare);
     const toSell = Math.min(Math.floor(G.company.productionQueue), playerAllocation);
 
@@ -222,7 +226,7 @@ SIM.systemSales = function() {
         const machine = createMachine(model.id, customerId, customerType.id);
         if (!machine) continue;
 
-        let salePrice = model.retailPrice;
+        let salePrice = model.currentPrice || model.retailPrice;
         salePrice *= (1 + (G.year - 1970) * 0.008);
 
         G.company.activeMachines.push(machine);
