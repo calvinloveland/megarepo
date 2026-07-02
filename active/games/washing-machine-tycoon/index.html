@@ -40,6 +40,10 @@
         <span class="topbar-value" id="topbar-speed" onclick="var g=window.gameState;if(g&&!g.paused){if(g.speed===1){g.speed=5}else if(g.speed===5){g.speed=30}else if(g.speed===30){g.speed=1}}UI.render();">1x</span>
       </div>
       <div class="topbar-item">
+        <span class="topbar-label">Pause</span>
+        <span class="topbar-value" id="topbar-pause" style="cursor:pointer" onclick="var g=window.gameState;if(g){g.paused=!g.paused;UI.render();}">⏸</span>
+      </div>
+      <div class="topbar-item">
         <span class="topbar-label">R&amp;D</span>
         <span class="topbar-value" id="topbar-research" style="font-size:11px;color:var(--accent-cyan)">0.0</span>
       </div>

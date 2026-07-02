@@ -118,6 +118,12 @@ UI.renderTopBar = function() {
     speedEl.style.color = G.paused ? '#f87171' : G.speed > 1 ? '#fbbf24' : '#4ade80';
   }
 
+  const pauseEl = document.getElementById('topbar-pause');
+  if (pauseEl) {
+    pauseEl.textContent = G.paused ? '▶' : '⏸';
+    pauseEl.style.color = G.paused ? '#fbbf24' : '#4ade80';
+  }
+
   const researchEl = document.getElementById('topbar-research');
   if (researchEl) {
     researchEl.textContent = G.company.researchLevel.toFixed(1);
@@ -1310,9 +1316,24 @@ UI.gameLoop = function() {
   if (G._startLock) {
     G.paused = true;
   }
+
   if (!G.paused) {
-    SIM.tick();
+    // Throttle tick rate based on speed setting.
+    // Speed 1: 1 tick per 6 frames (~10/sec = ~36 sec/year)
+    // Speed 5: 1 tick per frame (~60/sec = ~6 sec/year)
+    // Speed 30: 3 ticks per frame (~180/sec = ~2 sec/year)
+    G._tickAcc = (G._tickAcc || 0) + 1;
+    const frequency = G.speed === 30 ? 0.33 : G.speed === 5 ? 1 : 6;
+    if (G._tickAcc % Math.ceil(frequency) === 0) {
+      SIM.tick();
+    }
+    // At speed 30, run extra ticks to accelerate further
+    if (G.speed === 30 && G._tickAcc % 2 === 0) {
+      SIM.tick();
+      SIM.tick();
+    }
   }
+
   // Lightweight frame update — ONLY the topbar/paused-indicator/toast
   // change every tick. Full screen rendering (renderDesignStudio etc.)
   // is triggered by user actions (navigation, button clicks) so that
