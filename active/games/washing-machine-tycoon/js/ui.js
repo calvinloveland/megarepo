@@ -272,8 +272,8 @@ UI.renderDashboard = function() {
         <button class="btn btn-primary" onclick="UI.showScreen('design')">Design a Machine</button>
         <button class="btn btn-secondary" onclick="UI.showScreen('factory')">Manage Factory</button>
         <button class="btn btn-secondary" onclick="UI.showScreen('service')">Service Dept</button>
-        <button class="btn btn-accent" onclick="var g=window.gameState;if(g.speed===1){g.speed=5;g.paused=false}else if(g.speed===5){g.speed=30}else if(g.speed===30){g.speed=1} UI.render();">Toggle Speed</button>
-        <button class="btn ${G.paused?'btn-primary':'btn-secondary'}" onclick="var g=window.gameState;g.paused=!g.paused;UI.render();">${G.paused?'▶ Resume':'⏸ Pause'}</button>
+        <button class="btn btn-accent" onclick="var g=window.gameState;if(g.speed===1){g.speed=5}else if(g.speed===5){g.speed=30}else if(g.speed===30){g.speed=1} UI.render();">Toggle Speed</button>
+        <button class="btn ${G.paused?'btn-primary':'btn-secondary'}" onclick="var g=window.gameState;if(g._startLock) g._startLock=false;g.paused=!g.paused;UI.render();">${G.paused?'▶ Resume':'⏸ Pause'}</button>
         <button class="btn btn-secondary" onclick="saveGame();UI.showMessage('✅ Game saved!');UI.render();">💾 Save</button>
         <button class="btn btn-secondary" onclick="if(loadGame()){UI.showMessage('📂 Game loaded!');UI.render();}else{UI.showMessage('No saved game found.');}">📂 Load</button>
         <button class="btn btn-secondary" onclick="UI.showHelp()">❓ How to Play</button>
@@ -1732,6 +1732,10 @@ UI.renderPausedIndicator = function() {
 UI._lastEventCheck = 0;
 
 UI.checkPendingEvent = function() {
+  // Never drive game state from checkPendingEvent when _startLock is active
+  // (it would fight with the game loop's pause-on-startLock logic).
+  if (G && G._startLock) return;
+
   if (!SIM._pendingEvent) {
     const modal = document.getElementById('event-modal');
     if (modal && modal.style.display !== 'none') {
@@ -1794,7 +1798,7 @@ UI.resolveEventChoice = function(index) {
   SIM.resolveChoiceEvent(index);
   const modal = document.getElementById('event-modal');
   if (modal) modal.style.display = 'none';
-  G.paused = false;
+  if (!G._startLock) G.paused = false;
   UI.render();
 };
 
@@ -1805,7 +1809,7 @@ UI.dismissEvent = function() {
   if (SIM._pendingEvent && SIM._pendingEvent.type !== 'choice') {
     SIM._pendingEvent = null;
   }
-  G.paused = false;
+  if (!G._startLock) G.paused = false;
   UI.render();
 };
 
