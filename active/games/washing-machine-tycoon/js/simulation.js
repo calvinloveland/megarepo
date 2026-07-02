@@ -256,7 +256,13 @@ SIM.systemSales = function() {
 };
 
 SIM.pickCustomerType = function() {
-  const types = DATA.customerTypes;
+  // Filter archetypes that are active in the current year
+  const types = DATA.customerTypes.filter(t => {
+    if (t.minYear && G.year < t.minYear) return false;
+    if (t.maxYear && G.year > t.maxYear) return false;
+    return true;
+  });
+  if (types.length === 0) return DATA.customerTypes[0]; // fallback
   const weights = types.map(t => t.probabilityWeight);
   const totalWeight = weights.reduce((a, b) => a + b, 0);
   let r = Math.random() * totalWeight;

@@ -1045,10 +1045,13 @@ UI.renderServiceDept = function() {
                 ${claim.inWarranty ? '✅ In warranty — you decide and pay. Pick how to handle this claim.' : '❌ Out of warranty — declining now risks reputation. Pick to intervene early.'}
               </div>
               <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
-                <button class="btn btn-sm btn-primary" onclick="SIM.resolveClaim(window.gameState.company.pendingClaims.find(c=>c.id==='${claim.id}'),'repair');UI.render();">🔧 Repair</button>
-                <button class="btn btn-sm btn-secondary" onclick="SIM.resolveClaim(window.gameState.company.pendingClaims.find(c=>c.id==='${claim.id}'),'discount');UI.render();">💰 Offer Discount</button>
-                <button class="btn btn-sm btn-accent" onclick="SIM.resolveClaim(window.gameState.company.pendingClaims.find(c=>c.id==='${claim.id}'),'replaceMachine');UI.render();">🔄 Replace Machine</button>
-                <button class="btn btn-sm btn-danger" onclick="SIM.resolveClaim(window.gameState.company.pendingClaims.find(c=>c.id==='${claim.id}'),'decline');UI.render();">❌ Decline</button>
+                ${DATA.resolutionOptions.map(ro => {
+                  const emoji = { repair: '🔧', repairExpress: '⚡', discount: '💰', replaceMachine: '🔄', storeCredit: '🎫', decline: '❌' };
+                  return `<button class="btn btn-sm ${ro.id === 'decline' ? 'btn-danger' : ro.id === 'replaceMachine' ? 'btn-accent' : 'btn-primary'}" onclick="SIM.resolveClaim(window.gameState.company.pendingClaims.find(c=>c.id==='${claim.id}'),'${ro.id}');UI.render();">${emoji[ro.id] || '🔧'} ${ro.name}</button>`;
+                }).join('')}
+              </div>
+              <div style="font-size:11px;color:#888;margin-top:4px">
+                ${DATA.resolutionOptions.map(ro => `<span style="margin-right:8px"><strong>${ro.name}:</strong> ${ro.description}</span>`).join('')}
               </div>
             </div>
           ` : `
