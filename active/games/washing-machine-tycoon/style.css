@@ -859,10 +859,10 @@ body {
 
 .paused-indicator {
   position: fixed;
-  top: 0;
+  top: 40px;        /* below the topbar, not overlapping it */
   left: 0;
   right: 0;
-  z-index: 500;
+  z-index: 90;       /* below topbar (100), above main content */
   background: linear-gradient(90deg, #1a3a3a, #2a4a4a);
   border-bottom: 2px solid var(--accent-cyan);
   padding: 6px 16px;

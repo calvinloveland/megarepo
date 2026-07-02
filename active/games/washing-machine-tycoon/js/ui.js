@@ -681,7 +681,7 @@ UI.renderFactoryView = function() {
           </div>
           <div>
             <label style="font-size:11px;color:#888">Model</label>
-            <select onchange="window.gameState.company.productionLines[${i}].modelId=this.value;UI.render();" class="form-select" style="font-size:12px">
+            <select onchange="window.gameState.company.productionLines[${i}].modelId=this.value;UI._updateLineOutputLabel(${i});" class="form-select" style="font-size:12px">
               <option value="">— Select —</option>
               ${models.filter(m => m.isActive).map(m =>
                 `<option value="${m.id}" ${line.modelId === m.id ? 'selected' : ''}>${m.name}</option>`
@@ -716,7 +716,7 @@ UI.renderFactoryView = function() {
           return `
             <div class="form-group" style="margin:0">
               <label style="font-size:12px">${compDef.label}</label>
-              <select class="form-select" onchange="window.gameState.company.suppliers['${key}']=this.value;UI.render();">
+              <select class="form-select" onchange="window.gameState.company.suppliers['${key}']=this.value;">
                 ${availableSuppliers.map(s => `
                   <option value="${s.id}" ${current === s.id ? 'selected' : ''}>
                     ${s.name} — ${s.costMultiplier < 1 ? '+' : ''}${((1 - s.costMultiplier) * 100).toFixed(0)}% cost | ${(s.qualityMultiplier * 100).toFixed(0)}% quality
@@ -1717,7 +1717,7 @@ UI.renderPausedIndicator = function() {
   if (!indicator) return;
   if (G.paused && UI._setupState && UI._setupState.step < 99) {
     indicator.style.display = 'flex';
-    indicator.innerHTML = '⏸ <span>PAUSED — Complete the setup steps above to start</span>';
+    indicator.innerHTML = '⏸ <span>PAUSED — Setup incomplete. <a href="#" onclick="UI.showSetupGuide();return false" style="color:var(--accent-cyan)">Open setup guide</a> or <a href="#" onclick="UI.unpauseAndStart();return false" style="color:var(--accent-green)">start anyway</a></span>';
   } else if (G.paused) {
     indicator.style.display = 'flex';
     indicator.innerHTML = '⏸ <span>PAUSED — <a href="#" onclick="G.paused=false;UI.render();return false" style="color:var(--accent-cyan)">Click to resume</a></span>';
