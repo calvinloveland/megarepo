@@ -14,7 +14,8 @@ This file translates the repository's Copilot-era guidance into Codex-friendly i
 - The repository root `README.md` is a short landing page.
 - Canonical project docs live in per-project `docs/` directories.
 - Non-root `README.md` files should stay short and point to the web docs.
-- The published documentation site ([GitHub Pages](https://calvinloveland.github.io/megarepo/)) is the canonical reference for all project docs.
+- The old GitHub Pages site has been removed to avoid billing costs. Build the docs locally with `python scripts/build_docs.py` or serve them with `python scripts/build_docs.py --serve`.
+- Canonical project docs are at `docs/` or per-project `docs/index.md`.
 
 ## Web-Based Work
 
@@ -57,6 +58,25 @@ This file translates the repository's Copilot-era guidance into Codex-friendly i
 
 - Follow NixOS module conventions.
 - Run `nix flake check` when Nix changes warrant it.
+
+## On-Demand Checks (replaces old GitHub Actions)
+
+All CI workflows have been removed. Run checks locally with `scripts/check_all.py`:
+
+```
+python scripts/check_all.py                  # all checks
+python scripts/check_all.py --list           # list checks
+python scripts/check_all.py supply-chain pi-package  # specific checks
+python scripts/check_all.py --skip docker    # all except docker
+```
+
+Individual scripts:
+- `scripts/check_supply_chain.py` — supply-chain guardrails
+- `scripts/check_pi_package.py` — pi-autopilot-complete tests
+- `scripts/check_web_app.py thermofluid` — thermofluid sandbox checks
+- `scripts/check_web_app.py vernissage` — vernissage lint/build/test
+- `scripts/build_docker.py` — build web-app Docker images
+- `scripts/build_docs.py` — build MkDocs docs site
 
 ## Testing
 
