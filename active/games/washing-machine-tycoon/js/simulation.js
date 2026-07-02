@@ -150,14 +150,14 @@ SIM.systemSales = function() {
   // 2. Collect all market participants (player + active AI competitors)
   const participants = [];
 
-  // Player
-  const models = G.company.models.filter(m => m.isActive);
-  if (models.length > 0 && G.company.productionQueue >= 0.1) {
-    // Calculate player competitiveness
+  // Player — only count SELLABLE models (regulation-gated)
+  const sellableModels = G.company.models.filter(m => m.isActive && SIM.isModelSellable(m));
+  if (sellableModels.length > 0 && G.company.productionQueue >= 0.1) {
+    // Calculate player competitiveness from sellable models only
     const repFactor = G.company.reputation / 100;
     const marketingFactor = Math.min(1, G.company.marketingBudget / 5000);
-    const avgModelQuality = models.reduce((s, m) => s + m.qualityRating, 0) / models.length;
-    const avgPrice = models.reduce((s, m) => s + m.retailPrice, 0) / models.length;
+    const avgModelQuality = sellableModels.reduce((s, m) => s + m.qualityRating, 0) / sellableModels.length;
+    const avgPrice = sellableModels.reduce((s, m) => s + m.retailPrice, 0) / sellableModels.length;
 
     const playerScore =
       avgModelQuality * 50 * 0.3 +
@@ -165,7 +165,7 @@ SIM.systemSales = function() {
       repFactor * 100 * 0.25 +
       marketingFactor * 50 * 0.1 +
       G.company.customerSatisfactionAvg * 50 * 0.1 +
-      (G.company.marketShareBonus || 0) +  // event/acquisition bonuses
+      (G.company.marketShareBonus || 0) +
       Math.random() * 5; // small randomness
 
     participants.push({
@@ -174,6 +174,17 @@ SIM.systemSales = function() {
       score: Math.max(1, playerScore),
       isPlayer: true,
     });
+
+    // Log a warning if sellable models < active models (regulation blocking)
+    const blockedCount = G.company.models.length - sellableModels.length;
+    if (blockedCount > 0 && Math.random() < 0.01) { // ~once per 100 ticks
+      SIM.addEvent('warning', `📋 ${blockedCount} model(s) blocked by regulations — redesign to comply!`);
+    }
+  } else if (G.company.models.filter(m => m.isActive).length > 0 && sellableModels.length === 0) {
+    // All models are non-compliant! Fire a warning (throttled).
+    if (G.tickCount % 30 === 0) {
+      SIM.addEvent('critical', `🚫 No compliant models! Redesign to meet current regulations.`);
+    }
   }
 
   // AI competitors
@@ -204,7 +215,7 @@ SIM.systemSales = function() {
     const toSell = Math.min(Math.floor(G.company.productionQueue), playerAllocation);
 
     if (toSell > 0) {
-      const model = models[Math.floor(Math.random() * models.length)];
+      const model = sellableModels[Math.floor(Math.random() * sellableModels.length)];
 
       for (let i = 0; i < toSell; i++) {
         const customerType = SIM.pickCustomerType();
@@ -588,25 +599,143 @@ SIM.systemCompetitors = function() {
   }
 };
 
-// ---- Regulation System (my addition) ----
+// ---- Regulation System ----
+// Regulations now have real teeth: a model's compliance is checked every
+// day during sales. Non-compliant models earn zero revenue (blocked).
 
 SIM.systemRegulations = function() {
   for (const reg of DATA.regulations) {
     if (reg.year === G.year && !G.market.activeRegulations.find(r => r.year === reg.year)) {
-      G.market.activeRegulations.push(reg);
-      SIM.addEvent('warning', `📋 NEW REGULATION: ${reg.name} — ${reg.description}`);
+      // Parse the effect string into structured thresholds.
+      const parsed = SIM._parseRegulationEffect(reg.effect || '');
+      const entry = { ...reg, thresholds: parsed };
+      G.market.activeRegulations.push(entry);
 
-      // Apply effects
-      const effect = reg.effect || '';
-      if (effect.includes('noiseMax')) {
-        SIM.addEvent('info', '🔇 Your machines must meet new noise standards!');
-      } else if (effect.includes('waterMax')) {
-        SIM.addEvent('info', '💧 Water usage limits now in effect!');
-      } else if (effect.includes('energyReq')) {
-        SIM.addEvent('info', '⚡ Stricter energy standards apply to new models!');
+      SIM.addEvent('warning', `📋 NEW REGULATION: ${reg.name} — ${reg.description}`);
+      for (const msg of parsed._events) {
+        SIM.addEvent('info', msg);
       }
     }
   }
+};
+
+// Parse effect strings like 'noiseMax:75' or 'energyReq:0.55' or 'rohs:true'
+// into a plain object of thresholds that getModelCompliance checks.
+SIM._parseRegulationEffect = function(effectStr) {
+  const out = { _events: [] };
+  for (const part of effectStr.split(';')) {
+    const trimmed = part.trim();
+    if (!trimmed) continue;
+    // Some multi-effects might be pipe-separated in future; for now use colon.
+    // e.g. 'noiseMax:75', 'energyReq:0.55', 'waterMax:40', 'rohs:true',
+    //      'smartGrid:true', 'partsMandate:10'
+    const colonIdx = trimmed.indexOf(':');
+    if (colonIdx === -1) continue;
+    const key = trimmed.slice(0, colonIdx).trim();
+    const rawVal = trimmed.slice(colonIdx + 1).trim();
+
+    if (key === 'noiseMax') {
+      out.noiseMax = parseFloat(rawVal);
+      out._events.push(`🔇 Noise limit: max ${out.noiseMax}dB — check machine noise levels!`);
+    } else if (key === 'waterMax') {
+      out.waterMax = parseInt(rawVal, 10);
+      out._events.push(`💧 Water usage limit: max ${out.waterMax}L per cycle`);
+    } else if (key === 'energyReq') {
+      out.energyReq = parseFloat(rawVal);
+      out._events.push(`⚡ Minimum energy efficiency: ${(out.energyReq * 100).toFixed(0)}%`);
+    } else if (key === 'rohs') {
+      out.rohs = rawVal === 'true' || rawVal === 'True';
+      out._events.push(`🧪 RoHS compliance required — electronic components must be lead-free.`);
+    } else if (key === 'smartGrid') {
+      out.smartGrid = rawVal === 'true' || rawVal === 'True';
+      out._events.push(`📡 Smart grid ready: new models must support demand-response.`);
+    } else if (key === 'partsMandate') {
+      out.partsMandate = parseInt(rawVal, 10);
+      out._events.push(`🔧 Right to Repair — parts must be available for ${out.partsMandate} years.`);
+    }
+  }
+  return out;
+};
+
+// Check a model's components against all active regulations.
+// Returns { compliant, reasons[] } where reasons list what's violated.
+SIM.getModelCompliance = function(model) {
+  const result = { compliant: true, reasons: [] };
+  if (!model || !model.components) return result;
+
+  for (const reg of G.market.activeRegulations) {
+    const t = reg.thresholds || {};
+
+    // Noise check: model's computed noise must be <= noiseMax / 100 (normalised to 0-1)
+    if (t.noiseMax !== undefined) {
+      const modelNoise = computeModelNoise(model.components);
+      const threshold = t.noiseMax / 100; // 75dB → 0.75
+      if (modelNoise > threshold) {
+        result.compliant = false;
+        result.reasons.push(`❌ ${reg.name}: noise too high (${(modelNoise * 100).toFixed(0)} > ${t.noiseMax}dB)`);
+      }
+    }
+
+    // Energy efficiency: model's energy must be >= threshold
+    if (t.energyReq !== undefined) {
+      const modelEff = computeModelEnergyEfficiency(model.components);
+      if (modelEff < t.energyReq) {
+        result.compliant = false;
+        result.reasons.push(`❌ ${reg.name}: energy efficiency too low (${(modelEff * 100).toFixed(0)}% < ${(t.energyReq * 100).toFixed(0)}%)`);
+      }
+    }
+
+    // Water usage: estimated from pump flow rate (simple heuristic)
+    if (t.waterMax !== undefined) {
+      const pumpOpt = DATA.components.pump.options.find(o => o.id === model.components.pump);
+      const flowRate = pumpOpt ? pumpOpt.flowRate || 0.5 : 0.5;
+      // Estimate L/cycle from flow rate (higher flow = more water used)
+      const waterEst = Math.round(30 + (1 - flowRate) * 40);
+      if (waterEst > t.waterMax) {
+        result.compliant = false;
+        result.reasons.push(`❌ ${reg.name}: estimated water usage ${waterEst}L > ${t.waterMax}L limit`);
+      }
+    }
+
+    // RoHS: control board must not be a mechanical timer
+    if (t.rohs) {
+      const boardOpt = DATA.components.controlBoard.options.find(o => o.id === model.components.controlBoard);
+      if (boardOpt && boardOpt.id === 'mechanical') {
+        result.compliant = false;
+        result.reasons.push(`❌ ${reg.name}: mechanical timer contains lead solder — upgrade to electronic or smart board`);
+      }
+    }
+
+    // Smart Grid: control board needs smart features > 0
+    if (t.smartGrid) {
+      const boardOpt = DATA.components.controlBoard.options.find(o => o.id === model.components.controlBoard);
+      if (!boardOpt || boardOpt.smartFeatures === undefined || boardOpt.smartFeatures < 0.2) {
+        result.compliant = false;
+        result.reasons.push(`❌ ${reg.name}: smart grid ready required — upgrade control board`);
+      }
+    }
+
+    // Parts Mandate: affects reputation penalty for not supporting old models
+    if (t.partsMandate !== undefined) {
+      // Check: are ANY models older than partsMandate years still active?
+      for (const m of G.company.models) {
+        if (m.isActive && G.year - m.yearIntroduced >= t.partsMandate) {
+          // Not a block, but a reputation penalty applied elsewhere
+          // Just flag it.
+          result.reasons.push(`⚠️ ${reg.name}: ${m.name} (${m.yearIntroduced}) is over ${t.partsMandate} years old — must keep parts available`);
+        }
+      }
+    }
+  }
+
+  return result;
+};
+
+// Is a given model currently sellable? (compliance check)
+SIM.isModelSellable = function(model) {
+  if (!model || !model.isActive) return false;
+  const compliance = SIM.getModelCompliance(model);
+  return compliance.compliant;
 };
 
 // ---- Tech Unlock System ----

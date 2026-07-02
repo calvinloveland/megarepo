@@ -430,6 +430,19 @@ UI.renderModelDetail = function(model) {
         <div class="card-subtitle">Components</div>
         ${compHtml}
       </div>
+
+      ${function() {
+        const compliance = SIM.getModelCompliance(model);
+        if (compliance.compliant && compliance.reasons.length === 0) return '';
+        const icon = compliance.compliant ? '✅' : '🚫';
+        const headerClass = compliance.compliant ? '' : 'style="color:var(--accent-red)"';
+        return `
+          <div style="margin-top:12px;border-top:1px solid #333;padding-top:12px">
+            <div class="card-subtitle" ${headerClass}>${icon} Regulation Compliance</div>
+            ${compliance.reasons.map(r => `<div style="font-size:12px;padding:2px 0">${r}</div>`).join('')}
+          </div>
+        `;
+      }()}
     </div>
   `;
 };
@@ -522,6 +535,29 @@ UI.updateDesignCost = function() {
       desc.textContent = opt ? opt.description : '';
     }
   }
+
+  // Show regulation compliance warning for the current design
+  const existing = document.getElementById('design-compliance-warning');
+  if (G.market && G.market.activeRegulations && G.market.activeRegulations.length > 0) {
+    const compliance = typeof SIM !== 'undefined' ? SIM.getModelCompliance({ components: components }) : { compliant: true, reasons: [] };
+    if (!compliance.compliant) {
+      let warnEl = existing || document.getElementById('design-cost-display');
+      if (warnEl) {
+        let warnDiv = existing;
+        if (!warnDiv) {
+          warnDiv = document.createElement('div');
+          warnDiv.id = 'design-compliance-warning';
+          warnDiv.style.cssText = 'font-size:12px;padding:6px 0;color:var(--accent-red)';
+          warnEl.parentNode.insertBefore(warnDiv, warnEl.nextSibling);
+        }
+        warnDiv.innerHTML = '🚫 <strong>Non-compliant!</strong> ' + compliance.reasons.slice(0,2).join('; ');
+      }
+    } else if (existing) {
+      existing.innerHTML = '✅ Compliant with all regulations';
+    }
+  } else if (existing) {
+    existing.remove();
+  }
 };
 
 UI.submitDesign = function() {
@@ -595,7 +631,7 @@ UI.renderFactoryView = function() {
           <div>
             <strong>Line ${i + 1}</strong>
             ${line.active ? '🟢 Active' : '🔴 Inactive'}
-            ${model ? `— Producing: <strong>${model.name}</strong>` : '— No model assigned'}
+            ${model ? `— Producing: <strong>${model.name}</strong>${(function(){try{const c=SIM.getModelCompliance(model);return c.compliant?' <span style="color:#4ade80;font-size:11px">✅ Compliant</span>':' <span style="color:#f87171;font-size:11px">🚫 Blocked</span>'}catch(e){return ''}})()}` : '— No model assigned'}
           </div>
           <div>
             <button class="btn btn-sm ${line.active ? 'btn-secondary' : 'btn-primary'}" onclick="UI.toggleLine(${i})">

@@ -1,4 +1,6 @@
-# Washing Machine Tycoon — Code Review
+# Washing Machine Tycoon — Code Review (Tracks fixed/unfixed)
+
+**Legend:** ✅ Fixed | 🔴 OPEN Critical | 🟠 OPEN Major | 🟡 OPEN Moderate | 🟢 OPEN Minor
 
 A thorough audit of the codebase (≈5,900 lines) plus headless Playwright
 probes confirming the worst bugs. Findings are grouped by severity.
@@ -7,7 +9,7 @@ probes confirming the worst bugs. Findings are grouped by severity.
 
 ## 🔴 CRITICAL BUGS (gameplay-breaking)
 
-### 1. Failure probability is catastrophically over-tuned — every machine fails ~30× in its first 2 months
+### ✅ 1. Failure probability is catastrophically over-tuned — every machine fails ~30× in its first 2 months
 
 **Evidence (headless probe, ~175 game days on Medium):**
 ```
@@ -40,7 +42,7 @@ department is instantly overwhelmed.
 
 ---
 
-### 2. Auto-resolved claims vastly outnumber pending claims — players can't actually make warranty decisions
+### ✅ 2. Auto-resolved claims vastly outnumber pending claims — players can't actually make warranty decisions
 
 **Evidence:** 908 resolved vs 44 pending after ~3 seconds. `SIM.systemWarrantyService`
 auto-assigns and auto-resolves claims within days, so by the time a player
@@ -58,7 +60,7 @@ automatic and instant.
 
 ---
 
-### 3. `SIM.resolveClaim` ignores the player's chosen resolution — all 4 buttons do the same thing
+### ✅ 3. `SIM.resolveClaim` ignores the player's chosen resolution — all 4 buttons do the same thing
 
 `UI.renderServiceDept` renders 4 buttons (Repair / Discount / Replace /
 Decline), but every one calls:
@@ -73,7 +75,7 @@ from each button.
 
 ---
 
-### 4. Repair cost is multiplied by the **bearings** supplier cost multiplier for every claim
+### ✅ 4. Repair cost is multiplied by the **bearings** supplier cost multiplier for every claim
 
 `SIM.resolveClaim`:
 ```js
@@ -84,7 +86,7 @@ for most failure types (should use `claim.componentSource`).
 
 ---
 
-### 5. Choice-event effects partially dropped
+### ✅ 5. Choice-event effects partially dropped
 
 `SIM.resolveChoiceEvent` applies `reputation` and `cash` but ignores
 `technicians`, `customerSatisfaction`, and `marketShare` — whereas
@@ -93,7 +95,7 @@ for most failure types (should use `claim.componentSource`).
 
 ---
 
-### 6. `UI.startGame` uses native `confirm()` which is blocked by headless/iframe contexts
+### ✅ 6. `UI.startGame` uses native `confirm()` which is blocked by headless/iframe contexts
 
 `UI.startGame` calls `confirm('📂 Saved game found!...')`. In the Cloudflare
 tunnel iframe and in browsers with dialog suppression, this throws or hangs
@@ -104,7 +106,7 @@ the boot path. The Playwright test only passes because it installs a
 
 ---
 
-### 7. `marketShare` event effect is mis-applied as reputation
+### ✅ 7. `marketShare` event effect is mis-applied as reputation
 
 `SIM._applyEventEffects`:
 ```js
@@ -120,7 +122,7 @@ event claims +2 market share but boosts reputation instead.
 
 ## 🟠 MAJOR ISSUES
 
-### 8. `UI.render()` rebuilds the **entire DOM of all 7 screens** on every animation frame (~60fps)
+### ✅ 8. `UI.render()` rebuilds the **entire DOM of all 7 screens** on every animation frame (~60fps)
 
 `UI.gameLoop` → `UI.render()` → `renderTopBar + renderDashboard +
 renderDesignStudio + renderFactory + renderMachineBrowser + renderServiceDept
@@ -142,7 +144,7 @@ and only update the topbar every frame.
 
 ---
 
-### 9. Machine Browser search filter self-destructs
+### ✅ 9. Machine Browser search filter self-destructs
 
 `renderMachineBrowser` reads the search/filter inputs:
 ```js
@@ -193,7 +195,7 @@ game with no models. Minor, but kills a new player's first impression.
 
 ---
 
-### 13. Yearly P&L in the charts is double-counted for some expense categories
+### ✅ 13. Yearly P&L in the charts is double-counted for some expense categories
 
 `handleYearEnd` deducts tech/marketing/R&D annually, **and** `systemFinance`
 deducts them daily (`technicians*5` daily overhead + `marketingBudget/30` +
@@ -230,7 +232,7 @@ speed because the emergency path bypasses it.
 
 ---
 
-### 16. Replaced machines get `ageDays = 0` and `loadsCompleted = 0` but keep their `failures` history
+### ✅ 16. Replaced machines get `ageDays = 0` and `loadsCompleted = 0` but keep their `failures` history
 
 `SIM.resolveClaim` reset:
 ```js
@@ -271,7 +273,7 @@ snapshot computes `NaN`.
 
 ---
 
-### 20. Tech unlocks are purely cosmetic — no gameplay effect
+### 🔴 20. Tech unlocks are purely cosmetic — no gameplay effect (still OPEN)
 
 `systemTechUnlocks` adds the tech *name* to `unlockedTechs` and logs a
 message, but **nothing checks `unlockedTechs`**. Components are gated by
@@ -281,7 +283,7 @@ meaningful.
 
 ---
 
-### 21. Regulations are announced but never enforced
+### ✅ 21. Regulations are announced but never enforced
 
 `systemRegulations` pushes the regulation and logs "your machines must meet
 new noise standards!" but no system checks compliance. Old, non-compliant
