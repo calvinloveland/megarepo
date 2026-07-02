@@ -266,20 +266,64 @@ UI.renderDashboard = function() {
       </div>
     </div>
 
+    ${function(){
+      const ytdR = G.company._ytdRevenue || 0;
+      const ytdPC = G.company._ytdProductionCost || 0;
+      const ytdMC = G.company._ytdMarketingCost || 0;
+      const ytdRC = G.company._ytdResearchCost || 0;
+      const ytdTC = G.company._ytdTechCost || 0;
+      const ytdWC = G.company._ytdWarrantyCost || 0;
+      const ytdOC = G.company._ytdOverhead || 0;
+      const ytdTotalExp = ytdPC + ytdMC + ytdRC + ytdTC + ytdWC + ytdOC;
+      const netIncome = ytdR - ytdTotalExp;
+      const burnRate = (50 + G.company.technicians * 5) + (G.company.marketingBudget / 30) + (G.company.researchSpending / 30);
+      return `
     <div class="card" style="margin-top:16px">
-      <div class="card-title">Quick Actions</div>
-      <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
-        <button class="btn btn-primary" onclick="UI.showScreen('design')">Design a Machine</button>
-        <button class="btn btn-secondary" onclick="UI.showScreen('factory')">Manage Factory</button>
-        <button class="btn btn-secondary" onclick="UI.showScreen('service')">Service Dept</button>
-        <button class="btn btn-accent" onclick="var g=window.gameState;if(g.speed===1){g.speed=5}else if(g.speed===5){g.speed=30}else if(g.speed===30){g.speed=1} UI.render();">Toggle Speed</button>
-        <button class="btn ${G.paused?'btn-primary':'btn-secondary'}" onclick="var g=window.gameState;if(g._startLock) g._startLock=false;g.paused=!g.paused;UI.render();">${G.paused?'▶ Resume':'⏸ Pause'}</button>
-        <button class="btn btn-secondary" onclick="saveGame();UI.showMessage('✅ Game saved!');UI.render();">💾 Save</button>
-        <button class="btn btn-secondary" onclick="if(loadGame()){UI.showMessage('📂 Game loaded!');UI.render();}else{UI.showMessage('No saved game found.');}">📂 Load</button>
-        <button class="btn btn-secondary" onclick="UI.showHelp()">❓ How to Play</button>
-        <button class="btn btn-danger" onclick="if(confirm('Start a new game? All progress will be lost.')){UI.restartGame();}">🔄 New Game</button>
+      <div class="card-title">💰 Cash Flow <span style="font-weight:400;font-size:12px;color:var(--text-secondary)">(year ${G.year})</span></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:8px">
+        <div class="cashflow-category">
+          <div class="cashflow-header" style="color:var(--accent-green)">📈 Income</div>
+          <div class="cashflow-item"><span>Sales Revenue</span><span class="mono">+$${Math.floor(ytdR).toLocaleString()}</span></div>
+        </div>
+        <div class="cashflow-category">
+          <div class="cashflow-header" style="color:var(--accent-red)">📉 Expenses YTD</div>
+          <div class="cashflow-item"><span>Production</span><span class="mono">-$${Math.floor(ytdPC).toLocaleString()}</span></div>
+          <div class="cashflow-item"><span>Marketing</span><span class="mono">-$${Math.floor(ytdMC).toLocaleString()}</span></div>
+          <div class="cashflow-item"><span>R&amp;D</span><span class="mono">-$${Math.floor(ytdRC).toLocaleString()}</span></div>
+          <div class="cashflow-item"><span>Tech Salaries</span><span class="mono">-$${Math.floor(ytdTC).toLocaleString()}</span></div>
+          <div class="cashflow-item"><span>Warranty Claims</span><span class="mono">-$${Math.floor(ytdWC).toLocaleString()}</span></div>
+          <div class="cashflow-item"><span>Overhead</span><span class="mono">-$${Math.floor(ytdOC).toLocaleString()}</span></div>
+        </div>
+        <div class="cashflow-category">
+          <div class="cashflow-header">📊 Summary</div>
+          <div class="cashflow-item"><span>Total Income</span><span class="mono">+$${Math.floor(ytdR).toLocaleString()}</span></div>
+          <div class="cashflow-item"><span>Total Expenses</span><span class="mono" style="color:#f87171">-$${Math.floor(ytdTotalExp).toLocaleString()}</span></div>
+          <div class="cashflow-item" style="border-top:1px solid #333;padding-top:4px;margin-top:4px">
+            <span><strong>Net Income</strong></span>
+            <span class="mono" style="color:${netIncome >= 0 ? '#4ade80' : '#f87171'}">${netIncome >= 0 ? '+' : ''}$${Math.floor(netIncome).toLocaleString()}</span>
+          </div>
+          <div class="cashflow-item">
+            <span>Daily Burn Rate</span>
+            <span class="mono" style="color:#fbbf24">-$${burnRate.toFixed(0)}/day</span>
+          </div>
+          <div class="cashflow-item">
+            <span>Cash on Hand</span>
+            <span class="mono" style="color:${G.company.cash >= 0 ? '#4ade80' : '#f87171'}">$${Math.floor(G.company.cash).toLocaleString()}</span>
+          </div>
+        </div>
       </div>
-    </div>
+      <div style="font-size:11px;color:#666;margin-top:6px;border-top:1px solid #222;padding-top:6px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:4px">
+        <a href="#" onclick="saveGame();UI.showMessage('✅ Game saved!');UI.render();return false" style="color:var(--accent-cyan)">💾 Save</a>
+        <a href="#" onclick="if(loadGame()){UI.showMessage('📂 Game loaded!');UI.render();}else{UI.showMessage('No saved game found.');}return false" style="color:var(--accent-cyan)">📂 Load</a>
+        <a href="#" onclick="UI.showHelp();return false" style="color:var(--accent-cyan)">❓ Help</a>
+        <a href="#" onclick="if(confirm('Start a new game? All progress will be lost.')){UI.restartGame();}return false" style="color:var(--accent-cyan)">🔄 New Game</a>
+        <a href="#" onclick="var g=window.gameState;if(g.speed===1){g.speed=5}else if(g.speed===5){g.speed=30}else if(g.speed===30){g.speed=1} UI.render();return false" style="color:var(--accent-cyan)">⏱ ${G.speed}x</a>
+        ${G.paused
+          ? '<a href="#" onclick="var g=window.gameState;if(g._startLock)g._startLock=false;g.paused=false;UI.render();return false" style="color:var(--accent-cyan)">▶ Resume</a>'
+          : '<a href="#" onclick="var g=window.gameState;g.paused=true;UI.render();return false" style="color:var(--accent-cyan)">⏸ Pause</a>'}
+      </div>
+    </div>`;
+    }()}
 
     <!-- Error Log Section (shown when errors exist) -->
     ${typeof ErrorReporter !== 'undefined' && ErrorReporter.getCount() > 0 ? `

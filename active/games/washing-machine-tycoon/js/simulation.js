@@ -43,6 +43,15 @@ SIM.tick = function() {
 // ---- Year Start/End ----
 
 SIM.handleYearStart = function() {
+  // Reset year-to-date financial tracking
+  G.company._ytdRevenue = 0;
+  G.company._ytdProductionCost = 0;
+  G.company._ytdMarketingCost = 0;
+  G.company._ytdResearchCost = 0;
+  G.company._ytdWarrantyCost = 0;
+  G.company._ytdOverhead = 0;
+  G.company._ytdTechCost = 0;
+
   // Market grows
   G.market.totalMarketSize = Math.floor(
     DATA.defaults.marketSize * Math.pow(1 + DATA.defaults.marketGrowthRate, G.year - DATA.defaults.baseYear)
@@ -70,6 +79,7 @@ SIM.handleYearEnd = function() {
   const techCost = G.company.technicians * DATA.defaults.dailyTechnicianCost * 365;
   G.company.cash -= techCost;
   G.company.totalExpenses += techCost;
+  G.company._ytdTechCost = (G.company._ytdTechCost || 0) + techCost;
 
   // NOTE: marketing budget and R&D spending are already accrued DAILY by
   // systemFinance (budget/30 and spending/30). Do NOT deduct them again
@@ -128,13 +138,16 @@ SIM.systemProduction = function() {
     const productionCost = dailyOutput * unitCost;
     G.company.cash -= productionCost;
     G.company.totalExpenses += productionCost;
+    G.company._ytdProductionCost = (G.company._ytdProductionCost || 0) + productionCost;
 
     // Add good units to queue for sale
     G.company.productionQueue += goodUnits;
     model.totalProduced += goodUnits;
 
     // Defects cost money but can be reworked
-    G.company.cash -= defects * unitCost * 0.3; // rework cost
+    const reworkCost = defects * unitCost * 0.3;
+    G.company.cash -= reworkCost;
+    G.company._ytdProductionCost = (G.company._ytdProductionCost || 0) + reworkCost;
   }
 };
 
@@ -234,6 +247,7 @@ SIM.systemSales = function() {
         G.market.soldThisYear++;
         G.company.cash += salePrice;
         G.company.totalRevenue += salePrice;
+        G.company._ytdRevenue = (G.company._ytdRevenue || 0) + salePrice;
       }
 
       G.company.productionQueue -= toSell;
@@ -464,6 +478,7 @@ SIM.resolveClaim = function(claim, forcedResolution) {
     G.company.cash -= cost;
     G.company.totalExpenses += cost;
     G.company.totalWarrantyCost += cost;
+    G.company._ytdWarrantyCost = (G.company._ytdWarrantyCost || 0) + cost;
     // Decrement the region's active job count if one was assigned.
     if (claim.region) {
       const region = G.company.serviceRegions.find(r => r.id === claim.region);
@@ -559,16 +574,19 @@ SIM.systemFinance = function() {
   const overhead = 50 + G.company.technicians * 5;
   G.company.cash -= overhead;
   G.company.totalExpenses += overhead;
+  G.company._ytdOverhead = (G.company._ytdOverhead || 0) + overhead;
 
   // Marketing daily spend (monthly budget / 30)
   const dailyMarketing = G.company.marketingBudget / 30;
   G.company.cash -= dailyMarketing;
   G.company.totalExpenses += dailyMarketing;
+  G.company._ytdMarketingCost = (G.company._ytdMarketingCost || 0) + dailyMarketing;
 
   // Research daily spend
   const dailyResearch = G.company.researchSpending / 30;
   G.company.cash -= dailyResearch;
   G.company.totalExpenses += dailyResearch;
+  G.company._ytdResearchCost = (G.company._ytdResearchCost || 0) + dailyResearch;
 
   // Daily research progress: same rate as the yearly formula (spending*0.01)
   // but spread smoothly across days so progress feels responsive.

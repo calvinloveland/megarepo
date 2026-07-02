@@ -61,6 +61,15 @@ function initGame() {
       researchLevel: 0,
       researchSpending: 0,    // per month
       unlockedTechs: ['Basic Manufacturing'],
+
+      // Year-to-date financial tracking (reset each year in handleYearStart)
+      _ytdRevenue: 0,
+      _ytdProductionCost: 0,
+      _ytdMarketingCost: 0,
+      _ytdResearchCost: 0,
+      _ytdWarrantyCost: 0,
+      _ytdOverhead: 0,
+      _ytdTechCost: 0,
     },
 
     // Market state
