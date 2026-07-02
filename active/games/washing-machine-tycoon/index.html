@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Washing Machine Tycoon</title>
-  <link rel="stylesheet" href="style.css?v=6">
+  <link rel="stylesheet" href="style.css?v=7">
 </head>
 <body>
   <div id="app">
@@ -37,6 +37,10 @@
       <div class="topbar-item">
         <span class="topbar-label">Speed</span>
         <span class="topbar-value" id="topbar-speed" onclick="var g=window.gameState;if(g&&!g.paused){if(g.speed===1){g.speed=5}else if(g.speed===5){g.speed=30}else if(g.speed===30){g.speed=1}}UI.render();">1x</span>
+      </div>
+      <div class="topbar-item">
+        <span class="topbar-label">R&amp;D</span>
+        <span class="topbar-value" id="topbar-research" style="font-size:11px;color:var(--accent-cyan)">0.0</span>
       </div>
       <div class="topbar-item">
         <span class="topbar-label">Sound</span>
@@ -88,13 +92,13 @@
   </div>
 
   <!-- Scripts in dependency order -->
-  <script src="js/data.js?v=6"></script>
-  <script src="js/game.js?v=6"></script>
-  <script src="js/error-reporter.js?v=6"></script>
-  <script src="js/ai.js?v=6"></script>
-  <script src="js/sound.js?v=6"></script>
-  <script src="js/simulation.js?v=6"></script>
-  <script src="js/ui.js?v=6"></script>
+  <script src="js/data.js?v=7"></script>
+  <script src="js/game.js?v=7"></script>
+  <script src="js/error-reporter.js?v=7"></script>
+  <script src="js/ai.js?v=7"></script>
+  <script src="js/sound.js?v=7"></script>
+  <script src="js/simulation.js?v=7"></script>
+  <script src="js/ui.js?v=7"></script>
   <!-- Difficulty Selection Modal -->
   <div id="difficulty-modal" class="difficulty-modal">
     <div class="difficulty-modal-content">
@@ -204,6 +208,6 @@
     </div>
   </div>
 
-  <script src="js/main.js?v=6"></script>
+  <script src="js/main.js?v=7"></script>
 </body>
 </html>

@@ -420,8 +420,19 @@ function isComponentUnlocked(componentKey, optionId, year) {
   return opt.yearAvailable <= year;
 }
 
-function getAvailableComponentOptions(componentKey, year) {
+function getAvailableComponentOptions(componentKey, year, unlockedTechsOverride) {
   const compDef = DATA.components[componentKey];
   if (!compDef) return [];
-  return compDef.options.filter(o => o.yearAvailable <= year);
+  // Use caller-provided tech list if given (e.g., AI has its own research);
+  // otherwise fall back to the player's unlockedTechs.
+  const techs = unlockedTechsOverride || (G && G.company ? G.company.unlockedTechs : null);
+  return compDef.options.filter(o => {
+    // Year gate: not invented yet
+    if (o.yearAvailable > year) return false;
+    // Tech gate: dependent tech must be researched
+    if (o.techDependency && techs) {
+      if (!techs.includes(o.techDependency)) return false;
+    }
+    return true;
+  });
 }

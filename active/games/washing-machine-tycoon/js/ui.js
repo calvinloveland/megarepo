@@ -118,6 +118,12 @@ UI.renderTopBar = function() {
     speedEl.style.color = G.paused ? '#f87171' : G.speed > 1 ? '#fbbf24' : '#4ade80';
   }
 
+  const researchEl = document.getElementById('topbar-research');
+  if (researchEl) {
+    researchEl.textContent = G.company.researchLevel.toFixed(1);
+    researchEl.style.color = G.company.researchLevel >= 35 ? '#4ade80' : G.company.researchLevel >= 10 ? '#fbbf24' : 'var(--accent-cyan)';
+  }
+
   const diffEl = document.getElementById('topbar-diff');
   if (diffEl && G.difficulty) {
     const diffLabel = DATA.difficulty[G.difficulty]?.label || G.difficulty;
@@ -1184,16 +1190,22 @@ UI.renderResearchView = function() {
       <div style="margin-top:8px">
         ${allTechs.map(t => {
           const isUnlocked = unlocked.includes(t.name);
-          const isCurrentYear = t.year === G.year;
+          const yearReached = t.year <= G.year;
+          const canResearch = yearReached && !isUnlocked && G.company.researchLevel >= (t.requiredLevel || 0);
+          const needResearch = yearReached && !isUnlocked && G.company.researchLevel < (t.requiredLevel || 0);
+          const cls = isUnlocked ? 'unlocked' : canResearch ? 'current' : 'locked';
+          const icon = isUnlocked ? '✅' : canResearch ? '🔄' : needResearch ? '🔬' : '🔒';
+          const progress = needResearch ? ` <span style="color:var(--accent-amber);font-size:11px">(${G.company.researchLevel.toFixed(0)}/${t.requiredLevel})</span>` : '';
           return `
-            <div class="tech-item ${isUnlocked ? 'unlocked' : isCurrentYear ? 'current' : 'locked'}">
+            <div class="tech-item ${cls}">
               <div style="display:flex;justify-content:space-between;align-items:center">
                 <div>
                   <strong>${t.name}</strong>
                   <span class="badge">${t.year}</span>
+                  ${progress}
                 </div>
                 <div>
-                  ${isUnlocked ? '✅' : isCurrentYear ? '🔄' : '🔒'}
+                  ${icon}
                 </div>
               </div>
               <div style="font-size:12px;color:#888">${t.description}</div>

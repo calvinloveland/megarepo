@@ -75,10 +75,9 @@ SIM.handleYearEnd = function() {
   // systemFinance (budget/30 and spending/30). Do NOT deduct them again
   // here — that would double-count (bug #13).
 
-  // R&D progress (progress, not cash — cash is spent daily)
-  if (G.company.researchSpending > 0) {
-    G.company.researchLevel += G.company.researchSpending * 0.01;
-  }
+  // NOTE: researchLevel progress is now accrued DAILY in systemFinance.
+  // The old yearly bump (spending * 0.01) has been removed to avoid
+  // double-counting. R&D progress is now smooth and responsive.
 
   // Record history snapshot for charts
   const totalComp = G.market.competitors.filter(c => c.active).reduce((s, c) => s + c.machinesSold, 0);
@@ -564,6 +563,10 @@ SIM.systemFinance = function() {
   G.company.cash -= dailyResearch;
   G.company.totalExpenses += dailyResearch;
 
+  // Daily research progress: same rate as the yearly formula (spending*0.01)
+  // but spread smoothly across days so progress feels responsive.
+  G.company.researchLevel += dailyResearch * 0.01 * (30 / 365);
+
   // Bankrupt check
   if (G.company.cash < -100000) {
     SIM.addEvent('critical', `🚨 BANKRUPTCY WARNING! Debt: $${Math.abs(G.company.cash).toLocaleString()}`);
@@ -739,14 +742,21 @@ SIM.isModelSellable = function(model) {
 };
 
 // ---- Tech Unlock System ----
+// Techs unlock when both the year AND accumulated researchLevel meet
+// the threshold. This means passive year progress isn't enough — you
+// must invest in R&D to keep up with the industry.
 
 SIM.systemTechUnlocks = function() {
-  const yearTechs = DATA.techUnlocks.filter(t => t.year === G.year);
-  for (const tech of yearTechs) {
-    if (!G.company.unlockedTechs.includes(tech.name)) {
-      G.company.unlockedTechs.push(tech.name);
-      SIM.addEvent('info', `🔬 TECH UNLOCKED: ${tech.name} — ${tech.description}`);
-    }
+  for (const tech of DATA.techUnlocks) {
+    if (tech.year > G.year) continue;                 // not yet invented
+    if (G.company.unlockedTechs.includes(tech.name)) continue; // already done
+    const needed = tech.requiredLevel !== undefined ? tech.requiredLevel : 0;
+    if (G.company.researchLevel < needed) continue;   // not enough research
+
+    G.company.unlockedTechs.push(tech.name);
+    SIM.addEvent('info', `🔬 TECH UNLOCKED: ${tech.name} — ${tech.description}`);
+    // If the year-end logging also happens, that's fine — duplicates
+    // are prevented by the already-unlocked check.
   }
 };
 

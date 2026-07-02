@@ -11,15 +11,15 @@ const DATA = {
       options: [
         { id: 'plastic',       name: 'Plastic',             cost: 15, durability: 0.30, noise: 0.7, rustResistance: 0.20, weight: 0.3, marketingAppeal: 0.1, yearAvailable: 1970, description: 'Cheapest option — noisy, rust-prone, but light.' },
         { id: 'stainless',     name: 'Stainless Steel',      cost: 35, durability: 0.70, noise: 0.4, rustResistance: 0.80, weight: 0.6, marketingAppeal: 0.5, yearAvailable: 1970, description: 'The industry standard — good balance of cost and quality.' },
-        { id: 'reinforced',    name: 'Reinforced Stainless', cost: 60, durability: 0.95, noise: 0.3, rustResistance: 0.95, weight: 0.8, marketingAppeal: 0.7, yearAvailable: 1985, description: 'Premium drum — near-indestructible, silent, heavy.' },
+        { id: 'reinforced',    name: 'Reinforced Stainless', cost: 60, durability: 0.95, noise: 0.3, rustResistance: 0.95, weight: 0.8, marketingAppeal: 0.7, yearAvailable: 1985, techDependency: 'Electronic Controls', description: 'Premium drum — near-indestructible, silent, heavy.' },
       ],
     },
     motor: {
       label: 'Motor',
       options: [
         { id: 'brushed',      name: 'Brushed DC',       cost: 25, durability: 0.40, noise: 0.6, energyEfficiency: 0.30, repairCost: 0.3, marketingAppeal: 0.2, yearAvailable: 1970, description: 'Cheap, inefficient, wears out — the 70s standard.' },
-        { id: 'brushless',    name: 'Brushless DC',     cost: 50, durability: 0.75, noise: 0.3, energyEfficiency: 0.70, repairCost: 0.6, marketingAppeal: 0.5, yearAvailable: 1988, description: 'Efficient and quiet — became viable in the late 80s.' },
-        { id: 'directdrive',  name: 'Direct Drive',     cost: 85, durability: 0.90, noise: 0.15, energyEfficiency: 0.85, repairCost: 0.8, marketingAppeal: 0.8, yearAvailable: 2000, description: 'Premium — near-silent, extremely reliable, expensive.' },
+        { id: 'brushless',    name: 'Brushless DC',     cost: 50, durability: 0.75, noise: 0.3, energyEfficiency: 0.70, repairCost: 0.6, marketingAppeal: 0.5, yearAvailable: 1988, techDependency: 'Efficient Motors', description: 'Efficient and quiet — became viable in the late 80s.' },
+        { id: 'directdrive',  name: 'Direct Drive',     cost: 85, durability: 0.90, noise: 0.15, energyEfficiency: 0.85, repairCost: 0.8, marketingAppeal: 0.8, yearAvailable: 2000, techDependency: 'Premium Era', description: 'Premium — near-silent, extremely reliable, expensive.' },
       ],
     },
     pump: {
@@ -27,7 +27,7 @@ const DATA = {
       options: [
         { id: 'cheap',     name: 'Budget Pump',    cost: 8,  durability: 0.30, noise: 0.7, flowRate: 0.3, repairCost: 0.2, marketingAppeal: 0.05, yearAvailable: 1970, description: 'Clogs often, fails fast — but it is cheap.' },
         { id: 'standard',  name: 'Standard Pump',  cost: 18, durability: 0.65, noise: 0.4, flowRate: 0.6, repairCost: 0.5, marketingAppeal: 0.2,  yearAvailable: 1970, description: 'Reliable enough for most households.' },
-        { id: 'industrial',name: 'Industrial Pump',cost: 40, durability: 0.92, noise: 0.3, flowRate: 0.9, repairCost: 0.8, marketingAppeal: 0.4,  yearAvailable: 1975, description: 'Built for laundromats and high-use homes.' },
+        { id: 'industrial',name: 'Industrial Pump',cost: 40, durability: 0.92, noise: 0.3, flowRate: 0.9, repairCost: 0.8, marketingAppeal: 0.4,  yearAvailable: 1975, techDependency: 'Industrial Components', description: 'Built for laundromats and high-use homes.' },
       ],
     },
     bearings: {
@@ -35,8 +35,8 @@ const DATA = {
       options: [
         { id: 'cheap',    name: 'Economy Bearings',    cost: 4,  durability: 0.20, noise: 0.8, catastrophicFailRate: 0.3, marketingAppeal: 0.0, yearAvailable: 1970, description: 'Fail fast, fail loud, fail catastrophically.' },
         { id: 'standard', name: 'Standard Bearings',   cost: 12, durability: 0.55, noise: 0.4, catastrophicFailRate: 0.1, marketingAppeal: 0.1, yearAvailable: 1970, description: 'Acceptable lifespan for the average home.' },
-        { id: 'premium',  name: 'Premium Sealed',      cost: 35, durability: 0.92, noise: 0.15, catastrophicFailRate: 0.02, marketingAppeal: 0.4, yearAvailable: 1975, description: 'Rarely fail — the best investment you can make.' },
-        { id: 'magnetic', name: 'Magnetic Levitation', cost: 80, durability: 0.98, noise: 0.05, catastrophicFailRate: 0.01, marketingAppeal: 0.7, yearAvailable: 2010, description: 'No contact, no wear, no noise — futuristic.' },
+        { id: 'premium',  name: 'Premium Sealed',      cost: 35, durability: 0.92, noise: 0.15, catastrophicFailRate: 0.02, marketingAppeal: 0.4, yearAvailable: 1975, techDependency: 'Industrial Components', description: 'Rarely fail — the best investment you can make.' },
+        { id: 'magnetic', name: 'Magnetic Levitation', cost: 80, durability: 0.98, noise: 0.05, catastrophicFailRate: 0.01, marketingAppeal: 0.7, yearAvailable: 2010, techDependency: 'Next Gen Bearings', description: 'No contact, no wear, no noise — futuristic.' },
       ],
     },
     suspension: {
@@ -44,16 +44,16 @@ const DATA = {
       options: [
         { id: 'basic',    name: 'Basic Springs',        cost: 8,  durability: 0.30, vibrationDampening: 0.3, marketingAppeal: 0.1, yearAvailable: 1970, description: 'Machines will walk across the floor.' },
         { id: 'standard', name: 'Standard Dampers',     cost: 20, durability: 0.60, vibrationDampening: 0.6, marketingAppeal: 0.3, yearAvailable: 1970, description: 'Keeps things steady in most homes.' },
-        { id: 'advanced', name: 'Hydraulic Stabilisers',cost: 45, durability: 0.85, vibrationDampening: 0.9, marketingAppeal: 0.6, yearAvailable: 1990, description: 'Rock-solid, even at max spin.' },
+        { id: 'advanced', name: 'Hydraulic Stabilisers',cost: 45, durability: 0.85, vibrationDampening: 0.9, marketingAppeal: 0.6, yearAvailable: 1990, techDependency: 'Advanced Hydraulics', description: 'Rock-solid, even at max spin.' },
       ],
     },
     controlBoard: {
       label: 'Control Board',
       options: [
         { id: 'mechanical', name: 'Mechanical Timer',  cost: 12, durability: 0.85, failureRate: 0.15, smartFeatures: 0.0, marketingAppeal: 0.1, yearAvailable: 1970, description: 'Simple, repairable, nearly bulletproof — old school.' },
-        { id: 'electronic', name: 'Electronic Display',cost: 30, durability: 0.65, failureRate: 0.30, smartFeatures: 0.3, marketingAppeal: 0.4, yearAvailable: 1985, description: 'LCD + buttons — more features, more to break.' },
-        { id: 'smart',      name: 'Smart WiFi',        cost: 55, durability: 0.50, failureRate: 0.40, smartFeatures: 0.7, marketingAppeal: 0.7, yearAvailable: 2005, description: 'App control, diagnostics, OTA updates — and OTA failures.' },
-        { id: 'ai',         name: 'AI Load Sensing',   cost: 80, durability: 0.45, failureRate: 0.45, smartFeatures: 0.95, marketingAppeal: 0.9, yearAvailable: 2018, description: 'Adjusts every cycle automatically — cutting-edge.' },
+        { id: 'electronic', name: 'Electronic Display',cost: 30, durability: 0.65, failureRate: 0.30, smartFeatures: 0.3, marketingAppeal: 0.4, yearAvailable: 1985, techDependency: 'Electronic Controls', description: 'LCD + buttons — more features, more to break.' },
+        { id: 'smart',      name: 'Smart WiFi',        cost: 55, durability: 0.50, failureRate: 0.40, smartFeatures: 0.7, marketingAppeal: 0.7, yearAvailable: 2005, techDependency: 'Smart Home Integration', description: 'App control, diagnostics, OTA updates — and OTA failures.' },
+        { id: 'ai',         name: 'AI Load Sensing',   cost: 80, durability: 0.45, failureRate: 0.45, smartFeatures: 0.95, marketingAppeal: 0.9, yearAvailable: 2018, techDependency: 'Artificial Intelligence', description: 'Adjusts every cycle automatically — cutting-edge.' },
       ],
     },
     exterior: {
@@ -61,8 +61,8 @@ const DATA = {
       options: [
         { id: 'basic',        name: 'Basic Knobs + White',  cost: 8,  marketingAppeal: 0.1, yearAvailable: 1970, description: 'Functional, forgettable, white box.' },
         { id: 'metalKnobs',   name: 'Metal Knobs + Trim',   cost: 18, marketingAppeal: 0.3, yearAvailable: 1970, description: 'A step up — feels premium on the showroom floor.' },
-        { id: 'glassDoor',    name: 'Glass Door + Display', cost: 35, marketingAppeal: 0.6, yearAvailable: 1990, description: 'See the wash in action — sells well.' },
-        { id: 'premium',      name: 'Premium Finish + LED', cost: 55, marketingAppeal: 0.8, yearAvailable: 2000, description: 'Designer looks, customizable colors, lighting.' },
+        { id: 'glassDoor',    name: 'Glass Door + Display', cost: 35, marketingAppeal: 0.6, yearAvailable: 1990, techDependency: 'Advanced Hydraulics', description: 'See the wash in action — sells well.' },
+        { id: 'premium',      name: 'Premium Finish + LED', cost: 55, marketingAppeal: 0.8, yearAvailable: 2000, techDependency: 'Premium Era', description: 'Designer looks, customizable colors, lighting.' },
       ],
     },
   },
@@ -337,16 +337,16 @@ const DATA = {
   // ---- Technology Unlock Timeline ----
 
   techUnlocks: [
-    { year: 1970, name: 'Basic Manufacturing', description: 'You can build simple washing machines.' },
-    { year: 1975, name: 'Industrial Components', description: 'Industrial pumps and premium bearings unlock.' },
-    { year: 1980, name: 'Precision Manufacturing', description: 'Improved quality control tech available.' },
-    { year: 1985, name: 'Electronic Controls', description: 'Electronic display boards, reinforced drums unlock.' },
-    { year: 1988, name: 'Efficient Motors', description: 'Brushless DC motors unlock.' },
-    { year: 1990, name: 'Advanced Hydraulics', description: 'Hydraulic suspension, glass door exteriors unlock.' },
-    { year: 2000, name: 'Premium Era', description: 'Direct drive motors, premium finishes unlock.' },
-    { year: 2005, name: 'Smart Home Integration', description: 'WiFi control boards unlock.' },
-    { year: 2010, name: 'Next Gen Bearings', description: 'Magnetic levitation bearings unlock.' },
-    { year: 2018, name: 'Artificial Intelligence', description: 'AI load sensing control boards unlock.' },
+    { year: 1970, name: 'Basic Manufacturing',        description: 'You can build simple washing machines.',                                                                                        requiredLevel: 0 },
+    { year: 1975, name: 'Industrial Components',       description: 'Industrial pumps and premium bearings unlock.',                                                                                  requiredLevel: 3 },
+    { year: 1980, name: 'Precision Manufacturing',     description: 'Improved quality control tech available.',                                                                                       requiredLevel: 5 },
+    { year: 1985, name: 'Electronic Controls',         description: 'Electronic display boards, reinforced drums unlock.',                                                                            requiredLevel: 8 },
+    { year: 1988, name: 'Efficient Motors',            description: 'Brushless DC motors unlock.',                                                                                                    requiredLevel: 10 },
+    { year: 1990, name: 'Advanced Hydraulics',         description: 'Hydraulic suspension, glass door exteriors unlock.',                                                                             requiredLevel: 13 },
+    { year: 2000, name: 'Premium Era',                 description: 'Direct drive motors, premium finishes unlock.',                                                                                  requiredLevel: 18 },
+    { year: 2005, name: 'Smart Home Integration',      description: 'WiFi control boards unlock.',                                                                                                    requiredLevel: 22 },
+    { year: 2010, name: 'Next Gen Bearings',           description: 'Magnetic levitation bearings unlock.',                                                                                           requiredLevel: 28 },
+    { year: 2018, name: 'Artificial Intelligence',     description: 'AI load sensing control boards unlock.',                                                                                         requiredLevel: 35 },
   ],
 
   // ---- Competitor AI Strategies ----

@@ -23,6 +23,10 @@ AI.initCompetitor = function(comp) {
     marketShare: 0,
     designCounter: 0,
     adaptationRate: diff.aiAdaptSpeed + (Math.random() - 0.5) * 0.2,
+    // AI has its own research so it can unlock components independently.
+    // Base techs are always unlocked; others progress based on difficulty.
+    _researchLevel: 0,
+    _unlockedTechs: ['Basic Manufacturing'],
   };
 
   // Do initial design
@@ -58,7 +62,10 @@ AI.tick = function() {
     // --- 4. Adjust marketing ---
     AI._adjustMarketing(comp, diff);
 
-    // --- 5. Produce units ---
+    // --- 5. Research — AI auto-advances tech based on difficulty ---
+    AI._checkResearch(comp, diff);
+
+    // --- 6. Produce units ---
     AI._produceUnits(comp, diff);
   }
 };
@@ -99,7 +106,14 @@ AI._designNewModel = function(comp) {
   for (const key of Object.keys(DATA.components)) {
     const compDef = DATA.components[key];
     if (!compDef) continue;
-    const available = compDef.options.filter(o => o.yearAvailable <= G.year);
+    const available = compDef.options.filter(o => {
+      if (o.yearAvailable > G.year) return false;
+      // Tech gate using AI's own unlocked techs
+      if (o.techDependency && ai && ai._unlockedTechs) {
+        if (!ai._unlockedTechs.includes(o.techDependency)) return false;
+      }
+      return true;
+    });
     if (available.length === 0) continue;
 
     // Try to use the strategy's preferred component, falling back if not yet available
@@ -207,6 +221,28 @@ AI._adjustMarketing = function(comp, diff) {
   // Scale with reputation and difficulty
   const repFactor = ai.currentReputation / 50;
   ai.marketingBudget = Math.max(0, Math.round(baseBudget * repFactor * diff.aiProductionScale));
+};
+
+// ---- AI Research Check ----
+// AI auto-advances its tech tree based on difficulty so its components
+// stay relevant. Higher difficulty = faster research.
+
+AI._checkResearch = function(comp, diff) {
+  const ai = comp._ai;
+  // Research grows slowly on easy, quickly on nightmare, roughly
+  // proportional to the year (so AI keeps pace with the timeline).
+  const dailyGain = (G.speed || 1) * diff.aiAdaptSpeed * 0.005;
+  ai._researchLevel += dailyGain;
+
+  // Check which techs are now unlocked given this research level.
+  for (const tech of DATA.techUnlocks) {
+    if (tech.year > G.year) continue;
+    if (ai._unlockedTechs.includes(tech.name)) continue;
+    const needed = tech.requiredLevel !== undefined ? tech.requiredLevel : 0;
+    if (ai._researchLevel >= needed) {
+      ai._unlockedTechs.push(tech.name);
+    }
+  }
 };
 
 // ---- Produce Units ----
