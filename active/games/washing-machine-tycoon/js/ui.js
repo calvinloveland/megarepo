@@ -1267,8 +1267,40 @@ UI.gameLoop = function() {
   if (!G.paused) {
     SIM.tick();
   }
-  UI.render();
+  // Lightweight frame update — ONLY the topbar/paused-indicator/toast
+  // change every tick. Full screen rendering (renderDesignStudio etc.)
+  // is triggered by user actions (navigation, button clicks) so that
+  // form inputs don't get destroyed mid-typing (issue #8/#9).
+  UI.renderFrame();
   requestAnimationFrame(UI.gameLoop);
+};
+
+// Lightweight per-frame update — topbar + paused indicator + toast.
+// Does NOT rebuild the active screen's DOM (preserves form inputs).
+// Full screen render runs every ~30 ticks as a slow background refresh
+// so dashboard values eventually update even without navigation.
+UI._frameCounter = 0;
+UI.renderFrame = function() {
+  if (!G) return;
+  UI.renderTopBar();
+  UI._updateSetupGuide();
+  if (UI.message && Date.now() < UI.messageTimer) {
+    const el = document.getElementById('message-toast');
+    if (el) { el.textContent = UI.message; el.style.display = 'block'; }
+  } else {
+    const el = document.getElementById('message-toast');
+    if (el) el.style.display = 'none';
+  }
+  // Slow background screen refresh every 30 frames (~2 seconds)
+  // so metrics eventually update without the user navigating away.
+  // EXCEPT the Design Studio (form inputs must not be destroyed) and
+  // Machine Browser (search/filter must not be reset).
+  UI._frameCounter = (UI._frameCounter || 0) + 1;
+  if (UI._frameCounter % 30 === 0 && G &&
+      UI.currentScreen !== 'design' &&
+      UI.currentScreen !== 'machines') {
+    UI.renderScreen(UI.currentScreen);
+  }
 };
 
 // ---- Start Game ----
