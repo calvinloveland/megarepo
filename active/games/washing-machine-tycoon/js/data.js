@@ -6,63 +6,124 @@ const DATA = {
   // ---- Component Catalogue (unlock by year) ----
 
   components: {
+    // ---- DRUM (inner tub) ----
     drum: {
       label: 'Drum',
       options: [
-        { id: 'plastic',       name: 'Plastic',             cost: 15, durability: 0.30, noise: 0.7, rustResistance: 0.20, weight: 0.3, marketingAppeal: 0.1, yearAvailable: 1970, description: 'Cheapest option — noisy, rust-prone, but light.' },
-        { id: 'stainless',     name: 'Stainless Steel',      cost: 35, durability: 0.70, noise: 0.4, rustResistance: 0.80, weight: 0.6, marketingAppeal: 0.5, yearAvailable: 1970, description: 'The industry standard — good balance of cost and quality.' },
-        { id: 'reinforced',    name: 'Reinforced Stainless', cost: 60, durability: 0.95, noise: 0.3, rustResistance: 0.95, weight: 0.8, marketingAppeal: 0.7, yearAvailable: 1985, techDependency: 'Electronic Controls', description: 'Premium drum — near-indestructible, silent, heavy.' },
+        // 1945: Post-war enamel-on-steel — basic but gets the job done
+        { id: 'porcelain',   name: 'Porcelain Enamel',    cost: 10, durability: 0.35, noise: 0.6, rustResistance: 0.40, weight: 0.7, marketingAppeal: 0.10, yearAvailable: 1945, description: 'Standard post-war enamel tub. Heavy, chips over time, but cheap.' },
+        // 1945: Galvanised steel — the budget wartime holdover
+        { id: 'galvanised',  name: 'Galvanised Steel',    cost: 6,  durability: 0.20, noise: 0.8, rustResistance: 0.25, weight: 0.6, marketingAppeal: 0.05, yearAvailable: 1945, description: 'Wartime surplus steel. Rusts quickly, noisy — barely adequate.' },
+        // 1955: Stainless becomes the aspirational standard
+        { id: 'stainless',   name: 'Stainless Steel',     cost: 30, durability: 0.65, noise: 0.4, rustResistance: 0.85, weight: 0.6, marketingAppeal: 0.45, yearAvailable: 1955, techDependency: 'Automatic Revolution', description: 'The post-war industry standard — good balance of cost and quality.' },
+        // 1972: Plastic inner tubs (lighter, cheaper, no rust)
+        { id: 'polypropylene',name: 'Polypropylene',      cost: 18, durability: 0.40, noise: 0.5, rustResistance: 0.95, weight: 0.2, marketingAppeal: 0.20, yearAvailable: 1972, techDependency: 'Compact Living', description: 'Lightweight polymer tub. No rust, quieter, less durable than steel.' },
+        // 1985: Reinforced stainless for premium machines
+        { id: 'reinforced',  name: 'Reinforced Stainless',cost: 55, durability: 0.92, noise: 0.25, rustResistance: 0.95, weight: 0.8, marketingAppeal: 0.65, yearAvailable: 1985, techDependency: 'Electronic Controls', description: 'Premium drum — near-indestructible, silent, heavy.' },
+        // 2010: Advanced composites for high-end machines
+        { id: 'composite',   name: 'Carbon Composite',   cost: 70, durability: 0.85, noise: 0.20, rustResistance: 0.98, weight: 0.35, marketingAppeal: 0.85, yearAvailable: 2010, techDependency: 'AI & IoT', description: 'Space-age composite drum. Light, silent, corrosion-proof.' },
       ],
     },
+
+    // ---- MOTOR ----
     motor: {
       label: 'Motor',
       options: [
-        { id: 'brushed',      name: 'Brushed DC',       cost: 25, durability: 0.40, noise: 0.6, energyEfficiency: 0.30, repairCost: 0.3, marketingAppeal: 0.2, yearAvailable: 1970, description: 'Cheap, inefficient, wears out — the 70s standard.' },
-        { id: 'brushless',    name: 'Brushless DC',     cost: 50, durability: 0.75, noise: 0.3, energyEfficiency: 0.70, repairCost: 0.6, marketingAppeal: 0.5, yearAvailable: 1988, techDependency: 'Efficient Motors', description: 'Efficient and quiet — became viable in the late 80s.' },
-        { id: 'directdrive',  name: 'Direct Drive',     cost: 85, durability: 0.90, noise: 0.15, energyEfficiency: 0.85, repairCost: 0.8, marketingAppeal: 0.8, yearAvailable: 2000, techDependency: 'Premium Era', description: 'Premium — near-silent, extremely reliable, expensive.' },
+        // 1945: Universal brushed motor — the workhorse of early appliances
+        { id: 'universal',   name: 'Universal Brushed',  cost: 16, durability: 0.30, noise: 0.7, energyEfficiency: 0.22, repairCost: 0.3, marketingAppeal: 0.05, yearAvailable: 1945, description: 'The original appliance motor. Brushes wear out, runs hot, noisy.' },
+        // 1955: Induction motor — more reliable, less noise
+        { id: 'induction',   name: 'Split-Phase Induction', cost: 28, durability: 0.50, noise: 0.5, energyEfficiency: 0.38, repairCost: 0.4, marketingAppeal: 0.15, yearAvailable: 1955, techDependency: 'Automatic Revolution', description: 'Reliable induction motor. Fewer moving parts, runs cooler.' },
+        // 1970: Permanent split capacitor — more efficient
+        { id: 'psc',         name: 'PSC Motor',          cost: 38, durability: 0.65, noise: 0.4, energyEfficiency: 0.55, repairCost: 0.5, marketingAppeal: 0.25, yearAvailable: 1970, techDependency: 'Compact Living', description: 'Permanent split capacitor motor. Good efficiency, smooth operation.' },
+        // 1988: Brushless DC — the quiet revolution
+        { id: 'brushless',   name: 'Brushless DC',       cost: 55, durability: 0.78, noise: 0.20, energyEfficiency: 0.72, repairCost: 0.6, marketingAppeal: 0.50, yearAvailable: 1988, techDependency: 'Fuzzy Logic', description: 'Efficient and quiet — became viable in the late 80s.' },
+        // 2005: Direct drive — fewer parts, near-silent
+        { id: 'directdrive', name: 'Direct Drive Inverter', cost: 85, durability: 0.92, noise: 0.10, energyEfficiency: 0.88, repairCost: 0.8, marketingAppeal: 0.75, yearAvailable: 2005, techDependency: 'Smart Connectivity', description: 'Premium — near-silent, extremely reliable, expensive.' },
       ],
     },
+
+    // ---- PUMP ----
     pump: {
       label: 'Pump',
       options: [
-        { id: 'cheap',     name: 'Budget Pump',    cost: 8,  durability: 0.30, noise: 0.7, flowRate: 0.3, repairCost: 0.2, marketingAppeal: 0.05, yearAvailable: 1970, description: 'Clogs often, fails fast — but it is cheap.' },
-        { id: 'standard',  name: 'Standard Pump',  cost: 18, durability: 0.65, noise: 0.4, flowRate: 0.6, repairCost: 0.5, marketingAppeal: 0.2,  yearAvailable: 1970, description: 'Reliable enough for most households.' },
-        { id: 'industrial',name: 'Industrial Pump',cost: 40, durability: 0.92, noise: 0.3, flowRate: 0.9, repairCost: 0.8, marketingAppeal: 0.4,  yearAvailable: 1975, techDependency: 'Industrial Components', description: 'Built for laundromats and high-use homes.' },
+        // 1945: Gravity drain — no pump, just a hose to the sink
+        { id: 'gravity',     name: 'Gravity Drain',      cost: 3,  durability: 0.55, noise: 0.0, flowRate: 0.20, repairCost: 0.1, marketingAppeal: 0.0, yearAvailable: 1945, description: 'No pump needed — water drains by gravity into a sink. Limited placement.' },
+        // 1955: Belt-driven centrifugal pump
+        { id: 'beltPump',    name: 'Belt-Driven Pump',   cost: 10, durability: 0.50, noise: 0.6, flowRate: 0.45, repairCost: 0.3, marketingAppeal: 0.05, yearAvailable: 1955, techDependency: 'Automatic Revolution', description: 'Belt-driven centrifugal. Clogs sometimes, belt wears out.' },
+        // 1970: Direct-drive centrifugal pump
+        { id: 'standard',    name: 'Standard Pump',      cost: 18, durability: 0.68, noise: 0.4, flowRate: 0.60, repairCost: 0.5, marketingAppeal: 0.20, yearAvailable: 1970, techDependency: 'Compact Living', description: 'Reliable enough for most households.' },
+        // 1985: High-flow industrial pump
+        { id: 'industrial',  name: 'Industrial Pump',    cost: 40, durability: 0.92, noise: 0.3, flowRate: 0.90, repairCost: 0.8, marketingAppeal: 0.30, yearAvailable: 1985, techDependency: 'Electronic Controls', description: 'Built for laundromats and high-use homes.' },
       ],
     },
+
+    // ---- BEARINGS ----
     bearings: {
       label: 'Bearings',
       options: [
-        { id: 'cheap',    name: 'Economy Bearings',    cost: 4,  durability: 0.20, noise: 0.8, catastrophicFailRate: 0.3, marketingAppeal: 0.0, yearAvailable: 1970, description: 'Fail fast, fail loud, fail catastrophically.' },
-        { id: 'standard', name: 'Standard Bearings',   cost: 12, durability: 0.55, noise: 0.4, catastrophicFailRate: 0.1, marketingAppeal: 0.1, yearAvailable: 1970, description: 'Acceptable lifespan for the average home.' },
-        { id: 'premium',  name: 'Premium Sealed',      cost: 35, durability: 0.92, noise: 0.15, catastrophicFailRate: 0.02, marketingAppeal: 0.4, yearAvailable: 1975, techDependency: 'Industrial Components', description: 'Rarely fail — the best investment you can make.' },
-        { id: 'magnetic', name: 'Magnetic Levitation', cost: 80, durability: 0.98, noise: 0.05, catastrophicFailRate: 0.01, marketingAppeal: 0.7, yearAvailable: 2010, techDependency: 'Next Gen Bearings', description: 'No contact, no wear, no noise — futuristic.' },
+        // 1945: Simple bronze bushings — primitive
+        { id: 'bronze',      name: 'Bronze Bushings',    cost: 3,  durability: 0.15, noise: 0.9, catastrophicFailRate: 0.35, marketingAppeal: 0.0, yearAvailable: 1945, description: 'Basic bronze bushings — need constant lubrication, fail catastrophically.' },
+        // 1945: Standard sealed bearings (post-war surplus)
+        { id: 'standard',    name: 'Standard Sealed',    cost: 10, durability: 0.45, noise: 0.5, catastrophicFailRate: 0.15, marketingAppeal: 0.05, yearAvailable: 1945, description: 'Post-war sealed bearings. Acceptable lifespan for average use.' },
+        // 1965: Premium bearings for better machines
+        { id: 'premium',     name: 'Premium Sealed',     cost: 25, durability: 0.75, noise: 0.30, catastrophicFailRate: 0.06, marketingAppeal: 0.25, yearAvailable: 1965, techDependency: 'Multiple Cycles', description: 'Better tolerances, smoother operation — a worthy upgrade.' },
+        // 1985: High-density ceramic hybrid
+        { id: 'hybrid',      name: 'Ceramic Hybrid',     cost: 45, durability: 0.92, noise: 0.15, catastrophicFailRate: 0.02, marketingAppeal: 0.50, yearAvailable: 1985, techDependency: 'Electronic Controls', description: 'Ceramic balls, steel races — the best investment you can make.' },
+        // 2015: Magnetic levitation
+        { id: 'magnetic',    name: 'Magnetic Levitation',cost: 80, durability: 0.98, noise: 0.05, catastrophicFailRate: 0.005, marketingAppeal: 0.75, yearAvailable: 2015, techDependency: 'AI & IoT', description: 'No contact, no wear, no noise — futuristic.' },
       ],
     },
+
+    // ---- SUSPENSION ----
     suspension: {
       label: 'Suspension',
       options: [
-        { id: 'basic',    name: 'Basic Springs',        cost: 8,  durability: 0.30, vibrationDampening: 0.3, marketingAppeal: 0.1, yearAvailable: 1970, description: 'Machines will walk across the floor.' },
-        { id: 'standard', name: 'Standard Dampers',     cost: 20, durability: 0.60, vibrationDampening: 0.6, marketingAppeal: 0.3, yearAvailable: 1970, description: 'Keeps things steady in most homes.' },
-        { id: 'advanced', name: 'Hydraulic Stabilisers',cost: 45, durability: 0.85, vibrationDampening: 0.9, marketingAppeal: 0.6, yearAvailable: 1990, techDependency: 'Advanced Hydraulics', description: 'Rock-solid, even at max spin.' },
+        // 1945: Simple leaf springs — the machine walks
+        { id: 'leaf',        name: 'Leaf Springs',       cost: 4,  durability: 0.20, vibrationDampening: 0.15, marketingAppeal: 0.0, yearAvailable: 1945, description: 'Simple steel leaves. Machines "walk" across the floor during spin.' },
+        // 1955: Coil springs — some improvement
+        { id: 'coil',        name: 'Coil Springs',       cost: 10, durability: 0.40, vibrationDampening: 0.35, marketingAppeal: 0.10, yearAvailable: 1955, techDependency: 'High-Spin Era', description: 'Coil springs reduce walking but vibration is still noticeable.' },
+        // 1970: Torsion bar suspension
+        { id: 'torsion',     name: 'Torsion Bar',        cost: 18, durability: 0.60, vibrationDampening: 0.55, marketingAppeal: 0.20, yearAvailable: 1970, techDependency: 'Compact Living', description: 'Torsion bars keep things steady in most homes.' },
+        // 1995: Hydraulic dampers
+        { id: 'hydraulic',   name: 'Hydraulic Dampers',  cost: 38, durability: 0.72, vibrationDampening: 0.82, marketingAppeal: 0.45, yearAvailable: 1995, techDependency: 'Fuzzy Logic', description: 'Oil-filled dampers absorb most vibration.' },
+        // 2018: Active electronic suspension
+        { id: 'active',      name: 'Active Suspension',  cost: 65, durability: 0.85, vibrationDampening: 0.98, marketingAppeal: 0.70, yearAvailable: 2018, techDependency: 'AI & IoT', description: 'Electronic sensors cancel vibration in real-time — rock solid.' },
       ],
     },
+
+    // ---- CONTROL BOARD ----
     controlBoard: {
       label: 'Control Board',
       options: [
-        { id: 'mechanical', name: 'Mechanical Timer',  cost: 12, durability: 0.85, failureRate: 0.15, smartFeatures: 0.0, marketingAppeal: 0.1, yearAvailable: 1970, description: 'Simple, repairable, nearly bulletproof — old school.' },
-        { id: 'electronic', name: 'Electronic Display',cost: 30, durability: 0.65, failureRate: 0.30, smartFeatures: 0.3, marketingAppeal: 0.4, yearAvailable: 1985, techDependency: 'Electronic Controls', description: 'LCD + buttons — more features, more to break.' },
-        { id: 'smart',      name: 'Smart WiFi',        cost: 55, durability: 0.50, failureRate: 0.40, smartFeatures: 0.7, marketingAppeal: 0.7, yearAvailable: 2005, techDependency: 'Smart Home Integration', description: 'App control, diagnostics, OTA updates — and OTA failures.' },
-        { id: 'ai',         name: 'AI Load Sensing',   cost: 80, durability: 0.45, failureRate: 0.45, smartFeatures: 0.95, marketingAppeal: 0.9, yearAvailable: 2018, techDependency: 'Artificial Intelligence', description: 'Adjusts every cycle automatically — cutting-edge.' },
+        // 1945: Electro-mechanical timer — the classic rotating dial
+        { id: 'timer',       name: 'Mechanical Timer',   cost: 8,  durability: 0.90, failureRate: 0.10, smartFeatures: 0.0, marketingAppeal: 0.05, yearAvailable: 1945, description: 'Rotating dial with a synchronous motor. Simple, repairable, bulletproof.' },
+        // 1957: Electro-mechanical with more cycles
+        { id: 'multicam',    name: 'Multi-Cam Timer',    cost: 15, durability: 0.80, failureRate: 0.15, smartFeatures: 0.05, marketingAppeal: 0.15, yearAvailable: 1957, techDependency: 'High-Spin Era', description: 'Multiple cams for wash/spin/rinse cycles — still mechanical.' },
+        // 1975: Push-button electronic
+        { id: 'pushButton',  name: 'Push-Button Panel',  cost: 25, durability: 0.70, failureRate: 0.20, smartFeatures: 0.15, marketingAppeal: 0.35, yearAvailable: 1975, techDependency: 'Compact Living', description: 'Solid-state timers with push-button cycle selection.' },
+        // 1988: Digital display
+        { id: 'digital',     name: 'Digital Display',    cost: 38, durability: 0.55, failureRate: 0.28, smartFeatures: 0.35, marketingAppeal: 0.55, yearAvailable: 1988, techDependency: 'Fuzzy Logic', description: 'LCD screen + sensors. More features, more to break.' },
+        // 2005: Smart WiFi-enabled
+        { id: 'smart',       name: 'Smart WiFi',         cost: 60, durability: 0.45, failureRate: 0.38, smartFeatures: 0.72, marketingAppeal: 0.75, yearAvailable: 2005, techDependency: 'Smart Connectivity', description: 'App control, diagnostics, OTA updates — and OTA failures.' },
+        // 2018: AI load sensing
+        { id: 'ai',          name: 'AI Load Sensing',    cost: 85, durability: 0.40, failureRate: 0.45, smartFeatures: 0.95, marketingAppeal: 0.90, yearAvailable: 2018, techDependency: 'AI & IoT', description: 'Adjusts every cycle automatically — cutting-edge.' },
       ],
     },
+
+    // ---- EXTERIOR ----
     exterior: {
       label: 'Exterior / Interface',
       options: [
-        { id: 'basic',        name: 'Basic Knobs + White',  cost: 8,  marketingAppeal: 0.1, yearAvailable: 1970, description: 'Functional, forgettable, white box.' },
-        { id: 'metalKnobs',   name: 'Metal Knobs + Trim',   cost: 18, marketingAppeal: 0.3, yearAvailable: 1970, description: 'A step up — feels premium on the showroom floor.' },
-        { id: 'glassDoor',    name: 'Glass Door + Display', cost: 35, marketingAppeal: 0.6, yearAvailable: 1990, techDependency: 'Advanced Hydraulics', description: 'See the wash in action — sells well.' },
-        { id: 'premium',      name: 'Premium Finish + LED', cost: 55, marketingAppeal: 0.8, yearAvailable: 2000, techDependency: 'Premium Era', description: 'Designer looks, customizable colors, lighting.' },
+        // 1945: Basic utilitarian white
+        { id: 'white',       name: 'Basic White',        cost: 6,  marketingAppeal: 0.08, yearAvailable: 1945, description: 'Functional white box. It washes clothes.' },
+        // 1950: Chrome trim for post-war optimism
+        { id: 'chrome',      name: 'Chrome Trim',        cost: 14, marketingAppeal: 0.25, yearAvailable: 1950, techDependency: 'Automatic Revolution', description: 'Shiny chrome accents — looks modern in any kitchen.' },
+        // 1965: Color — harvest gold, avocado green
+        { id: 'color',       name: 'Designer Colors',    cost: 20, marketingAppeal: 0.38, yearAvailable: 1965, techDependency: 'Multiple Cycles', description: 'Harvest gold, avocado green — match your kitchen decor!' },
+        // 1988: Glass door
+        { id: 'glassDoor',   name: 'Glass Door + Display',cost: 35, marketingAppeal: 0.60, yearAvailable: 1988, techDependency: 'Fuzzy Logic', description: 'See the wash in action — sells well.' },
+        // 2005: Premium finish
+        { id: 'premium',     name: 'Premium Finish + LED',cost: 55, marketingAppeal: 0.82, yearAvailable: 2005, techDependency: 'Smart Connectivity', description: 'Designer looks, customizable colors, lighting.' },
       ],
     },
   },
@@ -324,83 +385,159 @@ const DATA = {
   // ---- Regulation Events (my addition) ----
 
   regulations: [
-    { year: 1978, name: 'Energy Star Phase 1', description: 'Minimum energy efficiency standard introduced', effect: 'energyReq:0.3' },
-    { year: 1985, name: 'Noise Ordinance EU', description: 'EU mandates max 75dB for household appliances', effect: 'noiseMax:75' },
-    { year: 1990, name: 'Water Conservation Act', description: 'Max 40L per cycle for new machines', effect: 'waterMax:40' },
-    { year: 1997, name: 'Energy Star Phase 2', description: 'Stricter energy efficiency standards', effect: 'energyReq:0.55' },
-    { year: 2004, name: 'RoHS Compliance', description: 'Restriction of hazardous substances in electronics', effect: 'rohs:true' },
-    { year: 2010, name: 'Energy Star Phase 3', description: 'Further energy reductions required', effect: 'energyReq:0.7' },
-    { year: 2015, name: 'Smart Grid Ready', description: 'All new washers must support demand response', effect: 'smartGrid:true' },
-    { year: 2022, name: 'Right to Repair Act', description: 'Manufacturers must supply parts for 10 years', effect: 'partsMandate:10' },
+    // 1950s — safety concerns as appliances proliferate
+    { year: 1953, name: 'UL Safety Standard',               description: 'Underwriters Laboratories safety certification required for home appliances.',       effect: 'ulListed:true' },
+    // 1970s — the environmental movement
+    { year: 1972, name: 'Clean Water Act',                  description: 'Limits on phosphate detergent discharge.',                                            effect: 'phosphateBan:true' },
+    { year: 1978, name: 'Energy Star Phase 1',              description: 'Minimum energy efficiency standard introduced.',                                    effect: 'energyReq:0.25' },
+    // 1980s — noise and water
+    { year: 1985, name: 'Noise Ordinance EU',                description: 'EU mandates max 75dB for household appliances.',                                  effect: 'noiseMax:75' },
+    { year: 1990, name: 'Water Conservation Act',           description: 'Max 40L per cycle for new machines.',                                             effect: 'waterMax:40' },
+    // 1990s — tightening standards
+    { year: 1997, name: 'Energy Star Phase 2',              description: 'Stricter energy efficiency standards.',                                          effect: 'energyReq:0.50' },
+    // 2000s — environmental regulation
+    { year: 2004, name: 'RoHS Compliance',                   description: 'Restriction of hazardous substances in electronics.',                             effect: 'rohs:true' },
+    { year: 2007, name: 'Energy Star Phase 3',              description: 'Further energy reductions required.',                                           effect: 'energyReq:0.65' },
+    // 2010s — smart grid, connected home
+    { year: 2013, name: 'Energy Star Phase 4',              description: 'Most efficient tier for washers.',                                             effect: 'energyReq:0.75' },
+    { year: 2015, name: 'Smart Grid Ready',                 description: 'All new washers must support demand response.',                                 effect: 'smartGrid:true' },
+    // 2020s — repairability
+    { year: 2022, name: 'Right to Repair Act',              description: 'Manufacturers must supply parts for 10 years.',                                 effect: 'partsMandate:10' },
   ],
 
   // ---- Technology Unlock Timeline ----
 
   techUnlocks: [
-    { year: 1970, name: 'Basic Manufacturing',        description: 'You can build simple washing machines.',                                                                                        requiredLevel: 0 },
-    { year: 1975, name: 'Industrial Components',       description: 'Industrial pumps and premium bearings unlock.',                                                                                  requiredLevel: 3 },
-    { year: 1980, name: 'Precision Manufacturing',     description: 'Improved quality control tech available.',                                                                                       requiredLevel: 5 },
-    { year: 1985, name: 'Electronic Controls',         description: 'Electronic display boards, reinforced drums unlock.',                                                                            requiredLevel: 8 },
-    { year: 1988, name: 'Efficient Motors',            description: 'Brushless DC motors unlock.',                                                                                                    requiredLevel: 10 },
-    { year: 1990, name: 'Advanced Hydraulics',         description: 'Hydraulic suspension, glass door exteriors unlock.',                                                                             requiredLevel: 13 },
-    { year: 2000, name: 'Premium Era',                 description: 'Direct drive motors, premium finishes unlock.',                                                                                  requiredLevel: 18 },
-    { year: 2005, name: 'Smart Home Integration',      description: 'WiFi control boards unlock.',                                                                                                    requiredLevel: 22 },
-    { year: 2010, name: 'Next Gen Bearings',           description: 'Magnetic levitation bearings unlock.',                                                                                           requiredLevel: 28 },
-    { year: 2018, name: 'Artificial Intelligence',     description: 'AI load sensing control boards unlock.',                                                                                         requiredLevel: 35 },
+    {
+      year: 1945, name: 'Basic Electric Laundry',
+      description: 'Post-war America is booming. Returning GIs are buying homes and starting families. The Thor electric washer (1908) proved electric laundry works — now it is time to make it affordable. You can build a simple electric washer with a universal motor and mechanical timer.',
+      requiredLevel: 0
+    },
+    {
+      year: 1950, name: 'Automatic Revolution',
+      description: 'Bendix introduced the first fully automatic washer in 1937, but war delayed mass adoption. Now the 1950s suburban boom demands convenience. Automatic fill, wash, rinse, and drain cycles free housewives from hours of laundry labor. Stainless steel drums offer rust-free durability.',
+      requiredLevel: 2
+    },
+    {
+      year: 1957, name: 'High-Spin Era',
+      description: 'The dangerous wringer/mangle that injured thousands of housewives is finally replaced by the built-in spin dryer. Multi-cam electro-mechanical timers allow separate wash and spin speeds. Machines can now safely spin at 600+ RPM.',
+      requiredLevel: 4
+    },
+    {
+      year: 1965, name: 'Multiple Cycles',
+      description: 'Synthetic fabrics like polyester and nylon need gentler care. The first delicate, permanent press, and pre-soak settings appear. Premium sealed bearings reduce noise. Consumers now expect a machine that matches their wardrobe, not just their workload.',
+      requiredLevel: 6
+    },
+    {
+      year: 1972, name: 'Compact Living',
+      description: 'Apartment living grows. Smaller, stackable machines emerge. Polypropylene plastic tubs cut weight and cost. The PSC (permanent split capacitor) motor improves efficiency. Push-button panels replace the classic rotating dial — a sign of the electronic age to come.',
+      requiredLevel: 9
+    },
+    {
+      year: 1978, name: 'Energy Star Phase 1',
+      description: 'The 1973 oil crisis changed everything. Congress mandates energy consumption labeling on all appliances. Consumers start asking: "How much electricity does it use?" Efficiency begins to matter in the marketplace.',
+      requiredLevel: 12
+    },
+    {
+      year: 1985, name: 'Electronic Controls',
+      description: 'The microprocessor revolution reaches the laundry room. Electronic sensors detect water temperature and fill level. Digital displays replace mechanical timers on premium models. Reinforced stainless steel drums can spin faster without warping.',
+      requiredLevel: 15
+    },
+    {
+      year: 1990, name: 'Fuzzy Logic',
+      description: 'Japanese manufacturers introduce "fuzzy logic" — microcontrollers that automatically adjust wash parameters based on load size, fabric type, and soil level. Brushless DC motors become practical with new power electronics. Hydraulic dampers make 1000+ RPM spins tolerable.',
+      requiredLevel: 18
+    },
+    {
+      year: 1997, name: 'Energy Star Phase 2',
+      description: 'The US Department of Energy tightens efficiency standards. Horizontal-axis (front-loading) machines gain market share because they use half the water and energy. HE (high-efficiency) detergent becomes required for new machines.',
+      requiredLevel: 22
+    },
+    {
+      year: 2005, name: 'Smart Connectivity',
+      description: 'WiFi arrives in the laundry room. Smart machines send notifications, download new cycles, and enable remote diagnostics. Direct drive inverter motors eliminate belts and pulleys for near-silent operation. Premium finishes make the washer a design statement.',
+      requiredLevel: 26
+    },
+    {
+      year: 2015, name: 'AI & IoT',
+      description: 'Machine learning optimizes every cycle. AI load sensing detects fabric type and weight, then selects the perfect water level, temperature, and agitation pattern. Auto-dispense systems release detergent and softener at exactly the right moment. Predictive maintenance alerts you before parts fail.',
+      requiredLevel: 32
+    },
+    {
+      year: 2022, name: 'Right to Repair',
+      description: 'A global movement for repairability forces manufacturers to provide parts, schematics, and diagnostics for a decade. Consumers tired of planned obsolescence demand machines that last 20+ years. Carbon composite drums and magnetic bearings make 20-year lifespans possible.',
+      requiredLevel: 38
+    },
   ],
 
   // ---- Competitor AI Strategies ----
 
   competitorArchetypes: [
+    // 1950s: Bendix-inspired first automatic washer pioneer
     {
-      id: 'cheapImports',
-      name: 'ValueMart Appliances',
-      description: 'Ultra-cheap machines, poor quality, high volume',
-      focusComponents: { drum: 'plastic', motor: 'brushed', pump: 'cheap', bearings: 'cheap', suspension: 'basic', controlBoard: 'mechanical', exterior: 'basic' },
+      id: 'bendixLegacy',
+      name: 'Bendix Home Laundry',
+      description: 'Invented the automatic washer — now a budget brand struggling with legacy designs',
+      focusComponents: { drum: 'porcelain', motor: 'universal', pump: 'beltPump', bearings: 'standard', suspension: 'coil', controlBoard: 'multicam', exterior: 'white' },
       priceStrategy: 'budget',
-      qualityLevel: 0.2,
-      aggressiveness: 0.6,
-      startingYear: 1980,
+      qualityLevel: 0.3,
+      aggressiveness: 0.4,
+      startingYear: 1945,
     },
+    // 1950s: Premium reliability brand
+    {
+      id: 'maytagStyle',
+      name: 'Mayflower Appliances',
+      description: 'Built like a tank — known for durability and dependability',
+      focusComponents: { drum: 'porcelain', motor: 'induction', pump: 'beltPump', bearings: 'premium', suspension: 'torsion', controlBoard: 'multicam', exterior: 'chrome' },
+      priceStrategy: 'mid',
+      qualityLevel: 0.75,
+      aggressiveness: 0.2,
+      startingYear: 1947,
+    },
+    // 1960s: German premium engineering
     {
       id: 'germanEngineering',
       name: 'Rhine Industries',
-      description: 'Premium German engineering, high reliability',
-      focusComponents: { drum: 'reinforced', motor: 'directdrive', pump: 'industrial', bearings: 'premium', suspension: 'advanced', controlBoard: 'electronic', exterior: 'glassDoor' },
+      description: 'Premium German engineering, high reliability, front-loading pioneer',
+      focusComponents: { drum: 'stainless', motor: 'psc', pump: 'standard', bearings: 'premium', suspension: 'hydraulic', controlBoard: 'pushButton', exterior: 'color' },
       priceStrategy: 'premium',
-      qualityLevel: 0.9,
+      qualityLevel: 0.88,
       aggressiveness: 0.3,
-      startingYear: 1970,
+      startingYear: 1960,
     },
+    // 1980s: Asian mass-market challenger
+    {
+      id: 'cheapImports',
+      name: 'ValueMart Appliances',
+      description: 'Ultra-cheap machines, poor quality, high volume — then improved over time',
+      focusComponents: { drum: 'galvanised', motor: 'universal', pump: 'gravity', bearings: 'bronze', suspension: 'leaf', controlBoard: 'timer', exterior: 'white' },
+      priceStrategy: 'budget',
+      qualityLevel: 0.15,
+      aggressiveness: 0.7,
+      startingYear: 1978,
+    },
+    // 2000s: Smart home disruptor
     {
       id: 'smartHome',
       name: 'Nexus Smart Living',
-      description: 'Smart-home integration, cutting-edge features',
-      focusComponents: { drum: 'stainless', motor: 'brushless', pump: 'standard', bearings: 'standard', suspension: 'standard', controlBoard: 'ai', exterior: 'premium' },
+      description: 'Smart-home integration, cutting-edge features, app-connected',
+      focusComponents: { drum: 'polypropylene', motor: 'brushless', pump: 'standard', bearings: 'hybrid', suspension: 'hydraulic', controlBoard: 'smart', exterior: 'premium' },
       priceStrategy: 'premium',
-      qualityLevel: 0.5,
-      aggressiveness: 0.5,
+      qualityLevel: 0.55,
+      aggressiveness: 0.6,
       startingYear: 2005,
     },
-    {
-      id: 'commercialDurability',
-      name: 'Ironclad Industrial',
-      description: 'Built for laundromats and commercial use',
-      focusComponents: { drum: 'reinforced', motor: 'directdrive', pump: 'industrial', bearings: 'premium', suspension: 'advanced', controlBoard: 'electronic', exterior: 'basic' },
-      priceStrategy: 'mid',
-      qualityLevel: 0.85,
-      aggressiveness: 0.2,
-      startingYear: 1975,
-    },
+    // 1990s: Eco-conscious (enters before smart home)
     {
       id: 'ecoFriendly',
       name: 'GreenWave Appliances',
-      description: 'Eco-friendly, energy/water efficient',
-      focusComponents: { drum: 'stainless', motor: 'brushless', pump: 'standard', bearings: 'premium', suspension: 'standard', controlBoard: 'smart', exterior: 'metalKnobs' },
+      description: 'Eco-friendly, energy/water efficient — early adopter of HE technology',
+      focusComponents: { drum: 'stainless', motor: 'brushless', pump: 'standard', bearings: 'hybrid', suspension: 'torsion', controlBoard: 'digital', exterior: 'glassDoor' },
       priceStrategy: 'mid',
-      qualityLevel: 0.6,
-      aggressiveness: 0.4,
-      startingYear: 1990,
+      qualityLevel: 0.65,
+      aggressiveness: 0.35,
+      startingYear: 1992,
     },
   ],
 
@@ -657,8 +794,12 @@ const DATA = {
     baseTechnicianCost: 45000, // annual salary per tech
     dailyTechnicianCost: 45000 / 365,
     machineBasePrice: 399,
-    marketSize: 100000,  // total addressable market grows over time
-    marketGrowthRate: 0.015, // per year
+    // Market starts small in the post-war years, growing through the
+    // baby boom and suburban expansion. ~65M households in 1945 US →
+    // 100K is a fraction representing washer-buying households.
+    baseYear: 1945,
+    marketSize: 30000,  // total addressable market at base year
+    marketGrowthRate: 0.02, // per year (faster growth in post-war boom)
   },
 
   // ---- Difficulty Settings ----

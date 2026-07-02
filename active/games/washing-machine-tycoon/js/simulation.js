@@ -45,7 +45,7 @@ SIM.tick = function() {
 SIM.handleYearStart = function() {
   // Market grows
   G.market.totalMarketSize = Math.floor(
-    DATA.defaults.marketSize * Math.pow(1 + DATA.defaults.marketGrowthRate, G.year - 1970)
+    DATA.defaults.marketSize * Math.pow(1 + DATA.defaults.marketGrowthRate, G.year - DATA.defaults.baseYear)
   );
 
   // Reset yearly sales counter
@@ -227,7 +227,7 @@ SIM.systemSales = function() {
         if (!machine) continue;
 
         let salePrice = model.currentPrice || model.retailPrice;
-        salePrice *= (1 + (G.year - 1970) * 0.008);
+        salePrice *= (1 + (G.year - (DATA.defaults.baseYear || 1945)) * 0.008);
 
         G.company.activeMachines.push(machine);
         G.company.totalMachinesSold++;
@@ -707,9 +707,9 @@ SIM.getModelCompliance = function(model) {
     // RoHS: control board must not be a mechanical timer
     if (t.rohs) {
       const boardOpt = DATA.components.controlBoard.options.find(o => o.id === model.components.controlBoard);
-      if (boardOpt && boardOpt.id === 'mechanical') {
+      if (boardOpt && (boardOpt.id === 'timer' || boardOpt.id === 'multicam')) {
         result.compliant = false;
-        result.reasons.push(`❌ ${reg.name}: mechanical timer contains lead solder — upgrade to electronic or smart board`);
+        result.reasons.push(`❌ ${reg.name}: mechanical timer contains lead solder — upgrade to push-button or digital board`);
       }
     }
 

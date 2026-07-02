@@ -8,7 +8,7 @@ window.gameState = G; // Mirror for HTML onclick handlers
 function initGame() {
   G = window.gameState = {
     difficulty: 'medium', // 'easy','medium','hard','nightmare'
-    year: 1970,
+    year: DATA.defaults.baseYear,  // starts at end of WWII (1945)
     day: 0,          // 0–364
     tickCount: 0,
     speed: 1,        // ticks per real second

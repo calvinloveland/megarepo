@@ -489,9 +489,9 @@ UI.renderNewModelForm = function() {
   const componentKeys = ['drum', 'motor', 'pump', 'bearings', 'suspension', 'controlBoard', 'exterior'];
   // Default picks per component (best value-for-money that's usually available)
   const defaultPicks = {
-    drum: 'stainless', motor: 'brushed', pump: 'standard',
-    bearings: 'standard', suspension: 'standard',
-    controlBoard: 'mechanical', exterior: 'metalKnobs'
+    drum: 'stainless', motor: 'universal', pump: 'standard',
+    bearings: 'standard', suspension: 'torsion',
+    controlBoard: 'timer', exterior: 'chrome'
   };
   for (const key of componentKeys) {
     const compDef = DATA.components[key];
@@ -1320,7 +1320,7 @@ UI._startFreshGame = function(difficulty, companyName) {
     active: false,
   });
 
-  // Initialise AI for any competitors active at start (1970)
+  // Initialise AI for any competitors active at start (1945)
   for (const comp of G.market.competitors) {
     if (comp.active) {
       AI.initCompetitor(comp);
@@ -1644,7 +1644,7 @@ UI._updateSetupGuide = function() {
 
 UI._getSetupTip = function(state) {
   if (!state.designedMachine) {
-    return '💡 <strong>Tip:</strong> Start in the <strong>Design Studio</strong>. Choose a stainless steel drum and a brushed motor for a solid mid-range machine. Set the price around $499.';
+    return '💡 <strong>Tip:</strong> Start in the <strong>Design Studio</strong>. A stainless steel drum and induction motor make a solid mid-range machine. Set the price around $499.';
   }
   if (!state.startedProduction) {
     return '💡 <strong>Tip:</strong> In the <strong>Factory</strong>, select your new model in the production line dropdown, then click <strong>Start</strong>. Balance speed vs quality control.';

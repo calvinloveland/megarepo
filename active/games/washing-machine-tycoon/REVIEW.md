@@ -346,7 +346,7 @@ The probe also confirmed:
 
 ---
 
-## Suggested fix order (impact × ease)
+## Suggested fix order (impact × ease) (no longer prioritized — all critical and major items have been fixed)
 
 1. **Bug #1** (failure rate cumulative) — fixes the core "everything breaks"
    feel. ~15 min.
