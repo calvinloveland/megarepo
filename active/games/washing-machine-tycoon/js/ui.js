@@ -1627,7 +1627,7 @@ UI._updateSetupGuide = function() {
   // Guard: don't run before G is fully initialized
   if (!G || !G.company || !G.company.models || !UI._setupState) return;
 
-  // Auto-detect progress
+  // Auto-detect progress (runs every frame, cheap)
   if (G.company.models.length > 0) {
     UI._setupState.designedMachine = true;
   }
@@ -1643,7 +1643,13 @@ UI._updateSetupGuide = function() {
   ];
 
   const progress = steps.filter(s => s.done).length;
-  const total = steps.length - 1; // last step doesn't count as "done"
+  const total = steps.length - 1;
+
+  // Skip HTML rebuild if nothing changed (preserves button elements
+  // mid-click — fixes race where innerHTML rebuild destroys onclick).
+  if (UI._setupLastProgress === progress && UI._setupLastTip === state.designedMachine + ':' + state.startedProduction) return;
+  UI._setupLastProgress = progress;
+  UI._setupLastTip = state.designedMachine + ':' + state.startedProduction;
 
   let html = '<div class="setup-progress">';
   html += '<div class="setup-progress-bar"><div class="setup-progress-fill" style="width:' + (progress / total * 100) + '%"></div></div>';
