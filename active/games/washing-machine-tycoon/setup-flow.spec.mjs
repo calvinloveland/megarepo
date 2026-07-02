@@ -1,7 +1,7 @@
 // setup-flow.spec.mjs — Playwright test for startup/pause/setup flow
 import { chromium } from 'playwright';
 
-const BASE = 'http://localhost:3099';
+const BASE = 'http://localhost:3002';
 
 let passed = 0, failed = 0;
 async function check(label, fn) {
@@ -296,13 +296,15 @@ async function main() {
     const cashBefore = await page.locator('#topbar-cash').textContent();
     console.log(`  Cash before reload: ${cashBefore}`);
 
-    // Reload and handle the confirm dialog
-    page.on('dialog', async dialog => {
-      console.log('  Dialog:', dialog.message().slice(0, 60));
-      await dialog.accept();
-    });
+    // Reload and handle the continue-modal
     await page.reload({ waitUntil: 'load' });
     await sleep(3000);
+
+    await check('Continue modal appears after reload', async () => {
+      await page.waitForSelector('#continue-modal', { state: 'visible', timeout: 3000 });
+      await page.locator('#continue-yes').click();
+      await sleep(1500);
+    });
 
     await check('Game loaded saved state', async () => {
       const cashAfter = await page.locator('#topbar-cash').textContent();

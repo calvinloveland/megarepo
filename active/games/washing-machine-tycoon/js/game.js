@@ -55,6 +55,7 @@ function initGame() {
       // Marketing
       marketingBudget: 0,     // per month
       marketingFocus: 'balanced', // 'price','quality','quiet','eco','durability'
+      marketShareBonus: 0,    // persistent competitiveness bonus from events/acquisitions
 
       // R&D
       researchLevel: 0,

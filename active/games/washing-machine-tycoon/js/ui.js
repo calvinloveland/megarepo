@@ -52,18 +52,28 @@ UI.showMessage = function(msg, duration = 3000) {
 };
 
 // ---- Main Render ----
+// Only rebuild the ACTIVE screen's DOM each frame. Re-rendering every
+// screen at 60fps destroys in-progress inputs (search box, sliders, name
+// field) and tanks perf with a large fleet (issue #8/#9).
+// Each renderX also writes to el.innerHTML only if the screen element is
+// present; non-active screens keep their last-rendered DOM until visited.
+
+UI._screenRenderers = {
+  dashboard:    'renderDashboard',
+  design:       'renderDesignStudio',
+  factory:      'renderFactoryView',
+  machines:     'renderMachineBrowser',
+  service:      'renderServiceDept',
+  market:       'renderMarketView',
+  research:     'renderResearchView',
+};
 
 UI.render = function() {
   if (!G) return;
 
+  // Topbar + setup guide + toast update every frame (cheap, focused writes).
   UI.renderTopBar();
-  UI.renderDashboard();
-  UI.renderDesignStudio();
-  UI.renderFactoryView();
-  UI.renderMachineBrowser();
-  UI.renderServiceDept();
-  UI.renderMarketView();
-  UI.renderResearchView();
+  UI.renderScreen(UI.currentScreen);
 
   // Setup guide auto-detection (runs every frame regardless of guide visibility)
   UI._updateSetupGuide();
@@ -76,6 +86,12 @@ UI.render = function() {
     const el = document.getElementById('message-toast');
     if (el) el.style.display = 'none';
   }
+};
+
+// Render a single screen by id. Falls back to dashboard.
+UI.renderScreen = function(screenId) {
+  const fnName = UI._screenRenderers[screenId] || 'renderDashboard';
+  if (typeof UI[fnName] === 'function') UI[fnName]();
 };
 
 // ---- Top Bar ----
@@ -592,13 +608,13 @@ UI.renderFactoryView = function() {
           <div>
             <label style="font-size:11px;color:#888">Production Speed</label>
             <input type="range" min="0.5" max="5" step="0.5" value="${line.speed || 1}"
-              oninput="window.gameState.company.productionLines[${i}].speed=parseFloat(this.value);UI.render();">
+              oninput="window.gameState.company.productionLines[${i}].speed=parseFloat(this.value);this.nextElementSibling.textContent=this.value+'x';UI._updateLineOutputLabel(${i});">
             <span style="font-size:11px">${line.speed || 1}x</span>
           </div>
           <div>
             <label style="font-size:11px;color:#888">Quality Control</label>
             <input type="range" min="0" max="1" step="0.05" value="${line.qualityControl || 0}"
-              oninput="window.gameState.company.productionLines[${i}].qualityControl=parseFloat(this.value);UI.render();">
+              oninput="window.gameState.company.productionLines[${i}].qualityControl=parseFloat(this.value);this.nextElementSibling.textContent=(parseFloat(this.value)*100).toFixed(0)+'%';UI._updateLineOutputLabel(${i});">
             <span style="font-size:11px">${((line.qualityControl || 0) * 100).toFixed(0)}%</span>
           </div>
           <div>
@@ -686,6 +702,25 @@ UI.toggleLine = function(index) {
   UI.render();
 };
 
+// Live-update the "Daily output / Defect rate" label on a factory line
+// without re-rendering the whole screen (preserves slider drag).
+UI._updateLineOutputLabel = function(index) {
+  const container = document.querySelectorAll('.production-line')[index];
+  if (!container) return;
+  const line = G.company.productionLines[index];
+  if (!line) return;
+  let label = container.querySelector('.line-output-label');
+  if (!label) {
+    label = document.createElement('div');
+    label.className = 'line-output-label';
+    label.style.cssText = 'margin-top:6px;font-size:11px;color:#888';
+    container.appendChild(label);
+  }
+  const out = Math.max(0.5, (line.speed || 1) * (1 - (line.qualityControl || 0) * 0.3)).toFixed(1);
+  const defect = (0.05 * (1 - (line.qualityControl || 0) * 0.8) * 100).toFixed(1);
+  label.textContent = `Daily output: ~${out} units${(line.qualityControl || 0) > 0 ? ` | Defect rate: ${defect}%` : ''}`;
+};
+
 UI.removeLine = function(index) {
   G.company.productionLines.splice(index, 1);
   UI.render();
@@ -696,6 +731,14 @@ UI.removeLine = function(index) {
 UI.renderMachineBrowser = function() {
   const el = document.getElementById('screen-machines');
   if (!el) return;
+
+  // Preserve the user's in-progress search/filter across re-renders so the
+  // search box doesn't lose focus/value when <input oninput="UI.render()">
+  // fires on the machines screen (issue #9).
+  const prevSearchEl = document.getElementById('machine-search');
+  const prevFilterEl = document.getElementById('machine-filter');
+  const hadSearchFocus = prevSearchEl && document.activeElement === prevSearchEl;
+  const prevCaret = prevSearchEl ? prevSearchEl.selectionStart : null;
 
   const machines = G.company.activeMachines;
   const total = machines.length;
@@ -713,12 +756,13 @@ UI.renderMachineBrowser = function() {
 
       <div style="display:flex;gap:8px;margin:8px 0">
         <input type="text" id="machine-search" class="form-input" placeholder="Search serial or model..." style="flex:1"
+          value="${(prevSearchEl?prevSearchEl.value:'').replace(/"/g,'&quot;')}"
           oninput="UI.render()">
         <select id="machine-filter" class="form-select" onchange="UI.render()">
-          <option value="all">All Status</option>
-          <option value="active">Active</option>
-          <option value="broken">Broken</option>
-          <option value="disposed">Disposed</option>
+          <option value="all" ${prevFilterEl && prevFilterEl.value==='all' ? 'selected':''}>All Status</option>
+          <option value="active" ${prevFilterEl && prevFilterEl.value==='active' ? 'selected':''}>Active</option>
+          <option value="broken" ${prevFilterEl && prevFilterEl.value==='broken' ? 'selected':''}>Broken</option>
+          <option value="disposed" ${prevFilterEl && prevFilterEl.value==='disposed' ? 'selected':''}>Disposed</option>
         </select>
       </div>
 
@@ -813,6 +857,19 @@ UI.renderMachineBrowser = function() {
   }
 
   el.innerHTML = html;
+
+  // Restore search input focus + caret so typing survives re-render.
+  if (hadSearchFocus) {
+    const newSearch = document.getElementById('machine-search');
+    if (newSearch) {
+      newSearch.focus();
+      try {
+        const len = newSearch.value.length;
+        const pos = (prevCaret != null && prevCaret <= len) ? prevCaret : len;
+        newSearch.setSelectionRange(pos, pos);
+      } catch(e) { /* some browsers throw on setSelectionRange */ }
+    }
+  }
 };
 
 // ---- Service Department ----
@@ -905,14 +962,17 @@ UI.renderServiceDept = function() {
             <div><strong>Est. Repair Cost:</strong> $${claim.repairCost}</div>
             <div><strong>Status:</strong> ${claim.status}</div>
           </div>
-          ${claim.status === 'open' ? `
+          ${(claim.status === 'open' || claim.status === 'assigned') ? `
             <div style="margin-top:12px;border-top:1px solid #333;padding-top:12px">
-              <div class="card-subtitle">Manual Resolution</div>
-              <div style="display:flex;gap:8px;margin-top:8px">
-                <button class="btn btn-sm btn-primary" onclick="SIM.resolveClaim(window.gameState.company.pendingClaims.find(c=>c.id==='${claim.id}'));UI.render();">🔧 Repair</button>
-                <button class="btn btn-sm btn-secondary" onclick="SIM.resolveClaim(window.gameState.company.pendingClaims.find(c=>c.id==='${claim.id}'));UI.render();">💰 Offer Discount</button>
-                <button class="btn btn-sm btn-accent" onclick="SIM.resolveClaim(window.gameState.company.pendingClaims.find(c=>c.id==='${claim.id}'));UI.render();">🔄 Replace Machine</button>
-                <button class="btn btn-sm btn-danger" onclick="SIM.resolveClaim(window.gameState.company.pendingClaims.find(c=>c.id==='${claim.id}'));UI.render();">❌ Decline</button>
+              <div class="card-subtitle">Manual Resolution ${claim.assignedTech ? '(👷 tech on-site)' : ''}</div>
+              <div style="font-size:12px;color:#888;margin-bottom:8px">
+                ${claim.inWarranty ? '✅ In warranty — you decide and pay. Pick how to handle this claim.' : '❌ Out of warranty — declining now risks reputation. Pick to intervene early.'}
+              </div>
+              <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+                <button class="btn btn-sm btn-primary" onclick="SIM.resolveClaim(window.gameState.company.pendingClaims.find(c=>c.id==='${claim.id}'),'repair');UI.render();">🔧 Repair</button>
+                <button class="btn btn-sm btn-secondary" onclick="SIM.resolveClaim(window.gameState.company.pendingClaims.find(c=>c.id==='${claim.id}'),'discount');UI.render();">💰 Offer Discount</button>
+                <button class="btn btn-sm btn-accent" onclick="SIM.resolveClaim(window.gameState.company.pendingClaims.find(c=>c.id==='${claim.id}'),'replaceMachine');UI.render();">🔄 Replace Machine</button>
+                <button class="btn btn-sm btn-danger" onclick="SIM.resolveClaim(window.gameState.company.pendingClaims.find(c=>c.id==='${claim.id}'),'decline');UI.render();">❌ Decline</button>
               </div>
             </div>
           ` : `
@@ -964,7 +1024,7 @@ UI.renderMarketView = function() {
       <div class="form-group">
         <label>Monthly Marketing Budget ($)</label>
         <input type="range" min="0" max="50000" step="1000" value="${G.company.marketingBudget}"
-          oninput="window.gameState.company.marketingBudget=parseInt(this.value);document.getElementById('mktg-val').textContent='$'+this.value;UI.render();"
+          oninput="window.gameState.company.marketingBudget=parseInt(this.value);document.getElementById('mktg-val').textContent='$'+this.value;"
           style="width:100%">
         <div style="text-align:center" id="mktg-val">$${G.company.marketingBudget.toLocaleString()}</div>
       </div>
@@ -1073,7 +1133,7 @@ UI.renderResearchView = function() {
         <div class="form-group">
           <label>Monthly R&D Budget ($)</label>
           <input type="range" min="0" max="20000" step="500" value="${G.company.researchSpending}"
-            oninput="window.gameState.company.researchSpending=parseInt(this.value);document.getElementById('research-val').textContent='$'+this.value;UI.render();"
+            oninput="window.gameState.company.researchSpending=parseInt(this.value);document.getElementById('research-val').textContent='$'+this.value;"
             style="width:100%">
           <div style="text-align:center" id="research-val">$${G.company.researchSpending.toLocaleString()}</div>
         </div>
@@ -1214,21 +1274,58 @@ document.addEventListener('click', function _initAudio() {
 // ---- Start Game ----
 
 UI.startGame = function() {
-  // Check for saved game
+  // Check for saved game — use an in-DOM modal instead of confirm() so it
+  // works in iframes / headless / dialog-suppressing contexts (bug #6).
   if (hasSavedGame()) {
-    if (confirm('📂 Saved game found! Click OK to continue or Cancel to start fresh.')) {
-      if (loadGame()) {
-        if (typeof ErrorReporter !== 'undefined') ErrorReporter.init();
-        SIM.addEvent('info', '📂 Game loaded — continuing from ' + formatDate(G.year, G.day));
-        UI.init();
-        UI.gameLoop();
-        return;
-      }
-    }
+    UI._showContinueModal();
+    return;
   }
 
   // Show difficulty picker for fresh start
   UI.showDifficultyPicker();
+};
+
+UI._showContinueModal = function() {
+  // Build a transient continue/overwrite modal in the DOM.
+  let modal = document.getElementById('continue-modal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'continue-modal';
+    modal.className = 'difficulty-modal'; // reuse styling
+    modal.style.display = 'flex';
+    modal.innerHTML = `
+      <div class="difficulty-modal-content" style="max-width:420px;text-align:center">
+        <div class="difficulty-header">📂 Saved Game Found</div>
+        <div class="difficulty-subtitle">
+          Continue from where you left off, or start a fresh game?
+        </div>
+        <div style="display:flex;gap:10px;justify-content:center;margin-top:16px">
+          <button class="btn btn-primary" id="continue-yes">📂 Continue Saved Game</button>
+          <button class="btn btn-secondary" id="continue-no">🆕 Start Fresh</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+  } else {
+    modal.style.display = 'flex';
+  }
+
+  document.getElementById('continue-yes').onclick = function() {
+    modal.style.display = 'none';
+    if (loadGame()) {
+      if (typeof ErrorReporter !== 'undefined') ErrorReporter.init();
+      SIM.addEvent('info', '📂 Game loaded — continuing from ' + formatDate(G.year, G.day));
+      UI.init();
+      UI.gameLoop();
+    } else {
+      UI.showMessage('⚠️ Saved game could not be loaded — starting fresh.');
+      UI.showDifficultyPicker();
+    }
+  };
+  document.getElementById('continue-no').onclick = function() {
+    modal.style.display = 'none';
+    UI.showDifficultyPicker();
+  };
 };
 
 // ---- Chart Drawing ----

@@ -65,22 +65,17 @@ SIM.handleYearEnd = function() {
   // Annual reputation decay (small)
   G.company.reputation = Math.max(0, G.company.reputation - 0.5);
 
-  // Annual maintenance cost
+  // Annual technician salary (the daily systemFinance overhead is separate
+  // and small; this is the real annual payroll booked at year end).
   const techCost = G.company.technicians * DATA.defaults.dailyTechnicianCost * 365;
   G.company.cash -= techCost;
   G.company.totalExpenses += techCost;
 
-  // Annual marketing budget spend
-  const marketingAnnual = G.company.marketingBudget * 12;
-  G.company.cash -= marketingAnnual;
-  G.company.totalExpenses += marketingAnnual;
+  // NOTE: marketing budget and R&D spending are already accrued DAILY by
+  // systemFinance (budget/30 and spending/30). Do NOT deduct them again
+  // here — that would double-count (bug #13).
 
-  // Annual R&D spend
-  const researchAnnual = G.company.researchSpending * 12;
-  G.company.cash -= researchAnnual;
-  G.company.totalExpenses += researchAnnual;
-
-  // R&D progress
+  // R&D progress (progress, not cash — cash is spent daily)
   if (G.company.researchSpending > 0) {
     G.company.researchLevel += G.company.researchSpending * 0.01;
   }
@@ -170,6 +165,7 @@ SIM.systemSales = function() {
       repFactor * 100 * 0.25 +
       marketingFactor * 50 * 0.1 +
       G.company.customerSatisfactionAvg * 50 * 0.1 +
+      (G.company.marketShareBonus || 0) +  // event/acquisition bonuses
       Math.random() * 5; // small randomness
 
     participants.push({
@@ -263,15 +259,18 @@ SIM.systemAging = function() {
   for (const machine of G.company.activeMachines) {
     if (machine.currentStatus === 'disposed') continue;
     machine.ageDays++;
+    if (machine.currentStatus === 'broken') continue; // broken machines don't accumulate loads
 
-    // Simulate loads based on customer type
+    // Simulate loads per day based on customer type — accumulate the full
+    // expected count, not a capped single load (fixes under-counting wear).
     const custType = DATA.customerTypes.find(t => t.id === machine.customerType);
-    const loadsPerDay = custType ? custType.loadsPerWeek / 7 : 0.3;
-
-    // Not every day has a load
-    if (Math.random() < loadsPerDay) {
-      machine.loadsCompleted++;
-    }
+    const loadsPerDayRaw = custType ? custType.loadsPerWeek / 7 : 0.3;
+    const wholeLoads = Math.floor(loadsPerDayRaw);
+    const fracLoad = loadsPerDayRaw - wholeLoads;
+    // Whole loads always happen; fractional part probabilistic.
+    let loadsToday = wholeLoads + (Math.random() < fracLoad ? 1 : 0);
+    machine._loadsThisDay = loadsToday;
+    machine.loadsCompleted += loadsToday;
   }
 };
 
@@ -287,12 +286,24 @@ SIM.systemFailures = function() {
     const custType = DATA.customerTypes.find(t => t.id === machine.customerType);
     const wearMultiplier = custType ? custType.wearFactor : 1.0;
 
-    // Check each failure type
-    for (const failureDef of DATA.failureTypes) {
-      // Base probability per load
-      let prob = failureDef.baseRate * machine.loadsCompleted * wearMultiplier;
+    // Loads done TODAY (computed by systemAging). Default to the daily
+    // expectation if aging didn't run first for some reason.
+    const loadsToday = (machine._loadsThisDay !== undefined)
+      ? machine._loadsThisDay
+      : (custType ? custType.loadsPerWeek / 7 : 0.3);
+    if (loadsToday <= 0) continue; // no usage → no failures this tick
 
-      // Adjust based on component quality
+    const ageYears = machine.ageDays / 365;
+    // Older machines wear faster, but bounded so very new machines aren't
+    // immune and very old ones don't fail every load.
+    const ageFactor = 1 + Math.min(4, ageYears * 0.15);
+
+    // Check each failure type — probability is PER LOAD, not cumulative.
+    for (const failureDef of DATA.failureTypes) {
+      // Base rate is per-load; scale by how many loads happened today.
+      let probPerLoad = failureDef.baseRate * wearMultiplier * ageFactor;
+
+      // Adjust based on component quality (better parts = fewer failures).
       const compSource = failureDef.componentSource;
       const compChoice = model.components[compSource];
       if (compChoice) {
@@ -300,23 +311,24 @@ SIM.systemFailures = function() {
         if (compDef) {
           const opt = compDef.options.find(o => o.id === compChoice);
           if (opt) {
-            prob *= (1 - opt.durability * 0.7); // better components = fewer failures
+            probPerLoad *= (1 - opt.durability * 0.7);
           }
         }
       }
 
-      // Supplier quality modifier (component sourcing improvement)
-      prob *= (1 / getEffectiveQualityMultiplier());
+      // Supplier quality modifier (component sourcing improvement).
+      probPerLoad *= (1 / getEffectiveQualityMultiplier());
 
-      // Age multiplier — older machines fail more
-      const ageYears = machine.ageDays / 365;
-      prob *= Math.max(1, ageYears * 0.3);
+      // Per-load probability → probability of ≥1 failure across today's loads:
+      //   P(fail) = 1 - (1-p)^n   (avoids the n*p approximation blowing past 1).
+      const probToday = 1 - Math.pow(1 - Math.min(0.5, probPerLoad), loadsToday);
 
-      // Roll the dice
-      if (Math.random() < prob && prob > 0.00001) {
+      if (Math.random() < Math.min(0.25, probToday)) { // cap a single failure-type at 25% per day
         // Failure occurs
         machine.currentStatus = 'broken';
         machine.lastFailureDay = G.day;
+        // Reset today's load counter so we don't double-charge wear this tick.
+        machine._loadsThisDay = 0;
 
         // Create warranty claim
         const claim = createClaim(machine, failureDef.id);
@@ -348,58 +360,64 @@ SIM.systemWarrantyService = function() {
   for (const claim of pending) {
     claim.daysOpen++;
 
-    // Assign technician if not assigned
+    // Assign a technician if possible (queue'ed, not auto-resolved) so that
+    // in-warranty/open claims wait for the player to pick a resolution.
     if (!claim.assignedTech && claim.daysOpen > 1) {
       const region = G.company.serviceRegions.find(r => r.id === claim.region);
       if (region && region.techCount > 0) {
         claim.assignedTech = true;
-        claim.status = 'assigned';
+        claim.status = 'assigned';   // still 'actionable' from the player's POV
         region.activeJobs.push(claim.id);
-
-        // Auto-resolve after some time based on region tech count
-        const resolutionDays = 2 + Math.floor(Math.random() * 4) - Math.floor(region.techCount / 2);
-        claim._resolutionDay = G.day + Math.max(1, resolutionDays);
+        claim._assignedOn = claim._assignedOn || G.day;
       }
     }
 
-    // Resolve if tech was assigned long enough ago
-    if (claim.status === 'assigned' && claim._resolutionDay && G.day >= claim._resolutionDay) {
-      SIM.resolveClaim(claim);
+    // OUT-OF-WARRANTY claims are auto-resolved by the tech after a delay —
+    // the customer already paid or declined without manufacturer involvement.
+    if (!claim.inWarranty && claim.status === 'assigned' && claim._assignedOn !== undefined) {
+      const region = G.company.serviceRegions.find(r => r.id === claim.region);
+      const resolutionDays = 2 + Math.floor(Math.random() * 4) - Math.floor((region?.techCount || 0) / 2);
+      if (G.day - claim._assignedOn >= Math.max(1, resolutionDays)) {
+        SIM.resolveClaim(claim);
+      }
     }
 
-    // Claims that are too old get unhappy
-    if (claim.daysOpen > 14 && claim.status === 'open') {
-      // Auto-assign even if no techs (emergency)
-      claim.assignedTech = true;
-      claim.status = 'assigned';
-      claim._resolutionDay = G.day + 5;
-      SIM.addEvent('info', `🔄 Emergency dispatch for ${claim.id} (overdue)`);
+    // Claims that are too old get antsy — escalate for player attention only,
+    // but do NOT auto-resolve. (Player can still decline.)
+    if (claim.daysOpen > 14 && claim.status === 'open' && !claim.assignedTech) {
+      // Emergency dispatch attempt, but resolution still waits for player.
+      const region = G.company.serviceRegions.find(r => r.id === claim.region);
+      if (region && region.techCount > 0) {
+        claim.assignedTech = true;
+        claim.status = 'assigned';
+        claim._assignedOn = G.day;
+        region.activeJobs.push(claim.id);
+        SIM.addEvent('info', `🔄 Emergency dispatch for ${claim.id} (overdue)`);
+      }
     }
   }
 };
 
-SIM.resolveClaim = function(claim) {
-  // Pick resolution based on warranty status and severity
-  const isMajor = claim.severity === 'critical' || claim.severity === 'major';
+SIM.resolveClaim = function(claim, forcedResolution) {
+  // forcedResolution (optional) honours the player's chosen resolution from
+  // the Service Dept UI. If omitted, pick a sensible default per warranty.
+  const resolutionDef = DATA.resolutionOptions.find(o => o.id === forcedResolution);
+  let resolution = resolutionDef ? forcedResolution : null;
 
-  let resolution;
-  if (claim.inWarranty) {
-    // In warranty — we pay, repair or replace
-    if (isMajor && Math.random() < 0.3) {
-      resolution = 'replaceMachine';
+  if (!resolution) {
+    const isMajor = claim.severity === 'critical' || claim.severity === 'major';
+    if (claim.inWarranty) {
+      // In warranty — manufacturer covers: repair (minor) or replace (major).
+      resolution = (isMajor && Math.random() < 0.3) ? 'replaceMachine' : 'repair';
     } else {
-      resolution = 'repair';
+      // Out of warranty — customer decides: usually repair or discount.
+      const r = Math.random();
+      if (r < 0.4) resolution = 'repair';
+      else if (r < 0.6) resolution = 'discount';
+      else if (r < 0.8) resolution = 'replaceMachine';
+      else resolution = 'decline';
     }
-  } else {
-    // Out of warranty — offer options
-    const r = Math.random();
-    if (r < 0.4) resolution = 'repair';
-    else if (r < 0.6) resolution = 'discount';
-    else if (r < 0.8) resolution = 'replaceMachine';
-    else resolution = 'decline';
   }
-
-  const resolutionDef = DATA.resolutionOptions.find(o => o.id === resolution);
 
   // Calculate cost
   let cost = 0;
@@ -412,8 +430,14 @@ SIM.resolveClaim = function(claim) {
     cost = model ? model.productionCost * 1.5 : 200;
   }
 
-  // Apply supplier cost modifiers to repair costs
-  cost *= getSupplierCostMultiplier(G.company.suppliers.bearings || 'nationalSupplier');
+  // Apply the CORRECT supplier cost modifier for the failed component
+  // (was: always bearings — bug #4).
+  const supplierKey = (function() {
+    const failureDef = DATA.failureTypes.find(f => f.id === claim.failureType);
+    return failureDef ? failureDef.componentSource : 'bearings';
+  })();
+  const supplierId = G.company.suppliers[supplierKey] || 'nationalSupplier';
+  cost *= getSupplierCostMultiplier(supplierId);
 
   // Apply resolution
   if (resolution === 'decline') {
@@ -423,8 +447,17 @@ SIM.resolveClaim = function(claim) {
     G.company.cash -= cost;
     G.company.totalExpenses += cost;
     G.company.totalWarrantyCost += cost;
+    // Decrement the region's active job count if one was assigned.
+    if (claim.region) {
+      const region = G.company.serviceRegions.find(r => r.id === claim.region);
+      if (region) {
+        const idx = region.activeJobs.indexOf(claim.id);
+        if (idx >= 0) region.activeJobs.splice(idx, 1);
+      }
+    }
   }
   claim.resolution = resolution;
+  claim._resolvedOnDay = G.day;
 
   // Update the machine
   const machine = G.company.activeMachines.find(m => m.serial === claim.machineSerial);
@@ -433,10 +466,18 @@ SIM.resolveClaim = function(claim) {
     if (failure) failure.resolved = true;
 
     if (resolution === 'replaceMachine') {
-      // New machine replaces the old one
+      // New machine replaces the old one — reset wear & history so the
+      // Machine Browser doesn't show a "0-day-old" unit with 30 past
+      // failures (bug #16). Also mint a fresh serial so the fleet list
+      // and claims line up with a distinct unit.
+      machine.serial = nextSerial();
       machine.currentStatus = 'active';
       machine.loadsCompleted = 0;
       machine.ageDays = 0;
+      machine._loadsThisDay = 0;
+      machine.failures = [];
+      machine.totalRepairCost = 0;
+      machine.satisfactionScore = 0.5;
     } else if (resolution !== 'decline') {
       machine.currentStatus = 'active';
       machine.totalRepairCost += cost;
@@ -669,8 +710,9 @@ SIM._applyEventEffects = function(event) {
       G.company.customerSatisfactionAvg + effects.customerSatisfaction));
   }
   if (effects.marketShare) {
-    // Small bonus to player's effective market presence
-    G.company.reputation = Math.min(100, G.company.reputation + effects.marketShare);
+    // Real, persistent competitiveness bonus (not a disguised reputation bump).
+    G.company.marketShareBonus = (G.company.marketShareBonus || 0) + effects.marketShare;
+    msgParts.push(`share ${effects.marketShare >= 0 ? '+' : ''}${effects.marketShare}%`);
   }
 
   const icon = event.type === 'positive' ? '🌟' : '🌩️';
@@ -695,15 +737,9 @@ SIM.resolveChoiceEvent = function(choiceIndex) {
     return;
   }
 
-  // Apply choice effects
-  const effects = choice.effects || {};
-  if (effects.reputation) {
-    G.company.reputation = Math.max(0, Math.min(100, G.company.reputation + effects.reputation));
-  }
-  if (effects.cash) {
-    G.company.cash += effects.cash;
-  }
-
+  // Apply ALL choice effects via the same path as non-choice events
+  // (was: only reputation+cash applied — bug #5).
+  SIM._applyEventEffects({ type: 'choice', name: event.name, narrative: choice.result, desc: event.desc, effects: choice.effects || {} });
   SIM.addEvent('info', `📋 ${event.name} — ${choice.result || 'Decision made.'}`);
   SIM._pendingEvent = null;
 };
