@@ -589,7 +589,9 @@ UI.updateDesignCost = function() {
 UI.submitDesign = function() {
   const name = document.getElementById('design-name')?.value?.trim() || `Series ${G.company.models.length + 1}`;
   const price = parseInt(document.getElementById('design-price')?.value) || 499;
-  const warranty = parseInt(document.getElementById('design-warranty')?.value) || 2;
+  let warranty = parseInt(document.getElementById('design-warranty')?.value);
+  if (isNaN(warranty) || warranty < 0) warranty = 2;
+  // 0 is a valid value — means no warranty whatsoever
 
   const components = {};
   for (const key of Object.keys(DATA.components)) {
@@ -967,7 +969,7 @@ UI.renderServiceDept = function() {
         <span>💰 Total Warranty Cost: <strong>$${Math.floor(G.company.totalWarrantyCost).toLocaleString()}</strong></span>
       </div>
       <button class="btn btn-sm btn-primary" onclick="window.gameState.company.technicians++;UI.render();">+ Hire Technician ($${DATA.defaults.baseTechnicianCost.toLocaleString()}/yr)</button>
-      <button class="btn btn-sm btn-secondary" onclick="var g=window.gameState;if(g.company.technicians>1){g.company.technicians--;UI.render();}">- Fire Technician</button>
+      <button class="btn btn-sm btn-secondary" onclick="var g=window.gameState;if(g.company.technicians>0){g.company.technicians--;UI.render();}">- Fire Technician</button>
     </div>
 
     <!-- Service Regions -->

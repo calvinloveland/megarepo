@@ -392,15 +392,12 @@ SIM.systemWarrantyService = function() {
       }
     }
 
-    // OUT-OF-WARRANTY claims are auto-resolved by the tech after a delay —
-    // the customer already paid or declined without manufacturer involvement.
-    if (!claim.inWarranty && claim.status === 'assigned' && claim._assignedOn !== undefined) {
-      const region = G.company.serviceRegions.find(r => r.id === claim.region);
-      const resolutionDays = 2 + Math.floor(Math.random() * 4) - Math.floor((region?.techCount || 0) / 2);
-      if (G.day - claim._assignedOn >= Math.max(1, resolutionDays)) {
-        SIM.resolveClaim(claim);
-      }
-    }
+    // OUT-OF-WARRANTY claims are NOT auto-resolved — they sit in the
+    // pending list until the player manually resolves (or ignores) them.
+    // This supports the "cheap empire" playstyle where the manufacturer
+    // doesn't stand behind its products and customers are on their own.
+    // (In-warranty claims still wait for the player too, per the changes
+    // in systemWarrantyService that moved to player-choice-first.)
 
     // Claims that are too old get antsy — escalate for player attention only,
     // but do NOT auto-resolve. (Player can still decline.)

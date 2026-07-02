@@ -146,7 +146,7 @@ function companyAddModel(modelDef) {
     components: { ...modelDef.components },
     retailPrice: basePrice,
     currentPrice: basePrice,   // adjustable post-design; starts matching retail
-    warrantyYears: modelDef.warrantyYears || 2,
+    warrantyYears: modelDef.warrantyYears ?? 2,  // 0 means no warranty (was: || which converted 0→2)
     qualityRating: computeModelQuality(modelDef.components),
     productionCost: computeModelCost(modelDef.components),
     isActive: true,
