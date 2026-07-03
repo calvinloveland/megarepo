@@ -28,31 +28,10 @@ daemon:
     paths:
       - ./
     ignore:
-      # Build / dependency directories (many files, not source)
-      - node_modules/
-      - .venv/
-      - venv/
-      - dist/
-      - build/
-      - out/
-      - ".cache/"
-      - site/
-      - ".docs-site/"
-      # Python caches
-      - "*.pyc"
-      - __pycache__/
-      - ".pytest_cache/"
-      - ".ruff_cache/"
-      - "*.egg-info/"
-      # full-auto-de-pdf generated benchmark/OCR data (large, not source)
-      - benchmark-corpus*
-      - ocr-cache-test*
-      - ocr-work
-      - "cache"        # full-auto-de-pdf/data/cache/ generated corpus cache
-      # Editor temp files
+      # Daemon-specific overrides (most patterns come from .gitignore)
       - "*.tmp"
       - "*.swp"
-      # k33p store
-      - ".k33p/"
+      - ".ruff_cache/"
+      - "*.egg-info/"
     message: "k33p auto: changes in {files}"
     push_after: 5m
