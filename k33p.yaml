@@ -1,4 +1,4 @@
-# k33p.yaml — megarepo project with auto-commit daemon for k33p source
+# k33p.yaml — megarepo project with auto-commit daemon for the whole repo
 project: megarepo
 type: monorepo
 description: Consolidated monorepo for active projects, shared tooling, and docs
@@ -26,14 +26,33 @@ daemon:
     enabled: true
     debounce: 30s
     paths:
-      - active/dev-tools/k33p/
+      - ./
     ignore:
-      - "*.tmp"
-      - "*.swp"
+      # Build / dependency directories (many files, not source)
+      - node_modules/
+      - .venv/
+      - venv/
+      - dist/
+      - build/
+      - out/
+      - ".cache/"
+      - site/
+      - ".docs-site/"
+      # Python caches
       - "*.pyc"
       - __pycache__/
       - ".pytest_cache/"
       - ".ruff_cache/"
+      - "*.egg-info/"
+      # full-auto-de-pdf generated benchmark/OCR data (large, not source)
+      - benchmark-corpus*
+      - ocr-cache-test*
+      - ocr-work
+      - "cache"      # full-auto-de-pdf/data/cache/ generated corpus cache
+      # Editor temp files
+      - "*.tmp"
+      - "*.swp"
+      # k33p store
       - ".k33p/"
     message: "k33p auto: changes in {files}"
     push_after: 5m

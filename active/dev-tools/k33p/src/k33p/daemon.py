@@ -150,11 +150,27 @@ class Daemon:
                         pass
             elif watch_path.is_dir():
                 for dirpath, dirnames, filenames in os.walk(watch_path):
-                    # Skip .k33p and .git directories
+                    # Skip known-large/ignored directories (hardcoded perf guard)
                     dirnames[:] = [
                         d for d in dirnames
-                        if d not in (".k33p", ".git", "__pycache__")
+                        if d not in (
+                            ".k33p", ".git", "__pycache__",
+                            "node_modules", ".venv", "venv",
+                            "dist", "build", "out",
+                            ".cache", "site", ".docs-site",
+                        )
                     ]
+                    # Also prune any directory whose relative path matches an
+                    # ignore pattern (e.g. ``data/``, ``*.egg-info/``).
+                    pruned: list[str] = []
+                    for d in dirnames:
+                        rel_dir = os.path.relpath(
+                            os.path.join(dirpath, d),
+                            str(self._project_root),
+                        )
+                        if not self._should_ignore(rel_dir):
+                            pruned.append(d)
+                    dirnames[:] = pruned
                     for filename in filenames:
                         full = Path(dirpath) / filename
                         rel = os.path.relpath(str(full), str(self._project_root))
@@ -283,11 +299,11 @@ class Daemon:
         self.state.start_time = time.time()
         self._last_scan: dict[str, float] = {}
 
-        print(f"k33p daemon: watching {len(self.watched_paths)} path(s)")
+        print(f"k33p daemon: watching {len(self.watched_paths)} path(s)", flush=True)
         for p in self.watched_paths:
-            print(f"  watch: {p}")
-        print(f"  debounce: {self.debounce_seconds}s")
-        print(f"  poll interval: {poll_interval}s")
+            print(f"  watch: {p}", flush=True)
+        print(f"  debounce: {self.debounce_seconds}s", flush=True)
+        print(f"  poll interval: {poll_interval}s", flush=True)
 
         while self.state.running:
             changes = self._detect_changes()
@@ -296,7 +312,7 @@ class Daemon:
                 self.state.pending_changes.extend(changes)
                 self.state.last_change_time = time.time()
                 for c in changes:
-                    print(f"  ✎ {c.path}")
+                    print(f"  ✎ {c.path}", flush=True)
 
             # Check debounce
             if self.state.pending_changes:
@@ -336,7 +352,7 @@ class Daemon:
         # Create commit
         commit_hash = self._create_commit(tree_hash, changed_files)
         if commit_hash:
-            print(f"  ✔ committed {commit_hash[:16]} ({len(changed_files)} file(s))")
+            print(f"  ✔ committed {commit_hash[:16]} ({len(changed_files)} file(s))", flush=True)
             self.state.last_commit_time = time.time()
 
         self.state.pending_changes.clear()
