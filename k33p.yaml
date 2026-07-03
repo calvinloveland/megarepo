@@ -48,7 +48,7 @@ daemon:
       - benchmark-corpus*
       - ocr-cache-test*
       - ocr-work
-      - "cache"      # full-auto-de-pdf/data/cache/ generated corpus cache
+      - "cache"        # full-auto-de-pdf/data/cache/ generated corpus cache
       # Editor temp files
       - "*.tmp"
       - "*.swp"
