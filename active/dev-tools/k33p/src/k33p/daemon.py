@@ -117,23 +117,43 @@ class Daemon:
     def _should_ignore(self, rel_path: str) -> bool:
         """Check if *rel_path* matches any ignore pattern.
 
-        Supports patterns like:
-        - ``*.tmp`` (matches basename)
-        - ``.ruff_cache/`` (matches any path component)
-        - ``.pytest_cache/`` (matches any path component)
-        - ``.k33p/`` (matches any path component)
+        Checks both the k33p.yaml ``ignore`` list and the project's
+        ``.gitignore`` rules (via ``git check-ignore --stdin``).
         """
+        # First check config-based ignore patterns
         for pattern in self.ignore_patterns:
-            # Check full path
             if fnmatch.fnmatch(rel_path, pattern):
                 return True
-            # Check if pattern matches any path component (e.g. ``.ruff_cache/``)
-            # Normalise: strip trailing slash and check each component
             norm_pattern = pattern.rstrip("/")
             for part in rel_path.split("/"):
                 if fnmatch.fnmatch(part, norm_pattern):
                     return True
         return False
+
+    def _filter_gitignored(self, paths: list[str]) -> set[str]:
+        """Return the subset of *paths* that are gitignored.
+
+        Uses ``git check-ignore --stdin`` for batch checking, which
+        respects all ``.gitignore`` files (root + nested), negation
+        patterns, etc.
+        """
+        import subprocess
+
+        if not paths:
+            return set()
+
+        try:
+            result = subprocess.run(
+                ["git", "check-ignore", "--stdin"],
+                input="\n".join(paths),
+                capture_output=True, text=True, timeout=30,
+                cwd=str(self._project_root),
+            )
+            if result.returncode == 0 and result.stdout:
+                return set(line.strip() for line in result.stdout.splitlines() if line.strip())
+            return set()
+        except (OSError, subprocess.TimeoutExpired):
+            return set()
 
     def _scan_files(self) -> dict[str, float]:
         """Scan all watched paths and return {relative_path: mtime}."""
@@ -180,6 +200,13 @@ class Daemon:
                             result[rel] = full.stat().st_mtime
                         except OSError:
                             pass
+
+        # Filter out gitignored paths (respects all .gitignore rules)
+        if result:
+            gitignored = self._filter_gitignored(list(result.keys()))
+            for p in gitignored:
+                result.pop(p, None)
+
         return result
 
     def _detect_changes(self) -> list[FileChange]:
