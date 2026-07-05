@@ -196,6 +196,60 @@
       cursor: pointer;
     }
 
+    /* ── bin slider ── */
+    .bin-slider {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 10px;
+      padding: 6px 8px;
+      background: #0b1120;
+      border-radius: 8px;
+    }
+    .bin-slider .bs-label {
+      font-size: .68rem;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: .03em;
+      white-space: nowrap;
+    }
+    .bin-slider input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      flex: 1;
+      height: 5px;
+      border-radius: 3px;
+      background: var(--surface2);
+      outline: none;
+      min-width: 0;
+    }
+    .bin-slider input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 16px; height: 16px;
+      border-radius: 50%;
+      background: var(--orange);
+      cursor: pointer;
+      border: 2px solid var(--surface);
+      box-shadow: 0 0 0 1px var(--orange);
+    }
+    .bin-slider input[type="range"]::-moz-range-thumb {
+      width: 16px; height: 16px;
+      border-radius: 50%;
+      background: var(--orange);
+      cursor: pointer;
+      border: 2px solid var(--surface);
+    }
+    .bin-slider .bs-info {
+      font-size: .75rem;
+      color: var(--orange);
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+      min-width: 140px;
+      text-align: right;
+    }
+
     /* ── stats row ── */
     .stats {
       background: var(--surface);
@@ -1070,19 +1124,58 @@ chartCanvas.addEventListener('click', (e) => {
   if (dataValue === undefined || dataValue === null) return;
 
   // Map to bin index
-  const { min, numBins, binWidth } = histMeta;
-  let binIdx = Math.floor((dataValue - min) / binWidth);
+  let binIdx = Math.floor((dataValue - histMeta.min) / histMeta.binWidth);
   if (binIdx < 0) binIdx = 0;
-  if (binIdx >= numBins) binIdx = numBins - 1;
-
-  const example = binExamples[binIdx];
-  if (example) {
-    const lo = min + binIdx * binWidth;
-    const hi = min + (binIdx + 1) * binWidth;
-    showTourInfo(example, lo, hi);
-    drawMap();
-  }
+  if (binIdx >= histMeta.numBins) binIdx = histMeta.numBins - 1;
+  selectBin(binIdx);
 });
+
+// ── bin slider ────────────────────────────────────
+
+let _binCounts = []; // per-bin tour counts, stored for slider display
+
+function selectBin(binIdx) {
+  const example = binExamples[binIdx];
+  if (!example || !histMeta) return;
+  const { min, binWidth } = histMeta;
+  const lo = min + binIdx * binWidth;
+  const hi = min + (binIdx + 1) * binWidth;
+  showTourInfo(example, lo, hi);
+  drawMap();
+  // Sync slider
+  const slider = $('binSlider');
+  if (slider && +slider.value !== binIdx) slider.value = binIdx;
+  // Update info
+  const count = _binCounts[binIdx] || 0;
+  $('binSliderInfo').textContent = `Bin ${binIdx + 1}/${histMeta.numBins}: ${lo.toFixed(0)}–${hi.toFixed(0)} u (${count} tour${count === 1 ? '' : 's'})`;
+}
+
+function updateBinSlider() {
+  if (!histMeta || !binExamples || !distances.length) {
+    $('binSlider').max = 0;
+    $('binSliderInfo').textContent = '—';
+    return;
+  }
+  const { numBins, min, binWidth } = histMeta;
+  $('binSlider').max = numBins - 1;
+
+  // Compute per-bin counts
+  _binCounts = Array(numBins).fill(0);
+  for (const d of distances) {
+    let idx = Math.floor((d - min) / binWidth);
+    if (idx >= numBins) idx = numBins - 1;
+    if (idx < 0) idx = 0;
+    _binCounts[idx]++;
+  }
+
+  // Select first bin that has an example
+  for (let i = 0; i < numBins; i++) {
+    if (binExamples[i]) {
+      selectBin(i);
+      return;
+    }
+  }
+}
 
 // ── update analysis display ────────────────────────
 
@@ -1134,6 +1227,7 @@ function solveAndRender() {
   updateStats(classification);
   updateAnalysis(classification);
   clearTourInfo();
+  updateBinSlider();
 
   $('statusMsg').innerHTML = `✅ ${distances.length.toLocaleString()} tours in ${elapsed}ms`;
 }
@@ -1289,6 +1383,7 @@ function loadBatchInstance(item) {
   updateStats(cls);
   updateAnalysis(cls);
   clearTourInfo();
+  updateBinSlider();
   $('statusMsg').textContent = `📌 Loaded seed #${item.seed} from explorer`;
 }
 
@@ -1314,6 +1409,11 @@ $('seedLink').addEventListener('click', (e) => {
 });
 
 $('clearTourBtn').addEventListener('click', clearTourInfo);
+
+$('binSlider').addEventListener('input', (e) => {
+  const idx = +e.target.value;
+  selectBin(idx);
+});
 
 // Click map to deselect tour
 mapCanvas.addEventListener('click', clearTourInfo);
