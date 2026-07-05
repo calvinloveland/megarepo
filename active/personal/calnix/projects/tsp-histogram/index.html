@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>TSP Brute Force – Distance Histogram</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.1.0/dist/chartjs-plugin-annotation.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -20,6 +19,7 @@
       --accent2: #f472b6;
       --green: #4ade80;
       --amber: #fbbf24;
+      --orange: #fb923c;
       --red: #f87171;
       --purple: #a78bfa;
       --radius: 12px;
@@ -33,7 +33,7 @@
       min-height: 100vh;
       display: flex;
       justify-content: center;
-      padding: 24px;
+      padding: 20px;
     }
 
     .container {
@@ -42,40 +42,29 @@
     }
 
     /* ── header ── */
-    header {
-      text-align: center;
-      margin-bottom: 24px;
-    }
-    header h1 {
-      font-size: 1.65rem;
-      font-weight: 600;
-      letter-spacing: -.02em;
-    }
+    header { text-align: center; margin-bottom: 20px; }
+    header h1 { font-size: 1.6rem; font-weight: 600; letter-spacing: -.02em; }
     header h1 span { color: var(--accent); }
-    header p {
-      color: var(--text-dim);
-      font-size: .88rem;
-      margin-top: 2px;
-    }
+    header p { color: var(--text-dim); font-size: .85rem; margin-top: 2px; }
 
     /* ── controls ── */
     .controls {
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: var(--radius);
-      padding: 14px 20px;
+      padding: 12px 18px;
       display: flex;
       flex-wrap: wrap;
       align-items: center;
-      gap: 14px 20px;
-      margin-bottom: 18px;
+      gap: 12px 18px;
+      margin-bottom: 14px;
       box-shadow: var(--shadow);
     }
     .controls label {
       display: flex;
       align-items: center;
       gap: 8px;
-      font-size: .85rem;
+      font-size: .82rem;
       color: var(--text-dim);
     }
     .controls label span.val {
@@ -87,7 +76,7 @@
     input[type="range"] {
       -webkit-appearance: none;
       appearance: none;
-      width: 120px;
+      width: 110px;
       height: 6px;
       border-radius: 3px;
       background: var(--surface2);
@@ -110,16 +99,16 @@
       cursor: pointer;
       border: 2px solid var(--surface);
     }
-    .controls .btn-group { display: flex; gap: 8px; }
+    .controls .btn-group { display: flex; gap: 6px; }
 
     .btn {
       background: var(--accent);
       color: #0f172a;
       border: none;
       border-radius: 8px;
-      padding: 7px 16px;
+      padding: 6px 14px;
       font-weight: 600;
-      font-size: .82rem;
+      font-size: .8rem;
       cursor: pointer;
       transition: filter .15s, transform .1s;
       white-space: nowrap;
@@ -133,10 +122,15 @@
       border: 1px solid var(--accent);
     }
     .btn-outline:hover { background: rgba(56,189,248,.1); }
+    .btn-sm {
+      padding: 3px 10px;
+      font-size: .72rem;
+      border-radius: 6px;
+    }
 
     .status-msg {
       margin-left: auto;
-      font-size: .82rem;
+      font-size: .8rem;
       color: var(--text-dim);
     }
     .status-msg .spin { display: inline-block; animation: spin .8s linear infinite; }
@@ -146,10 +140,10 @@
     .shape-badge {
       display: inline-flex;
       align-items: center;
-      gap: 6px;
-      padding: 3px 12px;
+      gap: 5px;
+      padding: 2px 10px;
       border-radius: 30px;
-      font-size: .78rem;
+      font-size: .75rem;
       font-weight: 600;
       letter-spacing: .02em;
       text-transform: uppercase;
@@ -164,8 +158,8 @@
     .grid {
       display: grid;
       grid-template-columns: 340px 1fr;
-      gap: 16px;
-      margin-bottom: 16px;
+      gap: 14px;
+      margin-bottom: 14px;
     }
     @media (max-width: 820px) {
       .grid { grid-template-columns: 1fr; }
@@ -175,16 +169,16 @@
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: var(--radius);
-      padding: 14px;
+      padding: 12px;
       box-shadow: var(--shadow);
     }
     .card h2 {
-      font-size: .78rem;
+      font-size: .75rem;
       font-weight: 600;
       text-transform: uppercase;
       letter-spacing: .05em;
       color: var(--text-dim);
-      margin-bottom: 10px;
+      margin-bottom: 8px;
     }
 
     #mapCanvas {
@@ -193,11 +187,13 @@
       display: block;
       border-radius: 8px;
       background: #0b1120;
+      cursor: crosshair;
     }
 
     #chartCanvas {
       width: 100% !important;
       max-height: 320px;
+      cursor: pointer;
     }
 
     /* ── stats row ── */
@@ -205,171 +201,186 @@
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: var(--radius);
-      padding: 12px 18px;
+      padding: 10px 16px;
       box-shadow: var(--shadow);
       display: flex;
       flex-wrap: wrap;
-      gap: 6px 28px;
-      margin-bottom: 14px;
+      gap: 4px 24px;
+      margin-bottom: 12px;
       align-items: center;
     }
     .stat-item {
       display: flex;
       align-items: baseline;
-      gap: 5px;
+      gap: 4px;
     }
     .stat-item .lbl {
-      font-size: .72rem;
+      font-size: .7rem;
       color: var(--text-dim);
       text-transform: uppercase;
       letter-spacing: .03em;
     }
     .stat-item .val {
-      font-size: 1rem;
+      font-size: .95rem;
       font-weight: 700;
       font-variant-numeric: tabular-nums;
     }
     .stat-item .val.green  { color: var(--green); }
     .stat-item .val.amber  { color: var(--amber); }
+    .stat-item .val.orange { color: var(--orange); }
     .stat-item .val.accent { color: var(--accent); }
     .stat-item .val.pink   { color: var(--accent2); }
     .stat-item .val.purple { color: var(--purple); }
-    .val-unit {
-      font-size: .7rem;
-      color: var(--text-dim);
-      margin-left: 2px;
-    }
+    .val-unit { font-size: .68rem; color: var(--text-dim); margin-left: 2px; }
 
     /* ── shape analysis card ── */
     .analysis {
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: var(--radius);
-      padding: 14px 18px;
+      padding: 12px 16px;
       box-shadow: var(--shadow);
-      margin-bottom: 14px;
+      margin-bottom: 12px;
       display: flex;
       flex-wrap: wrap;
       align-items: center;
-      gap: 10px 24px;
+      gap: 8px 20px;
     }
     .analysis .shape-label {
-      font-size: .72rem;
+      font-size: .7rem;
       color: var(--text-dim);
       text-transform: uppercase;
       letter-spacing: .03em;
-      margin-right: 4px;
+      margin-right: 2px;
     }
     .analysis .explanation {
       flex: 1;
-      min-width: 200px;
-      font-size: .88rem;
+      min-width: 180px;
+      font-size: .84rem;
       color: var(--text);
       line-height: 1.45;
     }
-    .analysis .explanation .highlight {
-      color: var(--accent);
-      font-weight: 600;
-    }
-    .analysis .explanation .highlight2 {
-      color: var(--accent2);
-      font-weight: 600;
-    }
+    .analysis .explanation .highlight { color: var(--accent); font-weight: 600; }
+    .analysis .explanation .highlight2 { color: var(--accent2); font-weight: 600; }
     .analysis .detail-metrics {
       display: flex;
-      gap: 14px;
-      font-size: .78rem;
+      gap: 12px;
+      font-size: .75rem;
     }
-    .analysis .detail-metrics span {
-      color: var(--text-dim);
+    .analysis .detail-metrics span { color: var(--text-dim); }
+    .analysis .detail-metrics .num { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
+
+    /* ── selected tour info ── */
+    .tour-info {
+      background: var(--surface);
+      border: 1px solid var(--orange);
+      border-radius: var(--radius);
+      padding: 8px 16px;
+      box-shadow: var(--shadow);
+      margin-bottom: 12px;
+      display: none;
+      align-items: center;
+      gap: 10px 18px;
+      flex-wrap: wrap;
+      animation: fadeIn .2s ease;
     }
-    .analysis .detail-metrics .num {
-      color: var(--text);
+    .tour-info.visible { display: flex; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+
+    .tour-info .lbl {
+      font-size: .68rem;
+      color: var(--orange);
+      text-transform: uppercase;
+      letter-spacing: .04em;
+      font-weight: 600;
+    }
+    .tour-info .route-display {
+      font-size: .88rem;
       font-weight: 600;
       font-variant-numeric: tabular-nums;
+      letter-spacing: .02em;
+    }
+    .tour-info .route-display .city-dot {
+      display: inline-block;
+      width: 18px; height: 18px;
+      border-radius: 50%;
+      text-align: center;
+      line-height: 18px;
+      font-size: .6rem;
+      font-weight: 700;
+      margin: 0 1px;
+    }
+    .tour-info .route-display .arrow {
+      color: var(--text-dim);
+      margin: 0 2px;
+      font-size: .8rem;
+    }
+    .tour-info .dist-display {
+      font-size: .88rem;
+      font-weight: 700;
+      color: var(--orange);
+    }
+    .tour-info .hint {
+      font-size: .7rem;
+      color: var(--text-dim);
+      font-style: italic;
     }
 
     /* ── batch explorer ── */
-    .explorer-toggle {
-      text-align: center;
-      margin-bottom: 14px;
-    }
-    .explorer-toggle .btn {
-      font-size: .82rem;
-      padding: 6px 18px;
-    }
+    .explorer-toggle { text-align: center; margin-bottom: 12px; }
+    .explorer-toggle .btn { font-size: .8rem; padding: 5px 16px; }
 
-    .explorer {
-      display: none;
-      margin-bottom: 16px;
-    }
+    .explorer { display: none; margin-bottom: 14px; }
     .explorer.open { display: block; }
 
     .explorer .grid-panel {
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: var(--radius);
-      padding: 14px;
+      padding: 12px;
       box-shadow: var(--shadow);
     }
     .explorer .grid-panel h2 {
-      font-size: .78rem;
+      font-size: .75rem;
       font-weight: 600;
       text-transform: uppercase;
       letter-spacing: .05em;
       color: var(--text-dim);
-      margin-bottom: 10px;
+      margin-bottom: 8px;
     }
-    .explorer .grid-panel h2 span {
-      color: var(--text);
-      text-transform: none;
-    }
+    .explorer .grid-panel h2 span { color: var(--text); text-transform: none; }
     .explorer .gallery {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
-      gap: 8px;
-      max-height: 420px;
+      grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+      gap: 6px;
+      max-height: 400px;
       overflow-y: auto;
-      padding: 4px 2px;
+      padding: 2px;
     }
-    .explorer .gallery::-webkit-scrollbar {
-      width: 5px;
-    }
-    .explorer .gallery::-webkit-scrollbar-thumb {
-      background: var(--surface2);
-      border-radius: 3px;
-    }
+    .explorer .gallery::-webkit-scrollbar { width: 5px; }
+    .explorer .gallery::-webkit-scrollbar-thumb { background: var(--surface2); border-radius: 3px; }
     .explorer .gallery-item {
       background: #0b1120;
-      border-radius: 8px;
-      padding: 6px;
+      border-radius: 6px;
+      padding: 5px;
       cursor: pointer;
       border: 2px solid transparent;
       transition: border-color .15s;
       text-align: center;
     }
-    .explorer .gallery-item:hover {
-      border-color: var(--accent);
-    }
-    .explorer .gallery-item.selected {
-      border-color: var(--accent2);
-    }
-    .explorer .gallery-item canvas {
-      width: 100%;
-      aspect-ratio: 1.6 / 1;
-      display: block;
-      border-radius: 4px;
-    }
+    .explorer .gallery-item:hover { border-color: var(--accent); }
+    .explorer .gallery-item.selected { border-color: var(--accent2); }
+    .explorer .gallery-item canvas { width: 100%; aspect-ratio: 1.6 / 1; display: block; border-radius: 3px; }
     .explorer .gallery-item .meta {
-      font-size: .65rem;
+      font-size: .62rem;
       color: var(--text-dim);
-      margin-top: 3px;
+      margin-top: 2px;
       display: flex;
       justify-content: center;
-      gap: 4px;
+      gap: 3px;
     }
     .explorer .gallery-item .meta .shape-tag {
-      padding: 1px 6px;
+      padding: 1px 5px;
       border-radius: 8px;
       font-weight: 600;
     }
@@ -382,8 +393,8 @@
     .footnote {
       text-align: center;
       color: var(--text-dim);
-      font-size: .75rem;
-      margin-top: 16px;
+      font-size: .72rem;
+      margin-top: 14px;
     }
     .footnote a { color: var(--accent); cursor: pointer; text-decoration: none; }
     .footnote a:hover { text-decoration: underline; }
@@ -395,7 +406,7 @@
   <!-- HEADER -->
   <header>
     <h1>TSP <span>Brute Force</span></h1>
-    <p>Every possible tour &middot; Distance histogram &middot; Shape analysis</p>
+    <p>Every possible tour &middot; Distance histogram &middot; Click a bar to inspect</p>
   </header>
 
   <!-- CONTROLS -->
@@ -407,7 +418,7 @@
     </label>
     <div class="btn-group">
       <button class="btn" id="solveBtn">⟳ New Layout</button>
-      <button class="btn btn-outline" id="exploreBtn">🔬 Explore Shapes</button>
+      <button class="btn btn-outline" id="exploreBtn">🔬 Explore</button>
     </div>
     <span class="status-msg" id="statusMsg">Ready</span>
   </div>
@@ -415,11 +426,11 @@
   <!-- GRID -->
   <div class="grid">
     <div class="card">
-      <h2>📍 Cities &amp; Optimal Tour</h2>
+      <h2>📍 Map <span style="font-weight:400;color:var(--text-dim);text-transform:none">— green = optimal, <b style="color:var(--orange)">orange</b> = selected</span></h2>
       <canvas id="mapCanvas" width="400" height="400"></canvas>
     </div>
     <div class="card">
-      <h2>📊 Distance Histogram</h2>
+      <h2>📊 Distance Histogram <span style="font-weight:400;color:var(--text-dim);text-transform:none">— click a bar</span></h2>
       <canvas id="chartCanvas"></canvas>
     </div>
   </div>
@@ -447,6 +458,15 @@
     <div class="stat-item"><span class="lbl">Optimal</span><span class="val green" id="statOptimal">—</span><span class="val-unit">u</span></div>
   </div>
 
+  <!-- SELECTED TOUR INFO -->
+  <div class="tour-info" id="tourInfo">
+    <span class="lbl">Selected Tour</span>
+    <span class="route-display" id="tourRoute"></span>
+    <span class="dist-display" id="tourDist"></span>
+    <span class="hint">(click another bar or the map to change)</span>
+    <button class="btn btn-outline btn-sm" id="clearTourBtn" style="margin-left:auto">✕</button>
+  </div>
+
   <!-- EXPLORER -->
   <div class="explorer-toggle">
     <button class="btn btn-outline" id="exploreToggleBtn">🔬 Explore All Distribution Shapes</button>
@@ -468,6 +488,7 @@
 <script>
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 //  TSP Brute Force – Distance Histogram + Shape Analysis
+//  Click a histogram bar → see an example tour on the map
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 const $ = id => document.getElementById(id);
@@ -476,13 +497,18 @@ const mapCanvas   = $('mapCanvas');
 const mapCtx      = mapCanvas.getContext('2d');
 const chartCanvas = $('chartCanvas');
 
-let cities    = [];
-let distances = [];
-let bestRoute = [];
-let bestDist  = Infinity;
-let chart     = null;
+let cities     = [];
+let distances  = [];
+let bestRoute  = [];
+let bestDist   = Infinity;
+let chart      = null;
 let currentSeed = Date.now();
-let exploreOpen = false;
+
+// ── bin / tour selection state ─────────────────────
+let binExamples = {};     // binIdx -> {route, distance}
+let histMeta    = null;   // {min, max, numBins, binWidth} for mapping clicks → bins
+let selectedTour = null;  // {route, distance} currently highlighted on map
+let allTourData = [];     // [{dist, route}] — temporary during solve, cleared after binExamples built
 
 const COLORS = [
   '#38bdf8','#f472b6','#4ade80','#fbbf24','#a78bfa',
@@ -498,32 +524,20 @@ const SHAPE_EMOJI = {
 
 const SHAPE_DESCRIPTIONS = {
   'symmetric': {
-    label: 'Symmetric (Normal-like)',
-    short: 'Bell-shaped, balanced tails',
-    detail: 'Most tours cluster around the mean. Cities are spread <span class="highlight">uniformly</span> with no strong clustering.',
     why: 'Each tour is a sum of many independent-ish edge lengths, so the <span class="highlight">Central Limit Theorem</span> kicks in. The distribution is roughly normal. This is the baseline — what you get from a uniform random layout.',
   },
   'bimodal': {
-    label: 'Bimodal (Two Peaks)',
-    short: 'Two distinct distance groups',
-    detail: 'Tours split into <span class="highlight">two families</span> — short and long — with few in between.',
     why: 'Caused by <span class="highlight2">spatial structure</span>: two distinct city clusters, or one remote outlier. The short mode corresponds to tours that cross between clusters efficiently (2 bridge edges); the long mode makes extra crossings. With an outlier, its position in the tour order creates the two modes.',
   },
   'right-skewed': {
-    label: 'Right-Skewed (Long Right Tail)',
-    short: 'Most tours efficient, a few terrible',
-    detail: 'A long tail of unusually <span class="highlight">bad</span> tours stretches to the right.',
     why: 'Caused by <span class="highlight2">moderate clustering</span> — most tours find reasonable routes between clusters, but a minority bounce back and forth many times, paying a heavy penalty. The right tail captures these pathological routes.',
   },
   'left-skewed': {
-    label: 'Left-Skewed (Long Left Tail)',
-    short: 'Most tours similar, a few brilliant',
-    detail: 'A tail of unusually <span class="highlight">good</span> tours extends to the left.',
     why: 'Rarer. Happens when cities are <span class="highlight2">nearly collinear</span> or tightly packed on a convex hull. Most permutations give similar distances, but a clever few (the near-optimal tours) are significantly shorter, forming the left tail.',
   },
 };
 
-// ── helpers ────────────────────────────────────────
+// ── geometry helpers ───────────────────────────────
 
 function dist(a, b) {
   return Math.hypot(a.x - b.x, a.y - b.y);
@@ -547,8 +561,6 @@ function mulberry32(seed) {
   };
 }
 
-function randRange(rng, min, max) { return min + rng() * (max - min); }
-
 function generateCities(n, seed) {
   const rng = mulberry32(seed);
   const pts = [];
@@ -565,14 +577,14 @@ function solveTSP() {
   const n = cities.length;
   if (n < 3) return;
   const indices = Array.from({ length: n - 1 }, (_, i) => i + 1);
-  const dists = [];
+  allTourData = [];
   let best = Infinity, bestR = null;
 
   function permute(arr, start) {
     if (start === arr.length) {
       const route = [0, ...arr];
       const d = tourDistance(route);
-      dists.push(d);
+      allTourData.push({ dist: d, route: [...route] });
       if (d < best) { best = d; bestR = [...route]; }
       return;
     }
@@ -584,9 +596,34 @@ function solveTSP() {
   }
 
   permute(indices, 0);
-  distances = dists;
+  distances = allTourData.map(t => t.dist);
   bestDist  = best;
   bestRoute = bestR;
+
+  // ── Build one example tour per histogram bin ──
+  buildBinExamples();
+}
+
+function buildBinExamples() {
+  binExamples = {};
+  selectedTour = null;
+  const n = distances.length;
+  const sorted = [...distances].sort((a, b) => a - b);
+  const min = sorted[0], max = sorted[n - 1];
+  const numBins = Math.max(8, Math.ceil(Math.log2(n) + 1));
+  const binWidth = (max - min) / numBins || 1;
+  histMeta = { min, max, numBins, binWidth };
+
+  for (const td of allTourData) {
+    let idx = Math.floor((td.dist - min) / binWidth);
+    if (idx >= numBins) idx = numBins - 1;
+    if (idx < 0) idx = 0;
+    if (!binExamples[idx]) {
+      binExamples[idx] = { route: td.route, distance: td.dist };
+    }
+  }
+
+  allTourData = []; // free memory
 }
 
 // ── distribution classification ────────────────────
@@ -598,7 +635,6 @@ function classifyDistribution() {
   const min = sorted[0], max = sorted[n - 1];
   const mean = sorted.reduce((s, v) => s + v, 0) / n;
 
-  // Moments
   let m2 = 0, m3 = 0;
   for (const v of sorted) {
     const d = v - mean;
@@ -609,7 +645,6 @@ function classifyDistribution() {
   const std = Math.sqrt(variance);
   const skewness = std > 0 ? m3 / n / (std * std * std) : 0;
 
-  // Quartiles
   const q1 = sorted[Math.floor(n * 0.25)];
   const q3 = sorted[Math.floor(n * 0.75)];
   const iqr = q3 - q1;
@@ -635,8 +670,6 @@ function classifyDistribution() {
   }
 
   const density = grid.map(x => kde(x, sorted, bandwidth));
-
-  // Find peaks
   const peaks = [];
   for (let i = 1; i < density.length - 1; i++) {
     if (density[i] > density[i - 1] && density[i] >= density[i + 1]) {
@@ -647,14 +680,11 @@ function classifyDistribution() {
   const maxDensity = Math.max(...density);
   const sigPeaks = peaks.filter(p => p.y / maxDensity > 0.12);
 
-  // Merge very close peaks
   if (sigPeaks.length >= 2) {
     const merged = [sigPeaks[0]];
     for (let i = 1; i < sigPeaks.length; i++) {
       const last = merged[merged.length - 1];
-      const sep = (sigPeaks[i].x - last.x) / bandwidth;
-      if (sep < 1.0) {
-        // Keep the higher one
+      if ((sigPeaks[i].x - last.x) / bandwidth < 1.0) {
         if (sigPeaks[i].y > last.y) merged[merged.length - 1] = sigPeaks[i];
       } else {
         merged.push(sigPeaks[i]);
@@ -664,23 +694,15 @@ function classifyDistribution() {
     sigPeaks.push(...merged);
   }
 
-  // ── Classify ──
-  let shape, explanationKey;
-
+  let shape;
   if (sigPeaks.length >= 2) {
     shape = 'bimodal';
-    explanationKey = 'bimodal';
+  } else if (skewness > 0.5) {
+    shape = 'right-skewed';
+  } else if (skewness < -0.5) {
+    shape = 'left-skewed';
   } else {
-    if (skewness > 0.5) {
-      shape = 'right-skewed';
-      explanationKey = 'right-skewed';
-    } else if (skewness < -0.5) {
-      shape = 'left-skewed';
-      explanationKey = 'left-skewed';
-    } else {
-      shape = 'symmetric';
-      explanationKey = 'symmetric';
-    }
+    shape = 'symmetric';
   }
 
   // ── Spatial metrics ──
@@ -690,7 +712,6 @@ function classifyDistribution() {
   const avgRadius = fromCenter.reduce((s, v) => s + v, 0) / fromCenter.length;
   const radiusCV = Math.sqrt(fromCenter.reduce((s, v) => s + (v - avgRadius) ** 2, 0) / fromCenter.length) / avgRadius;
 
-  // Pairwise distance CV (clustering metric)
   const allPD = [];
   for (let i = 0; i < cities.length; i++) {
     for (let j = i + 1; j < cities.length; j++) {
@@ -701,33 +722,22 @@ function classifyDistribution() {
   const pdVar = allPD.reduce((s, v) => s + (v - pdMean) ** 2, 0) / allPD.length;
   const pairCV = Math.sqrt(pdVar) / pdMean;
 
-  // Near-optimal %
   const nearOptimal = sorted.filter(d => d <= bestDist * 1.1).length;
   const nearOptimalPct = nearOptimal / n * 100;
-
-  // Optimal gap
   const optimalGap = max / min;
 
   return {
-    shape,
-    skewness,
+    shape, skewness,
     stats: {
-      n,
-      mean,
+      n, mean,
       median: n % 2 === 0
         ? (sorted[n / 2 - 1] + sorted[n / 2]) / 2
         : sorted[Math.floor(n / 2)],
-      std,
-      min,
-      max,
-      iqr,
-      nearOptimalPct,
-      optimalGap,
+      std, min, max, iqr, nearOptimalPct, optimalGap,
     },
     spatial: { avgRadius, radiusCV, pairCV },
     peaks: sigPeaks.map(p => ({ x: p.x, y: p.y })),
     density: { grid, values: density },
-    explanationKey,
     bestDist,
   };
 }
@@ -753,12 +763,48 @@ function drawMap() {
     }
   }
 
+  // Selected tour (if any) — draw BEFORE optimal so optimal is on top
+  if (selectedTour && selectedTour.route && selectedTour.route.length >= 3) {
+    const r = selectedTour.route;
+    mapCtx.strokeStyle = 'rgba(251,146,60,0.45)';
+    mapCtx.lineWidth = 5;
+    mapCtx.setLineDash([]);
+    mapCtx.beginPath();
+    mapCtx.moveTo(cities[r[0]].x, cities[r[0]].y);
+    for (let i = 1; i < r.length; i++) {
+      mapCtx.lineTo(cities[r[i]].x, cities[r[i]].y);
+    }
+    mapCtx.closePath();
+    mapCtx.stroke();
+
+    // Draw directional arrows at midpoints
+    mapCtx.fillStyle = 'rgba(251,146,60,0.7)';
+    for (let i = 0; i < r.length; i++) {
+      const a = cities[r[i]];
+      const b = cities[r[(i + 1) % r.length]];
+      const mx = (a.x + b.x) / 2;
+      const my = (a.y + b.y) / 2;
+      const angle = Math.atan2(b.y - a.y, b.x - a.x);
+      mapCtx.save();
+      mapCtx.translate(mx, my);
+      mapCtx.rotate(angle);
+      mapCtx.beginPath();
+      mapCtx.moveTo(6, 0);
+      mapCtx.lineTo(-4, -4);
+      mapCtx.lineTo(-4, 4);
+      mapCtx.closePath();
+      mapCtx.fill();
+      mapCtx.restore();
+    }
+  }
+
   // Optimal tour
   if (bestRoute && bestRoute.length >= 3) {
+    mapCtx.shadowColor = 'rgba(74,222,128,0.2)';
+    mapCtx.shadowBlur = 8;
     mapCtx.strokeStyle = '#4ade80';
     mapCtx.lineWidth = 2.5;
-    mapCtx.shadowColor = 'rgba(74,222,128,0.25)';
-    mapCtx.shadowBlur = 6;
+    mapCtx.setLineDash([]);
     mapCtx.beginPath();
     mapCtx.moveTo(cities[bestRoute[0]].x, cities[bestRoute[0]].y);
     for (let i = 1; i < bestRoute.length; i++) {
@@ -790,52 +836,79 @@ function drawMap() {
     mapCtx.textBaseline = 'bottom';
     mapCtx.fillText(i.toString(), x, y - 10);
   }
+
+  // Distance label for selected tour
+  if (selectedTour) {
+    mapCtx.fillStyle = 'rgba(251,146,60,0.85)';
+    mapCtx.font = 'bold 12px system-ui, sans-serif';
+    mapCtx.textAlign = 'right';
+    mapCtx.textBaseline = 'top';
+    mapCtx.fillText(`Tour: ${selectedTour.distance.toFixed(1)} u`, w - 10, 8);
+  }
+}
+
+// ── selected tour UI ───────────────────────────────
+
+function showTourInfo(tour, binLo, binHi) {
+  selectedTour = tour;
+  const route = tour.route;
+
+  // Build colored route display
+  let html = '';
+  for (let i = 0; i < route.length; i++) {
+    const ci = route[i];
+    const color = COLORS[ci % COLORS.length];
+    html += `<span class="city-dot" style="background:${color}">${ci}</span>`;
+    if (i < route.length - 1) {
+      html += '<span class="arrow">→</span>';
+    }
+  }
+  // Close back to start
+  html += '<span class="arrow">→</span>';
+  const c0 = route[0];
+  const color0 = COLORS[c0 % COLORS.length];
+  html += `<span class="city-dot" style="background:${color0}">${c0}</span>`;
+
+  $('tourRoute').innerHTML = html;
+  $('tourDist').textContent = `${tour.distance.toFixed(1)} u  (bin ${binLo.toFixed(1)}–${binHi.toFixed(1)})`;
+  $('tourInfo').classList.add('visible');
+}
+
+function clearTourInfo() {
+  selectedTour = null;
+  $('tourInfo').classList.remove('visible');
+  drawMap();
 }
 
 // ── histogram + KDE ────────────────────────────────
 
 function buildHistogram(classification) {
   if (distances.length === 0) return;
-
   const n = distances.length;
   const sorted = [...distances].sort((a, b) => a - b);
   const min = sorted[0], max = sorted[n - 1];
 
   const numBins = Math.max(8, Math.ceil(Math.log2(n) + 1));
   const binWidth = (max - min) / numBins || 1;
-
   const bins = Array(numBins).fill(0);
-  const binEdges = [];
   const binCenters = [];
   for (let i = 0; i < numBins; i++) {
     const lo = min + i * binWidth;
     const hi = min + (i + 1) * binWidth;
-    binEdges.push(lo);
     binCenters.push((lo + hi) / 2);
   }
-
   for (const d of distances) {
     let idx = Math.floor((d - min) / binWidth);
     if (idx >= numBins) idx = numBins - 1;
     bins[idx]++;
   }
 
-  // Bin frequency as bar labels
   const binLabels = binCenters.map(c => c.toFixed(0));
-
-  // KDE line data
-  const kdeData = classification?.density?.values || [];
-  const kdeGrid = classification?.density?.grid || [];
-
-  // Scale KDE to match histogram scale
   const maxFreq = Math.max(...bins);
-  const maxKde = Math.max(...kdeData, 1e-10);
+  const maxKde = Math.max(...(classification?.density?.values || [1e-10]));
 
   if (chart) { chart.destroy(); chart = null; }
 
-  const ctx = chartCanvas.getContext('2d');
-
-  // Build datasets
   const datasets = [{
     label: 'Tour count',
     data: bins,
@@ -847,21 +920,15 @@ function buildHistogram(classification) {
     yAxisID: 'y',
   }];
 
-  // Add KDE line if we have classification data
-  if (kdeData.length > 0 && kdeGrid.length > 0) {
-    // Map KDE grid values to chart x-axis (which is bin centers)
-    // We need to interpolate KDE values at each bin center for the line
-    // Actually, it's easier to add the KDE as a separate dataset plotted against
-    // the same x-axis but using a second y-axis.
-
-    // Scale KDE so its max matches the histogram max
+  // KDE overlay
+  if (classification?.density?.values?.length > 0) {
+    const kdeData = classification.density.values;
+    const kdeGrid = classification.density.grid;
     const scale = maxFreq / maxKde;
-    const scaledKde = kdeData.map(v => v * scale * 0.95); // slightly below bars
+    const scaledKde = kdeData.map(v => v * scale * 0.95);
 
-    // For each bin center, find the nearest KDE grid value
     const kdeAtBins = binCenters.map(bc => {
-      let closest = 0;
-      let closestDist = Infinity;
+      let closest = 0, closestDist = Infinity;
       for (let i = 0; i < kdeGrid.length; i++) {
         const d = Math.abs(kdeGrid[i] - bc);
         if (d < closestDist) { closestDist = d; closest = i; }
@@ -882,23 +949,25 @@ function buildHistogram(classification) {
       yAxisID: 'y',
     });
 
-    // Add vertical line for optimal distance
-    const optIdx = binCenters.findIndex(c => c >= bestDist);
-    if (optIdx >= 0) {
-      datasets.push({
-        label: 'Optimal tour',
-        data: binCenters.map((c, i) => i === 0 ? 0 : null),
-        type: 'line',
-        borderColor: '#4ade80',
-        backgroundColor: 'transparent',
-        borderWidth: 2,
-        borderDash: [5, 3],
-        pointRadius: 0,
-        order: 0,
-        yAxisID: 'y',
-      });
-    }
+    datasets.push({
+      label: 'Optimal',
+      data: Array(numBins).fill(null),
+      type: 'line',
+      borderColor: '#4ade80',
+      backgroundColor: 'transparent',
+      borderWidth: 2,
+      borderDash: [5, 3],
+      pointRadius: 0,
+      order: 0,
+      yAxisID: 'y',
+    });
   }
+
+  // ── Build chart ──
+  const ctx = chartCanvas.getContext('2d');
+
+  // Keep these in closure for onClick
+  const _min = min, _binWidth = binWidth;
 
   chart = new Chart(ctx, {
     type: 'bar',
@@ -909,6 +978,20 @@ function buildHistogram(classification) {
     options: {
       responsive: true,
       maintainAspectRatio: false,
+      onClick(event, elements) {
+        if (elements.length === 0) {
+          clearTourInfo();
+          return;
+        }
+        const idx = elements[0].dataIndex;
+        const example = binExamples[idx];
+        if (example) {
+          const lo = _min + idx * _binWidth;
+          const hi = _min + (idx + 1) * _binWidth;
+          showTourInfo(example, lo, hi);
+          drawMap();
+        }
+      },
       plugins: {
         legend: {
           display: true,
@@ -917,6 +1000,14 @@ function buildHistogram(classification) {
             font: { size: 10 },
             boxWidth: 12,
             padding: 8,
+          },
+          onClick(e, legendItem, legend) {
+            // Allow default toggle behavior
+            const type = legendItem.datasetIndex;
+            const ci = legend.chart;
+            const meta = ci.getDatasetMeta(type);
+            meta.hidden = meta.hidden === null ? !ci.data.datasets[type].hidden : null;
+            ci.update();
           }
         },
         tooltip: {
@@ -928,16 +1019,24 @@ function buildHistogram(classification) {
           padding: 8,
           callbacks: {
             title(items) {
-              if (items[0].dataset.label === 'Density estimate') return '';
+              if (items[0].dataset.label !== 'Tour count') return '';
               const i = items[0].dataIndex;
-              const lo = (min + i * binWidth).toFixed(1);
-              const hi = (min + (i + 1) * binWidth).toFixed(1);
+              const lo = (_min + i * _binWidth).toFixed(1);
+              const hi = (_min + (i + 1) * _binWidth).toFixed(1);
               return `${lo} – ${hi}`;
             },
             label(ctx) {
-              if (ctx.dataset.label === 'Density estimate') return '';
-              if (ctx.dataset.label === 'Optimal tour') return `Optimal: ${bestDist.toFixed(1)}`;
-              return ` ${ctx.parsed.y} tour${ctx.parsed.y === 1 ? '' : 's'}`;
+              if (ctx.dataset.label === 'Tour count') {
+                return ` ${ctx.parsed.y} tour${ctx.parsed.y === 1 ? '' : 's'}`;
+              }
+              return '';
+            },
+            afterBody(items) {
+              if (items[0].dataset.label === 'Tour count') {
+                const i = items[0].dataIndex;
+                return '  Click to see an example tour →';
+              }
+              return '';
             }
           }
         }
@@ -945,22 +1044,12 @@ function buildHistogram(classification) {
       scales: {
         x: {
           title: { display: true, text: 'Tour distance', color: '#94a3b8', font: { size: 10 } },
-          ticks: {
-            color: '#64748b',
-            font: { size: 8 },
-            maxRotation: 45,
-            autoSkip: true,
-            maxTicksLimit: 16,
-          },
+          ticks: { color: '#64748b', font: { size: 8 }, maxRotation: 45, autoSkip: true, maxTicksLimit: 16 },
           grid: { color: 'rgba(71,85,105,0.2)' }
         },
         y: {
           title: { display: true, text: 'Frequency', color: '#94a3b8', font: { size: 10 } },
-          ticks: {
-            color: '#64748b',
-            font: { size: 8 },
-            precision: 0,
-          },
+          ticks: { color: '#64748b', font: { size: 8 }, precision: 0 },
           grid: { color: 'rgba(71,85,105,0.2)' },
           beginAtZero: true,
         }
@@ -973,26 +1062,18 @@ function buildHistogram(classification) {
 
 function updateAnalysis(classification) {
   if (!classification) return;
-
-  const { shape, skewness, stats, spatial, explanationKey, bestDist } = classification;
+  const { shape, skewness, stats, spatial } = classification;
   const desc = SHAPE_DESCRIPTIONS[shape] || SHAPE_DESCRIPTIONS.symmetric;
 
-  // Badge
   const badge = $('shapeBadge');
   badge.className = `shape-badge ${shape}`;
   badge.textContent = `${SHAPE_EMOJI[shape] || ''} ${shape}`;
 
-  // Explanation
-  const expl = $('shapeExplanation');
-  expl.innerHTML = desc.why;
-
-  // Detail metrics
+  $('shapeExplanation').innerHTML = desc.why;
   $('dSkew').textContent = skewness.toFixed(3);
   $('dNearOpt').textContent = stats.nearOptimalPct.toFixed(1);
   $('dCluster').textContent = spatial.pairCV.toFixed(3);
 }
-
-// ── update stats ───────────────────────────────────
 
 function updateStats(classification) {
   if (!classification || distances.length === 0) {
@@ -1017,7 +1098,6 @@ function updateStats(classification) {
 function solveAndRender() {
   const n = cities.length;
   if (n < 3) return;
-
   const t0 = performance.now();
   solveTSP();
   const elapsed = (performance.now() - t0).toFixed(0);
@@ -1027,9 +1107,9 @@ function solveAndRender() {
   buildHistogram(classification);
   updateStats(classification);
   updateAnalysis(classification);
+  clearTourInfo();
 
-  $('statusMsg').innerHTML =
-    `✅ ${distances.length.toLocaleString()} tours in ${elapsed}ms`;
+  $('statusMsg').innerHTML = `✅ ${distances.length.toLocaleString()} tours in ${elapsed}ms`;
 }
 
 // ── init ───────────────────────────────────────────
@@ -1052,7 +1132,6 @@ function runBatchAnalysis(count = 100) {
   $('batchStatus').textContent = `running ${count} instances (${n} cities)…`;
   $('gallery').innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:20px;color:var(--text-dim)">⏳ Computing…</div>';
 
-  // Defer to let UI update
   setTimeout(() => {
     const results = [];
     for (let seed = 1; seed <= count; seed++) {
@@ -1064,7 +1143,6 @@ function runBatchAnalysis(count = 100) {
       results.push({ seed, cities: [...c], distances: [...distances], classification: cls });
       cities = saved;
     }
-
     batchResults = results;
     renderGallery(results);
     $('batchStatus').textContent = `${results.length} instances — click any to load it`;
@@ -1075,7 +1153,6 @@ function renderGallery(results) {
   const gallery = $('gallery');
   gallery.innerHTML = '';
 
-  // Group by shape
   const grouped = {};
   for (const r of results) {
     const s = r.classification.shape;
@@ -1083,11 +1160,9 @@ function renderGallery(results) {
     grouped[s].push(r);
   }
 
-  // Sort groups by frequency
   const order = Object.entries(grouped).sort((a, b) => b[1].length - a[1].length);
 
   for (const [shape, items] of order) {
-    // Show up to 8 per shape
     const shown = items.slice(0, 10);
     for (const item of shown) {
       const box = document.createElement('div');
@@ -1105,15 +1180,12 @@ function renderGallery(results) {
       box.appendChild(meta);
 
       box.addEventListener('click', () => {
-        // Load this instance
         document.querySelectorAll('.gallery-item').forEach(el => el.classList.remove('selected'));
         box.classList.add('selected');
         loadBatchInstance(item);
       });
 
       gallery.appendChild(box);
-
-      // Render mini histogram on the canvas
       renderMiniHistogram(miniCanvas, item.distances, item.classification);
     }
   }
@@ -1138,14 +1210,10 @@ function renderMiniHistogram(canvas, dists, classification) {
   }
   const maxFreq = Math.max(...bins) || 1;
   const barW = (w - 10) / numBins;
-  const pad = 2;
 
-  // Color by shape
   const colorMap = {
-    'symmetric': '#38bdf8',
-    'bimodal': '#f472b6',
-    'right-skewed': '#fbbf24',
-    'left-skewed': '#a78bfa',
+    'symmetric': '#38bdf8', 'bimodal': '#f472b6',
+    'right-skewed': '#fbbf24', 'left-skewed': '#a78bfa',
   };
   const color = colorMap[classification.shape] || '#38bdf8';
 
@@ -1161,9 +1229,10 @@ function loadBatchInstance(item) {
   distances = [...item.distances];
   bestDist = item.classification.bestDist;
 
-  // Re-solve to get bestRoute
+  // Re-solve to get bestRoute and build binExamples
   const savedCities = [...cities];
-  const idx = Array.from({ length: cities.length - 1 }, (_, i) => i + 1);
+  const idxs = Array.from({ length: cities.length - 1 }, (_, i) => i + 1);
+  allTourData = [];
   let best = Infinity, bestR = null;
 
   function perm(arr, start) {
@@ -1173,6 +1242,7 @@ function loadBatchInstance(item) {
       for (let i = 0; i < route.length; i++) {
         d += dist(cities[route[i]], cities[route[(i + 1) % route.length]]);
       }
+      allTourData.push({ dist: d, route: [...route] });
       if (d < best) { best = d; bestR = [...route]; }
       return;
     }
@@ -1182,14 +1252,17 @@ function loadBatchInstance(item) {
       [arr[start], arr[i]] = [arr[i], arr[start]];
     }
   }
-  perm(idx, 0);
+  perm(idxs, 0);
   bestRoute = bestR;
+  distances = allTourData.map(t => t.dist);
+  buildBinExamples();
 
   drawMap();
   const cls = classifyDistribution();
   buildHistogram(cls);
   updateStats(cls);
   updateAnalysis(cls);
+  clearTourInfo();
   $('statusMsg').textContent = `📌 Loaded seed #${item.seed} from explorer`;
 }
 
@@ -1214,26 +1287,26 @@ $('seedLink').addEventListener('click', (e) => {
   navigator.clipboard.writeText(currentSeed.toString()).catch(() => {});
 });
 
+$('clearTourBtn').addEventListener('click', clearTourInfo);
+
+// Click map to deselect tour
+mapCanvas.addEventListener('click', clearTourInfo);
+
 $('exploreBtn').addEventListener('click', () => {
   const panel = $('explorerPanel');
   const toggle = $('exploreToggleBtn');
   const isOpen = panel.classList.toggle('open');
-  toggle.textContent = isOpen ? '🔬 Hide Explorer' : '🔬 Explore All Shapes';
-  if (isOpen && batchResults.length === 0) {
-    runBatchAnalysis(100);
-  }
+  toggle.textContent = isOpen ? '🔬 Hide Explorer' : '🔬 Explore All Distribution Shapes';
+  if (isOpen && batchResults.length === 0) runBatchAnalysis(100);
 });
 
-$('exploreToggleBtn').addEventListener('click', () => {
-  $('exploreBtn').click();
-});
+$('exploreToggleBtn').addEventListener('click', () => { $('exploreBtn').click(); });
 
 $('rerunBatchLink').addEventListener('click', (e) => {
   e.preventDefault();
   runBatchAnalysis(100);
 });
 
-// Resize handler
 let resizeTimer;
 window.addEventListener('resize', () => {
   clearTimeout(resizeTimer);
