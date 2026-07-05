@@ -263,4 +263,15 @@ apps:
     env:
       PORT: "3002"
 
+  - id: tsp-histogram
+    name: TSP Histogram
+    description: Brute-force TSP solver with distance histogram — every possible tour visualized
+    icon: 📊
+    # Static HTML — no subdomain; open directly via localhost:8911
+    path: ../../personal/calnix/projects/tsp-histogram
+    type: node
+    port: 8911
+    start_cmd: "node server.mjs 2>&1"
+    env:
+      PORT: "8911"
 
