@@ -430,8 +430,13 @@
       <canvas id="mapCanvas" width="400" height="400"></canvas>
     </div>
     <div class="card">
-      <h2>📊 Distance Histogram <span style="font-weight:400;color:var(--text-dim);text-transform:none">— click a bar</span></h2>
+      <h2>📊 Distance Histogram <span style="font-weight:400;color:var(--text-dim);text-transform:none">— click a bar or use the slider</span></h2>
       <canvas id="chartCanvas"></canvas>
+      <div class="bin-slider" id="binSliderBar">
+        <span class="bs-label">Explore bins</span>
+        <input type="range" id="binSlider" min="0" max="0" value="0" step="1">
+        <span class="bs-info" id="binSliderInfo">—</span>
+      </div>
     </div>
   </div>
 
