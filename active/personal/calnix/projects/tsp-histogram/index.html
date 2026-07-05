@@ -1036,55 +1036,48 @@ function buildHistogram(classification) {
       }
     }
   });
-
-  // ── native click handler (more reliable than Chart.js onClick) ──
-  setupChartClick();
 }
 
-function setupChartClick() {
-  // Remove old listener if any
-  const newCanvas = chartCanvas.cloneNode(true);
-  chartCanvas.parentNode.replaceChild(newCanvas, chartCanvas);
-  // Re-acquire reference
-  const freshChartCanvas = newCanvas;
+// ── Native click handler on the chart canvas ──────
+// Uses module-level `chart`, `histMeta`, `binExamples` — these update on each solve.
+chartCanvas.addEventListener('click', (e) => {
+  if (!chart || !histMeta) return;
 
-  freshChartCanvas.addEventListener('click', (e) => {
-    if (!chart || !histMeta) return;
+  const rect = chartCanvas.getBoundingClientRect();
+  const px = e.clientX - rect.left;
+  const py = e.clientY - rect.top;
 
-    const rect = freshChartCanvas.getBoundingClientRect();
-    const px = e.clientX - rect.left;
-    const py = e.clientY - rect.top;
+  const chartArea = chart.chartArea;
+  if (!chartArea) return;
 
-    const chartArea = chart.chartArea;
-    if (!chartArea) return;
+  // Only respond to clicks inside the plot area
+  if (px < chartArea.left || px > chartArea.right ||
+      py < chartArea.top || py > chartArea.bottom) {
+    // Clicked on axes/legend — clear selection
+    clearTourInfo();
+    return;
+  }
 
-    // Check if click is inside chart area (not on legend/axes)
-    if (px < chartArea.left || px > chartArea.right ||
-        py < chartArea.top || py > chartArea.bottom) {
-      return;
-    }
+  // Convert pixel → data value using Chart.js scale
+  const xScale = chart.scales.x;
+  if (!xScale) return;
+  const dataValue = xScale.getValueForPixel(px);
+  if (dataValue === undefined || dataValue === null) return;
 
-    // Convert pixel → data value using Chart.js scale
-    const xScale = chart.scales.x;
-    if (!xScale) return;
-    const dataValue = xScale.getValueForPixel(px);
-    if (dataValue === undefined || dataValue === null) return;
+  // Map to bin index
+  const { min, numBins, binWidth } = histMeta;
+  let binIdx = Math.floor((dataValue - min) / binWidth);
+  if (binIdx < 0) binIdx = 0;
+  if (binIdx >= numBins) binIdx = numBins - 1;
 
-    // Map to bin index
-    const { min, numBins, binWidth } = histMeta;
-    let binIdx = Math.floor((dataValue - min) / binWidth);
-    if (binIdx < 0) binIdx = 0;
-    if (binIdx >= numBins) binIdx = numBins - 1;
-
-    const example = binExamples[binIdx];
-    if (example) {
-      const lo = min + binIdx * binWidth;
-      const hi = min + (binIdx + 1) * binWidth;
-      showTourInfo(example, lo, hi);
-      drawMap();
-    }
-  });
-}
+  const example = binExamples[binIdx];
+  if (example) {
+    const lo = min + binIdx * binWidth;
+    const hi = min + (binIdx + 1) * binWidth;
+    showTourInfo(example, lo, hi);
+    drawMap();
+  }
+});
 
 // ── update analysis display ────────────────────────
 
