@@ -263,6 +263,18 @@ apps:
     env:
       PORT: "3002"
 
+  - id: marble-survivors
+    name: Blood Marble
+    description: Gyro-controlled vampire-survivors roguelite — tilt your phone to roll a marble through hordes of enemies
+    icon: 🔮
+    subdomain: marble
+    path: ../../games/marble-survivors
+    type: node
+    port: 3003
+    start_cmd: "node server.mjs 2>&1"
+    env:
+      PORT: "3003"
+
   - id: tsp-histogram
     name: TSP Histogram
     description: Brute-force TSP solver with distance histogram — every possible tour visualized
