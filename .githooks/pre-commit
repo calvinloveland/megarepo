@@ -1,0 +1,114 @@
+#!/usr/bin/env bash
+# pre-commit hook — block (or lift) secrets staged for commit.
+#
+# Flow:
+#   1. locate gitleaks (PATH, else `nix run nixpkgs#gitleaks`)
+#   2. scan staged changes against .gitleaks.toml
+#   3. on finding:
+#        - if K33P_LIFT_SECRETS=1: lift into the k33p secrets channel via
+#          scripts/k33p_secret_lift.py, then re-scan; commit proceeds if clean
+#        - otherwise: fail closed (block the commit) and print guidance
+#
+# Set K33P_LIFT_SECRETS=1 to enable automatic lifting (age-encrypt + CAS +
+# in-place reference replacement). Without it, secrets just block — the safe
+# default. The k33p auto-commit daemon respects the same env var.
+#
+# Skip entirely with `git commit --no-verify` (discouraged) or by setting
+# GITLEAKS_SKIP=1 for a single commit (e.g. intentionally committing a test
+# fixture). The pre-push hook still scans history, so --no-verify is not a
+# silent bypass.
+
+set -euo pipefail
+
+repo_root="$(git rev-parse --show-toplevel)"
+cd "$repo_root"
+
+if [[ "${GITLEAKS_SKIP:-0}" == "1" ]]; then
+  echo "pre-commit: GITLEAKS_SKIP=1 — skipping gitleaks scan (pre-push still runs)"
+  exit 0
+fi
+
+# ── locate gitleaks ────────────────────────────────────────────────────────
+gitleaks_cmd=""
+if command -v gitleaks >/dev/null 2>&1; then
+  gitleaks_cmd=(gitleaks)
+else
+  gitleaks_cmd=(nix run nixpkgs#gitleaks --)
+fi
+
+config="$repo_root/.gitleaks.toml"
+if [[ ! -f "$config" ]]; then
+  echo "pre-commit: WARNING — $config missing; cannot scan for secrets. Blocking to be safe." >&2
+  exit 1
+fi
+
+# Staged changes only (not the whole working tree, not history).
+report="$(mktemp -t gitleaks-staged.XXXXXX.json)"
+trap 'rm -f "$report"' EXIT
+chmod 600 "$report"
+
+# When lifting, we need the real secret value (not redacted). Otherwise redact
+# so secrets never land in logs.
+if [[ "${K33P_LIFT_SECRETS:-0}" == "1" ]]; then
+  redact_flag=()
+else
+  redact_flag=(--redact)
+fi
+
+scan_rc=0
+"${gitleaks_cmd[@]}" git --staged --config "$config" "${redact_flag[@]}" \
+  --report-format json --report-path "$report" . >&2 || scan_rc=$?
+
+# gitleaks exits non-zero when leaks are found.
+if [[ $scan_rc -eq 0 ]]; then
+  exit 0  # clean
+fi
+
+# ── leaks found ────────────────────────────────────────────────────────────
+if [[ "${K33P_LIFT_SECRETS:-0}" != "1" ]]; then
+  echo "" >&2
+  echo "pre-commit: BLOCKED — gitleaks found secret(s) staged for commit." >&2
+  echo "  Report: $report (not removed so you can inspect; it's gitignored)." >&2
+  echo "  Options:" >&2
+  echo "    - remove the secret and re-stage" >&2
+  echo "    - K33P_LIFT_SECRETS=1 git commit  (auto-lift into the k33p secrets channel)" >&2
+  echo "    - GITLEAKS_SKIP=1 git commit --no-verify  (override; pre-push still scans)" >&2
+  cp "$report" "$repo_root/.gitleaks-report.json"
+  exit 1
+fi
+
+# ── lift ───────────────────────────────────────────────────────────────────
+echo "pre-commit: K33P_LIFT_SECRETS=1 — lifting staged secrets into the secrets channel" >&2
+
+# Locate python (PATH, else nix).
+python_cmd=""
+if command -v python3 >/dev/null 2>&1; then
+  python_cmd=(python3)
+else
+  python_cmd=(nix run nixpkgs#python3 --)
+fi
+
+export PYTHONPATH="$repo_root/active/dev-tools/k33p/src${PYTHONPATH:+:$PYTHONPATH}"
+lift_rc=0
+"${python_cmd[@]}" "$repo_root/scripts/k33p_secret_lift.py" "$report" \
+  --repo-root "$repo_root" >&2 || lift_rc=$?
+
+if [[ $lift_rc -ne 0 ]]; then
+  echo "pre-commit: lift failed (rc=$lift_rc); blocking commit." >&2
+  cp "$report" "$repo_root/.gitleaks-report.json"
+  exit 1
+fi
+
+# Re-scan to confirm the staged tree is now clean (redact for log safety).
+recheck_rc=0
+"${gitleaks_cmd[@]}" git --staged --config "$config" --redact \
+  --report-format json --report-path "$report" . >&2 || recheck_rc=$?
+
+if [[ $recheck_rc -ne 0 ]]; then
+  echo "pre-commit: after lift, secrets still present — blocking commit." >&2
+  cp "$report" "$repo_root/.gitleaks-report.json"
+  exit 1
+fi
+
+echo "pre-commit: lift complete, staged tree clean — committing." >&2
+exit 0

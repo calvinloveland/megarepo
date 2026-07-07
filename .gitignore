@@ -11,8 +11,13 @@ logs/
 # hivemind-llm coordinator logs
 /active/dev-tools/hivemind-llm/coordinator/logs/*.log
 
-# k33p store (local CAS, not committed)
-/.k33p/
+# k33p store (local CAS, not committed). The encrypted blobs and lift
+# manifest stay local; they sync via the (forthcoming) k33p+https:// secrets
+# transport. The age recipient (public key) IS committed so other clones can
+# encrypt to the same key.
+/.k33p/*
+!/.k33p/age-recipient.txt
+!/.k33p/.gitkeep
 
 # Python caches
 __pycache__/

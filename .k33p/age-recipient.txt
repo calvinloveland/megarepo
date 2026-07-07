@@ -1,0 +1,12 @@
+# Public age recipient for the megarepo `private` (secrets) channel.
+#
+# Secrets lifted out of tracked source by the pre-commit hook are encrypted
+# to this recipient and stored as `secret`-kind blobs in the k33p content-
+# addressed store (.k33p/store/). The corresponding private key (identity)
+# lives OFF-repo at ~/.config/k33p/age/megarepo-identity.txt and is never
+# committed. To rotate, generate a new identity, replace the line below, and
+# re-encrypt any lifted secrets.
+#
+# Regenerate with:
+#   nix shell nixpkgs#age -c age-keygen -o ~/.config/k33p/age/megarepo-identity.txt
+age1s3pzt5ltez9xhr6zjk7f0d3aaxm6mk3dwm789ht6k9k7trsntp9sadevxg

@@ -1,0 +1,31 @@
+# Repo-local gitleaks config.
+#
+# Extends the vendored upstream default (gitleaks.default.toml, kept pristine)
+# and adds project-specific allowlists. To update the base rules, re-vendor
+# `gitleaks.default.toml` from the gitleaks release — do not edit it by hand.
+#
+# Why a separate file: the nixpkgs `gitleaks` binary ships with an empty
+# embedded default config, so a repo-local config referenced via `--config`
+# (or discovered as `.gitleaks.toml`) is required for any rules to fire.
+
+title = "megarepo gitleaks config"
+
+[extend]
+path = "gitleaks.default.toml"
+
+[allowlist]
+description = "megarepo-specific allowlists"
+paths = [
+    # The vendored config itself is full of secret-looking regexes/examples.
+    '''gitleaks\.default\.toml''',
+    '''\.gitleaks\.toml''',
+    # k33p example manifests declare channel types/transport strings, not real
+    # secrets.
+    '''active/dev-tools/k33p/examples/.*k33p\.yaml$''',
+    # k33p tests use placeholder age keys and ref strings.
+    '''active/dev-tools/k33p/tests/.*''',
+    # Docs that discuss secret patterns.
+    '''docs/.*''',
+    # Lift manifest stores age-encrypted ciphertext, never plaintext secrets.
+    '''\.k33p/secrets-manifest\.json$''',
+]

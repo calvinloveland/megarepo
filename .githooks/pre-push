@@ -1,0 +1,62 @@
+#!/usr/bin/env bash
+# pre-push hook — scan the commits being pushed for secrets.
+#
+# This is the defense-in-depth backstop: even if someone commits with
+# --no-verify (bypassing pre-commit) or the local config drifted, secrets in
+# the outgoing commit range are caught before they reach the remote.
+#
+# Scans the range local remote..local tip for each ref being pushed. Exits
+# non-zero (blocking the push) on any finding.
+
+set -euo pipefail
+
+repo_root="$(git rev-parse --show-toplevel)"
+cd "$repo_root"
+
+if command -v gitleaks >/dev/null 2>&1; then
+  gitleaks_cmd=(gitleaks)
+else
+  gitleaks_cmd=(nix run nixpkgs#gitleaks --)
+fi
+
+config="$repo_root/.gitleaks.toml"
+if [[ ! -f "$config" ]]; then
+  echo "pre-push: WARNING — $config missing; cannot scan history. Blocking push." >&2
+  exit 1
+fi
+
+# pre-push reads (local_ref local_sha remote_ref remote_sha) lines on stdin.
+rc_overall=0
+while read -r local_ref local_sha remote_ref remote_sha; do
+  # Skip branch deletion (all-zero local_sha).
+  if [[ "$local_sha" =~ ^0+$ ]]; then
+    continue
+  fi
+  # Determine the range to scan. If the remote ref exists locally, scan
+  # remote_sha..local_sha (just the new commits). Otherwise (first push of
+  # this ref) scan the whole history reachable from local_sha.
+  if [[ "$remote_sha" =~ ^0+$ ]]; then
+    range="$local_sha"
+  else
+    range="$remote_sha..$local_sha"
+  fi
+
+  report="$(mktemp -t gitleaks-push.XXXXXX.json)"
+  trap 'rm -f "$report"' EXIT
+  chmod 600 "$report"
+
+  scan_rc=0
+  "${gitleaks_cmd[@]}" git --config "$config" --redact \
+    --log-opts "$range" \
+    --report-format json --report-path "$report" . >&2 || scan_rc=$?
+
+  if [[ $scan_rc -ne 0 ]]; then
+    echo "pre-push: BLOCKED — secret(s) found in outgoing commits ($range)." >&2
+    echo "  Range: $local_ref $range -> $remote_ref" >&2
+    cp "$report" "$repo_root/.gitleaks-report.json"
+    rc_overall=1
+  fi
+  rm -f "$report"
+done
+
+exit $rc_overall
