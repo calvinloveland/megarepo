@@ -265,7 +265,7 @@ apps:
 
   - id: marble-survivors
     name: Blood Marble
-    description: Gyro-controlled vampire-survivors roguelite — tilt your phone to roll a marble through hordes of enemies
+    description: Gyro-controlled marble roguelite — roll through gates to level up, survive the horde
     icon: 🔮
     subdomain: marble
     path: ../../games/marble-survivors
