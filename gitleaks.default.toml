@@ -2657,9 +2657,10 @@ path = '''(?i)nuget\.config$'''
 entropy = 1
 keywords = ["<add key="]
 [[rules.allowlists]]
+# HARDENED: upstream allowlisted two literal example passwords
+# (33f!!lloppa, hal+9ooo_da!sY) from gitleaks' test corpus. Stripped so they
+# scan like any other value; the %-template pattern is retained.
 regexes = [
-    '''33f!!lloppa''',
-    '''hal\+9ooo_da!sY''',
     '''^\%\S.*\%$''',
 ]
 

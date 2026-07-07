@@ -44,10 +44,14 @@ documents the layered secret-defense installed around that auto-committer.
 
 - `git config core.hooksPath .githooks` (already set on this clone) points git
   at the tracked `.githooks/` directory. New clones need this set once.
-- `.gitleaks.toml` extends the vendored upstream default `gitleaks.default.toml`
-  (kept pristine) and adds repo-specific allowlists (test fixtures, the k33p
-  example manifests, the lift manifest). To update base rules, re-vendor
-  `gitleaks.default.toml` from a gitleaks release.
+- `.gitleaks.toml` extends a **hardened** vendoring of the upstream gitleaks
+  default `gitleaks.default.toml`. The upstream config shipped literal
+  example-secret allowlists (e.g. ~16 `AIzaSy…` GCP keys on the `gcp-api-key`
+  rule) that created a silent-miss hole — a bare occurrence of one of those
+  exact keys was suppressed and missed. Those literal entries are stripped
+  (see `# HARDENED:` comments in `gitleaks.default.toml`); pattern/path-based
+  allowlists are retained. Repo-specific path allowlists (test fixtures, k33p
+  example manifests, the lift manifest) live in `.gitleaks.toml`.
 - `gitleaks` and `age` are not required to be on `PATH`; the hooks fall back to
   `nix run nixpkgs#gitleaks` / `nix run nixpkgs#age`.
 
