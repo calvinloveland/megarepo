@@ -29,6 +29,13 @@ paths = [
     '''active/dev-tools/k33p/examples/.*k33p\.yaml$''',
     # k33p tests use placeholder age keys and ref strings.
     '''active/dev-tools/k33p/tests/.*''',
+    # Test fixtures contain field names like api_card_id whose VALUES are
+    # Pokemon card IDs (e.g. ju-60-unlimited), not secrets — they trip the
+    # generic-api-key keyword rule. Allowlist the whole fixtures dir.
+    '''active/dev-tools/pokemon-binder-scanner/tests/fixtures/.*''',
+    # Example/template configs use placeholder secrets (e.g. a Slack webhook
+    # of all X/Y/Z). They are documentation, not live credentials.
+    '''active/dev-tools/full-auto-ci/config\.example\.yml$''',
     # Docs that discuss secret patterns.
     '''docs/.*''',
     # Lift manifest stores age-encrypted ciphertext, never plaintext secrets.
