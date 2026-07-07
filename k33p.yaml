@@ -10,6 +10,20 @@ channels:
     visibility: public
     history: full
 
+  # Encrypted private content. Secrets lifted out of tracked source by the
+  # pre-commit gitleaks hook (scripts/k33p_secret_lift.py) are age-encrypted
+  # to the recipient in .k33p/age-recipient.txt and stored as `secret`-kind
+  # blobs in .k33p/store/. The private identity lives off-repo at
+  # ~/.config/k33p/age/megarepo-identity.txt.
+  private:
+    type: secrets
+    transport: k33p+https://secrets.calvinloveland.dev/megarepo
+    encryption: age
+    recipients:
+      - "age1s3pzt5ltez9xhr6zjk7f0d3aaxm6mk3dwm789ht6k9k7trsntp9sadevxg"
+    history: none
+    scope: monorepo
+
 views:
   default:
     src: { at: "./" }

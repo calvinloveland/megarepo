@@ -99,3 +99,27 @@ site/
 # vroomon local secrets (gitignored; never commit)
 .secrets/
 electron/.secrets/
+
+# ── Secret material — never commit ──────────────────────────────
+# Private keys and credentials of any kind. The pre-commit gitleaks hook
+# scans tracked source for pasted secrets; these patterns cover whole files
+# that should never enter history at all.
+*.pem
+*.key
+*.p12
+*.pfx
+*.keystore
+id_rsa
+id_rsa.*
+id_ed25519
+id_ed25519.*
+*.secret
+secrets.*
+
+# age private identities (the public recipient lives in .k33p/age-recipient.txt)
+.k33p/*identity*
+.k33p/age-identity.txt
+
+# Scratch/temp report files the gitleaks hook may write
+.gitleaks-report.*
+.k33p/.lift-tmp.*
