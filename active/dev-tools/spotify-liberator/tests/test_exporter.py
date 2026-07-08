@@ -13,6 +13,7 @@ from spotify_liberator.exporter import (
     PlaylistExport,
     _slugify,
 )
+from spotify_liberator.api import normalize_liked_track
 
 
 # ---------------------------------------------------------------------------
@@ -40,10 +41,12 @@ class TestSlugify:
 
 class TestLikedSongsExport:
     def _make_export(self, sample_user, sample_liked_entry):
+        # The exporter consumes *normalized* track shapes (top-level isrc,
+        # flattened album/artists), so normalize the raw fixture first.
         return LikedSongsExport(
             user=sample_user,
             tracks=[
-                sample_liked_entry,
+                normalize_liked_track(sample_liked_entry),
                 {
                     "added_at": "2021-05-01T00:00:00Z",
                     "track": {
@@ -168,7 +171,7 @@ class TestPlaylistExport:
     ):
         export = PlaylistExport(
             playlist=sample_playlist,
-            tracks=[sample_liked_entry],
+            tracks=[normalize_liked_track(sample_liked_entry)],
         )
         path = export.write(tmp_path, formats=["json"])[0]
         data = json.loads(path.read_text())
