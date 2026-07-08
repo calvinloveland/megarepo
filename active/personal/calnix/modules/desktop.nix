@@ -155,6 +155,9 @@ in
     lxqt.lxqt-policykit
 
     orcaSlicerWrapped # Slicer for 3d printing; clears OpenVINO LD_LIBRARY_PATH pollution
+
+    # Electronics design automation (EDA)
+    kicad
   ];
 
   # Enable Bluetooth
