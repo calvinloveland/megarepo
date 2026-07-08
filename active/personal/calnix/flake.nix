@@ -93,6 +93,8 @@
               url = "https://github.com/github/copilot-cli/releases/download/v${githubCopilotCliVersion}/${srcConfig.name}.tar.gz";
               inherit (srcConfig) hash;
             };
+            # Flat tarball — just the copilot binary, no package directory
+            sourceRoot = ".";
             installPhase = ''
               runHook preInstall
               install -Dm755 copilot $out/libexec/copilot
