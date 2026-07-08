@@ -188,6 +188,36 @@ class TestPersistence:
             mode = path.stat().st_mode & 0o777
             assert mode == 0o600
 
+    def test_token_write_is_atomic_and_no_tmp_leftover(self, tmp_path: Path):
+        path = tmp_path / "token.json"
+        auth.save_token(
+            auth.TokenSet(access_token="A", refresh_token="R", expires_at=time.time() + 3600),
+            path,
+        )
+        # Save again over an existing file and confirm no .tmp-* siblings remain.
+        auth.save_token(
+            auth.TokenSet(access_token="B", refresh_token="R2", expires_at=time.time() + 3600),
+            path,
+        )
+        leftovers = [p for p in tmp_path.iterdir() if p.name.startswith(".tmp-")]
+        assert leftovers == []
+        loaded = auth.load_token(path)
+        assert loaded is not None and loaded.access_token == "B"
+
+    def test_token_file_never_world_readable(self, tmp_path: Path):
+        # Guards against the chmod-after-write TOCTOO: the file must be 0600
+        # from the moment it appears, never 0644.
+        if os.name != "posix":
+            pytest.skip("perm semantics only meaningful on POSIX")
+        path = tmp_path / "token.json"
+        auth.save_token(
+            auth.TokenSet(access_token="A", refresh_token="R", expires_at=time.time() + 3600),
+            path,
+        )
+        mode = path.stat().st_mode & 0o777
+        assert mode == 0o600
+        assert not (mode & 0o044), "token file must not be group/other readable"
+
     def test_load_token_missing_returns_none(self, tmp_path: Path):
         assert auth.load_token(tmp_path / "nope.json") is None
 
@@ -245,6 +275,27 @@ class TestGetValidToken:
         assert tok.access_token == "RENEWED"
         # Refresh token preserved.
         assert tok.refresh_token == "R-OLD"
+
+    def test_falls_through_to_full_flow_on_network_error(self, tmp_path: Path):
+        # A transient connection error during refresh must not crash — it
+        # should fall through to the interactive flow.
+        import requests as _requests
+        token_path = tmp_path / "token.json"
+        expired = auth.TokenSet(
+            access_token="OLD", refresh_token="R-OLD", expires_at=time.time() - 10,
+        )
+        auth.save_token(expired, token_path)
+        cfg = auth.ClientConfig(client_id="c")
+        with patch.object(auth, "refresh_access_token",
+                          side_effect=_requests.ConnectionError("boom")), \
+             patch.object(auth, "do_authorization_flow") as mock_flow:
+            mock_flow.return_value = auth.TokenSet(
+                access_token="NEW", refresh_token="R-NEW",
+                expires_at=time.time() + 3600,
+            )
+            tok = auth.get_valid_token(cfg, token_path=token_path)
+            assert tok.access_token == "NEW"
+            mock_flow.assert_called_once()
 
     def test_falls_through_to_full_flow_when_no_cache(self, tmp_path: Path):
         # No token on disk → do_authorization_flow is called.
