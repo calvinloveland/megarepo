@@ -157,9 +157,16 @@ class OCITransport(Transport):
         return headers
 
     def _request(
-        self, url: str, headers: dict[str, str], accept_redirects: bool = True
+        self, url: str, headers: dict[str, str], accept_redirects: bool = True,
+        registry: str | None = None,
     ) -> tuple[int, dict[str, Any], bytes]:
-        """Make an HTTP request and return ``(status, headers_dict, body)``."""
+        """Make an HTTP request and return ``(status, headers_dict, body)``.
+
+        ``registry`` is the host whose credentials should be used when
+        performing a Bearer token exchange after a 401. It's threaded in so
+        the token exchange looks up the right credentials, rather than
+        looking up credentials for the full ``oci+https://...`` source URL.
+        """
         req = urllib.request.Request(url, headers=headers)
         try:
             with urllib.request.urlopen(req, timeout=30) as resp:
@@ -170,7 +177,7 @@ class OCITransport(Transport):
             if e.code == 401 and "Www-Authenticate" in e.headers:
                 # Attempt token-based auth
                 auth_header = e.headers["Www-Authenticate"]
-                token = self._bearer_token(auth_header, headers)
+                token = self._bearer_token(auth_header, headers, registry=registry)
                 if token:
                     headers["Authorization"] = f"Bearer {token}"
                     req = urllib.request.Request(url, headers=headers)
@@ -184,26 +191,45 @@ class OCITransport(Transport):
         except urllib.error.URLError as e:
             raise TransportError(f"OCI request failed: {e}") from e
 
-    def _bearer_token(self, www_auth: str, headers: dict[str, str]) -> str | None:
+    def _bearer_token(
+        self, www_auth: str, headers: dict[str, str], *, registry: str | None = None
+    ) -> str | None:
         """Authenticate using Bearer token per the OCI distribution spec.
 
-        The ``Www-Authenticate`` header looks like::
+        The ``Www-Authenticate`` header from a protected registry looks like::
 
-            Bearer realm="...",service="...",scope="..."
+            Bearer realm="https://auth.docker.io/token",service="...",scope="..."
+
+        The ``realm``, ``service``, and ``scope`` key=value pairs may appear
+        in any order, and registries may emit additional params; we parse
+        them order-independently.
+
+        Security: the ``realm`` URL is supplied by the registry (or by an
+        attacker who controls / MITMs the registry connection), and we send
+        the user's registry Basic credentials there. Only ``https://`` realms
+        are accepted so credentials are never handed to a cleartext or
+        non-HTTP scheme an attacker could point at themselves.
         """
         import re
 
-        # Parse the auth challenge
-        match = re.match(
-            r'Bearer\s+realm="([^"]+)",\s*service="([^"]+)",\s*scope="([^"]+)"',
-            www_auth,
-        )
-        if not match:
+        # Parse the auth challenge order-independently.
+        params = dict(re.findall(r'(\w+)="([^"]*)"', www_auth))
+        realm = params.get("realm")
+        service = params.get("service", "")
+        scope = params.get("scope", "")
+        if not realm:
             return None
-        realm, service, scope = match.group(1), match.group(2), match.group(3)
+
+        # Refuse to send credentials to a non-HTTPS realm — the realm comes
+        # from the registry's 401 response and is attacker-controllable.
+        if not realm.lower().startswith("https://"):
+            return None
 
         auth_url = f"{realm}?service={urllib.parse.quote(service)}&scope={urllib.parse.quote(scope)}"
-        auth = self._get_auth(self.source)
+        # Look up credentials by the registry HOST, not the full source URL
+        # (self.source is e.g. "oci+https://ghcr.io/...", which would never
+        # match a docker config key).
+        auth = self._get_auth(registry) if registry else None
         if auth:
             encoded = base64.b64encode(f"{auth[0]}:{auth[1]}".encode()).decode()
             auth_headers = {"Authorization": f"Basic {encoded}"}
@@ -232,7 +258,7 @@ class OCITransport(Transport):
         """
         url = f"{self._api_base(registry)}/{repo}/manifests/{reference}"
         headers = self._get_headers(registry)
-        status, resp_headers, body = self._request(url, headers)
+        status, resp_headers, body = self._request(url, headers, registry=registry)
 
         if status != 200:
             return None
@@ -251,7 +277,7 @@ class OCITransport(Transport):
         headers = self._get_headers(registry)
         # Remove manifest Accept headers for blob requests
         headers = {k: v for k, v in headers.items() if k != "Accept"}
-        status, resp_headers, body = self._request(url, headers)
+        status, resp_headers, body = self._request(url, headers, registry=registry)
         if status != 200:
             return None
         return body
@@ -291,7 +317,7 @@ class OCITransport(Transport):
         manifest, raw_manifest = result
 
         # Store the manifest
-        manifest_hash = store.put(raw_manifest, kind="manifest")
+        store.put(raw_manifest, kind="manifest")
         count += 1
 
         # Handle manifest lists (multi-arch)
@@ -312,7 +338,7 @@ class OCITransport(Transport):
                     result2 = self._get_manifest(registry, repo, digest)
                     if result2:
                         manifest, raw_manifest = result2
-                        manifest_hash = store.put(raw_manifest, kind="manifest")
+                        store.put(raw_manifest, kind="manifest")
                         count += 1
 
         # Pull layers and config
