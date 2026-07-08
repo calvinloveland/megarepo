@@ -15,4 +15,4 @@ Canonical documentation lives at:
 When building new web-based features or apps for the megarepo:
 1. The launcher is the starting point — register new apps in `apps.yaml`
 2. The documentation site (MkDocs) is the canonical reference — add project docs in `docs/`
-3. Update `projects.yaml` when adding significant new projects
+3. Register the app in `apps.yaml` (this is the only app registry — there is no `projects.yaml`)

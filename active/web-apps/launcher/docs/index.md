@@ -12,8 +12,7 @@ The launcher is a dashboard that can start, stop, and link to every web-based ap
 ## Role
 
 - **Starting point** — open the launcher first to discover what's running and what's available
-- **App registry** — every web app in the megarepo is registered in `apps.yaml` with its launch config
-- **Project index** — every active project is listed in `projects.yaml` with metadata
+- **App registry** — every web app in the megarepo is registered in `apps.yaml` with its launch config (this is the only registry; there is no separate `projects.yaml`)
 - **Canonical docs bridge** — the launcher footer links to the MkDocs documentation site
 
 ## Quick Start
