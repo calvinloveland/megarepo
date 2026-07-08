@@ -48,14 +48,25 @@ class WebhookHandler:
         self.handlers[provider.lower()] = handler
 
     def handle(
-        self, provider: str, headers: Dict[str, str], payload: Dict[str, Any]
+        self,
+        provider: str,
+        headers: Dict[str, str],
+        payload: Dict[str, Any],
+        raw_body: Optional[bytes] = None,
     ) -> Optional[Dict[str, Any]]:
         """Handle a webhook from a Git provider.
 
         Args:
             provider: Git provider name (github, gitlab, bitbucket)
             headers: HTTP headers
-            payload: Webhook payload
+            payload: Parsed webhook payload (JSON dict)
+            raw_body: The raw request body bytes exactly as received on the
+                wire. Used to verify HMAC signatures, which GitHub computes
+                over the original bytes — not over a re-serialized dict
+                (``json.dumps(payload)`` rarely reproduces the original bytes
+                due to key ordering, whitespace, and number formatting). If
+                omitted, verification falls back to ``json.dumps(payload)``,
+                which is unreliable and kept only for backward compatibility.
 
         Returns:
             Dictionary with commit information or None if not a push event
@@ -65,7 +76,9 @@ class WebhookHandler:
         # Verify signature if secret is set
         result: Optional[Dict[str, Any]] = None
         try:
-            if self.secret and not self._verify_signature(provider, headers, payload):
+            if self.secret and not self._verify_signature(
+                provider, headers, payload, raw_body=raw_body
+            ):
                 self._abort(
                     logging.WARNING, "Invalid signature for %s webhook", provider
                 )
@@ -84,14 +97,21 @@ class WebhookHandler:
         return result
 
     def _verify_signature(
-        self, provider: str, headers: Dict[str, str], payload: Dict[str, Any]
+        self,
+        provider: str,
+        headers: Dict[str, str],
+        payload: Dict[str, Any],
+        *,
+        raw_body: Optional[bytes] = None,
     ) -> bool:
         """Verify the webhook signature.
 
         Args:
             provider: Git provider name
             headers: HTTP headers
-            payload: Webhook payload
+            payload: Parsed webhook payload
+            raw_body: Raw request body bytes for HMAC verification (preferred
+                over re-serializing ``payload``).
 
         Returns:
             True if signature is valid, False otherwise
@@ -107,7 +127,12 @@ class WebhookHandler:
         if normalized_provider == "github":
             signature_header = headers.get("X-Hub-Signature-256")
             if signature_header:
-                payload_bytes = json.dumps(payload).encode("utf-8")
+                # GitHub signs the raw request body bytes, not a re-serialized
+                # JSON dict. Prefer the raw body when available; only fall back
+                # to json.dumps for legacy callers that didn't supply it.
+                payload_bytes = raw_body if raw_body is not None else json.dumps(
+                    payload
+                ).encode("utf-8")
                 hmac_obj = hmac.new(
                     self.secret.encode("utf-8"), payload_bytes, hashlib.sha256
                 )

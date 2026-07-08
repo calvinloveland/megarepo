@@ -130,12 +130,16 @@ class API:
         if not FLASK_AVAILABLE:
             return {"error": "Flask not installed"}, 501
 
-        # Get the headers and payload
+        # Get the headers and payload. Capture the raw body bytes for HMAC
+        # verification — GitHub signs the wire bytes, not a re-serialized dict.
         headers = dict(request.headers)
+        raw_body = request.get_data()
         payload = request.json
 
         # Handle the webhook
-        result = self.webhook_handler.handle("github", headers, payload)
+        result = self.webhook_handler.handle(
+            "github", headers, payload, raw_body=raw_body
+        )
 
         if result:
             # Trigger a test run for the repository
@@ -154,10 +158,13 @@ class API:
 
         # Get the headers and payload
         headers = dict(request.headers)
+        raw_body = request.get_data()
         payload = request.json
 
         # Handle the webhook
-        result = self.webhook_handler.handle("gitlab", headers, payload)
+        result = self.webhook_handler.handle(
+            "gitlab", headers, payload, raw_body=raw_body
+        )
 
         if result:
             # Trigger a test run for the repository
@@ -174,12 +181,17 @@ class API:
         if not FLASK_AVAILABLE:
             return {"error": "Flask not installed"}, 501
 
-        # Get the headers and payload
+        # Get the headers and payload. Bitbucket has no standard signature
+        # header, but we capture raw_body for forwarding consistency / future
+        # HMAC support.
         headers = dict(request.headers)
+        raw_body = request.get_data()
         payload = request.json
 
         # Handle the webhook
-        result = self.webhook_handler.handle("bitbucket", headers, payload)
+        result = self.webhook_handler.handle(
+            "bitbucket", headers, payload, raw_body=raw_body
+        )
 
         if result:
             # Trigger a test run for the repository

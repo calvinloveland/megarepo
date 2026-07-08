@@ -15,10 +15,10 @@ from src.webhook import WebhookHandler
 class TestWebhookHandler(unittest.TestCase):
     """Test the webhook handler."""
 
-    def _verify_signature(self, provider, headers, payload):
+    def _verify_signature(self, provider, headers, payload, raw_body=None):
         """Invoke the internal signature verifier for targeted tests."""
         verify = getattr(self.webhook_handler, "_verify_signature")
-        return verify(provider, headers, payload)
+        return verify(provider, headers, payload, raw_body=raw_body)
 
     def _run_provider_handler(self, provider, headers, payload):
         """Invoke a provider-specific internal webhook handler."""
@@ -110,6 +110,44 @@ class TestWebhookHandler(unittest.TestCase):
         # Test missing signature
         headers = {}
         self.assertFalse(self._verify_signature("github", headers, payload))
+
+    def test_verify_signature_github_uses_raw_body_bytes(self):
+        """GitHub signs the raw wire bytes, not a re-serialized dict.
+
+        Construct a compact raw body whose ``json.dumps`` re-serialization
+        differs (no space after the colon) and confirm verification succeeds
+        only when the raw bytes are supplied.
+        """
+        raw_body = b'{"test":"data"}'  # compact — differs from json.dumps default
+        payload = json.loads(raw_body)
+        # Sanity: re-serialization would NOT match the raw bytes.
+        self.assertNotEqual(json.dumps(payload).encode("utf-8"), raw_body)
+
+        # Signature over the *raw* bytes (what GitHub actually sends).
+        sig = hmac.new(
+            self.webhook_secret.encode("utf-8"), raw_body, hashlib.sha256
+        ).hexdigest()
+        headers = {"X-Hub-Signature-256": f"sha256={sig}"}
+
+        # With raw_body supplied: valid.
+        self.assertTrue(
+            self._verify_signature("github", headers, payload, raw_body=raw_body)
+        )
+        # Without raw_body (legacy path): the signature computed over raw bytes
+        # no longer matches the re-serialized payload, so it must be rejected.
+        self.assertFalse(self._verify_signature("github", headers, payload))
+
+    def test_handle_github_rejects_replayed_raw_body_mismatch(self):
+        """End-to-end: handle() must reject a signature computed over raw
+        bytes when raw_body is supplied and doesn't match."""
+        raw_body = b'{"a": 1, "b": 2}'
+        payload = json.loads(raw_body)
+        bogus_sig = "sha256=" + "0" * 64
+        headers = {"X-Hub-Signature-256": bogus_sig, "X-GitHub-Event": "push"}
+        result = self.webhook_handler.handle(
+            "github", headers, payload, raw_body=raw_body
+        )
+        self.assertIsNone(result)
 
     def test_verify_signature_gitlab(self):
         """Test GitLab signature verification."""
