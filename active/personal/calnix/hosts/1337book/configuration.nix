@@ -29,6 +29,9 @@
   # Hostname
   networking.hostName = "1337book";
 
+  # KiCad EDA for PCB design
+  environment.systemPackages = with pkgs; [ kicad ];
+
   # HP Elitebook-specific TLP power management settings
   services.tlp = {
     enable = true;

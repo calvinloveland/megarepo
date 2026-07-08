@@ -40,6 +40,24 @@ let
     '';
   };
 
+  # Convert simple interval strings to systemd OnCalendar format.
+  # Supports: "10min", "30min", "hourly", "daily", "weekly", "monthly",
+  # or pass through any string that already looks like a calendar spec.
+  toOnCalendar = interval:
+    let
+      known = {
+        minutely = "*:0/1";
+        hourly = "hourly";
+        daily = "daily";
+        weekly = "weekly";
+        monthly = "monthly";
+      };
+      matchMin = builtins.match "([0-9]+)min" interval;
+    in
+    if builtins.hasAttr interval known then known.${interval}
+    else if matchMin != null then "*:0/" + (builtins.elemAt matchMin 0)
+    else interval;
+
   # Check runner (used by systemd timer)
   runChecks = pkgs.writeShellScript "warden-run-checks" ''
     export WARDEN_STATE_DIR=${cfg.stateDir}
@@ -683,7 +701,7 @@ in
             description = "Timer for Warden check: ${checkName}";
             wantedBy = [ "timers.target" ];
             timerConfig = {
-              OnCalendar = checkCfg.interval;
+              OnCalendar = toOnCalendar checkCfg.interval;
               Persistent = true;
               RandomizedDelaySec = "60";
             };
