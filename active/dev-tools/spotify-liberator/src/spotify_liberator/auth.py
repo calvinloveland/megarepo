@@ -28,6 +28,7 @@ import threading
 import time
 import urllib.parse
 import webbrowser
+import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable, Optional
@@ -53,9 +54,38 @@ def _b64url_nopad(data: bytes) -> str:
     return base64.urlsafe_b64encode(data).rstrip(b"=").decode("ascii")
 
 
+def _write_secret_atomic(path: Path, text: str) -> None:
+    """Write `text` to `path` atomically with 0600 perms.
+
+    Creates the file mode 0600 from the start (no chmod-after-write window),
+    writes to a temp sibling, then atomically renames over the target so a
+    crash mid-write can't corrupt an existing file.
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    # tempfile creates with 0600 by default on POSIX; pass dir= so the rename
+    # stays on the same filesystem (atomic on POSIX).
+    fd, tmp_name = tempfile.mkstemp(dir=str(path.parent), prefix=".tmp-")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(text)
+            f.flush()
+            os.fsync(f.fileno())
+        os.chmod(tmp_name, 0o600)
+        os.replace(tmp_name, path)
+    except BaseException:
+        try:
+            os.unlink(tmp_name)
+        except OSError:
+            pass
+        raise
+
+
 def make_code_verifier() -> str:
-    """Generate a 64-char unreserved-character code_verifier (RFC 7636 §4.1)."""
-    # 32 bytes of entropy = 43 base64url chars (no padding) — well within 43-128.
+    """Generate a 43-char unreserved-character code_verifier (RFC 7636 §4.1).
+
+    32 bytes of entropy encode to 43 base64url chars (no padding), which is
+    the minimum allowed length of 43-128.
+    """
     return _b64url_nopad(secrets.token_bytes(32))
 
 
@@ -430,15 +460,16 @@ def default_config_path() -> Path:
 
 
 def save_token(token: TokenSet, path: Optional[Path] = None) -> Path:
-    """Persist a token set to disk with 0600 perms."""
+    """Persist a token set to disk with 0600 perms, atomically.
+
+    The file is created with mode 0600 from the outset (not chmod'd after a
+    world-readable write) so the refresh token is never briefly readable by
+    other users. The write is atomic (temp file + rename) so an interruption
+    can't leave a half-written, corrupt token file.
+    """
     p = path or default_token_path()
     p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(json.dumps(token.to_dict(), indent=2))
-    try:
-        os.chmod(p, 0o600)
-    except OSError:
-        # On Windows or some FSes, chmod may not be meaningful.
-        pass
+    _write_secret_atomic(p, json.dumps(token.to_dict(), indent=2))
     return p
 
 
@@ -456,11 +487,7 @@ def load_token(path: Optional[Path] = None) -> Optional[TokenSet]:
 def save_config(config: ClientConfig, path: Optional[Path] = None) -> Path:
     p = path or default_config_path()
     p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(json.dumps(config.to_dict(), indent=2))
-    try:
-        os.chmod(p, 0o600)
-    except OSError:
-        pass
+    _write_secret_atomic(p, json.dumps(config.to_dict(), indent=2))
     return p
 
 
@@ -498,8 +525,9 @@ def get_valid_token(
             )
             save_token(refreshed, token_path)
             return refreshed
-        except requests.HTTPError as exc:
-            # Refresh failed (revoked, expired, etc.) — fall through to full flow.
+        except requests.RequestException as exc:
+            # Refresh failed (revoked, expired, network error, etc.) — fall
+            # through to full flow rather than crashing.
             print(f"Refresh failed ({exc}); re-running interactive authorization.")
 
     # No cached token, or refresh failed — do the full PKCE flow.
