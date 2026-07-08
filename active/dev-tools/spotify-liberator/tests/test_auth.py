@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import os
 import threading
 import time
@@ -321,7 +320,6 @@ class TestCallbackServer:
     def test_wait_for_callback_returns_params(self):
         # Simulate the browser callback by hitting the server in a thread.
         import urllib.request
-        captured = {}
 
         def hit() -> None:
             # Give the server a moment to start.

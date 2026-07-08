@@ -21,7 +21,7 @@ import json
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Iterable, Optional
+from typing import Iterable
 
 from .api import normalize_liked_track, normalize_playlist, normalize_playlist_track
 

@@ -25,7 +25,6 @@ Exit codes:
 from __future__ import annotations
 
 import argparse
-import json
 import os
 import sys
 from pathlib import Path
@@ -33,7 +32,6 @@ from typing import Optional
 
 from . import (
     __version__,
-    DEFAULT_CALLBACK_PORT,
     DEFAULT_CONFIG_DIR,
     DEFAULT_REDIRECT_URI,
 )
