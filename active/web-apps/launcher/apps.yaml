@@ -287,3 +287,15 @@ apps:
     env:
       PORT: "8911"
 
+  - id: mosfet-matrix
+    name: MOSFET Matrix Designer
+    description: Interactive design tool for a software-defined battery MOSFET matrix — 4 cells, 3 topologies (4s, 2s2p, 4p), 17 switches, peripheral integration
+    icon: 🔌
+    subdomain: mosfet
+    path: ../mosfet-matrix
+    type: node
+    port: 5117
+    start_cmd: "node server.mjs 2>&1"
+    env:
+      PORT: "5117"
+
