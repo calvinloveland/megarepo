@@ -4,6 +4,8 @@
 import { runScenario } from './src/scenario.mjs';
 import { CHANNELS_5_1, azimuthToVec } from './src/surround.mjs';
 import { SPEED_OF_SOUND } from './src/acoustics.mjs';
+import { renderChannelAtSweetSpot, renderPeakConcentration } from './src/render.mjs';
+import { linearChirp } from './src/dsp.mjs';
 
 const canvas = document.getElementById('room');
 const ctx = canvas.getContext('2d');
@@ -320,16 +322,32 @@ function drawRipples() {
 
 // --- channel "play" (visual only, no audio output) -------------------------
 
+const TONE = linearChirp({ durationSec: 0.003, f0Hz: 1000, f1Hz: 3000, sampleRateHz: 48000 });
+
+function concentrationFor(channelId, apply) {
+  if (!state.scenario) return null;
+  const ch = state.scenario.surround.find((c) => c.channel === channelId);
+  if (!ch) return null;
+  const { signal } = renderChannelAtSweetSpot(
+    TONE, ch, state.scenario.compensation, state.scenario.sweetSpot, 48000, { applyCompensation: apply },
+  );
+  return renderPeakConcentration(signal);
+}
+
 function playChannel() {
   stopChannel();
   const order = ['L', 'R', 'C', 'LFE', 'Ls', 'Rs'];
   let i = 0;
   const tick = () => {
     state.activeChannel = order[i % order.length];
-    channelStatusEl.textContent = `Playing virtual channel ${state.activeChannel}`;
+    const comp = concentrationFor(state.activeChannel, true);
+    const uncomp = concentrationFor(state.activeChannel, false);
+    channelStatusEl.textContent =
+      `Playing virtual channel ${state.activeChannel} — ` +
+      `wavefront concentration: compensated ${(comp ?? 0).toFixed(3)} vs uncompensated ${(uncomp ?? 0).toFixed(3)}`;
     draw();
     i++;
-    state.channelTimer = setTimeout(tick, 850);
+    state.channelTimer = setTimeout(tick, 1100);
   };
   tick();
   ui.playChannel.disabled = true;

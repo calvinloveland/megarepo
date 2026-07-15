@@ -65,6 +65,17 @@ delayed by (maxDist − itsDist)/c and attenuated by itsDist/maxDist so all cont
 simultaneously and equally loud — the time/loudness alignment a real surround processor applies
 after localization (surfaced in the UI report as the max delay spread + gain range).
 
+## End-to-end rendering (`render.mjs`)
+
+`renderChannelAtSweetSpot` synthesizes the actual soundfield a listener receives when one virtual
+5.1 channel's content (any waveform) is replayed through the discovered array: each copy is placed
+at pan-gain × compensation-gain and delayed by (compensation delay + speaker→listener propagation).
+This is the end-to-end correctness proof — pure node, no browser. With compensation every copy lands
+at one instant (impulse concentration → 1.0, a single coherent peak); without it they smear across
+the distance range (concentration < 1). Tests assert the alignment math, the concentration gain, and
+that all six channels render audibly. The UI's "Play test tone" reports the compensated-vs-
+uncompensated concentration per channel.
+
 ## The graph below unobservable rigid motion
 
 Procrustes is closed-form for 2-D (rotation angle θ = atan2(B, A) from the centered
