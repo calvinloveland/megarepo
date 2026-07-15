@@ -284,6 +284,15 @@ the solver; they are purely for human context, and they are captured in bundle e
 readiness-history snapshot/export so you can annotate why a configuration mattered (for example,
 "hard living-room preset with distributed matched rows and 30% loss").
 
+A pure `analysis-snapshot.mjs` formatter now powers a **Download analysis snapshot** action in the
+browser toolbar. It combines:
+- the current share URL
+- scenario notes
+- the current dashboard readiness badge + lines
+- the selected bundle's currently-populated reports
+
+into one plain-text handoff artifact for future firmware work or asynchronous review.
+
 A single-mic matched filter with sub-sample parabolic refinement around the |correlation| peak
 lands the TOA within ~2 cm (near the sample-quantization floor); a fractional-lag chirp is recovered
 to <0.15 samples. The estimator has two modes:

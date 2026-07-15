@@ -14,6 +14,7 @@ import { scanNoiseSensitivity, formatNoiseScan, summarizeNoiseScan } from './src
 import { scanNodeCounts, formatNodeScan, summarizeNodeScan } from './src/node-scan.mjs';
 import { SCAN_BUNDLES, getScanBundle } from './src/scan-bundles.mjs';
 import { formatBundleReport } from './src/bundle-report.mjs';
+import { formatAnalysisSnapshot } from './src/analysis-snapshot.mjs';
 import { dashboardSummary } from './src/dashboard-summary.mjs';
 import { makeReadinessHistoryEntry, pushReadinessHistory, formatReadinessHistory } from './src/readiness-history.mjs';
 import {
@@ -54,6 +55,7 @@ const ui = {
   scanBundle: document.getElementById('scanBundle'),
   runBundle: document.getElementById('runBundle'),
   downloadBundleTxt: document.getElementById('downloadBundleTxt'),
+  downloadSnapshotTxt: document.getElementById('downloadSnapshotTxt'),
   downloadHistoryTxt: document.getElementById('downloadHistoryTxt'),
   clearHistory: document.getElementById('clearHistory'),
   copyLink: document.getElementById('copyLink'),
@@ -816,6 +818,18 @@ ui.downloadBundleTxt.addEventListener('click', () => {
   const text = formatBundleReport(bundle, currentBundleReports(), currentScenarioNotes());
   state.bundleReport = { id: bundle.id, text };
   downloadText(`esp-array-${bundle.id}-bundle.txt`, text);
+});
+ui.downloadSnapshotTxt.addEventListener('click', () => {
+  syncUrlFromUi();
+  const bundle = getScanBundle(ui.scanBundle.value);
+  const text = formatAnalysisSnapshot({
+    url: window.location.href,
+    notes: currentScenarioNotes(),
+    dashboard: currentDashboardSummary(),
+    bundle,
+    reports: currentBundleReports(),
+  });
+  downloadText(`esp-array-${bundle.id}-analysis-snapshot.txt`, text);
 });
 ui.downloadHistoryTxt.addEventListener('click', () => {
   downloadText('esp-array-readiness-history.txt', formatReadinessHistory(state.readinessHistory));
