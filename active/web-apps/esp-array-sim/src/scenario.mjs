@@ -5,6 +5,7 @@
 
 import { makeRng, randomLayout, makeEmitSchedule } from './world.mjs';
 import { simulateCaptures, simulateMatchedCaptures } from './capture.mjs';
+import { distributedSweep } from './mesh.mjs';
 import { localizeBest, procrustesAlign } from './localize.mjs';
 import { mapSurround, speakerCompensation, CHANNELS_5_1 } from './surround.mjs';
 
@@ -32,8 +33,19 @@ export function runScenario(cfg = {}) {
 
   const nodes = randomLayout(nodeCount, room, rng, undefined, undefined, { skewMaxPpm });
   const schedule = makeEmitSchedule(nodes);
+  // 'distributed' runs the same capture+estimator but models the mesh data flow:
+  // each node only sees its own microphone arrivals, gossips them, the assembler
+  // reconstitutes the full observation matrix. The resulting matrix is identical
+  // to the centralized one; the cost is tracked as meshMessages.
+  const dist = cfg.captureMode === 'distributed'
+    ? distributedSweep(nodes, room, {
+        captureMode: 'closed',
+        ...cfg.distributedMatched ? { captureMode: 'matched', room, wallReflections: cfg.wallReflections ?? true, reflCoef: cfg.reflCoef ?? 0.5, noiseSigma: cfg.noiseSigma ?? 0.05, estimatorMode: cfg.estimatorMode ?? (cfg.earliestPeak ? 'earliest' : 'strongest') } : {},
+      })
+    : null;
   const observations =
-    cfg.captureMode === 'matched'
+    dist ? dist.matrix
+    : cfg.captureMode === 'matched'
       ? simulateMatchedCaptures(nodes, schedule, {
           room,
           wallReflections: cfg.wallReflections ?? true,
@@ -45,6 +57,7 @@ export function runScenario(cfg = {}) {
           peakThreshold: cfg.peakThreshold ?? 0.5,
         })
       : simulateCaptures(nodes, schedule);
+  const meshMessages = dist ? dist.messages : null;
 
   const sol = localizeBest(observations, nodes.length, room, {
     starts: cfg.starts ?? 8,
@@ -100,5 +113,7 @@ export function runScenario(cfg = {}) {
     clockSkewsTrue: nodes.map((n) => n.clockSkew),
     clockSkewsEst: sol.skew ?? nodes.map(() => 0),
     withSkew,
+    distributed: cfg.captureMode === 'distributed',
+    meshMessages,
   };
 }
