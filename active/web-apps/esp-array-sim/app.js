@@ -15,6 +15,7 @@ import { scanNodeCounts, formatNodeScan, summarizeNodeScan } from './src/node-sc
 import { SCAN_BUNDLES, getScanBundle } from './src/scan-bundles.mjs';
 import { formatBundleReport } from './src/bundle-report.mjs';
 import { formatAnalysisSnapshot } from './src/analysis-snapshot.mjs';
+import { formatReportPackage } from './src/report-package.mjs';
 import { dashboardSummary } from './src/dashboard-summary.mjs';
 import { makeReadinessHistoryEntry, pushReadinessHistory, formatReadinessHistory } from './src/readiness-history.mjs';
 import {
@@ -56,6 +57,7 @@ const ui = {
   runBundle: document.getElementById('runBundle'),
   downloadBundleTxt: document.getElementById('downloadBundleTxt'),
   downloadSnapshotTxt: document.getElementById('downloadSnapshotTxt'),
+  downloadPackageTxt: document.getElementById('downloadPackageTxt'),
   downloadHistoryTxt: document.getElementById('downloadHistoryTxt'),
   clearHistory: document.getElementById('clearHistory'),
   copyLink: document.getElementById('copyLink'),
@@ -830,6 +832,19 @@ ui.downloadSnapshotTxt.addEventListener('click', () => {
     reports: currentBundleReports(),
   });
   downloadText(`esp-array-${bundle.id}-analysis-snapshot.txt`, text);
+});
+ui.downloadPackageTxt.addEventListener('click', () => {
+  syncUrlFromUi();
+  const bundle = getScanBundle(ui.scanBundle.value);
+  const text = formatReportPackage({
+    url: window.location.href,
+    notes: currentScenarioNotes(),
+    dashboard: currentDashboardSummary(),
+    bundle,
+    reports: currentBundleReports(),
+    history: state.readinessHistory,
+  });
+  downloadText(`esp-array-${bundle.id}-report-package.txt`, text);
 });
 ui.downloadHistoryTxt.addEventListener('click', () => {
   downloadText('esp-array-readiness-history.txt', formatReadinessHistory(state.readinessHistory));

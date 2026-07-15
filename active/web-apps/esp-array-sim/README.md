@@ -52,7 +52,9 @@ fresh exploration. There is also now a lightweight **Scenario notes** field in t
 contents are captured in bundle exports and readiness-history snapshots so you can annotate why a
 configuration was interesting. There is also now a **Download analysis snapshot** action that bundles
 the current share URL, scenario notes, readiness badge/summary, and selected analysis reports into
-one text artifact for easy handoff to future firmware work.
+one text artifact for easy handoff to future firmware work. There is also now a **Download report
+package** action that concatenates the analysis snapshot, selected bundle report, and readiness
+history timeline into one comprehensive offline-review artifact.
 
 For hardware planning, `npm run sweep` answers “how many ESP32 nodes do I need?” by printing the
 minimum node count that keeps the **worst-case** localization error under a target (5 cm by default)

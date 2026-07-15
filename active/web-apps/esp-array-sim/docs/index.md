@@ -293,6 +293,10 @@ browser toolbar. It combines:
 
 into one plain-text handoff artifact for future firmware work or asynchronous review.
 
+A pure `report-package.mjs` formatter now goes one step further with **Download report package**:
+it concatenates the current analysis snapshot, the selected bundle report, and the readiness history
+timeline into one comprehensive offline-review artifact.
+
 A single-mic matched filter with sub-sample parabolic refinement around the |correlation| peak
 lands the TOA within ~2 cm (near the sample-quantization floor); a fractional-lag chirp is recovered
 to <0.15 samples. The estimator has two modes:
