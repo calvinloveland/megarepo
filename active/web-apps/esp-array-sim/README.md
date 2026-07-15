@@ -10,7 +10,8 @@ It does not emulate ESP-IDF peripherals or timing. But the distributed calibrati
 explicit firmware-shaped packet/plan contracts plus a small firmware-backend interface (clock sync,
 chirp plan, listener-row capture, row gossip), and the calibration chirp/gap now live in one shared
 canonical config module. That makes the simulator's message flow map much more cleanly onto future
-ESP32 firmware work.
+ESP32 firmware work. `docs/index.md` now also includes an explicit module-by-module firmware port map
+so the hardware phase has a concrete roadmap, not just reusable interfaces.
 
 ## Why a simulator
 

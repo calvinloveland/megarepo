@@ -273,6 +273,30 @@ one shot; it can replace these hooks incrementally with ESP-IDF implementations 
 chirp scheduler, I2S/PDM capture, Wi-Fi/mesh transport) while leaving the higher-level localization
 and planning modules conceptually unchanged.
 
+## Firmware port map (`firmware-port-map.mjs`)
+
+To make the hardware phase explicit rather than aspirational, the repo now also
+keeps a machine-readable simulator → firmware roadmap. The critical mappings are:
+
+| Simulator module | Future ESP-IDF counterpart | Responsibility |
+| --- | --- | --- |
+| `src/calibration-config.mjs` | shared calibration constants | Copy the canonical chirp/gap/emit timing into firmware config/headers unchanged. |
+| `src/firmware-protocol.mjs` | mesh packet schema | Serialize `calibration-plan-v1` and `listener-row-v1` packets over real transport. |
+| `src/firmware-backend.mjs` | ESP-IDF task boundary | Implement `syncClocks`, `makeCalibrationPlan`, `captureListenerRows`, `gossipListenerRows` with real tasks. |
+| `src/capture.mjs` | audio capture pipeline | Replace synthetic arrivals with real I2S/PDM sampling and row measurement. |
+| `src/dsp.mjs` | on-device TOA estimator | Port chirp generation, matched filter, earliest-peak TOA, and any MCU-friendly optimizations. |
+| `src/mesh.mjs` | Wi-Fi / ESP-MESH row gossip | Broadcast one listener-row packet per node and reassemble the matrix at a coordinator or peers. |
+| `src/localize.mjs` | solver service | Run the same localization math on a coordinator node or off-device service. |
+| `src/surround.mjs` | runtime panner / compensation | Apply discovered layout, per-speaker delay, and gain at playback time. |
+| `src/render.mjs` | offline validation only | Keep as a simulator/test oracle, not firmware. |
+| `src/scenario.mjs` | coordinator state machine | Sequence sync → sweep → gossip → solve → surround setup in the same order on hardware. |
+| `app.js` | operator UI / debug dashboard | Stay in browser/desktop tooling as a control and debug surface, not on-device code. |
+
+This answers the practical question behind "are we really emulating ESP32s?": no,
+not literally — but the project now has explicit packet shapes, backend hooks,
+shared calibration settings, and a concrete per-module port roadmap, which is the
+right substrate for a smooth simulator → firmware transition.
+
 A pure `advisories.mjs` ruleset also feeds the UI's **Known risks / suggestions** panel. These are
 not vague design opinions: each rule corresponds to a failure mode the simulator already demonstrated
 and tested — e.g. heavy reverb + plain matched TOA, very high mesh packet loss, or minimal 4-node
