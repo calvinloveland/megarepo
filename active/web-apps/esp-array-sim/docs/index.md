@@ -65,35 +65,48 @@ where strict VBAP would leave channels silent.
 Procrustes is closed-form for 2-D (rotation angle θ = atan2(B, A) from the centered
 cross-covariance), translation + rotation only — no scaling.
 
-## Tests
-
-`node --test` covers acoustics constants, the mirror-resolved localization accuracy on random and
-deterministic seeds, the Surround channel routing edge cases, and a live server smoke test. The
-solver recovers random 6–10-node meshes within a couple of centimetres across 200 seeds.
-
 ## DSP block (`dsp.mjs`)
 
 The signal-processing block the ESP32 firmware will run on each capture, surfaced in
 the simulator so we iterate the *real* estimator here:
 - `linearChirp(opts)` — linear-FM chirp template, Hann-windowed to tame correlation sidelobes.
 - `matchedFilter(signal, template)` — normalized cross-correlation.
-- `estimateTOA(signal, template, sr)` — argmax-|correlation| TOA. **Documented limitation:**
-  it returns the *strongest* peak, so a loud non-line-of-sight echo can bias it (exercised by a
-  test). Firmware will guard with earliest-peak / echo-rejection.
+- `estimateTOA(signal, template, sr, opts)` — TOA via matched filter, with two modes: `strongest`
+  (argmax-|correlation|; a loud **later** echo can hijack it — documented & tested) and
+  `earliest` (earliest clustered peak above a threshold — rejects loud later echoes).
 
-The capture module still uses the closed-form delay; the next milestone routes captures through
-the matched filter with image-source wall echoes so the estimator — not the geometry — drives
-localization and its failure modes are visible.
+## Realistic capture path (`capture.mjs` + `room.mjs`)
+
+Beyond the closed-form baseline, captures can go through the **real** estimator: `room.mjs`
+produces image-source wall reflections (+ axis-aligned occluders that drop the line-of-sight
+direct path → non-line-of-sight case), `capture.mjs` builds the resulting waveform (direct +
+echoes + noise) and `estimateTOA` from `dsp.mjs` recovers a TOA. `scenario.captureMode: 'matched'`
+switches this on in a full run; `'closed'` (default) keeps the closed-form delay as an isolated
+baseline. The UI exposes a capture-mode selector, a wall-reflection coefficient, and echo ripples
+on the room canvas.
+
+A bare single-mic matched filter lands the peak to ~few cm (no sub-sample interpolation yet) — the
+realistic behaviour we want surfaced. The estimator has two modes:
+- `strongest` (default): argmax-of-|correlation|. A loud **later** echo can hijack it
+  (documented; tested).
+- `earliest`: earliest clustered peak above `peakThreshold`×global max — rejects loud later echoes
+  when the direct arrival is strong enough.
+
+## Tests
+
+`node --test` (35 specs): acoustics, the Jacobian (analytic vs numeric), the JOINT LM solver on
+random/deterministic seeds (mirror-resolved, ~cm free-field), image-source geometry + occluder LOS,
+mild-reverb & hard-wall matched capture, occluder echo bias, earliest-vs-strongest echo handling,
+nearby TOA matched-filter accuracy, the surround routing edge cases, and a live server smoke test.
 
 ## Open follow-ups
 
-- Route `capture.mjs` through `dsp.mjs` validated estimator with image-source wall echoes, so
-  the estimator — not the closed-form delay — drives localization and its failure modes
-  (loud echoes, NLO) are observable.
-- Earliest-peak / NLO-echo rejection for the TOA estimator.
-- Browser E2E (Playwright) once a Nix-managed Chromium is wired via `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH`.
+- Sub-sample parabolic interpolation around the matched-filter peak (bring single-mic TOA from
+  ~few cm toward the sample-quantization floor).
 - Per-listener clock skew (not just offset) and the joint skew/offset solver.
+- Browser E2E (Playwright) once a Nix-managed Chromium is wired via `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH`.
 - Distributed, streaming variant of the solver suitable to actually run on ESP32s (mesh gossip).
 - Real audio I/O on the simulator (Web Audio chirp playback + capture) before porting to firmware.
+- Register esp-array-sim in scripts/check_web_app.py with a generic node-app checker.
 - Firmware skeleton (ESP-IDF) for one node: chirp emission, mic capture, cross-correlation TOA,
   clock-sync protocol, surround gain application.
