@@ -13,6 +13,7 @@ import { compareModes, formatComparison, summarizeComparison } from './src/compa
 import { scanNoiseSensitivity, formatNoiseScan, summarizeNoiseScan } from './src/noise-scan.mjs';
 import { scanNodeCounts, formatNodeScan, summarizeNodeScan } from './src/node-scan.mjs';
 import { SCAN_BUNDLES, getScanBundle } from './src/scan-bundles.mjs';
+import { formatBundleReport } from './src/bundle-report.mjs';
 import {
   PRESETS,
   sanitizeUiState,
@@ -48,6 +49,7 @@ const ui = {
   preset: document.getElementById('preset'),
   scanBundle: document.getElementById('scanBundle'),
   runBundle: document.getElementById('runBundle'),
+  downloadBundleTxt: document.getElementById('downloadBundleTxt'),
   copyLink: document.getElementById('copyLink'),
   nodeCount: document.getElementById('nodeCount'),
   seed: document.getElementById('seed'),
@@ -110,6 +112,7 @@ const state = {
   compare: null,         // { rows, text }
   noiseScan: null,       // { rows, text }
   nodeScan: null,        // { rows, text }
+  bundleReport: null,    // { id, text }
 };
 
 function readUiState() {
@@ -272,6 +275,16 @@ function downloadText(filename, text) {
   setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 
+function currentBundleReports() {
+  return {
+    compare: state.compare?.text,
+    sizing: state.sizing?.text,
+    bench: state.bench?.text,
+    noise: state.noiseScan?.text,
+    nodeScan: state.nodeScan?.text,
+  };
+}
+
 function renderSizingForConfig(cfg) {
   const targetM = Math.max(0.01, (parseFloat(ui.sizingTargetCm.value) || 5) / 100);
   const trials = Math.max(2, parseInt(ui.sizingTrials.value, 10) || 6);
@@ -418,6 +431,11 @@ function runBundleUi() {
       nodeScan: () => renderNodeScanForConfig(cfg),
     };
     for (const name of bundle.analyses) analyses[name]?.();
+    state.bundleReport = {
+      id: bundle.id,
+      text: formatBundleReport(bundle, currentBundleReports()),
+    };
+    ui.downloadBundleTxt.disabled = false;
     statusEl.textContent = `${bundle.label} complete.`;
   });
 }
@@ -729,6 +747,12 @@ for (const b of SCAN_BUNDLES) {
 
 ui.run.addEventListener('click', runIt);
 ui.runBundle.addEventListener('click', runBundleUi);
+ui.downloadBundleTxt.addEventListener('click', () => {
+  const bundle = getScanBundle(ui.scanBundle.value);
+  const text = formatBundleReport(bundle, currentBundleReports());
+  state.bundleReport = { id: bundle.id, text };
+  downloadText(`esp-array-${bundle.id}-bundle.txt`, text);
+});
 ui.reseed.addEventListener('click', () => { ui.seed.value = (Math.random() * 1e9) | 0; runIt(); });
 ui.playChannel.addEventListener('click', playChannel);
 ui.stopChannel.addEventListener('click', stopChannel);

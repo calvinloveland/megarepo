@@ -42,7 +42,8 @@ now a **Node-count sensitivity** panel that sweeps 4→12 nodes for the current 
 see how accuracy and observation/message cost scale together, then apply any scanned node count
 back into the main controls with one click. There are also now one-click **analysis bundles**
 (quick and full characterize) that fill multiple panels for the current scenario in one shot instead
-of making you press each analysis button separately.
+of making you press each analysis button separately, and can export the currently-populated bundle as
+a single text artifact.
 
 For hardware planning, `npm run sweep` answers “how many ESP32 nodes do I need?” by printing the
 minimum node count that keeps the **worst-case** localization error under a target (5 cm by default)

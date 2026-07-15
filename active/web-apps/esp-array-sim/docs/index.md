@@ -264,6 +264,9 @@ The current bundles are:
 - **Full characterize** — mode comparison + sizing + latency benchmark + noise scan + node-count scan
 
 So a user can characterize a scenario in one shot instead of pressing each analysis panel manually.
+A pure `bundle-report.mjs` formatter now also lets the browser export the currently-populated bundle
+reports as one combined plain-text artifact, with explicit '(not run)' markers for any sections that
+haven't been populated yet.
 
 A single-mic matched filter with sub-sample parabolic refinement around the |correlation| peak
 lands the TOA within ~2 cm (near the sample-quantization floor); a fractional-lag chirp is recovered
