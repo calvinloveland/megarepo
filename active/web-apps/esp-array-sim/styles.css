@@ -69,6 +69,7 @@ button.tiny { padding: 3px 8px; font-size: 12px; font-weight: 500; }
   background: #0d1117;
   color: var(--ink);
   font-size: 13px;
+  white-space: pre-line;
 }
 canvas {
   width: 100%; height: auto; background: #0a0e14; border: 1px solid #30363d;

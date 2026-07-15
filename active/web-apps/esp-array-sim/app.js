@@ -14,6 +14,7 @@ import { scanNoiseSensitivity, formatNoiseScan, summarizeNoiseScan } from './src
 import { scanNodeCounts, formatNodeScan, summarizeNodeScan } from './src/node-scan.mjs';
 import { SCAN_BUNDLES, getScanBundle } from './src/scan-bundles.mjs';
 import { formatBundleReport } from './src/bundle-report.mjs';
+import { formatDashboardSummary } from './src/dashboard-summary.mjs';
 import {
   PRESETS,
   sanitizeUiState,
@@ -28,6 +29,7 @@ const ctx = canvas.getContext('2d');
 const statusEl = document.getElementById('status');
 const modeHelpEl = document.getElementById('modeHelp');
 const reportEl = document.getElementById('report');
+const dashboardSummaryEl = document.getElementById('dashboardSummary');
 const mappingEl = document.getElementById('mapping');
 const channelStatusEl = document.getElementById('channelStatus');
 const sizingReportEl = document.getElementById('sizingReport');
@@ -285,6 +287,15 @@ function currentBundleReports() {
   };
 }
 
+function renderDashboardSummary() {
+  dashboardSummaryEl.textContent = formatDashboardSummary({
+    compare: state.compare,
+    sizing: state.sizing,
+    bench: state.bench,
+    noise: state.noiseScan,
+  });
+}
+
 function renderSizingForConfig(cfg) {
   const targetM = Math.max(0.01, (parseFloat(ui.sizingTargetCm.value) || 5) / 100);
   const trials = Math.max(2, parseInt(ui.sizingTrials.value, 10) || 6);
@@ -307,9 +318,10 @@ function renderSizingForConfig(cfg) {
   });
   const recs = minNodesFor(cells, targetM);
   const text = `${formatSweep(cells)}\n\n${formatMinNodes(recs, targetM)}`;
-  state.sizing = { cells, text, targetM };
+  state.sizing = { cells, recs, text, targetM };
   sizingSummaryEl.textContent = summarizeMinNodes(recs, targetM);
   sizingReportEl.textContent = text;
+  renderDashboardSummary();
   ui.downloadSizingTxt.disabled = false;
   ui.downloadSizingCsv.disabled = false;
   const rec = recs[0];
@@ -324,6 +336,7 @@ function renderCompareForConfig(cfg) {
   state.compare = { rows, text };
   compareSummaryEl.textContent = summarizeComparison(rows);
   compareReportEl.textContent = text;
+  renderDashboardSummary();
   compareActionsEl.innerHTML = rows.map((row, i) =>
     `<button class="ghost tiny" data-compare-row="${i}">Use ${row.label}</button>`).join(' ');
   ui.downloadCompareTxt.disabled = false;
@@ -336,6 +349,7 @@ function renderNoiseScanForConfig(cfg) {
   state.noiseScan = { rows, text };
   noiseSummaryEl.textContent = summarizeNoiseScan(rows);
   noiseReportEl.textContent = text;
+  renderDashboardSummary();
   noiseActionsEl.innerHTML = rows.map((row, i) =>
     `<button class="ghost tiny" data-noise-row="${i}">Use σ ${row.noiseSigma.toFixed(2)}</button>`).join(' ');
   ui.downloadNoiseTxt.disabled = false;
@@ -378,6 +392,7 @@ function renderBenchForConfig(cfg) {
   state.bench = { points, text };
   benchSummaryEl.textContent = summarizeBench(points);
   benchReportEl.textContent = text;
+  renderDashboardSummary();
   ui.downloadBenchTxt.disabled = false;
   const worst = Math.max(...points.map((p) => p.worstMs));
   return `Benchmark done: worst calibration solve ${worst.toFixed(0)} ms.`;
@@ -851,6 +866,7 @@ ui.robust.addEventListener('change', () => { syncUrlFromUi(); renderAdvisories()
 
 const initialUiState = parseUiStateUrl(window.location.hash);
 applyUiState(initialUiState);
+renderDashboardSummary();
 renderAdvisories();
 
 // Expose state for Playwright/inspection (per repo convention for vanilla-JS UIs).
