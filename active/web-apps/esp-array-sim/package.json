@@ -8,6 +8,7 @@
     "start": "node server.mjs",
     "sweep": "node bin/sweep.mjs",
     "sweep:csv": "node bin/sweep.mjs --csv",
+    "bench": "node bin/bench.mjs",
     "check": "node --check app.js && node --check server.mjs && for f in src/*.mjs; do node --check \"$f\"; done && node --test --test-reporter=spec tests/*.test.mjs",
     "test": "node --test --test-reporter=spec tests/*.test.mjs",
     "test:server": "node --test --test-reporter=spec tests/server.test.mjs"
