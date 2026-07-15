@@ -37,7 +37,8 @@ question: how long a one-time calibration solve takes as node count grows, and t
 that too in a **Calibration latency** panel for the current algorithm settings. Both browser panels
 now surface a one-line takeaway summary, and can export their results (text for latency, text/CSV
 for sizing). The UI also includes an evidence-based **Known risks / suggestions** panel that flags
-regimes the simulator has already
+regimes the simulator has already proved are risky and now offers one-click fixes for common issues
+(enable earliest-peak, enable robust LM, increase shot averaging, or jump to the hardened preset).
 proved are risky (for example, heavy reverb with plain matched TOA, or very lossy distributed mesh).
 
 ## How it works

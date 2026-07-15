@@ -4,7 +4,8 @@
 // rather than magical 'AI' conclusions.
 
 /**
- * @typedef {{id:string,severity:'info'|'warn'|'bad',message:string}} Advisory
+ * @typedef {{id:string,label:string}} AdvisoryAction
+ * @typedef {{id:string,severity:'info'|'warn'|'bad',message:string,actions?:AdvisoryAction[]}} Advisory
  */
 
 /**
@@ -27,18 +28,25 @@ export function assessAdvisories(cfg = {}) {
         id: 'matched-hard-reverb-plain',
         severity: 'bad',
         message: 'Heavy reverb + plain matched TOA is a known failure mode: loud later echoes can outrank the direct arrival and grossly mis-localize. Enable earliest-peak TOA and robust LM.',
+        actions: [
+          { id: 'enable-earliest-peak', label: 'Enable earliest-peak' },
+          { id: 'enable-robust', label: 'Enable robust LM' },
+          { id: 'use-hardened-preset', label: 'Use hardened preset' },
+        ],
       });
     } else if (!earliestPeak) {
       out.push({
         id: 'matched-hard-reverb-no-earliest',
         severity: 'bad',
         message: 'Heavy reverb with strongest-peak TOA is risky: a loud later echo can hijack the estimate. Enable earliest-peak TOA.',
+        actions: [{ id: 'enable-earliest-peak', label: 'Enable earliest-peak' }],
       });
     } else if (!robust) {
       out.push({
         id: 'matched-hard-reverb-no-robust',
         severity: 'warn',
         message: 'Heavy reverb is survivable, but without robust LM any surviving bad TOAs can still drag the solve. Enable robust LM for living-room conditions.',
+        actions: [{ id: 'enable-robust', label: 'Enable robust LM' }],
       });
     }
   }
@@ -76,6 +84,7 @@ export function assessAdvisories(cfg = {}) {
       id: 'single-shot-jitter',
       severity: 'info',
       message: 'Single-shot matched capture leaves all TOA jitter on the floor. Multi-shot median averaging can tighten the solve without changing the solver.',
+      actions: [{ id: 'increase-avg-shots', label: 'Use 3-shot median' }],
     });
   }
 

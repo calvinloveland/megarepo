@@ -9,6 +9,7 @@ test('heavy reverb + plain matched TOA is flagged as a known bad regime', () => 
   assert.equal(bad.severity, 'bad');
   assert.match(bad.message, /earliest-peak/i);
   assert.match(bad.message, /robust/i);
+  assert.deepEqual(bad.actions?.map((a) => a.id), ['enable-earliest-peak', 'enable-robust', 'use-hardened-preset']);
 });
 
 test('hardened matched reverb case clears the heavy-reverb hard warning', () => {
@@ -33,6 +34,7 @@ test('matched mode with reverb suggests multi-shot averaging when still single-s
   const info = adv.find((a) => a.id === 'single-shot-jitter');
   assert.ok(info);
   assert.equal(info.severity, 'info');
+  assert.equal(info.actions?.[0]?.id, 'increase-avg-shots');
 });
 
 test('benign closed-form case can return no advisories', () => {

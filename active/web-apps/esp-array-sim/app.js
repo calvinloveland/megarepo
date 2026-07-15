@@ -275,15 +275,43 @@ function runBenchUi() {
   });
 }
 
+function applyAdvisoryAction(actionId) {
+  switch (actionId) {
+    case 'enable-earliest-peak':
+      ui.earliestPeak.checked = true;
+      break;
+    case 'enable-robust':
+      ui.robust.checked = true;
+      break;
+    case 'increase-avg-shots':
+      ui.avgShots.value = Math.max(3, parseInt(ui.avgShots.value, 10) || 1);
+      break;
+    case 'use-hardened-preset': {
+      const current = readUiState();
+      const hardened = presetState('living-room-hard');
+      applyUiState({ ...hardened, seed: current.seed, showTruth: current.showTruth, captureSweep: current.captureSweep });
+      break;
+    }
+    default:
+      return;
+  }
+  syncUrlFromUi();
+  renderAdvisories();
+  runIt();
+}
+
 function renderAdvisories() {
   const adv = assessAdvisories(readConfig());
   if (!adv.length) {
     advisoriesEl.innerHTML = '<div><span class="ok">No known red flags</span> for the current simulator settings.</div>';
     return;
   }
-  advisoriesEl.innerHTML = adv.map((a) =>
-    `<div><span class="${a.severity === 'bad' ? 'bad' : a.severity === 'warn' ? 'warn' : 'ok'}">${a.severity.toUpperCase()}</span> — ${a.message}</div>`
-  ).join('');
+  advisoriesEl.innerHTML = adv.map((a) => {
+    const cls = a.severity === 'bad' ? 'bad' : a.severity === 'warn' ? 'warn' : 'ok';
+    const actions = (a.actions || []).map((act) =>
+      `<button class="ghost tiny" data-advisory-action="${act.id}">${act.label}</button>`).join(' ');
+    return `<div class="advisory-line"><span class="${cls}">${a.severity.toUpperCase()}</span> — ${a.message}${actions ? `<div class="advisory-actions">${actions}</div>` : ''}</div>`;
+  }).join('');
 }
 
 function renderMapping() {
@@ -577,6 +605,11 @@ ui.copyLink.addEventListener('click', async () => {
   } catch {
     statusEl.textContent = url;
   }
+});
+advisoriesEl.addEventListener('click', (ev) => {
+  const btn = ev.target.closest('[data-advisory-action]');
+  if (!btn) return;
+  applyAdvisoryAction(btn.dataset.advisoryAction);
 });
 ui.preset.addEventListener('change', () => {
   if (ui.preset.value === 'custom') return;

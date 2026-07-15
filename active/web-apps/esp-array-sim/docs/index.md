@@ -223,7 +223,9 @@ A pure `advisories.mjs` ruleset also feeds the UI's **Known risks / suggestions*
 not vague design opinions: each rule corresponds to a failure mode the simulator already demonstrated
 and tested — e.g. heavy reverb + plain matched TOA, very high mesh packet loss, or minimal 4-node
 geometry. The panel explains *why* a regime is risky and which knob (earliest-peak, robust LM,
-more nodes, shot averaging) usually fixes it.
+more nodes, shot averaging) usually fixes it. For common cases it now exposes one-click fixes
+right in the panel (enable earliest-peak, enable robust LM, bump to 3-shot averaging, or jump to
+the hardened reverb preset).
 
 A single-mic matched filter with sub-sample parabolic refinement around the |correlation| peak
 lands the TOA within ~2 cm (near the sample-quantization floor); a fractional-lag chirp is recovered
