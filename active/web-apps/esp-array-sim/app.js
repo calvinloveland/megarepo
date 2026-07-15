@@ -36,6 +36,7 @@ const compareSummaryEl = document.getElementById('compareSummary');
 const compareActionsEl = document.getElementById('compareActions');
 const noiseReportEl = document.getElementById('noiseReport');
 const noiseSummaryEl = document.getElementById('noiseSummary');
+const noiseActionsEl = document.getElementById('noiseActions');
 const advisoriesEl = document.getElementById('advisories');
 
 const ui = {
@@ -78,6 +79,7 @@ const ui = {
   runCompare: document.getElementById('runCompare'),
   downloadCompareTxt: document.getElementById('downloadCompareTxt'),
   runNoiseScan: document.getElementById('runNoiseScan'),
+  downloadNoiseTxt: document.getElementById('downloadNoiseTxt'),
 };
 
 // Colours keyed by channel id for the on-canvas glow + mapping bars.
@@ -322,6 +324,9 @@ function runNoiseScanUi() {
     state.noiseScan = { rows, text };
     noiseSummaryEl.textContent = summarizeNoiseScan(rows);
     noiseReportEl.textContent = text;
+    noiseActionsEl.innerHTML = rows.map((row, i) =>
+      `<button class="ghost tiny" data-noise-row="${i}">Use σ ${row.noiseSigma.toFixed(2)}</button>`).join(' ');
+    ui.downloadNoiseTxt.disabled = false;
     statusEl.textContent = 'Noise scan done.';
   });
 }
@@ -674,6 +679,10 @@ ui.downloadSizingCsv.addEventListener('click', () => {
 ui.runBench.addEventListener('click', runBenchUi);
 ui.runCompare.addEventListener('click', runCompareUi);
 ui.runNoiseScan.addEventListener('click', runNoiseScanUi);
+ui.downloadNoiseTxt.addEventListener('click', () => {
+  if (!state.noiseScan) return;
+  downloadText('esp-array-noise-scan.txt', state.noiseScan.text);
+});
 ui.downloadCompareTxt.addEventListener('click', () => {
   if (!state.compare) return;
   downloadText('esp-array-mode-comparison.txt', state.compare.text);
@@ -709,6 +718,16 @@ compareActionsEl.addEventListener('click', (ev) => {
   ui.captureMode.value = row.captureMode;
   ui.distributedMatched.checked = row.distributedMatched;
   refreshModeGating();
+  syncUrlFromUi();
+  renderAdvisories();
+  runIt();
+});
+noiseActionsEl.addEventListener('click', (ev) => {
+  const btn = ev.target.closest('[data-noise-row]');
+  if (!btn || !state.noiseScan) return;
+  const row = state.noiseScan.rows[Number(btn.dataset.noiseRow)];
+  if (!row) return;
+  ui.noiseSigma.value = row.noiseSigma.toFixed(2);
   syncUrlFromUi();
   renderAdvisories();
   runIt();

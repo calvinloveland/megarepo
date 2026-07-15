@@ -249,7 +249,8 @@ comparison result can immediately become the active scenario for deeper inspecti
 A pure `noise-scan.mjs` helper now powers a browser **Noise sensitivity** panel that sweeps matched
 noise σ over a small range for the current scenario. It answers a different practical question than
 the hardware-sizing and latency panels: not “how many nodes?” or “how long does calibration take?”
-but “how quickly does localization degrade as the captures get noisier?”
+but “how quickly does localization degrade as the captures get noisier?” The panel can export its
+text report and also jump the main noise control to any scanned row with one click.
 
 A single-mic matched filter with sub-sample parabolic refinement around the |correlation| peak
 lands the TOA within ~2 cm (near the sample-quantization floor); a fractional-lag chirp is recovered

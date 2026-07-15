@@ -36,7 +36,8 @@ comparison** panel that runs the same room/seed through closed, matched, and dis
 side-by-side so you can compare accuracy, observation count, and mesh message cost without manually
 flipping controls. That panel can now export its text report and jump the main simulator controls to
 any compared row with one click. There's also now a **Noise sensitivity** panel that sweeps matched
-noise σ over a small range so you can see how localization degrades as mic captures get noisier.
+noise σ over a small range so you can see how localization degrades as mic captures get noisier,
+then export that sweep or jump the main noise control to any scanned σ with one click.
 
 For hardware planning, `npm run sweep` answers “how many ESP32 nodes do I need?” by printing the
 minimum node count that keeps the **worst-case** localization error under a target (5 cm by default)
