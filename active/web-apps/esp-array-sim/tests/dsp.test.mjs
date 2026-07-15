@@ -29,16 +29,37 @@ test('a quieter, later echo does not hijack the estimated TOA', () => {
   assert.equal(est.lagSamples, lag, 'direct peak should dominate the quieter echo');
 });
 
-test('a louder echo than the direct biases the estimator (documented limitation)', () => {
+test('a louder echo than the direct biases the strongest-peak estimator (documented limitation)', () => {
   const lag = 137;
   const echoLag = 320;
   const signal = new Float64Array(Math.max(lag, echoLag) + TPL.length + 8);
   placeTemplate(signal, TPL, lag, 0.4);    // weak direct
   placeTemplate(signal, TPL, echoLag, 1.0); // loud echo
-  const est = estimateTOA(signal, TPL, SR);
-  // argmax picks the loudest peak, which here is the echo — the real failure mode
-  // the firmware must guard against (earliest-peak detection / NLO echo rejection).
+  const est = estimateTOA(signal, TPL, SR); // default 'strongest'
+  // argmax picks the loudest peak, which here is the echo — the failure mode the
+  // firmware must guard against (earliest-peak detection / NLO echo rejection).
   assert.equal(est.lagSamples, echoLag);
+});
+
+test('earliest-peak selection rejects a loud later echo when the direct is strong enough', () => {
+  const lag = 137;
+  // keep direct + echo more than one chirp apart so they are resolvable arrivals
+  const echoLag = lag + TPL.length + 80;
+  const signal = new Float64Array(echoLag + TPL.length + 8);
+  placeTemplate(signal, TPL, lag, 0.6);    // detectable direct
+  placeTemplate(signal, TPL, echoLag, 1.0); // loud later echo
+  const strongest = estimateTOA(signal, TPL, SR);              // returns the echo
+  const earliest = estimateTOA(signal, TPL, SR, { mode: 'earliest', peakThreshold: 0.5 });
+  assert.equal(strongest.lagSamples, echoLag, 'strongest still biases to the echo');
+  assert.equal(earliest.lagSamples, lag, 'earliest-peak recovers the direct arrival');
+});
+
+test('earliest-peak falls back to strongest when nothing clears the threshold', () => {
+  const lag = 100;
+  const signal = new Float64Array(TPL.length + lag + 8);
+  placeTemplate(signal, TPL, lag, 1);
+  const est = estimateTOA(signal, TPL, SR, { mode: 'earliest', peakThreshold: 0.99 });
+  assert.equal(est.lagSamples, lag);
 });
 
 test('TOA estimate is robust to broadband noise', () => {

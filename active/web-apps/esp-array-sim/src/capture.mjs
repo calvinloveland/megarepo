@@ -130,7 +130,7 @@ export function simulateMatchedCaptures(nodes, schedule, opts = {}) {
         if (blocked) paths = paths.filter((p) => p.kind !== 'direct');
         else if (!wallReflections) paths = paths.filter((p) => p.kind === 'direct');
       }
-      obs.push(buildObservation(s, li, ev, paths, chirp, sr, noiseSigma, c));
+      obs.push(buildObservation(s, li, ev, paths, chirp, sr, noiseSigma, c, opts));
     }
   }
   return obs;
@@ -147,7 +147,7 @@ function roomFor(nodes) {
 }
 
 /** Build the waveform for one pair, estimate TOA, return an Observation. */
-function buildObservation(s, li, ev, paths, chirp, sr, noiseSigma, c) {
+function buildObservation(s, li, ev, paths, chirp, sr, noiseSigma, c, captureOpts = {}) {
   // waveform spans the latest arrival + chirp tail + a couple samples of slack
   const maxDelay = paths.reduce((m, p) => Math.max(m, p.delaySec), 0);
   const len = Math.ceil((maxDelay + chirp.length / sr) * sr) + 4;
@@ -159,7 +159,10 @@ function buildObservation(s, li, ev, paths, chirp, sr, noiseSigma, c) {
   // additive capture noise (deterministic per emitter/listener pair)
   const rng = makeLocalRng(s.id, li.id);
   for (let i = 0; i < sig.length; i++) sig[i] += (rng() * 2 - 1) * noiseSigma;
-  const { timeSec } = estimateTOA(sig, chirp, sr);
+  const { timeSec } = estimateTOA(sig, chirp, sr, {
+    mode: captureOpts.estimatorMode ?? 'strongest',
+    peakThreshold: captureOpts.peakThreshold ?? 0.5,
+  });
   return {
     emitterId: s.id,
     listenerId: li.id,

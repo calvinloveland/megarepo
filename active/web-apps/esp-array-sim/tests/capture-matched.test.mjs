@@ -48,6 +48,14 @@ test('a hard wall (high reflCoef + tight room) coarsens matched localization', (
   assert.ok(s.alignErrorM > 0.001 && s.alignErrorM < 0.5, `reverb error ${s.alignErrorM.toFixed(3)} m`);
 });
 
+test('earliest-peak mode keeps mild-reverb matched localization accurate (wiring parity)', () => {
+  const s = runScenario({
+    seed: 42, nodeCount: 6, room: { width: 8, height: 6 },
+    captureMode: 'matched', reflCoef: 0.5, noiseSigma: 0.02, earliestPeak: true,
+  });
+  assert.ok(s.alignErrorM < 0.12, `earliest-peak matched error ${s.alignErrorM.toFixed(3)} m`);
+});
+
 test('an occluder dropping the direct path biases the estimated TOA', () => {
   const rng = makeRng(11);
   const room = { width: 8, height: 6 };

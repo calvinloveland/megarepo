@@ -63,16 +63,58 @@ export function matchedFilter(signal, template) {
 }
 
 /**
- * Estimate the Time-of-Arrival of `template` inside `signal` as the lag of the
- * strongest matched-filter peak. Argmax-of-|correlation|; for a free-field
- * capture the direct path is both earliest and (usually) loudest, so it wins.
+ * Estimate the Time-of-Arrival of `template` inside `signal`.
+ *
+ * Two selection strategies (opts.mode):
+ * - 'strongest' (default): the lag of the largest |correlation| peak. Simple, but
+ *   a loud non-line-of-sight echo can win — the documented limitation.
+ * - 'earliest': the earliest matched-filter peak whose magnitude is at least
+ *   opts.peakThreshold × the global max. Rejects loud LATER echoes by trusting
+ *   that the direct arrival is the first "strong enough" peak. local-maxima
+ *   picking avoids the early-shoulder bias a naive threshold-crossing has.
  *
  * Sub-sample refinement is deferred (parabolic interpolation around the peak).
  *
- * @returns {{lagSamples:number, timeSec:number, peak:number}}
+ * @param {Float64Array|number[]} signal
+ * @param {Float64Array|number[]} template
+ * @param {number} sampleRateHz
+ * @param {{mode?:'strongest'|'earliest', peakThreshold?:number}} [opts]
+ * @returns {{lagSamples:number, timeSec:number, peak:number, mode:string}}
  */
-export function estimateTOA(signal, template, sampleRateHz) {
+export function estimateTOA(signal, template, sampleRateHz, opts = {}) {
+  const mode = opts.mode ?? 'strongest';
   const corr = matchedFilter(signal, template);
+  if (mode === 'earliest') {
+    let globalMax = 0;
+    for (let j = 0; j < corr.length; j++) globalMax = Math.max(globalMax, Math.abs(corr[j]));
+    const thr = (opts.peakThreshold ?? 0.5) * globalMax;
+    // local maxima above threshold
+    const maxima = [];
+    for (let j = 1; j < corr.length - 1; j++) {
+      const a = Math.abs(corr[j]);
+      if (a >= thr && a >= Math.abs(corr[j - 1]) && a >= Math.abs(corr[j + 1])) maxima.push(j);
+    }
+    // cluster maxima within one chirp-length so a single broadened arrival
+    // (multiple ripples of the windowed mainlobe) collapses to its strongest
+    // sample; each cluster is one physical arrival.
+    const minSep = Math.max(4, opts.minPeakSep ?? template.length);
+    const clusters = [];
+    for (const j of maxima) {
+      const last = clusters[clusters.length - 1];
+      if (last && j - last.lag <= minSep) {
+        if (Math.abs(corr[j]) > Math.abs(corr[last.lag])) last.lag = j;
+      } else {
+        clusters.push({ lag: j });
+      }
+    }
+    const idx = clusters.length ? clusters[0].lag : argmaxAbs(corr);
+    return { lagSamples: idx, timeSec: idx / sampleRateHz, peak: corr[idx], mode };
+  }
+  const idx = argmaxAbs(corr);
+  return { lagSamples: idx, timeSec: idx / sampleRateHz, peak: corr[idx], mode };
+}
+
+function argmaxAbs(corr) {
   let bestIdx = 0;
   let best = -Infinity;
   for (let j = 0; j < corr.length; j++) {
@@ -82,7 +124,7 @@ export function estimateTOA(signal, template, sampleRateHz) {
       bestIdx = j;
     }
   }
-  return { lagSamples: bestIdx, timeSec: bestIdx / sampleRateHz, peak: corr[bestIdx] };
+  return bestIdx;
 }
 
 /** Place a template copy into a signal buffer starting at a fractional lag (linear interpolation). */

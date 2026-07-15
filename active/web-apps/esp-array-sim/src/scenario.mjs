@@ -37,6 +37,8 @@ export function runScenario(cfg = {}) {
           maxOrder: cfg.maxOrder ?? 1,
           occluders: cfg.occluders ?? [],
           noiseSigma: cfg.noiseSigma ?? 0.05,
+          estimatorMode: cfg.estimatorMode ?? (cfg.earliestPeak ? 'earliest' : 'strongest'),
+          peakThreshold: cfg.peakThreshold ?? 0.5,
         })
       : simulateCaptures(nodes, schedule);
 

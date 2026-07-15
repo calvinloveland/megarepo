@@ -21,6 +21,7 @@ const ui = {
   distanceLaw: document.getElementById('distanceLaw'),
   captureMode: document.getElementById('captureMode'),
   reflCoef: document.getElementById('reflCoef'),
+  earliestPeak: document.getElementById('earliestPeak'),
   showTruth: document.getElementById('showTruth'),
   captureSweep: document.getElementById('captureSweep'),
   run: document.getElementById('run'),
@@ -54,6 +55,7 @@ function readConfig() {
     distanceLaw: parseFloat(ui.distanceLaw.value) ?? 1,
     captureMode: ui.captureMode.value,
     reflCoef: parseFloat(ui.reflCoef.value) ?? 0.5,
+    earliestPeak: ui.earliestPeak.checked,
   };
 }
 
@@ -341,6 +343,7 @@ ui.stopChannel.addEventListener('click', stopChannel);
 ui.showTruth.addEventListener('change', draw);
 [ui.nodeCount, ui.seed, ui.roomW, ui.roomH, ui.exponent, ui.distanceLaw, ui.captureMode, ui.reflCoef].forEach((el) =>
   el.addEventListener('change', draw));
+ui.earliestPeak.addEventListener('change', draw);
 
 // Expose state for Playwright/inspection (per repo convention for vanilla-JS UIs).
 window.espArraySim = { state, runIt, readConfig, playChannel, stopChannel };
