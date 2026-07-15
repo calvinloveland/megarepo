@@ -8,6 +8,7 @@ import { renderChannelAtSweetSpot, renderPeakConcentration, channelSeparation } 
 import { linearChirp } from './src/dsp.mjs';
 import { runSweep, formatSweep, minNodesFor, formatMinNodes } from './src/sweep.mjs';
 import { runBench, formatBench } from './src/bench.mjs';
+import { assessAdvisories } from './src/advisories.mjs';
 import {
   PRESETS,
   sanitizeUiState,
@@ -25,6 +26,7 @@ const mappingEl = document.getElementById('mapping');
 const channelStatusEl = document.getElementById('channelStatus');
 const sizingReportEl = document.getElementById('sizingReport');
 const benchReportEl = document.getElementById('benchReport');
+const advisoriesEl = document.getElementById('advisories');
 
 const ui = {
   preset: document.getElementById('preset'),
@@ -149,6 +151,7 @@ function runIt() {
     stopChannel();
     renderReport(ms, cfg.captureMode);
     renderMapping();
+    renderAdvisories();
     if (state.raf) cancelAnimationFrame(state.raf);
     if (ui.captureSweep.checked && state.scenario) startCaptureAnim();
     else { state.anim = null; draw(); }
@@ -244,6 +247,17 @@ function runBenchUi() {
     const worst = Math.max(...points.map((p) => p.worstMs));
     statusEl.textContent = `Benchmark done: worst calibration solve ${worst.toFixed(0)} ms.`;
   });
+}
+
+function renderAdvisories() {
+  const adv = assessAdvisories(readConfig());
+  if (!adv.length) {
+    advisoriesEl.innerHTML = '<div><span class="ok">No known red flags</span> for the current simulator settings.</div>';
+    return;
+  }
+  advisoriesEl.innerHTML = adv.map((a) =>
+    `<div><span class="${a.severity === 'bad' ? 'bad' : a.severity === 'warn' ? 'warn' : 'ok'}">${a.severity.toUpperCase()}</span> — ${a.message}</div>`
+  ).join('');
 }
 
 function renderMapping() {
@@ -531,16 +545,17 @@ ui.preset.addEventListener('change', () => {
   applyUiState(presetState(ui.preset.value));
   runIt();
 });
-ui.showTruth.addEventListener('change', () => { syncUrlFromUi(); draw(); });
-ui.captureSweep.addEventListener('change', syncUrlFromUi);
+ui.showTruth.addEventListener('change', () => { syncUrlFromUi(); renderAdvisories(); draw(); });
+ui.captureSweep.addEventListener('change', () => { syncUrlFromUi(); renderAdvisories(); });
 [ui.nodeCount, ui.seed, ui.roomW, ui.roomH, ui.exponent, ui.distanceLaw, ui.captureMode, ui.reflCoef, ui.meshLoss, ui.avgShots].forEach((el) =>
-  el.addEventListener('change', () => { syncUrlFromUi(); draw(); }));
-ui.earliestPeak.addEventListener('change', syncUrlFromUi);
-ui.clockSkew.addEventListener('change', syncUrlFromUi);
-ui.robust.addEventListener('change', syncUrlFromUi);
+  el.addEventListener('change', () => { syncUrlFromUi(); renderAdvisories(); draw(); }));
+ui.earliestPeak.addEventListener('change', () => { syncUrlFromUi(); renderAdvisories(); });
+ui.clockSkew.addEventListener('change', () => { syncUrlFromUi(); renderAdvisories(); });
+ui.robust.addEventListener('change', () => { syncUrlFromUi(); renderAdvisories(); });
 
 const initialUiState = parseUiStateUrl(window.location.hash);
 applyUiState(initialUiState);
+renderAdvisories();
 
 // Expose state for Playwright/inspection (per repo convention for vanilla-JS UIs).
 window.espArraySim = { state, runIt, runSizing, runBenchUi, readConfig, readUiState, applyUiState, playChannel, stopChannel };

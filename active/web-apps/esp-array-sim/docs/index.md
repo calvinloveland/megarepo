@@ -216,6 +216,12 @@ The UI also ships with presets for the simulator's most interesting stories:
 and it serializes the full control state into the URL fragment (`#n=8&mode=distributed&...`), so
 an interesting success/failure case is shareable and exactly reproducible from a link.
 
+A pure `advisories.mjs` ruleset also feeds the UI's **Known risks / suggestions** panel. These are
+not vague design opinions: each rule corresponds to a failure mode the simulator already demonstrated
+and tested — e.g. heavy reverb + plain matched TOA, very high mesh packet loss, or minimal 4-node
+geometry. The panel explains *why* a regime is risky and which knob (earliest-peak, robust LM,
+more nodes, shot averaging) usually fixes it.
+
 A single-mic matched filter with sub-sample parabolic refinement around the |correlation| peak
 lands the TOA within ~2 cm (near the sample-quantization floor); a fractional-lag chirp is recovered
 to <0.15 samples. The estimator has two modes:
