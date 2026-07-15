@@ -65,6 +65,16 @@ delayed by (maxDist − itsDist)/c and attenuated by itsDist/maxDist so all cont
 simultaneously and equally loud — the time/loudness alignment a real surround processor applies
 after localization (surfaced in the UI report as the max delay spread + gain range).
 
+## Evaluation sweep (`sweep.mjs`)
+
+`runSweep` runs the localization pipeline across a (node × capture-mode × wall-reflection)
+grid of cells and reports median / p90 / worst alignment error and a success rate per cell, so we
+can decide when the algorithm is ready without hardware. Deterministic for a fixed `seedBase`. CLI:
+`npm run sweep` (or `node bin/sweep.mjs --trials 10 --nodes 4,6,8 --refl 0,0.3,0.6`). One finding the
+sweep surfaces: the matched-filter path with sub-sample refinement can be *more* accurate than the
+closed-form path at free field, because the closed form carries a per-arrival gaussian jitter floor
+(20 µs ≈ 0.7 cm) the matched filter's parabolic peak fit can beat.
+
 ## Robust localization (`localize.mjs`, opts.robust)
 
 Real captures contain gross TOA outliers — the documented failure mode where a loud NLOS echo gets
