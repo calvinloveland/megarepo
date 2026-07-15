@@ -297,6 +297,30 @@ not literally — but the project now has explicit packet shapes, backend hooks,
 shared calibration settings, and a concrete per-module port roadmap, which is the
 right substrate for a smooth simulator → firmware transition.
 
+## Firmware skeleton (`firmware/`)
+
+The hardware phase has now started with a small ESP-IDF-oriented skeleton under
+`firmware/`:
+
+- `firmware/include/esp_array_calibration.h`
+  - generated from `src/calibration-config.mjs`
+- `firmware/include/esp_array_protocol.h`
+  - generated from `src/firmware-protocol.mjs`
+- `firmware/main/esp_array_backend.h`
+  - C hook prototypes mirroring `firmware-backend.mjs`
+- `firmware/main/esp_array_main.c`
+  - coordinator-style state-machine scaffold that mirrors `scenario.mjs`
+
+Regenerate the shared headers with:
+
+```bash
+npm run export:firmware
+```
+
+This is still a skeleton, not a full `idf.py build`-ready application, but it
+means the project now has an actual firmware landing zone instead of only a
+simulation boundary.
+
 A pure `advisories.mjs` ruleset also feeds the UI's **Known risks / suggestions** panel. These are
 not vague design opinions: each rule corresponds to a failure mode the simulator already demonstrated
 and tested — e.g. heavy reverb + plain matched TOA, very high mesh packet loss, or minimal 4-node

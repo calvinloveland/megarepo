@@ -11,7 +11,10 @@ explicit firmware-shaped packet/plan contracts plus a small firmware-backend int
 chirp plan, listener-row capture, row gossip), and the calibration chirp/gap now live in one shared
 canonical config module. That makes the simulator's message flow map much more cleanly onto future
 ESP32 firmware work. `docs/index.md` now also includes an explicit module-by-module firmware port map
-so the hardware phase has a concrete roadmap, not just reusable interfaces.
+so the hardware phase has a concrete roadmap, not just reusable interfaces. The repo now also contains
+an initial `firmware/` skeleton with generated shared headers plus a coordinator-style `app_main`
+scaffold. Regenerate those shared C headers any time the canonical simulator config/protocol changes
+with `npm run export:firmware`. 
 
 ## Why a simulator
 
@@ -27,6 +30,7 @@ npm start         # serve the UI at http://127.0.0.1:5193
 npm run sweep     # localization-accuracy sweep across node counts & reverb (+ min node-count recommendation)
 npm run sweep:csv # same sweep as CSV (for external plotting/analysis)
 npm run bench     # solver wall-clock benchmark vs node count
+npm run export:firmware # regenerate shared C headers for the firmware skeleton
 ```
 
 Open the simulator, set the node count / room size / seed, hit **Run localization**, and watch the

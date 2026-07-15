@@ -1,0 +1,13 @@
+// Generated from src/calibration-config.mjs — do not hand-edit.
+#ifndef ESP_ARRAY_CALIBRATION_H
+#define ESP_ARRAY_CALIBRATION_H
+
+#define ESP_ARRAY_FIRST_EMIT_SEC 0.1f
+#define ESP_ARRAY_EMIT_GAP_SEC 0.3f
+#define ESP_ARRAY_CHIRP_DURATION_SEC 0.002f
+#define ESP_ARRAY_CHIRP_F0_HZ 3000
+#define ESP_ARRAY_CHIRP_F1_HZ 8000
+#define ESP_ARRAY_CHIRP_SAMPLE_RATE_HZ 48000
+#define ESP_ARRAY_CHIRP_WINDOW 1
+
+#endif // ESP_ARRAY_CALIBRATION_H
