@@ -1,5 +1,6 @@
 import { makeRng, randomLayout } from './world.mjs';
 import { makeSimFirmwareBackend, runDistributedWithBackend } from './firmware-backend.mjs';
+import { encodeCalibrationPlanWire, encodeListenerRowWire } from './firmware-wire-format.mjs';
 
 export function makeFirmwareFixtures() {
   const seed = 7;
@@ -12,7 +13,10 @@ export function makeFirmwareFixtures() {
   return {
     meta: { seed, room, nodeCount: nodes.length },
     plan: closedRun.plan,
+    planWire: encodeCalibrationPlanWire(closedRun.plan),
     listenerRowsClosed: closedRun.rowPackets,
+    listenerRowsClosedWire: closedRun.rowPackets.map((p) => encodeListenerRowWire(p)),
     listenerRowsMatched: matchedRun.rowPackets,
+    listenerRowsMatchedWire: matchedRun.rowPackets.map((p) => encodeListenerRowWire(p)),
   };
 }

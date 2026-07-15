@@ -1,0 +1,30 @@
+{
+  "kind": "calibration-plan-v1/int-us",
+  "sweep_id": "sim-sweep",
+  "gap_us": 300000,
+  "chirp": {
+    "duration_us": 2000,
+    "f0_hz": 3000,
+    "f1_hz": 8000,
+    "sample_rate_hz": 48000,
+    "window": true
+  },
+  "emissions": [
+    {
+      "emitter_id": 0,
+      "emit_us": 100000
+    },
+    {
+      "emitter_id": 1,
+      "emit_us": 400000
+    },
+    {
+      "emitter_id": 2,
+      "emit_us": 700000
+    },
+    {
+      "emitter_id": 3,
+      "emit_us": 1000000
+    }
+  ]
+}

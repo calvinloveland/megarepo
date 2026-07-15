@@ -14,10 +14,16 @@ boundaries so the transition is incremental instead of a rewrite.
   - packet kinds + listener-row struct skeleton
 - `examples/calibration-plan.example.json`
   - deterministic example calibration plan generated from the simulator
+- `examples/calibration-plan.wire.example.json`
+  - the same plan in a compact integer/microsecond wire form
 - `examples/listener-rows.closed.example.json`
   - deterministic closed-form listener-row packets
+- `examples/listener-rows.closed.wire.example.json`
+  - the same packets quantized to a compact integer wire form
 - `examples/listener-rows.matched.example.json`
   - deterministic matched-filter listener-row packets with richer diagnostics
+- `examples/listener-rows.matched.wire.example.json`
+  - the same matched packets in the compact integer wire form
 - `main/esp_array_backend.h`
   - C prototypes mirroring the JS firmware backend hooks:
     - clock sync
@@ -42,6 +48,10 @@ serialization tests, regenerate them with:
 ```bash
 node bin/export-firmware-fixtures.mjs
 ```
+
+The `*.wire.example.json` variants are especially important for firmware work:
+they show the intended low-bandwidth fixed-point transport target (integer
+microseconds / millimetres) rather than only the richer JSON-shaped contracts.
 
 ## Intended ESP-IDF mapping
 

@@ -1,0 +1,494 @@
+[
+  {
+    "kind": "listener-row-v1/int-us",
+    "sweep_id": "sim-sweep",
+    "listener_id": 0,
+    "arrivals": [
+      {
+        "emitter_id": 0,
+        "emit_us": 100000,
+        "arrival_us": 100154,
+        "distance_mm": 20,
+        "estimated_direct_us": 59,
+        "arrival_paths": [
+          {
+            "delay_us": 58,
+            "amplitude_q1000": 1000,
+            "kind": "direct"
+          }
+        ]
+      },
+      {
+        "emitter_id": 1,
+        "emit_us": 400000,
+        "arrival_us": 408181,
+        "distance_mm": 2773,
+        "estimated_direct_us": 8085,
+        "arrival_paths": [
+          {
+            "delay_us": 8085,
+            "amplitude_q1000": 1000,
+            "kind": "direct"
+          },
+          {
+            "delay_us": 11602,
+            "amplitude_q1000": 348,
+            "kind": "echo"
+          },
+          {
+            "delay_us": 24326,
+            "amplitude_q1000": 166,
+            "kind": "echo"
+          },
+          {
+            "delay_us": 11233,
+            "amplitude_q1000": 360,
+            "kind": "echo"
+          },
+          {
+            "delay_us": 21684,
+            "amplitude_q1000": 186,
+            "kind": "echo"
+          }
+        ]
+      },
+      {
+        "emitter_id": 2,
+        "emit_us": 700000,
+        "arrival_us": 710687,
+        "distance_mm": 3633,
+        "estimated_direct_us": 10592,
+        "arrival_paths": [
+          {
+            "delay_us": 10592,
+            "amplitude_q1000": 1000,
+            "kind": "direct"
+          },
+          {
+            "delay_us": 13595,
+            "amplitude_q1000": 390,
+            "kind": "echo"
+          },
+          {
+            "delay_us": 24713,
+            "amplitude_q1000": 214,
+            "kind": "echo"
+          },
+          {
+            "delay_us": 14423,
+            "amplitude_q1000": 367,
+            "kind": "echo"
+          },
+          {
+            "delay_us": 18507,
+            "amplitude_q1000": 286,
+            "kind": "echo"
+          }
+        ]
+      },
+      {
+        "emitter_id": 3,
+        "emit_us": 1000000,
+        "arrival_us": 1011776,
+        "distance_mm": 4006,
+        "estimated_direct_us": 11681,
+        "arrival_paths": [
+          {
+            "delay_us": 11680,
+            "amplitude_q1000": 1000,
+            "kind": "direct"
+          },
+          {
+            "delay_us": 15220,
+            "amplitude_q1000": 384,
+            "kind": "echo"
+          },
+          {
+            "delay_us": 21241,
+            "amplitude_q1000": 275,
+            "kind": "echo"
+          },
+          {
+            "delay_us": 14472,
+            "amplitude_q1000": 404,
+            "kind": "echo"
+          },
+          {
+            "delay_us": 21921,
+            "amplitude_q1000": 266,
+            "kind": "echo"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "kind": "listener-row-v1/int-us",
+    "sweep_id": "sim-sweep",
+    "listener_id": 1,
+    "arrivals": [
+      {
+        "emitter_id": 0,
+        "emit_us": 100000,
+        "arrival_us": 108079,
+        "distance_mm": 2773,
+        "estimated_direct_us": 8085,
+        "arrival_paths": [
+          {
+            "delay_us": 8085,
+            "amplitude_q1000": 1000,
+            "kind": "direct"
+          },
+          {
+            "delay_us": 11602,
+            "amplitude_q1000": 348,
+            "kind": "echo"
+          },
+          {
+            "delay_us": 24326,
+            "amplitude_q1000": 166,
+            "kind": "echo"
+          },
+          {
+            "delay_us": 11233,
+            "amplitude_q1000": 360,
+            "kind": "echo"
+          },
+          {
+            "delay_us": 21684,
+            "amplitude_q1000": 186,
+            "kind": "echo"
+          }
+        ]
+      },
+      {
+        "emitter_id": 1,
+        "emit_us": 400000,
+        "arrival_us": 400052,
+        "distance_mm": 20,
+        "estimated_direct_us": 59,
+        "arrival_paths": [
+          {
+            "delay_us": 58,
+            "amplitude_q1000": 1000,
+            "kind": "direct"
+          }
+        ]
+      },
+      {
+        "emitter_id": 2,
+        "emit_us": 700000,
+        "arrival_us": 703614,
+        "distance_mm": 1242,
+        "estimated_direct_us": 3621,
+        "arrival_paths": [
+          {
+            "delay_us": 3620,
+            "amplitude_q1000": 1000,
+            "kind": "direct"
+          },
+          {
+            "delay_us": 18884,
+            "amplitude_q1000": 96,
+            "kind": "echo"
+          },
+          {
+            "delay_us": 16834,
+            "amplitude_q1000": 108,
+            "kind": "echo"
+          },
+          {
+            "delay_us": 16083,
+            "amplitude_q1000": 113,
+            "kind": "echo"
+          },
+          {
+            "delay_us": 13085,
+            "amplitude_q1000": 138,
+            "kind": "echo"
+          }
+        ]
+      },
+      {
+        "emitter_id": 3,
+        "emit_us": 1000000,
+        "arrival_us": 1003612,
+        "distance_mm": 1241,
+        "estimated_direct_us": 3619,
+        "arrival_paths": [
+          {
+            "delay_us": 3619,
+            "amplitude_q1000": 1000,
+            "kind": "direct"
+          },
+          {
+            "delay_us": 21525,
+            "amplitude_q1000": 84,
+            "kind": "echo"
+          },
+          {
+            "delay_us": 13555,
+            "amplitude_q1000": 133,
+            "kind": "echo"
+          },
+          {
+            "delay_us": 14148,
+            "amplitude_q1000": 128,
+            "kind": "echo"
+          },
+          {
+            "delay_us": 15790,
+            "amplitude_q1000": 115,
+            "kind": "echo"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "kind": "listener-row-v1/int-us",
+    "sweep_id": "sim-sweep",
+    "listener_id": 2,
+    "arrivals": [
+      {
+        "emitter_id": 0,
+        "emit_us": 100000,
+        "arrival_us": 110543,
+        "distance_mm": 3633,
+        "estimated_direct_us": 10592,
+        "arrival_paths": [
+          {
+            "delay_us": 10592,
+            "amplitude_q1000": 1000,
+            "kind": "direct"
+          },
+          {
+            "delay_us": 13595,
+            "amplitude_q1000": 390,
+            "kind": "echo"
+          },
+          {
+            "delay_us": 24713,
+            "amplitude_q1000": 214,
+            "kind": "echo"
+          },
+          {
+            "delay_us": 14423,
+            "amplitude_q1000": 367,
+            "kind": "echo"
+          },
+          {
+            "delay_us": 18507,
+            "amplitude_q1000": 286,
+            "kind": "echo"
+          }
+        ]
+      },
+      {
+        "emitter_id": 1,
+        "emit_us": 400000,
+        "arrival_us": 403572,
+        "distance_mm": 1242,
+        "estimated_direct_us": 3621,
+        "arrival_paths": [
+          {
+            "delay_us": 3620,
+            "amplitude_q1000": 1000,
+            "kind": "direct"
+          },
+          {
+            "delay_us": 18884,
+            "amplitude_q1000": 96,
+            "kind": "echo"
+          },
+          {
+            "delay_us": 16834,
+            "amplitude_q1000": 108,
+            "kind": "echo"
+          },
+          {
+            "delay_us": 16083,
+            "amplitude_q1000": 113,
+            "kind": "echo"
+          },
+          {
+            "delay_us": 13085,
+            "amplitude_q1000": 138,
+            "kind": "echo"
+          }
+        ]
+      },
+      {
+        "emitter_id": 2,
+        "emit_us": 700000,
+        "arrival_us": 700010,
+        "distance_mm": 20,
+        "estimated_direct_us": 59,
+        "arrival_paths": [
+          {
+            "delay_us": 58,
+            "amplitude_q1000": 1000,
+            "kind": "direct"
+          }
+        ]
+      },
+      {
+        "emitter_id": 3,
+        "emit_us": 1000000,
+        "arrival_us": 1003718,
+        "distance_mm": 1292,
+        "estimated_direct_us": 3767,
+        "arrival_paths": [
+          {
+            "delay_us": 3766,
+            "amplitude_q1000": 1000,
+            "kind": "direct"
+          },
+          {
+            "delay_us": 22059,
+            "amplitude_q1000": 85,
+            "kind": "echo"
+          },
+          {
+            "delay_us": 13259,
+            "amplitude_q1000": 142,
+            "kind": "echo"
+          },
+          {
+            "delay_us": 17577,
+            "amplitude_q1000": 107,
+            "kind": "echo"
+          },
+          {
+            "delay_us": 12189,
+            "amplitude_q1000": 154,
+            "kind": "echo"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "kind": "listener-row-v1/int-us",
+    "sweep_id": "sim-sweep",
+    "listener_id": 3,
+    "arrivals": [
+      {
+        "emitter_id": 0,
+        "emit_us": 100000,
+        "arrival_us": 111621,
+        "distance_mm": 4006,
+        "estimated_direct_us": 11681,
+        "arrival_paths": [
+          {
+            "delay_us": 11680,
+            "amplitude_q1000": 1000,
+            "kind": "direct"
+          },
+          {
+            "delay_us": 15220,
+            "amplitude_q1000": 384,
+            "kind": "echo"
+          },
+          {
+            "delay_us": 21241,
+            "amplitude_q1000": 275,
+            "kind": "echo"
+          },
+          {
+            "delay_us": 14472,
+            "amplitude_q1000": 404,
+            "kind": "echo"
+          },
+          {
+            "delay_us": 21921,
+            "amplitude_q1000": 266,
+            "kind": "echo"
+          }
+        ]
+      },
+      {
+        "emitter_id": 1,
+        "emit_us": 400000,
+        "arrival_us": 403558,
+        "distance_mm": 1241,
+        "estimated_direct_us": 3619,
+        "arrival_paths": [
+          {
+            "delay_us": 3619,
+            "amplitude_q1000": 1000,
+            "kind": "direct"
+          },
+          {
+            "delay_us": 21525,
+            "amplitude_q1000": 84,
+            "kind": "echo"
+          },
+          {
+            "delay_us": 13555,
+            "amplitude_q1000": 133,
+            "kind": "echo"
+          },
+          {
+            "delay_us": 14148,
+            "amplitude_q1000": 128,
+            "kind": "echo"
+          },
+          {
+            "delay_us": 15790,
+            "amplitude_q1000": 115,
+            "kind": "echo"
+          }
+        ]
+      },
+      {
+        "emitter_id": 2,
+        "emit_us": 700000,
+        "arrival_us": 703706,
+        "distance_mm": 1292,
+        "estimated_direct_us": 3767,
+        "arrival_paths": [
+          {
+            "delay_us": 3766,
+            "amplitude_q1000": 1000,
+            "kind": "direct"
+          },
+          {
+            "delay_us": 22059,
+            "amplitude_q1000": 85,
+            "kind": "echo"
+          },
+          {
+            "delay_us": 13259,
+            "amplitude_q1000": 142,
+            "kind": "echo"
+          },
+          {
+            "delay_us": 17577,
+            "amplitude_q1000": 107,
+            "kind": "echo"
+          },
+          {
+            "delay_us": 12189,
+            "amplitude_q1000": 154,
+            "kind": "echo"
+          }
+        ]
+      },
+      {
+        "emitter_id": 3,
+        "emit_us": 1000000,
+        "arrival_us": 999998,
+        "distance_mm": 20,
+        "estimated_direct_us": 59,
+        "arrival_paths": [
+          {
+            "delay_us": 58,
+            "amplitude_q1000": 1000,
+            "kind": "direct"
+          }
+        ]
+      }
+    ]
+  }
+]

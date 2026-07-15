@@ -329,6 +329,13 @@ Regenerate the example packet fixtures with:
 npm run export:firmware-fixtures
 ```
 
+Those fixtures now come in two flavors:
+- the richer JSON-shaped protocol contracts
+- a compact fixed-point wire form (integer microseconds / millimetres)
+
+So the firmware phase has both a human-readable contract and a more realistic
+low-bandwidth serialization target to test against.
+
 This is still a skeleton, not a full `idf.py build`-ready application, but it
 means the project now has an actual firmware landing zone instead of only a
 simulation boundary.
