@@ -39,31 +39,33 @@
         </label>
         <button id="applyNotePreset" class="ghost tiny">Add note tag</button>
       </div>
-      <h3>Handoff</h3>
-      <div class="status handoff-help">Bundle report depends on running the selected analysis bundle first. Snapshot and report package can be generated immediately from the current state.</div>
-      <div class="handoff-grid">
-        <div class="artifact-group">
-          <div class="artifact-title">Bundle report</div>
-          <div class="row compact-row">
-            <button id="downloadBundleTxt" class="ghost tiny" disabled>Download</button>
-            <button id="copyBundleTxt" class="ghost tiny" disabled>Copy</button>
+      <details id="handoffDetails" class="subdetails">
+        <summary>Handoff</summary>
+        <div class="status handoff-help">Bundle report depends on running the selected analysis bundle first. Snapshot and report package can be generated immediately from the current state.</div>
+        <div class="handoff-grid">
+          <div class="artifact-group">
+            <div class="artifact-title">Bundle report</div>
+            <div class="row compact-row">
+              <button id="downloadBundleTxt" class="ghost tiny" disabled>Download</button>
+              <button id="copyBundleTxt" class="ghost tiny" disabled>Copy</button>
+            </div>
+          </div>
+          <div class="artifact-group">
+            <div class="artifact-title">Analysis snapshot</div>
+            <div class="row compact-row">
+              <button id="downloadSnapshotTxt" class="ghost tiny">Download</button>
+              <button id="copySnapshotTxt" class="ghost tiny">Copy</button>
+            </div>
+          </div>
+          <div class="artifact-group">
+            <div class="artifact-title">Report package</div>
+            <div class="row compact-row">
+              <button id="downloadPackageTxt" class="ghost tiny">Download</button>
+              <button id="copyPackageTxt" class="ghost tiny">Copy</button>
+            </div>
           </div>
         </div>
-        <div class="artifact-group">
-          <div class="artifact-title">Analysis snapshot</div>
-          <div class="row compact-row">
-            <button id="downloadSnapshotTxt" class="ghost tiny">Download</button>
-            <button id="copySnapshotTxt" class="ghost tiny">Copy</button>
-          </div>
-        </div>
-        <div class="artifact-group">
-          <div class="artifact-title">Report package</div>
-          <div class="row compact-row">
-            <button id="downloadPackageTxt" class="ghost tiny">Download</button>
-            <button id="copyPackageTxt" class="ghost tiny">Copy</button>
-          </div>
-        </div>
-      </div>
+      </details>
       <div class="grid2">
         <label>Nodes
           <input id="nodeCount" type="number" min="4" max="12" value="6" />
@@ -115,14 +117,16 @@
       </div>
       <div id="modeHelp" class="status"></div>
       <div id="dashboardSummary" class="summary-card">Run an analysis bundle for an at-a-glance readiness snapshot.</div>
-      <h3>Readiness history</h3>
-      <div class="row">
-        <button id="downloadHistoryTxt" class="ghost tiny" disabled>Download history</button>
-        <button id="copyHistoryTxt" class="ghost tiny" disabled>Copy history</button>
-        <button id="clearHistory" class="ghost tiny" disabled>Clear history</button>
-      </div>
-      <div id="historyHelp" class="status handoff-help">Run any analysis or bundle to start a session-local readiness timeline.</div>
-      <div id="dashboardHistory" class="report">No readiness history yet.</div>
+      <details id="historyDetails" class="subdetails">
+        <summary>Readiness history</summary>
+        <div class="row">
+          <button id="downloadHistoryTxt" class="ghost tiny" disabled>Download history</button>
+          <button id="copyHistoryTxt" class="ghost tiny" disabled>Copy history</button>
+          <button id="clearHistory" class="ghost tiny" disabled>Clear history</button>
+        </div>
+        <div id="historyHelp" class="status handoff-help">Run any analysis or bundle to start a session-local readiness timeline.</div>
+        <div id="dashboardHistory" class="report">No readiness history yet.</div>
+      </details>
       <div id="status" class="status">Ready.</div>
     </section>
 

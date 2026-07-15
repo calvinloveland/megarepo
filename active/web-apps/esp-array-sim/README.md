@@ -57,10 +57,12 @@ share URL, scenario notes, readiness badge/summary, and selected analysis report
 artifact for easy handoff to future firmware work; that artifact can now also be copied straight to
 the clipboard. The selected bundle report and the readiness history timeline now support the same
 copy/download workflow too. To keep these growing handoff actions manageable, the browser now groups
-bundle/snapshot/package exports into a dedicated **Handoff** section inside the Scenario panel.
-There is also now a **Download report package** action that concatenates the analysis snapshot,
-selected bundle report, and readiness history timeline into one comprehensive offline-review
-artifact, and that package can also be copied directly to the clipboard.
+bundle/snapshot/package exports into a dedicated collapsible **Handoff** section inside the Scenario
+panel. The session-local readiness log also lives in a collapsible **Readiness history** section,
+which auto-opens once the first snapshot is recorded. There is also now a **Download report
+package** action that concatenates the analysis snapshot, selected bundle report, and readiness
+history timeline into one comprehensive offline-review artifact, and that package can also be copied
+directly to the clipboard.
 
 For hardware planning, `npm run sweep` answers “how many ESP32 nodes do I need?” by printing the
 minimum node count that keeps the **worst-case** localization error under a target (5 cm by default)

@@ -70,6 +70,22 @@ input:disabled, select:disabled { opacity: .55; }
   text-transform: uppercase;
   letter-spacing: .04em;
 }
+.subdetails {
+  margin: 12px 0;
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: #0d1117;
+}
+.subdetails > summary {
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.subdetails[open] > summary {
+  margin-bottom: 8px;
+}
 .handoff-help {
   margin-top: 0;
   margin-bottom: 8px;

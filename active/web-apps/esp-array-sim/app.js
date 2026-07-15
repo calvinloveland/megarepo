@@ -36,6 +36,7 @@ const reportEl = document.getElementById('report');
 const dashboardSummaryEl = document.getElementById('dashboardSummary');
 const dashboardHistoryEl = document.getElementById('dashboardHistory');
 const historyHelpEl = document.getElementById('historyHelp');
+const historyDetailsEl = document.getElementById('historyDetails');
 const mappingEl = document.getElementById('mapping');
 const channelStatusEl = document.getElementById('channelStatus');
 const sizingReportEl = document.getElementById('sizingReport');
@@ -365,6 +366,7 @@ function snapshotReadinessHistory(source) {
   const stamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
   const entry = makeReadinessHistoryEntry(source, currentDashboardSummary(), stamp, currentScenarioNotes());
   state.readinessHistory = pushReadinessHistory(state.readinessHistory, entry, 12);
+  historyDetailsEl.open = true;
   renderReadinessHistory();
 }
 
