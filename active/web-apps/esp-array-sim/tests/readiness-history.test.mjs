@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { makeReadinessHistoryEntry, pushReadinessHistory } from '../src/readiness-history.mjs';
+import { makeReadinessHistoryEntry, pushReadinessHistory, formatReadinessHistory } from '../src/readiness-history.mjs';
 
 test('makeReadinessHistoryEntry copies badge and line texts from a dashboard summary', () => {
   const entry = makeReadinessHistoryEntry('bundle: full', {
@@ -25,4 +25,29 @@ test('pushReadinessHistory keeps newest entries first and trims to the limit', (
   history = pushReadinessHistory(history, { source: 'b' }, 2);
   history = pushReadinessHistory(history, { source: 'c' }, 2);
   assert.deepEqual(history.map((h) => h.source), ['c', 'b']);
+});
+
+test('formatReadinessHistory emits a readable newest-first text export', () => {
+  const txt = formatReadinessHistory([
+    {
+      source: 'Mode comparison',
+      stamp: '12:00:02',
+      badge: { label: 'CAUTION', severity: 'warn' },
+      lines: ['Best mode: matched at 1.20 cm.', 'Worst calibration time: 1200 ms.'],
+    },
+    {
+      source: 'Hardware sizing',
+      stamp: '12:00:01',
+      badge: { label: 'READY', severity: 'good' },
+      lines: ['Recommended nodes: 6 for ≤5 cm worst-case.'],
+    },
+  ]);
+  assert.match(txt, /^ESP Array Simulator — Readiness history/m);
+  assert.match(txt, /\[12:00:02\] CAUTION — Mode comparison/);
+  assert.match(txt, /- Best mode: matched at 1.20 cm\./);
+  assert.ok(txt.indexOf('12:00:02') < txt.indexOf('12:00:01'), 'newest entries first');
+});
+
+test('formatReadinessHistory handles the empty case explicitly', () => {
+  assert.match(formatReadinessHistory([]), /\(no history\)/);
 });

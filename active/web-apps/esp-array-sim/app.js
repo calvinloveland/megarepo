@@ -15,7 +15,7 @@ import { scanNodeCounts, formatNodeScan, summarizeNodeScan } from './src/node-sc
 import { SCAN_BUNDLES, getScanBundle } from './src/scan-bundles.mjs';
 import { formatBundleReport } from './src/bundle-report.mjs';
 import { dashboardSummary } from './src/dashboard-summary.mjs';
-import { makeReadinessHistoryEntry, pushReadinessHistory } from './src/readiness-history.mjs';
+import { makeReadinessHistoryEntry, pushReadinessHistory, formatReadinessHistory } from './src/readiness-history.mjs';
 import {
   PRESETS,
   sanitizeUiState,
@@ -54,6 +54,8 @@ const ui = {
   scanBundle: document.getElementById('scanBundle'),
   runBundle: document.getElementById('runBundle'),
   downloadBundleTxt: document.getElementById('downloadBundleTxt'),
+  downloadHistoryTxt: document.getElementById('downloadHistoryTxt'),
+  clearHistory: document.getElementById('clearHistory'),
   copyLink: document.getElementById('copyLink'),
   nodeCount: document.getElementById('nodeCount'),
   seed: document.getElementById('seed'),
@@ -309,7 +311,10 @@ function renderDashboardSummary() {
 }
 
 function renderReadinessHistory() {
-  if (!state.readinessHistory.length) {
+  const hasHistory = state.readinessHistory.length > 0;
+  ui.downloadHistoryTxt.disabled = !hasHistory;
+  ui.clearHistory.disabled = !hasHistory;
+  if (!hasHistory) {
     dashboardHistoryEl.innerHTML = 'No readiness history yet.';
     return;
   }
@@ -805,6 +810,14 @@ ui.downloadBundleTxt.addEventListener('click', () => {
   const text = formatBundleReport(bundle, currentBundleReports());
   state.bundleReport = { id: bundle.id, text };
   downloadText(`esp-array-${bundle.id}-bundle.txt`, text);
+});
+ui.downloadHistoryTxt.addEventListener('click', () => {
+  downloadText('esp-array-readiness-history.txt', formatReadinessHistory(state.readinessHistory));
+});
+ui.clearHistory.addEventListener('click', () => {
+  state.readinessHistory = [];
+  renderReadinessHistory();
+  statusEl.textContent = 'Readiness history cleared.';
 });
 ui.reseed.addEventListener('click', () => { ui.seed.value = (Math.random() * 1e9) | 0; runIt(); });
 ui.playChannel.addEventListener('click', playChannel);

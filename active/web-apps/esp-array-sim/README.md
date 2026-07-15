@@ -47,7 +47,8 @@ a single text artifact. The top-level analysis dashboard now also shows a readin
 (**READY / PENDING / CAUTION / RISK**) with color-coded lines so the simulator’s overall health is
 visually scannable, not just textual. A session-local **Readiness history** log records those
 badge/snapshot transitions after each analysis or bundle run so you can see how the assessment
-changed as you tweaked settings.
+changed as you tweaked settings, and it can now be downloaded or cleared with one click before a
+fresh exploration.
 
 For hardware planning, `npm run sweep` answers “how many ESP32 nodes do I need?” by printing the
 minimum node count that keeps the **worst-case** localization error under a target (5 cm by default)

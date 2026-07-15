@@ -276,7 +276,8 @@ whether the current configuration looks healthy, incomplete, marginal, or outrig
 A tiny pure `readiness-history.mjs` helper now backs a session-local **Readiness history** log in the
 UI. After each analysis or bundle run, the browser records the current badge + key summary lines as
 a newest-first snapshot, so you can compare how readiness evolved as you changed modes, node count,
-noise σ, or hardening knobs.
+noise σ, or hardening knobs. The log now also has one-click **Download history** and **Clear
+history** controls so you can save the timeline or reset it before exploring a fresh scenario.
 
 A single-mic matched filter with sub-sample parabolic refinement around the |correlation| peak
 lands the TOA within ~2 cm (near the sample-quantization floor); a fractional-lag chirp is recovered
