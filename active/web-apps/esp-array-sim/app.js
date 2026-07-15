@@ -21,6 +21,7 @@ import {
 const canvas = document.getElementById('room');
 const ctx = canvas.getContext('2d');
 const statusEl = document.getElementById('status');
+const modeHelpEl = document.getElementById('modeHelp');
 const reportEl = document.getElementById('report');
 const mappingEl = document.getElementById('mapping');
 const channelStatusEl = document.getElementById('channelStatus');
@@ -40,9 +41,12 @@ const ui = {
   exponent: document.getElementById('exponent'),
   distanceLaw: document.getElementById('distanceLaw'),
   captureMode: document.getElementById('captureMode'),
+  reflCoefField: document.getElementById('reflCoefField'),
   reflCoef: document.getElementById('reflCoef'),
+  meshLossField: document.getElementById('meshLossField'),
   meshLoss: document.getElementById('meshLoss'),
   avgShots: document.getElementById('avgShots'),
+  earliestPeakField: document.getElementById('earliestPeakField'),
   earliestPeak: document.getElementById('earliestPeak'),
   clockSkew: document.getElementById('clockSkew'),
   robust: document.getElementById('robust'),
@@ -118,12 +122,32 @@ function applyUiState(s) {
   ui.showTruth.checked = v.showTruth;
   ui.captureSweep.checked = v.captureSweep;
   ui.preset.value = matchingPresetId(v);
+  refreshModeGating();
 }
 
 function syncUrlFromUi() {
   const s = readUiState();
   ui.preset.value = matchingPresetId(s);
   history.replaceState(null, '', `#${serializeUiState(s)}`);
+}
+
+function setFieldEnabled(fieldEl, inputEl, enabled) {
+  inputEl.disabled = !enabled;
+  fieldEl.classList.toggle('muted-control', !enabled);
+}
+
+function refreshModeGating() {
+  const mode = ui.captureMode.value;
+  const matched = mode === 'matched';
+  const distributed = mode === 'distributed';
+  setFieldEnabled(ui.reflCoefField, ui.reflCoef, matched);
+  setFieldEnabled(ui.meshLossField, ui.meshLoss, distributed);
+  setFieldEnabled(ui.earliestPeakField, ui.earliestPeak, matched);
+  modeHelpEl.textContent = matched
+    ? 'Matched mode uses the real chirp/matched-filter estimator: wall reverb and earliest-peak matter; mesh packet loss is ignored.'
+    : distributed
+      ? 'Distributed mode gossips per-mic rows across the mesh: mesh packet loss matters; wall reverb / earliest-peak are ignored in the browser distributed path.'
+      : 'Closed-form mode uses perfect direct-path TOA: wall reverb, earliest-peak, and mesh packet loss are ignored.';
 }
 
 function readConfig() {
@@ -619,7 +643,7 @@ ui.preset.addEventListener('change', () => {
 ui.showTruth.addEventListener('change', () => { syncUrlFromUi(); renderAdvisories(); draw(); });
 ui.captureSweep.addEventListener('change', () => { syncUrlFromUi(); renderAdvisories(); });
 [ui.nodeCount, ui.seed, ui.roomW, ui.roomH, ui.exponent, ui.distanceLaw, ui.captureMode, ui.reflCoef, ui.meshLoss, ui.avgShots].forEach((el) =>
-  el.addEventListener('change', () => { syncUrlFromUi(); renderAdvisories(); draw(); }));
+  el.addEventListener('change', () => { refreshModeGating(); syncUrlFromUi(); renderAdvisories(); draw(); }));
 ui.earliestPeak.addEventListener('change', () => { syncUrlFromUi(); renderAdvisories(); });
 ui.clockSkew.addEventListener('change', () => { syncUrlFromUi(); renderAdvisories(); });
 ui.robust.addEventListener('change', () => { syncUrlFromUi(); renderAdvisories(); });

@@ -52,10 +52,10 @@
             <option value="distributed">distributed mesh (gossip)</option>
           </select>
         </label>
-        <label>Wall refl. coef
+        <label id="reflCoefField">Wall refl. coef
           <input id="reflCoef" type="number" step="0.1" min="0" max="1" value="0.5" />
         </label>
-        <label>Mesh packet loss
+        <label id="meshLossField">Mesh packet loss
           <input id="meshLoss" type="number" step="0.1" min="0" max="1" value="0" />
         </label>
         <label>Emission shots (avg)
@@ -67,10 +67,11 @@
         <button id="reseed" class="ghost">Random seed</button>
         <label class="checkbox"><input id="showTruth" type="checkbox" checked /> Show truth</label>
         <label class="checkbox"><input id="captureSweep" type="checkbox" checked /> Animate calibration</label>
-        <label class="checkbox"><input id="earliestPeak" type="checkbox" /> Earliest-peak TOA (echo reject)</label>
+        <label id="earliestPeakField" class="checkbox"><input id="earliestPeak" type="checkbox" /> Earliest-peak TOA (echo reject)</label>
         <label class="checkbox"><input id="clockSkew" type="checkbox" /> Clock skew (drift) + estimate</label>
         <label class="checkbox"><input id="robust" type="checkbox" /> Robust LM (outlier reject)</label>
       </div>
+      <div id="modeHelp" class="status"></div>
       <div id="status" class="status">Ready.</div>
     </section>
 

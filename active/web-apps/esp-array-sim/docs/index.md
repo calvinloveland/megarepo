@@ -217,7 +217,9 @@ The UI also ships with presets for the simulator's most interesting stories:
 - clock-skew + multi-shot averaging
 
 and it serializes the full control state into the URL fragment (`#n=8&mode=distributed&...`), so
-an interesting success/failure case is shareable and exactly reproducible from a link.
+an interesting success/failure case is shareable and exactly reproducible from a link. The controls
+are also mode-aware: knobs the current capture mode ignores are dimmed/disabled, and a helper line
+spells out which settings actually matter for closed vs. matched vs. distributed mode.
 
 A pure `advisories.mjs` ruleset also feeds the UI's **Known risks / suggestions** panel. These are
 not vague design opinions: each rule corresponds to a failure mode the simulator already demonstrated

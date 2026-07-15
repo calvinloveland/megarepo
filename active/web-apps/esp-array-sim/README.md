@@ -26,7 +26,9 @@ calibration sweep, the recovered positions, and the 5.1→speaker mapping. **Pla
 channel** highlights which real speakers each virtual 5.1 channel is routed to. The UI now also has
 built-in **presets** (dry matched DSP, hard living-room reverb, lossy distributed mesh, clock-skew +
 shot averaging) and keeps the full scenario in the URL fragment, so you can copy a share link and
-reproduce an interesting case exactly.
+reproduce an interesting case exactly. The controls are now also context-aware: knobs that the
+current capture mode ignores are dimmed/disabled, and a small helper line explains which settings
+actually matter for the chosen mode.
 
 For hardware planning, `npm run sweep` answers “how many ESP32 nodes do I need?” by printing the
 minimum node count that keeps the **worst-case** localization error under a target (5 cm by default)
