@@ -15,6 +15,7 @@
 
 import { SPEED_OF_SOUND, distance } from './acoustics.mjs';
 import { placeTemplate, matchedFilter } from './dsp.mjs';
+import { vecToAzimuthDeg, angleDeltaDeg, CHANNELS_5_1 } from './surround.mjs';
 
 /**
  * Render the soundfield arriving at the sweet spot when one virtual channel's
@@ -100,4 +101,46 @@ export function renderPeakConcentration(signal) {
     total += a;
   }
   return total > 0 ? mx / total : 0;
+}
+
+/**
+ * Directional separation of a virtual channel: the energy-weighted mean arrival
+ * azimuth at the sweet spot vs the channel's intended ITU azimuth. `energyBySpeaker`
+ * (pan-gain × compensation-gain, squared) weights each real speaker's angle.
+ *
+ * @param {object} scenario  a runScenario() result
+ * @param {string} channelId  e.g. 'L','R','C','Ls','Rs','LFE'
+ * @returns {{intendedAzDeg:number, observedAzDeg:number, errorDeg:number, energyBySpeaker:{id:string,azDeg:number,energy:number}[]}}
+ */
+export function channelSeparation(scenario, channelId) {
+  const ch = scenario.surround.find((c) => c.channel === channelId);
+  const intended = CHANNELS_5_1.find((c) => c.id === channelId).azimuthDeg;
+  const compById = new Map(scenario.compensation.map((c) => [c.id, c]));
+  const geomById = new Map(
+    scenario.realSpeakers.map((s) => {
+      const dx = s.pos.x - scenario.sweetSpot.x;
+      const dy = s.pos.y - scenario.sweetSpot.y;
+      const d = Math.hypot(dx, dy) || 1e-9;
+      return [s.id, vecToAzimuthDeg({ x: dx / d, y: dy / d })];
+    }),
+  );
+  const energyBySpeaker = ch.mapping.map((m) => {
+    const comp = compById.get(m.id) ?? { gainLinear: 1 };
+    const energy = (m.gain * comp.gainLinear) ** 2;
+    return { id: m.id, azDeg: geomById.get(m.id) ?? 0, energy };
+  }).filter((e) => e.energy > 0);
+  // Energy-weighted direction as a vector sum (averages circular angles correctly).
+  let sx = 0, sy = 0;
+  for (const e of energyBySpeaker) {
+    const r = (e.azDeg * Math.PI) / 180;
+    sx += e.energy * Math.cos(r);
+    sy += e.energy * Math.sin(r);
+  }
+  const observed = Math.atan2(sy, sx) * 180 / Math.PI;
+  return {
+    intendedAzDeg: intended,
+    observedAzDeg: observed,
+    errorDeg: Math.abs(angleDeltaDeg(observed, intended)),
+    energyBySpeaker,
+  };
 }

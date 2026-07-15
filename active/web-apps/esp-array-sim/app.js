@@ -4,7 +4,7 @@
 import { runScenario } from './src/scenario.mjs';
 import { CHANNELS_5_1, azimuthToVec } from './src/surround.mjs';
 import { SPEED_OF_SOUND } from './src/acoustics.mjs';
-import { renderChannelAtSweetSpot, renderPeakConcentration } from './src/render.mjs';
+import { renderChannelAtSweetSpot, renderPeakConcentration, channelSeparation } from './src/render.mjs';
 import { linearChirp } from './src/dsp.mjs';
 
 const canvas = document.getElementById('room');
@@ -129,7 +129,11 @@ function renderMapping() {
         return `<span class="bar ${loud ? 'loud' : ''}">${m.id} <span class="g">${pct}%</span></span>`;
       })
       .join('');
-    return `<div class="ch-row"><div class="ch-name" style="color:${CH_COLORS[c.channel]}">${c.channel}</div><div class="bars">${bars}</div></div>`;
+    const sep = state.scenario ? channelSeparation(state.scenario, c.channel) : null;
+    const sepStr = sep && c.channel !== 'LFE'
+      ? ` <span class="g" title="observed vs intended arrival azimuth">${sep.observedAzDeg.toFixed(0)}° (Δ${sep.errorDeg.toFixed(0)}°)</span>`
+      : '';
+    return `<div class="ch-row"><div class="ch-name" style="color:${CH_COLORS[c.channel]}">${c.channel}</div><div class="bars">${bars}${sepStr}</div></div>`;
   }).join('');
   mappingEl.innerHTML = rows;
 }

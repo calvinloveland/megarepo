@@ -96,6 +96,14 @@ the distance range (concentration < 1). Tests assert the alignment math, the con
 that all six channels render audibly. The UI's "Play test tone" reports the compensated-vs-
 uncompensated concentration per channel.
 
+`channelSeparation` measures spatial fidelity end-to-end: the pan-gain-weighted mean arrival azimuth
+of each channel at the sweet spot vs its intended ITU azimuth (Δ°). It surfaces the real cost of a
+random layout — a channel with no nearby speaker bleeds toward its neighbours, and the error grows
+— and the panner sharpen/bleed trade-off (a higher cosine exponent concentrates each channel at the
+expense of graceful degradation on sparse arrays). Tests prove ~0° error for an aligned speaker, an
+ITU ring reproduces all five channels with a sharp panner, directional polarity (L→left, R→right)
+holds on mismatched layouts, and separation improves monotonically as the exponent grows.
+
 ## The graph below unobservable rigid motion
 
 Procrustes is closed-form for 2-D (rotation angle θ = atan2(B, A) from the centered
