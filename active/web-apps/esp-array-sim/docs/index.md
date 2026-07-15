@@ -240,6 +240,25 @@ shapes can become real JSON/CBOR/mesh payloads later without changing the algori
 This is the key portability step: the simulator still proves the math/physics, but the distributed
 flow now already looks like future firmware messages instead of anonymous in-process arrays.
 
+## Firmware backend interface (`firmware-backend.mjs`)
+
+On top of the packet contracts, the simulator now also has an explicit **firmware backend**
+interface that mirrors the eventual ESP32 responsibilities:
+
+- `syncClocks(nodes)`
+- `makeCalibrationPlan(nodes)`
+- `captureListenerRows(nodes, plan)`
+- `gossipListenerRows(rowPackets)`
+
+`makeSimFirmwareBackend()` is the current in-process implementation of those hooks, and
+`runDistributedWithBackend()` executes one full distributed calibration pass through any backend that
+implements them. `mesh.distributedSweep()` now uses that backend boundary by default.
+
+That means the future hardware phase no longer has to replace the whole distributed simulator path in
+one shot; it can replace these hooks incrementally with ESP-IDF implementations (clock sync task,
+chirp scheduler, I2S/PDM capture, Wi-Fi/mesh transport) while leaving the higher-level localization
+and planning modules conceptually unchanged.
+
 A pure `advisories.mjs` ruleset also feeds the UI's **Known risks / suggestions** panel. These are
 not vague design opinions: each rule corresponds to a failure mode the simulator already demonstrated
 and tested — e.g. heavy reverb + plain matched TOA, very high mesh packet loss, or minimal 4-node

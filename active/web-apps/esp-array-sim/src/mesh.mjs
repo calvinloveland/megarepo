@@ -17,6 +17,7 @@ import {
   rowsToListenerPackets,
   gossipPacketsAndAssemble,
 } from './firmware-protocol.mjs';
+import { makeSimFirmwareBackend, runDistributedWithBackend } from './firmware-backend.mjs';
 
 /**
  * Per-node view of one calibration sweep: only the arrivals heard by THIS
@@ -66,10 +67,11 @@ export function gossipAndAssemble(perNode, opts = {}) {
  * @returns {{matrix: Observation[], messages: number, schedule}}
  */
 export function distributedSweep(nodes, room, captureOpts = {}) {
-  const { perNode, rowPackets, schedule, plan } = distributedCaptures(nodes, room, captureOpts);
-  const assembled = gossipPacketsAndAssemble(rowPackets, {
-    loss: captureOpts.meshLoss ?? 0,
-    seedRng: captureOpts.seedRng,
-  });
-  return { ...assembled, schedule, plan, rowPackets: assembled.packets, allRowPackets: rowPackets };
+  const backend = captureOpts.backend ?? makeSimFirmwareBackend(room, captureOpts);
+  const run = runDistributedWithBackend(nodes, backend);
+  return {
+    ...run,
+    rowPackets: run.packets,
+    allRowPackets: run.rowPackets,
+  };
 }
