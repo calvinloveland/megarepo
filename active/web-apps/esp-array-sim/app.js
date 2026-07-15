@@ -24,6 +24,7 @@ const ui = {
   captureMode: document.getElementById('captureMode'),
   reflCoef: document.getElementById('reflCoef'),
   meshLoss: document.getElementById('meshLoss'),
+  avgShots: document.getElementById('avgShots'),
   earliestPeak: document.getElementById('earliestPeak'),
   clockSkew: document.getElementById('clockSkew'),
   robust: document.getElementById('robust'),
@@ -61,6 +62,7 @@ function readConfig() {
     captureMode: ui.captureMode.value,
     reflCoef: parseFloat(ui.reflCoef.value) ?? 0.5,
     meshLoss: parseFloat(ui.meshLoss.value) ?? 0,
+    avgShots: parseInt(ui.avgShots.value, 10) || 1,
     earliestPeak: ui.earliestPeak.checked,
     clockSkew: ui.clockSkew.checked,
     robust: ui.robust.checked ? 5e-5 : 0,
@@ -112,7 +114,7 @@ function renderReport(ms, mode) {
     <div>${capLine}</div>
     ${compLine ? `<div>${compLine}</div>` : ''}
     <div>residual cost: ${resid.toExponential(2)} s²</div>
-    <div>solver: ${s.solution.converged ? 'converged' : 'hit iteration cap'} · ${s.solution.iterations} LM iters from ${s.solution.starts} starts</div>
+    <div>solver: ${s.solution.converged ? 'converged' : 'hit iteration cap'} · ${s.solution.iterations} LM iters from ${s.solution.starts} starts ${s.observations[0]?.shots ? `(median of ${s.observations[0].shots.length} shots)` : ''}</div>
     <div>clock-offset est. RMS: ${(offsetRms * 1e6).toFixed(1)} µs (truth offset ±0.1 ms after WiFi sync)</div>
     ${s.withSkew ? `<div>clock-skew est. RMS: ${(rmsError(s.clockSkewsTrue, s.clockSkewsEst) * 1e6).toFixed(1)} ppm (truth ±50 ppm)</div>` : ''}
     <div>speed of sound: ${SPEED_OF_SOUND} m/s · ${s.observations.length} acoustic observations</div>
@@ -379,7 +381,7 @@ ui.reseed.addEventListener('click', () => { ui.seed.value = (Math.random() * 1e9
 ui.playChannel.addEventListener('click', playChannel);
 ui.stopChannel.addEventListener('click', stopChannel);
 ui.showTruth.addEventListener('change', draw);
-[ui.nodeCount, ui.seed, ui.roomW, ui.roomH, ui.exponent, ui.distanceLaw, ui.captureMode, ui.reflCoef, ui.meshLoss].forEach((el) =>
+[ui.nodeCount, ui.seed, ui.roomW, ui.roomH, ui.exponent, ui.distanceLaw, ui.captureMode, ui.reflCoef, ui.meshLoss, ui.avgShots].forEach((el) =>
   el.addEventListener('change', draw));
 ui.earliestPeak.addEventListener('change', draw);
 ui.clockSkew.addEventListener('change', draw);

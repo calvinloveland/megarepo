@@ -4,7 +4,7 @@
 // the pipeline is defined exactly once (DRY).
 
 import { makeRng, randomLayout, makeEmitSchedule } from './world.mjs';
-import { simulateCaptures, simulateMatchedCaptures } from './capture.mjs';
+import { simulateCaptures, simulateMatchedCaptures, averagedCaptures } from './capture.mjs';
 import { distributedSweep } from './mesh.mjs';
 import { localizeBest, procrustesAlign } from './localize.mjs';
 import { mapSurround, speakerCompensation, CHANNELS_5_1 } from './surround.mjs';
@@ -60,7 +60,21 @@ export function runScenario(cfg = {}) {
         })
       : simulateCaptures(nodes, schedule);
 
-  const sol = localizeBest(observations, nodes.length, room, {
+  // Multi-shot averaging: run the chosen capture path avgShots times with
+  // independent per-shot noise and median across shots per (emitter,listener) —
+  // the firmware's repeated-chirp mode, turned into tighter TOAs. Falls back to
+  // the single-shot observations when avgShots <= 1 (default).
+  const finalObs = (cfg.avgShots && cfg.avgShots > 1)
+    ? averagedCaptures(nodes, room, {
+        shots: cfg.avgShots,
+        captureMode: cfg.captureMode,
+        room, wallReflections: cfg.wallReflections ?? true, reflCoef: cfg.reflCoef ?? 0.5,
+        noiseSigma: cfg.noiseSigma ?? 0.05,
+        estimatorMode: cfg.estimatorMode ?? (cfg.earliestPeak ? 'earliest' : 'strongest'),
+      })
+    : observations;
+
+  const sol = localizeBest(finalObs, nodes.length, room, {
     starts: cfg.starts ?? 8,
     seedRng: rng, // deterministic restarts -> reproducible scenarios
     withSkew,
@@ -98,7 +112,7 @@ export function runScenario(cfg = {}) {
     reflCoef: cfg.reflCoef ?? 0.5,
     nodes,
     schedule,
-    observations,
+    observations: finalObs,
     solution: sol,
     truth,
     aligned,

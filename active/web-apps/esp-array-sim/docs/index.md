@@ -65,6 +65,17 @@ delayed by (maxDist − itsDist)/c and attenuated by itsDist/maxDist so all cont
 simultaneously and equally loud — the time/loudness alignment a real surround processor applies
 after localization (surfaced in the UI report as the max delay spread + gain range).
 
+## Multi-shot averaging (`capture.mjs` averagedCaptures)
+
+The firmware's repeated-chirp calibration mode: each pairwise TOA is measured `avgShots` times with
+independent per-shot jitter+noise (threaded via a `shotIdx` that salts the per-arrival RNG), and we
+report the **median** arrival per (emitter, listener). Median — not mean — rejects occasional
+shot-level outliers and turns single-shot ~few-cm matched-filter jitter into a tighter estimate.
+At high capture noise (noiseSigma 0.5) median-of-3 roughly halves the localization error vs.
+single-shot; on the closed path it cuts the mic-jitter floor in half. `scenario.avgShots` toggles it
+(default 1 = single-shot, unchanged baseline); UI adds an "Emission shots" input and the report notes
+the median-of-N shots.
+
 ## Distributed/mesh localization (`mesh.mjs`)
 
 The centralized path assumes one oracle has the whole observation matrix. The real ESP32 system is

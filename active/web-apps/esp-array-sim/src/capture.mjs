@@ -14,6 +14,7 @@
 
 import { distance, propagationDelay, gaussianNoise, SPEED_OF_SOUND } from './acoustics.mjs';
 import { arrivalPaths, segmentHitsRect } from './room.mjs';
+import { makeEmitSchedule } from './world.mjs';
 import { linearChirp, estimateTOA, placeTemplate } from './dsp.mjs';
 
 /**
@@ -32,8 +33,9 @@ import { linearChirp, estimateTOA, placeTemplate } from './dsp.mjs';
  * @param {{emitterId:number,emitClockSec:number}[]} schedule
  * @returns {Observation[]} one entry per (emission × listener) pair
  */
-export function simulateCaptures(nodes, schedule) {
+export function simulateCaptures(nodes, schedule, opts = {}) {
   const byId = new Map(nodes.map((n) => [n.id, n]));
+  const shotIdx = opts.shotIdx ?? 0;
   const obs = [];
   for (const ev of schedule) {
     const s = byId.get(ev.emitterId);
@@ -42,7 +44,7 @@ export function simulateCaptures(nodes, schedule) {
       // else hears it over the air.
       const d = s.id === li.id ? li.selfPath : distance(s.pos, li.pos);
       const base = ev.emitClockSec + propagationDelay(d);
-      const jitter = gaussianNoise(makeLocalRng(ev.emitterId, li.id), li.micJitterSec);
+      const jitter = gaussianNoise(makeLocalRng(ev.emitterId, li.id, shotIdx), li.micJitterSec);
       // Listener clock = offset_i + (1 + skew_i) * true_time, so the recorded
       // arrival is offset + (1+skew)·base. With skew=0 this is the old formula.
       obs.push({
@@ -62,8 +64,8 @@ export function simulateCaptures(nodes, schedule) {
  * across runs with the same layout. Uses part of the emitter/listener ids as
  * seed — far from cryptographic, just stable for tests.
  */
-function makeLocalRng(a, b) {
-  let s = ((a + 1) * 73856093) ^ ((b + 1) * 19349663) ^ 0x9e3779b9;
+function makeLocalRng(a, b, shotIdx = 0) {
+  let s = ((a + 1) * 73856093) ^ ((b + 1) * 19349663) ^ 0x9e3779b9 ^ ((shotIdx + 1) * 2654435761);
   s = s >>> 0;
   return function rng() {
     s = (s + 0x6d2b79f5) | 0;
@@ -102,7 +104,8 @@ export const DEFAULT_SAMPLE_RATE = 48000;
  * @param {number}  [opts.sampleRateHz]
  * @returns {Observation[]} one per (emission × listener), arrivalClockSec from the estimator
  */
-export function simulateMatchedCaptures(nodes, schedule, opts = {}) {
+export function simulateMatchedCaptures(nodes, schedule, opts) {
+  const shotIdx = opts.shotIdx ?? 0;
   const room = opts.room ?? { width: 6, height: 5 };
   const wallReflections = opts.wallReflections ?? true;
   const reflCoef = opts.reflCoef ?? 0.5;
@@ -132,7 +135,7 @@ export function simulateMatchedCaptures(nodes, schedule, opts = {}) {
         if (blocked) paths = paths.filter((p) => p.kind !== 'direct');
         else if (!wallReflections) paths = paths.filter((p) => p.kind === 'direct');
       }
-      obs.push(buildObservation(s, li, ev, paths, chirp, sr, noiseSigma, c, opts));
+      obs.push(buildObservation(s, li, ev, paths, chirp, sr, noiseSigma, c, opts, shotIdx));
     }
   }
   return obs;
@@ -149,7 +152,7 @@ function roomFor(nodes) {
 }
 
 /** Build the waveform for one pair, estimate TOA, return an Observation. */
-function buildObservation(s, li, ev, paths, chirp, sr, noiseSigma, c, captureOpts = {}) {
+function buildObservation(s, li, ev, paths, chirp, sr, noiseSigma, c, captureOpts = {}, shotIdx = 0) {
   // waveform spans the latest arrival + chirp tail + a couple samples of slack
   const maxDelay = paths.reduce((m, p) => Math.max(m, p.delaySec), 0);
   const len = Math.ceil((maxDelay + chirp.length / sr) * sr) + 4;
@@ -159,7 +162,7 @@ function buildObservation(s, li, ev, paths, chirp, sr, noiseSigma, c, captureOpt
     placeTemplate(sig, chirp, lag, p.amplitude);
   }
   // additive capture noise (deterministic per emitter/listener pair)
-  const rng = makeLocalRng(s.id, li.id);
+  const rng = makeLocalRng(s.id, li.id, shotIdx);
   for (let i = 0; i < sig.length; i++) sig[i] += (rng() * 2 - 1) * noiseSigma;
   const { timeSec } = estimateTOA(sig, chirp, sr, {
     mode: captureOpts.estimatorMode ?? 'strongest',
@@ -184,3 +187,70 @@ function buildObservation(s, li, ev, paths, chirp, sr, noiseSigma, c, captureOpt
 /**
  * @typedef {{minX:number,minY:number,maxX:number,maxY:number}} Rect
  */
+/** Median across `shots` numbers (robust to outlier shots). */
+function medianArrival(xs) {
+  const s = xs.slice().sort((a, b) => a - b);
+  const m = s.length >> 1;
+  return s.length % 2 ? s[m] : 0.5 * (s[m - 1] + s[m]);
+}
+
+/**
+ * Repeat-emission averaging: run `shots` independent captures of the same sweep
+ * (independent jitter+noise per shot) and report the MEDIAN arrival time per
+ * (emitter, listener). Median — not mean — rejects occasional shot-level
+ * outliers, which is exactly what the firmware's repeated-chirp calibration mode
+ * is for: turn single-shot ~few-cm matched-filter jitter into a much tighter
+ * estimate. Returns one Observation per (emission × listener) like
+ * simulateCaptures/simulateMatchedCaptures, with per-shot times in `shots`.
+ *
+ * Works for either capture path (closed or matched) by re-running the chosen
+ * simulate* function shots times. The schedule/seeding is identical across
+ * shots so the emit times line up; only the per-shot noise differs via a
+ * per-shot seed perturbation passed through opts.shotSeed.
+ *
+ * @param {import('./world.mjs').MeshNode[]} nodes
+ * @param {{width:number,height:number}} room
+ * @param {object} opts { shots, captureMode, ...passthrough }
+ * @returns {Observation[]}
+ */
+export function averagedCaptures(nodes, room, opts = {}) {
+  const shots = opts.shots ?? 3;
+  const captureMode = opts.captureMode ?? 'closed';
+  const schedule = makeEmitSchedule(nodes);
+  const perShot = [];
+  for (let k = 0; k < shots; k++) {
+    // Each shot uses the same schedule but a distinct per-shot noise seed
+    // (shotIdx), so the jitter/echo draws differ across shots — the realistic
+    // repeated-chirp model. We don't shift the clock.
+    const shotSchedule = schedule;
+    const obs =
+      captureMode === 'matched'
+        ? simulateMatchedCaptures(nodes, shotSchedule, { room, ...opts, shotIdx: k })
+        : simulateCaptures(nodes, shotSchedule, { shotIdx: k });
+    // normalise the emit-clock shift out so medians are comparable
+    perShot.push(obs);
+  }
+  // average across shots per (emitter, listener) slot
+  const byKey = new Map();
+  for (let k = 0; k < shots; k++) {
+    for (const o of perShot[k]) {
+      const key = `${o.emitterId}-${o.listenerId}`;
+      if (!byKey.has(key)) byKey.set(key, { first: o, times: [], distances: [] });
+      const slot = byKey.get(key);
+      slot.times.push(o.arrivalClockSec);
+      slot.distances.push(o.distanceM);
+    }
+  }
+  const out = [];
+  for (const slot of byKey.values()) {
+    out.push({
+      emitterId: slot.first.emitterId,
+      listenerId: slot.first.listenerId,
+      distanceM: slot.first.distanceM,
+      emitClockSec: slot.first.emitClockSec,
+      arrivalClockSec: medianArrival(slot.times),
+      shots: slot.times,
+    });
+  }
+  return out;
+}
