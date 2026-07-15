@@ -50,6 +50,8 @@ const ui = {
   earliestPeak: document.getElementById('earliestPeak'),
   distributedMatchedField: document.getElementById('distributedMatchedField'),
   distributedMatched: document.getElementById('distributedMatched'),
+  noiseSigmaField: document.getElementById('noiseSigmaField'),
+  noiseSigma: document.getElementById('noiseSigma'),
   clockSkew: document.getElementById('clockSkew'),
   robust: document.getElementById('robust'),
   showTruth: document.getElementById('showTruth'),
@@ -97,6 +99,7 @@ function readUiState() {
     captureMode: ui.captureMode.value,
     distributedMatched: ui.distributedMatched.checked,
     reflCoef: ui.reflCoef.value,
+    noiseSigma: ui.noiseSigma.value,
     meshLoss: ui.meshLoss.value,
     avgShots: ui.avgShots.value,
     earliestPeak: ui.earliestPeak.checked,
@@ -117,6 +120,7 @@ function applyUiState(s) {
   ui.distanceLaw.value = v.distanceLaw;
   ui.captureMode.value = v.captureMode;
   ui.reflCoef.value = v.reflCoef;
+  ui.noiseSigma.value = v.noiseSigma;
   ui.meshLoss.value = v.meshLoss;
   ui.avgShots.value = v.avgShots;
   ui.earliestPeak.checked = v.earliestPeak;
@@ -146,16 +150,17 @@ function refreshModeGating() {
   const distributed = mode === 'distributed';
   const distributedMatched = distributed && ui.distributedMatched.checked;
   setFieldEnabled(ui.reflCoefField, ui.reflCoef, matched || distributedMatched);
+  setFieldEnabled(ui.noiseSigmaField, ui.noiseSigma, matched || distributedMatched);
   setFieldEnabled(ui.meshLossField, ui.meshLoss, distributed);
   setFieldEnabled(ui.earliestPeakField, ui.earliestPeak, matched || distributedMatched);
   setFieldEnabled(ui.distributedMatchedField, ui.distributedMatched, distributed);
   modeHelpEl.textContent = matched
-    ? 'Matched mode uses the real chirp/matched-filter estimator: wall reverb and earliest-peak matter; mesh packet loss is ignored.'
+    ? 'Matched mode uses the real chirp/matched-filter estimator: wall reverb, noise σ, and earliest-peak matter; mesh packet loss is ignored.'
     : distributed
       ? distributedMatched
-        ? 'Distributed mode gossips matched-filter mic rows across the mesh: wall reverb, earliest-peak, and mesh packet loss all matter.'
-        : 'Distributed mode gossips closed-form mic rows across the mesh: mesh packet loss matters; wall reverb / earliest-peak are ignored unless you enable matched DSP captures.'
-      : 'Closed-form mode uses perfect direct-path TOA: wall reverb, earliest-peak, and mesh packet loss are ignored.';
+        ? 'Distributed mode gossips matched-filter mic rows across the mesh: wall reverb, noise σ, earliest-peak, and mesh packet loss all matter.'
+        : 'Distributed mode gossips closed-form mic rows across the mesh: mesh packet loss matters; wall reverb / noise σ / earliest-peak are ignored unless you enable matched DSP captures.'
+      : 'Closed-form mode uses perfect direct-path TOA: wall reverb, noise σ, earliest-peak, and mesh packet loss are ignored.';
 }
 
 function readConfig() {
@@ -169,6 +174,7 @@ function readConfig() {
     captureMode: s.captureMode,
     distributedMatched: s.distributedMatched,
     reflCoef: s.reflCoef,
+    noiseSigma: s.noiseSigma,
     meshLoss: s.meshLoss,
     avgShots: s.avgShots,
     earliestPeak: s.earliestPeak,
@@ -212,9 +218,9 @@ function renderReport(ms, mode) {
     ? `time-align: max delay spread ${spreadMs.toFixed(2)} ms, gain ${Math.min(...comp.map((c) => c.gainLinear)).toFixed(2)}–${Math.max(...comp.map((c) => c.gainLinear)).toFixed(2)}`
     : '';
   const capLine = mode === 'matched'
-    ? `capture: <b>matched-filter</b> (real DSP · wall refl. coef ${(cfgReflCoef()).toFixed(2)})`
+    ? `capture: <b>matched-filter</b> (real DSP · wall refl. coef ${(cfgReflCoef()).toFixed(2)} · noise σ ${cfgNoiseSigma().toFixed(2)})`
     : mode === 'distributed'
-      ? `capture: <b>distributed mesh</b> (${s.distributedMatched ? 'matched DSP rows' : 'closed-form rows'} · ${s.meshMessages} msgs delivered${s.meshLost ? `, ${s.meshLost} lost` : ' · no loss'})`
+      ? `capture: <b>distributed mesh</b> (${s.distributedMatched ? `matched DSP rows · noise σ ${cfgNoiseSigma().toFixed(2)}` : 'closed-form rows'} · ${s.meshMessages} msgs delivered${s.meshLost ? `, ${s.meshLost} lost` : ' · no loss'})`
       : `capture: <b>closed-form</b> (perfect direct-path TOA)`;
   reportEl.innerHTML = `
     <div>nodes: <b>${s.nodes.length}</b> · room: ${s.room.width}×${s.room.height} m</div>
@@ -230,6 +236,7 @@ function renderReport(ms, mode) {
 }
 
 function cfgReflCoef() { return parseFloat(ui.reflCoef.value) ?? 0.5; }
+function cfgNoiseSigma() { return parseFloat(ui.noiseSigma.value) ?? 0.05; }
 
 function downloadText(filename, text) {
   const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
@@ -259,6 +266,8 @@ function runSizing() {
         clockSkew: cfg.clockSkew,
         robust: cfg.robust,
         meshLoss: cfg.meshLoss,
+        noiseSigma: cfg.noiseSigma,
+        distributedMatched: cfg.distributedMatched,
         avgShots: cfg.avgShots,
       },
     });
@@ -288,8 +297,9 @@ function runBenchUi() {
       roomH: cfg.room.height,
       scenarioOpts: {
         captureMode: cfg.captureMode,
+        distributedMatched: cfg.distributedMatched,
         reflCoef: cfg.reflCoef,
-        noiseSigma: cfg.captureMode === 'matched' ? 0.05 : undefined,
+        noiseSigma: cfg.noiseSigma,
         earliestPeak: cfg.earliestPeak,
         clockSkew: cfg.clockSkew,
         robust: cfg.robust,
@@ -651,7 +661,7 @@ ui.preset.addEventListener('change', () => {
 });
 ui.showTruth.addEventListener('change', () => { syncUrlFromUi(); renderAdvisories(); draw(); });
 ui.captureSweep.addEventListener('change', () => { syncUrlFromUi(); renderAdvisories(); });
-[ui.nodeCount, ui.seed, ui.roomW, ui.roomH, ui.exponent, ui.distanceLaw, ui.captureMode, ui.reflCoef, ui.meshLoss, ui.avgShots, ui.distributedMatched].forEach((el) =>
+[ui.nodeCount, ui.seed, ui.roomW, ui.roomH, ui.exponent, ui.distanceLaw, ui.captureMode, ui.reflCoef, ui.noiseSigma, ui.meshLoss, ui.avgShots, ui.distributedMatched].forEach((el) =>
   el.addEventListener('change', () => { refreshModeGating(); syncUrlFromUi(); renderAdvisories(); draw(); }));
 ui.earliestPeak.addEventListener('change', () => { refreshModeGating(); syncUrlFromUi(); renderAdvisories(); });
 ui.clockSkew.addEventListener('change', () => { syncUrlFromUi(); renderAdvisories(); });

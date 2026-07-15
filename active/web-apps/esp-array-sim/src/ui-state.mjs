@@ -11,6 +11,7 @@ export const DEFAULT_UI_STATE = Object.freeze({
   captureMode: 'closed',
   distributedMatched: false,
   reflCoef: 0.5,
+  noiseSigma: 0.05,
   meshLoss: 0,
   avgShots: 1,
   earliestPeak: false,
@@ -114,6 +115,7 @@ export function sanitizeUiState(input = {}) {
     captureMode: CAPTURE_MODES.has(base.captureMode) ? base.captureMode : DEFAULT_UI_STATE.captureMode,
     distributedMatched: toBool(base.distributedMatched, DEFAULT_UI_STATE.distributedMatched),
     reflCoef: clampNum(base.reflCoef, 0, 1, DEFAULT_UI_STATE.reflCoef),
+    noiseSigma: clampNum(base.noiseSigma, 0, 1, DEFAULT_UI_STATE.noiseSigma),
     meshLoss: clampNum(base.meshLoss, 0, 1, DEFAULT_UI_STATE.meshLoss),
     avgShots: clampInt(base.avgShots, 1, 32, DEFAULT_UI_STATE.avgShots),
     earliestPeak: toBool(base.earliestPeak, DEFAULT_UI_STATE.earliestPeak),
@@ -137,6 +139,7 @@ export function serializeUiState(input = {}) {
   params.set('mode', s.captureMode);
   if (s.distributedMatched) params.set('dmatch', '1');
   params.set('refl', String(s.reflCoef));
+  params.set('noise', String(s.noiseSigma));
   params.set('loss', String(s.meshLoss));
   params.set('shots', String(s.avgShots));
   if (s.earliestPeak) params.set('ep', '1');
@@ -162,6 +165,7 @@ export function parseUiStateUrl(fragment = '') {
     captureMode: p.get('mode'),
     distributedMatched: p.get('dmatch'),
     reflCoef: p.get('refl'),
+    noiseSigma: p.get('noise'),
     meshLoss: p.get('loss'),
     avgShots: p.get('shots'),
     earliestPeak: p.get('ep'),

@@ -30,7 +30,8 @@ reproduce an interesting case exactly. The controls are now also context-aware: 
 current capture mode ignores are dimmed/disabled, and a small helper line explains which settings
 actually matter for the chosen mode. In distributed mode there's also an advanced toggle to switch
 from closed-form mic rows to **matched-filter DSP rows**, which makes reverb / earliest-peak matter
-across the mesh too.
+across the mesh too. Matched paths now expose **noise σ** as a first-class control, so you can study
+SNR sensitivity directly in both one-off runs and the planning panels.
 
 For hardware planning, `npm run sweep` answers “how many ESP32 nodes do I need?” by printing the
 minimum node count that keeps the **worst-case** localization error under a target (5 cm by default)

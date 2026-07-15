@@ -19,6 +19,7 @@ test('sanitizeUiState clamps numbers and normalizes booleans', () => {
     distanceLaw: -4,
     captureMode: 'bogus',
     reflCoef: 9,
+    noiseSigma: 9,
     meshLoss: -2,
     avgShots: 0,
     earliestPeak: 'yes',
@@ -35,6 +36,7 @@ test('sanitizeUiState clamps numbers and normalizes booleans', () => {
   assert.equal(s.captureMode, DEFAULT_UI_STATE.captureMode);
   assert.equal(s.distributedMatched, false);
   assert.equal(s.reflCoef, 1);
+  assert.equal(s.noiseSigma, 1);
   assert.equal(s.meshLoss, 0);
   assert.equal(s.avgShots, 1);
   assert.equal(s.earliestPeak, true);
@@ -55,6 +57,7 @@ test('serializeUiState + parseUiStateUrl round-trip a custom state', () => {
     captureMode: 'distributed',
     distributedMatched: true,
     reflCoef: 0.8,
+    noiseSigma: 0.2,
     meshLoss: 0.3,
     avgShots: 7,
     earliestPeak: true,
