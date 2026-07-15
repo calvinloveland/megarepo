@@ -299,7 +299,8 @@ can now also be copied straight to the clipboard.
 
 The selected bundle report and the readiness history timeline now support the same copy/download
 workflow, so every human-facing artifact in the simulator can be handed off either as a file or via
-paste.
+paste. To keep that growing set of actions scannable, the browser groups the bundle/snapshot/package
+exports into a dedicated **Handoff** section inside the Scenario panel.
 
 A pure `report-package.mjs` formatter now goes one step further with **Download report package**:
 it concatenates the current analysis snapshot, the selected bundle report, and the readiness history

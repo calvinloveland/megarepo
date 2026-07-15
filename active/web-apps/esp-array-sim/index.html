@@ -28,12 +28,6 @@
           <select id="scanBundle"></select>
         </label>
         <button id="runBundle" class="ghost">Run bundle</button>
-        <button id="downloadBundleTxt" class="ghost" disabled>Download bundle report</button>
-        <button id="copyBundleTxt" class="ghost" disabled>Copy bundle report</button>
-        <button id="downloadSnapshotTxt" class="ghost">Download analysis snapshot</button>
-        <button id="copySnapshotTxt" class="ghost">Copy analysis snapshot</button>
-        <button id="downloadPackageTxt" class="ghost">Download report package</button>
-        <button id="copyPackageTxt" class="ghost">Copy report package</button>
         <button id="copyLink" class="ghost">Copy share link</button>
       </div>
       <label>Scenario notes
@@ -44,6 +38,30 @@
           <select id="notePreset"></select>
         </label>
         <button id="applyNotePreset" class="ghost tiny">Add note tag</button>
+      </div>
+      <h3>Handoff</h3>
+      <div class="handoff-grid">
+        <div class="artifact-group">
+          <div class="artifact-title">Bundle report</div>
+          <div class="row compact-row">
+            <button id="downloadBundleTxt" class="ghost tiny" disabled>Download</button>
+            <button id="copyBundleTxt" class="ghost tiny" disabled>Copy</button>
+          </div>
+        </div>
+        <div class="artifact-group">
+          <div class="artifact-title">Analysis snapshot</div>
+          <div class="row compact-row">
+            <button id="downloadSnapshotTxt" class="ghost tiny">Download</button>
+            <button id="copySnapshotTxt" class="ghost tiny">Copy</button>
+          </div>
+        </div>
+        <div class="artifact-group">
+          <div class="artifact-title">Report package</div>
+          <div class="row compact-row">
+            <button id="downloadPackageTxt" class="ghost tiny">Download</button>
+            <button id="copyPackageTxt" class="ghost tiny">Copy</button>
+          </div>
+        </div>
       </div>
       <div class="grid2">
         <label>Nodes
