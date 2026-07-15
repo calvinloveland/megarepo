@@ -34,7 +34,8 @@ across the mesh too. Matched paths now expose **noise σ** as a first-class cont
 SNR sensitivity directly in both one-off runs and the planning panels. There is also now a **Mode
 comparison** panel that runs the same room/seed through closed, matched, and distributed paths
 side-by-side so you can compare accuracy, observation count, and mesh message cost without manually
-flipping controls.
+flipping controls. That panel can now export its text report and jump the main simulator controls to
+any compared row with one click.
 
 For hardware planning, `npm run sweep` answers “how many ESP32 nodes do I need?” by printing the
 minimum node count that keeps the **worst-case** localization error under a target (5 cm by default)

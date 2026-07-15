@@ -32,6 +32,7 @@ const benchReportEl = document.getElementById('benchReport');
 const benchSummaryEl = document.getElementById('benchSummary');
 const compareReportEl = document.getElementById('compareReport');
 const compareSummaryEl = document.getElementById('compareSummary');
+const compareActionsEl = document.getElementById('compareActions');
 const advisoriesEl = document.getElementById('advisories');
 
 const ui = {
@@ -72,6 +73,7 @@ const ui = {
   runBench: document.getElementById('runBench'),
   downloadBenchTxt: document.getElementById('downloadBenchTxt'),
   runCompare: document.getElementById('runCompare'),
+  downloadCompareTxt: document.getElementById('downloadCompareTxt'),
 };
 
 // Colours keyed by channel id for the on-canvas glow + mapping bars.
@@ -299,6 +301,9 @@ function runCompareUi() {
     state.compare = { rows, text };
     compareSummaryEl.textContent = summarizeComparison(rows);
     compareReportEl.textContent = text;
+    compareActionsEl.innerHTML = rows.map((row, i) =>
+      `<button class="ghost tiny" data-compare-row="${i}">Use ${row.label}</button>`).join(' ');
+    ui.downloadCompareTxt.disabled = false;
     statusEl.textContent = 'Mode comparison done.';
   });
 }
@@ -650,6 +655,10 @@ ui.downloadSizingCsv.addEventListener('click', () => {
 });
 ui.runBench.addEventListener('click', runBenchUi);
 ui.runCompare.addEventListener('click', runCompareUi);
+ui.downloadCompareTxt.addEventListener('click', () => {
+  if (!state.compare) return;
+  downloadText('esp-array-mode-comparison.txt', state.compare.text);
+});
 ui.downloadBenchTxt.addEventListener('click', () => {
   if (!state.bench) return;
   downloadText('esp-array-benchmark.txt', state.bench.text);
@@ -672,6 +681,18 @@ advisoriesEl.addEventListener('click', (ev) => {
   const btn = ev.target.closest('[data-advisory-action]');
   if (!btn) return;
   applyAdvisoryAction(btn.dataset.advisoryAction);
+});
+compareActionsEl.addEventListener('click', (ev) => {
+  const btn = ev.target.closest('[data-compare-row]');
+  if (!btn || !state.compare) return;
+  const row = state.compare.rows[Number(btn.dataset.compareRow)];
+  if (!row) return;
+  ui.captureMode.value = row.captureMode;
+  ui.distributedMatched.checked = row.distributedMatched;
+  refreshModeGating();
+  syncUrlFromUi();
+  renderAdvisories();
+  runIt();
 });
 ui.preset.addEventListener('change', () => {
   if (ui.preset.value === 'custom') return;
