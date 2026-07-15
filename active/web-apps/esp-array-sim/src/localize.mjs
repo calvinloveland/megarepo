@@ -19,69 +19,74 @@ const SELF_PATH = 0.02;
 
 /**
  * Flatten the free parameter vector:
- *   [x1, x2, y2, x3, y3, ..., x_{n-1}, y_{n-1}, off1, off2, ..., off_{n-1}]
- * where N0 is anchored at (0,0) and N1 is on the +x axis (y1 = 0).
+ *   [x1, x2, y2, ..., x_{n-1}, y_{n-1}, off1..off_{n-1}, skew1..skew_{n-1}]
+ * where N0 is anchored at (0,0), N1 is on the +x axis (y1 = 0), off0 = skew0 = 0
+ * as the clock reference. The skew block is present only when `withSkew`.
  */
-export function packParams(pos, off) {
+export function packParams(pos, off, skew = null) {
   const n = pos.length;
   const p = [pos[1].x]; // gauge: N1 on x-axis
   for (let i = 2; i < n; i++) p.push(pos[i].x, pos[i].y);
   for (let i = 1; i < n; i++) p.push(off[i]);
+  if (skew) for (let i = 1; i < n; i++) p.push(skew[i]);
   return p;
 }
 
-/** Inverse of packParams — rebuild full pos[] and off[] arrays from the free vector. */
-export function unpackParams(p, n) {
+/** Inverse of packParams — rebuild full pos[]/off[]/skew[] from the free vector. */
+export function unpackParams(p, n, withSkew = false) {
   const pos = new Array(n);
   const off = new Array(n).fill(0);
+  const skew = new Array(n).fill(0);
   pos[0] = { x: 0, y: 0 };
   pos[1] = { x: p[0], y: 0 };
   let k = 1;
   for (let i = 2; i < n; i++) pos[i] = { x: p[k++], y: p[k++] };
   for (let i = 1; i < n; i++) off[i] = p[k++];
-  return { pos, off };
+  if (withSkew) for (let i = 1; i < n; i++) skew[i] = p[k++];
+  return { pos, off, skew };
 }
 
 /** Number of free parameters for n nodes. */
-export function freeDim(n) {
-  return 2 * n - 3 + (n - 1); // gauge positions + offsets
+export function freeDim(n, withSkew = false) {
+  return 2 * n - 3 + (n - 1) + (withSkew ? n - 1 : 0); // positions(offset+gauge) + offsets + skew
 }
 
-/** Predicted arrival for one observation given current estimates. */
-export function predictedArrival(pos, off, obs, c = SPEED_OF_SOUND) {
+/** Predicted arrival on the listener's clock: offset_i + (1+skew_i)·(emit + d/c). */
+export function predictedArrival(pos, off, skew, obs, c = SPEED_OF_SOUND) {
   const d =
     obs.emitterId === obs.listenerId
       ? SELF_PATH
       : distance(pos[obs.emitterId], pos[obs.listenerId]);
-  return obs.emitClockSec + propagationDelay(d, c) + off[obs.listenerId];
+  const base = obs.emitClockSec + propagationDelay(d, c);
+  return off[obs.listenerId] + (1 + (skew[obs.listenerId] ?? 0)) * base;
 }
 
 /** Residual vector r(p) = predicted − measured, one entry per observation. */
-export function residuals(p, observations, n, c = SPEED_OF_SOUND) {
-  const { pos, off } = unpackParams(p, n);
-  return observations.map((o) => predictedArrival(pos, off, o, c) - o.arrivalClockSec);
+export function residuals(p, observations, n, c = SPEED_OF_SOUND, withSkew = false) {
+  const { pos, off, skew } = unpackParams(p, n, withSkew);
+  return observations.map((o) => predictedArrival(pos, off, skew, o, c) - o.arrivalClockSec);
 }
 
 /** Sum-of-squares cost. */
-export function cost(p, observations, n, c = SPEED_OF_SOUND) {
-  const r = residuals(p, observations, n, c);
+export function cost(p, observations, n, c = SPEED_OF_SOUND, withSkew = false) {
+  const r = residuals(p, observations, n, c, withSkew);
   let s = 0;
   for (const v of r) s += v * v;
   return s;
 }
 
 /** Numerical Jacobian (central differences). Reference + fallback for the analytic version. */
-export function numericalJacobian(p, observations, n, c = SPEED_OF_SOUND) {
+export function numericalJacobian(p, observations, n, c = SPEED_OF_SOUND, withSkew = false) {
   const m = observations.length;
   const cols = p.length;
   const J = Array.from({ length: m }, () => new Array(cols).fill(0));
-  const eps = 1e-6;
+  const eps = 1e-8;
   for (let j = 0; j < cols; j++) {
     const pp = p.slice();
     pp[j] += eps;
-    const rp = residuals(pp, observations, n, c);
+    const rp = residuals(pp, observations, n, c, withSkew);
     pp[j] = p[j] - eps;
-    const rm = residuals(pp, observations, n, c);
+    const rm = residuals(pp, observations, n, c, withSkew);
     for (let i = 0; i < m; i++) J[i][j] = (rp[i] - rm[i]) / (2 * eps);
   }
   return J;
@@ -104,6 +109,11 @@ function freeOffIndex(node, n) {
   if (node === 0) return -1;
   return 1 + 2 * (n - 2) + (node - 1);
 }
+/** Index of the free skew param for `node` (-1 when absent or the reference node 0). */
+function freeSkewIndex(node, n, withSkew) {
+  if (!withSkew || node === 0) return -1;
+  return 1 + 2 * (n - 2) + (n - 1) + (node - 1);
+}
 
 /**
  * Analytic Jacobian of the residual vector w.r.t. the free parameters.
@@ -111,8 +121,8 @@ function freeOffIndex(node, n) {
  * the emitter and listener (plus that listener's offset). ~single-eval cost
  * instead of 2·cols residual sweeps like the numerical version.
  */
-export function analyticJacobian(p, observations, n, c = SPEED_OF_SOUND) {
-  const { pos, off } = unpackParams(p, n);
+export function analyticJacobian(p, observations, n, c = SPEED_OF_SOUND, withSkew = false) {
+  const { pos, off, skew } = unpackParams(p, n, withSkew);
   const m = observations.length;
   const cols = p.length;
   const J = Array.from({ length: m }, () => new Array(cols).fill(0));
@@ -121,25 +131,31 @@ export function analyticJacobian(p, observations, n, c = SPEED_OF_SOUND) {
     const row = new Array(cols).fill(0);
     const s = pos[o.emitterId];
     const li = pos[o.listenerId];
-    // clock-offset partial: d(residual)/d(off_listener) = 1
+    const liSkew = skew[o.listenerId] ?? 0;
+    const self = o.emitterId === o.listenerId;
+    const d = self ? SELF_PATH : distance(s, li);
+    const base = o.emitClockSec + propagationDelay(d, c); // emit + d/c on true/shared clock
+    const rate = 1 + liSkew;
+    // ∂(residual)/∂(off_listener) = 1
     const oi = freeOffIndex(o.listenerId, n);
     if (oi >= 0) row[oi] = 1;
-    if (o.emitterId !== o.listenerId) {
-      const dx = s.x - li.x;
-      const dy = s.y - li.y;
-      const d = Math.hypot(dx, dy) || 1e-9;
-      const inv = 1 / (c * d);
-      // d(residual)/d(p_s) = +unit/c ; d/d(p_i) = -unit/c
+    // ∂(residual)/∂(skew_listener) = base (rate multiplies base; skew derivative = base)
+    const si = freeSkewIndex(o.listenerId, n, withSkew);
+    if (si >= 0) row[si] = base;
+    if (!self) {
+      const dx = s.x - li.x, dy = s.y - li.y;
+      const dist = Math.hypot(dx, dy) || 1e-9;
+      // ∂base/∂p_s = +unit/c, ∂base/∂p_i = -unit/c; the upward ((1+skew)) scales it
       for (const [pt, sign] of [
         [o.emitterId, +1],
         [o.listenerId, -1],
       ]) {
         const sx = freeXIndex(pt);
         const sy = freeYIndex(pt);
-        if (sx >= 0) row[sx] += sign * dx * inv;
-        if (sy >= 0) row[sy] += sign * dy * inv;
+        if (sx >= 0) row[sx] += sign * rate * (dx / dist) / c;
+        if (sy >= 0) row[sy] += sign * rate * (dy / dist) / c;
       }
-    } // self-arrival: distance is the fixed SELF_PATH, so no position partials
+    } // self-arrival: fixed SELF_PATH => no position partials
     J[i] = row;
   }
   return J;
@@ -181,20 +197,21 @@ export function localize(p0, observations, n, opts = {}) {
   const maxIters = opts.maxIters ?? 100;
   const lambda0 = opts.lambda ?? 1e-3;
   const tol = opts.tol ?? 1e-14;
+  const withSkew = opts.withSkew ?? false;
   let lambda = lambda0;
   let cur = p0.slice();
-  let curCost = cost(cur, observations, n, c);
+  let curCost = cost(cur, observations, n, c, withSkew);
   const costs = [curCost];
   let converged = false;
   for (let iter = 0; iter < maxIters; iter++) {
     const J = opts.analytic === false
-      ? numericalJacobian(cur, observations, n, c)
-      : analyticJacobian(cur, observations, n, c);
+      ? numericalJacobian(cur, observations, n, c, withSkew)
+      : analyticJacobian(cur, observations, n, c, withSkew);
     const m = observations.length;
     const cols = cur.length;
     const JtJ = Array.from({ length: cols }, () => new Array(cols).fill(0));
     const Jtr = new Array(cols).fill(0);
-    const r = residuals(cur, observations, n, c);
+    const r = residuals(cur, observations, n, c, withSkew);
     for (let i = 0; i < m; i++) {
       for (let a = 0; a < cols; a++) {
         Jtr[a] += J[i][a] * r[i];
@@ -212,7 +229,7 @@ export function localize(p0, observations, n, opts = {}) {
       continue;
     }
     const trial = cur.map((v, i) => v + delta[i]);
-    const trialCost = cost(trial, observations, n, c);
+    const trialCost = cost(trial, observations, n, c, withSkew);
     if (trialCost < curCost) {
       cur = trial;
       const rel = (curCost - trialCost) / (curCost + 1e-18);
@@ -228,21 +245,23 @@ export function localize(p0, observations, n, opts = {}) {
       if (lambda > 1e11) break; // unable to descend
     }
   }
-  const { pos, off } = unpackParams(cur, n);
-  return { pos, off, iterations: costs.length - 1, costs, converged };
+  const { pos, off, skew } = unpackParams(cur, n, withSkew);
+  return { pos, off, skew, iterations: costs.length - 1, costs, converged };
 }
 
 /**
  * Random initial guess: scatter nodes uniformly in the room then apply the
  * gauge (N0 at origin, N1 on +x). Good for multistart restarts.
  */
-export function randomGuess(n, room, rng) {
+export function randomGuess(n, room, rng, withSkew = false) {
   const pos = new Array(n);
   for (let i = 0; i < n; i++)
     pos[i] = { x: rng() * room.width, y: rng() * room.height };
   pos[0] = { x: 0, y: 0 };
   pos[1] = { x: pos[1].x || 0.1, y: 0 };
-  return packParams(pos, new Array(n).fill(0));
+  const off = new Array(n).fill(0);
+  const skew = withSkew ? new Array(n).fill(0) : null;
+  return packParams(pos, off, skew);
 }
 
 /**
@@ -254,9 +273,9 @@ export function randomGuess(n, room, rng) {
 export function localizeBest(observations, n, room, opts = {}) {
   const starts = opts.starts ?? 6;
   const seedRng = opts.seedRng ?? (() => Math.random());
-  let best = localize(initialGuess(n, room), observations, n, opts);
+  let best = localize(initialGuess(n, room, opts), observations, n, opts);
   for (let k = 1; k < starts; k++) {
-    const cand = localize(randomGuess(n, room, seedRng), observations, n, opts);
+    const cand = localize(randomGuess(n, room, seedRng, opts.withSkew), observations, n, opts);
     if (cand.costs.at(-1) < best.costs.at(-1)) best = cand;
   }
   return { ...best, starts };
@@ -266,7 +285,8 @@ export function localizeBest(observations, n, room, opts = {}) {
  * Initial guess: spread nodes along a coarse grid ignoring the true layout.
  * Good enough to fall inside the LM basin for small rooms.
  */
-export function initialGuess(n, room) {
+export function initialGuess(n, room, opts = {}) {
+  const withSkew = opts.withSkew ?? false;
   const pos = new Array(n);
   const cols = Math.max(1, Math.ceil(Math.sqrt(n)));
   const rows = Math.max(1, Math.ceil(n / cols));
@@ -280,7 +300,8 @@ export function initialGuess(n, room) {
   pos[0] = { x: 0, y: 0 };
   pos[1] = { x: pos[1].x || dx, y: 0 };
   const off = new Array(n).fill(0);
-  return packParams(pos, off);
+  const skew = withSkew ? new Array(n).fill(0) : null;
+  return packParams(pos, off, skew);
 }
 
 /**

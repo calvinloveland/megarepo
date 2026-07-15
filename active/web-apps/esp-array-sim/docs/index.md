@@ -99,11 +99,21 @@ random/deterministic seeds (mirror-resolved, ~cm free-field), image-source geome
 mild-reverb & hard-wall matched capture, occluder echo bias, earliest-vs-strongest echo handling,
 nearby TOA matched-filter accuracy, the surround routing edge cases, and a live server smoke test.
 
+## Clock model & skew estimation (`world.mjs`, `localize.mjs`)
+
+Each node's clock is `offset_i + (1 + skew_i) · true_time` — a residual offset *and*
+a fractional rate error (skew) left after the coarse WiFi sync, mirroring real crystal
+tolerance. `cfg.clockSkew` arms random skews (±50 ppm by default) and the joint LM
+solver estimates one skew per node (gauge: skew₀ = 0) alongside positions+offsets.
+The extra free block is opt-in (`withSkew`); the free-field baseline is unchanged.
+Observability is weak over the short (~1.8 s) default sweep, so recovery is loose —
+a longer calibration sweep or a higher-skew crystal tightens it. Tests show skew-aware
+estimation recovers geometry and skews, while ignoring skew degrades it.
+
 ## Open follow-ups
 
 - Sub-sample parabolic interpolation around the matched-filter peak (bring single-mic TOA from
   ~few cm toward the sample-quantization floor).
-- Per-listener clock skew (not just offset) and the joint skew/offset solver.
 - Browser E2E (Playwright) once a Nix-managed Chromium is wired via `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH`.
 - Distributed, streaming variant of the solver suitable to actually run on ESP32s (mesh gossip).
 - Real audio I/O on the simulator (Web Audio chirp playback + capture) before porting to firmware.

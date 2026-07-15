@@ -43,11 +43,13 @@ export function simulateCaptures(nodes, schedule) {
       const d = s.id === li.id ? li.selfPath : distance(s.pos, li.pos);
       const base = ev.emitClockSec + propagationDelay(d);
       const jitter = gaussianNoise(makeLocalRng(ev.emitterId, li.id), li.micJitterSec);
+      // Listener clock = offset_i + (1 + skew_i) * true_time, so the recorded
+      // arrival is offset + (1+skew)·base. With skew=0 this is the old formula.
       obs.push({
         emitterId: s.id,
         listenerId: li.id,
         distanceM: d,
-        arrivalClockSec: base + li.clockOffsetSec + jitter,
+        arrivalClockSec: li.clockOffsetSec + (1 + li.clockSkew) * base + jitter,
         emitClockSec: ev.emitClockSec,
       });
     }
@@ -163,12 +165,16 @@ function buildObservation(s, li, ev, paths, chirp, sr, noiseSigma, c, captureOpt
     mode: captureOpts.estimatorMode ?? 'strongest',
     peakThreshold: captureOpts.peakThreshold ?? 0.5,
   });
+  // Matched mode approximates the skewed listener clock by applying (1+skew)
+  // to the (emit + estimated true delay) time base, consistent with the
+  // closed-form capture's model.
+  const arrival = li.clockOffsetSec + (1 + li.clockSkew) * (ev.emitClockSec + timeSec);
   return {
     emitterId: s.id,
     listenerId: li.id,
     distanceM: s.id === li.id ? li.selfPath : distance(s.pos, li.pos),
     emitClockSec: ev.emitClockSec,
-    arrivalClockSec: ev.emitClockSec + timeSec + li.clockOffsetSec,
+    arrivalClockSec: arrival,
     // diagnostic: the arrivals the estimator had to choose among
     arrivalPaths: paths.map((p) => ({ delaySec: p.delaySec, amplitude: p.amplitude, kind: p.kind })),
     estimatedDirectSec: timeSec,

@@ -37,6 +37,7 @@ export function vec(x, y) {
  * @property {string} label          short label like "N0"
  * @property {Vec2} pos              true position in metres (simulator only)
  * @property {number} clockOffsetSec  residual offset of this node's clock after WiFi sync
+ * @property {number} clockSkew      fractional clock-rate error vs shared time (e.g. 50e-6)
  * @property {number} micJitterSec   per-arrival timing noise (imperfect TOA estimation)
  * @property {number} selfPath       speaker→own-mic path length (m)
  */
@@ -51,9 +52,10 @@ export function vec(x, y) {
  * @param {function} rng
  * @param {number} [marginM] keep nodes off the walls
  * @param {number} [minSepM] minimum node-to-node separation
+ * @param {object} [opts] { skewMaxPpm?: number } per-node clock-skew range
  * @returns {MeshNode[]}
  */
-export function randomLayout(count, room, rng, marginM = 0.6, minSepM = 0.8) {
+export function randomLayout(count, room, rng, marginM = 0.6, minSepM = 0.8, opts = {}) {
   const nodes = [];
   let attempts = 0;
   while (nodes.length < count && attempts < 10000) {
@@ -61,7 +63,7 @@ export function randomLayout(count, room, rng, marginM = 0.6, minSepM = 0.8) {
     const x = marginM + rng() * (room.width - 2 * marginM);
     const y = marginM + rng() * (room.height - 2 * marginM);
     if (nodes.every((n) => Math.hypot(n.pos.x - x, n.pos.y - y) >= minSepM)) {
-      nodes.push(makeNode(nodes.length, x, y, rng));
+      nodes.push(makeNode(nodes.length, x, y, rng, { skewMaxPpm: opts.skewMaxPpm ?? 0 }));
     }
   }
   if (nodes.length < count) {
@@ -73,13 +75,19 @@ export function randomLayout(count, room, rng, marginM = 0.6, minSepM = 0.8) {
 }
 
 /** Build a single node. */
-export function makeNode(id, x, y, rng, selfPath = SELF_PATH) {
+export function makeNode(id, x, y, rng, opts = {}) {
+  const skewMaxPpm = opts.skewMaxPpm ?? 0;
+  const selfPath = opts.selfPath ?? SELF_PATH;
   return {
     id,
     label: `N${id}`,
     pos: { x, y },
     // residual clock offset after WiFi sync: ±0.1 ms ≈ ±3.4 cm equiv.
     clockOffsetSec: (rng() * 2 - 1) * 1e-4,
+    // residual clock-rate (skew) error: ±skewMaxPpm ppm of the shared clock.
+    // Firmware multi-source this from crystal tolerance; estimating it from the
+    // sweep is what this option exercises.
+    clockSkew: (rng() * 2 - 1) * skewMaxPpm * 1e-6,
     micJitterSec: 2e-5, // 20µs TOA estimation jitter ≈ 7 mm
     selfPath,
   };

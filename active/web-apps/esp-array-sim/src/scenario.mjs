@@ -25,8 +25,12 @@ export function runScenario(cfg = {}) {
   const rng = makeRng(seed);
   const room = cfg.room ?? { width: 6, height: 5 };
   const nodeCount = cfg.nodeCount ?? 6;
+  const skewMaxPpm = cfg.clockSkew ? (cfg.skewMaxPpm ?? 50) : 0;
+  // Skewed nodes can be present (clockSkew) while the solver ignores skew
+  // (estimateSkew:false) — used to show the degradation skew estimation fixes.
+  const withSkew = cfg.estimateSkew ?? (!!cfg.clockSkew);
 
-  const nodes = randomLayout(nodeCount, room, rng);
+  const nodes = randomLayout(nodeCount, room, rng, undefined, undefined, { skewMaxPpm });
   const schedule = makeEmitSchedule(nodes);
   const observations =
     cfg.captureMode === 'matched'
@@ -45,6 +49,7 @@ export function runScenario(cfg = {}) {
   const sol = localizeBest(observations, nodes.length, room, {
     starts: cfg.starts ?? 8,
     seedRng: rng, // deterministic restarts -> reproducible scenarios
+    withSkew,
   });
   const truth = nodes.map((n) => ({ x: n.pos.x, y: n.pos.y }));
 
@@ -89,5 +94,8 @@ export function runScenario(cfg = {}) {
     channels: CHANNELS_5_1,
     clockOffsetsTrue: nodes.map((n) => n.clockOffsetSec),
     clockOffsetsEst: sol.off,
+    clockSkewsTrue: nodes.map((n) => n.clockSkew),
+    clockSkewsEst: sol.skew ?? nodes.map(() => 0),
+    withSkew,
   };
 }

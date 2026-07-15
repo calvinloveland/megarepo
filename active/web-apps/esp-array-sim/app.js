@@ -22,6 +22,7 @@ const ui = {
   captureMode: document.getElementById('captureMode'),
   reflCoef: document.getElementById('reflCoef'),
   earliestPeak: document.getElementById('earliestPeak'),
+  clockSkew: document.getElementById('clockSkew'),
   showTruth: document.getElementById('showTruth'),
   captureSweep: document.getElementById('captureSweep'),
   run: document.getElementById('run'),
@@ -56,6 +57,7 @@ function readConfig() {
     captureMode: ui.captureMode.value,
     reflCoef: parseFloat(ui.reflCoef.value) ?? 0.5,
     earliestPeak: ui.earliestPeak.checked,
+    clockSkew: ui.clockSkew.checked,
   };
 }
 
@@ -97,6 +99,7 @@ function renderReport(ms, mode) {
     <div>residual cost: ${resid.toExponential(2)} s²</div>
     <div>solver: ${s.solution.converged ? 'converged' : 'hit iteration cap'} · ${s.solution.iterations} LM iters from ${s.solution.starts} starts</div>
     <div>clock-offset est. RMS: ${(offsetRms * 1e6).toFixed(1)} µs (truth offset ±0.1 ms after WiFi sync)</div>
+    ${s.withSkew ? `<div>clock-skew est. RMS: ${(rmsError(s.clockSkewsTrue, s.clockSkewsEst) * 1e6).toFixed(1)} ppm (truth ±50 ppm)</div>` : ''}
     <div>speed of sound: ${SPEED_OF_SOUND} m/s · ${s.observations.length} acoustic observations</div>
   `;
 }
@@ -344,6 +347,7 @@ ui.showTruth.addEventListener('change', draw);
 [ui.nodeCount, ui.seed, ui.roomW, ui.roomH, ui.exponent, ui.distanceLaw, ui.captureMode, ui.reflCoef].forEach((el) =>
   el.addEventListener('change', draw));
 ui.earliestPeak.addEventListener('change', draw);
+ui.clockSkew.addEventListener('change', draw);
 
 // Expose state for Playwright/inspection (per repo convention for vanilla-JS UIs).
 window.espArraySim = { state, runIt, readConfig, playChannel, stopChannel };
