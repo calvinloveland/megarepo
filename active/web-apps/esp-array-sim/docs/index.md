@@ -118,6 +118,25 @@ degraded-but-still-localizable regime the firmware must tolerate. `scenario.capt
 runs the whole pipeline distributed and reports `meshMessages`/`meshLost`. UI surfaces it as a
 capture-mode option plus a mesh packet-loss slider.
 
+## Solver benchmark (`bench.mjs`)
+
+Before firmware, we still need to know whether the joint LM is *fast enough* to
+run as a one-time calibration solve on a future mesh. `bench.mjs` measures
+wall-clock vs. node count using the realistic hardened path (matched capture +
+earliest-peak + robust IRLS + 8 multistarts). The current benchmark on this
+host is roughly:
+
+- 4 nodes: ~35 ms
+- 8 nodes: ~210 ms
+- 12 nodes: ~640 ms
+
+So the solver is comfortably inside a “re-seat the couch / run calibration once”
+budget even at 12 nodes. The cost scales roughly quadratically-ish, matching the
+O(n²) observation matrix times multistart/IRLS iterations, and the benchmark has
+regression tests to catch accidental algorithmic blowups.
+
+Run it with `npm run bench` or `node bin/bench.mjs --nodes 4,8,12 --repeats 3`.
+
 ## Evaluation sweep (`sweep.mjs`)
 
 `runSweep` runs the localization pipeline across a (node × capture-mode × wall-reflection)
