@@ -19,12 +19,15 @@ import { runScenario } from './scenario.mjs';
  * @param {object} cfg
  * @param {number[]} [cfg.nodeCounts]   default [4,6,8,10,12]
  * @param {number} [cfg.repeats]        runs per node count (averaged)
+ * @param {number} [cfg.roomW]          room width passed to runScenario
+ * @param {number} [cfg.roomH]          room height passed to runScenario
  * @param {object} [cfg.scenarioOpts]   passed to runScenario (captureMode, robust, etc.)
  * @returns {BenchPoint[]}
  */
 export function runBench(cfg = {}) {
   const nodeCounts = cfg.nodeCounts ?? [4, 6, 8, 10, 12];
   const repeats = cfg.repeats ?? 3;
+  const room = { width: cfg.roomW ?? 8, height: cfg.roomH ?? 6 };
   const so = cfg.scenarioOpts ?? {
     captureMode: 'matched', reflCoef: 0.3, noiseSigma: 0.05,
     earliestPeak: true, robust: 5e-5, starts: 8,
@@ -35,7 +38,7 @@ export function runBench(cfg = {}) {
     let iters = 0, err = 0;
     for (let r = 0; r < repeats; r++) {
       const t0 = process.hrtime.bigint();
-      const s = runScenario({ ...so, nodeCount, seed: 100 + r, room: { width: 8, height: 6 } });
+      const s = runScenario({ ...so, nodeCount, seed: 100 + r, room });
       times.push(Number(process.hrtime.bigint() - t0) / 1e6);
       iters += s.solution.iterations;
       err += s.alignErrorM;

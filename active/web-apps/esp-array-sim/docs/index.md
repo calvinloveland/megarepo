@@ -139,6 +139,9 @@ O(n²) observation matrix times multistart/IRLS iterations, and the benchmark ha
 regression tests to catch accidental algorithmic blowups.
 
 Run it with `npm run bench` or `node bin/bench.mjs --nodes 4,8,12 --repeats 3`.
+The browser mirrors it in a **Calibration latency** panel that benchmarks the
+current UI settings (mode / reverb / robust / averaging / skew) across node
+counts and prints the per-count wall-clock right in the app.
 
 ## Evaluation sweep (`sweep.mjs`)
 

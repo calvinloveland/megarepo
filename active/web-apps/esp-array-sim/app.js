@@ -7,6 +7,7 @@ import { SPEED_OF_SOUND } from './src/acoustics.mjs';
 import { renderChannelAtSweetSpot, renderPeakConcentration, channelSeparation } from './src/render.mjs';
 import { linearChirp } from './src/dsp.mjs';
 import { runSweep, formatSweep, minNodesFor, formatMinNodes } from './src/sweep.mjs';
+import { runBench, formatBench } from './src/bench.mjs';
 import {
   PRESETS,
   sanitizeUiState,
@@ -23,6 +24,7 @@ const reportEl = document.getElementById('report');
 const mappingEl = document.getElementById('mapping');
 const channelStatusEl = document.getElementById('channelStatus');
 const sizingReportEl = document.getElementById('sizingReport');
+const benchReportEl = document.getElementById('benchReport');
 
 const ui = {
   preset: document.getElementById('preset'),
@@ -49,6 +51,8 @@ const ui = {
   sizingTargetCm: document.getElementById('sizingTargetCm'),
   sizingTrials: document.getElementById('sizingTrials'),
   runSizing: document.getElementById('runSizing'),
+  benchRepeats: document.getElementById('benchRepeats'),
+  runBench: document.getElementById('runBench'),
 };
 
 // Colours keyed by channel id for the on-canvas glow + mapping bars.
@@ -211,6 +215,34 @@ function runSizing() {
     statusEl.textContent = rec?.minNodes == null
       ? `Sizing done: infeasible in 4–12 nodes for ≤${(targetM * 100).toFixed(0)} cm worst-case.`
       : `Sizing done: need at least ${rec.minNodes} nodes for ≤${(targetM * 100).toFixed(0)} cm worst-case.`;
+  });
+}
+
+function runBenchUi() {
+  statusEl.textContent = 'Running calibration benchmark…';
+  requestAnimationFrame(() => {
+    const cfg = readConfig();
+    const repeats = Math.max(1, parseInt(ui.benchRepeats.value, 10) || 3);
+    const points = runBench({
+      nodeCounts: [4, 6, 8, 10, 12],
+      repeats,
+      roomW: cfg.room.width,
+      roomH: cfg.room.height,
+      scenarioOpts: {
+        captureMode: cfg.captureMode,
+        reflCoef: cfg.reflCoef,
+        noiseSigma: cfg.captureMode === 'matched' ? 0.05 : undefined,
+        earliestPeak: cfg.earliestPeak,
+        clockSkew: cfg.clockSkew,
+        robust: cfg.robust,
+        meshLoss: cfg.meshLoss,
+        avgShots: cfg.avgShots,
+        starts: 8,
+      },
+    });
+    benchReportEl.textContent = formatBench(points);
+    const worst = Math.max(...points.map((p) => p.worstMs));
+    statusEl.textContent = `Benchmark done: worst calibration solve ${worst.toFixed(0)} ms.`;
   });
 }
 
@@ -479,6 +511,7 @@ ui.reseed.addEventListener('click', () => { ui.seed.value = (Math.random() * 1e9
 ui.playChannel.addEventListener('click', playChannel);
 ui.stopChannel.addEventListener('click', stopChannel);
 ui.runSizing.addEventListener('click', runSizing);
+ui.runBench.addEventListener('click', runBenchUi);
 ui.copyLink.addEventListener('click', async () => {
   syncUrlFromUi();
   const url = window.location.href;
@@ -510,7 +543,7 @@ const initialUiState = parseUiStateUrl(window.location.hash);
 applyUiState(initialUiState);
 
 // Expose state for Playwright/inspection (per repo convention for vanilla-JS UIs).
-window.espArraySim = { state, runIt, runSizing, readConfig, readUiState, applyUiState, playChannel, stopChannel };
+window.espArraySim = { state, runIt, runSizing, runBenchUi, readConfig, readUiState, applyUiState, playChannel, stopChannel };
 
 // First paint.
 runIt();

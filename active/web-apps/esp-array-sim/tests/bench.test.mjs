@@ -38,6 +38,12 @@ test('per-node cost scales roughly quadratically-ish (matches O(n^2) observation
   assert.ok(r12 / r6 < 15, `12-node shouldn't be >15× the 6-node cost (got ${(r12 / r6).toFixed(1)}×)`);
 });
 
+test('runBench accepts a custom room size and still solves', () => {
+  const pts = runBench({ nodeCounts: [5], repeats: 1, roomW: 10, roomH: 7 });
+  assert.equal(pts.length, 1);
+  assert.ok(pts[0].alignErrorM < 0.05, 'custom room still localizes');
+});
+
 test('formatBench renders a header and one line per point', () => {
   const pts = runBench({ nodeCounts: [4], repeats: 1 });
   const txt = formatBench(pts);

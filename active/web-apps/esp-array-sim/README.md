@@ -33,7 +33,8 @@ minimum node count that keeps the **worst-case** localization error under a targ
 for each capture mode / reverb level. The browser now exposes the same analysis in a **Hardware
 sizing** panel, scoped to the current mode / reverb / robust / averaging settings, so you can answer
 that question without leaving the app. `npm run bench` answers the complementary performance
-question: how long a one-time calibration solve takes as node count grows.
+question: how long a one-time calibration solve takes as node count grows, and the browser mirrors
+that too in a **Calibration latency** panel for the current algorithm settings.
 
 ## How it works
 
