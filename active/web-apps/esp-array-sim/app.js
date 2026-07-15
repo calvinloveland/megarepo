@@ -10,6 +10,7 @@ import { runSweep, formatSweep, minNodesFor, formatMinNodes, summarizeMinNodes, 
 import { runBench, formatBench, summarizeBench } from './src/bench.mjs';
 import { assessAdvisories } from './src/advisories.mjs';
 import { compareModes, formatComparison, summarizeComparison } from './src/compare.mjs';
+import { scanNoiseSensitivity, formatNoiseScan, summarizeNoiseScan } from './src/noise-scan.mjs';
 import {
   PRESETS,
   sanitizeUiState,
@@ -33,6 +34,8 @@ const benchSummaryEl = document.getElementById('benchSummary');
 const compareReportEl = document.getElementById('compareReport');
 const compareSummaryEl = document.getElementById('compareSummary');
 const compareActionsEl = document.getElementById('compareActions');
+const noiseReportEl = document.getElementById('noiseReport');
+const noiseSummaryEl = document.getElementById('noiseSummary');
 const advisoriesEl = document.getElementById('advisories');
 
 const ui = {
@@ -74,6 +77,7 @@ const ui = {
   downloadBenchTxt: document.getElementById('downloadBenchTxt'),
   runCompare: document.getElementById('runCompare'),
   downloadCompareTxt: document.getElementById('downloadCompareTxt'),
+  runNoiseScan: document.getElementById('runNoiseScan'),
 };
 
 // Colours keyed by channel id for the on-canvas glow + mapping bars.
@@ -93,6 +97,7 @@ const state = {
   sizing: null,          // { cells, text, targetM }
   bench: null,           // { points, text }
   compare: null,         // { rows, text }
+  noiseScan: null,       // { rows, text }
 };
 
 function readUiState() {
@@ -305,6 +310,19 @@ function runCompareUi() {
       `<button class="ghost tiny" data-compare-row="${i}">Use ${row.label}</button>`).join(' ');
     ui.downloadCompareTxt.disabled = false;
     statusEl.textContent = 'Mode comparison done.';
+  });
+}
+
+function runNoiseScanUi() {
+  statusEl.textContent = 'Scanning noise sensitivity…';
+  requestAnimationFrame(() => {
+    const cfg = readConfig();
+    const rows = scanNoiseSensitivity(cfg);
+    const text = formatNoiseScan(rows);
+    state.noiseScan = { rows, text };
+    noiseSummaryEl.textContent = summarizeNoiseScan(rows);
+    noiseReportEl.textContent = text;
+    statusEl.textContent = 'Noise scan done.';
   });
 }
 
@@ -655,6 +673,7 @@ ui.downloadSizingCsv.addEventListener('click', () => {
 });
 ui.runBench.addEventListener('click', runBenchUi);
 ui.runCompare.addEventListener('click', runCompareUi);
+ui.runNoiseScan.addEventListener('click', runNoiseScanUi);
 ui.downloadCompareTxt.addEventListener('click', () => {
   if (!state.compare) return;
   downloadText('esp-array-mode-comparison.txt', state.compare.text);
@@ -712,7 +731,7 @@ applyUiState(initialUiState);
 renderAdvisories();
 
 // Expose state for Playwright/inspection (per repo convention for vanilla-JS UIs).
-window.espArraySim = { state, runIt, runSizing, runBenchUi, runCompareUi, readConfig, readUiState, applyUiState, playChannel, stopChannel };
+window.espArraySim = { state, runIt, runSizing, runBenchUi, runCompareUi, runNoiseScanUi, readConfig, readUiState, applyUiState, playChannel, stopChannel };
 
 // First paint.
 runIt();

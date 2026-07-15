@@ -246,6 +246,11 @@ mesh introduce?” — the answer is one click instead of a manual toggle dance.
 its text report and also jump the main simulator controls to any compared row with one click, so a
 comparison result can immediately become the active scenario for deeper inspection.
 
+A pure `noise-scan.mjs` helper now powers a browser **Noise sensitivity** panel that sweeps matched
+noise σ over a small range for the current scenario. It answers a different practical question than
+the hardware-sizing and latency panels: not “how many nodes?” or “how long does calibration take?”
+but “how quickly does localization degrade as the captures get noisier?”
+
 A single-mic matched filter with sub-sample parabolic refinement around the |correlation| peak
 lands the TOA within ~2 cm (near the sample-quantization floor); a fractional-lag chirp is recovered
 to <0.15 samples. The estimator has two modes:
