@@ -129,6 +129,7 @@ export function runScenario(cfg = {}) {
     clockSkewsEst: sol.skew ?? nodes.map(() => 0),
     withSkew,
     distributed: cfg.captureMode === 'distributed',
+    distributedMatched: !!cfg.distributedMatched,
     meshMessages: dist ? dist.messages : null,
     meshLost: dist ? dist.lost : 0,
   };

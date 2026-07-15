@@ -9,6 +9,7 @@ export const DEFAULT_UI_STATE = Object.freeze({
   exponent: 4,
   distanceLaw: 1,
   captureMode: 'closed',
+  distributedMatched: false,
   reflCoef: 0.5,
   meshLoss: 0,
   avgShots: 1,
@@ -111,6 +112,7 @@ export function sanitizeUiState(input = {}) {
     exponent: clampInt(base.exponent, 1, 12, DEFAULT_UI_STATE.exponent),
     distanceLaw: clampMin(base.distanceLaw, 0, DEFAULT_UI_STATE.distanceLaw),
     captureMode: CAPTURE_MODES.has(base.captureMode) ? base.captureMode : DEFAULT_UI_STATE.captureMode,
+    distributedMatched: toBool(base.distributedMatched, DEFAULT_UI_STATE.distributedMatched),
     reflCoef: clampNum(base.reflCoef, 0, 1, DEFAULT_UI_STATE.reflCoef),
     meshLoss: clampNum(base.meshLoss, 0, 1, DEFAULT_UI_STATE.meshLoss),
     avgShots: clampInt(base.avgShots, 1, 32, DEFAULT_UI_STATE.avgShots),
@@ -133,6 +135,7 @@ export function serializeUiState(input = {}) {
   params.set('exp', String(s.exponent));
   params.set('law', String(s.distanceLaw));
   params.set('mode', s.captureMode);
+  if (s.distributedMatched) params.set('dmatch', '1');
   params.set('refl', String(s.reflCoef));
   params.set('loss', String(s.meshLoss));
   params.set('shots', String(s.avgShots));
@@ -157,6 +160,7 @@ export function parseUiStateUrl(fragment = '') {
     exponent: p.get('exp'),
     distanceLaw: p.get('law'),
     captureMode: p.get('mode'),
+    distributedMatched: p.get('dmatch'),
     reflCoef: p.get('refl'),
     meshLoss: p.get('loss'),
     avgShots: p.get('shots'),

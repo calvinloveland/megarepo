@@ -28,7 +28,9 @@ built-in **presets** (dry matched DSP, hard living-room reverb, lossy distribute
 shot averaging) and keeps the full scenario in the URL fragment, so you can copy a share link and
 reproduce an interesting case exactly. The controls are now also context-aware: knobs that the
 current capture mode ignores are dimmed/disabled, and a small helper line explains which settings
-actually matter for the chosen mode.
+actually matter for the chosen mode. In distributed mode there's also an advanced toggle to switch
+from closed-form mic rows to **matched-filter DSP rows**, which makes reverb / earliest-peak matter
+across the mesh too.
 
 For hardware planning, `npm run sweep` answers “how many ESP32 nodes do I need?” by printing the
 minimum node count that keeps the **worst-case** localization error under a target (5 cm by default)

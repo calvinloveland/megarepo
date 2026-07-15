@@ -97,3 +97,19 @@ test('distributed captureMode localizes as well as closed centralized', () => {
   assert.ok(dist.alignErrorM < 0.05, `distributed localization too coarse: ${dist.alignErrorM.toFixed(3)} m`);
   assert.ok(cent.alignErrorM < 0.05, `centralized localization too coarse: ${cent.alignErrorM.toFixed(3)} m`);
 });
+
+test('distributedMatched uses realistic matched-filter captures across the mesh', () => {
+  const s = runScenario({
+    seed: 42,
+    nodeCount: 6,
+    room: { width: 6, height: 5 },
+    captureMode: 'distributed',
+    distributedMatched: true,
+    reflCoef: 0.5,
+    earliestPeak: true,
+  });
+  assert.ok(s.distributed, 'still distributed');
+  assert.equal(s.distributedMatched, true, 'scenario exposes distributedMatched');
+  assert.ok(s.observations.some((o) => Array.isArray(o.arrivalPaths) && o.arrivalPaths.length > 0),
+    'matched distributed observations should carry path diagnostics from the waveform estimator');
+});

@@ -48,6 +48,8 @@ const ui = {
   avgShots: document.getElementById('avgShots'),
   earliestPeakField: document.getElementById('earliestPeakField'),
   earliestPeak: document.getElementById('earliestPeak'),
+  distributedMatchedField: document.getElementById('distributedMatchedField'),
+  distributedMatched: document.getElementById('distributedMatched'),
   clockSkew: document.getElementById('clockSkew'),
   robust: document.getElementById('robust'),
   showTruth: document.getElementById('showTruth'),
@@ -93,6 +95,7 @@ function readUiState() {
     exponent: ui.exponent.value,
     distanceLaw: ui.distanceLaw.value,
     captureMode: ui.captureMode.value,
+    distributedMatched: ui.distributedMatched.checked,
     reflCoef: ui.reflCoef.value,
     meshLoss: ui.meshLoss.value,
     avgShots: ui.avgShots.value,
@@ -117,6 +120,7 @@ function applyUiState(s) {
   ui.meshLoss.value = v.meshLoss;
   ui.avgShots.value = v.avgShots;
   ui.earliestPeak.checked = v.earliestPeak;
+  ui.distributedMatched.checked = v.distributedMatched;
   ui.clockSkew.checked = v.clockSkew;
   ui.robust.checked = v.robust;
   ui.showTruth.checked = v.showTruth;
@@ -140,13 +144,17 @@ function refreshModeGating() {
   const mode = ui.captureMode.value;
   const matched = mode === 'matched';
   const distributed = mode === 'distributed';
-  setFieldEnabled(ui.reflCoefField, ui.reflCoef, matched);
+  const distributedMatched = distributed && ui.distributedMatched.checked;
+  setFieldEnabled(ui.reflCoefField, ui.reflCoef, matched || distributedMatched);
   setFieldEnabled(ui.meshLossField, ui.meshLoss, distributed);
-  setFieldEnabled(ui.earliestPeakField, ui.earliestPeak, matched);
+  setFieldEnabled(ui.earliestPeakField, ui.earliestPeak, matched || distributedMatched);
+  setFieldEnabled(ui.distributedMatchedField, ui.distributedMatched, distributed);
   modeHelpEl.textContent = matched
     ? 'Matched mode uses the real chirp/matched-filter estimator: wall reverb and earliest-peak matter; mesh packet loss is ignored.'
     : distributed
-      ? 'Distributed mode gossips per-mic rows across the mesh: mesh packet loss matters; wall reverb / earliest-peak are ignored in the browser distributed path.'
+      ? distributedMatched
+        ? 'Distributed mode gossips matched-filter mic rows across the mesh: wall reverb, earliest-peak, and mesh packet loss all matter.'
+        : 'Distributed mode gossips closed-form mic rows across the mesh: mesh packet loss matters; wall reverb / earliest-peak are ignored unless you enable matched DSP captures.'
       : 'Closed-form mode uses perfect direct-path TOA: wall reverb, earliest-peak, and mesh packet loss are ignored.';
 }
 
@@ -159,6 +167,7 @@ function readConfig() {
     exponent: s.exponent,
     distanceLaw: s.distanceLaw,
     captureMode: s.captureMode,
+    distributedMatched: s.distributedMatched,
     reflCoef: s.reflCoef,
     meshLoss: s.meshLoss,
     avgShots: s.avgShots,
@@ -205,7 +214,7 @@ function renderReport(ms, mode) {
   const capLine = mode === 'matched'
     ? `capture: <b>matched-filter</b> (real DSP · wall refl. coef ${(cfgReflCoef()).toFixed(2)})`
     : mode === 'distributed'
-      ? `capture: <b>distributed mesh</b> (${s.meshMessages} msgs delivered${s.meshLost ? `, ${s.meshLost} lost` : ' · no loss'})`
+      ? `capture: <b>distributed mesh</b> (${s.distributedMatched ? 'matched DSP rows' : 'closed-form rows'} · ${s.meshMessages} msgs delivered${s.meshLost ? `, ${s.meshLost} lost` : ' · no loss'})`
       : `capture: <b>closed-form</b> (perfect direct-path TOA)`;
   reportEl.innerHTML = `
     <div>nodes: <b>${s.nodes.length}</b> · room: ${s.room.width}×${s.room.height} m</div>
@@ -642,9 +651,9 @@ ui.preset.addEventListener('change', () => {
 });
 ui.showTruth.addEventListener('change', () => { syncUrlFromUi(); renderAdvisories(); draw(); });
 ui.captureSweep.addEventListener('change', () => { syncUrlFromUi(); renderAdvisories(); });
-[ui.nodeCount, ui.seed, ui.roomW, ui.roomH, ui.exponent, ui.distanceLaw, ui.captureMode, ui.reflCoef, ui.meshLoss, ui.avgShots].forEach((el) =>
+[ui.nodeCount, ui.seed, ui.roomW, ui.roomH, ui.exponent, ui.distanceLaw, ui.captureMode, ui.reflCoef, ui.meshLoss, ui.avgShots, ui.distributedMatched].forEach((el) =>
   el.addEventListener('change', () => { refreshModeGating(); syncUrlFromUi(); renderAdvisories(); draw(); }));
-ui.earliestPeak.addEventListener('change', () => { syncUrlFromUi(); renderAdvisories(); });
+ui.earliestPeak.addEventListener('change', () => { refreshModeGating(); syncUrlFromUi(); renderAdvisories(); });
 ui.clockSkew.addEventListener('change', () => { syncUrlFromUi(); renderAdvisories(); });
 ui.robust.addEventListener('change', () => { syncUrlFromUi(); renderAdvisories(); });
 

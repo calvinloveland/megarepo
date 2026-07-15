@@ -229,6 +229,12 @@ more nodes, shot averaging) usually fixes it. For common cases it now exposes on
 right in the panel (enable earliest-peak, enable robust LM, bump to 3-shot averaging, or jump to
 the hardened reverb preset).
 
+The browser distributed mode now also exposes the pre-existing `distributedMatched` path as an
+advanced toggle: instead of gossiping perfect closed-form listener rows, the mesh can gossip
+**matched-filter DSP rows** built from the realistic waveform/echo estimator. That makes wall
+reverb and earliest-peak relevant in distributed mode too, and lets the UI exercise the same
+hard-reverb distributed regime that the pure modules already supported.
+
 A single-mic matched filter with sub-sample parabolic refinement around the |correlation| peak
 lands the TOA within ~2 cm (near the sample-quantization floor); a fractional-lag chirp is recovered
 to <0.15 samples. The estimator has two modes:

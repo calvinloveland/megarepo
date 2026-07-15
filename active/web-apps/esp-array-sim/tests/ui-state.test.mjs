@@ -33,6 +33,7 @@ test('sanitizeUiState clamps numbers and normalizes booleans', () => {
   assert.equal(s.exponent, 1);
   assert.equal(s.distanceLaw, 0);
   assert.equal(s.captureMode, DEFAULT_UI_STATE.captureMode);
+  assert.equal(s.distributedMatched, false);
   assert.equal(s.reflCoef, 1);
   assert.equal(s.meshLoss, 0);
   assert.equal(s.avgShots, 1);
@@ -52,6 +53,7 @@ test('serializeUiState + parseUiStateUrl round-trip a custom state', () => {
     exponent: 5,
     distanceLaw: 1.5,
     captureMode: 'distributed',
+    distributedMatched: true,
     reflCoef: 0.8,
     meshLoss: 0.3,
     avgShots: 7,
