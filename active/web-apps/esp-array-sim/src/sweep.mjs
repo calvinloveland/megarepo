@@ -118,3 +118,54 @@ export function sweepToCsv(cells) {
   ].join(','));
   return [header, ...rows].join('\n') + '\n';
 }
+
+/**
+ * Hardware-sizing recommendation: for each (captureMode, reflCoef) group, find
+ * the minimum node count that meets a target accuracy. A cell "meets" the target
+ * if its worst-case error is <= targetM (worst, not median, so the
+ * recommendation is conservative — it must hold for *every* room draw we tried,
+ * guaranteeing robustness for the eventual hardware purchase). Returns one entry
+ * per (mode, refl) group with the smallest node count that meets the target, or
+ * null if even the largest tried node count doesn't (so the caller knows the
+ * regime is infeasible at that target without more nodes or robustness).
+ *
+ * @param {SweepCell[]} cells
+ * @param {number} [targetM=0.05]  target worst-case alignment error (5 cm by default)
+ * @returns {{captureMode:string, reflCoef:number, minNodes:number|null, atWorstM:number|null}[]}
+ */
+export function minNodesFor(cells, targetM = 0.05) {
+  const groups = new Map();
+  for (const c of cells) {
+    const key = `${c.captureMode}|${c.reflCoef}`;
+    if (!groups.has(key)) groups.set(key, { captureMode: c.captureMode, reflCoef: c.reflCoef, cells: [] });
+    groups.get(key).cells.push(c);
+  }
+  const out = [];
+  for (const g of groups.values()) {
+    // sort ascending by node count so the first meeting cell is the minimum
+    g.cells.sort((a, b) => a.nodeCount - b.nodeCount);
+    const meeting = g.cells.find((c) => c.worstErrM <= targetM);
+    out.push({
+      captureMode: g.captureMode,
+      reflCoef: g.reflCoef,
+      minNodes: meeting ? meeting.nodeCount : null,
+      atWorstM: meeting ? meeting.worstErrM : g.cells[g.cells.length - 1].worstErrM,
+    });
+  }
+  // stable, readable order
+  out.sort((a, b) =>
+    a.captureMode.localeCompare(b.captureMode) || a.reflCoef - b.reflCoef);
+  return out;
+}
+
+/** Human-readable hardware-sizing report from a sweep (for the CLI / UI). */
+export function formatMinNodes(recs, targetM = 0.05) {
+  const header = `mode      refl    min nodes for <=${(targetM * 100).toFixed(0)}cm worst   (worst at that count)`;
+  const lines = recs.map((r) =>
+    `${r.captureMode.padEnd(7)}   ${r.reflCoef.toFixed(2)}    ` +
+    (r.minNodes === null
+      ? `infeasible in tested range      (best worst ${(r.atWorstM * 100).toFixed(1)}cm)`
+      : `${String(r.minNodes).padStart(4)} nodes                   (worst ${(r.atWorstM * 100).toFixed(1)}cm)`),
+  );
+  return [header, ...lines].join('\n');
+}
