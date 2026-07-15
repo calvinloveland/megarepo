@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // CLI: run the localization accuracy sweep and print the report.
 // Usage: node bin/sweep.mjs [--trials N] [--nodes 4,6,8] [--refl 0,0.3,0.6]
-import { runSweep, formatSweep } from '../src/sweep.mjs';
+import { runSweep, formatSweep, sweepToCsv } from '../src/sweep.mjs';
 
 function parseList(arg, fallback) {
   if (!arg) return fallback;
@@ -21,4 +21,8 @@ const cells = runSweep({
   seedBase: Number(opt('--seed') ?? 1000),
   successM: Number(opt('--success-m') ?? 0.10),
 });
-console.log(formatSweep(cells));
+if (args.includes('--csv')) {
+  process.stdout.write(sweepToCsv(cells));
+} else {
+  console.log(formatSweep(cells));
+}

@@ -17,6 +17,7 @@ are tested with `node --test`, so the physics/solver is one source of truth.
 npm run check    # syntax + unit + server tests
 npm start        # serve the UI at http://127.0.0.1:5193
 npm run sweep    # localization-accuracy sweep across node counts & reverb (CLI report)
+npm run sweep:csv # same sweep as CSV (for external plotting/analysis)
 ```
 
 Open the simulator, set the node count / room size / seed, hit **Run localization**, and watch the

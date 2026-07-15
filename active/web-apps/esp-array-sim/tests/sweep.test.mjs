@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { runSweep, formatSweep } from '../src/sweep.mjs';
+import { runSweep, formatSweep, sweepToCsv } from '../src/sweep.mjs';
 
 const SMALL = {
   nodeCounts: [4, 6],
@@ -71,4 +71,25 @@ test('runSweep is deterministic for a fixed seedBase', () => {
   const a = runSweep({ nodeCounts: [6], captureModes: ['closed'], reflCoefs: [0.0], trials: 3, seedBase: 7 });
   const b = runSweep({ nodeCounts: [6], captureModes: ['closed'], reflCoefs: [0.0], trials: 3, seedBase: 7 });
   assert.deepEqual(a, b);
+});
+
+test('sweepToCsv emits a header + one CSV row per cell with the right columns', () => {
+  const cells = runSweep({ nodeCounts: [6, 8], captureModes: ['closed'], reflCoefs: [0.0, 0.5], trials: 3 });
+  const csv = sweepToCsv(cells);
+  const lines = csv.trimEnd().split('\n');
+  assert.equal(lines[0], 'nodeCount,captureMode,reflCoef,trials,medianErrM,p90ErrM,worstErrM,successRate');
+  assert.equal(lines.length - 1, cells.length);
+  // each data row has 8 fields and round-trips the underlying numbers
+  for (let i = 0; i < cells.length; i++) {
+    const fields = lines[i + 1].split(',');
+    assert.equal(fields.length, 8);
+    assert.equal(Number(fields[0]), cells[i].nodeCount);
+    assert.equal(fields[1], 'closed');
+    assert.ok(Math.abs(Number(fields[4]) - cells[i].medianErrM) < 1e-6, 'median round-trips');
+  }
+});
+
+test('sweepToCsv output ends with a newline so sweeps concatenate cleanly', () => {
+  const cells = runSweep({ nodeCounts: [6], captureModes: ['closed'], reflCoefs: [0.0], trials: 2 });
+  assert.ok(sweepToCsv(cells).endsWith('\n'), 'CSV must end with newline');
 });
