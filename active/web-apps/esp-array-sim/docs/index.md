@@ -252,6 +252,12 @@ the hardware-sizing and latency panels: not “how many nodes?” or “how long
 but “how quickly does localization degrade as the captures get noisier?” The panel can export its
 text report and also jump the main noise control to any scanned row with one click.
 
+A pure `node-scan.mjs` helper now powers a browser **Node-count sensitivity** panel that sweeps the
+current scenario across 4→12 nodes and reports how alignment error, observation count, and mesh
+message cost scale together. This complements the existing sizing panel: sizing answers “what is the
+minimum node count that meets a target?”, while node-count sensitivity shows the whole tradeoff
+curve and lets any scanned node count become the active scenario with one click.
+
 A single-mic matched filter with sub-sample parabolic refinement around the |correlation| peak
 lands the TOA within ~2 cm (near the sample-quantization floor); a fractional-lag chirp is recovered
 to <0.15 samples. The estimator has two modes:

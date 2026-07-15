@@ -11,6 +11,7 @@ import { runBench, formatBench, summarizeBench } from './src/bench.mjs';
 import { assessAdvisories } from './src/advisories.mjs';
 import { compareModes, formatComparison, summarizeComparison } from './src/compare.mjs';
 import { scanNoiseSensitivity, formatNoiseScan, summarizeNoiseScan } from './src/noise-scan.mjs';
+import { scanNodeCounts, formatNodeScan, summarizeNodeScan } from './src/node-scan.mjs';
 import {
   PRESETS,
   sanitizeUiState,
@@ -37,6 +38,9 @@ const compareActionsEl = document.getElementById('compareActions');
 const noiseReportEl = document.getElementById('noiseReport');
 const noiseSummaryEl = document.getElementById('noiseSummary');
 const noiseActionsEl = document.getElementById('noiseActions');
+const nodeScanReportEl = document.getElementById('nodeScanReport');
+const nodeScanSummaryEl = document.getElementById('nodeScanSummary');
+const nodeScanActionsEl = document.getElementById('nodeScanActions');
 const advisoriesEl = document.getElementById('advisories');
 
 const ui = {
@@ -80,6 +84,8 @@ const ui = {
   downloadCompareTxt: document.getElementById('downloadCompareTxt'),
   runNoiseScan: document.getElementById('runNoiseScan'),
   downloadNoiseTxt: document.getElementById('downloadNoiseTxt'),
+  runNodeScan: document.getElementById('runNodeScan'),
+  downloadNodeScanTxt: document.getElementById('downloadNodeScanTxt'),
 };
 
 // Colours keyed by channel id for the on-canvas glow + mapping bars.
@@ -100,6 +106,7 @@ const state = {
   bench: null,           // { points, text }
   compare: null,         // { rows, text }
   noiseScan: null,       // { rows, text }
+  nodeScan: null,        // { rows, text }
 };
 
 function readUiState() {
@@ -328,6 +335,22 @@ function runNoiseScanUi() {
       `<button class="ghost tiny" data-noise-row="${i}">Use σ ${row.noiseSigma.toFixed(2)}</button>`).join(' ');
     ui.downloadNoiseTxt.disabled = false;
     statusEl.textContent = 'Noise scan done.';
+  });
+}
+
+function runNodeScanUi() {
+  statusEl.textContent = 'Scanning node-count sensitivity…';
+  requestAnimationFrame(() => {
+    const cfg = readConfig();
+    const rows = scanNodeCounts(cfg);
+    const text = formatNodeScan(rows);
+    state.nodeScan = { rows, text };
+    nodeScanSummaryEl.textContent = summarizeNodeScan(rows);
+    nodeScanReportEl.textContent = text;
+    nodeScanActionsEl.innerHTML = rows.map((row, i) =>
+      `<button class="ghost tiny" data-node-scan-row="${i}">Use ${row.nodeCount} nodes</button>`).join(' ');
+    ui.downloadNodeScanTxt.disabled = false;
+    statusEl.textContent = 'Node-count scan done.';
   });
 }
 
@@ -683,6 +706,11 @@ ui.downloadNoiseTxt.addEventListener('click', () => {
   if (!state.noiseScan) return;
   downloadText('esp-array-noise-scan.txt', state.noiseScan.text);
 });
+ui.runNodeScan.addEventListener('click', runNodeScanUi);
+ui.downloadNodeScanTxt.addEventListener('click', () => {
+  if (!state.nodeScan) return;
+  downloadText('esp-array-node-scan.txt', state.nodeScan.text);
+});
 ui.downloadCompareTxt.addEventListener('click', () => {
   if (!state.compare) return;
   downloadText('esp-array-mode-comparison.txt', state.compare.text);
@@ -732,6 +760,16 @@ noiseActionsEl.addEventListener('click', (ev) => {
   renderAdvisories();
   runIt();
 });
+nodeScanActionsEl.addEventListener('click', (ev) => {
+  const btn = ev.target.closest('[data-node-scan-row]');
+  if (!btn || !state.nodeScan) return;
+  const row = state.nodeScan.rows[Number(btn.dataset.nodeScanRow)];
+  if (!row) return;
+  ui.nodeCount.value = row.nodeCount;
+  syncUrlFromUi();
+  renderAdvisories();
+  runIt();
+});
 ui.preset.addEventListener('change', () => {
   if (ui.preset.value === 'custom') return;
   applyUiState(presetState(ui.preset.value));
@@ -750,7 +788,7 @@ applyUiState(initialUiState);
 renderAdvisories();
 
 // Expose state for Playwright/inspection (per repo convention for vanilla-JS UIs).
-window.espArraySim = { state, runIt, runSizing, runBenchUi, runCompareUi, runNoiseScanUi, readConfig, readUiState, applyUiState, playChannel, stopChannel };
+window.espArraySim = { state, runIt, runSizing, runBenchUi, runCompareUi, runNoiseScanUi, runNodeScanUi, readConfig, readUiState, applyUiState, playChannel, stopChannel };
 
 // First paint.
 runIt();
