@@ -294,11 +294,13 @@ browser toolbar. It combines:
 - the current dashboard readiness badge + lines
 - the selected bundle's currently-populated reports
 
-into one plain-text handoff artifact for future firmware work or asynchronous review.
+into one plain-text handoff artifact for future firmware work or asynchronous review. That snapshot
+can now also be copied straight to the clipboard.
 
 A pure `report-package.mjs` formatter now goes one step further with **Download report package**:
 it concatenates the current analysis snapshot, the selected bundle report, and the readiness history
-timeline into one comprehensive offline-review artifact.
+timeline into one comprehensive offline-review artifact. That package can also be copied directly to
+the clipboard.
 
 A single-mic matched filter with sub-sample parabolic refinement around the |correlation| peak
 lands the TOA within ~2 cm (near the sample-quantization floor); a fractional-lag chirp is recovered

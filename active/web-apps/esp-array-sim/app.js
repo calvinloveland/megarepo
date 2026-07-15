@@ -58,7 +58,9 @@ const ui = {
   runBundle: document.getElementById('runBundle'),
   downloadBundleTxt: document.getElementById('downloadBundleTxt'),
   downloadSnapshotTxt: document.getElementById('downloadSnapshotTxt'),
+  copySnapshotTxt: document.getElementById('copySnapshotTxt'),
   downloadPackageTxt: document.getElementById('downloadPackageTxt'),
+  copyPackageTxt: document.getElementById('copyPackageTxt'),
   downloadHistoryTxt: document.getElementById('downloadHistoryTxt'),
   clearHistory: document.getElementById('clearHistory'),
   copyLink: document.getElementById('copyLink'),
@@ -288,6 +290,19 @@ function downloadText(filename, text) {
   a.download = filename;
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+
+async function copyTextToClipboard(text, successLabel) {
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      statusEl.textContent = `${successLabel} copied to clipboard.`;
+    } else {
+      statusEl.textContent = text;
+    }
+  } catch {
+    statusEl.textContent = text;
+  }
 }
 
 function currentScenarioNotes() {
@@ -846,6 +861,18 @@ ui.downloadSnapshotTxt.addEventListener('click', () => {
   });
   downloadText(`esp-array-${bundle.id}-analysis-snapshot.txt`, text);
 });
+ui.copySnapshotTxt.addEventListener('click', async () => {
+  syncUrlFromUi();
+  const bundle = getScanBundle(ui.scanBundle.value);
+  const text = formatAnalysisSnapshot({
+    url: window.location.href,
+    notes: currentScenarioNotes(),
+    dashboard: currentDashboardSummary(),
+    bundle,
+    reports: currentBundleReports(),
+  });
+  await copyTextToClipboard(text, 'Analysis snapshot');
+});
 ui.downloadPackageTxt.addEventListener('click', () => {
   syncUrlFromUi();
   const bundle = getScanBundle(ui.scanBundle.value);
@@ -858,6 +885,19 @@ ui.downloadPackageTxt.addEventListener('click', () => {
     history: state.readinessHistory,
   });
   downloadText(`esp-array-${bundle.id}-report-package.txt`, text);
+});
+ui.copyPackageTxt.addEventListener('click', async () => {
+  syncUrlFromUi();
+  const bundle = getScanBundle(ui.scanBundle.value);
+  const text = formatReportPackage({
+    url: window.location.href,
+    notes: currentScenarioNotes(),
+    dashboard: currentDashboardSummary(),
+    bundle,
+    reports: currentBundleReports(),
+    history: state.readinessHistory,
+  });
+  await copyTextToClipboard(text, 'Report package');
 });
 ui.downloadHistoryTxt.addEventListener('click', () => {
   downloadText('esp-array-readiness-history.txt', formatReadinessHistory(state.readinessHistory));
@@ -905,17 +945,7 @@ ui.downloadBenchTxt.addEventListener('click', () => {
 });
 ui.copyLink.addEventListener('click', async () => {
   syncUrlFromUi();
-  const url = window.location.href;
-  try {
-    if (navigator.clipboard?.writeText) {
-      await navigator.clipboard.writeText(url);
-      statusEl.textContent = 'Share link copied to clipboard.';
-    } else {
-      statusEl.textContent = url;
-    }
-  } catch {
-    statusEl.textContent = url;
-  }
+  await copyTextToClipboard(window.location.href, 'Share link');
 });
 advisoriesEl.addEventListener('click', (ev) => {
   const btn = ev.target.closest('[data-advisory-action]');
