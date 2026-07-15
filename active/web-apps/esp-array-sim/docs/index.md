@@ -201,6 +201,15 @@ switches this on in a full run; `'closed'` (default) keeps the closed-form delay
 baseline. The UI exposes a capture-mode selector, a wall-reflection coefficient, and echo ripples
 on the room canvas.
 
+The UI also ships with presets for the simulator's most interesting stories:
+- dry matched DSP
+- hard living-room reverb (hardened with earliest-peak + robust)
+- lossy distributed mesh (30% packet loss)
+- clock-skew + multi-shot averaging
+
+and it serializes the full control state into the URL fragment (`#n=8&mode=distributed&...`), so
+an interesting success/failure case is shareable and exactly reproducible from a link.
+
 A single-mic matched filter with sub-sample parabolic refinement around the |correlation| peak
 lands the TOA within ~2 cm (near the sample-quantization floor); a fractional-lag chirp is recovered
 to <0.15 samples. The estimator has two modes:

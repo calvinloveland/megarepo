@@ -23,7 +23,10 @@ npm run bench     # solver wall-clock benchmark vs node count
 
 Open the simulator, set the node count / room size / seed, hit **Run localization**, and watch the
 calibration sweep, the recovered positions, and the 5.1→speaker mapping. **Play test tone per
-channel** highlights which real speakers each virtual 5.1 channel is routed to.
+channel** highlights which real speakers each virtual 5.1 channel is routed to. The UI now also has
+built-in **presets** (dry matched DSP, hard living-room reverb, lossy distributed mesh, clock-skew +
+shot averaging) and keeps the full scenario in the URL fragment, so you can copy a share link and
+reproduce an interesting case exactly.
 
 For hardware planning, `npm run sweep` answers “how many ESP32 nodes do I need?” by printing the
 minimum node count that keeps the **worst-case** localization error under a target (5 cm by default)

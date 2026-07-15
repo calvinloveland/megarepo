@@ -6,6 +6,14 @@ import { CHANNELS_5_1, azimuthToVec } from './src/surround.mjs';
 import { SPEED_OF_SOUND } from './src/acoustics.mjs';
 import { renderChannelAtSweetSpot, renderPeakConcentration, channelSeparation } from './src/render.mjs';
 import { linearChirp } from './src/dsp.mjs';
+import {
+  PRESETS,
+  sanitizeUiState,
+  serializeUiState,
+  parseUiStateUrl,
+  matchingPresetId,
+  presetState,
+} from './src/ui-state.mjs';
 
 const canvas = document.getElementById('room');
 const ctx = canvas.getContext('2d');
@@ -15,6 +23,8 @@ const mappingEl = document.getElementById('mapping');
 const channelStatusEl = document.getElementById('channelStatus');
 
 const ui = {
+  preset: document.getElementById('preset'),
+  copyLink: document.getElementById('copyLink'),
   nodeCount: document.getElementById('nodeCount'),
   seed: document.getElementById('seed'),
   roomW: document.getElementById('roomW'),
@@ -52,24 +62,69 @@ const state = {
   raf: null,
 };
 
-function readConfig() {
-  return {
-    nodeCount: clampInt(ui.nodeCount.value, 4, 12, 6),
-    seed: parseInt(ui.seed.value, 10) || 0,
-    room: { width: Math.max(3, parseFloat(ui.roomW.value) || 6), height: Math.max(3, parseFloat(ui.roomH.value) || 5) },
-    exponent: parseInt(ui.exponent.value, 10) || 4,
-    distanceLaw: parseFloat(ui.distanceLaw.value) ?? 1,
+function readUiState() {
+  return sanitizeUiState({
+    nodeCount: ui.nodeCount.value,
+    seed: ui.seed.value,
+    roomW: ui.roomW.value,
+    roomH: ui.roomH.value,
+    exponent: ui.exponent.value,
+    distanceLaw: ui.distanceLaw.value,
     captureMode: ui.captureMode.value,
-    reflCoef: parseFloat(ui.reflCoef.value) ?? 0.5,
-    meshLoss: parseFloat(ui.meshLoss.value) ?? 0,
-    avgShots: parseInt(ui.avgShots.value, 10) || 1,
+    reflCoef: ui.reflCoef.value,
+    meshLoss: ui.meshLoss.value,
+    avgShots: ui.avgShots.value,
     earliestPeak: ui.earliestPeak.checked,
     clockSkew: ui.clockSkew.checked,
-    robust: ui.robust.checked ? 5e-5 : 0,
-  };
+    robust: ui.robust.checked,
+    showTruth: ui.showTruth.checked,
+    captureSweep: ui.captureSweep.checked,
+  });
 }
 
-function clampInt(v, lo, hi, d) { v = parseInt(v, 10); if (!Number.isFinite(v)) return d; return Math.max(lo, Math.min(hi, v)); }
+function applyUiState(s) {
+  const v = sanitizeUiState(s);
+  ui.nodeCount.value = v.nodeCount;
+  ui.seed.value = v.seed;
+  ui.roomW.value = v.roomW;
+  ui.roomH.value = v.roomH;
+  ui.exponent.value = v.exponent;
+  ui.distanceLaw.value = v.distanceLaw;
+  ui.captureMode.value = v.captureMode;
+  ui.reflCoef.value = v.reflCoef;
+  ui.meshLoss.value = v.meshLoss;
+  ui.avgShots.value = v.avgShots;
+  ui.earliestPeak.checked = v.earliestPeak;
+  ui.clockSkew.checked = v.clockSkew;
+  ui.robust.checked = v.robust;
+  ui.showTruth.checked = v.showTruth;
+  ui.captureSweep.checked = v.captureSweep;
+  ui.preset.value = matchingPresetId(v);
+}
+
+function syncUrlFromUi() {
+  const s = readUiState();
+  ui.preset.value = matchingPresetId(s);
+  history.replaceState(null, '', `#${serializeUiState(s)}`);
+}
+
+function readConfig() {
+  const s = readUiState();
+  return {
+    nodeCount: s.nodeCount,
+    seed: s.seed,
+    room: { width: s.roomW, height: s.roomH },
+    exponent: s.exponent,
+    distanceLaw: s.distanceLaw,
+    captureMode: s.captureMode,
+    reflCoef: s.reflCoef,
+    meshLoss: s.meshLoss,
+    avgShots: s.avgShots,
+    earliestPeak: s.earliestPeak,
+    clockSkew: s.clockSkew,
+    robust: s.robust ? 5e-5 : 0,
+  };
+}
 
 // --- run / report ----------------------------------------------------------
 
@@ -79,6 +134,7 @@ function runIt() {
   requestAnimationFrame(() => {
     const t0 = performance.now();
     const cfg = readConfig();
+    syncUrlFromUi();
     state.scenario = runScenario(cfg);
     const ms = performance.now() - t0;
     stopChannel();
@@ -376,19 +432,49 @@ function stopChannel() {
 
 // --- wiring ----------------------------------------------------------------
 
+for (const p of PRESETS) {
+  const opt = document.createElement('option');
+  opt.value = p.id;
+  opt.textContent = p.label;
+  ui.preset.append(opt);
+}
+
 ui.run.addEventListener('click', runIt);
 ui.reseed.addEventListener('click', () => { ui.seed.value = (Math.random() * 1e9) | 0; runIt(); });
 ui.playChannel.addEventListener('click', playChannel);
 ui.stopChannel.addEventListener('click', stopChannel);
-ui.showTruth.addEventListener('change', draw);
+ui.copyLink.addEventListener('click', async () => {
+  syncUrlFromUi();
+  const url = window.location.href;
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(url);
+      statusEl.textContent = 'Share link copied to clipboard.';
+    } else {
+      statusEl.textContent = url;
+    }
+  } catch {
+    statusEl.textContent = url;
+  }
+});
+ui.preset.addEventListener('change', () => {
+  if (ui.preset.value === 'custom') return;
+  applyUiState(presetState(ui.preset.value));
+  runIt();
+});
+ui.showTruth.addEventListener('change', () => { syncUrlFromUi(); draw(); });
+ui.captureSweep.addEventListener('change', syncUrlFromUi);
 [ui.nodeCount, ui.seed, ui.roomW, ui.roomH, ui.exponent, ui.distanceLaw, ui.captureMode, ui.reflCoef, ui.meshLoss, ui.avgShots].forEach((el) =>
-  el.addEventListener('change', draw));
-ui.earliestPeak.addEventListener('change', draw);
-ui.clockSkew.addEventListener('change', draw);
-ui.robust.addEventListener('change', draw);
+  el.addEventListener('change', () => { syncUrlFromUi(); draw(); }));
+ui.earliestPeak.addEventListener('change', syncUrlFromUi);
+ui.clockSkew.addEventListener('change', syncUrlFromUi);
+ui.robust.addEventListener('change', syncUrlFromUi);
+
+const initialUiState = parseUiStateUrl(window.location.hash);
+applyUiState(initialUiState);
 
 // Expose state for Playwright/inspection (per repo convention for vanilla-JS UIs).
-window.espArraySim = { state, runIt, readConfig, playChannel, stopChannel };
+window.espArraySim = { state, runIt, readConfig, readUiState, applyUiState, playChannel, stopChannel };
 
 // First paint.
 runIt();
