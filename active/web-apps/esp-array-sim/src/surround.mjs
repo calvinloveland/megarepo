@@ -14,6 +14,8 @@
 // channels silent. The cost/exposure is the same knob set the real firmware
 // will need (exponent, distance law, LFE routing).
 
+import { SPEED_OF_SOUND } from './acoustics.mjs';
+
 /** Degrees → radians. */
 const D2R = Math.PI / 180;
 
@@ -103,6 +105,35 @@ export function mapSurround(speakers, sweetSpot, opts = {}) {
     result.push({ channel: ch.id, mapping });
   }
   return result;
+}
+
+/**
+ * Per-speaker time/gain compensation so every speaker's contribution arrives at
+ * the sweet spot simultaneously and at equal loudness — the time-alignment a real
+ * surround processor applies after localization. Far speakers are played earlier
+ * (negative applied delay) and boosted; near speakers are delayed and attenuated,
+ * both relative to the furthest speaker, which gets zero added delay and unity
+ * distance gain.
+ *
+ * @param {RealSpeaker[]} speakers
+ * @param {{x:number,y:number}} sweetSpot listener
+ * @param {number} [c] speed of sound
+ * @returns {{id:string, distanceM:number, delaySec:number, gainLinear:number}[]}
+ *   delaySec is the delay to ADD at the speaker so the wavefront aligns at the
+ *   sweet spot (nearest > 0, furthest = 0).
+ */
+export function speakerCompensation(speakers, sweetSpot, c = SPEED_OF_SOUND) {
+  const geom = speakerGeometry(speakers, sweetSpot);
+  const maxDist = geom.reduce((m, g) => Math.max(m, g.distanceM), 0) || 1e-9;
+  // Equalize both time and loudness to the furthest speaker: nearer speakers are
+  // delayed by (maxDist - d)/c and attenuated by d/maxDist so every speaker's
+  // contribution arrives at the sweet spot simultaneously and equally loud.
+  return geom.map((g) => ({
+    id: g.id,
+    distanceM: g.distanceM,
+    delaySec: (maxDist - g.distanceM) / c,
+    gainLinear: g.distanceM / maxDist,
+  }));
 }
 
 /** Route the LFE to the single nearest (omnidirectional) speaker. */

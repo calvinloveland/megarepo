@@ -89,6 +89,12 @@ function renderReport(ms, mode) {
   const ok = s.alignErrorM < (mode === 'matched' ? 0.08 : 0.05);
   const resid = s.solution.costs.at(-1);
   const offsetRms = rmsError(s.clockOffsetsTrue, s.clockOffsetsEst);
+  const comp = s.compensation || [];
+  const delays = comp.map((c) => c.delaySec);
+  const spreadMs = comp.length ? (Math.max(...delays) - Math.min(...delays)) * 1000 : 0;
+  const compLine = comp.length
+    ? `time-align: max delay spread ${spreadMs.toFixed(2)} ms, gain ${Math.min(...comp.map((c) => c.gainLinear)).toFixed(2)}–${Math.max(...comp.map((c) => c.gainLinear)).toFixed(2)}`
+    : '';
   const capLine = mode === 'matched'
     ? `capture: <b>matched-filter</b> (real DSP · wall refl. coef ${(cfgReflCoef()).toFixed(2)})`
     : `capture: <b>closed-form</b> (perfect direct-path TOA)`;
@@ -96,6 +102,7 @@ function renderReport(ms, mode) {
     <div>nodes: <b>${s.nodes.length}</b> · room: ${s.room.width}×${s.room.height} m</div>
     <div>alignment error: <span class="${ok ? 'ok' : 'bad'}">${errCm} cm</span> ${s.transform.mirror ? '(mirror-reflected to truth)' : ''}</div>
     <div>${capLine}</div>
+    ${compLine ? `<div>${compLine}</div>` : ''}
     <div>residual cost: ${resid.toExponential(2)} s²</div>
     <div>solver: ${s.solution.converged ? 'converged' : 'hit iteration cap'} · ${s.solution.iterations} LM iters from ${s.solution.starts} starts</div>
     <div>clock-offset est. RMS: ${(offsetRms * 1e6).toFixed(1)} µs (truth offset ±0.1 ms after WiFi sync)</div>

@@ -6,7 +6,7 @@
 import { makeRng, randomLayout, makeEmitSchedule } from './world.mjs';
 import { simulateCaptures, simulateMatchedCaptures } from './capture.mjs';
 import { localizeBest, procrustesAlign } from './localize.mjs';
-import { mapSurround, CHANNELS_5_1 } from './surround.mjs';
+import { mapSurround, speakerCompensation, CHANNELS_5_1 } from './surround.mjs';
 
 /**
  * Build and run a complete localization scenario.
@@ -74,6 +74,7 @@ export function runScenario(cfg = {}) {
     exponent: cfg.exponent,
     distanceLaw: cfg.distanceLaw,
   });
+  const compensation = speakerCompensation(realSpeakers, sweetSpot);
 
   return {
     seed,
@@ -91,6 +92,7 @@ export function runScenario(cfg = {}) {
     sweetSpot,
     realSpeakers,
     surround,
+    compensation,
     channels: CHANNELS_5_1,
     clockOffsetsTrue: nodes.map((n) => n.clockOffsetSec),
     clockOffsetsEst: sol.off,

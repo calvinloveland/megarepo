@@ -7,6 +7,7 @@ import {
   angleDeltaDeg,
   speakerGeometry,
   mapSurround,
+  speakerCompensation,
 } from '../src/surround.mjs';
 
 test('5.1 channels are the six canonical ITU slots', () => {
@@ -64,4 +65,35 @@ test('mapSurround always returns 6 channels', () => {
   const m = mapSurround(spk, { x: 0, y: 0 });
   assert.equal(m.length, 6);
   for (const c of m) assert.ok(c.mapping.length > 0);
+});
+
+test('speakerCompensation delays nearer speakers and equalizes loudness to the furthest', () => {
+  const sweet = { x: 0, y: 0 };
+  const spk = [
+    { id: 'near', pos: { x: 1, y: 0 } },   // 1 m away
+    { id: 'far', pos: { x: 4, y: 0 } },    // 4 m away (furthest)
+  ];
+  const comp = speakerCompensation(spk, sweet);
+  const near = comp.find((c) => c.id === 'near');
+  const far = comp.find((c) => c.id === 'far');
+  // furthest gets zero added delay & unity gain; nearer is delayed and attenuated
+  assert.equal(far.delaySec, 0);
+  assert.equal(far.gainLinear, 1);
+  assert.ok(near.delaySec > 0, 'nearer speaker should be delayed');
+  assert.ok(near.gainLinear < 1 && near.gainLinear > 0, 'nearer speaker attenuated');
+  assert.ok(Math.abs(near.delaySec - (4 - 1) / 343) < 1e-9, 'nearer delay = (maxDist-d)/c');
+});
+
+test('speakerCompensation arrives simultaneously at the sweet spot', () => {
+  const sweet = { x: 2, y: 2 };
+  const spk = [
+    { id: 'A', pos: { x: 0, y: 0 } },
+    { id: 'B', pos: { x: 5, y: 0 } },
+    { id: 'C', pos: { x: 3, y: 5 } },
+  ];
+  const comp = speakerCompensation(spk, sweet);
+  // (play time + added delay + propagation) should be equal for all speakers
+  const arrivals = comp.map((c) => c.delaySec + c.distanceM / 343);
+  const spread = Math.max(...arrivals) - Math.min(...arrivals);
+  assert.ok(spread < 1e-9, `compensated arrivals not aligned: spread ${spread.toExponential(2)}`);
 });

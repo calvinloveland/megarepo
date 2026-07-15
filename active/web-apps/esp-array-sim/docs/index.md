@@ -60,6 +60,11 @@ compensated, and normalized so the channel keeps constant energy. The exponent a
 the same knobs the firmware will expose. This deliberately degrades gracefully for sparse layouts
 where strict VBAP would leave channels silent.
 
+`speakerCompensation` equalizes the discovered array to the sweet spot: every speaker is
+delayed by (maxDist − itsDist)/c and attenuated by itsDist/maxDist so all contributions arrive
+simultaneously and equally loud — the time/loudness alignment a real surround processor applies
+after localization (surfaced in the UI report as the max delay spread + gain range).
+
 ## The graph below unobservable rigid motion
 
 Procrustes is closed-form for 2-D (rotation angle θ = atan2(B, A) from the centered
