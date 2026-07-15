@@ -70,8 +70,8 @@ export function cost(p, observations, n, c = SPEED_OF_SOUND) {
   return s;
 }
 
-/** Numerical Jacobian (central differences). Fine for small meshes. */
-function numericalJacobian(p, observations, n, c) {
+/** Numerical Jacobian (central differences). Reference + fallback for the analytic version. */
+export function numericalJacobian(p, observations, n, c = SPEED_OF_SOUND) {
   const m = observations.length;
   const cols = p.length;
   const J = Array.from({ length: m }, () => new Array(cols).fill(0));
@@ -83,6 +83,64 @@ function numericalJacobian(p, observations, n, c) {
     pp[j] = p[j] - eps;
     const rm = residuals(pp, observations, n, c);
     for (let i = 0; i < m; i++) J[i][j] = (rp[i] - rm[i]) / (2 * eps);
+  }
+  return J;
+}
+
+/* Free-parameter index helpers for the packed gauge vector:
+ *   [x1, (x2,y2), (x3,y3), …, off1, off2, …]
+ * N0 is fixed at the origin; N1 is fixed on the +x axis (y1 = 0).
+ */
+function freeXIndex(node) {
+  if (node === 0) return -1;
+  if (node === 1) return 0;
+  return 1 + 2 * (node - 2);
+}
+function freeYIndex(node) {
+  if (node === 0 || node === 1) return -1;
+  return 1 + 2 * (node - 2) + 1;
+}
+function freeOffIndex(node, n) {
+  if (node === 0) return -1;
+  return 1 + 2 * (n - 2) + (node - 1);
+}
+
+/**
+ * Analytic Jacobian of the residual vector w.r.t. the free parameters.
+ * One residual per observation; each row is non-zero only in the free coords of
+ * the emitter and listener (plus that listener's offset). ~single-eval cost
+ * instead of 2·cols residual sweeps like the numerical version.
+ */
+export function analyticJacobian(p, observations, n, c = SPEED_OF_SOUND) {
+  const { pos, off } = unpackParams(p, n);
+  const m = observations.length;
+  const cols = p.length;
+  const J = Array.from({ length: m }, () => new Array(cols).fill(0));
+  for (let i = 0; i < m; i++) {
+    const o = observations[i];
+    const row = new Array(cols).fill(0);
+    const s = pos[o.emitterId];
+    const li = pos[o.listenerId];
+    // clock-offset partial: d(residual)/d(off_listener) = 1
+    const oi = freeOffIndex(o.listenerId, n);
+    if (oi >= 0) row[oi] = 1;
+    if (o.emitterId !== o.listenerId) {
+      const dx = s.x - li.x;
+      const dy = s.y - li.y;
+      const d = Math.hypot(dx, dy) || 1e-9;
+      const inv = 1 / (c * d);
+      // d(residual)/d(p_s) = +unit/c ; d/d(p_i) = -unit/c
+      for (const [pt, sign] of [
+        [o.emitterId, +1],
+        [o.listenerId, -1],
+      ]) {
+        const sx = freeXIndex(pt);
+        const sy = freeYIndex(pt);
+        if (sx >= 0) row[sx] += sign * dx * inv;
+        if (sy >= 0) row[sy] += sign * dy * inv;
+      }
+    } // self-arrival: distance is the fixed SELF_PATH, so no position partials
+    J[i] = row;
   }
   return J;
 }
@@ -129,7 +187,9 @@ export function localize(p0, observations, n, opts = {}) {
   const costs = [curCost];
   let converged = false;
   for (let iter = 0; iter < maxIters; iter++) {
-    const J = numericalJacobian(cur, observations, n, c);
+    const J = opts.analytic === false
+      ? numericalJacobian(cur, observations, n, c)
+      : analyticJacobian(cur, observations, n, c);
     const m = observations.length;
     const cols = cur.length;
     const JtJ = Array.from({ length: cols }, () => new Array(cols).fill(0));
