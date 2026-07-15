@@ -3,19 +3,19 @@
 // the distributed path speak in message shapes that can map directly onto
 // future ESP-IDF tasks / mesh packets.
 
-export const DEFAULT_CHIRP_CONFIG = Object.freeze({
-  durationSec: 0.003,
-  f0Hz: 1000,
-  f1Hz: 3000,
-  sampleRateHz: 48000,
-});
+import {
+  DEFAULT_CALIBRATION_CHIRP_OPTIONS,
+  DEFAULT_CALIBRATION_CONFIG,
+} from './calibration-config.mjs';
+
+export const DEFAULT_CHIRP_CONFIG = DEFAULT_CALIBRATION_CHIRP_OPTIONS;
 
 /** Build a firmware-shaped calibration plan from the simulator's emit schedule. */
 export function makeCalibrationPlan(schedule, opts = {}) {
   return {
     kind: 'calibration-plan-v1',
     sweepId: opts.sweepId ?? 'sim-sweep',
-    gapSec: opts.gapSec ?? 0.3,
+    gapSec: opts.gapSec ?? DEFAULT_CALIBRATION_CONFIG.gapSec,
     chirp: { ...DEFAULT_CHIRP_CONFIG, ...(opts.chirp ?? {}) },
     emissions: schedule.map((e) => ({ emitterId: e.emitterId, emitClockSec: e.emitClockSec })),
   };

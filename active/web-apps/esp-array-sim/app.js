@@ -27,6 +27,7 @@ import {
   presetState,
 } from './src/ui-state.mjs';
 import { NOTE_PRESETS, applyNotePreset as applyScenarioNotePreset } from './src/note-presets.mjs';
+import { DEFAULT_CALIBRATION_CONFIG } from './src/calibration-config.mjs';
 
 const canvas = document.getElementById('room');
 const ctx = canvas.getContext('2d');
@@ -713,7 +714,15 @@ function startCaptureAnim() {
   // Slow the wave propagation way down so a human can see it (sound crosses a
   // 5 m room in ~15 ms in reality).
   const TIME_DILATION = 1 / 300;
-  anim = { schedule, obs, idx: 0, ppm: state.ppm, startTime: performance.now(), gapSec: 0.3, TIME_DILATION };
+  anim = {
+    schedule,
+    obs,
+    idx: 0,
+    ppm: state.ppm,
+    startTime: performance.now(),
+    gapSec: DEFAULT_CALIBRATION_CONFIG.gapSec,
+    TIME_DILATION,
+  };
   state.anim = anim;
   loop();
 }

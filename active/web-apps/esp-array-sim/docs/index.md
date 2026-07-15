@@ -25,6 +25,20 @@ Each ESP32 gets a true 2-D position, a **residual clock offset** (left over afte
 clock-sync that the real firmware would run first), and mic jitter (chirp cross-correlation error).
 Layouts are produced by a seeded `mulberry32` RNG so every scenario is reproducible.
 
+## Shared calibration config (`calibration-config.mjs`)
+
+The calibration sweep timing/chirp is now centralized in one canonical module:
+
+- `DEFAULT_CALIBRATION_CONFIG.firstEmitSec`
+- `DEFAULT_CALIBRATION_CONFIG.gapSec`
+- `DEFAULT_CALIBRATION_CHIRP_OPTIONS`
+
+This matters because the project had started to drift: the firmware protocol,
+matched-capture path, and UI animation each had their own hard-coded idea of
+what the calibration chirp/gap were. They now all read from the same source of
+truth, so future ESP32 firmware can adopt the exact same sweep parameters
+without hunting through the codebase.
+
 ## Capture model (`capture.mjs`)
 
 For an emission from node *s* at shared-clock time *T<sub>e</sub>*, every listener *i* records

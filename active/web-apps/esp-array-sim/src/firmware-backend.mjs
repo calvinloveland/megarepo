@@ -10,6 +10,7 @@ import {
   rowsToListenerPackets,
   gossipPacketsAndAssemble,
 } from './firmware-protocol.mjs';
+import { DEFAULT_CALIBRATION_CONFIG } from './calibration-config.mjs';
 
 export function assertFirmwareBackend(backend) {
   for (const name of ['syncClocks', 'makeCalibrationPlan', 'captureListenerRows', 'gossipListenerRows']) {
@@ -40,7 +41,7 @@ export function makeSimFirmwareBackend(room, opts = {}) {
       };
     },
     makeCalibrationPlan(nodes) {
-      const schedule = makeEmitSchedule(nodes, opts.gapSec ?? 0.3);
+      const schedule = makeEmitSchedule(nodes, opts.gapSec ?? DEFAULT_CALIBRATION_CONFIG.gapSec);
       return {
         schedule,
         plan: makeProtocolCalibrationPlan(schedule, {

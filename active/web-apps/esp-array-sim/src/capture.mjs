@@ -16,6 +16,7 @@ import { distance, propagationDelay, gaussianNoise, SPEED_OF_SOUND } from './aco
 import { arrivalPaths, segmentHitsRect } from './room.mjs';
 import { makeEmitSchedule } from './world.mjs';
 import { linearChirp, estimateTOA, placeTemplate } from './dsp.mjs';
+import { DEFAULT_CALIBRATION_CHIRP_OPTIONS } from './calibration-config.mjs';
 
 /**
  * An observation = one emission heard by one listener.
@@ -77,10 +78,8 @@ function makeLocalRng(a, b, shotIdx = 0) {
 }
 
 /** Default chirp template shared by every emission in matched-filter mode. */
-export const DEFAULT_CHIRP = linearChirp({
-  durationSec: 0.002, f0Hz: 3000, f1Hz: 8000, sampleRateHz: 48000, window: true,
-});
-export const DEFAULT_SAMPLE_RATE = 48000;
+export const DEFAULT_CHIRP = linearChirp({ ...DEFAULT_CALIBRATION_CHIRP_OPTIONS });
+export const DEFAULT_SAMPLE_RATE = DEFAULT_CALIBRATION_CHIRP_OPTIONS.sampleRateHz;
 
 /**
  * Build one (emitter → listener) captured waveform and estimate its TOA with the

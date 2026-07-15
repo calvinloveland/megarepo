@@ -8,8 +8,9 @@ wireless surround system before touching real hardware.
 Important: this is still an **algorithm/system simulator**, not a literal ESP32 hardware emulator.
 It does not emulate ESP-IDF peripherals or timing. But the distributed calibration path now uses
 explicit firmware-shaped packet/plan contracts plus a small firmware-backend interface (clock sync,
-chirp plan, listener-row capture, row gossip), so the simulator's message flow maps much more
-cleanly onto future ESP32 firmware work.
+chirp plan, listener-row capture, row gossip), and the calibration chirp/gap now live in one shared
+canonical config module. That makes the simulator's message flow map much more cleanly onto future
+ESP32 firmware work.
 
 ## Why a simulator
 
