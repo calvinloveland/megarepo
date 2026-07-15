@@ -6,6 +6,7 @@ import { CHANNELS_5_1, azimuthToVec } from './src/surround.mjs';
 import { SPEED_OF_SOUND } from './src/acoustics.mjs';
 import { renderChannelAtSweetSpot, renderPeakConcentration, channelSeparation } from './src/render.mjs';
 import { linearChirp } from './src/dsp.mjs';
+import { runSweep, formatSweep, minNodesFor, formatMinNodes } from './src/sweep.mjs';
 import {
   PRESETS,
   sanitizeUiState,
@@ -21,6 +22,7 @@ const statusEl = document.getElementById('status');
 const reportEl = document.getElementById('report');
 const mappingEl = document.getElementById('mapping');
 const channelStatusEl = document.getElementById('channelStatus');
+const sizingReportEl = document.getElementById('sizingReport');
 
 const ui = {
   preset: document.getElementById('preset'),
@@ -44,6 +46,9 @@ const ui = {
   reseed: document.getElementById('reseed'),
   playChannel: document.getElementById('playChannel'),
   stopChannel: document.getElementById('stopChannel'),
+  sizingTargetCm: document.getElementById('sizingTargetCm'),
+  sizingTrials: document.getElementById('sizingTrials'),
+  runSizing: document.getElementById('runSizing'),
 };
 
 // Colours keyed by channel id for the on-canvas glow + mapping bars.
@@ -178,6 +183,36 @@ function renderReport(ms, mode) {
 }
 
 function cfgReflCoef() { return parseFloat(ui.reflCoef.value) ?? 0.5; }
+
+function runSizing() {
+  statusEl.textContent = 'Running hardware-sizing sweep…';
+  requestAnimationFrame(() => {
+    const cfg = readConfig();
+    const targetM = Math.max(0.01, (parseFloat(ui.sizingTargetCm.value) || 5) / 100);
+    const trials = Math.max(2, parseInt(ui.sizingTrials.value, 10) || 6);
+    const cells = runSweep({
+      nodeCounts: [4, 6, 8, 10, 12],
+      captureModes: [cfg.captureMode],
+      reflCoefs: [cfg.reflCoef],
+      trials,
+      roomW: cfg.room.width,
+      roomH: cfg.room.height,
+      extra: {
+        earliestPeak: cfg.earliestPeak,
+        clockSkew: cfg.clockSkew,
+        robust: cfg.robust,
+        meshLoss: cfg.meshLoss,
+        avgShots: cfg.avgShots,
+      },
+    });
+    const recs = minNodesFor(cells, targetM);
+    sizingReportEl.textContent = `${formatSweep(cells)}\n\n${formatMinNodes(recs, targetM)}`;
+    const rec = recs[0];
+    statusEl.textContent = rec?.minNodes == null
+      ? `Sizing done: infeasible in 4–12 nodes for ≤${(targetM * 100).toFixed(0)} cm worst-case.`
+      : `Sizing done: need at least ${rec.minNodes} nodes for ≤${(targetM * 100).toFixed(0)} cm worst-case.`;
+  });
+}
 
 function renderMapping() {
   const s = state.scenario;
@@ -443,6 +478,7 @@ ui.run.addEventListener('click', runIt);
 ui.reseed.addEventListener('click', () => { ui.seed.value = (Math.random() * 1e9) | 0; runIt(); });
 ui.playChannel.addEventListener('click', playChannel);
 ui.stopChannel.addEventListener('click', stopChannel);
+ui.runSizing.addEventListener('click', runSizing);
 ui.copyLink.addEventListener('click', async () => {
   syncUrlFromUi();
   const url = window.location.href;
@@ -474,7 +510,7 @@ const initialUiState = parseUiStateUrl(window.location.hash);
 applyUiState(initialUiState);
 
 // Expose state for Playwright/inspection (per repo convention for vanilla-JS UIs).
-window.espArraySim = { state, runIt, readConfig, readUiState, applyUiState, playChannel, stopChannel };
+window.espArraySim = { state, runIt, runSizing, readConfig, readUiState, applyUiState, playChannel, stopChannel };
 
 // First paint.
 runIt();

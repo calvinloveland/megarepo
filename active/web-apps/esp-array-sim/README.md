@@ -30,8 +30,10 @@ reproduce an interesting case exactly.
 
 For hardware planning, `npm run sweep` answers “how many ESP32 nodes do I need?” by printing the
 minimum node count that keeps the **worst-case** localization error under a target (5 cm by default)
-for each capture mode / reverb level. `npm run bench` answers the complementary performance question:
-how long a one-time calibration solve takes as node count grows.
+for each capture mode / reverb level. The browser now exposes the same analysis in a **Hardware
+sizing** panel, scoped to the current mode / reverb / robust / averaging settings, so you can answer
+that question without leaving the app. `npm run bench` answers the complementary performance
+question: how long a one-time calibration solve takes as node count grows.
 
 ## How it works
 

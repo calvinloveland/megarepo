@@ -85,7 +85,10 @@ node count whose *worst-case* alignment error (across all room draws tried) meet
 the target — or `null` (infeasible in the tested range) with the best-available
 worst error, so you know the regime is genuinely hard rather than just "didn't try
 big enough." `npm run sweep` prints it after the accuracy table; `--target-m`
-sets the worst-case target (default 5 cm).
+sets the worst-case target (default 5 cm). The browser exposes the same analysis
+in a **Hardware sizing** panel that runs the sweep for the current UI settings
+(mode / reverb / robust / averaging / skew) and reports the minimum recommended
+node count inline.
 
 The sweep reveals two actionable findings the firmware must respect:
 

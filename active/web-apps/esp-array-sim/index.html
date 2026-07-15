@@ -103,6 +103,20 @@
       <h3>Localization report</h3>
       <div id="report" class="report">—</div>
     </section>
+
+    <section class="panel">
+      <h2>Hardware sizing</h2>
+      <div class="row">
+        <label>Target worst-case error (cm)
+          <input id="sizingTargetCm" type="number" step="1" min="1" value="5" />
+        </label>
+        <label>Trials / node count
+          <input id="sizingTrials" type="number" step="1" min="2" value="6" />
+        </label>
+        <button id="runSizing" class="ghost">Analyze sizing</button>
+      </div>
+      <pre id="sizingReport" class="report">—</pre>
+    </section>
   </main>
 
   <footer>
