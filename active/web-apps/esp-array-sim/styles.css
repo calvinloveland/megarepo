@@ -107,6 +107,12 @@ button.tiny { padding: 3px 8px; font-size: 12px; font-weight: 500; }
   font-size: 12px;
   color: var(--dim);
 }
+.history-note {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--ink);
+  font-style: italic;
+}
 .history-lines {
   margin-top: 4px;
   font-size: 12px;

@@ -48,7 +48,9 @@ a single text artifact. The top-level analysis dashboard now also shows a readin
 visually scannable, not just textual. A session-local **Readiness history** log records those
 badge/snapshot transitions after each analysis or bundle run so you can see how the assessment
 changed as you tweaked settings, and it can now be downloaded or cleared with one click before a
-fresh exploration.
+fresh exploration. There is also now a lightweight **Scenario notes** field in the toolbar; its
+contents are captured in bundle exports and readiness-history snapshots so you can annotate why a
+configuration was interesting.
 
 For hardware planning, `npm run sweep` answers “how many ESP32 nodes do I need?” by printing the
 minimum node count that keeps the **worst-case** localization error under a target (5 cm by default)

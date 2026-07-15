@@ -13,14 +13,16 @@ const TITLES = Object.freeze({
  *
  * @param {{id:string,label:string,analyses:string[]}} bundle
  * @param {{compare?:string,sizing?:string,bench?:string,noise?:string,nodeScan?:string}} reports
+ * @param {string} [notes=''] optional scenario note from the browser UI
  * @returns {string}
  */
-export function formatBundleReport(bundle, reports = {}) {
+export function formatBundleReport(bundle, reports = {}, notes = '') {
   const lines = [
     `ESP Array Simulator — ${bundle.label}`,
     `bundle id: ${bundle.id}`,
-    '',
   ];
+  if (notes.trim()) lines.push(`scenario notes: ${notes.trim()}`);
+  lines.push('');
   for (const key of bundle.analyses) {
     lines.push(`## ${TITLES[key] ?? key}`);
     lines.push(reports[key] || '(not run)');

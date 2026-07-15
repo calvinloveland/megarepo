@@ -57,6 +57,7 @@ const ui = {
   downloadHistoryTxt: document.getElementById('downloadHistoryTxt'),
   clearHistory: document.getElementById('clearHistory'),
   copyLink: document.getElementById('copyLink'),
+  scenarioNotes: document.getElementById('scenarioNotes'),
   nodeCount: document.getElementById('nodeCount'),
   seed: document.getElementById('seed'),
   roomW: document.getElementById('roomW'),
@@ -282,6 +283,10 @@ function downloadText(filename, text) {
   setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 
+function currentScenarioNotes() {
+  return ui.scenarioNotes.value?.trim() || '';
+}
+
 function currentBundleReports() {
   return {
     compare: state.compare?.text,
@@ -321,6 +326,7 @@ function renderReadinessHistory() {
   dashboardHistoryEl.innerHTML = state.readinessHistory.map((entry) =>
     `<div class="history-entry ${entry.badge.severity}">` +
       `<div class="history-head"><span class="dashboard-badge ${entry.badge.severity}">${entry.badge.label}</span> ${entry.stamp} · ${entry.source}</div>` +
+      `${entry.note ? `<div class="history-note">${entry.note}</div>` : ''}` +
       `<div class="history-lines">${entry.lines.join(' · ')}</div>` +
     `</div>`
   ).join('');
@@ -328,7 +334,7 @@ function renderReadinessHistory() {
 
 function snapshotReadinessHistory(source) {
   const stamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-  const entry = makeReadinessHistoryEntry(source, currentDashboardSummary(), stamp);
+  const entry = makeReadinessHistoryEntry(source, currentDashboardSummary(), stamp, currentScenarioNotes());
   state.readinessHistory = pushReadinessHistory(state.readinessHistory, entry, 12);
   renderReadinessHistory();
 }
@@ -490,7 +496,7 @@ function runBundleUi() {
     for (const name of bundle.analyses) analyses[name]?.();
     state.bundleReport = {
       id: bundle.id,
-      text: formatBundleReport(bundle, currentBundleReports()),
+      text: formatBundleReport(bundle, currentBundleReports(), currentScenarioNotes()),
     };
     ui.downloadBundleTxt.disabled = false;
     snapshotReadinessHistory(`Bundle: ${bundle.label}`);
@@ -807,7 +813,7 @@ ui.run.addEventListener('click', runIt);
 ui.runBundle.addEventListener('click', runBundleUi);
 ui.downloadBundleTxt.addEventListener('click', () => {
   const bundle = getScanBundle(ui.scanBundle.value);
-  const text = formatBundleReport(bundle, currentBundleReports());
+  const text = formatBundleReport(bundle, currentBundleReports(), currentScenarioNotes());
   state.bundleReport = { id: bundle.id, text };
   downloadText(`esp-array-${bundle.id}-bundle.txt`, text);
 });

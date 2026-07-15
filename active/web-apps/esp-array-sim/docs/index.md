@@ -279,6 +279,11 @@ a newest-first snapshot, so you can compare how readiness evolved as you changed
 noise σ, or hardening knobs. The log now also has one-click **Download history** and **Clear
 history** controls so you can save the timeline or reset it before exploring a fresh scenario.
 
+The Scenario toolbar now also includes a lightweight **Scenario notes** field. Notes are not part of
+the solver; they are purely for human context, and they are captured in bundle exports plus each
+readiness-history snapshot/export so you can annotate why a configuration mattered (for example,
+"hard living-room preset with distributed matched rows and 30% loss").
+
 A single-mic matched filter with sub-sample parabolic refinement around the |correlation| peak
 lands the TOA within ~2 cm (near the sample-quantization floor); a fractional-lag chirp is recovered
 to <0.15 samples. The estimator has two modes:

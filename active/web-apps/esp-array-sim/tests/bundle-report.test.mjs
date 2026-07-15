@@ -8,8 +8,9 @@ test('formatBundleReport emits bundle header and sections in bundle order', () =
     compare: 'COMPARE',
     sizing: 'SIZING',
     noise: 'NOISE',
-  });
+  }, 'hard living-room preset');
   assert.match(txt, /^ESP Array Simulator — Quick characterize/m);
+  assert.match(txt, /scenario notes: hard living-room preset/);
   const compare = txt.indexOf('## Mode comparison');
   const sizing = txt.indexOf('## Hardware sizing');
   const noise = txt.indexOf('## Noise sensitivity');

@@ -1,8 +1,9 @@
 /** Build one session-local readiness history entry from a dashboard summary. */
-export function makeReadinessHistoryEntry(source, summary, stamp = '') {
+export function makeReadinessHistoryEntry(source, summary, stamp = '', note = '') {
   return {
     source,
     stamp,
+    note,
     badge: summary.badge,
     lines: summary.lines.map((line) => line.text),
   };
@@ -19,6 +20,7 @@ export function formatReadinessHistory(history = []) {
   const lines = ['ESP Array Simulator — Readiness history', ''];
   for (const entry of history) {
     lines.push(`[${entry.stamp}] ${entry.badge.label} — ${entry.source}`);
+    if (entry.note?.trim()) lines.push(`notes: ${entry.note.trim()}`);
     for (const line of entry.lines) lines.push(`- ${line}`);
     lines.push('');
   }

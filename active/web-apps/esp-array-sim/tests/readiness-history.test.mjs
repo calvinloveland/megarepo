@@ -9,10 +9,11 @@ test('makeReadinessHistoryEntry copies badge and line texts from a dashboard sum
       { severity: 'good', text: 'Best mode: matched at 1.00 cm.' },
       { severity: 'warn', text: 'Worst calibration time: 1200 ms.' },
     ],
-  }, '12:00:00');
+  }, '12:00:00', 'hard living-room preset');
   assert.equal(entry.source, 'bundle: full');
   assert.equal(entry.stamp, '12:00:00');
   assert.equal(entry.badge.label, 'CAUTION');
+  assert.equal(entry.note, 'hard living-room preset');
   assert.deepEqual(entry.lines, [
     'Best mode: matched at 1.00 cm.',
     'Worst calibration time: 1200 ms.',
@@ -32,6 +33,7 @@ test('formatReadinessHistory emits a readable newest-first text export', () => {
     {
       source: 'Mode comparison',
       stamp: '12:00:02',
+      note: 'distributed matched rows with 30% loss',
       badge: { label: 'CAUTION', severity: 'warn' },
       lines: ['Best mode: matched at 1.20 cm.', 'Worst calibration time: 1200 ms.'],
     },
@@ -44,6 +46,7 @@ test('formatReadinessHistory emits a readable newest-first text export', () => {
   ]);
   assert.match(txt, /^ESP Array Simulator — Readiness history/m);
   assert.match(txt, /\[12:00:02\] CAUTION — Mode comparison/);
+  assert.match(txt, /notes: distributed matched rows with 30% loss/);
   assert.match(txt, /- Best mode: matched at 1.20 cm\./);
   assert.ok(txt.indexOf('12:00:02') < txt.indexOf('12:00:01'), 'newest entries first');
 });
