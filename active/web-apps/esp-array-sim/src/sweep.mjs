@@ -100,3 +100,21 @@ export function formatSweep(cells) {
   );
   return [header, ...lines].join('\n');
 }
+
+/**
+ * CSV export of the sweep cells (for external plotting/analysis). RFC-4180-ish:
+ * header row + one row per cell, comma-delimited, with a trailing newline so
+ * concatenating multiple sweeps stays valid CSV.
+ */
+export function sweepToCsv(cells) {
+  const header = [
+    'nodeCount', 'captureMode', 'reflCoef', 'trials',
+    'medianErrM', 'p90ErrM', 'worstErrM', 'successRate',
+  ].join(',');
+  const rows = cells.map((c) => [
+    c.nodeCount, c.captureMode, c.reflCoef.toFixed(4), c.trials,
+    c.medianErrM.toFixed(6), c.p90ErrM.toFixed(6), c.worstErrM.toFixed(6),
+    c.successRate.toFixed(4),
+  ].join(','));
+  return [header, ...rows].join('\n') + '\n';
+}
