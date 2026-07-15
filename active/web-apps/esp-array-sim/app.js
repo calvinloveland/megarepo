@@ -15,6 +15,7 @@ import { scanNodeCounts, formatNodeScan, summarizeNodeScan } from './src/node-sc
 import { SCAN_BUNDLES, getScanBundle } from './src/scan-bundles.mjs';
 import { formatBundleReport } from './src/bundle-report.mjs';
 import { dashboardSummary } from './src/dashboard-summary.mjs';
+import { makeReadinessHistoryEntry, pushReadinessHistory } from './src/readiness-history.mjs';
 import {
   PRESETS,
   sanitizeUiState,
@@ -30,6 +31,7 @@ const statusEl = document.getElementById('status');
 const modeHelpEl = document.getElementById('modeHelp');
 const reportEl = document.getElementById('report');
 const dashboardSummaryEl = document.getElementById('dashboardSummary');
+const dashboardHistoryEl = document.getElementById('dashboardHistory');
 const mappingEl = document.getElementById('mapping');
 const channelStatusEl = document.getElementById('channelStatus');
 const sizingReportEl = document.getElementById('sizingReport');
@@ -115,6 +117,7 @@ const state = {
   noiseScan: null,       // { rows, text }
   nodeScan: null,        // { rows, text }
   bundleReport: null,    // { id, text }
+  readinessHistory: [],  // session-local newest-first snapshots
 };
 
 function readUiState() {
@@ -287,18 +290,42 @@ function currentBundleReports() {
   };
 }
 
-function renderDashboardSummary() {
-  const summary = dashboardSummary({
+function currentDashboardSummary() {
+  return dashboardSummary({
     compare: state.compare,
     sizing: state.sizing,
     bench: state.bench,
     noise: state.noiseScan,
   });
+}
+
+function renderDashboardSummary() {
+  const summary = currentDashboardSummary();
   dashboardSummaryEl.className = `summary-card dashboard-card ${summary.badge.severity}`;
   dashboardSummaryEl.innerHTML = [
     `<div class="dashboard-badge ${summary.badge.severity}">${summary.badge.label}</div>`,
     ...summary.lines.map((line) => `<div class="dashboard-line ${line.severity}">${line.text}</div>`),
   ].join('');
+}
+
+function renderReadinessHistory() {
+  if (!state.readinessHistory.length) {
+    dashboardHistoryEl.innerHTML = 'No readiness history yet.';
+    return;
+  }
+  dashboardHistoryEl.innerHTML = state.readinessHistory.map((entry) =>
+    `<div class="history-entry ${entry.badge.severity}">` +
+      `<div class="history-head"><span class="dashboard-badge ${entry.badge.severity}">${entry.badge.label}</span> ${entry.stamp} · ${entry.source}</div>` +
+      `<div class="history-lines">${entry.lines.join(' · ')}</div>` +
+    `</div>`
+  ).join('');
+}
+
+function snapshotReadinessHistory(source) {
+  const stamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  const entry = makeReadinessHistoryEntry(source, currentDashboardSummary(), stamp);
+  state.readinessHistory = pushReadinessHistory(state.readinessHistory, entry, 12);
+  renderReadinessHistory();
 }
 
 function renderSizingForConfig(cfg) {
@@ -407,6 +434,7 @@ function runSizing() {
   statusEl.textContent = 'Running hardware-sizing sweep…';
   requestAnimationFrame(() => {
     statusEl.textContent = renderSizingForConfig(readConfig());
+    snapshotReadinessHistory('Hardware sizing');
   });
 }
 
@@ -414,6 +442,7 @@ function runCompareUi() {
   statusEl.textContent = 'Comparing capture modes…';
   requestAnimationFrame(() => {
     statusEl.textContent = renderCompareForConfig(readConfig());
+    snapshotReadinessHistory('Mode comparison');
   });
 }
 
@@ -421,6 +450,7 @@ function runNoiseScanUi() {
   statusEl.textContent = 'Scanning noise sensitivity…';
   requestAnimationFrame(() => {
     statusEl.textContent = renderNoiseScanForConfig(readConfig());
+    snapshotReadinessHistory('Noise sensitivity');
   });
 }
 
@@ -428,6 +458,7 @@ function runNodeScanUi() {
   statusEl.textContent = 'Scanning node-count sensitivity…';
   requestAnimationFrame(() => {
     statusEl.textContent = renderNodeScanForConfig(readConfig());
+    snapshotReadinessHistory('Node-count sensitivity');
   });
 }
 
@@ -435,6 +466,7 @@ function runBenchUi() {
   statusEl.textContent = 'Running calibration benchmark…';
   requestAnimationFrame(() => {
     statusEl.textContent = renderBenchForConfig(readConfig());
+    snapshotReadinessHistory('Calibration latency');
   });
 }
 
@@ -456,6 +488,7 @@ function runBundleUi() {
       text: formatBundleReport(bundle, currentBundleReports()),
     };
     ui.downloadBundleTxt.disabled = false;
+    snapshotReadinessHistory(`Bundle: ${bundle.label}`);
     statusEl.textContent = `${bundle.label} complete.`;
   });
 }

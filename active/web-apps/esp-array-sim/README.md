@@ -45,7 +45,9 @@ back into the main controls with one click. There are also now one-click **analy
 of making you press each analysis button separately, and can export the currently-populated bundle as
 a single text artifact. The top-level analysis dashboard now also shows a readiness badge
 (**READY / PENDING / CAUTION / RISK**) with color-coded lines so the simulator’s overall health is
-visually scannable, not just textual.
+visually scannable, not just textual. A session-local **Readiness history** log records those
+badge/snapshot transitions after each analysis or bundle run so you can see how the assessment
+changed as you tweaked settings.
 
 For hardware planning, `npm run sweep` answers “how many ESP32 nodes do I need?” by printing the
 minimum node count that keeps the **worst-case** localization error under a target (5 cm by default)
