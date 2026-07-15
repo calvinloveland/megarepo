@@ -12,6 +12,10 @@ A vanilla-JS + Node static-server web app, following the megarepo's sandbox shap
   - `localize.mjs` — joint position+clock LM solver, multistart, Procrustes alignment.
   - `surround.mjs` — 5.1 channel→real-speaker panning.
   - `dsp.mjs` — chirp template + matched-filter TOA estimator (the real firmware-side block).
+  - `mesh.mjs` — distributed/mesh capture + gossip simulation (per-node mic row, full-broadcast
+    round, central assembly; prove the gossiped matrix equals the centralized one).
+  - `render.mjs` — end-to-end sweet-spot audio rendering + channel-separation metric.
+  - `sweep.mjs` — localization-accuracy evaluation grid + CLI (`npm run sweep`).
   - `scenario.mjs` — orchestrates a whole run; **drive new features through this**.
 - `app.js` — canvas renderer + controls; imports the `src/` modules directly.
 - `server.mjs` — bare static server (serves `/`, `/app.js`, `/src/*`, `/styles.css`).

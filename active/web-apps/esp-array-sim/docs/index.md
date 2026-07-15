@@ -65,6 +65,17 @@ delayed by (maxDist − itsDist)/c and attenuated by itsDist/maxDist so all cont
 simultaneously and equally loud — the time/loudness alignment a real surround processor applies
 after localization (surfaced in the UI report as the max delay spread + gain range).
 
+## Distributed/mesh localization (`mesh.mjs`)
+
+The centralized path assumes one oracle has the whole observation matrix. The real ESP32 system is
+distributed: each node only ever records the arrivals at ITS OWN microphone (its "listener row"),
+then the mesh gossips those rows so any node can assemble the full matrix and run the joint solver.
+`mesh.mjs` simulates that data flow — partition by listener, a full-broadcast gossip round
+(n·(n−1) messages), and assemble — and proves the gossiped matrix equals the centralized one
+(same multiset of (emitter,listener,arrival) observations), so the distributed protocol is a
+zero-fidelity-loss drop-in for the centralized path. `scenario.captureMode: 'distributed'` runs
+the whole pipeline distributed and reports `meshMessages`. UI surfaces it as a capture-mode option.
+
 ## Evaluation sweep (`sweep.mjs`)
 
 `runSweep` runs the localization pipeline across a (node × capture-mode × wall-reflection)

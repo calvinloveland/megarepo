@@ -101,7 +101,9 @@ function renderReport(ms, mode) {
     : '';
   const capLine = mode === 'matched'
     ? `capture: <b>matched-filter</b> (real DSP · wall refl. coef ${(cfgReflCoef()).toFixed(2)})`
-    : `capture: <b>closed-form</b> (perfect direct-path TOA)`;
+    : mode === 'distributed'
+      ? `capture: <b>distributed mesh</b> (each node gossips its mic row · ${s.meshMessages} msgs)`
+      : `capture: <b>closed-form</b> (perfect direct-path TOA)`;
   reportEl.innerHTML = `
     <div>nodes: <b>${s.nodes.length}</b> · room: ${s.room.width}×${s.room.height} m</div>
     <div>alignment error: <span class="${ok ? 'ok' : 'bad'}">${errCm} cm</span> ${s.transform.mirror ? '(mirror-reflected to truth)' : ''}</div>
