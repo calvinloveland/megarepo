@@ -25,6 +25,7 @@ const ui = {
   reflCoef: document.getElementById('reflCoef'),
   earliestPeak: document.getElementById('earliestPeak'),
   clockSkew: document.getElementById('clockSkew'),
+  robust: document.getElementById('robust'),
   showTruth: document.getElementById('showTruth'),
   captureSweep: document.getElementById('captureSweep'),
   run: document.getElementById('run'),
@@ -60,6 +61,7 @@ function readConfig() {
     reflCoef: parseFloat(ui.reflCoef.value) ?? 0.5,
     earliestPeak: ui.earliestPeak.checked,
     clockSkew: ui.clockSkew.checked,
+    robust: ui.robust.checked ? 5e-5 : 0,
   };
 }
 
@@ -373,6 +375,7 @@ ui.showTruth.addEventListener('change', draw);
   el.addEventListener('change', draw));
 ui.earliestPeak.addEventListener('change', draw);
 ui.clockSkew.addEventListener('change', draw);
+ui.robust.addEventListener('change', draw);
 
 // Expose state for Playwright/inspection (per repo convention for vanilla-JS UIs).
 window.espArraySim = { state, runIt, readConfig, playChannel, stopChannel };

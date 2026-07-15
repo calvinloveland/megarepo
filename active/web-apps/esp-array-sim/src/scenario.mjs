@@ -50,6 +50,7 @@ export function runScenario(cfg = {}) {
     starts: cfg.starts ?? 8,
     seedRng: rng, // deterministic restarts -> reproducible scenarios
     withSkew,
+    robust: cfg.robust ?? 0,
   });
   const truth = nodes.map((n) => ({ x: n.pos.x, y: n.pos.y }));
 

@@ -75,6 +75,23 @@ export function cost(p, observations, n, c = SPEED_OF_SOUND, withSkew = false) {
   return s;
 }
 
+/** Huber robust cost: Σ ρ(r) where ρ(r)=r² for |r|≤δ else δ(2|r|−δ). */
+export function robustCost(p, observations, n, delta, c = SPEED_OF_SOUND, withSkew = false) {
+  const r = residuals(p, observations, n, c, withSkew);
+  let s = 0;
+  for (const v of r) {
+    const a = Math.abs(v);
+    s += a <= delta ? v * v : delta * (2 * a - delta);
+  }
+  return s;
+}
+
+/** Huber IRLS weight: 1 inside δ, δ/|r| outside. */
+function huberWeight(r, delta) {
+  const a = Math.abs(r);
+  return a <= delta ? 1 : delta / (a || 1e-12);
+}
+
 /** Numerical Jacobian (central differences). Reference + fallback for the analytic version. */
 export function numericalJacobian(p, observations, n, c = SPEED_OF_SOUND, withSkew = false) {
   const m = observations.length;
@@ -198,9 +215,15 @@ export function localize(p0, observations, n, opts = {}) {
   const lambda0 = opts.lambda ?? 1e-3;
   const tol = opts.tol ?? 1e-14;
   const withSkew = opts.withSkew ?? false;
+  const robust = opts.robust ?? 0; // Huber delta; 0 = ordinary least squares
   let lambda = lambda0;
   let cur = p0.slice();
-  let curCost = cost(cur, observations, n, c, withSkew);
+  // Per-observation IRLS weights, refreshed each iteration when robust>0.
+  let weights = new Array(observations.length).fill(1);
+  const evalCost = (p) => robust > 0
+    ? robustCost(p, observations, n, robust, c, withSkew)
+    : cost(p, observations, n, c, withSkew);
+  let curCost = evalCost(cur);
   const costs = [curCost];
   let converged = false;
   for (let iter = 0; iter < maxIters; iter++) {
@@ -212,10 +235,14 @@ export function localize(p0, observations, n, opts = {}) {
     const JtJ = Array.from({ length: cols }, () => new Array(cols).fill(0));
     const Jtr = new Array(cols).fill(0);
     const r = residuals(cur, observations, n, c, withSkew);
+    if (robust > 0) {
+      for (let i = 0; i < m; i++) weights[i] = huberWeight(r[i], robust);
+    }
     for (let i = 0; i < m; i++) {
+      const w = weights[i] || 0;
       for (let a = 0; a < cols; a++) {
-        Jtr[a] += J[i][a] * r[i];
-        for (let b = 0; b < cols; b++) JtJ[a][b] += J[i][a] * J[i][b];
+        Jtr[a] += w * J[i][a] * r[i];
+        for (let b = 0; b < cols; b++) JtJ[a][b] += w * J[i][a] * J[i][b];
       }
     }
     // LM step: (JᵀJ + λ diag) Δ = −Jᵀr
@@ -229,7 +256,7 @@ export function localize(p0, observations, n, opts = {}) {
       continue;
     }
     const trial = cur.map((v, i) => v + delta[i]);
-    const trialCost = cost(trial, observations, n, c, withSkew);
+    const trialCost = evalCost(trial);
     if (trialCost < curCost) {
       cur = trial;
       const rel = (curCost - trialCost) / (curCost + 1e-18);
@@ -246,7 +273,7 @@ export function localize(p0, observations, n, opts = {}) {
     }
   }
   const { pos, off, skew } = unpackParams(cur, n, withSkew);
-  return { pos, off, skew, iterations: costs.length - 1, costs, converged };
+  return { pos, off, skew, iterations: costs.length - 1, costs, converged, weights };
 }
 
 /**

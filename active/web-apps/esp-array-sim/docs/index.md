@@ -65,6 +65,16 @@ delayed by (maxDist − itsDist)/c and attenuated by itsDist/maxDist so all cont
 simultaneously and equally loud — the time/loudness alignment a real surround processor applies
 after localization (surfaced in the UI report as the max delay spread + gain range).
 
+## Robust localization (`localize.mjs`, opts.robust)
+
+Real captures contain gross TOA outliers — the documented failure mode where a loud NLOS echo gets
+mis-identified as the direct arrival (a ±~ms jump ≈ tens of cm). Ordinary least-squares LM is wrecked
+by these; enabling `robust` sets a Huber δ and switches the driver to IRLS (per-iteration weights,
+w=1 inside δ, δ/|r| outside), down-weighting the outliers and converging on the inlier geometry.
+With ~15% random-signed 2 ms outliers, OLS lands ~17 cm off while robust recovers to ~2 cm, and the
+final per-observation weights drop on exactly the corrupted arrivals. MMA disable to keep OLS as the
+baseline.
+
 ## End-to-end rendering (`render.mjs`)
 
 `renderChannelAtSweetSpot` synthesizes the actual soundfield a listener receives when one virtual
