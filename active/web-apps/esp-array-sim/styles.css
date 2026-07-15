@@ -70,6 +70,10 @@ input:disabled, select:disabled { opacity: .55; }
   text-transform: uppercase;
   letter-spacing: .04em;
 }
+.handoff-help {
+  margin-top: 0;
+  margin-bottom: 8px;
+}
 button {
   background: var(--accent); color: #04132b; border: none; border-radius: 6px;
   padding: 7px 12px; font-weight: 600; cursor: pointer;
