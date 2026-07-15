@@ -12,6 +12,7 @@ import { assessAdvisories } from './src/advisories.mjs';
 import { compareModes, formatComparison, summarizeComparison } from './src/compare.mjs';
 import { scanNoiseSensitivity, formatNoiseScan, summarizeNoiseScan } from './src/noise-scan.mjs';
 import { scanNodeCounts, formatNodeScan, summarizeNodeScan } from './src/node-scan.mjs';
+import { SCAN_BUNDLES, getScanBundle } from './src/scan-bundles.mjs';
 import {
   PRESETS,
   sanitizeUiState,
@@ -45,6 +46,8 @@ const advisoriesEl = document.getElementById('advisories');
 
 const ui = {
   preset: document.getElementById('preset'),
+  scanBundle: document.getElementById('scanBundle'),
+  runBundle: document.getElementById('runBundle'),
   copyLink: document.getElementById('copyLink'),
   nodeCount: document.getElementById('nodeCount'),
   seed: document.getElementById('seed'),
@@ -269,121 +272,153 @@ function downloadText(filename, text) {
   setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 
+function renderSizingForConfig(cfg) {
+  const targetM = Math.max(0.01, (parseFloat(ui.sizingTargetCm.value) || 5) / 100);
+  const trials = Math.max(2, parseInt(ui.sizingTrials.value, 10) || 6);
+  const cells = runSweep({
+    nodeCounts: [4, 6, 8, 10, 12],
+    captureModes: [cfg.captureMode],
+    reflCoefs: [cfg.reflCoef],
+    trials,
+    roomW: cfg.room.width,
+    roomH: cfg.room.height,
+    extra: {
+      earliestPeak: cfg.earliestPeak,
+      clockSkew: cfg.clockSkew,
+      robust: cfg.robust,
+      meshLoss: cfg.meshLoss,
+      noiseSigma: cfg.noiseSigma,
+      distributedMatched: cfg.distributedMatched,
+      avgShots: cfg.avgShots,
+    },
+  });
+  const recs = minNodesFor(cells, targetM);
+  const text = `${formatSweep(cells)}\n\n${formatMinNodes(recs, targetM)}`;
+  state.sizing = { cells, text, targetM };
+  sizingSummaryEl.textContent = summarizeMinNodes(recs, targetM);
+  sizingReportEl.textContent = text;
+  ui.downloadSizingTxt.disabled = false;
+  ui.downloadSizingCsv.disabled = false;
+  const rec = recs[0];
+  return rec?.minNodes == null
+    ? `Sizing done: infeasible in 4–12 nodes for ≤${(targetM * 100).toFixed(0)} cm worst-case.`
+    : `Sizing done: need at least ${rec.minNodes} nodes for ≤${(targetM * 100).toFixed(0)} cm worst-case.`;
+}
+
+function renderCompareForConfig(cfg) {
+  const rows = compareModes(cfg);
+  const text = formatComparison(rows);
+  state.compare = { rows, text };
+  compareSummaryEl.textContent = summarizeComparison(rows);
+  compareReportEl.textContent = text;
+  compareActionsEl.innerHTML = rows.map((row, i) =>
+    `<button class="ghost tiny" data-compare-row="${i}">Use ${row.label}</button>`).join(' ');
+  ui.downloadCompareTxt.disabled = false;
+  return 'Mode comparison done.';
+}
+
+function renderNoiseScanForConfig(cfg) {
+  const rows = scanNoiseSensitivity(cfg);
+  const text = formatNoiseScan(rows);
+  state.noiseScan = { rows, text };
+  noiseSummaryEl.textContent = summarizeNoiseScan(rows);
+  noiseReportEl.textContent = text;
+  noiseActionsEl.innerHTML = rows.map((row, i) =>
+    `<button class="ghost tiny" data-noise-row="${i}">Use σ ${row.noiseSigma.toFixed(2)}</button>`).join(' ');
+  ui.downloadNoiseTxt.disabled = false;
+  return 'Noise scan done.';
+}
+
+function renderNodeScanForConfig(cfg) {
+  const rows = scanNodeCounts(cfg);
+  const text = formatNodeScan(rows);
+  state.nodeScan = { rows, text };
+  nodeScanSummaryEl.textContent = summarizeNodeScan(rows);
+  nodeScanReportEl.textContent = text;
+  nodeScanActionsEl.innerHTML = rows.map((row, i) =>
+    `<button class="ghost tiny" data-node-scan-row="${i}">Use ${row.nodeCount} nodes</button>`).join(' ');
+  ui.downloadNodeScanTxt.disabled = false;
+  return 'Node-count scan done.';
+}
+
+function renderBenchForConfig(cfg) {
+  const repeats = Math.max(1, parseInt(ui.benchRepeats.value, 10) || 3);
+  const points = runBench({
+    nodeCounts: [4, 6, 8, 10, 12],
+    repeats,
+    roomW: cfg.room.width,
+    roomH: cfg.room.height,
+    scenarioOpts: {
+      captureMode: cfg.captureMode,
+      distributedMatched: cfg.distributedMatched,
+      reflCoef: cfg.reflCoef,
+      noiseSigma: cfg.noiseSigma,
+      earliestPeak: cfg.earliestPeak,
+      clockSkew: cfg.clockSkew,
+      robust: cfg.robust,
+      meshLoss: cfg.meshLoss,
+      avgShots: cfg.avgShots,
+      starts: 8,
+    },
+  });
+  const text = formatBench(points);
+  state.bench = { points, text };
+  benchSummaryEl.textContent = summarizeBench(points);
+  benchReportEl.textContent = text;
+  ui.downloadBenchTxt.disabled = false;
+  const worst = Math.max(...points.map((p) => p.worstMs));
+  return `Benchmark done: worst calibration solve ${worst.toFixed(0)} ms.`;
+}
+
 function runSizing() {
   statusEl.textContent = 'Running hardware-sizing sweep…';
   requestAnimationFrame(() => {
-    const cfg = readConfig();
-    const targetM = Math.max(0.01, (parseFloat(ui.sizingTargetCm.value) || 5) / 100);
-    const trials = Math.max(2, parseInt(ui.sizingTrials.value, 10) || 6);
-    const cells = runSweep({
-      nodeCounts: [4, 6, 8, 10, 12],
-      captureModes: [cfg.captureMode],
-      reflCoefs: [cfg.reflCoef],
-      trials,
-      roomW: cfg.room.width,
-      roomH: cfg.room.height,
-      extra: {
-        earliestPeak: cfg.earliestPeak,
-        clockSkew: cfg.clockSkew,
-        robust: cfg.robust,
-        meshLoss: cfg.meshLoss,
-        noiseSigma: cfg.noiseSigma,
-        distributedMatched: cfg.distributedMatched,
-        avgShots: cfg.avgShots,
-      },
-    });
-    const recs = minNodesFor(cells, targetM);
-    const text = `${formatSweep(cells)}\n\n${formatMinNodes(recs, targetM)}`;
-    state.sizing = { cells, text, targetM };
-    sizingSummaryEl.textContent = summarizeMinNodes(recs, targetM);
-    sizingReportEl.textContent = text;
-    ui.downloadSizingTxt.disabled = false;
-    ui.downloadSizingCsv.disabled = false;
-    const rec = recs[0];
-    statusEl.textContent = rec?.minNodes == null
-      ? `Sizing done: infeasible in 4–12 nodes for ≤${(targetM * 100).toFixed(0)} cm worst-case.`
-      : `Sizing done: need at least ${rec.minNodes} nodes for ≤${(targetM * 100).toFixed(0)} cm worst-case.`;
+    statusEl.textContent = renderSizingForConfig(readConfig());
   });
 }
 
 function runCompareUi() {
   statusEl.textContent = 'Comparing capture modes…';
   requestAnimationFrame(() => {
-    const cfg = readConfig();
-    const rows = compareModes(cfg);
-    const text = formatComparison(rows);
-    state.compare = { rows, text };
-    compareSummaryEl.textContent = summarizeComparison(rows);
-    compareReportEl.textContent = text;
-    compareActionsEl.innerHTML = rows.map((row, i) =>
-      `<button class="ghost tiny" data-compare-row="${i}">Use ${row.label}</button>`).join(' ');
-    ui.downloadCompareTxt.disabled = false;
-    statusEl.textContent = 'Mode comparison done.';
+    statusEl.textContent = renderCompareForConfig(readConfig());
   });
 }
 
 function runNoiseScanUi() {
   statusEl.textContent = 'Scanning noise sensitivity…';
   requestAnimationFrame(() => {
-    const cfg = readConfig();
-    const rows = scanNoiseSensitivity(cfg);
-    const text = formatNoiseScan(rows);
-    state.noiseScan = { rows, text };
-    noiseSummaryEl.textContent = summarizeNoiseScan(rows);
-    noiseReportEl.textContent = text;
-    noiseActionsEl.innerHTML = rows.map((row, i) =>
-      `<button class="ghost tiny" data-noise-row="${i}">Use σ ${row.noiseSigma.toFixed(2)}</button>`).join(' ');
-    ui.downloadNoiseTxt.disabled = false;
-    statusEl.textContent = 'Noise scan done.';
+    statusEl.textContent = renderNoiseScanForConfig(readConfig());
   });
 }
 
 function runNodeScanUi() {
   statusEl.textContent = 'Scanning node-count sensitivity…';
   requestAnimationFrame(() => {
-    const cfg = readConfig();
-    const rows = scanNodeCounts(cfg);
-    const text = formatNodeScan(rows);
-    state.nodeScan = { rows, text };
-    nodeScanSummaryEl.textContent = summarizeNodeScan(rows);
-    nodeScanReportEl.textContent = text;
-    nodeScanActionsEl.innerHTML = rows.map((row, i) =>
-      `<button class="ghost tiny" data-node-scan-row="${i}">Use ${row.nodeCount} nodes</button>`).join(' ');
-    ui.downloadNodeScanTxt.disabled = false;
-    statusEl.textContent = 'Node-count scan done.';
+    statusEl.textContent = renderNodeScanForConfig(readConfig());
   });
 }
 
 function runBenchUi() {
   statusEl.textContent = 'Running calibration benchmark…';
   requestAnimationFrame(() => {
+    statusEl.textContent = renderBenchForConfig(readConfig());
+  });
+}
+
+function runBundleUi() {
+  statusEl.textContent = 'Running analysis bundle…';
+  requestAnimationFrame(() => {
     const cfg = readConfig();
-    const repeats = Math.max(1, parseInt(ui.benchRepeats.value, 10) || 3);
-    const points = runBench({
-      nodeCounts: [4, 6, 8, 10, 12],
-      repeats,
-      roomW: cfg.room.width,
-      roomH: cfg.room.height,
-      scenarioOpts: {
-        captureMode: cfg.captureMode,
-        distributedMatched: cfg.distributedMatched,
-        reflCoef: cfg.reflCoef,
-        noiseSigma: cfg.noiseSigma,
-        earliestPeak: cfg.earliestPeak,
-        clockSkew: cfg.clockSkew,
-        robust: cfg.robust,
-        meshLoss: cfg.meshLoss,
-        avgShots: cfg.avgShots,
-        starts: 8,
-      },
-    });
-    const text = formatBench(points);
-    state.bench = { points, text };
-    benchSummaryEl.textContent = summarizeBench(points);
-    benchReportEl.textContent = text;
-    ui.downloadBenchTxt.disabled = false;
-    const worst = Math.max(...points.map((p) => p.worstMs));
-    statusEl.textContent = `Benchmark done: worst calibration solve ${worst.toFixed(0)} ms.`;
+    const bundle = getScanBundle(ui.scanBundle.value);
+    const analyses = {
+      compare: () => renderCompareForConfig(cfg),
+      sizing: () => renderSizingForConfig(cfg),
+      bench: () => renderBenchForConfig(cfg),
+      noise: () => renderNoiseScanForConfig(cfg),
+      nodeScan: () => renderNodeScanForConfig(cfg),
+    };
+    for (const name of bundle.analyses) analyses[name]?.();
+    statusEl.textContent = `${bundle.label} complete.`;
   });
 }
 
@@ -685,8 +720,15 @@ for (const p of PRESETS) {
   opt.textContent = p.label;
   ui.preset.append(opt);
 }
+for (const b of SCAN_BUNDLES) {
+  const opt = document.createElement('option');
+  opt.value = b.id;
+  opt.textContent = b.label;
+  ui.scanBundle.append(opt);
+}
 
 ui.run.addEventListener('click', runIt);
+ui.runBundle.addEventListener('click', runBundleUi);
 ui.reseed.addEventListener('click', () => { ui.seed.value = (Math.random() * 1e9) | 0; runIt(); });
 ui.playChannel.addEventListener('click', playChannel);
 ui.stopChannel.addEventListener('click', stopChannel);
@@ -788,7 +830,7 @@ applyUiState(initialUiState);
 renderAdvisories();
 
 // Expose state for Playwright/inspection (per repo convention for vanilla-JS UIs).
-window.espArraySim = { state, runIt, runSizing, runBenchUi, runCompareUi, runNoiseScanUi, runNodeScanUi, readConfig, readUiState, applyUiState, playChannel, stopChannel };
+window.espArraySim = { state, runIt, runBundleUi, runSizing, runBenchUi, runCompareUi, runNoiseScanUi, runNodeScanUi, readConfig, readUiState, applyUiState, playChannel, stopChannel };
 
 // First paint.
 runIt();

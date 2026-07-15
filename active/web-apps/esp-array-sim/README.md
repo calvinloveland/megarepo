@@ -40,7 +40,9 @@ noise σ over a small range so you can see how localization degrades as mic capt
 then export that sweep or jump the main noise control to any scanned σ with one click. And there is
 now a **Node-count sensitivity** panel that sweeps 4→12 nodes for the current scenario so you can
 see how accuracy and observation/message cost scale together, then apply any scanned node count
-back into the main controls with one click.
+back into the main controls with one click. There are also now one-click **analysis bundles**
+(quick and full characterize) that fill multiple panels for the current scenario in one shot instead
+of making you press each analysis button separately.
 
 For hardware planning, `npm run sweep` answers “how many ESP32 nodes do I need?” by printing the
 minimum node count that keeps the **worst-case** localization error under a target (5 cm by default)

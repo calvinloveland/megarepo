@@ -258,6 +258,13 @@ message cost scale together. This complements the existing sizing panel: sizing 
 minimum node count that meets a target?”, while node-count sensitivity shows the whole tradeoff
 curve and lets any scanned node count become the active scenario with one click.
 
+Finally, a tiny pure `scan-bundles.mjs` registry now feeds one-click **analysis bundles** in the UI.
+The current bundles are:
+- **Quick characterize** — mode comparison + sizing + noise scan
+- **Full characterize** — mode comparison + sizing + latency benchmark + noise scan + node-count scan
+
+So a user can characterize a scenario in one shot instead of pressing each analysis panel manually.
+
 A single-mic matched filter with sub-sample parabolic refinement around the |correlation| peak
 lands the TOA within ~2 cm (near the sample-quantization floor); a fractional-lag chirp is recovered
 to <0.15 samples. The estimator has two modes:
