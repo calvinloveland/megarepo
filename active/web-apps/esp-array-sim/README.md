@@ -31,6 +31,7 @@ npm run sweep     # localization-accuracy sweep across node counts & reverb (+ m
 npm run sweep:csv # same sweep as CSV (for external plotting/analysis)
 npm run bench     # solver wall-clock benchmark vs node count
 npm run export:firmware # regenerate shared C headers for the firmware skeleton
+npm run export:firmware-fixtures # regenerate example calibration/row packet JSON fixtures
 ```
 
 Open the simulator, set the node count / room size / seed, hit **Run localization**, and watch the

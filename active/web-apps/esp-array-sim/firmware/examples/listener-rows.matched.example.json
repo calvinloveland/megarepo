@@ -1,0 +1,494 @@
+[
+  {
+    "kind": "listener-row-v1",
+    "sweepId": "sim-sweep",
+    "listenerId": 0,
+    "arrivals": [
+      {
+        "emitterId": 0,
+        "emitClockSec": 0.1,
+        "arrivalClockSec": 0.10015420250465377,
+        "distanceM": 0.02,
+        "estimatedDirectSec": 0.000058820978097910224,
+        "arrivalPaths": [
+          {
+            "delaySec": 0.00005830903790087464,
+            "amplitude": 1,
+            "kind": "direct"
+          }
+        ]
+      },
+      {
+        "emitterId": 1,
+        "emitClockSec": 0.4,
+        "arrivalClockSec": 0.4081806059586252,
+        "distanceM": 2.773273309890277,
+        "estimatedDirectSec": 0.008085224432069311,
+        "arrivalPaths": [
+          {
+            "delaySec": 0.008085344926793811,
+            "amplitude": 1,
+            "kind": "direct"
+          },
+          {
+            "delaySec": 0.011601674905833668,
+            "amplitude": 0.34845593383797796,
+            "kind": "echo"
+          },
+          {
+            "delaySec": 0.024325517809681705,
+            "amplitude": 0.16619060260200902,
+            "kind": "echo"
+          },
+          {
+            "delaySec": 0.011233272870102772,
+            "amplitude": 0.3598837587357494,
+            "kind": "echo"
+          },
+          {
+            "delaySec": 0.021683834957454254,
+            "amplitude": 0.1864371533600497,
+            "kind": "echo"
+          }
+        ]
+      },
+      {
+        "emitterId": 2,
+        "emitClockSec": 0.7,
+        "arrivalClockSec": 0.7106874449706976,
+        "distanceM": 3.633139742274364,
+        "estimatedDirectSec": 0.010592063444141726,
+        "arrivalPaths": [
+          {
+            "delaySec": 0.010592244146572491,
+            "amplitude": 1,
+            "kind": "direct"
+          },
+          {
+            "delaySec": 0.013595428354205456,
+            "amplitude": 0.38955168864892753,
+            "kind": "echo"
+          },
+          {
+            "delaySec": 0.024713375302830465,
+            "amplitude": 0.21430185105794394,
+            "kind": "echo"
+          },
+          {
+            "delaySec": 0.014422667743296187,
+            "amplitude": 0.36720821470410286,
+            "kind": "echo"
+          },
+          {
+            "delaySec": 0.01850732344211649,
+            "amplitude": 0.286163587611704,
+            "kind": "echo"
+          }
+        ]
+      },
+      {
+        "emitterId": 3,
+        "emitClockSec": 1,
+        "arrivalClockSec": 1.0117763878256845,
+        "distanceM": 4.006371291743907,
+        "estimatedDirectSec": 0.011681006299128613,
+        "arrivalPaths": [
+          {
+            "delaySec": 0.011680382774763578,
+            "amplitude": 1,
+            "kind": "direct"
+          },
+          {
+            "delaySec": 0.015219774937866847,
+            "amplitude": 0.38372389941531754,
+            "kind": "echo"
+          },
+          {
+            "delaySec": 0.021240993751853197,
+            "amplitude": 0.2749490657362607,
+            "kind": "echo"
+          },
+          {
+            "delaySec": 0.014471662218377942,
+            "amplitude": 0.403560510137196,
+            "kind": "echo"
+          },
+          {
+            "delaySec": 0.02192057151578677,
+            "amplitude": 0.2664251423908266,
+            "kind": "echo"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "kind": "listener-row-v1",
+    "sweepId": "sim-sweep",
+    "listenerId": 1,
+    "arrivals": [
+      {
+        "emitterId": 0,
+        "emitClockSec": 0.1,
+        "arrivalClockSec": 0.1080785441769797,
+        "distanceM": 2.773273309890277,
+        "estimatedDirectSec": 0.008085297650475751,
+        "arrivalPaths": [
+          {
+            "delaySec": 0.008085344926793811,
+            "amplitude": 1,
+            "kind": "direct"
+          },
+          {
+            "delaySec": 0.011601674905833668,
+            "amplitude": 0.34845593383797796,
+            "kind": "echo"
+          },
+          {
+            "delaySec": 0.024325517809681705,
+            "amplitude": 0.16619060260200902,
+            "kind": "echo"
+          },
+          {
+            "delaySec": 0.011233272870102772,
+            "amplitude": 0.3598837587357494,
+            "kind": "echo"
+          },
+          {
+            "delaySec": 0.021683834957454254,
+            "amplitude": 0.1864371533600497,
+            "kind": "echo"
+          }
+        ]
+      },
+      {
+        "emitterId": 1,
+        "emitClockSec": 0.4,
+        "arrivalClockSec": 0.4000518435755196,
+        "distanceM": 0.02,
+        "estimatedDirectSec": 0.00005859704901561421,
+        "arrivalPaths": [
+          {
+            "delaySec": 0.00005830903790087464,
+            "amplitude": 1,
+            "kind": "direct"
+          }
+        ]
+      },
+      {
+        "emitterId": 2,
+        "emitClockSec": 0.7,
+        "arrivalClockSec": 0.7036138779679899,
+        "distanceM": 1.2418061348306613,
+        "estimatedDirectSec": 0.003620631441486085,
+        "arrivalPaths": [
+          {
+            "delaySec": 0.003620426049068983,
+            "amplitude": 1,
+            "kind": "direct"
+          },
+          {
+            "delaySec": 0.018884000437965124,
+            "amplitude": 0.0958596156826585,
+            "kind": "echo"
+          },
+          {
+            "delaySec": 0.01683422235345631,
+            "amplitude": 0.10753172831668276,
+            "kind": "echo"
+          },
+          {
+            "delaySec": 0.01608288404659459,
+            "amplitude": 0.1125552493750515,
+            "kind": "echo"
+          },
+          {
+            "delaySec": 0.01308543164392709,
+            "amplitude": 0.13833804445989414,
+            "kind": "echo"
+          }
+        ]
+      },
+      {
+        "emitterId": 3,
+        "emitClockSec": 1,
+        "arrivalClockSec": 1.003612192788041,
+        "distanceM": 1.2411721285584434,
+        "estimatedDirectSec": 0.0036189462615370937,
+        "arrivalPaths": [
+          {
+            "delaySec": 0.003618577634281176,
+            "amplitude": 1,
+            "kind": "direct"
+          },
+          {
+            "delaySec": 0.021524897905162522,
+            "amplitude": 0.08405562828275479,
+            "kind": "echo"
+          },
+          {
+            "delaySec": 0.013554697311815576,
+            "amplitude": 0.13348057691878062,
+            "kind": "echo"
+          },
+          {
+            "delaySec": 0.014147965985395264,
+            "amplitude": 0.12788331686747695,
+            "kind": "echo"
+          },
+          {
+            "delaySec": 0.015789524237097195,
+            "amplitude": 0.1145879248780465,
+            "kind": "echo"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "kind": "listener-row-v1",
+    "sweepId": "sim-sweep",
+    "listenerId": 2,
+    "arrivals": [
+      {
+        "emitterId": 0,
+        "emitClockSec": 0.1,
+        "arrivalClockSec": 0.11054331916487956,
+        "distanceM": 3.633139742274364,
+        "estimatedDirectSec": 0.010591756052674647,
+        "arrivalPaths": [
+          {
+            "delaySec": 0.010592244146572491,
+            "amplitude": 1,
+            "kind": "direct"
+          },
+          {
+            "delaySec": 0.013595428354205456,
+            "amplitude": 0.38955168864892753,
+            "kind": "echo"
+          },
+          {
+            "delaySec": 0.024713375302830465,
+            "amplitude": 0.21430185105794394,
+            "kind": "echo"
+          },
+          {
+            "delaySec": 0.014422667743296187,
+            "amplitude": 0.36720821470410286,
+            "kind": "echo"
+          },
+          {
+            "delaySec": 0.01850732344211649,
+            "amplitude": 0.286163587611704,
+            "kind": "echo"
+          }
+        ]
+      },
+      {
+        "emitterId": 1,
+        "emitClockSec": 0.4,
+        "arrivalClockSec": 0.40357247080562625,
+        "distanceM": 1.2418061348306613,
+        "estimatedDirectSec": 0.0036209076934213026,
+        "arrivalPaths": [
+          {
+            "delaySec": 0.003620426049068983,
+            "amplitude": 1,
+            "kind": "direct"
+          },
+          {
+            "delaySec": 0.018884000437965124,
+            "amplitude": 0.0958596156826585,
+            "kind": "echo"
+          },
+          {
+            "delaySec": 0.01683422235345631,
+            "amplitude": 0.10753172831668276,
+            "kind": "echo"
+          },
+          {
+            "delaySec": 0.01608288404659459,
+            "amplitude": 0.1125552493750515,
+            "kind": "echo"
+          },
+          {
+            "delaySec": 0.01308543164392709,
+            "amplitude": 0.13833804445989414,
+            "kind": "echo"
+          }
+        ]
+      },
+      {
+        "emitterId": 2,
+        "emitClockSec": 0.7,
+        "arrivalClockSec": 0.700010260587848,
+        "distanceM": 0.02,
+        "estimatedDirectSec": 0.000058697475643145385,
+        "arrivalPaths": [
+          {
+            "delaySec": 0.00005830903790087464,
+            "amplitude": 1,
+            "kind": "direct"
+          }
+        ]
+      },
+      {
+        "emitterId": 3,
+        "emitClockSec": 1,
+        "arrivalClockSec": 1.0037184630949356,
+        "distanceM": 1.291865170213121,
+        "estimatedDirectSec": 0.0037668999827307264,
+        "arrivalPaths": [
+          {
+            "delaySec": 0.003766370758638837,
+            "amplitude": 1,
+            "kind": "direct"
+          },
+          {
+            "delaySec": 0.02205937992995192,
+            "amplitude": 0.08536891722701848,
+            "kind": "echo"
+          },
+          {
+            "delaySec": 0.013259265549681178,
+            "amplitude": 0.14202788022181967,
+            "kind": "echo"
+          },
+          {
+            "delaySec": 0.017576508909070025,
+            "amplitude": 0.10714217419749585,
+            "kind": "echo"
+          },
+          {
+            "delaySec": 0.012189470727241044,
+            "amplitude": 0.1544927931211052,
+            "kind": "echo"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "kind": "listener-row-v1",
+    "sweepId": "sim-sweep",
+    "listenerId": 3,
+    "arrivals": [
+      {
+        "emitterId": 0,
+        "emitClockSec": 0.1,
+        "arrivalClockSec": 0.1116205846618379,
+        "distanceM": 4.006371291743907,
+        "estimatedDirectSec": 0.011681157209815697,
+        "arrivalPaths": [
+          {
+            "delaySec": 0.011680382774763578,
+            "amplitude": 1,
+            "kind": "direct"
+          },
+          {
+            "delaySec": 0.015219774937866847,
+            "amplitude": 0.38372389941531754,
+            "kind": "echo"
+          },
+          {
+            "delaySec": 0.021240993751853194,
+            "amplitude": 0.27494906573626077,
+            "kind": "echo"
+          },
+          {
+            "delaySec": 0.014471662218377942,
+            "amplitude": 0.403560510137196,
+            "kind": "echo"
+          },
+          {
+            "delaySec": 0.02192057151578677,
+            "amplitude": 0.2664251423908266,
+            "kind": "echo"
+          }
+        ]
+      },
+      {
+        "emitterId": 1,
+        "emitClockSec": 0.4,
+        "arrivalClockSec": 0.4035583968168956,
+        "distanceM": 1.2411721285584434,
+        "estimatedDirectSec": 0.0036189693648733877,
+        "arrivalPaths": [
+          {
+            "delaySec": 0.003618577634281176,
+            "amplitude": 1,
+            "kind": "direct"
+          },
+          {
+            "delaySec": 0.021524897905162522,
+            "amplitude": 0.08405562828275479,
+            "kind": "echo"
+          },
+          {
+            "delaySec": 0.013554697311815578,
+            "amplitude": 0.1334805769187806,
+            "kind": "echo"
+          },
+          {
+            "delaySec": 0.014147965985395264,
+            "amplitude": 0.12788331686747695,
+            "kind": "echo"
+          },
+          {
+            "delaySec": 0.015789524237097195,
+            "amplitude": 0.1145879248780465,
+            "kind": "echo"
+          }
+        ]
+      },
+      {
+        "emitterId": 2,
+        "emitClockSec": 0.7,
+        "arrivalClockSec": 0.7037060780114286,
+        "distanceM": 1.291865170213121,
+        "estimatedDirectSec": 0.003766650559406389,
+        "arrivalPaths": [
+          {
+            "delaySec": 0.003766370758638837,
+            "amplitude": 1,
+            "kind": "direct"
+          },
+          {
+            "delaySec": 0.02205937992995192,
+            "amplitude": 0.08536891722701848,
+            "kind": "echo"
+          },
+          {
+            "delaySec": 0.013259265549681178,
+            "amplitude": 0.14202788022181967,
+            "kind": "echo"
+          },
+          {
+            "delaySec": 0.017576508909070025,
+            "amplitude": 0.10714217419749585,
+            "kind": "echo"
+          },
+          {
+            "delaySec": 0.012189470727241044,
+            "amplitude": 0.1544927931211052,
+            "kind": "echo"
+          }
+        ]
+      },
+      {
+        "emitterId": 3,
+        "emitClockSec": 1,
+        "arrivalClockSec": 0.9999981925381808,
+        "distanceM": 0.02,
+        "estimatedDirectSec": 0.000058765086158460375,
+        "arrivalPaths": [
+          {
+            "delaySec": 0.00005830903790087464,
+            "amplitude": 1,
+            "kind": "direct"
+          }
+        ]
+      }
+    ]
+  }
+]

@@ -1,0 +1,30 @@
+{
+  "kind": "calibration-plan-v1",
+  "sweepId": "sim-sweep",
+  "gapSec": 0.3,
+  "chirp": {
+    "durationSec": 0.002,
+    "f0Hz": 3000,
+    "f1Hz": 8000,
+    "sampleRateHz": 48000,
+    "window": true
+  },
+  "emissions": [
+    {
+      "emitterId": 0,
+      "emitClockSec": 0.1
+    },
+    {
+      "emitterId": 1,
+      "emitClockSec": 0.4
+    },
+    {
+      "emitterId": 2,
+      "emitClockSec": 0.7
+    },
+    {
+      "emitterId": 3,
+      "emitClockSec": 1
+    }
+  ]
+}

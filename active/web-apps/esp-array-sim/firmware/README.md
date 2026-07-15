@@ -12,6 +12,12 @@ boundaries so the transition is incremental instead of a rewrite.
 - `include/esp_array_protocol.h`
   - generated from `src/firmware-protocol.mjs`
   - packet kinds + listener-row struct skeleton
+- `examples/calibration-plan.example.json`
+  - deterministic example calibration plan generated from the simulator
+- `examples/listener-rows.closed.example.json`
+  - deterministic closed-form listener-row packets
+- `examples/listener-rows.matched.example.json`
+  - deterministic matched-filter listener-row packets with richer diagnostics
 - `main/esp_array_backend.h`
   - C prototypes mirroring the JS firmware backend hooks:
     - clock sync
@@ -28,6 +34,13 @@ headers with:
 
 ```bash
 node bin/export-firmware-headers.mjs
+```
+
+Whenever you want to refresh the example packet payloads used by future firmware
+serialization tests, regenerate them with:
+
+```bash
+node bin/export-firmware-fixtures.mjs
 ```
 
 ## Intended ESP-IDF mapping

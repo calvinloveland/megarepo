@@ -306,6 +306,12 @@ The hardware phase has now started with a small ESP-IDF-oriented skeleton under
   - generated from `src/calibration-config.mjs`
 - `firmware/include/esp_array_protocol.h`
   - generated from `src/firmware-protocol.mjs`
+- `firmware/examples/calibration-plan.example.json`
+  - deterministic simulator-produced calibration plan fixture
+- `firmware/examples/listener-rows.closed.example.json`
+  - deterministic closed-form listener-row fixture
+- `firmware/examples/listener-rows.matched.example.json`
+  - deterministic matched-filter listener-row fixture
 - `firmware/main/esp_array_backend.h`
   - C hook prototypes mirroring `firmware-backend.mjs`
 - `firmware/main/esp_array_main.c`
@@ -315,6 +321,12 @@ Regenerate the shared headers with:
 
 ```bash
 npm run export:firmware
+```
+
+Regenerate the example packet fixtures with:
+
+```bash
+npm run export:firmware-fixtures
 ```
 
 This is still a skeleton, not a full `idf.py build`-ready application, but it

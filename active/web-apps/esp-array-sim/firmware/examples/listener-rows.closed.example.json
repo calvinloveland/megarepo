@@ -1,0 +1,126 @@
+[
+  {
+    "kind": "listener-row-v1",
+    "sweepId": "sim-sweep",
+    "listenerId": 0,
+    "arrivals": [
+      {
+        "emitterId": 0,
+        "emitClockSec": 0.1,
+        "arrivalClockSec": 0.10018590843852057,
+        "distanceM": 0.02
+      },
+      {
+        "emitterId": 1,
+        "emitClockSec": 0.4,
+        "arrivalClockSec": 0.40818343697239545,
+        "distanceM": 2.773273309890277
+      },
+      {
+        "emitterId": 2,
+        "emitClockSec": 0.7,
+        "arrivalClockSec": 0.7106653966691339,
+        "distanceM": 3.633139742274364
+      },
+      {
+        "emitterId": 3,
+        "emitClockSec": 1,
+        "arrivalClockSec": 1.0117882562067633,
+        "distanceM": 4.006371291743907
+      }
+    ]
+  },
+  {
+    "kind": "listener-row-v1",
+    "sweepId": "sim-sweep",
+    "listenerId": 1,
+    "arrivals": [
+      {
+        "emitterId": 0,
+        "emitClockSec": 0.1,
+        "arrivalClockSec": 0.10804547545606083,
+        "distanceM": 2.773273309890277
+      },
+      {
+        "emitterId": 1,
+        "emitClockSec": 0.4,
+        "arrivalClockSec": 0.40003215635533723,
+        "distanceM": 0.02
+      },
+      {
+        "emitterId": 2,
+        "emitClockSec": 0.7,
+        "arrivalClockSec": 0.7036035477662184,
+        "distanceM": 1.2418061348306613
+      },
+      {
+        "emitterId": 3,
+        "emitClockSec": 1,
+        "arrivalClockSec": 1.0035738348394332,
+        "distanceM": 1.2411721285584434
+      }
+    ]
+  },
+  {
+    "kind": "listener-row-v1",
+    "sweepId": "sim-sweep",
+    "listenerId": 2,
+    "arrivals": [
+      {
+        "emitterId": 0,
+        "emitClockSec": 0.1,
+        "arrivalClockSec": 0.1105496620552506,
+        "distanceM": 3.633139742274364
+      },
+      {
+        "emitterId": 1,
+        "emitClockSec": 0.4,
+        "arrivalClockSec": 0.4036089282022127,
+        "distanceM": 1.2418061348306613
+      },
+      {
+        "emitterId": 2,
+        "emitClockSec": 0.7,
+        "arrivalClockSec": 0.6999682807767771,
+        "distanceM": 0.02
+      },
+      {
+        "emitterId": 3,
+        "emitClockSec": 1,
+        "arrivalClockSec": 1.0036938845350916,
+        "distanceM": 1.291865170213121
+      }
+    ]
+  },
+  {
+    "kind": "listener-row-v1",
+    "sweepId": "sim-sweep",
+    "listenerId": 3,
+    "arrivals": [
+      {
+        "emitterId": 0,
+        "emitClockSec": 0.1,
+        "arrivalClockSec": 0.1116618944692189,
+        "distanceM": 4.006371291743907
+      },
+      {
+        "emitterId": 1,
+        "emitClockSec": 0.4,
+        "arrivalClockSec": 0.4035569476289443,
+        "distanceM": 1.2411721285584434
+      },
+      {
+        "emitterId": 2,
+        "emitClockSec": 0.7,
+        "arrivalClockSec": 0.7036964321969179,
+        "distanceM": 1.291865170213121
+      },
+      {
+        "emitterId": 3,
+        "emitClockSec": 1,
+        "arrivalClockSec": 0.9999907735586174,
+        "distanceM": 0.02
+      }
+    ]
+  }
+]

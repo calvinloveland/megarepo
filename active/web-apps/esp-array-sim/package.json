@@ -10,6 +10,7 @@
     "sweep:csv": "node bin/sweep.mjs --csv",
     "bench": "node bin/bench.mjs",
     "export:firmware": "node bin/export-firmware-headers.mjs",
+    "export:firmware-fixtures": "node bin/export-firmware-fixtures.mjs",
     "check": "node --check app.js && node --check server.mjs && for f in src/*.mjs; do node --check \"$f\"; done && node --test --test-reporter=spec tests/*.test.mjs",
     "test": "node --test --test-reporter=spec tests/*.test.mjs",
     "test:server": "node --test --test-reporter=spec tests/server.test.mjs"
