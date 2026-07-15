@@ -7,6 +7,7 @@
 // tolerate (and that the joint solver estimates as a nuisance variable).
 
 import { SELF_PATH } from './acoustics.mjs';
+import { DEFAULT_CALIBRATION_CONFIG } from './calibration-config.mjs';
 
 /**
  * @typedef {Object} Vec2
@@ -101,9 +102,9 @@ export function makeNode(id, x, y, rng, opts = {}) {
  * @param {number} [gapSec] silence between emissions
  * @returns {{emitterId:number, emitClockSec:number}[]} emit times on the shared clock
  */
-export function makeEmitSchedule(nodes, gapSec = 0.3) {
+export function makeEmitSchedule(nodes, gapSec = DEFAULT_CALIBRATION_CONFIG.gapSec) {
   const sched = [];
-  let t = 0.1;
+  let t = DEFAULT_CALIBRATION_CONFIG.firstEmitSec;
   for (const n of nodes) {
     sched.push({ emitterId: n.id, emitClockSec: t });
     t += gapSec;
