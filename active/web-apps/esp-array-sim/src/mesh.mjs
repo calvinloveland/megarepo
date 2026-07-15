@@ -12,6 +12,11 @@
 
 import { simulateCaptures, simulateMatchedCaptures } from './capture.mjs';
 import { makeEmitSchedule } from './world.mjs';
+import {
+  makeCalibrationPlan,
+  rowsToListenerPackets,
+  gossipPacketsAndAssemble,
+} from './firmware-protocol.mjs';
 
 /**
  * Per-node view of one calibration sweep: only the arrivals heard by THIS
@@ -22,7 +27,7 @@ import { makeEmitSchedule } from './world.mjs';
  * @param {{width:number,height:number}} room metres
  * @param {object} [captureOpts] passed to simulateCaptures/simulateMatchedCaptures
  * @param {'closed'|'matched'} [captureOpts.captureMode] default 'closed'
- * @returns {{perNode: Observation[][], schedule, messages: number}}
+ * @returns {{perNode: Observation[][], rowPackets: object[], schedule, plan: object, messages: number}}
  */
 export function distributedCaptures(nodes, room, captureOpts = {}) {
   const schedule = makeEmitSchedule(nodes);
@@ -32,7 +37,9 @@ export function distributedCaptures(nodes, room, captureOpts = {}) {
       : simulateCaptures(nodes, schedule);
   // Partition the full observation matrix by listener (each node's row).
   const perNode = nodes.map((n) => all.filter((o) => o.listenerId === n.id));
-  return { perNode, schedule, messages: 0 };
+  const plan = makeCalibrationPlan(schedule, { gapSec: captureOpts.gapSec });
+  const rowPackets = rowsToListenerPackets(perNode, { sweepId: plan.sweepId });
+  return { perNode, rowPackets, schedule, plan, messages: 0 };
 }
 
 /**
@@ -41,28 +48,11 @@ export function distributedCaptures(nodes, room, captureOpts = {}) {
  * reports the per-row message count and the assembled matrix.
  *
  * @param {Observation[][]} perNode one row per node
- * @returns {{matrix: Observation[], messages: number}}
+ * @returns {{matrix: Observation[], messages: number, lost:number, packets: object[]}}
  */
 export function gossipAndAssemble(perNode, opts = {}) {
-  const n = perNode.length;
-  // full broadcast: each node sends its row to (n-1) peers → n(n-1) messages.
-  let messages = n * (n - 1);
-  // Real WiFi drops packets. opts.loss prob means a fraction of (peer,row) messages
-  // fail to arrive; the assembler sees only the rows that reached it. Models the
-  // degraded-but-still-localizable regime the firmware must tolerate.
-  const loss = opts.loss ?? 0;
-  const seedRng = opts.seedRng ?? (() => Math.random());
-  const matrix = [];
-  for (let listener = 0; listener < n; listener++) {
-    const row = perNode[listener];
-    // The node's own row is always available locally; whether peers receive it
-    // depends on packet loss. (For the assembler-as-arbitrary-node model here,
-    // we keep every node's row if its broadcast to the assembly point survives.)
-    const arrives = loss <= 0 || seedRng() >= loss;
-    if (arrives) for (const o of row) matrix.push(o);
-    else messages -= n - 1; // the broadcast failed — count lost messages
-  }
-  return { matrix, messages, lost: n * (n - 1) - messages };
+  const packets = rowsToListenerPackets(perNode, { sweepId: opts.sweepId ?? 'sim-sweep' });
+  return gossipPacketsAndAssemble(packets, opts);
 }
 
 /**
@@ -76,10 +66,10 @@ export function gossipAndAssemble(perNode, opts = {}) {
  * @returns {{matrix: Observation[], messages: number, schedule}}
  */
 export function distributedSweep(nodes, room, captureOpts = {}) {
-  const { perNode, schedule } = distributedCaptures(nodes, room, captureOpts);
-  const assembled = gossipAndAssemble(perNode, {
+  const { perNode, rowPackets, schedule, plan } = distributedCaptures(nodes, room, captureOpts);
+  const assembled = gossipPacketsAndAssemble(rowPackets, {
     loss: captureOpts.meshLoss ?? 0,
     seedRng: captureOpts.seedRng,
   });
-  return { ...assembled, schedule };
+  return { ...assembled, schedule, plan, rowPackets: assembled.packets, allRowPackets: rowPackets };
 }
