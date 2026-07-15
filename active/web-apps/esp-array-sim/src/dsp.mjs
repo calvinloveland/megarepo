@@ -73,16 +73,20 @@ export function matchedFilter(signal, template) {
  *   that the direct arrival is the first "strong enough" peak. local-maxima
  *   picking avoids the early-shoulder bias a naive threshold-crossing has.
  *
- * Sub-sample refinement is deferred (parabolic interpolation around the peak).
+ * Sub-sample refinement: a parabola fit on the |correlation| samples around the
+ * integer peak recovers the true (fractional) lag to a small fraction of a
+ * sample, bringing single-mic TOA from ~few cm toward the sample-quantization
+ * floor. Enabled by default; set opts.refine = false to keep integer lags.
  *
  * @param {Float64Array|number[]} signal
  * @param {Float64Array|number[]} template
  * @param {number} sampleRateHz
- * @param {{mode?:'strongest'|'earliest', peakThreshold?:number}} [opts]
+ * @param {{mode?:'strongest'|'earliest', peakThreshold?:number, refine?:boolean, minPeakSep?:number}} [opts]
  * @returns {{lagSamples:number, timeSec:number, peak:number, mode:string}}
  */
 export function estimateTOA(signal, template, sampleRateHz, opts = {}) {
   const mode = opts.mode ?? 'strongest';
+  const refine = opts.refine ?? true;
   const corr = matchedFilter(signal, template);
   if (mode === 'earliest') {
     let globalMax = 0;
@@ -108,10 +112,26 @@ export function estimateTOA(signal, template, sampleRateHz, opts = {}) {
       }
     }
     const idx = clusters.length ? clusters[0].lag : argmaxAbs(corr);
-    return { lagSamples: idx, timeSec: idx / sampleRateHz, peak: corr[idx], mode };
+    const lag = refine ? refinePeak(corr, idx) : idx;
+    return { lagSamples: lag, timeSec: lag / sampleRateHz, peak: corr[idx], mode };
   }
   const idx = argmaxAbs(corr);
-  return { lagSamples: idx, timeSec: idx / sampleRateHz, peak: corr[idx], mode };
+  const lag = refine ? refinePeak(corr, idx) : idx;
+  return { lagSamples: lag, timeSec: lag / sampleRateHz, peak: corr[idx], mode };
+}
+
+/** Parabolic interpolation of the |correlation| peak at integer index `idx`. */
+function refinePeak(corr, idx) {
+  if (idx <= 0 || idx >= corr.length - 1) return idx;
+  const ym = Math.abs(corr[idx - 1]);
+  const y0 = Math.abs(corr[idx]);
+  const yp = Math.abs(corr[idx + 1]);
+  const denom = ym - 2 * y0 + yp;
+  if (Math.abs(denom) < 1e-12) return idx;
+  const delta = 0.5 * (ym - yp) / denom;
+  // clamp to the neighbouring samples — a sane parabola stays within ±1
+  if (delta < -1 || delta > 1) return idx;
+  return idx + delta;
 }
 
 function argmaxAbs(corr) {

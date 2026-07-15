@@ -4,6 +4,7 @@ import { linearChirp, matchedFilter, estimateTOA, placeTemplate } from '../src/d
 
 const SR = 48000;
 const TPL = linearChirp({ durationSec: 0.005, f0Hz: 2000, f1Hz: 8000, sampleRateHz: SR });
+const approxLag = (a, b, eps = 0.5) => assert.ok(Math.abs(a - b) < eps, `${a} !≈ ${b} (±${eps})`);
 
 test('chirp length matches duration × sample rate', () => {
   assert.equal(TPL.length, 0.005 * SR);
@@ -14,9 +15,20 @@ test('matched filter of a delayed chirp recovers the delay', () => {
   const signal = new Float64Array(TPL.length + lag + 16);
   placeTemplate(signal, TPL, lag, 1);
   const est = estimateTOA(signal, TPL, SR);
-  assert.equal(est.lagSamples, lag);
-  const approx = (a, b, eps) => assert.ok(Math.abs(a - b) < eps, `${a} !≈ ${b}`);
-  approx(est.timeSec, lag / SR, 1 / SR);
+  approxLag(est.lagSamples, lag);
+  assert.ok(Math.abs(est.timeSec - lag / SR) < 1 / SR);
+});
+
+test('sub-sample parabolic refinement recovers a fractional lag', () => {
+  const lag = 137.3;
+  const signal = new Float64Array(TPL.length + Math.ceil(lag) + 16);
+  placeTemplate(signal, TPL, lag, 1);
+  const est = estimateTOA(signal, TPL, SR); // refine defaults on
+  assert.ok(Math.abs(est.lagSamples - lag) < 0.15,
+    `expected sub-sample recovery, got ${est.lagSamples} vs ${lag}`);
+  // and disabling refine snaps back to the integer sample (large error)
+  const raw = estimateTOA(signal, TPL, SR, { refine: false });
+  assert.equal(raw.lagSamples, Math.round(lag));
 });
 
 test('a quieter, later echo does not hijack the estimated TOA', () => {
@@ -26,7 +38,8 @@ test('a quieter, later echo does not hijack the estimated TOA', () => {
   placeTemplate(signal, TPL, lag, 1.0);     // direct
   placeTemplate(signal, TPL, echoLag, 0.4); // quieter echo
   const est = estimateTOA(signal, TPL, SR);
-  assert.equal(est.lagSamples, lag, 'direct peak should dominate the quieter echo');
+  approxLag(est.lagSamples, lag, 0.5);
+  assert.ok(Math.abs(est.lagSamples - lag) < 0.5, 'direct peak should dominate the quieter echo');
 });
 
 test('a louder echo than the direct biases the strongest-peak estimator (documented limitation)', () => {
@@ -38,7 +51,7 @@ test('a louder echo than the direct biases the strongest-peak estimator (documen
   const est = estimateTOA(signal, TPL, SR); // default 'strongest'
   // argmax picks the loudest peak, which here is the echo — the failure mode the
   // firmware must guard against (earliest-peak detection / NLO echo rejection).
-  assert.equal(est.lagSamples, echoLag);
+  approxLag(est.lagSamples, echoLag, 0.5);
 });
 
 test('earliest-peak selection rejects a loud later echo when the direct is strong enough', () => {
@@ -50,8 +63,8 @@ test('earliest-peak selection rejects a loud later echo when the direct is stron
   placeTemplate(signal, TPL, echoLag, 1.0); // loud later echo
   const strongest = estimateTOA(signal, TPL, SR);              // returns the echo
   const earliest = estimateTOA(signal, TPL, SR, { mode: 'earliest', peakThreshold: 0.5 });
-  assert.equal(strongest.lagSamples, echoLag, 'strongest still biases to the echo');
-  assert.equal(earliest.lagSamples, lag, 'earliest-peak recovers the direct arrival');
+  approxLag(strongest.lagSamples, echoLag, 0.5);
+  approxLag(earliest.lagSamples, lag, 0.5);
 });
 
 test('earliest-peak falls back to strongest when nothing clears the threshold', () => {
@@ -59,7 +72,7 @@ test('earliest-peak falls back to strongest when nothing clears the threshold', 
   const signal = new Float64Array(TPL.length + lag + 8);
   placeTemplate(signal, TPL, lag, 1);
   const est = estimateTOA(signal, TPL, SR, { mode: 'earliest', peakThreshold: 0.99 });
-  assert.equal(est.lagSamples, lag);
+  approxLag(est.lagSamples, lag, 0.5);
 });
 
 test('TOA estimate is robust to broadband noise', () => {

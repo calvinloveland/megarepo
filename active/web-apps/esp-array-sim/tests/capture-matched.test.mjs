@@ -20,11 +20,10 @@ test('matched-filter capture estimates TOA near the true direct delay in mild re
     const estDelay = o.arrivalClockSec - o.emitClockSec;
     maxErrSec = Math.max(maxErrSec, Math.abs(estDelay - trueDelay));
   }
-  // A bare single-mic matched filter on a windowed chirp lands the peak to a few
-  // samples (no sub-sample interpolation yet) = a few cm. That is the realistic
-  // behaviour we want the simulator to surface; sub-sample parabolic refinement
-  // (queued follow-up) brings this toward the sample-quantization floor.
-  assert.ok(maxErrSec < 6 / DEFAULT_SAMPLE_RATE,
+  // With sub-sample parabolic refinement on, a single-mic matched filter on a
+  // windowed chirp lands the peak within a few samples (~2 cm) — the realistic
+  // behaviour we want surfaced, near the sample-quantization floor.
+  assert.ok(maxErrSec < 4 / DEFAULT_SAMPLE_RATE,
     `TOA error ${maxErrSec.toExponential(2)} s (${(maxErrSec * SPEED * 100).toFixed(1)} cm)`);
 });
 
@@ -36,16 +35,15 @@ test('matched-filter localization recovers truth in a mild-reverb room', () => {
   assert.ok(s.alignErrorM < 0.08, `mild-reverb localization too coarse: ${s.alignErrorM.toFixed(3)} m`);
 });
 
-test('a hard wall (high reflCoef + tight room) coarsens matched localization', () => {
-  // Tight room with strong reflections and noise -> estimator quantization + echo
-  // jitter raise the alignment error well above the free-field ~mm baseline.
+test('a hard wall (high reflCoef + tight room) still localizes once echoes are quieter than direct', () => {
+  // In a free-ish rectangular room the direct path is both earliest and loudest,
+  // so even strong wall reflections (reflCoef 0.9) stay quieter than direct and
+  // sub-sample-refined matched filtering keeps localization tight.
   const s = runScenario({
     seed: 3, nodeCount: 5, room: { width: 3.5, height: 3 },
     captureMode: 'matched', reflCoef: 0.9, noiseSigma: 0.1,
   });
-  // We don't assert a specific failure, only that it's measurably worse than mild
-  // and still bounded (it must remain a realized geometry within the room).
-  assert.ok(s.alignErrorM > 0.001 && s.alignErrorM < 0.5, `reverb error ${s.alignErrorM.toFixed(3)} m`);
+  assert.ok(s.alignErrorM < 0.1, `hard-wall localization too coarse: ${s.alignErrorM.toFixed(3)} m`);
 });
 
 test('earliest-peak mode keeps mild-reverb matched localization accurate (wiring parity)', () => {

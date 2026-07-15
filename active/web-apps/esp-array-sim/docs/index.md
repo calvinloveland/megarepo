@@ -85,8 +85,9 @@ switches this on in a full run; `'closed'` (default) keeps the closed-form delay
 baseline. The UI exposes a capture-mode selector, a wall-reflection coefficient, and echo ripples
 on the room canvas.
 
-A bare single-mic matched filter lands the peak to ~few cm (no sub-sample interpolation yet) — the
-realistic behaviour we want surfaced. The estimator has two modes:
+A single-mic matched filter with sub-sample parabolic refinement around the |correlation| peak
+lands the TOA within ~2 cm (near the sample-quantization floor); a fractional-lag chirp is recovered
+to <0.15 samples. The estimator has two modes:
 - `strongest` (default): argmax-of-|correlation|. A loud **later** echo can hijack it
   (documented; tested).
 - `earliest`: earliest clustered peak above `peakThreshold`×global max — rejects loud later echoes
@@ -94,7 +95,7 @@ realistic behaviour we want surfaced. The estimator has two modes:
 
 ## Tests
 
-`node --test` (35 specs): acoustics, the Jacobian (analytic vs numeric), the JOINT LM solver on
+`node --test` (40 specs): acoustics, the Jacobian (analytic vs numeric), the JOINT LM solver on
 random/deterministic seeds (mirror-resolved, ~cm free-field), image-source geometry + occluder LOS,
 mild-reverb & hard-wall matched capture, occluder echo bias, earliest-vs-strongest echo handling,
 nearby TOA matched-filter accuracy, the surround routing edge cases, and a live server smoke test.
@@ -112,8 +113,6 @@ estimation recovers geometry and skews, while ignoring skew degrades it.
 
 ## Open follow-ups
 
-- Sub-sample parabolic interpolation around the matched-filter peak (bring single-mic TOA from
-  ~few cm toward the sample-quantization floor).
 - Browser E2E (Playwright) once a Nix-managed Chromium is wired via `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH`.
 - Distributed, streaming variant of the solver suitable to actually run on ESP32s (mesh gossip).
 - Real audio I/O on the simulator (Web Audio chirp playback + capture) before porting to firmware.
