@@ -57,11 +57,13 @@ const ui = {
   scanBundle: document.getElementById('scanBundle'),
   runBundle: document.getElementById('runBundle'),
   downloadBundleTxt: document.getElementById('downloadBundleTxt'),
+  copyBundleTxt: document.getElementById('copyBundleTxt'),
   downloadSnapshotTxt: document.getElementById('downloadSnapshotTxt'),
   copySnapshotTxt: document.getElementById('copySnapshotTxt'),
   downloadPackageTxt: document.getElementById('downloadPackageTxt'),
   copyPackageTxt: document.getElementById('copyPackageTxt'),
   downloadHistoryTxt: document.getElementById('downloadHistoryTxt'),
+  copyHistoryTxt: document.getElementById('copyHistoryTxt'),
   clearHistory: document.getElementById('clearHistory'),
   copyLink: document.getElementById('copyLink'),
   scenarioNotes: document.getElementById('scenarioNotes'),
@@ -340,6 +342,7 @@ function renderDashboardSummary() {
 function renderReadinessHistory() {
   const hasHistory = state.readinessHistory.length > 0;
   ui.downloadHistoryTxt.disabled = !hasHistory;
+  ui.copyHistoryTxt.disabled = !hasHistory;
   ui.clearHistory.disabled = !hasHistory;
   if (!hasHistory) {
     dashboardHistoryEl.innerHTML = 'No readiness history yet.';
@@ -521,6 +524,7 @@ function runBundleUi() {
       text: formatBundleReport(bundle, currentBundleReports(), currentScenarioNotes()),
     };
     ui.downloadBundleTxt.disabled = false;
+    ui.copyBundleTxt.disabled = false;
     snapshotReadinessHistory(`Bundle: ${bundle.label}`);
     statusEl.textContent = `${bundle.label} complete.`;
   });
@@ -849,6 +853,12 @@ ui.downloadBundleTxt.addEventListener('click', () => {
   state.bundleReport = { id: bundle.id, text };
   downloadText(`esp-array-${bundle.id}-bundle.txt`, text);
 });
+ui.copyBundleTxt.addEventListener('click', async () => {
+  const bundle = getScanBundle(ui.scanBundle.value);
+  const text = formatBundleReport(bundle, currentBundleReports(), currentScenarioNotes());
+  state.bundleReport = { id: bundle.id, text };
+  await copyTextToClipboard(text, 'Bundle report');
+});
 ui.downloadSnapshotTxt.addEventListener('click', () => {
   syncUrlFromUi();
   const bundle = getScanBundle(ui.scanBundle.value);
@@ -901,6 +911,9 @@ ui.copyPackageTxt.addEventListener('click', async () => {
 });
 ui.downloadHistoryTxt.addEventListener('click', () => {
   downloadText('esp-array-readiness-history.txt', formatReadinessHistory(state.readinessHistory));
+});
+ui.copyHistoryTxt.addEventListener('click', async () => {
+  await copyTextToClipboard(formatReadinessHistory(state.readinessHistory), 'Readiness history');
 });
 ui.applyNotePreset.addEventListener('click', () => {
   if (!ui.notePreset.value) return;

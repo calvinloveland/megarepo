@@ -55,9 +55,10 @@ themes (hard reverb, lossy mesh, skew stress, high-noise scan), so you can tag a
 retyping boilerplate. And there is a **Download analysis snapshot** action that bundles the current
 share URL, scenario notes, readiness badge/summary, and selected analysis reports into one text
 artifact for easy handoff to future firmware work; that artifact can now also be copied straight to
-the clipboard. There is also now a **Download report package** action that concatenates the analysis
-snapshot, selected bundle report, and readiness history timeline into one comprehensive offline-
-review artifact, and that package can also be copied directly to the clipboard.
+the clipboard. The selected bundle report and the readiness history timeline now support the same
+copy/download workflow too. There is also now a **Download report package** action that concatenates
+the analysis snapshot, selected bundle report, and readiness history timeline into one comprehensive
+offline-review artifact, and that package can also be copied directly to the clipboard.
 
 For hardware planning, `npm run sweep` answers “how many ESP32 nodes do I need?” by printing the
 minimum node count that keeps the **worst-case** localization error under a target (5 cm by default)
