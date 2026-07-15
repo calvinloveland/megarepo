@@ -9,6 +9,7 @@ import { linearChirp } from './src/dsp.mjs';
 import { runSweep, formatSweep, minNodesFor, formatMinNodes, summarizeMinNodes, sweepToCsv } from './src/sweep.mjs';
 import { runBench, formatBench, summarizeBench } from './src/bench.mjs';
 import { assessAdvisories } from './src/advisories.mjs';
+import { compareModes, formatComparison, summarizeComparison } from './src/compare.mjs';
 import {
   PRESETS,
   sanitizeUiState,
@@ -29,6 +30,8 @@ const sizingReportEl = document.getElementById('sizingReport');
 const sizingSummaryEl = document.getElementById('sizingSummary');
 const benchReportEl = document.getElementById('benchReport');
 const benchSummaryEl = document.getElementById('benchSummary');
+const compareReportEl = document.getElementById('compareReport');
+const compareSummaryEl = document.getElementById('compareSummary');
 const advisoriesEl = document.getElementById('advisories');
 
 const ui = {
@@ -68,6 +71,7 @@ const ui = {
   benchRepeats: document.getElementById('benchRepeats'),
   runBench: document.getElementById('runBench'),
   downloadBenchTxt: document.getElementById('downloadBenchTxt'),
+  runCompare: document.getElementById('runCompare'),
 };
 
 // Colours keyed by channel id for the on-canvas glow + mapping bars.
@@ -86,6 +90,7 @@ const state = {
   raf: null,
   sizing: null,          // { cells, text, targetM }
   bench: null,           // { points, text }
+  compare: null,         // { rows, text }
 };
 
 function readUiState() {
@@ -282,6 +287,19 @@ function runSizing() {
     statusEl.textContent = rec?.minNodes == null
       ? `Sizing done: infeasible in 4–12 nodes for ≤${(targetM * 100).toFixed(0)} cm worst-case.`
       : `Sizing done: need at least ${rec.minNodes} nodes for ≤${(targetM * 100).toFixed(0)} cm worst-case.`;
+  });
+}
+
+function runCompareUi() {
+  statusEl.textContent = 'Comparing capture modes…';
+  requestAnimationFrame(() => {
+    const cfg = readConfig();
+    const rows = compareModes(cfg);
+    const text = formatComparison(rows);
+    state.compare = { rows, text };
+    compareSummaryEl.textContent = summarizeComparison(rows);
+    compareReportEl.textContent = text;
+    statusEl.textContent = 'Mode comparison done.';
   });
 }
 
@@ -631,6 +649,7 @@ ui.downloadSizingCsv.addEventListener('click', () => {
   downloadText('esp-array-sizing.csv', sweepToCsv(state.sizing.cells));
 });
 ui.runBench.addEventListener('click', runBenchUi);
+ui.runCompare.addEventListener('click', runCompareUi);
 ui.downloadBenchTxt.addEventListener('click', () => {
   if (!state.bench) return;
   downloadText('esp-array-benchmark.txt', state.bench.text);
@@ -672,7 +691,7 @@ applyUiState(initialUiState);
 renderAdvisories();
 
 // Expose state for Playwright/inspection (per repo convention for vanilla-JS UIs).
-window.espArraySim = { state, runIt, runSizing, runBenchUi, readConfig, readUiState, applyUiState, playChannel, stopChannel };
+window.espArraySim = { state, runIt, runSizing, runBenchUi, runCompareUi, readConfig, readUiState, applyUiState, playChannel, stopChannel };
 
 // First paint.
 runIt();

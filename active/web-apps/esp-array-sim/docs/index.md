@@ -239,6 +239,11 @@ Matched-capture noise σ is now also exposed as a first-class browser control an
 so the UI, hardware-sizing panel, and latency benchmark all answer the practical SNR question:
 "how much localization accuracy and calibration cost do I lose as the mic captures get noisier?"
 
+A pure `compare.mjs` helper now also powers a browser **Mode comparison** panel that runs the same
+room / seed / algorithm knobs through closed, matched, and distributed mode side-by-side. This is
+handy when a user asks “what am I paying for realistic DSP?” or “how much message overhead does the
+mesh introduce?” — the answer is one click instead of a manual toggle dance.
+
 A single-mic matched filter with sub-sample parabolic refinement around the |correlation| peak
 lands the TOA within ~2 cm (near the sample-quantization floor); a fractional-lag chirp is recovered
 to <0.15 samples. The estimator has two modes:
