@@ -333,6 +333,17 @@ This is still a skeleton, not a full `idf.py build`-ready application, but it
 means the project now has an actual firmware landing zone instead of only a
 simulation boundary.
 
+The scaffold now also includes the minimal ESP-IDF project shape you would
+expect to grow into a real node firmware app:
+
+- `firmware/CMakeLists.txt`
+- `firmware/main/CMakeLists.txt`
+- `firmware/main/idf_component.yml`
+- `firmware/sdkconfig.defaults`
+
+So the hardware phase has moved beyond abstract interfaces and into an actual
+project layout that can later become a real `idf.py build`.
+
 A pure `advisories.mjs` ruleset also feeds the UI's **Known risks / suggestions** panel. These are
 not vague design opinions: each rule corresponds to a failure mode the simulator already demonstrated
 and tested — e.g. heavy reverb + plain matched TOA, very high mesh packet loss, or minimal 4-node

@@ -1,0 +1,4 @@
+description: ESP Array node firmware skeleton generated from the simulator contracts
+version: "0.1.0"
+dependencies:
+  idf: ">=5.0"

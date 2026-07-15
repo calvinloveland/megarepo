@@ -51,8 +51,31 @@ node bin/export-firmware-fixtures.mjs
 - `esp_array_gossip_listener_rows()` → ESP-MESH or other transport layer
 - localization solver → coordinator node or off-device service
 
+## Minimal ESP-IDF scaffold
+
+This directory now includes the minimum project files you would expect to grow into a real ESP-IDF
+application:
+
+- `CMakeLists.txt`
+- `main/CMakeLists.txt`
+- `main/idf_component.yml`
+- `sdkconfig.defaults`
+
+That is enough structure for a future `idf.py build` path once real drivers and task code are added.
+
+## Build notes (future phase)
+
+When ESP-IDF is installed and the real hardware code is fleshed out, the intended flow is:
+
+```bash
+cd firmware
+idf.py set-target esp32
+idf.py build
+idf.py flash monitor
+```
+
 ## Current status
 
-Skeleton only. No `idf.py build` has been attempted here yet, because the goal of this step is to
-freeze the **interfaces and shared constants** first so later ESP-IDF work does not drift from the
-validated simulator.
+Still skeleton only. No `idf.py build` has been attempted here yet, because the goal of this step is
+to freeze the **interfaces, shared constants, and project shape** first so later ESP-IDF work does
+not drift from the validated simulator.

@@ -13,8 +13,10 @@ canonical config module. That makes the simulator's message flow map much more c
 ESP32 firmware work. `docs/index.md` now also includes an explicit module-by-module firmware port map
 so the hardware phase has a concrete roadmap, not just reusable interfaces. The repo now also contains
 an initial `firmware/` skeleton with generated shared headers plus a coordinator-style `app_main`
-scaffold. Regenerate those shared C headers any time the canonical simulator config/protocol changes
-with `npm run export:firmware`. 
+scaffold. That firmware directory now also has the minimal ESP-IDF project shape (`CMakeLists.txt`,
+`main/CMakeLists.txt`, `idf_component.yml`, `sdkconfig.defaults`) needed to grow toward a real
+`idf.py build`. Regenerate those shared C headers any time the canonical simulator config/protocol
+changes with `npm run export:firmware`. 
 
 ## Why a simulator
 
