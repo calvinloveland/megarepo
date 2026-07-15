@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ESP Speaker Array Simulator</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header>
+    <h1>🔊 ESP Speaker Array Simulator</h1>
+    <p class="subtitle">
+      ESP32 nodes with a speaker + microphone each, scattered randomly, localizing
+      themselves acoustically, then rendering a 5.1 source onto the irregular layout.
+    </p>
+  </header>
+
+  <main>
+    <section class="panel">
+      <h2>Scenario</h2>
+      <div class="grid2">
+        <label>Nodes
+          <input id="nodeCount" type="number" min="4" max="12" value="6" />
+        </label>
+        <label>Seed
+          <input id="seed" type="number" value="42" />
+        </label>
+        <label>Room W (m)
+          <input id="roomW" type="number" step="0.5" min="3" value="6" />
+        </label>
+        <label>Room H (m)
+          <input id="roomH" type="number" step="0.5" min="3" value="5" />
+        </label>
+        <label>Pan exponent
+          <input id="exponent" type="number" step="1" min="1" value="4" />
+        </label>
+        <label>Distance law
+          <input id="distanceLaw" type="number" step="0.5" min="0" value="1" />
+        </label>
+      </div>
+      <div class="row">
+        <button id="run">Run localization</button>
+        <button id="reseed" class="ghost">Random seed</button>
+        <label class="checkbox"><input id="showTruth" type="checkbox" checked /> Show truth</label>
+        <label class="checkbox"><input id="captureSweep" type="checkbox" checked /> Animate calibration</label>
+      </div>
+      <div id="status" class="status">Ready.</div>
+    </section>
+
+    <section class="panel canvas-panel">
+      <h2>Room (top-down)</h2>
+      <canvas id="room" width="640" height="520"></canvas>
+      <div class="legend">
+        <span><b class="dot truth"></b> true position</span>
+        <span><b class="dot solved"></b> localized</span>
+        <span><b class="dot sweet"></b> sweet spot</span>
+        <span class="channellegend">
+          <b class="ch sw L"></b>L
+          <b class="ch sw R"></b>R
+          <b class="ch sw C"></b>C
+          <b class="ch sw Ls"></b>Ls
+          <b class="ch sw Rs"></b>Rs
+          <b class="ch sw lfe"></b>LFE
+        </span>
+      </div>
+      <div class="row">
+        <button id="playChannel">▶ Play test tone per channel</button>
+        <button id="stopChannel" class="ghost" disabled>Stop</button>
+      </div>
+      <div id="channelStatus" class="status"></div>
+    </section>
+
+    <section class="panel">
+      <h2>5.1 → speaker mapping</h2>
+      <div id="mapping" class="mapping"></div>
+      <h3>Localization report</h3>
+      <div id="report" class="report">—</div>
+    </section>
+  </main>
+
+  <footer>
+    <a href="docs/index.md">Project docs</a> ·
+    <code>npm run check</code> runs the unit suite; the same modules power the UI.
+  </footer>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>

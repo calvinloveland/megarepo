@@ -1,0 +1,13 @@
+{
+  "name": "esp-array-sim",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Simulator for an ESP32 speaker+mic mesh that self-localizes acoustically and renders 5.1 onto its irregular layout.",
+  "type": "module",
+  "scripts": {
+    "start": "node server.mjs",
+    "check": "node --check app.js && node --check server.mjs && for f in src/*.mjs; do node --check \"$f\"; done && node --test --test-reporter=spec tests/*.test.mjs",
+    "test": "node --test --test-reporter=spec tests/*.test.mjs",
+    "test:server": "node --test --test-reporter=spec tests/server.test.mjs"
+  }
+}

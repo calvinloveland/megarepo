@@ -1,0 +1,79 @@
+// High-level scenario orchestration: build a random mesh, run the calibration
+// sweep, self-localize, evaluate against truth, and map 5.1 onto the solved
+// speakers. Both the UI and the tests drive the simulator through this object so
+// the pipeline is defined exactly once (DRY).
+
+import { makeRng, randomLayout, makeEmitSchedule } from './world.mjs';
+import { simulateCaptures } from './capture.mjs';
+import { localizeBest, procrustesAlign } from './localize.mjs';
+import { mapSurround, CHANNELS_5_1 } from './surround.mjs';
+
+/**
+ * Build and run a complete localization scenario.
+ *
+ * @param {object} cfg
+ * @param {number} [cfg.seed]         reproducibility seed (omit for "now")
+ * @param {number} [cfg.nodeCount]    number of ESP32 nodes (default 6)
+ * @param {{width:number,height:number}} [cfg.room] metres
+ * @param {{x:number,y:number}} [cfg.sweetSpot] listener; default = room centre
+ * @param {number} [cfg.exponent]     surround cosine-power exponent
+ * @param {number} [cfg.distanceLaw]  surround distance compensation
+ * @returns {object} scenario bundle
+ */
+export function runScenario(cfg = {}) {
+  const seed = cfg.seed ?? (Math.random() * 1e9) | 0;
+  const rng = makeRng(seed);
+  const room = cfg.room ?? { width: 6, height: 5 };
+  const nodeCount = cfg.nodeCount ?? 6;
+
+  const nodes = randomLayout(nodeCount, room, rng);
+  const schedule = makeEmitSchedule(nodes);
+  const observations = simulateCaptures(nodes, schedule);
+
+  const sol = localizeBest(observations, nodes.length, room, {
+    starts: cfg.starts ?? 8,
+    seedRng: rng, // deterministic restarts -> reproducible scenarios
+  });
+  const truth = nodes.map((n) => ({ x: n.pos.x, y: n.pos.y }));
+
+  // Pure acoustic TDOA can't distinguish a layout from its mirror image across
+  // the anchor axis (N0–N1), so the solver may land on either chirality. We
+  // Procrustes-align both candidates to the truth and keep the lower-error one
+  // for evaluation. Real firmware resolves handedness from a known cue (a
+  // designated "front" anchor / the wall the TV is on); the simulator gets that
+  // cue from ground truth. This is the only place truth is used to pick the
+  // solution — it does NOT inform the positions themselves.
+  const mirrored = sol.pos.map((p) => ({ x: p.x, y: -p.y }));
+  const a1 = procrustesAlign(sol.pos, truth);
+  const a2 = procrustesAlign(mirrored, truth);
+  const { aligned, errorM, R, t, mirror } =
+    a2.errorM < a1.errorM
+      ? { ...a2, mirror: true }
+      : { ...a1, mirror: false };
+
+  const sweetSpot = cfg.sweetSpot ?? { x: room.width / 2, y: room.height / 2 };
+  const realSpeakers = aligned.map((p, i) => ({ id: nodes[i].label, pos: { x: p.x, y: p.y } }));
+  const surround = mapSurround(realSpeakers, sweetSpot, {
+    exponent: cfg.exponent,
+    distanceLaw: cfg.distanceLaw,
+  });
+
+  return {
+    seed,
+    room,
+    nodes,
+    schedule,
+    observations,
+    solution: sol,
+    truth,
+    aligned,
+    transform: { R, t, mirror },
+    alignErrorM: errorM,
+    sweetSpot,
+    realSpeakers,
+    surround,
+    channels: CHANNELS_5_1,
+    clockOffsetsTrue: nodes.map((n) => n.clockOffsetSec),
+    clockOffsetsEst: sol.off,
+  };
+}

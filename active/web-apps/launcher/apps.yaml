@@ -185,6 +185,18 @@ apps:
     env:
       PORT: "5192"
 
+  - id: esp-array-sim
+    name: ESP Speaker Array Sim
+    description: ESP32 speaker+mic mesh that self-localizes acoustically and renders 5.1 onto its layout
+    icon: 🔊
+    subdomain: esparray
+    path: ../esp-array-sim
+    type: node
+    port: 5193
+    start_cmd: "npm run start"
+    env:
+      PORT: "5193"
+
   - id: ocr-arena
     name: OCR Arena
     description: Pick a Project Gutenberg book, watch full-auto-de-pdf OCR it into an EPUB
