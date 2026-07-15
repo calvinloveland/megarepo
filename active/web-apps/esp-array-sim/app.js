@@ -6,7 +6,7 @@ import { CHANNELS_5_1, azimuthToVec } from './src/surround.mjs';
 import { SPEED_OF_SOUND } from './src/acoustics.mjs';
 import { renderChannelAtSweetSpot, renderPeakConcentration, channelSeparation } from './src/render.mjs';
 import { linearChirp } from './src/dsp.mjs';
-import { runSweep, formatSweep, minNodesFor, formatMinNodes } from './src/sweep.mjs';
+import { runSweep, formatSweep, minNodesFor, formatMinNodes, sweepToCsv } from './src/sweep.mjs';
 import { runBench, formatBench } from './src/bench.mjs';
 import { assessAdvisories } from './src/advisories.mjs';
 import {
@@ -53,8 +53,11 @@ const ui = {
   sizingTargetCm: document.getElementById('sizingTargetCm'),
   sizingTrials: document.getElementById('sizingTrials'),
   runSizing: document.getElementById('runSizing'),
+  downloadSizingTxt: document.getElementById('downloadSizingTxt'),
+  downloadSizingCsv: document.getElementById('downloadSizingCsv'),
   benchRepeats: document.getElementById('benchRepeats'),
   runBench: document.getElementById('runBench'),
+  downloadBenchTxt: document.getElementById('downloadBenchTxt'),
 };
 
 // Colours keyed by channel id for the on-canvas glow + mapping bars.
@@ -71,6 +74,8 @@ const state = {
   // calibration animation
   anim: null,            // {events, idx, t0, ringStopAt}
   raf: null,
+  sizing: null,          // { cells, text, targetM }
+  bench: null,           // { points, text }
 };
 
 function readUiState() {
@@ -191,6 +196,16 @@ function renderReport(ms, mode) {
 
 function cfgReflCoef() { return parseFloat(ui.reflCoef.value) ?? 0.5; }
 
+function downloadText(filename, text) {
+  const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+
 function runSizing() {
   statusEl.textContent = 'Running hardware-sizing sweep…';
   requestAnimationFrame(() => {
@@ -213,7 +228,11 @@ function runSizing() {
       },
     });
     const recs = minNodesFor(cells, targetM);
-    sizingReportEl.textContent = `${formatSweep(cells)}\n\n${formatMinNodes(recs, targetM)}`;
+    const text = `${formatSweep(cells)}\n\n${formatMinNodes(recs, targetM)}`;
+    state.sizing = { cells, text, targetM };
+    sizingReportEl.textContent = text;
+    ui.downloadSizingTxt.disabled = false;
+    ui.downloadSizingCsv.disabled = false;
     const rec = recs[0];
     statusEl.textContent = rec?.minNodes == null
       ? `Sizing done: infeasible in 4–12 nodes for ≤${(targetM * 100).toFixed(0)} cm worst-case.`
@@ -243,7 +262,10 @@ function runBenchUi() {
         starts: 8,
       },
     });
-    benchReportEl.textContent = formatBench(points);
+    const text = formatBench(points);
+    state.bench = { points, text };
+    benchReportEl.textContent = text;
+    ui.downloadBenchTxt.disabled = false;
     const worst = Math.max(...points.map((p) => p.worstMs));
     statusEl.textContent = `Benchmark done: worst calibration solve ${worst.toFixed(0)} ms.`;
   });
@@ -525,7 +547,19 @@ ui.reseed.addEventListener('click', () => { ui.seed.value = (Math.random() * 1e9
 ui.playChannel.addEventListener('click', playChannel);
 ui.stopChannel.addEventListener('click', stopChannel);
 ui.runSizing.addEventListener('click', runSizing);
+ui.downloadSizingTxt.addEventListener('click', () => {
+  if (!state.sizing) return;
+  downloadText('esp-array-sizing.txt', state.sizing.text);
+});
+ui.downloadSizingCsv.addEventListener('click', () => {
+  if (!state.sizing) return;
+  downloadText('esp-array-sizing.csv', sweepToCsv(state.sizing.cells));
+});
 ui.runBench.addEventListener('click', runBenchUi);
+ui.downloadBenchTxt.addEventListener('click', () => {
+  if (!state.bench) return;
+  downloadText('esp-array-benchmark.txt', state.bench.text);
+});
 ui.copyLink.addEventListener('click', async () => {
   syncUrlFromUi();
   const url = window.location.href;
