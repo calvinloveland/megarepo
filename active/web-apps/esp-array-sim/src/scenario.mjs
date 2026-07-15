@@ -40,6 +40,8 @@ export function runScenario(cfg = {}) {
   const dist = cfg.captureMode === 'distributed'
     ? distributedSweep(nodes, room, {
         captureMode: 'closed',
+        meshLoss: cfg.meshLoss ?? 0,
+        seedRng: rng,
         ...cfg.distributedMatched ? { captureMode: 'matched', room, wallReflections: cfg.wallReflections ?? true, reflCoef: cfg.reflCoef ?? 0.5, noiseSigma: cfg.noiseSigma ?? 0.05, estimatorMode: cfg.estimatorMode ?? (cfg.earliestPeak ? 'earliest' : 'strongest') } : {},
       })
     : null;
@@ -57,7 +59,6 @@ export function runScenario(cfg = {}) {
           peakThreshold: cfg.peakThreshold ?? 0.5,
         })
       : simulateCaptures(nodes, schedule);
-  const meshMessages = dist ? dist.messages : null;
 
   const sol = localizeBest(observations, nodes.length, room, {
     starts: cfg.starts ?? 8,
@@ -114,6 +115,7 @@ export function runScenario(cfg = {}) {
     clockSkewsEst: sol.skew ?? nodes.map(() => 0),
     withSkew,
     distributed: cfg.captureMode === 'distributed',
-    meshMessages,
+    meshMessages: dist ? dist.messages : null,
+    meshLost: dist ? dist.lost : 0,
   };
 }

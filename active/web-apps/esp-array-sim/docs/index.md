@@ -73,8 +73,13 @@ then the mesh gossips those rows so any node can assemble the full matrix and ru
 `mesh.mjs` simulates that data flow — partition by listener, a full-broadcast gossip round
 (n·(n−1) messages), and assemble — and proves the gossiped matrix equals the centralized one
 (same multiset of (emitter,listener,arrival) observations), so the distributed protocol is a
-zero-fidelity-loss drop-in for the centralized path. `scenario.captureMode: 'distributed'` runs
-the whole pipeline distributed and reports `meshMessages`. UI surfaces it as a capture-mode option.
+zero-fidelity-loss drop-in for the centralized path. It also simulates **packet loss** (`meshLoss`):
+a fraction of listener-row broadcasts fail to arrive, the assembler sees a partial matrix, and the
+over-determined LM solver (with robust down-weighting) still recovers the geometry. Tests prove loss
+drops rows and sets `meshLost`, and that 30% loss with 8 nodes still localizes within 15 cm — the
+degraded-but-still-localizable regime the firmware must tolerate. `scenario.captureMode: 'distributed'`
+runs the whole pipeline distributed and reports `meshMessages`/`meshLost`. UI surfaces it as a
+capture-mode option plus a mesh packet-loss slider.
 
 ## Evaluation sweep (`sweep.mjs`)
 

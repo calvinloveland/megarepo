@@ -23,6 +23,7 @@ const ui = {
   distanceLaw: document.getElementById('distanceLaw'),
   captureMode: document.getElementById('captureMode'),
   reflCoef: document.getElementById('reflCoef'),
+  meshLoss: document.getElementById('meshLoss'),
   earliestPeak: document.getElementById('earliestPeak'),
   clockSkew: document.getElementById('clockSkew'),
   robust: document.getElementById('robust'),
@@ -59,6 +60,7 @@ function readConfig() {
     distanceLaw: parseFloat(ui.distanceLaw.value) ?? 1,
     captureMode: ui.captureMode.value,
     reflCoef: parseFloat(ui.reflCoef.value) ?? 0.5,
+    meshLoss: parseFloat(ui.meshLoss.value) ?? 0,
     earliestPeak: ui.earliestPeak.checked,
     clockSkew: ui.clockSkew.checked,
     robust: ui.robust.checked ? 5e-5 : 0,
@@ -102,7 +104,7 @@ function renderReport(ms, mode) {
   const capLine = mode === 'matched'
     ? `capture: <b>matched-filter</b> (real DSP · wall refl. coef ${(cfgReflCoef()).toFixed(2)})`
     : mode === 'distributed'
-      ? `capture: <b>distributed mesh</b> (each node gossips its mic row · ${s.meshMessages} msgs)`
+      ? `capture: <b>distributed mesh</b> (${s.meshMessages} msgs delivered${s.meshLost ? `, ${s.meshLost} lost` : ' · no loss'})`
       : `capture: <b>closed-form</b> (perfect direct-path TOA)`;
   reportEl.innerHTML = `
     <div>nodes: <b>${s.nodes.length}</b> · room: ${s.room.width}×${s.room.height} m</div>
@@ -377,7 +379,7 @@ ui.reseed.addEventListener('click', () => { ui.seed.value = (Math.random() * 1e9
 ui.playChannel.addEventListener('click', playChannel);
 ui.stopChannel.addEventListener('click', stopChannel);
 ui.showTruth.addEventListener('change', draw);
-[ui.nodeCount, ui.seed, ui.roomW, ui.roomH, ui.exponent, ui.distanceLaw, ui.captureMode, ui.reflCoef].forEach((el) =>
+[ui.nodeCount, ui.seed, ui.roomW, ui.roomH, ui.exponent, ui.distanceLaw, ui.captureMode, ui.reflCoef, ui.meshLoss].forEach((el) =>
   el.addEventListener('change', draw));
 ui.earliestPeak.addEventListener('change', draw);
 ui.clockSkew.addEventListener('change', draw);

@@ -43,15 +43,26 @@ export function distributedCaptures(nodes, room, captureOpts = {}) {
  * @param {Observation[][]} perNode one row per node
  * @returns {{matrix: Observation[], messages: number}}
  */
-export function gossipAndAssemble(perNode) {
+export function gossipAndAssemble(perNode, opts = {}) {
   const n = perNode.length;
   // full broadcast: each node sends its row to (n-1) peers → n(n-1) messages.
-  const messages = n * (n - 1);
-  // any assembler concatenates the rows in node order; arrivals stay keyed by
-  // (emitter, listener) so order doesn't matter to the solver.
+  let messages = n * (n - 1);
+  // Real WiFi drops packets. opts.loss prob means a fraction of (peer,row) messages
+  // fail to arrive; the assembler sees only the rows that reached it. Models the
+  // degraded-but-still-localizable regime the firmware must tolerate.
+  const loss = opts.loss ?? 0;
+  const seedRng = opts.seedRng ?? (() => Math.random());
   const matrix = [];
-  for (const row of perNode) matrix.push(...row);
-  return { matrix, messages };
+  for (let listener = 0; listener < n; listener++) {
+    const row = perNode[listener];
+    // The node's own row is always available locally; whether peers receive it
+    // depends on packet loss. (For the assembler-as-arbitrary-node model here,
+    // we keep every node's row if its broadcast to the assembly point survives.)
+    const arrives = loss <= 0 || seedRng() >= loss;
+    if (arrives) for (const o of row) matrix.push(o);
+    else messages -= n - 1; // the broadcast failed — count lost messages
+  }
+  return { matrix, messages, lost: n * (n - 1) - messages };
 }
 
 /**
@@ -66,5 +77,9 @@ export function gossipAndAssemble(perNode) {
  */
 export function distributedSweep(nodes, room, captureOpts = {}) {
   const { perNode, schedule } = distributedCaptures(nodes, room, captureOpts);
-  return { ...gossipAndAssemble(perNode), schedule };
+  const assembled = gossipAndAssemble(perNode, {
+    loss: captureOpts.meshLoss ?? 0,
+    seedRng: captureOpts.seedRng,
+  });
+  return { ...assembled, schedule };
 }

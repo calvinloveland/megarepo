@@ -47,6 +47,46 @@ test('full-broadcast gossip sends n*(n-1) messages', () => {
   assert.equal(messages, 5 * 4);
 });
 
+test('packet loss drops some listener rows from the assembled matrix', () => {
+  const rng = makeRng(4);
+  const room = { width: 7, height: 5 };
+  const nodes = randomLayout(6, room, rng);
+  const { perNode } = distCap(nodes, room, { captureMode: 'closed' });
+  // 50% loss with a deterministic rng: strictly fewer rows survive.
+  const { matrix, messages, lost } = gossipAndAssemble(perNode, { loss: 0.5, seedRng: makeRng(1) });
+  const fullRows = nodes.length * nodes.length;
+  assert.ok(matrix.length < fullRows, `partial matrix should drop rows: ${matrix.length} vs ${fullRows}`);
+  assert.ok(lost > 0, 'some messages reported lost');
+  assert.equal(messages + lost, nodes.length * (nodes.length - 1));
+});
+
+test('zero-loss distributed sweep is exactly the centralized matrix', () => {
+  const rng = makeRng(9);
+  const room = { width: 7, height: 5 };
+  const nodes = randomLayout(6, room, rng);
+  const { matrix } = distributedSweep(nodes, room, { captureMode: 'closed', meshLoss: 0 });
+  assert.equal(matrix.length, nodes.length * nodes.length);
+  // every (emitter,listener) pair present exactly once
+  const keys = matrix.map((o) => `${o.emitterId}-${o.listenerId}`).sort();
+  assert.equal(new Set(keys).size, nodes.length * nodes.length);
+});
+
+test('distributed localizes under modest packet loss thanks to redundancy + robust LM', () => {
+  // Each (emitter,listener) arrival is a unique measurement, so a lost listener
+  // row removes n observations at once. With ~30% loss on 6 nodes the matrix
+  // stays over-determined enough for the LM solver + robust down-weighting to
+  // recover the geometry to within the success threshold.
+  const s = runScenario({
+    seed: 42, nodeCount: 8, room: { width: 8, height: 6 },
+    captureMode: 'distributed', meshLoss: 0.3, robust: 5e-5,
+  });
+  assert.ok(s.distributed, 'flags distributed');
+  assert.ok(s.meshLost > 0, 'packet loss occurred');
+  // tolerate coarser recovery under partial data
+  assert.ok(s.alignErrorM < 0.15,
+    `distributed-with-loss localization too coarse: ${s.alignErrorM.toFixed(3)} m (lost ${s.meshLost} msgs)`);
+});
+
 test('distributed captureMode localizes as well as closed centralized', () => {
   const dist = runScenario({ seed: 42, nodeCount: 6, room: { width: 6, height: 5 }, captureMode: 'distributed' });
   const cent = runScenario({ seed: 42, nodeCount: 6, room: { width: 6, height: 5 }, captureMode: 'closed' });
