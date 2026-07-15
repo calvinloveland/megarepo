@@ -221,6 +221,25 @@ an interesting success/failure case is shareable and exactly reproducible from a
 are also mode-aware: knobs the current capture mode ignores are dimmed/disabled, and a helper line
 spells out which settings actually matter for closed vs. matched vs. distributed mode.
 
+## Firmware-shaped protocol layer (`firmware-protocol.mjs`)
+
+This project is still **not** an ESP32 hardware emulator — it does not emulate ESP-IDF tasks,
+I2S/PDM peripherals, DMA, Wi-Fi driver timing, or MCU memory limits. But to make the transition to
+real hardware easier, the distributed path now speaks in explicit **firmware-shaped contracts**:
+
+- `calibration-plan-v1` — one chirp plan with sweep id, gap, chirp config, and per-node emissions
+- `listener-row-v1` — one node's listener-row packet: all arrivals heard by THAT microphone,
+  exactly the thing a real node would gossip after the sweep
+
+`firmware-protocol.mjs` converts the simulator's per-node listener rows into those packets,
+reconstructs the observation matrix from them, and simulates packet loss at the **packet** level
+(one lost row packet means one node's whole mic row never arrives). The packet contracts preserve
+matched-filter diagnostics (`arrivalPaths`, `estimatedDirectSec`, `shots`) when present, so the same
+shapes can become real JSON/CBOR/mesh payloads later without changing the algorithm modules.
+
+This is the key portability step: the simulator still proves the math/physics, but the distributed
+flow now already looks like future firmware messages instead of anonymous in-process arrays.
+
 A pure `advisories.mjs` ruleset also feeds the UI's **Known risks / suggestions** panel. These are
 not vague design opinions: each rule corresponds to a failure mode the simulator already demonstrated
 and tested — e.g. heavy reverb + plain matched TOA, very high mesh packet loss, or minimal 4-node

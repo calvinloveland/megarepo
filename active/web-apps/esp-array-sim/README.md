@@ -5,6 +5,11 @@ randomly around a room. The nodes localize themselves acoustically and then rend
 **5.1** input onto their irregular, discovered layout — the first step toward a self-deploying
 wireless surround system before touching real hardware.
 
+Important: this is still an **algorithm/system simulator**, not a literal ESP32 hardware emulator.
+It does not emulate ESP-IDF peripherals or timing. But the distributed calibration path now uses
+explicit firmware-shaped packet/plan contracts, so the simulator's message flow maps much more
+cleanly onto future ESP32 firmware work.
+
 ## Why a simulator
 
 We iterate the *algorithms* (acoustic localization, clock handling, surround panning) in the
