@@ -19,6 +19,8 @@ const ui = {
   roomH: document.getElementById('roomH'),
   exponent: document.getElementById('exponent'),
   distanceLaw: document.getElementById('distanceLaw'),
+  captureMode: document.getElementById('captureMode'),
+  reflCoef: document.getElementById('reflCoef'),
   showTruth: document.getElementById('showTruth'),
   captureSweep: document.getElementById('captureSweep'),
   run: document.getElementById('run'),
@@ -50,6 +52,8 @@ function readConfig() {
     room: { width: Math.max(3, parseFloat(ui.roomW.value) || 6), height: Math.max(3, parseFloat(ui.roomH.value) || 5) },
     exponent: parseInt(ui.exponent.value, 10) || 4,
     distanceLaw: parseFloat(ui.distanceLaw.value) ?? 1,
+    captureMode: ui.captureMode.value,
+    reflCoef: parseFloat(ui.reflCoef.value) ?? 0.5,
   };
 }
 
@@ -66,7 +70,7 @@ function runIt() {
     state.scenario = runScenario(cfg);
     const ms = performance.now() - t0;
     stopChannel();
-    renderReport(ms);
+    renderReport(ms, cfg.captureMode);
     renderMapping();
     if (state.raf) cancelAnimationFrame(state.raf);
     if (ui.captureSweep.checked && state.scenario) startCaptureAnim();
@@ -75,21 +79,27 @@ function runIt() {
   });
 }
 
-function renderReport(ms) {
+function renderReport(ms, mode) {
   const s = state.scenario;
   const errCm = (s.alignErrorM * 100).toFixed(2);
-  const ok = s.alignErrorM < 0.05;
+  const ok = s.alignErrorM < (mode === 'matched' ? 0.08 : 0.05);
   const resid = s.solution.costs.at(-1);
   const offsetRms = rmsError(s.clockOffsetsTrue, s.clockOffsetsEst);
+  const capLine = mode === 'matched'
+    ? `capture: <b>matched-filter</b> (real DSP · wall refl. coef ${(cfgReflCoef()).toFixed(2)})`
+    : `capture: <b>closed-form</b> (perfect direct-path TOA)`;
   reportEl.innerHTML = `
     <div>nodes: <b>${s.nodes.length}</b> · room: ${s.room.width}×${s.room.height} m</div>
     <div>alignment error: <span class="${ok ? 'ok' : 'bad'}">${errCm} cm</span> ${s.transform.mirror ? '(mirror-reflected to truth)' : ''}</div>
+    <div>${capLine}</div>
     <div>residual cost: ${resid.toExponential(2)} s²</div>
     <div>solver: ${s.solution.converged ? 'converged' : 'hit iteration cap'} · ${s.solution.iterations} LM iters from ${s.solution.starts} starts</div>
     <div>clock-offset est. RMS: ${(offsetRms * 1e6).toFixed(1)} µs (truth offset ±0.1 ms after WiFi sync)</div>
     <div>speed of sound: ${SPEED_OF_SOUND} m/s · ${s.observations.length} acoustic observations</div>
   `;
 }
+
+function cfgReflCoef() { return parseFloat(ui.reflCoef.value) ?? 0.5; }
 
 function renderMapping() {
   const s = state.scenario;
@@ -272,13 +282,25 @@ function drawRipples() {
     const rpx = rm * state.ppm;
     ctx.beginPath(); ctx.arc(epPx.x, epPx.y, rpx, 0, Math.PI * 2);
     ctx.strokeStyle = 'rgba(63,185,80,0.5)'; ctx.lineWidth = 2; ctx.stroke();
-    // mark listeners as the wavefront passes their distance
+    // mark listeners (and echoes, in matched-filter mode) as each wavefront passes
     for (const o of state.scenario.observations) {
       if (o.emitterId !== emitterId || o.listenerId === emitterId) continue;
       const lp = toPx(state.scenario.aligned[o.listenerId]);
+      // direct arrival
       if (Math.abs(rm - o.distanceM) < 0.08) {
         ctx.beginPath(); ctx.arc(lp.x, lp.y, 12, 0, Math.PI * 2);
         ctx.strokeStyle = 'rgba(88,166,255,0.9)'; ctx.lineWidth = 2; ctx.stroke();
+      }
+      // echo arrivals (image-source reflections), drawn from the emitter ring radius
+      if (o.arrivalPaths) {
+        for (const ap of o.arrivalPaths) {
+          if (ap.kind !== 'echo') continue;
+          const echoM = ap.delaySec * SPEED_OF_SOUND;
+          if (Math.abs(rm - echoM) < 0.08) {
+            ctx.beginPath(); ctx.arc(lp.x, lp.y, 16, 0, Math.PI * 2);
+            ctx.strokeStyle = `rgba(210,153,34,${0.4 + ap.amplitude})`; ctx.lineWidth = 1.5; ctx.stroke();
+          }
+        }
       }
     }
   }
@@ -317,7 +339,7 @@ ui.reseed.addEventListener('click', () => { ui.seed.value = (Math.random() * 1e9
 ui.playChannel.addEventListener('click', playChannel);
 ui.stopChannel.addEventListener('click', stopChannel);
 ui.showTruth.addEventListener('change', draw);
-[ui.nodeCount, ui.seed, ui.roomW, ui.roomH, ui.exponent, ui.distanceLaw].forEach((el) =>
+[ui.nodeCount, ui.seed, ui.roomW, ui.roomH, ui.exponent, ui.distanceLaw, ui.captureMode, ui.reflCoef].forEach((el) =>
   el.addEventListener('change', draw));
 
 // Expose state for Playwright/inspection (per repo convention for vanilla-JS UIs).

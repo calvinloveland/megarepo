@@ -4,7 +4,7 @@
 // the pipeline is defined exactly once (DRY).
 
 import { makeRng, randomLayout, makeEmitSchedule } from './world.mjs';
-import { simulateCaptures } from './capture.mjs';
+import { simulateCaptures, simulateMatchedCaptures } from './capture.mjs';
 import { localizeBest, procrustesAlign } from './localize.mjs';
 import { mapSurround, CHANNELS_5_1 } from './surround.mjs';
 
@@ -28,7 +28,17 @@ export function runScenario(cfg = {}) {
 
   const nodes = randomLayout(nodeCount, room, rng);
   const schedule = makeEmitSchedule(nodes);
-  const observations = simulateCaptures(nodes, schedule);
+  const observations =
+    cfg.captureMode === 'matched'
+      ? simulateMatchedCaptures(nodes, schedule, {
+          room,
+          wallReflections: cfg.wallReflections ?? true,
+          reflCoef: cfg.reflCoef ?? 0.5,
+          maxOrder: cfg.maxOrder ?? 1,
+          occluders: cfg.occluders ?? [],
+          noiseSigma: cfg.noiseSigma ?? 0.05,
+        })
+      : simulateCaptures(nodes, schedule);
 
   const sol = localizeBest(observations, nodes.length, room, {
     starts: cfg.starts ?? 8,
@@ -61,6 +71,8 @@ export function runScenario(cfg = {}) {
   return {
     seed,
     room,
+    captureMode: cfg.captureMode ?? 'closed',
+    reflCoef: cfg.reflCoef ?? 0.5,
     nodes,
     schedule,
     observations,
