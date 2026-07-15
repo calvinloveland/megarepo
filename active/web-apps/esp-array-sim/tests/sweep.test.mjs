@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { runSweep, formatSweep, sweepToCsv } from '../src/sweep.mjs';
+import { runSweep, formatSweep, sweepToCsv, minNodesFor, formatMinNodes } from '../src/sweep.mjs';
 
 const SMALL = {
   nodeCounts: [4, 6],
@@ -92,4 +92,77 @@ test('sweepToCsv emits a header + one CSV row per cell with the right columns', 
 test('sweepToCsv output ends with a newline so sweeps concatenate cleanly', () => {
   const cells = runSweep({ nodeCounts: [6], captureModes: ['closed'], reflCoefs: [0.0], trials: 2 });
   assert.ok(sweepToCsv(cells).endsWith('\n'), 'CSV must end with newline');
+});
+test('minNodesFor returns one entry per (mode, refl) group, min-aware', () => {
+  const cells = runSweep({ nodeCounts: [3, 5, 7], captureModes: ['closed', 'matched'], reflCoefs: [0.0, 0.5], trials: 4 });
+  const recs = minNodesFor(cells, 0.05);
+  // 2 modes x 2 refls = 4 groups, sorted (closed before matched, refl asc)
+  assert.equal(recs.length, 4);
+  assert.equal(recs[0].captureMode, 'closed');
+  assert.equal(recs[0].reflCoef, 0.0);
+  // entries sort within mode by refl
+  assert.ok(recs[0].reflCoef <= recs[1].reflCoef);
+});
+
+test('minNodesFor picks the smallest node count whose worst error meets the target', () => {
+  // matched at refl 0 with these node counts is ~sub-cm everywhere, so 3 nodes suffices
+  const cells = runSweep({ nodeCounts: [3, 5], captureModes: ['matched'], reflCoefs: [0.0], trials: 4 });
+  const recs = minNodesFor(cells, 0.05);
+  assert.equal(recs.length, 1);
+  assert.equal(recs[0].minNodes, 3, '3 matched nodes already beats 5cm worst');
+  assert.ok(recs[0].atWorstM <= 0.05);
+});
+
+test('minNodesFor reports infeasible (null) when no tested node count meets the target', () => {
+  // demand an absurdly tight target no realistic draw meets
+  const cells = runSweep({ nodeCounts: [3, 4], captureModes: ['closed'], reflCoefs: [0.0], trials: 3 });
+  const recs = minNodesFor(cells, 1e-6);
+  assert.equal(recs.length, 1);
+  assert.equal(recs[0].minNodes, null, '1e-6 target is infeasible -> null');
+  assert.ok(recs[0].atWorstM > 1e-6, 'atWorstM reports the best-available worst at the largest node count');
+});
+
+test('hardware-sizing report surfaces the dry-vs-reverberant gap', () => {
+  // Reverberation (refl 0.8) is strictly harder than dry (refl 0.0). At a 5cm
+  // worst-case target the matched path meets dry easily but can fail the
+  // reverberant room entirely within a small node range (echo mis-IDs blow up
+  // the worst case at low node counts). The sizing report must reflect that: the
+  // reverberant minNodes is either larger than dry, or infeasible (null) — never
+  // *smaller*. This is the actionable hardware insight: 'matched alone cannot
+  // handle a hard reverb room; go closed, or robust + earliest-peak'.
+  const cells = runSweep({ nodeCounts: [4, 6, 8, 10], captureModes: ['matched'], reflCoefs: [0.0, 0.8], trials: 6 });
+  const recs = minNodesFor(cells, 0.05);
+  const dry = recs.find((r) => r.reflCoef === 0.0);
+  const rev = recs.find((r) => r.reflCoef === 0.8);
+  assert.ok(dry.minNodes !== null, 'dry is always feasible in this range');
+  assert.ok(rev.minNodes === null || rev.minNodes >= dry.minNodes,
+    `reverberant (${rev.minNodes}) must be null or >= dry (${dry.minNodes}) — never smaller`);
+  // and specifically: the reverberant best-available worst error is worse than dry
+  assert.ok(rev.atWorstM > dry.atWorstM, 'reverberant room is harder than dry at the same node count');
+});
+
+test('robust LM + earliest-peak make a hard-reverb room feasible where plain matched fails', () => {
+  // plain matched blows up the worst case in a heavy-reverb room; enabling
+  // earliestPeak (reject loud NLOS echoes) + robust (downweight survivors)
+  // restores feasibility at modest node counts — the actionable hardware insight
+  // that the firmware MUST ship earliest-peak + robust to survive a living room.
+  const base = { nodeCounts: [6, 8, 10], captureModes: ['matched'], reflCoefs: [0.8], trials: 6 };
+  const plain = runSweep(base);
+  const hardened = runSweep({ ...base, extra: { earliestPeak: true, robust: 5e-5 } });
+  const plainRec = minNodesFor(plain, 0.05)[0];
+  const hardRec = minNodesFor(hardened, 0.05)[0];
+  // plain is infeasible (or needs more nodes) in this range; hardened is feasible at <=8
+  assert.ok(plainRec.minNodes === null || plainRec.minNodes > 8, 'plain matched struggles in heavy reverb');
+  assert.equal(hardRec.minNodes !== null && hardRec.minNodes <= 8, true,
+    `hardened (earliest-peak + robust, $
+{hardRec.minNodes} nodes) must be feasible at <=8 nodes in a 0.8-reverb room`);
+});
+
+test('formatMinNodes renders a header and one line per recommendation', () => {
+  const cells = runSweep({ nodeCounts: [4, 6], captureModes: ['closed'], reflCoefs: [0.0], trials: 3 });
+  const recs = minNodesFor(cells, 0.05);
+  const txt = formatMinNodes(recs, 0.05);
+  const lines = txt.split('\n');
+  assert.ok(lines[0].includes('min nodes'), 'header present');
+  assert.equal(lines.length - 1, recs.length);
 });

@@ -76,7 +76,33 @@ single-shot; on the closed path it cuts the mic-jitter floor in half. `scenario.
 (default 1 = single-shot, unchanged baseline); UI adds an "Emission shots" input and the report notes
 the median-of-N shots.
 
-## Distributed/mesh localization (`mesh.mjs`)
+## Hardware-sizing recommendation (`sweep.mjs`)
+
+The sweep CLI now also answers the question you actually care about before buying
+parts: **how many ESP32 nodes do I need?** `minNodesFor(cells, targetM)` walks a
+finished sweep and, for each (captureMode, reflCoef) group, reports the smallest
+node count whose *worst-case* alignment error (across all room draws tried) meets
+the target — or `null` (infeasible in the tested range) with the best-available
+worst error, so you know the regime is genuinely hard rather than just "didn't try
+big enough." `npm run sweep` prints it after the accuracy table; `--target-m`
+sets the worst-case target (default 5 cm).
+
+The sweep reveals two actionable findings the firmware must respect:
+
+1. **Plain matched-filter TOA cannot survive a reverberant room.** At reflCoef
+   0.8 the worst-case error blows up to tens of cm even at 10 nodes — loud NLOS
+   echoes get correlated above the true direct peak, and the estimator locks
+   onto the wrong arrival. The 5 cm target is infeasible in the tested range.
+2. **Earliest-peak selection + Huber-robust LM restore feasibility at ≤8
+   nodes.** Rejecting the loud-late echoes (earliest-peak) and down-weighting
+   any survivor that disagrees with the consensus (robust) collapses the worst
+   case back under 5 cm at modest node counts. The regression test
+   `robust LM + earliest-peak make a hard-reverb room feasible where plain
+   matched fails` pins this in CI — the firmware MUST ship earliest-peak +
+   robust, not plain matched, to survive a real living room.
+
+
+
 
 The centralized path assumes one oracle has the whole observation matrix. The real ESP32 system is
 distributed: each node only ever records the arrivals at ITS OWN microphone (its "listener row"),
