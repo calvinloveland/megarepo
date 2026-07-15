@@ -11,6 +11,7 @@ A vanilla-JS + Node static-server web app, following the megarepo's sandbox shap
   - `capture.mjs` — simulates microphone captures across the calibration sweep.
   - `localize.mjs` — joint position+clock LM solver, multistart, Procrustes alignment.
   - `surround.mjs` — 5.1 channel→real-speaker panning.
+  - `dsp.mjs` — chirp template + matched-filter TOA estimator (the real firmware-side block).
   - `scenario.mjs` — orchestrates a whole run; **drive new features through this**.
 - `app.js` — canvas renderer + controls; imports the `src/` modules directly.
 - `server.mjs` — bare static server (serves `/`, `/app.js`, `/src/*`, `/styles.css`).

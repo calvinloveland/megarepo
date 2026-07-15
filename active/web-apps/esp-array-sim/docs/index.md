@@ -71,11 +71,29 @@ cross-covariance), translation + rotation only — no scaling.
 deterministic seeds, the Surround channel routing edge cases, and a live server smoke test. The
 solver recovers random 6–10-node meshes within a couple of centimetres across 200 seeds.
 
+## DSP block (`dsp.mjs`)
+
+The signal-processing block the ESP32 firmware will run on each capture, surfaced in
+the simulator so we iterate the *real* estimator here:
+- `linearChirp(opts)` — linear-FM chirp template, Hann-windowed to tame correlation sidelobes.
+- `matchedFilter(signal, template)` — normalized cross-correlation.
+- `estimateTOA(signal, template, sr)` — argmax-|correlation| TOA. **Documented limitation:**
+  it returns the *strongest* peak, so a loud non-line-of-sight echo can bias it (exercised by a
+  test). Firmware will guard with earliest-peak / echo-rejection.
+
+The capture module still uses the closed-form delay; the next milestone routes captures through
+the matched filter with image-source wall echoes so the estimator — not the geometry — drives
+localization and its failure modes are visible.
+
 ## Open follow-ups
 
+- Route `capture.mjs` through `dsp.mjs` validated estimator with image-source wall echoes, so
+  the estimator — not the closed-form delay — drives localization and its failure modes
+  (loud echoes, NLO) are observable.
+- Earliest-peak / NLO-echo rejection for the TOA estimator.
 - Browser E2E (Playwright) once a Nix-managed Chromium is wired via `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH`.
-- Wall reflections (image-source multipath) to stress the TOA estimator.
 - Per-listener clock skew (not just offset) and the joint skew/offset solver.
 - Distributed, streaming variant of the solver suitable to actually run on ESP32s (mesh gossip).
 - Real audio I/O on the simulator (Web Audio chirp playback + capture) before porting to firmware.
-- Firmware skeleton (ESP-IDF) for one node: chirp emission, mic capture, cross-correlation TOA, clock-sync protocol, surround gain application.
+- Firmware skeleton (ESP-IDF) for one node: chirp emission, mic capture, cross-correlation TOA,
+  clock-sync protocol, surround gain application.
