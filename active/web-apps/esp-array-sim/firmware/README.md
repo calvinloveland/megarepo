@@ -32,6 +32,10 @@ boundaries so the transition is incremental instead of a rewrite.
     - row gossip
 - `main/esp_array_main.c`
   - coordinator-style state machine scaffold
+- `host/esp_array_wire_example.h`
+  - generated C header containing one deterministic wire-format listener-row example
+- `host/consume_example.c`
+  - tiny host-side C consumer stub that iterates the generated example payload
 
 ## Regeneration
 
@@ -52,6 +56,16 @@ node bin/export-firmware-fixtures.mjs
 The `*.wire.example.json` variants are especially important for firmware work:
 they show the intended low-bandwidth fixed-point transport target (integer
 microseconds / millimetres) rather than only the richer JSON-shaped contracts.
+
+There is also a generated C mirror of one closed-form wire example:
+
+```bash
+node bin/export-firmware-c-example.mjs
+```
+
+That writes `firmware/host/esp_array_wire_example.h`, which the tiny
+`firmware/host/consume_example.c` stub includes to demonstrate that the compact
+wire-format payloads are actually consumable from C.
 
 ## Intended ESP-IDF mapping
 

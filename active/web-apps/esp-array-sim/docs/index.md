@@ -336,6 +336,11 @@ Those fixtures now come in two flavors:
 So the firmware phase has both a human-readable contract and a more realistic
 low-bandwidth serialization target to test against.
 
+There is now also a generated C mirror of one wire-format example plus a tiny
+host-side consumer stub under `firmware/host/`. This is still not a full parser
+for on-device transport, but it crosses an important line: the project now has
+actual C-facing generated example payloads, not only JS fixtures and prose.
+
 This is still a skeleton, not a full `idf.py build`-ready application, but it
 means the project now has an actual firmware landing zone instead of only a
 simulation boundary.
