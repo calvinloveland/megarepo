@@ -26,6 +26,7 @@ import {
   matchingPresetId,
   presetState,
 } from './src/ui-state.mjs';
+import { NOTE_PRESETS, applyNotePreset as applyScenarioNotePreset } from './src/note-presets.mjs';
 
 const canvas = document.getElementById('room');
 const ctx = canvas.getContext('2d');
@@ -62,6 +63,8 @@ const ui = {
   clearHistory: document.getElementById('clearHistory'),
   copyLink: document.getElementById('copyLink'),
   scenarioNotes: document.getElementById('scenarioNotes'),
+  notePreset: document.getElementById('notePreset'),
+  applyNotePreset: document.getElementById('applyNotePreset'),
   nodeCount: document.getElementById('nodeCount'),
   seed: document.getElementById('seed'),
   roomW: document.getElementById('roomW'),
@@ -812,6 +815,16 @@ for (const b of SCAN_BUNDLES) {
   opt.textContent = b.label;
   ui.scanBundle.append(opt);
 }
+const notePlaceholder = document.createElement('option');
+notePlaceholder.value = '';
+notePlaceholder.textContent = 'Choose a note tag…';
+ui.notePreset.append(notePlaceholder);
+for (const p of NOTE_PRESETS) {
+  const opt = document.createElement('option');
+  opt.value = p.id;
+  opt.textContent = p.label;
+  ui.notePreset.append(opt);
+}
 
 ui.run.addEventListener('click', runIt);
 ui.runBundle.addEventListener('click', runBundleUi);
@@ -848,6 +861,10 @@ ui.downloadPackageTxt.addEventListener('click', () => {
 });
 ui.downloadHistoryTxt.addEventListener('click', () => {
   downloadText('esp-array-readiness-history.txt', formatReadinessHistory(state.readinessHistory));
+});
+ui.applyNotePreset.addEventListener('click', () => {
+  if (!ui.notePreset.value) return;
+  ui.scenarioNotes.value = applyScenarioNotePreset(ui.scenarioNotes.value, ui.notePreset.value);
 });
 ui.clearHistory.addEventListener('click', () => {
   state.readinessHistory = [];

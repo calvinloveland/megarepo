@@ -50,9 +50,11 @@ badge/snapshot transitions after each analysis or bundle run so you can see how 
 changed as you tweaked settings, and it can now be downloaded or cleared with one click before a
 fresh exploration. There is also now a lightweight **Scenario notes** field in the toolbar; its
 contents are captured in bundle exports and readiness-history snapshots so you can annotate why a
-configuration was interesting. There is also now a **Download analysis snapshot** action that bundles
-the current share URL, scenario notes, readiness badge/summary, and selected analysis reports into
-one text artifact for easy handoff to future firmware work. There is also now a **Download report
+configuration was interesting. There is also now a **Note preset** picker for common investigation
+themes (hard reverb, lossy mesh, skew stress, high-noise scan), so you can tag a scenario without
+retyping boilerplate. And there is a **Download analysis snapshot** action that bundles the current
+share URL, scenario notes, readiness badge/summary, and selected analysis reports into one text
+artifact for easy handoff to future firmware work. There is also now a **Download report
 package** action that concatenates the analysis snapshot, selected bundle report, and readiness
 history timeline into one comprehensive offline-review artifact.
 

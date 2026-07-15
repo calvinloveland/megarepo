@@ -282,7 +282,10 @@ history** controls so you can save the timeline or reset it before exploring a f
 The Scenario toolbar now also includes a lightweight **Scenario notes** field. Notes are not part of
 the solver; they are purely for human context, and they are captured in bundle exports plus each
 readiness-history snapshot/export so you can annotate why a configuration mattered (for example,
-"hard living-room preset with distributed matched rows and 30% loss").
+"hard living-room preset with distributed matched rows and 30% loss"). A tiny pure `note-presets.mjs`
+registry now also feeds a **Note preset** picker in the browser, so common investigation themes like
+hard reverb, lossy mesh, skew stress, or high-noise scans can be tagged with one click instead of
+retyped from scratch.
 
 A pure `analysis-snapshot.mjs` formatter now powers a **Download analysis snapshot** action in the
 browser toolbar. It combines:
