@@ -14,7 +14,7 @@ import { scanNoiseSensitivity, formatNoiseScan, summarizeNoiseScan } from './src
 import { scanNodeCounts, formatNodeScan, summarizeNodeScan } from './src/node-scan.mjs';
 import { SCAN_BUNDLES, getScanBundle } from './src/scan-bundles.mjs';
 import { formatBundleReport } from './src/bundle-report.mjs';
-import { formatDashboardSummary } from './src/dashboard-summary.mjs';
+import { dashboardSummary } from './src/dashboard-summary.mjs';
 import {
   PRESETS,
   sanitizeUiState,
@@ -288,12 +288,17 @@ function currentBundleReports() {
 }
 
 function renderDashboardSummary() {
-  dashboardSummaryEl.textContent = formatDashboardSummary({
+  const summary = dashboardSummary({
     compare: state.compare,
     sizing: state.sizing,
     bench: state.bench,
     noise: state.noiseScan,
   });
+  dashboardSummaryEl.className = `summary-card dashboard-card ${summary.badge.severity}`;
+  dashboardSummaryEl.innerHTML = [
+    `<div class="dashboard-badge ${summary.badge.severity}">${summary.badge.label}</div>`,
+    ...summary.lines.map((line) => `<div class="dashboard-line ${line.severity}">${line.text}</div>`),
+  ].join('');
 }
 
 function renderSizingForConfig(cfg) {

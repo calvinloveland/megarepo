@@ -43,7 +43,9 @@ see how accuracy and observation/message cost scale together, then apply any sca
 back into the main controls with one click. There are also now one-click **analysis bundles**
 (quick and full characterize) that fill multiple panels for the current scenario in one shot instead
 of making you press each analysis button separately, and can export the currently-populated bundle as
-a single text artifact.
+a single text artifact. The top-level analysis dashboard now also shows a readiness badge
+(**READY / PENDING / CAUTION / RISK**) with color-coded lines so the simulator’s overall health is
+visually scannable, not just textual.
 
 For hardware planning, `npm run sweep` answers “how many ESP32 nodes do I need?” by printing the
 minimum node count that keeps the **worst-case** localization error under a target (5 cm by default)

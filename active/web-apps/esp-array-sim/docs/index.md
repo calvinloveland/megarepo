@@ -268,6 +268,11 @@ A pure `bundle-report.mjs` formatter now also lets the browser export the curren
 reports as one combined plain-text artifact, with explicit '(not run)' markers for any sections that
 haven't been populated yet.
 
+A pure `dashboard-summary.mjs` helper synthesizes the latest analysis outputs into a readiness card
+with both text and severity: **READY**, **PENDING**, **CAUTION**, or **RISK**. Each line is also
+color-coded (good/pending/warn/bad), so the scenario toolbar gives a real at-a-glance snapshot of
+whether the current configuration looks healthy, incomplete, marginal, or outright infeasible.
+
 A single-mic matched filter with sub-sample parabolic refinement around the |correlation| peak
 lands the TOA within ~2 cm (near the sample-quantization floor); a fractional-lag chirp is recovered
 to <0.15 samples. The estimator has two modes:
