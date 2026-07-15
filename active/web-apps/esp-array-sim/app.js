@@ -35,6 +35,7 @@ const modeHelpEl = document.getElementById('modeHelp');
 const reportEl = document.getElementById('report');
 const dashboardSummaryEl = document.getElementById('dashboardSummary');
 const dashboardHistoryEl = document.getElementById('dashboardHistory');
+const historyHelpEl = document.getElementById('historyHelp');
 const mappingEl = document.getElementById('mapping');
 const channelStatusEl = document.getElementById('channelStatus');
 const sizingReportEl = document.getElementById('sizingReport');
@@ -344,6 +345,9 @@ function renderReadinessHistory() {
   ui.downloadHistoryTxt.disabled = !hasHistory;
   ui.copyHistoryTxt.disabled = !hasHistory;
   ui.clearHistory.disabled = !hasHistory;
+  historyHelpEl.textContent = hasHistory
+    ? 'Download or copy the current timeline, or clear it before exploring a fresh scenario.'
+    : 'Run any analysis or bundle to start a session-local readiness timeline.';
   if (!hasHistory) {
     dashboardHistoryEl.innerHTML = 'No readiness history yet.';
     return;
