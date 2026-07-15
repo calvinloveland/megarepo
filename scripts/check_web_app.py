@@ -6,6 +6,7 @@ Usage:
     python scripts/check_web_app.py thermofluid --e2e  # include Playwright E2E
     python scripts/check_web_app.py vernissage          # lint + build + test
     python scripts/check_web_app.py vernissage --e2e    # include Playwright E2E
+    python scripts/check_web_app.py esp-array-sim       # node --check + node --test
 """
 
 from __future__ import annotations
@@ -25,6 +26,10 @@ KNOWN_APPS = {
     "vernissage": {
         "dir": REPO_ROOT / "active" / "web-apps" / "vernissage",
         "server_script": None,
+    },
+    "esp-array-sim": {
+        "dir": REPO_ROOT / "active" / "web-apps" / "esp-array-sim",
+        "server_script": "server.mjs",
     },
 }
 
@@ -60,6 +65,29 @@ def check_thermofluid(app: dict, args: argparse.Namespace) -> int:
     return exit_code
 
 
+def check_node_sim(app: dict, args: argparse.Namespace) -> int:
+    """Generic checker for a no-build Node static-server sandbox (e.g. esp-array-sim):
+    install deps, node --check every entrypoint + src module, run the unit suite."""
+    app_dir: Path = app["dir"]
+    exit_code = 0
+
+    install_cmd = ["npm", "ci"] if (app_dir / "package-lock.json").exists() else ["npm", "install"]
+    exit_code |= run(install_cmd, app_dir, "npm install")
+
+    # Node syntax check: page entrypoints and every src/*.mjs module
+    targets = ["app.js", app["server_script"]]
+    targets = [t for t in targets if t and (app_dir / t).exists()]
+    src_dir = app_dir / "src"
+    if src_dir.is_dir():
+        targets += sorted(p.name for p in src_dir.glob("*.mjs"))
+    for f in targets:
+        path = f"src/{f}" if (src_dir / f).exists() else f
+        exit_code |= run(["node", "--check", path], app_dir, f"node --check {path}")
+
+    exit_code |= run(["npm", "test"], app_dir, "unit tests")
+    return exit_code
+
+
 def check_vernissage(app: dict, args: argparse.Namespace) -> int:
     app_dir: Path = app["dir"]
     exit_code = 0
@@ -90,7 +118,11 @@ def check() -> int:
         print(f"App directory not found: {app_dir}")
         return 1
 
-    checkers = {"thermofluid": check_thermofluid, "vernissage": check_vernissage}
+    checkers = {
+        "thermofluid": check_thermofluid,
+        "vernissage": check_vernissage,
+        "esp-array-sim": check_node_sim,
+    }
     exit_code = checkers[args.app_name](app, args)
 
     if exit_code == 0:
