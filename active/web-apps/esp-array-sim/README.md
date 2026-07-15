@@ -35,8 +35,9 @@ sizing** panel, scoped to the current mode / reverb / robust / averaging setting
 that question without leaving the app. `npm run bench` answers the complementary performance
 question: how long a one-time calibration solve takes as node count grows, and the browser mirrors
 that too in a **Calibration latency** panel for the current algorithm settings. Both browser panels
-can now export their results (text for latency, text/CSV for sizing). The UI also includes an
-evidence-based **Known risks / suggestions** panel that flags regimes the simulator has already
+now surface a one-line takeaway summary, and can export their results (text for latency, text/CSV
+for sizing). The UI also includes an evidence-based **Known risks / suggestions** panel that flags
+regimes the simulator has already
 proved are risky (for example, heavy reverb with plain matched TOA, or very lossy distributed mesh).
 
 ## How it works

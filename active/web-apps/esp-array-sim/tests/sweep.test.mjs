@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { runSweep, formatSweep, sweepToCsv, minNodesFor, formatMinNodes } from '../src/sweep.mjs';
+import { runSweep, formatSweep, sweepToCsv, minNodesFor, formatMinNodes, summarizeMinNodes } from '../src/sweep.mjs';
 
 const SMALL = {
   nodeCounts: [4, 6],
@@ -165,4 +165,20 @@ test('formatMinNodes renders a header and one line per recommendation', () => {
   const lines = txt.split('\n');
   assert.ok(lines[0].includes('min nodes'), 'header present');
   assert.equal(lines.length - 1, recs.length);
+});
+
+test('summarizeMinNodes reports the minimum feasible node count', () => {
+  const cells = runSweep({ nodeCounts: [4, 6], captureModes: ['closed'], reflCoefs: [0.0], trials: 3 });
+  const recs = minNodesFor(cells, 0.05);
+  const txt = summarizeMinNodes(recs, 0.05);
+  assert.match(txt, /Need at least/);
+  assert.match(txt, /worst-case/);
+});
+
+test('summarizeMinNodes reports infeasible ranges clearly', () => {
+  const cells = runSweep({ nodeCounts: [3, 4], captureModes: ['closed'], reflCoefs: [0.0], trials: 3 });
+  const recs = minNodesFor(cells, 1e-6);
+  const txt = summarizeMinNodes(recs, 1e-6);
+  assert.match(txt, /Infeasible/);
+  assert.match(txt, /best worst/);
 });

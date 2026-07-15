@@ -64,3 +64,11 @@ export function formatBench(points) {
   );
   return [header, ...lines].join('\n');
 }
+
+/** One-line UI takeaway from runBench(). */
+export function summarizeBench(points) {
+  if (!points.length) return 'No benchmark results.';
+  const worst = points.reduce((a, b) => (a.worstMs >= b.worstMs ? a : b));
+  const ceiling = Math.max(...points.map((p) => p.worstMs));
+  return `Worst calibration solve ${ceiling.toFixed(0)} ms at ${worst.nodeCount} nodes; all tested counts stayed under ${(ceiling / 1000).toFixed(2)} s.`;
+}

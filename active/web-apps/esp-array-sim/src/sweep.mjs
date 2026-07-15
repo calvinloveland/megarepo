@@ -169,3 +169,19 @@ export function formatMinNodes(recs, targetM = 0.05) {
   );
   return [header, ...lines].join('\n');
 }
+
+/** One-line UI takeaway from minNodesFor(). */
+export function summarizeMinNodes(recs, targetM = 0.05) {
+  if (!recs.length) return 'No sizing results.';
+  const mins = recs.filter((r) => r.minNodes != null).map((r) => r.minNodes);
+  if (!mins.length) {
+    const bestWorst = Math.min(...recs.map((r) => r.atWorstM));
+    return `Infeasible in tested range for ≤${(targetM * 100).toFixed(0)} cm worst-case (best worst ${(bestWorst * 100).toFixed(1)} cm).`;
+  }
+  const chosen = recs.reduce((best, r) => {
+    if (r.minNodes == null) return best;
+    if (!best || r.minNodes < best.minNodes) return r;
+    return best;
+  }, null);
+  return `Need at least ${chosen.minNodes} nodes for ≤${(targetM * 100).toFixed(0)} cm worst-case; worst at that count ${(chosen.atWorstM * 100).toFixed(1)} cm.`;
+}

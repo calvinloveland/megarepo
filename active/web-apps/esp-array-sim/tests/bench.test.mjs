@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { runBench, formatBench } from '../src/bench.mjs';
+import { runBench, formatBench, summarizeBench } from '../src/bench.mjs';
 
 test('runBench returns one point per node count with timing fields', () => {
   const pts = runBench({ nodeCounts: [4, 6], repeats: 2 });
@@ -50,4 +50,13 @@ test('formatBench renders a header and one line per point', () => {
   const lines = txt.split('\n');
   assert.ok(lines[0].includes('nodes'), 'header present');
   assert.equal(lines.length - 1, pts.length);
+});
+
+test('summarizeBench reports the worst observed calibration time', () => {
+  const txt = summarizeBench([
+    { nodeCount: 4, avgMs: 50, worstMs: 70, iterations: 10, alignErrorM: 0.01 },
+    { nodeCount: 8, avgMs: 120, worstMs: 180, iterations: 20, alignErrorM: 0.01 },
+  ]);
+  assert.match(txt, /180 ms/);
+  assert.match(txt, /8 nodes/);
 });

@@ -58,6 +58,15 @@ button:disabled { opacity: .5; cursor: default; }
 button.ghost { background: transparent; color: var(--ink); border: 1px solid #30363d; }
 
 .status { margin-top: 10px; color: var(--dim); font-size: 13px; min-height: 1.4em; }
+.summary-card {
+  margin: 10px 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid #30363d;
+  background: #0d1117;
+  color: var(--ink);
+  font-size: 13px;
+}
 canvas {
   width: 100%; height: auto; background: #0a0e14; border: 1px solid #30363d;
   border-radius: 8px; display: block;

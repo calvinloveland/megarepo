@@ -6,8 +6,8 @@ import { CHANNELS_5_1, azimuthToVec } from './src/surround.mjs';
 import { SPEED_OF_SOUND } from './src/acoustics.mjs';
 import { renderChannelAtSweetSpot, renderPeakConcentration, channelSeparation } from './src/render.mjs';
 import { linearChirp } from './src/dsp.mjs';
-import { runSweep, formatSweep, minNodesFor, formatMinNodes, sweepToCsv } from './src/sweep.mjs';
-import { runBench, formatBench } from './src/bench.mjs';
+import { runSweep, formatSweep, minNodesFor, formatMinNodes, summarizeMinNodes, sweepToCsv } from './src/sweep.mjs';
+import { runBench, formatBench, summarizeBench } from './src/bench.mjs';
 import { assessAdvisories } from './src/advisories.mjs';
 import {
   PRESETS,
@@ -25,7 +25,9 @@ const reportEl = document.getElementById('report');
 const mappingEl = document.getElementById('mapping');
 const channelStatusEl = document.getElementById('channelStatus');
 const sizingReportEl = document.getElementById('sizingReport');
+const sizingSummaryEl = document.getElementById('sizingSummary');
 const benchReportEl = document.getElementById('benchReport');
+const benchSummaryEl = document.getElementById('benchSummary');
 const advisoriesEl = document.getElementById('advisories');
 
 const ui = {
@@ -230,6 +232,7 @@ function runSizing() {
     const recs = minNodesFor(cells, targetM);
     const text = `${formatSweep(cells)}\n\n${formatMinNodes(recs, targetM)}`;
     state.sizing = { cells, text, targetM };
+    sizingSummaryEl.textContent = summarizeMinNodes(recs, targetM);
     sizingReportEl.textContent = text;
     ui.downloadSizingTxt.disabled = false;
     ui.downloadSizingCsv.disabled = false;
@@ -264,6 +267,7 @@ function runBenchUi() {
     });
     const text = formatBench(points);
     state.bench = { points, text };
+    benchSummaryEl.textContent = summarizeBench(points);
     benchReportEl.textContent = text;
     ui.downloadBenchTxt.disabled = false;
     const worst = Math.max(...points.map((p) => p.worstMs));

@@ -88,7 +88,8 @@ big enough." `npm run sweep` prints it after the accuracy table; `--target-m`
 sets the worst-case target (default 5 cm). The browser exposes the same analysis
 in a **Hardware sizing** panel that runs the sweep for the current UI settings
 (mode / reverb / robust / averaging / skew) and reports the minimum recommended
-node count inline. That panel can also export the results as plain text or CSV.
+node count inline. A summary card surfaces the key recommendation without having
+to read the whole table, and the panel can also export the results as plain text or CSV.
 
 The sweep reveals two actionable findings the firmware must respect:
 
@@ -141,8 +142,9 @@ regression tests to catch accidental algorithmic blowups.
 Run it with `npm run bench` or `node bin/bench.mjs --nodes 4,8,12 --repeats 3`.
 The browser mirrors it in a **Calibration latency** panel that benchmarks the
 current UI settings (mode / reverb / robust / averaging / skew) across node
-counts and prints the per-count wall-clock right in the app. That panel can
-export the benchmark as plain text.
+counts and prints the per-count wall-clock right in the app. A summary card
+surfaces the worst observed solve time, and the panel can export the benchmark
+as plain text.
 
 ## Evaluation sweep (`sweep.mjs`)
 
