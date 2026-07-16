@@ -3,6 +3,7 @@
 
 #include "esp_array_protocol.h"
 #include "esp_array_calibration.h"
+#include "esp_array_frame.h"
 
 // Mirrors src/firmware-backend.mjs. These hooks are the seam where the simulator's
 // in-process implementation will later be replaced by real ESP-IDF tasks/drivers.
