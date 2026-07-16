@@ -70,6 +70,25 @@ That writes `firmware/host/esp_array_wire_example.h`, which the tiny
 `firmware/host/consume_example.c` stub includes to demonstrate that the compact
 wire-format payloads are actually consumable from C.
 
+## Local dev shell / host smoke test
+
+A project-local `shell.nix` now provides a reproducible firmware-side tool shell
+with generic build utilities plus `esptool`/`espflash`:
+
+```bash
+nix-shell
+```
+
+Inside that shell, a supported smoke test for the generated C artifacts is:
+
+```bash
+npm run firmware:host-check
+```
+
+That compiles and runs the host-side C consumer under `firmware/host/`. It
+does **not** require ESP-IDF, so it is the first concrete C-facing check we
+can run before real `idf.py build` bring-up.
+
 ## Intended ESP-IDF mapping
 
 - `esp_array_sync_clocks()` → Wi-Fi / time-sync task

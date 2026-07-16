@@ -16,7 +16,8 @@ an initial `firmware/` skeleton with generated shared headers plus a coordinator
 scaffold. That firmware directory now also has the minimal ESP-IDF project shape (`CMakeLists.txt`,
 `main/CMakeLists.txt`, `idf_component.yml`, `sdkconfig.defaults`) needed to grow toward a real
 `idf.py build`. Regenerate those shared C headers any time the canonical simulator config/protocol
-changes with `npm run export:firmware`. 
+changes with `npm run export:firmware`. A project-local `shell.nix` plus `npm run firmware:host-check`
+now gives the firmware side a reproducible C-facing smoke test even before full ESP-IDF bring-up. 
 
 ## Why a simulator
 
@@ -35,6 +36,7 @@ npm run bench     # solver wall-clock benchmark vs node count
 npm run export:firmware # regenerate shared C headers for the firmware skeleton
 npm run export:firmware-fixtures # regenerate example calibration/row packet JSON fixtures
 npm run export:firmware-c-example # regenerate a C header wrapping one wire-format example payload
+npm run firmware:host-check # compile/run the host-side C consumer in nix-shell
 ```
 
 Open the simulator, set the node count / room size / seed, hit **Run localization**, and watch the

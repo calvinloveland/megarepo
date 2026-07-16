@@ -372,9 +372,13 @@ expect to grow into a real node firmware app:
 - `firmware/main/CMakeLists.txt`
 - `firmware/main/idf_component.yml`
 - `firmware/sdkconfig.defaults`
+- project-local `shell.nix` for generic firmware-side tools
 
 So the hardware phase has moved beyond abstract interfaces and into an actual
-project layout that can later become a real `idf.py build`.
+project layout that can later become a real `idf.py build`. Even before full
+ESP-IDF bring-up, `npm run firmware:host-check` can compile/run the generated
+host-side C consumer in `nix-shell`, giving the firmware artifacts a real
+native-C smoke test.
 
 A pure `advisories.mjs` ruleset also feeds the UI's **Known risks / suggestions** panel. These are
 not vague design opinions: each rule corresponds to a failure mode the simulator already demonstrated
