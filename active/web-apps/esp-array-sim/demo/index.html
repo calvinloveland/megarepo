@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ESP Speaker Array — Demo & Build Guide</title>
+<style>
+:root{--bg:#0d1117;--panel:#161b22;--ink:#e6edf3;--dim:#8b949e;--accent:#58a6ff;--green:#3fb950;--amber:#d29922;--red:#f85149;--border:#30363d}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--ink);font:16px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+header{background:linear-gradient(135deg,#0d1117 0%,#161b22 50%,#1c2333 100%);border-bottom:1px solid var(--border);padding:60px 24px 40px;text-align:center}
+header h1{font-size:2.4em;margin-bottom:8px}
+header .tagline{color:var(--dim);font-size:1.1em;max-width:640px;margin:0 auto}
+header .badges{margin-top:16px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.badge{display:inline-block;padding:4px 12px;border-radius:999px;font-size:13px;font-weight:600}
+.badge.green{background:rgba(63,185,80,.15);color:var(--green)}
+.badge.blue{background:rgba(88,166,255,.15);color:var(--accent)}
+.badge.amber{background:rgba(210,153,34,.15);color:var(--amber)}
+.badge.dim{background:rgba(139,148,158,.15);color:var(--dim)}
+nav{display:flex;gap:4px;justify-content:center;padding:14px 24px;border-bottom:1px solid var(--border);flex-wrap:wrap;background:var(--panel)}
+nav a{color:var(--dim);text-decoration:none;padding:6px 14px;border-radius:6px;font-size:14px;transition:all .15s}
+nav a:hover{color:var(--ink);background:rgba(255,255,255,.05)}
+main{max-width:860px;margin:0 auto;padding:32px 24px 60px}
+section{margin-bottom:48px}
+h2{font-size:1.5em;margin-bottom:16px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+h3{font-size:1.15em;margin:20px 0 10px;color:var(--accent)}
+p,li{color:var(--dim);line-height:1.65}
+a{color:var(--accent)}
+code{background:rgba(255,255,255,.04);padding:2px 6px;border-radius:4px;font-size:.9em}
+pre{background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:8px;padding:14px;overflow-x:auto;font-size:14px;margin:12px 0}
+.bom-table{width:100%;border-collapse:collapse;margin:12px 0}
+.bom-table th,.bom-table td{text-align:left;padding:8px 12px;border-bottom:1px solid var(--border);font-size:14px}
+.bom-table th{color:var(--dim);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+.bom-table td{color:var(--ink)}
+.bom-table .total{font-weight:700;color:var(--amber)}
+.steps{counter-reset:step;list-style:none;padding:0}
+.steps li{counter-increment:step;padding:14px 0 14px 44px;position:relative;border-bottom:1px solid var(--border)}
+.steps li::before{content:counter(step);position:absolute;left:0;top:14px;width:28px;height:28px;border-radius:50%;background:var(--accent);color:#04132b;font-weight:700;font-size:14px;display:flex;align-items:center;justify-content:center}
+.steps li strong{color:var(--ink)}
+.card{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:20px;margin:12px 0}
+.card-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin:12px 0}
+.card h4{color:var(--accent);margin-bottom:6px}
+.card p{font-size:14px}
+.flow{display:flex;flex-wrap:wrap;gap:6px;align-items:center;justify-content:center;padding:16px 0}
+.flow-step{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:10px 16px;font-size:13px;text-align:center;min-width:80px}
+.flow-arrow{color:var(--dim);font-size:18px}
+.cta{display:inline-block;background:var(--accent);color:#04132b;padding:10px 24px;border-radius:8px;font-weight:700;text-decoration:none;font-size:15px;margin:8px 4px;transition:filter .15s}
+.cta:hover{filter:brightness(1.1)}
+.cta.ghost{background:transparent;border:1px solid var(--border);color:var(--ink)}
+.pin-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin:12px 0}
+.pin-card{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:12px;font-size:13px}
+.pin-card h5{color:var(--accent);margin-bottom:4px;font-size:14px}
+.pin-card code{font-size:12px}
+footer{text-align:center;padding:24px;color:var(--dim);font-size:13px;border-top:1px solid var(--border)}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🔊 ESP Speaker Array</h1>
+  <p class="tagline">
+    Self-deploying wireless surround system — ESP32 nodes with a speaker + microphone each,
+    scattered randomly in a room, self-localizing acoustically, then rendering 5.1 onto the
+    discovered layout.
+  </p>
+  <div class="badges">
+    <span class="badge green">173 tests</span>
+    <span class="badge blue">ESP-IDF v5.2.2</span>
+    <span class="badge amber">firmware builds</span>
+    <span class="badge dim">simulator-first</span>
+  </div>
+</header>
+
+<nav>
+  <a href="#overview">Overview</a>
+  <a href="#how-it-works">How it works</a>
+  <a href="#bom">BOM</a>
+  <a href="#assembly">Assembly</a>
+  <a href="#software">Software</a>
+  <a href="#running">Running it</a>
+  <a href="../">→ Launch Simulator</a>
+</nav>
+
+<main>
+
+<section id="overview">
+<h2>Overview</h2>
+<p>
+This project lets you turn a handful of ESP32 boards into a self-organizing wireless
+5.1 surround system. No setup, no calibration routine, no wiring the room — just scatter
+the nodes around, press a button, and they figure out where they are using sound, then
+render the audio accordingly.
+</p>
+<div class="card" style="margin-top:16px">
+<strong>One node = one ESP32 + one speaker + one microphone.</strong>
+The mesh self-localizes by emitting calibration chirps and measuring time-of-arrival at
+every other node's microphone — an acoustic version of GPS. Once positions are known, the
+nodes pan the standard 5.1 channels onto whichever layout they actually found.
+</div>
+</section>
+
+<section id="how-it-works">
+<h2>How it works</h2>
+
+<div class="flow">
+  <span class="flow-step">Scatter nodes</span>
+  <span class="flow-arrow">→</span>
+  <span class="flow-step">Coarse WiFi sync</span>
+  <span class="flow-arrow">→</span>
+  <span class="flow-step">Chirp sweep</span>
+  <span class="flow-arrow">→</span>
+  <span class="flow-step">TOA estimation</span>
+  <span class="flow-arrow">→</span>
+  <span class="flow-step">Joint solve</span>
+  <span class="flow-arrow">→</span>
+  <span class="flow-step">5.1 panning</span>
+</div>
+
+<p>Each node takes a turn playing a known linear-FM chirp while every other node
+listens with its microphone. A matched-filter cross-correlation recovers the time-of-flight,
+and a joint Levenberg–Marquardt solver recovers all node positions + clock offsets simultaneously.
+The mesh then maps 5.1 channels onto the discovered layout using cosine-power panning, with
+per-speaker delay/gain compensation so every channel arrives at the listening position at the
+same time and equal loudness.</p>
+
+<p>The entire algorithm was developed and validated in a browser-based simulator before any
+firmware was written. The same math powers both the simulator and the real C code running on
+the ESP32.</p>
+</section>
+
+<section id="bom">
+<h2>Bill of Materials</h2>
+<p>Quantities are for <strong>one node</strong>. Multiply by how many nodes you want to build
+(6–8 is recommended for good 5.1 coverage).</p>
+
+<table class="bom-table">
+<thead>
+<tr><th>Item</th><th>Qty</th><th>Estimated cost</th><th>Notes</th></tr>
+</thead>
+<tbody>
+<tr>
+  <td>ESP32-DevKitC or compatible board</td>
+  <td style="text-align:center">1</td>
+  <td>$5–10</td>
+  <td>ESP32-WROOM-32 module; any board exposing I2S pins works</td>
+</tr>
+<tr>
+  <td>MAX98357A I2S audio DAC + amplifier</td>
+  <td style="text-align:center">1</td>
+  <td>$3–5</td>
+  <td>Adafruit MAX98357A breakout or compatible; 3W output into 4Ω</td>
+</tr>
+<tr>
+  <td>Small speaker (3W, 4Ω or 8Ω)</td>
+  <td style="text-align:center">1</td>
+  <td>$2–5</td>
+  <td>Any small full-range speaker; 2–3 inch diameter works well</td>
+</tr>
+<tr>
+  <td>INMP441 I2S MEMS microphone</td>
+  <td style="text-align:center">1</td>
+  <td>$3–5</td>
+  <td>Adafruit INMP441 breakout or compatible; omnidirectional, –26 dBFS</td>
+</tr>
+<tr>
+  <td>Jumper wires (female-to-male)</td>
+  <td style="text-align:center">~10</td>
+  <td>$2</td>
+  <td>For breadboard prototyping; Dupont-style</td>
+</tr>
+<tr>
+  <td>Micro-USB cable</td>
+  <td style="text-align:center">1</td>
+  <td>$3</td>
+  <td>Power + programming</td>
+</tr>
+<tr>
+  <td>USB power adapter (5V, 1A+ per node)</td>
+  <td style="text-align:center">1</td>
+  <td>$5–8</td>
+  <td>Or power from a USB hub</td>
+</tr>
+<tr>
+  <td>Breadboard (half-size)</td>
+  <td style="text-align:center">1</td>
+  <td>$3</td>
+  <td>For prototyping; optional if you go straight to PCB</td>
+</tr>
+<tr class="total">
+  <td><strong>Total per node</strong></td>
+  <td style="text-align:center"></td>
+  <td><strong>$26–43</strong></td>
+  <td>6 nodes = ~$160–260; volume breaks drive cost down</td>
+</tr>
+</tbody>
+</table>
+</section>
+
+<section id="assembly">
+<h2>Step-by-step assembly</h2>
+
+<ol class="steps">
+<li>
+  <strong>Connect the I2S DAC (speaker) to the ESP32.</strong><br>
+  The MAX98357A breakout has five pins. Wire them as follows:
+  <div class="pin-grid">
+    <div class="pin-card">
+      <h5>MAX98357A</h5>
+      <code>VIN → 3.3V</code><br>
+      <code>GND → GND</code><br>
+      <code>BCK → GPIO 26</code><br>
+      <code>WS → GPIO 25</code><br>
+      <code>DATA → GPIO 22</code>
+    </div>
+    <div class="pin-card">
+      <h5>Kconfig defaults</h5>
+      <code>CONFIG_ESP_ARRAY_I2S_SPEAKER_BCK_PIN=26</code><br>
+      <code>CONFIG_ESP_ARRAY_I2S_SPEAKER_WS_PIN=25</code><br>
+      <code>CONFIG_ESP_ARRAY_I2S_SPEAKER_DATA_PIN=22</code><br>
+    </div>
+  </div>
+  The speaker output connects to the MAX98357A screw terminals (left + right channels bridged
+  for mono). 4Ω–8Ω speaker, 3W max.
+</li>
+
+<li>
+  <strong>Connect the I2S microphone to the ESP32.</strong><br>
+  The INMP441 breakout has six pins; you need four:
+  <div class="pin-grid">
+    <div class="pin-card">
+      <h5>INMP441</h5>
+      <code>VDD → 3.3V</code><br>
+      <code>GND → GND</code><br>
+      <code>SCK → GPIO 19</code><br>
+      <code>WS → GPIO 21</code><br>
+      <code>SD → GPIO 23</code><br>
+      <code>L/R → GND (left channel)</code>
+    </div>
+    <div class="pin-card">
+      <h5>Kconfig defaults</h5>
+      <code>CONFIG_ESP_ARRAY_MIC_I2S_SCK_PIN=19</code><br>
+      <code>CONFIG_ESP_ARRAY_MIC_I2S_WS_PIN=21</code><br>
+      <code>CONFIG_ESP_ARRAY_MIC_I2S_DATA_PIN=23</code><br>
+    </div>
+  </div>
+</li>
+
+<li>
+  <strong>Power the board.</strong><br>
+  Connect the ESP32 to a USB power source (5V, 1A minimum). The MAX98357A and INMP441
+  draw power from the ESP32's 3.3V rail, which is fine for a single node.
+</li>
+
+<li>
+  <strong>Repeat for each node.</strong><br>
+  Build 6–8 identical nodes. Each uses the same pinout, so the same firmware binary
+  works on every board. The mesh self-localizes regardless of which node is which.
+</li>
+
+<li>
+  <strong>Optional: mount on a custom PCB.</strong><br>
+  Once the design is stable, the breadboard wiring can be transferred to a simple
+  breakout PCB (KiCad / EasyEDA). The pin assignments stay the same.
+</li>
+</ol>
+</section>
+
+<section id="software">
+<h2>Software setup</h2>
+<p>All firmware tooling is pre-configured in the repo. On this NixOS host:</p>
+<pre>cd active/web-apps/esp-array-sim
+npm run firmware:bootstrap-idf   # Check out ESP-IDF (done once)
+nix-shell                        # Enter the firmware dev shell
+source ./.esp-idf/activate-idf.sh        # (and exit)  # Add ESP-IDF to PATH
+steam-run bash -lc "source ./.esp-idf/activate-idf.sh && cd firmware && idf.py build"
+</pre>
+<p>For a standard Linux/macOS environment (non-NixOS):</p>
+<pre>cd active/web-apps/esp-array-sim
+bash bin/bootstrap-esp-idf.sh --checkout-only  # Clone ESP-IDF
+bash bin/bootstrap-esp-idf.sh --install-tools  # Install toolchain + Python deps
+source ./.esp-idf/activate-idf.sh              # Activate the ESP-IDF environment
+cd firmware && idf.py build                    # Build
+</pre>
+</section>
+
+<section id="running">
+<h2>Running it</h2>
+<div class="card-grid">
+  <div class="card">
+    <h4>🧪 1. Test the simulator</h4>
+    <p>No hardware required. Click through the interactive simulator to understand the
+    algorithm and tune parameters before flashing.</p>
+    <a href="../" class="cta">Launch simulator →</a>
+  </div>
+  <div class="card">
+    <h4>🔌 2. Flash one node</h4>
+    <p>Connect a single node via USB and verify it boots, plays the calibration chirp, and
+    prints diagnostic output over serial.</p>
+    <pre style="margin:8px 0">cd firmware
+idf.py -p /dev/ttyUSB0 flash monitor</pre>
+  </div>
+  <div class="card">
+    <h4>🌐 3. Flash all nodes</h4>
+    <p>Repeat the flash step for each node. Once all nodes are powered, the mesh coordinator
+    state machine on each board runs the calibration lifecycle autonomously.</p>
+  </div>
+  <div class="card">
+    <h4>🎵 4. Five-channel audio</h4>
+    <p>Once self-localized, the system accepts a 5.1 input stream and maps it to the
+    discovered speaker layout. Connect any audio source via Bluetooth A2DP, USB audio,
+    or line-in to one coordinator node.</p>
+  </div>
+</div>
+
+<div class="card" style="text-align:center;padding:24px">
+  <h3 style="margin-bottom:12px">🧪 Try the simulator right now</h3>
+  <p style="max-width:500px;margin:0 auto 14px">
+    Before buying any hardware, explore the algorithm in your browser. The same code
+    that powers the simulation also drives the real ESP32 firmware.
+  </p>
+  <a href="../" class="cta">Launch the ESP Speaker Array Simulator</a>
+  <br>
+  <a href="../?n=8&mode=matched&refl=0.8&ep=1&robust=1&w=8&h=6" class="cta ghost" style="margin-top:8px">
+    Try preset: hard reverb room (8 nodes, earliest-peak + robust)
+  </a>
+  <a href="../?n=8&mode=distributed&loss=0.3&robust=1&w=8&h=6" class="cta ghost" style="margin-top:8px">
+    Try preset: distributed mesh with 30% packet loss
+  </a>
+</div>
+</section>
+
+</main>
+
+<footer>
+  ESP Speaker Array · active/web-apps/esp-array-sim · MIT license
+</footer>
+
+</body>
+</html>

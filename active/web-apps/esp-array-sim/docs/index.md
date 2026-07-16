@@ -503,5 +503,6 @@ estimation recovers geometry and skews, while ignoring skew degrades it.
 - Distributed, streaming variant of the solver suitable to actually run on ESP32s (mesh gossip).
 - Real audio I/O on the simulator (Web Audio chirp playback + capture) before porting to firmware.
 - Register esp-array-sim in scripts/check_web_app.py with a generic node-app checker.
+- [Hardware demo & assembly guide](../demo/) — BOM, wiring diagrams, step-by-step build instructions
 - Firmware skeleton (ESP-IDF) for one node: chirp emission, mic capture, cross-correlation TOA,
   clock-sync protocol, surround gain application.
