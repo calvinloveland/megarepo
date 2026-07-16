@@ -1,3 +1,5 @@
+#include <stddef.h>
+#include <stdbool.h>
 #include "esp_array_backend.h"
 
 // Stub implementations for the firmware backend hooks.
