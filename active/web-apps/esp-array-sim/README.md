@@ -30,8 +30,10 @@ are tested with `node --test`, so the physics/solver is one source of truth.
 ## Run
 
 ```bash
-npm run check     # syntax + unit + server tests
-npm start         # serve the UI at http://127.0.0.1:5193
+npm run check       # syntax + unit + server tests
+npm start           # serve the UI at http://127.0.0.1:5193
+                    #   → /          simulator UI
+                    #   → /demo/     hardware demo & build guide
 npm run sweep     # localization-accuracy sweep across node counts & reverb (+ min node-count recommendation)
 npm run sweep:csv # same sweep as CSV (for external plotting/analysis)
 npm run bench     # solver wall-clock benchmark vs node count
