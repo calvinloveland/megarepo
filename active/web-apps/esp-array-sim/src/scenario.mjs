@@ -5,7 +5,6 @@
 
 import { makeRng, randomLayout, makeEmitSchedule } from './world.mjs';
 import { simulateCaptures, simulateMatchedCaptures, averagedCaptures } from './capture.mjs';
-import { distributedSweep } from './mesh.mjs';
 import { makeSimFirmwareBackend } from './firmware-backend.mjs';
 import { runFirmwareSession } from './firmware-session.mjs';
 import { localizeBest, procrustesAlign } from './localize.mjs';

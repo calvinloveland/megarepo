@@ -273,6 +273,24 @@ one shot; it can replace these hooks incrementally with ESP-IDF implementations 
 chirp scheduler, I2S/PDM capture, Wi-Fi/mesh transport) while leaving the higher-level localization
 and planning modules conceptually unchanged.
 
+## Firmware session lifecycle (`firmware-session.mjs`)
+
+The simulator distributed path is now routed through an explicit firmware session
+state machine, not just firmware-shaped packets/hooks. `runFirmwareSession()`
+sequences:
+
+1. `BOOT`
+2. `SYNC_CLOCKS`
+3. `BUILD_PLAN`
+4. `CAPTURE_ROWS`
+5. `GOSSIP_ROWS`
+6. `SOLVE_LAYOUT`
+7. `READY_FOR_SURROUND`
+
+and `scenario.mjs` now uses that lifecycle for `captureMode: 'distributed'`.
+So the simulator is exercising the same coordinator ordering the future ESP-IDF
+node should follow, not merely an equivalent end result.
+
 ## Firmware port map (`firmware-port-map.mjs`)
 
 To make the hardware phase explicit rather than aspirational, the repo now also
