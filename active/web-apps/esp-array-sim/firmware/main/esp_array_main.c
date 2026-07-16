@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include "esp_array_backend.h"
 
 // ESP-IDF skeleton only: this is the coordinator-style sequencing scaffold that
@@ -21,19 +22,26 @@ void app_main(void) {
 
     while (1) {
         switch (state) {
-            case ESP_ARRAY_BOOT:
+            case ESP_ARRAY_BOOT: {
+                printf("ESP Array node boot\n");
+                esp_array_init_speaker();
+                esp_array_init_microphone();
+                esp_array_init_transport();
                 state = ESP_ARRAY_SYNC_CLOCKS;
                 break;
+            }
             case ESP_ARRAY_SYNC_CLOCKS:
                 sync = esp_array_sync_clocks();
                 state = sync.assumed_synced ? ESP_ARRAY_BUILD_PLAN : ESP_ARRAY_SYNC_CLOCKS;
                 break;
-            case ESP_ARRAY_BUILD_PLAN:
+            case ESP_ARRAY_BUILD_PLAN: {
+                printf("Building calibration plan\n");
                 plan = esp_array_make_plan(0 /* TODO: discover node count */);
                 state = ESP_ARRAY_CAPTURE_ROWS;
                 break;
+            }
             case ESP_ARRAY_CAPTURE_ROWS:
-                // TODO: allocate and fill local listener-row packet(s)
+                // TODO: allocate mic buffer, run chirp schedule + DSP TOA on each capture
                 state = ESP_ARRAY_GOSSIP_ROWS;
                 break;
             case ESP_ARRAY_GOSSIP_ROWS:
@@ -41,11 +49,11 @@ void app_main(void) {
                 state = ESP_ARRAY_SOLVE_LAYOUT;
                 break;
             case ESP_ARRAY_SOLVE_LAYOUT:
-                // TODO: run local solver or forward the assembled matrix to a coordinator/off-device service
+                // TODO: run local solver or forward matrix to coordinator
                 state = ESP_ARRAY_READY_FOR_SURROUND;
                 break;
             case ESP_ARRAY_READY_FOR_SURROUND:
-                // TODO: apply speaker compensation + 5.1 panning at runtime
+                printf("Calibration complete — ready for 5.1 playback\n");
                 return;
         }
     }

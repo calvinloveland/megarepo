@@ -1,0 +1,97 @@
+menu "ESP Array Audio"
+
+config ESP_ARRAY_I2S_SPEAKER_ENABLED
+    bool "Enable I2S speaker output"
+    default y
+    help
+        Enable the I2S-based speaker playback path. Disable for headless/
+        coordinator-only builds.
+
+config ESP_ARRAY_I2S_SPEAKER_BCK_PIN
+    int "Speaker I2S BCK pin"
+    default 26
+    range 0 39
+    depends on ESP_ARRAY_I2S_SPEAKER_ENABLED
+    help
+        GPIO pin for I2S bit clock (BCK) to the audio DAC.
+
+config ESP_ARRAY_I2S_SPEAKER_WS_PIN
+    int "Speaker I2S WS / LRCK pin"
+    default 25
+    range 0 39
+    depends on ESP_ARRAY_I2S_SPEAKER_ENABLED
+    help
+        GPIO pin for I2S word select (WS/LRCK) to the audio DAC.
+
+config ESP_ARRAY_I2S_SPEAKER_DATA_PIN
+    int "Speaker I2S data out pin"
+    default 22
+    range 0 39
+    depends on ESP_ARRAY_I2S_SPEAKER_ENABLED
+    help
+        GPIO pin for I2S serial data out to the audio DAC.
+
+config ESP_ARRAY_I2S_SPEAKER_SAMPLE_RATE
+    int "Speaker sample rate (Hz)"
+    default 48000
+    range 8000 96000
+    depends on ESP_ARRAY_I2S_SPEAKER_ENABLED
+    help
+        Sample rate for the I2S speaker output.
+
+config ESP_ARRAY_MIC_I2S_ENABLED
+    bool "Enable I2S microphone capture"
+    default y
+    help
+        Enable the I2S/PDM microphone capture path.
+
+config ESP_ARRAY_MIC_I2S_SCK_PIN
+    int "Mic I2S SCK pin"
+    default 19
+    range 0 39
+    depends on ESP_ARRAY_MIC_I2S_ENABLED
+    help
+        GPIO pin for I2S serial clock (SCK) to the microphone.
+
+config ESP_ARRAY_MIC_I2S_WS_PIN
+    int "Mic I2S WS pin"
+    default 21
+    range 0 39
+    depends on ESP_ARRAY_MIC_I2S_ENABLED
+    help
+        GPIO pin for I2S word select to the microphone.
+
+config ESP_ARRAY_MIC_I2S_DATA_PIN
+    int "Mic I2S data in pin"
+    default 23
+    range 0 39
+    depends on ESP_ARRAY_MIC_I2S_ENABLED
+    help
+        GPIO pin for I2S serial data in from the microphone.
+
+config ESP_ARRAY_MIC_SAMPLE_RATE
+    int "Mic sample rate (Hz)"
+    default 48000
+    range 8000 96000
+    depends on ESP_ARRAY_MIC_I2S_ENABLED
+    help
+        Sample rate for the microphone capture.
+
+endmenu
+
+menu "ESP Array Mesh Transport"
+
+config ESP_ARRAY_TRANSPORT_WIFI
+    bool "Enable Wi-Fi mesh transport"
+    default y
+    help
+        Enable Wi-Fi / ESP-NOW based row gossip between nodes.
+
+config ESP_ARRAY_MAX_NODES
+    int "Maximum nodes in the mesh"
+    default 12
+    range 4 32
+    help
+        Maximum number of ESP Array nodes expected in the mesh.
+
+endmenu

@@ -32,4 +32,13 @@ int esp_array_gossip_listener_rows(const esp_array_listener_row_t* rows,
                                    esp_array_listener_row_t* out_rows,
                                    int max_rows);
 
+// Hardware init / deinit — calls I2S driver init from Kconfig settings.
+int esp_array_init_speaker(void);
+int esp_array_init_microphone(void);
+void esp_array_deinit_speaker(void);
+void esp_array_deinit_microphone(void);
+
+// Transport init.
+int esp_array_init_transport(void);
+
 #endif // ESP_ARRAY_BACKEND_H

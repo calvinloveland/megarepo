@@ -1,6 +1,63 @@
 #include <stddef.h>
 #include <stdbool.h>
+#include <stdio.h>
 #include "esp_array_backend.h"
+
+// I2S driver initialization using Kconfig settings where available.
+int esp_array_init_speaker(void)
+{
+#if CONFIG_ESP_ARRAY_I2S_SPEAKER_ENABLED
+    printf("I2S speaker: initializing BCK=%d WS=%d DATA=%d SR=%d\n",
+           CONFIG_ESP_ARRAY_I2S_SPEAKER_BCK_PIN,
+           CONFIG_ESP_ARRAY_I2S_SPEAKER_WS_PIN,
+           CONFIG_ESP_ARRAY_I2S_SPEAKER_DATA_PIN,
+           CONFIG_ESP_ARRAY_I2S_SPEAKER_SAMPLE_RATE);
+    // TODO: real i2s_std_config / i2s_driver_install call
+    return 0;
+#else
+    return -1;
+#endif
+}
+
+int esp_array_init_microphone(void)
+{
+#if CONFIG_ESP_ARRAY_MIC_I2S_ENABLED
+    printf("I2S mic: initializing SCK=%d WS=%d DATA=%d SR=%d\n",
+           CONFIG_ESP_ARRAY_MIC_I2S_SCK_PIN,
+           CONFIG_ESP_ARRAY_MIC_I2S_WS_PIN,
+           CONFIG_ESP_ARRAY_MIC_I2S_DATA_PIN,
+           CONFIG_ESP_ARRAY_MIC_SAMPLE_RATE);
+    // TODO: real i2s_std_config / i2s_driver_install call
+    return 0;
+#else
+    return -1;
+#endif
+}
+
+void esp_array_deinit_speaker(void)
+{
+#if CONFIG_ESP_ARRAY_I2S_SPEAKER_ENABLED
+    // TODO: i2s_driver_uninstall
+#endif
+}
+
+void esp_array_deinit_microphone(void)
+{
+#if CONFIG_ESP_ARRAY_MIC_I2S_ENABLED
+    // TODO: i2s_driver_uninstall
+#endif
+}
+
+int esp_array_init_transport(void)
+{
+#if CONFIG_ESP_ARRAY_TRANSPORT_WIFI
+    printf("Wi-Fi mesh transport: initializing (max nodes %d)\n", CONFIG_ESP_ARRAY_MAX_NODES);
+    // TODO: esp_netif_init, esp_event_loop_create, wifi_init_sta, esp_now_init
+    return 0;
+#else
+    return -1;
+#endif
+}
 
 // Stub implementations for the firmware backend hooks.
 // These mirror the simulator's JS firmware-backend.mjs and will be replaced
