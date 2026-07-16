@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <string.h>
 #include "esp_array_backend.h"
 
 // ESP-IDF skeleton only: this is the coordinator-style sequencing scaffold that
@@ -41,7 +42,14 @@ void app_main(void) {
                 break;
             }
             case ESP_ARRAY_CAPTURE_ROWS:
-                // TODO: allocate mic buffer, run chirp schedule + DSP TOA on each capture
+                printf("Running calibration sweep (%d emissions)\n", plan.emission_count);
+                for (int i = 0; i < plan.emission_count; i++) {
+                    esp_array_arrival_wire_t arrival;
+                    memset(&arrival, 0, sizeof(arrival));
+                    esp_array_play_chirp(CONFIG_ESP_ARRAY_I2S_SPEAKER_SAMPLE_RATE);
+                    esp_array_capture_and_estimate(CONFIG_ESP_ARRAY_MIC_SAMPLE_RATE, &arrival);
+                    printf("  emission %d: toa=%d us\n", i, arrival.arrival_us);
+                }
                 state = ESP_ARRAY_GOSSIP_ROWS;
                 break;
             case ESP_ARRAY_GOSSIP_ROWS:

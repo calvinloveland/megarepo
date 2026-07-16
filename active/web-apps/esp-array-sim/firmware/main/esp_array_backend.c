@@ -125,8 +125,18 @@ esp_array_clock_sync_state_t esp_array_sync_clocks(void) {
 }
 
 esp_array_calibration_plan_t esp_array_make_plan(int node_count) {
-    // TODO: allocate and populate plan.emissions from the canonical sweep config
-    esp_array_calibration_plan_t plan = { .emission_count = 0, .emissions = NULL };
+    if (node_count <= 0) node_count = CONFIG_ESP_ARRAY_MAX_NODES;
+    static esp_array_emission_t emissions_buf[32];
+    int count = node_count;
+    if (count > 32) count = 32;
+    for (int i = 0; i < count; i++) {
+        emissions_buf[i].emitter_id = i;
+        emissions_buf[i].emit_clock_sec = ESP_ARRAY_FIRST_EMIT_SEC + (float)i * ESP_ARRAY_EMIT_GAP_SEC;
+    }
+    esp_array_calibration_plan_t plan = {
+        .emission_count = count,
+        .emissions = emissions_buf,
+    };
     return plan;
 }
 
