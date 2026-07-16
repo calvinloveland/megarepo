@@ -306,6 +306,8 @@ The hardware phase has now started with a small ESP-IDF-oriented skeleton under
   - generated from `src/calibration-config.mjs`
 - `firmware/include/esp_array_protocol.h`
   - generated from `src/firmware-protocol.mjs`
+- `firmware/include/esp_array_frame.h`
+  - generated from `src/firmware-frame.mjs`
 - `firmware/examples/calibration-plan.example.json`
   - deterministic simulator-produced calibration plan fixture
 - `firmware/examples/listener-rows.closed.example.json`

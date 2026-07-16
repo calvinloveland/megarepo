@@ -12,6 +12,9 @@ boundaries so the transition is incremental instead of a rewrite.
 - `include/esp_array_protocol.h`
   - generated from `src/firmware-protocol.mjs`
   - packet kinds + listener-row struct skeleton
+- `include/esp_array_frame.h`
+  - generated from `src/firmware-frame.mjs`
+  - suggested outer transport frame (magic/version/kind ids/payload length)
 - `examples/calibration-plan.example.json`
   - deterministic example calibration plan generated from the simulator
 - `examples/calibration-plan.wire.example.json`
