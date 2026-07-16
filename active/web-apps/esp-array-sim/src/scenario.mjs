@@ -6,6 +6,8 @@
 import { makeRng, randomLayout, makeEmitSchedule } from './world.mjs';
 import { simulateCaptures, simulateMatchedCaptures, averagedCaptures } from './capture.mjs';
 import { distributedSweep } from './mesh.mjs';
+import { makeSimFirmwareBackend } from './firmware-backend.mjs';
+import { runFirmwareSession } from './firmware-session.mjs';
 import { localizeBest, procrustesAlign } from './localize.mjs';
 import { mapSurround, speakerCompensation, CHANNELS_5_1 } from './surround.mjs';
 
@@ -33,21 +35,72 @@ export function runScenario(cfg = {}) {
 
   const nodes = randomLayout(nodeCount, room, rng, undefined, undefined, { skewMaxPpm });
   const schedule = makeEmitSchedule(nodes);
-  // 'distributed' runs the same capture+estimator but models the mesh data flow:
-  // each node only sees its own microphone arrivals, gossips them, the assembler
-  // reconstitutes the full observation matrix. The resulting matrix is identical
-  // to the centralized one; the cost is tracked as meshMessages.
-  const dist = cfg.captureMode === 'distributed'
-    ? distributedSweep(nodes, room, {
-        captureMode: 'closed',
-        meshLoss: cfg.meshLoss ?? 0,
-        seedRng: rng,
-        ...cfg.distributedMatched ? { captureMode: 'matched', room, wallReflections: cfg.wallReflections ?? true, reflCoef: cfg.reflCoef ?? 0.5, noiseSigma: cfg.noiseSigma ?? 0.05, estimatorMode: cfg.estimatorMode ?? (cfg.earliestPeak ? 'earliest' : 'strongest') } : {},
-      })
-    : null;
+
+  // The distributed path now runs through the explicit firmware session
+  // lifecycle (sync -> plan -> capture rows -> gossip -> solve -> surround), so
+  // the simulator is exercising the same ordered coordinator logic the future
+  // ESP-IDF firmware will follow, not just a loose data-flow equivalent.
+  if (cfg.captureMode === 'distributed') {
+    const truth = nodes.map((n) => ({ x: n.pos.x, y: n.pos.y }));
+    const backend = makeSimFirmwareBackend(room, {
+      captureMode: cfg.distributedMatched ? 'matched' : 'closed',
+      meshLoss: cfg.meshLoss ?? 0,
+      seedRng: rng,
+      room,
+      wallReflections: cfg.wallReflections ?? true,
+      reflCoef: cfg.reflCoef ?? 0.5,
+      noiseSigma: cfg.noiseSigma ?? 0.05,
+      estimatorMode: cfg.estimatorMode ?? (cfg.earliestPeak ? 'earliest' : 'strongest'),
+    });
+    const dist = runFirmwareSession({
+      nodes,
+      room,
+      backend,
+      seedRng: rng,
+      starts: cfg.starts ?? 8,
+      withSkew,
+      robust: cfg.robust ?? 0,
+      truth,
+      sweetSpot: cfg.sweetSpot ?? { x: room.width / 2, y: room.height / 2 },
+      exponent: cfg.exponent,
+      distanceLaw: cfg.distanceLaw,
+      distributedMatched: !!cfg.distributedMatched,
+    });
+    return {
+      seed,
+      room,
+      captureMode: 'distributed',
+      reflCoef: cfg.reflCoef ?? 0.5,
+      nodes,
+      schedule: dist.schedule,
+      observations: dist.matrix,
+      solution: dist.solution,
+      truth,
+      aligned: dist.aligned,
+      transform: dist.transform,
+      alignErrorM: dist.alignErrorM,
+      sweetSpot: dist.sweetSpot,
+      realSpeakers: dist.realSpeakers,
+      surround: dist.surround,
+      compensation: dist.compensation,
+      channels: CHANNELS_5_1,
+      clockOffsetsTrue: nodes.map((n) => n.clockOffsetSec),
+      clockOffsetsEst: dist.solution.off,
+      clockSkewsTrue: nodes.map((n) => n.clockSkew),
+      clockSkewsEst: dist.solution.skew ?? nodes.map(() => 0),
+      withSkew,
+      distributed: true,
+      distributedMatched: !!cfg.distributedMatched,
+      meshMessages: dist.messages,
+      meshLost: dist.lost,
+      firmwareTrace: dist.trace,
+      firmwarePlan: dist.plan,
+      firmwareRowPackets: dist.rowPackets,
+    };
+  }
+
   const observations =
-    dist ? dist.matrix
-    : cfg.captureMode === 'matched'
+    cfg.captureMode === 'matched'
       ? simulateMatchedCaptures(nodes, schedule, {
           room,
           wallReflections: cfg.wallReflections ?? true,
@@ -128,9 +181,9 @@ export function runScenario(cfg = {}) {
     clockSkewsTrue: nodes.map((n) => n.clockSkew),
     clockSkewsEst: sol.skew ?? nodes.map(() => 0),
     withSkew,
-    distributed: cfg.captureMode === 'distributed',
-    distributedMatched: !!cfg.distributedMatched,
-    meshMessages: dist ? dist.messages : null,
-    meshLost: dist ? dist.lost : 0,
+    distributed: false,
+    distributedMatched: false,
+    meshMessages: null,
+    meshLost: 0,
   };
 }
