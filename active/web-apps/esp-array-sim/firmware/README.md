@@ -136,6 +136,12 @@ idf.py flash monitor
 
 ## Current status
 
-Still skeleton only. No `idf.py build` has been attempted here yet, because the goal of this step is
-to freeze the **interfaces, shared constants, and project shape** first so later ESP-IDF work does
-not drift from the validated simulator.
+**Build verified.** `idf.py build` succeeds for the ESP32 target on this host
+using the project-local ESP-IDF checkout and the `steam-run` FHS bridge.
+
+The firmware image is produced at:
+- `firmware/build/esp_array_node.bin` (176 KB, 83% free in app partition)
+
+The skeleton is no longer abstract — it compiles and links against the real
+ESP-IDF component tree. The next step is populating the backend stubs with
+real task/driver implementations.
