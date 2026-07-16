@@ -12,7 +12,9 @@
     "export:firmware": "node bin/export-firmware-headers.mjs",
     "export:firmware-fixtures": "node bin/export-firmware-fixtures.mjs",
     "export:firmware-c-example": "node bin/export-firmware-c-example.mjs",
+    "firmware:bootstrap-idf": "bash bin/bootstrap-esp-idf.sh --checkout-only",
     "firmware:host-check": "nix-shell --run 'cd firmware/host && make clean && make && ./consume_example_test'",
+    "firmware:idf-check": "nix-shell --run 'steam-run bash -lc \". ./.esp-idf/activate-idf.sh && idf.py --version\"'",
     "check": "node --check app.js && node --check server.mjs && for f in src/*.mjs; do node --check \"$f\"; done && node --test --test-reporter=spec tests/*.test.mjs",
     "test": "node --test --test-reporter=spec tests/*.test.mjs",
     "test:server": "node --test --test-reporter=spec tests/server.test.mjs"

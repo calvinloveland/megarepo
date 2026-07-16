@@ -373,12 +373,15 @@ expect to grow into a real node firmware app:
 - `firmware/main/idf_component.yml`
 - `firmware/sdkconfig.defaults`
 - project-local `shell.nix` for generic firmware-side tools
+- `bin/bootstrap-esp-idf.sh` for a pinned local ESP-IDF checkout in `.esp-idf/`
 
 So the hardware phase has moved beyond abstract interfaces and into an actual
 project layout that can later become a real `idf.py build`. Even before full
 ESP-IDF bring-up, `npm run firmware:host-check` can compile/run the generated
 host-side C consumer in `nix-shell`, giving the firmware artifacts a real
-native-C smoke test.
+native-C smoke test. And `npm run firmware:bootstrap-idf` now provides the next
+step toward a real buildable environment: a pinned local ESP-IDF checkout plus
+activation helper instead of an implicit global installation.
 
 A pure `advisories.mjs` ruleset also feeds the UI's **Known risks / suggestions** panel. These are
 not vague design opinions: each rule corresponds to a failure mode the simulator already demonstrated

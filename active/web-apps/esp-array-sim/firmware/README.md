@@ -79,7 +79,20 @@ with generic build utilities plus `esptool`/`espflash`:
 nix-shell
 ```
 
-Inside that shell, a supported smoke test for the generated C artifacts is:
+If you want to start the real ESP-IDF bring-up path, bootstrap a pinned local
+checkout into `.esp-idf/` with:
+
+```bash
+npm run firmware:bootstrap-idf
+# or: bash bin/bootstrap-esp-idf.sh --checkout-only
+```
+
+That creates:
+- `.esp-idf/esp-idf` (checked out at a pinned version)
+- `.esp-idf/activate-idf.sh`
+- `.esp-idf/tools` (once you later run `--install-tools`)
+
+Inside the shell, a supported smoke test for the generated C artifacts is:
 
 ```bash
 npm run firmware:host-check
@@ -111,9 +124,10 @@ That is enough structure for a future `idf.py build` path once real drivers and 
 
 ## Build notes (future phase)
 
-When ESP-IDF is installed and the real hardware code is fleshed out, the intended flow is:
+When the checkout + tools are installed and the real hardware code is fleshed out, the intended flow is:
 
 ```bash
+source .esp-idf/activate-idf.sh
 cd firmware
 idf.py set-target esp32
 idf.py build
