@@ -1,7 +1,13 @@
 #include <stddef.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <string.h>
 #include "esp_array_backend.h"
+#include "esp_array_dsp.h"
+#include "esp_array_calibration.h"
+
+// Maximum chirp sample buffer size (samples).
+#define ESP_ARRAY_DSP_BUF_MAX 2048
 
 // I2S driver initialization using Kconfig settings where available.
 int esp_array_init_speaker(void)
@@ -57,6 +63,56 @@ int esp_array_init_transport(void)
 #else
     return -1;
 #endif
+}
+
+int esp_array_play_chirp(double sample_rate_hz)
+{
+    double chirp_buf[ESP_ARRAY_DSP_BUF_MAX];
+    int N = esp_array_linear_chirp(chirp_buf, ESP_ARRAY_DSP_BUF_MAX,
+                                    ESP_ARRAY_CHIRP_DURATION_SEC,
+                                    ESP_ARRAY_CHIRP_F0_HZ,
+                                    ESP_ARRAY_CHIRP_F1_HZ,
+                                    sample_rate_hz, 1);
+    if (N < 2) return -1;
+    printf("Calibration chirp: %d samples @ %.0f Hz (%d ms)\n",
+           N, sample_rate_hz, (int)(ESP_ARRAY_CHIRP_DURATION_SEC * 1000));
+    // TODO: i2s_write() the chirp buffer to the speaker DAC
+    return 0;
+}
+
+int esp_array_capture_and_estimate(double sample_rate_hz,
+                                   esp_array_arrival_wire_t* out_arrival)
+{
+    double chirp_buf[ESP_ARRAY_DSP_BUF_MAX];
+    int N = esp_array_linear_chirp(chirp_buf, ESP_ARRAY_DSP_BUF_MAX,
+                                    ESP_ARRAY_CHIRP_DURATION_SEC,
+                                    ESP_ARRAY_CHIRP_F0_HZ,
+                                    ESP_ARRAY_CHIRP_F1_HZ,
+                                    sample_rate_hz, 1);
+    if (N < 2) return -1;
+
+    // Signal buffer: chirp length + margin for propagation delay
+    int margin = (int)(0.1 * sample_rate_hz); // 100ms max propagation margin
+    int sig_len = N + margin;
+    double signal[ESP_ARRAY_DSP_BUF_MAX * 2];
+    if (sig_len > ESP_ARRAY_DSP_BUF_MAX * 2) sig_len = ESP_ARRAY_DSP_BUF_MAX * 2;
+    memset(signal, 0, sizeof(double) * (size_t)sig_len);
+
+    // TODO: i2s_read() actual mic samples into signal buffer
+    // For now, signal stays zero -> TOA noise
+
+    esp_array_toa_result_t toa = esp_array_estimate_toa(
+        signal, sig_len, chirp_buf, N, sample_rate_hz,
+        ESP_ARRAY_TOA_STRONGEST, 0.5);
+
+    if (out_arrival) {
+        out_arrival->emitter_id = 0;
+        out_arrival->emit_us = 0;
+        out_arrival->arrival_us = (int)(toa.time_sec * 1e6);
+        out_arrival->distance_mm = (int)(toa.time_sec * 343000); // sound speed mm/s
+    }
+
+    return 0;
 }
 
 // Stub implementations for the firmware backend hooks.

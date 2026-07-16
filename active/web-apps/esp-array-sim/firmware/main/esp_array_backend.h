@@ -41,4 +41,11 @@ void esp_array_deinit_microphone(void);
 // Transport init.
 int esp_array_init_transport(void);
 
+// Play one calibration chirp through the I2S speaker. Returns 0 on success.
+int esp_array_play_chirp(double sample_rate_hz);
+
+// Capture mic for one chirp-length and estimate TOA. Returns 0 on success.
+int esp_array_capture_and_estimate(double sample_rate_hz,
+                                   esp_array_arrival_wire_t* out_arrival);
+
 #endif // ESP_ARRAY_BACKEND_H
