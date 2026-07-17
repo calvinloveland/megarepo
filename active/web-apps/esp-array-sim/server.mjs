@@ -28,9 +28,17 @@ function cacheControl(ext) {
 const server = createServer((req, res) => {
   let urlPath = decodeURIComponent(req.url.split('?')[0] || '/');
   if (urlPath === '/') urlPath = '/index.html';
-  // /src/* resolves to the project's src/ directory (ESM imports from the page).
-  const fsPath = join(root, normalize(urlPath).replace(/^(\.\.[/\\])+/, ''));
-  if (!fsPath.startsWith(root) || !existsSync(fsPath) || statSync(fsPath).isDirectory()) {
+  // Resolve the requested path against the project root (prevent traversal).
+  let fsPath = join(root, normalize(urlPath).replace(/^(\.\.[/\\])+/, ''));
+  if (!fsPath.startsWith(root)) {
+    res.writeHead(404, { 'content-type': 'text/plain' });
+    return res.end('Not found');
+  }
+  // If the path is a directory, serve index.html inside it.
+  if (existsSync(fsPath) && statSync(fsPath).isDirectory()) {
+    fsPath = join(fsPath, 'index.html');
+  }
+  if (!existsSync(fsPath)) {
     res.writeHead(404, { 'content-type': 'text/plain' });
     return res.end('Not found');
   }
