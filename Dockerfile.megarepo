@@ -1,0 +1,28 @@
+# syntax=docker/dockerfile:1
+# Megarepo — all dependencies, one image, one command
+FROM python:3.12-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    NODE_MAJOR=20
+
+# System deps + Node.js
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+      ca-certificates curl gnupg git build-essential \
+      libgl1 libglib2.0-0 libsm6 libxext6 libxrender-dev \
+      libgomp1 libpq-dev sqlite3 && \
+    curl -fsSL https://deb.nodesource.com/setup_${NODE_MAJOR}.x | bash - && \
+    apt-get install -y --no-install-recommends nodejs && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /megarepo
+COPY . .
+
+# Run the full setup script
+RUN bash scripts/setup_megarepo.sh
+
+# PYTHONPATH
+ENV PYTHONPATH="/megarepo/active/web-apps/launcher:/megarepo/active/web-apps/momos/src:/megarepo/active/web-apps/parambulator/src:/megarepo/active/web-apps/sub-day-generator/src:/megarepo/active/games/code_reviewdle/src:/megarepo/active/games/conway_game_of_war/src:/megarepo/active/games/wizard_fight/src:/megarepo/active/games/lets-holdem-together:/megarepo/active/dev-tools/operationalize:/megarepo"
+
+CMD ["python3", "-m", "active.web-apps.launcher.app"]

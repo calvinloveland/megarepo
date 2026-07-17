@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+import subprocess
 import tempfile
 import time
 from pathlib import Path
 
 import pytest
 
-from k33p.daemon import Daemon, _parse_duration, run_daemon
+from k33p.daemon import Daemon, FileChange, _parse_duration, run_daemon
 from k33p.project import load_project
 from k33p.store import ContentStore
 
@@ -268,3 +269,73 @@ class TestRunDaemon:
     def test_run_nonexistent_path(self) -> None:
         rc = run_daemon("/nonexistent", once=True)
         assert rc == 1
+
+# ── git auto-push hardening ─────────────────────────────────────────────
+
+class TestGitPushRecovery:
+    def test_git_add_stages_new_files_with_all(self, project_with_daemon: Path, monkeypatch) -> None:
+        project = load_project(str(project_with_daemon))
+        daemon = Daemon(project)
+        daemon.state.pending_changes = [FileChange(path="newfile.txt", mtime=time.time())]
+
+        calls: list[list[str]] = []
+
+        def fake_run(args, **kwargs):
+            calls.append(list(args))
+            if args[:3] == ["git", "diff", "--name-only"]:
+                return subprocess.CompletedProcess(args, 0, stdout="", stderr="")
+            if args[:3] == ["git", "add", "--all"]:
+                return subprocess.CompletedProcess(args, 0, stdout="", stderr="")
+            if args[:4] == ["git", "diff", "--cached", "--quiet"]:
+                return subprocess.CompletedProcess(args, 1, stdout="", stderr="")
+            if args[:2] == ["git", "commit"]:
+                return subprocess.CompletedProcess(args, 0, stdout="", stderr="")
+            if args[:3] == ["git", "rev-parse", "--abbrev-ref"]:
+                return subprocess.CompletedProcess(args, 0, stdout="main\n", stderr="")
+            if args[:2] == ["git", "push"]:
+                return subprocess.CompletedProcess(args, 0, stdout="", stderr="")
+            raise AssertionError(f"unexpected git command: {args}")
+
+        monkeypatch.setattr(subprocess, "run", fake_run)
+        rc = daemon._do_git_push("https://git.example.com/repo.git")
+        assert rc == 1
+        add_call = next(cmd for cmd in calls if cmd[:2] == ["git", "add"])
+        assert add_call[:4] == ["git", "add", "--all", "--"]
+
+    def test_push_recovers_from_non_fast_forward(self, project_with_daemon: Path, monkeypatch) -> None:
+        project = load_project(str(project_with_daemon))
+        daemon = Daemon(project)
+        daemon.state.pending_changes = [FileChange(path="file.txt", mtime=time.time())]
+
+        calls: list[list[str]] = []
+        push_count = {"n": 0}
+
+        def fake_run(args, **kwargs):
+            calls.append(list(args))
+            if args[:3] == ["git", "diff", "--name-only"]:
+                return subprocess.CompletedProcess(args, 0, stdout="", stderr="")
+            if args[:2] == ["git", "add"]:
+                return subprocess.CompletedProcess(args, 0, stdout="", stderr="")
+            if args[:4] == ["git", "diff", "--cached", "--quiet"]:
+                return subprocess.CompletedProcess(args, 1, stdout="", stderr="")
+            if args[:2] == ["git", "commit"]:
+                return subprocess.CompletedProcess(args, 0, stdout="", stderr="")
+            if args[:3] == ["git", "rev-parse", "--abbrev-ref"]:
+                return subprocess.CompletedProcess(args, 0, stdout="main\n", stderr="")
+            if args[:2] == ["git", "push"]:
+                push_count["n"] += 1
+                if push_count["n"] == 1:
+                    return subprocess.CompletedProcess(args, 1, stdout="", stderr="! [rejected] main -> main (non-fast-forward)")
+                return subprocess.CompletedProcess(args, 0, stdout="", stderr="")
+            if args[:2] == ["git", "fetch"]:
+                return subprocess.CompletedProcess(args, 0, stdout="", stderr="")
+            if args[:2] == ["git", "rebase"]:
+                return subprocess.CompletedProcess(args, 0, stdout="", stderr="")
+            raise AssertionError(f"unexpected git command: {args}")
+
+        monkeypatch.setattr(subprocess, "run", fake_run)
+        rc = daemon._do_git_push("https://git.example.com/repo.git")
+        assert rc == 1
+        assert ["git", "fetch", "origin", "main"] in calls
+        assert ["git", "rebase", "origin/main"] in calls
+        assert push_count["n"] == 2

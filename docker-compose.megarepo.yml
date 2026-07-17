@@ -1,0 +1,40 @@
+# Megarepo all-in-one Docker test
+# Single command: docker compose -f docker-compose.megarepo.yml up --build --abort-on-container-exit
+version: "3.9"
+
+services:
+  megarepo:
+    build:
+      context: .
+      dockerfile: Dockerfile.megarepo
+    image: megarepo:test
+    ports:
+      - "3001:3001"
+    environment:
+      LAUNCHER_PORT: "3001"
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:3001/')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    networks:
+      - megarepo-net
+
+  tester:
+    build:
+      context: .
+      dockerfile: Dockerfile.megarepo
+    image: megarepo:test
+    command: ["python3", "scripts/test_megarepo_docker.py"]
+    depends_on:
+      megarepo:
+        condition: service_started
+    environment:
+      LAUNCHER_PORT: "3001"
+    network_mode: "service:megarepo"
+    profiles:
+      - test
+
+networks:
+  megarepo-net:

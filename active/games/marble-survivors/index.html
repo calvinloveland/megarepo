@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <title>Blood Marble — Gyro Survivors</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔮</text></svg>">
+</head>
+<body>
+  <div id="app">
+    <div id="canvas-container">
+      <canvas id="game-canvas"></canvas>
+
+      <!-- Gyro permission prompt (iOS) -->
+      <div id="gyro-prompt" class="overlay" style="display:none;">
+        <div class="overlay-content">
+          <div class="overlay-icon">🎯</div>
+          <h2>Gyroscope Access</h2>
+          <p>This game uses your device's gyroscope to control the marble. Tilt to roll!</p>
+          <button id="enable-gyro" class="btn btn-primary">Enable Gyro</button>
+          <p class="hint">Or use touch to play</p>
+        </div>
+      </div>
+
+      <!-- Upgrade panel (DOM overlay) -->
+      <div id="upgrade-panel" class="overlay" style="display:none;">
+        <div class="overlay-content">
+          <div class="upgrade-header">
+            <span class="upgrade-level-badge">⬆️ LEVEL UP! ⬆️</span>
+          </div>
+          <div id="upgrade-choices" class="upgrade-choices"></div>
+        </div>
+      </div>
+
+      <!-- Error reporter (floating, collapsed by default) -->
+      <div class="error-container">
+        <div class="error-toggle" id="error-toggle" onclick="
+          const p=document.getElementById('error-panel');
+          p.classList.toggle('error-open');
+        ">
+          <span>⚠️</span>
+          <span class="error-badge" id="error-badge" data-active="false">0</span>
+        </div>
+        <div class="error-panel" id="error-panel">
+          <div class="error-panel-head">
+            <span>Console Errors</span>
+            <div>
+              <button class="error-btn" onclick="if(window.__errorClear)window.__errorClear()">Clear</button>
+              <button class="error-btn" onclick="document.getElementById('error-panel').classList.remove('error-open')">✕</button>
+            </div>
+          </div>
+          <div class="error-panel-list" id="error-panel-list"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom controls -->
+    <div id="controls">
+      <button id="toggle-gyro" class="ctrl-btn">🖱️ Mouse</button>
+      <span id="game-title">🔮 Blood Marble</span>
+      <button id="restart-btn" class="ctrl-btn" onclick="if(window.restartGame)restartGame()">↺ Restart</button>
+    </div>
+  </div>
+
+  <script src="game.js"></script>
+</body>
+</html>

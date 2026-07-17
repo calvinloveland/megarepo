@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import fnmatch
 import os
+import subprocess
 import time
 from pathlib import Path
 
@@ -457,8 +458,6 @@ class Daemon:
         if ac is None:
             return 0
 
-        import subprocess
-
         # Build the list of changed files from pending changes and last scan
         changed = set()
         for change in self.state.pending_changes:
@@ -482,10 +481,11 @@ class Daemon:
         if not changed:
             return 0
 
-        # Stage all changes in watched paths
+        # Stage all changes in watched paths, including new files.
         try:
+            watched = [os.path.relpath(str(p), str(self._project_root)) for p in self.watched_paths]
             subprocess.run(
-                ["git", "add", "--update"] + [str(p) for p in self.watched_paths],
+                ["git", "add", "--all", "--"] + watched,
                 capture_output=True, timeout=30,
                 cwd=str(self._project_root),
             )
@@ -547,7 +547,44 @@ class Daemon:
             if result.returncode == 0:
                 print(f"    ✓ pushed {len(changed)} file(s) to {transport_url}")
             else:
-                print(f"    ⚠ push stderr: {result.stderr.strip()}")
+                stderr = result.stderr.strip()
+                print(f"    ⚠ push stderr: {stderr}")
+                lower = stderr.lower()
+                if "non-fast-forward" in lower or "fetch first" in lower or "rejected" in lower:
+                    print(f"    ↺ attempting automatic rebase onto {remote}/{branch}")
+                    fetch = subprocess.run(
+                        ["git", "fetch", remote, branch],
+                        capture_output=True, text=True, timeout=120,
+                        cwd=str(self._project_root),
+                    )
+                    if fetch.returncode != 0:
+                        print(f"    ⚠ git fetch failed: {fetch.stderr.strip()}")
+                        return len(changed)
+                    rebase = subprocess.run(
+                        ["git", "rebase", f"{remote}/{branch}"],
+                        capture_output=True, text=True, timeout=120,
+                        cwd=str(self._project_root),
+                    )
+                    if rebase.returncode != 0:
+                        print(f"    ⚠ git rebase failed: {rebase.stderr.strip()}")
+                        try:
+                            subprocess.run(
+                                ["git", "rebase", "--abort"],
+                                capture_output=True, text=True, timeout=30,
+                                cwd=str(self._project_root),
+                            )
+                        except (OSError, subprocess.TimeoutExpired):
+                            pass
+                        return len(changed)
+                    retry = subprocess.run(
+                        ["git", "push", remote, branch],
+                        capture_output=True, text=True, timeout=120,
+                        cwd=str(self._project_root),
+                    )
+                    if retry.returncode == 0:
+                        print(f"    ✓ pushed after rebase ({len(changed)} file(s))")
+                    else:
+                        print(f"    ⚠ push retry failed: {retry.stderr.strip()}")
         except (OSError, subprocess.TimeoutExpired) as e:
             print(f"  ⚠ git push failed: {e}")
 

@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MOSFET Matrix Designer</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>🔌 MOSFET Matrix Designer</h1>
+    <p class="subtitle">Software-Defined Battery — 4-Cell Reconfiguration Engine</p>
+  </header>
+
+  <nav class="toolbar">
+    <div class="mode-group">
+      <span class="label">Topology:</span>
+      <button class="topo-btn active" data-topology="4s">4 Series</button>
+      <button class="topo-btn" data-topology="2s2p">2s2p</button>
+      <button class="topo-btn" data-topology="4p">4 Parallel</button>
+      <button class="topo-btn" data-topology="custom">Custom</button>
+    </div>
+    <div class="mode-group">
+      <span class="label">Legend:</span>
+      <span class="legend-item on">ON</span>
+      <span class="legend-item off">OFF</span>
+      <span class="legend-item auto">Auto</span>
+    </div>
+    <div id="status-badge" class="status-ok">✓ Valid</div>
+  </nav>
+
+  <main>
+    <section class="schematic-area">
+      <svg id="circuit-svg" viewBox="0 0 1000 250" xmlns="http://www.w3.org/2000/svg"></svg>
+    </section>
+
+    <div class="panels">
+      <section class="panel" id="switch-panel">
+        <h3>🔘 Switch States</h3>
+        <div id="switch-grid"></div>
+      </section>
+
+      <section class="panel" id="peripheral-panel">
+        <h3>🔌 Peripherals</h3>
+        <div class="peri-section">
+          <h4>Charger</h4>
+          <label><input type="checkbox" id="ch-enable"> Enabled</label>
+          <select id="ch-target">
+            <option value="pack">Pack (V+ / V-)</option>
+            <option value="cell1">Cell 1</option>
+            <option value="cell2">Cell 2</option>
+            <option value="cell3">Cell 3</option>
+            <option value="cell4">Cell 4</option>
+          </select>
+        </div>
+        <div class="peri-section">
+          <h4>Current Measurement</h4>
+          <label><input type="checkbox" id="cm-enable"> Enabled</label>
+          <select id="cm-location">
+            <option value="v+">V+ Bus (inline)</option>
+            <option value="v-">V- Bus (inline)</option>
+            <option value="cell1">Cell 1 series</option>
+            <option value="cell2">Cell 2 series</option>
+            <option value="cell3">Cell 3 series</option>
+            <option value="cell4">Cell 4 series</option>
+          </select>
+        </div>
+        <div class="peri-section">
+          <h4>Voltage Measurement</h4>
+          <div id="vm-controls">
+            <label><input type="checkbox" data-vm="pack"> Pack (V+ to V-)</label>
+            <label><input type="checkbox" data-vm="cell1"> Cell 1</label>
+            <label><input type="checkbox" data-vm="cell2"> Cell 2</label>
+            <label><input type="checkbox" data-vm="cell3"> Cell 3</label>
+            <label><input type="checkbox" data-vm="cell4"> Cell 4</label>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel" id="info-panel">
+        <h3>📊 Configuration Info</h3>
+        <div id="config-info">
+          <div class="info-row"><span class="info-label">Topology:</span><span id="info-topology">4 Series</span></div>
+          <div class="info-row"><span class="info-label">Voltage:</span><span id="info-voltage">4× Vcell</span></div>
+          <div class="info-row"><span class="info-label">Capacity:</span><span id="info-capacity">1× Ccell</span></div>
+          <div class="info-row"><span class="info-label">Switches ON:</span><span id="info-sw-on">5</span></div>
+          <div class="info-row"><span class="info-label">Switches OFF:</span><span id="info-sw-off">12</span></div>
+        </div>
+        <div id="cell-voltages">
+          <h4>Cell Voltages</h4>
+          <div class="voltage-bar" data-cell="1"><span class="v-label">Cell 1</span><span class="v-value">3.70 V</span></div>
+          <div class="voltage-bar" data-cell="2"><span class="v-label">Cell 2</span><span class="v-value">3.70 V</span></div>
+          <div class="voltage-bar" data-cell="3"><span class="v-label">Cell 3</span><span class="v-value">3.70 V</span></div>
+          <div class="voltage-bar" data-cell="4"><span class="v-label">Cell 4</span><span class="v-value">3.70 V</span></div>
+        </div>
+      </section>
+    </div>
+
+    <section class="validation-area">
+      <h3>⚠️ Validation</h3>
+      <div id="validation-msgs"><span class="msg-ok">✓ No issues detected</span></div>
+    </section>
+  </main>
+
+  <footer>
+    <p>MOSFET Matrix Designer — 4-Cell SDB · <a href="https://shsw.dev">shsw.dev</a></p>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>

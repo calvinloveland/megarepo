@@ -1,0 +1,25 @@
+{
+  "name": "marble-survivors",
+  "version": "1.0.0",
+  "description": "Blood Marble — Gyro-controlled vampire-survivors roguelite. Tilt your phone to roll a marble through hordes of vampires.",
+  "main": "server.mjs",
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "npx playwright test",
+    "test:headed": "npx playwright test --headed"
+  },
+  "keywords": [
+    "game",
+    "mobile",
+    "gyro",
+    "vampire-survivors",
+    "roguelite",
+    "canvas"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@playwright/test": "^1.61.1",
+    "playwright": "^1.61.1"
+  }
+}
