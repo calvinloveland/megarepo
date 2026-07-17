@@ -203,15 +203,23 @@ the ESP32.</p>
 <ol class="steps">
 <li>
   <strong>Connect the I2S DAC (speaker) to the ESP32.</strong><br>
-  The MAX98357A breakout has five pins. Wire them as follows:
+  Most MAX98357A breakouts expose <strong>6 or 7 pins</strong> depending on board variant.
+  For basic mono playback you only need the five required connections below; boards may also
+  expose <code>GAIN</code> and/or <code>SD</code>/<code>EN</code> as optional control pins.
   <div class="pin-grid">
     <div class="pin-card">
-      <h5>MAX98357A</h5>
+      <h5>Required MAX98357A pins</h5>
       <code>VIN → 3.3V</code><br>
       <code>GND → GND</code><br>
-      <code>BCK → GPIO 26</code><br>
-      <code>WS → GPIO 25</code><br>
-      <code>DATA → GPIO 22</code>
+      <code>BCLK / BCK → GPIO 26</code><br>
+      <code>LRC / WS / LRCK → GPIO 25</code><br>
+      <code>DIN → GPIO 22</code>
+    </div>
+    <div class="pin-card">
+      <h5>Optional breakout pins</h5>
+      <code>GAIN</code> — leave floating for default gain, or strap per board docs<br>
+      <code>SD / EN</code> — pull high (often already tied high on breakout) to enable amp<br>
+      <code>L/R</code> — if present on your variant, set mono channel selection per board docs
     </div>
     <div class="pin-card">
       <h5>Kconfig defaults</h5>
@@ -220,8 +228,9 @@ the ESP32.</p>
       <code>CONFIG_ESP_ARRAY_I2S_SPEAKER_DATA_PIN=22</code><br>
     </div>
   </div>
-  The speaker output connects to the MAX98357A screw terminals (left + right channels bridged
-  for mono). 4Ω–8Ω speaker, 3W max.
+  The speaker output connects to the MAX98357A screw terminals. Use a small 4Ω–8Ω speaker.
+  If your breakout exposes <code>GAIN</code> or <code>SD</code>, start with the board's default wiring
+  (or leave them unconnected if the vendor docs say the breakout already biases them correctly).
 </li>
 
 <li>
