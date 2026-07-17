@@ -149,7 +149,7 @@ the ESP32.</p>
   <td>MAX98357A I2S audio DAC + amplifier</td>
   <td style="text-align:center">1</td>
   <td>$3–5</td>
-  <td>Adafruit MAX98357A breakout or compatible; 3W output into 4Ω</td>
+  <td>Adafruit MAX98357A breakout or compatible; 6–7 header pins depending variant, 3W-class mono output</td>
 </tr>
 <tr>
   <td>Small speaker (3W, 4Ω or 8Ω)</td>
@@ -209,7 +209,7 @@ the ESP32.</p>
   <div class="pin-grid">
     <div class="pin-card">
       <h5>Required MAX98357A pins</h5>
-      <code>VIN → 3.3V</code><br>
+      <code>VIN → 5V / VBUS</code> <em>(preferred for louder output; 3.3V also works with lower power)</em><br>
       <code>GND → GND</code><br>
       <code>BCLK / BCK → GPIO 26</code><br>
       <code>LRC / WS / LRCK → GPIO 25</code><br>
