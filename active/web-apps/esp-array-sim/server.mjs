@@ -40,7 +40,7 @@ const server = createServer((req, res) => {
   res.end(readFileSync(fsPath)); // Buffer -> sent as-is
 });
 
-server.listen(port, '127.0.0.1', () => {
+server.listen(port, '0.0.0.0', () => {
   console.log(`esp-array-sim listening on http://127.0.0.1:${port}`);
 });
 
