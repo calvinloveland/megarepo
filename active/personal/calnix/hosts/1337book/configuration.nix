@@ -59,6 +59,12 @@
 
   calnix.openvino.enable = true;
 
+  # k33p daemon — auto-commit and push watched megarepo paths
+  calnix.k33pDaemon = {
+    enable = true;
+    projectPath = "/home/calvin/code/megarepo";
+  };
+
   # Warden per-host monitoring agent
   calnix.warden = {
     enable = true;
