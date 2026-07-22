@@ -17,6 +17,12 @@ typedef enum {
 } esp_array_state_t;
 
 void app_main(void) {
+#if CONFIG_ESP_ARRAY_PHASE1_SINGLE_NODE_SELFTEST
+    printf("ESP Array node boot (phase-1 self-test mode)\n");
+    esp_array_phase1_report_t report = esp_array_run_phase1_selftest();
+    esp_array_log_phase1_report(&report);
+    return;
+#else
     esp_array_state_t state = ESP_ARRAY_BOOT;
     esp_array_clock_sync_state_t sync = {0};
     esp_array_calibration_plan_t plan = {0};
@@ -65,4 +71,5 @@ void app_main(void) {
                 return;
         }
     }
+#endif
 }

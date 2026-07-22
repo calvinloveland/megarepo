@@ -22,6 +22,16 @@ typedef struct {
     int assumed_synced;
 } esp_array_clock_sync_state_t;
 
+typedef struct {
+    int speaker_init_rc;
+    int mic_init_rc;
+    int transport_init_rc;
+    int planned_emissions;
+    int chirp_ok_count;
+    int capture_ok_count;
+    esp_array_arrival_wire_t last_arrival;
+} esp_array_phase1_report_t;
+
 esp_array_clock_sync_state_t esp_array_sync_clocks(void);
 esp_array_calibration_plan_t esp_array_make_plan(int node_count);
 int esp_array_capture_listener_rows(const esp_array_calibration_plan_t* plan,
@@ -47,5 +57,10 @@ int esp_array_play_chirp(double sample_rate_hz);
 // Capture mic for one chirp-length and estimate TOA. Returns 0 on success.
 int esp_array_capture_and_estimate(double sample_rate_hz,
                                    esp_array_arrival_wire_t* out_arrival);
+
+// Phase-1 single-node bring-up helper: run boot/init/chirp/capture diagnostics
+// and emit a structured summary to serial.
+esp_array_phase1_report_t esp_array_run_phase1_selftest(void);
+void esp_array_log_phase1_report(const esp_array_phase1_report_t* report);
 
 #endif // ESP_ARRAY_BACKEND_H

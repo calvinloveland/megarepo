@@ -79,6 +79,28 @@ config ESP_ARRAY_MIC_SAMPLE_RATE
 
 endmenu
 
+menu "ESP Array Hardware Validation"
+
+config ESP_ARRAY_PHASE1_SINGLE_NODE_SELFTEST
+    bool "Run phase-1 single-node self-test at boot"
+    default y
+    help
+        Use the real ESP-IDF firmware skeleton as the first hardware-validation
+        artifact: boot one node, print wiring/sample-rate diagnostics, attempt
+        quiet chirp playback, attempt one microphone capture/TOA estimate, and
+        summarize readiness for the next phase.
+
+config ESP_ARRAY_PHASE1_REPEAT_COUNT
+    int "Phase-1 self-test chirp repetitions"
+    default 3
+    range 1 16
+    depends on ESP_ARRAY_PHASE1_SINGLE_NODE_SELFTEST
+    help
+        Number of chirp/capture passes to run during the single-node bring-up
+        sequence so serial logs are easier to inspect.
+
+endmenu
+
 menu "ESP Array Mesh Transport"
 
 config ESP_ARRAY_TRANSPORT_WIFI
