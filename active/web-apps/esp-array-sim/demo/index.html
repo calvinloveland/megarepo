@@ -232,6 +232,19 @@ the ESP32.</p>
   The speaker output connects to the MAX98357A screw terminals. Use a small 4Ω–8Ω speaker.
   If your breakout exposes <code>GAIN</code> or <code>SD</code>, start with the board's default wiring
   (or leave them unconnected if the vendor docs say the breakout already biases them correctly).
+  <div class="card" style="margin-top:12px">
+    <h4 style="margin-bottom:8px;color:var(--accent)">Optional physical volume control</h4>
+    <p>
+      The safest user knob is <strong>not</strong> a potentiometer on the speaker leads.
+      MAX98357A is a digital class-D / bridge-tied output, so a normal audio pot on the speaker
+      output is a poor fit. Prefer one of these options instead:
+    </p>
+    <ul style="margin:10px 0 0 18px">
+      <li><strong>Best:</strong> 10k potentiometer into an ESP32 ADC pin (for example GPIO 34), with firmware scaling the digital audio level.</li>
+      <li><strong>Coarse hardware trim:</strong> strap the <code>GAIN</code> pin per your breakout's documentation to reduce amplifier gain.</li>
+      <li><strong>Last resort:</strong> a speaker-rated L-pad / attenuator between amp and speaker. Avoid a small signal pot directly on the class-D output.</li>
+    </ul>
+  </div>
 </li>
 
 <li>
