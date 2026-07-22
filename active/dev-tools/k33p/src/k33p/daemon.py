@@ -325,11 +325,12 @@ class Daemon:
 
         self.state.running = True
         self.state.start_time = time.time()
-        self._last_scan: dict[str, float] = {}
+        self._last_scan = self._scan_files()
 
         print(f"k33p daemon: watching {len(self.watched_paths)} path(s)", flush=True)
         for p in self.watched_paths:
             print(f"  watch: {p}", flush=True)
+        print(f"  baseline files: {len(self._last_scan)}", flush=True)
         print(f"  debounce: {self.debounce_seconds}s", flush=True)
         print(f"  poll interval: {poll_interval}s", flush=True)
 
