@@ -548,7 +548,21 @@ in
             after = [ "network.target" ];
             serviceConfig = {
               Type = "oneshot";
-              ExecStart = "${pkgs.sudo}/bin/sudo ${pkgs.nixos-rebuild}/bin/nixos-rebuild switch --flake /home/calvin/megarepo/active/personal/calnix";
+              ExecStart = pkgs.writeShellScript "warden-rebuild" ''
+                set -euo pipefail
+                host="${config.networking.hostName}"
+                for flake_dir in \
+                  /home/calvin/code/megarepo/active/personal/calnix \
+                  /home/calvin/megarepo/active/personal/calnix \
+                  /home/calvin/calnix
+                do
+                  if [ -e "$flake_dir/flake.nix" ]; then
+                    exec ${pkgs.sudo}/bin/sudo ${pkgs.nixos-rebuild}/bin/nixos-rebuild switch --flake "$flake_dir#$host"
+                  fi
+                done
+                echo "warden-rebuild: no calnix flake path found" >&2
+                exit 1
+              '';
               User = "warden";
               Group = "warden";
               MemoryMax = "2G";

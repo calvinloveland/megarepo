@@ -172,6 +172,7 @@ def check_system_config(config: dict[str, Any]) -> dict[str, Any]:
         "/etc/nixos",
         # Flake-based setups — common source tree paths
         "/home/calvin/calnix",
+        "/home/calvin/code/megarepo/active/personal/calnix",
         "/home/calvin/megarepo/active/personal/calnix",
     ])
     check_channel = config.get("check_nix_channel", True)
