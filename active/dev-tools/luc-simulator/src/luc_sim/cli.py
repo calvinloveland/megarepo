@@ -194,6 +194,22 @@ def cmd_plot(args) -> int:
     print(f"wrote {args.out} ({len(names)} curves, {len(snr_points)} SNR points)")
     return 0
 
+def cmd_timeline(args) -> int:
+    """Render the adaptive-link timeline as an SVG artifact."""
+    codec = _make_codec(args)
+    schedule = GENTLE_SCHEDULE if args.scenario == "gentle" else HARSH_SCHEDULE
+    channel = DynamicChannel(schedule, burst_prob=args.burst_prob, burst_penalty_db=args.burst_penalty)
+    report = run_link(codec, channel, args.frames, seed=args.seed, adaptive=True,
+                      frame_ms=args.frame_ms)
+    from luc_sim.plot import timeline_svg
+
+    timeline_svg(report.records, codec.switches, args.out,
+                 title=f"LUC adaptive link timeline — {args.scenario} scenario, "
+                       f"{args.frames} frames, mission={args.mission}")
+    print(f"wrote {args.out} ({args.frames} frames, {len(codec.switches)} switches)")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="luc-sim",
@@ -269,6 +285,16 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--scenario", choices=["gentle", "harsh"], default="gentle")
     sp.add_argument("--no-browser", action="store_true", help="do not try to open a browser")
     sp.set_defaults(fn=cmd_serve)
+
+    sp = sub.add_parser("timeline", parents=[common], help="render the adaptive link timeline as SVG")
+    sp.add_argument("--frames", type=int, default=600)
+    sp.add_argument("--seed", type=int, default=7)
+    sp.add_argument("--scenario", choices=["gentle", "harsh"], default="gentle")
+    sp.add_argument("--burst-prob", type=float, default=0.03)
+    sp.add_argument("--burst-penalty", type=float, default=8.0)
+    sp.add_argument("--frame-ms", type=float, default=1.0)
+    sp.add_argument("--out", default="timeline.svg")
+    sp.set_defaults(fn=cmd_timeline)
 
     return p
 

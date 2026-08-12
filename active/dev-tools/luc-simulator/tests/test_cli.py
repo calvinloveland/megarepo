@@ -37,3 +37,20 @@ def test_cmd_missions_runs(capsys):
     assert cmd_missions(ns) == 0
     out = capsys.readouterr().out
     assert "throughput" in out and "latency" in out and "robust" in out
+
+
+def test_timeline_svg(tmp_path):
+    from luc_sim.channel import DynamicChannel
+    from luc_sim.codec import UniversalCodec
+    from luc_sim.plot import timeline_svg
+    from luc_sim.sim import run_link
+
+    codec = UniversalCodec(cache=False, profile_frames=100)
+    channel = DynamicChannel([(0, 10.0), (60, 3.0), (120, 9.0)])
+    report = run_link(codec, channel, 150, seed=2, adaptive=True)
+    out = tmp_path / "timeline.svg"
+    timeline_svg(report.records, codec.switches, str(out))
+    text = out.read_text()
+    assert "true SNR" in text and "est. SNR" in text
+    assert 'stroke-dasharray="3,3"' in text  # switch markers
+    assert "frame →" in text
