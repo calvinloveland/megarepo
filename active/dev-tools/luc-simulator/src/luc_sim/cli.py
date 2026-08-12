@@ -105,10 +105,6 @@ def cmd_demo(args) -> int:
         schedule, burst_prob=args.burst_prob, burst_penalty_db=args.burst_penalty,
     )
 
-    if args.update:
-        from luc_sim.codes import polar
-        codec.register(polar(16, 8, name="polar16-8-updated"))
-
     print("=" * 78)
     print("LUC adaptive link demo")
     print("=" * 78)
@@ -118,6 +114,13 @@ def cmd_demo(args) -> int:
     print(f"Registry: {len(codec.registry)} codes across "
           f"{len(codec.family_counts)} families "
           f"({', '.join(f'{f}x{c}' for f, c in sorted(codec.family_counts.items()))})")
+
+    if args.update:
+        from luc_sim.codes import polar
+
+        codec.register(polar(16, 8, name="polar16-8-updated"))
+        print(f"Field update: registered polar16-8-updated -> registry now "
+              f"{len(codec.registry)} codes ({len(codec.family_counts)} families)")
 
     if args.fixed:
         fixed = best_fixed_code(codec, channel.mean_snr_db(args.frames))
@@ -142,6 +145,35 @@ def cmd_demo(args) -> int:
     print(f"Codes used    : {', '.join(f'{k}={v}' for k, v in sorted(usage.items()))}")
     if args.update:
         print("Field update  : polar16-8-updated registered mid-run (used if selected)")
+    return 0
+
+
+def cmd_missions(args) -> int:
+    """Compare the adaptive link under the three mission modes on one channel."""
+    schedule = GENTLE_SCHEDULE if args.scenario == "gentle" else HARSH_SCHEDULE
+    channel = DynamicChannel(schedule, burst_prob=args.burst_prob, burst_penalty_db=args.burst_penalty)
+    print("=" * 78)
+    print("LUC mission comparison (same dynamic channel, adaptive codec)")
+    print("=" * 78)
+    print(f"Channel schedule (frame, Eb/N0 dB): {schedule}")
+    print(f"{'mission':<12} {'BLER':>8} {'goodput':>9} {'q/frame':>9} {'switches':>9}  codes used")
+    rows = []
+    for mission in ("throughput", "latency", "robust"):
+        codec = UniversalCodec(
+            mission=mission, target_bler=args.target_bler,
+            max_queries=args.max_queries, profile_frames=args.profile_frames,
+            cache=not args.no_cache,
+        )
+        rep = run_link(codec, channel, args.frames, seed=args.seed, adaptive=True,
+                       frame_ms=args.frame_ms)
+        usage = rep.code_usage()
+        rows.append((mission, rep.bler(), rep.goodput(), rep.avg_queries(),
+                     len(codec.switches), ", ".join(f"{k}={v}" for k, v in sorted(usage.items()))))
+    for mission, bler, gp, q, sw, used in rows:
+        print(f"{mission:<12} {bler:>8.4f} {gp:>9.4f} {q:>9.1f} {sw:>9d}  {used}")
+    print()
+    print("throughput: maximize info bits delivered; latency: reward low-query (low-power)")
+    print("codes; robust: minimize error rate first. All subject to the BLER target.")
     return 0
 
 
@@ -198,6 +230,16 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--frame-ms", type=float, default=1.0)
     sp.add_argument("--json", default=None)
     sp.set_defaults(fn=cmd_metrics)
+
+    sp = sub.add_parser("missions", parents=[common],
+                        help="compare the adaptive link under all three mission modes")
+    sp.add_argument("--frames", type=int, default=500)
+    sp.add_argument("--seed", type=int, default=7)
+    sp.add_argument("--scenario", choices=["gentle", "harsh"], default="gentle")
+    sp.add_argument("--burst-prob", type=float, default=0.03)
+    sp.add_argument("--burst-penalty", type=float, default=8.0)
+    sp.add_argument("--frame-ms", type=float, default=1.0)
+    sp.set_defaults(fn=cmd_missions)
 
     sp = sub.add_parser("demo", parents=[common], help="run the adaptive streaming demo")
     sp.add_argument("--frames", type=int, default=800)

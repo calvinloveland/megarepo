@@ -87,6 +87,7 @@ uv pip install --python .venv/bin/python -e . pytest
 
 luc-sim codes                          # registry audit
 luc-sim demo                           # adaptive link over a dynamic channel
+luc-sim missions                       # compare throughput / latency / robust missions
 luc-sim metrics                        # Table-1 style metrics report
 luc-sim sweep --code ldpc(28,14) --snr 0,2,4,6,8,10,12
 luc-sim plot --all --out bler.svg      # BLER curves (SVG, no dependencies)
@@ -143,6 +144,20 @@ bursts), and on sub-pJ/bit GRAND silicon that cost is affordable.
 5. **Receiver decoder power** — queries per info bit as a power proxy.
 6. **Time to switch code classes** — measured switch latency after channel steps
    (median 2 ms at 1 ms/frame).
+
+### Mission modes (task/mission optimization)
+
+`luc-sim missions` runs the same dynamic channel under all three policy modes:
+
+| mission | BLER | goodput | q/frame | dominant codes |
+|---|---|---|---|---|
+| throughput | 0.070 | 0.211 | 584 | hamming(15,11), rs(7,3) |
+| latency | 0.070 | 0.212 | 626 | rs(7,5), rs(7,3) |
+| robust | 0.073 | 0.132 | 743 | ldpc(28,14), rs(7,3) |
+
+Robust mode trades ~40% goodput for the lowest error rate; latency mode favors
+low-query codes; throughput maximizes delivered bits — the same codec hardware,
+only the policy differs.
 
 ## Layout
 
