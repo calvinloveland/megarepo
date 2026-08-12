@@ -194,6 +194,10 @@ tests/              pytest suite (61 tests)
 docs/images/        generated charts
 ```
 
+## Mapping to the RFP
+
+A requirement-by-requirement walk of the DARPA LUC BAA (HR001126S0014) against this simulator — what is demonstrated, what is not, and where in the code — lives in [`rfp-mapping.md`](rfp-mapping.md). Use it to scope a proposal response and to find the strongest evidence for each evaluation criterion.
+
 ## References
 
 - DARPA BAA HR001126S0014, *Lightweight Universal Codec* (Jul 2026), incl. LUC CUI
