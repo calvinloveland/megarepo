@@ -37,6 +37,10 @@
   .card .k { color: var(--dim); font-size: 11px; text-transform: uppercase; letter-spacing: .8px; }
   .card .v { font-size: 22px; font-weight: 700; margin-top: 4px; }
   .card .v small { font-size: 12px; color: var(--dim); font-weight: 400; }
+  .compare-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .compare-table th, .compare-table td { text-align: left; padding: 5px 12px; border-bottom: 1px solid var(--border); }
+  .compare-table th { color: var(--accent); font-size: 11px; text-transform: uppercase; letter-spacing: 1px; }
+  .compare-table td:first-child { color: var(--dim); }
   .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 6px; padding: 12px; margin-bottom: 16px; }
   .panel h2 { font-size: 13px; margin: 0 0 8px; color: var(--accent); text-transform: uppercase; letter-spacing: 1px; }
   canvas { width: 100%; height: auto; display: block; background: var(--panel2); border-radius: 4px; }
@@ -61,11 +65,16 @@
     <label>frames <input id="frames" type="number" value="600" min="100" max="2000" step="100"></label>
     <label>seed <input id="seed" type="number" value="7"></label>
     <label><input id="adaptive" type="checkbox" checked> adaptive</label>
+    <label><input id="compare" type="checkbox"> + fixed SoTA</label>
     <button id="run">Run link</button>
   </div>
 </header>
 <main>
   <div class="cards" id="cards"></div>
+  <div class="panel" id="compare-panel" style="display:none">
+    <h2>Adaptive vs fixed (SoTA) baseline — same channel</h2>
+    <div class="compare-table" id="compare-table"></div>
+  </div>
   <div class="panel">
     <h2>Adaptive link timeline</h2>
     <canvas id="timeline" width="1200" height="420"></canvas>
@@ -272,6 +281,28 @@ function renderStats() {
   ).join("");
 }
 
+function renderComparison(fixedData) {
+  const a = simData.stats, f = fixedData.stats;
+  const lat = a.switch_latency_ms;
+  const rows = [
+    ["BLER", a.bler, f.bler],
+    ["Goodput (info bits / tx bit)", a.goodput, f.goodput],
+    ["Outage", a.outage, f.outage],
+    ["Avg queries / frame", a.avg_queries, f.avg_queries],
+    ["Queries / info bit", a.queries_per_info_bit, f.queries_per_info_bit],
+    ["Code switches", a.switches, f.switches],
+    ["Switch latency (ms)", lat.median == null ? "—" : lat.median, "—"],
+    ["Code", Object.entries(a.usage).map(([k, v]) => `${k}=${v}`).join(", "), Object.keys(f.usage).join(", ") + " (fixed)"],
+  ];
+  const fmt = (v) => typeof v === "number" ? (Math.abs(v) < 1 && v !== 0 ? v.toFixed(4) : v.toFixed(2)) : v;
+  $("compare-table").innerHTML =
+    `<table class="compare-table"><tr><th>metric</th><th>adaptive (LUC)</th><th>fixed (SoTA)</th></tr>` +
+    rows.map(([k, va, vb]) =>
+      `<tr><td>${k}</td><td>${fmt(va)}</td><td>${fmt(vb)}</td></tr>`
+    ).join("") + `</table>`;
+  $("compare-panel").style.display = "block";
+}
+
 function renderLegend(codes) {
   const fams = [...new Set(codes.map(c => c.family))];
   $("legend").innerHTML = fams.map(f =>
@@ -299,14 +330,22 @@ async function run() {
     mission: $("mission").value, scenario: $("scenario").value,
     adaptive: $("adaptive").checked ? "1" : "0",
   });
+  const wantCompare = $("compare").checked && $("adaptive").checked;
   try {
     const t0 = performance.now();
-    simData = await fetchJSON("/api/sim?" + q.toString());
+    const [sim, fixed] = await Promise.all([
+      fetchJSON("/api/sim?" + q.toString()),
+      wantCompare ? fetchJSON("/api/sim?" + q.toString() + "&adaptive=0") : null,
+    ]);
+    simData = sim;
     $("status").textContent =
       `link complete in ${((performance.now() - t0) / 1000).toFixed(1)} s` +
-      ` · mission=${simData.meta.mission} adaptive=${simData.meta.adaptive} · ` +
-      Object.entries(simData.stats.usage).map(([k, v]) => `${k}=${v}`).join(", ");
+      ` · mission=${simData.meta.mission} adaptive=${simData.meta.adaptive}` +
+      (wantCompare ? ` · fixed baseline: ${fixed.stats.usage.code || "(fixed)"}` : "") +
+      ` · ` + Object.entries(simData.stats.usage).map(([k, v]) => `${k}=${v}`).join(", ");
     renderStats();
+    if (wantCompare) renderComparison(fixed);
+    else $("compare-panel").style.display = "none";
     drawTimeline();
   } catch (err) {
     $("status").textContent = "error: " + err.message;
@@ -326,6 +365,9 @@ async function loadCurves() {
 }
 
 (async function init() {
+  if (new URLSearchParams(location.search).get("compare") === "1") {
+    $("compare").checked = true;  // deep-linkable + headless-verifiable
+  }
   try {
     const codes = await fetchJSON("/api/codes");
     renderLegend(codes.codes);

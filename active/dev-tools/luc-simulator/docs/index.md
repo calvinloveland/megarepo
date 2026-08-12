@@ -114,7 +114,10 @@ vanilla JS/Canvas) at `http://127.0.0.1:8080`:
 * **summary cards** — BLER, goodput, outage, switches, switch latency;
 * the **BLER curves** for all code families (log-y) with the target line;
 * controls to re-run with a different scenario / mission / frame count / seed,
-  including the non-adaptive (SoTA) baseline.
+  including the non-adaptive (SoTA) baseline;
+* a **+ fixed SoTA** toggle that runs the fixed baseline on the same channel
+  and shows an adaptive-vs-SoTA comparison table (BLER, goodput, outage,
+  queries, switches, switch latency) — deep-linkable with `?compare=1`.
 
 API: `GET /api/codes`, `/api/sim?frames=&seed=&mission=&scenario=&adaptive=`,
 `/api/curves?snr=&frames=`.
