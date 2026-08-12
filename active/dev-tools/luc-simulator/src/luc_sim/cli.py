@@ -210,6 +210,34 @@ def cmd_timeline(args) -> int:
     return 0
 
 
+def cmd_bench(args) -> int:
+    """Measure GRAND decoder work (query proxy) vs code length at fixed Eb/N0."""
+    from luc_sim.profiles import measure_code
+
+    codec = _make_codec(args)
+    snr_points = [float(x) for x in args.snr.split(",")]
+    names = list(args.codes) if args.codes else [
+        "rs(7,3)", "ldpc(28,14)", "bch(31,16)", "polar(32,11)",
+        "rs(15,11)", "bch(63,45)", "bch(63,36)", "ldpc(64,40)",
+    ]
+    print(f"{"code":<12} {"n":>4} {"k":>4} {"rate":>6} | " +
+          "  ".join(f"{f"q/cw@{s:g}dB":>16}" for s in snr_points))
+    for name in names:
+        if name not in codec.registry:
+            print(f"  (unknown code {name})")
+            continue
+        c = codec.registry[name]
+        cells = []
+        for s in snr_points:
+            bler, avg_q, _ = measure_code(c, s, args.frames, args.max_queries, seed=0)
+            cells.append(f"{avg_q:10.1f} (BLER {bler:.3f})")
+        print(f"{name:<12} {c.n:>4} {c.k:>4} {c.rate:>6.3f} | " + "  ".join(cells))
+    print()
+    print("queries per codeword = GRAND work (power/latency proxy); at fixed Eb/N0,")
+    print("work scales with the noise load, not the code length: clean channels cost ~1 query")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="luc-sim",
@@ -276,6 +304,13 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--out", default="bler.svg")
     sp.add_argument("--title", default="BLER vs Eb/N0 (LUC codes)")
     sp.set_defaults(fn=cmd_plot)
+
+    sp = sub.add_parser("bench", parents=[common], help="GRAND work vs code length benchmark")
+    sp.add_argument("--frames", type=int, default=200)
+    sp.add_argument("--snr", default="5,7,9")
+    sp.add_argument("--codes", action="append", default=None,
+                    help="code name (repeatable; default: one per code length)")
+    sp.set_defaults(fn=cmd_bench)
 
     sp = sub.add_parser("serve", help="run the LUC Link Explorer web UI")
     sp.add_argument("--port", type=int, default=8080)

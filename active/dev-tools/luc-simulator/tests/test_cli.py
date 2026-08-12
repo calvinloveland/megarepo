@@ -1,6 +1,6 @@
 """Smoke tests for the CLI (fast paths only)."""
 
-from luc_sim.cli import build_parser, cmd_codes, cmd_metrics, cmd_missions
+from luc_sim.cli import build_parser, cmd_bench, cmd_codes, cmd_metrics, cmd_missions
 
 
 def test_parser_registers_all_commands():
@@ -37,6 +37,15 @@ def test_cmd_missions_runs(capsys):
     assert cmd_missions(ns) == 0
     out = capsys.readouterr().out
     assert "throughput" in out and "latency" in out and "robust" in out
+
+
+def test_cmd_bench_runs(capsys):
+    ns = build_parser().parse_args(
+        ["bench", "--frames", "60", "--snr", "7", "--codes", "bch(31,16)", "--no-cache"]
+    )
+    assert cmd_bench(ns) == 0
+    out = capsys.readouterr().out
+    assert "bch(31,16)" in out and "queries per codeword" in out
 
 
 def test_timeline_svg(tmp_path):

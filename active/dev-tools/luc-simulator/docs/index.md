@@ -185,6 +185,27 @@ Robust mode trades ~40% goodput for the lowest error rate; latency mode favors
 low-query codes; throughput maximizes delivered bits — the same codec hardware,
 only the policy differs.
 
+### GRAND work vs code length (`luc-sim bench`)
+
+Decoder work (GRAND membership queries per codeword) at fixed Eb/N0 across code
+lengths — measured with `luc-sim bench`:
+
+| code | n | k | q/cw @5dB | q/cw @7dB | q/cw @9dB |
+|---|---|---|---|---|---|
+| rs(7,3) | 21 | 9 | 87 | 7 | 1.1 |
+| ldpc(28,14) | 28 | 14 | 158 | 30 | 1.1 |
+| bch(31,16) | 31 | 16 | 109 | 3 | 1.0 |
+| polar(32,11) | 32 | 11 | 821 | 97 | 5.5 |
+| rs(15,11) | 60 | 44 | 169 | 2 | 1.0 |
+| bch(63,45) | 63 | 45 | 249 | 4 | 1.0 |
+| bch(63,36) | 63 | 36 | 830 | 84 | 1.1 |
+| ldpc(64,40) | 64 | 40 | 435 | 4 | 1.0 |
+
+The takeaway is the LUC power story: GRAND's work scales with the **noise
+load**, not the code length — at 9 dB Eb/N0 even the 64-bit codes decode with a
+single membership check (the decoder is idle on clean channels, which is what
+sub-pJ/bit GRAND silicon exploits).
+
 ## Layout
 
 ```
