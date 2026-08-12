@@ -91,10 +91,27 @@ luc-sim missions                       # compare throughput / latency / robust m
 luc-sim metrics                        # Table-1 style metrics report
 luc-sim sweep --code ldpc(28,14) --snr 0,2,4,6,8,10,12
 luc-sim plot --all --out bler.svg      # BLER curves (SVG, no dependencies)
+luc-sim serve                          # LUC Link Explorer web UI at http://127.0.0.1:8080
 ```
 
 Profiles are measured on first use and cached in `~/.cache/luc-sim/profiles.json`
 (override `LUC_SIM_CACHE`); repeat runs are instant.
+
+### LUC Link Explorer (web UI)
+
+`luc-sim serve` runs a dependency-free browser UI (Python stdlib `http.server` +
+vanilla JS/Canvas) at `http://127.0.0.1:8080`:
+
+* the **adaptive link timeline** — true vs estimated SNR over frames, the code
+  family used per frame (color-coded), switch markers, and error/sync-loss
+  markers, with hover tooltips;
+* **summary cards** — BLER, goodput, outage, switches, switch latency;
+* the **BLER curves** for all code families (log-y) with the target line;
+* controls to re-run with a different scenario / mission / frame count / seed,
+  including the non-adaptive (SoTA) baseline.
+
+API: `GET /api/codes`, `/api/sim?frames=&seed=&mission=&scenario=&adaptive=`,
+`/api/curves?snr=&frames=`.
 
 ## Sample results (measured, seed 7, 600 frames, 1 ms frames)
 

@@ -261,7 +261,27 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--title", default="BLER vs Eb/N0 (LUC codes)")
     sp.set_defaults(fn=cmd_plot)
 
+    sp = sub.add_parser("serve", help="run the LUC Link Explorer web UI")
+    sp.add_argument("--port", type=int, default=8080)
+    sp.add_argument("--frames", type=int, default=600)
+    sp.add_argument("--seed", type=int, default=7)
+    sp.add_argument("--mission", choices=["throughput", "latency", "robust"], default="throughput")
+    sp.add_argument("--scenario", choices=["gentle", "harsh"], default="gentle")
+    sp.add_argument("--no-browser", action="store_true", help="do not try to open a browser")
+    sp.set_defaults(fn=cmd_serve)
+
     return p
+
+
+def cmd_serve(args) -> int:
+    from luc_sim import serve as serve_mod
+
+    serve_mod.serve(
+        port=args.port, frames=args.frames, seed=args.seed,
+        mission=args.mission, scenario=args.scenario,
+        no_browser=args.no_browser, open_browser=True,
+    )
+    return 0
 
 
 def main(argv: list[str] | None = None) -> int:
