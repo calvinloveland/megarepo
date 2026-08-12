@@ -6,9 +6,9 @@ using **any known error-correcting code** — and any code developed in the futu
 switching code classes **on the fly** while a link is operating, and supporting
 field-updatable code books without implementation redesign.
 
-This project demonstrates the whole idea end-to-end at a small, tractable scale:
-
-![BLER curves for all LUC code families, decoded by one GRAND universal decoder](images/bler_curves.svg)
+This project demonstrates the whole idea end-to-end at a small, tractable scale
+(a generated BLER-curve chart for all families lives at
+`docs/images/bler_curves.svg`; regenerate with `luc-sim plot --all`).
 
 ## Why this matters (the program's problem)
 
