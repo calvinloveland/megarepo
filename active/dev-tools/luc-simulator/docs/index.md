@@ -215,6 +215,13 @@ tests/              pytest suite (61 tests)
 docs/images/        generated charts
 ```
 
+## Proposal materials
+
+- [`abstract-draft.md`](abstract-draft.md) — a working draft of the LUC
+  proposal abstract following the official Abstract Template (cover sheet,
+  Goals and Impact, Technical Approach, IP Plan, Capabilities/Management/
+  Security, Cost and Schedule), grounded in this simulator's measured results.
+
 ## Mapping to the RFP
 
 A requirement-by-requirement walk of the DARPA LUC BAA (HR001126S0014) against this simulator — what is demonstrated, what is not, and where in the code — lives in [`rfp-mapping.md`](rfp-mapping.md). Use it to scope a proposal response and to find the strongest evidence for each evaluation criterion.
