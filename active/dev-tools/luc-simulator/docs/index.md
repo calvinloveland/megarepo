@@ -27,7 +27,7 @@ codeword?* That is the LUC bet, and this repository is a working miniature of it
   user bits   │  select code (policy: SNR est, mission, BLER target)                  │
  ───────────▶ │  ┌──────────────┐   ┌─────────────────┐    ┌────────────────────────┐ │
               │  │ code registry │──▶│ pack + encode   │───▶│ header ‖ codewords + CRC││──▶ channel
-              │  │ 13 codes, 7    │   │ (any family)    │    │ (rep-protected code ID)││
+              │  │ 15 codes, 7    │   │ (any family)    │    │ (rep-protected code ID)││
               │  │ families       │   └─────────────────┘    └────────────────────────┘│
               └───────────────────────────────────────────────────────────────────────┘
                                                 │  BPSK + AWGN, dynamic SNR, bursts
@@ -41,22 +41,28 @@ codeword?* That is the LUC bet, and this repository is a working miniature of it
               └──────────────────────────────────────────────────────────────────────┘
 ```
 
-### Code registry — 13 codes, 7 families, one decoder
+### Code registry — 15 codes, 7 families, one decoder
 
 | Code | Family | (n, k) | d | Notes |
 |---|---|---|---|---|
-| rep5 / rep11 / rep31 | repetition | (5,1) (11,1) (31,1) | 5/11/31 | fallback + header signaling |
+| rep5 / rep11 | repetition | (5,1) (11,1) | 5/11 | fallback + header signaling |
 | hamming(7,4), hamming(15,11) | Hamming | (7,4) (15,11) | 3 | built as BCH(d=3) |
 | bch(15,7), bch(31,16) | BCH | (15,7) (31,16) | 5/7 | algebraic construction, distance verified |
-| rs(7,3), rs(7,5), rs(15,11) | Reed–Solomon | (21,9) (21,15) (60,44) | 5/3/5 | GF(8)/GF(16); rs(15,11) uses a **syndrome oracle** (k=44, no enumeration) |
+| bch(63,45), bch(63,36) | BCH | (63,45) (63,36) | 7/11 | long codes: **syndrome membership**, no enumeration |
+| rs(7,3), rs(7,5), rs(15,11) | Reed–Solomon | (21,9) (21,15) (60,44) | 5/3/5 | GF(8)/GF(16); rs(15,11) uses a **syndrome oracle** (k=44) |
 | polar(32,11) | Polar | (32,11) | 8 | Arikan-style, 5G beta-expansion reliability |
-| ldpc(28,14) | LDPC | (28,14) | 4 | PEG construction, girth ≥ 6 |
+| ldpc(28,14), ldpc(64,40) | LDPC | (28,14) (64,40) | 4 / ≥4* | PEG construction, girth ≥ 6; long one uses the parity-check **syndrome** |
 | turbo-lite(8) | Turbo | (28,8) | 6 | two RSC(7,5) arms, interleaved; decoded by GRAND in one shot |
 
+\* ldpc(64,40)'s distance is spot-checked (exhaustive search is intractable); the
+BCH bound guarantees the BCH design distances.
+
 Every code exposes exactly one thing to the decoder: `contains(codeword)` — a
-`frozenset` lookup for enumerable codes, a GF-syndrome evaluation for RS(15,11).
-That is what makes the decoder **universal** and the registry **field-updatable**:
-`codec.register(new_code)` mid-run, and GRAND decodes it with zero changes.
+`frozenset` lookup for enumerable codes (k ≤ 16), a GF-syndrome or parity-check
+evaluation for the longer ones (k up to 45). That is what makes the decoder
+**universal** and the registry **field-updatable**: `codec.register(new_code)`
+mid-run (one code-ID slot is kept free for exactly this), and GRAND decodes it
+with zero changes.
 
 ### The adaptive policy
 
@@ -133,13 +139,15 @@ bursts), and on sub-pJ/bit GRAND silicon that cost is affordable.
 
 ## Honest caveats
 
-- **Short codes** — the registry uses n ≤ 60, k ≤ 44 so GRAND's exhaustive search
-  stays tractable in pure Python. Absolute BLER numbers are therefore worse than
-  industrial long-code systems; the *relative* adaptive-vs-fixed behavior is the
-  point.
-- **Query-budget limits** — GRAND's bounded search makes nominally-robust codes like
-  rep31 impractical (it cannot reach the required error weight within budget); the
-  policy therefore chooses from *measured* profiles, not nominal distance.
+- **Short codes** — the workhorse registry uses n ≤ 32 so GRAND's exhaustive
+  search stays tractable in pure Python (longer n=60–64 codes exist via syndrome
+  membership but are excluded from the default adaptive policy for speed).
+  Absolute BLER numbers are therefore worse than industrial long-code systems;
+  the *relative* adaptive-vs-fixed behavior is the point.
+- **Query-budget limits** — GRAND's bounded search makes nominally-robust codes
+  impractical at very low SNR (it cannot reach the required error weight within
+  budget); the policy therefore chooses from *measured* profiles, not nominal
+  distance.
 - **Perfect codes misdecode** — a 2-error word in a perfect code (Hamming) can be
   distance-1 from a different codeword; GRAND correctly ML-decodes to it, and the
   CRC-16 is what turns that into a detected error.
@@ -151,9 +159,10 @@ bursts), and on sub-pJ/bit GRAND silicon that cost is affordable.
 
 ## Mapping to the LUC program's Table-1 metrics
 
-1. **Codes supported on a single algorithm** — 13 instances / 7 families, all
-   decoded by one GRAND algorithm; registry supports arbitrary additions (the
-   "100 mission codes" story).
+1. **Codes supported on a single algorithm** — 15 instances / 7 families (up to
+   n=64, k=45, decoded via codebook or syndrome membership), all handled by one
+   GRAND algorithm; the registry supports field updates (the "100 mission codes"
+   story).
 2. **Channel latency** — measured as GRAND queries per frame / per info bit.
 3. **Signal gain in dynamic noise** — measured as the adaptive-vs-fixed Eb/N0 needed
    for the BLER target (≈ 2 dB here).
@@ -181,7 +190,7 @@ only the policy differs.
 ```
 src/luc_sim/        the package (bits, gf, linear, codes, grand, channel, codec,
                     profiles, sim, metrics, plot, cli)
-tests/              pytest suite (46 tests)
+tests/              pytest suite (61 tests)
 docs/images/        generated charts
 ```
 

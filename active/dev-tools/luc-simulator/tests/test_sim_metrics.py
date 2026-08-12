@@ -47,11 +47,11 @@ def test_luc_metrics_shape():
     channel = DynamicChannel([(0, 12.0), (60, 5.0), (120, 9.0), (180, 2.5), (240, 10.0)])
     m = luc_metrics(codec, channel, n_frames=300, seed=2, cache=False,
                     snr_grid=[2.0, 4.0, 6.0, 8.0, 10.0, 12.0])
-    assert m["metric_1_codes_supported"]["instances"] == 13
+    assert m["metric_1_codes_supported"]["instances"] == 15
     assert len(m["metric_1_codes_supported"]["families"]) == 7
     assert "metric_2_channel_latency" in m
     assert "metric_3_signal_gain_db" in m
-    assert "metric_4_bler_at_5db" in m and len(m["metric_4_bler_at_5db"]) == 13
+    assert "metric_4_bler_at_5db" in m and len(m["metric_4_bler_at_5db"]) == 15
     assert "metric_5_decoder_power" in m
     assert "metric_6_switch_time" in m
     # adaptive must not be worse than SoTA on the same channel

@@ -28,7 +28,7 @@ def _get(url: str) -> dict:
 def test_api_codes_shape():
     data = api_codes({})
     assert data["codes"][0]["name"] == "rep5"
-    assert len(data["codes"]) == 13
+    assert len(data["codes"]) == 15
     assert data["header_len"] == 124
     assert data["frame_bits"] == 256
 
@@ -70,7 +70,7 @@ def test_http_serve_root(server_url):
 
 def test_http_serve_json(server_url):
     data = _get(f"{server_url}/api/codes")
-    assert len(data["codes"]) == 13
+    assert len(data["codes"]) == 15
     sim = _get(f"{server_url}/api/sim?frames=100&seed=3&profile_frames=100")
     assert sim["meta"]["frames"] == 100
 

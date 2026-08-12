@@ -16,7 +16,7 @@ def test_cmd_codes_runs(capsys):
     ns = build_parser().parse_args(["codes"])
     assert cmd_codes(ns) == 0
     out = capsys.readouterr().out
-    assert "13 code instances across 7 families" in out
+    assert "15 code instances across 7 families" in out
     assert "polar(32,11)" in out
 
 

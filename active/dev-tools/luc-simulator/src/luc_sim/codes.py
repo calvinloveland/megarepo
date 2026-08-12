@@ -17,7 +17,7 @@ from luc_sim.linear import LinearCode, linear_from_encoder, linear_from_generato
 ALPHA = 2  # primitive element of every GF(2^m) we use
 
 # primitive polynomials (leading x^m bit implicit) for the fields we build codes over
-_PRIMITIVES = {3: 0b1011, 4: 0b10011, 5: 0b100101}  # x^3+x+1, x^4+x+1, x^5+x^2+1
+_PRIMITIVES = {3: 0b1011, 4: 0b10011, 5: 0b100101, 6: 0b1000011}  # x^3+x+1, x^4+x+1, x^5+x^2+1, x^6+x+1
 
 
 def _field(m: int) -> GF:
@@ -60,7 +60,9 @@ def bch(m: int, design_d: int, name: Optional[str] = None) -> LinearCode:
     """Narrow-sense binary BCH code of length n=2^m-1 with design distance `design_d`.
 
     Generator = lcm of minimal polynomials of alpha^1..alpha^(design_d-1).
-    Minimum distance is brute-force verified at construction (codes here are small).
+    Minimum distance is brute-force verified at construction when the code is
+    small enough (k <= 16); larger codes get a GF syndrome membership oracle
+    instead (the BCH bound guarantees the design distance).
     """
     field = _field(m)
     n = field.order
@@ -88,11 +90,28 @@ def bch(m: int, design_d: int, name: Optional[str] = None) -> LinearCode:
         rem = gf2_poly_mod(msg << n_k, g)
         return (msg << n_k) | rem
 
+    def syndrome(c: int) -> bool:
+        """c(x) divisible by g(x) iff c(alpha^j) = 0 for all j in 1..design_d-1."""
+        for j in range(1, design_d):
+            root = field.pow(ALPHA, j)
+            acc = 0
+            for i in range(n - 1, -1, -1):
+                acc = field.mul(acc, root) ^ ((c >> i) & 1)
+            if acc != 0:
+                return False
+        return True
+
     code = linear_from_encoder(
         encode, n, k, name or f"bch({n},{k})", "bch", d=design_d,
         params={"m": m, "generator_poly": f"0b{g:b}"},
     )
-    assert code.min_distance() >= design_d, f"{code.name}: min distance too low"
+    code.syndrome = syndrome
+    if k <= 16:
+        assert code.min_distance() >= design_d, f"{code.name}: min distance too low"
+    else:
+        # spot-check the syndrome oracle against the encoder
+        for probe in (0, 1, (1 << k) - 1, 1 << (k - 1)):
+            assert syndrome(encode(probe)), f"{code.name}: encoder/oracle mismatch"
     return with_codebook(code)
 
 
@@ -212,10 +231,11 @@ def polar(n: int, k: int, name: Optional[str] = None) -> LinearCode:
 # --------------------------------------------------------------------------- LDPC
 def ldpc(n: int, k: int, col_w: int = 3, seed: int = 7, attempts: int = 300,
          name: Optional[str] = None) -> LinearCode:
-    """Small regular-column-weight LDPC with girth >= 6 and minimum distance >= 4.
+    """Regular-column-weight LDPC built with PEG (large girth) and min distance >= 4.
 
-    The parity-check matrix is built by rejection sampling (no two columns share
-    more than one row, which rules out 4-cycles); the code is the null space of H.
+    For small codes (k <= 16) the minimum distance is verified exhaustively; for
+    larger codes a random sample of codewords is checked instead and membership is
+    tested via the parity-check syndrome (no codebook enumeration).
     """
     rows = n - k
     if col_w > 1:
@@ -264,10 +284,24 @@ def ldpc(n: int, k: int, col_w: int = 3, seed: int = 7, attempts: int = 300,
             continue
         code = linear_from_generator(
             basis, n, name or f"ldpc({n},{k})", "ldpc", d=None,
-            params={"column_weight": col_w},
+            params={"column_weight": col_w, "parity_rows": tuple(h_rows)},
         )
-        if code.min_distance() < 4:
-            continue
+
+        def syndrome(c: int) -> bool:
+            return all((c & h).bit_count() % 2 == 0 for h in h_rows)
+
+        code.syndrome = syndrome
+        if k <= 16:
+            if code.min_distance() < 4:
+                continue
+        else:
+            # exhaustive distance is intractable; check a random sample
+            sample = rng.getrandbits(k) | 1
+            if min((code.encode(m).bit_count() for m in
+                    (sample, sample ^ 0b1011, sample ^ 0b10001011)), default=0) < 4:
+                continue
+            if not all(syndrome(code.encode(m)) for m in (0, 1, 1 << (k - 1))):
+                continue
         return with_codebook(code)
     raise RuntimeError(f"could not construct ldpc({n},{k}) with girth 6 and d>=4")
 
@@ -338,11 +372,22 @@ def turbo_lite(k: int = 8, seed: int = 7, name: Optional[str] = None) -> LinearC
 
 # --------------------------------------------------------------------------- registry
 def default_registry() -> list[LinearCode]:
-    """The default LUC code registry: 13 codes across 7 families."""
+    """The default LUC code registry: 15 codes across 7 families.
+
+    One code-ID slot (of 16) is intentionally left free so a code can be *added*
+    at runtime (the LUC field-update path); register() raises once the header's
+    4-bit ID space is exhausted.
+    """
+    longer = [
+        bch(6, 7),   # bch(63,45,7)
+        bch(6, 11),  # bch(63,36,11)
+        ldpc(64, 40, seed=11),
+    ]
+    for c in longer:
+        c.params["policy"] = False  # syndrome-based membership: decodable, registry-only by default
     return [
         repetition(5),
         repetition(11),
-        repetition(31),
         hamming(3),   # hamming(7,4)
         hamming(4),   # hamming(15,11)
         bch(4, 5),    # bch(15,7,5)
@@ -353,6 +398,7 @@ def default_registry() -> list[LinearCode]:
         polar(32, 11),
         ldpc(28, 14),
         turbo_lite(8),
+        *longer,
     ]
 
 

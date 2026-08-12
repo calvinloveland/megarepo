@@ -108,11 +108,22 @@ class UniversalCodec:
 
     # ------------------------------------------------------------------ registry
     def register(self, code: LinearCode) -> None:
-        """Add (or replace) a code -- the LUC field-update path."""
+        """Add (or replace) a code -- the LUC field-update path.
+
+        The in-band code-ID header is 4 bits, so at most 16 codes can be addressed;
+        adding beyond that raises.  Registering under an existing name replaces the
+        code in that slot (the codebook update story).
+        """
         if code.name not in self.registry:
+            if len(self.by_id) >= 16:
+                raise ValueError(
+                    "code-ID header supports at most 16 registered codes; "
+                    "replace an existing slot (register under an existing name)"
+                )
             self.by_id.append(code.name)
         self.registry[code.name] = code
         self._policy_cache.clear()
+        self._fallback_cache.clear()
 
     @property
     def header_len(self) -> int:

@@ -7,11 +7,23 @@ from luc_sim.codes import build_registry, default_registry
 
 def test_registry_shape():
     reg = build_registry()
-    assert len(reg) == 13
+    assert len(reg) == 15
     families = {c.family for c in reg.values()}
     assert families == {
         "repetition", "hamming", "bch", "reed-solomon", "polar", "ldpc", "turbo",
     }
+
+
+def test_long_codes_syndrome_consistent():
+    """Syndrome-membership codes beyond k=16 must agree with the encoder."""
+    rng = random.Random(3)
+    for name in ("bch(63,45)", "bch(63,36)", "ldpc(64,40)", "rs(15,11)"):
+        c = build_registry()[name]
+        assert c.syndrome is not None
+        assert c.codebook is None  # too large to enumerate
+        for _ in range(200):
+            m = rng.getrandbits(c.k)
+            assert c.syndrome(c.encode(m)), f"{name}: encoder/oracle mismatch"
 
 
 def test_encode_extract_roundtrip():
@@ -34,7 +46,7 @@ def test_zero_codeword():
 
 def test_minimum_distances():
     expected = {
-        "rep5": 5, "rep11": 11, "rep31": 31,
+        "rep5": 5, "rep11": 11,
         "hamming(7,4)": 3, "hamming(15,11)": 3,
         "bch(15,7)": 5, "bch(31,16)": 7,
         "rs(7,3)": 5, "rs(7,5)": 3,
@@ -74,6 +86,29 @@ def test_single_bit_flip_detected():
             bad = cw ^ (1 << rng.randrange(c.n))
             if bad != cw:
                 assert not c.contains(bad), f"{c.name}: weight-1 word accepted"
+
+
+def test_policy_skips_long_codes():
+    reg = build_registry()
+    for name in ("bch(63,45)", "bch(63,36)", "ldpc(64,40)", "rs(15,11)"):
+        assert reg[name].params.get("policy") is False, name
+
+
+def test_long_code_min_distance_bound():
+    """The BCH bound guarantees d >= design distance; spot-check weight-1/2 words."""
+    rng = random.Random(9)
+    for name, d in (("bch(63,45)", 7), ("bch(63,36)", 11)):
+        c = build_registry()[name]
+        for _ in range(20):
+            m = rng.getrandbits(c.k)
+            cw = c.encode(m)
+            for _ in range(5):
+                p1 = rng.randrange(c.n)
+                p2 = rng.randrange(c.n - 1)
+                if p2 >= p1:
+                    p2 += 1
+                bad = cw ^ (1 << p1) ^ (1 << p2)  # two *distinct* flips
+                assert not c.syndrome(bad), f"{name}: weight-2 word accepted (d should be {d})"
 
 
 def test_polar_information_rate():

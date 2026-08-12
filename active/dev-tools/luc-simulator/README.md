@@ -12,7 +12,7 @@ supporting field-updatable code books without redesign.
 
 | Piece | What it is |
 |---|---|
-| `luc_sim/codes.py` | 13 codes across 7 families (repetition, Hamming, BCH, Reed-Solomon, Polar, LDPC, Turbo-lite), every one a linear block code with an exact membership oracle |
+| `luc_sim/codes.py` | 15 codes across 7 families (repetition, Hamming, BCH, Reed-Solomon, Polar, LDPC, Turbo-lite), every one a linear block code with an exact membership oracle |
 | `luc_sim/grand.py` | GRAND-style **universal decoder** — one algorithm decodes every family; it never inspects a code, it only asks "is this a codeword?" |
 | `luc_sim/codec.py` | The universal codec: in-band code signaling, decoder-driven channel estimation, adaptive code selection with hysteresis, CRC-16 frame protection, field-updatable registry |
 | `luc_sim/channel.py` | BPSK/AWGN channel with dynamic SNR schedules and burst noise |
