@@ -190,7 +190,7 @@ def reed_solomon(m: int, k_syms: int, name: Optional[str] = None) -> LinearCode:
 
 
 # --------------------------------------------------------------------------- Polar
-def _polar_reliability(i: int, m: int, beta: float) -> float:
+def _polar_reliability_beta(i: int, m: int, beta: float) -> float:
     """5G-style beta-expansion sub-channel reliability (beta = 2^(1/4))."""
     acc = 0.0
     for j in range(m):
@@ -198,16 +198,30 @@ def _polar_reliability(i: int, m: int, beta: float) -> float:
     return acc
 
 
-def polar(n: int, k: int, name: Optional[str] = None) -> LinearCode:
+def polar(n: int, k: int, name: Optional[str] = None,
+          frozen_method: str = "popcount") -> LinearCode:
     """Arikan-style Polar code, natural (non bit-reversed) indexing.
 
     Generator G_{i,j} = 1 iff (i & j) == j.  The k most reliable sub-channels
-    (beta-expansion ordering, as in 5G) carry information; the rest are frozen to 0.
+    carry information; the rest are frozen to 0.
+
+    Frozen-set ordering:
+    * ``popcount`` (default) -- row weight w_i = 2^popcount(i), and the BEC
+      Bhattacharyya parameter of sub-channel i is exactly Z_i = epsilon^w_i, so
+      ordering by popcount is the classical rigorous choice for small n and is
+      the standard approximation for AWGN (it maximizes the minimum distance;
+      measured to beat beta-expansion for n=32).
+    * ``beta`` -- the 5G beta-expansion Q-function (tuned for long blocks).
     """
     m = n.bit_length() - 1
     assert (1 << m) == n and 0 < k <= n
-    beta = 2.0 ** 0.25
-    ranked = sorted(range(n), key=lambda i: _polar_reliability(i, m, beta), reverse=True)
+    if frozen_method == "popcount":
+        ranked = sorted(range(n), key=lambda i: (i.bit_count(), i), reverse=True)
+    elif frozen_method == "beta":
+        beta = 2.0 ** 0.25
+        ranked = sorted(range(n), key=lambda i: _polar_reliability_beta(i, m, beta), reverse=True)
+    else:
+        raise ValueError(f"unknown frozen_method: {frozen_method}")
     info = sorted(ranked[:k])
 
     def encode(msg: int) -> int:
@@ -223,7 +237,8 @@ def polar(n: int, k: int, name: Optional[str] = None) -> LinearCode:
 
     code = linear_from_encoder(
         encode, n, k, name or f"polar({n},{k})", "polar", d=None,
-        params={"info_set": info, "frozen": [i for i in range(n) if i not in info]},
+        params={"info_set": info, "frozen": [i for i in range(n) if i not in info],
+                "frozen_method": frozen_method},
     )
     return with_codebook(code)
 
@@ -395,7 +410,7 @@ def default_registry() -> list[LinearCode]:
         reed_solomon(3, 3),  # rs(7,3)  t=2
         reed_solomon(3, 5),  # rs(7,5)  t=1
         reed_solomon(4, 11),  # rs(15,11) t=2  (syndrome-based, k=44 bits)
-        polar(32, 11),
+        polar(32, 16),
         ldpc(28, 14),
         turbo_lite(8),
         *longer,

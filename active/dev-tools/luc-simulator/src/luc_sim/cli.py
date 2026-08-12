@@ -217,7 +217,7 @@ def cmd_bench(args) -> int:
     codec = _make_codec(args)
     snr_points = [float(x) for x in args.snr.split(",")]
     names = list(args.codes) if args.codes else [
-        "rs(7,3)", "ldpc(28,14)", "bch(31,16)", "polar(32,11)",
+        "rs(7,3)", "ldpc(28,14)", "bch(31,16)", "polar(32,16)",
         "rs(15,11)", "bch(63,45)", "bch(63,36)", "ldpc(64,40)",
     ]
     print(f"{"code":<12} {"n":>4} {"k":>4} {"rate":>6} | " +

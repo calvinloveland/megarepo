@@ -50,7 +50,7 @@ def test_minimum_distances():
         "hamming(7,4)": 3, "hamming(15,11)": 3,
         "bch(15,7)": 5, "bch(31,16)": 7,
         "rs(7,3)": 5, "rs(7,5)": 3,
-        "polar(32,11)": 4, "ldpc(28,14)": 4, "turbo-lite(8)": 3,
+        "polar(32,16)": 8, "ldpc(28,14)": 4, "turbo-lite(8)": 3,
     }
     reg = build_registry()
     for name, d in expected.items():
@@ -112,10 +112,32 @@ def test_long_code_min_distance_bound():
 
 
 def test_polar_information_rate():
-    c = build_registry()["polar(32,11)"]
+    c = build_registry()["polar(32,16)"]
     # distinct info positions, all distinct codewords
     assert len(set(c.info_positions)) == c.k
     assert len(c.codebook) == (1 << c.k)
+    assert c.params["frozen_method"] == "popcount"
+
+
+def test_polar_popcount_beats_beta_expansion():
+    """For (32,16) the popcount ordering (BEC-optimal) gives d=8; the 5G
+    beta-expansion ordering gives only d=4 -- the choice matters at this size."""
+    from luc_sim.codes import polar
+
+    pop = polar(32, 16)
+    beta = polar(32, 16, frozen_method="beta")
+    assert pop.min_distance() >= beta.min_distance()
+    assert pop.min_distance() >= 8
+    assert beta.min_distance() == 4
+
+
+def test_polar_empirical_bler():
+    """polar(32,16) must be competitive with the other rate-1/2 codes at 5 dB."""
+    from luc_sim.profiles import measure_code
+
+    c = build_registry()["polar(32,16)"]
+    bler, _, _ = measure_code(c, 5.0, 500, 4096, seed=1)
+    assert bler < 0.06, f"polar(32,16) BLER@5dB={bler:.3f} too high"
 
 
 def test_ldpc_structure():

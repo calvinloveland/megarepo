@@ -50,7 +50,7 @@ codeword?* That is the LUC bet, and this repository is a working miniature of it
 | bch(15,7), bch(31,16) | BCH | (15,7) (31,16) | 5/7 | algebraic construction, distance verified |
 | bch(63,45), bch(63,36) | BCH | (63,45) (63,36) | 7/11 | long codes: **syndrome membership**, no enumeration |
 | rs(7,3), rs(7,5), rs(15,11) | Reed–Solomon | (21,9) (21,15) (60,44) | 5/3/5 | GF(8)/GF(16); rs(15,11) uses a **syndrome oracle** (k=44) |
-| polar(32,11) | Polar | (32,11) | 8 | Arikan-style, 5G beta-expansion reliability |
+| polar(32,16) | Polar | (32,16) | 8 | Arikan-style; popcount-ordered frozen set (BEC-optimal: Z_i = ε^w_i), verified empirically |
 | ldpc(28,14), ldpc(64,40) | LDPC | (28,14) (64,40) | 4 / ≥4* | PEG construction, girth ≥ 6; long one uses the parity-check **syndrome** |
 | turbo-lite(8) | Turbo | (28,8) | 6 | two RSC(7,5) arms, interleaved; decoded by GRAND in one shot |
 
@@ -195,7 +195,7 @@ lengths — measured with `luc-sim bench`:
 | rs(7,3) | 21 | 9 | 87 | 7 | 1.1 |
 | ldpc(28,14) | 28 | 14 | 158 | 30 | 1.1 |
 | bch(31,16) | 31 | 16 | 109 | 3 | 1.0 |
-| polar(32,11) | 32 | 11 | 821 | 97 | 5.5 |
+| polar(32,16) | 32 | 16 | 197 | 8 | 1.1 |
 | rs(15,11) | 60 | 44 | 169 | 2 | 1.0 |
 | bch(63,45) | 63 | 45 | 249 | 4 | 1.0 |
 | bch(63,36) | 63 | 36 | 830 | 84 | 1.1 |

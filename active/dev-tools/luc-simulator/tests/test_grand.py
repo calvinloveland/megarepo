@@ -35,7 +35,7 @@ def test_single_bit_error_corrected():
 
 def test_two_bit_error_corrected_for_d5_codes():
     rng = random.Random(2)
-    for name in ("bch(15,7)", "bch(31,16)", "rs(7,3)", "polar(32,11)", "ldpc(28,14)", "turbo-lite(8)"):
+    for name in ("bch(15,7)", "bch(31,16)", "rs(7,3)", "polar(32,16)", "ldpc(28,14)", "turbo-lite(8)"):
         c = build_registry()[name]
         recovered = 0
         trials = 60

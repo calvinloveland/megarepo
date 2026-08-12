@@ -41,7 +41,7 @@ frames beyond the code sets.
 
 | Metric | Simulator evidence | Gaps |
 |---|---|---|
-| **1. Codes supported on a single algorithm** | 15 instances / 7 families; `luc-sim codes`; all decoded by one GRAND algorithm (`tests/test_grand.py`). 3GPP Polar control codes are approximated by Arikan-style `polar(32,11)` (5G beta-expansion reliability); RS/Turbo/LDPC representatives are included; "100 mission codes" maps to the field-update registry. | Not the exact 3GPP TS 38.212 v19.3.0 parameter sets; no modular-polar long codes. |
+| **1. Codes supported on a single algorithm** | 15 instances / 7 families; `luc-sim codes`; all decoded by one GRAND algorithm (`tests/test_grand.py`). 3GPP Polar control codes are approximated by Arikan-style `polar(32,16)` (popcount-ordered frozen set, verified empirically); RS/Turbo/LDPC representatives are included; "100 mission codes" maps to the field-update registry. | Not the exact 3GPP TS 38.212 v19.3.0 parameter sets; no modular-polar long codes. |
 | **2. Channel latency** | `sim.LinkReport.avg_queries` / `queries_per_info_bit` (GRAND query count as work proxy); adaptive-vs-fixed comparison in `luc-sim metrics`; web UI shows per-frame queries. | Proxy, not cycle-accurate latency; no silicon. |
 | **3. Signal gain in dynamic noise** | `metrics.luc_metrics["metric_3_signal_gain_db"]`: Eb/N0 needed for the BLER target, adaptive vs fixed code (measured ≈ 2 dB on the demo channel). | Short-code regime; gain will differ for long industrial codes. |
 | **4. BLER at Eb/N0 = 5 dB** | `luc-sim metrics` reports BLER@5 dB for every code; BLER curves via `luc-sim plot` / web UI. | Measured BLER is worse than the 1% program target because the prototype uses short codes for tractable exhaustive GRAND search. |
