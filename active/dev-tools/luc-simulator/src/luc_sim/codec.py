@@ -53,7 +53,7 @@ FRAME_BITS = 256
 
 # Every frame whose info payload fits carries a CRC-16 over its data, so the
 # receiver can detect GRAND misdecodes (valid codeword, wrong message) exactly as
-# a real link would.  Very small payloads (e.g. rep31: 4 info bits/frame) skip the
+# a real link would.  Very small payloads (e.g. rep11: 12 info bits/frame) skip the
 # CRC; for those, any valid codeword is accepted (documented limitation).
 FRAME_CRC_BITS = 16
 
@@ -218,7 +218,7 @@ class UniversalCodec:
             )
         k_cw = n_payload_expected // code.n  # trailing padding bits are ignored
         # channel estimate from the whole frame (many samples -> stable estimate,
-        # robust even for tiny payload codes like rep31)
+        # robust even for tiny payload codes like rep11)
         est = estimate_ebn0_db(samples, code.rate)
         queries = 0
         frame_msg = 0
@@ -276,8 +276,8 @@ class UniversalCodec:
     def _min_bler_code(self, est_snr_db: float) -> str:
         """Code with the lowest predicted *frame* BLER at this SNR.
 
-        Used when nothing meets the target: GRAND's query budget makes some very
-        robust codes (e.g. rep31) impractical, so the fallback is chosen from the
+        Used when nothing meets the target: GRAND's query budget makes nominally-
+        robust low-rate codes impractical, so the fallback is chosen from the
         measured profiles rather than by nominal robustness.
         """
         key = (round(est_snr_db * 2) / 2.0, self.mission)

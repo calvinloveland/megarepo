@@ -98,7 +98,7 @@ free in the default registry for exactly this (the header is 4 bits, so at most
 ## 6. Deliverables the prototype already produces (BAA §2.7)
 
 - **#3/#4 Commented source, build scripts, docs, software modules for testing** —
-  the package itself; `pytest` suite (61 tests) is the Phase-1-style module test.
+  the package itself; `pytest` suite (65 tests) is the Phase-1-style module test.
 - **#7/#8 Quarterly/monthly reports** — N/A for a prototype, but
   `luc-sim metrics --json` and `luc-sim sweep --json` produce reproducible
   measurement artifacts that would back those reports.
@@ -153,5 +153,5 @@ free in the default registry for exactly this (the header is 4 bits, so at most
 | Web UI + JSON API | `src/luc_sim/serve.py`, `src/luc_sim/web/index.html` |
 | Charts | `src/luc_sim/plot.py` |
 | CLI | `src/luc_sim/cli.py` |
-| Tests | `tests/` (61 tests) |
+| Tests | `tests/` (65 tests) |
 | Verification (browser) | `scripts/verify_web_ui.py` |

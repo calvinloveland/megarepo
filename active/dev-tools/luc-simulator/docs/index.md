@@ -214,7 +214,7 @@ sub-pJ/bit GRAND silicon exploits).
 ```
 src/luc_sim/        the package (bits, gf, linear, codes, grand, channel, codec,
                     profiles, sim, metrics, plot, cli)
-tests/              pytest suite (61 tests)
+tests/              pytest suite (65 tests)
 docs/images/        generated charts
 ```
 
