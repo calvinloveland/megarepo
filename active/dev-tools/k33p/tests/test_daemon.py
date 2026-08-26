@@ -13,7 +13,6 @@ from k33p.daemon import Daemon, FileChange, _parse_duration, run_daemon
 from k33p.project import load_project
 from k33p.store import ContentStore
 
-
 # ── helpers ──────────────────────────────────────────────────────────────
 
 
@@ -269,6 +268,112 @@ class TestRunDaemon:
     def test_run_nonexistent_path(self) -> None:
         rc = run_daemon("/nonexistent", once=True)
         assert rc == 1
+
+# ── artifact snapshotting (gitignored files kept in the CAS, not git) ───
+
+class TestArtifactSnapshot:
+    """Gitignored files are content-addressed into the store, not git."""
+
+    @staticmethod
+    def _fake_gitignore(paths: list[str]) -> set[str]:
+        """Stand-in for ``git check-ignore``: ignore everything under backup/."""
+        return {p for p in paths if p.startswith("backup/")}
+
+    def test_scan_partitions_source_and_artifacts(
+        self, project_with_daemon: Path, monkeypatch
+    ) -> None:
+        project = load_project(str(project_with_daemon))
+        daemon = Daemon(project)
+        monkeypatch.setattr(daemon, "_filter_gitignored", self._fake_gitignore)
+
+        (project_with_daemon / "backup").mkdir()
+        (project_with_daemon / "backup" / "save.kicad_pcb.bak").write_text("snapshot")
+        (project_with_daemon / "src.kicad_pcb").write_text("board")
+
+        source = daemon._scan_files()
+        artifacts = daemon._scan_artifact_files()
+        assert "src.kicad_pcb" in source
+        assert "k33p.yaml" in source
+        assert "backup/save.kicad_pcb.bak" in artifacts
+        assert "backup/save.kicad_pcb.bak" not in source
+
+    def test_commit_records_artifact_tree(
+        self, project_with_daemon: Path, monkeypatch
+    ) -> None:
+        project = load_project(str(project_with_daemon))
+        daemon = Daemon(project)
+        monkeypatch.setattr(daemon, "_filter_gitignored", self._fake_gitignore)
+
+        (project_with_daemon / "backup").mkdir()
+        (project_with_daemon / "backup" / "save.bak").write_text("snapshot-data")
+        (project_with_daemon / "hello.txt").write_text("hello")
+
+        daemon.run(once=True)
+
+        store_path = project_with_daemon / ".k33p" / "store"
+        store = ContentStore(store_path)
+        commits = [o for o in store.iter_objects() if o.kind == "commit"]
+        assert len(commits) >= 1
+        commit_data = store.get(commits[-1].hash)
+        assert commit_data is not None
+        assert b"artifacts " in commit_data
+
+        # The artifact tree points at a blob stored with kind="artifact"
+        artifact_line = next(
+            line for line in commit_data.decode().splitlines()
+            if line.startswith("artifacts ")
+        )
+        art_tree_hash = artifact_line.split()[1]
+        assert store.get_kind(art_tree_hash) == "tree"
+        tree_data = store.get(art_tree_hash)
+        assert tree_data is not None
+        assert b"artifact backup/save.bak" in tree_data
+        blob_hash = tree_data.decode().split("artifact backup/save.bak\0")[1].split("\n")[0]
+        assert store.get_kind(blob_hash) == "artifact"
+
+    def test_artifact_only_change_triggers_snapshot(
+        self, project_with_daemon: Path, monkeypatch
+    ) -> None:
+        project = load_project(str(project_with_daemon))
+        daemon = Daemon(project)
+        monkeypatch.setattr(daemon, "_filter_gitignored", self._fake_gitignore)
+
+        (project_with_daemon / "backup").mkdir()
+        daemon._detect_changes()          # prime source scan
+        daemon._detect_artifact_changes()  # prime artifact scan
+
+        # Only an artifact changes — should still produce a snapshot commit
+        (project_with_daemon / "backup" / "new.bak").write_text("new")
+        changes = daemon._detect_artifact_changes()
+        assert any("backup/new.bak" in c.path for c in changes)
+        assert daemon._detect_changes() == []  # no source changes
+
+        daemon.state.pending_changes.extend(changes)
+        daemon._do_commit()
+        store = ContentStore(project_with_daemon / ".k33p" / "store")
+        commits = [o for o in store.iter_objects() if o.kind == "commit"]
+        assert len(commits) >= 1
+        commit_data = store.get(commits[-1].hash)
+        assert commit_data is not None and b"artifacts " in commit_data
+
+    def test_no_artifacts_no_artifacts_line(
+        self, project_with_daemon: Path, monkeypatch
+    ) -> None:
+        project = load_project(str(project_with_daemon))
+        daemon = Daemon(project)
+        # Nothing is gitignored in the fixture
+        daemon._filter_gitignored = lambda paths: set()  # type: ignore[method-assign]
+
+        (project_with_daemon / "hello.txt").write_text("hello")
+        daemon.run(once=True)
+
+        store = ContentStore(project_with_daemon / ".k33p" / "store")
+        commits = [o for o in store.iter_objects() if o.kind == "commit"]
+        assert len(commits) >= 1
+        commit_data = store.get(commits[-1].hash)
+        assert commit_data is not None
+        assert b"artifacts " not in commit_data
+
 
 # ── git auto-push hardening ─────────────────────────────────────────────
 

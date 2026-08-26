@@ -20,6 +20,9 @@ This is the implementation. The design lives at
 - **`k33p sync`** — pull updates from upstream sources
 - **`k33p import --from-git`** — import any git repo as a k33p project
 - **`k33p daemon`** — auto-commit with file watching, debounce, and snapshot commits
+  (gitignored files — backups, tool history, generated outputs — are
+  content-addressed into the CAS store as `artifact` blobs instead of being
+  committed to git; `--once` snapshots everything already on disk)
 - **`k33p info`** — print project summary
 - **`k33p store`** — CAS operations (put, get, stats, ls)
 - **Transports**: FileTransport (local), GitTransport (git CLI), OCITransport (OCI registries via stdlib)

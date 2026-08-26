@@ -14,14 +14,12 @@ import fnmatch
 import os
 import subprocess
 import time
+from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from pathlib import Path
 
 from k33p.store import ContentStore
 from k33p.transport import FileTransport as _FileTransport
-from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from pathlib import Path
-
 
 # ── types ────────────────────────────────────────────────────────────────
 
@@ -156,8 +154,13 @@ class Daemon:
         except (OSError, subprocess.TimeoutExpired):
             return set()
 
-    def _scan_files(self) -> dict[str, float]:
-        """Scan all watched paths and return {relative_path: mtime}."""
+    def _collect_watched_files(self) -> dict[str, float]:
+        """Walk all watched paths and return {relative_path: mtime}.
+
+        Excludes the daemon ignore list (k33p.yaml ``ignore``) and
+        known-large directories; does NOT apply gitignore rules, so the
+        caller can partition the result into source vs artifact files.
+        """
         result: dict[str, float] = {}
         for watch_path in self.watched_paths:
             if not watch_path.exists():
@@ -171,7 +174,6 @@ class Daemon:
                         pass
             elif watch_path.is_dir():
                 for dirpath, dirnames, filenames in os.walk(watch_path):
-                    # Skip known-large/ignored directories (hardcoded perf guard)
                     dirnames[:] = [
                         d for d in dirnames
                         if d not in (
@@ -201,14 +203,39 @@ class Daemon:
                             result[rel] = full.stat().st_mtime
                         except OSError:
                             pass
-
-        # Filter out gitignored paths (respects all .gitignore rules)
-        if result:
-            gitignored = self._filter_gitignored(list(result.keys()))
-            for p in gitignored:
-                result.pop(p, None)
-
         return result
+
+    def _scan_files(self) -> dict[str, float]:
+        """Return {relative_path: mtime} for source (non-gitignored) files."""
+        return self._collect_partitioned()[0]
+
+    def _scan_artifact_files(self) -> dict[str, float]:
+        """Return {relative_path: mtime} for gitignored (artifact) files.
+
+        Artifacts are generated/derived files that .gitignore excludes from
+        version control (backups, tool history, plotted outputs, …). The
+        daemon content-addresses them into the CAS store instead of
+        committing them to git.
+        """
+        return self._collect_partitioned()[1]
+
+    def _collect_partitioned(
+        self,
+    ) -> tuple[dict[str, float], dict[str, float]]:
+        """One walk + one gitignore filter, partitioned into
+        ``(source_files, artifact_files)``.
+
+        Both scan entry points use this so a poll cycle or commit never
+        walks the tree or shells out to ``git`` more than once.
+        """
+        files = self._collect_watched_files()
+        if not files:
+            return {}, {}
+        gitignored = self._filter_gitignored(list(files.keys()))
+        source = {p: t for p, t in files.items() if p not in gitignored}
+        artifacts = {p: t for p, t in files.items() if p in gitignored}
+        return source, artifacts
+
 
     def _detect_changes(self) -> list[FileChange]:
         """Return list of files that have changed since the last scan."""
@@ -221,9 +248,50 @@ class Daemon:
         self._last_scan = current
         return changes
 
+    def _detect_artifact_changes(self) -> list[FileChange]:
+        """Return artifact files that have changed since the last scan."""
+        current = self._scan_artifact_files()
+        previous = getattr(self, "_last_artifact_scan", {})
+        changes: list[FileChange] = []
+        for path, mtime in current.items():
+            if path not in previous or previous[path] != mtime:
+                changes.append(FileChange(path=path, mtime=mtime))
+        self._last_artifact_scan = current
+        return changes
+
+    def _detect_partitioned_changes(
+        self,
+    ) -> tuple[list[FileChange], list[FileChange]]:
+        """Detect source and artifact changes with one walk + one filter.
+
+        Returns ``(source_changes, artifact_changes)`` and records both
+        baselines so ``_do_commit`` snapshots everything changed since the
+        previous poll, whether git-tracked or gitignored.
+        """
+        source, artifacts = self._collect_partitioned()
+
+        prev_source = getattr(self, "_last_scan", {})
+        prev_artifacts = getattr(self, "_last_artifact_scan", {})
+
+        source_changes = [
+            FileChange(path=path, mtime=mtime)
+            for path, mtime in source.items()
+            if path not in prev_source or prev_source[path] != mtime
+        ]
+        artifact_changes = [
+            FileChange(path=path, mtime=mtime)
+            for path, mtime in artifacts.items()
+            if path not in prev_artifacts or prev_artifacts[path] != mtime
+        ]
+
+        self._last_scan = source
+        self._last_artifact_scan = artifacts
+        return source_changes, artifact_changes
+
+
     # ── snapshot / commit ─────────────────────────────────────────────
 
-    def _build_tree(self, files: dict[str, float]) -> str | None:
+    def _build_tree(self, files: dict[str, float], *, kind: str = "blob") -> str | None:
         """Build a tree object from the scanned files and store it.
 
         Returns the hash of the tree object, or None if no files.
@@ -249,8 +317,8 @@ class Daemon:
                 data = full_path.read_bytes()
             except (OSError, PermissionError):
                 continue
-            blob_hash = store.put(data, kind="blob")
-            tree_entries.append(f"blob {rel_path}\0{blob_hash}")
+            blob_hash = store.put(data, kind=kind)
+            tree_entries.append(f"{kind} {rel_path}\0{blob_hash}")
 
         if not tree_entries:
             return None
@@ -261,8 +329,13 @@ class Daemon:
 
     def _create_commit(
         self, tree_hash: str, files_changed: list[str],
+        *, artifact_tree_hash: str | None = None,
     ) -> str | None:
         """Create a commit object referencing *tree_hash*.
+
+        When *artifact_tree_hash* is given, the commit also records the
+        content-addressed tree of gitignored artifact files (backups,
+        tool history, plotted outputs) that are NOT committed via git.
 
         Returns the commit hash, or None on failure.
         """
@@ -274,13 +347,15 @@ class Daemon:
         store = ContentStore(store_path)
         store.ensure()
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         timestamp = now.strftime("%Y-%m-%dT%H:%M:%SZ")
 
         # Build commit content
         lines = [f"tree {tree_hash}"]
         if self.state.last_commit_hash:
             lines.append(f"parent {self.state.last_commit_hash}")
+        if artifact_tree_hash:
+            lines.append(f"artifacts {artifact_tree_hash}")
         lines.append(f"author k33p-daemon <daemon@k33p> {timestamp}")
         lines.append("")
 
@@ -325,7 +400,12 @@ class Daemon:
 
         self.state.running = True
         self.state.start_time = time.time()
-        self._last_scan = self._scan_files()
+        self._last_scan, self._last_artifact_scan = self._collect_partitioned()
+        if once:
+            # Single-pass mode has no meaningful baseline: treat the current
+            # state as new so the run snapshots everything already on disk.
+            self._last_scan = {}
+            self._last_artifact_scan = {}
 
         print(f"k33p daemon: watching {len(self.watched_paths)} path(s)", flush=True)
         for p in self.watched_paths:
@@ -335,12 +415,13 @@ class Daemon:
         print(f"  poll interval: {poll_interval}s", flush=True)
 
         while self.state.running:
-            changes = self._detect_changes()
+            changes, artifact_changes = self._detect_partitioned_changes()
 
-            if changes:
+            if changes or artifact_changes:
                 self.state.pending_changes.extend(changes)
+                self.state.pending_changes.extend(artifact_changes)
                 self.state.last_change_time = time.time()
-                for c in changes:
+                for c in changes + artifact_changes:
                     print(f"  ✎ {c.path}", flush=True)
 
             # Check debounce
@@ -366,11 +447,17 @@ class Daemon:
         return 0
 
     def _do_commit(self) -> None:
-        """Create a commit from pending changes and reset."""
+        """Create a commit from pending changes and reset.
+
+        The commit records the source tree (non-gitignored files) and, when
+        present, a content-addressed artifact tree of gitignored files so
+        backups, history, and generated outputs are retained in the CAS
+        while staying out of git.
+        """
         changed_files = [c.path for c in self.state.pending_changes]
 
-        # Get current file state
-        current_files = self._scan_files()
+        # Get current file state (one walk + one gitignore filter)
+        current_files, artifact_files = self._collect_partitioned()
 
         # Build tree
         tree_hash = self._build_tree(current_files)
@@ -378,8 +465,14 @@ class Daemon:
             self.state.pending_changes.clear()
             return
 
+        # Content-address gitignored artifacts too (kept out of git)
+        artifact_tree_hash = self._build_tree(artifact_files, kind="artifact")
+
         # Create commit
-        commit_hash = self._create_commit(tree_hash, changed_files)
+        commit_hash = self._create_commit(
+            tree_hash, changed_files,
+            artifact_tree_hash=artifact_tree_hash,
+        )
         if commit_hash:
             print(f"  ✔ committed {commit_hash[:16]} ({len(changed_files)} file(s))", flush=True)
             self.state.last_commit_time = time.time()
@@ -403,7 +496,7 @@ class Daemon:
         m = self.project.manifest
         pushed_any = False
 
-        for ch_name, ch in m.channels.items():
+        for _, ch in m.channels.items():
             transport_url = ch.transport
             if not transport_url:
                 continue
