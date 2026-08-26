@@ -1,0 +1,24 @@
+# KiCad-derived files: artifacts, backups, and machine-local state.
+#
+# Source files ARE committed (symbol/footprint libs, schematics, boards,
+# project settings, library tables). Everything below is regenerable from the
+# sources above (backups, history, plotted outputs) or machine/user-specific
+# (project-local cache, editor locks), so it must not land in git. k33p stores
+# these as content-addressed artifacts instead of committing them.
+
+# KiCad auto-restore snapshots (created on crash/recovery)
+_restore_backup_*/
+
+# KiCad "project history" — per-project mini git repositories with save history
+.history/
+
+# Project-local cache of resolved library refs + editor settings (regenerated
+# on open, path-specific to the machine)
+*.kicad_prl
+
+# Editor lock files
+*.lck
+
+# Autosave scratch files
+*.autosave
+*~
