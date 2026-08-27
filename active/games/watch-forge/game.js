@@ -75,6 +75,7 @@
     reset: $('#resetBtn'), seedNew: $('#seedNewBtn'), step: $('#stepBtn'),
     hof: $('#hofList'), saveHof: $('#saveHofBtn'),
     exportBtn: $('#exportBtn'),
+    lineup: $('#lineupCanvas'),
     themePick: $('#themePick'),
     budgetCap: $('#budgetCap'), thicknessCap: $('#thicknessCap'),
     soundTick: $('#soundTick'), soundChime: $('#soundChime'),
@@ -98,6 +99,7 @@
   const dialCtx = setupCanvas(els.dial, 560, 560);
   const profileCtx = setupCanvas(els.profile, 560, 120);
   const chartCtx = setupCanvas(els.chart, 560, 210);
+  const lineupCtx = setupCanvas(els.lineup, 620, 168);
 
   // -----------------------------------------------------------------------
   // Population / evolution
@@ -308,11 +310,33 @@
     els.scoreBreakdown.innerHTML = hybridRows + constraintRows + parts[G.challengeId]
       .map(([k, v]) => `<div class="sb-row"><span>${k}</span><span>${v}</span></div>`).join('')
       + `<div class="sb-total">${totalLine}${G.constraints.budgetCap ? ` · budget ≤ CHF ${G.constraints.budgetCap.toLocaleString()}` : ''}${G.constraints.thicknessCap ? ` · thickness ≤ ${G.constraints.thicknessCap} mm` : ''}</div>`;
+    drawLineup();
   }
 
   // -----------------------------------------------------------------------
   // Rendering
   // -----------------------------------------------------------------------
+
+  // The Foundry: this generation's top five, drawn as small dials.
+  function drawLineup() {
+    const scored = G.evoState.scored || [];
+    const top = scored.slice(0, 5);
+    if (!top.length) return;
+    lineupCtx.clearRect(0, 0, 620, 168);
+    const dSize = 104, pad = 16;
+    top.forEach((s, i) => {
+      const x = i * (dSize + pad);
+      lineupCtx.save();
+      lineupCtx.translate(x, 4);
+      R.drawWatchDial(lineupCtx, dSize, s.pheno, G.clock, {});
+      lineupCtx.restore();
+      lineupCtx.fillStyle = '#8b93a0';
+      lineupCtx.font = '9px ui-monospace, monospace';
+      lineupCtx.textAlign = 'center';
+      lineupCtx.fillText(`#${i + 1} · ${s.score.toFixed(0)} pts`, x + dSize / 2, 4 + dSize + 9);
+    });
+  }
+
   function draw(now) {
     const t = now / 1000;
     const c = G.champion;

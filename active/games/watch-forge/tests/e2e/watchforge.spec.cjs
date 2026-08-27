@@ -122,11 +122,14 @@ test('dial, profile and chart canvases all draw real pixels', async ({ page }) =
       profile: probe('profileCanvas', 600, 20),
       // chart: lines + text on dark
       chart: probe('chartCanvas', 800, 20),
+      // foundry: five small generation dials
+      lineup: probe('lineupCanvas', 3000, 60),
     };
   });
   expect(probes.dial.ok).toBe(true);
   expect(probes.profile.ok).toBe(true);
   expect(probes.chart.ok).toBe(true);
+  expect(probes.lineup.ok).toBe(true);
 });
 
 test('visible component count tracks openness in the score panel', async ({ page }) => {

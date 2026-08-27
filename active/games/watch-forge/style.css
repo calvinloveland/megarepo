@@ -232,6 +232,8 @@ html, body {
   border-radius: 10px; border: 1px solid var(--line); margin-top: 12px;
 }
 #chartCanvas { width: 100%; max-width: 560px; height: auto; border-radius: 10px; border: 1px solid var(--line); }
+.foundry-hint { color: var(--dim); font-size: 10px; text-transform: none; letter-spacing: 0.3px; }
+#lineupCanvas { width: 100%; max-width: 620px; height: auto; border-radius: 10px; border: 1px solid var(--line); }
 
 /* ---------- champion spec ---------- */
 .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
