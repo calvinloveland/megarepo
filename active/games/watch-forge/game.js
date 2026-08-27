@@ -45,6 +45,7 @@
     soundOn: false,
     chimeOn: false,
     constraints: { budgetCap: 0, thicknessCap: 0 },
+    hybrid: null,             // { primary, secondary, weight } or null
   };
 
   const S = window.WATCH_SOUND;
@@ -68,6 +69,8 @@
     name: $('#champName'), challenge: $('#champChallenge'),
     stats: $('#statGrid'), comps: $('#compList'),
     challenges: $('#challengeCards'), speeds: $('#speedButtons'),
+    hybridSel: $('#hybridSel'), hybridWeight: $('#hybridWeight'), hybridWeightVal: $('#hybridWeightVal'),
+    hybridWeightWrap: $('#hybridWeightWrap'),
     popSize: $('#popSize'), popSizeVal: $('#popSizeVal'),
     reset: $('#resetBtn'), seedNew: $('#seedNewBtn'), step: $('#stepBtn'),
     hof: $('#hofList'), saveHof: $('#saveHofBtn'),
@@ -109,7 +112,7 @@
     G.seriesPointGap = 1;
     G.acc = 0;
     // Initial champion
-    const c = E.championPhenotype(G.population, G.challengeId, G.constraints);
+    const c = E.championPhenotype(G.population, G.challengeId, G.constraints, G.hybrid);
     G.champion = c;
     G.lastGenUI = -1;
     updateChampionUI();
@@ -123,6 +126,7 @@
       elitism: G.elitism,
       baseMutRate: 0.08,
       constraints: G.constraints,
+      hybrid: G.hybrid,
       rng: W.mulberry32((G.rngSeed ^ (G.generation * 2654435761)) >>> 0),
     });
     G.population = G.evoState.population;
@@ -164,7 +168,10 @@
     const scored = G.evoState.scored;
     let sum = 0;
     for (const s of scored) sum += s.score;
-    G.bestSeries.push(G.evoState.best.score);
+    // Plot the champion as the best line: it only moves upward (stepGeneration
+    // accepts strictly better champions), so the curve reads as progress even
+    // for rank-blended hybrids where per-generation maxima can jitter.
+    G.bestSeries.push(G.champion ? G.champion.score : G.evoState.best.score);
     G.avgSeries.push(sum / scored.length);
     // Keep the arrays bounded; grow the decimation gap when they get long.
     if (G.bestSeries.length > 700) {
@@ -190,7 +197,10 @@
     els.gen.textContent = String(G.generation);
     els.score.textContent = fmt(c.score, 1);
     els.name.textContent = c.pheno.name;
-    els.challenge.textContent = `${E.CHALLENGES[G.challengeId].icon} ${E.CHALLENGES[G.challengeId].name}`;
+    const hyLabel = G.hybrid
+      ? `${E.CHALLENGES[G.challengeId].icon} ${E.CHALLENGES[G.challengeId].name} × ${E.CHALLENGES[G.hybrid.secondary].icon} ${E.CHALLENGES[G.hybrid.secondary].name} · ${Math.round(G.hybrid.weight * 100)}/${100 - Math.round(G.hybrid.weight * 100)}`
+      : `${E.CHALLENGES[G.challengeId].icon} ${E.CHALLENGES[G.challengeId].name}`;
+    els.challenge.textContent = hyLabel;
     els.mutRate.textContent = `${(G.evoState.mutRate * 100).toFixed(0)}%`;
     els.stall.textContent = String(G.evoState.stall || 0);
     els.diversity.textContent = `${(E.diversity(G.population) * 100).toFixed(0)}%`;
@@ -280,14 +290,24 @@
     };
     const raw = E.CHALLENGES[G.challengeId].score(w);
     const penalty = E.constraintPenalty(w, G.constraints);
+    const hy = G.hybrid;
+    let hybridRows = '';
+    let totalLine = eq.equation;
+    if (hy) {
+      const s2 = E.CHALLENGES[hy.secondary].score(w);
+      const blend = `${Math.round((1 - hy.weight) * 100)}% ${E.CHALLENGES[G.challengeId].name} + ${Math.round(hy.weight * 100)}% ${E.CHALLENGES[hy.secondary].name}`;
+      hybridRows = `<div class="sb-row sb-hybrid"><span>primary (${E.CHALLENGES[G.challengeId].name})</span><span>${raw.toFixed(1)}</span></div>`
+        + `<div class="sb-row sb-hybrid"><span>secondary (${E.CHALLENGES[hy.secondary].name})</span><span>${s2.toFixed(1)}</span></div>`;
+      totalLine = `blended = 100·(${blend}) — rank-fused, so both objectives stay audible`;
+    }
     let constraintRows = '';
     if (penalty > 0) {
       constraintRows = `<div class="sb-row sb-penalty"><span>⛔ raw score</span><span>${raw.toFixed(1)}</span></div>`
         + `<div class="sb-row sb-penalty"><span>⛔ constraint penalty</span><span>−${penalty.toFixed(1)}</span></div>`;
     }
-    els.scoreBreakdown.innerHTML = constraintRows + parts[G.challengeId]
+    els.scoreBreakdown.innerHTML = hybridRows + constraintRows + parts[G.challengeId]
       .map(([k, v]) => `<div class="sb-row"><span>${k}</span><span>${v}</span></div>`).join('')
-      + `<div class="sb-total">${eq.equation}${G.constraints.budgetCap ? ` · budget ≤ CHF ${G.constraints.budgetCap.toLocaleString()}` : ''}${G.constraints.thicknessCap ? ` · thickness ≤ ${G.constraints.thicknessCap} mm` : ''}</div>`;
+      + `<div class="sb-total">${totalLine}${G.constraints.budgetCap ? ` · budget ≤ CHF ${G.constraints.budgetCap.toLocaleString()}` : ''}${G.constraints.thicknessCap ? ` · thickness ≤ ${G.constraints.thicknessCap} mm` : ''}</div>`;
   }
 
   // -----------------------------------------------------------------------
@@ -347,26 +367,64 @@
   // Challenge selection
   // -----------------------------------------------------------------------
   function buildChallenges() {
-    els.challenges.innerHTML = Object.values(E.CHALLENGES).map(ch =>
+    const charters = Object.values(E.CHALLENGES);
+    els.challenges.innerHTML = charters.map(ch =>
       `<button class="challenge ${ch.id === G.challengeId ? 'active' : ''}" data-id="${ch.id}">
         <span class="ci">${ch.icon}</span>
         <span class="cn">${ch.name}</span>
         <span class="ct">${ch.tagline}</span>
         <code class="ceq">${ch.equation}</code>
       </button>`).join('');
+    // Secondary charter options for hybrid blends (all except the primary).
+    els.hybridSel.innerHTML = `<option value="">— single charter —</option>`
+      + charters.filter(ch => ch.id !== G.challengeId).map(ch =>
+        `<option value="${ch.id}">${ch.icon} ${ch.name}</option>`).join('');
     els.challenges.querySelectorAll('.challenge').forEach(btn => {
       btn.addEventListener('click', () => {
         G.challengeId = btn.dataset.id;
-        els.challenges.querySelectorAll('.challenge').forEach(b => b.classList.toggle('active', b === btn));
-        // Re-score current population under the new objective immediately.
-        G.evoState.lastBest = undefined; G.evoState.stall = 0;
-        const c = E.championPhenotype(G.population, G.challengeId, G.constraints);
-        G.champion = c;
-        G.history.push({ gen: G.generation, name: c.pheno.name, note: `re-scored under ${E.CHALLENGES[G.challengeId].name}` });
-        G.bestSeries = []; G.avgSeries = [];
-        updateChampionUI();
+        applyCharterChange();
       });
     });
+    els.hybridSel.addEventListener('change', onHybridChange);
+    els.hybridWeight.addEventListener('input', onHybridChange);
+  }
+
+  function onHybridChange() {
+    const secondary = els.hybridSel.value;
+    const weight = Number(els.hybridWeight.value) / 100;
+    if (!secondary) {
+      G.hybrid = null;
+      els.hybridWeightWrap.hidden = true;
+      els.hybridSel.querySelectorAll('option').forEach(o => { o.disabled = o.value === G.challengeId; });
+    } else {
+      G.hybrid = { primary: G.challengeId, secondary, weight };
+      els.hybridWeightWrap.hidden = false;
+      els.hybridWeightVal.textContent = String(Math.round(weight * 100));
+      G.history.push({ gen: G.generation, name: G.champion?.pheno.name || '—',
+        note: `hybrid ${E.CHALLENGES[G.challengeId].name} × ${E.CHALLENGES[secondary].name} ${Math.round(weight * 100)}/${100 - Math.round(weight * 100)}` });
+    }
+    G.evoState.lastBest = undefined; G.evoState.stall = 0;
+    const c = E.championPhenotype(G.population, G.challengeId, G.constraints, G.hybrid);
+    G.champion = c;
+    G.bestSeries = []; G.avgSeries = [];
+    updateChampionUI();
+  }
+
+  function applyCharterChange() {
+    els.challenges.querySelectorAll('.challenge').forEach(b => b.classList.toggle('active', b.dataset.id === G.challengeId));
+    // Keep the hybrid secondary list consistent with the new primary.
+    if (G.hybrid && G.hybrid.secondary === G.challengeId) G.hybrid = null;
+    els.hybridSel.querySelectorAll('option').forEach(o => { o.disabled = o.value === G.challengeId; });
+    if (G.hybrid) G.hybrid.primary = G.challengeId;
+    if (G.hybrid) els.hybridWeightVal.textContent = String(Math.round(G.hybrid.weight * 100));
+    els.hybridWeightWrap.hidden = !G.hybrid;
+    // Re-score current population under the new objective immediately.
+    G.evoState.lastBest = undefined; G.evoState.stall = 0;
+    const c = E.championPhenotype(G.population, G.challengeId, G.constraints, G.hybrid);
+    G.champion = c;
+    G.history.push({ gen: G.generation, name: c.pheno.name, note: `re-scored under ${E.CHALLENGES[G.challengeId].name}${G.hybrid ? ` × ${E.CHALLENGES[G.hybrid.secondary].name}` : ''}` });
+    G.bestSeries = []; G.avgSeries = [];
+    updateChampionUI();
   }
 
   // -----------------------------------------------------------------------
@@ -496,7 +554,7 @@
       const child = E.evolvePopulation({
         challengeId: G.challengeId,
         population: [base, W.randomGenotype(rng)],
-        elitism: 1, baseMutRate: 0.25, constraints: G.constraints, rng,
+        elitism: 1, baseMutRate: 0.25, constraints: G.constraints, hybrid: G.hybrid, rng,
       }).population[0];
       pop.push(child);
     }
@@ -504,7 +562,7 @@
     G.evoState = { population: pop.slice(), lastBest: undefined, stall: 0, mutRate: 0.08 };
     G.generation = 0;
     G.bestSeries = []; G.avgSeries = [];
-    const c = E.championPhenotype(G.population, G.challengeId, G.constraints);
+    const c = E.championPhenotype(G.population, G.challengeId, G.constraints, G.hybrid);
     G.champion = c;
     updateChampionUI();
   }
@@ -536,7 +594,12 @@
         if (ev.target.classList.contains('hof-del')) return;
         const h = G.hof[Number(row.dataset.i)];
         G.challengeId = h.challengeId;
-        els.challenges.querySelectorAll('.challenge').forEach(b => b.classList.toggle('active', b.dataset.id === h.challengeId));
+        G.hybrid = h.hybrid ? { ...h.hybrid } : null;
+        els.hybridSel.value = G.hybrid ? G.hybrid.secondary : '';
+        els.hybridWeight.value = G.hybrid ? String(Math.round(G.hybrid.weight * 100)) : '40';
+        els.hybridWeightVal.textContent = G.hybrid ? String(Math.round(G.hybrid.weight * 100)) : '40';
+        els.hybridWeightWrap.hidden = !G.hybrid;
+        els.challenges.querySelectorAll('.challenge').forEach(b => b.classList.toggle('active', b.dataset.id === G.challengeId));
         // Rebuild the population seeded with the saved champion so evolution continues from it.
         const rng = W.mulberry32((Date.now() >>> 0));
         const pop = [JSON.parse(JSON.stringify(h.geno))];
@@ -545,7 +608,7 @@
         G.evoState = { population: pop.slice(), lastBest: undefined, stall: 0, mutRate: 0.08 };
         G.generation = 0;
         G.bestSeries = []; G.avgSeries = [];
-        G.champion = E.championPhenotype(G.population, G.challengeId, G.constraints);
+        G.champion = E.championPhenotype(G.population, G.challengeId, G.constraints, G.hybrid);
         updateChampionUI();
       });
       row.querySelector('.hof-del').addEventListener('click', (ev) => {
@@ -562,6 +625,7 @@
     const entry = {
       name: c.pheno.name,
       challengeId: G.challengeId,
+      hybrid: G.hybrid ? { ...G.hybrid } : null,
       score: c.score,
       geno: c.geno,
       pheno: {
@@ -622,7 +686,7 @@
       G.constraints.thicknessCap = Number(els.thicknessCap.value);
       // Re-score under the new caps and restart the fitness curve.
       G.evoState.lastBest = undefined; G.evoState.stall = 0;
-      const c = E.championPhenotype(G.population, G.challengeId, G.constraints);
+      const c = E.championPhenotype(G.population, G.challengeId, G.constraints, G.hybrid);
       G.champion = c;
       G.bestSeries = []; G.avgSeries = [];
       G.history.push({ gen: G.generation, name: c.pheno.name, note: 'constraints updated' });

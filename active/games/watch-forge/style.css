@@ -144,6 +144,17 @@ html, body {
 .control-row label { display: flex; justify-content: space-between; font-size: 12.5px; color: var(--dim); margin-bottom: 4px; }
 .control-row label b { color: var(--text); }
 .control-row input[type=range] { width: 100%; accent-color: var(--brass); }
+/* ---------- hybrid charter ---------- */
+.hybrid-row { display: flex; gap: 10px; align-items: end; margin-top: 12px; flex-wrap: wrap; }
+.hybrid-row label { display: flex; flex-direction: column; gap: 4px; font-size: 11px; color: var(--dim); }
+.hybrid-row select, .hybrid-row input[type=range] { accent-color: var(--brass); }
+.hybrid-row select {
+  background: var(--card2); color: var(--text); border: 1px solid var(--line);
+  border-radius: 7px; padding: 5px 7px; font-size: 12px; font-family: var(--mono);
+}
+.hybrid-weight b { color: var(--brass); }
+.hybrid-row .hybrid-weight { flex-direction: row; align-items: center; gap: 8px; }
+
 .control-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 10px 0; }
 .control-grid label { display: flex; flex-direction: column; gap: 4px; font-size: 11.5px; color: var(--dim); }
 .control-grid select {
@@ -151,8 +162,8 @@ html, body {
   border-radius: 7px; padding: 5px 7px; font-size: 12px; font-family: var(--mono);
 }
 .sb-penalty span:last-child { color: var(--bad); }
-.speed-row { display: flex; gap: 4px; flex-wrap: wrap; }
-.speed {
+.sb-hybrid span:last-child { color: var(--brass); }
+.speed-row { display: flex; gap: 4px; flex-wrap: wrap; }.speed {
   flex: 1; min-width: 44px;
   background: var(--card2); color: var(--dim);
   border: 1px solid var(--line); border-radius: 8px;

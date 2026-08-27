@@ -173,3 +173,42 @@ test('lineage ticker records champion changes across generations', async ({ page
   const rows = await page.evaluate(() => document.querySelectorAll('#lineageList .lineage-row').length);
   expect(rows).toBeGreaterThanOrEqual(1);
 });
+
+test('hybrid charter blends two objectives into a 0..100 score', async ({ page }) => {
+  await boot(page);
+  await page.evaluate(() => {
+    document.querySelector('[data-id="grandComplication"]').click();
+    const sel = document.querySelector('#hybridSel');
+    sel.value = 'chronometer';
+    sel.dispatchEvent(new Event('change'));
+    const w = document.querySelector('#hybridWeight');
+    w.value = '40';
+    w.dispatchEvent(new Event('input'));
+    window.WATCH_FORGE.stepMany(40);
+  });
+  await page.waitForTimeout(250);
+  const st = await page.evaluate(() => {
+    const g = window.WATCH_FORGE.G;
+    return {
+      hybrid: g.hybrid,
+      score: g.champion.score,
+      chip: document.querySelector('#champChallenge').textContent,
+      blendRows: document.querySelectorAll('.sb-hybrid').length,
+    };
+  });
+  expect(st.hybrid.secondary).toBe('chronometer');
+  expect(st.chip).toContain('×');
+  expect(st.score).toBeGreaterThanOrEqual(0);
+  expect(st.score).toBeLessThanOrEqual(100.001);
+  expect(st.blendRows).toBe(2);
+  // Disarming the hybrid restores single-charter scoring scale.
+  await page.evaluate(() => {
+    const sel = document.querySelector('#hybridSel');
+    sel.value = '';
+    sel.dispatchEvent(new Event('change'));
+  });
+  await page.waitForTimeout(200);
+  const restored = await page.evaluate(() => ({ hybrid: window.WATCH_FORGE.G.hybrid, score: window.WATCH_FORGE.G.champion.score }));
+  expect(restored.hybrid).toBeNull();
+  expect(restored.score).toBeGreaterThan(100); // back on the Thin King raw scale
+});

@@ -55,6 +55,9 @@ a minute repeater is a cathedral of parts that wrecks a slim profile.
   and seed the population with it. Your build is the founding genotype.
 - **Constraint handicaps** — budget and thickness caps on any charter
   (“Thin King under CHF 10k and 8 mm”) create whole new optimization puzzles
+- **Hybrid charters** — blend any two scoring equations with a weight slider
+  (rank-fused, so both objectives stay audible); hybrids + constraints + the
+  Hall of Fame compose freely
 - **Live rendering** — skeletonized dial, thickness side-profile, and a
   best/avg fitness curve across generations
 - **Hall of Fame** — save champions to `localStorage`, reload and continue

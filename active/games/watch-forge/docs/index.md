@@ -17,6 +17,21 @@ Five objectives, each a transparent equation over the champion phenotype
 4. **Chronometer Trials** — `600/(1+|effAcc|) + 80·reliability − 0.004·cost − 8·thickness`
 5. **Eight-Day Pocket Hero** — `2.2·reserve + 90·reliability − 0.003·cost − 10·thickness − 0.5·acc`
 
+### Hybrid charters — your own scoring equation
+
+Blend any two charters with a weight slider from the Charter card. Scores
+live on wildly different scales (skeleton ≈ 5,000; chronometer ≈ 400), so a
+naive weighted sum would let the loud charter win — `blendScores` fuses two
+objectives by **within-population rank fraction**, keeping both audible:
+
+```
+blended = 100 · ((1 − w)·rankFrac(charter₁) + w·rankFrac(charter₂))
+```
+
+Try “60% Thin King × 40% Chronometer” for a complication watch that still
+posts a respectable rate. Hybrids compose with constraints and the Hall of
+Fame records the blend so you can reload and keep evolving from it.
+
 ### Constraints (optional handicaps, any charter)
 
 Cost and thickness caps from the Forge card layer a hard penalty on top of

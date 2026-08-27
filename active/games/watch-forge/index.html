@@ -39,6 +39,16 @@
         <h2>Charter</h2>
         <p class="hint">Pick the scoring equation the population breeds toward.</p>
         <div id="challengeCards" class="challenge-list"></div>
+        <div class="hybrid-row">
+          <label for="hybridSel">Hybridize with
+            <select id="hybridSel">
+              <option value="">— single charter —</option>
+            </select>
+          </label>
+          <label id="hybridWeightWrap" class="hybrid-weight" hidden>Blend <b id="hybridWeightVal">40</b>%
+            <input type="range" id="hybridWeight" min="10" max="90" step="5" value="40">
+          </label>
+        </div>
       </div>
 
       <div class="card">

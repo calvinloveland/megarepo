@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import watchPkg from '../watch.js';
 const { computePhenotype, mulberry32, randomGenotype } = watchPkg;
 import evoPkg from '../evolution.js';
-const { CHALLENGES, evolvePopulation, randomPopulation, scoreWatch, founderArchetype, diversity, constraintPenalty, constraintBreaches } = evoPkg;
+const { CHALLENGES, evolvePopulation, randomPopulation, scoreWatch, founderArchetype, diversity, constraintPenalty, constraintBreaches, scorePopulation, championPhenotype } = evoPkg;
 
 const POP = 60;
 
@@ -142,4 +142,48 @@ test('constraint breaches report human-readable violations', () => {
   const list = constraintBreaches(w, { budgetCap: 2000, thicknessCap: 8 });
   assert.ok(Array.isArray(list) && list.length >= 1);
   assert.match(list.join(' '), /over|cap/);
+});
+
+test('hybrid blend scores live in 0..100 with the weight applied', () => {
+  const rng = mulberry32(77);
+  const scored = randomPopulation(30, rng, 'skeleton').map(geno => {
+    const pheno = computePhenotype(geno);
+    return { geno, pheno, score: 0, sPrimary: 0, sSecondary: 0 };
+  });
+  scorePopulation(scored, 'skeleton', { primary: 'skeleton', secondary: 'minimalist', weight: 0.5 }, {});
+  for (const s of scored) {
+    assert.ok(s.score >= 0 && s.score <= 100, `blended ${s.score}`);
+  }
+  // Rank fusion: the individual best under the primary scores at least
+  // (1 − weight)·100 in the blend.
+  const bestPrimary = Math.max(...scored.map(s => s.sPrimary));
+  const top = scored.find(s => s.sPrimary === bestPrimary);
+  assert.ok(top.score >= 50 - 1e-9, `top-primary blend ${top.score}`);
+});
+
+test('hybrid evolution: champion (accepted-if-rise) improves over generations', () => {
+  const rng = mulberry32(31337);
+  const hybrid = { primary: 'grandComplication', secondary: 'chronometer', weight: 0.4 };
+  let state = { population: randomPopulation(50, rng, 'grandComplication'), lastBest: undefined, stall: 0 };
+  let champion = -1; // game.js semantics: only accept strictly better
+  for (let g = 0; g < 70; g++) {
+    state = evolvePopulation({ ...state, challengeId: 'grandComplication', population: state.population, hybrid, rng });
+    if (state.best.score > champion + 1e-9) champion = state.best.score;
+  }
+  assert.ok(champion >= 80, `hybrid champion settled at ${champion}`);
+  assert.ok(champion <= 100.01, `stays a 0..100 blend: ${champion}`);
+});
+
+test('hybrid champion diverges from the pure champion for some seeds', () => {
+  // Chronometer-heavy blend favours accuracy over complication bling; the
+  // pure Thin King champion usually doesn't share that build. Try seeds until
+  // we find a population where they visibly diverge.
+  let diverged = false;
+  for (let seed = 1; seed <= 12 && !diverged; seed++) {
+    const pop = randomPopulation(60, mulberry32(seed), 'grandComplication');
+    const pure = championPhenotype(pop, 'grandComplication', {});
+    const hybrid = championPhenotype(pop, 'grandComplication', {}, { primary: 'grandComplication', secondary: 'chronometer', weight: 0.85 });
+    if (pure.pheno.compCount !== hybrid.pheno.compCount) diverged = true;
+  }
+  assert.ok(diverged, 'a chronometer-leaning blend steers away from the pure charter at least once');
 });

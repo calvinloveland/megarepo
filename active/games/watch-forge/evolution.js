@@ -140,6 +140,47 @@ function constraintBreaches(w, constraints = {}) {
 }
 
 // ---------------------------------------------------------------------------
+// Hybrid charters — blend two objectives by weight.
+// Charter scores live on wildly different scales (skeleton ≈ 5000, chrono ≈
+// 400), so a raw weighted sum would silently let the louder charter win.
+// Blending by within-population rank fraction keeps both objectives audible:
+//   blended = 100·((1−w)·rankFrac(charter₁) + w·rankFrac(charter₂))
+// ---------------------------------------------------------------------------
+
+function rankFraction(sortedDesc, idx) {
+  return sortedDesc.length > 1 ? 1 - idx / (sortedDesc.length - 1) : 1;
+}
+
+// Mutates scored entries in place, setting `score` to the blended 0..100.
+function blendScores(scored, primaryId, secondaryId, weight) {
+  const byP = [...scored].sort((a, b) => b.sPrimary - a.sPrimary);
+  const byS = [...scored].sort((a, b) => b.sSecondary - a.sSecondary);
+  const rp = new Map(); byP.forEach((x, i) => rp.set(x, rankFraction(byP, i)));
+  const rs = new Map(); byS.forEach((x, i) => rs.set(x, rankFraction(byS, i)));
+  for (const x of scored) {
+    x.score = 100 * ((1 - weight) * rp.get(x) + weight * rs.get(x));
+  }
+  return scored;
+}
+
+function scorePopulation(scored, challengeId, hybrid, constraints) {
+  const c1 = CHALLENGES[challengeId];
+  if (hybrid) {
+    const c2 = CHALLENGES[hybrid.secondary];
+    for (const s of scored) {
+      s.sPrimary = c1.score(s.pheno);
+      s.sSecondary = c2.score(s.pheno);
+    }
+    blendScores(scored, challengeId, hybrid.secondary, hybrid.weight);
+  } else {
+    for (const s of scored) s.score = c1.score(s.pheno);
+  }
+  for (const s of scored) s.score -= constraintPenalty(s.pheno, constraints);
+  return scored;
+}
+
+
+// ---------------------------------------------------------------------------
 // Genetic algorithm
 // ---------------------------------------------------------------------------
 
@@ -152,9 +193,8 @@ function evolvePopulation(params) {
   const scored = pop
     .filter(w => w)
     .map(geno => ({ geno, pheno: computePhenotype(geno, { rng: mulberry32(genotypeHash(geno) ^ 0x51ed270b) }),
-                         score: 0 }));
-  const constraints = params.constraints || {};
-  for (const s of scored) s.score = CHALLENGES[challengeId].score(s.pheno) - constraintPenalty(s.pheno, constraints);
+                         score: 0, sPrimary: 0, sSecondary: 0 }));
+  scorePopulation(scored, challengeId, params.hybrid || null, params.constraints || {});
   scored.sort((a, b) => b.score - a.score);
 
   const next = [];
@@ -336,17 +376,20 @@ function diversity(pop) {
   return seen.size / Math.min(pop.length, 64);
 }
 
-function championPhenotype(pop, challengeId, constraints) {
+function championPhenotype(pop, challengeId, constraints, hybrid) {
   let best = null;
-  for (const geno of pop) {
+  const scored = pop.map(geno => {
     const pheno = computePhenotype(geno);
-    const s = CHALLENGES[challengeId].score(pheno) - constraintPenalty(pheno, constraints || {});
-    if (!best || s > best.score) best = { geno, pheno, score: s };
+    return { geno, pheno, score: 0, sPrimary: 0, sSecondary: 0 };
+  });
+  scorePopulation(scored, challengeId, hybrid || null, constraints || {});
+  for (const s of scored) {
+    if (!best || s.score > best.score) best = { geno: s.geno, pheno: s.pheno, score: s.score };
   }
   return best;
 }
 
-const EVOLUTION = { CHALLENGES, scoreWatch, evolvePopulation, randomPopulation, championPhenotype, FOUNDERS, founderArchetype, diversity, constraintPenalty, constraintBreaches };
+const EVOLUTION = { CHALLENGES, scoreWatch, evolvePopulation, randomPopulation, championPhenotype, FOUNDERS, founderArchetype, diversity, constraintPenalty, constraintBreaches, blendScores, scorePopulation };
 
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = EVOLUTION;
