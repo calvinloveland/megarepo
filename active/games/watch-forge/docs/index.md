@@ -52,6 +52,12 @@ accuracy, effectiveAccuracy (= accuracy × (2 − reliability)), reliability.
 - Uniform-blend crossover with grade-biased complication inheritance
 - Per-gene mutation; **adaptive mutation** — when best fitness stalls, the
   mutation rate climbs (capped at 35%) so the search can jump local maxima
+- **Themed founding cohorts** — each charter seeds its population with a
+  pristine archetype (Glass Palace opens with an openworked 15+ complication
+  monster, Minimalist opens with a bare silicon precision engine,
+  Thin King opens complication-loaded on a slim base…) plus m,ated drift
+- `diversity(population)` reports the fraction of distinct complication
+  signatures — when it collapses, hit “New seeds”
 - `evolvePopulation` returns `{ population, scored, best, stall, mutRate,
   lastBest }` — pass `lastBest`/`stall` back in for continuity
 

@@ -234,10 +234,74 @@ function randStep(rng) { return rng() < 0.5 ? -1 : 1; }
 // Population factory
 // ---------------------------------------------------------------------------
 
-function randomPopulation(size, rng) {
+// A themed founding archetype per charter gives each objective a plausible,
+// legible starting point — a skeleton atelier opens with an openworked
+// monster, a chronometer lab opens with a bare precision engine.
+const FOUNDERS = {
+  skeleton: (rng) => ({
+    escapement: rng() < 0.7 ? 'lever' : 'coaxial', balance: 'freeSprung', hairspring: 'glucydur',
+    beat: 21600, barrels: 2, trainWheels: 8, skeleton: 90, diameter: 40,
+    complications: Object.fromEntries(['bigDate', 'day', 'moonphase', 'gmt', 'powerReserve', 'chronograph', 'perpetual']
+      .map(id => [id, 1 + Math.floor(rng() * 2)])),
+  }),
+  minimalist: () => ({
+    escapement: 'constant', balance: 'inertial', hairspring: 'silicon',
+    beat: 36000, barrels: 1, trainWheels: 3, skeleton: 10, diameter: 34,
+    complications: {},
+  }),
+  grandComplication: () => ({
+    escapement: 'coaxial', balance: 'freeSprung', hairspring: 'glucydur',
+    beat: 21600, barrels: 1, trainWheels: 3, skeleton: 50, diameter: 36,
+    complications: { moonphase: 2, gmt: 2, powerReserve: 1, perpetual: 2, chronograph: 1 },
+  }),
+  chronometer: () => ({
+    escapement: 'constant', balance: 'inertial', hairspring: 'silicon',
+    beat: 28800, barrels: 1, trainWheels: 3, skeleton: 0, diameter: 34,
+    complications: {},
+  }),
+  pocket: () => ({
+    escapement: 'lever', balance: 'screw', hairspring: 'steel',
+    beat: 18000, barrels: 3, trainWheels: 4, skeleton: 20, diameter: 42,
+    complications: { powerReserve: 1 },
+  }),
+};
+
+function founderArchetype(challengeId) {
+  const fn = FOUNDERS[challengeId];
+  return fn ? fn(W.mulberry32(seedFor(challengeId))) : null;
+}
+
+function seedFor(str) {
+  let h = 5381;
+  for (let i = 0; i < str.length; i++) h = ((h * 33) ^ str.charCodeAt(i)) >>> 0;
+  return h;
+}
+
+function randomPopulation(size, rng, challengeId) {
   const out = [];
-  for (let i = 0; i < size; i++) out.push(W.randomGenotype(rng));
+  const archetype = challengeId ? founderArchetype(challengeId) : null;
+  const founderCount = archetype ? Math.max(2, Math.round(size * 0.15)) : 0;
+  if (archetype) out.push(archtype(archetype));   // pristine founding specimen
+  for (let i = out.length; i < founderCount; i++) {
+    // Archetype plus mild drift so the founding cohort isn't a monoculture.
+    out.push(mutate(archtype(archetype), 0.22, rng));
+  }
+  for (let i = out.length; i < size; i++) out.push(W.randomGenotype(rng));
   return out;
+}
+
+function archtype(g) { return JSON.parse(JSON.stringify(g)); }
+
+// Population diversity: 1 - fraction of identical complication-signatures.
+// Collapsing diversity is the cue to hit "New seeds".
+function diversity(pop) {
+  if (pop.length < 2) return 0;
+  const seen = new Set();
+  for (const g of pop) {
+    const sig = Object.keys(g.complications).sort().join(',');
+    seen.add(sig);
+  }
+  return seen.size / Math.min(pop.length, 64);
 }
 
 function championPhenotype(pop, challengeId) {
@@ -250,7 +314,7 @@ function championPhenotype(pop, challengeId) {
   return best;
 }
 
-const EVOLUTION = { CHALLENGES, scoreWatch, evolvePopulation, randomPopulation, championPhenotype };
+const EVOLUTION = { CHALLENGES, scoreWatch, evolvePopulation, randomPopulation, championPhenotype, FOUNDERS, founderArchetype, diversity };
 
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = EVOLUTION;

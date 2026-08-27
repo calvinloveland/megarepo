@@ -58,6 +58,7 @@
   const els = {
     dial: $('#dialCanvas'), profile: $('#profileCanvas'), chart: $('#chartCanvas'),
     gen: $('#gen'), score: $('#score'), mutRate: $('#mutRate'), stall: $('#stall'),
+    diversity: $('#diversity'),
     name: $('#champName'), challenge: $('#champChallenge'),
     stats: $('#statGrid'), comps: $('#compList'),
     challenges: $('#challengeCards'), speeds: $('#speedButtons'),
@@ -93,7 +94,7 @@
   function newPopulation(seed) {
     if (seed === undefined) seed = G.rngSeed;
     const rng = W.mulberry32(seed);
-    G.population = E.randomPopulation(G.popSize, rng);
+    G.population = E.randomPopulation(G.popSize, rng, G.challengeId);
     G.evoState = { population: G.population.slice(), lastBest: undefined, stall: 0, mutRate: 0.08 };
     G.generation = 0;
     G.bestSeries = []; G.avgSeries = [];
@@ -183,6 +184,7 @@
     els.challenge.textContent = `${E.CHALLENGES[G.challengeId].icon} ${E.CHALLENGES[G.challengeId].name}`;
     els.mutRate.textContent = `${(G.evoState.mutRate * 100).toFixed(0)}%`;
     els.stall.textContent = String(G.evoState.stall || 0);
+    els.diversity.textContent = `${(E.diversity(G.population) * 100).toFixed(0)}%`;
 
     // Keep the audible movement in sync with the champion.
     S.setBeat(c.pheno.geno.beat);

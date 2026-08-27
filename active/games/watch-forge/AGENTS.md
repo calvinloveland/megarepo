@@ -49,6 +49,8 @@ docs/index.md       # Web docs
 - The GA is deliberately small and inspectable: rank by charter score, keep
   elites, uniform-blend crossover, adaptive mutation that rises when the best
   fitness stalls.
+- Every charter gets a themed founder archetype (see `FOUNDERS` in
+  `evolution.js`); keep them visually distinct when tuning.
 - **Never rebalance a charter equation without updating
   `tests/fitness.test.mjs`** — every charter has a behavioural lock (e.g.
   "skeletonizing an identical build scores higher", "loaded complications

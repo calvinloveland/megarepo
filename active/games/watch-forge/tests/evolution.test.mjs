@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import watchPkg from '../watch.js';
 const { computePhenotype, mulberry32 } = watchPkg;
 import evoPkg from '../evolution.js';
-const { CHALLENGES, evolvePopulation, randomPopulation, scoreWatch } = evoPkg;
+const { CHALLENGES, evolvePopulation, randomPopulation, scoreWatch, founderArchetype, diversity } = evoPkg;
 
 const POP = 60;
 
@@ -77,4 +77,34 @@ test('stall counter rises when best fitness plateaus', () => {
   }
   assert.ok(state.stall >= 3, `stall ${state.stall}`);
   assert.ok(state.mutRate > 0.08, `adaptive mutation ${state.mutRate}`);
+});
+
+test('every charter has a themed founder archetype', () => {
+  const archetypes = [];
+  for (const id of Object.keys(CHALLENGES)) {
+    const a = founderArchetype(id);
+    assert.ok(a, `${id} archetype exists`);
+    assert.ok(a.escapement && a.balance && a.hairspring, `${id} base genes set`);
+    assert.ok(Number.isInteger(a.trainWheels) && a.trainWheels >= 3, `${id} train`);
+    archetypes.push(a);
+  }
+  // The archetypes are visibly different from each other (base genes + load).
+  const sigs = new Set(archetypes.map(a => `${a.escapement}|${a.balance}|${a.hairspring}|${a.beat}|${JSON.stringify(a.complications)}`));
+  assert.ok(sigs.size >= 5, `distinct archetype signatures: ${sigs.size}`);
+});
+
+test('charter-seeded populations contain the founder signature', () => {
+  const pop = randomPopulation(40, mulberry32(1), 'minimalist');
+  const hasFounder = pop.some(g => Object.keys(g.complications).length === 0 && g.hairspring === 'silicon');
+  assert.ok(hasFounder, 'a clean precision build survives in the founding cohort');
+  const grand = randomPopulation(40, mulberry32(2), 'grandComplication');
+  const hasLoaded = grand.some(g => Object.keys(g.complications).length >= 4);
+  assert.ok(hasLoaded, 'Thin King founders start complication-loaded');
+});
+
+test('diversity collapses for a monoculture and recovers for random mixes', () => {
+  const clonePop = Array.from({ length: 20 }, () => JSON.parse(JSON.stringify(founderArchetype('skeleton'))));
+  assert.ok(diversity(clonePop) < 0.2, `clone diversity ${diversity(clonePop)}`);
+  const mixed = randomPopulation(60, mulberry32(3), 'skeleton');
+  assert.ok(diversity(mixed) > 0.5, `seeded diversity ${diversity(mixed)}`);
 });

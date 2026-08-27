@@ -46,7 +46,11 @@ a minute repeater is a cathedral of parts that wrecks a slim profile.
 ## Features
 
 - **Live evolution** — speed control from pause to 1000×, population slider,
-  seed control, adaptive mutation that escapes stalls
+  seed control, adaptive mutation that escapes stalls, and a **population
+  diversity readout** (when it collapses, inject new seeds)
+- **Themed founding cohorts** — each charter opens with a fitting archetype:
+  the skeleton atelier starts with an openworked monster, the chronometer lab
+  with a bare silicon precision engine
 - **Watchmaker bench** — hand-tune a build (every gene + complication grade)
   and seed the population with it. Your build is the founding genotype.
 - **Live rendering** — skeletonized dial, thickness side-profile, and a
