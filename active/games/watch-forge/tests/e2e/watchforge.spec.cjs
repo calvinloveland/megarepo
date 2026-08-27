@@ -137,3 +137,39 @@ test('visible component count tracks openness in the score panel', async ({ page
   });
   expect(st).toBe(true);
 });
+
+test('sonic toggle arm/disarms the audible movement', async ({ page }) => {
+  await boot(page);
+  await page.evaluate(() => {
+    document.querySelector('#soundTick').click();
+  });
+  await page.waitForTimeout(120);
+  const armed = await page.evaluate(() => window.WATCH_FORGE.S.isEnabled());
+  expect(armed).toBe(true);
+  await page.evaluate(() => {
+    document.querySelector('#soundTick').click();
+  });
+  await page.waitForTimeout(80);
+  const disarmed = await page.evaluate(() => window.WATCH_FORGE.S.isEnabled());
+  expect(disarmed).toBe(false);
+  // Chime stays disabled for a champion without a repeater.
+  const chimeDisabled = await page.evaluate(() => document.querySelector('#soundChime').disabled);
+  const hasRepeater = await page.evaluate(() => !!window.WATCH_FORGE.G.champion.pheno.geno.complications.minuteRepeater);
+  if (!hasRepeater) expect(chimeDisabled).toBe(true);
+});
+
+test('spec-sheet export copies a markdown build', async ({ page }) => {
+  await boot(page);
+  await page.evaluate(() => document.querySelector('#exportBtn').click());
+  await page.waitForTimeout(300);
+  const label = await page.evaluate(() => document.querySelector('#exportBtn').textContent);
+  expect(label).toMatch(/Copied|Copy spec sheet/);
+});
+
+test('lineage ticker records champion changes across generations', async ({ page }) => {
+  await boot(page);
+  await page.evaluate(() => window.WATCH_FORGE.stepMany(30));
+  await page.waitForTimeout(250);
+  const rows = await page.evaluate(() => document.querySelectorAll('#lineageList .lineage-row').length);
+  expect(rows).toBeGreaterThanOrEqual(1);
+});

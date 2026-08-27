@@ -47,6 +47,10 @@
           <button id="seedNewBtn" class="btn">New seeds</button>
           <button id="resetBtn" class="btn btn-danger">Reset</button>
         </div>
+        <div class="sound-row">
+          <label class="sound-toggle"><input type="checkbox" id="soundTick"> 🔊 movement ticks</label>
+          <label class="sound-toggle" title="The champion must carry a minute repeater"><input type="checkbox" id="soundChime" disabled> 🔔 repeater chime</label>
+        </div>
         <p class="hint">seed <code id="rngSeed">—</code></p>
       </div>
 
@@ -80,9 +84,14 @@
     <section class="col col-right">
       <div class="card">
         <h2>Champion spec</h2>
+        <div class="champ-tools">
+          <button id="exportBtn" class="btn btn-small">⧉ Copy spec sheet</button>
+        </div>
         <div id="statGrid" class="stat-grid"></div>
         <h3 class="subhead">Score breakdown</h3>
         <div id="scoreBreakdown" class="sb-list"></div>
+        <h3 class="subhead">Lineage</h3>
+        <div id="lineageList" class="lineage"></div>
       </div>
 
       <div class="card">
@@ -124,6 +133,7 @@
   <script src="watch.js"></script>
   <script src="evolution.js"></script>
   <script src="render.js"></script>
+  <script src="sound.js"></script>
   <script src="game.js"></script>
 </body>
 </html>

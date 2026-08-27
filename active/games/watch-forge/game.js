@@ -36,7 +36,12 @@
     clock: 0,
     watchmaker: null,
     hof: [],
+    history: [],          // lineage events: { gen, name, note }
+    soundOn: false,
+    chimeOn: false,
   };
+
+  const S = window.WATCH_SOUND;
 
   const SPEEDS = {
     pause: { label: '⏸', gps: 0 },
@@ -59,6 +64,9 @@
     popSize: $('#popSize'), popSizeVal: $('#popSizeVal'),
     reset: $('#resetBtn'), seedNew: $('#seedNewBtn'), step: $('#stepBtn'),
     hof: $('#hofList'), saveHof: $('#saveHofBtn'),
+    exportBtn: $('#exportBtn'),
+    soundTick: $('#soundTick'), soundChime: $('#soundChime'),
+    lineage: $('#lineageList'),
     wmLoad: $('#wmLoadBtn'), wmSeed: $('#wmSeedBtn'),
     scoreBreakdown: $('#scoreBreakdown'),
     rngSeed: $('#rngSeed'),
@@ -111,9 +119,35 @@
     G.generation += n;
     recordSeries();
     if (G.evoState.best.score > (G.champion ? G.champion.score : -Infinity) + 1e-9) {
+      const prev = G.champion;
       G.champion = G.evoState.best;
+      pushLineage(prev, G.champion);
     }
   }
+
+  function pushLineage(prev, next) {
+    let note = '';
+    if (!prev) {
+      note = 'founding specimen';
+    } else {
+      const added = next.pheno.compList.filter(c => !prev.pheno.compList.some(p => p.id === c.id));
+      const removed = prev.pheno.compList.filter(p => !next.pheno.compList.some(c => c.id === p.id));
+      if (added.length) note = `+${added.map(c => c.name).join(', ')}`;
+      else if (removed.length) note = `−${removed.map(c => c.name).join(', ')}`;
+      else if (next.pheno.accuracy !== prev.pheno.accuracy) note = `rate ${prev.pheno.accuracy} → ${next.pheno.accuracy} s/day`;
+      else note = `score +${(next.score - prev.score).toFixed(1)}`;
+    }
+    G.history.push({ gen: G.generation, name: next.pheno.name, note, score: next.score });
+    if (G.history.length > 60) G.history.shift();
+  }
+
+  function renderLineage() {
+    if (!G.history.length) { els.lineage.innerHTML = ''; return; }
+    els.lineage.innerHTML = G.history.slice(-6).reverse().map(h =>
+      `<div class="lineage-row"><span class="lg">g${h.gen}</span><span class="ld">${h.name}</span><span>${h.note}</span></div>`
+    ).join('');
+  }
+
 
   function recordSeries() {
     if (G.generation % G.seriesPointGap !== 0) return;
@@ -149,6 +183,14 @@
     els.challenge.textContent = `${E.CHALLENGES[G.challengeId].icon} ${E.CHALLENGES[G.challengeId].name}`;
     els.mutRate.textContent = `${(G.evoState.mutRate * 100).toFixed(0)}%`;
     els.stall.textContent = String(G.evoState.stall || 0);
+
+    // Keep the audible movement in sync with the champion.
+    S.setBeat(c.pheno.geno.beat);
+    const hasRepeater = !!c.pheno.geno.complications.minuteRepeater;
+    els.soundChime.disabled = !hasRepeater;
+    S.setChime(G.chimeOn && hasRepeater);
+
+    renderLineage();
 
     const g = c.pheno.geno;
     const rows = [
@@ -279,6 +321,7 @@
     }
 
     draw(now);
+    S.update(now / 1000);
     requestAnimationFrame(frame);
   }
 
@@ -301,6 +344,7 @@
         G.evoState.lastBest = undefined; G.evoState.stall = 0;
         const c = E.championPhenotype(G.population, G.challengeId);
         G.champion = c;
+        G.history.push({ gen: G.generation, name: c.pheno.name, note: `re-scored under ${E.CHALLENGES[G.challengeId].name}` });
         G.bestSeries = []; G.avgSeries = [];
         updateChampionUI();
       });
@@ -466,7 +510,7 @@
       `<div class="hof-row" data-i="${i}">
         <span class="hof-rank">#${h.rank}</span>
         <span class="hof-main"><b>${h.name}</b><span>${E.CHALLENGES[h.challengeId]?.name || h.challengeId} · ${fmt(h.score, 1)} pts</span></span>
-        <span class="hof-stats">${h.pheno.thickness}mm · ${h.pheno.componentCount}p · ${h.pheno.compCount}c</span>
+        <span class="hof-stats">${h.pheno.thickness}mm · ${h.pheno.componentCount}p · ${h.pheno.compCount}c · ${h.pheno.accuracy}s/d · ${h.pheno.powerReserve}h</span>
         <button class="hof-del" title="delete">✕</button>
       </div>`).join('');
     els.hof.querySelectorAll('.hof-row').forEach(row => {
@@ -541,10 +585,83 @@
     });
     els.step.addEventListener('click', () => { stepMany(25); updateChampionUI(); });
     els.saveHof.addEventListener('click', saveChampion);
+    els.exportBtn.addEventListener('click', exportSpecSheet);
+
+    els.soundTick.addEventListener('change', () => {
+      G.soundOn = els.soundTick.checked;
+      S.setEnabled(G.soundOn);
+    });
+    els.soundChime.addEventListener('change', () => {
+      G.chimeOn = els.soundChime.checked;
+      const hasRepeater = G.champion && !!G.champion.pheno.geno.complications.minuteRepeater;
+      S.setChime(G.chimeOn && hasRepeater);
+      els.soundChime.disabled = !hasRepeater;
+    });
 
     newPopulation(G.rngSeed);
     updateChampionUI();
     requestAnimationFrame(frame);
+  }
+
+  // -----------------------------------------------------------------------
+  // Spec-sheet export
+  // -----------------------------------------------------------------------
+  function exportSpecSheet() {
+    const c = G.champion;
+    if (!c) return;
+    const g = c.pheno.geno;
+    const p = c.pheno;
+    const lines = [
+      `# ${p.name}`,
+      `**Charter:** ${E.CHALLENGES[G.challengeId].name} — ${E.CHALLENGES[G.challengeId].tagline}`,
+      `**Score:** ${c.score.toFixed(1)} at generation ${G.generation}`,
+      '',
+      '## Spec',
+      `- Case diameter: ${g.diameter} mm`,
+      `- Movement thickness: ${p.thickness} mm`,
+      `- Weight: ${p.weight} g`,
+      `- Components: ${p.componentCount} (${p.visibleComponents} visible at ${g.skeleton}% openwork)`,
+      `- Complications: ${p.compCount} (grade sum ${p.compGradeSum})`,
+      `- Rate: ${p.accuracy} s/day (effective ${p.effectiveAccuracy})`,
+      `- Power reserve: ${p.powerReserve} h`,
+      `- Reliability: ${(p.reliability * 100).toFixed(0)}%`,
+      `- Cost: CHF ${p.cost.toLocaleString()}`,
+      '',
+      '## Movement',
+      `- Escapement: ${D.ESCAPEMENTS[g.escapement].name}`,
+      `- Balance: ${D.BALANCES[g.balance].name}`,
+      `- Hairspring: ${D.HAIRSPRINGS[g.hairspring].name}`,
+      `- Beat: ${D.BEATS[g.beat].name}`,
+      `- Barrels: ${g.barrels}`,
+      `- Gear train: ${g.trainWheels} wheels`,
+      '',
+      '## Complications',
+      ...(p.compList.length ? p.compList.map(cp => `- ${cp.name} (grade ${cp.grade}): +${cp.cost} CHF, ${cp.thick} mm`) : ['- (none)']),
+      '',
+      '---',
+      '*Evolved in Watch Forge — the mechanical-watch evolution lab.*',
+    ];
+    const text = lines.join('\n');
+    const done = () => {
+      els.exportBtn.textContent = '✓ Copied';
+      setTimeout(() => { els.exportBtn.textContent = '⧉ Copy spec sheet'; }, 1400);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done).catch(() => fallbackCopy(text, done));
+    } else {
+      fallbackCopy(text, done);
+    }
+  }
+
+  function fallbackCopy(text, done) {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand('copy'); } catch { /* clipboard blocked */ }
+    document.body.removeChild(ta);
+    done();
   }
 
   init();
@@ -553,8 +670,9 @@
   // Test surface (Playwright / devtools) — keep in sync with the exports.
   // -----------------------------------------------------------------------
   window.WATCH_FORGE = {
-    G, W, E, D,
+    G, W, E, D, S,
     stepGeneration, stepMany, newPopulation, updateChampionUI,
     recordSeries, seedPopulationFromWatchmaker, saveChampion,
+    exportSpecSheet, pushLineage, renderLineage,
   };
 })();
