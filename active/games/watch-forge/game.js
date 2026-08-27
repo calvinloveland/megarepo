@@ -13,6 +13,11 @@
   const E = window.WATCH_EVOLUTION;
   const R = window.WATCH_RENDER;
 
+  // Restore the saved dial finish before the first paint.
+  let themeName = 'cream';
+  try { themeName = localStorage.getItem('watchforge.theme') || 'cream'; } catch { /* private mode */ }
+  R.setTheme(themeName);
+
   // -----------------------------------------------------------------------
   // State
   // -----------------------------------------------------------------------
@@ -67,6 +72,7 @@
     reset: $('#resetBtn'), seedNew: $('#seedNewBtn'), step: $('#stepBtn'),
     hof: $('#hofList'), saveHof: $('#saveHofBtn'),
     exportBtn: $('#exportBtn'),
+    themePick: $('#themePick'),
     budgetCap: $('#budgetCap'), thicknessCap: $('#thicknessCap'),
     soundTick: $('#soundTick'), soundChime: $('#soundChime'),
     lineage: $('#lineageList'),
@@ -598,6 +604,13 @@
     els.step.addEventListener('click', () => { stepMany(25); updateChampionUI(); });
     els.saveHof.addEventListener('click', saveChampion);
     els.exportBtn.addEventListener('click', exportSpecSheet);
+
+    els.themePick.value = themeName;
+    els.themePick.addEventListener('change', () => {
+      themeName = els.themePick.value;
+      R.setTheme(themeName);
+      try { localStorage.setItem('watchforge.theme', themeName); } catch { /* ignored */ }
+    });
 
     els.soundTick.addEventListener('change', () => {
       G.soundOn = els.soundTick.checked;

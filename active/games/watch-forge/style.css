@@ -40,6 +40,15 @@ html, body {
   position: sticky; top: 0; z-index: 10;
   backdrop-filter: blur(6px);
 }
+.topbar-right { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.theme-pick {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 11px; color: var(--dim); text-transform: uppercase; letter-spacing: 1px;
+}
+.theme-pick select {
+  background: var(--card2); color: var(--text); border: 1px solid var(--line);
+  border-radius: 7px; padding: 4px 8px; font-size: 12px; cursor: pointer;
+}
 .brand { display: flex; align-items: baseline; gap: 10px; }
 .logo {
   color: var(--brass); font-size: 26px; line-height: 1;

@@ -14,25 +14,51 @@ const { COMPLICATIONS, COMPLICATION_SLOTS, BARREL } = D;
 // ---------------------------------------------------------------------------
 // Palette
 // ---------------------------------------------------------------------------
-const C = {
-  case:      '#3c4148',
-  bezel:     '#565d66',
-  backdrop:  '#101318',
-  plate:     '#232931',
-  bridge:    '#2e363f',
-  brass:     '#d9a03f',
-  brassDark: '#a8742c',
-  steel:     '#b9c2cc',
-  steelDark: '#7e8894',
-  gold:      '#e8c36a',
-  ruby:      '#e23b4e',
-  dialMetal: '#1a1f26',
-  hand:      '#dfe4ea',
-  lume:      '#f4f7fb',
-  accent:    '#ff7a3d',
-  white:     '#e8ecf2',
-  dim:       '#8b93a0',
+// ---------------------------------------------------------------------------
+// Themes — dial palettes. A/B tested; the winner becomes the default each
+// time a theme change is made. `C` is rebound to the active palette.
+// ---------------------------------------------------------------------------
+const THEMES = {
+  // Warm watchmaker's-bench brass on charcoal.
+  brass: {
+    name: 'Atelier Brass', swatch: '#d9a03f',
+    case:      '#3c4148', bezel:     '#565d66', backdrop:  '#101318',
+    plate:     '#232931', bridge:    '#2e363f',
+    brass:     '#d9a03f', brassDark: '#a8742c',
+    steel:     '#b9c2cc', steelDark: '#7e8894',
+    gold:      '#e8c36a', ruby:      '#e23b4e',
+    dialMetal: '#1a1f26', hand:      '#dfe4ea', lume:      '#f4f7fb',
+    accent:    '#ff7a3d', white:     '#e8ecf2', dim:       '#8b93a0',
+  },
+  // Cool steel-blue grand feu: rhodium gears, blue-grey plate, cold light.
+  steel: {
+    name: 'Grand Feu Steel', swatch: '#8fb7d9',
+    case:      '#3a4149', bezel:     '#4d5864', backdrop:  '#0b0e13',
+    plate:     '#1c2430', bridge:    '#242f3d',
+    brass:     '#9fb8d0', brassDark: '#5f7893',
+    steel:     '#c6d0d9', steelDark: '#718494',
+    gold:      '#d7e4f0', ruby:      '#e24a58',
+    dialMetal: '#121a24', hand:      '#e3eaf2', lume:      '#f4f8fc',
+    accent:    '#58b7ff', white:     '#dfe9f2', dim:       '#7789a0',
+  },
+  // Grand feu cream enamel: a light dial inside the dark lab — maximal contrast.
+  cream: {
+    name: 'Grand Feu Cream', swatch: '#e9e2cf',
+    case:      '#8a8372', bezel:     '#b3aa93', backdrop:  '#0d0f13',
+    plate:     '#dcd4bd', bridge:    '#e4dcc7',
+    brass:     '#b68b3a', brassDark: '#8a6626',
+    steel:     '#aab3bd', steelDark: '#6e7a87',
+    gold:      '#c9a24f', ruby:      '#c22b3e',
+    dialMetal: '#f2ecd9', hand:      '#2c323c', lume:      '#101820',
+    accent:    '#b3452e', white:     '#33291a', dim:       '#7a6f5a',
+  },
 };
+
+let C = THEMES.cream;
+function setTheme(name) {
+  if (THEMES[name]) C = THEMES[name];
+  return C;
+}
 
 // ---------------------------------------------------------------------------
 // Geometry helpers
@@ -839,7 +865,8 @@ function drawFitnessChart(ctx, w, h, best, avg, maxGen) {
 
 // Export for the browser (game.js) — render is browser-only.
 root.WATCH_RENDER = {
-  drawWatchDial, drawSideProfile, drawFitnessChart, LAYOUT, C,
+  drawWatchDial, drawSideProfile, drawFitnessChart, LAYOUT, THEMES, setTheme,
+  getPalette: () => C,
 };
 
 })(typeof globalThis !== 'undefined' ? globalThis : (typeof self !== 'undefined' ? self : {}));
