@@ -1,0 +1,8 @@
+# Playwright artifacts
+test-results/
+playwright-report/
+blob-report/
+
+# Playwright browser downloads stay disabled (see .npmrc); if one sneaks in,
+# it is a big dynamic binary that cannot run on NixOS anyway.
+ms-playwright/

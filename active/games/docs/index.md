@@ -26,6 +26,7 @@ Interactive games, simulations, and AI experiments.
 
 ### Simulation & Physics
 - [**vroomon**](../vroomon/README.md) - Vehicle simulation with physics engine
+- [**watch-forge**](../watch-forge/README.md) - Evolve the perfect mechanical watch against a scoring charter (skeleton exposure, minimalist chronometry, slim grand complications)
 
 ## Game Development Resources
 

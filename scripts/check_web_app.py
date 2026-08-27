@@ -31,6 +31,10 @@ KNOWN_APPS = {
         "dir": REPO_ROOT / "active" / "web-apps" / "esp-array-sim",
         "server_script": "server.mjs",
     },
+    "watch-forge": {
+        "dir": REPO_ROOT / "active" / "games" / "watch-forge",
+        "server_script": "server.mjs",
+    },
 }
 
 
@@ -122,6 +126,7 @@ def check() -> int:
         "thermofluid": check_thermofluid,
         "vernissage": check_vernissage,
         "esp-array-sim": check_node_sim,
+        "watch-forge": check_node_sim,
     }
     exit_code = checkers[args.app_name](app, args)
 

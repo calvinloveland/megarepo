@@ -1,0 +1,28 @@
+{
+  "name": "watch-forge",
+  "version": "1.0.0",
+  "description": "Watch Forge — evolve the perfect mechanical watch against a scoring charter. Skeleton exposure, minimalist chronometry, slim grand complications, and more.",
+  "main": "server.mjs",
+  "scripts": {
+    "start": "node server.mjs",
+    "check": "node --check server.mjs && for f in data.js watch.js evolution.js render.js game.js; do node --check \"$f\"; done",
+    "test": "node --test --test-reporter=spec",
+    "test:e2e": "playwright test",
+    "test:smoke": "node scripts/smoke.mjs"
+  },
+  "keywords": [
+    "game",
+    "simulation",
+    "evolution",
+    "genetic-algorithm",
+    "horology",
+    "watches",
+    "canvas"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@playwright/test": "^1.62.1",
+    "playwright": "^1.62.1"
+  }
+}

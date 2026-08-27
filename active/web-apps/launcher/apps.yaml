@@ -311,3 +311,15 @@ apps:
     env:
       PORT: "5117"
 
+  - id: watch-forge
+    name: Watch Forge
+    description: Evolve the perfect mechanical watch — skeleton exposure, minimalist chronometry, slim grand complications. Live animated skeleton dial of every champion.
+    icon: ⌚
+    subdomain: watch
+    path: ../../games/watch-forge
+    type: node
+    port: 5120
+    start_cmd: "node server.mjs 2>&1"
+    env:
+      PORT: "5120"
+
