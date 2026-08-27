@@ -96,6 +96,17 @@ accuracy, effectiveAccuracy (= accuracy × (2 − reliability)), reliability.
 - **Fitness chart**: best (orange) + average (grey) curve with automatic
   decimation when the series grows
 
+## Share & lab persistence
+
+- **“Share build”** copies a permalink encoding the exact specimen
+  (genotype + charter + hybrid + constraints) into the URL fragment —
+  opening it imports that watch as the champion and grows the lab around
+  it (near-cousins first). A `hashchange` listener covers pasting the link
+  over an already-open lab.
+- **Session autosave** (`persistSession` on `beforeunload`) keeps a
+  48-member population snapshot so an accidental reload resumes the same
+  lab (`loadSession`), while a `#watch=` link always takes precedence.
+
 ## UI (`game.js`, `index.html`)
 
 Three columns: charter + forge controls + Hall of Fame · live dial +

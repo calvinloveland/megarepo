@@ -389,7 +389,7 @@ function championPhenotype(pop, challengeId, constraints, hybrid) {
   return best;
 }
 
-const EVOLUTION = { CHALLENGES, scoreWatch, evolvePopulation, randomPopulation, championPhenotype, FOUNDERS, founderArchetype, diversity, constraintPenalty, constraintBreaches, blendScores, scorePopulation };
+const EVOLUTION = { CHALLENGES, scoreWatch, evolvePopulation, randomPopulation, championPhenotype, FOUNDERS, founderArchetype, diversity, constraintPenalty, constraintBreaches, blendScores, scorePopulation, mutate };
 
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = EVOLUTION;

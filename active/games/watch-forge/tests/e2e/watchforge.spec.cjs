@@ -215,3 +215,94 @@ test('hybrid charter blends two objectives into a 0..100 score', async ({ page }
   expect(restored.hybrid).toBeNull();
   expect(restored.score).toBeGreaterThan(100); // back on the Thin King raw scale
 });
+
+test('share permalink round-trips a build across reloads', async ({ page, context }) => {
+  await boot(page);
+  await page.evaluate(() => {
+    window.WATCH_FORGE.G.speed = 'pause'; // freeze the loop
+    window.WATCH_FORGE.stepMany(25);
+  });
+  // Capture name + link atomically — the loop is frozen so they agree.
+  const { name, url } = await page.evaluate(() => ({
+    name: window.WATCH_FORGE.G.champion.pheno.name,
+    url: window.WATCH_FORGE.shareUrl(),
+  }));
+  expect(url).toContain('#watch=');
+  // Load the shared URL in a FRESH page so it is a real cross-document
+  // navigation carrying the fragment at parse time. Pause the new lab so
+  // the founding specimen can't be out-evolved before we read it.
+  const page2 = await context.newPage();
+  await page2.addInitScript(() => {
+    const t = setInterval(() => {
+      if (window.WATCH_FORGE && window.WATCH_FORGE.G && !window.WATCH_FORGE.G.importFrozen) {
+        window.WATCH_FORGE.G.speed = 'pause';
+        window.WATCH_FORGE.G.importFrozen = true;
+        clearInterval(t);
+      }
+    }, 5);
+  });
+  await page2.goto(url, { waitUntil: 'load' });
+  await page2.waitForFunction(() => window.WATCH_FORGE && window.WATCH_FORGE.G.champion, null, { timeout: 8000 });
+  const restored = await page2.evaluate(() => {
+    const geno = window.WATCH_FORGE.G.population[0]; // the founding shared specimen
+    return {
+      championNote: window.WATCH_FORGE.G.history[0].note,
+      specimenName: window.WATCH_FORGE.W.championName(geno),
+      hash: window.location.hash,
+    };
+  });
+  // The exact shared build survived the URL round-trip and IS the champion.
+  expect(restored.specimenName).toBe(name);
+  expect(restored.championNote).toBe('shared build loaded');
+  await page2.close();
+});
+
+test('pasting a watch= hash over an open lab imports via hashchange', async ({ page }) => {
+  await boot(page);
+  await page.evaluate(() => window.WATCH_FORGE.G.speed = 'pause');
+  await page.evaluate(() => window.WATCH_FORGE.stepMany(25));
+  const name = await page.evaluate(() => window.WATCH_FORGE.G.champion.pheno.name);
+  const url = await page.evaluate(() => window.WATCH_FORGE.shareUrl());
+  // Same-document navigation: hashchange listener must do the import.
+  await page.evaluate((u) => { location.hash = u.split('#')[1]; }, url);
+  await page.waitForTimeout(300);
+  const st = await page.evaluate(() => ({
+    ok: window.WATCH_FORGE.G.history[0]?.note === 'shared build loaded',
+    hash: window.location.hash,
+    p0: window.WATCH_FORGE.W.championName(window.WATCH_FORGE.G.population[0]),
+  }));
+  expect(st.ok).toBe(true);
+  expect(st.hash).toBe('');
+  expect(st.p0).toBe(name); // shared specimen landed as founding member
+});
+
+test('saved labs restore across reloads', async ({ page }) => {
+  await boot(page);
+  await page.evaluate(() => {
+    window.WATCH_FORGE.G.speed = 'pause';
+    window.WATCH_FORGE.stepMany(12);
+  });
+  await page.evaluate(() => window.WATCH_FORGE.persistSession());
+  const gen = await page.evaluate(() => window.WATCH_FORGE.G.generation);
+  // Freeze the new document immediately so the restored lab can't evolve
+  // between load and inspection.
+  await page.addInitScript(() => {
+    const t = setInterval(() => {
+      if (window.WATCH_FORGE && window.WATCH_FORGE.G && !window.WATCH_FORGE.G.importFrozen) {
+        window.WATCH_FORGE.G.speed = 'pause';
+        window.WATCH_FORGE.G.importFrozen = true;
+        clearInterval(t);
+      }
+    }, 5);
+  });
+  await page.reload({ waitUntil: 'load' });
+  await page.waitForFunction(() => window.WATCH_FORGE && window.WATCH_FORGE.G.champion, null, { timeout: 8000 });
+  const st = await page.evaluate(() => ({
+    note: window.WATCH_FORGE.G.history[0]?.note,
+    gen: window.WATCH_FORGE.G.generation,
+    popSize: window.WATCH_FORGE.G.population.length,
+  }));
+  expect(st.note).toBe('lab restored');
+  expect(st.popSize).toBeGreaterThanOrEqual(48); // founding snapshot preserved
+  expect(st.gen).toBe(gen);
+});

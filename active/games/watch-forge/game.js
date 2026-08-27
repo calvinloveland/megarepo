@@ -75,6 +75,7 @@
     reset: $('#resetBtn'), seedNew: $('#seedNewBtn'), step: $('#stepBtn'),
     hof: $('#hofList'), saveHof: $('#saveHofBtn'),
     exportBtn: $('#exportBtn'),
+    shareBtn: $('#shareBtn'),
     lineup: $('#lineupCanvas'),
     themePick: $('#themePick'),
     budgetCap: $('#budgetCap'), thicknessCap: $('#thicknessCap'),
@@ -692,6 +693,7 @@
     els.step.addEventListener('click', () => { stepMany(25); updateChampionUI(); });
     els.saveHof.addEventListener('click', saveChampion);
     els.exportBtn.addEventListener('click', exportSpecSheet);
+    els.shareBtn.addEventListener('click', shareBuild);
 
     els.themePick.value = themeName;
     els.themePick.addEventListener('change', () => {
@@ -725,8 +727,17 @@
       els.soundChime.disabled = !hasRepeater;
     });
 
-    newPopulation(G.rngSeed);
+    // Boot: a shared #watch= link wins, then a saved lab, else a fresh forge.
+    if (!loadSharedBuild()) {
+      if (!loadSession()) newPopulation(G.rngSeed);
+    }
     updateChampionUI();
+    window.addEventListener('beforeunload', persistSession);
+    // Cover hash-only navigations (same-document): a user pasting a #watch=
+    // link over an already-open lab should import it too.
+    window.addEventListener('hashchange', () => {
+      if (/watch=/.test(location.hash)) loadSharedBuild();
+    });
     requestAnimationFrame(frame);
   }
 
@@ -791,6 +802,121 @@
     done();
   }
 
+  // -----------------------------------------------------------------------
+  // Share + session persistence
+  // -----------------------------------------------------------------------
+  const b64enc = (obj) => btoa(unescape(encodeURIComponent(JSON.stringify(obj))));
+  const b64dec = (s) => JSON.parse(decodeURIComponent(escape(atob(s))));
+
+  function shareUrl() {
+    const payload = {
+      v: 1,
+      seed: G.rngSeed,
+      generation: G.generation,
+      challengeId: G.challengeId,
+      hybrid: G.hybrid,
+      constraints: G.constraints,
+      geno: G.champion ? G.champion.geno : null,
+    };
+    return `${location.origin}${location.pathname}#watch=${b64enc(payload)}`;
+  }
+
+  function shareBuild() {
+    navigator.clipboard.writeText(shareUrl())
+      .then(() => { els.shareBtn.textContent = '✓ Copied link'; setTimeout(() => { els.shareBtn.textContent = '🔗 Share build'; }, 1400); })
+      .catch(() => { fallbackCopy(shareUrl(), () => { els.shareBtn.textContent = '✓ Copied link'; setTimeout(() => { els.shareBtn.textContent = '🔗 Share build'; }, 1400); }); });
+  }
+
+  function loadSharedBuild() {
+    const m = location.hash.match(/watch=([A-Za-z0-9+/=_-]+)/);
+    if (!m) return false;
+    try {
+      const p = b64dec(m[1]);
+      if (!p || !p.geno) return false;
+      applySession({ ...p, __origin: 'share' }, [p.geno]);
+      // One-time import: drop the hash so later reloads use the saved lab.
+      // Chrome re-applies the fragment after the load event for fragment
+      // navigations, so clear again on load.
+      const clearHash = () => {
+        try { history.replaceState(null, '', location.pathname); } catch { /* old browsers */ }
+        if (location.hash) location.hash = '';
+      };
+      clearHash();
+      window.addEventListener('load', clearHash, { once: true });
+      window.addEventListener('pageshow', clearHash, { once: true });
+      return true;
+    } catch { return false; }
+  }
+
+  // Restore a saved lab (population snapshot) from localStorage.
+  function loadSession() {
+    try {
+      const s = JSON.parse(localStorage.getItem('watchforge.session') || 'null');
+      if (!s || !Array.isArray(s.population) || !s.population.length) return false;
+      applySession(s, s.population);
+      return true;
+    } catch { return false; }
+  }
+
+  // Shared by hash-load and session-load: sets charter/constraints/hybrid
+  // and rebuilds the population around the given founding members. A shared
+  // build IS the champion (that's what was shared); a saved lab re-picks its
+  // champion by re-scoring the restored population.
+  function applySession(p, founding = []) {
+    if (p.challengeId && E.CHALLENGES[p.challengeId]) {
+      G.challengeId = p.challengeId;
+      els.challenges.querySelectorAll('.challenge').forEach(b => b.classList.toggle('active', b.dataset.id === p.challengeId));
+    }
+    G.hybrid = (p.hybrid && p.hybrid.secondary && E.CHALLENGES[p.hybrid.secondary]) ? { ...p.hybrid } : null;
+    G.constraints = {
+      budgetCap: (p.constraints && p.constraints.budgetCap) || 0,
+      thicknessCap: (p.constraints && p.constraints.thicknessCap) || 0,
+    };
+    els.budgetCap.value = String(G.constraints.budgetCap);
+    els.thicknessCap.value = String(G.constraints.thicknessCap);
+    els.hybridSel.value = G.hybrid ? G.hybrid.secondary : '';
+    els.hybridWeight.value = G.hybrid ? String(Math.round(G.hybrid.weight * 100)) : '40';
+    els.hybridWeightVal.textContent = els.hybridWeight.value;
+    els.hybridWeightWrap.hidden = !G.hybrid;
+
+    const rng = W.mulberry32((p.seed || (Date.now() >>> 0)) >>> 0);
+    const pop = founding.map(g => JSON.parse(JSON.stringify(g)));
+    const isShare = p.__origin === 'share';
+    if (isShare && pop.length) {
+      // A shared build's lab: its near-cousins first, then randoms.
+      const base = JSON.parse(JSON.stringify(pop[0]));
+      while (pop.length < 60) pop.push(JSON.parse(JSON.stringify(E.mutate(base, 0.10, rng))));
+    }
+    while (pop.length < G.popSize) pop.push(W.randomGenotype(rng));
+    G.population = pop;
+    G.rngSeed = p.seed || (Date.now() >>> 0);
+    els.rngSeed.textContent = String(G.rngSeed);
+    G.evoState = { population: pop.slice(), lastBest: undefined, stall: 0, mutRate: 0.08 };
+    G.generation = p.generation || 0;
+    G.bestSeries = []; G.avgSeries = [];
+    if (isShare) {
+      const geno = JSON.parse(JSON.stringify(pop[0]));
+      const pheno = W.computePhenotype(geno);
+      const solo = [{ geno, pheno, score: 0, sPrimary: 0, sSecondary: 0 }];
+      E.scorePopulation(solo, G.challengeId, G.hybrid, G.constraints);
+      G.champion = { geno, pheno, score: solo[0].score };
+    } else {
+      G.champion = E.championPhenotype(G.population, G.challengeId, G.constraints, G.hybrid);
+    }
+    G.history = [{ gen: G.generation, name: G.champion.pheno.name, note: isShare ? 'shared build loaded' : 'lab restored' }];
+    updateChampionUI();
+  }
+
+  function persistSession() {
+    try {
+      localStorage.setItem('watchforge.session', JSON.stringify({
+        seed: G.rngSeed, generation: G.generation,
+        challengeId: G.challengeId, hybrid: G.hybrid, constraints: G.constraints,
+        population: G.population.slice(0, 48),
+      }));
+    } catch { /* private mode */ }
+  }
+
   init();
 
   // -----------------------------------------------------------------------
@@ -801,5 +927,6 @@
     stepGeneration, stepMany, newPopulation, updateChampionUI,
     recordSeries, seedPopulationFromWatchmaker, saveChampion,
     exportSpecSheet, pushLineage, renderLineage,
+    shareUrl, persistSession, loadSharedBuild,
   };
 })();

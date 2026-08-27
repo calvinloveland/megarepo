@@ -57,6 +57,11 @@ docs/index.md       # Web docs
   beat plain for Thin King").
 - `game.js` exports `window.WATCH_FORGE` (state + engine hooks) as the test
   surface for Playwright. Keep it in sync when refactoring.
+- Share permalinks are base64 JSON in the URL fragment (`#watch=…`) and
+  import via `applySession(p, founding)` — **founding genotypes must be
+  passed as the SECOND argument**; stuffing them into the payload is an
+  easy way to end up with a random lab (that exact bug shipped and was
+  caught by e2e).
 
 ## Commands
 
