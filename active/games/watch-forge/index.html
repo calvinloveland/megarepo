@@ -57,6 +57,10 @@
           <label for="popSize">Population <b id="popSizeVal">80</b></label>
           <input type="range" id="popSize" min="20" max="200" step="10" value="80">
         </div>
+        <div class="control-row">
+          <label>Briefs</label>
+          <div id="briefList" class="brief-row"></div>
+        </div>
         <div class="control-grid">
           <label>Budget cap
             <select id="budgetCap">
@@ -173,6 +177,18 @@
     <p>Every champion renders as a live skeletonized movement — gears mesh, the escapement ticks, the balance swings.</p>
     <p>Watch Forge · vanilla JS + Canvas 2D, no build step</p>
   </footer>
+
+  <div id="briefing" class="briefing" hidden>
+    <div class="briefing-card">
+      <h2>⌚ Welcome to Watch Forge</h2>
+      <ol class="briefing-steps">
+        <li><b>Pick a charter.</b> Each charter is a scoring equation — Glass Palace wants every component visible, Less Is More wants few parts and great rate, Thin King wants maximum complications in a slim package.</li>
+        <li><b>Watch it evolve.</b> A population of watch chromosomes breeds toward the charter. Speed it up, add budget/thickness caps, or blend two charters into your own equation.</li>
+        <li><b>Take the champion further.</b> Tune it by hand on the watchmaker bench, save it to the Hall of Fame, or copy a share link for the exact build.</li>
+      </ol>
+      <button id="briefingDismiss" class="btn btn-accent">Start forging 🕰</button>
+    </div>
+  </div>
 
   <script src="data.js"></script>
   <script src="watch.js"></script>

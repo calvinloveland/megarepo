@@ -107,6 +107,15 @@ accuracy, effectiveAccuracy (= accuracy × (2 − reliability)), reliability.
   48-member population snapshot so an accidental reload resumes the same
   lab (`loadSession`), while a `#watch=` link always takes precedence.
 
+## Onboarding & briefs
+
+- **First-run briefing** — a three-step overlay (charter → evolve → take the
+  champion further) that appears once and is persisted in localStorage.
+- **Named briefs** — one-click scenarios that set charter + caps + blend:
+  “The Public’s Watch” (Glass Palace, CHF 15k), “The Slim King” (Thin King,
+  8 mm, CHF 30k), “The School of Chronometry” (Chronometer, CHF 8k, 8 mm),
+  and “The Traveler” (60/40 Thin King × Chronometer, CHF 20k).
+
 ## UI (`game.js`, `index.html`)
 
 Three columns: charter + forge controls + Hall of Fame · live dial +

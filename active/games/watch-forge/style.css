@@ -294,6 +294,36 @@ html, body {
 .foot { padding: 18px 20px 30px; color: var(--dim); font-size: 12px; text-align: center; }
 .foot p { margin: 2px 0; }
 
+/* ---------- briefs + briefing ---------- */
+.brief-row { display: flex; gap: 6px; flex-wrap: wrap; }
+.brief {
+  flex: 1; min-width: 120px; text-align: left;
+  background: var(--card2); color: var(--text);
+  border: 1px solid var(--line); border-radius: 8px;
+  padding: 6px 8px; font-size: 11px; cursor: pointer;
+}
+.brief b { display: block; font-size: 12px; }
+.brief span { color: var(--dim); font-size: 10px; }
+.brief:hover { border-color: var(--brass-dark); }
+.briefing {
+  position: fixed; inset: 0; z-index: 50;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(8, 10, 14, 0.78);
+  backdrop-filter: blur(4px);
+}
+.briefing-card {
+  max-width: 480px; margin: 16px;
+  background: linear-gradient(180deg, var(--card), var(--bg2));
+  border: 1px solid var(--brass-dark); border-radius: 14px;
+  padding: 22px 24px;
+  box-shadow: 0 30px 90px #00000099;
+}
+.briefing-card h2 { margin: 0 0 12px; text-transform: none; letter-spacing: 0.5px; color: var(--brass); }
+.briefing-steps { margin: 0 0 16px; padding-left: 20px; color: var(--dim); font-size: 13px; }
+.briefing-steps li { margin: 8px 0; }
+.briefing-steps b { color: var(--text); }
+.briefing-card .btn { width: 100%; padding: 10px; font-size: 14px; }
+
 /* ---------- scrollbars ---------- */
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-thumb { background: var(--line); border-radius: 4px; }

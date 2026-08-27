@@ -76,6 +76,8 @@
     hof: $('#hofList'), saveHof: $('#saveHofBtn'),
     exportBtn: $('#exportBtn'),
     shareBtn: $('#shareBtn'),
+    briefList: $('#briefList'),
+    briefing: $('#briefing'), briefingDismiss: $('#briefingDismiss'),
     lineup: $('#lineupCanvas'),
     themePick: $('#themePick'),
     budgetCap: $('#budgetCap'), thicknessCap: $('#thicknessCap'),
@@ -667,14 +669,74 @@
   }
 
   // -----------------------------------------------------------------------
+  // Named briefs — preconfigured charter + constraint scenarios
+  // -----------------------------------------------------------------------
+  const BRIEFS = [
+    { id: 'public', label: 'The Public’s Watch', hint: 'Glass Palace · CHF 15k',
+      challengeId: 'skeleton', budget: 15000, thickness: 12, hybrid: null },
+    { id: 'slim', label: 'The Slim King', hint: 'Thin King · 8 mm · CHF 30k',
+      challengeId: 'grandComplication', budget: 30000, thickness: 8, hybrid: null },
+    { id: 'chrono', label: 'The School of Chronometry', hint: 'Chronometer · CHF 8k · 8 mm',
+      challengeId: 'chronometer', budget: 8000, thickness: 8, hybrid: null },
+    { id: 'traveler', label: 'The Traveler', hint: '60/40 Thin King × Chronometer · CHF 20k',
+      challengeId: 'grandComplication', budget: 20000, thickness: 0,
+      hybrid: { primary: 'grandComplication', secondary: 'chronometer', weight: 0.4 } },
+  ];
+
+  function buildBriefs() {
+    els.briefList.innerHTML = BRIEFS.map(b =>
+      `<button class="brief" data-id="${b.id}"><b>${b.label}</b><span>${b.hint}</span></button>`).join('');
+    els.briefList.querySelectorAll('.brief').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const brief = BRIEFS.find(b => b.id === btn.dataset.id);
+        applyBrief(brief);
+      });
+    });
+  }
+
+  function applyBrief(brief) {
+    // 1) Charter (reuses the real charter-click path).
+    const btn = els.challenges.querySelector(`.challenge[data-id="${brief.challengeId}"]`);
+    if (btn) btn.click();
+    // 2) Hybrid blend, if the brief carries one.
+    if (brief.hybrid) {
+      els.hybridSel.value = brief.hybrid.secondary;
+      els.hybridSel.dispatchEvent(new Event('change'));
+      els.hybridWeight.value = String(Math.round(brief.hybrid.weight * 100));
+      els.hybridWeight.dispatchEvent(new Event('input'));
+    }
+    // 3) Constraint caps.
+    els.budgetCap.value = String(brief.budget || 0);
+    els.thicknessCap.value = String(brief.thickness || 0);
+    els.budgetCap.dispatchEvent(new Event('change'));
+    els.thicknessCap.dispatchEvent(new Event('change'));
+    G.history.push({ gen: G.generation, name: G.champion.pheno.name, note: `brief: ${brief.label}` });
+    updateChampionUI();
+  }
+
+  // -----------------------------------------------------------------------
   // Init
   // -----------------------------------------------------------------------
   function init() {
     els.rngSeed.textContent = String(G.rngSeed);
     buildChallenges();
     buildSpeeds();
+    buildBriefs();
     buildWatchmaker();
     loadHof(); renderHof();
+
+    // First-run briefing.
+    let seenBriefing = true;
+    try { seenBriefing = !!localStorage.getItem('watchforge.seen'); } catch { /* private mode */ }
+    if (!seenBriefing) {
+      els.briefing.hidden = false;
+      els.briefingDismiss.addEventListener('click', () => {
+        els.briefing.hidden = true;
+        try { localStorage.setItem('watchforge.seen', '1'); } catch { /* ignored */ }
+        // Prime audio for the first time interactively (autoplay policies).
+        if (els.soundTick.checked) { G.soundOn = true; S.setEnabled(true); }
+      });
+    }
 
     els.popSize.addEventListener('input', () => {
       G.popSize = Number(els.popSize.value);

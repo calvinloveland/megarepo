@@ -10,6 +10,14 @@ const { test, expect } = require('@playwright/test');
 async function boot(page) {
   await page.goto('/', { waitUntil: 'load' });
   await page.waitForFunction(() => window.WATCH_FORGE && window.WATCH_FORGE.G.champion, null, { timeout: 10_000 });
+  // Dismiss the first-run briefing so it can't intercept clicks.
+  const visible = await page.evaluate(() => {
+    const b = document.querySelector('#briefing');
+    return b && !b.hidden;
+  });
+  if (visible) {
+    await page.evaluate(() => document.querySelector('#briefingDismiss').click());
+  }
 }
 
 test('no console or page errors during boot and evolution', async ({ page }) => {
@@ -305,4 +313,42 @@ test('saved labs restore across reloads', async ({ page }) => {
   expect(st.note).toBe('lab restored');
   expect(st.popSize).toBeGreaterThanOrEqual(48); // founding snapshot preserved
   expect(st.gen).toBe(gen);
+});
+
+test('first-run briefing shows once and dismisses permanently', async ({ page }) => {
+  await boot(page); // boot dismisses it; verify it was there and is now gone
+  const afterDismiss = await page.evaluate(() => ({
+    hidden: document.querySelector('#briefing').hidden,
+    flag: localStorage.getItem('watchforge.seen'),
+  }));
+  expect(afterDismiss.hidden).toBe(true);
+  expect(afterDismiss.flag).toBe('1');
+  // Second visit (reload) must not show it again.
+  await page.reload({ waitUntil: 'load' });
+  await page.waitForFunction(() => window.WATCH_FORGE && window.WATCH_FORGE.G.champion, null, { timeout: 8000 });
+  const afterReload = await page.evaluate(() => document.querySelector('#briefing').hidden);
+  expect(afterReload).toBe(true);
+});
+
+test('named briefs apply charter, caps and blends in one click', async ({ page }) => {
+  await boot(page);
+  await page.evaluate(() => {
+    document.querySelector('[data-id="traveler"]').click();
+  });
+  await page.waitForTimeout(250);
+  const st = await page.evaluate(() => ({
+    charter: window.WATCH_FORGE.G.challengeId,
+    hybrid: window.WATCH_FORGE.G.hybrid,
+    budget: window.WATCH_FORGE.G.constraints.budgetCap,
+    thickness: window.WATCH_FORGE.G.constraints.thicknessCap,
+    chip: document.querySelector('#champChallenge').textContent,
+    briefNote: window.WATCH_FORGE.G.history.some(h => /brief/.test(h.note)),
+  }));
+  expect(st.charter).toBe('grandComplication');
+  expect(st.hybrid.secondary).toBe('chronometer');
+  expect(Math.round(st.hybrid.weight * 100)).toBe(40);
+  expect(st.budget).toBe(20000);
+  expect(st.thickness).toBe(0);
+  expect(st.chip).toContain('×');
+  expect(st.briefNote).toBe(true);
 });
