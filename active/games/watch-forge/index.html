@@ -39,6 +39,26 @@
           <label for="popSize">Population <b id="popSizeVal">80</b></label>
           <input type="range" id="popSize" min="20" max="200" step="10" value="80">
         </div>
+        <div class="control-grid">
+          <label>Budget cap
+            <select id="budgetCap">
+              <option value="0">none</option>
+              <option value="5000">CHF 5k</option>
+              <option value="10000" selected>CHF 10k</option>
+              <option value="20000">CHF 20k</option>
+              <option value="50000">CHF 50k</option>
+            </select>
+          </label>
+          <label>Thickness cap
+            <select id="thicknessCap">
+              <option value="0" selected>none</option>
+              <option value="6">6 mm</option>
+              <option value="8">8 mm</option>
+              <option value="10">10 mm</option>
+              <option value="12">12 mm</option>
+            </select>
+          </label>
+        </div>
         <div class="control-row">
           <label>Speed</label>
           <div id="speedButtons" class="speed-row"></div>

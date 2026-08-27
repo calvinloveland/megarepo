@@ -39,6 +39,7 @@
     history: [],          // lineage events: { gen, name, note }
     soundOn: false,
     chimeOn: false,
+    constraints: { budgetCap: 0, thicknessCap: 0 },
   };
 
   const S = window.WATCH_SOUND;
@@ -66,6 +67,7 @@
     reset: $('#resetBtn'), seedNew: $('#seedNewBtn'), step: $('#stepBtn'),
     hof: $('#hofList'), saveHof: $('#saveHofBtn'),
     exportBtn: $('#exportBtn'),
+    budgetCap: $('#budgetCap'), thicknessCap: $('#thicknessCap'),
     soundTick: $('#soundTick'), soundChime: $('#soundChime'),
     lineage: $('#lineageList'),
     wmLoad: $('#wmLoadBtn'), wmSeed: $('#wmSeedBtn'),
@@ -101,7 +103,7 @@
     G.seriesPointGap = 1;
     G.acc = 0;
     // Initial champion
-    const c = E.championPhenotype(G.population, G.challengeId);
+    const c = E.championPhenotype(G.population, G.challengeId, G.constraints);
     G.champion = c;
     G.lastGenUI = -1;
     updateChampionUI();
@@ -114,6 +116,7 @@
       population: G.evoState.population,
       elitism: G.elitism,
       baseMutRate: 0.08,
+      constraints: G.constraints,
       rng: W.mulberry32((G.rngSeed ^ (G.generation * 2654435761)) >>> 0),
     });
     G.population = G.evoState.population;
@@ -269,9 +272,16 @@
         [`Accuracy ×0.5`, `−${(w.accuracy * 0.5).toFixed(1)}`],
       ],
     };
-    els.scoreBreakdown.innerHTML = parts[G.challengeId]
+    const raw = E.CHALLENGES[G.challengeId].score(w);
+    const penalty = E.constraintPenalty(w, G.constraints);
+    let constraintRows = '';
+    if (penalty > 0) {
+      constraintRows = `<div class="sb-row sb-penalty"><span>⛔ raw score</span><span>${raw.toFixed(1)}</span></div>`
+        + `<div class="sb-row sb-penalty"><span>⛔ constraint penalty</span><span>−${penalty.toFixed(1)}</span></div>`;
+    }
+    els.scoreBreakdown.innerHTML = constraintRows + parts[G.challengeId]
       .map(([k, v]) => `<div class="sb-row"><span>${k}</span><span>${v}</span></div>`).join('')
-      + `<div class="sb-total">${eq.equation}</div>`;
+      + `<div class="sb-total">${eq.equation}${G.constraints.budgetCap ? ` · budget ≤ CHF ${G.constraints.budgetCap.toLocaleString()}` : ''}${G.constraints.thicknessCap ? ` · thickness ≤ ${G.constraints.thicknessCap} mm` : ''}</div>`;
   }
 
   // -----------------------------------------------------------------------
@@ -344,7 +354,7 @@
         els.challenges.querySelectorAll('.challenge').forEach(b => b.classList.toggle('active', b === btn));
         // Re-score current population under the new objective immediately.
         G.evoState.lastBest = undefined; G.evoState.stall = 0;
-        const c = E.championPhenotype(G.population, G.challengeId);
+        const c = E.championPhenotype(G.population, G.challengeId, G.constraints);
         G.champion = c;
         G.history.push({ gen: G.generation, name: c.pheno.name, note: `re-scored under ${E.CHALLENGES[G.challengeId].name}` });
         G.bestSeries = []; G.avgSeries = [];
@@ -480,7 +490,7 @@
       const child = E.evolvePopulation({
         challengeId: G.challengeId,
         population: [base, W.randomGenotype(rng)],
-        elitism: 1, baseMutRate: 0.25, rng,
+        elitism: 1, baseMutRate: 0.25, constraints: G.constraints, rng,
       }).population[0];
       pop.push(child);
     }
@@ -488,7 +498,7 @@
     G.evoState = { population: pop.slice(), lastBest: undefined, stall: 0, mutRate: 0.08 };
     G.generation = 0;
     G.bestSeries = []; G.avgSeries = [];
-    const c = E.championPhenotype(G.population, G.challengeId);
+    const c = E.championPhenotype(G.population, G.challengeId, G.constraints);
     G.champion = c;
     updateChampionUI();
   }
@@ -529,7 +539,7 @@
         G.evoState = { population: pop.slice(), lastBest: undefined, stall: 0, mutRate: 0.08 };
         G.generation = 0;
         G.bestSeries = []; G.avgSeries = [];
-        G.champion = E.championPhenotype(G.population, G.challengeId);
+        G.champion = E.championPhenotype(G.population, G.challengeId, G.constraints);
         updateChampionUI();
       });
       row.querySelector('.hof-del').addEventListener('click', (ev) => {
@@ -593,6 +603,20 @@
       G.soundOn = els.soundTick.checked;
       S.setEnabled(G.soundOn);
     });
+
+    const applyConstraints = () => {
+      G.constraints.budgetCap = Number(els.budgetCap.value);
+      G.constraints.thicknessCap = Number(els.thicknessCap.value);
+      // Re-score under the new caps and restart the fitness curve.
+      G.evoState.lastBest = undefined; G.evoState.stall = 0;
+      const c = E.championPhenotype(G.population, G.challengeId, G.constraints);
+      G.champion = c;
+      G.bestSeries = []; G.avgSeries = [];
+      G.history.push({ gen: G.generation, name: c.pheno.name, note: 'constraints updated' });
+      updateChampionUI();
+    };
+    els.budgetCap.addEventListener('change', applyConstraints);
+    els.thicknessCap.addEventListener('change', applyConstraints);
     els.soundChime.addEventListener('change', () => {
       G.chimeOn = els.soundChime.checked;
       const hasRepeater = G.champion && !!G.champion.pheno.geno.complications.minuteRepeater;

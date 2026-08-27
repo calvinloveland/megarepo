@@ -17,6 +17,14 @@ Five objectives, each a transparent equation over the champion phenotype
 4. **Chronometer Trials** — `600/(1+|effAcc|) + 80·reliability − 0.004·cost − 8·thickness`
 5. **Eight-Day Pocket Hero** — `2.2·reserve + 90·reliability − 0.003·cost − 10·thickness − 0.5·acc`
 
+### Constraints (optional handicaps, any charter)
+
+Cost and thickness caps from the Forge card layer a hard penalty on top of
+the charter score: over budget by one franc costs a bite plus a linear
+surcharge, so elitism steers the population to compliant builds. Try
+“Thin King under CHF 10k / 8 mm” — the champion visibly slim down from the
+uncapped monster.
+
 The behavioural intent of every equation is locked by
 `tests/fitness.test.mjs` (e.g. "skeletonizing an identical build scores
 higher", "three grades of the same complication beat one for Thin King").

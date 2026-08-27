@@ -109,6 +109,37 @@ function scoreWatch(pheno, challengeId) {
 }
 
 // ---------------------------------------------------------------------------
+// Constraints — optional handicap caps layered on top of any charter.
+// Violating a cap costs a hard bite plus a linear surcharge so the GA's
+// elitism steers the population toward compliant builds without hard-kludging
+// the search (a tiny bit of violation is survivable, a lot never survives).
+// ---------------------------------------------------------------------------
+
+function constraintPenalty(w, constraints = {}) {
+  let pen = 0;
+  if (constraints.budgetCap > 0 && w.cost > constraints.budgetCap) {
+    const over = w.cost - constraints.budgetCap;
+    pen += over * 0.25 + 400;
+  }
+  if (constraints.thicknessCap > 0 && w.thickness > constraints.thicknessCap) {
+    const over = w.thickness - constraints.thicknessCap;
+    pen += over * 350 + 300;
+  }
+  return pen;
+}
+
+function constraintBreaches(w, constraints = {}) {
+  const out = [];
+  if (constraints.budgetCap > 0 && w.cost > constraints.budgetCap) {
+    out.push(`⛔ budget over by CHF ${(w.cost - constraints.budgetCap).toLocaleString()}`);
+  }
+  if (constraints.thicknessCap > 0 && w.thickness > constraints.thicknessCap) {
+    out.push(`⛔ ${(w.thickness - constraints.thicknessCap).toFixed(1)} mm over the thickness cap`);
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------------------
 // Genetic algorithm
 // ---------------------------------------------------------------------------
 
@@ -122,7 +153,8 @@ function evolvePopulation(params) {
     .filter(w => w)
     .map(geno => ({ geno, pheno: computePhenotype(geno, { rng: mulberry32(genotypeHash(geno) ^ 0x51ed270b) }),
                          score: 0 }));
-  for (const s of scored) s.score = CHALLENGES[challengeId].score(s.pheno);
+  const constraints = params.constraints || {};
+  for (const s of scored) s.score = CHALLENGES[challengeId].score(s.pheno) - constraintPenalty(s.pheno, constraints);
   scored.sort((a, b) => b.score - a.score);
 
   const next = [];
@@ -304,17 +336,17 @@ function diversity(pop) {
   return seen.size / Math.min(pop.length, 64);
 }
 
-function championPhenotype(pop, challengeId) {
+function championPhenotype(pop, challengeId, constraints) {
   let best = null;
   for (const geno of pop) {
     const pheno = computePhenotype(geno);
-    const s = CHALLENGES[challengeId].score(pheno);
+    const s = CHALLENGES[challengeId].score(pheno) - constraintPenalty(pheno, constraints || {});
     if (!best || s > best.score) best = { geno, pheno, score: s };
   }
   return best;
 }
 
-const EVOLUTION = { CHALLENGES, scoreWatch, evolvePopulation, randomPopulation, championPhenotype, FOUNDERS, founderArchetype, diversity };
+const EVOLUTION = { CHALLENGES, scoreWatch, evolvePopulation, randomPopulation, championPhenotype, FOUNDERS, founderArchetype, diversity, constraintPenalty, constraintBreaches };
 
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = EVOLUTION;

@@ -53,6 +53,8 @@ a minute repeater is a cathedral of parts that wrecks a slim profile.
   with a bare silicon precision engine
 - **Watchmaker bench** — hand-tune a build (every gene + complication grade)
   and seed the population with it. Your build is the founding genotype.
+- **Constraint handicaps** — budget and thickness caps on any charter
+  (“Thin King under CHF 10k and 8 mm”) create whole new optimization puzzles
 - **Live rendering** — skeletonized dial, thickness side-profile, and a
   best/avg fitness curve across generations
 - **Hall of Fame** — save champions to `localStorage`, reload and continue

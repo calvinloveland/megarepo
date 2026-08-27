@@ -2,9 +2,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import watchPkg from '../watch.js';
-const { computePhenotype, mulberry32 } = watchPkg;
+const { computePhenotype, mulberry32, randomGenotype } = watchPkg;
 import evoPkg from '../evolution.js';
-const { CHALLENGES, evolvePopulation, randomPopulation, scoreWatch, founderArchetype, diversity } = evoPkg;
+const { CHALLENGES, evolvePopulation, randomPopulation, scoreWatch, founderArchetype, diversity, constraintPenalty, constraintBreaches } = evoPkg;
 
 const POP = 60;
 
@@ -107,4 +107,39 @@ test('diversity collapses for a monoculture and recovers for random mixes', () =
   assert.ok(diversity(clonePop) < 0.2, `clone diversity ${diversity(clonePop)}`);
   const mixed = randomPopulation(60, mulberry32(3), 'skeleton');
   assert.ok(diversity(mixed) > 0.5, `seeded diversity ${diversity(mixed)}`);
+});
+
+test('constraint penalty bites over-budget and too-thick builds', () => {
+  const w = computePhenotype(randomGenotype(mulberry32(7)));
+  assert.equal(constraintPenalty(w, {}), 0);
+  // Budget: stricter cap ⇒ bigger bite (no other caps muddying the compare).
+  const soft = constraintPenalty(w, { budgetCap: 20000 });
+  const hard = constraintPenalty(w, { budgetCap: 1000 });
+  assert.ok(soft > 0 || w.cost <= 20000, 'soft bite if over its cap');
+  assert.ok(hard >= soft, `hard ${hard} >= soft ${soft}`);
+  // Thickness cap adds up on top of budget.
+  const both = constraintPenalty(w, { budgetCap: 20000, thicknessCap: 5 });
+  assert.ok(both >= soft, `both ${both} >= soft ${soft}`);
+  const none = constraintPenalty(w, { budgetCap: 0, thicknessCap: 0 });
+  assert.equal(none, 0);
+});
+
+test('constrained evolution keeps the champion within caps', () => {
+  const rng = mulberry32(4242);
+  const constraints = { budgetCap: 12000, thicknessCap: 9 };
+  let state = { population: randomPopulation(50, rng, 'grandComplication'), lastBest: undefined, stall: 0 };
+  for (let g = 0; g < 90; g++) {
+    state = evolvePopulation({ ...state, challengeId: 'grandComplication', population: state.population, constraints, rng });
+  }
+  const champ = state.best.pheno;
+  assert.ok(champ.cost <= 12000, `cost ${champ.cost} ≤ 12000`);
+  assert.ok(champ.thickness <= 9.5, `thickness ${champ.thickness} ≤ 9.5 (tolerance)`);
+  assert.ok(champ.compCount >= 4, `still complication-loaded: ${champ.compCount}`);
+});
+
+test('constraint breaches report human-readable violations', () => {
+  const w = computePhenotype({ ...randomGenotype(mulberry32(11)), complications: { minuteRepeater: 3 } });
+  const list = constraintBreaches(w, { budgetCap: 2000, thicknessCap: 8 });
+  assert.ok(Array.isArray(list) && list.length >= 1);
+  assert.match(list.join(' '), /over|cap/);
 });
