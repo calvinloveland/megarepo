@@ -77,12 +77,39 @@ vehicle focus strip) in both shells; kept the test-drive one.
 - "mode-switch keyboard shortcuts work inside the overworld" — 3/2/m/o/t from
   world mode.
 
+## Menu screen — built via A/B (2026-09-10) ✅
+
+`MENU` mode previously rendered only the sample preview with dead
+`.viewport-overlay--menu` CSS. Now it ships a proper arcade start screen:
+
+- **Variant A (winner)** — centered cream "title screen" card: VROOMON
+  wordmark, pixel-font tagline, green `NEW RUN` primary + WORLD/CONTINUE
+  (rows), clickable Hall-of-Fame list, hints + version footer, over an
+  opaque slate scrim.
+- **B (tried, rejected by user)** — left "garage console" panel with live
+  world preview, nav list, GEN/WALLET/BEST stats, keyboard hints. The user
+  preferred A: *"I prefer the more explicit menu. I want it to feel like a
+  proper game rather than a toy."*
+- Both variants were implemented for real in `game.html` + `index.html`
+  (selectable via `?menu=a|b`), screenshotted with a populated Hall of Fame,
+  pre-reviewed by the vision sub-agent (A 72/100 vs B 58/100) and then A/B-
+  tested with the user; after the pick, the loser was removed and the winner
+  polished through two vision-review fix passes (measured results):
+  - leader pill + status line previously bled through the scrim (1.1:1) →
+    mode-scoped `data-viewport-status-overlay[data-mode=evolution]` +
+    `z-index:12` status line (9.2:1).
+  - gold accents on cream (1.5-2.3:1) → new `--gold-ink: #7a5a12` token
+    (4.9-6.7:1); primary CTA gradient darkened.
+  - emoji glyphs → dropped/made consistent; button rhythm uniformed
+    (12px gaps, 3px shadow).
+  - scrim made opaque; gen pill + terrain select + error ring hidden in
+    menu mode; HOF entries no longer duplicate the generation in their name.
+- `Enter`/`Space` in menu mode starts a new run.
+
 ## Outstanding gameplay/UI issues (identified, not yet fixed — design work)
 
 From the vision-model critique + probes, ordered by impact:
 
-- **MENU mode has no menu** — no title/logo/Play/Continue; `viewport-overlay--menu`
-  CSS exists but no markup; menu just shows the sample preview.
 - **Race vehicle labels unreadable at high density** — all clamped to the same
   `y`, 22px over a 20px baseline gap, stacked into a "wall of text" when >5
   vehicles race; the "px" readouts overlap bodies. Suggest labels only for
