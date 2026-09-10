@@ -1756,6 +1756,104 @@ function interpolateSnapshot(
   };
 }
 
+interface ViewportLabelLayout {
+  label: string;
+  slotY: number;
+  showTravel: boolean;
+  leaderLine: { x1: number; y1: number; x2: number; y2: number } | null;
+}
+
+// Assign each racer a label slot that never collides with another label.
+// Solo previews keep the label directly above the car; race labels cascade
+// top-down in score order (full distance readout only for the vehicles the
+// player cares about) and a leader line links a slot back to its car when the
+// label sits somewhere else than straight above it.
+function layoutViewportLabels(
+  entities: ViewportEntity[],
+  view: ViewportWindow,
+): Map<string, ViewportLabelLayout> {
+  const layout = new Map<string, ViewportLabelLayout>();
+
+  if (entities.length === 1 && entities[0]?.variant === "solo") {
+    const entity = entities[0];
+    const originY = toSvgY(view, entity.snapshot.centerY);
+    layout.set(entity.id, {
+      label: entity.label,
+      slotY: Math.max(22, originY - 58),
+      showTravel: true,
+      leaderLine: null,
+    });
+    return layout;
+  }
+
+  const ranked = [...entities].sort(
+    (left, right) => (right.score ?? 0) - (left.score ?? 0),
+  );
+  const SLOT_STEP = 21;
+  let nextSlotY = 22;
+
+  for (const [rankIndex, entity] of ranked.entries()) {
+    const originX = toSvgX(view, entity.snapshot.centerX);
+    const originY = toSvgY(view, entity.snapshot.centerY);
+    const slotY = Math.max(22, nextSlotY);
+    const tail = entity.id.includes("-")
+      ? entity.id.split("-").pop() ?? entity.id
+      : entity.id;
+    const isFocused =
+      entity.variant === "leader" || entity.variant === "selected";
+    const labelBaseY = originY - 58;
+    // Anchor the leader line to the top of the vehicle's body bboxes (not
+    // their centers) AND to the x of whichever part is actually the
+    // topmost — sprawling multi-blob cars often have their topmost piece
+    // off to one side, not under the center.
+    let bodyTopY = Infinity;
+    let bodyTopX = originX;
+    const bodyParts = [
+      ...entity.snapshot.chassis.map((vehicleBody) => ({
+        x: vehicleBody.x,
+        top: vehicleBody.y - (vehicleBody.height ?? 0) / 2,
+      })),
+      ...entity.snapshot.wheels.map((vehicleBody) => ({
+        x: vehicleBody.x,
+        top: vehicleBody.y - (vehicleBody.radius ?? 0),
+      })),
+    ];
+    for (const part of bodyParts) {
+      if (part.top < bodyTopY) {
+        bodyTopY = part.top;
+        bodyTopX = part.x;
+      }
+    }
+    const bodyTop = toSvgY(view, bodyTopY);
+    const bodyTopSvgX = toSvgX(view, bodyTopX);
+    // The line starts below the tower (and below the focused metric row),
+    // and only exists when it actually reaches the car.
+    const lineStartY = slotY + (isFocused ? 34 : 10);
+    const leaderLine =
+      lineStartY < bodyTop - 2 && Math.abs(slotY - labelBaseY) > 16
+        ? {
+            x1: originX,
+            y1: lineStartY,
+            x2: bodyTopSvgX,
+            y2: bodyTop - 2,
+          }
+        : null;
+    // A focused label also carries a 12px travel subtitle; keep the next
+    // slot clear of it so the metric never shares a row with the following
+    // rank's label.
+    nextSlotY = slotY + SLOT_STEP + (isFocused ? 17 : 0);
+
+    layout.set(entity.id, {
+      label: `#${rankIndex + 1} · ${tail}`,
+      slotY,
+      showTravel: isFocused,
+      leaderLine,
+    });
+  }
+
+  return layout;
+}
+
 function renderViewportMarkup(
   terrain: TerrainPresetDefinition,
   frame: ViewportFrame,
@@ -1765,8 +1863,9 @@ function renderViewportMarkup(
   const groundY = toSvgY(view, terrain.groundHeight);
   const groundHeight = Math.max(30, SVG_HEIGHT - groundY);
   const patternId = `terrain-pattern-${escapeHtml(terrain.name.toLowerCase())}`;
+  const labelLayout = layoutViewportLabels(frame.entities, view);
   const vehicleMarkup = frame.entities
-    .map((entity) => renderViewportEntity(entity, terrain, view))
+    .map((entity) => renderViewportEntity(entity, terrain, view, labelLayout))
     .join("");
 
   return `
@@ -1871,6 +1970,7 @@ function renderViewportEntity(
   entity: ViewportEntity,
   terrain: TerrainPresetDefinition,
   view: ViewportWindow,
+  labelLayout: Map<string, ViewportLabelLayout>,
 ): string {
   const accent =
     entity.variant === "leader"
@@ -1914,18 +2014,46 @@ function renderViewportEntity(
     entity.initialCenterX !== undefined
       ? `${formatNumber(entity.snapshot.centerX - entity.initialCenterX)} px`
       : `${formatNumber(entity.snapshot.centerX)} px`;
+  const layout = labelLayout.get(entity.id);
+  const labelTint =
+    entity.variant === "leader"
+      ? "#ffd166"
+      : entity.variant === "selected"
+        ? "#7dd3fc"
+        : "#f8fbff";
+  const labelClass =
+    entity.variant === "leader"
+      ? "viewport-label viewport-label--leader"
+      : entity.variant === "selected"
+        ? "viewport-label viewport-label--selected"
+        : "viewport-label";
+  const labelMarkup = layout
+    ? `
+      ${
+        layout.leaderLine
+          ? `<line class="viewport-label-leaderline" x1="${layout.leaderLine.x1}" y1="${layout.leaderLine.y1}" x2="${layout.leaderLine.x2}" y2="${layout.leaderLine.y2}" stroke="${labelTint}" stroke-dashoffset="${(
+              (6 - (Math.hypot(layout.leaderLine.x2 - layout.leaderLine.x1, layout.leaderLine.y2 - layout.leaderLine.y1) % 6)) % 6
+            ).toFixed(0)}"></line>
+      <circle class="viewport-label-dot" cx="${layout.leaderLine.x2}" cy="${layout.leaderLine.y2}" r="3.5"></circle>`
+          : ""
+      }
+      <text class="${labelClass}" x="${originX}" y="${layout.slotY}" text-anchor="middle">${escapeHtml(
+        layout.label,
+      )}</text>${
+        layout.showTravel
+          ? `<text class="viewport-subtitle" x="${originX}" y="${layout.slotY + 17}" text-anchor="middle" fill="${labelTint}">${escapeHtml(
+              travel,
+            )}</text>`
+          : ""
+      }`
+    : "";
 
   return `
     <g data-viewport-vehicle="${escapeHtml(entity.id)}">
       ${trail}
       ${constraintMarkup}
       ${bodyMarkup}
-      <text class="viewport-label" x="${originX}" y="${Math.max(28, originY - 44)}" text-anchor="middle">${escapeHtml(
-        entity.label,
-      )}</text>
-      <text class="viewport-subtitle" x="${originX}" y="${Math.max(48, originY - 24)}" text-anchor="middle">${escapeHtml(
-        travel,
-      )}</text>
+      ${labelMarkup}
     </g>
   `;
 }

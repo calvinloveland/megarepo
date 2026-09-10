@@ -539,17 +539,29 @@
 
       /* SVG labels */
       .viewport-label {
-        font-size: 22px; font-weight: 700;
+        font-size: 15px; font-weight: 700;
         fill: #f8fbff; paint-order: stroke;
         stroke: rgba(8, 17, 31, 0.75);
-        stroke-width: 5px; stroke-linejoin: round;
+        stroke-width: 2.5px; stroke-linejoin: round;
+      }
+      .viewport-label--leader { fill: #ffd166; }
+      .viewport-label--selected { fill: #7dd3fc; }
+      .viewport-label-leaderline {
+        stroke-width: 1.5;
+        stroke-dasharray: 3 3;
+        opacity: 0.9;
+      }
+      .viewport-label-dot {
+        fill: #ffffff;
+        stroke: rgba(8, 17, 31, 0.75);
+        stroke-width: 2;
       }
       .viewport-subtitle {
-        font-size: 14px;
+        font-size: 12px;
         fill: rgba(255, 255, 255, 0.78);
         paint-order: stroke;
         stroke: rgba(8, 17, 31, 0.6);
-        stroke-width: 4px; stroke-linejoin: round;
+        stroke-width: 2px; stroke-linejoin: round;
       }
 
       @media (max-width: 600px) {
