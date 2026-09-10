@@ -277,6 +277,37 @@
         white-space: nowrap;
       }
 
+      /* Top-left: player stats HUD (mode-scoped content) */
+      .viewport-overlay--stats {
+        top: 3.25rem;
+        left: 0.6rem;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.3rem;
+        max-width: 300px;
+      }
+      .stats-chip {
+        display: flex;
+        align-items: baseline;
+        gap: 0.45rem;
+        background: var(--overlay-bg);
+        border: 1px solid rgba(255, 244, 209, 0.18);
+        border-radius: 6px;
+        padding: 0.3rem 0.55rem;
+        font-family: var(--font-pixel);
+      }
+      .stats-chip__label {
+        font-size: 0.48rem;
+        color: var(--paper-dark);
+        letter-spacing: 0.08em;
+      }
+      .stats-chip__value {
+        font-size: 0.58rem;
+        color: var(--gold);
+        white-space: nowrap;
+      }
+
       /* Top-right: GEN pill + leader */
       .viewport-overlay--status {
         top: 3rem;
@@ -304,10 +335,10 @@
 
       /* Top-center: batch progress */
       .viewport-overlay--progress {
-        top: 0.5rem;
+        top: 3.25rem; /* below the fixed top bar — was 0.5rem, hidden behind it */
         left: 50%;
         transform: translateX(-50%);
-        background: rgba(0, 0, 0, 0.55);
+        background: rgba(0, 0, 0, 0.72);
         color: #fff;
         padding: 0.3rem 0.7rem;
         border-radius: 99px;
@@ -753,6 +784,9 @@
             <strong data-viewport-gen-value>0</strong>
           </div>
         </nav>
+
+        <!-- Top-left: player stats HUD -->
+        <div class="viewport-overlay viewport-overlay--stats" data-viewport-stats-overlay hidden></div>
 
         <!-- Top-right: leader pill (evolution mode) -->
         <div class="viewport-overlay viewport-overlay--status" data-viewport-status-overlay data-mode="evolution">

@@ -248,6 +248,37 @@
         white-space: nowrap;
       }
 
+      /* Top-left: player stats HUD (mode-scoped content) */
+      .viewport-overlay--stats {
+        top: 3.25rem;
+        left: 0.6rem;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.3rem;
+        max-width: 300px;
+      }
+      .stats-chip {
+        display: flex;
+        align-items: baseline;
+        gap: 0.45rem;
+        background: var(--overlay-bg);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 0.3rem 0.55rem;
+        font-family: var(--font-pixel);
+      }
+      .stats-chip__label {
+        font-size: 0.48rem;
+        color: var(--muted);
+        letter-spacing: 0.08em;
+      }
+      .stats-chip__value {
+        font-size: 0.58rem;
+        color: var(--accent-warm);
+        white-space: nowrap;
+      }
+
       .viewport-overlay--status {
         top: 3rem;
         right: 0.6rem;
@@ -273,10 +304,10 @@
       .status-pill .pill-value { color: var(--accent-warm); font-weight: 700; }
 
       .viewport-overlay--progress {
-        top: 0.5rem;
+        top: 3.25rem; /* below the fixed top bar — was 0.5rem, hidden behind it */
         left: 50%;
         transform: translateX(-50%);
-        background: rgba(0, 0, 0, 0.6);
+        background: rgba(0, 0, 0, 0.75);
         color: var(--text);
         padding: 0.3rem 0.7rem;
         border-radius: 99px;
@@ -609,6 +640,9 @@
         </nav>
 
         <!-- Status pills (top-right) -->
+        <!-- Top-left: player stats HUD -->
+        <div class="viewport-overlay viewport-overlay--stats" data-viewport-stats-overlay hidden></div>
+
         <div class="viewport-overlay viewport-overlay--status" data-viewport-status-overlay data-mode="evolution">
           <div class="status-pill" data-viewport-leader-pill hidden>
             <span>🏆</span>

@@ -589,6 +589,7 @@ function renderApp(): void {
   renderBatchProgress();
   renderHallOfFame();
   renderMenuConsoleStats();
+  renderStatsHud();
 
   if (rendererState.mode === "world") {
     renderOverworldUi();
@@ -2264,6 +2265,66 @@ function loadHallEntryIntoTestDrive(entryId: string): void {
     statusMessage: `Loaded ${found.name} from Hall of Fame (${found.terrainName}, score ${formatNumber(found.score)}).`,
   };
   renderApp();
+}
+
+function renderStatsHud(): void {
+  // Player-facing stat chips, top-left under the top bar. Content is
+  // mode-scoped; the menu has its own start screen and shows nothing.
+  const overlay = document.querySelector<HTMLElement>("[data-viewport-stats-overlay]");
+  if (!overlay) {
+    return;
+  }
+
+  const mode = rendererState.mode;
+  if (mode === "menu") {
+    overlay.hidden = true;
+    return;
+  }
+  overlay.hidden = false;
+
+  const wallet = `${rendererState.runState.wallet} cr`;
+  const generation = String(rendererState.runState.generation);
+  const hallSorted = [...rendererState.hallOfFame.entries].sort(
+    (left, right) => right.score - left.score,
+  );
+  const hallTop = hallSorted[0] ?? null;
+  const evolutionBest =
+    rendererState.scoreHistory.at(-1)?.bestScore ??
+    (rendererState.latestGeneration?.evaluatedPopulation.reduce(
+      (best, entry) => Math.max(best, entry.score),
+      0,
+    ) ?? 0);
+
+  const chips: Array<{ label: string; value: string }> = [];
+
+  if (mode === "evolution") {
+    chips.push({ label: "BEST", value: evolutionBest > 0 ? formatNumber(evolutionBest) : "—" });
+    chips.push({ label: "POP", value: String(rendererState.runState.population.length) });
+    chips.push({ label: "GEN", value: generation });
+    chips.push({ label: "WALLET", value: wallet });
+  } else if (mode === "world") {
+    const map = getMap(rendererState.world.currentMapId);
+    chips.push({ label: "MAP", value: map?.name ?? "—" });
+    chips.push({ label: "BADGES", value: String(rendererState.world.badges.length) });
+    chips.push({
+      label: "DEX",
+      value: `${rendererState.world.vroomdex.length} ${rendererState.world.vroomdex.length === 1 ? "specimen" : "specimens"}`,
+    });
+    chips.push({ label: "WALLET", value: wallet });
+  } else if (mode === "test-drive") {
+    chips.push({ label: "HOF TOP", value: hallTop ? formatNumber(hallTop.score) : "—" });
+    chips.push({ label: "GEN", value: generation });
+    chips.push({ label: "WALLET", value: wallet });
+  }
+
+  overlay.innerHTML = chips
+    .map(
+      (chip) =>
+        `<div class="stats-chip"><span class="stats-chip__label">${chip.label}</span><span class="stats-chip__value">${escapeHtml(
+          chip.value,
+        )}</span></div>`,
+    )
+    .join("");
 }
 
 function renderMenuConsoleStats(): void {

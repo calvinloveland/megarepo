@@ -129,13 +129,26 @@ defects; 4/4 dots touching cars; no metric collisions). Flat gray obstacles,
 translucent car blobs, and the clipped bottom caption remain separate backlog
 items.
 
+## Player stats HUD + batch pill placement — fixed (2026-09-10) ✅
+
+- `[data-viewport-stats-overlay]` (top-left, below the top bar) renders a
+  mode-scoped chip stack: evolution → BEST / POP / GEN / WALLET; world →
+  MAP / BADGES / DEX / WALLET; test-drive → HOF TOP / GEN / WALLET; hidden on
+  the menu start screen. Values come from live state (wallet, population,
+  score history, world badges/vroomdex, map name via `getMap`).
+- The batch-progress pill moved from `top: 0.5rem` (behind the fixed 36px top
+  bar — a blurred smudge) to `top: 3.25rem` with a solid background; verified
+  sharp and centered below the bar.
+- Verified by vision-model review (clean chips, no overlap with tabs/leader
+  pill/pill) + new e2e test asserting per-mode chip content.
+
 ## Outstanding gameplay/UI issues (identified, not yet fixed — design work)
 
 From the vision-model critique + probes, ordered by impact:
 
-- **No player-facing stats HUD** — wallet/credits, pending generation info,
-  badges, Vroomdex, map name, score chart all live in the hidden
-  `display:none` stub container in game.html (the desktop shell shows more).
+- **Vehicle focus strip** is unstyled default browser buttons over the config
+  panel; HOF card 'Top:'/'Saved:' render blank and are overlapped by the
+  error-logger ring; HOF rows are dense (id + dna + full timestamp).
 - **Hall of Fame card blank** ("Top:"/"Saved:" empty) and overlapped by the
   error-logger ring (`.error-toggle` bottom-right). Error badge shows "0" and
   is permanent player chrome — hide it until `data-has-errors="true"`.

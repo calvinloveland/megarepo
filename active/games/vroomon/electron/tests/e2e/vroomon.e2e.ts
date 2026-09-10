@@ -395,3 +395,34 @@ async function readJson<T>(page: import("@playwright/test").Page, selector: stri
     await expect(page.locator("[data-status-message]")).toContainText("Generated population");
     await expectModeState(page, "evolution");
   });
+
+  test("shows the player stats HUD with mode-scoped values", async ({ page }) => {
+    // Hidden on the menu start screen.
+    await expectModeState(page, "menu");
+    await expect(page.locator("[data-viewport-stats-overlay]")).toBeHidden();
+
+    const chipText = async (): Promise<string[]> =>
+      page
+        .locator("[data-viewport-stats-overlay] .stats-chip")
+        .allTextContents();
+
+    // Evolution: wallet/generation/population chips appear after a run.
+    await page.locator('[data-mode-button="evolution"]').click();
+    await page.locator("[data-generate-population]").click();
+    await page.locator("[data-status-message]").filter({ hasText: "Generated population" }).waitFor({ timeout: 15000 });
+    await page.locator("[data-run-generation]").click();
+    await page.locator("[data-status-message]").filter({ hasText: "Completed generation" }).waitFor({ timeout: 20000 });
+    const evoChips = await chipText();
+    expect(evoChips.join(" ")).toContain("BEST");
+    expect(evoChips.join(" ")).toContain("POP");
+    expect(evoChips.join(" ")).toContain("GEN");
+    expect(evoChips.join(" ")).toContain("WALLET");
+
+    // World: map/badges/vroomdex chips.
+    await page.locator('[data-mode-button="world"]').click();
+    await page.waitForTimeout(500);
+    const worldChips = await chipText();
+    expect(worldChips.join(" ")).toContain("MAP");
+    expect(worldChips.join(" ")).toContain("BADGES");
+    expect(worldChips.join(" ")).toContain("DEX");
+  });
