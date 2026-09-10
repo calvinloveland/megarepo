@@ -367,3 +367,31 @@ async function readJson<T>(page: import("@playwright/test").Page, selector: stri
 
   return JSON.parse(text) as T;
 }
+
+  test("shows the arcade menu screen and starts a run", async ({ page }) => {
+    // Menu overlay is visible on boot (menu mode) with the VROOMON wordmark.
+    await expectModeState(page, "menu");
+    const menuOverlay = page.locator("[data-viewport-menu-overlay]");
+    await expect(menuOverlay).toBeVisible();
+    await expect(menuOverlay.locator(".menu-title")).toHaveText("VROOMON");
+    await expect(menuOverlay.locator('[data-menu-action="new-run"]')).toBeVisible();
+    await expect(menuOverlay.locator('[data-menu-action="world"]')).toBeVisible();
+    await expect(menuOverlay.locator('[data-menu-action="continue"]')).toBeVisible();
+
+    // The menu overlay must not leak into other modes.
+    await page.locator('[data-mode-button="evolution"]').click();
+    await expect(menuOverlay).toBeHidden();
+    await page.locator('[data-mode-button="menu"]').click();
+    await expect(menuOverlay).toBeVisible();
+
+    // "NEW RUN" starts a fresh run and drops the player into evolution mode.
+    await page.locator('[data-menu-action="new-run"]').click();
+    await expect(page.locator("[data-status-message]")).toContainText("Generated population");
+    await expectModeState(page, "evolution");
+
+    // Enter / Space also starts from the menu.
+    await page.locator('[data-mode-button="menu"]').click();
+    await page.keyboard.press("Enter");
+    await expect(page.locator("[data-status-message]")).toContainText("Generated population");
+    await expectModeState(page, "evolution");
+  });

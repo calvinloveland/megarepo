@@ -565,6 +565,14 @@ function renderApp(): void {
   renderPanels();
   renderRunState();
 
+  // In the menu the generation pill and terrain select are meaningless;
+  // hide them so the start screen reads cleanly.
+  const genPillInMenu = document.querySelector<HTMLElement>("[data-viewport-gen-pill]");
+  const terrainWrapInMenu = document.querySelector<HTMLElement>(".top-bar__terrain");
+  const inMenuMode = rendererState.mode === "menu";
+  if (genPillInMenu) genPillInMenu.hidden = inMenuMode;
+  if (terrainWrapInMenu) terrainWrapInMenu.hidden = inMenuMode;
+
   const terrain = getActiveTerrain();
   const evolutionViewData =
     rendererState.mode === "evolution" ? cachedEvolutionViewData() : null;
@@ -580,6 +588,7 @@ function renderApp(): void {
   syncRunConfigSelects();
   renderBatchProgress();
   renderHallOfFame();
+  renderMenuConsoleStats();
 
   if (rendererState.mode === "world") {
     renderOverworldUi();
@@ -1002,10 +1011,18 @@ function renderPanels(): void {
   // only show when the current mode matches.
   const overlayWrappers = Array.from(
     document.querySelectorAll<HTMLElement>(
-      "[data-viewport-actions-overlay],[data-viewport-hof-overlay],[data-viewport-dpad-overlay]",
+      "[data-viewport-actions-overlay],[data-viewport-hof-overlay],[data-viewport-dpad-overlay],[data-viewport-menu-overlay],[data-viewport-status-overlay]",
     ),
   );
   for (const wrapper of overlayWrappers) {
+    if (wrapper.hasAttribute("data-viewport-menu-overlay")) {
+      // Menu overlays additionally respect the selected variant (?menu=a|b).
+      wrapper.hidden = !(
+        rendererState.mode === "menu" &&
+        wrapper.dataset.menuVariant === MENU_VARIANT
+      );
+      continue;
+    }
     const wrapperMode = wrapper.dataset.mode;
     wrapper.hidden = wrapperMode !== rendererState.mode;
   }
@@ -2098,6 +2115,46 @@ function renderScoreChart(): void {
     </div>`;
 }
 
+function loadHallEntryIntoTestDrive(entryId: string): void {
+  const found = rendererState.hallOfFame.entries.find(
+    (candidate) => candidate.id === entryId,
+  );
+
+  if (!found) {
+    return;
+  }
+
+  if (rendererState.mode !== "test-drive") {
+    rendererState = setRendererMode(rendererState, "test-drive");
+  }
+
+  dnaInput.value = found.dna;
+  rendererState = setDraftDna(rendererState, found.dna);
+  rendererState = selectHallEntry(rendererState, found.id);
+  rendererState = {
+    ...rendererState,
+    statusMessage: `Loaded ${found.name} from Hall of Fame (${found.terrainName}, score ${formatNumber(found.score)}).`,
+  };
+  renderApp();
+}
+
+function renderMenuConsoleStats(): void {
+  // Console variant's readout only exists in the menu markup; no-op elsewhere.
+  const gen = document.querySelector<HTMLElement>("[data-menu-gen]");
+  if (gen) {
+    gen.textContent = String(rendererState.runState.generation);
+  }
+  const wallet = document.querySelector<HTMLElement>("[data-menu-wallet]");
+  if (wallet) {
+    wallet.textContent = String(rendererState.runState.wallet);
+  }
+  const best = document.querySelector<HTMLElement>("[data-menu-best]");
+  if (best) {
+    const lastScore = rendererState.scoreHistory.at(-1)?.bestScore;
+    best.textContent = lastScore !== undefined ? formatNumber(lastScore) : "—";
+  }
+}
+
 function renderHallOfFame(): void {
   const entries = rendererState.hallOfFame.entries;
   const emptyMarkup = `<p class="muted">No vehicles in the Hall of Fame yet. Save top cars from evolution mode.</p>`;
@@ -2106,6 +2163,11 @@ function renderHallOfFame(): void {
   // Floating HoF summary card (bottom-right overlay in test-drive mode).
   if (hofCount) {
     hofCount.textContent = String(entries.length);
+  }
+  for (const count of Array.from(
+    document.querySelectorAll<HTMLElement>("[data-menu-hof-count]"),
+  )) {
+    count.textContent = String(entries.length);
   }
   if (hofTopScore) {
     if (entries.length === 0) {
@@ -2116,6 +2178,12 @@ function renderHallOfFame(): void {
       );
       hofTopScore.textContent = formatNumber(top.score);
     }
+  }
+
+  for (const menuList of Array.from(
+    document.querySelectorAll<HTMLElement>("[data-menu-hall-list]"),
+  )) {
+    menuList.innerHTML = `<p class="muted">No vehicles yet — save top cars from evolution mode.</p>`;
   }
 
   if (entries.length === 0) {
@@ -2150,33 +2218,27 @@ function renderHallOfFame(): void {
   hallOfFameTestDriveElement.innerHTML = sortedEntries
     .map((entry) => buildEntryHtml(entry, false))
     .join("");
+  for (const menuList of Array.from(
+    document.querySelectorAll<HTMLElement>("[data-menu-hall-list]"),
+  )) {
+    menuList.innerHTML = sortedEntries
+      .map((entry) => buildEntryHtml(entry, false))
+      .join("");
+    for (const entry of Array.from(
+      menuList.querySelectorAll<HTMLElement>("[data-hall-entry]"),
+    )) {
+      entry.addEventListener("click", () => {
+        loadHallEntryIntoTestDrive(entry.dataset.hallEntry ?? "");
+      });
+    }
+  }
 
   for (const element of [hallOfFameElement, hallOfFameTestDriveElement]) {
     for (const entry of Array.from(
       element.querySelectorAll<HTMLElement>("[data-hall-entry]"),
     )) {
       entry.addEventListener("click", () => {
-        const entryId = entry.dataset.hallEntry ?? "";
-        const found = rendererState.hallOfFame.entries.find(
-          (candidate) => candidate.id === entryId,
-        );
-
-        if (!found) {
-          return;
-        }
-
-        if (rendererState.mode !== "test-drive") {
-          rendererState = setRendererMode(rendererState, "test-drive");
-        }
-
-        dnaInput.value = found.dna;
-        rendererState = setDraftDna(rendererState, found.dna);
-        rendererState = selectHallEntry(rendererState, found.id);
-        rendererState = {
-          ...rendererState,
-          statusMessage: `Loaded ${found.name} from Hall of Fame (${found.terrainName}, score ${formatNumber(found.score)}).`,
-        };
-        renderApp();
+        loadHallEntryIntoTestDrive(entry.dataset.hallEntry ?? "");
       });
     }
 
@@ -2349,7 +2411,7 @@ async function saveSelectedToHall(): Promise<void> {
     id: `hall-${Date.now().toString(36)}-${Math.floor(Math.random() * 1e6).toString(36)}`,
     runId: rendererState.runState.runId,
     dna: summary.dna,
-    name: `${summary.id} (g${rendererState.runState.generation})`,
+    name: `${summary.id}`,
     score: summary.score,
     terrainName: rendererState.runState.terrainName,
     generation: rendererState.runState.generation,
@@ -2745,6 +2807,35 @@ if (convergeToggle) {
   });
 }
 
+// Menu overlay: the arcade start card (variant "a", chosen via A/B test on
+// 2026-09-10 — "explicit menu, feels like a proper game"). Kept as a
+// constant so any future variant still has a single hook.
+const MENU_VARIANT = "a";
+for (const button of Array.from(
+  document.querySelectorAll<HTMLButtonElement>("[data-menu-action]"),
+)) {
+  button.addEventListener("click", () => {
+    switch (button.dataset.menuAction) {
+      case "new-run":
+        generatePopulation();
+        break;
+      case "world":
+        rendererState = setRendererMode(rendererState, "world");
+        renderApp();
+        break;
+      case "test-drive":
+        rendererState = setRendererMode(rendererState, "test-drive");
+        renderApp();
+        break;
+      case "continue":
+        void loadSavedRunState();
+        break;
+      default:
+        break;
+    }
+  });
+}
+
 // Collapsible config panel toggle
 const configToggle = document.querySelector<HTMLButtonElement>("[data-config-toggle]");
 const configPanel = document.querySelector<HTMLElement>("[data-config-panel]");
@@ -2777,6 +2868,14 @@ document.addEventListener("keydown", (event) => {
     event.preventDefault();
     rendererState = setRendererMode(rendererState, modeKey);
     renderApp();
+    return;
+  }
+
+  if (rendererState.mode === "menu") {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      generatePopulation();
+    }
     return;
   }
 

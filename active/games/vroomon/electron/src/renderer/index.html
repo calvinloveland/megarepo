@@ -4,6 +4,12 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>vroomon rewrite</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=VT323&family=Press+Start+2P&family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
     <style>
       :root {
         color-scheme: dark;
@@ -21,6 +27,9 @@
         --success: #49dcb1;
         --shadow: 0 28px 60px rgba(0, 0, 0, 0.34);
         --overlay-bg: rgba(8, 17, 31, 0.88);
+        --font-body: "Inter", system-ui, sans-serif;
+        --font-pixel: "Press Start 2P", monospace;
+        --font-screen: "VT323", monospace;
       }
 
       * { box-sizing: border-box; }
@@ -370,6 +379,7 @@
       .overworld-dialogue__hint { font-size: 0.7rem; color: var(--muted); text-align: right; font-style: italic; }
 
       .viewport-overlay--status-msg {
+        z-index: 12;
         left: 50%;
         bottom: 0.3rem;
         transform: translateX(-50%);
@@ -382,13 +392,13 @@
         text-overflow: ellipsis;
       }
 
-      /* Menu */
+      /* ============ MENU OVERLAY ============ */
       .viewport-overlay--menu {
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
         text-align: center;
-        max-width: 500px;
       }
       .menu-title {
         font-size: 2rem;
@@ -398,6 +408,82 @@
         letter-spacing: 0.02em;
       }
       .menu-tagline { font-size: 0.95rem; color: var(--muted); font-style: italic; }
+
+      /* --- Variant A: arcade start screen (centered) --- */
+      .viewport-overlay--menu-a {
+        display: grid;
+        place-items: center;
+        background: linear-gradient(180deg, rgba(8, 17, 31, 0.82) 0%, rgba(4, 10, 20, 0.9) 100%);
+      }
+      .menu-stage {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 1.1rem;
+        max-width: 560px;
+        width: 90%;
+        padding: 2rem 2.5rem;
+        background: var(--panel-strong);
+        border: 1px solid var(--border-strong);
+        border-radius: 12px;
+        box-shadow: var(--shadow);
+      }
+      .menu-kicker {
+        font-family: var(--font-pixel);
+        font-size: 0.6rem;
+        letter-spacing: 0.12em;
+        color: var(--accent-warm);
+        margin-bottom: 0.15rem;
+      }
+      .menu-roadline { width: 70%; border-top: 3px dashed var(--border); margin: 0.2rem 0 0.35rem; }
+      .menu-stage .menu-tagline { margin-top: 0.25rem; font-size: 0.85rem; }
+      .menu-actions {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+        width: 100%;
+        margin-top: 0.35rem;
+      }
+      .menu-btn {
+        font-size: 0.85rem;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        color: var(--text);
+        background: var(--accent-warm);
+        border: 1px solid var(--border-strong);
+        border-radius: 8px;
+        padding: 0.7rem 1rem;
+        line-height: 1.1;
+        cursor: pointer;
+        transition: transform 0.06s, filter 0.06s;
+      }
+      .menu-btn:hover { transform: translateY(-2px); filter: brightness(1.08); }
+      .menu-btn--primary { color: #04101f; background: var(--success); }
+      .menu-hall { width: 100%; text-align: left; }
+      .menu-hall__head {
+        font-size: 0.75rem;
+        font-weight: 700;
+        color: var(--accent-warm);
+        margin-bottom: 0.4rem;
+      }
+      .menu-hall__list { display: grid; gap: 0.3rem; max-height: 150px; overflow-y: auto; }
+      .menu-hall .hall-entry {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.35rem 0.5rem;
+        background: rgba(138, 180, 255, 0.06);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 0.78rem;
+      }
+      .menu-hall .hall-entry:hover { border-color: var(--border-strong); }
+      .menu-hall .hall-entry__dna { font-family: var(--font-screen); font-size: 0.9rem; color: var(--muted); }
+      .menu-hall .hall-entry__meta { color: var(--muted); font-size: 0.7rem; }
+      .menu-hall .hall-entry__score { font-weight: 800; color: var(--accent-warm); }
+      .menu-stage .menu-foot { font-size: 0.9rem; color: #b6c6dd; opacity: 1; }
 
       /* Error toggle */
       .error-toggle {
@@ -409,6 +495,7 @@
         font-size: 0.5rem; cursor: pointer;
         display: flex; align-items: center; justify-content: center;
       }
+      .error-toggle[data-has-errors="false"] { display: none; }
       .error-toggle[data-has-errors="true"] {
         background: #ff6b4a; color: #fff;
         animation: error-pulse 2s ease-in-out infinite;
@@ -510,7 +597,7 @@
         </nav>
 
         <!-- Status pills (top-right) -->
-        <div class="viewport-overlay viewport-overlay--status">
+        <div class="viewport-overlay viewport-overlay--status" data-viewport-status-overlay data-mode="evolution">
           <div class="status-pill" data-viewport-leader-pill hidden>
             <span>🏆</span>
             <span class="pill-value" data-viewport-leader-value>—</span>
@@ -623,10 +710,29 @@
 
         <!-- Status message -->
         <div class="viewport-overlay viewport-overlay--status-msg" data-status-message>Ready to begin.</div>
-      </div>
-    </section>
 
-    <!-- Error toggle + panel -->
+        <!-- ============ MENU OVERLAY (menu mode) — same structure as game.html ============ -->
+        <div class="viewport-overlay viewport-overlay--menu viewport-overlay--menu-a" data-mode="menu" data-viewport-menu-overlay data-menu-variant="a" hidden>
+          <div class="menu-stage">
+            <div class="menu-logo">
+              <div class="menu-kicker">RIDERS OF THE EVOLVING ROAD</div>
+              <h1 class="menu-title">VROOMON</h1>
+              <div class="menu-roadline" aria-hidden="true"></div>
+              <p class="menu-tagline">Evolve a population of DNA-encoded cars. Race the physics. Enshrine your best.</p>
+            </div>
+            <div class="menu-actions">
+              <button class="menu-btn menu-btn--primary" type="button" data-menu-action="new-run">▶ NEW RUN</button>
+              <button class="menu-btn" type="button" data-menu-action="world">WORLD</button>
+              <button class="menu-btn" type="button" data-menu-action="continue">CONTINUE</button>
+            </div>
+            <div class="menu-hall">
+              <div class="menu-hall__head">HALL OF FAME · <span data-menu-hof-count>0</span> SAVED</div>
+              <div class="menu-hall__list" data-menu-hall-list></div>
+            </div>
+            <div class="menu-foot">Enter to start &nbsp;·&nbsp; 1-4 switch modes &nbsp;·&nbsp; s/l save &amp; load &nbsp;·&nbsp; v0.1.0</div>
+          </div>
+        </div>
+
     <button class="error-toggle" type="button" data-error-toggle data-has-errors="false" aria-label="Toggle error panel">
       <span data-error-badge>0</span>
     </button>

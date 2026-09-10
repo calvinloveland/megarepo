@@ -22,6 +22,7 @@
         --earth-light: #b88758;
         --gold: #ffd166;
         --gold-deep: #c89b3f;
+        --gold-ink: #7a5a12;  /* ≥4.5:1 on --paper/--card */
         --fire: #ff6b4a;
         --text: #2a1810;
         --text-soft: #5a3e2a;
@@ -440,6 +441,7 @@
 
       /* Status line at very bottom of viewport */
       .viewport-overlay--status-msg {
+        z-index: 12;
         left: 50%;
         bottom: 0.3rem;
         transform: translateX(-50%);
@@ -474,11 +476,11 @@
 
       /* ============ MENU OVERLAY ============ */
       .viewport-overlay--menu {
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
         text-align: center;
-        max-width: 500px;
       }
       .menu-title {
         font-family: var(--font-pixel);
@@ -490,11 +492,123 @@
         margin: 0 0 0.5rem;
       }
       .menu-tagline {
-        font-size: 0.95rem;
+        font-family: var(--font-screen);
+        font-size: 1.05rem;
         color: var(--text-soft);
-        font-style: italic;
       }
 
+      /* --- Variant A: arcade start screen (centered) --- */
+      .viewport-overlay--menu-a {
+        display: grid;
+        place-items: center;
+        background: linear-gradient(180deg, #0a1a2b 0%, #0d0a06 55%, #07150c 100%);
+      }
+      .menu-stage {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 1.1rem;
+        max-width: 560px;
+        width: 90%;
+        padding: 2rem 2.5rem;
+        background: linear-gradient(180deg, var(--paper) 0%, var(--paper-dark) 100%);
+        border: 4px solid var(--earth);
+        border-radius: 14px;
+        box-shadow: 0 10px 0 rgba(26, 14, 8, 0.45), 0 0 60px rgba(255, 209, 102, 0.25);
+      }
+      .menu-kicker {
+        font-family: var(--font-pixel);
+        font-size: 0.6rem;
+        color: var(--gold-ink);
+        letter-spacing: 0.12em;
+        margin-bottom: 0.15rem;
+      }
+      .menu-roadline {
+        width: 70%;
+        border-top: 3px dashed var(--earth-light);
+        margin: 0.2rem 0 0.35rem;
+      }
+      .menu-stage .menu-tagline {
+        margin-top: 0.25rem;
+        font-size: 0.85rem;
+      }
+      .menu-actions {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+        width: 100%;
+        margin-top: 0.35rem;
+      }
+      .menu-btn {
+        font-family: var(--font-pixel);
+        font-size: 0.8rem;
+        letter-spacing: 0.06em;
+        color: var(--text);
+        background: linear-gradient(180deg, var(--gold) 0%, var(--gold-deep) 100%);
+        border: 3px solid var(--earth);
+        border-radius: 8px;
+        padding: 0.7rem 1rem;
+        line-height: 1.1;
+        cursor: pointer;
+        box-shadow: 0 3px 0 var(--earth);
+        transition: transform 0.06s, box-shadow 0.06s;
+      }
+      .menu-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 0 var(--earth);
+      }
+      .menu-btn:active {
+        transform: translateY(2px);
+        box-shadow: 0 1px 0 var(--earth);
+      }
+      .menu-btn--primary {
+        color: #fff;
+        background: linear-gradient(180deg, #4f9e55 0%, #1d5e24 100%);
+        text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.4);
+      }
+      .menu-hall {
+        width: 100%;
+        text-align: left;
+      }
+      .menu-hall__head {
+        font-family: var(--font-pixel);
+        font-size: 0.6rem;
+        color: var(--gold-ink);
+        margin-bottom: 0.4rem;
+      }
+      .menu-hall__list {
+        display: grid;
+        gap: 0.3rem;
+        max-height: 150px;
+        overflow-y: auto;
+      }
+      .menu-hall .hall-entry {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.35rem 0.5rem;
+        background: var(--card);
+        border: 2px solid var(--card-dark);
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 0.78rem;
+      }
+      .menu-hall .hall-entry:hover { border-color: var(--gold-deep); }
+      .menu-hall .hall-entry__dna {
+        font-family: var(--font-screen);
+        font-size: 0.9rem;
+        color: var(--text-soft);
+      }
+      .menu-hall .hall-entry__meta { color: var(--text-soft); font-size: 0.75rem; }
+      .menu-hall .hall-entry__score { font-weight: 800; color: var(--gold-ink); }
+      .menu-stage .menu-foot {
+        font-family: var(--font-screen);
+        font-size: 0.95rem;
+        color: #4f3b24;
+        opacity: 1;
+      }
+      
       /* ============ ERROR TOGGLE ============ */
       .error-toggle {
         position: fixed;
@@ -514,6 +628,7 @@
         align-items: center;
         justify-content: center;
       }
+      .error-toggle[data-has-errors="false"] { display: none; }
       .error-toggle[data-has-errors="true"] {
         background: #ff6b4a;
         color: #fff;
@@ -628,7 +743,7 @@
         </nav>
 
         <!-- Top-right: leader pill (evolution mode) -->
-        <div class="viewport-overlay viewport-overlay--status">
+        <div class="viewport-overlay viewport-overlay--status" data-viewport-status-overlay data-mode="evolution">
           <div class="status-pill" data-viewport-leader-pill hidden>
             <span>🏆</span>
             <span class="pill-value" data-viewport-leader-value>—</span>
@@ -743,8 +858,30 @@
 
         <!-- Status message (thin line at very bottom) -->
         <div class="viewport-overlay viewport-overlay--status-msg" data-status-message>Ready to begin.</div>
-      </div>
-    </section>
+
+        <!-- ============ MENU OVERLAY (menu mode) ============ -->
+        <!-- Variant selected via ?menu=a|b (default a). Both blocks share
+             data-menu-action buttons so the renderer wires them once. -->
+        <div class="viewport-overlay viewport-overlay--menu viewport-overlay--menu-a" data-mode="menu" data-viewport-menu-overlay data-menu-variant="a" hidden>
+          <div class="menu-stage">
+            <div class="menu-logo">
+              <div class="menu-kicker">RIDERS OF THE EVOLVING ROAD</div>
+              <h1 class="menu-title">VROOMON</h1>
+              <div class="menu-roadline" aria-hidden="true"></div>
+              <p class="menu-tagline">Evolve a population of DNA-encoded cars. Race the physics. Enshrine your best.</p>
+            </div>
+            <div class="menu-actions">
+              <button class="menu-btn menu-btn--primary" type="button" data-menu-action="new-run">▶ NEW RUN</button>
+              <button class="menu-btn" type="button" data-menu-action="world">WORLD</button>
+              <button class="menu-btn" type="button" data-menu-action="continue">CONTINUE</button>
+            </div>
+            <div class="menu-hall">
+              <div class="menu-hall__head">HALL OF FAME · <span data-menu-hof-count>0</span> SAVED</div>
+              <div class="menu-hall__list" data-menu-hall-list></div>
+            </div>
+            <div class="menu-foot">Enter to start &nbsp;·&nbsp; 1-4 switch modes &nbsp;·&nbsp; s/l save &amp; load &nbsp;·&nbsp; v0.1.0</div>
+          </div>
+        </div>
 
     <!-- ============ ERROR TOGGLE + PANEL ============ -->
     <button class="error-toggle" type="button" data-error-toggle data-has-errors="false" aria-label="Toggle error panel">
