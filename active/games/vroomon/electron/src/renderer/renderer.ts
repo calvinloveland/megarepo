@@ -569,13 +569,14 @@ function renderApp(): void {
   renderPanels();
   renderRunState();
 
-  // In the menu the generation pill and terrain select are meaningless;
-  // hide them so the start screen reads cleanly.
-  const genPillInMenu = document.querySelector<HTMLElement>("[data-viewport-gen-pill]");
-  const terrainWrapInMenu = document.querySelector<HTMLElement>(".top-bar__terrain");
-  const inMenuMode = rendererState.mode === "menu";
-  if (genPillInMenu) genPillInMenu.hidden = inMenuMode;
-  if (terrainWrapInMenu) terrainWrapInMenu.hidden = inMenuMode;
+  // The generation pill and terrain select are meaningless on the menu
+  // start screen and in the overworld (which has no terrain preset); hide
+  // them there so the chrome only shows where it applies.
+  const genPillChrome = document.querySelector<HTMLElement>("[data-viewport-gen-pill]");
+  const terrainWrapChrome = document.querySelector<HTMLElement>(".top-bar__terrain");
+  const hideTopChrome = rendererState.mode === "menu" || rendererState.mode === "world";
+  if (genPillChrome) genPillChrome.hidden = hideTopChrome;
+  if (terrainWrapChrome) terrainWrapChrome.hidden = hideTopChrome;
 
   const terrain = getActiveTerrain();
   const evolutionViewData =

@@ -25,7 +25,7 @@ if (!baseUrl) {
 test.beforeEach(async ({ page }) => {
   await page.goto(`${baseUrl}/dist/renderer/e2e.html`);
   await expect(page.locator("[data-status-message]")).toContainText(
-    "Ready to begin",
+    "Welcome to",
   );
 });
 
@@ -33,7 +33,7 @@ test.describe("vroomon Playwright harness", () => {
   test("switches visible panels and active mode buttons", async ({ page }) => {
     await expectModeState(page, "menu");
     await expect(page.locator("[data-status-message]")).toContainText(
-      "Ready to begin the Electron rewrite preview.",
+      "Welcome to the Continent of Vroom.",
     );
     await expect(page.locator("[data-race-viewport] [data-viewport-vehicle]")).toHaveCount(1);
     await expect(page.locator("[data-run-state-output]")).toContainText('"generation": 0');
@@ -305,6 +305,9 @@ test.describe("vroomon Playwright harness", () => {
     // was poisoned at boot). The backing store must hold real pixels.
     await page.locator('[data-mode-button="world"]').click();
     await expect(page.locator("[data-overworld-canvas]")).toBeVisible();
+    // The gen pill and terrain select are meaningless in the overworld.
+    await expect(page.locator("[data-viewport-gen-pill]")).toBeHidden();
+    await expect(page.locator(".top-bar__terrain")).toBeHidden();
     const painted = await page.evaluate(() => {
       const canvas = document.querySelector<HTMLCanvasElement>("[data-overworld-canvas]");
       if (!canvas) return -1;

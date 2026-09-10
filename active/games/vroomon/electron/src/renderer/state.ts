@@ -75,7 +75,7 @@ export function createRendererState(
     testDriveFrameCount: DEFAULT_TEST_DRIVE_FRAME_COUNT,
     testDrivePlaybackDurationMs: null,
     testDriveScenarioLabel: null,
-    statusMessage: "Ready to begin the Electron rewrite preview.",
+    statusMessage: "Welcome to the Continent of Vroom.",
     lastSavedPath: null,
     batchCount: DEFAULT_BATCH_GENERATION_COUNT,
     batchRunning: false,

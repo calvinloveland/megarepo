@@ -156,6 +156,17 @@ items.
   over selected for the default selection).
 - Verified by 4 vision-model review rounds; 0 blockers on the final pass.
 
+## Cross-mode chrome + boot copy — fixed (2026-09-10) ✅
+
+- The generation pill and terrain select are now hidden in **world mode** too
+  (previously only on the menu) — the overworld has no terrain preset and no
+  active generation.
+- Boot status copy replaced: "Ready to begin the Electron rewrite preview."
+  → "Welcome to the Continent of Vroom." (player-facing; the dev catch-copy
+  also existed in e2e assertions, updated).
+- The bottom status line is no longer clipped: it's a dark pill (padding +
+  bottom 0.55rem) and verified inside the viewport bounds.
+
 ## Outstanding gameplay/UI issues (identified, not yet fixed — design work)
 
 From the vision-model critique + probes, ordered by impact:
