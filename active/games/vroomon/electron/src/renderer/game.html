@@ -238,6 +238,44 @@
         outline-offset: 1px;
       }
 
+      /* Vehicle focus strip (evolution) */
+      .focus-chip {
+        display: inline-flex;
+        align-items: baseline;
+        gap: 0.35rem;
+        font-family: var(--font-pixel);
+        font-size: 0.48rem;
+        color: rgba(255, 244, 209, 0.85);
+        background: rgba(255, 244, 209, 0.08);
+        border: 1px solid rgba(255, 244, 209, 0.22);
+        border-radius: 4px;
+        padding: 0.28rem 0.45rem;
+        cursor: pointer;
+        white-space: nowrap;
+      }
+      .focus-chip:hover { background: rgba(255, 244, 209, 0.16); }
+      .focus-chip.active {
+        background: var(--gold);
+        border-color: var(--gold-deep);
+        color: var(--text);
+      }
+      .focus-chip__score { color: var(--gold); font-weight: 700; font-family: var(--font-body); }
+      .focus-chip.active .focus-chip__score { color: var(--earth); }
+
+      .hall-entry__name {
+        max-width: 230px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .hof-row strong { font-size: 0.8rem; }
+
+      .action-row[data-vehicle-strip] {
+        background: var(--overlay-bg);
+        border: 1px solid rgba(255, 244, 209, 0.16);
+        border-radius: 6px;
+        padding: 0.3rem;
+      }
       .hud-select {
         background: rgba(255, 244, 209, 0.95);
         border: 2px solid var(--earth);
@@ -474,12 +512,16 @@
       .viewport-overlay--status-msg {
         z-index: 12;
         left: 50%;
-        bottom: 0.3rem;
+        bottom: 0.55rem;
         transform: translateX(-50%);
         font-family: var(--font-pixel);
         font-size: 0.5rem;
-        color: rgba(255, 244, 209, 0.75);
-        text-shadow: 1px 1px 4px rgba(0,0,0,0.6);
+        color: rgba(255, 244, 209, 0.92);
+        background: var(--overlay-bg);
+        border: 1px solid rgba(255, 244, 209, 0.16);
+        border-radius: 6px;
+        padding: 0.3rem 0.6rem;
+        text-shadow: none;
         white-space: nowrap;
         max-width: 90%;
         overflow: hidden;

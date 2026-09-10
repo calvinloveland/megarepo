@@ -142,13 +142,27 @@ items.
 - Verified by vision-model review (clean chips, no overlap with tabs/leader
   pill/pill) + new e2e test asserting per-mode chip content.
 
+## Focus strip, HOF rows, obstacle/car art — fixed (2026-09-10) ✅
+
+- **Vehicle focus strip**: `focus-chip` styling (active gold / ghost muted) on
+  a dark strip backdrop so chips stay legible over any scene, id + score per
+  chip, full 8-vehicle row with no clipping.
+- **HOF card values** verified populating (Top/saved — earlier 'blank' was an
+  OCR misread at low resolution); HOF row meta shortened to date-only
+  (`Sep 10, 2026`) and entry names ellipsized.
+- **Obstacles**: linear-gradient + dark edge + base contact shadow (no longer
+  flat gray slabs); **cars**: dark outlines (no body-merging), wheels drawn as
+  tire + accent hub; rank-1 renders gold like the leader pill (leader wins
+  over selected for the default selection).
+- Verified by 4 vision-model review rounds; 0 blockers on the final pass.
+
 ## Outstanding gameplay/UI issues (identified, not yet fixed — design work)
 
 From the vision-model critique + probes, ordered by impact:
 
-- **Vehicle focus strip** is unstyled default browser buttons over the config
-  panel; HOF card 'Top:'/'Saved:' render blank and are overlapped by the
-  error-logger ring; HOF rows are dense (id + dna + full timestamp).
+- **Equipment/cosmetic depth**: car bodies are still flat color blocks without
+  shading or per-chassis variation; cross-entity z-order means a dense pileup
+  can still look like a web of constraint lines.
 - **Hall of Fame card blank** ("Top:"/"Saved:" empty) and overlapped by the
   error-logger ring (`.error-toggle` bottom-right). Error badge shows "0" and
   is permanent player chrome — hide it until `data-has-errors="true"`.

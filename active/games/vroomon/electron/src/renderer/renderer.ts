@@ -440,6 +440,10 @@ if (modeButtons.length === 0) {
 
 const SVG_WIDTH = 1000;
 const SVG_HEIGHT = 480;
+// Keep centered viewport labels inside the canvas so racers near the edge
+// don't get their label clipped mid-glyph (shared by clampLabelX and the
+// clamped-label staggering in layoutViewportLabels).
+const LABEL_EDGE_PADDING = 62;
 const modeButtonsElements = Array.from(modeButtons);
 const panelsElements = Array.from(panels);
 const parityContract = window.vroomon.getParityContract();
@@ -1035,9 +1039,11 @@ function renderVehicleFocusStrip(
   selectedVehicleButtons.innerHTML = vehicles
     .map(
       (vehicle) =>
-        `<button class="${rendererState.selectedVehicleId === vehicle.id ? "active" : "ghost"}" type="button" data-select-vehicle="${escapeHtml(
+        `<button class="focus-chip ${rendererState.selectedVehicleId === vehicle.id ? "active" : "ghost"}" type="button" data-select-vehicle="${escapeHtml(
           vehicle.id,
-        )}" title="Score ${formatNumber(vehicle.score)}">${escapeHtml(vehicle.id)}</button>`,
+        )}" title="Score ${formatNumber(vehicle.score)}"><span class="focus-chip__id">${escapeHtml(
+          vehicle.id,
+        )}</span><span class="focus-chip__score">${formatNumber(vehicle.score)}</span></button>`,
     )
     .join("");
 
@@ -1514,10 +1520,10 @@ function buildEvolutionViewData(): EvolutionViewData {
           initialCenterX: vehicle.initialCenterX,
           score: vehicleScoreInfo?.score,
           variant:
-            vehicle.id === selectedVehicleId
-              ? "selected"
-              : vehicle.id === rankedVehicles[0]?.id
-                ? "leader"
+            vehicle.id === rankedVehicles[0]?.id
+              ? "leader"
+              : vehicle.id === selectedVehicleId
+                ? "selected"
                 : "racer",
         } satisfies ViewportEntity;
       }),
@@ -1760,6 +1766,7 @@ function interpolateSnapshot(
 interface ViewportLabelLayout {
   label: string;
   slotY: number;
+  labelX: number;
   showTravel: boolean;
   leaderLine: { x1: number; y1: number; x2: number; y2: number } | null;
 }
@@ -1781,6 +1788,7 @@ function layoutViewportLabels(
     layout.set(entity.id, {
       label: entity.label,
       slotY: Math.max(22, originY - 58),
+      labelX: clampLabelX(toSvgX(view, entity.snapshot.centerX)),
       showTravel: true,
       leaderLine: null,
     });
@@ -1790,13 +1798,25 @@ function layoutViewportLabels(
   const ranked = [...entities].sort(
     (left, right) => (right.score ?? 0) - (left.score ?? 0),
   );
-  const SLOT_STEP = 21;
+  // 30px rows (17px text + margin) so a focused row's subtitle and the
+  // racer line that starts under a slot never collide with the next row.
+  const SLOT_STEP = 30;
+  const clampOccupancy = new Map<number, number>();
   let nextSlotY = 22;
 
   for (const [rankIndex, entity] of ranked.entries()) {
     const originX = toSvgX(view, entity.snapshot.centerX);
     const originY = toSvgY(view, entity.snapshot.centerY);
     const slotY = Math.max(22, nextSlotY);
+    let labelX = clampLabelX(originX);
+    // Label lines that would all stack at an exact clamp edge get fanned
+    // horizontally so each still reads as belonging to its own car.
+    if (labelX === 62 || labelX === SVG_WIDTH - 62) {
+      const occupants = clampOccupancy.get(labelX) ?? 0;
+      clampOccupancy.set(labelX, occupants + 1);
+      labelX += (occupants % 2 === 0 ? 16 : -16) * (Math.floor(occupants / 2) + 1);
+      labelX = Math.min(SVG_WIDTH - LABEL_EDGE_PADDING, Math.max(LABEL_EDGE_PADDING, labelX));
+    }
     const tail = entity.id.includes("-")
       ? entity.id.split("-").pop() ?? entity.id
       : entity.id;
@@ -1829,13 +1849,13 @@ function layoutViewportLabels(
     const bodyTopSvgX = toSvgX(view, bodyTopX);
     // The line starts below the tower (and below the focused metric row),
     // and only exists when it actually reaches the car.
-    const lineStartY = slotY + (isFocused ? 34 : 10);
+    const lineStartY = slotY + SLOT_STEP + (isFocused ? 23 : 6);
     const leaderLine =
       lineStartY < bodyTop - 2 && Math.abs(slotY - labelBaseY) > 16
         ? {
-            x1: originX,
+            x1: labelX,
             y1: lineStartY,
-            x2: bodyTopSvgX,
+            x2: Math.min(SVG_WIDTH - 6, Math.max(6, bodyTopSvgX)),
             y2: bodyTop - 2,
           }
         : null;
@@ -1847,12 +1867,20 @@ function layoutViewportLabels(
     layout.set(entity.id, {
       label: `#${rankIndex + 1} · ${tail}`,
       slotY,
+      labelX,
       showTravel: isFocused,
       leaderLine,
     });
   }
 
   return layout;
+}
+
+function clampLabelX(labelX: number): number {
+  return Math.min(
+    SVG_WIDTH - LABEL_EDGE_PADDING,
+    Math.max(LABEL_EDGE_PADDING, labelX),
+  );
 }
 
 function renderViewportMarkup(
@@ -1951,20 +1979,45 @@ function renderTerrainObstacles(
   }
 
   const fill = terrain.colorObstacle ?? "#9aa8bf";
+  const edge = "rgba(16, 26, 36, 0.55)";
   const parts: string[] = [];
 
   for (let index = 0; index < terrain.obstacleCount; index += 1) {
     const height = terrain.obstacleHeightBase + terrain.obstacleHeightStep * index;
     const x = 600 + index * 300;
     const y = terrain.groundHeight - height;
+    const gradId = `obstacle-grad-${index}`;
+    // A soft vertical gradient + dark edge makes the slab read as a solid
+    // boulder instead of an untextured placeholder.
     parts.push(
-      `<rect x="${toSvgX(view, x)}" y="${toSvgY(view, y)}" width="${
-        terrain.obstacleWidth * view.scaleX
-      }" height="${height * view.scaleY}" rx="12" fill="${fill}" opacity="0.88"></rect>`,
+      `<defs><linearGradient id="${gradId}" x1="0" y1="0" x2="0" y2="1">` +
+        `<stop offset="0" stop-color="${hexLighten(fill, 16)}"></stop>` +
+        `<stop offset="1" stop-color="${fill}"></stop></linearGradient></defs>` +
+        `<rect x="${toSvgX(view, x)}" y="${toSvgY(view, y)}" width="${
+          terrain.obstacleWidth * view.scaleX
+        }" height="${height * view.scaleY}" rx="12" fill="url(#${gradId})" stroke="${edge}" stroke-width="3"></rect>` +
+        `<rect x="${toSvgX(view, x) + 10}" y="${toSvgY(view, y) + 10}" width="${
+          terrain.obstacleWidth * view.scaleX - 20
+        }" height="${Math.max(6, height * view.scaleY * 0.22)}" rx="8" fill="rgba(255,255,255,0.08)"></rect>` +
+        `<rect x="${toSvgX(view, x) - 6}" y="${toSvgY(view, terrain.groundHeight)}" width="${
+          terrain.obstacleWidth * view.scaleX + 12
+        }" height="10" rx="5" fill="rgba(16, 26, 36, 0.38)"></rect>`,
     );
   }
 
   return parts.join("");
+}
+
+function hexLighten(hex: string, amount: number): string {
+  const match = /^#([0-9a-f]{6})$/i.exec(hex);
+  if (!match) {
+    return hex;
+  }
+  const num = parseInt(match[1] ?? "000000", 16);
+  const r = Math.min(255, ((num >> 16) & 255) + amount);
+  const g = Math.min(255, ((num >> 8) & 255) + amount);
+  const b = Math.min(255, (num & 255) + amount);
+  return `rgb(${r},${g},${b})`;
 }
 
 function renderViewportEntity(
@@ -2038,11 +2091,11 @@ function renderViewportEntity(
       <circle class="viewport-label-dot" cx="${layout.leaderLine.x2}" cy="${layout.leaderLine.y2}" r="3.5"></circle>`
           : ""
       }
-      <text class="${labelClass}" x="${originX}" y="${layout.slotY}" text-anchor="middle">${escapeHtml(
+      <text class="${labelClass}" x="${layout.labelX}" y="${layout.slotY}" text-anchor="middle">${escapeHtml(
         layout.label,
       )}</text>${
         layout.showTravel
-          ? `<text class="viewport-subtitle" x="${originX}" y="${layout.slotY + 17}" text-anchor="middle" fill="${labelTint}">${escapeHtml(
+          ? `<text class="viewport-subtitle" x="${layout.labelX}" y="${layout.slotY + 17}" text-anchor="middle" fill="${labelTint}">${escapeHtml(
               travel,
             )}</text>`
           : ""
@@ -2070,13 +2123,19 @@ function renderViewportBody(
 
   if (body.shape === "circle") {
     const radius = (body.radius ?? 8) * ((view.scaleX + view.scaleY) / 2);
-    return `<circle cx="${x}" cy="${y}" r="${radius}" fill="${fill}" stroke="${stroke}" stroke-width="3"></circle>`;
+    // Tire (dark) + hub (accent) so wheels read as wheels, not pale blobs.
+    return (
+      `<circle cx="${x}" cy="${y}" r="${radius}" fill="#22282f" stroke="rgba(8, 12, 18, 0.55)" stroke-width="2.5"></circle>` +
+      `<circle cx="${x}" cy="${y}" r="${Math.max(2, radius * 0.55)}" fill="${fill}" stroke="${stroke}" stroke-width="1.5"></circle>`
+    );
   }
 
   const width = (body.width ?? 18) * view.scaleX;
   const height = (body.height ?? 12) * view.scaleY;
   const angle = (body.angle * 180) / Math.PI;
-  return `<rect x="${x - width / 2}" y="${y - height / 2}" width="${width}" height="${height}" rx="8" fill="${fill}" stroke="${stroke}" stroke-width="3" transform="rotate(${angle} ${x} ${y})"></rect>`;
+  // Dark outline keeps neighbouring cars from merging (light strokes + white
+  // constraint lines previously blurred every body into one blob).
+  return `<rect x="${x - width / 2}" y="${y - height / 2}" width="${width}" height="${height}" rx="8" fill="${fill}" stroke="rgba(16, 24, 34, 0.7)" stroke-width="2.5" transform="rotate(${angle} ${x} ${y})"></rect>`;
 }
 
 interface ViewportWindow {
@@ -2492,7 +2551,11 @@ function renderHallOfFame(): void {
 function formatSavedAt(isoString: string): string {
   try {
     const date = new Date(isoString);
-    return date.toLocaleString();
+    return date.toLocaleDateString(undefined, {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
   } catch {
     return isoString;
   }

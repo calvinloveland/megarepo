@@ -214,6 +214,42 @@
         box-shadow: 0 0 0 2px rgba(63, 130, 255, 0.25);
       }
 
+      .focus-chip {
+        display: inline-flex;
+        align-items: baseline;
+        gap: 0.35rem;
+        font-size: 0.78rem;
+        font-weight: 600;
+        color: var(--text);
+        background: rgba(138, 180, 255, 0.08);
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        padding: 0.28rem 0.45rem;
+        cursor: pointer;
+        white-space: nowrap;
+      }
+      .focus-chip:hover { background: rgba(138, 180, 255, 0.16); }
+      .focus-chip.active {
+        background: var(--accent-warm);
+        border-color: var(--accent);
+        color: #04101f;
+      }
+      .focus-chip__score { color: var(--accent-warm); font-weight: 700; }
+      .focus-chip.active .focus-chip__score { color: #04101f; }
+
+      .hall-entry__name {
+        max-width: 230px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .hof-row strong { font-size: 0.9rem; }
+      .action-row[data-vehicle-strip] {
+        background: var(--overlay-bg);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 0.3rem;
+      }
       .hud-select {
         border-radius: 12px;
         border: 1px solid rgba(125, 148, 186, 0.28);
@@ -421,6 +457,12 @@
         max-width: 90%;
         overflow: hidden;
         text-overflow: ellipsis;
+      
+        background: var(--overlay-bg);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 0.3rem 0.6rem;
+        text-shadow: none;
       }
 
       /* ============ MENU OVERLAY ============ */

@@ -162,7 +162,7 @@ test.describe("vroomon Playwright harness", () => {
 
     const targetIndex = (await vehicleButtons.count()) > 1 ? 1 : 0;
     const targetVehicleId =
-      (await vehicleButtons.nth(targetIndex).textContent())?.trim() ?? "";
+      (await vehicleButtons.nth(targetIndex).getAttribute("data-select-vehicle")) ?? "";
     await vehicleButtons.nth(targetIndex).click();
     await expect(vehicleButtons.nth(targetIndex)).toHaveClass(/active/);
 
