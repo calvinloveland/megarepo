@@ -262,7 +262,7 @@ test.describe("vroomon Playwright harness", () => {
     await expect(vehicleButtons).not.toHaveCount(0);
     await vehicleButtons.first().click();
 
-    await page.locator("[data-save-to-hall]").click();
+    await page.locator("[data-save-selected-to-hall]").click();
     await expect(page.locator("[data-status-message]")).toContainText("Saved");
 
     await page.locator('[data-mode-button="test-drive"]').click();
@@ -275,6 +275,68 @@ test.describe("vroomon Playwright harness", () => {
     await hallEntry.dispatchEvent("click");
 
     await expect(page.locator("[data-dna-input]")).toHaveValue(entryDna ?? "");
+  });
+
+  test("hides mode-scoped overlays and paints the overworld canvas", async ({
+    page,
+  }) => {
+    // Regression: .viewport-overlay--actions / --status / --progress used
+    // display:flex, which defeated the UA [hidden] rule, so the evolution
+    // HUD, test-drive HUD, leader pill and batch bar rendered in every
+    // mode at once (and the config panel never collapsed).
+    await expectModeState(page, "menu");
+    await expect(page.locator('[data-viewport-actions-overlay][data-mode="evolution"]')).toBeHidden();
+    await expect(page.locator('[data-viewport-actions-overlay][data-mode="test-drive"]')).toBeHidden();
+    await expect(page.locator("[data-viewport-leader-pill]")).toBeHidden();
+    await expect(page.locator("[data-viewport-progress-overlay]")).toBeHidden();
+    await expect(page.locator("[data-config-panel]")).toBeHidden();
+
+    // In evolution mode the evolution HUD shows and the drive HUD stays
+    // hidden; the config toggle actually collapses now.
+    await page.locator('[data-mode-button="evolution"]').click();
+    await expect(page.locator('[data-viewport-actions-overlay][data-mode="evolution"]')).toBeVisible();
+    await expect(page.locator('[data-viewport-actions-overlay][data-mode="test-drive"]')).toBeHidden();
+    await page.locator("[data-config-toggle]").click();
+    await expect(page.locator("[data-config-panel]")).toBeVisible();
+    await page.locator("[data-config-toggle]").click();
+    await expect(page.locator("[data-config-panel]")).toBeHidden();
+
+    // Regression: the overworld canvas never painted (the rAF loop guard
+    // was poisoned at boot). The backing store must hold real pixels.
+    await page.locator('[data-mode-button="world"]').click();
+    await expect(page.locator("[data-overworld-canvas]")).toBeVisible();
+    const painted = await page.evaluate(() => {
+      const canvas = document.querySelector<HTMLCanvasElement>("[data-overworld-canvas]");
+      if (!canvas) return -1;
+      const data = canvas.getContext("2d")?.getImageData(0, 0, canvas.width, canvas.height).data;
+      if (!data) return -1;
+      let colored = 0;
+      for (let i = 3; i < data.length; i += 4) {
+        if (data[i] > 0) colored += 1;
+      }
+      return colored;
+    });
+    expect(painted).toBeGreaterThan(1000);
+  });
+
+  test("mode-switch keyboard shortcuts work inside the overworld", async ({
+    page,
+  }) => {
+    // Regression: in world mode every keydown went to the overworld
+    // handler, so 1-4/m/o/e/t silently did nothing and the player could
+    // not leave the map via keyboard.
+    await page.locator('[data-mode-button="world"]').click();
+    await expectModeState(page, "world");
+    await page.keyboard.press("3");
+    await expectModeState(page, "evolution");
+    await page.keyboard.press("2");
+    await expectModeState(page, "world");
+    await page.keyboard.press("m");
+    await expectModeState(page, "menu");
+    await page.keyboard.press("o");
+    await expectModeState(page, "world");
+    await page.keyboard.press("t");
+    await expectModeState(page, "test-drive");
   });
 });
 

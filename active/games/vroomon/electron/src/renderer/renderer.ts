@@ -552,6 +552,7 @@ const overworldController = createOverworldInputs(rendererState.world, {
   },
 });
 let overworldAnimationToken = 0;
+let overworldLoopRunning = false;
 
 populateTerrainSelect();
 renderApp();
@@ -746,10 +747,16 @@ function renderEvolutionStage(
   ]);
 
   renderVehicleFocusStrip(evolutionViewData.rankedVehicles.slice(0, 8));
-  // Show/hide the floating vehicle focus strip (hidden when no ranked vehicles).
+  // Show/hide the floating vehicle focus strip and its "save selected"
+  // row together (hidden when no ranked vehicles).
+  const hasRankedVehicles = evolutionViewData.rankedVehicles.length > 0;
   const vehicleStrip = document.querySelector<HTMLElement>("[data-vehicle-strip]");
   if (vehicleStrip) {
-    vehicleStrip.hidden = evolutionViewData.rankedVehicles.length === 0;
+    vehicleStrip.hidden = !hasRankedVehicles;
+  }
+  const saveSelectedRow = document.querySelector<HTMLElement>("[data-save-selected-row]");
+  if (saveSelectedRow) {
+    saveSelectedRow.hidden = !hasRankedVehicles;
   }
   leaderboardSummary.textContent = leader
     ? `Click a racer to pin the camera. ${leader.id} is currently on top.`
@@ -2425,21 +2432,31 @@ function renderOverworldUi(): void {
 }
 
 function startOverworldAnimationLoop(): void {
-  if (overworldAnimationToken !== 0) {
+  // Guard on a boolean, not the token value: renderApp() calls
+  // stopOverworldAnimationLoop() on every non-world render, so the old
+  // `token !== 0` guard was permanently truthy after boot — the loop
+  // never started and the overworld canvas stayed blank on every launch.
+  if (overworldLoopRunning) {
     return;
   }
+  overworldLoopRunning = true;
   const token = ++overworldAnimationToken;
   const tick = (): void => {
-    if (token !== overworldAnimationToken) {
+    if (!overworldLoopRunning || token !== overworldAnimationToken) {
       return;
     }
     const map = getMap(overworldController.state.currentMapId);
     if (map) {
-      renderOverworld(overworldCanvas, {
-        map,
-        world: overworldController.state,
-        tick: performance.now(),
-      });
+      try {
+        renderOverworld(overworldCanvas, {
+          map,
+          world: overworldController.state,
+          tick: performance.now(),
+        });
+      } catch (error) {
+        // One bad frame must not kill the loop for good.
+        console.error("[overworld] render failed:", error);
+      }
     }
     requestAnimationFrame(tick);
   };
@@ -2447,6 +2464,7 @@ function startOverworldAnimationLoop(): void {
 }
 
 function stopOverworldAnimationLoop(): void {
+  overworldLoopRunning = false;
   overworldAnimationToken += 1;
 }
 
@@ -2652,6 +2670,13 @@ saveToHallButton.addEventListener("click", () => {
   void saveSelectedToHall();
 });
 
+const saveSelectedToHallButton = document.querySelector<HTMLButtonElement>(
+  "[data-save-selected-to-hall]",
+);
+saveSelectedToHallButton?.addEventListener("click", () => {
+  void saveSelectedToHall();
+});
+
 function syncRunConfigSelects(): void {
   const config = rendererState.runState.config;
   if (populationSizeSelect.value !== String(config.populationSize)) {
@@ -2734,6 +2759,27 @@ document.addEventListener("keydown", (event) => {
     return;
   }
 
+  // Mode-switch shortcuts work in every mode, including the overworld,
+  // where the old "world first" branch swallowed 1-4/m/o/e/t and left
+  // players unable to leave via keyboard.
+  const MODE_SWITCH_KEYS: Record<string, AppModeId> = {
+    "1": "menu",
+    m: "menu",
+    "2": "world",
+    o: "world",
+    "3": "evolution",
+    e: "evolution",
+    "4": "test-drive",
+    t: "test-drive",
+  };
+  const modeKey = MODE_SWITCH_KEYS[event.key.toLowerCase()];
+  if (modeKey) {
+    event.preventDefault();
+    rendererState = setRendererMode(rendererState, modeKey);
+    renderApp();
+    return;
+  }
+
   if (rendererState.mode === "world") {
     handleOverworldKeydown(event);
     return;
@@ -2766,30 +2812,6 @@ document.addEventListener("keydown", (event) => {
         rendererState = setDraftDna(rendererState, nextDna);
         renderApp();
       }
-      break;
-    case "1":
-    case "m":
-      event.preventDefault();
-      rendererState = setRendererMode(rendererState, "menu");
-      renderApp();
-      break;
-    case "2":
-    case "o":
-      event.preventDefault();
-      rendererState = setRendererMode(rendererState, "world");
-      renderApp();
-      break;
-    case "3":
-    case "e":
-      event.preventDefault();
-      rendererState = setRendererMode(rendererState, "evolution");
-      renderApp();
-      break;
-    case "4":
-    case "t":
-      event.preventDefault();
-      rendererState = setRendererMode(rendererState, "test-drive");
-      renderApp();
       break;
     case "s":
       if (!rendererState.batchRunning) {

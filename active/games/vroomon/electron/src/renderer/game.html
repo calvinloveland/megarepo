@@ -38,6 +38,12 @@
 
       * { box-sizing: border-box; }
 
+      /* The UA [hidden] rule is defeated by any author display:flex on
+      the same element, so mode-scoped overlays (actions, status, progress,
+      config panel) rendered in every mode at once. One global guard makes
+      `hidden` actually hide again (kept in sync with index.html). */
+      [hidden] { display: none !important; }
+
       html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; }
 
       body {
@@ -687,6 +693,9 @@
             <span data-batch-progress-text style="font-size:0.55rem;color:rgba(255,244,209,0.7);"></span>
           </div>
           <div class="action-row" hidden data-vehicle-strip data-selected-vehicle-buttons style="margin-top:0.15rem;display:flex;gap:0.2rem;flex-wrap:wrap;"></div>
+          <div class="action-row" hidden data-save-selected-row style="margin-top:0.1rem;">
+            <button class="hud-btn" type="button" data-save-selected-to-hall title="Save the selected vehicle to the Hall of Fame">🏆 SAVE</button>
+          </div>
         </div>
         <div class="viewport-overlay viewport-overlay--actions" data-viewport-actions-overlay data-mode="test-drive" hidden>
           <div class="hud-row">
