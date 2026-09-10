@@ -106,14 +106,33 @@ vehicle focus strip) in both shells; kept the test-drive one.
     menu mode; HOF entries no longer duplicate the generation in their name.
 - `Enter`/`Space` in menu mode starts a new run.
 
+## Race viewport labels — fixed (2026-09-10) ✅
+
+Previously every racer printed its full run id (22px, 5px stroke) clamped to
+one y — a "wall of text" at density. Now:
+
+- `layoutViewportLabels()` assigns collision-free label slots cascading
+  top-down in score order (21px step, +17px when the focused metric row is
+  present). Labels are compact `#N · <seq-tail>`; solo previews keep the label
+  directly above the car.
+- Travel readout (`NN.NN px`) renders only for leader/selected (+solo),
+  tinted to match the label.
+- Leader lines run from the label tower to the **top of the vehicle's body
+  bbox** (topmost part's x, not the center) and end in a white bead with a
+  dark ring; dashes are phase-aligned so a dash lands on the bead; line/dot
+  tinted per variant (leader gold, selected blue) so label, line and dot are
+  color-consistent.
+- Tighter type: 15px labels / 2.5px stroke, 12px metric / 2px stroke.
+
+Verified by 4 rounds of vision-model review (final: 0 critical/high/medium
+defects; 4/4 dots touching cars; no metric collisions). Flat gray obstacles,
+translucent car blobs, and the clipped bottom caption remain separate backlog
+items.
+
 ## Outstanding gameplay/UI issues (identified, not yet fixed — design work)
 
 From the vision-model critique + probes, ordered by impact:
 
-- **Race vehicle labels unreadable at high density** — all clamped to the same
-  `y`, 22px over a 20px baseline gap, stacked into a "wall of text" when >5
-  vehicles race; the "px" readouts overlap bodies. Suggest labels only for
-  leader/selected + collision avoidance, or leader lines.
 - **No player-facing stats HUD** — wallet/credits, pending generation info,
   badges, Vroomdex, map name, score chart all live in the hidden
   `display:none` stub container in game.html (the desktop shell shows more).
