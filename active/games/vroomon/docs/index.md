@@ -30,10 +30,13 @@ The app shell ships with four modes:
 - **Menu** — overview, parity contract summary, and the persistent
   Hall of Fame. Click any saved vehicle to load its DNA into test-drive.
 - **Overworld** — a 2D tile-based world (Starter Town + Route 1 +
-  Grassland Gym + Route 2 + Sandy Gym) where you walk your rider, talk
-  to NPCs, encounter wild DNA in the Vroomgrass, and challenge Gym
-  Leaders. Arrow keys (or the on-screen D-pad) move, Z / Enter
-  interacts. State persists between sessions (badges, position, Vroomdex).
+  Rustler Pasture + Route 2 + Salt Road Post) where you walk your
+  rancher, talk to the locals, encounter loose vroomon DNA in the
+  Vroomgrass, and join one of the rival households of each biome
+  (the Grasslands mini-story pits the Meadow Elder's Greensprouts
+  against the Roundup King's Reds). Arrow keys (or the on-screen
+  D-pad) move, Z / Enter interacts. State persists between sessions
+  (faction choices, position, Vroomdex).
 - **Evolution** — generate a population, run generations, watch the
   viewport race them, and (optionally) save top cars to the Hall of Fame.
   Supports batch generation, "Stop on plateau" auto-convergence, and a
