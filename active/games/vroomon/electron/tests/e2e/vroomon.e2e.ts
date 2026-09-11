@@ -191,7 +191,7 @@ test.describe("vroomon Playwright harness", () => {
 
     await expect(page.locator("[data-overworld-canvas]")).toBeVisible();
     await expect(page.locator("[data-overworld-vroomdex-count]")).toContainText("0 specimens");
-    await expect(page.locator("[data-overworld-badge-list]")).toContainText("No badges");
+    await expect(page.locator("[data-overworld-badge-list]")).toContainText("No brands");
 
     // Player starts at (7, 7). Professor Axle is at (4, 3), so we need
     // to move left 3 tiles then up 3 tiles to stand at (4, 4) facing up.
@@ -341,6 +341,46 @@ test.describe("vroomon Playwright harness", () => {
     await page.keyboard.press("t");
     await expectModeState(page, "test-drive");
   });
+
+  test("joins a Grassland faction from the Meadow Elder and persists it", async ({
+    page,
+  }) => {
+    await page.locator('[data-mode-button="world"]').click();
+    await expectModeState(page, "world");
+    // Elder is at (2,9) facing right; stand at (3,9) facing left.
+    for (const dir of ["down", "down", "left", "left", "left", "left"]) {
+      await page.locator(`[data-dpad="${dir}"]`).click();
+      await page.waitForTimeout(320);
+    }
+    await page.locator('[data-dpad="interact"]').click();
+    await expect(page.locator("[data-overworld-dialogue-name]")).toContainText("Meadow Elder");
+    await page.keyboard.press("z");
+    await page.waitForTimeout(250);
+
+    // Choose the Greensprouts.
+    await page.locator("[data-dialogue-option]").first().click();
+    await page.waitForTimeout(250);
+    await page.locator("[data-overworld-dialogue-text]").waitFor();
+    await page.keyboard.press("z"); // advance past the join text
+    await page.waitForTimeout(400);
+
+    await expect(page.locator("[data-status-message]")).toContainText("You ride for");
+    // Persisted + surfaced in the stats HUD.
+    await page.locator('[data-mode-button="evolution"]').click();
+    await page.waitForTimeout(300);
+    await page.locator('[data-mode-button="world"]').click();
+    await page.waitForTimeout(500);
+    await expect
+      .poll(async () =>
+        page.locator("[data-viewport-stats-overlay]").textContent(),
+      )
+      .toContain("HOUSES");
+    await expect
+      .poll(async () =>
+        page.locator("[data-viewport-stats-overlay]").textContent(),
+      )
+      .toContain("1");
+  });
 });
 
 async function expectModeState(
@@ -426,6 +466,6 @@ async function readJson<T>(page: import("@playwright/test").Page, selector: stri
     await page.waitForTimeout(500);
     const worldChips = await chipText();
     expect(worldChips.join(" ")).toContain("MAP");
-    expect(worldChips.join(" ")).toContain("BADGES");
+    expect(worldChips.join(" ")).toContain("HOUSES");
     expect(worldChips.join(" ")).toContain("DEX");
   });

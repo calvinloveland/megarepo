@@ -10,13 +10,16 @@ import {
   advanceDialogue,
   awardBadge,
   endDialogue,
+  joinFaction,
   recordEncounterDna,
   setMovementTarget,
   setPlayerFacing,
   startDialogue,
   transitionToMap,
 } from "./world-state.js";
+import { findFaction, type Faction } from "./factions.js";
 import {
+  type DialogueNode,
   type Direction,
   type WorldState,
 } from "./types.js";
@@ -29,6 +32,7 @@ export interface OverworldInputs {
   setFlag: (flag: string, value: boolean) => WorldState;
   _setState: (next: WorldState) => void;
   _awardBadge: (badge: string) => WorldState;
+  _resolveDialogue: (id: string) => DialogueNode | null;
 }
 
 export function createOverworldInputs(
@@ -41,6 +45,7 @@ export function createOverworldInputs(
     ) => void;
     onVroomdexTick: (dna: string) => void;
     onBadgeAwarded: (badge: string) => void;
+    onFactionJoined?: (faction: Faction | null) => void;
   },
 ): OverworldInputs {
   let state = initial;
@@ -93,9 +98,21 @@ export function createOverworldInputs(
   }
 
   function completeDialogue(
-    onComplete: "wild" | "trainer" | "gym" | "vroomdex" | null,
+    onComplete: "wild" | "trainer" | "gym" | "vroomdex" | `join-faction:${string}` | null,
     flag: string | null,
   ): WorldState {
+    if (onComplete?.startsWith("join-faction:")) {
+      const factionId = onComplete.slice("join-faction:".length);
+      const faction = findFaction(factionId);
+      const updated = joinFaction(
+        state,
+        faction?.biomeId ?? "grassland",
+        factionId,
+      );
+      dependencies.onFactionJoined?.(faction);
+      return commit(updated);
+    }
+
     const updated = endDialogue(state, onComplete, flag);
 
     if (onComplete === "wild") {
@@ -200,11 +217,11 @@ export function createOverworldInputs(
   }
 
   const BADGE_BY_MAP: Record<string, string> = {
-    gym_1: "Grass Badge",
-    gym_2: "Sand Badge",
-    gym_3: "Hill Badge",
-    gym_4: "Rock Badge",
-    gym_5: "Ice Badge",
+    gym_1: "Grassland Brand",
+    gym_2: "Salt Road Brand",
+    gym_3: "Highland Brand",
+    gym_4: "Canyon Brand",
+    gym_5: "Perimeter Brand",
   };
 
   function awardBadgeAndReport(badgeOrMapId: string): WorldState {
@@ -225,6 +242,7 @@ export function createOverworldInputs(
     setFlag: setFlagInput,
     _setState: (next: WorldState) => commit(next),
     _awardBadge: awardBadgeAndReport,
+    _resolveDialogue: (id: string) => findDialogueById(state, id),
   } as OverworldInputs & {
     _setState: (next: WorldState) => void;
     _awardBadge: (badge: string) => WorldState;

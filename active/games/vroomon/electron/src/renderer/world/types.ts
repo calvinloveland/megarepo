@@ -38,7 +38,7 @@ export interface DialogueNode {
   text: string;
   next?: string;
   options?: DialogueOption[];
-  onComplete?: "wild" | "trainer" | "gym" | "vroomdex" | null;
+  onComplete?: "wild" | "trainer" | "gym" | "vroomdex" | `join-faction:${string}` | null;
   setFlag?: string;
 }
 
@@ -68,6 +68,8 @@ export interface WorldState {
   playerY: number;
   playerFacing: Direction;
   badges: string[];
+  /** biomeId -> factionId, one chosen household per biome. */
+  factionChoices: Record<string, string>;
   vroomdex: string[];
   flags: Record<string, boolean>;
   dialogueQueue: DialogueNode[];
@@ -89,6 +91,7 @@ export interface PersistedWorldState {
   playerY: number;
   playerFacing: Direction;
   badges: string[];
+  factionChoices: Record<string, string>;
   vroomdex: string[];
   flags: Record<string, boolean>;
   lastSavedAt: string;
@@ -104,6 +107,7 @@ export const EMPTY_PERSISTED_WORLD: PersistedWorldState = {
   playerY: 7,
   playerFacing: "down",
   badges: [],
+  factionChoices: {},
   vroomdex: [],
   flags: {},
   lastSavedAt: "",
@@ -117,6 +121,7 @@ export function serializeWorldState(world: WorldState): PersistedWorldState {
     playerY: world.playerY,
     playerFacing: world.playerFacing,
     badges: [...world.badges],
+    factionChoices: { ...world.factionChoices },
     vroomdex: [...world.vroomdex],
     flags: { ...world.flags },
     lastSavedAt: new Date().toISOString(),
@@ -135,6 +140,8 @@ function isValidPersistedWorld(value: unknown): value is PersistedWorldState {
     typeof candidate.playerY === "number" &&
     typeof candidate.playerFacing === "string" &&
     Array.isArray(candidate.badges) &&
+    (candidate.factionChoices === undefined ||
+      (typeof candidate.factionChoices === "object" && candidate.factionChoices !== null)) &&
     Array.isArray(candidate.vroomdex) &&
     typeof candidate.flags === "object"
   );

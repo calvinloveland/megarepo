@@ -237,6 +237,7 @@ window.vroomon = {
           playerY: 7,
           playerFacing: "down",
           badges: [],
+          factionChoices: {},
           vroomdex: [],
           flags: {},
           lastSavedAt: "",

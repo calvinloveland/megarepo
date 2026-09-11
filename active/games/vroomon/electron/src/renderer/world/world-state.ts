@@ -11,6 +11,7 @@ export function createInitialWorldState(): WorldState {
     playerY: 7,
     playerFacing: "down",
     badges: [],
+    factionChoices: {},
     vroomdex: [],
     flags: {},
     dialogueQueue: [],
@@ -111,7 +112,7 @@ export function endDialogue(
     dialogueQueue: [],
     flags: newFlags,
     currentEncounter:
-      onComplete && onComplete !== "vroomdex"
+      onComplete === "wild" || onComplete === "trainer" || onComplete === "gym"
         ? {
             kind: onComplete,
             returnMap: state.currentMapId,
@@ -130,6 +131,20 @@ export function recordEncounterDna(
   return {
     ...state,
     vroomdex: [...state.vroomdex, dna].slice(-200),
+  };
+}
+
+export function joinFaction(
+  state: WorldState,
+  biomeId: string,
+  factionId: string,
+): WorldState {
+  return {
+    ...state,
+    factionChoices: { ...state.factionChoices, [biomeId]: factionId },
+    activeNpc: null,
+    dialogueQueue: [],
+    flags: { ...state.flags, [`faction-joined-${biomeId}`]: true },
   };
 }
 

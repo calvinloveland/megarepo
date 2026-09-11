@@ -16,6 +16,7 @@ import type {
 import { createOverworldInputs } from "./world/overworld-controller.js";
 import { renderOverworld } from "./world/overworld-renderer.js";
 import { getMap } from "./world/maps.js";
+import { findFaction } from "./world/factions.js";
 import { createInitialWorldState } from "./world/world-state.js";
 import type { Direction, PersistedWorldState, WorldState } from "./world/types.js";
 import { advanceDialogue as advanceWorldDialogue, endDialogue as endWorldDialogue } from "./world/world-state.js";
@@ -550,6 +551,17 @@ const overworldController = createOverworldInputs(rendererState.world, {
     rendererState = {
       ...rendererState,
       statusMessage: `Earned the ${badge}! Return to Professor Axle's lab.`,
+    };
+    renderApp();
+    scheduleWorldSave();
+  },
+  onFactionJoined: (faction) => {
+    rendererState = setWorldState(rendererState, overworldController.state);
+    rendererState = {
+      ...rendererState,
+      statusMessage: faction
+        ? `You ride for ${faction.title}, the ${faction.house}.`
+        : "You joined a household of the Vroom.",
     };
     renderApp();
     scheduleWorldSave();
@@ -2365,7 +2377,10 @@ function renderStatsHud(): void {
   } else if (mode === "world") {
     const map = getMap(rendererState.world.currentMapId);
     chips.push({ label: "MAP", value: map?.name ?? "—" });
-    chips.push({ label: "BADGES", value: String(rendererState.world.badges.length) });
+    chips.push({
+      label: "HOUSES",
+      value: String(Object.keys(rendererState.world.factionChoices).length),
+    });
     chips.push({
       label: "DEX",
       value: `${rendererState.world.vroomdex.length} ${rendererState.world.vroomdex.length === 1 ? "specimen" : "specimens"}`,
@@ -2594,7 +2609,7 @@ async function loadWorldStateFromDisk(): Promise<void> {
 
 function applyPersistedWorld(
   world: WorldState,
-  persisted: { currentMapId: string; playerX: number; playerY: number; playerFacing: Direction; badges: string[]; vroomdex: string[]; flags: Record<string, boolean> },
+  persisted: { currentMapId: string; playerX: number; playerY: number; playerFacing: Direction; badges: string[]; factionChoices?: Record<string, string>; vroomdex: string[]; flags: Record<string, boolean> },
 ): WorldState {
   const mapExists = getMap(persisted.currentMapId) !== undefined;
   return {
@@ -2604,6 +2619,10 @@ function applyPersistedWorld(
     playerY: Number.isFinite(persisted.playerY) ? persisted.playerY : world.playerY,
     playerFacing: persisted.playerFacing ?? world.playerFacing,
     badges: Array.isArray(persisted.badges) ? persisted.badges : world.badges,
+    factionChoices:
+      persisted.factionChoices && typeof persisted.factionChoices === "object"
+        ? persisted.factionChoices
+        : world.factionChoices,
     vroomdex: Array.isArray(persisted.vroomdex) ? persisted.vroomdex : world.vroomdex,
     flags:
       persisted.flags && typeof persisted.flags === "object" ? persisted.flags : world.flags,
@@ -2634,6 +2653,7 @@ async function persistWorldState(): Promise<void> {
     playerY: world.playerY,
     playerFacing: world.playerFacing,
     badges: [...world.badges],
+    factionChoices: { ...world.factionChoices },
     vroomdex: [...world.vroomdex],
     flags: { ...world.flags },
     lastSavedAt: new Date().toISOString(),
@@ -2705,10 +2725,11 @@ function renderOverworldUi(): void {
       )) {
         button.addEventListener("click", () => {
           const nextId = button.dataset.dialogueOption ?? "";
-          const target = map?.npcs
-            .map((npc) => npc.dialogue)
-            .find((dialogue) => dialogue !== null && (dialogue as { text?: string }).text === nextId)
-            ?? null;
+          // Dialogue options reference NPC ids in the current map (matching
+          // the non-option "next" flow). The old text-matching lookup never
+          // matched, so ANY option click silently ended the scene — the
+          // faction joins and Professor Axle's explain options were dead.
+          const target = overworldController._resolveDialogue(nextId);
           if (target) {
             const advanced = advanceWorldDialogue(world, nextId, target);
             overworldController._setState(advanced);
@@ -2730,13 +2751,20 @@ function renderOverworldUi(): void {
     overworldDialogueOptions.innerHTML = "";
   }
 
-  if (world.badges.length === 0) {
+  const joinedHouses = Object.keys(world.factionChoices).length;
+  if (world.badges.length === 0 && joinedHouses === 0) {
     overworldBadgeList.innerHTML =
-      `<li class="muted">No badges yet. Challenge Coach Flint on Route 1.</li>`;
+      `<li class="muted">No brands yet. Ride for the Meadow Elder or the Roundup King.</li>`;
   } else {
-    overworldBadgeList.innerHTML = world.badges
-      .map((badge) => `<li>${escapeHtml(badge)}</li>`)
-      .join("");
+    const houseLine =
+      joinedHouses > 0
+        ? `<li>Houses: ${Object.values(world.factionChoices)
+            .map((id) => findFaction(id)?.title ?? id)
+            .join(", ")}</li>`
+        : "";
+    overworldBadgeList.innerHTML =
+      world.badges.map((badge) => `<li>${escapeHtml(badge)}</li>`).join("") +
+      houseLine;
   }
   overworldVroomdexCount.textContent = `${world.vroomdex.length} specimen${world.vroomdex.length === 1 ? "" : "s"} recorded`;
   overworldSummary.textContent = map
