@@ -194,6 +194,27 @@ rival households** you choose between.
   Axle's explain options actually navigate).
 - Badge strings re-themed to Brands; docs/index.md + AGENTS.md updated.
 
+## Sand mini-story + overworld reachability — fixed (2026-09-10) ✅
+
+- Salt Road Post (ex "gym_2") hosts the **Wreck Marshal** (join-faction:
+  wreckpickers); Route 2 hosts the **Trail Boss of the Salt Road**
+  (join-faction:saltcaravan), mirroring the Grassland choice pattern.
+- Hills/Rocky/Ice teased as dialogue-only NPCs on Route 2
+  (highland-herder / canyon-hauler / frost-courier) naming both factions
+  of each biome (gurus; Lay Foreman vs Ringleader; Keeper of the Long
+  Light vs Frost Baron).
+- Gameplay fixes found along the way (pre-existing, blocked ALL map exits):
+  - `attemptMove` left the stored position one tile behind on transition
+    tiles, so `isAtEdgeTransition` never matched — no edge transition ever
+    fired and the overworld was a dead end. Now the position advances onto
+    the tile and transitions fire.
+  - Map transitions committed in a microtask never re-rendered the new
+    map; added `onMapTransition` so the overworld paints immediately.
+  - Starter Town's exit was parked on an untraversable tree tile — moved
+    to path (13,2); Route 1 gained the Salt Road entrance at (18,6).
+- Note: tests/world.test.ts was accidentally committed with every describe
+  doubled; deduplicated (140 distinct unit tests).
+
 ## Outstanding gameplay/UI issues (identified, not yet fixed — design work)
 
 From the vision-model critique + probes, ordered by impact:
