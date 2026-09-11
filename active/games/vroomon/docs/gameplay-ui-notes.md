@@ -167,6 +167,33 @@ items.
 - The bottom status line is no longer clipped: it's a dark pill (padding +
   bottom 0.55rem) and verified inside the viewport bounds.
 
+## Worldbuilding: ranch-faction system (2026-09-10) ✅
+
+The user redefined the fiction (no Pokémon/gym residue): vroomon are
+mouse-sized, non-intelligent creatures free-roaming in small ranches; the
+player is a racer/rancher. Each biome is its own mini-culture with **two
+rival households** you choose between.
+
+- `world/factions.ts` — 12 factions / 6 biomes with local titles: Grassland
+  (Meadow Elder/Roundup King), Flat (King of the Commission / King of the
+  Underroads), Sand (Trail Boss / Wreck Marshal), Hills (Guru of the Updrafts
+  / Guru of the Stone Path), Rocky (Lay Foreman / Ringleader), Ice (Keeper of
+  the Long Light / Frost Baron).
+- `WorldState.factionChoices` (biomeId → factionId) persists through
+  serialize/parse and the main-process file store (backwards-compatible with
+  pre-faction saves).
+- Grassland mini-story is playable: Meadow Elder (Starter Town) and Roundup
+  King (Route 1 → Rustler Pasture, ex "gym_1") each offer the join via a
+  dialogue choice; `onComplete: "join-faction:<id>"` records the choice,
+  persists it, and surfaces a status line + the HOUSES stat chip; the other
+  household appears as the rival. Salt Road Post (ex "Sandy Gym") + gate
+  signs stub the remaining biomes behind lore.
+- Latent bug fixed along the way: dialogue **option** clicks used a
+  text-match lookup that never matched, so any choice silently ended the
+  scene — they now resolve the target dialogue by NPC id (faction joins and
+  Axle's explain options actually navigate).
+- Badge strings re-themed to Brands; docs/index.md + AGENTS.md updated.
+
 ## Outstanding gameplay/UI issues (identified, not yet fixed — design work)
 
 From the vision-model critique + probes, ordered by impact:
