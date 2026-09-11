@@ -160,7 +160,9 @@ export const MAPS: Record<string, Tilemap> = {
     ],
     encounters: {},
     transitions: {
-      "1,0": { mapId: "route_1", toX: 1, toY: 10 },
+      // The historical gate was "1,0" — a tree tile, so the town exit was
+      // unreachable and the overworld was a dead end.
+      "13,2": { mapId: "route_1", toX: 1, toY: 10, facing: "down" },
     },
   },
   route_1: {
@@ -217,7 +219,8 @@ export const MAPS: Record<string, Tilemap> = {
     ],
     encounters: {},
     transitions: {
-      "0,5": { mapId: "starter_town", toX: 14, toY: 5 },
+      "0,5": { mapId: "starter_town", toX: 13, toY: 2 },
+      "18,6": { mapId: "route_2", toX: 1, toY: 7, facing: "right" },
       "19,5": { mapId: "gym_1", toX: 6, toY: 9, facing: "up" },
     },
   },
@@ -320,7 +323,78 @@ export const MAPS: Record<string, Tilemap> = {
         y: 7,
         facing: "left",
         sprite: "sign",
-        dialogue: { text: "The Salt Road — the Wreck Marshal posts the next fleet when the dune roads clear. Herd sizes are still being settled." },
+        dialogue: { text: "Salt Road — dune lanes ahead. The Trail Boss holds the water rights; the Wreck Marshal owns the salvage pits." },
+      },
+      {
+        id: "trail-boss",
+        name: "Trail Boss of the Salt Road",
+        x: 6,
+        y: 12,
+        facing: "left",
+        sprite: "professor",
+        dialogue: {
+          text: "Salt Road Caravan. I'm the Trail Boss — we move water and fodder between the oases, together. Ride with us and the road feeds you for life.",
+          options: [
+            { label: "Join the Salt Road Caravan", next: "trailboss-join-faction" },
+            { label: "The wreck camps pay better", next: "trailboss-decline" },
+          ],
+        },
+      },
+      {
+        id: "trailboss-join-faction",
+        name: "Trail Boss of the Salt Road",
+        x: 0,
+        y: 0,
+        facing: "down",
+        sprite: "professor",
+        dialogue: {
+          text: "Then grab a water skin — the caravan moves at dusk, and the dunes keep what they're given.",
+          onComplete: "join-faction:saltcaravan",
+        },
+      },
+      {
+        id: "trailboss-decline",
+        name: "Trail Boss of the Salt Road",
+        x: 0,
+        y: 0,
+        facing: "down",
+        sprite: "professor",
+        dialogue: {
+          text: "The Wreck Marshal keeps the salvage pits at the Salt Road Post. Watch your step over there.",
+        },
+      },
+      {
+        id: "highland-herder",
+        name: "Highland Herder",
+        x: 2,
+        y: 9,
+        facing: "right",
+        sprite: "rider",
+        dialogue: {
+          text: "The highlands run on two schools: the Guru of the Updrafts breeds windhunters for the updrafts, and the Guru of the Stone Path keeps burrowers in the vents. You'll choose your school when the mesa pass opens.",
+        },
+      },
+      {
+        id: "canyon-hauler",
+        name: "Canyon Hauler",
+        x: 2,
+        y: 11,
+        facing: "right",
+        sprite: "rider",
+        dialogue: {
+          text: "Down in the canyon, the Lay Foreman runs the Stonecutters' safety boards while the Ringleader books the stunt crews. The contract renegotiation decides who owns the quarries.",
+        },
+      },
+      {
+        id: "frost-courier",
+        name: "Frost Courier",
+        x: 19,
+        y: 9,
+        facing: "left",
+        sprite: "rider",
+        dialogue: {
+          text: "On the perimeter, the Keeper of the Long Light herds the oldest lineages under the aurora; the Frost Baron moves freight with no receipt. Pack for the cold whichever you answer to.",
+        },
       },
       {
         id: "marcus-accept",
@@ -367,39 +441,41 @@ export const MAPS: Record<string, Tilemap> = {
     ambientColor: "#c2a670",
     npcs: [
       {
-        id: "dr-dusty",
-        name: "Dr. Dusty",
+        id: "wreck-marshal",
+        name: "Wreck Marshal",
         x: 7,
         y: 4,
         facing: "down",
         sprite: "gym-leader",
-        encounterId: "dusty-race",
         dialogue: {
-          text: "Sand is unforgiving, kid. Six wheels, low pressure, maximum contact patch. That's how I win. Care to try?",
+          text: "Camp's open. I'm the Wreck Marshal — my Wreckpickers dig salvage genes out of the dune wrecks. Pay's in salvage, and nobody asks where it came from.",
           options: [
-            { label: "Bring it on!", next: "dusty-accept" },
-            { label: "I need more grip", next: "dusty-decline" },
+            { label: "Join the Wreckpickers", next: "marshal-join-faction" },
+            { label: "The caravan suits me", next: "marshal-decline" },
           ],
         },
       },
       {
-        id: "dusty-accept",
-        name: "Dr. Dusty",
-        x: 0,
-        y: 0,
-        facing: "down",
-        sprite: "gym-leader",
-        dialogue: { text: "Engage traction control... GO!", onComplete: "gym" },
-      },
-      {
-        id: "dusty-decline",
-        name: "Dr. Dusty",
+        id: "marshal-join-faction",
+        name: "Wreck Marshal",
         x: 0,
         y: 0,
         facing: "down",
         sprite: "gym-leader",
         dialogue: {
-          text: "Heel-toe the gas in the lab until you find a configuration that grips. Then come back.",
+          text: "Welcome to the salvage pits. First rule: what's buried here stays useful.",
+          onComplete: "join-faction:wreckpickers",
+        },
+      },
+      {
+        id: "marshal-decline",
+        name: "Wreck Marshal",
+        x: 0,
+        y: 0,
+        facing: "down",
+        sprite: "gym-leader",
+        dialogue: {
+          text: "The Trail Boss holds the water rights west of the post. Ride safe out there — the dunes don't care who pays you.",
         },
       },
     ],

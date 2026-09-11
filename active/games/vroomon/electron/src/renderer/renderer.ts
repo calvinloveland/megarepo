@@ -566,6 +566,11 @@ const overworldController = createOverworldInputs(rendererState.world, {
     renderApp();
     scheduleWorldSave();
   },
+  onMapTransition: () => {
+    rendererState = setWorldState(rendererState, overworldController.state);
+    renderOverworldUi();
+    scheduleWorldSave();
+  },
 });
 let overworldAnimationToken = 0;
 let overworldLoopRunning = false;

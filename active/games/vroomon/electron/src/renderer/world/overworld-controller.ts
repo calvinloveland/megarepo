@@ -46,6 +46,7 @@ export function createOverworldInputs(
     onVroomdexTick: (dna: string) => void;
     onBadgeAwarded: (badge: string) => void;
     onFactionJoined?: (faction: Faction | null) => void;
+    onMapTransition?: () => void;
   },
 ): OverworldInputs {
   let state = initial;
@@ -178,6 +179,10 @@ export function createOverworldInputs(
       const transition = isAtEdgeTransition(finalState);
       if (transition) {
         commit(transitionToMap(finalState, transition.mapId, transition.x, transition.y, transition.facing));
+        // The transition commits in this microtask, AFTER the renderer's
+        // own renderOverworldUi ran against the old map — re-render so the
+        // new map actually appears.
+        dependencies.onMapTransition?.();
         return;
       }
       if (isOnWildEncounterTile(finalState)) {

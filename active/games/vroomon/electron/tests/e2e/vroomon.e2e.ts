@@ -469,3 +469,19 @@ async function readJson<T>(page: import("@playwright/test").Page, selector: stri
     expect(worldChips.join(" ")).toContain("HOUSES");
     expect(worldChips.join(" ")).toContain("DEX");
   });
+
+  test("leaves Starter Town through the north-east gate into Route 1", async ({
+    page,
+  }) => {
+    // Regression: the town exit used to sit on an untraversable tree tile,
+    // making the overworld a dead end. The gate is now (13,2) on the path.
+    await page.locator('[data-mode-button="world"]').click();
+    await expectModeState(page, "world");
+    for (const dir of ["right", "right", "right", "right", "right", "right", "up", "up", "up", "up", "up"]) {
+      await page.locator(`[data-dpad="${dir}"]`).click();
+      await page.waitForTimeout(320);
+    }
+    await expect
+      .poll(async () => page.locator("[data-world-summary]").textContent())
+      .toContain("Route 1");
+  });

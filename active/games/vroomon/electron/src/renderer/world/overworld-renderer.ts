@@ -199,9 +199,16 @@ export function attemptMove(
   const transition = map.transitions[transitionKey];
 
   if (transition) {
+    // Advance the stored position onto the transition tile so the move
+    // handler's `isAtEdgeTransition` check (which keys off playerX/playerY)
+    // actually fires. Without this the position permanently lagged one tile
+    // behind and NO edge transition ever triggered — the overworld was a
+    // dead end and Route 2 / the pastures were unreachable.
     return {
       state: {
         ...world,
+        playerX: targetX,
+        playerY: targetY,
         playerFacing: facing,
         movementTarget: { x: targetX, y: targetY },
         isMoving: true,
