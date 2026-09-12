@@ -45,7 +45,7 @@ for global workflow rules.
   `/api/feedback` endpoint (POST/GET/DELETE) that receives
   client-side error reports from the ErrorLogger. Reports are
   stored in `.secrets/feedback.jsonl` (gitignored, capped at 200
-  entries). The Docker image wraps Electron in `xvfb-run`; the
+  entries). The Docker image runs the same web server; the
   k8s manifest adds a `cloudflared` sidecar; the Makefile and
   deploy-from-secrets.sh are the local rollout. The deploy-guide
   walks through the deploy without secrets passing through chat.

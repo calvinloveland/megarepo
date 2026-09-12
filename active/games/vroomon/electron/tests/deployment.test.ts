@@ -106,7 +106,7 @@ describe("vroomon deployment artifacts", () => {
     expect(mount?.mountPath).toBe("/data/vroomon");
   });
 
-  it("disables hardware acceleration and sandbox inside the container", () => {
+  it("runs the web server with HTTP probes on 5112", () => {
     const resources = loadK8s();
     const deployment = resources.find((r) => r.kind === "Deployment");
     if (!deployment?.spec) {
@@ -115,7 +115,13 @@ describe("vroomon deployment artifacts", () => {
     const spec = deployment.spec as {
       template: {
         spec: {
-          containers: Array<{ name: string; env: Array<{ name: string; value: string }> }>;
+          containers: Array<{
+            name: string;
+            env: Array<{ name: string; value: string }>;
+            ports: Array<{ name: string; containerPort: number }>;
+            readinessProbe: { httpGet?: { path: string; port: string } };
+            livenessProbe: { httpGet?: { path: string; port: string } };
+          }>;
         };
       };
     };
@@ -124,19 +130,43 @@ describe("vroomon deployment artifacts", () => {
       throw new Error("vroomon container missing");
     }
     const env = Object.fromEntries(container.env.map((e) => [e.name, e.value]));
-    expect(env.VROOMON_DISABLE_HARDWARE_ACCELERATION).toBe("1");
-    expect(env.VROOMON_DISABLE_SANDBOX).toBe("1");
-    expect(env.VROOMON_DISABLE_DEV_SHM_USAGE).toBe("1");
+    expect(env.VROOMON_WEB_PORT).toBe("5112");
+    expect(env.VROOMON_WEB_HOST).toBe("0.0.0.0");
+    // The web server really binds 5112, so an HTTP probe is truthful; the
+    // old tcpSocket probes pointed at a port nothing listened on.
+    expect(container.ports[0]).toMatchObject({ name: "web", containerPort: 5112 });
+    expect(container.readinessProbe?.httpGet).toMatchObject({ path: "/", port: "web" });
+    expect(container.livenessProbe?.httpGet).toMatchObject({ path: "/", port: "web" });
   });
 
-  it("ships a Dockerfile that wraps electron in xvfb-run", () => {
+  it("runs as UID 1001 with fsGroup so state is writable", () => {
+    const resources = loadK8s();
+    const deployment = resources.find((r) => r.kind === "Deployment");
+    if (!deployment?.spec) {
+      throw new Error("Deployment.spec missing");
+    }
+    const spec = deployment.spec as {
+      template: {
+        spec: {
+          securityContext: { fsGroup: number };
+          containers: Array<{ securityContext: { runAsUser: number; runAsNonRoot: boolean } }>;
+        };
+      };
+    };
+    expect(spec.template.spec.securityContext.fsGroup).toBe(1001);
+    const container = spec.template.spec.containers.find((c) => c.name === "vroomon");
+    expect(container?.securityContext).toMatchObject({ runAsUser: 1001, runAsNonRoot: true });
+  });
+
+  it("ships a Dockerfile that runs the web server (not xvfb Electron)", () => {
     const dockerfile = readFileSync(dockerfilePath, "utf8");
     expect(dockerfile).toContain("FROM node:");
-    expect(dockerfile).toMatch(/apt-get install/);
-    expect(dockerfile).toContain("xvfb");
-    expect(dockerfile).toContain("xvfb-run");
-    expect(dockerfile).toContain("electron");
-    expect(dockerfile).toContain("VROOMON_USER_DATA_DIR");
+    expect(dockerfile).toContain("npm run build");
+    // The container serves the browser build; no Electron/xvfb layers.
+    expect(dockerfile).not.toContain("xvfb");
+    expect(dockerfile).not.toContain("electron");
+    expect(dockerfile).toContain('CMD ["node", "scripts/web-server.mjs"]');
+    expect(dockerfile).toContain("VROOMON_WEB_PORT");
   });
 
   it("ships a DEPLOYMENT.md with the cloudflared ingress block", () => {
