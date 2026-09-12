@@ -7,9 +7,28 @@ web e2e tests pass (~10s), `profile:sim` averages ~55 ms/generation.
 Findings are ordered by severity. "Needs fixing" = shipped code that is broken
 or will break; "needs doing" = backlog/drift items.
 
----
+**Resolution status (2026-09-10): → ✅ RESOLVED** — see below for each item's
+state and commit. Baseline for the fixes: 143 Vitest unit tests + 16 Playwright
+e2e pass, `python scripts/check_web_app.py vroomon --e2e` green.
 
-## 1. [Blocking] The k8s deploy path can never go Ready — nothing binds port 5112
+1. ✅ Dockerfile/k8s/DEPLOYMENT switched to the web-server model
+   (web-server.mjs serves on 5112; httpGet probes; UID 1001 + fsGroup;
+   `vroomon:web-test` image verified serving + feedback round-trip as root
+   and as 1001). Commit `98d532c2`.
+2. ⚠️ esbuild/yaml: still undeclared in package.json (transitive-only) —
+   smallest remaining clean-up; works today.
+3. ✅ check_web_app.py `vroomon` entry + CI e2e job (`6157f5a3`).
+4. ⚠️ Legacy Python suite: known-red (rectangle print→loguru drift, stale
+   mutate fixture, pygame-mock drift); still unfixed, now documented with
+   exact nix-shell reproduction in this audit + notes.
+5. ✅ DEPLOYMENT.md/Dockerfile/AGENTS re-themed to the web-server + ranch
+   fiction (`98d532c2`, `05fc6ab1`).
+Bonus (this cycle): UI overhaul (menu A/B, stats HUD, labels/art), faction
+worldbuilding with playable mini-stories for all six biomes, dead-end
+overworld fixed, web persistence via localStorage (`0f435162`).
+
+---
+ — nothing binds port 5112
 
 - `src/main.ts` (Electron main process) binds **zero** TCP ports. The only
   listener on 5112 is `scripts/web-server.mjs` (plain Node HTTP), which is what
