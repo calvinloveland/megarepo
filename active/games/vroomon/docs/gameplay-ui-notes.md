@@ -260,6 +260,16 @@ physical NPCs on walkable tiles draw. Map data is validated by a script
 (reachability + transition targeting) and guarded by unit tests (144 total
 incl. biome hosts, joins, and the chain).
 
+## Web persistence — wired (2026-09-10) ✅
+
+The web build's store was memory-only, so Hall of Fame / run / world state
+vanished on every reload. The shim (playwright-preload-shim.ts) now persists
+to localStorage per origin (`vroomon:*` keys) with a graceful in-memory
+fallback when storage is blocked (private mode / sandboxed iframe). Desktop
+Electron's main-process file store is unchanged. New e2e proves: save run
+state → reload → load (terrain preserved), and join a faction → autosave →
+reload → HOUSES chip still shows the choice.
+
 ## Outstanding gameplay/UI issues (identified, not yet fixed — design work)
 
 From the vision-model critique + probes, ordered by impact:

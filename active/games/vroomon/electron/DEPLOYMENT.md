@@ -150,10 +150,12 @@ curl -s -X POST http://127.0.0.1:5112/api/feedback \
 
 ## Caveats
 
-- **Web state is per-session.** Hall of Fame, run state, and overworld
-  progress persist in the browser session only (localStorage is not wired
-  yet, and there is no server-side store). The PVC is reserved for when that
-  lands.
+- **Web state persists in the browser (localStorage).** Hall of Fame, run
+  state, and overworld progress (faction choices, position, Herd Book) are
+  saved to localStorage per origin and survive reloads; there is no
+  server-side store yet, so visiting from a different browser starts fresh,
+  and clearing site data wipes progress. The PVC is reserved for a server
+  side store if that ever lands.
 - **Single replica.** The PVC is `ReadWriteOnce`; single replica is correct
   for a personal app.
 - **`runAsNonRoot: true` / UID 1001.** The image chowns `.secrets` and the

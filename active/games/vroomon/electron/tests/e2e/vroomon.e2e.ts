@@ -543,3 +543,48 @@ async function readJson<T>(page: import("@playwright/test").Page, selector: stri
       .poll(async () => page.locator("[data-viewport-stats-overlay]").textContent())
       .toContain("1");
   });
+
+  test("persists run state and faction choices across a page reload", async ({
+    page,
+  }) => {
+    // Run state: save in test-drive, reload the page, load again.
+    await page.locator('[data-mode-button="test-drive"]').click();
+    await page.locator("[data-terrain-select]").selectOption("Flat");
+    await page.waitForTimeout(200);
+    await page.keyboard.press("s");
+    await expect(page.locator("[data-status-message]")).toContainText("Saved run state");
+    await page.waitForTimeout(400);
+
+    await page.reload();
+    await page.locator("[data-status-message]").filter({ hasText: "Welcome" }).waitFor({ timeout: 15000 });
+    await page.locator('[data-mode-button="test-drive"]').click();
+    await page.keyboard.press("l");
+    await expect(page.locator("[data-status-message]")).toContainText("Loaded run");
+    await expect(page.locator("[data-terrain-select]")).toHaveValue("Flat");
+
+    // World/faction: join the Greensprouts, let the autosave flush, reload,
+    // and confirm the HOUSES chip reflects the persisted choice.
+    await page.locator('[data-mode-button="world"]').click();
+    for (const dir of ["down", "down", "left", "left", "left", "left"]) {
+      await page.locator(`[data-dpad="${dir}"]`).click();
+      await page.waitForTimeout(320);
+    }
+    await page.locator('[data-dpad="interact"]').click();
+    await page.keyboard.press("z");
+    await page.waitForTimeout(250);
+    await page.locator("[data-dialogue-option]").first().click();
+    await page.waitForTimeout(250);
+    await page.keyboard.press("z");
+    await page.waitForTimeout(800); // allow the world autosave to flush
+
+    await page.reload();
+    await page.locator("[data-status-message]").filter({ hasText: "Welcome" }).waitFor({ timeout: 15000 });
+    await page.locator('[data-mode-button="world"]').click();
+    await page.waitForTimeout(700);
+    await expect
+      .poll(async () => page.locator("[data-viewport-stats-overlay]").textContent())
+      .toContain("HOUSES");
+    await expect
+      .poll(async () => page.locator("[data-viewport-stats-overlay]").textContent())
+      .toContain("1");
+  });
