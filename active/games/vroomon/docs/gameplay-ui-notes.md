@@ -270,6 +270,29 @@ Electron's main-process file store is unchanged. New e2e proves: save run
 state → reload → load (terrain preserved), and join a faction → autosave →
 reload → HOUSES chip still shows the choice.
 
+## Legacy Python suite — restored to green (2026-09-10) ✅
+
+The reference prototype's suite was red (12 failed + 3 errors). All three
+known drifts fixed:
+
+- test_rectangle: 6 tests patched `builtins.print`, the code now warns via
+  loguru — tests assert `logger.warning` instead.
+- test_population_mutate: fixture patched dead module attrs; mutate() resolves
+  parts through `_runtime_dependencies()` — fixture now stubs the resolver
+  (Dummy parts + a non-Car sentinel class so the fallback branch runs).
+- test_simulation: the module moved to lazy `importlib`-based pygame + narrow
+  exception handling; tests now use an importlib seam that delegates other
+  imports to the real import_module (keeps patch() resolution working). Code
+  hardened alongside: pygame-missing falls back to a headless run with a
+  warning; draw errors are caught broadly and disable viz; car-removal errors
+  are logged (debug) instead of crashing.
+- pyproject: `full_auto_ci` moved from runtime dependencies to an optional
+  `ci` group (it was never imported by vroomon).
+
+Run: `nix-shell -p python312Packages.pytest python312Packages.pygame
+python312Packages.pymunk python312Packages.tqdm python312Packages.loguru --
+run "python -m pytest -q"` → 101 passed, 17 subtests passed, no failures.
+
 ## Outstanding gameplay/UI issues (identified, not yet fixed — design work)
 
 From the vision-model critique + probes, ordered by impact:

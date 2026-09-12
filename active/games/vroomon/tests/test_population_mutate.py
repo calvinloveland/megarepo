@@ -26,9 +26,16 @@ class DummyCar:
 
 @pytest.fixture(autouse=True)
 def patch_parts(monkeypatch):
-    # Patch parts lists so random.choice always picks Dummy parts
-    monkeypatch.setattr(pop, "ALL_FRAME_PARTS", [DummyFramePart])
-    monkeypatch.setattr(pop, "ALL_POWERTRAIN_PARTS", [DummyPowertrainPart])
+    # mutate() resolves the part lists through _runtime_dependencies()
+    # (imported from the car submodules), not module attrs. Patch the
+    # resolver so random.choice always picks Dummy parts and DummyCar is
+    # kept OUT of the "real Car" fast path (car_class is an unrelated type).
+    _not_car = type("_NotRealCar", (), {})
+
+    def fake_runtime_dependencies():
+        return (_not_car, [DummyFramePart], [DummyPowertrainPart], object(), object())
+
+    monkeypatch.setattr(pop, "_runtime_dependencies", fake_runtime_dependencies)
 
 
 def test_replace_branch(monkeypatch):

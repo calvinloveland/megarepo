@@ -61,9 +61,9 @@ def test_rectangle_validate_dimension_nan():
     body = pymunk.Body()
     pos = MockPosition(0, 0)
     
-    with patch('builtins.print') as mock_print:
+    with patch('vroomon.car.frame.rectangle.logger') as mock_logger:
         rect = Rectangle(body, pos, math.nan, 5.0)
-        mock_print.assert_called()
+        mock_logger.warning.assert_called()
         assert rect.length == 10.0  # Should use default
 
 
@@ -72,9 +72,9 @@ def test_rectangle_validate_dimension_infinite():
     body = pymunk.Body()
     pos = MockPosition(0, 0)
     
-    with patch('builtins.print') as mock_print:
+    with patch('vroomon.car.frame.rectangle.logger') as mock_logger:
         rect = Rectangle(body, pos, 10.0, math.inf)
-        mock_print.assert_called()
+        mock_logger.warning.assert_called()
         assert rect.height == 5.0  # Should use default
 
 
@@ -83,9 +83,9 @@ def test_rectangle_validate_dimension_zero():
     body = pymunk.Body()
     pos = MockPosition(0, 0)
     
-    with patch('builtins.print') as mock_print:
+    with patch('vroomon.car.frame.rectangle.logger') as mock_logger:
         rect = Rectangle(body, pos, 0, 5.0)
-        mock_print.assert_called()
+        mock_logger.warning.assert_called()
         assert rect.length == 1.0  # Should use minimum
 
 
@@ -94,9 +94,9 @@ def test_rectangle_validate_dimension_negative():
     body = pymunk.Body()
     pos = MockPosition(0, 0)
     
-    with patch('builtins.print') as mock_print:
+    with patch('vroomon.car.frame.rectangle.logger') as mock_logger:
         rect = Rectangle(body, pos, -5.0, 5.0)
-        mock_print.assert_called()
+        mock_logger.warning.assert_called()
         assert rect.length == 1.0  # Should use minimum
 
 
@@ -105,9 +105,9 @@ def test_rectangle_validate_dimension_very_small():
     body = pymunk.Body()
     pos = MockPosition(0, 0)
     
-    with patch('builtins.print') as mock_print:
+    with patch('vroomon.car.frame.rectangle.logger') as mock_logger:
         rect = Rectangle(body, pos, 0.1, 5.0)
-        mock_print.assert_called()
+        mock_logger.warning.assert_called()
         assert rect.length == 1.0  # Should use minimum
 
 
@@ -116,9 +116,9 @@ def test_rectangle_validate_dimension_very_large():
     body = pymunk.Body()
     pos = MockPosition(0, 0)
     
-    with patch('builtins.print') as mock_print:
+    with patch('vroomon.car.frame.rectangle.logger') as mock_logger:
         rect = Rectangle(body, pos, 100.0, 5.0)
-        mock_print.assert_called()
+        mock_logger.warning.assert_called()
         assert rect.length == 50.0  # Should clamp to maximum
 
 

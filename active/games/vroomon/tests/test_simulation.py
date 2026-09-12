@@ -8,6 +8,34 @@ from vroomon.simulation import Simulation
 from vroomon.car.car import Car
 from vroomon.ground import Ground
 
+import importlib as _importlib
+
+_REAL_IMPORT_MODULE = _importlib.import_module
+
+
+def _pygame_import_mock(mock_pygame):
+    """importlib.import_module returns the mock for 'pygame' (the simulation
+    now imports pygame lazily inside _start_visualization); every other import
+    (including patch()'s own dotted-name resolution) delegates to the REAL
+    import_module so submodules resolve correctly."""
+
+    def _fake_import(name, *args, **kwargs):
+        if name == "pygame":
+            return mock_pygame
+        return _REAL_IMPORT_MODULE(name, *args, **kwargs)
+
+    return _fake_import
+
+
+def _pygame_missing_import(name, *args, **kwargs):
+    """importlib.import_module that only fails for 'pygame' (other imports
+    — including patch()'s own module resolution — must keep working)."""
+    if name == "pygame":
+        raise ModuleNotFoundError("No module named 'pygame'")
+    return _REAL_IMPORT_MODULE(name, *args, **kwargs)
+
+
+
 
 def test_simulation_init():
     """Test Simulation initialization."""
@@ -60,21 +88,26 @@ def test_score_car_with_visualization_check():
     car = Car(car_dna)
     
     # Test that visualization works or fails gracefully
-    with patch('vroomon.simulation.pygame') as mock_pygame:
-        # Mock pygame.init to check if it's called
-        mock_pygame.init = MagicMock()
-        mock_pygame.display.set_mode = MagicMock(return_value=MagicMock())
-        mock_pygame.time.Clock = MagicMock(return_value=MagicMock())
-        mock_pygame.event.get = MagicMock(return_value=[])
-        
+    mock_pygame = MagicMock()
+    # Mock pygame.init to check if it's called
+    mock_pygame.init = MagicMock()
+    mock_pygame.display.set_mode = MagicMock(return_value=MagicMock())
+    mock_pygame.time.Clock = MagicMock(return_value=MagicMock())
+    mock_pygame.event.get = MagicMock(return_value=[])
+    mock_pygame.QUIT = 256
+
+    with patch(
+        'vroomon.simulation.importlib.import_module',
+        side_effect=_pygame_import_mock(mock_pygame),
+    ):
         score = sim.score_car(car, ground, visualize=True)
-        assert isinstance(score, (int, float))
-        # pygame.init should have been called when visualize=True
-        mock_pygame.init.assert_called_once()
+    assert isinstance(score, (int, float))
+    # pygame.init should have been called when visualize=True
+    mock_pygame.init.assert_called_once()
 
 
 def test_score_car_without_pygame():
-    """Test car scoring handles missing pygame gracefully."""
+    """Test car scoring handles missing pygame gracefully (headless run)."""
     sim = Simulation()
     ground = Ground()
     
@@ -84,11 +117,16 @@ def test_score_car_without_pygame():
     }
     car = Car(car_dna)
     
-    # Test with actual None pygame (simulating import failure)
-    with patch('vroomon.simulation.pygame', None):
-        # This should raise AttributeError when trying to call pygame.init()
-        with pytest.raises(AttributeError):
-            sim.score_car(car, ground, visualize=True)
+    # Simulating an import failure: visualization is skipped with a warning
+    # and the car still gets scored headlessly.
+    with patch(
+        "vroomon.simulation.importlib.import_module",
+        side_effect=_pygame_missing_import,
+    ):
+        with patch("vroomon.simulation.logger") as mock_logger:
+            score = sim.score_car(car, ground, visualize=True)
+    assert isinstance(score, (int, float))
+    mock_logger.warning.assert_called()
 
 
 def test_score_car_nan_detection():
@@ -154,22 +192,26 @@ def test_score_population_with_visualization():
     car = Car(car_dna)
     
     # Mock pygame components for visualization
-    with patch('vroomon.simulation.pygame') as mock_pygame:
-        mock_pygame.init.return_value = None
-        mock_pygame.display.set_mode.return_value = MagicMock()
-        mock_pygame.time.Clock.return_value = MagicMock()
-        mock_pygame.event.get.return_value = []
-        mock_pygame.QUIT = 256  # Mock pygame constant
-        
-        # Mock DrawOptions
-        with patch('vroomon.simulation.pymunk.pygame_util.DrawOptions') as mock_draw_options:
-            mock_draw_options.return_value = MagicMock()
-            
+    mock_pygame = MagicMock()
+    mock_pygame.init.return_value = None
+    mock_pygame.display.set_mode.return_value = MagicMock()
+    mock_pygame.time.Clock.return_value = MagicMock()
+    mock_pygame.event.get.return_value = []
+    mock_pygame.QUIT = 256  # Mock pygame constant
+
+    # Mock DrawOptions
+    with patch('vroomon.simulation.pymunk.pygame_util.DrawOptions') as mock_draw_options:
+        mock_draw_options.return_value = MagicMock()
+
+        with patch(
+            'vroomon.simulation.importlib.import_module',
+            side_effect=_pygame_import_mock(mock_pygame),
+        ):
             results = sim.score_population([car], ground, visualize=True)
-            
-            assert len(results) == 1
-            assert isinstance(results[0][0], Car)
-            assert isinstance(results[0][1], (int, float))
+
+        assert len(results) == 1
+        assert isinstance(results[0][0], Car)
+        assert isinstance(results[0][1], (int, float))
 
 
 def test_score_population_with_quit_event():
@@ -184,22 +226,26 @@ def test_score_population_with_quit_event():
     car = Car(car_dna)
     
     # Mock pygame with quit event
-    with patch('vroomon.simulation.pygame') as mock_pygame:
-        mock_pygame.init.return_value = None
-        mock_pygame.display.set_mode.return_value = MagicMock()
-        mock_pygame.time.Clock.return_value = MagicMock()
-        mock_pygame.QUIT = 256
-        
-        # Create a mock quit event
-        mock_event = MagicMock()
-        mock_event.type = 256  # pygame.QUIT
-        mock_pygame.event.get.return_value = [mock_event]
-        
-        with patch('vroomon.simulation.pymunk.pygame_util.DrawOptions'):
+    mock_pygame = MagicMock()
+    mock_pygame.init.return_value = None
+    mock_pygame.display.set_mode.return_value = MagicMock()
+    mock_pygame.time.Clock.return_value = MagicMock()
+    mock_pygame.QUIT = 256
+
+    # Create a mock quit event
+    mock_event = MagicMock()
+    mock_event.type = 256  # pygame.QUIT
+    mock_pygame.event.get.return_value = [mock_event]
+
+    with patch('vroomon.simulation.pymunk.pygame_util.DrawOptions'):
+        with patch(
+            'vroomon.simulation.importlib.import_module',
+            side_effect=_pygame_import_mock(mock_pygame),
+        ):
             results = sim.score_population([car], ground, visualize=True)
-            
-            # Should still return results even with quit event
-            assert len(results) == 1
+
+        # Should still return results even with quit event
+        assert len(results) == 1
 
 
 def test_score_population_drawing_error_handling():
@@ -213,23 +259,24 @@ def test_score_population_drawing_error_handling():
     }
     car = Car(car_dna)
     
-    with patch('vroomon.simulation.pygame') as mock_pygame:
-        mock_pygame.init.return_value = None
-        mock_screen = MagicMock()
-        mock_pygame.display.set_mode.return_value = mock_screen
-        mock_pygame.time.Clock.return_value = MagicMock()
-        mock_pygame.event.get.return_value = []
-        
-        # Make the drawing operation fail and mock the exception handling
-        with patch('vroomon.simulation.pymunk.pygame_util.DrawOptions') as mock_draw_options:
-            # Make debug_draw raise an exception
-            mock_draw_instance = MagicMock()
-            mock_draw_options.return_value = mock_draw_instance
-            
+    mock_pygame = MagicMock()
+    mock_pygame.init.return_value = None
+    mock_screen = MagicMock()
+    mock_pygame.display.set_mode.return_value = mock_screen
+    mock_pygame.time.Clock.return_value = MagicMock()
+    mock_pygame.event.get.return_value = []
+
+    # Make the drawing operation fail and mock the exception handling
+    with patch('vroomon.simulation.pymunk.pygame_util.DrawOptions') as mock_draw_options:
+        # Make debug_draw raise an exception
+        mock_draw_instance = MagicMock()
+        mock_draw_options.return_value = mock_draw_instance
+
+        with patch('vroomon.simulation.importlib.import_module', side_effect=_pygame_import_mock(mock_pygame)):
             with patch.object(sim.space, 'debug_draw', side_effect=Exception("Drawing error")):
                 with patch('vroomon.simulation.logger') as mock_logger:
                     results = sim.score_population([car], ground, visualize=True)
-                    
+
                     # Should complete despite drawing error
                     assert len(results) == 1
                     # Logger should have been called with warning

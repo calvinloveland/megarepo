@@ -18,9 +18,10 @@ e2e pass, `python scripts/check_web_app.py vroomon --e2e` green.
 2. ⚠️ esbuild/yaml: still undeclared in package.json (transitive-only) —
    smallest remaining clean-up; works today.
 3. ✅ check_web_app.py `vroomon` entry + CI e2e job (`6157f5a3`).
-4. ⚠️ Legacy Python suite: known-red (rectangle print→loguru drift, stale
-   mutate fixture, pygame-mock drift); still unfixed, now documented with
-   exact nix-shell reproduction in this audit + notes.
+4. ✅ Legacy Python suite: restored to green (101 passed + 17 subtests; was
+   12 failed + 3 errors). Rectangle/populate/simulation test drifts repaired
+   and simulation.py hardened (headless fallback, broad draw-error catch,
+   removal-error logging); `full_auto_ci` moved to an optional dep.
 5. ✅ DEPLOYMENT.md/Dockerfile/AGENTS re-themed to the web-server + ranch
    fiction (`98d532c2`, `05fc6ab1`).
 Bonus (this cycle): UI overhaul (menu A/B, stats HUD, labels/art), faction

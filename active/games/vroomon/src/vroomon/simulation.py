@@ -22,7 +22,7 @@ class Simulation:
             return 0
 
         car.reset_physics()
-        visual_state = self._start_visualization("Car Simulation") if visualize else None
+        visual_state = self._start_visualization_safe("Car Simulation") if visualize else None
         car.add_to_space(self.space)
         ground.add_to_space(self.space)
         self._run_visualized_steps(steps=60 * 60, dt=1 / 60, visual_state=visual_state)
@@ -42,7 +42,7 @@ class Simulation:
             car.reset_physics()
 
         visual_state = (
-            self._start_visualization("Population Simulation") if visualize else None
+            self._start_visualization_safe("Population Simulation") if visualize else None
         )
         ground.add_to_space(self.space)
         for car in cars:
@@ -56,7 +56,8 @@ class Simulation:
         self._stop_visualization(visual_state)
         return [(car, car.get_y_position()) for car in cars]
 
-    def _start_visualization(self, caption):
+    @staticmethod
+    def _start_visualization(caption):
         pygame = importlib.import_module("pygame")
         pygame.init()
         screen = pygame.display.set_mode((600, 600))
@@ -69,6 +70,15 @@ class Simulation:
             "running": True,
             "enabled": True,
         }
+
+    @staticmethod
+    def _start_visualization_safe(caption):
+        """Start pygame-based visualization, or fall back to headless."""
+        try:
+            return Simulation._start_visualization(caption)
+        except ModuleNotFoundError as error:
+            logger.warning("pygame not available (%s); running headless", error)
+            return None
 
     @staticmethod
     def _stop_visualization(visual_state):
@@ -107,7 +117,7 @@ class Simulation:
             self.space.debug_draw(visual_state["draw_options"])
             pygame.display.flip()
             visual_state["clock"].tick(60)
-        except (TypeError, ValueError) as error:
+        except Exception as error:  # noqa: BLE001 - one bad draw must not kill the race
             logger.warning("Drawing error at step %s: %s", step, error)
             visual_state["enabled"] = False
 
@@ -121,13 +131,22 @@ class Simulation:
 
     def _remove_car_from_space(self, car):
         for body, shape in car.frame:
-            if shape in self.space.shapes:
-                self.space.remove(shape)
-            if body in self.space.bodies:
-                self.space.remove(body)
+            try:
+                if shape in self.space.shapes:
+                    self.space.remove(shape)
+                if body in self.space.bodies:
+                    self.space.remove(body)
+            except Exception as error:  # noqa: BLE001
+                logger.debug("Car removal error: %s", error)
         for joint in car.joints:
-            if joint in self.space.constraints:
-                self.space.remove(joint)
+            try:
+                if joint in self.space.constraints:
+                    self.space.remove(joint)
+            except Exception as error:  # noqa: BLE001
+                logger.debug("Car removal error: %s", error)
         for motor in car.motors:
-            if motor in self.space.constraints:
-                self.space.remove(motor)
+            try:
+                if motor in self.space.constraints:
+                    self.space.remove(motor)
+            except Exception as error:  # noqa: BLE001
+                logger.debug("Car removal error: %s", error)
