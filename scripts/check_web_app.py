@@ -7,14 +7,16 @@ Usage:
     python scripts/check_web_app.py vernissage          # lint + build + test
     python scripts/check_web_app.py vernissage --e2e    # include Playwright E2E
     python scripts/check_web_app.py esp-array-sim       # node --check + node --test
+    python scripts/check_web_app.py vroomon             # build + unit (+ e2e with --e2e)
 """
 
 from __future__ import annotations
 
 import argparse
+import os
+import shutil
 import subprocess
 import sys
-import time
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -34,6 +36,11 @@ KNOWN_APPS = {
     "watch-forge": {
         "dir": REPO_ROOT / "active" / "games" / "watch-forge",
         "server_script": "server.mjs",
+    },
+    "vroomon": {
+        "dir": REPO_ROOT / "active" / "games" / "vroomon" / "electron",
+        "server_script": None,
+        "browser": "google-chrome-stable",
     },
 }
 
@@ -92,6 +99,52 @@ def check_node_sim(app: dict, args: argparse.Namespace) -> int:
     return exit_code
 
 
+def _is_nixos() -> bool:
+    try:
+        release = Path("/etc/os-release").read_text(encoding="utf-8")
+    except OSError:
+        return False
+    return "ID=nixos" in release
+
+
+def check_vroomon(app: dict, args: argparse.Namespace) -> int:
+    """Electron/TS rewrite: ci -> build (tsc + esbuild static) -> vitest, plus e2e."""
+    app_dir: Path = app["dir"]
+    exit_code = 0
+
+    exit_code |= run(["npm", "ci"], app_dir, "npm install")
+    exit_code |= run(["npm", "run", "build"], app_dir, "build (tsc + static)")
+    exit_code |= run(["npm", "test"], app_dir, "unit tests (vitest)")
+
+    if args.smoke or args.e2e:
+        # --with-deps runs apt, which doesn't exist on NixOS; the runner
+        # overrides the executable with the system chrome there anyway.
+        install_cmd = ["npx", "playwright", "install", "chromium"]
+        if not _is_nixos():
+            install_cmd = ["npx", "playwright", "install", "--with-deps", "chromium"]
+        exit_code |= run(install_cmd, app_dir, "install playwright")
+
+    if args.e2e:
+        # The e2e harness (run-playwright.mjs) serves the built app and drives
+        # it headlessly. On NixOS prefer the system chrome via
+        # VROOMON_BROWSER_EXECUTABLE (Playwright's downloaded chromium there is
+        # a generic Linux binary that the stub loader rejects).
+        env = dict(os.environ)
+        browser = app.get("browser")
+        if browser and shutil.which(browser):
+            env["VROOMON_BROWSER_EXECUTABLE"] = shutil.which(browser)
+        result = subprocess.run(
+            ["npm", "run", "test:e2e"],
+            cwd=app_dir,
+            env=env,
+        )
+        if result.returncode != 0:
+            print("FAILED: playwright e2e tests")
+        exit_code |= result.returncode
+
+    return exit_code
+
+
 def check_vernissage(app: dict, args: argparse.Namespace) -> int:
     app_dir: Path = app["dir"]
     exit_code = 0
@@ -127,6 +180,7 @@ def check() -> int:
         "vernissage": check_vernissage,
         "esp-array-sim": check_node_sim,
         "watch-forge": check_node_sim,
+        "vroomon": check_vroomon,
     }
     exit_code = checkers[args.app_name](app, args)
 

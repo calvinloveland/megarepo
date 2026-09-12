@@ -44,6 +44,7 @@ ALL_CHECKS: list[dict] = [
     {"name": "pi-package", "script": "check_pi_package", "args": []},
     {"name": "thermofluid", "script": "check_web_app", "args": ["thermofluid"]},
     {"name": "vernissage", "script": "check_web_app", "args": ["vernissage"]},
+    {"name": "vroomon", "script": "check_web_app", "args": ["vroomon"]},
     {"name": "docker", "script": "build_docker", "args": []},
     {"name": "docs", "script": "build_docs", "args": []},
 ]

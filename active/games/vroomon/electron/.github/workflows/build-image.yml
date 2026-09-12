@@ -4,19 +4,24 @@ on:
   pull_request:
     paths:
       - 'electron/src/**'
+      - 'electron/tests/**'
       - 'electron/package.json'
       - 'electron/package-lock.json'
       - 'electron/tsconfig.json'
       - 'electron/Dockerfile'
       - 'electron/k8s/**'
-      - 'electron/scripts/copy-static.mjs'
+      - 'electron/scripts/**'
   push:
     branches: [main]
     paths:
       - 'electron/src/**'
+      - 'electron/tests/**'
       - 'electron/package.json'
+      - 'electron/package-lock.json'
+      - 'electron/tsconfig.json'
       - 'electron/Dockerfile'
       - 'electron/k8s/**'
+      - 'electron/scripts/**'
 
 jobs:
   build:
@@ -43,7 +48,7 @@ jobs:
           fi
           echo "k8s manifest validates with 4 resources"
 
-  lint:
+  test:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -56,3 +61,8 @@ jobs:
       - name: Run unit tests
         working-directory: active/games/vroomon/electron
         run: npm test
+      - name: Run web e2e tests
+        working-directory: active/games/vroomon/electron
+        run: |
+          npx playwright install --with-deps chromium
+          npm run test:e2e
