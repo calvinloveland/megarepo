@@ -45,6 +45,20 @@ describe("world maps", () => {
     }
   });
 
+  it("ships a flavor NPC per faction biome", () => {
+    const flavor: Array<[string, string]> = [
+      ["hills_map", "vent-keeper"],
+      ["rocky_map", "assay-clerk"],
+      ["ice_map", "lamp-lighter"],
+    ];
+    for (const [mapId, npcId] of flavor) {
+      const npc = getMap(mapId)?.npcs.find((candidate) => candidate.id === npcId);
+      expect(npc, `${mapId}/${npcId}`).toBeDefined();
+      expect((npc?.dialogue?.text ?? "").length).toBeGreaterThan(30);
+      expect(npc?.dialogue?.onComplete).toBeUndefined();
+    }
+  });
+
   it("chains the faction biomes after the Salt Road", () => {
     expect(getMap("route_2")?.transitions["19,3"]?.mapId).toBe("hills_map");
     expect(getMap("hills_map")?.transitions["14,6"]?.mapId).toBe("rocky_map");

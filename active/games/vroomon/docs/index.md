@@ -20,8 +20,12 @@ The rewrite covers the parity contract capabilities declared in
 - Six terrain presets (Grassland, Flat, Sand, Hills, Rocky, Ice) with visual
   texture overlays
 - Lineage tracking (parent IDs, mutation flags, genealogy)
-- Persistence (run state, generation log, Hall of Fame)
-- The Python prototype remains available for behavioral reference
+- Persistence (run state, generation log, Hall of Fame) — cross-reload via
+  localStorage in the web build, disk in the desktop build
+- Lineage/faction worldbuilding: two rival households per biome with
+  persisted choices
+- The Python prototype remains available for behavioral reference (suite
+  restored to green)
 
 ## Modes
 
@@ -29,14 +33,19 @@ The app shell ships with four modes:
 
 - **Menu** — overview, parity contract summary, and the persistent
   Hall of Fame. Click any saved vehicle to load its DNA into test-drive.
-- **Overworld** — a 2D tile-based world (Starter Town + Route 1 +
-  Rustler Pasture + Route 2 + Salt Road Post) where you walk your
-  rancher, talk to the locals, encounter loose vroomon DNA in the
-  Vroomgrass, and join one of the rival households of each biome
-  (the Grasslands mini-story pits the Meadow Elder's Greensprouts
-  against the Roundup King's Reds). Arrow keys (or the on-screen
-  D-pad) move, Z / Enter interacts. State persists between sessions
-  (faction choices, position, Vroomdex).
+- **Overworld** — a 2D tile-based world spanning all six biomes
+  (Starter Town → Route 1 → Rustler Pasture, Route 2 → Salt Road Post,
+  then Highland Mesa → Canyon Quarry → Drift Perimeter) where you walk
+  your rancher, talk to the locals, encounter loose vroomon DNA in the
+  Vroomgrass, and join one of the rival households of each biome — each
+  biome is its own mini-story with a faction choice (Grasslands: Meadow
+  Elder's Greensprouts vs Roundup King's Reds; Sand: Trail Boss of the
+  Salt Road vs Wreck Marshal; Highlands: Guru of the Updrafts vs Guru of
+  the Stone Path; Canyon: Lay Foreman vs Ringleader; Perimeter: Keeper
+  of the Long Light vs Frost Baron). Arrow keys (or the on-screen D-pad)
+  move, Z / Enter interacts. State persists between sessions (faction
+  choices, position, Herd Book), locally in the browser for the web
+  build and on disk for the desktop build.
 - **Evolution** — generate a population, run generations, watch the
   viewport race them, and (optionally) save top cars to the Hall of Fame.
   Supports batch generation, "Stop on plateau" auto-convergence, and a

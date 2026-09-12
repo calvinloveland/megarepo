@@ -534,6 +534,8 @@ export const MAPS: Record<string, Tilemap> = {
         dialogue: { text: "Then grab a lamp. First rule: the stone keeps what it gives.", onComplete: "join-faction:miners" } },
       { id: "miners-decline", name: "Guru of the Stone Path", x: 0, y: 0, facing: "down", sprite: "gym-leader",
         dialogue: { text: "The Summit school flies at the west gate. Tell the Guru of the Updrafts I sent you." } },
+      { id: "vent-keeper", name: "Vent Keeper", x: 8, y: 2, facing: "down", sprite: "rider",
+        dialogue: { text: "At dusk the mesa vents whistle. Some say the updrafts call their own — city folks just hear wind." } },
     ],
     encounters: {},
     transitions: {
@@ -586,6 +588,8 @@ export const MAPS: Record<string, Tilemap> = {
         dialogue: { text: "That's the spirit. First rule: land wheels-down, or don't come back.", onComplete: "join-faction:runners" } },
       { id: "runners-decline", name: "The Ringleader", x: 0, y: 0, facing: "down", sprite: "rider",
         dialogue: { text: "The Lay Foreman signs the safe checks at the west gate. Safe is boring, but it pays." } },
+      { id: "assay-clerk", name: "Assay Clerk", x: 5, y: 9, facing: "up", sprite: "mechanic",
+        dialogue: { text: "Every picked-over wreck pays double when the canyon's in boom. The Lay Foreman logs it all — the Ringleader doesn't." } },
     ],
     encounters: {},
     transitions: {
@@ -638,6 +642,8 @@ export const MAPS: Record<string, Tilemap> = {
         dialogue: { text: "Welcome to the lane. First rule: the freight goes through, whatever it is.", onComplete: "join-faction:drift-syndicate" } },
       { id: "drift-decline", name: "The Frost Baron", x: 0, y: 0, facing: "down", sprite: "mechanic",
         dialogue: { text: "Then find the Keeper of the Long Light. Slow herds, slow money, warm hearts." } },
+      { id: "lamp-lighter", name: "Lamp Lighter", x: 8, y: 3, facing: "down", sprite: "rider",
+        dialogue: { text: "The long light never quite sets this far north. Mind you don't drift past the lamp line — the Baron's freight don't stop for nobody." } },
     ],
     encounters: {},
     transitions: {
