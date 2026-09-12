@@ -42,7 +42,7 @@ describe("world maps", () => {
     expect(town?.transitions["13,2"]?.mapId).toBe("route_1");
     expect(town?.transitions["1,0"]).toBeUndefined();
     expect(route?.transitions["0,5"]?.mapId).toBe("starter_town");
-    expect(route?.transitions["18,6"]?.mapId).toBe("route_2");
+    expect(route?.transitions["18,5"]?.mapId).toBe("route_2");
     expect(route?.transitions["19,5"]?.mapId).toBe("gym_1");
     expect(gym?.transitions["6,9"]?.mapId).toBe("route_1");
     expect(route2?.transitions["0,7"]?.mapId).toBe("route_1");

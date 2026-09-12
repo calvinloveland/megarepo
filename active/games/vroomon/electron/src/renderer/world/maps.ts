@@ -220,7 +220,9 @@ export const MAPS: Record<string, Tilemap> = {
     encounters: {},
     transitions: {
       "0,5": { mapId: "starter_town", toX: 13, toY: 2 },
-      "18,6": { mapId: "route_2", toX: 1, toY: 7, facing: "right" },
+      // (18,6) was originally the Salt Road gate, but Rider Vicky stands on
+      // that tile and blocked it — the gate lives on (18,5) instead.
+      "18,5": { mapId: "route_2", toX: 1, toY: 7, facing: "right" },
       "19,5": { mapId: "gym_1", toX: 6, toY: 9, facing: "up" },
     },
   },
@@ -428,7 +430,7 @@ export const MAPS: Record<string, Tilemap> = {
     ],
     encounters: {},
     transitions: {
-      "0,7": { mapId: "route_1", toX: 18, toY: 6 },
+      "0,7": { mapId: "route_1", toX: 18, toY: 5 },
       "21,5": { mapId: "gym_2", toX: 6, toY: 9, facing: "up" },
     },
   },

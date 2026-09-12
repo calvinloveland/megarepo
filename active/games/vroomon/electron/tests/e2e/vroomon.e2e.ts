@@ -485,3 +485,61 @@ async function readJson<T>(page: import("@playwright/test").Page, selector: stri
       .poll(async () => page.locator("[data-world-summary]").textContent())
       .toContain("Route 1");
   });
+
+  test("crosses the Vroomgrass into Route 2 and joins the Salt Road Caravan", async ({
+    page,
+  }) => {
+    // Full world-pass: Starter Town -> Route 1 -> through the vroomgrass
+    // wild-encounter band -> Route 2 -> Trail Boss faction join.
+    await page.locator('[data-mode-button="world"]').click();
+    await expectModeState(page, "world");
+
+    const d = async (dir, times) => {
+      for (let i = 0; i < times; i += 1) {
+        await page.locator(`[data-dpad="${dir}"]`).click();
+        await page.waitForTimeout(340);
+      }
+    };
+    // Town -> north-east gate (13,2) -> Route 1 (1,10)
+    await d("right", 6);
+    await d("up", 5);
+    // Route 1: to the corridor, then east to the Salt Road crossing (18,5)
+    await d("right", 3);
+    await d("up", 2);
+    await d("right", 12);
+    await d("up", 3);
+    await d("right", 2);
+    await expect
+      .poll(async () => page.locator("[data-world-summary]").textContent())
+      .toContain("Route 2");
+
+    // Route 2: south path to the Trail Boss at (6,12); stand at (5,12)
+    // facing right so he is adjacent.
+    await d("right", 3);
+    await d("down", 5);
+    await d("right", 2);
+    await page.locator('[data-dpad="interact"]').click();
+    await expect(page.locator("[data-overworld-dialogue-name]")).toContainText(
+      "Trail Boss of the Salt Road",
+    );
+    await page.keyboard.press("z");
+    await page.waitForTimeout(250);
+    await page.locator("[data-dialogue-option]").first().click();
+    await page.waitForTimeout(250);
+    await page.locator("[data-overworld-dialogue-text]").waitFor();
+    await page.keyboard.press("z");
+    await page.waitForTimeout(500);
+
+    await expect(page.locator("[data-status-message]")).toContainText("You ride for");
+    // The join persists: switch mode away and back, then check the HOUSES chip.
+    await page.locator('[data-mode-button="evolution"]').click();
+    await page.waitForTimeout(300);
+    await page.locator('[data-mode-button="world"]').click();
+    await page.waitForTimeout(500);
+    await expect
+      .poll(async () => page.locator("[data-viewport-stats-overlay]").textContent())
+      .toContain("HOUSES");
+    await expect
+      .poll(async () => page.locator("[data-viewport-stats-overlay]").textContent())
+      .toContain("1");
+  });

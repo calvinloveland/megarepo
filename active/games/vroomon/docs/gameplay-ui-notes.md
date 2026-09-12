@@ -215,6 +215,21 @@ rival households** you choose between.
 - Note: tests/world.test.ts was accidentally committed with every describe
   doubled; deduplicated (140 distinct unit tests).
 
+## Sand passage playable end-to-end — verified (2026-09-10) ✅
+
+The full world loop now works and is covered by an e2e (19s): Starter Town →
+Route 1 → through the vroomgrass wild-encounter band → Route 2 → stand at
+the Trail Boss and join the Salt Road Caravan. Wild-encounter tiles only post
+a status line (non-blocking), so navigation never stalls.
+
+- The Route-2 gate was originally on route_1 (18,6) — the tile Rider Vicky
+  stands on — so the crossing was impossible. Moved to (18,5) (return trip
+  lands there too).
+- Approach quirk: the Trail Boss occupies (6,12), so the player must stand at
+  (5,12) facing right (or (7,12) facing left) to talk.
+- Hills/Rocky/Ice faction mini-stories remain dialogue-only teasers until
+  those biomes get maps (deferred; their two-faction lore is in place).
+
 ## Outstanding gameplay/UI issues (identified, not yet fixed — design work)
 
 From the vision-model critique + probes, ordered by impact:
