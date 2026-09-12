@@ -82,7 +82,7 @@ export const MAPS: Record<string, Tilemap> = {
         dialogue: {
           text: "Head east on Route 1, walk through the Vroomgrass to capture wild DNA, and when you reach the Roundup Grounds, choose your ranch: the Greensprouts' meadow or the Reds' summer circuit. Your Herd Book fills as you go.",
           options: [
-            { label: "What is a Vroomdex?", next: "vroomdex-explain" },
+            { label: "What is a Herd Book?", next: "vroomdex-explain" },
             { label: "Got it, thanks!", next: "professor-farewell" },
           ],
         },
@@ -95,7 +95,7 @@ export const MAPS: Record<string, Tilemap> = {
         facing: "down",
         sprite: "professor",
         dialogue: {
-          text: "Every vehicle you encounter leaves a DNA fingerprint in your Vroomdex. Track the wheels, chassis, and powertrains you've seen. The data is precious — every specimen counts.",
+          text: "Every vehicle you encounter leaves a DNA fingerprint in your Herd Book. Track the wheels, chassis, and powertrains you've seen. The data is precious — every specimen counts.",
           onComplete: "vroomdex",
         },
       },

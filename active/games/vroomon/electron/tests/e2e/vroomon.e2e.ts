@@ -467,7 +467,7 @@ async function readJson<T>(page: import("@playwright/test").Page, selector: stri
     const worldChips = await chipText();
     expect(worldChips.join(" ")).toContain("MAP");
     expect(worldChips.join(" ")).toContain("HOUSES");
-    expect(worldChips.join(" ")).toContain("DEX");
+    expect(worldChips.join(" ")).toContain("HERD");
   });
 
   test("leaves Starter Town through the north-east gate into Route 1", async ({

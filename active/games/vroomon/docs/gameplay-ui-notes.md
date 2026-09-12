@@ -230,6 +230,15 @@ a status line (non-blocking), so navigation never stalls.
 - Hills/Rocky/Ice faction mini-stories remain dialogue-only teasers until
   those biomes get maps (deferred; their two-faction lore is in place).
 
+## Herd Book rename — done (2026-09-10) ✅
+
+All player-facing "Vroomdex" copy is now "Herd Book": the stats chip label
+(DEX -> HERD), Professor Axle's dialogs (option label + the fingerprint
+explanation), the "N specimens recorded in your Herd Book" readout, and the
+overworld reset confirm. Internal identifiers (world.vroomdex,
+data-overworld-vroomdex-count, onVroomdexTick, the "vroomdex" onComplete
+kind) stay as-is to avoid churn.
+
 ## Outstanding gameplay/UI issues (identified, not yet fixed — design work)
 
 From the vision-model critique + probes, ordered by impact:

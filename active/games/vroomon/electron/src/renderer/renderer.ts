@@ -2387,7 +2387,7 @@ function renderStatsHud(): void {
       value: String(Object.keys(rendererState.world.factionChoices).length),
     });
     chips.push({
-      label: "DEX",
+      label: "HERD",
       value: `${rendererState.world.vroomdex.length} ${rendererState.world.vroomdex.length === 1 ? "specimen" : "specimens"}`,
     });
     chips.push({ label: "WALLET", value: wallet });
@@ -2771,7 +2771,7 @@ function renderOverworldUi(): void {
       world.badges.map((badge) => `<li>${escapeHtml(badge)}</li>`).join("") +
       houseLine;
   }
-  overworldVroomdexCount.textContent = `${world.vroomdex.length} specimen${world.vroomdex.length === 1 ? "" : "s"} recorded`;
+  overworldVroomdexCount.textContent = `${world.vroomdex.length} specimen${world.vroomdex.length === 1 ? "" : "s"} recorded in your Herd Book`;
   overworldSummary.textContent = map
     ? `You're in ${map.name}. Use arrow keys to walk and Z to talk to people.`
     : "Use arrow keys to walk and Z to talk to people.";
@@ -2901,7 +2901,7 @@ overworldSaveNowButton.addEventListener("click", () => {
 });
 
 overworldResetButton.addEventListener("click", () => {
-  if (!window.confirm("Reset overworld progress? This wipes your badges, Vroomdex, and position.")) {
+  if (!window.confirm("Reset overworld progress? This wipes your brands, Herd Book, and position.")) {
     return;
   }
   const reset = createInitialWorldState();
