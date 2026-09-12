@@ -48,6 +48,12 @@ export function renderOverworld(
 
   const sortedEntities: Array<{ y: number; draw: (px: number) => void }> = [];
   for (const npc of map.npcs) {
+    // Dialogue-only stubs sit on impassable tiles (conventionally at 0,0) and
+    // resolve by id, not by position — skip them so no ghost sprites render
+    // in the map corner.
+    if (!isTilePassable(map.tiles[npc.y]?.[npc.x] ?? "grass")) {
+      continue;
+    }
     sortedEntities.push({
       y: npc.y,
       draw: (px) => {

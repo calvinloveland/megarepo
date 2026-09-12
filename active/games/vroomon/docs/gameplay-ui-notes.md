@@ -239,6 +239,27 @@ overworld reset confirm. Internal identifiers (world.vroomdex,
 data-overworld-vroomdex-count, onVroomdexTick, the "vroomdex" onComplete
 kind) stay as-is to avoid churn.
 
+## Hills / Rocky / Ice biome maps — added (2026-09-10) ✅
+
+The three remaining biomes are now playable maps chained off Route 2's
+mountain pass (`19,3`):
+
+- **Highland Mesa** — Guru of the Updrafts (Skimmers) vs Guru of the Stone
+  Path (Miners); `join-faction:skimmers|miners`.
+- **Canyon Quarry** — The Lay Foreman (Stonecutters' Union) vs The
+  Ringleader (Canyon Runners); `join-faction:union|runners`.
+- **Drift Perimeter** — Keeper of the Long Light (Herdsmen) vs The Frost
+  Baron (Drift Syndicate); `join-faction:herdsmen|drift-syndicate`.
+
+Chain: Route 2 → Highland Mesa → Canyon Quarry → Drift Perimeter (returns
+west each way). All hosts use the choice-dialogue pattern and the
+factionChoices persistence from earlier. Also fixed the pre-existing
+"ghost sprite" cosmetic bug: dialogue-stub NPCs (conventionally parked at
+0,0 on impassable tiles) are no longer rendered at map corners — only
+physical NPCs on walkable tiles draw. Map data is validated by a script
+(reachability + transition targeting) and guarded by unit tests (144 total
+incl. biome hosts, joins, and the chain).
+
 ## Outstanding gameplay/UI issues (identified, not yet fixed — design work)
 
 From the vision-model critique + probes, ordered by impact:

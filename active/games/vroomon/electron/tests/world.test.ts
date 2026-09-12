@@ -24,6 +24,35 @@ import {
 } from "../src/renderer/world/world-state.js";
 
 describe("world maps", () => {
+  it("exposes the three faction biomes with their host NPCs", () => {
+    const joins: Array<[string, string, string]> = [
+      ["hills_map", "guru-updrafts", "join-faction:skimmers"],
+      ["hills_map", "guru-stone", "join-faction:miners"],
+      ["rocky_map", "lay-foreman", "join-faction:union"],
+      ["rocky_map", "canyon-ringleader", "join-faction:runners"],
+      ["ice_map", "keeper-long-light", "join-faction:herdsmen"],
+      ["ice_map", "frost-baron", "join-faction:drift-syndicate"],
+    ];
+    for (const [mapId, hostId, joinKind] of joins) {
+      const map = getMap(mapId);
+      expect(map, mapId).toBeDefined();
+      const host = map?.npcs.find((npc) => npc.id === hostId);
+      expect(host, `${mapId}/${hostId}`).toBeDefined();
+      expect(host?.dialogue?.options?.length).toBeGreaterThan(0);
+      // the join node is an NPC resolved by id (stub convention at 0,0)
+      const joinNode = map?.npcs.find((npc) => npc.id === joinKind.slice(0, -"join-faction:".length));
+      expect(map?.npcs.some((npc) => npc.dialogue?.onComplete === joinKind)).toBe(true);
+    }
+  });
+
+  it("chains the faction biomes after the Salt Road", () => {
+    expect(getMap("route_2")?.transitions["19,3"]?.mapId).toBe("hills_map");
+    expect(getMap("hills_map")?.transitions["14,6"]?.mapId).toBe("rocky_map");
+    expect(getMap("rocky_map")?.transitions["14,6"]?.mapId).toBe("ice_map");
+    expect(getMap("ice_map")?.transitions["1,6"]?.mapId).toBe("rocky_map");
+    expect(getMap("rocky_map")?.transitions["1,6"]?.mapId).toBe("hills_map");
+  });
+
   it("exposes the five vertical-slice maps", () => {
     expect(getMap("starter_town")).toBeDefined();
     expect(getMap("route_1")).toBeDefined();
