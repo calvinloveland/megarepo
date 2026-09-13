@@ -25,9 +25,39 @@ def num(word, low, high):
     h = int.from_bytes(hashlib.sha256(word.encode()).digest()[:4], "big")
     return low + (h % (high - low + 1))
 
+STYLES = [
+    "the_word",        # The Rampole
+    "word_noun",       # Rampole Shed
+    "word_noun_pl",    # Thistle Sheds
+    "hyphen_blend",    # Slate-Vetch Stable (keep a few)
+    "and_blend",       # Strike & Thistle
+    "of_the",          # Salt of the Meadow
+    "bare",            # Glimmer (flavor does the work)
+    "double_word",     # Burrburr Gate (rare, punchy)
+]
+
+
 def blend(rng, noun):
-    a, b = pick(rng), pick(rng)
-    return f"{a.title()}-{b.title()} {noun}"
+    """Name with structure variety so the pack doesn't read as one template."""
+    style = rng.choice(STYLES)
+    a, b, c = pick(rng), pick(rng), pick(rng)
+    if style == "the_word":
+        return f"The {a.title()}"
+    if style == "word_noun":
+        return f"{a.title()} {noun}"
+    if style == "word_noun_pl":
+        pl = noun + ("s" if not noun.endswith("s") else "es")
+        return f"{a.title()} {pl}"
+    if style == "hyphen_blend":
+        return f"{a.title()}-{b.title()} {noun}"
+    if style == "and_blend":
+        return f"{a.title()} & {b.title()}"
+    if style == "of_the":
+        return f"{a.title()} of the {b.title()}"
+    if style == "bare":
+        return f"{a.title()}"
+    return f"{a.title()}{b.title()} {noun}"  # double_word
+
 
 def cap(word):  # lazy title-case tolerating hyphens
     return word.capitalize()
