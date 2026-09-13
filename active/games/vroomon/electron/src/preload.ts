@@ -128,6 +128,12 @@ const api = {
     ipcRenderer.invoke("vroomon:load-world-state"),
   saveWorldState: (world: PersistedWorldState): Promise<string> =>
     ipcRenderer.invoke("vroomon:save-world-state", world),
+  loadUpgrades: (): Promise<Record<string, number>> =>
+    ipcRenderer
+      .invoke("vroomon:load-upgrades")
+      .then((upgrades) => (upgrades as Record<string, number> | null) ?? {}),
+  saveUpgrades: (upgrades: Record<string, number>): Promise<string> =>
+    ipcRenderer.invoke("vroomon:save-upgrades", upgrades),
   runBatchGenerations: async (
     state: RunStateSnapshot,
     count: number,
@@ -211,6 +217,8 @@ declare global {
       saveHallOfFame: (hall: HallOfFame) => Promise<string>;
       loadWorldState: () => Promise<PersistedWorldState>;
       saveWorldState: (world: PersistedWorldState) => Promise<string>;
+      loadUpgrades: () => Promise<Record<string, number>>;
+      saveUpgrades: (upgrades: Record<string, number>) => Promise<string>;
       runBatchGenerations: (
         state: RunStateSnapshot,
         count: number,

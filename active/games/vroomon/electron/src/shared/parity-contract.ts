@@ -77,6 +77,8 @@ export interface RunStateSnapshot {
   config: RunConfig;
   population: PopulationEntry[];
   genealogy: Record<string, string[]>;
+  /** Purchased ranch upgrades: upgradeId -> level (optional for old saves). */
+  upgrades?: Record<string, number>;
 }
 
 export interface VroomonParityContract {
@@ -269,6 +271,7 @@ export function createEmptyRunState(
     terrainName,
     generation: 0,
     wallet: 0,
+    upgrades: {},
     config: { ...DEFAULT_RUN_CONFIG },
     population: [],
     genealogy: {},

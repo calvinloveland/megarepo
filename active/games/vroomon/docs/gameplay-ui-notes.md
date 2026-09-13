@@ -307,6 +307,29 @@ read like progress. Now:
 
 Both are mode-scoped and covered by the stats e2e. 144 unit + 16 e2e pass.
 
+## Ranch economy — wired into the game (2026-09-13) ✅
+
+The dictionary-seeded inspiration pack (docs/economy) became a real system:
+
+- `src/core/economy.ts`: six purchasable ranch upgrades with 5 tiers each —
+  The Shrewed (pasture: +25 herd cap/tier), Gamesman Stalls (+10 HOF slots),
+  Hardwired & Placate (+2% retain), The Surcingle (+2s races), The Pretence
+  (−1% mutation), Atmometer Tack (+10% income). Costs 40..1200 base, ×tier.
+- Effects land at the right seams without double-counting: the effective
+  config sizes new populations and breeding knobs (runEvolutionGeneration)
+  but is never baked into stored config; income multiplies in advanceRunState;
+  HOF capacity grows in addHallOfFameEntry.
+- **RANCH YARD store**: a 🌾 RANCH button in the evolution HUD opens a modal
+  (six cards, wallet, tier/level, effect now→next, buy with disable when
+  unaffordable/maxed); purchases debit credits, set the status line, and
+  persist. Upgrades are **campaign progression** — auto-loaded at boot via a
+  dedicated upgrades store (web: localStorage `vroomon:upgrades`; desktop:
+  IPC + `upgrades.json`), so they survive runs and reloads.
+- Unit tests cover the economy (costs, wallet, caps, modifiers, capacity,
+  income) and an e2e plays the full loop: earn 40 cr → buy pasture → herd
+  grows 100→125 on regenerate → reload keeps tier 1/5 in the store.
+- 151 unit + 17 e2e pass.
+
 ## Outstanding gameplay/UI issues (identified, not yet fixed — design work)
 
 From the vision-model critique + probes, ordered by impact:

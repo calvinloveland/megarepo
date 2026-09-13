@@ -55,6 +55,7 @@ describe("parity contract", () => {
       config: DEFAULT_RUN_CONFIG,
       population: [],
       genealogy: {},
+      upgrades: {},
     });
   });
 });

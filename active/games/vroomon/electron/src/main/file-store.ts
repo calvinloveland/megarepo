@@ -40,6 +40,38 @@ export function getWorldStatePath(baseDirectory: string): string {
   return join(baseDirectory, "vroomon", "world-state.json");
 }
 
+export function getUpgradesPath(baseDirectory: string): string {
+  return join(baseDirectory, "vroomon", "upgrades.json");
+}
+
+export async function saveUpgradesToDisk(
+  baseDirectory: string,
+  upgrades: Record<string, number>,
+): Promise<string> {
+  const targetPath = getUpgradesPath(baseDirectory);
+  await mkdir(join(baseDirectory, "vroomon"), { recursive: true });
+  await writeFile(targetPath, JSON.stringify(upgrades, null, 2), "utf8");
+  return targetPath;
+}
+
+export async function loadUpgradesFromDisk(
+  baseDirectory: string,
+): Promise<Record<string, number> | null> {
+  const targetPath = getUpgradesPath(baseDirectory);
+  if (!existsSync(targetPath)) {
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(await readFile(targetPath, "utf8")) as unknown;
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      return parsed as Record<string, number>;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 export async function saveRunStateToDisk(
   baseDirectory: string,
   state: RunStateSnapshot,

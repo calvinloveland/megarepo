@@ -7,9 +7,11 @@ import {
   loadGenerationLogFromDisk,
   loadHallOfFameFromDisk,
   loadRunStateFromDisk,
+  loadUpgradesFromDisk,
   loadWorldStateFromDisk,
   saveHallOfFameToDisk,
   saveRunStateToDisk,
+  saveUpgradesToDisk,
   saveWorldStateToDisk,
 } from "./main/file-store.js";
 import { type GenerationLogEntry } from "./core/persistence.js";
@@ -174,6 +176,14 @@ app.whenReady().then(() => {
   );
   ipcMain.handle("vroomon:load-world-state", () =>
     loadWorldStateFromDisk(app.getPath("userData")),
+  );
+  ipcMain.handle("vroomon:load-upgrades", () =>
+    loadUpgradesFromDisk(app.getPath("userData")),
+  );
+  ipcMain.handle(
+    "vroomon:save-upgrades",
+    (_event, upgrades: Record<string, number>) =>
+      saveUpgradesToDisk(app.getPath("userData"), upgrades),
   );
   ipcMain.handle(
     "vroomon:save-world-state",

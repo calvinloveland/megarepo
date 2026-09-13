@@ -595,6 +595,75 @@
         vertical-align: -1px;
       }
 
+      .ranch-modal {
+        position: fixed;
+        inset: 0;
+        z-index: 55;
+        display: grid;
+        place-items: center;
+        background: rgba(4, 8, 16, 0.7);
+      }
+      .ranch-modal__panel {
+        width: 620px;
+        max-width: 94vw;
+        max-height: 84vh;
+        display: flex;
+        flex-direction: column;
+        background: var(--panel-strong);
+        border: 1px solid var(--border-strong);
+        border-radius: 12px;
+        box-shadow: var(--shadow);
+        color: var(--text);
+      }
+      .ranch-modal__head {
+        display: flex;
+        align-items: center;
+        gap: 0.8rem;
+        padding: 0.7rem 0.9rem;
+        border-bottom: 1px solid var(--border);
+        font-weight: 700;
+      }
+      .ranch-modal__title { font-size: 0.9rem; color: var(--accent-warm); letter-spacing: 0.08em; }
+      .ranch-modal__wallet { margin-left: auto; font-size: 0.8rem; color: var(--muted); }
+      .ranch-modal__wallet strong { color: var(--accent-warm); }
+      .ranch-modal__close {
+        font-size: 0.8rem;
+        color: var(--muted);
+        background: none;
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        padding: 0.2rem 0.45rem;
+        cursor: pointer;
+      }
+      .ranch-list { overflow-y: auto; padding: 0.6rem 0.9rem 0.9rem; display: grid; gap: 0.45rem; }
+      .ranch-card {
+        display: grid;
+        gap: 0.25rem;
+        padding: 0.5rem 0.6rem;
+        background: rgba(138, 180, 255, 0.06);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+      }
+      .ranch-card[data-maxed="true"] { opacity: 0.62; }
+      .ranch-card__line { display: flex; justify-content: space-between; gap: 0.5rem; }
+      .ranch-card__line strong { font-size: 0.85rem; }
+      .ranch-card__line span { font-size: 0.75rem; color: var(--muted); }
+      .ranch-card__flavor { font-size: 0.75rem; color: var(--muted); }
+      .ranch-card__row { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; }
+      .ranch-card__row .ranch-card__effect { font-size: 0.78rem; color: var(--muted); }
+      .ranch-card__row .ranch-card__effect strong { color: var(--accent-warm); }
+      .ranch-buy {
+        font-size: 0.78rem;
+        font-weight: 700;
+        color: #04101f;
+        background: var(--accent-warm);
+        border: 1px solid var(--border-strong);
+        border-radius: 5px;
+        padding: 0.4rem 0.7rem;
+        cursor: pointer;
+      }
+      .ranch-buy[disabled] { opacity: 0.45; cursor: not-allowed; }
+
       /* Error toggle */
       .error-toggle {
         position: fixed; bottom: 0.5rem; right: 0.5rem; z-index: 50;
@@ -744,6 +813,7 @@
             <button class="hud-btn" type="button" data-run-generation>Run Gen</button>
             <button class="hud-btn" type="button" data-run-batch-generations>Batch</button>
             <button class="hud-btn hud-btn--secondary" type="button" data-config-toggle style="font-size:0.8rem;line-height:1;padding:0.3rem 0.4rem;" title="Toggle config">⚙</button>
+            <button class="hud-btn hud-btn--secondary" type="button" data-open-ranch>🌾 RANCH</button>
           </div>
           <div data-config-panel hidden style="display:flex;flex-wrap:wrap;gap:0.25rem;margin-top:0.1rem;">
             <select data-population-size-select class="hud-select" style="min-width:60px;">
@@ -863,6 +933,18 @@
           <div class="chart-panel">
             <div class="chart-panel__title">HERD TREND</div>
             <div data-viewport-score-chart></div>
+          </div>
+        </div>
+
+        <!-- Ranch store modal -->
+        <div class="ranch-modal" data-ranch-overlay hidden>
+          <div class="ranch-modal__panel">
+            <div class="ranch-modal__head">
+              <span class="ranch-modal__title">RANCH YARD</span>
+              <span class="ranch-modal__wallet">WALLET <strong data-ranch-wallet>0</strong> cr</span>
+              <button class="ranch-modal__close" data-close-ranch type="button">✕</button>
+            </div>
+            <div class="ranch-list" data-ranch-list></div>
           </div>
         </div>
 

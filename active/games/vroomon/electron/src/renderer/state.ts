@@ -5,6 +5,13 @@ import {
   type RunConfig,
   type RunStateSnapshot,
 } from "../shared/parity-contract.js";
+import {
+  hallOfFameCapacity,
+  purchaseUpgrade as buyUpgrade,
+  upgradeLevel,
+  UPGRADES,
+  type UpgradeId,
+} from "../core/economy.js";
 import { type GenerationResult } from "../core/population.js";
 import { type WorldState } from "./world/types.js";
 import { createInitialWorldState } from "./world/world-state.js";
@@ -349,10 +356,37 @@ export function addHallOfFameEntry(
   entry: HallOfFameEntry,
 ): RendererState {
   const entries = [entry, ...state.hallOfFame.entries];
+  const capacity = hallOfFameCapacity(state.runState.upgrades);
   return {
     ...state,
-    hallOfFame: { version: 1, entries: entries.slice(0, 50) },
+    hallOfFame: { version: 1, entries: entries.slice(0, capacity) },
     selectedHallEntryId: entry.id,
+  };
+}
+
+export interface PurchaseUpgradeResult {
+  state: RendererState;
+  ok: boolean;
+  reason?: string;
+}
+
+export function purchaseUpgrade(
+  state: RendererState,
+  id: UpgradeId,
+): PurchaseUpgradeResult {
+  const result = buyUpgrade(state.runState, id);
+  if (!result.ok) {
+    return { state, ok: false, reason: result.reason };
+  }
+  const def = UPGRADES.find((candidate) => candidate.id === id);
+  const level = upgradeLevel(result.state, id);
+  return {
+    state: {
+      ...state,
+      runState: result.state,
+      statusMessage: `${def?.name ?? "Upgrade"} built to tier ${level}.`,
+    },
+    ok: true,
   };
 }
 

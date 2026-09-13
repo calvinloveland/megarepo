@@ -13,10 +13,16 @@ import type {
   PopulationEvaluation,
   ScoreStats,
 } from "../core/population.js";
-import { createOverworldInputs } from "./world/overworld-controller.js";
+import {createOverworldInputs } from "./world/overworld-controller.js";
 import { renderOverworld } from "./world/overworld-renderer.js";
 import { getMap } from "./world/maps.js";
 import { findFaction } from "./world/factions.js";
+import {
+  UPGRADES,
+  upgradeCost,
+  upgradeLevel,
+  type UpgradeId,
+} from "../core/economy.js";
 import { createInitialWorldState } from "./world/world-state.js";
 import type { Direction, PersistedWorldState, WorldState } from "./world/types.js";
 import { advanceDialogue as advanceWorldDialogue, endDialogue as endWorldDialogue } from "./world/world-state.js";
@@ -59,6 +65,7 @@ import {
   setTestDriveReplay,
   updateBatchProgress,
   type RendererState,
+  purchaseUpgrade,
 } from "./state.js";
 import {
   resolveEvolutionPreviewRunState,
@@ -118,6 +125,8 @@ declare global {
       saveHallOfFame: (hall: HallOfFame) => Promise<string>;
       loadWorldState: () => Promise<PersistedWorldState>;
       saveWorldState: (world: PersistedWorldState) => Promise<string>;
+      loadUpgrades: () => Promise<Record<string, number>>;
+      saveUpgrades: (upgrades: Record<string, number>) => Promise<string>;
       runBatchGenerations: (
         state: RunStateSnapshot,
         count: number,
@@ -580,6 +589,14 @@ renderApp();
 void renderGenerationLog();
 void loadHallOfFame();
 void loadWorldStateFromDisk();
+// Ranch upgrades are campaign progression: carry them into a fresh session
+// (the run state itself stays per-generation until the player saves it).
+void window.vroomon.loadUpgrades().then((upgrades) => {
+  rendererState = {
+    ...rendererState,
+    runState: { ...rendererState.runState, upgrades: { ...upgrades } },
+  };
+});
 
 function renderApp(): void {
   renderContract();
@@ -3139,6 +3156,76 @@ if (configToggle && configPanel) {
     configPanel.hidden = !configPanel.hidden;
   });
 }
+
+// ---- Ranch economy store -------------------------------------------------
+const ranchOverlay = document.querySelector<HTMLElement>("[data-ranch-overlay]");
+const ranchWallet = document.querySelector<HTMLElement>("[data-ranch-wallet]");
+const ranchList = document.querySelector<HTMLElement>("[data-ranch-list]");
+const openRanchButton = document.querySelector<HTMLButtonElement>("[data-open-ranch]");
+const closeRanchButton = document.querySelector<HTMLButtonElement>("[data-close-ranch]");
+
+function renderRanch(): void {
+  if (!ranchWallet || !ranchList) {
+    return;
+  }
+  const wallet = rendererState.runState.wallet;
+  ranchWallet.textContent = String(wallet);
+  ranchList.innerHTML = UPGRADES.map((def) => {
+    const level = upgradeLevel(rendererState.runState, def.id);
+    const maxed = level >= def.maxLevel;
+    const nextLevel = level + 1;
+    const cost = maxed ? null : upgradeCost(def, nextLevel);
+    const afford = cost !== null && wallet >= cost;
+    const effectNow = level > 0 ? `<strong>${def.effectLabel(level)}</strong>` : "—";
+    const effectNext = maxed ? "MAXED" : `<strong>${def.effectLabel(nextLevel)}</strong>`;
+    return `
+      <div class="ranch-card" data-ranch-card="${def.id}" data-maxed="${String(maxed)}">
+        <div class="ranch-card__line"><strong>${escapeHtml(def.name)}</strong><span>tier ${level}/${def.maxLevel}</span></div>
+        <div class="ranch-card__flavor">${escapeHtml(def.flavor)}</div>
+        <div class="ranch-card__row">
+          <span class="ranch-card__effect">now ${effectNow} &nbsp;·&nbsp; next ${effectNext}</span>
+          <button class="ranch-buy" type="button" data-buy-upgrade="${def.id}" ${maxed || !afford ? "disabled" : ""}>${maxed ? "MAX" : `${cost} cr · BUY`}</button>
+        </div>
+      </div>`;
+  }).join("");
+}
+
+if (openRanchButton && ranchOverlay) {
+  openRanchButton.addEventListener("click", () => {
+    if (rendererState.batchRunning) {
+      return;
+    }
+    ranchOverlay.hidden = false;
+    renderRanch();
+  });
+}
+closeRanchButton?.addEventListener("click", () => {
+  if (ranchOverlay) {
+    ranchOverlay.hidden = true;
+  }
+});
+ranchOverlay?.addEventListener("click", (event) => {
+  if (event.target === ranchOverlay) {
+    ranchOverlay.hidden = true;
+  }
+});
+ranchList?.addEventListener("click", (event) => {
+  const button = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-buy-upgrade]");
+  if (!button || rendererState.batchRunning) {
+    return;
+  }
+  const id = button.dataset.buyUpgrade as UpgradeId;
+  const result = purchaseUpgrade(rendererState, id);
+  rendererState = result.ok
+    ? result.state
+    : { ...rendererState, statusMessage: `Ranch: ${result.reason ?? "Could not buy."}` };
+  renderApp();
+  if (result.ok) {
+    void window.vroomon.saveRunState(rendererState.runState);
+    void window.vroomon.saveUpgrades(rendererState.runState.upgrades ?? {});
+  }
+  renderRanch();
+});
 
 document.addEventListener("keydown", (event) => {
   if (event.target instanceof HTMLInputElement || event.target instanceof HTMLSelectElement) {

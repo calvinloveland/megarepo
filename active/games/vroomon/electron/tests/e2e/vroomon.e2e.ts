@@ -593,3 +593,51 @@ async function readJson<T>(page: import("@playwright/test").Page, selector: stri
       .poll(async () => page.locator("[data-viewport-stats-overlay]").textContent())
       .toContain("1");
   });
+
+  test("buys a ranch upgrade, enlarges the herd, and persists it", async ({
+    page,
+  }) => {
+    await page.locator('[data-mode-button="evolution"]').click();
+    await page.locator("[data-generate-population]").click();
+    await page.locator("[data-status-message]").filter({ hasText: "Generated population" }).waitFor({ timeout: 20000 });
+
+    // Earn at least the 40-credit cost of The Shrewed (pasture upgrade).
+    let wallet = 0;
+    for (let i = 0; i < 12; i += 1) {
+      wallet = (await readJson<{ wallet: number }>(page, "[data-run-state-output]")).wallet;
+      if (wallet >= 40) break;
+      await page.locator("[data-run-generation]").click();
+      await page.locator("[data-status-message]").filter({ hasText: "Completed generation" }).waitFor({ timeout: 30000 });
+    }
+    expect(wallet).toBeGreaterThanOrEqual(40);
+
+    await page.locator("[data-open-ranch]").click();
+    await page.waitForTimeout(300);
+    await expect(page.locator("[data-ranch-list] .ranch-card")).toHaveCount(6);
+    await page.locator("[data-buy-upgrade='pasture']").click();
+    await page.waitForTimeout(500);
+
+    const afterBuy = await readJson<{ wallet: number; upgrades?: Record<string, number> }>(
+      page,
+      "[data-run-state-output]",
+    );
+    expect(afterBuy.upgrades?.pasture).toBe(1);
+    expect(afterBuy.wallet).toBe(wallet - 40);
+
+    // Regenerate - the pasture upgrade enlarges the herd to 125.
+    await page.locator("[data-close-ranch]").click();
+    await page.locator("[data-generate-population]").click();
+    await page.locator("[data-status-message]").filter({ hasText: "Generated population" }).waitFor({ timeout: 20000 });
+    const pop = (await readJson<{ population: unknown[] }>(page, "[data-run-state-output]")).population.length;
+    expect(pop).toBe(125);
+
+    // Reload: upgrades survive (campaign progression), tier shown in store.
+    await page.reload();
+    await page.locator("[data-status-message]").filter({ hasText: "Welcome" }).waitFor({ timeout: 20000 });
+    await page.locator('[data-mode-button="evolution"]').click();
+    await page.waitForTimeout(400);
+    await page.locator("[data-open-ranch]").click();
+    await page.waitForTimeout(300);
+    await expect(page.locator("[data-ranch-card='pasture']")).toContainText("tier 1/5");
+    await expect(page.locator("[data-ranch-card='pasture']")).toContainText("80 cr");
+  });

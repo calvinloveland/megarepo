@@ -123,6 +123,8 @@ declare global {
       saveHallOfFame: (hall: HallOfFame) => Promise<string>;
       loadWorldState: () => Promise<PersistedWorldState>;
       saveWorldState: (world: PersistedWorldState) => Promise<string>;
+      loadUpgrades: () => Promise<Record<string, number>>;
+      saveUpgrades: (upgrades: Record<string, number>) => Promise<string>;
       runBatchGenerations: (
         state: RunStateSnapshot,
         count: number,
@@ -195,6 +197,7 @@ let savedRunState: RunStateSnapshot | null = null;
 const generationLogs = new Map<string, GenerationLogEntry[]>();
 let savedHallOfFame: HallOfFame | null = null;
 let savedWorldState: PersistedWorldState | null = null;
+let savedUpgrades: Record<string, number> | null = null;
 
 window.vroomon = {
   cleanDna,
@@ -327,6 +330,17 @@ window.vroomon = {
     savedWorldState = structuredClone(world);
     storageSet("world-state", JSON.stringify(world));
     return "local://vroomon/world-state.json";
+  },
+  loadUpgrades: async (): Promise<Record<string, number>> => {
+    if (!savedUpgrades) {
+      savedUpgrades = parseStored<Record<string, number>>("upgrades") ?? {};
+    }
+    return structuredClone(savedUpgrades);
+  },
+  saveUpgrades: async (upgrades: Record<string, number>): Promise<string> => {
+    savedUpgrades = structuredClone(upgrades);
+    storageSet("upgrades", JSON.stringify(upgrades));
+    return "local://vroomon/upgrades.json";
   },
   runBatchGenerations: async (
     state: RunStateSnapshot,

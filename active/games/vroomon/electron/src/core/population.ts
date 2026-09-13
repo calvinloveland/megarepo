@@ -1,5 +1,6 @@
 import { createRandomDna } from "../shared/dna-v2.js";
 import { simulatePopulationRace } from "../simulation/matter-simulation.js";
+import { effectiveRunConfig, incomeMultiplier } from "./economy.js";
 import {
   DEFAULT_RUN_CONFIG,
   type PopulationEntry,
@@ -183,10 +184,17 @@ export function createPreviewRunState(
   baseState: RunStateSnapshot,
   random: () => number = Math.random,
 ): RunStateSnapshot {
-  const population = createInitialPopulation(runId, baseState.config, random);
+  // Ranch upgrades bend the herd's starting config (pasture cap, grazing
+  // retain, grooming mutation, velodrome race length). The EFFECTIVE config
+  // sizes the new population but is never baked back into storage — base
+  // config stays the user-picked one, so repeated generates don't compound
+  // upgrade bonuses.
+  const config = effectiveRunConfig(baseState.config, baseState.upgrades);
+  const population = createInitialPopulation(runId, config, random);
 
   return {
     ...baseState,
+    config: baseState.config,
     runId,
     population,
     genealogy: seedGenealogy(population),
@@ -242,10 +250,12 @@ export function runEvolutionGeneration(
       score: vehicleResult?.score ?? 0,
     };
   });
+  // Breeding knobs honour ranch upgrades (grazing retain, grooming mutation).
+  const effective = effectiveRunConfig(state.config, state.upgrades);
   const preview = previewEvolutionStep(
     scoredPopulation,
-    state.config.retainRatio,
-    state.config.mutationRate,
+    effective.retainRatio,
+    effective.mutationRate,
     state.runId,
     state.genealogy,
     random,
@@ -268,11 +278,12 @@ export function advanceRunState(
     0,
     ...generationResult.evaluation.results.map((result) => result.score),
   );
+  const income = Math.floor((bestScore / 50) * incomeMultiplier(state.upgrades));
 
   return {
     ...state,
     generation: state.generation + 1,
-    wallet: state.wallet + Math.floor(bestScore / 50),
+    wallet: state.wallet + income,
     population: generationResult.nextPopulation,
     genealogy: generationResult.nextGenealogy,
   };

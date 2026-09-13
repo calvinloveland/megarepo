@@ -44,3 +44,7 @@ _Draw: 31791 · 105145 dictionary words · 2026-09-13T22:01:58Z_
 - Only real sink today: HOF rename (1 cr). Upgrades above give the wallet a campaign-length purpose.
 - Proposed sinks ~10× income: the most expensive upgrade ≈ 40 generations of a good herd;
   consumables ≈ 1-2 generations each. Tune the table to taste.
+
+_Status: six of these (pasture cap, HOF stalls, retain, race duration, mutation,
+income) are implemented in the game as the RANCH YARD store (src/core/economy.ts).
+Draft_bonus / wild_encounter_reroll / faction_discount are reserved for future tiers._
