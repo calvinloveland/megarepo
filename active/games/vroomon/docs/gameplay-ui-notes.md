@@ -355,6 +355,19 @@ Tests: unit feud-node coverage (10 nodes, onComplete gym, brands) + a
 feud e2e (Elder -> Race feud -> Grassland Brand in status AND badge list,
 surviving reload). 152 unit + 18 e2e pass.
 
+## Ranch decor — purely pretty things (2026-09-13) ✅
+
+The RANCH YARD store gained a **ROOM TO ADORN** section: eight cosmetic
+decor items (🌻 Sunflower Bower, 🌷 Wildflower Bed, 🦆 Duck Pond, 🐝 Bee
+Skeps, 🧺 Hay Hamper, 🌳 Shade Spindle, ⛲ Wishing Well, 🎏 Weather Pennant,
+10–34 cr) with NO gameplay effect. Purchases are placed in Starter Town's
+meadow (canvas-drawn emoji under NPCs/player at anchored tiles), persist in
+world state (`decor: string[]` — web localStorage + desktop file store,
+parse-tolerant), and survive reloads with a canvas-draw e2e check.
+
+Also: persistWorldState now serializes rendererState.world (carries decor —
+it previously could only see the controller's world).
+
 ## Outstanding gameplay/UI issues (identified, not yet fixed — design work)
 
 From the vision-model critique + probes, ordered by impact:

@@ -11,11 +11,14 @@ import {
   type Tilemap,
   type WorldState,
 } from "./types.js";
+import { findDecor } from "./decor.js";
 
 export interface OverworldRenderFrame {
   map: Tilemap;
   tick: number;
   world: WorldState;
+  /** Owned cosmetic decor ids (lives in renderer state, not world state). */
+  decor: string[];
 }
 
 export function renderOverworld(
@@ -27,7 +30,7 @@ export function renderOverworld(
     return;
   }
 
-  const { map, tick, world } = frame;
+  const { map, tick, world, decor } = frame;
   const width = canvas.width;
   const height = canvas.height;
 
@@ -44,6 +47,24 @@ export function renderOverworld(
       const py = y * TILE_SIZE - cameraY;
       drawTile(ctx, tile, px, py, TILE_SIZE, tick);
     }
+  }
+
+  // Cosmetic meadow decor (drawn under NPCs and the player).
+  for (const decorId of decor) {
+    const item = findDecor(decorId);
+    if (!item || item.anchor.x < 0 || item.anchor.x >= map.width ||
+        item.anchor.y < 0 || item.anchor.y >= map.height) {
+      continue;
+    }
+    const px = item.anchor.x * TILE_SIZE - cameraX;
+    const py = item.anchor.y * TILE_SIZE - cameraY;
+    if (px < -TILE_SIZE || px > width || py < -TILE_SIZE || py > height) {
+      continue;
+    }
+    ctx.font = `${TILE_SIZE - 6}px serif`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(item.emoji, px + TILE_SIZE / 2, py + TILE_SIZE / 2 + 2);
   }
 
   const sortedEntities: Array<{ y: number; draw: (px: number) => void }> = [];

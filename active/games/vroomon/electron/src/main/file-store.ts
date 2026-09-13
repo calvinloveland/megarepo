@@ -230,6 +230,9 @@ function sanitizePersistedWorld(
     playerFacing: world.playerFacing,
     badges: world.badges.filter((badge) => typeof badge === "string").slice(0, 16),
     factionChoices: { ...world.factionChoices },
+    decor: Array.isArray(world.decor)
+      ? world.decor.filter((id) => typeof id === "string").slice(0, 32)
+      : [],
     vroomdex: world.vroomdex.filter((dna) => typeof dna === "string").slice(-200),
     flags: Object.fromEntries(
       Object.entries(world.flags).filter((entry): entry is [string, boolean] => typeof entry[1] === "boolean"),

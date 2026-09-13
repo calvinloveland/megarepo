@@ -136,6 +136,7 @@ describe("file store", () => {
       playerFacing: "up",
       badges: ["Grass Badge"],
       factionChoices: { grassland: "greensprouts" },
+      decor: ["sunflower-bower"],
       vroomdex: ["A3x9K2m7P4zQ", "zzYY1199ABcd"],
       flags: { defeated_flint: true },
       lastSavedAt: "2024-06-01T12:00:00.000Z",

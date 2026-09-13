@@ -17,6 +17,7 @@ import {createOverworldInputs } from "./world/overworld-controller.js";
 import { renderOverworld } from "./world/overworld-renderer.js";
 import { getMap } from "./world/maps.js";
 import { findFaction } from "./world/factions.js";
+import { DECOR_ITEMS } from "./world/decor.js";
 import {
   effectiveRunConfig,
   UPGRADES,
@@ -67,6 +68,7 @@ import {
   updateBatchProgress,
   type RendererState,
   purchaseUpgrade,
+  purchaseDecor,
 } from "./state.js";
 import {
   resolveEvolutionPreviewRunState,
@@ -2655,7 +2657,7 @@ async function loadWorldStateFromDisk(): Promise<void> {
 
 function applyPersistedWorld(
   world: WorldState,
-  persisted: { currentMapId: string; playerX: number; playerY: number; playerFacing: Direction; badges: string[]; factionChoices?: Record<string, string>; vroomdex: string[]; flags: Record<string, boolean> },
+  persisted: { currentMapId: string; playerX: number; playerY: number; playerFacing: Direction; badges: string[]; factionChoices?: Record<string, string>; decor?: string[]; vroomdex: string[]; flags: Record<string, boolean> },
 ): WorldState {
   const mapExists = getMap(persisted.currentMapId) !== undefined;
   return {
@@ -2669,6 +2671,7 @@ function applyPersistedWorld(
       persisted.factionChoices && typeof persisted.factionChoices === "object"
         ? persisted.factionChoices
         : world.factionChoices,
+    decor: Array.isArray(persisted.decor) ? persisted.decor : world.decor,
     vroomdex: Array.isArray(persisted.vroomdex) ? persisted.vroomdex : world.vroomdex,
     flags:
       persisted.flags && typeof persisted.flags === "object" ? persisted.flags : world.flags,
@@ -2688,7 +2691,10 @@ function scheduleWorldSave(): void {
 }
 
 async function persistWorldState(): Promise<void> {
-  const world = overworldController.state;
+  // Serialize the renderer's world (kept in sync with the controller on
+  // every change) — this also carries decor purchases, which live only in
+  // renderer state.
+  const world = rendererState.world;
   if (world.activeNpc || world.currentEncounter) {
     return;
   }
@@ -2700,6 +2706,7 @@ async function persistWorldState(): Promise<void> {
     playerFacing: world.playerFacing,
     badges: [...world.badges],
     factionChoices: { ...world.factionChoices },
+    decor: [...world.decor],
     vroomdex: [...world.vroomdex],
     flags: { ...world.flags },
     lastSavedAt: new Date().toISOString(),
@@ -2840,6 +2847,7 @@ function startOverworldAnimationLoop(): void {
         renderOverworld(overworldCanvas, {
           map,
           world: overworldController.state,
+          decor: rendererState.world.decor,
           tick: performance.now(),
         });
       } catch (error) {
@@ -3263,6 +3271,7 @@ if (openRanchButton && ranchOverlay) {
     }
     ranchOverlay.hidden = false;
     renderRanch();
+    renderDecor();
   });
 }
 closeRanchButton?.addEventListener("click", () => {
@@ -3275,6 +3284,49 @@ ranchOverlay?.addEventListener("click", (event) => {
     ranchOverlay.hidden = true;
   }
 });
+const ranchDecorList = document.querySelector<HTMLElement>("[data-ranch-decor-list]");
+
+function renderDecor(): void {
+  if (!ranchDecorList) {
+    return;
+  }
+  const wallet = rendererState.runState.wallet;
+  if (ranchWallet) ranchWallet.textContent = String(wallet);
+  ranchDecorList.innerHTML = DECOR_ITEMS.map((item) => {
+    const owned = rendererState.world.decor.includes(item.id);
+    const afford = !owned && wallet >= item.cost;
+    return `
+      <div class="ranch-card" data-ranch-card="${item.id}" data-owned="${String(owned)}">
+        <div class="ranch-card__line"><strong><span class="ranch-decor-icon">${item.emoji}</span>${escapeHtml(item.name)}</strong><span>${owned ? "in the meadow" : `${item.cost} cr`}</span></div>
+        <div class="ranch-card__flavor">${escapeHtml(item.flavor)}</div>
+        <div class="ranch-card__row">
+          <span class="ranch-card__effect">${owned ? "Placed in Starter Town" : "Purely decorative — parked by the meadow fence"}</span>
+          <button class="ranch-buy" type="button" data-buy-decor="${item.id}" ${owned || !afford ? "disabled" : ""}>${owned ? "OWNED" : `${item.cost} cr · BUY`}</button>
+        </div>
+      </div>`;
+  }).join("");
+}
+
+ranchDecorList?.addEventListener("click", (event) => {
+  const button = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-buy-decor]");
+  if (!button || rendererState.batchRunning) {
+    return;
+  }
+  const id = button.dataset.buyDecor ?? "";
+  const result = purchaseDecor(rendererState, id);
+  playRanchSound(result.ok ? "coin" : "deny");
+  rendererState = result.ok
+    ? result.state
+    : { ...rendererState, statusMessage: `Ranch: ${result.reason ?? "Could not place."}` };
+  renderApp();
+  if (result.ok) {
+    void window.vroomon.saveRunState(rendererState.runState);
+    scheduleWorldSave();
+  }
+  renderRanch();
+  renderDecor();
+});
+
 ranchList?.addEventListener("click", (event) => {
   const button = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-buy-upgrade]");
   if (!button || rendererState.batchRunning) {

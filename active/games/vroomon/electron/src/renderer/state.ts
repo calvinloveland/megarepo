@@ -12,6 +12,7 @@ import {
   UPGRADES,
   type UpgradeId,
 } from "../core/economy.js";
+import { findDecor } from "./world/decor.js";
 import { type GenerationResult } from "../core/population.js";
 import { type WorldState } from "./world/types.js";
 import { createInitialWorldState } from "./world/world-state.js";
@@ -361,6 +362,40 @@ export function addHallOfFameEntry(
     ...state,
     hallOfFame: { version: 1, entries: entries.slice(0, capacity) },
     selectedHallEntryId: entry.id,
+  };
+}
+
+export interface PurchaseDecorResult {
+  state: RendererState;
+  ok: boolean;
+  reason?: string;
+}
+
+export function purchaseDecor(
+  state: RendererState,
+  id: string,
+): PurchaseDecorResult {
+  const item = findDecor(id);
+  if (!item) {
+    return { state, ok: false, reason: "Unknown decor." };
+  }
+  if (state.world.decor.includes(id)) {
+    return { state, ok: false, reason: "Already placed in the meadow." };
+  }
+  if (state.runState.wallet < item.cost) {
+    return { state, ok: false, reason: `Need ${item.cost} credits.` };
+  }
+  return {
+    state: {
+      ...state,
+      runState: {
+        ...state.runState,
+        wallet: state.runState.wallet - item.cost,
+      },
+      world: { ...state.world, decor: [...state.world.decor, id] },
+      statusMessage: `Placed the ${item.name} in the meadow.`,
+    },
+    ok: true,
   };
 }
 

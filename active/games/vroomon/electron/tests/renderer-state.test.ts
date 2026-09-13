@@ -1,8 +1,9 @@
-import { describe, expect, it } from "vitest";
+import {describe, expect, it } from "vitest";
 
 import { advanceRunState, runEvolutionGeneration } from "../src/core/population.js";
 import {
   VROOMON_PARITY_CONTRACT,
+  createEmptyRunState,
   type HallOfFameEntry,
 } from "../src/shared/parity-contract.js";
 import {
@@ -32,7 +33,9 @@ import {
   setRunConfig,
   setTestDriveReplay,
   updateBatchProgress,
+  purchaseDecor,
 } from "../src/renderer/state.js";
+import { createEmptyRunState } from "../src/shared/parity-contract.js";
 import { createEmptyRunState } from "../src/shared/parity-contract.js";
 
 describe("renderer state", () => {
@@ -614,5 +617,21 @@ describe("renderer state", () => {
     expect(result.ok).toBe(false);
     expect(result.reason).toContain("credit");
     expect(result.state.runState.wallet).toBe(0);
+  });
+
+  it("buys decorative meadow decor without deduping or overdrafting", () => {
+    let state = { ...createRendererState(createEmptyRunState("evolution"), "A3"), runState: { ...createRendererState(createEmptyRunState("evolution"), "A3").runState, wallet: 30 } };
+    const result = purchaseDecor(state, "sunflower-bower"); // 10 cr
+    expect(result.ok).toBe(true);
+    expect(result.state.world.decor).toContain("sunflower-bower");
+    expect(result.state.runState.wallet).toBe(20);
+
+    const dup = purchaseDecor(result.state, "sunflower-bower");
+    expect(dup.ok).toBe(false);
+    expect(dup.reason).toContain("Already");
+
+    const broke = purchaseDecor({ ...result.state, runState: { ...result.state.runState, wallet: 5 } }, "wishing-well"); // 30 cr
+    expect(broke.ok).toBe(false);
+    expect(broke.reason).toContain("Need 30");
   });
 });

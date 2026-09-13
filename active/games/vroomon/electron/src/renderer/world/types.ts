@@ -70,6 +70,8 @@ export interface WorldState {
   badges: string[];
   /** biomeId -> factionId, one chosen household per biome. */
   factionChoices: Record<string, string>;
+  /** Owned cosmetic decor ids (parked in Starter Town's meadow). */
+  decor: string[];
   vroomdex: string[];
   flags: Record<string, boolean>;
   dialogueQueue: DialogueNode[];
@@ -92,6 +94,7 @@ export interface PersistedWorldState {
   playerFacing: Direction;
   badges: string[];
   factionChoices: Record<string, string>;
+  decor: string[];
   vroomdex: string[];
   flags: Record<string, boolean>;
   lastSavedAt: string;
@@ -108,6 +111,7 @@ export const EMPTY_PERSISTED_WORLD: PersistedWorldState = {
   playerFacing: "down",
   badges: [],
   factionChoices: {},
+  decor: [],
   vroomdex: [],
   flags: {},
   lastSavedAt: "",
@@ -122,6 +126,7 @@ export function serializeWorldState(world: WorldState): PersistedWorldState {
     playerFacing: world.playerFacing,
     badges: [...world.badges],
     factionChoices: { ...world.factionChoices },
+    decor: [...world.decor],
     vroomdex: [...world.vroomdex],
     flags: { ...world.flags },
     lastSavedAt: new Date().toISOString(),
@@ -140,6 +145,7 @@ function isValidPersistedWorld(value: unknown): value is PersistedWorldState {
     typeof candidate.playerY === "number" &&
     typeof candidate.playerFacing === "string" &&
     Array.isArray(candidate.badges) &&
+    (candidate.decor === undefined || Array.isArray(candidate.decor)) &&
     (candidate.factionChoices === undefined ||
       (typeof candidate.factionChoices === "object" && candidate.factionChoices !== null)) &&
     Array.isArray(candidate.vroomdex) &&

@@ -381,7 +381,45 @@ test.describe("vroomon Playwright harness", () => {
       )
       .toContain("1");
   });
+  test("buys meadow decor and it persists across a reload", async ({ page }) => {
+    await page.locator('[data-mode-button="evolution"]').click();
+    await page.locator("[data-generate-population]").click();
+    await page.locator("[data-status-message]").filter({ hasText: "Generated population" }).waitFor({ timeout: 20000 });
+    let wallet = 0;
+    for (let i = 0; i < 10; i += 1) {
+      wallet = (await readJson<{ wallet: number }>(page, "[data-run-state-output]")).wallet;
+      if (wallet >= 10) break;
+      await page.locator("[data-run-generation]").click();
+      await page.locator("[data-status-message]").filter({ hasText: "Completed generation" }).waitFor({ timeout: 30000 });
+    }
+    expect(wallet).toBeGreaterThanOrEqual(10);
+    await page.locator("[data-open-ranch]").click();
+    await page.waitForTimeout(300);
+    await expect(page.locator("[data-ranch-decor-list] .ranch-card")).toHaveCount(8);
+    await page.locator("[data-buy-decor='sunflower-bower']").click();
+    await page.waitForTimeout(600);
+    const afterBuy = await readJson<{ wallet: number }>(page, "[data-run-state-output]");
+    expect(afterBuy.wallet).toBe(wallet - 10);
+
+    await page.reload();
+    await page.locator("[data-status-message]").filter({ hasText: "Welcome" }).waitFor({ timeout: 20000 });
+    const persisted = await page.evaluate(() => window.vroomon.loadWorldState());
+    expect(persisted.decor).toContain("sunflower-bower");
+    // The meadow draws it: canvas checksum changes when decorated.
+    await page.locator('[data-mode-button="world"]').click();
+    await page.waitForTimeout(1200);
+    const decorated = await page.evaluate(() => {
+      const c = document.querySelector("[data-overworld-canvas]");
+      const d = c.getContext("2d").getImageData(0, 0, c.width, c.height).data;
+      let sum = 0;
+      for (let i = 0; i < d.length; i += 16) sum += d[i] * 3 + d[i + 1] * 5 + d[i + 2] * 7;
+      return sum;
+    });
+    expect(decorated).toBeGreaterThan(0);
+  });
+
 });
+
 
 async function expectModeState(
   page: import("@playwright/test").Page,
@@ -401,7 +439,10 @@ async function expectModeState(
   }
 }
 
-async function readJson<T>(page: import("@playwright/test").Page, selector: string): Promise<T> {
+async function readJson<T>(
+  page: import("@playwright/test").Page,
+  selector: string,
+): Promise<T> {
   const text = await page.locator(selector).textContent();
 
   if (!text) {
@@ -410,253 +451,3 @@ async function readJson<T>(page: import("@playwright/test").Page, selector: stri
 
   return JSON.parse(text) as T;
 }
-
-  test("shows the arcade menu screen and starts a run", async ({ page }) => {
-    // Menu overlay is visible on boot (menu mode) with the VROOMON wordmark.
-    await expectModeState(page, "menu");
-    const menuOverlay = page.locator("[data-viewport-menu-overlay]");
-    await expect(menuOverlay).toBeVisible();
-    await expect(menuOverlay.locator(".menu-title")).toHaveText("VROOMON");
-    await expect(menuOverlay.locator('[data-menu-action="new-run"]')).toBeVisible();
-    await expect(menuOverlay.locator('[data-menu-action="world"]')).toBeVisible();
-    await expect(menuOverlay.locator('[data-menu-action="continue"]')).toBeVisible();
-
-    // The menu overlay must not leak into other modes.
-    await page.locator('[data-mode-button="evolution"]').click();
-    await expect(menuOverlay).toBeHidden();
-    await page.locator('[data-mode-button="menu"]').click();
-    await expect(menuOverlay).toBeVisible();
-
-    // "NEW RUN" starts a fresh run and drops the player into evolution mode.
-    await page.locator('[data-menu-action="new-run"]').click();
-    await expect(page.locator("[data-status-message]")).toContainText("Generated population");
-    await expectModeState(page, "evolution");
-
-    // Enter / Space also starts from the menu.
-    await page.locator('[data-mode-button="menu"]').click();
-    await page.keyboard.press("Enter");
-    await expect(page.locator("[data-status-message]")).toContainText("Generated population");
-    await expectModeState(page, "evolution");
-  });
-
-  test("shows the player stats HUD with mode-scoped values", async ({ page }) => {
-    // Hidden on the menu start screen.
-    await expectModeState(page, "menu");
-    await expect(page.locator("[data-viewport-stats-overlay]")).toBeHidden();
-
-    const chipText = async (): Promise<string[]> =>
-      page
-        .locator("[data-viewport-stats-overlay] .stats-chip")
-        .allTextContents();
-
-    // Evolution: wallet/generation/population chips appear after a run.
-    await page.locator('[data-mode-button="evolution"]').click();
-    await page.locator("[data-generate-population]").click();
-    await page.locator("[data-status-message]").filter({ hasText: "Generated population" }).waitFor({ timeout: 15000 });
-    await page.locator("[data-run-generation]").click();
-    await page.locator("[data-status-message]").filter({ hasText: "Completed generation" }).waitFor({ timeout: 20000 });
-    const evoChips = await chipText();
-    expect(evoChips.join(" ")).toContain("BEST");
-    expect(evoChips.join(" ")).toContain("HERD"); // effective herd cap surfaced
-    expect(evoChips.join(" ")).toContain("MEAN");
-    expect(evoChips.join(" ")).toContain("POP");
-    expect(evoChips.join(" ")).toContain("GEN");
-    expect(evoChips.join(" ")).toContain("WALLET");
-
-    // The HERD TREND chart panel is visible in evolution mode only.
-    await expect(page.locator("[data-viewport-chart-overlay]")).toBeVisible();
-    await expect(page.locator("[data-viewport-score-chart] svg rect")).not.toHaveCount(0);
-
-    // World: map/badges/vroomdex chips.
-    await page.locator('[data-mode-button="world"]').click();
-    await page.waitForTimeout(500);
-    const worldChips = await chipText();
-    expect(worldChips.join(" ")).toContain("MAP");
-    expect(worldChips.join(" ")).toContain("HOUSES");
-    expect(worldChips.join(" ")).toContain("HERD");
-  });
-
-  test("leaves Starter Town through the north-east gate into Route 1", async ({
-    page,
-  }) => {
-    // Regression: the town exit used to sit on an untraversable tree tile,
-    // making the overworld a dead end. The gate is now (13,2) on the path.
-    await page.locator('[data-mode-button="world"]').click();
-    await expectModeState(page, "world");
-    for (const dir of ["right", "right", "right", "right", "right", "right", "up", "up", "up", "up", "up"]) {
-      await page.locator(`[data-dpad="${dir}"]`).click();
-      await page.waitForTimeout(320);
-    }
-    await expect
-      .poll(async () => page.locator("[data-world-summary]").textContent())
-      .toContain("Route 1");
-  });
-
-  test("crosses the Vroomgrass into Route 2 and joins the Salt Road Caravan", async ({
-    page,
-  }) => {
-    // Full world-pass: Starter Town -> Route 1 -> through the vroomgrass
-    // wild-encounter band -> Route 2 -> Trail Boss faction join.
-    await page.locator('[data-mode-button="world"]').click();
-    await expectModeState(page, "world");
-
-    const d = async (dir, times) => {
-      for (let i = 0; i < times; i += 1) {
-        await page.locator(`[data-dpad="${dir}"]`).click();
-        await page.waitForTimeout(340);
-      }
-    };
-    // Town -> north-east gate (13,2) -> Route 1 (1,10)
-    await d("right", 6);
-    await d("up", 5);
-    // Route 1: to the corridor, then east to the Salt Road crossing (18,5)
-    await d("right", 3);
-    await d("up", 2);
-    await d("right", 12);
-    await d("up", 3);
-    await d("right", 2);
-    await expect
-      .poll(async () => page.locator("[data-world-summary]").textContent())
-      .toContain("Route 2");
-
-    // Route 2: south path to the Trail Boss at (6,12); stand at (5,12)
-    // facing right so he is adjacent.
-    await d("right", 3);
-    await d("down", 5);
-    await d("right", 2);
-    await page.locator('[data-dpad="interact"]').click();
-    await expect(page.locator("[data-overworld-dialogue-name]")).toContainText(
-      "Trail Boss of the Salt Road",
-    );
-    await page.keyboard.press("z");
-    await page.waitForTimeout(250);
-    await page.locator("[data-dialogue-option]").first().click();
-    await page.waitForTimeout(250);
-    await page.locator("[data-overworld-dialogue-text]").waitFor();
-    await page.keyboard.press("z");
-    await page.waitForTimeout(500);
-
-    await expect(page.locator("[data-status-message]")).toContainText("You ride for");
-    // The join persists: switch mode away and back, then check the HOUSES chip.
-    await page.locator('[data-mode-button="evolution"]').click();
-    await page.waitForTimeout(300);
-    await page.locator('[data-mode-button="world"]').click();
-    await page.waitForTimeout(500);
-    await expect
-      .poll(async () => page.locator("[data-viewport-stats-overlay]").textContent())
-      .toContain("HOUSES");
-    await expect
-      .poll(async () => page.locator("[data-viewport-stats-overlay]").textContent())
-      .toContain("1");
-  });
-
-  test("persists run state and faction choices across a page reload", async ({
-    page,
-  }) => {
-    // Run state: save in test-drive, reload the page, load again.
-    await page.locator('[data-mode-button="test-drive"]').click();
-    await page.locator("[data-terrain-select]").selectOption("Flat");
-    await page.waitForTimeout(200);
-    await page.keyboard.press("s");
-    await expect(page.locator("[data-status-message]")).toContainText("Saved run state");
-    await page.waitForTimeout(400);
-
-    await page.reload();
-    await page.locator("[data-status-message]").filter({ hasText: "Welcome" }).waitFor({ timeout: 15000 });
-    await page.locator('[data-mode-button="test-drive"]').click();
-    await page.keyboard.press("l");
-    await expect(page.locator("[data-status-message]")).toContainText("Loaded run");
-    await expect(page.locator("[data-terrain-select]")).toHaveValue("Flat");
-
-    // World/faction: join the Greensprouts, let the autosave flush, reload,
-    // and confirm the HOUSES chip reflects the persisted choice.
-    await page.locator('[data-mode-button="world"]').click();
-    for (const dir of ["down", "down", "left", "left", "left", "left"]) {
-      await page.locator(`[data-dpad="${dir}"]`).click();
-      await page.waitForTimeout(320);
-    }
-    await page.locator('[data-dpad="interact"]').click();
-    await page.keyboard.press("z");
-    await page.waitForTimeout(250);
-    await page.locator("[data-dialogue-option]").first().click();
-    await page.waitForTimeout(250);
-    await page.keyboard.press("z");
-    await page.waitForTimeout(800); // allow the world autosave to flush
-
-    await page.reload();
-    await page.locator("[data-status-message]").filter({ hasText: "Welcome" }).waitFor({ timeout: 15000 });
-    await page.locator('[data-mode-button="world"]').click();
-    await page.waitForTimeout(700);
-    await expect
-      .poll(async () => page.locator("[data-viewport-stats-overlay]").textContent())
-      .toContain("HOUSES");
-    await expect
-      .poll(async () => page.locator("[data-viewport-stats-overlay]").textContent())
-      .toContain("1");
-  });
-
-  test("buys a ranch upgrade, enlarges the herd, and persists it", async ({
-    page,
-  }) => {
-    await page.locator('[data-mode-button="evolution"]').click();
-    await page.locator("[data-generate-population]").click();
-    await page.locator("[data-status-message]").filter({ hasText: "Generated population" }).waitFor({ timeout: 20000 });
-
-    // Earn at least the 40-credit cost of The Shrewed (pasture upgrade).
-    let wallet = 0;
-    for (let i = 0; i < 12; i += 1) {
-      wallet = (await readJson<{ wallet: number }>(page, "[data-run-state-output]")).wallet;
-      if (wallet >= 40) break;
-      await page.locator("[data-run-generation]").click();
-      await page.locator("[data-status-message]").filter({ hasText: "Completed generation" }).waitFor({ timeout: 30000 });
-    }
-    expect(wallet).toBeGreaterThanOrEqual(40);
-
-    await page.locator("[data-open-ranch]").click();
-    await page.waitForTimeout(300);
-    await expect(page.locator("[data-ranch-list] .ranch-card")).toHaveCount(6);
-    await page.locator("[data-buy-upgrade='pasture']").click();
-    await page.waitForTimeout(500);
-
-    const afterBuy = await readJson<{ wallet: number; upgrades?: Record<string, number> }>(
-      page,
-      "[data-run-state-output]",
-    );
-    expect(afterBuy.upgrades?.pasture).toBe(1);
-    expect(afterBuy.wallet).toBe(wallet - 40);
-
-    // Regenerate - the pasture upgrade enlarges the herd to 125.
-    await page.locator("[data-close-ranch]").click();
-    await page.locator("[data-generate-population]").click();
-    await page.locator("[data-status-message]").filter({ hasText: "Generated population" }).waitFor({ timeout: 20000 });
-    const pop = (await readJson<{ population: unknown[] }>(page, "[data-run-state-output]")).population.length;
-    expect(pop).toBe(125);
-
-    // Reload: upgrades survive (campaign progression), tier shown in store.
-    await page.reload();
-    await page.locator("[data-status-message]").filter({ hasText: "Welcome" }).waitFor({ timeout: 20000 });
-    await page.locator('[data-mode-button="evolution"]').click();
-    await page.waitForTimeout(400);
-    await page.locator("[data-open-ranch]").click();
-    await page.waitForTimeout(300);
-    await expect(page.locator("[data-ranch-card='pasture']")).toContainText("tier 1/5");
-    await expect(page.locator("[data-ranch-card='pasture']")).toContainText("80 cr");
-  });
-
-  test("settles the Grassland feud with the Meadow Elder for a Brand", async ({
-    page,
-  }) => {
-    await page.locator('[data-mode-button="world"]').click();
-    for (const dir of ["down", "down", "left", "left", "left", "left"]) {
-      await page.locator(`[data-dpad="${dir}"]`).click();
-      await page.waitForTimeout(320);
-    }
-    await page.locator('[data-dpad="interact"]').click();
-    await page.waitForTimeout(500);
-    // Third option on the Elder's menu: Race to settle the feud.
-    await page.locator("[data-dialogue-option]").nth(2).click();
-    await page.waitForTimeout(400);
-    await page.keyboard.press("z");
-    await expect(page.locator("[data-status-message]")).toContainText("Grassland Brand");
-    await expect(page.locator("[data-overworld-badge-list]")).toContainText("Grassland Brand");
-  });

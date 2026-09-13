@@ -321,6 +321,7 @@ window.vroomon = {
           playerFacing: "down",
           badges: [],
           factionChoices: {},
+          decor: [],
           vroomdex: [],
           flags: {},
           lastSavedAt: "",
