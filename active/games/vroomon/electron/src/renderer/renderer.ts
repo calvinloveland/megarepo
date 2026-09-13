@@ -17,7 +17,7 @@ import {createOverworldInputs } from "./world/overworld-controller.js";
 import { renderOverworld } from "./world/overworld-renderer.js";
 import { getMap } from "./world/maps.js";
 import { findFaction } from "./world/factions.js";
-import { DECOR_ITEMS } from "./world/decor.js";
+import { DECOR_ITEMS, findDecor } from "./world/decor.js";
 import {
   effectiveRunConfig,
   UPGRADES,
@@ -3285,6 +3285,26 @@ ranchOverlay?.addEventListener("click", (event) => {
   }
 });
 const ranchDecorList = document.querySelector<HTMLElement>("[data-ranch-decor-list]");
+const ranchToast = document.querySelector<HTMLElement>("[data-ranch-toast]");
+let ranchToastTimer: ReturnType<typeof setTimeout> | null = null;
+
+function showRanchToast(message: string): void {
+  if (!ranchToast) {
+    return;
+  }
+  ranchToast.textContent = message;
+  ranchToast.hidden = false;
+  ranchToast.classList.add("visible");
+  if (ranchToastTimer) {
+    clearTimeout(ranchToastTimer);
+  }
+  ranchToastTimer = setTimeout(() => {
+    ranchToast.classList.remove("visible");
+    if (ranchToast) {
+      ranchToast.hidden = true;
+    }
+  }, 1800);
+}
 
 function renderDecor(): void {
   if (!ranchDecorList) {
@@ -3315,6 +3335,12 @@ ranchDecorList?.addEventListener("click", (event) => {
   const id = button.dataset.buyDecor ?? "";
   const result = purchaseDecor(rendererState, id);
   playRanchSound(result.ok ? "coin" : "deny");
+  const item = findDecor(id);
+  showRanchToast(
+    result.ok
+      ? `${item?.emoji ?? "🏠"} ${item?.name ?? "Decor"} placed in the meadow`
+      : `Ranch: ${result.reason ?? "Could not place."}`,
+  );
   rendererState = result.ok
     ? result.state
     : { ...rendererState, statusMessage: `Ranch: ${result.reason ?? "Could not place."}` };
@@ -3335,6 +3361,12 @@ ranchList?.addEventListener("click", (event) => {
   const id = button.dataset.buyUpgrade as UpgradeId;
   const result = purchaseUpgrade(rendererState, id);
   playRanchSound(result.ok ? "coin" : "deny");
+  const upgrade = UPGRADES.find((u) => u.id === id);
+  showRanchToast(
+    result.ok
+      ? `${upgrade?.name ?? "Upgrade"} built to tier ${upgradeLevel(result.state.runState, id)}`
+      : `Ranch: ${result.reason ?? "Could not buy."}`,
+  );
   rendererState = result.ok
     ? result.state
     : { ...rendererState, statusMessage: `Ranch: ${result.reason ?? "Could not buy."}` };

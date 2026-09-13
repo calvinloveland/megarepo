@@ -819,6 +819,25 @@
         letter-spacing: 0.08em;
       }
       .ranch-decor-icon { font-size: 1rem; line-height: 1; margin-right: 0.35rem; }
+      .ranch-toast {
+        position: absolute;
+        left: 50%;
+        bottom: 1.1rem;
+        transform: translate(-50%, 8px);
+        opacity: 0;
+        pointer-events: none;
+        background: var(--overlay-bg);
+        color: #fff4d1;
+        border: 1px solid rgba(255, 244, 209, 0.25);
+        border-radius: 99px;
+        padding: 0.4rem 0.9rem;
+        font-family: var(--font-pixel);
+        font-size: 0.52rem;
+        white-space: nowrap;
+        transition: opacity 0.18s, transform 0.18s;
+        z-index: 2;
+      }
+      .ranch-toast.visible { opacity: 1; transform: translate(-50%, 0); }
       .ranch-card[data-owned="true"] .ranch-buy {
         background: #97abc7;
         color: #0c1420;
@@ -1125,6 +1144,7 @@
             <div class="ranch-list" data-ranch-list></div>
             <div class="ranch-modal__subhead">ROOM TO ADORN — purely pretty</div>
             <div class="ranch-list" data-ranch-decor-list></div>
+            <div class="ranch-toast" data-ranch-toast hidden></div>
           </div>
         </div>
 

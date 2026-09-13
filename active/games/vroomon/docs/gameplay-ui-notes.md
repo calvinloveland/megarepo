@@ -368,6 +368,18 @@ parse-tolerant), and survive reloads with a canvas-draw e2e check.
 Also: persistWorldState now serializes rendererState.world (carries decor —
 it previously could only see the controller's world).
 
+## Decor polish (2026-09-13) ✅
+
+- Meadow decor now draws at ~2x the tile size with a grounding shadow — it
+  reads as scenery instead of a tiny glyph.
+- Each of five decor items gained an extra per-biome spot (Sunflower Bower on
+  Route 1, Wildflower Bed on Route 2, Duck Pond in Highland Mesa, Bee Skeps
+  in Canyon Quarry, Hay Hamper on Drift Perimeter), verified passable and
+  NPC-free by script.
+- The RANCH YARD store shows a fade-in/out toast on purchases
+  ("🌻 Sunflower Bower placed in the meadow" / "The Shrewed built to tier 2")
+  alongside the status line.
+
 ## Outstanding gameplay/UI issues (identified, not yet fixed — design work)
 
 From the vision-model critique + probes, ordered by impact:

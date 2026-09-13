@@ -49,22 +49,37 @@ export function renderOverworld(
     }
   }
 
-  // Cosmetic meadow decor (drawn under NPCs and the player).
+  // Cosmetic meadow decor (drawn under NPCs and the player). Each item has
+  // a Starter Town anchor plus optional per-biome spots; glyphs are drawn at
+  // ~2x tile size with a soft shadow so they read as scenery, not pixels.
   for (const decorId of decor) {
     const item = findDecor(decorId);
-    if (!item || item.anchor.x < 0 || item.anchor.x >= map.width ||
-        item.anchor.y < 0 || item.anchor.y >= map.height) {
+    if (!item) {
       continue;
     }
-    const px = item.anchor.x * TILE_SIZE - cameraX;
-    const py = item.anchor.y * TILE_SIZE - cameraY;
-    if (px < -TILE_SIZE || px > width || py < -TILE_SIZE || py > height) {
+    const spot = item.spots?.[map.id] ?? item.anchor;
+    if (spot.x < 0 || spot.x >= map.width || spot.y < 0 || spot.y >= map.height) {
       continue;
     }
-    ctx.font = `${TILE_SIZE - 6}px serif`;
+    const px = spot.x * TILE_SIZE - cameraX;
+    const py = spot.y * TILE_SIZE - cameraY;
+    const half = TILE_SIZE;
+    if (px < -half || px > width + half || py < -half || py > height + half) {
+      continue;
+    }
+    const cx = px + TILE_SIZE / 2;
+    const baseY = py + TILE_SIZE - 4;
+    // Grounding shadow.
+    ctx.fillStyle = "rgba(0,0,0,0.18)";
+    ctx.beginPath();
+    ctx.ellipse(cx, baseY, TILE_SIZE * 0.42, 5, 0, 0, Math.PI * 2);
+    ctx.fill();
+    // The pretty thing itself, scaled up.
+    const glyphSize = Math.round(TILE_SIZE * 1.7);
+    ctx.font = `${glyphSize}px serif`;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillText(item.emoji, px + TILE_SIZE / 2, py + TILE_SIZE / 2 + 2);
+    ctx.fillText(item.emoji, cx, baseY - glyphSize * 0.38);
   }
 
   const sortedEntities: Array<{ y: number; draw: (px: number) => void }> = [];
