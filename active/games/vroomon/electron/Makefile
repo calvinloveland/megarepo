@@ -17,6 +17,7 @@ help:
 	@echo "  make build       Build the Docker image"
 	@echo "  make push        Build + push the Docker image"
 	@echo "  make deploy      Push + apply the k8s manifest"
+	@echo "  make verify      One-shot deploy + readiness check (needs cluster + token)"
 	@echo "  make redeploy    Apply only (skip rebuild)"
 	@echo "  make status      Show pod + service status"
 	@echo "  make logs        Tail the vroomon container logs"
@@ -43,6 +44,10 @@ push: build
 deploy: push
 	kubectl create namespace vroomon --dry-run=client -o yaml | kubectl apply -f -
 	kubectl apply -f k8s/vroomon.yaml
+
+.PHONY: verify
+verify:
+	./scripts/deploy-and-verify.sh
 
 .PHONY: redeploy
 redeploy:

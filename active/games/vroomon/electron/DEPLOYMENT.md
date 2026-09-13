@@ -114,6 +114,9 @@ kubectl -n vroomon create secret generic vroomon-cloudflared-token \
 kubectl apply -f k8s/vroomon.yaml
 ```
 
+One shot (preflight-checks the cluster + token, then applies and waits for
+Ready): `scripts/deploy-and-verify.sh` (or `make verify`).
+
 ### Persistent state
 
 The `vroomon-data` PVC is mounted at `/data/vroomon` for future server-side
