@@ -111,13 +111,13 @@ export function endDialogue(
     activeNpc: null,
     dialogueQueue: [],
     flags: newFlags,
-    currentEncounter:
-      onComplete === "wild" || onComplete === "trainer" || onComplete === "gym"
-        ? {
-            kind: onComplete,
-            returnMap: state.currentMapId,
-          }
-        : state.currentEncounter,
+    // On-complete "encounters" (wild/trainer/gym) are fire-and-forget
+    // reports via onEncounterStart — they do NOT open a persistent
+    // encounter, so currentEncounter stays untouched. Previously it was
+    // set here and permanently blocked persistWorldState (which bails on
+    // activeNpc || currentEncounter), meaning ANY gym fight silently
+    // froze world saving.
+    currentEncounter: state.currentEncounter,
   };
 }
 

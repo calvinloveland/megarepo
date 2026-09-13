@@ -45,6 +45,27 @@ describe("world maps", () => {
     }
   });
 
+  it("hosts offer a feud race that settles the biome's brand", () => {
+    const feudNodes: Array<[string, string, string]> = [
+      ["starter_town", "elder-feud", "Grassland Brand"],
+      ["gym_1", "king-feud", "Grassland Brand"],
+      ["route_2", "trailboss-feud", "Salt Road Brand"],
+      ["gym_2", "marshal-feud", "Salt Road Brand"],
+      ["hills_map", "skimmers-feud", "Highland Brand"],
+      ["hills_map", "miners-feud", "Highland Brand"],
+      ["rocky_map", "union-feud", "Canyon Brand"],
+      ["rocky_map", "runners-feud", "Canyon Brand"],
+      ["ice_map", "herdsmen-feud", "Perimeter Brand"],
+      ["ice_map", "drift-feud", "Perimeter Brand"],
+    ];
+    for (const [mapId, feudId, brand] of feudNodes) {
+      const node = getMap(mapId)?.npcs.find((npc) => npc.id === feudId);
+      expect(node?.dialogue?.onComplete, `${mapId}/${feudId}`).toBe("gym");
+      expect(node?.dialogue?.text).toContain("GO!");
+    }
+    expect(awardBadge(createInitialWorldState(), "Highland Brand").badges).toContain("Highland Brand");
+  });
+
   it("ships a flavor NPC per faction biome", () => {
     const flavor: Array<[string, string]> = [
       ["hills_map", "vent-keeper"],

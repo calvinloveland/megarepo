@@ -334,6 +334,27 @@ The dictionary-seeded inspiration pack (docs/economy) became a real system:
   grows 100→125 on regenerate → reload keeps tier 1/5 in the store.
 - 151 unit + 17 e2e pass.
 
+## Biome feud payoffs + brand revival (2026-09-13) ✅
+
+Roadmap #1. Every faction host (all 10 across the six biomes) now offers a
+"Race to settle the feud" option that reuses the gym-race scaffolding; the
+winner's local Brand is awarded (BADGE_BY_MAP extended to starter_town /
+route_2 / hills_map / rocky_map / ice_map — Grassland/Salt Road/Highland/
+Canyon/Perimeter Brands) with feud-flavoured status copy.
+
+Two latent bugs fixed along the way:
+- completeDialogue returned a pre-side-effect state, so advanceDialogueInput's
+  `commit(...)` instantly wiped badges/factions awarded inside the nested
+  onEncounterStart handler — now returns the live closure state.
+- endDialogue populated currentEncounter for trainer/gym onComplete, which
+  made persistWorldState bail (activeNpc || currentEncounter guard) — the
+  world NEVER saved after a gym fight. Encounters are fire-and-forget
+  reports; currentEncounter is left untouched (and saves work again).
+
+Tests: unit feud-node coverage (10 nodes, onComplete gym, brands) + a
+feud e2e (Elder -> Race feud -> Grassland Brand in status AND badge list,
+surviving reload). 152 unit + 18 e2e pass.
+
 ## Outstanding gameplay/UI issues (identified, not yet fixed — design work)
 
 From the vision-model critique + probes, ordered by impact:

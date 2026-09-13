@@ -560,7 +560,7 @@ const overworldController = createOverworldInputs(rendererState.world, {
     rendererState = setWorldState(rendererState, overworldController.state);
     rendererState = {
       ...rendererState,
-      statusMessage: `Earned the ${badge}! Return to Professor Axle's lab.`,
+      statusMessage: `Earned the ${badge}! The feud is settled.`,
     };
     renderApp();
     scheduleWorldSave();
@@ -2964,9 +2964,10 @@ async function startOverworldEncounter(
   const result = window.vroomon.previewPhysicsSnapshot(dna, "Grassland", 60);
 
   if (kind === "gym") {
+    const mapName = getMap(overworldController.state.currentMapId)?.name ?? "the road";
     rendererState = {
       ...rendererState,
-      statusMessage: `Coach Flint's car ${formatNumber(result.centerX)} (y=${formatNumber(result.centerY)}). Build a better car in the lab and come back!`,
+      statusMessage: `${mapName} feud race — rival herd crossed at x=${formatNumber(result.centerX)}. The law of the road is yours.`,
     };
     if ((overworldController as unknown as { _awardBadge?: (badge: string) => unknown })._awardBadge) {
       (overworldController as unknown as { _awardBadge: (badge: string) => void })._awardBadge(

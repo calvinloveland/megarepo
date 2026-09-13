@@ -114,12 +114,12 @@ export function createOverworldInputs(
       return commit(updated);
     }
 
-    const updated = endDialogue(state, onComplete, flag);
+    commit(endDialogue(state, onComplete, flag));
 
     if (onComplete === "wild") {
       const wildDna = "wild" + Math.random().toString(36).slice(2, 12);
       dependencies.onEncounterStart("wild", wildDna, null);
-      return updated;
+      return state;
     }
 
     if (onComplete === "trainer" || onComplete === "gym") {
@@ -127,16 +127,20 @@ export function createOverworldInputs(
       const trainerDna = `trainer-${state.activeNpc ?? "rival"}`;
       const trainerName = npc?.npcs.find((n) => n.id === state.activeNpc)?.name ?? "Rival";
       dependencies.onEncounterStart(onComplete, trainerDna, trainerName);
-      return updated;
+      // onEncounterStart may mutate the world synchronously (e.g. the gym
+      // branch awards a brand via _awardBadge -> commit). Return the LIVE
+      // closure state instead of a stale snapshot so that award isn't
+      // wiped by advanceDialogueInput's `return commit(...)`.
+      return state;
     }
 
     if (onComplete === "vroomdex") {
       const dna = "prof" + Math.random().toString(36).slice(2, 10);
       dependencies.onVroomdexTick(dna);
-      return commit({ ...updated, vroomdex: recordEncounterDna(updated, dna).vroomdex });
+      return commit({ ...state, vroomdex: recordEncounterDna(state, dna).vroomdex });
     }
 
-    return updated;
+    return state;
   }
 
   function move(direction: Direction): WorldState {
@@ -222,11 +226,13 @@ export function createOverworldInputs(
   }
 
   const BADGE_BY_MAP: Record<string, string> = {
+    starter_town: "Grassland Brand",
     gym_1: "Grassland Brand",
+    route_2: "Salt Road Brand",
     gym_2: "Salt Road Brand",
-    gym_3: "Highland Brand",
-    gym_4: "Canyon Brand",
-    gym_5: "Perimeter Brand",
+    hills_map: "Highland Brand",
+    rocky_map: "Canyon Brand",
+    ice_map: "Perimeter Brand",
   };
 
   function awardBadgeAndReport(badgeOrMapId: string): WorldState {

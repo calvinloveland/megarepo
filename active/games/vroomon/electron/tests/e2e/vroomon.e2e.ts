@@ -642,3 +642,21 @@ async function readJson<T>(page: import("@playwright/test").Page, selector: stri
     await expect(page.locator("[data-ranch-card='pasture']")).toContainText("tier 1/5");
     await expect(page.locator("[data-ranch-card='pasture']")).toContainText("80 cr");
   });
+
+  test("settles the Grassland feud with the Meadow Elder for a Brand", async ({
+    page,
+  }) => {
+    await page.locator('[data-mode-button="world"]').click();
+    for (const dir of ["down", "down", "left", "left", "left", "left"]) {
+      await page.locator(`[data-dpad="${dir}"]`).click();
+      await page.waitForTimeout(320);
+    }
+    await page.locator('[data-dpad="interact"]').click();
+    await page.waitForTimeout(500);
+    // Third option on the Elder's menu: Race to settle the feud.
+    await page.locator("[data-dialogue-option]").nth(2).click();
+    await page.waitForTimeout(400);
+    await page.keyboard.press("z");
+    await expect(page.locator("[data-status-message]")).toContainText("Grassland Brand");
+    await expect(page.locator("[data-overworld-badge-list]")).toContainText("Grassland Brand");
+  });
