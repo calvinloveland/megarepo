@@ -293,6 +293,20 @@ Run: `nix-shell -p python312Packages.pytest python312Packages.pygame
 python312Packages.pymunk python312Packages.tqdm python312Packages.loguru --
 run "python -m pytest -q"` → 101 passed, 17 subtests passed, no failures.
 
+## HERD TREND chart + MEAN chip — added (2026-09-10) ✅
+
+Playtest finding: best-score is very noisy generation-to-generation while
+the stable signal (mean) lived only in hidden diagnostics — progress didn't
+read like progress. Now:
+
+- A **HERD TREND** panel (bottom-right, evolution mode only) mirrors the
+  score chart (best gold bars + mean blue bars + first/last generation
+  labels) that was previously rendered only into a hidden stub.
+- The evolution stats HUD gained a **MEAN** chip (last generation's mean)
+  alongside BEST/POP/GEN/WALLET.
+
+Both are mode-scoped and covered by the stats e2e. 144 unit + 16 e2e pass.
+
 ## Outstanding gameplay/UI issues (identified, not yet fixed — design work)
 
 From the vision-model critique + probes, ordered by impact:

@@ -1034,7 +1034,7 @@ function renderPanels(): void {
   // only show when the current mode matches.
   const overlayWrappers = Array.from(
     document.querySelectorAll<HTMLElement>(
-      "[data-viewport-actions-overlay],[data-viewport-hof-overlay],[data-viewport-dpad-overlay],[data-viewport-menu-overlay],[data-viewport-status-overlay]",
+      "[data-viewport-actions-overlay],[data-viewport-hof-overlay],[data-viewport-dpad-overlay],[data-viewport-menu-overlay],[data-viewport-status-overlay],[data-viewport-chart-overlay]",
     ),
   );
   for (const wrapper of overlayWrappers) {
@@ -2308,7 +2308,7 @@ function renderScoreChart(): void {
     <text x="${(history.length - 1) * (barWidth + gap)}" y="${chartHeight + 14}" fill="#97abc7" font-size="10" text-anchor="end">${history[history.length - 1]?.generation ?? 0}</text>
   `;
 
-  scoreChartElement.innerHTML = `
+  const chartMarkup = `
     <div class="score-chart-layout">
       <div class="score-chart-legend">
         <span><span class="legend-swatch" style="background:#ffd166"></span>Best</span>
@@ -2319,6 +2319,13 @@ function renderScoreChart(): void {
         ${labels}
       </svg>
     </div>`;
+  scoreChartElement.innerHTML = chartMarkup;
+  // Mirror the chart into the visible "HERD TREND" panel in evolution mode.
+  for (const panel of Array.from(
+    document.querySelectorAll<HTMLElement>("[data-viewport-score-chart]"),
+  )) {
+    panel.innerHTML = chartMarkup;
+  }
 }
 
 function loadHallEntryIntoTestDrive(entryId: string): void {
@@ -2376,6 +2383,8 @@ function renderStatsHud(): void {
 
   if (mode === "evolution") {
     chips.push({ label: "BEST", value: evolutionBest > 0 ? formatNumber(evolutionBest) : "—" });
+    const lastMean = rendererState.scoreHistory.at(-1)?.meanScore;
+    chips.push({ label: "MEAN", value: lastMean !== undefined ? formatNumber(lastMean) : "—" });
     chips.push({ label: "POP", value: String(rendererState.runState.population.length) });
     chips.push({ label: "GEN", value: generation });
     chips.push({ label: "WALLET", value: wallet });

@@ -457,9 +457,14 @@ async function readJson<T>(page: import("@playwright/test").Page, selector: stri
     await page.locator("[data-status-message]").filter({ hasText: "Completed generation" }).waitFor({ timeout: 20000 });
     const evoChips = await chipText();
     expect(evoChips.join(" ")).toContain("BEST");
+    expect(evoChips.join(" ")).toContain("MEAN");
     expect(evoChips.join(" ")).toContain("POP");
     expect(evoChips.join(" ")).toContain("GEN");
     expect(evoChips.join(" ")).toContain("WALLET");
+
+    // The HERD TREND chart panel is visible in evolution mode only.
+    await expect(page.locator("[data-viewport-chart-overlay]")).toBeVisible();
+    await expect(page.locator("[data-viewport-score-chart] svg rect")).not.toHaveCount(0);
 
     // World: map/badges/vroomdex chips.
     await page.locator('[data-mode-button="world"]').click();

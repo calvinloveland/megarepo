@@ -694,6 +694,43 @@
         opacity: 1;
       }
       
+      /* Bottom-right: herd trend chart (evolution mode) */
+      .viewport-overlay--chart {
+        bottom: 0.6rem;
+        right: 0.6rem;
+        width: 252px;
+      }
+      .chart-panel {
+        background: var(--overlay-bg);
+        border: 1px solid rgba(255, 244, 209, 0.18);
+        border-radius: 8px;
+        padding: 0.45rem 0.55rem;
+        color: #fff4d1;
+      }
+      .chart-panel__title {
+        font-family: var(--font-pixel);
+        font-size: 0.5rem;
+        color: var(--gold);
+        letter-spacing: 0.1em;
+        margin-bottom: 0.3rem;
+      }
+      .score-chart-layout { display: grid; gap: 0.3rem; }
+      .score-chart-legend {
+        display: flex;
+        gap: 0.7rem;
+        font-family: var(--font-screen);
+        font-size: 0.8rem;
+        color: var(--paper);
+      }
+      .legend-swatch {
+        display: inline-block;
+        width: 10px;
+        height: 10px;
+        border-radius: 2px;
+        margin-right: 4px;
+        vertical-align: -1px;
+      }
+
       /* ============ ERROR TOGGLE ============ */
       .error-toggle {
         position: fixed;
@@ -972,6 +1009,14 @@
         </div>
 
     <!-- ============ ERROR TOGGLE + PANEL ============ -->
+        <!-- Bottom-right: herd trend chart (evolution mode) -->
+        <div class="viewport-overlay viewport-overlay--chart" data-viewport-chart-overlay data-mode="evolution" hidden>
+          <div class="chart-panel">
+            <div class="chart-panel__title">HERD TREND</div>
+            <div data-viewport-score-chart></div>
+          </div>
+        </div>
+
     <button class="error-toggle" type="button" data-error-toggle data-has-errors="false" aria-label="Toggle error panel">
       <span data-error-badge>0</span>
     </button>

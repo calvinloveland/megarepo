@@ -558,6 +558,43 @@
       .menu-hall .hall-entry__score { font-weight: 800; color: var(--accent-warm); }
       .menu-stage .menu-foot { font-size: 0.9rem; color: #b6c6dd; opacity: 1; }
 
+      /* Bottom-right: herd trend chart (evolution mode) */
+      .viewport-overlay--chart {
+        bottom: 0.6rem;
+        right: 0.6rem;
+        width: 252px;
+      }
+      .chart-panel {
+        background: var(--overlay-bg);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 0.45rem 0.55rem;
+        color: var(--text);
+      }
+      .chart-panel__title {
+        font-family: var(--font-pixel);
+        font-size: 0.72rem;
+        color: var(--accent-warm);
+        letter-spacing: 0.1em;
+        margin-bottom: 0.3rem;
+      }
+      .score-chart-layout { display: grid; gap: 0.3rem; }
+      .score-chart-legend {
+        display: flex;
+        gap: 0.7rem;
+        font-family: var(--font-screen);
+        font-size: 0.8rem;
+        color: var(--muted);
+      }
+      .legend-swatch {
+        display: inline-block;
+        width: 10px;
+        height: 10px;
+        border-radius: 2px;
+        margin-right: 4px;
+        vertical-align: -1px;
+      }
+
       /* Error toggle */
       .error-toggle {
         position: fixed; bottom: 0.5rem; right: 0.5rem; z-index: 50;
@@ -818,6 +855,14 @@
               <div class="menu-hall__list" data-menu-hall-list></div>
             </div>
             <div class="menu-foot">Enter to start &nbsp;·&nbsp; 1-4 switch modes &nbsp;·&nbsp; s/l save &amp; load &nbsp;·&nbsp; v0.1.0</div>
+          </div>
+        </div>
+
+        <!-- Bottom-right: herd trend chart (evolution mode) -->
+        <div class="viewport-overlay viewport-overlay--chart" data-viewport-chart-overlay data-mode="evolution" hidden>
+          <div class="chart-panel">
+            <div class="chart-panel__title">HERD TREND</div>
+            <div data-viewport-score-chart></div>
           </div>
         </div>
 
