@@ -18,6 +18,7 @@ import { renderOverworld } from "./world/overworld-renderer.js";
 import { getMap } from "./world/maps.js";
 import { findFaction } from "./world/factions.js";
 import {
+  effectiveRunConfig,
   UPGRADES,
   upgradeCost,
   upgradeLevel,
@@ -2402,8 +2403,22 @@ function renderStatsHud(): void {
     chips.push({ label: "BEST", value: evolutionBest > 0 ? formatNumber(evolutionBest) : "—" });
     const lastMean = rendererState.scoreHistory.at(-1)?.meanScore;
     chips.push({ label: "MEAN", value: lastMean !== undefined ? formatNumber(lastMean) : "—" });
+    // Ranch upgrades resize the herd past the base config — surface the
+    // effective numbers so the selects (base values) don't read as a lie.
+    const effectivePop = effectiveRunConfig(
+      rendererState.runState.config,
+      rendererState.runState.upgrades,
+    ).populationSize;
+    chips.push({ label: "HERD", value: String(effectivePop) });
     chips.push({ label: "POP", value: String(rendererState.runState.population.length) });
     chips.push({ label: "GEN", value: generation });
+    const ownedTiers = Object.values(rendererState.runState.upgrades ?? {}).reduce(
+      (sum, level) => sum + level,
+      0,
+    );
+    if (ownedTiers > 0) {
+      chips.push({ label: "RANCH", value: `L${ownedTiers}` });
+    }
     chips.push({ label: "WALLET", value: wallet });
   } else if (mode === "world") {
     const map = getMap(rendererState.world.currentMapId);
@@ -3164,6 +3179,56 @@ const ranchList = document.querySelector<HTMLElement>("[data-ranch-list]");
 const openRanchButton = document.querySelector<HTMLButtonElement>("[data-open-ranch]");
 const closeRanchButton = document.querySelector<HTMLButtonElement>("[data-close-ranch]");
 
+const RANCH_ICONS: Record<string, string> = {
+  pasture: "🌾",
+  stalls: "🏟",
+  grazing: "🍀",
+  velodrome: "🎡",
+  grooming: "🪮",
+  ledger: "📒",
+};
+
+// Tiny WebAudio blips for the ranch store — no assets, fail silently when
+// audio is unavailable (headless tests, autoplay policies).
+function playRanchSound(kind: "coin" | "deny"): void {
+  try {
+    const Ctor =
+      window.AudioContext ??
+      (window as unknown as { webkitAudioContext?: typeof AudioContext })
+        .webkitAudioContext;
+    if (!Ctor) {
+      return;
+    }
+    const ctx = new Ctor();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    const t = ctx.currentTime;
+    if (kind === "coin") {
+      osc.type = "triangle";
+      osc.frequency.setValueAtTime(660, t);
+      osc.frequency.exponentialRampToValueAtTime(1320, t + 0.12);
+      gain.gain.setValueAtTime(0.12, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
+      osc.start(t);
+      osc.stop(t + 0.2);
+    } else {
+      osc.type = "square";
+      osc.frequency.setValueAtTime(170, t);
+      gain.gain.setValueAtTime(0.07, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+      osc.start(t);
+      osc.stop(t + 0.13);
+    }
+    osc.onended = () => {
+      void ctx.close().catch(() => undefined);
+    };
+  } catch {
+    // Audio unavailable — ignore.
+  }
+}
+
 function renderRanch(): void {
   if (!ranchWallet || !ranchList) {
     return;
@@ -3180,7 +3245,7 @@ function renderRanch(): void {
     const effectNext = maxed ? "MAXED" : `<strong>${def.effectLabel(nextLevel)}</strong>`;
     return `
       <div class="ranch-card" data-ranch-card="${def.id}" data-maxed="${String(maxed)}">
-        <div class="ranch-card__line"><strong>${escapeHtml(def.name)}</strong><span>tier ${level}/${def.maxLevel}</span></div>
+        <div class="ranch-card__line"><strong>${RANCH_ICONS[def.id] ?? "🏠"} ${escapeHtml(def.name)}</strong><span>tier ${level}/${def.maxLevel}</span></div>
         <div class="ranch-card__flavor">${escapeHtml(def.flavor)}</div>
         <div class="ranch-card__row">
           <span class="ranch-card__effect">now ${effectNow} &nbsp;·&nbsp; next ${effectNext}</span>
@@ -3216,6 +3281,7 @@ ranchList?.addEventListener("click", (event) => {
   }
   const id = button.dataset.buyUpgrade as UpgradeId;
   const result = purchaseUpgrade(rendererState, id);
+  playRanchSound(result.ok ? "coin" : "deny");
   rendererState = result.ok
     ? result.state
     : { ...rendererState, statusMessage: `Ranch: ${result.reason ?? "Could not buy."}` };

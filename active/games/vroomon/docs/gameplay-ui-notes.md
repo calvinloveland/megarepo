@@ -325,6 +325,10 @@ The dictionary-seeded inspiration pack (docs/economy) became a real system:
   persist. Upgrades are **campaign progression** — auto-loaded at boot via a
   dedicated upgrades store (web: localStorage `vroomon:upgrades`; desktop:
   IPC + `upgrades.json`), so they survive runs and reloads.
+- HUD surfacing: the evolution stats add HERD (effective herd cap — 125
+  after The Shrewed, while POP shows the live herd) and a RANCH L<n> chip
+  counting owned tiers; the store cards carry per-upgrade icons and buy
+  actions play tiny WebAudio blips (coin/deny).
 - Unit tests cover the economy (costs, wallet, caps, modifiers, capacity,
   income) and an e2e plays the full loop: earn 40 cr → buy pasture → herd
   grows 100→125 on regenerate → reload keeps tier 1/5 in the store.

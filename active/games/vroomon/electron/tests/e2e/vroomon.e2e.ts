@@ -457,6 +457,7 @@ async function readJson<T>(page: import("@playwright/test").Page, selector: stri
     await page.locator("[data-status-message]").filter({ hasText: "Completed generation" }).waitFor({ timeout: 20000 });
     const evoChips = await chipText();
     expect(evoChips.join(" ")).toContain("BEST");
+    expect(evoChips.join(" ")).toContain("HERD"); // effective herd cap surfaced
     expect(evoChips.join(" ")).toContain("MEAN");
     expect(evoChips.join(" ")).toContain("POP");
     expect(evoChips.join(" ")).toContain("GEN");
