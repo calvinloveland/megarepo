@@ -13,6 +13,7 @@ import {
   type HallOfFame,
   type RunStateSnapshot,
   type TerrainPresetDefinition,
+  type RecordsBoard,
   type VroomonParityContract,
 } from "./shared/parity-contract.js";
 import { type PersistedWorldState } from "./renderer/world/types.js";
@@ -124,6 +125,10 @@ const api = {
     ipcRenderer.invoke("vroomon:load-hall-of-fame"),
   saveHallOfFame: (hall: HallOfFame): Promise<string> =>
     ipcRenderer.invoke("vroomon:save-hall-of-fame", hall),
+  loadRecords: (): Promise<RecordsBoard> =>
+    ipcRenderer.invoke("vroomon:load-records"),
+  saveRecords: (board: RecordsBoard): Promise<string> =>
+    ipcRenderer.invoke("vroomon:save-records", board),
   loadWorldState: (): Promise<PersistedWorldState> =>
     ipcRenderer.invoke("vroomon:load-world-state"),
   saveWorldState: (world: PersistedWorldState): Promise<string> =>
@@ -219,6 +224,8 @@ declare global {
       saveWorldState: (world: PersistedWorldState) => Promise<string>;
       loadUpgrades: () => Promise<Record<string, number>>;
       saveUpgrades: (upgrades: Record<string, number>) => Promise<string>;
+      loadRecords: () => Promise<RecordsBoard>;
+      saveRecords: (board: RecordsBoard) => Promise<string>;
       runBatchGenerations: (
         state: RunStateSnapshot,
         count: number,

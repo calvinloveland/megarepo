@@ -11,8 +11,11 @@ import {
 } from "../core/persistence.js";
 import {
   EMPTY_HALL_OF_FAME,
+  EMPTY_RECORDS_BOARD,
   type HallOfFame,
   type HallOfFameEntry,
+  type RecordEntry,
+  type RecordsBoard,
   type RunStateSnapshot,
 } from "../shared/parity-contract.js";
 import {
@@ -196,6 +199,72 @@ export async function saveHallOfFameToDisk(
     entries: hall.entries.filter(isValidHallEntry),
   };
   await writeFile(targetPath, serializeHallOfFame(sanitized), "utf8");
+  return targetPath;
+}
+
+const RECORDS_FILE_NAME = "records.json";
+
+function recordsPath(baseDirectory: string): string {
+  return join(baseDirectory, "vroomon", RECORDS_FILE_NAME);
+}
+
+function serializeRecords(board: RecordsBoard): string {
+  return JSON.stringify(board, null, 2);
+}
+
+function parseRecords(serialized: string): RecordsBoard {
+  const parsed = JSON.parse(serialized) as Partial<RecordsBoard>;
+  if (parsed.version !== 1 || !Array.isArray(parsed.entries)) {
+    return { ...EMPTY_RECORDS_BOARD };
+  }
+  return {
+    version: 1,
+    entries: (parsed.entries as Array<Partial<RecordEntry>>).filter(isValidRecordEntry),
+  };
+}
+
+function isValidRecordEntry(candidate: unknown): candidate is RecordEntry {
+  if (!candidate || typeof candidate !== "object") {
+    return false;
+  }
+  const record = candidate as Partial<RecordEntry>;
+  return (
+    typeof record.terrainName === "string" &&
+    typeof record.dna === "string" &&
+    typeof record.score === "number" &&
+    typeof record.savedAt === "string"
+  );
+}
+
+export async function loadRecordsFromDisk(
+  baseDirectory: string,
+): Promise<RecordsBoard> {
+  const targetPath = recordsPath(baseDirectory);
+
+  if (!existsSync(targetPath)) {
+    return { ...EMPTY_RECORDS_BOARD };
+  }
+
+  try {
+    const serialized = await readFile(targetPath, "utf8");
+    const parsed = parseRecords(serialized);
+    return { version: 1, entries: parsed.entries.filter(isValidRecordEntry) };
+  } catch {
+    return { ...EMPTY_RECORDS_BOARD };
+  }
+}
+
+export async function saveRecordsToDisk(
+  baseDirectory: string,
+  board: RecordsBoard,
+): Promise<string> {
+  const targetPath = recordsPath(baseDirectory);
+  await mkdir(join(baseDirectory, "vroomon"), { recursive: true });
+  const sanitized: RecordsBoard = {
+    version: 1,
+    entries: board.entries.filter(isValidRecordEntry),
+  };
+  await writeFile(targetPath, serializeRecords(sanitized), "utf8");
   return targetPath;
 }
 

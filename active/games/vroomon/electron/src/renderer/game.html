@@ -680,6 +680,32 @@
         font-size: 0.78rem;
       }
       .menu-hall .hall-entry:hover { border-color: var(--gold-deep); }
+      .menu-records { width: 100%; text-align: left; }
+      .records-row {
+        display: grid;
+        grid-template-columns: 1fr auto auto;
+        align-items: center;
+        gap: 0.4rem 0.6rem;
+        border-bottom: 1px dashed var(--paper-edge, rgba(120,120,140,0.4));
+        padding: 0.25rem 0;
+        font-size: 0.85rem;
+      }
+      .records-row__terrain { font-family: var(--font-pixel); font-size: 0.5rem; color: var(--gold-deep); }
+      .records-row__score { color: var(--text-soft); font-size: 0.75rem; }
+      .records-row__dna { grid-column: 1 / -1; font-family: var(--font-screen); font-size: 0.8rem; color: var(--muted); }
+      .records-row__drive {
+        grid-column: 3;
+        grid-row: 1 / span 2;
+        font-family: var(--font-pixel);
+        font-size: 0.5rem;
+        color: #fff;
+        background: linear-gradient(180deg, #4f9e55 0%, #1d5e24 100%);
+        border: 2px solid #12370f;
+        border-radius: 6px;
+        padding: 0.4rem 0.6rem;
+        cursor: pointer;
+      }
+      .viewport-label--ghost { color: #7fe9d0; border: 1px dashed #7fe9d0; }
       .menu-hall .hall-entry__dna {
         font-family: var(--font-screen);
         font-size: 0.9rem;
@@ -1052,6 +1078,22 @@
       }
 
       /* ============ ERROR TOGGLE ============ */
+      .records-toast {
+        position: fixed;
+        bottom: 3rem;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 70;
+        font-family: var(--font-pixel);
+        font-size: 0.6rem;
+        color: var(--gold-deep);
+        background: linear-gradient(180deg, var(--paper) 0%, var(--paper-dark) 100%);
+        border: 2px solid var(--gold);
+        border-radius: 8px;
+        padding: 0.5rem 1rem;
+        box-shadow: 0 6px 0 rgba(26, 14, 8, 0.45);
+        animation: grand-pop 0.25s ease-out;
+      }
       .ambience-toggle {
         position: fixed;
         top: 0.6rem;
@@ -1337,6 +1379,11 @@
               <div class="menu-hall__head">HALL OF FAME · <span data-menu-hof-count>0</span> SAVED</div>
               <div class="menu-hall__list" data-menu-hall-list></div>
             </div>
+            <div class="menu-records">
+              <div class="menu-hall__head">RECORDS · <span data-records-count>0</span> BIOMES BEST</div>
+              <div class="menu-hall__list" data-records-list></div>
+            </div>
+            </div>
             <div class="menu-rancher">
               <div class="menu-rancher__label">BRAND YOURSELF — what do they call you?</div>
               <div class="menu-rancher__row">
@@ -1408,6 +1455,7 @@
         </div>
 
     <button class="hud-btn ambience-toggle" type="button" data-ambience-toggle title="Toggle the ambient pad (cycles med/low/off)">🔊 Sound: med</button>
+    <div class="records-toast" data-records-toast hidden></div>
     <button class="error-toggle" type="button" data-error-toggle data-has-errors="false" aria-label="Toggle error panel">
       <span data-error-badge>0</span>
     </button>

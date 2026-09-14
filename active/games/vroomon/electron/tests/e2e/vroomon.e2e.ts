@@ -730,6 +730,30 @@ test.describe("vroomon Playwright harness", () => {
     await expect(page.locator("[data-status-message]")).toContainText("road carries you");
   });
 
+
+  test("records a Test Drive lap and lets you drive the record back", async ({
+    page,
+  }) => {
+    await page.locator('[data-mode-button="test-drive"]').click();
+    // Let the viewport complete a lap (~3s sim loop) so the record fires.
+    await expect(page.locator("[data-records-toast]")).toContainText("NEW Grassland RECORD", {
+      timeout: 12000,
+    });
+
+    await page.locator('[data-mode-button="menu"]').click();
+    await page.waitForTimeout(600);
+    const rows = page.locator("[data-records-list] .records-row");
+    await expect(rows).toHaveCount(1);
+    await expect(page.locator("[data-records-count]")).toHaveText("1");
+    const dna = (await rows.first().locator(".records-row__dna").textContent())?.trim() ?? "";
+
+    // Drive the record back: it loads into Test Drive as the new draft.
+    await rows.first().locator("[data-drive-record]").click();
+    await page.waitForTimeout(600);
+    await expect(page.locator("[data-dna-input]")).toHaveValue(dna);
+    await expect(page.locator('[data-mode-button="test-drive"]')).toHaveClass(/active/);
+  });
+
 });
 
 

@@ -3,10 +3,12 @@ import type {
   AppModeId,
   HallOfFame,
   HallOfFameEntry,
+  RecordsBoard,
   RunStateSnapshot,
   TerrainPresetDefinition,
   VroomonParityContract,
 } from "../shared/parity-contract.js";
+import { bestRecord, proposeRecord } from "./records.js";
 import type {
   EvolutionPreview,
   GenerationResult,
@@ -138,6 +140,8 @@ declare global {
       saveWorldState: (world: PersistedWorldState) => Promise<string>;
       loadUpgrades: () => Promise<Record<string, number>>;
       saveUpgrades: (upgrades: Record<string, number>) => Promise<string>;
+      loadRecords: () => Promise<RecordsBoard>;
+      saveRecords: (board: RecordsBoard) => Promise<string>;
       runBatchGenerations: (
         state: RunStateSnapshot,
         count: number,
@@ -175,7 +179,7 @@ interface ViewportEntity {
   label: string;
   snapshot: VehicleSnapshot;
   initialCenterX?: number;
-  variant: "solo" | "leader" | "selected" | "racer";
+  variant: "solo" | "leader" | "selected" | "racer" | "ghost";
   score?: number;
 }
 
@@ -521,13 +525,14 @@ function evolutionViewSignature(): string {
   ].join("|");
 }
 
-function testDriveViewSignature(dna: string, terrainName: string): string {
+function testDriveViewSignature(dna: string, terrainName: string, ghostDna: string | null = null): string {
   const s = rendererState;
   return [
     "td",
     s.mode,
     dna,
     terrainName,
+    ghostDna ?? "",
     String(s.testDriveStepCount),
     String(s.testDriveFrameCount),
     String(s.testDrivePlaybackDurationMs ?? ""),
@@ -548,12 +553,13 @@ function cachedEvolutionViewData(): EvolutionViewData {
 function cachedTestDriveViewData(
   dna: string,
   terrainName: string,
+  ghostDna: string | null = null,
 ): TestDriveViewData {
-  const signature = testDriveViewSignature(dna, terrainName);
+  const signature = testDriveViewSignature(dna, terrainName, ghostDna);
   if (testDriveViewDataCache && testDriveViewDataCache.signature === signature) {
     return testDriveViewDataCache.data;
   }
-  const data = buildTestDriveViewData(dna, terrainName);
+  const data = buildTestDriveViewData(dna, terrainName, ghostDna);
   testDriveViewDataCache = { signature, data };
   return data;
 }
@@ -645,6 +651,105 @@ const overworldController = createOverworldInputs(rendererState.world, {
 let overworldAnimationToken = 0;
 let overworldLoopRunning = false;
 
+// Records board: per-terrain Test Drive bests, raced against as ghosts.
+let recordsBoard: RecordsBoard = { version: 1, entries: [] };
+let latestRunTerrain: string | null = null;
+let latestRunScore = 0;
+let latestRunDna: string | null = null;
+let viewportLastElapsed = 0;
+
+void window.vroomon.loadRecords().then((board) => {
+  recordsBoard = board;
+  renderRecordsBoard();
+});
+
+function renderRecordsBoard(): void {
+  const entries = recordsBoard.entries;
+  const terrainCount = new Set(entries.map((entry) => entry.terrainName)).size;
+  for (const count of Array.from(
+    document.querySelectorAll<HTMLElement>("[data-records-count]"),
+  )) {
+    count.textContent = String(terrainCount);
+  }
+  for (const list of Array.from(
+    document.querySelectorAll<HTMLElement>("[data-records-list]"),
+  )) {
+    list.innerHTML =
+      entries.length === 0
+        ? `<p class="muted">No records yet — set a lap in Test Drive to plant the first flag.</p>`
+        : entries
+            .map(
+              (entry) => `
+      <div class="records-row">
+        <span class="records-row__terrain">${escapeHtml(entry.terrainName)}</span>
+        <span class="records-row__score">${formatNumber(entry.score)} px best</span>
+        <span class="records-row__dna">${escapeHtml(entry.dna)}</span>
+        <button class="records-row__drive" data-drive-record="${escapeHtml(entry.terrainName)}" type="button">Drive</button>
+      </div>`,
+            )
+            .join("");
+    for (const button of Array.from(
+      list.querySelectorAll<HTMLButtonElement>("[data-drive-record]"),
+    )) {
+      button.addEventListener("click", (event) => {
+        event.stopPropagation();
+        const record = bestRecord(recordsBoard, button.dataset.driveRecord ?? "");
+        if (!record) {
+          return;
+        }
+        rendererState = setDraftDna(rendererState, record.dna);
+        rendererState = {
+          ...rendererState,
+          mode: "test-drive",
+          statusMessage: `Loaded the ${record.terrainName} record into Test Drive — chase the ghost.`,
+        };
+        renderApp();
+        sfx.click();
+      });
+    }
+  }
+}
+
+let recordsToastTimer: ReturnType<typeof setTimeout> | null = null;
+
+function showRecordsToast(message: string): void {
+  const toast = document.querySelector<HTMLElement>("[data-records-toast]");
+  if (!toast) {
+    return;
+  }
+  toast.textContent = message;
+  toast.hidden = false;
+  if (recordsToastTimer) {
+    clearTimeout(recordsToastTimer);
+  }
+  recordsToastTimer = setTimeout(() => {
+    toast.hidden = true;
+  }, 2600);
+}
+
+function recordDraftLap(): void {
+  if (latestRunScore <= 0 || !latestRunTerrain || !latestRunDna) {
+    return;
+  }
+  const result = proposeRecord(
+    recordsBoard,
+    latestRunTerrain,
+    latestRunDna,
+    latestRunScore,
+    new Date().toISOString(),
+  );
+  if (!result.improved) {
+    return;
+  }
+  recordsBoard = result.board;
+  void window.vroomon.saveRecords(recordsBoard);
+  sfx.win();
+  showRecordsToast(
+    `NEW ${latestRunTerrain} RECORD — ${formatNumber(latestRunScore)} px. Chase it with the ghost!`,
+  );
+  renderRecordsBoard();
+}
+
 const ambience = new Ambience();
 
 function ambienceSceneFor(
@@ -728,9 +833,13 @@ function renderApp(): void {
   const terrain = getActiveTerrain();
   const evolutionViewData =
     rendererState.mode === "evolution" ? cachedEvolutionViewData() : null;
+  const ghostRecord =
+    rendererState.mode === "test-drive"
+      ? bestRecord(recordsBoard, terrain.name)?.dna ?? null
+      : null;
   const testDriveViewData =
     rendererState.mode === "test-drive" || rendererState.mode === "menu"
-      ? cachedTestDriveViewData(rendererState.draftDna, terrain.name)
+      ? cachedTestDriveViewData(rendererState.draftDna, terrain.name, ghostRecord)
       : null;
 
   renderDiagnostics(terrain, evolutionViewData, testDriveViewData);
@@ -1694,6 +1803,7 @@ function buildEvolutionViewData(): EvolutionViewData {
 function buildTestDriveViewData(
   dna: string,
   terrainName: string,
+  ghostDna: string | null = null,
 ): TestDriveViewData {
   const cleanedDna = window.vroomon.cleanDna(dna);
   const decoded = window.vroomon.decodeDnaV2(cleanedDna);
@@ -1705,22 +1815,75 @@ function buildTestDriveViewData(
     terrainName,
     stepCount,
   );
-  const frames = retimeViewportFrames(
-    window.vroomon
-      .previewPhysicsFrames(cleanedDna, terrainName, stepCount, frameCount)
-      .map((frame) => ({
-        elapsedMs: frame.elapsedMs,
-        entities: [
-          {
-            id: "draft-car",
-            label: rendererState.mode === "menu" ? "Preview" : "Draft car",
-            snapshot: frame.snapshot,
-            variant: "solo",
-          } satisfies ViewportEntity,
-        ],
-      })),
-    playbackDurationMs,
-  );
+  const draftLabel = rendererState.mode === "menu" ? "Preview" : "Draft car";
+  const frames =
+    ghostDna && ghostDna !== cleanedDna
+      ? retimeViewportFrames(
+          window.vroomon
+            .previewPopulationRaceFrames(
+              {
+                ...rendererState.runState,
+                mode: "test-drive",
+                population: [
+                  { id: "draft-car", dna: cleanedDna, parents: [], mutated: false, score: 0 },
+                  { id: "record-ghost", dna: ghostDna, parents: [], mutated: false, score: 0 },
+                ],
+              },
+              stepCount,
+              frameCount,
+            )
+            .map((frame) => ({
+              elapsedMs: frame.elapsedMs,
+              entities: frame.vehicles
+                .filter(
+                  (vehicle) =>
+                    vehicle.id === "draft-car" || vehicle.id === "record-ghost",
+                )
+                .map(
+                  (vehicle) =>
+                    ({
+                      id: vehicle.id,
+                      label: vehicle.id === "draft-car" ? draftLabel : "RECORD",
+                      snapshot: vehicle,
+                      variant: vehicle.id === "draft-car" ? "solo" : "ghost",
+                      initialCenterX: vehicle.initialCenterX,
+                    }) satisfies ViewportEntity,
+                ),
+            })),
+          playbackDurationMs,
+        )
+      : retimeViewportFrames(
+          window.vroomon
+            .previewPhysicsFrames(cleanedDna, terrainName, stepCount, frameCount)
+            .map((frame) => ({
+              elapsedMs: frame.elapsedMs,
+              entities: [
+                {
+                  id: "draft-car",
+                  label: draftLabel,
+                  snapshot: frame.snapshot,
+                  variant: "solo",
+                } satisfies ViewportEntity,
+              ],
+            })),
+          playbackDurationMs,
+        );
+
+  // Lap telemetry for the records board: how far the draft got on this
+  // terrain over the whole race window.
+  const draftXs = frames
+    .map(
+      (frame) =>
+        frame.entities.find((entity) => entity.id === "draft-car")?.snapshot
+          .centerX ?? 0,
+    )
+    .filter((value) => value > 0);
+  latestRunScore =
+    draftXs.length > 1
+      ? Math.max(0, Math.round(draftXs[draftXs.length - 1]! - draftXs[0]!))
+      : 0;
+  latestRunTerrain = terrainName;
+  latestRunDna = cleanedDna;
 
   return {
     dna: cleanedDna,
@@ -1812,10 +1975,12 @@ function playViewportScene(scene: ViewportScene): void {
   renderFrame(scene.frames[0]!);
 
   if (scene.frames.length === 1 || totalDuration <= 0) {
+    viewportLastElapsed = 0;
     return;
   }
 
   const start = performance.now();
+  viewportLastElapsed = 0;
 
   const step = (now: number): void => {
     if (token !== viewportAnimationToken) {
@@ -1823,6 +1988,12 @@ function playViewportScene(scene: ViewportScene): void {
     }
 
     const elapsed = (now - start) % totalDuration;
+    // A wrap back to frame 0 = one completed lap. In test-drive mode that
+    // is the moment the draft's run is finished enough to judge.
+    if (elapsed < viewportLastElapsed - 100 && rendererState.mode === "test-drive") {
+      recordDraftLap();
+    }
+    viewportLastElapsed = elapsed;
     const interpolated = interpolateViewportFrame(scene.frames, elapsed);
     renderFrame(interpolated);
 
@@ -2182,9 +2353,11 @@ function renderViewportEntity(
       ? { fill: PAL.accent.gold, stroke: "#fff4d1" }
       : entity.variant === "selected"
         ? { fill: PAL.accent.blue, stroke: "#f8fbff" }
-        : entity.variant === "solo"
-          ? { fill: "#8ab4ff", stroke: "#f8fbff" }
-          : scoreToAccent(entity.score);
+        : entity.variant === "ghost"
+          ? { fill: "#7fe9d0", stroke: "#a8f3e4" }
+          : entity.variant === "solo"
+            ? { fill: "#8ab4ff", stroke: "#f8fbff" }
+            : scoreToAccent(entity.score);
   const originX = toSvgX(view, entity.snapshot.centerX);
   const originY = toSvgY(view, entity.snapshot.centerY);
   const trail =
@@ -2225,13 +2398,17 @@ function renderViewportEntity(
       ? PAL.accent.gold
       : entity.variant === "selected"
         ? PAL.accent.blue
-        : "#f8fbff";
+        : entity.variant === "ghost"
+          ? "#7fe9d0"
+          : "#f8fbff";
   const labelClass =
     entity.variant === "leader"
       ? "viewport-label viewport-label--leader"
       : entity.variant === "selected"
         ? "viewport-label viewport-label--selected"
-        : "viewport-label";
+        : entity.variant === "ghost"
+          ? "viewport-label viewport-label--ghost"
+          : "viewport-label";
   const labelMarkup = layout
     ? `
       ${

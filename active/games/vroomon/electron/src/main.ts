@@ -6,10 +6,12 @@ import {
   appendGenerationLogToDisk,
   loadGenerationLogFromDisk,
   loadHallOfFameFromDisk,
+  loadRecordsFromDisk,
   loadRunStateFromDisk,
   loadUpgradesFromDisk,
   loadWorldStateFromDisk,
   saveHallOfFameToDisk,
+  saveRecordsToDisk,
   saveRunStateToDisk,
   saveUpgradesToDisk,
   saveWorldStateToDisk,
@@ -17,6 +19,7 @@ import {
 import { type GenerationLogEntry } from "./core/persistence.js";
 import {
   type HallOfFame,
+  type RecordsBoard,
   type RunStateSnapshot,
 } from "./shared/parity-contract.js";
 import { type PersistedWorldState } from "./renderer/world/types.js";
@@ -173,6 +176,13 @@ app.whenReady().then(() => {
   ipcMain.handle(
     "vroomon:save-hall-of-fame",
     (_event, hall: HallOfFame) => saveHallOfFameToDisk(app.getPath("userData"), hall),
+  );
+  ipcMain.handle("vroomon:load-records", () =>
+    loadRecordsFromDisk(app.getPath("userData")),
+  );
+  ipcMain.handle(
+    "vroomon:save-records",
+    (_event, board: RecordsBoard) => saveRecordsToDisk(app.getPath("userData"), board),
   );
   ipcMain.handle("vroomon:load-world-state", () =>
     loadWorldStateFromDisk(app.getPath("userData")),

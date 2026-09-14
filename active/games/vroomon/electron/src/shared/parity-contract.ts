@@ -66,6 +66,20 @@ export interface HallOfFame {
   entries: HallOfFameEntry[];
 }
 
+export interface RecordEntry {
+  terrainName: string;
+  dna: string;
+  score: number;
+  savedAt: string;
+}
+
+export interface RecordsBoard {
+  version: 1;
+  entries: RecordEntry[];
+}
+
+export const EMPTY_RECORDS_BOARD: RecordsBoard = { version: 1, entries: [] };
+
 export const EMPTY_HALL_OF_FAME: HallOfFame = {
   version: 1,
   entries: [],

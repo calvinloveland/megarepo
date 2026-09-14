@@ -513,6 +513,24 @@ upgrade grind, which is now optional beyond the win).
 - Scene changes ride renderApp, so walking a biome switch crossfades the
   pad automatically. 173 unit + 18 e2e pass.
 
+## Records Board + ghosts (2026-09-14) ✅
+
+- **Records**: Test Drive laps are judged at the end of every viewport loop
+  — the draft's ground covered on the race window competes per terrain.
+  Improvements land in a RECORDS board (menu, under the Record Barn):
+  best score per biome + the DNA that set it + a **Drive** button that
+  drops the record straight back into Test Drive.
+- **Ghosts**: when the draft races a terrain with a standing record, the
+  sim is replayed with both cars head-to-head and the record car renders
+  as a translucent teal **RECORD** ghost on the same track — literally
+  racing your own past run.
+- Persistence rides the platform (localStorage on web, file store + IPC
+  on desktop) behind `loadRecords/saveRecords`, mirroring the Hall of
+  Fame pattern; `records.ts` (best/propose) is pure + unit-tested and the
+  new lap fires a non-intrusive toast (the earlier inline-status version
+  clobbered the flat-track replay notice — caught by e2e).
+- 177 unit + 19 e2e pass.
+
 ## Outstanding gameplay/UI issues (identified, not yet fixed — design work)
 
 From the vision-model critique + probes, ordered by impact:

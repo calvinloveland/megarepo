@@ -9,6 +9,7 @@ import {
   getTerrainPreset,
   VROOMON_PARITY_CONTRACT,
   type HallOfFame,
+  type RecordsBoard,
   type RunStateSnapshot,
   type TerrainPresetDefinition,
   type VroomonParityContract,
@@ -125,6 +126,8 @@ declare global {
       saveWorldState: (world: PersistedWorldState) => Promise<string>;
       loadUpgrades: () => Promise<Record<string, number>>;
       saveUpgrades: (upgrades: Record<string, number>) => Promise<string>;
+      loadRecords: () => Promise<RecordsBoard>;
+      saveRecords: (board: RecordsBoard) => Promise<string>;
       runBatchGenerations: (
         state: RunStateSnapshot,
         count: number,
@@ -198,6 +201,7 @@ const generationLogs = new Map<string, GenerationLogEntry[]>();
 let savedHallOfFame: HallOfFame | null = null;
 let savedWorldState: PersistedWorldState | null = null;
 let savedUpgrades: Record<string, number> | null = null;
+let savedRecords: RecordsBoard | null = null;
 
 window.vroomon = {
   cleanDna,
@@ -344,6 +348,21 @@ window.vroomon = {
     savedUpgrades = structuredClone(upgrades);
     storageSet("upgrades", JSON.stringify(upgrades));
     return "local://vroomon/upgrades.json";
+  },
+  loadRecords: async (): Promise<RecordsBoard> => {
+    if (savedRecords) {
+      return savedRecords;
+    }
+    const parsed = parseStored<RecordsBoard>("records");
+    if (parsed && parsed.version === 1 && Array.isArray(parsed.entries)) {
+      savedRecords = parsed;
+    }
+    return savedRecords ?? { version: 1, entries: [] };
+  },
+  saveRecords: async (board: RecordsBoard): Promise<string> => {
+    savedRecords = board;
+    storageSet("records", JSON.stringify(board));
+    return "local://vroomon/records.json";
   },
   runBatchGenerations: async (
     state: RunStateSnapshot,
