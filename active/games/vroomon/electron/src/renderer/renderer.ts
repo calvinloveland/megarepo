@@ -21,6 +21,7 @@ import { DECOR_ITEMS, findDecor } from "./world/decor.js";
 import { questFor } from "./world/quest.js";
 import { SPRITE_PALETTE as PAL } from "./world/sprites-palette.js";
 import { sfx } from "./audio.js";
+import { Ambience, loadAmbienceSettings, type AmbienceScene } from "./ambience.js";
 import { captureLineage, plantSeedDna } from "../core/population.js";
 import {
   effectiveRunConfig,
@@ -644,6 +645,57 @@ const overworldController = createOverworldInputs(rendererState.world, {
 let overworldAnimationToken = 0;
 let overworldLoopRunning = false;
 
+const ambience = new Ambience();
+
+function ambienceSceneFor(
+  mode: AppModeId,
+  mapId: string | undefined,
+): AmbienceScene {
+  if (mode === "world") {
+    if (mapId === "route_2" || mapId === "gym_2") return "dunes";
+    if (mapId === "hills_map") return "upland";
+    if (mapId === "rocky_map") return "quarry";
+    if (mapId === "ice_map") return "drift";
+    return "meadow";
+  }
+  if (mode === "menu") {
+    return "menu";
+  }
+  return "trackside";
+}
+
+function applyAmbienceScene(): void {
+  ambience.setScene(
+    ambienceSceneFor(rendererState.mode, rendererState.world.currentMapId),
+  );
+}
+
+const ambienceButton = document.querySelector<HTMLButtonElement>("[data-ambience-toggle]");
+function renderAmbienceButton(): void {
+  const settings = ambience.getSettings();
+  if (ambienceButton) {
+    ambienceButton.textContent =
+      settings.volume === 0
+        ? "🔇 Sound: off"
+        : `🔊 Sound: ${settings.volume === 1 ? "low" : "med"}`;
+  }
+}
+
+ambienceButton?.addEventListener("click", () => {
+  const settings = ambience.getSettings();
+  const nextVolume = (settings.volume + 2) % 3 as 0 | 1 | 2; // med -> low -> off -> med
+  ambience.setSettings({ ...settings, enabled: nextVolume > 0, volume: nextVolume });
+  sfx.click();
+  renderAmbienceButton();
+  renderApp();
+});
+
+window.addEventListener("pointerdown", () => ambience.unlock(), { once: true });
+window.addEventListener("keydown", () => ambience.unlock(), { once: true });
+
+void loadAmbienceSettings(); // keep settings fresh for the label
+renderAmbienceButton();
+
 populateTerrainSelect();
 renderApp();
 void renderGenerationLog();
@@ -659,6 +711,7 @@ void window.vroomon.loadUpgrades().then((upgrades) => {
 });
 
 function renderApp(): void {
+  applyAmbienceScene();
   renderContract();
   renderPanels();
   renderRunState();

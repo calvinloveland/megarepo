@@ -1052,6 +1052,14 @@
       }
 
       /* ============ ERROR TOGGLE ============ */
+      .ambience-toggle {
+        position: fixed;
+        top: 0.6rem;
+        right: 0.6rem;
+        z-index: 40;
+        font-size: 0.5rem;
+        opacity: 0.8;
+      }
       .error-toggle {
         position: fixed;
         bottom: 0.5rem;
@@ -1399,6 +1407,7 @@
           </div>
         </div>
 
+    <button class="hud-btn ambience-toggle" type="button" data-ambience-toggle title="Toggle the ambient pad (cycles med/low/off)">🔊 Sound: med</button>
     <button class="error-toggle" type="button" data-error-toggle data-has-errors="false" aria-label="Toggle error panel">
       <span data-error-badge>0</span>
     </button>

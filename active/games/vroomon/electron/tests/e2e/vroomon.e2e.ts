@@ -706,6 +706,30 @@ test.describe("vroomon Playwright harness", () => {
     expect(seeded).toBe("A7SEED9ZZ");
   });
 
+
+  test("cycles the ambient sound pad and remembers the choice", async ({ page }) => {
+    const button = page.locator("[data-ambience-toggle]");
+    await expect(button).toContainText("Sound: med");
+    await button.click();
+    await expect(button).toContainText("Sound: low");
+    await button.click();
+    await expect(button).toContainText("Sound: off");
+    const stored = await page.evaluate(() =>
+      JSON.parse(localStorage.getItem("vroomon:ambience") ?? "{}"),
+    );
+    expect(stored.volume).toBe(0);
+
+    await page.reload();
+    await page.locator("[data-status-message]").filter({ hasText: "Welcome" }).waitFor({ timeout: 20000 });
+    await expect(page.locator("[data-ambience-toggle]")).toContainText("Sound: off");
+
+    // Entering the world (different ambient scene) must not throw.
+    await page.locator('[data-mode-button="world"]').click();
+    await page.waitForTimeout(600);
+    await expect(page.locator('[data-mode-button="world"]')).toHaveClass(/active/);
+    await expect(page.locator("[data-status-message]")).toContainText("road carries you");
+  });
+
 });
 
 

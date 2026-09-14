@@ -498,6 +498,21 @@ upgrade grind, which is now optional beyond the win).
 - New `plantSeedDna` helper (+2 unit tests); e2e covers barn-copy,
   draft-copy, and seeded-population assertions. 173 unit + 17 e2e pass.
 
+## Ambient sound pad (2026-09-13) ✅
+
+- **Ambience engine** (`renderer/ambience.ts`): a synthesized, asset-free
+  pad that breathes under the event sfx — per-scene profiles (menu /
+  meadow / dunes / upland / quarry / drift / trackside) mapped from the
+  current mode + overworld map. One persistent AudioContext (the sfx
+  cues keep their own short-lived contexts), started only after the first
+  user gesture, with slow crossfades between scenes and a 0.09 Hz
+  breathing LFO.
+- **Sound chip**: top-right 🔊 toggle cycling med / low / off; the choice
+  persists in localStorage (`vroomon:ambience`) and survives reloads and
+  the future settings surface.
+- Scene changes ride renderApp, so walking a biome switch crossfades the
+  pad automatically. 173 unit + 18 e2e pass.
+
 ## Outstanding gameplay/UI issues (identified, not yet fixed — design work)
 
 From the vision-model critique + probes, ordered by impact:
