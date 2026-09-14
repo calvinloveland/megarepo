@@ -11,7 +11,40 @@ export type UpgradeId =
   | "grazing"      // retain ratio bonus
   | "velodrome"    // race duration
   | "grooming"     // mutation control
+  | "pens"         // stud-line slots
   | "ledger";      // income boost
+
+export type SupplyId = "calm" | "wild";
+
+export interface SupplyDef {
+  id: SupplyId;
+  name: string;
+  flavor: string;
+  cost: number;
+  effectLabel: string;
+}
+
+/** One-shot consumables bought in the RANCH store. */
+export const SUPPLIES: SupplyDef[] = [
+  {
+    id: "calm",
+    name: "Calm Tonic",
+    flavor: "A spoon of the stills' quiet dram — the next generation keeps its genome true.",
+    cost: 10,
+    effectLabel: "next cycle: no mutation",
+  },
+  {
+    id: "wild",
+    name: "Wild Brome",
+    flavor: "Feral fodder from beyond the fence — the next generation gambles on novelty.",
+    cost: 8,
+    effectLabel: "next cycle: +15% mutation",
+  },
+];
+
+export function studLineCapacity(upgrades: Record<string, number> | undefined): number {
+  return (upgrades?.pens ?? 0) * 2;
+}
 
 export interface UpgradeDef {
   id: UpgradeId;
@@ -68,6 +101,14 @@ export const UPGRADES: UpgradeDef[] = [
     maxLevel: 5,
     baseCost: 640,
     effectLabel: (l) => `-${l}% mutation`,
+  },
+  {
+    id: "pens",
+    name: "The Split",
+    flavor: "Wire in a separate pen-court — set aside a stud line that breeds its own blood.",
+    maxLevel: 3,
+    baseCost: 240,
+    effectLabel: (l) => `+${l * 2} stud-line slots`,
   },
   {
     id: "ledger",

@@ -6,18 +6,28 @@ import {
   hallOfFameCapacity,
   incomeMultiplier,
   purchaseUpgrade,
+  SUPPLIES,
+  studLineCapacity,
   upgradeCost,
   upgradeLevel,
   UPGRADES,
 } from "../src/core/economy.js";
 
 describe("ranch economy", () => {
-  it("defines six actionable upgrades", () => {
-    expect(UPGRADES).toHaveLength(6);
+  it("defines seven actionable upgrades", () => {
+    expect(UPGRADES).toHaveLength(7);
     for (const def of UPGRADES) {
       expect(def.maxLevel).toBeGreaterThan(0);
       expect(def.effectLabel(1).length).toBeGreaterThan(0);
     }
+  });
+
+  it("offers two one-shot supplements and gates stud-line slots behind the Split", () => {
+    expect(SUPPLIES.map((s) => s.id)).toEqual(["calm", "wild"]);
+    expect(studLineCapacity(undefined)).toBe(0);
+    expect(studLineCapacity({ pens: 0 })).toBe(0);
+    expect(studLineCapacity({ pens: 1 })).toBe(2);
+    expect(studLineCapacity({ pens: 3 })).toBe(6);
   });
 
   it("scales tier costs by level", () => {

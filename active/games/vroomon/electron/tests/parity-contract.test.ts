@@ -56,6 +56,8 @@ describe("parity contract", () => {
       population: [],
       genealogy: {},
       upgrades: {},
+      supplies: { calm: 0, wild: 0 },
+      penIds: [],
     });
   });
 });

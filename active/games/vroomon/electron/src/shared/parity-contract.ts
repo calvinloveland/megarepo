@@ -55,6 +55,10 @@ export interface HallOfFameEntry {
   generation: number;
   savedAt: string;
   notes: string;
+  /** Pinned to the top of the Record Barn. */
+  favorite?: boolean;
+  /** Ancestor ids captured at save time (parents first, newest to oldest). */
+  line?: string[];
 }
 
 export interface HallOfFame {
@@ -79,6 +83,10 @@ export interface RunStateSnapshot {
   genealogy: Record<string, string[]>;
   /** Purchased ranch upgrades: upgradeId -> level (optional for old saves). */
   upgrades?: Record<string, number>;
+  /** One-shot supplements stocked for the next cycle (calm/wild). */
+  supplies?: { calm: number; wild: number };
+  /** Stud-line car ids — the Split Pen bloodline the herd breeds toward. */
+  penIds?: string[];
 }
 
 export interface VroomonParityContract {
@@ -275,5 +283,7 @@ export function createEmptyRunState(
     config: { ...DEFAULT_RUN_CONFIG },
     population: [],
     genealogy: {},
+    supplies: { calm: 0, wild: 0 },
+    penIds: [],
   };
 }

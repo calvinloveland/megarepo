@@ -461,6 +461,30 @@ upgrade grind, which is now optional beyond the win).
   refresh the stats HUD too, so the chip flips the moment flags change
   (previously only the world-summary refreshed).
 
+## Herd management tools (2026-09-13) ✅
+
+- **Family lines**: every car already carried its parents; the sim also
+  writes genealogy edges (parent -> children) each cycle. Now the Record
+  Barn captures a 4-generation ancestry at save time and a **Line** button
+  opens a lineage panel (parents -> grandparents -> … with names resolved
+  against the Record Barn + current herd, plus live descendant count).
+- **Split Pens upgrade ("The Split")**: 3 tiers × +2 stud slots. Cars
+  marked **STUD** in the Record Barn get first pick in every breeding
+  cycle (2/3 of first-parent picks + 2/3 stud-parent line-ups when the
+  pen holds 2+), so you can concentrate a bloodline while the herd still
+  mixes. Gated: no slots -> clear "buy The Split" message.
+- **Mutation control**: the existing *grooming* upgrade (-% mutation) now
+  has a consumable companion — **Calm Tonic** (no mutation next cycle)
+  and **Wild Brome** (+15% next cycle) in the RANCH store's SUPPLIES row.
+  Stock drains exactly once when the next cycle runs.
+- **Favorites**: ★ pin in the Record Barn sorts pinned cars to the top.
+- **Fix that mattered**: the Rename/action buttons only existed in a
+  hidden diagnostics panel — players could never reach them. All five
+  actions (rename/favorite/stud/line/remove) now render on the visible
+  menu Record Barn. The HOF test-drive card keeps click-to-load.
+- Seeds: `pens` upgrade id; run-state fields `supplies` + `penIds`
+  (optional, old saves safe). 171 unit + 16 e2e pass.
+
 ## Outstanding gameplay/UI issues (identified, not yet fixed — design work)
 
 From the vision-model critique + probes, ordered by impact:

@@ -21,12 +21,16 @@ import { DECOR_ITEMS, findDecor } from "./world/decor.js";
 import { questFor } from "./world/quest.js";
 import { SPRITE_PALETTE as PAL } from "./world/sprites-palette.js";
 import { sfx } from "./audio.js";
+import { captureLineage } from "../core/population.js";
 import {
   effectiveRunConfig,
+  SUPPLIES,
+  studLineCapacity,
   UPGRADES,
   upgradeCost,
   upgradeLevel,
   type UpgradeId,
+  type SupplyId,
 } from "../core/economy.js";
 import { createInitialWorldState } from "./world/world-state.js";
 import type { Direction, PersistedWorldState, WorldState } from "./world/types.js";
@@ -2574,7 +2578,7 @@ function renderHallOfFame(): void {
 
   const sortedEntries = entries
     .slice()
-    .sort((left, right) => right.score - left.score)
+    .sort((left, right) => Number(Boolean(right.favorite)) - Number(Boolean(left.favorite)) || right.score - left.score)
     .slice(0, 12);
 
   const buildEntryHtml = (entry: HallOfFameEntry, showRemove: boolean): string => `
@@ -2586,6 +2590,9 @@ function renderHallOfFame(): void {
       </div>
       <div style="display:grid; gap:0.3rem; text-align:right;">
         <span class="hall-entry__score">${formatNumber(entry.score)}</span>
+        ${showRemove ? `<button class="hall-entry__fav" data-hall-fav="${escapeHtml(entry.id)}" type="button" title="${entry.favorite ? "Unpin favorite" : "Pin as favorite"}">${entry.favorite ? "★" : "☆"}</button>` : ""}
+        ${showRemove ? `<button class="hall-entry__stud" data-hall-stud="${escapeHtml(entry.id)}" type="button" title="Add to / remove from the Split-Pen stud line">${studLineCapacity(rendererState.runState.upgrades) > 0 ? (isStudLineEntry(entry.id) ? "STUD" : "stud") : "—"}</button>` : ""}
+        ${showRemove ? `<button class="hall-entry__line" data-hall-line="${escapeHtml(entry.id)}" type="button" title="Browse the family line">Line</button>` : ""}
         ${showRemove ? `<button class="hall-entry__rename" data-hall-rename="${escapeHtml(entry.id)}" type="button" title="Rename (1 credit)">Rename</button>` : ""}
         ${showRemove ? `<button class="hall-entry__remove" data-hall-remove="${escapeHtml(entry.id)}" type="button">Remove</button>` : ""}
       </div>
@@ -2602,28 +2609,25 @@ function renderHallOfFame(): void {
     document.querySelectorAll<HTMLElement>("[data-menu-hall-list]"),
   )) {
     menuList.innerHTML = sortedEntries
-      .map((entry) => buildEntryHtml(entry, false))
+      .map((entry) => buildEntryHtml(entry, true))
       .join("");
-    for (const entry of Array.from(
-      menuList.querySelectorAll<HTMLElement>("[data-hall-entry]"),
-    )) {
-      entry.addEventListener("click", () => {
-        loadHallEntryIntoTestDrive(entry.dataset.hallEntry ?? "");
-      });
-    }
+    bindHallEntryActions(menuList);
   }
 
-  for (const element of [hallOfFameElement, hallOfFameTestDriveElement]) {
-    for (const entry of Array.from(
-      element.querySelectorAll<HTMLElement>("[data-hall-entry]"),
-    )) {
-      entry.addEventListener("click", () => {
-        loadHallEntryIntoTestDrive(entry.dataset.hallEntry ?? "");
-      });
-    }
+  bindHallEntryActions(hallOfFameElement);
+  bindHallEntryActions(hallOfFameTestDriveElement);
+
+function bindHallEntryActions(scope: HTMLElement): void {
+  for (const entry of Array.from(
+    scope.querySelectorAll<HTMLElement>("[data-hall-entry]"),
+  )) {
+    entry.addEventListener("click", () => {
+      loadHallEntryIntoTestDrive(entry.dataset.hallEntry ?? "");
+    });
+  }
 
     for (const remove of Array.from(
-      element.querySelectorAll<HTMLButtonElement>("[data-hall-remove]"),
+      scope.querySelectorAll<HTMLButtonElement>("[data-hall-remove]"),
     )) {
       remove.addEventListener("click", async (event) => {
         event.stopPropagation();
@@ -2635,7 +2639,7 @@ function renderHallOfFame(): void {
     }
 
     for (const rename of Array.from(
-      element.querySelectorAll<HTMLButtonElement>("[data-hall-rename]"),
+      scope.querySelectorAll<HTMLButtonElement>("[data-hall-rename]"),
     )) {
       rename.addEventListener("click", async (event) => {
         event.stopPropagation();
@@ -2677,7 +2681,137 @@ function renderHallOfFame(): void {
         renderApp();
       });
     }
+
+    for (const fav of Array.from(
+      scope.querySelectorAll<HTMLButtonElement>("[data-hall-fav]"),
+    )) {
+      fav.addEventListener("click", async (event) => {
+        event.stopPropagation();
+        const entryId = fav.dataset.hallFav ?? "";
+        const entry = rendererState.hallOfFame.entries.find(
+          (candidate) => candidate.id === entryId,
+        );
+        if (!entry) {
+          return;
+        }
+        const updated = { ...entry, favorite: !entry.favorite };
+        rendererState = {
+          ...rendererState,
+          hallOfFame: {
+            ...rendererState.hallOfFame,
+            entries: rendererState.hallOfFame.entries.map((candidate) =>
+              candidate.id === entryId ? updated : candidate,
+            ),
+          },
+        };
+        await window.vroomon.saveHallOfFame(rendererState.hallOfFame);
+        sfx.click();
+        renderApp();
+      });
+    }
+
+    for (const stud of Array.from(
+      scope.querySelectorAll<HTMLButtonElement>("[data-hall-stud]"),
+    )) {
+      stud.addEventListener("click", async (event) => {
+        event.stopPropagation();
+        const entryId = stud.dataset.hallStud ?? "";
+        const capacity = studLineCapacity(rendererState.runState.upgrades);
+        if (capacity <= 0) {
+          rendererState = {
+            ...rendererState,
+            statusMessage: "Buy The Split in the RANCH store to open a stud line.",
+          };
+          renderApp();
+          return;
+        }
+        const penIds = rendererState.runState.penIds ?? [];
+        const has = penIds.includes(entryId);
+        const next = has
+          ? penIds.filter((id) => id !== entryId)
+          : [...penIds, entryId];
+        if (next.length > capacity) {
+          rendererState = {
+            ...rendererState,
+            statusMessage: `The Split holds ${capacity} stud slots — remove one first.`,
+          };
+          renderApp();
+          sfx.deny();
+          return;
+        }
+        rendererState = {
+          ...rendererState,
+          runState: { ...rendererState.runState, penIds: next },
+        };
+        await window.vroomon.saveRunState(rendererState.runState);
+        rendererState = {
+          ...rendererState,
+          statusMessage: has
+            ? "Removed from the stud line."
+            : `Added to the stud line (${next.length}/${capacity}).`,
+        };
+        renderApp();
+        playRanchSound("coin");
+      });
+    }
+
+    for (const lineButton of Array.from(
+      scope.querySelectorAll<HTMLButtonElement>("[data-hall-line]"),
+    )) {
+      lineButton.addEventListener("click", (event) => {
+        event.stopPropagation();
+        openLineage(lineButton.dataset.hallLine ?? "");
+      });
+    }
   }
+}
+
+function isStudLineEntry(id: string): boolean {
+  return (rendererState.runState.penIds ?? []).includes(id);
+}
+
+function lineageName(id: string): string {
+  const hallEntry = rendererState.hallOfFame.entries.find(
+    (candidate) => candidate.id === id,
+  );
+  if (hallEntry) {
+    return `${hallEntry.name} · ${formatNumber(hallEntry.score)} pts`;
+  }
+  const live = rendererState.runState.population.find(
+    (candidate) => candidate.id === id,
+  );
+  if (live) {
+    return `herd line #${id.slice(-5)}`;
+  }
+  return "wild stock";
+}
+
+function openLineage(entryId: string): void {
+  const entry = rendererState.hallOfFame.entries.find(
+    (candidate) => candidate.id === entryId,
+  );
+  if (!entry || !lineageOverlay || !lineageTitle || !lineageRows || !lineageSub) {
+    return;
+  }
+  lineageTitle.textContent = entry.name;
+  const ancestors = entry.line ?? [];
+  const generationLabels = ["parents", "grandparents", "great-grandparents", "3rd gen"];
+  lineageRows.innerHTML =
+    ancestors.length === 0
+      ? `<div class="lineage-card__row muted">Wild-born stock — no captured ancestors.</div>`
+      : ancestors
+          .map((ancestorId, index) => {
+            const label = generationLabels[Math.min(index, generationLabels.length - 1)];
+            return `<div class="lineage-card__row"><span class="lineage-card__gen">${label}</span><span class="lineage-card__who">${escapeHtml(lineageName(ancestorId))}</span></div>`;
+          })
+          .join("");
+  const descendants = (rendererState.runState.genealogy[entryId] ?? []).length;
+  lineageSub.textContent =
+    ancestors.length === 0
+      ? "Names resolve against the Record Barn and the current herd."
+      : `${descendants} live descendant${descendants === 1 ? "" : "s"} in the current herd. Names resolve against the Record Barn and the current herd.`;
+  lineageOverlay.hidden = false;
+  sfx.click();
 }
 
 function formatSavedAt(isoString: string): string {
@@ -2817,6 +2951,7 @@ async function saveSelectedToHall(): Promise<void> {
     generation: rendererState.runState.generation,
     savedAt: new Date().toISOString(),
     notes: "",
+    line: captureLineage(rendererState.runState.population, summary.id, 4),
   };
 
   rendererState = addHallOfFameEntry(rendererState, entry);
@@ -3392,6 +3527,7 @@ const RANCH_ICONS: Record<string, string> = {
   grazing: "🍀",
   velodrome: "🎡",
   grooming: "🪮",
+  pens: "✂️",
   ledger: "📒",
 };
 
@@ -3404,6 +3540,16 @@ function playRanchSound(kind: "coin" | "deny"): void {
     sfx.deny();
   }
 }
+
+const lineageOverlay = document.querySelector<HTMLElement>("[data-lineage-overlay]");
+const lineageTitle = document.querySelector<HTMLElement>("[data-lineage-title]");
+const lineageRows = document.querySelector<HTMLElement>("[data-lineage-rows]");
+const lineageSub = document.querySelector<HTMLElement>("[data-lineage-sub]");
+document.querySelector<HTMLButtonElement>("[data-lineage-close]")?.addEventListener("click", () => {
+  if (lineageOverlay) {
+    lineageOverlay.hidden = true;
+  }
+});
 
 const raceOverlay = document.querySelector<HTMLElement>("[data-race-overlay]");
 const raceTitle = document.querySelector<HTMLElement>("[data-race-title]");
@@ -3463,6 +3609,11 @@ function renderRanch(): void {
   }
   const wallet = rendererState.runState.wallet;
   ranchWallet.textContent = String(wallet);
+  const slots = studLineCapacity(rendererState.runState.upgrades);
+  const studLineNote =
+    slots > 0
+      ? `<div class="ranch-card"><div class="ranch-card__line"><strong>🏅 Stud line</strong><span>${(rendererState.runState.penIds ?? []).length}/${slots} marked</span></div><div class="ranch-card__flavor">Mark cars with the STUD button in the Record Barn — the next generations breed their bloodline first.</div></div>`
+      : `<div class="ranch-card muted"><div class="ranch-card__flavor">Buy ✂️ The Split to set aside a stud line in the Record Barn. Mark cars there.</div></div>`;
   ranchList.innerHTML = UPGRADES.map((def) => {
     const level = upgradeLevel(rendererState.runState, def.id);
     const maxed = level >= def.maxLevel;
@@ -3481,6 +3632,22 @@ function renderRanch(): void {
         </div>
       </div>`;
   }).join("");
+  ranchList.innerHTML +=
+    studLineNote +
+    `<div class="ranch-section-label">SUPPLIES · one shot per cycle</div>` +
+    SUPPLIES.map((def) => {
+      const owned = (rendererState.runState.supplies ?? { calm: 0, wild: 0 })[def.id] ?? 0;
+      const afford = wallet >= def.cost;
+      return `
+      <div class="ranch-card">
+        <div class="ranch-card__line"><strong>${def.id === "calm" ? "🧪" : "🌿"} ${escapeHtml(def.name)}</strong><span>held ×${owned}</span></div>
+        <div class="ranch-card__flavor">${escapeHtml(def.flavor)}</div>
+        <div class="ranch-card__row">
+          <span class="ranch-card__effect">${escapeHtml(def.effectLabel)}</span>
+          <button class="ranch-buy" type="button" data-buy-supply="${def.id}" ${!afford ? "disabled" : ""}>${def.cost} cr · BUY</button>
+        </div>
+      </div>`;
+    }).join("");
 }
 
 if (openRanchButton && ranchOverlay) {
@@ -3583,6 +3750,37 @@ ranchDecorList?.addEventListener("click", (event) => {
 });
 
 ranchList?.addEventListener("click", (event) => {
+  const supplyButton = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-buy-supply]");
+  if (supplyButton) {
+    if (rendererState.batchRunning) {
+      return;
+    }
+    const supplyId = supplyButton.dataset.buySupply as SupplyId;
+    const def = SUPPLIES.find((candidate) => candidate.id === supplyId);
+    if (!def) {
+      return;
+    }
+    if (rendererState.runState.wallet < def.cost) {
+      playRanchSound("deny");
+      showRanchToast(`Ranch: ${def.name} costs ${def.cost} cr.`);
+      return;
+    }
+    const supplies = rendererState.runState.supplies ?? { calm: 0, wild: 0 };
+    rendererState = {
+      ...rendererState,
+      runState: {
+        ...rendererState.runState,
+        wallet: rendererState.runState.wallet - def.cost,
+        supplies: { ...supplies, [supplyId]: (supplies[supplyId] ?? 0) + 1 },
+      },
+    };
+    playRanchSound("coin");
+    showRanchToast(`Stocked ${def.name} (×${(rendererState.runState.supplies ?? { calm: 0, wild: 0 })[supplyId] ?? 0}).`);
+    renderApp();
+    void window.vroomon.saveRunState(rendererState.runState);
+    renderRanch();
+    return;
+  }
   const button = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-buy-upgrade]");
   if (!button || rendererState.batchRunning) {
     return;

@@ -63,6 +63,8 @@ export interface GenerationResult {
   breeding: BreedingSummary;
   nextPopulation: PopulationEntry[];
   nextGenealogy: Record<string, string[]>;
+  /** Supplements drained by this cycle (calm/wild). */
+  suppliesConsumed: { calm: number; wild: number };
 }
 
 export function createInitialPopulation(
@@ -123,10 +125,13 @@ export function previewEvolutionStep(
   runId: string,
   genealogy: Record<string, string[]> = seedGenealogy(population),
   random: () => number = Math.random,
+  studLine: string[] = [],
 ): EvolutionPreview {
   const survivorCount = Math.max(2, Math.floor(population.length * retainRatio));
   const scoredPopulation = [...population].sort((left, right) => right.score - left.score);
   const survivors = scoredPopulation.slice(0, survivorCount);
+  const stud = new Set(studLine);
+  const studSurvivors = survivors.filter((survivor) => stud.has(survivor.id));
   const children: PopulationEntry[] = [];
   const nextGenealogy = structuredClone(genealogy);
   const parentUsage: Record<string, number> = Object.fromEntries(
@@ -135,9 +140,16 @@ export function previewEvolutionStep(
   const samplePairs: ParentPairSample[] = [];
   let nextId = population.length + 1;
 
+  const pickStud = (): boolean =>
+    studSurvivors.length > 0 && random() < 0.66;
   while (survivors.length + children.length < population.length) {
-    const firstParent = pickRandom(survivors, random);
-    const secondParent = pickDistinctRandom(survivors, firstParent.id, random);
+    const firstParent = pickStud()
+      ? pickRandom(studSurvivors, random)
+      : pickRandom(survivors, random);
+    const secondParent =
+      studSurvivors.length >= 2 && firstParent && stud.has(firstParent.id) && random() < 0.66
+        ? pickDistinctRandom(studSurvivors, firstParent.id, random)
+        : pickDistinctRandom(survivors, firstParent.id, random);
     const shouldMutate = random() < mutationRate;
     const childDna = shouldMutate
       ? mutateDna(crossoverDna(firstParent.dna, secondParent.dna, random), random)
@@ -201,6 +213,29 @@ export function createPreviewRunState(
   };
 }
 
+/** BFS ancestors for a car, newest-first (parents, then grandparents, ...),
+ * up to `depth` generations. Names aren't tracked in the sim, so the UI
+ * resolves ids against the Record Barn + current herd. */
+export function captureLineage(
+  population: PopulationEntry[],
+  id: string,
+  depth = 4,
+): string[] {
+  const byId = new Map(population.map((entry) => [entry.id, entry]));
+  const lineage: string[] = [];
+  const visit = (current: string, generationsLeft: number): void => {
+    if (generationsLeft <= 0) {
+      return;
+    }
+    for (const parent of byId.get(current)?.parents ?? []) {
+      lineage.push(parent);
+      visit(parent, generationsLeft - 1);
+    }
+  };
+  visit(id, depth);
+  return lineage;
+}
+
 export function seedGenealogy(
   population: PopulationEntry[],
 ): Record<string, string[]> {
@@ -250,15 +285,28 @@ export function runEvolutionGeneration(
       score: vehicleResult?.score ?? 0,
     };
   });
-  // Breeding knobs honour ranch upgrades (grazing retain, grooming mutation).
+  // Breeding knobs honour ranch upgrades (grazing retain, grooming mutation)
+  // and any stocked supplement: Calm Tonic silences mutation for the cycle,
+  // Wild Brome gambles on novelty.
   const effective = effectiveRunConfig(state.config, state.upgrades);
+  const supplies = state.supplies ?? { calm: 0, wild: 0 };
+  let cycleMutationRate = effective.mutationRate;
+  const suppliesConsumed = { calm: 0, wild: 0 };
+  if (supplies.calm > 0) {
+    cycleMutationRate = 0;
+    suppliesConsumed.calm = 1;
+  } else if (supplies.wild > 0) {
+    cycleMutationRate = Math.min(0.5, cycleMutationRate + 0.15);
+    suppliesConsumed.wild = 1;
+  }
   const preview = previewEvolutionStep(
     scoredPopulation,
     effective.retainRatio,
-    effective.mutationRate,
+    cycleMutationRate,
     state.runId,
     state.genealogy,
     random,
+    state.penIds ?? [],
   );
 
   return {
@@ -267,6 +315,7 @@ export function runEvolutionGeneration(
     breeding: preview.breeding,
     nextPopulation: preview.population,
     nextGenealogy: preview.genealogy,
+    suppliesConsumed,
   };
 }
 
@@ -280,12 +329,18 @@ export function advanceRunState(
   );
   const income = Math.floor((bestScore / 50) * incomeMultiplier(state.upgrades));
 
+  const supplies = state.supplies ?? { calm: 0, wild: 0 };
   return {
     ...state,
     generation: state.generation + 1,
     wallet: state.wallet + income,
     population: generationResult.nextPopulation,
     genealogy: generationResult.nextGenealogy,
+    supplies: {
+      calm: Math.max(0, supplies.calm - (generationResult.suppliesConsumed.calm ?? 0)),
+      wild: Math.max(0, supplies.wild - (generationResult.suppliesConsumed.wild ?? 0)),
+    },
+    penIds: state.penIds ?? [],
   };
 }
 

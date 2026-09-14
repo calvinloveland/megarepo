@@ -980,6 +980,77 @@
         box-shadow: 0 3px 0 #12370f;
       }
 
+      .ranch-section-label {
+        font-family: var(--font-pixel);
+        font-size: 0.5rem;
+        letter-spacing: 0.12em;
+        color: var(--text-soft);
+        margin: 0.9rem 0 0.3rem;
+      }
+      .ranch-card.muted { opacity: 0.75; }
+      .hall-entry button {
+        font-family: var(--font-pixel);
+        font-size: 0.45rem;
+        color: #fff;
+        background: linear-gradient(180deg, #5a5148 0%, #2c2621 100%);
+        border: 1px solid #171310;
+        border-radius: 4px;
+        padding: 0.15rem 0.3rem;
+        cursor: pointer;
+      }
+      .hall-entry__fav { color: #ffd166 !important; }
+      .hall-entry__stud[data-active-stud="true"] { color: #fff !important; background: linear-gradient(180deg, #b24a17 0%, #6d2608 100%) !important; }
+      .lineage-card {
+        position: fixed;
+        inset: 0;
+        z-index: 58;
+        display: grid;
+        place-items: center;
+        background: radial-gradient(circle at 50% 40%, rgba(255, 209, 102, 0.14), rgba(8, 6, 4, 0.78) 70%);
+      }
+      .lineage-card__panel {
+        min-width: 320px;
+        max-width: 520px;
+        padding: 1.4rem 1.8rem;
+        background: linear-gradient(180deg, var(--paper) 0%, var(--paper-dark) 100%);
+        border: 3px solid var(--gold);
+        border-radius: 14px;
+        box-shadow: 0 10px 0 rgba(26, 14, 8, 0.5);
+        color: var(--text);
+        animation: grand-pop 0.3s ease-out;
+      }
+      .lineage-card__title {
+        font-family: var(--font-pixel);
+        font-size: 0.8rem;
+        color: var(--gold-deep);
+        letter-spacing: 0.1em;
+        margin: 0 0 0.6rem;
+      }
+      .lineage-card__rows { display: grid; gap: 0.35rem; }
+      .lineage-card__row {
+        display: flex;
+        justify-content: space-between;
+        gap: 1rem;
+        font-size: 0.85rem;
+        border-bottom: 1px dashed var(--paper-edge);
+        padding-bottom: 0.25rem;
+      }
+      .lineage-card__gen { color: var(--text-soft); font-family: var(--font-pixel); font-size: 0.45rem; align-self: center; text-transform: uppercase; }
+      .lineage-card__who { text-align: right; }
+      .lineage-card__sub { font-size: 0.75rem; color: var(--text-soft); margin-top: 0.7rem; }
+      .lineage-card__close {
+        font-family: var(--font-pixel);
+        font-size: 0.55rem;
+        color: #fff;
+        background: linear-gradient(180deg, #4f9e55 0%, #1d5e24 100%);
+        border: 2px solid #12370f;
+        border-radius: 6px;
+        margin-top: 0.9rem;
+        padding: 0.5rem 1rem;
+        cursor: pointer;
+        box-shadow: 0 3px 0 #12370f;
+      }
+
       /* ============ ERROR TOGGLE ============ */
       .error-toggle {
         position: fixed;
@@ -1300,6 +1371,16 @@
             <p class="grand-roundup__body">The five Brands are yours, and your champion stands in the Record Barn.<br />The whole road bows — you've beaten Vroomon.</p>
             <div class="grand-roundup__champion" data-grand-roundup-champion></div>
             <button class="grand-roundup__close" data-grand-roundup-close type="button">ONWARD</button>
+          </div>
+        </div>
+
+        <!-- Lineage card -->
+        <div class="lineage-card" data-lineage-overlay hidden>
+          <div class="lineage-card__panel">
+            <h3 class="lineage-card__title" data-lineage-title>—</h3>
+            <div class="lineage-card__rows" data-lineage-rows></div>
+            <div class="lineage-card__sub" data-lineage-sub></div>
+            <button class="lineage-card__close" data-lineage-close type="button">Close</button>
           </div>
         </div>
 

@@ -568,6 +568,83 @@ test.describe("vroomon Playwright harness", () => {
     await expect(page.locator("[data-overworld-badge-list]")).toContainText("Grassland Brand");
   });
 
+
+  test("buys The Split + supplements, marks a stud line, and consumes a Calm Tonic", async ({
+    page,
+  }) => {
+    // A car in the Record Barn (survives the reloads because the renderer
+    // re-hydrates the hall from storage on boot).
+    await page.evaluate(async () => {
+      const state = await window.vroomon.loadRunState();
+      await window.vroomon.saveHallOfFame({
+        version: 1,
+        entries: [
+          {
+            id: "hall-e2e-stud",
+            runId: state?.runId ?? "run",
+            dna: "E2EHALL0001",
+            name: "E2E Stud",
+            score: 999,
+            terrainName: state?.terrainName ?? "Grassland",
+            generation: state?.generation ?? 0,
+            savedAt: new Date().toISOString(),
+            notes: "",
+          },
+        ],
+      });
+    });
+    await page.reload();
+    await page.locator("[data-status-message]").filter({ hasText: "Welcome" }).waitFor({ timeout: 20000 });
+    // Build a small herd and top the wallet up via the storage API (the
+    // keyboard reload path re-hydrates rendererState from it).
+    await page.locator('[data-mode-button="evolution"]').click();
+    await page.locator("[data-generate-population]").click();
+    await page.locator("[data-run-generation]").click();
+    await page.waitForTimeout(700);
+    await page.keyboard.press("s"); // persist the herd into storage
+    await page.waitForTimeout(400);
+    await page.evaluate(async () => {
+      const state = await window.vroomon.loadRunState();
+      await window.vroomon.saveRunState({ ...state, wallet: 1000 });
+    });
+    await page.reload();
+    await page.locator("[data-status-message]").filter({ hasText: "Welcome" }).waitFor({ timeout: 20000 });
+    await page.locator('[data-mode-button="evolution"]').click();
+    await page.waitForTimeout(400);
+    await page.keyboard.press("l");
+    await page.waitForTimeout(600);
+
+    // RANCH store: buy The Split (tier 1) + one Calm Tonic.
+    await page.locator("[data-open-ranch]").dispatchEvent("click");
+    await page.locator('[data-buy-upgrade="pens"]').dispatchEvent("click");
+    await expect(page.locator("[data-status-message]")).toContainText("built to tier 1");
+    await page.locator('[data-buy-supply="calm"]').dispatchEvent("click");
+    await expect(page.locator("[data-ranch-toast]")).toContainText("Calm Tonic");
+    await page.locator("[data-close-ranch]").click();
+    await page.waitForTimeout(300);
+
+    // The tonic fires on the next cycle — drive the exact API the Run Gen
+    // button uses, then confirm the stock drains exactly once.
+    const cycle = await page.evaluate(async () => {
+      const state = await window.vroomon.loadRunState();
+      const result = window.vroomon.runEvolutionGeneration(state);
+      const next = window.vroomon.advanceRunState(state, result);
+      return { consumed: result.suppliesConsumed, supplies: next.supplies };
+    });
+    expect(cycle.consumed).toEqual({ calm: 1, wild: 0 });
+    expect(cycle.supplies).toEqual({ calm: 0, wild: 0 });
+
+    // Record Barn (visible menu hall): mark a car as stud — 2 slots now.
+    await page.locator('[data-mode-button="menu"]').click();
+    await page.waitForTimeout(600);
+    const studButton = page.locator("[data-menu-hall-list] [data-hall-stud]").first();
+    await expect(studButton).toHaveCount(1);
+    await studButton.dispatchEvent("click");
+    await expect(page.locator("[data-status-message]")).toContainText("stud line");
+    const penIds = await page.evaluate(async () => (await window.vroomon.loadRunState()).penIds);
+    expect(penIds?.length).toBeGreaterThanOrEqual(1);
+  });
+
 });
 
 
