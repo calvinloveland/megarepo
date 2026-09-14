@@ -233,6 +233,10 @@ function sanitizePersistedWorld(
     decor: Array.isArray(world.decor)
       ? world.decor.filter((id) => typeof id === "string").slice(0, 32)
       : [],
+    rancherName: typeof world.rancherName === "string" ? world.rancherName.slice(0, 24) : "",
+    rancherCap: world.rancherCap === "rust" || world.rancherCap === "green"
+      ? world.rancherCap
+      : "navy",
     vroomdex: world.vroomdex.filter((dna) => typeof dna === "string").slice(-200),
     flags: Object.fromEntries(
       Object.entries(world.flags).filter((entry): entry is [string, boolean] => typeof entry[1] === "boolean"),

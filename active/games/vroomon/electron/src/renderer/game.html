@@ -897,6 +897,46 @@
         box-shadow: 0 3px 0 #12370f;
       }
 
+      .menu-rancher {
+        width: 100%;
+        display: grid;
+        gap: 0.4rem;
+        margin-top: 0.2rem;
+        padding-top: 0.6rem;
+        border-top: 2px dashed var(--card-dark);
+      }
+      .menu-rancher__label {
+        font-family: var(--font-pixel);
+        font-size: 0.55rem;
+        color: var(--gold-ink);
+        letter-spacing: 0.1em;
+      }
+      .menu-rancher__row { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+      .menu-rancher__name {
+        flex: 1;
+        min-width: 140px;
+        font-family: var(--font-pixel);
+        font-size: 0.6rem;
+        color: var(--text);
+        background: var(--card);
+        border: 2px solid var(--card-dark);
+        border-radius: 5px;
+        padding: 0.45rem 0.55rem;
+      }
+      .cap-swatch {
+        width: 30px;
+        height: 22px;
+        border-radius: 5px;
+        border: 2px solid var(--text-soft);
+        cursor: pointer;
+        padding: 0;
+        opacity: 0.6;
+      }
+      .cap-swatch[aria-pressed="true"] { border-color: var(--gold); opacity: 1; box-shadow: 0 0 0 2px var(--gold); }
+      .cap-swatch--navy { background: #1f3a5a; }
+      .cap-swatch--rust { background: #cf3a3a; }
+      .cap-swatch--green { background: #2f7a3a; }
+      .menu-rancher__save { font-family: var(--font-pixel); font-size: 0.55rem; }
       /* ============ ERROR TOGGLE ============ */
       .error-toggle {
         position: fixed;
@@ -1171,6 +1211,16 @@
               <div class="menu-hall__head">HALL OF FAME · <span data-menu-hof-count>0</span> SAVED</div>
               <div class="menu-hall__list" data-menu-hall-list></div>
             </div>
+            <div class="menu-rancher">
+              <div class="menu-rancher__label">BRAND YOURSELF — what do they call you?</div>
+              <div class="menu-rancher__row">
+                <input class="menu-rancher__name" data-rancher-name maxlength="24" placeholder="the new hand" />
+                <button class="cap-swatch cap-swatch--navy" type="button" data-rancher-cap="navy" aria-pressed="true" title="Navy cap"></button>
+                <button class="cap-swatch cap-swatch--rust" type="button" data-rancher-cap="rust" aria-pressed="false" title="Rust cap"></button>
+                <button class="cap-swatch cap-swatch--green" type="button" data-rancher-cap="green" aria-pressed="false" title="Meadow cap"></button>
+                <button class="menu-btn menu-rancher__save" type="button" data-save-rancher>TO THE MEADOW</button>
+              </div>
+            </div>
             <div class="menu-foot">Enter to start &nbsp;·&nbsp; 1-4 switch modes &nbsp;·&nbsp; s/l save &amp; load &nbsp;·&nbsp; v0.1.0</div>
           </div>
         </div>
@@ -1206,7 +1256,7 @@
             <h2 class="grand-roundup__title">GRAND ROUNDUP</h2>
             <p class="grand-roundup__body">The five Brands are yours, and your champion stands in the Record Barn.<br />The whole road bows — you've beaten Vroomon.</p>
             <div class="grand-roundup__champion" data-grand-roundup-champion></div>
-            <button class="grand-roundup__close" data-grand-roundup-close type="button">RIDE ON</button>
+            <button class="grand-roundup__close" data-grand-roundup-close type="button">ONWARD</button>
           </div>
         </div>
 

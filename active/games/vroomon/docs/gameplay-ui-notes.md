@@ -412,6 +412,29 @@ Estimated completion: ~45 min for the tour + Brands; ~1-1.5 hrs for a real
 rancher run ending in the Grand Roundup (completionist is the ~8-12h
 upgrade grind, which is now optional beyond the win).
 
+## Character creation + story opening (2026-09-13) ✅
+
+- **Brand Yourself card** (menu, variant A): name your rancher (max 24
+  chars, used in the Grand Roundup finale copy) and pick a cap color —
+  navy / rust / meadow green — drawn on the player sprite (a new cap brim).
+  Persists in world state (web localStorage + desktop file store).
+- **Opening beats on first world entry**: an arrival line ("The road
+  carries you to Starter Town…"), a first objective
+  ("Professor Axle is at the schoolhouse — talk to him (Z)…") that stays
+  until you meet him, and Axle's farewell now sets the goal
+  ("Race a champion, win a Brand, and outrun the road.") with a met-axle
+  flag. All flag-driven, so replays go back to the neutral summary.
+- **Canon copy sweep**: you *run/race* the herd — vroomon are beetle-sized
+  livestock. "Ride a champion" → "Race a champion", faction invitations
+  "Ride with us" → "Run with us", "Ride for the Reds" → "Run for the
+  Reds"; road/wind idioms ("drive safe", "ride the updrafts") kept.
+- Fixed along the way: renderApp's world re-sync was dropping decor +
+  identity from the persisted world (they now mirror into the controller);
+  widget TDZ at boot (lazy queries); the status line now updates inside
+  renderOverworldUi (not just renderApp).
+- e2e: creation → arrival → objective → Axle → farewell goal → persisted
+  identity; unit covers the identity roundtrip. 158 unit + 14 e2e pass.
+
 ## Outstanding gameplay/UI issues (identified, not yet fixed — design work)
 
 From the vision-model critique + probes, ordered by impact:

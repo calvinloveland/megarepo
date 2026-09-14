@@ -13,6 +13,8 @@ export function createInitialWorldState(): WorldState {
     badges: [],
     factionChoices: {},
     decor: [],
+    rancherName: "",
+    rancherCap: "navy",
     vroomdex: [],
     flags: {},
     dialogueQueue: [],

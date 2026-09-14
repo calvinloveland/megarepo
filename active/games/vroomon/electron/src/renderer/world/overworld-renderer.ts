@@ -12,6 +12,7 @@ import {
   type WorldState,
 } from "./types.js";
 import { findDecor } from "./decor.js";
+import { SPRITE_PALETTE as PAL } from "./sprites-palette.js";
 
 export interface OverworldRenderFrame {
   map: Tilemap;
@@ -128,7 +129,20 @@ export function renderOverworld(
           : world.playerY;
       const playerPx = drawX * TILE_SIZE - cameraX;
       const playerPy = drawY * TILE_SIZE - cameraY;
-      drawPlayer(ctx, playerPx, playerPy, TILE_SIZE, world.playerFacing, tick);
+      const CAP_HEX: Record<string, string> = {
+        navy: PAL.cap.navy,
+        rust: PAL.cap.red,
+        green: PAL.cap.green,
+      };
+      drawPlayer(
+        ctx,
+        playerPx,
+        playerPy,
+        TILE_SIZE,
+        world.playerFacing,
+        tick,
+        CAP_HEX[world.rancherCap] ?? PAL.cap.navy,
+      );
     },
   });
   sortedEntities.sort((left, right) => left.y - right.y);

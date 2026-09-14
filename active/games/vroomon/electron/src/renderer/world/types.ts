@@ -72,6 +72,9 @@ export interface WorldState {
   factionChoices: Record<string, string>;
   /** Owned cosmetic decor ids (parked in Starter Town's meadow). */
   decor: string[];
+  /** Rancher identity (optional; '' = the un-named new hand). */
+  rancherName: string;
+  rancherCap: "navy" | "rust" | "green";
   vroomdex: string[];
   flags: Record<string, boolean>;
   dialogueQueue: DialogueNode[];
@@ -95,6 +98,8 @@ export interface PersistedWorldState {
   badges: string[];
   factionChoices: Record<string, string>;
   decor: string[];
+  rancherName: string;
+  rancherCap: "navy" | "rust" | "green";
   vroomdex: string[];
   flags: Record<string, boolean>;
   lastSavedAt: string;
@@ -112,6 +117,8 @@ export const EMPTY_PERSISTED_WORLD: PersistedWorldState = {
   badges: [],
   factionChoices: {},
   decor: [],
+  rancherName: "",
+  rancherCap: "navy",
   vroomdex: [],
   flags: {},
   lastSavedAt: "",
@@ -127,6 +134,8 @@ export function serializeWorldState(world: WorldState): PersistedWorldState {
     badges: [...world.badges],
     factionChoices: { ...world.factionChoices },
     decor: [...world.decor],
+    rancherName: world.rancherName,
+    rancherCap: world.rancherCap,
     vroomdex: [...world.vroomdex],
     flags: { ...world.flags },
     lastSavedAt: new Date().toISOString(),

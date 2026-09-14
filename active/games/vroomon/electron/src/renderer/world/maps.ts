@@ -106,7 +106,7 @@ export const MAPS: Record<string, Tilemap> = {
         y: 0,
         facing: "down",
         sprite: "professor",
-        dialogue: { text: "Good luck, kid. The road's waiting." },
+        dialogue: { text: "Race a champion, win a Brand, and outrun the road. The meadow's watching, kid.", setFlag: "met-axle" },
       },
       {
         id: "meadow-elder",
@@ -116,7 +116,7 @@ export const MAPS: Record<string, Tilemap> = {
         facing: "right",
         sprite: "professor",
         dialogue: {
-          text: "Welcome, wanderer. I keep the Greensprout herd at the meadow fence — slow-grown, sturdy, free in the grass. Ride with us and the village grazes you through any winter.",
+          text: "Welcome, wanderer. I keep the Greensprout herd at the meadow fence — slow-grown, sturdy, free in the grass. Run with us and the village grazes you through any winter.",
           options: [
             { label: "Join the Greensprouts", next: "elder-join-faction" },
             { label: "The Reds run faster", next: "elder-decline" },
@@ -254,7 +254,7 @@ export const MAPS: Record<string, Tilemap> = {
         dialogue: {
           text: "Welcome to the Roundup Grounds. I'm the Roundup King — my Reds run the summer circuit. Cut the fastest calf, run it at the Roundup, and the circuit pays your keep.",
           options: [
-            { label: "Ride for the Reds", next: "king-join-faction" },
+            { label: "Run for the Reds", next: "king-join-faction" },
             { label: "The Greensprouts suit me", next: "king-decline" },
                       { label: "Race the Greensprouts to settle the feud", next: "king-feud" },
             { label: "Run the Grand Roundup", next: "grand-roundup" },
@@ -365,7 +365,7 @@ export const MAPS: Record<string, Tilemap> = {
         facing: "left",
         sprite: "professor",
         dialogue: {
-          text: "Salt Road Caravan. I'm the Trail Boss — we move water and fodder between the oases, together. Ride with us and the road feeds you for life.",
+          text: "Salt Road Caravan. I'm the Trail Boss — we move water and fodder between the oases, together. Run with us and the road feeds you for life.",
           options: [
             { label: "Join the Salt Road Caravan", next: "trailboss-join-faction" },
             { label: "The wreck camps pay better", next: "trailboss-decline" },
@@ -464,7 +464,7 @@ export const MAPS: Record<string, Tilemap> = {
         facing: "down",
         sprite: "sign",
         dialogue: {
-          text: "Salt Road Post — the Wreck Marshal's fleet holds the water rights out here. Ride the Grasslands first.",
+          text: "Salt Road Post — the Wreck Marshal's fleet holds the water rights out here. Cut your teeth in the Grasslands first.",
         },
       },
     ],
@@ -519,7 +519,7 @@ export const MAPS: Record<string, Tilemap> = {
         facing: "down",
         sprite: "gym-leader",
         dialogue: {
-          text: "The Trail Boss holds the water rights west of the post. Ride safe out there — the dunes don't care who pays you.",
+          text: "The Trail Boss holds the water rights west of the post. Drive safe out there — the dunes don't care who pays you.",
         },
       },
       {
@@ -658,7 +658,7 @@ export const MAPS: Record<string, Tilemap> = {
       },
       { id: "canyon-ringleader", name: "The Ringleader", x: 12, y: 6, facing: "left", sprite: "rider",
         dialogue: {
-          text: "Airtime, kid. I book the stunt crews — flare wheels, canyon leaps, and the bookmaker's odds. Ride with the Runners and the canyon pays your bets.",
+          text: "Airtime, kid. I book the stunt crews — flare wheels, canyon leaps, and the bookmaker's odds. Run with the Runners and the canyon pays your bets.",
           options: [
             { label: "Join the Canyon Runners", next: "runners-join-faction" },
             { label: "The Union pays steady", next: "runners-decline" },
@@ -710,7 +710,7 @@ export const MAPS: Record<string, Tilemap> = {
     npcs: [
       { id: "keeper-long-light", name: "Keeper of the Long Light", x: 5, y: 6, facing: "right", sprite: "professor",
         dialogue: {
-          text: "The oldest lineages on the ice belong to us. Slow-bred, patient, sure-footed in the drift. Ride with the Herdsmen and the aurora keeps your herd.",
+          text: "The oldest lineages on the ice belong to us. Slow-bred, patient, sure-footed in the drift. Run with the Herdsmen and the aurora keeps your herd.",
           options: [
             { label: "Join the Aurora Herdsmen", next: "herdsmen-join-faction" },
             { label: "The freight lanes pay", next: "herdsmen-decline" },
@@ -732,7 +732,7 @@ export const MAPS: Record<string, Tilemap> = {
       },
       { id: "frost-baron", name: "The Frost Baron", x: 12, y: 6, facing: "left", sprite: "mechanic",
         dialogue: {
-          text: "Ice-road freight, no receipt, no refusal. Ride with the Syndicate and the lane pays in chits that spend anywhere. The cold doesn't care who you are — neither do I.",
+          text: "Ice-road freight, no receipt, no refusal. Run with the Syndicate and the lane pays in chits that spend anywhere. The cold doesn't care who you are — neither do I.",
           options: [
             { label: "Join the Drift Syndicate", next: "drift-join-faction" },
             { label: "The Herdsmen keep the lights", next: "drift-decline" },

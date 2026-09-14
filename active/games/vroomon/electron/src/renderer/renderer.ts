@@ -629,7 +629,7 @@ const overworldController = createOverworldInputs(rendererState.world, {
     }
     rendererState = {
       ...rendererState,
-      statusMessage: "Grand Roundup complete — your champion is enshrined in the Record Barn!",
+      statusMessage: `Grand Roundup complete — ${rendererState.world.rancherName || "the new hand"}'s champion is enshrined in the Record Barn!`,
     };
     scheduleWorldSave();
     renderApp();
@@ -683,6 +683,9 @@ function renderApp(): void {
   renderHallOfFame();
   renderMenuConsoleStats();
   renderStatsHud();
+  if (rendererState.mode === "menu") {
+    syncRancherCard();
+  }
 
   if (rendererState.mode === "world") {
     renderOverworldUi();
@@ -2712,7 +2715,7 @@ async function loadWorldStateFromDisk(): Promise<void> {
 
 function applyPersistedWorld(
   world: WorldState,
-  persisted: { currentMapId: string; playerX: number; playerY: number; playerFacing: Direction; badges: string[]; factionChoices?: Record<string, string>; decor?: string[]; vroomdex: string[]; flags: Record<string, boolean> },
+  persisted: { currentMapId: string; playerX: number; playerY: number; playerFacing: Direction; badges: string[]; factionChoices?: Record<string, string>; decor?: string[]; rancherName?: string; rancherCap?: "navy" | "rust" | "green"; vroomdex: string[]; flags: Record<string, boolean> },
 ): WorldState {
   const mapExists = getMap(persisted.currentMapId) !== undefined;
   return {
@@ -2727,6 +2730,10 @@ function applyPersistedWorld(
         ? persisted.factionChoices
         : world.factionChoices,
     decor: Array.isArray(persisted.decor) ? persisted.decor : world.decor,
+    rancherName: typeof persisted.rancherName === "string" ? persisted.rancherName : world.rancherName,
+    rancherCap: persisted.rancherCap === "rust" || persisted.rancherCap === "green"
+      ? persisted.rancherCap
+      : "navy",
     vroomdex: Array.isArray(persisted.vroomdex) ? persisted.vroomdex : world.vroomdex,
     flags:
       persisted.flags && typeof persisted.flags === "object" ? persisted.flags : world.flags,
@@ -2762,6 +2769,8 @@ async function persistWorldState(): Promise<void> {
     badges: [...world.badges],
     factionChoices: { ...world.factionChoices },
     decor: [...world.decor],
+    rancherName: world.rancherName,
+    rancherCap: world.rancherCap,
     vroomdex: [...world.vroomdex],
     flags: { ...world.flags },
     lastSavedAt: new Date().toISOString(),
@@ -2875,9 +2884,25 @@ function renderOverworldUi(): void {
       houseLine;
   }
   overworldVroomdexCount.textContent = `${world.vroomdex.length} specimen${world.vroomdex.length === 1 ? "" : "s"} recorded in your Herd Book`;
-  overworldSummary.textContent = map
-    ? `You're in ${map.name}. Use arrow keys to walk and Z to talk to people.`
-    : "Use arrow keys to walk and Z to talk to people.";
+    if (rendererState.mode === "world" && !world.flags["opening-seen"]) {
+    // Only on a real world entry — applyPersistedWorld also calls
+    // renderOverworldUi (once per boot), and must not consume the beat.
+    overworldController.setFlag("opening-seen", true);
+    // Re-sync the renderer's world copy so the flag persists, and write
+    // the status DOM directly (renderApp already set it moments ago).
+    rendererState = setWorldState(rendererState, overworldController.state);
+    rendererState = {
+      ...rendererState,
+      statusMessage: "The road carries you to Starter Town. The meadow needs a new hand.",
+    };
+    statusMessage.textContent = rendererState.statusMessage;
+    scheduleWorldSave();
+  }
+  const inStarterTown = map?.id === "starter_town";
+  overworldSummary.textContent =
+    !world.flags["met-axle"] && inStarterTown
+      ? "Professor Axle is at the schoolhouse — talk to him (Z) to start your road."
+      : `You're in ${map?.name ?? "the Vroom"}. Use arrow keys to walk and Z to talk to people.`;
 
   startOverworldAnimationLoop();
 }
@@ -3198,6 +3223,88 @@ if (convergeToggle) {
   });
 }
 
+
+// ---- Rancher creation card (menu) ----
+// Lazy accessors: the card is wired far below the initial renderApp() call,
+// so eager const lookups would hit the temporal dead zone at boot.
+const rancherNameInput = (): HTMLInputElement | null =>
+  document.querySelector<HTMLInputElement>("[data-rancher-name]");
+const rancherCapButtons = (): HTMLButtonElement[] =>
+  Array.from(document.querySelectorAll<HTMLButtonElement>("[data-rancher-cap]"));
+const saveRancherButton = (): HTMLButtonElement | null =>
+  document.querySelector<HTMLButtonElement>("[data-save-rancher]");
+
+let lastSyncedRancherName: string | null = null;
+
+function syncWorldDetails(): void {
+  // The controller world is the movement source of truth; decor and the
+  // rancher identity live in renderer state. Mirror them into the
+  // controller so renderOverworldUi's world re-sync never drops them.
+  const current = overworldController.state;
+  overworldController._setState({
+    ...current,
+    decor: [...rendererState.world.decor],
+    rancherName: rendererState.world.rancherName,
+    rancherCap: rendererState.world.rancherCap,
+  });
+}
+
+function syncRancherCard(): void {
+  // Self-contained queries: this runs during the very first renderApp, before
+  // the module's late const declarations initialize (TDZ otherwise).
+  // Only write the input when the STORED name changed — re-renders triggered
+  // by other clicks must not wipe what the player is typing (and the cap
+  // buttons steal focus, so a focus check alone isn't enough).
+  const input = document.querySelector<HTMLInputElement>("[data-rancher-name]");
+  if (input && rendererState.world.rancherName !== lastSyncedRancherName) {
+    input.value = rendererState.world.rancherName;
+    lastSyncedRancherName = rendererState.world.rancherName;
+  }
+  for (const button of Array.from(
+    document.querySelectorAll<HTMLButtonElement>("[data-rancher-cap]"),
+  )) {
+    button.setAttribute(
+      "aria-pressed",
+      String(button.dataset.rancherCap === rendererState.world.rancherCap),
+    );
+  }
+}
+
+if (saveRancherButton() && rancherNameInput()) {
+  for (const button of rancherCapButtons()) {
+    button.addEventListener("click", () => {
+      rendererState = setWorldState(rendererState, {
+        ...rendererState.world,
+        rancherCap: (button.dataset.rancherCap as "navy" | "rust" | "green") ?? "navy",
+      });
+      syncWorldDetails();
+      syncRancherCard();
+      renderApp();
+    });
+  }
+  saveRancherButton()?.addEventListener("click", () => {
+    const input = rancherNameInput();
+    if (!input) {
+      return;
+    }
+    const name = input.value.trim().slice(0, 24);
+    rendererState = setWorldState(rendererState, {
+      ...rendererState.world,
+      rancherName: name,
+    });
+    syncWorldDetails();
+    syncRancherCard();
+    rendererState = {
+      ...rendererState,
+      statusMessage: name
+        ? `The meadow knows your name now: ${name}.`
+        : "The meadow will call you the new hand until you say otherwise.",
+    };
+    scheduleWorldSave();
+    renderApp();
+  });
+}
+
 // Menu overlay: the arcade start card (variant "a", chosen via A/B test on
 // 2026-09-10 — "explicit menu, feels like a proper game"). Kept as a
 // constant so any future variant still has a single hook.
@@ -3405,6 +3512,9 @@ ranchDecorList?.addEventListener("click", (event) => {
   rendererState = result.ok
     ? result.state
     : { ...rendererState, statusMessage: `Ranch: ${result.reason ?? "Could not place."}` };
+  if (result.ok) {
+    syncWorldDetails();
+  }
   renderApp();
   if (result.ok) {
     void window.vroomon.saveRunState(rendererState.runState);

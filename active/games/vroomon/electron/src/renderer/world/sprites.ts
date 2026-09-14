@@ -88,6 +88,7 @@ export function drawPlayer(
   size: number,
   facing: Direction,
   step: number,
+  capColor: string = PAL.cap.navy,
 ): void {
   const bobY = Math.sin(step / 100) * 1.5;
   const cy = py + size / 2 + bobY;
@@ -105,6 +106,9 @@ export function drawPlayer(
   ctx.fillRect(px + size / 2 - 3 + eyeOffset, cy - 5, 1.5, 1.5);
   ctx.fillRect(px + size / 2 + 1 + eyeOffset, cy - 5, 1.5, 1.5);
 
+  // Cap brim (the rancher's signature color).
+  ctx.fillStyle = capColor;
+  ctx.fillRect(px + size / 2 - 7, cy - 14, 14, 3);
   ctx.fillStyle = PAL.cap.red;
   ctx.fillRect(px + size / 2 - 6, cy - 11, 12, 4);
 

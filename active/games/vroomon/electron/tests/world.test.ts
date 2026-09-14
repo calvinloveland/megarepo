@@ -237,6 +237,19 @@ describe("world state transitions", () => {
     });
   });
 
+  it("carries the rancher identity through persistence", () => {
+    const base = createInitialWorldState();
+    expect(base.rancherName).toBe("");
+    expect(base.rancherCap).toBe("navy");
+    const world = { ...base, rancherName: "Io", rancherCap: "rust" as const };
+    const serialized = serializeWorldState(world);
+    expect(serialized.rancherName).toBe("Io");
+    expect(serialized.rancherCap).toBe("rust");
+    const parsed = parsePersistedWorld(JSON.stringify({ ...serialized, version: 1 }));
+    expect(parsed?.rancherName).toBe("Io");
+    expect(parsed?.rancherCap).toBe("rust");
+  });
+
   it("persists faction choices and tolerates pre-faction saves", () => {
     const world = joinFaction(createInitialWorldState(), "grassland", "redlines");
     const serialized = serializeWorldState(world);

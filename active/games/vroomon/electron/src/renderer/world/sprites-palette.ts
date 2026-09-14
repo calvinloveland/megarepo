@@ -19,6 +19,7 @@ export const SPRITE_PALETTE = {
   cap: {
     navy: "#1f3a5a",
     red: "#cf3a3a",
+    green: "#2f7a3a",
   },
   body: {
     navy: "#2a4a7a", // rancher player

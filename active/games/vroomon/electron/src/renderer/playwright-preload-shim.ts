@@ -322,6 +322,8 @@ window.vroomon = {
           badges: [],
           factionChoices: {},
           decor: [],
+          rancherName: "",
+          rancherCap: "navy",
           vroomdex: [],
           flags: {},
           lastSavedAt: "",

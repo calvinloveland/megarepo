@@ -500,6 +500,45 @@ test.describe("vroomon Playwright harness", () => {
     await expect(page.locator("[data-grand-roundup-overlay]")).toBeHidden();
   });
 
+
+  test("brands your rancher and shows the opening beats", async ({ page }) => {
+    // Character creation from the menu.
+    await page.locator("[data-rancher-name]").fill("Io");
+    await page.locator('[data-rancher-cap="rust"]').click();
+    await page.waitForTimeout(200);
+    await page.locator("[data-save-rancher]").click();
+    await page.waitForTimeout(500);
+    await expect(page.locator("[data-status-message]")).toContainText("meadow knows your name");
+
+    // Opening beats: arrival line + first objective on entering the world.
+    await page.locator('[data-mode-button="world"]').click();
+    await page.waitForTimeout(800);
+    await expect(page.locator("[data-status-message]")).toContainText("road carries you");
+    await expect(page.locator("[data-world-summary]")).toContainText("Professor Axle");
+
+    // Walk to Axle (stand at (5,3) facing left), talk, take "Got it, thanks!",
+    // and confirm the goal line + flag flip back to the normal summary.
+    for (const dir of ["up", "up", "up", "up", "left", "left"]) {
+      await page.locator(`[data-dpad="${dir}"]`).click();
+      await page.waitForTimeout(300);
+    }
+    await page.locator('[data-dpad="interact"]').click();
+    await page.waitForTimeout(500);
+    await page.keyboard.press("z"); // advance Axle's intro (no options)
+    await page.waitForTimeout(400);
+    await page.locator("[data-dialogue-option]").nth(1).click(); // "Got it, thanks!"
+    await page.waitForTimeout(400);
+    await expect(page.locator("[data-overworld-dialogue-text]")).toContainText("Race a champion");
+    await page.keyboard.press("z");
+    await page.waitForTimeout(500);
+    await expect(page.locator("[data-world-summary]")).not.toContainText("Professor Axle");
+
+    // Persisted identity survives a reload and drives the finale copy.
+    const persisted = await page.evaluate(() => window.vroomon.loadWorldState());
+    expect(persisted.rancherName).toBe("Io");
+    expect(persisted.rancherCap).toBe("rust");
+  });
+
 });
 
 
