@@ -19,6 +19,7 @@ import { getMap } from "./world/maps.js";
 import { findFaction } from "./world/factions.js";
 import { DECOR_ITEMS, findDecor } from "./world/decor.js";
 import { SPRITE_PALETTE as PAL } from "./world/sprites-palette.js";
+import { sfx } from "./audio.js";
 import {
   effectiveRunConfig,
   UPGRADES,
@@ -3053,6 +3054,13 @@ async function startOverworldEncounter(
 
   if (kind === "gym") {
     const mapName = getMap(overworldController.state.currentMapId)?.name ?? "the road";
+    const rivalName = mapForDialog(trainerName);
+    showRaceCard(
+      "FEUD RACE",
+      `${mapName}: the rival herd crossed at x=${formatNumber(result.centerX)}.`,
+      rivalryLine(mapName),
+      true,
+    );
     rendererState = {
       ...rendererState,
       statusMessage: `${mapName} feud race — rival herd crossed at x=${formatNumber(result.centerX)}. The law of the road is yours.`,
@@ -3065,6 +3073,14 @@ async function startOverworldEncounter(
     return;
   }
 
+  if (kind === "trainer") {
+    showRaceCard(
+      "RIDER RACE",
+      `${trainerName ?? "Opponent"} reached x=${formatNumber(result.centerX)}.`,
+      "A friendly muster on the open road.",
+      false,
+    );
+  }
   rendererState = {
     ...rendererState,
     statusMessage: kind === "trainer"
@@ -3072,6 +3088,14 @@ async function startOverworldEncounter(
       : `A wild vehicle appeared (x=${formatNumber(result.centerX)}, y=${formatNumber(result.centerY)}).`,
   };
   renderApp();
+}
+
+function mapForDialog(name: string | null): string {
+  return name && name !== "Feud Line" ? name : "the rival herd";
+}
+
+function rivalryLine(mapName: string): string {
+  return `The ${mapName} feud is settled — the road remembers.`;
 }
 
 function formatNumber(value: number): string {
@@ -3362,43 +3386,64 @@ const RANCH_ICONS: Record<string, string> = {
 // Tiny WebAudio blips for the ranch store — no assets, fail silently when
 // audio is unavailable (headless tests, autoplay policies).
 function playRanchSound(kind: "coin" | "deny"): void {
-  try {
-    const Ctor =
-      window.AudioContext ??
-      (window as unknown as { webkitAudioContext?: typeof AudioContext })
-        .webkitAudioContext;
-    if (!Ctor) {
-      return;
-    }
-    const ctx = new Ctor();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    const t = ctx.currentTime;
-    if (kind === "coin") {
-      osc.type = "triangle";
-      osc.frequency.setValueAtTime(660, t);
-      osc.frequency.exponentialRampToValueAtTime(1320, t + 0.12);
-      gain.gain.setValueAtTime(0.12, t);
-      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
-      osc.start(t);
-      osc.stop(t + 0.2);
-    } else {
-      osc.type = "square";
-      osc.frequency.setValueAtTime(170, t);
-      gain.gain.setValueAtTime(0.07, t);
-      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
-      osc.start(t);
-      osc.stop(t + 0.13);
-    }
-    osc.onended = () => {
-      void ctx.close().catch(() => undefined);
-    };
-  } catch {
-    // Audio unavailable — ignore.
+  if (kind === "coin") {
+    sfx.coin();
+  } else {
+    sfx.deny();
   }
 }
+
+const raceOverlay = document.querySelector<HTMLElement>("[data-race-overlay]");
+const raceTitle = document.querySelector<HTMLElement>("[data-race-title]");
+const raceBody = document.querySelector<HTMLElement>("[data-race-body]");
+const raceSub = document.querySelector<HTMLElement>("[data-race-sub]");
+let raceCardToken = 0;
+
+function showRaceCard(
+  title: string,
+  body: string,
+  sub: string,
+  isWin: boolean,
+): void {
+  if (raceOverlay) {
+    raceOverlay.hidden = false;
+  }
+  const token = ++raceCardToken;
+  const setTitle = (text: string) => {
+    if (raceTitle && token === raceCardToken) {
+      raceTitle.textContent = text;
+    }
+  };
+
+  // Countdown beat, then the result.
+  sfx.countdown();
+  setTitle("3");
+  setTimeout(() => token === raceCardToken && setTitle("2"), 430);
+  setTimeout(() => token === raceCardToken && setTitle("1"), 860);
+  setTimeout(() => {
+    if (token === raceCardToken) {
+      setTitle(title);
+      if (raceBody) raceBody.innerHTML = body;
+      if (raceSub) raceSub.textContent = sub;
+      if (isWin) sfx.win();
+      else sfx.place();
+    }
+  }, 1290);
+
+  // Auto-dismiss shortly after the result is shown.
+  setTimeout(() => {
+    if (token === raceCardToken && raceOverlay) {
+      raceOverlay.hidden = true;
+    }
+  }, 4200);
+}
+
+document.querySelector<HTMLButtonElement>("[data-race-close]")?.addEventListener("click", () => {
+  raceCardToken += 1;
+  if (raceOverlay) {
+    raceOverlay.hidden = true;
+  }
+});
 
 function renderRanch(): void {
   if (!ranchWallet || !ranchList) {

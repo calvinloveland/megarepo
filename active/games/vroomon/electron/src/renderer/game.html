@@ -937,6 +937,49 @@
       .cap-swatch--rust { background: #cf3a3a; }
       .cap-swatch--green { background: #2f7a3a; }
       .menu-rancher__save { font-family: var(--font-pixel); font-size: 0.55rem; }
+      .race-card {
+        position: fixed;
+        inset: 0;
+        z-index: 58;
+        display: grid;
+        place-items: center;
+        background: radial-gradient(circle at 50% 40%, rgba(255, 209, 102, 0.14), rgba(8, 6, 4, 0.78) 70%);
+      }
+      .race-card__panel {
+        text-align: center;
+        min-width: 300px;
+        max-width: 520px;
+        padding: 1.6rem 2rem;
+        background: linear-gradient(180deg, var(--paper) 0%, var(--paper-dark) 100%);
+        border: 3px solid var(--gold);
+        border-radius: 14px;
+        box-shadow: 0 10px 0 rgba(26, 14, 8, 0.5);
+        color: var(--text);
+        animation: grand-pop 0.3s ease-out;
+      }
+      .race-card__flags { font-size: 1.6rem; letter-spacing: 0.3rem; animation: grand-bob 1.4s ease-in-out infinite; }
+      .race-card__title {
+        font-family: var(--font-pixel);
+        font-size: 0.9rem;
+        color: var(--gold-deep);
+        letter-spacing: 0.1em;
+        margin: 0.5rem 0 0.4rem;
+      }
+      .race-card__body { font-size: 0.95rem; color: var(--text); line-height: 1.5; }
+      .race-card__sub { font-size: 0.8rem; color: var(--text-soft); margin-top: 0.4rem; }
+      .race-card__close {
+        font-family: var(--font-pixel);
+        font-size: 0.55rem;
+        color: #fff;
+        background: linear-gradient(180deg, #4f9e55 0%, #1d5e24 100%);
+        border: 2px solid #12370f;
+        border-radius: 6px;
+        margin-top: 0.9rem;
+        padding: 0.5rem 1rem;
+        cursor: pointer;
+        box-shadow: 0 3px 0 #12370f;
+      }
+
       /* ============ ERROR TOGGLE ============ */
       .error-toggle {
         position: fixed;
@@ -1257,6 +1300,17 @@
             <p class="grand-roundup__body">The five Brands are yours, and your champion stands in the Record Barn.<br />The whole road bows — you've beaten Vroomon.</p>
             <div class="grand-roundup__champion" data-grand-roundup-champion></div>
             <button class="grand-roundup__close" data-grand-roundup-close type="button">ONWARD</button>
+          </div>
+        </div>
+
+        <!-- Race result card -->
+        <div class="race-card" data-race-overlay hidden>
+          <div class="race-card__panel">
+            <div class="race-card__flags" aria-hidden="true">🏁</div>
+            <h3 class="race-card__title" data-race-title>—</h3>
+            <div class="race-card__body" data-race-body></div>
+            <div class="race-card__sub" data-race-sub></div>
+            <button class="race-card__close" data-race-close type="button">OK</button>
           </div>
         </div>
 

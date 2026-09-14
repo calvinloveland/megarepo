@@ -435,6 +435,18 @@ upgrade grind, which is now optional beyond the win).
 - e2e: creation → arrival → objective → Axle → farewell goal → persisted
   identity; unit covers the identity roundtrip. 158 unit + 14 e2e pass.
 
+## Race presentation + audio (2026-09-13) ✅
+
+- **Race-result card**: feud and rider races now play a moment — a
+  3-2-1-GO countdown flash, then a result card (map/rival crossed x=…,
+  a bragging line, win/place chord), dismissible with OK and auto-hiding.
+- **Synth audio module** (`renderer/audio.ts`, WebAudio, no assets): coin,
+  deny, click, countdown beeps, win/place chords, and a finale fanfare;
+  each cue owns+closes its context and fails silently. Ranch store blips
+  route through it now.
+- Re-added the feud e2e (lost during an earlier tail rebuild) and extended
+  it to assert the race card appears and dismisses. 158 unit + 15 e2e pass.
+
 ## Outstanding gameplay/UI issues (identified, not yet fixed — design work)
 
 From the vision-model critique + probes, ordered by impact:

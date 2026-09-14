@@ -539,6 +539,30 @@ test.describe("vroomon Playwright harness", () => {
     expect(persisted.rancherCap).toBe("rust");
   });
 
+
+  test("settles the Grassland feud with the Meadow Elder for a Brand", async ({
+    page,
+  }) => {
+    await page.locator('[data-mode-button="world"]').click();
+    for (const dir of ["down", "down", "left", "left", "left", "left"]) {
+      await page.locator(`[data-dpad="${dir}"]`).click();
+      await page.waitForTimeout(320);
+    }
+    await page.locator('[data-dpad="interact"]').click();
+    await page.waitForTimeout(500);
+    // Third option on the Elder's menu: Race to settle the feud.
+    await page.locator("[data-dialogue-option]").nth(2).click();
+    await page.waitForTimeout(400);
+    await page.keyboard.press("z");
+    // The race-result card appears (countdown then result); dismiss it.
+    await expect(page.locator("[data-race-overlay]")).toBeVisible();
+    await page.locator("[data-race-close]").click();
+    await page.waitForTimeout(300);
+    await expect(page.locator("[data-race-overlay]")).toBeHidden();
+    await expect(page.locator("[data-status-message]")).toContainText("Grassland Brand");
+    await expect(page.locator("[data-overworld-badge-list]")).toContainText("Grassland Brand");
+  });
+
 });
 
 
