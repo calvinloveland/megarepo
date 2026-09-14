@@ -103,7 +103,7 @@ export function renderOverworld(
         ) {
           return;
         }
-        drawNpc(ctx, npc.sprite, npcPx, npcPy, TILE_SIZE, npc.facing, tick);
+        drawNpc(ctx, npc.sprite, npcPx, npcPy, TILE_SIZE, npc.facing, tick, npc.id);
       },
     });
   }

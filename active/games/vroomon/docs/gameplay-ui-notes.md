@@ -380,6 +380,23 @@ it previously could only see the controller's world).
   ("🌻 Sunflower Bower placed in the meadow" / "The Shrewed built to tier 2")
   alongside the status line.
 
+## Sprite palette formalized + faction-coded hosts (2026-09-13) ✅
+
+- New `world/sprites-palette.ts`: a single source of truth for overworld
+  sprite colors (skin/ink/feet/cap/body/accent roles mirroring the warm
+  meadow theme) — NPC palettes, the player sprite, and the viewport label
+  tints (leader gold, selected blue) all route through it. Pure refactor,
+  no visual change for existing sprites.
+- **Faction-coded hosts**: each of the 10 household bosses wears their
+  house's signature accent band (meadow green, rust red, dune tan, salvage
+  brown, summit sky, stone brown, safety blue, stunt orange, aurora pale,
+  ice slate) via HOST_ACCENTS — the Meadow Elder now reads Greensprouts at
+  a glance vs the Roundup King's rust.
+- Tile/terrain fills remain in TILE_COLORS (sprites.ts) with intentional
+  detail fills (tree shade, vroomgrass sparkle, outline highlights).
+- Unit tests: palette roles, 10 distinct house accents, and every host id
+  resolving in the maps. 156 unit + 12 e2e pass.
+
 ## Outstanding gameplay/UI issues (identified, not yet fixed — design work)
 
 From the vision-model critique + probes, ordered by impact:

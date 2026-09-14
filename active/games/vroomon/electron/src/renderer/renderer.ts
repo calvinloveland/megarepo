@@ -18,6 +18,7 @@ import { renderOverworld } from "./world/overworld-renderer.js";
 import { getMap } from "./world/maps.js";
 import { findFaction } from "./world/factions.js";
 import { DECOR_ITEMS, findDecor } from "./world/decor.js";
+import { SPRITE_PALETTE as PAL } from "./world/sprites-palette.js";
 import {
   effectiveRunConfig,
   UPGRADES,
@@ -2066,9 +2067,9 @@ function renderViewportEntity(
 ): string {
   const accent =
     entity.variant === "leader"
-      ? { fill: "#ffd166", stroke: "#fff4d1" }
+      ? { fill: PAL.accent.gold, stroke: "#fff4d1" }
       : entity.variant === "selected"
-        ? { fill: "#7dd3fc", stroke: "#f8fbff" }
+        ? { fill: PAL.accent.blue, stroke: "#f8fbff" }
         : entity.variant === "solo"
           ? { fill: "#8ab4ff", stroke: "#f8fbff" }
           : scoreToAccent(entity.score);
@@ -2109,9 +2110,9 @@ function renderViewportEntity(
   const layout = labelLayout.get(entity.id);
   const labelTint =
     entity.variant === "leader"
-      ? "#ffd166"
+      ? PAL.accent.gold
       : entity.variant === "selected"
-        ? "#7dd3fc"
+        ? PAL.accent.blue
         : "#f8fbff";
   const labelClass =
     entity.variant === "leader"

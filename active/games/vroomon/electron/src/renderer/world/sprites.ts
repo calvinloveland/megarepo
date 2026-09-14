@@ -1,4 +1,5 @@
 import type { Direction, TileKind } from "./types.js";
+import { SPRITE_PALETTE as PAL, houseAccentForNpc } from "./sprites-palette.js";
 
 export const TILE_COLORS: Record<TileKind, { fill: string; stroke?: string; accent?: string }> = {
   grass: { fill: "#7eb34b" },
@@ -96,18 +97,18 @@ export function drawPlayer(
   ctx.ellipse(px + size / 2, py + size - 4, size / 3, 4, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  ctx.fillStyle = "#f7d4a0";
+  ctx.fillStyle = PAL.skin.light;
   ctx.fillRect(px + size / 2 - 5, cy - 8, 10, 10);
 
-  ctx.fillStyle = "#1f3a5a";
+  ctx.fillStyle = PAL.cap.navy;
   const eyeOffset = facing === "left" ? -2 : facing === "right" ? 2 : 0;
   ctx.fillRect(px + size / 2 - 3 + eyeOffset, cy - 5, 1.5, 1.5);
   ctx.fillRect(px + size / 2 + 1 + eyeOffset, cy - 5, 1.5, 1.5);
 
-  ctx.fillStyle = "#cf3a3a";
+  ctx.fillStyle = PAL.cap.red;
   ctx.fillRect(px + size / 2 - 6, cy - 11, 12, 4);
 
-  ctx.fillStyle = "#2a4a7a";
+  ctx.fillStyle = PAL.body.navy;
   ctx.fillRect(px + size / 2 - 7, cy + 2, 14, 12);
 
   ctx.fillStyle = "#fff4d1";
@@ -124,11 +125,12 @@ export function drawNpc(
   size: number,
   facing: Direction,
   step: number,
+  npcId?: string,
 ): void {
   const bobY = Math.sin(step / 220 + px) * 0.8;
   const cy = py + size / 2 + bobY;
 
-  ctx.fillStyle = "rgba(0,0,0,0.18)";
+  ctx.fillStyle = PAL.shadow;
   ctx.beginPath();
   ctx.ellipse(px + size / 2, py + size - 4, size / 3, 4, 0, 0, Math.PI * 2);
   ctx.fill();
@@ -137,22 +139,24 @@ export function drawNpc(
   const headColor = palette.head;
   const bodyColor = palette.body;
   const accent = palette.accent;
+  // Faction-coded band: hosts wear their household's signature accent.
+  const bandColor = (npcId ? houseAccentForNpc(npcId) : null) ?? accent;
 
   ctx.fillStyle = headColor;
   ctx.fillRect(px + size / 2 - 5, cy - 8, 10, 10);
 
-  ctx.fillStyle = "#0a0a0a";
+  ctx.fillStyle = PAL.ink.eyes;
   const eyeOffset = facing === "left" ? -2 : facing === "right" ? 2 : 0;
   ctx.fillRect(px + size / 2 - 3 + eyeOffset, cy - 5, 1.5, 1.5);
   ctx.fillRect(px + size / 2 + 1 + eyeOffset, cy - 5, 1.5, 1.5);
 
-  ctx.fillStyle = accent;
+  ctx.fillStyle = bandColor;
   ctx.fillRect(px + size / 2 - 6, cy - 12, 12, 4);
 
   ctx.fillStyle = bodyColor;
   ctx.fillRect(px + size / 2 - 7, cy + 2, 14, 12);
 
-  ctx.fillStyle = "#1a1a1a";
+  ctx.fillStyle = PAL.ink.feet;
   ctx.fillRect(px + size / 2 - 6, cy + 14, 5, 3);
   ctx.fillRect(px + size / 2 + 1, cy + 14, 5, 3);
 
@@ -165,10 +169,10 @@ export function drawNpc(
 }
 
 const NPC_PALETTE: Record<string, { head: string; body: string; accent: string }> = {
-  professor: { head: "#f7d4a0", body: "#5a3a8a", accent: "#f0f0f0" },
-  mechanic: { head: "#f0c896", body: "#7a3a3a", accent: "#cf3a3a" },
-  rider: { head: "#f7d4a0", body: "#3a8a5a", accent: "#ffd166" },
-  "gym-leader": { head: "#f0c896", body: "#3a3a3a", accent: "#ffd166" },
-  sign: { head: "#7a5a3a", body: "#5a4530", accent: "#3a2a1a" },
-  default: { head: "#f7d4a0", body: "#444444", accent: "#999999" },
+  professor: { head: PAL.skin.light, body: PAL.body.purple, accent: PAL.accent.white },
+  mechanic: { head: PAL.skin.mid, body: PAL.body.maroon, accent: PAL.accent.red },
+  rider: { head: PAL.skin.light, body: PAL.body.green, accent: PAL.accent.gold },
+  "gym-leader": { head: PAL.skin.mid, body: PAL.body.charcoal, accent: PAL.accent.gold },
+  sign: { head: PAL.skin.dark, body: PAL.body.brown, accent: PAL.accent.tan },
+  default: { head: PAL.skin.light, body: PAL.body.gray, accent: PAL.accent.gray },
 };
