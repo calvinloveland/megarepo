@@ -18,6 +18,7 @@ import { renderOverworld } from "./world/overworld-renderer.js";
 import { getMap } from "./world/maps.js";
 import { findFaction } from "./world/factions.js";
 import { DECOR_ITEMS, findDecor } from "./world/decor.js";
+import { questFor } from "./world/quest.js";
 import { SPRITE_PALETTE as PAL } from "./world/sprites-palette.js";
 import { sfx } from "./audio.js";
 import {
@@ -2455,6 +2456,7 @@ function renderStatsHud(): void {
     ) ?? 0);
 
   const chips: Array<{ label: string; value: string }> = [];
+  let questCardHtml = "";
 
   if (mode === "evolution") {
     chips.push({ label: "BEST", value: evolutionBest > 0 ? formatNumber(evolutionBest) : "—" });
@@ -2480,6 +2482,12 @@ function renderStatsHud(): void {
   } else if (mode === "world") {
     const map = getMap(rendererState.world.currentMapId);
     chips.push({ label: "MAP", value: map?.name ?? "—" });
+    const quest = questFor(rendererState.world);
+    questCardHtml = `
+      <div class="stats-quest" data-stats-quest>
+        <div class="stats-quest__line" data-stats-quest-line>${escapeHtml(quest.main)}</div>
+        <div class="stats-quest__hint" data-stats-quest-hint>${escapeHtml(quest.hint)}</div>
+      </div>`;
     chips.push({
       label: "HOUSES",
       value: String(Object.keys(rendererState.world.factionChoices).length),
@@ -2499,14 +2507,15 @@ function renderStatsHud(): void {
     chips.push({ label: "WALLET", value: wallet });
   }
 
-  overlay.innerHTML = chips
-    .map(
-      (chip) =>
-        `<div class="stats-chip"><span class="stats-chip__label">${chip.label}</span><span class="stats-chip__value">${escapeHtml(
-          chip.value,
-        )}</span></div>`,
-    )
-    .join("");
+  overlay.innerHTML =
+    chips
+      .map(
+        (chip) =>
+          `<div class="stats-chip"><span class="stats-chip__label">${chip.label}</span><span class="stats-chip__value">${escapeHtml(
+            chip.value,
+          )}</span></div>`,
+      )
+      .join("") + questCardHtml;
 }
 
 function renderMenuConsoleStats(): void {
@@ -2852,10 +2861,12 @@ function renderOverworldUi(): void {
             const advanced = advanceWorldDialogue(world, nextId, target);
             overworldController._setState(advanced);
             renderOverworldUi();
+            renderStatsHud();
           } else {
             const ended = endWorldDialogue(world, null, null);
             overworldController._setState(ended);
             renderOverworldUi();
+            renderStatsHud();
           }
         });
       }
@@ -2958,6 +2969,7 @@ function handleOverworldKeydown(event: KeyboardEvent): void {
       }
       overworldController.advanceDialogue();
       renderOverworldUi();
+      renderStatsHud();
     }
     return;
   }
@@ -3493,6 +3505,7 @@ ranchOverlay?.addEventListener("click", (event) => {
 });
 const ranchDecorList = document.querySelector<HTMLElement>("[data-ranch-decor-list]");
 const ranchToast = document.querySelector<HTMLElement>("[data-ranch-toast]");
+
 const grandRoundupOverlay = document.querySelector<HTMLElement>("[data-grand-roundup-overlay]");
 document.querySelector<HTMLButtonElement>("[data-grand-roundup-close]")?.addEventListener("click", () => {
   if (grandRoundupOverlay) {

@@ -447,6 +447,20 @@ upgrade grind, which is now optional beyond the win).
 - Re-added the feud e2e (lost during an earlier tail rebuild) and extended
   it to assert the race card appears and dismisses. 158 unit + 15 e2e pass.
 
+## HUD quest/objective line (2026-09-13) ✅
+
+- **Quest director** (`renderer/world/quest.ts`, pure + unit-tested): reads the
+  world state and tells the player what's next —
+  talk to Axle (opening) → next un-earned Brand in biome order
+  (venue + whom to race, with a "choose your house first" hint when the
+  biome has no house joined) → Grand Roundup once all five Brands →
+  post-Roundup freedom line. So the summary objective and the "what do I
+  do now" line always agree as flags/badges change.
+- **Objectives chip**: appended inside the world stats HUD (gold pixel-text
+  main line + soft hint). Fix: the dialogue advance/option paths now
+  refresh the stats HUD too, so the chip flips the moment flags change
+  (previously only the world-summary refreshed).
+
 ## Outstanding gameplay/UI issues (identified, not yet fixed — design work)
 
 From the vision-model critique + probes, ordered by impact:

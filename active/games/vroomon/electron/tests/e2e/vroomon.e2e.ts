@@ -515,6 +515,9 @@ test.describe("vroomon Playwright harness", () => {
     await page.waitForTimeout(800);
     await expect(page.locator("[data-status-message]")).toContainText("road carries you");
     await expect(page.locator("[data-world-summary]")).toContainText("Professor Axle");
+    // The quest/objective chip mirrors the opening objective.
+    await expect(page.locator("[data-stats-quest]")).toContainText("Professor Axle");
+    await expect(page.locator("[data-stats-quest]")).toBeVisible();
 
     // Walk to Axle (stand at (5,3) facing left), talk, take "Got it, thanks!",
     // and confirm the goal line + flag flip back to the normal summary.
@@ -532,6 +535,8 @@ test.describe("vroomon Playwright harness", () => {
     await page.keyboard.press("z");
     await page.waitForTimeout(500);
     await expect(page.locator("[data-world-summary]")).not.toContainText("Professor Axle");
+    // …and the quest chip now points at the first feud.
+    await expect(page.locator("[data-stats-quest]")).toContainText("Rustler Pasture");
 
     // Persisted identity survives a reload and drives the finale copy.
     const persisted = await page.evaluate(() => window.vroomon.loadWorldState());
