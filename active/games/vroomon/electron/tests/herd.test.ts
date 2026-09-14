@@ -4,6 +4,7 @@ import {
   advanceRunState,
   captureLineage,
   createInitialPopulation,
+  plantSeedDna,
   previewEvolutionStep,
   runEvolutionGeneration,
 } from "../src/core/population.js";
@@ -105,5 +106,22 @@ describe("lineage capture", () => {
     ];
     const line = captureLineage(population as never, "kid", 2);
     expect(line.slice(0, 2)).toEqual(["p1", "p2"]);
+  });
+});
+
+describe("plantSeedDna", () => {
+  it("swaps the top seed's genome for an imported one", () => {
+    const population = [
+      { id: "a", dna: "AAA", parents: [], mutated: false, score: 10 },
+      { id: "b", dna: "BBB", parents: [], mutated: false, score: 99 },
+      { id: "c", dna: "CCC", parents: [], mutated: false, score: 5 },
+    ];
+    const seeded = plantSeedDna(population, "IMPORTED");
+    expect(seeded.find((e) => e.id === "b")?.dna).toBe("IMPORTED");
+    expect(seeded.find((e) => e.id === "a")?.dna).toBe("AAA");
+  });
+
+  it("returns empty for an empty herd", () => {
+    expect(plantSeedDna([], "X")).toEqual([]);
   });
 });

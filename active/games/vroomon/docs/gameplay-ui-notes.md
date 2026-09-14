@@ -485,6 +485,19 @@ upgrade grind, which is now optional beyond the win).
 - Seeds: `pens` upgrade id; run-state fields `supplies` + `penIds`
   (optional, old saves safe). 171 unit + 16 e2e pass.
 
+## DNA share/import (2026-09-13) ✅
+
+- **Copies** everywhere a genome matters: Record Barn entries (menu hall),
+  the selected car in evolution (⧉ Copy), and the test-drive draft — via a
+  clipboard helper with a legacy textarea fallback for old webviews.
+- **Import**: paste a champion string into the evolution "Paste DNA…" input
+  and hit 🌱 Seed — the imported genome becomes the herd's top seed (the
+  highest-scoring entry is swapped which, on a fresh herd, is entry 0), so
+  a shared champion string can re-enter any run and breed onward. The
+  genealogy map stays valid because ids are untouched.
+- New `plantSeedDna` helper (+2 unit tests); e2e covers barn-copy,
+  draft-copy, and seeded-population assertions. 173 unit + 17 e2e pass.
+
 ## Outstanding gameplay/UI issues (identified, not yet fixed — design work)
 
 From the vision-model critique + probes, ordered by impact:

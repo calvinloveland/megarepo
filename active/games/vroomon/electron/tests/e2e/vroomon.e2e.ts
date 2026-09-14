@@ -645,6 +645,67 @@ test.describe("vroomon Playwright harness", () => {
     expect(penIds?.length).toBeGreaterThanOrEqual(1);
   });
 
+
+  test("copies DNA to the clipboard and seeds a herd from an import", async ({
+    page,
+    context,
+  }) => {
+    await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+
+    // Registry: one champion in the Record Barn (survives the reload).
+    await page.evaluate(async () => {
+      const state = await window.vroomon.loadRunState();
+      await window.vroomon.saveHallOfFame({
+        version: 1,
+        entries: [
+          {
+            id: "hall-copy-e2e",
+            runId: state?.runId ?? "run",
+            dna: "SHARECHAMP123",
+            name: "Shared Champ",
+            score: 1234,
+            terrainName: state?.terrainName ?? "Grassland",
+            generation: state?.generation ?? 0,
+            savedAt: new Date().toISOString(),
+            notes: "",
+          },
+        ],
+      });
+    });
+    await page.reload();
+    await page.locator("[data-status-message]").filter({ hasText: "Welcome" }).waitFor({ timeout: 20000 });
+
+    // Copy the champion's DNA from the visible Record Barn.
+    await page.locator('[data-mode-button="menu"]').click();
+    await page.waitForTimeout(600);
+    await page.locator("[data-menu-hall-list] [data-hall-copy]").first().click();
+    await page.waitForTimeout(500);
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe("SHARECHAMP123");
+
+    // Copy the test-drive draft DNA.
+    await page.locator('[data-mode-button="test-drive"]').click();
+    await page.locator("[data-copy-draft-dna]").click();
+    await page.waitForTimeout(400);
+    const draftDna = await page.locator("[data-dna-input]").inputValue();
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(draftDna);
+
+    // Seed a fresh herd from an imported string and confirm the top seed
+    // carries it.
+    await page.locator('[data-mode-button="evolution"]').click();
+    await page.locator("[data-generate-population]").click();
+    await page.locator("[data-import-dna]").fill("A7SEED9ZZ");
+    await page.locator("[data-seed-import-dna]").click();
+    await page.waitForTimeout(400);
+    await expect(page.locator("[data-status-message]")).toContainText("Seeded the herd with A7SEED9ZZ");
+    await page.keyboard.press("s"); // persist the seeded herd
+    await page.waitForTimeout(400);
+    const seeded = await page.evaluate(async () => {
+      const state = await window.vroomon.loadRunState();
+      return state.population[0]?.dna;
+    });
+    expect(seeded).toBe("A7SEED9ZZ");
+  });
+
 });
 
 

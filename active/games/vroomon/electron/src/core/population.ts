@@ -216,6 +216,25 @@ export function createPreviewRunState(
 /** BFS ancestors for a car, newest-first (parents, then grandparents, ...),
  * up to `depth` generations. Names aren't tracked in the sim, so the UI
  * resolves ids against the Record Barn + current herd. */
+/** Plant an imported genome into the herd: the top seed of the population
+ * (highest-ranked, or simply entry 0 on a fresh generated herd) takes the
+ * given DNA so evolution can breed from a shared champion string. */
+export function plantSeedDna(
+  population: PopulationEntry[],
+  dna: string,
+): PopulationEntry[] {
+  if (population.length === 0) {
+    return [];
+  }
+  const seedIndex = population.reduce(
+    (best, entry, index) => (entry.score > population[best]!.score ? index : best),
+    0,
+  );
+  return population.map((entry, index) =>
+    index === seedIndex ? { ...entry, dna } : entry,
+  );
+}
+
 export function captureLineage(
   population: PopulationEntry[],
   id: string,

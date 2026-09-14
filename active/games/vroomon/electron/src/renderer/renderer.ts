@@ -21,7 +21,7 @@ import { DECOR_ITEMS, findDecor } from "./world/decor.js";
 import { questFor } from "./world/quest.js";
 import { SPRITE_PALETTE as PAL } from "./world/sprites-palette.js";
 import { sfx } from "./audio.js";
-import { captureLineage } from "../core/population.js";
+import { captureLineage, plantSeedDna } from "../core/population.js";
 import {
   effectiveRunConfig,
   SUPPLIES,
@@ -2592,6 +2592,7 @@ function renderHallOfFame(): void {
         <span class="hall-entry__score">${formatNumber(entry.score)}</span>
         ${showRemove ? `<button class="hall-entry__fav" data-hall-fav="${escapeHtml(entry.id)}" type="button" title="${entry.favorite ? "Unpin favorite" : "Pin as favorite"}">${entry.favorite ? "★" : "☆"}</button>` : ""}
         ${showRemove ? `<button class="hall-entry__stud" data-hall-stud="${escapeHtml(entry.id)}" type="button" title="Add to / remove from the Split-Pen stud line">${studLineCapacity(rendererState.runState.upgrades) > 0 ? (isStudLineEntry(entry.id) ? "STUD" : "stud") : "—"}</button>` : ""}
+        ${showRemove ? `<button class="hall-entry__copy" data-hall-copy="${escapeHtml(entry.id)}" type="button" title="Copy the DNA string">Copy</button>` : ""}
         ${showRemove ? `<button class="hall-entry__line" data-hall-line="${escapeHtml(entry.id)}" type="button" title="Browse the family line">Line</button>` : ""}
         ${showRemove ? `<button class="hall-entry__rename" data-hall-rename="${escapeHtml(entry.id)}" type="button" title="Rename (1 credit)">Rename</button>` : ""}
         ${showRemove ? `<button class="hall-entry__remove" data-hall-remove="${escapeHtml(entry.id)}" type="button">Remove</button>` : ""}
@@ -2752,6 +2753,29 @@ function bindHallEntryActions(scope: HTMLElement): void {
         };
         renderApp();
         playRanchSound("coin");
+      });
+    }
+
+    for (const copyButton of Array.from(
+      scope.querySelectorAll<HTMLButtonElement>("[data-hall-copy]"),
+    )) {
+      copyButton.addEventListener("click", async (event) => {
+        event.stopPropagation();
+        const entryId = copyButton.dataset.hallCopy ?? "";
+        const entry = rendererState.hallOfFame.entries.find(
+          (candidate) => candidate.id === entryId,
+        );
+        if (!entry) {
+          return;
+        }
+        const ok = await copyTextToClipboard(entry.dna);
+        rendererState = {
+          ...rendererState,
+          statusMessage: ok
+            ? `Copied ${entry.name}'s DNA — paste it into Test Drive or seed another herd.`
+            : "Could not copy the DNA string.",
+        };
+        renderApp();
       });
     }
 
@@ -3268,6 +3292,60 @@ for (const button of modeButtonsElements) {
   });
 }
 
+const copyDnaButton = document.querySelector<HTMLButtonElement>("[data-copy-dna]");
+const copyDraftButton = document.querySelector<HTMLButtonElement>("[data-copy-draft-dna]");
+const importDnaInput = document.querySelector<HTMLInputElement>("[data-import-dna]");
+const seedImportButton = document.querySelector<HTMLButtonElement>("[data-seed-import-dna]");
+
+copyDnaButton?.addEventListener("click", async () => {
+  const summary = getSelectedVehicleSummary(rendererState);
+  const dna = summary?.dna ?? dnaInput.value;
+  const ok = await copyTextToClipboard(dna);
+  rendererState = {
+    ...rendererState,
+    statusMessage: ok
+      ? `Copied ${dna} — paste it into Test Drive or seed another herd with it.`
+      : "Could not copy the DNA string.",
+  };
+  renderApp();
+});
+
+copyDraftButton?.addEventListener("click", async () => {
+  const ok = await copyTextToClipboard(dnaInput.value);
+  rendererState = {
+    ...rendererState,
+    statusMessage: ok ? `Copied draft DNA ${dnaInput.value}.` : "Could not copy the DNA string.",
+  };
+  renderApp();
+});
+
+seedImportButton?.addEventListener("click", () => {
+  const dna = (importDnaInput?.value ?? "").trim();
+  if (dna.length === 0) {
+    rendererState = {
+      ...rendererState,
+      statusMessage: "Paste a DNA string first, then seed the herd.",
+    };
+    renderApp();
+    return;
+  }
+  if (rendererState.runState.population.length === 0) {
+    generatePopulation();
+  }
+  renderApp();
+  const population = plantSeedDna(rendererState.runState.population, dna);
+  rendererState = {
+    ...rendererState,
+    runState: {
+      // plantSeedDna keeps every id — the genealogy map stays valid as-is.
+      ...rendererState.runState,
+      population,
+    },
+    statusMessage: `Seeded the herd with ${dna} — run a generation to breed from it.`,
+  };
+  renderApp();
+});
+
 randomizeButton.addEventListener("click", () => {
   const nextDna = window.vroomon.createRandomDna(12);
   dnaInput.value = nextDna;
@@ -3533,6 +3611,33 @@ const RANCH_ICONS: Record<string, string> = {
 
 // Tiny WebAudio blips for the ranch store — no assets, fail silently when
 // audio is unavailable (headless tests, autoplay policies).
+/** Copy a string to the clipboard, falling back to a hidden textarea for
+ * contexts without the async clipboard API (older webviews). */
+async function copyTextToClipboard(text: string): Promise<boolean> {
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch {
+    // fall through to the legacy path
+  }
+  try {
+    const helper = document.createElement("textarea");
+    helper.value = text;
+    helper.setAttribute("readonly", "");
+    helper.style.position = "fixed";
+    helper.style.opacity = "0";
+    document.body.appendChild(helper);
+    helper.select();
+    document.execCommand("copy");
+    document.body.removeChild(helper);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function playRanchSound(kind: "coin" | "deny"): void {
   if (kind === "coin") {
     sfx.coin();
