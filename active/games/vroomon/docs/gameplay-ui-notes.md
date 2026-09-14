@@ -397,6 +397,21 @@ it previously could only see the controller's world).
 - Unit tests: palette roles, 10 distinct house accents, and every host id
   resolving in the maps. 156 unit + 12 e2e pass.
 
+## Grand Roundup — the game now has a win state (2026-09-13) ✅
+
+"Beating Vroomon" is now a real thing: earn all **five arena Brands**
+(Grassland, Salt Road, Highland, Canyon, Perimeter — Flat is the training
+track), enshrine a champion in the Record Barn (Hall of Fame), then talk to
+the Roundup King and **Run the Grand Roundup**. Completing it marks the world
+flag, plays a celebration overlay (🏆, champion name/DNA/score), and the
+stats HUD shows an honest **BRANDS n/5** chip. Decline branches cover
+missing Brands / no champion gracefully. e2e covers both paths (seeded
+world + hall); unit covers the node. 157 unit + 13 e2e pass.
+
+Estimated completion: ~45 min for the tour + Brands; ~1-1.5 hrs for a real
+rancher run ending in the Grand Roundup (completionist is the ~8-12h
+upgrade grind, which is now optional beyond the win).
+
 ## Outstanding gameplay/UI issues (identified, not yet fixed — design work)
 
 From the vision-model critique + probes, ordered by impact:

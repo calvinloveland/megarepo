@@ -418,6 +418,88 @@ test.describe("vroomon Playwright harness", () => {
     expect(decorated).toBeGreaterThan(0);
   });
 
+
+  test("runs the Grand Roundup after all five Brands and a champion", async ({
+    page,
+  }) => {
+    const FIVE = [
+      "Grassland Brand",
+      "Salt Road Brand",
+      "Highland Brand",
+      "Canyon Brand",
+      "Perimeter Brand",
+    ];
+    const seed = async (badges: string[], hall: boolean) => {
+      await page.evaluate(
+        async ({ b, hall }) => {
+          await window.vroomon.saveWorldState({
+            version: 1,
+            currentMapId: "gym_1",
+            playerX: 6,
+            playerY: 5,
+            playerFacing: "right",
+            badges: b,
+            factionChoices: {},
+            decor: [],
+            vroomdex: [],
+            flags: {},
+            lastSavedAt: "",
+          });
+          if (hall) {
+            await window.vroomon.saveHallOfFame({
+              version: 1,
+              entries: [
+                {
+                  id: "hall-finale",
+                  runId: "r",
+                  dna: "1fOrDEtvOR",
+                  name: "Finale Champion",
+                  score: 1620,
+                  terrainName: "Flat",
+                  generation: 10,
+                  savedAt: "2026-09-13T00:00:00.000Z",
+                  notes: "",
+                },
+              ],
+            });
+          }
+        },
+        { b: badges, hall },
+      );
+      await page.reload();
+      await page.locator("[data-status-message]").filter({ hasText: "Welcome" }).waitFor({ timeout: 20000 });
+      await page.locator('[data-mode-button="world"]').click();
+      await page.waitForTimeout(900);
+    };
+    const toKing = async () => {
+      await page.locator('[data-dpad="right"]').click();
+      await page.waitForTimeout(300);
+      await page.locator('[data-dpad="up"]').click();
+      await page.waitForTimeout(300);
+      await page.locator('[data-dpad="interact"]').click();
+      await page.waitForTimeout(500);
+      await page.locator("[data-dialogue-option]").nth(3).click(); // Run the Grand Roundup
+      await page.waitForTimeout(400);
+      await page.keyboard.press("z");
+      await page.waitForTimeout(600);
+    };
+
+    await seed([], false);
+    await toKing();
+    await expect(page.locator("[data-status-message]")).toContainText("five Brands");
+
+    await seed(FIVE, true);
+    await toKing();
+    await expect(page.locator("[data-grand-roundup-overlay]")).toBeVisible();
+    await expect(page.locator("[data-status-message]")).toContainText("enshrined");
+    await expect(page.locator("[data-grand-roundup-champion]")).toContainText("Finale Champion");
+    await expect(page.locator("[data-viewport-stats-overlay]")).toContainText("BRANDS");
+    await page.screenshot({ path: "/tmp/vroomon-grand-roundup.png" });
+    await page.locator("[data-grand-roundup-close]").click();
+    await page.waitForTimeout(300);
+    await expect(page.locator("[data-grand-roundup-overlay]")).toBeHidden();
+  });
+
 });
 
 

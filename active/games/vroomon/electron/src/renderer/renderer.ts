@@ -584,6 +584,56 @@ const overworldController = createOverworldInputs(rendererState.world, {
     renderOverworldUi();
     scheduleWorldSave();
   },
+  onGrandRoundup: () => {
+    const badges = rendererState.world.badges.length;
+    const hasChampion = rendererState.hallOfFame.entries.length > 0;
+    if (badges < 5) {
+      rendererState = {
+        ...rendererState,
+        statusMessage: "The Roundup King sizes you up: five Brands first, then we ride the whole road.",
+      };
+      renderApp();
+      return;
+    }
+    if (!hasChampion) {
+      rendererState = {
+        ...rendererState,
+        statusMessage: "The Roundup King nods: 'You'll need a champion's name in the Record Barn.'",
+      };
+      renderApp();
+      return;
+    }
+    if (rendererState.world.flags["grand-roundup"]) {
+      rendererState = {
+        ...rendererState,
+        statusMessage: "The road remembers your Roundup, champion.",
+      };
+      renderApp();
+      return;
+    }
+
+    // Win: mark it, surface the celebration, and persist.
+    overworldController.setFlag("grand-roundup", true);
+    rendererState = setWorldState(rendererState, overworldController.state);
+    const champion = [...rendererState.hallOfFame.entries].sort(
+      (a, b) => b.score - a.score,
+    )[0];
+    const championLine = document.querySelector<HTMLElement>("[data-grand-roundup-champion]");
+    if (championLine) {
+      championLine.textContent = champion
+        ? `${champion.name} · ${champion.dna} · ${formatNumber(champion.score)} pts`
+        : "";
+    }
+    if (grandRoundupOverlay) {
+      grandRoundupOverlay.hidden = false;
+    }
+    rendererState = {
+      ...rendererState,
+      statusMessage: "Grand Roundup complete — your champion is enshrined in the Record Barn!",
+    };
+    scheduleWorldSave();
+    renderApp();
+  },
 });
 let overworldAnimationToken = 0;
 let overworldLoopRunning = false;
@@ -2431,6 +2481,10 @@ function renderStatsHud(): void {
       value: String(Object.keys(rendererState.world.factionChoices).length),
     });
     chips.push({
+      label: "BRANDS",
+      value: `${rendererState.world.badges.length}/5`,
+    });
+    chips.push({
       label: "HERD",
       value: `${rendererState.world.vroomdex.length} ${rendererState.world.vroomdex.length === 1 ? "specimen" : "specimens"}`,
     });
@@ -3287,6 +3341,12 @@ ranchOverlay?.addEventListener("click", (event) => {
 });
 const ranchDecorList = document.querySelector<HTMLElement>("[data-ranch-decor-list]");
 const ranchToast = document.querySelector<HTMLElement>("[data-ranch-toast]");
+const grandRoundupOverlay = document.querySelector<HTMLElement>("[data-grand-roundup-overlay]");
+document.querySelector<HTMLButtonElement>("[data-grand-roundup-close]")?.addEventListener("click", () => {
+  if (grandRoundupOverlay) {
+    grandRoundupOverlay.hidden = true;
+  }
+});
 let ranchToastTimer: ReturnType<typeof setTimeout> | null = null;
 
 function showRanchToast(message: string): void {

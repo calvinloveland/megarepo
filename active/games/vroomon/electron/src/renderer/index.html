@@ -698,6 +698,57 @@
       }
 
 
+      .grand-roundup {
+        position: fixed;
+        inset: 0;
+        z-index: 60;
+        display: grid;
+        place-items: center;
+        background: radial-gradient(circle at 50% 40%, rgba(255, 209, 102, 0.16), rgba(8, 6, 4, 0.82) 70%);
+      }
+      .grand-roundup__panel {
+        text-align: center;
+        padding: 2.2rem 2.6rem;
+        max-width: 560px;
+        background: linear-gradient(180deg, var(--paper) 0%, var(--paper-dark) 100%);
+        border: 4px solid var(--gold);
+        border-radius: 16px;
+        box-shadow: 0 14px 0 rgba(26, 14, 8, 0.5);
+        color: var(--text);
+        animation: grand-pop 0.35s ease-out;
+      }
+      @keyframes grand-pop {
+        0% { transform: scale(0.85); opacity: 0; }
+        100% { transform: scale(1); opacity: 1; }
+      }
+      .grand-roundup__crown { font-size: 2.6rem; animation: grand-bob 1.6s ease-in-out infinite; }
+      @keyframes grand-bob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+      .grand-roundup__title {
+        font-family: var(--font-pixel);
+        font-size: 1.1rem;
+        color: var(--gold-deep);
+        letter-spacing: 0.12em;
+        margin: 0.4rem 0;
+      }
+      .grand-roundup__body { font-size: 0.9rem; color: var(--text-soft); line-height: 1.5; }
+      .grand-roundup__champion {
+        font-family: var(--font-screen);
+        font-size: 1rem;
+        color: var(--gold-deep);
+        margin: 0.7rem 0;
+      }
+      .grand-roundup__close {
+        font-family: var(--font-pixel);
+        font-size: 0.6rem;
+        color: #fff;
+        background: linear-gradient(180deg, #4f9e55 0%, #1d5e24 100%);
+        border: 2px solid #12370f;
+        border-radius: 6px;
+        padding: 0.6rem 1.1rem;
+        cursor: pointer;
+        box-shadow: 0 3px 0 #12370f;
+      }
+
       /* Error toggle */
       .error-toggle {
         position: fixed; bottom: 0.5rem; right: 0.5rem; z-index: 50;
@@ -982,6 +1033,17 @@
             <div class="ranch-modal__subhead">ROOM TO ADORN — purely pretty</div>
             <div class="ranch-list" data-ranch-decor-list></div>
             <div class="ranch-toast" data-ranch-toast hidden></div>
+          </div>
+        </div>
+
+        <!-- Grand Roundup finale -->
+        <div class="grand-roundup" data-grand-roundup-overlay hidden>
+          <div class="grand-roundup__panel">
+            <div class="grand-roundup__crown">🏆</div>
+            <h2 class="grand-roundup__title">GRAND ROUNDUP</h2>
+            <p class="grand-roundup__body">The five Brands are yours, and your champion stands in the Record Barn.<br />The whole road bows — you've beaten Vroomon.</p>
+            <div class="grand-roundup__champion" data-grand-roundup-champion></div>
+            <button class="grand-roundup__close" data-grand-roundup-close type="button">RIDE ON</button>
           </div>
         </div>
 

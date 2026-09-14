@@ -38,7 +38,7 @@ export interface DialogueNode {
   text: string;
   next?: string;
   options?: DialogueOption[];
-  onComplete?: "wild" | "trainer" | "gym" | "vroomdex" | `join-faction:${string}` | null;
+  onComplete?: "wild" | "trainer" | "gym" | "vroomdex" | "grand-roundup" | `join-faction:${string}` | null;
   setFlag?: string;
 }
 

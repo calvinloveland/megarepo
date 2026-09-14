@@ -45,6 +45,15 @@ describe("world maps", () => {
     }
   });
 
+  it("ships a Grand Roundup finale node on the Roundup King", () => {
+    const node = getMap("gym_1")?.npcs.find((npc) => npc.id === "grand-roundup");
+    expect(node?.dialogue?.onComplete).toBe("grand-roundup");
+    const king = getMap("gym_1")?.npcs.find((npc) => npc.id === "roundup-king");
+    expect(
+      king?.dialogue?.options?.some((opt) => opt.next === "grand-roundup"),
+    ).toBe(true);
+  });
+
   it("hosts offer a feud race that settles the biome's brand", () => {
     const feudNodes: Array<[string, string, string]> = [
       ["starter_town", "elder-feud", "Grassland Brand"],

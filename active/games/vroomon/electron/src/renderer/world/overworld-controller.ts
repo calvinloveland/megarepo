@@ -47,6 +47,7 @@ export function createOverworldInputs(
     onBadgeAwarded: (badge: string) => void;
     onFactionJoined?: (faction: Faction | null) => void;
     onMapTransition?: () => void;
+    onGrandRoundup?: () => void;
   },
 ): OverworldInputs {
   let state = initial;
@@ -99,9 +100,17 @@ export function createOverworldInputs(
   }
 
   function completeDialogue(
-    onComplete: "wild" | "trainer" | "gym" | "vroomdex" | `join-faction:${string}` | null,
+    onComplete: "wild" | "trainer" | "gym" | "vroomdex" | "grand-roundup" | `join-faction:${string}` | null,
     flag: string | null,
   ): WorldState {
+    if (onComplete === "grand-roundup") {
+      // Readiness (5 Brands + an enshrined champion) is the renderer's call —
+      // it owns the Hall of Fame; the controller just reports the attempt
+      // and returns the live state (endDialogue already committed above).
+      dependencies.onGrandRoundup?.();
+      return state;
+    }
+
     if (onComplete?.startsWith("join-faction:")) {
       const factionId = onComplete.slice("join-faction:".length);
       const faction = findFaction(factionId);
