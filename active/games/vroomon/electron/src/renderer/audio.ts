@@ -2,6 +2,13 @@
 // unavailable (headless tests, autoplay policies), and each cue owns and
 // closes its own context to avoid leaky accumulators.
 
+let masterVolume = 1;
+
+/** Global gain applied to every cue (driven by the settings panel). */
+export function setMasterVolume(volume: number): void {
+  masterVolume = Math.min(1, Math.max(0, volume));
+}
+
 type ToneOpts = {
   frequency: number;
   duration: number;
@@ -28,7 +35,7 @@ function playTone({ frequency, duration, type = "sine", gain = 0.08, attack = 0.
   g.connect(ctx.destination);
   const now = ctx.currentTime;
   g.gain.setValueAtTime(0.0001, now);
-  g.gain.exponentialRampToValueAtTime(gain, now + attack);
+  g.gain.exponentialRampToValueAtTime(gain * masterVolume, now + attack);
   g.gain.exponentialRampToValueAtTime(0.0001, now + duration);
   osc.start(now);
   osc.stop(now + duration + 0.05);
@@ -47,7 +54,7 @@ function scheduleTone(t: number, opts: ToneOpts): void {
   g.connect(ctx.destination);
   const start = ctx.currentTime + t;
   g.gain.setValueAtTime(0.0001, start);
-  g.gain.exponentialRampToValueAtTime(opts.gain ?? 0.08, start + (opts.attack ?? 0.01));
+  g.gain.exponentialRampToValueAtTime((opts.gain ?? 0.08) * masterVolume, start + (opts.attack ?? 0.01));
   g.gain.exponentialRampToValueAtTime(0.0001, start + opts.duration);
   osc.start(start);
   osc.stop(start + opts.duration + 0.05);

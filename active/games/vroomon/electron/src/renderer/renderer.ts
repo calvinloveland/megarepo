@@ -24,6 +24,9 @@ import { questFor } from "./world/quest.js";
 import { SPRITE_PALETTE as PAL } from "./world/sprites-palette.js";
 import { sfx } from "./audio.js";
 import { Ambience, loadAmbienceSettings, type AmbienceScene } from "./ambience.js";
+import { setMasterVolume as setSfxMasterVolume } from "./audio.js";
+import { loadSettings, saveSettings, type Settings } from "./settings.js";
+import { decodeRun, decodeWorld, encodeRun, encodeWorld } from "./save-io.js";
 import { captureLineage, plantSeedDna } from "../core/population.js";
 import {
   effectiveRunConfig,
@@ -798,8 +801,143 @@ ambienceButton?.addEventListener("click", () => {
 window.addEventListener("pointerdown", () => ambience.unlock(), { once: true });
 window.addEventListener("keydown", () => ambience.unlock(), { once: true });
 
-void loadAmbienceSettings(); // keep settings fresh for the label
+let playerSettings: Settings = loadSettings();
+setSfxMasterVolume(playerSettings.masterVolume);
+ambience.setMasterVolume(playerSettings.masterVolume);
+ambience.setSettings({
+  enabled: playerSettings.ambienceEnabled,
+  volume: playerSettings.ambienceVolume,
+});
 renderAmbienceButton();
+
+const settingsOverlay = document.querySelector<HTMLElement>("[data-settings-overlay]");
+const settingsMasterInput = document.querySelector<HTMLInputElement>("[data-settings-master]");
+const transferInput = document.querySelector<HTMLTextAreaElement>("[data-save-transfer]");
+const exportWorldButton = document.querySelector<HTMLButtonElement>("[data-export-world]");
+const importWorldButton = document.querySelector<HTMLButtonElement>("[data-import-world]");
+const exportRunButton = document.querySelector<HTMLButtonElement>("[data-export-run]");
+const importRunButton = document.querySelector<HTMLButtonElement>("[data-import-run]");
+const transferCopyButton = document.querySelector<HTMLButtonElement>("[data-transfer-copy]");
+
+function syncSettingsControls(): void {
+  if (settingsMasterInput) {
+    settingsMasterInput.value = String(Math.round(playerSettings.masterVolume * 100));
+  }
+  for (const button of Array.from(
+    document.querySelectorAll<HTMLButtonElement>("[data-settings-ambient]"),
+  )) {
+    const value = Number(button.dataset.settingsAmbient ?? "2") as 0 | 1 | 2;
+    button.setAttribute(
+      "aria-pressed",
+      String(playerSettings.ambienceEnabled && playerSettings.ambienceVolume === value),
+    );
+  }
+}
+
+function applyPlayerSettings(): void {
+  setSfxMasterVolume(playerSettings.masterVolume);
+  ambience.setMasterVolume(playerSettings.masterVolume);
+  ambience.setSettings({
+    enabled: playerSettings.ambienceEnabled,
+    volume: playerSettings.ambienceVolume,
+  });
+  saveSettings(playerSettings);
+  renderAmbienceButton();
+  renderApp();
+}
+
+document.querySelector<HTMLButtonElement>("[data-open-settings]")?.addEventListener("click", () => {
+  if (settingsOverlay) {
+    syncSettingsControls();
+    settingsOverlay.hidden = false;
+  }
+});
+document.querySelector<HTMLButtonElement>("[data-settings-close]")?.addEventListener("click", () => {
+  if (settingsOverlay) {
+    settingsOverlay.hidden = true;
+  }
+});
+settingsOverlay?.addEventListener("click", (event) => {
+  if (event.target === settingsOverlay) {
+    settingsOverlay.hidden = true;
+  }
+});
+settingsMasterInput?.addEventListener("input", () => {
+  playerSettings = {
+    ...playerSettings,
+    masterVolume: Math.min(1, Math.max(0, Number(settingsMasterInput.value) / 100)),
+  };
+  applyPlayerSettings();
+});
+for (const button of Array.from(
+  document.querySelectorAll<HTMLButtonElement>("[data-settings-ambient]"),
+)) {
+  button.addEventListener("click", () => {
+    const value = Number(button.dataset.settingsAmbient ?? "2") as 0 | 1 | 2;
+    playerSettings = {
+      ...playerSettings,
+      ambienceEnabled: value > 0,
+      ambienceVolume: value,
+    };
+    applyPlayerSettings();
+    syncSettingsControls();
+  });
+}
+exportWorldButton?.addEventListener("click", () => {
+  const persistedExport: PersistedWorldState = {
+    ...rendererState.world,
+    version: 1,
+    lastSavedAt: new Date().toISOString(),
+  };
+  const encoded = encodeWorld(persistedExport);
+  if (transferInput) {
+    transferInput.value = encoded;
+  }
+  void copyTextToClipboard(encoded);
+  rendererState = { ...rendererState, statusMessage: "World export copied to your clipboard — keep it safe." };
+  renderApp();
+});
+importWorldButton?.addEventListener("click", (event) => {
+  event.preventDefault();
+  const decoded = decodeWorld(transferInput?.value ?? "");
+  if (!decoded) {
+    rendererState = { ...rendererState, statusMessage: "That world string doesn't look right — paste a fresh export." };
+    renderApp();
+    return;
+  }
+  applyPersistedWorldToRenderer(decoded);
+  rendererState = { ...rendererState, statusMessage: "World restored from the import — ride on." };
+  renderApp();
+});
+exportRunButton?.addEventListener("click", () => {
+  const encoded = encodeRun(rendererState.runState);
+  if (transferInput) {
+    transferInput.value = encoded;
+  }
+  void copyTextToClipboard(encoded);
+  rendererState = { ...rendererState, statusMessage: "Run export copied to your clipboard." };
+  renderApp();
+});
+importRunButton?.addEventListener("click", () => {
+  const decoded = decodeRun(transferInput?.value ?? "");
+  if (!decoded) {
+    rendererState = { ...rendererState, statusMessage: "That run string doesn't look right — paste a fresh export." };
+    renderApp();
+    return;
+  }
+  void window.vroomon.saveRunState(decoded);
+  rendererState = setRendererRunState(rendererState, decoded, "Run restored from the import.");
+  renderApp();
+});
+transferCopyButton?.addEventListener("click", async () => {
+  if (transferInput && transferInput.value) {
+    await copyTextToClipboard(transferInput.value);
+    rendererState = { ...rendererState, statusMessage: "Transfer string copied." };
+    renderApp();
+  }
+});
+
+void loadAmbienceSettings(); // keep settings fresh for the label
 
 populateTerrainSelect();
 renderApp();
@@ -3109,6 +3247,14 @@ async function loadWorldStateFromDisk(): Promise<void> {
     };
     renderApp();
   }
+}
+
+function applyPersistedWorldToRenderer(persisted: PersistedWorldState): void {
+  const restored = applyPersistedWorld(overworldController.state, persisted);
+  overworldController._setState(restored);
+  rendererState = setWorldState(rendererState, restored);
+  void window.vroomon.saveWorldState(persisted);
+  void renderGenerationLog();
 }
 
 function applyPersistedWorld(

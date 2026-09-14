@@ -81,6 +81,7 @@ export class Ambience {
   private lfoGain: GainNode | null = null;
   private voices: Array<{ osc: OscillatorNode; gain: GainNode }> = [];
   private settings: AmbienceSettings = loadAmbienceSettings();
+  private masterVolume = 1;
   private sceneRequested: AmbienceScene | null = null;
   private scene: AmbienceScene | null = null;
 
@@ -194,10 +195,15 @@ export class Ambience {
     return { ...this.settings };
   }
 
+  setMasterVolume(volume: number): void {
+    this.masterVolume = Math.min(1, Math.max(0, volume));
+    this.applyLevel();
+  }
+
   private applyLevel(): void {
     if (this.master) {
       const level = this.settings.enabled && this.settings.volume > 0
-        ? volumeScalar(this.settings.volume) * 0.045
+        ? volumeScalar(this.settings.volume) * 0.045 * this.masterVolume
         : 0;
       this.master.gain.setTargetAtTime(level, this.ctx?.currentTime ?? 0, 0.4);
     }

@@ -1078,6 +1078,70 @@
       }
 
       /* ============ ERROR TOGGLE ============ */
+      .settings-card {
+        position: fixed;
+        inset: 0;
+        z-index: 60;
+        display: grid;
+        place-items: center;
+        background: radial-gradient(circle at 50% 40%, rgba(255, 209, 102, 0.14), rgba(8, 6, 4, 0.78) 70%);
+      }
+      .settings-card__panel {
+        width: min(520px, 92vw);
+        padding: 1.4rem 1.6rem;
+        background: linear-gradient(180deg, var(--paper) 0%, var(--paper-dark) 100%);
+        border: 3px solid var(--gold);
+        border-radius: 14px;
+        box-shadow: 0 10px 0 rgba(26, 14, 8, 0.5);
+        color: var(--text);
+        animation: grand-pop 0.3s ease-out;
+      }
+      .settings-card__title {
+        font-family: var(--font-pixel);
+        font-size: 0.7rem;
+        color: var(--gold-deep);
+        letter-spacing: 0.14em;
+        margin-bottom: 0.8rem;
+      }
+      .settings-card__row { margin-bottom: 0.9rem; }
+      .settings-card__label { font-family: var(--font-pixel); font-size: 0.5rem; color: var(--text-soft); display: block; margin-bottom: 0.3rem; }
+      .settings-card__range { width: 100%; accent-color: var(--gold); }
+      .settings-card__seg { display: flex; gap: 0.4rem; }
+      .settings-card__seg button {
+        font-family: var(--font-pixel);
+        font-size: 0.5rem;
+        color: var(--text);
+        background: transparent;
+        border: 2px solid var(--paper-edge, rgba(120,120,140,0.5));
+        border-radius: 6px;
+        padding: 0.4rem 0.8rem;
+        cursor: pointer;
+      }
+      .settings-card__seg button[aria-pressed="true"] { border-color: var(--gold); color: var(--gold-deep); }
+      .settings-card__transfer {
+        width: 100%;
+        background: rgba(0, 0, 0, 0.25);
+        color: var(--text);
+        border: 1px solid var(--paper-edge, rgba(120,120,140,0.5));
+        border-radius: 6px;
+        font-family: var(--font-screen);
+        font-size: 0.8rem;
+        padding: 0.4rem;
+        resize: vertical;
+      }
+      .settings-card__actions { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+      .settings-card__btn {
+        font-family: var(--font-pixel);
+        font-size: 0.5rem;
+        color: #fff;
+        background: linear-gradient(180deg, #5a5148 0%, #2c2621 100%);
+        border: 1px solid #171310;
+        border-radius: 6px;
+        padding: 0.45rem 0.7rem;
+        cursor: pointer;
+      }
+      .settings-card__btn--danger { background: linear-gradient(180deg, #8f3b2e 0%, #4d160e 100%); }
+      .settings-card__btn--close { background: linear-gradient(180deg, #4f9e55 0%, #1d5e24 100%); }
       .records-toast {
         position: fixed;
         bottom: 3rem;
@@ -1433,6 +1497,37 @@
           </div>
         </div>
 
+        <!-- Settings -->
+        <div class="settings-card" data-settings-overlay hidden>
+          <div class="settings-card__panel">
+            <h3 class="settings-card__title">SETTINGS</h3>
+            <div class="settings-card__row">
+              <label for="settings-master" class="settings-card__label">Master volume</label>
+              <input id="settings-master" class="settings-card__range" type="range" min="0" max="100" step="5" data-settings-master value="80" />
+            </div>
+            <div class="settings-card__row">
+              <span class="settings-card__label">Ambient pad</span>
+              <div class="settings-card__seg">
+                <button type="button" data-settings-ambient="2">Med</button>
+                <button type="button" data-settings-ambient="1">Low</button>
+                <button type="button" data-settings-ambient="0">Off</button>
+              </div>
+            </div>
+            <div class="settings-card__row">
+              <span class="settings-card__label">Save transfer</span>
+              <textarea class="settings-card__transfer" data-save-transfer rows="3" placeholder="Export a world or run, share the string, paste it back here to import."></textarea>
+            </div>
+            <div class="settings-card__actions">
+              <button type="button" class="settings-card__btn" data-export-world>Export world</button>
+              <button type="button" class="settings-card__btn settings-card__btn--danger" data-import-world>Import world</button>
+              <button type="button" class="settings-card__btn" data-export-run>Export run</button>
+              <button type="button" class="settings-card__btn settings-card__btn--danger" data-import-run>Import run</button>
+              <button type="button" class="settings-card__btn" data-transfer-copy>Copy string</button>
+              <button type="button" class="settings-card__btn settings-card__btn--close" data-settings-close>Close</button>
+            </div>
+          </div>
+        </div>
+
         <!-- Lineage card -->
         <div class="lineage-card" data-lineage-overlay hidden>
           <div class="lineage-card__panel">
@@ -1455,6 +1550,7 @@
         </div>
 
     <button class="hud-btn ambience-toggle" type="button" data-ambience-toggle title="Toggle the ambient pad (cycles med/low/off)">🔊 Sound: med</button>
+    <button class="hud-btn ambience-toggle" type="button" data-open-settings title="Settings: volume, ambience, save transfer">⚙</button>
     <div class="records-toast" data-records-toast hidden></div>
     <button class="error-toggle" type="button" data-error-toggle data-has-errors="false" aria-label="Toggle error panel">
       <span data-error-badge>0</span>

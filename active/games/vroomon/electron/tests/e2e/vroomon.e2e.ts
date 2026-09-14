@@ -754,6 +754,76 @@ test.describe("vroomon Playwright harness", () => {
     await expect(page.locator('[data-mode-button="test-drive"]')).toHaveClass(/active/);
   });
 
+
+  test("adjusts settings and transfers save strings across a reload", async ({
+    page,
+  }) => {
+    await page.locator("[data-open-settings]").click();
+    await expect(page.locator("[data-settings-overlay]")).toBeVisible();
+
+    // Master volume + ambience off, driven like a player would.
+    await page.locator("[data-settings-master]").evaluate((el) => {
+      const input = el as HTMLInputElement;
+      input.value = "20";
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    await page.locator('[data-settings-ambient="0"]').click();
+    await expect(page.locator("[data-ambience-toggle]")).toContainText("Sound: off");
+    const stored = await page.evaluate(() =>
+      JSON.parse(localStorage.getItem("vroomon:settings") ?? "{}"),
+    );
+    expect(stored.masterVolume).toBeCloseTo(0.2, 5);
+    expect(stored.ambienceVolume).toBe(0);
+
+    // World export/import round trip with a distinctive marker.
+    await page.evaluate(async () => {
+      const world = await window.vroomon.loadWorldState();
+      await window.vroomon.saveWorldState({ ...world, rancherName: "Nyx" });
+    });
+    // The export comes from the renderer's world copy — rehydrate it from
+    // storage first.
+    await page.reload();
+    await page.locator("[data-status-message]").filter({ hasText: "Welcome" }).waitFor({ timeout: 20000 });
+    await page.locator("[data-open-settings]").click();
+    await page.locator("[data-export-world]").click();
+    const transfer = await page.locator("[data-save-transfer]").inputValue();
+    expect(transfer.length).toBeGreaterThan(10);
+    await page.evaluate(async () => {
+      const world = await window.vroomon.loadWorldState();
+      await window.vroomon.saveWorldState({ ...world, rancherName: "" });
+    });
+    await page.locator("[data-save-transfer]").fill(transfer);
+    await page.locator("[data-import-world]").click();
+    await page.waitForTimeout(400);
+    expect(
+      await page.evaluate(async () => (await window.vroomon.loadWorldState()).rancherName),
+    ).toBe("Nyx");
+
+    // Run state export/import round trip too.
+    await page.evaluate(async () => {
+      const run = await window.vroomon.loadRunState();
+      await window.vroomon.saveRunState({ ...run, runId: "transfer-me", generation: 41 });
+    });
+    await page.reload();
+    await page.locator("[data-status-message]").filter({ hasText: "Welcome" }).waitFor({ timeout: 20000 });
+    await page.locator('[data-mode-button="test-drive"]').click();
+    await page.waitForTimeout(300);
+    await page.keyboard.press("l"); // load the saved run into the session
+    await page.waitForTimeout(600);
+    await page.locator("[data-open-settings]").click();
+    await page.locator("[data-export-run]").click();
+    const runTransfer = await page.locator("[data-save-transfer]").inputValue();
+    await page.locator("[data-save-transfer]").fill(runTransfer);
+    await page.locator("[data-import-run]").click();
+    await page.waitForTimeout(400);
+    expect(
+      await page.evaluate(async () => (await window.vroomon.loadRunState()).runId),
+    ).toBe("transfer-me");
+
+    await page.locator("[data-settings-close]").click();
+    await expect(page.locator("[data-settings-overlay]")).toBeHidden();
+  });
+
 });
 
 

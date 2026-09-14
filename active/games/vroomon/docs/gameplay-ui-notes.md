@@ -531,6 +531,21 @@ upgrade grind, which is now optional beyond the win).
   clobbered the flat-track replay notice — caught by e2e).
 - 177 unit + 19 e2e pass.
 
+## Settings + save transfer (2026-09-14) ✅
+
+- **Settings panel** (⚙ top-right): **master volume** slider applying to
+  every sfx cue and the ambience pad (audio.ts + ambience.ts now take a
+  global gain), and **ambient pad** Med/Low/Off — the old top-right chip
+  stays as a quick cycle and stays in sync. Persisted under
+  `vroomon:settings` (localStorage; the legacy `vroomon:ambience` key
+  migrates in once). `settings.ts` normalization is unit-tested.
+- **Save transfer**: export world / export run as base64-JSON share
+  strings (auto-copied to the clipboard and shown in the panel's
+  textarea), and import either by pasting a string back — validated
+  round-trips (`save-io.ts` nulls garbage). World import restores the
+  overworld live + storage; run import lands in the run state.
+- 183 unit + 20 e2e pass.
+
 ## Outstanding gameplay/UI issues (identified, not yet fixed — design work)
 
 From the vision-model critique + probes, ordered by impact:
