@@ -84,6 +84,42 @@ export const DECOR_ITEMS: DecorItem[] = [
     flavor: "A bright line that tells the updraft from the down.",
     anchor: { x: 4, y: 10 },
   },
+  {
+    id: "salt-road-marker",
+    name: "Salt Road Marker",
+    emoji: "🪧",
+    cost: 16,
+    flavor: "A spare post that still points every way at once.",
+    anchor: { x: 5, y: 10 },
+    spots: { route_2: { x: 13, y: 8 } },
+  },
+  {
+    id: "meadow-lanterns",
+    name: "Meadow Lanterns",
+    emoji: "🏮",
+    cost: 28,
+    flavor: "Glassed candle-rings strung low for the dusk herd.",
+    anchor: { x: 6, y: 10 },
+    spots: { ice_map: { x: 11, y: 3 } },
+  },
+  {
+    id: "roundup-bell",
+    name: "Roundup Bell",
+    emoji: "🔔",
+    cost: 38,
+    flavor: "One honest ring when the road opens for a champ.",
+    anchor: { x: 3, y: 11 },
+    spots: { gym_1: { x: 11, y: 7 } },
+  },
+  {
+    id: "trellis-arch",
+    name: "Trellis Arch",
+    emoji: "🌺",
+    cost: 24,
+    flavor: "A rusty frame the highland vines win every summer.",
+    anchor: { x: 3, y: 9 },
+    spots: { hills_map: { x: 4, y: 9 } },
+  },
 ];
 
 export function findDecor(id: string): DecorItem | null {

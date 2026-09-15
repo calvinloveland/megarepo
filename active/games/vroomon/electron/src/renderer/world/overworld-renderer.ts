@@ -12,7 +12,8 @@ import {
   type WorldState,
 } from "./types.js";
 import { findDecor } from "./decor.js";
-import { SPRITE_PALETTE as PAL } from "./sprites-palette.js";
+import { HOUSE_ACCENTS, SPRITE_PALETTE as PAL } from "./sprites-palette.js";
+import { FACTIONS } from "./factions.js";
 
 export interface OverworldRenderFrame {
   map: Tilemap;
@@ -48,6 +49,21 @@ export function renderOverworld(
       const py = y * TILE_SIZE - cameraY;
       drawTile(ctx, tile, px, py, TILE_SIZE, tick);
     }
+  }
+
+  // Festive pennant garlands across the feud arenas: the joined house's
+  // colors on the home half, the rival's on the far half, neutral gold
+  // before any house is chosen.
+  const ARENA_BIOME: Record<string, string> = {
+    gym_1: "grassland",
+    gym_2: "sand",
+    hills_map: "hills",
+    rocky_map: "rocky",
+    ice_map: "ice",
+  };
+  const arenaBiome = ARENA_BIOME[map.id];
+  if (arenaBiome) {
+    drawArenaGarlands(ctx, map, cameraX, cameraY, arenaBiome, world, tick);
   }
 
   // Cosmetic meadow decor (drawn under NPCs and the player). Each item has
@@ -329,4 +345,64 @@ export function findAdjacentNpc(
 
 export function getNpcByPosition(map: Tilemap, x: number, y: number) {
   return map.npcs.find((npc) => npc.x === x && npc.y === y) ?? null;
+}
+
+
+/** A sagging garland of faction pennants strung across the arena's top. */
+function drawArenaGarlands(
+  ctx: CanvasRenderingContext2D,
+  map: Tilemap,
+  cameraX: number,
+  cameraY: number,
+  biomeId: string,
+  world: WorldState,
+  tick: number,
+): void {
+  const joined = world.factionChoices[biomeId] ?? null;
+  const home = joined ? (HOUSE_ACCENTS[joined] ?? "#caa672") : "#caa672";
+  const rival = joined
+    ? FACTIONS.find((faction) => faction.biomeId === biomeId && faction.id !== joined)
+    : null;
+  const away = rival ? (HOUSE_ACCENTS[rival.id] ?? "#8a5a28") : "#8a5a28";
+  const postsX = 2;
+  const postsY = 2;
+  const span = Math.max(2, Math.floor((map.width - postsX) / 2));
+  const poleBase = (postsX + span) * TILE_SIZE - cameraX;
+  const poleTop = postsY * TILE_SIZE + 28 - cameraY;
+  const sag = 34;
+  const sway = Math.sin(tick / 900) * 6;
+
+  // Hanging rope.
+  ctx.strokeStyle = "rgba(255, 240, 210, 0.55)";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo((postsX - 0.3) * TILE_SIZE - cameraX, poleTop);
+  ctx.quadraticCurveTo(poleBase / 2, poleTop + sag + sway, poleBase + 10, poleTop);
+  ctx.stroke();
+
+  // Pennants: home colors on the near half, away colors on the far half.
+  const pennants = Math.max(3, Math.floor(span * 1.4));
+  for (let i = 0; i < pennants; i += 1) {
+    const t = (i + 0.5) / pennants;
+    const x = (postsX - 0.3) * TILE_SIZE - cameraX + t * (span * 2 * TILE_SIZE);
+    const y = poleTop + (sag + sway) * 4 * t * (1 - t) - 10;
+    const color = t < 0.5 ? home : away;
+    const flutter = Math.sin(tick / 260 + i * 1.7) * 3;
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + 10, y + 22 + flutter);
+    ctx.lineTo(x + 6, y + 18 + flutter);
+    ctx.lineTo(x - 6, y + 18 + flutter);
+    ctx.lineTo(x - 10, y + 22 + flutter);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  // Two little post lights so the arena reads as an arena at dusk.
+  ctx.fillStyle = "rgba(255, 209, 102, 0.9)";
+  ctx.beginPath();
+  ctx.arc((postsX - 0.3) * TILE_SIZE - cameraX, poleTop - 6, 4, 0, Math.PI * 2);
+  ctx.arc(poleBase + 10, poleTop - 6, 4, 0, Math.PI * 2);
+  ctx.fill();
 }

@@ -395,7 +395,7 @@ test.describe("vroomon Playwright harness", () => {
     expect(wallet).toBeGreaterThanOrEqual(10);
     await page.locator("[data-open-ranch]").click();
     await page.waitForTimeout(300);
-    await expect(page.locator("[data-ranch-decor-list] .ranch-card")).toHaveCount(8);
+    await expect(page.locator("[data-ranch-decor-list] .ranch-card")).toHaveCount(12);
     await page.locator("[data-buy-decor='sunflower-bower']").click();
     await page.waitForTimeout(600);
     const afterBuy = await readJson<{ wallet: number }>(page, "[data-run-state-output]");

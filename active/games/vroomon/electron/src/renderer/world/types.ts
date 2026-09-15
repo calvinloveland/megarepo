@@ -91,6 +91,9 @@ export interface WorldState {
 
 export interface PersistedWorldState {
   version: 1;
+  /** Worldbuild iteration stamp (2 = banner garlands + extended decor).
+   * Old saves without it read as version 1 — always tolerated on load. */
+  worldVersion?: number;
   currentMapId: string;
   playerX: number;
   playerY: number;

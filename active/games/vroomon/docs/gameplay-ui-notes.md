@@ -563,6 +563,19 @@ upgrade grind, which is now optional beyond the win).
   flows (the first cut gated options behind typing and broke fast flows —
   caught by the suite). 186 unit + 20 e2e pass.
 
+## Polish pass (2026-09-14) ✅
+
+- **Arena banner garlands**: feud arenas (gym_1, gym_2, hills, rocky,
+  ice) now string a sagging pennant garland across the top — the joined
+  house's accent on the home half, the rival's on the far half, neutral
+  gold before you pick a side. Sways with the overworld tick.
+- **Decor catalog 8 → 12**: Salt Road Marker, Meadow Lanterns, Roundup
+  Bell, Trellis Arch (each with a biome spot).
+- **World-state version stamp**: `worldVersion` (optional in the
+  persisted shape) so future worldbuild iterations can migrate old saves
+  explicitly; old saves without it read as version 1, always tolerated.
+- 186 unit + 20 e2e pass.
+
 ## Outstanding gameplay/UI issues (identified, not yet fixed — design work)
 
 From the vision-model critique + probes, ordered by impact:
