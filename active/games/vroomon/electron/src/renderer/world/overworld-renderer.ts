@@ -26,6 +26,50 @@ export interface OverworldRenderFrame {
   spriteAssets?: Map<string, HTMLImageElement>;
 }
 
+// ---- Static tile-layer bake ----
+// One offscreen canvas per map (invalidated when the map or the sprite
+// assets change): the tile layer is drawn once, then blitted per frame.
+let bakedLayer: { key: string; canvas: HTMLCanvasElement } | null = null;
+
+function bakedTileLayer(
+  map: Tilemap,
+  spriteAssets?: Map<string, HTMLImageElement>,
+): HTMLCanvasElement {
+  const usingAssets = Boolean(spriteAssets && spriteAssets.size > 0);
+  const key = `${map.id}|${usingAssets ? "png" : "code"}|${map.width}x${map.height}`;
+  if (bakedLayer && bakedLayer.key === key) {
+    return bakedLayer.canvas;
+  }
+  const layer = document.createElement("canvas");
+  layer.width = map.width * TILE_SIZE;
+  layer.height = map.height * TILE_SIZE;
+  const lctx = layer.getContext("2d");
+  if (!lctx) {
+    return layer;
+  }
+  lctx.fillStyle = map.ambientColor;
+  lctx.fillRect(0, 0, layer.width, layer.height);
+  for (let y = 0; y < map.height; y += 1) {
+    for (let x = 0; x < map.width; x += 1) {
+      const tile = map.tiles[y]?.[x] ?? "grass";
+      const px = x * TILE_SIZE;
+      const py = y * TILE_SIZE;
+      const tileAsset = spriteAssets?.get(`tile:${tile}`);
+      if (tileAsset) {
+        lctx.drawImage(tileAsset, px, py, TILE_SIZE, TILE_SIZE);
+      } else {
+        drawTile(lctx, tile, px, py, TILE_SIZE, 0);
+      }
+    }
+  }
+  bakedLayer = { key, canvas: layer };
+  return layer;
+}
+
+export function invalidateBakedTileLayer(): void {
+  bakedLayer = null;
+}
+
 export function renderOverworld(
   canvas: HTMLCanvasElement,
   frame: OverworldRenderFrame,
@@ -39,25 +83,20 @@ export function renderOverworld(
   const width = canvas.width;
   const height = canvas.height;
 
-  ctx.fillStyle = map.ambientColor;
-  ctx.fillRect(0, 0, width, height);
-
   const cameraX = computeCameraX(world, map, width);
   const cameraY = computeCameraY(world, map, height);
 
-  for (let y = 0; y < map.height; y += 1) {
-    for (let x = 0; x < map.width; x += 1) {
-      const tile = map.tiles[y]?.[x] ?? "grass";
-      const px = x * TILE_SIZE - cameraX;
-      const py = y * TILE_SIZE - cameraY;
-      const tileAsset = frame.spriteAssets?.get(`tile:${tile}`);
-      if (tileAsset) {
-        ctx.drawImage(tileAsset, px, py, TILE_SIZE, TILE_SIZE);
-      } else {
-        drawTile(ctx, tile, px, py, TILE_SIZE, tick);
-      }
-    }
-  }
+  // Outside the map is deep forest, not more meadow: the bright ambient
+  // fill made the letterbox around small maps look like empty paint.
+  ctx.fillStyle = "#14200f";
+  ctx.fillRect(0, 0, width, height);
+
+  // The static tile layer is BAKED once per map into an offscreen canvas
+  // and blitted in a single draw call per frame. Drawing ~200 tiles every
+  // frame was the biggest per-frame cost in the overworld; the bake keeps
+  // tiles (and their PNG assets) as load-once art.
+  const baked = bakedTileLayer(map, frame.spriteAssets);
+  ctx.drawImage(baked, -cameraX, -cameraY);
 
   // Festive pennant garlands across the feud arenas: the joined house's
   // colors on the home half, the rival's on the far half, neutral gold
@@ -455,22 +494,23 @@ function drawNpcNameTag(
   if (!name || NAME_TAG_HIDDEN_IDS.has(npcId)) {
     return;
   }
-  const text = name.length > 20 ? `${name.slice(0, 18)}…` : name;
-  const fontSize = 11;
+  const text = name.length > 22 ? `${name.slice(0, 20)}…` : name;
+  const fontSize = 6;
   ctx.font = `600 ${fontSize}px system-ui, sans-serif`;
-  const width = ctx.measureText(text).width + 14;
+  const width = ctx.measureText(text).width + 6;
   const x = npcPx + TILE_SIZE / 2;
-  const y = npcPy - 12;
+  const y = npcPy - 3;
   const accent = houseAccentForNpc(npcId) ?? "#caa672";
-  ctx.fillStyle = "rgba(12, 9, 6, 0.82)";
+  ctx.fillStyle = "rgba(10, 8, 5, 0.72)";
   ctx.beginPath();
-  ctx.roundRect(x - width / 2, y - fontSize - 4, width, fontSize + 8, 5);
+  ctx.roundRect(x - width / 2, y - fontSize - 2, width, fontSize + 4, 2.5);
   ctx.fill();
   ctx.strokeStyle = accent;
-  ctx.lineWidth = 1.4;
+  ctx.lineWidth = 0.8;
   ctx.stroke();
-  ctx.fillStyle = tick % 600 < 300 ? "#f8f1e0" : "#ffffff";
+  ctx.fillStyle = "#f4ecd8";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillText(text, x, y);
+  void tick;
 }

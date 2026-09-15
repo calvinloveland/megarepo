@@ -1,586 +1,737 @@
 [
   {
     "id": "tile:grass",
-    "file": "tile_grass.png"
+    "file": "tile_grass.png",
+    "source": "drawn"
   },
   {
     "id": "tile:path",
-    "file": "tile_path.png"
+    "file": "tile_path.png",
+    "source": "drawn"
   },
   {
     "id": "tile:tree",
-    "file": "tile_tree.png"
+    "file": "tile_tree.png",
+    "source": "drawn"
   },
   {
     "id": "tile:building",
-    "file": "tile_building.png"
+    "file": "tile_building.png",
+    "source": "drawn"
   },
   {
     "id": "tile:door",
-    "file": "tile_door.png"
+    "file": "tile_door.png",
+    "source": "drawn"
   },
   {
     "id": "tile:vroomgrass",
-    "file": "tile_vroomgrass.png"
+    "file": "tile_vroomgrass.png",
+    "source": "drawn"
   },
   {
     "id": "tile:water",
-    "file": "tile_water.png"
+    "file": "tile_water.png",
+    "source": "drawn"
   },
   {
     "id": "tile:wall",
-    "file": "tile_wall.png"
+    "file": "tile_wall.png",
+    "source": "drawn"
   },
   {
     "id": "tile:counter",
-    "file": "tile_counter.png"
+    "file": "tile_counter.png",
+    "source": "drawn"
   },
   {
     "id": "tile:indoor-floor",
-    "file": "tile_indoor-floor.png"
+    "file": "tile_indoor-floor.png",
+    "source": "drawn"
   },
   {
     "id": "tile:tall-grass-edge",
-    "file": "tile_tall-grass-edge.png"
+    "file": "tile_tall-grass-edge.png",
+    "source": "drawn"
   },
   {
     "id": "tile:tree-trunk",
-    "file": "tile_tree-trunk.png"
+    "file": "tile_tree-trunk.png",
+    "source": "drawn"
   },
   {
     "id": "tile:rock",
-    "file": "tile_rock.png"
+    "file": "tile_rock.png",
+    "source": "drawn"
   },
   {
     "id": "tile:doormat",
-    "file": "tile_doormat.png"
+    "file": "tile_doormat.png",
+    "source": "drawn"
   },
   {
     "id": "tile:bed",
-    "file": "tile_bed.png"
+    "file": "tile_bed.png",
+    "source": "drawn"
   },
   {
     "id": "tilebase:grass",
-    "file": "tilebase_grass.png"
+    "file": "tilebase_grass.png",
+    "source": "drawn"
   },
   {
     "id": "tiledetail:grass",
-    "file": "tiledetail_grass.png"
+    "file": "tiledetail_grass.png",
+    "source": "drawn"
   },
   {
     "id": "tilebase:path",
-    "file": "tilebase_path.png"
+    "file": "tilebase_path.png",
+    "source": "drawn"
   },
   {
     "id": "tiledetail:path",
-    "file": "tiledetail_path.png"
+    "file": "tiledetail_path.png",
+    "source": "drawn"
   },
   {
     "id": "tilebase:tree",
-    "file": "tilebase_tree.png"
+    "file": "tilebase_tree.png",
+    "source": "drawn"
   },
   {
     "id": "tiledetail:tree",
-    "file": "tiledetail_tree.png"
+    "file": "tiledetail_tree.png",
+    "source": "drawn"
   },
   {
     "id": "wallbase:building",
-    "file": "wallbase_building.png"
+    "file": "wallbase_building.png",
+    "source": "drawn"
   },
   {
     "id": "wallbrick:building",
-    "file": "wallbrick_building.png"
+    "file": "wallbrick_building.png",
+    "source": "drawn"
   },
   {
     "id": "walltrim:building",
-    "file": "walltrim_building.png"
+    "file": "walltrim_building.png",
+    "source": "drawn"
   },
   {
     "id": "tilebase:door",
-    "file": "tilebase_door.png"
+    "file": "tilebase_door.png",
+    "source": "drawn"
   },
   {
     "id": "tiledetail:door",
-    "file": "tiledetail_door.png"
+    "file": "tiledetail_door.png",
+    "source": "drawn"
   },
   {
     "id": "tilebase:vroomgrass",
-    "file": "tilebase_vroomgrass.png"
+    "file": "tilebase_vroomgrass.png",
+    "source": "drawn"
   },
   {
     "id": "tiledetail:vroomgrass",
-    "file": "tiledetail_vroomgrass.png"
+    "file": "tiledetail_vroomgrass.png",
+    "source": "drawn"
   },
   {
     "id": "tilebase:water",
-    "file": "tilebase_water.png"
+    "file": "tilebase_water.png",
+    "source": "drawn"
   },
   {
     "id": "tiledetail:water",
-    "file": "tiledetail_water.png"
+    "file": "tiledetail_water.png",
+    "source": "drawn"
   },
   {
     "id": "wallbase:wall",
-    "file": "wallbase_wall.png"
+    "file": "wallbase_wall.png",
+    "source": "drawn"
   },
   {
     "id": "wallbrick:wall",
-    "file": "wallbrick_wall.png"
+    "file": "wallbrick_wall.png",
+    "source": "drawn"
   },
   {
     "id": "walltrim:wall",
-    "file": "walltrim_wall.png"
+    "file": "walltrim_wall.png",
+    "source": "drawn"
   },
   {
     "id": "tilebase:counter",
-    "file": "tilebase_counter.png"
+    "file": "tilebase_counter.png",
+    "source": "drawn"
   },
   {
     "id": "tiledetail:counter",
-    "file": "tiledetail_counter.png"
+    "file": "tiledetail_counter.png",
+    "source": "drawn"
   },
   {
     "id": "tilebase:indoor-floor",
-    "file": "tilebase_indoor-floor.png"
+    "file": "tilebase_indoor-floor.png",
+    "source": "drawn"
   },
   {
     "id": "tiledetail:indoor-floor",
-    "file": "tiledetail_indoor-floor.png"
+    "file": "tiledetail_indoor-floor.png",
+    "source": "drawn"
   },
   {
     "id": "tilebase:tall-grass-edge",
-    "file": "tilebase_tall-grass-edge.png"
+    "file": "tilebase_tall-grass-edge.png",
+    "source": "drawn"
   },
   {
     "id": "tiledetail:tall-grass-edge",
-    "file": "tiledetail_tall-grass-edge.png"
+    "file": "tiledetail_tall-grass-edge.png",
+    "source": "drawn"
   },
   {
     "id": "wallbase:tree-trunk",
-    "file": "wallbase_tree-trunk.png"
+    "file": "wallbase_tree-trunk.png",
+    "source": "drawn"
   },
   {
     "id": "wallbrick:tree-trunk",
-    "file": "wallbrick_tree-trunk.png"
+    "file": "wallbrick_tree-trunk.png",
+    "source": "drawn"
   },
   {
     "id": "walltrim:tree-trunk",
-    "file": "walltrim_tree-trunk.png"
+    "file": "walltrim_tree-trunk.png",
+    "source": "drawn"
   },
   {
     "id": "tilebase:rock",
-    "file": "tilebase_rock.png"
+    "file": "tilebase_rock.png",
+    "source": "drawn"
   },
   {
     "id": "tiledetail:rock",
-    "file": "tiledetail_rock.png"
+    "file": "tiledetail_rock.png",
+    "source": "drawn"
   },
   {
     "id": "tilebase:doormat",
-    "file": "tilebase_doormat.png"
+    "file": "tilebase_doormat.png",
+    "source": "drawn"
   },
   {
     "id": "tiledetail:doormat",
-    "file": "tiledetail_doormat.png"
+    "file": "tiledetail_doormat.png",
+    "source": "drawn"
   },
   {
     "id": "tilebase:bed",
-    "file": "tilebase_bed.png"
+    "file": "tilebase_bed.png",
+    "source": "drawn"
   },
   {
     "id": "tiledetail:bed",
-    "file": "tiledetail_bed.png"
+    "file": "tiledetail_bed.png",
+    "source": "drawn"
   },
   {
     "id": "head:light",
-    "file": "head_light.png"
+    "file": "head_light.png",
+    "source": "drawn"
   },
   {
     "id": "head:mid",
-    "file": "head_mid.png"
+    "file": "head_mid.png",
+    "source": "drawn"
   },
   {
     "id": "head:dark",
-    "file": "head_dark.png"
+    "file": "head_dark.png",
+    "source": "drawn"
   },
   {
     "id": "head:pale",
-    "file": "head_pale.png"
+    "file": "head_pale.png",
+    "source": "drawn"
   },
   {
     "id": "outfit:labcoat",
-    "file": "outfit_labcoat.png"
+    "file": "outfit_labcoat.png",
+    "source": "drawn"
   },
   {
     "id": "outfit:mechanic",
-    "file": "outfit_mechanic.png"
+    "file": "outfit_mechanic.png",
+    "source": "drawn"
   },
   {
     "id": "outfit:rider",
-    "file": "outfit_rider.png"
+    "file": "outfit_rider.png",
+    "source": "drawn"
   },
   {
     "id": "outfit:leader",
-    "file": "outfit_leader.png"
+    "file": "outfit_leader.png",
+    "source": "drawn"
   },
   {
     "id": "outfit:worker",
-    "file": "outfit_worker.png"
+    "file": "outfit_worker.png",
+    "source": "drawn"
   },
   {
     "id": "outfit:plain",
-    "file": "outfit_plain.png"
+    "file": "outfit_plain.png",
+    "source": "drawn"
   },
   {
     "id": "accessory:flatcap-glasses",
-    "file": "accessory_flatcap-glasses.png"
+    "file": "accessory_flatcap-glasses.png",
+    "source": "drawn"
   },
   {
     "id": "accessory:beanie-wrench",
-    "file": "accessory_beanie-wrench.png"
+    "file": "accessory_beanie-wrench.png",
+    "source": "drawn"
   },
   {
     "id": "accessory:bandana-ponytail",
-    "file": "accessory_bandana-ponytail.png"
+    "file": "accessory_bandana-ponytail.png",
+    "source": "drawn"
   },
   {
     "id": "accessory:stetson",
-    "file": "accessory_stetson.png"
+    "file": "accessory_stetson.png",
+    "source": "drawn"
   },
   {
     "id": "accessory:sign-post",
-    "file": "accessory_sign-post.png"
+    "file": "accessory_sign-post.png",
+    "source": "drawn"
   },
   {
     "id": "accessory:none",
-    "file": "accessory_none.png"
+    "file": "accessory_none.png",
+    "source": "drawn"
   },
   {
     "id": "player:down",
-    "file": "player_down.png"
+    "file": "player_down.png",
+    "source": "drawn"
   },
   {
     "id": "player:up",
-    "file": "player_up.png"
+    "file": "player_up.png",
+    "source": "drawn"
   },
   {
     "id": "player:left",
-    "file": "player_left.png"
+    "file": "player_left.png",
+    "source": "drawn"
   },
   {
     "id": "player:right",
-    "file": "player_right.png"
+    "file": "player_right.png",
+    "source": "drawn"
   },
   {
     "id": "npc:robby-kitchen",
-    "file": "npc_robby-kitchen.png"
+    "file": "npc_robby-kitchen.png",
+    "source": "drawn"
   },
   {
     "id": "npc:robby-reveal-1",
-    "file": "npc_robby-reveal-1.png"
+    "file": "npc_robby-reveal-1.png",
+    "source": "drawn"
   },
   {
     "id": "npc:robby-reveal-2",
-    "file": "npc_robby-reveal-2.png"
+    "file": "npc_robby-reveal-2.png",
+    "source": "drawn"
   },
   {
     "id": "npc:robby-reveal-3",
-    "file": "npc_robby-reveal-3.png"
+    "file": "npc_robby-reveal-3.png",
+    "source": "drawn"
   },
   {
     "id": "npc:robby-reveal-4",
-    "file": "npc_robby-reveal-4.png"
+    "file": "npc_robby-reveal-4.png",
+    "source": "drawn"
   },
   {
     "id": "npc:robby-yard-1",
-    "file": "npc_robby-yard-1.png"
+    "file": "npc_robby-yard-1.png",
+    "source": "drawn"
   },
   {
     "id": "npc:robby-yard-2",
-    "file": "npc_robby-yard-2.png"
+    "file": "npc_robby-yard-2.png",
+    "source": "drawn"
   },
   {
     "id": "npc:robby-yard-3",
-    "file": "npc_robby-yard-3.png"
+    "file": "npc_robby-yard-3.png",
+    "source": "drawn"
   },
   {
     "id": "npc:wild-grass",
-    "file": "npc_wild-grass.png"
+    "file": "npc_wild-grass.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:carrier-bench",
+    "file": "npc_carrier-bench.png",
+    "source": "drawn"
   },
   {
     "id": "npc:robby-caught-1",
-    "file": "npc_robby-caught-1.png"
+    "file": "npc_robby-caught-1.png",
+    "source": "drawn"
   },
   {
     "id": "npc:robby-caught-2",
-    "file": "npc_robby-caught-2.png"
+    "file": "npc_robby-caught-2.png",
+    "source": "drawn"
   },
   {
     "id": "npc:robby-caught-3",
-    "file": "npc_robby-caught-3.png"
+    "file": "npc_robby-caught-3.png",
+    "source": "drawn"
   },
   {
     "id": "npc:robby-caught-4",
-    "file": "npc_robby-caught-4.png"
+    "file": "npc_robby-caught-4.png",
+    "source": "drawn"
   },
   {
     "id": "npc:robby-caught-5",
-    "file": "npc_robby-caught-5.png"
+    "file": "npc_robby-caught-5.png",
+    "source": "drawn"
   },
   {
     "id": "npc:professor-axle",
-    "file": "npc_professor-axle.png"
+    "file": "npc_professor-axle.png",
+    "source": "drawn"
   },
   {
     "id": "npc:professor-axle-2",
-    "file": "npc_professor-axle-2.png"
+    "file": "npc_professor-axle-2.png",
+    "source": "drawn"
   },
   {
     "id": "npc:vroomdex-explain",
-    "file": "npc_vroomdex-explain.png"
+    "file": "npc_vroomdex-explain.png",
+    "source": "drawn"
   },
   {
     "id": "npc:breed-champion-explain",
-    "file": "npc_breed-champion-explain.png"
+    "file": "npc_breed-champion-explain.png",
+    "source": "drawn"
   },
   {
     "id": "npc:professor-farewell",
-    "file": "npc_professor-farewell.png"
+    "file": "npc_professor-farewell.png",
+    "source": "drawn"
   },
   {
     "id": "npc:wanda-first-buys",
-    "file": "npc_wanda-first-buys.png"
+    "file": "npc_wanda-first-buys.png",
+    "source": "drawn"
   },
   {
     "id": "npc:wanda-bye",
-    "file": "npc_wanda-bye.png"
+    "file": "npc_wanda-bye.png",
+    "source": "drawn"
   },
   {
     "id": "npc:meadow-elder",
-    "file": "npc_meadow-elder.png"
+    "file": "npc_meadow-elder.png",
+    "source": "drawn"
   },
   {
     "id": "npc:elder-join-faction",
-    "file": "npc_elder-join-faction.png"
+    "file": "npc_elder-join-faction.png",
+    "source": "drawn"
   },
   {
     "id": "npc:elder-decline",
-    "file": "npc_elder-decline.png"
+    "file": "npc_elder-decline.png",
+    "source": "drawn"
   },
   {
     "id": "npc:elder-feud",
-    "file": "npc_elder-feud.png"
+    "file": "npc_elder-feud.png",
+    "source": "drawn"
   },
   {
     "id": "npc:shopkeeper",
-    "file": "npc_shopkeeper.png"
+    "file": "npc_shopkeeper.png",
+    "source": "drawn"
   },
   {
     "id": "npc:rival-vicky",
-    "file": "npc_rival-vicky.png"
+    "file": "npc_rival-vicky.png",
+    "source": "drawn"
   },
   {
     "id": "npc:vicky-accept",
-    "file": "npc_vicky-accept.png"
+    "file": "npc_vicky-accept.png",
+    "source": "drawn"
   },
   {
     "id": "npc:vicky-decline",
-    "file": "npc_vicky-decline.png"
+    "file": "npc_vicky-decline.png",
+    "source": "drawn"
   },
   {
     "id": "npc:roundup-sign",
-    "file": "npc_roundup-sign.png"
+    "file": "npc_roundup-sign.png",
+    "source": "drawn"
   },
   {
     "id": "npc:roundup-king",
-    "file": "npc_roundup-king.png"
+    "file": "npc_roundup-king.png",
+    "source": "drawn"
   },
   {
     "id": "npc:king-join-faction",
-    "file": "npc_king-join-faction.png"
+    "file": "npc_king-join-faction.png",
+    "source": "drawn"
   },
   {
     "id": "npc:king-decline",
-    "file": "npc_king-decline.png"
+    "file": "npc_king-decline.png",
+    "source": "drawn"
   },
   {
     "id": "npc:king-feud",
-    "file": "npc_king-feud.png"
+    "file": "npc_king-feud.png",
+    "source": "drawn"
   },
   {
     "id": "npc:grand-roundup",
-    "file": "npc_grand-roundup.png"
+    "file": "npc_grand-roundup.png",
+    "source": "drawn"
   },
   {
     "id": "npc:rival-marcus",
-    "file": "npc_rival-marcus.png"
+    "file": "npc_rival-marcus.png",
+    "source": "drawn"
   },
   {
     "id": "npc:salt-gate-sign",
-    "file": "npc_salt-gate-sign.png"
+    "file": "npc_salt-gate-sign.png",
+    "source": "drawn"
   },
   {
     "id": "npc:trail-boss",
-    "file": "npc_trail-boss.png"
+    "file": "npc_trail-boss.png",
+    "source": "drawn"
   },
   {
     "id": "npc:trailboss-join-faction",
-    "file": "npc_trailboss-join-faction.png"
+    "file": "npc_trailboss-join-faction.png",
+    "source": "drawn"
   },
   {
     "id": "npc:trailboss-decline",
-    "file": "npc_trailboss-decline.png"
+    "file": "npc_trailboss-decline.png",
+    "source": "drawn"
   },
   {
     "id": "npc:trailboss-feud",
-    "file": "npc_trailboss-feud.png"
+    "file": "npc_trailboss-feud.png",
+    "source": "drawn"
   },
   {
     "id": "npc:highland-herder",
-    "file": "npc_highland-herder.png"
+    "file": "npc_highland-herder.png",
+    "source": "drawn"
   },
   {
     "id": "npc:canyon-hauler",
-    "file": "npc_canyon-hauler.png"
+    "file": "npc_canyon-hauler.png",
+    "source": "drawn"
   },
   {
     "id": "npc:frost-courier",
-    "file": "npc_frost-courier.png"
+    "file": "npc_frost-courier.png",
+    "source": "drawn"
   },
   {
     "id": "npc:marcus-accept",
-    "file": "npc_marcus-accept.png"
+    "file": "npc_marcus-accept.png",
+    "source": "drawn"
   },
   {
     "id": "npc:marcus-decline",
-    "file": "npc_marcus-decline.png"
+    "file": "npc_marcus-decline.png",
+    "source": "drawn"
   },
   {
     "id": "npc:sand-sign",
-    "file": "npc_sand-sign.png"
+    "file": "npc_sand-sign.png",
+    "source": "drawn"
   },
   {
     "id": "npc:wreck-marshal",
-    "file": "npc_wreck-marshal.png"
+    "file": "npc_wreck-marshal.png",
+    "source": "drawn"
   },
   {
     "id": "npc:marshal-join-faction",
-    "file": "npc_marshal-join-faction.png"
+    "file": "npc_marshal-join-faction.png",
+    "source": "drawn"
   },
   {
     "id": "npc:marshal-decline",
-    "file": "npc_marshal-decline.png"
+    "file": "npc_marshal-decline.png",
+    "source": "drawn"
   },
   {
     "id": "npc:marshal-feud",
-    "file": "npc_marshal-feud.png"
+    "file": "npc_marshal-feud.png",
+    "source": "drawn"
   },
   {
     "id": "npc:guru-updrafts",
-    "file": "npc_guru-updrafts.png"
+    "file": "npc_guru-updrafts.png",
+    "source": "drawn"
   },
   {
     "id": "npc:skimmers-join-faction",
-    "file": "npc_skimmers-join-faction.png"
+    "file": "npc_skimmers-join-faction.png",
+    "source": "drawn"
   },
   {
     "id": "npc:skimmers-decline",
-    "file": "npc_skimmers-decline.png"
+    "file": "npc_skimmers-decline.png",
+    "source": "drawn"
   },
   {
     "id": "npc:skimmers-feud",
-    "file": "npc_skimmers-feud.png"
+    "file": "npc_skimmers-feud.png",
+    "source": "drawn"
   },
   {
     "id": "npc:guru-stone",
-    "file": "npc_guru-stone.png"
+    "file": "npc_guru-stone.png",
+    "source": "drawn"
   },
   {
     "id": "npc:miners-join-faction",
-    "file": "npc_miners-join-faction.png"
+    "file": "npc_miners-join-faction.png",
+    "source": "drawn"
   },
   {
     "id": "npc:miners-decline",
-    "file": "npc_miners-decline.png"
+    "file": "npc_miners-decline.png",
+    "source": "drawn"
   },
   {
     "id": "npc:miners-feud",
-    "file": "npc_miners-feud.png"
+    "file": "npc_miners-feud.png",
+    "source": "drawn"
   },
   {
     "id": "npc:vent-keeper",
-    "file": "npc_vent-keeper.png"
+    "file": "npc_vent-keeper.png",
+    "source": "drawn"
   },
   {
     "id": "npc:lay-foreman",
-    "file": "npc_lay-foreman.png"
+    "file": "npc_lay-foreman.png",
+    "source": "drawn"
   },
   {
     "id": "npc:union-join-faction",
-    "file": "npc_union-join-faction.png"
+    "file": "npc_union-join-faction.png",
+    "source": "drawn"
   },
   {
     "id": "npc:union-decline",
-    "file": "npc_union-decline.png"
+    "file": "npc_union-decline.png",
+    "source": "drawn"
   },
   {
     "id": "npc:union-feud",
-    "file": "npc_union-feud.png"
+    "file": "npc_union-feud.png",
+    "source": "drawn"
   },
   {
     "id": "npc:canyon-ringleader",
-    "file": "npc_canyon-ringleader.png"
+    "file": "npc_canyon-ringleader.png",
+    "source": "drawn"
   },
   {
     "id": "npc:runners-join-faction",
-    "file": "npc_runners-join-faction.png"
+    "file": "npc_runners-join-faction.png",
+    "source": "drawn"
   },
   {
     "id": "npc:runners-decline",
-    "file": "npc_runners-decline.png"
+    "file": "npc_runners-decline.png",
+    "source": "drawn"
   },
   {
     "id": "npc:runners-feud",
-    "file": "npc_runners-feud.png"
+    "file": "npc_runners-feud.png",
+    "source": "drawn"
   },
   {
     "id": "npc:assay-clerk",
-    "file": "npc_assay-clerk.png"
+    "file": "npc_assay-clerk.png",
+    "source": "drawn"
   },
   {
     "id": "npc:keeper-long-light",
-    "file": "npc_keeper-long-light.png"
+    "file": "npc_keeper-long-light.png",
+    "source": "drawn"
   },
   {
     "id": "npc:herdsmen-join-faction",
-    "file": "npc_herdsmen-join-faction.png"
+    "file": "npc_herdsmen-join-faction.png",
+    "source": "drawn"
   },
   {
     "id": "npc:herdsmen-decline",
-    "file": "npc_herdsmen-decline.png"
+    "file": "npc_herdsmen-decline.png",
+    "source": "drawn"
   },
   {
     "id": "npc:herdsmen-feud",
-    "file": "npc_herdsmen-feud.png"
+    "file": "npc_herdsmen-feud.png",
+    "source": "drawn"
   },
   {
     "id": "npc:frost-baron",
-    "file": "npc_frost-baron.png"
+    "file": "npc_frost-baron.png",
+    "source": "drawn"
   },
   {
     "id": "npc:drift-join-faction",
-    "file": "npc_drift-join-faction.png"
+    "file": "npc_drift-join-faction.png",
+    "source": "drawn"
   },
   {
     "id": "npc:drift-decline",
-    "file": "npc_drift-decline.png"
+    "file": "npc_drift-decline.png",
+    "source": "drawn"
   },
   {
     "id": "npc:drift-feud",
-    "file": "npc_drift-feud.png"
+    "file": "npc_drift-feud.png",
+    "source": "drawn"
   },
   {
     "id": "npc:lamp-lighter",
-    "file": "npc_lamp-lighter.png"
+    "file": "npc_lamp-lighter.png",
+    "source": "drawn"
   }
 ]

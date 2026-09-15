@@ -135,15 +135,25 @@ function drawGroundDetail(
   tick: number,
 ): void {
   if (tile === "bed") {
-    const hue = tick % 3 === 0 ? "#7a5c3e" : "#8a6a4a";
-    ctx.fillStyle = "#3b2a1c";
-    ctx.fillRect(px + 2, py + 10, size - 4, size - 12);
-    ctx.fillStyle = hue;
-    ctx.fillRect(px + 2, py + 10, size - 4, 9);
-    ctx.fillStyle = "#d8b48a";
-    ctx.fillRect(px + 4, py + 10, 10, 5);
-    ctx.fillStyle = "#f2e8d8";
-    ctx.fillRect(px + 4, py + size - 12, size - 8, 4);
+    const u = size / 32;
+    // Wooden frame, mattress, striped blanket, and a fat pillow — the
+    // first thing a new rancher sees, so it should read as a bed.
+    ctx.fillStyle = "#5a3b22";
+    ctx.fillRect(px + 1 * u, py + 2 * u, size - 2 * u, size - 4 * u);
+    ctx.fillStyle = "#efe6d2";
+    ctx.fillRect(px + 3 * u, py + 4 * u, size - 6 * u, size - 8 * u);
+    ctx.fillStyle = "#cf3a3a";
+    ctx.fillRect(px + 3 * u, py + 10 * u, size - 6 * u, size - 14 * u);
+    ctx.fillStyle = "rgba(0,0,0,0.18)";
+    for (let i = 0; i < 3; i += 1) {
+      ctx.fillRect(px + 3 * u, py + (12 + i * 5) * u, size - 6 * u, 1 * u);
+    }
+    ctx.fillStyle = "#fffaf0";
+    ctx.fillRect(px + 5 * u, py + 5 * u, size - 10 * u, 4 * u);
+    ctx.strokeStyle = "rgba(40, 24, 10, 0.65)";
+    ctx.lineWidth = Math.max(1, u);
+    ctx.strokeRect(px + 1 * u, py + 2 * u, size - 2 * u, size - 4 * u);
+    void tick;
     return;
   }
   if (tile === "vroomgrass") {
@@ -164,12 +174,26 @@ function drawGroundDetail(
     ctx.fillRect(px + 4, py + size - 12 - wave, size - 8, 2);
   }
   if (tile === "tall-grass-edge") {
-    ctx.strokeStyle = "#3f7d28";
-    ctx.lineWidth = 2;
-    for (let i = 0; i < 4; i += 1) {
+    // A few irregular blades (not a repeating dash pattern, which tiled
+    // into a fence-like line across the yard).
+    const u = size / 32;
+    ctx.strokeStyle = "rgba(47, 96, 32, 0.8)";
+    ctx.lineWidth = 1.6 * u;
+    const blades = [
+      [5, 9],
+      [11, 6],
+      [18, 8],
+      [26, 5],
+    ] as const;
+    for (const [bx, bh] of blades) {
       ctx.beginPath();
-      ctx.moveTo(px + i * (size / 3) + 4, py + size);
-      ctx.lineTo(px + i * (size / 3) + 6, py + size - 8);
+      ctx.moveTo(px + bx * u, py + size - 1);
+      ctx.quadraticCurveTo(
+        px + (bx + 1) * u,
+        py + (32 - bh / 2) * u,
+        px + (bx + 2) * u,
+        py + (32 - bh) * u,
+      );
       ctx.stroke();
     }
   }
@@ -310,35 +334,44 @@ export function drawPlayer(
   step: number,
   capColor: string = PAL.cap.navy,
 ): void {
-  const bobY = Math.sin(step / 100) * 1.5;
+  // Every dimension is relative to the tile (32px is the design unit), so
+  // the same figure reads correctly at world scale and in the 96px exports.
+  const u = size / 32;
+  const bobY = Math.sin(step / 100) * 1.5 * u;
   const cy = py + size / 2 + bobY;
+  const cx = px + size / 2;
 
   ctx.fillStyle = "rgba(0,0,0,0.25)";
   ctx.beginPath();
-  ctx.ellipse(px + size / 2, py + size - 4, size / 3, 4, 0, 0, Math.PI * 2);
+  ctx.ellipse(cx, py + size - 4 * u, size / 3, 4 * u, 0, 0, Math.PI * 2);
   ctx.fill();
 
   ctx.fillStyle = PAL.skin.light;
-  ctx.fillRect(px + size / 2 - 5, cy - 8, 10, 10);
+  ctx.fillRect(cx - 5 * u, cy - 8 * u, 10 * u, 10 * u);
 
-  ctx.fillStyle = PAL.cap.navy;
-  const eyeOffset = facing === "left" ? -2 : facing === "right" ? 2 : 0;
-  ctx.fillRect(px + size / 2 - 3 + eyeOffset, cy - 5, 1.5, 1.5);
-  ctx.fillRect(px + size / 2 + 1 + eyeOffset, cy - 5, 1.5, 1.5);
+  ctx.fillStyle = PAL.ink.eyes;
+  const eyeOffset = (facing === "left" ? -2 : facing === "right" ? 2 : 0) * u;
+  ctx.fillRect(cx - 3 * u + eyeOffset, cy - 5 * u, 1.5 * u, 1.5 * u);
+  ctx.fillRect(cx + 1 * u + eyeOffset, cy - 5 * u, 1.5 * u, 1.5 * u);
 
   // Cap brim (the rancher's signature color).
   ctx.fillStyle = capColor;
-  ctx.fillRect(px + size / 2 - 7, cy - 14, 14, 3);
+  ctx.fillRect(cx - 7 * u, cy - 14 * u, 14 * u, 3 * u);
   ctx.fillStyle = PAL.cap.red;
-  ctx.fillRect(px + size / 2 - 6, cy - 11, 12, 4);
+  ctx.fillRect(cx - 6 * u, cy - 11 * u, 12 * u, 4 * u);
 
   ctx.fillStyle = PAL.body.navy;
-  ctx.fillRect(px + size / 2 - 7, cy + 2, 14, 12);
+  ctx.fillRect(cx - 7 * u, cy + 2 * u, 14 * u, 12 * u);
+
+  ctx.strokeStyle = "rgba(20, 14, 8, 0.7)";
+  ctx.lineWidth = Math.max(1, u);
+  ctx.strokeRect(cx - 5 * u, cy - 8 * u, 10 * u, 10 * u);
+  ctx.strokeRect(cx - 7 * u, cy + 2 * u, 14 * u, 12 * u);
 
   ctx.fillStyle = "#fff4d1";
-  const footOffset = Math.sin(step / 100) > 0 ? 1 : -1;
-  ctx.fillRect(px + size / 2 - 6, cy + 14 + footOffset, 5, 3);
-  ctx.fillRect(px + size / 2 + 1, cy + 14 - footOffset, 5, 3);
+  const footOffset = (Math.sin(step / 100) > 0 ? 1 : -1) * u;
+  ctx.fillRect(cx - 6 * u, cy + 14 * u + footOffset, 5 * u, 3 * u);
+  ctx.fillRect(cx + 1 * u, cy + 14 * u - footOffset, 5 * u, 3 * u);
 }
 
 export function drawNpc(
@@ -366,11 +399,12 @@ function drawNpcShadow(
   size: number,
   step: number,
 ): void {
-  const bobY = Math.sin(step / 220 + px) * 0.8;
+  const u = size / 32;
+  const bobY = Math.sin(step / 220 + px) * 0.8 * u;
   const cy = py + size / 2 + bobY;
   ctx.fillStyle = PAL.shadow;
   ctx.beginPath();
-  ctx.ellipse(px + size / 2, py + size - 4, size / 3, 4, 0, 0, Math.PI * 2);
+  ctx.ellipse(px + size / 2, py + size - 4, size / 3, 4 * u, 0, 0, Math.PI * 2);
   ctx.fill();
   void cy;
 }
@@ -383,19 +417,20 @@ function drawNpcHead(
   size: number,
   facing: Direction,
 ): void {
+  const u = size / 32;
   const cy = py + size / 2;
   const skin = HEAD_SKINS[head];
   ctx.fillStyle = skin;
-  ctx.fillRect(px + size / 2 - 5, cy - 8, 10, 10);
+  ctx.fillRect(px + size / 2 - 5 * u, cy - 8 * u, 10 * u, 10 * u);
   // Hair cap on the crown for extra readability.
   ctx.fillStyle = "rgba(52, 38, 26, 0.65)";
-  ctx.fillRect(px + size / 2 - 5, cy - 8, 10, 3);
+  ctx.fillRect(px + size / 2 - 5 * u, cy - 8 * u, 10 * u, 3 * u);
   ctx.fillStyle = PAL.ink.eyes;
   const eyeOffset = facing === "left" ? -2 : facing === "right" ? 2 : 0;
-  ctx.fillRect(px + size / 2 - 3 + eyeOffset, cy - 5, 1.5, 1.5);
-  ctx.fillRect(px + size / 2 + 1 + eyeOffset, cy - 5, 1.5, 1.5);
+  ctx.fillRect(px + size / 2 - 3 * u + eyeOffset, cy - 5 * u, 1.5 * u, 1.5 * u);
+  ctx.fillRect(px + size / 2 + 1 * u + eyeOffset, cy - 5 * u, 1.5 * u, 1.5 * u);
   // Mouth.
-  ctx.fillRect(px + size / 2 - 1 + eyeOffset, cy - 1, 2, 1);
+  ctx.fillRect(px + size / 2 - 1 * u + eyeOffset, cy - 1 * u, 2 * u, 1 * u);
 }
 
 function drawNpcOutfit(
@@ -406,36 +441,37 @@ function drawNpcOutfit(
   size: number,
   facing: Direction,
 ): void {
+  const u = size / 32;
   const cx = px + size / 2;
   const cy = py + size / 2;
   const colors = OUTFIT_COLORS[outfit];
   ctx.fillStyle = colors.main;
-  ctx.fillRect(cx - 7, cy + 2, 14, 12);
+  ctx.fillRect(cx - 7 * u, cy + 2 * u, 14 * u, 12 * u);
   if (outfit === "labcoat") {
     // Open collar + pocket lines.
     ctx.fillStyle = colors.trim;
-    ctx.fillRect(cx - 1, cy + 3, 2, 3);
-    ctx.fillRect(cx - 5, cy + 7, 4, 3);
+    ctx.fillRect(cx - 1 * u, cy + 3 * u, 2 * u, 3 * u);
+    ctx.fillRect(cx - 5 * u, cy + 7 * u, 4 * u, 3 * u);
   } else if (outfit === "mechanic") {
     ctx.fillStyle = colors.trim;
-    ctx.fillRect(cx - 5, cy + 5, 10, 1);
-    ctx.fillRect(cx + 3, cy + 6, 2, 4);
+    ctx.fillRect(cx - 5 * u, cy + 5 * u, 10 * u, 1 * u);
+    ctx.fillRect(cx + 3 * u, cy + 6 * u, 2 * u, 4 * u);
   } else if (outfit === "rider") {
     ctx.fillStyle = colors.trim;
-    ctx.fillRect(cx - 3, cy - 1, 6, 2);
-    ctx.fillRect(cx - 1, cy + 1, 2, 12);
+    ctx.fillRect(cx - 3 * u, cy - 1 * u, 6 * u, 2 * u);
+    ctx.fillRect(cx - 1 * u, cy + 1 * u, 2 * u, 12 * u);
   } else if (outfit === "leader") {
     ctx.fillStyle = colors.trim;
-    ctx.fillRect(cx - 7, cy + 2, 14, 2);
-    ctx.fillRect(cx - 2, cy + 6, 4, 4);
+    ctx.fillRect(cx - 7 * u, cy + 2 * u, 14 * u, 2 * u);
+    ctx.fillRect(cx - 2 * u, cy + 6 * u, 4 * u, 4 * u);
   } else if (outfit === "worker") {
     ctx.fillStyle = colors.trim;
-    ctx.fillRect(cx - 7, cy + 4, 14, 1);
-    ctx.fillRect(cx - 5, cy + 9, 10, 1);
+    ctx.fillRect(cx - 7 * u, cy + 4 * u, 14 * u, 1 * u);
+    ctx.fillRect(cx - 5 * u, cy + 9 * u, 10 * u, 1 * u);
   }
   ctx.fillStyle = PAL.ink.feet;
-  ctx.fillRect(cx - 6, cy + 13, 5, 3);
-  ctx.fillRect(cx + 1, cy + 13, 5, 3);
+  ctx.fillRect(cx - 6 * u, cy + 13 * u, 5 * u, 3 * u);
+  ctx.fillRect(cx + 1 * u, cy + 13 * u, 5 * u, 3 * u);
   void facing;
 }
 
@@ -448,59 +484,60 @@ function drawNpcAccessory(
   facing: Direction,
   npcId: string | undefined,
 ): void {
+  const u = size / 32;
   const cx = px + size / 2;
   const cy = py + size / 2;
-  const eyeShift = facing === "left" ? -1.5 : facing === "right" ? 1.5 : 0;
+  const eyeShift = (facing === "left" ? -1.5 : facing === "right" ? 1.5 : 0) * (size / 32);
   switch (accessory) {
     case "flatcap-glasses":
       ctx.fillStyle = "#4a4452";
-      ctx.fillRect(cx - 7, cy - 15, 14, 4);
-      ctx.fillRect(cx - 9, cy - 12, 18, 2);
+      ctx.fillRect(cx - 7 * u, cy - 15 * u, 14 * u, 4 * u);
+      ctx.fillRect(cx - 9 * u, cy - 12 * u, 18 * u, 2 * u);
       ctx.strokeStyle = "rgba(30, 24, 34, 0.85)";
       ctx.lineWidth = 1;
       ctx.beginPath();
-      ctx.arc(cx - 2.5 + eyeShift, cy - 5, 2.4, 0, Math.PI * 2);
+      ctx.arc(cx - 2.5 * u + eyeShift, cy - 5 * u, 2.4 * u, 0, Math.PI * 2);
       ctx.stroke();
       ctx.beginPath();
-      ctx.arc(cx + 2.5 + eyeShift, cy - 5, 2.4, 0, Math.PI * 2);
+      ctx.arc(cx + 2.5 * u + eyeShift, cy - 5 * u, 2.4 * u, 0, Math.PI * 2);
       ctx.stroke();
-      ctx.strokeRect(cx - 6 + eyeShift, cy - 4, 12, 2);
+      ctx.strokeRect(cx - 6 * u + eyeShift, cy - 4 * u, 12 * u, 2 * u);
       break;
     case "beanie-wrench":
       ctx.fillStyle = "#7d6a52";
       ctx.beginPath();
-      ctx.arc(cx, cy - 9, 7, Math.PI, 0);
+      ctx.arc(cx, cy - 9 * u, 7 * u, Math.PI, 0);
       ctx.fill();
       ctx.fillStyle = "#c9c9c9";
-      ctx.fillRect(cx + 8, cy + 4, 2, 6);
-      ctx.fillRect(cx + 6, cy + 9, 6, 2);
+      ctx.fillRect(cx + 8 * u, cy + 4 * u, 2 * u, 6 * u);
+      ctx.fillRect(cx + 6 * u, cy + 9 * u, 6 * u, 2 * u);
       break;
     case "bandana-ponytail":
       ctx.fillStyle = "#2a6b4f";
-      ctx.fillRect(cx - 5, cy + 2, 3, 7);
-      ctx.fillRect(cx + 2, cy + 2, 3, 7);
+      ctx.fillRect(cx - 5 * u, cy + 2 * u, 3 * u, 7 * u);
+      ctx.fillRect(cx + 2 * u, cy + 2 * u, 3 * u, 7 * u);
       ctx.fillStyle = "#7a4a1e";
-      ctx.fillRect(cx + 6, cy - 9, 2, 6);
+      ctx.fillRect(cx + 6 * u, cy - 9 * u, 2 * u, 6 * u);
       break;
     case "stetson": {
       const bandColor = npcId ? houseAccentForNpc(npcId) ?? "#caa672" : "#caa672";
       ctx.fillStyle = "#8a6a3a";
-      ctx.fillRect(cx - 9, cy - 14, 18, 2);
-      ctx.fillRect(cx - 5, cy - 19, 11, 6);
+      ctx.fillRect(cx - 9 * u, cy - 14 * u, 18 * u, 2 * u);
+      ctx.fillRect(cx - 5 * u, cy - 19 * u, 11 * u, 6 * u);
       ctx.fillStyle = bandColor;
-      ctx.fillRect(cx - 5, cy - 13, 11, 2);
+      ctx.fillRect(cx - 5 * u, cy - 13 * u, 11 * u, 2 * u);
       break;
     }
     case "sign-post":
       ctx.fillStyle = "#7a5c3e";
-      ctx.fillRect(cx + 6, cy - 12, 3, 24);
+      ctx.fillRect(cx + 6 * u, cy - 12 * u, 3 * u, 24 * u);
       ctx.fillStyle = "#c9a176";
-      ctx.fillRect(cx - 4, cy - 14, 12, 11);
+      ctx.fillRect(cx - 4 * u, cy - 14 * u, 12 * u, 11 * u);
       ctx.strokeStyle = "rgba(40, 26, 12, 0.7)";
-      ctx.strokeRect(cx - 4, cy - 14, 12, 11);
+      ctx.strokeRect(cx - 4 * u, cy - 14 * u, 12 * u, 11 * u);
       ctx.fillStyle = "#3b2a1c";
-      ctx.fillRect(cx, cy - 12, 1.5, 1.5);
-      ctx.fillRect(cx, cy - 6, 1.5, 1.5);
+      ctx.fillRect(cx, cy - 12 * u, 1.5 * u, 1.5 * u);
+      ctx.fillRect(cx, cy - 6 * u, 1.5 * u, 1.5 * u);
       break;
     case "none":
       break;
@@ -513,11 +550,12 @@ function drawNpcOutline(
   py: number,
   size: number,
 ): void {
+  const u = size / 32;
   const cy = py + size / 2;
   ctx.strokeStyle = "rgba(20, 14, 8, 0.75)";
-  ctx.lineWidth = 1;
-  ctx.strokeRect(px + size / 2 - 5, cy - 8, 10, 10);
-  ctx.strokeRect(px + size / 2 - 7, cy + 2, 14, 12);
+  ctx.lineWidth = Math.max(1, u);
+  ctx.strokeRect(px + size / 2 - 5 * u, cy - 8 * u, 10 * u, 10 * u);
+  ctx.strokeRect(px + size / 2 - 7 * u, cy + 2 * u, 14 * u, 12 * u);
 }
 
 const NPC_PALETTE: Record<string, { head: string; body: string; accent: string }> = {

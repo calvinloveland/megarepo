@@ -48,6 +48,23 @@ make web            # node scripts/web-server.mjs  -> http://localhost:5112
 The launcher (`active/web-apps/launcher/apps.yaml`) starts the same web
 server for the public-facing app.
 
+### Test tiers (fast loop)
+
+The suites are tiered so the cheap feedback loop stays cheap:
+
+```bash
+npm test                 # 189 unit tests — ~5s, no browser (the default loop)
+npm run test:e2e:smoke   # 6 critical journeys — ~25s (parallel, built once)
+npm run test:e2e         # full 22-test suite — ~50s (parallel)
+npm run test:e2e:fast    # same as test:e2e but reuses the existing dist
+```
+
+E2E tests run in parallel workers (isolated contexts); set
+`VROOMON_E2E_WORKERS=2` on a memory-tight machine. `@smoke` marks the
+subset that covers the paths most likely to break silently: the carrier
+hub navigation, world entry, the breeding/feed loop, save/load + settings,
+the evolution buttons, and the whole opening story.
+
 ### Play session (tracked server)
 
 The dev host may accumulate stray `web-server.mjs` instances. Brandon

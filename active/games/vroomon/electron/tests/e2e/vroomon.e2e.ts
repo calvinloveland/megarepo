@@ -132,7 +132,7 @@ test.describe("vroomon Playwright harness", () => {
       });
   });
 
-  test("supports evolution flow buttons end to end", async ({ page }) => {
+  test("@smoke supports evolution flow buttons end to end", async ({ page }) => {
     await seedAndEnterWorld(page);
     await openPocketRanch(page, "drive");
     const initialDna = await readJson<{ dna: string }>(page, "[data-dna-output]");
@@ -192,7 +192,7 @@ test.describe("vroomon Playwright harness", () => {
     });
   });
 
-  test("walks through the overworld and triggers a wild encounter", async ({ page }) => {
+  test("@smoke walks through the overworld and triggers a wild encounter", async ({ page }) => {
     await seedAndEnterWorld(page);
     await expectModeState(page, "world");
 
@@ -334,7 +334,7 @@ test.describe("vroomon Playwright harness", () => {
     expect(painted).toBeGreaterThan(1000);
   });
 
-  test("the carrier hub walks between herd, paddock, barn, and the road", async ({
+  test("@smoke the carrier hub walks between herd, paddock, barn, and the road", async ({
     page,
   }) => {
     await seedAndEnterWorld(page);
@@ -516,7 +516,7 @@ test.describe("vroomon Playwright harness", () => {
   });
 
 
-  test("the opening story: trip, new name, wake, wild catch, and town", async ({
+  test("@smoke the opening story: trip, new name, wake, wild catch, and town", async ({
     page,
   }) => {
     // Title screen: a fresh road offers only NEW GAME (CONTINUE appears
@@ -848,7 +848,7 @@ test.describe("vroomon Playwright harness", () => {
   });
 
 
-  test("adjusts settings and transfers save strings across a reload", async ({
+  test("@smoke adjusts settings and transfers save strings across a reload", async ({
     page,
   }) => {
     await page.locator("[data-open-settings]").click();
@@ -966,7 +966,7 @@ test.describe("vroomon Playwright harness", () => {
     await expect(page.locator("[data-overworld-dialogue-text]")).toContainText("Pasture first");
   });
 
-  test("ranches with feed — breeding costs, releasing pays back, grain restocks", async ({
+  test("@smoke ranches with feed — breeding costs, releasing pays back, grain restocks", async ({
     page,
   }) => {
     await seedAndEnterWorld(page);

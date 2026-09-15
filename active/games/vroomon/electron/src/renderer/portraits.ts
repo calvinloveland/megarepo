@@ -91,8 +91,9 @@ function bustFor(archetype: Archetype, name: string): string {
   const cap = `<path d="M50 58 Q66 46 88 58 L88 66 L50 66 Z" fill="${archetype.cap}"/><rect x="50" y="58" width="38" height="6" rx="3" fill="${archetype.cap}" opacity="0.7"/>`;
   const marker = `<text x="74" y="112" font-size="12" text-anchor="middle" fill="${archetype.markerColor}" font-family="monospace" font-weight="bold">${archetype.marker === "crown" ? "♛" : archetype.marker === "staff" ? "𝍏" : archetype.marker === "goggles" ? "⌐" : archetype.marker === "lamp" ? "◉" : archetype.marker === "wrap" ? "◠" : archetype.marker === "quill" ? "✎" : archetype.marker === "fluff" ? "☁" : archetype.marker === "earmuffs" ? "☁" : archetype.marker === "coin" ? "●" : archetype.marker === "star" ? "★" : archetype.marker === "badge" ? "▣" : archetype.marker === "stripe" ? "▲" : archetype.marker === "band" ? "▭" : "•"}</text>`;
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 140 150" width="120" height="128" role="img" aria-label="Portrait of ${name.replace(/&/g, "&amp;")}">
-  <rect x="0" y="0" width="140" height="150" rx="10" fill="#1d1410"/>
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="30 30 80 120" width="120" height="150" role="img" aria-label="Portrait of ${name.replace(/&/g, "&amp;")}">
+  <rect x="30" y="30" width="80" height="120" rx="6" fill="#2a1d12"/>
+  <circle cx="70" cy="86" r="34" fill="${archetype.cap}" opacity="0.18"/>
   <circle cx="70" cy="86" r="14" fill="${archetype.skin}"/>
   <path d="M44 100 Q70 88 96 100 L96 150 L44 150 Z" fill="${archetype.cap}" opacity="0.35"/>
   <path d="M44 96 Q70 84 96 96 L96 150 L44 150 Z" fill="${archetype.cap}" opacity="0.5"/>

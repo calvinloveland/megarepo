@@ -15,7 +15,11 @@
     "test": "vitest run",
     "test:e2e": "npm run build && node scripts/run-playwright.mjs",
     "test:smoke": "npm run build && node scripts/smoke-electron.mjs",
-    "export:sprites": "npm run build && node scripts/export-sprites.mjs"
+    "export:sprites": "npm run build && node scripts/export-sprites.mjs",
+    "test:e2e:smoke": "npm run build && node scripts/run-playwright.mjs -g @smoke",
+    "test:e2e:fast": "node scripts/run-playwright.mjs",
+    "test:e2e:fast:smoke": "node scripts/run-playwright.mjs -g @smoke",
+    "test:all": "npm test && npm run test:e2e"
   },
   "build": {
     "appId": "dev.loveland.vroomon",

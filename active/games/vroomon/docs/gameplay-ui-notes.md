@@ -736,6 +736,35 @@ The same component treatment now applies to **backgrounds and walls**:
   (a reloaded save opened the wrong scene).
 - 189 unit + 22 e2e pass (all navigation rewritten to the hub flow).
 
+## Screenshot pass + sprite bake + test tiers (2026-09-14) ✅
+
+Read the actual screenshots and fixed what they showed:
+- **Title**: the attract race was hidden behind an opaque backdrop — now a
+  translucent vignette, so the six-car race runs visibly behind the title.
+- **Name tags**: were ~25 screen-px tall; now tile-scaled (small, subtle).
+- **Sprites were half a tile and exported PNGs mostly empty**: the drawing
+  geometry was hardcoded in pixels — now proportional to the tile, so
+  characters read at world scale *and* the 96px exports are full.
+- **World framing**: outside the map is deep forest instead of bright
+  meadow (the letterbox read as empty paint).
+- **Bed tile** redrawn (frame + mattress + striped blanket + pillow — the
+  first thing a new rancher sees), tall-grass blades de-tiled from a
+  dashed "fence" pattern, quest text given contrast, dialogue portraitz
+  zoomed/enlarged, hub bar no longer wraps.
+- **Settings toggle stays reachable** everywhere (hiding it in the world /
+  hub made volume + save transfer impossible mid-session).
+
+**Sprite bake (perf)**: the static tile layer is now baked once per map
+into an offscreen canvas and blitted in one call — overworld draw calls
+per frame dropped from ~195 to ~4 (**11,700 → 240 draw calls/sec**), with
+no visual change. `npm run export:sprites` now writes `source` tags and
+**preserves entries marked `generated`** (hand-made/AI art survives
+re-exports; `--force` overwrites), which is the mix-and-match rule.
+
+**Test tiers**: e2e now runs in parallel workers (2m25s → **46s**), with a
+`@smoke` subset (**22s**) covering the paths that break silently; unit
+tests stay at ~5s. See DEPLOYMENT.md.
+
 ## Outstanding gameplay/UI issues (identified, not yet fixed — design work)
 
 From the vision-model critique + probes, ordered by impact:

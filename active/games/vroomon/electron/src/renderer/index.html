@@ -294,6 +294,27 @@
         color: var(--muted);
         letter-spacing: 0.08em;
       }
+      .stats-quest {
+        background: rgba(10, 8, 5, 0.82);
+        border: 1px solid #ffd166;
+        border-radius: 6px;
+        padding: 0.4rem 0.55rem;
+        max-width: 300px;
+      }
+      .stats-quest__line {
+        font-family: var(--font-pixel);
+        font-size: 0.5rem;
+        line-height: 1.6;
+        color: #ffd166;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85);
+      }
+      .stats-quest__hint {
+        font-family: var(--font-screen);
+        font-size: 0.78rem;
+        color: #e8dcc0;
+        margin-top: 0.2rem;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85);
+      }
       .stats-chip__value {
         font-size: 0.58rem;
         color: var(--accent-warm);
@@ -409,14 +430,16 @@
         margin-right: 0.8rem;
       }
       .overworld-dialogue__portrait svg {
-        border: 2px solid var(--gold);
+        border: 2px solid #ffd166;
         border-radius: 10px;
-        box-shadow: 0 4px 0 rgba(26, 14, 8, 0.5);
+        box-shadow: 0 3px 0 rgba(26, 14, 8, 0.55);
+        background: #2a1d12;
       }
       .overworld-dialogue__body { flex: 1 1 auto; min-width: 0; }
       .overworld-dialogue {
-        display: flex;
-        align-items: stretch;
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr);
+        align-items: center;
         background: var(--overlay-bg);
         backdrop-filter: blur(6px);
         -webkit-backdrop-filter: blur(6px);
@@ -544,12 +567,14 @@
       }
       .pocket-ranch__title {
         font-family: var(--font-pixel);
-        font-size: 0.6rem;
-        letter-spacing: 0.16em;
+        font-size: 0.55rem;
+        letter-spacing: 0.14em;
         color: var(--gold-deep, var(--gold));
-        margin-right: 0.6rem;
+        margin-right: 0.5rem;
+        white-space: nowrap;
       }
       .barn-pill {
+        white-space: nowrap;
         font-family: var(--font-pixel);
         font-size: 0.5rem;
         color: var(--text);
@@ -567,6 +592,7 @@
       }
       .barn-hub__close {
         margin-left: auto;
+        white-space: nowrap;
         font-family: var(--font-pixel);
         font-size: 0.5rem;
         color: #fff;
@@ -650,7 +676,9 @@
       .viewport-overlay--menu-a {
         display: grid;
         place-items: center;
-        background: linear-gradient(180deg, rgba(8, 17, 31, 0.82) 0%, rgba(4, 10, 20, 0.9) 100%);
+        /* Deliberately translucent: the attract race runs behind the title
+           (the vignette keeps the wordmark readable without hiding it). */
+        background: radial-gradient(circle at 50% 42%, rgba(6, 12, 22, 0.18) 0%, rgba(4, 8, 16, 0.66) 72%, rgba(3, 6, 12, 0.86) 100%);
       }
       .menu-stage {
         display: flex;
@@ -1180,9 +1208,11 @@
         right: 0.6rem;
         z-index: 40;
         font-size: 0.5rem;
-        opacity: 0.8;
+        opacity: 0.85;
+        white-space: nowrap;
       }
-      [data-open-settings] { right: 3.6rem !important; }
+      /* The gear sits clear of the sound button's width. */
+      [data-open-settings] { right: 7.4rem !important; }
       .error-toggle {
         position: fixed; bottom: 0.5rem; right: 0.5rem; z-index: 50;
         width: 32px; height: 32px; border-radius: 50%;
@@ -1441,7 +1471,7 @@
               <button class="menu-btn menu-btn--primary" type="button" data-menu-action="new-game">▶ NEW GAME</button>
               <button class="menu-btn" type="button" data-menu-action="continue" data-menu-continue hidden>CONTINUE</button>
             </div>
-            <div class="menu-foot">1-4 switch modes · s/l save &amp; load &nbsp;·&nbsp; the road is yours, new hand</div>
+            <div class="menu-foot">s / l save &amp; load &nbsp;·&nbsp; the road is yours, new hand</div>
           </div>
         </div>
 

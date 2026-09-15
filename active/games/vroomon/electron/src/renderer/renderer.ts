@@ -4538,8 +4538,10 @@ function syncContinueAndBarn(): void {
   }
   const ambienceToggleEl = document.querySelector<HTMLElement>("[data-ambience-toggle]");
   const settingsGearEl = document.querySelector<HTMLElement>("[data-open-settings]");
-  if (ambienceToggleEl) ambienceToggleEl.hidden = rendererState.mode === "world";
-  if (settingsGearEl) settingsGearEl.hidden = rendererState.mode === "world";
+  // Sound + settings are ALWAYS reachable — hiding them in the world or the
+  // hub made volume/save transfer impossible mid-session.
+  if (ambienceToggleEl) ambienceToggleEl.hidden = false;
+  if (settingsGearEl) settingsGearEl.hidden = false;
 }
 
 // Menu actions: the title screen only offers a fresh road or a continued one.
