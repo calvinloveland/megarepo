@@ -216,12 +216,24 @@ export const MAPS: Record<string, Tilemap> = {
         facing: "down",
         sprite: "professor",
         dialogue: {
-          text: "See for yourself? The Barn button — bottom-right, 🏟 — holds your Herd Book and the Record Barn.",
+          text: "Breeding, now — on the carrier's bench you run a generation and the fastest rise. When the slow ones lag, let them go: the wild takes them back and repays their feed, so culling pays for the next run. Grain tops the bin up if it runs dry.",
           next: "robby-caught-4",
         },
       },
       {
         id: "robby-caught-4",
+        name: "Rancher Robby",
+        x: 0,
+        y: 0,
+        facing: "down",
+        sprite: "professor",
+        dialogue: {
+          text: "See for yourself? The Barn button — bottom-right, 🏟 — holds your Herd Book and the Record Barn.",
+          next: "robby-caught-5",
+        },
+      },
+      {
+        id: "robby-caught-5",
         name: "Rancher Robby",
         x: 0,
         y: 0,

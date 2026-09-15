@@ -581,9 +581,10 @@ test.describe("vroomon Playwright harness", () => {
     await page.waitForTimeout(900);
     await expect(page.locator("[data-overworld-dialogue-name]")).toContainText("Rancher Robby");
     await expect(page.locator("[data-overworld-dialogue-text]")).toContainText("wild one on your first morning");
-    // The praise plays out one sentence per box; the Barn button pulses
-    // until the final farewell.
-    for (let i = 0; i < 4; i += 1) {
+    // The praise plays out one sentence per box (including the new
+    // breeding-and-release lesson); the Barn button pulses until the
+    // final farewell.
+    for (let i = 0; i < 5; i += 1) {
       await page.locator("[data-overworld-dialogue-text]").click();
       await page.waitForTimeout(300);
     }
