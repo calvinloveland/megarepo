@@ -603,6 +603,28 @@ test.describe("vroomon Playwright harness", () => {
     await page.locator("[data-open-barn]").click();
     await page.waitForTimeout(500);
     await expect(page.locator("[data-herdbook-list]")).toContainText("wild");
+    await closePocketRanch(page);
+
+    // The carrier bench in the yard is the diegetic way into the hub.
+    await page.evaluate(async () => {
+      const world = await window.vroomon.loadWorldState();
+      await window.vroomon.saveWorldState({
+        ...world,
+        playerX: 5,
+        playerY: 9,
+        playerFacing: "right",
+      });
+    });
+    await page.reload();
+    await page.locator("[data-status-message]").filter({ hasText: "Welcome" }).waitFor({ timeout: 20000 });
+    await enterWorld(page);
+    await page.locator('[data-dpad="interact"]').click();
+    await page.waitForTimeout(600);
+    await expect(page.locator("[data-overworld-dialogue-name]")).toContainText("Carrier Bench");
+    await page.locator("[data-overworld-dialogue-text]").click();
+    await page.waitForTimeout(600);
+    await expectModeState(page, "evolution");
+    await expect(page.locator('[data-barn-pill="herd"]')).toHaveAttribute("aria-pressed", "true");
   });
 
 

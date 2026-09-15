@@ -727,6 +727,9 @@ The same component treatment now applies to **backgrounds and walls**:
 - The hub's scene follows the underlying mode, so loading a saved
   test-drive run (or a record's Drive button) lands on the paddock; the
   barn lists refresh on every open. Hub status copy narrates each scene.
+- **The tie is diegetic too**: your **Carrier Bench** stands in the yard
+  (beside Robby) — walk up and press Z to crank the herd awake and open
+  the hub, so the overworld and the pocket ranch are the same place.
 - Fixed en route: a leftover mode-button guard that threw on boot (the
   renderer silently died), CONTINUE never appearing on reload (the world
   load didn't re-render the shell), and the hub not syncing `runState.mode`

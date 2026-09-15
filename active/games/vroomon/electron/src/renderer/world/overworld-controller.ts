@@ -48,6 +48,7 @@ export function createOverworldInputs(
     onFactionJoined?: (faction: Faction | null) => void;
     onMapTransition?: () => void;
     onGrandRoundup?: () => void;
+    onOpenRanch?: () => void;
   },
 ): OverworldInputs {
   let state = initial;
@@ -100,9 +101,25 @@ export function createOverworldInputs(
   }
 
   function completeDialogue(
-    onComplete: "wild" | "trainer" | "gym" | "vroomdex" | "grand-roundup" | `join-faction:${string}` | null,
+    onComplete:
+      | "wild"
+      | "trainer"
+      | "gym"
+      | "vroomdex"
+      | "grand-roundup"
+      | "open-ranch"
+      | `join-faction:${string}`
+      | null,
     flag: string | null,
   ): WorldState {
+    if (onComplete === "open-ranch") {
+      // The carrier bench: interacting with your own bench opens the
+      // Pocket Ranch hub (the renderer owns the overlay).
+      commit(endDialogue(state, onComplete, flag));
+      dependencies.onOpenRanch?.();
+      return state;
+    }
+
     if (onComplete === "grand-roundup") {
       // Readiness (5 Brands + an enshrined champion) is the renderer's call —
       // it owns the Hall of Fame; the controller just reports the attempt

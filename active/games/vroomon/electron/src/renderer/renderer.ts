@@ -658,6 +658,9 @@ const overworldController = createOverworldInputs(rendererState.world, {
     renderOverworldUi();
     scheduleWorldSave();
   },
+  onOpenRanch: () => {
+    openPocketRanch("herd");
+  },
   onGrandRoundup: () => {
     const badges = rendererState.world.badges.length;
     const hasChampion = rendererState.hallOfFame.entries.length > 0;

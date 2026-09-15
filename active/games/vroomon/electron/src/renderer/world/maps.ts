@@ -185,6 +185,18 @@ export const MAPS: Record<string, Tilemap> = {
         dialogue: { text: "The tall grass shivers — something's running under it.", onComplete: "wild" },
       },
       {
+        id: "carrier-bench",
+        name: "The Carrier Bench",
+        x: 6,
+        y: 9,
+        facing: "left",
+        sprite: "mechanic",
+        dialogue: {
+          text: "Your carrier sits on the bench, herd humming inside. Give it a crank and the paddock opens.",
+          onComplete: "open-ranch",
+        },
+      },
+      {
         id: "robby-caught-1",
         name: "Rancher Robby",
         x: 5,
