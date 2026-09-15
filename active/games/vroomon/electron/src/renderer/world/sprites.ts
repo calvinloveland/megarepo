@@ -20,6 +20,16 @@ export const TILE_COLORS: Record<TileKind, { fill: string; stroke?: string; acce
   "tall-grass-edge": { fill: "#65a045" },
 };
 
+// ---- Tile component sprites ----
+// Ground tiles are two layers — a BASE (fill, shade, pattern) and a DETAIL
+// (accents, animation, furniture); walls are a shared BRICK face + TRIM +
+// skirting assembled per kind. Each layer exports as its own PNG so art can
+// be swapped per-layer (or AI-replaced by manifest id) without touching the
+// other layers or the runtime, which keeps consuming the assembled
+// `tile:<kind>` images.
+
+const WALL_KINDS = new Set<TileKind>(["wall", "building", "tree-trunk"]);
+
 export function drawTile(
   ctx: CanvasRenderingContext2D,
   tile: TileKind,
@@ -28,16 +38,78 @@ export function drawTile(
   size: number,
   tick: number,
 ): void {
+  if (WALL_KINDS.has(tile)) {
+    drawWallBase(ctx, tile, px, py, size);
+    drawWallBrick(ctx, tile, px, py, size);
+    drawWallTrim(ctx, tile, px, py, size);
+    return;
+  }
+  drawGroundBase(ctx, tile, px, py, size);
+  drawGroundDetail(ctx, tile, px, py, size, tick);
+}
+
+function drawGroundBase(
+  ctx: CanvasRenderingContext2D,
+  tile: TileKind,
+  px: number,
+  py: number,
+  size: number,
+): void {
   const colors = TILE_COLORS[tile];
   ctx.fillStyle = colors.fill;
   ctx.fillRect(px, py, size, size);
+  // Soft corner shade so tiles read as a continuous floor.
+  ctx.fillStyle = "rgba(30, 22, 12, 0.08)";
+  ctx.fillRect(px + size - 6, py, 6, size);
+  ctx.fillRect(px, py + size - 5, size, 5);
 
-  if (colors.stroke) {
-    ctx.strokeStyle = colors.stroke;
-    ctx.lineWidth = 1.5;
-    ctx.strokeRect(px + 0.5, py + 0.5, size - 1, size - 1);
+  if (tile === "grass" || tile === "tall-grass-edge") {
+    // Scattered blade specks.
+    ctx.fillStyle = "rgba(40, 90, 30, 0.5)";
+    for (let d = 0; d < 5; d += 1) {
+      ctx.fillRect(px + (d * 7 + 3) % size, py + (d * 11 + 5) % size, 4, 1);
+    }
   }
-
+  if (tile === "path") {
+    // Pebble dots.
+    ctx.fillStyle = "rgba(90, 70, 40, 0.35)";
+    for (let d = 0; d < 6; d += 1) {
+      ctx.fillRect(px + (d * 9 + 4) % size, py + (d * 13 + 6) % size, 3, 2);
+    }
+  }
+  if (tile === "indoor-floor") {
+    // Planked floor lines.
+    ctx.strokeStyle = "rgba(90, 66, 40, 0.35)";
+    ctx.lineWidth = 1;
+    for (let row = 1; row < 4; row += 1) {
+      ctx.beginPath();
+      ctx.moveTo(px + 2, py + (row * size) / 4);
+      ctx.lineTo(px + size - 2, py + (row * size) / 4);
+      ctx.stroke();
+    }
+  }
+  if (tile === "vroomgrass") {
+    ctx.fillStyle = "rgba(30, 80, 20, 0.45)";
+    for (let d = 0; d < 5; d += 1) {
+      ctx.fillRect(px + (d * 11 + 2) % size, py + (d * 7 + 4) % size, 4, 2);
+    }
+  }
+  if (tile === "water" || tile === "bed") {
+    // Base only; details carry the waves/blanket.
+  }
+  if (tile === "doormat") {
+    ctx.strokeStyle = "rgba(58, 32, 16, 0.5)";
+    ctx.lineWidth = 1;
+    ctx.strokeRect(px + 3, py + 3, size - 6, size - 6);
+  }
+  if (tile === "counter") {
+    ctx.fillStyle = "#6a3f1e";
+    ctx.fillRect(px + 2, py + size - 6, size - 4, 4);
+  }
+  if (tile === "rock") {
+    ctx.fillStyle = "#5a5a5a";
+    ctx.fillRect(px + 4, py + 6, size - 8, size - 12);
+  }
   if (tile === "tree") {
     ctx.fillStyle = "#1d4b2a";
     ctx.beginPath();
@@ -47,9 +119,22 @@ export function drawTile(
     ctx.closePath();
     ctx.fill();
   }
+  if (tile === "door") {
+    ctx.strokeStyle = "#3a2010";
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(px + 1, py + 1, size - 2, size - 2);
+  }
+}
 
+function drawGroundDetail(
+  ctx: CanvasRenderingContext2D,
+  tile: TileKind,
+  px: number,
+  py: number,
+  size: number,
+  tick: number,
+): void {
   if (tile === "bed") {
-    // A low bunk with a striped blanket.
     const hue = tick % 3 === 0 ? "#7a5c3e" : "#8a6a4a";
     ctx.fillStyle = "#3b2a1c";
     ctx.fillRect(px + 2, py + 10, size - 4, size - 12);
@@ -72,21 +157,35 @@ export function drawTile(
       ctx.fill();
     }
   }
-
   if (tile === "water") {
     const wave = Math.sin(tick / 600 + (px + py) * 0.05) * 2;
     ctx.fillStyle = "rgba(255,255,255,0.18)";
     ctx.fillRect(px + 4, py + 8 + wave, size - 8, 2);
     ctx.fillRect(px + 4, py + size - 12 - wave, size - 8, 2);
   }
-
+  if (tile === "tall-grass-edge") {
+    ctx.strokeStyle = "#3f7d28";
+    ctx.lineWidth = 2;
+    for (let i = 0; i < 4; i += 1) {
+      ctx.beginPath();
+      ctx.moveTo(px + i * (size / 3) + 4, py + size);
+      ctx.lineTo(px + i * (size / 3) + 6, py + size - 8);
+      ctx.stroke();
+    }
+  }
   if (tile === "rock") {
-    ctx.fillStyle = "#5a5a5a";
-    ctx.fillRect(px + 4, py + 6, size - 8, size - 12);
     ctx.fillStyle = "#3a3a3a";
     ctx.fillRect(px + 6, py + 8, 2, 2);
+    ctx.fillStyle = "rgba(220,220,220,0.25)";
+    ctx.fillRect(px + 4, py + 7, size - 8, 2);
   }
-
+  if (tile === "door") {
+    ctx.fillStyle = "rgba(220,160,90,0.85)";
+    ctx.fillRect(px + 6, py + 2, 3, size - 4);
+    ctx.fillRect(px + size - 9, py + 2, 3, size - 4);
+    ctx.fillStyle = "rgba(255,235,190,0.8)";
+    ctx.fillRect(px + size - 7, py + size / 2 - 1, 3, 3);
+  }
   if (tile === "building") {
     ctx.fillStyle = "#7a5a3a";
     ctx.fillRect(px + 2, py + size - 8, size - 4, 6);
@@ -94,46 +193,64 @@ export function drawTile(
     ctx.fillRect(px + 6, py + 6, 6, 6);
     ctx.fillRect(px + size - 12, py + 6, 6, 6);
   }
+  if (tile === "counter") {
+    ctx.fillStyle = "rgba(255,240,210,0.35)";
+    ctx.fillRect(px + 2, py + 2, size - 4, size - 8);
+  }
 }
 
-export function drawPlayer(
+// ---- Wall face components (brick + trim + skirting) ----
+const WALL_PALETTES: Record<string, { brick: string; mortar: string; trim: string }> = {
+  wall: { brick: "#6a4630", mortar: "#3a2416", trim: "#8a6a4a" },
+  building: { brick: "#c9b48a", mortar: "#8a7450", trim: "#5a4530" },
+  "tree-trunk": { brick: "#4a2f18", mortar: "#2a1a0c", trim: "#6a4a2a" },
+};
+
+function drawWallBase(
   ctx: CanvasRenderingContext2D,
+  tile: TileKind,
   px: number,
   py: number,
   size: number,
-  facing: Direction,
-  step: number,
-  capColor: string = PAL.cap.navy,
 ): void {
-  const bobY = Math.sin(step / 100) * 1.5;
-  const cy = py + size / 2 + bobY;
+  const colors = WALL_PALETTES[tile] ?? WALL_PALETTES.wall!;
+  ctx.fillStyle = colors.mortar;
+  ctx.fillRect(px, py, size, size);
+}
 
-  ctx.fillStyle = "rgba(0,0,0,0.25)";
-  ctx.beginPath();
-  ctx.ellipse(px + size / 2, py + size - 4, size / 3, 4, 0, 0, Math.PI * 2);
-  ctx.fill();
+function drawWallBrick(
+  ctx: CanvasRenderingContext2D,
+  tile: TileKind,
+  px: number,
+  py: number,
+  size: number,
+): void {
+  const colors = WALL_PALETTES[tile] ?? WALL_PALETTES.wall!;
+  const rows = Math.max(2, Math.round(size / 12));
+  const rowH = size / rows;
+  ctx.fillStyle = colors.brick;
+  for (let r = 0; r < rows; r += 1) {
+    const offset = r % 2 === 0 ? 0 : size / 4;
+    ctx.fillRect(px + offset, py + r * rowH, size - offset, rowH - 2);
+    if (offset > 0) {
+      ctx.fillRect(px, py + r * rowH, size / 4, rowH - 2);
+    }
+  }
+}
 
-  ctx.fillStyle = PAL.skin.light;
-  ctx.fillRect(px + size / 2 - 5, cy - 8, 10, 10);
-
-  ctx.fillStyle = PAL.cap.navy;
-  const eyeOffset = facing === "left" ? -2 : facing === "right" ? 2 : 0;
-  ctx.fillRect(px + size / 2 - 3 + eyeOffset, cy - 5, 1.5, 1.5);
-  ctx.fillRect(px + size / 2 + 1 + eyeOffset, cy - 5, 1.5, 1.5);
-
-  // Cap brim (the rancher's signature color).
-  ctx.fillStyle = capColor;
-  ctx.fillRect(px + size / 2 - 7, cy - 14, 14, 3);
-  ctx.fillStyle = PAL.cap.red;
-  ctx.fillRect(px + size / 2 - 6, cy - 11, 12, 4);
-
-  ctx.fillStyle = PAL.body.navy;
-  ctx.fillRect(px + size / 2 - 7, cy + 2, 14, 12);
-
-  ctx.fillStyle = "#fff4d1";
-  const footOffset = Math.sin(step / 100) > 0 ? 1 : -1;
-  ctx.fillRect(px + size / 2 - 6, cy + 14 + footOffset, 5, 3);
-  ctx.fillRect(px + size / 2 + 1, cy + 14 - footOffset, 5, 3);
+function drawWallTrim(
+  ctx: CanvasRenderingContext2D,
+  tile: TileKind,
+  px: number,
+  py: number,
+  size: number,
+): void {
+  const colors = WALL_PALETTES[tile] ?? WALL_PALETTES.wall!;
+  ctx.fillStyle = colors.trim;
+  ctx.fillRect(px, py, size, 3);
+  // Skirting shadow at the foot of the wall.
+  ctx.fillStyle = "rgba(20, 12, 6, 0.5)";
+  ctx.fillRect(px, py + size - 4, size, 4);
 }
 
 // ---- Component sprite system ----
@@ -183,6 +300,46 @@ const NPC_PARTS: Record<string, NpcParts> = {
   sign: { head: "dark", outfit: "worker", accessory: "sign-post" },
   default: { head: "light", outfit: "plain", accessory: "none" },
 };
+
+export function drawPlayer(
+  ctx: CanvasRenderingContext2D,
+  px: number,
+  py: number,
+  size: number,
+  facing: Direction,
+  step: number,
+  capColor: string = PAL.cap.navy,
+): void {
+  const bobY = Math.sin(step / 100) * 1.5;
+  const cy = py + size / 2 + bobY;
+
+  ctx.fillStyle = "rgba(0,0,0,0.25)";
+  ctx.beginPath();
+  ctx.ellipse(px + size / 2, py + size - 4, size / 3, 4, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = PAL.skin.light;
+  ctx.fillRect(px + size / 2 - 5, cy - 8, 10, 10);
+
+  ctx.fillStyle = PAL.cap.navy;
+  const eyeOffset = facing === "left" ? -2 : facing === "right" ? 2 : 0;
+  ctx.fillRect(px + size / 2 - 3 + eyeOffset, cy - 5, 1.5, 1.5);
+  ctx.fillRect(px + size / 2 + 1 + eyeOffset, cy - 5, 1.5, 1.5);
+
+  // Cap brim (the rancher's signature color).
+  ctx.fillStyle = capColor;
+  ctx.fillRect(px + size / 2 - 7, cy - 14, 14, 3);
+  ctx.fillStyle = PAL.cap.red;
+  ctx.fillRect(px + size / 2 - 6, cy - 11, 12, 4);
+
+  ctx.fillStyle = PAL.body.navy;
+  ctx.fillRect(px + size / 2 - 7, cy + 2, 14, 12);
+
+  ctx.fillStyle = "#fff4d1";
+  const footOffset = Math.sin(step / 100) > 0 ? 1 : -1;
+  ctx.fillRect(px + size / 2 - 6, cy + 14 + footOffset, 5, 3);
+  ctx.fillRect(px + size / 2 + 1, cy + 14 - footOffset, 5, 3);
+}
 
 export function drawNpc(
   ctx: CanvasRenderingContext2D,
@@ -416,6 +573,21 @@ export function collectSpriteExports(): Array<{ id: string; dataUrl: string }> {
   for (const kind of EXPORT_TILE_KINDS) {
     drawTile(ctx, kind, 0, 0, SIZE, 0);
     snap(`tile:${kind}`);
+  }
+  for (const kind of EXPORT_TILE_KINDS) {
+    if (WALL_KINDS.has(kind)) {
+      drawWallBase(ctx, kind, 0, 0, SIZE);
+      snap(`wallbase:${kind}`);
+      drawWallBrick(ctx, kind, 0, 0, SIZE);
+      snap(`wallbrick:${kind}`);
+      drawWallTrim(ctx, kind, 0, 0, SIZE);
+      snap(`walltrim:${kind}`);
+    } else {
+      drawGroundBase(ctx, kind, 0, 0, SIZE);
+      snap(`tilebase:${kind}`);
+      drawGroundDetail(ctx, kind, 0, 0, SIZE, 0);
+      snap(`tiledetail:${kind}`);
+    }
   }
   const playerFacings = ["down", "up", "left", "right"] as const;
   for (const head of Object.keys(HEAD_SKINS) as HeadId[]) {

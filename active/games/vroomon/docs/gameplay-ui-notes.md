@@ -694,6 +694,24 @@ emits each part as its own PNG (`head:light`, `outfit:labcoat`,
 Parts can be swapped per-component, and AI-generated art can replace any
 part or whole NPC by manifest id.
 
+## Tile sprite components (2026-09-14) ✅
+
+The same component treatment now applies to **backgrounds and walls**:
+- **Ground tiles** are two layers — `tilebase:<kind>` (fill, corner shade,
+  blades/pebbles/planks) and `tiledetail:<kind>` (vroom-grass glints,
+  water waves, tall-grass blades, doormat weave, furniture like the bed,
+  rock faces, door panels, building trim).
+- **Wall faces** are assembled per kind from `wallbase:<kind>` (mortar),
+  `wallbrick:<kind>` (brick courses with running offset), and
+  `walltrim:<kind>` (coping + skirting shadow), shared by wall, building,
+  and tree-trunk.
+- The exporter now emits 146 sprites (every `tile:<kind>` assembled
+  PNG, plus the per-layer files and the NPC head/outfit/accessory +
+  player parts); the runtime still consumes the assembled `tile:<kind>`
+  images, so behavior is unchanged and each layer is a drop-in AI-art
+  swap target by manifest id. Layer outputs verified by pixel sampling
+  (bricks, mortar, trim, glints). 189 unit + 22 e2e pass.
+
 ## Outstanding gameplay/UI issues (identified, not yet fixed — design work)
 
 From the vision-model critique + probes, ordered by impact:

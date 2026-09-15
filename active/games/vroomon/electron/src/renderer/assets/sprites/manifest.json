@@ -60,6 +60,138 @@
     "file": "tile_bed.png"
   },
   {
+    "id": "tilebase:grass",
+    "file": "tilebase_grass.png"
+  },
+  {
+    "id": "tiledetail:grass",
+    "file": "tiledetail_grass.png"
+  },
+  {
+    "id": "tilebase:path",
+    "file": "tilebase_path.png"
+  },
+  {
+    "id": "tiledetail:path",
+    "file": "tiledetail_path.png"
+  },
+  {
+    "id": "tilebase:tree",
+    "file": "tilebase_tree.png"
+  },
+  {
+    "id": "tiledetail:tree",
+    "file": "tiledetail_tree.png"
+  },
+  {
+    "id": "wallbase:building",
+    "file": "wallbase_building.png"
+  },
+  {
+    "id": "wallbrick:building",
+    "file": "wallbrick_building.png"
+  },
+  {
+    "id": "walltrim:building",
+    "file": "walltrim_building.png"
+  },
+  {
+    "id": "tilebase:door",
+    "file": "tilebase_door.png"
+  },
+  {
+    "id": "tiledetail:door",
+    "file": "tiledetail_door.png"
+  },
+  {
+    "id": "tilebase:vroomgrass",
+    "file": "tilebase_vroomgrass.png"
+  },
+  {
+    "id": "tiledetail:vroomgrass",
+    "file": "tiledetail_vroomgrass.png"
+  },
+  {
+    "id": "tilebase:water",
+    "file": "tilebase_water.png"
+  },
+  {
+    "id": "tiledetail:water",
+    "file": "tiledetail_water.png"
+  },
+  {
+    "id": "wallbase:wall",
+    "file": "wallbase_wall.png"
+  },
+  {
+    "id": "wallbrick:wall",
+    "file": "wallbrick_wall.png"
+  },
+  {
+    "id": "walltrim:wall",
+    "file": "walltrim_wall.png"
+  },
+  {
+    "id": "tilebase:counter",
+    "file": "tilebase_counter.png"
+  },
+  {
+    "id": "tiledetail:counter",
+    "file": "tiledetail_counter.png"
+  },
+  {
+    "id": "tilebase:indoor-floor",
+    "file": "tilebase_indoor-floor.png"
+  },
+  {
+    "id": "tiledetail:indoor-floor",
+    "file": "tiledetail_indoor-floor.png"
+  },
+  {
+    "id": "tilebase:tall-grass-edge",
+    "file": "tilebase_tall-grass-edge.png"
+  },
+  {
+    "id": "tiledetail:tall-grass-edge",
+    "file": "tiledetail_tall-grass-edge.png"
+  },
+  {
+    "id": "wallbase:tree-trunk",
+    "file": "wallbase_tree-trunk.png"
+  },
+  {
+    "id": "wallbrick:tree-trunk",
+    "file": "wallbrick_tree-trunk.png"
+  },
+  {
+    "id": "walltrim:tree-trunk",
+    "file": "walltrim_tree-trunk.png"
+  },
+  {
+    "id": "tilebase:rock",
+    "file": "tilebase_rock.png"
+  },
+  {
+    "id": "tiledetail:rock",
+    "file": "tiledetail_rock.png"
+  },
+  {
+    "id": "tilebase:doormat",
+    "file": "tilebase_doormat.png"
+  },
+  {
+    "id": "tiledetail:doormat",
+    "file": "tiledetail_doormat.png"
+  },
+  {
+    "id": "tilebase:bed",
+    "file": "tilebase_bed.png"
+  },
+  {
+    "id": "tiledetail:bed",
+    "file": "tiledetail_bed.png"
+  },
+  {
     "id": "head:light",
     "file": "head_light.png"
   },
@@ -190,6 +322,10 @@
   {
     "id": "npc:robby-caught-4",
     "file": "npc_robby-caught-4.png"
+  },
+  {
+    "id": "npc:robby-caught-5",
+    "file": "npc_robby-caught-5.png"
   },
   {
     "id": "npc:professor-axle",
