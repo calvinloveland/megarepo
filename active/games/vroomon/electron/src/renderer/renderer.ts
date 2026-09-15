@@ -9,6 +9,7 @@ import type {
   VroomonParityContract,
 } from "../shared/parity-contract.js";
 import { bestRecord, proposeRecord } from "./records.js";
+import { collectSpriteExports } from "./world/sprites.js";
 import { portraitSvgFor } from "./portraits.js";
 
 import type {
@@ -810,6 +811,53 @@ function recordDraftLap(): void {
   );
   renderRecordsBoard();
 }
+
+// ---- Sprite PNG assets (see scripts/export-sprites.mjs) ----
+// When present, assets/sprites/manifest.json drives image-file rendering
+// over the code-drawn fallback; missing assets keep the old drawing path.
+let spriteAssets: Map<string, HTMLImageElement> = new Map();
+let spriteAssetsLoaded = false;
+
+async function loadSpriteAssets(): Promise<void> {
+  if (spriteAssetsLoaded) {
+    return;
+  }
+  spriteAssetsLoaded = true;
+  const loaded = new Map<string, HTMLImageElement>();
+  try {
+    const response = await fetch("./assets/sprites/manifest.json");
+    if (!response.ok) {
+      return;
+    }
+    const manifest = (await response.json()) as Array<{ id: string; file: string }>;
+    await Promise.all(
+      manifest.map(
+        (entry) =>
+          new Promise<void>((resolve) => {
+            const image = new Image();
+            image.onload = () => {
+              loaded.set(entry.id, image);
+              resolve();
+            };
+            image.onerror = () => resolve();
+            image.src = `./assets/sprites/${entry.file}`;
+          }),
+      ),
+    );
+  } catch {
+    // no assets -> code drawing stays
+    return;
+  }
+  if (loaded.size > 0) {
+    spriteAssets = loaded;
+  }
+}
+void loadSpriteAssets();
+
+// Dev/build hook: the exporter script asks the running game for every
+// sprite as a PNG data URL.
+window.__vroomonSprites = (): Array<{ id: string; dataUrl: string }> =>
+  collectSpriteExports();
 
 const ambience = new Ambience();
 
@@ -3419,6 +3467,34 @@ async function saveSelectedToHall(): Promise<void> {
   renderApp();
 }
 
+// Clicking the dialogue box advances it like Z does (options still win).
+document
+  .querySelector<HTMLElement>("[data-overworld-dialogue]")
+  ?.addEventListener("click", (event) => {
+    if ((event.target as HTMLElement).closest("[data-dialogue-option]")) {
+      return;
+    }
+    const world = overworldController.state;
+    const current = world.dialogueQueue[0];
+    if (!current) {
+      return;
+    }
+    if (current.options && current.options.length > 0) {
+      return;
+    }
+    if (dialogueTyping) {
+      const hadOptions = completeDialogueTyping();
+      overworldDialogueText.textContent = typingLineText;
+      if (hadOptions) {
+        return;
+      }
+    }
+    overworldController.advanceDialogue();
+    renderOverworldUi();
+    renderStatsHud();
+    scheduleWorldSave();
+  });
+
 function renderDialogueOptions(dialogue: { options?: Array<{ next: string; label: string }> }): void {
   if (!dialogue.options || dialogue.options.length === 0) {
     overworldDialogueOptions.innerHTML = "";
@@ -3609,6 +3685,7 @@ function startOverworldAnimationLoop(): void {
           world: overworldController.state,
           decor: rendererState.world.decor,
           tick: performance.now(),
+          spriteAssets,
         });
       } catch (error) {
         // One bad frame must not kill the loop for good.
@@ -3784,11 +3861,11 @@ async function startOverworldEncounter(
     overworldController.setFlag("tut-caught", true);
     rendererState = setWorldState(rendererState, overworldController.state);
     if (caught) {
-      const robby = getMap("home_ranch")?.npcs.find((npc) => npc.id === "robby-caught");
+      const robby = getMap("home_ranch")?.npcs.find((npc) => npc.id === "robby-caught-1");
       if (robby?.dialogue) {
         overworldController._setState({
           ...overworldController.state,
-          activeNpc: "robby-caught",
+          activeNpc: "robby-caught-1",
           dialogueQueue: [
             ...overworldController.state.dialogueQueue,
             { ...robby.dialogue },
@@ -4151,7 +4228,7 @@ function showIntroBeat(): void {
   }
   const token = ++introTypingToken;
   introNameStep!.hidden = true;
-  introPrompt.textContent = "Z / Enter";
+  introPrompt.textContent = "click / Z / Enter";
   introText.textContent = "";
   let revealed = 0;
   const tick = (): void => {
@@ -4234,12 +4311,38 @@ barnOverlay?.addEventListener("click", (event) => {
     barnOverlay.hidden = true;
   }
 });
+function renderHerdBook(): void {
+  const entries = rendererState.world.vroomdex ?? [];
+  for (const count of Array.from(
+    document.querySelectorAll<HTMLElement>("[data-herdbook-count]"),
+  )) {
+    count.textContent = String(entries.length);
+  }
+  for (const list of Array.from(
+    document.querySelectorAll<HTMLElement>("[data-herdbook-list]"),
+  )) {
+    list.innerHTML =
+      entries.length === 0
+        ? `<p class="muted">No genomes recorded yet — catch a wild vroomon in the tall grass.</p>`
+        : entries
+            .slice()
+            .reverse()
+            .slice(0, 24)
+            .map(
+              (dna) =>
+                `<div class="herdbook-row"><span class="herdbook-row__dna">${escapeHtml(dna)}</span></div>`,
+            )
+            .join("");
+  }
+}
+
 barnChip?.addEventListener("click", () => {
   if (!barnOverlay) {
     return;
   }
   renderHallOfFame();
   renderRecordsBoard();
+  renderHerdBook();
   barnOverlay.hidden = false;
   sfx.click();
 });
@@ -4253,7 +4356,17 @@ function syncContinueAndBarn(): void {
   }
   if (barnChip) {
     barnChip.hidden = rendererState.mode !== "world";
+    const pulseBarn =
+      rendererState.mode === "world" &&
+      rendererState.world.currentMapId === "home_ranch" &&
+      rendererState.world.flags["tut-caught"] &&
+      !rendererState.world.flags["tut-done"];
+    barnChip.dataset.tutPulse = pulseBarn ? "true" : "false";
   }
+  const ambienceToggleEl = document.querySelector<HTMLElement>("[data-ambience-toggle]");
+  const settingsGearEl = document.querySelector<HTMLElement>("[data-open-settings]");
+  if (ambienceToggleEl) ambienceToggleEl.hidden = rendererState.mode === "world";
+  if (settingsGearEl) settingsGearEl.hidden = rendererState.mode === "world";
 }
 
 // Menu actions: the title screen only offers a fresh road or a continued one.
@@ -4295,6 +4408,21 @@ for (const button of Array.from(
     }
   });
 }
+
+// Tap the card (or Z/Enter) to advance the beats; Esc backs out of
+// the overwrite confirm. The name step resolves via its own button.
+introOverlay?.addEventListener("click", (event) => {
+  if (introOverlay?.hidden || introOverlay == null) {
+    return;
+  }
+  if (introNameStep && !introNameStep.hidden) {
+    return;
+  }
+  if ((event.target as HTMLElement).closest("[data-save-rancher]")) {
+    return;
+  }
+  advanceIntro();
+});
 
 // Intro keystrokes (Z/Enter advance the beats; Esc backs out of overwrite).
 window.addEventListener("keydown", (event) => {
@@ -4650,6 +4778,13 @@ ranchList?.addEventListener("click", (event) => {
 
 document.addEventListener("keydown", (event) => {
   if (event.target instanceof HTMLInputElement || event.target instanceof HTMLSelectElement) {
+    return;
+  }
+
+  // While the opening story is on screen it owns every key — this stops
+  // Enter from also tripping the menu's start-intro shortcut (which used
+  // to reset the beats and loop forever on beat 2).
+  if (!document.querySelector<HTMLElement>("[data-intro-overlay]")?.hidden) {
     return;
   }
 

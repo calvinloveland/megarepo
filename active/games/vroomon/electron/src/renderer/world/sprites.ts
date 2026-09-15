@@ -1,4 +1,5 @@
 import type { Direction, TileKind } from "./types.js";
+import { MAPS } from "./maps.js";
 import { SPRITE_PALETTE as PAL, houseAccentForNpc } from "./sprites-palette.js";
 
 export const TILE_COLORS: Record<TileKind, { fill: string; stroke?: string; accent?: string }> = {
@@ -194,3 +195,82 @@ const NPC_PALETTE: Record<string, { head: string; body: string; accent: string }
   sign: { head: PAL.skin.dark, body: PAL.body.brown, accent: PAL.accent.tan },
   default: { head: PAL.skin.light, body: PAL.body.gray, accent: PAL.accent.gray },
 };
+
+
+// ---- Sprite asset exports ----
+// The game's art is all drawn in code; this renders each sprite to a real
+// PNG data URL so a build-time exporter (scripts/export-sprites.mjs) can
+// write actual image files. Dropping a file at assets/sprites/<id>.png
+// (same id, see manifest.json) makes the runtime prefer it over the code
+// draw — the pipeline for replacing art with AI-generated images.
+
+const EXPORT_TILE_KINDS: TileKind[] = [
+  "grass",
+  "path",
+  "tree",
+  "building",
+  "door",
+  "vroomgrass",
+  "water",
+  "wall",
+  "counter",
+  "indoor-floor",
+  "tall-grass-edge",
+  "tree-trunk",
+  "rock",
+  "doormat",
+  "bed",
+];
+
+export function collectSpriteExports(): Array<{ id: string; dataUrl: string }> {
+  const mapsForExport = Object.values(MAPS);
+  const out: Array<{ id: string; dataUrl: string }> = [];
+  const canvas = document.createElement("canvas");
+  const SIZE = 96; // 3x the 32px tile so exported PNGs stay crisp
+  canvas.width = SIZE;
+  canvas.height = SIZE;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) {
+    return out;
+  }
+  const snap = (id: string): void => {
+    out.push({ id, dataUrl: canvas.toDataURL("image/png") });
+    ctx.clearRect(0, 0, SIZE, SIZE);
+  };
+  for (const kind of EXPORT_TILE_KINDS) {
+    drawTile(ctx, kind, 0, 0, SIZE, 0);
+    snap(`tile:${kind}`);
+  }
+  const playerFacings = ["down", "up", "left", "right"] as const;
+  for (const facing of playerFacings) {
+    drawPlayer(ctx, 0, 0, SIZE, facing, 0);
+    snap(`player:${facing}`);
+  }
+  const seen = new Set<string>();
+  for (const map of mapsForExport) {
+    for (const npc of map.npcs ?? []) {
+      if (seen.has(npc.id)) {
+        continue;
+      }
+      seen.add(npc.id);
+      drawNpc(
+        ctx,
+        npc.sprite,
+        0,
+        0,
+        SIZE,
+        npc.facing as "down" | "up" | "left" | "right",
+        0,
+        npc.id,
+      );
+      snap(`npc:${npc.id}`);
+    }
+  }
+  return out;
+}
+
+declare global {
+  interface Window {
+    __vroomonSprites?: () => Array<{ id: string; dataUrl: string }>;
+  }
+}

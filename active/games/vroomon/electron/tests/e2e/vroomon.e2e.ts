@@ -519,10 +519,14 @@ test.describe("vroomon Playwright harness", () => {
     await page.locator('[data-menu-action="new-game"]').click();
     await page.waitForTimeout(650); // let the first monologue line finish typing
     await expect(page.locator("[data-intro-text]")).toContainText("Isles of Speid");
-    await page.keyboard.press("z");
-    await page.waitForTimeout(400); // beat 2
-    await page.keyboard.press("z");
-    await page.waitForTimeout(400); // beat 3 -> name moment
+    // Enter advances (it must not loop back to the first beat), and
+    // clicking the card advances too.
+    await page.keyboard.press("Enter");
+    await page.waitForTimeout(400);
+    await expect(page.locator("[data-intro-text]")).toContainText("chance to start over");
+    await page.locator("[data-intro-card], [data-intro-overlay]").first().click({ position: { x: 400, y: 400 } });
+    await page.waitForTimeout(400);
+    await expect(page.locator("[data-intro-text]")).toContainText("change my name");
     await page.keyboard.press("z");
     await page.waitForTimeout(550); // name step
     // The name moment.
@@ -553,11 +557,11 @@ test.describe("vroomon Playwright harness", () => {
     await page.locator("[data-dialogue-option]").nth(1).click(); // the cattle remark
     await page.waitForTimeout(600);
     await expect(page.locator("[data-overworld-dialogue-text]")).toContainText("nothing so tall on Speid");
-    // Advance the reveal beats and let the pasture door close.
-    await page.keyboard.press("z");
-    await page.waitForTimeout(450);
-    await page.keyboard.press("z");
-    await page.waitForTimeout(500);
+    // Click through the reveal and yard-lesson beats (one sentence each).
+    for (let i = 0; i < 7; i += 1) {
+      await page.locator("[data-overworld-dialogue-text]").click();
+      await page.waitForTimeout(300);
+    }
 
     // The catch lesson: tall grass -> wild vroomon -> genome recorded.
     await page.evaluate(async () => {
@@ -577,10 +581,18 @@ test.describe("vroomon Playwright harness", () => {
     await page.waitForTimeout(900);
     await expect(page.locator("[data-overworld-dialogue-name]")).toContainText("Rancher Robby");
     await expect(page.locator("[data-overworld-dialogue-text]")).toContainText("wild one on your first morning");
-    await page.keyboard.press("z");
-    await page.waitForTimeout(300);
+    // The praise plays out one sentence per box; the Barn button pulses
+    // until the final farewell.
+    for (let i = 0; i < 4; i += 1) {
+      await page.locator("[data-overworld-dialogue-text]").click();
+      await page.waitForTimeout(300);
+    }
     const doneQuest = await page.locator("[data-stats-quest-line]").textContent();
     expect(doneQuest).toContain("garden gate");
+    // The Herd Book carries the wild genome, viewable in the Barn panel.
+    await page.locator("[data-open-barn]").click();
+    await page.waitForTimeout(500);
+    await expect(page.locator("[data-herdbook-list]")).toContainText("wild");
   });
 
 

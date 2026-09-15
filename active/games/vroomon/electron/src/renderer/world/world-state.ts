@@ -97,9 +97,14 @@ export function advanceDialogue(
   next: string,
   nextDialogue: DialogueNode,
 ): WorldState {
+  // A flagged beat that ALSO chains onward applies its flag when the
+  // player advances — setFlag must not be reserved for terminal nodes.
+  const flag = state.dialogueQueue[0]?.setFlag ?? null;
+  const newFlags = flag ? { ...state.flags, [flag]: true } : state.flags;
   return {
     ...state,
     dialogueQueue: [nextDialogue],
+    flags: newFlags,
   };
 }
 

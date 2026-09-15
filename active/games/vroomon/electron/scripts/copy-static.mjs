@@ -27,6 +27,14 @@ cpSync(indexSourcePath, indexDestinationPath);
 cpSync(gameSourcePath, gameDestinationPath);
 cpSync(preloadSourcePath, preloadDestinationPath);
 
+// Sprite PNG assets (exported once by scripts/export-sprites.mjs; the
+// runtime prefers these files over the code-drawn fallback).
+const spriteAssetsSourcePath = resolve("src/renderer/assets");
+const spriteAssetsDestinationPath = resolve("dist/renderer/assets");
+if (existsSync(spriteAssetsSourcePath)) {
+  cpSync(spriteAssetsSourcePath, spriteAssetsDestinationPath, { recursive: true });
+}
+
 const indexHtml = readFileSync(indexSourcePath, "utf8");
 const e2eHtml = indexHtml
   .replace(

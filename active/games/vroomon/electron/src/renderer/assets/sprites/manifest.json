@@ -1,0 +1,386 @@
+[
+  {
+    "id": "tile:grass",
+    "file": "tile_grass.png"
+  },
+  {
+    "id": "tile:path",
+    "file": "tile_path.png"
+  },
+  {
+    "id": "tile:tree",
+    "file": "tile_tree.png"
+  },
+  {
+    "id": "tile:building",
+    "file": "tile_building.png"
+  },
+  {
+    "id": "tile:door",
+    "file": "tile_door.png"
+  },
+  {
+    "id": "tile:vroomgrass",
+    "file": "tile_vroomgrass.png"
+  },
+  {
+    "id": "tile:water",
+    "file": "tile_water.png"
+  },
+  {
+    "id": "tile:wall",
+    "file": "tile_wall.png"
+  },
+  {
+    "id": "tile:counter",
+    "file": "tile_counter.png"
+  },
+  {
+    "id": "tile:indoor-floor",
+    "file": "tile_indoor-floor.png"
+  },
+  {
+    "id": "tile:tall-grass-edge",
+    "file": "tile_tall-grass-edge.png"
+  },
+  {
+    "id": "tile:tree-trunk",
+    "file": "tile_tree-trunk.png"
+  },
+  {
+    "id": "tile:rock",
+    "file": "tile_rock.png"
+  },
+  {
+    "id": "tile:doormat",
+    "file": "tile_doormat.png"
+  },
+  {
+    "id": "tile:bed",
+    "file": "tile_bed.png"
+  },
+  {
+    "id": "player:down",
+    "file": "player_down.png"
+  },
+  {
+    "id": "player:up",
+    "file": "player_up.png"
+  },
+  {
+    "id": "player:left",
+    "file": "player_left.png"
+  },
+  {
+    "id": "player:right",
+    "file": "player_right.png"
+  },
+  {
+    "id": "npc:robby-kitchen",
+    "file": "npc_robby-kitchen.png"
+  },
+  {
+    "id": "npc:robby-reveal-1",
+    "file": "npc_robby-reveal-1.png"
+  },
+  {
+    "id": "npc:robby-reveal-2",
+    "file": "npc_robby-reveal-2.png"
+  },
+  {
+    "id": "npc:robby-reveal-3",
+    "file": "npc_robby-reveal-3.png"
+  },
+  {
+    "id": "npc:robby-reveal-4",
+    "file": "npc_robby-reveal-4.png"
+  },
+  {
+    "id": "npc:robby-yard-1",
+    "file": "npc_robby-yard-1.png"
+  },
+  {
+    "id": "npc:robby-yard-2",
+    "file": "npc_robby-yard-2.png"
+  },
+  {
+    "id": "npc:robby-yard-3",
+    "file": "npc_robby-yard-3.png"
+  },
+  {
+    "id": "npc:wild-grass",
+    "file": "npc_wild-grass.png"
+  },
+  {
+    "id": "npc:robby-caught-1",
+    "file": "npc_robby-caught-1.png"
+  },
+  {
+    "id": "npc:robby-caught-2",
+    "file": "npc_robby-caught-2.png"
+  },
+  {
+    "id": "npc:robby-caught-3",
+    "file": "npc_robby-caught-3.png"
+  },
+  {
+    "id": "npc:robby-caught-4",
+    "file": "npc_robby-caught-4.png"
+  },
+  {
+    "id": "npc:professor-axle",
+    "file": "npc_professor-axle.png"
+  },
+  {
+    "id": "npc:professor-axle-2",
+    "file": "npc_professor-axle-2.png"
+  },
+  {
+    "id": "npc:vroomdex-explain",
+    "file": "npc_vroomdex-explain.png"
+  },
+  {
+    "id": "npc:breed-champion-explain",
+    "file": "npc_breed-champion-explain.png"
+  },
+  {
+    "id": "npc:professor-farewell",
+    "file": "npc_professor-farewell.png"
+  },
+  {
+    "id": "npc:wanda-first-buys",
+    "file": "npc_wanda-first-buys.png"
+  },
+  {
+    "id": "npc:wanda-bye",
+    "file": "npc_wanda-bye.png"
+  },
+  {
+    "id": "npc:meadow-elder",
+    "file": "npc_meadow-elder.png"
+  },
+  {
+    "id": "npc:elder-join-faction",
+    "file": "npc_elder-join-faction.png"
+  },
+  {
+    "id": "npc:elder-decline",
+    "file": "npc_elder-decline.png"
+  },
+  {
+    "id": "npc:elder-feud",
+    "file": "npc_elder-feud.png"
+  },
+  {
+    "id": "npc:shopkeeper",
+    "file": "npc_shopkeeper.png"
+  },
+  {
+    "id": "npc:rival-vicky",
+    "file": "npc_rival-vicky.png"
+  },
+  {
+    "id": "npc:vicky-accept",
+    "file": "npc_vicky-accept.png"
+  },
+  {
+    "id": "npc:vicky-decline",
+    "file": "npc_vicky-decline.png"
+  },
+  {
+    "id": "npc:roundup-sign",
+    "file": "npc_roundup-sign.png"
+  },
+  {
+    "id": "npc:roundup-king",
+    "file": "npc_roundup-king.png"
+  },
+  {
+    "id": "npc:king-join-faction",
+    "file": "npc_king-join-faction.png"
+  },
+  {
+    "id": "npc:king-decline",
+    "file": "npc_king-decline.png"
+  },
+  {
+    "id": "npc:king-feud",
+    "file": "npc_king-feud.png"
+  },
+  {
+    "id": "npc:grand-roundup",
+    "file": "npc_grand-roundup.png"
+  },
+  {
+    "id": "npc:rival-marcus",
+    "file": "npc_rival-marcus.png"
+  },
+  {
+    "id": "npc:salt-gate-sign",
+    "file": "npc_salt-gate-sign.png"
+  },
+  {
+    "id": "npc:trail-boss",
+    "file": "npc_trail-boss.png"
+  },
+  {
+    "id": "npc:trailboss-join-faction",
+    "file": "npc_trailboss-join-faction.png"
+  },
+  {
+    "id": "npc:trailboss-decline",
+    "file": "npc_trailboss-decline.png"
+  },
+  {
+    "id": "npc:trailboss-feud",
+    "file": "npc_trailboss-feud.png"
+  },
+  {
+    "id": "npc:highland-herder",
+    "file": "npc_highland-herder.png"
+  },
+  {
+    "id": "npc:canyon-hauler",
+    "file": "npc_canyon-hauler.png"
+  },
+  {
+    "id": "npc:frost-courier",
+    "file": "npc_frost-courier.png"
+  },
+  {
+    "id": "npc:marcus-accept",
+    "file": "npc_marcus-accept.png"
+  },
+  {
+    "id": "npc:marcus-decline",
+    "file": "npc_marcus-decline.png"
+  },
+  {
+    "id": "npc:sand-sign",
+    "file": "npc_sand-sign.png"
+  },
+  {
+    "id": "npc:wreck-marshal",
+    "file": "npc_wreck-marshal.png"
+  },
+  {
+    "id": "npc:marshal-join-faction",
+    "file": "npc_marshal-join-faction.png"
+  },
+  {
+    "id": "npc:marshal-decline",
+    "file": "npc_marshal-decline.png"
+  },
+  {
+    "id": "npc:marshal-feud",
+    "file": "npc_marshal-feud.png"
+  },
+  {
+    "id": "npc:guru-updrafts",
+    "file": "npc_guru-updrafts.png"
+  },
+  {
+    "id": "npc:skimmers-join-faction",
+    "file": "npc_skimmers-join-faction.png"
+  },
+  {
+    "id": "npc:skimmers-decline",
+    "file": "npc_skimmers-decline.png"
+  },
+  {
+    "id": "npc:skimmers-feud",
+    "file": "npc_skimmers-feud.png"
+  },
+  {
+    "id": "npc:guru-stone",
+    "file": "npc_guru-stone.png"
+  },
+  {
+    "id": "npc:miners-join-faction",
+    "file": "npc_miners-join-faction.png"
+  },
+  {
+    "id": "npc:miners-decline",
+    "file": "npc_miners-decline.png"
+  },
+  {
+    "id": "npc:miners-feud",
+    "file": "npc_miners-feud.png"
+  },
+  {
+    "id": "npc:vent-keeper",
+    "file": "npc_vent-keeper.png"
+  },
+  {
+    "id": "npc:lay-foreman",
+    "file": "npc_lay-foreman.png"
+  },
+  {
+    "id": "npc:union-join-faction",
+    "file": "npc_union-join-faction.png"
+  },
+  {
+    "id": "npc:union-decline",
+    "file": "npc_union-decline.png"
+  },
+  {
+    "id": "npc:union-feud",
+    "file": "npc_union-feud.png"
+  },
+  {
+    "id": "npc:canyon-ringleader",
+    "file": "npc_canyon-ringleader.png"
+  },
+  {
+    "id": "npc:runners-join-faction",
+    "file": "npc_runners-join-faction.png"
+  },
+  {
+    "id": "npc:runners-decline",
+    "file": "npc_runners-decline.png"
+  },
+  {
+    "id": "npc:runners-feud",
+    "file": "npc_runners-feud.png"
+  },
+  {
+    "id": "npc:assay-clerk",
+    "file": "npc_assay-clerk.png"
+  },
+  {
+    "id": "npc:keeper-long-light",
+    "file": "npc_keeper-long-light.png"
+  },
+  {
+    "id": "npc:herdsmen-join-faction",
+    "file": "npc_herdsmen-join-faction.png"
+  },
+  {
+    "id": "npc:herdsmen-decline",
+    "file": "npc_herdsmen-decline.png"
+  },
+  {
+    "id": "npc:herdsmen-feud",
+    "file": "npc_herdsmen-feud.png"
+  },
+  {
+    "id": "npc:frost-baron",
+    "file": "npc_frost-baron.png"
+  },
+  {
+    "id": "npc:drift-join-faction",
+    "file": "npc_drift-join-faction.png"
+  },
+  {
+    "id": "npc:drift-decline",
+    "file": "npc_drift-decline.png"
+  },
+  {
+    "id": "npc:drift-feud",
+    "file": "npc_drift-feud.png"
+  },
+  {
+    "id": "npc:lamp-lighter",
+    "file": "npc_lamp-lighter.png"
+  }
+]

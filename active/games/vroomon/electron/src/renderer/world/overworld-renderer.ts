@@ -12,7 +12,7 @@ import {
   type WorldState,
 } from "./types.js";
 import { findDecor } from "./decor.js";
-import { HOUSE_ACCENTS, SPRITE_PALETTE as PAL } from "./sprites-palette.js";
+import { HOUSE_ACCENTS, houseAccentForNpc, SPRITE_PALETTE as PAL } from "./sprites-palette.js";
 import { FACTIONS } from "./factions.js";
 
 export interface OverworldRenderFrame {
@@ -21,6 +21,9 @@ export interface OverworldRenderFrame {
   world: WorldState;
   /** Owned cosmetic decor ids (lives in renderer state, not world state). */
   decor: string[];
+  /** Loaded sprite PNGs keyed by id (tile:<kind>, npc:<id>, player:<facing>).
+   * When an image exists it wins over the code-drawn fallback. */
+  spriteAssets?: Map<string, HTMLImageElement>;
 }
 
 export function renderOverworld(
@@ -47,7 +50,12 @@ export function renderOverworld(
       const tile = map.tiles[y]?.[x] ?? "grass";
       const px = x * TILE_SIZE - cameraX;
       const py = y * TILE_SIZE - cameraY;
-      drawTile(ctx, tile, px, py, TILE_SIZE, tick);
+      const tileAsset = frame.spriteAssets?.get(`tile:${tile}`);
+      if (tileAsset) {
+        ctx.drawImage(tileAsset, px, py, TILE_SIZE, TILE_SIZE);
+      } else {
+        drawTile(ctx, tile, px, py, TILE_SIZE, tick);
+      }
     }
   }
 
@@ -120,7 +128,13 @@ export function renderOverworld(
         ) {
           return;
         }
-        drawNpc(ctx, npc.sprite, npcPx, npcPy, TILE_SIZE, npc.facing, tick, npc.id);
+        const npcAsset = frame.spriteAssets?.get(`npc:${npc.id}`);
+        if (npcAsset) {
+          ctx.drawImage(npcAsset, npcPx, npcPy, TILE_SIZE, TILE_SIZE);
+        } else {
+          drawNpc(ctx, npc.sprite, npcPx, npcPy, TILE_SIZE, npc.facing, tick, npc.id);
+        }
+        drawNpcNameTag(ctx, npc.name, npcPx, npcPy, npc.id, tick);
       },
     });
   }
@@ -405,4 +419,58 @@ function drawArenaGarlands(
   ctx.arc((postsX - 0.3) * TILE_SIZE - cameraX, poleTop - 6, 4, 0, Math.PI * 2);
   ctx.arc(poleBase + 10, poleTop - 6, 4, 0, Math.PI * 2);
   ctx.fill();
+}
+
+
+const NAME_TAG_HIDDEN_IDS = new Set([
+  "professor-axle-2",
+  "robby-reveal-1",
+  "robby-reveal-2",
+  "robby-reveal-3",
+  "robby-reveal-4",
+  "robby-yard-1",
+  "robby-yard-2",
+  "robby-yard-3",
+  "robby-caught-1",
+  "robby-caught-2",
+  "robby-caught-3",
+  "robby-caught-4",
+  "elder-join-faction",
+  "elder-decline",
+  "elder-feud",
+  "vroomdex-explain",
+  "professor-farewell",
+  "wanda-first-buys",
+  "wanda-bye",
+]);
+
+function drawNpcNameTag(
+  ctx: CanvasRenderingContext2D,
+  name: string,
+  npcPx: number,
+  npcPy: number,
+  npcId: string,
+  tick: number,
+): void {
+  if (!name || NAME_TAG_HIDDEN_IDS.has(npcId)) {
+    return;
+  }
+  const text = name.length > 20 ? `${name.slice(0, 18)}…` : name;
+  const fontSize = 11;
+  ctx.font = `600 ${fontSize}px system-ui, sans-serif`;
+  const width = ctx.measureText(text).width + 14;
+  const x = npcPx + TILE_SIZE / 2;
+  const y = npcPy - 12;
+  const accent = houseAccentForNpc(npcId) ?? "#caa672";
+  ctx.fillStyle = "rgba(12, 9, 6, 0.82)";
+  ctx.beginPath();
+  ctx.roundRect(x - width / 2, y - fontSize - 4, width, fontSize + 8, 5);
+  ctx.fill();
+  ctx.strokeStyle = accent;
+  ctx.lineWidth = 1.4;
+  ctx.stroke();
+  ctx.fillStyle = tick % 600 < 300 ? "#f8f1e0" : "#ffffff";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(text, x, y);
 }

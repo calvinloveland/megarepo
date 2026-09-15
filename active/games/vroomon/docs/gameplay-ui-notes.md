@@ -640,6 +640,34 @@ clickable, and the settings gear moved off the ambience toggle's corner.
 186 unit + 21 e2e (a full opening-journey e2e walks trip → name → wake →
 Robby → reveal → catch → gate).
 
+## Opening polish + real sprite assets (2026-09-14) ✅
+
+**Opening input & pacing**: clicking the intro card advances the beats
+(Z/Enter too); Enter no longer loops on beat 2 (the intro now owns all
+input while open, so the menu's start shortcut can't reset it); the
+overworld dialogue box also advances on click. **Robby's dialogue is now
+one sentence per box** (the reveal, the yard lesson, the catch praise),
+click-through at a calm pace. Found + fixed a dialogue-engine bug:
+setFlag was ignored on beats that ALSO chain forward — those flags were
+silently lost (the reveal state vanished on reload).
+
+**The tools are now shown, not just mentioned**: the 🏟 Barn panel gained
+a real **Herd Book** section listing recorded genomes; after your first
+catch Robby's beat tells you to open it, and the Barn button **pulses**
+until you do. The ambience + settings buttons hide in world mode, and
+every overworld NPC now has a **name tag** (faction-accented border) so
+the world reads clearly.
+
+**Sprite asset pipeline**: `npm run export:sprites` renders all 96
+code-drawn sprites (tiles, NPCs, player facings) to real PNG files in
+`src/renderer/assets/sprites/` + a manifest; `copy-static` ships them to
+dist and the runtime **prefers the PNG files** over the code drawing
+(which stays as fallback). This is the drop-in seam for AI-generated art:
+name a PNG the same as its manifest id and rebuild — the game uses it.
+(No image-gen model/API exists on this host, so generation itself needs
+either a local GPU install or an API key placed in `.secrets` per the
+repo's rules.)
+
 ## Outstanding gameplay/UI issues (identified, not yet fixed — design work)
 
 From the vision-model critique + probes, ordered by impact:
