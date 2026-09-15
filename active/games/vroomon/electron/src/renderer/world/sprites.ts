@@ -172,20 +172,97 @@ export function drawNpc(
   ctx.fillStyle = bandColor;
   ctx.fillRect(px + size / 2 - 6, cy - 12, 12, 4);
 
+  // Per-archetype silhouettes so hosts read as DISTINCT people, not boxes.
+  drawNpcAccessory(ctx, sprite, px, py, size, cy, facing, bandColor);
+
   ctx.fillStyle = bodyColor;
   ctx.fillRect(px + size / 2 - 7, cy + 2, 14, 12);
+
+  // Crisp dark outline so sprites pop against any background tile.
+  ctx.strokeStyle = "rgba(20, 14, 8, 0.75)";
+  ctx.lineWidth = 1;
+  ctx.strokeRect(px + size / 2 - 5, cy - 8, 10, 10);
+  ctx.strokeRect(px + size / 2 - 7, cy + 2, 14, 12);
+  ctx.strokeRect(px + size / 2 - 6, cy - 12, 12, 4);
 
   ctx.fillStyle = PAL.ink.feet;
   ctx.fillRect(px + size / 2 - 6, cy + 14, 5, 3);
   ctx.fillRect(px + size / 2 + 1, cy + 14, 5, 3);
 
-  if (sprite === "gym-leader" || sprite === "professor" || sprite === "mechanic") {
-    ctx.fillStyle = "rgba(255,255,255,0.6)";
-    ctx.fillRect(px + 4, py + 4, 8, 8);
-    ctx.strokeStyle = "rgba(0,0,0,0.4)";
-    ctx.strokeRect(px + 4.5, py + 4.5, 7, 7);
+}
+
+function drawNpcAccessory(
+  ctx: CanvasRenderingContext2D,
+  sprite: string,
+  px: number,
+  py: number,
+  size: number,
+  cy: number,
+  facing: Direction,
+  bandColor: string,
+): void {
+  const cx = px + size / 2;
+  const eyeShift = facing === "left" ? -1.5 : facing === "right" ? 1.5 : 0;
+
+  switch (sprite) {
+    case "professor":
+      // Scholar's flat cap + half-moon spectacles.
+      ctx.fillStyle = "#4a4452";
+      ctx.fillRect(cx - 7, cy - 15, 14, 4);
+      ctx.fillRect(cx - 9, cy - 12, 18, 2);
+      ctx.strokeStyle = "rgba(30, 24, 34, 0.85)";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(cx - 2.5 + eyeShift, cy - 5, 2.4, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(cx + 2.5 + eyeShift, cy - 5, 2.4, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.strokeRect(cx - 6 + eyeShift, cy - 4, 12, 2);
+      break;
+    case "mechanic":
+      // Beanie + a little wrench hand.
+      ctx.fillStyle = "#7d6a52";
+      ctx.beginPath();
+      ctx.arc(cx, cy - 9, 7, Math.PI, 0);
+      ctx.fill();
+      ctx.fillStyle = "#c9c9c9";
+      ctx.fillRect(cx + 8, cy + 4, 2, 6);
+      ctx.fillRect(cx + 6, cy + 9, 6, 2);
+      break;
+    case "rider":
+      // Bandana tails + a ponytail.
+      ctx.fillStyle = "#2a6b4f";
+      ctx.fillRect(cx - 5, cy + 2, 3, 7);
+      ctx.fillRect(cx + 2, cy + 2, 3, 7);
+      ctx.fillStyle = "#7a4a1e";
+      ctx.fillRect(cx + 6, cy - 9, 2, 6);
+      break;
+    case "gym-leader":
+      // Stetson: brim + crown with the host's band accent.
+      ctx.fillStyle = "#8a6a3a";
+      ctx.fillRect(cx - 9, cy - 14, 18, 2);
+      ctx.fillRect(cx - 5, cy - 19, 11, 6);
+      ctx.fillStyle = bandColor;
+      ctx.fillRect(cx - 5, cy - 13, 11, 2);
+      break;
+    case "sign":
+      // Post + creaking board.
+      ctx.fillStyle = "#7a5c3e";
+      ctx.fillRect(cx + 6, cy - 12, 3, 24);
+      ctx.fillStyle = "#c9a176";
+      ctx.fillRect(cx - 4, cy - 14, 12, 11);
+      ctx.strokeStyle = "rgba(40, 26, 12, 0.7)";
+      ctx.strokeRect(cx - 4, cy - 14, 12, 11);
+      ctx.fillStyle = "#3b2a1c";
+      ctx.fillRect(cx, cy - 12, 1.5, 1.5);
+      ctx.fillRect(cx, cy - 6, 1.5, 1.5);
+      break;
+    default:
+      break;
   }
 }
+
 
 const NPC_PALETTE: Record<string, { head: string; body: string; accent: string }> = {
   professor: { head: PAL.skin.light, body: PAL.body.purple, accent: PAL.accent.white },
