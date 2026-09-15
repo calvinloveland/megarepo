@@ -135,6 +135,14 @@
         box-shadow: 0 0 8px rgba(255, 209, 102, 0.4);
       }
 
+      .top-bar__brand {
+        font-family: var(--font-pixel);
+        font-size: 0.62rem;
+        letter-spacing: 0.22em;
+        color: var(--gold-deep, var(--gold));
+        padding: 0 0.3rem;
+      }
+
       .top-bar__spacer { flex: 1; }
 
       .top-bar__terrain select {
@@ -625,6 +633,79 @@
         box-shadow: 0 3px 0 #12370f;
       }
       .intro-card__prompt { font-family: var(--font-pixel); font-size: 0.55rem; color: #cbb894; letter-spacing: 0.18em; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8); }
+      .pocket-ranch {
+        position: fixed;
+        inset: 0;
+        z-index: 62;
+        /* Click-through by default: the herd bench and paddock scenes ARE
+           the full-screen mode overlays underneath, so the hub only owns
+           its floating control bar (and the barn scene's own backdrop). */
+        pointer-events: none;
+      }
+      .pocket-ranch__bar {
+        position: absolute;
+        top: 0.45rem;
+        left: 50%;
+        transform: translateX(-50%);
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        padding: 0.35rem 0.5rem;
+        background: linear-gradient(180deg, var(--paper) 0%, var(--paper-dark) 100%);
+        border: 2px solid var(--gold);
+        border-radius: 12px;
+        box-shadow: 0 4px 0 rgba(0, 0, 0, 0.4);
+        pointer-events: auto;
+        /* Above the barn scene's backdrop so Close stays clickable. */
+        z-index: 2;
+      }
+      .pocket-ranch__title {
+        font-family: var(--font-pixel);
+        font-size: 0.6rem;
+        letter-spacing: 0.16em;
+        color: var(--gold-deep, var(--gold));
+        margin-right: 0.6rem;
+      }
+      .barn-pill {
+        font-family: var(--font-pixel);
+        font-size: 0.5rem;
+        color: var(--text);
+        background: rgba(0, 0, 0, 0.25);
+        border: 2px solid rgba(138, 120, 90, 0.5);
+        border-radius: 8px;
+        padding: 0.5rem 0.8rem;
+        cursor: pointer;
+      }
+      .barn-pill[aria-pressed="true"] {
+        color: #1a1108;
+        background: linear-gradient(180deg, #ffd166 0%, #d9a323 100%);
+        border-color: #ffd166;
+        box-shadow: 0 0 0 2px rgba(255, 209, 102, 0.25);
+      }
+      .barn-hub__close {
+        margin-left: auto;
+        font-family: var(--font-pixel);
+        font-size: 0.5rem;
+        color: #fff;
+        background: linear-gradient(180deg, #4f9e55 0%, #1d5e24 100%);
+        border: 2px solid #12370f;
+        border-radius: 8px;
+        padding: 0.5rem 0.9rem;
+        cursor: pointer;
+        box-shadow: 0 3px 0 #12370f;
+      }
+      .pocket-ranch__scene {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        overflow-y: auto;
+        padding: 4rem 1rem 1rem;
+        background: radial-gradient(circle at 50% 30%, rgba(30, 22, 12, 0.88), rgba(6, 5, 3, 0.96) 78%);
+        pointer-events: auto;
+        z-index: 1;
+      }
+      .pocket-ranch__scene[hidden] { display: none; }
       .barn-chip {
         position: fixed;
         right: 0.6rem;
