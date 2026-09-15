@@ -48,6 +48,31 @@ make web            # node scripts/web-server.mjs  -> http://localhost:5112
 The launcher (`active/web-apps/launcher/apps.yaml`) starts the same web
 server for the public-facing app.
 
+### Play session (tracked server)
+
+The dev host may accumulate stray `web-server.mjs` instances. Brandon
+one tracked server at a time:
+
+```bash
+cd active/games/vroomon/electron
+npm run build                                        # fresh dist
+# start (detached, tracked):
+mkdir -p .runtime
+setsid nohup env VROOMON_WEB_PORT=5112 VROOMON_WEB_HOST=0.0.0.0 \
+  node scripts/web-server.mjs > .runtime/web.log 2>&1 &
+ps -eo pid,cmd | grep scripts/web-server.mjs | grep -v grep | awk '{print $1}' > .runtime/web.pid
+# play:
+open http://localhost:5112/game.html                  # hard-refresh after commits
+# stop / restart:
+kill \$(cat .runtime/web.pid)   # then repeat the start block after a rebuild
+```
+
+Progress (world, barn, records, settings) persists in the browser's
+localStorage; the run state and hall also persist via the save/load keys.
+Regenerate sprite assets after any drawing changes with
+`npm run export:sprites` (needs
+`VROOMON_BROWSER_EXECUTABLE` on NixOS, see `docs/art-pipeline.md`).
+
 ## Shared tunnel ingress rule
 
 Add this to `~/.cloudflared/config.yml` above the catch-all rule:
