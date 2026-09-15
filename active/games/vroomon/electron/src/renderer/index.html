@@ -489,24 +489,31 @@
       }
       .intro-card__panel {
         width: min(560px, 92vw);
-        min-height: 210px;
-        padding: 2rem 2.2rem;
+        min-height: 220px;
+        padding: 2.2rem 2.4rem;
         text-align: center;
         display: flex;
         flex-direction: column;
         justify-content: center;
         gap: 1rem;
+        background: linear-gradient(180deg, #2a1f13 0%, #170f08 100%);
+        border: 2px solid var(--gold);
+        border-radius: 14px;
+        box-shadow: 0 8px 0 rgba(0, 0, 0, 0.45), inset 0 0 40px rgba(0, 0, 0, 0.45);
       }
       .intro-card__title {
         font-family: var(--font-pixel);
         font-size: 0.8rem;
         letter-spacing: 0.22em;
-        color: var(--gold-deep);
+        color: #ffd166;
+        text-shadow: 0 2px 3px rgba(0, 0, 0, 0.7);
       }
       .intro-card__text {
-        font-size: 1.05rem;
-        line-height: 1.6;
-        color: var(--text);
+        font-size: 1.12rem;
+        line-height: 1.65;
+        color: #f8f1e0;
+        font-weight: 600;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.9);
         min-height: 3.4rem;
       }
       .intro-card__label { font-family: var(--font-pixel); font-size: 0.55rem; color: var(--text-soft); letter-spacing: 0.1em; }
@@ -523,7 +530,7 @@
         cursor: pointer;
         box-shadow: 0 3px 0 #12370f;
       }
-      .intro-card__prompt { font-family: var(--font-pixel); font-size: 0.5rem; color: var(--text-soft); letter-spacing: 0.18em; }
+      .intro-card__prompt { font-family: var(--font-pixel); font-size: 0.55rem; color: #cbb894; letter-spacing: 0.18em; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8); }
       .barn-chip {
         position: fixed;
         right: 0.6rem;
