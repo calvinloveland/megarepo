@@ -765,6 +765,33 @@ re-exports; `--force` overwrites), which is the mix-and-match rule.
 `@smoke` subset (**22s**) covering the paths that break silently; unit
 tests stay at ~5s. See DEPLOYMENT.md.
 
+## The evolution lab: dials, auto-run, outliers (2026-09-14) ✅
+
+Reframed the herd bench away from "approve every mating" toward the
+evolution-simulator core (the BoxCar2D lineage of the design):
+
+- **Sim dials always visible** on the bench — HERD (20–400), MUTATION
+  (2–50%), KEEP (10–75% retained), DNA length — replacing the hidden ⚙
+  config panel. Dialling the simulator is now the front-and-centre act.
+- **▶ AUTO**: grinds generations back to back (~0.6s apart), with
+  *stop at plateau* honoured (6 dry generations), feed spent per
+  generation, and automatic stops on out-of-feed or when you leave the
+  bench. The button shows a live count (`⏹ AUTO · 6`) and the status line
+  reads `Auto-run gen 6 · best 1001.93 · 3 dry`.
+- **Outlier callout**: any generation whose best beats the run's all-time
+  best by ≥2% throws a gold `NEW OUTLIER · 1001.93 (+7%)` banner with the
+  win chord — the "lucky generation" moment the loop exists for. Manual
+  and batch runs celebrate too.
+- The BEST chip is now the **all-time** best (it showed only the latest
+  generation, so it disagreed with the auto-run summary).
+- `evolution-lab.ts` holds the pure decisions (`isOutlier`,
+  `autoRunVerdict`, `improvementRatio`) with 7 unit tests; a `@smoke` e2e
+  dials the sim and watches the counter climb without further input.
+
+Next (from the user's steer): a **heritage/lineage tree** view so you can
+trace how a champion emerged, and **scaling biomes** so yesterday's
+champion is obsolete when the terrain gets harder.
+
 ## Outstanding gameplay/UI issues (identified, not yet fixed — design work)
 
 From the vision-model critique + probes, ordered by impact:

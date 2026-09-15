@@ -9,6 +9,11 @@ import type {
   VroomonParityContract,
 } from "../shared/parity-contract.js";
 import { bestRecord, proposeRecord } from "./records.js";
+import {
+  autoRunVerdict,
+  improvementRatio,
+  isOutlier,
+} from "./evolution-lab.js";
 import { collectSpriteExports } from "./world/sprites.js";
 import { portraitSvgFor } from "./portraits.js";
 
@@ -793,6 +798,119 @@ function showRecordsToast(message: string): void {
     toast.hidden = true;
   }, 2600);
 }
+
+let calloutTimer: ReturnType<typeof setTimeout> | null = null;
+
+/** A big transient banner for the moments worth shouting about. */
+function showCallout(message: string, ms = 3200): void {
+  const callout = document.querySelector<HTMLElement>("[data-callout]");
+  if (!callout) {
+    return;
+  }
+  callout.textContent = message;
+  callout.hidden = false;
+  if (calloutTimer) {
+    clearTimeout(calloutTimer);
+  }
+  calloutTimer = setTimeout(() => {
+    callout.hidden = true;
+  }, ms);
+}
+
+// ---- Auto-run: let the simulator grind while you watch ----
+const autoRunButton = document.querySelector<HTMLButtonElement>("[data-auto-run]");
+let autoRunTimer: ReturnType<typeof setTimeout> | null = null;
+let autoRunArmed = false;
+let autoRunDryStreak = 0;
+let autoRunGenerations = 0;
+
+function currentBestScore(): number {
+  return rendererState.scoreHistory.reduce(
+    (best, entry) => Math.max(best, entry.bestScore),
+    0,
+  );
+}
+
+function renderAutoRunButton(): void {
+  if (!autoRunButton) {
+    return;
+  }
+  autoRunButton.dataset.armed = String(autoRunArmed);
+  autoRunButton.textContent = autoRunArmed
+    ? `⏹ AUTO · ${autoRunGenerations}`
+    : "▶ AUTO";
+}
+
+function stopAutoRun(reason: string): void {
+  autoRunArmed = false;
+  if (autoRunTimer) {
+    clearTimeout(autoRunTimer);
+    autoRunTimer = null;
+  }
+  renderAutoRunButton();
+  rendererState = {
+    ...rendererState,
+    statusMessage: `Auto-run stopped (${reason}) after ${autoRunGenerations} generations.`,
+  };
+  renderApp();
+}
+
+async function autoRunTick(): Promise<void> {
+  if (!autoRunArmed) {
+    return;
+  }
+  const verdict = autoRunVerdict({
+    feed: rendererState.runState.feed ?? 8,
+    dryStreak: autoRunDryStreak,
+    plateauLimit: 6,
+    stopAtPlateau: rendererState.convergeMode,
+  });
+  if (verdict !== "continue") {
+    stopAutoRun(verdict === "out-of-feed" ? "out of feed" : "plateau");
+    return;
+  }
+  if (!rendererState.batchRunning) {
+    const before = currentBestScore();
+    await runGeneration();
+    const after = currentBestScore();
+    autoRunGenerations += 1;
+    if (isOutlier(before, after)) {
+      autoRunDryStreak = 0;
+      const gain = Math.round(improvementRatio(before, after) * 100);
+      showCallout(`NEW OUTLIER · ${formatNumber(after)}${gain > 0 ? ` (+${gain}%)` : ""}`);
+      sfx.win();
+    } else {
+      autoRunDryStreak += 1;
+    }
+    renderAutoRunButton();
+    rendererState = {
+      ...rendererState,
+      statusMessage: `Auto-run gen ${autoRunGenerations} · best ${formatNumber(currentBestScore())} · ${autoRunDryStreak} dry`,
+    };
+    renderApp();
+  }
+  autoRunTimer = setTimeout(() => {
+    void autoRunTick();
+  }, 620);
+}
+
+autoRunButton?.addEventListener("click", () => {
+  if (autoRunArmed) {
+    stopAutoRun("switched off");
+    return;
+  }
+  if ((rendererState.runState.feed ?? 8) < 1) {
+    playRanchSound("deny");
+    showCallout("Out of feed — buy grain or release some of the herd.");
+    return;
+  }
+  autoRunArmed = true;
+  autoRunGenerations = 0;
+  autoRunDryStreak = 0;
+  renderAutoRunButton();
+  sfx.click();
+  void autoRunTick();
+});
 
 function recordDraftLap(): void {
   if (latestRunScore <= 0 || !latestRunTerrain || !latestRunDna) {
@@ -1970,11 +2088,19 @@ async function runGeneration(): Promise<void> {
     window.vroomon.createGenerationLogEntry(runState, generationResult),
   );
 
+  const bestBeforeRun = currentBestScore();
   rendererState = applyGenerationToState(
     baseRendererState,
     generationResult,
     window.vroomon.advanceRunState(runState, generationResult),
   );
+  if (isOutlier(bestBeforeRun, currentBestScore())) {
+    const gain = Math.round(improvementRatio(bestBeforeRun, currentBestScore()) * 100);
+    showCallout(
+      `NEW OUTLIER · ${formatNumber(currentBestScore())}${gain > 0 ? ` (+${gain}%)` : ""}`,
+    );
+    sfx.win();
+  }
   if (generatedPopulation) {
     rendererState = {
       ...rendererState,
@@ -2958,12 +3084,16 @@ function renderStatsHud(): void {
     (left, right) => right.score - left.score,
   );
   const hallTop = hallSorted[0] ?? null;
-  const evolutionBest =
-    rendererState.scoreHistory.at(-1)?.bestScore ??
-    (rendererState.latestGeneration?.evaluatedPopulation.reduce(
+  // All-time best across the run's generations — a champion found five
+  // generations ago is still your champion (the last generation alone made
+  // the chip disagree with the auto-run summary).
+  const evolutionBest = rendererState.scoreHistory.reduce(
+    (best, entry) => Math.max(best, entry.bestScore),
+    rendererState.latestGeneration?.evaluatedPopulation.reduce(
       (best, entry) => Math.max(best, entry.score),
       0,
-    ) ?? 0);
+    ) ?? 0,
+  );
 
   const chips: Array<{ label: string; value: string }> = [];
   let questCardHtml = "";
@@ -4484,6 +4614,9 @@ function renderPocketRanch(): void {
   if (!barnOverlay) {
     return;
   }
+  if (autoRunArmed && (!rendererState.barnOpen || rendererState.barnScene !== "herd")) {
+    stopAutoRun("left the bench");
+  }
   // When something loads/switches the underlying mode while the hub is open
   // (a saved test-drive run, a record-driven draft), the scene follows —
   // the pills should never disagree with the content on screen.
@@ -4636,13 +4769,8 @@ window.addEventListener("keydown", (event) => {
 });
 
 // Collapsible config panel toggle
-const configToggle = document.querySelector<HTMLButtonElement>("[data-config-toggle]");
-const configPanel = document.querySelector<HTMLElement>("[data-config-panel]");
-if (configToggle && configPanel) {
-  configToggle.addEventListener("click", () => {
-    configPanel.hidden = !configPanel.hidden;
-  });
-}
+// The sim dials live in an always-visible panel now (no ⚙ toggle): an
+// evolution simulator should show its knobs.
 
 // ---- Ranch economy store -------------------------------------------------
 const ranchOverlay = document.querySelector<HTMLElement>("[data-ranch-overlay]");

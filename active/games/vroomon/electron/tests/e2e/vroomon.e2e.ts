@@ -300,7 +300,8 @@ test.describe("vroomon Playwright harness", () => {
     await expect(page.locator('[data-viewport-actions-overlay][data-mode="test-drive"]')).toBeHidden();
     await expect(page.locator("[data-viewport-leader-pill]")).toBeHidden();
     await expect(page.locator("[data-viewport-progress-overlay]")).toBeHidden();
-    await expect(page.locator("[data-config-panel]")).toBeHidden();
+    // The sim dials are always on the bench now (no ⚙ toggle to hide them).
+    await expect(page.locator("[data-population-size-select]")).toBeHidden();
 
     // In the herd scene the evolution HUD shows and the drive HUD stays
     // hidden; the config toggle actually collapses now.
@@ -308,10 +309,11 @@ test.describe("vroomon Playwright harness", () => {
     await openPocketRanch(page, "herd");
     await expect(page.locator('[data-viewport-actions-overlay][data-mode="evolution"]')).toBeVisible();
     await expect(page.locator('[data-viewport-actions-overlay][data-mode="test-drive"]')).toBeHidden();
-    await page.locator("[data-config-toggle]").click();
-    await expect(page.locator("[data-config-panel]")).toBeVisible();
-    await page.locator("[data-config-toggle]").click();
-    await expect(page.locator("[data-config-panel]")).toBeHidden();
+    // Dialling the simulator: the dials are visible on the bench and take
+    // effect on the next fresh herd.
+    await page.locator("[data-mutation-rate-select]").selectOption("0.35");
+    await page.locator("[data-population-size-select]").selectOption("50");
+    await expect(page.locator("[data-auto-run]")).toBeVisible();
 
     // Regression: the overworld canvas never painted (the rAF loop guard
     // was poisoned at boot). The backing store must hold real pixels.
@@ -1025,6 +1027,44 @@ test.describe("vroomon Playwright harness", () => {
     });
     expect(culled.size).toBeLessThanOrEqual(10);
     expect(culled.size).toBeGreaterThanOrEqual(1);
+  });
+
+
+  test("@smoke the evolution lab dials the sim and auto-runs generations", async ({
+    page,
+  }) => {
+    await seedAndEnterWorld(page);
+    await openPocketRanch(page, "herd");
+
+    // The simulator's knobs are on the bench, not hidden behind a toggle.
+    await expect(page.locator("[data-population-size-select]")).toBeVisible();
+    await expect(page.locator("[data-mutation-rate-select]")).toBeVisible();
+    await expect(page.locator("[data-retain-ratio-select]")).toBeVisible();
+    await expect(page.locator("[data-dna-length-select]")).toBeVisible();
+
+    // Dial it up: a small, high-mutation herd evolves visibly.
+    await page.locator("[data-population-size-select]").selectOption("50");
+    await page.locator("[data-mutation-rate-select]").selectOption("0.35");
+    await page.locator("[data-generate-population]").click();
+    await page.waitForTimeout(600);
+
+    const auto = page.locator("[data-auto-run]");
+    await expect(auto).toHaveAttribute("data-armed", "false");
+    await auto.click();
+    await expect(auto).toHaveAttribute("data-armed", "true");
+
+    // It grinds on its own: the counter climbs without further input.
+    await expect
+      .poll(async () => Number((await auto.textContent())?.match(/·\s*(\d+)/)?.[1] ?? 0), {
+        timeout: 15000,
+      })
+      .toBeGreaterThanOrEqual(2);
+    await expect(page.locator("[data-status-message]")).toContainText("Auto-run gen");
+
+    // And it can be switched off.
+    await auto.click();
+    await expect(auto).toHaveAttribute("data-armed", "false");
+    await expect(page.locator("[data-status-message]")).toContainText("Auto-run stopped");
   });
 
 });
