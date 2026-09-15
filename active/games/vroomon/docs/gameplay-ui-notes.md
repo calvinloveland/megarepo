@@ -576,6 +576,23 @@ upgrade grind, which is now optional beyond the win).
   explicitly; old saves without it read as version 1, always tolerated.
 - 186 unit + 20 e2e pass.
 
+## Onboarding: a slow, guided start (2026-09-14) ✅
+
+- **NEW RUN now begins the story**: it lands you at Starter Town with the
+  arrival line + Professor Axle objective (walk with arrows/WASD, Z talks)
+  instead of dumping you into a racing screen. The menu gained an opaque
+  backdrop, a clearer tagline ("Ranching, not racing sim…"), and a
+  HOW TO PLAY strip outlining the four loops.
+- **First-visit guide banners**: Evolution ("Generate a herd, breed with
+  Run Gen, save your champion 🏅") with an auto-generated starter herd so
+  the guide has something to point at, and Test Drive ("beats records
+  plant ghosts"). Banners clear on any interaction (never block play) and
+  persist as seen (`vroomon:tips`), so returning players never see them.
+  Fixes a temporal-dead-zone bug where the boot render read the banner
+  array before it initialized.
+- 188 unit + 21 e2e (new onboarding e2e: NEW RUN lands in world,
+  banners show/dismiss/persist). 
+
 ## Outstanding gameplay/UI issues (identified, not yet fixed — design work)
 
 From the vision-model critique + probes, ordered by impact:

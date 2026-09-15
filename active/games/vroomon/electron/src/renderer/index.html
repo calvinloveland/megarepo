@@ -485,6 +485,7 @@
         right: 0;
         bottom: 0;
         text-align: center;
+        background: radial-gradient(circle at 50% 30%, #33261a 0%, #171009 65%, #0e0906 100%);
       }
       .menu-title {
         font-size: 2rem;
@@ -496,6 +497,35 @@
       .menu-tagline { font-size: 0.95rem; color: var(--muted); font-style: italic; }
 
       /* --- Variant A: arcade start screen (centered) --- */
+      .menu-howto {
+        margin-top: 0.35rem;
+        font-size: 0.72rem;
+        color: var(--muted);
+        max-width: 640px;
+        line-height: 1.5;
+      }
+      .onboard {
+        position: fixed;
+        top: 3rem;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 55;
+        display: flex;
+        align-items: center;
+        gap: 0.8rem;
+        width: min(640px, 92vw);
+        padding: 0.7rem 1rem;
+        background: linear-gradient(180deg, var(--paper) 0%, var(--paper-dark) 100%);
+        border: 2px solid var(--gold);
+        border-radius: 12px;
+        box-shadow: 0 6px 0 rgba(26, 14, 8, 0.45);
+        color: var(--text);
+        pointer-events: none;
+        animation: grand-pop 0.3s ease-out;
+      }
+      .onboard__body { display: flex; flex-direction: column; gap: 0.15rem; font-size: 0.85rem; }
+      .onboard__body strong { font-family: var(--font-pixel); font-size: 0.55rem; color: var(--gold-deep); letter-spacing: 0.1em; }
+      .onboard__dismiss { pointer-events: auto; }
       .viewport-overlay--menu-a {
         display: grid;
         place-items: center;
@@ -1286,7 +1316,8 @@
               <div class="menu-kicker">RIDERS OF THE EVOLVING ROAD</div>
               <h1 class="menu-title">VROOMON</h1>
               <div class="menu-roadline" aria-hidden="true"></div>
-              <p class="menu-tagline">Evolve a population of DNA-encoded cars. Race the physics. Enshrine your best.</p>
+              <p class="menu-tagline">Ranching, not racing sim: breed a herd, race your best, and settle the Road's feuds town by town.</p>
+              <p class="menu-howto">HOW TO PLAY — <b>Evolve</b> a herd · <b>Test-Drive</b> your best · <b>Walk</b> the overworld (arrows / WASD, <b>Z</b> talks) · <b>RANCH</b> store buys upgrades &amp; supplements</p>
             </div>
             <div class="menu-actions">
               <button class="menu-btn menu-btn--primary" type="button" data-menu-action="new-run">▶ NEW RUN</button>
@@ -1348,6 +1379,22 @@
             <div class="grand-roundup__champion" data-grand-roundup-champion></div>
             <button class="grand-roundup__close" data-grand-roundup-close type="button">ONWARD</button>
           </div>
+        </div>
+
+        <!-- First-visit onboarding banners -->
+        <div class="onboard" data-onboard="evolution" hidden>
+          <div class="onboard__body">
+            <strong>FIRST HERD</strong>
+            <span>Generate a herd, breed it with <b>Run Gen</b>, then save your champion with <b>🏅 Save</b> to the Record Barn. The road pays credits for every lap.</span>
+          </div>
+          <button class="onboard__dismiss" type="button" data-onboard-dismiss>Got it</button>
+        </div>
+        <div class="onboard" data-onboard="test-drive" hidden>
+          <div class="onboard__body">
+            <strong>TEST DRIVE</strong>
+            <span>Your draft races any terrain. Tweak the DNA, load a Record Barn champ, and beat per-terrain records to plant raceable ghosts.</span>
+          </div>
+          <button class="onboard__dismiss" type="button" data-onboard-dismiss>Got it</button>
         </div>
 
         <!-- Settings -->

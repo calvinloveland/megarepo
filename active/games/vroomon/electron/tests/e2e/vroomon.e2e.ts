@@ -826,6 +826,44 @@ test.describe("vroomon Playwright harness", () => {
     await expect(page.locator("[data-settings-overlay]")).toBeHidden();
   });
 
+
+  test("NEW RUN starts the story, and first-visit banners guide each mode", async ({
+    page,
+  }) => {
+    // NEW RUN should begin the arrival story, not dump the player into a race.
+    await page.locator('[data-menu-action="new-run"]').click();
+    await expect(page.locator('[data-mode-button="world"]')).toHaveClass(/active/);
+    await expect(page.locator("[data-status-message]")).toContainText("road carries you");
+
+    // First evolution visit: guide banner + an auto-generated starter herd.
+    await page.locator('[data-mode-button="evolution"]').click();
+    const evolutionBanner = page.locator('[data-onboard="evolution"]');
+    await expect(evolutionBanner).toBeVisible();
+    await expect(page.locator("[data-status-message]")).toContainText("starter herd is ready");
+    // Any interaction clears the banner and remembers it.
+    await page.locator("[data-onboard-dismiss]").first().click();
+    await expect(evolutionBanner).toBeHidden();
+
+    // First test-drive visit shows its own banner.
+    await page.locator('[data-mode-button="test-drive"]').click();
+    const driveBanner = page.locator('[data-onboard="test-drive"]');
+    await expect(driveBanner).toBeVisible();
+    await page.locator("[data-save-transfer]").evaluate(() => {
+      document.body.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+    });
+    await expect(driveBanner).toBeHidden();
+
+    // Tips persist: after a reload neither banner returns.
+    await page.reload();
+    await page.locator("[data-status-message]").filter({ hasText: "Welcome" }).waitFor({ timeout: 20000 });
+    await page.locator('[data-mode-button="evolution"]').click();
+    await page.waitForTimeout(400);
+    await expect(page.locator('[data-onboard="evolution"]')).toBeHidden();
+    await page.locator('[data-mode-button="test-drive"]').click();
+    await page.waitForTimeout(300);
+    await expect(page.locator('[data-onboard="test-drive"]')).toBeHidden();
+  });
+
 });
 
 

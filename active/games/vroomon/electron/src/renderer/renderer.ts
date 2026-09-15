@@ -10,6 +10,7 @@ import type {
 } from "../shared/parity-contract.js";
 import { bestRecord, proposeRecord } from "./records.js";
 import { portraitSvgFor } from "./portraits.js";
+import { markTipSeen, shouldShowTip } from "./tips.js";
 import type {
   EvolutionPreview,
   GenerationResult,
@@ -955,8 +956,59 @@ void window.vroomon.loadUpgrades().then((upgrades) => {
   };
 });
 
+function renderOnboarding(): void {
+  const mode = rendererState.mode;
+  const banners = Array.from(
+    document.querySelectorAll<HTMLElement>("[data-onboard]"),
+  );
+  for (const banner of banners) {
+    const target = banner.dataset.onboard ?? "";
+    banner.hidden = !(mode === target && shouldShowTip(target as "evolution" | "test-drive"));
+  }
+  if (mode === "evolution" && shouldShowTip("evolution")) {
+    if (rendererState.runState.population.length === 0) {
+      // A starter herd awaits so the guide has something to point at.
+      const enteringStatus = rendererState.statusMessage;
+      generatePopulation();
+      rendererState = {
+        ...rendererState,
+        statusMessage:
+          `${enteringStatus} A starter herd is ready — breed it with Run Gen, then save your champion to the Record Barn.`,
+      };
+    }
+  }
+}
+
+for (const banner of Array.from(
+  document.querySelectorAll<HTMLElement>("[data-onboard]"),
+)) {
+  banner.querySelector<HTMLButtonElement>("[data-onboard-dismiss]")?.addEventListener("click", (event) => {
+    event.stopPropagation();
+    const target = banner.dataset.onboard as "evolution" | "test-drive";
+    markTipSeen(target);
+    banner.hidden = true;
+    sfx.click();
+  });
+}
+
+// Tips never block play: the first interaction anywhere clears whatever
+// banner is up (and remembers it), so newcomers are guided but never
+// stalled by the guide.
+window.addEventListener("pointerdown", () => {
+  for (const banner of Array.from(
+    document.querySelectorAll<HTMLElement>("[data-onboard]"),
+  )) {
+    if (!banner.hidden) {
+      const target = banner.dataset.onboard as "evolution" | "test-drive";
+      markTipSeen(target);
+      banner.hidden = true;
+    }
+  }
+});
+
 function renderApp(): void {
   applyAmbienceScene();
+  renderOnboarding();
   renderContract();
   renderPanels();
   renderRunState();
@@ -4020,7 +4072,16 @@ for (const button of Array.from(
   button.addEventListener("click", () => {
     switch (button.dataset.menuAction) {
       case "new-run":
-        generatePopulation();
+        // Begin the story: arrive at Starter Town and meet the Road's first
+        // hand — evolution gets its starter herd (with a guide) on first visit.
+        rendererState = setRendererMode(rendererState, "world");
+        rendererState = {
+          ...rendererState,
+          statusMessage:
+            "The road carries you to Starter Town. Walk with the arrow keys (Z talks) — the meadow needs a new hand.",
+        };
+        renderApp();
+        sfx.click();
         break;
       case "world":
         rendererState = setRendererMode(rendererState, "world");
