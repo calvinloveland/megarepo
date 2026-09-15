@@ -593,6 +593,23 @@ upgrade grind, which is now optional beyond the win).
 - 188 unit + 21 e2e (new onboarding e2e: NEW RUN lands in world,
   banners show/dismiss/persist). 
 
+## NPC-led teaching: no meta-guide UI (2026-09-14) ✅
+
+- Removed the HOW TO PLAY strip and the first-visit banners entirely —
+  the game never spells out the loop in chrome; the fiction teaches it.
+- **Professor Axle** now offers "How do I breed a champion?" — a beat
+  explaining the paddock loop (breed on the bench → Run Gen → save to the
+  Record Barn → records board) in-story, next to the Herd Book beat.
+- **Wrench Wanda** (the starter-town shopkeeper) introduces the Ranch
+  fitters' yard: pasture/stalls/tonics, and that credits come from every
+  lap the Barn pays out, with a "What should I buy first?" beat.
+- **Rider Vicky** (first rival) teaches racing in fiction: stand the line,
+  tap Z, test-drive any bred car first, and race your own recorded ghosts.
+- NEW RUN still opens the arrival story; the status line is pure
+  atmosphere now (no control-syntax dump). 186 unit + 21 e2e pass,
+  including a new e2e asserting Axle's paddock beat and Wanda's store
+  teaching.
+
 ## Outstanding gameplay/UI issues (identified, not yet fixed — design work)
 
 From the vision-model critique + probes, ordered by impact:

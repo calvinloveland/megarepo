@@ -83,6 +83,7 @@ export const MAPS: Record<string, Tilemap> = {
           text: "Head east on Route 1, walk through the Vroomgrass to capture wild DNA, and when you reach the Roundup Grounds, choose your ranch: the Greensprouts' meadow or the Reds' summer circuit. Your Herd Book fills as you go.",
           options: [
             { label: "What is a Herd Book?", next: "vroomdex-explain" },
+            { label: "How do I breed a champion?", next: "breed-champion-explain" },
             { label: "Got it, thanks!", next: "professor-farewell" },
           ],
         },
@@ -100,6 +101,18 @@ export const MAPS: Record<string, Tilemap> = {
         },
       },
       {
+        id: "breed-champion-explain",
+        name: "Professor Axle",
+        x: 0,
+        y: 0,
+        facing: "down",
+        sprite: "professor",
+        dialogue: {
+          text: "It happens in the paddock, not on the road. Your starters sit on the breeding bench: run a generation and the fast ones rise, then save the best to the Record Barn. The Barn tests any car on any terrain, and the records board keeps every lap. A champion is just a name on that board.",
+          onComplete: "vroomdex",
+        },
+      },
+      {
         id: "professor-farewell",
         name: "Professor Axle",
         x: 0,
@@ -107,6 +120,26 @@ export const MAPS: Record<string, Tilemap> = {
         facing: "down",
         sprite: "professor",
         dialogue: { text: "Race a champion, win a Brand, and outrun the road. The meadow's watching, kid.", setFlag: "met-axle" },
+      },
+      {
+        id: "wanda-first-buys",
+        name: "Wrench Wanda",
+        x: 0,
+        y: 0,
+        facing: "down",
+        sprite: "mechanic",
+        dialogue: {
+          text: "Pasture first — more room, healthier herd. Stalls next, so the Barn holds more champions. And keep a Calm Tonic for the night before a long breeding run; it keeps the genome steady.",
+        },
+      },
+      {
+        id: "wanda-bye",
+        name: "Wrench Wanda",
+        x: 0,
+        y: 0,
+        facing: "down",
+        sprite: "mechanic",
+        dialogue: { text: "The yard's always open. Bring credits, bring a car or two." },
       },
       {
         id: "meadow-elder",
@@ -164,7 +197,11 @@ export const MAPS: Record<string, Tilemap> = {
         facing: "left",
         sprite: "mechanic",
         dialogue: {
-          text: "First time in town? My shop's quiet today. Come back when you've got a Hall of Fame car or two — I can tune their motors.",
+          text: "First time in town? The Ranch fitters' yard is just east of me — wire in pasture for herd room, stalls for barn slots, and a one-shot tonic to calm a nervous breeding night. Credits come from every lap the Barn pays out, so race often.",
+          options: [
+            { label: "What should I buy first?", next: "wanda-first-buys" },
+            { label: "I'll be back", next: "wanda-bye" },
+          ],
         },
       },
     ],
@@ -192,7 +229,7 @@ export const MAPS: Record<string, Tilemap> = {
         sprite: "rider",
         encounterId: "vicky-race",
         dialogue: {
-          text: "Oh, you're the new kid! I heard the Roundup King's Reds are the fastest herd on the plain. Want to race? My car's been training all morning.",
+          text: "Oh, you're the new kid! I heard the Roundup King's Reds are the fastest herd on the plain. A race is simple: stand the line and let the machine take the road — one tap of Z and the timer runs. Test any car you've bred in Test Drive first; the flat is a good yardstick, and the records board logs every lap so you can race your own tailwind.",
           options: [
             { label: "Let's race!", next: "vicky-accept" },
             { label: "Maybe later", next: "vicky-decline" },

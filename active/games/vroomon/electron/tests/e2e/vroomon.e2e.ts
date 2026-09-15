@@ -531,7 +531,7 @@ test.describe("vroomon Playwright harness", () => {
     await expect(page.locator("[data-dialogue-portrait] svg")).toBeVisible();
     await page.keyboard.press("z"); // advance Axle's intro (no options)
     await page.waitForTimeout(400);
-    await page.locator("[data-dialogue-option]").nth(1).click(); // "Got it, thanks!"
+    await page.locator("[data-dialogue-option]").nth(2).click(); // "Got it, thanks!"
     await page.waitForTimeout(400);
     await expect(page.locator("[data-overworld-dialogue-text]")).toContainText("Race a champion");
     await page.keyboard.press("z");
@@ -827,43 +827,53 @@ test.describe("vroomon Playwright harness", () => {
   });
 
 
-  test("NEW RUN starts the story, and first-visit banners guide each mode", async ({
+  test("the NPCs teach the loop — Axle breeds champions, Wanda runs the store", async ({
     page,
   }) => {
-    // NEW RUN should begin the arrival story, not dump the player into a race.
+    // NEW RUN starts the arrival story; no meta-guide text, just the road.
     await page.locator('[data-menu-action="new-run"]').click();
     await expect(page.locator('[data-mode-button="world"]')).toHaveClass(/active/);
     await expect(page.locator("[data-status-message]")).toContainText("road carries you");
+    await expect(page.locator("[data-status-message]")).not.toContainText("arrow keys");
+    await expect(page.locator(".menu-howto")).toHaveCount(0);
+    await expect(page.locator('[data-onboard="evolution"]')).toHaveCount(0);
 
-    // First evolution visit: guide banner + an auto-generated starter herd.
-    await page.locator('[data-mode-button="evolution"]').click();
-    const evolutionBanner = page.locator('[data-onboard="evolution"]');
-    await expect(evolutionBanner).toBeVisible();
-    await expect(page.locator("[data-status-message]")).toContainText("starter herd is ready");
-    // Any interaction clears the banner and remembers it.
-    await page.locator("[data-onboard-dismiss]").first().click();
-    await expect(evolutionBanner).toBeHidden();
+    // Axle teaches breeding through the story.
+    for (const dir of ["up", "up", "up", "up", "left", "left"]) {
+      await page.locator(`[data-dpad="${dir}"]`).click();
+      await page.waitForTimeout(300);
+    }
+    await page.locator('[data-dpad="interact"]').click();
+    await page.waitForTimeout(500);
+    await page.keyboard.press("z"); // intro beat
+    await page.waitForTimeout(400);
+    await page.locator("[data-dialogue-option]").nth(1).click(); // "How do I breed a champion?"
+    await page.waitForTimeout(500);
+    await expect(page.locator("[data-overworld-dialogue-text]")).toContainText("paddock");
 
-    // First test-drive visit shows its own banner.
-    await page.locator('[data-mode-button="test-drive"]').click();
-    const driveBanner = page.locator('[data-onboard="test-drive"]');
-    await expect(driveBanner).toBeVisible();
-    await page.locator("[data-save-transfer]").evaluate(() => {
-      document.body.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+    // Wanda teaches the Ranch store + credits. Position the world state
+    // right by her shop (she stands at 11,3) and re-enter so the scene is
+    // deterministic for both platforms.
+    await page.evaluate(async () => {
+      const world = await window.vroomon.loadWorldState();
+      await window.vroomon.saveWorldState({
+        ...world,
+        playerX: 10,
+        playerY: 3,
+        playerFacing: "right",
+      });
     });
-    await expect(driveBanner).toBeHidden();
-
-    // Tips persist: after a reload neither banner returns.
     await page.reload();
     await page.locator("[data-status-message]").filter({ hasText: "Welcome" }).waitFor({ timeout: 20000 });
-    await page.locator('[data-mode-button="evolution"]').click();
+    await page.locator('[data-mode-button="world"]').click();
+    await page.waitForTimeout(700);
+    await page.locator('[data-dpad="interact"]').click();
+    await page.waitForTimeout(600);
+    await expect(page.locator("[data-overworld-dialogue-text]")).toContainText("Ranch fitters");
+    await page.locator("[data-dialogue-option]").first().click(); // "What should I buy first?"
     await page.waitForTimeout(400);
-    await expect(page.locator('[data-onboard="evolution"]')).toBeHidden();
-    await page.locator('[data-mode-button="test-drive"]').click();
-    await page.waitForTimeout(300);
-    await expect(page.locator('[data-onboard="test-drive"]')).toBeHidden();
+    await expect(page.locator("[data-overworld-dialogue-text]")).toContainText("Pasture first");
   });
-
 });
 
 
