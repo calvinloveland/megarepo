@@ -479,14 +479,92 @@
       }
 
       /* ============ MENU OVERLAY ============ */
+      .intro-card {
+        position: fixed;
+        inset: 0;
+        z-index: 65;
+        display: grid;
+        place-items: center;
+        background: radial-gradient(circle at 50% 40%, rgba(20, 14, 8, 0.9), rgba(4, 3, 2, 0.97) 75%);
+      }
+      .intro-card__panel {
+        width: min(560px, 92vw);
+        min-height: 210px;
+        padding: 2rem 2.2rem;
+        text-align: center;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        gap: 1rem;
+      }
+      .intro-card__title {
+        font-family: var(--font-pixel);
+        font-size: 0.8rem;
+        letter-spacing: 0.22em;
+        color: var(--gold-deep);
+      }
+      .intro-card__text {
+        font-size: 1.05rem;
+        line-height: 1.6;
+        color: var(--text);
+        min-height: 3.4rem;
+      }
+      .intro-card__label { font-family: var(--font-pixel); font-size: 0.55rem; color: var(--text-soft); letter-spacing: 0.1em; }
+      .intro-card__row { display: flex; justify-content: center; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+      .intro-card__name { display: flex; flex-direction: column; align-items: center; gap: 0.8rem; }
+      .intro-card__go, .barn-modal__close {
+        font-family: var(--font-pixel);
+        font-size: 0.55rem;
+        color: #fff;
+        background: linear-gradient(180deg, #4f9e55 0%, #1d5e24 100%);
+        border: 2px solid #12370f;
+        border-radius: 6px;
+        padding: 0.5rem 1.2rem;
+        cursor: pointer;
+        box-shadow: 0 3px 0 #12370f;
+      }
+      .intro-card__prompt { font-family: var(--font-pixel); font-size: 0.5rem; color: var(--text-soft); letter-spacing: 0.18em; }
+      .barn-chip {
+        position: fixed;
+        right: 0.6rem;
+        bottom: 0.6rem;
+        z-index: 40;
+        font-size: 0.5rem;
+      }
+      .barn-modal {
+        position: fixed;
+        inset: 0;
+        z-index: 62;
+        display: grid;
+        place-items: center;
+        background: radial-gradient(circle at 50% 40%, rgba(255, 209, 102, 0.14), rgba(8, 6, 4, 0.78) 70%);
+      }
+      .barn-modal__panel {
+        width: min(480px, 92vw);
+        max-height: 84vh;
+        overflow-y: auto;
+        padding: 1.3rem 1.5rem;
+        background: linear-gradient(180deg, var(--paper) 0%, var(--paper-dark) 100%);
+        border: 3px solid var(--gold);
+        border-radius: 14px;
+        box-shadow: 0 10px 0 rgba(26, 14, 8, 0.5);
+        color: var(--text);
+        animation: grand-pop 0.3s ease-out;
+      }
+      .barn-modal__title { font-family: var(--font-pixel); font-size: 0.7rem; color: var(--gold-deep); letter-spacing: 0.14em; margin-bottom: 0.6rem; }
       .viewport-overlay--menu {
         top: 0;
         left: 0;
         right: 0;
         bottom: 0;
         text-align: center;
-        background: radial-gradient(circle at 50% 30%, #33261a 0%, #171009 65%, #0e0906 100%);
+        background: linear-gradient(180deg, rgba(23, 16, 9, 0.55) 0%, rgba(14, 9, 6, 0.82) 100%);
+        pointer-events: none;
       }
+      .viewport-overlay--menu .menu-stage,
+      .viewport-overlay--menu .menu-btn,
+      .viewport-overlay--menu .menu-actions,
+      .viewport-overlay--menu .menu-logo { pointer-events: auto; }
       .menu-title {
         font-size: 2rem;
         font-weight: 800;
@@ -1032,6 +1110,7 @@
         font-size: 0.5rem;
         opacity: 0.8;
       }
+      [data-open-settings] { right: 3.6rem !important; }
       .error-toggle {
         position: fixed; bottom: 0.5rem; right: 0.5rem; z-index: 50;
         width: 32px; height: 32px; border-radius: 50%;
@@ -1290,30 +1369,10 @@
               <p class="menu-tagline">Ride the evolving road — the meadow breeds its own champions.</p>
             </div>
             <div class="menu-actions">
-              <button class="menu-btn menu-btn--primary" type="button" data-menu-action="new-run">▶ NEW RUN</button>
-              <button class="menu-btn" type="button" data-menu-action="world">WORLD</button>
-              <button class="menu-btn" type="button" data-menu-action="continue">CONTINUE</button>
+              <button class="menu-btn menu-btn--primary" type="button" data-menu-action="new-game">▶ NEW GAME</button>
+              <button class="menu-btn" type="button" data-menu-action="continue" data-menu-continue hidden>CONTINUE</button>
             </div>
-            <div class="menu-hall">
-              <div class="menu-hall__head">HALL OF FAME · <span data-menu-hof-count>0</span> SAVED</div>
-              <div class="menu-hall__list" data-menu-hall-list></div>
-            </div>
-            <div class="menu-records">
-              <div class="menu-hall__head">RECORDS · <span data-records-count>0</span> BIOMES BEST</div>
-              <div class="menu-hall__list" data-records-list></div>
-            </div>
-            </div>
-            <div class="menu-rancher">
-              <div class="menu-rancher__label">BRAND YOURSELF — what do they call you?</div>
-              <div class="menu-rancher__row">
-                <input class="menu-rancher__name" data-rancher-name maxlength="24" placeholder="the new hand" />
-                <button class="cap-swatch cap-swatch--navy" type="button" data-rancher-cap="navy" aria-pressed="true" title="Navy cap"></button>
-                <button class="cap-swatch cap-swatch--rust" type="button" data-rancher-cap="rust" aria-pressed="false" title="Rust cap"></button>
-                <button class="cap-swatch cap-swatch--green" type="button" data-rancher-cap="green" aria-pressed="false" title="Meadow cap"></button>
-                <button class="menu-btn menu-rancher__save" type="button" data-save-rancher>TO THE MEADOW</button>
-              </div>
-            </div>
-            <div class="menu-foot">Enter to start &nbsp;·&nbsp; 1-4 switch modes &nbsp;·&nbsp; s/l save &amp; load &nbsp;·&nbsp; v0.1.0</div>
+            <div class="menu-foot">1-4 switch modes · s/l save &amp; load &nbsp;·&nbsp; the road is yours, new hand</div>
           </div>
         </div>
 
@@ -1324,6 +1383,19 @@
             <div data-viewport-score-chart></div>
           </div>
         </div>
+
+        <!-- Barn & records (world mode) -->
+        <div class="barn-modal" data-barn-overlay hidden>
+          <div class="barn-modal__panel">
+            <h3 class="barn-modal__title">RECORD BARN</h3>
+            <div class="menu-hall__head">HALL OF FAME · <span data-menu-hof-count>0</span> SAVED</div>
+            <div class="menu-hall__list" data-menu-hall-list></div>
+            <div class="menu-hall__head" style="margin-top:0.7rem;">RECORDS · <span data-records-count>0</span> BIOMES BEST</div>
+            <div class="menu-hall__list" data-records-list></div>
+            <button class="barn-modal__close" type="button" data-barn-close>Close</button>
+          </div>
+        </div>
+        <button class="hud-btn barn-chip" type="button" data-open-barn hidden title="Record Barn">🏟 Barn</button>
 
         <!-- Ranch store modal -->
         <div class="ranch-modal" data-ranch-overlay hidden>
@@ -1348,6 +1420,25 @@
             <p class="grand-roundup__body">The five Brands are yours, and your champion stands in the Record Barn.<br />The whole road bows — you've beaten Vroomon.</p>
             <div class="grand-roundup__champion" data-grand-roundup-champion></div>
             <button class="grand-roundup__close" data-grand-roundup-close type="button">ONWARD</button>
+          </div>
+        </div>
+
+        <!-- Opening story -->
+        <div class="intro-card" data-intro-overlay hidden>
+          <div class="intro-card__panel">
+            <div class="intro-card__title" data-intro-title>THE ISLES OF SPEID</div>
+            <div class="intro-card__text" data-intro-text></div>
+            <div class="intro-card__name" data-intro-name-step hidden>
+              <label class="intro-card__label" for="intro-name">What should my new name be?</label>
+              <div class="intro-card__row">
+                <input id="intro-name" class="menu-rancher__name" data-rancher-name maxlength="24" placeholder="the new hand" />
+                <button class="cap-swatch cap-swatch--navy" type="button" data-rancher-cap="navy" aria-pressed="true" title="Navy cap"></button>
+                <button class="cap-swatch cap-swatch--rust" type="button" data-rancher-cap="rust" aria-pressed="false" title="Rust cap"></button>
+                <button class="cap-swatch cap-swatch--green" type="button" data-rancher-cap="green" aria-pressed="false" title="Meadow cap"></button>
+              </div>
+              <button class="intro-card__go" type="button" data-save-rancher>ADOPT IT</button>
+            </div>
+            <div class="intro-card__prompt" data-intro-prompt>Z / Enter</div>
           </div>
         </div>
 
@@ -1453,8 +1544,7 @@
       <button data-hall-remove=""></button>
       <button data-hall-rename=""></button>
       <button data-select-vehicle=""></button>
-      <button data-dialogue-option=""></button>
-      <div data-hall-entry=""></div>
+            <div data-hall-entry=""></div>
       <div data-overworld-badges></div>
       <div data-dna-output-container></div>
       <div data-race-viewport-container></div>

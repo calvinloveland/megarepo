@@ -25,7 +25,34 @@ export function questFor(world: {
   badges: string[];
   factionChoices: Record<string, string>;
   flags: Record<string, boolean>;
+  currentMapId?: string | null;
 }): QuestLine {
+  // The opening ranch tutorial is its own objective line until Robby
+  // sends the player into town.
+  if (world.currentMapId === "home_ranch") {
+    if (!world.flags["tut-revealed"]) {
+      return {
+        main: "Robby's in the kitchen — follow the call.",
+        hint: "It smells like he's already started the day without you.",
+      };
+    }
+    if (!world.flags["tut-caught"]) {
+      return {
+        main: "The tall grass on the left grazes wild vroomon.",
+        hint: "Stand at its edge and press Z when it shakes — catch the genome.",
+      };
+    }
+    if (!world.flags["tut-done"]) {
+      return {
+        main: "Show Robby your Herd Book — he's waiting by the paddock.",
+        hint: "Then he's sending you into town with the rest of the day.",
+      };
+    }
+    return {
+      main: "The garden gate opens onto town.",
+      hint: "Explore Starter Town — the road's yours now.",
+    };
+  }
   if (!world.flags["met-axle"]) {
     return {
       main: "Talk to Professor Axle at the schoolhouse (Z).",

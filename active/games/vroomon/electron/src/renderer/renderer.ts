@@ -556,6 +556,61 @@ function cachedEvolutionViewData(): EvolutionViewData {
   return data;
 }
 
+let attractViewDataCache: { signature: string; data: TestDriveViewData } | null = null;
+
+function cachedAttractViewData(terrainName: string): TestDriveViewData {
+  const signature = `attract|${terrainName}|${rendererState.testDriveFrameCount ?? 24}`;
+  if (attractViewDataCache && attractViewDataCache.signature === signature) {
+    return attractViewDataCache.data;
+  }
+  const stepCount = rendererState.testDriveStepCount || DEFAULT_TEST_DRIVE_STEP_COUNT;
+  const frameCount = rendererState.testDriveFrameCount || DEFAULT_TEST_DRIVE_FRAME_COUNT;
+  const attractCars = Array.from({ length: 6 }, (_, index) => ({
+    id: `attract-${index}`,
+    dna: window.vroomon.createRandomDna(12),
+    parents: [] as string[],
+    mutated: false,
+    score: 0,
+  }));
+  const frames = retimeViewportFrames(
+    window.vroomon
+      .previewPopulationRaceFrames(
+        {
+          ...rendererState.runState,
+          mode: "test-drive",
+          population: attractCars,
+        },
+        stepCount,
+        frameCount,
+      )
+      .map((frame) => ({
+        elapsedMs: frame.elapsedMs,
+        entities: frame.vehicles.map(
+          (vehicle) =>
+            ({
+              id: vehicle.id,
+              label: "",
+              snapshot: vehicle,
+              variant: "racer" as const,
+              initialCenterX: vehicle.initialCenterX,
+            }) satisfies ViewportEntity,
+        ),
+      })),
+    null,
+  );
+  const data: TestDriveViewData = {
+    dna: attractCars[0]!.dna,
+    decoded: window.vroomon.decodeDnaV2(attractCars[0]!.dna),
+    snapshot: window.vroomon.previewPhysicsSnapshot(attractCars[0]!.dna, terrainName, stepCount),
+    frames,
+    scenarioLabel: null,
+    stepCount,
+    playbackDurationMs: null,
+  };
+  attractViewDataCache = { signature, data };
+  return data;
+}
+
 function cachedTestDriveViewData(
   dna: string,
   terrainName: string,
@@ -958,7 +1013,7 @@ void window.vroomon.loadUpgrades().then((upgrades) => {
 
 function renderApp(): void {
   applyAmbienceScene();
-  renderContract();
+  syncContinueAndBarn();  renderContract();
   renderPanels();
   renderRunState();
 
@@ -979,9 +1034,11 @@ function renderApp(): void {
       ? bestRecord(recordsBoard, terrain.name)?.dna ?? null
       : null;
   const testDriveViewData =
-    rendererState.mode === "test-drive" || rendererState.mode === "menu"
+    rendererState.mode === "test-drive"
       ? cachedTestDriveViewData(rendererState.draftDna, terrain.name, ghostRecord)
-      : null;
+      : rendererState.mode === "menu"
+        ? cachedAttractViewData(terrain.name)
+        : null;
 
   renderDiagnostics(terrain, evolutionViewData, testDriveViewData);
   renderStage(terrain, evolutionViewData, testDriveViewData);
@@ -1422,11 +1479,7 @@ function renderPanels(): void {
   );
   for (const wrapper of overlayWrappers) {
     if (wrapper.hasAttribute("data-viewport-menu-overlay")) {
-      // Menu overlays additionally respect the selected variant (?menu=a|b).
-      wrapper.hidden = !(
-        rendererState.mode === "menu" &&
-        wrapper.dataset.menuVariant === MENU_VARIANT
-      );
+      wrapper.hidden = rendererState.mode !== "menu";
       continue;
     }
     const wrapperMode = wrapper.dataset.mode;
@@ -3391,11 +3444,13 @@ function renderDialogueOptions(dialogue: { options?: Array<{ next: string; label
         overworldController._setState(advanced);
         renderOverworldUi();
         renderStatsHud();
+        scheduleWorldSave();
       } else {
         const ended = endWorldDialogue(overworldController.state, null, null);
         overworldController._setState(ended);
         renderOverworldUi();
         renderStatsHud();
+        scheduleWorldSave();
       }
     });
   }
@@ -3512,11 +3567,15 @@ function renderOverworldUi(): void {
     // Re-sync the renderer's world copy so the flag persists, and write
     // the status DOM directly (renderApp already set it moments ago).
     rendererState = setWorldState(rendererState, overworldController.state);
-    rendererState = {
-      ...rendererState,
-      statusMessage: "The road carries you to Starter Town. The meadow needs a new hand.",
-    };
-    statusMessage.textContent = rendererState.statusMessage;
+    if (getMap(rendererState.world.currentMapId)?.id === "starter_town") {
+      // The classic arrival line belongs to town; the intro set its own
+      // status for the shoddy ranch wake-up.
+      rendererState = {
+        ...rendererState,
+        statusMessage: "The road carries you to Starter Town. The meadow needs a new hand.",
+      };
+      statusMessage.textContent = rendererState.statusMessage;
+    }
     scheduleWorldSave();
   }
   const inStarterTown = map?.id === "starter_town";
@@ -3586,6 +3645,7 @@ function handleOverworldKeydown(event: KeyboardEvent): void {
       overworldController.advanceDialogue();
       renderOverworldUi();
       renderStatsHud();
+      scheduleWorldSave();
     }
     return;
   }
@@ -3713,9 +3773,32 @@ async function startOverworldEncounter(
     ...rendererState,
     statusMessage: kind === "trainer"
       ? `Rider race! ${trainerName ?? "Opponent"} reached x=${formatNumber(result.centerX)}.`
-      : `A wild vehicle appeared (x=${formatNumber(result.centerX)}, y=${formatNumber(result.centerY)}).`,
+      : `A wild vehicle appeared (x=${formatNumber(result.centerX)}, y=${formatNumber(result.centerY)}). Its genome is yours.`,
   };
   renderApp();
+
+  // Tutorial hand-off: the first catch on the shoddy ranch leads straight
+  // into Robby's praise beat.
+  if (kind === "wild" && overworldController.state.currentMapId === "home_ranch") {
+    const caught = !overworldController.state.flags["tut-caught"];
+    overworldController.setFlag("tut-caught", true);
+    rendererState = setWorldState(rendererState, overworldController.state);
+    if (caught) {
+      const robby = getMap("home_ranch")?.npcs.find((npc) => npc.id === "robby-caught");
+      if (robby?.dialogue) {
+        overworldController._setState({
+          ...overworldController.state,
+          activeNpc: "robby-caught",
+          dialogueQueue: [
+            ...overworldController.state.dialogueQueue,
+            { ...robby.dialogue },
+          ],
+        });
+      }
+      scheduleWorldSave();
+      renderOverworldUi();
+    }
+  }
 }
 
 function mapForDialog(name: string | null): string {
@@ -3949,9 +4032,14 @@ function syncWorldDetails(): void {
   const current = overworldController.state;
   overworldController._setState({
     ...current,
+    currentMapId: rendererState.world.currentMapId,
+    playerX: rendererState.world.playerX,
+    playerY: rendererState.world.playerY,
+    playerFacing: rendererState.world.playerFacing,
     decor: [...rendererState.world.decor],
     rancherName: rendererState.world.rancherName,
     rancherCap: rendererState.world.rancherCap,
+    flags: { ...rendererState.world.flags },
   });
 }
 
@@ -4003,51 +4091,235 @@ if (saveRancherButton() && rancherNameInput()) {
     rendererState = {
       ...rendererState,
       statusMessage: name
-        ? `The meadow knows your name now: ${name}.`
-        : "The meadow will call you the new hand until you say otherwise.",
+        ? `Say it proud: ${name}.`
+        : "The road will call you the new hand until you say otherwise.",
     };
     scheduleWorldSave();
     renderApp();
+    // The intro's name step hands off to the wake-up call.
+    if (!introOverlay?.hidden) {
+      introBeatIndex = OPENING_BEATS.length; // next beat: the kitchen call
+      showIntroBeat();
+    }
   });
 }
 
-// Menu overlay: the arcade start card (variant "a", chosen via A/B test on
-// 2026-09-10 — "explicit menu, feels like a proper game"). Kept as a
-// constant so any future variant still has a single hook.
-const MENU_VARIANT = "a";
+// ---- Opening story (monologue -> name -> wake) ----
+const introOverlay = document.querySelector<HTMLElement>("[data-intro-overlay]");
+const introTitle = document.querySelector<HTMLElement>("[data-intro-title]");
+const introText = document.querySelector<HTMLElement>("[data-intro-text]");
+const introNameStep = document.querySelector<HTMLElement>("[data-intro-name-step]");
+const introPrompt = document.querySelector<HTMLElement>("[data-intro-prompt]");
+const introContinueButton = document.querySelector<HTMLButtonElement>("[data-menu-action='continue']");
+
+const OPENING_BEATS = [
+  "Oh what a long trip it was to get to the Isles of Speid.",
+  "At least I've finally got the chance to start over.",
+  "Maybe I should even change my name.",
+  "A kitchen call cuts through the morning fog: \"Hey sleepyhead! Time to wake up!\"",
+];
+
+let introBeatIndex = 0;
+let introTypingToken = 0;
+
+function startIntro(overwrite: boolean): void {
+  if (!introOverlay || !introText || !introNameStep || !introPrompt) {
+    return;
+  }
+  introBeatIndex = 0;
+  introOverlay.hidden = false;
+  introTitle?.classList.remove("intro-card__title--name");
+  if (introTitle) introTitle.textContent = "THE ISLES OF SPEID";
+  introNameStep.hidden = true;
+  syncRancherCard();
+  if (rancherNameInput() && overwrite) {
+    rancherNameInput()!.value = "";
+  }
+  void overwrite;
+  showIntroBeat();
+}
+
+function showIntroBeat(): void {
+  if (!introText || !introPrompt) {
+    return;
+  }
+  const beat = OPENING_BEATS[introBeatIndex];
+  if (beat === undefined) {
+    // The wake-up call has been read — into the shoddy ranch with you.
+    finishIntro();
+    return;
+  }
+  const token = ++introTypingToken;
+  introNameStep!.hidden = true;
+  introPrompt.textContent = "Z / Enter";
+  introText.textContent = "";
+  let revealed = 0;
+  const tick = (): void => {
+    if (token !== introTypingToken) {
+      return;
+    }
+    revealed = Math.min(beat.length, revealed + 2);
+    introText!.textContent = beat.slice(0, revealed);
+    if (revealed < beat.length) {
+      setTimeout(tick, 12);
+      return;
+    }
+    introPrompt.textContent =
+      introBeatIndex === 2 ? "—" : "Z / Enter";
+    if (introBeatIndex === 2) {
+      // Name moment: show the input + cap swatches.
+      introNameStep!.hidden = false;
+      if (rancherNameInput()) {
+        rancherNameInput()!.focus();
+        rancherNameInput()!.select();
+      }
+      if (introTitle) introTitle.textContent = "WHAT SHOULD MY NEW NAME BE?";
+    }
+  };
+  setTimeout(tick, 12);
+}
+
+function advanceIntro(): void {
+  if (!introOverlay || introOverlay.hidden) {
+    return;
+  }
+  if (!introNameStep?.hidden) {
+    return; // name step resolves via the confirm button
+  }
+  introBeatIndex += 1;
+  showIntroBeat();
+}
+
+function finishIntro(): void {
+  if (!introOverlay) {
+    return;
+  }
+  introOverlay.hidden = true;
+  introTypingToken += 1;
+  const name = rendererState.world.rancherName || "the new hand";
+  // The shoddy ranch becomes home: wake beside the bed with the kitchen
+  // call already in the air.
+  applyPersistedWorldToRenderer({
+    ...rendererState.world,
+    version: 1,
+    lastSavedAt: new Date().toISOString(),
+    currentMapId: "home_ranch",
+    playerX: 3,
+    playerY: 3,
+    playerFacing: "right",
+    flags: {
+      ...rendererState.world.flags,
+      "opening-seen": true,
+    },
+  });
+  rendererState = {
+    ...rendererState,
+    mode: "world",
+    statusMessage: `Sunlight through the cabin shutters. Somewhere, ${name}'s breakfast smells like it's already decided.`,
+  };
+  renderApp();
+  sfx.click();
+}
+
+// ---- Barn & Records panel (world mode) ----
+const barnOverlay = document.querySelector<HTMLElement>("[data-barn-overlay]");
+const barnChip = document.querySelector<HTMLButtonElement>("[data-open-barn]");
+document.querySelector<HTMLButtonElement>("[data-barn-close]")?.addEventListener("click", () => {
+  if (barnOverlay) {
+    barnOverlay.hidden = true;
+  }
+});
+barnOverlay?.addEventListener("click", (event) => {
+  if (event.target === barnOverlay) {
+    barnOverlay.hidden = true;
+  }
+});
+barnChip?.addEventListener("click", () => {
+  if (!barnOverlay) {
+    return;
+  }
+  renderHallOfFame();
+  renderRecordsBoard();
+  barnOverlay.hidden = false;
+  sfx.click();
+});
+
+function syncContinueAndBarn(): void {
+  const started = Boolean(
+    rendererState.world.rancherName || rendererState.world.badges.length > 0,
+  );
+  if (introContinueButton) {
+    introContinueButton.hidden = !started;
+  }
+  if (barnChip) {
+    barnChip.hidden = rendererState.mode !== "world";
+  }
+}
+
+// Menu actions: the title screen only offers a fresh road or a continued one.
 for (const button of Array.from(
   document.querySelectorAll<HTMLButtonElement>("[data-menu-action]"),
 )) {
   button.addEventListener("click", () => {
     switch (button.dataset.menuAction) {
-      case "new-run":
-        // Begin the story: arrive at Starter Town and meet the Road's first
-        // hand — evolution gets its starter herd (with a guide) on first visit.
+      case "new-game":
+        if (rendererState.world.rancherName || rendererState.world.badges.length > 0) {
+          // A road's already been run — confirm the fresh start in-fiction.
+          if (introOverlay) {
+            introOverlay.hidden = false;
+            introTitle!.textContent = "START OVER?";
+            introText!.textContent =
+              "A road's already been run in your name. Begin a new hand anyway — the old trails stay in the records.";
+            introNameStep!.hidden = true;
+            introPrompt!.textContent = "Z starts over · Esc keeps the road";
+            introBeatIndex = 99;
+          }
+          return;
+        }
+        startIntro(false);
+        break;
+      case "continue":
         rendererState = setRendererMode(rendererState, "world");
         rendererState = {
           ...rendererState,
           statusMessage:
-            "The road carries you to Starter Town. The meadow needs a new hand.",
+            rendererState.world.rancherName
+              ? `Back on the road, ${rendererState.world.rancherName}.`
+              : "The road carries you on.",
         };
         renderApp();
         sfx.click();
-        break;
-      case "world":
-        rendererState = setRendererMode(rendererState, "world");
-        renderApp();
-        break;
-      case "test-drive":
-        rendererState = setRendererMode(rendererState, "test-drive");
-        renderApp();
-        break;
-      case "continue":
-        void loadSavedRunState();
         break;
       default:
         break;
     }
   });
 }
+
+// Intro keystrokes (Z/Enter advance the beats; Esc backs out of overwrite).
+window.addEventListener("keydown", (event) => {
+  if (introOverlay?.hidden) {
+    return;
+  }
+  if (event.key === "Escape") {
+    introOverlay!.hidden = true;
+    introTypingToken += 1;
+    return;
+  }
+  if (event.key === "z" || event.key === "Z" || event.key === "Enter" || event.key === " ") {
+    event.preventDefault();
+    if (introBeatIndex === 99) {
+      // Overwrite confirm: Z starts fresh.
+      rendererState = setWorldState(rendererState, {
+        ...createInitialWorldState(),
+      });
+      syncWorldDetails();
+      startIntro(false);
+    } else {
+      advanceIntro();
+    }
+  }
+});
 
 // Collapsible config panel toggle
 const configToggle = document.querySelector<HTMLButtonElement>("[data-config-toggle]");
@@ -4397,15 +4669,24 @@ document.addEventListener("keydown", (event) => {
   const modeKey = MODE_SWITCH_KEYS[event.key.toLowerCase()];
   if (modeKey) {
     event.preventDefault();
-    rendererState = setRendererMode(rendererState, modeKey);
-    renderApp();
+    if (modeKey === "world" && !rendererState.world.rancherName && !rendererState.world.badges.length) {
+      startIntro(false);
+    } else {
+      rendererState = setRendererMode(rendererState, modeKey);
+      renderApp();
+    }
     return;
   }
 
   if (rendererState.mode === "menu") {
     if (event.key === "Enter" || event.key === " ") {
       event.preventDefault();
-      generatePopulation();
+      if (introContinueButton && !introContinueButton.hidden) {
+        // Continue if a road exists, else start fresh.
+        document.querySelector<HTMLButtonElement>('[data-menu-action="continue"]')?.click();
+      } else {
+        startIntro(false);
+      }
     }
     return;
   }

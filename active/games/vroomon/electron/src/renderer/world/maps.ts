@@ -5,8 +5,8 @@ function row(...cells: TileKind[]): TileKind[] {
 }
 
 const STARTER_TOWN_TILES: TileKind[][] = [
-  row("tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree"),
-  row("tree", "grass", "grass", "grass", "grass", "building", "building", "building", "building", "building", "grass", "grass", "grass", "grass", "grass", "tree"),
+  row("tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "doormat", "tree", "tree", "tree", "tree", "tree", "tree", "tree"),
+  row("tree", "grass", "grass", "grass", "grass", "building", "building", "building", "path", "building", "grass", "grass", "grass", "grass", "grass", "tree"),
   row("tree", "grass", "path", "path", "path", "path", "path", "path", "path", "path", "path", "path", "path", "path", "grass", "tree"),
   row("tree", "grass", "path", "counter", "path", "path", "path", "path", "path", "path", "path", "path", "counter", "path", "grass", "tree"),
   row("tree", "grass", "path", "path", "path", "path", "path", "path", "path", "path", "path", "path", "path", "path", "grass", "tree"),
@@ -51,7 +51,108 @@ const GYM_1_TILES: TileKind[][] = [
 
 const TILE_TO_X: Record<string, number> = {};
 
+const HOME_RANCH_TILES: TileKind[][] = [
+  row("tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree"),
+  row("tree", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "tree"),
+  row("tree", "wall", "bed", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "counter", "counter", "counter", "wall", "tree"),
+  row("tree", "wall", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "counter", "counter", "wall", "tree"),
+  row("tree", "wall", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "wall", "tree"),
+  row("tree", "doormat", "doormat", "doormat", "doormat", "doormat", "doormat", "doormat", "doormat", "doormat", "doormat", "doormat", "doormat", "tree"),
+  row("tree", "tall-grass-edge", "tall-grass-edge", "tall-grass-edge", "vroomgrass", "vroomgrass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "tree"),
+  row("tree", "tall-grass-edge", "tall-grass-edge", "vroomgrass", "vroomgrass", "vroomgrass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "tree"),
+  row("tree", "tall-grass-edge", "tall-grass-edge", "vroomgrass", "vroomgrass", "vroomgrass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "tree"),
+  row("tree", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "tree"),
+  row("tree", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "tree"),
+  row("tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree"),
+];
+
 export const MAPS: Record<string, Tilemap> = {
+  home_ranch: {
+    id: "home_ranch",
+    name: "The Shoddy Ranch",
+    width: 14,
+    height: 12,
+    tiles: HOME_RANCH_TILES,
+    ambientColor: "#a8c879",
+    npcs: [
+      {
+        id: "robby-kitchen",
+        name: "Rancher Robby",
+        x: 7,
+        y: 3,
+        facing: "left",
+        sprite: "professor",
+        dialogue: {
+          text: "Welcome there, sleepyhead! I keep the fastest little critters on Speid — built for the road, fit in your palm. Ready to start helping around the ranch?",
+          options: [
+            { label: "Of course — but I didn't see any cattle on the way in?", next: "robby-reveal" },
+            { label: "For sure! How do I start?", next: "robby-reveal" },
+          ],
+        },
+      },
+      {
+        id: "robby-reveal",
+        name: "Rancher Robby",
+        x: 0,
+        y: 0,
+        facing: "down",
+        sprite: "professor",
+        dialogue: {
+          text: "Cattle? Ha — nothing so tall on Speid. My herd is vroomon: beetle-sized, mouse-sized, wheeled and wild. The whole ranch is alive with them.",
+          next: "robby-reveal-2",
+        },
+      },
+      {
+        id: "robby-reveal-2",
+        name: "Rancher Robby",
+        x: 0,
+        y: 0,
+        facing: "down",
+        sprite: "professor",
+        dialogue: {
+          text: "He swings the pasture door wide — and the yard floods with glinting little racers, humming past your ankles. \"[You]: Wait — those aren't cattle at all!\"",
+          setFlag: "tut-revealed",
+        },
+      },
+      {
+        id: "robby-yard",
+        name: "Rancher Robby",
+        x: 4,
+        y: 9,
+        facing: "left",
+        sprite: "professor",
+        dialogue: {
+          text: "This paddock is yours now — a shoddy ranch for a new hand, but ours. First lesson: the tall grass on the left grazes wild vroomon. Walk to its edge, settle your feet, and press Z when it shakes — we'll catch its genome into your Herd Book.",
+          setFlag: "tut-catch",
+        },
+      },
+      {
+        id: "wild-grass",
+        name: "Tall Grass",
+        x: 3,
+        y: 7,
+        facing: "right",
+        sprite: "sign",
+        dialogue: { text: "The tall grass shivers — something's running under it.", onComplete: "wild" },
+      },
+      {
+        id: "robby-caught",
+        name: "Rancher Robby",
+        x: 5,
+        y: 9,
+        facing: "left",
+        sprite: "professor",
+        dialogue: {
+          text: "A wild one on your first morning! Its genome's in your Herd Book now — that's how we grow a ranch: catch the wild, breed the best, race your heart out. Alright, that's all for today! Why don't you go ahead and explore town with the rest of your day?",
+          setFlag: "tut-done",
+        },
+      },
+    ],
+    encounters: {},
+    transitions: {
+      "7,10": { mapId: "starter_town", toX: 8, toY: 5, facing: "up" },
+    },
+  },
   starter_town: {
     id: "starter_town",
     name: "Starter Town",
@@ -210,6 +311,7 @@ export const MAPS: Record<string, Tilemap> = {
       // The historical gate was "1,0" — a tree tile, so the town exit was
       // unreachable and the overworld was a dead end.
       "13,2": { mapId: "route_1", toX: 1, toY: 10, facing: "down" },
+      "8,0": { mapId: "home_ranch", toX: 7, toY: 10, facing: "up" },
     },
   },
   route_1: {
@@ -811,13 +913,14 @@ export function getMap(mapId: string): Tilemap | undefined {
 
 export function isTilePassable(tile: TileKind): boolean {
   return (
-    tile === "path" ||
-    tile === "grass" ||
-    tile === "vroomgrass" ||
-    tile === "indoor-floor" ||
-    tile === "doormat" ||
-    tile === "tall-grass-edge" ||
-    tile === "counter" ||
-    tile === "rock"
+    tile !== "bed" &&
+    (tile === "path" ||
+      tile === "grass" ||
+      tile === "vroomgrass" ||
+      tile === "indoor-floor" ||
+      tile === "doormat" ||
+      tile === "tall-grass-edge" ||
+      tile === "counter" ||
+      tile === "rock")
   );
 }

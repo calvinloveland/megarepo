@@ -12,7 +12,8 @@ export type TileKind =
   | "tall-grass-edge"
   | "tree-trunk"
   | "rock"
-  | "doormat";
+  | "doormat"
+  | "bed";
 
 export type EncounterKind = "wild" | "trainer" | "gym" | null;
 

@@ -35,7 +35,7 @@ test.describe("vroomon Playwright harness", () => {
     await expect(page.locator("[data-status-message]")).toContainText(
       "Welcome to the Continent of Vroom.",
     );
-    await expect(page.locator("[data-race-viewport] [data-viewport-vehicle]")).toHaveCount(1);
+    await expect(page.locator("[data-race-viewport] [data-viewport-vehicle]")).not.toHaveCount(0);
     await expect(page.locator("[data-run-state-output]")).toContainText('"generation": 0');
 
     await page.locator('[data-mode-button="evolution"]').click();
@@ -186,6 +186,7 @@ test.describe("vroomon Playwright harness", () => {
   });
 
   test("walks through the overworld and triggers a wild encounter", async ({ page }) => {
+    await seedRancher(page);
     await page.locator('[data-mode-button="world"]').click();
     await expectModeState(page, "world");
 
@@ -280,6 +281,7 @@ test.describe("vroomon Playwright harness", () => {
   test("hides mode-scoped overlays and paints the overworld canvas", async ({
     page,
   }) => {
+    await seedRancher(page);
     // Regression: .viewport-overlay--actions / --status / --progress used
     // display:flex, which defeated the UA [hidden] rule, so the evolution
     // HUD, test-drive HUD, leader pill and batch bar rendered in every
@@ -325,6 +327,7 @@ test.describe("vroomon Playwright harness", () => {
   test("mode-switch keyboard shortcuts work inside the overworld", async ({
     page,
   }) => {
+    await seedRancher(page);
     // Regression: in world mode every keydown went to the overworld
     // handler, so 1-4/m/o/e/t silently did nothing and the player could
     // not leave the map via keyboard.
@@ -345,6 +348,7 @@ test.describe("vroomon Playwright harness", () => {
   test("joins a Grassland faction from the Meadow Elder and persists it", async ({
     page,
   }) => {
+    await seedRancher(page);
     await page.locator('[data-mode-button="world"]').click();
     await expectModeState(page, "world");
     // Elder is at (2,9) facing right; stand at (3,9) facing left.
@@ -382,6 +386,7 @@ test.describe("vroomon Playwright harness", () => {
       .toContain("1");
   });
   test("buys meadow decor and it persists across a reload", async ({ page }) => {
+    await seedRancher(page);
     await page.locator('[data-mode-button="evolution"]').click();
     await page.locator("[data-generate-population]").click();
     await page.locator("[data-status-message]").filter({ hasText: "Generated population" }).waitFor({ timeout: 20000 });
@@ -422,6 +427,7 @@ test.describe("vroomon Playwright harness", () => {
   test("runs the Grand Roundup after all five Brands and a champion", async ({
     page,
   }) => {
+    await seedRancher(page);
     const FIVE = [
       "Grassland Brand",
       "Salt Road Brand",
@@ -501,55 +507,87 @@ test.describe("vroomon Playwright harness", () => {
   });
 
 
-  test("brands your rancher and shows the opening beats", async ({ page }) => {
-    // Character creation from the menu.
-    await page.locator("[data-rancher-name]").fill("Io");
+  test("the opening story: trip, new name, wake, wild catch, and town", async ({
+    page,
+  }) => {
+    // Title screen: a fresh road offers only NEW GAME (CONTINUE appears
+    // once a rancher exists).
+    await expect(page.locator('[data-menu-action="new-game"]')).toHaveCount(1);
+    await expect(page.locator("[data-menu-continue]")).toBeHidden();
+    await expect(page.locator(".menu-hall")).toHaveCount(0);
+
+    await page.locator('[data-menu-action="new-game"]').click();
+    await page.waitForTimeout(650); // let the first monologue line finish typing
+    await expect(page.locator("[data-intro-text]")).toContainText("Isles of Speid");
+    await page.keyboard.press("z");
+    await page.waitForTimeout(400); // beat 2
+    await page.keyboard.press("z");
+    await page.waitForTimeout(400); // beat 3 -> name moment
+    await page.keyboard.press("z");
+    await page.waitForTimeout(550); // name step
+    // The name moment.
+    await expect(page.locator("[data-intro-title]")).toContainText("NEW NAME");
+    await page.locator("[data-rancher-name]").fill("Cal");
     await page.locator('[data-rancher-cap="rust"]').click();
-    await page.waitForTimeout(200);
     await page.locator("[data-save-rancher]").click();
-    await page.waitForTimeout(500);
-    await expect(page.locator("[data-status-message]")).toContainText("meadow knows your name");
+    await page.waitForTimeout(900);
+    await expect(page.locator("[data-status-message]")).toContainText("Sunlight through the cabin shutters");
+    await expect(page.locator('[data-mode-button="world"]')).toHaveClass(/active/);
+    const wakeQuest = await page.locator("[data-stats-quest-line]").textContent();
+    expect(wakeQuest).toContain("Robby");
 
-    // Opening beats: arrival line + first objective on entering the world.
+    // The kitchen call: meet Robby and learn what the "herd" really is.
+    await page.evaluate(async () => {
+      const world = await window.vroomon.loadWorldState();
+      await window.vroomon.saveWorldState({ ...world, playerX: 6, playerY: 3, playerFacing: "right" });
+    });
+    await page.reload();
+    await page.locator("[data-status-message]").filter({ hasText: "Welcome" }).waitFor({ timeout: 20000 });
     await page.locator('[data-mode-button="world"]').click();
-    await page.waitForTimeout(800);
-    await expect(page.locator("[data-status-message]")).toContainText("road carries you");
-    await expect(page.locator("[data-world-summary]")).toContainText("Professor Axle");
-    // The quest/objective chip mirrors the opening objective.
-    await expect(page.locator("[data-stats-quest]")).toContainText("Professor Axle");
-    await expect(page.locator("[data-stats-quest]")).toBeVisible();
-
-    // Walk to Axle (stand at (5,3) facing left), talk, take "Got it, thanks!",
-    // and confirm the goal line + flag flip back to the normal summary.
-    for (const dir of ["up", "up", "up", "up", "left", "left"]) {
-      await page.locator(`[data-dpad="${dir}"]`).click();
-      await page.waitForTimeout(300);
-    }
+    await page.waitForTimeout(700);
     await page.locator('[data-dpad="interact"]').click();
-    await page.waitForTimeout(500);
-    // The host's portrait renders with the dialogue.
-    await expect(page.locator("[data-dialogue-portrait] svg")).toBeVisible();
-    await page.keyboard.press("z"); // advance Axle's intro (no options)
-    await page.waitForTimeout(400);
-    await page.locator("[data-dialogue-option]").nth(2).click(); // "Got it, thanks!"
-    await page.waitForTimeout(400);
-    await expect(page.locator("[data-overworld-dialogue-text]")).toContainText("Race a champion");
+    await page.waitForTimeout(600);
+    await expect(page.locator("[data-overworld-dialogue-name]")).toContainText("Rancher Robby");
+    const robbyOptions = await page.locator("[data-dialogue-option]").count();
+    expect(robbyOptions).toBe(2);
+    await page.locator("[data-dialogue-option]").nth(1).click(); // the cattle remark
+    await page.waitForTimeout(600);
+    await expect(page.locator("[data-overworld-dialogue-text]")).toContainText("nothing so tall on Speid");
+    // Advance the reveal beats and let the pasture door close.
+    await page.keyboard.press("z");
+    await page.waitForTimeout(450);
     await page.keyboard.press("z");
     await page.waitForTimeout(500);
-    await expect(page.locator("[data-world-summary]")).not.toContainText("Professor Axle");
-    // …and the quest chip now points at the first feud.
-    await expect(page.locator("[data-stats-quest]")).toContainText("Rustler Pasture");
 
-    // Persisted identity survives a reload and drives the finale copy.
-    const persisted = await page.evaluate(() => window.vroomon.loadWorldState());
-    expect(persisted.rancherName).toBe("Io");
-    expect(persisted.rancherCap).toBe("rust");
+    // The catch lesson: tall grass -> wild vroomon -> genome recorded.
+    await page.evaluate(async () => {
+      const world = await window.vroomon.loadWorldState();
+      await window.vroomon.saveWorldState({ ...world, playerX: 2, playerY: 7, playerFacing: "right" });
+    });
+    await page.reload();
+    await page.locator("[data-status-message]").filter({ hasText: "Welcome" }).waitFor({ timeout: 20000 });
+    await page.locator('[data-mode-button="world"]').click();
+    await page.waitForTimeout(700);
+    await page.locator('[data-dpad="interact"]').click();
+    await page.waitForTimeout(600);
+    await expect(page.locator("[data-overworld-dialogue-text]")).toContainText("shivers");
+    // Z springs the hidden hardworker; the genome is recorded and Robby's
+    // praise beat auto-follows the first catch.
+    await page.keyboard.press("z");
+    await page.waitForTimeout(900);
+    await expect(page.locator("[data-overworld-dialogue-name]")).toContainText("Rancher Robby");
+    await expect(page.locator("[data-overworld-dialogue-text]")).toContainText("wild one on your first morning");
+    await page.keyboard.press("z");
+    await page.waitForTimeout(300);
+    const doneQuest = await page.locator("[data-stats-quest-line]").textContent();
+    expect(doneQuest).toContain("garden gate");
   });
 
 
   test("settles the Grassland feud with the Meadow Elder for a Brand", async ({
     page,
   }) => {
+    await seedRancher(page);
     await page.locator('[data-mode-button="world"]').click();
     for (const dir of ["down", "down", "left", "left", "left", "left"]) {
       await page.locator(`[data-dpad="${dir}"]`).click();
@@ -677,11 +715,15 @@ test.describe("vroomon Playwright harness", () => {
     await page.reload();
     await page.locator("[data-status-message]").filter({ hasText: "Welcome" }).waitFor({ timeout: 20000 });
 
-    // Copy the champion's DNA from the visible Record Barn.
-    await page.locator('[data-mode-button="menu"]').click();
-    await page.waitForTimeout(600);
+    // Copy the champion's DNA from the world-mode Record Barn panel.
+    await page.locator('[data-mode-button="world"]').click();
+    await page.waitForTimeout(500);
+    await page.locator("[data-open-barn]").click();
+    await page.waitForTimeout(500);
     await page.locator("[data-menu-hall-list] [data-hall-copy]").first().click();
     await page.waitForTimeout(500);
+    await page.locator("[data-barn-close]").click();
+    await page.waitForTimeout(300);
     expect(await page.evaluate(() => navigator.clipboard.readText())).toBe("SHARECHAMP123");
 
     // Copy the test-drive draft DNA.
@@ -710,6 +752,7 @@ test.describe("vroomon Playwright harness", () => {
 
 
   test("cycles the ambient sound pad and remembers the choice", async ({ page }) => {
+    await seedRancher(page);
     const button = page.locator("[data-ambience-toggle]");
     await expect(button).toContainText("Sound: med");
     await button.click();
@@ -742,8 +785,11 @@ test.describe("vroomon Playwright harness", () => {
       timeout: 12000,
     });
 
-    await page.locator('[data-mode-button="menu"]').click();
-    await page.waitForTimeout(600);
+    await seedRancher(page);
+    await page.locator('[data-mode-button="world"]').click();
+    await page.waitForTimeout(500);
+    await page.locator("[data-open-barn]").click();
+    await page.waitForTimeout(500);
     const rows = page.locator("[data-records-list] .records-row");
     await expect(rows).toHaveCount(1);
     await expect(page.locator("[data-records-count]")).toHaveText("1");
@@ -830,11 +876,11 @@ test.describe("vroomon Playwright harness", () => {
   test("the NPCs teach the loop — Axle breeds champions, Wanda runs the store", async ({
     page,
   }) => {
-    // NEW RUN starts the arrival story; no meta-guide text, just the road.
-    await page.locator('[data-menu-action="new-run"]').click();
+    await seedRancher(page);
+    // Enter town; the townspeople keep teaching in-fiction (no chrome ever
+    // spells out the loop).
+    await page.locator('[data-mode-button="world"]').click();
     await expect(page.locator('[data-mode-button="world"]')).toHaveClass(/active/);
-    await expect(page.locator("[data-status-message]")).toContainText("road carries you");
-    await expect(page.locator("[data-status-message]")).not.toContainText("arrow keys");
     await expect(page.locator(".menu-howto")).toHaveCount(0);
     await expect(page.locator('[data-onboard="evolution"]')).toHaveCount(0);
 
@@ -875,6 +921,26 @@ test.describe("vroomon Playwright harness", () => {
     await expect(page.locator("[data-overworld-dialogue-text]")).toContainText("Pasture first");
   });
 });
+
+
+async function seedRancher(
+  page: import("@playwright/test").Page,
+): Promise<void> {
+  // Give the session a branded rancher so the world tab skips the opening
+  // story — the story itself has its own dedicated test.
+  await page.evaluate(async () => {
+    const world = await window.vroomon.loadWorldState();
+    await window.vroomon.saveWorldState({
+      ...world,
+      version: 1,
+      lastSavedAt: new Date().toISOString(),
+      rancherName: "E2E",
+      rancherCap: "rust",
+    });
+  });
+  await page.reload();
+  await page.locator("[data-status-message]").filter({ hasText: "Welcome" }).waitFor({ timeout: 20000 });
+}
 
 
 async function expectModeState(

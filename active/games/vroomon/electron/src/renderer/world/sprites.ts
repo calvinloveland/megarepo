@@ -2,6 +2,7 @@ import type { Direction, TileKind } from "./types.js";
 import { SPRITE_PALETTE as PAL, houseAccentForNpc } from "./sprites-palette.js";
 
 export const TILE_COLORS: Record<TileKind, { fill: string; stroke?: string; accent?: string }> = {
+  bed: { fill: "#8a6a4a" },
   grass: { fill: "#7eb34b" },
   vroomgrass: { fill: "#5fa343", accent: "#ffe066" },
   path: { fill: "#c2a673" },
@@ -46,6 +47,19 @@ export function drawTile(
     ctx.fill();
   }
 
+  if (tile === "bed") {
+    // A low bunk with a striped blanket.
+    const hue = tick % 3 === 0 ? "#7a5c3e" : "#8a6a4a";
+    ctx.fillStyle = "#3b2a1c";
+    ctx.fillRect(px + 2, py + 10, size - 4, size - 12);
+    ctx.fillStyle = hue;
+    ctx.fillRect(px + 2, py + 10, size - 4, 9);
+    ctx.fillStyle = "#d8b48a";
+    ctx.fillRect(px + 4, py + 10, 10, 5);
+    ctx.fillStyle = "#f2e8d8";
+    ctx.fillRect(px + 4, py + size - 12, size - 8, 4);
+    return;
+  }
   if (tile === "vroomgrass") {
     const wobble = Math.sin(tick / 240 + (px + py) * 0.1) * 1.5;
     for (let i = 0; i < 4; i += 1) {

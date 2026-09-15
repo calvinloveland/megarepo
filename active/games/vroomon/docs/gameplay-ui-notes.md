@@ -610,6 +610,36 @@ upgrade grind, which is now optional beyond the win).
   including a new e2e asserting Axle's paddock beat and Wanda's store
   teaching.
 
+## The cinematic opening (2026-09-14) ✅
+
+**Title screen**: only NEW GAME (or CONTINUE once a rancher exists), and a
+looping attract race of six cars runs behind the translucent title — no
+other chrome. The Record Barn + Records managers moved into a 🏟 Barn
+panel in world mode (same lists/actions, still browsable).
+
+**New Game story**:
+1. Monologue beats: *"Oh what a long trip it was to get to the Isles of
+   Speid… At least I've finally got the chance to start over… Maybe I
+   should even change my name."* → the name + cap moment.
+2. *"Hey sleepyhead! Time to wake up!"* — you wake beside the bed in the
+   **shoddy ranch** (new `home_ranch` map: bedroom, kitchen, tall-grass
+   yard, garden gate).
+3. **Rancher Robby** in the kitchen: options *"Of course — but I didn't
+   see any cattle on the way in?"* / *"For sure! How do I start!"* →
+   the reveal: vroomon are beetle-sized wheeled critters, not cattle,
+   and the yard floods with them; the ranch is yours.
+4. Tutorial: catch a wild vroomon in the tall grass (interact → genome
+   recorded into the Herd Book), Robby's praise beat auto-follows, then
+   *"alright, that's all for today! explore town"* — the garden gate
+   opens onto Starter Town and the existing road begins.
+
+Also: dialogue flag changes now persist (z-advance + option clicks save
+the world state — previously reveal flags were lost on reload), the menu
+overlay is pointer-event transparent so the attract race + top bar stay
+clickable, and the settings gear moved off the ambience toggle's corner.
+186 unit + 21 e2e (a full opening-journey e2e walks trip → name → wake →
+Robby → reveal → catch → gate).
+
 ## Outstanding gameplay/UI issues (identified, not yet fixed — design work)
 
 From the vision-model critique + probes, ordered by impact:
