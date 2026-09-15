@@ -634,6 +634,53 @@
         cursor: pointer;
         box-shadow: 0 3px 0 #12370f;
       }
+      .pocket-ranch__scene--heritage {
+        background: radial-gradient(circle at 50% 40%, rgba(18, 26, 16, 0.94), rgba(4, 7, 4, 0.98) 78%);
+      }
+      .heritage-panel {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        width: min(1240px, 96vw);
+        padding: 0.7rem 0.9rem 0.6rem;
+        background: rgba(8, 12, 8, 0.72);
+        border: 2px solid #ffd166;
+        border-radius: 14px;
+        box-shadow: 0 8px 0 rgba(0, 0, 0, 0.45);
+      }
+      .heritage-panel__head {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 1rem;
+        flex-wrap: wrap;
+      }
+      .heritage-panel__title {
+        font-family: var(--font-pixel);
+        font-size: 0.6rem;
+        letter-spacing: 0.14em;
+        color: #ffd166;
+      }
+      .heritage-panel__stats {
+        font-family: var(--font-screen);
+        font-size: 0.82rem;
+        color: #e8dcc0;
+      }
+      .heritage-canvas {
+        width: 100%;
+        height: auto;
+        max-height: 62vh;
+        background: rgba(4, 8, 4, 0.6);
+        border: 1px solid rgba(255, 209, 102, 0.25);
+        border-radius: 10px;
+        cursor: pointer;
+      }
+      .heritage-panel__info {
+        font-family: var(--font-screen);
+        font-size: 0.85rem;
+        color: #f4ecd8;
+        min-height: 1.2rem;
+      }
       .pocket-ranch__scene {
         position: absolute;
         inset: 0;
@@ -1228,7 +1275,8 @@
       .settings-card__btn--close { background: linear-gradient(180deg, #4f9e55 0%, #1d5e24 100%); }
       .callout {
         position: fixed;
-        top: 22%;
+        top: auto;
+        bottom: 4rem;
         left: 50%;
         transform: translateX(-50%);
         z-index: 75;
@@ -1567,7 +1615,18 @@
             <button class="barn-pill" type="button" data-barn-pill="herd" aria-pressed="true">🐄 Herd</button>
             <button class="barn-pill" type="button" data-barn-pill="drive" aria-pressed="false">🏁 Test Drive</button>
             <button class="barn-pill" type="button" data-barn-pill="barn" aria-pressed="false">🏟 Barn</button>
+            <button class="barn-pill" type="button" data-barn-pill="heritage" aria-pressed="false">🌳 Heritage</button>
             <button class="barn-hub__close" type="button" data-barn-close>Back to the road</button>
+          </div>
+          <div class="pocket-ranch__scene pocket-ranch__scene--heritage" data-barn-scene="heritage" hidden>
+            <div class="heritage-panel">
+              <div class="heritage-panel__head">
+                <span class="heritage-panel__title">HERITAGE · the family lines</span>
+                <span class="heritage-panel__stats" data-heritage-stats></span>
+              </div>
+              <canvas class="heritage-canvas" data-heritage-canvas width="1200" height="620"></canvas>
+              <div class="heritage-panel__info" data-heritage-info>Tap a vroomon to trace its line.</div>
+            </div>
           </div>
           <div class="pocket-ranch__scene" data-barn-scene="barn" hidden>
             <div class="barn-modal__panel">

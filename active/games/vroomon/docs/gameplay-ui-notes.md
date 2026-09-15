@@ -792,6 +792,29 @@ Next (from the user's steer): a **heritage/lineage tree** view so you can
 trace how a champion emerged, and **scaling biomes** so yesterday's
 champion is obsolete when the terrain gets harder.
 
+## The heritage tree (2026-09-14) ✅
+
+A fourth Pocket Ranch scene — **🌳 Heritage** — because watching families
+develop was called out as a top-loved part of the design:
+
+- **The family fabric**: every vroomon the run has ever bred is a node,
+  grouped into generation columns by ancestry depth, joined by parent →
+  child curves (gold for mutated offspring). Untraceable/released stock
+  renders as small slate dots; scored stock scales with the best.
+- **Trace a line**: tap any vroomon and the whole book dims except its
+  ancestors and descendants, its chain labels itself, and the info line
+  reads `#72 · 130.69 pts · gen 7 · line: #12 ← #30 ← #55 ← #72 · 3
+  descendants`.
+- Champion labels sit along the top per generation (with a collision
+  guard), the depth ruler runs gen 0 → gen N, and the header summarises
+  `75 vroomon · 22 champions · 23 generations deep`.
+- `heritage.ts` holds the pure model (`buildHeritageGraph`,
+  `traceHeritage`, `shortLabel`) with 9 unit tests; a `@smoke` e2e breeds
+  four generations, opens the tree, checks it painted, and taps a node.
+- Fixed on the way: the tree read scores from the run-state population
+  (always 0) instead of the last evaluated generation, and the heritage
+  scene was being overridden by the scene-follows-mode sync.
+
 ## Outstanding gameplay/UI issues (identified, not yet fixed — design work)
 
 From the vision-model critique + probes, ordered by impact:

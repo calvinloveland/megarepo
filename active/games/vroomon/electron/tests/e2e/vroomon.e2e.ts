@@ -1067,6 +1067,56 @@ test.describe("vroomon Playwright harness", () => {
     await expect(page.locator("[data-status-message]")).toContainText("Auto-run stopped");
   });
 
+
+  test("@smoke the heritage tree traces a champion's line", async ({ page }) => {
+    await seedAndEnterWorld(page);
+    await openPocketRanch(page, "herd");
+    await page.locator("[data-population-size-select]").selectOption("50");
+    await page.locator("[data-mutation-rate-select]").selectOption("0.35");
+    await page.locator("[data-generate-population]").click();
+    await page.waitForTimeout(500);
+
+    // A few generations so there are real families to draw.
+    for (let i = 0; i < 4; i += 1) {
+      await page.locator("[data-run-generation]").click();
+      await page.waitForTimeout(500);
+    }
+
+    await page.locator('[data-barn-pill="heritage"]').click();
+    await page.waitForTimeout(700);
+    await expect(page.locator('[data-barn-scene="heritage"]')).toBeVisible();
+    await expect(page.locator("[data-heritage-stats]")).toContainText("generations deep");
+    await expect(page.locator("[data-heritage-stats]")).toContainText("vroomon");
+
+    // The canvas actually painted the graph (not a blank sheet).
+    const painted = await page.evaluate(() => {
+      const canvas = document.querySelector<HTMLCanvasElement>("[data-heritage-canvas]");
+      if (!canvas) return -1;
+      const data = canvas.getContext("2d")?.getImageData(0, 0, canvas.width, canvas.height).data;
+      if (!data) return -1;
+      let coloured = 0;
+      for (let i = 3; i < data.length; i += 4) {
+        if (data[i] > 0) coloured += 1;
+      }
+      return coloured;
+    });
+    expect(painted).toBeGreaterThan(500);
+
+    // Tapping a vroomon in the tree narrates its line.
+    const box = await page.locator("[data-heritage-canvas]").boundingBox();
+    let traced = "";
+    for (const frac of [0.02, 0.06, 0.15, 0.35, 0.6, 0.85, 0.97]) {
+      await page.mouse.click(box!.x + box!.width * frac, box!.y + box!.height * 0.12);
+      await page.waitForTimeout(200);
+      const text = (await page.locator("[data-heritage-info]").textContent()) ?? "";
+      if (!text.startsWith("Tap")) {
+        traced = text;
+        break;
+      }
+    }
+    expect(traced).toMatch(/#\d+/);
+  });
+
 });
 
 

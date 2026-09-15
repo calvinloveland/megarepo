@@ -10,6 +10,12 @@ import type {
 } from "../shared/parity-contract.js";
 import { bestRecord, proposeRecord } from "./records.js";
 import {
+  buildHeritageGraph,
+  shortLabel,
+  traceHeritage,
+  type HeritageGraph,
+} from "./heritage.js";
+import {
   autoRunVerdict,
   improvementRatio,
   isOutlier,
@@ -1651,7 +1657,7 @@ function renderPanels(): void {
   // The Pocket Ranch hub shows its herd/drive scenes as the full-screen
   // ones (evolution/test-drive) while the "barn" scene hides them all.
   const effectiveMode =
-    rendererState.barnOpen && rendererState.barnScene === "barn"
+    rendererState.barnOpen && NON_MODE_SCENES.has(rendererState.barnScene)
       ? "barn"
       : rendererState.mode;
   for (const wrapper of overlayWrappers) {
@@ -4563,12 +4569,17 @@ function renderHerdBook(): void {
   }
 }
 
-type BarnScene = "herd" | "drive" | "barn";
+type BarnScene = "herd" | "drive" | "barn" | "heritage";
+
+/** Hub scenes that aren't backed by a renderer mode (they replace the
+ * bench/paddock view instead of scoping to it). */
+const NON_MODE_SCENES = new Set<BarnScene>(["barn", "heritage"]);
 
 const BARN_SCENE_STATUS: Record<BarnScene, string> = {
   herd: "The carrier opens — the herd bench hums under your hand.",
   drive: "The paddock gate rolls back for a test drive.",
   barn: "The Record Barn creaks open, shelves and ledgers in order.",
+  heritage: "You lay the herd book flat — every line back to the founders.",
 };
 
 function openPocketRanch(scene: BarnScene): void {
@@ -4610,6 +4621,227 @@ function closePocketRanch(): void {
   sfx.click();
 }
 
+// ---- Heritage tree ----
+let heritageGraph: HeritageGraph | null = null;
+let heritageSignature = "";
+let heritageNodePositions: Array<{ id: string; x: number; y: number }> = [];
+let heritageFocusId: string | null = null;
+
+function heritageSignatureFor(): string {
+  const run = rendererState.runState;
+  return [
+    run.generation,
+    run.population.length,
+    Object.keys(run.genealogy ?? {}).length,
+  ].join("|");
+}
+
+/** Score -> colour: dim slate for unknown (released) stock, warm gold for
+ * the best of the run. */
+function heritageNodeColor(score: number | null, best: number): string {
+  if (score === null || best <= 0) {
+    return "#3f4a55";
+  }
+  const t = Math.max(0, Math.min(1, score / best));
+  const r = Math.round(90 + 165 * t);
+  const g = Math.round(120 + 90 * t);
+  const b = Math.round(140 - 60 * t);
+  return `rgb(${r},${g},${b})`;
+}
+
+function renderHeritage(force = false): void {
+  const canvas = document.querySelector<HTMLCanvasElement>("[data-heritage-canvas]");
+  const stats = document.querySelector<HTMLElement>("[data-heritage-stats]");
+  if (!canvas) {
+    return;
+  }
+  const signature = `${heritageSignatureFor()}|${heritageFocusId ?? ""}`;
+  if (!force && heritageGraph && signature === heritageSignature) {
+    return;
+  }
+  heritageSignature = signature;
+
+  // Scores live on the last evaluated generation, not in the run state's
+  // population (whose entries stay at 0) — the tree is meaningless without
+  // them, so prefer the scored snapshot when we have one.
+  const graph = buildHeritageGraph({
+    population:
+      rendererState.latestGeneration?.evaluatedPopulation ??
+      rendererState.runState.population,
+    genealogy: rendererState.runState.genealogy ?? {},
+  });
+  heritageGraph = graph;
+
+  const ctx = canvas.getContext("2d");
+  if (!ctx) {
+    return;
+  }
+  const width = canvas.width;
+  const height = canvas.height;
+  ctx.clearRect(0, 0, width, height);
+
+  const best = graph.champion?.score ?? 0;
+  // Tracing a line dims everyone who isn't on it.
+  const focusNode = heritageFocusId
+    ? graph.nodes.find((node) => node.id === heritageFocusId)
+    : undefined;
+  // A car with no known relations has nothing to trace — keep the fabric
+  // visible rather than dimming the whole book for one lonely dot.
+  const trace =
+    heritageFocusId && focusNode &&
+    (focusNode.parents.length > 0 || focusNode.children.length > 0)
+      ? traceHeritage(graph, heritageFocusId)
+      : null;
+  const onTrace = trace
+    ? new Set<string>([heritageFocusId!, ...trace.ancestors, ...trace.descendants])
+    : null;
+  const dimmed = (id: string): boolean => Boolean(onTrace) && !onTrace!.has(id);
+  const columns = Math.max(1, graph.maxDepth + 1);
+  const padX = 60;
+  const padY = 40;
+  const colWidth = columns > 1 ? (width - padX * 2) / (columns - 1) : 0;
+  const maxRows = graph.columns.reduce((max, column) => Math.max(max, column.length), 1);
+  const rowHeight = Math.min(34, (height - padY * 2) / Math.max(1, maxRows - 1 || 1));
+
+  heritageNodePositions = [];
+  const positionOf = (id: string): { x: number; y: number } => {
+    const node = graph.nodes.find((candidate) => candidate.id === id);
+    if (!node) {
+      return { x: padX, y: padY };
+    }
+    return {
+      x: padX + node.depth * colWidth,
+      y: padY + node.row * rowHeight,
+    };
+  };
+
+  // edges first, so nodes sit on top
+  ctx.lineWidth = 1;
+  for (const node of graph.nodes) {
+    const to = positionOf(node.id);
+    for (const parent of node.parents) {
+      const from = positionOf(parent);
+      if (onTrace && !(onTrace.has(node.id) && onTrace.has(parent))) {
+        continue; // only the traced line's edges stay lit
+      }
+      ctx.strokeStyle = node.mutated
+        ? "rgba(255, 209, 102, 0.45)"
+        : "rgba(150, 190, 255, 0.28)";
+      ctx.beginPath();
+      ctx.moveTo(from.x, from.y);
+      const midX = (from.x + to.x) / 2;
+      ctx.bezierCurveTo(midX, from.y, midX, to.y, to.x, to.y);
+      ctx.stroke();
+    }
+  }
+
+  // nodes
+  const championIds = new Set(graph.champions);
+  for (const node of graph.nodes) {
+    const { x, y } = positionOf(node.id);
+    heritageNodePositions.push({ id: node.id, x, y });
+    const radius = Math.max(2.5, Math.min(9, rowHeight * 0.4)) * (node.score !== null ? 1 : 0.7);
+    ctx.globalAlpha = dimmed(node.id) ? 0.3 : 1;
+    ctx.beginPath();
+    ctx.arc(x, y, radius, 0, Math.PI * 2);
+    ctx.fillStyle = onTrace?.has(node.id)
+      ? "#ffe08a"
+      : heritageNodeColor(node.score, best);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    if (championIds.has(node.id)) {
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = "#ffd166";
+      ctx.stroke();
+    } else if (node.mutated) {
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = "rgba(255, 209, 102, 0.7)";
+      ctx.stroke();
+    }
+  }
+
+  // label only the champions (and the run's champion), to stay readable
+  ctx.font = "600 13px system-ui, sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "bottom";
+  const labelled = trace ? trace.chain : graph.champions;
+  // Skip labels that would collide with the previous one — 25 generations
+  // in 1100px would otherwise pile on top of each other.
+  let lastLabelRight = -Infinity;
+  for (const id of labelled) {
+    const node = graph.nodes.find((candidate) => candidate.id === id);
+    if (!node) {
+      continue;
+    }
+    const { x, y } = positionOf(id);
+    if (!trace && x - lastLabelRight < 72) {
+      continue;
+    }
+    ctx.fillStyle = "#ffd166";
+    const text =
+      node.score !== null
+        ? `${node.label} · ${formatNumber(node.score)}`
+        : `#${node.label}`;
+    ctx.fillText(text, x, y - 13);
+    lastLabelRight = x + ctx.measureText(text).width / 2;
+  }
+
+  // depth ruler
+  ctx.font = "600 11px system-ui, sans-serif";
+  ctx.fillStyle = "rgba(232, 220, 192, 0.55)";
+  ctx.textAlign = "left";
+  for (let depth = 0; depth <= graph.maxDepth; depth += 1) {
+    const x = padX + depth * colWidth;
+    ctx.fillText(`gen ${depth}`, x - 16, height - 8);
+  }
+
+  if (stats) {
+    stats.textContent = `${graph.nodes.length} vroomon · ${graph.champions.length} champions · ${graph.maxDepth + 1} generations deep`;
+  }
+}
+
+function pickHeritageNode(clientX: number, clientY: number): void {
+  const canvas = document.querySelector<HTMLCanvasElement>("[data-heritage-canvas]");
+  const info = document.querySelector<HTMLElement>("[data-heritage-info]");
+  if (!canvas || !info || !heritageGraph) {
+    return;
+  }
+  const rect = canvas.getBoundingClientRect();
+  const x = ((clientX - rect.left) / rect.width) * canvas.width;
+  const y = ((clientY - rect.top) / rect.height) * canvas.height;
+  let closest: { id: string; distance: number } | null = null;
+  for (const node of heritageNodePositions) {
+    const distance = Math.hypot(node.x - x, node.y - y);
+    if (distance <= 16 && (!closest || distance < closest.distance)) {
+      closest = { id: node.id, distance };
+    }
+  }
+  if (!closest) {
+    return;
+  }
+  const node = heritageGraph.nodes.find((candidate) => candidate.id === closest!.id);
+  if (!node) {
+    return;
+  }
+  const trace = traceHeritage(heritageGraph, node.id);
+  const scoreText = node.score !== null ? `${formatNumber(node.score)} pts` : "released";
+  const chainText =
+    trace.chain.length > 1
+      ? `line: ${trace.chain.map((id) => `#${shortLabel(id)}`).join(" ← ")}`
+      : "founder stock — the line starts here";
+  const kidText =
+    trace.descendants.length > 0 ? ` · ${trace.descendants.length} descendants` : "";
+  info.textContent = `#${node.label} · ${scoreText} · gen ${node.depth} · ${chainText}${kidText}${node.mutated ? " · mutated" : ""}`;
+  heritageFocusId = node.id;
+  renderHeritage(true);
+}
+
+document
+  .querySelector<HTMLCanvasElement>("[data-heritage-canvas]")
+  ?.addEventListener("click", (event) => {
+    pickHeritageNode(event.clientX, event.clientY);
+  });
+
 function renderPocketRanch(): void {
   if (!barnOverlay) {
     return;
@@ -4619,8 +4851,10 @@ function renderPocketRanch(): void {
   }
   // When something loads/switches the underlying mode while the hub is open
   // (a saved test-drive run, a record-driven draft), the scene follows —
-  // the pills should never disagree with the content on screen.
-  if (rendererState.barnOpen && rendererState.barnScene !== "barn") {
+  // the pills should never disagree with the content on screen. The
+  // list-style scenes (barn, heritage) are not mode-backed, so they're left
+  // alone.
+  if (rendererState.barnOpen && !NON_MODE_SCENES.has(rendererState.barnScene)) {
     const derived = rendererState.mode === "test-drive" ? "drive" : "herd";
     if (rendererState.barnScene !== derived) {
       rendererState = { ...rendererState, barnScene: derived };
@@ -4639,6 +4873,9 @@ function renderPocketRanch(): void {
     document.querySelectorAll<HTMLElement>("[data-barn-scene]"),
   )) {
     scene.hidden = scene.dataset.barnScene !== rendererState.barnScene;
+  }
+  if (rendererState.barnOpen && rendererState.barnScene === "heritage") {
+    renderHeritage();
   }
 }
 
