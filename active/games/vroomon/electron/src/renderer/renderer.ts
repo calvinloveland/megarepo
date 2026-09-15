@@ -893,10 +893,13 @@ const ambienceButton = document.querySelector<HTMLButtonElement>("[data-ambience
 function renderAmbienceButton(): void {
   const settings = ambience.getSettings();
   if (ambienceButton) {
+    // Compact label: the gear shares this corner and must not collide.
     ambienceButton.textContent =
       settings.volume === 0
-        ? "🔇 Sound: off"
-        : `🔊 Sound: ${settings.volume === 1 ? "low" : "med"}`;
+        ? "🔇 off"
+        : settings.volume === 1
+          ? "🔊 low"
+          : "🔊 med";
   }
 }
 

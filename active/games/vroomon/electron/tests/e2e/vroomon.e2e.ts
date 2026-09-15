@@ -799,11 +799,11 @@ test.describe("vroomon Playwright harness", () => {
   test("cycles the ambient sound pad and remembers the choice", async ({ page }) => {
     await seedRancher(page);
     const button = page.locator("[data-ambience-toggle]");
-    await expect(button).toContainText("Sound: med");
+    await expect(button).toContainText("med");
     await button.click();
-    await expect(button).toContainText("Sound: low");
+    await expect(button).toContainText("low");
     await button.click();
-    await expect(button).toContainText("Sound: off");
+    await expect(button).toContainText("off");
     const stored = await page.evaluate(() =>
       JSON.parse(localStorage.getItem("vroomon:ambience") ?? "{}"),
     );
@@ -811,7 +811,7 @@ test.describe("vroomon Playwright harness", () => {
 
     await page.reload();
     await page.locator("[data-status-message]").filter({ hasText: "Welcome" }).waitFor({ timeout: 20000 });
-    await expect(page.locator("[data-ambience-toggle]")).toContainText("Sound: off");
+    await expect(page.locator("[data-ambience-toggle]")).toContainText("off");
 
     // Entering the world (different ambient scene) must not throw.
     await enterWorld(page);
@@ -861,7 +861,7 @@ test.describe("vroomon Playwright harness", () => {
       input.dispatchEvent(new Event("input", { bubbles: true }));
     });
     await page.locator('[data-settings-ambient="0"]').click();
-    await expect(page.locator("[data-ambience-toggle]")).toContainText("Sound: off");
+    await expect(page.locator("[data-ambience-toggle]")).toContainText("off");
     const stored = await page.evaluate(() =>
       JSON.parse(localStorage.getItem("vroomon:settings") ?? "{}"),
     );
