@@ -668,6 +668,32 @@ name a PNG the same as its manifest id and rebuild — the game uses it.
 either a local GPU install or an API key placed in `.secrets` per the
 repo's rules.)
 
+## The ranching loop + component sprites (2026-09-14) ✅
+
+**Ranching in a box**: the flock now behaves like your lore — a
+microwave-sized **carrier** you keep on your hip (Robby hands it over
+with the first catch; Wanda tells you it runs on grain). Gameplay:
+- **Feed** is a resource riding the carrier. Every generation **costs 1
+  feed** (Run Gen and batches are cut off with an "Out of feed" message /
+  the batch trims to what you can feed).
+- **Releasing pays it back**: 🐄 Release the selected vroomon (+1 feed,
+  herd shrinks) or ⚡ Cull slow — keep the top ten, release the rest
+  (+1 feed each). That's exactly "release the slower mons and keep the
+  faster ones", and it funds the next breeding run.
+- The RANCH store sells **🌾 Grain** (36 cr → +6 feed); the stats HUD
+  gained a FEED chip. `releaseFromPopulation` / `keepFastest` are pure +
+  unit-tested; a new e2e walks out-of-feed → grain → breed → release →
+  cull. 189 unit + 22 e2e.
+
+**Component sprite system**: NPCs are now assembled from three
+independently generated parts — **head** (skin + face), **outfit**
+(torso + trades), and **accessory** (caps/glasses/stetsons/wrenches/
+bandanas/signposts) — drawn in order around a shared anchor. The exporter
+emits each part as its own PNG (`head:light`, `outfit:labcoat`,
+`accessory:stetson`, …) plus the assembled `npc:<id>` (runtime unchanged).
+Parts can be swapped per-component, and AI-generated art can replace any
+part or whole NPC by manifest id.
+
 ## Outstanding gameplay/UI issues (identified, not yet fixed — design work)
 
 From the vision-model critique + probes, ordered by impact:

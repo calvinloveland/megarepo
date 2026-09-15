@@ -30,7 +30,12 @@ import { Ambience, loadAmbienceSettings, type AmbienceScene } from "./ambience.j
 import { setMasterVolume as setSfxMasterVolume } from "./audio.js";
 import { loadSettings, saveSettings, type Settings } from "./settings.js";
 import { decodeRun, decodeWorld, encodeRun, encodeWorld } from "./save-io.js";
-import { captureLineage, plantSeedDna } from "../core/population.js";
+import {
+  captureLineage,
+  keepFastest,
+  plantSeedDna,
+  releaseFromPopulation,
+} from "../core/population.js";
 import {
   effectiveRunConfig,
   SUPPLIES,
@@ -1630,7 +1635,20 @@ async function runBatchGenerations(): Promise<void> {
   );
   renderApp();
 
-  const batchCount = rendererState.batchCount;
+  // Feed bounds the grind: the batch trims to however many generations the
+  // carrier can actually feed, so the resource still matters.
+  const availableFeed = rendererState.runState.feed ?? 8;
+  const batchCount = Math.min(rendererState.batchCount, Math.max(0, availableFeed));
+  if (batchCount === 0) {
+    rendererState = setBatchRunning(rendererState, false);
+    rendererState = {
+      ...rendererState,
+      statusMessage:
+        "Out of feed — the carrier's empty. Buy grain in the RANCH store or release some of the herd.",
+    };
+    renderApp();
+    return;
+  }
   const shouldDetectConvergence = rendererState.convergeMode;
   const worker = createEvolutionWorker();
 
@@ -1916,6 +1934,15 @@ async function renderGenerationLog(): Promise<void> {
 }
 
 async function runGeneration(): Promise<void> {
+  if ((rendererState.runState.feed ?? 8) < 1) {
+    rendererState = {
+      ...rendererState,
+      statusMessage:
+        "Out of feed — the carrier's empty. Buy grain in the RANCH store or release some of the herd to free up feed.",
+    };
+    renderApp();
+    return;
+  }
   const { runState, generatedPopulation } = resolveRunnableRunState(
     rendererState,
     window.vroomon.createPreviewRunState,
@@ -3909,6 +3936,75 @@ for (const button of modeButtonsElements) {
   });
 }
 
+const releaseButton = document.querySelector<HTMLButtonElement>("[data-release-selected]");
+const cullButton = document.querySelector<HTMLButtonElement>("[data-cull-slow]");
+
+releaseButton?.addEventListener("click", () => {
+  const id = rendererState.selectedVehicleId;
+  if (!id) {
+    rendererState = {
+      ...rendererState,
+      statusMessage: "Pick a vroomon from the herd first, then release it.",
+    };
+    renderApp();
+    return;
+  }
+  const { population, feed } = releaseFromPopulation(
+    rendererState.runState.population,
+    [id],
+  );
+  if (feed === 0) {
+    rendererState = { ...rendererState, statusMessage: "That vroomon already left the herd." };
+    renderApp();
+    return;
+  }
+  rendererState = {
+    ...rendererState,
+    runState: {
+      ...rendererState.runState,
+      population,
+      feed: Math.max(0, (rendererState.runState.feed ?? 8) + feed),
+    },
+  };
+  playRanchSound("coin");
+  rendererState = {
+    ...rendererState,
+    statusMessage: `Released one vroomon back to the wild — +${feed} feed for the carrier.`,
+  };
+  void window.vroomon.saveRunState(rendererState.runState);
+  renderApp();
+});
+
+cullButton?.addEventListener("click", () => {
+  const herd = rendererState.runState.population;
+  if (herd.length <= 1) {
+    rendererState = { ...rendererState, statusMessage: "Nothing to cull — the herd's already slim." };
+    renderApp();
+    return;
+  }
+  const { kept, released } = keepFastest(herd, 10);
+  if (released.length === 0) {
+    rendererState = { ...rendererState, statusMessage: "The whole herd fits in the top ten — no cull needed." };
+    renderApp();
+    return;
+  }
+  rendererState = {
+    ...rendererState,
+    runState: {
+      ...rendererState.runState,
+      population: kept,
+      feed: Math.max(0, (rendererState.runState.feed ?? 8) + released.length),
+    },
+  };
+  playRanchSound("coin");
+  rendererState = {
+    ...rendererState,
+    statusMessage: `Culled ${released.length} slow stock to the wild — +${released.length} feed for the carrier.`,
+  };
+  void window.vroomon.saveRunState(rendererState.runState);
+  renderApp();
+});
+
 const copyDnaButton = document.querySelector<HTMLButtonElement>("[data-copy-dna]");
 const copyDraftButton = document.querySelector<HTMLButtonElement>("[data-copy-draft-dna]");
 const importDnaInput = document.querySelector<HTMLInputElement>("[data-import-dna]");
@@ -4580,6 +4676,15 @@ function renderRanch(): void {
   }
   const wallet = rendererState.runState.wallet;
   ranchWallet.textContent = String(wallet);
+  const feedRow = `
+      <div class="ranch-card">
+        <div class="ranch-card__line"><strong>🌾 Grain bin</strong><span>feed: ${rendererState.runState.feed ?? 8}</span></div>
+        <div class="ranch-card__flavor">A pocket carrier runs on feed — breeding spends it, the slow repay it when released.</div>
+        <div class="ranch-card__row">
+          <span class="ranch-card__effect">+6 feed per bag</span>
+          <button class="ranch-buy" type="button" data-buy-feed ${wallet >= 36 ? "" : "disabled"}>36 cr · BUY</button>
+        </div>
+      </div>`;
   const slots = studLineCapacity(rendererState.runState.upgrades);
   const studLineNote =
     slots > 0
@@ -4604,6 +4709,7 @@ function renderRanch(): void {
       </div>`;
   }).join("");
   ranchList.innerHTML +=
+    feedRow +
     studLineNote +
     `<div class="ranch-section-label">SUPPLIES · one shot per cycle</div>` +
     SUPPLIES.map((def) => {
@@ -4721,6 +4827,31 @@ ranchDecorList?.addEventListener("click", (event) => {
 });
 
 ranchList?.addEventListener("click", (event) => {
+  const feedButton = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-buy-feed]");
+  if (feedButton) {
+    if (rendererState.batchRunning) {
+      return;
+    }
+    if (rendererState.runState.wallet < 36) {
+      playRanchSound("deny");
+      showRanchToast("Ranch: a grain bag costs 36 cr.");
+      return;
+    }
+    rendererState = {
+      ...rendererState,
+      runState: {
+        ...rendererState.runState,
+        wallet: rendererState.runState.wallet - 36,
+        feed: (rendererState.runState.feed ?? 8) + 6,
+      },
+    };
+    playRanchSound("coin");
+    showRanchToast("Grain in the bin — +6 feed.");
+    renderApp();
+    void window.vroomon.saveRunState(rendererState.runState);
+    renderRanch();
+    return;
+  }
   const supplyButton = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-buy-supply]");
   if (supplyButton) {
     if (rendererState.batchRunning) {

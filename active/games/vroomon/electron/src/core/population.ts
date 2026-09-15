@@ -219,6 +219,31 @@ export function createPreviewRunState(
 /** Plant an imported genome into the herd: the top seed of the population
  * (highest-ranked, or simply entry 0 on a fresh generated herd) takes the
  * given DNA so evolution can breed from a shared champion string. */
+/** Release vroomon from the herd: they leave the carrier and return the
+ * feed they'd have eaten, so culling the slow pays for breeding the fast. */
+export function releaseFromPopulation(
+  population: PopulationEntry[],
+  ids: string[],
+): { population: PopulationEntry[]; feed: number } {
+  const releaseSet = new Set(ids);
+  return {
+    population: population.filter((entry) => !releaseSet.has(entry.id)),
+    feed: ids.length,
+  };
+}
+
+/** Keep only the fastest `keepCount` (by score), releasing the rest. */
+export function keepFastest(
+  population: PopulationEntry[],
+  keepCount: number,
+): { kept: PopulationEntry[]; released: PopulationEntry[] } {
+  const ranked = [...population].sort((left, right) => right.score - left.score);
+  const safe = Math.max(1, Math.min(keepCount, population.length));
+  const kept = ranked.slice(0, safe);
+  const keptIds = new Set(kept.map((entry) => entry.id));
+  return { kept, released: population.filter((entry) => !keptIds.has(entry.id)) };
+}
+
 export function plantSeedDna(
   population: PopulationEntry[],
   dna: string,
@@ -355,6 +380,7 @@ export function advanceRunState(
     wallet: state.wallet + income,
     population: generationResult.nextPopulation,
     genealogy: generationResult.nextGenealogy,
+    feed: Math.max(0, (state.feed ?? 8) - 1),
     supplies: {
       calm: Math.max(0, supplies.calm - (generationResult.suppliesConsumed.calm ?? 0)),
       wild: Math.max(0, supplies.wild - (generationResult.suppliesConsumed.wild ?? 0)),

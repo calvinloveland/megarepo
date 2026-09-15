@@ -4,8 +4,11 @@ import {
   advanceRunState,
   captureLineage,
   createInitialPopulation,
+  DEFAULT_RUN_CONFIG,
+  keepFastest,
   plantSeedDna,
   previewEvolutionStep,
+  releaseFromPopulation,
   runEvolutionGeneration,
 } from "../src/core/population.js";
 
@@ -123,5 +126,40 @@ describe("plantSeedDna", () => {
 
   it("returns empty for an empty herd", () => {
     expect(plantSeedDna([], "X")).toEqual([]);
+  });
+});
+
+describe("ranching with feed", () => {
+  it("release returns a unit of feed per vroomon and trims the herd", () => {
+    const herd = createInitialPopulation("run", { ...DEFAULT_RUN_CONFIG, populationSize: 10 });
+    const targets = [herd[0]!.id, herd[3]!.id];
+    const { population, feed } = releaseFromPopulation(herd, targets);
+    expect(population).toHaveLength(8);
+    expect(feed).toBe(2);
+    expect(population.some((entry) => entry.id === targets[0])).toBe(false);
+  });
+
+  it("culling keeps the fastest and releases the rest", () => {
+    const scored = Array.from({ length: 12 }, (_, i) => ({
+      id: `car-${i}`,
+      dna: "G".repeat(8),
+      parents: [] as string[],
+      mutated: false,
+      score: i,
+    }));
+    const { kept, released } = keepFastest(scored, 10);
+    expect(kept).toHaveLength(10);
+    expect(released).toHaveLength(2);
+    // The top ten of 0..11 keeps 2..11: the two fastest (10, 11) are in,
+    // and the two slowest (0, 1) were released.
+    expect(kept.filter((entry) => entry.score >= 10)).toHaveLength(2);
+    expect(released.map((entry) => entry.score).sort((a, b) => a - b)).toEqual([0, 1]);
+  });
+
+  it("breeding spends a unit of feed per generation", () => {
+    const state = makeState();
+    const result = runEvolutionGeneration(state, () => 0.5);
+    const next = advanceRunState(state, result);
+    expect(next.feed).toBe((state.feed ?? 8) - 1);
   });
 });

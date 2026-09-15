@@ -99,6 +99,9 @@ export interface RunStateSnapshot {
   upgrades?: Record<string, number>;
   /** One-shot supplements stocked for the next cycle (calm/wild). */
   supplies?: { calm: number; wild: number };
+  /** Feed in the carrier — breeding a generation spends one unit; releasing
+   * a vroomon returns one. */
+  feed?: number;
   /** Stud-line car ids — the Split Pen bloodline the herd breeds toward. */
   penIds?: string[];
 }
@@ -299,5 +302,6 @@ export function createEmptyRunState(
     genealogy: {},
     supplies: { calm: 0, wild: 0 },
     penIds: [],
+    feed: 8,
   };
 }

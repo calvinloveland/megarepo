@@ -60,6 +60,70 @@
     "file": "tile_bed.png"
   },
   {
+    "id": "head:light",
+    "file": "head_light.png"
+  },
+  {
+    "id": "head:mid",
+    "file": "head_mid.png"
+  },
+  {
+    "id": "head:dark",
+    "file": "head_dark.png"
+  },
+  {
+    "id": "head:pale",
+    "file": "head_pale.png"
+  },
+  {
+    "id": "outfit:labcoat",
+    "file": "outfit_labcoat.png"
+  },
+  {
+    "id": "outfit:mechanic",
+    "file": "outfit_mechanic.png"
+  },
+  {
+    "id": "outfit:rider",
+    "file": "outfit_rider.png"
+  },
+  {
+    "id": "outfit:leader",
+    "file": "outfit_leader.png"
+  },
+  {
+    "id": "outfit:worker",
+    "file": "outfit_worker.png"
+  },
+  {
+    "id": "outfit:plain",
+    "file": "outfit_plain.png"
+  },
+  {
+    "id": "accessory:flatcap-glasses",
+    "file": "accessory_flatcap-glasses.png"
+  },
+  {
+    "id": "accessory:beanie-wrench",
+    "file": "accessory_beanie-wrench.png"
+  },
+  {
+    "id": "accessory:bandana-ponytail",
+    "file": "accessory_bandana-ponytail.png"
+  },
+  {
+    "id": "accessory:stetson",
+    "file": "accessory_stetson.png"
+  },
+  {
+    "id": "accessory:sign-post",
+    "file": "accessory_sign-post.png"
+  },
+  {
+    "id": "accessory:none",
+    "file": "accessory_none.png"
+  },
+  {
     "id": "player:down",
     "file": "player_down.png"
   },

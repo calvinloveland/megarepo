@@ -932,6 +932,66 @@ test.describe("vroomon Playwright harness", () => {
     await page.waitForTimeout(400);
     await expect(page.locator("[data-overworld-dialogue-text]")).toContainText("Pasture first");
   });
+
+  test("ranches with feed — breeding costs, releasing pays back, grain restocks", async ({
+    page,
+  }) => {
+    await page.locator('[data-mode-button="evolution"]').click();
+    await page.locator("[data-generate-population]").click();
+    await page.waitForTimeout(500);
+    // Zero feed: breeding is refused, the cull still frees feed.
+    await page.evaluate(async () => {
+      const run =
+        (await window.vroomon.loadRunState()) ??
+        window.vroomon.createEmptyRunState("evolution");
+      await window.vroomon.saveRunState({ ...run, feed: 0, wallet: 400 });
+    });
+    await page.reload();
+    await page.locator("[data-status-message]").filter({ hasText: "Welcome" }).waitFor({ timeout: 20000 });
+    await page.locator('[data-mode-button="evolution"]').click();
+    await page.waitForTimeout(400);
+    await page.keyboard.press("l"); // load the zero-feed run
+    await page.waitForTimeout(600);
+    await page.locator("[data-run-generation]").dispatchEvent("click");
+    await expect(page.locator("[data-status-message]")).toContainText("Out of feed");
+
+    // Buy grain, then breed once: feed 0 + 6 - 1 = 5.
+    await page.locator("[data-open-ranch]").dispatchEvent("click");
+    await page.locator("[data-buy-feed]").dispatchEvent("click");
+    await page.waitForTimeout(400);
+    await page.locator("[data-close-ranch]").click();
+    await page.waitForTimeout(300);
+    await page.locator("[data-run-generation]").dispatchEvent("click");
+    await expect(page.locator("[data-status-message]")).toContainText("mpleted generation");
+    await page.keyboard.press("s");
+    await page.waitForTimeout(400);
+    const feedAfter = await page.evaluate(async () => (await window.vroomon.loadRunState()).feed);
+    expect(feedAfter).toBe(5);
+
+    // Release the selected: +1 feed, herd shrinks by one.
+    const sizeBefore = await page.evaluate(async () => (await window.vroomon.loadRunState()).population.length);
+    await page.locator("[data-select-vehicle]").first().dispatchEvent("click");
+    await page.waitForTimeout(250);
+    await page.locator("[data-release-selected]").dispatchEvent("click");
+    await page.waitForTimeout(400);
+    const released = await page.evaluate(async () => {
+      const run = await window.vroomon.loadRunState();
+      return { feed: run.feed, size: run.population.length };
+    });
+    expect(released.feed).toBe(6);
+    expect(released.size).toBe(sizeBefore - 1);
+
+    // Cull to the top ten: every culled vroomon repays a feed.
+    await page.locator("[data-cull-slow]").dispatchEvent("click");
+    await page.waitForTimeout(400);
+    const culled = await page.evaluate(async () => {
+      const run = await window.vroomon.loadRunState();
+      return { feed: run.feed, size: run.population.length };
+    });
+    expect(culled.size).toBeLessThanOrEqual(10);
+    expect(culled.size).toBeGreaterThanOrEqual(1);
+  });
+
 });
 
 

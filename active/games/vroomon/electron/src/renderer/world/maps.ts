@@ -204,7 +204,7 @@ export const MAPS: Record<string, Tilemap> = {
         facing: "down",
         sprite: "professor",
         dialogue: {
-          text: "That's how we grow a ranch: catch the wild, breed the best, race your heart out.",
+          text: "That's how we grow a ranch: catch the wild, breed the best, race your heart out. And here — a pocket carrier, microwave-sized, full of feed. It rides your hip everywhere; the herd rides inside it.",
           next: "robby-caught-3",
         },
       },
@@ -383,7 +383,7 @@ export const MAPS: Record<string, Tilemap> = {
         facing: "left",
         sprite: "mechanic",
         dialogue: {
-          text: "First time in town? The Ranch fitters' yard is just east of me — wire in pasture for herd room, stalls for barn slots, and a one-shot tonic to calm a nervous breeding night. Credits come from every lap the Barn pays out, so race often.",
+          text: "First time in town? The Ranch fitters' yard is just east of me — wire in pasture for herd room, stalls for barn slots, and a one-shot tonic to calm a nervous breeding night. Every carrier runs on grain: breeding costs a feed a generation, and releasing the slow pays it back. Credits come from every lap the Barn pays out, so race often.",
           options: [
             { label: "What should I buy first?", next: "wanda-first-buys" },
             { label: "I'll be back", next: "wanda-bye" },

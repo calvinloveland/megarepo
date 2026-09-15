@@ -136,6 +136,54 @@ export function drawPlayer(
   ctx.fillRect(px + size / 2 + 1, cy + 14 - footOffset, 5, 3);
 }
 
+// ---- Component sprite system ----
+// NPCs are assembled from three independent parts — a HEAD (skin + face),
+// an OUTFIT (torso + details), and an ACCESSORY — drawn in that order and
+// connected by the shared anchor. Each part is exported as its own PNG by
+// the exporter, so art can be swapped per-component (or replaced wholesale
+// with AI-generated files by manifest id).
+
+export type HeadId = "light" | "mid" | "dark" | "pale";
+export type OutfitId = "labcoat" | "mechanic" | "rider" | "leader" | "worker" | "plain";
+export type AccessoryId =
+  | "flatcap-glasses"
+  | "beanie-wrench"
+  | "bandana-ponytail"
+  | "stetson"
+  | "sign-post"
+  | "none";
+
+interface NpcParts {
+  head: HeadId;
+  outfit: OutfitId;
+  accessory: AccessoryId;
+}
+
+const HEAD_SKINS: Record<HeadId, string> = {
+  light: PAL.skin.light,
+  mid: PAL.skin.mid,
+  dark: PAL.skin.dark,
+  pale: "#f0dfc4",
+};
+
+const OUTFIT_COLORS: Record<OutfitId, { main: string; trim: string }> = {
+  labcoat: { main: "#e8e6df", trim: "#b7b2a6" },
+  mechanic: { main: PAL.body.maroon, trim: "#5a3e2e" },
+  rider: { main: PAL.body.green, trim: "#2a6b4f" },
+  leader: { main: PAL.body.charcoal, trim: PAL.accent.gold },
+  worker: { main: "#7d6a52", trim: "#5a4a38" },
+  plain: { main: PAL.body.gray, trim: "#4a4a55" },
+};
+
+const NPC_PARTS: Record<string, NpcParts> = {
+  professor: { head: "light", outfit: "labcoat", accessory: "flatcap-glasses" },
+  mechanic: { head: "mid", outfit: "mechanic", accessory: "beanie-wrench" },
+  rider: { head: "light", outfit: "rider", accessory: "bandana-ponytail" },
+  "gym-leader": { head: "mid", outfit: "leader", accessory: "stetson" },
+  sign: { head: "dark", outfit: "worker", accessory: "sign-post" },
+  default: { head: "light", outfit: "plain", accessory: "none" },
+};
+
 export function drawNpc(
   ctx: CanvasRenderingContext2D,
   sprite: string,
@@ -146,67 +194,108 @@ export function drawNpc(
   step: number,
   npcId?: string,
 ): void {
+  const parts = NPC_PARTS[sprite] ?? NPC_PARTS.default!;
+  drawNpcShadow(ctx, px, py, size, step);
+  drawNpcHead(ctx, parts.head, px, py, size, facing);
+  drawNpcOutfit(ctx, parts.outfit, px, py, size, facing);
+  drawNpcAccessory(ctx, parts.accessory, px, py, size, facing, npcId);
+  drawNpcOutline(ctx, px, py, size);
+}
+
+function drawNpcShadow(
+  ctx: CanvasRenderingContext2D,
+  px: number,
+  py: number,
+  size: number,
+  step: number,
+): void {
   const bobY = Math.sin(step / 220 + px) * 0.8;
   const cy = py + size / 2 + bobY;
-
   ctx.fillStyle = PAL.shadow;
   ctx.beginPath();
   ctx.ellipse(px + size / 2, py + size - 4, size / 3, 4, 0, 0, Math.PI * 2);
   ctx.fill();
+  void cy;
+}
 
-  const palette = NPC_PALETTE[sprite] ?? NPC_PALETTE.default!;
-  const headColor = palette.head;
-  const bodyColor = palette.body;
-  const accent = palette.accent;
-  // Faction-coded band: hosts wear their household's signature accent.
-  const bandColor = (npcId ? houseAccentForNpc(npcId) : null) ?? accent;
-
-  ctx.fillStyle = headColor;
+function drawNpcHead(
+  ctx: CanvasRenderingContext2D,
+  head: HeadId,
+  px: number,
+  py: number,
+  size: number,
+  facing: Direction,
+): void {
+  const cy = py + size / 2;
+  const skin = HEAD_SKINS[head];
+  ctx.fillStyle = skin;
   ctx.fillRect(px + size / 2 - 5, cy - 8, 10, 10);
-
+  // Hair cap on the crown for extra readability.
+  ctx.fillStyle = "rgba(52, 38, 26, 0.65)";
+  ctx.fillRect(px + size / 2 - 5, cy - 8, 10, 3);
   ctx.fillStyle = PAL.ink.eyes;
   const eyeOffset = facing === "left" ? -2 : facing === "right" ? 2 : 0;
   ctx.fillRect(px + size / 2 - 3 + eyeOffset, cy - 5, 1.5, 1.5);
   ctx.fillRect(px + size / 2 + 1 + eyeOffset, cy - 5, 1.5, 1.5);
+  // Mouth.
+  ctx.fillRect(px + size / 2 - 1 + eyeOffset, cy - 1, 2, 1);
+}
 
-  ctx.fillStyle = bandColor;
-  ctx.fillRect(px + size / 2 - 6, cy - 12, 12, 4);
-
-  // Per-archetype silhouettes so hosts read as DISTINCT people, not boxes.
-  drawNpcAccessory(ctx, sprite, px, py, size, cy, facing, bandColor);
-
-  ctx.fillStyle = bodyColor;
-  ctx.fillRect(px + size / 2 - 7, cy + 2, 14, 12);
-
-  // Crisp dark outline so sprites pop against any background tile.
-  ctx.strokeStyle = "rgba(20, 14, 8, 0.75)";
-  ctx.lineWidth = 1;
-  ctx.strokeRect(px + size / 2 - 5, cy - 8, 10, 10);
-  ctx.strokeRect(px + size / 2 - 7, cy + 2, 14, 12);
-  ctx.strokeRect(px + size / 2 - 6, cy - 12, 12, 4);
-
+function drawNpcOutfit(
+  ctx: CanvasRenderingContext2D,
+  outfit: OutfitId,
+  px: number,
+  py: number,
+  size: number,
+  facing: Direction,
+): void {
+  const cx = px + size / 2;
+  const cy = py + size / 2;
+  const colors = OUTFIT_COLORS[outfit];
+  ctx.fillStyle = colors.main;
+  ctx.fillRect(cx - 7, cy + 2, 14, 12);
+  if (outfit === "labcoat") {
+    // Open collar + pocket lines.
+    ctx.fillStyle = colors.trim;
+    ctx.fillRect(cx - 1, cy + 3, 2, 3);
+    ctx.fillRect(cx - 5, cy + 7, 4, 3);
+  } else if (outfit === "mechanic") {
+    ctx.fillStyle = colors.trim;
+    ctx.fillRect(cx - 5, cy + 5, 10, 1);
+    ctx.fillRect(cx + 3, cy + 6, 2, 4);
+  } else if (outfit === "rider") {
+    ctx.fillStyle = colors.trim;
+    ctx.fillRect(cx - 3, cy - 1, 6, 2);
+    ctx.fillRect(cx - 1, cy + 1, 2, 12);
+  } else if (outfit === "leader") {
+    ctx.fillStyle = colors.trim;
+    ctx.fillRect(cx - 7, cy + 2, 14, 2);
+    ctx.fillRect(cx - 2, cy + 6, 4, 4);
+  } else if (outfit === "worker") {
+    ctx.fillStyle = colors.trim;
+    ctx.fillRect(cx - 7, cy + 4, 14, 1);
+    ctx.fillRect(cx - 5, cy + 9, 10, 1);
+  }
   ctx.fillStyle = PAL.ink.feet;
-  ctx.fillRect(px + size / 2 - 6, cy + 14, 5, 3);
-  ctx.fillRect(px + size / 2 + 1, cy + 14, 5, 3);
-
+  ctx.fillRect(cx - 6, cy + 13, 5, 3);
+  ctx.fillRect(cx + 1, cy + 13, 5, 3);
+  void facing;
 }
 
 function drawNpcAccessory(
   ctx: CanvasRenderingContext2D,
-  sprite: string,
+  accessory: AccessoryId,
   px: number,
   py: number,
   size: number,
-  cy: number,
   facing: Direction,
-  bandColor: string,
+  npcId: string | undefined,
 ): void {
   const cx = px + size / 2;
+  const cy = py + size / 2;
   const eyeShift = facing === "left" ? -1.5 : facing === "right" ? 1.5 : 0;
-
-  switch (sprite) {
-    case "professor":
-      // Scholar's flat cap + half-moon spectacles.
+  switch (accessory) {
+    case "flatcap-glasses":
       ctx.fillStyle = "#4a4452";
       ctx.fillRect(cx - 7, cy - 15, 14, 4);
       ctx.fillRect(cx - 9, cy - 12, 18, 2);
@@ -220,8 +309,7 @@ function drawNpcAccessory(
       ctx.stroke();
       ctx.strokeRect(cx - 6 + eyeShift, cy - 4, 12, 2);
       break;
-    case "mechanic":
-      // Beanie + a little wrench hand.
+    case "beanie-wrench":
       ctx.fillStyle = "#7d6a52";
       ctx.beginPath();
       ctx.arc(cx, cy - 9, 7, Math.PI, 0);
@@ -230,24 +318,23 @@ function drawNpcAccessory(
       ctx.fillRect(cx + 8, cy + 4, 2, 6);
       ctx.fillRect(cx + 6, cy + 9, 6, 2);
       break;
-    case "rider":
-      // Bandana tails + a ponytail.
+    case "bandana-ponytail":
       ctx.fillStyle = "#2a6b4f";
       ctx.fillRect(cx - 5, cy + 2, 3, 7);
       ctx.fillRect(cx + 2, cy + 2, 3, 7);
       ctx.fillStyle = "#7a4a1e";
       ctx.fillRect(cx + 6, cy - 9, 2, 6);
       break;
-    case "gym-leader":
-      // Stetson: brim + crown with the host's band accent.
+    case "stetson": {
+      const bandColor = npcId ? houseAccentForNpc(npcId) ?? "#caa672" : "#caa672";
       ctx.fillStyle = "#8a6a3a";
       ctx.fillRect(cx - 9, cy - 14, 18, 2);
       ctx.fillRect(cx - 5, cy - 19, 11, 6);
       ctx.fillStyle = bandColor;
       ctx.fillRect(cx - 5, cy - 13, 11, 2);
       break;
-    case "sign":
-      // Post + creaking board.
+    }
+    case "sign-post":
       ctx.fillStyle = "#7a5c3e";
       ctx.fillRect(cx + 6, cy - 12, 3, 24);
       ctx.fillStyle = "#c9a176";
@@ -258,11 +345,23 @@ function drawNpcAccessory(
       ctx.fillRect(cx, cy - 12, 1.5, 1.5);
       ctx.fillRect(cx, cy - 6, 1.5, 1.5);
       break;
-    default:
+    case "none":
       break;
   }
 }
 
+function drawNpcOutline(
+  ctx: CanvasRenderingContext2D,
+  px: number,
+  py: number,
+  size: number,
+): void {
+  const cy = py + size / 2;
+  ctx.strokeStyle = "rgba(20, 14, 8, 0.75)";
+  ctx.lineWidth = 1;
+  ctx.strokeRect(px + size / 2 - 5, cy - 8, 10, 10);
+  ctx.strokeRect(px + size / 2 - 7, cy + 2, 14, 12);
+}
 
 const NPC_PALETTE: Record<string, { head: string; body: string; accent: string }> = {
   professor: { head: PAL.skin.light, body: PAL.body.purple, accent: PAL.accent.white },
@@ -319,6 +418,26 @@ export function collectSpriteExports(): Array<{ id: string; dataUrl: string }> {
     snap(`tile:${kind}`);
   }
   const playerFacings = ["down", "up", "left", "right"] as const;
+  for (const head of Object.keys(HEAD_SKINS) as HeadId[]) {
+    drawNpcHead(ctx, head, 0, 0, SIZE, "down");
+    snap(`head:${head}`);
+  }
+  for (const outfit of Object.keys(OUTFIT_COLORS) as OutfitId[]) {
+    drawNpcOutfit(ctx, outfit, 0, 0, SIZE, "down");
+    snap(`outfit:${outfit}`);
+  }
+  const accessoryIds: AccessoryId[] = [
+    "flatcap-glasses",
+    "beanie-wrench",
+    "bandana-ponytail",
+    "stetson",
+    "sign-post",
+    "none",
+  ];
+  for (const accessory of accessoryIds) {
+    drawNpcAccessory(ctx, accessory, 0, 0, SIZE, "down", undefined);
+    snap(`accessory:${accessory}`);
+  }
   for (const facing of playerFacings) {
     drawPlayer(ctx, 0, 0, SIZE, facing, 0);
     snap(`player:${facing}`);

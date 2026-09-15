@@ -58,6 +58,7 @@ describe("parity contract", () => {
       upgrades: {},
       supplies: { calm: 0, wild: 0 },
       penIds: [],
+      feed: 8,
     });
   });
 });
