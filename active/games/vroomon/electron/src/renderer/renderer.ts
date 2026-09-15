@@ -1639,6 +1639,7 @@ async function runBatchGenerations(): Promise<void> {
   // carrier can actually feed, so the resource still matters.
   const availableFeed = rendererState.runState.feed ?? 8;
   const batchCount = Math.min(rendererState.batchCount, Math.max(0, availableFeed));
+  rendererState = { ...rendererState, batchCount };
   if (batchCount === 0) {
     rendererState = setBatchRunning(rendererState, false);
     rendererState = {
@@ -2981,6 +2982,7 @@ function renderStatsHud(): void {
     if (ownedTiers > 0) {
       chips.push({ label: "RANCH", value: `L${ownedTiers}` });
     }
+    chips.push({ label: "FEED", value: String(rendererState.runState.feed ?? 8) });
     chips.push({ label: "WALLET", value: wallet });
   } else if (mode === "world") {
     const map = getMap(rendererState.world.currentMapId);
