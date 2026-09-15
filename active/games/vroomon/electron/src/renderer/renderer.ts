@@ -9,6 +9,7 @@ import type {
   VroomonParityContract,
 } from "../shared/parity-contract.js";
 import { bestRecord, proposeRecord } from "./records.js";
+import { portraitSvgFor } from "./portraits.js";
 import type {
   EvolutionPreview,
   GenerationResult,
@@ -425,6 +426,7 @@ const overworldDialogueText = requireElement(
   document.querySelector<HTMLElement>("[data-overworld-dialogue-text]"),
   "[data-overworld-dialogue-text]",
 );
+const overworldDialoguePortrait = document.querySelector<HTMLElement>("[data-dialogue-portrait]");
 const overworldDialogueOptions = requireElement(
   document.querySelector<HTMLElement>("[data-overworld-dialogue-options]"),
   "[data-overworld-dialogue-options]",
@@ -3363,6 +3365,70 @@ async function saveSelectedToHall(): Promise<void> {
   renderApp();
 }
 
+function renderDialogueOptions(dialogue: { options?: Array<{ next: string; label: string }> }): void {
+  if (!dialogue.options || dialogue.options.length === 0) {
+    overworldDialogueOptions.innerHTML = "";
+    return;
+  }
+  overworldDialogueOptions.innerHTML = dialogue.options
+    .map(
+      (option) => `<button type="button" data-dialogue-option="${escapeHtml(option.next)}">${escapeHtml(option.label)}</button>`,
+    )
+    .join("");
+  for (const button of Array.from(
+    overworldDialogueOptions.querySelectorAll<HTMLButtonElement>("[data-dialogue-option]"),
+  )) {
+    button.addEventListener("click", () => {
+      const nextId = button.dataset.dialogueOption ?? "";
+      // Dialogue options reference NPC ids in the current map (matching
+      // the non-option "next" flow). The old text-matching lookup never
+      // matched, so ANY option click silently ended the scene — the
+      // faction joins and Professor Axle's explain options were dead.
+      const target = overworldController._resolveDialogue(nextId);
+      if (target) {
+        const advanced = advanceWorldDialogue(overworldController.state, nextId, target);
+        overworldController._setState(advanced);
+        renderOverworldUi();
+        renderStatsHud();
+      } else {
+        const ended = endWorldDialogue(overworldController.state, null, null);
+        overworldController._setState(ended);
+        renderOverworldUi();
+        renderStatsHud();
+      }
+    });
+  }
+}
+
+let typewriterTimer: ReturnType<typeof setTimeout> | null = null;
+let dialogueTyping = false;
+let typingDialogue: { text: string; options?: Array<{ next: string; label: string }> } | null = null;
+let revealedChars = 0;
+let lastDialogueSignature = "";
+
+let typingLineText = "";
+
+function cancelTypewriter(): void {
+  if (typewriterTimer !== null) {
+    clearTimeout(typewriterTimer);
+    typewriterTimer = null;
+  }
+}
+
+/** Complete the typewriter; returns true when the beat had options (callers
+ * must not advance past an option dialogue). */
+function completeDialogueTyping(): boolean {
+  const hadOptions = (typingDialogue?.options?.length ?? 0) > 0;
+  cancelTypewriter();
+  dialogueTyping = false;
+  if (typingDialogue) {
+    overworldDialogueText.textContent = typingDialogue.text;
+    typingDialogue = null;
+  }
+  return hadOptions;
+}
+
+
 function renderOverworldUi(): void {
   const world = overworldController.state;
   rendererState = setWorldState(rendererState, world);
@@ -3373,46 +3439,53 @@ function renderOverworldUi(): void {
 
   if (currentDialogue) {
     overworldDialogue.hidden = false;
-    overworldDialogueName.textContent = activeNpc?.name ?? "Narrator";
-    overworldDialogueText.textContent = currentDialogue.text;
-
-    if (currentDialogue.options && currentDialogue.options.length > 0) {
-      overworldDialogueOptions.innerHTML = currentDialogue.options
-        .map(
-          (option) => `<button type="button" data-dialogue-option="${escapeHtml(option.next)}">${escapeHtml(option.label)}</button>`,
-        )
-        .join("");
-      for (const button of Array.from(
-        overworldDialogueOptions.querySelectorAll<HTMLButtonElement>("[data-dialogue-option]"),
-      )) {
-        button.addEventListener("click", () => {
-          const nextId = button.dataset.dialogueOption ?? "";
-          // Dialogue options reference NPC ids in the current map (matching
-          // the non-option "next" flow). The old text-matching lookup never
-          // matched, so ANY option click silently ended the scene — the
-          // faction joins and Professor Axle's explain options were dead.
-          const target = overworldController._resolveDialogue(nextId);
-          if (target) {
-            const advanced = advanceWorldDialogue(world, nextId, target);
-            overworldController._setState(advanced);
-            renderOverworldUi();
-            renderStatsHud();
-          } else {
-            const ended = endWorldDialogue(world, null, null);
-            overworldController._setState(ended);
-            renderOverworldUi();
-            renderStatsHud();
-          }
-        });
-      }
-    } else {
-      overworldDialogueOptions.innerHTML = "";
+    const dialogueName = activeNpc?.name ?? "Narrator";
+    overworldDialogueName.textContent = dialogueName;
+    if (overworldDialoguePortrait) {
+      overworldDialoguePortrait.innerHTML = portraitSvgFor(
+        activeNpc?.id ?? null,
+        dialogueName,
+      );
+    }
+    const signature = `${currentDialogue.text}|${currentDialogue.options?.length ?? 0}`;
+    if (signature !== lastDialogueSignature) {
+      lastDialogueSignature = signature;
+      typingDialogue = currentDialogue;
+      typingLineText = currentDialogue.text;
+      dialogueTyping = true;
+      revealedChars = 0;
+      overworldDialogueText.textContent = "";
+      // Options render right away so interaction never waits on the
+      // typewriter (mobile/busy players keep the old snappy feel).
+      renderDialogueOptions(currentDialogue);
+      cancelTypewriter();
+      const tick = (): void => {
+        if (!typingDialogue || revealedChars >= typingDialogue.text.length) {
+          dialogueTyping = false;
+          typingDialogue = null;
+          return;
+        }
+        revealedChars = Math.min(
+          typingDialogue.text.length,
+          revealedChars + (typingDialogue.text.length > 100 ? 3 : 2),
+        );
+        overworldDialogueText.textContent = typingDialogue.text.slice(0, revealedChars);
+        typewriterTimer = setTimeout(tick, 11);
+      };
+      typewriterTimer = setTimeout(tick, 11);
     }
   } else {
     overworldDialogue.hidden = true;
     overworldDialogueName.textContent = "";
     overworldDialogueText.textContent = "";
     overworldDialogueOptions.innerHTML = "";
+    cancelTypewriter();
+    dialogueTyping = false;
+    typingDialogue = null;
+    lastDialogueSignature = "";
+    if (overworldDialoguePortrait) {
+      overworldDialoguePortrait.innerHTML = "";
+    }
   }
 
   const joinedHouses = Object.keys(world.factionChoices).length;
@@ -3501,6 +3574,13 @@ function handleOverworldKeydown(event: KeyboardEvent): void {
       const current = world.dialogueQueue[0];
       if (current?.options && current.options.length > 0) {
         return;
+      }
+      if (dialogueTyping) {
+        const hadOptions = completeDialogueTyping();
+        overworldDialogueText.textContent = typingLineText;
+        if (hadOptions) {
+          return;
+        }
       }
       overworldController.advanceDialogue();
       renderOverworldUi();

@@ -546,6 +546,23 @@ upgrade grind, which is now optional beyond the win).
   overworld live + storage; run import lands in the run state.
 - 183 unit + 20 e2e pass.
 
+## Dialogue texture (2026-09-14) ✅
+
+- **Portraits**: every overworld dialogue now shows a parameterized SVG
+  bust for the speaker — per-NPC archetypes (scholar glasses for Axle,
+  crown for the Roundup King, beard + staff for the Meadow Elder,
+  eyepatch marshal, bandana riders, miner's lamp, fur-hood couriers,
+  sage wraps, shopkeep coin) drawn from the shared palette, with a
+  generic rancher fallback and a quill bust for the narrator.
+  `portraits.ts` is pure + unit-tested.
+- **Typewriter**: dialogue text reveals progressively (~2 chars/11ms,
+  chunkier for long lines) — Z during typing completes the line AND
+  advances text lines (classic skip-through); option beats only complete
+  so the menu stays interactive. Options render immediately so gameplay
+  never waits on the animation. e2e re-verified across all conversation
+  flows (the first cut gated options behind typing and broke fast flows —
+  caught by the suite). 186 unit + 20 e2e pass.
+
 ## Outstanding gameplay/UI issues (identified, not yet fixed — design work)
 
 From the vision-model critique + probes, ordered by impact:

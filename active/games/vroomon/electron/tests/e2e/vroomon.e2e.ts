@@ -527,6 +527,8 @@ test.describe("vroomon Playwright harness", () => {
     }
     await page.locator('[data-dpad="interact"]').click();
     await page.waitForTimeout(500);
+    // The host's portrait renders with the dialogue.
+    await expect(page.locator("[data-dialogue-portrait] svg")).toBeVisible();
     await page.keyboard.press("z"); // advance Axle's intro (no options)
     await page.waitForTimeout(400);
     await page.locator("[data-dialogue-option]").nth(1).click(); // "Got it, thanks!"

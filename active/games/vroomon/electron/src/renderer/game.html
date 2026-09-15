@@ -465,7 +465,20 @@
         transform: translateX(-50%);
         width: min(480px, 80vw);
       }
+      .overworld-dialogue__portrait {
+        flex: 0 0 auto;
+        align-self: center;
+        margin-right: 0.8rem;
+      }
+      .overworld-dialogue__portrait svg {
+        border: 2px solid var(--gold);
+        border-radius: 10px;
+        box-shadow: 0 4px 0 rgba(26, 14, 8, 0.5);
+      }
+      .overworld-dialogue__body { flex: 1 1 auto; min-width: 0; }
       .overworld-dialogue {
+        display: flex;
+        align-items: stretch;
         background: var(--overlay-bg);
         backdrop-filter: blur(6px);
         -webkit-backdrop-filter: blur(6px);
@@ -1413,10 +1426,13 @@
         <!-- Dialogue overlay (world mode) -->
         <div class="viewport-overlay viewport-overlay--dialogue" data-overworld-dialogue hidden>
           <div class="overworld-dialogue">
+            <div class="overworld-dialogue__portrait" data-dialogue-portrait></div>
+            <div class="overworld-dialogue__body">
             <div class="overworld-dialogue__name" data-overworld-dialogue-name></div>
             <div class="overworld-dialogue__text" data-overworld-dialogue-text></div>
             <div class="overworld-dialogue__options" data-overworld-dialogue-options></div>
             <div class="overworld-dialogue__hint">Z or Enter</div>
+            </div>
           </div>
         </div>
 
