@@ -1232,18 +1232,14 @@
 
         <!-- Top bar -->
         <nav class="top-bar" data-top-bar>
-          <div class="top-bar__tabs">
-            <button class="top-bar__tab" type="button" data-mode-button="world">Overworld</button>
-            <button class="top-bar__tab" type="button" data-mode-button="evolution">Evolution</button>
-            <button class="top-bar__tab" type="button" data-mode-button="test-drive">Test Drive</button>
-            <button class="top-bar__tab" type="button" data-mode-button="menu">Menu</button>
-          </div>
+          <span class="top-bar__brand">VROOMON</span>
           <div class="top-bar__spacer"></div>
           <div class="top-bar__terrain">
             <select data-terrain-select></select>
           </div>
           <div class="top-bar__gen" data-viewport-gen-pill>
             <strong data-viewport-gen-value>0</strong>
+            <span data-viewport-gen-label>generations</span>
           </div>
         </nav>
 
@@ -1400,17 +1396,25 @@
           </div>
         </div>
 
-        <!-- Barn & records (world mode) -->
-        <div class="barn-modal" data-barn-overlay hidden>
-          <div class="barn-modal__panel">
-            <h3 class="barn-modal__title">RECORD BARN</h3>
-            <div class="menu-hall__head">HERD BOOK · <span data-herdbook-count>0</span> GENOMES</div>
-            <div class="menu-hall__list" data-herdbook-list></div>
-            <div class="menu-hall__head" style="margin-top:0.7rem;">HALL OF FAME · <span data-menu-hof-count>0</span> SAVED</div>
-            <div class="menu-hall__list" data-menu-hall-list></div>
-            <div class="menu-hall__head" style="margin-top:0.7rem;">RECORDS · <span data-records-count>0</span> BIOMES BEST</div>
-            <div class="menu-hall__list" data-records-list></div>
-            <button class="barn-modal__close" type="button" data-barn-close>Close</button>
+        <!-- Pocket Ranch: the carrier dashboard (herd bench, test drive, barn) -->
+        <div class="pocket-ranch" data-barn-overlay hidden>
+          <div class="pocket-ranch__bar">
+            <span class="pocket-ranch__title">POCKET RANCH · THE CARRIER</span>
+            <button class="barn-pill" type="button" data-barn-pill="herd" aria-pressed="true">🐄 Herd</button>
+            <button class="barn-pill" type="button" data-barn-pill="drive" aria-pressed="false">🏁 Test Drive</button>
+            <button class="barn-pill" type="button" data-barn-pill="barn" aria-pressed="false">🏟 Barn</button>
+            <button class="barn-hub__close" type="button" data-barn-close>Back to the road</button>
+          </div>
+          <div class="pocket-ranch__scene" data-barn-scene="barn" hidden>
+            <div class="barn-modal__panel">
+              <h3 class="barn-modal__title">RECORD BARN</h3>
+              <div class="menu-hall__head">HERD BOOK · <span data-herdbook-count>0</span> GENOMES</div>
+              <div class="menu-hall__list" data-herdbook-list></div>
+              <div class="menu-hall__head" style="margin-top:0.7rem;">HALL OF FAME · <span data-menu-hof-count>0</span> SAVED</div>
+              <div class="menu-hall__list" data-menu-hall-list></div>
+              <div class="menu-hall__head" style="margin-top:0.7rem;">RECORDS · <span data-records-count>0</span> BIOMES BEST</div>
+              <div class="menu-hall__list" data-records-list></div>
+            </div>
           </div>
         </div>
         <button class="hud-btn barn-chip" type="button" data-open-barn hidden title="Record Barn">🏟 Barn</button>

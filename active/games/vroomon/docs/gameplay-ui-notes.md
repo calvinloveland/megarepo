@@ -712,6 +712,27 @@ The same component treatment now applies to **backgrounds and walls**:
   swap target by manifest id. Layer outputs verified by pixel sampling
   (bricks, mortar, trim, glints). 189 unit + 22 e2e pass.
 
+## Pocket Ranch: the world is the hub (2026-09-14) ✅
+
+- **The top-bar mode tabs are gone** (and their 1-4/m/o/e/t shortcuts):
+  the overworld is the game, and the title screen is boot-only.
+- **The 🏟 carrier button opens the Pocket Ranch** — one full-screen hub
+  with three scenes and a pill switcher:
+  - **🐄 Herd** — the breeding bench: Generate / Run Gen / Batch, FEED,
+    release, cull, copy/seed DNA, config.
+  - **🏁 Test Drive** — the paddock: draft DNA, terrain, replay, records.
+  - **🏟 Barn** — Herd Book, Hall of Fame, Records (with their actions).
+  - **Back to the road** (or Escape) returns to the overworld, which
+    pauses behind the carrier.
+- The hub's scene follows the underlying mode, so loading a saved
+  test-drive run (or a record's Drive button) lands on the paddock; the
+  barn lists refresh on every open. Hub status copy narrates each scene.
+- Fixed en route: a leftover mode-button guard that threw on boot (the
+  renderer silently died), CONTINUE never appearing on reload (the world
+  load didn't re-render the shell), and the hub not syncing `runState.mode`
+  (a reloaded save opened the wrong scene).
+- 189 unit + 22 e2e pass (all navigation rewritten to the hub flow).
+
 ## Outstanding gameplay/UI issues (identified, not yet fixed — design work)
 
 From the vision-model critique + probes, ordered by impact:

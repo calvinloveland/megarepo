@@ -26,6 +26,9 @@ export interface ScoreHistoryEntry {
 
 export interface RendererState {
   mode: AppModeId;
+  /** The Pocket Ranch hub (carrier dashboard) is open over the world. */
+  barnOpen: boolean;
+  barnScene: "herd" | "drive" | "barn";
   draftDna: string;
   runState: RunStateSnapshot;
   lastEvaluatedRunState: RunStateSnapshot | null;
@@ -74,6 +77,8 @@ export function createRendererState(
 ): RendererState {
   return {
     mode: "menu",
+    barnOpen: false,
+    barnScene: "herd",
     draftDna,
     runState: initialRunState,
     lastEvaluatedRunState: null,

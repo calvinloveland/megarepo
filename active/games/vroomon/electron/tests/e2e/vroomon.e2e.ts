@@ -38,10 +38,14 @@ test.describe("vroomon Playwright harness", () => {
     await expect(page.locator("[data-race-viewport] [data-viewport-vehicle]")).not.toHaveCount(0);
     await expect(page.locator("[data-run-state-output]")).toContainText('"generation": 0');
 
-    await page.locator('[data-mode-button="evolution"]').click();
+    // Into the world, then the carrier hub on the herd bench.
+    await seedAndEnterWorld(page);
+    await expectModeState(page, "world");
+
+    await openPocketRanch(page, "herd");
     await expectModeState(page, "evolution");
     await expect(page.locator("[data-status-message]")).toContainText(
-      "Viewing evolution mode.",
+      "herd bench hums",
     );
     await expect(page.locator("[data-race-viewport] [data-viewport-vehicle]")).not.toHaveCount(0);
     await expect(page.locator("[data-evolution-preview-output]")).toContainText(
@@ -51,10 +55,10 @@ test.describe("vroomon Playwright harness", () => {
       "Run a generation to inspect a selected car.",
     );
 
-    await page.locator('[data-mode-button="test-drive"]').click();
+    await openPocketRanch(page, "drive");
     await expectModeState(page, "test-drive");
     await expect(page.locator("[data-status-message]")).toContainText(
-      "Viewing test-drive mode.",
+      "paddock gate rolls back",
     );
     await expect(page.locator("[data-race-viewport] [data-viewport-vehicle]")).toHaveCount(1);
     await expect(page.locator("[data-dna-output]")).toContainText('"dna"');
@@ -62,15 +66,16 @@ test.describe("vroomon Playwright harness", () => {
       '"terrainName"',
     );
 
-    await page.locator('[data-mode-button="menu"]').click();
-    await expectModeState(page, "menu");
+    await closePocketRanch(page);
+    await expectModeState(page, "world");
     await expect(page.locator("[data-status-message]")).toContainText(
-      "Viewing the main menu.",
+      "Back on the road",
     );
   });
 
   test("updates the test-drive preview when controls change", async ({ page }) => {
-    await page.locator('[data-mode-button="test-drive"]').click();
+    await seedAndEnterWorld(page);
+    await openPocketRanch(page, "drive");
     await expectModeState(page, "test-drive");
 
     const initialDna = await readJson<{ dna: string }>(page, "[data-dna-output]");
@@ -92,7 +97,8 @@ test.describe("vroomon Playwright harness", () => {
   });
 
   test("loads the flat-track regression replay in test-drive mode", async ({ page }) => {
-    await page.locator('[data-mode-button="test-drive"]').click();
+    await seedAndEnterWorld(page);
+    await openPocketRanch(page, "drive");
     await page.locator("[data-watch-flat-track-regression]").click();
 
     await expect(page.locator("[data-status-message]")).toContainText(
@@ -127,14 +133,15 @@ test.describe("vroomon Playwright harness", () => {
   });
 
   test("supports evolution flow buttons end to end", async ({ page }) => {
-    await page.locator('[data-mode-button="test-drive"]').click();
+    await seedAndEnterWorld(page);
+    await openPocketRanch(page, "drive");
     const initialDna = await readJson<{ dna: string }>(page, "[data-dna-output]");
     await page.locator("[data-randomize-dna]").click();
     await expect
       .poll(async () => (await readJson<{ dna: string }>(page, "[data-dna-output]")).dna)
       .not.toBe(initialDna.dna);
 
-    await page.locator('[data-mode-button="evolution"]').click();
+    await openPocketRanch(page, "herd");
     await page.locator("[data-terrain-select]").selectOption("Flat");
     await page.locator("[data-generate-population]").click();
     await expect(page.locator("[data-status-message]")).toContainText("Generated population");
@@ -186,8 +193,7 @@ test.describe("vroomon Playwright harness", () => {
   });
 
   test("walks through the overworld and triggers a wild encounter", async ({ page }) => {
-    await seedRancher(page);
-    await page.locator('[data-mode-button="world"]').click();
+    await seedAndEnterWorld(page);
     await expectModeState(page, "world");
 
     await expect(page.locator("[data-overworld-canvas]")).toBeVisible();
@@ -209,18 +215,19 @@ test.describe("vroomon Playwright harness", () => {
   });
 
   test("saves and reloads the current run state via keyboard shortcuts", async ({ page }) => {
-    await page.locator('[data-mode-button="test-drive"]').click();
+    await seedAndEnterWorld(page);
+    await openPocketRanch(page, "drive");
     await page.locator("[data-terrain-select]").selectOption("Flat");
     await page.keyboard.press("s");
 
     await expect(page.locator("[data-status-message]")).toContainText("Saved run state");
 
-    await page.locator('[data-mode-button="evolution"]').click();
+    await openPocketRanch(page, "herd");
     await page.locator("[data-terrain-select]").selectOption("Grassland");
     await page.keyboard.press("l");
 
     await expect(page.locator("[data-status-message]")).toContainText("Loaded run");
-    await expect(page.locator('[data-mode-button="test-drive"]')).toHaveClass(/active/);
+    await expect(page.locator('[data-barn-pill="drive"]')).toHaveAttribute("aria-pressed", "true");
     await expect(page.locator("[data-terrain-select]")).toHaveValue("Flat");
 
     const loadedState = await readJson<RunStateSnapshot>(page, "[data-run-state-output]");
@@ -229,7 +236,8 @@ test.describe("vroomon Playwright harness", () => {
   });
 
   test("runs a batch of generations from the evolution panel", async ({ page }) => {
-    await page.locator('[data-mode-button="evolution"]').click();
+    await seedAndEnterWorld(page);
+    await openPocketRanch(page, "herd");
     await page.locator("[data-terrain-select]").selectOption("Flat");
     await page.locator("[data-generate-population]").click();
     await expect(page.locator("[data-status-message]")).toContainText("Generated population");
@@ -252,7 +260,8 @@ test.describe("vroomon Playwright harness", () => {
   test("saves a selected vehicle to the Hall of Fame and reloads it in test-drive", async ({
     page,
   }) => {
-    await page.locator('[data-mode-button="evolution"]').click();
+    await seedAndEnterWorld(page);
+    await openPocketRanch(page, "herd");
     await page.locator("[data-terrain-select]").selectOption("Flat");
     await page.locator("[data-generate-population]").click();
     await page.locator("[data-run-generation]").click();
@@ -266,7 +275,7 @@ test.describe("vroomon Playwright harness", () => {
     await page.locator("[data-save-selected-to-hall]").click();
     await expect(page.locator("[data-status-message]")).toContainText("Saved");
 
-    await page.locator('[data-mode-button="test-drive"]').click();
+    await openPocketRanch(page, "drive");
     const hallEntry = page.locator("[data-hall-of-fame-test-drive] [data-hall-entry]").first();
     await expect(hallEntry).toHaveCount(1);
 
@@ -293,9 +302,10 @@ test.describe("vroomon Playwright harness", () => {
     await expect(page.locator("[data-viewport-progress-overlay]")).toBeHidden();
     await expect(page.locator("[data-config-panel]")).toBeHidden();
 
-    // In evolution mode the evolution HUD shows and the drive HUD stays
+    // In the herd scene the evolution HUD shows and the drive HUD stays
     // hidden; the config toggle actually collapses now.
-    await page.locator('[data-mode-button="evolution"]').click();
+    await enterWorld(page);
+    await openPocketRanch(page, "herd");
     await expect(page.locator('[data-viewport-actions-overlay][data-mode="evolution"]')).toBeVisible();
     await expect(page.locator('[data-viewport-actions-overlay][data-mode="test-drive"]')).toBeHidden();
     await page.locator("[data-config-toggle]").click();
@@ -305,7 +315,7 @@ test.describe("vroomon Playwright harness", () => {
 
     // Regression: the overworld canvas never painted (the rAF loop guard
     // was poisoned at boot). The backing store must hold real pixels.
-    await page.locator('[data-mode-button="world"]').click();
+    await closePocketRanch(page);
     await expect(page.locator("[data-overworld-canvas]")).toBeVisible();
     // The gen pill and terrain select are meaningless in the overworld.
     await expect(page.locator("[data-viewport-gen-pill]")).toBeHidden();
@@ -324,32 +334,30 @@ test.describe("vroomon Playwright harness", () => {
     expect(painted).toBeGreaterThan(1000);
   });
 
-  test("mode-switch keyboard shortcuts work inside the overworld", async ({
+  test("the carrier hub walks between herd, paddock, barn, and the road", async ({
     page,
   }) => {
-    await seedRancher(page);
-    // Regression: in world mode every keydown went to the overworld
-    // handler, so 1-4/m/o/e/t silently did nothing and the player could
-    // not leave the map via keyboard.
-    await page.locator('[data-mode-button="world"]').click();
+    await seedAndEnterWorld(page);
     await expectModeState(page, "world");
-    await page.keyboard.press("3");
+
+    await openPocketRanch(page, "herd");
     await expectModeState(page, "evolution");
-    await page.keyboard.press("2");
-    await expectModeState(page, "world");
-    await page.keyboard.press("m");
-    await expectModeState(page, "menu");
-    await page.keyboard.press("o");
-    await expectModeState(page, "world");
-    await page.keyboard.press("t");
+    await openPocketRanch(page, "drive");
     await expectModeState(page, "test-drive");
+    await openPocketRanch(page, "barn");
+    await expect(page.locator('[data-barn-scene="barn"]')).toBeVisible();
+    await expect(page.locator('[data-barn-pill="barn"]')).toHaveAttribute("aria-pressed", "true");
+
+    // Escape (or the close button) puts the rancher back on the road.
+    await page.keyboard.press("Escape");
+    await expectModeState(page, "world");
+    await expect(page.locator("[data-status-message]")).toContainText("Back on the road");
   });
 
   test("joins a Grassland faction from the Meadow Elder and persists it", async ({
     page,
   }) => {
-    await seedRancher(page);
-    await page.locator('[data-mode-button="world"]').click();
+    await seedAndEnterWorld(page);
     await expectModeState(page, "world");
     // Elder is at (2,9) facing right; stand at (3,9) facing left.
     for (const dir of ["down", "down", "left", "left", "left", "left"]) {
@@ -370,10 +378,9 @@ test.describe("vroomon Playwright harness", () => {
 
     await expect(page.locator("[data-status-message]")).toContainText("You ride for");
     // Persisted + surfaced in the stats HUD.
-    await page.locator('[data-mode-button="evolution"]').click();
+    await openPocketRanch(page, "herd");
     await page.waitForTimeout(300);
-    await page.locator('[data-mode-button="world"]').click();
-    await page.waitForTimeout(500);
+    await closePocketRanch(page);
     await expect
       .poll(async () =>
         page.locator("[data-viewport-stats-overlay]").textContent(),
@@ -386,8 +393,8 @@ test.describe("vroomon Playwright harness", () => {
       .toContain("1");
   });
   test("buys meadow decor and it persists across a reload", async ({ page }) => {
-    await seedRancher(page);
-    await page.locator('[data-mode-button="evolution"]').click();
+    await seedAndEnterWorld(page);
+    await openPocketRanch(page, "herd");
     await page.locator("[data-generate-population]").click();
     await page.locator("[data-status-message]").filter({ hasText: "Generated population" }).waitFor({ timeout: 20000 });
     let wallet = 0;
@@ -411,7 +418,7 @@ test.describe("vroomon Playwright harness", () => {
     const persisted = await page.evaluate(() => window.vroomon.loadWorldState());
     expect(persisted.decor).toContain("sunflower-bower");
     // The meadow draws it: canvas checksum changes when decorated.
-    await page.locator('[data-mode-button="world"]').click();
+    await enterWorld(page);
     await page.waitForTimeout(1200);
     const decorated = await page.evaluate(() => {
       const c = document.querySelector("[data-overworld-canvas]");
@@ -449,6 +456,8 @@ test.describe("vroomon Playwright harness", () => {
             decor: [],
             vroomdex: [],
             flags: {},
+            rancherName: "E2E",
+            rancherCap: "rust",
             lastSavedAt: "",
           });
           if (hall) {
@@ -474,7 +483,7 @@ test.describe("vroomon Playwright harness", () => {
       );
       await page.reload();
       await page.locator("[data-status-message]").filter({ hasText: "Welcome" }).waitFor({ timeout: 20000 });
-      await page.locator('[data-mode-button="world"]').click();
+      await enterWorld(page);
       await page.waitForTimeout(900);
     };
     const toKing = async () => {
@@ -536,7 +545,7 @@ test.describe("vroomon Playwright harness", () => {
     await page.locator("[data-save-rancher]").click();
     await page.waitForTimeout(900);
     await expect(page.locator("[data-status-message]")).toContainText("Sunlight through the cabin shutters");
-    await expect(page.locator('[data-mode-button="world"]')).toHaveClass(/active/);
+    await expectModeState(page, "world");
     const wakeQuest = await page.locator("[data-stats-quest-line]").textContent();
     expect(wakeQuest).toContain("Robby");
 
@@ -547,7 +556,7 @@ test.describe("vroomon Playwright harness", () => {
     });
     await page.reload();
     await page.locator("[data-status-message]").filter({ hasText: "Welcome" }).waitFor({ timeout: 20000 });
-    await page.locator('[data-mode-button="world"]').click();
+    await enterWorld(page);
     await page.waitForTimeout(700);
     await page.locator('[data-dpad="interact"]').click();
     await page.waitForTimeout(600);
@@ -570,7 +579,7 @@ test.describe("vroomon Playwright harness", () => {
     });
     await page.reload();
     await page.locator("[data-status-message]").filter({ hasText: "Welcome" }).waitFor({ timeout: 20000 });
-    await page.locator('[data-mode-button="world"]').click();
+    await enterWorld(page);
     await page.waitForTimeout(700);
     await page.locator('[data-dpad="interact"]').click();
     await page.waitForTimeout(600);
@@ -600,8 +609,7 @@ test.describe("vroomon Playwright harness", () => {
   test("settles the Grassland feud with the Meadow Elder for a Brand", async ({
     page,
   }) => {
-    await seedRancher(page);
-    await page.locator('[data-mode-button="world"]').click();
+    await seedAndEnterWorld(page);
     for (const dir of ["down", "down", "left", "left", "left", "left"]) {
       await page.locator(`[data-dpad="${dir}"]`).click();
       await page.waitForTimeout(320);
@@ -650,7 +658,8 @@ test.describe("vroomon Playwright harness", () => {
     await page.locator("[data-status-message]").filter({ hasText: "Welcome" }).waitFor({ timeout: 20000 });
     // Build a small herd and top the wallet up via the storage API (the
     // keyboard reload path re-hydrates rendererState from it).
-    await page.locator('[data-mode-button="evolution"]').click();
+    await seedAndEnterWorld(page);
+    await openPocketRanch(page, "herd");
     await page.locator("[data-generate-population]").click();
     await page.locator("[data-run-generation]").click();
     await page.waitForTimeout(700);
@@ -662,7 +671,8 @@ test.describe("vroomon Playwright harness", () => {
     });
     await page.reload();
     await page.locator("[data-status-message]").filter({ hasText: "Welcome" }).waitFor({ timeout: 20000 });
-    await page.locator('[data-mode-button="evolution"]').click();
+    await enterWorld(page);
+    await openPocketRanch(page, "herd");
     await page.waitForTimeout(400);
     await page.keyboard.press("l");
     await page.waitForTimeout(600);
@@ -687,9 +697,9 @@ test.describe("vroomon Playwright harness", () => {
     expect(cycle.consumed).toEqual({ calm: 1, wild: 0 });
     expect(cycle.supplies).toEqual({ calm: 0, wild: 0 });
 
-    // Record Barn (visible menu hall): mark a car as stud — 2 slots now.
-    await page.locator('[data-mode-button="menu"]').click();
-    await page.waitForTimeout(600);
+    // Record Barn: mark a car as stud — 2 slots now.
+    await openPocketRanch(page, "barn");
+    await page.waitForTimeout(400);
     const studButton = page.locator("[data-menu-hall-list] [data-hall-stud]").first();
     await expect(studButton).toHaveCount(1);
     await studButton.dispatchEvent("click");
@@ -704,6 +714,7 @@ test.describe("vroomon Playwright harness", () => {
     context,
   }) => {
     await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+    await seedRancher(page);
 
     // Registry: one champion in the Record Barn (survives the reload).
     await page.evaluate(async () => {
@@ -728,11 +739,10 @@ test.describe("vroomon Playwright harness", () => {
     await page.reload();
     await page.locator("[data-status-message]").filter({ hasText: "Welcome" }).waitFor({ timeout: 20000 });
 
-    // Copy the champion's DNA from the world-mode Record Barn panel.
-    await page.locator('[data-mode-button="world"]').click();
-    await page.waitForTimeout(500);
-    await page.locator("[data-open-barn]").click();
-    await page.waitForTimeout(500);
+    // Copy the champion's DNA from the Record Barn scene.
+    await enterWorld(page);
+    await openPocketRanch(page, "barn");
+    await page.waitForTimeout(400);
     await page.locator("[data-menu-hall-list] [data-hall-copy]").first().click();
     await page.waitForTimeout(500);
     await page.locator("[data-barn-close]").click();
@@ -740,7 +750,7 @@ test.describe("vroomon Playwright harness", () => {
     expect(await page.evaluate(() => navigator.clipboard.readText())).toBe("SHARECHAMP123");
 
     // Copy the test-drive draft DNA.
-    await page.locator('[data-mode-button="test-drive"]').click();
+    await openPocketRanch(page, "drive");
     await page.locator("[data-copy-draft-dna]").click();
     await page.waitForTimeout(400);
     const draftDna = await page.locator("[data-dna-input]").inputValue();
@@ -748,7 +758,7 @@ test.describe("vroomon Playwright harness", () => {
 
     // Seed a fresh herd from an imported string and confirm the top seed
     // carries it.
-    await page.locator('[data-mode-button="evolution"]').click();
+    await openPocketRanch(page, "herd");
     await page.locator("[data-generate-population]").click();
     await page.locator("[data-import-dna]").fill("A7SEED9ZZ");
     await page.locator("[data-seed-import-dna]").click();
@@ -782,9 +792,9 @@ test.describe("vroomon Playwright harness", () => {
     await expect(page.locator("[data-ambience-toggle]")).toContainText("Sound: off");
 
     // Entering the world (different ambient scene) must not throw.
-    await page.locator('[data-mode-button="world"]').click();
+    await enterWorld(page);
     await page.waitForTimeout(600);
-    await expect(page.locator('[data-mode-button="world"]')).toHaveClass(/active/);
+    await expectModeState(page, "world");
     await expect(page.locator("[data-status-message]")).toContainText("road carries you");
   });
 
@@ -792,17 +802,17 @@ test.describe("vroomon Playwright harness", () => {
   test("records a Test Drive lap and lets you drive the record back", async ({
     page,
   }) => {
-    await page.locator('[data-mode-button="test-drive"]').click();
+    await seedAndEnterWorld(page);
+    await openPocketRanch(page, "drive");
     // Let the viewport complete a lap (~3s sim loop) so the record fires.
     await expect(page.locator("[data-records-toast]")).toContainText("NEW Grassland RECORD", {
       timeout: 12000,
     });
 
     await seedRancher(page);
-    await page.locator('[data-mode-button="world"]').click();
-    await page.waitForTimeout(500);
-    await page.locator("[data-open-barn]").click();
-    await page.waitForTimeout(500);
+    await enterWorld(page);
+    await openPocketRanch(page, "barn");
+    await page.waitForTimeout(400);
     const rows = page.locator("[data-records-list] .records-row");
     await expect(rows).toHaveCount(1);
     await expect(page.locator("[data-records-count]")).toHaveText("1");
@@ -812,7 +822,7 @@ test.describe("vroomon Playwright harness", () => {
     await rows.first().locator("[data-drive-record]").click();
     await page.waitForTimeout(600);
     await expect(page.locator("[data-dna-input]")).toHaveValue(dna);
-    await expect(page.locator('[data-mode-button="test-drive"]')).toHaveClass(/active/);
+    await expect(page.locator('[data-barn-pill="drive"]')).toHaveAttribute("aria-pressed", "true");
   });
 
 
@@ -867,7 +877,8 @@ test.describe("vroomon Playwright harness", () => {
     });
     await page.reload();
     await page.locator("[data-status-message]").filter({ hasText: "Welcome" }).waitFor({ timeout: 20000 });
-    await page.locator('[data-mode-button="test-drive"]').click();
+    await enterWorld(page);
+    await openPocketRanch(page, "drive");
     await page.waitForTimeout(300);
     await page.keyboard.press("l"); // load the saved run into the session
     await page.waitForTimeout(600);
@@ -889,11 +900,10 @@ test.describe("vroomon Playwright harness", () => {
   test("the NPCs teach the loop — Axle breeds champions, Wanda runs the store", async ({
     page,
   }) => {
-    await seedRancher(page);
+    await seedAndEnterWorld(page);
     // Enter town; the townspeople keep teaching in-fiction (no chrome ever
     // spells out the loop).
-    await page.locator('[data-mode-button="world"]').click();
-    await expect(page.locator('[data-mode-button="world"]')).toHaveClass(/active/);
+    await expectModeState(page, "world");
     await expect(page.locator(".menu-howto")).toHaveCount(0);
     await expect(page.locator('[data-onboard="evolution"]')).toHaveCount(0);
 
@@ -924,7 +934,7 @@ test.describe("vroomon Playwright harness", () => {
     });
     await page.reload();
     await page.locator("[data-status-message]").filter({ hasText: "Welcome" }).waitFor({ timeout: 20000 });
-    await page.locator('[data-mode-button="world"]').click();
+    await enterWorld(page);
     await page.waitForTimeout(700);
     await page.locator('[data-dpad="interact"]').click();
     await page.waitForTimeout(600);
@@ -937,7 +947,8 @@ test.describe("vroomon Playwright harness", () => {
   test("ranches with feed — breeding costs, releasing pays back, grain restocks", async ({
     page,
   }) => {
-    await page.locator('[data-mode-button="evolution"]').click();
+    await seedAndEnterWorld(page);
+    await openPocketRanch(page, "herd");
     await page.locator("[data-generate-population]").click();
     await page.waitForTimeout(500);
     // Zero feed: breeding is refused, the cull still frees feed.
@@ -949,7 +960,8 @@ test.describe("vroomon Playwright harness", () => {
     });
     await page.reload();
     await page.locator("[data-status-message]").filter({ hasText: "Welcome" }).waitFor({ timeout: 20000 });
-    await page.locator('[data-mode-button="evolution"]').click();
+    await enterWorld(page);
+    await openPocketRanch(page, "herd");
     await page.waitForTimeout(400);
     await page.keyboard.press("l"); // load the zero-feed run
     await page.waitForTimeout(600);
@@ -996,6 +1008,40 @@ test.describe("vroomon Playwright harness", () => {
 });
 
 
+/** Walk from the title screen into the overworld (CONTINUE when a road exists). */
+async function enterWorld(page: import("@playwright/test").Page): Promise<void> {
+  await page.locator('[data-menu-action="continue"]').click();
+  await page.waitForTimeout(500);
+}
+
+/** Open (or refocus) the Pocket Ranch carrier hub on a scene. */
+async function openPocketRanch(
+  page: import("@playwright/test").Page,
+  scene: "herd" | "drive" | "barn" = "herd",
+): Promise<void> {
+  if (!(await page.locator("[data-barn-overlay]").isVisible())) {
+    await page.locator("[data-open-barn]").click();
+    await page.waitForTimeout(350);
+  }
+  const pill = page.locator(`[data-barn-pill="${scene}"]`);
+  if ((await pill.getAttribute("aria-pressed")) !== "true") {
+    await pill.click();
+    await page.waitForTimeout(350);
+  }
+}
+
+/** Leave the hub back to the overworld. */
+async function closePocketRanch(page: import("@playwright/test").Page): Promise<void> {
+  await page.locator("[data-barn-close]").click();
+  await page.waitForTimeout(350);
+}
+
+/** Seed a rancher and step into the overworld in one go. */
+async function seedAndEnterWorld(page: import("@playwright/test").Page): Promise<void> {
+  await seedRancher(page);
+  await enterWorld(page);
+}
+
 async function seedRancher(
   page: import("@playwright/test").Page,
 ): Promise<void> {
@@ -1020,18 +1066,28 @@ async function expectModeState(
   page: import("@playwright/test").Page,
   activeMode: ModeId,
 ): Promise<void> {
-  const modes: ModeId[] = ["menu", "world", "evolution", "test-drive"];
+  const hub = page.locator("[data-barn-overlay]");
 
-  for (const mode of modes) {
-    const button = page.locator(`[data-mode-button="${mode}"]`);
-    const isActive = mode === activeMode;
-
-    if (isActive) {
-      await expect(button).toHaveClass(/active/);
-    } else {
-      await expect(button).not.toHaveClass(/active/);
-    }
+  if (activeMode === "menu") {
+    await expect(page.locator("[data-viewport-menu-overlay]")).toBeVisible();
+    await expect(hub).toBeHidden();
+    return;
   }
+
+  if (activeMode === "world") {
+    await expect(hub).toBeHidden();
+    await expect(page.locator("[data-overworld-canvas]")).toBeVisible();
+    return;
+  }
+
+  // Evolution and Test Drive now live inside the Pocket Ranch hub as the
+  // herd-bench and paddock scenes.
+  const scene = activeMode === "test-drive" ? "drive" : "herd";
+  await expect(hub).toBeVisible();
+  await expect(page.locator(`[data-barn-pill="${scene}"]`)).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
 }
 
 async function readJson<T>(

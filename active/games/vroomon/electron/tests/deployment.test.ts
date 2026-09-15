@@ -459,7 +459,11 @@ describe("vroomon deployment artifacts", () => {
       join(repoRoot, "active", "games", "vroomon", "electron", "src", "renderer", "game.html"),
       "utf8",
     );
-    expect(gameHtml).toContain("data-mode-button");
+    // The top-bar mode tabs are gone: the world is the hub and the carrier
+    // button opens the Pocket Ranch (herd bench / paddock / barn scenes).
+    expect(gameHtml).not.toContain("data-mode-button");
+    expect(gameHtml).toContain("data-open-barn");
+    expect(gameHtml).toContain('data-barn-pill="herd"');
     expect(gameHtml).toContain("data-overworld-canvas");
     expect(gameHtml).toContain("data-dpad");
     expect(gameHtml).toContain("data-hall-of-fame");

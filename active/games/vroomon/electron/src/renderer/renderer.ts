@@ -216,7 +216,6 @@ function requireElement<T>(value: T | null, selector: string): T {
   return value;
 }
 
-const modeButtons = document.querySelectorAll<HTMLButtonElement>("[data-mode-button]");
 const dnaInput = requireElement(
   document.querySelector<HTMLInputElement>("[data-dna-input]"),
   "[data-dna-input]",
@@ -471,17 +470,12 @@ const saveToHallButton = requireElement(
   "[data-save-to-hall]",
 );
 
-if (modeButtons.length === 0) {
-  throw new Error("Renderer UI did not initialize correctly.");
-}
-
 const SVG_WIDTH = 1000;
 const SVG_HEIGHT = 480;
 // Keep centered viewport labels inside the canvas so racers near the edge
 // don't get their label clipped mid-glyph (shared by clampLabelX and the
 // clamped-label staggering in layoutViewportLabels).
 const LABEL_EDGE_PADDING = 62;
-const modeButtonsElements = Array.from(modeButtons);
 const panelsElements = Array.from(panels);
 const parityContract = window.vroomon.getParityContract();
 const FLAT_TRACK_REGRESSION_REPLAY = {
@@ -764,10 +758,13 @@ function renderRecordsBoard(): void {
         if (!record) {
           return;
         }
+        // Chasing a record means standing on its terrain with its genome
+        // in the draft — take the rancher straight to the paddock.
+        rendererState = setRendererTerrain(rendererState, record.terrainName);
         rendererState = setDraftDna(rendererState, record.dna);
+        openPocketRanch("drive");
         rendererState = {
           ...rendererState,
-          mode: "test-drive",
           statusMessage: `Loaded the ${record.terrainName} record into Test Drive — chase the ghost.`,
         };
         renderApp();
@@ -1066,6 +1063,7 @@ void window.vroomon.loadUpgrades().then((upgrades) => {
 
 function renderApp(): void {
   applyAmbienceScene();
+  renderPocketRanch();
   syncContinueAndBarn();  renderContract();
   renderPanels();
   renderRunState();
@@ -1075,7 +1073,10 @@ function renderApp(): void {
   // them there so the chrome only shows where it applies.
   const genPillChrome = document.querySelector<HTMLElement>("[data-viewport-gen-pill]");
   const terrainWrapChrome = document.querySelector<HTMLElement>(".top-bar__terrain");
-  const hideTopChrome = rendererState.mode === "menu" || rendererState.mode === "world";
+  const hideTopChrome =
+    rendererState.mode === "menu" ||
+    rendererState.mode === "world" ||
+    (rendererState.barnOpen && rendererState.barnScene === "barn");
   if (genPillChrome) genPillChrome.hidden = hideTopChrome;
   if (terrainWrapChrome) terrainWrapChrome.hidden = hideTopChrome;
 
@@ -1507,13 +1508,6 @@ function renderPanels(): void {
     panel.dataset.active = panelModes.includes(rendererState.mode) ? "true" : "false";
   }
 
-  for (const button of modeButtonsElements) {
-    button.classList.toggle(
-      "active",
-      button.dataset.modeButton === rendererState.mode,
-    );
-  }
-
   // Game-stage gets a mode-* class so the CSS can collapse side rails
   // (e.g. in evolution / test-drive modes, the right rail hides so the
   // viewport takes the whole screen).
@@ -1530,13 +1524,19 @@ function renderPanels(): void {
       "[data-viewport-actions-overlay],[data-viewport-hof-overlay],[data-viewport-dpad-overlay],[data-viewport-menu-overlay],[data-viewport-status-overlay],[data-viewport-chart-overlay]",
     ),
   );
+  // The Pocket Ranch hub shows its herd/drive scenes as the full-screen
+  // ones (evolution/test-drive) while the "barn" scene hides them all.
+  const effectiveMode =
+    rendererState.barnOpen && rendererState.barnScene === "barn"
+      ? "barn"
+      : rendererState.mode;
   for (const wrapper of overlayWrappers) {
     if (wrapper.hasAttribute("data-viewport-menu-overlay")) {
       wrapper.hidden = rendererState.mode !== "menu";
       continue;
     }
     const wrapperMode = wrapper.dataset.mode;
-    wrapper.hidden = wrapperMode !== rendererState.mode;
+    wrapper.hidden = wrapperMode !== effectiveMode;
   }
 }
 
@@ -3373,6 +3373,9 @@ async function loadWorldStateFromDisk(): Promise<void> {
     overworldController._setState(restored);
     rendererState = setWorldState(rendererState, restored);
     renderOverworldUi();
+    // The shell depends on the saved identity too — without this the menu's
+    // CONTINUE button stayed hidden on a reload even when a road existed.
+    renderApp();
   } catch {
     rendererState = {
       ...rendererState,
@@ -3928,16 +3931,6 @@ function escapeHtml(value: string): string {
     .replaceAll("'", "&#39;");
 }
 
-for (const button of modeButtonsElements) {
-  button.addEventListener("click", () => {
-    rendererState = setRendererMode(
-      rendererState,
-      (button.dataset.modeButton as AppModeId) ?? "menu",
-    );
-    renderApp();
-  });
-}
-
 const releaseButton = document.querySelector<HTMLButtonElement>("[data-release-selected]");
 const cullButton = document.querySelector<HTMLButtonElement>("[data-cull-slow]");
 
@@ -4434,16 +4427,95 @@ function renderHerdBook(): void {
   }
 }
 
-barnChip?.addEventListener("click", () => {
-  if (!barnOverlay) {
-    return;
-  }
+type BarnScene = "herd" | "drive" | "barn";
+
+const BARN_SCENE_STATUS: Record<BarnScene, string> = {
+  herd: "The carrier opens — the herd bench hums under your hand.",
+  drive: "The paddock gate rolls back for a test drive.",
+  barn: "The Record Barn creaks open, shelves and ledgers in order.",
+};
+
+function openPocketRanch(scene: BarnScene): void {
+  const alreadyThere =
+    rendererState.barnOpen && rendererState.barnScene === scene;
+  // Route through setRendererMode so the run state's mode (saved with the
+  // run) stays in step with the hub — a mismatch made a reloaded save open
+  // the wrong scene.
+  rendererState = setRendererMode(
+    rendererState,
+    scene === "drive" ? "test-drive" : "evolution",
+  );
+  rendererState = {
+    ...rendererState,
+    barnOpen: true,
+    barnScene: scene,
+    statusMessage: alreadyThere
+      ? rendererState.statusMessage
+      : BARN_SCENE_STATUS[scene],
+  };
+  // Keep the barn surfaces fresh whenever the carrier opens, whichever
+  // scene is showing (the lists are cheap and always current).
   renderHallOfFame();
   renderRecordsBoard();
   renderHerdBook();
-  barnOverlay.hidden = false;
+  renderApp();
   sfx.click();
+}
+
+function closePocketRanch(): void {
+  rendererState = setRendererMode(rendererState, "world");
+  rendererState = {
+    ...rendererState,
+    barnOpen: false,
+    barnScene: "herd",
+    statusMessage: "Back on the road, carrier on your hip.",
+  };
+  renderApp();
+  sfx.click();
+}
+
+function renderPocketRanch(): void {
+  if (!barnOverlay) {
+    return;
+  }
+  // When something loads/switches the underlying mode while the hub is open
+  // (a saved test-drive run, a record-driven draft), the scene follows —
+  // the pills should never disagree with the content on screen.
+  if (rendererState.barnOpen && rendererState.barnScene !== "barn") {
+    const derived = rendererState.mode === "test-drive" ? "drive" : "herd";
+    if (rendererState.barnScene !== derived) {
+      rendererState = { ...rendererState, barnScene: derived };
+    }
+  }
+  barnOverlay.hidden = !rendererState.barnOpen;
+  for (const pill of Array.from(
+    document.querySelectorAll<HTMLButtonElement>("[data-barn-pill]"),
+  )) {
+    pill.setAttribute(
+      "aria-pressed",
+      String(pill.dataset.barnPill === rendererState.barnScene),
+    );
+  }
+  for (const scene of Array.from(
+    document.querySelectorAll<HTMLElement>("[data-barn-scene]"),
+  )) {
+    scene.hidden = scene.dataset.barnScene !== rendererState.barnScene;
+  }
+}
+
+barnChip?.addEventListener("click", () => {
+  openPocketRanch("herd");
 });
+document.querySelector<HTMLButtonElement>("[data-barn-close]")?.addEventListener("click", () => {
+  closePocketRanch();
+});
+for (const pill of Array.from(
+  document.querySelectorAll<HTMLButtonElement>("[data-barn-pill]"),
+)) {
+  pill.addEventListener("click", () => {
+    openPocketRanch((pill.dataset.barnPill as BarnScene) ?? "herd");
+  });
+}
 
 function syncContinueAndBarn(): void {
   const started = Boolean(
@@ -4506,6 +4578,14 @@ for (const button of Array.from(
     }
   });
 }
+
+// Escape leaves the Pocket Ranch back to the road.
+window.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && rendererState.barnOpen) {
+    event.preventDefault();
+    closePocketRanch();
+  }
+});
 
 // Tap the card (or Z/Enter) to advance the beats; Esc backs out of
 // the overwrite confirm. The name step resolves via its own button.
@@ -4918,31 +4998,6 @@ document.addEventListener("keydown", (event) => {
   // Enter from also tripping the menu's start-intro shortcut (which used
   // to reset the beats and loop forever on beat 2).
   if (!document.querySelector<HTMLElement>("[data-intro-overlay]")?.hidden) {
-    return;
-  }
-
-  // Mode-switch shortcuts work in every mode, including the overworld,
-  // where the old "world first" branch swallowed 1-4/m/o/e/t and left
-  // players unable to leave via keyboard.
-  const MODE_SWITCH_KEYS: Record<string, AppModeId> = {
-    "1": "menu",
-    m: "menu",
-    "2": "world",
-    o: "world",
-    "3": "evolution",
-    e: "evolution",
-    "4": "test-drive",
-    t: "test-drive",
-  };
-  const modeKey = MODE_SWITCH_KEYS[event.key.toLowerCase()];
-  if (modeKey) {
-    event.preventDefault();
-    if (modeKey === "world" && !rendererState.world.rancherName && !rendererState.world.badges.length) {
-      startIntro(false);
-    } else {
-      rendererState = setRendererMode(rendererState, modeKey);
-      renderApp();
-    }
     return;
   }
 
