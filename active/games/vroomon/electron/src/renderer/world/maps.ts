@@ -51,29 +51,40 @@ const GYM_1_TILES: TileKind[][] = [
 
 const TILE_TO_X: Record<string, number> = {};
 
-const HOME_RANCH_TILES: TileKind[][] = [
+// The ranch is TWO spaces: a house you walk around inside, and the yard
+// outside it. They are separate maps joined by the porch, so "indoors" is a
+// place rather than a corner of one big picture.
+const HOME_INTERIOR_TILES: TileKind[][] = [
+  row("wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall"),
+  row("wall", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "counter", "counter", "counter", "indoor-floor", "wall"),
+  row("wall", "bed", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "counter", "counter", "indoor-floor", "wall"),
+  row("wall", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "wall"),
+  row("wall", "wall", "wall", "wall", "wall", "wall", "doormat", "doormat", "wall", "wall", "wall", "wall", "wall", "wall"),
+];
+
+const RANCH_YARD_TILES: TileKind[][] = [
   row("tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree"),
-  row("tree", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "tree"),
-  row("tree", "wall", "bed", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "counter", "counter", "counter", "wall", "tree"),
-  row("tree", "wall", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "counter", "counter", "wall", "tree"),
-  row("tree", "wall", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "wall", "tree"),
-  row("tree", "doormat", "doormat", "doormat", "doormat", "doormat", "doormat", "doormat", "doormat", "doormat", "doormat", "doormat", "doormat", "tree"),
+  row("tree", "grass", "grass", "grass", "grass", "grass", "doormat", "doormat", "grass", "grass", "grass", "grass", "grass", "tree"),
   row("tree", "tall-grass-edge", "tall-grass-edge", "tall-grass-edge", "vroomgrass", "vroomgrass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "tree"),
   row("tree", "tall-grass-edge", "tall-grass-edge", "vroomgrass", "vroomgrass", "vroomgrass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "tree"),
   row("tree", "tall-grass-edge", "tall-grass-edge", "vroomgrass", "vroomgrass", "vroomgrass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "tree"),
   row("tree", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "tree"),
   row("tree", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "tree"),
+  row("tree", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "tree"),
+  row("tree", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "tree"),
+  row("tree", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "tree"),
+  row("tree", "grass", "grass", "grass", "grass", "grass", "grass", "doormat", "doormat", "grass", "grass", "grass", "grass", "tree"),
   row("tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree"),
 ];
 
 export const MAPS: Record<string, Tilemap> = {
   home_ranch: {
     id: "home_ranch",
-    name: "The Shoddy Ranch",
+    name: "The Shoddy Ranch House",
     width: 14,
-    height: 12,
-    tiles: HOME_RANCH_TILES,
-    ambientColor: "#a8c879",
+    height: 5,
+    tiles: HOME_INTERIOR_TILES,
+    ambientColor: "#c9a97a",
     npcs: [
       {
         id: "robby-kitchen",
@@ -134,11 +145,27 @@ export const MAPS: Record<string, Tilemap> = {
         facing: "down",
         sprite: "professor",
         dialogue: {
-          text: "You stare after them. Wait — those aren't cattle at all.",
+          text: "You stare after them. Wait — those aren't cattle at all. Come on, out to the yard.",
+          onComplete: "goto:ranch_yard:7:2:robby-yard-1",
           setFlag: "tut-revealed",
-          next: "robby-yard-1",
         },
       },
+    ],
+    encounters: {},
+    transitions: {
+      // The porch: a doormat in the doorway, straight out to the yard.
+      "6,4": { mapId: "ranch_yard", toX: 6, toY: 2, facing: "down" },
+      "7,4": { mapId: "ranch_yard", toX: 7, toY: 2, facing: "down" },
+    },
+  },
+  ranch_yard: {
+    id: "ranch_yard",
+    name: "The Ranch Yard",
+    width: 14,
+    height: 12,
+    tiles: RANCH_YARD_TILES,
+    ambientColor: "#a8c879",
+    npcs: [
       {
         id: "robby-yard-1",
         name: "Rancher Robby",
@@ -159,7 +186,7 @@ export const MAPS: Record<string, Tilemap> = {
         facing: "down",
         sprite: "professor",
         dialogue: {
-          text: "First lesson. See the tall grass on the left? Wild vroomon graze it.",
+          text: "First lesson. See the tall grass on the left? Wild vroomon graze it. Here — take this one, she's slow but she runs.",
           next: "robby-yard-3",
         },
       },
@@ -171,8 +198,8 @@ export const MAPS: Record<string, Tilemap> = {
         facing: "down",
         sprite: "professor",
         dialogue: {
-          text: "Walk to its edge and stand the line. When it shakes, press Z — we'll catch its genome into your Herd Book.",
-          setFlag: "tut-catch",
+          text: "Walk to its edge and stand the line. When it shakes, press Z — but a wild one only joins you if you can outrun it.",
+          onComplete: "starter-vroomon",
         },
       },
       {
@@ -259,9 +286,13 @@ export const MAPS: Record<string, Tilemap> = {
     ],
     encounters: {},
     transitions: {
+      // Back inside, and out the garden gate to town.
+      "6,1": { mapId: "home_ranch", toX: 6, toY: 4, facing: "up" },
+      "7,1": { mapId: "home_ranch", toX: 7, toY: 4, facing: "up" },
       "7,10": { mapId: "starter_town", toX: 8, toY: 5, facing: "up" },
     },
   },
+
   starter_town: {
     id: "starter_town",
     name: "Starter Town",
@@ -420,7 +451,7 @@ export const MAPS: Record<string, Tilemap> = {
       // The historical gate was "1,0" — a tree tile, so the town exit was
       // unreachable and the overworld was a dead end.
       "13,2": { mapId: "route_1", toX: 1, toY: 10, facing: "down" },
-      "8,0": { mapId: "home_ranch", toX: 7, toY: 10, facing: "up" },
+      "8,0": { mapId: "ranch_yard", toX: 7, toY: 10, facing: "up" },
     },
   },
   route_1: {
@@ -553,8 +584,8 @@ export const MAPS: Record<string, Tilemap> = {
     ],
     encounters: {},
     transitions: {
-      "6,9": { mapId: "route_1", toX: 19, toY: 5 },
-      "7,9": { mapId: "route_1", toX: 19, toY: 5 },
+      "6,9": { mapId: "route_1", toX: 18, toY: 5 },
+      "7,9": { mapId: "route_1", toX: 18, toY: 5 },
     },
   },
   route_2: {
@@ -782,8 +813,8 @@ export const MAPS: Record<string, Tilemap> = {
     ],
     encounters: {},
     transitions: {
-      "6,9": { mapId: "route_2", toX: 21, toY: 5 },
-      "7,9": { mapId: "route_2", toX: 21, toY: 5 },
+      "6,9": { mapId: "route_2", toX: 20, toY: 5 },
+      "7,9": { mapId: "route_2", toX: 20, toY: 5 },
     },
   },
 

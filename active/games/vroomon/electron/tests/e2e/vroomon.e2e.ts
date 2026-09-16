@@ -525,6 +525,10 @@ test.describe("vroomon Playwright harness", () => {
   test("@smoke the opening story: trip, new name, wake, wild catch, and town", async ({
     page,
   }) => {
+    // Pin the wild car's DNA so the catch race is winnable every run.
+    await page.addInitScript(() => {
+      Math.random = () => 0.1;
+    });
     // Title screen: a fresh road offers only NEW GAME (CONTINUE appears
     // once a rancher exists).
     await expect(page.locator('[data-menu-action="new-game"]')).toHaveCount(1);
@@ -578,10 +582,16 @@ test.describe("vroomon Playwright harness", () => {
       await page.waitForTimeout(300);
     }
 
-    // The catch lesson: tall grass -> wild vroomon -> genome recorded.
+    // The catch lesson: tall grass -> wild vroomon -> RACE it for the herd.
     await page.evaluate(async () => {
       const world = await window.vroomon.loadWorldState();
-      await window.vroomon.saveWorldState({ ...world, playerX: 2, playerY: 7, playerFacing: "right" });
+      await window.vroomon.saveWorldState({
+        ...world,
+        currentMapId: "ranch_yard",
+        playerX: 2,
+        playerY: 7,
+        playerFacing: "right",
+      });
     });
     await page.reload();
     await page.locator("[data-status-message]").filter({ hasText: "Welcome" }).waitFor({ timeout: 20000 });
@@ -590,10 +600,16 @@ test.describe("vroomon Playwright harness", () => {
     await page.locator('[data-dpad="interact"]').click();
     await page.waitForTimeout(600);
     await expect(page.locator("[data-overworld-dialogue-text]")).toContainText("shivers");
-    // Z springs the hidden hardworker; the genome is recorded and Robby's
-    // praise beat auto-follows the first catch.
+    // Z springs the hidden hardworker: the wild vroomon has to be beaten on
+    // the road before its genome joins the Herd Book.
     await page.keyboard.press("z");
     await page.waitForTimeout(900);
+    await expect(page.locator("[data-wild-race-overlay]")).toBeVisible();
+    await page.locator("[data-wild-race-run]").click();
+    await page.waitForTimeout(4500);
+    await expect(page.locator("[data-wild-race-verdict]")).toContainText("Beaten by");
+    await page.locator("[data-wild-race-leave]").click();
+    await page.waitForTimeout(500);
     await expect(page.locator("[data-overworld-dialogue-name]")).toContainText("Rancher Robby");
     await expect(page.locator("[data-overworld-dialogue-text]")).toContainText("wild one on your first morning");
     // The praise plays out one sentence per box (including the new
@@ -616,6 +632,7 @@ test.describe("vroomon Playwright harness", () => {
       const world = await window.vroomon.loadWorldState();
       await window.vroomon.saveWorldState({
         ...world,
+        currentMapId: "ranch_yard",
         playerX: 5,
         playerY: 9,
         playerFacing: "right",
@@ -1230,6 +1247,146 @@ async function closePocketRanch(page: import("@playwright/test").Page): Promise<
 }
 
 /** Seed a rancher and step into the overworld in one go. */
+  test("@smoke the ranch is two spaces: the house and the yard", async ({ page }) => {
+    await seedAndEnterWorld(page);
+    // Stand inside the house, then walk out of the front door.
+    await enterMapAt(page, "home_ranch", 6, 3);
+    await expect(page.locator("[data-world-summary]")).toContainText("Ranch House");
+
+    await page.keyboard.press("ArrowDown");
+    await page.waitForTimeout(900);
+    await expect(page.locator("[data-world-summary]")).toContainText("Ranch Yard");
+
+    // The porch is straight above where the house door puts you.
+    await page.keyboard.press("ArrowUp");
+    await page.waitForTimeout(700);
+    await expect(page.locator("[data-world-summary]")).toContainText("Ranch House");
+  });
+
+  test("@smoke the hunt toggle decides whether the tall grass is dangerous", async ({ page }) => {
+    await seedAndEnterWorld(page);
+    await enterMapAt(page, "ranch_yard", 7, 3);
+
+    // Looking for vroomon: the grass breaks cover.
+    await expect(page.locator("[data-hunt-toggle]")).toContainText("ON");
+    await page.keyboard.press("ArrowLeft");
+    await page.waitForTimeout(400);
+    await page.keyboard.press("ArrowLeft");
+    await page.waitForTimeout(600);
+    await expect(page.locator("[data-wild-race-overlay]")).toBeVisible();
+    await page.locator("[data-wild-race-leave]").click();
+    await page.waitForTimeout(300);
+
+    // Not looking: you can cross your own paddock in peace.
+    await page.keyboard.press("h");
+    await page.waitForTimeout(300);
+    await expect(page.locator("[data-hunt-toggle]")).toContainText("OFF");
+    await page.keyboard.press("ArrowRight");
+    await page.waitForTimeout(400);
+    await page.keyboard.press("ArrowLeft");
+    await page.waitForTimeout(400);
+    await page.keyboard.press("ArrowLeft");
+    await page.waitForTimeout(600);
+    await expect(page.locator("[data-wild-race-overlay]")).toBeHidden();
+  });
+
+  test("@smoke a wild vroomon only joins the herd if you beat it", async ({ page }) => {
+    // A fixed Math.random pins the wild car's DNA, so win and loss are both
+    // deterministic. 0.1 -> "wild3lllllllll" (slow), 0.75 -> "wildr" (quick).
+    await page.addInitScript(() => {
+      Math.random = () => 0.1;
+    });
+    await seedAndEnterWorld(page);
+    await enterMapAt(page, "ranch_yard", 7, 3);
+    await seedHerdDna(page, "vcG5pzmORWqC");
+
+    await page.keyboard.press("ArrowLeft");
+    await page.waitForTimeout(400);
+    await page.keyboard.press("ArrowLeft");
+    await page.waitForTimeout(700);
+    await expect(page.locator("[data-wild-race-overlay]")).toBeVisible();
+
+    // No genome before the race is run.
+    expect(await vroomdexCount(page)).toBe(0);
+    await page.locator("[data-wild-race-run]").click();
+    await page.waitForTimeout(4500);
+    await expect(page.locator("[data-wild-race-verdict]")).toContainText("Beaten by");
+    await page.locator("[data-wild-race-leave]").click();
+    await page.waitForTimeout(300);
+    expect(await vroomdexCount(page)).toBe(1);
+  });
+
+  test("a wild vroomon that outruns you gets away", async ({ page }) => {
+    await page.addInitScript(() => {
+      Math.random = () => 0.75;
+    });
+    await seedAndEnterWorld(page);
+    await enterMapAt(page, "ranch_yard", 7, 3);
+    await seedHerdDna(page, "vcG5pzmORWqC");
+
+    await page.keyboard.press("ArrowLeft");
+    await page.waitForTimeout(400);
+    await page.keyboard.press("ArrowLeft");
+    await page.waitForTimeout(700);
+    await expect(page.locator("[data-wild-race-overlay]")).toBeVisible();
+    await page.locator("[data-wild-race-run]").click();
+    await page.waitForTimeout(4500);
+    await expect(page.locator("[data-wild-race-verdict]")).toContainText("got away");
+    await page.locator("[data-wild-race-leave]").click();
+    await page.waitForTimeout(300);
+    expect(await vroomdexCount(page)).toBe(0);
+  });
+
+
+/** Drop the rancher on a specific map tile (and reload so it takes). */
+async function enterMapAt(
+  page: import("@playwright/test").Page,
+  mapId: string,
+  x: number,
+  y: number,
+): Promise<void> {
+  await page.evaluate(
+    async ({ mapId: id, x: px, y: py }) => {
+      const world = await window.vroomon.loadWorldState();
+      await window.vroomon.saveWorldState({
+        ...world,
+        version: 1,
+        lastSavedAt: new Date().toISOString(),
+        rancherName: "E2E",
+        currentMapId: id,
+        playerX: px,
+        playerY: py,
+        hunting: true,
+        flags: { ...(world?.flags ?? {}), "opening-seen": true },
+      });
+    },
+    { mapId, x, y },
+  );
+  await page.reload();
+  await page.locator("[data-status-message]").filter({ hasText: "Welcome" }).waitFor({ timeout: 20000 });
+  await page.locator('[data-menu-action="continue"]').click();
+  await page.waitForTimeout(600);
+}
+
+/** Put one known genome in the herd so there is a car to race with. */
+async function seedHerdDna(page: import("@playwright/test").Page, dna: string): Promise<void> {
+  await openPocketRanch(page, "herd");
+  await page.locator("[data-import-dna]").fill(dna);
+  await page.locator("[data-seed-import-dna]").click();
+  await page.waitForTimeout(400);
+  // Seed AFTER any reload: the herd lives in memory, so reloading to move
+  // maps would come back with nothing to race.
+  await page.locator("[data-barn-close]").click();
+  await page.waitForTimeout(300);
+}
+
+async function vroomdexCount(page: import("@playwright/test").Page): Promise<number> {
+  return page.evaluate(async () => {
+    const world = await window.vroomon.loadWorldState();
+    return (world?.vroomdex ?? []).length;
+  });
+}
+
 async function seedAndEnterWorld(page: import("@playwright/test").Page): Promise<void> {
   await seedRancher(page);
   await enterWorld(page);

@@ -46,6 +46,9 @@ export interface DialogueNode {
     | "vroomdex"
     | "grand-roundup"
     | "open-ranch"
+    | "starter-vroomon"
+    /** Walk the story into another space: `goto:<mapId>:<x>:<y>`. */
+    | `goto:${string}`
     | `join-faction:${string}`
     | null;
   setFlag?: string;
@@ -87,6 +90,12 @@ export interface WorldState {
   vroomdex: string[];
   /** arena mapId -> the circuit tier you're up against there (1 = first). */
   feudTiers: Record<string, number>;
+  /**
+   * Whether the rancher is out looking for wild vroomon. Off means the tall
+   * grass is just grass: no encounter rolls, no races on the way across your
+   * own paddock.
+   */
+  hunting: boolean;
   flags: Record<string, boolean>;
   dialogueQueue: DialogueNode[];
   activeNpc: string | null;
@@ -117,6 +126,8 @@ export interface PersistedWorldState {
   vroomdex: string[];
   /** Circuit tiers per arena (optional for old saves). */
   feudTiers?: Record<string, number>;
+  /** Optional for old saves: an absent flag means "hunting". */
+  hunting?: boolean;
   flags: Record<string, boolean>;
   lastSavedAt: string;
 }
@@ -137,6 +148,7 @@ export const EMPTY_PERSISTED_WORLD: PersistedWorldState = {
   rancherCap: "navy",
   vroomdex: [],
   feudTiers: {},
+  hunting: true,
   flags: {},
   lastSavedAt: "",
 };
@@ -155,6 +167,7 @@ export function serializeWorldState(world: WorldState): PersistedWorldState {
     rancherCap: world.rancherCap,
     vroomdex: [...world.vroomdex],
     feudTiers: { ...world.feudTiers },
+    hunting: world.hunting,
     flags: { ...world.flags },
     lastSavedAt: new Date().toISOString(),
   };

@@ -151,6 +151,60 @@
         gap: 0.35rem;
         max-width: 320px;
       }
+      .wild-race {
+        position: fixed;
+        inset: 0;
+        z-index: 72;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(6, 10, 18, 0.88);
+        padding: 1rem;
+      }
+      .wild-race__panel {
+        width: min(46rem, 100%);
+        background: linear-gradient(180deg, #14203a, #0a1220);
+        border: 2px solid rgba(255, 209, 102, 0.55);
+        border-radius: 16px;
+        padding: 0.8rem;
+        box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6);
+      }
+      .wild-race__head { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; }
+      .wild-race__title {
+        margin: 0;
+        font-family: var(--font-pixel);
+        font-size: 0.85rem;
+        color: #ffd166;
+        letter-spacing: 0.05em;
+      }
+      .wild-race__sub { margin: 0; font-family: var(--font-screen); font-size: 0.8rem; color: #dce8ff; }
+      .wild-race__canvas {
+        width: 100%;
+        height: auto;
+        margin-top: 0.5rem;
+        background: radial-gradient(circle at 50% 40%, #16233a, #0a1220 72%);
+        border: 1px solid rgba(138, 180, 255, 0.28);
+        border-radius: 12px;
+      }
+      .wild-race__lanes {
+        display: grid;
+        grid-template-columns: auto 1fr auto;
+        gap: 0.25rem 0.6rem;
+        margin-top: 0.5rem;
+        font-family: var(--font-screen);
+        font-size: 0.82rem;
+        color: #dce8ff;
+      }
+      .wild-race__lanes b { color: #ffffff; }
+      .wild-race__lanes i { color: #ffd166; font-style: normal; text-align: right; }
+      .wild-race__verdict {
+        margin: 0.55rem 0 0;
+        font-family: var(--font-screen);
+        font-size: 0.9rem;
+        color: #ffd166;
+        min-height: 1.3rem;
+      }
+      .wild-race__actions { display: flex; gap: 0.4rem; margin-top: 0.6rem; }
       .inspector {
         position: fixed;
         inset: 0;
@@ -1993,5 +2047,21 @@
           </div>
         </div>
 
+
+        <div class="wild-race" data-wild-race-overlay hidden>
+          <div class="wild-race__panel">
+            <header class="wild-race__head">
+              <h2 class="wild-race__title" data-wild-race-title>WILD VROOMON</h2>
+              <p class="wild-race__sub" data-wild-race-sub>—</p>
+            </header>
+            <canvas class="wild-race__canvas" data-wild-race-canvas width="720" height="260"></canvas>
+            <div class="wild-race__lanes" data-wild-race-lanes></div>
+            <p class="wild-race__verdict" data-wild-race-verdict>—</p>
+            <div class="wild-race__actions">
+              <button class="hud-btn" type="button" data-wild-race-run>▶ Race</button>
+              <button class="hud-btn hud-btn--secondary" type="button" data-wild-race-leave>Let it go</button>
+            </div>
+          </div>
+        </div>
 </body>
 </html>

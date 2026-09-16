@@ -45,6 +45,8 @@ export function createOverworldInputs(
       trainerName: string | null,
     ) => void;
     onVroomdexTick: (dna: string) => void;
+    /** Robby lends a starter vroomon so the first catch can be a race. */
+    onStarterVroomon?: () => void;
     onBadgeAwarded: (badge: string) => void;
     onFactionJoined?: (faction: Faction | null) => void;
     onMapTransition?: () => void;
@@ -102,15 +104,7 @@ export function createOverworldInputs(
   }
 
   function completeDialogue(
-    onComplete:
-      | "wild"
-      | "trainer"
-      | "gym"
-      | "vroomdex"
-      | "grand-roundup"
-      | "open-ranch"
-      | `join-faction:${string}`
-      | null,
+    onComplete: DialogueNode["onComplete"],
     flag: string | null,
   ): WorldState {
     if (onComplete === "open-ranch") {
@@ -127,6 +121,48 @@ export function createOverworldInputs(
       // and returns the live state (endDialogue already committed above).
       dependencies.onGrandRoundup?.();
       return state;
+    }
+
+    if (onComplete === "starter-vroomon") {
+      // Robby lends a starter before the lesson, so the first catch can be a
+      // race: you can only keep what you can outrun.
+      commit(endDialogue(state, onComplete, flag));
+      dependencies.onStarterVroomon?.();
+      return state;
+    }
+
+    if (onComplete?.startsWith("goto:")) {
+      // Crossing between spaces (house <-> yard): the dialogue chain cannot
+      // span two maps, so a beat ends by walking you into the next one. An
+      // optional node id picks the story up again on the far side — without
+      // it the walk out of the house ended the scene and the yard lesson
+      // never played.
+      const [kind, mapId, rawX, rawY, nodeId] = onComplete.split(":");
+      void kind;
+      const target = getMap(mapId ?? "");
+      const x = Number(rawX);
+      const y = Number(rawY);
+      if (!target || !Number.isFinite(x) || !Number.isFinite(y)) {
+        return state;
+      }
+      // End the scene first: that is what records the beat's setFlag (the
+      // reveal flag lives on the beat that walks you into the yard).
+      const moved = transitionToMap(
+        endDialogue(state, onComplete, flag),
+        mapId!,
+        x,
+        y,
+        "down",
+      );
+      commit(moved);
+      const nextNode = nodeId ? findDialogueById(moved, nodeId) : null;
+      if (nextNode) {
+        const withDialogue = startDialogue(moved, nodeId!, nextNode);
+        dependencies.onMapTransition?.();
+        return commit(withDialogue);
+      }
+      dependencies.onMapTransition?.();
+      return moved;
     }
 
     if (onComplete?.startsWith("join-faction:")) {
@@ -216,11 +252,15 @@ export function createOverworldInputs(
         dependencies.onMapTransition?.();
         return;
       }
-      if (isOnWildEncounterTile(finalState)) {
+      // Hunting is the rancher's choice: with it off you walk the tall grass
+      // in peace, which is how you get across your own paddock without a
+      // race every three steps.
+      if (finalState.hunting && isOnWildEncounterTile(finalState)) {
         const wildDna = "wild" + Math.random().toString(36).slice(2, 12);
-        dependencies.onVroomdexTick(wildDna);
+        // NOTE: nothing is recorded here. A wild genome is only yours if you
+        // beat the thing in a race — the renderer owns that verdict.
         commit({
-          ...recordEncounterDna(finalState, wildDna),
+          ...finalState,
           isMoving: false,
           movementTarget: null,
         });

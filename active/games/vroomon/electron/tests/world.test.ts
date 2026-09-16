@@ -106,6 +106,70 @@ describe("world maps", () => {
     expect(getMap("not_a_map")).toBeUndefined();
   });
 
+  it("keeps the ranch house and the yard as two spaces", () => {
+    const house = getMap("home_ranch");
+    const yard = getMap("ranch_yard");
+    expect(house).toBeDefined();
+    expect(yard).toBeDefined();
+
+    // The house is indoors: no grass, no vroomgrass, no trees.
+    const indoorTiles = new Set(["wall", "indoor-floor", "counter", "bed", "doormat"]);
+    for (const row of house!.tiles) {
+      for (const tile of row) {
+        expect(indoorTiles.has(tile), `${tile} in the house`).toBe(true);
+      }
+    }
+
+    // The yard is outdoors: no walls or indoor floor.
+    for (const row of yard!.tiles) {
+      for (const tile of row) {
+        expect(["wall", "indoor-floor", "counter", "bed"].includes(tile), `${tile} in the yard`).toBe(false);
+      }
+    }
+    expect(yard!.tiles.flat()).toContain("vroomgrass");
+
+    // The porch joins them both ways, and the gate leads to town.
+    const houseDoor = Object.values(house!.transitions).map((t) => t.mapId);
+    const yardPorch = Object.values(yard!.transitions).map((t) => t.mapId);
+    expect(houseDoor).toContain("ranch_yard");
+    expect(yardPorch).toContain("home_ranch");
+    expect(yardPorch).toContain("starter_town");
+    // The town's doorstep opens into the yard, not into the house.
+    expect(Object.values(getMap("starter_town")!.transitions).map((t) => t.mapId)).toContain(
+      "ranch_yard",
+    );
+  });
+
+  it("lands every transition somewhere you can stand", () => {
+    for (const mapId of ["starter_town", "home_ranch", "ranch_yard", "route_1", "route_2", "gym_1", "gym_2"]) {
+      const map = getMap(mapId);
+      if (!map) continue;
+      for (const [key, transition] of Object.entries(map.transitions)) {
+        const target = getMap(transition.mapId);
+        expect(target, `${mapId} ${key} -> ${transition.mapId}`).toBeDefined();
+        const tile = target!.tiles[transition.toY]?.[transition.toX];
+        expect(tile, `${mapId} ${key} lands on ${transition.toX},${transition.toY}`).toBeDefined();
+        expect(
+          isTilePassable(tile!),
+          `${mapId} ${key} lands on an impassable ${tile}`,
+        ).toBe(true);
+      }
+    }
+  });
+
+  it("carries the hunt toggle through persistence, defaulting to on", () => {
+    const hunting = { ...createInitialWorldState(), hunting: true };
+    expect(serializeWorldState(hunting).hunting).toBe(true);
+    expect(serializeWorldState({ ...hunting, hunting: false }).hunting).toBe(false);
+
+    // A save from before the toggle existed reads as "looking".
+    const legacy = { ...EMPTY_PERSISTED_WORLD } as Record<string, unknown>;
+    delete legacy.hunting;
+    const parsed = parsePersistedWorld(JSON.stringify(legacy));
+    expect(parsed).not.toBeNull();
+    expect(parsed!.hunting).toBeUndefined();
+  });
+
   it("defines transitions on the expected map edges", () => {
     const town = getMap("starter_town");
     const route = getMap("route_1");

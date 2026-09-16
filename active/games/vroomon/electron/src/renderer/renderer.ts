@@ -79,7 +79,7 @@ import {
   type UpgradeId,
   type SupplyId,
 } from "../core/economy.js";
-import { createInitialWorldState } from "./world/world-state.js";
+import { createInitialWorldState, recordEncounterDna } from "./world/world-state.js";
 import { serializeWorldState } from "./world/types.js";
 import type { Direction, PersistedWorldState, WorldState } from "./world/types.js";
 import { advanceDialogue as advanceWorldDialogue, endDialogue as endWorldDialogue } from "./world/world-state.js";
@@ -667,6 +667,9 @@ const overworldController = createOverworldInputs(rendererState.world, {
     renderOverworldUi();
     scheduleWorldSave();
   },
+  onStarterVroomon: () => {
+    plantStarterVroomon();
+  },
   onBadgeAwarded: (badge) => {
     rendererState = setWorldState(rendererState, overworldController.state);
     rendererState = {
@@ -690,6 +693,9 @@ const overworldController = createOverworldInputs(rendererState.world, {
   onMapTransition: () => {
     rendererState = setWorldState(rendererState, overworldController.state);
     renderOverworldUi();
+    // The HUD chips carry the map name — walking between the house and the
+    // yard left it reading the old map until the next unrelated repaint.
+    renderStatsHud();
     scheduleWorldSave();
   },
   onOpenRanch: () => {
@@ -1209,6 +1215,36 @@ renderApp();
 void renderGenerationLog();
 void loadHallOfFame();
 void loadWorldStateFromDisk();
+// The herd comes back with the session. The world already persisted
+// (rancher, map, brands, Herd Book) but the herd did not, so a reload lost
+// the animals Robby lent you — restore it quietly, without touching the
+// welcome status the rest of the boot sets up.
+void window.vroomon.loadRunState().then((restoredRun) => {
+  // Tolerate an old or partial save: a missing config used to throw here and
+  // take the boot with it.
+  if (
+    !restoredRun ||
+    !Array.isArray(restoredRun.population) ||
+    restoredRun.population.length === 0 ||
+    typeof restoredRun.config?.populationSize !== "number"
+  ) {
+    return;
+  }
+  const status = rendererState.statusMessage;
+  // setRendererRunState follows the run's own mode (a run saved on the herd
+  // bench says "evolution"), so the boot is put back on the title screen —
+  // the hub opens on demand.
+  rendererState = {
+    ...setRendererMode(
+      setRendererRunState(rendererState, restoredRun, status),
+      "menu",
+    ),
+    statusMessage: status,
+  };
+  renderApp();
+  // renderApp's menu branch writes its own line; keep the boot's welcome.
+  statusMessage.textContent = status;
+});
 // Ranch upgrades are campaign progression: carry them into a fresh session
 // (the run state itself stays per-generation until the player saves it).
 void window.vroomon.loadUpgrades().then((upgrades) => {
@@ -1448,6 +1484,373 @@ function renderEvolutionStage(
     ? `Click a racer to pin the camera. ${leader.id} is currently on top.`
     : "Run a generation to inspect the active race field.";
   renderScoreChart();
+}
+
+// ---------------------------------------------------------------------------
+// Wild races: you catch a wild vroomon by beating it, never by finding it.
+// A herd of hand-me-downs is not a herd — the good ones have to be bred.
+// ---------------------------------------------------------------------------
+
+interface WildRaceState {
+  open: boolean;
+  wildDna: string;
+  myDna: string | null;
+  terrain: string;
+  frames: { mine: VehiclePreviewFrame[]; wild: VehiclePreviewFrame[] } | null;
+  result: { mine: number; wild: number; won: boolean } | null;
+  frameIndex: number;
+  playing: boolean;
+  caught: boolean;
+}
+
+let wildRaceState: WildRaceState = {
+  open: false,
+  wildDna: "",
+  myDna: null,
+  terrain: "Grassland",
+  frames: null,
+  result: null,
+  frameIndex: 0,
+  playing: false,
+  caught: false,
+};
+
+/**
+ * Robby's loaner: a workable but plain car, so the first wild catch is a race
+ * you can win and every keeper after it has to be bred faster than the last.
+ * "vcG5pzmORWqC" is RRRWWR with two driven wheels — about 460px in a
+ * three-second run, which beats the average wild vroomon and loses to a good
+ * one.
+ */
+const STARTER_DNA = "vcG5pzmORWqC";
+
+function plantStarterVroomon(): void {
+  if (rendererState.runState.population.length === 0) {
+    generatePopulation();
+  }
+  const alreadyPlanted = rendererState.runState.population.some(
+    (entry) => entry.dna === STARTER_DNA,
+  );
+  if (alreadyPlanted) {
+    return;
+  }
+  const population = plantSeedDna(rendererState.runState.population, STARTER_DNA);
+  rendererState = {
+    ...rendererState,
+    runState: { ...rendererState.runState, population },
+    statusMessage:
+      "Robby hands you a starter vroomon — plain, but she runs. Race the wild one for it.",
+  };
+  renderApp();
+  scheduleWorldSave();
+  // Persist the herd too: Robby's loaner should survive a reload (the run
+  // state is a separate save from the world).
+  void window.vroomon.saveRunState(rendererState.runState);
+}
+
+/** The best car you own for a terrain: the Record Barn's champion if you
+ * have one, else the strongest car in the live herd. */
+function bestOwnedDna(terrainName: string): string | null {
+  const hall = rendererState.hallOfFame.entries
+    .filter((entry) => entry.terrainName === terrainName)
+    .sort((left, right) => right.score - left.score)[0];
+  if (hall?.dna) {
+    return hall.dna;
+  }
+  const herd = rendererState.latestGeneration?.evaluatedPopulation ?? [];
+  const scored = [...herd].sort((left, right) => right.score - left.score)[0];
+  if (scored?.dna) {
+    return scored.dna;
+  }
+  const seeded = rendererState.runState.population[0];
+  return seeded?.dna ?? null;
+}
+
+function openWildRace(wildDna: string): void {
+  const terrain = terrainForVenue(rendererState.world.currentMapId) ?? "Grassland";
+  wildRaceState = {
+    open: true,
+    wildDna,
+    myDna: bestOwnedDna(terrain),
+    terrain,
+    frames: null,
+    result: null,
+    frameIndex: 0,
+    playing: false,
+    caught: false,
+  };
+  renderWildRace();
+}
+
+function closeWildRace(): void {
+  stopWildRacePlayback();
+  wildRaceState = { ...wildRaceState, open: false, frames: null, playing: false };
+  renderWildRace();
+  // A win queues Robby's praise beat while the overlay is up, so the world
+  // underneath has to be repainted when the overlay closes.
+  renderOverworldUi();
+  renderStatsHud();
+  statusMessage.textContent = rendererState.statusMessage;
+}
+
+function stopWildRacePlayback(): void {
+  if (wildRaceTimer !== null) {
+    window.clearInterval(wildRaceTimer);
+    wildRaceTimer = null;
+  }
+}
+
+/** Run both cars over the same 3-second race and read the verdict. */
+function runWildRace(): void {
+  const { myDna, wildDna, terrain } = wildRaceState;
+  if (!myDna) {
+    return;
+  }
+  const mine = window.vroomon.previewPhysicsFrames(myDna, terrain, 180, 25);
+  const wild = window.vroomon.previewPhysicsFrames(wildDna, terrain, 180, 25);
+  const distance = (frames: VehiclePreviewFrame[]): number => {
+    const first = frames[0]?.snapshot;
+    const last = frames[frames.length - 1]?.snapshot;
+    return first && last ? last.centerX - first.centerX : 0;
+  };
+  const mineDistance = distance(mine);
+  const wildDistance = distance(wild);
+  const won = mineDistance > wildDistance;
+  wildRaceState = {
+    ...wildRaceState,
+    frames: { mine, wild },
+    result: { mine: mineDistance, wild: wildDistance, won },
+    frameIndex: 0,
+    playing: true,
+    caught: false,
+  };
+  renderWildRace();
+  startWildRacePlayback();
+}
+
+let wildRaceTimer: number | null = null;
+
+function startWildRacePlayback(): void {
+  stopWildRacePlayback();
+  const frames = wildRaceState.frames?.mine;
+  if (!frames || frames.length < 2) {
+    return;
+  }
+  const perFrameMs = Math.max(40, Math.round(3000 / frames.length));
+  wildRaceTimer = window.setInterval(() => {
+    const total = wildRaceState.frames?.mine.length ?? 0;
+    if (!wildRaceState.open || total === 0) {
+      stopWildRacePlayback();
+      return;
+    }
+    const next = wildRaceState.frameIndex + 1;
+    if (next >= total) {
+      stopWildRacePlayback();
+      wildRaceState = { ...wildRaceState, playing: false, frameIndex: total - 1 };
+      finishWildRace();
+      return;
+    }
+    wildRaceState = { ...wildRaceState, frameIndex: next };
+    renderWildRace();
+  }, perFrameMs);
+}
+
+/** The race is over: a win is the only way this genome joins the herd. */
+function finishWildRace(): void {
+  const result = wildRaceState.result;
+  if (!result) {
+    renderWildRace();
+    return;
+  }
+  if (result.won && !wildRaceState.caught) {
+    catchWildVroomon(wildRaceState.wildDna);
+    wildRaceState = { ...wildRaceState, caught: true };
+  }
+  renderWildRace();
+}
+
+function catchWildVroomon(dna: string): void {
+  overworldController._setState(recordEncounterDna(overworldController.state, dna));
+  rendererState = setWorldState(rendererState, overworldController.state);
+  rendererState = {
+    ...rendererState,
+    statusMessage: "Beaten fair — its genome goes in your Herd Book.",
+  };
+  scheduleWorldSave();
+  // The intro beat: the first catch on the ranch leads into Robby's praise.
+  if (
+    overworldController.state.currentMapId === "ranch_yard" &&
+    !overworldController.state.flags["tut-caught"]
+  ) {
+    overworldController.setFlag("tut-caught", true);
+    const robby = getMap("ranch_yard")?.npcs.find((npc) => npc.id === "robby-caught-1");
+    if (robby?.dialogue) {
+      overworldController._setState({
+        ...overworldController.state,
+        activeNpc: "robby-caught-1",
+        dialogueQueue: [...overworldController.state.dialogueQueue, { ...robby.dialogue }],
+      });
+    }
+  }
+}
+
+/** Two lanes, one ground line: your car above, the wild one below. */
+function drawWildRace(): void {
+  const canvas = document.querySelector<HTMLCanvasElement>("[data-wild-race-canvas]");
+  const ctx = canvas?.getContext("2d");
+  if (!canvas || !ctx) {
+    return;
+  }
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  const frames = wildRaceState.frames;
+  const index = wildRaceState.frameIndex;
+  const ground = terrainGroundHeight();
+
+  const laneTop = canvas.height * 0.34;
+  const laneBottom = canvas.height * 0.78;
+  for (const [lane, y] of [["mine", laneTop] as const, ["wild", laneBottom] as const]) {
+    ctx.strokeStyle = "rgba(168, 122, 74, 0.75)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(24, y);
+    ctx.lineTo(canvas.width - 24, y);
+    ctx.stroke();
+    void lane;
+  }
+
+  if (!frames) {
+    // Before the race: both cars sitting on the line.
+    return;
+  }
+
+  const startX = frames.mine[0]?.snapshot.centerX ?? 0;
+  const scale = 0.42;
+  const drawCar = (
+    frameset: VehiclePreviewFrame[],
+    laneY: number,
+    fill: string,
+  ): void => {
+    const snapshot = frameset[Math.min(index, frameset.length - 1)]?.snapshot;
+    if (!snapshot) {
+      return;
+    }
+    const offsetX = 60 - (startX - snapshot.centerX) * scale;
+    const dy = snapshot.centerY - ground;
+    for (const plate of snapshot.chassis) {
+      const x = offsetX + (plate.x - startX) * scale;
+      const y = laneY + dy * scale;
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(plate.angle);
+      ctx.fillStyle = fill;
+      ctx.fillRect(
+        (-(plate.width ?? 20) / 2) * scale,
+        (-(plate.height ?? 12) / 2) * scale,
+        (plate.width ?? 20) * scale,
+        (plate.height ?? 12) * scale,
+      );
+      ctx.strokeStyle = "rgba(16, 24, 34, 0.8)";
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(
+        (-(plate.width ?? 20) / 2) * scale,
+        (-(plate.height ?? 12) / 2) * scale,
+        (plate.width ?? 20) * scale,
+        (plate.height ?? 12) * scale,
+      );
+      ctx.restore();
+    }
+    for (const wheel of snapshot.wheels) {
+      const x = offsetX + (wheel.x - startX) * scale;
+      const y = laneY + (wheel.y - ground) * scale;
+      const radius = Math.max(3, (wheel.radius ?? 10) * scale);
+      ctx.fillStyle = "#22282f";
+      ctx.beginPath();
+      ctx.arc(x, y, radius, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = fill;
+      ctx.beginPath();
+      ctx.arc(x, y, Math.max(2, radius * 0.55), 0, Math.PI * 2);
+      ctx.fill();
+    }
+  };
+
+  drawCar(frames.mine, laneTop, "#8ab4ff");
+  drawCar(frames.wild, laneBottom, "#ffb3a7");
+
+  // Distance markers, so the lanes read as a race.
+  const result = wildRaceState.result;
+  if (result) {
+    ctx.font = "600 13px ui-sans-serif, system-ui, sans-serif";
+    ctx.fillStyle = "#ffd166";
+    ctx.fillText(`${Math.round(result.mine)} px`, canvas.width - 150, laneTop - 12);
+    ctx.fillStyle = "#ffb3a7";
+    ctx.fillText(`${Math.round(result.wild)} px`, canvas.width - 150, laneBottom - 12);
+  }
+}
+
+function renderWildRace(): void {
+  const overlay = document.querySelector<HTMLElement>("[data-wild-race-overlay]");
+  if (!overlay) {
+    return;
+  }
+  overlay.hidden = !wildRaceState.open;
+  if (!wildRaceState.open) {
+    return;
+  }
+
+  const wild = inspectVehicle(wildRaceState.wildDna, inspectorTuning());
+  const mine = wildRaceState.myDna
+    ? inspectVehicle(wildRaceState.myDna, inspectorTuning())
+    : null;
+  const title = document.querySelector<HTMLElement>("[data-wild-race-title]");
+  if (title) {
+    title.textContent = "WILD VROOMON IN THE GRASS";
+  }
+  const sub = document.querySelector<HTMLElement>("[data-wild-race-sub]");
+  if (sub) {
+    sub.textContent = `${wildRaceState.terrain} · win the race and it joins your Herd Book`;
+  }
+  const lanes = document.querySelector<HTMLElement>("[data-wild-race-lanes]");
+  if (lanes) {
+    const row = (label: string, dna: string | null, text: string): string =>
+      `<b>${escapeHtml(label)}</b><span>${escapeHtml(text)}</span><i>${dna ? escapeHtml(dna) : "—"}</i>`;
+    lanes.innerHTML = [
+      row(
+        "YOURS",
+        wildRaceState.myDna,
+        mine ? `${mine.modules} · ${mine.plates} plates · ${mine.wheels} wheels · ${mine.drivenCount} driven` : "",
+      ),
+      row(
+        "WILD",
+        wildRaceState.wildDna,
+        `${wild.modules} · ${wild.plates} plates · ${wild.wheels} wheels · ${wild.drivenCount} driven`,
+      ),
+    ].join("");
+  }
+
+  const verdict = document.querySelector<HTMLElement>("[data-wild-race-verdict]");
+  if (verdict) {
+    const result = wildRaceState.result;
+    if (!mine) {
+      verdict.textContent =
+        "You have no vroomon to race — Robby said he'd lend you a starter. Let this one go.";
+    } else if (!result) {
+      verdict.textContent = "Race it for the herd. Lose and it gets away.";
+    } else if (result.won) {
+      verdict.textContent = wildRaceState.caught
+        ? `Beaten by ${Math.round(result.mine - result.wild)}px — its genome is in your Herd Book.`
+        : "You won it.";
+    } else {
+      verdict.textContent = `It outran you by ${Math.round(result.wild - result.mine)}px and got away. Breed a faster one.`;
+    }
+  }
+
+  const run = document.querySelector<HTMLButtonElement>("[data-wild-race-run]");
+  if (run) {
+    run.disabled = !mine || wildRaceState.playing;
+    run.textContent = wildRaceState.result ? "▶ Race again" : "▶ Race";
+  }
+  drawWildRace();
 }
 
 // ---------------------------------------------------------------------------
@@ -3532,7 +3935,7 @@ function renderStatsHud(): void {
     ) ?? 0,
   );
 
-  const chips: Array<{ label: string; value: string }> = [];
+  const chips: Array<{ label: string; value: string; action?: string }> = [];
   let questCardHtml = "";
 
   if (mode === "evolution") {
@@ -3596,6 +3999,12 @@ function renderStatsHud(): void {
       value: `${rendererState.world.vroomdex.length} ${rendererState.world.vroomdex.length === 1 ? "specimen" : "specimens"}`,
     });
     chips.push({ label: "WALLET", value: wallet });
+    // The hunt toggle: you choose whether the tall grass is dangerous.
+    chips.push({
+      label: "SEEKING",
+      value: rendererState.world.hunting ? "ON 🔍" : "OFF",
+      action: "hunt",
+    });
   } else if (mode === "test-drive") {
     chips.push({ label: "HOF TOP", value: hallTop ? formatNumber(hallTop.score) : "—" });
     chips.push({ label: "GEN", value: generation });
@@ -3604,11 +4013,15 @@ function renderStatsHud(): void {
 
   overlay.innerHTML =
     chips
-      .map(
-        (chip) =>
-          `<div class="stats-chip"><span class="stats-chip__label">${chip.label}</span><span class="stats-chip__value">${escapeHtml(
-            chip.value,
-          )}</span></div>`,
+      .map((chip) =>
+        chip.action
+          ? `<button class="stats-chip stats-chip--button" type="button" data-hunt-toggle ` +
+            `title="Look for wild vroomon in the tall grass? (H)">` +
+            `<span class="stats-chip__label">${chip.label}</span>` +
+            `<span class="stats-chip__value">${escapeHtml(chip.value)}</span></button>`
+          : `<div class="stats-chip"><span class="stats-chip__label">${chip.label}</span><span class="stats-chip__value">${escapeHtml(
+              chip.value,
+            )}</span></div>`,
       )
       .join("") + questCardHtml;
 }
@@ -3985,7 +4398,7 @@ function applyPersistedWorldToRenderer(persisted: PersistedWorldState): void {
 
 function applyPersistedWorld(
   world: WorldState,
-  persisted: { currentMapId: string; playerX: number; playerY: number; playerFacing: Direction; badges: string[]; factionChoices?: Record<string, string>; decor?: string[]; rancherName?: string; rancherCap?: "navy" | "rust" | "green"; vroomdex: string[]; feudTiers?: Record<string, number>; flags: Record<string, boolean> },
+  persisted: { currentMapId: string; playerX: number; playerY: number; playerFacing: Direction; badges: string[]; factionChoices?: Record<string, string>; decor?: string[]; rancherName?: string; rancherCap?: "navy" | "rust" | "green"; vroomdex: string[]; feudTiers?: Record<string, number>; hunting?: boolean; flags: Record<string, boolean> },
 ): WorldState {
   const mapExists = getMap(persisted.currentMapId) !== undefined;
   return {
@@ -4003,6 +4416,8 @@ function applyPersistedWorld(
       persisted.feudTiers && typeof persisted.feudTiers === "object"
         ? persisted.feudTiers
         : world.feudTiers,
+    // Old saves predate the hunt toggle; absent means "looking".
+    hunting: typeof persisted.hunting === "boolean" ? persisted.hunting : world.hunting,
     decor: Array.isArray(persisted.decor) ? persisted.decor : world.decor,
     rancherName: typeof persisted.rancherName === "string" ? persisted.rancherName : world.rancherName,
     rancherCap: persisted.rancherCap === "rust" || persisted.rancherCap === "green"
@@ -4498,36 +4913,23 @@ async function startOverworldEncounter(
       false,
     );
   }
+  if (kind === "wild") {
+    // No free genomes: the wild vroomon has to be beaten on the road first.
+    rendererState = {
+      ...rendererState,
+      statusMessage: "A wild vroomon breaks cover in the grass — race it for the herd.",
+    };
+    renderApp();
+    openWildRace(dna);
+    return;
+  }
+
   rendererState = {
     ...rendererState,
-    statusMessage: kind === "trainer"
-      ? `Rider race! ${trainerName ?? "Opponent"} reached x=${formatNumber(result.centerX)}.`
-      : `A wild vehicle appeared (x=${formatNumber(result.centerX)}, y=${formatNumber(result.centerY)}). Its genome is yours.`,
+    statusMessage: `Rider race! ${trainerName ?? "Opponent"} reached x=${formatNumber(result.centerX)}.`,
   };
   renderApp();
 
-  // Tutorial hand-off: the first catch on the shoddy ranch leads straight
-  // into Robby's praise beat.
-  if (kind === "wild" && overworldController.state.currentMapId === "home_ranch") {
-    const caught = !overworldController.state.flags["tut-caught"];
-    overworldController.setFlag("tut-caught", true);
-    rendererState = setWorldState(rendererState, overworldController.state);
-    if (caught) {
-      const robby = getMap("home_ranch")?.npcs.find((npc) => npc.id === "robby-caught-1");
-      if (robby?.dialogue) {
-        overworldController._setState({
-          ...overworldController.state,
-          activeNpc: "robby-caught-1",
-          dialogueQueue: [
-            ...overworldController.state.dialogueQueue,
-            { ...robby.dialogue },
-          ],
-        });
-      }
-      scheduleWorldSave();
-      renderOverworldUi();
-    }
-  }
 }
 
 /** The best champion you can put on this terrain: the Record Barn's best
@@ -5400,6 +5802,49 @@ function renderPocketRanch(): void {
 
 barnChip?.addEventListener("click", () => {
   openPocketRanch("herd");
+});
+
+function setHunting(hunting: boolean): void {
+  overworldController._setState({ ...overworldController.state, hunting });
+  rendererState = setWorldState(rendererState, overworldController.state);
+  rendererState = {
+    ...rendererState,
+    statusMessage: hunting
+      ? "You keep an eye on the tall grass — anything that moves is fair game."
+      : "You're not looking for new vroomon right now. The grass is just grass.",
+  };
+  renderOverworldUi();
+  renderStatsHud();
+  // renderOverworldUi owns the map/quest surfaces but not the status line, so
+  // write it after the paint (otherwise the toggle looks like it did nothing).
+  statusMessage.textContent = rendererState.statusMessage;
+  scheduleWorldSave();
+}
+
+document.addEventListener("click", (event) => {
+  const target = event.target as HTMLElement | null;
+  if (target?.closest("[data-hunt-toggle]")) {
+    setHunting(!overworldController.state.hunting);
+    return;
+  }
+  if (target?.closest("[data-wild-race-run]")) {
+    runWildRace();
+    return;
+  }
+  if (target?.closest("[data-wild-race-leave]")) {
+    closeWildRace();
+  }
+});
+
+document.addEventListener("keydown", (event) => {
+  if (
+    event.key.toLowerCase() === "h" &&
+    rendererState.mode === "world" &&
+    !rendererState.barnOpen &&
+    !wildRaceState.open
+  ) {
+    setHunting(!overworldController.state.hunting);
+  }
 });
 
 // The inspector: opened from the herd book, the paddock or a heritage line,

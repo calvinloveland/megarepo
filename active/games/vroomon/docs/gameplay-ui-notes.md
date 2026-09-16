@@ -842,6 +842,58 @@ gets harder instead of just paying out a Brand:
   dropped new world state (circuit tiers) — it now uses the shared
   serializer.
 
+## Indoors and outdoors are separate places (2026-09-15) ✅
+
+The ranch used to be one map with a house drawn in the top-left corner of the
+paddock. It is now **two spaces with a door between them**:
+
+- **`home_ranch` — The Shoddy Ranch House.** Walls, wooden floor, bed,
+  counters. Robby is in the kitchen.
+- **`ranch_yard` — The Ranch Yard.** The tall-grass paddock, the porch, the
+  Carrier Bench, and the garden gate to town.
+
+The story crosses that boundary: the reveal beat in the kitchen ends with
+Robby swinging the pasture door wide, and a new `goto:<map>:<x>:<y>:<node>`
+completion walks you into the yard and picks the lesson back up on the far
+side (a dialogue chain cannot span two maps). The town's doorstep now opens
+into the yard rather than into the house.
+
+## Hunting is your choice, and catching means racing (2026-09-15) ✅
+
+- **A hunt toggle** in the world HUD (`SEEKING ON 🔍` / `OFF`, or press **H**)
+  decides whether the tall grass is dangerous. With it off you can cross your
+  own paddock without a race every three steps.
+- **Wild vroomon are never free.** Walking the grass opens a **race**: your
+  best car (Record Barn champion, else the strongest in the herd) against the
+  wild one, on the same terrain, both drawn lane-by-lane as the parts they are
+  made of. Win and its genome joins your Herd Book; lose and it gets away, and
+  nothing is recorded. The controller no longer records a wild genome at all —
+  the race owns that verdict.
+- **Robby lends a starter** ("she's slow but she runs") during the yard
+  lesson, so the first catch is winnable and everything after it has to be
+  *bred* faster than the one before. That is the point of the change: the wild
+  can hand you a floor, not a ceiling.
+
+Bugs found while wiring this up, all fixed:
+
+- **The herd was not restored on reload.** The world persisted (rancher, map,
+  brands, Herd Book) but the animals did not — a refresh lost your herd, and
+  Robby's loaner with it. The boot now restores the saved run silently, keeps
+  the welcome status, ignores partial saves (a missing `config` used to throw
+  during boot), and lands on the title screen rather than the bench.
+- **The ranch quest never advanced.** `quest.ts` waited on a `tut-revealed`
+  flag that nothing ever set, and the tall grass set `tut-catch` while the
+  quest and renderer both read `tut-caught` — so the objective line sat on
+  "Robby's in the kitchen" forever. One flag name each now, set at the beats
+  that earn them, with a test walking the whole tutorial.
+- **Both gym doors dropped you inside a tree** (the exits pointed at the
+  route's border tile). A new test checks that every transition in every map
+  lands on something you can stand on.
+- The `goto` beat dropped its `setFlag`, the HUD's map chip went stale on a
+  transition, the toggle repainted the state but not the chip, and closing the
+  race didn't repaint the world underneath (a won race queued Robby's praise
+  beat that never appeared).
+
 ## Breeding was not actually working (2026-09-15) ✅
 
 Found by measuring the loop the game is built on, and it was badly broken.

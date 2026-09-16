@@ -17,6 +17,7 @@ export function createInitialWorldState(): WorldState {
     rancherName: "",
     rancherCap: "navy",
     vroomdex: [],
+    hunting: true,
     flags: {},
     dialogueQueue: [],
     activeNpc: null,

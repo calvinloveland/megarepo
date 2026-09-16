@@ -9,6 +9,21 @@ const world = (over: Partial<Parameters<typeof questFor>[0]> = {}) => ({
 });
 
 describe("overworld quest director", () => {
+  it("walks the ranch tutorial from the kitchen to the garden gate", () => {
+    const atRanch = (flags: Record<string, boolean>) =>
+      questFor({ badges: [], factionChoices: {}, flags, currentMapId: "ranch_yard" });
+    expect(atRanch({}).main).toContain("kitchen");
+    expect(atRanch({ "tut-revealed": true }).main).toContain("tall grass");
+    expect(atRanch({ "tut-revealed": true, "tut-caught": true }).main).toContain("Herd Book");
+    expect(
+      atRanch({ "tut-revealed": true, "tut-caught": true, "tut-done": true }).main,
+    ).toContain("garden gate");
+    // The house and the yard are both "at the ranch".
+    expect(
+      questFor({ badges: [], factionChoices: {}, flags: {}, currentMapId: "home_ranch" }).main,
+    ).toContain("kitchen");
+  });
+
   it("points at Professor Axle until he is met", () => {
     const q = questFor(world());
     expect(q.main).toContain("Professor Axle");

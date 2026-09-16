@@ -28,8 +28,9 @@ export function questFor(world: {
   currentMapId?: string | null;
 }): QuestLine {
   // The opening ranch tutorial is its own objective line until Robby
-  // sends the player into town.
-  if (world.currentMapId === "home_ranch") {
+  // sends the player into town. The ranch is two spaces now — the house and
+  // the yard outside it — and both count as "at the ranch".
+  if (world.currentMapId === "home_ranch" || world.currentMapId === "ranch_yard") {
     if (!world.flags["tut-revealed"]) {
       return {
         main: "Robby's in the kitchen — follow the call.",
@@ -39,7 +40,7 @@ export function questFor(world: {
     if (!world.flags["tut-caught"]) {
       return {
         main: "The tall grass on the left grazes wild vroomon.",
-        hint: "Stand at its edge and press Z when it shakes — catch the genome.",
+        hint: "Stand at its edge and press Z when it shakes — then race it for the herd.",
       };
     }
     if (!world.flags["tut-done"]) {
