@@ -10,6 +10,17 @@ import type {
 } from "../shared/parity-contract.js";
 import { bestRecord, proposeRecord } from "./records.js";
 import {
+  badgeForMap,
+  feudBar,
+  nextCircuitTarget,
+  nextTier,
+  rivalScoreFor,
+  terrainForVenue,
+  tierLabel,
+  tierOutcome,
+  venueTitle,
+} from "./circuit.js";
+import {
   buildHeritageGraph,
   shortLabel,
   traceHeritage,
@@ -58,6 +69,7 @@ import {
   type SupplyId,
 } from "../core/economy.js";
 import { createInitialWorldState } from "./world/world-state.js";
+import { serializeWorldState } from "./world/types.js";
 import type { Direction, PersistedWorldState, WorldState } from "./world/types.js";
 import { advanceDialogue as advanceWorldDialogue, endDialogue as endWorldDialogue } from "./world/world-state.js";
 import type { GenerationLogEntry } from "../core/persistence.js";
@@ -3125,6 +3137,23 @@ function renderStatsHud(): void {
       chips.push({ label: "RANCH", value: `L${ownedTiers}` });
     }
     chips.push({ label: "FEED", value: String(rendererState.runState.feed ?? 8) });
+    const circuit = nextCircuitTarget(
+      rendererState.world.currentMapId,
+      rendererState.world.badges,
+      rendererState.world.feudTiers,
+    );
+    const championForCircuit = bestChampionScore(circuit.terrain);
+    const circuitReady = championForCircuit >= circuit.bar;
+    chips.push({
+      label: "CIRCUIT",
+      value: `${circuit.terrain} ${tierLabel(circuit.tier)} · ${formatNumber(circuit.bar)}${
+        championForCircuit > 0
+          ? circuitReady
+            ? " ✓"
+            : " ✗"
+          : ""
+      }`,
+    });
     chips.push({ label: "WALLET", value: wallet });
   } else if (mode === "world") {
     const map = getMap(rendererState.world.currentMapId);
@@ -3537,7 +3566,7 @@ function applyPersistedWorldToRenderer(persisted: PersistedWorldState): void {
 
 function applyPersistedWorld(
   world: WorldState,
-  persisted: { currentMapId: string; playerX: number; playerY: number; playerFacing: Direction; badges: string[]; factionChoices?: Record<string, string>; decor?: string[]; rancherName?: string; rancherCap?: "navy" | "rust" | "green"; vroomdex: string[]; flags: Record<string, boolean> },
+  persisted: { currentMapId: string; playerX: number; playerY: number; playerFacing: Direction; badges: string[]; factionChoices?: Record<string, string>; decor?: string[]; rancherName?: string; rancherCap?: "navy" | "rust" | "green"; vroomdex: string[]; feudTiers?: Record<string, number>; flags: Record<string, boolean> },
 ): WorldState {
   const mapExists = getMap(persisted.currentMapId) !== undefined;
   return {
@@ -3551,6 +3580,10 @@ function applyPersistedWorld(
       persisted.factionChoices && typeof persisted.factionChoices === "object"
         ? persisted.factionChoices
         : world.factionChoices,
+    feudTiers:
+      persisted.feudTiers && typeof persisted.feudTiers === "object"
+        ? persisted.feudTiers
+        : world.feudTiers,
     decor: Array.isArray(persisted.decor) ? persisted.decor : world.decor,
     rancherName: typeof persisted.rancherName === "string" ? persisted.rancherName : world.rancherName,
     rancherCap: persisted.rancherCap === "rust" || persisted.rancherCap === "green"
@@ -3582,21 +3615,9 @@ async function persistWorldState(): Promise<void> {
   if (world.activeNpc || world.currentEncounter) {
     return;
   }
-  const persisted = {
-    version: 1 as const,
-    currentMapId: world.currentMapId,
-    playerX: world.playerX,
-    playerY: world.playerY,
-    playerFacing: world.playerFacing,
-    badges: [...world.badges],
-    factionChoices: { ...world.factionChoices },
-    decor: [...world.decor],
-    rancherName: world.rancherName,
-    rancherCap: world.rancherCap,
-    vroomdex: [...world.vroomdex],
-    flags: { ...world.flags },
-    lastSavedAt: new Date().toISOString(),
-  };
+  // Use the shared serializer rather than hand-listing fields here: a
+  // hand-rolled copy silently dropped new state (circuit tiers) once.
+  const persisted = serializeWorldState(world);
   try {
     await window.vroomon.saveWorldState(persisted);
   } catch {
@@ -3992,23 +4013,61 @@ async function startOverworldEncounter(
   const result = window.vroomon.previewPhysicsSnapshot(dna, "Grassland", 60);
 
   if (kind === "gym") {
-    const mapName = getMap(overworldController.state.currentMapId)?.name ?? "the road";
-    const rivalName = mapForDialog(trainerName);
+    const world = overworldController.state;
+    const mapName = getMap(world.currentMapId)?.name ?? "the road";
+    const terrain = terrainForVenue(world.currentMapId);
+    // The circuit tier is keyed by the Brand: sweeping the Grassland raises
+    // the bar everywhere the Grassland circuit is raced.
+    const circuitBadge = badgeForMap(world.currentMapId);
+    const tier = world.feudTiers?.[circuitBadge] ?? 1;
+    const bar = feudBar(terrain, tier);
+    const rivalScore = rivalScoreFor(bar);
+    const championScore = bestChampionScore(terrain);
+    const { won, shortfall } = tierOutcome(championScore, bar);
+    const title = venueTitle(mapName.replace(/^.*—\s*/, ""), tier);
+
+    if (won) {
+      showRaceCard(
+        `FEUD RACE · ${tierLabel(tier)}`,
+        `The bar was ${formatNumber(bar)} — your champion answered ${formatNumber(championScore)}.`,
+        `${rivalName(trainerName)} took second at ${formatNumber(rivalScore)}. The ground is yours… for now.`,
+        true,
+      );
+      // Nudge the arena up a tier: the next champion has to be faster. Keep
+      // BOTH copies in step — persistWorldState serializes the renderer's
+      // world, so a controller-only change would never reach the save.
+      const withNextTier = {
+        ...world,
+        feudTiers: { ...(world.feudTiers ?? {}), [circuitBadge]: nextTier(tier) },
+      };
+      overworldController._setState(withNextTier);
+      rendererState = setWorldState(rendererState, withNextTier);
+      if ((overworldController as unknown as { _awardBadge?: (badge: string) => unknown })._awardBadge) {
+        (overworldController as unknown as { _awardBadge: (badge: string) => void })._awardBadge(
+          world.currentMapId,
+        );
+      }
+      // Say it AFTER the badge award: that callback sets its own status.
+      rendererState = {
+        ...rendererState,
+        statusMessage: `${title} swept! The circuit moves to ${tierLabel(nextTier(tier))} — bar ${formatNumber(feudBar(terrain, nextTier(tier)))}.`,
+      };
+      scheduleWorldSave();
+      renderApp();
+      return;
+    }
+
     showRaceCard(
-      "FEUD RACE",
-      `${mapName}: the rival herd crossed at x=${formatNumber(result.centerX)}.`,
-      rivalryLine(mapName),
-      true,
+      `FEUD RACE · ${tierLabel(tier)}`,
+      `The bar is ${formatNumber(bar)} — your best champion reached ${formatNumber(championScore)}.`,
+      `Short by ${formatNumber(shortfall)}. ${rivalName(trainerName)} keeps the ground. Breed a faster one.`,
+      false,
     );
     rendererState = {
       ...rendererState,
-      statusMessage: `${mapName} feud race — rival herd crossed at x=${formatNumber(result.centerX)}. The law of the road is yours.`,
+      statusMessage: `Short by ${formatNumber(shortfall)} at ${title} — the bar is ${formatNumber(bar)} (your champion: ${formatNumber(championScore)}).`,
     };
-    if ((overworldController as unknown as { _awardBadge?: (badge: string) => unknown })._awardBadge) {
-      (overworldController as unknown as { _awardBadge: (badge: string) => void })._awardBadge(
-        overworldController.state.currentMapId,
-      );
-    }
+    renderApp();
     return;
   }
 
@@ -4050,6 +4109,23 @@ async function startOverworldEncounter(
       renderOverworldUi();
     }
   }
+}
+
+/** The best champion you can put on this terrain: the Record Barn's best
+ * for it, else the strongest car in the live herd. */
+function bestChampionScore(terrainName: string): number {
+  const hall = rendererState.hallOfFame.entries
+    .filter((entry) => entry.terrainName === terrainName)
+    .reduce((best, entry) => Math.max(best, entry.score), 0);
+  if (hall > 0) {
+    return hall;
+  }
+  const herd = rendererState.latestGeneration?.evaluatedPopulation ?? [];
+  return herd.reduce((best, entry) => Math.max(best, entry.score), 0);
+}
+
+function rivalName(trainerName: string | null): string {
+  return trainerName && trainerName !== "Feud Line" ? trainerName : "the rival herd";
 }
 
 function mapForDialog(name: string | null): string {

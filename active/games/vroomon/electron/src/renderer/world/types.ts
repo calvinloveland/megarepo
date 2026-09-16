@@ -85,6 +85,8 @@ export interface WorldState {
   rancherName: string;
   rancherCap: "navy" | "rust" | "green";
   vroomdex: string[];
+  /** arena mapId -> the circuit tier you're up against there (1 = first). */
+  feudTiers: Record<string, number>;
   flags: Record<string, boolean>;
   dialogueQueue: DialogueNode[];
   activeNpc: string | null;
@@ -113,6 +115,8 @@ export interface PersistedWorldState {
   rancherName: string;
   rancherCap: "navy" | "rust" | "green";
   vroomdex: string[];
+  /** Circuit tiers per arena (optional for old saves). */
+  feudTiers?: Record<string, number>;
   flags: Record<string, boolean>;
   lastSavedAt: string;
 }
@@ -132,6 +136,7 @@ export const EMPTY_PERSISTED_WORLD: PersistedWorldState = {
   rancherName: "",
   rancherCap: "navy",
   vroomdex: [],
+  feudTiers: {},
   flags: {},
   lastSavedAt: "",
 };
@@ -149,6 +154,7 @@ export function serializeWorldState(world: WorldState): PersistedWorldState {
     rancherName: world.rancherName,
     rancherCap: world.rancherCap,
     vroomdex: [...world.vroomdex],
+    feudTiers: { ...world.feudTiers },
     flags: { ...world.flags },
     lastSavedAt: new Date().toISOString(),
   };

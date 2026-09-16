@@ -12,6 +12,7 @@ export function createInitialWorldState(): WorldState {
     playerFacing: "down",
     badges: [],
     factionChoices: {},
+    feudTiers: {},
     decor: [],
     rancherName: "",
     rancherCap: "navy",

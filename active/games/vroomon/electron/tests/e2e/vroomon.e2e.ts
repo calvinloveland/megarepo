@@ -630,10 +630,38 @@ test.describe("vroomon Playwright harness", () => {
   });
 
 
-  test("settles the Grassland feud with the Meadow Elder for a Brand", async ({
+  test("@smoke settles the Grassland feud, then the circuit scales up", async ({
     page,
   }) => {
-    await seedAndEnterWorld(page);
+    // A champion in the Record Barn: the feud is a real contest against the
+    // tier's bar, and a nobody loses it. Seeded BEFORE the reload below so
+    // the renderer's in-memory hall picks it up at boot.
+    await page.evaluate(async () => {
+      await window.vroomon.saveHallOfFame({
+        version: 1,
+        entries: [
+          {
+            id: "hall-feud-champ",
+            runId: "r",
+            dna: "3F3AIOPcZFN",
+            name: "Feud Champ",
+            score: 900,
+            terrainName: "Grassland",
+            generation: 9,
+            savedAt: new Date().toISOString(),
+            notes: "",
+          },
+        ],
+      });
+    });
+    await seedRancher(page);
+    // The CIRCUIT chip tells you the bar you're breeding against.
+    await enterWorld(page);
+    await openPocketRanch(page, "herd");
+    await expect(page.locator("[data-viewport-stats-overlay]")).toContainText("CIRCUIT");
+    await expect(page.locator("[data-viewport-stats-overlay]")).toContainText("600");
+    await closePocketRanch(page);
+
     for (const dir of ["down", "down", "left", "left", "left", "left"]) {
       await page.locator(`[data-dpad="${dir}"]`).click();
       await page.waitForTimeout(320);
@@ -644,13 +672,62 @@ test.describe("vroomon Playwright harness", () => {
     await page.locator("[data-dialogue-option]").nth(2).click();
     await page.waitForTimeout(400);
     await page.keyboard.press("z");
-    // The race-result card appears (countdown then result); dismiss it.
     await expect(page.locator("[data-race-overlay]")).toBeVisible();
+    await expect(page.locator("[data-race-title]")).toContainText("FEUD RACE · I");
     await page.locator("[data-race-close]").click();
-    await page.waitForTimeout(300);
-    await expect(page.locator("[data-race-overlay]")).toBeHidden();
-    await expect(page.locator("[data-status-message]")).toContainText("Grassland Brand");
+    await page.waitForTimeout(400);
+    await expect(page.locator("[data-status-message]")).toContainText("swept!");
+    await expect(page.locator("[data-status-message]")).toContainText("circuit moves to II");
     await expect(page.locator("[data-overworld-badge-list]")).toContainText("Grassland Brand");
+
+    // The arena remembers: racing again is tier II with a higher bar.
+    const tiers = await page.evaluate(async () => (await window.vroomon.loadWorldState())?.feudTiers);
+    expect(tiers).toMatchObject({ "Grassland Brand": 2 });
+  });
+
+  test("the circuit scales past a champion: tier II turns them away", async ({
+    page,
+  }) => {
+    // A strong-enough-for-tier-I champion, and the arena already swept once.
+    // Seeded before the reload so both copies hydrate.
+    await page.evaluate(async () => {
+      await window.vroomon.saveHallOfFame({
+        version: 1,
+        entries: [
+          {
+            id: "hall-tier-one",
+            runId: "r",
+            dna: "3F3AIOPcZFN",
+            name: "Tier One Champ",
+            score: 700,
+            terrainName: "Grassland",
+            generation: 4,
+            savedAt: new Date().toISOString(),
+            notes: "",
+          },
+        ],
+      });
+      const world = await window.vroomon.loadWorldState();
+      await window.vroomon.saveWorldState({ ...world, feudTiers: { "Grassland Brand": 2 } });
+    });
+    await seedRancher(page);
+    await enterWorld(page);
+    for (const dir of ["down", "down", "left", "left", "left", "left"]) {
+      await page.locator(`[data-dpad="${dir}"]`).click();
+      await page.waitForTimeout(320);
+    }
+    await page.locator('[data-dpad="interact"]').click();
+    await page.waitForTimeout(500);
+    await page.locator("[data-dialogue-option]").nth(2).click();
+    await page.waitForTimeout(400);
+    await page.keyboard.press("z");
+    await expect(page.locator("[data-race-overlay]")).toBeVisible();
+    // 700 against a 768 bar: short, and no Brand for it.
+    await expect(page.locator("[data-race-title]")).toContainText("II");
+    await page.locator("[data-race-close]").click();
+    await page.waitForTimeout(400);
+    await expect(page.locator("[data-status-message]")).toContainText("Short by 68");
+    await expect(page.locator("[data-overworld-badge-list]")).toContainText("No brands");
   });
 
 

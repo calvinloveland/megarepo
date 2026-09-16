@@ -18,6 +18,7 @@ import {
   transitionToMap,
 } from "./world-state.js";
 import { findFaction, type Faction } from "./factions.js";
+import { BADGE_BY_MAP } from "../circuit.js";
 import {
   type DialogueNode,
   type Direction,

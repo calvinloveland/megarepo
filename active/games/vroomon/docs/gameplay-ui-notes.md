@@ -815,6 +815,33 @@ develop was called out as a top-loved part of the design:
   (always 0) instead of the last evaluated generation, and the heritage
   scene was being overridden by the scene-follows-mode sync.
 
+## The circuit: sweeps scale the bar (2026-09-14) ✅
+
+The "find a new champion" pressure the design called for — a swept area
+gets harder instead of just paying out a Brand:
+
+- **Feuds are real contests.** Each arena has a **bar**: the score your
+  best champion must beat. Tier I Grassland is 600; Ice starts at 840.
+  The feud race compares your Record Barn's best on that terrain (or the
+  live herd's best if the barn's empty) against the bar and tells you the
+  result — `the bar was 600 — your champion answered 900` or
+  `short by 68`.
+- **Sweeping raises the bar.** A win awards the Brand *and* advances that
+  circuit a tier (`×1.28` per sweep), keyed by **Brand** so the whole area
+  scales: Grassland I 600 → II 768 → III 983 → IV 1258 → V 1610. A 900
+  champion takes I, scrapes II, and is turned away at III — which is
+  exactly when you go back to the bench.
+- **A CIRCUIT readout on the bench** (`CIRCUIT Grassland II · 768 ✓`) says
+  what you're breeding against and whether your champion currently clears
+  it.
+- `circuit.ts` is pure (`feudBar`, `tierOutcome`, `badgeForMap`,
+  `nextCircuitTarget`, `venueTitle`) with 10 unit tests; the map → Brand
+  table moved there so awards and tiers can't disagree. Two e2e tests
+  cover the sweep (Brand + tier II) and the turn-away (short by 68, no).
+- Fixed on the way: `persistWorldState` hand-listed its fields and so
+  dropped new world state (circuit tiers) — it now uses the shared
+  serializer.
+
 ## Outstanding gameplay/UI issues (identified, not yet fixed — design work)
 
 From the vision-model critique + probes, ordered by impact:
