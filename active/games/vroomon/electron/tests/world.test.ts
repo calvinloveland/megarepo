@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { getMap, isTilePassable, safeSpawn } from "../src/renderer/world/maps.js";
+import { MAPS, getMap, isTilePassable, safeSpawn } from "../src/renderer/world/maps.js";
+
+const MAP_LIST = Object.values(MAPS);
 import {
   attemptMove,
   isAtEdgeTransition,
@@ -139,6 +141,72 @@ describe("world maps", () => {
       "ranch_yard",
     );
   });
+
+/**
+ * Every tile a player can walk to after arriving on a map from any of its
+ * entrances. Used to prove nobody is walled away (and that the tutorial's
+ * NPCs are actually reachable after a map is reshaped).
+ */
+function reachableFrom(mapId: string, entries: Array<{ x: number; y: number }>): Set<string> {
+  const map = getMap(mapId)!;
+  const seen = new Set<string>();
+  const queue = [...entries];
+  while (queue.length > 0) {
+    const { x, y } = queue.pop()!;
+    const key = `${x},${y}`;
+    if (seen.has(key)) {
+      continue;
+    }
+    const tile = map.tiles[y]?.[x];
+    if (!tile || !isTilePassable(tile)) {
+      continue;
+    }
+    seen.add(key);
+    queue.push({ x: x + 1, y }, { x: x - 1, y }, { x, y: y + 1 }, { x, y: y - 1 });
+  }
+  return seen;
+}
+
+/** Where every map is entered from, gathered off every other map. */
+function entriesFor(mapId: string): Array<{ x: number; y: number }> {
+  const entries: Array<{ x: number; y: number }> = [];
+  for (const other of MAP_LIST) {
+    for (const transition of Object.values(other.transitions)) {
+      if (transition.mapId === mapId) {
+        entries.push({ x: transition.toX, y: transition.toY });
+      }
+    }
+  }
+  return entries;
+}
+
+describe("world reachability", () => {
+  it("can walk to every NPC from where the player arrives", () => {
+    for (const map of MAP_LIST) {
+      const entries = entriesFor(map.id);
+      if (entries.length === 0) {
+        continue;
+      }
+      const reachable = reachableFrom(map.id, entries);
+      for (const npc of map.npcs) {
+        // Story nodes with no position are virtual (dialogue handed off by id).
+        if (npc.x <= 0 && npc.y <= 0) {
+          continue;
+        }
+        const neighbours = [
+          `${npc.x + 1},${npc.y}`,
+          `${npc.x - 1},${npc.y}`,
+          `${npc.x},${npc.y + 1}`,
+          `${npc.x},${npc.y - 1}`,
+        ];
+        expect(
+          neighbours.some((key) => reachable.has(key)),
+          `${map.id}: ${npc.id} at ${npc.x},${npc.y} cannot be reached`,
+        ).toBe(true);
+      }
+    }
+  });
+});
 
   it("puts a save that predates the split somewhere it can stand", () => {
     // The ranch used to be one map: a save out in the old paddock now points

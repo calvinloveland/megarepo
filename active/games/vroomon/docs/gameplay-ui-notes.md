@@ -862,7 +862,11 @@ into the yard rather than into the house.
 
 - **A hunt toggle** in the world HUD (`SEEKING ON 🔍` / `OFF`, or press **H**)
   decides whether the tall grass is dangerous. With it off you can cross your
-  own paddock without a race every three steps.
+  own paddock without a race every three steps. Robby puts you on the hunt
+  when he hands over the loaner (otherwise the lesson's grass would never
+  shake and the tutorial could not continue), and if you switch it off during
+  that lesson the quest line says so instead of leaving you pressing Z at
+  nothing.
 - **Wild vroomon are never free.** Walking the grass opens a **race**: your
   best car (Record Barn champion, else the strongest in the herd) against the
   wild one, on the same terrain, both drawn lane-by-lane as the parts they are
@@ -873,6 +877,11 @@ into the yard rather than into the house.
   lesson, so the first catch is winnable and everything after it has to be
   *bred* faster than the one before. That is the point of the change: the wild
   can hand you a floor, not a ceiling.
+
+- **New invariant: every NPC can be walked to.** A test floods each map
+  from the tiles its entrances land on and asserts every positioned NPC has a
+  reachable neighbour — the map split moved a dozen NPCs between two spaces,
+  and a walled-off Robby would have been an unrecoverable tutorial.
 
 - **The house is a room, not a corner of a field.** Interior maps render
   against a dark room tone instead of the deep forest (the house used to

@@ -26,6 +26,7 @@ export function questFor(world: {
   factionChoices: Record<string, string>;
   flags: Record<string, boolean>;
   currentMapId?: string | null;
+  hunting?: boolean;
 }): QuestLine {
   // The opening ranch tutorial is its own objective line until Robby
   // sends the player into town. The ranch is two spaces now — the house and
@@ -38,6 +39,14 @@ export function questFor(world: {
       };
     }
     if (!world.flags["tut-caught"]) {
+      // With the hunt switched off the grass will never shake, so say so
+      // rather than leaving the player pressing Z at nothing.
+      if (world.hunting === false) {
+        return {
+          main: "You're not looking for vroomon right now.",
+          hint: "Press H to start seeking again — the grass only shakes when you're hunting.",
+        };
+      }
       return {
         main: "The tall grass on the left grazes wild vroomon.",
         hint: "Stand at its edge and press Z when it shakes — then race it for the herd.",

@@ -14,6 +14,16 @@ describe("overworld quest director", () => {
       questFor({ badges: [], factionChoices: {}, flags, currentMapId: "ranch_yard" });
     expect(atRanch({}).main).toContain("kitchen");
     expect(atRanch({ "tut-revealed": true }).main).toContain("tall grass");
+    // ...unless the hunt is switched off, when the grass can't shake at all.
+    expect(
+      questFor({
+        badges: [],
+        factionChoices: {},
+        flags: { "tut-revealed": true },
+        currentMapId: "ranch_yard",
+        hunting: false,
+      }).hint,
+    ).toContain("Press H");
     expect(atRanch({ "tut-revealed": true, "tut-caught": true }).main).toContain("Herd Book");
     expect(
       atRanch({ "tut-revealed": true, "tut-caught": true, "tut-done": true }).main,

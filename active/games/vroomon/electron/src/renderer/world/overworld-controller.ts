@@ -125,8 +125,10 @@ export function createOverworldInputs(
 
     if (onComplete === "starter-vroomon") {
       // Robby lends a starter before the lesson, so the first catch can be a
-      // race: you can only keep what you can outrun.
-      commit(endDialogue(state, onComplete, flag));
+      // race: you can only keep what you can outrun. He also puts you on the
+      // hunt — with the toggle off, the lesson's tall grass would never shake
+      // and the tutorial would have no way forward.
+      commit({ ...endDialogue(state, onComplete, flag), hunting: true });
       dependencies.onStarterVroomon?.();
       return state;
     }
