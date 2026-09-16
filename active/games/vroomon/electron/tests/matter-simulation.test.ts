@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { decodeDnaV2 } from "../src/shared/dna-v2.js";
+import { createRandomDna, decodeDnaV2 } from "../src/shared/dna-v2.js";
 import { getTerrainPreset } from "../src/shared/parity-contract.js";
 import {
   createMatterVehicle,
@@ -61,5 +61,44 @@ describe("matter physics spike", () => {
     expect(decoded.wheelParams.filter(Boolean)).toHaveLength(2);
     expect(flatTerrain).toBeDefined();
     expect(snapshot.centerX).toBeGreaterThanOrEqual(flatTerrain?.groundLength ?? 0);
+  });
+});
+
+
+describe("the structure rules", () => {
+  // Deterministic search for the shapes the design talks about (a 4-part DNA
+  // makes all-wheel / all-plate bodies findable).
+  const findShape = (predicate: (modules: string) => boolean): string => {
+    let seed = 7;
+    const rand = () => ((seed = (seed * 1103515245 + 12345) % 2 ** 31) / 2 ** 31);
+    for (let i = 0; i < 3000; i += 1) {
+      const dna = createRandomDna(4, rand);
+      if (predicate(decodeDnaV2(dna).modules.join(""))) {
+        return dna;
+      }
+    }
+    throw new Error("no matching shape found");
+  };
+
+  it("gives a body of nothing but wheels no drive at all", () => {
+    // "A wheel wheel wheel doesn't have any of the structure to go anywhere."
+    const dna = findShape((modules) => !modules.includes("R"));
+    const vehicle = createMatterVehicle(dna, "Flat");
+    expect(vehicle.wheelBodies.length).toBeGreaterThan(0);
+    expect(vehicle.chassisBodies).toHaveLength(0);
+    expect(vehicle.wheelDriveBodies.every((drive) => drive.motorPower === 0)).toBe(true);
+    const start = snapshotMatterVehicle(vehicle);
+    const end = stepMatterVehicle(vehicle, 900);
+    expect(Math.abs(end.centerX - start.centerX)).toBeLessThan(60);
+  });
+
+  it("does not move a body of nothing but plates", () => {
+    const dna = findShape((modules) => !modules.includes("W"));
+    const vehicle = createMatterVehicle(dna, "Flat");
+    expect(vehicle.wheelBodies).toHaveLength(0);
+    expect(vehicle.chassisBodies.length).toBeGreaterThan(0);
+    const start = snapshotMatterVehicle(vehicle);
+    const end = stepMatterVehicle(vehicle, 900);
+    expect(Math.abs(end.centerX - start.centerX)).toBeLessThan(30);
   });
 });
