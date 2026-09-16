@@ -13,7 +13,7 @@ export const TILE_COLORS: Record<TileKind, { fill: string; stroke?: string; acce
   building: { fill: "#d9c8a0", stroke: "#5a4530" },
   door: { fill: "#7a4a2a", stroke: "#3a2010" },
   doormat: { fill: "#a86b3a" },
-  counter: { fill: "#8a5a30" },
+  counter: { fill: "#6f4423" },
   water: { fill: "#4a78c2" },
   wall: { fill: "#5a3a2a", stroke: "#2a1a10" },
   "indoor-floor": { fill: "#b89a6b" },
@@ -103,8 +103,12 @@ function drawGroundBase(
     ctx.strokeRect(px + 3, py + 3, size - 6, size - 6);
   }
   if (tile === "counter") {
-    ctx.fillStyle = "#6a3f1e";
-    ctx.fillRect(px + 2, py + size - 6, size - 4, 4);
+    // Dark top edge + shadow so a counter reads as furniture instead of
+    // another patch of floor.
+    ctx.fillStyle = "#3f2413";
+    ctx.fillRect(px, py + size - 8, size, 8);
+    ctx.fillStyle = "rgba(0, 0, 0, 0.28)";
+    ctx.fillRect(px, py + size - 3, size, 3);
   }
   if (tile === "rock") {
     ctx.fillStyle = "#5a5a5a";
@@ -218,8 +222,15 @@ function drawGroundDetail(
     ctx.fillRect(px + size - 12, py + 6, 6, 6);
   }
   if (tile === "counter") {
-    ctx.fillStyle = "rgba(255,240,210,0.35)";
-    ctx.fillRect(px + 2, py + 2, size - 4, size - 8);
+    // The work surface: lighter than the floor, with a grain line.
+    ctx.fillStyle = "rgba(255, 236, 200, 0.55)";
+    ctx.fillRect(px + 2, py + 2, size - 4, size - 11);
+    ctx.strokeStyle = "rgba(80, 48, 24, 0.55)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(px + 4, py + size / 2 - 3);
+    ctx.lineTo(px + size - 4, py + size / 2 - 3);
+    ctx.stroke();
   }
 }
 
