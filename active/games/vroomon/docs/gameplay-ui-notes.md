@@ -874,6 +874,13 @@ into the yard rather than into the house.
   *bred* faster than the one before. That is the point of the change: the wild
   can hand you a floor, not a ceiling.
 
+- **The house is a room, not a corner of a field.** Interior maps render
+  against a dark room tone instead of the deep forest (the house used to
+  float in woodland), the floor has a bed, counters and a table, and a
+  **save made before the split is relocated**: a position out in the old
+  paddock belongs to the yard now, so loading it puts you on the porch
+  instead of outside the new house's bounds (`safeSpawn`).
+
 Bugs found while wiring this up, all fixed:
 
 - **The herd was not restored on reload.** The world persisted (rancher, map,
@@ -893,6 +900,8 @@ Bugs found while wiring this up, all fixed:
   transition, the toggle repainted the state but not the chip, and closing the
   race didn't repaint the world underneath (a won race queued Robby's praise
   beat that never appeared).
+- The Barn button's tutorial pulse was keyed to the house alone, so it never
+  pulsed during the praise beat — which happens out in the yard now.
 
 ## Breeding was not actually working (2026-09-15) ✅
 

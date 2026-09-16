@@ -86,9 +86,10 @@ export function renderOverworld(
   const cameraX = computeCameraX(world, map, width);
   const cameraY = computeCameraY(world, map, height);
 
-  // Outside the map is deep forest, not more meadow: the bright ambient
-  // fill made the letterbox around small maps look like empty paint.
-  ctx.fillStyle = "#14200f";
+  // Outside the map is deep forest, not more meadow: the bright ambient fill
+  // made the letterbox around small maps look like empty paint. An interior
+  // gets a dark room tone instead — a house floating in woodland read wrong.
+  ctx.fillStyle = map.interior ? "#241a13" : "#14200f";
   ctx.fillRect(0, 0, width, height);
 
   // The static tile layer is BAKED once per map into an offscreen canvas

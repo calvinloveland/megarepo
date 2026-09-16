@@ -61,6 +61,8 @@ export interface DialogueOption {
 
 export interface Tilemap {
   id: string;
+  /** Indoors: rendered against a dark room, not the deep forest outside. */
+  interior?: boolean;
   name: string;
   width: number;
   height: number;

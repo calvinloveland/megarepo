@@ -53,7 +53,7 @@ import type {
 } from "../core/population.js";
 import {createOverworldInputs } from "./world/overworld-controller.js";
 import { renderOverworld } from "./world/overworld-renderer.js";
-import { getMap } from "./world/maps.js";
+import { getMap, safeSpawn } from "./world/maps.js";
 import { findFaction } from "./world/factions.js";
 import { DECOR_ITEMS, findDecor } from "./world/decor.js";
 import { questFor } from "./world/quest.js";
@@ -4400,12 +4400,18 @@ function applyPersistedWorld(
   world: WorldState,
   persisted: { currentMapId: string; playerX: number; playerY: number; playerFacing: Direction; badges: string[]; factionChoices?: Record<string, string>; decor?: string[]; rancherName?: string; rancherCap?: "navy" | "rust" | "green"; vroomdex: string[]; feudTiers?: Record<string, number>; hunting?: boolean; flags: Record<string, boolean> },
 ): WorldState {
-  const mapExists = getMap(persisted.currentMapId) !== undefined;
+  // A save can predate a map change (the ranch used to be one map): put the
+  // rancher somewhere they can actually stand rather than in the void.
+  const spawn = safeSpawn(
+    persisted.currentMapId,
+    Number.isFinite(persisted.playerX) ? persisted.playerX : world.playerX,
+    Number.isFinite(persisted.playerY) ? persisted.playerY : world.playerY,
+  );
   return {
     ...world,
-    currentMapId: mapExists ? persisted.currentMapId : world.currentMapId,
-    playerX: Number.isFinite(persisted.playerX) ? persisted.playerX : world.playerX,
-    playerY: Number.isFinite(persisted.playerY) ? persisted.playerY : world.playerY,
+    currentMapId: spawn.mapId,
+    playerX: spawn.x,
+    playerY: spawn.y,
     playerFacing: persisted.playerFacing ?? world.playerFacing,
     badges: Array.isArray(persisted.badges) ? persisted.badges : world.badges,
     factionChoices:
@@ -5926,9 +5932,15 @@ function syncContinueAndBarn(): void {
   }
   if (barnChip) {
     barnChip.hidden = rendererState.mode !== "world";
+    // The praise beat happens out in the YARD now, so the pulse has to count
+    // both ranch spaces — gated on the house alone, the Barn button never
+    // pulsed during the tutorial.
+    const atRanch =
+      rendererState.world.currentMapId === "home_ranch" ||
+      rendererState.world.currentMapId === "ranch_yard";
     const pulseBarn =
       rendererState.mode === "world" &&
-      rendererState.world.currentMapId === "home_ranch" &&
+      atRanch &&
       rendererState.world.flags["tut-caught"] &&
       !rendererState.world.flags["tut-done"];
     barnChip.dataset.tutPulse = pulseBarn ? "true" : "false";

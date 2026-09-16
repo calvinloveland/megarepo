@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { getMap, isTilePassable } from "../src/renderer/world/maps.js";
+import { getMap, isTilePassable, safeSpawn } from "../src/renderer/world/maps.js";
 import {
   attemptMove,
   isAtEdgeTransition,
@@ -138,6 +138,33 @@ describe("world maps", () => {
     expect(Object.values(getMap("starter_town")!.transitions).map((t) => t.mapId)).toContain(
       "ranch_yard",
     );
+  });
+
+  it("puts a save that predates the split somewhere it can stand", () => {
+    // The ranch used to be one map: a save out in the old paddock now points
+    // outside the house, so it belongs in the yard instead of the void.
+    const old = safeSpawn("home_ranch", 2, 7);
+    expect(old.relocated).toBe(true);
+    expect(old.mapId).toBe("ranch_yard");
+    expect(isTilePassable(getMap(old.mapId)!.tiles[old.y]![old.x]!)).toBe(true);
+
+    // Any other impossible spot resolves to the nearest tile you can stand on.
+    const wall = safeSpawn("ranch_yard", 0, 0);
+    expect(wall.relocated).toBe(true);
+    expect(isTilePassable(getMap(wall.mapId)!.tiles[wall.y]![wall.x]!)).toBe(true);
+
+    // A good position is left exactly alone.
+    expect(safeSpawn("ranch_yard", 7, 3)).toEqual({
+      mapId: "ranch_yard",
+      x: 7,
+      y: 3,
+      relocated: false,
+    });
+
+    // A map that no longer exists falls back to town.
+    const gone = safeSpawn("demolished_map", 3, 3);
+    expect(gone.mapId).toBe("starter_town");
+    expect(gone.relocated).toBe(true);
   });
 
   it("lands every transition somewhere you can stand", () => {

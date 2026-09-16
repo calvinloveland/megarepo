@@ -58,7 +58,7 @@ const HOME_INTERIOR_TILES: TileKind[][] = [
   row("wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall"),
   row("wall", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "counter", "counter", "counter", "indoor-floor", "wall"),
   row("wall", "bed", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "counter", "counter", "indoor-floor", "wall"),
-  row("wall", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "wall"),
+  row("wall", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "counter", "counter", "indoor-floor", "indoor-floor", "wall"),
   row("wall", "wall", "wall", "wall", "wall", "wall", "doormat", "doormat", "wall", "wall", "wall", "wall", "wall", "wall"),
 ];
 
@@ -83,6 +83,7 @@ export const MAPS: Record<string, Tilemap> = {
     name: "The Shoddy Ranch House",
     width: 14,
     height: 5,
+    interior: true,
     tiles: HOME_INTERIOR_TILES,
     ambientColor: "#c9a97a",
     npcs: [
@@ -520,6 +521,7 @@ export const MAPS: Record<string, Tilemap> = {
     name: "Rustler Pasture",
     width: 14,
     height: 10,
+    interior: true,
     tiles: GYM_1_TILES,
     ambientColor: "#caa672",
     npcs: [
@@ -759,6 +761,7 @@ export const MAPS: Record<string, Tilemap> = {
     name: "Salt Road Post",
     width: 14,
     height: 10,
+    interior: true,
     tiles: GYM_1_TILES,
     ambientColor: "#c2a670",
     npcs: [
@@ -1049,6 +1052,66 @@ Object.entries(MAPS).forEach(([id, map]) => {
 
 export function getMap(mapId: string): Tilemap | undefined {
   return MAPS[mapId];
+}
+
+/**
+ * Where a saved position actually belongs now.
+ *
+ * Maps change: the ranch was split into a house and a yard, so a save made
+ * out in the old paddock points outside the house entirely. Rather than
+ * dropping the player into the void (or inside a wall), find them somewhere
+ * they can stand.
+ */
+export function safeSpawn(
+  mapId: string,
+  x: number,
+  y: number,
+): { mapId: string; x: number; y: number; relocated: boolean } {
+  const map = getMap(mapId);
+  if (!map) {
+    const fallback = getMap("starter_town");
+    return { mapId: "starter_town", x: 7, y: 7, relocated: true, ...(fallback ? {} : {}) };
+  }
+
+  const standable = (mx: number, my: number): boolean =>
+    mx >= 0 &&
+    my >= 0 &&
+    mx < map.width &&
+    my < map.height &&
+    isTilePassable(map.tiles[my]?.[mx] ?? "tree");
+
+  if (standable(x, y)) {
+    return { mapId, x, y, relocated: false };
+  }
+
+  // A pre-split ranch save was out in the paddock: that is the yard now.
+  if (mapId === "home_ranch" && (y >= map.height || y > 4)) {
+    const yard = getMap("ranch_yard");
+    if (yard && isTilePassable(yard.tiles[2]?.[7] ?? "tree")) {
+      return { mapId: "ranch_yard", x: 7, y: 2, relocated: true };
+    }
+  }
+
+  // Otherwise take the closest tile you can stand on.
+  let best: { x: number; y: number; distance: number } | null = null;
+  const clampX = Math.min(map.width - 1, Math.max(0, x));
+  const clampY = Math.min(map.height - 1, Math.max(0, y));
+  for (let my = 0; my < map.height; my += 1) {
+    for (let mx = 0; mx < map.width; mx += 1) {
+      if (!standable(mx, my)) {
+        continue;
+      }
+      const distance = Math.abs(mx - clampX) + Math.abs(my - clampY);
+      if (!best || distance < best.distance) {
+        best = { x: mx, y: my, distance };
+      }
+    }
+  }
+
+  if (best) {
+    return { mapId, x: best.x, y: best.y, relocated: true };
+  }
+  return { mapId, x: clampX, y: clampY, relocated: true };
 }
 
 export function isTilePassable(tile: TileKind): boolean {
