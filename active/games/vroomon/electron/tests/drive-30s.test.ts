@@ -36,9 +36,9 @@ function driveAndSnapshot(vehicle: MatterVehicle): VehicleSnapshot {
 }
 
 describe("single-car drive integrity", () => {
-  it("drives a simple two-wheel car for 30 seconds without falling apart", () => {
-    // "aaaaaaaaaaaa" reliably decodes to a 2-wheel car (see existing tests).
-    const dna = "aaaaaaaaaaaa";
+  it("drives a well-formed two-wheel car for 30 seconds without falling apart", () => {
+    // Plates + two pinned wheels with cylinders upstream: a car that works.
+    const dna = "fq4j7dJgZAic";
     const vehicle = createMatterVehicle(dna, "Flat");
     const start = snapshotMatterVehicle(vehicle);
 
@@ -77,11 +77,14 @@ describe("single-car drive integrity", () => {
 
   it("drives a 4-wheel chassis+wheel layout for 30 seconds without disintegrating", () => {
     // Build a 4-wheel car explicitly so we know what pieces we expect.
-    const dna = "A3x9K2m7P4zQ";
+    const dna = "PXJL5vHwqLo4";
     const vehicle = createMatterVehicle(dna, "Flat");
     const start = snapshotMatterVehicle(vehicle);
-    const initialChassisCount = vehicle.chassisBodies.length;
-    const initialWheelCount = vehicle.wheelBodies.length;
+    // Count the SNAPSHOT pieces (the chunk of the chassis is a compound
+    // body; its plates are what you see), so "nothing fell apart" is a
+    // like-for-like comparison.
+    const initialChassisCount = start.chassis.length;
+    const initialWheelCount = start.wheels.length;
     const initialConstraints = vehicle.constraints.length;
 
     expect(initialChassisCount).toBeGreaterThan(0);

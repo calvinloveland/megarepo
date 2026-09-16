@@ -842,6 +842,45 @@ gets harder instead of just paying out a Brand:
   dropped new world state (circuit tiers) — it now uses the shared
   serializer.
 
+## The vroomon body: two-path chains (2026-09-14) ✅
+
+Ported the original design out of the legacy Python prototype
+(`src/vroomon/car/`), where it had been lost in the rewrite. A vroomon is a
+**chain of two parallel paths**:
+
+- **Structure** (`frame`): rectangles and wheels in one chain. The
+  rectangles are plates on ONE rigid chassis, joined edge-to-edge along the
+  line and each keeping its own tilt — so a run of plates can arch (good
+  breakover) or fold at a bad angle and never roll. Wheels are their own
+  bodies **pinned by a zero-length joint at their centre**. `wheel wheel
+  wheel` has no structure and, now, no drive either.
+- **Power** (`powertrain`, same length, paired index by index): cylinders
+  make power, drive shafts bleed efficiency, gear sets hand a share to the
+  wheel in their own slot and pass the rest on. `wheelDriveForIndex` is a
+  faithful port of the prototype's `calculate_wheel_power`, so **order
+  matters**: a wheel with no cylinder upstream is dead weight, and most
+  combinations simply don't work — as intended.
+
+Fixed while porting (each one had made every car look floppy or crawl):
+- every rectangle used to be its own body joined by soft springs (the
+  floppiness); the chassis is now one compound body;
+- wheels used to hang 50px below on a spring; they're pinned at their
+  centres and the hull's real ground clearance is computed from the plate
+  tilts (tilted plates drop their corners, so an arch rides high);
+- cars spawned at a hardcoded y=220 with the ground at 400 — every race was
+  spent free-falling; they now spawn resting on the terrain;
+- the drive sign was inverted for Matter's y-DOWN world (the port of
+  pymunk's y-up `-power/size` drove every car backwards);
+- wheel velocity was teleported per frame, yanking the rigid chassis into
+  a 17,000-radian spin; it's a torque-limited motor chase now.
+
+Measured on Flat (30 simulated seconds): well-formed cars travel
+**900–2000px** (best two-wheeler found: 1898px, plates-then-wheels with
+cylinders early); ~20% of random 12-char DNA moves meaningfully at all, so
+there's a real signal to select on. `tests/power-path.test.ts` (7 tests)
+pins the power semantics; the DNA regression fixture and the two
+drive-integrity tests now use cars that genuinely work.
+
 ## Outstanding gameplay/UI issues (identified, not yet fixed — design work)
 
 From the vision-model critique + probes, ordered by impact:

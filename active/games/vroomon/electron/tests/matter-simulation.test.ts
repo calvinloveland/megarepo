@@ -46,16 +46,16 @@ describe("matter physics spike", () => {
     expect(results[1]?.centerX).toBeGreaterThan(results[1]?.initialCenterX ?? 0);
   });
 
-  it("lets a simple two-wheel car reach the end of a flat track", () => {
-    const dna = "aaaaaaaaaaaa";
+  it("lets a well-formed two-wheel car reach the end of a flat track", () => {
+    // The vroomon design is a chain: plates for structure, wheels pinned to
+    // them, and a power path of cylinders/shafts/gears that has to deliver
+    // drive to a wheel. "fq4j7dJgZAic" decodes to plates-then-wheels with
+    // cylinders ahead of them (RRWRWR / CCGGDC) — a car that works. Most
+    // DNA doesn't, which is the point.
+    const dna = "fq4j7dJgZAic";
     const decoded = decodeDnaV2(dna);
     const flatTerrain = getTerrainPreset("Flat");
     const vehicle = createMatterVehicle(dna, "Flat");
-    // Step count is high because the wheels are now properly attached to
-    // the chassis (see matter-simulation buildVehicleBodies for the
-    // post-pass that anchors orphan wheels). A correctly-constrained car
-    // moves more slowly than a free-rolling wheel pair, so the budget
-    // needs to be larger than the legacy 11_000 step run.
     const snapshot = stepMatterVehicle(vehicle, 30_000);
 
     expect(decoded.wheelParams.filter(Boolean)).toHaveLength(2);

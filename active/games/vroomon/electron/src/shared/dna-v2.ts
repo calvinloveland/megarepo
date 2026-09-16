@@ -11,6 +11,9 @@ export interface RectangleParams {
   width: number;
   height: number;
   density: number;
+  /** Tilt of this plate inside the chassis: a row of tilted plates forms
+   * an arch (better breakover) or a folded mess that can't roll. */
+  angleDeg: number;
 }
 
 export interface WheelParams {
@@ -20,8 +23,16 @@ export interface WheelParams {
 }
 
 export interface PowertrainParams {
+  /** Gear-set input ratio (also kept as a display value). */
   gearRatio: number;
+  /** Drive-shaft efficiency. */
   efficiency: number;
+  /** Cylinder output, in the legacy power units the wheels are driven in. */
+  power: number;
+  /** Gear-set share handed to the wheel at its own index. */
+  wheelProportion: number;
+  /** Gear-set ratio applied to what carries on down the shaft. */
+  outputRatio: number;
 }
 
 export interface ConnectorParams {
@@ -175,27 +186,13 @@ export function decodeDnaV2(dna: string): DecodedDnaV2 {
     pickPowertrainModule(uniformAt(cleanedDna, 17, index)),
   );
 
-  const positions: number[] = [];
-  let xAccumulator = 0;
-  let lastRectangleAnchor = 0;
-
-  for (const [index, module] of modules.entries()) {
-    if (module === "R") {
-      const deltaX = clamp(50 + 10 * zNormal(cleanedDna, 20, index), 25, 90);
-      xAccumulator += deltaX;
-      lastRectangleAnchor = xAccumulator;
-      positions.push(xAccumulator);
-    } else {
-      positions.push(lastRectangleAnchor);
-    }
-  }
-
   const rectParams = modules.map((module, index) =>
     module === "R"
       ? {
-          width: clamp(48 + 10 * zNormal(cleanedDna, 2, index), 24, 120),
-          height: clamp(24 + 6 * zNormal(cleanedDna, 3, index), 12, 60),
-          density: clamp(1 + 0.25 * zNormal(cleanedDna, 4, index), 0.5, 2),
+          width: clamp(44 + 9 * zNormal(cleanedDna, 2, index), 26, 104),
+          height: clamp(20 + 5 * zNormal(cleanedDna, 3, index), 12, 52),
+          density: clamp(0.9 + 0.2 * zNormal(cleanedDna, 4, index), 0.5, 1.6),
+          angleDeg: clamp(16 * zNormal(cleanedDna, 19, index), -24, 24),
         }
       : null,
   );
@@ -203,16 +200,37 @@ export function decodeDnaV2(dna: string): DecodedDnaV2 {
   const wheelParams = modules.map((module, index) =>
     module === "W"
       ? {
-          radius: clamp(18 + 6 * zNormal(cleanedDna, 5, index), 10, 40),
-          friction: clamp(1 + 0.3 * zNormal(cleanedDna, 6, index), 0.4, 2),
+          radius: clamp(20 + 6 * zNormal(cleanedDna, 5, index), 12, 42),
+          friction: clamp(1.6 + 0.3 * zNormal(cleanedDna, 6, index), 0.8, 2.4),
           motorPower: clamp(90 + 40 * zNormal(cleanedDna, 7, index), 0, 200),
         }
       : null,
   );
 
+  // The frame is a CHAIN of edge-joined parts: each plate occupies its own
+  // span (so neighbours meet at the edges, not piled on top of each other)
+  // and each wheel gets a slot sized to its rim. wheel-rectangle-wheel reads
+  // as a simple car, wheel-wheel-wheel is three wheels with nothing between
+  // them, and a run of plates can arch.
+  const positions: number[] = [];
+  let xAccumulator = 0;
+  for (const [index, module] of modules.entries()) {
+    if (module === "R") {
+      const width = rectParams[index]?.width ?? 44;
+      xAccumulator += width * 0.78 + 4;
+    } else {
+      const radius = wheelParams[index]?.radius ?? 20;
+      xAccumulator += radius * 1.9;
+    }
+    positions.push(xAccumulator);
+  }
+
   const powertrainParams = powertrainModules.map((_, index) => ({
-    gearRatio: clamp(2 + 0.6 * zNormal(cleanedDna, 8, index), 0.5, 5),
-    efficiency: clamp(0.9 + 0.05 * zNormal(cleanedDna, 9, index), 0.5, 1),
+    gearRatio: clamp(1 + 0.35 * zNormal(cleanedDna, 8, index), 0.4, 2.4),
+    efficiency: clamp(0.92 + 0.05 * zNormal(cleanedDna, 9, index), 0.5, 1),
+    power: clamp(110 + 35 * zNormal(cleanedDna, 21, index), 15, 220),
+    wheelProportion: clamp(0.5 + 0.2 * zNormal(cleanedDna, 22, index), 0.1, 0.9),
+    outputRatio: clamp(1 + 0.3 * zNormal(cleanedDna, 23, index), 0.4, 2.2),
   }));
 
   const connectors: ConnectorParams[] = [];
@@ -303,4 +321,62 @@ function modulo(value: number, divisor: number): number {
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
+}
+
+
+// ---- The power path ----
+// A car's powertrain is a SERIES: cylinders make power, drive shafts lose a
+// little of it, and gear sets hand a share to the wheel at their own index
+// before passing the rest on. Walking it for each wheel index is exactly the
+// legacy prototype's `calculate_wheel_power`: order matters, most orderings
+// don't drive anything, and a wheel with no cylinder upstream just sits
+// there. This is where "most combinations won't make a working car" comes
+// from.
+
+const TORQUE_BASE = 10_000;
+
+export interface WheelDrive {
+  power: number;
+  torque: number;
+}
+
+export function wheelDriveForIndex(
+  decoded: DecodedDnaV2,
+  wheelIndex: number,
+): WheelDrive {
+  let power = 0;
+  let torque = TORQUE_BASE;
+  const last = Math.min(wheelIndex, decoded.powertrainModules.length - 1);
+
+  for (let index = 0; index <= last; index += 1) {
+    const kind = decoded.powertrainModules[index];
+    const params = decoded.powertrainParams[index];
+    if (!params) {
+      continue;
+    }
+    if (kind === "C") {
+      power += params.power;
+    } else if (kind === "D") {
+      power *= params.efficiency;
+      torque *= params.efficiency;
+    } else {
+      power *= params.gearRatio;
+      torque /= params.gearRatio;
+      if (index === wheelIndex) {
+        return {
+          power: power * params.wheelProportion,
+          torque: torque * params.wheelProportion,
+        };
+      }
+      power -= power * params.wheelProportion;
+      torque -= torque * params.wheelProportion;
+      power *= params.outputRatio;
+      torque /= params.outputRatio;
+    }
+    if (index === wheelIndex) {
+      return { power, torque };
+    }
+  }
+
+  return { power, torque };
 }
