@@ -1460,6 +1460,7 @@ interface InspectorState {
   lastOutcome: string | null;
   frames: VehiclePreviewFrame[] | null;
   frameIndex: number;
+  playing: boolean;
 }
 
 let inspectorState: InspectorState = {
@@ -1470,6 +1471,7 @@ let inspectorState: InspectorState = {
   lastOutcome: null,
   frames: null,
   frameIndex: 0,
+  playing: false,
 };
 
 function inspectorTuning(): { tiltCost: number; hullCost: number } {
@@ -1485,12 +1487,14 @@ function openInspector(dna: string): void {
     lastOutcome: null,
     frames: null,
     frameIndex: 0,
+    playing: false,
   };
   renderInspector();
 }
 
 function closeInspector(): void {
-  inspectorState = { ...inspectorState, open: false, frames: null };
+  stopInspectorPlayback();
+  inspectorState = { ...inspectorState, open: false, frames: null, playing: false };
   renderInspector();
 }
 
@@ -1510,6 +1514,7 @@ function runInspectorTrack(): void {
       frames: null,
       result: "That DNA cannot be built.",
       lastOutcome: null,
+      playing: false,
     };
     renderInspector();
     return;
@@ -1534,11 +1539,12 @@ function runInspectorTrack(): void {
   inspectorState = {
     ...inspectorState,
     frames,
-    frameIndex: frames.length - 1,
+    frameIndex: 0,
     result: describeTrackResult(result),
     lastOutcome: result.outcome,
   };
-  renderInspector();
+  // Play it: a run you watch tells you more than a number does.
+  startInspectorPlayback();
 }
 
 function terrainGroundHeight(): number {
@@ -1656,6 +1662,50 @@ function drawInspection(
   }
 }
 
+let inspectorPlaybackTimer: number | null = null;
+
+function stopInspectorPlayback(): void {
+  if (inspectorPlaybackTimer !== null) {
+    window.clearInterval(inspectorPlaybackTimer);
+    inspectorPlaybackTimer = null;
+  }
+}
+
+/** Walk the recorded frames so a track run is watched, not just reported. */
+function startInspectorPlayback(): void {
+  stopInspectorPlayback();
+  const frames = inspectorState.frames;
+  if (!frames || frames.length < 2) {
+    inspectorState = { ...inspectorState, playing: false };
+    renderInspector();
+    return;
+  }
+  inspectorState = { ...inspectorState, playing: true, frameIndex: 0 };
+  renderInspector();
+  // The run is three seconds of simulated time, played back at about that.
+  const perFrameMs = Math.max(40, Math.round(3000 / frames.length));
+  inspectorPlaybackTimer = window.setInterval(() => {
+    const current = inspectorState.frames;
+    if (!inspectorState.open || !current) {
+      stopInspectorPlayback();
+      return;
+    }
+    const next = inspectorState.frameIndex + 1;
+    if (next >= current.length) {
+      stopInspectorPlayback();
+      inspectorState = {
+        ...inspectorState,
+        playing: false,
+        frameIndex: current.length - 1,
+      };
+      renderInspector();
+      return;
+    }
+    inspectorState = { ...inspectorState, frameIndex: next };
+    renderInspector();
+  }, perFrameMs);
+}
+
 function renderInspector(): void {
   const overlay = document.querySelector<HTMLElement>("[data-inspector-overlay]");
   if (!overlay) {
@@ -1735,8 +1785,28 @@ function renderInspector(): void {
           : "#ffd166";
   }
 
-  const frame = inspectorState.frames?.[inspectorState.frameIndex]?.snapshot ?? null;
-  drawInspection(inspection, frame);
+  const frames = inspectorState.frames;
+  const index = Math.min(
+    inspectorState.frameIndex,
+    Math.max(0, (frames?.length ?? 1) - 1),
+  );
+  const play = document.querySelector<HTMLButtonElement>("[data-inspector-play]");
+  if (play) {
+    play.textContent = inspectorState.playing ? "⏸ Pause" : "▶ Run";
+    play.disabled = !frames || frames.length < 2;
+  }
+  const scrub = document.querySelector<HTMLInputElement>("[data-inspector-scrub]");
+  if (scrub) {
+    scrub.max = String(Math.max(0, (frames?.length ?? 1) - 1));
+    scrub.value = String(index);
+    scrub.disabled = !frames || frames.length < 2;
+  }
+  const clock = document.querySelector<HTMLElement>("[data-inspector-clock]");
+  if (clock) {
+    clock.textContent = `${((frames?.[index]?.elapsedMs ?? 0) / 1000).toFixed(1)}s`;
+  }
+
+  drawInspection(inspection, frames?.[index]?.snapshot ?? null);
 }
 
 function renderBlueprint(decoded: DecodedDnaV2): void {
@@ -5225,6 +5295,19 @@ function renderHeritage(force = false): void {
   }
 }
 
+/**
+ * The DNA behind a heritage node: the car itself while it is in the herd, or
+ * the last generation that raced it (a champion's line outlives the herd).
+ */
+function dnaForHerdId(id: string): string | null {
+  const inHerd = rendererState.runState.population.find((entry) => entry.id === id);
+  if (inHerd) {
+    return inHerd.dna;
+  }
+  const raced = rendererState.latestGeneration?.evaluatedPopulation ?? [];
+  return raced.find((entry) => entry.id === id)?.dna ?? null;
+}
+
 function pickHeritageNode(clientX: number, clientY: number): void {
   const canvas = document.querySelector<HTMLCanvasElement>("[data-heritage-canvas]");
   const info = document.querySelector<HTMLElement>("[data-heritage-info]");
@@ -5256,7 +5339,14 @@ function pickHeritageNode(clientX: number, clientY: number): void {
       : "founder stock — the line starts here";
   const kidText =
     trace.descendants.length > 0 ? ` · ${trace.descendants.length} descendants` : "";
-  info.textContent = `#${node.label} · ${scoreText} · gen ${node.depth} · ${chainText}${kidText}${node.mutated ? " · mutated" : ""}`;
+  const line = `#${node.label} · ${scoreText} · gen ${node.depth} · ${chainText}${kidText}${node.mutated ? " · mutated" : ""}`;
+  const dna = dnaForHerdId(node.id);
+  info.innerHTML =
+    escapeHtml(line) +
+    (dna
+      ? ` <button class="hud-btn hud-btn--secondary heritage-panel__inspect" type="button" ` +
+        `data-inspect-dna="${escapeHtml(dna)}" title="Inspect every part of this vroomon">🔍 Inspect</button>`
+      : "");
   heritageFocusId = node.id;
   renderHeritage(true);
 }
@@ -5321,6 +5411,12 @@ document.addEventListener("click", (event) => {
     openInspector(rendererState.draftDna);
     return;
   }
+  const inspectSelected = target?.closest("[data-inspect-selected]");
+  if (inspectSelected) {
+    const dna = dnaForHerdId(rendererState.selectedVehicleId ?? "");
+    openInspector(dna ?? rendererState.draftDna);
+    return;
+  }
   if (target?.closest("[data-inspector-close]")) {
     closeInspector();
     return;
@@ -5329,7 +5425,32 @@ document.addEventListener("click", (event) => {
   if (terrain?.dataset.inspectorTerrain) {
     inspectorState = { ...inspectorState, terrain: terrain.dataset.inspectorTerrain };
     runInspectorTrack();
+    return;
   }
+  if (target?.closest("[data-inspector-play]")) {
+    if (inspectorState.playing) {
+      stopInspectorPlayback();
+      inspectorState = { ...inspectorState, playing: false };
+      renderInspector();
+    } else {
+      startInspectorPlayback();
+    }
+  }
+});
+document.addEventListener("input", (event) => {
+  const scrub = (event.target as HTMLElement | null)?.closest<HTMLInputElement>(
+    "[data-inspector-scrub]",
+  );
+  if (!scrub || !inspectorState.open) {
+    return;
+  }
+  stopInspectorPlayback();
+  inspectorState = {
+    ...inspectorState,
+    playing: false,
+    frameIndex: Number(scrub.value),
+  };
+  renderInspector();
 });
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && inspectorState.open) {

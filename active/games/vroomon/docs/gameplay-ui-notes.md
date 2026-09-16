@@ -857,7 +857,14 @@ paddock, or a line in the heritage tree (Esc closes it):
   power that wheel actually receives.
 - **Five tracks** — Flat, Grassland, Hills, Rocky, Ice — each runs the real
   simulation for a three-second race and reports `flies / competitive /
-  crawls / sits there / runs backwards` with the distance and top speed.
+  crawls / sits there / runs backwards` with the distance and top speed. The
+  run then **plays back** (▶ Run / ⏸ Pause with a scrubber and a clock), so
+  you watch it move instead of reading a number.
+
+Opened from a herd-bench selection, a herd-book row, the paddock draft, or a
+line in the heritage tree. It draws above the Pocket Ranch hub it is opened
+from — it rendered *behind* the hub at first, which looked like the button
+doing nothing.
 
 The maths is shared, not duplicated: `src/shared/frame.ts` holds the frame
 geometry and its costs, the simulation builds from it, and the inspector

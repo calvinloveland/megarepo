@@ -1298,10 +1298,27 @@ async function expectModeState(
     await expect(page.locator("[data-inspector-stats]")).toContainText("Structure");
     await expect(page.locator("[data-inspector-stats]")).toContainText("Driven wheels");
 
+    // Every row names its structure and its powertrain module.
+    await expect(page.locator(".inspector__part").first()).toContainText("plate");
+    await expect(page.locator(".inspector__part").nth(2)).toContainText("wheel");
+
     // Run it on a second track and read the verdict back.
     await page.locator('[data-inspector-terrain="Rocky"]').click();
     await page.waitForTimeout(600);
     await expect(page.locator("[data-inspector-result]")).toContainText("Rocky");
+
+    // The run plays back rather than only reporting: the clock advances.
+    await page.waitForTimeout(700);
+    const clockMid = await page.locator("[data-inspector-clock]").textContent();
+    expect(Number.parseFloat(clockMid ?? "0")).toBeGreaterThan(0);
+
+    // It draws above the Pocket Ranch hub it was opened from (the window
+    // rendered behind the hub once, which looked like nothing happening).
+    const onTop = await page.evaluate(() => {
+      const element = document.elementFromPoint(window.innerWidth / 2, 120);
+      return Boolean(element?.closest("[data-inspector-overlay]"));
+    });
+    expect(onTop).toBe(true);
 
     // The canvas paints the car: parts drawn, not an empty sheet.
     const painted = await page.evaluate(() => {
