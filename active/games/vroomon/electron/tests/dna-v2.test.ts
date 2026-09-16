@@ -63,14 +63,22 @@ describe("DNA v2 utilities", () => {
     expect(second).toEqual(first);
   });
 
-  it("keeps locality-preserving windows stable far away from a mutation", () => {
+  it("keeps a mutation local, so children resemble their parents", () => {
+    // Locality is what makes selection accumulate instead of re-rolling the
+    // car: a flipped character must move the parts near it and nothing else.
     const base = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
     const mutated = `${base.slice(0, 16)}z${base.slice(17)}`;
 
+    // Far away: untouched.
     expect(uniformAt(base, 2, 0)).toBe(uniformAt(mutated, 2, 0));
     expect(uniformAt(base, 2, 5)).toBe(uniformAt(mutated, 2, 5));
+    // Next door and at the mutation itself: changed.
     expect(uniformAt(base, 2, 16)).not.toBe(uniformAt(mutated, 2, 16));
-    expect(uniformAt(base, 2, 18)).not.toBe(uniformAt(mutated, 2, 18));
+    expect(uniformAt(base, 2, 15)).not.toBe(uniformAt(mutated, 2, 15));
+    // Two parts away: untouched again. A wider window reached here, which is
+    // exactly how a one-character mutation came to re-roll the whole car.
+    expect(uniformAt(base, 2, 18)).toBe(uniformAt(mutated, 2, 18));
+    expect(uniformAt(base, 2, 30)).toBe(uniformAt(mutated, 2, 30));
   });
 
   it("keeps decoded parameters inside the safety bounds from the Godot design", () => {

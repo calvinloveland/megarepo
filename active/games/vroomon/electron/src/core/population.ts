@@ -1,5 +1,9 @@
 import { createRandomDna } from "../shared/dna-v2.js";
-import { simulatePopulationRace } from "../simulation/matter-simulation.js";
+import {
+  createMatterVehicle,
+  snapshotMatterVehicle,
+  stepMatterVehicle,
+} from "../simulation/matter-simulation.js";
 import { effectiveRunConfig, incomeMultiplier } from "./economy.js";
 import {
   DEFAULT_RUN_CONFIG,
@@ -294,21 +298,39 @@ export function evaluatePopulation(
     deltaMs?: number;
   },
 ): PopulationEvaluation {
-  const results = simulatePopulationRace(
-    population.map((entry) => ({ id: entry.id, dna: entry.dna })),
-    terrainName,
-    options,
-  ).map((result) => ({
-    id: result.id,
-    dna: result.dna,
-    score: scoreVehicle(result.initialCenterX, result.finalCenterX, result.initialCenterY, result.finalCenterY),
-    initialCenterX: result.initialCenterX,
-    finalCenterX: result.finalCenterX,
-    initialCenterY: result.initialCenterY,
-    finalCenterY: result.finalCenterY,
-    chassisCount: result.chassis.length,
-    wheelCount: result.wheels.length,
-  }));
+  const stepCount = options?.stepCount ?? 180;
+  const deltaMs = options?.deltaMs ?? 1000 / 60;
+
+  // Every car is raced ALONE, at the same starting spot.
+  //
+  // Racing the population in one shared world spawned car i at 220 + i*150,
+  // so its score depended on its slot in the array: parked next to different
+  // obstacles, the same DNA scored differently from one generation to the
+  // next. That noise went straight into selection — the herd's best score
+  // oscillated instead of climbing, and a champion could look like it had
+  // regressed without its DNA changing at all.
+  const results = population.map((entry) => {
+    const vehicle = createMatterVehicle(entry.dna, terrainName);
+    const initial = snapshotMatterVehicle(vehicle);
+    const final = stepMatterVehicle(vehicle, stepCount, deltaMs);
+
+    return {
+      id: entry.id,
+      dna: entry.dna,
+      score: scoreVehicle(
+        initial.centerX,
+        final.centerX,
+        initial.centerY,
+        final.centerY,
+      ),
+      initialCenterX: initial.centerX,
+      finalCenterX: final.centerX,
+      initialCenterY: initial.centerY,
+      finalCenterY: final.centerY,
+      chassisCount: final.chassis.length,
+      wheelCount: final.wheels.length,
+    };
+  });
 
   return {
     terrainName,

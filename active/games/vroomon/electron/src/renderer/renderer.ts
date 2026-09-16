@@ -891,7 +891,11 @@ async function autoRunTick(): Promise<void> {
   const verdict = autoRunVerdict({
     feed: rendererState.runState.feed ?? 8,
     dryStreak: autoRunDryStreak,
-    plateauLimit: 6,
+    // A herd can sit on one score for many generations and then jump: with
+    // per-car scoring one measured seed improved nothing for 8 generations
+    // and then found a 25% better car. Six dry generations gave up before
+    // that lucky generation arrived.
+    plateauLimit: 15,
     stopAtPlateau: rendererState.convergeMode,
   });
   if (verdict !== "continue") {

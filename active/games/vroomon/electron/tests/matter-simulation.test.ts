@@ -46,19 +46,18 @@ describe("matter physics spike", () => {
     expect(results[1]?.centerX).toBeGreaterThan(results[1]?.initialCenterX ?? 0);
   });
 
-  it("lets a well-formed two-wheel car reach the end of a flat track", () => {
-    // The vroomon design is a chain: plates for structure, wheels pinned to
-    // them, and a power path of cylinders/shafts/gears that has to deliver
-    // drive to a wheel. "fq4j7dJgZAic" decodes to plates-then-wheels with
-    // cylinders ahead of them (RRWRWR / CCGGDC) — a car that works. Most
-    // DNA doesn't, which is the point.
-    const dna = "fq4j7dJgZAic";
+  it("lets a well-formed car reach the end of a flat track", () => {
+    // The vroomon design is a chain: plates for structure, wheels joined to
+    // them, and a power path of cylinders/shafts/gears that has to reach a
+    // wheel. "RuAp2owjBaqK" is RWRWWR / CCDCCG: three wheels, a cylinder
+    // ahead of each of them. Most DNA doesn't work, which is the point.
+    const dna = "RuAp2owjBaqK";
     const decoded = decodeDnaV2(dna);
     const flatTerrain = getTerrainPreset("Flat");
     const vehicle = createMatterVehicle(dna, "Flat");
     const snapshot = stepMatterVehicle(vehicle, 30_000);
 
-    expect(decoded.wheelParams.filter(Boolean)).toHaveLength(2);
+    expect(decoded.wheelParams.filter(Boolean)).toHaveLength(3);
     expect(flatTerrain).toBeDefined();
     expect(snapshot.centerX).toBeGreaterThanOrEqual(flatTerrain?.groundLength ?? 0);
   });

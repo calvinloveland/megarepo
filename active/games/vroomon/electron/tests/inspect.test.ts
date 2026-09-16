@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { decodeDnaV2 } from "../src/shared/dna-v2.js";
 import { inspectVehicle, inspectionSummary, topSpeedFor, trackResult } from "../src/shared/inspect.js";
 
 const WEIGHTS = { tiltCost: 3, hullCost: 4 };
@@ -7,17 +8,21 @@ const TUNING = { terminalSpeedPerPower: 0.9, referenceMass: 1, maxSpeed: 1600 };
 describe("vehicle inspection", () => {
   it("lists the two paths slot by slot", () => {
     const inspection = inspectVehicle("fq4j7dJgZAic", WEIGHTS);
-    expect(inspection.modules).toBe("RRWRWR");
-    expect(inspection.powertrain).toBe("CCGGDC");
-    expect(inspection.rows).toHaveLength(6);
+    // Derived from the decoder rather than hardcoded: the inspector must
+    // report whatever the DNA actually builds.
+    const decoded = decodeDnaV2("fq4j7dJgZAic");
+    expect(inspection.modules).toBe(decoded.modules.join(""));
+    expect(inspection.powertrain).toBe(decoded.powertrainModules.join(""));
+    expect(inspection.rows).toHaveLength(decoded.modules.length);
     // Frame and powertrain are parallel arrays of equal length.
     expect(inspection.modules.length).toBe(inspection.powertrain.length);
     expect(inspection.rows.map((row) => row.index)).toEqual([0, 1, 2, 3, 4, 5]);
     // Row 0 is a plate with a cylinder above it, and its structure reads
     // like a plate.
-    expect(inspection.rows[0]!.kind).toBe("plate");
-    expect(inspection.rows[0]!.power).toBe("cylinder");
-    expect(inspection.rows[2]!.kind).toBe("wheel");
+    // Row 0's structure and powertrain come from the DNA, so read them back
+    // through the decoder instead of trusting a hand-written slot list.
+    expect(inspection.rows[0]!.kind).toBe(decoded.modules[0] === "R" ? "plate" : "wheel");
+    expect(inspection.rows[2]!.kind).toBe(decoded.modules[2] === "R" ? "plate" : "wheel");
   });
 
   it("positions parts along the chain with no daylight between them", () => {

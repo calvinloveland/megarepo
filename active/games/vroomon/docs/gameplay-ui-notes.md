@@ -842,6 +842,49 @@ gets harder instead of just paying out a Brand:
   dropped new world state (circuit tiers) — it now uses the shared
   serializer.
 
+## Breeding was not actually working (2026-09-15) ✅
+
+Found by measuring the loop the game is built on, and it was badly broken.
+
+**Symptom.** Over 25 generations of 60 cars the herd's best score was
+**1834, every single generation** — and 25 *fresh random populations* reached
+**2363**. The simulator was worse than rolling dice, and "finding the right
+combination" was impossible because nothing accumulated.
+
+Three separate causes, each measured rather than guessed:
+
+1. **Mutation was not local.** The decoder mixes a part's parameters from a
+   window of neighbouring DNA positions, and the window was wide enough that
+   a one-character mutation changed 9-13 of 13 parameters: children were
+   unrelated to their parents, so selection had nothing to climb. Narrowing
+   it (4 → 1) is the difference between breeding and rolling dice.
+2. **Half the genome was inert.** A module read positions `index ± window`
+   with a stride of 1, but the module count is decoded from the DNA and stays
+   small (2-6) — so on a 12- or 20-character genome, characters past the
+   early slots were **never read**. Mutating them changed nothing and a
+   crossover cut in that region produced an exact clone of a parent. The
+   stride now spans the whole genome, and a test asserts that flipping *any*
+   character changes the car.
+3. **A car's score depended on its slot in the race.** The population was
+   scored by racing all 45 cars in ONE shared world, spawning car *i* at
+   `220 + i*150` — so the same DNA parked next to different obstacles scored
+   differently from one generation to the next. That noise went straight into
+   selection, which is why the herd's best oscillated instead of climbing and
+   a champion could appear to regress without its DNA changing. Every car is
+   now raced alone, at the same spot.
+
+**Measured after the fixes** (`tests/evolution.test.ts`, which exists to keep
+it true): a herd climbs `757 → 2570` over 18 generations, and breeding beats
+an equal-budget random control **2195 vs 1544** on average across seeds. The
+elite is preserved every generation (verified by tracking champion ids).
+
+Also fixed on the way: the decode clamps for plate width/height, wheel radius
+and friction now sit inside the bounds the Godot design declares (friction
+could previously reach 2.4 and radius 42, past the design's 2.0 and 40), and
+the auto-run's plateau tolerance went from 6 to 15 dry generations — one
+measured seed improved nothing for 8 generations and then found a 25% better
+car, which the old limit gave up before reaching.
+
 ## The vroomon inspector (2026-09-15) ✅
 
 A window for one vroomon, opened with 🔍 Inspect from the herd book, the

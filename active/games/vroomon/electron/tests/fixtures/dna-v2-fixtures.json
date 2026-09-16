@@ -2,110 +2,118 @@
   {
     "dna": "A3x9K2m7P4zQ",
     "modules": [
+      "R",
       "W",
-      "W",
-      "W",
+      "R",
       "R",
       "R",
       "W"
     ],
     "powertrainModules": [
-      "G",
-      "G",
+      "D",
       "C",
-      "C",
+      "D",
       "G",
-      "D"
+      "G",
+      "C"
     ],
     "positions": [
-      21.6694,
-      52.9988,
-      81.1046,
-      109.3585,
-      142.452,
-      183.1491
+      26.2564,
+      55.9866,
+      78.7682,
+      111.9448,
+      141.1503,
+      170.2126
     ],
     "rectParams": [
-      null,
-      null,
+      {
+        "width": 47.1894,
+        "height": 23.1184,
+        "density": 1.0083
+      },
       null,
       {
-        "width": 26,
-        "height": 30.0633,
-        "density": 0.8339
+        "width": 33.0504,
+        "height": 19.1146,
+        "density": 0.8501
       },
       {
-        "width": 43.3624,
-        "height": 18.916,
-        "density": 0.9638
+        "width": 44.8892,
+        "height": 23.0286,
+        "density": 0.9941
+      },
+      {
+        "width": 24.7369,
+        "height": 19.6664,
+        "density": 0.7309
       },
       null
     ],
     "wheelParams": [
+      null,
       {
-        "radius": 21.6694,
-        "friction": 1.3696,
-        "motorPower": 84.8377
-      },
-      {
-        "radius": 16.5373,
-        "friction": 1.6904,
-        "motorPower": 78.831
-      },
-      {
-        "radius": 17.7381,
-        "friction": 1.6097,
-        "motorPower": 99.9893
+        "radius": 10,
+        "friction": 1.6529,
+        "motorPower": 30.1581
       },
       null,
       null,
+      null,
       {
-        "radius": 25.9907,
-        "friction": 1.5926,
-        "motorPower": 82.4889
+        "radius": 22.502,
+        "friction": 1.9185,
+        "motorPower": 127.7592
       }
     ],
     "powertrainParams": [
       {
-        "gearRatio": 1.1067,
-        "efficiency": 0.8859
+        "gearRatio": 0.7009,
+        "efficiency": 0.8572
       },
       {
-        "gearRatio": 1.6305,
-        "efficiency": 0.8483
+        "gearRatio": 1.2959,
+        "efficiency": 0.9828
       },
       {
-        "gearRatio": 1.1868,
-        "efficiency": 0.9582
+        "gearRatio": 1.0711,
+        "efficiency": 0.8873
       },
       {
-        "gearRatio": 0.6015,
-        "efficiency": 0.9579
+        "gearRatio": 1.1537,
+        "efficiency": 0.872
       },
       {
-        "gearRatio": 1.5817,
-        "efficiency": 0.8888
+        "gearRatio": 1.4857,
+        "efficiency": 0.9503
       },
       {
-        "gearRatio": 1.2616,
-        "efficiency": 0.927
+        "gearRatio": 1.3532,
+        "efficiency": 0.9484
       }
     ],
     "connectors": [
       {
+        "i": 2,
+        "j": 3,
+        "angleDeg": -18.2286,
+        "stiffnessK": 1.6423,
+        "dampingC": 0.3566,
+        "slackDeg": 2.9203
+      },
+      {
         "i": 3,
         "j": 4,
-        "angleDeg": -17.0059,
-        "stiffnessK": 0.2335,
-        "dampingC": 0.4103,
-        "slackDeg": 2.6619
+        "angleDeg": -19.3327,
+        "stiffnessK": 0.4479,
+        "dampingC": 0.2389,
+        "slackDeg": 1.5868
       }
     ],
     "globals": {
-      "comShift": -2.4181,
-      "dampingLinear": 0.1017,
-      "dampingAngular": 0.1797,
-      "temperature": 0.7319
+      "comShift": 0.4978,
+      "dampingLinear": 0.0491,
+      "dampingAngular": 0.2023,
+      "temperature": 1.3256
     }
   },
   {
@@ -114,98 +122,107 @@
       "R",
       "W",
       "R",
-      "W",
       "R",
-      "W"
+      "W",
+      "R"
     ],
     "powertrainModules": [
-      "D",
       "C",
       "G",
       "D",
       "G",
-      "G"
+      "G",
+      "C"
     ],
     "positions": [
-      26.4995,
-      63.7226,
-      97.3276,
-      133.9335,
-      172.5952,
-      215.6196
+      18.4551,
+      52.8766,
+      91.0204,
+      131.2368,
+      172.8143,
+      215.5046
     ],
     "rectParams": [
       {
-        "width": 51.8381,
-        "height": 12,
-        "density": 0.625
+        "width": 35.0755,
+        "height": 30.2314,
+        "density": 0.6794
       },
       null,
       {
-        "width": 41.9297,
-        "height": 26.4285,
-        "density": 1.2658
+        "width": 44.2659,
+        "height": 19.1965,
+        "density": 0.8598
+      },
+      {
+        "width": 48.4322,
+        "height": 23.3285,
+        "density": 0.8249
       },
       null,
       {
-        "width": 40.592,
-        "height": 29.7636,
-        "density": 0.5634
-      },
-      null
+        "width": 46.8449,
+        "height": 29.5492,
+        "density": 0.8056
+      }
     ],
     "wheelParams": [
       null,
       {
-        "radius": 18.8945,
-        "friction": 1.6084,
-        "motorPower": 85.941
+        "radius": 23.5223,
+        "friction": 1.5033,
+        "motorPower": 2.1678
       },
       null,
-      {
-        "radius": 22.5541,
-        "friction": 1.3603,
-        "motorPower": 91.3042
-      },
       null,
       {
-        "radius": 27.8745,
-        "friction": 1.226,
-        "motorPower": 141.3516
-      }
+        "radius": 24.6545,
+        "friction": 1.5717,
+        "motorPower": 63.7102
+      },
+      null
     ],
     "powertrainParams": [
       {
-        "gearRatio": 0.9376,
-        "efficiency": 0.8735
+        "gearRatio": 1.1019,
+        "efficiency": 0.9347
       },
       {
-        "gearRatio": 0.6985,
-        "efficiency": 0.959
+        "gearRatio": 1.301,
+        "efficiency": 0.8929
       },
       {
-        "gearRatio": 0.953,
-        "efficiency": 0.9973
+        "gearRatio": 0.6259,
+        "efficiency": 0.939
       },
       {
-        "gearRatio": 1.3279,
-        "efficiency": 0.9839
+        "gearRatio": 0.6689,
+        "efficiency": 0.9301
       },
       {
-        "gearRatio": 0.9147,
+        "gearRatio": 1.382,
         "efficiency": 1
       },
       {
-        "gearRatio": 1.3792,
-        "efficiency": 0.8816
+        "gearRatio": 0.604,
+        "efficiency": 0.9089
       }
     ],
-    "connectors": [],
+    "connectors": [
+      {
+        "i": 2,
+        "j": 3,
+        "angleDeg": 12.2132,
+        "stiffnessK": 1.0278,
+        "dampingC": 0.3472,
+        "slackDeg": 0.9444
+      }
+    ],
     "globals": {
-      "comShift": -5.6598,
+      "comShift": -3.1025,
       "dampingLinear": 0.01,
-      "dampingAngular": 0.1926,
-      "temperature": 1.1203
+      "dampingAngular": 0.2035,
+      "temperature": 1.0825
     }
   }
 ]

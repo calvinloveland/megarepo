@@ -72,15 +72,15 @@ describe("single-car drive integrity", () => {
   });
 
   it("keeps every part of a 4-wheel car together", () => {
-    // Build a 4-wheel car explicitly so we know what pieces we expect.
-    const dna = "PXJL5vHwqLo4";
+    // A known four-wheel car: RRWWWW / CGCGDC, with all four wheels driven.
+    const dna = "PNEexlimSimR";
     const vehicle = createMatterVehicle(dna, "Flat");
     const start = snapshotMatterVehicle(vehicle);
     const initialChassisCount = start.chassis.length;
     const initialWheelCount = start.wheels.length;
 
     expect(initialChassisCount).toBeGreaterThan(0);
-    expect(initialWheelCount).toBeGreaterThan(0);
+    expect(initialWheelCount).toBe(4);
     // One rigid body: no joints to hold together, so nothing to come apart.
     expect(vehicle.chassisBodies).toHaveLength(1);
     expect(vehicle.constraints).toHaveLength(0);

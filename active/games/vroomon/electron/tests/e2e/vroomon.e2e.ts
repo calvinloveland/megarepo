@@ -112,24 +112,28 @@ test.describe("vroomon Playwright harness", () => {
     await expect
       .poll(async () => (await readJson<{ dna: string }>(page, "[data-dna-output]")).dna)
       .toBe("aaaaaaaaaaaa");
-    await expect
-      .poll(
-        async () =>
-          (
-            await readJson<{
-              scenarioLabel: string | null;
-              stepCount: number;
-              playbackDurationMs: number | null;
-              wheelCount: number;
-            }>(page, "[data-physics-preview-output]")
-          ),
-      )
-      .toMatchObject({
-        scenarioLabel: "flat-track regression replay",
-        stepCount: 11_000,
-        playbackDurationMs: 12_000,
-        wheelCount: 2,
-      });
+    // The wheel count is a property of the DNA, not of the replay: read it
+    // from the decoder rather than freezing a number the decoder owns.
+    const expectedWheels = await page.evaluate(() => {
+      const decoder = (window as unknown as {
+        vroomon: { decodeDnaV2: (dna: string) => { modules: string[] } };
+      }).vroomon;
+      return decoder
+        .decodeDnaV2("aaaaaaaaaaaa")
+        .modules.filter((module) => module === "W").length;
+    });
+    const preview = await readJson<{
+      scenarioLabel: string | null;
+      stepCount: number;
+      playbackDurationMs: number | null;
+      wheelCount: number;
+    }>(page, "[data-physics-preview-output]");
+    expect(preview).toMatchObject({
+      scenarioLabel: "flat-track regression replay",
+      stepCount: 11_000,
+      playbackDurationMs: 12_000,
+      wheelCount: expectedWheels,
+    });
   });
 
   test("@smoke supports evolution flow buttons end to end", async ({ page }) => {
