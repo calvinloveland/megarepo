@@ -85,8 +85,10 @@ describe("the structure rules", () => {
     const dna = findShape((modules) => !modules.includes("R"));
     const vehicle = createMatterVehicle(dna, "Flat");
     expect(vehicle.wheelBodies.length).toBeGreaterThan(0);
-    expect(vehicle.chassisBodies).toHaveLength(0);
-    expect(vehicle.wheelDriveBodies.every((drive) => drive.motorPower === 0)).toBe(true);
+    // The wheels are one body, but there is no frame for the power to push
+    // against, so nothing is driven.
+    expect(vehicle.driveScale).toBe(0);
+    expect(vehicle.wheelDriveBodies.every((drive) => drive.power === 0)).toBe(true);
     const start = snapshotMatterVehicle(vehicle);
     const end = stepMatterVehicle(vehicle, 900);
     expect(Math.abs(end.centerX - start.centerX)).toBeLessThan(60);

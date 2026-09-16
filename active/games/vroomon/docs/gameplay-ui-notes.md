@@ -842,6 +842,50 @@ gets harder instead of just paying out a Brand:
   dropped new world state (circuit tiers) — it now uses the shared
   serializer.
 
+## The vroomon body: one rigid frame, driven at the wheels (2026-09-15) ✅
+
+Follow-up to the two-path port below. Pinning separate wheel bodies to a
+chassis with zero-length joints turned out to be the wrong shape for Matter:
+holding a car together with joints every frame meant the solver resolved
+small interpenetrations by throwing cars off the ground — measure just how
+badly, and 42% of bodies went airborne, one of them 6,600px up, some sank
+through the floor, and a few hung in the air instead of landing.
+
+The vehicle is now **one rigid body**: every plate and every wheel is a part
+of it, so the chain is literally a chain and nothing can come apart. Drive is
+a force applied *at each wheel the power path reaches*, capped by the speed
+that wheel's power can hold (more engines = faster; a heavy frame = slower;
+a force applied off-centre pitches the car the way real drive does). Wheels
+are drawn rolling by distance travelled, since a rigid part doesn't spin.
+
+Fixes along the way, each found by measurement rather than by eye:
+- **`Body.create({ parts })` copies the parent's properties onto the parts**,
+  so per-part friction is impossible in one body — and Matter's resolver
+  reads `parentA.friction` anyway, never the part's. Grippy wheels and draggy
+  plates at once can't be expressed in Matter, so the frame's cost is
+  modelled explicitly instead (see below).
+- **Matter's velocities are per step, not per second.** The drive's terminal
+  speed and the speed clamp were both comparing the wrong units, so neither
+  limited anything.
+- **Obstacles used to start at x=600** while a 12-module car is ~1000px long,
+  so long cars spawned *inside* terrain and were fired off the track. The
+  first obstacle now sits at 1600 with 500px spacing, and the floor is 400px
+  thick so nobody tunnels through it.
+- A speed clamp plus a rollback of any step that moves a body further than a
+  frame at top speed could, so a bad frame can never become a rocket.
+
+**What the frame costs** (`SIM_TUNING` in `src/simulation/matter-simulation.ts`,
+one object so tuning is one edit and can be measured): drive is scaled by
+`drivenWheels / wheels` divided by the cost of plates out of line and of a
+hull riding below its own wheels. So the design's rules are the physics:
+an arch of plates on driven wheels runs; a folded run of plates drags; a
+frame with no cylinder before a wheel doesn't move at all.
+
+Measured over random 12-module DNA on Flat, 3-second races (the race window):
+**23% are competitive** (>300px), 68% creep somewhere, none launch, and the
+best does ~1,200px. Good cars still reach ~4,300px in a 30-second run, so the
+circuit's score scale is unchanged.
+
 ## The vroomon body: two-path chains (2026-09-14) ✅
 
 Ported the original design out of the legacy Python prototype

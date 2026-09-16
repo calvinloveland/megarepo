@@ -28,15 +28,77 @@ export interface VehicleSnapshot {
   centerY: number;
 }
 
+/** A wheel the power path reaches: where it sits and how hard it pushes. */
+export interface WheelDrive {
+  index: number;
+  offsetX: number;
+  offsetY: number;
+  radius: number;
+  power: number;
+  friction: number;
+}
+
+/**
+ * The physics knobs worth arguing about. The design's bargain is that most
+ * combinations don't work but some do, and that a dud stays tame — how far a
+ * car gets should be a property of its own DNA, not of the solver throwing
+ * it. One object, so tuning is one edit and can be measured.
+ */
+export const SIM_TUNING = {
+  /** Hard ceiling on body speed (px/s), so no frame can fire a car away. */
+  maxSpeed: 1600,
+  /** Rims start this far below the ground line and settle onto it. */
+  wheelSpawnClearance: 6,
+  /**
+   * Matter resolves penetration by moving bodies directly with a tolerance of
+   * a fraction of a pixel, so a wheel that dips a hair into the dirt gets
+   * shoved out hard enough to toss the car. Give vehicle bodies some slop.
+   */
+  vehicleSlop: 2,
+  /** Solver passes per frame (Matter's defaults are 6/4). */
+  positionIterations: 12,
+  velocityIterations: 10,
+  constraintIterations: 4,
+  /** How much velocity a rolled-back step keeps. */
+  rollbackVelocityScale: 0.25,
+  /** How thick the floor is: nobody tunnels through a deep one. */
+  groundThickness: 400,
+  /** How much a plate out of line costs (sum of tilts in degrees / 90). */
+  tiltCost: 3,
+  /** And how much it costs to have the hull riding below its own wheels. */
+  hullCost: 4,
+  /** Drive force per unit of power actually delivered to a wheel. */
+  forcePerPower: 0.00045,
+  /** And the top speed that power can hold, in px/s per unit of power. */
+  terminalSpeedPerPower: 0.9,
+  /** The mass at which that top speed counts as unencumbered. */
+  referenceMass: 1,
+};
+
+/** Milliseconds in one physics step at the game's frame rate. */
+const STEP_MS = 1000 / 60;
+
+const TERRAIN_OBSTACLE_START_X = 1600;
+const TERRAIN_OBSTACLE_SPACING = 500;
+
 export interface MatterVehicle {
   engine: Engine;
   terrain: TerrainPresetDefinition;
   decoded: DecodedDnaV2;
   terrainBodies: Body[];
+  /** The one rigid body: every plate and every wheel is a part of it. */
   chassisBodies: Body[];
+  /** The circle parts, in chain order. */
   wheelBodies: Body[];
+  /** Always empty: a rigid vehicle needs no joints. */
   constraints: Constraint[];
-  wheelDriveBodies: Array<{ wheel: Body; motorPower: number; friction: number }>;
+  /**
+   * What the frame lets the powertrain actually do: 1 for a tidy arch riding
+   * on driven wheels, toward 0 for a folded run of plates that drags.
+   */
+  driveScale: number;
+  /** The power path, wheel by wheel: where each sits and how hard it pushes. */
+  wheelDriveBodies: WheelDrive[];
 }
 
 export interface RaceVehicleSnapshot extends VehicleSnapshot {
@@ -100,7 +162,7 @@ export function createMatterVehicle(
   const engine = createEngine();
   const decoded = decodeDnaV2(dna);
   const terrainBodies = buildTerrainBodies(terrain);
-  const { chassisBodies, wheelBodies, constraints, wheelDriveBodies } =
+  const { chassisBodies, wheelBodies, constraints, wheelDriveBodies, driveScale } =
     buildVehicleBodies(decoded, 220, terrain.groundHeight);
 
   Composite.add(engine.world, [
@@ -119,6 +181,7 @@ export function createMatterVehicle(
     wheelBodies,
     constraints,
     wheelDriveBodies,
+    driveScale,
   };
 }
 
@@ -158,6 +221,7 @@ export function createMatterRace(
       wheelBodies: builtVehicle.wheelBodies,
       constraints: builtVehicle.constraints,
       wheelDriveBodies: builtVehicle.wheelDriveBodies,
+      driveScale: builtVehicle.driveScale,
       id: vehicle.id,
       dna: vehicle.dna,
       initialSnapshot: snapshotVehicleBodies(
@@ -183,8 +247,11 @@ export function stepMatterVehicle(
   deltaMs = 1000 / 60,
 ): VehicleSnapshot {
   for (let index = 0; index < stepCount; index += 1) {
-    applyWheelDrive(vehicle.wheelDriveBodies);
+    applyWheelDrive(vehicle);
+    clampVehicleSpeeds(vehicle);
+    const before = capturePositions(vehicle);
     MatterEngine.update(vehicle.engine, deltaMs);
+    clampStepTravel(vehicle, before, deltaMs);
   }
 
   return snapshotMatterVehicle(vehicle);
@@ -212,8 +279,11 @@ export function simulateMatterVehicleFrames(
   ];
 
   for (let index = 0; index < stepCount; index += 1) {
-    applyWheelDrive(vehicle.wheelDriveBodies);
+    applyWheelDrive(vehicle);
+    clampVehicleSpeeds(vehicle);
+    const before = capturePositions(vehicle);
     MatterEngine.update(vehicle.engine, deltaMs);
+    clampStepTravel(vehicle, before, deltaMs);
 
     if ((index + 1) % captureEvery === 0 || index === stepCount - 1) {
       frames.push({
@@ -240,9 +310,14 @@ export function simulatePopulationRace(
 
   for (let index = 0; index < stepCount; index += 1) {
     for (const vehicle of race.vehicles) {
-      applyWheelDrive(vehicle.wheelDriveBodies);
+      applyWheelDrive(vehicle);
+      clampVehicleSpeeds(vehicle);
     }
+    const before = race.vehicles.map((vehicle) => capturePositions(vehicle));
     MatterEngine.update(race.engine, deltaMs);
+    race.vehicles.forEach((vehicle, index) =>
+      clampStepTravel(vehicle, before[index]!, deltaMs),
+    );
   }
 
   return race.vehicles.map((vehicle) => {
@@ -283,9 +358,14 @@ export function simulatePopulationRaceFrames(
 
   for (let index = 0; index < stepCount; index += 1) {
     for (const vehicle of race.vehicles) {
-      applyWheelDrive(vehicle.wheelDriveBodies);
+      applyWheelDrive(vehicle);
+      clampVehicleSpeeds(vehicle);
     }
+    const before = race.vehicles.map((vehicle) => capturePositions(vehicle));
     MatterEngine.update(race.engine, deltaMs);
+    race.vehicles.forEach((vehicle, index) =>
+      clampStepTravel(vehicle, before[index]!, deltaMs),
+    );
 
     if ((index + 1) % captureEvery === 0 || index === stepCount - 1) {
       frames.push({
@@ -298,36 +378,49 @@ export function simulatePopulationRaceFrames(
   return frames;
 }
 
-export function snapshotMatterVehicle(vehicle: MatterVehicle): VehicleSnapshot {
-  // The chassis is a compound body: snapshot its PLATES (parts[0] is the
-  // body itself, the rest are the attached rectangles) so the car draws as
-  // the shape its DNA describes instead of one grey slab.
-  const chassis = vehicle.chassisBodies.flatMap((body) => {
+/**
+ * The pieces to draw: a rigid vehicle is one compound body, so expand it into
+ * its parts — rectangles are plates, circles are wheels.
+ */
+function snapshotState(chassisBodies: Body[], wheelBodies: Body[]): VehicleSnapshot {
+  const pieces = new Set<Body>();
+  for (const body of chassisBodies) {
     const parts = (body as unknown as { parts?: Body[] }).parts ?? [];
-    const plates = parts.length > 1 ? parts.slice(1) : [body];
-    return plates.map(snapshotBody);
-  });
-  const wheels = vehicle.wheelBodies.map(snapshotBody);
-  const allBodies = [...chassis, ...wheels];
-  const centerX =
-    allBodies.reduce((sum, body) => sum + body.x, 0) / Math.max(allBodies.length, 1);
-  const centerY =
-    allBodies.reduce((sum, body) => sum + body.y, 0) / Math.max(allBodies.length, 1);
+    if (parts.length > 1) {
+      for (const part of parts.slice(1)) {
+        pieces.add(part);
+      }
+    } else {
+      pieces.add(body);
+    }
+  }
+  for (const wheel of wheelBodies) {
+    pieces.add(wheel);
+  }
 
-  return {
-    chassis,
-    wheels,
-    centerX,
-    centerY,
-  };
+  const isCircle = (body: Body): boolean =>
+    typeof body.circleRadius === "number" && body.circleRadius > 0;
+  const all = [...pieces];
+  const chassis = all.filter((body) => !isCircle(body)).map(snapshotBody);
+  const wheels = all.filter(isCircle).map(snapshotBody);
+  const centerX =
+    all.reduce((sum, body) => sum + body.position.x, 0) / Math.max(all.length, 1);
+  const centerY =
+    all.reduce((sum, body) => sum + body.position.y, 0) / Math.max(all.length, 1);
+
+  return { chassis, wheels, centerX, centerY };
+}
+
+export function snapshotMatterVehicle(vehicle: MatterVehicle): VehicleSnapshot {
+  return snapshotState(vehicle.chassisBodies, vehicle.wheelBodies);
 }
 
 function buildTerrainBodies(terrain: TerrainPresetDefinition): Body[] {
   const ground = Bodies.rectangle(
     terrain.groundLength / 2,
-    terrain.groundHeight + 40,
+    terrain.groundHeight + SIM_TUNING.groundThickness / 2,
     terrain.groundLength,
-    80,
+    SIM_TUNING.groundThickness,
     {
       isStatic: true,
       friction: terrain.friction,
@@ -350,7 +443,10 @@ function buildTerrainBodies(terrain: TerrainPresetDefinition): Body[] {
         terrain.obstacleHeightBase + terrain.obstacleHeightStep * index;
       bodies.push(
         Bodies.rectangle(
-          600 + index * 300,
+          // The first obstacle sits past the longest chain (a 12-module body
+          // is around 1000px long), otherwise long cars spawn inside an
+          // obstacle and the solver fires them off the track.
+          TERRAIN_OBSTACLE_START_X + index * TERRAIN_OBSTACLE_SPACING,
           terrain.groundHeight - height / 2,
           terrain.obstacleWidth,
           height,
@@ -378,136 +474,135 @@ function buildVehicleBodies(
   chassisBodies: Body[];
   wheelBodies: Body[];
   constraints: Constraint[];
-  wheelDriveBodies: Array<{ wheel: Body; motorPower: number; friction: number }>;
+  wheelDriveBodies: WheelDrive[];
+  driveScale: number;
 } {
-  const wheelBodies: Body[] = [];
-  const constraints: Constraint[] = [];
-  const wheelDriveBodies: Array<{ wheel: Body; motorPower: number; friction: number }> = [];
   const collisionFilter = {
     category: VEHICLE_COLLISION_CATEGORY,
     mask: GROUND_COLLISION_CATEGORY,
   };
 
-  // ---- Structure path: ONE rigid chassis ----
-  // Every rectangle in the chain is a plate on the same compound body, so the
-  // frame behaves like a frame. Plates keep their own tilt, which is what
-  // makes a run of them an arch — or a folded mess that can't roll.
-  // How far below the origin the lowest bit of the hull reaches: a tilted
-  // plate drops its corner by half its width, so an arch sits high on its
-  // wheels and a folded mess drags no matter what.
-  const plateDrop =
-    decoded.rectParams.filter(Boolean).length > 0
-      ? Math.max(
-          ...decoded.rectParams
-            .filter((rectangle): rectangle is NonNullable<typeof rectangle> =>
-              Boolean(rectangle),
-            )
-            .map((rectangle) => {
-              const tilt = (Math.abs(rectangle.angleDeg) * Math.PI) / 180;
-              return (
-                (rectangle.height / 2) * Math.cos(tilt) +
-                (rectangle.width / 2) * Math.sin(tilt)
-              );
-            }),
-        )
-      : 12;
-
-  const plates: Body[] = [];
+  // ---- Structure path ----
+  // A tilted plate drops its corners, so the hull's lowest point says how
+  // high to sit: an arch of plates rides high on its wheels, a folded run of
+  // them drags. That single number is what makes "weird angle" cost.
+  const drops = decoded.rectParams
+    .filter((rectangle): rectangle is NonNullable<typeof rectangle> => Boolean(rectangle))
+    .map((rectangle) => {
+      const tilt = (Math.abs(rectangle.angleDeg) * Math.PI) / 180;
+      return (rectangle.height / 2) * Math.cos(tilt) + (rectangle.width / 2) * Math.sin(tilt);
+    });
+  const plateDrop = drops.length > 0 ? Math.max(...drops) : 12;
   const spawnY = groundY - 3 - plateDrop;
+
+  const parts: Body[] = [];
+  const wheelParts: Body[] = [];
+  const wheelDrives: WheelDrive[] = [];
+  const hasStructure = decoded.modules.includes("R");
+
   for (const [index, module] of decoded.modules.entries()) {
-    if (module !== "R") {
-      continue;
-    }
-    const rectangle = decoded.rectParams[index];
-    if (!rectangle) {
-      continue;
-    }
-    plates.push(
-      Bodies.rectangle(
-        originX + decoded.positions[index]!,
-        spawnY,
-        rectangle.width,
-        rectangle.height,
-        {
+    const x = originX + decoded.positions[index]!;
+
+    if (module === "R") {
+      const rectangle = decoded.rectParams[index];
+      if (!rectangle) {
+        continue;
+      }
+      parts.push(
+        Bodies.rectangle(x, spawnY, rectangle.width, rectangle.height, {
           density: rectangle.density * 0.001,
           angle: (rectangle.angleDeg * Math.PI) / 180,
           chamfer: { radius: 3 },
+          slop: SIM_TUNING.vehicleSlop,
           collisionFilter,
-        } satisfies IChamferableBodyDefinition,
-      ),
-    );
-  }
-
-  const originY = spawnY;
-
-  const chassis =
-    plates.length > 0
-      ? MatterBody.create({
-          parts: plates,
-          frictionAir: decoded.globals.dampingLinear,
-          collisionFilter,
-        })
-      : null;
-
-  // ---- Power path + wheels ----
-  // Each wheel is its own body, pinned by a zero-length joint at its CENTRE
-  // (the design's "join at the centre of the wheels"), and driven by whatever
-  // the powertrain chain delivers to its index. A wheel with no cylinder
-  // upstream gets no power and simply sits there.
-  for (const [index, module] of decoded.modules.entries()) {
-    if (module !== "W") {
+        } satisfies IChamferableBodyDefinition),
+      );
       continue;
     }
+
     const wheel = decoded.wheelParams[index];
     if (!wheel) {
       continue;
     }
-    const wheelX = originX + decoded.positions[index]!;
-    // Sit the wheel rims just below the lowest point of the hull so the car
-    // rides on its wheels instead of dragging it along the ground.
-    const wheelY = originY + plateDrop + 3 - wheel.radius;
-    const wheelBody = Bodies.circle(wheelX, wheelY, wheel.radius, {
+    // Rims settle onto the ground from just below it, rather than starting in
+    // contact: a body that spawns touching a surface is one the solver may
+    // resolve by shoving it away.
+    const wheelY = spawnY + plateDrop + 3 - wheel.radius - SIM_TUNING.wheelSpawnClearance;
+    const wheelPart = Bodies.circle(x, wheelY, wheel.radius, {
       density: 0.0006,
       friction: wheel.friction,
       frictionAir: decoded.globals.dampingAngular,
+      slop: SIM_TUNING.vehicleSlop,
       collisionFilter,
     });
-    wheelBodies.push(wheelBody);
+    parts.push(wheelPart);
+    wheelParts.push(wheelPart);
 
-    // Only a wheel joined to a chassis can push anything: with no structure
-    // the herd is loose parts (the design's "wheel wheel wheel has nothing
-    // to go anywhere"). No chassis, no drive.
+    // A wheel with no cylinder upstream is along for the ride.
     const drive = wheelDriveForIndex(decoded, index);
-    wheelDriveBodies.push({
-      wheel: wheelBody,
-      motorPower: chassis ? drive.power : 0,
+    wheelDrives.push({
+      index,
+      offsetX: x,
+      offsetY: wheelY,
+      radius: wheel.radius,
+      power: hasStructure ? drive.power : 0,
       friction: wheel.friction,
     });
+  }
 
-    if (chassis) {
-      constraints.push(
-        MatterConstraint.create({
-          bodyA: chassis,
-          // pointA is relative to the chassis's centre of mass.
-          pointA: {
-            x: wheelX - chassis.position.x,
-            y: wheelY - chassis.position.y,
-          },
-          bodyB: wheelBody,
-          pointB: { x: 0, y: 0 },
-          length: 0,
-          stiffness: 1,
-          damping: 0.05,
-        }),
-      );
+  // ---- One rigid body ----
+  // Every plate and every wheel is a part of the SAME body: a frame with
+  // wheels joined at their centres. Holding separate wheel bodies on pins
+  // asked the solver to keep a car together every frame, and it resolved that
+  // by throwing cars off the ground instead.
+  const chassis =
+    parts.length > 0
+      ? MatterBody.create({
+          parts,
+          frictionAir: decoded.globals.dampingLinear,
+          slop: SIM_TUNING.vehicleSlop,
+          collisionFilter,
+        })
+      : null;
+
+  if (chassis) {
+    // Drive is applied AT the wheel that delivers it, so where a driven wheel
+    // sits along the chain changes how the car behaves.
+    for (const drive of wheelDrives) {
+      drive.offsetX -= chassis.position.x;
+      drive.offsetY -= chassis.position.y;
     }
   }
 
+  // ---- What the frame costs ----
+  // Matter takes friction from a body rather than from its parts, so one
+  // rigid compound cannot have grippy wheels and draggy plates at the same
+  // time. Model the frame's cost from the facts the design talks about: how
+  // far the plates are out of line, whether the hull rides on its wheels or
+  // scrubs along the dirt, and how much of the herd is actually driven.
+  const wheelCount = decoded.modules.filter((module) => module === "W").length;
+  const drivenCount = wheelDrives.filter((drive) => drive.power > 0).length;
+  const tiltCost =
+    decoded.rectParams
+      .filter((rectangle): rectangle is NonNullable<typeof rectangle> => Boolean(rectangle))
+      .reduce((sum, rectangle) => sum + Math.abs(rectangle.angleDeg), 0) / 90;
+  const biggestWheel = Math.max(
+    0,
+    ...decoded.wheelParams
+      .filter((wheel): wheel is NonNullable<typeof wheel> => Boolean(wheel))
+      .map((wheel) => wheel.radius),
+  );
+  const hullCost = clampNumber((plateDrop - biggestWheel) / 40, 0, 1.5);
+  const traction = wheelCount > 0 ? drivenCount / wheelCount : 0;
+  const driveScale =
+    traction / (1 + tiltCost * SIM_TUNING.tiltCost + hullCost * SIM_TUNING.hullCost);
+
   return {
     chassisBodies: chassis ? [chassis] : [],
-    wheelBodies,
-    constraints,
-    wheelDriveBodies,
+    wheelBodies: wheelParts,
+    constraints: [],
+    wheelDriveBodies: wheelDrives,
+    driveScale,
   };
 }
 
@@ -531,20 +626,7 @@ function snapshotVehicleBodies(
   chassisBodies: Body[],
   wheelBodies: Body[],
 ): VehicleSnapshot {
-  const chassis = chassisBodies.map(snapshotBody);
-  const wheels = wheelBodies.map(snapshotBody);
-  const allBodies = [...chassis, ...wheels];
-  const centerX =
-    allBodies.reduce((sum, body) => sum + body.x, 0) / Math.max(allBodies.length, 1);
-  const centerY =
-    allBodies.reduce((sum, body) => sum + body.y, 0) / Math.max(allBodies.length, 1);
-
-  return {
-    chassis,
-    wheels,
-    centerX,
-    centerY,
-  };
+  return snapshotState(chassisBodies, wheelBodies);
 }
 
 function snapshotRaceVehicles(race: MatterRace): RaceVehicleFrameSnapshot[] {
@@ -564,36 +646,124 @@ function snapshotRaceVehicles(race: MatterRace): RaceVehicleFrameSnapshot[] {
 function createEngine(): Engine {
   return MatterEngine.create({
     gravity: { x: 0, y: 1, scale: 0.0012 },
+    // More solver passes than the defaults: a vehicle is a body resting on
+    // the ground with a lot of parts, and a half-solved frame is what makes
+    // bodies pop off the surface.
+    positionIterations: SIM_TUNING.positionIterations,
+    velocityIterations: SIM_TUNING.velocityIterations,
+    constraintIterations: SIM_TUNING.constraintIterations,
   });
 }
 
-/** The legacy prototype drove each wheel with a SimpleMotor: spin toward a
- * target rate, but never with more than the torque the powertrain delivered.
- * Matter has no motors, so model one — a proportional torque chase, clamped
- * to the available torque. Teleporting angular velocity instead (the old
- * approach) yanked the rigid chassis into a spin. */
-function applyWheelDrive(
-  wheelDriveBodies: Array<{ wheel: Body; motorPower: number; friction: number }>,
-): void {
-  for (const drive of wheelDriveBodies) {
-    if (drive.motorPower <= 0) {
-      continue; // no cylinder upstream: this wheel is dead weight
+/**
+ * Drive the rigid body with forces applied at each wheel the power path
+ * reaches. The legacy prototype spun wheel bodies with a SimpleMotor and a
+ * torque ceiling; the equivalent for one rigid body is a force at that
+ * wheel's own position, capped by the speed its power can hold — so more
+ * engines means a faster car, a heavy frame accelerates slower, and a force
+ * applied off-centre pitches the car the way real drive does.
+ */
+function applyWheelDrive(vehicle: MatterVehicle): void {
+  const body = vehicle.chassisBodies[0];
+  if (!body || vehicle.driveScale <= 0) {
+    return;
+  }
+  const drives = vehicle.wheelDriveBodies.filter((drive) => drive.power > 0);
+  if (drives.length === 0) {
+    return; // nothing reaches a wheel: the car only moves if the ground does
+  }
+
+  const direction = Math.cos(body.angle) >= 0 ? 1 : -1;
+  // Matter works in pixels per STEP; the tuning is in pixels per SECOND, so
+  // the comparison has to be converted or the limit does nothing at all.
+  const forwardSpeed = body.velocity.x * (1000 / STEP_MS) * direction;
+  const totalPower = drives.reduce((sum, drive) => sum + drive.power, 0);
+  // Power has to move the steel it is bolted to: the same engine in a heavier
+  // frame holds a lower speed.
+  const heft = Math.max(0.6, Math.sqrt(body.mass / SIM_TUNING.referenceMass));
+  const terminalSpeed = Math.min(
+    SIM_TUNING.maxSpeed * 0.7,
+    (totalPower * SIM_TUNING.terminalSpeedPerPower) / heft,
+  );
+  const headroom = clampNumber(1 - forwardSpeed / Math.max(terminalSpeed, 1), 0, 1);
+  if (headroom <= 0) {
+    return; // already at the speed this powertrain can hold
+  }
+
+  for (const drive of drives) {
+    const share = drive.power / totalPower;
+    const offset = { x: drive.offsetX * direction, y: drive.offsetY };
+    const point = {
+      x: body.position.x + offset.x * Math.cos(body.angle) - offset.y * Math.sin(body.angle),
+      y: body.position.y + offset.x * Math.sin(body.angle) + offset.y * Math.cos(body.angle),
+    };
+    MatterBody.applyForce(body, point, {
+      x:
+        drive.power *
+        share *
+        SIM_TUNING.forcePerPower *
+        headroom *
+        vehicle.driveScale *
+        direction,
+      y: 0,
+    });
+  }
+}
+
+function clampVehicleSpeeds(vehicle: MatterVehicle): void {
+  if (vehicle.chassisBodies.length === 0) {
+    // Loose wheels are still parts of one body, but guard anyway.
+    return;
+  }
+  for (const body of vehicle.chassisBodies) {
+    // Velocity is per step; the ceiling is per second.
+    const speed = Math.hypot(body.velocity.x, body.velocity.y) * (1000 / STEP_MS);
+    if (speed > SIM_TUNING.maxSpeed) {
+      const scale = SIM_TUNING.maxSpeed / speed;
+      MatterBody.setVelocity(body, {
+        x: body.velocity.x * scale,
+        y: body.velocity.y * scale,
+      });
     }
-    const radius = drive.wheel.circleRadius ?? 18;
-    // The legacy rate was negative in pymunk's y-UP world (clockwise = roll
-    // right). Matter is y-DOWN, so rolling right is a POSITIVE spin — the
-    // naive port drove every car backwards.
-    const targetRate = (drive.motorPower / radius) * 0.14;
-    const inertia = drive.wheel.inertia || 1;
-    const error = targetRate - drive.wheel.angularVelocity;
-    // Torque ceiling scales with the power the powertrain actually delivered
-    // (a weak shaft can't spin a big wheel, a strong engine can).
-    const availableTorque = 0.4 + drive.motorPower * 0.06;
-    const torque = clampNumber(error * inertia * 0.8, -availableTorque, availableTorque);
-    MatterBody.setAngularVelocity(
-      drive.wheel,
-      drive.wheel.angularVelocity + torque / inertia,
-    );
+  }
+}
+
+type PositionSnapshot = Map<Body, { x: number; y: number }>;
+
+function capturePositions(vehicle: MatterVehicle): PositionSnapshot {
+  const snapshot: PositionSnapshot = new Map();
+  for (const body of [...vehicle.chassisBodies, ...vehicle.wheelBodies]) {
+    snapshot.set(body, { x: body.position.x, y: body.position.y });
+  }
+  return snapshot;
+}
+
+/**
+ * A hard ceiling on how far a body may travel in one step. Matter resolves
+ * interpenetration by moving bodies directly, which no velocity limit can
+ * catch — so a badly spawned or badly landed car could be thrown into orbit.
+ * A step that breaks the ceiling is rolled back whole, because clamping it
+ * part-way could still leave a body half through the floor.
+ */
+function clampStepTravel(
+  vehicle: MatterVehicle,
+  before: PositionSnapshot,
+  deltaMs: number,
+): void {
+  // 25% headroom over the top speed, so honest fast motion is never touched
+  // and only outright teleports get pulled back.
+  const maxTravel = ((SIM_TUNING.maxSpeed * deltaMs) / 1000) * 1.25;
+  for (const [body, start] of before) {
+    const dx = body.position.x - start.x;
+    const dy = body.position.y - start.y;
+    if (Math.hypot(dx, dy) <= maxTravel) {
+      continue;
+    }
+    MatterBody.setPosition(body, { x: start.x, y: start.y });
+    MatterBody.setVelocity(body, {
+      x: body.velocity.x * SIM_TUNING.rollbackVelocityScale,
+      y: body.velocity.y * SIM_TUNING.rollbackVelocityScale,
+    });
   }
 }
 

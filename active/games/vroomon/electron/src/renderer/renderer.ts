@@ -1,4 +1,5 @@
 import type { DecodedDnaV2 } from "../shared/dna-v2.js";
+import { describeVehicle } from "../shared/blueprint.js";
 import type {
   AppModeId,
   HallOfFame,
@@ -1235,6 +1236,9 @@ function renderApp(): void {
       : rendererState.mode === "menu"
         ? cachedAttractViewData(terrain.name)
         : null;
+  if (rendererState.mode === "test-drive" && testDriveViewData) {
+    renderBlueprint(testDriveViewData.decoded);
+  }
 
   renderDiagnostics(terrain, evolutionViewData, testDriveViewData);
   renderStage(terrain, evolutionViewData, testDriveViewData);
@@ -1430,6 +1434,26 @@ function renderEvolutionStage(
     ? `Click a racer to pin the camera. ${leader.id} is currently on top.`
     : "Run a generation to inspect the active race field.";
   renderScoreChart();
+}
+
+function renderBlueprint(decoded: DecodedDnaV2): void {
+  const structure = document.querySelector<HTMLElement>("[data-blueprint-structure]");
+  const power = document.querySelector<HTMLElement>("[data-blueprint-power]");
+  const drive = document.querySelector<HTMLElement>("[data-blueprint-drive]");
+  const verdict = document.querySelector<HTMLElement>("[data-blueprint-verdict]");
+  if (!structure || !power || !drive || !verdict) {
+    return;
+  }
+  const blueprint = describeVehicle(decoded);
+  structure.textContent = blueprint.structure;
+  power.textContent = blueprint.power;
+  drive.textContent =
+    blueprint.wheels === 0
+      ? "—"
+      : `${blueprint.driven.length}/${blueprint.wheels} driven${
+          blueprint.driven.length > 0 ? ` · ${blueprint.driven[0]!.power} pwr` : ""
+        }`;
+  verdict.textContent = blueprint.verdict;
 }
 
 function renderTestDriveStage(
@@ -2806,7 +2830,19 @@ function renderViewportEntity(
   ].join("");
   const bodyMarkup = [
     ...entity.snapshot.chassis.map((body) => renderViewportBody(body, view, accent.fill, accent.stroke)),
-    ...entity.snapshot.wheels.map((body) => renderViewportBody(body, view, accent.stroke, accent.fill)),
+    // Wheels are rigid parts now, so they don't rotate on their own: roll
+    // them by how far the car has travelled, which is what a wheel does.
+    ...entity.snapshot.wheels.map((body) =>
+      renderViewportBody(
+        body,
+        view,
+        accent.stroke,
+        accent.fill,
+        entity.initialCenterX === undefined
+          ? 0
+          : (entity.snapshot.centerX - entity.initialCenterX) / Math.max(4, body.radius ?? 8),
+      ),
+    ),
   ].join("");
   const travel =
     entity.initialCenterX !== undefined
@@ -2865,6 +2901,7 @@ function renderViewportBody(
   view: ViewportWindow,
   fill: string,
   stroke: string,
+  spin = 0,
 ): string {
   const x = toSvgX(view, body.x);
   const y = toSvgY(view, body.y);
@@ -2872,9 +2909,14 @@ function renderViewportBody(
   if (body.shape === "circle") {
     const radius = (body.radius ?? 8) * ((view.scaleX + view.scaleY) / 2);
     // Tire (dark) + hub (accent) so wheels read as wheels, not pale blobs.
+    // The spoke is what makes the roll visible.
+    const hub = Math.max(2, radius * 0.55);
+    const spokeX = x + Math.cos(spin) * hub;
+    const spokeY = y + Math.sin(spin) * hub;
     return (
       `<circle cx="${x}" cy="${y}" r="${radius}" fill="#22282f" stroke="rgba(8, 12, 18, 0.55)" stroke-width="2.5"></circle>` +
-      `<circle cx="${x}" cy="${y}" r="${Math.max(2, radius * 0.55)}" fill="${fill}" stroke="${stroke}" stroke-width="1.5"></circle>`
+      `<circle cx="${x}" cy="${y}" r="${hub}" fill="${fill}" stroke="${stroke}" stroke-width="1.5"></circle>` +
+      `<line x1="${x}" y1="${y}" x2="${spokeX}" y2="${spokeY}" stroke="rgba(20, 28, 38, 0.75)" stroke-width="1.5"></line>`
     );
   }
 

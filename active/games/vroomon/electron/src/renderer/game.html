@@ -189,6 +189,29 @@
         gap: 0.35rem;
         max-width: 280px;
       }
+      .blueprint {
+        display: flex;
+        flex-direction: column;
+        gap: 0.15rem;
+        margin-top: 0.35rem;
+        padding: 0.4rem 0.5rem;
+        background: rgba(9, 14, 24, 0.78);
+        border: 1px solid rgba(138, 180, 255, 0.28);
+        border-radius: 10px;
+        font-family: var(--font-screen);
+        font-size: 0.78rem;
+        color: var(--text);
+        max-width: 340px;
+      }
+      .blueprint__row { display: flex; justify-content: space-between; gap: 0.6rem; }
+      .blueprint__row span {
+        font-family: var(--font-pixel);
+        font-size: 0.45rem;
+        letter-spacing: 0.1em;
+        color: var(--muted);
+        align-self: center;
+      }
+      .blueprint__verdict { color: #ffd166; margin-top: 0.15rem; }
       .sim-panel {
         display: flex;
         flex-direction: column;
@@ -1719,6 +1742,12 @@
             <button class="hud-btn hud-btn--secondary" type="button" data-randomize-dna>🎲 RANDOM</button>
             <button class="hud-btn hud-btn--secondary" type="button" data-copy-draft-dna title="Copy the draft DNA">⧉ Copy</button>
             <button class="hud-btn" type="button" data-save-to-hall>🏅 SAVE</button>
+          </div>
+          <div class="blueprint" data-blueprint>
+            <div class="blueprint__row"><span>STRUCTURE</span><strong data-blueprint-structure>—</strong></div>
+            <div class="blueprint__row"><span>POWER</span><strong data-blueprint-power>—</strong></div>
+            <div class="blueprint__row"><span>DRIVE</span><strong data-blueprint-drive>—</strong></div>
+            <div class="blueprint__verdict" data-blueprint-verdict></div>
           </div>
         </div>
 
