@@ -189,6 +189,122 @@
         gap: 0.35rem;
         max-width: 280px;
       }
+      .inspector {
+        position: fixed;
+        inset: 0;
+        z-index: 40;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(6, 10, 18, 0.86);
+        padding: 1rem;
+        backdrop-filter: blur(2px);
+      }
+      .inspector__panel {
+        width: min(70rem, 100%);
+        max-height: calc(100vh - 2rem);
+        display: flex;
+        flex-direction: column;
+        background: linear-gradient(180deg, #101a2a, #0a1220);
+        border: 2px solid rgba(138, 180, 255, 0.5);
+        border-radius: 16px;
+        box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
+      }
+      .inspector__head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        padding: 0.6rem 0.9rem;
+        border-bottom: 1px solid rgba(138, 180, 255, 0.22);
+      }
+      .inspector__title {
+        margin: 0;
+        font-family: var(--font-pixel);
+        font-size: 0.8rem;
+        color: var(--text);
+        letter-spacing: 0.04em;
+      }
+      .inspector__sub {
+        margin: 0.25rem 0 0;
+        font-family: var(--font-screen);
+        font-size: 0.85rem;
+        color: #ffd166;
+      }
+      .inspector__body {
+        display: grid;
+        grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+        gap: 0.8rem;
+        align-items: start;
+        padding: 0.8rem;
+        overflow: auto;
+      }
+      .inspector__canvas {
+        width: 100%;
+        height: auto;
+        background: radial-gradient(circle at 50% 30%, #16233a, #0a1220 70%);
+        border: 1px solid rgba(138, 180, 255, 0.24);
+        border-radius: 12px;
+      }
+      .inspector__tracks { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.5rem; }
+      .inspector__result {
+        margin: 0.5rem 0 0;
+        font-family: var(--font-screen);
+        font-size: 0.9rem;
+        color: #ffffff;
+        min-height: 1.2rem;
+      }
+      .inspector__stats {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 0.15rem 0.6rem;
+        font-family: var(--font-screen);
+        font-size: 0.82rem;
+        background: rgba(9, 14, 24, 0.6);
+        border: 1px solid rgba(138, 180, 255, 0.2);
+        border-radius: 10px;
+        padding: 0.5rem 0.6rem;
+      }
+      .inspector__stats span:nth-child(odd) { color: rgba(230, 238, 250, 0.85); }
+      .inspector__stats span:nth-child(even) { color: #ffd166; text-align: right; }
+      .inspector__legend {
+        display: flex;
+        flex-direction: column;
+        gap: 0.15rem;
+        margin: 0.5rem 0 0.35rem;
+        font-family: var(--font-screen);
+        font-size: 0.75rem;
+        color: var(--muted);
+      }
+      .inspector__parts {
+        display: flex;
+        flex-direction: column;
+        gap: 0.15rem;
+        font-family: var(--font-screen);
+        font-size: 0.78rem;
+        max-height: 11.5rem;
+        overflow: auto;
+      }
+      .inspector__part {
+        display: grid;
+        grid-template-columns: 2.2rem 1fr 4.6rem 4.4rem;
+        gap: 0.4rem;
+        padding: 0.2rem 0.4rem;
+        border-radius: 6px;
+        background: rgba(138, 180, 255, 0.07);
+      }
+      .inspector__part--wheel { background: rgba(255, 209, 102, 0.1); }
+      .inspector__part b { color: var(--text); }
+      .inspector__part em { color: rgba(230, 238, 250, 0.75); font-style: normal; }
+      .inspector__part i { color: #ffd166; font-style: normal; text-align: right; }
+
+      .herdbook-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.4rem;
+      }
+      .herdbook-row__inspect { font-size: 0.7rem; padding: 0.1rem 0.4rem; }
       .blueprint {
         display: flex;
         flex-direction: column;
@@ -1741,6 +1857,7 @@
             <button class="hud-btn hud-btn--secondary" type="button" data-watch-flat-track-regression>▶ REPLAY</button>
             <button class="hud-btn hud-btn--secondary" type="button" data-randomize-dna>🎲 RANDOM</button>
             <button class="hud-btn hud-btn--secondary" type="button" data-copy-draft-dna title="Copy the draft DNA">⧉ Copy</button>
+            <button class="hud-btn hud-btn--secondary" type="button" data-inspect-draft title="Inspect every part">🔍 Inspect</button>
             <button class="hud-btn" type="button" data-save-to-hall>🏅 SAVE</button>
           </div>
           <div class="blueprint" data-blueprint>
@@ -2005,5 +2122,32 @@
 
     <script src="./playwright-preload-shim.js"></script>
     <script type="module" src="./renderer.js"></script>
-  </body>
+          <div class="inspector" data-inspector-overlay hidden>
+          <div class="inspector__panel">
+            <header class="inspector__head">
+              <div>
+                <h2 class="inspector__title" data-inspector-title>VROOMON</h2>
+                <p class="inspector__sub" data-inspector-summary>—</p>
+              </div>
+              <button class="hud-btn hud-btn--secondary" type="button" data-inspector-close>✕ Close</button>
+            </header>
+            <div class="inspector__body">
+              <section class="inspector__view">
+                <canvas class="inspector__canvas" data-inspector-canvas width="640" height="240"></canvas>
+                <div class="inspector__tracks" data-inspector-tracks></div>
+                <p class="inspector__result" data-inspector-result>Pick a track to run it.</p>
+              </section>
+              <section class="inspector__side">
+                <div class="inspector__stats" data-inspector-stats></div>
+                <div class="inspector__legend">
+                  <span><b>C</b> cylinder · <b>D</b> driveshaft · <b>G</b> gearset</span>
+                  <span><b>R</b> plate · <b>W</b> wheel — slots run front to back</span>
+                </div>
+                <div class="inspector__parts" data-inspector-parts></div>
+              </section>
+            </div>
+          </div>
+        </div>
+
+</body>
 </html>

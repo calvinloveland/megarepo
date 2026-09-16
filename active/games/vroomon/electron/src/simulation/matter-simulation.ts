@@ -6,6 +6,7 @@ import {
   type DecodedDnaV2,
   type WheelParams,
 } from "../shared/dna-v2.js";
+import { framePlant } from "../shared/frame.js";
 import {
   getTerrainPreset,
   type TerrainPresetDefinition,
@@ -143,6 +144,13 @@ export interface MatterRace {
       initialSnapshot: VehicleSnapshot;
     }
   >;
+}
+
+declare module "matter-js" {
+  interface Body {
+    /** The true rectangle of a plate part (see snapshotBody). */
+    vroomonSize?: { width: number; height: number };
+  }
 }
 
 const GROUND_COLLISION_CATEGORY = 0x0001;
@@ -485,14 +493,13 @@ function buildVehicleBodies(
   // ---- Structure path ----
   // A tilted plate drops its corners, so the hull's lowest point says how
   // high to sit: an arch of plates rides high on its wheels, a folded run of
-  // them drags. That single number is what makes "weird angle" cost.
-  const drops = decoded.rectParams
-    .filter((rectangle): rectangle is NonNullable<typeof rectangle> => Boolean(rectangle))
-    .map((rectangle) => {
-      const tilt = (Math.abs(rectangle.angleDeg) * Math.PI) / 180;
-      return (rectangle.height / 2) * Math.cos(tilt) + (rectangle.width / 2) * Math.sin(tilt);
-    });
-  const plateDrop = drops.length > 0 ? Math.max(...drops) : 12;
+  // them drags. That single number is what makes "weird angle" cost, and it
+  // comes from the shared frame maths so the inspector reports the same car.
+  const plant = framePlant(decoded, {
+    tiltCost: SIM_TUNING.tiltCost,
+    hullCost: SIM_TUNING.hullCost,
+  });
+  const plateDrop = plant.plateDrop;
   const spawnY = groundY - 3 - plateDrop;
 
   const parts: Body[] = [];
@@ -508,15 +515,18 @@ function buildVehicleBodies(
       if (!rectangle) {
         continue;
       }
-      parts.push(
-        Bodies.rectangle(x, spawnY, rectangle.width, rectangle.height, {
-          density: rectangle.density * 0.001,
-          angle: (rectangle.angleDeg * Math.PI) / 180,
-          chamfer: { radius: 3 },
-          slop: SIM_TUNING.vehicleSlop,
-          collisionFilter,
-        } satisfies IChamferableBodyDefinition),
-      );
+      const plate = Bodies.rectangle(x, spawnY, rectangle.width, rectangle.height, {
+        density: rectangle.density * 0.001,
+        angle: (rectangle.angleDeg * Math.PI) / 180,
+        chamfer: { radius: 3 },
+        slop: SIM_TUNING.vehicleSlop,
+        collisionFilter,
+      } satisfies IChamferableBodyDefinition);
+      // Remember the true rectangle: a chamfered plate has a dozen vertices,
+      // so its shape cannot be recovered from them, and its bounding box is
+      // wider than the plate once it is tilted.
+      plate.vroomonSize = { width: rectangle.width, height: rectangle.height };
+      parts.push(plate);
       continue;
     }
 
@@ -574,28 +584,7 @@ function buildVehicleBodies(
     }
   }
 
-  // ---- What the frame costs ----
-  // Matter takes friction from a body rather than from its parts, so one
-  // rigid compound cannot have grippy wheels and draggy plates at the same
-  // time. Model the frame's cost from the facts the design talks about: how
-  // far the plates are out of line, whether the hull rides on its wheels or
-  // scrubs along the dirt, and how much of the herd is actually driven.
-  const wheelCount = decoded.modules.filter((module) => module === "W").length;
-  const drivenCount = wheelDrives.filter((drive) => drive.power > 0).length;
-  const tiltCost =
-    decoded.rectParams
-      .filter((rectangle): rectangle is NonNullable<typeof rectangle> => Boolean(rectangle))
-      .reduce((sum, rectangle) => sum + Math.abs(rectangle.angleDeg), 0) / 90;
-  const biggestWheel = Math.max(
-    0,
-    ...decoded.wheelParams
-      .filter((wheel): wheel is NonNullable<typeof wheel> => Boolean(wheel))
-      .map((wheel) => wheel.radius),
-  );
-  const hullCost = clampNumber((plateDrop - biggestWheel) / 40, 0, 1.5);
-  const traction = wheelCount > 0 ? drivenCount / wheelCount : 0;
-  const driveScale =
-    traction / (1 + tiltCost * SIM_TUNING.tiltCost + hullCost * SIM_TUNING.hullCost);
+  const driveScale = plant.driveScale;
 
   return {
     chassisBodies: chassis ? [chassis] : [],
@@ -608,17 +597,31 @@ function buildVehicleBodies(
 
 function snapshotBody(body: Body): BodySnapshot {
   const isCircle = typeof body.circleRadius === "number" && body.circleRadius > 0;
-  const boundsWidth = body.bounds.max.x - body.bounds.min.x;
-  const boundsHeight = body.bounds.max.y - body.bounds.min.y;
+  if (isCircle) {
+    return {
+      x: body.position.x,
+      y: body.position.y,
+      angle: body.angle,
+      shape: "circle",
+      radius: body.circleRadius ?? undefined,
+    };
+  }
+
+  // The TRUE rectangle, remembered when the plate was built. Measuring the
+  // vertices does not work (a chamfered plate has a dozen of them) and the
+  // bounding box reports a tilted plate as wider than it is, which draws
+  // plates that miss their neighbours.
+  const size = body.vroomonSize;
+  const width = size?.width ?? body.bounds.max.x - body.bounds.min.x;
+  const height = size?.height ?? body.bounds.max.y - body.bounds.min.y;
 
   return {
     x: body.position.x,
     y: body.position.y,
     angle: body.angle,
-    shape: isCircle ? "circle" : "rectangle",
-    radius: isCircle ? body.circleRadius ?? undefined : undefined,
-    width: isCircle ? undefined : boundsWidth,
-    height: isCircle ? undefined : boundsHeight,
+    shape: "rectangle",
+    width,
+    height,
   };
 }
 

@@ -1279,6 +1279,48 @@ async function expectModeState(
   );
 }
 
+  test("@smoke the inspector shows every part and runs a track", async ({ page }) => {
+    await seedAndEnterWorld(page);
+    await openPocketRanch(page, "herd");
+    await page.locator("[data-generate-population]").click();
+    await page.waitForTimeout(400);
+    await page.locator('[data-barn-pill="drive"]').click();
+    await page.waitForTimeout(400);
+    await page.locator("[data-dna-input]").fill("fq4j7dJgZAic");
+    await page.waitForTimeout(700);
+
+    await page.locator("[data-inspect-draft]").click();
+    await expect(page.locator("[data-inspector-overlay]")).toBeVisible();
+    await expect(page.locator("[data-inspector-title]")).toContainText("fq4j7dJgZAic");
+
+    // One row per chain slot: frame and powertrain are parallel arrays.
+    await expect(page.locator(".inspector__part")).toHaveCount(6);
+    await expect(page.locator("[data-inspector-stats]")).toContainText("Structure");
+    await expect(page.locator("[data-inspector-stats]")).toContainText("Driven wheels");
+
+    // Run it on a second track and read the verdict back.
+    await page.locator('[data-inspector-terrain="Rocky"]').click();
+    await page.waitForTimeout(600);
+    await expect(page.locator("[data-inspector-result]")).toContainText("Rocky");
+
+    // The canvas paints the car: parts drawn, not an empty sheet.
+    const painted = await page.evaluate(() => {
+      const canvas = document.querySelector<HTMLCanvasElement>("[data-inspector-canvas]");
+      if (!canvas) return -1;
+      const data = canvas.getContext("2d")?.getImageData(0, 0, canvas.width, canvas.height).data;
+      if (!data) return -1;
+      let coloured = 0;
+      for (let index = 3; index < data.length; index += 4) {
+        if (data[index] > 0) coloured += 1;
+      }
+      return coloured;
+    });
+    expect(painted).toBeGreaterThan(500);
+
+    await page.locator("[data-inspector-close]").click();
+    await expect(page.locator("[data-inspector-overlay]")).toBeHidden();
+  });
+
 async function readJson<T>(
   page: import("@playwright/test").Page,
   selector: string,

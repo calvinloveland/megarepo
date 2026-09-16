@@ -176,6 +176,13 @@ export function inverseNormalCdf(probability: number): number {
   );
 }
 
+/**
+ * How much consecutive chain parts overlap along the frame. Parts that merely
+ * touch leave visible daylight between tilted plates, so each part reaches
+ * into its neighbour: a vroomon is one welded frame, not a row of tiles.
+ */
+const CHAIN_OVERLAP = 0.82;
+
 export function decodeDnaV2(dna: string): DecodedDnaV2 {
   const cleanedDna = cleanDna(dna);
   const moduleCount = computeModuleCount(cleanedDna);
@@ -207,22 +214,30 @@ export function decodeDnaV2(dna: string): DecodedDnaV2 {
       : null,
   );
 
-  // The frame is a CHAIN of edge-joined parts: each plate occupies its own
-  // span (so neighbours meet at the edges, not piled on top of each other)
-  // and each wheel gets a slot sized to its rim. wheel-rectangle-wheel reads
-  // as a simple car, wheel-wheel-wheel is three wheels with nothing between
-  // them, and a run of plates can arch.
-  const positions: number[] = [];
-  let xAccumulator = 0;
-  for (const [index, module] of modules.entries()) {
-    if (module === "R") {
-      const width = rectParams[index]?.width ?? 44;
-      xAccumulator += width * 0.78 + 4;
-    } else {
-      const radius = wheelParams[index]?.radius ?? 20;
-      xAccumulator += radius * 1.9;
+  // The frame is a CHAIN of parts joined edge to edge: each part takes its
+  // slot, and consecutive parts OVERLAP slightly rather than merely touching.
+  // A tilted plate's drawn shape is narrower than its bounding box, so two
+  // boxes that meet exactly leave a wedge of daylight between the plates —
+  // the frame has to read as one welded thing, so the neighbour's edge sits
+  // inside the part (CHAIN_OVERLAP). wheel-rectangle-wheel reads as a simple
+  // car; wheel-wheel-wheel is three wheels with nothing between them; and a
+  // run of plates can arch.
+  const halfExtent = (index: number): number => {
+    const rectangle = rectParams[index];
+    if (rectangle) {
+      const tilt = (Math.abs(rectangle.angleDeg) * Math.PI) / 180;
+      return (
+        (rectangle.width / 2) * Math.cos(tilt) + (rectangle.height / 2) * Math.sin(tilt)
+      );
     }
-    positions.push(xAccumulator);
+    return wheelParams[index]?.radius ?? 20;
+  };
+
+  const positions: number[] = [halfExtent(0)];
+  for (let index = 1; index < modules.length; index += 1) {
+    const previous = positions[index - 1]!;
+    const step = halfExtent(index - 1) + halfExtent(index);
+    positions.push(previous + Math.max(2, step * CHAIN_OVERLAP));
   }
 
   const powertrainParams = powertrainModules.map((_, index) => ({

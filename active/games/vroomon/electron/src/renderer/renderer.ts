@@ -1,5 +1,15 @@
-import type { DecodedDnaV2 } from "../shared/dna-v2.js";
+import { cleanDna, type DecodedDnaV2 } from "../shared/dna-v2.js";
+import { getTerrainPreset } from "../shared/parity-contract.js";
+import { SIM_TUNING } from "../simulation/matter-simulation.js";
 import { describeVehicle } from "../shared/blueprint.js";
+import {
+  inspectVehicle,
+  inspectionSummary,
+  topSpeedFor,
+  trackResult,
+  type TrackResult,
+  type VehicleInspection,
+} from "../shared/inspect.js";
 import type {
   AppModeId,
   HallOfFame,
@@ -1434,6 +1444,299 @@ function renderEvolutionStage(
     ? `Click a racer to pin the camera. ${leader.id} is currently on top.`
     : "Run a generation to inspect the active race field.";
   renderScoreChart();
+}
+
+// ---------------------------------------------------------------------------
+// The inspector: one vroomon, every part, and a few tracks to try it on.
+// ---------------------------------------------------------------------------
+
+const INSPECTOR_TERRAINS = ["Flat", "Grassland", "Hills", "Rocky", "Ice"] as const;
+
+interface InspectorState {
+  open: boolean;
+  dna: string;
+  terrain: string;
+  result: string;
+  lastOutcome: string | null;
+  frames: VehiclePreviewFrame[] | null;
+  frameIndex: number;
+}
+
+let inspectorState: InspectorState = {
+  open: false,
+  dna: "",
+  terrain: INSPECTOR_TERRAINS[0],
+  result: "",
+  lastOutcome: null,
+  frames: null,
+  frameIndex: 0,
+};
+
+function inspectorTuning(): { tiltCost: number; hullCost: number } {
+  return { tiltCost: SIM_TUNING.tiltCost, hullCost: SIM_TUNING.hullCost };
+}
+
+function openInspector(dna: string): void {
+  inspectorState = {
+    open: true,
+    dna: cleanDna(dna),
+    terrain: INSPECTOR_TERRAINS[0],
+    result: "Pick a track to run it.",
+    lastOutcome: null,
+    frames: null,
+    frameIndex: 0,
+  };
+  renderInspector();
+}
+
+function closeInspector(): void {
+  inspectorState = { ...inspectorState, open: false, frames: null };
+  renderInspector();
+}
+
+/** Run the draft's DNA on one track and report what it did. */
+function runInspectorTrack(): void {
+  const frames = window.vroomon.previewPhysicsFrames(
+    inspectorState.dna,
+    inspectorState.terrain,
+    180,
+    25,
+  );
+  const first = frames[0]?.snapshot;
+  const last = frames[frames.length - 1]?.snapshot;
+  if (!first || !last) {
+    inspectorState = {
+      ...inspectorState,
+      frames: null,
+      result: "That DNA cannot be built.",
+      lastOutcome: null,
+    };
+    renderInspector();
+    return;
+  }
+  let topSpeed = 0;
+  let air = 0;
+  for (let index = 1; index < frames.length; index += 1) {
+    const previous = frames[index - 1]!.snapshot;
+    const current = frames[index]!.snapshot;
+    const dt = (frames[index]!.elapsedMs - frames[index - 1]!.elapsedMs) / 1000;
+    if (dt > 0) {
+      topSpeed = Math.max(topSpeed, (current.centerX - previous.centerX) / dt);
+    }
+    air = Math.max(air, terrainGroundHeight() - current.centerY);
+  }
+  const result = trackResult(
+    inspectorState.terrain,
+    last.centerX - first.centerX,
+    topSpeed,
+    air,
+  );
+  inspectorState = {
+    ...inspectorState,
+    frames,
+    frameIndex: frames.length - 1,
+    result: describeTrackResult(result),
+    lastOutcome: result.outcome,
+  };
+  renderInspector();
+}
+
+function terrainGroundHeight(): number {
+  const preset = getTerrainPreset(inspectorState.terrain);
+  return preset?.groundHeight ?? 400;
+}
+
+function describeTrackResult(result: TrackResult): string {
+  const distance = Math.round(result.distance);
+  const speed = Math.round(Math.abs(result.topSpeed));
+  return `${result.terrain}: ${result.outcome} — ${distance}px in 3s, top ${speed}px/s.`;
+}
+
+function drawInspection(
+  inspection: VehicleInspection,
+  snapshot: VehicleSnapshot | null,
+): void {
+  const canvas = document.querySelector<HTMLCanvasElement>("[data-inspector-canvas]");
+  if (!canvas) {
+    return;
+  }
+  const ctx = canvas.getContext("2d");
+  if (!ctx) {
+    return;
+  }
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // A live snapshot when a track has been run, otherwise the parts as built.
+  const shapes = snapshot
+    ? [
+        ...snapshot.chassis.map((piece) => ({
+          kind: "plate" as const,
+          index: -1,
+          x: piece.x,
+          y: piece.y,
+          width: piece.width ?? 20,
+          height: piece.height ?? 12,
+          angleDeg: (piece.angle * 180) / Math.PI,
+        })),
+        ...snapshot.wheels.map((piece) => ({
+          kind: "wheel" as const,
+          index: -1,
+          x: piece.x,
+          y: piece.y,
+          radius: piece.radius ?? 12,
+        })),
+      ]
+    : inspection.shapes;
+
+  // A live snapshot is in WORLD coordinates (y grows downward from the top of
+  // the world), so shift it up by the ground line before projecting; the
+  // parts-as-built drawing is already relative to the chain line.
+  const ground = terrainGroundHeight();
+  const normalized = shapes.map((shape) =>
+    snapshot ? { ...shape, y: shape.y - ground } : shape,
+  );
+
+  const halfWidth = (shape: (typeof normalized)[number]): number =>
+    shape.kind === "wheel" ? shape.radius : shape.width / 2;
+  const minX = Math.min(...normalized.map((shape) => shape.x - halfWidth(shape)));
+  const maxX = Math.max(...normalized.map((shape) => shape.x + halfWidth(shape)));
+  const maxY = Math.max(
+    ...normalized.map((shape) =>
+      shape.kind === "wheel" ? shape.y + shape.radius : shape.y + shape.height,
+    ),
+  );
+  const minY = Math.min(
+    ...normalized.map((shape) =>
+      shape.kind === "wheel" ? shape.y - shape.radius : shape.y - shape.height,
+    ),
+  );
+  const spanX = Math.max(maxX - minX, 60);
+  const spanY = Math.max(maxY - minY, 40);
+  const scale = Math.min((canvas.width - 40) / spanX, (canvas.height - 60) / spanY);
+  const originX = (canvas.width - spanX * scale) / 2 - minX * scale;
+  const groundY = canvas.height - 24;
+  // Sit the car so its lowest point rests on the ground line.
+  const originY = groundY - maxY * scale;
+
+  // The ground line, so wheels visibly sit on something.
+  ctx.strokeStyle = "rgba(168, 122, 74, 0.9)";
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(0, groundY);
+  ctx.lineTo(canvas.width, groundY);
+  ctx.stroke();
+
+  for (const shape of normalized) {
+    const x = originX + shape.x * scale;
+    if (shape.kind === "wheel") {
+      const y = snapshot ? originY + shape.y * scale : groundY - shape.radius * scale;
+      const radius = shape.radius * scale;
+      ctx.fillStyle = "#22282f";
+      ctx.beginPath();
+      ctx.arc(x, y, radius, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#7d94ba";
+      ctx.beginPath();
+      ctx.arc(x, y, Math.max(2, radius * 0.55), 0, Math.PI * 2);
+      ctx.fill();
+      continue;
+    }
+    const y = snapshot
+      ? originY + shape.y * scale
+      : groundY - shape.height * scale - 2;
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate((shape.angleDeg * Math.PI) / 180);
+    ctx.fillStyle = "#8ab4ff";
+    ctx.fillRect((-shape.width / 2) * scale, (-shape.height / 2) * scale, shape.width * scale, shape.height * scale);
+    ctx.strokeStyle = "rgba(16, 24, 34, 0.75)";
+    ctx.lineWidth = 2;
+    ctx.strokeRect((-shape.width / 2) * scale, (-shape.height / 2) * scale, shape.width * scale, shape.height * scale);
+    ctx.restore();
+  }
+}
+
+function renderInspector(): void {
+  const overlay = document.querySelector<HTMLElement>("[data-inspector-overlay]");
+  if (!overlay) {
+    return;
+  }
+  overlay.hidden = !inspectorState.open;
+  if (!inspectorState.open) {
+    return;
+  }
+
+  const inspection = inspectVehicle(inspectorState.dna, inspectorTuning());
+  const tuning = {
+    terminalSpeedPerPower: SIM_TUNING.terminalSpeedPerPower,
+    referenceMass: SIM_TUNING.referenceMass,
+    maxSpeed: SIM_TUNING.maxSpeed,
+  };
+  const title = document.querySelector<HTMLElement>("[data-inspector-title]");
+  const summary = document.querySelector<HTMLElement>("[data-inspector-summary]");
+  if (title) {
+    title.textContent = `VROOMON ${inspection.dna}`;
+  }
+  if (summary) {
+    summary.textContent = `${inspectionSummary(inspection)} · frame ${inspection.modules} · power ${inspection.powertrain}`;
+  }
+
+  const stats = document.querySelector<HTMLElement>("[data-inspector-stats]");
+  if (stats) {
+    const rows: Array<[string, string]> = [
+      ["Structure", `${inspection.plates} plates · ${inspection.wheels} wheels`],
+      ["Power", `${inspection.engines} engines · ${inspection.shafts} shafts · ${inspection.gears} gears`],
+      ["Driven wheels", `${inspection.drivenCount}/${inspection.wheels}`],
+      ["Power at the wheels", `${inspection.totalPower}`],
+      ["Torque", `${inspection.totalTorque}`],
+      ["Mass", `${inspection.mass.toFixed(2)}`],
+      ["Frame costs", `${Math.round(inspection.plant.tiltCost * 100)}% tilt · ${Math.round(inspection.plant.hullCost * 100)}% drag`],
+      ["Drive on the ground", `${Math.round(inspection.plant.driveScale * 100)}%`],
+      ["Top speed", inspection.drivenCount > 0 ? `${Math.round(topSpeedFor(inspection, tuning))} px/s` : "—"],
+      ["Length", `${Math.round(inspection.length)} px`],
+    ];
+    stats.innerHTML = rows
+      .map(([label, value]) => `<span>${escapeHtml(label)}</span><span>${escapeHtml(value)}</span>`)
+      .join("");
+  }
+
+  const parts = document.querySelector<HTMLElement>("[data-inspector-parts]");
+  if (parts) {
+    parts.innerHTML = inspection.rows
+      .map(
+        (row) =>
+          `<div class="inspector__part inspector__part--${row.kind}">` +
+          `<b>${row.index}</b>` +
+          `<span>${escapeHtml(row.structure)}</span>` +
+          `<em>${escapeHtml(row.power)}</em>` +
+          `<i>${row.drivePower === null ? "—" : `${row.drivePower} pwr`}</i>` +
+          `</div>`,
+      )
+      .join("");
+  }
+
+  const tracks = document.querySelector<HTMLElement>("[data-inspector-tracks]");
+  if (tracks) {
+    tracks.innerHTML = INSPECTOR_TERRAINS.map(
+      (terrain) =>
+        `<button class="hud-btn ${terrain === inspectorState.terrain ? "" : "hud-btn--secondary"}" type="button" data-inspector-terrain="${terrain}">${terrain}</button>`,
+    ).join("");
+  }
+
+  const result = document.querySelector<HTMLElement>("[data-inspector-result]");
+  if (result) {
+    result.textContent = inspectorState.result;
+    const outcome = inspectorState.lastOutcome;
+    result.style.color =
+      outcome === "flies" || outcome === "competitive"
+        ? "#8bffa0"
+        : outcome === "runs backwards" || outcome === "sits there"
+          ? "#ff9b8a"
+          : "#ffd166";
+  }
+
+  const frame = inspectorState.frames?.[inspectorState.frameIndex]?.snapshot ?? null;
+  drawInspection(inspection, frame);
 }
 
 function renderBlueprint(decoded: DecodedDnaV2): void {
@@ -4681,7 +4984,11 @@ function renderHerdBook(): void {
             .slice(0, 24)
             .map(
               (dna) =>
-                `<div class="herdbook-row"><span class="herdbook-row__dna">${escapeHtml(dna)}</span></div>`,
+                `<div class="herdbook-row">` +
+                `<span class="herdbook-row__dna">${escapeHtml(dna)}</span>` +
+                `<button class="hud-btn hud-btn--secondary herdbook-row__inspect" type="button" ` +
+                `data-inspect-dna="${escapeHtml(dna)}" title="Inspect every part of this vroomon">🔍 Inspect</button>` +
+                `</div>`,
             )
             .join("");
   }
@@ -4999,6 +5306,35 @@ function renderPocketRanch(): void {
 
 barnChip?.addEventListener("click", () => {
   openPocketRanch("herd");
+});
+
+// The inspector: opened from the herd book, the paddock or a heritage line,
+// and driven by whatever is on the bench.
+document.addEventListener("click", (event) => {
+  const target = event.target as HTMLElement | null;
+  const inspect = target?.closest<HTMLElement>("[data-inspect-dna]");
+  if (inspect?.dataset.inspectDna) {
+    openInspector(inspect.dataset.inspectDna);
+    return;
+  }
+  if (target?.closest("[data-inspect-draft]")) {
+    openInspector(rendererState.draftDna);
+    return;
+  }
+  if (target?.closest("[data-inspector-close]")) {
+    closeInspector();
+    return;
+  }
+  const terrain = target?.closest<HTMLElement>("[data-inspector-terrain]");
+  if (terrain?.dataset.inspectorTerrain) {
+    inspectorState = { ...inspectorState, terrain: terrain.dataset.inspectorTerrain };
+    runInspectorTrack();
+  }
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && inspectorState.open) {
+    closeInspector();
+  }
 });
 document.querySelector<HTMLButtonElement>("[data-barn-close]")?.addEventListener("click", () => {
   closePocketRanch();

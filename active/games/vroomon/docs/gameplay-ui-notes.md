@@ -842,6 +842,46 @@ gets harder instead of just paying out a Brand:
   dropped new world state (circuit tiers) — it now uses the shared
   serializer.
 
+## The vroomon inspector (2026-09-15) ✅
+
+A window for one vroomon, opened with 🔍 Inspect from the herd book, the
+paddock, or a line in the heritage tree (Esc closes it):
+
+- **The car, drawn large** — plates and wheels as the simulation builds them,
+  so you can see the chain rather than guess at it.
+- **Stats**: structure, power path, driven wheels, power and torque at the
+  wheels, mass, what the frame costs (tilt, dragging hull), the share of the
+  drive that reaches the ground, top speed, length.
+- **Parts, slot by slot**: every index with its structure (plate 41×29 @ +6°,
+  wheel r17), its powertrain module (cylinder/driveshaft/gearset) and the
+  power that wheel actually receives.
+- **Five tracks** — Flat, Grassland, Hills, Rocky, Ice — each runs the real
+  simulation for a three-second race and reports `flies / competitive /
+  crawls / sits there / runs backwards` with the distance and top speed.
+
+The maths is shared, not duplicated: `src/shared/frame.ts` holds the frame
+geometry and its costs, the simulation builds from it, and the inspector
+reads from it — so the window cannot describe a different car than the one
+that runs.
+
+## Parts meet: no daylight in the frame (2026-09-15) ✅
+
+Two bugs made a vroomon look like a row of loose tiles rather than one welded
+frame:
+
+- The chain **spaced parts by their tilt-inflated bounding boxes**, and the
+  drawn plate was narrower than that box, so a gap of up to 35px of
+  background showed between plates at their centre line. Consecutive parts
+  now **overlap by design** (`CHAIN_OVERLAP`), because parts that merely
+  touch leave a wedge of daylight between tilted plates.
+- The snapshot reported a plate's size as its **bounding box**, so a tilted
+  plate drew wider than it is. Plates now remember their true rectangle when
+  they are built (measuring the vertices does not work: a chamfered plate has
+  a dozen of them).
+
+Verified by reading the pixels: no background remains between the parts of a
+vroomon's body.
+
 ## The vroomon body: one rigid frame, driven at the wheels (2026-09-15) ✅
 
 Follow-up to the two-path port below. Pinning separate wheel bodies to a

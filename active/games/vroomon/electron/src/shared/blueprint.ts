@@ -2,14 +2,8 @@
 // paths, and — the part you can't see by looking — which wheels the power
 // chain actually reaches. Pure, so it can be tested and reused anywhere.
 
-import { wheelDriveForIndex, type DecodedDnaV2 } from "./dna-v2.js";
-
-export interface DrivenWheel {
-  /** Index in the chain (frame and powertrain share indices). */
-  index: number;
-  power: number;
-  torque: number;
-}
+import { type DecodedDnaV2 } from "./dna-v2.js";
+import { drivenWheels, type DrivenWheel } from "./frame.js";
 
 export interface VehicleBlueprint {
   structure: string;
@@ -33,17 +27,7 @@ export function describeVehicle(decoded: DecodedDnaV2): VehicleBlueprint {
   const shafts = decoded.powertrainModules.filter((kind) => kind === "D").length;
   const gears = decoded.powertrainModules.filter((kind) => kind === "G").length;
 
-  const driven: DrivenWheel[] = [];
-  decoded.modules.forEach((module, index) => {
-    if (module !== "W") {
-      return;
-    }
-    const drive = wheelDriveForIndex(decoded, index);
-    if (drive.power > 1) {
-      driven.push({ index, power: Math.round(drive.power), torque: Math.round(drive.torque) });
-    }
-  });
-  driven.sort((left, right) => right.power - left.power);
+  const driven = drivenWheels(decoded);
 
   const verdict = (() => {
     if (plates === 0) {
