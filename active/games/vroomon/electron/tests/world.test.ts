@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { MAPS, getMap, isTilePassable, safeSpawn } from "../src/renderer/world/maps.js";
+import { npcPositionAt } from "../src/renderer/world/routines.js";
 
 const MAP_LIST = Object.values(MAPS);
 import {
@@ -299,6 +300,45 @@ describe("world reachability", () => {
     const gone = safeSpawn("demolished_map", 3, 3);
     expect(gone.mapId).toBe("starter_town");
     expect(gone.relocated).toBe(true);
+  });
+
+  it("never stands two people on the same tile, at any hour", () => {
+    // Routines make this a real risk: two NPCs can be tidy at dawn and
+    // collide at dusk, and then one of them is invisible and unreachable.
+    for (const map of MAP_LIST) {
+      for (const phase of [0.05, 0.25, 0.5, 0.7, 0.95]) {
+        const seen = new Map<string, string>();
+        for (const npc of map.npcs) {
+          // Virtual dialogue nodes live at 0,0 and are never drawn.
+          if (npc.x <= 0 && npc.y <= 0) {
+            continue;
+          }
+          const spot = npcPositionAt(npc, phase);
+          const key = `${spot.x},${spot.y}`;
+          const other = seen.get(key);
+          expect(
+            other,
+            `${map.id}: ${npc.id} and ${other} both stand on ${key} at phase ${phase}`,
+          ).toBeUndefined();
+          seen.set(key, npc.id);
+        }
+      }
+    }
+  });
+
+  it("gives every person something to say", () => {
+    // An NPC with an empty dialogue is an interaction that does nothing.
+    for (const map of MAP_LIST) {
+      for (const npc of map.npcs) {
+        if (!npc.dialogue) {
+          continue;
+        }
+        expect(npc.dialogue.text.length, `${map.id}: ${npc.id} says nothing`).toBeGreaterThan(10);
+        for (const option of npc.dialogue.options ?? []) {
+          expect(option.label.length, `${map.id}: ${npc.id} has an empty option`).toBeGreaterThan(2);
+        }
+      }
+    }
   });
 
   it("resolves every dialogue link inside its own map", () => {

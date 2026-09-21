@@ -1528,8 +1528,9 @@ async function closePocketRanch(page: import("@playwright/test").Page): Promise<
     await page.waitForTimeout(600);
     await expect(page.locator("[data-overworld-dialogue-name]")).toHaveText("");
 
-    // Walk to the well instead and she is there.
-    await enterMapAt(page, "starter_town", 3, 9, "left", 0.7);
+    // Walk to the well instead and she is there (she moved off the Elder's
+    // tile, which the position invariant now forbids).
+    await enterMapAt(page, "starter_town", 3, 9, "right", 0.7);
     await page.keyboard.press("z");
     await page.waitForTimeout(700);
     await expect(page.locator("[data-overworld-dialogue-name]")).toContainText("Wrangler Jess");

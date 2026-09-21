@@ -215,6 +215,26 @@ describe("side quests", () => {
     expect(questProgress(lane, accepted, { ...RUN, bestByTerrain: { Sand: 1150 } }).done).toBe(true);
   });
 
+  it("pays in things a rancher can actually spend", () => {
+    // A reward that is neither credits, feed, a genome, nor an earnable
+    // cosmetic is a thank-you note.
+    for (const quest of SIDE_QUESTS) {
+      const { reward } = quest;
+      const spendable =
+        (reward.wallet ?? 0) > 0 ||
+        (reward.feed ?? 0) > 0 ||
+        Boolean(reward.dna) ||
+        Boolean(reward.decor);
+      expect(spendable, `${quest.id} pays nothing`).toBe(true);
+      if (reward.wallet !== undefined) {
+        expect(reward.wallet).toBeGreaterThan(0);
+      }
+      if (reward.feed !== undefined) {
+        expect(reward.feed).toBeGreaterThan(0);
+      }
+    }
+  });
+
   it("stops paying once a job is marked paid", () => {
     const w = world({
       flags: { "quest-muster-accepted": true },

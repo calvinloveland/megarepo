@@ -1379,8 +1379,8 @@ export const MAPS: Record<string, Tilemap> = {
           dawn: { x: 6, y: 8, facing: "up" },
           morning: { x: 6, y: 6, facing: "up" },
           afternoon: { x: 11, y: 5, facing: "left" },
-          dusk: { x: 2, y: 9, facing: "right" },
-          night: { x: 2, y: 9, facing: "right" },
+          dusk: { x: 4, y: 9, facing: "left" },
+          night: { x: 4, y: 9, facing: "left" },
         },
         greetings: {
           champion: "Well — the rider with a Brand and a champion in the barn. The board's got room for one more name.",
