@@ -12,16 +12,49 @@ import { describe, expect, it } from "vitest";
 // test has to be either tested or listed here on purpose, and a listed module
 // that gains a test must be removed from the list.
 
-const UNTESTED_ON_PURPOSE = new Map<string, string>([
-  ["src/main.ts", "Electron entry point; covered by the headless smoke run"],
-  ["src/preload.ts", "the context bridge; covered by the smoke run"],
-  ["src/renderer/ambience.ts", "re-export shim over ambience-layer"],
-  ["src/renderer/audio.ts", "WebAudio, no DOM-free surface worth asserting"],
-  ["src/renderer/matter-browser-shim.ts", "browser shim for the Matter build"],
-  ["src/renderer/world/overworld-controller.ts", "state machine driven through the e2e walks"],
-  ["src/renderer/world/sprites.ts", "sprite loading and drawing; e2e screenshots cover it"],
-  ["src/renderer/renderer.ts", "the app shell; the e2e suite is its test"],
-  ["src/renderer/playwright-preload-shim.ts", "stands in for the preload in every e2e run"],
+/**
+ * Modules with no test naming them, and the behaviour that covers each one
+ * instead. `coveredBy` is a claim the suite verifies: it must name a file that
+ * exists, or a test title that the e2e file really contains — so a reason here
+ * cannot quietly become a parking space.
+ */
+const UNTESTED_ON_PURPOSE = new Map<string, { reason: string; coveredBy: string }>([
+  [
+    "src/main.ts",
+    { reason: "Electron entry point", coveredBy: "scripts/smoke-electron.mjs" },
+  ],
+  [
+    "src/preload.ts",
+    { reason: "the context bridge", coveredBy: "scripts/smoke-electron.mjs" },
+  ],
+  [
+    "src/renderer/ambience.ts",
+    { reason: "re-export shim", coveredBy: "tests/ambience-layer.test.ts" },
+  ],
+  [
+    "src/renderer/audio.ts",
+    { reason: "WebAudio, no DOM-free surface", coveredBy: "cycles the ambient sound pad" },
+  ],
+  [
+    "src/renderer/matter-browser-shim.ts",
+    { reason: "browser shim for the Matter build", coveredBy: "tests/e2e/vroomon.e2e.ts" },
+  ],
+  [
+    "src/renderer/world/overworld-controller.ts",
+    { reason: "state machine driven through the walks", coveredBy: "walks through the overworld" },
+  ],
+  [
+    "src/renderer/world/sprites.ts",
+    { reason: "sprite loading and drawing", coveredBy: "paints the overworld canvas" },
+  ],
+  [
+    "src/renderer/renderer.ts",
+    { reason: "the app shell", coveredBy: "tests/e2e/vroomon.e2e.ts" },
+  ],
+  [
+    "src/renderer/playwright-preload-shim.ts",
+    { reason: "stands in for the preload in e2e runs", coveredBy: "tests/e2e/vroomon.e2e.ts" },
+  ],
 ]);
 
 function sourceFiles(dir: string): string[] {
@@ -77,5 +110,37 @@ describe("every module has a test, or a reason", () => {
       }
     }
     expect(stale, `now tested, so drop them from the list: ${stale.join(", ")}`).toEqual([]);
+  });
+});
+
+describe("the reasons are claims, not parking spaces", () => {
+  it("names a real behaviour for every listed module", () => {
+    // Each entry says what covers it instead of a test. That claim is checked:
+    // it must be a file that exists, or a title the e2e file actually has.
+    const e2e = readFileSync(join("tests", "e2e", "vroomon.e2e.ts"), "utf8");
+    const files = new Set<string>([
+      ...readdirSync("tests").map((name) => join("tests", name)),
+      ...readdirSync("scripts").map((name) => join("scripts", name)),
+      ...readdirSync(join("tests", "e2e")).map((name) => join("tests", "e2e", name)),
+    ]);
+
+    const unverifiable: string[] = [];
+    for (const [file, claim] of UNTESTED_ON_PURPOSE) {
+      const isFile = files.has(claim.coveredBy);
+      const isTestTitle = e2e.includes(claim.coveredBy);
+      if (!isFile && !isTestTitle) {
+        unverifiable.push(`${file} claims "${claim.coveredBy}"`);
+      }
+    }
+    expect(
+      unverifiable,
+      `coverage claims that name nothing: ${unverifiable.join(", ")}`,
+    ).toEqual([]);
+  });
+
+  it("says why, in words rather than a shrug", () => {
+    for (const [file, claim] of UNTESTED_ON_PURPOSE) {
+      expect(claim.reason.length, `${file} has no reason`).toBeGreaterThan(12);
+    }
   });
 });
