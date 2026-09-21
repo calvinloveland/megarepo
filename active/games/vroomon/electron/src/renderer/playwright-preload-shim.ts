@@ -106,6 +106,7 @@ declare global {
         terrainName: string,
         stepCount?: number,
         frameCount?: number,
+        weather?: { grip?: number; drive?: number },
       ) => VehiclePreviewFrame[];
       previewPopulationRace: (
         state: RunStateSnapshot,
@@ -250,8 +251,14 @@ window.vroomon = {
     terrainName: string,
     stepCount = 120,
     frameCount = 24,
+    weather?: { grip?: number; drive?: number },
   ): VehiclePreviewFrame[] =>
-    simulateMatterVehicleFrames(dna, terrainName, { stepCount, frameCount }),
+    simulateMatterVehicleFrames(dna, terrainName, {
+      stepCount,
+      frameCount,
+      grip: weather?.grip,
+      drive: weather?.drive,
+    }),
   previewPopulationRace: (
     state: RunStateSnapshot,
     stepCount = 180,

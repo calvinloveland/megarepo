@@ -160,6 +160,7 @@ const { Bodies, Body: MatterBody, Composite, Constraint: MatterConstraint, Engin
 export function createMatterVehicle(
   dna: string,
   terrainName = "Grassland",
+  options?: { grip?: number; drive?: number },
 ): MatterVehicle {
   const terrain = getTerrainPreset(terrainName);
 
@@ -171,7 +172,10 @@ export function createMatterVehicle(
   const decoded = decodeDnaV2(dna);
   const terrainBodies = buildTerrainBodies(terrain);
   const { chassisBodies, wheelBodies, constraints, wheelDriveBodies, driveScale } =
-    buildVehicleBodies(decoded, 220, terrain.groundHeight);
+    buildVehicleBodies(decoded, 220, terrain.groundHeight, {
+      grip: options?.grip ?? 1,
+      drive: options?.drive ?? 1,
+    });
 
   Composite.add(engine.world, [
     ...terrainBodies,
@@ -272,9 +276,14 @@ export function simulateMatterVehicleFrames(
     stepCount?: number;
     deltaMs?: number;
     frameCount?: number;
+    grip?: number;
+    drive?: number;
   },
 ): VehiclePreviewFrame[] {
-  const vehicle = createMatterVehicle(dna, terrainName);
+  const vehicle = createMatterVehicle(dna, terrainName, {
+    grip: options?.grip,
+    drive: options?.drive,
+  });
   const stepCount = options?.stepCount ?? 180;
   const deltaMs = options?.deltaMs ?? 1000 / 60;
   const frameCount = Math.max(2, options?.frameCount ?? 24);
@@ -478,6 +487,7 @@ function buildVehicleBodies(
   decoded: DecodedDnaV2,
   originX: number,
   groundY: number,
+  weather: { grip: number; drive: number } = { grip: 1, drive: 1 },
 ): {
   chassisBodies: Body[];
   wheelBodies: Body[];
@@ -540,7 +550,8 @@ function buildVehicleBodies(
     const wheelY = spawnY + plateDrop + 3 - wheel.radius - SIM_TUNING.wheelSpawnClearance;
     const wheelPart = Bodies.circle(x, wheelY, wheel.radius, {
       density: 0.0006,
-      friction: wheel.friction,
+      // Weather cuts the grip a wheel can put down; the ground is the same.
+      friction: wheel.friction * weather.grip,
       frictionAir: decoded.globals.dampingAngular,
       slop: SIM_TUNING.vehicleSlop,
       collisionFilter,
@@ -555,7 +566,7 @@ function buildVehicleBodies(
       offsetX: x,
       offsetY: wheelY,
       radius: wheel.radius,
-      power: hasStructure ? drive.power : 0,
+      power: hasStructure ? drive.power * weather.drive : 0,
       friction: wheel.friction,
     });
   }

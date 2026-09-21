@@ -57,7 +57,8 @@ import {
 import { questFor } from "./world/quest.js";
 import { standingFor } from "./world/routines.js";
 import { buildLedger, titlesToDefend, untriedGrounds } from "./ledger.js";
-import { DAY_LENGTH_MS, isNight } from "./world/ambience-layer.js";
+import { DAY_LENGTH_MS, dayPhase, isNight } from "./world/ambience-layer.js";
+import { weatherAt } from "./world/weather.js";
 import type { Track } from "./world/ambience-layer.js";
 import {
   activeSideQuests,
@@ -179,6 +180,7 @@ declare global {
         terrainName: string,
         stepCount?: number,
         frameCount?: number,
+        weather?: { grip?: number; drive?: number },
       ) => VehiclePreviewFrame[];
       previewPopulationRace: (
         state: RunStateSnapshot,
@@ -1737,6 +1739,8 @@ function mulberryFor(seed: string): () => number {
 interface WildRaceState {
   open: boolean;
   wildDna: string;
+  /** The sky over this meeting, from the same clock as dawn and dusk. */
+  weather: { kind: string; label: string; grip: number; drive: number; note: string };
   /** The pack's best on this ground, shown so the ceiling is legible. */
   packBest: number;
   packTerrain: string;
@@ -1752,6 +1756,7 @@ interface WildRaceState {
 let wildRaceState: WildRaceState = {
   open: false,
   wildDna: "",
+  weather: weatherAt(0, 0),
   packBest: 0,
   packTerrain: "Grassland",
   myDna: null,
@@ -1817,9 +1822,14 @@ function bestOwnedDna(terrainName: string): string | null {
 function openWildRace(wildDna: string): void {
   const mapId = rendererState.world.currentMapId;
   const terrain = terrainForVenue(mapId) ?? "Grassland";
+  // The sky at the moment of the meeting: a one-off race, so the campaign's
+  // own races stay reproducible under a clear sky.
+  const weather = weatherAt(worldClock(), dayPhase(worldClock()));
+  wildRaceState = { ...wildRaceState, weather };
   wildRaceState = {
     open: true,
     wildDna,
+    weather,
     packBest: packBestFor(mapId),
     packTerrain: terrain,
     myDna: bestOwnedDna(terrain),
@@ -1859,8 +1869,15 @@ function runWildRace(): void {
   if (!myDna) {
     return;
   }
-  const mine = window.vroomon.previewPhysicsFrames(myDna, terrain, 180, 25);
-  const wild = window.vroomon.previewPhysicsFrames(wildDna, terrain, 180, 25);
+  const sky = wildRaceState.weather;
+  const mine = window.vroomon.previewPhysicsFrames(myDna, terrain, 180, 25, {
+    grip: sky.grip,
+    drive: sky.drive,
+  });
+  const wild = window.vroomon.previewPhysicsFrames(wildDna, terrain, 180, 25, {
+    grip: sky.grip,
+    drive: sky.drive,
+  });
   const distance = (frames: VehiclePreviewFrame[]): number => {
     const first = frames[0]?.snapshot;
     const last = frames[frames.length - 1]?.snapshot;
@@ -2143,7 +2160,10 @@ function renderWildRace(): void {
       wildRaceState.packBest > 0
         ? ` · this ground's best runs ${Math.round(wildRaceState.packBest)}px`
         : "";
-    sub.textContent = `${wildRaceState.terrain} · ${packLine}${ceiling} · win and it joins your Herd Book`;
+    const sky = wildRaceState.weather;
+    const skyLine =
+      sky.label === "clear" ? "" : ` · ${sky.label}: ${sky.note}`;
+    sub.textContent = `${wildRaceState.terrain} · ${packLine}${ceiling}${skyLine} · win and it joins your Herd Book`;
   }
   const lanes = document.querySelector<HTMLElement>("[data-wild-race-lanes]");
   if (lanes) {

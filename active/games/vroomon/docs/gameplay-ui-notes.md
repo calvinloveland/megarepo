@@ -842,6 +842,40 @@ gets harder instead of just paying out a Brand:
   dropped new world state (circuit tiers) — it now uses the shared
   serializer.
 
+## Weather, and where it is allowed to matter (2026-09-15) ✅
+
+The sky now follows the hour, using the same day slots as the shifts and the
+day tint — **clear at dawn and morning, a shower in the afternoon, a gale at
+dusk, mist by night** — and it is not just decoration:
+
+- **A shower cuts the grip a wheel can put down** (0.72) and takes a little
+  drive with it. A gale costs more drive than grip; mist costs a little of
+  both. The same two cars can swap places depending on the sky, because a car
+  that spins its drive away and one with drive on every wheel that is touching
+  the ground are affected differently.
+- **The wild race names its sky**: `shower: Wet grass: grip is what you
+  brought, not what you asked for.`
+
+### The rule that keeps it from being a bug
+
+This is an evolution simulator: a fitness that drifts with the wall clock
+would make a breed line and a circuit bar mean something different every time
+you looked at them. So **weather applies where a race is already a one-off —
+the wild encounter you are standing in — and nowhere else**. The lab, the
+heritage tree, the circuit and your own test drives always run clear, and the
+sim's weather parameter defaults to neutral, so every existing measurement in
+the test suite is unchanged.
+
+### Two things this caught
+
+- The harness pins morning for determinism, and morning was initially *wet* —
+  so two catch tests started losing races they used to win. Weather now
+  follows the day's own slots (mornings clear), which is both tidier and
+  matches the fiction.
+- The API surface declares `window.vroomon` in **three** places (renderer,
+  preload shim, preload); TypeScript merges them and demands identical
+  shapes, which is how the last one gets found rather than shipped.
+
 ## The ledger is a work list, not a report (2026-09-15) ✅
 
 Every ledger row you are *short* on now carries a **go** button: it sets the
