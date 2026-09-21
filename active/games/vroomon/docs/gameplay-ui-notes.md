@@ -177,8 +177,15 @@ what the contract is for.
 
 A table of contents for this date's work, which is scattered through the file
 because each entry lands beside whatever it followed at the time. Everything
-below the list is older.
+below the list is older. The docs test requires this list to be complete, so a
+new entry that is not indexed here fails the suite.
 
+- [HUD widths — verified, no change needed (2026-09-15) ✅](#hud-widths-verified-no-change-needed-2026-09-15)
+- [A full sitting, played from nothing (2026-09-15) ✅](#a-full-sitting-played-from-nothing-2026-09-15)
+- [The mechanic with no teacher (2026-09-15) ✅](#the-mechanic-with-no-teacher-2026-09-15)
+- [Every panel measured at 1024×768 (2026-09-15) ✅](#every-panel-measured-at-1024768-2026-09-15)
+- [The loaner is pitched exactly right, so it stays (2026-09-15) ✅](#the-loaner-is-pitched-exactly-right-so-it-stays-2026-09-15)
+- [Notes dated 2026-09-15, in file order](#notes-dated-2026-09-15-in-file-order)
 - [Three ways a written scene quietly stops working (2026-09-15) ✅](#three-ways-a-written-scene-quietly-stops-working-2026-09-15)
 - [Where people are, and where the map file says they are (2026-09-15) ✅](#where-people-are-and-where-the-map-file-says-they-are-2026-09-15)
 - [The inverse sweep: flavour that could belong to any map (2026-09-15) ✅](#the-inverse-sweep-flavour-that-could-belong-to-any-map-2026-09-15)

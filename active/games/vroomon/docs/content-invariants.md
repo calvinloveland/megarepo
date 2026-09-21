@@ -114,3 +114,22 @@ Each one names the place, the thing and the consequence.
   rather than specific scores — 53.6% of random cars fail tier II, the ice pack
   out-earns the yard after twenty meetings, the wild never collapses to one
   build. Tuning that flattens those curves fails the suite, which is the point.
+
+
+## Documentation rots the same way
+
+Two doc failures are worth catching mechanically, because both are invisible
+until somebody follows a link, and both happen on an edit that looks harmless:
+
+1. **A table of contents whose anchors no longer match the headings.** The
+   notes log carries an index of seventy-six dated entries; renaming one
+   heading kills one link silently. The test checks both directions — every
+   anchor resolves to a heading, and every dated heading appears in the index —
+   so the list can neither break nor go stale. (It had already gone stale by six
+   entries before the check existed.)
+2. **A cross-document link to a file that moved**, and an unclosed code fence,
+   which swallows the rest of the page when the docs site renders it.
+
+`tests/docs.test.ts` covers all three. Verified by mutation: renaming an
+indexed heading fails with `the notes index points at headings that are gone:
+the-mechanic-with-no-teacher-2026-09-15`.
