@@ -232,6 +232,7 @@ new entry that is not indexed here fails the suite.
 - [Named but never called: seven helpers with rules in them (2026-09-15) ✅](#named-but-never-called-seven-helpers-with-rules-in-them-2026-09-15)
 - [The HUD chips: audited, and already covered (2026-09-15) ✅](#the-hud-chips-audited-and-already-covered-2026-09-15)
 - [The baked tile layer was fine, and one function was dead (2026-09-15) ✅](#the-baked-tile-layer-was-fine-and-one-function-was-dead-2026-09-15)
+- [The design overview had drifted, and the invariants outgrew it (2026-09-15) ✅](#the-design-overview-had-drifted-and-the-invariants-outgrew-it-2026-09-15)
 - [Three ways a written scene quietly stops working (2026-09-15) ✅](#three-ways-a-written-scene-quietly-stops-working-2026-09-15)
 - [Where people are, and where the map file says they are (2026-09-15) ✅](#where-people-are-and-where-the-map-file-says-they-are-2026-09-15)
 - [The inverse sweep: flavour that could belong to any map (2026-09-15) ✅](#the-inverse-sweep-flavour-that-could-belong-to-any-map-2026-09-15)
@@ -716,6 +717,36 @@ a maintenance cost with no benefit, and the honest alternative is `git`.
 That is the first item from those sweeps where the answer was deletion rather
 than coverage, which is worth noting: the list of "named but never called" is a
 list of *questions*, not of missing tests.
+
+---
+
+## The design overview had drifted, and the invariants outgrew it (2026-09-15) ✅
+
+`docs/design-overview.md` is the one-page version of the whole thing, which
+makes it the document most likely to be believed and most likely to be stale.
+Read against the game as it now stands, four claims had been overtaken:
+
+- **"25 maps"** — the list beside it already summed to **23**.
+- **"weather applies only to wild encounters, never the circuit"** — no longer
+  true, and the session made it false: a shower raises a feud's bar while your
+  recorded champion does not move.
+- **"tier I is calibrated above what a random 32-car herd does"** — the session
+  measured the opposite, in the useful direction: the best of a fresh herd
+  *already* clears tier I (2% of cars reach 1,000, none reach 1,220), so the
+  first Brand teaches the loop and **the ladder starts asking at tier II**.
+- **The tier shape demands were missing entirely**, as was the fact that
+  "where you hunt matters" has a direction (the Ice perimeter is the richest
+  ground; the grass behind the house plateaus near 1,000).
+
+The **invariant suite** section had the same problem in a different key: it
+listed the checks as they stood several sessions ago. It is now grouped into
+walking the world, content referencing content, the registers that fail both
+ways, behaviour and measurement, and pipelines and docs — which is also a
+clearer way to see what the suite is *for* than a flat list of assertions.
+
+One number survived scrutiny and is worth recording: the doc's **94
+generations** to clear five Brands is right, and is the sum of the pacing test's
+own output (9 / 20 / 25 / 38 / 2). Verifying beat rewriting again.
 
 ---
 

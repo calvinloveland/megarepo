@@ -44,11 +44,20 @@ Ranch) prints the structure, the power path and **the drive at every wheel**.
 
 ## Progression, measured
 
-- **Tier I is the campaign's requirement** (one Brand per biome), so it is
-  calibrated between two measured bounds: **above** what a random 32-car herd
-  already does on that ground (750 / 1,145 / 1,097 / 1,052 / 875), and **below**
-  what a herd reaches even on a poor seed (1,271 / 1,673 / 1,519 / 2,068 /
-  3,239). A bot rancher clearing five Brands takes **94 generations**.
+- **Tier I is the campaign's requirement** (one Brand per biome), and it is a
+  *formality by design*: measured over 400 freshly generated cars, the middle
+  one runs **160** and the best of a hundred clears the bar — **2% of cars
+  reach 1,000, and none reach 1,220**. So the first Brand teaches the loop
+  (find your best, record it, race it) and **the ladder starts asking at tier
+  II**, which luck never reaches. A bot rancher clearing five Brands takes **94
+  generations** (9 / 20 / 25 / 38 / 2, in `tests/pacing.test.ts`).
+- **From tier II, the ground asks what the car is *made of*** as well as what
+  it runs: two driven wheels, then three wheels with two driven, then four with
+  three, then four driven behind three engines. Calibrated against random herds
+  so each rung is a real filter (60% / 39% / 12% / 4% of cars pass), and stated
+  by the keeper before every race. Hunting can answer it — the wild drifts
+  toward driven wheels on its own — but the far grounds answer it faster, which
+  is the point of walking them.
 - **Later tiers are a title defence.** They rise, the record books keep the
   scores, and a wall there is a challenge rather than a dead end — the ledger
   says exactly how short you are.
@@ -64,8 +73,12 @@ selector; nobody steers it. Every meeting turns the pack over a generation —
 **two generations after dark** — and the champions are carried, so the wild
 never gets easier. You meet the pack's *median* animal, not its champion: the
 alpha is where the difficulty lives, and meeting it every time made the
-tutorial unwinnable. The wild improves at roughly **half the rate of a tended
-herd**, which is what keeps breeding the answer.
+tutorial unwinnable. Measured, twenty meetings in, the strongest ground's pack
+sends **1,622** while a tended herd is past **2,400** — so the wild is a real
+route and never a shortcut, and breeding stays the answer. The other half of
+that finding: **where you hunt matters**, and not in the obvious direction —
+the Ice perimeter's pack is the strongest on the map while the grass behind the
+house plateaus near 1,000.
 
 ## The economy, and where the Herd Book pays
 
@@ -81,7 +94,7 @@ herd**, which is what keeps breeding the answer.
 
 ## The world
 
-**25 maps** across five biomes: a town with a schoolhouse and a store, the
+**23 maps** across five biomes: a town with a schoolhouse and a store, the
 ranch house and yard, an orchard, two routes, two arenas with back rooms,
 three biome grounds, a Salt Road waystation with two interiors, and three road
 landmarks with an office and a shed.
@@ -97,28 +110,55 @@ landmarks with an office and a shed.
   Chains gate behind paid prerequisites.
 - **A four-minute day** drives the light, the windows, the shifts and the
   **weather**: clear mornings, showers in the afternoon, gales at dusk, mist by
-  night. Weather is the one thing that changes a race outcome — and it applies
-  **only to wild encounters**, never to the lab, heritage, circuit or test
-  drives, because a fitness that drifted with the wall clock would be a bug.
+  night. Weather changes race outcomes in two places: a wild encounter is run on
+  wet ground, and **a shower raises a feud's bar** while your recorded champion
+  does not move — so the same car can clear a Brand at dawn and lose it by
+  midday. The lab, heritage and test drive stay dry, because a fitness that
+  drifted with the wall clock would be a bug.
 
 ## The invariant suite
 
-The bugs worth having now live *between* systems, so a growing set of
-content invariants reads the shipped maps and catalogs:
+The bugs worth having now live *between* systems, so a growing set of content
+invariants reads the shipped maps, catalogs and docs rather than a fixture.
+Adding content is what gets checked.
 
-every gate on standable ground · every landing inside a room and never on a
-gate · no dead doors · every building cluster has a door · every NPC reachable
-· the map graph walkable from town with no stranding dead ends · every dialogue
-link resolves · no two people on one tile at any hour · every person has
-something to say · every job offerable, chained without loops, paying in
+**Walking the world.** Every gate on standable ground · every landing inside a
+room and never on a gate · no dead doors · every building cluster has a door ·
+every NPC reachable *and* with somewhere to stand and talk to them · the map
+graph walkable from town with no stranding dead ends · every on-duty keeper on
+passable, reachable ground at every hour of the clock (swept in hundredths) ·
+no two people on one tile at any hour · decor walkable *and* reachable · no map
+fences off its tall grass · **every outdoor ground with people can take at least
+one decoration**.
+
+**Content that references content.** Every dialogue link resolves · every
+`goto:` lands on real ground and hands off to a node that exists · every flag
+read is set by something · every job offerable, chained without loops, paying in
 spendable things, naming ground that can provide them, from a giver near that
-ground · every rival's car actually races · circuit terrain agrees with wild
-terrain · decor walkable *and* reachable · no map fences off its tall grass ·
-every outdoor ground with a wild pack has grass you can reach.
+ground · **a job on another map says which map** · every rival's car actually
+races · earned-only decor is earned by some quest · circuit terrain agrees with
+wild terrain · **every map with wild grass declares its own terrain** (three
+were silently breeding Grassland stock) · **every rule the HUD states is
+explained by a person** (weather, the wild's purpose, where you hunt, the shape
+demand, feed and credits, and why a title's bar rises).
 
-Plus the behavioural guards: the wild improves but slower than a tended herd ·
-breeding beats random search · the campaign is reachable on a poor seed and not
-trivial on a lucky one.
+**Registers, which fail in both directions.** One-line walk-ons · dated doc
+entries in the notes index · source modules with no test · the coverage reasons
+those modules cite. A list that can only grow becomes a lie; a list checked both
+ways stays a decision.
+
+**Behaviour and measurement.** Breeding beats random search · the herd climbs ·
+the wild improves but slower than a tended herd, and never collapses to one
+build · each biome settles on its own build and its own pace · no hunting ground
+is a shortcut past the bench · the tier shapes filter a real share of random
+cars without locking anyone out · the loaner beats the yard's median and loses
+to its champion · the campaign is reachable on a poor seed and not trivial on a
+lucky one.
+
+**Pipelines and docs.** The exported sprites match the drawing code that made
+them (`source-hash.json`) · every manifest entry has its file · every doc link
+and heading anchor resolves · the notes index is complete · every code fence is
+closed.
 
 ## Where things live
 
