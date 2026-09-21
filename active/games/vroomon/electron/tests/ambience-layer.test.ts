@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { windowLight } from "../src/renderer/world/ambience-layer.js";
 import {
   DAY_LENGTH_MS,
   lampGlow,
@@ -152,5 +153,18 @@ describe("room light", () => {
     const small = lampGlow(0, { width: 8, height: 6 });
     const large = lampGlow(0, { width: 20, height: 14 });
     expect(large.radius).toBeGreaterThan(small.radius);
+  });
+});
+
+describe("the window lights", () => {
+  it("are out by day, lit at night, and fade in between", () => {
+    // Times are phases: 0 dawn, 0.25 morning, 0.5 afternoon, 0.9 night.
+    expect(windowLight(0.25 * 240_000)).toBe(0);
+    expect(windowLight(0.5 * 240_000)).toBe(0);
+    expect(windowLight(0.9 * 240_000)).toBeGreaterThan(0.5);
+    // Dusk is a fade, not a switch.
+    const dusk = windowLight(0.76 * 240_000);
+    expect(dusk).toBeGreaterThan(0);
+    expect(dusk).toBeLessThan(1);
   });
 });

@@ -229,6 +229,7 @@ new entry that is not indexed here fails the suite.
 - [The wild table answers the question you came in with (2026-09-15) ✅](#the-wild-table-answers-the-question-you-came-in-with-2026-09-15)
 - [The ledger said DEFEND, and nobody said why (2026-09-15) ✅](#the-ledger-said-defend-and-nobody-said-why-2026-09-15)
 - [The sprite export had drifted, and nothing could have noticed (2026-09-15) ✅](#the-sprite-export-had-drifted-and-nothing-could-have-noticed-2026-09-15)
+- [Named but never called: seven helpers with rules in them (2026-09-15) ✅](#named-but-never-called-seven-helpers-with-rules-in-them-2026-09-15)
 - [Three ways a written scene quietly stops working (2026-09-15) ✅](#three-ways-a-written-scene-quietly-stops-working-2026-09-15)
 - [Where people are, and where the map file says they are (2026-09-15) ✅](#where-people-are-and-where-the-map-file-says-they-are-2026-09-15)
 - [The inverse sweep: flavour that could belong to any map (2026-09-15) ✅](#the-inverse-sweep-flavour-that-could-belong-to-any-map-2026-09-15)
@@ -610,6 +611,36 @@ recur silently.
 
 The check also verifies that every `drawn` entry in the manifest has its PNG
 beside it, which is the half that catches the 111.
+
+---
+
+## Named but never called: seven helpers with rules in them (2026-09-15) ✅
+
+The coverage map answers "is this module named by a test". The next question
+inward is sharper: **is this function ever actually called by one?** Of 29
+exports named but never called, most are legitimately indirect — renderers
+driven through the e2e, state setters used everywhere in the app — but seven
+carry rules that nothing asserted:
+
+- **`seedGenealogy`** — every car in a new herd starts parentless, which is
+  what makes "founder stock" honest in the Heritage tree.
+- **`badgeForMap`** — the circuit's key. A map with no entry quietly becomes a
+  Grassland feud, so the fallback is worth stating.
+- **`windowLight`** — out by day, lit at night, and *faded* through dusk rather
+  than switched.
+- **`thanksSpokenKey`** — the renderer writes it, `questBeats` reads it. If the
+  two ever disagreed, a giver would repeat themselves forever or never speak.
+- **`addTally` / `markVisited`** — pure state, and `markVisited` counts once
+  however often you cross the map, which is what stops a "walk there" quest
+  finishing on the way home.
+- **`advanceDialogue`** — a flagged beat that chains onward applies its flag on
+  the way through. That is the rule the reveal beat depends on.
+- **`npcOnTile` / `findAdjacentNpc`** — who is standing where *now* (routine
+  aware), and that talking requires the player to face them.
+
+Seven tests, each placed in the file it belongs to rather than a grab-bag, and
+one of them found the `advanceDialogue` rule was documented in a comment and
+nowhere else.
 
 ---
 

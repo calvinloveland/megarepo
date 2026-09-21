@@ -16,6 +16,7 @@ import {
   shapeReadout,
   shapeShortfall,
   VENUE_ORDER,
+  badgeForMap,
   VENUE_TERRAIN,
 } from "../src/renderer/circuit.js";
 
@@ -250,5 +251,17 @@ describe("the Inspector's shape readout", () => {
 
   it("tells the truth about tier I, which asks nothing", () => {
     expect(shapeReadout(car(1, 0, 0), 1)).toContain("asks nothing of the build");
+  });
+});
+
+describe("which Brand a ground awards", () => {
+  it("names each arena's Brand, and falls back to the Grassland", () => {
+    // The badge is the circuit's key: tiers, titles and the ledger all hang
+    // off it, so a map with no entry would quietly become a Grassland feud.
+    for (const mapId of VENUE_ORDER) {
+      expect(badgeForMap(mapId)).toBe(VENUE_BADGE[mapId]);
+    }
+    expect(badgeForMap("starter_town")).toBe("Grassland Brand");
+    expect(badgeForMap("nowhere_at_all")).toBe("Grassland Brand");
   });
 });

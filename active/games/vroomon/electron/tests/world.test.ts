@@ -9,8 +9,10 @@ import { DECOR_ITEMS } from "../src/renderer/world/decor.js";
 const MAP_LIST = Object.values(MAPS);
 import {
   attemptMove,
+  findAdjacentNpc,
   isAtEdgeTransition,
   isOnWildEncounterTile,
+  npcOnTile,
 } from "../src/renderer/world/overworld-renderer.js";
 import {
   EMPTY_PERSISTED_WORLD,
@@ -18,6 +20,8 @@ import {
   serializeWorldState,
 } from "../src/renderer/world/types.js";
 import {
+  addTally,
+  advanceDialogue,
   awardBadge,
   createInitialWorldState,
   endDialogue,
@@ -27,6 +31,7 @@ import {
   startDialogue,
   transitionToMap,
   joinFaction,
+  markVisited,
 } from "../src/renderer/world/world-state.js";
 
 describe("world maps", () => {
@@ -1110,4 +1115,91 @@ describe("badge-by-map naming", () => {
       expect(awardBadge(state, resolved).badges).toEqual([badge]);
     },
   );
+});
+
+describe("the tally, and the things it remembers", () => {
+  it("counts up from nothing, and keeps other keys", () => {
+    const empty = createInitialWorldState();
+    const once = addTally(empty, "wildWins");
+    expect(once.tally.wildWins).toBe(1);
+    const thrice = addTally(addTally(once, "wildWins"), "wildWins");
+    expect(thrice.tally.wildWins).toBe(3);
+    // A second key does not disturb the first.
+    expect(addTally(thrice, "released", 2).tally).toEqual({ wildWins: 3, released: 2 });
+    // The original is untouched: these are pure state helpers.
+    expect(empty.tally).toEqual({});
+  });
+
+  it("remembers a map as visited once, however often you cross it", () => {
+    const empty = createInitialWorldState();
+    const first = markVisited(empty, "hills_map");
+    expect(first.tally["visited:hills_map"]).toBe(1);
+    // Coming back does not count again - the quest that asks you to walk
+    // somewhere would otherwise finish on the way home.
+    const again = markVisited(first, "hills_map");
+    expect(again).toBe(first);
+    expect(again.tally["visited:hills_map"]).toBe(1);
+  });
+
+  it("applies a beat's flag when the player advances past it", () => {
+    // setFlag must not be reserved for terminal nodes: a flagged beat that
+    // also chains onward applies its flag on the way through, which is how the
+    // reveal beat walks you into the yard and records itself at the same time.
+    const started = startDialogue(createInitialWorldState(), "somebody", {
+      text: "a beat that also chains",
+      setFlag: "beat-seen",
+    });
+    const next = advanceDialogue(started, "somebody-2", { text: "the next beat" });
+    expect(next.flags["beat-seen"]).toBe(true);
+    expect(next.dialogueQueue[0]?.text).toBe("the next beat");
+  });
+});
+
+describe("who is standing where, right now", () => {
+  it("finds a keeper on the tile they are on at this hour, not the one in the file", () => {
+    // The same routine-awareness that movement and interaction depend on: a
+    // keeper with a routine leaves their tile at dusk, and every answer about
+    // "who is here" has to agree about it.
+    const hosted = MAP_LIST.find((map) =>
+      map.npcs.some(
+        (npc) =>
+          npc.routine &&
+          npcPositionAt(npc, 0.25) &&
+          npcPositionAt(npc, 0.95) &&
+          (npcPositionAt(npc, 0.25)!.x !== npcPositionAt(npc, 0.95)!.x ||
+            npcPositionAt(npc, 0.25)!.y !== npcPositionAt(npc, 0.95)!.y),
+      ),
+    );
+    expect(hosted).toBeDefined();
+    const npc = hosted!.npcs.find(
+      (candidate) =>
+        candidate.routine &&
+        npcPositionAt(candidate, 0.25) &&
+        npcPositionAt(candidate, 0.95) &&
+        (npcPositionAt(candidate, 0.25)!.x !== npcPositionAt(candidate, 0.95)!.x ||
+          npcPositionAt(candidate, 0.25)!.y !== npcPositionAt(candidate, 0.95)!.y),
+    )!;
+    const morning = npcPositionAt(npc, 0.25)!;
+
+    expect(npcOnTile(hosted!, morning.x, morning.y, 0.25 * 240_000)?.id).toBe(npc.id);
+    expect(npcOnTile(hosted!, morning.x, morning.y, 0.95 * 240_000)).toBeNull();
+  });
+
+  it("only talks to somebody the player is actually facing", () => {
+    const map = getMap("starter_town")!;
+    const npc = map.npcs.find((candidate) => candidate.x > 0 && candidate.y > 0)!;
+    const facing = { ...createInitialWorldState(), currentMapId: "starter_town" };
+    // Standing to the right of them, looking left: that is a conversation.
+    const looking = {
+      ...facing,
+      playerX: npc.x + 1,
+      playerY: npc.y,
+      playerFacing: "left" as const,
+    };
+    expect(findAdjacentNpc(looking, 0.25 * 240_000)?.id).toBe(npc.id);
+    // Looking away is not.
+    expect(
+      findAdjacentNpc({ ...looking, playerFacing: "right" as const }, 0.25 * 240_000),
+    ).toBeNull();
+  });
 });

@@ -6,6 +6,7 @@ import {
   findSideQuest,
   objectiveProgress,
   questBeats,
+  thanksSpokenKey,
   questProgress,
   isUnlocked,
   sideQuestLog,
@@ -329,5 +330,25 @@ describe("a giver says their own lines", () => {
       "Wrangler Jess",
     );
     expect(beats.thanks?.id).toBe("wranglers-muster");
+  });
+});
+
+describe("the key that records a thank-you", () => {
+  it("is namespaced, and matches what questBeats looks for", () => {
+    // The renderer writes this key when a giver says their piece and questBeats
+    // reads it to stay quiet afterwards. If the two ever disagreed, a giver
+    // would repeat themselves forever or never speak at all.
+    const key = thanksSpokenKey("wranglers-muster");
+    expect(key).toBe("spoken:wranglers-muster");
+    const said = questBeats(
+      world({
+        flags: { "quest-muster-accepted": true },
+        tally: { wildWins: 3, "paid:wranglers-muster": 1, [key]: 1 },
+      }),
+      RUN,
+      "wrangler-jess",
+      "Wrangler Jess",
+    );
+    expect(said.thanks).toBeNull();
   });
 });

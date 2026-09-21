@@ -9,7 +9,12 @@
 // mechanism; these tests hold it in place.
 
 import { describe, expect, it } from "vitest";
-import { createPreviewRunState, advanceRunState, runEvolutionGeneration } from "../src/core/population.js";
+import {
+  advanceRunState,
+  createPreviewRunState,
+  runEvolutionGeneration,
+  seedGenealogy,
+} from "../src/core/population.js";
 import { createEmptyRunState } from "../src/shared/parity-contract.js";
 import { decodeDnaV2, uniformAt } from "../src/shared/dna-v2.js";
 
@@ -185,5 +190,17 @@ describe("breeding improves the herd", () => {
     // touch a handful of slots at most.
     expect(changed).toBeLessThan(before.length);
     expect(changed).toBeLessThanOrEqual(Math.ceil(before.length / 2));
+  });
+});
+
+describe("the genealogy a new herd starts with", () => {
+  it("names every car with no parents", () => {
+    const state = createPreviewRunState("gen", createEmptyRunState("gen"), () => 0.5);
+    const genealogy = seedGenealogy(state.population);
+    expect(Object.keys(genealogy).length).toBe(state.population.length);
+    for (const [id, children] of Object.entries(genealogy)) {
+      expect(children, `${id} starts with children`).toEqual([]);
+      expect(state.population.some((entry) => entry.id === id)).toBe(true);
+    }
   });
 });
