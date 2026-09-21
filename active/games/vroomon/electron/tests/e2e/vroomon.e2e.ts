@@ -756,11 +756,11 @@ test.describe("vroomon Playwright harness", () => {
     await page.waitForTimeout(400);
     await page.keyboard.press("z");
     await expect(page.locator("[data-race-overlay]")).toBeVisible();
-    // 700 against a 768 bar: short, and no Brand for it.
+    // 700 against a 732 bar (600 x 1.22): short, and no Brand for it.
     await expect(page.locator("[data-race-title]")).toContainText("II");
     await page.locator("[data-race-close]").click();
     await page.waitForTimeout(400);
-    await expect(page.locator("[data-status-message]")).toContainText("Short by 68");
+    await expect(page.locator("[data-status-message]")).toContainText("Short by 32");
     await expect(page.locator("[data-overworld-badge-list]")).toContainText("No brands");
   });
 

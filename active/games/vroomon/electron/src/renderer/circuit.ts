@@ -11,7 +11,17 @@ export const VENUE_TERRAIN: Record<string, string> = {
   ice_map: "Ice",
 };
 
-/** Terrain -> the score a champion must beat at tier 1. */
+/**
+ * Terrain -> the score a champion must beat at tier 1.
+ *
+ * This ladder rises with the campaign (the Grassland opens the circuit, the
+ * Perimeter closes it). What it must NOT do is outrun the ground it sits on:
+ * measured over 120 generations of 60 cars, the ceilings are roughly 2,170
+ * (Grassland), 3,140 (Sand), 3,200 (Hills), 2,070 (Rocky) and 3,530 (Ice),
+ * and every tier V bar below sits under its own terrain's ceiling. At the
+ * old growth of 1.28 the Quarry's did not (2,094 against 2,068) — see
+ * tests/pacing.test.ts, which enforces the relationship.
+ */
 const TIER_BASE: Record<string, number> = {
   Flat: 540,
   Grassland: 600,
@@ -22,7 +32,14 @@ const TIER_BASE: Record<string, number> = {
 };
 
 /** How much harder each sweep makes the same ground. */
-export const TIER_GROWTH = 1.28;
+/**
+ * How much harder each sweep gets. Measured against what a herd can actually
+ * reach: at 1.28 the Quarry's tier V bar (2094) sat just above the Quarry's
+ * own plateau (2068 after 120 generations) — a dead end a player could grind
+ * at forever. At 1.22 every terrain's five tiers fit under its ceiling, so the
+ * five Brands of a campaign are all winnable.
+ */
+export const TIER_GROWTH = 1.22;
 
 const ROMAN = [
   "I",

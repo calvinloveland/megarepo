@@ -34,8 +34,10 @@ describe("the feud circuit", () => {
     expect(first).toBe(600);
     expect(second).toBe(Math.round(600 * TIER_GROWTH));
     expect(third).toBeGreaterThan(second);
-    // after five sweeps the bar has clearly outgrown a starter herd
-    expect(feudBar("Grassland", 5)).toBeGreaterThan(1400);
+    // After five sweeps the bar has clearly outgrown a starter herd — but it
+    // still has to be a bar a real herd can clear, which is what keeps the
+    // circuit winnable (see tests/pacing.test.ts).
+    expect(feudBar("Grassland", 5)).toBeGreaterThan(1200);
   });
 
   it("gives rougher ground a higher bar", () => {

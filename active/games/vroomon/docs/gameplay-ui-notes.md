@@ -842,6 +842,43 @@ gets harder instead of just paying out a Brand:
   dropped new world state (circuit tiers) — it now uses the shared
   serializer.
 
+## A pacing audit, measured (2026-09-15) ✅
+
+Balance can't be reasoned about in this game — what a herd can do depends on
+the simulation of a given terrain — so the campaign is now measured, and the
+measurements are guarded.
+
+**What was measured** (60 cars, 120 generations, mutation 0.3, per terrain):
+
+| terrain | tier I | tier V | generations to tier V |
+|---|---|---|---|
+| Grassland | 600 | 1329 | 35 |
+| Sand | 660 | 1462 | 6 |
+| Hills | 720 | 1595 | 21 |
+| Rocky | 780 | 1728 | 38 |
+| Ice | 840 | 1861 | 10 |
+
+**What that found and changed.** At a tier growth of 1.28 the Quarry's tier V
+bar was 2,094 against a Quarry run that topped out at 2,068 — the grind only
+got harder from there, forever. Growth is now **1.22**: every terrain's five
+tiers fit under its own ceiling and tier V arrives inside 38 generations
+rather than never.
+
+**And what it honestly can't claim.** Re-measuring on a second seed gave Sand
+1,673 and Rocky 3,224 — the *starting population* decides more than the dirt
+does, so "the ceiling" is a range, not a number. The guard therefore states
+the weak claim (a bar must sit under what its ground has *demonstrably*
+produced) rather than a strong one that would fail on noise, and the real
+measurement runs opt-in (`VROOMON_SLOW_TESTS=1`). A bar above one seed's
+result is a grind, not a dead end: the herd keeps breeding, and every
+generation can find a better car.
+
+**The ranch economy**, for the record: the full upgrade catalogue costs 38,190
+credits and a five-terrain campaign earns roughly 28,000, so "buy everything"
+is a mastery goal rather than a mid-game wall. That's a deliberate shape, not
+a bug — but it is a judgement call, and the numbers are in
+`tests/pacing.test.ts` for whoever wants to argue with them.
+
 ## Starter Town has rooms now (2026-09-15) ✅
 
 The town's two buildings were facades with nothing behind them. Both open:
