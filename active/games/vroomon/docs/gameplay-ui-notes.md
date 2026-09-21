@@ -231,6 +231,7 @@ new entry that is not indexed here fails the suite.
 - [The sprite export had drifted, and nothing could have noticed (2026-09-15) ✅](#the-sprite-export-had-drifted-and-nothing-could-have-noticed-2026-09-15)
 - [Named but never called: seven helpers with rules in them (2026-09-15) ✅](#named-but-never-called-seven-helpers-with-rules-in-them-2026-09-15)
 - [The HUD chips: audited, and already covered (2026-09-15) ✅](#the-hud-chips-audited-and-already-covered-2026-09-15)
+- [The baked tile layer was fine, and one function was dead (2026-09-15) ✅](#the-baked-tile-layer-was-fine-and-one-function-was-dead-2026-09-15)
 - [Three ways a written scene quietly stops working (2026-09-15) ✅](#three-ways-a-written-scene-quietly-stops-working-2026-09-15)
 - [Where people are, and where the map file says they are (2026-09-15) ✅](#where-people-are-and-where-the-map-file-says-they-are-2026-09-15)
 - [The inverse sweep: flavour that could belong to any map (2026-09-15) ✅](#the-inverse-sweep-flavour-that-could-belong-to-any-map-2026-09-15)
@@ -680,6 +681,41 @@ Three audits this session have now ended in "already covered" (the walk-ons,
 Fitter Aubrey and the Cut's givers, and this one) against five that found real
 gaps. Verifying is cheap; the ratio is worth remembering when a suspicion feels
 urgent.
+
+---
+
+## The baked tile layer was fine, and one function was dead (2026-09-15) ✅
+
+After re-exporting 268 sprites, the question was whether the overworld's baked
+tile layer — an offscreen canvas drawn once and blitted per frame — was still
+showing the old art. It is not, and the reason is worth recording: its cache key
+is
+
+```
+${map.id}|${png|code}|${width}x${height}
+```
+
+which distinguishes **which source the tiles came from**. When the PNGs finish
+loading the key changes, the layer rebuilds, and the new art appears. The one
+case it does not cover is a re-export *while the app is running*, which is a
+development concern and a reload away from correct.
+
+**And the re-export is byte-reproducible**: running `npm run export:sprites`
+again produced *zero* changed files. That retroactively confirms the earlier
+finding — the 63 files that changed when the export had drifted were genuinely
+different pictures, not encoding noise.
+
+### The sweep's list contained a corpse
+
+`invalidateBakedTileLayer` was in the "named but never called" list, and the
+right answer for it was not a test. Referenced **exactly once** — by its own
+definition — because the cache key already handles everything it was written to
+handle. Removed, with a note in its place saying why. An unused escape hatch is
+a maintenance cost with no benefit, and the honest alternative is `git`.
+
+That is the first item from those sweeps where the answer was deletion rather
+than coverage, which is worth noting: the list of "named but never called" is a
+list of *questions*, not of missing tests.
 
 ---
 

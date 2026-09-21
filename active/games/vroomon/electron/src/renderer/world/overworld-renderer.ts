@@ -80,11 +80,10 @@ function bakedTileLayer(
   return layer;
 }
 
-export function invalidateBakedTileLayer(): void {
-  bakedLayer = null;
-  waterLayer = null;
-  windowLayer = null;
-}
+// (There was an `invalidateBakedTileLayer` here, referenced exactly once - by
+// its own definition. The baked layer's key already covers every case that
+// matters: map id, whether the tiles came from PNGs or from the drawing code,
+// and the map's size. Removed rather than kept as an unused escape hatch.)
 
 /** Water tiles per map, scanned once (the renderer draws ripples over them). */
 let waterLayer: { key: string; tiles: Array<{ x: number; y: number }> } | null = null;
