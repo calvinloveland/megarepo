@@ -913,6 +913,25 @@ the helper is exported, and the next caller would have inherited the wrong
 answer. The controller now also passes its own pinned clock through, so both
 layers agree even at a phase boundary.
 
+## The local-giver pattern, as an e2e (2026-09-15) ✅
+
+Two jobs used to be attached to outlying maps while being handed out in town,
+and the Vent Keeper stood on the Mesa with nothing to say. The fix is now a
+pattern, so it has a test that walks it end to end:
+
+1. Prerequisites paid, walk up to the Keeper on the Mesa and press Z.
+2. Her menu answers *"What does the ground want?"* — **"four wheels planted, two
+   of them pulling, that is the shape the Mesa likes"** — which is the shape
+   rules explained by the fiction rather than by the HUD.
+3. Take the job; it lands on the card as **The Vent Line · Vent Keeper**.
+4. The flag is read back out of the save, not just off the screen, so a job
+   that draws itself without committing fails the test.
+5. The landmark beside her — the Ridge Vane — can be walked up to and read.
+
+The last step matters more than it looks: "a working you can walk up to and
+read" is only true if a player standing next to it can actually open it, which
+is the same class of check that caught two signs built inside a treeline.
+
 ## Is hunting a shortcut past the bench? Measured (2026-09-15) ✅
 
 An encounter sends the pack's **median** animal, not its champion — so what a

@@ -1453,6 +1453,65 @@ async function closePocketRanch(page: import("@playwright/test").Page): Promise<
     await expect(page.locator("[data-wild-race-overlay]")).toBeHidden();
   });
 
+  test("@smoke the ground's own keeper hands out the ground's own work", async ({ page }) => {
+    // Two jobs used to be attached to outlying maps while being given in town;
+    // the Vent Keeper stood on the Mesa with nothing to say. This is the
+    // pattern for a local giver, end to end: walk up, take the job, watch it
+    // land on the card, and check the flag really committed.
+    await seedRancher(page);
+    await page.evaluate(async () => {
+      const world = await window.vroomon.loadWorldState();
+      await window.vroomon.saveWorldState({
+        ...world,
+        tally: { "paid:mesa-thermals": 1, "paid:wranglers-muster": 1 },
+      });
+    });
+    await enterMapAt(page, "hills_map", 8, 3, "up");
+    await page.locator('[data-dpad="interact"]').click();
+    await page.waitForTimeout(600);
+    await expect(page.locator("[data-overworld-dialogue-name]")).toContainText("Vent Keeper");
+
+    // Her menu answers what the ground wants, and offers the work.
+    await expect(page.locator("[data-dialogue-option]")).toHaveCount(3);
+    await page.locator("[data-dialogue-option]").first().click();
+    await page.waitForTimeout(500);
+    await expect(page.locator("[data-overworld-dialogue-text]")).toContainText("shape the Mesa likes");
+    await page.locator("[data-overworld-dialogue-text]").click();
+    await page.waitForTimeout(400);
+    await page.locator('[data-dpad="interact"]').click();
+    await page.waitForTimeout(500);
+    await page.locator("[data-dialogue-option]").nth(1).click();
+    await page.waitForTimeout(500);
+    await expect(page.locator("[data-overworld-dialogue-text]")).toContainText("Twenty-six hundred");
+    await page.keyboard.press("z");
+    await page.waitForTimeout(700);
+
+    // It lands on the card, with the giver named beside it.
+    const card = page.locator("[data-stats-quest-side]");
+    await expect(card).toContainText("The Vent Line");
+    await expect(card).toContainText("Vent Keeper");
+
+    // And it is really accepted, not just drawn.
+    const accepted = await page.evaluate(async () => {
+      const world = await window.vroomon.loadWorldState();
+      return Boolean(world?.flags?.["quest-vent-line-accepted"]);
+    });
+    expect(accepted).toBe(true);
+
+    // The landmark beside her can be walked up to and read.
+    await page.evaluate(async () => {
+      const world = await window.vroomon.loadWorldState();
+      await window.vroomon.saveWorldState({ ...world, playerX: 9, playerY: 2, playerFacing: "right" });
+    });
+    await page.reload();
+    await page.locator("[data-status-message]").filter({ hasText: "Welcome" }).waitFor({ timeout: 20000 });
+    await page.locator('[data-menu-action="continue"]').click();
+    await page.waitForTimeout(600);
+    await page.locator('[data-dpad="interact"]').click();
+    await page.waitForTimeout(600);
+    await expect(page.locator("[data-overworld-dialogue-name]")).toContainText("Ridge Vane");
+  });
+
   test("@smoke a meeting on the high road is raced on the high road", async ({ page }) => {
     // The encounter used the CIRCUIT's terrain, which answers "Grassland" for
     // every map that is not an arena - so a meeting on the Highland switchback
