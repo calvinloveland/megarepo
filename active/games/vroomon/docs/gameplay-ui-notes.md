@@ -913,6 +913,31 @@ the helper is exported, and the next caller would have inherited the wrong
 answer. The controller now also passes its own pinned clock through, so both
 layers agree even at a phase boundary.
 
+## Does the wild answer the shapes? Measured (2026-09-15) ✅
+
+The tier shapes were added so the climb would reward breeding a *build*, not
+only finding a number. That raises a question the numbers can answer: can a
+player simply hunt their way past a shape-blocked tier?
+
+**Yes — and that is fine.** The wild is scored on time alone, so it drifts
+towards whatever drives hardest, and it gets there quickly:
+
+```
+matured pack (20 generations)   4–5 driven wheels dominate, every tier answerable
+founder pack                    spread 0–3 driven, median 2 — tier II is answerable
+```
+
+So the shape gate is not a wall against hunting. What it does is filter the
+**random herd**, hard: 60% of freshly generated cars answer tier II, 39% tier
+III, 12% tier IV and 4% tier V. A new player who never opens the blueprint
+finds their herd mostly *cannot* answer the second Brand, and the wild — which
+already holds two-driven animals from the founding pack — is a legitimate way
+out. Two invariants now hold that line: the pack must never collapse to a
+single build (immigrants and mutation keep putting new shapes back in), and
+the demands must stay between 20% and 85% for tier II while the top rung stays
+reachable, so nobody can soften the ladder into a pure score chase or harden
+it into a wall.
+
 ## The Inspector answers the ground (2026-09-15) ✅
 
 Tier shape demands are worth nothing if the player cannot see them while

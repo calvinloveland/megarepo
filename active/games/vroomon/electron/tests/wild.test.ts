@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { describeVehicle } from "../src/shared/blueprint.js";
+import { decodeDnaV2 } from "../src/shared/dna-v2.js";
 import {
   advanceWildPack,
   seedWildPack,
@@ -120,5 +122,38 @@ describe("the wild at night", () => {
     expect(isNight(DAY_LENGTH_MS * 0.9)).toBe(true);
     expect(day.label).toBe("morning");
     expect(dark.label).toBe("night");
+  });
+});
+
+describe("the wild keeps more than one build", () => {
+  it("never collapses to a single shape of car", () => {
+    // The circuit asks for shapes from tier II on, so a pack that converged on
+    // one build would make one rung answerable by hunting and the next by
+    // nothing. Selection here is on time alone - the spread survives because
+    // immigrants and mutation keep putting new builds back in.
+    const random = mulberry("wild-shapes");
+    let pack = seedWildPack("ranch_yard");
+    for (let generation = 0; generation < 20; generation += 1) {
+      const shapes = new Set(
+        pack.map((dna) => describeVehicle(decodeDnaV2(dna)).driven.length),
+      );
+      expect(
+        shapes.size,
+        `generation ${generation}: the whole pack drives ${[...shapes].join("/")} wheels`,
+      ).toBeGreaterThan(1);
+      pack = advanceWildPack("ranch_yard", pack, random).pack;
+    }
+  });
+
+  it("offers the early tiers' shapes from the founding pack onward", () => {
+    // Tier II wants two driven wheels; a founder pack holds animals that
+    // manage it, so a player who hunts deliberately is not locked out of the
+    // ladder before they have bred anything.
+    const founders = seedWildPack("ranch_yard").map(
+      (dna) => describeVehicle(decodeDnaV2(dna)).driven.length,
+    );
+    expect(founders.filter((driven) => driven >= 2).length).toBeGreaterThan(0);
+    // ...and it is not a freebie either: some of them cannot drive at all.
+    expect(founders.filter((driven) => driven < 2).length).toBeGreaterThan(0);
   });
 });

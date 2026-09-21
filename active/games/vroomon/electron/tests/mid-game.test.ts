@@ -7,7 +7,9 @@ import {
 } from "../src/core/population.js";
 import { createEmptyRunState } from "../src/shared/parity-contract.js";
 import { advanceWildPack, scoreWildPack, seedWildPack } from "../src/core/wild.js";
-import { feudBar } from "../src/renderer/circuit.js";
+import { feudBar, shapeForTier, type VehicleShape } from "../src/renderer/circuit.js";
+import { describeVehicle } from "../src/shared/blueprint.js";
+import { decodeDnaV2 } from "../src/shared/dna-v2.js";
 
 // The middle of the game, measured. Two questions: does the circuit's climb
 // (x1.22 a tier) pace with what breeding can do, and is the last Brand earned
@@ -116,4 +118,42 @@ describe("the middle of the circuit", () => {
     expect(tiers[4]!.at).toBe(-1);
     expect(ceiling).toBeLessThan(feudBar("Grassland", 5));
   }, 240_000);
+});
+
+describe("the tier shapes are calibrated, not decorative", () => {
+  it("filters a real share of random cars, and never locks anyone out", () => {
+    // Two failure modes to avoid: demands so soft that the ladder is a pure
+    // score chase (no reason to look at the blueprint), and demands so hard
+    // that no herd can produce a car for them. Measured against 200 freshly
+    // generated cars.
+    const shapes: VehicleShape[] = [];
+    for (const seed of [3, 5, 7, 9]) {
+      const random = mulberry(seed);
+      const state = createPreviewRunState(`shape-${seed}`, createEmptyRunState(`shape-${seed}`), random);
+      for (const entry of state.population.slice(0, 50)) {
+        const blueprint = describeVehicle(decodeDnaV2(entry.dna));
+        shapes.push({
+          plates: blueprint.plates,
+          wheels: blueprint.wheels,
+          engines: blueprint.engines,
+          drivenWheels: blueprint.driven.length,
+        });
+      }
+    }
+    const share = (tier: number): number =>
+      shapes.filter((shape) => shapeForTier(tier).meets(shape)).length / shapes.length;
+
+    console.log(
+      "[mid] random cars passing each tier shape:",
+      [2, 3, 4, 5].map((tier) => `T${tier} ${(share(tier) * 100).toFixed(0)}%`).join("  "),
+    );
+    // The gate bites: a strong minority of random cars cannot answer tier II.
+    expect(share(2)).toBeLessThan(0.85);
+    expect(share(2)).toBeGreaterThan(0.2);
+    // It narrows as it climbs...
+    expect(share(4)).toBeLessThan(share(3));
+    expect(share(5)).toBeLessThan(share(4));
+    // ...and the top rung is rare but reachable without hunting.
+    expect(share(5)).toBeGreaterThan(0.005);
+  }, 180_000);
 });
