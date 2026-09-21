@@ -1511,6 +1511,37 @@ async function closePocketRanch(page: import("@playwright/test").Page): Promise<
     await expect(page.locator("[data-viewport-stats-overlay]")).toContainText("Starter Town");
   });
 
+  test("@smoke a car's family is one tap from its parts, both ways", async ({ page }) => {
+    await seedAndEnterWorld(page);
+    await openPocketRanch(page, "herd");
+    await page.locator("[data-generate-population]").click();
+    await page.waitForTimeout(500);
+    for (let generation = 0; generation < 5; generation += 1) {
+      await page.locator("[data-run-generation]").click();
+      await page.waitForTimeout(480);
+    }
+
+    // Parts -> line: the pedigree line leads into the tree, focused on the
+    // same animal, with its line report open.
+    await page.locator("[data-inspect-selected]").click();
+    await page.waitForTimeout(700);
+    await expect(page.locator("[data-inspector-pedigree]")).toBeVisible();
+    await page.locator("[data-inspector-trace]").click();
+    await page.waitForTimeout(800);
+    await expect(page.locator("[data-inspector-overlay]")).toBeHidden();
+    await expect(page.locator('[data-barn-scene="heritage"]')).toBeVisible();
+    await expect(page.locator("[data-heritage-line]")).toBeVisible();
+    const focused = (await page.locator("[data-heritage-info]").textContent()) ?? "";
+    expect(focused).toContain("pts");
+    expect(focused).toMatch(/line:|founder stock/);
+
+    // Line -> parts: the tree's own Inspect button comes back.
+    await page.locator("[data-inspect-dna]").first().click();
+    await page.waitForTimeout(700);
+    await expect(page.locator("[data-inspector-overlay]")).toBeVisible();
+    await expect(page.locator("[data-inspector-pedigree]")).toBeVisible();
+  });
+
   test("@smoke the Inspector reads a car in the context of its family", async ({ page }) => {
     await seedAndEnterWorld(page);
     await openPocketRanch(page, "herd");

@@ -2610,6 +2610,8 @@ function renderInspector(): void {
  * demand from the same inputs the Heritage scene uses, so the inspector can
  * say where a car sits without depending on that scene having been opened.
  */
+let inspectorHerdId: string | null = null;
+
 function renderInspectorPedigree(dna: string): void {
   const panel = document.querySelector<HTMLElement>("[data-inspector-pedigree]");
   const kin = document.querySelector<HTMLElement>("[data-inspector-kin]");
@@ -2626,8 +2628,10 @@ function renderInspectorPedigree(dna: string): void {
     .sort((left, right) => right.score - left.score)[0];
   if (!entry) {
     panel.hidden = true;
+    inspectorHerdId = null;
     return;
   }
+  inspectorHerdId = entry.id;
   const graph = buildHeritageGraph({
     population,
     genealogy: rendererState.runState.genealogy ?? {},
@@ -2639,6 +2643,22 @@ function renderInspectorPedigree(dna: string): void {
   }
   panel.hidden = false;
   kin.textContent = describeKin(note);
+}
+
+/**
+ * From one car's parts to its place in the tree: close the inspector, open
+ * the Heritage scene, and focus the same animal there. The reverse direction
+ * already exists (the tree's own Inspect button), so a family is one tap away
+ * from its parts in either direction.
+ */
+function traceInspectorLine(): void {
+  const id = inspectorHerdId;
+  if (!id) {
+    return;
+  }
+  closeInspector();
+  openPocketRanch("heritage");
+  focusHeritageNode(id);
 }
 
 function renderBlueprint(decoded: DecodedDnaV2): void {
@@ -6540,30 +6560,43 @@ function renderHeritage(force = false): void {
     }
   }
 
-  // label only the champions (and the run's champion), to stay readable
+  // Label the champions (or the traced line). Columns are ~40px apart, so a
+  // label is always wider than the gap to its neighbour: draw the *deepest*
+  // first and skip anything that would land on top of a label already placed.
+  // Recent animals are the ones worth naming, so they win the collisions.
   ctx.font = "600 13px system-ui, sans-serif";
   ctx.textAlign = "center";
   ctx.textBaseline = "bottom";
-  const labelled = trace ? trace.chain : graph.champions;
-  // Skip labels that would collide with the previous one — 25 generations
-  // in 1100px would otherwise pile on top of each other.
-  let lastLabelRight = -Infinity;
-  for (const id of labelled) {
-    const node = graph.nodes.find((candidate) => candidate.id === id);
-    if (!node) {
-      continue;
-    }
-    const { x, y } = positionOf(id);
-    if (!trace && x - lastLabelRight < 72) {
-      continue;
-    }
-    ctx.fillStyle = "#ffd166";
+  const candidates = (trace ? trace.chain : graph.champions)
+    .map((id) => graph.nodes.find((candidate) => candidate.id === id))
+    .filter((node): node is (typeof graph.nodes)[number] => node !== undefined)
+    .sort((left, right) => right.depth - left.depth);
+  const placed: Array<{ left: number; right: number; row: number }> = [];
+  for (const node of candidates) {
+    const { x, y } = positionOf(node.id);
     const text =
       node.score !== null
-        ? `${node.label} · ${formatNumber(node.score)}`
+        ? `#${node.label} · ${formatNumber(node.score)}`
         : `#${node.label}`;
+    const half = ctx.measureText(text).width / 2;
+    const box = { left: x - half - 4, right: x + half + 4, row: y };
+    const collides = placed.some(
+      (other) =>
+        Math.abs(other.row - box.row) < 14 &&
+        box.left < other.right &&
+        box.right > other.left,
+    );
+    // The car you came here for is named whatever happens.
+    if (collides && node.id !== heritageFocusId) {
+      continue;
+    }
+    // A dark halo so a label stays legible over the web of threads.
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = "rgba(12, 16, 26, 0.85)";
+    ctx.strokeText(text, x, y - 13);
+    ctx.fillStyle = "#ffd166";
     ctx.fillText(text, x, y - 13);
-    lastLabelRight = x + ctx.measureText(text).width / 2;
+    placed.push(box);
   }
 
   // depth ruler
@@ -6612,7 +6645,16 @@ function pickHeritageNode(clientX: number, clientY: number): void {
   if (!closest) {
     return;
   }
-  const node = heritageGraph.nodes.find((candidate) => candidate.id === closest!.id);
+  focusHeritageNode(closest.id);
+}
+
+/** Focus one car in the tree, as if it had been tapped. */
+function focusHeritageNode(id: string): void {
+  const info = document.querySelector<HTMLElement>("[data-heritage-info]");
+  if (!heritageGraph || !info) {
+    return;
+  }
+  const node = heritageGraph.nodes.find((candidate) => candidate.id === id);
   if (!node) {
     return;
   }
@@ -6779,6 +6821,10 @@ document.addEventListener("click", (event) => {
   }
   if (target?.closest("[data-inspector-close]")) {
     closeInspector();
+    return;
+  }
+  if (target?.closest("[data-inspector-trace]")) {
+    traceInspectorLine();
     return;
   }
   const terrain = target?.closest<HTMLElement>("[data-inspector-terrain]");

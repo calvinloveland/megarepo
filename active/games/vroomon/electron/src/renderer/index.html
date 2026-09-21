@@ -470,7 +470,20 @@
         letter-spacing: 0.1em;
         color: var(--muted);
       }
-      .inspector__pedigree strong { font-weight: 500; }
+      .inspector__pedigree strong { font-weight: 500; flex: 1; }
+      .inspector__trace {
+        margin-left: auto;
+        border: 1px solid rgba(255, 255, 255, 0.22);
+        border-radius: 6px;
+        background: rgba(255, 255, 255, 0.06);
+        color: #dce8ff;
+        cursor: pointer;
+        font: inherit;
+        font-size: 0.7rem;
+        padding: 0.15rem 0.45rem;
+        white-space: nowrap;
+      }
+      .inspector__trace:hover { background: rgba(255, 255, 255, 0.14); }
       .inspector__parts {
         display: flex;
         flex-direction: column;
@@ -2259,6 +2272,7 @@
                 <div class="inspector__pedigree" data-inspector-pedigree hidden>
                   <span>PEDIGREE</span>
                   <strong data-inspector-kin>—</strong>
+                  <button class="inspector__trace" type="button" data-inspector-trace title="Open this vroomon's traced line in the Heritage tree">🌳 Trace line</button>
                 </div>
                 <div class="inspector__parts" data-inspector-parts></div>
               </section>

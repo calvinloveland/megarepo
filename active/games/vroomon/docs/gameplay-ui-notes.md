@@ -842,6 +842,31 @@ gets harder instead of just paying out a Brand:
   dropped new world state (circuit tiers) — it now uses the shared
   serializer.
 
+## A car's family, one tap from its parts (2026-09-15) ✅
+
+The pedigree line in the Inspector now ends in a **🌳 Trace line** action:
+it closes the inspector, opens the Heritage scene, focuses that same animal
+and opens its line report. The reverse direction already existed (the tree's
+own `🔍 Inspect`), so the two views are now a round trip —
+
+    parts  →  🌳 Trace line  →  the tree, focused, line report open
+    tree   →  🔍 Inspect     →  the parts, pedigree and all
+
+The click path was already there but only reachable by tapping a node within
+16px of its centre; the extraction (`focusHeritageNode`) means the button and
+the tap do exactly the same thing rather than drifting apart.
+
+### The labels were piling up
+
+Opening the tree from a 27-generation herd showed the top row reading
+`133 · 950.00 98.5` — champion labels drawn on top of each other. Columns are
+~40px apart and a label is ~90px wide, so a label *always* overlaps its
+neighbour. Labels are now placed **deepest first**, skipping any that would
+land on one already placed, with a dark halo for legibility over the threads.
+Recent animals win the collisions, which is the right priority — they are the
+ones you are looking at — and the car you arrived for is named whatever
+happens.
+
 ## Two invariant sweeps, and the two signs they caught (2026-09-15) ✅
 
 Both of these are the same idea: stop checking the *shape* of the content and
