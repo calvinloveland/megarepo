@@ -1291,6 +1291,56 @@ async function closePocketRanch(page: import("@playwright/test").Page): Promise<
     await expect(page.locator("[data-wild-race-overlay]")).toBeHidden();
   });
 
+  test("@smoke a far-biome job unlocks once the job before it is paid", async ({ page }) => {
+    await seedAndEnterWorld(page);
+    // The Frost Baron's Watch job sits behind Wrangler Jess's muster.
+    await enterMapAt(page, "ice_map", 11, 6, "right");
+    await page.keyboard.press("z");
+    await page.waitForTimeout(700);
+    await expect(page.locator("[data-overworld-dialogue-name]")).toContainText(
+      "The Frost Baron",
+    );
+    await expect(page.locator("[data-dialogue-option]")).toHaveCount(4);
+    await page.locator("[data-dialogue-option]", { hasText: "Watch need" }).click();
+    await page.waitForTimeout(500);
+    await page.locator("[data-overworld-dialogue-text]").click();
+    await page.waitForTimeout(500);
+
+    // Taken, but not on the board yet: its prerequisite is unpaid.
+    await expect(page.locator("[data-stats-quest-side]")).toHaveCount(0);
+
+    // Pay the muster (what the town's wrangler asks for) and come back.
+    await page.evaluate(async () => {
+      const world = await window.vroomon.loadWorldState();
+      await window.vroomon.saveWorldState({
+        ...world,
+        tally: { ...(world?.tally ?? {}), "paid:wranglers-muster": 1 },
+      });
+    });
+    await page.reload();
+    await page.locator("[data-status-message]").filter({ hasText: "Welcome" }).waitFor({ timeout: 20000 });
+    await page.locator('[data-menu-action="continue"]').click();
+    await page.waitForTimeout(1000);
+    await enterMapAt(page, "ice_map", 11, 6, "right");
+    await expect(page.locator("[data-stats-quest-side]")).toContainText("The Perimeter Watch");
+    await expect(page.locator("[data-stats-quest-side]")).toContainText("0/2");
+
+    // A win on this biome's ground counts toward it (the road total does not).
+    await page.evaluate(async () => {
+      const world = await window.vroomon.loadWorldState();
+      await window.vroomon.saveWorldState({
+        ...world,
+        tally: { ...(world?.tally ?? {}), wildWins: 9, "wildWins:ice_map": 1 },
+      });
+    });
+    await page.reload();
+    await page.locator("[data-status-message]").filter({ hasText: "Welcome" }).waitFor({ timeout: 20000 });
+    await page.locator('[data-menu-action="continue"]').click();
+    await page.waitForTimeout(1000);
+    await enterMapAt(page, "ice_map", 11, 6, "right");
+    await expect(page.locator("[data-stats-quest-side]")).toContainText("1/2");
+  });
+
   test("@smoke Oxide's counter buys specimens and sells road stock", async ({ page }) => {
     await seedAndEnterWorld(page);
     // A herd (which persists a run), two specimens, and one biome's pack.

@@ -842,6 +842,28 @@ gets harder instead of just paying out a Brand:
   dropped new world state (circuit tiers) — it now uses the shared
   serializer.
 
+## Jobs that chain, and a reason to ride out (2026-09-15) ✅
+
+Eleven jobs now, and the far biomes finally have work on them:
+
+- **Chains.** A quest can name a `requires` (the job that must be *paid*
+  first). Locked follow-ups stay off the board entirely, and a save from a
+  build where the chain didn't exist cannot have accepted one early. Jess's
+  muster unlocks *A Name On The Board* (eight wins), and it unlocks the four
+  new **biome jobs**.
+- **Jobs about a specific ground.** A new objective kind, `win-wild-on`,
+  counts wild races won *per biome* (`wildWins:<mapId>`), so *The Salt Road
+  Wager* (two on the Stretch), *Thermals And Stone* (two on the Mesa), *A
+  Shift In The Quarry* (two in the Quarry) and *The Perimeter Watch* (two on
+  the ice) are about beating the wild where it lives — the wild packs you
+  seeded per biome now have a reason to matter. Nine wins on the road will
+  not count toward any of them, and the tests say so.
+
+Each far-biome job is offered by the host who already lives there (the Wreck
+Marshal, the Guru of the Updrafts, the Ringleader, the Frost Baron) through a
+new dialogue option, so no new faces were needed to give the late game
+something to do.
+
 ## Ambient life, and water that moves (2026-09-15) ✅
 
 A still map reads as a picture. `src/renderer/world/ambience-layer.ts` is a

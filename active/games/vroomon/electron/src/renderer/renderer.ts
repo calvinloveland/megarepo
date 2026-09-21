@@ -1788,7 +1788,12 @@ function finishWildRace(): void {
   // A wild race is a job objective for the town's wranglers, win or lose
   // (they count the ones you beat).
   if (result.won) {
-    overworldController._setState(addTally(overworldController.state, "wildWins"));
+    const mapId = overworldController.state.currentMapId;
+    // Both tallies: the road counts every race, and each biome counts its own
+    // (the far biomes' jobs are about beating the wild where it lives).
+    overworldController._setState(
+      addTally(addTally(overworldController.state, "wildWins"), `wildWins:${mapId}`),
+    );
     rendererState = setWorldState(rendererState, overworldController.state);
     settleSideQuests();
   }

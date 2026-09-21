@@ -12,6 +12,8 @@
 export type QuestObjective =
   | { kind: "catch-wild"; count: number; label: string }
   | { kind: "win-wild"; count: number; label: string }
+  /** Beat the wild where it lives: wins counted per biome. */
+  | { kind: "win-wild-on"; mapId: string; count: number; label: string }
   | { kind: "generations"; count: number; label: string }
   | { kind: "decor"; count: number; label: string }
   | { kind: "visit"; mapId: string; label: string }
@@ -35,6 +37,11 @@ export interface SideQuest {
   title: string;
   giver: string;
   mapId: string;
+  /**
+   * The job that has to be PAID before this one is even offered: the town
+   * hands you follow-up work, not a pile of jobs at once.
+   */
+  requires?: string;
   /** The flag a dialogue node sets to accept this job. */
   acceptFlag: string;
   objective: QuestObjective;
@@ -122,6 +129,66 @@ export const SIDE_QUESTS: SideQuest[] = [
       "A herd that never turns over is a museum. Run five generations and I'll know you're serious.",
   },
   {
+    id: "salt-road-wager",
+    title: "The Salt Road Wager",
+    giver: "Wreck Marshal",
+    mapId: "gym_2",
+    requires: "wranglers-muster",
+    acceptFlag: "quest-salt-wager-accepted",
+    objective: { kind: "win-wild-on", mapId: "route_2", count: 2, label: "wild beaten on the Stretch" },
+    reward: { wallet: 220, feed: 3, thanks: "Two off the Stretch. The Wreck Marshal pays what he says he pays." },
+    offer:
+      "Nobody races the Stretch without sand in their teeth. Beat two wild ones out there and I'll call you a road runner.",
+  },
+  {
+    id: "mesa-thermals",
+    title: "Thermals And Stone",
+    giver: "Guru of the Updrafts",
+    mapId: "hills_map",
+    requires: "wranglers-muster",
+    acceptFlag: "quest-thermals-accepted",
+    objective: { kind: "win-wild-on", mapId: "hills_map", count: 2, label: "wild beaten on the Mesa" },
+    reward: { wallet: 240, feed: 2, thanks: "The updrafts answer you. Take this for the climb." },
+    offer:
+      "The Mesa's wild stock climbs better than anything on the flats. Beat two of them on my ground and the school is yours.",
+  },
+  {
+    id: "quarry-shift",
+    title: "A Shift In The Quarry",
+    giver: "The Ringleader",
+    mapId: "rocky_map",
+    requires: "wranglers-muster",
+    acceptFlag: "quest-quarry-accepted",
+    objective: { kind: "win-wild-on", mapId: "rocky_map", count: 2, label: "wild beaten in the Quarry" },
+    reward: { wallet: 260, dna: "UoZzJLj1FOFC", thanks: "Rough ground, quick car. Here's a Quarry line to prove it." },
+    offer:
+      "Nothing survives the Quarry unless its frame holds. Beat two wild ones in here and I'll cut you in.",
+  },
+  {
+    id: "perimeter-watch",
+    title: "The Perimeter Watch",
+    giver: "The Frost Baron",
+    mapId: "ice_map",
+    requires: "wranglers-muster",
+    acceptFlag: "quest-perimeter-accepted",
+    objective: { kind: "win-wild-on", mapId: "ice_map", count: 2, label: "wild beaten on the Perimeter" },
+    reward: { wallet: 300, feed: 4, thanks: "Two taken off the ice. The Perimeter remembers its friends." },
+    offer:
+      "The cold breeds them patient and it breeds them fast. Beat two on my ice and the Watch will vouch for you.",
+  },
+  {
+    id: "town-board",
+    title: "A Name On The Board",
+    giver: "Wrangler Jess",
+    mapId: "starter_town",
+    requires: "wranglers-muster",
+    acceptFlag: "quest-board-accepted",
+    objective: { kind: "win-wild", count: 8, label: "wild vroomon raced" },
+    reward: { wallet: 320, feed: 5, thanks: "Eight races won. Your name goes on the board out front." },
+    offer:
+      "Eight wins and I'll chalk your name on the board by the gate. Nobody argues with the board.",
+  },
+  {
     id: "orchard-cutting",
     title: "A Marrow Cutting",
     giver: "Orchard Keeper Maren",
@@ -194,6 +261,8 @@ export function objectiveProgress(
       return world.vroomdex.length;
     case "win-wild":
       return tallyOf(world, "wildWins");
+    case "win-wild-on":
+      return tallyOf(world, `wildWins:${objective.mapId}`);
     case "generations":
       return run.generation;
     case "decor":
@@ -222,12 +291,22 @@ function objectiveNeed(objective: QuestObjective): number {
   }
 }
 
+/** A job is only offered once the job it follows has been paid for. */
+export function isUnlocked(quest: SideQuest, world: QuestWorld): boolean {
+  if (!quest.requires) {
+    return true;
+  }
+  return (world.tally?.[`paid:${quest.requires}`] ?? 0) > 0;
+}
+
 export function questProgress(
   quest: SideQuest,
   world: QuestWorld,
   run: QuestRun,
 ): QuestProgress {
-  const accepted = Boolean(world.flags[quest.acceptFlag]);
+  // A locked job reports as unstarted no matter what flags exist: a save from
+  // a build where the chain did not exist cannot have accepted it early.
+  const accepted = Boolean(world.flags[quest.acceptFlag]) && isUnlocked(quest, world);
   const have = objectiveProgress(quest.objective, world, run);
   const need = objectiveNeed(quest.objective);
   const done = accepted && have >= need;
@@ -244,13 +323,14 @@ export function questProgress(
  * before done), then the ones still waiting to be offered.
  */
 export function sideQuestLog(world: QuestWorld, run: QuestRun): QuestProgress[] {
-  return SIDE_QUESTS.map((quest) => questProgress(quest, world, run)).sort(
-    (left, right) => {
+  return SIDE_QUESTS.map((quest) => questProgress(quest, world, run))
+    // Locked follow-ups stay off the board until their prerequisite is paid.
+    .filter((entry) => entry.accepted || isUnlocked(entry.quest, world))
+    .sort((left, right) => {
       const rank = (entry: QuestProgress): number =>
         entry.done ? 2 : entry.accepted ? 0 : 1;
       return rank(left) - rank(right);
-    },
-  );
+    });
 }
 
 /** The jobs you have taken and not yet finished — what the HUD nags about. */

@@ -6,6 +6,7 @@ import {
   findSideQuest,
   objectiveProgress,
   questProgress,
+  isUnlocked,
   sideQuestLog,
   type QuestRun,
   type QuestWorld,
@@ -125,6 +126,53 @@ describe("side quests", () => {
     const clover = findSideQuest("orchard-clover")!;
     expect(clover.reward.decor).toBe("bee-skeps");
     expect(SIDE_QUESTS.map((quest) => quest.mapId)).toContain("marrow_orchard");
+  });
+
+  it("holds follow-up jobs until the one before is paid", () => {
+    const board = findSideQuest("town-board")!;
+    expect(board.requires).toBe("wranglers-muster");
+
+    // Locked: not on the board, and not completable even with the count.
+    const locked = world({ tally: { wildWins: 20 } });
+    expect(isUnlocked(board, locked)).toBe(false);
+    expect(sideQuestLog(locked, RUN).some((entry) => entry.quest.id === "town-board")).toBe(false);
+    expect(questProgress(board, locked, RUN).done).toBe(false);
+
+    // Paid prerequisite: it appears, and the count finishes it.
+    const open = world({ tally: { "paid:wranglers-muster": 1, wildWins: 8 } });
+    expect(isUnlocked(board, open)).toBe(true);
+    expect(sideQuestLog(open, RUN).some((entry) => entry.quest.id === "town-board")).toBe(true);
+    expect(questProgress(board, { ...open, flags: { "quest-board-accepted": true } }, RUN).done).toBe(true);
+  });
+
+  it("counts the wild per biome, so each ground has its own job", () => {
+    const wager = findSideQuest("salt-road-wager")!;
+    expect(wager.objective.kind).toBe("win-wild-on");
+    if (wager.objective.kind !== "win-wild-on") {
+      throw new Error("expected a per-biome objective");
+    }
+    const perBiome = world({
+      flags: { "quest-salt-wager-accepted": true },
+      tally: { "paid:wranglers-muster": 1, "wildWins:route_2": 1, wildWins: 9 },
+    });
+    // Nine wins on the road do not count toward the Stretch.
+    expect(questProgress(wager, perBiome, RUN).have).toBe(1);
+    expect(questProgress(wager, perBiome, RUN).done).toBe(false);
+    const two = world({
+      flags: { "quest-salt-wager-accepted": true },
+      tally: { "paid:wranglers-muster": 1, "wildWins:route_2": 2 },
+    });
+    expect(questProgress(wager, two, RUN).done).toBe(true);
+  });
+
+  it("ships a job for every far biome", () => {
+    const biomes = ["route_2", "hills_map", "rocky_map", "ice_map"];
+    for (const mapId of biomes) {
+      expect(
+        SIDE_QUESTS.some((quest) => quest.objective.kind === "win-wild-on" && quest.objective.mapId === mapId),
+        `no job for ${mapId}`,
+      ).toBe(true);
+    }
   });
 
   it("stops paying once a job is marked paid", () => {
