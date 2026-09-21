@@ -6935,7 +6935,15 @@ function renderHeritage(force = false): void {
   }
 
   if (stats) {
-    stats.textContent = `${graph.nodes.length} vroomon · ${graph.champions.length} champions · ${graph.maxDepth + 1} generations deep`;
+    // An empty graph is not "1 generations deep": say there is nothing to trace
+    // yet, and pluralise the depth like everything else does.
+    const depth = graph.maxDepth + 1;
+    stats.textContent =
+      graph.nodes.length === 0
+        ? "no lines yet — breed a generation"
+        : `${graph.nodes.length} vroomon · ${graph.champions.length} ` +
+          `champion${graph.champions.length === 1 ? "" : "s"} · ` +
+          `${depth} generation${depth === 1 ? "" : "s"} deep`;
   }
 }
 

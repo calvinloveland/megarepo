@@ -105,6 +105,40 @@ asserting the wrong thing all along.
 
 ---
 
+## Every panel measured at 1024×768 (2026-09-15) ✅
+
+Same approach as the HUD pass: measure `scrollWidth > clientWidth` on every
+visible box rather than trusting an eye, at 1024×768 (a 13" laptop).
+
+```
+pocket-ranch herd       fits
+pocket-ranch drive      fits
+pocket-ranch barn       fits
+pocket-ranch heritage   fits      (canvas scales; node labels shrink with it)
+pocket-ranch market     fits
+pocket-ranch dex        fits
+inspector               fits
+```
+
+No overflow anywhere, and the scene bar keeps all six pills plus "Back to the
+road" on one line. The one thing measurement cannot judge is legibility: the
+Heritage canvas is a fixed 1200px drawing scaled into ~940px, so its node labels
+get smaller on a narrow screen. Worth watching if labels are ever added there,
+but nothing is clipped.
+
+### And the screenshot caught a real one
+
+`0 vroomon · 0 champions · **1 generations deep**` — an empty graph is not one
+generation deep, and "1 generations" grates. The line says **"no lines yet —
+breed a generation"** when there is nothing to draw, and pluralises properly
+once there is (`150 vroomon · 12 champions · 12 generations deep`).
+
+That is the third bug this session found by looking at a rendered screen rather
+than at a data structure — after two signs built inside a treeline and a wild
+encounter raced on the wrong ground.
+
+---
+
 ## Notes dated 2026-09-15, in file order
 
 A table of contents for this date's work, which is scattered through the file
