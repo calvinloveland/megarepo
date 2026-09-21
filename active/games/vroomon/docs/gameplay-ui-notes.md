@@ -239,6 +239,7 @@ new entry that is not indexed here fails the suite.
 - [The design overview now dates itself (2026-09-15) ✅](#the-design-overview-now-dates-itself-2026-09-15)
 - [The hub bar and the corner controls were fighting for one row (2026-09-15) ✅](#the-hub-bar-and-the-corner-controls-were-fighting-for-one-row-2026-09-15)
 - [The runner now tells you when it is testing yesterday's game (2026-09-15) ✅](#the-runner-now-tells-you-when-it-is-testing-yesterdays-game-2026-09-15)
+- [The other floating panels, measured (2026-09-15) ✅](#the-other-floating-panels-measured-2026-09-15)
 - [Three ways a written scene quietly stops working (2026-09-15) ✅](#three-ways-a-written-scene-quietly-stops-working-2026-09-15)
 - [Where people are, and where the map file says they are (2026-09-15) ✅](#where-people-are-and-where-the-map-file-says-they-are-2026-09-15)
 - [The inverse sweep: flavour that could belong to any map (2026-09-15) ✅](#the-inverse-sweep-flavour-that-could-belong-to-any-map-2026-09-15)
@@ -949,6 +950,30 @@ still run; after `npm run build` it is silent.
 That is the second guard this session aimed at *how I work* rather than at the
 game — the first being the docs index that refuses to go stale. Both came from
 mistakes I had made twice.
+
+---
+
+## The other floating panels, measured (2026-09-15) ✅
+
+After the hub bar and the corner controls spent a cycle fighting over one row,
+the obvious next question was whether any *other* panel does the same. Three
+candidates sit near the top of the screen: the settings card, the Grand Roundup
+and the wild race panel.
+
+The check is the same measurement, and it is now in the e2e suite rather than in
+a throwaway probe — `expectNoOverlap(page, a, b)` asserts two rectangles do not
+intersect on **both axes**, and it runs in the three tests that already open
+those panels.
+
+**The first version of it failed all three, and it was wrong.** A full-screen
+overlay backdrop intersects every corner by definition — that is what a backdrop
+is — and the corner buttons stay clickable through it because the backdrop sits
+below them in the stacking order. The assertion compares the modal's **panel**
+now, which is the box that can actually steal a click, and the helper's doc says
+so before anybody "fixes" it back.
+
+Which is the useful shape of this kind of guard: measuring the wrong box gives
+you a failing test that is telling the truth about the wrong thing.
 
 ---
 

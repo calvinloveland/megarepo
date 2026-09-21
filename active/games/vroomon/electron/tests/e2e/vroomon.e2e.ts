@@ -524,6 +524,7 @@ test.describe("vroomon Playwright harness", () => {
     await seed(FIVE, true);
     await toKing();
     await expect(page.locator("[data-grand-roundup-overlay]")).toBeVisible();
+    await expectNoOverlap(page, ".grand-roundup__panel", "[data-open-settings]");
     await expect(page.locator("[data-status-message]")).toContainText("enshrined");
     await expect(page.locator("[data-grand-roundup-champion]")).toContainText("Finale Champion");
     await expect(page.locator("[data-viewport-stats-overlay]")).toContainText("BRANDS");
@@ -1149,6 +1150,8 @@ test.describe("vroomon Playwright harness", () => {
   }) => {
     await page.locator("[data-open-settings]").click();
     await expect(page.locator("[data-settings-overlay]")).toBeVisible();
+    // The panel must not cover the controls it is opened from.
+    await expectNoOverlap(page, ".settings-card__panel", "[data-open-settings]");
 
     // Master volume + ambience off, driven like a player would.
     await page.locator("[data-settings-master]").evaluate((el) => {
@@ -1430,6 +1433,54 @@ const FEUD_OPTION = /race.*feud|settle the feud/i;
 const ROUNDUP_OPTION = /run the grand roundup/i;
 
 /**
+ * Two boxes on screen must not intersect — both axes, measured.
+ *
+ * This is the guard the hub bar needed: it was ~1100px wide and shared the top
+ * strip with the corner controls, so it swallowed their clicks. Any panel near
+ * the top of the screen is worth the same check, because the failure looks like
+ * "the button does nothing" rather than like a layout bug.
+ *
+ * Compare a modal's PANEL, not its overlay: a full-screen backdrop intersects
+ * every corner by definition, and the corner buttons stay clickable through it
+ * because the backdrop is behind them in the stacking order.
+ */
+async function expectNoOverlap(
+  page: import("@playwright/test").Page,
+  a: string,
+  b: string,
+): Promise<void> {
+  const boxes = await page.evaluate(
+    ([first, second]) => {
+      const one = document.querySelector(first);
+      const two = document.querySelector(second);
+      if (!one || !two) {
+        return null;
+      }
+      const rect = (el: Element) => {
+        const r = el.getBoundingClientRect();
+        return {
+          left: Math.round(r.left),
+          top: Math.round(r.top),
+          right: Math.round(r.right),
+          bottom: Math.round(r.bottom),
+        };
+      };
+      return { one: rect(one), two: rect(two) };
+    },
+    [a, b],
+  );
+  expect(boxes, `${a} or ${b} is not on screen`).not.toBeNull();
+  const { one, two } = boxes!;
+  const intersects =
+    one.left < two.right && one.right > two.left && one.top < two.bottom && one.bottom > two.top;
+  expect(
+    intersects,
+    `${a} (${one.left},${one.top}-${one.right},${one.bottom}) overlaps ${b} ` +
+      `(${two.left},${two.top}-${two.right},${two.bottom})`,
+  ).toBe(false);
+}
+
+/**
  * Choose a dialogue option by what it says, not by where it sits. Menus grow -
  * a keeper gains a line about the weather and every index after it moves - and
  * a test that counts positions breaks on an edit it has nothing to do with.
@@ -1509,6 +1560,7 @@ async function closePocketRanch(page: import("@playwright/test").Page): Promise<
     await page.keyboard.press("ArrowLeft");
     await page.waitForTimeout(600);
     await expect(page.locator("[data-wild-race-overlay]")).toBeVisible();
+    await expectNoOverlap(page, ".wild-race__panel", "[data-open-settings]");
     await page.locator("[data-wild-race-leave]").click();
     await page.waitForTimeout(300);
 
