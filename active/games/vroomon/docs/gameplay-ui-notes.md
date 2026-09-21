@@ -913,6 +913,46 @@ the helper is exported, and the next caller would have inherited the wrong
 answer. The controller now also passes its own pinned clock through, so both
 layers agree even at a phase boundary.
 
+## The middle of the circuit, measured (2026-09-15) ✅
+
+Two questions: does the climb (x1.22 a tier: 1000 / 1220 / 1488 / 1816 / 2215)
+pace with what breeding can do, and is the last Brand earned or merely waited
+for? Both answered by running generations against the home paddock's own wild
+pack, scoring everything on Grassland.
+
+**Hunting one animal each cycle** (the pack's middle animal — what an
+encounter actually sends) and planting it:
+
+```
+T1@1  T2@5  T3@5  T4@27  T5@27      herd ceiling 2700
+```
+
+**From a pack champion, with no further imports:**
+
+```
+T1@1  T2@9  T3@15  T4@29  T5 never  ceiling 2046
+```
+
+So an engaged player never stalls — the whole Grassland ladder falls inside
+about thirty generations, and the first two Brands inside five. And the last
+Brand is genuinely **earned by staying in the grass**: a herd fed one good
+animal and then left at the bench climbs to 2046 and stops, 169 short of 2215.
+
+Worth noticing how tiers II and III fall in the *same* generation: a single
+lucky animal off the ground (the pack swings between ~112 and ~1575) can clear
+both at once. That is the hunting-lottery doing its job, not a pacing hole —
+what the player is buying with those cycles is one good line.
+
+### A trap that cost me an hour
+
+`starter_town`'s wild pack is scored on **Flat** ground, while `gym_1` — the
+Grassland arena — is Grassland. Comparing wild scores to herd scores across
+two terrains produced confident nonsense: the same genome read as 1958 in a
+pack and 1320 planted in a herd, which looked exactly like a simulator bug.
+It is not: it is two different courses. `tests/mid-game.test.ts` says so at
+the top, so the next person measuring pacing hunts and races on the same
+ground.
+
 ## The early game, measured (2026-09-15) ✅
 
 The first Brand is reachable in a first sitting, and the second one is not —
