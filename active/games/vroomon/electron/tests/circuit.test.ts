@@ -13,6 +13,7 @@ import {
   TIER_GROWTH,
   feudBriefing,
   shapeForTier,
+  shapeReadout,
   shapeShortfall,
   VENUE_ORDER,
   VENUE_TERRAIN,
@@ -223,5 +224,31 @@ describe("one place, one name", () => {
         `"${alias}" is a second name for a place that already has one`,
       ).toBe(false);
     }
+  });
+});
+
+describe("the Inspector's shape readout", () => {
+  const car = (wheels: number, drivenWheels: number, engines: number) => ({
+    plates: 1,
+    wheels,
+    drivenWheels,
+    engines,
+  });
+
+  it("says when the car fits the ground", () => {
+    const line = shapeReadout(car(4, 4, 3), 3);
+    expect(line).toContain("fits the ground");
+    expect(line).toContain("at least three wheels, two of them driven");
+    expect(line).toContain("4 driven");
+  });
+
+  it("says what is missing when it does not", () => {
+    const line = shapeReadout(car(2, 1, 1), 4);
+    expect(line).toContain("The ground wants at least four wheels, three of them driven");
+    expect(line).toContain("this one has");
+  });
+
+  it("tells the truth about tier I, which asks nothing", () => {
+    expect(shapeReadout(car(1, 0, 0), 1)).toContain("asks nothing of the build");
   });
 });

@@ -28,6 +28,7 @@ import {
   nextTier,
   rivalScoreFor,
   shapeForTier,
+  shapeReadout,
   shapeShortfall,
   terrainForVenue,
   tierLabel,
@@ -2555,6 +2556,9 @@ function renderInspector(): void {
       ["Drive on the ground", `${Math.round(inspection.plant.driveScale * 100)}%`],
       ["Top speed", inspection.drivenCount > 0 ? `${Math.round(topSpeedFor(inspection, tuning))} px/s` : "—"],
       ["Length", `${Math.round(inspection.length)} px`],
+      // What the circuit would say about this car, right where its parts are
+      // listed: the shape demand of the ground you are breeding for, answered.
+      ["Circuit shape", shapeReadout(shapeOf(inspectorState.dna), circuitTierHere())],
     ];
     stats.innerHTML = rows
       .map(([label, value]) => `<span>${escapeHtml(label)}</span><span>${escapeHtml(value)}</span>`)
@@ -2981,6 +2985,12 @@ function labelHallSaveButton(): void {
     ? "Save the selected vehicle - this is your best so far"
     : `Save the selected vehicle. Your best is ${leaderId ?? "not ranked yet"}`;
   button.dataset.best = String(isLeader);
+}
+
+/** The tier of the circuit the player is currently breeding for. */
+function circuitTierHere(): number {
+  const world = overworldController.state;
+  return nextCircuitTarget(world.currentMapId, world.badges, world.feudTiers).tier;
 }
 
 /** Where the choice is made: say what your best is, and whether you have it. */

@@ -282,3 +282,21 @@ export function shapeShortfall(shape: VehicleShape, tier: number): string | null
     `${shape.drivenWheels} driven, ${shape.engines} engine${shape.engines === 1 ? "" : "s"}.`
   );
 }
+
+
+/**
+ * The shape demand of a tier, read against one car — the line the Inspector
+ * shows so a player can see whether the animal in front of them would answer
+ * the ground they are about to race, before they walk to the arena.
+ */
+export function shapeReadout(shape: VehicleShape, tier: number): string {
+  const shortfall = shapeShortfall(shape, tier);
+  if (shortfall) {
+    return shortfall;
+  }
+  const demand = shapeForTier(tier);
+  if (tier <= 1) {
+    return "Tier I asks nothing of the build — any car that rolls can answer it.";
+  }
+  return `This car fits the ground: ${demand.wants}, and it has ${shape.drivenWheels} driven.`;
+}

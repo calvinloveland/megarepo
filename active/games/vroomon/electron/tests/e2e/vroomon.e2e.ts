@@ -2703,6 +2703,14 @@ async function expectModeState(
     await expect(page.locator(".inspector__part")).toHaveCount(6);
     await expect(page.locator("[data-inspector-stats]")).toContainText("Structure");
     await expect(page.locator("[data-inspector-stats]")).toContainText("Driven wheels");
+    // And what the circuit would say about it: the shape demand of the ground
+    // the player is breeding for, answered for this car.
+    await expect(page.locator("[data-inspector-stats]")).toContainText("Circuit shape");
+    // Tier I asks nothing of the build, so the row says that; higher tiers
+    // either confirm the car or name what is missing.
+    await expect(page.locator("[data-inspector-stats]")).toContainText(
+      /fits the ground|The ground wants|asks nothing of the build/,
+    );
 
     // Every row names its structure and its powertrain module.
     await expect(page.locator(".inspector__part").first()).toContainText("plate");

@@ -913,6 +913,26 @@ the helper is exported, and the next caller would have inherited the wrong
 answer. The controller now also passes its own pinned clock through, so both
 layers agree even at a phase boundary.
 
+## The Inspector answers the ground (2026-09-15) ✅
+
+Tier shape demands are worth nothing if the player cannot see them while
+breeding. The Inspector already lists every plate, wheel, engine, shaft and
+gear; it now ends with the row that ties them to the circuit:
+
+```
+Circuit shape   Tier I asks nothing of the build — any car that rolls can answer it.
+Circuit shape   This car fits the ground: at least three wheels, two of them
+                driven, and it has 3 driven.
+Circuit shape   The ground wants at least four wheels, three of them driven;
+                this one has 2 wheels, 1 driven, 1 engine.
+```
+
+`shapeReadout(shape, tier)` is pure and unit-tested in all three registers, and
+the tier comes from `nextCircuitTarget` for wherever the player is standing —
+so the readout follows the circuit rather than a fixed number. The inspector
+e2e asserts the row, which is how the tier I phrasing ("asks nothing of the
+build") got caught when my first assertion only allowed the other two.
+
 ## One field, one name (2026-09-15) ✅
 
 `gym_1` carries the name **Rustler Pasture** in its map chip, in the circuit's
