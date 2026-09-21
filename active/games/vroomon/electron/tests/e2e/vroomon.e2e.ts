@@ -1385,6 +1385,24 @@ async function enterWorld(page: import("@playwright/test").Page): Promise<void> 
 }
 
 /** Open (or refocus) the Pocket Ranch carrier hub on a scene. */
+/**
+ * Choose a dialogue option by what it says, not by where it sits. Menus grow -
+ * a keeper gains a line about the weather and every index after it moves - and
+ * a test that counts positions breaks on an edit it has nothing to do with.
+ */
+async function clickDialogueOption(
+  page: import("@playwright/test").Page,
+  pattern: RegExp,
+): Promise<void> {
+  const options = page.locator("[data-dialogue-option]");
+  const labels = await options.allTextContents();
+  const index = labels.findIndex((label) => pattern.test(label));
+  if (index < 0) {
+    throw new Error(`no dialogue option matching ${pattern}: ${labels.join(" | ")}`);
+  }
+  await options.nth(index).click();
+}
+
 async function openPocketRanch(
   page: import("@playwright/test").Page,
   scene: "herd" | "drive" | "barn" = "herd",
@@ -1919,14 +1937,14 @@ async function closePocketRanch(page: import("@playwright/test").Page): Promise<
     await seedAndEnterWorld(page);
 
     // Three landmarks, each with a night keeper who is not there by day.
-    const cases: Array<[string, number, number, string, string, string, number]> = [
-      // map, x, y (stand beside them, facing up), hour, name, job, option index
-      ["mesa_switchback", 10, 8, "0.5", "", "", 0],
-      ["mesa_switchback", 10, 8, "0.9", "Signal Lorn", "The Lamps Of The Mesa", 1],
-      ["the_cut", 5, 7, "0.5", "", "", 0],
-      ["the_cut", 5, 7, "0.9", "Night Powder Peg", "Night On The Spoil", 1],
-      ["marrow_orchard", 4, 9, "0.5", "", "", 0],
-      ["marrow_orchard", 4, 9, "0.9", "Night-picker Sib", "The Late Rows", 1],
+    const cases: Array<[string, number, number, string, string, string, RegExp]> = [
+      // map, x, y, hour, name, job to take, the menu line that takes it
+      ["mesa_switchback", 10, 8, "0.5", "", "", /$^/],
+      ["mesa_switchback", 10, 8, "0.9", "Signal Lorn", "The Lamps Of The Mesa", /I'll run the face/],
+      ["the_cut", 5, 7, "0.5", "", "", /$^/],
+      ["the_cut", 5, 7, "0.9", "Night Powder Peg", "Night On The Spoil", /I'll take a night run/],
+      ["marrow_orchard", 4, 9, "0.5", "", "", /$^/],
+      ["marrow_orchard", 4, 9, "0.9", "Night-picker Sib", "The Late Rows", /I'll work the late rows/],
     ];
 
     for (const [mapId, x, y, hour, name, job, option] of cases) {
@@ -1939,7 +1957,7 @@ async function closePocketRanch(page: import("@playwright/test").Page): Promise<
         continue;
       }
       await expect(page.locator("[data-overworld-dialogue-name]")).toContainText(name);
-      await page.locator("[data-dialogue-option]").nth(option).click();
+      await clickDialogueOption(page, option);
       await page.waitForTimeout(450);
       await page.locator("[data-overworld-dialogue-text]").click();
       await page.waitForTimeout(450);
@@ -2092,7 +2110,7 @@ async function closePocketRanch(page: import("@playwright/test").Page): Promise<
     await page.keyboard.press("z");
     await page.waitForTimeout(700);
     await expect(page.locator("[data-overworld-dialogue-name]")).toContainText("Watchman Pell");
-    await page.locator("[data-dialogue-option]").nth(1).click();
+    await clickDialogueOption(page, /work the dark/i);
     await page.waitForTimeout(500);
     await page.locator("[data-overworld-dialogue-text]").click();
     await page.waitForTimeout(500);

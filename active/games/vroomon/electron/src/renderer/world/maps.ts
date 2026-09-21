@@ -699,9 +699,21 @@ export const MAPS: Record<string, Tilemap> = {
           text: "I mind the cable lamps. Every car that comes up this face at night gets counted twice - once going up and once for how it comes back down.",
           options: [
             { label: "What's different at night?", next: "lorn-night" },
+            { label: "What does this weather do to a run?", next: "lorn-sky" },
             { label: "I'll run the face for you", next: "lorn-job" },
             { label: "Keep the lamps lit", next: "lorn-lamp" },
           ],
+        },
+      },
+      {
+        id: "lorn-sky",
+        name: "Signal Lorn",
+        x: 0,
+        y: 0,
+        facing: "down",
+        sprite: "rider",
+        dialogue: {
+          text: "Read it before you run, not after. A crosswind off the ridge and power counts for less — you will feel it as the car refusing. Mist hides the line before it slows you. Rain is the worst of them: wet grass is grip you did not bring, and a race in it is run against a bar the weather raised. Dry day, dry numbers.",
         },
       },
       { id: "lorn-night", name: "Signal Lorn", x: 0, y: 0, facing: "down", sprite: "rider",
@@ -1109,9 +1121,21 @@ export const MAPS: Record<string, Tilemap> = {
           text: "Nobody out here after dark but me and the wild. The wild's quicker at night, if you believe the haulers. I've watched it long enough to believe them.",
           options: [
             { label: "What's different at night?", next: "pell-night" },
+            { label: "How's the sky looking?", next: "pell-sky" },
             { label: "I'll work the dark", next: "pell-job" },
             { label: "Keep warm", next: "pell-warm" },
           ],
+        },
+      },
+      {
+        id: "pell-sky",
+        name: "Watchman Pell",
+        x: 0,
+        y: 0,
+        facing: "down",
+        sprite: "rider",
+        dialogue: {
+          text: "Clear means the numbers you bred for. Shower, and the whole road turns to grease — grip goes, and any bar you are racing gets raised while you stand there. Mist does not care how fast you are, only whether you can find the line. I keep a weather book on the shelf; the haulers read it and then argue with it.",
         },
       },
       {

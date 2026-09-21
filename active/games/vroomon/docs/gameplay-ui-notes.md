@@ -71,6 +71,40 @@ it is worth re-checking only if the ladder ever gets harder.
 
 ---
 
+## The mechanic with no teacher (2026-09-15) ✅
+
+Weather is a rule the game enforces — wet grass costs grip, and a feud's bar is
+raised while you stand in the rain — and for its whole life the only place it
+was explained was a **note on a panel**. A player met it as a number.
+
+Now the road's own people read the sky. Signal Lorn, who keeps the lamps on the
+Highland switchback, has a line about the crosswind: *"Read it before you run,
+not after. A crosswind off the ridge and power counts for less — you will feel
+it as the car refusing. Mist hides the line before it slows you. Rain is the
+worst of them: wet grass is grip you did not bring, and a race in it is run
+against a bar the weather raised. Dry day, dry numbers."* Watchman Pell keeps
+the weather book on the Long Haul: *"Clear means the numbers you bred for.
+Shower, and the whole road turns to grease…"*
+
+The contract is a test: **every kind of weather must be named by somebody in the
+world.** Replacing the words with synonyms fails it by name
+(`nobody explains: gale`), so a fifth sky cannot be added without someone to
+speak for it.
+
+### The cost of editing a menu
+
+Adding an option to Lorn and Pell broke two e2e tests that clicked
+`[data-dialogue-option]` **by index** — the job line moved from position 2 to 3
+and their assertions about a different option went looking in the wrong place.
+Both now choose by label through a `clickDialogueOption(page, /I'll work the
+dark/)` helper that throws with the actual menu when it cannot find a match.
+
+Two lessons from one edit: **menus grow**, so anything positional in a test is a
+future failure; and a test that breaks when an *unrelated* option is added was
+asserting the wrong thing all along.
+
+---
+
 ## Notes dated 2026-09-15, in file order
 
 A table of contents for this date's work, which is scattered through the file

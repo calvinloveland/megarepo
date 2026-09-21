@@ -420,6 +420,30 @@ describe("quest contracts", () => {
     }
   });
 
+  it("has somebody in the world explain every kind of weather", () => {
+    // Weather is a rule the game enforces - wet grass costs grip and raises a
+    // feud's bar - and for a long time the only place it was explained was a
+    // note on a panel. A mechanic the player meets should be taught by a
+    // person: Signal Lorn reads the crosswind on the switchback, Watchman Pell
+    // keeps the weather book on the open road.
+    const spoken = Object.values(MAPS)
+      .flatMap((map) => map.npcs)
+      .map((npc) => JSON.stringify(npc.dialogue ?? {}))
+      .join(" ")
+      .toLowerCase();
+
+    const WORDS: Record<string, string[]> = {
+      clear: ["clear means", "dry day"],
+      shower: ["shower", "rain"],
+      gale: ["crosswind", "gale"],
+      mist: ["mist"],
+    };
+    const silent = Object.entries(WORDS)
+      .filter(([, words]) => !words.some((word) => spoken.includes(word)))
+      .map(([kind]) => kind);
+    expect(silent, `nobody explains: ${silent.join(", ")}`).toEqual([]);
+  });
+
   it("tells you where a job happens, when it is not where you are", () => {
     // The inverse of the walk-on ledger: flavour that could belong to any map.
     // Most givers speak about their herd, their ground or their trade without
