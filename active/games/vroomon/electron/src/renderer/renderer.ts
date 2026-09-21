@@ -2933,9 +2933,45 @@ function renderPanels(): void {
   }
 }
 
+/**
+ * Say which car the Record Barn button will actually take. The selection
+ * sticks to whatever you last touched - seeding the loaner moves it - so a
+ * bare "SAVE" can quietly record a worse animal than the one on screen.
+ */
+function labelHallSaveButton(): void {
+  // Looked up rather than captured: this runs long before the button's own
+  // `const` is initialised.
+  const button = document.querySelector<HTMLButtonElement>("[data-save-selected-to-hall]");
+  if (!button) {
+    return;
+  }
+  const summary = getSelectedVehicleSummary(rendererState);
+  const leaderId = (() => {
+    const evaluated = rendererState.latestGeneration?.evaluatedPopulation;
+    if (!evaluated || evaluated.length === 0) {
+      return null;
+    }
+    return evaluated.reduce((best, entry) => (entry.score > best.score ? entry : best)).id;
+  })();
+
+  if (!summary) {
+    button.textContent = "🏆 SAVE";
+    button.title = "Save the selected vehicle to the Hall of Fame";
+    button.dataset.best = "false";
+    return;
+  }
+  const isLeader = summary.id === leaderId;
+  button.textContent = `🏆 SAVE ${summary.id} · ${formatNumber(summary.score)}`;
+  button.title = isLeader
+    ? "Save the selected vehicle - this is your best so far"
+    : `Save the selected vehicle. Your best is ${leaderId ?? "not ranked yet"}`;
+  button.dataset.best = String(isLeader);
+}
+
 function renderVehicleFocusStrip(
   vehicles: GenerationResult["evaluatedPopulation"],
 ): void {
+  labelHallSaveButton();
   selectedVehicleButtons.innerHTML = vehicles
     .map(
       (vehicle) =>
@@ -5287,6 +5323,7 @@ async function persistWorldState(): Promise<void> {
 
 async function saveSelectedToHall(): Promise<void> {
   const summary = getSelectedVehicleSummary(rendererState);
+  labelHallSaveButton();
 
   if (!summary) {
     rendererState = {

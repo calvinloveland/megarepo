@@ -913,6 +913,43 @@ the helper is exported, and the next caller would have inherited the wrong
 answer. The controller now also passes its own pinned clock through, so both
 layers agree even at a phase boundary.
 
+## Earned-only decor, and a button that says what it will do (2026-09-15) ✅
+
+### Every earned-only item has to be earnable
+
+Decor marked `earnedOnly` is hidden from the ranch shop, which makes a quest
+reward the *only* way it can exist in a save. Add one without a job that pays
+it and the flavour text describes furniture nobody can have — the same shape
+of dead content as the written dialogue lines with no screen. There are two
+(`bee-skeps`, `meadow-sign`) and both are paid by a quest; the audit is there
+so the third one is caught by a test rather than by a player noticing a gap.
+Verified by mutation: marking a purchasable item earned-only fails with
+`salt-road-marker is earned-only but no quest pays it out`.
+
+### The Record Barn button now names the car it will record
+
+The selection sticks to whatever you last touched — seeding an imported
+genome **moves it** — so a bare `🏆 SAVE` could quietly record a worse animal
+than the one on the leaderboard. The button reads
+`🏆 SAVE preview-…-00093 · 1119.88`, and turns gold when that car *is* your
+best. Found a real bug in the first attempt: the label was looked up through a
+`const` declared three thousand lines below the function that runs first, so
+it sat in the temporal dead zone and every call threw. It queries the DOM now.
+
+### Two test flakes worth naming
+
+- **Reading numbers out of text that contains ids.** Car ids end in digits
+  (`preview-muaybm4e-00070`), so `text.replace(/[^0-9.]/g, "")` over a chip
+  invented numbers and picked an arbitrary car. The score comes from its own
+  span now.
+- **Fixed sleeps in a parallel suite.** The arc test passed alone three times
+  and failed under four workers: 900ms per generation is generous on an idle
+  machine and marginal on a busy one. It waits for the generation pill to
+  actually move.
+
+Both were the test's fault, not the game's, and both cost more debugging time
+than the feature did.
+
 ## The writers' lines were never on screen (2026-09-15) ✅
 
 Every side quest has carried an authored `offer` ("Nobody wrangles vroomon

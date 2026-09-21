@@ -700,8 +700,17 @@ test.describe("vroomon Playwright harness", () => {
     // ceiling on the loop is what is being asserted.
     let generations = 0;
     for (let attempt = 1; attempt <= 8; attempt += 1) {
+      // Wait for the generation pill to actually move rather than guessing at
+      // a sleep: four workers share this machine, and a fixed wait that is
+      // generous alone is marginal in parallel.
+      const before = (await page.locator("[data-viewport-gen-value]").textContent()) ?? "";
       await page.locator("[data-run-generation]").click();
-      await page.waitForTimeout(900);
+      await page.waitForFunction(
+        (previous) =>
+          (document.querySelector("[data-viewport-gen-value]")?.textContent ?? "") !== previous,
+        before,
+        { timeout: 30000 },
+      );
       generations = attempt;
       if ((await bestScore()) >= 1000) {
         break;
@@ -715,21 +724,34 @@ test.describe("vroomon Playwright harness", () => {
     // best, put it in the barn, then go and defend the ground with it. The
     // selection sticks to whatever you last touched (seeding the loaner moves
     // it), so pick the top-scoring chip first, as a player would.
+    // Read the score out of its own span: chip text also carries the car's id,
+    // and ids end in digits ("preview-...-00070"), so stripping non-digits over
+    // the whole string invents numbers.
+    // One snapshot of the strip: the panel re-renders as generations land, and
+    // reading chips one by one raced against it.
+    const chipScores = await page.$$eval("[data-select-vehicle]", (nodes) =>
+      nodes.map((node) =>
+        Number((node.querySelector(".focus-chip__score")?.textContent ?? "").replace(/[^0-9.]/g, "")),
+      ),
+    );
     const chips = page.locator("[data-select-vehicle]");
-    const chipCount = await chips.count();
     let bestIndex = 0;
     let bestChip = -1;
-    for (let index = 0; index < chipCount; index += 1) {
-      const text = (await chips.nth(index).textContent()) ?? "";
-      const score = Number(text.replace(/[^0-9.]/g, ""));
+    chipScores.forEach((score, index) => {
       if (score > bestChip) {
         bestChip = score;
         bestIndex = index;
       }
-    }
+    });
     expect(bestChip).toBeGreaterThanOrEqual(1000);
     await chips.nth(bestIndex).click();
     await page.waitForTimeout(300);
+    // The button names the car and its score, so a stale selection cannot
+    // quietly swap your champion for a slower one.
+    const saveLabel = (await page.locator("[data-save-selected-to-hall]").textContent()) ?? "";
+    expect(saveLabel).toContain("SAVE ");
+    // "🏆 SAVE <id> · <score>" — the score is the part after the dot.
+    expect(Number(saveLabel.split("·").pop()!.replace(/[^0-9.]/g, ""))).toBeGreaterThanOrEqual(1000);
     await page.locator("[data-save-selected-to-hall]").click();
     await page.waitForTimeout(600);
     await expect(page.locator("[data-menu-hof-count]")).not.toContainText("0");

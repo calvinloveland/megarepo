@@ -571,6 +571,10 @@
         flex-wrap: wrap;
       }
 
+      .hud-btn[data-best="true"] {
+        border-color: rgba(255, 209, 102, 0.66);
+        color: #ffe6a3;
+      }
       .hud-btn {
         border-radius: 12px;
         border: 1px solid rgba(138, 180, 255, 0.48);
@@ -1930,7 +1934,7 @@
             </div>
             <div class="action-row" hidden data-vehicle-strip data-selected-vehicle-buttons style="flex-wrap:wrap;"></div>
             <div class="action-row" hidden data-save-selected-row>
-              <button class="hud-btn" type="button" data-save-selected-to-hall title="Save the selected vehicle to the Hall of Fame">🏆 SAVE</button>
+              <button class="hud-btn" type="button" data-save-selected-to-hall data-best="false" title="Save the selected vehicle to the Hall of Fame">🏆 SAVE</button>
             </div>
           </div>
         </div>

@@ -385,6 +385,33 @@ describe("quest contracts", () => {
     }
   });
 
+  it("leaves no earned-only decor item unearnable", () => {
+    // An item marked `earnedOnly` is hidden from the ranch shop, so a quest
+    // reward is the only way it can ever exist in a save. Add one without a
+    // job that pays it and the flavour text describes furniture nobody can
+    // have - the same shape of dead content as a written line with no screen.
+    const granted = new Set(
+      SIDE_QUESTS.map((quest) => quest.reward.decor).filter(
+        (id): id is string => typeof id === "string",
+      ),
+    );
+    const earned = DECOR_ITEMS.filter((item) => item.earnedOnly);
+    expect(earned.length).toBeGreaterThan(0);
+    for (const item of earned) {
+      expect(
+        granted.has(item.id),
+        `${item.id} is earned-only but no quest pays it out`,
+      ).toBe(true);
+      // And it must not also be priced for sale, or "earned" means nothing.
+      expect(
+        DECOR_ITEMS.filter((candidate) => !candidate.earnedOnly).some(
+          (candidate) => candidate.id === item.id,
+        ),
+        `${item.id} is both earned-only and for sale`,
+      ).toBe(false);
+    }
+  });
+
   it("never sends a story beat to a place that is not there", () => {
     // A `goto:` is the one place content moves the player by hand. The
     // controller quietly shrugs off a bad destination, which means a typo
