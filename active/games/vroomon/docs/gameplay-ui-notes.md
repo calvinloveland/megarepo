@@ -238,6 +238,7 @@ new entry that is not indexed here fails the suite.
 - [Two dead exports, and one of them was a trap (2026-09-15) ✅](#two-dead-exports-and-one-of-them-was-a-trap-2026-09-15)
 - [The design overview now dates itself (2026-09-15) ✅](#the-design-overview-now-dates-itself-2026-09-15)
 - [The hub bar and the corner controls were fighting for one row (2026-09-15) ✅](#the-hub-bar-and-the-corner-controls-were-fighting-for-one-row-2026-09-15)
+- [The runner now tells you when it is testing yesterday's game (2026-09-15) ✅](#the-runner-now-tells-you-when-it-is-testing-yesterdays-game-2026-09-15)
 - [Three ways a written scene quietly stops working (2026-09-15) ✅](#three-ways-a-written-scene-quietly-stops-working-2026-09-15)
 - [Where people are, and where the map file says they are (2026-09-15) ✅](#where-people-are-and-where-the-map-file-says-they-are-2026-09-15)
 - [The inverse sweep: flavour that could belong to any map (2026-09-15) ✅](#the-inverse-sweep-flavour-that-could-belong-to-any-map-2026-09-15)
@@ -928,6 +929,34 @@ Several failures this cycle were against a **stale `dist/`**: I have been
 running `node scripts/run-playwright.mjs` directly, which skips the build step
 that `npm run test:e2e` performs. Editing source and running the runner is
 testing yesterday's game. Worth remembering before blaming the last change.
+
+---
+
+## The runner now tells you when it is testing yesterday's game (2026-09-15) ✅
+
+The most useful thing the layout cycle taught me was about my own process:
+several failures were against a **stale `dist/`**, because I had been running
+`node scripts/run-playwright.mjs` directly, which skips the build that
+`npm run test:e2e` performs. Editing source and running the runner is testing
+yesterday's game.
+
+The runner checks now:
+
+```
+⚠  dist/ is 9.4 minutes older than src/ — these tests will run against a stale
+   build. Run `npm run build` (or use `npm run test:e2e`, which builds first).
+```
+
+A **warning rather than a failure**, deliberately: `test:e2e:fast` skips the
+build on purpose for quick iteration, and blocking it would trade a useful loop
+for a guard. `VROOMON_E2E_STRICT=1` makes it fatal for a CI-style run.
+
+Verified both ways: with a touched source file the warning appears and the tests
+still run; after `npm run build` it is silent.
+
+That is the second guard this session aimed at *how I work* rather than at the
+game — the first being the docs index that refuses to go stale. Both came from
+mistakes I had made twice.
 
 ---
 

@@ -1,6 +1,14 @@
 #!/usr/bin/env node
 
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+} from "node:fs";
 import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import { extname, join, normalize, resolve } from "node:path";
@@ -96,6 +104,55 @@ const mimeTypes = {
   ".json": "application/json; charset=utf-8",
   ".map": "application/json; charset=utf-8",
 } ;
+
+/**
+ * The e2e suite runs against `dist/`, and this script does NOT build it — that
+ * is what `npm run test:e2e` does before calling here. Running this directly
+ * after editing source therefore tests yesterday's game, which cost me a
+ * confusing cycle: a UI test failed, and the cause was a build I had not made.
+ * So say so, loudly, before the first test runs.
+ */
+function newestMtime(directory) {
+  let newest = 0;
+  const walk = (dir) => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const path = join(dir, entry.name);
+      if (entry.isDirectory()) {
+        walk(path);
+      } else {
+        newest = Math.max(newest, statSync(path).mtimeMs);
+      }
+    }
+  };
+  if (existsSync(directory)) {
+    walk(directory);
+  }
+  return newest;
+}
+
+const sourceTime = Math.max(
+  newestMtime(resolve(appDirectory, "src")),
+  newestMtime(resolve(appDirectory, "tests")),
+);
+const distTime = newestMtime(resolve(appDirectory, "dist"));
+if (distTime === 0) {
+  console.error("\n  dist/ is missing — run `npm run build` first.\n");
+  process.exit(1);
+}
+if (sourceTime > distTime + 1000) {
+  const minutes = ((sourceTime - distTime) / 60000).toFixed(1);
+  console.error(
+    `\n  ⚠  dist/ is ${minutes} minutes older than src/ — these tests will run ` +
+      `against a stale build.\n     Run \`npm run build\` (or use ` +
+      "`npm run test:e2e`, which builds first).\n",
+  );
+  // A warning rather than a failure: `npm run test:e2e:fast` deliberately
+  // skips the build for quick iteration, and blocking it would trade a useful
+  // loop for a guard. Set VROOMON_E2E_STRICT=1 to make it fatal in CI.
+  if (process.env.VROOMON_E2E_STRICT === "1") {
+    process.exit(1);
+  }
+}
 
 const staticServer = createServer(async (request, response) => {
   const requestPath = request.url ? new URL(request.url, "http://127.0.0.1").pathname : "/";
