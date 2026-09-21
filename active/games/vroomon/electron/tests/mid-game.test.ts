@@ -157,3 +157,58 @@ describe("the tier shapes are calibrated, not decorative", () => {
     expect(share(5)).toBeGreaterThan(0.005);
   }, 180_000);
 });
+
+describe("hunting is a real route, and not a shortcut", () => {
+  // An encounter sends the pack's MEDIAN animal, so what a ground can hand you
+  // is its median - not its champion. Measured across every hunting ground,
+  // that number is what decides whether a player can skip the bench by
+  // walking to richer grass.
+  const GROUNDS: Array<[string, string]> = [
+    ["Flat — the town paddock", "starter_town"],
+    ["Grassland — the yard", "ranch_yard"],
+    ["Grassland — Route 1", "route_1"],
+    ["Grassland — the orchard", "marrow_orchard"],
+    ["Hills — the switchback", "mesa_switchback"],
+    ["Rocky — the cut", "the_cut"],
+    ["Rocky — the Quarry", "rocky_map"],
+    ["Ice — the Perimeter", "ice_map"],
+    ["Ice — the Depot", "long_light_depot"],
+  ];
+
+  it("takes a long walk to out-hunt the bench", () => {
+    const tierTwo = feudBar("Grassland", 2);
+    const early: Record<string, number> = {};
+    const late: Record<string, number> = {};
+    for (const [label, mapId] of GROUNDS) {
+      const random = mulberry(`pace-${mapId}`);
+      let pack = seedWildPack(mapId);
+      for (let generation = 1; generation <= 20; generation += 1) {
+        pack = advanceWildPack(mapId, pack, random).pack;
+        if (generation === 5) {
+          early[label] = scoreWildPack(mapId, pack).representative.score;
+        }
+        if (generation === 20) {
+          late[label] = scoreWildPack(mapId, pack).representative.score;
+        }
+      }
+    }
+    console.log(
+      "[mid] median animal —",
+      Object.entries(early)
+        .map(([label, score]) => `${label.split(" — ")[0]}@5 ${Math.round(score)}→20 ${Math.round(late[label]!)}`)
+        .join(" | "),
+    );
+
+    // Five encounters in, nowhere on the map can hand you a tier II animal:
+    // the ladder's early rungs belong to the bench.
+    for (const [label, score] of Object.entries(early)) {
+      expect(score, `${label} offers ${Math.round(score)} after five meetings`).toBeLessThan(tierTwo);
+    }
+    // Twenty meetings in, the rich grounds do pay off - the Ice perimeter's
+    // own pack is the strongest thing you can catch.
+    expect(Math.max(...Object.values(late))).toBeGreaterThan(tierTwo * 1.2);
+    expect(late["Ice — the Perimeter"]).toBe(Math.max(...Object.values(late)));
+    // And the richest ground is the far one, not the field behind the house.
+    expect(late["Ice — the Perimeter"]!).toBeGreaterThan(late["Grassland — the yard"]!);
+  }, 300_000);
+});

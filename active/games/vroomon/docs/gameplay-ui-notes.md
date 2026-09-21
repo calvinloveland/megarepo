@@ -913,6 +913,43 @@ the helper is exported, and the next caller would have inherited the wrong
 answer. The controller now also passes its own pinned clock through, so both
 layers agree even at a phase boundary.
 
+## Is hunting a shortcut past the bench? Measured (2026-09-15) ✅
+
+An encounter sends the pack's **median** animal, not its champion — so what a
+ground can hand you is that number, and it decides whether a player can skip
+the bench by walking to richer grass. Now that the three road maps have their
+own terrain, all nine hunting grounds measured, median animal at five meetings
+and at twenty:
+
+```
+Flat — the town paddock      418 → 1377
+Grassland — the yard         450 → 1001
+Grassland — Route 1          381 → 1089
+Grassland — the orchard      527 →  991
+Hills — the switchback       884 → 1128
+Rocky — the cut              642 → 1156
+Rocky — the Quarry           453 → 1131
+Ice — the Perimeter          513 → 1622
+Ice — the Depot              586 → 1291
+```
+
+**No ground is a shortcut.** Five meetings in, nothing anywhere on the map can
+hand you a tier II animal — the strongest is the switchback's 884 against a bar
+of 1220 — while breeding the loaner's own line reaches tier II in five
+*generations* on the bench. Racing a hundred cars through a generation takes a
+third of a second; meeting one wild animal takes a walk. So the bench is the
+short road and hunting is the long one, which is the right way round for a
+breeding game.
+
+They do pay off differently, and not in the obvious direction: twenty meetings
+in, the **Ice perimeter's** pack is the strongest thing on the map at 1622,
+while the grass behind the house plateaus at 1001. The far ground is the rich
+one, and your own paddock is where you breed rather than hunt.
+
+Both halves are pinned in `tests/mid-game.test.ts`: every ground's fifth-meeting
+median stays under tier II, and the ice's twentieth-meeting median beats the
+yard's.
+
 ## The people standing on a ground give its work (2026-09-15) ✅
 
 The Highland Mesa and the Long Light Depot both had people on them and jobs
