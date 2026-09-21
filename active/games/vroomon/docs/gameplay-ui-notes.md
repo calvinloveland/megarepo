@@ -913,6 +913,26 @@ the helper is exported, and the next caller would have inherited the wrong
 answer. The controller now also passes its own pinned clock through, so both
 layers agree even at a phase boundary.
 
+## "Is it worth a walk?" answered where the car is (2026-09-15) ✅
+
+The records board compares your best lap against what a terrain's wild would
+send. The Inspector is the other place that question comes up — you are looking
+at a car and deciding whether to breed on or go hunting — so its track result
+now carries the same clause:
+
+```
+Grassland: flies — 1103px in 3s, top 546px/s. · wild sends 247
+```
+
+A 1103px car against a ground that sends 247 means the walk is wasted; the same
+car against a ground that sends 900 means the grass is where the next jump is.
+One helper (`wildSendNote`, from `wildSendByTerrain`) renders the clause in all
+three places — the records board, the Inspector and (in its own phrasing) the
+HUD chip — so they cannot drift apart about what a ground sends.
+
+The e2e asserts it in the wild-pack journey, which is the only test that has
+met a ground before it looks.
+
 ## You can decorate anywhere people live (2026-09-15) ✅
 
 The Salt Road is the richest road in the game — thirteen people, five jobs, a

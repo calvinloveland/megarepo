@@ -2638,6 +2638,23 @@ async function closePocketRanch(page: import("@playwright/test").Page): Promise<
     // visible while walking rather than only at the moment of a race.
     await expect(page.locator("[data-viewport-stats-overlay]")).toContainText("sends");
 
+    // The Inspector reads a car against the same number, on the same ground:
+    // "is it worth a walk?" answered where the car is.
+    await openPocketRanch(page, "herd");
+    await page.locator("[data-generate-population]").click();
+    await page.waitForTimeout(500);
+    await runOneGeneration(page);
+    await page.locator("[data-inspect-selected]").click();
+    await page.waitForTimeout(700);
+    await page.locator('[data-inspector-terrain="Grassland"]').click();
+    await page.waitForTimeout(900);
+    await expect(page.locator("[data-inspector-result]")).toContainText("wild sends");
+    // Escape drops the inspector, and the hub with it, so there is nothing to
+    // close afterwards.
+    await page.keyboard.press("Escape");
+    await page.waitForTimeout(400);
+    await expect(page.locator("[data-inspector-overlay]")).toBeHidden();
+
     // The pack and its generation count ride along in the save.
     const generations = await page.evaluate(async () => {
       const world = await window.vroomon.loadWorldState();

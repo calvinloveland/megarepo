@@ -2686,7 +2686,16 @@ function renderInspector(): void {
 
   const result = document.querySelector<HTMLElement>("[data-inspector-result]");
   if (result) {
-    result.textContent = inspectorState.result;
+    // The car's own run, read against the alternative: what the wild on that
+    // ground would hand you. If this car already beats it, the walk is wasted.
+    const readings: Record<string, PackReading> = {};
+    for (const [mapId, reading] of packReadings) {
+      readings[mapId] = reading;
+    }
+    const sends = wildSendByTerrain(
+      wildGroundRows(overworldController.state.wildGenerations ?? {}, readings),
+    );
+    result.textContent = inspectorState.result + wildSendNote(inspectorState.terrain, sends);
     const outcome = inspectorState.lastOutcome;
     result.style.color =
       outcome === "flies" || outcome === "competitive"
