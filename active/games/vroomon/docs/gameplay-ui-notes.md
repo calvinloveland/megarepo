@@ -842,6 +842,34 @@ gets harder instead of just paying out a Brand:
   dropped new world state (circuit tiers) — it now uses the shared
   serializer.
 
+## Oxide's trade counter: the herd book pays (2026-09-15) ✅
+
+A fifth Pocket Ranch scene (`🧺 Trade`) where specimens become credits and
+credits become blood:
+
+- **Sell** any caught specimen. It is priced by a short race on the flat
+  (`sellPrice = score / 4`), so the Herd Book stops being a list you can only
+  add to — duplicate wild catches are worth something now.
+- **Buy** road stock. The shelf is drawn from the **wild packs in your save**,
+  which means it only offers ground you have actually walked, and its stock
+  improves as those packs evolve on their own. Buying pays the counter's
+  price (`score / 2`, always more than it pays for the same animal) and the
+  vroomon arrives **in your herd as well as your Herd Book**, ready to breed
+  with.
+- **Seed herd** plants a caught specimen straight into the breeding pool.
+
+Nothing here shortcuts breeding: what you buy is a wild animal, you pay over
+the odds for it, and it still has to be bred with. Oxide's line in town —
+"I move stock up and down this road" — finally has a counter behind it.
+
+### Two more bugs found while building it
+
+- **Seeding a herd never saved.** Pasting a champion DNA and refreshing lost
+  it: the run state is its own save and the seed handler never wrote it.
+- **Releasing and culling were not counted.** The `release` quest objective
+  waited on a tally nothing incremented; both the release button and the
+  cull-to-top-ten path now count, so a job can measure them.
+
 ## Marrow Orchard: a new area with its own people (2026-09-15) ✅
 
 A new outdoor map hanging off Starter Town's north lane and Route 1's hedge —

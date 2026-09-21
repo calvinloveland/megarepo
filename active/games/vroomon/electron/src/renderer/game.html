@@ -249,6 +249,56 @@
         min-height: 1.3rem;
       }
       .wild-race__actions { display: flex; gap: 0.4rem; margin-top: 0.6rem; }
+      .market-panel__line {
+        margin: 0 0 0.4rem;
+        font-family: var(--font-screen);
+        font-size: 0.78rem;
+        color: var(--muted);
+      }
+      .market-panel__wallet {
+        font-family: var(--font-screen);
+        font-size: 0.8rem;
+        color: var(--text-soft);
+        margin-bottom: 0.4rem;
+      }
+      .market-panel__wallet strong { color: var(--gold-deep); }
+      .market-panel__cols {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        gap: 0.8rem;
+      }
+      .market-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+        max-height: 16rem;
+        overflow: auto;
+      }
+      .market-row {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 0.3rem 0.5rem;
+        align-items: center;
+        padding: 0.3rem 0.45rem;
+        border-radius: 8px;
+        background: rgba(138, 180, 255, 0.07);
+        font-family: var(--font-screen);
+        font-size: 0.76rem;
+      }
+      .market-row__dna { color: #dce8ff; }
+      .market-row__meta { color: var(--muted); font-size: 0.68rem; }
+      .market-row__actions { display: flex; gap: 0.3rem; align-items: center; }
+      .market-row button {
+        font-family: var(--font-screen);
+        font-size: 0.7rem;
+        padding: 0.15rem 0.4rem;
+        border-radius: 6px;
+        border: 1px solid rgba(138, 180, 255, 0.4);
+        background: rgba(255, 209, 102, 0.15);
+        color: #ffd166;
+        cursor: pointer;
+      }
+      .market-row button:disabled { opacity: 0.45; cursor: default; }
       .inspector {
         position: fixed;
         inset: 0;
@@ -2036,6 +2086,7 @@
             <button class="barn-pill" type="button" data-barn-pill="drive" aria-pressed="false">🏁 Test Drive</button>
             <button class="barn-pill" type="button" data-barn-pill="barn" aria-pressed="false">🏟 Barn</button>
             <button class="barn-pill" type="button" data-barn-pill="heritage" aria-pressed="false">🌳 Heritage</button>
+            <button class="barn-pill" type="button" data-barn-pill="market" aria-pressed="false">🧺 Trade</button>
             <button class="barn-hub__close" type="button" data-barn-close>Back to the road</button>
           </div>
           <div class="pocket-ranch__scene pocket-ranch__scene--heritage" data-barn-scene="heritage" hidden>
@@ -2046,6 +2097,25 @@
               </div>
               <canvas class="heritage-canvas" data-heritage-canvas width="1200" height="620"></canvas>
               <div class="heritage-panel__info" data-heritage-info>Tap a vroomon to trace its line.</div>
+            </div>
+          </div>
+          <div class="pocket-ranch__scene" data-barn-scene="market" hidden>
+            <div class="barn-modal__panel market-panel">
+              <h3 class="barn-modal__title">OXIDE'S TRADE COUNTER</h3>
+              <p class="market-panel__line" data-market-line>
+                The counter buys specimens and sells road stock. Stock comes off the ground you have walked.
+              </p>
+              <div class="market-panel__wallet">WALLET <strong data-market-wallet>0</strong> cr</div>
+              <div class="market-panel__cols">
+                <section>
+                  <div class="menu-hall__head">STOCK FOR SALE · <span data-market-offer-count>0</span></div>
+                  <div class="market-list" data-market-offers></div>
+                </section>
+                <section>
+                  <div class="menu-hall__head">YOUR SPECIMENS · <span data-market-specimen-count>0</span></div>
+                  <div class="market-list" data-market-specimens></div>
+                </section>
+              </div>
             </div>
           </div>
           <div class="pocket-ranch__scene" data-barn-scene="barn" hidden>

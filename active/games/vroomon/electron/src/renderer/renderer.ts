@@ -56,6 +56,7 @@ import { renderOverworld } from "./world/overworld-renderer.js";
 import { getMap, safeSpawn } from "./world/maps.js";
 import { findFaction } from "./world/factions.js";
 import { DECOR_ITEMS, findDecor } from "./world/decor.js";
+import { canAfford, marketStock, sellPrice, sourceLabel } from "../core/market.js";
 import { questFor } from "./world/quest.js";
 import {
   activeSideQuests,
@@ -4173,6 +4174,162 @@ function sideQuestCardHtml(): string {
   );
 }
 
+// ---------------------------------------------------------------------------
+// Oxide's trade counter: sell what you caught, buy blood you cannot reach.
+// ---------------------------------------------------------------------------
+
+/** What the counter pays for one specimen: priced on a short race. */
+function specimenPrice(dna: string): number {
+  const snapshot = window.vroomon.previewPhysicsSnapshot(dna, "Flat", 180);
+  return sellPrice(snapshot.centerX - 60);
+}
+
+function renderMarket(): void {
+  const walletEl = document.querySelector<HTMLElement>("[data-market-wallet]");
+  if (walletEl) {
+    walletEl.textContent = String(rendererState.runState.wallet);
+  }
+  const line = document.querySelector<HTMLElement>("[data-market-line]");
+  const stock = marketStock(overworldController.state.wildPacks ?? {});
+  const specimens = rendererState.world.vroomdex;
+
+  const offerCount = document.querySelector<HTMLElement>("[data-market-offer-count]");
+  if (offerCount) {
+    offerCount.textContent = String(stock.offers.length);
+  }
+  const specimenCount = document.querySelector<HTMLElement>("[data-market-specimen-count]");
+  if (specimenCount) {
+    specimenCount.textContent = String(specimens.length);
+  }
+  if (line) {
+    line.textContent =
+      stock.offers.length === 0
+        ? "Nothing on the shelf — the counter only stocks ground you have walked. Find some tall grass."
+        : "Road stock off the ground you have walked. It gets better as those packs breed up.";
+  }
+
+  const offers = document.querySelector<HTMLElement>("[data-market-offers]");
+  if (offers) {
+    offers.innerHTML =
+      stock.offers.length === 0
+        ? `<p class="muted">No stock yet.</p>`
+        : stock.offers
+            .map(
+              (offer, index) =>
+                `<div class="market-row">` +
+                `<span class="market-row__dna">${escapeHtml(offer.dna)}</span>` +
+                `<span class="market-row__actions">` +
+                `<button type="button" data-market-buy="${index}" ${canAfford(rendererState.runState.wallet, offer) ? "" : "disabled"}>${offer.price} cr · BUY</button>` +
+                `</span>` +
+                `<span class="market-row__meta">off ${escapeHtml(sourceLabel(offer.sourceMapId))} · ${escapeHtml(offer.terrain)} · runs ${offer.score}px</span>` +
+                `<span></span>` +
+                `</div>`,
+            )
+            .join("");
+  }
+
+  const specimenList = document.querySelector<HTMLElement>("[data-market-specimens]");
+  if (specimenList) {
+    const recent = [...specimens].slice(-14).reverse();
+    specimenList.innerHTML =
+      recent.length === 0
+        ? `<p class="muted">Nothing caught yet. The tall grass pays in specimens.</p>`
+        : recent
+            .map((dna) => {
+              const price = specimenPrice(dna);
+              const inHerd = rendererState.runState.population.some((entry) => entry.dna === dna);
+              return (
+                `<div class="market-row">` +
+                `<span class="market-row__dna">${escapeHtml(dna)}</span>` +
+                `<span class="market-row__actions">` +
+                `<button type="button" data-market-seed="${escapeHtml(dna)}">SEED HERD</button>` +
+                `<button type="button" data-market-sell="${escapeHtml(dna)}">${price} cr · SELL</button>` +
+                `</span>` +
+                `<span class="market-row__meta">${inHerd ? "already in your herd" : "in the Herd Book"}</span>` +
+                `<span></span>` +
+                `</div>`
+              );
+            })
+            .join("");
+  }
+
+  // Buy / sell / seed. Rebuilt every render, so listeners are attached here.
+  for (const button of Array.from(
+    document.querySelectorAll<HTMLButtonElement>("[data-market-buy]"),
+  )) {
+    button.addEventListener("click", () => {
+      const offer = stock.offers[Number(button.dataset.marketBuy ?? -1)];
+      if (!offer || !canAfford(rendererState.runState.wallet, offer)) {
+        sfx.deny();
+        return;
+      }
+      // Buying puts the animal in the Herd Book AND the herd: what the
+      // counter sells is a wild vroomon, so it arrives ready to breed with.
+      overworldController._setState(recordEncounterDna(overworldController.state, offer.dna));
+      rendererState = setWorldState(rendererState, overworldController.state);
+      rendererState = {
+        ...rendererState,
+        runState: {
+          ...rendererState.runState,
+          wallet: rendererState.runState.wallet - offer.price,
+          population: plantSeedDna(rendererState.runState.population, offer.dna),
+        },
+        statusMessage: `Bought ${offer.dna} off ${sourceLabel(offer.sourceMapId)} for ${offer.price} cr.`,
+      };
+      sfx.coin();
+      void window.vroomon.saveRunState(rendererState.runState);
+      scheduleWorldSave();
+      renderApp();
+      renderMarket();
+    });
+  }
+
+  for (const button of Array.from(
+    document.querySelectorAll<HTMLButtonElement>("[data-market-sell]"),
+  )) {
+    button.addEventListener("click", () => {
+      const dna = button.dataset.marketSell ?? "";
+      const price = specimenPrice(dna);
+      overworldController._setState({
+        ...overworldController.state,
+        vroomdex: overworldController.state.vroomdex.filter((entry) => entry !== dna),
+      });
+      rendererState = setWorldState(rendererState, overworldController.state);
+      rendererState = {
+        ...rendererState,
+        runState: { ...rendererState.runState, wallet: rendererState.runState.wallet + price },
+        statusMessage: `Sold ${dna} to the counter for ${price} cr.`,
+      };
+      sfx.coin();
+      scheduleWorldSave();
+      renderApp();
+      renderMarket();
+    });
+  }
+
+  for (const button of Array.from(
+    document.querySelectorAll<HTMLButtonElement>("[data-market-seed]"),
+  )) {
+    button.addEventListener("click", () => {
+      const dna = button.dataset.marketSeed ?? "";
+      if (rendererState.runState.population.length === 0) {
+        generatePopulation();
+      }
+      rendererState = {
+        ...rendererState,
+        runState: {
+          ...rendererState.runState,
+          population: plantSeedDna(rendererState.runState.population, dna),
+        },
+        statusMessage: `Seeded the herd with ${dna} — run a generation to breed from it.`,
+      };
+      renderApp();
+      void window.vroomon.saveRunState(rendererState.runState);
+      renderMarket();
+    });
+  }
+}
+
 function renderStatsHud(): void {
   // Player-facing stat chips, top-left under the top bar. Content is
   // mode-scoped; the menu has its own start screen and shows nothing.
@@ -5396,6 +5553,9 @@ seedImportButton?.addEventListener("click", () => {
     statusMessage: `Seeded the herd with ${dna} — run a generation to breed from it.`,
   };
   renderApp();
+  // A pasted champion has to survive a refresh: the seed is a change to the
+  // herd, and the herd is its own save.
+  void window.vroomon.saveRunState(rendererState.runState);
 });
 
 randomizeButton.addEventListener("click", () => {
@@ -5775,17 +5935,18 @@ function renderHerdBook(): void {
   }
 }
 
-type BarnScene = "herd" | "drive" | "barn" | "heritage";
+type BarnScene = "herd" | "drive" | "barn" | "heritage" | "market";
 
 /** Hub scenes that aren't backed by a renderer mode (they replace the
  * bench/paddock view instead of scoping to it). */
-const NON_MODE_SCENES = new Set<BarnScene>(["barn", "heritage"]);
+const NON_MODE_SCENES = new Set<BarnScene>(["barn", "heritage", "market"]);
 
 const BARN_SCENE_STATUS: Record<BarnScene, string> = {
   herd: "The carrier opens — the herd bench hums under your hand.",
   drive: "The paddock gate rolls back for a test drive.",
   barn: "The Record Barn creaks open, shelves and ledgers in order.",
   heritage: "You lay the herd book flat — every line back to the founders.",
+  market: "Oxide sets a crate on the counter and flips the ledger open.",
 };
 
 function openPocketRanch(scene: BarnScene): void {
@@ -6102,6 +6263,9 @@ function renderPocketRanch(): void {
   }
   if (rendererState.barnOpen && rendererState.barnScene === "heritage") {
     renderHeritage();
+  }
+  if (rendererState.barnOpen && rendererState.barnScene === "market") {
+    renderMarket();
   }
 }
 

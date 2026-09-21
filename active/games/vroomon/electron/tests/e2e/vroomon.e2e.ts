@@ -1291,6 +1291,78 @@ async function closePocketRanch(page: import("@playwright/test").Page): Promise<
     await expect(page.locator("[data-wild-race-overlay]")).toBeHidden();
   });
 
+  test("@smoke Oxide's counter buys specimens and sells road stock", async ({ page }) => {
+    await seedAndEnterWorld(page);
+    // A herd (which persists a run), two specimens, and one biome's pack.
+    await seedHerdDna(page, "Lhn4yi8zKRd2");
+    await page.evaluate(async () => {
+      const world = await window.vroomon.loadWorldState();
+      await window.vroomon.saveWorldState({
+        ...world,
+        vroomdex: ["UoZzJLj1FOFC", "obAosdxh1rqm"],
+        wildPacks: { ranch_yard: ["aaaaaaaaaaaa", "bbbbbbbbbbbb", "cccccccccccc"] },
+      });
+    });
+    await page.reload();
+    await page.locator("[data-status-message]").filter({ hasText: "Welcome" }).waitFor({ timeout: 20000 });
+    await page.locator('[data-menu-action="continue"]').click();
+    await page.waitForTimeout(600);
+
+    // Fund the wallet so the counter has something to trade against.
+    await page.evaluate(async () => {
+      const run = await window.vroomon.loadRunState();
+      if (run) {
+        await window.vroomon.saveRunState({ ...run, wallet: 500 });
+      }
+    });
+    await page.reload();
+    await page.locator("[data-status-message]").filter({ hasText: "Welcome" }).waitFor({ timeout: 20000 });
+    await page.locator('[data-menu-action="continue"]').click();
+    await page.waitForTimeout(600);
+
+    await page.locator("[data-open-barn]").click();
+    await page.waitForTimeout(400);
+    await page.locator('[data-barn-pill="market"]').click();
+    await page.waitForTimeout(600);
+    await expect(page.locator("[data-market-wallet]")).toHaveText("500");
+    await expect(page.locator("[data-market-offers] .market-row")).not.toHaveCount(0);
+    await expect(page.locator("[data-market-specimens] .market-row")).not.toHaveCount(0);
+
+    // Selling a specimen pays out.
+    const sellPrice = Number(
+      ((await page.locator("[data-market-sell]").first().textContent()) ?? "0").replace(/\D/g, ""),
+    );
+    expect(sellPrice).toBeGreaterThan(0);
+    await page.locator("[data-market-sell]").first().click();
+    await page.waitForTimeout(600);
+    await expect(page.locator("[data-market-wallet]")).toHaveText(String(500 + sellPrice));
+
+    // Buying road stock spends it, and the animal joins the herd.
+    const buyPrice = Number(
+      ((await page.locator("[data-market-buy]").first().textContent()) ?? "0").replace(/\D/g, ""),
+    );
+    const boughtDna = (
+      (await page.locator("[data-market-offers] .market-row__dna").first().textContent()) ?? ""
+    ).trim();
+    expect(buyPrice).toBeGreaterThan(0);
+    await page.locator("[data-market-buy]").first().click();
+    await page.waitForTimeout(700);
+    await expect(page.locator("[data-market-wallet]")).toHaveText(
+      String(500 + sellPrice - buyPrice),
+    );
+    const after = await page.evaluate(async () => {
+      const world = await window.vroomon.loadWorldState();
+      const run = await window.vroomon.loadRunState();
+      return {
+        vroomdex: world?.vroomdex ?? [],
+        herd: (run?.population ?? []).map((entry) => entry.dna),
+        wallet: run?.wallet ?? 0,
+      };
+    });
+    expect(after.vroomdex).toContain(boughtDna);
+    expect(after.herd).toContain(boughtDna);
+  });
+
   test("@smoke Marrow Orchard: a keeper, a race, and a job worth taking", async ({ page }) => {
     await seedAndEnterWorld(page);
 
