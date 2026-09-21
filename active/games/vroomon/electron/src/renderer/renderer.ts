@@ -4121,7 +4121,8 @@ function renderStatsHud(): void {
     });
     chips.push({ label: "WALLET", value: wallet });
   } else if (mode === "world") {
-    const map = getMap(rendererState.world.currentMapId);
+    const mapId = rendererState.world.currentMapId;
+    const map = getMap(mapId);
     chips.push({ label: "MAP", value: map?.name ?? "—" });
     const quest = questFor(rendererState.world);
     questCardHtml = `
@@ -4147,6 +4148,17 @@ function renderStatsHud(): void {
       label: "SEEKING",
       value: rendererState.world.hunting ? "ON 🔍" : "OFF",
       action: "hunt",
+    });
+    // What the wild on this ground has become while nobody was watching.
+    const wildGeneration = rendererState.world.wildGenerations[mapId] ?? 0;
+    const wildPack = rendererState.world.wildPacks[mapId];
+    chips.push({
+      label: "WILD",
+      value: wildPack
+        ? wildGeneration > 0
+          ? `gen ${wildGeneration + 1}`
+          : "founder stock"
+        : "unmet",
     });
   } else if (mode === "test-drive") {
     chips.push({ label: "HOF TOP", value: hallTop ? formatNumber(hallTop.score) : "—" });

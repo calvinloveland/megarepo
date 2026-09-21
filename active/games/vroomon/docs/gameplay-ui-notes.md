@@ -866,6 +866,10 @@ does but with nobody steering:
   tutorial's first catch *unwinnable*, since Robby's loaner (~460px) is
   slower than a selected pack's best.
 
+The world HUD carries the biome's pack (`WILD gen 5` / `founder stock` /
+`unmet`), so the arms race is visible while you walk rather than only at the
+moment of a race.
+
 The race window makes the wild legible: it names the pack's generation, states
 what the ground's best can do (`this ground's best runs 479px`), and parks both
 machines in their lanes — drawn from the parts their DNA builds — before you

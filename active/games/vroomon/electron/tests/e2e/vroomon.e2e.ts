@@ -1323,6 +1323,10 @@ async function closePocketRanch(page: import("@playwright/test").Page): Promise<
     await page.locator("[data-wild-race-leave]").click();
     await page.waitForTimeout(600);
 
+    // The world HUD carries the biome's wild generation, so the arms race is
+    // visible while walking rather than only at the moment of a race.
+    await expect(page.locator("[data-viewport-stats-overlay]")).toContainText("WILD");
+
     // The pack and its generation count ride along in the save.
     const generations = await page.evaluate(async () => {
       const world = await window.vroomon.loadWorldState();
