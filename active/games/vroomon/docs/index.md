@@ -9,6 +9,9 @@ being rewritten as a standalone Electron + TypeScript app inside this project.
   page: the two-path body, the loop, the measured progression, the wild, the
   economy, the day cycle and the invariant suite.
 - [Gameplay & UI notes](gameplay-ui-notes.md) — what was built and what broke.
+- [Writing content invariants](content-invariants.md) — how the suite checks a
+  world full of authored content, and the four ways to write a check that fails
+  on good content.
 - [Art pipeline](art-pipeline.md) — sprite assets and how to replace them.
 
 ## Layout
