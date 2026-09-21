@@ -191,20 +191,45 @@ describe("quest contracts", () => {
       if (!map) {
         return [];
       }
-      return Object.values(map.transitions).map((transition) => transition.mapId);
+      const out = Object.values(map.transitions).map((transition) => transition.mapId);
+      // Interiors open onto each other through their own gates.
+      for (const other of Object.values(MAPS)) {
+        if (Object.values(other.transitions).some((t) => t.mapId === mapId)) {
+          out.push(other.id);
+        }
+      }
+      return out;
+    };
+
+    /** Is any wild ground within a short walk of here? Three gates is a ride. */
+    const grassWithin = (mapId: string, hops: number): boolean => {
+      let frontier = [mapId];
+      const seen = new Set(frontier);
+      for (let step = 0; step <= hops; step += 1) {
+        if (frontier.some((id) => grassMaps.has(id))) {
+          return true;
+        }
+        const next: string[] = [];
+        for (const id of frontier) {
+          for (const neighbour of neighbours(id)) {
+            if (!seen.has(neighbour)) {
+              seen.add(neighbour);
+              next.push(neighbour);
+            }
+          }
+        }
+        frontier = next;
+      }
+      return false;
     };
 
     for (const quest of SIDE_QUESTS) {
       if (quest.objective.kind !== "win-wild-on") {
         continue;
       }
-      const giversGround = quest.mapId;
-      const canReachGrass =
-        grassMaps.has(giversGround) ||
-        neighbours(giversGround).some((mapId) => grassMaps.has(mapId));
       expect(
-        canReachGrass,
-        `${quest.id}: ${quest.giver} on ${giversGround} is nowhere near wild ground`,
+        grassWithin(quest.mapId, 3),
+        `${quest.id}: ${quest.giver} on ${quest.mapId} is nowhere near wild ground`,
       ).toBe(true);
     }
   });

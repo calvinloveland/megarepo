@@ -48,7 +48,8 @@ const GYM_1_TILES: TileKind[][] = [
   row("wall", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "wall"),
   row("wall", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "wall"),
   row("wall", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "wall"),
-  row("wall", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "wall"),
+  // The back room's door in the west wall, with a mat on the arena floor.
+  row("door", "doormat", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "wall"),
   row("wall", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "wall"),
   row("wall", "wall", "wall", "wall", "wall", "wall", "doormat", "doormat", "wall", "wall", "wall", "wall", "wall", "wall"),
 ];
@@ -207,7 +208,127 @@ const FUEL_SHED_TILES: TileKind[][] = [
   row("wall", "wall", "wall", "wall", "wall", "doormat", "doormat", "wall", "wall", "wall", "wall", "wall"),
 ];
 
+const BACK_ROOM_TILES: TileKind[][] = [
+  row("wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall"),
+  row("wall", "counter", "counter", "counter", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "counter", "counter", "indoor-floor", "wall"),
+  row("wall", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "wall"),
+  row("wall", "indoor-floor", "counter", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "counter", "indoor-floor", "wall"),
+  row("wall", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "wall"),
+  row("wall", "wall", "wall", "wall", "wall", "doormat", "doormat", "wall", "wall", "wall", "wall", "wall"),
+];
+
 export const MAPS: Record<string, Tilemap> = {
+
+  rustler_tack_room: {
+    id: "rustler_tack_room",
+    name: "The Tack Room",
+    width: 12,
+    height: 6,
+    interior: true,
+    tiles: BACK_ROOM_TILES,
+    ambientColor: "#cdb488",
+    npcs: [
+      {
+        id: "groom-millie",
+        name: "Groom Millie",
+        x: 7,
+        y: 3,
+        facing: "left",
+        sprite: "villager",
+        dialogue: {
+          text: "I keep the Reds' tack and I know every strap of it. A champion isn't a fast car, it's a fast car that still finishes — and I've seen more of them ruined in the last hundred metres than in the first.",
+          options: [
+            { label: "What ruins them at the end?", next: "millie-end" },
+            { label: "I'll bring you a finisher", next: "millie-job" },
+            { label: "Thanks", next: "millie-thanks" },
+          ],
+        },
+      },
+      {
+        id: "millie-end",
+        name: "Groom Millie",
+        x: 0, y: 0, facing: "down", sprite: "villager",
+        dialogue: {
+          text: "A frame that folds, a wheel that stops getting drive. Read the blueprint before you race — the inspector prints the drive at every wheel, and it is never wrong.",
+        },
+      },
+      {
+        id: "millie-job",
+        name: "Groom Millie",
+        x: 0, y: 0, facing: "down", sprite: "villager",
+        dialogue: {
+          text: "Twelve hundred on the flat and I'll tack it up myself. That's a finisher's number.",
+          setFlag: "quest-tack-accepted",
+        },
+      },
+      {
+        id: "millie-thanks",
+        name: "Groom Millie",
+        x: 0, y: 0, facing: "down", sprite: "villager",
+        dialogue: { text: "Mind the straps on your way out. They're older than you." },
+      },
+    ],
+    encounters: {},
+    transitions: {
+      "5,5": { mapId: "gym_1", toX: 2, toY: 7, facing: "down" },
+      "6,5": { mapId: "gym_1", toX: 2, toY: 7, facing: "down" },
+    },
+  },
+  salt_post_weighbridge: {
+    id: "salt_post_weighbridge",
+    name: "The Weighbridge",
+    width: 12,
+    height: 6,
+    interior: true,
+    tiles: BACK_ROOM_TILES,
+    ambientColor: "#cbb083",
+    npcs: [
+      {
+        id: "weighmaster-tuck",
+        name: "Weighmaster Tuck",
+        x: 4,
+        y: 3,
+        facing: "right",
+        sprite: "mechanic",
+        dialogue: {
+          text: "Everything that runs the Salt Road gets weighed here first. Freight, cars, excuses. The Stretch doesn't care what you meant to do — only what came off the scale.",
+          options: [
+            { label: "What's the Stretch like?", next: "tuck-stretch" },
+            { label: "I'll weigh in with a race", next: "tuck-job" },
+            { label: "Just reading the board", next: "tuck-board" },
+          ],
+        },
+      },
+      {
+        id: "tuck-stretch",
+        name: "Weighmaster Tuck",
+        x: 0, y: 0, facing: "down", sprite: "mechanic",
+        dialogue: {
+          text: "Sand gives and takes. Light cars float over it, heavy cars dig in — and the wild out there is bred to both, so bring whichever your line does better.",
+        },
+      },
+      {
+        id: "tuck-job",
+        name: "Weighmaster Tuck",
+        x: 0, y: 0, facing: "down", sprite: "mechanic",
+        dialogue: {
+          text: "Two wild ones beaten on the Stretch and I'll sign your weight off. No signature, no freight rate.",
+          setFlag: "quest-weigh-accepted",
+        },
+      },
+      {
+        id: "tuck-board",
+        name: "Weighmaster Tuck",
+        x: 0, y: 0, facing: "down", sprite: "mechanic",
+        dialogue: { text: "The board's the truth. Everything else is a story about the board." },
+      },
+    ],
+    encounters: {},
+    transitions: {
+      "5,5": { mapId: "gym_2", toX: 2, toY: 7, facing: "down" },
+      "6,5": { mapId: "gym_2", toX: 2, toY: 7, facing: "down" },
+    },
+  },
 
   salt_road_freight: {
     id: "salt_road_freight",
@@ -1880,6 +2001,8 @@ export const MAPS: Record<string, Tilemap> = {
     ],
     encounters: {},
     transitions: {
+      // The back room behind the west door.
+      "1,7": { mapId: "rustler_tack_room", toX: 5, toY: 4, facing: "up" },
       "6,9": { mapId: "route_1", toX: 18, toY: 6 },
       "7,9": { mapId: "route_1", toX: 18, toY: 6 },
     },
@@ -2117,6 +2240,8 @@ export const MAPS: Record<string, Tilemap> = {
     ],
     encounters: {},
     transitions: {
+      // The back room behind the west door.
+      "1,7": { mapId: "salt_post_weighbridge", toX: 5, toY: 4, facing: "up" },
       "6,9": { mapId: "route_2", toX: 20, toY: 6 },
       "7,9": { mapId: "route_2", toX: 20, toY: 6 },
     },

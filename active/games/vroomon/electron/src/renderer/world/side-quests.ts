@@ -245,6 +245,28 @@ export const SIDE_QUESTS: SideQuest[] = [
       "Names on a chalk board mean nothing without Brands behind them. Bring me three and we'll talk about the Roundup.",
   },
   {
+    id: "tack-room-finisher",
+    title: "A Finisher's Number",
+    giver: "Groom Millie",
+    mapId: "rustler_tack_room",
+    acceptFlag: "quest-tack-accepted",
+    objective: { kind: "champion-score", score: 1200, label: "on the flat" },
+    reward: { wallet: 240, feed: 3, thanks: "Twelve hundred and it still finishes. I'll tack that up myself." },
+    offer:
+      "Twelve hundred on the flat and I'll tack it up myself. That's a finisher's number.",
+  },
+  {
+    id: "weighbridge",
+    title: "Signed Off At The Scale",
+    giver: "Weighmaster Tuck",
+    mapId: "salt_post_weighbridge",
+    acceptFlag: "quest-weigh-accepted",
+    objective: { kind: "win-wild-on", mapId: "route_2", count: 2, label: "wild beaten on the Stretch" },
+    reward: { wallet: 250, feed: 2, thanks: "Two off the Stretch. Signed — your freight rate is written down now." },
+    offer:
+      "Two wild ones beaten on the Stretch and I'll sign your weight off. No signature, no freight rate.",
+  },
+  {
     id: "freight-ledger",
     title: "A Line That Moves",
     giver: "Clerk Nessa",

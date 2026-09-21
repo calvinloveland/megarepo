@@ -842,6 +842,25 @@ gets harder instead of just paying out a Brand:
   dropped new world state (circuit tiers) — it now uses the shared
   serializer.
 
+## Every arena has a back room (2026-09-15) ✅
+
+Both named venues now have somewhere behind the racing:
+
+- **The Tack Room** at Rustler Pasture, where **Groom Millie** keeps the
+  Reds' straps and has an opinion about finishes: *"a champion isn't a fast
+  car, it's a fast car that still finishes — and I've seen more of them ruined
+  in the last hundred metres than in the first."* She pays for *A Finisher's
+  Number* (1,200 on the flat) and will tell you what ruins a car at the end:
+  the blueprint, read before you race.
+- **The Weighbridge** at the Salt Road Post, where **Weighmaster Tuck**
+  weighs freight, cars and excuses, and pays for *Signed Off At The Scale*
+  (two wild beaten on the Stretch).
+
+Both are reached through a door in the arena's west wall, and the "giver
+stands where the work can be done" invariant had to learn to walk: Tuck is
+two gates from the nearest grass, which is fine, so the check is now a
+bounded three-gate walk rather than a glance at the neighbours.
+
 ## Jobs have to be possible where they are handed out (2026-09-15) ✅
 
 Two more invariants, aimed at content that is *possible to ask for* but

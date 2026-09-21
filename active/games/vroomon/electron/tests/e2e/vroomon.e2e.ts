@@ -1511,6 +1511,46 @@ async function closePocketRanch(page: import("@playwright/test").Page): Promise<
     await expect(page.locator("[data-viewport-stats-overlay]")).toContainText("Starter Town");
   });
 
+  test("@smoke the arenas have back rooms with a groom in them", async ({ page }) => {
+    await seedAndEnterWorld(page);
+
+    // The Rustler Pasture's tack room, through the door in the west wall.
+    await enterMapAt(page, "gym_1", 2, 7, "left", 0.5);
+    await page.keyboard.press("ArrowLeft");
+    await page.waitForTimeout(900);
+    await expect(page.locator("[data-viewport-stats-overlay]")).toContainText("Tack Room");
+
+    // Millie has a finisher's ask.
+    await enterMapAt(page, "rustler_tack_room", 6, 3, "right", 0.5);
+    await page.keyboard.press("z");
+    await page.waitForTimeout(700);
+    await expect(page.locator("[data-overworld-dialogue-name]")).toContainText("Groom Millie");
+    await page.locator("[data-dialogue-option]").nth(1).click();
+    await page.waitForTimeout(500);
+    await page.locator("[data-overworld-dialogue-text]").click();
+    await page.waitForTimeout(500);
+    await expect(page.locator("[data-stats-quest-side]")).toContainText("A Finisher's Number");
+    await expect(page.locator("[data-stats-quest-side]")).toContainText("on the flat");
+
+    // And the Salt Road Post's weighbridge has its own man.
+    await enterMapAt(page, "salt_post_weighbridge", 5, 3, "left", 0.5);
+    await expect(page.locator("[data-viewport-stats-overlay]")).toContainText("Weighbridge");
+    await page.keyboard.press("z");
+    await page.waitForTimeout(700);
+    await expect(page.locator("[data-overworld-dialogue-name]")).toContainText("Weighmaster Tuck");
+    await page.locator("[data-dialogue-option]").nth(1).click();
+    await page.waitForTimeout(500);
+    await page.locator("[data-overworld-dialogue-text]").click();
+    await page.waitForTimeout(500);
+    await expect(page.locator("[data-stats-quest-side]")).toContainText("Signed Off At The Scale");
+
+    // The doors work both ways.
+    await enterMapAt(page, "rustler_tack_room", 5, 4, "down", 0.5);
+    await page.keyboard.press("ArrowDown");
+    await page.waitForTimeout(900);
+    await expect(page.locator("[data-viewport-stats-overlay]")).toContainText("Rustler Pasture");
+  });
+
   test("@smoke the ledger names what a swept circuit now asks for", async ({ page }) => {
     await seedAndEnterWorld(page);
     // Two laps on the board, and the Grassland already swept twice.
