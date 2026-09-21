@@ -842,6 +842,19 @@ gets harder instead of just paying out a Brand:
   dropped new world state (circuit tiers) — it now uses the shared
   serializer.
 
+## Grass you cannot walk to is a mechanic that does not exist (2026-09-15) ✅
+
+Two invariants about the wild's own precondition:
+
+- **No map fences off its tall grass.** Encounters only fire on vroomgrass, so
+  a patch the player cannot reach is a mechanic that isn't there.
+- **Every outdoor ground with a wild pack has reachable grass.** Checked
+  against the wild's own terrain table, so a ground that names a pack but has
+  nowhere to meet it is caught. Interiors are excluded on purpose — the
+  arenas name a terrain so their circuit agrees with the wild's table, but no
+  encounter happens indoors, and the check found exactly that subtlety while
+  being written.
+
 ## Every far road has someone on after dark (2026-09-15) ✅
 
 The night shift is now a habit of the whole island rather than two men at one

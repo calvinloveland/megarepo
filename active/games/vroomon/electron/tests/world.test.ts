@@ -374,6 +374,54 @@ describe("world reachability", () => {
     }
   });
 
+  it("never fences off the tall grass", () => {
+    // Wild encounters only happen on vroomgrass, so grass the player cannot
+    // walk to is a mechanic that does not exist on that map. Every map with
+    // grass must have at least one patch inside the reachable region.
+    for (const map of MAP_LIST) {
+      const grass = [];
+      for (let y = 0; y < map.height; y += 1) {
+        for (let x = 0; x < map.width; x += 1) {
+          if (map.tiles[y]?.[x] === "vroomgrass") {
+            grass.push(`${x},${y}`);
+          }
+        }
+      }
+      if (grass.length === 0) {
+        continue;
+      }
+      const reachable = reachableFrom(map.id, entriesFor(map.id));
+      const walkable = grass.filter((key) => reachable.has(key));
+      expect(
+        walkable.length,
+        `${map.id}: all ${grass.length} grass tiles are walled off`,
+      ).toBeGreaterThan(0);
+    }
+  });
+
+  it("gives every ground a wild pack the player can actually meet", () => {
+    // An OUTDOOR map the wild system knows about, with no reachable grass,
+    // would sit on "WILD unmet" forever. Interiors are excluded on purpose:
+    // the arenas name a terrain so their circuit agrees with the wild's
+    // table, but no encounter can happen indoors.
+    for (const mapId of Object.keys(WILD_TERRAIN_BY_MAP)) {
+      const map = getMap(mapId);
+      if (!map || mapId === "starter_town" || map.interior) {
+        continue;
+      }
+      const reachable = reachableFrom(mapId, entriesFor(mapId));
+      const grass = [];
+      for (let y = 0; y < map.height; y += 1) {
+        for (let x = 0; x < map.width; x += 1) {
+          if (map.tiles[y]?.[x] === "vroomgrass" && reachable.has(`${x},${y}`)) {
+            grass.push(`${x},${y}`);
+          }
+        }
+      }
+      expect(grass.length, `${mapId} has a wild pack and no grass to meet it in`).toBeGreaterThan(0);
+    }
+  });
+
   it("keeps the wild's terrain in step with the circuit's", () => {
     // Two tables describe the same ground: the circuit's venue terrain and
     // the wild's pack terrain. If they drift, a pack ends up selected on one
