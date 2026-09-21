@@ -385,6 +385,41 @@ describe("quest contracts", () => {
     }
   });
 
+  it("has a screen for every line it asks a writer to author", () => {
+    // Prose that no screen reads is either debt or a missing feature - and the
+    // offer/thanks lines sat unread for a long time while every contract test
+    // happily asserted they were non-empty. So: for each authored field, check
+    // that something outside the data module actually references it.
+    const proseFields = ["title", "offer", "thanks", "giver", "label"] as const;
+    const sources = [
+      "src/renderer/renderer.ts",
+      "src/renderer/world/quest.ts",
+      "src/renderer/world/side-quests.ts",
+      "src/renderer/world/overworld-controller.ts",
+    ];
+    // The data module defines the fields; only its *consumers* count.
+    const consumers = sources
+      .filter((file) => !file.endsWith("side-quests.ts"))
+      .map((file) => readFileSync(file, "utf8"))
+      .join("\n");
+
+    for (const field of proseFields) {
+      if (field === "giver" || field === "offer" || field === "thanks") {
+        // These three are voiced by questBeats, which lives in the data module
+        // and is called by the renderer - so look for the call instead.
+        expect(
+          /questBeats\(/.test(consumers),
+          `nothing displays a quest's ${field}`,
+        ).toBe(true);
+        continue;
+      }
+      expect(
+        new RegExp(`\\.${field}\\b`).test(consumers),
+        `nothing displays a quest's ${field}`,
+      ).toBe(true);
+    }
+  });
+
   it("leaves no earned-only decor item unearnable", () => {
     // An item marked `earnedOnly` is hidden from the ranch shop, so a quest
     // reward is the only way it can ever exist in a save. Add one without a

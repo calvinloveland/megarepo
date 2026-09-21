@@ -4491,7 +4491,11 @@ function sideQuestCardHtml(): string {
     active
       .map(
         (entry) =>
-          `<div class="stats-quest__side-row"><span>${escapeHtml(entry.quest.title)}</span>` +
+          // Name the giver: the reward pays itself, so the only reason to go
+          // back is to hear what they have to say about it — and without a
+          // name there is nothing to go back to.
+          `<div class="stats-quest__side-row"><span>${escapeHtml(entry.quest.title)}` +
+          `<em class="stats-quest__giver"> · ${escapeHtml(entry.quest.giver)}</em></span>` +
           `<b>${escapeHtml(entry.progressText)}</b></div>`,
       )
       .join("") +

@@ -913,6 +913,31 @@ the helper is exported, and the next caller would have inherited the wrong
 answer. The controller now also passes its own pinned clock through, so both
 layers agree even at a phase boundary.
 
+## Nothing the writer wrote goes unread (2026-09-15) ✅
+
+The offer/thanks lines had sat unread for weeks while every contract test
+asserted they were non-empty, so the question became: what else?
+
+`questBeats` (the thing that fixed it) is now itself the contract — the audit
+checks that each authored prose field is referenced *outside* the data module,
+and the three voiced fields are checked by the presence of the call that speaks
+them. Verified by mutation: stubbing out the `questBeats` call fails with
+`nothing displays a quest's offer`.
+
+### The giver was not named anywhere
+
+Checking `giver` turned up a real gap rather than a dead field: the side-quest
+card showed the title and the progress (`2/3 wild vroomon raced`) and **never
+who gave it to you**. Rewards pay themselves, so going back is never
+*necessary* — but the thank-you lines now exist, which means going back should
+be *findable*. The card reads:
+
+```
+The Wrangler's Muster · Wrangler Jess      1/3 raced wild vroomon
+```
+
+Two screens, one written name, and a reason to walk back across town.
+
 ## Earned-only decor, and a button that says what it will do (2026-09-15) ✅
 
 ### Every earned-only item has to be earnable
