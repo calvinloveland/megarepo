@@ -41,17 +41,26 @@ describe("the ledger", () => {
     expect(sand.margin).toBeLessThan(0);
   });
 
-  it("counts a hall champion as a car you can still send", () => {
+  it("counts a hall champion as a car you can still send, and names it", () => {
     const rows = buildLedger({
       records: [entry("Hills", 500, "LAPCAR")],
       feudTiers: {},
-      hallScores: [{ terrainName: "Hills", score: 2000 }],
+      hallScores: [{ terrainName: "Hills", score: 2000, dna: "HALLCHAMP" }],
     });
     const hills = rows.find((row) => row.terrain === "Hills")!;
     expect(hills.best).toBe(2000);
     expect(hills.status).toBe("clears");
-    // The hall champion has no DNA here (that comes off the lap board).
-    expect(hills.dna).toBe(null);
+    // An anonymous number is less use than a name you can look up.
+    expect(hills.dna).toBe("HALLCHAMP");
+
+    // With no DNA on the hall entry, the lap board's car is named instead.
+    const anonymous = buildLedger({
+      records: [entry("Hills", 500, "LAPCAR")],
+      feudTiers: {},
+      hallScores: [{ terrainName: "Hills", score: 2000 }],
+    }).find((row) => row.terrain === "Hills")!;
+    expect(anonymous.best).toBe(2000);
+    expect(anonymous.dna).toBe("LAPCAR");
   });
 
   it("names the titles to defend and the ground never run", () => {

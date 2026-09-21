@@ -33,8 +33,10 @@ export interface LedgerInput {
   records: RecordEntry[];
   /** arena mapId -> tier, as the world stores it. */
   feudTiers: Record<string, number>;
+  /** The sky's effect on every bar (1 = clear). */
+  defence?: number;
   /** The Hall of Fame: champions you could actually put on the line. */
-  hallScores: Array<{ terrainName: string; score: number }>;
+  hallScores: Array<{ terrainName: string; score: number; dna?: string }>;
 }
 
 /**
@@ -47,7 +49,7 @@ export function buildLedger(input: LedgerInput): LedgerRow[] {
     const terrain = terrainForVenue(venueMapId);
     const badge = VENUE_BADGE[venueMapId] ?? "";
     const tier = input.feudTiers[badge] ?? 1;
-    const bar = feudBar(terrain, tier);
+    const bar = feudBar(terrain, tier, input.defence ?? 1);
 
     const fromRecords = input.records
       .filter((entry) => entry.terrainName === terrain)
@@ -55,11 +57,22 @@ export function buildLedger(input: LedgerInput): LedgerRow[] {
         (best, entry) => (best === null || entry.score > best.score ? entry : best),
         null,
       );
-    const fromHall = input.hallScores
+    const hallBest = input.hallScores
       .filter((entry) => entry.terrainName === terrain)
-      .reduce((best, entry) => Math.max(best, entry.score), 0);
-    const best = Math.max(fromRecords?.score ?? 0, fromHall);
-    const dna = fromRecords && fromRecords.score >= fromHall ? fromRecords.dna : null;
+      .reduce<{ score: number; dna?: string } | null>(
+        (best, entry) => (best === null || entry.score > best.score ? entry : best),
+        null,
+      );
+    const hallScore = hallBest?.score ?? 0;
+    const best = Math.max(fromRecords?.score ?? 0, hallScore);
+    // Name the car that set the best, whether it came off a lap or out of the
+    // Hall — an anonymous number is less use than a name you can look up. A
+    // Hall entry only carries a DNA when one was saved with it, so fall back.
+    const lapDna = fromRecords?.dna ?? null;
+    const dna =
+      fromRecords && fromRecords.score >= hallScore
+        ? lapDna
+        : (hallBest?.dna ?? lapDna);
 
     if (best <= 0) {
       return { terrain, venueMapId, best: 0, dna: null, tier, bar, margin: -bar, status: "untried" };

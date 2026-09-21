@@ -842,6 +842,28 @@ gets harder instead of just paying out a Brand:
   dropped new world state (circuit tiers) — it now uses the shared
   serializer.
 
+## Rain is a defence modifier, not a fitness change (2026-09-15) ✅
+
+The rule from the weather work — *weather may never move a measured number* —
+is now the whole design of how it touches the campaign. A circuit's bar is the
+ground's demand, so **bad weather raises the bar** (a shower +12%, a gale +7%,
+mist +3%), while **a champion's recorded score was set in the dry and does not
+move**. So:
+
+```
+clear morning:  Grassland III   you: 1550 (Lhn4yi8zKRd2)   clears 1488 by 62
+afternoon shower: Grassland III   you: 1550 (Lhn4yi8zKRd2)   short by 117 · bar 1667  [go]
+```
+
+The same car, the same circuit, two skies. The race card says which way the
+sky cuts — *"the bar is 1667 (raised 12% by the shower)"* — and the ledger
+states the modifier above its rows, so the number you are reading is always
+the number you would face.
+
+Every other caller passes no defence, so the lab, the heritage tree, the
+records and **every pacing measurement in the suite are unchanged** — which is
+exactly what the tests assert, tier by tier, under a clear sky.
+
 ## The Heritage tree reads like a pedigree (2026-09-15) ✅
 
 Tapping a car in the family fabric has always traced its line into one

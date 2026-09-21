@@ -91,3 +91,29 @@ export function weatherAt(timeMs: number, phase: number): Weather {
 export function isWet(weather: Weather): boolean {
   return weather.grip < 1;
 }
+
+
+/**
+ * How much harder the circuit is in this sky, as a multiplier on its bar.
+ *
+ * This is the *only* way weather touches the campaign, and it is deliberately
+ * lopsided: the bar is the ground's demand, so bad weather raises it, while a
+ * champion's recorded score was set in clear conditions and does not move. A
+ * shower can therefore turn a win into "short by sixty" — a defence modifier
+ * rather than a fitness change, which is what keeps the lab, the ledger and
+ * every measurement reproducible.
+ */
+export function weatherDefence(weather: Weather): number {
+  switch (weather.kind) {
+    case "clear":
+      return 1;
+    case "shower":
+      return 1.12;
+    case "gale":
+      return 1.07;
+    case "mist":
+      return 1.03;
+    default:
+      return 1;
+  }
+}

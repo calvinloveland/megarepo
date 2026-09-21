@@ -71,11 +71,16 @@ export function terrainForVenue(mapId: string): string {
   return VENUE_TERRAIN[mapId] ?? "Grassland";
 }
 
-/** The score to beat at this arena tier. */
-export function feudBar(terrainName: string, tier: number): number {
+/**
+ * The score to beat at this arena tier. A sky can raise it (see
+ * `weatherDefence`): the ground asks more of you in the rain, while the score
+ * you set in the dry stays where it is. Defaults to clear, so every other
+ * caller — and every measurement in the suite — is unchanged.
+ */
+export function feudBar(terrainName: string, tier: number, defence = 1): number {
   const base = TIER_BASE[terrainName] ?? TIER_BASE.Grassland!;
   const safeTier = Math.max(1, Math.floor(tier));
-  return Math.round(base * Math.pow(TIER_GROWTH, safeTier - 1));
+  return Math.round(base * Math.pow(TIER_GROWTH, safeTier - 1) * defence);
 }
 
 export function nextTier(tier: number): number {

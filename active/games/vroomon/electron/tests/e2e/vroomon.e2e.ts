@@ -1511,6 +1511,64 @@ async function closePocketRanch(page: import("@playwright/test").Page): Promise<
     await expect(page.locator("[data-viewport-stats-overlay]")).toContainText("Starter Town");
   });
 
+  test("@smoke rain raises the bar and can turn a champion away", async ({ page }) => {
+    // The same car, the same circuit, two skies: the bar moves, the champion
+    // does not.
+    const seed = async (hour: number) => {
+      await page.goto(`${baseUrl}/dist/renderer/e2e.html`);
+      await expect(page.locator("[data-status-message]")).toContainText("Welcome to");
+      await page.evaluate(async () => {
+        await window.vroomon.saveHallOfFame({
+          version: 1,
+          entries: [
+            {
+              id: "hall-sky-champ",
+              runId: "r",
+              dna: "Lhn4yi8zKRd2",
+              name: "Sky Champ",
+              score: 1550,
+              terrainName: "Grassland",
+              generation: 6,
+              savedAt: new Date().toISOString(),
+              notes: "",
+            },
+          ],
+        });
+        const world = await window.vroomon.loadWorldState();
+        await window.vroomon.saveWorldState({
+          ...world,
+          rancherName: "E2E",
+          feudTiers: { "Grassland Brand": 3 },
+          timeOverride: 0.25,
+        });
+      });
+      await page.reload();
+      await page.locator("[data-status-message]").filter({ hasText: "Welcome" }).waitFor({ timeout: 20000 });
+      await page.evaluate(async (sky) => {
+        const world = await window.vroomon.loadWorldState();
+        await window.vroomon.saveWorldState({ ...world, timeOverride: sky });
+      }, hour);
+      await page.reload();
+      await page.locator('[data-menu-action="continue"]').waitFor({ state: "visible", timeout: 20000 });
+      await page.locator('[data-menu-action="continue"]').click();
+      await page.waitForTimeout(600);
+      await page.locator("[data-open-barn]").click();
+      await page.waitForTimeout(400);
+      await page.locator('[data-barn-pill="barn"]').click();
+      await page.waitForTimeout(600);
+      return ((await page.locator(".ledger-row").first().textContent()) ?? "").replace(/\s+/g, " ");
+    };
+
+    const clear = await seed(0.25);
+    expect(clear).toContain("clears");
+
+    const wet = await seed(0.5);
+    expect(wet).toContain("short by");
+    // Same car, higher bar: the rain is the only difference.
+    expect(wet).toContain("Lhn4yi8zKRd2");
+    expect(wet).toContain("go");
+  });
+
   test("@smoke the heritage line report reads a branch as a pedigree", async ({ page }) => {
     await seedAndEnterWorld(page);
     await openPocketRanch(page, "herd");

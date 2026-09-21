@@ -60,7 +60,7 @@ import { questFor } from "./world/quest.js";
 import { standingFor } from "./world/routines.js";
 import { buildLedger, titlesToDefend, untriedGrounds } from "./ledger.js";
 import { DAY_LENGTH_MS, dayPhase, isNight } from "./world/ambience-layer.js";
-import { weatherAt } from "./world/weather.js";
+import { weatherAt, weatherDefence } from "./world/weather.js";
 import type { Track } from "./world/ambience-layer.js";
 import {
   activeSideQuests,
@@ -809,12 +809,17 @@ function renderLedger(): void {
   if (!list) {
     return;
   }
+  const sky = weatherAt(worldClock(), dayPhase(worldClock()));
   const rows = buildLedger({
     records: recordsBoard.entries,
     feudTiers: rendererState.world.feudTiers ?? {},
+    // A circuit run in this sky asks more; the ledger says so rather than
+    // showing a bar you would not actually face.
+    defence: weatherDefence(sky),
     hallScores: rendererState.hallOfFame.entries.map((entry) => ({
       terrainName: entry.terrainName,
       score: entry.score,
+      dna: entry.dna,
     })),
   });
 
@@ -825,6 +830,10 @@ function renderLedger(): void {
 
   const defend = titlesToDefend(rows).length;
   const untried = untriedGrounds(rows).length;
+  const skyNote =
+    sky.label === "clear"
+      ? ""
+      : ` · raced in the ${sky.label}: every bar here is raised ${Math.round((weatherDefence(sky) - 1) * 100)}%`;
 
   list.innerHTML =
     rows
@@ -856,9 +865,13 @@ function renderLedger(): void {
       .join("") +
     (defend > 0
       ? `<div class="ledger-row ledger-row--short"><span class="ledger-row__terrain">DEFEND</span>` +
-        `<span class="ledger-row__detail">${defend} circuit${defend === 1 ? "" : "s"} would turn your best away</span>` +
+        `<span class="ledger-row__detail">${defend} circuit${defend === 1 ? "" : "s"} would turn your best away${escapeHtml(skyNote)}</span>` +
         `<span class="ledger-row__verdict">breed faster</span></div>`
-      : "") +
+      : skyNote
+        ? `<div class="ledger-row ledger-row--untried"><span class="ledger-row__terrain">SKY</span>` +
+          `<span class="ledger-row__detail">${escapeHtml(skyNote.replace(/^ · /, ""))}</span>` +
+          `<span class="ledger-row__verdict">—</span></div>`
+        : "") +
     (untried > 0
       ? `<div class="ledger-row ledger-row--untried"><span class="ledger-row__terrain">UNRUN</span>` +
         `<span class="ledger-row__detail">${untried} circuit${untried === 1 ? "" : "s"} never raced</span>` +
@@ -5589,7 +5602,11 @@ async function startOverworldEncounter(
     // the bar everywhere the Grassland circuit is raced.
     const circuitBadge = badgeForMap(world.currentMapId);
     const tier = world.feudTiers?.[circuitBadge] ?? 1;
-    const bar = feudBar(terrain, tier);
+    // The ground asks more of you in bad weather; your champion's recorded
+    // score was set in the dry and does not move.
+    const sky = weatherAt(worldClock(), dayPhase(worldClock()));
+    const defence = weatherDefence(sky);
+    const bar = feudBar(terrain, tier, defence);
     const rivalScore = rivalScoreFor(bar);
     const championScore = bestChampionScore(terrain);
     const { won, shortfall } = tierOutcome(championScore, bar);
@@ -5619,7 +5636,7 @@ async function startOverworldEncounter(
       // Say it AFTER the badge award: that callback sets its own status.
       rendererState = {
         ...rendererState,
-        statusMessage: `${title} swept! The circuit moves to ${tierLabel(nextTier(tier))} — bar ${formatNumber(feudBar(terrain, nextTier(tier)))}.`,
+        statusMessage: `${title} swept${sky.label === "clear" ? "" : ` in the ${sky.label}`}! The circuit moves to ${tierLabel(nextTier(tier))} — bar ${formatNumber(feudBar(terrain, nextTier(tier)))}.`,
       };
       scheduleWorldSave();
       renderApp();
@@ -5627,8 +5644,8 @@ async function startOverworldEncounter(
     }
 
     showRaceCard(
-      `FEUD RACE · ${tierLabel(tier)}`,
-      `The bar is ${formatNumber(bar)} — your best champion reached ${formatNumber(championScore)}.`,
+      `FEUD RACE · ${tierLabel(tier)}${sky.label === "clear" ? "" : ` · ${sky.label.toUpperCase()}`}`,
+      `The bar is ${formatNumber(bar)}${sky.label === "clear" ? "" : ` (raised ${Math.round((defence - 1) * 100)}% by the ${sky.label})`} — your best champion reached ${formatNumber(championScore)}.`,
       `Short by ${formatNumber(shortfall)}. ${rivalName(trainerName)} keeps the ground. Breed a faster one.`,
       false,
     );

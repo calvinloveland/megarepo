@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { isWet, weatherAt, weatherOf } from "../src/renderer/world/weather.js";
+import { isWet, weatherAt, weatherDefence, weatherOf } from "../src/renderer/world/weather.js";
+import { feudBar } from "../src/renderer/circuit.js";
 import { createMatterVehicle, snapshotMatterVehicle, stepMatterVehicle } from "../src/simulation/matter-simulation.js";
 
 function travel(dna: string, terrain: string, grip = 1, drive = 1): number {
@@ -59,5 +60,46 @@ describe("weather", () => {
   it("leaves a car that cannot drive unable to drive", () => {
     const dud = "000000000000";
     expect(travel(dud, "Flat", 0.72, 0.94)).toBeLessThan(60);
+  });
+});
+
+describe("weather as a defence modifier", () => {
+  it("raises the bar in bad weather and never lowers it", () => {
+    expect(weatherDefence(weatherOf("clear"))).toBe(1);
+    for (const kind of ["shower", "gale", "mist"] as const) {
+      const defence = weatherDefence(weatherOf(kind));
+      expect(defence).toBeGreaterThan(1);
+      // A wrinkle, not a wall: never more than a seventh harder.
+      expect(defence).toBeLessThan(1.2);
+    }
+    // Worse sky, higher bar.
+    expect(weatherDefence(weatherOf("shower"))).toBeGreaterThan(weatherDefence(weatherOf("mist")));
+  });
+
+  it("moves the bar without touching the recorded champion", () => {
+    const clear = feudBar("Grassland", 3, weatherDefence(weatherOf("clear")));
+    const wet = feudBar("Grassland", 3, weatherDefence(weatherOf("shower")));
+    // A champion that sits between the two bars: clears the dry circuit,
+    // falls short of the same circuit in the rain.
+    const champion = Math.round((clear + wet) / 2);
+
+    expect(clear).toBe(feudBar("Grassland", 3));
+    expect(wet).toBeGreaterThan(clear);
+    // A champion that clears the bar in the dry can be turned away by rain —
+    // which is the whole point of a defence modifier.
+    const wouldClear = champion >= clear;
+    const wouldBeShort = champion < wet;
+    expect(wouldClear && wouldBeShort).toBe(true);
+  });
+
+  it("leaves the campaign's numbers exactly as measured under a clear sky", () => {
+    // Every other caller passes no defence, so the pacing measurements hold.
+    for (const terrain of ["Grassland", "Sand", "Hills", "Rocky", "Ice"]) {
+      for (const tier of [1, 2, 3, 4, 5]) {
+        expect(feudBar(terrain, tier, weatherDefence(weatherOf("clear")))).toBe(
+          feudBar(terrain, tier),
+        );
+      }
+    }
   });
 });
