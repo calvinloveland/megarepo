@@ -842,6 +842,40 @@ gets harder instead of just paying out a Brand:
   dropped new world state (circuit tiers) — it now uses the shared
   serializer.
 
+## Marrow Orchard: a new area with its own people (2026-09-15) ✅
+
+A new outdoor map hanging off Starter Town's north lane and Route 1's hedge —
+an orchard of fence rows, a pond, and wild clover, so it founds **its own
+evolving wild pack** the first time you walk the grass (`WILD unmet` until
+you do).
+
+Four people live there, each teaching something the game has but never says
+out loud:
+
+- **Orchard Keeper Maren** walks you through the **Heritage** page (tap a car
+  to trace its line back to the founders) and hands out *A Marrow Cutting* —
+  bring her a car that runs 900 on the flat, and she pays in a **Marrow
+  scion**, a genome from her own line.
+- **Fitter Aubrey** explains what the **inspector** is for: plates for
+  structure, wheels joined at their centres, the power path running through
+  them.
+- **Picker Sprout** races anything that comes up the lane (a training race on
+  the usual rider-race path).
+- **Beekeeper Hollis** wants the wild thinned off her clover (*Thin The
+  Clover* — six genomes, paid in **bee skeps**, an earned-only decor) and
+  offers *The Long Pollination*, a walk out to the Drift Perimeter.
+
+New tile: **fence** (posts and two rails, blocking), drawn and exported
+through the normal sprite pipeline.
+
+### Two new invariants
+
+- **The map graph is walkable from town.** A test floods the undirected
+  transition graph from Starter Town and asserts every area is reachable and
+  that no area strands you (every map has at least one exit).
+- **Every NPC can be walked to** (added with the ranch split) now covers the
+  orchard's four givers automatically.
+
 ## Side quests, and the world-save bug they flushed out (2026-09-15) ✅
 
 The world now hands out **jobs**. Five ship today, from three givers:

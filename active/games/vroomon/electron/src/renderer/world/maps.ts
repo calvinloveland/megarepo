@@ -77,6 +77,23 @@ const RANCH_YARD_TILES: TileKind[][] = [
   row("tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree"),
 ];
 
+const MARROW_ORCHARD_TILES: TileKind[][] = [
+  row("tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "path", "tree", "tree", "tree", "tree", "tree", "tree", "tree"),
+  row("tree", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "path", "grass", "grass", "grass", "grass", "grass", "grass", "tree"),
+  row("tree", "fence", "fence", "fence", "fence", "fence", "grass", "grass", "grass", "grass", "path", "grass", "fence", "fence", "fence", "fence", "grass", "tree"),
+  row("tree", "grass", "grass", "grass", "grass", "grass", "grass", "vroomgrass", "vroomgrass", "grass", "path", "grass", "grass", "grass", "grass", "grass", "grass", "tree"),
+  row("tree", "grass", "vroomgrass", "vroomgrass", "vroomgrass", "grass", "grass", "vroomgrass", "vroomgrass", "grass", "path", "grass", "grass", "grass", "grass", "grass", "grass", "tree"),
+  row("tree", "grass", "vroomgrass", "water", "water", "grass", "grass", "vroomgrass", "vroomgrass", "grass", "path", "grass", "grass", "grass", "grass", "grass", "grass", "tree"),
+  row("tree", "grass", "vroomgrass", "water", "water", "grass", "grass", "grass", "grass", "grass", "path", "grass", "grass", "rock", "grass", "grass", "grass", "tree"),
+  row("tree", "grass", "vroomgrass", "vroomgrass", "vroomgrass", "grass", "grass", "grass", "grass", "grass", "path", "grass", "grass", "grass", "grass", "grass", "grass", "tree"),
+  row("tree", "grass", "grass", "grass", "grass", "grass", "fence", "fence", "fence", "fence", "path", "grass", "grass", "grass", "grass", "grass", "grass", "tree"),
+  row("tree", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "path", "grass", "grass", "grass", "grass", "grass", "grass", "tree"),
+  row("tree", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "path", "grass", "grass", "grass", "grass", "grass", "grass", "tree"),
+  row("tree", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "path", "grass", "grass", "grass", "grass", "grass", "grass", "tree"),
+  row("tree", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "doormat", "grass", "grass", "grass", "grass", "grass", "grass", "tree"),
+  row("tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree"),
+];
+
 export const MAPS: Record<string, Tilemap> = {
   home_ranch: {
     id: "home_ranch",
@@ -294,6 +311,173 @@ export const MAPS: Record<string, Tilemap> = {
     },
   },
 
+  marrow_orchard: {
+    id: "marrow_orchard",
+    name: "Marrow Orchard",
+    width: 18,
+    height: 14,
+    tiles: MARROW_ORCHARD_TILES,
+    ambientColor: "#9cc46a",
+    npcs: [
+      {
+        id: "keeper-maren",
+        name: "Orchard Keeper Maren",
+        x: 2,
+        y: 11,
+        facing: "right",
+        sprite: "professor",
+        dialogue: {
+          text: "Easy there — mind the clover, the whole orchard grazes on it. I keep the old Marrow line: same stock for nine seasons, and I can walk you back along every branch of it. Breeding is patience with a ledger.",
+          options: [
+            { label: "Show me the family lines", next: "maren-lines" },
+            { label: "What would you pay for a champion?", next: "maren-cutting" },
+            { label: "What grows out here?", next: "maren-clover" },
+          ],
+        },
+      },
+      {
+        id: "maren-lines",
+        name: "Orchard Keeper Maren",
+        x: 0,
+        y: 0,
+        facing: "down",
+        sprite: "professor",
+        dialogue: {
+          text: "Carrier's got a Heritage page — every car in your herd book, drawn back to the founders. Tap one and it traces the line it came down. You'll see where a spike came from, and where it went.",
+        },
+      },
+      {
+        id: "maren-cutting",
+        name: "Orchard Keeper Maren",
+        x: 0,
+        y: 0,
+        facing: "down",
+        sprite: "professor",
+        dialogue: {
+          text: "Bring me a car that runs 900 on the flat and I'll cut you a Marrow scion — my own line, the good wood.",
+          setFlag: "quest-cutting-accepted",
+        },
+      },
+      {
+        id: "maren-clover",
+        name: "Orchard Keeper Maren",
+        x: 0,
+        y: 0,
+        facing: "down",
+        sprite: "professor",
+        dialogue: {
+          text: "Clover for the bees, windfall for the vroomon, and the vroomon for nothing at all. The wild here breeds quicker than the road's — nobody's out here telling them otherwise.",
+        },
+      },
+      {
+        id: "picker-sprout",
+        name: "Sprout",
+        x: 13,
+        y: 4,
+        facing: "left",
+        sprite: "rival",
+        dialogue: {
+          text: "You're the one off the shoddy ranch! I pick here summers and I race everything that comes up the lane. My car's nothing special — that's the point. Race me and see what yours is worth.",
+          options: [
+            { label: "Line it up", next: "sprout-race" },
+            { label: "Not right now", next: "sprout-later" },
+          ],
+        },
+      },
+      {
+        id: "sprout-race",
+        name: "Sprout",
+        x: 0,
+        y: 0,
+        facing: "down",
+        sprite: "rival",
+        dialogue: {
+          text: "Down the lane and past the pond. Ready?",
+          onComplete: "trainer",
+        },
+      },
+      {
+        id: "sprout-later",
+        name: "Sprout",
+        x: 0,
+        y: 0,
+        facing: "down",
+        sprite: "rival",
+        dialogue: {
+          text: "Suit yourself. I'll be here, eating windfalls.",
+        },
+      },
+      {
+        id: "fitter-aubrey",
+        name: "Fitter Aubrey",
+        x: 6,
+        y: 2,
+        facing: "down",
+        sprite: "mechanic",
+        dialogue: {
+          text: "Maren keeps me on to look at the stock. You can read a vroomon like a ledger, you know — plates for structure, wheels joined at their centres, then the power path running through them. Carrier's got an inspector for it: pick any car and read its blueprint part by part.",
+        },
+      },
+      {
+        id: "beekeeper-hollis",
+        name: "Beekeeper Hollis",
+        x: 15,
+        y: 10,
+        facing: "left",
+        sprite: "villager",
+        dialogue: {
+          text: "The hives are mine and the clover's theirs. Wild vroomon tear through this end of the orchard flatting the flowers, and my bees won't have it. Thin them out and I'll set you up with skeps.",
+          options: [
+            { label: "I'll thin the herd", next: "hollis-accept" },
+            { label: "About your sister's hives", next: "hollis-run" },
+            { label: "Ask someone else", next: "hollis-decline" },
+          ],
+        },
+      },
+      {
+        id: "hollis-accept",
+        name: "Beekeeper Hollis",
+        x: 0,
+        y: 0,
+        facing: "down",
+        sprite: "villager",
+        dialogue: {
+          text: "Six of them off this clover. Beat them in a race — I don't want them driven off, I want them gone properly.",
+          setFlag: "quest-pollination-accepted",
+        },
+      },
+      {
+        id: "hollis-run",
+        name: "Beekeeper Hollis",
+        x: 0,
+        y: 0,
+        facing: "down",
+        sprite: "villager",
+        dialogue: {
+          text: "She keeps hives out on the Drift Perimeter, past the quarry. Walk it and I'll pay the toll myself.",
+          setFlag: "quest-pollination-run-accepted",
+        },
+      },
+      {
+        id: "hollis-decline",
+        name: "Beekeeper Hollis",
+        x: 0,
+        y: 0,
+        facing: "down",
+        sprite: "villager",
+        dialogue: {
+          text: "Then mind your ankles. They bite at the axle grease.",
+        },
+      },
+    ],
+    encounters: {},
+    transitions: {
+      // South down the lane to town, west along the hedge to Route 1.
+      "10,12": { mapId: "starter_town", toX: 10, toY: 2, facing: "down" },
+      "0,4": { mapId: "route_1", toX: 18, toY: 4, facing: "left" },
+      "0,5": { mapId: "route_1", toX: 18, toY: 5, facing: "left" },
+    },
+  },
   starter_town: {
     id: "starter_town",
     name: "Starter Town",
@@ -501,6 +685,7 @@ export const MAPS: Record<string, Tilemap> = {
       // The historical gate was "1,0" — a tree tile, so the town exit was
       // unreachable and the overworld was a dead end.
       "13,2": { mapId: "route_1", toX: 1, toY: 10, facing: "down" },
+      "10,0": { mapId: "marrow_orchard", toX: 10, toY: 12, facing: "up" },
       "8,0": { mapId: "ranch_yard", toX: 7, toY: 10, facing: "up" },
     },
   },

@@ -10,6 +10,7 @@ export type TileKind =
   | "counter"
   | "indoor-floor"
   | "tall-grass-edge"
+  | "fence"
   | "tree-trunk"
   | "rock"
   | "doormat"

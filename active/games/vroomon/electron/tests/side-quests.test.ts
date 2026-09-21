@@ -107,6 +107,26 @@ describe("side quests", () => {
     ]);
   });
 
+  it("offers the orchard's jobs with real rewards", () => {
+    const cutting = findSideQuest("orchard-cutting")!;
+    expect(cutting.objective.kind).toBe("champion-score");
+    expect(cutting.reward.dna).toBeTruthy();
+    // A champion over the ask finishes it.
+    const good = world({
+      flags: { "quest-cutting-accepted": true },
+    });
+    expect(questProgress(cutting, good, { ...RUN, bestScore: 1200 }).done).toBe(true);
+    expect(questProgress(cutting, good, { ...RUN, bestScore: 700 }).done).toBe(false);
+    expect(questProgress(cutting, good, { ...RUN, bestScore: 700 }).progressText).toBe(
+      "700/900 pts",
+    );
+
+    // The beekeeper pays in skeps, which are earned rather than sold.
+    const clover = findSideQuest("orchard-clover")!;
+    expect(clover.reward.decor).toBe("bee-skeps");
+    expect(SIDE_QUESTS.map((quest) => quest.mapId)).toContain("marrow_orchard");
+  });
+
   it("stops paying once a job is marked paid", () => {
     const w = world({
       flags: { "quest-muster-accepted": true },

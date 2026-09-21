@@ -14,6 +14,7 @@ export const TILE_COLORS: Record<TileKind, { fill: string; stroke?: string; acce
   door: { fill: "#7a4a2a", stroke: "#3a2010" },
   doormat: { fill: "#a86b3a" },
   counter: { fill: "#6f4423" },
+  fence: { fill: "#8a6a44" },
   water: { fill: "#4a78c2" },
   wall: { fill: "#5a3a2a", stroke: "#2a1a10" },
   "indoor-floor": { fill: "#b89a6b" },
@@ -109,6 +110,17 @@ function drawGroundBase(
     ctx.fillRect(px, py + size - 8, size, 8);
     ctx.fillStyle = "rgba(0, 0, 0, 0.28)";
     ctx.fillRect(px, py + size - 3, size, 3);
+  }
+  if (tile === "fence") {
+    // Two rails and a post, weathered grey-brown so rows read as trellis
+    // rather than more trunk.
+    ctx.fillStyle = "#6b543a";
+    ctx.fillRect(px + 2, py + 9, size - 4, 4);
+    ctx.fillRect(px + 2, py + 19, size - 4, 4);
+    ctx.fillStyle = "#4c3a26";
+    ctx.fillRect(px + size - 8, py + 5, 4, size - 10);
+    ctx.fillStyle = "rgba(255, 255, 255, 0.12)";
+    ctx.fillRect(px + 2, py + 9, size - 4, 1);
   }
   if (tile === "rock") {
     ctx.fillStyle = "#5a5a5a";
@@ -598,6 +610,7 @@ const EXPORT_TILE_KINDS: TileKind[] = [
   "counter",
   "indoor-floor",
   "tall-grass-edge",
+  "fence",
   "tree-trunk",
   "rock",
   "doormat",

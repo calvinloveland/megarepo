@@ -55,6 +55,11 @@
     "source": "drawn"
   },
   {
+    "id": "tile:fence",
+    "file": "tile_fence.png",
+    "source": "drawn"
+  },
+  {
     "id": "tile:tree-trunk",
     "file": "tile_tree-trunk.png",
     "source": "drawn"
@@ -192,6 +197,16 @@
   {
     "id": "tiledetail:tall-grass-edge",
     "file": "tiledetail_tall-grass-edge.png",
+    "source": "drawn"
+  },
+  {
+    "id": "tilebase:fence",
+    "file": "tilebase_fence.png",
+    "source": "drawn"
+  },
+  {
+    "id": "tiledetail:fence",
+    "file": "tiledetail_fence.png",
     "source": "drawn"
   },
   {
@@ -450,6 +465,26 @@
     "source": "drawn"
   },
   {
+    "id": "npc:wrangler-jess",
+    "file": "npc_wrangler-jess.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:jess-muster",
+    "file": "npc_jess-muster.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:jess-freight",
+    "file": "npc_jess-freight.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:jess-brushoff",
+    "file": "npc_jess-brushoff.png",
+    "source": "drawn"
+  },
+  {
     "id": "npc:meadow-elder",
     "file": "npc_meadow-elder.png",
     "source": "drawn"
@@ -472,6 +507,26 @@
   {
     "id": "npc:shopkeeper",
     "file": "npc_shopkeeper.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:oxide-trader",
+    "file": "npc_oxide-trader.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:oxide-samples",
+    "file": "npc_oxide-samples.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:oxide-count",
+    "file": "npc_oxide-count.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:oxide-passing",
+    "file": "npc_oxide-passing.png",
     "source": "drawn"
   },
   {

@@ -17,6 +17,7 @@ import { evaluatePopulation } from "./population.js";
 /** The terrain a biome's wild vroomon are selected on. */
 const WILD_TERRAIN_BY_MAP: Record<string, string> = {
   ranch_yard: "Grassland",
+  marrow_orchard: "Grassland",
   route_1: "Grassland",
   route_2: "Sand",
   gym_1: "Grassland",

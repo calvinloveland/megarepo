@@ -1291,6 +1291,38 @@ async function closePocketRanch(page: import("@playwright/test").Page): Promise<
     await expect(page.locator("[data-wild-race-overlay]")).toBeHidden();
   });
 
+  test("@smoke Marrow Orchard: a keeper, a race, and a job worth taking", async ({ page }) => {
+    await seedAndEnterWorld(page);
+
+    // The keeper's cutting: take it, and it lands in the HUD.
+    await enterMapAt(page, "marrow_orchard", 3, 11, "left");
+    await page.keyboard.press("z");
+    await page.waitForTimeout(700);
+    await expect(page.locator("[data-overworld-dialogue-name]")).toContainText(
+      "Orchard Keeper Maren",
+    );
+    await page.locator("[data-dialogue-option]").nth(1).click();
+    await page.waitForTimeout(500);
+    await page.locator("[data-overworld-dialogue-text]").click();
+    await page.waitForTimeout(500);
+    await expect(page.locator("[data-stats-quest-side]")).toContainText("A Marrow Cutting");
+    await expect(page.locator("[data-stats-quest-side]")).toContainText("0/900");
+
+    // Sprout will race anyone who comes up the lane.
+    await enterMapAt(page, "marrow_orchard", 13, 5, "up");
+    await expect(page.locator("[data-viewport-stats-overlay]")).toContainText(
+      "Marrow Orchard",
+    );
+    await page.keyboard.press("z");
+    await page.waitForTimeout(700);
+    await expect(page.locator("[data-overworld-dialogue-name]")).toContainText("Sprout");
+    await page.locator("[data-dialogue-option]").first().click();
+    await page.waitForTimeout(500);
+    await page.locator("[data-overworld-dialogue-text]").click();
+    await page.waitForTimeout(900);
+    await expect(page.locator("[data-status-message]")).toContainText("Rider race");
+  });
+
   test("@smoke a side quest is offered, tracked, and paid on completion", async ({ page }) => {
     await seedAndEnterWorld(page);
     await enterMapAt(page, "starter_town", 6, 7);
@@ -1435,9 +1467,10 @@ async function enterMapAt(
   mapId: string,
   x: number,
   y: number,
+  facing: "up" | "down" | "left" | "right" = "down",
 ): Promise<void> {
   await page.evaluate(
-    async ({ mapId: id, x: px, y: py }) => {
+    async ({ mapId: id, x: px, y: py, facing: pf }) => {
       const world = await window.vroomon.loadWorldState();
       await window.vroomon.saveWorldState({
         ...world,
@@ -1447,11 +1480,12 @@ async function enterMapAt(
         currentMapId: id,
         playerX: px,
         playerY: py,
+        playerFacing: pf,
         hunting: true,
         flags: { ...(world?.flags ?? {}), "opening-seen": true },
       });
     },
-    { mapId, x, y },
+    { mapId, x, y, facing },
   );
   await page.reload();
   await page.locator("[data-status-message]").filter({ hasText: "Welcome" }).waitFor({ timeout: 20000 });

@@ -181,6 +181,47 @@ function entriesFor(mapId: string): Array<{ x: number; y: number }> {
 }
 
 describe("world reachability", () => {
+  it("keeps the map graph walkable from town, with no dead ends", () => {
+    // Undirected adjacency: a transition exists in one direction or the other.
+    const adjacency = new Map<string, Set<string>>();
+    for (const map of MAP_LIST) {
+      adjacency.set(map.id, adjacency.get(map.id) ?? new Set());
+      for (const transition of Object.values(map.transitions)) {
+        adjacency.get(map.id)!.add(transition.mapId);
+        adjacency.set(
+          transition.mapId,
+          (adjacency.get(transition.mapId) ?? new Set()).add(map.id),
+        );
+      }
+    }
+
+    // Flood from town: every area must be walkable to.
+    const seen = new Set<string>(["starter_town"]);
+    const queue = ["starter_town"];
+    while (queue.length > 0) {
+      const current = queue.pop()!;
+      for (const next of adjacency.get(current) ?? []) {
+        if (!seen.has(next)) {
+          seen.add(next);
+          queue.push(next);
+        }
+      }
+    }
+    for (const map of MAP_LIST) {
+      expect(seen.has(map.id), `${map.id} cannot be reached from Starter Town`).toBe(
+        true,
+      );
+    }
+
+    // And no area is a trap: every map has at least one way out.
+    for (const map of MAP_LIST) {
+      expect(
+        Object.keys(map.transitions).length,
+        `${map.id} has no exits — walking in strands the player`,
+      ).toBeGreaterThan(0);
+    }
+  });
+
   it("can walk to every NPC from where the player arrives", () => {
     for (const map of MAP_LIST) {
       const entries = entriesFor(map.id);
@@ -207,6 +248,31 @@ describe("world reachability", () => {
     }
   });
 });
+
+  it("ships Marrow Orchard with its people, gates, and wild clover", () => {
+    const orchard = getMap("marrow_orchard");
+    expect(orchard).toBeDefined();
+    expect(orchard!.npcs.map((npc) => npc.id)).toEqual(
+      expect.arrayContaining([
+        "keeper-maren",
+        "picker-sprout",
+        "fitter-aubrey",
+        "beekeeper-hollis",
+      ]),
+    );
+    // Gates both ways: down the lane to town, west along the hedge to Route 1.
+    const exits = Object.values(orchard!.transitions).map((t) => t.mapId);
+    expect(exits).toContain("starter_town");
+    expect(exits).toContain("route_1");
+    expect(Object.values(getMap("starter_town")!.transitions).map((t) => t.mapId)).toContain(
+      "marrow_orchard",
+    );
+
+    // Wild clover for its own evolving pack, and fences that actually block.
+    expect(orchard!.tiles.flat()).toContain("vroomgrass");
+    expect(isTilePassable("fence")).toBe(false);
+    expect(orchard!.tiles.flat()).toContain("fence");
+  });
 
   it("puts a save that predates the split somewhere it can stand", () => {
     // The ranch used to be one map: a save out in the old paddock now points

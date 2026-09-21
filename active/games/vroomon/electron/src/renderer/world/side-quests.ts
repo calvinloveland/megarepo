@@ -122,6 +122,47 @@ export const SIDE_QUESTS: SideQuest[] = [
       "A herd that never turns over is a museum. Run five generations and I'll know you're serious.",
   },
   {
+    id: "orchard-cutting",
+    title: "A Marrow Cutting",
+    giver: "Orchard Keeper Maren",
+    mapId: "marrow_orchard",
+    acceptFlag: "quest-cutting-accepted",
+    objective: { kind: "champion-score", score: 900, label: "on the flat" },
+    reward: {
+      wallet: 250,
+      dna: "RuAp2owjBaqK",
+      thanks: "Nine seasons of Marrow wood, and you've earned a scion of it.",
+    },
+    offer:
+      "Bring me a car that runs 900 on the flat and I'll cut you a Marrow scion — my own line, the good wood.",
+  },
+  {
+    id: "orchard-clover",
+    title: "Thin The Clover",
+    giver: "Beekeeper Hollis",
+    mapId: "marrow_orchard",
+    acceptFlag: "quest-pollination-accepted",
+    objective: { kind: "catch-wild", count: 6, label: "genomes off the wild" },
+    reward: {
+      wallet: 110,
+      decor: "bee-skeps",
+      thanks: "Six off the clover. The bees will forgive you — here, a set of skeps for your meadow.",
+    },
+    offer:
+      "Wild vroomon flat the flowers at this end. Six of them off the clover and I'll set you up with skeps.",
+  },
+  {
+    id: "pollination-run",
+    title: "The Long Pollination",
+    giver: "Beekeeper Hollis",
+    mapId: "marrow_orchard",
+    acceptFlag: "quest-pollination-run-accepted",
+    objective: { kind: "visit", mapId: "ice_map", label: "walk the Drift Perimeter" },
+    reward: { wallet: 180, feed: 3, thanks: "You walked it to the ice and back. That's a beekeeper's errand done." },
+    offer:
+      "My sister keeps hives out on the Drift Perimeter. Walk that far and I'll pay the toll myself.",
+  },
+  {
     id: "hill-freight",
     title: "Freight For The Mesa",
     giver: "Wrangler Jess",
