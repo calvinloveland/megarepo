@@ -842,6 +842,27 @@ gets harder instead of just paying out a Brand:
   dropped new world state (circuit tiers) — it now uses the shared
   serializer.
 
+## Beauty pass 2: the world keeps time and remembers feet (2026-09-15) ✅
+
+- **A day.** `dayTint()` cycles dawn → morning → afternoon → dusk → night over
+  **four minutes**, laid over outdoor maps at 3-20% strength (interiors keep
+  their own light). Light enough to read through, present enough to notice.
+- **Paces.** The ground keeps the last few footsteps: small puffs that bloom
+  and fade in about a third of a second behind whoever is walking.
+- **Breath.** NPCs bob a single pixel on a per-NPC phase, so a standing
+  villager is alive rather than a decal.
+
+### The unit bug this flushed out
+
+Every one of these is driven by the renderer's clock, which is
+`performance.now()` — **milliseconds**. The first version of the ambience
+layer treated those numbers as frames: the day cycled every **5.4 seconds**,
+footsteps vanished in 22ms, NPCs jittered at 22Hz, and motes and ripples
+moved ~1000× too fast. It looked *fine in stills*, which is exactly why the
+tests now assert **rates**, not just shapes: a day lasts minutes (>120s), a
+mote crosses fewer than 30px per second, and the same day-phase holds across
+five-second samples.
+
 ## The Herd Book keeps notes (2026-09-15) ✅
 
 A sixth hub scene (`📖 Dex`). The Vroomdex used to be a bare list of DNA

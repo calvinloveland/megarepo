@@ -408,11 +408,19 @@ export function drawNpc(
   npcId?: string,
 ): void {
   const parts = NPC_PARTS[sprite] ?? NPC_PARTS.default!;
+  // A slow breath (a pixel, a couple of seconds long) so a standing NPC is
+  // alive rather than a decal. The phase comes from the id, so neighbours are
+  // not in lockstep.
+  const phase = (npcId ?? sprite)
+    .split("")
+    .reduce((sum, char) => sum + char.charCodeAt(0), 0);
+  // `step` is a millisecond clock: one slow breath every ~5 seconds.
+  const bob = Math.round(Math.sin(step / 820 + phase) * 1.2);
   drawNpcShadow(ctx, px, py, size, step);
-  drawNpcHead(ctx, parts.head, px, py, size, facing);
-  drawNpcOutfit(ctx, parts.outfit, px, py, size, facing);
-  drawNpcAccessory(ctx, parts.accessory, px, py, size, facing, npcId);
-  drawNpcOutline(ctx, px, py, size);
+  drawNpcHead(ctx, parts.head, px, py + bob, size, facing);
+  drawNpcOutfit(ctx, parts.outfit, px, py + bob, size, facing);
+  drawNpcAccessory(ctx, parts.accessory, px, py + bob, size, facing, npcId);
+  drawNpcOutline(ctx, px, py + bob, size);
 }
 
 function drawNpcShadow(

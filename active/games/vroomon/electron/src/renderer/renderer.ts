@@ -65,6 +65,7 @@ import {
   specimenEntries,
 } from "./world/specimens.js";
 import { questFor } from "./world/quest.js";
+import type { Track } from "./world/ambience-layer.js";
 import {
   activeSideQuests,
   claimableQuests,
@@ -1516,6 +1517,31 @@ function renderEvolutionStage(
     ? `Click a racer to pin the camera. ${leader.id} is currently on top.`
     : "Run a generation to inspect the active race field.";
   renderScoreChart();
+}
+
+// ---------------------------------------------------------------------------
+// Paces: the dirt the rancher has just kicked up. Small and forgetful — a
+// handful of steps, faded out in a fraction of a second.
+// ---------------------------------------------------------------------------
+
+const trail: { tracks: Track[] } = { tracks: [] };
+let lastTrailTile = "";
+
+function noteFootstep(): void {
+  const world = overworldController.state;
+  const key = `${world.currentMapId}:${world.playerX},${world.playerY}`;
+  if (key === lastTrailTile) {
+    return;
+  }
+  lastTrailTile = key;
+  trail.tracks.push({
+    x: world.playerX,
+    y: world.playerY,
+    at: performance.now(),
+  });
+  if (trail.tracks.length > 8) {
+    trail.tracks.shift();
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -5269,6 +5295,7 @@ function startOverworldAnimationLoop(): void {
     }
     const map = getMap(overworldController.state.currentMapId);
     if (map) {
+      noteFootstep();
       try {
         renderOverworld(overworldCanvas, {
           map,
@@ -5276,6 +5303,7 @@ function startOverworldAnimationLoop(): void {
           decor: rendererState.world.decor,
           tick: performance.now(),
           spriteAssets,
+          puffs: trail,
         });
       } catch (error) {
         // One bad frame must not kill the loop for good.

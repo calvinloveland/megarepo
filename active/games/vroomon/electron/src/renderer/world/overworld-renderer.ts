@@ -14,12 +14,14 @@ import {
 import { findDecor } from "./decor.js";
 import { HOUSE_ACCENTS, houseAccentForNpc, SPRITE_PALETTE as PAL } from "./sprites-palette.js";
 import { FACTIONS } from "./factions.js";
-import { ambientMotes, waterPhase } from "./ambience-layer.js";
+import { ambientMotes, dayTint, footstepPuffs, waterPhase, type Track } from "./ambience-layer.js";
 
 export interface OverworldRenderFrame {
   map: Tilemap;
   tick: number;
   world: WorldState;
+  /** Recent paces (tile + tick), for the dust behind the rancher. */
+  puffs?: { tracks: Track[] };
   /** Owned cosmetic decor ids (lives in renderer state, not world state). */
   decor: string[];
   /** Loaded sprite PNGs keyed by id (tile:<kind>, npc:<id>, player:<facing>).
@@ -102,6 +104,7 @@ export function renderOverworld(
   }
 
   const { map, tick, world, decor } = frame;
+  const puffsRef = frame.puffs;
   const width = canvas.width;
   const height = canvas.height;
 
@@ -147,6 +150,19 @@ export function renderOverworld(
     }
   }
 
+  // The ground remembers a few paces.
+  if (puffsRef) {
+    const puffs = footstepPuffs(puffsRef.tracks, tick, { lifeMs: 320, count: 5 });
+    for (const puff of puffs) {
+      ctx.globalAlpha = puff.alpha;
+      ctx.fillStyle = "#e7d8b4";
+      ctx.beginPath();
+      ctx.ellipse(puff.x - cameraX, puff.y - cameraY, puff.radius, puff.radius * 0.6, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
   // Ambient life over the ground (and behind whatever is standing on it).
   const view = {
     minX: cameraX,
@@ -175,6 +191,16 @@ export function renderOverworld(
     }
   }
   ctx.globalAlpha = 1;
+
+  // Time of day: a light wash over everything outside. Interiors keep their
+  // own light, so no tint indoors.
+  if (!map.interior) {
+    const tint = dayTint(tick);
+    ctx.globalAlpha = tint.alpha;
+    ctx.fillStyle = tint.color;
+    ctx.fillRect(0, 0, width, height);
+    ctx.globalAlpha = 1;
+  }
 
   // Festive pennant garlands across the feud arenas: the joined house's
   // colors on the home half, the rival's on the far half, neutral gold

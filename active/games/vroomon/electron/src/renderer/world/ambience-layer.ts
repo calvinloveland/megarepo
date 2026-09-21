@@ -52,7 +52,7 @@ function hash(n: number): number {
  */
 export function ambientMotes(
   mapId: string,
-  tick: number,
+  timeMs: number,
   view: { minX: number; minY: number; width: number; height: number },
   count = 18,
   interior = false,
@@ -61,20 +61,24 @@ export function ambientMotes(
   const motes: Mote[] = [];
   const spanX = Math.max(1, view.width);
   const spanY = Math.max(1, view.height);
+  // Everything below is in SECONDS. The renderer hands us `performance.now()`,
+  // and the first version treated milliseconds as if they were ticks: the
+  // weather zipped past and the day cycled every five seconds.
+  const seconds = timeMs / 1000;
 
   for (let index = 0; index < count; index += 1) {
     const seed = index * 977;
     // Each mote has its own slow drift and wobble, both from its seed.
     const driftX = (hash(seed + 1) - 0.5) * 2.2;
     const driftY = (hash(seed + 2) - 0.5) * 1.2;
-    const wobble = Math.sin(tick / (28 + hash(seed + 3) * 40) + seed) * (4 + hash(seed + 4) * 6);
+    const wobble = Math.sin(seconds / (2.8 + hash(seed + 3) * 4) + seed) * (4 + hash(seed + 4) * 6);
     const speed = 0.35 + hash(seed + 5) * 0.9;
 
-    const rawX = hash(seed + 6) * spanX + driftX * tick * speed + wobble;
-    const rawY = hash(seed + 7) * spanY + driftY * tick * speed * 0.6 + wobble * 0.4;
+    const rawX = hash(seed + 6) * spanX + driftX * seconds * 14 * speed + wobble;
+    const rawY = hash(seed + 7) * spanY + driftY * seconds * 14 * speed * 0.6 + wobble * 0.4;
     const wrappedX = ((rawX % spanX) + spanX) % spanX;
     const wrappedY = ((rawY % spanY) + spanY) % spanY;
-    const pulse = 0.55 + 0.45 * Math.sin(tick / 34 + seed * 1.7);
+    const pulse = 0.55 + 0.45 * Math.sin(seconds / 3.4 + seed * 1.7);
 
     motes.push({
       x: view.minX + wrappedX,
@@ -88,7 +92,92 @@ export function ambientMotes(
   return motes;
 }
 
-/** Ripple phase for a water tile, so the pond moves instead of sitting still. */
-export function waterPhase(tick: number, tileX: number, tileY: number): number {
-  return (tick / 26 + (tileX * 0.7 + tileY * 1.3)) % (Math.PI * 2);
+/** Ripple phase for a water tile: a slow swell, not a strobe. */
+export function waterPhase(timeMs: number, tileX: number, tileY: number): number {
+  const seconds = timeMs / 1000;
+  return (seconds / 2.6 + (tileX * 0.7 + tileY * 1.3)) % (Math.PI * 2);
+}
+
+
+// ---- Time of day -----------------------------------------------------------
+// A slow cycle so the world is not frozen at noon. Kept dim on purpose: the
+// tint sits over everything, and a heavy hand makes the map unreadable.
+
+/** One full day, in milliseconds (the renderer's clock is `performance.now()`). */
+export const DAY_LENGTH_MS = 240_000;
+
+export interface DayTint {
+  /** 0 = dawn, 0.25 = morning, 0.5 = afternoon, 0.75 = dusk, then night. */
+  phase: number;
+  label: "dawn" | "morning" | "afternoon" | "dusk" | "night";
+  /** An overlay colour and how strongly to lay it over the map. */
+  color: string;
+  alpha: number;
+}
+
+export function dayPhase(timeMs: number): number {
+  return (((timeMs % DAY_LENGTH_MS) + DAY_LENGTH_MS) % DAY_LENGTH_MS) / DAY_LENGTH_MS;
+}
+
+export function dayTint(timeMs: number): DayTint {
+  const phase = dayPhase(timeMs);
+  if (phase < 0.12) {
+    return { phase, label: "dawn", color: "#ffd9a8", alpha: 0.10 };
+  }
+  if (phase < 0.38) {
+    return { phase, label: "morning", color: "#fff3c9", alpha: 0.05 };
+  }
+  if (phase < 0.6) {
+    return { phase, label: "afternoon", color: "#ffe9b0", alpha: 0.03 };
+  }
+  if (phase < 0.78) {
+    return { phase, label: "dusk", color: "#ff9d6b", alpha: 0.13 };
+  }
+  return { phase, label: "night", color: "#2b3f78", alpha: 0.20 };
+}
+
+// ---- Footsteps -------------------------------------------------------------
+// The ground remembers a few paces: small puffs that fade where the rancher
+// (or anyone else) put a foot down.
+
+export interface Track {
+  x: number;
+  y: number;
+  /** When the step was taken (`performance.now()`). */
+  at: number;
+}
+
+export interface Puff {
+  x: number;
+  y: number;
+  radius: number;
+  alpha: number;
+}
+
+/** Dust for the steps taken recently, floored at tile centres. */
+export function footstepPuffs(
+  tracks: Track[],
+  timeMs: number,
+  options: { lifeMs?: number; count?: number; tileSize?: number } = {},
+): Puff[] {
+  const life = options.lifeMs ?? 340;
+  const count = options.count ?? 6;
+  const tileSize = options.tileSize ?? 32;
+  const puffs: Puff[] = [];
+
+  for (const track of tracks.slice(-count)) {
+    const age = timeMs - track.at;
+    if (age < 0 || age > life) {
+      continue;
+    }
+    const fade = 1 - age / life;
+    puffs.push({
+      x: track.x * tileSize + tileSize / 2,
+      y: track.y * tileSize + tileSize - 4,
+      radius: 3 + (1 - fade) * 4,
+      alpha: 0.22 * fade,
+    });
+  }
+
+  return puffs;
 }
