@@ -574,6 +574,15 @@
         color: var(--muted);
         align-self: center;
       }
+      .blueprint__circuit {
+        margin-top: 0.25rem;
+        font-family: var(--font-screen);
+        font-size: 0.72rem;
+        color: #dce8ff;
+        opacity: 0.9;
+      }
+      .blueprint__circuit[data-fits="true"] { color: #a9e6a2; }
+      .blueprint__circuit[data-fits="false"] { color: #ffc9a3; }
       .blueprint__verdict { color: #ffd166; margin-top: 0.15rem; }
       .sim-panel {
         display: flex;
@@ -2136,6 +2145,7 @@
             <div class="blueprint__row"><span>POWER</span><strong data-blueprint-power>—</strong></div>
             <div class="blueprint__row"><span>DRIVE</span><strong data-blueprint-drive>—</strong></div>
             <div class="blueprint__verdict" data-blueprint-verdict></div>
+            <div class="blueprint__circuit" data-blueprint-circuit hidden></div>
           </div>
         </div>
 

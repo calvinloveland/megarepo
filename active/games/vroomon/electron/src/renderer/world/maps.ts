@@ -2346,7 +2346,7 @@ export const MAPS: Record<string, Tilemap> = {
     npcs: [
       { id: "guru-updrafts", name: "Guru of the Updrafts", x: 5, y: 6, facing: "right", sprite: "professor",
         dialogue: {
-          text: "The summit schools are open to you. I teach the light chassis — ride the updrafts, skim the vents. Join the Skimmers and learn the wind lines.",
+          text: "Highland Mesa, and the summit schools are open to you. I teach the light chassis — ride the updrafts, skim the vents. Join the Skimmers and learn the wind lines.",
           options: [
             { label: "Join the Summit Skimmers", next: "skimmers-join-faction" },
             { label: "The stone path calls", next: "skimmers-decline" },
@@ -2425,7 +2425,7 @@ export const MAPS: Record<string, Tilemap> = {
     npcs: [
       { id: "lay-foreman", name: "The Lay Foreman", x: 5, y: 6, facing: "right", sprite: "gym-leader",
         dialogue: {
-          text: "The Union keeps the quarry safe — durable DNA, safety boards, and an hourly wage in credits. Join the Stonecutters and never worry about a busted axle again.",
+          text: "The Canyon Quarry, and the Union keeps it safe — durable DNA, safety boards, and an hourly wage in credits. Join the Stonecutters and never worry about a busted axle again.",
           options: [
             { label: "Join the Stonecutters' Union", next: "union-join-faction" },
             { label: "I race for the stunts", next: "union-decline" },
@@ -2504,7 +2504,7 @@ export const MAPS: Record<string, Tilemap> = {
     npcs: [
       { id: "keeper-long-light", name: "Keeper of the Long Light", x: 5, y: 6, facing: "right", sprite: "professor",
         dialogue: {
-          text: "The oldest lineages on the ice belong to us. Slow-bred, patient, sure-footed in the drift. Run with the Herdsmen and the aurora keeps your herd.",
+          text: "The oldest lineages on the Drift Perimeter belong to us. Slow-bred, patient, sure-footed in the drift. Run with the Herdsmen and the aurora keeps your herd.",
           options: [
             { label: "Join the Aurora Herdsmen", next: "herdsmen-join-faction" },
             { label: "The freight lanes pay", next: "herdsmen-decline" },

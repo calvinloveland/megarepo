@@ -2724,6 +2724,14 @@ async function expectModeState(
     await page.locator("[data-dna-input]").fill("fq4j7dJgZAic");
     await page.waitForTimeout(700);
 
+    // The paddock's own readout carries the circuit verdict too, so the same
+    // answer appears wherever a car is described.
+    await expect(page.locator("[data-blueprint-circuit]")).toBeVisible();
+    await expect(page.locator("[data-blueprint-circuit]")).toContainText("CIRCUIT");
+    await expect(page.locator("[data-blueprint-circuit]")).toContainText(
+      /fits the ground|The ground wants|asks nothing of the build/,
+    );
+
     await page.locator("[data-inspect-draft]").click();
     await expect(page.locator("[data-inspector-overlay]")).toBeVisible();
     await expect(page.locator("[data-inspector-title]")).toContainText("fq4j7dJgZAic");

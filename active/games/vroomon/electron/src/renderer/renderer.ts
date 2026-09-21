@@ -30,6 +30,8 @@ import {
   shapeForTier,
   shapeReadout,
   shapeShortfall,
+  VENUE_ORDER,
+  VENUE_TERRAIN,
   terrainForVenue,
   tierLabel,
   tierOutcome,
@@ -2704,6 +2706,29 @@ function renderBlueprint(decoded: DecodedDnaV2): void {
           blueprint.driven.length > 0 ? ` · ${blueprint.driven[0]!.power} pwr` : ""
         }`;
   verdict.textContent = blueprint.verdict;
+
+  // The same verdict the Inspector gives, wherever else a car is described:
+  // the shape the circuit is asking for, read against this build.
+  const circuitLine = document.querySelector<HTMLElement>("[data-blueprint-circuit]");
+  if (circuitLine) {
+    const terrain = rendererState.runState.terrainName;
+    const venue = VENUE_ORDER.find((mapId) => VENUE_TERRAIN[mapId] === terrain) ?? null;
+    if (!venue) {
+      circuitLine.hidden = true;
+    } else {
+      const shape: VehicleShape = {
+        plates: blueprint.plates,
+        wheels: blueprint.wheels,
+        engines: blueprint.engines,
+        drivenWheels: blueprint.driven.length,
+      };
+      const tier = rendererState.world.feudTiers?.[VENUE_BADGE[venue] ?? ""] ?? 1;
+      const shortfall = shapeShortfall(shape, tier);
+      circuitLine.hidden = false;
+      circuitLine.dataset.fits = String(shortfall === null);
+      circuitLine.textContent = `CIRCUIT · ${shapeReadout(shape, tier)}`;
+    }
+  }
 }
 
 function renderTestDriveStage(

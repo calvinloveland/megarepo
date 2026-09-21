@@ -913,6 +913,34 @@ the helper is exported, and the next caller would have inherited the wrong
 answer. The controller now also passes its own pinned clock through, so both
 layers agree even at a phase boundary.
 
+## The same verdict wherever a car is described (2026-09-15) ✅
+
+The Inspector got the circuit shape row last cycle; the paddock's own readout —
+the one under the DNA field in Test Drive — was still just structure, power,
+drive and the build's verdict. It now ends with the same answer:
+
+```
+STRUCTURE  4 plates · 2 wheels
+POWER      2 engines · 2 shafts · 2 gears
+DRIVE      2/2 driven · 130 pwr
+Drive reaches every wheel.
+CIRCUIT · The ground wants at least three wheels, two of them driven; this one
+          has 2 wheels, 2 driven, 2 engines.
+```
+
+It takes its tier from the *terrain* being driven (`VENUE_TERRAIN` → venue →
+Brand → tier), so it follows the circuit rather than a fixed number, and it is
+tinted by `data-fits` — green when the build answers the ground, warm when it
+does not. One sentence, `shapeReadout`, now used in both places.
+
+### And the three keepers who never named their ground
+
+Flavour, this time rather than a contract — the Guru of the Updrafts, the Lay
+Foreman and the Keeper of the Long Light all greeted you without ever saying
+where they were. Highland Mesa, the Canyon Quarry and the Drift Perimeter are
+now in their opening lines, so all five arenas' keepers name the place they
+defend.
+
 ## Hunting on the high road bred Grassland stock (2026-09-15) ✅
 
 Going looking for content to fill the thin biomes turned up a bug instead, and
