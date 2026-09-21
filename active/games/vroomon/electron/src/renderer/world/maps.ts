@@ -1989,7 +1989,7 @@ export const MAPS: Record<string, Tilemap> = {
         facing: "left",
         sprite: "mechanic",
         dialogue: {
-          text: "First time in town? The Ranch fitters' yard is just east of me — wire in pasture for herd room, stalls for barn slots, and a one-shot tonic to calm a nervous breeding night. Every carrier runs on grain: breeding costs a feed a generation, and releasing the slow pays it back. Credits come from every lap the Barn pays out, so race often.",
+          text: "First time in town? The fitters ride with you — open your carrier, herd scene, and the RANCH button is their catalogue. Wire in pasture for herd room, stalls for barn slots, and a one-shot tonic to calm a nervous breeding night. Every carrier runs on grain: breeding costs a feed a generation, and releasing the slow pays it back. Credits come from every lap the Barn pays out, so race often.",
           options: [
             { label: "What should I buy first?", next: "wanda-first-buys" },
             { label: "I'll be back", next: "wanda-bye" },

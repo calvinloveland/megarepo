@@ -1295,7 +1295,7 @@ test.describe("vroomon Playwright harness", () => {
     await page.waitForTimeout(700);
     await page.locator('[data-dpad="interact"]').click();
     await page.waitForTimeout(600);
-    await expect(page.locator("[data-overworld-dialogue-text]")).toContainText("Ranch fitters");
+    await expect(page.locator("[data-overworld-dialogue-text]")).toContainText(/the fitters ride with you/i);
     await clickDialogueOption(page, /buy first/i);
     await page.waitForTimeout(400);
     await expect(page.locator("[data-overworld-dialogue-text]")).toContainText("Pasture first");
