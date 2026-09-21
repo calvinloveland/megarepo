@@ -79,6 +79,7 @@ import {
 import { questFor } from "./world/quest.js";
 import { standingFor } from "./world/routines.js";
 import { buildLedger, titlesToDefend, untriedGrounds } from "./ledger.js";
+import { fitCanvasToBox } from "./canvas-fit.js";
 import {
   describeWildGround,
   wildGroundRows,
@@ -2136,6 +2137,9 @@ function drawWildRace(): void {
   if (!canvas || !ctx) {
     return;
   }
+  // Draw at the size the canvas is shown at, or the lane labels shrink with
+  // the drawing on a narrow window.
+  fitCanvasToBox(canvas, { aspect: 720 / 260, min: 420 });
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   const frames = wildRaceState.frames;
   const index = wildRaceState.frameIndex;
@@ -2463,6 +2467,9 @@ function drawInspection(
   if (!canvas) {
     return;
   }
+  // Same reason as the wild lanes: the part labels are drawn into this canvas
+  // and were arriving at 79% of their size on a 1024px window.
+  fitCanvasToBox(canvas, { aspect: 640 / 240, min: 380 });
   const ctx = canvas.getContext("2d");
   if (!ctx) {
     return;
@@ -6805,20 +6812,13 @@ function renderHeritage(force = false): void {
   // Draw at the size the canvas is actually displayed at. The element used to
   // be a fixed 1200x620 scaled down by CSS, which shrank every label with it -
   // at 1024px wide the node names were two thirds of their designed size.
-  const displayed = Math.round(canvas.clientWidth);
-  if (displayed > 0) {
-    const target = Math.max(520, Math.min(1600, displayed));
-    // The stylesheet clamps the height to 62vh. Match that here, or the CSS
-    // squashes the drawing vertically by the difference.
-    const targetHeight = Math.min(
-      Math.round((target * 620) / 1200),
-      Math.round(window.innerHeight * 0.62),
-    );
-    if (canvas.width !== target || canvas.height !== targetHeight) {
-      canvas.width = target;
-      canvas.height = targetHeight;
-    }
-  }
+  // The stylesheet clamps this one's height to 62vh; match that here, or the
+  // CSS squashes the drawing vertically by the difference.
+  fitCanvasToBox(canvas, {
+    aspect: 1200 / 620,
+    min: 520,
+    heightClamp: window.innerHeight * 0.62,
+  });
 
   const ctx = canvas.getContext("2d");
   if (!ctx) {

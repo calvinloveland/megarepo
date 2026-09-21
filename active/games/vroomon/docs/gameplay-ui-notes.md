@@ -211,6 +211,7 @@ because each entry lands beside whatever it followed at the time. Everything
 below the list is older. The docs test requires this list to be complete, so a
 new entry that is not indexed here fails the suite.
 
+<!-- session-index:start -->
 - [HUD widths — verified, no change needed (2026-09-15) ✅](#hud-widths-verified-no-change-needed-2026-09-15)
 - [A full sitting, played from nothing (2026-09-15) ✅](#a-full-sitting-played-from-nothing-2026-09-15)
 - [The mechanic with no teacher (2026-09-15) ✅](#the-mechanic-with-no-teacher-2026-09-15)
@@ -218,6 +219,8 @@ new entry that is not indexed here fails the suite.
 - [The loaner is pitched exactly right, so it stays (2026-09-15) ✅](#the-loaner-is-pitched-exactly-right-so-it-stays-2026-09-15)
 - [Nineteen option clicks, none of them positional (2026-09-15) ✅](#nineteen-option-clicks-none-of-them-positional-2026-09-15)
 - [Notes dated 2026-09-15, in file order](#notes-dated-2026-09-15-in-file-order)
+- [The Heritage tree draws at the size it is shown (2026-09-15) ✅](#the-heritage-tree-draws-at-the-size-it-is-shown-2026-09-15)
+- [Every drawing surface now fits its box (2026-09-15) ✅](#every-drawing-surface-now-fits-its-box-2026-09-15)
 - [Three ways a written scene quietly stops working (2026-09-15) ✅](#three-ways-a-written-scene-quietly-stops-working-2026-09-15)
 - [Where people are, and where the map file says they are (2026-09-15) ✅](#where-people-are-and-where-the-map-file-says-they-are-2026-09-15)
 - [The inverse sweep: flavour that could belong to any map (2026-09-15) ✅](#the-inverse-sweep-flavour-that-could-belong-to-any-map-2026-09-15)
@@ -288,7 +291,7 @@ new entry that is not indexed here fails the suite.
 - [The vroomon inspector (2026-09-15) ✅](#the-vroomon-inspector-2026-09-15)
 - [Parts meet: no daylight in the frame (2026-09-15) ✅](#parts-meet-no-daylight-in-the-frame-2026-09-15)
 - [The vroomon body: one rigid frame, driven at the wheels (2026-09-15) ✅](#the-vroomon-body-one-rigid-frame-driven-at-the-wheels-2026-09-15)
-- [The Heritage tree draws at the size it is shown (2026-09-15) ✅](#the-heritage-tree-draws-at-the-size-it-is-shown-2026-09-15)
+<!-- session-index:end -->
 
 ---
 
@@ -297,34 +300,29 @@ new entry that is not indexed here fails the suite.
 The canvas was a fixed **1200×620** scaled down by CSS. At a 1024px window it
 was displayed at 948px wide, so every label — node names, scores, the generation
 ruler — drew at 79% of its designed size, and the 13px labels arrived at about
-10px. Legible in a screenshot at 1440px; a squint at 1024px.
+10px. Legible in a screenshot at 1440px; a squint at 1024px. It sizes its
+backing store to the box it is actually drawn into now, and matches the
+stylesheet's `max-height: 62vh` so the CSS cannot squash the drawing.
 
-It now sizes its backing store to the box it is actually drawn into, capped at
-520–1600px, and matches the stylesheet's `max-height: 62vh` so the CSS cannot
-squash the drawing vertically by the difference:
+## Every drawing surface now fits its box (2026-09-15) ✅
 
-```
-1024px viewport   backing 948x476   displayed 948x474
-1440px viewport   backing 1205x558  displayed 1205x556
-```
+The Heritage tree was not the only canvas authored at a fixed size and scaled by
+CSS. The Inspector's tracks were designed at 640×240 and the wild race lanes at
+720×260, and both were arriving at **79%** of their designed size in a 1024px
+window — the same shrinking labels, on two more surfaces.
 
-The canvas size is part of the render signature, so a window resize is a
-different drawing rather than a stale one. The screenshot is the whole argument:
-at 1024px the labels read `#108 · 1107.92`, `#116 · 787.84`, `#135 · 612.86` at
-a glance, where before they were two thirds that size.
-
-### And the docs check caught me on the very next entry
-
-The completeness half of `tests/docs.test.ts`, written one cycle earlier, failed
-on this cycle's commit:
+The arithmetic is one tested function now. `fittedCanvasSize` takes the box the
+canvas is displayed in, the aspect it was designed for, a floor, a ceiling and
+an optional height clamp, and returns the backing size; `fitCanvasToBox` applies
+it. Pure maths, five unit tests — including the case that caught my own wrong
+assumption, that a floor *raises* a small box and never lowers a large one.
 
 ```
-dated entries missing from the index: nineteen-option-clicks-none-of-them-positional-2026-09-15
+                designed    at 1024px before    now
+wild lanes      720x260     704x254 (98%)       704x254 backing = shown
+inspector       640x240     506x190 (79%)       506x190 backing = shown
+heritage tree  1200x620     948x474 (79%)       948x476 backing = shown
 ```
-
-I had added the entry and not indexed it — which is exactly the drift that check
-exists to prevent, demonstrated on its first opportunity rather than described
-in the abstract.
 
 ---
 
