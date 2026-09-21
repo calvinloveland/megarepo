@@ -301,6 +301,33 @@ describe("world reachability", () => {
     expect(gone.relocated).toBe(true);
   });
 
+  it("resolves every dialogue link inside its own map", () => {
+    // A `next` that names a node nobody has is a conversation that stops dead
+    // — the exact failure that made faction joins and the professor's explain
+    // options silently impossible once before.
+    for (const map of MAP_LIST) {
+      const ids = new Set(map.npcs.map((npc) => npc.id));
+      for (const npc of map.npcs) {
+        const dialogue = npc.dialogue;
+        if (!dialogue) {
+          continue;
+        }
+        if (dialogue.next) {
+          expect(
+            ids.has(dialogue.next),
+            `${map.id}: ${npc.id} points at a missing node "${dialogue.next}"`,
+          ).toBe(true);
+        }
+        for (const option of dialogue.options ?? []) {
+          expect(
+            ids.has(option.next),
+            `${map.id}: ${npc.id} option "${option.label}" points at a missing node "${option.next}"`,
+          ).toBe(true);
+        }
+      }
+    }
+  });
+
   it("never paints a door that leads nowhere", () => {
     // A door tile promises a room. If nothing near it transitions, the map is
     // lying to the player — the Long Haul's cookhouse and workshop doors both
