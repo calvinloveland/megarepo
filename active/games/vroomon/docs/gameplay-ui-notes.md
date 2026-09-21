@@ -236,6 +236,7 @@ new entry that is not indexed here fails the suite.
 - [Four buttons that did not say what they do (2026-09-15) ✅](#four-buttons-that-did-not-say-what-they-do-2026-09-15)
 - [A determinism check, because a stamp cannot see randomness (2026-09-15) ✅](#a-determinism-check-because-a-stamp-cannot-see-randomness-2026-09-15)
 - [Two dead exports, and one of them was a trap (2026-09-15) ✅](#two-dead-exports-and-one-of-them-was-a-trap-2026-09-15)
+- [The design overview now dates itself (2026-09-15) ✅](#the-design-overview-now-dates-itself-2026-09-15)
 - [Three ways a written scene quietly stops working (2026-09-15) ✅](#three-ways-a-written-scene-quietly-stops-working-2026-09-15)
 - [Where people are, and where the map file says they are (2026-09-15) ✅](#where-people-are-and-where-the-map-file-says-they-are-2026-09-15)
 - [The inverse sweep: flavour that could belong to any map (2026-09-15) ✅](#the-inverse-sweep-flavour-that-could-belong-to-any-map-2026-09-15)
@@ -849,6 +850,34 @@ modules** with no test (a coverage map), **seven rules** inside modules that
 were already "covered" (are the exports *called*?), and **three dead exports**
 (is anything using this at all?) — plus one genuinely useful deletion earlier
 in the same family.
+
+---
+
+## The design overview now dates itself (2026-09-15) ✅
+
+A document that states measurements has a shelf life. `design-overview.md`
+carries the progression curve, the wild's pace and the economy — all measured,
+all true when written — and nothing said *when*. It opens with a line now:
+
+> *Last verified against the game at **448 unit + 55 e2e** (2026-09-15). The
+> measured sections below were true when written; if those counts have moved a
+> long way, re-measure before trusting the numbers in them.*
+
+And the line is checked rather than trusted: `tests/docs.test.ts` counts the
+suite's own declarations and fails if the overview's claim drifts more than a
+fifth from reality.
+
+```
+the overview claims 120 unit tests; the suite declares 449
+```
+
+The tolerance is deliberate. A test count is a *proxy* for "how much has
+changed since" — 5% is noise, 20% means the game has moved enough that the
+measurements deserve another look. It is not a claim that the document is
+correct; it is a claim that somebody checked recently.
+
+(Which immediately caught itself: adding this very test pushed the suite to 448,
+so the line I had just written was already one out.)
 
 ---
 

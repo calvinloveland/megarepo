@@ -1,4 +1,5 @@
 import { readFileSync, readdirSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 // Documentation rots in the same way code does, and just as quietly. Two
@@ -87,5 +88,44 @@ describe("the docs", () => {
       }
     }
     expect(unbalanced, `unclosed code fences: ${unbalanced.join(", ")}`).toEqual([]);
+  });
+});
+
+describe("the design overview's trustworthiness", () => {
+  it("says when it was last checked, and the counts still look right", () => {
+    // A document that states measurements has a shelf life, and the honest
+    // thing is to date it. The counts are checked loosely - a test count is a
+    // rough proxy for how much has changed since - so that a suite which has
+    // grown or shrunk by a fifth sends the reader back to re-measure.
+    const overview = readFileSync(`${DOCS}/design-overview.md`, "utf8");
+    const line = overview.split("\n").find((text) => text.includes("Last verified"));
+    expect(line, "design-overview.md has no 'Last verified' line").toBeDefined();
+
+    const claimed = line!.match(/(\d+)\s*unit\s*\+\s*(\d+)\s*e2e/);
+    expect(claimed, `the line does not name counts: ${line}`).not.toBeNull();
+
+    // The e2e files are *.e2e.ts rather than *.test.ts, so match on any .ts.
+    const declared = (dir: string): number =>
+      readdirSync(dir)
+        .filter((name) => name.endsWith(".ts"))
+        .map((name) => readFileSync(join(dir, name), "utf8"))
+        .join("\n")
+        // Vitest declares `it(`; Playwright declares `test(`.
+        .match(/\b(?:it|test)\(/g)?.length ?? 0;
+
+    const units = declared("tests");
+    const e2e = declared(join("tests", "e2e"));
+    const [claimedUnits, claimedE2e] = [Number(claimed![1]), Number(claimed![2])];
+    const within = (claimed: number, actual: number): boolean =>
+      claimed > 0 && Math.abs(claimed - actual) / actual < 0.2;
+
+    expect(
+      within(claimedUnits, units),
+      `the overview claims ${claimedUnits} unit tests; the suite declares ${units}`,
+    ).toBe(true);
+    expect(
+      within(claimedE2e, e2e),
+      `the overview claims ${claimedE2e} e2e tests; the suite declares ${e2e}`,
+    ).toBe(true);
   });
 });
