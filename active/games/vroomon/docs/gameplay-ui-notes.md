@@ -223,6 +223,7 @@ new entry that is not indexed here fails the suite.
 - [Every drawing surface now fits its box (2026-09-15) ✅](#every-drawing-surface-now-fits-its-box-2026-09-15)
 - [The world was stretched to fit the window (2026-09-15) ✅](#the-world-was-stretched-to-fit-the-window-2026-09-15)
 - [Two modules nobody tested, and a map to catch the next (2026-09-15) ✅](#two-modules-nobody-tested-and-a-map-to-catch-the-next-2026-09-15)
+- [Where this session left the project (2026-09-15) ✅](#where-this-session-left-the-project-2026-09-15)
 - [Three ways a written scene quietly stops working (2026-09-15) ✅](#three-ways-a-written-scene-quietly-stops-working-2026-09-15)
 - [Where people are, and where the map file says they are (2026-09-15) ✅](#where-people-are-and-where-the-map-file-says-they-are-2026-09-15)
 - [The inverse sweep: flavour that could belong to any map (2026-09-15) ✅](#the-inverse-sweep-flavour-that-could-belong-to-any-map-2026-09-15)
@@ -380,6 +381,67 @@ the sprite loader, the app shell and the Playwright shim, each covered by the
 e2e or smoke run instead. It fails **both** ways, like the walk-on ledger: an
 unlisted untested module, and a listed module that has since gained a test.
 Both directions verified by mutation.
+
+---
+
+## Where this session left the project (2026-09-15) ✅
+
+**420 unit + 55 e2e pass**, both re-run twice for the wrap; tree clean; local
+server rebuilt on the latest bundle. Around eighty-five commits, all of them
+`Vroomon:`-prefixed, each a single logical unit.
+
+### The state of play
+
+- **The sim** — two-path bodies on one rigid compound chassis, wheels pinned at
+  their centres, drive applied at each driven wheel. Breeding is local
+  (one-parameter mutation), the herd climbs, and the guards that measure it
+  have explicit timeouts.
+- **The wild** — packs of 24 per ground, evolving on their own terrain between
+  visits, elite-carrying, with immigrants keeping the builds varied. Encounters
+  send the median animal.
+- **The circuit** — five Brands on their own ground, bars climbing ×1.22, and
+  from tier II a **shape** demand as well as a score. The keeper states both
+  before the race card appears.
+- **The world** — Starter Town and its rooms, two roads, three arenas with back
+  rooms, the Mesa, the Quarry, the Perimeter, the Long Haul, the Orchard and
+  the ranch; twelve rival houses; keepers, night watches, landmarks and
+  workings; weather with a teacher; and a day that moves people around.
+- **The loop on screen** — the herd bench, the Inspector (parts, tracks, live
+  race, pedigree, circuit shape), the Heritage tree, the Record Barn with its
+  ledger, records and wild-grounds table, Oxide's counter and the Herd Book.
+
+### What the session was actually about
+
+Not features. Almost every cycle ended up finding something by **measuring**
+what looked fine: two signs built inside a treeline, an encounter raced on the
+wrong ground, three hunting grounds breeding the wrong biome's stock, a world
+stretched 33% wider than tall, labels at 79% of their size, a reward line with
+no screen, an "earned" decoration nothing granted, a flag nothing ever set.
+Screenshots catch wrongness only if you already know the right answer;
+arithmetic catches it every time. The two together did the work.
+
+The other half was **invariants that fail in both directions** — registers
+rather than rules. A walk-on with nothing to say, a module with no test, a docs
+entry missing from the index, a listed module that has since gained one: each
+of those lists is checked for staleness as well as completeness, so it cannot
+rot into a lie. Three of them caught the very next thing written after them.
+
+And the recurring mistake, worth naming plainly because it happened four times:
+**an edit that identifies its target by position will eventually hit the wrong
+thing.** Option indexes in tests, a bulk `nth(2)` swap, line-number edits, and a
+script that regenerated a docs index by replacing everything up to a heading.
+Every one was fixed by anchoring on stable text or explicit markers instead.
+
+### Next session
+
+1. **Breadth on the deep systems** — the wild, the circuit and the quest ledger
+   have each grown three features deep; their UI should say what each is *for*.
+2. **Make the coverage map's reasons specific** — which behaviour covers each
+   listed-untested module.
+3. **Hunt more logic hiding under tested neighbours**, the way `frame.ts` and
+   `factions.ts` were.
+4. **The user-gated work**: live deploy (k3s + Cloudflare) and AI sprite
+   generation both still wait on credentials in `.secrets/`.
 
 ---
 
