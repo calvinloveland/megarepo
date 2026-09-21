@@ -3,6 +3,14 @@
 Vroomon is a vehicle evolution simulator. The Python/PyGame/PyMunk prototype is
 being rewritten as a standalone Electron + TypeScript app inside this project.
 
+## Start here
+
+- **[How Vroomon fits together](design-overview.md)** — the whole design on one
+  page: the two-path body, the loop, the measured progression, the wild, the
+  economy, the day cycle and the invariant suite.
+- [Gameplay & UI notes](gameplay-ui-notes.md) — what was built and what broke.
+- [Art pipeline](art-pipeline.md) — sprite assets and how to replace them.
+
 ## Layout
 
 - `src/vroomon/` — legacy Python simulation and tests kept as a behavioral
