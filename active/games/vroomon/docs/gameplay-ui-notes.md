@@ -173,6 +173,37 @@ what the contract is for.
 
 ---
 
+## Nineteen option clicks, none of them positional (2026-09-15) ✅
+
+Adding two lines to two keepers' menus broke two unrelated tests last cycle,
+because they clicked `[data-dialogue-option]` **by index**. The suite had
+nineteen of those. All nineteen now name what they are choosing:
+
+```ts
+const FEUD_OPTION = /race.*feud|settle the feud/i;
+await clickDialogueOption(page, FEUD_OPTION);
+```
+
+The helper throws with the actual menu when it cannot match
+(`no dialogue option matching /night shift/i: What gets left on it? | …`),
+which turned out to be the useful part: **three of the nineteen patterns I
+guessed were wrong**, and the failure told me the real label each time. It is
+now impossible for a menu that grows to take an unrelated test down with it.
+
+### Two mistakes worth naming, both positional
+
+- **The bulk swap was positional too.** Replacing every `nth(2)` with
+  `FEUD_OPTION` hit five sites — four feuds and one schoolchild's third option —
+  and I only noticed because the test failed. A bulk edit needs the same care as
+  an index: verify each site, not each pattern.
+- **Line-number edits drifted.** I patched a second pattern by line number after
+  an earlier edit had shifted the file, and fixed one line that was already
+  right while leaving another pointing at the wrong conversation. Anchoring on
+  stable text (`Storekeep Bram` → the next click) is the fix, and it is the same
+  reason the option clicks now use labels.
+
+---
+
 ## Notes dated 2026-09-15, in file order
 
 A table of contents for this date's work, which is scattered through the file

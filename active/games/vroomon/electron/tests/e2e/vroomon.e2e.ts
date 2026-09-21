@@ -381,7 +381,7 @@ test.describe("vroomon Playwright harness", () => {
     await page.waitForTimeout(250);
 
     // Choose the Greensprouts.
-    await page.locator("[data-dialogue-option]").first().click();
+    await clickDialogueOption(page, /greensprouts/i);
     await page.waitForTimeout(250);
     await page.locator("[data-overworld-dialogue-text]").waitFor();
     await page.keyboard.press("z"); // advance past the join text
@@ -511,7 +511,7 @@ test.describe("vroomon Playwright harness", () => {
       await page.waitForTimeout(300);
       await page.locator('[data-dpad="interact"]').click();
       await page.waitForTimeout(500);
-      await page.locator("[data-dialogue-option]").nth(3).click(); // Run the Grand Roundup
+      await clickDialogueOption(page, ROUNDUP_OPTION); // Run the Grand Roundup
       await page.waitForTimeout(400);
       await page.keyboard.press("z");
       await page.waitForTimeout(600);
@@ -743,7 +743,7 @@ test.describe("vroomon Playwright harness", () => {
     await page.locator('[data-dpad="interact"]').click();
     await page.waitForTimeout(500);
     await expect(page.locator("[data-overworld-dialogue-name]")).toContainText("Meadow Elder");
-    await page.locator("[data-dialogue-option]").nth(2).click();
+    await clickDialogueOption(page, FEUD_OPTION);
     await page.waitForTimeout(400);
     await page.keyboard.press("z");
     await page.waitForTimeout(2400);
@@ -794,7 +794,7 @@ test.describe("vroomon Playwright harness", () => {
     await page.locator('[data-dpad="interact"]').click();
     await page.waitForTimeout(500);
     // Third option on the Elder's menu: Race to settle the feud.
-    await page.locator("[data-dialogue-option]").nth(2).click();
+    await clickDialogueOption(page, FEUD_OPTION);
     await page.waitForTimeout(400);
     // The ground tells you what it wants before you race it: the bar, what
     // your barn holds, and the difference — so a first Brand reads as a
@@ -848,7 +848,7 @@ test.describe("vroomon Playwright harness", () => {
     }
     await page.locator('[data-dpad="interact"]').click();
     await page.waitForTimeout(500);
-    await page.locator("[data-dialogue-option]").nth(2).click();
+    await clickDialogueOption(page, FEUD_OPTION);
     await page.waitForTimeout(400);
     // The keeper says the terms, including the shape, before you race.
     await expect(page.locator("[data-overworld-dialogue-text]")).toContainText("wants at least two driven wheels");
@@ -896,7 +896,7 @@ test.describe("vroomon Playwright harness", () => {
     }
     await page.locator('[data-dpad="interact"]').click();
     await page.waitForTimeout(500);
-    await page.locator("[data-dialogue-option]").nth(2).click();
+    await clickDialogueOption(page, FEUD_OPTION);
     await page.waitForTimeout(400);
     await page.keyboard.press("z");
     await expect(page.locator("[data-race-overlay]")).toBeVisible();
@@ -1196,7 +1196,7 @@ test.describe("vroomon Playwright harness", () => {
     await page.waitForTimeout(500);
     await page.keyboard.press("z"); // intro beat
     await page.waitForTimeout(400);
-    await page.locator("[data-dialogue-option]").nth(1).click(); // "How do I breed a champion?"
+    await clickDialogueOption(page, /breed a champion/i);
     await page.waitForTimeout(500);
     await expect(page.locator("[data-overworld-dialogue-text]")).toContainText("paddock");
 
@@ -1221,7 +1221,7 @@ test.describe("vroomon Playwright harness", () => {
     await page.locator('[data-dpad="interact"]').click();
     await page.waitForTimeout(600);
     await expect(page.locator("[data-overworld-dialogue-text]")).toContainText("Ranch fitters");
-    await page.locator("[data-dialogue-option]").first().click(); // "What should I buy first?"
+    await clickDialogueOption(page, /buy first/i);
     await page.waitForTimeout(400);
     await expect(page.locator("[data-overworld-dialogue-text]")).toContainText("Pasture first");
   });
@@ -1385,6 +1385,11 @@ async function enterWorld(page: import("@playwright/test").Page): Promise<void> 
 }
 
 /** Open (or refocus) the Pocket Ranch carrier hub on a scene. */
+/** The Elder's fight option, wherever it sits in the menu. */
+const FEUD_OPTION = /race.*feud|settle the feud/i;
+/** The Roundup King's finale, likewise. */
+const ROUNDUP_OPTION = /run the grand roundup/i;
+
 /**
  * Choose a dialogue option by what it says, not by where it sits. Menus grow -
  * a keeper gains a line about the weather and every index after it moves - and
@@ -1491,14 +1496,14 @@ async function closePocketRanch(page: import("@playwright/test").Page): Promise<
 
     // Her menu answers what the ground wants, and offers the work.
     await expect(page.locator("[data-dialogue-option]")).toHaveCount(3);
-    await page.locator("[data-dialogue-option]").first().click();
+    await clickDialogueOption(page, /ground want/i);
     await page.waitForTimeout(500);
     await expect(page.locator("[data-overworld-dialogue-text]")).toContainText("shape the Mesa likes");
     await page.locator("[data-overworld-dialogue-text]").click();
     await page.waitForTimeout(400);
     await page.locator('[data-dpad="interact"]').click();
     await page.waitForTimeout(500);
-    await page.locator("[data-dialogue-option]").nth(1).click();
+    await clickDialogueOption(page, /run the vents/i);
     await page.waitForTimeout(500);
     await expect(page.locator("[data-overworld-dialogue-text]")).toContainText("Twenty-six hundred");
     await page.keyboard.press("z");
@@ -1748,14 +1753,14 @@ async function closePocketRanch(page: import("@playwright/test").Page): Promise<
     await page.waitForTimeout(700);
     await expect(page.locator("[data-overworld-dialogue-name]")).toContainText("Pup Tam");
     await expect(page.locator("[data-dialogue-option]")).toHaveCount(3);
-    await page.locator("[data-dialogue-option]").nth(1).click();
+    await clickDialogueOption(page, /order matter/i);
     await page.waitForTimeout(500);
     await expect(page.locator("[data-overworld-dialogue-text]")).toContainText("the chain runs one way");
     await page.locator("[data-overworld-dialogue-text]").click();
     await page.waitForTimeout(400);
     await page.keyboard.press("z");
     await page.waitForTimeout(500);
-    await page.locator("[data-dialogue-option]").nth(2).click();
+    await clickDialogueOption(page, /worth seeing/i);
     await page.waitForTimeout(500);
     await page.keyboard.press("z");
     await page.waitForTimeout(600);
@@ -1765,7 +1770,7 @@ async function closePocketRanch(page: import("@playwright/test").Page): Promise<
     await page.keyboard.press("z");
     await page.waitForTimeout(700);
     await expect(page.locator("[data-overworld-dialogue-name]")).toContainText("Storekeep Bram");
-    await page.locator("[data-dialogue-option]").nth(1).click();
+    await clickDialogueOption(page, /walk one for you/i);
     await page.waitForTimeout(500);
     await page.locator("[data-overworld-dialogue-text]").click();
     await page.waitForTimeout(500);
@@ -1979,7 +1984,7 @@ async function closePocketRanch(page: import("@playwright/test").Page): Promise<
     await page.keyboard.press("z");
     await page.waitForTimeout(700);
     await expect(page.locator("[data-overworld-dialogue-name]")).toContainText("Groom Millie");
-    await page.locator("[data-dialogue-option]").nth(1).click();
+    await clickDialogueOption(page, /bring you a finisher/i);
     await page.waitForTimeout(500);
     await page.locator("[data-overworld-dialogue-text]").click();
     await page.waitForTimeout(500);
@@ -1992,7 +1997,7 @@ async function closePocketRanch(page: import("@playwright/test").Page): Promise<
     await page.keyboard.press("z");
     await page.waitForTimeout(700);
     await expect(page.locator("[data-overworld-dialogue-name]")).toContainText("Weighmaster Tuck");
-    await page.locator("[data-dialogue-option]").nth(1).click();
+    await clickDialogueOption(page, /weigh in/i);
     await page.waitForTimeout(500);
     await page.locator("[data-overworld-dialogue-text]").click();
     await page.waitForTimeout(500);
@@ -2061,7 +2066,7 @@ async function closePocketRanch(page: import("@playwright/test").Page): Promise<
     await page.keyboard.press("z");
     await page.waitForTimeout(700);
     await expect(page.locator("[data-overworld-dialogue-name]")).toContainText("Clerk Nessa");
-    await page.locator("[data-dialogue-option]").nth(1).click();
+    await clickDialogueOption(page, /turn a line/i);
     await page.waitForTimeout(500);
     await page.locator("[data-overworld-dialogue-text]").click();
     await page.waitForTimeout(500);
@@ -2079,7 +2084,7 @@ async function closePocketRanch(page: import("@playwright/test").Page): Promise<
     await page.keyboard.press("z");
     await page.waitForTimeout(700);
     await expect(page.locator("[data-overworld-dialogue-name]")).toContainText("Stoker Vane");
-    await page.locator("[data-dialogue-option]").nth(1).click();
+    await clickDialogueOption(page, /night shift/i);
     await page.waitForTimeout(500);
     await page.locator("[data-overworld-dialogue-text]").click();
     await page.waitForTimeout(500);
