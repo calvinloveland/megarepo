@@ -2506,11 +2506,21 @@ async function closePocketRanch(page: import("@playwright/test").Page): Promise<
       await expect(page.locator("[data-wild-race-overlay]")).toBeVisible();
       const sub = (await page.locator("[data-wild-race-sub]").textContent()) ?? "";
       const lanes = (await page.locator("[data-wild-race-lanes]").textContent()) ?? "";
-      return { generation: sub.split("·")[1]?.trim() ?? "", wild: lanes.split("WILD")[1]?.slice(0, 32) ?? "" };
+      // Find the pack line by what it says rather than by position: the
+      // panel carries the place, the terrain stock, the generation, its
+      // ceiling and the sky, and fields get added.
+      const generation =
+        sub
+          .split("·")
+          .map((part) => part.trim())
+          .find((part) => part.includes("founders") || part.includes("wild gen")) ?? "";
+      return { generation, wild: lanes.split("WILD")[1]?.slice(0, 32) ?? "", sub };
     };
 
     const first = await meetWild();
-    expect(first.generation).toContain("founder stock");
+    expect(first.generation).toContain("the founders");
+    // The ground names itself and what it breeds.
+    expect(first.sub).toContain("stock");
     await page.locator("[data-wild-race-leave]").click();
     await page.waitForTimeout(400);
 

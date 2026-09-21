@@ -2202,7 +2202,7 @@ function renderWildRace(): void {
     const mapId = overworldController.state.currentMapId;
     const generation = overworldController.state.wildGenerations[mapId] ?? 0;
     const packLine =
-      generation > 0 ? `wild gen ${generation + 1}` : "founder stock";
+      generation > 0 ? `wild gen ${generation + 1}` : "the founders";
     const ceiling =
       wildRaceState.packBest > 0
         ? ` · this ground's best runs ${Math.round(wildRaceState.packBest)}px`
@@ -2210,7 +2210,12 @@ function renderWildRace(): void {
     const sky = wildRaceState.weather;
     const skyLine =
       sky.label === "clear" ? "" : ` · ${sky.label}: ${sky.note}`;
-    sub.textContent = `${wildRaceState.terrain} · ${packLine}${ceiling}${skyLine} · win and it joins your Herd Book`;
+    // Name the ground and what it breeds: each pack is selected on its own
+    // terrain and settles on its own build, so "Canyon Quarry · Rocky stock"
+    // is a different animal from the ice, and the player should be able to
+    // tell before they race it.
+    const place = getMap(mapId)?.name ?? wildRaceState.terrain;
+    sub.textContent = `${place} · ${wildRaceState.terrain} stock · ${packLine}${ceiling}${skyLine} · win and it joins your Herd Book`;
   }
   const lanes = document.querySelector<HTMLElement>("[data-wild-race-lanes]");
   if (lanes) {

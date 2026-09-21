@@ -913,6 +913,46 @@ the helper is exported, and the next caller would have inherited the wrong
 answer. The controller now also passes its own pinned clock through, so both
 layers agree even at a phase boundary.
 
+## Six biomes, six animals — measured (2026-09-15) ✅
+
+The tier shapes raised a question worth answering with numbers rather than
+opinion: if every pack drifts toward the same build, are the biomes just six
+colours of one animal?
+
+They are not. Breeding each ground's pack for forty generations and reading the
+champion:
+
+```
+Grassland  2162   5w 5 driven  1 plate
+Flat       3310   4w 4 driven  2 plates
+Sand       2534   4w 4 driven  2 plates
+Hills      3750   4w 4 driven  2 plates
+Rocky      2154   5w 5 driven  1 plate
+Ice        3234   4w 4 driven  2 plates
+```
+
+Two genuinely different answers settle out — the wide single-plate five-wheeler
+on the open grounds, the two-plate four-wheeler on the rough ones — and the
+spread in what a ground can produce is **74%** between the poorest pack and the
+richest. So *where* you hunt matters twice over: the animal's build, and what
+it is capable of. `tests/wild.test.ts` holds both halves (more than one shape
+across the six, and a 1.25× spread between best and worst), so a future tuning
+change that flattens the biomes into one animal fails the suite.
+
+### The panel says where the animal came from
+
+The encounter now names the ground and what it breeds:
+
+```
+The Switchback · Hills stock · the founders · this ground's best runs 1131px ·
+win and it joins your Herd Book
+```
+
+A local population rather than a generic pack. (Adding a field to that line
+broke an e2e that read the panel by field *position* — it finds the pack line
+by what it says now, which is the right way to read a sentence that will keep
+growing.)
+
 ## The same verdict wherever a car is described (2026-09-15) ✅
 
 The Inspector got the circuit shape row last cycle; the paddock's own readout —

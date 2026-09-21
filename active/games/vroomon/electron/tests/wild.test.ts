@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import { MAPS } from "../src/renderer/world/maps.js";
 import { describeVehicle } from "../src/shared/blueprint.js";
 import { decodeDnaV2 } from "../src/shared/dna-v2.js";
+import { describeVehicle } from "../src/shared/blueprint.js";
+import { decodeDnaV2 } from "../src/shared/dna-v2.js";
 import {
   advanceWildPack,
   seedWildPack,
@@ -186,4 +188,46 @@ describe("every hunting ground declares its own stock", () => {
     expect(wildTerrainFor("the_cut")).toBe("Rocky");
     expect(wildTerrainFor("long_light_depot")).toBe("Ice");
   });
+});
+
+describe("each biome breeds its own animal", () => {
+  // A pack is selected on its own ground, so the terrains should not converge
+  // on one answer - if a Canyon animal were interchangeable with an ice one,
+  // the six biomes would be one biome with six colours.
+  const GROUNDS: Array<[string, string]> = [
+    ["Grassland", "ranch_yard"],
+    ["Flat", "starter_town"],
+    ["Sand", "route_2"],
+    ["Hills", "hills_map"],
+    ["Rocky", "rocky_map"],
+    ["Ice", "ice_map"],
+  ];
+
+  it("settles on different builds, and different speeds", () => {
+    const champions = GROUNDS.map(([terrain, mapId]) => {
+      const random = mulberry(`biome-${terrain}`);
+      let pack = seedWildPack(mapId);
+      for (let generation = 0; generation < 40; generation += 1) {
+        pack = advanceWildPack(mapId, pack, random).pack;
+      }
+      const champion = scoreWildPack(mapId, pack).members[0]!;
+      const blueprint = describeVehicle(decodeDnaV2(champion.dna));
+      return {
+        terrain,
+        score: champion.score,
+        shape: `${blueprint.wheels}w${blueprint.driven.length}d${blueprint.plates}p`,
+      };
+    });
+
+    console.log(
+      "[wild] biome champions:",
+      champions.map((c) => `${c.terrain} ${Math.round(c.score)} ${c.shape}`).join(" | "),
+    );
+    // More than one answer to "what is a fast vroomon".
+    expect(new Set(champions.map((c) => c.shape)).size).toBeGreaterThan(1);
+    // And the grounds are not equally rich: the fastest pack is well clear of
+    // the slowest, so what you catch depends on where you hunt.
+    const scores = champions.map((c) => c.score);
+    expect(Math.max(...scores)).toBeGreaterThan(Math.min(...scores) * 1.25);
+  }, 240_000);
 });
