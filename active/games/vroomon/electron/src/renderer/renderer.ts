@@ -3707,11 +3707,25 @@ async function runGeneration(): Promise<void> {
   );
 
   const bestBeforeRun = currentBestScore();
-  rendererState = applyGenerationToState(
-    baseRendererState,
-    generationResult,
-    window.vroomon.advanceRunState(runState, generationResult),
-  );
+  const advanced = window.vroomon.advanceRunState(runState, generationResult);
+  rendererState = applyGenerationToState(baseRendererState, generationResult, advanced);
+
+  // Score the pen as it now stands. Without this the bench kept showing the
+  // generation you had just raced, so pressing Run Gen left every number
+  // exactly where it was and read as "nothing happened".
+  const penEvaluation = window.vroomon.evaluatePopulation(advanced);
+  const scoredPen = advanced.population.map((entry) => ({
+    ...entry,
+    score: penEvaluation.results.find((result) => result.id === entry.id)?.score ?? 0,
+  }));
+  rendererState = {
+    ...rendererState,
+    latestGeneration: {
+      ...generationResult,
+      evaluatedPopulation: scoredPen,
+      evaluation: penEvaluation,
+    },
+  };
   if (isOutlier(bestBeforeRun, currentBestScore())) {
     const gain = Math.round(improvementRatio(bestBeforeRun, currentBestScore()) * 100);
     showCallout(
@@ -3737,10 +3751,17 @@ function generatePopulation(): void {
     ...rendererState.runState,
     mode: "evolution",
   });
+  // Say what it cost. This button replaces the herd outright - including the
+  // loaner Robby lends you - and the old message only mentioned a run id.
+  const replacing = rendererState.runState.population.length;
+  const kept = rendererState.hallOfFame.entries.length;
   rendererState = setRendererRunState(
     rendererState,
     nextRunState,
-    `Generated population for run ${nextRunId}.`,
+    replacing > 0
+      ? `New herd of ${nextRunState.population.length} random vroomon — the previous ` +
+        `${replacing} are gone${kept > 0 ? `. ${kept} recorded in the Record Barn are safe.` : "."}`
+      : `New herd of ${nextRunState.population.length} random vroomon.`,
   );
   renderApp();
   void renderGenerationLog();

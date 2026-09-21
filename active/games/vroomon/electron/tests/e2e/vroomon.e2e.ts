@@ -148,7 +148,7 @@ test.describe("vroomon Playwright harness", () => {
     await openPocketRanch(page, "herd");
     await page.locator("[data-terrain-select]").selectOption("Flat");
     await page.locator("[data-generate-population]").click();
-    await expect(page.locator("[data-status-message]")).toContainText("Generated population");
+    await expect(page.locator("[data-status-message]")).toContainText("New herd of");
 
     const generatedState = await readJson<RunStateSnapshot>(page, "[data-run-state-output]");
     expect(generatedState.mode).toBe("evolution");
@@ -249,7 +249,7 @@ test.describe("vroomon Playwright harness", () => {
     await openPocketRanch(page, "herd");
     await page.locator("[data-terrain-select]").selectOption("Flat");
     await page.locator("[data-generate-population]").click();
-    await expect(page.locator("[data-status-message]")).toContainText("Generated population");
+    await expect(page.locator("[data-status-message]")).toContainText("New herd of");
 
     await page.locator("[data-run-batch-generations]").click();
 
@@ -407,7 +407,7 @@ test.describe("vroomon Playwright harness", () => {
     await seedAndEnterWorld(page);
     await openPocketRanch(page, "herd");
     await page.locator("[data-generate-population]").click();
-    await page.locator("[data-status-message]").filter({ hasText: "Generated population" }).waitFor({ timeout: 20000 });
+    await page.locator("[data-status-message]").filter({ hasText: "New herd of" }).waitFor({ timeout: 20000 });
     let wallet = 0;
     for (let i = 0; i < 10; i += 1) {
       wallet = (await readJson<{ wallet: number }>(page, "[data-run-state-output]")).wallet;
