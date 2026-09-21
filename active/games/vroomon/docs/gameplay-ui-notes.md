@@ -4,6 +4,33 @@ Companion to `docs/audit.md`. Covers the gameplay/UI pass: how we reviewed the
 rendered app, what we found, what we fixed, and reusable recipes (vision
 sub-agents, OCR, pixel probes) for future sessions.
 
+## HUD widths — verified, no change needed (2026-09-15) ✅
+
+The WILD chip grew a second fact (`gen 13 · sends 200`) and the CIRCUIT chip a
+tier bar, so the top-left panel was worth re-measuring. Measured, not eyeballed:
+at **1280×800** and **1024×768** the panel holds its 300px, no element reports
+`scrollWidth > clientWidth`, and the longest chip still reads on one line —
+
+```
+MAP The Ranch Yard · HOUSES 0 · BRANDS 0/5 · HERD 0 specimens
+WALLET 0 cr · SEEKING ON 🔍 · WILD gen 13 · sends 200
+```
+
+(Captures: `/tmp/vshots/84-hud-1280.png`, `84-hud-1024.png`.)
+
+The CIRCUIT chip is not in this list because it lives on the **herd** panel
+rather than in the world HUD; while walking, the circuit appears in the quest
+card instead. Both were checked, and neither crowds.
+
+### One thing the screenshot nearly cost me
+
+At 1024px the grass prop's label reads "Tail Grass" and I had the edit open —
+but `maps.ts` says `name: "Tall Grass"`, and the source is right: it is a
+two-pixel font at that scale, not a typo. Checking the source before "fixing"
+the screenshot is the fourth time this session that verifying beat fixing.
+
+---
+
 ## Notes dated 2026-09-15, in file order
 
 A table of contents for this date's work, which is scattered through the file
