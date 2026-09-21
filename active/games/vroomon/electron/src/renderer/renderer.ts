@@ -80,6 +80,7 @@ import { questFor } from "./world/quest.js";
 import { standingFor } from "./world/routines.js";
 import { buildLedger, titlesToDefend, untriedGrounds } from "./ledger.js";
 import { fitCanvasToBox } from "./canvas-fit.js";
+import { OverlayStack } from "./ui/overlay.js";
 import {
   describeWildGround,
   tierWalkHint,
@@ -805,8 +806,7 @@ const overworldController = createOverworldInputs(rendererState.world, {
         : "";
     }
     if (grandRoundupOverlay) {
-      grandRoundupOverlay.hidden = false;
-      syncModalChrome();
+      overlays.open_("roundup");
     }
     rendererState = {
       ...rendererState,
@@ -1293,6 +1293,44 @@ ambience.setSettings({
 renderAmbienceButton();
 
 const settingsOverlay = document.querySelector<HTMLElement>("[data-settings-overlay]");
+
+/**
+ * The overlays that own the screen. Registered here, driven by the stack, so
+ * "which panel is on top" has one answer and the world's chrome follows from
+ * it — instead of eleven call sites toggling a class and twenty-two z-indexes
+ * deciding the rest.
+ */
+const overlays = new OverlayStack(({ modalOpen }) => {
+  document.body.classList.toggle("modal-open", modalOpen);
+});
+
+function registerModal(
+  id: string,
+  selector: string,
+  onClose?: () => void,
+): HTMLElement | null {
+  const element = document.querySelector<HTMLElement>(selector);
+  if (!element) {
+    return null;
+  }
+  overlays.register({
+    id,
+    modal: true,
+    setVisible: (visible) => {
+      element.hidden = !visible;
+    },
+    onClose,
+  });
+  return element;
+}
+
+const settingsModal = registerModal("settings", "[data-settings-overlay]");
+const ranchModal = registerModal("ranch", "[data-ranch-overlay]");
+const roundupModal = registerModal("roundup", "[data-grand-roundup-overlay]");
+const wildRaceModal = registerModal("wild-race", "[data-wild-race-overlay]");
+const inspectorModal = registerModal("inspector", "[data-inspector-overlay]");
+void [settingsModal, ranchModal, roundupModal, wildRaceModal, inspectorModal];
+
 const settingsMasterInput = document.querySelector<HTMLInputElement>("[data-settings-master]");
 const transferInput = document.querySelector<HTMLTextAreaElement>("[data-save-transfer]");
 const exportWorldButton = document.querySelector<HTMLButtonElement>("[data-export-world]");
@@ -1331,20 +1369,17 @@ function applyPlayerSettings(): void {
 document.querySelector<HTMLButtonElement>("[data-open-settings]")?.addEventListener("click", () => {
   if (settingsOverlay) {
     syncSettingsControls();
-    settingsOverlay.hidden = false;
-    syncModalChrome();
+    overlays.open_("settings");
   }
 });
 document.querySelector<HTMLButtonElement>("[data-settings-close]")?.addEventListener("click", () => {
   if (settingsOverlay) {
-    settingsOverlay.hidden = true;
-    syncModalChrome();
+    overlays.close("settings");
   }
 });
 settingsOverlay?.addEventListener("click", (event) => {
   if (event.target === settingsOverlay) {
-    settingsOverlay.hidden = true;
-    syncModalChrome();
+    overlays.close("settings");
   }
 });
 settingsMasterInput?.addEventListener("input", () => {
@@ -1969,15 +2004,7 @@ function bestOwnedDna(terrainName: string): string | null {
  * body. Without it a race panel arrives on top of a D-pad and two more
  * buttons, which is what "too many buttons" means.
  */
-function syncModalChrome(): void {
-  const modalOpen =
-    wildRaceState.open ||
-    Boolean(ranchOverlay && !ranchOverlay.hidden) ||
-    Boolean(grandRoundupOverlay && !grandRoundupOverlay.hidden) ||
-    Boolean(settingsOverlay && !settingsOverlay.hidden) ||
-    inspectorState.open;
-  document.body.classList.toggle("modal-open", modalOpen);
-}
+
 
 function openWildRace(wildDna: string): void {
   const mapId = rendererState.world.currentMapId;
@@ -2010,7 +2037,7 @@ function openWildRace(wildDna: string): void {
     playing: false,
     caught: false,
   };
-  syncModalChrome();
+  overlays.open_("wild-race");
   renderWildRace();
 }
 
@@ -2019,7 +2046,7 @@ function closeWildRace(): void {
   // Either way the meeting happened: the pack breeds on without you.
   advanceWildForMap(overworldController.state.currentMapId);
   wildRaceState = { ...wildRaceState, open: false, frames: null, playing: false };
-  syncModalChrome();
+  overlays.close("wild-race");
   renderWildRace();
   // A win queues Robby's praise beat while the overlay is up, so the world
   // underneath has to be repainted when the overlay closes.
@@ -2359,7 +2386,6 @@ function renderWildRace(): void {
   if (!overlay) {
     return;
   }
-  overlay.hidden = !wildRaceState.open;
   if (!wildRaceState.open) {
     return;
   }
@@ -2496,12 +2522,14 @@ function openInspector(dna: string): void {
     frameIndex: 0,
     playing: false,
   };
+  overlays.open_("inspector");
   renderInspector();
 }
 
 function closeInspector(): void {
   stopInspectorPlayback();
   inspectorState = { ...inspectorState, open: false, frames: null, playing: false };
+  overlays.close("inspector");
   renderInspector();
 }
 
@@ -2721,7 +2749,6 @@ function renderInspector(): void {
   if (!overlay) {
     return;
   }
-  overlay.hidden = !inspectorState.open;
   if (!inspectorState.open) {
     return;
   }
@@ -7644,22 +7671,19 @@ if (openRanchButton && ranchOverlay) {
     if (rendererState.batchRunning) {
       return;
     }
-    ranchOverlay.hidden = false;
-    syncModalChrome();
+    overlays.open_("ranch");
     renderRanch();
     renderDecor();
   });
 }
 closeRanchButton?.addEventListener("click", () => {
   if (ranchOverlay) {
-    ranchOverlay.hidden = true;
-    syncModalChrome();
+    overlays.close("ranch");
   }
 });
 ranchOverlay?.addEventListener("click", (event) => {
   if (event.target === ranchOverlay) {
-    ranchOverlay.hidden = true;
-    syncModalChrome();
+    overlays.close("ranch");
   }
 });
 const ranchDecorList = document.querySelector<HTMLElement>("[data-ranch-decor-list]");
@@ -7667,10 +7691,7 @@ const ranchToast = document.querySelector<HTMLElement>("[data-ranch-toast]");
 
 const grandRoundupOverlay = document.querySelector<HTMLElement>("[data-grand-roundup-overlay]");
 document.querySelector<HTMLButtonElement>("[data-grand-roundup-close]")?.addEventListener("click", () => {
-  if (grandRoundupOverlay) {
-    grandRoundupOverlay.hidden = true;
-    syncModalChrome();
-  }
+  overlays.close("roundup");
 });
 let ranchToastTimer: ReturnType<typeof setTimeout> | null = null;
 
