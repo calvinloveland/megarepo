@@ -1584,6 +1584,14 @@ async function closePocketRanch(page: import("@playwright/test").Page): Promise<
     // And the board sums up the work: defend, and ground never run.
     await expect(page.locator("[data-ledger-list]")).toContainText("DEFEND");
     await expect(page.locator("[data-ledger-list]")).toContainText("no run yet");
+
+    // The row you are short on is a work list item: it sends you to that
+    // ground with your best car already in the paddock.
+    await page.locator("[data-ledger-prep]").first().click();
+    await page.waitForTimeout(700);
+    await expect(page.locator("[data-dna-input]")).toHaveValue("Lhn4yi8zKRd2");
+    await expect(page.locator("[data-terrain-select]")).toHaveValue("Grassland");
+    await expect(page.locator("[data-status-message]")).toContainText("Paddock set for Grassland");
   });
 
   test("@smoke the road landmarks have offices, and the shed works nights", async ({

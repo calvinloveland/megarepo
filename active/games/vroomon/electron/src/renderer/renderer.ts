@@ -20,17 +20,7 @@ import type {
   VroomonParityContract,
 } from "../shared/parity-contract.js";
 import { bestRecord, proposeRecord } from "./records.js";
-import {
-  badgeForMap,
-  feudBar,
-  nextCircuitTarget,
-  nextTier,
-  rivalScoreFor,
-  terrainForVenue,
-  tierLabel,
-  tierOutcome,
-  venueTitle,
-} from "./circuit.js";
+import { badgeForMap, feudBar, nextCircuitTarget, nextTier, rivalScoreFor, terrainForVenue, tierLabel, tierOutcome, venueTitle, VENUE_BADGE } from "./circuit.js";
 import {
   buildHeritageGraph,
   shortLabel,
@@ -845,11 +835,17 @@ function renderLedger(): void {
           row.best > 0
             ? `you: ${formatNumber(row.best)}${row.dna ? ` (${escapeHtml(row.dna)})` : ""}`
             : "you: —";
+        // The ledger is a work list, not a report: a row you are short on
+        // sends you to the ground with your best car already in the paddock.
+        const prep =
+          row.status === "short"
+            ? `<button class="ledger-row__prep" type="button" data-ledger-prep="${escapeHtml(row.venueMapId)}" title="Practise this ground with your best car">go</button>`
+            : "";
         return (
           `<div class="ledger-row ledger-row--${row.status}">` +
           `<span class="ledger-row__terrain">${escapeHtml(row.terrain)} ${tierLabel(row.tier)}</span>` +
           `<span class="ledger-row__detail">${detail}</span>` +
-          `<span class="ledger-row__verdict">${verdict}</span>` +
+          `<span class="ledger-row__verdict">${verdict} ${prep}</span>` +
           `</div>`
         );
       })
@@ -6564,6 +6560,31 @@ function setHunting(hunting: boolean): void {
 
 document.addEventListener("click", (event) => {
   const target = event.target as HTMLElement | null;
+  const prep = target?.closest<HTMLElement>("[data-ledger-prep]");
+  if (prep?.dataset.ledgerPrep) {
+    const venueMapId = prep.dataset.ledgerPrep;
+    const terrain = terrainForVenue(venueMapId);
+    const dna =
+      rendererState.hallOfFame.entries.find((entry) => entry.terrainName === terrain)?.dna ??
+      recordsBoard.entries.find((entry) => entry.terrainName === terrain)?.dna ??
+      rendererState.draftDna;
+    rendererState = setDraftDna(rendererState, dna);
+    dnaInput.value = dna;
+    terrainSelect.value = terrain;
+    // Set the paddock, then say so: opening the hub writes its own status.
+    openPocketRanch("drive");
+    const bar = feudBar(
+      terrain,
+      rendererState.world.feudTiers?.[VENUE_BADGE[venueMapId] ?? ""] ?? 1,
+    );
+    rendererState = {
+      ...rendererState,
+      statusMessage: `Paddock set for ${terrain} — ${dna} on the line. This circuit asks ${formatNumber(bar)}.`,
+    };
+    statusMessage.textContent = rendererState.statusMessage;
+    renderRecordsBoard();
+    return;
+  }
   if (target?.closest("[data-hunt-toggle]")) {
     setHunting(!overworldController.state.hunting);
     return;

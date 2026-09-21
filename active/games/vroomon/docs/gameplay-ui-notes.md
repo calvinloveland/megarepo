@@ -842,6 +842,15 @@ gets harder instead of just paying out a Brand:
   dropped new world state (circuit tiers) — it now uses the shared
   serializer.
 
+## The ledger is a work list, not a report (2026-09-15) ✅
+
+Every ledger row you are *short* on now carries a **go** button: it sets the
+paddock to that circuit's terrain with your best car on the line, opens Test
+Drive, and says what the circuit asks — *"Paddock set for Grassland —
+Lhn4yi8zKRd2 on the line. This circuit asks 1488."* Breeding past a bar starts
+with knowing exactly which bar and with which car, so the screen that tells
+you also takes you there.
+
 ## Every arena has a back room (2026-09-15) ✅
 
 Both named venues now have somewhere behind the racing:
