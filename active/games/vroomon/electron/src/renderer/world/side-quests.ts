@@ -562,3 +562,80 @@ export function claimableQuests(
     (entry) => entry.done && tallyOf(world, `paid:${entry.quest.id}`) === 0,
   );
 }
+
+// ---------------------------------------------------------------------------
+// Saying it out loud
+// ---------------------------------------------------------------------------
+
+export interface QuestBeats {
+  /** The job this person is offering you right now, if any. */
+  offer: { id: string; title: string; text: string } | null;
+  /** The job they are waiting on you to finish, if any. */
+  pending: { id: string; title: string; text: string } | null;
+  /**
+   * A finished job they have not acknowledged to your face yet. The reward is
+   * paid the moment the work is done, so the words come at the next meeting —
+   * which is the only moment a thank-you can actually land.
+   */
+  thanks: { id: string; title: string; text: string } | null;
+}
+
+/**
+ * What a giver should be saying, given where their jobs stand. The authored
+ * `offer` and `thanks` lines existed in the data for a long time without ever
+ * reaching a screen — the quest card showed the objective instead, and the
+ * completion was a callout in the corner. This is what puts them in the
+ * giver's own mouth, which is the only place a job's *reason* fits.
+ */
+/** The tally key that records a giver having said their piece. */
+export function thanksSpokenKey(questId: string): string {
+  return `spoken:${questId}`;
+}
+
+export function questBeats(
+  world: QuestWorld,
+  run: QuestRun,
+  npcId: string,
+  npcName?: string,
+): QuestBeats {
+  // Every job this person could be talking about — offered, taken, or just
+  // finished — matched by the name the map file gives them, falling back to
+  // the id so a virtual node can be a giver too.
+  const mine = SIDE_QUESTS.filter(
+    (quest) =>
+      (npcName !== undefined && quest.giver === npcName) || quest.giver === npcId,
+  )
+    .filter((quest) => isUnlocked(quest, world))
+    .map((quest) => questProgress(quest, world, run));
+  const beats: QuestBeats = { offer: null, pending: null, thanks: null };
+  const unpaid = (id: string): boolean => (world.tally?.[`paid:${id}`] ?? 0) === 0;
+
+  // A giver can have several jobs at once, so the order matters: own what you
+  // finished, then chase what is outstanding, then hand out the next one.
+  const thanksId = (id: string): string => `spoken:${id}`;
+  for (const { quest, accepted, done } of mine) {
+    if (
+      accepted &&
+      done &&
+      (unpaid(quest.id) || (world.tally?.[thanksId(quest.id)] ?? 0) === 0) &&
+      !beats.thanks
+    ) {
+      beats.thanks = { id: quest.id, title: quest.title, text: quest.reward.thanks };
+    }
+  }
+  for (const { quest, accepted, done } of mine) {
+    if (accepted && !done && !beats.pending) {
+      beats.pending = {
+        id: quest.id,
+        title: quest.title,
+        text: `Still on ${quest.title.toLowerCase()}? ${quest.objective.label}, and it's yours.`,
+      };
+    }
+  }
+  for (const { quest, accepted, done } of mine) {
+    if (!accepted && !done && isUnlocked(quest, world) && !beats.offer) {
+      beats.offer = { id: quest.id, title: quest.title, text: quest.offer };
+    }
+  }
+  return beats;
+}

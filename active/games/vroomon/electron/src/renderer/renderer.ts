@@ -67,7 +67,9 @@ import type { Track } from "./world/ambience-layer.js";
 import {
   activeSideQuests,
   claimableQuests,
+  questBeats,
   sideQuestLog,
+  thanksSpokenKey,
   type QuestRun,
 } from "./world/side-quests.js";
 import { SPRITE_PALETTE as PAL } from "./world/sprites-palette.js";
@@ -5602,15 +5604,61 @@ function handleOverworldKeydown(event: KeyboardEvent): void {
 
   if (event.key === "z" || event.key === "Z" || event.key === "Enter" || event.key === " ") {
     event.preventDefault();
-    overworldController.interact();
+    talkAhead();
     renderOverworldUi();
     scheduleWorldSave();
   }
 }
 
+/**
+ * Talk to whoever is in front of you — and let a quest giver say their own
+ * line. The authored offer and thanks text existed in the quest data without
+ * ever reaching a screen; a job's *reason* belongs in the mouth of the person
+ * asking, not only in the objective list.
+ */
+function talkAhead(): void {
+  const before = overworldController.state.dialogueQueue.length;
+  const next = overworldController.interact();
+  if (before > 0 || next.dialogueQueue.length === 0) {
+    return;
+  }
+  const opening = next.dialogueQueue[0]!;
+  const npc = getMap(next.currentMapId)?.npcs.find((candidate) => candidate.id === next.activeNpc);
+  if (!npc) {
+    return;
+  }
+  const beats = questBeats(
+    {
+      ...next,
+      specimenMeta: next.specimenMeta ?? {},
+    },
+    questRunState(),
+    npc.id,
+    npc.name,
+  );
+  // A greeting with a menu is how most givers already hand out work, so the
+  // only thing they cannot say in static text is what happened *after*: the
+  // nag while a job is open, and the thank-you when it is done. Those come
+  // first; a plain offer is only voiced when the greeting has no menu of its
+  // own to say it with.
+  const hasMenu = (opening.options?.length ?? 0) > 0;
+  const voice = beats.thanks ?? beats.pending ?? (hasMenu ? null : beats.offer);
+  if (!voice) {
+    return;
+  }
+  const withVoice =
+    beats.thanks && voice === beats.thanks
+      ? addTally(next, thanksSpokenKey(beats.thanks.id), 1)
+      : next;
+  overworldController._setState({
+    ...withVoice,
+    dialogueQueue: [{ text: voice.text, next: undefined }, ...next.dialogueQueue],
+  });
+}
+
 function dispatchOverworldDpad(direction: Direction | "interact"): void {
   if (direction === "interact") {
-    overworldController.interact();
+    talkAhead();
     renderOverworldUi();
     scheduleWorldSave();
     return;

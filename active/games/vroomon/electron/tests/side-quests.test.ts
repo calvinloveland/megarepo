@@ -5,6 +5,7 @@ import {
   claimableQuests,
   findSideQuest,
   objectiveProgress,
+  questBeats,
   questProgress,
   isUnlocked,
   sideQuestLog,
@@ -241,5 +242,92 @@ describe("side quests", () => {
       tally: { wildWins: 3, "paid:wranglers-muster": 1 },
     });
     expect(claimableQuests(w, RUN)).toHaveLength(0);
+  });
+});
+
+describe("a giver says their own lines", () => {
+  const muster = findSideQuest("wranglers-muster")!;
+
+  it("offers the job in their own words before you take it", () => {
+    const beats = questBeats(world(), RUN, "wrangler-jess", "Wrangler Jess");
+    expect(beats.offer?.id).toBe("wranglers-muster");
+    expect(beats.offer?.text).toBe(muster.offer);
+    expect(beats.thanks).toBeNull();
+  });
+
+  it("nags in proportion once you have taken it", () => {
+    const beats = questBeats(
+      world({ flags: { "quest-muster-accepted": true } }),
+      RUN,
+      "wrangler-jess",
+      "Wrangler Jess",
+    );
+    expect(beats.pending?.id).toBe("wranglers-muster");
+    expect(beats.pending?.text).toContain("wrangler's muster");
+    // Her other jobs may still be on offer, but never the one you have taken.
+    expect(beats.offer?.id).not.toBe("wranglers-muster");
+  });
+
+  it("says thank you when the work is done and unpaid", () => {
+    const beats = questBeats(
+      world({
+        flags: { "quest-muster-accepted": true },
+        tally: { wildWins: 3 },
+      }),
+      RUN,
+      "wrangler-jess",
+      "Wrangler Jess",
+    );
+    expect(beats.thanks?.id).toBe("wranglers-muster");
+    expect(beats.thanks?.text).toBe(muster.reward.thanks);
+    // The reward is paid the instant the work is done, so the words wait for
+    // the next meeting - and having said them, they are done.
+    const paid = questBeats(
+      world({
+        flags: { "quest-muster-accepted": true },
+        tally: { wildWins: 3, "paid:wranglers-muster": 1 },
+      }),
+      RUN,
+      "wrangler-jess",
+      "Wrangler Jess",
+    );
+    expect(paid.thanks?.id).toBe("wranglers-muster");
+    const said = questBeats(
+      world({
+        flags: { "quest-muster-accepted": true },
+        tally: {
+          wildWins: 3,
+          "paid:wranglers-muster": 1,
+          "spoken:wranglers-muster": 1,
+        },
+      }),
+      RUN,
+      "wrangler-jess",
+      "Wrangler Jess",
+    );
+    expect(said.thanks).toBeNull();
+    expect(said.offer?.id).not.toBe("wranglers-muster");
+  });
+
+  it("leaves people who give you nothing out of it", () => {
+    const beats = questBeats(world(), RUN, "meadow-elder", "Meadow Elder");
+    expect(beats.offer).toBeNull();
+    expect(beats.pending).toBeNull();
+    expect(beats.thanks).toBeNull();
+  });
+
+  it("pays before it chases, and chases before it offers", () => {
+    // A giver with a finished job, an open one and a new one waiting: the
+    // money comes first, then the reminder, then the next job.
+    const beats = questBeats(
+      world({
+        flags: { "quest-muster-accepted": true, "quest-freight-accepted": true },
+        tally: { wildWins: 3 },
+      }),
+      RUN,
+      "wrangler-jess",
+      "Wrangler Jess",
+    );
+    expect(beats.thanks?.id).toBe("wranglers-muster");
   });
 });

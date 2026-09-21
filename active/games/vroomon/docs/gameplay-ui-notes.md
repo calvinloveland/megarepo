@@ -913,6 +913,58 @@ the helper is exported, and the next caller would have inherited the wrong
 answer. The controller now also passes its own pinned clock through, so both
 layers agree even at a phase boundary.
 
+## The writers' lines were never on screen (2026-09-15) ✅
+
+Every side quest has carried an authored `offer` ("Nobody wrangles vroomon
+without proving they can catch one...") and an authored `reward.thanks`
+("Three races won off the rough. That's a wrangler.") since the quest layer
+was built. A grep for either string across the whole renderer found **nothing
+that displayed them**. The contract test asserted both were non-empty — so
+they were written, checked, and read by nobody.
+
+That is a specific and embarrassing shape of dead content: the checks passed
+precisely because the lines existed, and nothing checked that they *arrived*.
+
+### Putting them in the giver's mouth
+
+`questBeats(world, run, npcId, npcName)` returns what a person should be
+saying, in priority order:
+
+1. **thanks** — a job you finished that they have not acknowledged to your
+   face yet
+2. **pending** — a job you took and have not delivered
+3. **offer** — the next job, when their greeting has no menu of its own to
+   say it with
+
+The talking handler plays that line *before* their greeting (prepending, so a
+greeting with options still shows its menu afterwards — appending would have
+been swallowed).
+
+### The reward lands the instant the work is done
+
+The first live test looked like a failure: Jess said nothing. She had already
+paid out — `tally` read `paid:wranglers-muster` — so there was nothing to
+thank for. That is the right mechanic (nobody should have to walk back for
+their money) but it meant the thank-you could never be spoken, since the
+player is not mid-conversation when it fires. So the acknowledgement now waits
+for the **next meeting**, tracked by `spoken:<quest>` so it happens once.
+
+The screenshot is the whole point: Jess says *"Three races won off the rough.
+That's a wrangler."*, the corner reads **JOB DONE · The Wrangler's Muster**,
+and the wallet reads 120 cr — the writer's line, the job, and the money all
+in the same moment.
+
+### And the loop the feud actually asks for
+
+Writing the arc e2e from scratch went wrong twice, in a way worth recording.
+The feud is raced by the best car in the **Record Barn** — not by whatever the
+herd currently holds — and the selection *sticks to whatever you last
+touched*. Seeding the loaner moved it, so the test saved a 787 car while the
+HUD showed a 1000+ leader, and lost the feud by 213. Both failures were the
+test being wrong about the game, not the game being wrong, and the fixed test
+now picks the top-scoring chip first — which is the loop a player runs: find
+your best, record it, defend the ground with it.
+
 ## A correction: where the ladder actually starts asking (2026-09-15) ✅
 
 Two cycles ago I wrote that "the first trophy is about breeding rather than
