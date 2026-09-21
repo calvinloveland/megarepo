@@ -139,6 +139,40 @@ encounter raced on the wrong ground.
 
 ---
 
+## The loaner is pitched exactly right, so it stays (2026-09-15) ✅
+
+The full sitting flagged a question worth answering with numbers: the first
+catch was won by 348px, but the yard's wild champion runs 479px against the
+loaner's 463 — so the *gift* is slightly below the best thing in the grass
+beside the house. Should the starter be stronger?
+
+Measured, the whole founder pack:
+
+```
+yard pack (founders)   min 3   p25 74   median 136   p75 206   champion 479
+loaner on Grassland    463
+```
+
+**The answer is to change nothing.** The loaner beats the ground's middle
+animal by more than three times, so the tutorial's first catch — the game's
+first real test — is a comfortable win. It loses to the ground's champion by
+**16px, or 3%**: close enough that the player can see a slightly better animal
+exists and nothing more is needed from them, far enough that walking into the
+grass has a point. A starter far behind the local wild would read as a
+punishment; one ahead of everything would make hunting pointless on day one.
+
+`tests/early-game.test.ts` pins all three relationships now — better than twice
+the median, behind the champion, within a fifth of it.
+
+**And a note on what that test actually guards**, because mutation-checking it
+was instructive: founder packs are *seeded deterministically*, so raising the
+wild's mutation rate does not move these numbers at all. What moves them is the
+loaner's DNA, the sim's scoring, the pack size and the founding seed — which is
+precisely the set of things that can break the first morning, and precisely
+what the contract is for.
+
+---
+
 ## Notes dated 2026-09-15, in file order
 
 A table of contents for this date's work, which is scattered through the file

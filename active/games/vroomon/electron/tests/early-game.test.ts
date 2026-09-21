@@ -6,6 +6,7 @@ import {
   plantSeedDna,
   runEvolutionGeneration,
 } from "../src/core/population.js";
+import { scoreWildPack, seedWildPack } from "../src/core/wild.js";
 import { createEmptyRunState } from "../src/shared/parity-contract.js";
 import { feudBar } from "../src/renderer/circuit.js";
 
@@ -138,4 +139,40 @@ describe("the ladder a new rancher climbs", () => {
     // Nor is it a gulf: one good import closes it.
     expect(tierTwo - plateau).toBeLessThan(plateau * 0.15);
   }, 120_000);
+});
+
+describe("the loaner is pitched between the wild's average and its best", () => {
+  it("wins the first catch, and leaves something to hunt for", () => {
+    // The tutorial's balance in one measurement. The loaner has to beat the
+    // yard's middle animal comfortably, or the first catch — the game's first
+    // real test — is a coin flip. It also has to LOSE to the yard's best, or
+    // there is nothing out in the grass worth walking to. And the gap should
+    // be small: a starter that is far behind the local wild reads as a
+    // punishment rather than a gift.
+    //
+    // Note what this is sensitive to, because it is narrower than it looks:
+    // founder packs are seeded deterministically, so raising the wild's
+    // mutation rate does NOT move these numbers. What moves them is the
+    // loaner's DNA, the sim's scoring, the pack size and the founding seed —
+    // which is exactly the set of things that can break the first morning.
+    const pack = scoreWildPack("ranch_yard", seedWildPack("ranch_yard"));
+    const scores = pack.members.map((member) => member.score).sort((a, b) => a - b);
+    const median = scores[Math.floor(scores.length / 2)]!;
+    const champion = scores[scores.length - 1]!;
+    const loaner = evaluatePopulation(
+      [{ id: "loaner", dna: "vcG5pzmORWqC", parents: [], mutated: false, score: 0 }],
+      "Grassland",
+    ).results[0]!.score;
+
+    console.log(
+      `[early] yard pack: median ${Math.round(median)} champion ${Math.round(champion)} ` +
+        `| loaner ${Math.round(loaner)} (${(((champion - loaner) / loaner) * 100).toFixed(0)}% short of the champion)`,
+    );
+    // Comfortably better than the middle of the pack: the catch is winnable.
+    expect(loaner).toBeGreaterThan(median * 2);
+    // Behind the ground's best: there is a reason to go and look.
+    expect(loaner).toBeLessThan(champion);
+    // But close behind: 3% at the time of writing, and not more than a fifth.
+    expect(champion - loaner).toBeLessThan(loaner * 0.2);
+  }, 60_000);
 });
