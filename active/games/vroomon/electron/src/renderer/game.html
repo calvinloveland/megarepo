@@ -83,8 +83,17 @@
         width: 100%;
         height: 100%;
         display: block;
-        background: #6f9d4a;
+        /* The canvas is authored 640x480 (4:3) and the panel is whatever shape
+           the window is. Stretching it to fill made every tile a different
+           shape per screen — at 1920x1080 they were 33% wider than tall.
+           `contain` keeps the drawing square and letterboxes the rest, and the
+           surround is the deep-forest colour so the bars read as trees. */
+        object-fit: contain;
+        background: transparent;
         image-rendering: pixelated;
+      }
+      .viewport-stage__body {
+        background: #14200f;
       }
 
       /* ============ FLOATING TOP BAR ============ */

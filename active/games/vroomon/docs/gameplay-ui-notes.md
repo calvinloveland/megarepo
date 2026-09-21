@@ -221,6 +221,7 @@ new entry that is not indexed here fails the suite.
 - [Notes dated 2026-09-15, in file order](#notes-dated-2026-09-15-in-file-order)
 - [The Heritage tree draws at the size it is shown (2026-09-15) ✅](#the-heritage-tree-draws-at-the-size-it-is-shown-2026-09-15)
 - [Every drawing surface now fits its box (2026-09-15) ✅](#every-drawing-surface-now-fits-its-box-2026-09-15)
+- [The world was stretched to fit the window (2026-09-15) ✅](#the-world-was-stretched-to-fit-the-window-2026-09-15)
 - [Three ways a written scene quietly stops working (2026-09-15) ✅](#three-ways-a-written-scene-quietly-stops-working-2026-09-15)
 - [Where people are, and where the map file says they are (2026-09-15) ✅](#where-people-are-and-where-the-map-file-says-they-are-2026-09-15)
 - [The inverse sweep: flavour that could belong to any map (2026-09-15) ✅](#the-inverse-sweep-flavour-that-could-belong-to-any-map-2026-09-15)
@@ -322,6 +323,33 @@ assumption, that a floor *raises* a small box and never lowers a large one.
 wild lanes      720x260     704x254 (98%)       704x254 backing = shown
 inspector       640x240     506x190 (79%)       506x190 backing = shown
 heritage tree  1200x620     948x474 (79%)       948x476 backing = shown
+```
+
+---
+
+## The world was stretched to fit the window (2026-09-15) ✅
+
+The overworld canvas is authored **640×480** — 4:3, sixteen 40px tiles across —
+and the CSS stretched it to fill its panel, which is whatever shape the window
+is. Measured at three sizes:
+
+```
+1024x768    panel 4:3      stretch 1.000x   tiles 64x64
+1440x900    panel 1.6:1    stretch 1.200x   tiles 90x75
+1920x1080   panel 16:9     stretch 1.334x   tiles 107x80
+```
+
+At 1080p every tile was **33% wider than tall**, and so was every vroomon,
+every tree and every house. It reads as a slightly wide art style until you
+measure it, which is why it survived a dozen screenshot passes.
+
+`object-fit: contain` on the canvas keeps the drawing at its own aspect and
+letterboxes the rest, with the surround set to the deep-forest colour so the
+bars read as trees rather than as a layout bug. Verified by the same
+arithmetic, now square:
+
+```
+1600x900 panel -> drawing 1200x900, tiles 75.0 x 75.0
 ```
 
 ---
