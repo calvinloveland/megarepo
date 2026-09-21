@@ -704,6 +704,35 @@ describe("world reachability", () => {
     }
   });
 
+  it("lets you decorate anywhere people actually live", () => {
+    // Decor spots drifted: the Salt Road's own camp, the Post, the yard and
+    // all three road maps had nothing placeable, so a rancher who walked the
+    // whole eastern road could buy eleven things and set none of them down.
+    // The rule: an outdoor map with people on it can take at least one.
+    const placeable = new Map<string, number>();
+    for (const item of DECOR_ITEMS) {
+      placeable.set("starter_town", (placeable.get("starter_town") ?? 0) + 1);
+      for (const mapId of Object.keys(item.spots ?? {})) {
+        placeable.set(mapId, (placeable.get(mapId) ?? 0) + 1);
+      }
+    }
+
+    const bare: string[] = [];
+    for (const map of MAP_LIST) {
+      if (map.interior) {
+        continue;
+      }
+      const people = map.npcs.filter((npc) => npc.x > 0 || npc.y > 0).length;
+      if (people < 2) {
+        continue;
+      }
+      if ((placeable.get(map.id) ?? 0) === 0) {
+        bare.push(`${map.id} (${map.name}, ${people} people)`);
+      }
+    }
+    expect(bare, `nowhere to put anything: ${bare.join("; ")}`).toEqual([]);
+  });
+
   it("never paints a door that leads nowhere", () => {
     // A door tile promises a room. If nothing near it transitions, the map is
     // lying to the player — the Long Haul's cookhouse and workshop doors both

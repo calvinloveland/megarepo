@@ -913,6 +913,31 @@ the helper is exported, and the next caller would have inherited the wrong
 answer. The controller now also passes its own pinned clock through, so both
 layers agree even at a phase boundary.
 
+## You can decorate anywhere people live (2026-09-15) ✅
+
+The Salt Road is the richest road in the game — thirteen people, five jobs, a
+cookhouse and a workshop — and the player could buy eleven decorations and set
+**none of them down out there**. Same for the Post, the ranch's own yard, and
+all three road maps: decor spots had drifted into being a Starter Town feature
+with a handful of exceptions.
+
+Now every outdoor map with people on it takes at least one, and the rule is a
+test:
+
+```
+nowhere to put anything: marrow_orchard (Marrow Orchard, 5 people)
+```
+
+The orchard was the one I missed by hand, and the invariant found it on the
+first run — five people, a quest chain and a wild pack, and nowhere to put a
+bench. That is the useful shape for this kind of check: not "is decor placed
+correctly" (the passability sweep already does that) but **"can the player do
+the thing here at all"**.
+
+`Shade Spindle` and `Hay Hamper` reach the yard, `Trellis Arch` the switchback
+and the Cut, `Meadow Lanterns` the Long Light Depot, `Salt Road Marker` the
+Post and the Long Haul, and `Wildflower Bed` the orchard.
+
 ## A ledger of walk-ons (2026-09-15) ✅
 
 The scenery sweep that found Pup Tam is a test now, and it works like a debt

@@ -27,7 +27,11 @@ export const DECOR_ITEMS: DecorItem[] = [
     cost: 10,
     flavor: "A ring of tall suns the calves nap under.",
     anchor: { x: 1, y: 8 },
-    spots: { route_1: { x: 4, y: 9 } },
+    spots: {
+      route_1: { x: 4, y: 9 },
+      ranch_yard: { x: 7, y: 5 },
+      long_haul: { x: 8, y: 6 },
+    },
   },
   {
     id: "wildflower-bed",
@@ -36,7 +40,7 @@ export const DECOR_ITEMS: DecorItem[] = [
     cost: 14,
     flavor: "Tulips in meadow colors — pretty as a postcard.",
     anchor: { x: 1, y: 9 },
-    spots: { route_2: { x: 8, y: 12 } },
+    spots: { route_2: { x: 8, y: 12 }, marrow_orchard: { x: 12, y: 8 } },
   },
   {
     id: "duck-pond",
@@ -64,7 +68,7 @@ export const DECOR_ITEMS: DecorItem[] = [
     cost: 26,
     flavor: "A lunch hamper that the hooves never touch.",
     anchor: { x: 2, y: 10 },
-    spots: { ice_map: { x: 5, y: 2 } },
+    spots: { ice_map: { x: 5, y: 2 }, ranch_yard: { x: 9, y: 5 } },
   },
   {
     id: "shade-spindle",
@@ -97,7 +101,7 @@ export const DECOR_ITEMS: DecorItem[] = [
     cost: 16,
     flavor: "A spare post that still points every way at once.",
     anchor: { x: 11, y: 10 },
-    spots: { route_2: { x: 13, y: 8 } },
+    spots: { route_2: { x: 13, y: 8 }, long_haul: { x: 9, y: 5 }, gym_2: { x: 6, y: 4 } },
   },
   {
     id: "meadow-sign",
@@ -115,7 +119,10 @@ export const DECOR_ITEMS: DecorItem[] = [
     cost: 28,
     flavor: "Glassed candle-rings strung low for the dusk herd.",
     anchor: { x: 12, y: 10 },
-    spots: { ice_map: { x: 11, y: 3 } },
+    spots: {
+      ice_map: { x: 11, y: 3 },
+      long_light_depot: { x: 8, y: 4 },
+    },
   },
   {
     id: "roundup-bell",
@@ -133,7 +140,11 @@ export const DECOR_ITEMS: DecorItem[] = [
     cost: 24,
     flavor: "A rusty frame the highland vines win every summer.",
     anchor: { x: 3, y: 9 },
-    spots: { hills_map: { x: 4, y: 9 } },
+    spots: {
+      hills_map: { x: 4, y: 9 },
+      mesa_switchback: { x: 7, y: 4 },
+      the_cut: { x: 7, y: 3 },
+    },
   },
 ];
 
