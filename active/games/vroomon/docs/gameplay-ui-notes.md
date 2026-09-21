@@ -225,6 +225,7 @@ new entry that is not indexed here fails the suite.
 - [Two modules nobody tested, and a map to catch the next (2026-09-15) ✅](#two-modules-nobody-tested-and-a-map-to-catch-the-next-2026-09-15)
 - [Where this session left the project (2026-09-15) ✅](#where-this-session-left-the-project-2026-09-15)
 - [The last rule with no teacher: what the wild is *for* (2026-09-15) ✅](#the-last-rule-with-no-teacher-what-the-wild-is-for-2026-09-15)
+- [Six wrong assumptions in one test file (2026-09-15) ✅](#six-wrong-assumptions-in-one-test-file-2026-09-15)
 - [Three ways a written scene quietly stops working (2026-09-15) ✅](#three-ways-a-written-scene-quietly-stops-working-2026-09-15)
 - [Where people are, and where the map file says they are (2026-09-15) ✅](#where-people-are-and-where-the-map-file-says-they-are-2026-09-15)
 - [The inverse sweep: flavour that could belong to any map (2026-09-15) ✅](#the-inverse-sweep-flavour-that-could-belong-to-any-map-2026-09-15)
@@ -480,6 +481,39 @@ synonyms fails with `nobody explains: the wild's purpose`.
 
 Also visible in the screenshot: the schoolhouse renders with **square tiles**,
 which is the letterbox fix from the previous cycle doing its work indoors.
+
+---
+
+## Six wrong assumptions in one test file (2026-09-15) ✅
+
+Following the coverage map inward — from "no test names this module" to "no
+test asserts on this export" — turned up 46 unreferenced exports. Most are
+legitimately covered by the e2e or by their callers, but four groups are real
+contracts with things outside the app, and had never been asserted on:
+
+- **The generation log** round-trips (`serializeGenerationLogEntry` /
+  `parseGenerationLogEntry`), keeps a null best, and writes one line per entry.
+- **The DNA alphabet** accepts exactly base62, one character at a time.
+- **The rival score curve** (`inverseNormalCdf`) is centred, symmetric, monotone
+  and clamped at the ends.
+- **The file paths** all live inside one `vroomon` directory, with distinct
+  names per file and per run.
+
+Writing those tests took six attempts, because I wrote them from memory rather
+than from the code:
+
+```
+base62Value("a")                 I expected 10   it is 36   (digits, UPPER, lower)
+inverseNormalCdf(0.5)            expected 0      correct
+hullCost <= 1                    it may reach 1.5, deliberately
+framePlant(decoded)              needs weights as a second argument
+getGenerationLogPath(base)       needs a run id; without one, "undefined.jsonl"
+paths end with ".json"           the generation log is ".jsonl"
+```
+
+Every one was caught by running the test rather than by reading it. The alphabet
+order is the one worth keeping: anybody hand-typing a DNA string depends on
+`0-9A-Za-z` exactly, and I had assumed the other way round.
 
 ---
 
