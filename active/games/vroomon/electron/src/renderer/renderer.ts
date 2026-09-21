@@ -880,10 +880,10 @@ function renderLedger(): void {
             ? `you: ${formatNumber(row.best)}${row.dna ? ` (${escapeHtml(row.dna)})` : ""}`
             : "you: —";
         // The ledger is a work list, not a report: a row you are short on
-        // sends you to the ground with your best car already in the paddock.
+        // sends you to the ground with your best car already on the bench.
         const prep =
           row.status === "short"
-            ? `<button class="ledger-row__prep" type="button" data-ledger-prep="${escapeHtml(row.venueMapId)}" title="Load this ground and your best car into the paddock">Try it</button>`
+            ? `<button class="ledger-row__prep" type="button" data-ledger-prep="${escapeHtml(row.venueMapId)}" title="Load this ground and your best car onto the herd bench">Try it</button>`
             : "";
         return (
           `<div class="ledger-row ledger-row--${row.status}">` +
@@ -998,7 +998,7 @@ function renderRecordsBoard(): void {
           wildSendNote(entry.terrainName, sends),
         )}</span>
         <span class="records-row__dna">${escapeHtml(entry.dna)}</span>
-        <button class="records-row__drive" data-drive-record="${escapeHtml(entry.terrainName)}" type="button" title="Load this lap's car and ground into the paddock">Race it</button>
+        <button class="records-row__drive" data-drive-record="${escapeHtml(entry.terrainName)}" type="button" title="Load this lap's car and ground onto the herd bench">Race it</button>
       </div>`,
             )
             .join("");
@@ -1012,7 +1012,7 @@ function renderRecordsBoard(): void {
           return;
         }
         // Chasing a record means standing on its terrain with its genome
-        // in the draft — take the rancher straight to the paddock.
+        // in the draft — take the rancher straight to the herd bench.
         rendererState = setRendererTerrain(rendererState, record.terrainName);
         rendererState = setDraftDna(rendererState, record.dna);
         openPocketRanch("drive");

@@ -237,6 +237,7 @@ new entry that is not indexed here fails the suite.
 - [A determinism check, because a stamp cannot see randomness (2026-09-15) ✅](#a-determinism-check-because-a-stamp-cannot-see-randomness-2026-09-15)
 - [Two dead exports, and one of them was a trap (2026-09-15) ✅](#two-dead-exports-and-one-of-them-was-a-trap-2026-09-15)
 - [The design overview now dates itself (2026-09-15) ✅](#the-design-overview-now-dates-itself-2026-09-15)
+- [The hub bar and the corner controls were fighting for one row (2026-09-15) ✅](#the-hub-bar-and-the-corner-controls-were-fighting-for-one-row-2026-09-15)
 - [Three ways a written scene quietly stops working (2026-09-15) ✅](#three-ways-a-written-scene-quietly-stops-working-2026-09-15)
 - [Where people are, and where the map file says they are (2026-09-15) ✅](#where-people-are-and-where-the-map-file-says-they-are-2026-09-15)
 - [The inverse sweep: flavour that could belong to any map (2026-09-15) ✅](#the-inverse-sweep-flavour-that-could-belong-to-any-map-2026-09-15)
@@ -878,6 +879,55 @@ correct; it is a claim that somebody checked recently.
 
 (Which immediately caught itself: adding this very test pushed the suite to 448,
 so the line I had just written was already one out.)
+
+---
+
+## The hub bar and the corner controls were fighting for one row (2026-09-15) ✅
+
+A settings e2e started failing: the carrier's bar intercepted the click. What
+followed is worth writing down in full, because I got it wrong twice.
+
+**Wrong guess one.** I assumed the pill I had just renamed ("Dex" → "Herd
+Book") had widened the bar past the corner controls. Plausible, unverified.
+
+**Wrong fix.** I added `flex-wrap: wrap` and a `max-width` cap. That *caused* a
+worse bug — a taller bar reached down over the **ranch shop's close button** —
+which the suite caught immediately, in two tests I had not touched.
+
+**The measurement.** With the original CSS restored, the rectangles were:
+
+```
+top bar     x 0-1280,  y 0-35     (logo left, settings and volume right)
+hub bar     x 90-1190, y 7-52     ~1100px wide
+settings    x 1160-1190, y 10-39
+```
+
+The hub bar's right edge was **1190** and the settings button started at
+**1160** — they were never on different rows. The bar is ~1100px wide because
+it holds a title, six scene pills and a close button, and it was sharing the top
+strip with the corner controls.
+
+**The fix**, three parts: the hub bar moves **below** the top strip
+(`top: 2.6rem`), the ranch modal is raised **above** it (a modal should own the
+screen), and `closePocketRanch` in the e2e now closes an open modal before
+clicking the hub's own close — which is what a player does, and which the tests
+had been skipping by clicking *through* the modal.
+
+### A guard that measures
+
+The e2e now asserts the two rectangles **do not intersect**, both axes, rather
+than eyeballing a screenshot or trusting a rule:
+
+```
+the carrier bar (90,42-1190,87) overlaps the corner controls (1160,10-1190,39)
+```
+
+### And a process bug of my own
+
+Several failures this cycle were against a **stale `dist/`**: I have been
+running `node scripts/run-playwright.mjs` directly, which skips the build step
+that `npm run test:e2e` performs. Editing source and running the runner is
+testing yesterday's game. Worth remembering before blaming the last change.
 
 ---
 

@@ -518,6 +518,26 @@ describe("quest contracts", () => {
     ).toEqual([]);
   });
 
+  it("calls each thing in the world by one name", () => {
+    // The inverse of the venue-alias check, applied to the UI's own copy. The
+    // player-facing word for the collection is "Herd Book" everywhere - the
+    // panel title, Axle's lesson, the tutorial, the docs - while the scene pill
+    // said "Dex". Two names for one thing is a player learning it twice.
+    const ui = [
+      readFileSync("src/renderer/index.html", "utf8"),
+      readFileSync("src/renderer/game.html", "utf8"),
+      readFileSync("src/renderer/renderer.ts", "utf8"),
+    ].join("\n");
+
+    // Scene ids are internal and may keep the short name.
+    const withoutIds = ui
+      .replace(/data-barn-pill="dex"/g, "")
+      .replace(/data-dex-[a-z-]+/g, "");
+    const visibleDex = /(^|[>"\s])Dex([<"\s]|$)/.test(withoutIds);
+    expect(visibleDex, 'the UI still shows the bare word "Dex"').toBe(false);
+    expect(ui).toContain("Herd Book");
+  });
+
   it("leaves no earned-only decor item unearnable", () => {
     // An item marked `earnedOnly` is hidden from the ranch shop, so a quest
     // reward is the only way it can ever exist in a save. Add one without a

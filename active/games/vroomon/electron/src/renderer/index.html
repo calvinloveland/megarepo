@@ -1019,11 +1019,20 @@
       }
       .pocket-ranch__bar {
         position: absolute;
-        top: 0.45rem;
+        /* Below the top bar, not beside it. The strip holds the logo on the
+           left and the settings and volume buttons on the right, and the hub's
+           own bar is ~1100px wide - so the two cannot share a row without the
+           wider one swallowing the other's clicks. */
+        top: 2.6rem;
         left: 50%;
         transform: translateX(-50%);
         display: flex;
         align-items: center;
+        /* One line, always. A cap with wrapping looks defensive and is not: a
+           taller bar reaches down into the ranch shop's own close button,
+           which sits near the top of its panel. Measured clearance against the
+           corner controls is 136-200px at 1024-1280px without any cap, and
+           `tests/e2e` asserts it stays positive. */
         gap: 0.4rem;
         padding: 0.35rem 0.5rem;
         background: linear-gradient(180deg, var(--paper) 0%, var(--paper-dark) 100%);
@@ -1337,7 +1346,7 @@
       .ranch-modal {
         position: fixed;
         inset: 0;
-        z-index: 55;
+        z-index: 70;
         display: grid;
         place-items: center;
         background: rgba(4, 8, 16, 0.7);
@@ -2070,7 +2079,7 @@
             <button class="barn-pill" type="button" data-barn-pill="barn" aria-pressed="false">🏟 Barn</button>
             <button class="barn-pill" type="button" data-barn-pill="heritage" aria-pressed="false">🌳 Heritage</button>
             <button class="barn-pill" type="button" data-barn-pill="market" aria-pressed="false">🧺 Trade</button>
-            <button class="barn-pill" type="button" data-barn-pill="dex" aria-pressed="false">📖 Dex</button>
+            <button class="barn-pill" type="button" data-barn-pill="dex" aria-pressed="false">📖 Herd Book</button>
             <button class="barn-hub__close" type="button" data-barn-close>Back to the road</button>
           </div>
           <div class="pocket-ranch__scene pocket-ranch__scene--heritage" data-barn-scene="heritage" hidden>

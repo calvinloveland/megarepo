@@ -664,6 +664,45 @@ test.describe("vroomon Playwright harness", () => {
   });
 
 
+  test("@smoke the carrier bar never covers the corner controls", async ({ page }) => {
+    // Measured, not eyeballed. The hub's bar is centred and the settings and
+    // volume buttons live in the top-right corner; a bar wide enough to reach
+    // them swallows their clicks, which is exactly what happened when one pill
+    // was renamed from "Dex" to "Herd Book".
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await seedAndEnterWorld(page);
+    await openPocketRanch(page, "herd");
+    await page.waitForTimeout(400);
+
+    const boxes = await page.evaluate(() => {
+      const bar = document.querySelector(".pocket-ranch__bar");
+      const corner = document.querySelector("[data-open-settings]");
+      if (!bar || !corner) {
+        return null;
+      }
+      const a = bar.getBoundingClientRect();
+      const b = corner.getBoundingClientRect();
+      return {
+        bar: { left: Math.round(a.left), top: Math.round(a.top), right: Math.round(a.right), bottom: Math.round(a.bottom) },
+        corner: { left: Math.round(b.left), top: Math.round(b.top), right: Math.round(b.right), bottom: Math.round(b.bottom) },
+      };
+    });
+    expect(boxes).not.toBeNull();
+    // Real intersection, both axes: being wider is fine as long as they are on
+    // different rows, which is what the move below the top strip achieved.
+    const { bar, corner } = boxes!;
+    const intersects =
+      bar.left < corner.right &&
+      bar.right > corner.left &&
+      bar.top < corner.bottom &&
+      bar.bottom > corner.top;
+    expect(
+      intersects,
+      `the carrier bar (${bar.left},${bar.top}-${bar.right},${bar.bottom}) overlaps the corner controls (${corner.left},${corner.top}-${corner.right},${corner.bottom})`,
+    ).toBe(false);
+    await closePocketRanch(page);
+  });
+
   test("@smoke the opening arc ends with a Brand on the barn wall", async ({ page }) => {
     // The whole opening arc in one run: the loaner Robby lends, generations
     // at the bench, then a Brand won against the tier I bar with nothing
@@ -1425,6 +1464,16 @@ async function openPocketRanch(
 
 /** Leave the hub back to the overworld. */
 async function closePocketRanch(page: import("@playwright/test").Page): Promise<void> {
+  // A modal inside the hub owns the screen while it is open - the ranch shop
+  // and the Grand Roundup both do - so close that first. Clicking the hub's
+  // own close through a modal is what a player cannot do either.
+  for (const selector of ["[data-close-ranch]", "[data-grand-roundup-close]"]) {
+    const modal = page.locator(selector);
+    if ((await modal.count()) > 0 && (await modal.first().isVisible())) {
+      await modal.first().click();
+      await page.waitForTimeout(250);
+    }
+  }
   await page.locator("[data-barn-close]").click();
   await page.waitForTimeout(350);
 }
