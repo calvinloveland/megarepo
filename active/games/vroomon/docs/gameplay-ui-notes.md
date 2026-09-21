@@ -240,6 +240,7 @@ new entry that is not indexed here fails the suite.
 - [The hub bar and the corner controls were fighting for one row (2026-09-15) ✅](#the-hub-bar-and-the-corner-controls-were-fighting-for-one-row-2026-09-15)
 - [The runner now tells you when it is testing yesterday's game (2026-09-15) ✅](#the-runner-now-tells-you-when-it-is-testing-yesterdays-game-2026-09-15)
 - [The other floating panels, measured (2026-09-15) ✅](#the-other-floating-panels-measured-2026-09-15)
+- [Two names that were duplicates, and four that were not (2026-09-15) ✅](#two-names-that-were-duplicates-and-four-that-were-not-2026-09-15)
 - [Three ways a written scene quietly stops working (2026-09-15) ✅](#three-ways-a-written-scene-quietly-stops-working-2026-09-15)
 - [Where people are, and where the map file says they are (2026-09-15) ✅](#where-people-are-and-where-the-map-file-says-they-are-2026-09-15)
 - [The inverse sweep: flavour that could belong to any map (2026-09-15) ✅](#the-inverse-sweep-flavour-that-could-belong-to-any-map-2026-09-15)
@@ -974,6 +975,42 @@ so before anybody "fixes" it back.
 
 Which is the useful shape of this kind of guard: measuring the wrong box gives
 you a failing test that is telling the truth about the wrong thing.
+
+---
+
+## Two names that were duplicates, and four that were not (2026-09-15) ✅
+
+The dialogue sweep, the same shape as the button sweep: collect every string an
+NPC says and look for one concept wearing two names.
+
+**Real duplicates, both fixed:**
+
+- Axle's breeding lesson said *"It happens in the paddock, not on the road. Your
+  starters sit on the breeding bench"* — **one sentence, two names for the same
+  surface.**
+- *"take this starter DNA and a **Hall of Fame** key"* — the name from before
+  the Hall of Fame became the Record Barn, still in the tutorial's mouth.
+
+**Four that only looked like duplicates:**
+
+- `paddock` (×4) beside `bench` (×10) — a paddock is the fenced ground the herd
+  lives on, and the ranch yard *is* one; the bench is the tool you breed on.
+  Different things, both correct.
+- `wild vroomon` / `wild stock` / `wild ones` / `the wild` — four registers, and
+  the informal one is how a wrangler talks.
+- `the road` (×18) beside `the circuit` (×1) — the road is the world, the
+  circuit is the competition.
+- `Record Barn` / `the Barn` — long and short form of the same name, which is
+  what speech does.
+
+So the distinction is written into the contract rather than left in my head:
+a line may say *paddock*, and a line may say *bench*, but **no line may use
+"paddock" for the breeding surface**, and the old "Hall of Fame" name is gone
+for good. Mutation-verified — putting the old name back fails with
+`the old "Hall of Fame" name is back`.
+
+An e2e was asserting Axle said "paddock", which is exactly the duplication being
+removed: it checks for "on the bench" now.
 
 ---
 

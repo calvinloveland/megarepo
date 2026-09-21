@@ -518,6 +518,27 @@ describe("quest contracts", () => {
     ).toEqual([]);
   });
 
+  it("calls the breeding surface the bench, and the yard a paddock", () => {
+    // Two words that look like duplicates and are not: a *paddock* is the
+    // fenced ground the herd lives on (the ranch yard is one), and *the bench*
+    // is the tool you breed on. The dialogue is allowed to say both, in their
+    // own senses — but a sentence that uses "paddock" for the breeding surface
+    // is a player learning the same thing twice.
+    const dialogue = Object.values(MAPS)
+      .flatMap((map) => map.npcs)
+      .map((npc) => JSON.stringify(npc.dialogue ?? {}))
+      .join(" ");
+
+    // The old name for the Record Barn is gone for good.
+    expect(dialogue.includes("Hall of Fame"), 'the old "Hall of Fame" name is back').toBe(false);
+    // And no single line uses "paddock" as if it were the bench.
+    const lines = dialogue.split(/(?<=[.!?])\s+/);
+    const mixed = lines.filter(
+      (line) => /paddock/i.test(line) && /(breed|generation|bench)/i.test(line),
+    );
+    expect(mixed, `a line mixes the yard and the bench: ${mixed.join(" | ")}`).toEqual([]);
+  });
+
   it("calls each thing in the world by one name", () => {
     // The inverse of the venue-alias check, applied to the UI's own copy. The
     // player-facing word for the collection is "Herd Book" everywhere - the

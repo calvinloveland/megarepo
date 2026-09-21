@@ -806,6 +806,7 @@ const overworldController = createOverworldInputs(rendererState.world, {
     }
     if (grandRoundupOverlay) {
       grandRoundupOverlay.hidden = false;
+      syncModalChrome();
     }
     rendererState = {
       ...rendererState,
@@ -1331,16 +1332,19 @@ document.querySelector<HTMLButtonElement>("[data-open-settings]")?.addEventListe
   if (settingsOverlay) {
     syncSettingsControls();
     settingsOverlay.hidden = false;
+    syncModalChrome();
   }
 });
 document.querySelector<HTMLButtonElement>("[data-settings-close]")?.addEventListener("click", () => {
   if (settingsOverlay) {
     settingsOverlay.hidden = true;
+    syncModalChrome();
   }
 });
 settingsOverlay?.addEventListener("click", (event) => {
   if (event.target === settingsOverlay) {
     settingsOverlay.hidden = true;
+    syncModalChrome();
   }
 });
 settingsMasterInput?.addEventListener("input", () => {
@@ -1959,6 +1963,22 @@ function bestOwnedDna(terrainName: string): string | null {
   return seeded?.dna ?? null;
 }
 
+/**
+ * A full-screen modal owns the screen: while one is open the world's own
+ * controls (D-pad, Barn chip, chip column) step aside, via one class on the
+ * body. Without it a race panel arrives on top of a D-pad and two more
+ * buttons, which is what "too many buttons" means.
+ */
+function syncModalChrome(): void {
+  const modalOpen =
+    wildRaceState.open ||
+    Boolean(ranchOverlay && !ranchOverlay.hidden) ||
+    Boolean(grandRoundupOverlay && !grandRoundupOverlay.hidden) ||
+    Boolean(settingsOverlay && !settingsOverlay.hidden) ||
+    inspectorState.open;
+  document.body.classList.toggle("modal-open", modalOpen);
+}
+
 function openWildRace(wildDna: string): void {
   const mapId = rendererState.world.currentMapId;
   // The ground the PACK lives on, not the ground the circuit would race you
@@ -1990,6 +2010,7 @@ function openWildRace(wildDna: string): void {
     playing: false,
     caught: false,
   };
+  syncModalChrome();
   renderWildRace();
 }
 
@@ -1998,6 +2019,7 @@ function closeWildRace(): void {
   // Either way the meeting happened: the pack breeds on without you.
   advanceWildForMap(overworldController.state.currentMapId);
   wildRaceState = { ...wildRaceState, open: false, frames: null, playing: false };
+  syncModalChrome();
   renderWildRace();
   // A win queues Robby's praise beat while the overlay is up, so the world
   // underneath has to be repainted when the overlay closes.
@@ -2166,14 +2188,48 @@ function drawWildRace(): void {
 
   const laneTop = canvas.height * 0.34;
   const laneBottom = canvas.height * 0.78;
-  for (const [lane, y] of [["mine", laneTop] as const, ["wild", laneBottom] as const]) {
+  // The track: a start post, two lanes, and a finish they can actually reach.
+  const startPostX = 40;
+  const finishPostX = canvas.width - 68;
+  for (const y of [laneTop, laneBottom]) {
     ctx.strokeStyle = "rgba(168, 122, 74, 0.75)";
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.moveTo(24, y);
-    ctx.lineTo(canvas.width - 24, y);
+    ctx.moveTo(startPostX, y);
+    ctx.lineTo(finishPostX, y);
     ctx.stroke();
-    void lane;
+  }
+  const post = (x: number, label: string): void => {
+    ctx.fillStyle = "rgba(232, 220, 192, 0.55)";
+    ctx.fillRect(x, laneTop - 34, 2, laneBottom - laneTop + 34);
+    ctx.font = "600 11px ui-sans-serif, system-ui, sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText(label, x, 16);
+  };
+  post(startPostX, "START");
+  post(finishPostX, "FINISH");
+  // Name each lane on the track itself, parked or racing: the question "who is
+  // racing what?" is asked while looking at the cars, not at the rows below.
+  const laneLabel = (text: string, laneY: number, fill: string): void => {
+    ctx.font = "700 11px ui-sans-serif, system-ui, sans-serif";
+    ctx.textAlign = "left";
+    ctx.fillStyle = fill;
+    ctx.fillText(text, 10, laneY - 44);
+  };
+  laneLabel("YOU", laneTop, "#8ab4ff");
+  laneLabel("THE WILD", laneBottom, "#ffb3a7");
+  // A chequered band, because a finish line is the thing that tells you the
+  // race is over rather than the cars having stopped for no reason.
+  for (let row = 0; row < 2; row += 1) {
+    for (let col = 0; col < 2; col += 1) {
+      ctx.fillStyle = row === col ? "rgba(232, 220, 192, 0.9)" : "rgba(30, 38, 50, 0.9)";
+      ctx.fillRect(
+        finishPostX - 5 + col * 5,
+        24 + row * 5,
+        5,
+        5,
+      );
+    }
   }
 
   if (!frames) {
@@ -2219,7 +2275,22 @@ function drawWildRace(): void {
   }
 
   const startX = frames.mine[0]?.snapshot.centerX ?? 0;
-  const scale = 0.42;
+  // Scale the lanes so the furthest car finishes ON the line rather than
+  // running out of track in empty space.
+  const travelled = (frameset: VehiclePreviewFrame[]): number => {
+    const first = frameset[0]?.snapshot.centerX ?? 0;
+    const last = frameset[frameset.length - 1]?.snapshot.centerX ?? first;
+    return Math.max(1, last - first);
+  };
+  const furthest = Math.max(travelled(frames.mine), travelled(frames.wild));
+  const startLaneX = 56;
+  const finishX = canvas.width - 84;
+  const scale = (finishX - startLaneX) / furthest;
+  // One world origin, not an origin plus a per-part offset: the plates and
+  // wheels already carry world coordinates, so applying `(plate.x - startX)`
+  // on top of an offset that had already accounted for the car's travel pushed
+  // the leading car clean off the right edge of the canvas.
+  const originX = startLaneX - startX * scale;
   const drawCar = (
     frameset: VehiclePreviewFrame[],
     laneY: number,
@@ -2229,10 +2300,10 @@ function drawWildRace(): void {
     if (!snapshot) {
       return;
     }
-    const offsetX = 60 - (startX - snapshot.centerX) * scale;
+    const offsetX = originX;
     const dy = snapshot.centerY - ground;
     for (const plate of snapshot.chassis) {
-      const x = offsetX + (plate.x - startX) * scale;
+      const x = offsetX + plate.x * scale;
       const y = laneY + dy * scale;
       ctx.save();
       ctx.translate(x, y);
@@ -2255,7 +2326,7 @@ function drawWildRace(): void {
       ctx.restore();
     }
     for (const wheel of snapshot.wheels) {
-      const x = offsetX + (wheel.x - startX) * scale;
+      const x = offsetX + wheel.x * scale;
       const y = laneY + (wheel.y - ground) * scale;
       const radius = Math.max(3, (wheel.radius ?? 10) * scale);
       ctx.fillStyle = "#22282f";
@@ -2321,7 +2392,10 @@ function renderWildRace(): void {
     // is a different animal from the ice, and the player should be able to
     // tell before they race it.
     const place = getMap(mapId)?.name ?? wildRaceState.terrain;
-    sub.textContent = `${place} · ${wildRaceState.terrain} stock · ${packLine}${ceiling}${skyLine} · win and it joins your Herd Book`;
+    const how = wildRaceState.result
+      ? ""
+      : ` · both cars run the same three seconds of ${wildRaceState.terrain}; furthest wins`;
+    sub.textContent = `${place} · ${wildRaceState.terrain} stock · ${packLine}${ceiling}${skyLine}${how}`;
   }
   const lanes = document.querySelector<HTMLElement>("[data-wild-race-lanes]");
   if (lanes) {
@@ -2329,12 +2403,12 @@ function renderWildRace(): void {
       `<b>${escapeHtml(label)}</b><span>${escapeHtml(text)}</span><i>${dna ? escapeHtml(dna) : "—"}</i>`;
     lanes.innerHTML = [
       row(
-        "YOURS",
+        "YOU",
         wildRaceState.myDna,
         mine ? `${mine.modules} · ${mine.plates} plates · ${mine.wheels} wheels · ${mine.drivenCount} driven` : "",
       ),
       row(
-        "WILD",
+        "THE WILD",
         wildRaceState.wildDna,
         `${wild.modules} · ${wild.plates} plates · ${wild.wheels} wheels · ${wild.drivenCount} driven`,
       ),
@@ -2359,9 +2433,22 @@ function renderWildRace(): void {
   }
 
   const run = document.querySelector<HTMLButtonElement>("[data-wild-race-run]");
+  const leave = document.querySelector<HTMLButtonElement>("[data-wild-race-leave]");
   if (run) {
     run.disabled = !mine || wildRaceState.playing;
-    run.textContent = wildRaceState.result ? "▶ Race again" : "▶ Race";
+    run.textContent = wildRaceState.playing
+      ? "Racing…"
+      : wildRaceState.result
+        ? "↻ Race again"
+        : "▶ Race";
+    // After the race the way out is the primary action: the old "Race again"
+    // as the only live-looking button made a finished race read as a loop.
+    run.classList.toggle("hud-btn--secondary", Boolean(wildRaceState.result));
+  }
+  if (leave) {
+    leave.textContent = wildRaceState.result ? "Ride on ▸" : "Let it go";
+    leave.classList.toggle("hud-btn", Boolean(wildRaceState.result));
+    leave.classList.toggle("hud-btn--secondary", !wildRaceState.result);
   }
   drawWildRace();
 }
@@ -7558,6 +7645,7 @@ if (openRanchButton && ranchOverlay) {
       return;
     }
     ranchOverlay.hidden = false;
+    syncModalChrome();
     renderRanch();
     renderDecor();
   });
@@ -7565,11 +7653,13 @@ if (openRanchButton && ranchOverlay) {
 closeRanchButton?.addEventListener("click", () => {
   if (ranchOverlay) {
     ranchOverlay.hidden = true;
+    syncModalChrome();
   }
 });
 ranchOverlay?.addEventListener("click", (event) => {
   if (event.target === ranchOverlay) {
     ranchOverlay.hidden = true;
+    syncModalChrome();
   }
 });
 const ranchDecorList = document.querySelector<HTMLElement>("[data-ranch-decor-list]");
@@ -7579,6 +7669,7 @@ const grandRoundupOverlay = document.querySelector<HTMLElement>("[data-grand-rou
 document.querySelector<HTMLButtonElement>("[data-grand-roundup-close]")?.addEventListener("click", () => {
   if (grandRoundupOverlay) {
     grandRoundupOverlay.hidden = true;
+    syncModalChrome();
   }
 });
 let ranchToastTimer: ReturnType<typeof setTimeout> | null = null;

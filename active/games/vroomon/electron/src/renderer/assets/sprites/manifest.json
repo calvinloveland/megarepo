@@ -780,6 +780,11 @@
     "source": "drawn"
   },
   {
+    "id": "npc:robby-eager",
+    "file": "npc_robby-eager.png",
+    "source": "drawn"
+  },
+  {
     "id": "npc:robby-reveal-1",
     "file": "npc_robby-reveal-1.png",
     "source": "drawn"

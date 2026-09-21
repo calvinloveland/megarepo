@@ -459,7 +459,7 @@ export const MAPS: Record<string, Tilemap> = {
         facing: "down",
         sprite: "professor",
         dialogue: {
-          text: "Welcome to the lab, kid! I'm Professor Axle. The Continent of Vroom is full of evolving vehicles. Here, take this starter DNA and a Hall of Fame key.",
+          text: "Welcome to the lab, kid! I'm Professor Axle. The Continent of Vroom is full of evolving vehicles. Here, take this starter DNA and a Record Barn key.",
           next: "professor-axle-2",
         },
       },
@@ -499,7 +499,7 @@ export const MAPS: Record<string, Tilemap> = {
         facing: "down",
         sprite: "professor",
         dialogue: {
-          text: "It happens in the paddock, not on the road. Your starters sit on the breeding bench: run a generation and the fast ones rise, then save the best to the Record Barn. The Barn tests any car on any terrain, and the records board keeps every lap. A champion is just a name on that board.",
+          text: "It happens on the bench, not on the road. Your starters sit on it: run a generation and the fast ones rise, then save the best to the Record Barn. The Barn tests any car on any terrain, and the records board keeps every lap. A champion is just a name on that board.",
           onComplete: "vroomdex",
         },
       },
@@ -1371,13 +1371,25 @@ export const MAPS: Record<string, Tilemap> = {
         x: 7,
         y: 3,
         facing: "left",
-        sprite: "professor",
+        sprite: "rider",
         dialogue: {
           text: "Welcome there, sleepyhead! Ready to start helping around the ranch?",
           options: [
             { label: "Of course — but I didn't see any cattle on the way in?", next: "robby-reveal-1" },
-            { label: "For sure! How do I start?", next: "robby-reveal-1" },
+            { label: "For sure! How do I start?", next: "robby-eager" },
           ],
+        },
+      },
+      {
+        id: "robby-eager",
+        name: "Rancher Robby",
+        x: 0,
+        y: 0,
+        facing: "down",
+        sprite: "rider",
+        dialogue: {
+          text: "Straight to it — I like that. There's nothing to start, mind. Look out the window.",
+          next: "robby-reveal-1",
         },
       },
       {
@@ -1386,7 +1398,7 @@ export const MAPS: Record<string, Tilemap> = {
         x: 0,
         y: 0,
         facing: "down",
-        sprite: "professor",
+        sprite: "rider",
         dialogue: {
           text: "Cattle? Ha — nothing so tall on Speid.",
           next: "robby-reveal-2",
@@ -1398,7 +1410,7 @@ export const MAPS: Record<string, Tilemap> = {
         x: 0,
         y: 0,
         facing: "down",
-        sprite: "professor",
+        sprite: "rider",
         dialogue: {
           text: "My whole herd is vroomon — beetle-sized, mouse-sized, wheeled and wild.",
           next: "robby-reveal-3",
@@ -1410,7 +1422,7 @@ export const MAPS: Record<string, Tilemap> = {
         x: 0,
         y: 0,
         facing: "down",
-        sprite: "professor",
+        sprite: "rider",
         dialogue: {
           text: "He swings the pasture door wide — and the yard floods with glinting little racers, humming past your ankles.",
           next: "robby-reveal-4",
@@ -1422,7 +1434,7 @@ export const MAPS: Record<string, Tilemap> = {
         x: 0,
         y: 0,
         facing: "down",
-        sprite: "professor",
+        sprite: "rider",
         dialogue: {
           text: "You stare after them. Wait — those aren't cattle at all. Come on, out to the yard.",
           onComplete: "goto:ranch_yard:7:2:robby-yard-1",
@@ -1451,7 +1463,7 @@ export const MAPS: Record<string, Tilemap> = {
         x: 0,
         y: 0,
         facing: "down",
-        sprite: "professor",
+        sprite: "rider",
         dialogue: {
           text: "This paddock is yours now — a shoddy ranch for a new hand, but ours.",
           next: "robby-yard-2",
@@ -1463,7 +1475,7 @@ export const MAPS: Record<string, Tilemap> = {
         x: 0,
         y: 0,
         facing: "down",
-        sprite: "professor",
+        sprite: "rider",
         dialogue: {
           text: "First lesson. See the tall grass on the left? Wild vroomon graze it. Here — take this one, she's slow but she runs.",
           next: "robby-yard-3",
@@ -1475,7 +1487,7 @@ export const MAPS: Record<string, Tilemap> = {
         x: 0,
         y: 0,
         facing: "down",
-        sprite: "professor",
+        sprite: "rider",
         dialogue: {
           text: "Walk to its edge and stand the line. When it shakes, press Z — but a wild one only joins you if you can outrun it.",
           onComplete: "starter-vroomon",
@@ -1508,7 +1520,7 @@ export const MAPS: Record<string, Tilemap> = {
         x: 5,
         y: 9,
         facing: "left",
-        sprite: "professor",
+        sprite: "rider",
         dialogue: {
           text: "A wild one on your first morning! Its genome's in your Herd Book now.",
           next: "robby-caught-2",
@@ -1520,7 +1532,7 @@ export const MAPS: Record<string, Tilemap> = {
         x: 0,
         y: 0,
         facing: "down",
-        sprite: "professor",
+        sprite: "rider",
         dialogue: {
           text: "That's how we grow a ranch: catch the wild, breed the best, race your heart out. And here — a pocket carrier, microwave-sized, full of feed. It rides your hip everywhere; the herd rides inside it.",
           next: "robby-caught-3",
@@ -1532,7 +1544,7 @@ export const MAPS: Record<string, Tilemap> = {
         x: 0,
         y: 0,
         facing: "down",
-        sprite: "professor",
+        sprite: "rider",
         dialogue: {
           text: "Breeding, now — on the carrier's bench you run a generation and the fastest rise. When the slow ones lag, let them go: the wild takes them back and repays their feed, so culling pays for the next run. Grain tops the bin up if it runs dry.",
           next: "robby-caught-4",
@@ -1544,7 +1556,7 @@ export const MAPS: Record<string, Tilemap> = {
         x: 0,
         y: 0,
         facing: "down",
-        sprite: "professor",
+        sprite: "rider",
         dialogue: {
           text: "See for yourself? The Barn button — bottom-right, 🏟 — holds your Herd Book and the Record Barn.",
           next: "robby-caught-5",
@@ -1556,7 +1568,7 @@ export const MAPS: Record<string, Tilemap> = {
         x: 0,
         y: 0,
         facing: "down",
-        sprite: "professor",
+        sprite: "rider",
         dialogue: {
           text: "Alright, that's all for today! Why don't you go ahead and explore town with the rest of your day?",
           setFlag: "tut-done",

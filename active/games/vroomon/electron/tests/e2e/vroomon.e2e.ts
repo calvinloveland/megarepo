@@ -582,13 +582,44 @@ test.describe("vroomon Playwright harness", () => {
     await expect(page.locator("[data-overworld-dialogue-name]")).toContainText("Rancher Robby");
     const robbyOptions = await page.locator("[data-dialogue-option]").count();
     expect(robbyOptions).toBe(2);
-    await page.locator("[data-dialogue-option]").nth(1).click(); // the cattle remark
+    // Each option answers for itself. This test used to click option 2 and
+    // assert option 1's line, which passed only because both options led to
+    // the same node — so it was asserting the bug.
+    await clickDialogueOption(page, /cattle/i);
     await page.waitForTimeout(600);
     await expect(page.locator("[data-overworld-dialogue-text]")).toContainText("nothing so tall on Speid");
     // Click through the reveal and yard-lesson beats (one sentence each).
     for (let i = 0; i < 7; i += 1) {
       await page.locator("[data-overworld-dialogue-text]").click();
       await page.waitForTimeout(300);
+    }
+
+    // The other option answers with its own line, not the same one again.
+    await page.evaluate(async () => {
+      const world = await window.vroomon.loadWorldState();
+      await window.vroomon.saveWorldState({
+        ...world,
+        currentMapId: "home_ranch",
+        playerX: 6,
+        playerY: 3,
+        playerFacing: "right",
+      });
+    });
+    await page.reload();
+    await page.locator("[data-status-message]").filter({ hasText: "Welcome" }).waitFor({ timeout: 20000 });
+    await enterWorld(page);
+    await page.waitForTimeout(600);
+    await page.locator('[data-dpad="interact"]').click();
+    await page.waitForTimeout(500);
+    await clickDialogueOption(page, /how do I start/i);
+    await page.waitForTimeout(500);
+    await expect(page.locator("[data-overworld-dialogue-text]")).toContainText("Straight to it");
+    for (let i = 0; i < 8; i += 1) {
+      if (!(await page.locator("[data-overworld-dialogue-text]").isVisible())) {
+        break;
+      }
+      await page.locator("[data-overworld-dialogue-text]").click();
+      await page.waitForTimeout(280);
     }
 
     // The catch lesson: tall grass -> wild vroomon -> RACE it for the herd.
@@ -1240,7 +1271,9 @@ test.describe("vroomon Playwright harness", () => {
     await page.waitForTimeout(400);
     await clickDialogueOption(page, /breed a champion/i);
     await page.waitForTimeout(500);
-    await expect(page.locator("[data-overworld-dialogue-text]")).toContainText("paddock");
+    // Axle says the breeding happens on the BENCH; "paddock" is the yard the
+    // herd lives in, and one sentence used to say both.
+    await expect(page.locator("[data-overworld-dialogue-text]")).toContainText("on the bench");
 
     // Wanda teaches the Ranch store + credits. Position the world state
     // right by her shop (she stands at 11,3) and re-enter so the scene is

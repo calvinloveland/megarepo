@@ -51,6 +51,21 @@ const ARCHETYPES: Record<ArchetypeKey, Archetype> = {
 
 // NPC id -> archetype (id alone is enough; unknown ids get a generic bust).
 const NPC_ARCHETYPES: Record<string, ArchetypeKey> = {
+  // The rancher who takes you in: hat and all, matching his overworld sprite.
+  // He had no entry at all, so the tutorial's most important face was the
+  // generic fallback while his sprite was a bespectacled professor.
+  "robby-kitchen": "rider",
+  "robby-reveal-1": "rider",
+  "robby-reveal-2": "rider",
+  "robby-reveal-3": "rider",
+  "robby-reveal-4": "rider",
+  "robby-yard-1": "rider",
+  "robby-yard-2": "rider",
+  "robby-yard-3": "rider",
+  "robby-caught-1": "rider",
+  "robby-caught-2": "rider",
+  "robby-caught-3": "rider",
+  "robby-caught-4": "rider",
   "professor-axle": "scholar",
   "professor-axle-2": "scholar",
   "meadow-elder": "elder",

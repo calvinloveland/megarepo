@@ -1,5 +1,5 @@
 {
-  "hash": "4ab2946fd006d755ad0e341b1aa44d3f47884b02e730a335a4ff3232acf33daf",
+  "hash": "ed5beba2bf744542d557fd6120b08b95cdb91e5e6f6b026a38afa8002e872c5a",
   "sources": [
     "src/renderer/world/sprites.ts",
     "src/renderer/world/sprites-palette.ts",

@@ -46,6 +46,17 @@
       `hidden` actually hide again (kept in sync with index.html). */
       [hidden] { display: none !important; }
 
+      /* While a full-screen modal is open, the world's own controls step
+         aside: the D-pad, the Barn chip and the chip column. Without this a
+         race panel arrives on top of a D-pad and two more buttons, which reads
+         as "which of these do I press?". */
+      body.modal-open [data-viewport-dpad-overlay],
+      body.modal-open [data-open-barn],
+      body.modal-open [data-viewport-stats-overlay],
+      body.modal-open [data-viewport-actions-overlay] {
+        display: none !important;
+      }
+
       html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; }
 
       body {
