@@ -233,6 +233,7 @@ new entry that is not indexed here fails the suite.
 - [The HUD chips: audited, and already covered (2026-09-15) ✅](#the-hud-chips-audited-and-already-covered-2026-09-15)
 - [The baked tile layer was fine, and one function was dead (2026-09-15) ✅](#the-baked-tile-layer-was-fine-and-one-function-was-dead-2026-09-15)
 - [The design overview had drifted, and the invariants outgrew it (2026-09-15) ✅](#the-design-overview-had-drifted-and-the-invariants-outgrew-it-2026-09-15)
+- [Four buttons that did not say what they do (2026-09-15) ✅](#four-buttons-that-did-not-say-what-they-do-2026-09-15)
 - [Three ways a written scene quietly stops working (2026-09-15) ✅](#three-ways-a-written-scene-quietly-stops-working-2026-09-15)
 - [Where people are, and where the map file says they are (2026-09-15) ✅](#where-people-are-and-where-the-map-file-says-they-are-2026-09-15)
 - [The inverse sweep: flavour that could belong to any map (2026-09-15) ✅](#the-inverse-sweep-flavour-that-could-belong-to-any-map-2026-09-15)
@@ -747,6 +748,31 @@ clearer way to see what the suite is *for* than a flat list of assertions.
 One number survived scrutiny and is worth recording: the doc's **94
 generations** to clear five Brands is right, and is the sum of the pacing test's
 own output (9 / 20 / 25 / 38 / 2). Verifying beat rewriting again.
+
+---
+
+## Four buttons that did not say what they do (2026-09-15) ✅
+
+Last of the copy sweeps: every button and column header, read as a stranger
+would. Most are clear (`▶ AUTO`, `Fresh herd`, `SEED HERD`, `STOCK FOR SALE`,
+`YOUR SPECIMENS`), and the odd ones turned out to be four:
+
+```
+go      ->  Try it        (loads the ground and your best car into the paddock)
+Drive   ->  Race it       (loads a recorded lap's car and ground, same thing)
+Copy    ->  Copy string   (the same action as the other Copy, now the same word)
+Line    ->  🌳 Trace line (the Inspector already said this; the barn said "Line")
+```
+
+The last two were the interesting ones: **the same action with two different
+names in two places.** `Copy` in the Hall of Fame and `Copy string` in the test
+drive; `Line` in the barn and `🌳 Trace line` in the Inspector. Neither is
+wrong on its own, and both are the kind of thing a player learns twice.
+
+The rain e2e asserted the ledger row contained the literal word `go`, so it
+failed on the rename — which is the assertion doing its job. It checks for
+`Try it` now, which is a claim about the row offering an action rather than
+about a two-letter word.
 
 ---
 

@@ -1901,7 +1901,8 @@ async function closePocketRanch(page: import("@playwright/test").Page): Promise<
     expect(wet).toContain("short by");
     // Same car, higher bar: the rain is the only difference.
     expect(wet).toContain("Lhn4yi8zKRd2");
-    expect(wet).toContain("go");
+    // And the row offers a way to act on it, by name rather than by a shrug.
+    expect(wet).toContain("Try it");
   });
 
   test("@smoke the heritage line report reads a branch as a pedigree", async ({ page }) => {

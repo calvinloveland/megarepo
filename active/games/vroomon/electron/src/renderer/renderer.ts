@@ -883,7 +883,7 @@ function renderLedger(): void {
         // sends you to the ground with your best car already in the paddock.
         const prep =
           row.status === "short"
-            ? `<button class="ledger-row__prep" type="button" data-ledger-prep="${escapeHtml(row.venueMapId)}" title="Practise this ground with your best car">go</button>`
+            ? `<button class="ledger-row__prep" type="button" data-ledger-prep="${escapeHtml(row.venueMapId)}" title="Load this ground and your best car into the paddock">Try it</button>`
             : "";
         return (
           `<div class="ledger-row ledger-row--${row.status}">` +
@@ -998,7 +998,7 @@ function renderRecordsBoard(): void {
           wildSendNote(entry.terrainName, sends),
         )}</span>
         <span class="records-row__dna">${escapeHtml(entry.dna)}</span>
-        <button class="records-row__drive" data-drive-record="${escapeHtml(entry.terrainName)}" type="button">Drive</button>
+        <button class="records-row__drive" data-drive-record="${escapeHtml(entry.terrainName)}" type="button" title="Load this lap's car and ground into the paddock">Race it</button>
       </div>`,
             )
             .join("");
@@ -5132,8 +5132,8 @@ function renderHallOfFame(): void {
         <span class="hall-entry__score">${formatNumber(entry.score)}</span>
         ${showRemove ? `<button class="hall-entry__fav" data-hall-fav="${escapeHtml(entry.id)}" type="button" title="${entry.favorite ? "Unpin favorite" : "Pin as favorite"}">${entry.favorite ? "★" : "☆"}</button>` : ""}
         ${showRemove ? `<button class="hall-entry__stud" data-hall-stud="${escapeHtml(entry.id)}" type="button" title="Add to / remove from the Split-Pen stud line">${studLineCapacity(rendererState.runState.upgrades) > 0 ? (isStudLineEntry(entry.id) ? "STUD" : "stud") : "—"}</button>` : ""}
-        ${showRemove ? `<button class="hall-entry__copy" data-hall-copy="${escapeHtml(entry.id)}" type="button" title="Copy the DNA string">Copy</button>` : ""}
-        ${showRemove ? `<button class="hall-entry__line" data-hall-line="${escapeHtml(entry.id)}" type="button" title="Browse the family line">Line</button>` : ""}
+        ${showRemove ? `<button class="hall-entry__copy" data-hall-copy="${escapeHtml(entry.id)}" type="button" title="Copy the DNA string to the clipboard">Copy string</button>` : ""}
+        ${showRemove ? `<button class="hall-entry__line" data-hall-line="${escapeHtml(entry.id)}" type="button" title="Open this car's traced line in the Heritage tree">🌳 Trace line</button>` : ""}
         ${showRemove ? `<button class="hall-entry__rename" data-hall-rename="${escapeHtml(entry.id)}" type="button" title="Rename (1 credit)">Rename</button>` : ""}
         ${showRemove ? `<button class="hall-entry__remove" data-hall-remove="${escapeHtml(entry.id)}" type="button">Remove</button>` : ""}
       </div>
