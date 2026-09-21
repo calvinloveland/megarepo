@@ -137,6 +137,8 @@ export function advanceWildPack(
   random: () => number,
   /** A ranking already computed for this exact pack, to avoid re-racing it. */
   prescored?: WildPack,
+  /** How many generations to turn over. Nights are harder on the wild. */
+  steps = 1,
 ): { pack: string[]; champion: { dna: string; score: number }; terrain: string } {
   const scored =
     prescored && prescored.members.length === pack.length ? prescored : scoreWildPack(mapId, pack);
@@ -162,6 +164,11 @@ export function advanceWildPack(
   }
 
   const advanced = scoreWildPack(mapId, next);
+  if (steps > 1) {
+    // Same pack, colder air, and they run it better: the night turns the
+    // pack over more than once, which is what the watchman is talking about.
+    return advanceWildPack(mapId, advanced.members.map((member) => member.dna), random, advanced, steps - 1);
+  }
   return { pack: next, champion: advanced.champion, terrain: advanced.terrain };
 }
 

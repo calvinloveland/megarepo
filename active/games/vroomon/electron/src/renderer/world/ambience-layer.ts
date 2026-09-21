@@ -214,6 +214,12 @@ export function lampGlow(
 }
 
 
+/** Is it the dark hours? One definition, so the watchman's shift and the
+ * wild's behaviour agree with the clock. */
+export function isNight(timeMs: number): boolean {
+  return dayTint(timeMs).label === "night";
+}
+
 // ---- Lit windows -----------------------------------------------------------
 // At night the buildings should look occupied. Each window (a door or building
 // tile) gets a small warm rectangle whose brightness follows the same clock as

@@ -842,6 +842,19 @@ gets harder instead of just paying out a Brand:
   dropped new world state (circuit tiers) — it now uses the shared
   serializer.
 
+## The watchman was right about the dark (2026-09-15) ✅
+
+Two NPCs claim the wild runs better after dark — Pell (*"the wild's quicker at
+night, if you believe the haulers"*) and Vane (*"same pack, colder air, and
+they run it better"*). It was flavour. Now it is a rule: **a meeting after
+dark costs the wild pack two generations instead of one**, so the animals you
+meet at night have been bred harder.
+
+One definition of night is shared by the wildlife, the window lights and the
+shifts (`isNight` reads the same day clock), so the fiction and the mechanics
+cannot drift apart. Tests cover both the pack turning over twice and the
+clock agreeing on when night is.
+
 ## The road landmarks have offices (2026-09-15) ✅
 
 Both far-road landmarks now have a roof and a keeper in it:

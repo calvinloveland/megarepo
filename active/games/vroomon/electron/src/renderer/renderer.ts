@@ -66,7 +66,7 @@ import {
 } from "./world/specimens.js";
 import { questFor } from "./world/quest.js";
 import { standingFor } from "./world/routines.js";
-import { DAY_LENGTH_MS } from "./world/ambience-layer.js";
+import { DAY_LENGTH_MS, isNight } from "./world/ambience-layer.js";
 import type { Track } from "./world/ambience-layer.js";
 import {
   activeSideQuests,
@@ -1636,7 +1636,10 @@ function advanceWildForMap(mapId: string): void {
     lastScoredPack && lastScoredPack.mapId === mapId && lastScoredPack.pack.length === pack.length
       ? lastScoredPack.scored
       : undefined;
-  const step = advanceWildPack(mapId, pack, random, prescored);
+  // Meetings after dark cost the pack two generations: the same animals run
+  // the ground better at night, which is what Pell and Vane both claim.
+  const steps = isNight(worldClock()) ? 2 : 1;
+  const step = advanceWildPack(mapId, pack, random, prescored, steps);
   lastScoredPack = null;
   const generation = (overworldController.state.wildGenerations[mapId] ?? 0) + 1;
 

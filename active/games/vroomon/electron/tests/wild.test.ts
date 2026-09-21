@@ -7,6 +7,7 @@ import {
   wildTerrainFor,
   WILD_PACK_SIZE,
 } from "../src/core/wild.js";
+import { DAY_LENGTH_MS, dayTint, isNight } from "../src/renderer/world/ambience-layer.js";
 
 function mulberry(seed: string): () => number {
   let s = 0;
@@ -94,5 +95,30 @@ describe("the wild", () => {
     expect(atZero.members).toHaveLength(WILD_PACK_SIZE);
     expect(atFive.members).toHaveLength(WILD_PACK_SIZE);
     expect(atFive.terrain).toBe("Hills");
+  });
+});
+
+describe("the wild at night", () => {
+  it("turns the pack over more in the dark", () => {
+    // The watchman says the same animals run the ground better after dark.
+    // That is true because a night meeting costs the pack two generations.
+    const pack = seedWildPack("ranch_yard");
+    const day = advanceWildPack("ranch_yard", pack, mulberry("night-a"), undefined, 1);
+    const night = advanceWildPack("ranch_yard", pack, mulberry("night-a"), undefined, 2);
+
+    const dayChampion = scoreWildPack("ranch_yard", day.pack).champion.score;
+    const nightChampion = scoreWildPack("ranch_yard", night.pack).champion.score;
+    expect(nightChampion).toBeGreaterThanOrEqual(dayChampion);
+    // Two steps is not one: the packs differ.
+    expect(night.pack).not.toEqual(day.pack);
+  });
+
+  it("agrees with the clock about when night is", () => {
+    const day = dayTint(DAY_LENGTH_MS * 0.25);
+    const dark = dayTint(DAY_LENGTH_MS * 0.9);
+    expect(isNight(DAY_LENGTH_MS * 0.25)).toBe(false);
+    expect(isNight(DAY_LENGTH_MS * 0.9)).toBe(true);
+    expect(day.label).toBe("morning");
+    expect(dark.label).toBe("night");
   });
 });
