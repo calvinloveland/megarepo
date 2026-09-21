@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fittedCanvasSize } from "../src/renderer/canvas-fit.js";
+import { fittedCanvasSize } from "../src/renderer/ui/canvas-host.js";
 
 describe("fitting a canvas to its box", () => {
   it("uses the box's width and the designed aspect", () => {

@@ -79,7 +79,7 @@ import {
 import { questFor } from "./world/quest.js";
 import { standingFor } from "./world/routines.js";
 import { buildLedger, titlesToDefend, untriedGrounds } from "./ledger.js";
-import { fitCanvasToBox } from "./canvas-fit.js";
+import { hostCanvas } from "./ui/canvas-host.js";
 import { OverlayStack } from "./ui/overlay.js";
 import {
   describeWildGround,
@@ -2216,17 +2216,22 @@ function catchWildVroomon(dna: string): void {
   }
 }
 
+const wildRaceHost = (() => {
+  const element = document.querySelector<HTMLCanvasElement>("[data-wild-race-canvas]");
+  return element ? hostCanvas(element, { aspect: 720 / 260, min: 420 }) : null;
+})();
+
 /** Two lanes, one ground line: your car above, the wild one below. */
 function drawWildRace(): void {
-  const canvas = document.querySelector<HTMLCanvasElement>("[data-wild-race-canvas]");
-  const ctx = canvas?.getContext("2d");
-  if (!canvas || !ctx) {
-    return;
-  }
-  // Draw at the size the canvas is shown at, or the lane labels shrink with
-  // the drawing on a narrow window.
-  fitCanvasToBox(canvas, { aspect: 720 / 260, min: 420 });
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  wildRaceHost?.paint((ctx, size) => {
+    drawWildRaceInto(ctx, size);
+  });
+}
+
+function drawWildRaceInto(
+  ctx: CanvasRenderingContext2D,
+  canvas: { width: number; height: number },
+): void {
   const frames = wildRaceState.frames;
   const index = wildRaceState.frameIndex;
   const ground = terrainGroundHeight();
@@ -2619,14 +2624,22 @@ function drawInspection(
   if (!canvas) {
     return;
   }
-  // Same reason as the wild lanes: the part labels are drawn into this canvas
-  // and were arriving at 79% of their size on a 1024px window.
-  fitCanvasToBox(canvas, { aspect: 640 / 240, min: 380 });
-  const ctx = canvas.getContext("2d");
-  if (!ctx) {
-    return;
-  }
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  inspectorHost?.paint((ctx, size) => {
+    drawInspectionInto(inspection, snapshot, ctx, size);
+  });
+}
+
+const inspectorHost = (() => {
+  const element = document.querySelector<HTMLCanvasElement>("[data-inspector-canvas]");
+  return element ? hostCanvas(element, { aspect: 640 / 240, min: 380 }) : null;
+})();
+
+function drawInspectionInto(
+  inspection: VehicleInspection,
+  snapshot: VehicleSnapshot | null,
+  ctx: CanvasRenderingContext2D,
+  canvas: { width: number; height: number },
+): void {
 
   // A live snapshot when a track has been run, otherwise the parts as built.
   const shapes = snapshot
@@ -6983,24 +6996,33 @@ function renderHeritage(force = false): void {
   });
   heritageGraph = graph;
 
-  // Draw at the size the canvas is actually displayed at. The element used to
-  // be a fixed 1200x620 scaled down by CSS, which shrank every label with it -
-  // at 1024px wide the node names were two thirds of their designed size.
-  // The stylesheet clamps this one's height to 62vh; match that here, or the
-  // CSS squashes the drawing vertically by the difference.
-  fitCanvasToBox(canvas, {
-    aspect: 1200 / 620,
-    min: 520,
-    heightClamp: window.innerHeight * 0.62,
+  // The host owns the size and the repaint. The stylesheet clamps this one's
+  // height to 62vh, so the host is told to match that: otherwise CSS squashes
+  // the drawing vertically by the difference.
+  heritageHost?.paint((ctx, size) => {
+    drawHeritageInto(graph, ctx, size);
   });
+  return;
+}
 
-  const ctx = canvas.getContext("2d");
-  if (!ctx) {
-    return;
-  }
-  const width = canvas.width;
-  const height = canvas.height;
-  ctx.clearRect(0, 0, width, height);
+const heritageHost = (() => {
+  const element = document.querySelector<HTMLCanvasElement>("[data-heritage-canvas]");
+  return element
+    ? hostCanvas(element, {
+        aspect: 1200 / 620,
+        min: 520,
+        heightClamp: () => window.innerHeight * 0.62,
+      })
+    : null;
+})();
+
+function drawHeritageInto(
+  graph: HeritageGraph,
+  ctx: CanvasRenderingContext2D,
+  size: { width: number; height: number },
+): void {
+  const width = size.width;
+  const height = size.height;
 
   const best = graph.champion?.score ?? 0;
   // Tracing a line dims everyone who isn't on it.
@@ -7130,6 +7152,7 @@ function renderHeritage(force = false): void {
     ctx.fillText(`gen ${depth}`, x - 16, height - 8);
   }
 
+  const stats = document.querySelector<HTMLElement>("[data-heritage-stats]");
   if (stats) {
     // An empty graph is not "1 generations deep": say there is nothing to trace
     // yet, and pluralise the depth like everything else does.
