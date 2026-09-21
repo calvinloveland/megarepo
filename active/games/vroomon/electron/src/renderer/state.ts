@@ -350,12 +350,9 @@ export function setWorldState(
   };
 }
 
-export function resetWorldState(state: RendererState): RendererState {
-  return {
-    ...state,
-    world: createInitialWorldState(),
-  };
-}
+// (There was a `resetWorldState` here, referenced exactly once - by its own
+// definition. A new game builds its world through the same path as any other
+// load, so nothing needed a separate reset.)
 
 export function addHallOfFameEntry(
   state: RendererState,

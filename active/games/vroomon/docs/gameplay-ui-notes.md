@@ -235,6 +235,7 @@ new entry that is not indexed here fails the suite.
 - [The design overview had drifted, and the invariants outgrew it (2026-09-15) ✅](#the-design-overview-had-drifted-and-the-invariants-outgrew-it-2026-09-15)
 - [Four buttons that did not say what they do (2026-09-15) ✅](#four-buttons-that-did-not-say-what-they-do-2026-09-15)
 - [A determinism check, because a stamp cannot see randomness (2026-09-15) ✅](#a-determinism-check-because-a-stamp-cannot-see-randomness-2026-09-15)
+- [Two dead exports, and one of them was a trap (2026-09-15) ✅](#two-dead-exports-and-one-of-them-was-a-trap-2026-09-15)
 - [Three ways a written scene quietly stops working (2026-09-15) ✅](#three-ways-a-written-scene-quietly-stops-working-2026-09-15)
 - [Where people are, and where the map file says they are (2026-09-15) ✅](#where-people-are-and-where-the-map-file-says-they-are-2026-09-15)
 - [The inverse sweep: flavour that could belong to any map (2026-09-15) ✅](#the-inverse-sweep-flavour-that-could-belong-to-any-map-2026-09-15)
@@ -816,6 +817,38 @@ and the tree came back clean afterwards. (My first attempt at the mutation
 broke the TypeScript build instead — a `@ts-expect-error` with nothing to
 suppress — which is its own small lesson about writing mutations as carefully
 as the checks they test.)
+
+---
+
+## Two dead exports, and one of them was a trap (2026-09-15) ✅
+
+Finishing the sweep: of the remaining unreferenced exports, twenty are
+legitimately indirect — renderers driven by the e2e, state setters used all over
+the app, file I/O used by the desktop shell — and **two are dead**, each
+referenced exactly once, by its own definition.
+
+The second one is worth the ink:
+
+```ts
+/** Apply upgrade modifiers without baking them into the stored config. … */
+export function applyUpgrades(state: RunStateSnapshot): RunStateSnapshot
+```
+
+Its own doc comment explains why it must not be used: it returns a state with
+the upgrade modifiers baked into `config`, which is precisely the
+double-counting that `effectiveRunConfig` exists to prevent. **A function whose
+comment warns against calling it is a trap, not a utility.** Deleted, with the
+rule moved onto `effectiveRunConfig` where a reader will actually meet it, and a
+note in its place saying what was there and why it went.
+
+`resetWorldState` was the other: a new game builds its world through the same
+path as any other load, so nothing needed a separate reset.
+
+That closes the sweep. Three questions, asked in order, found: **two whole
+modules** with no test (a coverage map), **seven rules** inside modules that
+were already "covered" (are the exports *called*?), and **three dead exports**
+(is anything using this at all?) — plus one genuinely useful deletion earlier
+in the same family.
 
 ---
 

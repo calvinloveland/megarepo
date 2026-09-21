@@ -129,7 +129,13 @@ export function upgradeCost(def: UpgradeDef, nextLevel: number): number {
   return Math.max(1, def.baseCost * nextLevel);
 }
 
-/** Effective run config after upgrade modifiers (affects new populations). */
+/**
+ * Effective run config after upgrade modifiers.
+ *
+ * Applied when a NEW run or population is created, never baked back into the
+ * stored config: the user-picked selects stay the base, so a purchased upgrade
+ * cannot compound every time it is read.
+ */
 export function effectiveRunConfig(
   config: RunConfig,
   upgrades: Record<string, number> | undefined,
@@ -158,16 +164,11 @@ export function incomeMultiplier(upgrades: Record<string, number> | undefined): 
   return 1 + (upgrades?.ledger ?? 0) * 0.1;
 }
 
-/** Apply upgrade modifiers without baking them into the stored config.
- * The user-picked config (selects) stays the base; effectiveRunConfig is
- * applied when a new run/population is created, so purchase effects never
- * double-count. */
-export function applyUpgrades(state: RunStateSnapshot): RunStateSnapshot {
-  return {
-    ...state,
-    config: effectiveRunConfig(state.config, state.upgrades),
-  };
-}
+// (There was an `applyUpgrades` here, referenced exactly once - by its own
+// definition - and it was a trap rather than dead weight: it returned a state
+// with the upgrade modifiers baked into `config`, which is exactly the
+// double-counting the rule below exists to prevent. Removed so nobody can
+// reach for it. The rule it warned about lives on `effectiveRunConfig`.)
 
 export function purchaseUpgrade(
   state: RunStateSnapshot,
