@@ -332,6 +332,39 @@ describe("world reachability", () => {
     }
   });
 
+  it("keeps every keeper on ground you could walk to, at every hour", () => {
+    // A routine stop is a coordinate, and coordinates go stale: reshape a map
+    // and the night watch ends up inside a tree, or behind a fence the player
+    // cannot cross. Sampling the five day-parts misses the boundaries; sweep
+    // the whole clock in hundredths and require passable *and reachable*
+    // ground at every one of them.
+    for (const map of MAP_LIST) {
+      const reachable = reachableFrom(map.id, entriesFor(map.id));
+      for (let step = 0; step <= 100; step += 1) {
+        const phase = step / 100;
+        for (const npc of map.npcs) {
+          // Virtual dialogue nodes live at 0,0 and are never drawn.
+          if (npc.x <= 0 && npc.y <= 0) {
+            continue;
+          }
+          const spot = npcPositionAt(npc, phase);
+          if (!spot) {
+            continue;
+          }
+          const tile = map.tiles[spot.y]?.[spot.x];
+          expect(
+            tile !== undefined && isTilePassable(tile),
+            `${map.id}: ${npc.id} stands on ${tile ?? "nothing"} at ${spot.x},${spot.y} (phase ${phase})`,
+          ).toBe(true);
+          expect(
+            reachable.has(`${spot.x},${spot.y}`),
+            `${map.id}: ${npc.id} at ${spot.x},${spot.y} (phase ${phase}) is walled off`,
+          ).toBe(true);
+        }
+      }
+    }
+  });
+
   it("gives every person something to say", () => {
     // An NPC with an empty dialogue is an interaction that does nothing.
     for (const map of MAP_LIST) {

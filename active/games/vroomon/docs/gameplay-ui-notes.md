@@ -842,6 +842,47 @@ gets harder instead of just paying out a Brand:
   dropped new world state (circuit tiers) — it now uses the shared
   serializer.
 
+## Two invariant sweeps, and the two signs they caught (2026-09-15) ✅
+
+Both of these are the same idea: stop checking the *shape* of the content and
+start walking it.
+
+### Every job's action must be inside the giver's own reach
+
+Quest contracts already checked that a job pointed at a real map, that decor
+existed, that reward genomes could drive. But "a real map" is not "a map the
+giver can walk to". The contract now floods the real map graph from the giver
+and requires, per objective kind:
+
+- `catch-wild` / `win-wild` — some wild ground is in their reach
+- `win-wild-on` — **the named ground has wild stock** and is in reach
+- `visit` — the named map is in reach
+- `champion-on` — the circuit actually covers that terrain, and they can reach
+  an arena at all
+- `generations`, `decor`, `release`, `champion-score`, `brands`, `dex-biomes` —
+  the barn is walkable from where they stand
+
+Verified to have teeth by mutation: pointing an orchard job at the ranch (no
+grass) and a champion job at `Wetland` (no circuit) both fail it.
+
+### Every keeper must be standing on ground you could walk to, at every hour
+
+The existing collision check sampled five day-parts. That misses the
+boundaries between them and never asked whether the tile was passable at all.
+The sweep now walks the clock in hundredths and requires every on-shift
+keeper to be on a tile that is **passable and reachable from the map's
+entrances**. It found two signs, on the first run:
+
+- `route_1: roundup-sign stands on tree at 19,5`
+- `route_2: sand-sign stands on tree at 21,5`
+
+Both were built inside the border treeline — which means both had dialogue
+**nobody could ever read**, since interaction needs a walkable tile to stand
+on and face them from. Both now sit beside the road facing it (16,5 and 18,5).
+Worth noting the shape of the mistake, because it is easy to repeat: a sign is
+placed by eye against the drawn map, and the drawn map's border of trees
+looks like scenery rather than a blocker.
+
 ## A second pass along the arc (2026-09-15) ✅
 
 Walking the three beats with the most systems stacked around them — the first

@@ -11,6 +11,7 @@ import { describe, expect, it } from "vitest";
 import { MAPS } from "../src/renderer/world/maps.js";
 import { DECOR_ITEMS, findDecor } from "../src/renderer/world/decor.js";
 import { SIDE_QUESTS, type QuestObjective } from "../src/renderer/world/side-quests.js";
+import { VENUE_ORDER, VENUE_TERRAIN } from "../src/renderer/circuit.js";
 import {
   createMatterVehicle,
   snapshotMatterVehicle,
@@ -231,6 +232,109 @@ describe("quest contracts", () => {
         grassWithin(quest.mapId, 3),
         `${quest.id}: ${quest.giver} on ${quest.mapId} is nowhere near wild ground`,
       ).toBe(true);
+    }
+  });
+
+  it("keeps every job's action inside the giver's own reach", () => {
+    // The strongest form of "the work can be done": walk the real map graph
+    // from the giver and confirm the thing they are asking for is in the set
+    // of places they can actually get to. A rancher jobs a stranger on the
+    // far shore, and the errand is impossible.
+    const neighbours = (mapId: string): string[] => {
+      const map = MAPS[mapId];
+      if (!map) {
+        return [];
+      }
+      const out = Object.values(map.transitions).map((transition) => transition.mapId);
+      for (const other of Object.values(MAPS)) {
+        if (Object.values(other.transitions).some((t) => t.mapId === mapId)) {
+          out.push(other.id);
+        }
+      }
+      return out;
+    };
+
+    /** Every map reachable from here, the giver's own included. */
+    const region = (from: string): Set<string> => {
+      const seen = new Set([from]);
+      const queue = [from];
+      while (queue.length > 0) {
+        for (const neighbour of neighbours(queue.pop()!)) {
+          if (!seen.has(neighbour)) {
+            seen.add(neighbour);
+            queue.push(neighbour);
+          }
+        }
+      }
+      return seen;
+    };
+
+    const hasGrass = (mapId: string): boolean =>
+      Boolean(MAPS[mapId]?.tiles.flat().includes("vroomgrass"));
+    const grassMaps = Object.values(MAPS)
+      .filter((map) => hasGrass(map.id))
+      .map((map) => map.id);
+    // A herd job needs the barn; the barn is the ranch pair.
+    const barnMaps = ["home_ranch", "ranch_yard"];
+    const circuitTerrains = new Set(VENUE_ORDER.map((venue) => VENUE_TERRAIN[venue]!));
+
+    for (const quest of SIDE_QUESTS) {
+      const reach = region(quest.mapId);
+      // The giver's own map must exist in the graph at all.
+      expect(MAPS[quest.mapId], `${quest.id}: giver on ${quest.mapId}`).toBeDefined();
+      const inReach = (candidates: string[]): boolean =>
+        candidates.some((candidate) => reach.has(candidate));
+
+      switch (quest.objective.kind) {
+        case "catch-wild":
+        case "win-wild":
+          // Wild stock, within the giver's own reach.
+          expect(
+            grassMaps.some((mapId) => reach.has(mapId)),
+            `${quest.id}: ${quest.giver} asks for wild stock but cannot reach grass`,
+          ).toBe(true);
+          break;
+        case "win-wild-on":
+          // Specifically the named ground, and it must be wild ground.
+          expect(
+            hasGrass(quest.objective.mapId),
+            `${quest.id}: asks for a wild win on ${quest.objective.mapId}, which has no wild stock`,
+          ).toBe(true);
+          expect(
+            reach.has(quest.objective.mapId),
+            `${quest.id}: ${quest.giver} cannot reach ${quest.objective.mapId}`,
+          ).toBe(true);
+          break;
+        case "visit":
+          expect(
+            reach.has(quest.objective.mapId),
+            `${quest.id}: ${quest.giver} cannot reach ${quest.objective.mapId}`,
+          ).toBe(true);
+          break;
+        case "champion-on":
+          // The circuit has to cover the ground they name.
+          expect(
+            circuitTerrains.has(quest.objective.terrain),
+            `${quest.id}: asks for ${quest.objective.terrain} champion, which no circuit covers`,
+          ).toBe(true);
+          expect(
+            inReach(VENUE_ORDER),
+            `${quest.id}: ${quest.giver} cannot reach any arena`,
+          ).toBe(true);
+          break;
+        case "generations":
+        case "decor":
+        case "release":
+        case "champion-score":
+        case "brands":
+        case "dex-biomes":
+          // Herd work: the ranch must be walkable from the giver.
+          expect(
+            inReach(barnMaps),
+            `${quest.id}: ${quest.giver} asks for herd work but cannot reach the barn`,
+          ).toBe(true);
+          break;
+      }
     }
   });
 

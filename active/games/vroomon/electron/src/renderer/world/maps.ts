@@ -1980,9 +1980,11 @@ export const MAPS: Record<string, Tilemap> = {
       {
         id: "roundup-sign",
         name: "Sign",
-        x: 19,
+        // Beside the road, not in the treeline: at 19 it stood inside the
+        // border trees, so nobody could stand and read it.
+        x: 16,
         y: 5,
-        facing: "down",
+        facing: "left",
         sprite: "sign",
         dialogue: { text: "Roundup Grounds — Redline Rustlers' summer pasture. The Meadow Elder keeps the far gate in Starter Town." },
       },
@@ -2230,9 +2232,11 @@ export const MAPS: Record<string, Tilemap> = {
       {
         id: "sand-sign",
         name: "Sign",
-        x: 21,
+        // Beside the road, facing it. At 21 it stood inside the border trees,
+        // where its warning could not be read by anyone walking the route.
+        x: 18,
         y: 5,
-        facing: "down",
+        facing: "left",
         sprite: "sign",
         dialogue: {
           text: "Salt Road Post — the Wreck Marshal's fleet holds the water rights out here. Cut your teeth in the Grasslands first.",
